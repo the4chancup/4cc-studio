@@ -50,13 +50,13 @@ fn the_three_input_forms_upgrade_the_same() {
     }
 
     for run in &runs {
-        assert_eq!(run.exit_code(), 1);
+        assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     }
     let stdout: Vec<String> = runs.iter().map(|run| run.stdout()).collect();
     assert_eq!(stdout[0], stdout[1], "{stdout:?}");
     assert_eq!(stdout[1], stdout[2], "{stdout:?}");
     assert!(
-        stdout[0].contains("- co Spring: Error unmigrated_content at Other/readme.txt"),
+        stdout[0].contains("- co Spring: Warning leftover_dropped at Other/readme.txt"),
         "{}",
         stdout[0]
     );
@@ -67,7 +67,7 @@ fn the_three_input_forms_upgrade_the_same() {
         stdout[0]
     );
     assert!(
-        stdout[0].trim_end().ends_with("- Info migration_not_clean"),
+        stdout[0].trim_end().ends_with("- Info migration_clean"),
         "{}",
         stdout[0]
     );
@@ -78,7 +78,7 @@ fn the_three_input_forms_upgrade_the_same() {
             .iter()
             .filter(|envelope| matches!(envelope.event, PipelineEvent::UnmigratedContentFound))
             .count();
-        assert_eq!(found, 1, "one UnmigratedContentFound per run");
+        assert_eq!(found, 0, "a leftover is no unmigrated content");
     }
 
     // The three outputs hold the same files with the same contents.
@@ -123,7 +123,7 @@ fn an_archives_name_is_its_files_stem() {
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "day5.zip", "EDIT", None);
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert!(sandbox.path("co Full day5").is_dir(), "{}", run.stdout());
 }
 

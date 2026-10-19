@@ -9076,3 +9076,20 @@ migration's engine either: KFG VGL26's `.model` copies, counted, made the Fox ex
 pre-Fox (step 6.13b), whose unmerged boots folders then outran the shared IDs.
 Plan: `plans/export_upgrader.md` step 10, "Verification", "CLI", "Message catalog";
 `AGENTS.md` "Fundamental concepts".
+
+## 2026-10-19 — team_compiler — a boots or gloves folder one player links takes his own ID
+Decision: a shared boots or gloves folder that exactly one roster player links plainly takes
+that player's exclusive ID (`block_start + slot - 1`); only folders two or more players link take
+the block's 17 shared IDs, in name order as before. A Midcup's folder the installed record names
+keeps its recorded ID.
+Why: on pre-Fox the upgrader keeps every worn item folder shared (a merged model would sit in
+the face folder, where a member's own `face.xml` drops it), so a team with more than 17 custom
+boots, such as one ported from Fox when FBMs loaded only as boots models, hit
+`boots_id_pool_exhausted` while its 23 exclusive IDs stood unused. A player wears one boots ID
+and one gloves ID (a link beside his own model of its kind is already merged into his own
+folder), so his exclusive ID is free for a folder only he wears, and with 23 slots at most 11
+folders have two wearers: a Full export can no longer run out. We do not lend the unused
+exclusive IDs to the shared pool instead, because which ones are unused depends on the whole
+roster, and a Midcup, which compiles only some players, could not tell.
+Plan: `spec/aesthetics_export/player_folders.md` "Assigns IDs automatically" and "A `Midcup`
+export keeps the shared IDs the team already has", edited with the code (worklog 6.15).

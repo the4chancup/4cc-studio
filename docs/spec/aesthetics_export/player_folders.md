@@ -95,7 +95,9 @@ reported as disallowed files. Parsing normalizes either spelling to the same boo
 upgraded exports write the bare marker. At categorization it removes face-classified parts and
 face-specific ancillary files (each reported as `face_file_not_used`), and **no face folder is
 emitted** (on either engine — a face folder
-containing only boots/gloves would override the ingame face, and an empty one would blank it).
+containing only boots/gloves would override the ingame face, and an empty one would blank it:
+the cup keeps every player's "modified face" flag off, so the game loads a face folder whenever
+one exists for the player's ID, whatever the save says).
 
 The face-classified parts split into two groups with different fates:
 

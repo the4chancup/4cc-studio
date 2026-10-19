@@ -86,7 +86,7 @@ fn an_input_named_with_a_trailing_dot_or_dot_dot_upgrades_beside_it() {
         ),
     ] {
         let run = sandbox.run(&["upgrade", &input, "--savefile", &save]);
-        assert_eq!(run.exit_code(), 1, "{input}: {}", run.stdout());
+        assert_eq!(run.exit_code(), 0, "{input}: {}", run.stdout());
         assert!(sandbox.path(output).is_dir(), "{input}: {}", run.stdout());
     }
     assert_eq!(
@@ -111,7 +111,7 @@ fn the_output_goes_inside_the_directory_o_names() {
     let out = sandbox.arg("out");
 
     let run = upgrade(&sandbox, "in/co Spring", &["--savefile", &save, "-o", &out]);
-    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert!(sandbox.path("out/co Full Spring").is_dir());
     assert!(
         !sandbox.path("in/co Full Spring").exists(),
@@ -137,10 +137,11 @@ fn a_team_export_takes_exactly_one_of_savefile_and_loose() {
 
 // EU-REF-05
 #[test]
-fn a_referee_export_takes_neither_flag_and_its_note_is_unmigrated() {
+fn a_referee_export_takes_neither_flag_and_its_note_is_a_leftover() {
     let sandbox = Sandbox::new("cli_refs");
     // A `refs` export's name decides before anything is read (step 9): it
-    // takes neither flag, and its Note is unmigrated content.
+    // takes neither flag, and its Note is a leftover: nothing compiled reads
+    // a referee's Note.
     fs::create_dir_all(sandbox.path("refs Spring")).unwrap();
     fs::write(sandbox.path("refs Spring/refs.txt"), b"01 Keeper\n").unwrap();
     fs::write(sandbox.path("refs Spring/refs Note.txt"), b"Team: /co/\n").unwrap();
@@ -161,7 +162,7 @@ fn a_referee_export_takes_neither_flag_and_its_note_is_unmigrated() {
     );
     assert!(
         run.stdout()
-            .contains("- refs Spring: Error unmigrated_content at refs Note.txt"),
+            .contains("- refs Spring: Warning leftover_dropped at refs Note.txt"),
         "{}",
         run.stdout()
     );

@@ -549,8 +549,8 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    (the format admits it, `spec/aesthetics_export/object_model.md`); each referee's subfolders are **flattened** into
    the player folder root (step 12). Either old `ingame_face` spelling is normalized exactly as for
    team player folders. No savefile needed — referee IDs are compiler-generated. A Note txt in a
-   referee export is unmigrated content: step 6 reads a team's colors, which referees have none
-   of, and its text is the author's to move.
+   referee export is a leftover (step 10): step 6 reads a team's colors, which referees have none
+   of, so nothing compiled it, and the Warning names it for the author.
 10. **Reports** anything that couldn't be migrated automatically (e.g. contents of the Other folder,
     unassigned model folders) for manual attention — the `UnmigratedContentFound` pipeline event;
     the tool defines its own message catalog on the shared `Message` structure (see the Team

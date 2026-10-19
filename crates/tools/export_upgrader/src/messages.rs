@@ -33,13 +33,23 @@ pub(crate) enum Code {
     /// The archive does not open or its listing is refused (the compiler's
     /// code); nothing is written (`path`, `error`).
     ExportExtractFailed,
-    /// An input file no step migrates (step 10), entry by entry.
+    /// An entry inside the old format's folders that no step migrates
+    /// (step 10), entry by entry; a leftover outside them is
+    /// `leftover_dropped`.
     UnmigratedContent,
-    /// The last line: nothing above Info, nothing dropped.
+    /// The last line: nothing above Info, nothing dropped but a leftover.
     MigrationClean,
     /// The last line otherwise: the output is a draft for manual repair
     /// ("Verification").
     MigrationNotClean,
+    /// Content outside the old format's layout that nothing compiled — a
+    /// top-level folder the AET does not define, a root file other than the
+    /// format's own, or a file under `Other/` (step 10): dropped, and the
+    /// run stays clean since the Studio export needs none of it.
+    LeftoverDropped,
+    /// An old `.mtl` held text between its elements: dropped as the file is
+    /// written back, since the compiler's reader refuses it (step 7).
+    MtlStrayTextDropped,
     /// A face folder whose slot the save's roster leaves empty: it still
     /// becomes its player folder, with no `settings.toml` (`slot`).
     RosterSlotEmpty,
@@ -117,6 +127,8 @@ impl Code {
             Code::UnmigratedContent => "unmigrated_content",
             Code::MigrationClean => "migration_clean",
             Code::MigrationNotClean => "migration_not_clean",
+            Code::LeftoverDropped => "leftover_dropped",
+            Code::MtlStrayTextDropped => "mtl_stray_text_dropped",
             Code::RosterSlotEmpty => "roster_slot_empty",
             Code::MergeKeptShared => "merge_kept_shared",
             Code::WearerAssumed => "wearer_assumed",
@@ -146,6 +158,8 @@ impl Code {
         Code::UnmigratedContent,
         Code::MigrationClean,
         Code::MigrationNotClean,
+        Code::LeftoverDropped,
+        Code::MtlStrayTextDropped,
         Code::RosterSlotEmpty,
         Code::MergeKeptShared,
         Code::WearerAssumed,
@@ -180,6 +194,8 @@ const CATALOG: &[(&str, Severity)] = &[
     ("unmigrated_content", Severity::Error),
     ("migration_clean", Severity::Info),
     ("migration_not_clean", Severity::Info),
+    ("leftover_dropped", Severity::Warning),
+    ("mtl_stray_text_dropped", Severity::Info),
     ("roster_slot_empty", Severity::Warning),
     ("merge_kept_shared", Severity::Info),
     ("wearer_assumed", Severity::Info),
@@ -404,6 +420,8 @@ mod tests {
         for (code, expected) in [
             ("migration_clean", Severity::Info),
             ("migration_not_clean", Severity::Info),
+            ("leftover_dropped", Severity::Warning),
+            ("mtl_stray_text_dropped", Severity::Info),
             ("unmigrated_content", Severity::Error),
             ("no_old_export", Severity::Error),
             ("export_extract_failed", Severity::Error),

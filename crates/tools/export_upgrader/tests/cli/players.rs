@@ -6,6 +6,7 @@ use std::fs;
 
 use studio_core::PipelineEvent;
 
+use crate::carried::mtl;
 use crate::common::Sandbox;
 
 /// How many `UnmigratedContentFound` events a run emitted.
@@ -196,7 +197,7 @@ fn pre_fox_never_merges_the_alone_worn_folder() {
         "co Spring/Boots/k0430 - Crocs/oral_boots_win32.model",
         b"oral",
     );
-    sandbox.write("co Spring/Boots/k0430 - Crocs/boots.mtl", b"mtl");
+    sandbox.write("co Spring/Boots/k0430 - Crocs/boots.mtl", &mtl(&[]));
     sandbox.write("co Spring/Boots/k0430 - Crocs/k2012_c.dds", b"tex");
     sandbox.save_edited("EDIT16", pes_version::PesVersion::Pes16, |file| {
         wears(file, 71405, 430, 0);

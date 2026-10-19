@@ -598,6 +598,72 @@ fn a_prefox_common_kit_reference_links_the_common_set() {
     assert_eq!(run.exit_code(), 0, "{stdout}");
 }
 
+// EU-MDL-17
+#[test]
+fn an_mtl_s_stray_text_is_dropped_and_the_file_written_back() {
+    let sandbox = Sandbox::new("mdl_stray_text");
+    // G Autumn 25's "72117 - Lisa" apc.mtl: a `\` typed after a <sampler/>.
+    let apc = "<materialset>\r\n    <material name=\"apc\" shader=\"Apc\">\r\n        <sampler name=\"SpecularMap\" path=\"model/character/uniform/common/specular.dds\" srgb=\"1\" minfilter=\"linear\" magfilter=\"linear\" mipfilter=\"linear\" uaddr=\"wrap\" vaddr=\"wrap\" waddr=\"wrap\" maxaniso=\"2\" />\\\r\n    </material>\r\n</materialset>\r\n";
+    sandbox.write("co Spring/Faces/72117 - Lisa/apc.mtl", apc.as_bytes());
+    fs::write(
+        sandbox.path("EDIT16"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes16),
+    )
+    .unwrap();
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT16");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    let stdout = run.stdout();
+    assert!(
+        stdout.contains("mtl_stray_text_dropped at Faces/72117 - Lisa/apc.mtl"),
+        "{stdout}"
+    );
+    // The written file reads back with the strict reader: the `\` is gone,
+    // the material is not.
+    let written = fs::read(sandbox.path("co Full Spring/Players/17 - Lisa/apc.mtl")).unwrap();
+    let set = pes_model::format::mtl::MaterialSet::read(&written).unwrap();
+    let paths: Vec<String> = pes_model::ops::paths::texture_paths(&set)
+        .iter()
+        .map(|path| format!("{}{}", path.directory, path.file_name))
+        .collect();
+    assert_eq!(
+        paths,
+        ["model/character/uniform/common/specular.dds"],
+        "{set:?}"
+    );
+    assert!(
+        !String::from_utf8_lossy(&written).contains('\\'),
+        "{}",
+        String::from_utf8_lossy(&written)
+    );
+}
+
+// EU-MDL-18
+#[test]
+fn an_mtl_that_does_not_parse_is_unmigrated_content() {
+    let sandbox = Sandbox::new("mdl_unparsable");
+    let broken = "<materialset>\r\n    <material name=\"apc\" shader=\"Apc\">\r\n";
+    sandbox.write("co Spring/Faces/72117 - Lisa/apc.mtl", broken.as_bytes());
+    fs::write(
+        sandbox.path("EDIT16"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes16),
+    )
+    .unwrap();
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT16");
+    // The finding and the exit code are this slice's; whether the output is
+    // written is slice b's.
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    let stdout = run.stdout();
+    assert!(
+        stdout.contains(
+            "- co Spring: Error unmigrated_content at Faces/72117 - Lisa/apc.mtl (error="
+        ),
+        "{stdout}"
+    );
+    assert!(stdout.contains("migration_not_clean"), "{stdout}");
+}
+
 // EU-REP-02
 #[test]
 fn a_portrait_named_for_a_slot_past_23_is_flagged() {

@@ -33,7 +33,7 @@ fn a_note_team_line_overrides_the_exports_name() {
     sandbox.save_edited("EDIT", PesVersion::Pes21, |file| wears(file, 71405, 42, 0));
 
     let run = upgrade(&sandbox, "Numbers", "EDIT");
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert!(sandbox.path("co Full Numbers").is_dir(), "{}", run.stdout());
     // Every output player folder holds its settings.toml, generated from
     // /co/'s records in the save.
@@ -115,7 +115,7 @@ fn the_notes_team_colors_and_other_notes_become_the_root_files() {
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "co Spring", "EDIT");
-    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert_eq!(
         fs::read(sandbox.path("co Full Spring/colors.txt")).unwrap(),
         b"048 146 082\n221 000 000\n000 000 000\n000 000 000\n"

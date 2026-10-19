@@ -623,10 +623,42 @@ pub(crate) fn material_references(
             continue;
         }
         let wrapped = wezlib::is_wrapped(&bytes);
-        let Ok(mut set) = MaterialSet::read(&bytes) else {
-            continue;
+        // Step 7's clean: read tolerantly, text between elements dropped
+        // and reported; one that does not parse even so is unmigrated
+        // content, its parse error in the context — the compile would drop
+        // its folder as `mtl_broken`, so the output is not clean. The copy
+        // loop still carries it, so the finding's disposition is Keep (the
+        // Error alone is what the verdict reads).
+        let (mut set, stray_text) = match MaterialSet::read_dropping_stray_text(&bytes) {
+            Ok(parsed) => parsed,
+            Err(error) => {
+                failures
+                    .entry(input.clone())
+                    .or_default()
+                    .push(tool_message(
+                        Code::UnmigratedContent,
+                        Scope::File {
+                            export_id: INPUT,
+                            path: path_scope(input),
+                        },
+                        Disposition::Keep,
+                        vec![("error", error.to_string())],
+                    ));
+                continue;
+            }
         };
         let mut file_findings = Vec::new();
+        if stray_text {
+            file_findings.push(tool_message(
+                Code::MtlStrayTextDropped,
+                Scope::File {
+                    export_id: INPUT,
+                    path: path_scope(input),
+                },
+                Disposition::Keep,
+                vec![],
+            ));
+        }
         let changed = rewrite_texture_paths(&mut set, |path| {
             // `./` or no directory: a local reference — respell it (a
             // referee's bare one linked when only `Common/` holds it) and
@@ -686,7 +718,7 @@ pub(crate) fn material_references(
                 }
             }
         });
-        if changed > 0 {
+        if changed > 0 || stray_text {
             let out = set.write();
             rewrites.written.push((
                 output.clone(),
@@ -1645,9 +1677,11 @@ mod tests {
     }
 
     #[test]
-    fn an_mtl_naming_nothing_or_unparsable_stays_as_it_is() {
+    fn an_mtl_naming_nothing_stays_as_it_is_an_unparsable_one_is_unmigrated() {
         // `./face.dds` and `model/character/face/common/` are not the team's
-        // Common — nothing changes, so nothing is written.
+        // Common — nothing changes, so nothing is written. `bad.mtl` does
+        // not parse even dropping stray text: unmigrated content, its parse
+        // error in the context (step 7); the copy loop still carries it.
         let unchanged = mtl(&["./face.dds", "model/character/face/common/face_eyelash.dds"]);
         let bad = b"mtl".to_vec();
         let plan = plan(
@@ -1663,7 +1697,62 @@ mod tests {
         );
         assert!(plan.written.is_empty());
         assert!(plan.links.is_empty());
-        assert!(plan.findings.is_empty());
+        assert_eq!(codes(&plan), ["unmigrated_content"]);
+        let finding = &plan.findings[0];
+        assert_eq!(
+            finding.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Faces/XXX07 - A/bad.mtl"),
+            }
+        );
+        assert!(
+            finding.context.iter().any(|(key, _)| key == "error"),
+            "{:?}",
+            finding.context
+        );
+    }
+
+    #[test]
+    fn stray_text_is_dropped_and_the_set_written_back_as_it_came() {
+        // Step 7's clean (the real `72117 - Lisa`'s `apc.mtl` `\`): the text
+        // is dropped on the tolerant read, the set written back — wrapped
+        // again when it was — and the file reported. Neither reference
+        // changes, so the write-back is the stray text's alone.
+        let stray = mtl(&["./skin.dds"]);
+        let stray = String::from_utf8(stray)
+            .unwrap()
+            .replace("    </material>", "\\\n    </material>")
+            .into_bytes();
+        let wrapped = wezlib::compress(&stray);
+        let rewrites = plan(
+            &[
+                ("Faces/XXX07 - A/apc.mtl", "Players/07 - A/apc.mtl"),
+                ("Faces/XXX07 - A/wrapped.mtl", "Players/07 - A/wrapped.mtl"),
+            ],
+            &[],
+            &[
+                ("Faces/XXX07 - A/apc.mtl", &stray),
+                ("Faces/XXX07 - A/wrapped.mtl", &wrapped),
+            ],
+        );
+        for (output, was_wrapped) in [
+            ("Players/07 - A/apc.mtl", false),
+            ("Players/07 - A/wrapped.mtl", true),
+        ] {
+            let (_, bytes) = rewrites
+                .written
+                .iter()
+                .find(|(path, _)| path == output)
+                .unwrap_or_else(|| panic!("{output} was not written back"));
+            assert_eq!(wezlib::is_wrapped(bytes), was_wrapped, "{output}");
+            let set = MaterialSet::read(bytes).expect("the written set parses");
+            assert_eq!(set.materials.len(), 1, "{output}");
+        }
+        assert_eq!(
+            codes(&rewrites),
+            ["mtl_stray_text_dropped", "mtl_stray_text_dropped"]
+        );
     }
 
     #[test]

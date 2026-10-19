@@ -838,14 +838,32 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     "Fundamental concepts", DECISIONS 2026-10-19, plan step 7, `mtl_stray_text_dropped`):
     - [x] `pes_model`: `MaterialSet::read_dropping_stray_text` beside the strict `read`, one
       shared parse (`format/mtl.rs`, 2026-10-19)
-    - [ ] `export_upgrader`: every old `.mtl` read with it and written back when it dropped
-      text; one that does not parse even so is unmigrated content (after the close mutation
-      run) → verify: G Autumn 25 upgrades with Lisa's `apc.mtl` cleaned, and compiles
+    - [x] `export_upgrader`: every old `.mtl` read with it and written back when it dropped
+      text; one that does not parse even so is unmigrated content (`materials.rs`, EU-MDL-17,
+      EU-MDL-18; 2026-10-19 with 6.14a) → verified: G Autumn 25 upgrades clean, Lisa's
+      `apc.mtl` written back without the `\`; compiled for PES 17 her folder no longer meets
+      `mtl_broken`, but B3's `model_material_undefined` (her `oral_kit_win32.model` uses
+      `medic`, which none of her `.mtl` files defines; Red packs it), a 6.12c class
   - [x] 6.13d not an upgrader defect (2026-10-19): `xml_oral_prefix_missing` is the compiler's
     PES 16-only rule, which the upgrader cannot report, and its shared validation reads only
     the version's engine, so 16 or 17 gives one outcome; the 8 exports met it because the
     census compiled each pre-Fox output for PES 16. 6.12c compiles them for 17, the cup's
     version (`compile_census.py --prefox-version 17`)
+- [ ] 6.15 a shared boots or gloves folder exactly one player links takes that player's own ID
+  (maintainer, 2026-10-19; DECISIONS 2026-10-19): only folders two or more roster players link
+  take the block's 17 shared IDs, so a Full export never exhausts them (23 slots give at most
+  11), where today a pre-Fox export, whose upgrade keeps every worn item folder shared, fails
+  past 17 worn folders (a team ported from Fox with about 20 boots models). `team_compiler`
+  `plan/ids.rs` (`shared_folders_taking_ids`, `assigned_shared_ids`) and the rows and paths
+  that read the IDs; a Midcup's recorded folder keeps its recorded ID;
+  `spec/aesthetics_export/player_folders.md` "Assigns IDs automatically" and the Midcup
+  paragraph edited with the code. Such a folder is still packed as a boots or gloves package under that ID, never through
+  the player's face folder: an `ingame_face` player must get no face folder at all, since with
+  the cup's "modified face" flag always off any face folder overrides his in-game face
+  ("`ingame_face` marker") → verify: a pre-Fox export of 20 single-wearer boots folders, most
+  wearers `ingame_face`, compiles, each folder under its wearer's ID, his save record naming
+  it, and no face folder written for an `ingame_face` wearer; a folder two players link keeps a
+  shared ID; the parity tracers unchanged
 - [ ] 6.14 an upgrade writes a clean export or nothing (maintainer, 2026-10-19; AGENTS.md
   "Fundamental concepts", DECISIONS 2026-10-19, plan "Verification", "CLI", "GUI", catalog
   `migration_not_clean`, written): the run with any Error, or a finding that drops anything but
@@ -854,15 +872,22 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   is dropped with `leftover_dropped` (W) and the run stays clean (maintainer, the same day),
   and a leftover's `.model` does not make the migration pre-Fox (6.13b: the real KFG VGL26
   export then upgrades clean as Fox, its `FMDL Boots/` reported).
-  First the plan's scenarios that assert output contents beside exit 1
-  (about 17, `grep -n "exit code is 1" plans/export_upgrader.md`) rewritten by the lead: each
-  THEN says nothing is written, its positive content moved to a clean twin where no other
-  scenario covers it; then the code and tests (SWE-2), then `mutants-diff`. → verify: the 6.9b
+  The plan's scenarios that asserted output contents beside exit 1 are rewritten (70b245e:
+  each THEN says nothing is written, a clean twin where its positive half was covered
+  nowhere else); the code and tests in two SWE-2 slices, each with its `mutants-diff`. → verify: the 6.9b
   census rerun, every exit 1 run writing nothing, no exit 0 run lost (229 before), the
   leftovers' runs now clean; the classes of real exports that still fail (`Boots/` items in
   19 inputs, `Kit Textures/` in 11, portraits in 8, `.tmp/6_13/unmigrated_tally.py`) each
   diagnosed with the maintainer's check: an input defect, or an upgrader gap fixed under
   this step
+  - [x] 6.14a (2026-10-19) leftovers: `is_leftover` and `leftover_dropped` in `upgrade.rs`,
+    the run kept clean by them, a leftover's `.model` deciding no engine; a referee export's
+    Note a leftover too (plan step 9); EU-REP-01 rewritten, EU-REP-04 new. Verified on the
+    real KFG VGL26 export: exit 0, its 23 boots merged into the player folders, no `Boots/`,
+    the 322 `FMDL Boots/` files reported as leftovers
+  - [ ] 6.14b the write-nothing gate and the rewritten scenarios' tests (EU-PLY-14,
+    EU-KIT-16 to -18, EU-REF-11, EU-LOOSE-02, EU-MDL-18's nothing written, every "nothing is
+    written" THEN); EU-REF-05's fixture needs a referee folder so its third run is clean
 
 ### Phase 8 — GUI
 

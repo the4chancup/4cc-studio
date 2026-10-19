@@ -10,6 +10,7 @@ use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 use pes_savefile::settings_toml::{NameSetting, PlayerSettings};
 use pes_version::PesVersion;
 
+use crate::carried::mtl;
 use crate::common::Sandbox;
 use crate::players::{boots, face, gloves, wears};
 
@@ -322,9 +323,9 @@ fn an_unwritable_value_is_left_out_and_reported() {
     // fixture for a stored 183 in `goal_celebration_2`; pinned 2026-10-18.
     // A pre-Fox face folder (a test of names, not formats).
     for (name, bytes) in [
-        ("oral_face_neck_win32.model", b"model" as &[u8]),
-        ("face_neck.mtl", b"mtl"),
-        ("portrait.dds", b"portrait"),
+        ("oral_face_neck_win32.model", b"model".as_slice()),
+        ("face_neck.mtl", mtl(&[]).as_slice()),
+        ("portrait.dds", b"portrait".as_slice()),
     ] {
         sandbox.write(&format!("jp Spring/Faces/XXX05 - SHITEYANYO/{name}"), bytes);
     }

@@ -79,9 +79,9 @@ pub(crate) fn resolve_input(path: &Path) -> Result<PathBuf, CliError> {
 }
 
 /// The run's verdict (the plan's "Message catalog"): `migration_clean` and
-/// exit 0 when no finding is an Error or Fatal and no finding drops anything;
-/// `migration_not_clean` and exit 1 otherwise, a Warning that drops a folder
-/// included, since the compile would lose it.
+/// exit 0 when no finding is an Error or Fatal and no finding drops anything
+/// but a leftover; `migration_not_clean` and exit 1 otherwise, a Warning that
+/// drops a folder included, since the compile would lose it.
 pub(crate) fn verdict(worst: Option<Severity>, dropped: bool) -> (Code, u8) {
     if worst.is_none_or(|worst| worst < Severity::Error) && !dropped {
         (Code::MigrationClean, CLEAN)
@@ -158,7 +158,11 @@ impl RunEvents {
     /// One finding, addressed to the export its scope names.
     pub(crate) fn message(&mut self, message: Message) {
         self.worst = self.worst.max(Some(message.severity));
-        self.dropped |= message.disposition != Disposition::Keep;
+        // A leftover is the one drop that keeps the run clean (step 10):
+        // the Studio export is complete without it and the Warning tells
+        // the author what was left behind.
+        self.dropped |= message.disposition != Disposition::Keep
+            && message.code.code.as_ref() != Code::LeftoverDropped.as_str();
         self.emit(message.scope.export_id(), PipelineEvent::Message(message));
     }
 
@@ -509,16 +513,29 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         None => {}
     }
 
+    // Step 9's other layout: a referee export without `Players/` stands its
+    // referee folders at the root (`referees.rs`'s `root_layout`), so files
+    // under a top folder no AET name covers are inside the format's layout,
+    // not leftovers. Mirrored here for the version check and the fallback,
+    // both of which run before the referee plan is built.
+    let referees_at_root = invocation.referees
+        && !export
+            .files
+            .iter()
+            .any(|file| under(file, "Players").is_some());
+
     // The migration's target version decides the engine now (steps 3-4 merge
-    // only on Fox); "Verification" validates with it too.
+    // only on Fox); "Verification" validates with it too. A `.model` counts
+    // only where the old format's layout puts it: a leftover's decides
+    // nothing (the real KFG VGL26 export, a Fox one, keeps `.model` copies
+    // of its boots in a side folder `FMDL Boots/`).
     let version = match &invocation.save {
         Some(save) => save.version(),
         None => {
-            if export
-                .files
-                .iter()
-                .any(|file| file.to_ascii_lowercase().ends_with(".model"))
-            {
+            if export.files.iter().any(|file| {
+                file.to_ascii_lowercase().ends_with(".model")
+                    && !is_leftover(file, invocation.referees, referees_at_root)
+            }) {
                 PesVersion::Pes16
             } else {
                 PesVersion::Pes21
@@ -668,10 +685,12 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         write_output_file(&output, path, bytes)?;
     }
 
-    // Step 10: every input file no step consumed is unmigrated content.
+    // Step 10: every input file no step consumed is unmigrated content — or
+    // a leftover, content outside the old format's layout, dropped with a
+    // Warning that keeps the run clean (`is_leftover`).
     for file in &export.files {
         // A team export's Note is consumed (the root files above); a referee
-        // export's is unmigrated content like any file (step 9).
+        // export's is a leftover (step 9), as `is_leftover` reads it.
         if !invocation.referees && note_path.as_deref() == Some(file.as_str()) {
             continue;
         }
@@ -681,9 +700,14 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         {
             continue;
         }
-        any_unmigrated = true;
+        let code = if is_leftover(file, invocation.referees, referees_at_root) {
+            Code::LeftoverDropped
+        } else {
+            any_unmigrated = true;
+            Code::UnmigratedContent
+        };
         events.message(tool_message(
-            Code::UnmigratedContent,
+            code,
             Scope::File {
                 export_id: INPUT,
                 path: ScopePath::new(file)
@@ -748,6 +772,36 @@ fn lookup(name: TeamName, teams_list: &TeamsList) -> Option<Identity> {
     teams_list
         .id_of(&name)
         .map(|id| Identity::Team { id, name })
+}
+
+/// Whether the input `path` is a leftover (step 10's two kinds of entry):
+/// content outside the old format's layout that nothing compiled, dropped
+/// with a Warning rather than as `unmigrated_content` — a leftover the
+/// Studio export does not need never blocks a migration; the author is
+/// told. A file at the root other than the format's own (a team export's
+/// Note; a referee export's `refs.txt`/`refs list.txt` and `ref_marker.dds`,
+/// its Note being a leftover too: nothing compiled reads a referee's Note,
+/// step 9) is one, and so is a file under `Other/` (the folder the AET
+/// keeps for the author alone) or under a top-level folder `OLD_FOLDERS`
+/// does not name — save that `referees_at_root` stands a referee export's
+/// referee folders there (`referees.rs`), so theirs are inside the format.
+fn is_leftover(path: &str, referees: bool, referees_at_root: bool) -> bool {
+    let Some((top, _)) = path.split_once('/') else {
+        return if referees {
+            !(path.eq_ignore_ascii_case("refs.txt")
+                || path.eq_ignore_ascii_case("refs list.txt")
+                || path.eq_ignore_ascii_case("ref_marker.dds"))
+        } else {
+            !note::is_note_name(path)
+        };
+    };
+    if source::OLD_FOLDERS
+        .iter()
+        .any(|folder| top.eq_ignore_ascii_case(folder))
+    {
+        return top.eq_ignore_ascii_case("other");
+    }
+    !referees_at_root
 }
 
 /// The teams list: `<data_dir>/teams_list.txt` when present, else the embedded

@@ -3,6 +3,8 @@
 //! written without it, and a migration needing no manual attention ends
 //! clean.
 
+use std::fs;
+
 use pes_version::PesVersion;
 use studio_core::{PipelineEvent, Severity};
 
@@ -19,22 +21,53 @@ fn each_other_file_is_named_and_dropped() {
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "co Spring", "EDIT");
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     let stdout = run.stdout();
     for path in ["Other/readme.txt", "Other/docs/scan.pdf"] {
         assert!(
             stdout.contains(&format!(
-                "- co Spring: Error unmigrated_content at {path}\n"
+                "- co Spring: Warning leftover_dropped at {path}\n"
             )),
             "{path} not in:\n{stdout}"
         );
     }
+    assert!(stdout.contains("- Info migration_clean"), "{stdout}");
     assert!(!sandbox.path("co Full Spring/Other").exists());
     for entry in sandbox.listing("co Full Spring") {
         let name = entry.rsplit('/').next().unwrap_or(&entry);
         assert!(name != "readme.txt" && name != "scan.pdf", "{entry}");
     }
-    assert_eq!(unmigrated_found(&run), 1);
+    assert_eq!(unmigrated_found(&run), 0);
+}
+
+// EU-REP-04
+#[test]
+fn a_leftover_model_decides_no_engine() {
+    let sandbox = Sandbox::new("rep_leftover_model");
+    // As the real KFG VGL26 export: a Fox boots folder beside a side folder
+    // of `.model` copies and a root file. The leftover `.model` counted
+    // would read the export as pre-Fox, which never merges item folders.
+    sandbox.write("co Spring/Boots/k0128 - Rex/boots.fmdl", b"boots");
+    sandbox.write("co Spring/FMDL Boots/k0128 - Rex/boots.model", b"model");
+    sandbox.write("co Spring/readme.pdf", b"pdf");
+
+    let input = sandbox.arg("co Spring");
+    let run = sandbox.run(&["upgrade", &input, "--loose"]);
+    let stdout = run.stdout();
+    for path in ["FMDL Boots/k0128 - Rex/boots.model", "readme.pdf"] {
+        assert!(
+            stdout.contains(&format!("Warning leftover_dropped at {path}")),
+            "{path} not in:\n{stdout}"
+        );
+    }
+    // Loose mode: k0128 is slot 03 of the block its kind's lowest ID opens.
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/03 - Rex/boots.fmdl")).unwrap(),
+        b"boots",
+        "{stdout}"
+    );
+    assert!(!sandbox.path("co Full Spring/Boots").exists(), "{stdout}");
+    assert_eq!(run.exit_code(), 0, "{stdout}");
 }
 
 // EU-REP-03
