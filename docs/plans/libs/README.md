@@ -57,8 +57,12 @@ So:
 - **Submissions are bounded in pixels, not textures:** each one encodes at most a fixed slab of
   rows (`add_compression_task`'s row offset), sized so it runs a small fraction of the 2 s
   timeout on the measured GPU, whatever the texture's size.
-- **A GPU failure is per texture, then final:** the failing texture is encoded on the CPU, the
-  encoder reports itself unavailable with the reason, and the rest of the run stays on the CPU.
+- **A GPU failure is final:** the mip it happened on and everything after it are encoded on the
+  CPU, the encoder reports itself unavailable with the reason, and the rest of the run stays on
+  the CPU; the mips the device encoded before it are kept (a texture of mixed GPU and CPU mips
+  is valid BC7). A lost device is such a failure too, though wgpu panics on it rather than
+  returning an error, and a software adapter (a Vulkan driver running on the CPU) is refused
+  at the start, being slower than the CPU encoder.
 
 **Built ahead (16.x a, before Release 0.1.0):** the encoder itself, in `dds_convert` behind
 `cfg(not(target_arch = "wasm32"))`, with its quality and fallback tests. Wiring it into the

@@ -8936,8 +8936,9 @@ Decision: step 16.x's encoder half is built now in `dds_convert` (native only, b
 `cfg(not(target_arch = "wasm32"))`): `block_compression`'s `wgpu` feature and a workspace `wgpu`
 entry (30.0.1, the version eframe already resolves, so no new crate enters the build); the
 device is started on its own thread on Vulkan (Metal on macOS) with no DX12 or fallback
-adapter; each submission encodes a bounded slab of rows; a failure falls back to the CPU for
-that texture and leaves the encoder unavailable with its reason. The Team compiler's wiring
+adapter, a software one (`DeviceType::Cpu`) refused too; each submission encodes a bounded
+slab of rows; a failure, a lost device's panic inside wgpu included, falls back to the CPU from
+the mip it hit on and leaves the encoder unavailable with its reason. The Team compiler's wiring
 stays after Release 0.1.0, which ships the CPU encoder only.
 Why: the probe (`.tmp/16x/findings.md`) measured Vulkan at ~33x the whole CPU's BC7 throughput
 at the same quality, a cold pipeline build the driver caches after its first process (16.3 s,

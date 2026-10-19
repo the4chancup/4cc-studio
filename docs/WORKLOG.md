@@ -792,15 +792,15 @@ Steps are itemized when Phase 15 closes; two are fixed already:
     (Vulkan/Metal, 4-Mpixel slabs per submission, error scopes, a device failure sends that mip
     and everything after it to the CPU, a texture past the device's limit goes to the CPU
     whole), `convert_with_gpu`, `pad_to_blocks` shared, a wasm stand-in; `just gpu-tests` runs
-    the five `#[ignore]`d GPU tests (CONTRIBUTING); mutation run over the diff with them
+    the `#[ignore]`d GPU tests (CONTRIBUTING); mutation run over the diff with them
     included, survivors tested or excluded (`.cargo/mutants.toml`). Files: `Cargo.toml`,
     `crates/libs/dds_convert/{Cargo.toml,src/gpu.rs,src/encode.rs,src/lib.rs}`, `justfile`,
     `.cargo/mutants.toml`, `docs/CONTRIBUTING.md`, `docs/plans/libs/README.md`
   - [ ] 16.x b the Team compiler's texture step on the encoder, after 0.1.0: the CPU starts at
-    once and the GPU joins when its device is ready, started only when the run's texture size
-    estimate makes it worth it; start it after the window's renderer is up, a failed start this
-    run's CPU fallback with its reason in the report (`.tmp/16x/findings.md`, "a transient
-    no adapter")
+    once and the GPU joins when its device is ready, started when the run has BC7 work
+    (`plans/libs/README.md` "First-release desktop GPU BC7"); start it after the window's
+    renderer is up, a failed start this run's CPU fallback with its reason in the report
+    (`.tmp/16x/findings.md`, the transient adapter failure seen under load)
 
 ### Phase 20 — Ruleset editor (post-release)
 

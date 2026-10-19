@@ -5,6 +5,7 @@
 //! encoded on the CPU too. Native only.
 
 use std::future::Future;
+use std::panic::{self, AssertUnwindSafe};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -34,6 +35,7 @@ pub struct GpuEncoder {
     max_texture_dimension: u32,
     submission_budget: u32,
     unavailable: Option<String>,
+    mips_on_device: usize,
     /// Errors wgpu reports outside an error scope land here instead of panicking.
     uncaptured: Arc<Mutex<Option<String>>>,
 }
@@ -63,6 +65,11 @@ impl GpuEncoder {
         self.unavailable.as_deref()
     }
 
+    /// How many mips the device has encoded, for the run's report of the backend in use.
+    pub fn mips_on_device(&self) -> usize {
+        self.mips_on_device
+    }
+
     /// Whether the device can take a `width`x`height` upload for `variant`: [`fits`]
     /// against its 2D texture limit.
     pub(crate) fn accepts(&self, variant: CompressionVariant, width: u32, height: u32) -> bool {
@@ -83,8 +90,19 @@ impl GpuEncoder {
         if self.unavailable.is_none() {
             let padded = pad_to_blocks(width, height, rgba)?;
             if self.accepts(variant, padded.width, padded.height) {
-                match self.gpu_encode(variant, &padded) {
-                    Ok(blocks) => return Ok(blocks),
+                // wgpu panics rather than reports some device failures: a lost
+                // device inside `Device::poll` goes to `handle_error_fatal`,
+                // never to an error scope or the uncaptured hook (wgpu 30's
+                // `backend/wgpu_core.rs` `poll`, which returns only what
+                // wgpu-core's `WaitIdleError::to_poll_error` converts: a
+                // timeout or a wrong submission index). `contained`'s
+                // `AssertUnwindSafe` holds because a caught panic marks the encoder
+                // unavailable, after which nothing calls the device again.
+                match contained(|| self.gpu_encode(variant, &padded)) {
+                    Ok(blocks) => {
+                        self.mips_on_device += 1;
+                        return Ok(blocks);
+                    }
                     Err(reason) => {
                         log::warn!(
                             "GPU texture encode failed; this mip and the rest of the run use the CPU encoder: {reason}"
@@ -225,6 +243,28 @@ impl GpuEncoder {
     }
 }
 
+/// Runs `device_work`, a panic inside it becoming a reason like any other
+/// device failure (why wgpu panics there: `GpuEncoder::encode`). The caller
+/// stops using the device after a reason, which is what makes
+/// `AssertUnwindSafe` hold.
+fn contained<T>(device_work: impl FnOnce() -> Result<T, String>) -> Result<T, String> {
+    panic::catch_unwind(AssertUnwindSafe(device_work)).unwrap_or_else(|payload| {
+        Err(format!(
+            "the GPU encode panicked: {}",
+            panic_reason(payload.as_ref())
+        ))
+    })
+}
+
+/// The message a caught panic carried, for the `unavailable` reason.
+fn panic_reason(payload: &(dyn std::any::Any + Send)) -> String {
+    payload
+        .downcast_ref::<&str>()
+        .map(|message| (*message).to_string())
+        .or_else(|| payload.downcast_ref::<String>().cloned())
+        .unwrap_or_else(|| "a panic without a message".to_string())
+}
+
 /// Whether a `width`x`height` upload for `variant` fits a device whose 2D
 /// textures reach `max_dimension`: the block-aligned padded size within it on
 /// both axes, and the blocks buffer within the u32 `blocks_offset` indexing
@@ -251,6 +291,16 @@ fn slabs(width: u32, height: u32, budget: u32) -> Vec<(u32, u32)> {
     out
 }
 
+/// Refuses a software adapter: its compute runs on the CPU, slower than the CPU encoder.
+fn refuse_software(device_type: wgpu::DeviceType, name: &str) -> Result<(), GpuUnavailable> {
+    match device_type {
+        wgpu::DeviceType::Cpu => Err(GpuUnavailable(format!(
+            "only a software adapter was found ({name})"
+        ))),
+        _ => Ok(()),
+    }
+}
+
 /// Builds an encoder on `backends`, or says why no adapter or device could be
 /// made. Separated from [`GpuEncoder::new`] so a test can ask for no backends.
 fn start(backends: wgpu::Backends) -> Result<GpuEncoder, GpuUnavailable> {
@@ -265,7 +315,9 @@ fn start(backends: wgpu::Backends) -> Result<GpuEncoder, GpuUnavailable> {
         apply_limit_buckets: false,
     }))
     .map_err(|error| GpuUnavailable(format!("no adapter was found: {error}")))?;
-    let adapter_name = adapter.get_info().name;
+    let info = adapter.get_info();
+    refuse_software(info.device_type, &info.name)?;
+    let adapter_name = info.name;
     let (device, queue) = block_on(adapter.request_device(&wgpu::DeviceDescriptor {
         label: Some("dds_convert bc7"),
         required_features: wgpu::Features::empty(),
@@ -294,6 +346,7 @@ fn start(backends: wgpu::Backends) -> Result<GpuEncoder, GpuUnavailable> {
         adapter_name,
         submission_budget: SUBMISSION_PIXELS,
         unavailable: None,
+        mips_on_device: 0,
         uncaptured,
     })
 }
@@ -361,6 +414,47 @@ mod tests {
             assert_eq!(covered, height);
         }
         assert_eq!(slabs(8, 20, 64), vec![(0, 8), (8, 8), (16, 4)]);
+    }
+
+    #[test]
+    fn a_panic_in_device_work_becomes_a_reason() {
+        assert_eq!(contained(|| Ok::<u8, String>(7)), Ok(7));
+        assert_eq!(
+            contained(|| Err::<u8, String>("scoped".to_owned())),
+            Err("scoped".to_owned())
+        );
+        let panicked =
+            contained(|| -> Result<u8, String> { panic!("Error in Device::poll: lost") });
+        assert_eq!(
+            panicked,
+            Err("the GPU encode panicked: Error in Device::poll: lost".to_owned())
+        );
+    }
+
+    #[test]
+    fn a_caught_panic_keeps_its_message() {
+        let text: Box<dyn std::any::Any + Send> = Box::new("Error in Device::poll: lost");
+        assert_eq!(panic_reason(text.as_ref()), "Error in Device::poll: lost");
+        let formatted: Box<dyn std::any::Any + Send> = Box::new(format!("lost {}", 7));
+        assert_eq!(panic_reason(formatted.as_ref()), "lost 7");
+        let other: Box<dyn std::any::Any + Send> = Box::new(7_u32);
+        assert_eq!(panic_reason(other.as_ref()), "a panic without a message");
+    }
+
+    #[test]
+    fn software_adapters_are_refused() {
+        let Err(error) = refuse_software(wgpu::DeviceType::Cpu, "llvmpipe") else {
+            panic!("a software adapter was accepted");
+        };
+        assert!(error.0.contains("llvmpipe"), "reason: {}", error.0);
+        for device_type in [
+            wgpu::DeviceType::DiscreteGpu,
+            wgpu::DeviceType::IntegratedGpu,
+            wgpu::DeviceType::VirtualGpu,
+            wgpu::DeviceType::Other,
+        ] {
+            assert!(refuse_software(device_type, "gpu").is_ok());
+        }
     }
 
     #[test]
@@ -510,10 +604,27 @@ mod tests {
         };
         let gpu_out = crate::convert_with_gpu(&decoded, target, &mut gpu).unwrap();
         let cpu_out = crate::convert(&decoded, target).unwrap();
-        assert_eq!(ftex::info(&gpu_out).unwrap(), ftex::info(&cpu_out).unwrap());
+        let info = ftex::info(&gpu_out).unwrap();
+        assert_eq!(info, ftex::info(&cpu_out).unwrap());
+        // The 64-byte header holds layout fields only; the mip records after
+        // it carry per-mip uncompressed sizes, which compression must not
+        // change (compressed sizes and offsets may differ and are not compared).
         assert_eq!(&gpu_out[..64], &cpu_out[..64], "ftex header");
-        assert_eq!(gpu_out.len(), cpu_out.len());
+        for level in 0..u32::from(info.mipmaps) {
+            let at = 64 + level as usize * 16 + 4;
+            let size = u32::from_le_bytes(gpu_out[at..at + 4].try_into().unwrap());
+            assert_eq!(
+                size as usize,
+                ftex::mip_size(info.format, 6, 10, 1, level),
+                "mip {level} uncompressed size"
+            );
+        }
         assert_eq!(gpu.unavailable(), None);
+        assert_eq!(
+            gpu.mips_on_device(),
+            crate::mips::chain_len(6, 10) as usize,
+            "the GPU took every mip"
+        );
     }
 
     #[test]
@@ -542,12 +653,14 @@ mod tests {
             gpu.unavailable().is_some(),
             "the device failure must mark the encoder"
         );
+        assert_eq!(gpu.mips_on_device(), 0);
         // Once down, it stays down: a texture it could take encodes on the CPU too.
         let decoded = crate::decode(PNG_OPAQUE, crate::SourceFormat::Png).unwrap();
         let gpu_out = crate::convert_with_gpu(&decoded, target, &mut gpu).unwrap();
         let cpu_out = crate::convert(&decoded, target).unwrap();
         assert_eq!(gpu_out, cpu_out);
         assert!(gpu.unavailable().is_some());
+        assert_eq!(gpu.mips_on_device(), 0);
     }
 
     #[test]
@@ -555,14 +668,10 @@ mod tests {
     fn too_large_texture_falls_back_to_cpu() {
         let mut gpu = GpuEncoder::new().expect("a Vulkan or Metal adapter");
         gpu.max_texture_dimension = 32;
-        // The patterned 128x7 texture encodes differently on the GPU and the
-        // CPU on this hardware (the encoders agree on most shapes; a width of
-        // 128 is one they diverge on), so the byte comparison proves the CPU
-        // path ran.
         let decoded = crate::Decoded {
-            width: 128,
-            height: 7,
-            mips: vec![patterned_rgba(128, 7)],
+            width: 64,
+            height: 64,
+            mips: vec![patterned_rgba(64, 64)],
             blocks: None,
             authored_mips: false,
         };
@@ -574,5 +683,29 @@ mod tests {
         let cpu_out = crate::convert(&decoded, target).unwrap();
         assert_eq!(gpu_out, cpu_out);
         assert_eq!(gpu.unavailable(), None);
+        assert_eq!(gpu.mips_on_device(), 0);
+    }
+
+    #[test]
+    #[ignore = "needs a Vulkan or Metal GPU"]
+    fn lost_device_falls_back_to_cpu() {
+        let mut gpu = GpuEncoder::new().expect("a Vulkan or Metal adapter");
+        gpu.device.destroy();
+        let decoded = crate::Decoded {
+            width: 64,
+            height: 64,
+            mips: vec![patterned_rgba(64, 64)],
+            blocks: None,
+            authored_mips: false,
+        };
+        let target = crate::Target {
+            version: pes_version::PesVersion::Pes21,
+            role: crate::TextureRole::Color,
+        };
+        let gpu_out = crate::convert_with_gpu(&decoded, target, &mut gpu).unwrap();
+        let cpu_out = crate::convert(&decoded, target).unwrap();
+        assert_eq!(gpu_out, cpu_out);
+        assert!(gpu.unavailable().is_some());
+        assert_eq!(gpu.mips_on_device(), 0);
     }
 }

@@ -210,7 +210,8 @@ pub fn convert(decoded: &Decoded, target: Target) -> Result<Vec<u8>, ConvertErro
 /// `gpu.unavailable()` return its reason, and the mip it happened on and
 /// everything after it (in that texture and in later ones) is encoded on the
 /// CPU. Output bytes may differ from `convert`'s (the plan's
-/// "Reproducibility"), never its container, size or mip count.
+/// "Reproducibility"), never its container layout, dimensions, mip count or
+/// mips' uncompressed sizes; an FTEX's compressed sizes and total length may.
 ///
 /// # Errors
 ///
