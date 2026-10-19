@@ -2173,3 +2173,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.11 (side-lead G, `side/6.11`): both team tracers recompiled with released Red
   (`main`, `1a48fa5`): the same output as `e12aa01`'s, the pre-Fox face CPK differing in its ETOC
   times alone; `red/` provenance corrected, the face CPK replaced, no parity table changed.
+- **2026-10-19** — 6.12a-b (side-lead H, `side/6.12`): the 320 upgradable library exports compiled
+  (106 clean, 29 Error codes); 27 of them compiled by Red too and compared entry by entry by
+  `team_compiler/examples/red_parity.rs`: every difference classed (`.tmp/6_12/classes.md`).

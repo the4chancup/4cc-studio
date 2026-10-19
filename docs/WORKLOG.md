@@ -799,6 +799,16 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     converts with the wrong `.mtl` (`model_conversion_failed`, 4 VG exports); a stray `\`
     text node failing an `.mtl` Red parses (`mtl_broken`, G Autumn 25); 23 worn boots kept
     shared exhausting the 17 shared IDs (`boots_id_pool_exhausted`, KFG VGL26)
+  - [x] 6.12b the Red pilot (2026-10-19, side-lead H): 27 census inputs spanning the shapes
+    compiled by Red `main` 1a48fa5 from a fresh copy each (1.0-10.4 s per export, one crash
+    on `refs for Spring 25 Q Day 1`) and compared with ours by the measurement tool
+    `team_compiler/examples/red_parity.rs` (one classified line per Red entry; its header
+    defines the classes): 7,660 lines, 4,470 equal or `dropped_fpk_xml`, every other line in
+    one of 17 intentional classes (relocation, planned IDs, `kitN`, `Full` placeholders and
+    rebuilt bins, number atlases re-arranged, re-encodes, unlisted pre-Fox models not packed,
+    the template `face_diff.bin` for a modelless folder, IR re-binding), 8 stricter-than-Red
+    classes with Red's package shown present, or the three defect candidates; written for
+    the top lead in `.tmp/6_12/classes.md` of the worktree, with `pilot_tally.txt`
 
 ### Phase 8 — GUI
 
