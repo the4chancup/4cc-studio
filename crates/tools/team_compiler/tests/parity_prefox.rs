@@ -101,7 +101,10 @@ enum Nested {
     Texture,
     /// Tier 2: relocated, and encoded from an uncompressed source to the codec named (raster
     /// sources are block-compressed on PES 15-17, `pipeline.md` "Texture conversion"): the same
-    /// dimensions.
+    /// dimensions, and the same pixels in every mip once both are decoded, the reference's
+    /// still uncompressed. Exact, not within an encoder's
+    /// error: the one such texture, `k2012_sr.dds`, is a single flat color (opaque black),
+    /// which BC1 encodes losslessly; a noisy source added here needs a measured tolerance.
     Encoded(&'static [u8; 4]),
 }
 
@@ -227,6 +230,13 @@ fn dds_content(bytes: &[u8]) -> (u32, u32, [u8; 4], Vec<u8>) {
     (field(16), field(12), fourcc, bytes[128..].to_vec())
 }
 
+/// A DDS file's mips decoded to RGBA8, top first, a WESYS-wrapped file unwrapped first.
+fn decoded_mips(bytes: &[u8]) -> Vec<Vec<u8>> {
+    dds_convert::decode(bytes, dds_convert::SourceFormat::Dds)
+        .unwrap()
+        .mips
+}
+
 /// The `<model>` entries of a `face.xml` (type, path, material) and its `<dif>` decoded.
 fn face_xml(bytes: &[u8]) -> (Vec<(String, String, String)>, Vec<u8>) {
     let text = std::str::from_utf8(bytes).unwrap();
@@ -335,9 +345,21 @@ fn compare_face_cpk(
                     ));
                 }
                 match row {
-                    Nested::Encoded(expected) if codec != **expected => failures.push(format!(
-                        "tier2 {name}: codec {codec:?}, expected {expected:?}"
-                    )),
+                    Nested::Encoded(expected) => {
+                        if codec != **expected {
+                            failures.push(format!(
+                                "tier2 {name}: codec {codec:?}, expected {expected:?}"
+                            ));
+                        }
+                        if decoded_mips(our_bytes) != decoded_mips(reference) {
+                            failures.push(format!("tier2 {name}: decoded mips differ"));
+                        }
+                        if ref_codec != [0; 4] {
+                            failures.push(format!(
+                                "the reference's {name} is no longer uncompressed: the row no longer tests an encoding"
+                            ));
+                        }
+                    }
                     Nested::Texture if (codec, &payload) != (ref_codec, &ref_payload) => {
                         failures.push(format!("tier2 {name}: codec or pixels differ"));
                     }

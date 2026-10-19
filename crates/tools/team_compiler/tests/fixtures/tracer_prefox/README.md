@@ -57,7 +57,8 @@ way. Against the hand-made twin in `studio/`:
 - `Players/20 - Fumos/` keeps the member's `face.xml` byte for byte, so the models keep the
   names it lists (`face_high_win32.model`, `oral_boots_win32.model`, `oral_glove_l_win32.model`,
   `oral_glove_r_win32.model`) and no `face_diff.bin` is split out;
-- the folder holds a generated `settings.toml` with every key at its default;
+- the folder holds a generated `settings.toml`, `name = true` and every other key at its
+  default;
 - `colors.txt` and `Kits/g1/colors.txt` carry the note's colors in the note's own forms
   (`058 080 177`, `#FFFFFF`), where the twin writes lowercase hex;
 - `Kits/g1/config.toml` has no `[source_texture_names]` table.

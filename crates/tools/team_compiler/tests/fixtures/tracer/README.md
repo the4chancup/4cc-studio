@@ -52,7 +52,8 @@ regenerates it the same way. Against the hand-made twin in `studio/`:
 - `boots.fmdl` and `fcl_hair.fmdl` have their texture directories repointed to `./`;
 - the boots folder's `boots.skl` is kept beside the face (the twin leaves it out), and
   `fcl_hair_sim.skl` is renamed `fcl_hair.skl` as in the twin; both are PES 21's `body.skl`;
-- each player folder holds a generated `settings.toml` with every key at its default;
+- each player folder holds a generated `settings.toml`, `name = true` and every other key at
+  its default;
 - `Kits/g1/config.toml` is written by today's `kit_config` (a range comment differs) and has no
   `[source_texture_names]` table.
 
