@@ -16,7 +16,8 @@ with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
 **Next:** Phase 6 (Export upgrader): every step done; Astra's checkpoint review over 6.9a-c
 (with its SWE-2 loops), then the phase's close (`AGENTS.md` "Closing a phase"); 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
-and the shell's draft (`docs/prototypes/shell.html`) is on a side branch. Parallel tracks:
+and the shell's draft (`docs/prototypes/shell.html`, step 8.2) is done, waiting for the
+maintainer's remarks. Parallel tracks:
 `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
@@ -761,6 +762,49 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   `FontDefinitions` → verify: every view drawn with the emoji fonts removed shows no missing
   glyph (egui's own widgets draw a few symbols from them), and the exe shrinks by about 0.7 MiB
   (`spec/core/distribution.md` "Size budget")
+- [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
+  implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
+  slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,
+  drawing every screen and state of `core/gui.md` "Sidebar" (the logo's About block with Copy, the
+  PES selector's exe-check colours, blocker, once-per-life auto-switch and "Fix PES path", the
+  registered tools then the planned ones grayed, the icon-rail collapse), "Status bar" (three
+  slots, each item kind's lifetime), "Window title" (activities first, the held notice while
+  unfocused, set only on change), "Settings menu" (common rows plus one collapsing section per
+  tool, the active one open, best-effort save raising `data_dir_read_only`), "Help window"
+  (core chapters then tool chapters, a Messages topic generated from the real catalogs,
+  substring search, in-doc links, F1), "Log panel" (cap, paused auto-scroll with "N new",
+  filters, chevron, divider, code links to the help, line links to the grid row), the
+  first-run data-location dialog and the post-update notice, with a stub central panel per
+  registered tool (the Team compiler's holding a simulated compile that feeds the activity,
+  the notice, the title and the log). Sample data is real (version 0.1.0, teams-list rows,
+  catalog codes and severities, settings defaults); every string left for the maintainer to
+  refine is marked `sample wording`. A "Draft controls" strip, visibly outside Studio, flips
+  each scenario's GIVEN and ends in a walkthrough naming every `ST` id (drawn, or why not:
+  ST-TTL-03, ST-HELP-04, ST-RUN-02..04, ST-CLI-01..02, and ST-SIDE-05's real poll). A
+  headless-Edge harness (`.tmp/8_2/run_harness.py`, 29 checks) walks ST-SIDE-01..07,
+  ST-SET-01..03, ST-BAR-01..03, ST-TTL-01..02, ST-HELP-01..03, ST-LOG-01..04 and ST-RUN-01
+  against the page → verify: each of those scenarios can be walked in a browser with the
+  strip's controls, and the page uses only the representable elements (the lead's read of
+  every slice's diff against the list). Plan gaps found: `core/gui.md` "Settings menu" lists six
+  common settings while `CommonSettings` also carries `check_for_updates` and
+  `check_interval_hours` (the draft shows them); the brief's "Fix PES path" example put back
+  `**` where `common.rs` means two digits (`20**`), fixed in the draft. SWE-2 review loop
+  (rulings `.tmp/8_2/rulings.md`): S1 12/14, S2 7/7, S3 8/9, S4 6/6, S5 5/5, S6 1/2
+  accepted, ended at S6; the rounds made the Messages topics the tools' whole catalogs
+  (233, 25 and 68 rows, the upgrader's from its `messages.rs` since the plan's table is
+  partial by design), one row per code, the source table's own columns; `savefile_path`
+  spelled `auto`; no settings section for a tool without settings; the rest wordings and
+  draft-control states. For the top lead's plan loop: `update_available`'s Install action
+  against 0.1.0's "step 2 as a notice, no Update now"; `ActionEffect` has no variant for
+  "Fix PES path" or "Install"; `pes_install_missing` and the selector's yellow report one
+  fact twice; the help window's geometry "remembered in common settings" has no
+  `CommonSettings` field; `distribution.md`'s changelog heading example carries an em dash;
+  two catalog texts a member will read once the Messages topic renders them, the em dash in
+  `export_upgrader/src/messages.rs` `common_reference_kept`'s doc and "Red" in
+  `spec/team_compiler/messages.md` `player_layout_proto`.
+  No Astra round here (checkpoint b on the draft is the top lead's call). To show the
+  maintainer; their remarks go into the plan before the shell slices are briefed. Files:
+  `docs/prototypes/shell.html`
 
 ### Phase 10 — Music tools
 

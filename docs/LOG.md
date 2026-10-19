@@ -2161,3 +2161,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.9c: each tracer's upgraded export committed as a golden, a test that the
   upgrader still writes it, and a parity case per tracer compiling it against Red's tree; 6.9
   done.
+- **2026-10-19** — 8.2 (side-lead E, `side/8-shell-draft`): the shell's draft,
+  `docs/prototypes/shell.html`: sidebar, status bar, window title, settings menu, help window,
+  log panel and first-run dialog drawn whole with sample data; a headless harness walks 24 `ST` ids.
