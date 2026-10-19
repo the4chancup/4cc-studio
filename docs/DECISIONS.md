@@ -9021,3 +9021,58 @@ DDS data the compiler encodes again, so the conversion loses nothing. A `.dds` a
 one stem keep the DDS, by the existing first-by-name rule, as Red's Fox mode converted the DDS
 over the FTEX.
 Plan: `plans/export_upgrader.md` steps 1, 3 and 5; EU-IN-04, EU-PLY-13, EU-KIT-15.
+
+## 2026-10-19 — team_compiler — the `.mtl` search reads `oral_X_win32` as `X`
+Decision: the pre-Fox `.mtl` search's name match compares a `.mtl`'s stem with the model's stem
+read without its `oral_` prefix and `_win32` suffix when it carries both (case-insensitively),
+for every caller, `Common/` models included; a stem with one of the two stays literal.
+Why: the literal stem, not Red's core name, paired `Common/oral_fbm_u_win32.model` with
+`apc.mtl` beside the `fbm.mtl` defining its material in four VG exports (step 6.13a), whose
+conversion pre-check then failed and dropped the whole Common folder, which Red packs. Red's
+rule closes the 2026-10-17 open issue too (`oral_parts_body_win32.model` getting
+`materials.mtl` over `parts_body.mtl`). Red's `face_high_win32` -> `face_neck` reading is not
+copied: the game's `face.mtl` name-matches either stem.
+Plan: `spec/model_format.md` "Material files", the paragraph "Pre-Fox: the `.mtl` a `.model`
+uses".
+
+## 2026-10-19 — pes_model, export_upgrader — the upgrader cleans stray text out of an old `.mtl`
+Decision: `MaterialSet::read` keeps refusing non-whitespace text between elements; a second
+read, `read_dropping_stray_text`, skips it and says so, and the Export upgrader reads an old
+export's `.mtl` with it, writing the set back (the text dropped) and reporting the file.
+Why: the Red parity run found a cup export's player (G Autumn 25's `72117 - Lisa/apc.mtl`, a
+`\` after a `<sampler/>`) dropped as `mtl_broken`, which Red packs; the census of all 12,755
+`.mtl` files on the machine finds three with such text, all typos. Every Studio export is
+hand-made or upgraded once, so cleaning in the upgrader fixes the old ones and the compiler
+stays strict for a hand-made typo, rather than the compiler tolerating it for good.
+Plan: `spec/libs/format_crates.md` "`pes_model::format::mtl`"; `plans/export_upgrader.md`
+step 7 and "Message catalog".
+
+## 2026-10-19 — export_upgrader — an upgrade writes a clean export or nothing; a clean one can go straight to the compiler
+Decision: the upgrader writes its output only when the migration is clean (no Error, no
+finding that drops anything); otherwise nothing is written, exit 1, the report naming what to
+fix. A clean run's GUI done line offers Move to exports and compile (the output moved into the
+exports folder, the Team compiler made active); the notice keeps Open output folder.
+Why: every Studio export is upgraded once, from a clean Red export, so a failure is either an
+input to fix first or an upgrader defect to fix; a draft "for manual repair" handed on would be
+compiled as if whole and the losses its report named forgotten. With only clean outputs
+written, the handoff button has no unclean case to guard against; a notice carries one action,
+so the button sits in the done line.
+Plan: `plans/export_upgrader.md` "Verification", "CLI", "GUI", "Message catalog"; `AGENTS.md`
+"Fundamental concepts". The scenarios that assert an output beside exit 1 are rewritten at
+worklog step 6.14.
+
+## 2026-10-19 — export_upgrader — a leftover outside the old format is dropped with a Warning, the run clean
+Decision: step 10's entries are of two kinds. A leftover, content outside the old format's
+layout (a top-level folder the AET does not define, a root file other than the Note, `Other/`'s
+files), is dropped with `leftover_dropped` (W) and leaves the run clean; an entry inside the
+format's folders that no step migrates stays `unmigrated_content` (E), and nothing is written.
+Why: the maintainer's refinement of the clean-or-nothing rule: a leftover the Studio export
+does not need (KFG VGL26's `FMDL Boots/` of `.model` copies) should not block a migration that
+converts everything that matters, as long as the author is told what was left behind; an
+entry inside the format's folders is something the old export compiled, so losing it would
+make the compile miss it. The line follows the format's own layout, which a member can check
+against the AET page, rather than a list of known junk. A leftover does not decide the
+migration's engine either: KFG VGL26's `.model` copies, counted, made the Fox export migrate as
+pre-Fox (step 6.13b), whose unmerged boots folders then outran the shared IDs.
+Plan: `plans/export_upgrader.md` step 10, "Verification", "CLI", "Message catalog";
+`AGENTS.md` "Fundamental concepts".

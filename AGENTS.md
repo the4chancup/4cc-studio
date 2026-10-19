@@ -223,6 +223,16 @@ your question may already be listed, with the phase in which it gets resolved.
   rows of the output CPK's database tables, on pre-Fox written to the savefile. The old export
   layout is not supported by the compiler; the Export upgrader migrates it
   once.
+- **The upgrader absorbs the old format's slack; the compiler stays strict.** An upgrade
+  starts from a clean Red export and ends in a clean Studio export, or writes nothing: a run
+  with an Error, or a finding that drops what the old export compiled, leaves only its report,
+  and the fix is to the input (not a clean old export) or to the upgrader (it failed to
+  migrate one). Never a half-migrated output. A leftover outside the old format's layout (a
+  side folder of copies, a stray root file) is dropped with a Warning naming it, and the run
+  stays clean. A quirk Red tolerated in old files (stray text in an `.mtl`) is cleaned
+  by the upgrader, through a tolerant read only it uses, rather than tolerated by the compiler
+  or a format crate's default reader: every Studio export passes through the upgrader once, so
+  the quirk never reaches the compiler, which refuses it loudly when a member types it by hand.
 - **User-facing TOML is edited, never regenerated.** `settings.toml`, `config.toml`,
   `materials.toml` carry app-injected per-field comments that *are* the user documentation. Write them through `toml_edit`, which preserves them; `toml` (serde) is for
   read-only parsing.
@@ -294,7 +304,9 @@ a clear recommended choice for one of the cases above, it applies that choice an
 decision (plan edit, then decision entry), and the turn report names it so the maintainer can
 reverse it. It stops to ask only when the choice is truly ambiguous (no option is clearly
 better on the evidence) or needs information only the maintainer has (in-game behavior, cup
-practice, a preference); such a question is written to `docs/QUESTIONS.md`, with the worklog
+practice, a preference); such a question is written to `docs/QUESTIONS.md` (never with a
+"Recommended:" line: a question the lead can recommend an answer to is one it applies, as
+side-lead 8.0's upgrader-handoff entry should have been), with the worklog
 issue or step that waits on it pointing there, and the work goes on with whatever does not
 depend on it. An answer is open to discussion, an earlier one included: when the lead sees a
 reason against it (a case it breaks, a cost it carries, a simpler rule), it says so with the

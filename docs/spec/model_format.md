@@ -220,7 +220,10 @@ through the `.mtl` search below, which reads a name-matched `.mtl` beside the li
 **Pre-Fox: the `.mtl` a `.model` uses.** Each `.model` uses exactly one `.mtl`, the first this
 search finds, and the generated `face.xml` names it. The search looks in a list of folders in
 turn, and in each folder for three kinds of `.mtl` in turn: a **name-matched** one (its stem, case
-folded, starts or ends the model's stem: `body.mtl` for `body_high.model`), then
+folded, starts or ends the model's stem: `body.mtl` for `body_high.model`; a model stem carrying
+both the `oral_` prefix and the `_win32` suffix is read without them, `fbm.mtl` for
+`oral_fbm_u_win32.model`, since members name a part as the game packs it and its `.mtl` by the
+part, and four VG exports' `Common/` folders hold such a pair beside another `.mtl`), then
 `materials.mtl`, then **any** `.mtl`; when a folder holds several of one kind, the first in
 case-folded name order wins (the order Explorer shows). A `.mtl.common` link counts as a `.mtl` of
 its target's name in the folder holding the link. The folders, where the *model folder* is the
@@ -238,7 +241,11 @@ A model the search finds no `.mtl` for has every material undefined, which is
 `model_material_undefined` (E). This is Red's `find_mtl_file` (`xml_editing.py`), with two
 differences that change nothing for a real export: Red's second kind accepts any stem that
 `materials` starts or ends with (`mat.mtl`), and it takes the folder listing's order; and when it
-finds nothing it names a `materials.mtl` no folder holds, which the game would fail to load.
+finds nothing it names a `materials.mtl` no folder holds, which the game would fail to load. Red
+also reads `face_high_win32.model` as `face_neck`; the search keeps that stem as it is, which
+the game's own `face.mtl` name-matches either way. Red searches only for a player's `face.xml`
+and packs a `Common/` model as it is; the search also gives a `Common/` `.model` the set its
+conversion pre-check reads.
 
 ### Comments are app-injected
 

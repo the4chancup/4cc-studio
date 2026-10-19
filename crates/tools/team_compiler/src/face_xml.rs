@@ -137,10 +137,10 @@ fn without_platform(stem: &str) -> &str {
 }
 
 /// The prefix of a packed model's name.
-const ORAL_PREFIX: &str = "oral_";
+pub(crate) const ORAL_PREFIX: &str = "oral_";
 
 /// The suffix of a packed model's stem, the platform the game loads it on.
-const WIN32_SUFFIX: &str = "_win32";
+pub(crate) const WIN32_SUFFIX: &str = "_win32";
 
 /// The name the model with file stem `stem` is packed under in its face CPK: the stem in ASCII
 /// lower case, with `oral_` before it and `_win32.model` after it, each affix added only when

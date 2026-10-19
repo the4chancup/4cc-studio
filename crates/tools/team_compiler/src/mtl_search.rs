@@ -6,6 +6,7 @@
 use aesthetics_export::{FileDescriptor, FileKind, classify, common_link_target};
 use vtree::ScopePath;
 
+use crate::face_xml::{ORAL_PREFIX, WIN32_SUFFIX};
 use crate::plan::roles::{below_common, common_file, file_stem};
 use crate::texture_lookup::split;
 
@@ -25,8 +26,9 @@ use crate::texture_lookup::split;
 /// case-folded name order within a kind. A `.mtl.common` link counts as a `.mtl` of the linked
 /// name in the folder holding it, and stands for the `Common/` file at its path, which is what
 /// is returned when it is the one found: a caller tells a Common `.mtl` from the folder's own by
-/// its path (`is_common_file`). `None` when the search finds no `.mtl`: the model has
-/// every material undefined (`model_material_undefined`).
+/// its path (`is_common_file`). The model's stem the name match reads is `match_stem`'s. `None`
+/// when the search finds no `.mtl`: the model has every material undefined
+/// (`model_material_undefined`).
 pub(crate) fn mtl_for<'a>(
     model: &ScopePath,
     folder: &ScopePath,
@@ -38,14 +40,14 @@ pub(crate) fn mtl_for<'a>(
         .expect("a model file sits in a folder: its model folder or a subfolder of it");
     let own = mtls_in(&own_folder, folder, files, common);
     let Some(linked) = common_link_target(model, folder) else {
-        let model_stem = vtree::fold_name(file_stem(model.name()));
+        let model_stem = match_stem(model.name());
         // A model directly in the model folder searches that folder twice, finding nothing
         // new.
         return first_of_kinds(&own, &model_stem)
             .or_else(|| first_of_kinds(&mtls_in(folder, folder, files, common), &model_stem));
     };
     let (linked_directory, linked_name) = split(&linked);
-    let model_stem = vtree::fold_name(file_stem(linked_name));
+    let model_stem = match_stem(linked_name);
     let in_common: Vec<Candidate> = common
         .iter()
         .filter(|file| {
@@ -59,6 +61,22 @@ pub(crate) fn mtl_for<'a>(
         .or_else(|| first_of_kinds(&sorted(in_common), &model_stem))
         .or_else(|| first_of_kinds(&own, &model_stem))
         .or_else(|| first_of_kinds(&mtls_in(folder, folder, files, common), &model_stem))
+}
+
+/// The stem the name match compares `.mtl` stems against for the model named `name`: its file
+/// stem, folded, without the `oral_`/`_win32` affixes a model packed under its in-game name
+/// carries. A member names a part `oral_X_win32.model` as the game does and its `.mtl`
+/// `X.mtl`. Only when the stem carries both affixes: one alone is part of the name, and a stem
+/// that would strip to nothing (`oral__win32`) keeps its literal reading.
+fn match_stem(name: &str) -> String {
+    let stem = vtree::fold_name(file_stem(name));
+    match stem
+        .strip_prefix(ORAL_PREFIX)
+        .and_then(|rest| rest.strip_suffix(WIN32_SUFFIX))
+    {
+        Some(inner) if !inner.is_empty() => inner.to_owned(),
+        _ => stem,
+    }
 }
 
 /// A `.mtl` one folder offers a model: the name it goes by there and the file the model would
@@ -262,6 +280,95 @@ mod tests {
                 "{mtl}"
             );
         }
+    }
+
+    #[test]
+    fn a_packed_name_s_mtl_is_matched_by_the_stem_inside_its_affixes() {
+        // The VG export's `Common/`: `oral_fbm_u_win32.model` beside `apc.mtl` and
+        // the `fbm.mtl` defining its `fbm_u` material. Read without the packed
+        // name's `oral_`/`_win32` affixes the stem is `fbm_u`, which `fbm.mtl`
+        // name-matches; read literally the stem matches nothing and `apc.mtl`,
+        // the first "any", would be the model's `.mtl`.
+        assert_eq!(
+            found(
+                "oral_fbm_u_win32.model",
+                &["oral_fbm_u_win32.model", "apc.mtl", "fbm.mtl"]
+            )
+            .as_deref(),
+            Some("fbm.mtl")
+        );
+        // `parts_body.mtl` beside `materials.mtl`: the name match wins.
+        assert_eq!(
+            found(
+                "oral_parts_body_win32.model",
+                &[
+                    "oral_parts_body_win32.model",
+                    "parts_body.mtl",
+                    "materials.mtl"
+                ]
+            )
+            .as_deref(),
+            Some("parts_body.mtl")
+        );
+        // Letter case aside.
+        assert_eq!(
+            found(
+                "ORAL_FBM_U_WIN32.model",
+                &["ORAL_FBM_U_WIN32.model", "apc.mtl", "fbm.mtl"]
+            )
+            .as_deref(),
+            Some("fbm.mtl")
+        );
+        // Through a link, the linked model's stem is read the same way.
+        assert_eq!(
+            found_with(
+                "oral_fbm_u_win32.model.common",
+                &["oral_fbm_u_win32.model.common"],
+                &["oral_fbm_u_win32.model", "apc.mtl", "fbm.mtl"]
+            )
+            .as_deref(),
+            Some("Common/fbm.mtl")
+        );
+    }
+
+    #[test]
+    fn a_stem_with_one_affix_alone_matches_as_it_is() {
+        // `oral_hat` carries `oral_` without `_win32` and stays `oral_hat`:
+        // `oral.mtl` name-matches it. A stem stripped on the prefix alone would
+        // be `hat`, which `oral.mtl` neither starts nor ends, so this is what
+        // pins the both-affixes rule.
+        assert_eq!(
+            found(
+                "oral_hat.model",
+                &["oral_hat.model", "oral.mtl", "materials.mtl"]
+            )
+            .as_deref(),
+            Some("oral.mtl")
+        );
+        // `hat.mtl` is no proof either way: the inner stem is the literal
+        // stem's tail, so it name-matches `oral_hat` without a strip.
+        assert_eq!(
+            found(
+                "oral_hat.model",
+                &["oral_hat.model", "hat.mtl", "materials.mtl"]
+            )
+            .as_deref(),
+            Some("hat.mtl")
+        );
+        // `hat_win32` carries `_win32` without `oral_` and stays `hat_win32`:
+        // `win32.mtl` name-matches it; `hat.mtl` starts the literal stem anyway.
+        assert_eq!(
+            found(
+                "hat_win32.model",
+                &["hat_win32.model", "win32.mtl", "materials.mtl"]
+            )
+            .as_deref(),
+            Some("win32.mtl")
+        );
+        assert_eq!(
+            found("hat_win32.model", &["hat_win32.model", "hat.mtl"]).as_deref(),
+            Some("hat.mtl")
+        );
     }
 
     #[test]

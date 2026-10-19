@@ -382,7 +382,14 @@ sets read, 405 Wavefront OBJ `.mtl` files correctly refused) added three rules:
   to the end of the first root element; a rewrite drops the tail.
 - **A repeated state name takes its first value**, in `check` as in `model_convert`'s import.
   No file on the machine repeats one, so this only makes the three readers agree.
-Stray text inside a material (2 hand-typed files) stays a read error.
+
+Stray text between elements stays a read error of `MaterialSet::read`, the compiler's reader: a
+Studio export is hand-made or upgraded, and the Export upgrader cleans it. The 2026-10-19
+census of all 12,755 `.mtl` files on the machine found three that carry any, all typos (a `\`
+or a backtick after an element, an edit's leftover `dr="clamp"/>`), one of them in a cup
+export, which Red's parser (ElementTree) ignored. `MaterialSet::read_dropping_stray_text` is
+the same parse skipping such text, and says whether it skipped any; the upgrader reads an old
+export's `.mtl` with it and writes the set back, which drops the text.
 
 ### `pes_model::model`: the semantic layer the ops work on
 

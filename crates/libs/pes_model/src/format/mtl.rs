@@ -262,10 +262,20 @@ fn required<'a>(
 }
 
 /// A non-element child node is fine only as whitespace text; comments and
-/// processing instructions are ignored (no Konami file carries them).
-fn check_text(node: roxmltree::Node, parent: &str) -> Result<(), MtlError> {
+/// processing instructions are ignored (no Konami file carries them). In a
+/// tolerant read (`drop_stray_text`) non-whitespace text is skipped too,
+/// `dropped` recording that any was.
+fn check_text(
+    node: roxmltree::Node,
+    parent: &str,
+    drop_stray_text: bool,
+    dropped: &mut bool,
+) -> Result<(), MtlError> {
     if node.is_text() && node.text().is_some_and(|text| !text.trim().is_empty()) {
-        return Err(MtlError::UnexpectedText(parent.to_owned()));
+        if !drop_stray_text {
+            return Err(MtlError::UnexpectedText(parent.to_owned()));
+        }
+        *dropped = true;
     }
     Ok(())
 }
@@ -371,8 +381,12 @@ fn read_vector(node: roxmltree::Node) -> Result<Vector, MtlError> {
     Ok(Vector { name, components })
 }
 
-/// The `<material>` element.
-fn read_material(node: roxmltree::Node) -> Result<Material, MtlError> {
+/// The `<material>` element. `drop_stray_text` and `dropped` are `read_mtl`'s.
+fn read_material(
+    node: roxmltree::Node,
+    drop_stray_text: bool,
+    dropped: &mut bool,
+) -> Result<Material, MtlError> {
     for attribute in node.attributes() {
         if attribute.name() != "name" && attribute.name() != "shader" {
             return Err(MtlError::UnexpectedAttribute {
@@ -388,7 +402,7 @@ fn read_material(node: roxmltree::Node) -> Result<Material, MtlError> {
     };
     for child in node.children() {
         if !child.is_element() {
-            check_text(child, "material")?;
+            check_text(child, "material", drop_stray_text, dropped)?;
             continue;
         }
         let entry = match child.tag_name().name() {
@@ -452,55 +466,75 @@ fn detect_style(text: &str) -> MtlStyle {
     }
 }
 
+/// `read`'s and `read_dropping_stray_text`'s shared parse: `drop_stray_text`
+/// says whether text between elements is skipped (the `bool` in the result
+/// recording whether any was) or is `UnexpectedText`.
+fn read_mtl(bytes: &[u8], drop_stray_text: bool) -> Result<(MaterialSet, bool), MtlError> {
+    let unwrapped =
+        wezlib::decompress_if_wrapped(bytes).map_err(|error| MtlError::Wesys(error.to_string()))?;
+    let text = std::str::from_utf8(&unwrapped).map_err(|_| MtlError::InvalidUtf8)?;
+    // A handful of community files carry a second closing tag or
+    // binary junk after the real root: parse only through the first
+    // root close. A root that never closes still errors.
+    const ROOT_CLOSE: &str = "</materialset>";
+    let end = text
+        .find(ROOT_CLOSE)
+        .map(|at| at + ROOT_CLOSE.len())
+        .unwrap_or(text.len());
+    let document = roxmltree::Document::parse(&text[..end])
+        .map_err(|error| MtlError::Xml(error.to_string()))?;
+    let root = document.root_element();
+    if root.tag_name().name() != "materialset" {
+        return Err(MtlError::UnexpectedElement {
+            element: root.tag_name().name().to_owned(),
+            parent: String::new(),
+        });
+    }
+    if let Some(attribute) = root.attributes().next() {
+        return Err(MtlError::UnexpectedAttribute {
+            element: "materialset".to_owned(),
+            attribute: attribute.name().to_owned(),
+        });
+    }
+    let mut dropped = false;
+    let mut materials = Vec::new();
+    for child in root.children() {
+        if !child.is_element() {
+            check_text(child, "materialset", drop_stray_text, &mut dropped)?;
+            continue;
+        }
+        if child.tag_name().name() != "material" {
+            return Err(MtlError::UnexpectedElement {
+                element: child.tag_name().name().to_owned(),
+                parent: "materialset".to_owned(),
+            });
+        }
+        materials.push(read_material(child, drop_stray_text, &mut dropped)?);
+    }
+    Ok((
+        MaterialSet {
+            materials,
+            style: detect_style(text),
+        },
+        dropped,
+    ))
+}
+
 impl MaterialSet {
     /// Parses a `.mtl`, WESYS-wrapped or not. An `<?xml ...?>` declaration
     /// or a BOM, if ever present, are accepted by the parser and not
     /// carried.
     pub fn read(bytes: &[u8]) -> Result<Self, MtlError> {
-        let unwrapped = wezlib::decompress_if_wrapped(bytes)
-            .map_err(|error| MtlError::Wesys(error.to_string()))?;
-        let text = std::str::from_utf8(&unwrapped).map_err(|_| MtlError::InvalidUtf8)?;
-        // A handful of community files carry a second closing tag or
-        // binary junk after the real root: parse only through the first
-        // root close. A root that never closes still errors.
-        const ROOT_CLOSE: &str = "</materialset>";
-        let end = text
-            .find(ROOT_CLOSE)
-            .map(|at| at + ROOT_CLOSE.len())
-            .unwrap_or(text.len());
-        let document = roxmltree::Document::parse(&text[..end])
-            .map_err(|error| MtlError::Xml(error.to_string()))?;
-        let root = document.root_element();
-        if root.tag_name().name() != "materialset" {
-            return Err(MtlError::UnexpectedElement {
-                element: root.tag_name().name().to_owned(),
-                parent: String::new(),
-            });
-        }
-        if let Some(attribute) = root.attributes().next() {
-            return Err(MtlError::UnexpectedAttribute {
-                element: "materialset".to_owned(),
-                attribute: attribute.name().to_owned(),
-            });
-        }
-        let mut materials = Vec::new();
-        for child in root.children() {
-            if !child.is_element() {
-                check_text(child, "materialset")?;
-                continue;
-            }
-            if child.tag_name().name() != "material" {
-                return Err(MtlError::UnexpectedElement {
-                    element: child.tag_name().name().to_owned(),
-                    parent: "materialset".to_owned(),
-                });
-            }
-            materials.push(read_material(child)?);
-        }
-        Ok(MaterialSet {
-            materials,
-            style: detect_style(text),
-        })
+        read_mtl(bytes, false).map(|(set, _)| set)
+    }
+
+    /// Parses a `.mtl` as `read` does, but text between elements, in
+    /// `<materialset>` or in a `<material>`, is skipped rather than refused;
+    /// the `bool` is `true` when any was. For the Export upgrader's one-time
+    /// clean of an old export's `.mtl` files (a rewrite of the set drops the
+    /// text); the compiler reads with `read`, which refuses it.
+    pub fn read_dropping_stray_text(bytes: &[u8]) -> Result<(MaterialSet, bool), MtlError> {
+        read_mtl(bytes, true)
     }
 
     /// Serializes under `style`, unwrapped.
@@ -951,12 +985,74 @@ mod tests {
         ));
     }
 
+    /// The material of G Autumn 25's `Faces/72117 - Lisa/apc.mtl`, its line-13
+    /// stray `\` after the first `<sampler />` verbatim; `LISA_MTL_CLEAN` is
+    /// the same material without it.
+    const LISA_MTL: &[u8] = br#"<materialset>
+	<material name="m" shader="s">
+		<sampler name="SpecularMap" path="model/character/uniform/common/specular.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />\
+		<sampler name="DiffuseMap" path="./diffuse.dds" />
+	</material>
+</materialset>"#;
+    const LISA_MTL_CLEAN: &[u8] = br#"<materialset>
+	<material name="m" shader="s">
+		<sampler name="SpecularMap" path="model/character/uniform/common/specular.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+		<sampler name="DiffuseMap" path="./diffuse.dds" />
+	</material>
+</materialset>"#;
+
+    #[test]
+    fn stray_text_between_a_material_s_elements_is_a_read_error() {
+        assert_eq!(
+            MaterialSet::read(LISA_MTL),
+            Err(MtlError::UnexpectedText("material".to_owned()))
+        );
+    }
+
     #[test]
     fn rejects_text_content() {
         assert_eq!(
             MaterialSet::read(b"<materialset>hello</materialset>"),
             Err(MtlError::UnexpectedText("materialset".to_owned()))
         );
+    }
+
+    #[test]
+    fn stray_text_between_a_material_s_elements_is_dropped_by_the_tolerant_read() {
+        let (set, dropped) = MaterialSet::read_dropping_stray_text(LISA_MTL)
+            .expect("the tolerant read skips the stray text");
+        assert!(dropped);
+        let names: Vec<&str> = set.materials[0]
+            .entries
+            .iter()
+            .map(|entry| match entry {
+                MaterialEntry::Sampler(sampler) => sampler.name.as_str(),
+                entry => panic!("expected a sampler, got {entry:?}"),
+            })
+            .collect();
+        assert_eq!(names, ["SpecularMap", "DiffuseMap"]);
+        // A rewrite drops the text: it writes what the clean input read with
+        // `read` writes.
+        assert_eq!(set.write(), read(LISA_MTL_CLEAN).write());
+    }
+
+    #[test]
+    fn stray_text_between_the_root_s_elements_is_dropped_by_the_tolerant_read() {
+        let (set, dropped) =
+            MaterialSet::read_dropping_stray_text(b"<materialset>hello</materialset>")
+                .expect("the tolerant read skips the stray text");
+        assert!(dropped);
+        assert!(set.materials.is_empty());
+    }
+
+    #[test]
+    fn a_clean_file_s_tolerant_read_is_the_strict_read_s_unflagged() {
+        for bytes in ALL_MTL {
+            let (set, dropped) =
+                MaterialSet::read_dropping_stray_text(bytes).expect("fixture parses");
+            assert!(!dropped);
+            assert_eq!(set, read(bytes));
+        }
     }
 
     #[test]

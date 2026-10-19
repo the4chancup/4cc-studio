@@ -2803,6 +2803,65 @@ mod tests {
     }
 
     #[test]
+    fn a_common_models_task_finds_the_packed_model_s_mtl_by_its_inner_stem() {
+        // The VG export's `Common/`: `oral_fbm_u_win32.model` beside `apc.mtl` and
+        // `fbm.mtl`. The cap model needs conversion on PES 15 (its `dsk_*` bones
+        // are absent there), so the `.mtl` the search picks reaches the
+        // conversion's material check: `apc.mtl`, the first "any", defines none
+        // of its materials and would fail the task; `fbm.mtl` is the inner
+        // stem's name match.
+        let common = vec![
+            file("Common/oral_fbm_u_win32.model"),
+            file("Common/apc.mtl"),
+            file("Common/fbm.mtl"),
+        ];
+        let files: TaskFiles = [
+            (
+                ScopePath::new("Common/oral_fbm_u_win32.model").unwrap(),
+                pes_fixture("konami_modD_cap.model"),
+            ),
+            (
+                ScopePath::new("Common/apc.mtl").unwrap(),
+                pes_fixture("konami_hair.mtl"),
+            ),
+            (
+                ScopePath::new("Common/fbm.mtl").unwrap(),
+                pes_fixture("konami_modD_cap.mtl"),
+            ),
+        ]
+        .into_iter()
+        .collect();
+
+        let batch = process(
+            TaskKind::CommonModels {
+                folder: ScopePath::new("Common").unwrap(),
+                files: common,
+                textures: Vec::new(),
+            },
+            PesVersion::Pes15,
+            None,
+            files,
+        );
+
+        assert!(
+            batch
+                .messages
+                .iter()
+                .all(|message| message.severity != Severity::Error),
+            "{:?}",
+            batch.messages
+        );
+        assert_eq!(
+            paths(&batch),
+            [
+                "common/character1/model/character/uniform/common/792/apc.mtl",
+                "common/character1/model/character/uniform/common/792/fbm.mtl",
+                "common/character1/model/character/uniform/common/792/oral_fbm_u_win32.model",
+            ]
+        );
+    }
+
+    #[test]
     fn a_pre_fox_face_packs_none_of_a_combined_boots_folder_s_files() {
         let folder = ModelFolder {
             engine: Engine::PreFox,

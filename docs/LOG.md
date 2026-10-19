@@ -2176,3 +2176,9 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.12a-b (side-lead H, `side/6.12`): the 320 upgradable library exports compiled
   (106 clean, 29 Error codes); 27 of them compiled by Red too and compared entry by entry by
   `team_compiler/examples/red_parity.rs`: every difference classed (`.tmp/6_12/classes.md`).
+- **2026-10-19** — 6.13a, c (half), b, d: the `.mtl` search reads `oral_X_win32` as `X` (4 VG exports' Common
+  folder); `pes_model` gains a tolerant `.mtl` read for the upgrader, the compiler staying strict; b and d need no
+  code. Maintainer rulings in the repo: an upgrade writes a clean export or nothing (6.14), the handoff button.
+- **2026-10-19** — Phase 6 close: the whole-crate mutation run of `export_upgrader` (extra kinds included):
+  858 caught, 0 timeouts, 2 missed, the placeholder `view`/`settings_view` deferred to Phase 8 (worklog 8.3) as at
+  the audit; archived to `.tmp/mutants_6_close_eu_whole/`.

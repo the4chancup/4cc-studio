@@ -318,9 +318,14 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    stands for the `Common/` file at its own path below that root, so one beside a subfolder's
    `.mtl` would name a file in a `Common/` subfolder; a bare name from a subfolder finds the
    root's link, nearest first) (see "Link files" in the [Unified model format
-   plan](model_format.md)). An `.mtl` that does not parse, or names nothing to change, is
-   copied as it is (a broken one is the compile's to report); a rewritten one is written in
-   the reader's layout, wrapped again when it was (step 1). A reference into a Common subfolder becomes a path below the
+   plan](model_format.md)). Every old `.mtl` is read with `pes_model`'s
+   `read_dropping_stray_text`: text between its elements (a `\` typed after a `<sampler/>` in
+   G Autumn 25's `72117 - Lisa/apc.mtl`, which Red's parser ignored) is dropped and the file
+   reported (I, `mtl_stray_text_dropped`), since the compiler's reader refuses it. One that
+   names nothing to change and had no such text is copied as it is; one that does not parse
+   even so is unmigrated content (its parse error in the context): the compile would drop its
+   folder as `mtl_broken`, so the output would not be clean. A rewritten one is written in the
+   reader's layout, wrapped again when it was (step 1). A reference into a Common subfolder becomes a path below the
    model's folder and a link at that path (`common/???/u0???p0/sourceimages/armor_bsm` becomes
    the FMDL texture `./kitN/` `armor_bsm` and the link `kitN/armor_bsm.dds.common` in the
    model's folder, the kit magic below respelled in the folder name as in a file name; a kit
@@ -558,6 +563,16 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     folder no step migrates as a whole (a second face folder of one slot, one without a slot),
     reported once by its path; a file a step leaves in the output as named (a second portrait)
     is reported all the same.
+    Two kinds of entry, since only one keeps the run from being clean ("Verification"): a
+    **leftover**, content outside the old format's layout that nothing compiled (a top-level
+    folder the AET does not define, such as the real KFG VGL26 export's `FMDL Boots/` of
+    `.model` copies; a file at the root other than the Note; `Other/`'s files, which the AET
+    keeps for the author alone), is dropped with a Warning naming it (`leftover_dropped`); an
+    entry inside the format's folders that no step migrates (an item folder no player wears,
+    a second face folder of one slot, a texture that does not decode) is `unmigrated_content`,
+    an Error. We do not refuse a run over a leftover, because the Studio export is complete
+    without it and the Warning tells the author what was left behind; we do refuse one over an
+    unmigrated entry, because the compile would miss what the old export compiled.
 11. **Loose mode** (no savefile available): step 2 needs the savefile only to learn which player
     wears which old boots/gloves ID. When no savefile is given, the upgrader offers loose mode,
     which infers the wearer from the **ID's position inside the team's Red block** instead —
@@ -759,10 +774,10 @@ because an earlier run's folders, edited since, would sit beside this run's with
 them apart. Both print step 10's report, one line per finding
 naming its code and the input path it is about, and exit with the Team compiler's mapping
 (`spec/team_compiler/settings.md` "CLI"): **0** clean (Warning and Info findings allowed when
-they drop nothing), **1** not clean (unmigrated content, an Error finding, a finding that drops
-something, the unknown team, or an archive that does not
-extract, reported `export_extract_failed` as the compiler does; the draft, when written, is
-kept for manual repair, "Verification"), **2** invalid invocation (a missing input path, an
+they drop nothing but a leftover, step 10), **1** not clean (unmigrated content, an Error
+finding, a finding that drops something else, the unknown team, or an archive that does not
+extract, reported `export_extract_failed` as the compiler does; nothing is written,
+"Verification"), **2** invalid invocation (a missing input path, an
 `upgrade` input that is a file other than a `.zip` or `.7z`, an `upgrade-models` input that is
 not a folder, the flags above, a savefile that
 does not read as a save or lacks the team; nothing is written), **3** aborted: before anything
@@ -803,10 +818,15 @@ refined with the maintainer before `view/` is written:
   path, the finding's code and the entry's context (a Note line, a kit config's error), so the
   author sees in one place what to move by hand. For `upgrade-models` the per-folder "where it
   goes" lines are the log's, as the CLI prints them, and the list holds the folders it left
-  out. The run ends with the exit code's meaning in words (clean; not clean, see the
-  list; refused; aborted) and, when output was written (clean or not clean), the notice
-  `Upgraded <name> · [Open output folder]` in the status bar; a refused or aborted run
-  publishes none, having nothing to open.
+  out. The run ends with the exit code's meaning in words (clean; not clean, nothing written,
+  see the list; refused; aborted). A clean run, the only one that writes output, also gets the
+  notice `Upgraded <name> · [Open output folder]` in the status bar and, in the view's done
+  line, a **Move to exports and compile** button: the output is moved into the exports folder
+  and the Team compiler made active (`ctx.switch_to_tool`, as the Refs arranger hands off),
+  the watcher then checking it like any dropped export. It is a button rather than the
+  notice's action because a notice carries at most one (`spec/core/gui.md` "Status bar"), and
+  Open output folder stays useful to a member who compiles elsewhere. Any other run publishes
+  no notice, having nothing to open.
 - No settings section: the tool has no settings (step 6: the teams list path is the compiler's).
 
 ## Message catalog
@@ -822,9 +842,11 @@ validation's findings on what was written.
 | `export_extract_failed` | E | the archive does not open or its listing is refused (the compiler's code); nothing is written | `path`, `error` |
 | `source_read_failed` | E | a file of the input does not read after its listing did (the compiler's code); it is not migrated and the run goes on, unless it is the Note, which decides the team: then nothing is written | `path`, `error` |
 | `team_name_unknown` | E | the team resolves to no row of the list (the compiler's code), the `Team:` line's file or the export named; nothing is written | `name` |
-| `unmigrated_content` | E | an input file no step migrates (step 10), entry by entry; a Note entry whose colors do not read is one, its line in the context, and so is a kit config that does not decode (step 5), its error in the context | `line` (a Note entry), `error` (a kit config) |
-| `migration_clean` | I | last line: no Error finding, and no finding drops anything ("Verification"'s clean migrated export); exit 0 | — |
-| `migration_not_clean` | I | last line otherwise: the output is a draft for manual repair ("Verification"); exit 1, a Warning that drops a folder included, since the compile would lose it | — |
+| `unmigrated_content` | E | an entry inside the old format's folders that no step migrates (step 10; a leftover outside them is `leftover_dropped`), entry by entry; a Note entry whose colors do not read is one, its line in the context, and so is a kit config that does not decode (step 5), its error in the context | `line` (a Note entry), `error` (a kit config) |
+| `migration_clean` | I | last line: no Error finding, and no finding drops anything but a leftover ("Verification"'s clean migrated export); exit 0 | — |
+| `migration_not_clean` | I | last line otherwise: nothing is written ("Verification"); exit 1, a Warning that drops a folder included, since the compile would lose it | — |
+| `leftover_dropped` | W | step 10: content outside the old format's layout, not written; the run stays clean | — |
+| `mtl_stray_text_dropped` | I | step 7: an old `.mtl` held text between its elements, dropped as the file is written back | — |
 
 The shared validation's codes (`aesthetics_export::ISSUE_CODES`) keep the Team compiler's
 severity (`spec/team_compiler/messages.md` "Catalog"), each run-dependent one taken as for a
@@ -853,13 +875,22 @@ For each migration the upgrader writes an in-memory/output draft, enumerates it 
 `vtree::ScopePath` entries plus small metadata, parses that listing back through
 `aesthetics_export::parse_listing` as `ParsedAestheticsExport`, runs the shared validation, and reports every
 scoped issue. The validation is for the savefile's version (in loose mode, PES 21, or PES 16 when
-the export holds a `.model` file: old exports are single-engine, and the version decides only
-which model names are allowed) in a fixed context, not the compiler's settings: no
+the export holds a `.model` file outside its leftovers, step 10: old exports are single-engine,
+and the version decides only which model names are allowed; a leftover does not decide it,
+because the real KFG VGL26 export, a Fox one, keeps `.model` copies of its boots in a side
+folder `FMDL Boots/`, and counted they made it migrate as pre-Fox, where item folders never
+merge, its 23 single-wearer boots folders kept shared past the block's 17 shared IDs) in a
+fixed context, not the compiler's settings: no
 pass-through, no strict file-type check (the compiler's setting is on by default), no installed
 Common textures. Shared validation may produce a sanitized `ValidatedAestheticsExport` with ineligible
-files/folders omitted, but the upgrader applies a stricter publication rule: only a report with no
-errors and no dropped scopes is labeled a clean migrated export. Any other draft remains available
-for manual repair rather than being mislabeled as fully migrated. Fixtures cover both old
+files/folders omitted, but the upgrader applies a stricter publication rule: **it writes its
+output only when the migration is clean**, no Error finding and no finding that drops anything
+but a leftover (step 10's `leftover_dropped` Warnings, content outside the old format).
+Otherwise nothing is written and the report is the run's whole result: either the input is not
+a clean old export and is fixed first, or the upgrader failed to migrate a clean one and is
+fixed. We do not write a draft for manual repair, because every Studio export is upgraded once,
+from a clean Red export, and a half-migrated one handed on would be compiled as if it were whole,
+the losses the report named forgotten. Fixtures cover both old
 `ingame_face` spellings and assert one canonical bare marker in the migrated player folder;
 savefile names with colour codes (see the pes_savefile plan) and assert a plain folder name plus an
 explicit `name = "..."` preserving the codes; a Red-era referee export, asserting that its

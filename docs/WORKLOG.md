@@ -14,15 +14,13 @@ is in `AGENTS.md` ("Working documents").
 (`music_export`, its plan section, `pub` audit and whole-crate mutation run done; converging
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"; the
-lead's audit found one gap, step 6.10, a referee tracer, done, which found the team tracers'
-references compiled by unreleased Red, step 6.11, done (the same output); its mutation run's survivors are
-tested or ruled equivalent; SWE-2's converge round found nothing to accept; Astra's first
-converge round accepted 9, among them the missing library parity, step 6.12), then Astra's
-second converge round; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
-and the shell's draft (`docs/prototypes/shell.html`, step 8.2) is done, waiting for the
-maintainer's remarks. Parallel tracks:
-`.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
+**Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"):
+every converge review loop has ended (2026-10-19) and the close mutation run of
+`export_upgrader` is triaged (2 missed, the placeholder views, worklog 8.3); then 6.13c's upgrader half, 6.14 (an upgrade writes a clean export
+or nothing: the scenarios first), 6.12c (the library run), the plans-to-spec move and the
+worklog's collapse. 8.0's acceptance sections are reviewed and the shell's draft
+(`docs/prototypes/shell.html`, step 8.2) waits for the maintainer's remarks. Side-leads are
+paused (single lead + SWE-2); the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -811,7 +809,8 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     the top lead in `.tmp/6_12/classes.md` of the worktree, with `pilot_tally.txt` (copies in
     the main checkout's `.tmp/6_12/`)
   - [ ] 6.12c the library: the other ~290 upgradable inputs through Red and `red_parity`
-    (about 4 s of Red and 2 s of ours each), Red rerun on input 106, disk bounded per export
+    (about 4 s of Red and 2 s of ours each), pre-Fox ones compiled for PES 17
+    (`--prefox-version 17`), Red rerun on input 106, disk bounded per export
     (keep both CPK sets' hash manifests, Red's logs and `parity.tsv`; the copies and CPKs
     removed after comparing; the 10 GB floor checked before each job and before any gates
     run); the scripts in the worktree's `.tmp/6_12/` (`red_pilot.py`, `pilot_tally.py`) →
@@ -819,22 +818,51 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     one diagnosed, each stricter-than-Red class's export list ready for the maintainer
 - [ ] 6.13 the library parity's defects (6.12a-b, `.tmp/6_12/classes.md` C1-C3, and the top
   lead's D), each reproduced on its real export before it is fixed:
-  - [ ] 6.13a a `Common/` `.model` of a pre-Fox export goes through the pose pre-check and
-    `mtl_search` pairs the wrong `.mtl` (`apc.mtl` where `fbm.mtl` defines `fbm_u`):
-    `model_conversion_failed` on 4 VG 2018 exports, which Red packs untouched under
-    `common/<id>/`; first why a Common model is converted at all, then the pairing
-  - [ ] 6.13b 23 worn boots folders kept shared (step 3's rule for a same-named texture with
-    other bytes in the face folder) need 23 shared IDs where the block leaves 17:
-    `boots_id_pool_exhausted` drops KFG VGL26 whole, which Red compiled under the folders' own
-    IDs; the rule or the allocation, decided from the plan's step 3 and `player_folders.md`
-  - [ ] 6.13c an `.mtl` with a stray text node (G Autumn 25's `Players/17 - Lisa/apc.mtl`, a `\`
-    after a `<sampler/>`) is `mtl_broken` where Red's ElementTree ignores it: `pes_model`'s
-    `MaterialSet::read` tolerating text between elements, if the census shows no file where
-    such text means something
-  - [ ] 6.13d the upgrader's loose mode validates pre-Fox at PES 16 (DECISIONS 2026-10-18 "its
-    own input read" (5)) while the cup plays PES 17 (`spec/core/development_plan.md` "Target
-    versions"): 8 exports fail a PES-16-only rule (`xml_oral_prefix_missing`); validating at
-    17 instead, the plan's step 11 and "Verification" edited and a decision logged
+  - [x] 6.13a (2026-10-19) the `.mtl` search's name match reads a model stem carrying both
+    `oral_` and `_win32` without them, as Red does (`spec/model_format.md`, DECISIONS
+    2026-10-19): the 4 VG 2018 exports' `Common/oral_fbm_u_win32.model` paired `apc.mtl` by
+    "any" where `fbm.mtl` defines `fbm_u`, failing its conversion pre-check and the whole
+    Common task (the pre-check itself is the plan's: an off-skeleton Common model is re-bound);
+    `mtl_search.rs` (`match_stem`), `face_xml.rs` (the affix consts shared), a `CommonModels`
+    task test in `processing/mod.rs`
+  - [x] 6.13b no code (2026-10-19): `boots_id_pool_exhausted` on KFG VGL26 came from a
+    half-migrated output. The export is Fox, but its side folder `FMDL Boots/` (unmigrated
+    content) holds `boots.model` copies, which made loose mode migrate it as pre-Fox, where
+    item folders never merge: 23 single-wearer boots folders stayed shared, past the block's
+    17 shared IDs (no `merge_kept_shared`: the class note's byte-clash reading was wrong).
+    A copy without `FMDL Boots/` upgrades clean (exit 0) with the 23 boots merged into the
+    player folders (`.tmp/6_13/b/up2`); the fix, a leftover not deciding the engine, is 6.14's
+  - [ ] 6.13c an `.mtl` with a stray text node (G Autumn 25's `72117 - Lisa/apc.mtl`, a `\`
+    after a `<sampler/>`) is `mtl_broken` where Red's ElementTree ignores it (census: 3 such
+    files of 12,755, all typos). The compiler stays strict; the upgrader cleans it (AGENTS.md
+    "Fundamental concepts", DECISIONS 2026-10-19, plan step 7, `mtl_stray_text_dropped`):
+    - [x] `pes_model`: `MaterialSet::read_dropping_stray_text` beside the strict `read`, one
+      shared parse (`format/mtl.rs`, 2026-10-19)
+    - [ ] `export_upgrader`: every old `.mtl` read with it and written back when it dropped
+      text; one that does not parse even so is unmigrated content (after the close mutation
+      run) → verify: G Autumn 25 upgrades with Lisa's `apc.mtl` cleaned, and compiles
+  - [x] 6.13d not an upgrader defect (2026-10-19): `xml_oral_prefix_missing` is the compiler's
+    PES 16-only rule, which the upgrader cannot report, and its shared validation reads only
+    the version's engine, so 16 or 17 gives one outcome; the 8 exports met it because the
+    census compiled each pre-Fox output for PES 16. 6.12c compiles them for 17, the cup's
+    version (`compile_census.py --prefox-version 17`)
+- [ ] 6.14 an upgrade writes a clean export or nothing (maintainer, 2026-10-19; AGENTS.md
+  "Fundamental concepts", DECISIONS 2026-10-19, plan "Verification", "CLI", "GUI", catalog
+  `migration_not_clean`, written): the run with any Error, or a finding that drops anything but
+  a leftover, writes no output; a leftover outside the old format's layout (step 10: a
+  top-level folder the AET does not define, a root file other than the Note, `Other/`'s files)
+  is dropped with `leftover_dropped` (W) and the run stays clean (maintainer, the same day),
+  and a leftover's `.model` does not make the migration pre-Fox (6.13b: the real KFG VGL26
+  export then upgrades clean as Fox, its `FMDL Boots/` reported).
+  First the plan's scenarios that assert output contents beside exit 1
+  (about 17, `grep -n "exit code is 1" plans/export_upgrader.md`) rewritten by the lead: each
+  THEN says nothing is written, its positive content moved to a clean twin where no other
+  scenario covers it; then the code and tests (SWE-2), then `mutants-diff`. → verify: the 6.9b
+  census rerun, every exit 1 run writing nothing, no exit 0 run lost (229 before), the
+  leftovers' runs now clean; the classes of real exports that still fail (`Boots/` items in
+  19 inputs, `Kit Textures/` in 11, portraits in 8, `.tmp/6_13/unmigrated_tally.py`) each
+  diagnosed with the maintainer's check: an input defect, or an upgrader gap fixed under
+  this step
 
 ### Phase 8 — GUI
 
@@ -877,6 +905,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   `FontDefinitions` → verify: every view drawn with the emoji fonts removed shows no missing
   glyph (egui's own widgets draw a few symbols from them), and the exe shrinks by about 0.7 MiB
   (`spec/core/distribution.md` "Size budget")
+- [ ] 8.3 carried into the itemizing (2026-10-19): the placeholder `view` and `settings_view`
+  of `export_upgrader` and `save_editor` (`lib.rs`, one label each) are the mutants their
+  whole-crate runs left missed, deferred because no headless test exists for a label; each
+  tool's view brings its own tests (EU-GUI, SE-GUI) and the placeholders go, so the next
+  whole-crate run of each crate measures them
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,
@@ -1250,13 +1283,6 @@ points there.
   name replaces it (the plan's copy with local files on top). On pre-Fox no merged model
   makes the texture ambiguous, so the player's could win too; the plan's step 6 rule is
   engine-wide today. Safe as it is (an Error, nothing wrong written).
-- open (2026-10-17, 6.0b Astra review A.A1; deferred until the cup next plays a pre-Fox
-  version) — the compiler's `.mtl` search (`mtl_search.rs`, `spec/model_format.md` "Pre-Fox:
-  the `.mtl` a `.model` uses") matches the literal stem, while Red strips `oral_` and `_win32`
-  from a model named with both before matching (`xml_editing.py`), and names `face_high_win32`'s
-  `face_neck`: a hand-made Studio folder with `oral_parts_body_win32.model` beside
-  `parts_body.mtl` and `materials.mtl` gets `materials.mtl` where Red chose `parts_body.mtl`.
-  The upgrader drops the wrappers (its step 7), so migrated folders are not affected.
 - open (found at 4.14c2's review) — pre-Fox Common: a texture link whose target only an
   installed CPK holds is still `common_link_missing` on PES 15-17
   (`installed_common_textures` is empty there; the Fox walk's stems are `.ftex` paths). A
