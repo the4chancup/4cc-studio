@@ -14,8 +14,8 @@ is in `AGENTS.md` ("Working documents").
 (`music_export`, its plan section, `pub` audit and whole-crate mutation run done; converging
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): 6.8 (model-folder mode), with 6.7's Astra round
-(checkpoint b) owed; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
+**Next:** Phase 6 (Export upgrader): 6.9 (the parity test and the census), with 6.8's Astra
+round (checkpoint b, `side/6.8`) owed; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
 and the shell's draft (`docs/prototypes/shell.html`) is on a side branch. Parallel tracks:
 `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
@@ -667,8 +667,21 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   real GBFG VGL26 gloves `g2522`/`g2523` named in step 11 as reported by design; files:
   `export_upgrader/src/{players,settings,upgrade,messages}.rs`, `help/01_command_line.md`,
   `tests/cli/{loose,report,players,main}.rs`, `plans/export_upgrader.md` step 11
-- [ ] 6.8 model-folder mode (`upgrade-models`) → verify: EU-MF-*, EU-CLI-* (the rest, and
-  EU-CLI-04's and EU-CLI-05's `upgrade-models` halves: their tests cite the `upgrade` half only)
+- [x] 6.8 model-folder mode (`upgrade-models`) → verify: EU-MF-*, EU-CLI-* (the rest, and
+  EU-CLI-04's and EU-CLI-05's `upgrade-models` halves: their tests cite the `upgrade` half only).
+  Done 2026-10-19 (side-lead F on `side/6.8`): EU-MF-01 to -06, EU-CLI-06 and the
+  `upgrade-models` halves of EU-CLI-04/05 proven. The copies are staged in the export layout
+  step 7's functions read and published one level up; a third `Identity` (no team) keeps `???`
+  and `u0???g` as written; the staged listing is validated as `models Midcup`, the placement
+  findings left out (DECISIONS 2026-10-19 "model-folder mode's input, names, validation and
+  report line"; plan "Model-folder mode" and "CLI" filled in, EU-CLI-04 widened, EU-MF-05/06
+  added). Review: SWE-2 round 6.8.S1 4 accepted, 2 rejected (loop ended; `.tmp/6_8/rulings.md`):
+  a folder is a model folder when it holds any file directly in it (5 of the 23 real /jp/ 2024
+  Winter Cup face folders hold no model), an empty folder is reported, EU-MF-05 for the
+  placement test, the help's link wording. Mutation diff 82 mutants, 3 missed: two tested, one
+  equivalent (`.cargo/mutants.toml`). Files: `export_upgrader/src/{model_folders,upgrade,cli,
+  source,messages,kit_magic,materials,face_xml,naming,players,lib}.rs`,
+  `help/01_command_line.md`, `tests/cli/{models,cli,carried,main}.rs`, `tests/common/mod.rs`
 - [ ] 6.9 the parity test (`team_compiler/testing.md`: an upgraded export compiles to Red's CPK
   for the old one) and a census of every old export on the maintainer's machine through
   `upgrade` (`AGENTS.md` "Closing a phase", the census template) → verify: every outcome class

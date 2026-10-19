@@ -2152,3 +2152,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.7 (side-lead D, `side/6.7`): loose mode pairs each boots and gloves folder
   by its ID's place in its kind's old block of 25, reporting each pairing (`wearer_assumed`);
   EU-REP-01 and -03 proven; SWE-2 6.7.S1 3 accepted, loop ended.
+- **2026-10-19** — 6.8 (side-lead F, `side/6.8`): `upgrade-models` turns each top-level old
+  model folder into one droppable folder through step 7's functions on a staged layout, its
+  validation leaving placement to the destination; EU-MF-01 to -06 proven; SWE-2 6.8.S1 4 accepted.
