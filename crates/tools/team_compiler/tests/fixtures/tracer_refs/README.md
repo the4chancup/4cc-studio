@@ -1,0 +1,89 @@
+# Referee tracer fixture
+
+One real referee with models in his `face/`, `boots/` and `gloves/` subfolders and textures in
+his `common/`, mapped to three slots, as an old-layout referee export, the Export upgrader's
+output for it, and Red's compiled output for the old one, for PES 2021: the referee
+counterpart of `../tracer/`, compared by the referee case of `tests/parity.rs`. It has no
+hand-made Studio twin: the upgraded export is the one compiled. The scripts that made it are
+in `scripts/provenance/tracer_refs/`.
+
+## `old/refs Tracer/`
+
+Cut down by `make_old.py` from the Fox referee export "refs lan party"
+(`C:\Data\4cc\4cc aet compiler\Test_stuff\refs lan party` on the writing machine, copied before
+the cut), the one Fox referee export there whose referees use the old `face/`, `boots/`,
+`gloves/` and `common/` subfolders: the cup's referee exports there (Winter 25 to Summer 26)
+are pre-Fox, and the other Fox one, `refs fox test`, is a single-referee test with no
+`common/`. The referee is `masterchef`, one of the export's two referees whose `gloves/` holds
+models (`glove_l.fmdl`, `glove_r.fmdl`; the others' holds only `glove.fpk.xml`), the other one,
+`takemeback`, being 25 MB to his 10 MB. Changes from the source:
+
+- the other twelve referees are left out, and `Refs.txt` (the source's spelling, CRLF kept)
+  keeps the three lines naming `masterchef`, `05`, `23` and `24`, so one folder backing
+  several slots stays in the cut;
+- to keep the tree small, `common/arm_1_bsm.dds` and `common/masterchef.dds` (DXT5,
+  2048×2048) keep every eighth 4×4 block in each direction (256×256), `common/hat.dds` (DXT5,
+  1024×1024) every fourth (256×256); headers are rewritten to match, the format is unchanged.
+
+Everything else is byte-identical to the source: `boots/boots.fmdl` and `boots.skl`,
+`gloves/glove_l.fmdl` and `glove_r.fmdl`, `common/normal.dds` and `spec.dds`, `face/face_diff.bin`
+(the face folder holds no model), and the three `*.fpk.xml` files.
+
+## `upgraded/refs Tracer upgraded/`
+
+What the Export upgrader makes of `old/`, as it wrote it. Made at commit `b496f48` by
+`4cc-studio export-upgrader upgrade "old/refs Tracer" -o <dir>` (a referee export takes neither
+`--savefile` nor `--loose`; report: `migration_clean`, exit 0; the name gains ` upgraded`, a
+referee export taking no coverage tag); `export_upgrader`'s tests check that upgrading `old/`
+still gives exactly this tree, so a change to the upgrader's output regenerates it the same
+way. Against `old/`:
+
+- `Refs.txt` is gone and a root `players.txt` maps the same three slots, one LF line each;
+- `Players/masterchef/` holds every file of the four subfolders at its root under its own name,
+  the three `*.fpk.xml` files left out;
+- the three models' texture references into `common/`, `/Assets/pes16/model/character/common/000/sourceimages/<name>`,
+  are repointed to `./`, where the flattened files now are.
+
+## `red/`
+
+The entries of the referee CPK Red compiled from `old/` (`4cc_35_referees.cpk`, 68 files; Red
+writes no team CPK for a run holding a referee export alone), extracted as stored with the
+`cpk` crate. Red 4.4.0, commit `1a48fa5` of `4cc-aet-compiler-red`, branch `main`, run from a
+copy of its folder (`setup_red.py`) with `settings.ini` at its defaults except
+`pes_version = 21`, `cpk_name = 4cc_90_tracer`, `move_cpks = 0`, `pause_allow = 0`,
+`updates_check = 0`, and `pes_folder_path` pointing at a folder that does not exist. Command:
+`Engines\embed\python.exe Engines\compiler_main.py 0 --no-pause` with
+`exports_to_add\refs Tracer\`: "No issues were found". Its 30 referee template entries
+(`Asset/model/character/uniform/texture/#windx11/referee_*.ftex`, `RefereeAppearance.bin`, the
+20 `referee/referee_*.bin` kit configs) are byte-identical to `resources/templates/referees_fox/`.
+
+What the comparison found when it was written, compiling `upgraded/` for PES 21 (the parity
+test's table carries each row):
+
+- each slot's `k99NN` boots FPK and `g99NN` gloves FPK holds the same members, the `.skl`
+  byte-identical; the three models decode to the same model, texture table included: Red and
+  the compiler both point the `common/` textures at the referee's name-keyed common folder,
+  `/Assets/pes16/model/character/common/999/masterchef/sourceimages/`. The model bytes differ
+  in the string table alone, where Red rewrote the old directory strings in place and the
+  compiler appends the new ones, the old ones left unreferenced;
+- the five textures are at the same paths with the same headers and pixels
+  (`masterchef.ftex` byte-identical, the others differing in their zlib chunks only);
+- the `.fpkd` files and the 30 template entries are byte-identical;
+- Red writes a `referee0NN` face FPK holding `face_diff.bin` alone for each slot; the compiler
+  writes no face for a referee whose folder holds no face model, so the game's own referee
+  head stays (`spec/team_compiler/blue_port.md` "Referee export processing"), and reports
+  `face_diff.bin` as `face_file_not_used`;
+- Red copies the source-side `*.fpk.xml` files into the output; the Studio format drops them;
+- the compiler also writes the team side, `4cc_99_test.cpk`, for the bins alone: on PES 18-21
+  each referee kit config is also its entry in `UniformParameter.bin`
+  (`spec/team_compiler/pipeline.md` "Output modes and targets"), whose 20 referee entries are
+  Red's 20 files byte for byte over the bundled `UniformParameter19.bin`, beside the bundled
+  `TeamColor.bin` and `UniColor.bin` unchanged.
+
+The three trees are about 7 MB on disk; git stores identical files once, so the three slots'
+copies of each FPK, the textures `old/` and `upgraded/` share and the template entries
+`resources/` already holds add nothing, and the fixture adds about 1.9 MB of compressed
+objects to the repository (the tracers about 0.8 MB each), most of it the 758 KB boots model in its three forms (`old/`, Red's FPK,
+`upgraded/`). It is committed whole rather than as a hash manifest (`testing.md` "Testing:
+parity against Red (adapted from Blue)") so the parity test runs anywhere, CI included,
+without Red.

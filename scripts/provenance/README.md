@@ -27,6 +27,9 @@ traced back to how it was measured, not as maintained tooling.
   (`make_old.py`), staged Red to compile it (`setup_red.py`) and migrated it to the Studio
   layout (`make_studio.py`): `team_compiler`'s `tests/fixtures/tracer_prefox/`, whose README
   gives the steps.
+- `tracer_refs/` — cut the referee tracer export from a Fox referee export on the writing
+  machine (`make_old.py`) and staged Red to compile it (`setup_red.py`): `team_compiler`'s
+  `tests/fixtures/tracer_refs/`, whose README gives the steps.
 - `calib/` — a standalone Rust crate (own `[workspace]`, so it stays out of the
   root one) that measured kit color calibration for `docs/plans/libs/color_tools.md`.
   Written against the `dds_convert`/`kit_config` API of its day; it currently
