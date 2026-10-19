@@ -9,7 +9,9 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 
+use aesthetics_export::{IssueScope, ValidationIssue};
 use anyhow::anyhow;
+use pes_version::PesVersion;
 use studio_core::{CliError, Disposition, Message, Scope, ToolContext};
 use vtree::ScopePath;
 
@@ -18,12 +20,14 @@ use crate::cli::{ERRORS, UpgradeModelsArgs};
 use crate::face_xml::{face_xml_rewrites, kept_common_files};
 use crate::kit_magic::{drop_collisions, respell_outputs};
 use crate::materials::material_references;
-use crate::messages::{Code, INPUT, OUTPUT, extract_failed, read_failed, tool_message};
+use crate::messages::{
+    Code, INPUT, OUTPUT, extract_failed, issue_message, read_failed, tool_message,
+};
 use crate::model_names::rename_models;
 use crate::players::{ItemKind, clean_folder_name, parse_item_name, path_scope, slot_of};
 use crate::source::{self, OldExport};
 use crate::upgrade::{
-    Identity, RunEvents, aborted, invalid, resolve_input, verdict, write_output_file,
+    Identity, RunEvents, aborted, invalid, output_issues, resolve_input, verdict, write_output_file,
 };
 
 /// Where an output folder of model-folder mode goes once dropped into a
@@ -218,6 +222,53 @@ pub(crate) fn published(staged: &str) -> &str {
     }
 }
 
+/// The validation's findings on where a folder will sit in an export rather
+/// than what it holds, which model-folder mode leaves out: it has no
+/// destination export (plan "Model-folder mode").
+const PLACEMENT_CODES: [&str; 3] = [
+    "player_folder_number_invalid",
+    "player_number_duplicate",
+    "shared_folder_orphaned",
+];
+
+/// The path the validated listing holds a published output path at:
+/// `published`'s inverse. The first segment names a `PlacedFolder`; a
+/// `Players`, `Boots` or `Gloves` one's path goes below that folder,
+/// `Common/`'s stays as it is.
+fn staged(published: &str, folders: &[PlacedFolder]) -> String {
+    let first = published.split('/').next().unwrap_or(published);
+    let Some(folder) = folders.iter().find(|folder| folder.name == first) else {
+        // `run` writes only below a placed folder, so a first segment
+        // naming none cannot appear in the output's listing.
+        return published.to_owned();
+    };
+    match folder.destination {
+        Destination::Root => published.to_owned(),
+        Destination::Players | Destination::Boots | Destination::Gloves => {
+            format!("{}/{published}", folder.destination.staged_top())
+        }
+    }
+}
+
+/// The issue's scope in the published layout the report names: each path's
+/// staged `Players`/`Boots`/`Gloves` top taken back off, `Common/`'s kept.
+fn published_scope(scope: &IssueScope) -> IssueScope {
+    let mapped = |path: &ScopePath| {
+        ScopePath::new(published(path.as_str()))
+            .expect("a validated listing's path stays one with its first segment off")
+    };
+    match scope {
+        IssueScope::Export => IssueScope::Export,
+        IssueScope::Folder(path) => IssueScope::Folder(mapped(path)),
+        IssueScope::File(path) => IssueScope::File(mapped(path)),
+        IssueScope::RosterEntry { file, line, slot } => IssueScope::RosterEntry {
+            file: mapped(file),
+            line: *line,
+            slot: *slot,
+        },
+    }
+}
+
 /// Runs `upgrade-models`: the input checked, the folder listed as it is, the
 /// output folder made, the top level planned and migrated through step 7's
 /// functions on the staged layout, the copies written where they publish,
@@ -280,9 +331,9 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
     // `.mtl` rewrites and the `face.xml` respells against the one list.
     let identity = Identity::ModelFolders;
     let mut plan = model_folder_plan(&export.files);
-    let staged = respell_outputs(std::mem::take(&mut plan.copies), &identity);
-    let kept = kept_common_files(&staged, &identity, |path| export.read(path));
-    let (copies, dropped) = drop_collisions(rename_models(staged, &kept));
+    let respelled = respell_outputs(std::mem::take(&mut plan.copies), &identity);
+    let kept = kept_common_files(&respelled, &identity, |path| export.read(path));
+    let (copies, dropped) = drop_collisions(rename_models(respelled, &kept));
     plan.copies = copies;
     plan.findings.extend(dropped);
     // `Common/` for the materials: the respelled output paths the links are
@@ -349,7 +400,39 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
         ));
     }
 
-    // "Verification": the staged listing's validation (next brief).
+    // "Verification": the shared validation on the output as it will sit
+    // once dropped into an export (the published paths placed back below
+    // their staged tops), as a Midcup export, which needs no kits. PES 16
+    // when an output path holds a `.model`, PES 21 otherwise.
+    let version = if plan
+        .copies
+        .iter()
+        .any(|(_, output)| output.to_ascii_lowercase().ends_with(".model"))
+    {
+        PesVersion::Pes16
+    } else {
+        PesVersion::Pes21
+    };
+    let issues = output_issues(
+        &output,
+        "models Midcup",
+        version,
+        |path| staged(path, &plan.folders),
+        &mut events,
+    );
+    // The placement findings are the destination export's to make once the
+    // folders are dropped in, not this run's, which has none; kept,
+    // `shared_folder_orphaned` would drop every boots and gloves folder.
+    for issue in issues {
+        if PLACEMENT_CODES.contains(&issue.code) {
+            continue;
+        }
+        let issue = ValidationIssue {
+            scope: published_scope(&issue.scope),
+            ..issue
+        };
+        events.message(issue_message(&issue, OUTPUT));
+    }
 
     // "CLI": the verdict line and the exit code, as `upgrade`'s.
     let (code, exit_code) = verdict(events.worst(), events.dropped());
@@ -569,5 +652,24 @@ mod tests {
         );
         assert_eq!(published("Boots/Crocs/x"), "Crocs/x");
         assert_eq!(published("Common/hair.dds"), "Common/hair.dds");
+    }
+
+    #[test]
+    fn staged_places_a_published_path_below_its_folders_top() {
+        let folders = [
+            placed("15 - Snuffy", Destination::Players),
+            placed("Crocs", Destination::Boots),
+            placed("Mitts", Destination::Gloves),
+            placed("Common", Destination::Root),
+        ];
+        assert_eq!(
+            staged("15 - Snuffy/face.fmdl", &folders),
+            "Players/15 - Snuffy/face.fmdl"
+        );
+        assert_eq!(staged("Crocs/x", &folders), "Boots/Crocs/x");
+        assert_eq!(staged("Mitts/x", &folders), "Gloves/Mitts/x");
+        assert_eq!(staged("Common/hair.dds", &folders), "Common/hair.dds");
+        // A first segment naming no placed folder is returned as it is.
+        assert_eq!(staged("Other/x", &folders), "Other/x");
     }
 }

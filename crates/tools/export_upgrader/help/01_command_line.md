@@ -6,6 +6,7 @@ folder that holds `4cc-studio`.
 
 ```text
 4cc-studio export-upgrader upgrade <export> (--savefile <EDIT> | --loose) [-o <dir>]
+4cc-studio export-upgrader upgrade-models <folder> [-o <dir>]
 ```
 
 `upgrade` takes one old export: a folder, a `.zip` or a `.7z`. A team export
@@ -41,6 +42,23 @@ referee's folder as it was, and it is reported. A model of `common/` that no
 `face.xml` of the referee names is left out and reported. A referee export
 without a `refs.txt` has no roster to migrate: it is reported
 (`refs_txt_missing`) and nothing is written.
+
+`upgrade-models` takes a folder of old model folders instead: the face, boots
+and gloves folders lying directly in it, one level deep, plus an optional
+`Common` folder. Each becomes one folder to drop into a Studio export. A face
+folder becomes a player folder `NN - Name` (its number and name from its own
+name, or its own name alone when it has no number), a boots or gloves folder
+becomes a folder named by its name part (`k0430 - Crocs` becomes `Crocs`) or
+by its ID when it has none, and `Common` is upgraded as an export's would be.
+The report names each output folder with where it goes: a player folder drops
+into `Players/`, `Common` at the export's root, and a boots or gloves folder
+drops into `Boots/` or `Gloves/` with a link file added to the wearing
+player's folder, or its files move into a player folder with the model
+renamed `boots.fmdl` or `glove_*.fmdl`. A top-level folder holding no model
+file directly in it is reported as unmigrated content and left out. No team
+is resolved, so a `???` placeholder and the goalkeeper `u0???g` token stay as
+written. The output is the folder `<folder> upgraded` beside the input, or
+the folder `-o` names, which must not exist yet.
 
 The original export is never modified. A file the migration cannot place yet
 is listed in the report as `unmigrated_content`, and the upgraded folder is

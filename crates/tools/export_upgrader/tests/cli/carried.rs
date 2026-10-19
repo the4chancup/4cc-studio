@@ -192,7 +192,7 @@ pub(crate) fn mtl_text(sandbox: &Sandbox, output: &str) -> String {
 
 /// An FMDL of the `konami_highneck` fixture with its texture entries set
 /// from `entries` (`(directory, file_name)` pairs, in table order).
-fn fmdl(entries: &[(&str, &str)]) -> Vec<u8> {
+pub(crate) fn fmdl(entries: &[(&str, &str)]) -> Vec<u8> {
     let mut file = fmdl::FmdlFile::read(
         &std::fs::read(
             std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -213,7 +213,7 @@ fn fmdl(entries: &[(&str, &str)]) -> Vec<u8> {
 }
 
 /// The `(directory, file_name)` entries of `output`'s written FMDL.
-fn fmdl_paths(sandbox: &Sandbox, output: &str) -> Vec<(String, String)> {
+pub(crate) fn fmdl_paths(sandbox: &Sandbox, output: &str) -> Vec<(String, String)> {
     let file = fmdl::FmdlFile::read(&fs::read(sandbox.path(output)).unwrap()).unwrap();
     fmdl::ops::paths::texture_paths(&file)
         .unwrap()

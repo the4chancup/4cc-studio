@@ -4,14 +4,14 @@
 //! the identity, the output folder, the migration report and the shared
 //! validation's findings on what was written.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::io;
 use std::path::{Path, PathBuf};
 
 use aesthetics_export::{
     CanonicalListing, ListedEntry, ListedKind, SmallMetadata, SourceError, ValidationContext,
-    is_small_metadata, parse_listing, read_colors_txt,
+    ValidationIssue, is_small_metadata, parse_listing, read_colors_txt,
 };
 use anyhow::anyhow;
 use pes_savefile::EditFile;
@@ -787,43 +787,81 @@ fn embedded_teams_list() -> TeamsList {
 /// every issue on the output export; nothing when the listing cannot be read
 /// or parsed (`export_extract_failed`, already reported).
 fn validate_output(output: &Path, output_name: &str, version: PesVersion, events: &mut RunEvents) {
+    for issue in output_issues(output, output_name, version, |path| path.to_owned(), events) {
+        events.message(issue_message(&issue, OUTPUT));
+    }
+}
+
+/// The shared validation's issues on the folder `output` ("Verification"),
+/// each listed path given to the validation at `place(path)` (every
+/// ancestor of a placed path listed as a folder too), its small metadata
+/// read from where it was written, the listing named `display_name`. Empty,
+/// `export_extract_failed` on the output reported instead, when the
+/// listing cannot be read or parsed.
+pub(crate) fn output_issues(
+    output: &Path,
+    display_name: &str,
+    version: PesVersion,
+    place: impl Fn(&str) -> String,
+    events: &mut RunEvents,
+) -> Vec<ValidationIssue> {
     let (files, folders) = match source::list_folder(output) {
         Ok(listed) => listed,
         Err(failure) => {
             events.message(extract_failed(OUTPUT, failure));
-            return;
+            return Vec::new();
         }
     };
-    let mut metadata = BTreeSet::new();
+    let mut metadata = BTreeMap::new();
     let mut entries = Vec::new();
     for (path, size) in &files {
-        if is_small_metadata(path) {
-            metadata.insert(path.clone());
+        let placed = place(path);
+        if is_small_metadata(&placed) {
+            metadata.insert(
+                placed.clone(),
+                fs::read(output.join(path)).map_err(|error| error.to_string()),
+            );
         }
         entries.push(ListedEntry {
-            path: path.clone(),
+            path: placed,
             kind: ListedKind::File { size: *size },
         });
     }
+    let mut placed_folders: BTreeSet<String> = BTreeSet::new();
     for path in &folders {
+        placed_folders.insert(place(path));
+    }
+    // Every ancestor of a placed path is listed as a folder too: the staged
+    // `Players`/`Boots`/`Gloves` tops exist nowhere on disk.
+    let mut ancestors: BTreeSet<String> = BTreeSet::new();
+    for placed in placed_folders
+        .iter()
+        .cloned()
+        .chain(entries.iter().map(|entry| entry.path.clone()))
+    {
+        let mut rest = placed.as_str();
+        while let Some((parent, _)) = rest.rsplit_once('/') {
+            ancestors.insert(parent.to_owned());
+            rest = parent;
+        }
+    }
+    for path in &folders {
+        entries.push(ListedEntry {
+            path: place(path),
+            kind: ListedKind::Folder,
+        });
+    }
+    for path in ancestors.difference(&placed_folders) {
         entries.push(ListedEntry {
             path: path.clone(),
             kind: ListedKind::Folder,
         });
     }
-    let metadata = SmallMetadata {
-        files: metadata
-            .into_iter()
-            .map(|path| {
-                let bytes = fs::read(output.join(&path)).map_err(|error| error.to_string());
-                (path, bytes)
-            })
-            .collect(),
-    };
     let listing = CanonicalListing {
-        display_name: output_name.to_owned(),
+        display_name: display_name.to_owned(),
         entries,
     };
+    let metadata = SmallMetadata { files: metadata };
     let parsed = match parse_listing(listing, metadata) {
         Ok(parsed) => parsed,
         Err(error) => {
@@ -832,7 +870,7 @@ fn validate_output(output: &Path, output_name: &str, version: PesVersion, events
                 SourceError::Collision { path, error } => (path, error.to_string()),
             };
             events.message(extract_failed(OUTPUT, SourceFailure { path, error }));
-            return;
+            return Vec::new();
         }
     };
     let context = ValidationContext {
@@ -841,10 +879,7 @@ fn validate_output(output: &Path, output_name: &str, version: PesVersion, events
         pass_through: false,
         installed_common_textures: BTreeSet::new(),
     };
-    let report = parsed.validate(&context);
-    for issue in &report.issues {
-        events.message(issue_message(issue, OUTPUT));
-    }
+    parsed.validate(&context).issues
 }
 
 #[cfg(test)]

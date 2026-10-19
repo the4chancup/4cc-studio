@@ -3,6 +3,7 @@
 
 use std::fs;
 
+use crate::carried::{fmdl, fmdl_paths, mtl, mtl_text};
 use crate::common::{Run, Sandbox, snapshot};
 
 /// `upgrade-models <input> <extra_args>`.
@@ -78,4 +79,202 @@ fn the_output_is_a_sibling_folder_holding_one_folder_per_input_folder() {
         stdout.contains("model_folder_destination at k0431 (into=Boots)"),
         "{stdout}"
     );
+}
+
+// EU-MF-01
+#[test]
+fn each_input_folder_is_migrated_and_its_destination_reported() {
+    let sandbox = Sandbox::new("mf_folders");
+    sandbox.write(
+        "new models/XXX15 - Snuffy/face.fmdl",
+        &fmdl(
+            &[(
+                "/Assets/pes16/model/character/face/real/00000/sourceimages/",
+                "u0XXXp1.dds",
+            ); 4],
+        ),
+    );
+    sandbox.write("new models/XXX15 - Snuffy/u0XXXp1.dds", b"p1");
+    sandbox.write("new models/k0430 - Crocs/gloveL_crocs.model", b"gloves");
+    sandbox.write("new models/k0431/boots.model", b"boots");
+    sandbox.write("new models/Snuffy/hair.model", b"hair");
+    sandbox.write("new models/Snuffy/ingame_face.txt", b"");
+    sandbox.write("new models/Common/u0XXXp0.dds", b"p0");
+
+    let run = upgrade_models(&sandbox, "new models", &[]);
+    assert!(
+        sandbox
+            .path("new models upgraded/15 - Snuffy/kit1.dds")
+            .exists(),
+        "{}",
+        run.stdout()
+    );
+    for entry in sandbox.listing("new models upgraded") {
+        assert!(!entry.contains("u0XXX"), "{entry}");
+    }
+    for (directory, file_name) in fmdl_paths(&sandbox, "new models upgraded/15 - Snuffy/face.fmdl")
+    {
+        assert_eq!((directory.as_str(), file_name.as_str()), ("./", "kit1.dds"));
+    }
+    assert!(
+        sandbox
+            .path("new models upgraded/Crocs/crocs_gloveL.model")
+            .exists()
+    );
+    assert!(
+        sandbox
+            .path("new models upgraded/k0431/boots.model")
+            .exists()
+    );
+    assert_eq!(
+        fs::read(sandbox.path("new models upgraded/Snuffy/ingame_face")).unwrap(),
+        b""
+    );
+    assert!(
+        !sandbox
+            .path("new models upgraded/Snuffy/ingame_face.txt")
+            .exists()
+    );
+    assert!(sandbox.path("new models upgraded/Common/kitF.dds").exists());
+    let stdout = run.stdout();
+    assert_eq!(
+        stdout.matches("model_folder_destination").count(),
+        5,
+        "{stdout}"
+    );
+    for line in [
+        "model_folder_destination at 15 - Snuffy (into=Players)",
+        "model_folder_destination at Snuffy (into=Players)",
+        "model_folder_destination at Crocs (into=Boots)",
+        "model_folder_destination at k0431 (into=Boots)",
+        "model_folder_destination at Common (into=root)",
+    ] {
+        assert!(stdout.contains(line), "{line}: {stdout}");
+    }
+    // The pre-Fox engine's code: the output holding `.model` files is
+    // validated as PES 16 (under PES 21 this is `fmdl_name_invalid`).
+    assert!(stdout.contains("model_name_invalid at Crocs"), "{stdout}");
+}
+
+// EU-MF-02
+#[test]
+fn common_references_and_links_resolve_in_the_staged_export() {
+    let sandbox = Sandbox::new("mf_common_links");
+    sandbox.write("new models/XXX07 - A/face_high_win32.model", b"face");
+    sandbox.write(
+        "new models/XXX07 - A/face.mtl",
+        &mtl(&[
+            "model/character/uniform/common/XXX/hair.dds",
+            "model/character/uniform/common/XXX/gone.dds",
+        ]),
+    );
+    sandbox.write("new models/XXX07 - A/kit.mtl.common", b"");
+    sandbox.write("new models/Common/hair.dds", b"hair");
+    let kit = mtl(&["./face.dds"]);
+    sandbox.write("new models/Common/kit.mtl", &kit);
+    sandbox.write("new models/Common/face.dds", b"face texture");
+
+    let run = upgrade_models(&sandbox, "new models", &[]);
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    let face = mtl_text(&sandbox, "new models upgraded/07 - A/face.mtl");
+    for expected in ["./hair.dds", "model/character/uniform/common/XXX/gone.dds"] {
+        assert!(face.contains(expected), "{expected}: {face}");
+    }
+    assert_eq!(
+        fs::read(sandbox.path("new models upgraded/07 - A/hair.dds.common")).unwrap(),
+        b""
+    );
+    let stdout = run.stdout();
+    assert!(
+        stdout.contains(
+            "common_reference_kept at XXX07 - A/face.mtl (reference=model/character/uniform/common/XXX/gone.dds)"
+        ),
+        "{stdout}"
+    );
+    assert_eq!(
+        fs::read(sandbox.path("new models upgraded/Common/kit.mtl")).unwrap(),
+        kit
+    );
+    assert!(
+        sandbox
+            .path("new models upgraded/07 - A/kit.mtl.common")
+            .exists()
+    );
+    for code in [
+        "link_target_missing",
+        "common_link_missing",
+        "player_folder_number_invalid",
+    ] {
+        assert!(!stdout.contains(code), "{code}: {stdout}");
+    }
+}
+
+// EU-MF-03
+#[test]
+fn a_folder_holding_no_model_file_is_unmigrated_content() {
+    let sandbox = Sandbox::new("mf_unmigrated");
+    sandbox.write("new models/players/Ann/face.fmdl", b"face");
+    sandbox.write("new models/XXX07 - A/face.fmdl", b"face");
+
+    let run = upgrade_models(&sandbox, "new models", &[]);
+    let stdout = run.stdout();
+    assert_eq!(run.exit_code(), 1, "{stdout}");
+    assert!(stdout.contains("unmigrated_content at players"), "{stdout}");
+    assert!(!sandbox.path("new models upgraded/players").exists());
+    assert!(
+        sandbox
+            .path("new models upgraded/07 - A/face.fmdl")
+            .exists()
+    );
+}
+
+// EU-MF-04
+#[test]
+fn a_goalkeeper_token_is_kept_as_written_without_a_team() {
+    let sandbox = Sandbox::new("mf_keeper_token");
+    sandbox.write(
+        "new models/XXX01 - Keeper/face.fmdl",
+        &fmdl(&[(
+            "/Assets/pes16/model/character/face/real/00000/sourceimages/",
+            "u0XXXg1.dds",
+        )]),
+    );
+    sandbox.write("new models/XXX01 - Keeper/u0XXXg1.dds", b"gk");
+
+    let run = upgrade_models(&sandbox, "new models", &[]);
+    assert!(
+        sandbox
+            .path("new models upgraded/01 - Keeper/u0XXXg1.dds")
+            .exists(),
+        "{}",
+        run.stdout()
+    );
+    assert_eq!(
+        fmdl_paths(&sandbox, "new models upgraded/01 - Keeper/face.fmdl")[0],
+        ("./".to_owned(), "u0XXXg1.dds".to_owned())
+    );
+}
+
+// EU-MF-01
+#[test]
+fn the_staged_validation_leaves_the_placement_findings_to_the_destination() {
+    let sandbox = Sandbox::new("mf_placement");
+    // Two player folders of one slot, one folder without a number and a
+    // boots folder nobody links: the numbering and link findings are the
+    // destination export's to make, not this run's.
+    sandbox.write("new models/XXX15 - A/face.fmdl", b"face");
+    sandbox.write("new models/XXX15 - B/face.fmdl", b"face");
+    sandbox.write("new models/Snuffy/face.fmdl", b"face");
+    sandbox.write("new models/k0431/boots.fmdl", b"boots");
+
+    let run = upgrade_models(&sandbox, "new models", &[]);
+    let stdout = run.stdout();
+    assert_eq!(run.exit_code(), 0, "{stdout}");
+    for code in [
+        "player_folder_number_invalid",
+        "player_number_duplicate",
+        "shared_folder_orphaned",
+    ] {
+        assert!(!stdout.contains(code), "{code}: {stdout}");
+    }
 }
