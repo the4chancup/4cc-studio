@@ -24,7 +24,7 @@ use crate::plan::roles::{
     FolderModels, PlayerFile, below_common, common_folder, file_stem, player_file,
 };
 use crate::texture_lookup::{self, TextureFolders, TexturePlace};
-use crate::user_face_xml::{Reference, reference};
+use crate::user_face_xml::{Reference, common_segment_invalid, reference};
 
 /// Where the textures a `.mtl`'s paths name may come from, each by its folded stem.
 pub(super) struct TextureSources<'a> {
@@ -135,13 +135,19 @@ fn supply(path: &str, sources: &TextureSources) -> Supply {
 /// naming the file, the path as written and the materials naming it, in the `.mtl`'s order.
 /// When one of those materials is among `used`, the names the meshes of the models paired with
 /// the `.mtl` bind, it is `mtl_texture_not_found`, else `mtl_texture_unused_missing`; both keep
-/// what holds the `.mtl`.
+/// what holds the `.mtl`. On a pre-Fox target (`engine`), a Common path whose folder after
+/// `common/` is not three characters is `mtl_common_path_invalid` instead, which discards
+/// what holds the `.mtl` (`xml_common_path_invalid`'s rule for a `.mtl`: on Fox the paths
+/// are rewritten at conversion, so the rule is meaningless there). `scope` is a model folder's
+/// `Folder` (the `.mtl` of a player or shared folder's tree, whose finding drops the folder)
+/// or a `Common/` `.mtl`'s `File` (whose finding drops the file alone).
 pub(super) fn texture_findings(
     name: &str,
     materials: &[MaterialRead],
     used: &BTreeSet<&str>,
     sources: &TextureSources,
     scope: &IssueScope,
+    engine: Engine,
 ) -> Vec<ContentFinding> {
     // Each distinct path with the materials naming it, in the order the `.mtl` names them.
     let mut named: Vec<(&str, Vec<&str>)> = Vec::new();
@@ -160,16 +166,46 @@ pub(super) fn texture_findings(
             }
         }
     }
+    // On Fox the paths are rewritten at conversion, so the rule is meaningless there.
+    let checks_common = match engine {
+        Engine::PreFox => true,
+        Engine::Fox => false,
+    };
     named
         .into_iter()
-        .filter(|(path, _)| supply(path, sources) == Supply::Missing)
-        .map(|(path, naming)| {
+        .filter_map(|(path, naming)| {
+            if checks_common
+                && let Reference::Common { segment, .. } = reference(path)
+                && common_segment_invalid(&segment)
+            {
+                return Some(ContentFinding {
+                    code: Code::MtlCommonPathInvalid.as_str(),
+                    scope: scope.clone(),
+                    context: vec![
+                        ("file", name.to_owned()),
+                        ("attribute", "path".to_owned()),
+                        ("value", path.to_owned()),
+                    ],
+                    // A `Common/` `.mtl` is a file of `Common/`; a folder's takes the folder.
+                    // The call's other scopes do not reach here.
+                    disposition: match scope {
+                        IssueScope::File(_) => Disposition::DropFile,
+                        IssueScope::Folder(_)
+                        | IssueScope::Export
+                        | IssueScope::RosterEntry { .. } => Disposition::DropFolder,
+                    },
+                    pass_through_eligible: false,
+                });
+            }
+            if supply(path, sources) != Supply::Missing {
+                return None;
+            }
             let code = if naming.iter().any(|material| used.contains(material)) {
                 Code::MtlTextureNotFound
             } else {
                 Code::MtlTextureUnusedMissing
             };
-            ContentFinding {
+            Some(ContentFinding {
                 code: code.as_str(),
                 scope: scope.clone(),
                 context: vec![
@@ -179,7 +215,7 @@ pub(super) fn texture_findings(
                 ],
                 disposition: Disposition::Keep,
                 pass_through_eligible: false,
-            }
+            })
         })
         .collect()
 }
@@ -731,6 +767,7 @@ mod tests {
             &used.iter().copied().collect(),
             &sources,
             &scope,
+            Engine::PreFox,
         )
     }
 
@@ -788,5 +825,113 @@ mod tests {
                 finding("mtl_texture_not_found", "./eye.dds", "head"),
             ]
         );
+    }
+
+    #[test]
+    fn a_common_path_whose_segment_is_not_three_characters_is_an_error_dropping_the_folder() {
+        let path = "model/character/uniform/common/o/env.dds";
+        let found = findings(&[material("head", &[path, "./skin.dds"])], &["head"]);
+
+        // The refusal is for that path alone: the other path's miss is still reported.
+        assert_eq!(
+            found,
+            [
+                ContentFinding {
+                    code: "mtl_common_path_invalid",
+                    scope: IssueScope::Folder(ScopePath::new("Players/05 - A").unwrap()),
+                    context: vec![
+                        ("file", "face.mtl".to_owned()),
+                        ("attribute", "path".to_owned()),
+                        ("value", path.to_owned()),
+                    ],
+                    disposition: Disposition::DropFolder,
+                    pass_through_eligible: false,
+                },
+                finding("mtl_texture_not_found", "./skin.dds", "head"),
+            ]
+        );
+    }
+
+    #[test]
+    fn a_common_mtl_s_invalid_segment_drops_the_file_alone() {
+        // A `Common/` `.mtl` is a file of `Common/`: the finding drops the file, not a folder.
+        let path = "model/character/uniform/common/o/env.dds";
+        let mtl = ScopePath::new("Common/jessie/x.mtl").unwrap();
+        let folders = common_held(&[]);
+        let common_below = BTreeSet::new();
+        let sources = TextureSources {
+            held: &[],
+            below: (&folders, &mtl),
+            common: &BTreeSet::new(),
+            common_below: &common_below,
+            installed: None,
+        };
+        let scope = IssueScope::File(mtl.clone());
+        let found = texture_findings(
+            "x.mtl",
+            &[material("head", &[path])],
+            &BTreeSet::from(["head"]),
+            &sources,
+            &scope,
+            Engine::PreFox,
+        );
+
+        assert_eq!(
+            found,
+            [ContentFinding {
+                code: "mtl_common_path_invalid",
+                scope,
+                context: vec![
+                    ("file", "x.mtl".to_owned()),
+                    ("attribute", "path".to_owned()),
+                    ("value", path.to_owned()),
+                ],
+                disposition: Disposition::DropFile,
+                pass_through_eligible: false,
+            }]
+        );
+    }
+
+    #[test]
+    fn a_common_path_with_a_three_character_segment_is_checked_as_usual() {
+        // `714` a team ID, `XXX` the team placeholder a member writes: both kept and
+        // looked up, so each is the usual not-found finding, not the invalid one.
+        for path in [
+            "model/character/uniform/common/714/env.dds",
+            "model/character/uniform/common/XXX/env.dds",
+        ] {
+            assert_eq!(
+                findings(&[material("head", &[path])], &["head"]),
+                [finding("mtl_texture_not_found", path, "head")],
+                "{path}"
+            );
+        }
+    }
+
+    #[test]
+    fn the_invalid_segment_check_does_not_run_for_a_fox_target() {
+        let path = "model/character/uniform/common/o/env.dds";
+        let common_below = BTreeSet::new();
+        let folders = slot_05(&[], &[]);
+        let mtl = ScopePath::new("Players/05 - A/face.mtl").unwrap();
+        let sources = TextureSources {
+            held: &[],
+            below: (&folders, &mtl),
+            common: &BTreeSet::new(),
+            common_below: &common_below,
+            installed: None,
+        };
+        let scope = IssueScope::Folder(ScopePath::new("Players/05 - A").unwrap());
+        let found = texture_findings(
+            "face.mtl",
+            &[material("head", &[path])],
+            &BTreeSet::from(["head"]),
+            &sources,
+            &scope,
+            Engine::Fox,
+        );
+
+        // Fox rewrites the paths at conversion: the usual miss, not the refusal.
+        assert_eq!(found, [finding("mtl_texture_not_found", path, "head")]);
     }
 }

@@ -18,7 +18,7 @@ use aesthetics_export::{
     LogoFiles, ModelFormat, PlayerFolder, PlayerIndex, ResolvedAestheticsExport, SharedKind,
     SharedModelFolder, ValidatedAestheticsExport, ValidatedRoster, common_link_target, kit_folder,
 };
-use kit_config::KitSlot;
+use kit_config::{KitSlot, TexturePresence};
 use pes_savefile::interchange::aesthetics_patch::PatchTeam;
 use pes_savefile::settings_toml::PlayerSettings;
 use pes_version::{Engine, PesVersion};
@@ -101,6 +101,32 @@ pub(crate) struct TeamKits {
     pub(crate) edits: TeamKitEdits,
     /// The slots of its kit tasks, failed or not, ascending.
     pub(crate) slots: Vec<KitSlot>,
+    /// Its `Midcup` export's kits holding no `config.toml`, ascending: each emits no
+    /// config of its own — its slot's installed config is edited in place as an
+    /// unresent slot's is (`kit_configs`), or the template written where none is
+    /// installed. Empty for a `Full` export, whose kits without one get the template
+    /// as part of their task.
+    pub(crate) configless: Vec<ConfiglessKit>,
+}
+
+/// A `Midcup` export's kit holding no `config.toml` (`TeamKits::configless`).
+pub(crate) struct ConfiglessKit {
+    /// The kit's slot.
+    pub(crate) slot: KitSlot,
+    /// The kit folder, the scope `kit_config_generated` names when the template is
+    /// written for the slot.
+    pub(crate) path: ScopePath,
+    /// Which of the config's five texture names the kit's effective textures set
+    /// (the kit task's `TexturePresence` for them).
+    pub(crate) textures: TexturePresence,
+}
+
+/// Whether `kit`'s installed config is the one to keep, on an export of `coverage`: a
+/// `Midcup` kit holding no `config.toml` emits no config of its own — its slot's installed
+/// config is edited in place, or the template written where none is installed
+/// (`kit_configs`).
+pub(crate) fn keeps_installed(kit: &KitFolder, coverage: ExportCoverage) -> bool {
+    coverage == ExportCoverage::Midcup && kit.config.is_none()
 }
 
 /// One unit of work: one package of a player folder's models, the folder's textures, one
@@ -628,6 +654,10 @@ pub(crate) enum TaskKind {
         kit: KitFolder,
         /// What its team's export sets in every kit config of the team.
         edits: TeamKitEdits,
+        /// The export's coverage: a `Midcup` kit keeps what it does not resend — no
+        /// config of its own without `config.toml`, no placeholder without a main
+        /// texture, no `UniColor.bin` entry without colors to give.
+        coverage: ExportCoverage,
     },
     /// The team's logo: the game's three PNGs made from the export's root `logo*` file, the
     /// smallest from its `logo_small*` file when there is one (`pipeline.md` "4. Per-export
@@ -1538,21 +1568,43 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         };
         // The kits go by slot, so `slots` is ascending.
         let mut slots = Vec::new();
+        let mut configless = Vec::new();
+        let midcup = export.coverage == ExportCoverage::Midcup;
         for (slot, kit) in export.kits.kits {
             slots.push(slot);
             let folder = || Scope::Folder {
                 export_id,
                 path: kit.path.clone(),
             };
+            // A `Midcup` kit keeps what it does not resend: without `config.toml` it
+            // emits no config of its own (the slot's installed one is edited in
+            // place, or the template written where none is installed, `kit_configs`),
+            // and without a main texture it is no placeholder (the installed
+            // textures stay). The two findings are a `Full` export's.
             if kit.config.is_none() {
-                messages.push(tool_message(
-                    Code::KitConfigGenerated,
-                    folder(),
-                    Disposition::Keep,
-                    vec![],
-                ));
+                if keeps_installed(&kit, export.coverage) {
+                    let has = |stem: &str| kit.textures.iter().any(|t| t.stem == stem);
+                    configless.push(ConfiglessKit {
+                        slot,
+                        path: kit.path.clone(),
+                        textures: TexturePresence {
+                            kit: true,
+                            back: has("kit_back"),
+                            chest: has("kit_chest"),
+                            leg: has("kit_leg"),
+                            name: has("kit_name"),
+                        },
+                    });
+                } else {
+                    messages.push(tool_message(
+                        Code::KitConfigGenerated,
+                        folder(),
+                        Disposition::Keep,
+                        vec![],
+                    ));
+                }
             }
-            if !kit.textures.iter().any(|texture| texture.stem == "kit") {
+            if !midcup && !kit.textures.iter().any(|texture| texture.stem == "kit") {
                 messages.push(tool_message(
                     Code::KitPlaceholder,
                     folder(),
@@ -1560,7 +1612,16 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                     vec![],
                 ));
             }
-            tasks.push(task(export_id, team_id, TaskKind::Kit { slot, kit, edits }));
+            tasks.push(task(
+                export_id,
+                team_id,
+                TaskKind::Kit {
+                    slot,
+                    kit,
+                    edits,
+                    coverage: export.coverage,
+                },
+            ));
         }
         team_kits.push(TeamKits {
             export_id,
@@ -1568,6 +1629,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             coverage: export.coverage,
             edits,
             slots,
+            configless,
         });
         // A Midcup over no record whose folders took no ID writes none: an empty one would
         // read to the next Midcup above it as "no shared folders" (`player_folders.md` "A
@@ -4000,7 +4062,7 @@ mod tests {
     #[test]
     fn a_kit_without_config_toml_reports_its_generated_config() {
         let export = resolved(
-            "co Midcup Kits",
+            "co Full Kits",
             &[("Kits/p1/config.toml", 3), ("Kits/p2 - Away/kit.dds", 8)],
             &[],
             None,
@@ -4036,6 +4098,24 @@ mod tests {
             [
                 ("kit_placeholder", &p1, Disposition::Keep),
                 ("kit_config_generated", &scope, Disposition::Keep),
+                // A `Full` export holding no `g1/` plans an empty one: generated,
+                // a placeholder.
+                (
+                    "kit_config_generated",
+                    &Scope::Folder {
+                        export_id: ExportId(3),
+                        path: ScopePath::new("Kits/g1").unwrap(),
+                    },
+                    Disposition::Keep
+                ),
+                (
+                    "kit_placeholder",
+                    &Scope::Folder {
+                        export_id: ExportId(3),
+                        path: ScopePath::new("Kits/g1").unwrap(),
+                    },
+                    Disposition::Keep
+                ),
             ]
         );
         assert_eq!(
@@ -4069,7 +4149,7 @@ mod tests {
     #[test]
     fn a_kit_without_a_main_texture_reports_the_placeholder_after_its_config() {
         let export = resolved(
-            "co Midcup Kits",
+            "co Full Kits",
             &[
                 ("Kits/p1/kit.dds", 8),
                 ("Kits/p3/kit_back.dds", 8),
@@ -4093,6 +4173,8 @@ mod tests {
                 ("kit_config_generated", "Kits/p3", Disposition::Keep),
                 ("kit_placeholder", "Kits/p3", Disposition::Keep),
                 ("kit_placeholder", "Kits/p4", Disposition::Keep),
+                ("kit_config_generated", "Kits/g1", Disposition::Keep),
+                ("kit_placeholder", "Kits/g1", Disposition::Keep),
             ]
         );
         assert!(
@@ -4234,7 +4316,7 @@ mod tests {
 
     #[test]
     fn a_team_s_colors_go_into_the_manifest_and_a_team_without_them_reports_it() {
-        let kit = || resolved("co Midcup Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
+        let kit = || resolved("co Full Kit", &[("Kits/p1/kit.dds", 1)], &[], None);
         let colors = vec![[0xc1, 0x12, 0x00], [0x41, 0x41, 0x41]];
 
         let with = plan_run(
@@ -4242,14 +4324,22 @@ mod tests {
             PesVersion::Pes21,
         );
         assert_eq!(with.manifest.team_colors, [(714, colors.clone())]);
-        assert_eq!(codes(&with), ["kit_config_generated"]);
+        // The export holds no `g1/`: a `Full` export plans an empty one beside its p1.
+        assert_eq!(
+            codes(&with),
+            [
+                "kit_config_generated",
+                "kit_config_generated",
+                "kit_placeholder"
+            ]
+        );
 
         let without = plan_run(
             vec![to_plan(ExportId(4), kit(), None, None)],
             PesVersion::Pes21,
         );
         assert_eq!(without.manifest.team_colors, []);
-        let [missing, generated] = without.messages.as_slice() else {
+        let [missing, generated, ..] = without.messages.as_slice() else {
             panic!("{:?}", without.messages);
         };
         assert_eq!(missing.code.code, "team_colors_missing");
@@ -4272,7 +4362,14 @@ mod tests {
             PesVersion::Pes21,
         );
         assert_eq!(refused_lines.manifest.team_colors, []);
-        assert_eq!(codes(&refused_lines), ["kit_config_generated"]);
+        assert_eq!(
+            codes(&refused_lines),
+            [
+                "kit_config_generated",
+                "kit_config_generated",
+                "kit_placeholder"
+            ]
+        );
 
         // Two teams' colors, in export order.
         let dbg = resolved("dbg Midcup Kit", &[("Kits/p1/kit.dds", 1)], &[], None);

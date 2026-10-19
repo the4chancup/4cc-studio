@@ -389,7 +389,26 @@ pub(crate) fn content_findings(
         .collect();
     match engine {
         Engine::Fox => {}
-        Engine::PreFox => common_mtl_findings(&export.common, &mut common, &kept_common),
+        Engine::PreFox => {
+            common_mtl_findings(&export.common, &mut common, &kept_common);
+            // The texture findings may drop a `Common/` `.mtl` (`mtl_common_path_invalid`):
+            // it is no kept Common file for the players' `.mtl` search — remove it and its
+            // materials, as the initial filter did, so the pairing finds `model_material_undefined`
+            // rather than materials that do not exist.
+            let dropped: BTreeSet<&ScopePath> = export
+                .common
+                .iter()
+                .zip(&common)
+                .filter(|(_, pass)| drops_file(&pass.findings, pass_through))
+                .map(|(file, _)| &file.path)
+                .collect();
+            kept_common
+                .files
+                .retain(|file| !dropped.contains(&file.path));
+            kept_common
+                .materials
+                .retain(|path, _| !dropped.contains(path));
+        }
     }
     let players: Vec<ContentPass> = export
         .players
@@ -805,6 +824,7 @@ fn common_mtl_findings(common: &[FileDescriptor], passes: &mut [ContentPass], ke
             &used,
             &sources,
             &IssueScope::File(file.path.clone()),
+            Engine::PreFox,
         ));
     }
 }
@@ -1132,6 +1152,7 @@ fn folder_findings(
                 &used,
                 &sources,
                 &scope,
+                engine,
             ));
         }
         if let Some((_, outcome)) = xmls.iter().find(|(xml, _)| xml.path == file.path) {
@@ -1172,6 +1193,7 @@ fn folder_findings(
                     &used,
                     &sources,
                     &scope,
+                    engine,
                 ));
             }
         }

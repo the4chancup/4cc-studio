@@ -1174,6 +1174,7 @@ fn task_batch(
             group: task.group.as_ref().map(|group| group.tasks.clone()),
             uniparam: None,
             uni_color: None,
+            configless_kit: None,
             messages: vec![tool_message(
                 Code::SourceReadFailed,
                 Scope::Folder {
@@ -1208,7 +1209,9 @@ mod tests {
     use std::thread;
     use std::time::Duration;
 
-    use aesthetics_export::{FileDescriptor, KitFolder, KitTexture, KitTextureSource};
+    use aesthetics_export::{
+        ExportCoverage, FileDescriptor, KitFolder, KitTexture, KitTextureSource,
+    };
     use kit_config::KitSlot;
     use pes_version::{Engine, PesVersion};
     use pipeline::MemoryBudget;
@@ -1539,6 +1542,7 @@ mod tests {
                     fpc: EffectiveTeamKitFpc::Unknown,
                     collar: None,
                 },
+                coverage: ExportCoverage::Full,
             },
             charge,
             group: None,
@@ -1739,6 +1743,7 @@ mod tests {
                 group: None,
                 uniparam: None,
                 uni_color: None,
+                configless_kit: None,
                 messages: Vec::new(),
                 permit: None,
                 output: None,

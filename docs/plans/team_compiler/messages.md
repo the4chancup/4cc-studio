@@ -51,7 +51,6 @@ What exists of this is in `spec/team_compiler/messages.md` "Catalog".
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
 | `xml_texture_path_missing` | E | sampler with no texture path and not auto-fillable (sampler not in the suffix mapping table) | folder discarded |
-| `mtl_common_path_invalid` | E | a `.mtl` sampler path below `model/character/uniform/common/` with a subfolder that is not three characters long (`common/o/env.dds`): `xml_common_path_invalid`'s rule for a `.mtl`, since the team's Common is written under its three-digit ID and such a path reaches nothing (6.12c: 16 old /o/ and VG exports name their team that way; one rule for both files, which today send the folder `face.xml` refuses on to a texture the game never finds) | folder discarded |
 
 The three `mtl_state_*` checks other than `mtl_state_missing` also run on a glTF material's
 `[prefox.states]` table when the target is pre-Fox (the format plan's schema mirrors the `.mtl`

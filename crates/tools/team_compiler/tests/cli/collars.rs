@@ -352,11 +352,13 @@ fn a_pes_17_model_collar_is_compiled_unchanged_and_the_team_s_loose_configs_wear
     let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
 
     let lines = run.messages();
+    // No installed loose config for p1: the template is generated at bins time,
+    // reported after the task's findings.
     let mut expected = vec![
         "Info export_identified [Keep] (team=/co/, id=714)",
         TEAM_COLORS_MISSING,
-        "Info kit_config_generated [Keep] at Kits/p1 ()",
         "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        "Info kit_config_generated [Keep] at Kits/p1 ()",
     ];
     expected.extend(NO_LOOSE_CONFIGS);
     assert_eq!(
@@ -415,9 +417,9 @@ fn a_pes_17_fmdl_collar_is_converted_with_the_stock_collars_material_names() {
         "Info fmdl_weights_not_normalized [Keep] at Collars/collar_12.fmdl (file=collar_12.fmdl, count=1662)",
         "Info export_identified [Keep] (team=/co/, id=714)",
         TEAM_COLORS_MISSING,
-        "Info kit_config_generated [Keep] at Kits/p1 ()",
         "Info kit_colors_derived [Keep] at Kits/p1 ()",
         "Info native_field_dropped [Keep] at Collars/collar_12.fmdl (model=collar_12.fmdl, field=bone_matrices)",
+        "Info kit_config_generated [Keep] at Kits/p1 ()",
     ];
     expected.extend(NO_LOOSE_CONFIGS);
     assert_eq!(
@@ -701,11 +703,11 @@ fn a_model_collar_posed_off_the_version_s_skeleton_is_moved_onto_it_and_kept_wra
     let mut expected = vec![
         "Info export_identified [Keep] (team=/co/, id=714)",
         TEAM_COLORS_MISSING,
-        "Info kit_config_generated [Keep] at Kits/p1 ()",
         "Info kit_colors_derived [Keep] at Kits/p1 ()",
         "Info bone_folded_for_version [Keep] at Collars/collar_12.model (model=collar_12.model, bone=dsk_trapezius_l -> sk_shoulder_l)",
         "Info bone_folded_for_version [Keep] at Collars/collar_12.model (model=collar_12.model, bone=dsk_trapezius_r -> sk_shoulder_r)",
         "Info skeleton_retargeted [Keep] at Collars/collar_12.model (model=collar_12.model, bones=4)",
+        "Info kit_config_generated [Keep] at Kits/p1 ()",
     ];
     expected.extend(NO_LOOSE_CONFIGS);
     assert_eq!(
@@ -788,8 +790,8 @@ fn a_pre_fox_collar_past_the_version_s_stock_set_is_refused() {
             "Error collar_id_invalid [DropFile] at Collars/collar_117.model (file=collar_117.model)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             TEAM_COLORS_MISSING,
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
         ],
         "{lines:#?}"
     );

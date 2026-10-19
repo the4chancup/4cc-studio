@@ -345,9 +345,6 @@ fn a_hand_weighted_per_kit_set_lacking_a_kit_number_gets_its_lowest_body_and_han
         &[
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
-            "Info kit_config_generated [Keep] at Kits/p3 ()",
             "Info model_hand_split [Keep] at Players/05 - A (model=body_kit1.model, gloves=glove_l, glove_r)",
             "Info model_hand_split [Keep] at Players/05 - A (model=body_kit2.model, gloves=glove_l, glove_r)",
             "Warning kit_variant_missing [Keep] at Players/05 - A (model=body_kitN, kit=3, copied=body_kit1)",
@@ -355,6 +352,9 @@ fn a_hand_weighted_per_kit_set_lacking_a_kit_number_gets_its_lowest_body_and_han
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
             "Info kit_colors_derived [Keep] at Kits/p3 ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/p3 ()",
         ],
     );
 
@@ -422,14 +422,14 @@ fn a_hand_weighted_set_s_kitf_fallback_serves_the_kit_it_lacks() {
         &[
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info native_field_dropped [Keep] at Players/05 - A (model=body_kitF.fmdl, field=bone_matrices)",
             "Info model_hand_split [Keep] at Players/05 - A (model=body_kit1.model, gloves=glove_l, glove_r)",
             "Info model_hand_split [Keep] at Players/05 - A (model=body_kitF.fmdl, gloves=glove_l, glove_r)",
             "Info xml_face_neck_added [Keep] at Players/05 - A ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
         ],
     );
 

@@ -238,7 +238,7 @@ fn face_cpk(face: &str, files: &PackageFiles) -> Vec<u8> {
 mod tests {
     use std::collections::BTreeSet;
 
-    use aesthetics_export::{FileDescriptor, KitFolder, LogoFile, LogoFiles};
+    use aesthetics_export::{ExportCoverage, FileDescriptor, KitFolder, LogoFile, LogoFiles};
     use kit_config::KitSlot;
     use pes_version::PesVersion;
     use vtree::ScopePath;
@@ -660,6 +660,7 @@ mod tests {
                 fpc: EffectiveTeamKitFpc::Unknown,
                 collar: None,
             },
+            coverage: ExportCoverage::Full,
         };
         assert_placed(
             kind,

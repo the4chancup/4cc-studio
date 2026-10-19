@@ -23,7 +23,7 @@ use studio_core::{Disposition, Message, Scope};
 
 use crate::messages::{Code, INPUT, read_failed, tool_message};
 use crate::note;
-use crate::players::path_scope;
+use crate::players::{file_name, path_scope};
 use crate::source::SourceFailure;
 
 /// What step 5 makes of an export's `Kit Configs/` and `Kit Textures/`: the
@@ -226,7 +226,7 @@ pub(crate) fn kit_folders(
         if !top.eq_ignore_ascii_case("kit configs") {
             continue;
         }
-        let name = rest.rsplit('/').next().unwrap_or(rest);
+        let name = file_name(file);
         // Step 10's stray rule, wherever the file sits: what `classify`
         // reads as no known kind and is no `.txt` note never reached the
         // game.

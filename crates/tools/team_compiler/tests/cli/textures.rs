@@ -309,7 +309,6 @@ fn png_and_tga_kit_textures_are_ftex_under_the_kit_s_names_and_a_webp_portrait_i
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
@@ -452,7 +451,6 @@ fn texture_findings_are_checked_and_each_drops_its_folder() {
     let compile = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
     let mut compiled = findings.to_vec();
     compiled.push("Info team_colors_missing [Keep] ()".to_owned());
-    compiled.push("Info kit_config_generated [Keep] at Kits/p1 ()".to_owned());
     compiled.push("Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned());
     assert_eq!(
         findings_of(&compile.messages(), "co Midcup Sizes"),
@@ -504,7 +502,6 @@ fn pass_through_keeps_an_odd_sized_texture_s_folder_but_not_a_renamed_one() {
             hair_weights("07"),
             "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
             "Info team_colors_missing [Keep] ()".to_owned(),
-            "Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
             "Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned(),
         ]
     );
@@ -551,7 +548,6 @@ fn a_texture_finding_drops_the_player_folder_naming_the_file() {
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Error texture_codec_unsupported [DropFolder] at Players/05 - A (file=skin.dds)",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
@@ -624,7 +620,6 @@ fn a_kit_texture_finding_drops_the_kit() {
             "Error texture_too_small [DropFolder] at Kits/p1 (file=kit_back.png)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/g1 ()",
             "Info kit_colors_derived [Keep] at Kits/g1 ()",
         ]
     );
@@ -659,8 +654,8 @@ fn a_4096_kit_drops_on_pes_17_and_compiles_on_pes_21_and_an_uncompressed_kit_is_
             too_big,
             identified,
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
-            "Info kit_colors_derived [Keep] at Kits/p2 ()"
+            "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()"
         ]
     );
     assert_eq!(compile.exit_code(), 1);
@@ -677,8 +672,6 @@ fn a_4096_kit_drops_on_pes_17_and_compiles_on_pes_21_and_an_uncompressed_kit_is_
         [
             identified,
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()"
         ]
@@ -752,8 +745,6 @@ fn a_dropped_member_of_a_common_kit_set_leaves_the_player_linking_it() {
             "Error texture_too_small [DropFile] at Common/kit1/armor_bsm.png (file=armor_bsm.png)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Warning kit_variant_missing [Keep] at Common (texture=kitN/armor_bsm, kit=1, copied=kit2/armor_bsm)",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
@@ -997,9 +988,6 @@ fn a_kit_number_without_its_texture_variant_gets_the_fallback_written_as_kit_n()
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
-            "Info kit_config_generated [Keep] at Kits/p3 ()",
             "Warning kit_variant_missing [Keep] at Players/05 - A (texture=pants_kitN, kit=2, copied=pants_kit1)",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
@@ -1063,9 +1051,6 @@ fn a_kits_fallback_texture_is_written_as_kit_n_and_never_its_own_name() {
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
-            "Info kit_config_generated [Keep] at Kits/p3 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
             "Info kit_colors_derived [Keep] at Kits/p3 ()",
@@ -1121,8 +1106,6 @@ fn a_kit_folder_s_set_is_found_by_the_model_naming_its_reference_and_its_fallbac
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=face_high.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
         ]

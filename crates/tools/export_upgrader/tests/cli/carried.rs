@@ -114,6 +114,8 @@ fn two_portraits_of_one_slot_keep_the_first_and_report_the_second() {
         stdout.contains("- co Kits: Error unmigrated_content at Portraits/player_XXX05.dds"),
         "{stdout}"
     );
+    // The second file alone: the first keeps the slot.
+    assert_eq!(stdout.matches("unmigrated_content").count(), 1, "{stdout}");
     sandbox.assert_nothing_written("co Full Kits", &stdout);
 }
 

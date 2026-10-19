@@ -39,8 +39,7 @@ pub(crate) enum Code {
     UnmigratedContent,
     /// The last line: nothing above Info, nothing dropped but a leftover.
     MigrationClean,
-    /// The last line otherwise: the output is a draft for manual repair
-    /// ("Verification").
+    /// The last line otherwise; nothing is written ("Verification").
     MigrationNotClean,
     /// Content that never reached a player in game (step 10): outside the
     /// old format's layout — a top-level folder the AET does not define, a

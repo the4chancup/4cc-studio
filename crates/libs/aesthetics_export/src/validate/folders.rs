@@ -270,22 +270,20 @@ pub(crate) fn position(path: &ScopePath, folder: &ScopePath) -> Position {
     }
 }
 
-/// One `texture_stem_conflict` per file of a folded stem two or more files
-/// share: `File`-scoped `DropFile` (`Portraits/` and `Common/` drop files,
-/// not folders).
-pub(crate) fn file_stem_conflicts<'a>(
+/// One `texture_stem_conflict` per file of a key two or more files share,
+/// the caller's key becoming the issue's `stem` context: `File`-scoped
+/// `DropFile` (`Portraits/` groups by the slot's `NN`, `Common/` by folded
+/// stem; both drop files, not folders).
+pub(crate) fn texture_conflicts<'a>(
     context: &ValidationContext,
-    files: impl Iterator<Item = &'a FileDescriptor>,
+    files: impl Iterator<Item = (String, &'a FileDescriptor)>,
     issues: &mut Vec<ValidationIssue>,
 ) {
-    let mut stems: BTreeMap<String, Vec<&FileDescriptor>> = BTreeMap::new();
-    for file in files {
-        stems
-            .entry(fold(stem(file.path.name())))
-            .or_default()
-            .push(file);
+    let mut groups: BTreeMap<String, Vec<&FileDescriptor>> = BTreeMap::new();
+    for (key, file) in files {
+        groups.entry(key).or_default().push(file);
     }
-    for (stem, files) in stems {
+    for (key, files) in groups {
         if files.len() > 1 {
             let names = files
                 .iter()
@@ -297,7 +295,7 @@ pub(crate) fn file_stem_conflicts<'a>(
                     context,
                     "texture_stem_conflict",
                     IssueScope::File(file.path.clone()),
-                    vec![("stem", stem.clone()), ("files", names.clone())],
+                    vec![("stem", key.clone()), ("files", names.clone())],
                     Disposition::DropFile,
                 ));
             }
@@ -817,7 +815,13 @@ pub(crate) fn check_common(
         }
     }
     for files in directories.into_values() {
-        file_stem_conflicts(context, files.into_iter(), issues);
+        texture_conflicts(
+            context,
+            files
+                .into_iter()
+                .map(|file| (fold(stem(file.path.name())), file)),
+            issues,
+        );
     }
 }
 

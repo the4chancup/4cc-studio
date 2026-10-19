@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use super::folders::stem;
+use super::folders::{stem, texture_conflicts};
 use crate::FileKind;
 use crate::conventions::{Marker, MetadataFile, folder_slot, strip_prefix_ci};
 use crate::listing::{SmallMetadata, ValidationContext, metadata_text};
@@ -43,33 +43,15 @@ pub(crate) fn check_portraits(
     }
     // Two files claiming one slot conflict, each dropped (`stem` the slot's
     // `NN`) — the caller's `retain` applies the drop. Grouped by slot, not by
-    // stem as `file_stem_conflicts` does for `Common/`: `05.dds` and
-    // `05 - Bob.png` are two stems one slot cannot both take.
-    let mut by_slot: BTreeMap<PlayerSlot, Vec<&FileDescriptor>> = BTreeMap::new();
-    for (slot, file) in &slotted {
-        by_slot.entry(*slot).or_default().push(file);
-    }
-    for (slot, files) in by_slot {
-        if files.len() > 1 {
-            let names = files
-                .iter()
-                .map(|file| file.path.name().to_owned())
-                .collect::<Vec<_>>()
-                .join(",");
-            for file in files {
-                issues.push(issue_in(
-                    context,
-                    "texture_stem_conflict",
-                    IssueScope::File(file.path.clone()),
-                    vec![
-                        ("stem", format!("{:02}", slot.get())),
-                        ("files", names.clone()),
-                    ],
-                    Disposition::DropFile,
-                ));
-            }
-        }
-    }
+    // stem as `Common/`'s are: `05.dds` and `05 - Bob.png` are two stems one
+    // slot cannot both take.
+    texture_conflicts(
+        context,
+        slotted
+            .iter()
+            .map(|(slot, file)| (format!("{:02}", slot.get()), *file)),
+        issues,
+    );
     for (slot, file) in slotted {
         portraits.insert(slot, file.clone());
     }

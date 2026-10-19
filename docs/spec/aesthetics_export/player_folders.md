@@ -460,11 +460,14 @@ folders is what made old exports heavy and what let one kit silently fall behind
 updated. The rule is per stem, so a kit can inherit `kit_back` and still override `kit_name`; it
 covers the main `kit.dds` too, for the rare team whose kits differ only by config. The five
 texture-name fields of each kit's config are derived from the *effective* set — an inherited
-`kit_back.dds` makes the kit's `back` field non-empty exactly as an own copy would. `all/` is not
+`kit_back.dds` makes the kit's `back` field non-empty exactly as an own copy would. In a `Midcup`
+export a field is also named when the game already has that texture of the slot installed: the
+export does not resend a number font it gave in its `Full` one, and the game finds it installed. `all/` is not
 a kit: it has no cell, no `config.toml`, `colors.txt` or icon marker (such files there are
 reported and ignored), and an `all/` no kit inherits is reported as unused (a `Full` export's
 mandatory empty `p1`/`g1` still count as kits). A shared base
-config was considered and rejected: a kit folder without `config.toml` means "the template", so
+config was considered and rejected: a kit folder without `config.toml` means "the template" (in a
+`Full` export; a `Midcup` one keeps its slot's installed config), so
 the folder describes its own look and can be copied between exports unchanged. With an inherited
 config, the same folder would compile differently in each export, and a collar or shorts-number
 change is invisible until the game shows it. An inherited *texture* changes a copied kit too, but
@@ -481,7 +484,9 @@ full-body models never render a kit texture (except a pre-Fox player given the `
 type), yet the game expects every kit slot the team uses to have a texture and a config; the empty
 folder says "pretend a kit exists here" without making the author draw one. The same fill applies
 to any kit whose effective texture set lacks `kit.dds`, so a folder holding only a `kit_back.dds`
-is a placeholder kit with a custom number font, not an error. Kit textures follow the export-wide
+is a placeholder kit with a custom number font, not an error. None of this fill applies in a
+`Midcup` export: its kit folder gives only what it holds, and the slot keeps the installed rest
+("Bins accumulation" in the [Team compiler pipeline](../team_compiler/pipeline.md)). Kit textures follow the export-wide
 texture rule: matched by **stem**, in **any accepted image format** — `kit.png` is as good as
 `kit.dds` (the compiler converts; the diagrams say `.dds` only by habit). Online kit designers
 hand out PNGs, and a new manager should not need a DDS tool to use one.

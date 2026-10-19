@@ -1554,7 +1554,7 @@ TC-XML-07  GIVEN a .mtl whose mesh-used material names a missing texture, and an
                 an Info on the second, both folders kept (on PES 21 the converted model
                 written)
 TC-XML-08  GIVEN slot 05 holding face_high.model binding material "skin" and no readable .mtl
-           defining that name
+           defining that name (a Common one the check drops counts as none)
            WHEN the export is checked or compiled for PES 17
            THEN model_material_undefined is reported (naming skin, when a .mtl was read) and the
                 folder is dropped
@@ -1730,6 +1730,24 @@ TC-KIT-32  GIVEN p1/config.toml holding shirt model 176 with short_sleeves = "cu
                 the model 176, nothing names p4 (with fpc_on, which makes its shirt model 176,
                 its three are reported as theirs are), and p1's emitted config still holds the
                 cut-out sleeves
+TC-KIT-33  GIVEN a Midcup /co/ export whose p1/ holds kit.dds and colors.txt and no config.toml,
+           p2/ holds colors.txt alone, and p3/ holds config.toml alone, the installed game
+           holding team 714's configs and textures for p1 to p3
+           WHEN the export is compiled for PES 21
+           THEN neither kit_config_generated nor kit_placeholder is reported, the output holds
+                p1's kit texture and p3's config and no other kit file, UniformParameter.bin's
+                p1 and p2 entries are the installed ones, and UniColor.bin carries p1's and p2's
+                colors at their entries and p3's installed one
+TC-KIT-34  GIVEN a Midcup /co/ export whose p4/ holds kit.dds alone, the installed game holding
+           team 714's configs for p1 to p3 and none for p4
+           WHEN the export is compiled for PES 21
+           THEN kit_config_generated is reported for p4 and the output holds p4's template
+                config
+TC-KIT-35  GIVEN the installed game holding team 714's p1 textures u0714p1, u0714p1_back and
+           u0714p1_name, and a Midcup /co/ export whose p1/ holds kit.dds and config.toml
+           WHEN the export is compiled for PES 21
+           THEN the emitted p1 config names u0714p1, u0714p1_back and u0714p1_name, its chest
+                and leg fields empty
 ```
 
 **Root files, Common and collars**
@@ -2645,6 +2663,14 @@ TC-BIN-41  GIVEN four /co/ exports whose slot 05 settings.toml sets the stock ID
                 each run reporting settings_model_id_conflict for the authored key; the
                 fourth's row is the authored 3, shared_folder_no_model names Boots/Crocs, and
                 no settings_model_id_conflict is reported
+TC-BIN-42  GIVEN the installed game holding team 714's TeamColor.bin and UniColor.bin entries
+           for p1 to p3, and two Midcup /co/ exports, the first holding a root colors.txt and
+           an empty Kits/p2/ (a root file alone is export_empty), the second only
+           Kits/p2/colors.txt
+           WHEN each is compiled for PES 21
+           THEN each writes the output CPK: the first's TeamColor.bin holds the root file's
+                colors for 714, the second's UniColor.bin p2's colors with p1 and p3 as
+                installed
 ```
 
 **Shared gloves on PES 15-17**

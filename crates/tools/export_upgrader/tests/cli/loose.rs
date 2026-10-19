@@ -97,7 +97,7 @@ fn the_ids_naming_no_player_are_unmigrated_content() {
     sandbox.assert_nothing_written("a Full Spring", &stdout);
 }
 
-// EU-PLY-16
+// EU-LOOSE-03
 #[test]
 fn an_empty_face_folder_makes_its_player_folder() {
     // An empty face folder is still a player folder (step 3): the

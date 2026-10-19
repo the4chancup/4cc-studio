@@ -130,7 +130,8 @@ tails are a claim. The **honesty sweep** looks for a hidden failure: `#[allow`, 
 `#[ignore`, `.ok();`, `let _ =`, `drop(` on a `Result`, `unwrap_or_default`, `unwrap_or(`. The **design sweep** looks
 for code that passes and is worse, the thing neither the gates nor a model's training penalize:
 `impl .* for` (a new trait: does it have two real implementors?), `dyn `, `_ =>` on one of our
-enums, `.clone()`/`.to_vec()` on bulk data, `as ` casts, two functions differing in a name and a
+enums, `== Engine::`/`!= Engine::` (a test against one engine, which a third one would pass
+silently), `.clone()`/`.to_vec()` on bulk data, `as ` casts, two functions differing in a name and a
 branch, `pub` items with no caller outside the crate, a module that crossed roughly a thousand
 lines in this diff, a comment naming or alluding to a legacy tool outside a parity test (`Red`,
 `Blue`, `reference`, `add-on`, `Python`, `texconv`, `always`). The **mutation run** (`just mutants-diff <last reviewed commit>`) is the

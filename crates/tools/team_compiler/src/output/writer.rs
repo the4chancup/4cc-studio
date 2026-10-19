@@ -13,7 +13,7 @@ use std::path::PathBuf;
 
 use aesthetics_export::ExportCoverage;
 use anyhow::{Context, ensure};
-use kit_config::KitConfig;
+use kit_config::{KitConfig, KitSlot};
 use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, Message, Scope};
 
@@ -89,6 +89,10 @@ pub(crate) struct CpkOutput {
     uniform_parameters: Vec<(String, Vec<u8>)>,
     /// The committed kits' `UniColor.bin` entries, each with its team ID, in commit order.
     kit_colors: Vec<(u16, KitColorEntry)>,
+    /// The committed `Midcup` kits that emitted no config, each with its team ID and slot:
+    /// `kit_configs` edits each slot's installed config in place, or writes the template
+    /// where none is installed.
+    configless_kits: Vec<(u16, KitSlot)>,
     /// The manifest positions of the batches committed: a player's boots or gloves row is set
     /// only when the task building them is among them.
     committed: BTreeSet<usize>,
@@ -220,6 +224,7 @@ impl CpkOutput {
             pending: BTreeMap::new(),
             uniform_parameters: Vec::new(),
             kit_colors: Vec::new(),
+            configless_kits: Vec::new(),
             committed: BTreeSet::new(),
             bins_prefix: bins_prefix.to_owned(),
             parts,
@@ -461,10 +466,15 @@ impl CpkOutput {
         // unless the overrides go into the CPK: they are written whatever the exports bring;
         // or the referee configs changed the bins on PES 18-21: their entries need the bin;
         // or player rows were planned: the tables are the run's work as an override is, a
-        // settings-only export's compile otherwise losing its rows with no error.
+        // settings-only export's compile otherwise losing its rows with no error; or the
+        // team colors, a kit's committed `UniColor.bin` entry or a configless slot's edit
+        // went in: the bins are then the run's whole work.
         if !self.started
             && self.overrides.is_empty()
             && self.uniform_parameters.is_empty()
+            && self.kit_colors.is_empty()
+            && self.configless_kits.is_empty()
+            && team_colors.is_empty()
             && player_rows.items.is_empty()
             && player_rows.appearance.is_empty()
         {
@@ -488,11 +498,22 @@ impl CpkOutput {
             Some(mut bin) => {
                 // Before `UniColor.bin` is edited below: the kits an absent slot is patched
                 // for are those the team's working record holds.
-                let (changed, findings) =
-                    kit_configs(&mut bin, &uni_color, team_kits, committed_configs, version)?;
+                let (changed, generated, findings) = kit_configs(
+                    &mut bin,
+                    &uni_color,
+                    team_kits,
+                    committed_configs,
+                    &self.configless_kits,
+                    version,
+                )?;
                 messages.extend(findings);
                 if changed {
                     self.add_bin(paths::UNIFORM_PARAMETER, &bin.write(), &mut messages)?;
+                }
+                // The template a `Midcup` kit without `config.toml` gets where nothing
+                // is installed goes out as a kit task's own does: the loose file too.
+                for (path, config) in generated {
+                    self.add_bin(&path, &config, &mut messages)?;
                 }
             }
             None => {
@@ -503,8 +524,13 @@ impl CpkOutput {
                 );
                 // As above, before `UniColor.bin` is edited. An absent slot has no kit task,
                 // so no committed entry shares its path.
-                let (configs, findings) =
-                    loose_kit_configs(&installed_kit_configs, &uni_color, team_kits, version)?;
+                let (configs, findings) = loose_kit_configs(
+                    &installed_kit_configs,
+                    &uni_color,
+                    team_kits,
+                    &self.configless_kits,
+                    version,
+                )?;
                 messages.extend(findings);
                 for (path, config) in configs {
                     self.add_bin(&path, &config, &mut messages)?;
@@ -621,9 +647,13 @@ impl CpkOutput {
     /// rest, its kit config, kit colors and rows included, and the `duplicate_path` joins its
     /// messages. With parts, the entries are held for the task's team instead of written. A
     /// task of the refs export writes into the refs CPK when there is one, and then does not
-    /// start the team side.
+    /// start the team side. A `Midcup` kit may commit with no file at all: one resending only
+    /// its colors holds only a `UniColor.bin` entry.
     fn commit(&mut self, batch: &mut TaskBatch) -> anyhow::Result<()> {
-        if batch.entries.is_empty() {
+        if let Some(kit) = batch.configless_kit.take() {
+            self.configless_kits.push(kit);
+        }
+        if batch.entries.is_empty() && batch.uniparam.is_none() && batch.uni_color.is_none() {
             return Ok(());
         }
         for (path, bytes) in std::mem::take(&mut batch.entries) {
@@ -791,6 +821,7 @@ mod tests {
             group: None,
             uniparam: uniparam.map(|name| (name.to_owned(), vec![7; 120])),
             uni_color: None,
+            configless_kit: None,
             messages: vec![note(index)],
             permit: None,
             output: None,
@@ -1212,7 +1243,7 @@ mod tests {
             None,
         );
         // A failed task commits nothing.
-        output.submit(batch(0, &[], Some("kit"))).unwrap();
+        output.submit(batch(0, &[], None)).unwrap();
 
         assert!(finish_plain(output, PesVersion::Pes21).unwrap());
 
@@ -1328,7 +1359,7 @@ mod tests {
         let mut output = with_refs_cpk(folder, BTreeMap::new(), 0..1);
         output.submit(batch(0, &["refs/a.bin"], None)).unwrap();
         // A team's failed task commits nothing.
-        output.submit(batch(1, &[], Some("kit"))).unwrap();
+        output.submit(batch(1, &[], None)).unwrap();
 
         let (written, messages) = finish_pes21(output);
 
@@ -2070,7 +2101,7 @@ mod tests {
         let path = folder.join("run/cup.cpk");
         let mut output = CpkOutput::new(OutputSink::cpk(path.clone()), BTreeMap::new(), "", None);
 
-        output.submit(batch(0, &[], Some("kit"))).unwrap();
+        output.submit(batch(0, &[], None)).unwrap();
 
         assert!(!finish_plain(output, PesVersion::Pes21).unwrap());
         assert!(!folder.join("run").exists(), "no file and no folder");
@@ -2200,43 +2231,80 @@ mod tests {
 
     #[test]
     fn a_run_that_commits_nothing_builds_no_bin_and_reports_nothing() {
-        for (name, team_colors) in [
-            ("writer_no_entry_no_colors", Vec::new()),
-            ("writer_no_entry_colors", team_714_colors()),
-        ] {
-            let temp = scratch(name);
-            let folder = temp.path().join("run");
-            let mut output = CpkOutput::new(
-                OutputSink::cpk(folder.join("cup.cpk")),
-                BTreeMap::new(),
-                "",
-                None,
-            );
-            output.submit(batch(0, &[], None)).unwrap();
-            let mut team_color = bundled_team_color();
-            team_color[..4].copy_from_slice(&[1, 2, 3, 4]);
-            let broken = WorkingBins {
-                team_color: TeamColorBin::read(team_color).unwrap(),
-                ..bundled()
-            };
-            let finished = output
-                .finish(
-                    PesVersion::Pes21,
-                    broken,
-                    BinsEdits {
-                        team_colors: &team_colors,
-                        ..BinsEdits::empty()
-                    },
-                    &Templates::embedded(),
-                )
-                .unwrap();
-            let nothing = Written {
-                team: false,
-                refs: false,
-            };
-            assert_eq!(finished, (nothing, Vec::new()), "{name}");
-            assert!(!folder.exists(), "{name}: no file and no folder");
-        }
+        let temp = scratch("writer_no_entry_no_colors");
+        let folder = temp.path().join("run");
+        let mut output = CpkOutput::new(
+            OutputSink::cpk(folder.join("cup.cpk")),
+            BTreeMap::new(),
+            "",
+            None,
+        );
+        output.submit(batch(0, &[], None)).unwrap();
+        let mut team_color = bundled_team_color();
+        team_color[..4].copy_from_slice(&[1, 2, 3, 4]);
+        let broken = WorkingBins {
+            team_color: TeamColorBin::read(team_color).unwrap(),
+            ..bundled()
+        };
+        let finished = output
+            .finish(
+                PesVersion::Pes21,
+                broken,
+                BinsEdits::empty(),
+                &Templates::embedded(),
+            )
+            .unwrap();
+        let nothing = Written {
+            team: false,
+            refs: false,
+        };
+        assert_eq!(finished, (nothing, Vec::new()));
+        assert!(!folder.exists(), "no file and no folder");
+    }
+
+    #[test]
+    fn a_run_whose_only_work_is_the_root_colors_writes_the_bins() {
+        let temp = scratch("writer_no_entry_colors");
+        let folder = temp.path().join("run");
+        let mut output = CpkOutput::new(
+            OutputSink::cpk(folder.join("cup.cpk")),
+            BTreeMap::new(),
+            "",
+            None,
+        );
+        output.submit(batch(0, &[], None)).unwrap();
+        let mut team_color = bundled_team_color();
+        team_color[..4].copy_from_slice(&[1, 2, 3, 4]);
+        let broken = WorkingBins {
+            team_color: TeamColorBin::read(team_color.clone()).unwrap(),
+            ..bundled()
+        };
+        let (written, messages) = output
+            .finish(
+                PesVersion::Pes21,
+                broken,
+                BinsEdits {
+                    team_colors: &team_714_colors(),
+                    ..BinsEdits::empty()
+                },
+                &Templates::embedded(),
+            )
+            .unwrap();
+
+        assert!(written.team);
+        let emitted = entry(&folder.join("cup.cpk"), paths::TEAM_COLOR);
+        let record = team_record(714);
+        assert_eq!(
+            emitted[record + 4..record + 10],
+            [0xc1, 0x12, 0x00, 0x41, 0x41, 0x41]
+        );
+        // The base's record 100 kept its colors; its broken header was repaired and reported.
+        assert_eq!(emitted[..4], [0x64, 0x00, 0x04, 0x00]);
+        assert_eq!(emitted[4..16], team_color[4..16]);
+        let [message] = messages.as_slice() else {
+            panic!("{messages:?}");
+        };
+        assert_eq!(message.code.code, "bin_header_repaired");
     }
 
     /// The start of team `team_id`'s `UniColor.bin` record.
@@ -2319,7 +2387,7 @@ mod tests {
     fn a_failed_kit_task_leaves_uni_color_bin_as_the_working_bin() {
         let (bin, messages) = uni_color_run(
             "writer_uni_color_failed",
-            vec![kit_batch(0, &[]), batch(1, &["a/b.bin"], None)],
+            vec![batch(0, &[], None), batch(1, &["a/b.bin"], None)],
             bundled(),
         );
 
@@ -2422,6 +2490,7 @@ mod tests {
             coverage: ExportCoverage::Midcup,
             edits: TeamKitEdits { fpc, collar: None },
             slots: Vec::new(),
+            configless: Vec::new(),
         };
 
         let temp = scratch(name);

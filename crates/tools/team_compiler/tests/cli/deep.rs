@@ -645,7 +645,6 @@ fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_com
             KIT_CONFIG_INVALID,
             IDENTIFIED,
             TEAM_COLORS_MISSING,
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()"
         ]
     );
@@ -763,7 +762,6 @@ fn pass_through_keeps_no_face_diff_kit_config_or_settings_toml_that_cannot_be_re
             KIT_CONFIG_INVALID,
             IDENTIFIED,
             TEAM_COLORS_MISSING,
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
         ]
         .map(str::to_owned),

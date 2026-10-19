@@ -45,11 +45,11 @@ fn p2_export(sandbox: &Sandbox) {
     );
 }
 
-/// What `p2_export` reports, after the walk's findings.
-const P2_FINDINGS: [&str; 3] = [
+/// What `p2_export` reports, after the walk's findings: no `kit_config_generated`, p2's
+/// `Midcup` kit keeping the installed config where it holds no `config.toml` of its own.
+const P2_FINDINGS: [&str; 2] = [
     "co Midcup Kits: Info export_identified [Keep] (team=/co/, id=714)",
     "co Midcup Kits: Info team_colors_missing [Keep] ()",
-    "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p2 ()",
 ];
 
 /// Writes `PES/download/DpFileList.bin` listing `4cc_08_bins.cpk`, `4cc_61_midcup.cpk` and
@@ -449,7 +449,12 @@ fn an_installed_bin_that_does_not_parse_stops_the_run_before_any_export_is_read(
 
 /// Team `team_id`'s kit config of `slot` holding shirt model 144, which lacks the FPC values,
 /// with `fpc` the FPC values set, encoded for `version` with the slot's main texture name.
-fn shirt_144_config(version: PesVersion, team_id: u16, slot: KitSlot, fpc: bool) -> Vec<u8> {
+pub(crate) fn shirt_144_config(
+    version: PesVersion,
+    team_id: u16,
+    slot: KitSlot,
+    fpc: bool,
+) -> Vec<u8> {
     let mut config = KitConfig::template();
     config.shirt.model = 144;
     assert!(
@@ -471,7 +476,7 @@ fn shirt_144_config(version: PesVersion, team_id: u16, slot: KitSlot, fpc: bool)
 }
 
 /// The bundled `UniColor.bin` with team 714's record holding kits 0, 1 and 2: p1, p2 and p3.
-fn uni_color_p1_p2_p3() -> Vec<u8> {
+pub(crate) fn uni_color_p1_p2_p3() -> Vec<u8> {
     let record = record_of(
         714,
         3,
@@ -485,7 +490,7 @@ fn uni_color_p1_p2_p3() -> Vec<u8> {
 }
 
 /// A `UniformParameter.bin` holding `configs` (team ID, slot), each `shirt_144_config`.
-fn installed_configs(configs: &[(u16, KitSlot)]) -> Vec<u8> {
+pub(crate) fn installed_configs(configs: &[(u16, KitSlot)]) -> Vec<u8> {
     let mut bin = UniformParameter::new();
     for (team_id, slot) in configs {
         bin.insert(
@@ -539,9 +544,10 @@ fn a_midcup_fpc_on_export_patches_the_installed_configs_of_the_kits_it_does_not_
         source("UniformParameter.bin", "4cc_08_bins.cpk"),
     ];
     expected.extend(P2_FINDINGS.map(str::to_owned));
-    // p2 is the export's: nothing for it.
+    // p1 patched in place, p2 generated (the install holds no p2 config), p3 unpatched.
     expected.extend([
         "co Midcup Kits: Info kit_config_fpc_adjusted [Keep] (slot=p1)".to_owned(),
+        "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p2 ()".to_owned(),
         "co Midcup Kits: Warning kit_config_fpc_unpatched [Keep] (slot=p3)".to_owned(),
         // The fpc_on player's resolved boots, gloves and appearance rows: no installed table.
         "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)".to_owned(),
@@ -564,10 +570,18 @@ fn a_midcup_fpc_on_export_patches_the_installed_configs_of_the_kits_it_does_not_
         configs[0].1 == shirt_144_config(PesVersion::Pes21, 714, KitSlot::P1, true),
         "p1 is the installed config with the FPC values"
     );
-    assert!(
-        configs[1].1 == entries[&config_path("2nd")],
-        "p2 is the compiled kit's config"
+    // p2 emits no config of its own and the install holds none: the template stands in.
+    let names = texture_names(
+        714,
+        KitSlot::P2,
+        TexturePresence {
+            kit: true,
+            ..TexturePresence::default()
+        },
     );
+    let generated = KitConfig::template().encode_with_names(PesVersion::Pes21, &names);
+    assert!(configs[1].1 == generated, "p2 is the generated config");
+    assert_eq!(entries[&config_path("2nd")], generated);
 }
 
 // TC-BIN-23
@@ -599,9 +613,12 @@ fn a_midcup_export_s_collar_reports_the_kit_it_does_not_hold_that_has_no_config_
         source("UniformParameter.bin", "4cc_08_bins.cpk"),
     ];
     expected.extend(P2_FINDINGS.map(str::to_owned));
-    // p1 wears the collar with no finding; p2 is the export's.
-    expected
-        .push("co Midcup Kits: Warning kit_config_collar_unpatched [Keep] (slot=p3)".to_owned());
+    // p1 wears the collar with no finding; p2's template wears it (the install holds
+    // no p2 config); p3 has none to wear it.
+    expected.extend([
+        "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p2 ()".to_owned(),
+        "co Midcup Kits: Warning kit_config_collar_unpatched [Keep] (slot=p3)".to_owned(),
+    ]);
     expected.push(deploy_skipped(&sandbox));
     assert_eq!(run.messages(), expected);
     assert_eq!(run.exit_code(), 0);
@@ -613,8 +630,73 @@ fn a_midcup_export_s_collar_reports_the_kit_it_does_not_hold_that_has_no_config_
         ["714_DEF_1st_realUni.bin", "714_DEF_2nd_realUni.bin"],
         "no 714_DEF_3rd"
     );
-    let p1 = KitConfig::decode(&configs[0].1, PesVersion::Pes21).unwrap();
-    assert_eq!((p1.shirt.collar, p1.shirt.winter_collar), (12, 12));
+    for (name, config) in &configs {
+        let config = KitConfig::decode(config, PesVersion::Pes21).unwrap();
+        assert_eq!(
+            (config.shirt.collar, config.shirt.winter_collar),
+            (12, 12),
+            "{name}"
+        );
+    }
+}
+
+// A `Midcup` kit without `config.toml` over a slot with no installed config gets the
+// template, reported `kit_config_generated`, as a `Full` export's would.
+// TC-KIT-34
+#[test]
+fn a_midcup_kit_without_config_or_an_installed_one_gets_the_template() {
+    let sandbox = Sandbox::new("bins_midcup_generated");
+    install_list(&sandbox);
+    install_cpk(
+        &sandbox,
+        "4cc_08_bins.cpk",
+        &[
+            (TEAM_COLOR, &bundled_team_color()),
+            (UNI_COLOR, &uni_color_p1_p2_p3()),
+            (
+                UNIFORM_PARAMETER,
+                &installed_configs(&[(714, KitSlot::P1), (714, KitSlot::P2), (714, KitSlot::P3)]),
+            ),
+        ],
+    );
+    // p4: a `kit.dds` alone; the install holds no p4 config.
+    sandbox.write("exports/co Midcup Kits/Kits/p4/kit.dds", &tracer_kit());
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let mut expected = vec![
+        source("TeamColor.bin", "4cc_08_bins.cpk"),
+        source("UniColor.bin", "4cc_08_bins.cpk"),
+        source("UniformParameter.bin", "4cc_08_bins.cpk"),
+        "co Midcup Kits: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
+        "co Midcup Kits: Info team_colors_missing [Keep] ()".to_owned(),
+        "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/p4 ()".to_owned(),
+        "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p4 ()".to_owned(),
+    ];
+    expected.push(deploy_skipped(&sandbox));
+    assert_eq!(run.messages(), expected);
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let names = texture_names(
+        714,
+        KitSlot::P4,
+        TexturePresence {
+            kit: true,
+            ..TexturePresence::default()
+        },
+    );
+    let generated = KitConfig::template().encode_with_names(PesVersion::Pes21, &names);
+    assert_eq!(
+        entries[&config_path("4th")],
+        generated,
+        "the loose config is the template"
+    );
+    let bin = uniparam::UniformParameter::read(&entries[UNIFORM_PARAMETER]).unwrap();
+    assert_eq!(
+        bin.get("714_DEF_4th_realUni.bin"),
+        Some(generated.as_slice()),
+        "p4's entry is the template"
+    );
 }
 
 /// TC-BIN-18's install: `4cc_08_bins.cpk` holding the bundled `TeamColor.bin`,
@@ -670,11 +752,12 @@ fn a_midcup_fpc_on_pes_17_export_re_emits_the_loose_configs_of_the_kits_it_does_
 
     let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
 
-    // p2 is the export's: nothing for it.
+    // p1 patched in place, p2 generated (the install holds no p2 config), p3 unpatched.
     let expected = pre_fox_lines(
         &sandbox,
         &[
             "co Midcup Kits: Info kit_config_fpc_adjusted [Keep] (slot=p1)",
+            "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p2 ()",
             "co Midcup Kits: Warning kit_config_fpc_unpatched [Keep] (slot=p3)",
         ],
     );
@@ -686,7 +769,7 @@ fn a_midcup_fpc_on_pes_17_export_re_emits_the_loose_configs_of_the_kits_it_does_
             == Some(&shirt_144_config(PesVersion::Pes17, 714, KitSlot::P1, true)),
         "p1 is the installed config with the FPC values"
     );
-    // The install holds no p2 config: the entry is the compiled kit's.
+    // The install holds no p2 config: the template stands in.
     let p2 = KitConfig::decode(&entries[&config_path("2nd")], PesVersion::Pes17).unwrap();
     assert!(kit_config::matches_fpc(&p2));
     assert!(!entries.contains_key(&config_path("3rd")));
@@ -731,6 +814,7 @@ fn an_installed_loose_config_re_encoded_for_the_fpc_values_reports_the_value_it_
         &[
             "co Midcup Kits: Info kit_config_fpc_adjusted [Keep] (slot=p1)",
             "co Midcup Kits: Warning kit_config_version_clamped [Keep] (slot=p1, field=name.y, value=40, max=33)",
+            "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p2 ()",
             "co Midcup Kits: Warning kit_config_fpc_unpatched [Keep] (slot=p3)",
         ],
     );
@@ -755,12 +839,15 @@ fn a_midcup_pes_17_export_s_collar_reaches_the_loose_configs_of_the_kits_it_does
 
     let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
 
-    // No FPC finding; p3 has no config to wear the collar.
+    // No FPC finding; p2's template wears the collar, p3 has no config to wear it.
     assert_eq!(
         run.messages(),
         pre_fox_lines(
             &sandbox,
-            &["co Midcup Kits: Warning kit_config_collar_unpatched [Keep] (slot=p3)"]
+            &[
+                "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p2 ()",
+                "co Midcup Kits: Warning kit_config_collar_unpatched [Keep] (slot=p3)",
+            ]
         )
     );
     assert_eq!(run.exit_code(), 0);
@@ -816,9 +903,13 @@ fn the_nearest_cpk_s_loose_config_is_the_one_an_absent_slot_s_edit_starts_from()
 
     let run = sandbox.run(&pes_settings(&sandbox, 17), &["compile", "--no-deploy"]);
 
+    // p2's is generated (no installed p2 config in any CPK); p3's is unpatched.
     let expected = pre_fox_lines(
         &sandbox,
-        &["co Midcup Kits: Warning kit_config_fpc_unpatched [Keep] (slot=p3)"],
+        &[
+            "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p2 ()",
+            "co Midcup Kits: Warning kit_config_fpc_unpatched [Keep] (slot=p3)",
+        ],
     );
     assert_eq!(run.messages(), expected, "nothing for p1");
     assert_eq!(run.exit_code(), 0);

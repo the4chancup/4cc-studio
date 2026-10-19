@@ -40,7 +40,8 @@ pub(crate) enum Code {
     /// A team export without a root `colors.txt`: its team keeps the colors `TeamColor.bin`
     /// had.
     TeamColorsMissing,
-    /// A kit without `config.toml` gets the template config.
+    /// A `Full` export's kit without `config.toml` gets the template config; a `Midcup`
+    /// one's only where the slot has no installed config (the installed one kept otherwise).
     KitConfigGenerated,
     /// A kit's `config.toml` that is not UTF-8 text or that `kit_config` refuses (a
     /// value of the wrong type or out of range); the kit is left out.
@@ -65,8 +66,9 @@ pub(crate) enum Code {
     /// `KitConfigFpcUnpatched` has not named the slot: the slot keeps its own collar, and the
     /// team needs a kit export for it.
     KitConfigCollarUnpatched,
-    /// A kit whose effective textures lack `kit.dds` (an empty folder included): the bundled
-    /// checkerboard stands in as its main texture.
+    /// A `Full` export's kit whose effective textures lack `kit.dds` (an empty folder
+    /// included): the bundled checkerboard stands in as its main texture; a `Midcup` kit
+    /// keeps the installed ones.
     KitPlaceholder,
     /// A kit's effective textures hold the other engine's map (a `kit_mask` on a Fox target,
     /// a `kit_srm` on a pre-Fox one), which the target does not read; the file is not
@@ -75,8 +77,9 @@ pub(crate) enum Code {
     /// A kit whose `colors.txt` is missing or gives fewer than two valid colors: its menu
     /// colors are taken from its main texture.
     KitColorsDerived,
-    /// A kit with neither two valid colors in its `colors.txt` nor a main texture of its own to
-    /// take them from (a placeholder kit): magenta and black are written as its menu colors.
+    /// A `Full` export's kit with neither two valid colors in its `colors.txt` nor a main
+    /// texture of its own to take them from (a placeholder kit): magenta and black are
+    /// written as its menu colors; a `Midcup` one keeps the installed `UniColor.bin` entry.
     KitColorsMissing,
     /// A kit whose layout marker names the other engine than the target's: the sock islands
     /// of its main texture, and of the mask or srm the target reads, are re-laid out to the
@@ -220,6 +223,10 @@ pub(crate) enum Code {
     /// PES 2015 to 2017: a texture nobody supplies that only `.mtl` materials no mesh uses
     /// name; the game never loads it, so nothing is left out.
     MtlTextureUnusedMissing,
+    /// A `.mtl` sampler `path` below the uniform Common folder whose folder after `common/`
+    /// (the team's ID) is not three characters long; `xml_common_path_invalid`'s rule for a
+    /// `.mtl`, such a path reaching nothing in game. The folder is left out.
+    MtlCommonPathInvalid,
     /// A member's own `face.xml` whose root element is not `<config>`; the folder is left out.
     XmlRootTagInvalid,
     /// A `<model>` of a member's own `face.xml` without a `type`; the folder is left out.
@@ -544,7 +551,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 160] = [
+    const ALL: [Code; 161] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -608,6 +615,7 @@ impl Code {
         Code::XmlBroken,
         Code::MtlTextureNotFound,
         Code::MtlTextureUnusedMissing,
+        Code::MtlCommonPathInvalid,
         Code::XmlRootTagInvalid,
         Code::XmlModelTypeMissing,
         Code::XmlModelPathMissing,
@@ -773,6 +781,7 @@ impl Code {
             Code::XmlBroken => "xml_broken",
             Code::MtlTextureNotFound => "mtl_texture_not_found",
             Code::MtlTextureUnusedMissing => "mtl_texture_unused_missing",
+            Code::MtlCommonPathInvalid => "mtl_common_path_invalid",
             Code::XmlRootTagInvalid => "xml_root_tag_invalid",
             Code::XmlModelTypeMissing => "xml_model_type_missing",
             Code::XmlModelPathMissing => "xml_model_path_missing",
@@ -961,6 +970,7 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
     ("xml_broken", CatalogSeverity::Error),
     ("mtl_texture_not_found", CatalogSeverity::Warning),
     ("mtl_texture_unused_missing", CatalogSeverity::Info),
+    ("mtl_common_path_invalid", CatalogSeverity::Error),
     ("xml_root_tag_invalid", CatalogSeverity::Error),
     ("xml_model_type_missing", CatalogSeverity::Error),
     ("xml_model_path_missing", CatalogSeverity::Error),

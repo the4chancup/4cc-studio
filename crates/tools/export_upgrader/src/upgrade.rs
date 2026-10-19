@@ -339,8 +339,8 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
 
     // Step 6: the identity — a referee export, else the Note's `Team:` line,
     // else the name's first word, each against the teams list. A team export's
-    // Note is consumed here and below; a referee export's is unmigrated
-    // content (step 9).
+    // Note is consumed here and below; a referee export's is a leftover
+    // (step 9).
     let note_path = note::find(&export.files).map(str::to_owned);
     let note_text = match (&note_path, invocation.referees) {
         (Some(note_path), false) => match export.read(note_path) {

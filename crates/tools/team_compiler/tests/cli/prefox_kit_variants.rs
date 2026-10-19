@@ -375,19 +375,20 @@ fn write_kits(sandbox: &Sandbox, kits: &[u8]) {
 }
 
 /// The findings of `EXPORT` with the kit folders `Kits/p1` to `Kits/p<last>`, with nothing
-/// wrong in its set, `missing` placed where the face task reports them.
+/// wrong in its set, `missing` placed where the face task reports them; the kits hold no
+/// `config.toml` and the install none of theirs, so each is generated at bins time, last.
 fn kit_findings(last: u8, missing: &[&str]) -> Vec<String> {
     let mut findings: Vec<String> = FINDINGS[..2]
         .iter()
         .map(|line| (*line).to_owned())
         .collect();
-    findings.extend(
-        (1..=last).map(|kit| format!("Info kit_config_generated [Keep] at Kits/p{kit} ()")),
-    );
     findings.extend(missing.iter().map(|line| (*line).to_owned()));
     findings.push(FINDINGS[2].to_owned());
     findings
         .extend((1..=last).map(|kit| format!("Info kit_colors_derived [Keep] at Kits/p{kit} ()")));
+    findings.extend(
+        (1..=last).map(|kit| format!("Info kit_config_generated [Keep] at Kits/p{kit} ()")),
+    );
     findings
 }
 

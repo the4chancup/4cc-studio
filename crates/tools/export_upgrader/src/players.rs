@@ -141,7 +141,7 @@ impl PlayerFolder {
 }
 
 /// A file's own name: the part after its last `/`.
-fn file_name(path: &str) -> &str {
+pub(crate) fn file_name(path: &str) -> &str {
     path.rsplit('/').next().unwrap_or(path)
 }
 
@@ -737,8 +737,12 @@ fn item_folders(
         // (`Skin.dds` and `skin.dds` are one on Windows), with different bytes
         // keeps the item folder shared instead (`merge_kept_shared`, the
         // first clashing path in its context).
+        let never_merges = match engine {
+            Engine::PreFox => true,
+            Engine::Fox => false,
+        };
         let player = &players[&wearers[0]];
-        let share = engine == Engine::PreFox
+        let share = never_merges
             || wearers.len() > 1
             || folder_files
                 .iter()

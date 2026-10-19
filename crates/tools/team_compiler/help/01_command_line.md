@@ -298,7 +298,8 @@ and a link to it (`legs.fmdl.common`) lists it with those materials, not a `.mtl
 player's; a `.fmdl` beside a `.model` of the same name in `Common` is left out for the `.model`,
 which a link to the `.fmdl` then lists. A link to a `.mtl` (`body.mtl.common`) counts as that `.mtl` sitting beside
 the link, and a link to a texture points the player's `.mtl` files at the Common texture. A
-kit folder with
+kit folder of a
+full export with
 no `kit` texture, an empty one included, is built with a magenta and black checkerboard in its
 place and reported as `kit_placeholder`, so a kit nobody drew shows as missing in the game. A
 kit texture whose name the compiler does not build (`kit_spec.dds`) is left out and reported
@@ -473,7 +474,10 @@ export does not hold are removed. Every team needs a player kit and a goalkeeper
 so a full export with no player kit, or no goalkeeper kit, gets an empty one (`p1` or `g1`),
 which compiles as the placeholder kit (`kit_placeholder`). A full export also clears the
 boots or gloves of each of its compiled players whose folder has none. A midcup export adds its
-kits to those installed. Only the second word counts, so a `Full` later in the name changes
+kits to those installed, and what a midcup kit folder does not hold stays as the game has it
+installed: a folder without `config.toml` keeps the installed kit config (the template only
+where there is none), one holding no `kit` texture keeps the installed textures, and one
+holding neither it nor a `colors.txt` keeps the kit's installed menu colors. Only the second word counts, so a `Full` later in the name changes
 nothing. A team export whose second word is neither is skipped with the error
 `export_tag_missing`, naming the export: rename it `<team> Full …` or `<team> Midcup …`. A
 referee export needs no tag. An export still in the old layout (a root folder named `Kit

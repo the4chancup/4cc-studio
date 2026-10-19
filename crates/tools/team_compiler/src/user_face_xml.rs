@@ -107,6 +107,13 @@ pub(crate) enum Reference {
 /// file's path relative to `Common/`.
 const UNIFORM_COMMON: &str = "model/character/uniform/common/";
 
+/// Whether `segment`, the folder a uniform Common reference names after `common/` (the team's
+/// ID, which is written under three digits), is not three characters long
+/// (`xml_common_path_invalid` in a `face.xml`, `mtl_common_path_invalid` in a `.mtl`).
+pub(crate) fn common_segment_invalid(segment: &str) -> bool {
+    segment.chars().count() != 3
+}
+
 /// What the `path` or `material` value `value` names (`Reference`).
 pub(crate) fn reference(value: &str) -> Reference {
     if let Some(path) = value.strip_prefix("./")
@@ -580,7 +587,7 @@ fn reference_finding(
     let reference = reference(value);
     match &reference {
         Reference::Unchecked(_) => return Some(kept(Code::XmlPathUnchecked, context)),
-        Reference::Common { segment, .. } if segment.chars().count() != 3 => {
+        Reference::Common { segment, .. } if common_segment_invalid(segment) => {
             return Some(error(Code::XmlCommonPathInvalid, context));
         }
         Reference::Local(_) | Reference::Common { .. } => {}

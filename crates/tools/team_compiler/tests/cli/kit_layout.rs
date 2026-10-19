@@ -220,12 +220,21 @@ pub(crate) fn write_stripes_export(sandbox: &Sandbox, marker: Option<&str>) {
 const IDENTIFIED: &str = "Info export_identified [Keep] (team=/co/, id=714)";
 const TEAM_COLORS_MISSING: &str = "Info team_colors_missing [Keep] ()";
 
-/// What `compile` reports for `write_stripes_export`'s export when nothing is re-laid.
-pub(crate) const STRIPES_FINDINGS: [&str; 4] = [
+/// What `compile` reports for `write_stripes_export`'s export when nothing is re-laid:
+/// its kit holds no `config.toml`, so its installed config is kept (`Midcup`).
+pub(crate) const STRIPES_FINDINGS: [&str; 3] = [
     IDENTIFIED,
     TEAM_COLORS_MISSING,
-    "Info kit_config_generated [Keep] at Kits/p1 ()",
     "Info kit_colors_derived [Keep] at Kits/p1 ()",
+];
+
+/// `STRIPES_FINDINGS` for a pre-Fox compile: no installed loose config for the kit to
+/// keep, so the template is generated at bins time, after the task's findings.
+pub(crate) const STRIPES_PRE_FOX_FINDINGS: [&str; 4] = [
+    IDENTIFIED,
+    TEAM_COLORS_MISSING,
+    "Info kit_colors_derived [Keep] at Kits/p1 ()",
+    "Info kit_config_generated [Keep] at Kits/p1 ()",
 ];
 
 // TC-KIT-18
@@ -241,7 +250,7 @@ fn a_kit_marked_pre_fox_compiled_for_pes_21_has_its_socks_where_the_fox_models_r
 
     let mut converted = STRIPES_FINDINGS.to_vec();
     converted.insert(
-        3,
+        2,
         "Info kit_layout_converted [Keep] at Kits/p1 (from=pre-fox, to=fox)",
     );
     assert_eq!(
@@ -285,11 +294,11 @@ pub(crate) fn compiled_entries(sandbox: &Sandbox) -> std::collections::BTreeMap<
 #[test]
 fn a_placeholder_kit_marked_pre_fox_compiles_as_without_the_marker() {
     let write = |sandbox: &Sandbox, marked: bool| {
-        fs::create_dir_all(sandbox.root.join("exports/co Midcup Layout/Kits/p3")).unwrap();
+        fs::create_dir_all(sandbox.root.join("exports/co Full Layout/Kits/p3")).unwrap();
         if marked {
-            sandbox.write("exports/co Midcup Layout/Kits/p3/pre-fox", b"");
+            sandbox.write("exports/co Full Layout/Kits/p3/pre-fox", b"");
         }
-        sandbox.write("exports/co Midcup Layout/Kits/all/fox", b"");
+        sandbox.write("exports/co Full Layout/Kits/all/fox", b"");
     };
     let marked = Sandbox::new("kit_layout_placeholder");
     write(&marked, true);
@@ -299,21 +308,25 @@ fn a_placeholder_kit_marked_pre_fox_compiles_as_without_the_marker() {
     let marked_run = marked.run(&pes21_settings(&marked), &["compile", "--no-deploy"]);
     let unmarked_run = unmarked.run(&pes21_settings(&unmarked), &["compile", "--no-deploy"]);
 
-    // No kit_layout_converted: the placeholder is never re-laid.
+    // No kit_layout_converted: the placeholder is never re-laid. The `Full` export
+    // holds no `g1/` either, so an empty g1 compiles beside it.
     let findings = [
         "Warning kit_all_file_ignored [DropFile] at Kits/all/fox ()",
         IDENTIFIED,
         TEAM_COLORS_MISSING,
         "Info kit_config_generated [Keep] at Kits/p3 ()",
         "Info kit_placeholder [Keep] at Kits/p3 ()",
+        "Info kit_config_generated [Keep] at Kits/g1 ()",
+        "Info kit_placeholder [Keep] at Kits/g1 ()",
         "Warning kit_colors_missing [Keep] at Kits/p3 ()",
+        "Warning kit_colors_missing [Keep] at Kits/g1 ()",
     ];
     assert_eq!(
-        findings_of(&marked_run.messages(), "co Midcup Layout"),
+        findings_of(&marked_run.messages(), "co Full Layout"),
         findings
     );
     assert_eq!(
-        findings_of(&unmarked_run.messages(), "co Midcup Layout"),
+        findings_of(&unmarked_run.messages(), "co Full Layout"),
         findings
     );
     let entries = compiled_entries(&marked);
@@ -362,7 +375,7 @@ fn a_kit_srm_marked_pre_fox_compiled_for_pes_21_is_re_laid_with_its_kit() {
     // Once for the kit, its srm re-laid with its main texture.
     let mut converted = STRIPES_FINDINGS.to_vec();
     converted.insert(
-        3,
+        2,
         "Info kit_layout_converted [Keep] at Kits/p1 (from=pre-fox, to=fox)",
     );
     assert_eq!(
@@ -444,8 +457,6 @@ fn a_column_number_atlas_compiled_for_pes_21_becomes_a_row_and_a_row_stays_as_gi
         [
             IDENTIFIED,
             TEAM_COLORS_MISSING,
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
         ]
@@ -502,10 +513,10 @@ fn a_row_number_atlas_compiled_for_pes_17_becomes_a_column_and_a_column_stays_as
         [
             IDENTIFIED,
             TEAM_COLORS_MISSING,
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);

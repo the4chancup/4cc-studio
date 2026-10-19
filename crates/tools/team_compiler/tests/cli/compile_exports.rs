@@ -10,10 +10,14 @@ use kit_config::{KitConfig, KitSlot, ShortSleeves};
 use pes_version::PesVersion;
 use studio_core::PipelineEvent;
 
+use crate::bins::{
+    install_cpk, install_names, installed_configs, shirt_144_config, uni_color_p1_p2_p3,
+};
 use crate::common::Sandbox;
 use crate::compile::{
-    compiled_kits, compiled_players, compiled_portraits, cpk_entries, pass_through_settings,
-    pes_settings, pes21_settings, pixels_cut_dds, tracer_kit, tracer_player_file, tracer_portrait,
+    compiled_kits, compiled_players, compiled_portraits, cpk_entries, kit_texture,
+    pass_through_settings, pes_settings, pes21_settings, pixels_cut_dds, tracer_export, tracer_kit,
+    tracer_player_file, tracer_portrait,
 };
 use crate::textures::{bc1_dds, texture_fixture};
 use crate::{
@@ -143,7 +147,6 @@ fn an_empty_players_txt_compiles_the_kits_and_no_player() {
             "Warning player_unlisted [DropFolder] at Players/03 - A ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
@@ -169,8 +172,6 @@ fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 - Lakers ()",
-            "Info kit_config_generated [Keep] at Kits/g1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 - Lakers ()",
             "Info kit_colors_derived [Keep] at Kits/g1 ()",
         ]
@@ -183,21 +184,27 @@ fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
 #[test]
 fn a_kit_holding_only_a_back_texture_gets_the_placeholder_main_texture() {
     let sandbox = Sandbox::new("kit_back_only");
-    sandbox.write("exports/co Midcup Back/Kits/p4/kit_back.dds", &tracer_kit());
+    sandbox.write("exports/co Full Back/Kits/p4/kit_back.dds", &tracer_kit());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co Midcup Back"),
+        findings_of(&run.messages(), "co Full Back"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p4 ()",
             "Info kit_placeholder [Keep] at Kits/p4 ()",
+            "Info kit_config_generated [Keep] at Kits/g1 ()",
+            "Info kit_placeholder [Keep] at Kits/g1 ()",
             "Warning kit_colors_missing [Keep] at Kits/p4 ()",
+            "Warning kit_colors_missing [Keep] at Kits/g1 ()",
         ]
     );
-    assert_eq!(compiled_kits(&sandbox), ["u0714p4", "u0714p4_back"]);
+    assert_eq!(
+        compiled_kits(&sandbox),
+        ["u0714g1", "u0714p4", "u0714p4_back"]
+    );
     let names = kit_config::texture_names(
         714,
         kit_config::KitSlot::P4,
@@ -476,7 +483,6 @@ fn a_kit_mask_on_a_fox_target_is_reported_once_and_not_emitted() {
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_mask.dds)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
@@ -499,7 +505,6 @@ fn a_kit_texture_stem_the_compiler_does_not_build_is_not_used() {
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_spec.dds)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
@@ -527,7 +532,6 @@ fn a_kit_mask_a_fox_target_does_not_emit_is_not_checked() {
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_mask.dds)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ],
         "{lines:#?}"
@@ -768,7 +772,6 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
             &sandbox,
             [
                 "co Midcup Colors: Info export_identified [Keep] (team=/co/, id=714)",
-                "co Midcup Colors: Info kit_config_generated [Keep] at Kits/p1 ()",
                 "co Midcup Colors: Info kit_colors_derived [Keep] at Kits/p1 ()"
             ]
         )
@@ -800,7 +803,6 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
             [
                 "dbg Midcup Plain: Info export_identified [Keep] (team=/dbg/, id=790)",
                 "dbg Midcup Plain: Info team_colors_missing [Keep] ()",
-                "dbg Midcup Plain: Info kit_config_generated [Keep] at Kits/p1 ()",
                 "dbg Midcup Plain: Info kit_colors_derived [Keep] at Kits/p1 ()"
             ]
         )
@@ -884,7 +886,7 @@ fn uniform_parameter_changes(ours: &[u8], base: &[u8]) -> Vec<String> {
 #[test]
 fn each_kit_s_menu_colors_come_from_its_colors_txt_its_texture_or_the_missing_pair() {
     let sandbox = Sandbox::new("kit_colors");
-    let export = "exports/co Midcup Colors";
+    let export = "exports/co Full Colors";
     sandbox.write(&format!("{export}/colors.txt"), b"#c11200\n#414141\n");
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(
@@ -897,32 +899,39 @@ fn each_kit_s_menu_colors_come_from_its_colors_txt_its_texture_or_the_missing_pa
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co Midcup Colors"),
+        findings_of(&run.messages(), "co Full Colors"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info kit_config_generated [Keep] at Kits/p3 ()",
             "Info kit_placeholder [Keep] at Kits/p3 ()",
+            "Info kit_config_generated [Keep] at Kits/g1 ()",
+            "Info kit_placeholder [Keep] at Kits/g1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
             "Warning kit_colors_missing [Keep] at Kits/p3 ()",
+            "Warning kit_colors_missing [Keep] at Kits/g1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
 
-    // Team 714's record: kits 0 to 2 (p1 to p3) replaced, the base's kits 3 to 6 and 0x10
-    // kept, still eight kits; every other record is the base's.
+    // Team 714's record is rebuilt from the export's kits alone: kits 0 to 2 (p1 to p3)
+    // and the goalkeeper kit a `Full` export always has (the empty g1 it plans), then
+    // unused entries; every other record is the base's.
     let base = bundled_uni_color();
-    let mut record = uni_record(&base, 714).to_vec();
-    assert_eq!(record[4], 8, "the base's record holds eight kits");
-    record[5..13].copy_from_slice(&[0x00, 0x03, 0x0a, 0x1b, 0x2c, 0xd4, 0xe5, 0xf6]);
-    record[13..15].copy_from_slice(&[0x01, 0x03]);
-    record[15..21].copy_from_slice(&tracer_kit_colors());
-    record[21..29].copy_from_slice(&[0x02, 0x03, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00]);
+    let mut record = vec![0xca, 0x02, 0x00, 0x00, 4];
+    record.extend([0x00, 0x03, 0x0a, 0x1b, 0x2c, 0xd4, 0xe5, 0xf6]);
+    record.extend([0x01, 0x03]);
+    record.extend(tracer_kit_colors());
+    record.extend([0x02, 0x03, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00]);
+    record.extend([0x10, 0x03, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00]);
+    for _ in 4..10 {
+        record.extend([0xff, 0, 0, 0, 0, 0, 0, 0]);
+    }
     assert!(
         entries[UNI_COLOR] == with_uni_record(&base, 714, &record),
-        "UniColor.bin is the base with team 714's p1 to p3 entries set"
+        "UniColor.bin is the base with team 714's record rebuilt from p1 to p3 and g1"
     );
 
     // The other two bins differ from their bases in team 714's entries alone.
@@ -940,8 +949,16 @@ fn each_kit_s_menu_colors_come_from_its_colors_txt_its_texture_or_the_missing_pa
         [
             "714_DEF_1st_realUni.bin",
             "714_DEF_2nd_realUni.bin",
-            "714_DEF_3rd_realUni.bin"
-        ]
+            "714_DEF_3rd_realUni.bin",
+            "714_DEF_GK1st_realUni.bin",
+            "714_DEF_4th_realUni.bin",
+            "714_DEF_5th_realUni.bin",
+            "714_DEF_6th_realUni.bin",
+            "714_DEF_7th_realUni.bin",
+            "714_DEF_8th_realUni.bin",
+            "714_DEF_9th_realUni.bin",
+        ],
+        "the four kits' generated configs written, p4 to p9 removed"
     );
 }
 
@@ -961,7 +978,6 @@ fn a_kit_without_a_texture_derives_its_colors_from_the_inherited_all_kit_dds() {
             "Info kit_textures_inherited [Keep] at Kits/p2 (stems=kit)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
         ]
     );
@@ -997,7 +1013,6 @@ fn an_all_kit_texture_that_does_not_decode_drops_each_kit_inheriting_it_and_not_
             "Error texture_type_mismatch [DropFolder] at Kits/p2 (file=Kits/all/kit.dds)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
@@ -1024,7 +1039,6 @@ fn a_kit_colors_txt_with_one_valid_color_reports_its_bad_line_and_derives_both_c
             "Warning color_entry_invalid [Keep] at Kits/p1/colors.txt (line=2, reason=not one color)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
@@ -1072,6 +1086,8 @@ fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits()
         &format!("{export}/Kits/p1/colors.txt"),
         b"#0a1b2c\n#d4e5f6\n",
     );
+    // A config the bundled base does not hold: its entry is written.
+    sandbox.write(&format!("{export}/Kits/p1/config.toml"), SHIRT_144);
     // A header the deep pass reads, over pixel data cut short: the kit's task fails.
     sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &pixels_cut_dds());
     sandbox.write(
@@ -1083,18 +1099,17 @@ fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits()
 
     let lines = run.messages();
     let findings = findings_of(&lines, "co Midcup Fails");
+    // p1 compiles, p2's task failed: the only findings are the export's and the failure.
+    let [identified, missing, failed] = findings.as_slice() else {
+        panic!("{findings:#?}");
+    };
     assert_eq!(
-        findings[..4],
+        [*identified, *missing],
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/p1 ()",
-            "Info kit_config_generated [Keep] at Kits/p2 ()",
         ]
     );
-    let [failed] = &findings[4..] else {
-        panic!("{findings:#?}");
-    };
     assert!(
         failed.starts_with(
             "Error folder_pack_failed [DropFolder] at Kits/p2 (error=kit.dds: cannot convert"
@@ -1113,9 +1128,330 @@ fn a_kit_whose_task_fails_keeps_its_base_entries_and_the_kit_beside_it_commits()
         entries[UNI_COLOR] == with_uni_record(&base, 714, &record),
         "UniColor.bin is the base with team 714's p1 entry set"
     );
-    let changed =
-        uniform_parameter_changes(&entries[UNIFORM_PARAMETER], &bundled_uniform_parameter());
-    assert_eq!(changed, ["714_DEF_1st_realUni.bin"], "nothing of p2");
+    // p1's config is the emitted one (it differs from the bundled base's), p2's the base's.
+    let bin = uniparam::UniformParameter::read(&entries[UNIFORM_PARAMETER]).unwrap();
+    let base_bin = uniparam::UniformParameter::read(&bundled_uniform_parameter()).unwrap();
+    assert_ne!(
+        entries[&config_path("1st")].as_slice(),
+        base_bin.get("714_DEF_1st_realUni.bin").unwrap(),
+        "p1's emitted config differs from the base's, so its entry is new"
+    );
+    assert_eq!(
+        bin.get("714_DEF_1st_realUni.bin"),
+        Some(entries[&config_path("1st")].as_slice()),
+        "p1 is the compiled config"
+    );
+    assert_eq!(
+        bin.get("714_DEF_2nd_realUni.bin"),
+        base_bin.get("714_DEF_2nd_realUni.bin"),
+        "p2 is the installed config"
+    );
+}
+
+// TC-KIT-33
+#[test]
+fn a_midcup_kit_keeps_the_installed_config_textures_and_colors_it_does_not_resend() {
+    // The installed game holds team 714's configs and textures for p1 to p3, p1's a
+    // different image than the export's, so a copied file would show.
+    let sandbox = Sandbox::new("kit_midcup_keeps_installed");
+    install_names(
+        &sandbox,
+        &["4cc_08_bins.cpk", "4cc_61_midcup.cpk", "4cc_99_test.cpk"],
+    );
+    let ftex = ftex::dds_to_ftex(&tracer_kit(), ftex::ColorSpace::Normal).unwrap();
+    let installed_p1 = ftex::dds_to_ftex(&bc1_dds(64, 64), ftex::ColorSpace::Normal).unwrap();
+    assert_ne!(installed_p1, ftex);
+    install_cpk(
+        &sandbox,
+        "4cc_08_bins.cpk",
+        &[
+            (TEAM_COLOR, &bundled_team_color()),
+            (UNI_COLOR, &uni_color_p1_p2_p3()),
+            (
+                UNIFORM_PARAMETER,
+                &installed_configs(&[(714, KitSlot::P1), (714, KitSlot::P2), (714, KitSlot::P3)]),
+            ),
+            (kit_texture("u0714p1").as_str(), installed_p1.as_slice()),
+            (kit_texture("u0714p2").as_str(), ftex.as_slice()),
+            (kit_texture("u0714p3").as_str(), ftex.as_slice()),
+        ],
+    );
+    let export = "exports/co Midcup Keep";
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Kits/p1/colors.txt"),
+        b"#0a1b2c\n#d4e5f6\n",
+    );
+    sandbox.write(
+        &format!("{export}/Kits/p2/colors.txt"),
+        b"#111111\n#222222\n",
+    );
+    sandbox.write(
+        &format!("{export}/Kits/p3/config.toml"),
+        &fs::read(Path::new(&tracer_export()).join("Kits/g1/config.toml")).unwrap(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(
+        findings_of(&lines, "co Midcup Keep"),
+        [
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // p1's kit texture and p3's config are the only kit files: p1's config, p2's config
+    // and p2's and p3's textures stay the installed ones.
+    assert_eq!(compiled_kits(&sandbox), ["u0714p1"]);
+    assert_eq!(
+        entries[&kit_texture("u0714p1")],
+        ftex,
+        "p1's texture is the resent one's conversion, not the installed"
+    );
+    assert!(entries.contains_key(&config_path("3rd")));
+    assert!(!entries.contains_key(&config_path("1st")));
+    assert!(!entries.contains_key(&config_path("2nd")));
+
+    // p1's and p2's entries are the installed configs', p3's is the emitted one.
+    let bin = uniparam::UniformParameter::read(&entries[UNIFORM_PARAMETER]).unwrap();
+    assert_eq!(
+        bin.get("714_DEF_1st_realUni.bin"),
+        Some(shirt_144_config(PesVersion::Pes21, 714, KitSlot::P1, false).as_slice()),
+        "p1 is the installed config"
+    );
+    assert_eq!(
+        bin.get("714_DEF_2nd_realUni.bin"),
+        Some(shirt_144_config(PesVersion::Pes21, 714, KitSlot::P2, false).as_slice()),
+        "p2 is the installed config"
+    );
+    assert_eq!(
+        bin.get("714_DEF_3rd_realUni.bin"),
+        Some(entries[&config_path("3rd")].as_slice()),
+        "p3 is the compiled config"
+    );
+    // p3's emitted config is its `config.toml` encoded for the slot, its `kit` name
+    // alone (the install holds none of its number textures).
+    let expected = kit_config::KitConfig::from_toml(
+        &fs::read_to_string(Path::new(&tracer_export()).join("Kits/g1/config.toml")).unwrap(),
+    )
+    .unwrap()
+    .encode_with_names(
+        PesVersion::Pes21,
+        &kit_config::texture_names(
+            714,
+            KitSlot::P3,
+            kit_config::TexturePresence {
+                kit: true,
+                ..kit_config::TexturePresence::default()
+            },
+        ),
+    );
+    assert_ne!(
+        expected.to_vec(),
+        shirt_144_config(PesVersion::Pes21, 714, KitSlot::P3, false),
+        "the emitted config differs from the installed p3 config, so its entry is new"
+    );
+    assert_eq!(entries[&config_path("3rd")], expected.to_vec());
+
+    // p1's and p2's colors are written, p3's the installed one.
+    let record = uni_record(&entries[UNI_COLOR], 714);
+    assert_eq!(
+        record[5..13],
+        [0x00, 0x03, 0x0a, 0x1b, 0x2c, 0xd4, 0xe5, 0xf6],
+        "p1's colors.txt"
+    );
+    assert_eq!(
+        record[13..21],
+        [0x01, 0x03, 0x11, 0x11, 0x11, 0x22, 0x22, 0x22],
+        "p2's colors.txt"
+    );
+    assert_eq!(
+        record[21..29],
+        uni_record(&uni_color_p1_p2_p3(), 714)[21..29],
+        "p3 is the installed entry"
+    );
+}
+
+// TC-KIT-35
+#[test]
+fn a_midcup_kit_s_config_names_the_number_textures_the_install_holds() {
+    // Team 714's installed CPK holds p1's textures `u0714p1`, `u0714p1_back` and
+    // `u0714p1_name`, and p1's config.
+    let sandbox = Sandbox::new("kit_midcup_config_names");
+    install_names(
+        &sandbox,
+        &["4cc_08_bins.cpk", "4cc_61_midcup.cpk", "4cc_99_test.cpk"],
+    );
+    let ftex = ftex::dds_to_ftex(&tracer_kit(), ftex::ColorSpace::Normal).unwrap();
+    install_cpk(
+        &sandbox,
+        "4cc_08_bins.cpk",
+        &[
+            (TEAM_COLOR, &bundled_team_color()),
+            (UNI_COLOR, &uni_color_p1_p2_p3()),
+            (UNIFORM_PARAMETER, &installed_configs(&[(714, KitSlot::P1)])),
+            (kit_texture("u0714p1").as_str(), ftex.as_slice()),
+            (kit_texture("u0714p1_back").as_str(), ftex.as_slice()),
+            (kit_texture("u0714p1_name").as_str(), ftex.as_slice()),
+        ],
+    );
+    let export = "exports/co Midcup Keep";
+    let config_path_src = Path::new(&tracer_export()).join("Kits/g1/config.toml");
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Kits/p1/config.toml"),
+        &fs::read(&config_path_src).unwrap(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    // The emitted config names the installed `u0714p1_back` and `u0714p1_name` its folder
+    // does not resend: the chest and leg fields empty.
+    let names = kit_config::texture_names(
+        714,
+        KitSlot::P1,
+        kit_config::TexturePresence {
+            kit: true,
+            back: true,
+            name: true,
+            ..kit_config::TexturePresence::default()
+        },
+    );
+    let expected = kit_config::KitConfig::from_toml(&fs::read_to_string(&config_path_src).unwrap())
+        .unwrap()
+        .encode_with_names(pes_version::PesVersion::Pes21, &names);
+    // The expected config names `u0714p1_back` and `u0714p1_name`, so it differs from the
+    // same config encoded with the main texture's name alone.
+    let main_only =
+        kit_config::KitConfig::from_toml(&fs::read_to_string(&config_path_src).unwrap())
+            .unwrap()
+            .encode_with_names(
+                pes_version::PesVersion::Pes21,
+                &kit_config::texture_names(
+                    714,
+                    KitSlot::P1,
+                    kit_config::TexturePresence {
+                        kit: true,
+                        ..kit_config::TexturePresence::default()
+                    },
+                ),
+            );
+    assert_ne!(expected.to_vec(), main_only.to_vec());
+    assert_eq!(
+        entries[&config_path("1st")],
+        expected.to_vec(),
+        "the config's five texture names: u0714p1, u0714p1_back, empty, empty, u0714p1_name"
+    );
+}
+
+// TC-BIN-42
+#[test]
+fn a_midcup_run_whose_only_work_is_a_root_colors_txt_still_writes_team_color_bin() {
+    // Team 714's installed CPK as the kit test's: its `TeamColor.bin` record holds its
+    // own bytes until a root `colors.txt` is compiled.
+    let sandbox = Sandbox::new("bin_midcup_root_colors");
+    install_names(
+        &sandbox,
+        &["4cc_08_bins.cpk", "4cc_61_midcup.cpk", "4cc_99_test.cpk"],
+    );
+    install_cpk(
+        &sandbox,
+        "4cc_08_bins.cpk",
+        &[
+            (TEAM_COLOR, &bundled_team_color()),
+            (UNI_COLOR, &uni_color_p1_p2_p3()),
+            (
+                UNIFORM_PARAMETER,
+                &installed_configs(&[(714, KitSlot::P1), (714, KitSlot::P2), (714, KitSlot::P3)]),
+            ),
+        ],
+    );
+    sandbox.write(
+        "exports/co Midcup Colors/colors.txt",
+        b"#c11200\n#414141\n#020304\n#050607\n",
+    );
+    // `export_empty` drops an export with no content folders, and a root `colors.txt`
+    // alone is none: an empty kit folder is the smallest content it can compile.
+    fs::create_dir_all(sandbox.root.join("exports/co Midcup Colors/Kits/p2")).unwrap();
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    // The root file is the run's whole work beside the bins, and they are written.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key(TEAM_COLOR), "the bins CPK exists");
+    let record = (714 - 100) * 16;
+    assert_eq!(
+        entries[TEAM_COLOR][record..record + 16],
+        [
+            0xca, 0x02, 0x04, 0x00, 0xc1, 0x12, 0x00, 0x41, 0x41, 0x41, 0x02, 0x03, 0x04, 0x05,
+            0x06, 0x07
+        ],
+        "team 714's record: its ID, count 4, then the four colors"
+    );
+}
+
+// TC-BIN-42
+#[test]
+fn a_midcup_run_whose_only_work_is_a_colors_only_kit_still_writes_its_bins() {
+    // The installed game holds team 714's configs and textures for p1 to p3, as
+    // `a_midcup_kit_keeps_the_installed_config_textures_and_colors_it_does_not_resend`'s.
+    let sandbox = Sandbox::new("kit_midcup_colors_only");
+    install_names(
+        &sandbox,
+        &["4cc_08_bins.cpk", "4cc_61_midcup.cpk", "4cc_99_test.cpk"],
+    );
+    let ftex = ftex::dds_to_ftex(&tracer_kit(), ftex::ColorSpace::Normal).unwrap();
+    install_cpk(
+        &sandbox,
+        "4cc_08_bins.cpk",
+        &[
+            (TEAM_COLOR, &bundled_team_color()),
+            (UNI_COLOR, &uni_color_p1_p2_p3()),
+            (
+                UNIFORM_PARAMETER,
+                &installed_configs(&[(714, KitSlot::P1), (714, KitSlot::P2), (714, KitSlot::P3)]),
+            ),
+            (kit_texture("u0714p1").as_str(), ftex.as_slice()),
+            (kit_texture("u0714p2").as_str(), ftex.as_slice()),
+            (kit_texture("u0714p3").as_str(), ftex.as_slice()),
+        ],
+    );
+    sandbox.write(
+        "exports/co Midcup Colors/Kits/p2/colors.txt",
+        b"#111111\n#222222\n",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    // A `UniColor.bin` entry is all the colors-only kit committed, but the CPK exists:
+    // the bins are written with it.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(entries.contains_key(UNI_COLOR), "the bins CPK exists");
+    let record = uni_record(&entries[UNI_COLOR], 714);
+    assert_eq!(
+        record[13..21],
+        [0x01, 0x03, 0x11, 0x11, 0x11, 0x22, 0x22, 0x22],
+        "p2's colors.txt"
+    );
+    let installed = uni_color_p1_p2_p3();
+    assert_eq!(
+        record[5..13],
+        uni_record(&installed, 714)[5..13],
+        "p1 stays installed"
+    );
+    assert_eq!(
+        record[21..29],
+        uni_record(&installed, 714)[21..29],
+        "p3 stays installed"
+    );
 }
 
 /// The `UniColor.bin` entry of kit `kit` with icon 3 and the six color bytes `colors`.
@@ -1360,7 +1696,7 @@ const SHIRT_144: &[u8] = b"[shirt]\nmodel = 144\n";
 #[test]
 fn an_fpc_on_player_writes_the_fpc_values_into_every_kit_config() {
     let sandbox = Sandbox::new("kit_fpc_on");
-    let export = "exports/co Midcup Fpc";
+    let export = "exports/co Full Fpc";
     sandbox.write(
         &format!("{export}/Players/05 - A/face_high.fmdl"),
         &clean_model(),
@@ -1373,20 +1709,23 @@ fn an_fpc_on_player_writes_the_fpc_values_into_every_kit_config() {
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co Midcup Fpc"),
+        findings_of(&run.messages(), "co Full Fpc"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/g1 ()",
+            "Info kit_placeholder [Keep] at Kits/g1 ()",
             "Info kit_config_fpc_adjusted [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Warning kit_colors_missing [Keep] at Kits/g1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);
     assert_eq!(compiled_players(&sandbox), [71405]);
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    for ordinal in ["1st", "2nd"] {
+    for ordinal in ["1st", "2nd", "GK1st"] {
         let config = emitted_config(&entries, ordinal, PesVersion::Pes21);
         assert!(kit_config::matches_fpc(&config), "{ordinal}");
     }
@@ -1919,8 +2258,6 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
             "started 1",
             "message export_disabled",
             "message team_colors_missing",
-            "message kit_config_generated",
-            "message kit_config_generated",
             "processed 1",
             "message kit_colors_derived",
             "message folder_pack_failed",
@@ -1973,8 +2310,6 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
             "egg Midcup Tracer: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=glove_l.fmdl, count=2)",
             "egg Midcup Tracer: Info export_identified [Keep] (team=/egg/, id=792)",
             "co Midcup Kits: Info team_colors_missing [Keep] ()",
-            "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p1 ()",
-            "co Midcup Kits: Info kit_config_generated [Keep] at Kits/g1 ()",
             "dbg Midcup Seven.7z: Info team_colors_missing [Keep] ()",
             "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/p1 ()",
             "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/g1 ()",
@@ -2074,7 +2409,6 @@ fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team
     // Planning's notes are `a Midcup Home`'s alone: nothing of `/co/` is planned.
     let planned = [
         "a Midcup Home: Info team_colors_missing [Keep] ()".to_owned(),
-        "a Midcup Home: Info kit_config_generated [Keep] at Kits/p1 ()".to_owned(),
         "a Midcup Home: Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned(),
         "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)".to_owned(),
     ];

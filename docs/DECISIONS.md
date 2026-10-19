@@ -9337,3 +9337,30 @@ preset's blank-model ID, so a player with hidden boots and normal hands (EGG VGL
 boots and gloves folders have different wearers) would lose his hands; an explicit 0 is what
 he wore in game.
 Plan: `plans/export_upgrader.md` step 8 (the stored-0 sentence), EU-PLY-17.
+
+## 2026-10-19 — team_compiler — a Midcup kit's config names the number textures the game already holds
+Decision: a `Midcup` kit's emitted config names a `back`, `chest`, `leg` or `name` texture when the kit
+holds it or the installed CPKs before the run's hold that texture of the slot; a `Full` kit's
+names still come from its effective set alone.
+Why: Astra's review 6.16.BC found the config's five name fields derived from the export alone,
+so a `Midcup` resending a config and its main texture zeroed the number font its `Full` export
+had installed (JP 2024 Spring Aesthetic Additions for Day 8 resends configs naming
+`u0174p1_back`, `_leg`, `_name` with only `u0XXXp1.dds`); Red copied the config as it was, and
+the game found the textures installed. The installed entry paths are already read for the
+Common texture lookup.
+Plan: `spec/team_compiler/pipeline.md` "Bins accumulation"; `spec/aesthetics_export/player_folders.md`
+(the texture-name fields); TC-KIT-35.
+
+## 2026-10-20 — model_conversion — a hand split takes stray hand weights as they are
+Decision: the hand split keeps selecting every vertex with any positive `skh_` weight, a
+residue of 1/255 included; no threshold or special case for a hand part of a few vertices.
+Stray hand weights are the model's to fix, and the `model_hand_split` Info already names the
+model and the gloves it gave.
+Why: 6.16c measured HDG VGL26's `EAT` (`.tmp/6_16/ingame/`): seven loop entries of two
+chest-armor vertices carry `sk_chest` 253-254 and 1/255 on `skh_pinky_mcp_l`/`_pip_l`; the
+split moves them with their grow ring (20 vertices, 10 `armor` faces) into a `glove_l` that
+floats as a speck in game. A threshold would be a second rule for what "weighted to a hand"
+means, against the select-grow-separate semantics members reproduce in Blender; the
+maintainer ruled it a model issue.
+Plan: no plan edit needed: `spec/model_conversion/hand_split.md` "Split" step 1 already says
+"any positive weight".

@@ -42,7 +42,8 @@ pub(crate) fn tracer_export() -> String {
 }
 
 /// The tracer bullet's `kit.dds`, a kit texture that compiles. Written without the tracer's
-/// `config.toml`, its kit reports `kit_config_generated`.
+/// `config.toml`, its kit reports `kit_config_generated` in a `Full` export and keeps the
+/// installed config in a `Midcup` one.
 pub(crate) fn tracer_kit() -> Vec<u8> {
     fs::read(Path::new(&tracer_export()).join("Kits/g1/kit.dds")).unwrap()
 }
@@ -805,7 +806,6 @@ const DROP_CASES: [DropCase; 8] = [
             "Error kit_slot_duplicate [DropFolder] at Kits/p1 - Lakers ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/g1 ()",
             "Info kit_colors_derived [Keep] at Kits/g1 ()",
         ],
         compiled: Some((&[71403], &["u0714g1"])),
@@ -825,7 +825,6 @@ const DROP_CASES: [DropCase; 8] = [
             "Error kit_folder_invalid [DropFolder] at Kits/p10 ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_config_generated [Keep] at Kits/g1 ()",
             "Info kit_colors_derived [Keep] at Kits/g1 ()",
         ],
         compiled: Some((&[71403], &["u0714g1"])),

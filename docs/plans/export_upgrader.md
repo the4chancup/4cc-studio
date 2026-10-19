@@ -1574,6 +1574,10 @@ EU-LOOSE-02 GIVEN EU-LOOSE-01's export with the boots folders "k0149" and "k0155
             WHEN it is upgraded with --loose
             THEN k0149 and k0155 are reported as IDs naming no player, nothing is written, and
                  the exit code is 1
+EU-LOOSE-03 GIVEN a /a/ export holding the empty face folder "71405" alone
+            WHEN it is upgraded with --loose
+            THEN the output holds an empty Players/05/, no ingame_face marker in it, and the
+                 exit code is 0
 ```
 
 **Report**
@@ -1638,6 +1642,10 @@ EU-MF-06   GIVEN a Fox face folder "XXX01 - Dekinai" holding face_diff.bin and p
                 no model
            WHEN upgrade-models runs
            THEN the output holds 01 - Dekinai/ with both files, reported as going into Players
+EU-MF-07   GIVEN a boots folder "k0431" holding boots.fmdl and "boots - Copy.fmdl"
+           WHEN upgrade-models runs
+           THEN k0431/ holds boots.fmdl alone, leftover_dropped is reported for the copy, and
+                the exit code is 0
 ```
 
 **CLI**

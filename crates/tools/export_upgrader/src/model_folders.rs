@@ -11,7 +11,7 @@ use std::fs;
 
 use aesthetics_export::{IssueScope, ValidationIssue};
 use anyhow::anyhow;
-use pes_version::PesVersion;
+use pes_version::{Engine, PesVersion};
 use studio_core::{CliError, Disposition, Message, Scope, ToolContext};
 use vtree::ScopePath;
 
@@ -24,7 +24,9 @@ use crate::messages::{
     Code, INPUT, OUTPUT, extract_failed, issue_message, read_failed, tool_message,
 };
 use crate::model_names::rename_models;
-use crate::players::{ItemKind, clean_folder_name, is_stray, parse_item_name, path_scope, slot_of};
+use crate::players::{
+    ItemKind, clean_folder_name, file_name, is_stray, parse_item_name, path_scope, slot_of,
+};
 use crate::source::{self, OldExport};
 use crate::upgrade::{
     Identity, RunEvents, aborted, finish_staging, invalid, output_issues, resolve_input, verdict,
@@ -186,14 +188,20 @@ pub(crate) fn model_folder_plan(files: &[String], folders: &[String]) -> ModelFo
             refused(&mut plan);
             continue;
         }
+        // Step 10's stray rule: a classify-unknown file no package read
+        // is dropped as a leftover rather than staged into a folder the
+        // strict output check would refuse. A Boots or Gloves destination
+        // also rules a `.fmdl` as a Fox folder's (an `.fmdl` is Fox content
+        // wherever it sits), which only an `.fmdl` sees (`is_stray`).
+        let item = match destination {
+            Destination::Boots => Some((ItemKind::Boots, Engine::Fox)),
+            Destination::Gloves => Some((ItemKind::Gloves, Engine::Fox)),
+            Destination::Players | Destination::Root => None,
+        };
         let mut marker = false;
         for file in &group {
             let rest = &file[name.len() + 1..];
-            let file_name = rest.rsplit('/').next().unwrap_or(rest);
-            // Step 10's stray rule: a classify-unknown file no package
-            // read is dropped as a leftover rather than staged into a
-            // folder the strict output check would refuse.
-            if is_stray(file_name, None) {
+            if is_stray(file_name(file), item) {
                 plan.findings.push(tool_message(
                     Code::LeftoverDropped,
                     Scope::File {

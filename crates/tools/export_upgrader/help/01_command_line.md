@@ -68,12 +68,12 @@ as `leftover_dropped`, a warning that does not stop the migration, and the
 upgraded folder is
 checked against the same rules the Team compiler applies: every finding prints
 as one line naming its code and the input path it is about, ending with
-`migration_clean` or `migration_not_clean` (the output is a draft for manual
-repair).
+`migration_clean` or `migration_not_clean` (and nothing is written).
 
 The exit code: 0 when the migration is clean; 1 when it is not clean: an
-error, or a finding that drops something (a warning that drops a folder means
-the compile would lose it); 2 when the command was refused before anything
+error, or a finding that drops anything but a leftover (a warning that drops
+a folder means the compile would lose it); 2 when the command was refused
+before anything
 was written (a bad argument, an export that is not there, a savefile that
 does not read as a save or does not hold the team); 3 when the run aborted:
 before anything is written (the output folder exists or cannot be created),

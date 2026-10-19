@@ -14,7 +14,9 @@ use crate::common::Sandbox;
 /// The upgrader names the export `Full`, the old name carrying no additions
 /// word, and a `Full` export missing player kit `p1` gets the compiler's
 /// placeholder kit (`Kits/p1`, `kit_colors_missing`, and entries the reference
-/// tree has no counterpart for), the tracers' cut keeping kit `g1` alone. The
+/// tree has no counterpart for), the tracers' cut keeping kit `g1` alone; under
+/// the `Midcup` tag a missing kit keeps the installed one instead, which is the
+/// parity the goldens pin. The
 /// cup tag is not what the parity is about, so the case compiles the golden's
 /// content under the twin's tag. The golden's own name is pinned by
 /// `export_upgrader`'s `upgraded_golden` test.

@@ -15,7 +15,7 @@ use dds_convert::{Decoded, SourceFormat};
 use studio_core::{Disposition, Message, Scope};
 
 use crate::messages::{Code, INPUT, read_failed, tool_message};
-use crate::players::path_scope;
+use crate::players::{file_name, path_scope};
 use crate::source::SourceFailure;
 
 /// The channel distance past which two pixels differ (of 255), as plan step
@@ -64,8 +64,8 @@ pub(crate) fn under<'a>(path: &'a str, top: &str) -> Option<&'a str> {
 }
 
 /// What an old portrait's name gives when it is the shape step 7 names: the
-/// slot's two digits and the extension as written, for a name the old check
-/// passed (`file_name[-6:-4]`): `player_` in that letter case, then anything,
+/// slot's two digits and the extension as written, for a name the old format
+/// admitted: `player_` in that letter case, then anything,
 /// then two ASCII digits making a slot 01-23 right before a three-letter
 /// extension `classify` reads as a texture (`player_XXX05.dds` → `05`,
 /// `player_71407.dds` → `07`, `player_XXX08.jpg` → `08`). A name that fails
@@ -154,8 +154,8 @@ pub(crate) fn carried_files(
     let mut carried = CarriedFiles::default();
     let mut failures: BTreeMap<String, Vec<Message>> = BTreeMap::new();
 
-    // `Portraits/` (step 7): a file directly in it whose name the old check
-    // passed becomes `Portraits/NN.<ext>` — the first of two giving one `NN`
+    // `Portraits/` (step 7): a file directly in it whose name the old format
+    // admitted becomes `Portraits/NN.<ext>` — the first of two giving one `NN`
     // by input path. A name the check refused, a subfolder's file included,
     // is a leftover (step 10); the second file of a slot stays unmigrated
     // content, two candidates for one place. A slot whose face folder
@@ -214,8 +214,7 @@ pub(crate) fn carried_files(
     for file in files {
         for (top, output) in [("collars", "Collars"), ("common", "Common")] {
             if let Some(rest) = under(file, top) {
-                let name = rest.rsplit('/').next().unwrap_or(rest);
-                if crate::players::is_stray(name, None) {
+                if crate::players::is_stray(file_name(file), None) {
                     carried.leftovers.insert(file.clone());
                 } else {
                     carried
@@ -237,8 +236,7 @@ pub(crate) fn carried_files(
         let Some(rest) = under(file, "logo") else {
             continue;
         };
-        let name = rest.rsplit('/').next().unwrap_or(rest);
-        if crate::players::is_stray(name, None) {
+        if crate::players::is_stray(file_name(file), None) {
             carried.leftovers.insert(file.clone());
             continue;
         }

@@ -980,7 +980,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
       first kept (`kits.rs`, `upgrade.rs`, `tests/cli/{kits,roots}.rs`); with 6.16a2b (an
       `fpc_on` player's other category's 0 written, Astra A1-1, `settings.rs`) and 6.16a2c
       (slice 2's mutation survivors, `players.rs`)
-  - [ ] 6.16b the compiler: in a `Midcup`,
+  - [x] 6.16b the compiler: in a `Midcup`,
     a kit folder without `config.toml` keeps the installed config and one with no texture
     keeps the installed textures, a `colors.txt`-only folder updating the colors alone (D2:
     six Midcups compiled checkerboard kits); a `.mtl` Common path whose subfolder is not three
@@ -988,11 +988,28 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     `messages.md` row; D4: 8 exports' faces kept where Red discards them); spec rows (`messages.md` `kit_placeholder`,
     `kit_config_generated`, `mtl_common_path_invalid`;
     `spec/team_compiler/pipeline.md` "Bins accumulation") with the code. The upgrader's side of
-    D4 waits on QUESTIONS.md "A Common path spelled with the team's name"
-  - [ ] 6.16c in game (PES 21): a one-sided hand split, HDG VGL26 slot 22 `EAT`, whose
-    `fcl_hair.fmdl` has armor vertices weighted to the left pinky bones only, so the compile
-    writes a gloves package holding `glove_l.fmdl` alone (spec `model_conversion/hand_split.md`):
-    what the game shows for the missing right glove, and whether the left one looks right
+    D4 waits on QUESTIONS.md "A Common path spelled with the team's name". Done: a `Midcup`
+    kit's missing config edited in place as an unresent slot's, the template only where
+    nothing is installed; no placeholder or mask template; no colors kept installed
+    (TC-KIT-33, -34; `plan/mod.rs` `keeps_installed`, `bins/kit_configs.rs`,
+    `processing/kit.rs`, `output/writer.rs`); `mtl_common_path_invalid` sharing
+    `face.xml`'s predicate (`deep/materials.rs`, `user_face_xml.rs`). With 6.16a3b: slice 3's
+    mutation survivors (`export_upgrader` `first_of_two_colors`)
+  - [x] 6.16c in game (PES 21): a one-sided hand split, HDG VGL26 slot 22 `EAT`, whose
+    full-body `fcl_hair.fmdl` (hands posed holding the launchers) gives a gloves package holding
+    `glove_l.fmdl` alone (spec `model_conversion/hand_split.md`). Done: nothing to change in the
+    compiler (DECISIONS "a hand split takes stray hand weights as they are"): two chest-armor
+    vertices (seven loop entries) carry `sk_chest` 253-254 and 1/255 on two `skh_pinky_*_l`
+    bones, a model issue; the split moves them and their grow ring (20 vertices, 10 `armor`
+    faces) into `glove_l` (`.tmp/6_16/fmdl_dump/`).
+    manual: checked 2026-10-19, PES 21 Edit mode (`.tmp/6_16/ingame/`, the export upgraded
+    `--loose` and compiled by dc30c45; /hdg/ is the maintainer's save's VGL 33, team 803; save
+    backed up and restored): the compile's `GloveList.bin` rows never reach an outfield player
+    on the cup's exe (issue "FoxDen's PES 2021 gloves trampoline"; a stripped save, then the
+    stock exe, showed stock hands, slot 06's two-sided crossbow gloves included). With the ids
+    in the save records (80306 gloves 4186, 80322 gloves 4202, the route the cup uses today):
+    slot 06 wears its crossbow gloves (`w01.png`); EAT shows no stock hands, and the split's
+    patch floats as a speck beside the model (`w02.png`, `w02_speck.png`)
 
 ### Phase 8 — GUI
 

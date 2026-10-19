@@ -81,6 +81,15 @@ impl From<HashSet<String>> for WalkedCpks {
 }
 
 impl InstalledPaths {
+    /// Whether the entry `path` (folded, `vtree::fold_name`) is one the installed CPKs
+    /// listed before the run's hold; `false` when the lookup cannot be made.
+    pub(crate) fn holds(&self, path: &str) -> bool {
+        match self {
+            InstalledPaths::Unknown => false,
+            InstalledPaths::Known(walked) => walked.paths.contains(&vtree::fold_name(path)),
+        }
+    }
+
     /// The paths below `Common/` without their extensions, folded (`hair`, `jessie/hair`), of
     /// the textures these CPKs hold in team `team_id`'s Common output for a target of `engine`
     /// (`paths::common_texture`, read back), each under its lookup keys (`kit_lookup_keys`,

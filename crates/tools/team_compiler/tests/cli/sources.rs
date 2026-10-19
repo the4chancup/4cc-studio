@@ -8,21 +8,21 @@ use pes_version::PesVersion;
 
 use crate::common::Sandbox;
 use crate::compile::{compiled_players, cpk_entries, kit_texture, pes21_settings};
-use crate::compile_exports::{UNI_COLOR, bundled_uni_color, uni_record, with_uni_record};
+use crate::compile_exports::{UNI_COLOR, bundled_uni_color, with_uni_record};
 use crate::{CLEAN_PLAYER, clean_model, findings_of, snapshot, source_fixture};
 
-/// The folder `exports/co Midcup Spring/`, the same export as the `co Midcup Spring` fixtures: git keeps no
-/// empty folder, so it is built here.
+/// The folder `exports/co Full Spring/`, the same export as the `co Midcup Spring` fixtures
+/// written under the `Full` coverage name: git keeps no empty folder, so it is built here.
 fn spring_folder(sandbox: &Sandbox) {
-    sandbox.write("exports/co Midcup Spring/players.txt", b"01 Keeper\n");
+    sandbox.write("exports/co Full Spring/players.txt", b"01 Keeper\n");
     sandbox.write(
-        "exports/co Midcup Spring/notes.txt",
+        "exports/co Full Spring/notes.txt",
         b"Spring kit placeholder.\n",
     );
-    fs::create_dir_all(sandbox.root.join("exports/co Midcup Spring/Kits/p2")).unwrap();
+    fs::create_dir_all(sandbox.root.join("exports/co Full Spring/Kits/p2")).unwrap();
 }
 
-/// What `check` reports about the `co Midcup Spring` export, in any of its three forms. The roster
+/// What `check` reports about the `co Full Spring` export, in any of its three forms. The roster
 /// line names a player folder the export does not hold, so its finding shows the roster was read.
 const SPRING_FINDINGS: [&str; 3] = [
     "Error players_txt_target_missing [DropSlot] at players.txt line 1 slot Some(1) (folder=Keeper)",
@@ -30,7 +30,7 @@ const SPRING_FINDINGS: [&str; 3] = [
     "Info export_identified [Keep] (team=/co/, id=714)",
 ];
 
-/// `SPRING_FINDINGS` of a `co Midcup Spring` source checked beside other exports of `/co/`, then
+/// `SPRING_FINDINGS` of a `co Full Spring` source checked beside other exports of `/co/`, then
 /// the finding that skips each of them, naming `exports`.
 fn spring_findings_beside(exports: &str) -> Vec<String> {
     SPRING_FINDINGS
@@ -47,33 +47,31 @@ fn spring_findings_beside(exports: &str) -> Vec<String> {
 fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
     let sandbox = Sandbox::new("same_export_three_ways");
     spring_folder(&sandbox);
-    sandbox.copy_fixture("co Midcup Spring.zip", "exports");
-    sandbox.copy_fixture("co Midcup Spring.7z", "exports");
+    sandbox.write(
+        "exports/co Full Spring.zip",
+        &source_fixture("co Midcup Spring.zip"),
+    );
+    sandbox.write(
+        "exports/co Full Spring.7z",
+        &source_fixture("co Midcup Spring.7z"),
+    );
 
     let run = sandbox.run("", &["check"]);
 
     let lines = run.messages();
     // Three exports of one team: each is skipped, naming the three.
-    let expected =
-        spring_findings_beside("co Midcup Spring, co Midcup Spring.7z, co Midcup Spring.zip");
-    for source in [
-        "co Midcup Spring",
-        "co Midcup Spring.zip",
-        "co Midcup Spring.7z",
-    ] {
+    let expected = spring_findings_beside("co Full Spring, co Full Spring.7z, co Full Spring.zip");
+    for source in ["co Full Spring", "co Full Spring.zip", "co Full Spring.7z"] {
         assert_eq!(findings_of(&lines, source), expected, "{lines:#?}");
     }
     assert_eq!(lines.len(), 3 * expected.len(), "{lines:#?}");
     assert_eq!(run.exit_code(), 1);
 
-    // Each source compiled alone: the empty kit folder p2 is the placeholder kit.
+    // Each source compiled alone: the empty kit folder p2 is the placeholder kit, the
+    // `Full` export's `g1/` an empty one beside it.
     let settings = pes21_settings(&sandbox);
     let mut archives = Vec::new();
-    for source in [
-        "co Midcup Spring",
-        "co Midcup Spring.zip",
-        "co Midcup Spring.7z",
-    ] {
+    for source in ["co Full Spring", "co Full Spring.zip", "co Full Spring.7z"] {
         let run = sandbox.run(
             &settings,
             &[
@@ -91,7 +89,10 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
                 "Info team_colors_missing [Keep] ()",
                 "Info kit_config_generated [Keep] at Kits/p2 ()",
                 "Info kit_placeholder [Keep] at Kits/p2 ()",
+                "Info kit_config_generated [Keep] at Kits/g1 ()",
+                "Info kit_placeholder [Keep] at Kits/g1 ()",
                 "Warning kit_colors_missing [Keep] at Kits/p2 ()",
+                "Warning kit_colors_missing [Keep] at Kits/g1 ()",
             ])
             .collect();
         assert_eq!(findings_of(&lines, source), expected, "{lines:#?}");
@@ -124,8 +125,12 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
     assert_eq!(
         paths,
         [
+            "4cc_studio/shared_ids/714.toml".to_owned(),
+            kit_texture("u0714g1"),
             kit_texture("u0714p2"),
             "common/character0/model/character/uniform/team/714/714_DEF_2nd_realUni.bin".to_owned(),
+            "common/character0/model/character/uniform/team/714/714_DEF_GK1st_realUni.bin"
+                .to_owned(),
             "common/character0/model/character/uniform/team/UniColor.bin".to_owned(),
             "common/character0/model/character/uniform/team/UniformParameter.bin".to_owned(),
             "common/etc/TeamColor.bin".to_owned(),
@@ -135,6 +140,11 @@ fn one_export_as_a_folder_a_zip_and_a_7z_reports_and_compiles_the_same() {
         archives[0][&kit_texture("u0714p2")]
             == ftex::dds_to_ftex(&placeholder, ftex::ColorSpace::Normal).unwrap(),
         "the p2 texture is not the placeholder converted"
+    );
+    assert!(
+        archives[0][&kit_texture("u0714g1")]
+            == ftex::dds_to_ftex(&placeholder, ftex::ColorSpace::Normal).unwrap(),
+        "the g1 texture is the placeholder converted"
     );
     assert_eq!(
         archives[0]["common/character0/model/character/uniform/team/714/714_DEF_2nd_realUni.bin"],
@@ -152,13 +162,18 @@ fn the_empty_kit_folder_of_tc_src_01_s_export_gets_magenta_black_and_icon_3() {
 
     assert_eq!(run.exit_code(), 1, "the roster line naming no folder");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    // p2 is kit 1, the second of team 714's eight kits in the base: replaced in place.
+    // A `Full` export rebuilds the record from its kits: kit 1 (p2) and kit 0x10 (the
+    // empty `g1/` it plans), each magenta, black and icon 3.
     let base = bundled_uni_color();
-    let mut record = uni_record(&base, 714).to_vec();
-    record[13..21].copy_from_slice(&[0x01, 0x03, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00]);
+    let mut record = vec![0xca, 0x02, 0x00, 0x00, 2];
+    record.extend([0x01, 0x03, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00]);
+    record.extend([0x10, 0x03, 0xff, 0x00, 0xff, 0x00, 0x00, 0x00]);
+    for _ in 2..10 {
+        record.extend([0xff, 0, 0, 0, 0, 0, 0, 0]);
+    }
     assert!(
         entries[UNI_COLOR] == with_uni_record(&base, 714, &record),
-        "UniColor.bin is the base with p2's entry magenta, black and icon 3"
+        "UniColor.bin is the base with team 714's record rebuilt magenta, black and icon 3"
     );
 }
 
@@ -167,14 +182,17 @@ fn the_empty_kit_folder_of_tc_src_01_s_export_gets_magenta_black_and_icon_3() {
 fn a_folder_and_an_archive_sharing_a_stem_are_two_exports() {
     let sandbox = Sandbox::new("folder_and_archive");
     spring_folder(&sandbox);
-    sandbox.copy_fixture("co Midcup Spring.zip", "exports");
+    sandbox.write(
+        "exports/co Full Spring.zip",
+        &source_fixture("co Midcup Spring.zip"),
+    );
 
     let run = sandbox.run("", &["check"]);
 
     let lines = run.messages();
-    let expected = spring_findings_beside("co Midcup Spring, co Midcup Spring.zip");
-    assert_eq!(findings_of(&lines, "co Midcup Spring"), expected);
-    assert_eq!(findings_of(&lines, "co Midcup Spring.zip"), expected);
+    let expected = spring_findings_beside("co Full Spring, co Full Spring.zip");
+    assert_eq!(findings_of(&lines, "co Full Spring"), expected);
+    assert_eq!(findings_of(&lines, "co Full Spring.zip"), expected);
     assert_eq!(lines.len(), 2 * expected.len(), "{lines:#?}");
 }
 

@@ -12,7 +12,7 @@ use crate::prefox_faces::{card_materials, card_model, small_dds};
 use crate::prefox_kits::write_kit;
 
 /// The export every run compiles: team 714's.
-const EXPORT: &str = "co Midcup Compression";
+const EXPORT: &str = "co Full Compression";
 
 /// The CPK path of slot 05's `skin.dds`, in the player's texture home.
 const SKIN: &str = "common/character1/model/character/uniform/common/714/05 - A/skin.dds";
@@ -20,10 +20,13 @@ const SKIN: &str = "common/character1/model/character/uniform/common/714/05 - A/
 /// The CPK path of slot 05's `hair.dds`, beside `skin.dds`.
 const HAIR: &str = "common/character1/model/character/uniform/common/714/05 - A/hair.dds";
 
-/// The CPK paths of the p1 kit's main texture and of the mask it is given.
-const KIT: [&str; 2] = [
+/// The CPK paths of the kits' main textures and of the masks they are given: the export's
+/// p1 and the empty `g1/` a `Full` export plans.
+const KIT: [&str; 4] = [
     "common/character0/model/character/uniform/texture/u0714p1.dds",
     "common/character0/model/character/uniform/texture/u0714p1_mask.dds",
+    "common/character0/model/character/uniform/texture/u0714g1.dds",
+    "common/character0/model/character/uniform/texture/u0714g1_mask.dds",
 ];
 
 /// The CPK path of slot 05's portrait on PES 17.
@@ -136,7 +139,7 @@ fn pes_17_wraps_every_dds_when_dds_compression_resolves_on_and_pes_21_ignores_it
         "dds_compression = \"auto\"\nmulticpk_mode = true\n",
     ));
 
-    for path in [SKIN, HAIR, PORTRAIT, KIT[0], KIT[1]] {
+    for path in [SKIN, HAIR, PORTRAIT].into_iter().chain(KIT) {
         assert!(off.contains_key(path), "{path} in {:#?}", off.keys());
     }
     assert!(

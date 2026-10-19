@@ -1953,6 +1953,45 @@ fn a_model_link_whose_only_mtl_is_a_broken_common_one_drops_its_folder() {
     assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
 }
 
+// TC-XML-08
+#[test]
+fn a_common_mtl_naming_an_invalid_common_path_drops_the_linking_player_s_folder() {
+    let sandbox = Sandbox::new("prefox_common_mtl_invalid_path");
+    let export = "co Midcup Legs";
+    sandbox.write(
+        &format!("exports/{export}/Players/05 - A/legs.model.common"),
+        b"",
+    );
+    let common = format!("exports/{export}/Common");
+    sandbox.write(&format!("{common}/legs.model"), &card_model());
+    // The set parses but names a Common path whose segment is not three characters.
+    let mtl = String::from_utf8(pre_fox_fixture("cardhead_materials.mtl"))
+        .unwrap()
+        .replace("./texture.dds", "model/character/uniform/common/o/env.dds")
+        .into_bytes();
+    sandbox.write(&format!("{common}/legs.mtl"), &mtl);
+    let invalid = "Error mtl_common_path_invalid [DropFile] at Common/legs.mtl \
+                   (file=legs.mtl, attribute=path, value=model/character/uniform/common/o/env.dds)";
+    let undefined =
+        "Error model_material_undefined [DropFolder] at Players/05 - A (file=legs.model.common)";
+
+    let compile = sandbox.run(&pes17(&sandbox), &["compile", "--no-deploy"]);
+    let lines = compile.messages();
+    assert_eq!(
+        findings_of(&lines, export),
+        [
+            undefined,
+            invalid,
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ],
+        "{lines:#?}"
+    );
+    assert_eq!(compile.exit_code(), 1);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(!entries.contains_key(&face_cpk(5)), "{:?}", entries.keys());
+}
+
 // TC-CMN-12
 #[test]
 fn a_common_gltf_is_dropped_and_the_export_compiles() {

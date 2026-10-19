@@ -49,6 +49,8 @@ enum Row {
     KitConfig,
     /// Tier 2: `UniColor.bin`, compared per `compare_uni_color`.
     UniColor,
+    /// Produced in the reference tree but not by us: the reason.
+    NotProduced(&'static str),
 }
 
 const OUTER: &[(&str, Row)] = &[
@@ -65,10 +67,12 @@ const OUTER: &[(&str, Row)] = &[
         "common/character0/model/character/uniform/texture/u0731g1.dds",
         Row::Texture,
     ),
-    // The kit has no mask of its own: both write Red's template, the compiler's bundled copy.
+    // The kit has no mask of its own: Red writes its template; a `Midcup` export keeps
+    // the installed textures it does not resend, so ours emits none and the mask the
+    // install already holds stands.
     (
         "common/character0/model/character/uniform/texture/u0731g1_mask.dds",
-        Row::Exact,
+        Row::NotProduced("a Midcup kit's mask stays the installed one"),
     ),
     ("common/etc/TeamColor.bin", Row::Exact),
 ];
@@ -579,6 +583,12 @@ fn assert_matches_reference(
     for (path, row) in OUTER {
         let reference_bytes = &reference[*path];
         accounted.push((*path).to_owned());
+        if let Row::NotProduced(reason) = row {
+            if ours.contains_key(*path) {
+                failures.push(format!("{path}: produced ({reason})"));
+            }
+            continue;
+        }
         let Some(our_bytes) = ours.get(*path) else {
             failures.push(format!("{path}: missing from our CPK"));
             continue;
@@ -613,6 +623,7 @@ fn assert_matches_reference(
             }
             Row::KitConfig => compare_kit_config(&mut failures, our_bytes, reference_bytes),
             Row::UniColor => compare_uni_color(&mut failures, our_bytes, reference_bytes),
+            Row::NotProduced(_) => unreachable!("handled above"),
         }
     }
     // The team's shared-IDs record, at a path no game reads (`player_folders.md` "A

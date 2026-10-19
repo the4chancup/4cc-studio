@@ -2205,3 +2205,12 @@ worklog passed 7,000 lines.
   Review rulings now name each acceptance's reach; DBC7's rules are read from the wiki through `stealth-browser-mcp`.
 - **2026-10-19** — 6.16a3: kits and the Note drop what never reached the game (Kit Textures strays, second goalkeeper
   kits, a team color's second color); a `Midcup`'s texture-only kit migrates without `config.toml`. 6.16a is done.
+- **2026-10-19** — 6.16b: in a `Midcup` export the compiler keeps the installed config, textures and colors a kit folder
+  does not resend (the template only where nothing is installed); a pre-Fox `.mtl` Common path of no three-character team
+  segment is refused as `face.xml`'s is.
+- **2026-10-19** — 6.16c: in PES 21, a one-sided hand split (HDG VGL26 `EAT`, `glove_l` alone) draws the stock bare
+  right hand and no stray piece on the left; nothing to change.
+- **2026-10-19** — 6.16c reopened: its "nothing to change" was measured through `GloveList.bin` rows the cup's exe
+  discards (FoxDen gloves issue); with the ids in the save, EAT's two split vertices float as a speck beside the model.
+- **2026-10-20** — 6.16c closed: EAT's split vertices are chest armor with 1/255 pinky residue; the split stays as specified
+  (a model issue, DECISIONS).

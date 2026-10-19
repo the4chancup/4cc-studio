@@ -5,7 +5,7 @@
 
 use std::sync::Arc;
 
-use aesthetics_export::{KitFolder, KitLayout, read_colors_txt};
+use aesthetics_export::{ExportCoverage, KitFolder, KitLayout, read_colors_txt};
 use anyhow::Context;
 use dds_convert::{SourceFormat, Target, TextureRole, decode};
 use kit_config::{KitConfig, KitSlot, TexturePresence, apply_fpc, matches_fpc, texture_names};
@@ -18,7 +18,7 @@ use crate::bins::{KIT_COLORS, KitColorEntry, Rgb, uni_color_kit_number};
 use crate::messages::Code;
 use crate::paths::{self, REFEREE_MARKER_COLLAR};
 use crate::plan::roles::{KIT_TEXTURE_STEMS, texture_format};
-use crate::plan::{EffectiveTeamKitFpc, TeamKitEdits};
+use crate::plan::{EffectiveTeamKitFpc, TeamKitEdits, keeps_installed};
 
 /// The menu icon of a kit without an `icon_<N>` marker.
 const DEFAULT_ICON: u8 = 3;
@@ -28,7 +28,35 @@ const DEFAULT_ICON: u8 = 3;
 /// texture's checkerboard.
 const MISSING_COLORS: [Rgb; KIT_COLORS] = [[255, 0, 255], [0, 0, 0]];
 
-/// The kit `kit` in `slot` of team `team_id`, compiled for the run's version from its files'
+/// What a kit task commits (`kit`): its CPK entries, its config's `UniformParameter.bin`
+/// entry when it has one, and its `UniColor.bin` entry when it has one.
+pub(super) struct KitCommit {
+    /// The files written: the held textures converted, and the config's loose file.
+    pub(super) entries: Vec<Entry>,
+    /// The config's `UniformParameter.bin` entry (name, bytes); `None` on PES 15-17 and
+    /// for a `Midcup` kit emitting no config.
+    pub(super) uniform_parameter: Option<Entry>,
+    /// The kit's `UniColor.bin` entry; `None` for a `Midcup` kit with no colors to give.
+    pub(super) uni_color: Option<KitColorEntry>,
+}
+
+/// What a kit task needs of its `TaskKind::Kit` variant: the slot, the folder, what the
+/// export sets in the team's kit configs, the coverage, and the team id.
+#[derive(Clone, Copy)]
+pub(super) struct KitJob<'a> {
+    /// The game's kit slot.
+    pub(super) slot: KitSlot,
+    /// The kit folder.
+    pub(super) kit: &'a KitFolder,
+    /// What its team's export sets in every kit config of the team.
+    pub(super) edits: TeamKitEdits,
+    /// The export's coverage.
+    pub(super) coverage: ExportCoverage,
+    /// The export's team id.
+    pub(super) team_id: u16,
+}
+
+/// The kit `job`'s folder in `job.slot`, compiled for the run's version from its files'
 /// bytes in `files`: its textures and its config as CPK entries, on Fox the config as a
 /// `UniformParameter.bin` entry (name, bytes) too (`None` on PES 15-17, which have no such
 /// bin), and its `UniColor.bin` entry. A kit without a `kit` texture gets the bundled
@@ -59,20 +87,37 @@ const MISSING_COLORS: [Rgb; KIT_COLORS] = [[255, 0, 255], [0, 0, 0]];
 /// pass's to report); else the two its main texture gives, its own or one inherited from
 /// `all/`, noted in `findings` as `kit_colors_derived`; else, for a placeholder kit or a main
 /// texture that gives none, magenta and black, noted as `kit_colors_missing`.
+///
+/// A `Midcup` kit (`coverage`) keeps what it does not resend: without `config.toml` it
+/// emits no config of its own (the slot's installed config is edited in place, or the
+/// template written where none is installed, `kit_configs`), without a main texture it
+/// emits no placeholder and no mask template (the installed textures stay), and with
+/// nothing to take colors from it emits no `UniColor.bin` entry (the installed one stays,
+/// `uni_color` `None`).
 pub(super) fn kit(
-    slot: KitSlot,
-    kit: &KitFolder,
-    edits: TeamKitEdits,
-    team_id: u16,
+    job: &KitJob,
     ctx: &CompileContext,
     files: &mut TaskFiles,
     findings: &mut Vec<Finding>,
-) -> Result<(Vec<Entry>, Option<Entry>, KitColorEntry), TaskFailure> {
+) -> Result<KitCommit, TaskFailure> {
+    let (slot, kit, edits, coverage, team_id) =
+        (job.slot, job.kit, job.edits, job.coverage, job.team_id);
     let listed = kit
         .colors
         .as_ref()
         .and_then(|file| listed_colors(&take(files, file)));
+    let engine = ctx.version.engine();
     let has = |stem: &str| kit.textures.iter().any(|texture| texture.stem == stem);
+    // A `Midcup` kit's config names a `back`, `chest`, `leg` or `name` texture the
+    // installed CPKs hold for the slot, the folder resending it or not (`pipeline.md`
+    // "Bins accumulation"); a `Full` kit's names come from its effective set alone.
+    let installed = |suffix: &str| {
+        coverage == ExportCoverage::Midcup
+            && ctx.installed.holds(&paths::kit_texture(
+                engine,
+                &format!("u0{team_id:03}{slot}{suffix}", slot = slot.as_str()),
+            ))
+    };
     let names = texture_names(
         team_id,
         slot,
@@ -80,14 +125,12 @@ pub(super) fn kit(
             // The game requires a main texture, so every compiled kit has one: the kit's own
             // or the placeholder. The other four are optional and absent ones stay zero.
             kit: true,
-            back: has("kit_back"),
-            chest: has("kit_chest"),
-            leg: has("kit_leg"),
-            name: has("kit_name"),
+            back: has("kit_back") || installed("_back"),
+            chest: has("kit_chest") || installed("_chest"),
+            leg: has("kit_leg") || installed("_leg"),
+            name: has("kit_name") || installed("_name"),
         },
     );
-
-    let engine = ctx.version.engine();
     // The config names the first five; the games find each map by the main texture's name
     // alone, so the two maps' names (`u0714p1_mask`, `u0714p1_srm`) are not in the config.
     let mut game_names = Vec::with_capacity(KIT_TEXTURE_STEMS.len());
@@ -124,6 +167,10 @@ pub(super) fn kit(
         let texture = kit.textures.iter().find(|texture| texture.stem == *stem);
         let (file_name, bytes) = match texture {
             Some(texture) => (texture.file.path.name(), take(files, &texture.file)),
+            // A `Midcup` kit's held textures go out as they are, the installed ones
+            // staying for the rest: no placeholder, and no mask template (it would
+            // lay over an installed mask).
+            None if coverage == ExportCoverage::Midcup => continue,
             None if *stem == "kit" => (
                 "placeholder_kit.dds",
                 ctx.templates.placeholder_kit().to_vec(),
@@ -163,64 +210,81 @@ pub(super) fn kit(
         entries.push((paths::kit_texture(engine, name), converted));
     }
 
-    let mut config = match &kit.config {
-        Some(file) => {
-            let text = String::from_utf8(take(files, file))
-                .with_context(|| format!("{}: not UTF-8", file.path.as_str()))?;
-            KitConfig::from_toml(&text).with_context(|| file.path.as_str().to_owned())?
+    // A `Midcup` kit without `config.toml` emits no config of its own.
+    let emits_config = !keeps_installed(kit, coverage);
+    let config = if emits_config {
+        let mut config = match &kit.config {
+            Some(file) => {
+                let text = String::from_utf8(take(files, file))
+                    .with_context(|| format!("{}: not UTF-8", file.path.as_str()))?;
+                KitConfig::from_toml(&text).with_context(|| file.path.as_str().to_owned())?
+            }
+            None => KitConfig::template(),
+        };
+        // Only upward: with the status unknown, FPC values a config carries are kept, since no
+        // export state shows the team stopped using FPC.
+        match edits.fpc {
+            EffectiveTeamKitFpc::On if !matches_fpc(&config) => {
+                apply_fpc(&mut config);
+                findings.push((Code::KitConfigFpcAdjusted, Vec::new()));
+            }
+            EffectiveTeamKitFpc::On | EffectiveTeamKitFpc::Unknown => {}
         }
-        None => KitConfig::template(),
+        // After the FPC values, so the team's collar wins over the FPC collar (`pipeline.md`
+        // "Collar contract").
+        if let Some(collar) = edits.collar {
+            config.shirt.collar = collar;
+            config.shirt.winter_collar = collar;
+        }
+        // On the collars the kit ends up with: FPC sets collar 105 and the team's collar its own
+        // (never 77, which the deep pass refuses), so a config naming 77 under either no longer
+        // wears the marker.
+        if let Some(field) = reserved_collar_field(&config) {
+            return Err(TaskFailure {
+                code: Code::KitCollarReserved,
+                context: vec![("field", field.to_owned())],
+            });
+        }
+        Some(config.encode_with_names(ctx.version, &names).to_vec())
+    } else {
+        None
     };
-    // Only upward: with the status unknown, FPC values a config carries are kept, since no
-    // export state shows the team stopped using FPC.
-    match edits.fpc {
-        EffectiveTeamKitFpc::On if !matches_fpc(&config) => {
-            apply_fpc(&mut config);
-            findings.push((Code::KitConfigFpcAdjusted, Vec::new()));
-        }
-        EffectiveTeamKitFpc::On | EffectiveTeamKitFpc::Unknown => {}
-    }
-    // After the FPC values, so the team's collar wins over the FPC collar (`pipeline.md`
-    // "Collar contract").
-    if let Some(collar) = edits.collar {
-        config.shirt.collar = collar;
-        config.shirt.winter_collar = collar;
-    }
-    // On the collars the kit ends up with: FPC sets collar 105 and the team's collar its own
-    // (never 77, which the deep pass refuses), so a config naming 77 under either no longer
-    // wears the marker.
-    if let Some(field) = reserved_collar_field(&config) {
-        return Err(TaskFailure {
-            code: Code::KitCollarReserved,
-            context: vec![("field", field.to_owned())],
-        });
-    }
-    let config = config.encode_with_names(ctx.version, &names).to_vec();
     let entry_name = slot.config_name(team_id);
     // PES 15-17 have no `UniformParameter.bin`: the loose file is the kit's only config there.
-    let uniform_parameter = match engine {
-        Engine::Fox => Some((entry_name.clone(), config.clone())),
-        Engine::PreFox => None,
+    let uniform_parameter = match (engine, &config) {
+        (Engine::Fox, Some(config)) => Some((entry_name.clone(), config.clone())),
+        (Engine::Fox, None) | (Engine::PreFox, _) => None,
     };
-    entries.push((paths::kit_config(team_id, &entry_name), config));
+    if let Some(config) = config {
+        entries.push((paths::kit_config(team_id, &entry_name), config));
+    }
 
     let colors = match (listed, derived) {
-        (Some(colors), _) => colors,
+        (Some(colors), _) => Some(colors),
         (None, Some(colors)) => {
             findings.push((Code::KitColorsDerived, Vec::new()));
-            colors
+            Some(colors)
         }
-        (None, None) => {
-            findings.push((Code::KitColorsMissing, Vec::new()));
-            MISSING_COLORS
-        }
+        // A `Midcup` kit with nothing to take colors from keeps the installed
+        // `UniColor.bin` entry.
+        (None, None) => match coverage {
+            ExportCoverage::Midcup => None,
+            ExportCoverage::Full => {
+                findings.push((Code::KitColorsMissing, Vec::new()));
+                Some(MISSING_COLORS)
+            }
+        },
     };
-    let entry = KitColorEntry {
+    let entry = colors.map(|colors| KitColorEntry {
         kit: uni_color_kit_number(slot),
         icon: kit.icon.unwrap_or(DEFAULT_ICON),
         colors,
-    };
-    Ok((entries, uniform_parameter, entry))
+    });
+    Ok(KitCommit {
+        entries,
+        uniform_parameter,
+        uni_color: entry,
+    })
 }
 
 /// The field of `config` naming the referees' marker collar, `collar` before `winter_collar`;

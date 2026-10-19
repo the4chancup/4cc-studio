@@ -22,6 +22,7 @@ use std::sync::Arc;
 
 use aesthetics_export::{FileDescriptor, FileKind, ModelFormat};
 use dds_convert::{CachePolicy, Converter};
+use kit_config::KitSlot;
 use pes_version::{Engine, PesVersion};
 use pipeline::{MemoryBudget, Permit};
 use studio_core::{Disposition, Message, Scope};
@@ -32,7 +33,7 @@ use crate::bins::installed::InstalledPaths;
 use crate::messages::{Code, tool_message};
 use crate::paths;
 use crate::plan::roles::{ModelPackage, texture_format};
-use crate::plan::{BuildTask, TaskKind};
+use crate::plan::{BuildTask, TaskKind, keeps_installed};
 use crate::templates::Templates;
 use conversion::ConvertedMaterials;
 pub(crate) use materialize::{EntryTarget, TEST_BINS_PREFIX};
@@ -160,6 +161,10 @@ pub(crate) struct TaskBatch {
     /// A kit's `UniColor.bin` entry with its team ID, applied only when the batch is
     /// committed.
     pub(crate) uni_color: Option<(u16, KitColorEntry)>,
+    /// A committed kit of a `Midcup` export that emitted no config (its folder held no
+    /// `config.toml`): its team and slot. The writer edits the slot's installed config
+    /// in place, or has the template written where none is installed (`kit_configs`).
+    pub(crate) configless_kit: Option<(u16, KitSlot)>,
     /// The task's findings.
     pub(crate) messages: Vec<Message>,
     /// The memory the task was charged, released once the writer has its entries. A `.7z`
@@ -279,21 +284,27 @@ pub(crate) fn process_task(
             })
             .map_err(TaskFailure::from)
         }
-        TaskKind::Kit { slot, kit, edits } => kit::kit(
-            *slot,
+        TaskKind::Kit {
+            slot,
             kit,
-            *edits,
-            task.team_id,
-            ctx,
-            &mut files,
-            &mut findings,
-        )
-        .map(|(entries, uniform_parameter, colors)| {
-            (
-                TaskOutput::Entries(entries),
-                Some((uniform_parameter, colors)),
-            )
-        }),
+            edits,
+            coverage,
+        } => {
+            let configless = keeps_installed(kit, *coverage).then_some((task.team_id, *slot));
+            let job = kit::KitJob {
+                slot: *slot,
+                kit,
+                edits: *edits,
+                coverage: *coverage,
+                team_id: task.team_id,
+            };
+            kit::kit(&job, ctx, &mut files, &mut findings).map(|commit| {
+                (
+                    TaskOutput::Entries(commit.entries),
+                    Some((commit.uniform_parameter, commit.uni_color, configless)),
+                )
+            })
+        }
         TaskKind::Logo { logo } => team_assets::logo(
             logo,
             task.team_id,
@@ -366,6 +377,7 @@ pub(crate) fn process_task(
         group: task.group.as_ref().map(|group| group.tasks.clone()),
         uniparam: None,
         uni_color: None,
+        configless_kit: None,
         messages: Vec::new(),
         permit: None,
         output: None,
@@ -380,9 +392,10 @@ pub(crate) fn process_task(
             if ctx.compress_dds {
                 wrap_dds(&mut batch.entries);
             }
-            if let Some((uniform_parameter, colors)) = kit_bins {
+            if let Some((uniform_parameter, colors, configless_kit)) = kit_bins {
                 batch.uniparam = uniform_parameter;
-                batch.uni_color = Some((task.team_id, colors));
+                batch.uni_color = colors.map(|entry| (task.team_id, entry));
+                batch.configless_kit = configless_kit;
             }
             batch.messages = findings
                 .into_iter()
@@ -444,11 +457,11 @@ fn take(files: &mut TaskFiles, file: &FileDescriptor) -> Vec<u8> {
 
 #[cfg(test)]
 mod tests {
-    use std::collections::BTreeSet;
+    use std::collections::{BTreeSet, HashSet};
     use std::path::{Path, PathBuf};
 
     use aesthetics_export::{
-        KitFolder, KitLayout, KitTexture, KitTextureSource, SharedModelFolder,
+        ExportCoverage, KitFolder, KitLayout, KitTexture, KitTextureSource, SharedModelFolder,
     };
     use fmdl::ops::paths::{rewrite_texture_paths, texture_paths};
     use fmdl::{FmdlFile, Model};
@@ -546,6 +559,39 @@ mod tests {
             })
             .collect();
         process(kind, version, group, files)
+    }
+
+    /// `kind` processed for `version` as task 3 of export 4, over `files`, with the
+    /// installed CPKs' entry paths `installed`.
+    fn process_installed(
+        kind: TaskKind,
+        version: PesVersion,
+        files: TaskFiles,
+        installed: InstalledPaths,
+    ) -> TaskBatch {
+        let task = BuildTask {
+            export_id: ExportId(4),
+            team_id: 792,
+            kind,
+            charge: 0,
+            group: None,
+        };
+        process_task(
+            3,
+            task,
+            files,
+            &CompileContext::new(
+                version,
+                1,
+                Templates::embedded(),
+                installed,
+                EntryTarget::GamePaths {
+                    engine: version.engine(),
+                },
+                MemoryBudget::new(usize::MAX),
+                false,
+            ),
+        )
     }
 
     /// `kind` processed for `version` as task 3 of export 4, in `group`, over `files`.
@@ -1582,6 +1628,7 @@ mod tests {
             slot: KitSlot::G1,
             kit: kit(true, Some(KitLayout::Fox)),
             edits: unknown_fpc(),
+            coverage: ExportCoverage::Full,
         });
 
         assert_eq!(
@@ -1602,6 +1649,7 @@ mod tests {
             slot: KitSlot::G1,
             kit: kit(false, None),
             edits: unknown_fpc(),
+            coverage: ExportCoverage::Full,
         });
 
         let presence = TexturePresence {
@@ -1611,6 +1659,54 @@ mod tests {
         let names = texture_names(792, KitSlot::G1, presence);
         let template = KitConfig::template().encode_with_names(PesVersion::Pes21, &names);
         assert_eq!(batch.uniparam.unwrap().1, template);
+    }
+
+    /// `kind`'s files read from the tracer folder, as `run_task` loads them.
+    fn files_of(kind: &TaskKind) -> TaskFiles {
+        kind.files()
+            .into_iter()
+            .map(|file| {
+                let bytes = std::fs::read(tracer().join(file.source.as_str())).unwrap();
+                (file.path.clone(), bytes)
+            })
+            .collect()
+    }
+
+    #[test]
+    fn a_midcup_kit_s_config_names_the_number_textures_the_install_holds() {
+        let task = TaskKind::Kit {
+            slot: KitSlot::G1,
+            kit: kit(true, None),
+            edits: unknown_fpc(),
+            coverage: ExportCoverage::Midcup,
+        };
+        let paths = ["u0792g1_back", "u0792g1_chest", "u0792g1_leg"]
+            .map(|name| vtree::fold_name(&paths::kit_texture(Engine::Fox, name)));
+        let installed = InstalledPaths::Known(crate::bins::installed::WalkedCpks::from(
+            HashSet::from(paths),
+        ));
+        let files = files_of(&task);
+
+        let batch = process_installed(task, PesVersion::Pes21, files, installed);
+
+        // The three number textures the folder does not hold are still named, the
+        // installed CPKs holding them; `u0792g1_name` is not, being installed nowhere.
+        let names = texture_names(
+            792,
+            KitSlot::G1,
+            TexturePresence {
+                kit: true,
+                back: true,
+                chest: true,
+                leg: true,
+                ..TexturePresence::default()
+            },
+        );
+        let config = std::fs::read_to_string(tracer().join("Kits/g1/config.toml")).unwrap();
+        let expected = KitConfig::from_toml(&config)
+            .unwrap()
+            .encode_with_names(PesVersion::Pes21, &names);
+        assert_eq!(batch.uniparam.unwrap().1, expected.to_vec());
     }
 
     /// `configured_kit()` with its main texture `main` and, when given, the map
@@ -1728,12 +1824,13 @@ mod tests {
     }
 
     /// The kit task of `g1` over `kit`, its team's kit-FPC status `fpc` and its collar
-    /// `collar`.
+    /// `collar`, compiled for a `Full` export.
     fn g1_wearing(kit: KitFolder, fpc: EffectiveTeamKitFpc, collar: Option<u8>) -> TaskKind {
         TaskKind::Kit {
             slot: KitSlot::G1,
             kit,
             edits: TeamKitEdits { fpc, collar },
+            coverage: ExportCoverage::Full,
         }
     }
 

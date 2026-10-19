@@ -187,16 +187,19 @@ format:
      `all/` textures are merged into every kit lacking the stem (`kit_textures_inherited`), and
      `all/` itself may hold nothing else (`kit_all_file_ignored`) and must have kits to serve
      (`kit_all_unused`) — grammar and merge in "Kits" in the [Aesthetics export
-     plan](../aesthetics_export/README.md); a missing `config.toml`
-     is auto-generated from the template (`kit_config_generated`); a missing `colors.txt` has its
+     plan](../aesthetics_export/README.md); a `Full` export's missing `config.toml`
+     is auto-generated from the template (`kit_config_generated`; a `Midcup` kit without one
+     keeps its slot's installed config instead — see "Bins accumulation"); a missing `colors.txt` has its
      two menu colors derived from the main kit texture (`kit_colors_derived` — dominant-color
      extraction via `libs/color_tools`, see the [library crates plan](../libs/README.md)), and a present file
      that yields fewer than two valid colors falls back to the same derivation after its
-     `color_entry_invalid` warnings; a kit with no derivable colors gets the loud magenta/black
-     "no colors chosen" pair (`kit_colors_missing`, W); a kit whose effective textures lack
+     `color_entry_invalid` warnings; a `Full` export's kit with no derivable colors gets the loud
+     magenta/black "no colors chosen" pair (`kit_colors_missing`, W; a `Midcup` one keeps its
+     installed entry); a `Full` export's kit whose effective textures lack
      `kit.dds` — an empty folder included — is a **placeholder kit** (`kit_placeholder`, I): it
      gets the bundled checkerboard texture and is otherwise a normal kit (see "Kits" in the [Aesthetics export
-     plan](../aesthetics_export/README.md)); a kit holds at most one `icon_<N>` marker, numbered 0–23 (`kit_icon_invalid` warns and
+     plan](../aesthetics_export/README.md); a `Midcup` kit emits the textures it holds and
+     keeps the installed ones for the rest, mask included); a kit holds at most one `icon_<N>` marker, numbered 0–23 (`kit_icon_invalid` warns and
      falls back to the default); at most one layout marker (`pre-fox` / `fox`, `.txt` tolerated;
      both → `kit_layout_conflict`, kit discarded); textures named with the `kit` prefix
      (`kit.dds`, `kit_mask.dds`, `kit_chest.dds`, …); supplied configs' FPC fields are checked
@@ -687,10 +690,13 @@ step; Blue: `export_move_non_model`). They are ordinary
 manifest tasks and may run alongside model tasks once their dependencies are satisfied; this section
 describes behavior, not a serial scheduling requirement:
 
-- **Kits** — per kit (each `KitFolder` of the validated export; `all/` is not one): missing kit
+- **Kits** — per kit (each `KitFolder` of the validated export; `all/` is not one): a `Full`
+  export's missing kit
   configs (`config.toml`) are generated from the
   template, retaining the template's five `[colors]` defaults and its FPC kit values (the
-  template carries them whatever the team's FPC status); the kit's two-color `colors.txt` (grammar: "Root files", "Colors" in
+  template carries them whatever the team's FPC status); a `Midcup` kit without one emits no
+  config of its own, its slot's installed config standing (see "Bins accumulation");
+  the kit's two-color `colors.txt` (grammar: "Root files", "Colors" in
   the [Aesthetics export plan](../aesthetics_export/player_folders.md)) feeds only `UniColor.bin`,
   not the config's distinct five RGB fields. Supplied configs' FPC fields are reconciled with the
   team's status (see "FPC toggle" in the [Aesthetics export
@@ -700,8 +706,9 @@ describes behavior, not a serial scheduling requirement:
   becomes `u0701p2_chest.dds`; an inherited `all/kit_back.dds` becomes `u0701p1_back.dds`,
   `u0701p2_back.dds`, … one per kit, since the game has no shared kit textures) — and converted.
   Each kit task reads a shared file itself: kit tasks stay independent, and the game-facing output
-  is byte-for-byte what a copy in the kit folder would give. Two textures the game requires are
-  **filled from bundled templates** when the effective set lacks them: `kit.dds` from the
+  is byte-for-byte what a copy in the kit folder would give. A `Midcup` kit's textures are
+  packed as they are, the installed ones staying for the rest. Two textures the game requires are
+  **filled from bundled templates** when a `Full` export's effective set lacks them: `kit.dds` from the
   placeholder kit texture — a placeholder kit, reported once (`kit_placeholder`) — and, for pre-Fox
   targets only, `kit_mask.dds` from the mask template, silently, as Red's `kit_masks_check` did
   (most kits ship no mask: 70 of 641
@@ -1091,7 +1098,16 @@ describes behavior, not a serial scheduling requirement:
   numbered 0 under a count of 2, 750 of the bundled base's 821 records) and is read as
   holding no kit, which makes a first compile's record the one Red writes. A record holds
   ten entries; when the merge gives more (possible only with an installed entry the export
-  format has no slot for, a second goalkeeper kit) the highest-numbered are left out. A kit's
+  format has no slot for, a second goalkeeper kit) the highest-numbered are left out. A `Midcup`
+  kit folder gives only what it holds: without `config.toml` it emits no config of its own —
+  its slot's installed config is edited in place like an unresent slot's (the FPC values,
+  then the collar, with the same findings, and the template written where nothing is
+  installed, `kit_config_generated` on the kit folder); without `kit.dds` it is no
+  placeholder — the textures it holds are emitted, the installed ones staying for the rest;
+  the `config.toml` it does supply names a `back`, `chest`, `leg` or `name` texture it holds or the
+  installed CPKs before the run's already hold for its slot (a number font sent once in the
+  `Full` export; with no installed CPK readable, only what it holds); and with neither `colors.txt` nor a main texture to derive from it writes no `UniColor.bin`
+  entry — the installed one stands. A kit's
   colors and their findings (`kit_colors_derived`, `kit_colors_missing`) are its task's; a
   `colors.txt` line that does not parse (`color_entry_invalid`) is the deep pass's, for the
   kit files and the root file alike. The root `colors.txt` is no task's file: its colors are

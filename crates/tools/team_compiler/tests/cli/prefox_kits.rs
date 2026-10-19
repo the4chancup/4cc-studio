@@ -17,9 +17,9 @@ use crate::compile_exports::{
 };
 use crate::findings_of;
 use crate::kit_layout::{
-    PRE_FOX_BANDS, PRE_FOX_ISLANDS, STRIPES_FINDINGS, assert_moved_inside_bands_only, bc1_dds,
-    compiled_entries, compiled_pre_fox_top_level, stripe_centre, stripes, stripes_dds,
-    stripes_dds_at_fox, write_stripes_export,
+    PRE_FOX_BANDS, PRE_FOX_ISLANDS, STRIPES_FINDINGS, STRIPES_PRE_FOX_FINDINGS,
+    assert_moved_inside_bands_only, bc1_dds, compiled_entries, compiled_pre_fox_top_level,
+    stripe_centre, stripes, stripes_dds, stripes_dds_at_fox, write_stripes_export,
 };
 use crate::prefox_faces::{
     CLEAN, card_materials, card_model, compile_pes17, materials_naming, pes17, small_dds,
@@ -50,27 +50,24 @@ pub(crate) fn write_kit(sandbox: &Sandbox, export: &str, slot: &str) {
     sandbox.write(&format!("{folder}/config.toml"), &tracer_config());
 }
 
-/// The findings of an export with no root `colors.txt` whose kit `slot` has a config, a main
-/// texture and no `colors.txt`: its menu colors are taken from the texture.
-fn kit_findings(slot: &str) -> [String; 3] {
-    [
-        CLEAN[0].to_owned(),
-        CLEAN[1].to_owned(),
-        format!("Info kit_colors_derived [Keep] at Kits/{slot} ()"),
-    ]
-}
-
 // TC-KIT-21
 #[test]
 fn a_pes_17_kit_without_a_mask_gets_the_bundled_template_as_it_is() {
     let sandbox = Sandbox::new("prefox_kit_mask_template");
-    write_kit(&sandbox, "co Midcup Mask", "p1");
+    write_kit(&sandbox, "co Full Mask", "p1");
 
-    // The export's identity and its missing root colors, and p1's colors taken from its
-    // texture (no `colors.txt`): nothing about the mask.
-    let findings = kit_findings("p1");
-    let findings: Vec<&str> = findings.iter().map(String::as_str).collect();
-    let entries = compile_pes17(&sandbox, "co Midcup Mask", &findings);
+    // The export's identity and its missing root colors, the generated and placeholder g1
+    // a `Full` export plans, and p1's colors taken from its texture (no `colors.txt`):
+    // nothing about the mask.
+    let findings = [
+        CLEAN[0],
+        CLEAN[1],
+        "Info kit_config_generated [Keep] at Kits/g1 ()",
+        "Info kit_placeholder [Keep] at Kits/g1 ()",
+        "Info kit_colors_derived [Keep] at Kits/p1 ()",
+        "Warning kit_colors_missing [Keep] at Kits/g1 ()",
+    ];
+    let entries = compile_pes17(&sandbox, "co Full Mask", &findings);
 
     assert!(entries.contains_key(&pre_fox_kit_texture("u0714p1")));
     assert!(
@@ -187,11 +184,11 @@ fn a_pes_17_kit_marked_pre_fox_is_as_unmarked_and_one_marked_fox_is_re_laid() {
     write_stripes_export(&fox, Some("fox"));
 
     for sandbox in [&unmarked, &pre_fox] {
-        compile_pes17(sandbox, "co Midcup Layout", &STRIPES_FINDINGS);
+        compile_pes17(sandbox, "co Midcup Layout", &STRIPES_PRE_FOX_FINDINGS);
     }
-    let mut converted = STRIPES_FINDINGS.to_vec();
+    let mut converted = STRIPES_PRE_FOX_FINDINGS.to_vec();
     converted.insert(
-        3,
+        2,
         "Info kit_layout_converted [Keep] at Kits/p1 (from=fox, to=pre-fox)",
     );
     compile_pes17(&fox, "co Midcup Layout", &converted);
@@ -243,11 +240,11 @@ fn a_pes_17_kit_marked_fox_has_its_mask_re_laid_with_it() {
     let fox = Sandbox::new("prefox_kit_mask_layout_fox");
     write(&fox, Some("fox"));
 
-    compile_pes17(&unmarked, "co Midcup Layout", &STRIPES_FINDINGS);
+    compile_pes17(&unmarked, "co Midcup Layout", &STRIPES_PRE_FOX_FINDINGS);
     // Once for the kit, its mask re-laid with its main texture.
-    let mut converted = STRIPES_FINDINGS.to_vec();
+    let mut converted = STRIPES_PRE_FOX_FINDINGS.to_vec();
     converted.insert(
-        3,
+        2,
         "Info kit_layout_converted [Keep] at Kits/p1 (from=fox, to=pre-fox)",
     );
     compile_pes17(&fox, "co Midcup Layout", &converted);
@@ -272,7 +269,7 @@ fn a_pes_17_placeholder_kit_marked_fox_has_only_its_own_mask_re_laid() {
         }
     });
     let write = |sandbox: &Sandbox, marker: Option<&str>| {
-        let folder = "exports/co Midcup Layout/Kits/p1";
+        let folder = "exports/co Full Layout/Kits/p1";
         sandbox.write(&format!("{folder}/kit_back.dds"), &row);
         sandbox.write(&format!("{folder}/kit_mask.dds"), &stripes_dds());
         if let Some(marker) = marker {
@@ -284,21 +281,25 @@ fn a_pes_17_placeholder_kit_marked_fox_has_only_its_own_mask_re_laid() {
     let fox = Sandbox::new("prefox_placeholder_mask_fox");
     write(&fox, Some("fox"));
 
+    // A `Full` export holding no `g1/` compiles an empty one beside the placeholder p1.
     let findings = [
         STRIPES_FINDINGS[0],
         STRIPES_FINDINGS[1],
         "Info kit_config_generated [Keep] at Kits/p1 ()",
         "Info kit_placeholder [Keep] at Kits/p1 ()",
+        "Info kit_config_generated [Keep] at Kits/g1 ()",
+        "Info kit_placeholder [Keep] at Kits/g1 ()",
         "Warning kit_colors_missing [Keep] at Kits/p1 ()",
+        "Warning kit_colors_missing [Keep] at Kits/g1 ()",
     ];
-    let as_drawn = compile_pes17(&unmarked, "co Midcup Layout", &findings);
+    let as_drawn = compile_pes17(&unmarked, "co Full Layout", &findings);
     // Once for the kit: its own mask is re-laid, the placeholder never.
     let mut converted = findings.to_vec();
     converted.insert(
-        4,
+        6,
         "Info kit_layout_converted [Keep] at Kits/p1 (from=fox, to=pre-fox)",
     );
-    let relaid = compile_pes17(&fox, "co Midcup Layout", &converted);
+    let relaid = compile_pes17(&fox, "co Full Layout", &converted);
 
     // The placeholder and the number atlas are as without the marker: a row becomes a column
     // by its shape, marker or not.

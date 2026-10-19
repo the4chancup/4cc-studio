@@ -375,3 +375,34 @@ fn the_staged_validation_leaves_the_placement_findings_to_the_destination() {
         assert!(!stdout.contains(code), "{code}: {stdout}");
     }
 }
+
+// EU-MF-07
+#[test]
+fn a_stray_fmdl_in_a_boots_folder_is_a_leftover() {
+    let sandbox = Sandbox::new("mf_stray_fmdl");
+    // `boots - Copy.fmdl` is an `.fmdl` under no name a Fox boots folder
+    // loads: step 10's stray rule drops it rather than staging it for the
+    // strict output check to refuse.
+    sandbox.write("new models/k0431/boots.fmdl", &fmdl(&[]));
+    sandbox.write("new models/k0431/boots - Copy.fmdl", &fmdl(&[]));
+
+    let run = upgrade_models(&sandbox, "new models", &[]);
+    let stdout = run.stdout();
+    assert_eq!(run.exit_code(), 0, "{stdout}");
+    assert!(stdout.contains("migration_clean"), "{stdout}");
+    assert!(
+        stdout.contains("leftover_dropped at k0431/boots - Copy.fmdl"),
+        "{stdout}"
+    );
+    assert!(
+        sandbox
+            .path("new models upgraded/k0431/boots.fmdl")
+            .exists(),
+        "{stdout}"
+    );
+    assert!(
+        !sandbox
+            .path("new models upgraded/k0431/boots - Copy.fmdl")
+            .exists()
+    );
+}
