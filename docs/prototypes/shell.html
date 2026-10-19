@@ -7,9 +7,9 @@
   A draft of the 4cc Studio shell: sidebar, status bar, settings menu, help window
   and window title (docs/plans/core/gui.md), drawn only with what egui can draw
   ("Prototypes before implementation"): its behaviour is faked with sample data and
-  nothing is written. Slices 1 to 3 of 7: the skeleton, the sidebar with its
+  nothing is written. Slices 1 to 4 of 7: the skeleton, the sidebar with its
   collapse, stub central panels, the status bar's three slots, the window
-  title, the PES selector's states and the About popup.
+  title, the PES selector's states, the About popup and the settings menu.
   Widget mapping: <select> = ComboBox, .sel = SelectableLabel, .menu = menu_button,
   details = CollapsingHeader, table.grid = Grid, .window = Window/Modal,
   title="" = on_hover_text, .sidebar = Panel::left, .bottom = Panel::bottom,
@@ -112,6 +112,10 @@
   table.grid tr.sel:hover { background: var(--hover); }
   .window pre.mono { margin: 4px 0; }
   a { color: var(--link); }
+  .settings-body { width: 560px; }
+  .settings-body td:first-child { white-space: nowrap; }
+  .settings-body input[type=text] { width: 220px; }
+  .settings-body input[type=number] { width: 90px; }
 </style>
 </head>
 <body>
@@ -179,13 +183,19 @@ function menu(label, items, opts = {}) {
 }
 function closeMenus() { document.querySelectorAll(".menu").forEach(m => m.remove()); }
 document.addEventListener("click", closeMenus);
+// windowDrawer rebuilds the open window on every render(), immediate-mode
+// style: a collapsing header's lazy body and a widget's derived state (a
+// disabled input) then always show the frame's values. A plain window_ call
+// draws a static window; a drawer re-registers itself after calling it.
+let windowDrawer = null;
 function window_(title, body, buttons) {
+  windowDrawer = null;
   const ov = document.getElementById("overlay");
   ov.innerHTML = "";
   ov.append(h("div", { class: "modal-bg" }, h("div", { class: "window" },
     h("div", { class: "title" }, title), body, h("div", { class: "row", style: "justify-content:flex-end; margin-top:10px" }, buttons))));
 }
-function closeWindow() { document.getElementById("overlay").innerHTML = ""; }
+function closeWindow() { windowDrawer = null; document.getElementById("overlay").innerHTML = ""; }
 
 // ---- State and registry ----
 const S = { activeTool: "team-compiler", sidebarCollapsed: false, pesVersion: "2019",
@@ -204,6 +214,45 @@ const S = { activeTool: "team-compiler", sidebarCollapsed: false, pesVersion: "2
   // Window-title state: a Notice published while unfocused holds its text in the
   // title until focus returns (gui.md "Window title", the held-notice row).
   focused: true, heldTitleNotice: null };
+// The settings file's in-memory copy (spec/core/gui.md "Settings menu"):
+// [common] is CommonSettings at its defaults (studio_core/settings/common.rs)
+// and each tool's table, keyed by its id, its settings struct's defaults
+// (team_compiler/settings.rs, save_editor/settings.rs; the Export upgrader's
+// table is empty). pes_version and pes_folder_path alias the sidebar's values
+// through the getters: one value, the selector and the menu edit the same
+// thing. last_update_check, skipped_version and last_tool are state the shell
+// writes, not settings a member edits: the menu does not show them.
+S.settings = {
+  common: {
+    get pes_version() { return S.pesVersion; },
+    set pes_version(v) { S.pesVersion = v; },
+    get pes_folder_path() { return S.pesFolder; },
+    set pes_folder_path(v) { S.pesFolder = v; },
+    exports_folder_path: "exports",
+    thread_count: 0,
+    memory_cap_percent: 80,
+    theme: "Dark",
+    check_for_updates: true,
+    check_interval_hours: 24,
+    last_update_check: null,
+    skipped_version: null,
+    last_tool: null,
+  },
+  tools: {
+    "team-compiler": {
+      cpk_name: "4cc_99_test", output_folder_path: "output", savefile_path: "Auto",
+      multicpk_mode: false, teams_cpk_name: "teams", cpk_part_max_size: 3221225472,
+      bins_cpk_name: "4cc_08_bins", refs_cpk_name: "4cc_18_referees",
+      dds_compression: "Auto", strict_file_type_check: true, pass_through: false,
+      teams_list_path: "teams_list.txt",
+    },
+    "save-editor": { aatf_rules: "" },
+    "export-upgrader": {},
+  },
+};
+// Draft switch: the data folder cannot be written. saveSettings() raises
+// data_dir_read_only on the failed write, not this switch itself.
+S.dataDirUnwritable = false;
 // Registry order of plans/core/architecture.md "Tool plugin interface"; icon is one
 // Unicode glyph standing in for the egui-phosphor icon the comment names (no web
 // font: the file stays self-contained).
@@ -278,6 +327,15 @@ function pesSelectorTip() {
   if (S.exeFound === "no_folder") return folder + " does not exist";
   return folder + "\nThe PES version every tool targets";
 }
+// The one writer of pes_version (a common setting): a blocked change does not
+// take; a manual change consumes the auto-switch and is saved like any
+// settings change. The redraw re-runs the exe check's display.
+function setPesVersion(v) {
+  if (S.blocker) return;
+  S.pesVersion = v;
+  S.autoSwitchUsed = true;
+  saveSettings();
+}
 // The once-per-life auto-switch to the running game (ST-SIDE-05): a blocker
 // defers it without consuming it, a manual change consumes it.
 function pollRunningPes() {
@@ -285,6 +343,7 @@ function pollRunningPes() {
   if (!rp || rp.version === S.pesVersion || S.autoSwitchUsed || S.blocker) return;
   S.pesVersion = rp.version;
   S.autoSwitchUsed = true;
+  saveSettings(); // the switch writes the pes_version setting
   const action = folderOf(rp.path) !== resolvedPesFolder()
     ? { label: "Fix PES path", run: fixPesPath } : null;
   publishNotice("Switched to PES " + rp.version, action);
@@ -297,6 +356,7 @@ function fixPesPath() {
   const rp = S.runningPes;
   if (!rp) return;
   S.pesFolder = folderOf(rp.path).split("\\").map(seg => seg.replaceAll(rp.version, "20**")).join("\\");
+  saveSettings(); // pes_folder_path is a common setting
   render();
 }
 
@@ -320,6 +380,134 @@ function openAbout() {
       lastCopied = aboutText();
       navigator.clipboard?.writeText(lastCopied)?.catch(() => {});
     }), button("Close", closeWindow)]);
+}
+
+// ---- Settings menu (gui.md "Settings menu") ----
+// The settings file is written at the end of the frame, best-effort: a data
+// folder that cannot be written keeps the session's values and raises
+// data_dir_read_only, cleared when a later write succeeds. Never a prompt
+// (ST-SET-03). savesAttempted is what the harness reads.
+let savesAttempted = 0;
+function saveSettings() {
+  savesAttempted++;
+  const i = S.conditions.indexOf("data_dir_read_only");
+  if (S.dataDirUnwritable) { if (i < 0) S.conditions.push("data_dir_read_only"); }
+  else if (i >= 0) S.conditions.splice(i, 1);
+}
+// No Save or Apply: a change applies as it is made, then the frame ends.
+function settingChanged() { saveSettings(); render(); }
+
+// Each tool's rows, in its settings struct's order: the settings key, the kind
+// its type draws ("Other UI components": a bool a checkbox, a string or path a
+// text edit, a number a number input, an enum a combo of its variants), the
+// field's doc comment (the label's tooltip) and a weak hint. The Export
+// upgrader has no settings; its section says so.
+const TOOL_SETTINGS_SPEC = {
+  "team-compiler": [
+    ["cpk_name", "text", "The single output CPK's name, without .cpk.", "without .cpk"],
+    ["output_folder_path", "text", "Where compiled CPKs go; a relative path resolves beside the executable.", "compiled CPKs go here"],
+    ["savefile_path", ["Auto", "Path"], "The local savefile the compile's aesthetics patch is applied to.", "the savefile the patch is applied to"],
+    ["multicpk_mode", "bool", "Cup DLC mode: team content split into size-capped parts plus a bins CPK.", "cup DLC mode"],
+    ["teams_cpk_name", "text", "The stem of the teams part slots in multi-CPK mode.", "teams part slots' stem"],
+    ["cpk_part_max_size", "num", "The most bytes a teams part may hold, its table of contents included; a single CPK past it is only warned about.", "bytes per teams part at most"],
+    ["bins_cpk_name", "text", "The CPK, without .cpk, that holds the bins and the overrides in multi-CPK mode.", "multi-CPK bins CPK name"],
+    ["refs_cpk_name", "text", "The CPK, without .cpk, that holds the referees of a normal compile whose exports include a refs export.", "referees CPK name"],
+    ["dds_compression", ["Auto", "On", "Off"], "Whether every DDS a PES 15-17 run emits is WESYS-zlibbed.", "auto follows cup DLC mode"],
+    ["strict_file_type_check", "bool", "Disallowed file types are errors when on, info notes when off.", "disallowed types are errors"],
+    ["pass_through", "bool", "Keep folders with errors instead of discarding them.", "keep folders with errors"],
+    ["teams_list_path", "text", "The working teams list; a relative path resolves in the data directory.", "the working teams list"],
+  ],
+  "save-editor": [
+    ["aatf_rules", "text", "The AATF rules file check-aatf and the AATF panel run; empty: the official ruleset, built in.", "empty: the built-in ruleset"],
+  ],
+  "export-upgrader": [],
+};
+
+// A settings row: the settings key, its widget and a weak hint; the field's
+// doc comment is the label's tooltip.
+const sRow = (key, tip, widget, hint) =>
+  h("tr", {}, h("td", {}, h("span", { title: tip }, key)),
+    h("td", {}, widget), h("td", {}, weak(hint)));
+
+// The common grid, always open (no header): one row per CommonSettings field a
+// member edits, its doc comment the tooltip's source.
+function commonSettingsRows() {
+  const c = S.settings.common;
+  const num = (key, attrs = {}) => h("input", { type: "number", value: c[key],
+    ...attrs, onchange: e => { const v = parseFloat(e.target.value);
+      if (!Number.isNaN(v)) { c[key] = v; settingChanged(); } } });
+  const text = key => h("input", { type: "text", value: c[key],
+    onchange: e => { c[key] = e.target.value; settingChanged(); } });
+  // rfd's native folder picker; closing it returns to the menu.
+  const browse = () => button("Browse", () => window_("Native folder dialog",
+    weak("The native folder picker (rfd) opens here"),
+    [button("OK", () => { closeWindow(); drawSettings(); })]));
+  const theme = combo([["Dark", "Dark"], ["Light", "Light"]], c.theme,
+    v => { c.theme = v; saveSettings(); });
+  theme.id = "set-theme";
+  return [
+    sRow("pes_version", "The PES version the suite targets; the sidebar selector.",
+      combo(PES_VERSIONS.map(v => [v, "PES " + v]), c.pes_version, setPesVersion,
+        { disabled: !!S.blocker, title: pesSelectorTip() }), "the sidebar selector edits the same value"),
+    sRow("pes_folder_path", "The PES installation folder, with ** standing for the two-digit version (20**).",
+      [text("pes_folder_path"), browse()], "** stands for the two-digit version"),
+    sRow("exports_folder_path", "Where exports are picked up. A relative path resolves beside the executable in both data-location modes, so it sits next to quick_compile.bat.",
+      [text("exports_folder_path"), browse()], "a relative path resolves beside the executable"),
+    sRow("thread_count", "Worker threads for pipelines; 0 means automatic (logical cores minus one).",
+      num("thread_count", { id: "set-thread-count" }), "0 = automatic (logical cores minus one)"),
+    sRow("memory_cap_percent", "Memory budget cap for pipelines, as a percentage of physical memory.",
+      [num("memory_cap_percent", { step: "any" }), " %"], "of physical memory"),
+    sRow("theme", "GUI color theme.", theme, "dark or light"),
+    sRow("check_for_updates", "Whether the shell looks for new releases.",
+      h("input", { type: "checkbox", checked: c.check_for_updates,
+        onchange: e => { c.check_for_updates = e.target.checked; settingChanged(); } }),
+      "the shell looks for new releases"),
+    sRow("check_interval_hours", "Hours between release checks.",
+      num("check_interval_hours", { disabled: !c.check_for_updates }),
+      "disabled while the check is off"),
+  ];
+}
+
+// A tool section's grid: the same label / widget / hint rows over its table.
+function toolSettingRow(toolId, f) {
+  const [key, kind, tip, hint] = f;
+  const tbl = S.settings.tools[toolId];
+  let widget;
+  if (kind === "bool")
+    widget = h("input", { type: "checkbox", checked: tbl[key],
+      onchange: e => { tbl[key] = e.target.checked; settingChanged(); } });
+  else if (kind === "num")
+    widget = h("input", { type: "number", value: tbl[key],
+      onchange: e => { const v = parseFloat(e.target.value);
+        if (!Number.isNaN(v)) { tbl[key] = v; settingChanged(); } } });
+  else if (kind === "text")
+    widget = h("input", { type: "text", value: tbl[key],
+      onchange: e => { tbl[key] = e.target.value; settingChanged(); } });
+  else
+    widget = combo(kind.map(v => [v, v]), tbl[key], v => { tbl[key] = v; saveSettings(); });
+  return sRow(key, tip, widget, hint);
+}
+
+// The gear opens the menu: the common grid, then one collapsing section per
+// registered tool in sidebar order, the active tool's open (ST-SET-01); the
+// user may then toggle any, so the open set is fixed at open time.
+function openSettings() {
+  for (const t of TOOLS.filter(t => t.registered)) {
+    open.delete("settings/" + t.id); open.delete("closed:settings/" + t.id);
+  }
+  open.add("settings/" + S.activeTool);
+  drawSettings();
+}
+function drawSettings() {
+  window_("Settings",
+    h("div", { class: "settings-body" },
+      h("table", { class: "grid" }, commonSettingsRows()),
+      TOOLS.filter(t => t.registered).map(t => collapsing("settings/" + t.id, t.label, () =>
+        TOOL_SETTINGS_SPEC[t.id].length
+          ? h("table", { class: "grid" }, TOOL_SETTINGS_SPEC[t.id].map(f => toolSettingRow(t.id, f)))
+          : weak("No settings")))),
+    [button("Close", closeWindow)]);
+  windowDrawer = drawSettings; // render() rebuilds the open window
 }
 
 // ---- Render: one state object, one pass (gui.md "Shell layout") ----
@@ -354,6 +542,7 @@ function render() {
   renderSidebar();
   renderCenter();
   renderStatus();
+  if (windowDrawer) windowDrawer();
 }
 
 function cb(label, checked, set) {
@@ -370,7 +559,7 @@ function renderDraftControls() {
   });
   dc.append(weak("Draft controls, not part of Studio"),
     cb("Sidebar collapsed", S.sidebarCollapsed, v => S.sidebarCollapsed = v),
-    condCb("data_dir_read_only", "Data folder read-only"),
+    cb("Data folder unwritable", S.dataDirUnwritable, v => S.dataDirUnwritable = v),
     condCb("update_available", "Update available"),
     condCb("pes_install_missing", "PES install missing"),
     cb("Window focused", S.focused, v => {
@@ -413,11 +602,8 @@ function renderSidebar() {
   sb.append(h("div", { class: "logo", title: "About 4cc Studio", onclick: openAbout }, "4cc"));
   const pesSel = combo(
     PES_VERSIONS.map(v => [v, S.sidebarCollapsed ? v.slice(2) : "PES " + v]),
-    S.pesVersion, v => {
-      if (S.blocker) return; // a blocked change does not take
-      S.pesVersion = v; // the redraw re-runs the exe check's display
-      S.autoSwitchUsed = true; // a manual change consumes the auto-switch
-    }, { title: pesSelectorTip(), cls: pesSelectorClass(), disabled: !!S.blocker });
+    S.pesVersion, setPesVersion,
+    { title: pesSelectorTip(), cls: pesSelectorClass(), disabled: !!S.blocker });
   pesSel.id = "pes-version";
   sb.append(pesSel);
   for (const t of TOOLS.filter(t => t.registered).concat(TOOLS.filter(t => !t.registered))) {
@@ -435,9 +621,10 @@ function renderSidebar() {
     { frame0: true, title: S.sidebarCollapsed ? "Expand the sidebar" : "Collapse the sidebar" });
   collapse.id = "collapse-btn";
   sb.append(collapse);
+  const gear = button("⚙", openSettings, { frame0: true, title: "Settings" });
+  gear.id = "settings-btn";
   sb.append(h("div", { class: "tail" },
-    button("?", openHelp, { frame0: true, title: "Help (F1)" }),
-    button("⚙", () => window_("Settings", weak("Settings menu: drawn in slice 4"), [button("OK", closeWindow)]), { frame0: true, title: "Settings" })));
+    button("?", openHelp, { frame0: true, title: "Help (F1)" }), gear));
 }
 
 // The central panel is the active tool's: each registered tool gets a stub until
@@ -451,7 +638,9 @@ function renderCenter() {
   if (t.id === "team-compiler") {
     center.append(h("table", { class: "grid" },
       [["/3/", "701"], ["/a/", "702"], ["/co/", "714"]].map(([name, id]) =>
-        h("tr", { class: "sel" }, h("td", { class: "mono" }, name), h("td", { class: "mono" }, id)))));
+        h("tr", { class: "sel" }, h("td", { class: "mono" }, name), h("td", { class: "mono" }, id)))),
+      // The common settings reach every tool at its next frame (ST-SET-02).
+      weak("Threads: " + S.settings.common.thread_count));
     const a = S.activities["team-compiler"];
     const compileBtn = button("Compile", startCompile, { disabled: !!a, title: "A fake run of 48 teams" });
     compileBtn.id = "compile-btn";
