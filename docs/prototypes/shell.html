@@ -7,9 +7,9 @@
   A draft of the 4cc Studio shell: sidebar, status bar, settings menu, help window
   and window title (docs/plans/core/gui.md), drawn only with what egui can draw
   ("Prototypes before implementation"): its behaviour is faked with sample data and
-  nothing is written. Slices 1 and 2 of 7: the skeleton, the sidebar with its
-  collapse, stub central panels, the status bar's three slots, and the window
-  title.
+  nothing is written. Slices 1 to 3 of 7: the skeleton, the sidebar with its
+  collapse, stub central panels, the status bar's three slots, the window
+  title, the PES selector's states and the About popup.
   Widget mapping: <select> = ComboBox, .sel = SelectableLabel, .menu = menu_button,
   details = CollapsingHeader, table.grid = Grid, .window = Window/Modal,
   title="" = on_hover_text, .sidebar = Panel::left, .bottom = Panel::bottom,
@@ -110,6 +110,8 @@
   .cond, .act, .notice-txt { overflow: hidden; text-overflow: ellipsis; }
   .small { font-size: 11px; }
   table.grid tr.sel:hover { background: var(--hover); }
+  .window pre.mono { margin: 4px 0; }
+  a { color: var(--link); }
 </style>
 </head>
 <body>
@@ -145,7 +147,8 @@ function button(text, onclick, opts = {}) {
   return h("button", { onclick, disabled: opts.disabled, title: opts.title, class: opts.frame0 ? "frame0" : "" }, text);
 }
 function combo(options, value, set, opts = {}) {
-  const s = h("select", { title: opts.title, onchange: e => { set(e.target.value === "\u0000" ? null : e.target.value); structural(); } },
+  const s = h("select", { title: opts.title, class: opts.cls || "", disabled: opts.disabled,
+    onchange: e => { set(e.target.value === "\u0000" ? null : e.target.value); structural(); } },
     options.map(([v, label]) => h("option", { value: v ?? "\u0000", selected: v === value }, label)));
   return s;
 }
@@ -186,13 +189,21 @@ function closeWindow() { document.getElementById("overlay").innerHTML = ""; }
 
 // ---- State and registry ----
 const S = { activeTool: "team-compiler", sidebarCollapsed: false, pesVersion: "2019",
+  // The selector's live check (gui.md "Sidebar" 2): pes_folder_path (** stands
+  // for the version's two digits, studio_core's DEFAULT_PES_FOLDER), what the
+  // last exe check found ("selected" / "other" / "none" / "no_folder", with
+  // exeFoundVersion for "other"), a version_change_blocker, the background
+  // poll's running PES and the once-per-program-life flag.
+  pesFolder: "C:\\Program Files (x86)\\Pro Evolution Soccer 20**",
+  exeFound: "selected", exeFoundVersion: "2017",
+  blocker: null, runningPes: null, autoSwitchUsed: false,
   // Status-bar state (studio_core::status shapes): the active ShellCondition ids,
   // per-tool ToolActivity { done, total, elapsed } (elapsed in s), the current
-  // Notice { text, action, at } and the draft's no-action notice lifetime.
+  // Notice { text, action } and the draft's no-action notice lifetime.
   conditions: [], activities: {}, notice: null, noticeTimeoutS: 5,
   // Window-title state: a Notice published while unfocused holds its text in the
   // title until focus returns (gui.md "Window title", the held-notice row).
-  focused: true, unfocusedAt: 0, heldTitleNotice: null };
+  focused: true, heldTitleNotice: null };
 // Registry order of plans/core/architecture.md "Tool plugin interface"; icon is one
 // Unicode glyph standing in for the egui-phosphor icon the comment names (no web
 // font: the file stays self-contained).
@@ -216,7 +227,6 @@ const PES_VERSIONS = ["2015", "2016", "2017", "2018", "2019", "2020", "2021"];
 
 // The three ShellCondition variants, keyed by id; the wording is sample text for
 // the maintainer to refine (the plan fixes kinds and lifetimes, not strings).
-const PES_FOLDER_SAMPLE = "C:\\Games\\eFootball PES 2021"; // a pes_folder_path value
 const CONDITION_DEFS = [
   { id: "data_dir_read_only", icon: "⚠", // warning
     text: () => "Data folder is read-only",
@@ -227,7 +237,7 @@ const CONDITION_DEFS = [
     action: { label: "Install", does: "The updater dialog is not part of this draft" } },
   { id: "pes_install_missing", icon: "⚠", // warning
     text: () => "PES " + S.pesVersion + " not found in the PES folder",
-    tip: () => "No PES " + S.pesVersion + " exe under " + PES_FOLDER_SAMPLE },
+    tip: () => "No PES " + S.pesVersion + " exe under " + resolvedPesFolder() },
 ];
 const mmss = s => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(Math.floor(s) % 60).padStart(2, "0");
 const toolLabel = id => TOOLS.find(t => t.id === id).label;
@@ -239,6 +249,77 @@ function activityIds(withActive) {
   const others = TOOLS.filter(t => t.registered && t.id !== S.activeTool).map(t => t.id);
   const order = withActive ? [S.activeTool, ...others] : others;
   return order.filter(id => S.activities[id]);
+}
+
+// ---- Sidebar items 1 and 2 (gui.md "Sidebar") ----
+// The resolved folder: pes_folder_path with ** replaced by the selection's two
+// digits (studio_core's CommonSettings::pes_folder). In the real shell the exe
+// check is one directory listing of this folder; here its result is the
+// S.exeFound sample state, so "re-running the check" is redrawing with the new
+// folder name.
+const resolvedPesFolder = () => S.pesFolder.replaceAll("**", S.pesVersion.slice(2));
+const folderOf = p => p.slice(0, p.lastIndexOf("\\"));
+// The "Running game" draft combo's current value.
+const runningPesKey = () => !S.runningPes ? "none"
+  : S.runningPes.version === "2021" && folderOf(S.runningPes.path) === resolvedPesFolder()
+    ? "resolved" : "other";
+// The selector's colour: red when the folder holds a different version's exe,
+// yellow when it holds no PES exe or does not exist (ST-SIDE-03; the two yellow
+// cases differ in the tooltip only). Under a blocker the tooltip is the
+// reason instead and the combo is disabled.
+const pesSelectorClass = () =>
+  S.exeFound === "other" ? "err" : S.exeFound === "none" || S.exeFound === "no_folder" ? "warn" : "";
+function pesSelectorTip() {
+  if (S.blocker) return S.blocker.tool + ": " + S.blocker.reason;
+  const folder = resolvedPesFolder();
+  if (S.exeFound === "other")
+    return "Found PES" + S.exeFoundVersion + ".exe in " + folder + ": a different version than the selection";
+  if (S.exeFound === "none") return "No PES exe in " + folder;
+  if (S.exeFound === "no_folder") return folder + " does not exist";
+  return folder + "\nThe PES version every tool targets";
+}
+// The once-per-life auto-switch to the running game (ST-SIDE-05): a blocker
+// defers it without consuming it, a manual change consumes it.
+function pollRunningPes() {
+  const rp = S.runningPes;
+  if (!rp || rp.version === S.pesVersion || S.autoSwitchUsed || S.blocker) return;
+  S.pesVersion = rp.version;
+  S.autoSwitchUsed = true;
+  const action = folderOf(rp.path) !== resolvedPesFolder()
+    ? { label: "Fix PES path", run: fixPesPath } : null;
+  publishNotice("Switched to PES " + rp.version, action);
+}
+// "Fix PES path" rewrites pes_folder_path from the running exe's folder,
+// putting ** back for the two digits of the version where a segment holds its
+// year (D:\Games\PES2021 -> D:\Games\PES20**, since ** stands for two digits);
+// opt-in, never automatic.
+function fixPesPath() {
+  const rp = S.runningPes;
+  if (!rp) return;
+  S.pesFolder = folderOf(rp.path).split("\\").map(seg => seg.replaceAll(rp.version, "20**")).join("\\");
+  render();
+}
+
+// The logo's popup (ST-SIDE-06): the block a member pastes into a bug report.
+// lastCopied is what the harness reads; headless runs may deny the clipboard.
+let lastCopied = null;
+function aboutText() {
+  return ["4cc Studio v0.1.0", "Build: release", "Target: x86_64-pc-windows-msvc",
+    "Data location: C:\\Users\\you\\AppData\\Roaming\\4cc-studio",
+    "PES version: PES " + S.pesVersion].join("\n");
+}
+function openHelp() {
+  window_("Help", weak("Help window: drawn in slice 5"), [button("OK", closeWindow)]);
+}
+function openAbout() {
+  const link = (t, fn) => h("a", { href: "#", onclick: e => { e.preventDefault(); if (fn) fn(); } }, t);
+  window_("About 4cc Studio",
+    h("div", {}, h("pre", { class: "mono" }, aboutText()),
+      row(link("Release page"), link("Repository"), link("Help", openHelp))),
+    [button("Copy", () => {
+      lastCopied = aboutText();
+      navigator.clipboard?.writeText(lastCopied)?.catch(() => {});
+    }), button("Close", closeWindow)]);
 }
 
 // ---- Render: one state object, one pass (gui.md "Shell layout") ----
@@ -294,15 +375,31 @@ function renderDraftControls() {
     condCb("pes_install_missing", "PES install missing"),
     cb("Window focused", S.focused, v => {
       S.focused = v;
-      if (v) S.heldTitleNotice = null; else S.unfocusedAt = Date.now();
+      if (v) S.heldTitleNotice = null;
     }),
+    h("label", { class: "cb" }, "Exe in the PES folder",
+      combo([["selected", "the selected version's exe"], ["other", "another version's exe (PES 2017)"],
+        ["none", "no exe"], ["no_folder", "folder missing"]],
+        S.exeFound, v => { S.exeFound = v; if (v === "other") S.exeFoundVersion = "2017"; })),
+    cb("Match tracker blocks version changes", !!S.blocker, on =>
+      S.blocker = on ? { tool: "Match tracker", reason: "The match tracker holds live memory addresses" } : null),
+    h("span", { class: "group", style: "display:flex; gap:6px; align-items:center; margin:0; padding:1px 6px" },
+      weak("Running game"),
+      combo([["none", "none"], ["resolved", "PES 2021 from the resolved folder"],
+        ["other", "PES 2021 from D:\\Games\\PES2021"]], runningPesKey(), v => {
+        if (v === "none") S.runningPes = null;
+        else S.runningPes = { version: "2021",
+          path: (v === "resolved" ? resolvedPesFolder() : "D:\\Games\\PES2021") + "\\PES2021.exe" };
+      }),
+      button("Poll now", () => pollRunningPes())),
     cb("Save editor busy", !!S.activities["save-editor"], v => {
       if (v) S.activities["save-editor"] = { done: 3, total: 10, elapsed: 45 };
       else delete S.activities["save-editor"];
     }),
     button("Notice without action", () => publishNotice("Teams list is read-only", null)),
     button("Notice with action", () => publishNotice("Switched to PES 2021",
-      { label: "Fix PES path", does: "Rewrites pes_folder_path from the running game: slice 3 draws the selector's part" })),
+      { label: "Fix PES path", run: () => window_("Fix PES path",
+        weak("Rewrites the PES folder setting from the running game's install folder"), [button("OK", closeWindow)]) })),
     h("label", { class: "cb" }, "Notice timeout, s",
       h("input", { type: "number", id: "notice-timeout", value: S.noticeTimeoutS, min: 0, step: "any",
         onchange: e => { const v = parseFloat(e.target.value); if (v >= 0) S.noticeTimeoutS = v; } })));
@@ -313,11 +410,16 @@ function renderSidebar() {
   const sb = document.getElementById("sidebar");
   sb.innerHTML = "";
   sb.classList.toggle("collapsed", S.sidebarCollapsed);
-  sb.append(h("div", { class: "logo", title: "About 4cc Studio", onclick: () =>
-    window_("About 4cc Studio", weak("About: drawn in a later slice"), [button("OK", closeWindow)]) }, "4cc"));
-  sb.append(combo(
+  sb.append(h("div", { class: "logo", title: "About 4cc Studio", onclick: openAbout }, "4cc"));
+  const pesSel = combo(
     PES_VERSIONS.map(v => [v, S.sidebarCollapsed ? v.slice(2) : "PES " + v]),
-    S.pesVersion, v => S.pesVersion = v, { title: "The PES version every tool targets" }));
+    S.pesVersion, v => {
+      if (S.blocker) return; // a blocked change does not take
+      S.pesVersion = v; // the redraw re-runs the exe check's display
+      S.autoSwitchUsed = true; // a manual change consumes the auto-switch
+    }, { title: pesSelectorTip(), cls: pesSelectorClass(), disabled: !!S.blocker });
+  pesSel.id = "pes-version";
+  sb.append(pesSel);
   for (const t of TOOLS.filter(t => t.registered).concat(TOOLS.filter(t => !t.registered))) {
     if (t.registered)
       sb.append(h("span", { class: "sel tool" + (S.activeTool === t.id ? " on" : ""), "data-id": t.id,
@@ -334,7 +436,7 @@ function renderSidebar() {
   collapse.id = "collapse-btn";
   sb.append(collapse);
   sb.append(h("div", { class: "tail" },
-    button("?", () => window_("Help", weak("Help window: drawn in slice 5"), [button("OK", closeWindow)]), { frame0: true, title: "Help (F1)" }),
+    button("?", openHelp, { frame0: true, title: "Help (F1)" }),
     button("⚙", () => window_("Settings", weak("Settings menu: drawn in slice 4"), [button("OK", closeWindow)]), { frame0: true, title: "Settings" })));
 }
 
@@ -386,8 +488,7 @@ function renderStatus() {
     right.append(h("span", { class: "notice-txt", title: n.text }, n.text));
     if (n.action) {
       const actBtn = button(n.action.label, () => {
-        const act = n.action; dismissNotice();
-        window_(act.label, weak(act.does), [button("OK", closeWindow)]);
+        const act = n.action; dismissNotice(); act.run();
       });
       actBtn.id = "notice-action";
       right.append(actBtn);
@@ -404,7 +505,7 @@ function renderStatus() {
 // notice published while the window is unfocused holds its text in the title.
 let noticeTimer = null;
 function publishNotice(text, action) {
-  const n = { text, action, at: Date.now() };
+  const n = { text, action };
   S.notice = n;
   clearTimeout(noticeTimer); noticeTimer = null;
   if (!action) noticeTimer = setTimeout(() => {
@@ -431,7 +532,8 @@ function startCompile() {
     if (a.done >= a.total) {
       clearInterval(compileTimer); compileTimer = null;
       delete S.activities["team-compiler"];
-      publishNotice("Compiled 48 teams", { label: "Open output", does: "Opens the output folder in the file browser" });
+      publishNotice("Compiled 48 teams", { label: "Open output",
+        run: () => window_("Open output", weak("Opens the output folder in the file browser"), [button("OK", closeWindow)]) });
       return;
     }
     render();
