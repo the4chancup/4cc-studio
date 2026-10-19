@@ -763,9 +763,11 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   byte for byte; `tracer_prefox/red/` equal but for the face CPK's `ETOC` modification times
   (its 20 entries byte for byte; two runs of the same Red differ there too), the committed face
   CPK now released Red's; no parity table changed; both READMEs' provenance corrected. Red's
-  `Engines/templates/` is the same on both branches (`git diff 1a48fa5 e12aa01 -- Engines/templates` empty), and
-  `resources/templates/` equals `main`'s files. Files: both fixtures' `README.md`,
-  `tracer_prefox/red/.../face/real/73120.cpk`, `scripts/provenance/{red_main/,README.md}`
+  `Engines/templates/` is the same on both branches (`git diff 1a48fa5 e12aa01 --
+  Engines/templates` empty), and `resources/templates/` equals `main`'s files. Files: both fixtures' `README.md`,
+  `tracer_prefox/red/.../face/real/73120.cpk`, `scripts/provenance/{red_main/,README.md}`,
+  `resources/templates/README.md` (its sources also `main`'s). Review: SWE-2 6.11.S1 6 accepted,
+  S2 2 accepted, loop ended (`.tmp/6_11/rulings.md` in the worktree)
   - [x] 6.11a Astra A1b-1 (converge review, accepted): `parity_prefox.rs`'s two texture arms
     (`Row::Texture`, `Nested::Texture`) also compare the decoded mips, so a wrong header in
     ours fails (red: our mip count set to 2 fails both cases, the decode refusing `Truncated`)

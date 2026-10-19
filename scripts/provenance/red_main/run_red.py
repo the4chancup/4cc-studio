@@ -35,7 +35,7 @@ def git(*args: str) -> str:
 
 
 assert git("branch", "--show-current") == "main"
-assert not git("status", "--porcelain", "--untracked-files=no"), "Red's checkout has changes"
+assert not git("status", "--porcelain"), "Red's checkout has changes or untracked files"
 # The fixture READMEs name this commit: a rerun after main moves is a new provenance.
 assert git("rev-parse", "HEAD").startswith("1a48fa5"), git("rev-parse", "HEAD")
 assert not target.exists(), f"{target} exists; remove it by hand first"

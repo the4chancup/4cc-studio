@@ -75,11 +75,11 @@ bin was built on Red's fallback base. Command:
 Red reported the missing texture above as a Warning and the materials without states as Info.
 
 The tree was first made with commit `e12aa01`, on the unreleased `dev/pre-studio-format`
-branch (staged by `setup_red.py`). Released Red's run (2026-10-19) gives the same six files, five
-of them byte for byte; the sixth, the face CPK, holds the same 20 entries byte for byte, its own
-bytes differing in its `ETOC` table alone, the entries' modification times (Red stamps the files it unwraps, `boots.mtl`
-here, with the run's time, so two runs of the same commit differ there too). The committed face CPK is released
-Red's.
+branch (staged by `setup_red.py`). Released Red's run (2026-10-19) gives the same six files,
+five of them byte for byte; the sixth, the face CPK, holds the same 20 entries byte for byte,
+its own bytes differing in its `ETOC` table alone, the entries' modification times (Red stamps
+the files it unwraps, `boots.mtl` here, with the run's time, so two runs of the same commit
+differ there too). The committed face CPK is released Red's.
 
 What the comparison found when it was written (the test's tables carry each row):
 
