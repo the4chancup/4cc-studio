@@ -2170,3 +2170,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — Phase 6 close: `just mutants export_upgrader` left 33 survivors: 28 tests
   added, 5 equivalents excluded, the two view placeholders left to Phase 8; SWE-2's converge
   round (two halves) accepted none of 6 concerns.
+- **2026-10-19** — 6.11 (side-lead G, `side/6.11`): both team tracers recompiled with released Red
+  (`main`, `1a48fa5`): the same output as `e12aa01`'s, the pre-Fox face CPK differing in its ETOC
+  times alone; `red/` provenance corrected, the face CPK replaced, no parity table changed.

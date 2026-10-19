@@ -59,12 +59,16 @@ regenerates it the same way. Against the hand-made twin in `studio/`:
 
 ## `red/`
 
-The entries of the CPK Red compiled from `old/`, extracted as stored (17 files). Red 5.0.0-dev,
-commit `e12aa01` of `4cc-aet-compiler-red`, run from a copy of its folder with `settings.ini` at
-its defaults except `pes_version = 21`, `cpk_name = 4cc_90_tracer`, `move_cpks = 0`,
-`pause_allow = 0`, `updates_check = 0`, and `pes_folder_path` pointing at a folder that does not
-exist, so every bin was built on Red's fallback base (`resources/bins/`): "No issues were found".
-Command: `Engines\embed\python.exe Engines\compiler_main.py 0` with `exports_to_add\egg Tracer\`.
+The entries of the CPK Red compiled from `old/`, extracted as stored (17 files). Red 4.4.0,
+commit `1a48fa5` of `4cc-aet-compiler-red`, branch `main`, run from a copy of its folder
+(`scripts/provenance/red_main/run_red.py tracer 21`) with `settings.ini` at its defaults except
+`pes_version = 21`, `cpk_name = 4cc_90_tracer`, `move_cpks = 0`, `pause_allow = 0`,
+`updates_check = 0`, and `pes_folder_path` pointing at a folder that does not exist, so every
+bin was built on Red's fallback base (`Engines/bins/`, the bytes `resources/bins/` holds): "No
+issues were found". Command: `Engines\embed\python.exe Engines\compiler_main.py 0 --no-pause`
+with `exports_to_add\egg Tracer\`. The tree was first made with commit `e12aa01`, on the unreleased
+`dev/pre-studio-format` branch; released Red's run (2026-10-19) gives the same 17 files byte for
+byte, so the tree is unchanged.
 
 The tree is committed whole rather than as the hash manifest the parity plan describes for the
 multi-GB reference trees (`testing.md` "Testing: parity against Red"): it is under 1 MB, and

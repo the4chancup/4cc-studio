@@ -3,7 +3,7 @@
 One real player with a face, boots and gloves, and one kit, as an old-layout export, its
 Studio-layout twin, and Red's compiled output for the old one for PES 2017: the pre-Fox
 counterpart of `../tracer/`, compared by `tests/parity_prefox.rs`. The scripts that made it
-are in `scripts/provenance/tracer_prefox/`.
+are in `scripts/provenance/tracer_prefox/`, but for the `red/` run, `scripts/provenance/red_main/`.
 
 ## `old/jp Tracer/`
 
@@ -66,13 +66,20 @@ way. Against the hand-made twin in `studio/`:
 ## `red/`
 
 The entries of the CPK Red compiled from `old/`, extracted as stored with the `cpk` crate. Red
-5.0.0-dev, commit `e12aa01` of `4cc-aet-compiler-red`, run from a copy of its folder
-(`setup_red.py`) with `settings.ini` at its defaults except `pes_version = 17`,
-`cpk_name = 4cc_90_tracer`, `move_cpks = 0`, `pause_allow = 0`, `updates_check = 0`, and
-`pes_folder_path` pointing at a folder that does not exist, so every bin was built on Red's
-fallback base. Command: `Engines\embed\python.exe Engines\compiler_main.py 0` with
-`exports_to_add\jp Tracer\`. Red reported the missing texture above as a Warning and the
-materials without states as Info.
+4.4.0, commit `1a48fa5` of `4cc-aet-compiler-red`, branch `main`, run from a copy of its folder
+(`scripts/provenance/red_main/run_red.py tracer_prefox 17`) with `settings.ini` at its defaults
+except `pes_version = 17`, `cpk_name = 4cc_90_tracer`, `move_cpks = 0`, `pause_allow = 0`,
+`updates_check = 0`, and `pes_folder_path` pointing at a folder that does not exist, so every
+bin was built on Red's fallback base. Command:
+`Engines\embed\python.exe Engines\compiler_main.py 0 --no-pause` with `exports_to_add\jp Tracer\`.
+Red reported the missing texture above as a Warning and the materials without states as Info.
+
+The tree was first made with commit `e12aa01`, on the unreleased `dev/pre-studio-format`
+branch (staged by `setup_red.py`). Released Red's run (2026-10-19) gives the same six files, five
+of them byte for byte; the sixth, the face CPK, holds the same 20 entries byte for byte, its own
+bytes differing in its `ETOC` table alone, the entries' modification times (Red stamps the files it unwraps, `boots.mtl`
+here, with the run's time, so two runs of the same commit differ there too). The committed face CPK is released
+Red's.
 
 What the comparison found when it was written (the test's tables carry each row):
 

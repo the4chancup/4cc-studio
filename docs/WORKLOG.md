@@ -16,7 +16,7 @@ with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
 **Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"; the
 lead's audit found one gap, step 6.10, a referee tracer, done, which found the team tracers'
-references compiled by unreleased Red, step 6.11; its mutation run's survivors are
+references compiled by unreleased Red, step 6.11, done (the same output); its mutation run's survivors are
 tested or ruled equivalent; SWE-2's converge round found nothing to accept; Astra's first
 converge round accepted 9, among them the missing library parity, step 6.12), then Astra's
 second converge round; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
@@ -750,7 +750,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     mutate (tests and fixtures only). Files: `team_compiler/tests/{parity.rs,
     fixtures/tracer_refs/}`, `export_upgrader/tests/upgraded_golden.rs`,
     `spec/team_compiler/testing.md`, `justfile`, `scripts/provenance/`
-- [ ] 6.11 the team tracers' references from released Red: `tracer/red/` and
+- [x] 6.11 the team tracers' references from released Red: `tracer/red/` and
   `tracer_prefox/red/` were compiled by Red `e12aa01`, on the unreleased `dev/pre-studio-format`
   branch (both READMEs say so), which no member ever ran, the premise 6.0c corrected for the
   inventory (DECISIONS 2026-10-18 "the 5.0c Red inventory re-read on released Red"). Recompile
@@ -758,7 +758,14 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   diff each against the committed `red/` → verify: equal, or every difference diagnosed: a
   development-branch behavior replaced by released Red's in `red/`, the README's provenance
   corrected, the four parity cases' tables updated with each new difference's reason, and a
-  real compiler or upgrader defect reported rather than tabulated
+  real compiler or upgrader defect reported rather than tabulated. Done 2026-10-19 (side-lead G
+  on `side/6.11`, `scripts/provenance/red_main/run_red.py`): `tracer/red/` equal, all 17 files
+  byte for byte; `tracer_prefox/red/` equal but for the face CPK's `ETOC` modification times
+  (its 20 entries byte for byte; two runs of the same Red differ there too), the committed face
+  CPK now released Red's; no parity table changed; both READMEs' provenance corrected. Red's
+  `Engines/templates/` is the same on both branches (`git diff 1a48fa5 e12aa01 -- Engines/templates` empty), and
+  `resources/templates/` equals `main`'s files. Files: both fixtures' `README.md`,
+  `tracer_prefox/red/.../face/real/73120.cpk`, `scripts/provenance/{red_main/,README.md}`
 - [ ] 6.12 the library parity, Phase 6's own verification (`plans/core/development_plan.md`
   "Phase 6", `plans/export_upgrader.md` "Verification"'s last paragraph,
   `plans/team_compiler/testing.md`): every old export of the maintainer's library upgraded,

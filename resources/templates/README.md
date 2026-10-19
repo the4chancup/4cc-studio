@@ -31,7 +31,8 @@ with these two files packed as `oral_dummy_win32.model` and `dummy.mtl`.
 | `dummy.model` | 320 bytes, the `MODEL` magic: a model with nothing to draw | `d492d700c9b17765` |
 | `dummy.mtl` | 29 bytes, `<materialset>`, CRLF, `</materialset>`, no final line end; kept CRLF (`.gitattributes`) | `af1f48d922548545` |
 
-Source: Red's `Engines/templates/`, Red at commit `e12aa01`; `dummy.mtl` last changed in
+Source: Red's `Engines/templates/`, Red at commit `e12aa01` (the same files at `1a48fa5`,
+released Red's `main`); `dummy.mtl` last changed in
 `cbf16b2` (2024-04-29, "Rename template folder to templates"), `dummy.model` in `0503f18`
 (2026-06-02, "Rename dummy model template file"). Both are byte-identical to Blue's
 `lib/templates/` copies. Copied with `cp` on 2026-10-07.
@@ -65,7 +66,8 @@ compiles a refs export, at the path it has below this folder (Team compiler plan
 export processing"). An override replaces one file: `templates/referees_fox/<the same path>`
 in the data directory.
 
-Source: Red's `Engines/templates/refscpk_fox/`, Red at commit `e12aa01`; the tree came in with
+Source: Red's `Engines/templates/refscpk_fox/`, Red at commit `e12aa01` (the same files at
+`1a48fa5`, released Red's `main`); the tree came in with
 `99cfb2c` ("Add Fox and Prefox referee cpk templates") and `01db46e` ("Add additional referee
 kit configs to fox template"). All 31 files are byte-identical to Blue's
 `lib/templates/refscpk_fox/`. Copied by `.tmp/copy_refscpk_fox.py` on 2026-10-07 (not kept:
