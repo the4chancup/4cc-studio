@@ -21,7 +21,7 @@ writes a clean export or nothing) and 6.15 (a one-wearer item folder takes its w
 are built, and 6.14c; the maintainer answered 6.14's three questions (2026-10-19), and
 6.12c (the library run against Red) is diagnosed. Then 6.16 (the answers and 6.12c's
 defects: upgrader, compiler, one in-game check), the plans-to-spec move and the worklog's
-collapse. 8.0's acceptance sections are reviewed and the shell's draft
+collapse; then 8.4, the usability pass before the tools' drafts. 8.0's acceptance sections are reviewed and the shell's draft
 (`docs/prototypes/shell.html`, step 8.2) waits for the maintainer's remarks. Side-leads are
 paused (single lead + SWE-2); the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
@@ -945,16 +945,23 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     refused for dropped as a leftover, the folder kept (D6: `face.mtl.backup` in M Winter 18
     and two others; D9: `boots - Copy.fmdl` in `C-blin`, today merged into the wearer's hair);
     a face folder holding the game path migrating its innermost folder (D7: FGOG VGL6, FGOG
-    minipatch, /co/ fetus); the scenarios (EU-MDL-01, -19, EU-REP-02 and new ones) written by
-    the lead first
-  - [ ] 6.16b the compiler: `Portraits/` named `NN`, alone or followed by ` - ` and any text,
-    ignored (`17 - Snuffy.png`; `portrait_name_invalid`); in a `Midcup`,
+    minipatch, /co/ fetus); the output's validation with the strict file-type check (DECISIONS
+    2026-10-19). Scenarios written (2026-10-19, lead); checkpoint (a) review before the briefs.
+    Three slices, each its own commit:
+    - [ ] 6.16a1 portraits: the shared rule (`aesthetics_export` `check_portraits`: `NN` or
+      `NN - <text>`, two of one slot conflicting; plan `aesthetics_export/object_model.md`
+      "Validation semantics"), with the compiler's tests and spec rows naming the old form;
+      the upgrader writing `NN` and dropping the names Red's check refused (EU-MDL-01, -19);
+      the output's strict file-type check (EU-REP-02)
+    - [ ] 6.16a2 player and item folders: EU-PLY-06, -15 to -20
+    - [ ] 6.16a3 kits and the Note: EU-ROOT-07, EU-KIT-04, -08, -12, -16, -19
+  - [ ] 6.16b the compiler: in a `Midcup`,
     a kit folder without `config.toml` keeps the installed config and one with no texture
     keeps the installed textures, a `colors.txt`-only folder updating the colors alone (D2:
     six Midcups compiled checkerboard kits); a `.mtl` Common path whose subfolder is not three
     characters long refused as a `face.xml`'s is (`mtl_common_path_invalid`, the plan's
     `messages.md` row; D4: 8 exports' faces kept where Red discards them); spec rows (`messages.md` `kit_placeholder`,
-    `kit_config_generated`, `portrait_name_invalid`, `mtl_common_path_invalid`;
+    `kit_config_generated`, `mtl_common_path_invalid`;
     `spec/team_compiler/pipeline.md` "Bins accumulation") with the code. The upgrader's side of
     D4 waits on QUESTIONS.md "A Common path spelled with the team's name"
   - [ ] 6.16c in game (PES 21): a one-sided hand split, HDG VGL26 slot 22 `EAT`, whose
@@ -1008,6 +1015,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   whole-crate runs left missed, deferred because no headless test exists for a label; each
   tool's view brings its own tests (EU-GUI, SE-GUI) and the placeholders go, so the next
   whole-crate run of each crate measures them
+- [ ] 8.4 the usability pass before the tools' drafts (2026-10-19, the maintainer's request;
+  `plans/core/development_plan.md` Phase 8's bullets): after Phase 6 closes and before
+  `team_compiler.html`, the lead reads what members already touch (the export format's folder
+  conventions, the compiler's and upgrader's message texts, defaults, the upgrade → compile →
+  install handoffs) for usability ideas, each a `PROPOSALS.md` entry → verify: the entries are
+  written and the maintainer has had them before the first tool draft starts
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,

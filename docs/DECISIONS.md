@@ -9226,3 +9226,81 @@ reached the game; moved as it is, the tree sits below the player folder and the 
 refuses its `face.xml` and drops the player (6.12c D7: FGOG VGL6, FGOG minipatch, /co/'s fetus
 export).
 Plan: `plans/export_upgrader.md` step 3.
+
+## 2026-10-19 — export_upgrader — the output's validation runs with the strict file-type check
+Decision: the shared validation the upgrader runs on its output has `strict_file_type_check`
+on, as the compiler's default has it, so a disallowed file is an Error and nothing is written.
+Why: off, a disallowed file was an Info, the output was written, and the compile then refused
+the player's folder (6.12c: the nested `face.xml` of the game-path face folders, D7): the
+output was not the clean Studio export a clean run promises. Leftovers the upgrader drops
+itself (stray backups, D6) never reach the check; any other kind now stops the run by name.
+Plan: `plans/export_upgrader.md` "Verification"; EU-REP-02 rewritten for it.
+
+## 2026-10-19 — export_upgrader — a Kit Textures file that does not migrate is a leftover
+Decision: a file directly in Kit Textures that is not a kit texture of a given slot (`back.dds`,
+`u0XXXp2 - Copy.dds`, `u0XXXp1.png`) is a leftover in any export kind; the second of two
+landing on one name stays unmigrated content (EU-KIT-18).
+Why: none reached the game: Red's `kittextures_check` deletes a name not starting `u` with `p`
+or `g` sixth, its `export_move` packs only `.dds` and `.ftex` files, and a copy-named texture
+is packed where no kit row names it; the maintainer's answer of 2026-10-19 makes such content
+a leftover. (A first reading had `u0XXXp1.png` refused with the whole folder; SWE-2's review
+6.16.S1 found `texture_check` passes any non-DDS file.)
+Plan: `plans/export_upgrader.md` steps 5 and 10; EU-KIT-08.
+
+## 2026-10-19 — export_upgrader — a modelless item folder names no player
+Decision: the name part of a boots or gloves folder holding no model (`k2176 - EMPTY`) is not
+a source of its wearer's folder name; the next source in step 3's order is.
+Why: the folder's files are leftovers and it migrates to an `fpc_on` marker alone, and its name
+describes the folder (`EMPTY`), not the player.
+Plan: `plans/export_upgrader.md` step 3; EU-PLY-17.
+
+## 2026-10-19 — Studio format — two `Portraits/` files of one slot conflict
+Decision: with `NN` and `NN - <text>` both accepted, two `Portraits/` files of one slot
+(`05.dds`, `05 - Bob.png`) are `texture_stem_conflict`, both dropped, the context's `stem`
+the slot's `NN`.
+Why: grouping by stem alone would let two stems feed one slot, one silently winning; the
+existing rule for two files of one stem is the same situation, so it gets the same finding.
+Plan: `plans/aesthetics_export/object_model.md` "Validation semantics".
+
+## 2026-10-19 — docs — usability ideas nobody asked for go to `PROPOSALS.md`
+Decision: a new working document, `docs/PROPOSALS.md`, holds the usability ideas an agent
+thinks of while working (a button, a default, a handoff between tools); the maintainer vetoes
+or accepts each, and an unruled one is not built.
+Why: the maintainer's ruling: the upgrader's "Move to exports and compile" button, an idea
+they had not requested, was rightly asked in `QUESTIONS.md` rather than applied as a
+recommendation (it was approved, and needs no new ruling); a file of their own keeps such
+ideas from crowding `QUESTIONS.md`, whose entries block work, while still recording each.
+Plan: `AGENTS.md` "Working documents" and "When the plan has gaps".
+
+## 2026-10-19 — GUI — usability passes: one before the tools' drafts, one per draft
+Decision: after Phase 6 closes and before the first tool's draft page, the lead makes one
+usability pass over what Phases 1-6 built for members (export format, message texts, defaults,
+the handoffs between tools), and reviews each tool's draft page for usability before refining
+it with the maintainer; every idea is a `PROPOSALS.md` entry.
+Why: the maintainer asked when such a pass fits. Before the drafts, accepted ideas shape the
+pages instead of patching them; on each draft, flow problems show where a spec reading cannot
+see them; after implementation, the same idea would cost a view and its GUI scenarios.
+Plan: `plans/core/gui.md` "Prototypes before implementation"; `plans/core/development_plan.md`
+Phase 8's bullets; worklog step 8.4.
+
+## 2026-10-19 — export_upgrader — where "never reached the game" stops being a leftover
+Decision: content Red kept out is a leftover when it is a single file under a name Red's
+checks refused (a portrait, a kit texture), a copy or backup, or content outside the layout;
+it stays `unmigrated_content` when the old export holds two candidates for one place (a second
+face folder of a slot, a second item folder of an ID, two kit textures landing on one name,
+two portraits in one face folder, two old `Portraits/` files of one slot), or a whole model
+folder under a name Red refused (a face folder without a valid slot, `K0430`).
+Why: SWE-2's review 6.16.S1 found the maintainer's rule, read literally, also covers those
+cases, and the line between them was written nowhere. For two candidates only the author
+knows the meant one, and Red's pick was a refusal or arbitrary; a misnamed folder is a
+player's whole face lost over a typo, which a Warning would let pass unnoticed. A team
+color's second color is no such choice: Red always kept the first.
+Plan: `plans/export_upgrader.md` step 10.
+
+## 2026-10-19 — export_upgrader — an old portrait's name is read as Red's check read it
+Decision: an old `Portraits/` file migrates only when Red's `portraits_check` passed it:
+`player_` in that letter case, the two characters before a three-letter extension a slot
+01-23 (`file_name[-6:-4]`); `Player_XXX05.dds` and `player_XXX05.jpeg` are leftovers.
+Why: what migrates should be what the game showed; Red deleted those names (SWE-2 review
+6.16.S1), while the upgrader's earlier reading was case-blind and took any texture extension.
+Plan: `plans/export_upgrader.md` step 7; EU-MDL-19.

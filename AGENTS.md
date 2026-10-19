@@ -10,7 +10,7 @@ the codebase works, and what to do when the plan runs out. Before writing or cha
 
 ## Working documents
 
-Nine documents, nine jobs. Do not let content leak between them; two homes means they drift.
+Ten documents, ten jobs. Do not let content leak between them; two homes means they drift.
 
 | Document | Holds |
 |---|---|
@@ -23,6 +23,7 @@ Nine documents, nine jobs. Do not let content leak between them; two homes means
 | `docs/LOG.md` | *What happened*: the dated log, three lines at most per entry, newest last (append-only) |
 | `docs/DECISIONS.md` | Choices made where the plan was silent (append-only) |
 | `docs/QUESTIONS.md` | The questions only the maintainer can answer (in-game behavior, cup practice, a preference), grouped by what an answer unblocks; an entry leaves when answered and the answer lands in the plan and `DECISIONS.md`. Before this file, they were scattered across the worklog's steps and issues and nobody could see the list |
+| `docs/PROPOSALS.md` | Usability ideas nobody asked for (a button, a default, a shortcut), which the maintainer vetoes or accepts; an unruled one is not built |
 
 **Before a step:** read the worklog's current status, then the plan section the step points at,
 from the document, not from memory. **After a step:** run the gates (`CONTRIBUTING.md`), mark the
@@ -227,8 +228,9 @@ your question may already be listed, with the phase in which it gets resolved.
   starts from a clean Red export and ends in a clean Studio export, or writes nothing: a run
   with an Error, or a finding that drops what the old export compiled, leaves only its report,
   and the fix is to the input (not a clean old export) or to the upgrader (it failed to
-  migrate one). Never a half-migrated output. A leftover outside the old format's layout (a
-  side folder of copies, a stray root file) is dropped with a Warning naming it, and the run
+  migrate one). Never a half-migrated output. A leftover, content that never reached a player
+  in game (a side folder of copies, a stray root file, a portrait or kit texture Red's checks
+  deleted, a backup file in a face folder), is dropped with a Warning naming it, and the run
   stays clean. A quirk Red tolerated in old files (stray text in an `.mtl`) is cleaned
   by the upgrader, through a tolerant read only it uses, rather than tolerated by the compiler
   or a format crate's default reader: every Studio export passes through the upgrader once, so
@@ -305,10 +307,14 @@ decision (plan edit, then decision entry), and the turn report names it so the m
 reverse it. It stops to ask only when the choice is truly ambiguous (no option is clearly
 better on the evidence) or needs information only the maintainer has (in-game behavior, cup
 practice, a preference); such a question is written to `docs/QUESTIONS.md` (never with a
-"Recommended:" line: a question the lead can recommend an answer to is one it applies, as
-side-lead 8.0's upgrader-handoff entry should have been), with the worklog
-issue or step that waits on it pointing there, and the work goes on with whatever does not
-depend on it. An answer is open to discussion, an earlier one included: when the lead sees a
+"Recommended:" line: a question the lead can recommend an answer to is one it applies), with
+the worklog issue or step that waits on it pointing there, and the work goes on with whatever
+does not depend on it. The rule covers choices inside the work asked for. **Something nobody
+asked for** (a usability idea: a button, a shortcut, a default, a handoff between tools) is
+not applied, however clear the recommendation: it is written to `docs/PROPOSALS.md`, with what
+it adds and what it costs, and waits for the maintainer's ruling there (side-lead 8.0 rightly
+asked about the upgrader's "Move to exports and compile" button, approved before this file
+existed). An answer is open to discussion, an earlier one included: when the lead sees a
 reason against it (a case it breaks, a cost it carries, a simpler rule), it says so with the
 evidence before landing it, and the maintainer decides; an answer it agrees with needs no
 argument. New dependencies and `unsafe` still need a yes first; a dependency the

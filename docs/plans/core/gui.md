@@ -362,7 +362,11 @@ stadiums and cells = components.
 Every tool's GUI, and every new shell element, is drafted first as an interactive web page and
 refined with the maintainer (and shown to the members who asked to help shape it) before any
 egui code is written: a page is quicker to change than a view, and a member can open it without
-building anything. The draft then becomes the view's specification, so it uses only the CSS
+building anything. Before a draft is refined with the maintainer, the lead reviews it for
+usability (a step a member repeats, a choice the view could make for them, a dead end after a
+run), each idea a `PROPOSALS.md` entry ruled beside the page: a flow problem shows on a
+page, not in a spec, and moved after implementation it costs a view and its GUI scenarios
+instead of a page edit. The draft then becomes the view's specification, so it uses only the CSS
 and HTML elements the UI crates we plan to use can represent: `egui`/`eframe` and the UI crates
 of the dependency table in `README.md` "External Dependencies" (today `egui-phosphor`,
 `egui_commonmark`, `egui_animation`, `egui_extras`, `rfd`). Anything else would promise a screen the

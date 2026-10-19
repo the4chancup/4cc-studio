@@ -12,6 +12,17 @@ A team export's `write_names` marker is also admitted at the root: the aesthetic
 its players' names ("Player settings in exports" in
 [`settings_toml.md`](settings_toml.md)).
 
+A `Portraits/` file is named by its slot in the player folder name's form, `NN` (01 to 23),
+alone or followed by ` - ` and any text, which is ignored (`Portraits/08.dds`,
+`Portraits/17 - Snuffy.png`); any other name is `portrait_name_invalid`, `player_NN`
+included: the folder already says what the file is, and the `player_` prefix was the old
+format's, which the upgrader rewrites. The form is the player folder's, read by the same
+rule (the stem split at its first `-`, both sides trimmed, the head all digits making a slot),
+so `05-Bob.png` is slot 05 as a folder `05-Bob` is, and `081.dds` is no slot 08: one rule for
+the two places a member types a slot. Two files of one slot are `texture_stem_conflict`, both
+dropped, as two of one stem were (the context's `stem` the slot's `NN`): `05.dds` and
+`05 - Bob.png` are two stems that one slot cannot both take.
+
 ### `aesthetics_export` crate layout
 
 What exists of this is in `spec/aesthetics_export/object_model.md` "`aesthetics_export` crate layout".
