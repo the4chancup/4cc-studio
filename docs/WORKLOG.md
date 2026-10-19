@@ -17,8 +17,9 @@ editor's coverage table and draft).
 **Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"; the
 lead's audit found one gap, step 6.10, a referee tracer, done, which found the team tracers'
 references compiled by unreleased Red, step 6.11; its mutation run's survivors are
-tested or ruled equivalent; SWE-2's converge round found nothing to accept), then Astra's
-converge review; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
+tested or ruled equivalent; SWE-2's converge round found nothing to accept; Astra's first
+converge round accepted 9, among them the missing library parity, step 6.12), then Astra's
+second converge round; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
 and the shell's draft (`docs/prototypes/shell.html`, step 8.2) is done, waiting for the
 maintainer's remarks. Parallel tracks:
 `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
@@ -758,6 +759,19 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   development-branch behavior replaced by released Red's in `red/`, the README's provenance
   corrected, the four parity cases' tables updated with each new difference's reason, and a
   real compiler or upgrader defect reported rather than tabulated
+- [ ] 6.12 the library parity, Phase 6's own verification (`plans/core/development_plan.md`
+  "Phase 6", `plans/export_upgrader.md` "Verification"'s last paragraph,
+  `plans/team_compiler/testing.md`): every old export of the maintainer's library upgraded,
+  compiled, and its game-facing output compared with Red's for the same export; delivered so
+  far are the three tracers and 6.9b's upgrade census (Astra 6.close.A1b-5). Slices: (a) a
+  compile census: every 6.9b census input that upgrades, compiled, tallied by outcome, every
+  failing class diagnosed; (b) a Red pilot on a sample, measuring Red's time per export and the
+  comparison's difference classes (the intentional differences of `spec/team_compiler/testing.md`
+  normalized as the tracers' tables do); (c) the whole library, every difference class diagnosed
+  as intentional (named in `testing.md`) or a defect (fixed, its regression rerun) → verify: the
+  tallies, every class diagnosed, no undiagnosed difference; the committed form of the test (the
+  hash manifest `plans/team_compiler/testing.md` describes, or a measurement rerun at closes)
+  decided from (b)'s measurements and logged
 
 ### Phase 8 — GUI
 
