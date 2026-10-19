@@ -8,8 +8,8 @@
 //! worn one on a pre-Fox export, stays a named shared folder with a link file.
 //! Each slot's output folder lands in `PlayerFolders::folders` for step 8's
 //! `settings.toml` (`settings.rs`); a referee export's folders are
-//! `referees.rs`'s, and loose mode builds the player folders without the
-//! save's names and leaves the item folders unmigrated (6.7's).
+//! `referees.rs`'s, and loose mode pairs each item folder's wearer from its
+//! ID's position in its kind's old block of 25 (step 11).
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -51,6 +51,9 @@ pub(crate) struct PlayerFolders {
 pub(crate) struct OutputFolder {
     /// The folder's output path (`Players/15 - Snuffy`).
     pub(crate) path: String,
+    /// The folder's name has a name part after its number: `Players/03 -
+    /// Ann`, not `Players/05`.
+    pub(crate) named: bool,
     /// A boots folder of his worn ID was merged into it or is linked from it.
     pub(crate) boots_folder: bool,
     /// The same for a gloves folder.
@@ -235,21 +238,18 @@ pub(crate) fn player_folders(
     let mut players: BTreeMap<u8, PlayerFolder> = BTreeMap::new();
     // Step 3's face folders.
     face_folders(files, roster, &mut players, &mut plan);
-    // Steps 3-4's item folders: who wears each is the save's, so a roster is
-    // needed — loose mode leaves them unmigrated until its wearer inference
-    // lands (6.7).
-    if let Some(roster) = roster {
-        for kind in [ItemKind::Boots, ItemKind::Gloves] {
-            item_folders(
-                files,
-                kind,
-                roster,
-                engine,
-                &mut same_bytes,
-                &mut players,
-                &mut plan,
-            );
-        }
+    // Steps 3-4's item folders: who wears each is the save's, or loose
+    // mode's inference from the ID's position in its kind's block (step 11).
+    for kind in [ItemKind::Boots, ItemKind::Gloves] {
+        item_folders(
+            files,
+            kind,
+            roster,
+            engine,
+            &mut same_bytes,
+            &mut players,
+            &mut plan,
+        );
     }
     // The player folder names and copies, every slot in order: the name is
     // the first non-empty candidate, cleaned — the face folder's name part,
@@ -267,7 +267,7 @@ pub(crate) fn player_folders(
         let name = candidates
             .iter()
             .find_map(|candidate| clean_folder_name(candidate));
-        let folder = match name {
+        let folder = match &name {
             Some(name) => format!("Players/{nn:02} - {name}"),
             None => format!("Players/{nn:02}"),
         };
@@ -285,6 +285,7 @@ pub(crate) fn player_folders(
             *nn,
             OutputFolder {
                 path: folder,
+                named: name.is_some(),
                 boots_folder: player.boots_folder,
                 gloves_folder: player.gloves_folder,
             },
@@ -399,13 +400,25 @@ fn face_folders(
     }
 }
 
+/// The player slot an ID's position in its kind's old block of 25 IDs gives
+/// (step 11): `101 + 25 × n`, the block `lowest` falls in (`101 + 25 ×
+/// ⌊(lowest − 101) / 25⌋` is the block's first ID). Positions 24-25, the
+/// block's spare positions, and IDs past it name nobody.
+fn loose_slot(id: u32, lowest: u32) -> Option<u8> {
+    // `i64`: a `lowest` below 101 must not underflow.
+    let range_start = 101 + 25 * (i64::from(lowest) - 101).div_euclid(25);
+    let slot = u8::try_from(i64::from(id) - range_start + 1).ok()?;
+    (1..=23).contains(&slot).then_some(slot)
+}
+
 /// Steps 3-4's item folders of `kind`: name, ID and wearers resolve, then
 /// each is merged into its one wearer's folder (Fox only), or kept shared
-/// with a link.
+/// with a link. `roster` is the save's wearer map, `None` in loose mode,
+/// where the wearer is the ID's position in the kind's block (step 11).
 fn item_folders(
     files: &[String],
     kind: ItemKind,
-    roster: &Roster,
+    roster: Option<&Roster>,
     engine: Engine,
     same_bytes: &mut impl FnMut(&str, &str) -> bool,
     players: &mut BTreeMap<u8, PlayerFolder>,
@@ -442,7 +455,17 @@ fn item_folders(
     }
     let mut taken = BTreeSet::new();
     let mut shared: Vec<Shared> = Vec::new();
-    for (folder, folder_files) in folders_below(files, kind.top()) {
+    let folders = folders_below(files, kind.top());
+    // Loose mode's block is inferred from the kind's own lowest folder ID
+    // (step 11): one kind's numbering cannot move the other's pairings.
+    let lowest: Option<u32> = folders
+        .keys()
+        .filter_map(|folder| {
+            parse_item_name(kind, folder.rsplit('/').next().unwrap_or(folder.as_str()))
+                .map(|(id, _)| id)
+        })
+        .min();
+    for (folder, folder_files) in folders {
         let folder_name = folder.rsplit('/').next().unwrap_or(folder.as_str());
         let refused = |plan: &mut PlayerFolders| {
             plan.findings.push(tool_message(
@@ -459,7 +482,8 @@ fn item_folders(
         };
         // Any other spelling is unmigrated content as a whole folder, as is
         // the second folder of one kind with one ID (the first by name) and
-        // a folder no rostered player wears.
+        // a folder nobody wears — no rostered player's worn ID, and in loose
+        // mode an ID on a spare position or past the block.
         let Some((id, name_part)) = parse_item_name(kind, folder_name) else {
             refused(&mut *plan);
             continue;
@@ -468,16 +492,37 @@ fn item_folders(
             refused(&mut *plan);
             continue;
         }
-        let wearers: Vec<u8> = (1..=23)
-            .filter(|nn| {
-                roster
-                    .get(*nn)
-                    .is_some_and(|player| kind.worn_id(player) == id)
-            })
-            .collect();
+        let wearers: Vec<u8> = match roster {
+            Some(roster) => (1..=23)
+                .filter(|nn| {
+                    roster
+                        .get(*nn)
+                        .is_some_and(|player| kind.worn_id(player) == id)
+                })
+                .collect(),
+            // Loose mode (step 11): the ID's position in its kind's block.
+            None => loose_slot(id, lowest.expect("this folder's own ID is among them"))
+                .into_iter()
+                .collect(),
+        };
         if wearers.is_empty() {
             refused(&mut *plan);
             continue;
+        }
+        // Step 11: the pairing is an assumption, so the report states it.
+        if roster.is_none() {
+            plan.findings.push(tool_message(
+                Code::WearerAssumed,
+                Scope::Folder {
+                    export_id: INPUT,
+                    path: path_scope(&folder),
+                },
+                Disposition::Keep,
+                vec![
+                    ("id", format!("{id:04}")),
+                    ("slot", format!("{:02}", wearers[0])),
+                ],
+            ));
         }
         for &nn in &wearers {
             let player = players.entry(nn).or_insert_with(PlayerFolder::new);
@@ -887,11 +932,10 @@ mod tests {
 
     #[test]
     fn a_file_below_a_subfolder_of_another_top_folder_is_not_planned() {
-        // A file below `Other/` or `Boots/` is not a face folder's.
+        // A file below `Other/` is not a face folder's.
         let plan = plan_folders(&files(&[
             "Faces/XXX15 - A/face.fmdl",
             "Other/docs/readme.txt",
-            "Boots/k0430 - Crocs/boots.fmdl",
         ]));
         let scopes: Vec<String> = plan
             .findings
@@ -901,14 +945,13 @@ mod tests {
                 Scope::Run | Scope::Export { .. } | Scope::RosterEntry { .. } => String::new(),
             })
             .collect();
-        for path in ["Other/docs/readme.txt", "Boots/k0430 - Crocs/boots.fmdl"] {
-            assert!(!plan.consumed.contains(path), "{path}");
-            assert!(
-                !plan.copies.iter().any(|(_, to)| to.contains(path)),
-                "{path}"
-            );
-            assert!(scopes.iter().all(|s| s != path), "{path}: {scopes:?}");
-        }
+        let path = "Other/docs/readme.txt";
+        assert!(!plan.consumed.contains(path), "{path}");
+        assert!(
+            !plan.copies.iter().any(|(_, to)| to.contains(path)),
+            "{path}"
+        );
+        assert!(scopes.iter().all(|s| s != path), "{path}: {scopes:?}");
         assert_eq!(plan.copies.len(), 1);
     }
 
@@ -1526,5 +1569,188 @@ mod tests {
         ] {
             assert!(plan.markers.contains(&marker.to_owned()), "{marker}");
         }
+    }
+
+    #[test]
+    fn loose_mode_pairs_each_id_by_its_position_in_the_block() {
+        // Step 11: the lowest boots ID 0128 infers the 126 block, so 0128 is
+        // slot 03 and 0130 slot 05; 0149 and 0155 (positions 24 and 30) name
+        // nobody and are unmigrated as whole folders.
+        let files = files(&[
+            "Faces/XXX03 - Ann/face.fmdl",
+            "Boots/k0128 - Rex/boots.fmdl",
+            "Boots/k0130/boots.fmdl",
+            "Boots/k0149/boots.fmdl",
+            "Boots/k0155/boots.fmdl",
+        ]);
+        let plan = plan_with_bytes(&files, None, Engine::Fox, &[]);
+        for (from, to) in [
+            (
+                "Boots/k0128 - Rex/boots.fmdl",
+                "Players/03 - Ann/boots.fmdl",
+            ),
+            ("Boots/k0130/boots.fmdl", "Players/05/boots.fmdl"),
+        ] {
+            assert!(
+                plan.copies.contains(&(from.to_owned(), to.to_owned())),
+                "{from} → {to}: {:?}",
+                plan.copies
+            );
+        }
+        for refused in ["k0149", "k0155"] {
+            assert!(
+                !plan.copies.iter().any(|(from, _)| from.contains(refused)),
+                "{refused}"
+            );
+        }
+        // Slot 05 has no face folder: the bare marker; 03 - Ann's own face
+        // means none.
+        assert!(plan.markers.contains(&"Players/05/ingame_face".to_owned()));
+        assert!(
+            !plan
+                .markers
+                .contains(&"Players/03 - Ann/ingame_face".to_owned())
+        );
+        let unmigrated: Vec<&Message> = plan
+            .findings
+            .iter()
+            .filter(|m| m.code.code == "unmigrated_content")
+            .collect();
+        assert_eq!(unmigrated.len(), 2, "{:?}", plan.findings);
+        for (finding, folder) in unmigrated.iter().zip(["Boots/k0149", "Boots/k0155"]) {
+            assert_eq!(finding.disposition, Disposition::DropFolder);
+            assert_eq!(
+                finding.scope,
+                Scope::Folder {
+                    export_id: INPUT,
+                    path: ScopePath::new(folder).unwrap()
+                }
+            );
+        }
+        // Each assumed pairing is reported on its item folder.
+        let assumed: Vec<&Message> = plan
+            .findings
+            .iter()
+            .filter(|m| m.code.code == "wearer_assumed")
+            .collect();
+        assert_eq!(assumed.len(), 2, "{:?}", plan.findings);
+        for (finding, (folder, context)) in assumed.iter().zip([
+            (
+                "Boots/k0128 - Rex",
+                vec![
+                    ("id".to_owned(), "0128".to_owned()),
+                    ("slot".to_owned(), "03".to_owned()),
+                ],
+            ),
+            (
+                "Boots/k0130",
+                vec![
+                    ("id".to_owned(), "0130".to_owned()),
+                    ("slot".to_owned(), "05".to_owned()),
+                ],
+            ),
+        ]) {
+            assert_eq!(finding.severity, Severity::Info);
+            assert_eq!(finding.disposition, Disposition::Keep);
+            assert_eq!(
+                finding.scope,
+                Scope::Folder {
+                    export_id: INPUT,
+                    path: ScopePath::new(folder).unwrap()
+                }
+            );
+            assert_eq!(finding.context, context);
+        }
+        assert!(plan.folders[&3].named);
+        assert!(!plan.folders[&5].named);
+    }
+
+    #[test]
+    fn loose_mode_infers_each_kinds_block_from_its_own_lowest_id() {
+        // Each kind's block comes from its own lowest ID: g0160's minimum
+        // infers the 151 block, so it is player 10; sharing the boots' 126
+        // block would put it past the block.
+        let files = files(&["Boots/k0128/boots.fmdl", "Gloves/g0160/glove_l.fmdl"]);
+        let plan = plan_with_bytes(&files, None, Engine::Fox, &[]);
+        assert!(
+            plan.copies.contains(&(
+                "Boots/k0128/boots.fmdl".to_owned(),
+                "Players/03/boots.fmdl".to_owned()
+            )),
+            "{:?}",
+            plan.copies
+        );
+        assert!(
+            plan.copies.contains(&(
+                "Gloves/g0160/glove_l.fmdl".to_owned(),
+                "Players/10/glove_l.fmdl".to_owned()
+            )),
+            "{:?}",
+            plan.copies
+        );
+    }
+
+    #[test]
+    fn loose_mode_block_bounds() {
+        // The lowest ID 0101 infers the 101 block: positions 1 to 23 pair,
+        // 24 and 25 are the block's spare positions, and 0126 falls past it.
+        let files = files(&[
+            "Boots/k0101/boots.fmdl",
+            "Boots/k0123/boots.fmdl",
+            "Boots/k0124/boots.fmdl",
+            "Boots/k0125/boots.fmdl",
+            "Boots/k0126/boots.fmdl",
+        ]);
+        let plan = plan_with_bytes(&files, None, Engine::Fox, &[]);
+        for (from, to) in [
+            ("Boots/k0101/boots.fmdl", "Players/01/boots.fmdl"),
+            ("Boots/k0123/boots.fmdl", "Players/23/boots.fmdl"),
+        ] {
+            assert!(
+                plan.copies.contains(&(from.to_owned(), to.to_owned())),
+                "{from} → {to}: {:?}",
+                plan.copies
+            );
+        }
+        let unmigrated: Vec<String> = plan
+            .findings
+            .iter()
+            .filter(|m| m.code.code == "unmigrated_content")
+            .filter_map(|m| match &m.scope {
+                Scope::Folder { path, .. } => Some(path.as_str().to_owned()),
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            unmigrated,
+            [
+                "Boots/k0124".to_owned(),
+                "Boots/k0125".to_owned(),
+                "Boots/k0126".to_owned()
+            ]
+        );
+    }
+
+    #[test]
+    fn loose_mode_keeps_a_pre_fox_folder_shared_with_a_link() {
+        // Pre-Fox never merges: the one assumed wearer links the shared
+        // folder, named by its name part.
+        let files = files(&[
+            "Faces/XXX03 - Ann/face.xml",
+            "Boots/k0128 - Rex/boots.model",
+        ]);
+        let plan = plan_with_bytes(&files, None, Engine::PreFox, &[]);
+        assert!(
+            plan.copies.contains(&(
+                "Boots/k0128 - Rex/boots.model".to_owned(),
+                "Boots/Rex/boots.model".to_owned()
+            )),
+            "{:?}",
+            plan.copies
+        );
+        assert!(
+            plan.markers
+                .contains(&"Players/03 - Ann/Rex.boots".to_owned())
+        );
     }
 }

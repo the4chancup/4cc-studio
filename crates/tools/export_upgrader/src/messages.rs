@@ -47,6 +47,10 @@ pub(crate) enum Code {
     /// bytes: the item folder is kept shared with a link instead (`path`, the
     /// first clashing path relative to the player folder).
     MergeKeptShared,
+    /// Loose mode's assumed wearer of an item folder (step 11): the ID's
+    /// position in its kind's old block of 25, reported so the pairing can be
+    /// checked (`id`, the folder's four-digit ID; `slot`, the player's).
+    WearerAssumed,
     /// A kit slot a Note kit entry gives and no `Kit Configs` config does:
     /// the kit still forms, a placeholder the compiler fills (`slot`).
     KitWithoutConfig,
@@ -111,6 +115,7 @@ impl Code {
             Code::MigrationNotClean => "migration_not_clean",
             Code::RosterSlotEmpty => "roster_slot_empty",
             Code::MergeKeptShared => "merge_kept_shared",
+            Code::WearerAssumed => "wearer_assumed",
             Code::KitWithoutConfig => "kit_without_config",
             Code::ConfigWithoutKitEntry => "config_without_kit_entry",
             Code::KitTextureCopied => "kit_texture_copied",
@@ -138,6 +143,7 @@ impl Code {
         Code::MigrationNotClean,
         Code::RosterSlotEmpty,
         Code::MergeKeptShared,
+        Code::WearerAssumed,
         Code::KitWithoutConfig,
         Code::ConfigWithoutKitEntry,
         Code::KitTextureCopied,
@@ -170,6 +176,7 @@ const CATALOG: &[(&str, Severity)] = &[
     ("migration_not_clean", Severity::Info),
     ("roster_slot_empty", Severity::Warning),
     ("merge_kept_shared", Severity::Info),
+    ("wearer_assumed", Severity::Info),
     ("kit_without_config", Severity::Warning),
     ("config_without_kit_entry", Severity::Warning),
     ("kit_texture_copied", Severity::Info),

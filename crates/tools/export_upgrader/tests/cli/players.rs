@@ -9,7 +9,7 @@ use studio_core::PipelineEvent;
 use crate::common::Sandbox;
 
 /// How many `UnmigratedContentFound` events a run emitted.
-fn unmigrated_found(run: &crate::common::Run) -> usize {
+pub(crate) fn unmigrated_found(run: &crate::common::Run) -> usize {
     run.events
         .iter()
         .filter(|envelope| matches!(envelope.event, PipelineEvent::UnmigratedContentFound))
@@ -17,7 +17,7 @@ fn unmigrated_found(run: &crate::common::Run) -> usize {
 }
 
 /// `upgrade <input> --savefile <save>`.
-fn upgrade(sandbox: &Sandbox, input: &str, save: &str) -> crate::common::Run {
+pub(crate) fn upgrade(sandbox: &Sandbox, input: &str, save: &str) -> crate::common::Run {
     let input = sandbox.arg(input);
     let save = sandbox.arg(save);
     sandbox.run(&["upgrade", &input, "--savefile", &save])

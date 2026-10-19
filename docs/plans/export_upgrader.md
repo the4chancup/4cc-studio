@@ -542,15 +542,24 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     which infers the wearer from the **ID's position inside the team's Red block** instead —
     exports being upgraded were made for the cup's per-team ranges of **25** IDs (`101 + 25 × n`,
     the "reserved set of ID slots" the AET page links to), not Studio's 40-ID blocks, so the block is inferred from the lowest
-    boots (or gloves) folder ID (`range_start = 101 + 25 × ⌊(min_id − 101) / 25⌋`; a lowest
-    folder of 0128 still infers the 126 block) and `k0126` → player 01, `k0128` → player 03. IDs on
-    the block's spare positions (24–25), and IDs past the block, belong to nobody and are
-    reported (step 10); an ID on a slot
+    folder ID of each kind on its own, the boots folders' from the lowest `k` ID and the gloves
+    folders' from the lowest `g` ID (`range_start = 101 + 25 × ⌊(min_id − 101) / 25⌋`; a lowest
+    folder of 0128 still infers the 126 block): the two kinds are numbered apart, and one
+    kind's numbering cannot move the other's pairings. `k0126` → player 01, `k0128` → player 03. IDs on
+    the block's spare positions (24–25), and IDs past the block, belong to nobody: such a folder
+    is unmigrated content as a whole (step 10), as one no rostered player wears is in step 3. It
+    is reported rather than paired by its position within its own block (the ID modulo 25): an
+    ID in another block is in another team's range, so its folder may be anyone's, and the author
+    places it by hand or upgrades with the save (the real GBFG VGL26 export numbers two gloves
+    folders `g2522` and `g2523` beside `g2301` to `g2320`, the same players' boots being `k2322`
+    and `k2323`: loose mode reports the two). An ID on a slot
     without a face folder still yields a player folder with an `ingame_face` marker, as in step 3.
-    Every other ID maps to exactly one slot, so its folder is always merged in on a Fox export,
+    Every other ID maps to exactly one slot, so its folder is always merged in on a Fox export
+    (unless a byte clash keeps it shared, `merge_kept_shared`),
     and kept shared with a link on a pre-Fox one (step 3). Loose mode is a documented
     assumption, never a cross-check: it is offered only when the savefile is absent, the report
-    states the assumed pairings, and no `settings.toml` aesthetic data can be generated (step 8 is
+    states each assumed pairing (I, `wearer_assumed`, on the item folder, its four-digit ID and
+    the slot in its context: `id=0128, slot=03`), and no `settings.toml` aesthetic data can be generated (step 8 is
     skipped, apart from `name` handling, which needs no savefile: a folder with a name part gets a
     `settings.toml` holding `name = true` alone, one named by its number alone none). Red's Pre-Studio upgrader
     implements this same mode (its `export_upgrade.py`).

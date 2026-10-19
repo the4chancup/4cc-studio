@@ -13,6 +13,14 @@ takes `--savefile`, naming the save (`EDIT00000000`) whose records say which
 player wears which boots and gloves, or `--loose` to infer the wearers from the
 IDs alone; a referee export (a name whose first word is `refs`) takes neither.
 
+With `--loose` each boots or gloves folder goes to the player at its ID's
+position in the team's old block of 25 IDs, the block its kind's lowest ID
+falls in (`k0128` is player 03 of the 126 block). Each pairing is reported as
+`wearer_assumed`, so it can be checked. An ID on the block's last two
+positions or past it belongs to no player and is reported as unmigrated
+content. Without a save no look is written: a player folder with a name gets a
+`settings.toml` whose only setting is `name = true`.
+
 The output is a new folder beside the input, or inside the folder `-o` names
 (created when missing). Its name is the team's key with the coverage tag
 inserted (`co - Spring` becomes `co Full - Spring`, an export named for

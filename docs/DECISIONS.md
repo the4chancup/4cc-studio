@@ -8947,3 +8947,23 @@ measurements are fresh costs less than rediscovering them in Phase 16. A cost es
 not pick CPU or GPU: the warm start is cheaper than one texture and the cold one cannot be
 predicted, so the CPU starts and the GPU joins when ready.
 Plan: `plans/libs/README.md` "First-release desktop GPU BC7" ("Measured", "Built ahead").
+
+## 2026-10-19 — export_upgrader — loose mode's block per kind, its pairing line, and the IDs naming nobody
+Decision: (1) loose mode infers the boots folders' Red block from the lowest `k` ID and the
+gloves folders' from the lowest `g` ID, each kind on its own; (2) each assumed pairing is
+reported as `wearer_assumed` (I) on the item folder, its four-digit ID and the slot in the
+context (`id=0128, slot=03`); (3) a folder whose ID lands on the block's spare positions
+(24-25) or past it is `unmigrated_content` as a whole, the same finding step 3 gives a folder
+no rostered player wears.
+Why: step 11 said "the lowest boots (or gloves) folder ID", "the report states the assumed
+pairings" and "reported" without a code. (1) The two kinds are numbered apart in the old
+format, so a shared minimum would let one kind's numbering push the other's folders past their
+block; per kind is also how the Pre-Studio upgrader's loose mode computes it. (2) A code of its
+own, at Info, so the assumption is visible on every run without making a clean migration not
+clean: the author opted into it with `--loose`. (3) One finding for "this folder belongs to no
+player" in both modes, so the report and the GUI's unmigrated-content list read the same
+whichever mode ran; not paired by the ID modulo 25, because an ID in another block is in
+another team's range and its folder may be anyone's (SWE-2 6.7.S1-2: the real GBFG VGL26
+export's `g2522`/`g2523` beside `g2301`-`g2320` are reported, for the author or the save to
+place).
+Plan: `plans/export_upgrader.md` step 11.

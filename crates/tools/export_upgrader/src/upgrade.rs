@@ -39,7 +39,7 @@ use crate::note;
 use crate::players::{path_scope, player_folders};
 use crate::referees::{find_refs_txt, players_txt, referee_folders};
 use crate::roster::Roster;
-use crate::settings::{SettingsFiles, settings_files};
+use crate::settings::{SettingsFiles, loose_settings_files, settings_files};
 use crate::source::{self, OldExport, SourceFailure};
 
 /// A command is one run per process, so every event carries the same run id.
@@ -544,10 +544,11 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                 }
             });
             // Step 8: a `settings.toml` per player folder, from the save's
-            // records (loose mode has none).
+            // records; loose mode's holds `name = true` alone (step 11).
             let settings = match (&invocation.save, &roster) {
                 (Some(save), Some(roster)) => settings_files(save, roster, &plan.folders, full),
-                _ => SettingsFiles::default(),
+                // Loose mode: no record to read, only the folder's name.
+                _ => loose_settings_files(&plan.folders),
             };
             let kits = kit_folders(
                 &files,

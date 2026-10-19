@@ -8,7 +8,9 @@
 //! where an unset key keeps the installed ID; and name writing is opt-in, so
 //! the file gets `name = true` only when the folder-derived name equals the
 //! raw save name (a derived name cannot carry colour codes). A value no
-//! `settings.toml` can hold is left out and reported, not fatal.
+//! `settings.toml` can hold is left out and reported, not fatal. Loose mode
+//! (step 11) has no records: `loose_settings_files` writes a named folder's
+//! `name = true` alone.
 
 use std::collections::BTreeMap;
 
@@ -174,6 +176,29 @@ pub(crate) fn settings_files(
     files
 }
 
+/// Loose mode's `settings.toml` files (step 11): step 8's generation needs
+/// the save's records, which loose mode has none of, but `name` handling
+/// needs none — a folder whose name has a name part gets a file holding
+/// `name = true` alone, one named by its number alone none. No findings.
+pub(crate) fn loose_settings_files(folders: &BTreeMap<u8, OutputFolder>) -> SettingsFiles {
+    let mut files = SettingsFiles::default();
+    for folder in folders.values() {
+        if !folder.named {
+            continue;
+        }
+        let text = PlayerSettings {
+            name: Some(NameSetting::FromFolder),
+            ..PlayerSettings::default()
+        }
+        .to_toml()
+        .expect("a name-only PlayerSettings has no value to refuse");
+        files
+            .written
+            .push((format!("{}/settings.toml", folder.path), text.into_bytes()));
+    }
+    files
+}
+
 #[cfg(test)]
 mod tests {
     use pes_version::PesVersion;
@@ -195,10 +220,11 @@ mod tests {
     }
 
     /// A slot's output folder at `path` (`Players/NN …`), claiming neither
-    /// category.
+    /// category, named by its number alone.
     fn plain(path: &str) -> OutputFolder {
         OutputFolder {
             path: path.to_owned(),
+            named: false,
             boots_folder: false,
             gloves_folder: false,
         }
@@ -238,6 +264,7 @@ mod tests {
             6,
             OutputFolder {
                 path: "Players/06 - B".to_owned(),
+                named: true,
                 boots_folder: true,
                 gloves_folder: false,
             },
@@ -365,5 +392,35 @@ mod tests {
                 .appearance,
             "the stripped record's look is written all the same"
         );
+    }
+
+    #[test]
+    fn loose_settings_name_a_named_folder_alone() {
+        // Step 11: a folder whose name has a name part gets a file holding
+        // `name = true` alone; one named by its number alone gets none.
+        let mut folders = BTreeMap::new();
+        folders.insert(
+            3,
+            OutputFolder {
+                path: "Players/03 - Ann".to_owned(),
+                named: true,
+                boots_folder: false,
+                gloves_folder: false,
+            },
+        );
+        folders.insert(5, plain("Players/05"));
+        let files = loose_settings_files(&folders);
+        assert_eq!(files.written.len(), 1, "{:?}", files.written);
+        assert_eq!(files.written[0].0, "Players/03 - Ann/settings.toml");
+        let parsed = PlayerSettings::parse(std::str::from_utf8(&files.written[0].1).unwrap())
+            .expect("the file parses");
+        assert_eq!(
+            parsed,
+            PlayerSettings {
+                name: Some(NameSetting::FromFolder),
+                ..PlayerSettings::default()
+            }
+        );
+        assert!(files.findings.is_empty());
     }
 }
