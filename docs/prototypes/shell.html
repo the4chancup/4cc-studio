@@ -295,7 +295,7 @@ S.settings = {
   },
   tools: {
     "team-compiler": {
-      cpk_name: "4cc_99_test", output_folder_path: "output", savefile_path: "",
+      cpk_name: "4cc_99_test", output_folder_path: "output", savefile_path: "auto",
       multicpk_mode: false, teams_cpk_name: "teams", cpk_part_max_size: 3221225472,
       bins_cpk_name: "4cc_08_bins", refs_cpk_name: "4cc_18_referees",
       dds_compression: "Auto", strict_file_type_check: true, pass_through: false,
@@ -594,9 +594,10 @@ function drawHelpTopic(right) {
 function messagesTable(chId) {
   const sevCls = s => s === "Info" ? "weak" : s === "Warning" ? "warn"
     : /[EF]/.test(s) ? "err" : "";
+  const [h3, h4] = CATALOG_HEADERS[chId];
   return h("table", { class: "grid" },
     h("tr", {}, h("th", {}, "ID"), h("th", {}, "Severity"),
-      h("th", {}, "Condition"), h("th", {}, "Consequence")),
+      h("th", {}, h3), h("th", {}, h4)),
     CATALOG[chId].map(r => h("tr", { class: r.code === S.help.anchor ? "hl" : "" },
       h("td", {}, h("code", { class: "mono", id: "msg-" + r.code }, r.code)),
       h("td", {}, h("span", { class: sevCls(r.severity) }, r.severity)),
@@ -681,7 +682,7 @@ const HELP = [
       "puts them in a `data/` folder beside `4cc-studio.exe`: fully portable, so the",
       "folder carries the program and everything it keeps, and deleting it removes both.",
       "",
-      "`In the user config directory` puts them in `%APPDATA%\\4cc-studio` on Windows,",
+      "`In my user folder` puts them in `%APPDATA%\\4cc-studio` on Windows,",
       "`~/.config/4cc-studio` on Linux: the data survives deleting or replacing the",
       "program folder."
     ].join("\n") },
@@ -753,6 +754,12 @@ const HELP = [
     ].join("\n") },
   ] },
 ];
+// The source tables' own third and fourth header names, per tool id.
+const CATALOG_HEADERS = {
+  "team-compiler": ["Condition", "Consequence"],
+  "save-editor": ["When", "Effect"],
+  "export-upgrader": ["When", "Context"],
+};
 // Per tool id, its whole catalog, generated from the docs' tables
 // (spec/team_compiler/messages.md "Catalog", spec/save_editor.md
 // "Messages", plans/export_upgrader.md "Message catalog"): the code, the
@@ -867,7 +874,9 @@ const CATALOG = {
     { code: "fmdl_texture_not_found", severity: "E/W", condition: "Fox: a texture one of the model's meshes uses is supplied by nobody: its stem resolves to no file of the folder, or its path names one below the model's folder (`./textures/skin`) where none sits, or its path names the team's Common output, where neither the export's `Common/` nor an installed CPK holds it (`pipeline.md` \"Resolved decisions\", \"A texture a model names must exist\"; context: `model`, the model file, and `texture`, the texture path the model now names). W when no install could be read to look, since the texture may be there. Reported by `compile`, where the model is compiled", consequence: "that package left out (`DropFolder`), as for `merge_material_conflict`, naming the first missing texture; kept when W, one per missing texture" },
     { code: "fmdl_texture_kit_path", severity: "Warning", condition: "Fox: a texture path one of the model's meshes names in the game's kit texture folder (`/Assets/pes16/model/character/uniform/texture/`): the modded exe swaps the kit textures per match, so a fixed file there is not the kit the player wears; the model's texture should be the `dummy_kit` family or a `kitN` texture of its own (`spec/model_format.md` \"Kit-dependent assets\"). Context: `model`, `texture`, the path. Reported by `compile`, once per model and path (a hand-split model's face and gloves packages each), instead of `fmdl_texture_not_found`", consequence: "kept, the path unchanged" },
     { code: "model_broken", severity: "Error", condition: "a model file (`.fmdl` or `.model`) does not parse (context: the file, the reader's error)", consequence: "folder discarded; not pass-through-eligible (it cannot be processed)" },
-    { code: "fmdl_mesh_over_bone_limit`, `fmdl_mesh_over_vertex_limit`, `fmdl_mesh_over_face_limit", severity: "Error", condition: "Fox: a mesh exceeds a hard FMDL limit; the game cannot load it", consequence: "folder discarded" },
+    { code: "fmdl_mesh_over_bone_limit", severity: "Error", condition: "Fox: a mesh exceeds a hard FMDL limit; the game cannot load it", consequence: "folder discarded" },
+    { code: "fmdl_mesh_over_vertex_limit", severity: "Error", condition: "Fox: a mesh exceeds a hard FMDL limit; the game cannot load it", consequence: "folder discarded" },
+    { code: "fmdl_mesh_over_face_limit", severity: "Error", condition: "Fox: a mesh exceeds a hard FMDL limit; the game cannot load it", consequence: "folder discarded" },
     { code: "fmdl_face_index_out_of_range", severity: "Error", condition: "Fox: a face names a vertex that does not exist", consequence: "folder discarded" },
     { code: "fmdl_mesh_unassigned", severity: "Error", condition: "Fox: no mesh group lists the mesh, so the written file would not contain it", consequence: "folder discarded" },
     { code: "fmdl_bone_slot_out_of_range", severity: "Warning", condition: "Fox: a weighted bone index points past the mesh's bone group; the game ignores that weight (Konami's own models do this)", consequence: "none" },
@@ -875,7 +884,9 @@ const CATALOG = {
     { code: "fmdl_duplicate_bone_name", severity: "Warning", condition: "Fox: two bones of one name; merges and `.skl` matching get ambiguous", consequence: "none" },
     { code: "fmdl_weights_not_normalized", severity: "Info", condition: "Fox: a vertex's weights sum to neither 255 nor 0", consequence: "none" },
     { code: "fmdl_material_unused", severity: "Info", condition: "Fox: a material instance no mesh uses", consequence: "none" },
-    { code: "model_mesh_over_bone_limit`, `model_mesh_over_vertex_limit`, `model_mesh_over_face_limit", severity: "Error", condition: "pre-Fox: a mesh exceeds a hard `.model` limit; the game cannot load it", consequence: "folder discarded" },
+    { code: "model_mesh_over_bone_limit", severity: "Error", condition: "pre-Fox: a mesh exceeds a hard `.model` limit; the game cannot load it", consequence: "folder discarded" },
+    { code: "model_mesh_over_vertex_limit", severity: "Error", condition: "pre-Fox: a mesh exceeds a hard `.model` limit; the game cannot load it", consequence: "folder discarded" },
+    { code: "model_mesh_over_face_limit", severity: "Error", condition: "pre-Fox: a mesh exceeds a hard `.model` limit; the game cannot load it", consequence: "folder discarded" },
     { code: "model_face_index_out_of_range", severity: "Error", condition: "pre-Fox: a face of any LOD level names a vertex that does not exist", consequence: "folder discarded" },
     { code: "model_bone_slot_out_of_range", severity: "Warning", condition: "pre-Fox: a weighted bone index points past the mesh's bone group", consequence: "none" },
     { code: "model_mesh_empty", severity: "Warning", condition: "pre-Fox: a mesh with no faces", consequence: "none" },
@@ -1049,28 +1060,28 @@ function settingChanged() { saveSettings(); render(); }
 
 // Each tool's rows, in its settings struct's order: the settings key, the plain
 // label a member reads, the kind its type draws ("Other UI components": a bool
-// a checkbox, a string a text edit, a path a text edit with a Browse button, a
-// number a number input, an enum a combo of its variants) and the field's doc
-// comment (the label's tooltip). The Export upgrader has no settings; its
-// section says so.
+// a checkbox, a string a text edit, a file or folder path a text edit with a
+// Browse button of that kind, a number a number input, an enum a combo of its
+// variants) and the field's doc comment (the label's tooltip). The Export
+// upgrader has no settings; its section says so.
 // sample wording: the labels and the doc comments.
 const TOOL_SETTINGS_SPEC = {
   "team-compiler": [
     ["cpk_name", "Output CPK name", "text", "The single output CPK's name, without .cpk."],
-    ["output_folder_path", "Output folder", "text", "Where compiled CPKs go; a relative path resolves beside the executable."],
-    ["savefile_path", "Savefile", "path", "The local savefile the compile's aesthetics patch is applied to; empty means Auto."],
+    ["output_folder_path", "Output folder", "folder", "Where compiled CPKs go; a relative path resolves beside the executable."],
+    ["savefile_path", "Savefile", "file", "The local savefile the compile's aesthetics patch is applied to."],
     ["multicpk_mode", "Cup DLC mode", "bool", "Cup DLC mode: team content split into size-capped parts plus a bins CPK."],
-    ["teams_cpk_name", "Teams CPK name", "text", "The stem of the teams part slots in multi-CPK mode."],
+    ["teams_cpk_name", "Teams CPK name", "text", "The stem of the teams part slots in multi-CPK mode: every official list entry {prefix}_{NN}_{stem}.cpk is a slot (4cc_41_teams), filled in the order of NN."],
     ["cpk_part_max_size", "Teams part size cap", "num", "The most bytes a teams part may hold, its table of contents included; a single CPK past it is only warned about."],
     ["bins_cpk_name", "Bins CPK name", "text", "The CPK, without .cpk, that holds the bins and the overrides in multi-CPK mode."],
-    ["refs_cpk_name", "Refs CPK name", "text", "The CPK, without .cpk, that holds the referees of a normal compile whose exports include a refs export."],
-    ["dds_compression", "DDS compression", ["Auto", "On", "Off"], "Whether every DDS a PES 15-17 run emits is WESYS-zlibbed."],
+    ["refs_cpk_name", "Refs CPK name", "text", "The CPK, without .cpk, that holds the referees of a normal compile whose exports include a refs export, in single and multi-CPK mode alike."],
+    ["dds_compression", "DDS compression", ["Auto", "On", "Off"], "Whether every DDS a PES 15-17 run emits is WESYS-zlibbed (compresses_dds)."],
     ["strict_file_type_check", "Strict file type check", "bool", "Disallowed file types are errors when on, info notes when off."],
     ["pass_through", "Keep folders with errors", "bool", "Keep folders with errors instead of discarding them."],
-    ["teams_list_path", "Teams list file", "text", "The working teams list; a relative path resolves in the data directory."],
+    ["teams_list_path", "Teams list file", "file", "The working teams list; a relative path resolves in the data directory."],
   ],
   "save-editor": [
-    ["aatf_rules", "AATF rules file", "text", "The AATF rules file check-aatf and the AATF panel run; empty: the official ruleset, built in."],
+    ["aatf_rules", "AATF rules file", "file", "The AATF rules file check-aatf and the AATF panel run; empty: the official ruleset, built in."],
   ],
   "export-upgrader": [],
 };
@@ -1082,10 +1093,10 @@ const sRow = (label, key, tip, widget) =>
   h("tr", {}, h("td", {}, h("span", { title: key + ": " + tip }, label)),
     h("td", {}, widget));
 
-// rfd's native picker (a folder or the savefile); closing it returns to the
-// menu. sample wording: the fake dialog's text.
-const browse = () => button("Browse", () => window_("Native folder dialog",
-  weak("The native folder picker (rfd) opens here"),
+// rfd's native picker, "folder" or "file"; closing it returns to the menu.
+// sample wording: the fake dialog's text.
+const browse = kind => button("Browse", () => window_("Native " + kind + " dialog",
+  weak("The native " + kind + " picker (rfd) opens here"),
   [button("OK", () => { closeWindow(); drawSettings(); })]));
 
 // The common grid, always open (no header): one row per CommonSettings field a
@@ -1105,9 +1116,9 @@ function commonSettingsRows() {
       combo(PES_VERSIONS.map(v => [v, "PES " + v]), c.pes_version, setPesVersion,
         { disabled: !!S.blocker, title: pesSelectorTip() })),
     sRow("PES folder", "pes_folder_path", "The PES installation folder, with ** standing for the two-digit version (20**).",
-      [text("pes_folder_path"), browse()]),
+      [text("pes_folder_path"), browse("folder")]),
     sRow("Exports folder", "exports_folder_path", "Where exports are picked up. A relative path resolves beside the executable in both data-location modes, so it sits next to quick_compile.bat.",
-      [text("exports_folder_path"), browse()]),
+      [text("exports_folder_path"), browse("folder")]),
     sRow("Threads", "thread_count", "Worker threads for pipelines; 0 means automatic (logical cores minus one).",
       num("thread_count", { id: "set-thread-count" })),
     sRow("Memory cap", "memory_cap_percent", "Memory budget cap for pipelines, as a percentage of physical memory.",
@@ -1136,11 +1147,11 @@ function toolSettingRow(toolId, f) {
   else if (kind === "text")
     widget = h("input", { type: "text", value: tbl[key],
       onchange: e => { tbl[key] = e.target.value; settingChanged(); } });
-  else if (kind === "path")
-    // An empty field is the variant's empty case (savefile_path: Auto).
+  else if (kind === "file" || kind === "folder")
+    // The box holds the file's spelling verbatim (savefile_path: `auto`).
     widget = [h("input", { type: "text", id: "set-" + key.replaceAll("_", "-"),
-      value: tbl[key], placeholder: "Auto",
-      onchange: e => { tbl[key] = e.target.value; settingChanged(); } }), browse()];
+      value: tbl[key],
+      onchange: e => { tbl[key] = e.target.value; settingChanged(); } }), browse(kind)];
   else
     widget = combo(kind.map(v => [v, v]), tbl[key], v => { tbl[key] = v; saveSettings(); });
   return sRow(label, key, tip, widget);
