@@ -260,4 +260,16 @@ TC-GUI-21  GIVEN an export holding a shared model folder no player links (shared
            WHEN the view draws its row
            THEN the row label is red, the worse of the two findings' colors, its tooltip lists
                 both with their scopes, and no player or kit cell changes for them
+TC-GUI-22  GIVEN exports_folder_path an absolute path to a folder that does not exist (the
+                preflight refuses before any event), and no input after the click
+           WHEN Compile is clicked
+           THEN a repaint is requested after the refusal is available, and the next frame's
+                log ends with the refusal and its exit-code line; GIVEN a run over one export
+                instead THEN the frame woken after its thread ends shows the exit-code line
+TC-GUI-23  GIVEN a run in flight over two exports, another tool's view active
+           WHEN the window's close is requested
+           THEN the Team compiler's view is active with its prompt; WHEN it keeps the window
+                THEN the run ends as it would have; GIVEN close chosen instead THEN the run is
+                cancelled as by TC-GUI-13 (no CPK written or replaced, the previous outputs as
+                they were) and the window closes after its last line, not before
 ```

@@ -8819,12 +8819,15 @@ Plan: `plans/export_upgrader.md` "GUI", "CLI" (the pointer), "Acceptance" (Phase
 Decision: amends 2026-10-18 "a color field is `color_tools`' picker": the picker serves the
 Save editor's colors the save stores as RGB (the team colors, the only RGB fields its tabs
 draw: the in-game face run's hair, eyebrow and facial-hair colors are outside the Appearance
-tab's 4ccEditor contents); a color stored as a palette index (skin, iris, wrist tape,
-spectacles, gloves, hair accessory) is a choice of its palette's entries.
+tab's 4ccEditor contents), the host rounding a picked 8-bit channel to the save's 6 bits
+(`c * 63 / 255`) and showing a stored one widened (`v * 255 / 63`); a color stored as a palette
+index (skin, iris, wrist tape, spectacles, gloves, hair accessory) is a choice of its palette's
+entries.
 Why: the rule follows the storage kind, not a list of fields: a palette index cannot hold a
 free color from a picker (`settings.toml`'s `skin_color` 0-7, `iris_color` 0-10, the wrist-tape
 and gloves colors 0-7), while an RGB field can (Astra 8.0.A1-1, SWE-2 8.0.S7-3, S8-4, S8-5,
-S9-1). The picker keeps its Phase 8 host in the team colors.
+S9-1). The picker keeps its Phase 8 host in the team colors, whose channels `write_team`
+refuses above 63, so an unconverted #FF0000 would fail to save (Astra 8.0.A2-2).
 Plan: `plans/save_editor.md` "Crate layout"; `plans/libs/color_tools.md` "Color-picker widget";
 `plans/core/development_plan.md` "Phase 8".
 
@@ -8833,13 +8836,16 @@ Decision: the shell installs a GUI-neutral wake callback in every `ToolContext` 
 (taking a delay, calling `egui::Context::request_repaint_after`): `ToolContext::emit` calls it
 with no delay after each send, and a tool's own deadlines call it from `tick` through
 `ToolContext::request_repaint_after`; a tool's view no longer requests repaints while its run
-is in flight.
+is in flight. A run's verdict is the last message on its own channel, sent before a wake, not
+read from its thread's `JoinHandle`.
 Why: egui repaints only on input, and a view not drawn (another tool active, the window
 hidden) requests nothing, so a run's last events, or a hidden tool's timer, waited for
 unrelated input; waking from the context is the match feed's rule (its wake callback on
 publish), one rule for every background source rather than one per view (Astra 8.0.A1-2,
-SWE-2 8.0.S7-2).
-Plan: `plans/core/gui.md` "Event wiring"; ST-TTL-03.
+SWE-2 8.0.S7-2). The verdict travels as a message because `is_finished` can still be false
+in the frame the last event woke, and a preflight refusal emits no event at all (Astra
+8.0.A2-1).
+Plan: `plans/core/gui.md` "Event wiring"; ST-TTL-03, TC-GUI-22.
 
 ## 2026-10-18 — export_upgrader — steps 9 and 12's gaps: the missing roster's code, the `players.txt` writer, and what a folder left as it was keeps
 Decision: (1) a `refs` export without a `refs.txt` is `refs_txt_missing` (E, the export
@@ -8906,15 +8912,16 @@ holding unsaved work makes the shell cancel the close and switch to it, and its 
 decides: save or discard sends a close request back (a `ShellRequest`), which asks every tool
 again, so a second tool with unsaved work prompts in turn; cancel keeps the window. A tool
 with a run in flight (a compile, an upgrade) reports it through the same hook; its prompt
-offers to cancel the run and close once the cancellation has ended, or to keep running.
+offers to close once the run has ended, cancelling it first where the tool has a Cancel (the
+Team compiler; an upgrade has none and runs to its end), or to keep the window.
 Why: the prompt is the tool's view, which the shell draws only for the active tool, so a close
 decided by the shell alone dropped the Save editor's edits whenever another tool was in view
 (SWE-2 8.0.S7-5). A hook, not a shell-owned prompt, because what "unsaved" means and how it is
 saved are the tool's. A run in flight is asked about because an exit cannot discard its
 staging as a cancel does, and one killed while deploying can leave a torn output (SWE-2
-8.0.S9-3).
+8.0.S9-3); the real tools each get a scenario of their own (Astra 8.0.A2-3).
 Plan: `plans/core/gui.md` "Cancellation" ("Closing the window"); SE-GUI-05, ST-RUN-05,
-ST-RUN-06.
+ST-RUN-06, TC-GUI-23, EU-GUI-07.
 
 ## 2026-10-19 — save editor — the GUI's Texport export writes PES 18-21
 Decision: Texport export is offered on PES 18-21 saves, from `Texport::new`'s templates; on a

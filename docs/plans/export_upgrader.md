@@ -1372,4 +1372,9 @@ EU-GUI-06  manual  GIVEN the view open
                    WHEN a target's Browse button is clicked
                    THEN the native picker opens for a folder (or, on the first target, a folder or
                         archive) and the picked path fills the target as a drop would
+EU-GUI-07  GIVEN EU-GUI-01's upgrade in flight, another tool's view active
+           WHEN the window's close is requested
+           THEN the Export upgrader's view is active with its prompt; GIVEN close chosen THEN
+                the window closes after the run's last line, the output EU-GUI-01's; GIVEN
+                the window kept THEN the run ends as it would have
 ```

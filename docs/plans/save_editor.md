@@ -107,7 +107,10 @@ Planned files that do not exist yet:
   / Texport import-export dialogs) and `widgets.rs` (editor-local reusable widgets: version-gated
   control, ID picker; a color is drawn by how the save stores it: an RGB one (the team colors,
   the only RGB fields a tab draws) is `color_tools`' picker, `libs/color_tools.md`, not a
-  widget of this crate; a palette
+  widget of this crate, the host converting between the picker's 8 bits and the save's 6 per
+  channel: a picked channel `c` is stored as `c * 63 / 255` rounded, a stored `v` shown as
+  `v * 255 / 63` rounded (the Team compiler's widening of 5:6:5 colors), so a save always
+  holds the nearest color it can; a palette
   index (skin, iris, wrist tape, spectacles, gloves, hair accessory, as `settings.toml`'s
   `skin_color` 0-7) is a choice of its palette's entries, never a picker whose free color no
   record can hold)
@@ -507,7 +510,8 @@ SE-GUI-09  GIVEN the official ruleset active
                 Silver sets VTL11's Silver values (rate 89, not the official 92)
 SE-GUI-10  GIVEN the save open on a team
            WHEN its name, a color or the manager id is edited in the Team tab and saved
-           THEN the reopened file holds the values
+           THEN the reopened file holds the values; GIVEN #FF8000 picked as color 1 THEN the
+                reopened team's color 1 is (63, 32, 0) and the Team tab shows it as #FF8200
 SE-GUI-11  GIVEN a player without FPC and "Edit aesthetics anyway" switched on
            WHEN Ctrl+I, or the FPC toggle, is used
            THEN his record carries the FPC enable preset's values and the toggle reads on; the

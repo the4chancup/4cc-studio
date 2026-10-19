@@ -337,7 +337,11 @@ deadlines (the music player's chant and VA timers) go through the same callback,
 while another tool is in view. We wake from the context, not from the tool's view
 (`request_repaint_after` while a run is in flight, as the Phase 3 slice does), because a view
 not drawn requests nothing: the run's last events, or a hidden tool's next deadline, would wait
-for unrelated input. In the CLI the callback does nothing. The match feed wakes the GUI the same
+for unrelated input. A run's end wakes it the same way: its verdict (the exit code, or a
+refusal that emitted no event at all) reaches the view as the last message on the run's own
+channel, sent before the wake, not read from the thread's `JoinHandle`, whose `is_finished`
+can still be false when the frame the last event woke runs (TC-GUI-22). In the CLI the
+callback does nothing. The match feed wakes the GUI the same
 way, on publish.
 
 The grid, log panel, and run strip are all views over the same tool state, updated from the
@@ -415,9 +419,11 @@ shell (a `ShellRequest`, as a tool switch is), which asks every tool again, so a
 with unsaved work gets its own prompt in turn; cancel keeps the window and ends the close. A
 close the shell decided alone would drop the edits of a tool whose view was not drawn. A tool
 with a run in flight (a compile, an upgrade) reports it through the same hook, and its prompt
-offers to cancel the run and close, the close request going back once the cancellation above
-has ended, or to keep running: an exit cannot discard the run's staging as a cancel does, and
-a run killed while deploying can leave a torn output (ST-RUN-05, ST-RUN-06).
+offers to close once the run has ended, cancelling it first where the tool has a Cancel (the
+Team compiler's, above; an upgrade has none and runs to its end), the close request going back
+when the run ends, or to keep the window: an exit cannot discard the run's staging as a cancel
+does, and a run killed while writing leaves a torn output (an upgrade's half-written folder
+then blocks the next run, EU-CLI-05) (ST-RUN-05, ST-RUN-06, TC-GUI-23, EU-GUI-07).
 
 ### Browser deployment: Studio Web
 
@@ -672,9 +678,8 @@ ST-RUN-05   GIVEN two stub tools each reporting unsaved work, a third tool's vie
 ST-RUN-06   GIVEN a stub tool reporting a run in flight, another tool's view active
             WHEN the window's close is requested
             THEN the window stays and the stub's view is active with its prompt; WHEN it
-                 chooses cancel-and-close THEN the run's cancel flag is set and the window
-                 closes once the run has ended, not before; WHEN it chooses to keep running
-                 THEN the window stays and the run goes on
+                 chooses to close THEN the window closes once the run has ended, not before;
+                 WHEN it chooses to keep the window THEN the window stays and the run goes on
 ST-CLI-01   GIVEN a data directory that cannot be written
             WHEN a CLI command runs
             THEN stderr starts with the data_dir_read_only condition as one line, and a notice a
