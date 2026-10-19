@@ -151,6 +151,15 @@ impl Sandbox {
             events: events_rx.iter().collect(),
         }
     }
+
+    /// Asserts the unclean run whose `stdout` is given wrote nothing: neither the output
+    /// folder `output` nor its staging folder (`plans/export_upgrader.md` "CLI").
+    pub fn assert_nothing_written(&self, output: &str, stdout: &str) {
+        assert!(
+            !self.path(output).exists() && !self.path(&format!("{output}.upgrading")).exists(),
+            "nothing is written: {stdout}"
+        );
+    }
 }
 
 /// Every entry below the sandbox's root, its path and its bytes (a folder

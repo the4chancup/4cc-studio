@@ -6,6 +6,7 @@ use std::fs;
 use pes_version::PesVersion;
 
 use crate::common::{Sandbox, snapshot};
+use crate::players::face;
 
 /// `upgrade <input> <flags>`.
 fn upgrade(sandbox: &Sandbox, input: &str, flags: &[&str]) -> crate::common::Run {
@@ -40,6 +41,8 @@ fn the_output_name_carries_the_key_the_tag_and_the_rest() {
         "co Full Spring",
     ] {
         old_export(&sandbox, name, Some("/co/"));
+        // A face folder, so each run is clean and its output is written.
+        face(&sandbox, &format!("{name}/Faces/XXX05 - A"));
     }
     let save = sandbox.arg("EDIT");
     sandbox.save("EDIT");
@@ -51,7 +54,7 @@ fn the_output_name_carries_the_key_the_tag_and_the_rest() {
         ("co Full Spring", "co Full Spring upgraded"),
     ] {
         let run = upgrade(&sandbox, input, &["--savefile", &save]);
-        assert_eq!(run.exit_code(), 1, "{input}: {}", run.stdout());
+        assert_eq!(run.exit_code(), 0, "{input}: {}", run.stdout());
         assert!(sandbox.path(output).is_dir(), "{input} -> {output}");
     }
 }
@@ -144,6 +147,7 @@ fn a_referee_export_takes_neither_flag_and_its_note_is_a_leftover() {
     // a referee's Note.
     fs::create_dir_all(sandbox.path("refs Spring")).unwrap();
     fs::write(sandbox.path("refs Spring/refs.txt"), b"01 Keeper\n").unwrap();
+    sandbox.write("refs Spring/Players/Keeper/boots.fmdl", b"boots");
     fs::write(sandbox.path("refs Spring/refs Note.txt"), b"Team: /co/\n").unwrap();
     let save = sandbox.arg("EDIT");
     sandbox.save("EDIT");
@@ -154,7 +158,7 @@ fn a_referee_export_takes_neither_flag_and_its_note_is_a_leftover() {
     assert_eq!(sandbox.listing(""), before, "nothing is written");
 
     let run = upgrade(&sandbox, "refs Spring", &[]);
-    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert!(
         sandbox.path("refs Spring upgraded").is_dir(),
         "{}",
@@ -244,6 +248,43 @@ fn an_output_folder_that_exists_or_cannot_be_created_is_refused() {
         &["--savefile", &save, "-o", &blocked],
     );
     run.assert_refused(3, &["blocked"]);
+    assert_eq!(snapshot(&sandbox), before, "nothing is written");
+}
+
+// EU-CLI-05
+#[test]
+fn a_staging_folder_that_exists_is_refused() {
+    let sandbox = Sandbox::new("cli_staging_exists");
+    sandbox.copy_fixture_dir("co Spring", "co Spring");
+    // An abandoned staging folder of an earlier run: the run refuses before
+    // writing, and it is left as it was.
+    fs::create_dir_all(sandbox.path("co Full Spring.upgrading")).unwrap();
+    fs::write(
+        sandbox.path("co Full Spring.upgrading/left.txt"),
+        b"left behind",
+    )
+    .unwrap();
+    let save = sandbox.arg("EDIT");
+    sandbox.save("EDIT");
+
+    let before = snapshot(&sandbox);
+    let run = upgrade(&sandbox, "co Spring", &["--savefile", &save]);
+    run.assert_refused(3, &["co Full Spring.upgrading"]);
+    assert_eq!(snapshot(&sandbox), before, "nothing is written");
+
+    // `upgrade-models` refuses its staging folder the same way.
+    fs::create_dir_all(sandbox.path("new models/XXX15 - A")).unwrap();
+    fs::write(sandbox.path("new models/XXX15 - A/face.fmdl"), b"face").unwrap();
+    fs::create_dir_all(sandbox.path("new models upgraded.upgrading")).unwrap();
+    fs::write(
+        sandbox.path("new models upgraded.upgrading/left.txt"),
+        b"left behind",
+    )
+    .unwrap();
+    let input = sandbox.arg("new models");
+    let before = snapshot(&sandbox);
+    let run = sandbox.run(&["upgrade-models", &input]);
+    run.assert_refused(3, &["new models upgraded.upgrading"]);
     assert_eq!(snapshot(&sandbox), before, "nothing is written");
 }
 

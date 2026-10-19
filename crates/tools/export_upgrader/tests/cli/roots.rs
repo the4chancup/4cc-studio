@@ -8,7 +8,7 @@ use pes_version::PesVersion;
 use studio_core::PipelineEvent;
 
 use crate::common::Sandbox;
-use crate::players::wears;
+use crate::players::{face, wears};
 
 /// `upgrade <input> --savefile <save>`.
 fn upgrade(sandbox: &Sandbox, input: &str, save: &str) -> crate::common::Run {
@@ -97,14 +97,22 @@ fn without_a_note_the_first_word_resolves() {
         b"not migrated",
     )
     .unwrap();
+    // A face folder, so the run is clean and the output is written at all.
+    face(&sandbox, "co Spring 26/Faces/XXX05 - A");
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "co Spring 26", "EDIT");
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     let output = sandbox.path("co Full Spring 26");
     assert!(output.is_dir(), "{}", run.stdout());
-    // This slice writes an empty draft: no colors.txt, notes.txt or Note txt.
-    assert_eq!(sandbox.listing("co Full Spring 26"), Vec::<String>::new());
+    // No colors.txt, notes.txt or Note txt: the export held no Note.
+    for entry in sandbox.listing("co Full Spring 26") {
+        let lowered = entry.to_ascii_lowercase();
+        assert!(
+            lowered != "colors.txt" && !(lowered.ends_with(".txt") && lowered.contains("note")),
+            "{entry}"
+        );
+    }
 }
 
 // EU-ROOT-04
@@ -151,8 +159,8 @@ fn the_notes_team_colors_and_other_notes_become_the_root_files() {
 #[test]
 fn a_team_entry_whose_colors_do_not_read_is_unmigrated_content() {
     let sandbox = Sandbox::new("root_bad_entry");
-    // The export holds the Note alone; the good entries are still written and
-    // the unreadable one is reported.
+    // The export holds the Note alone; the unreadable entry is reported and
+    // nothing is written.
     fs::create_dir_all(sandbox.path("co Spring")).unwrap();
     fs::write(
         sandbox.path("co Spring/co Note.txt"),
@@ -175,10 +183,7 @@ fn a_team_entry_whose_colors_do_not_read_is_unmigrated_content() {
         .filter(|envelope| matches!(envelope.event, PipelineEvent::UnmigratedContentFound))
         .count();
     assert_eq!(found, 1, "one UnmigratedContentFound");
-    assert_eq!(
-        fs::read(sandbox.path("co Full Spring/colors.txt")).unwrap(),
-        b"048 146 082\n000 000 000\n"
-    );
+    sandbox.assert_nothing_written("co Full Spring", &run.stdout());
 }
 
 // EU-ROOT-06
@@ -202,10 +207,7 @@ fn a_team_entry_with_nothing_after_its_colon_is_unmigrated_content() {
         "{}",
         run.stdout()
     );
-    assert_eq!(
-        fs::read(sandbox.path("co Full Spring/colors.txt")).unwrap(),
-        b"048 146 082\n"
-    );
+    sandbox.assert_nothing_written("co Full Spring", &run.stdout());
 }
 
 // EU-ROOT-05

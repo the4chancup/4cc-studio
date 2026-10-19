@@ -155,20 +155,13 @@ fn a_portrait_of_other_bytes_in_the_face_folder_is_a_conflict() {
 
     let run = upgrade(&sandbox, "co Spring", "EDIT");
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
-    assert_eq!(
-        fs::read(sandbox.path("co Full Spring/Portraits/player_07.dds")).unwrap(),
-        b"other portrait"
-    );
-    assert_eq!(
-        fs::read(sandbox.path("co Full Spring/Players/07 - A/portrait.dds")).unwrap(),
-        b"face portrait"
-    );
     assert!(
         run.stdout()
             .contains("portrait_conflict at Portraits/player_XXX07.dds (slot=07)"),
         "{}",
         run.stdout()
     );
+    sandbox.assert_nothing_written("co Full Spring", &run.stdout());
 }
 
 /// A `.mtl` of one material holding one sampler per `paths` entry.
@@ -651,8 +644,6 @@ fn an_mtl_that_does_not_parse_is_unmigrated_content() {
     .unwrap();
 
     let run = upgrade(&sandbox, "co Spring", "EDIT16");
-    // The finding and the exit code are this slice's; whether the output is
-    // written is slice b's.
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
     let stdout = run.stdout();
     assert!(
@@ -662,6 +653,7 @@ fn an_mtl_that_does_not_parse_is_unmigrated_content() {
         "{stdout}"
     );
     assert!(stdout.contains("migration_not_clean"), "{stdout}");
+    sandbox.assert_nothing_written("co Full Spring", &stdout);
 }
 
 // EU-REP-02
@@ -673,16 +665,13 @@ fn a_portrait_named_for_a_slot_past_23_is_flagged() {
 
     let run = upgrade(&sandbox, "co Kits", "EDIT");
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
-    assert_eq!(
-        fs::read(sandbox.path("co Full Kits/Portraits/player_24.dds")).unwrap(),
-        b"portrait"
-    );
     let stdout = run.stdout();
     assert!(
         stdout.contains("portrait_name_invalid at Portraits/player_24.dds"),
         "{stdout}"
     );
     assert!(stdout.contains("migration_not_clean"), "{stdout}");
+    sandbox.assert_nothing_written("co Full Kits", &stdout);
 }
 
 // EU-MDL-11

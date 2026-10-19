@@ -171,15 +171,7 @@ fn a_folder_nobody_wears_is_unmigrated_as_a_whole() {
         "{}",
         run.stdout()
     );
-    assert!(!sandbox.path("co Full Spring/Gloves").exists());
-    assert_eq!(
-        sandbox
-            .listing("co Full Spring")
-            .iter()
-            .filter(|path| path.contains("glove_"))
-            .count(),
-        0
-    );
+    sandbox.assert_nothing_written("co Full Spring", &run.stdout());
 }
 
 // EU-PLY-08
@@ -294,43 +286,12 @@ fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
     face(&sandbox, "co Spring/Faces/XXX23 - Smug Redman");
     boots(&sandbox, "co Spring/Boots/k0430 - A");
     boots(&sandbox, "co Spring/Boots/k0430 - B");
-    // The losing folders carry distinct bytes, so a copy of them would be
-    // caught, not only the winners' presence seen.
-    sandbox.write(
-        "co Spring/Faces/XXX23 - Smug Redman/face_diff.bin",
-        b"loser face",
-    );
-    sandbox.write("co Spring/Boots/k0430 - B/boots.fmdl", b"loser boots");
     sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
         wears(file, 71423, 430, 0);
     });
 
     let run = upgrade(&sandbox, "co Spring", "EDIT");
     assert_eq!(run.exit_code(), 1);
-    for name in [
-        "fcl_hair.fmdl",
-        "face_diff.bin",
-        "shirt.dds",
-        "portrait.dds",
-    ] {
-        assert!(
-            sandbox
-                .path(&format!("co Full Spring/Players/23 - Bahsaka/{name}"))
-                .exists(),
-            "{name}"
-        );
-    }
-    assert_eq!(
-        fs::read(sandbox.path("co Full Spring/Players/23 - Bahsaka/face_diff.bin")).unwrap(),
-        b"diff"
-    );
-    for (name, bytes) in BOOTS_FILES {
-        assert_eq!(
-            fs::read(sandbox.path(&format!("co Full Spring/Players/23 - Bahsaka/{name}"))).unwrap(),
-            bytes,
-            "{name}"
-        );
-    }
     let stdout = run.stdout();
     assert!(
         stdout.contains("unmigrated_content at Faces/XXX23 - Smug Redman"),
@@ -340,20 +301,7 @@ fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
         stdout.contains("unmigrated_content at Boots/k0430 - B"),
         "{stdout}"
     );
-    // The losing player folder is absent, and no output file carries a
-    // losing folder's bytes.
-    assert!(
-        !sandbox
-            .path("co Full Spring/Players/23 - Smug Redman")
-            .exists()
-    );
-    for entry in sandbox.listing("co Full Spring") {
-        let path = sandbox.path(&format!("co Full Spring/{entry}"));
-        if path.is_file() {
-            let bytes = fs::read(&path).unwrap();
-            assert!(bytes != b"loser face" && bytes != b"loser boots", "{entry}");
-        }
-    }
+    sandbox.assert_nothing_written("co Full Spring", &stdout);
 }
 
 // EU-PLY-12
@@ -510,22 +458,32 @@ fn a_doubled_layer_in_another_letter_case_is_flattened_in_a_zip() {
 
 // EU-PLY-07
 #[test]
-fn portraits_are_renamed_and_two_are_reported_as_named() {
-    let sandbox = Sandbox::new("ply_portraits");
+fn a_named_portrait_is_renamed_to_portrait_dds() {
+    let sandbox = Sandbox::new("ply_named_portrait");
     sandbox.write(
         "co Spring/Faces/XXX15 - Snuffy/Snuffy_Portrait.dds",
         b"portrait1",
     );
-    face(&sandbox, "co Spring/Faces/XXX16 - Rex");
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/15 - Snuffy/portrait.dds")).unwrap(),
+        b"portrait1"
+    );
+}
+
+// EU-PLY-14
+#[test]
+fn two_portrait_files_are_unmigrated_content() {
+    let sandbox = Sandbox::new("ply_two_portraits");
+    sandbox.write("co Spring/Faces/XXX16 - Rex/portrait.dds", b"portrait");
     sandbox.write("co Spring/Faces/XXX16 - Rex/rex_portrait.dds", b"portrait2");
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "co Spring", "EDIT");
     assert_eq!(run.exit_code(), 1);
-    assert_eq!(
-        fs::read(sandbox.path("co Full Spring/Players/15 - Snuffy/portrait.dds")).unwrap(),
-        b"portrait1"
-    );
     let stdout = run.stdout();
     assert!(
         stdout.contains("unmigrated_content at Faces/XXX16 - Rex/portrait.dds"),
@@ -535,16 +493,8 @@ fn portraits_are_renamed_and_two_are_reported_as_named() {
         stdout.contains("unmigrated_content at Faces/XXX16 - Rex/rex_portrait.dds"),
         "{stdout}"
     );
-    assert_eq!(
-        fs::read(sandbox.path("co Full Spring/Players/16 - Rex/portrait.dds")).unwrap(),
-        b"portrait"
-    );
-    assert_eq!(
-        fs::read(sandbox.path("co Full Spring/Players/16 - Rex/rex_portrait.dds")).unwrap(),
-        b"portrait2"
-    );
-    // The two portraits are the only unmigrated content; the event marks it.
     assert_eq!(unmigrated_found(&run), 1);
+    sandbox.assert_nothing_written("co Full Spring", &stdout);
 }
 
 // EU-PLY-03

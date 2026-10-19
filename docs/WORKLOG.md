@@ -885,9 +885,16 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     Note a leftover too (plan step 9); EU-REP-01 rewritten, EU-REP-04 new. Verified on the
     real KFG VGL26 export: exit 0, its 23 boots merged into the player folders, no `Boots/`,
     the 322 `FMDL Boots/` files reported as leftovers
-  - [ ] 6.14b the write-nothing gate and the rewritten scenarios' tests (EU-PLY-14,
-    EU-KIT-16 to -18, EU-REF-11, EU-LOOSE-02, EU-MDL-18's nothing written, every "nothing is
-    written" THEN); EU-REF-05's fixture needs a referee folder so its third run is clean
+  - [x] 6.14b (2026-10-19) the write-nothing gate: both commands write into
+    `<output>.upgrading`, validate it there and rename it when clean or remove it when not
+    (`upgrade.rs` `finish_staging`, shared with `model_folders.rs`); the rename and removal
+    retry about 2 s on "access denied" (`retry_while_locked`: a just-written file held by
+    another process failed one test run in three); an existing staging folder is refused
+    (EU-CLI-05). Every "nothing is written" THEN's test asserts its finding and an empty
+    output (`Sandbox::assert_nothing_written`); new tests EU-PLY-14, EU-KIT-16 to -18,
+    EU-REF-11, EU-LOOSE-02, EU-REF-10's root referee `.model`; EU-REF-05's fixture got its
+    referee folder. EU-KIT-11 (the split had kept a dropped line's THEN) and EU-MF-01 (its
+    gloves model sat in a boots folder, never clean) rewritten
 
 ### Phase 8 — GUI
 

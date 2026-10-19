@@ -2182,3 +2182,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — Phase 6 close: the whole-crate mutation run of `export_upgrader` (extra kinds included):
   858 caught, 0 timeouts, 2 missed, the placeholder `view`/`settings_view` deferred to Phase 8 (worklog 8.3) as at
   the audit; archived to `.tmp/mutants_6_close_eu_whole/`.
+- **2026-10-19** — 6.14: an upgrade writes a clean export or nothing. Leftovers are dropped with a Warning and keep
+  the run clean (6.14a); both commands write into `<output>.upgrading`, renamed when clean, removed when not, the
+  rename retrying on Windows' transient "access denied" (6.14b). Every rewritten scenario has its test.

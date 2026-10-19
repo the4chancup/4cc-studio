@@ -9093,3 +9093,16 @@ exclusive IDs to the shared pool instead, because which ones are unused depends 
 roster, and a Midcup, which compiles only some players, could not tell.
 Plan: `spec/aesthetics_export/player_folders.md` "Assigns IDs automatically" and "A `Midcup`
 export keeps the shared IDs the team already has", edited with the code (worklog 6.15).
+
+## 2026-10-19 — export_upgrader — an upgrade writes into a staging folder, renamed when clean
+Decision: `upgrade` and `upgrade-models` write into `<output>.upgrading` beside the output; the
+shared validation reads it there; a clean verdict renames it to the output, an unclean one
+removes it. An abort leaves it, named in the error, and a run refuses (exit 3) when either
+folder exists. The rename and the removal retry for about two seconds on "access denied"
+before aborting: on Windows another process (an antivirus scan) can hold a just-written file
+for a moment, and the crate's test suite met it in about one run in three.
+Why: the clean-or-nothing rule needs the verdict before the output appears, and the
+validation reads files from disk, as the compile does; staging and one rename give that
+without rebuilding the validation on an in-memory listing, and no reader ever sees a
+half-written export under the output's name.
+Plan: `plans/export_upgrader.md` "CLI".

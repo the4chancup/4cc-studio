@@ -156,14 +156,12 @@ fn a_texture_of_a_slot_no_config_gives_is_unmigrated_content() {
         "{}",
         run.stdout()
     );
-    assert!(!sandbox.path("co Full Kits/Kits/p5").exists());
-    // The three configs still migrated; only the texture is unmigrated.
-    assert!(sandbox.path("co Full Kits/Kits/p1/config.toml").exists());
+    sandbox.assert_nothing_written("co Full Kits", &run.stdout());
 }
 
 // EU-KIT-10
 #[test]
-fn configs_in_a_kit_configs_subfolder_migrate_but_a_subfolder_texture_does_not() {
+fn configs_in_a_kit_configs_subfolder_migrate() {
     let sandbox = Sandbox::new("kit_config_subfolder");
     for ordinal in ["1st", "2nd"] {
         sandbox.copy_fixture(
@@ -171,11 +169,10 @@ fn configs_in_a_kit_configs_subfolder_migrate_but_a_subfolder_texture_does_not()
             &format!("co Kits/Kit Configs/714/XXX_DEF_{ordinal}_realUni.bin"),
         );
     }
-    sandbox.write("co Kits/Kit Textures/714/u0XXXp1.dds", b"p1 main");
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "co Kits", "EDIT");
-    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     let first = include_bytes!("../fixtures/kit_configs/4CCG VGL26/XXX_DEF_1st_realUni.bin");
     let second = include_bytes!("../fixtures/kit_configs/4CCG VGL26/XXX_DEF_2nd_realUni.bin");
     for (slot, bytes) in [("p1", &first[..]), ("p2", &second[..])] {
@@ -186,12 +183,31 @@ fn configs_in_a_kit_configs_subfolder_migrate_but_a_subfolder_texture_does_not()
             "{slot}"
         );
     }
-    assert!(
-        run.stdout()
-            .contains("unmigrated_content at Kit Textures/714/u0XXXp1.dds"),
-        "{}",
-        run.stdout()
+}
+
+// EU-KIT-16
+#[test]
+fn a_texture_in_a_kit_textures_subfolder_is_unmigrated_content() {
+    let sandbox = Sandbox::new("kit_texture_subfolder");
+    // EU-KIT-10's config: the migrated `config.toml` keeps the unmigrated
+    // texture the run's only Error (an empty export is one too).
+    sandbox.copy_fixture(
+        &kit_config("1st"),
+        "co Kits/Kit Configs/714/XXX_DEF_1st_realUni.bin",
     );
+    sandbox.write("co Kits/Kit Textures/714/u0XXXp1.dds", b"p1 main");
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    let stdout = run.stdout();
+    assert_eq!(run.exit_code(), 1, "{stdout}");
+    assert!(
+        stdout.contains("unmigrated_content at Kit Textures/714/u0XXXp1.dds"),
+        "{stdout}"
+    );
+    // The unmigrated texture is the run's only Error.
+    assert_eq!(stdout.matches(": Error").count(), 1, "{stdout}");
+    sandbox.assert_nothing_written("co Full Kits", &stdout);
 }
 
 // EU-KIT-12
@@ -224,20 +240,13 @@ fn a_config_whose_suffix_reads_no_slot_is_unmigrated_content() {
 
     let run = upgrade(&sandbox, "co Kits", "EDIT");
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
-    for slot in ["p1", "p2"] {
-        assert!(
-            sandbox
-                .path(&format!("co Full Kits/Kits/{slot}/config.toml"))
-                .exists(),
-            "{slot}"
-        );
-    }
     assert!(
         run.stdout()
             .contains("unmigrated_content at Kit Configs/XXX_DEF_GK2nd_realUni.bin"),
         "{}",
         run.stdout()
     );
+    sandbox.assert_nothing_written("co Full Kits", &run.stdout());
 }
 
 // EU-KIT-03
@@ -332,25 +341,7 @@ fn entries_past_the_ninth_player_and_the_first_gk_are_unmigrated() {
         ),
         "{stdout}"
     );
-    // No kit folder carries the two entries' colors; the ten given slots
-    // all wrote theirs.
-    for entry in sandbox.listing("co Full Kits/Kits") {
-        if entry.ends_with("colors.txt") {
-            let text =
-                fs::read_to_string(sandbox.path(&format!("co Full Kits/Kits/{entry}"))).unwrap();
-            for loser in ["100 100 100", "101 101 101", "200 200 200", "201 201 201"] {
-                assert!(!text.contains(loser), "{entry}: {text}");
-            }
-        }
-    }
-    assert_eq!(
-        fs::read(sandbox.path("co Full Kits/Kits/p9/colors.txt")).unwrap(),
-        b"9 9 9\n10 10 10\n"
-    );
-    assert_eq!(
-        fs::read(sandbox.path("co Full Kits/Kits/g1/colors.txt")).unwrap(),
-        b"11 11 11\n12 12 12\n"
-    );
+    sandbox.assert_nothing_written("co Full Kits", &stdout);
 }
 
 // EU-KIT-09
@@ -385,15 +376,15 @@ fn a_kit_entry_without_a_config_still_forms_its_kit() {
 
 // EU-KIT-11
 #[test]
-fn an_entry_whose_colors_do_not_read_keeps_its_slot_and_later_entries_theirs() {
-    let sandbox = Sandbox::new("kit_bad_entry");
+fn an_entry_after_other_notes_gives_no_kit() {
+    let sandbox = Sandbox::new("kit_after_notes");
     for ordinal in ["1st", "2nd", "3rd"] {
         sandbox.copy_fixture(
             &kit_config(ordinal),
             &format!("co Kits/Kit Configs/XXX_DEF_{ordinal}_realUni.bin"),
         );
     }
-    // The kit entries, then `- 4th player:` as the first line after `Other
+    // The kit entries, then `- 3rd player:` as the first line after `Other
     // Notes:` — the reading ends there, so it gives no kit.
     let fixture = fs::read_to_string(
         std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
@@ -402,12 +393,11 @@ fn an_entry_whose_colors_do_not_read_keeps_its_slot_and_later_entries_theirs() {
     .unwrap();
     let before = fixture.find("Kit Colours:").unwrap();
     let note = format!(
-        "{}Kit Colours:\r\n{}\r\n\r\nOther Notes:\r\n- 4th player: 1 2 3 - 4 5 6\r\n",
+        "{}Kit Colours:\r\n{}\r\n\r\nOther Notes:\r\n- 3rd player: 1 2 3 - 4 5 6\r\n",
         &fixture[..before],
         [
             "- 1st player: #D34A4F - #A23E4D",
-            "- 2nd player: #RRGGBB - #RRGGBB",
-            "- 3rd player: 30 30 30 - 250 250 250",
+            "- 2nd player: 30 30 30 - 250 250 250",
         ]
         .join("\r\n"),
     );
@@ -415,24 +405,19 @@ fn an_entry_whose_colors_do_not_read_keeps_its_slot_and_later_entries_theirs() {
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "co Kits", "EDIT");
-    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert_eq!(
         fs::read(sandbox.path("co Full Kits/Kits/p1/colors.txt")).unwrap(),
         b"#D34A4F\n#A23E4D\n"
     );
     assert_eq!(
-        fs::read(sandbox.path("co Full Kits/Kits/p3/colors.txt")).unwrap(),
+        fs::read(sandbox.path("co Full Kits/Kits/p2/colors.txt")).unwrap(),
         b"30 30 30\n250 250 250\n"
     );
-    assert_eq!(sandbox.listing("co Full Kits/Kits/p2"), ["config.toml"]);
-    assert!(
-        run.stdout()
-            .contains("unmigrated_content at co Note.txt (line=- 2nd player: #RRGGBB - #RRGGBB)"),
-        "{}",
-        run.stdout()
-    );
+    // No third player entry: p3 holds its config alone.
+    assert_eq!(sandbox.listing("co Full Kits/Kits/p3"), ["config.toml"]);
     assert!(!sandbox.path("co Full Kits/Kits/p4").exists());
-    // No colors.txt holds the line read after `Other Notes:` either.
+    // No colors.txt holds the line read after `Other Notes:`.
     for entry in sandbox.listing("co Full Kits/Kits") {
         if entry.ends_with("colors.txt") {
             let text =
@@ -440,6 +425,31 @@ fn an_entry_whose_colors_do_not_read_keeps_its_slot_and_later_entries_theirs() {
             assert!(!text.contains("1 2 3"), "{entry}: {text}");
         }
     }
+}
+
+// EU-KIT-17
+#[test]
+fn an_entry_whose_colors_do_not_read_is_unmigrated_content() {
+    let sandbox = Sandbox::new("kit_bad_entry");
+    for ordinal in ["1st", "2nd", "3rd"] {
+        sandbox.copy_fixture(
+            &kit_config(ordinal),
+            &format!("co Kits/Kit Configs/XXX_DEF_{ordinal}_realUni.bin"),
+        );
+    }
+    // `- 2nd player: #RRGGBB - #RRGGBB`, the AET template's own line.
+    note_with_kit_entries(&sandbox, &["- 2nd player: #RRGGBB - #RRGGBB"]);
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert!(
+        run.stdout()
+            .contains("unmigrated_content at co Note.txt (line=- 2nd player: #RRGGBB - #RRGGBB)"),
+        "{}",
+        run.stdout()
+    );
+    sandbox.assert_nothing_written("co Full Kits", &run.stdout());
 }
 
 // EU-KIT-13
@@ -693,27 +703,20 @@ fn flat_dds(color: [u8; 4]) -> Vec<u8> {
 #[test]
 fn ftex_kit_textures_are_converted_to_the_dds_they_hold() {
     let sandbox = Sandbox::new("kit_ftex");
-    for (ordinal, name) in [
-        ("1st", "XXX_DEF_1st_realUni.bin"),
-        ("2nd", "XXX_DEF_2nd_realUni.bin"),
-    ] {
-        sandbox.copy_fixture(&kit_config(ordinal), &format!("co Kits/Kit Configs/{name}"));
-    }
+    sandbox.copy_fixture(
+        &kit_config("1st"),
+        "co Kits/Kit Configs/XXX_DEF_1st_realUni.bin",
+    );
     let main_ftex =
         ftex::dds_to_ftex(&flat_dds([200, 30, 30, 255]), ftex::ColorSpace::Srgb).unwrap();
     let back_ftex =
         ftex::dds_to_ftex(&flat_dds([30, 30, 200, 255]), ftex::ColorSpace::Srgb).unwrap();
-    let other_ftex =
-        ftex::dds_to_ftex(&flat_dds([30, 200, 30, 255]), ftex::ColorSpace::Srgb).unwrap();
     sandbox.write("co Kits/Kit Textures/u0XXXp1.ftex", &main_ftex);
     sandbox.write("co Kits/Kit Textures/u0XXXp1_back.ftex", &back_ftex);
-    sandbox.write("co Kits/Kit Textures/u0XXXp2.dds", b"p2 main");
-    sandbox.write("co Kits/Kit Textures/u0XXXp2.ftex", &other_ftex);
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "co Kits", "EDIT");
-    // `u0XXXp2.ftex`, second to `u0XXXp2.dds`'s output name, is unmigrated.
-    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     for (output, input) in [
         ("Kits/p1/kit.dds", &main_ftex),
         ("Kits/p1/kit_back.dds", &back_ftex),
@@ -724,19 +727,34 @@ fn ftex_kit_textures_are_converted_to_the_dds_they_hold() {
             "{output}"
         );
     }
-    assert_eq!(
-        fs::read(sandbox.path("co Full Kits/Kits/p2/kit.dds")).unwrap(),
-        b"p2 main"
+}
+
+// EU-KIT-18
+#[test]
+fn an_ftex_second_to_a_dds_of_its_stem_is_unmigrated_content() {
+    let sandbox = Sandbox::new("kit_ftex_second");
+    sandbox.copy_fixture(
+        &kit_config("2nd"),
+        "co Kits/Kit Configs/XXX_DEF_2nd_realUni.bin",
     );
+    let other_ftex =
+        ftex::dds_to_ftex(&flat_dds([30, 200, 30, 255]), ftex::ColorSpace::Srgb).unwrap();
+    sandbox.write("co Kits/Kit Textures/u0XXXp2.dds", b"p2 main");
+    sandbox.write("co Kits/Kit Textures/u0XXXp2.ftex", &other_ftex);
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
     assert!(
         run.stdout()
             .contains("unmigrated_content at Kit Textures/u0XXXp2.ftex"),
         "{}",
         run.stdout()
     );
+    sandbox.assert_nothing_written("co Full Kits", &run.stdout());
 }
 
-// EU-KIT-15
+// EU-KIT-18
 #[test]
 fn a_dds_wins_its_name_over_an_ftex_whatever_the_input_order() {
     let sandbox = Sandbox::new("kit_ftex_loses");
@@ -745,7 +763,7 @@ fn a_dds_wins_its_name_over_an_ftex_whatever_the_input_order() {
         "co Kits/Kit Configs/XXX_DEF_1st_realUni.bin",
     );
     // `u0XXXp1.FTEX` sorts before `u0XXXp1.dds` byte-wise; the DDS still
-    // takes the output name.
+    // takes the output name, so the FTEX is the one reported.
     let ftex = ftex::dds_to_ftex(&flat_dds([9, 9, 9, 255]), ftex::ColorSpace::Srgb).unwrap();
     sandbox.write("co Kits/Kit Textures/u0XXXp1.FTEX", &ftex);
     sandbox.write("co Kits/Kit Textures/u0XXXp1.dds", b"p1 main");
@@ -753,14 +771,11 @@ fn a_dds_wins_its_name_over_an_ftex_whatever_the_input_order() {
 
     let run = upgrade(&sandbox, "co Kits", "EDIT");
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
-    assert_eq!(
-        fs::read(sandbox.path("co Full Kits/Kits/p1/kit.dds")).unwrap(),
-        b"p1 main"
-    );
     assert!(
         run.stdout()
             .contains("unmigrated_content at Kit Textures/u0XXXp1.FTEX"),
         "{}",
         run.stdout()
     );
+    sandbox.assert_nothing_written("co Full Kits", &run.stdout());
 }

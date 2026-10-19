@@ -20,23 +20,18 @@ fn upgrade_loose(sandbox: &Sandbox, input: &str) -> crate::common::Run {
 #[test]
 fn the_ids_position_in_the_block_pairs_the_wearer() {
     let sandbox = Sandbox::new("loose_ids");
-    // /a/'s old block is 126 to 150, so 0128 is slot 03 and 0130 slot 05;
-    // 0149 is a spare position and 0155 past the block.
+    // /a/'s old block is 126 to 150, so 0128 is slot 03 and 0130 slot 05.
     sandbox.write("a Spring/a Note.txt", b"Team: /a/\r\n");
     face(&sandbox, "a Spring/Faces/XXX03 - Ann");
     boots(&sandbox, "a Spring/Boots/k0128 - Rex");
     boots(&sandbox, "a Spring/Boots/k0130");
-    sandbox.write("a Spring/Boots/k0149/boots.fmdl", b"spare");
-    sandbox.write("a Spring/Boots/k0155/boots.fmdl", b"past");
 
     let run = upgrade_loose(&sandbox, "a Spring");
-    assert_eq!(run.exit_code(), 1);
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     let stdout = run.stdout();
     for line in [
         "- a Spring: Info wearer_assumed at Boots/k0128 - Rex (id=0128, slot=03)\n",
         "- a Spring: Info wearer_assumed at Boots/k0130 (id=0130, slot=05)\n",
-        "- a Spring: Error unmigrated_content at Boots/k0149\n",
-        "- a Spring: Error unmigrated_content at Boots/k0155\n",
     ] {
         assert!(stdout.contains(line), "{line:?} not in:\n{stdout}");
     }
@@ -75,11 +70,29 @@ fn the_ids_position_in_the_block_pairs_the_wearer() {
     entries.sort();
     assert_eq!(entries, ["03 - Ann", "05"]);
     assert!(!sandbox.path(&format!("{out}/Boots")).exists());
-    for entry in sandbox.listing(out) {
-        let path = sandbox.path(&format!("{out}/{entry}"));
-        if path.is_file() {
-            let bytes = fs::read(&path).unwrap();
-            assert!(bytes != b"spare" && bytes != b"past", "{entry}");
-        }
+}
+
+// EU-LOOSE-02
+#[test]
+fn the_ids_naming_no_player_are_unmigrated_content() {
+    let sandbox = Sandbox::new("loose_ids_past");
+    // EU-LOOSE-01's export, plus a boots folder at a spare position and one
+    // past the block.
+    sandbox.write("a Spring/a Note.txt", b"Team: /a/\r\n");
+    face(&sandbox, "a Spring/Faces/XXX03 - Ann");
+    boots(&sandbox, "a Spring/Boots/k0128 - Rex");
+    boots(&sandbox, "a Spring/Boots/k0130");
+    sandbox.write("a Spring/Boots/k0149/boots.fmdl", b"spare");
+    sandbox.write("a Spring/Boots/k0155/boots.fmdl", b"past");
+
+    let run = upgrade_loose(&sandbox, "a Spring");
+    assert_eq!(run.exit_code(), 1);
+    let stdout = run.stdout();
+    for line in [
+        "- a Spring: Error unmigrated_content at Boots/k0149\n",
+        "- a Spring: Error unmigrated_content at Boots/k0155\n",
+    ] {
+        assert!(stdout.contains(line), "{line:?} not in:\n{stdout}");
     }
+    sandbox.assert_nothing_written("a Full Spring", &stdout);
 }

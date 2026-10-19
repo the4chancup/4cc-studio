@@ -16,7 +16,7 @@ use studio_core::{CliError, Disposition, Message, Scope, ToolContext};
 use vtree::ScopePath;
 
 use crate::carried::under;
-use crate::cli::{ERRORS, UpgradeModelsArgs};
+use crate::cli::{CLEAN, ERRORS, UpgradeModelsArgs};
 use crate::face_xml::{face_xml_rewrites, kept_common_files};
 use crate::kit_magic::{drop_collisions, respell_outputs};
 use crate::materials::material_references;
@@ -27,7 +27,8 @@ use crate::model_names::rename_models;
 use crate::players::{ItemKind, clean_folder_name, parse_item_name, path_scope, slot_of};
 use crate::source::{self, OldExport};
 use crate::upgrade::{
-    Identity, RunEvents, aborted, invalid, output_issues, resolve_input, verdict, write_output_file,
+    Identity, RunEvents, aborted, finish_staging, invalid, output_issues, resolve_input, verdict,
+    write_output_file,
 };
 
 /// Where an output folder of model-folder mode goes once dropped into a
@@ -332,6 +333,16 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
             output.display()
         )));
     }
+    // "CLI": the run writes into the staging folder beside the output and the
+    // verdict publishes it; an existing one is refused before anything is
+    // written (exit 3).
+    let staging = output.with_file_name(format!("{output_name}.upgrading"));
+    if staging.exists() {
+        return Err(aborted(anyhow!(
+            "{}: the staging folder already exists: an aborted run left it, or another run is writing it; remove it and run again",
+            staging.display()
+        )));
+    }
     // `-o`'s parent is made when missing, as `upgrade` makes its `-o`
     // directory; the default output's is the input's own folder, which
     // exists by definition.
@@ -346,10 +357,10 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
             ))
         })?;
     }
-    fs::create_dir(&output).map_err(|error| {
+    fs::create_dir(&staging).map_err(|error| {
         aborted(anyhow!(
-            "{}: cannot create the output folder: {error}",
-            output.display()
+            "{}: cannot create the staging folder: {error}",
+            staging.display()
         ))
     })?;
     events.started(OUTPUT, &output_name);
@@ -396,23 +407,23 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
             continue;
         }
         match export.read(from) {
-            Ok(bytes) => write_output_file(&output, published(to), &bytes)?,
+            Ok(bytes) => write_output_file(&staging, published(to), &bytes)?,
             Err(failure) => {
                 events.message(read_failed(INPUT, failure, Disposition::DropFile));
             }
         }
     }
     for (path, bytes) in &materials.written {
-        write_output_file(&output, published(path), bytes)?;
+        write_output_file(&staging, published(path), bytes)?;
     }
     for (path, bytes) in &face_xml {
-        write_output_file(&output, published(path), bytes)?;
+        write_output_file(&staging, published(path), bytes)?;
     }
     for link in &materials.links {
-        write_output_file(&output, published(link), b"")?;
+        write_output_file(&staging, published(link), b"")?;
     }
     for marker in &plan.markers {
-        write_output_file(&output, published(marker), b"")?;
+        write_output_file(&staging, published(marker), b"")?;
     }
 
     // The report names, per output folder, where it goes once dropped in.
@@ -443,7 +454,7 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
         PesVersion::Pes21
     };
     let issues = output_issues(
-        &output,
+        &staging,
         "models Midcup",
         version,
         |path| staged(path, &plan.folders),
@@ -463,9 +474,12 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
         events.message(issue_message(&issue, OUTPUT));
     }
 
-    // "CLI": the verdict line and the exit code, as `upgrade`'s.
+    // "CLI": the verdict line and the exit code, as `upgrade`'s, the verdict
+    // publishing the staging folder or removing it: only a clean run writes
+    // its output.
     let (code, exit_code) = verdict(events.worst(), events.dropped());
     events.message(tool_message(code, Scope::Run, Disposition::Keep, vec![]));
+    finish_staging(&staging, &output, exit_code == CLEAN)?;
     Ok(exit_code)
 }
 

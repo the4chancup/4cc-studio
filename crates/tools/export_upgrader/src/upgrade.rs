@@ -1,7 +1,7 @@
 //! `upgrade`: one old export read, resolved, written under its derived name
 //! and validated, in the order `plans/export_upgrader.md` "CLI" gives: the
 //! invocation checks first (nothing written by a refusal), then the source,
-//! the identity, the output folder, the migration report and the shared
+//! the identity, the staging folder, the migration report and the shared
 //! validation's findings on what was written.
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -198,28 +198,28 @@ pub(crate) fn invalid(error: anyhow::Error) -> CliError {
     CliError::new(INVALID, error)
 }
 
-/// A run aborted before anything was written, or while writing the output
-/// (`cli.rs`'s `ABORTED`: the incomplete output is left).
+/// A run aborted before anything was written, or while writing the staging
+/// folder (`cli.rs`'s `ABORTED`: the incomplete staging folder is left).
 pub(crate) fn aborted(error: anyhow::Error) -> CliError {
     CliError::new(ABORTED, error)
 }
 
-/// Writes `bytes` to `output`'s file at `relative`, parent folders created; a
-/// failure is the aborted code naming the file and saying the output is
-/// incomplete: it is left for the user to remove, since a second run refuses
-/// an existing output folder.
+/// Writes `bytes` to `staging`'s file at `relative`, parent folders created;
+/// a failure is the aborted code naming the file and saying the staged
+/// output is incomplete: it is left for the user to remove, since a second
+/// run refuses an existing staging folder.
 pub(crate) fn write_output_file(
-    output: &Path,
+    staging: &Path,
     relative: &str,
     bytes: &[u8],
 ) -> Result<(), CliError> {
-    let path = output.join(relative);
+    let path = staging.join(relative);
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).map_err(|error| {
             aborted(anyhow!(
                 "{}: cannot create the directory: {error}; the output {} is incomplete",
                 parent.display(),
-                output.display()
+                staging.display()
             ))
         })?;
     }
@@ -227,7 +227,7 @@ pub(crate) fn write_output_file(
         aborted(anyhow!(
             "{}: cannot write the file: {error}; the output {} is incomplete",
             path.display(),
-            output.display()
+            staging.display()
         ))
     })
 }
@@ -428,10 +428,20 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             .to_path_buf()
     });
     let output = base.join(&output_name);
+    // "CLI": the run writes into the staging folder beside the output and the
+    // verdict publishes it; an existing output or staging folder is refused
+    // before anything is written (exit 3).
+    let staging = base.join(format!("{output_name}.upgrading"));
     if output.exists() {
         return Err(aborted(anyhow!(
             "{}: the output folder already exists",
             output.display()
+        )));
+    }
+    if staging.exists() {
+        return Err(aborted(anyhow!(
+            "{}: the staging folder already exists: an aborted run left it, or another run is writing it; remove it and run again",
+            staging.display()
         )));
     }
     // `-o`'s directory is created when missing; the input's parent exists by
@@ -444,13 +454,10 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             ))
         })?;
     }
-
-    // "CLI": the output folder itself, refused when it cannot be created
-    // (exit 3).
-    fs::create_dir(&output).map_err(|error| {
+    fs::create_dir(&staging).map_err(|error| {
         aborted(anyhow!(
-            "{}: cannot create the output folder: {error}",
-            output.display()
+            "{}: cannot create the staging folder: {error}",
+            staging.display()
         ))
     })?;
     events.started(OUTPUT, &output_name);
@@ -487,17 +494,17 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             }
         }
         if !colors.is_empty() {
-            write_output_file(&output, "colors.txt", colors.as_bytes())?;
+            write_output_file(&staging, "colors.txt", colors.as_bytes())?;
         }
         if let Some(notes) = note::other_notes(note_text) {
-            write_output_file(&output, "notes.txt", format!("{notes}\n").as_bytes())?;
+            write_output_file(&staging, "notes.txt", format!("{notes}\n").as_bytes())?;
         }
     }
     // Step 9: the referee roster becomes the root `players.txt`; a
     // `refs.txt` that is not UTF-8 is unmigrated content and none is
     // written, the output validation then reporting the missing roster.
     match &refs_txt {
-        Some((_, Some(text))) => write_output_file(&output, "players.txt", text.as_bytes())?,
+        Some((_, Some(text))) => write_output_file(&staging, "players.txt", text.as_bytes())?,
         Some((path, None)) => {
             any_unmigrated = true;
             events.message(tool_message(
@@ -657,7 +664,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             continue;
         }
         match export.read(from) {
-            Ok(bytes) => write_output_file(&output, to, &bytes)?,
+            Ok(bytes) => write_output_file(&staging, to, &bytes)?,
             Err(failure) => {
                 // One file's failure does not cost the rest (DECISIONS
                 // 2026-10-18 "the first slice's review and the face-folder
@@ -667,22 +674,22 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         }
     }
     for (path, bytes) in &kits.written {
-        write_output_file(&output, path, bytes)?;
+        write_output_file(&staging, path, bytes)?;
     }
     for (path, bytes) in &materials.written {
-        write_output_file(&output, path, bytes)?;
+        write_output_file(&staging, path, bytes)?;
     }
     for (path, bytes) in &face_xml {
-        write_output_file(&output, path, bytes)?;
+        write_output_file(&staging, path, bytes)?;
     }
     for link in &materials.links {
-        write_output_file(&output, link, b"")?;
+        write_output_file(&staging, link, b"")?;
     }
     for marker in &plan.markers {
-        write_output_file(&output, marker, b"")?;
+        write_output_file(&staging, marker, b"")?;
     }
     for (path, bytes) in &settings.written {
-        write_output_file(&output, path, bytes)?;
+        write_output_file(&staging, path, bytes)?;
     }
 
     // Step 10: every input file no step consumed is unmigrated content — or
@@ -721,16 +728,62 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         events.unmigrated();
     }
 
-    // "Verification": the shared validation on what was written. Every issue
-    // goes through `events.message`, whose disposition sets `dropped`.
-    validate_output(&output, &output_name, version, &mut events);
+    // "Verification": the shared validation on what was written, read in the
+    // staging folder. Every issue goes through `events.message`, whose
+    // disposition sets `dropped`.
+    validate_output(&staging, &output_name, version, &mut events);
 
     // "CLI": the verdict line and the exit code: not clean when a finding
     // was an Error or dropped anything, the tool's own and the output
-    // validation's alike.
+    // validation's alike. The verdict publishes the staging folder or removes
+    // it: only a clean run writes its output.
     let (code, exit_code) = verdict(events.worst(), events.dropped());
     events.message(tool_message(code, Scope::Run, Disposition::Keep, vec![]));
+    finish_staging(&staging, &output, exit_code == CLEAN)?;
     Ok(exit_code)
+}
+
+/// The verdict applied to the staging folder "CLI" stages the output in
+/// (`plans/export_upgrader.md` "CLI"): a clean run's is renamed to the
+/// output, so no reader ever sees a half-written export under the output's
+/// name; an unclean run's is removed, nothing written. A failure aborts,
+/// the incomplete staging folder left for the user to remove, as a mid-run
+/// abort's is.
+pub(crate) fn finish_staging(staging: &Path, output: &Path, clean: bool) -> Result<(), CliError> {
+    if clean {
+        retry_while_locked(|| fs::rename(staging, output)).map_err(|error| {
+            aborted(anyhow!(
+                "{}: cannot rename it to the output {}: {error}",
+                staging.display(),
+                output.display()
+            ))
+        })
+    } else {
+        retry_while_locked(|| fs::remove_dir_all(staging)).map_err(|error| {
+            aborted(anyhow!(
+                "{}: cannot remove the staging folder: {error}",
+                staging.display()
+            ))
+        })
+    }
+}
+
+/// `step` retried while it fails with `PermissionDenied` — 20 attempts,
+/// 100 ms apart: on Windows a folder whose files were just written can stay
+/// open for a moment in another process (an antivirus scan holds it
+/// briefly), and a clean run should not be lost to a lock that clears by
+/// itself ("CLI" in `plans/export_upgrader.md`). Any other error kind
+/// returns at once.
+fn retry_while_locked(mut step: impl FnMut() -> io::Result<()>) -> io::Result<()> {
+    for attempt in 1..=20 {
+        match step() {
+            Err(error) if error.kind() == io::ErrorKind::PermissionDenied && attempt < 20 => {
+                std::thread::sleep(std::time::Duration::from_millis(100));
+            }
+            result => return result,
+        }
+    }
+    unreachable!("every attempt returns or retries")
 }
 
 /// The export's identity (step 6): `Referees` for a referee export, else the
@@ -778,22 +831,17 @@ fn lookup(name: TeamName, teams_list: &TeamsList) -> Option<Identity> {
 /// content outside the old format's layout that nothing compiled, dropped
 /// with a Warning rather than as `unmigrated_content` — a leftover the
 /// Studio export does not need never blocks a migration; the author is
-/// told. A file at the root other than the format's own (a team export's
-/// Note; a referee export's `refs.txt`/`refs list.txt` and `ref_marker.dds`,
-/// its Note being a leftover too: nothing compiled reads a referee's Note,
-/// step 9) is one, and so is a file under `Other/` (the folder the AET
+/// told. A file at the root is one: a referee export's unconsumed root file
+/// always (the referee plan consumes its own root files — `refs.txt`/`refs
+/// list.txt`, `ref_marker.dds` — before this fallback asks, and nothing
+/// compiled reads a referee's Note either, step 9); a team export's unless
+/// it is a Note. And so is a file under `Other/` (the folder the AET
 /// keeps for the author alone) or under a top-level folder `OLD_FOLDERS`
 /// does not name — save that `referees_at_root` stands a referee export's
 /// referee folders there (`referees.rs`), so theirs are inside the format.
 fn is_leftover(path: &str, referees: bool, referees_at_root: bool) -> bool {
     let Some((top, _)) = path.split_once('/') else {
-        return if referees {
-            !(path.eq_ignore_ascii_case("refs.txt")
-                || path.eq_ignore_ascii_case("refs list.txt")
-                || path.eq_ignore_ascii_case("ref_marker.dds"))
-        } else {
-            !note::is_note_name(path)
-        };
+        return referees || !note::is_note_name(path);
     };
     if source::OLD_FOLDERS
         .iter()
@@ -1056,7 +1104,13 @@ mod tests {
         let root = scratch("loose_model_case");
         fs::create_dir_all(root.join("co Spring/Boots/k0430 - Crocs")).unwrap();
         fs::write(root.join("co Spring/co Note.txt"), b"Team: /co/\r\n").unwrap();
-        fs::write(root.join("co Spring/Boots/k0430 - Crocs/x.MODEL"), b"model").unwrap();
+        // A boots-named model: a valid name under pre-Fox, so the run is
+        // clean and writes its output (an invalid one would leave none).
+        fs::write(
+            root.join("co Spring/Boots/k0430 - Crocs/boots.MODEL"),
+            b"model",
+        )
+        .unwrap();
         let (ctx, _events_rx) = test_ctx();
         let args = UpgradeArgs {
             export: root.join("co Spring"),
@@ -1069,7 +1123,8 @@ mod tests {
         // On the pre-Fox engine a worn boots folder stays shared; Fox
         // merges it into its one wearer's folder.
         assert!(
-            root.join("co Full Spring/Boots/Crocs/x.MODEL").is_file(),
+            root.join("co Full Spring/Boots/Crocs/boots.MODEL")
+                .is_file(),
             "{:?}",
             root
         );
@@ -1121,7 +1176,9 @@ mod tests {
                 .map(|m| m.code.code.as_ref().to_owned())
                 .collect::<Vec<_>>()
         );
-        assert!(!root.join("refs Spring upgraded/players.txt").exists());
+        // Not clean: nothing is written, the staging folder removed.
+        assert!(!root.join("refs Spring upgraded").exists());
+        assert!(!root.join("refs Spring upgraded.upgrading").exists());
     }
 
     #[test]
@@ -1206,5 +1263,56 @@ mod tests {
             aesthetics_export::Disposition::DropFolder
         );
         assert!(!issue.passed_through);
+    }
+
+    /// A file of `path` opened readable but not deletable (`FILE_SHARE_READ`
+    /// alone): Windows refuses a rename or a removal of its folder while the
+    /// handle lives — the lock a scanner's own open holds for a moment.
+    #[cfg(windows)]
+    fn held_without_delete(path: &Path) -> fs::File {
+        use std::os::windows::fs::OpenOptionsExt;
+        const FILE_SHARE_READ: u32 = 1;
+        fs::File::options()
+            .read(true)
+            .share_mode(FILE_SHARE_READ)
+            .open(path)
+            .unwrap()
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn finish_staging_retries_the_locked_folder_until_the_lock_clears() {
+        let root = scratch("staging_locked_once");
+        fs::create_dir_all(root.join("staging")).unwrap();
+        let held = root.join("staging/held.txt");
+        fs::write(&held, b"held").unwrap();
+        let lock = held_without_delete(&held);
+        let dropped = std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_millis(300));
+            drop(lock);
+        });
+
+        finish_staging(&root.join("staging"), &root.join("output"), true).unwrap();
+        assert_eq!(fs::read(root.join("output/held.txt")).unwrap(), b"held");
+        dropped.join().unwrap();
+    }
+
+    #[cfg(windows)]
+    #[test]
+    fn finish_staging_aborts_when_the_lock_stays() {
+        let root = scratch("staging_locked_always");
+        fs::create_dir_all(root.join("staging")).unwrap();
+        let held = root.join("staging/held.txt");
+        fs::write(&held, b"held").unwrap();
+        let lock = held_without_delete(&held);
+
+        let error = finish_staging(&root.join("staging"), &root.join("output"), true)
+            .expect_err("the lock stays: the retries run out");
+        assert_eq!(error.exit_code, ABORTED, "{error}");
+        let text = error.to_string();
+        assert!(text.contains("staging"), "{text}");
+        assert!(root.join("staging").exists());
+        assert_eq!(fs::read(root.join("staging/held.txt")).unwrap(), b"held");
+        drop(lock);
     }
 }

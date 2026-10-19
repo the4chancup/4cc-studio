@@ -137,7 +137,7 @@ fn each_input_folder_is_migrated_and_its_destination_reported() {
         ),
     );
     sandbox.write("new models/XXX15 - Snuffy/u0XXXp1.dds", b"p1");
-    sandbox.write("new models/k0430 - Crocs/gloveL_crocs.model", b"gloves");
+    sandbox.write("new models/g0430 - Crocs/gloveL_crocs.model", b"gloves");
     sandbox.write("new models/k0431/boots.model", b"boots");
     sandbox.write("new models/Snuffy/hair.model", b"hair");
     sandbox.write(
@@ -153,6 +153,7 @@ fn each_input_folder_is_migrated_and_its_destination_reported() {
     sandbox.write("new models/Common/u0XXXp0.dds", b"p0");
 
     let run = upgrade_models(&sandbox, "new models", &[]);
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert!(
         sandbox
             .path("new models upgraded/15 - Snuffy/kit1.dds")
@@ -210,15 +211,23 @@ fn each_input_folder_is_migrated_and_its_destination_reported() {
     for line in [
         "model_folder_destination at 15 - Snuffy (into=Players)",
         "model_folder_destination at Snuffy (into=Players)",
-        "model_folder_destination at Crocs (into=Boots)",
+        "model_folder_destination at Crocs (into=Gloves)",
         "model_folder_destination at k0431 (into=Boots)",
         "model_folder_destination at Common (into=root)",
     ] {
         assert!(stdout.contains(line), "{line}: {stdout}");
     }
-    // The pre-Fox engine's code: the output holding `.model` files is
-    // validated as PES 16 (under PES 21 this is `fmdl_name_invalid`).
+
+    // The same model in a *boots* folder is the run that proves the pre-Fox
+    // engine read: the `.model` in its output selects PES 16, whose code is
+    // `model_name_invalid` (under PES 21 the same content is
+    // `fmdl_name_invalid`); an unclean run writes nothing.
+    sandbox.write("bad models/k0430 - Crocs/gloveL_crocs.model", b"gloves");
+    let run = upgrade_models(&sandbox, "bad models", &[]);
+    let stdout = run.stdout();
+    assert_eq!(run.exit_code(), 1, "{stdout}");
     assert!(stdout.contains("model_name_invalid at Crocs"), "{stdout}");
+    sandbox.assert_nothing_written("bad models upgraded", &stdout);
 }
 
 // EU-MF-02
@@ -292,12 +301,7 @@ fn a_folder_holding_no_file_is_unmigrated_content() {
         assert!(stdout.contains(folder), "{folder}: {stdout}");
     }
     assert_eq!(unmigrated_found(&run), 1, "{stdout}");
-    assert!(!sandbox.path("new models upgraded/players").exists());
-    assert!(
-        sandbox
-            .path("new models upgraded/07 - A/face.fmdl")
-            .exists()
-    );
+    sandbox.assert_nothing_written("new models upgraded", &stdout);
 }
 
 // EU-MF-06

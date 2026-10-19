@@ -781,9 +781,19 @@ extract, reported `export_extract_failed` as the compiler does; nothing is writt
 `upgrade` input that is a file other than a `.zip` or `.7z`, an `upgrade-models` input that is
 not a folder, the flags above, a savefile that
 does not read as a save or lacks the team; nothing is written), **3** aborted: before anything
-is written (the output folder exists or cannot be created), or when a file of the output cannot
-be written, the error naming it and the incomplete output left for the user to remove, since a
-second run refuses an existing output folder. `--convert-to-gltf` is accepted once
+is written (the output folder, or its staging folder below, exists or cannot be created), or
+when a file of the output cannot be written, the error naming it and the incomplete staging
+folder left for the user to remove, since a second run refuses an existing one. Both commands
+write into a **staging folder**, the output's name with `.upgrading` appended, beside where the
+output goes; the shared validation reads it there, and the verdict then renames it to the
+output when the run is clean or removes it when not ("Verification": nothing is written). We
+stage rather than validate an in-memory listing because the validation reads files from disk,
+as the compile does, and a rename is one step: no reader ever sees a half-written output under
+the output's name. The rename and the removal retry for about two seconds while Windows
+refuses them with "access denied", then abort: a folder whose files were just written can stay
+open for a moment in another process (an antivirus scan), which the crate's test suite met in
+about one run in three, and a member whose long run ended clean should not lose it
+to a lock that clears by itself. `--convert-to-gltf` is accepted once
 step 13 is built (Phase 7); until then it is an unknown argument. The view over both commands
 is "GUI" below.
 
@@ -1125,12 +1135,12 @@ EU-KIT-16  GIVEN Kit Textures/714/ holding u0XXXp1.dds
            THEN u0XXXp1.dds is reported as unmigrated content, nothing is written, and the exit
                 code is 1
 EU-KIT-11  GIVEN the configs of EU-KIT-08 and a Note whose "Kit Colours:" section holds
-                "- 1st player: #D34A4F - #A23E4D" and "- 3rd player: 30 30 30 - 250 250 250",
-                followed by "Other Notes:" and "- 4th player: 1 2 3 - 4 5 6"
+                "- 1st player: #D34A4F - #A23E4D" and "- 2nd player: 30 30 30 - 250 250 250",
+                followed by "Other Notes:" and "- 3rd player: 1 2 3 - 4 5 6"
            WHEN the export is upgraded
-           THEN p1/colors.txt holds #D34A4F and #A23E4D, p3/colors.txt holds 30 30 30 and 250
-                250 250, p2 holds no colors.txt, no kit folder carries the line after "Other
-                Notes:", and the exit code is 0
+           THEN p1/colors.txt holds #D34A4F and #A23E4D, p2/colors.txt holds 30 30 30 and 250
+                250 250, no kit folder carries the line after "Other Notes:" (p3 holds no
+                colors.txt), and the exit code is 0
 EU-KIT-17  GIVEN the configs of EU-KIT-08 and a Note whose "Kit Colours:" section holds the
                 template's "- 2nd player: #RRGGBB - #RRGGBB"
            WHEN the export is upgraded
@@ -1421,7 +1431,7 @@ EU-REP-03  GIVEN an old export whose migration needs no manual attention
 
 ```
 EU-MF-01   GIVEN a folder holding a Fox face folder "XXX15 - Snuffy" whose file names and FMDL
-                path table name u0XXXp1, a pre-Fox boots folder "k0430 - Crocs" with
+                path table name u0XXXp1, a pre-Fox gloves folder "g0430 - Crocs" with
                 gloveL_crocs.model, the boots folder "k0431", a face folder "Snuffy" holding a
                 hair model and ingame_face.txt, and Common/
            WHEN upgrade-models runs
@@ -1479,7 +1489,9 @@ EU-CLI-07  GIVEN a corrupt .zip export
            WHEN upgrade runs
            THEN export_extract_failed is reported naming it, nothing is written, and the exit
                 code is 1
-EU-CLI-05  GIVEN an output folder that already exists, or one that cannot be created
+EU-CLI-05  GIVEN an output folder that already exists, or one that cannot be created, or the
+                output's staging folder (its name with .upgrading appended) left by an
+                aborted run
            WHEN upgrade or upgrade-models runs
            THEN it is refused naming the folder, with exit code 3, nothing is written, and an
                 existing folder is unchanged

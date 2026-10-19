@@ -128,11 +128,7 @@ fn a_missing_custom_model_is_reported() {
         "{}",
         run.stdout()
     );
-    let parsed = settings(&sandbox, "co Full Spring/Players/05 - A/settings.toml");
-    assert_eq!(
-        parsed.boots_id, None,
-        "the missing model's ID is not written"
-    );
+    sandbox.assert_nothing_written("co Full Spring", &run.stdout());
 }
 
 // EU-SET-04

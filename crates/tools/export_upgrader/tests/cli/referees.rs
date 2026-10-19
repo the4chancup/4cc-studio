@@ -116,6 +116,31 @@ fn refs_list_txt_and_root_referee_folders_migrate_the_same_way() {
     );
 }
 
+// EU-REF-10
+#[test]
+fn a_root_referee_folders_model_counts_toward_the_pre_fox_version() {
+    let sandbox = Sandbox::new("ref_root_model");
+    // A `.model` inside a root-layout referee folder is inside the old
+    // format: it reads the export as pre-Fox (`upgrade.rs`'s version
+    // check), under which `hair.xml` is an edit-hair file a model folder
+    // may not hold. Validated as PES 21 — the read the version check's
+    // `referees_at_root` exists to prevent — the same file means nothing.
+    sandbox.write("refs Winter/Refs list.txt", b"01 boston\n");
+    sandbox.write("refs Winter/boston/Face/face.model", b"face");
+    sandbox.write("refs Winter/boston/Face/face.mtl", &mtl(&[]));
+    sandbox.write("refs Winter/boston/Face/hair.xml", b"<config/>");
+
+    let run = upgrade(&sandbox, "refs Winter");
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert!(
+        run.stdout()
+            .contains("edithair_unsupported at Players/boston"),
+        "{}",
+        run.stdout()
+    );
+    sandbox.assert_nothing_written("refs Winter upgraded", &run.stdout());
+}
+
 /// A `refs Spring` export whose `refs.txt` lists the two real referee
 /// folders `arbiter` and `eiki`; the caller writes their files.
 fn referee_export(sandbox: &Sandbox) {
@@ -187,34 +212,20 @@ fn one_name_with_different_bytes_leaves_the_referee_folder_as_it_was() {
             run.stdout()
         );
     }
-    let output = |path: &str| fs::read(sandbox.path(&format!("refs Spring upgraded/{path}")));
-    assert_eq!(output("Players/arbiter/boots/x.dds").unwrap(), b"a");
-    assert_eq!(output("Players/arbiter/gloves/x.dds").unwrap(), b"b");
-    assert_eq!(
-        output("Players/arbiter/boots/boots.fmdl").unwrap(),
-        b"boots"
-    );
-    // Left as it was: the kit magic does not touch it either.
-    assert_eq!(
-        output("Players/arbiter/boots/u0XXXp1.dds").unwrap(),
-        b"kit",
-        "{:?}",
-        sandbox.listing("refs Spring upgraded/Players/arbiter")
-    );
+    sandbox.assert_nothing_written("refs Spring upgraded", &run.stdout());
 }
 
 // EU-REF-08
 #[test]
-fn a_subfolder_of_face_keeps_its_place_and_a_nested_face_leaves_the_folder() {
-    let sandbox = Sandbox::new("ref_nested");
+fn a_subfolder_of_face_keeps_its_place() {
+    let sandbox = Sandbox::new("ref_face_subfolder");
     referee_export(&sandbox);
     sandbox.write("refs Spring/Players/arbiter/face/kit/kit.dds", b"kit");
     sandbox.write("refs Spring/Players/arbiter/boots/boots.fmdl", b"boots");
-    sandbox.write("refs Spring/Players/eiki/face/face/face.fmdl", b"face");
-    sandbox.write("refs Spring/Players/eiki/boots/boots.fmdl", b"boots");
+    sandbox.write("refs Spring/Players/eiki/boots.fmdl", b"boots");
 
     let run = upgrade(&sandbox, "refs Spring");
-    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert_eq!(
         fs::read(sandbox.path("refs Spring upgraded/Players/arbiter/kit/kit.dds")).unwrap(),
         b"kit",
@@ -226,16 +237,25 @@ fn a_subfolder_of_face_keeps_its_place_and_a_nested_face_leaves_the_folder() {
             .path("refs Spring upgraded/Players/arbiter/face")
             .exists()
     );
-    assert_eq!(
-        fs::read(sandbox.path("refs Spring upgraded/Players/eiki/face/face/face.fmdl")).unwrap(),
-        b"face"
-    );
+}
+
+// EU-REF-11
+#[test]
+fn a_nested_face_leaves_the_referee_folder_unmigrated() {
+    let sandbox = Sandbox::new("ref_nested_face");
+    referee_export(&sandbox);
+    sandbox.write("refs Spring/Players/arbiter/boots.fmdl", b"boots");
+    sandbox.write("refs Spring/Players/eiki/face/face/face.fmdl", b"face");
+
+    let run = upgrade(&sandbox, "refs Spring");
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
     assert!(
         run.stdout()
             .contains("unmigrated_content at Players/eiki/face/face"),
         "{}",
         run.stdout()
     );
+    sandbox.assert_nothing_written("refs Spring upgraded", &run.stdout());
 }
 
 // EU-REF-09
@@ -259,13 +279,7 @@ fn a_common_model_no_face_xml_names_is_reported_and_left_out() {
         "{}",
         run.stdout()
     );
-    let listing = sandbox.listing("refs Spring upgraded");
-    assert!(
-        !listing
-            .iter()
-            .any(|path| path.ends_with("parts_body.model")),
-        "{listing:?}"
-    );
+    sandbox.assert_nothing_written("refs Spring upgraded", &run.stdout());
 }
 
 // EU-REF-06
