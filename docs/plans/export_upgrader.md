@@ -814,9 +814,11 @@ refined with the maintainer before `view/` is written:
   savefile without the team, exit 2) and an abort (an output folder that already exists, exit
   3) show as the CLI prints them.
 - **The report** is the view's product: step 10's findings as the console prints them, in the
-  log panel, and above it the **unmigrated content** list, one row per entry with its input
-  path, the finding's code and the entry's context (a Note line, a kit config's error), so the
-  author sees in one place what to move by hand. For `upgrade-models` the per-folder "where it
+  log panel, and above it the **left-behind** list, one row per `unmigrated_content` or
+  `leftover_dropped` entry with its input path, the finding's code and the entry's context (a
+  Note line, a kit config's error), so the author sees in one place what to fix in the input
+  (an unmigrated entry, which kept anything from being written) or what the output left out (a
+  leftover). For `upgrade-models` the per-folder "where it
   goes" lines are the log's, as the CLI prints them, and the list holds the folders it left
   out. The run ends with the exit code's meaning in words (clean; not clean, nothing written,
   see the list; refused; aborted). A clean run, the only one that writes output, also gets the
@@ -983,9 +985,8 @@ EU-ROOT-05 GIVEN a Note whose team and kit color lines are ASCII and whose "Play
 EU-ROOT-06 GIVEN a Note whose team colors hold an entry that reads as no color: "- 2nd: blue",
                 or an unfilled "- 2nd:", beside "- 1st: 048 146 082"
            WHEN the export is upgraded
-           THEN unmigrated_content is reported at the Note naming that line, the root
-                colors.txt holds the entries that read, in the Note's order, and the exit code
-                is 1
+           THEN unmigrated_content is reported at the Note naming that line, nothing is
+                written, and the exit code is 1
 ```
 
 **Player folders**
@@ -996,12 +997,14 @@ EU-PLY-01  GIVEN the face folder "XXX15 - Snuffy" holding a face model and portr
            WHEN the export is upgraded
            THEN Players/15 - Snuffy/ holds the face folder's files, portrait.dds among them, and
                 the others are Players/16 - Rex/ and Players/17 - Ann/
-EU-PLY-07  GIVEN the face folder "XXX15 - Snuffy" holding Snuffy_Portrait.dds, and the face
-                folder "XXX16 - Rex" holding portrait.dds and rex_portrait.dds
+EU-PLY-07  GIVEN the face folder "XXX15 - Snuffy" holding Snuffy_Portrait.dds
            WHEN the export is upgraded
-           THEN Players/15 - Snuffy/ holds portrait.dds with the first file's bytes; Rex's two
-                files are reported as unmigrated content and left in Players/16 - Rex/ as
-                named, and the exit code is 1
+           THEN Players/15 - Snuffy/ holds portrait.dds with that file's bytes, and the exit
+                code is 0
+EU-PLY-14  GIVEN the face folder "XXX16 - Rex" holding portrait.dds and rex_portrait.dds
+           WHEN the export is upgraded
+           THEN the two files are reported as unmigrated content, nothing is written, and the
+                exit code is 1
 EU-PLY-08  GIVEN a pre-Fox export whose face folder "XXX05 - Bob" ships a face.xml, and the
                 boots folder "k0430 - Crocs", worn by slot 05 alone
            WHEN the export is upgraded with a PES 16 save
@@ -1017,8 +1020,8 @@ EU-PLY-09  GIVEN slot 05's face folder and his alone-worn boots folder "k0430 - 
 EU-PLY-10  GIVEN the face folders "XXX23 - Bahsaka" and "XXX23 - Smug Redman", and the boots
                 folders "k0430 - A" and "k0430 - B", 430 worn by slot 23 alone
            WHEN the export is upgraded
-           THEN Players/23 - Bahsaka/ holds that face and "k0430 - A"'s boots merged in, the
-                other two folders are reported as unmigrated content, and the exit code is 1
+           THEN "XXX23 - Smug Redman" and "k0430 - B", the second of each by name, are reported
+                as unmigrated content, nothing is written, and the exit code is 1
 EU-PLY-02  GIVEN no face folder for slot 05, whose save record wears custom boots 430, and the
                 boots folder "k0430 - Crocs" no other player wears
            WHEN the export is upgraded
@@ -1040,8 +1043,8 @@ EU-PLY-05  GIVEN boots folders "k0430 - Crocs", worn by slots 03 and 05, and "k0
                 Mitts.gloves, 06's k0431.boots; and no player folder holds a copy of a model
 EU-PLY-06  GIVEN a gloves folder no save record wears
            WHEN the export is upgraded
-           THEN it is reported as unmigrated content naming the folder, the output does not hold
-                it, and the exit code is 1
+           THEN it is reported as unmigrated content naming the folder, nothing is written, and
+                the exit code is 1
 EU-PLY-11  GIVEN the face folder "XXX23 - Pinto" and a save whose /co/ roster has 22 players
            WHEN the export is upgraded
            THEN Players/23 - Pinto/ holds the face and no settings.toml, the empty slot is
@@ -1084,7 +1087,7 @@ EU-KIT-03  GIVEN the configs of EU-KIT-01 and a Note whose kit entries are "211 
 EU-KIT-04  GIVEN a Note with two gk: entries and ten player kit entries
            WHEN the export is upgraded
            THEN the second gk: entry and the tenth player entry are reported as unmigrated
-                content, no kit folder carries their colors, and the exit code is 1
+                content, nothing is written, and the exit code is 1
 EU-KIT-05  GIVEN kits 1 and 2 whose binary configs both name kit 1's back and name textures,
                 kit 2 shipping neither, and a kit 3 whose config names its own, which it ships
                 with different bytes
@@ -1106,31 +1109,38 @@ EU-KIT-08  GIVEN Kit Configs XXX_DEF_1st_realUni.bin, XXX_DEF_2nd_realUni.bin an
                 XXX_DEF_3rd_realUni.bin, a Note with three player kit entries, and Kit
                 Textures holding u0XXXp5.dds
            WHEN the export is upgraded
-           THEN u0XXXp5.dds is reported as unmigrated content, the output holds no Kits/p5/,
-                and the exit code is 1
+           THEN u0XXXp5.dds is reported as unmigrated content, nothing is written, and the exit
+                code is 1
 EU-KIT-09  GIVEN Kit Configs XXX_DEF_1st_realUni.bin and XXX_DEF_2nd_realUni.bin, and a Note
                 with three player kit entries
            WHEN the export is upgraded
            THEN Kits/p3/ holds the third entry's colors.txt alone, kit_without_config is
                 reported naming p3, and the exit code is 0
-EU-KIT-10  GIVEN Kit Configs/714/ holding XXX_DEF_1st_realUni.bin and XXX_DEF_2nd_realUni.bin,
-                and Kit Textures/714/ holding u0XXXp1.dds
+EU-KIT-10  GIVEN Kit Configs/714/ holding XXX_DEF_1st_realUni.bin and XXX_DEF_2nd_realUni.bin
            WHEN the export is upgraded
-           THEN Kits/p1/ and Kits/p2/ each hold a config.toml converted from those configs,
-                u0XXXp1.dds is reported as unmigrated content, and the exit code is 1
+           THEN Kits/p1/ and Kits/p2/ each hold a config.toml converted from those configs, and
+                the exit code is 0
+EU-KIT-16  GIVEN Kit Textures/714/ holding u0XXXp1.dds
+           WHEN the export is upgraded
+           THEN u0XXXp1.dds is reported as unmigrated content, nothing is written, and the exit
+                code is 1
 EU-KIT-11  GIVEN the configs of EU-KIT-08 and a Note whose "Kit Colours:" section holds
-                "- 1st player: #D34A4F - #A23E4D", the template's "- 2nd player: #RRGGBB -
-                #RRGGBB" and "- 3rd player: 30 30 30 - 250 250 250", followed by "Other Notes:"
-                and "- 4th player: 1 2 3 - 4 5 6"
+                "- 1st player: #D34A4F - #A23E4D" and "- 3rd player: 30 30 30 - 250 250 250",
+                followed by "Other Notes:" and "- 4th player: 1 2 3 - 4 5 6"
            WHEN the export is upgraded
            THEN p1/colors.txt holds #D34A4F and #A23E4D, p3/colors.txt holds 30 30 30 and 250
-                250 250, p2 holds no colors.txt, the 2nd player entry is reported, no kit folder
-                carries the line after "Other Notes:", and the exit code is 1
+                250 250, p2 holds no colors.txt, no kit folder carries the line after "Other
+                Notes:", and the exit code is 0
+EU-KIT-17  GIVEN the configs of EU-KIT-08 and a Note whose "Kit Colours:" section holds the
+                template's "- 2nd player: #RRGGBB - #RRGGBB"
+           WHEN the export is upgraded
+           THEN the 2nd player entry is reported as unmigrated content, nothing is written, and
+                the exit code is 1
 EU-KIT-12  GIVEN Kit Configs XXX_DEF_1st_realUni.bin, XXX_DEF_2nd_realUni.bin and
                 XXX_DEF_GK2nd_realUni.bin, and a Note with two player kit entries
            WHEN the export is upgraded
-           THEN Kits/p1/ and Kits/p2/ each hold a config.toml, XXX_DEF_GK2nd_realUni.bin is
-                reported as unmigrated content, and the exit code is 1
+           THEN XXX_DEF_GK2nd_realUni.bin is reported as unmigrated content, nothing is written,
+                and the exit code is 1
 EU-KIT-13  GIVEN Kit Configs XXX_DEF_1st_realUni.bin to XXX_DEF_4th_realUni.bin, and a Note
                 with three player kit entries
            WHEN the export is upgraded
@@ -1142,12 +1152,15 @@ EU-KIT-14  GIVEN player kits 1 and 2 holding byte-identical kit_back textures, a
            THEN p1 and p2 each keep kit_back.dds, the output holds no Kits/all/, and
                 kit_texture_hoisted is not reported
 EU-KIT-15  GIVEN Kit Textures holding u0XXXp1.ftex and u0XXXp1_back.ftex, the FTEX of two DDS
-                textures, beside the config XXX_DEF_1st_realUni.bin, and u0XXXp2.dds and
-                u0XXXp2.ftex beside XXX_DEF_2nd_realUni.bin
+                textures, beside the config XXX_DEF_1st_realUni.bin
            WHEN the export is upgraded
            THEN Kits/p1/ holds kit.dds and kit_back.dds, each the DDS its FTEX converts back
-                to, and Kits/p2/ holds kit.dds, u0XXXp2.dds's bytes, with u0XXXp2.ftex reported
-                as unmigrated content
+                to, and the exit code is 0
+EU-KIT-18  GIVEN Kit Textures holding u0XXXp2.dds and u0XXXp2.ftex beside
+                XXX_DEF_2nd_realUni.bin
+           WHEN the export is upgraded
+           THEN u0XXXp2.ftex is reported as unmigrated content, nothing is written, and the exit
+                code is 1
 ```
 
 **Portraits, logo, models and Common**
@@ -1236,8 +1249,8 @@ EU-MDL-14  GIVEN a pre-Fox face folder whose face.xml names
 EU-MDL-15  GIVEN Portraits/player_XXX07.dds, and slot 07's face folder holding a portrait.dds
                 of different bytes
            WHEN the export is upgraded
-           THEN the output holds Portraits/player_07.dds and slot 07's folder portrait.dds,
-                portrait_conflict is reported naming slot 07, and the exit code is 1
+           THEN portrait_conflict is reported naming slot 07, nothing is written, and the exit
+                code is 1
 EU-MDL-16  GIVEN a pre-Fox face folder whose .mtl names
                 model/character/uniform/common/XXX/u0XXXp0.dds, with Common/u0XXXp1.dds and
                 Common/u0XXXp2.dds
@@ -1245,6 +1258,16 @@ EU-MDL-16  GIVEN a pre-Fox face folder whose .mtl names
            THEN Common/ holds kit1.dds and kit2.dds, the .mtl names ./kitN.dds, the player
                 folder holds the link kitN.dds.common, and the shared validation finds the
                 link resolving
+EU-MDL-17  GIVEN a pre-Fox face folder whose apc.mtl holds a `\` after a <sampler/>, as G
+                Autumn 25's "72117 - Lisa" does
+           WHEN the export is upgraded
+           THEN the output's apc.mtl holds the same materials without the `\`, pes_model's
+                MaterialSet::read reading it, mtl_stray_text_dropped is reported naming it, and
+                the exit code is 0
+EU-MDL-18  GIVEN a pre-Fox face folder whose .mtl is not XML (an unclosed <material>)
+           WHEN the export is upgraded
+           THEN it is reported as unmigrated content with its parse error, nothing is written,
+                and the exit code is 1
 ```
 
 **Player settings**
@@ -1262,8 +1285,8 @@ EU-SET-02  GIVEN two players with face folders, one wearing stock boots 12 and o
                 also have gloves_id = 0
 EU-SET-03  GIVEN a player whose record wears custom boots 433, which no boots folder carries
            WHEN the export is upgraded
-           THEN it is reported naming the player and 433, his settings.toml has no boots_id, and
-                the exit code is 1
+           THEN it is reported naming the player and 433, nothing is written, and the exit code
+                is 1
 EU-SET-04  GIVEN one player whose folder's name part equals his save name, a face folder named
                 otherwise than its player's save name, and a save name carrying colour codes
            WHEN the export is upgraded
@@ -1308,8 +1331,8 @@ EU-REF-02  GIVEN a referee folder with face/, boots/, gloves/ and common/ subfol
 EU-REF-03  GIVEN a referee folder whose boots/ and gloves/ hold one file name with different
                 bytes
            WHEN the export is upgraded
-           THEN it is reported as unmigrated content naming both files, that folder is left as it
-                was, and the exit code is 1
+           THEN it is reported as unmigrated content naming both files, nothing is written, and
+                the exit code is 1
 EU-REF-04  GIVEN a team export's face folder and a referee folder each holding a subfolder alt/
                 with a face model
            WHEN each export is upgraded
@@ -1330,17 +1353,19 @@ EU-REF-07  GIVEN the old export folder "refs Summer" holding Players/ and no ref
            WHEN it is upgraded
            THEN it is reported as holding no refs.txt, nothing is written, and the exit code
                 is 1
-EU-REF-08  GIVEN a referee folder whose face/ holds kit/kit.dds, and another whose face/ holds
-                face/face.fmdl
+EU-REF-08  GIVEN a referee folder whose face/ holds kit/kit.dds
            WHEN the export is upgraded
-           THEN the first referee folder holds kit/kit.dds and no face/ subfolder; the second is
-                left as it was, face/face/ is reported as unmigrated content, and the exit code
-                is 1
+           THEN the referee folder holds kit/kit.dds and no face/ subfolder, and the exit code
+                is 0
+EU-REF-11  GIVEN a referee folder whose face/ holds face/face.fmdl
+           WHEN the export is upgraded
+           THEN face/face/ is reported as unmigrated content, nothing is written, and the exit
+                code is 1
 EU-REF-09  GIVEN a referee folder without a face.xml whose common/ holds parts_body.model, which
                 no reference of the referee names
            WHEN the export is upgraded
-           THEN parts_body.model is reported as unmigrated content, the referee folder does not
-                hold it, and the exit code is 1
+           THEN parts_body.model is reported as unmigrated content, nothing is written, and the
+                exit code is 1
 EU-REF-10  GIVEN an old referee export in the refs compiler's layout (as "refs for Winter 25
                 Day 2"): a root Refs list.txt and Common/, the referee folders at the root, each
                 with a Face/ and some with a Common/ of their own, no Players/
@@ -1354,14 +1379,16 @@ EU-REF-10  GIVEN an old referee export in the refs compiler's layout (as "refs f
 
 ```
 EU-LOOSE-01 GIVEN an old /a/ export (Red block 126 to 150) with the face folder "XXX03 - Ann",
-                 boots folders "k0128 - Rex", "k0130", "k0149" and "k0155", and no face folder
-                 for slot 05
+                 boots folders "k0128 - Rex" and "k0130", and no face folder for slot 05
             WHEN it is upgraded with --loose
             THEN k0128 is merged into Players/03 - Ann/, k0130 into Players/05/, which holds an
-                 ingame_face marker, k0149 and k0155 are reported as IDs naming no player and
-                 the output holds neither folder, the report
-                 states the pairings 0128 → 03 and 0130 → 05, 03 - Ann/settings.toml holds
-                 name = true alone, 05/ holds no settings.toml, and the exit code is 1
+                 ingame_face marker, the report states the pairings 0128 → 03 and 0130 → 05,
+                 03 - Ann/settings.toml holds name = true alone, 05/ holds no settings.toml, and
+                 the exit code is 0
+EU-LOOSE-02 GIVEN EU-LOOSE-01's export with the boots folders "k0149" and "k0155" too
+            WHEN it is upgraded with --loose
+            THEN k0149 and k0155 are reported as IDs naming no player, nothing is written, and
+                 the exit code is 1
 ```
 
 **Report**
@@ -1369,13 +1396,21 @@ EU-LOOSE-01 GIVEN an old /a/ export (Red block 126 to 150) with the face folder 
 ```
 EU-REP-01  GIVEN an old export whose Other/ folder holds two files
            WHEN it is upgraded
-           THEN the report names each as unmigrated content, the output is written without them,
-                and the exit code is 1
+           THEN leftover_dropped is reported for each, the output is written without them, the
+                report says the migration is clean, and the exit code is 0
 EU-REP-02  GIVEN Portraits/player_XXX24.dds
            WHEN the export is upgraded
-           THEN the output holds Portraits/player_24.dds, the shared validation's
-                portrait_name_invalid is reported for it, the report says the migration is not
-                clean, and the exit code is 1
+           THEN the shared validation's portrait_name_invalid is reported for player_24.dds,
+                the report says the migration is not clean, nothing is written, and the exit
+                code is 1
+EU-REP-04  GIVEN a Fox export (as the real KFG VGL26 one) whose boots folder "k0128 - Rex",
+                worn by slot 03, holds boots.fmdl, beside a root folder "FMDL Boots/k0128 - Rex/"
+                holding boots.model and a root readme.pdf
+           WHEN it is upgraded with --loose
+           THEN leftover_dropped is reported for FMDL Boots/k0128 - Rex/boots.model and for
+                readme.pdf, Players/03/ holds boots.fmdl (the migration is Fox's: the
+                leftover's .model decides nothing), the output holds no Boots/ folder, and the
+                exit code is 0
 EU-REP-03  GIVEN an old export whose migration needs no manual attention
            WHEN it is upgraded
            THEN the report holds no finding above Info and says the migration is clean, and the
@@ -1404,8 +1439,7 @@ EU-MF-02   GIVEN a player folder's .mtl referencing model/character/uniform/comm
 EU-MF-03   GIVEN a top-level folder holding no file directly in it (a players/ folder of model
                 folders, or a folder holding only Thumbs.db)
            WHEN upgrade-models runs
-           THEN it is reported as unmigrated content, the output does not hold it, and the exit
-                code is 1
+           THEN it is reported as unmigrated content, nothing is written, and the exit code is 1
 EU-MF-04   GIVEN a model folder whose FMDL names u0XXXg1
            WHEN upgrade-models runs
            THEN the migrated FMDL names u0XXXg1 as written
@@ -1484,18 +1518,20 @@ EU-GUI-01  GIVEN the selector at PES 21, an old export folder dropped on the Upg
 EU-GUI-02  GIVEN EU-GUI-01's export and save, the export's Other/ holding one file
            WHEN Upgrade is clicked
            THEN the output folder is the one `upgrade --savefile` writes (EU-ROOT's naming), the
-                log shows the report's lines as the console prints them, the unmigrated content
-                list holds one row per unmigrated_content finding with its path and context, the
-                last line gives the exit code's meaning, and the notice "Upgraded <name>" with its
-                Open output folder action is published
+                log shows the report's lines as the console prints them, the left-behind list
+                holds one row, the Other/ file's leftover_dropped with its path, the last line
+                gives the exit code's meaning (clean), the notice "Upgraded <name>" with its
+                Open output folder action is published, and the done line shows Move to
+                exports and compile; WHEN that is clicked THEN the output sits in the exports
+                folder and the Team compiler's view is active
 EU-GUI-03  GIVEN the first target filled as in EU-GUI-01, then a folder of old model folders,
                  one of them holding no model file, dropped on the Upgrade-model-folders target
            WHEN Upgrade is clicked
            THEN the first target was cleared by the drop and the savefile field and loose switch
-                disabled, the Output-into field read "<input> upgraded" beside the input, the output is
-                `upgrade-models`' (EU-MF) in that folder, the log shows, per output folder, where
-                it goes (EU-MF-01's lines), and the unmigrated content list holds one row for
-                the folder without models, with its path and unmigrated_content
+                disabled, the Output-into field read "<input> upgraded" beside the input, the run
+                is `upgrade-models`', the left-behind list holds one row for the folder without
+                models, with its path and unmigrated_content, nothing is written (EU-MF-03), no
+                notice is published and no Move to exports and compile is shown
 EU-GUI-04  GIVEN a referee export dropped on the first target
            WHEN the view is drawn
            THEN the savefile field and the loose switch are disabled and Upgrade is enabled;
