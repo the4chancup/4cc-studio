@@ -488,19 +488,12 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                 colors.push('\n');
                 continue;
             }
-            // A team-color entry in a kit entry's spelling — split at its
-            // one `-` into two parts that each read as one color — kept
-            // its first under the old compile: it is written, the second
-            // a leftover (step 6). Any other entry that does not read is
+            // A team-color entry in a kit entry's spelling kept its first
+            // color under the old compile: it is written, the second a
+            // leftover (step 6). Any other entry that does not read is
             // unmigrated content.
-            let parts: Vec<&str> = entry.colors.split('-').map(str::trim).collect();
-            let two_colors = parts.len() == 2
-                && parts.iter().all(|part| {
-                    let read = read_colors_txt(part.as_bytes(), 1);
-                    read.colors.len() == 1 && read.refused.is_empty()
-                });
-            if two_colors {
-                colors.push_str(parts[0]);
+            if let Some(first) = first_of_two_colors(&entry.colors) {
+                colors.push_str(first);
                 colors.push('\n');
                 events.message(tool_message(
                     Code::LeftoverDropped,
@@ -789,6 +782,20 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     events.message(tool_message(code, Scope::Run, Disposition::Keep, vec![]));
     finish_staging(&staging, &output, exit_code == CLEAN)?;
     Ok(exit_code)
+}
+
+/// The first color of a team-color entry spelled as a kit entry's (step 6):
+/// `colors` split at its one `-` into two parts that each read as exactly
+/// one color, the trimmed first part. `None` for any other shape, which the
+/// caller reports as unmigrated content.
+fn first_of_two_colors(colors: &str) -> Option<&str> {
+    let parts: Vec<&str> = colors.split('-').map(str::trim).collect();
+    let two_colors = parts.len() == 2
+        && parts.iter().all(|part| {
+            let read = read_colors_txt(part.as_bytes(), 1);
+            read.colors.len() == 1 && read.refused.is_empty()
+        });
+    two_colors.then_some(parts[0])
 }
 
 /// The verdict applied to the staging folder "CLI" stages the output in
@@ -1160,6 +1167,45 @@ mod tests {
             verdict(Some(Severity::Error), false),
             (Code::MigrationNotClean, ERRORS)
         );
+    }
+
+    #[test]
+    fn a_team_color_entry_in_a_kit_spelling_keeps_its_first_color() {
+        // Step 6: two parts that each read as one color; the first is kept.
+        assert_eq!(
+            first_of_two_colors("048 146 082 - 255 255 255"),
+            Some("048 146 082")
+        );
+        assert_eq!(first_of_two_colors("#0070DD - #FFF468"), Some("#0070DD"));
+    }
+
+    #[test]
+    fn an_entry_that_is_not_two_colors_keeps_nothing() {
+        // Three parts that each read as one color are no two-color entry,
+        // leading bullet or not.
+        assert_eq!(
+            first_of_two_colors("048 146 082 - 255 255 255 - 000 000 000"),
+            None
+        );
+        assert_eq!(
+            first_of_two_colors("- 1st: 048 146 082 - 255 255 255 - 000 000 000"),
+            None
+        );
+        // Nor is a part that reads as two colors (the second past the
+        // capacity), one refused outright, or one that is blank.
+        assert_eq!(
+            first_of_two_colors("048 146 082\n255 255 255 - #FFFFFF"),
+            None
+        );
+        assert_eq!(
+            first_of_two_colors("048 146 082 255 255 255 - #FFFFFF"),
+            None
+        );
+        assert_eq!(first_of_two_colors("048 146 082 -"), None);
+        // A part that is no color at all.
+        assert_eq!(first_of_two_colors("blue - 255 255 255"), None);
+        // And one color alone is no entry in a kit entry's spelling.
+        assert_eq!(first_of_two_colors("048 146 082"), None);
     }
 
     #[test]
