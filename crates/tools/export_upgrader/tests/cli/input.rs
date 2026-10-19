@@ -177,6 +177,16 @@ fn fpk_xml_files_are_left_out_of_the_output_and_the_report() {
     let input = sandbox.arg("new models");
     let run = sandbox.run(&["upgrade-models", &input]);
     let stdout = run.stdout();
+    // The models migrated: without them the exclusions below hold of an
+    // empty or missing output too.
+    for model in ["05 - Bob/face.fmdl", "Bob/boots.fmdl"] {
+        assert!(
+            sandbox
+                .path(&format!("new models upgraded/{model}"))
+                .is_file(),
+            "{model}: {stdout}"
+        );
+    }
     for entry in sandbox.listing("new models upgraded") {
         assert!(!entry.to_ascii_lowercase().ends_with(".fpk.xml"), "{entry}");
     }

@@ -240,6 +240,15 @@ mod tests {
     }
 
     #[test]
+    fn the_other_notes_header_is_read_in_any_letter_case() {
+        // A real Note spells it `Other notes:`.
+        assert_eq!(
+            other_notes("Team: /co/\nOther notes:\nkeep me\n"),
+            Some("keep me".to_owned())
+        );
+    }
+
+    #[test]
     fn other_notes_trims_blank_lines_around_the_section() {
         assert_eq!(
             other_notes("Other Notes:\n   \nkeep me\n\t\n"),

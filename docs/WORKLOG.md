@@ -1024,6 +1024,17 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open 2026-10-19 — the maintainer saw AMD driver timeouts during the BC7 encoding tests
+  (`dds_convert`'s `gpu.rs` tests, 16.x a). Logged so far: one Windows GPU reset (System log,
+  event 4101 "Display driver amduw23g ... stopped responding and has successfully recovered")
+  at 03:16:41, while 16.x's probe (`.tmp/16x/gpu_probe/`, edited 02:50-03:09) dispatched whole
+  mips in one submission, before `gpu.rs`'s bounded slabs (`SUBMISSION_PIXELS`, c68ef99 at
+  04:36); none logged since. Still to rule out: the tests' own load, each GPU test building its
+  own device and `cargo test` running them in parallel, several worktrees' gates at once, a
+  `dds_convert` mutation run's parallel jobs. To do: reproduce (the GPU tests looped, alone
+  and in parallel processes, the event log watched), then serialize the tests' device use or
+  lower the budget, whichever the measurement points at.
+
 - resolved 2026-10-17 (after Phase 5's close; `scripts/mutants.py` `plan_file_split`) — a split mutation run waits on the
   VPS for crates whose tests dominate: the halves are equal (`--shard 0/2` and `1/2`), but with
   half this PC's threads per test (8 vCPUs against 16) the VPS tests `aatf`, `save_editor` and

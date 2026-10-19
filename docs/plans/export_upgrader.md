@@ -171,9 +171,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    (the AET page's old `Kit Configs/<team id>/` layout, 953 configs on the maintainer's machine)
    is read as if its files sat at the folder's root, as Red flattens it (`export_check.py`); a
    name found at both places is one config when the bytes match and unmigrated content
-   otherwise, and so is any second config of one slot (`714_DEF_1st_realUni.bin` beside
-   `XXX_DEF_1st_realUni.bin`), the kit's config being the root's before a subfolder's, then the
-   first by name: two configs of one slot cannot both reach the game. A file deeper than one
+   otherwise, and the same holds for any second config of one slot (`714_DEF_1st_realUni.bin`
+   beside `XXX_DEF_1st_realUni.bin`): one config with the kit's when the bytes match,
+   unmigrated content otherwise, the kit's config being the root's before a subfolder's, then
+   the first by name: two configs of one slot cannot both reach the game. A file deeper than one
    subfolder, which Red's flatten left a folder and refused, and a config that does not decode
    (its error named in the report), are unmigrated content too. A Kit Textures file is read by
    position, as Red reads it: `u`, four characters, `p` or `g` with the kit's digit, then the
