@@ -5,7 +5,8 @@
 //! already decide, a line each: a boots or gloves folder of his worn ID
 //! claims the category, so its key is left out whatever the record holds; a
 //! stored 0 stays unset in a Full output but is written `0` in a Midcup one,
-//! where an unset key keeps the installed ID; and name writing is opt-in, so
+//! where an unset key keeps the installed ID, or under `fpc_on`, where an
+//! unset key gives the hide preset's ID; and name writing is opt-in, so
 //! the file gets `name = true` only when the folder-derived name equals the
 //! raw save name (a derived name cannot carry colour codes). A value no
 //! `settings.toml` can hold is left out and reported, not fatal. Loose mode
@@ -115,8 +116,10 @@ pub(crate) fn settings_files(
             ));
         }
         // `from_player` gives a stock ID (1 to 100) or `None`. A folder of
-        // the category decides it instead; else a stored 0 is written only
-        // in a Midcup output, where an unset key keeps the installed ID.
+        // the category decides it instead; else a stored 0 is written in a
+        // Midcup output, where an unset key keeps the installed ID, or
+        // under `fpc_on`, where an unset key gives the hide preset's
+        // blank-model ID (step 8).
         for (claimed, stored, field) in [
             (
                 folder.boots_folder,
@@ -131,7 +134,7 @@ pub(crate) fn settings_files(
         ] {
             if claimed {
                 *field = None;
-            } else if stored == 0 && !full {
+            } else if stored == 0 && (!full || folder.fpc_on) {
                 *field = Some(0);
             }
         }
@@ -227,6 +230,7 @@ mod tests {
             named: false,
             boots_folder: false,
             gloves_folder: false,
+            fpc_on: false,
         }
     }
 
@@ -267,6 +271,7 @@ mod tests {
                 named: true,
                 boots_folder: true,
                 gloves_folder: false,
+                fpc_on: false,
             },
         );
         let files = settings_files(&save, &roster, &folders, true);
@@ -406,6 +411,7 @@ mod tests {
                 named: true,
                 boots_folder: false,
                 gloves_folder: false,
+                fpc_on: false,
             },
         );
         folders.insert(5, plain("Players/05"));

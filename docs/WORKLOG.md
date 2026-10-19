@@ -939,7 +939,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   with it. → verify: the census rerun (the 6.14 classes the answers cover now clean or
   leftovers), and the 6.12c run over the exports each slice touches, D1-D3, D6, D7 and D9
   gone and D4's `.mtl` half refused
-  - [ ] 6.16a the upgrader: the leftover kinds of step 10 (files directly in `Faces/`,
+  - [x] 6.16a the upgrader: the leftover kinds of step 10 (files directly in `Faces/`,
     `Boots/`, `Gloves/`; a `Full` export's kit texture no kit row names, a Kit Textures
     subfolder; portraits Red's check refused; a team-color entry's second color; an item
     folder no save record names; second and later GK kits); a `Midcup`'s texture-only kit
@@ -974,8 +974,12 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
       innermost folder moved (`players.rs`, `carried.rs`, `kits.rs`, `referees.rs`,
       `model_folders.rs`, `upgrade.rs`, `tests/cli/`). Model-folder mode does not move a
       game-path folder: no real input is known, and one fails loudly (`file_type_disallowed`)
-    - [ ] 6.16a3 kits and the Note: EU-ROOT-07, EU-KIT-04, -08 (any export kind's
-      non-texture names), -12, -16, -19
+    - [x] 6.16a3 kits and the Note: EU-ROOT-07, EU-KIT-04, -08 (any export kind's
+      non-texture names), -12, -16, -19: Kit Textures leftovers, a `Midcup`'s texture-only
+      kit, `GK2nd`+ configs and second `gk:` entries as leftovers, a two-color team entry's
+      first kept (`kits.rs`, `upgrade.rs`, `tests/cli/{kits,roots}.rs`); with 6.16a2b (an
+      `fpc_on` player's other category's 0 written, Astra A1-1, `settings.rs`) and 6.16a2c
+      (slice 2's mutation survivors, `players.rs`)
   - [ ] 6.16b the compiler: in a `Midcup`,
     a kit folder without `config.toml` keeps the installed config and one with no texture
     keeps the installed textures, a `colors.txt`-only folder updating the colors alone (D2:

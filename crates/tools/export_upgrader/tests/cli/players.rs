@@ -780,6 +780,13 @@ fn modelless_item_folders_mark_their_wearers_fpc_on() {
             "{marker}"
         );
     }
+    // His gloves record stores 0 and no gloves folder decides the
+    // category: under `fpc_on` an unset `gloves_id` would give the hide
+    // preset's ID, so the 0 is written explicitly, a Full output included.
+    let text =
+        fs::read_to_string(sandbox.path(&format!("co Full Spring/Players/{slot04}/settings.toml")))
+            .unwrap();
+    assert!(text.contains("gloves_id = 0"), "{text}");
     let stdout = run.stdout();
     assert!(
         stdout.contains("- co Spring: Warning leftover_dropped at Boots/k0430 - EMPTY/boots.skl"),

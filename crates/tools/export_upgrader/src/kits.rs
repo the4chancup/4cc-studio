@@ -9,8 +9,9 @@
 //! folder under the generic `kit` name, the Note's kit entries give each
 //! kit its `colors.txt` and icon, a field naming another texture gives the
 //! kit a copy of it, and a texture every kit shares moves to `Kits/all/`.
-//! What cannot be placed is left for the run's fallback to report as
-//! unmigrated content.
+//! What never reached the game lands in `leftovers` and is reported
+//! `leftover_dropped`, the run clean; what cannot be placed is left for the
+//! run's fallback to report as unmigrated content.
 
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
@@ -45,10 +46,10 @@ pub(crate) struct KitFolders {
     pub(crate) findings: Vec<Message>,
 }
 
-/// The slot a kit config's file name carries: `???_DEF_<suffix>_realUni.bin`
-/// — any three characters, `_DEF_`, a kit-config entry suffix and
-/// `_realUni.bin`, the fixed parts in any letter case.
-fn config_slot(file_name: &str) -> Option<KitSlot> {
+/// The `<suffix>` a config name's `???_DEF_<suffix>_realUni.bin` shape
+/// carries — any three characters, `_DEF_`, the suffix and `_realUni.bin`,
+/// the fixed parts in any letter case.
+fn config_suffix(file_name: &str) -> Option<&str> {
     let body = file_name
         .char_indices()
         .nth(3)
@@ -61,7 +62,30 @@ fn config_slot(file_name: &str) -> Option<KitSlot> {
     if !tail.get(suffix_len..)?.eq_ignore_ascii_case("_realUni.bin") {
         return None;
     }
-    KitSlot::from_config_suffix(tail.get(..suffix_len)?)
+    tail.get(..suffix_len)
+}
+
+/// The slot a kit config's file name carries: `config_suffix`'s shape, the
+/// suffix a kit-config entry suffix (`1st` … `9th`, `GK1st`).
+fn config_slot(file_name: &str) -> Option<KitSlot> {
+    KitSlot::from_config_suffix(config_suffix(file_name)?)
+}
+
+/// Whether `file_name` is a config name for a goalkeeper past the first —
+/// `???_DEF_GK2nd_realUni.bin` … `GK9th`, in any letter case: a second or
+/// later goalkeeper kit has no Studio slot and is a leftover (step 10).
+fn gk_config_beyond_first(file_name: &str) -> bool {
+    let Some(suffix) = config_suffix(file_name) else {
+        return false;
+    };
+    suffix
+        .get(..2)
+        .is_some_and(|head| head.eq_ignore_ascii_case("GK"))
+        && suffix.get(2..).is_some_and(|ordinal| {
+            ["2nd", "3rd", "4th", "5th", "6th", "7th", "8th", "9th"]
+                .iter()
+                .any(|known| ordinal.eq_ignore_ascii_case(known))
+        })
 }
 
 /// The slot a kit texture's file name carries, its output name's tail and
@@ -211,6 +235,12 @@ pub(crate) fn kit_folders(
             continue;
         }
         let Some(slot) = config_slot(name) else {
+            // A config for a goalkeeper past the first is a leftover
+            // (step 10); every other name `config_slot` refuses is left
+            // for the fallback, as today.
+            if gk_config_beyond_first(name) {
+                folders.leftovers.insert(file.clone());
+            }
             continue;
         };
         match rest.matches('/').count() {
@@ -281,11 +311,12 @@ pub(crate) fn kit_folders(
 
     // The Note's kit entries (step 5): `gk:` in any letter case is the
     // goalkeeper's, the first giving g1; the others give p1 … p9 in Note
-    // order. A second `gk:` entry or a player entry past the ninth has no
-    // slot and is unmigrated content, and so is an entry whose colors do not
-    // read — its slot still counts as given, so the later entries keep
-    // theirs: dropping it would shift every kit after it down a slot, onto
-    // another kit's config.
+    // order. A second `gk:` entry has no slot and is a leftover (step 10:
+    // no version the cup plays shows a second goalkeeper kit); a player
+    // entry past the ninth has none either and stays unmigrated content,
+    // and so is an entry whose colors do not read — its slot still counts
+    // as given, so the later entries keep theirs: dropping it would shift
+    // every kit after it down a slot, onto another kit's config.
     let mut entry_slots: Vec<KitSlot> = Vec::new();
     if let Some((note_path, note_text)) = note {
         let mut players_taken = 0usize;
@@ -301,9 +332,9 @@ pub(crate) fn kit_folders(
             KitSlot::P8,
             KitSlot::P9,
         ];
-        let unmigrated = |line: &str| {
+        let entry_dropped = |code: Code, line: &str| {
             tool_message(
-                Code::UnmigratedContent,
+                code,
                 Scope::File {
                     export_id: INPUT,
                     path: path_scope(note_path),
@@ -313,7 +344,8 @@ pub(crate) fn kit_folders(
             )
         };
         for entry in note::color_entries(note_text).kits {
-            let slot = if entry.line.to_ascii_lowercase().contains("gk:") {
+            let goalkeeper = entry.line.to_ascii_lowercase().contains("gk:");
+            let slot = if goalkeeper {
                 if gk_taken {
                     None
                 } else {
@@ -328,7 +360,14 @@ pub(crate) fn kit_folders(
                 failures
                     .entry(note_path.to_owned())
                     .or_default()
-                    .push(unmigrated(&entry.line));
+                    .push(entry_dropped(
+                        if goalkeeper {
+                            Code::LeftoverDropped
+                        } else {
+                            Code::UnmigratedContent
+                        },
+                        &entry.line,
+                    ));
                 continue;
             };
             entry_slots.push(slot);
@@ -349,7 +388,7 @@ pub(crate) fn kit_folders(
                     failures
                         .entry(note_path.to_owned())
                         .or_default()
-                        .push(unmigrated(&entry.line));
+                        .push(entry_dropped(Code::UnmigratedContent, &entry.line));
                 }
             }
         }
@@ -391,8 +430,30 @@ pub(crate) fn kit_folders(
         }
     }
 
-    // `Kit Textures`, a file directly in the folder alone (a subfolder's is
-    // not consumed): it lands only in a slot a config or a Note entry gives.
+    // `Kit Textures`, a file directly in the folder alone. Step 10's
+    // leftovers, which neither pass below consumes: a file below a
+    // subfolder, a name `texture_slot` does not read, and — a `Full`
+    // export's alone — a texture naming a slot no config and no Note
+    // entry gives. A `Midcup` export's such texture is that kit's texture
+    // update and migrates, the folder holding no `config.toml`.
+    let slots: BTreeSet<KitSlot> = decided
+        .keys()
+        .copied()
+        .chain(entry_slots.iter().copied())
+        .collect();
+    for file in files {
+        let Some((top, name)) = file.split_once('/') else {
+            continue;
+        };
+        if !top.eq_ignore_ascii_case("kit textures") {
+            continue;
+        }
+        if name.contains('/')
+            || texture_slot(name).is_none_or(|(slot, _, _)| full && !slots.contains(&slot))
+        {
+            folders.leftovers.insert(file.clone());
+        }
+    }
     // Of two landing on one folded name a `.dds` wins over an `.ftex`
     // whatever the input order (step 5, `u0XXXp1.dds` before `u0XXXp1.ftex`,
     // the DDS kept); between two of one kind the first by input path wins.
@@ -400,24 +461,19 @@ pub(crate) fn kit_folders(
     // loses and stays unconsumed for the fallback to report. An `.ftex`
     // is converted to the DDS it holds, one that does not convert reported
     // as a config that does not decode is.
-    let slots: BTreeSet<KitSlot> = decided
-        .keys()
-        .copied()
-        .chain(entry_slots.iter().copied())
-        .collect();
     let mut taken: BTreeSet<String> = BTreeSet::new();
     for ftex_pass in [false, true] {
         for file in files {
             let Some((top, name)) = file.split_once('/') else {
                 continue;
             };
-            if !top.eq_ignore_ascii_case("kit textures") || name.contains('/') {
+            if !top.eq_ignore_ascii_case("kit textures") || folders.leftovers.contains(file) {
                 continue;
             }
             let Some((slot, rest, ftex)) = texture_slot(name) else {
                 continue;
             };
-            if ftex != ftex_pass || !slots.contains(&slot) {
+            if ftex != ftex_pass {
                 continue;
             }
             let output = format!("Kits/{}/kit{rest}", slot.as_str());
@@ -711,6 +767,38 @@ mod tests {
     }
 
     #[test]
+    fn a_goalkeeper_config_past_the_first_is_a_leftover() {
+        // `GK2nd` … `GK9th`, letter case aside, are the config names a
+        // second or later goalkeeper kit carries (step 10); `GK1st` reads
+        // a slot, `GK10th` and any other refused name stay for the
+        // fallback.
+        for (name, expected) in [
+            ("XXX_DEF_GK2nd_realUni.bin", true),
+            ("714_def_gk9th_realuni.bin", true),
+            ("XXX_DEF_GK1st_realUni.bin", false),
+            ("XXX_DEF_GK10th_realUni.bin", false),
+            ("XXX_DEF_1st_realUni.bin", false),
+            ("XXX_DEF_GK2nd.bin", false),
+        ] {
+            assert_eq!(gk_config_beyond_first(name), expected, "{name}");
+        }
+        let plan = plan(
+            &["Kit Configs/XXX_DEF_GK2nd_realUni.bin"],
+            &[("Kit Configs/XXX_DEF_GK2nd_realUni.bin", CONFIG_GK1ST)],
+        );
+        assert!(
+            plan.leftovers
+                .contains("Kit Configs/XXX_DEF_GK2nd_realUni.bin")
+        );
+        assert!(
+            !plan
+                .consumed
+                .contains("Kit Configs/XXX_DEF_GK2nd_realUni.bin")
+        );
+        assert!(plan.written.is_empty());
+    }
+
+    #[test]
     fn the_texture_name_grammar() {
         for (name, expected) in [
             ("u0XXXp1.dds", Some((KitSlot::P1, ".dds", false))),
@@ -955,8 +1043,10 @@ mod tests {
     }
 
     #[test]
-    fn a_texture_for_a_slot_without_a_config_is_not_consumed() {
-        let plan = plan(
+    fn a_full_exports_texture_of_an_ungiven_slot_is_a_leftover() {
+        // A `Full` export's (`full` true): the slot no config and no Note
+        // entry gives is a kit row that never named it (step 10).
+        let plan = plan_full(
             &[
                 "Kit Configs/XXX_DEF_1st_realUni.bin",
                 "Kit Configs/XXX_DEF_2nd_realUni.bin",
@@ -967,13 +1057,81 @@ mod tests {
                 ("Kit Configs/XXX_DEF_2nd_realUni.bin", CONFIG_2ND),
                 ("Kit Textures/u0XXXp5.dds", b"tex"),
             ],
+            true,
         );
+        assert!(plan.leftovers.contains("Kit Textures/u0XXXp5.dds"));
         assert!(!plan.consumed.contains("Kit Textures/u0XXXp5.dds"));
         assert!(plan.copies.is_empty());
     }
 
     #[test]
-    fn a_texture_inside_a_subfolder_is_not_consumed() {
+    fn a_midcup_texture_of_an_ungiven_slot_is_its_kits_update() {
+        // A `Midcup` export's (`full` false) migrates: the slot's kit
+        // folder holds its textures and no `config.toml`.
+        let plan = plan(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Textures/u0XXXp3.dds",
+                "Kit Textures/u0XXXp3_back.dds",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
+                ("Kit Textures/u0XXXp3.dds", b"main"),
+                ("Kit Textures/u0XXXp3_back.dds", b"back"),
+            ],
+        );
+        for (input, output) in [
+            ("Kit Textures/u0XXXp3.dds", "Kits/p3/kit.dds"),
+            ("Kit Textures/u0XXXp3_back.dds", "Kits/p3/kit_back.dds"),
+        ] {
+            assert!(
+                plan.copies.contains(&(input.to_owned(), output.to_owned())),
+                "{output}: {:?}",
+                plan.copies
+            );
+            assert!(plan.consumed.contains(input), "{input}");
+        }
+        assert!(
+            !plan
+                .written
+                .iter()
+                .any(|(output, _)| output.starts_with("Kits/p3/")),
+            "no config.toml or colors.txt for p3: {:?}",
+            plan.written
+        );
+    }
+
+    #[test]
+    fn a_name_texture_slot_does_not_read_is_a_leftover() {
+        // In any export kind (step 10): a name of no kit texture of a
+        // given slot — no `u`-led stem, a rest not `_`-led, a `g2`/`p0`
+        // slot, a non-DDS/FTEX extension.
+        let plan = plan(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Textures/back.dds",
+                "Kit Textures/u0XXXp2 - Copy.dds",
+                "Kit Textures/u0XXXg2.dds",
+                "Kit Textures/u0XXXp0.dds",
+                "Kit Textures/u0XXXp3.png",
+            ],
+            &[("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST)],
+        );
+        for file in [
+            "Kit Textures/back.dds",
+            "Kit Textures/u0XXXp2 - Copy.dds",
+            "Kit Textures/u0XXXg2.dds",
+            "Kit Textures/u0XXXp0.dds",
+            "Kit Textures/u0XXXp3.png",
+        ] {
+            assert!(plan.leftovers.contains(file), "{file}");
+            assert!(!plan.consumed.contains(file), "{file}");
+        }
+        assert!(plan.copies.is_empty());
+    }
+
+    #[test]
+    fn a_texture_inside_a_subfolder_is_a_leftover() {
         let plan = plan(
             &[
                 "Kit Configs/XXX_DEF_1st_realUni.bin",
@@ -984,6 +1142,7 @@ mod tests {
                 ("Kit Textures/714/u0XXXp1.dds", b"tex"),
             ],
         );
+        assert!(plan.leftovers.contains("Kit Textures/714/u0XXXp1.dds"));
         assert!(!plan.consumed.contains("Kit Textures/714/u0XXXp1.dds"));
         assert!(plan.copies.is_empty());
     }

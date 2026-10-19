@@ -63,6 +63,9 @@ pub(crate) struct OutputFolder {
     pub(crate) boots_folder: bool,
     /// The same for a gloves folder.
     pub(crate) gloves_folder: bool,
+    /// A modelless boots or gloves folder of his worn ID marked him `fpc_on`
+    /// (step 3): step 8 keeps an unclaimed category's stored 0 explicit.
+    pub(crate) fpc_on: bool,
 }
 
 /// The slot a face folder's name gives: characters 4-5, after any three
@@ -135,6 +138,11 @@ impl PlayerFolder {
             links: BTreeSet::new(),
         }
     }
+}
+
+/// A file's own name: the part after its last `/`.
+fn file_name(path: &str) -> &str {
+    path.rsplit('/').next().unwrap_or(path)
 }
 
 /// A path of the listing as a `ScopePath`: every listed path was checked
@@ -371,6 +379,7 @@ pub(crate) fn player_folders(
                 named: name.is_some(),
                 boots_folder: player.boots_folder,
                 gloves_folder: player.gloves_folder,
+                fpc_on: player.fpc_on,
             },
         );
     }
@@ -434,12 +443,9 @@ fn face_folders(
         let folder_name = folder.rsplit('/').next().unwrap_or(folder.as_str());
         // Strays first (step 10): nothing after — not the refusals, not the
         // game-path check, not the file loop — sees them.
-        let (strays, folder_files): (Vec<&String>, Vec<&String>) =
-            folder_files.into_iter().partition(|file| {
-                let relative = &file[folder.len() + 1..];
-                let name = relative.rsplit('/').next().unwrap_or(relative);
-                is_stray(name, None)
-            });
+        let (strays, folder_files): (Vec<&String>, Vec<&String>) = folder_files
+            .into_iter()
+            .partition(|file| is_stray(file_name(file), None));
         plan.leftovers
             .extend(strays.iter().map(|file| (*file).clone()));
         let refused = |plan: &mut PlayerFolders| {
@@ -616,12 +622,9 @@ fn item_folders(
         // Strays first (step 10): nothing after — not the refusals, not the
         // shared-folder comparison, the merge or the modelless check —
         // sees them.
-        let (strays, folder_files): (Vec<&String>, Vec<&String>) =
-            folder_files.into_iter().partition(|file| {
-                let relative = &file[folder.len() + 1..];
-                let name = relative.rsplit('/').next().unwrap_or(relative);
-                is_stray(name, Some((kind, engine)))
-            });
+        let (strays, folder_files): (Vec<&String>, Vec<&String>) = folder_files
+            .into_iter()
+            .partition(|file| is_stray(file_name(file), Some((kind, engine))));
         plan.leftovers
             .extend(strays.iter().map(|file| (*file).clone()));
         let refused = |plan: &mut PlayerFolders| {
@@ -694,11 +697,9 @@ fn item_folders(
         // the `fpc_on` marker and his category is accounted for, the
         // folder's files are leftovers, and its name part names nobody
         // (step 3).
-        let modelless = !folder_files.iter().any(|file| {
-            let relative = &file[folder.len() + 1..];
-            let name = relative.rsplit('/').next().unwrap_or(relative);
-            matches!(classify(name), FileKind::Model(_))
-        });
+        let modelless = !folder_files
+            .iter()
+            .any(|file| matches!(classify(file_name(file)), FileKind::Model(_)));
         if modelless {
             for &nn in &wearers {
                 let player = players.entry(nn).or_insert_with(PlayerFolder::new);
@@ -2166,6 +2167,34 @@ mod tests {
                 "Players/01/common/character0/model/character/face/real/71401/face.xml",
             ),
             ("Faces/71401/face.mtl", "Players/01/face.mtl"),
+        ] {
+            assert!(
+                plan.copies.contains(&(from.to_owned(), to.to_owned())),
+                "{to}: {:?}",
+                plan.copies
+            );
+        }
+    }
+
+    #[test]
+    fn two_innermost_game_path_folders_keep_their_paths() {
+        // Two different folders below `real/` are no game's own path to a
+        // face: `game_path` asks every file for the same innermost folder,
+        // so the files keep the paths they sit at.
+        let files = files(&[
+            "Faces/71401/common/character0/model/character/face/real/71401/face.xml",
+            "Faces/71401/common/character0/model/character/face/real/71402/face.mtl",
+        ]);
+        let plan = plan_folders(&files);
+        for (from, to) in [
+            (
+                "Faces/71401/common/character0/model/character/face/real/71401/face.xml",
+                "Players/01/common/character0/model/character/face/real/71401/face.xml",
+            ),
+            (
+                "Faces/71401/common/character0/model/character/face/real/71402/face.mtl",
+                "Players/01/common/character0/model/character/face/real/71402/face.mtl",
+            ),
         ] {
             assert!(
                 plan.copies.contains(&(from.to_owned(), to.to_owned())),

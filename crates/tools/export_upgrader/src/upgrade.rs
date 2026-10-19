@@ -465,29 +465,54 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     // The Note's team colors become the root `colors.txt`, its "Other Notes"
     // section the root `notes.txt` (step 6; a referee export's Note gives
     // neither). An entry whose colors do not read is unmigrated content
-    // naming the Note with its line; the kept entries are written as the Note
-    // spells them, one per line. The Note itself is never written.
+    // naming the Note with its line — save one holding two colors, which
+    // keeps its first and reports the second a leftover; the kept entries
+    // are written as the Note spells them, one per line. The Note itself is
+    // never written.
     let mut any_unmigrated = false;
     if let Some(note_text) = &note_text {
+        let note_scope = || Scope::File {
+            export_id: INPUT,
+            path: ScopePath::new(
+                note_path
+                    .as_deref()
+                    .expect("a Note text exists only when a Note was found"),
+            )
+            .expect("every listed path was checked when the source opened"),
+        };
         let mut colors = String::new();
         for entry in note::color_entries(note_text).team {
             let read = read_colors_txt(entry.colors.as_bytes(), 1);
             if read.colors.len() == 1 && read.refused.is_empty() {
                 colors.push_str(&entry.colors);
                 colors.push('\n');
+                continue;
+            }
+            // A team-color entry in a kit entry's spelling — split at its
+            // one `-` into two parts that each read as one color — kept
+            // its first under the old compile: it is written, the second
+            // a leftover (step 6). Any other entry that does not read is
+            // unmigrated content.
+            let parts: Vec<&str> = entry.colors.split('-').map(str::trim).collect();
+            let two_colors = parts.len() == 2
+                && parts.iter().all(|part| {
+                    let read = read_colors_txt(part.as_bytes(), 1);
+                    read.colors.len() == 1 && read.refused.is_empty()
+                });
+            if two_colors {
+                colors.push_str(parts[0]);
+                colors.push('\n');
+                events.message(tool_message(
+                    Code::LeftoverDropped,
+                    note_scope(),
+                    Disposition::DropFile,
+                    vec![("line", entry.line)],
+                ));
             } else {
                 any_unmigrated = true;
                 events.message(tool_message(
                     Code::UnmigratedContent,
-                    Scope::File {
-                        export_id: INPUT,
-                        path: ScopePath::new(
-                            note_path
-                                .as_deref()
-                                .expect("a Note text exists only when a Note was found"),
-                        )
-                        .expect("every listed path was checked when the source opened"),
-                    },
+                    note_scope(),
                     Disposition::DropFile,
                     vec![("line", entry.line)],
                 ));

@@ -210,6 +210,37 @@ fn a_team_entry_with_nothing_after_its_colon_is_unmigrated_content() {
     sandbox.assert_nothing_written("co Full Spring", &run.stdout());
 }
 
+// EU-ROOT-07
+#[test]
+fn a_team_entry_holding_two_colors_keeps_the_first() {
+    let sandbox = Sandbox::new("root_two_colors");
+    // `- 1st:`'s second color, a kit entry's spelling, is a leftover; the
+    // run stays clean.
+    fs::create_dir_all(sandbox.path("co Spring")).unwrap();
+    fs::write(
+        sandbox.path("co Spring/co Note.txt"),
+        "Team: /co/\r\n\r\nTeam Colours:\r\n- 1st: 048 146 082 - 255 255 255\r\n- 2nd: #FFFFFF\r\n",
+    )
+    .unwrap();
+    // A face folder, so the output holds content at all.
+    face(&sandbox, "co Spring/Faces/XXX05 - A");
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/colors.txt")).unwrap(),
+        b"048 146 082\n#FFFFFF\n"
+    );
+    assert!(
+        run.stdout().contains(
+            "- co Spring: Warning leftover_dropped at co Note.txt (line=- 1st: 048 146 082 - 255 255 255)"
+        ),
+        "{}",
+        run.stdout()
+    );
+}
+
 // EU-ROOT-05
 #[test]
 fn a_shift_jis_notes_ascii_colors_read() {

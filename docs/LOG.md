@@ -2203,3 +2203,5 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.16a1b-a2: the upgrader drops what never reached the game inside player and item folders (strays,
   files directly in `Faces/`, unworn folders); empty face folders and modelless item folders (`fpc_on`) migrate.
   Review rulings now name each acceptance's reach; DBC7's rules are read from the wiki through `stealth-browser-mcp`.
+- **2026-10-19** — 6.16a3: kits and the Note drop what never reached the game (Kit Textures strays, second goalkeeper
+  kits, a team color's second color); a `Midcup`'s texture-only kit migrates without `config.toml`. 6.16a is done.
