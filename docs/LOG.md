@@ -2194,3 +2194,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.12c's library run: 250 clean upgrades through Red and `red_parity`, 54,216 lines, all but 737
   attributed; an empty face folder lost (D1) and Midcup checkerboard kits (D2) found, and Red discarded `XXX17.jpg`
   after all. The maintainer answered 6.14's three questions; with the defects they are step 6.16.
+- **2026-10-19** — 6.12c diagnosed: every library parity line in a class once `red_parity` paired copies one to one
+  and the closest candidate first. Four more defects (two kinds of stray file, game-path face folders, a team-name Common
+  path) to 6.16; whether that path's faces should compile is a maintainer question.

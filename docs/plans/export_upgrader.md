@@ -65,7 +65,13 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    unmigrated content as a whole. The name part is what follows, its leading spaces and hyphens trimmed (`XXX15 - Snuffy`,
    `XXX15 Snuffy` and `XXX15- Snuffy` all give `Snuffy`), and the same rule reads a boots or
    gloves folder's (`k2101 UNIFORM` → `UNIFORM`). Two face folders of one slot are one too many:
-   the second by name is unmigrated content, as Red kept the first. Name comes, in order of preference, from the **face
+   the second by name is unmigrated content, as Red kept the first. A face folder holding
+   the game's own path to its face (`Faces/81401/common/character0/model/character/face/real/81401/`,
+   an extracted face CPK: FGOG VGL6 and minipatch, /co/'s fetus export, 2016-2018) has that
+   innermost folder's contents moved instead, the files directly in it as a face folder's are:
+   Red packs the folder as it stands, which reproduces the game path, so the face reached the
+   game, while moved as it is the tree would sit below the player folder, where the compile
+   refuses its `face.xml` (`file_type_disallowed`) and drops the player. Name comes, in order of preference, from the **face
    folder's own name part** (`XXX15 - Snuffy` → `Snuffy`; the author's curated name, and what the
    folder is called today), then from the **worn boots/gloves folder's name part** (a player with
    boots/gloves but no face folder, or whose face folder has no name part: one order for every
@@ -91,11 +97,13 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    tolerated `ingame_face.txt` markers are preserved and normalized to the new bare `ingame_face`
    marker; a player whose savefile record wears boots/gloves but who has **no face folder** also gets
    a player folder with an `ingame_face` marker, since a stray boots/gloves folder is exactly the
-   ingame-face case. An empty face folder is a face folder all the same, never that case: it
-   is how a player with an FBM removes the placeholder face, as part of the FPC system (Red
-   packs an empty face package for it, so the player's own face never shows), so its player
-   folder gets no marker and the compiler writes the blank face (`spec/team_compiler/pipeline.md`
-   step 1); the real PMMM, GIG VGL26 exports hold 18 and 10 such folders. A boots or gloves
+   ingame-face case. An empty face folder is never that case: it is how a player with an FBM
+   removes the placeholder face, as part of the FPC system (Red packs an empty face package for
+   it, so the player's own face never shows). It migrates to nothing of its own: its player
+   folder simply gets no marker, and the compiler writes the blank face for a player folder
+   with no face model (`spec/team_compiler/pipeline.md` step 1). The upgrader only has to see
+   it, which a listing of files alone does not; the real PMMM, GIG VGL26 exports hold 18 and
+   10 such folders. A boots or gloves
    folder holding no model (nothing, or a `boots.skl` alone) is how a member hid a player's
    boots or hands: Red packed an empty package under its ID, and any ID naming no model looks
    the same in game, as the FPC preset's IDs do. Each player wearing one gets the `fpc_on`
@@ -604,7 +612,15 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     Red's check refused (step 7); the second color of a team-color entry holding two (Red kept
     the first); an item folder no save record names (VG Summer 20's misspelled second set
     `k2501`-`k2523`); a second or later goalkeeper kit (step 2: no version the cup plays shows
-    one). An entry inside the format's folders that reached the game but that no step migrates
+    one); a stray file in a model folder that the Studio format refuses there, which the
+    compile would otherwise refuse the whole folder for: a file type the folder's allowlist
+    does not admit (`face.mtl.backup`, `materials.mtl.bak`, M Winter 18 and two other exports,
+    `file_type_disallowed`, an Error under the default `strict_file_type_check`), and in a
+    boots or gloves folder an FMDL under no name the game loads (`boots - Copy.fmdl` beside
+    `boots.fmdl`), which in the wearer's player folder would be merged into his hair
+    (`fmdl_fcl_hair_fallback`). Red discards the whole folder over such a file ("is not
+    allowed", "is not a valid fmdl name for fox mode"); we drop the file and keep the folder,
+    the member's content, which the stray copy never belonged to. An entry inside the format's folders that reached the game but that no step migrates
     (a second face folder of one slot, a texture that does not decode, a folder loose mode
     cannot place) is `unmigrated_content`, an Error. We do not refuse a run over a leftover,
     because the game never showed it, so the Studio export is complete without it and the

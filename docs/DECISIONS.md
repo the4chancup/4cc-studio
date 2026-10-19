@@ -9171,9 +9171,10 @@ Why: the maintainer's answer: none of the PES versions the cup uses supports goa
 past `g1` ("negative but keep the road open for it").
 Plan: `plans/export_upgrader.md` step 2.
 
-## 2026-10-19 — export_upgrader — an empty face folder is a face folder
-Decision: an empty old face folder migrates as its player's face folder: the player folder
-gets no `ingame_face` marker, and the compiler writes the blank face.
+## 2026-10-19 — export_upgrader — an empty face folder means no `ingame_face` marker
+Decision: an empty old face folder writes nothing of its own; its player folder gets no
+`ingame_face` marker, so the compiler writes the blank face, as for any player folder with
+no face model.
 Why: the maintainer: "Empty face folders are used on players which have an FBM, to remove the
 placeholder face, as part of the FPC system." Red packs an empty face package for one; the
 upgrader listed face folders from file paths, so an empty one was invisible and its wearer got
@@ -9191,4 +9192,37 @@ folder will work as fine", which is why members give such players the FPC preset
 their own unused ones; "the upgrade can indeed mark the player instead of packing an empty
 package". Today the upgrade dropped the folder and the player wore stock boots and normal
 hands (6.12c: EGG VGL26's `k2176 - EMPTY` and `g2177 - EMPTY`, 9 exports).
+Plan: `plans/export_upgrader.md` step 3.
+
+## 2026-10-19 — team_compiler — a `.mtl` Common path needs the three-character subfolder too
+Decision: a `.mtl` sampler path below `model/character/uniform/common/` whose subfolder is not
+three characters long (`common/o/env.dds`) is an Error, `mtl_common_path_invalid`, folder
+discarded, the rule `xml_common_path_invalid` already applies to a `face.xml`.
+Why: the team's Common is written under its three-digit ID, so such a path reaches nothing;
+Red's check refuses it in both files ("Files loaded from the Common folder must use a path
+with a subfolder whose name is three characters long"), while ours checked only the xml and
+packed 8 exports' faces with a texture the game never finds (6.12c D4: /o/ and VG name their
+team there). One rule for both files a member can type the path in.
+Plan: `plans/team_compiler/messages.md` "XML/MTL content checks".
+
+## 2026-10-19 — export_upgrader — a stray file a folder is refused for is a leftover
+Decision: a file in a model folder the Studio format refuses there (a disallowed type,
+`face.mtl.backup`; in a boots or gloves folder an FMDL under no name the game loads,
+`boots - Copy.fmdl`) is dropped as a leftover with `leftover_dropped`, and the folder migrates.
+Why: today the upgrade copies it, and the compile then refuses the whole folder
+(`file_type_disallowed`, an Error under the default `strict_file_type_check`) or, for the FMDL,
+merges the copy into the wearer's hair (`fmdl_fcl_hair_fallback`): a clean upgrade must end in
+a clean Studio export. Red discards the whole folder over such a file; we keep the folder,
+the member's content, because the stray copy never belonged to it (6.12c D6: M Winter 18 and
+two other exports; D9: the 4.2.3 test export `C-blin`'s `k0326 - IKA-CHAN`).
+Plan: `plans/export_upgrader.md` step 10.
+
+## 2026-10-19 — export_upgrader — a face folder holding the game path migrates its innermost folder
+Decision: a face folder holding the game's own path to its face
+(`81401/common/character0/model/character/face/real/81401/`) has that innermost folder's
+contents moved into the player folder.
+Why: Red packs such a folder as it stands, which reproduces the game path, so the face
+reached the game; moved as it is, the tree sits below the player folder and the compile
+refuses its `face.xml` and drops the player (6.12c D7: FGOG VGL6, FGOG minipatch, /co/'s fetus
+export).
 Plan: `plans/export_upgrader.md` step 3.

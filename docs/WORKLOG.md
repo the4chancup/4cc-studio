@@ -18,9 +18,10 @@ editor's coverage table and draft).
 every converge review loop has ended (2026-10-19) and the close mutation run of
 `export_upgrader` is triaged (2 missed, the placeholder views, worklog 8.3); 6.14 (an upgrade
 writes a clean export or nothing) and 6.15 (a one-wearer item folder takes its wearer's ID)
-are built, and 6.14c; the maintainer answered 6.14's three questions (2026-10-19). Then the
-rest of 6.12c's diagnosis (the library run, 737 lines left), 6.16 (the answers and 6.12c's
-defects, two slices), the plans-to-spec move and the worklog's collapse. 8.0's acceptance sections are reviewed and the shell's draft
+are built, and 6.14c; the maintainer answered 6.14's three questions (2026-10-19), and
+6.12c (the library run against Red) is diagnosed. Then 6.16 (the answers and 6.12c's
+defects: upgrader, compiler, one in-game check), the plans-to-spec move and the worklog's
+collapse. 8.0's acceptance sections are reviewed and the shell's draft
 (`docs/prototypes/shell.html`, step 8.2) waits for the maintainer's remarks. Side-leads are
 paused (single lead + SWE-2); the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
@@ -810,12 +811,15 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     classes with Red's package shown present, or the three defect candidates; written for
     the top lead in `.tmp/6_12/classes.md` of the worktree, with `pilot_tally.txt` (copies in
     the main checkout's `.tmp/6_12/`)
-  - [ ] 6.12c (run 2026-10-19, 2ec367e; `.tmp/6_12c/`: `library.py`, `attribute.py`,
-    `findings.md`) the 250 clean upgrades of census 614 through Red and `red_parity`: 54,216
-    lines, all but 737 attributed (`attribution_summary.txt`); new intentional classes I2
-    copies, I7b, I18, I19; defects D1, D2 and D3 to 6.16; Red crashes on two
-    referee folder exports every time (`os.remove` on a directory), ours compiles them clean.
-    Open: the 737 lines' groups (`.tmp/6_12c/findings.md` "To diagnose"). Was:
+  - [x] 6.12c (run 2026-10-19, 2ec367e; `.tmp/6_12c/`: `library.py`, `attribute.py`,
+    `findings.md`) the 250 clean upgrades of census 614 through Red and `red_parity`: 53,368
+    lines after the rerun of 103 exports with a fixed pairing, every one in a class
+    (`attribution_summary.txt`; one checked by hand); intentional classes I1-I28, the error
+    classes' export lists in `attribution.txt` (the stricter-than-Red ones); defects D1-D4,
+    D6, D7 and D9 to 6.16; Red crashes on two referee folder exports every time (`os.remove`
+    on a directory), ours compiles them clean; `red_parity` pairs unpaired candidates first
+    and keeps the closest; `cpk_list` extracts. The one in-game check it raised is 6.16c.
+    Was:
     the library: the other ~290 upgradable inputs through Red and `red_parity`
     (about 4 s of Red and 2 s of ours each), pre-Fox ones compiled for PES 17
     (`--prefox-version 17`), Red rerun on input 106, disk bounded per export
@@ -928,23 +932,35 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   reached the game, a `Midcup` kit keeping what it does not resend, no second GK slot, an empty
   face folder; plan `export_upgrader.md` steps 2, 3, 7, 10, edited). Closes 6.14's parent step
   with it. → verify: the census rerun (the 6.14 classes the answers cover now clean or
-  leftovers), and the 6.12c run over the exports each slice touches, D1 and D2 gone
+  leftovers), and the 6.12c run over the exports each slice touches, D1-D3, D6, D7 and D9
+  gone and D4's `.mtl` half refused
   - [ ] 6.16a the upgrader: the leftover kinds of step 10 (files directly in `Faces/`,
     `Boots/`, `Gloves/`; a `Full` export's kit texture no kit row names, a Kit Textures
     subfolder; portraits Red's check refused; a team-color entry's second color; an item
     folder no save record names; second and later GK kits); a `Midcup`'s texture-only kit
     update as a kit folder without `config.toml`; `Portraits/NN.<ext>`; an empty face folder
-    kept as the player's face folder, no `ingame_face` (D1: PMMM, GIG VGL26); a boots or
+    seen, so its player folder gets no `ingame_face` (D1: PMMM, GIG VGL26); a boots or
     gloves folder with no model marking its wearers `fpc_on`, its files leftovers (D3: EGG
-    VGL26's `k2176 - EMPTY`, 9 exports; maintainer, 2026-10-19); the scenarios
-    (EU-MDL-01, -19, EU-REP-02 and new ones) written by the lead first
+    VGL26's `k2176 - EMPTY`, 9 exports; maintainer, 2026-10-19); a stray file a folder is
+    refused for dropped as a leftover, the folder kept (D6: `face.mtl.backup` in M Winter 18
+    and two others; D9: `boots - Copy.fmdl` in `C-blin`, today merged into the wearer's hair);
+    a face folder holding the game path migrating its innermost folder (D7: FGOG VGL6, FGOG
+    minipatch, /co/ fetus); the scenarios (EU-MDL-01, -19, EU-REP-02 and new ones) written by
+    the lead first
   - [ ] 6.16b the compiler: `Portraits/` named `NN`, alone or followed by ` - ` and any text,
     ignored (`17 - Snuffy.png`; `portrait_name_invalid`); in a `Midcup`,
     a kit folder without `config.toml` keeps the installed config and one with no texture
     keeps the installed textures, a `colors.txt`-only folder updating the colors alone (D2:
-    six Midcups compiled checkerboard kits); spec rows (`messages.md` `kit_placeholder`,
-    `kit_config_generated`, `portrait_name_invalid`; `spec/team_compiler/pipeline.md` "Bins accumulation") with
-    the code
+    six Midcups compiled checkerboard kits); a `.mtl` Common path whose subfolder is not three
+    characters long refused as a `face.xml`'s is (`mtl_common_path_invalid`, the plan's
+    `messages.md` row; D4: 8 exports' faces kept where Red discards them); spec rows (`messages.md` `kit_placeholder`,
+    `kit_config_generated`, `portrait_name_invalid`, `mtl_common_path_invalid`;
+    `spec/team_compiler/pipeline.md` "Bins accumulation") with the code. The upgrader's side of
+    D4 waits on QUESTIONS.md "A Common path spelled with the team's name"
+  - [ ] 6.16c in game (PES 21): a one-sided hand split, HDG VGL26 slot 22 `EAT`, whose
+    `fcl_hair.fmdl` has armor vertices weighted to the left pinky bones only, so the compile
+    writes a gloves package holding `glove_l.fmdl` alone (spec `model_conversion/hand_split.md`):
+    what the game shows for the missing right glove, and whether the left one looks right
 
 ### Phase 8 — GUI
 
@@ -1703,8 +1719,11 @@ points there.
   diffs carried unchanged from PES 17 to 18; the real split is version 4 (32 entries) against
   5 (33), with a mechanical conversion. The maintainer's example (2026-10-17, a member's
   anime face, `.tmp/face_diff/lapwing/findings.md`): the Fox fix is two eye floats (head 0x2C
-  and 0x30, 35 to 45), which PES 21's Edit mode does not show even at 0 and 90; what the
-  member saw, and where, waits in `docs/QUESTIONS.md` "Face diffs are engine-specific".
+  and 0x30, 35 to 45), which PES 21's Edit mode does not show even at 0 and 90. Settled
+  2026-10-19 by a second example and its author's explanation (`Sopdog`, the engines animate
+  eyes differently, so model and diff are made per engine and do not convert): what the
+  compiler does with a face made for the other engine waits in `docs/QUESTIONS.md` "Face diffs
+  are engine-specific".
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`spec/model_conversion/ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more
