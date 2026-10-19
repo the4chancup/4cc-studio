@@ -307,29 +307,51 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
         }
     };
 
-    // "CLI": the output folder, refused when it exists or cannot be made.
+    // "CLI": the output folder, claimed as `upgrade` claims its own — one
+    // rule for both modes: the path's name is read before anything is
+    // created (a `-o` ending in `..`, or a root, has none and is refused,
+    // never panicking after the parent was made); an existing folder is
+    // refused; the missing parent is made; and the folder itself is
+    // created with `create_dir`, so one that appeared between the check
+    // and the create is never written into.
     let output = args.output.clone().unwrap_or_else(|| {
         path.parent()
             .expect("the input is absolute and not a filesystem root (resolve_input)")
             .join(format!("{name} upgraded"))
     });
+    let Some(output_name) = output.file_name() else {
+        return Err(invalid(anyhow!(
+            "{}: the output path has no folder name",
+            output.display()
+        )));
+    };
+    let output_name = output_name.to_string_lossy().into_owned();
     if output.exists() {
         return Err(aborted(anyhow!(
             "{}: the output folder already exists",
             output.display()
         )));
     }
-    fs::create_dir_all(&output).map_err(|error| {
+    // `-o`'s parent is made when missing, as `upgrade` makes its `-o`
+    // directory; the default output's is the input's own folder, which
+    // exists by definition.
+    if let Some(parent) = output.parent()
+        && !parent.as_os_str().is_empty()
+        && !parent.exists()
+    {
+        fs::create_dir_all(parent).map_err(|error| {
+            aborted(anyhow!(
+                "{}: cannot create the directory: {error}",
+                parent.display()
+            ))
+        })?;
+    }
+    fs::create_dir(&output).map_err(|error| {
         aborted(anyhow!(
             "{}: cannot create the output folder: {error}",
             output.display()
         ))
     })?;
-    let output_name = output
-        .file_name()
-        .expect("a created folder's path ends in its name")
-        .to_string_lossy()
-        .into_owned();
     events.started(OUTPUT, &output_name);
 
     // Step 7's chain on the staged copies, exactly `upgrade`'s: the kit

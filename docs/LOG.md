@@ -2155,3 +2155,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.8 (side-lead F, `side/6.8`): `upgrade-models` turns each top-level old
   model folder into one droppable folder through step 7's functions on a staged layout, its
   validation leaving placement to the destination; EU-MF-01 to -06 proven; SWE-2 6.8.S1 4 accepted.
+- **2026-10-19** — 6.9a: the parity run and a census of 713 old exports found three upgrader gaps,
+  fixed in both modes: a hair skeleton renamed to pair, `.fpk.xml` left out, an `.ftex` kit
+  texture converted; Astra 6.8.A1's 3 fixes with them; mutation diff 0 missed.

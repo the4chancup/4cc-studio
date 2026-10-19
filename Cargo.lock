@@ -1394,6 +1394,7 @@ dependencies = [
  "dds_convert",
  "egui",
  "fmdl",
+ "ftex",
  "kit_config",
  "pes_model",
  "pes_savefile",

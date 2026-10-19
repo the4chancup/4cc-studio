@@ -12,6 +12,7 @@
 //! What cannot be placed is left for the run's fallback to report as
 //! unmigrated content.
 
+use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use aesthetics_export::read_colors_txt;
@@ -59,14 +60,23 @@ fn config_slot(file_name: &str) -> Option<KitSlot> {
     KitSlot::from_config_suffix(tail.get(..suffix_len)?)
 }
 
-/// The slot a kit texture's file name carries and its output name's tail:
-/// `u`, any four characters, the slot's two characters (`p1` … `p9`, `g1`),
-/// the rest of the stem (empty or starting with `_`), then `.dds` — the
-/// fixed parts in any letter case. The rest is returned with the extension
-/// as written (`_back.dds`, `.dds`), so the output name is `kit` + it.
-fn texture_slot(file_name: &str) -> Option<(KitSlot, &str)> {
+/// The slot a kit texture's file name carries, its output name's tail and
+/// whether it is an FTEX to convert: `u`, any four characters, the slot's
+/// two characters (`p1` … `p9`, `g1`), the rest of the stem (empty or
+/// starting with `_`), then `.dds` or `.ftex` — the fixed parts in any
+/// letter case. The rest is returned with the extension as written for a
+/// `.dds`, rewritten `.dds` for an `.ftex` (`_back.dds`, `.dds`), so the
+/// output name is `kit` + it.
+fn texture_slot(file_name: &str) -> Option<(KitSlot, Cow<'_, str>, bool)> {
     let (stem, extension) = file_name.rsplit_once('.')?;
-    if !extension.eq_ignore_ascii_case("dds") || !stem.get(..1)?.eq_ignore_ascii_case("u") {
+    let ftex = if extension.eq_ignore_ascii_case("dds") {
+        false
+    } else if extension.eq_ignore_ascii_case("ftex") {
+        true
+    } else {
+        return None;
+    };
+    if !stem.get(..1)?.eq_ignore_ascii_case("u") {
         return None;
     }
     let slot_at = stem.char_indices().nth(5).map(|(index, _)| index)?;
@@ -75,7 +85,12 @@ fn texture_slot(file_name: &str) -> Option<(KitSlot, &str)> {
     if !rest_of_stem.is_empty() && !rest_of_stem.starts_with('_') {
         return None;
     }
-    Some((slot, &file_name[slot_at + 2..]))
+    let tail = if ftex {
+        Cow::Owned(format!("{rest_of_stem}.dds"))
+    } else {
+        Cow::Borrowed(&file_name[slot_at + 2..])
+    };
+    Some((slot, tail, ftex))
 }
 
 /// What a Note kit entry's colors give its kit: the two colors as the Note
@@ -366,33 +381,64 @@ pub(crate) fn kit_folders(
     }
 
     // `Kit Textures`, a file directly in the folder alone (a subfolder's is
-    // not consumed): it lands only in a slot a config or a Note entry gives,
-    // the first by input path of two landing on one name kept.
+    // not consumed): it lands only in a slot a config or a Note entry gives.
+    // Of two landing on one folded name a `.dds` wins over an `.ftex`
+    // whatever the input order (step 5, `u0XXXp1.dds` before `u0XXXp1.ftex`,
+    // the DDS kept); between two of one kind the first by input path wins.
+    // The `.dds` pass runs first, so an `.ftex` finding its name taken
+    // loses and stays unconsumed for the fallback to report. An `.ftex`
+    // is converted to the DDS it holds, one that does not convert reported
+    // as a config that does not decode is.
     let slots: BTreeSet<KitSlot> = decided
         .keys()
         .copied()
         .chain(entry_slots.iter().copied())
         .collect();
     let mut taken: BTreeSet<String> = BTreeSet::new();
-    for file in files {
-        let Some((top, name)) = file.split_once('/') else {
-            continue;
-        };
-        if !top.eq_ignore_ascii_case("kit textures") || name.contains('/') {
-            continue;
+    for ftex_pass in [false, true] {
+        for file in files {
+            let Some((top, name)) = file.split_once('/') else {
+                continue;
+            };
+            if !top.eq_ignore_ascii_case("kit textures") || name.contains('/') {
+                continue;
+            }
+            let Some((slot, rest, ftex)) = texture_slot(name) else {
+                continue;
+            };
+            if ftex != ftex_pass || !slots.contains(&slot) {
+                continue;
+            }
+            let output = format!("Kits/{}/kit{rest}", slot.as_str());
+            if !taken.insert(vtree::fold_name(&output)) {
+                continue;
+            }
+            if ftex {
+                match read(file) {
+                    Ok(bytes) => match ftex::ftex_to_dds(&bytes) {
+                        Ok(dds) => folders.written.push((output, dds)),
+                        Err(error) => failures.entry(file.as_str().to_owned()).or_default().push(
+                            tool_message(
+                                Code::UnmigratedContent,
+                                Scope::File {
+                                    export_id: INPUT,
+                                    path: path_scope(file),
+                                },
+                                Disposition::DropFile,
+                                vec![("error", error.to_string())],
+                            ),
+                        ),
+                    },
+                    Err(failure) => failures
+                        .entry(file.as_str().to_owned())
+                        .or_default()
+                        .push(read_failed(INPUT, failure, Disposition::DropFile)),
+                }
+            } else {
+                folders.copies.push((file.clone(), output));
+            }
+            folders.consumed.insert(file.clone());
         }
-        let Some((slot, rest)) = texture_slot(name) else {
-            continue;
-        };
-        if !slots.contains(&slot) {
-            continue;
-        }
-        let output = format!("Kits/{}/kit{rest}", slot.as_str());
-        if !taken.insert(vtree::fold_name(&output)) {
-            continue;
-        }
-        folders.copies.push((file.clone(), output));
-        folders.consumed.insert(file.clone());
     }
 
     // The textures each kit holds before any copy of its own, by slot then
@@ -638,18 +684,25 @@ mod tests {
     #[test]
     fn the_texture_name_grammar() {
         for (name, expected) in [
-            ("u0XXXp1.dds", Some((KitSlot::P1, ".dds"))),
-            ("u0714p2.dds", Some((KitSlot::P2, ".dds"))),
-            ("U0XXXP1_Back.DDS", Some((KitSlot::P1, "_Back.DDS"))),
-            ("u0XXXg1_name.dds", Some((KitSlot::G1, "_name.dds"))),
+            ("u0XXXp1.dds", Some((KitSlot::P1, ".dds", false))),
+            ("u0714p2.dds", Some((KitSlot::P2, ".dds", false))),
+            ("U0XXXP1_Back.DDS", Some((KitSlot::P1, "_Back.DDS", false))),
+            ("u0XXXg1_name.dds", Some((KitSlot::G1, "_name.dds", false))),
+            ("u0XXXp1.ftex", Some((KitSlot::P1, ".dds", true))),
+            ("u0XXXg1_name.FTEX", Some((KitSlot::G1, "_name.dds", true))),
             ("u0XXXp0.dds", None),
             ("u0XXXg2.dds", None),
             ("u0XXXp1 copy.dds", None),
             ("u0XXXp1.png", None),
+            ("u0XXXp1.ftx", None),
             ("kit.dds", None),
             ("u0XXXp1", None),
         ] {
-            assert_eq!(texture_slot(name), expected, "{name}");
+            assert_eq!(
+                texture_slot(name).map(|(slot, tail, ftex)| (slot, tail.into_owned(), ftex)),
+                expected.map(|(slot, tail, ftex)| (slot, tail.to_owned(), ftex)),
+                "{name}"
+            );
         }
     }
 
@@ -829,6 +882,47 @@ mod tests {
             "config_without_kit_entry"
         );
         assert_eq!(plan.findings[1].code.code.as_ref(), "unmigrated_content");
+    }
+
+    #[test]
+    fn an_ftex_that_does_not_convert_is_unmigrated_content_with_its_error() {
+        let plan = plan(
+            &[
+                "Kit Configs/XXX_DEF_1st_realUni.bin",
+                "Kit Textures/u0XXXp1.ftex",
+            ],
+            &[
+                ("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
+                ("Kit Textures/u0XXXp1.ftex", b"not an ftex"),
+            ],
+        );
+        // No `kit.dds` is written; the input is consumed and reported with
+        // the conversion's error as its `error` context.
+        assert!(
+            plan.written
+                .iter()
+                .all(|(output, _)| output != "Kits/p1/kit.dds")
+        );
+        assert!(plan.copies.is_empty());
+        assert!(plan.consumed.contains("Kit Textures/u0XXXp1.ftex"));
+        let finding = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "unmigrated_content")
+            .expect("an unmigrated_content finding");
+        assert_eq!(
+            finding.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Kit Textures/u0XXXp1.ftex")
+            }
+        );
+        let error = finding
+            .context
+            .iter()
+            .find(|(key, _)| key == "error")
+            .map(|(_, value)| value);
+        assert!(error.is_some_and(|value| !value.is_empty()), "{finding:?}");
     }
 
     #[test]

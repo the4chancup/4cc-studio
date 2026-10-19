@@ -83,6 +83,46 @@ fn the_output_is_a_sibling_folder_holding_one_folder_per_input_folder() {
     );
 }
 
+// EU-CLI-06
+#[test]
+fn o_names_the_output_folder_itself_its_parent_made() {
+    let sandbox = Sandbox::new("models_cli_o_folder");
+    fs::create_dir_all(sandbox.path("new models/XXX15 - A")).unwrap();
+    fs::write(sandbox.path("new models/XXX15 - A/face.fmdl"), b"face").unwrap();
+    fs::create_dir_all(sandbox.path("new models/k0431")).unwrap();
+    fs::write(sandbox.path("new models/k0431/boots.fmdl"), b"boots").unwrap();
+
+    let out = sandbox.arg("out/done");
+    let run = upgrade_models(&sandbox, "new models", &["-o", &out]);
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    // The output folder is `done` itself: one folder per input folder,
+    // directly in it, and no sibling "new models upgraded".
+    assert_eq!(
+        sandbox.listing("out/done"),
+        [
+            "15 - A".to_owned(),
+            "15 - A/face.fmdl".to_owned(),
+            "k0431".to_owned(),
+            "k0431/boots.fmdl".to_owned(),
+        ],
+    );
+    assert!(!sandbox.path("new models upgraded").exists());
+}
+
+// EU-CLI-04
+#[test]
+fn an_output_path_ending_in_parent_dir_is_refused() {
+    let sandbox = Sandbox::new("models_cli_o_dotdot");
+    fs::create_dir_all(sandbox.path("new models/XXX15 - A")).unwrap();
+    fs::write(sandbox.path("new models/XXX15 - A/face.fmdl"), b"face").unwrap();
+    let before = snapshot(&sandbox);
+
+    // `gone` missing: `gone/..` has no file name on Windows either.
+    let out = sandbox.arg("gone/..");
+    upgrade_models(&sandbox, "new models", &["-o", &out]).assert_refused(2, &["gone"]);
+    assert_eq!(snapshot(&sandbox), before, "nothing is written");
+}
+
 // EU-MF-01
 #[test]
 fn each_input_folder_is_migrated_and_its_destination_reported() {

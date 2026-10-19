@@ -1,8 +1,8 @@
 //! The input (`plans/export_upgrader.md` step 1): an old export — a folder, a
 //! `.zip` or a `.7z` — listed to its root, then read file by file. The root is
 //! the input's own, or its one wrapper folder's when the top level holds
-//! nothing an old export holds; OS artifacts are left out of the listing and
-//! never reported.
+//! nothing an old export holds; OS artifacts and `*.fpk.xml` files are left
+//! out of the listing and never reported.
 
 use std::fmt::Display;
 use std::fs::{self, File};
@@ -29,8 +29,8 @@ pub(crate) struct SourceFailure {
 pub(crate) struct OldExport {
     /// The folder's name, or the archive file's stem.
     pub(crate) name: String,
-    /// Every file below the root, OS artifacts left out: `/`-joined paths
-    /// relative to the root, sorted.
+    /// Every file below the root, OS artifacts and `*.fpk.xml` left out:
+    /// `/`-joined paths relative to the root, sorted.
     pub(crate) files: Vec<String>,
     /// Every folder below the root, the same way.
     pub(crate) folders: Vec<String>,
@@ -214,11 +214,24 @@ pub(crate) fn holds_old_export(files: &[String], folders: &[String]) -> bool {
         })
 }
 
-/// The listing's entries below its root: OS artifacts left out, sorted.
+/// Whether `name` (a file's own name) ends in `.fpk.xml`, ASCII
+/// case-insensitive (step 1): the source-side list of an FPK's members,
+/// which the compiler writes from the folder's own files — carried, each
+/// would make a `file_not_used` Warning at every compile.
+fn is_fpk_xml(name: &str) -> bool {
+    name.get(name.len().saturating_sub(8)..)
+        .is_some_and(|tail| tail.eq_ignore_ascii_case(".fpk.xml"))
+}
+
+/// The listing's entries below its root: OS artifacts and `*.fpk.xml` left
+/// out, sorted.
 fn below_root(files: Vec<String>, folders: Vec<String>) -> (Vec<String>, Vec<String>) {
     let mut files: Vec<String> = files
         .into_iter()
-        .filter(|path| !is_os_artifact(path.rsplit('/').next().unwrap_or(path.as_str())))
+        .filter(|path| {
+            let name = path.rsplit('/').next().unwrap_or(path.as_str());
+            !is_os_artifact(name) && !is_fpk_xml(name)
+        })
         .collect();
     let mut folders = folders;
     files.sort();
@@ -521,6 +534,19 @@ mod tests {
         assert_eq!(files[0], "Common/Common/a.dds");
         assert!(folders.contains(&"Common/Common".to_owned()));
         assert!(flattened.is_empty());
+    }
+
+    #[test]
+    fn fpk_xml_files_are_left_out_of_the_listing() {
+        let (files, _) = listing(
+            &[
+                "XXX05 - Bob/face.fpk.xml",
+                "XXX05 - Bob/face.fmdl",
+                "k2180 - Bob/BOOTS.FPK.XML",
+            ],
+            &[],
+        );
+        assert_eq!(files, ["XXX05 - Bob/face.fmdl".to_owned()]);
     }
 
     #[test]

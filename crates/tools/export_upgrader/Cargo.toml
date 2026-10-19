@@ -18,6 +18,7 @@ kit_config.workspace = true
 pes_model.workspace = true
 pes_savefile.workspace = true
 fmdl.workspace = true
+ftex.workspace = true
 pes_version.workspace = true
 roxmltree.workspace = true
 studio_core.workspace = true

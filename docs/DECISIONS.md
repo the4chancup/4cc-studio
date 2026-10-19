@@ -9001,3 +9001,23 @@ and no run holding one could exit 0. (6) A code of its own at Info, so the line 
 run without making it not clean. (7) Writing into an existing directory would mix an earlier
 run's folders, edited since, with this run's, which is why `upgrade` refuses one too.
 Plan: `plans/export_upgrader.md` "Model-folder mode" and "CLI".
+
+## 2026-10-19 — export_upgrader — a hair skeleton renamed to pair, `.fpk.xml` left out, an `.ftex` kit texture converted
+Decision: in both modes (1) a Fox folder's `fcl_hair_sim.skl` beside an `fcl_hair.fmdl` becomes
+`fcl_hair.skl`, unless the folder already holds one; (2) every `*.fpk.xml` is left out of the
+output with no finding, as OS artifacts are; (3) a Kit Textures file of the kit grammar's shape
+with the extension `.ftex` is converted to its DDS (`ftex::ftex_to_dds`) and migrated as that
+`.dds`, one that does not convert being `unmigrated_content` with its error.
+Why: the plan was silent on all three, and step 6.9's parity run and census found each on real
+exports (`.tmp/6_9/findings.md`). (1) The Studio format pairs a skeleton by its model's stem, so
+the upgraded tracer's `fcl_hair_sim.skl` was `file_not_used` at compile and the template
+injected in its place; 15 of the 84 such skeletons beside an FMDL on the maintainer's machine are
+custom, which the hair would lose. (2) The compiler writes every FPK from the folder's files;
+carried, the ~5,400 real ones each made a `file_not_used` Warning at every compile, and Red's
+copy in the CPK was read by no game. A finding per file would be the same noise in the upgrade
+report. (3) Red's Fox mode packed a member's `.ftex` kit texture as it was, so 13 real exports
+(/fgog/'s VGL15-18 ones, INK's VGL26) lost their kits to `unmigrated_content`; the FTEX holds the
+DDS data the compiler encodes again, so the conversion loses nothing. A `.dds` and an `.ftex` of
+one stem keep the DDS, by the existing first-by-name rule, as Red's Fox mode converted the DDS
+over the FTEX.
+Plan: `plans/export_upgrader.md` steps 1, 3 and 5; EU-IN-04, EU-PLY-13, EU-KIT-15.

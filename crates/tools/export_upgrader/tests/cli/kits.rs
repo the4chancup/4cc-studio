@@ -671,3 +671,92 @@ fn the_empty_g1_of_a_full_export_stops_the_hoist() {
         run.stdout()
     );
 }
+
+/// A small BC1 DDS of one flat color, made the way `dds_convert`'s own
+/// tests make a source (`Decoded` by hand, `encode_dds`).
+fn flat_dds(color: [u8; 4]) -> Vec<u8> {
+    let decoded = dds_convert::Decoded {
+        width: 4,
+        height: 4,
+        mips: vec![[color; 4 * 4].concat()],
+        blocks: None,
+        authored_mips: false,
+    };
+    dds_convert::encode_dds(&decoded, dds_convert::BlockCodec::Bc1).unwrap()
+}
+
+// EU-KIT-15
+#[test]
+fn ftex_kit_textures_are_converted_to_the_dds_they_hold() {
+    let sandbox = Sandbox::new("kit_ftex");
+    for (ordinal, name) in [
+        ("1st", "XXX_DEF_1st_realUni.bin"),
+        ("2nd", "XXX_DEF_2nd_realUni.bin"),
+    ] {
+        sandbox.copy_fixture(&kit_config(ordinal), &format!("co Kits/Kit Configs/{name}"));
+    }
+    let main_ftex =
+        ftex::dds_to_ftex(&flat_dds([200, 30, 30, 255]), ftex::ColorSpace::Srgb).unwrap();
+    let back_ftex =
+        ftex::dds_to_ftex(&flat_dds([30, 30, 200, 255]), ftex::ColorSpace::Srgb).unwrap();
+    let other_ftex =
+        ftex::dds_to_ftex(&flat_dds([30, 200, 30, 255]), ftex::ColorSpace::Srgb).unwrap();
+    sandbox.write("co Kits/Kit Textures/u0XXXp1.ftex", &main_ftex);
+    sandbox.write("co Kits/Kit Textures/u0XXXp1_back.ftex", &back_ftex);
+    sandbox.write("co Kits/Kit Textures/u0XXXp2.dds", b"p2 main");
+    sandbox.write("co Kits/Kit Textures/u0XXXp2.ftex", &other_ftex);
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    // `u0XXXp2.ftex`, second to `u0XXXp2.dds`'s output name, is unmigrated.
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    for (output, input) in [
+        ("Kits/p1/kit.dds", &main_ftex),
+        ("Kits/p1/kit_back.dds", &back_ftex),
+    ] {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Kits/{output}"))).unwrap(),
+            ftex::ftex_to_dds(input).unwrap(),
+            "{output}"
+        );
+    }
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Kits/p2/kit.dds")).unwrap(),
+        b"p2 main"
+    );
+    assert!(
+        run.stdout()
+            .contains("unmigrated_content at Kit Textures/u0XXXp2.ftex"),
+        "{}",
+        run.stdout()
+    );
+}
+
+// EU-KIT-15
+#[test]
+fn a_dds_wins_its_name_over_an_ftex_whatever_the_input_order() {
+    let sandbox = Sandbox::new("kit_ftex_loses");
+    sandbox.copy_fixture(
+        &kit_config("1st"),
+        "co Kits/Kit Configs/XXX_DEF_1st_realUni.bin",
+    );
+    // `u0XXXp1.FTEX` sorts before `u0XXXp1.dds` byte-wise; the DDS still
+    // takes the output name.
+    let ftex = ftex::dds_to_ftex(&flat_dds([9, 9, 9, 255]), ftex::ColorSpace::Srgb).unwrap();
+    sandbox.write("co Kits/Kit Textures/u0XXXp1.FTEX", &ftex);
+    sandbox.write("co Kits/Kit Textures/u0XXXp1.dds", b"p1 main");
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    assert_eq!(run.exit_code(), 1, "{}", run.stdout());
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Kits/p1/kit.dds")).unwrap(),
+        b"p1 main"
+    );
+    assert!(
+        run.stdout()
+            .contains("unmigrated_content at Kit Textures/u0XXXp1.FTEX"),
+        "{}",
+        run.stdout()
+    );
+}

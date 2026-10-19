@@ -29,7 +29,12 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    `.DS_Store`, at any depth) are left out of the output and not reported: Red's copy drops
    `*.db` and `*.ini` files, the compiler ignores the three ("OS artifacts" in
    `spec/aesthetics_export/object_model.md`), and the maintainer's old exports hold 670 of them,
-   which step 10 would otherwise list one by one. (A bare
+   which step 10 would otherwise list one by one. A Fox model folder's `*.fpk.xml` (`face.fpk.xml`,
+   `boots.fpk.xml`, `glove.fpk.xml`, about 5,400 in the maintainer's export folders) is left out
+   the same way, in both modes: it is the source-side list of an FPK's members, which the
+   compiler writes from the folder's own files, so carried it would only make a `file_not_used`
+   Warning per model at every compile, while Red packed it into the CPK as a file no game reads
+   (the parity tracer's `boots.fpk.xml` rows, "Not produced" there). (A bare
    folder of item folders is the other accepted input — see "Model-folder mode".) An archive's
    name is its file's stem, the name of the folder inside it aside, as Red named an export
    (a member's renamed `day5.zip` holding `co Spring/` is `day5`). The export's root is the
@@ -74,7 +79,15 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    AET allows a prefix (any file whose name ends in `portrait.dds`, letter case aside, as Red
    matches it), while the Studio format reads the exact stem `portrait`, so a prefixed one is
    renamed. A folder holding two such files is reported as unmigrated content and both are
-   left in the player folder as named. Old `ingame_face` and
+   left in the player folder as named. A Fox hair's skeleton is renamed the same way: the old
+   format names it after its game slot, `fcl_hair_sim.skl`, while the Studio format pairs a
+   skeleton with its model by the model's stem ("SKL pairing" in
+   `spec/aesthetics_export/player_folders.md`), so beside an `fcl_hair.fmdl` it becomes
+   `fcl_hair.skl` (letter case aside, in both modes): kept as named, the compile reports it
+   `file_not_used` and injects the template skeleton in its place, and 15 of the 84
+   `fcl_hair_sim.skl` beside an FMDL on the maintainer's machine are custom ones the hair would
+   lose. A folder holding `fcl_hair.skl` already keeps both as named, the compile's pairing
+   taking its own. Old `ingame_face` and
    tolerated `ingame_face.txt` markers are preserved and normalized to the new bare `ingame_face`
    marker; a player whose savefile record wears boots/gloves but who has **no face folder** also gets
    a player folder with an `ingame_face` marker, since a stray boots/gloves folder is exactly the
@@ -166,8 +179,15 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    position, as Red reads it: `u`, four characters, `p` or `g` with the kit's digit, then the
    rest of the stem, empty or starting with `_`, which the generic name keeps
    (`u0XXXp1_back.dds` → `p1/kit_back.dds`), and the extension `.dds`, in any letter case; a
-   file of another shape is unmigrated content, and so is the second by name of two that would
-   land on one name, letter case aside. Kit folders are written as bare slots (`p1/`) — the old format has no kit
+   file of that shape with the extension `.ftex` is converted to the DDS it holds
+   (`ftex::ftex_to_dds`) and migrated as that `.dds`, since Red's Fox mode packed a member's
+   `.ftex` kit texture as it was (13 exports on the maintainer's machine ship them, /fgog/'s from
+   VGL15 to VGL18 among them), and one that does not convert is unmigrated content, its error
+   named. A converted texture stays its own kit's file: the copy between kits and the hoist to
+   `all/` below read the copied textures alone, which no real export misses (the 13 ship base
+   textures and `_srm` ones, no copy field's stem, but for Red's own `VP Test` folder); a file of another shape is unmigrated content, and so is the second by name of two
+   that would land on one name, letter case aside (`u0XXXp1.dds` before `u0XXXp1.ftex`, the DDS
+   kept as Red's Fox mode converted the DDS over the FTEX of its stem). Kit folders are written as bare slots (`p1/`) — the old format has no kit
    names to carry. A kit whose binary config names **another kit's texture** in its back,
    chest, leg or name field gets a copy of that texture in its own folder, under the generic
    name, reported (`kit_texture_copied`, I, naming the kit, the stem and the kit it came from):
@@ -896,6 +916,11 @@ EU-IN-02   GIVEN day5.zip holding the folder "co Spring", whose Note's Team: lin
 EU-IN-03   GIVEN the folder "co Spring" holding only a readme.pdf
            WHEN it is upgraded
            THEN it is reported as no old export, nothing is written, and the exit code is 1
+EU-IN-04   GIVEN a Fox export whose face folder "XXX05 - Bob" holds face.fpk.xml and whose
+                boots folder "k2180 - Bob", worn by slot 05, holds boots.fpk.xml
+           WHEN it is upgraded, and when the folder holding those two folders is upgraded with
+                upgrade-models
+           THEN neither output holds a .fpk.xml file and neither report names one
 ```
 
 **Team identity and root files**
@@ -990,6 +1015,12 @@ EU-PLY-12  GIVEN boots folders "k0430 - Crocs", worn by slots 03 and 05, and "k0
            THEN Boots/Crocs/ holds k0430's files, Boots/k0432/ holds k0432's, no Boots/k0431/
                 exists, the folders of 03, 04, 05 and 06 hold Crocs.boots and those of 07 and
                 08 k0432.boots
+EU-PLY-13  GIVEN a Fox face folder "XXX05 - Bob" holding fcl_hair.fmdl and fcl_hair_sim.skl,
+                and one "XXX06 - Ann" holding fcl_hair_sim.skl and no fcl_hair.fmdl
+           WHEN the export is upgraded, and when the folder holding the two face folders is
+                upgraded with upgrade-models
+           THEN Bob's output folder holds fcl_hair.skl, its bytes fcl_hair_sim.skl's, and no
+                fcl_hair_sim.skl, and Ann's keeps fcl_hair_sim.skl as named
 ```
 
 **Kits**
@@ -1072,6 +1103,13 @@ EU-KIT-14  GIVEN player kits 1 and 2 holding byte-identical kit_back textures, a
            WHEN the export is upgraded
            THEN p1 and p2 each keep kit_back.dds, the output holds no Kits/all/, and
                 kit_texture_hoisted is not reported
+EU-KIT-15  GIVEN Kit Textures holding u0XXXp1.ftex and u0XXXp1_back.ftex, the FTEX of two DDS
+                textures, beside the config XXX_DEF_1st_realUni.bin, and u0XXXp2.dds and
+                u0XXXp2.ftex beside XXX_DEF_2nd_realUni.bin
+           WHEN the export is upgraded
+           THEN Kits/p1/ holds kit.dds and kit_back.dds, each the DDS its FTEX converts back
+                to, and Kits/p2/ holds kit.dds, u0XXXp2.dds's bytes, with u0XXXp2.ftex reported
+                as unmigrated content
 ```
 
 **Portraits, logo, models and Common**
@@ -1360,8 +1398,9 @@ EU-CLI-03  GIVEN a team export upgraded with both --savefile and --loose, or wit
            THEN it is refused naming the two flags, with exit code 2, and nothing is written
 EU-CLI-04  GIVEN in turn an export path that does not exist, an export path naming a .txt file,
                 a --savefile that is not a save, and a savefile that does not hold the resolved
-                team, and an upgrade-models folder that does not exist or names a file
-           WHEN upgrade, or upgrade-models for the last, runs
+                team, and an upgrade-models folder that does not exist or names a file, and an
+                upgrade-models -o whose path names no folder (it ends in ..)
+           WHEN upgrade, or upgrade-models for the last two, runs
            THEN it is refused naming the path, the file or the team, with exit code 2, and
                 nothing is written
 EU-CLI-07  GIVEN a corrupt .zip export
@@ -1376,6 +1415,9 @@ EU-CLI-06  GIVEN a folder "new models" of old model folders
            WHEN upgrade-models runs without -o
            THEN the output is the sibling folder "new models upgraded", one folder per input
                 folder
+           WHEN it runs with -o out/done, out/ missing
+           THEN out/done/ holds one folder per input folder directly, and no "new models
+                upgraded" folder exists
 ```
 
 **Phase 8 scope.** Phase 8 delivers the view ("GUI"). What a scenario observes is what a frame

@@ -232,6 +232,49 @@ fn rename_output(
     }
 }
 
+/// Step 3's Fox hair skeleton rename ("SKL pairing" in
+/// `spec/aesthetics_export/player_folders.md`): the old format names a
+/// hair's skeleton after its game slot, `fcl_hair_sim.skl`, while the
+/// Studio format pairs a skeleton with its model by the model's stem, so a
+/// `fcl_hair_sim.skl` in an output folder that holds an `fcl_hair.fmdl`
+/// and no `fcl_hair.skl` (the names compared ASCII case-insensitively)
+/// becomes `fcl_hair.skl`, lower case — kept as named, the compile
+/// reports it `file_not_used` and injects the template in its place. Only
+/// the file name changes; its folder and bytes stay.
+fn pair_hair_skeletons(copies: Vec<(String, String)>) -> Vec<(String, String)> {
+    // Per output folder (folded): whether its outputs hold the model and
+    // whether one already holds the paired name.
+    let mut folders: BTreeMap<String, (bool, bool)> = BTreeMap::new();
+    for (_, output) in &copies {
+        let Some((dir, name)) = output.rsplit_once('/') else {
+            continue;
+        };
+        let entry = folders.entry(vtree::fold_name(dir)).or_default();
+        if name.eq_ignore_ascii_case("fcl_hair.fmdl") {
+            entry.0 = true;
+        } else if name.eq_ignore_ascii_case("fcl_hair.skl") {
+            entry.1 = true;
+        }
+    }
+    copies
+        .into_iter()
+        .map(|(from, to)| {
+            let Some((dir, name)) = to.rsplit_once('/') else {
+                return (from, to);
+            };
+            if name.eq_ignore_ascii_case("fcl_hair_sim.skl")
+                && folders
+                    .get(&vtree::fold_name(dir))
+                    .is_some_and(|&(model, paired)| model && !paired)
+            {
+                (from, format!("{dir}/fcl_hair.skl"))
+            } else {
+                (from, to)
+            }
+        })
+        .collect()
+}
+
 /// What step 7 makes of the copies' output names (`plans/
 /// export_upgrader.md` step 7): below a `Players/<folder>/` holding no
 /// member `face.xml` (subfolders included), a shared `Boots/<name>/` or
@@ -244,11 +287,13 @@ fn rename_output(
 /// in an xml folder names — and every other output keep their names; a
 /// folder shipping a `face.xml` keeps every name. `copies` holds the player
 /// and shared folders' outputs and `Common/`'s alike, so a link sees its
-/// target's rename.
+/// target's rename. Before any of it, step 3's `fcl_hair_sim.skl` pairing
+/// (`pair_hair_skeletons`) applies to every output folder alike.
 pub(crate) fn rename_models(
     copies: Vec<(String, String)>,
     kept: &BTreeSet<String>,
 ) -> Vec<(String, String)> {
+    let copies = pair_hair_skeletons(copies);
     let xml = xml_folders(&copies);
     // The `.mtl` a swap-renamed model or link brings along keys on the
     // model's directory and its `base` (the stem the swap started from),
@@ -477,6 +522,67 @@ mod tests {
                 "Players/07 - A/sub/bar_gloveL.mtl.common",
                 "Common/foo_gloveL.model",
                 "Common/gloveL_foo.mtl",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_hair_skeleton_beside_its_model_pairs_as_fcl_hair_skl() {
+        assert_eq!(
+            renamed(
+                &[
+                    "Players/05 - Bob/fcl_hair.fmdl",
+                    "Players/05 - Bob/fcl_hair_sim.skl",
+                ],
+                &[],
+            ),
+            [
+                "Players/05 - Bob/fcl_hair.fmdl",
+                "Players/05 - Bob/fcl_hair.skl",
+            ]
+        );
+    }
+
+    #[test]
+    fn a_hair_skeleton_without_the_model_keeps_its_name() {
+        assert_eq!(
+            renamed(&["Players/06 - Ann/fcl_hair_sim.skl"], &[],),
+            ["Players/06 - Ann/fcl_hair_sim.skl"]
+        );
+    }
+
+    #[test]
+    fn a_folder_holding_fcl_hair_skl_already_keeps_all_three_names() {
+        assert_eq!(
+            renamed(
+                &[
+                    "Players/05 - Bob/fcl_hair.fmdl",
+                    "Players/05 - Bob/fcl_hair.skl",
+                    "Players/05 - Bob/fcl_hair_sim.skl",
+                ],
+                &[],
+            ),
+            [
+                "Players/05 - Bob/fcl_hair.fmdl",
+                "Players/05 - Bob/fcl_hair.skl",
+                "Players/05 - Bob/fcl_hair_sim.skl",
+            ]
+        );
+    }
+
+    #[test]
+    fn the_hair_skeleton_pairing_compares_names_in_any_letter_case() {
+        assert_eq!(
+            renamed(
+                &[
+                    "Players/05 - Bob/FCL_HAIR.FMDL",
+                    "Players/05 - Bob/Fcl_Hair_Sim.skl",
+                ],
+                &[],
+            ),
+            [
+                "Players/05 - Bob/FCL_HAIR.FMDL",
+                "Players/05 - Bob/fcl_hair.skl",
             ]
         );
     }

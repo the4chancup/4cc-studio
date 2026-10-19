@@ -14,8 +14,8 @@ is in `AGENTS.md` ("Working documents").
 (`music_export`, its plan section, `pub` audit and whole-crate mutation run done; converging
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): 6.9 (the parity test and the census), with 6.8's Astra
-round (checkpoint b, `side/6.8`) owed; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
+**Next:** Phase 6 (Export upgrader): 6.9 (the parity test and the census: 6.9a's fixes, then
+the census rerun and the parity cases); 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
 and the shell's draft (`docs/prototypes/shell.html`) is on a side branch. Parallel tracks:
 `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
@@ -679,14 +679,40 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   a folder is a model folder when it holds any file directly in it (5 of the 23 real /jp/ 2024
   Winter Cup face folders hold no model), an empty folder is reported, EU-MF-05 for the
   placement test, the help's link wording. Mutation diff 82 mutants, 3 missed: two tested, one
-  equivalent (`.cargo/mutants.toml`). Files: `export_upgrader/src/{model_folders,upgrade,cli,
+  equivalent (`.cargo/mutants.toml`). Astra 6.8.A1 (top lead, on main): 3 accepted, loop ended,
+  the fixes in 6.9a. Files: `export_upgrader/src/{model_folders,upgrade,cli,
   source,messages,kit_magic,materials,face_xml,naming,players,lib}.rs`,
   `help/01_command_line.md`, `tests/cli/{models,cli,carried,main}.rs`, `tests/common/mod.rs`
 - [ ] 6.9 the parity test (`team_compiler/testing.md`: an upgraded export compiles to Red's CPK
   for the old one) and a census of every old export on the maintainer's machine through
   `upgrade` (`AGENTS.md` "Closing a phase", the census template) → verify: every outcome class
   tallied and diagnosed; a macOS archive's `__MACOSX/` or `._*` files, if any member export
-  holds them, are their own class (`.tmp/6_1/duck_rulings.md` S1a-2)
+  holds them, are their own class (`.tmp/6_1/duck_rulings.md` S1a-2). Measured first
+  (2026-10-19, top lead, `.tmp/6_9/findings.md`): both tracers' `old/` upgraded and compiled
+  against their twins and Red's tree (game-facing output equal but for the gaps below); census
+  `before` over 713 inputs (293 folders, 420 archives; `F:\Music\`'s 2,203 archives counted, not
+  listed), 54 classes, every one ruled
+  - [x] 6.9a the gaps it found (DECISIONS 2026-10-19 "a hair skeleton renamed to pair, `.fpk.xml`
+    left out, an `.ftex` kit texture converted"): `fcl_hair_sim.skl` beside `fcl_hair.fmdl`
+    becomes `fcl_hair.skl`, `*.fpk.xml` left out, a `Kit Textures` `.ftex` converted to its DDS,
+    both modes; with Astra 6.8.A1's three (`upgrade-models` claims its output with `create_dir`,
+    refuses a `-o` naming no folder, EU-CLI-06's `-o` half) → verify: EU-IN-04, EU-PLY-13,
+    EU-KIT-15, EU-CLI-04, EU-CLI-06. Done (SWE-2, first attempt, red runs pasted): a converted
+    texture is its kit's own file, not seen by the copy between kits or the `all/` hoist, which
+    no real export misses (plan step 5); mutation diff 46, 0 missed. SWE-2 6.9.S1 2 accepted
+    (a `.dds` takes its stem from an `.ftex` whatever the letter case, the failed conversion
+    tested), 4 rejected as edge cases, loop ended (`.tmp/6_9/rulings.md`). Files:
+    `export_upgrader/{Cargo.toml,src/{source,model_names,kits,model_folders}.rs,
+    tests/cli/{input,players,kits,models}.rs}`, `plans/export_upgrader.md` steps 1, 3, 5
+  - [x] 6.9b the census rerun (`after`; the repository's copies under `AppData\Local\Temp\` left
+    out) with a regression check against `before`. Done: 639 inputs in both runs, 630 the same
+    outcome, 9 changed, every one to clean (INK VGL26 and 8 /fgog/ exports, their `.ftex` kit
+    textures converting); no regression; 230 report lines on `.fpk.xml` files gone, 3 of them
+    `merge_kept_shared` whose boots folders now merge (`1999  Aesthetics Export VGL26`)
+  - [ ] 6.9c the parity cases: each tracer's upgraded `old/` committed as a golden
+    (`tests/fixtures/<tracer>/upgraded/`), an `export_upgrader` test that upgrading `old/` gives
+    it exactly, and a `team_compiler` parity case compiling it against `red/` (tool crates never
+    depend on tool crates: the golden is the link)
 
 ### Phase 8 — GUI
 

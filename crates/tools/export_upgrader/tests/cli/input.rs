@@ -127,6 +127,65 @@ fn an_archives_name_is_its_files_stem() {
     assert!(sandbox.path("co Full day5").is_dir(), "{}", run.stdout());
 }
 
+// EU-IN-04
+#[test]
+fn fpk_xml_files_are_left_out_of_the_output_and_the_report() {
+    let sandbox = Sandbox::new("in_fpk_xml");
+    sandbox.write("co Spring/Faces/XXX05 - Bob/face.fmdl", b"face");
+    sandbox.write("co Spring/Faces/XXX05 - Bob/face.fpk.xml", b"<fpk/>");
+    sandbox.write("co Spring/Boots/k2180 - Bob/boots.fmdl", b"boots");
+    sandbox.write("co Spring/Boots/k2180 - Bob/boots.fpk.xml", b"<fpk/>");
+
+    // `k2180` alone infers the 2176 block: slot 05, Bob's own (`--loose`,
+    // `tests/cli/loose.rs`).
+    let input = sandbox.arg("co Spring");
+    let run = sandbox.run(&["upgrade", &input, "--loose"]);
+    let stdout = run.stdout();
+    assert!(
+        sandbox
+            .path("co Full Spring/Players/05 - Bob/face.fmdl")
+            .exists(),
+        "{stdout}"
+    );
+    assert!(
+        sandbox
+            .path("co Full Spring/Players/05 - Bob/boots.fmdl")
+            .exists(),
+        "{stdout}"
+    );
+    for entry in sandbox.listing("co Full Spring") {
+        assert!(!entry.to_ascii_lowercase().ends_with(".fpk.xml"), "{entry}");
+    }
+    assert!(
+        !stdout.to_ascii_lowercase().contains(".fpk.xml"),
+        "{stdout}"
+    );
+
+    // The two item folders copied into a folder of their own, then through
+    // `upgrade-models`.
+    for (top, folder) in [("Faces", "XXX05 - Bob"), ("Boots", "k2180 - Bob")] {
+        fs::create_dir_all(sandbox.path(&format!("new models/{folder}"))).unwrap();
+        for entry in fs::read_dir(sandbox.path(&format!("co Spring/{top}/{folder}"))).unwrap() {
+            let name = entry.unwrap().file_name().to_str().unwrap().to_owned();
+            fs::copy(
+                sandbox.path(&format!("co Spring/{top}/{folder}/{name}")),
+                sandbox.path(&format!("new models/{folder}/{name}")),
+            )
+            .unwrap();
+        }
+    }
+    let input = sandbox.arg("new models");
+    let run = sandbox.run(&["upgrade-models", &input]);
+    let stdout = run.stdout();
+    for entry in sandbox.listing("new models upgraded") {
+        assert!(!entry.to_ascii_lowercase().ends_with(".fpk.xml"), "{entry}");
+    }
+    assert!(
+        !stdout.to_ascii_lowercase().contains(".fpk.xml"),
+        "{stdout}"
+    );
+}
+
 // EU-IN-03
 #[test]
 fn an_input_holding_no_old_export_is_reported() {
