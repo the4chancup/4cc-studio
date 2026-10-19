@@ -184,4 +184,9 @@ exclude_re = [
     # past `i == skip` before it reaches the shift, so the two differ on no index it sees.
     # Pinned to its site: the function's loop bound `i < self.entries.len()` stays measured.
     "music_export/src/select\\.rs:126:46: replace < with <= in PriorityList::select",
+    # export_upgrader (mutants-diff 4d3fa0a, worklog 6.8): in `model_folders::run`, the skip of
+    # a copy whose `.mtl` or `face.xml` is rewritten, `||` -> `&&`, is equivalent: no file is
+    # both, so nothing is skipped, and every copy written is then replaced by its rewrite,
+    # written after every copy. Pinned to its site: the two `==` beside it stay measured.
+    "export_upgrader/src/model_folders\\.rs:371:13: replace \\|\\| with && in run",
 ]

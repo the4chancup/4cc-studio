@@ -121,11 +121,11 @@ fn placed_folder(name: &str) -> Option<(Destination, String)> {
 }
 
 /// The input's top level resolved into the output folders (plan
-/// "Model-folder mode"): files grouped by their first segment, `BTreeMap`
-/// giving the input-name order; a file directly in the input, a folder
-/// holding no model file directly in it and a folder whose published name an
-/// earlier kept folder already took are unmigrated content.
-pub(crate) fn model_folder_plan(files: &[String]) -> ModelFolderPlan {
+/// "Model-folder mode"): folders and files grouped by their first segment,
+/// `BTreeMap` giving the input-name order; a file directly in the input, a
+/// folder holding no file directly in it and a folder whose published name
+/// an earlier kept folder already took are unmigrated content.
+pub(crate) fn model_folder_plan(files: &[String], folders: &[String]) -> ModelFolderPlan {
     let mut plan = ModelFolderPlan::default();
     let mut groups: BTreeMap<String, Vec<&String>> = BTreeMap::new();
     for file in files {
@@ -140,6 +140,14 @@ pub(crate) fn model_folder_plan(files: &[String]) -> ModelFolderPlan {
                 Disposition::DropFile,
                 vec![],
             )),
+        }
+    }
+    // Every top-level folder seeds a group too: one holding no file at all
+    // (an empty folder, or only an OS artifact the listing left out) is
+    // still a folder the plan must rule on.
+    for folder in folders {
+        if !folder.contains('/') {
+            groups.entry(folder.clone()).or_default();
         }
     }
     // The published names taken so far, folded: they all sit at the output's
@@ -162,15 +170,14 @@ pub(crate) fn model_folder_plan(files: &[String]) -> ModelFolderPlan {
             refused(&mut plan);
             continue;
         };
-        // A folder holding no `.fmdl`/`.model` directly in it is no model
-        // folder: one level, one folder per model (`Common` aside).
-        let has_model = destination == Destination::Root
-            || group.iter().any(|file| {
-                let rest = &file[name.len() + 1..];
-                let lowered = rest.to_ascii_lowercase();
-                !rest.contains('/') && (lowered.ends_with(".fmdl") || lowered.ends_with(".model"))
-            });
-        if !has_model {
+        // A folder holding no file directly in it is no model folder: one
+        // level, one folder per model. Any file counts, a Fox face folder
+        // may carry `face_diff.bin` and a portrait alone; `Common` too, an
+        // empty one having nothing to carry.
+        let has_file = group
+            .iter()
+            .any(|file| !file[name.len() + 1..].contains('/'));
+        if !has_file {
             refused(&mut plan);
             continue;
         }
@@ -330,7 +337,7 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
     // keeps, then the model renames and the output-path collisions, the
     // `.mtl` rewrites and the `face.xml` respells against the one list.
     let identity = Identity::ModelFolders;
-    let mut plan = model_folder_plan(&export.files);
+    let mut plan = model_folder_plan(&export.files, &export.folders);
     let respelled = respell_outputs(std::mem::take(&mut plan.copies), &identity);
     let kept = kept_common_files(&respelled, &identity, |path| export.read(path));
     let (copies, dropped) = drop_collisions(rename_models(respelled, &kept));
@@ -457,15 +464,18 @@ mod tests {
 
     #[test]
     fn the_input_folders_become_output_folders_with_their_destinations() {
-        let plan = model_folder_plan(&files(&[
-            "Common/hair.dds",
-            "Snuffy/hair.model",
-            "Snuffy/ingame_face.txt",
-            "XXX15 - Snuffy/face.fmdl",
-            "XXX15 - Snuffy/u0XXXp1.dds",
-            "k0430 - Crocs/gloveL_crocs.model",
-            "k0431/boots.model",
-        ]));
+        let plan = model_folder_plan(
+            &files(&[
+                "Common/hair.dds",
+                "Snuffy/hair.model",
+                "Snuffy/ingame_face.txt",
+                "XXX15 - Snuffy/face.fmdl",
+                "XXX15 - Snuffy/u0XXXp1.dds",
+                "k0430 - Crocs/gloveL_crocs.model",
+                "k0431/boots.model",
+            ]),
+            &[],
+        );
         assert_eq!(
             plan.folders,
             [
@@ -508,10 +518,10 @@ mod tests {
 
     #[test]
     fn a_gloves_folder_is_named_by_its_name_part_or_its_id() {
-        let plan = model_folder_plan(&files(&[
-            "g0502 - Mitts/glove_l.model",
-            "g567/glove_l.model",
-        ]));
+        let plan = model_folder_plan(
+            &files(&["g0502 - Mitts/glove_l.model", "g567/glove_l.model"]),
+            &[],
+        );
         assert_eq!(
             plan.folders,
             [
@@ -551,21 +561,62 @@ mod tests {
     }
 
     #[test]
-    fn a_folder_holding_no_model_file_directly_in_it_is_refused() {
-        // A two-level layout and a folder of plain files alike hold no
-        // `.fmdl`/`.model` directly in them.
-        let plan = model_folder_plan(&files(&["players/Ann/face.fmdl", "Textures/u0XXXp1.dds"]));
-        assert_eq!(plan.findings.len(), 2, "{:?}", plan.findings);
-        assert_refused(&plan.findings[0], "Textures");
-        assert_refused(&plan.findings[1], "players");
-        assert!(plan.folders.is_empty());
-        assert!(plan.copies.is_empty());
+    fn a_top_level_folder_holding_no_file_directly_in_it_is_refused() {
+        // A two-level layout, an empty folder and an empty `Common` alike
+        // hold no file directly in them; a face folder holding any file
+        // forms (`Textures`'s `.dds` too: a Fox face folder may carry no
+        // model of its own).
+        let folders = files(&["Common", "Empty", "players", "players/Ann", "Textures"]);
+        let plan = model_folder_plan(
+            &files(&["players/Ann/face.fmdl", "Textures/u0XXXp1.dds"]),
+            &folders,
+        );
+        assert_eq!(plan.findings.len(), 3, "{:?}", plan.findings);
+        assert_refused(&plan.findings[0], "Common");
+        assert_refused(&plan.findings[1], "Empty");
+        assert_refused(&plan.findings[2], "players");
+        assert_eq!(plan.folders, [placed("Textures", Destination::Players)]);
+        assert_eq!(
+            plan.copies,
+            [(
+                "Textures/u0XXXp1.dds".to_owned(),
+                "Players/Textures/u0XXXp1.dds".to_owned()
+            )]
+        );
+    }
+
+    #[test]
+    fn a_face_folder_without_a_model_keeps_its_files() {
+        // `face_diff.bin` and a portrait are a real Fox face folder's
+        // content: any file directly in it makes it a model folder.
+        let plan = model_folder_plan(
+            &files(&[
+                "XXX01 - Dekinai/face_diff.bin",
+                "XXX01 - Dekinai/portrait.dds",
+            ]),
+            &[],
+        );
+        assert_eq!(plan.folders, [placed("01 - Dekinai", Destination::Players)]);
+        assert_eq!(
+            plan.copies,
+            [
+                (
+                    "XXX01 - Dekinai/face_diff.bin".to_owned(),
+                    "Players/01 - Dekinai/face_diff.bin".to_owned()
+                ),
+                (
+                    "XXX01 - Dekinai/portrait.dds".to_owned(),
+                    "Players/01 - Dekinai/portrait.dds".to_owned()
+                ),
+            ]
+        );
+        assert!(plan.findings.is_empty(), "{:?}", plan.findings);
     }
 
     #[test]
     fn the_first_folder_by_input_name_wins_a_name_clash() {
         // `71415 - A` and `XXX15 - A` both publish `15 - A`.
-        let plan = model_folder_plan(&files(&["71415 - A/face.fmdl", "XXX15 - A/face.fmdl"]));
+        let plan = model_folder_plan(&files(&["71415 - A/face.fmdl", "XXX15 - A/face.fmdl"]), &[]);
         assert_eq!(plan.folders, [placed("15 - A", Destination::Players)]);
         assert_eq!(
             plan.copies,
@@ -579,7 +630,10 @@ mod tests {
 
         // A face folder `Crocs` and `k0430 - Crocs` both publish `Crocs`
         // beside each other at the output's top level.
-        let plan = model_folder_plan(&files(&["Crocs/face.fmdl", "k0430 - Crocs/boots.model"]));
+        let plan = model_folder_plan(
+            &files(&["Crocs/face.fmdl", "k0430 - Crocs/boots.model"]),
+            &[],
+        );
         assert_eq!(plan.folders, [placed("Crocs", Destination::Players)]);
         assert_eq!(
             plan.copies,
@@ -592,7 +646,10 @@ mod tests {
         assert_refused(&plan.findings[0], "k0430 - Crocs");
 
         // Letter case aside: `k0430 - crocs` still publishes `Crocs`'s name.
-        let plan = model_folder_plan(&files(&["Crocs/face.fmdl", "k0430 - crocs/boots.model"]));
+        let plan = model_folder_plan(
+            &files(&["Crocs/face.fmdl", "k0430 - crocs/boots.model"]),
+            &[],
+        );
         assert_eq!(plan.folders, [placed("Crocs", Destination::Players)]);
         assert_eq!(plan.findings.len(), 1, "{:?}", plan.findings);
         assert_refused(&plan.findings[0], "k0430 - crocs");
@@ -600,7 +657,7 @@ mod tests {
 
     #[test]
     fn a_file_directly_in_the_input_is_unmigrated_content() {
-        let plan = model_folder_plan(&files(&["readme.txt"]));
+        let plan = model_folder_plan(&files(&["readme.txt"]), &[]);
         assert_eq!(plan.findings.len(), 1, "{:?}", plan.findings);
         let message = &plan.findings[0];
         assert_eq!(message.code.code.as_ref(), "unmigrated_content");
@@ -620,7 +677,7 @@ mod tests {
     #[test]
     fn a_face_folder_without_a_slot_keeps_its_own_name() {
         // `XXX30`'s "slot" is past 23: no slot, the name is the folder's own.
-        let plan = model_folder_plan(&files(&["XXX30 - A/face.fmdl", "XXX15/face.fmdl"]));
+        let plan = model_folder_plan(&files(&["XXX30 - A/face.fmdl", "XXX15/face.fmdl"]), &[]);
         assert_eq!(
             plan.folders,
             [

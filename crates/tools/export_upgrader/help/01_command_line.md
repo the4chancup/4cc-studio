@@ -52,10 +52,11 @@ becomes a folder named by its name part (`k0430 - Crocs` becomes `Crocs`) or
 by its ID when it has none, and `Common` is upgraded as an export's would be.
 The report names each output folder with where it goes: a player folder drops
 into `Players/`, `Common` at the export's root, and a boots or gloves folder
-drops into `Boots/` or `Gloves/` with a link file added to the wearing
-player's folder, or its files move into a player folder with the model
-renamed `boots.fmdl` or `glove_*.fmdl`. A top-level folder holding no model
-file directly in it is reported as unmigrated content and left out. No team
+goes into `Boots/` or `Gloves/`, where you add a link file to the folder of
+each player who wears it, or move its files into a player folder with the
+model renamed `boots.fmdl` or `glove_*.fmdl`. A top-level folder holding no
+file directly in it (such as a folder of player folders) is reported as
+unmigrated content and left out. No team
 is resolved, so a `???` placeholder and the goalkeeper `u0???g` token stay as
 written. The output is the folder `<folder> upgraded` beside the input, or
 the folder `-o` names, which must not exist yet.

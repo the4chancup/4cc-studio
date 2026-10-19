@@ -5,6 +5,7 @@ use std::fs;
 
 use crate::carried::{fmdl, fmdl_paths, mtl, mtl_text};
 use crate::common::{Run, Sandbox, snapshot};
+use crate::players::unmigrated_found;
 
 /// `upgrade-models <input> <extra_args>`.
 fn upgrade_models(sandbox: &Sandbox, input: &str, extra_args: &[&str]) -> Run {
@@ -61,6 +62,7 @@ fn the_output_is_a_sibling_folder_holding_one_folder_per_input_folder() {
 
     let run = upgrade_models(&sandbox, "new models", &[]);
     assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert_eq!(unmigrated_found(&run), 0, "{}", run.stdout());
     assert_eq!(
         sandbox.listing("new models upgraded"),
         [
@@ -98,6 +100,15 @@ fn each_input_folder_is_migrated_and_its_destination_reported() {
     sandbox.write("new models/k0430 - Crocs/gloveL_crocs.model", b"gloves");
     sandbox.write("new models/k0431/boots.model", b"boots");
     sandbox.write("new models/Snuffy/hair.model", b"hair");
+    sandbox.write(
+        "new models/Snuffy/face.xml",
+        br#"<?xml version="1.0" encoding="UTF-8" ?>
+<config>
+    <model level="0" type="parts" path="./hair_u0XXXp1.model" material="./face.mtl"/>
+</config>
+"#,
+    );
+    sandbox.write("new models/Snuffy/hair_u0XXXp1.model", b"hair model");
     sandbox.write("new models/Snuffy/ingame_face.txt", b"");
     sandbox.write("new models/Common/u0XXXp0.dds", b"p0");
 
@@ -133,6 +144,20 @@ fn each_input_folder_is_migrated_and_its_destination_reported() {
     assert!(
         !sandbox
             .path("new models upgraded/Snuffy/ingame_face.txt")
+            .exists()
+    );
+    // The member `face.xml`'s own-model `path` gets the kit magic too, and
+    // its renamed model and the untouched one are both written.
+    let xml = fs::read_to_string(sandbox.path("new models upgraded/Snuffy/face.xml")).unwrap();
+    assert!(xml.contains("path=\"./hair_kit1.model\""), "{xml}");
+    assert!(
+        sandbox
+            .path("new models upgraded/Snuffy/hair_kit1.model")
+            .exists()
+    );
+    assert!(
+        sandbox
+            .path("new models upgraded/Snuffy/hair.model")
             .exists()
     );
     assert!(sandbox.path("new models upgraded/Common/kitF.dds").exists());
@@ -211,20 +236,48 @@ fn common_references_and_links_resolve_in_the_staged_export() {
 
 // EU-MF-03
 #[test]
-fn a_folder_holding_no_model_file_is_unmigrated_content() {
+fn a_folder_holding_no_file_is_unmigrated_content() {
     let sandbox = Sandbox::new("mf_unmigrated");
     sandbox.write("new models/players/Ann/face.fmdl", b"face");
+    sandbox.write("new models/Thumbs/Thumbs.db", b"db");
     sandbox.write("new models/XXX07 - A/face.fmdl", b"face");
 
     let run = upgrade_models(&sandbox, "new models", &[]);
     let stdout = run.stdout();
     assert_eq!(run.exit_code(), 1, "{stdout}");
-    assert!(stdout.contains("unmigrated_content at players"), "{stdout}");
+    for folder in [
+        "unmigrated_content at players",
+        "unmigrated_content at Thumbs",
+    ] {
+        assert!(stdout.contains(folder), "{folder}: {stdout}");
+    }
+    assert_eq!(unmigrated_found(&run), 1, "{stdout}");
     assert!(!sandbox.path("new models upgraded/players").exists());
     assert!(
         sandbox
             .path("new models upgraded/07 - A/face.fmdl")
             .exists()
+    );
+}
+
+// EU-MF-06
+#[test]
+fn a_face_folder_without_a_model_migrates_its_files() {
+    let sandbox = Sandbox::new("mf_modelless_face");
+    sandbox.write("new models/XXX01 - Dekinai/face_diff.bin", b"diff");
+    sandbox.write("new models/XXX01 - Dekinai/portrait.dds", b"portrait");
+
+    let run = upgrade_models(&sandbox, "new models", &[]);
+    for file in [
+        "new models upgraded/01 - Dekinai/face_diff.bin",
+        "new models upgraded/01 - Dekinai/portrait.dds",
+    ] {
+        assert!(sandbox.path(file).exists(), "{file}: {}", run.stdout());
+    }
+    let stdout = run.stdout();
+    assert!(
+        stdout.contains("model_folder_destination at 01 - Dekinai (into=Players)"),
+        "{stdout}"
     );
 }
 
@@ -255,7 +308,7 @@ fn a_goalkeeper_token_is_kept_as_written_without_a_team() {
     );
 }
 
-// EU-MF-01
+// EU-MF-05
 #[test]
 fn the_staged_validation_leaves_the_placement_findings_to_the_destination() {
     let sandbox = Sandbox::new("mf_placement");

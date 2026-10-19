@@ -683,10 +683,14 @@ step 3's second face folder of a slot. A file directly in the input folder is un
 (step 10).
 
 Not in this mode: kits, portraits, logo, `settings.toml`, the savefile, loose mode, the roster. No
-savefile is read — there are no wearers to resolve. A top-level folder that holds no model file directly
-in it (an `.fmdl` or `.model`; `Common/` aside) is reported as unmigrated content (step 10) and left out; the converters'
+savefile is read — there are no wearers to resolve. A top-level folder that holds no file directly
+in it (OS artifacts aside; `Common/` included, an empty one having nothing to carry) is reported
+as unmigrated content (step 10) and left out; the converters'
 two-level `players/<player>/<model folders>/` layout is therefore *not* accepted — one level, one
-folder per model, so that "what is a model folder" never has to be guessed.
+folder per model, so that "what is a model folder" never has to be guessed. We do not ask for a
+model file directly in it, because a real Fox face folder may carry no model of its own (5 of the
+23 face folders of the real /jp/ 2024 Winter Cup export hold `face_diff.bin` and a portrait
+only), and `upgrade` carries such a folder: the two modes agree on what a face folder is.
 
 Verification: fixtures with one face folder carrying `u0XXXp1` textures and path-table references
 (asserting `kit1` everywhere, folder renamed `NN - Name`), one boots folder with a prefix-typed
@@ -1319,15 +1323,25 @@ EU-MF-02   GIVEN a player folder's .mtl referencing model/character/uniform/comm
            WHEN upgrade-models runs
            THEN the player's .mtl references ./hair.dds beside the link hair.dds.common, the
                 other reference is reported and left as written, Common's .mtl keeps its
-                reference to face.dds as written, the .mtl.common link is kept, the shared validation finds every
-                link resolving, and the exit code is 0
-EU-MF-03   GIVEN a top-level folder holding no model file (a players/ folder of model folders)
+                reference to face.dds as written, the .mtl.common link is kept, the shared
+                validation finds every link resolving, and the exit code is 0
+EU-MF-03   GIVEN a top-level folder holding no file directly in it (a players/ folder of model
+                folders, or a folder holding only Thumbs.db)
            WHEN upgrade-models runs
            THEN it is reported as unmigrated content, the output does not hold it, and the exit
                 code is 1
 EU-MF-04   GIVEN a model folder whose FMDL names u0XXXg1
            WHEN upgrade-models runs
            THEN the migrated FMDL names u0XXXg1 as written
+EU-MF-05   GIVEN two face folders of one slot ("XXX15 - A", "XXX15 - B"), a face folder without
+                a number and a boots folder no player folder links
+           WHEN upgrade-models runs
+           THEN the report holds no finding on a folder's number or a missing link, the
+                destination export's to make, and the exit code is 0
+EU-MF-06   GIVEN a Fox face folder "XXX01 - Dekinai" holding face_diff.bin and portrait.dds and
+                no model
+           WHEN upgrade-models runs
+           THEN the output holds 01 - Dekinai/ with both files, reported as going into Players
 ```
 
 **CLI**

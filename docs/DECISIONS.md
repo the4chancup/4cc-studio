@@ -8973,7 +8973,8 @@ Plan: `plans/export_upgrader.md` step 11.
 Decision: (1) `upgrade-models` reads a folder as it is, its top level the model folders: no
 archive, no wrapper-folder or same-named-subfolder rule; (2) a top-level folder's kind is its
 name's (`Common` in any case; steps 3-4's item grammar for boots and gloves; any other a face
-folder), and a model folder holds an `.fmdl` or `.model` directly in it; (3) a face folder
+folder), and a model folder holds a file directly in it (OS artifacts aside, `Common` included);
+(3) a face folder
 without a slot keeps its own name, and in a face folder only `ingame_face` is normalized, the
 portrait keeping its name; (4) two folders publishing one name, letter case aside, keep the
 first by input name, the later `unmigrated_content` as a whole folder; a root file is
@@ -8987,7 +8988,10 @@ what "holds no model files" counts, or how the validation's placement findings a
 goes" line are spelled. (1) Step 1's wrapper rule would read a folder holding one model folder as
 that model folder. (2) The item grammar is the one whole-export upgrades already apply, so a
 folder is the same kind in both modes; "directly in it" keeps one level, one folder per model,
-as the plan wants, and is what tells the converters' `players/<player>/` layout apart. (3) The
+as the plan wants, and is what tells the converters' `players/<player>/` layout apart. Any file,
+not a model file: asking for an `.fmdl` or `.model` refused 5 of the 23 face folders of the real
+/jp/ 2024 Winter Cup export, which hold `face_diff.bin` and a portrait only and which `upgrade`
+carries (SWE-2 6.8.S1-2). (3) The
 plan names the slot rule only; the mode has no `Portraits/`, which step 3's rename serves. (4)
 The published folders share one level, so a face and a boots folder can collide where a whole
 export's `Players/` and `Boots/` never do; first-wins is step 3's rule for a slot's second face
