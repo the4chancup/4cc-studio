@@ -7,14 +7,15 @@
   A draft of the 4cc Studio shell: sidebar, status bar, settings menu, help window
   and window title (docs/plans/core/gui.md), drawn only with what egui can draw
   ("Prototypes before implementation"): its behaviour is faked with sample data and
-  nothing is written. Slices 1 to 5 of 7: the skeleton, the sidebar with its
+  nothing is written. Slices 1 to 6 of 7: the skeleton, the sidebar with its
   collapse, stub central panels, the status bar's three slots, the window
-  title, the PES selector's states, the About popup, the settings menu and the
-  help window.
+  title, the PES selector's states, the About popup, the settings menu, the
+  help window and the log panel.
   Widget mapping: <select> = ComboBox, .sel = SelectableLabel, .menu = menu_button,
   details = CollapsingHeader, table.grid = Grid, .window = Window/Modal,
   title="" = on_hover_text, .sidebar = Panel::left, .bottom = Panel::bottom,
-  .center = CentralPanel, .titlebar = ViewportCommand::Title.
+  .center = CentralPanel, .titlebar = ViewportCommand::Title,
+  .log-panel = studio_core's log panel widget.
 -->
 <style>
   :root {
@@ -130,6 +131,21 @@
   .help-win .help-topic p { margin: 4px 0 8px; }
   .help-win .help-res .sel { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .help-win .hl { background: var(--changed); }
+  .pipe { height: 100%; display: flex; flex-direction: column; min-height: 0; }
+  .pipe-grid { flex: 1; overflow: auto; min-height: 0; }
+  .pipe-grid tr.highlight { background: var(--changed); }
+  .log-panel { flex: none; }
+  .log-divider { height: 4px; cursor: ns-resize; }
+  .log-divider:hover { background: var(--hover); }
+  .log-header { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+  .log-count { margin-left: auto; }
+  .log-wrap { position: relative; }
+  .log-body { overflow: auto; background: var(--extreme); border: 1px solid var(--stroke);
+    padding: 2px 6px; font: 12px "Hack", "Consolas", monospace; color: #b4b4b4; }
+  .log-body .line { white-space: pre; min-height: 14px; }
+  .msg-link { color: var(--link); }
+  .msg-link:hover { text-decoration: underline; }
+  .jump { position: absolute; right: 10px; bottom: 10px; }
 </style>
 </head>
 <body>
@@ -232,7 +248,13 @@ const S = { activeTool: "team-compiler", sidebarCollapsed: false, pesVersion: "2
   // Help window (gui.md "Help window"): open target (HelpTarget's shape plus the
   // draft's extras), its geometry remembered across closes, and the panes'
   // scroll positions kept across render() rebuilds.
-  help: null, helpWindow: { x: 120, y: 80, w: 760, h: 480 }, helpScroll: { tree: 0, topic: 0 } };
+  help: null, helpWindow: { x: 120, y: 80, w: 760, h: 480 }, helpScroll: { tree: 0, topic: 0 },
+  // Log panel (gui.md "Log panel"): the Team compiler's lines { severity, code,
+  // scope, text }; its height, collapse and filter; the auto-scroll's stick, the
+  // count of lines arrived while paused, the body's scrollTop kept across
+  // render() rebuilds, and the grid scope a line click last highlighted.
+  log: [], logHeight: 180, logCollapsed: false, logFilter: "all",
+  logStick: true, logNew: 0, logScroll: 0, gridHighlight: null };
 // The settings file's in-memory copy (spec/core/gui.md "Settings menu"):
 // [common] is CommonSettings at its defaults (studio_core/settings/common.rs)
 // and each tool's table, keyed by its id, its settings struct's defaults
@@ -426,8 +448,8 @@ document.addEventListener("keydown", e => {
 
 // The topic body's Markdown, rendered by this tiny stand-in for
 // egui_commonmark: it covers only what the sample bodies use (## headings,
-// paragraphs split on blank lines, `code` spans, **strong**, - list items and
-// [text](tool-id#topic-slug) links).
+// paragraphs split on blank lines, `code` spans, **strong**, - list items,
+// ``` fenced blocks as pre.mono, and [text](tool-id#topic-slug) links).
 function mdInline(text) {
   const kids = [];
   let rest = text;
@@ -454,6 +476,8 @@ function md(body, hlPara) {
   return body.split(/\n\s*\n/).map((b, i) => {
     const cls = i === hlPara ? "hl" : "";
     if (b.startsWith("## ")) return h("h3", { class: cls }, mdInline(b.slice(3)));
+    if (b.startsWith("```"))
+      return h("pre", { class: "mono" + (cls ? " " + cls : "") }, b.split("\n").slice(1, -1).join("\n"));
     if (b.startsWith("- "))
       return h("div", { class: cls }, b.split("\n").map(l =>
         l.startsWith("- ") ? h("div", {}, "• ", mdInline(l.slice(2))) : h("div", {}, mdInline(l))));
@@ -630,8 +654,7 @@ const HELP = [
       "`Update available` in the status bar with an `Install` action.",
       "",
       "Installing an update replaces the program and keeps the previous exe under",
-      "`old/`. If a new version gives you trouble, the settings menu's roll-back",
-      "swaps it back."
+      "`old/`."
     ].join("\n") },
   ] },
   { id: "whats-new", title: "What's new", topics: [
@@ -650,137 +673,17 @@ const HELP = [
       "The Team compiler also runs without its window, from a terminal opened in the folder that holds",
       "`4cc-studio`:",
       "",
+      "```text",
+      "4cc-studio team-compiler check [exports-root] [--export <path>]...",
+      "4cc-studio team-compiler compile [exports-root] [--mode normal|test|sideload] [--export <path>]... [--no-deploy]",
+      "4cc-studio team-compiler upgrade-dpfl [--yes]",
+      "```",
+      "",
       "`check` reads your exports and reports what it finds, without writing anything. `compile` reads",
       "them, reports the same findings, and builds the CPK named by the `cpk_name` setting in the output",
       "folder (`output/` beside `4cc-studio` unless you changed the `output_folder_path` setting), as",
       "`<cpk_name>.cpk`. The CPK is written in full before it replaces the previous one, so",
-      "`<cpk_name>.cpk` is never half-written. A run that finds nothing to compile, and has no file in",
-      "the `overrides` folder (below), writes nothing and leaves the previous CPK as it was. If a file",
-      "of an export changes while `compile` runs (someone saves over it, or replaces the archive), the",
-      "run stops with the line `source_changed_during_run` naming the file, writes nothing, leaves the",
-      "previous CPK in place, and ends with exit code 3: run it again. In this",
-      "version `compile` builds exports for PES 2018 to 2021 that hold",
-      "only the models of the players in the roster, kept in each player's own folder: face models,",
-      "boots (a model whose name ends in `boots`, such as `kit_boots.fmdl`) and gloves (`glove_l`,",
-      "`glove_r`, or `handL`, `handR`), with their textures, their portraits (a `portrait` image in",
-      "the player's folder, or `player_NN` in the `Portraits` folder; a player with both gets one",
-      "portrait when the two files are identical, while two that differ are the line",
-      "`portrait_conflict` and the whole export is skipped, since the compiler cannot tell which one",
-      "is meant), and kits. A texture (a player's, a shared folder's, a Common one, a kit's or a",
-      "portrait) can be a `.dds`, `.ftex`, `.png`, `.jpg`, `.bmp`, `.webp`, `.tga` or `.tif` file:",
-      "each is converted to",
-      "what the chosen PES version reads, BC7 for PES 2019 to 2021 and BC3 for PES 2018 (BC1 when the",
-      "image has no transparency at all; a `.dds` or `.ftex` already in a format the version reads is",
-      "kept as it is), and an image without the smaller copies of itself the game needs (its mip",
-      "levels) gets them generated. A portrait is the exception: the game reads it as a `.dds` on",
-      "every version, so a `.dds` portrait is kept as it is (one under a DX10 header gets the header",
-      "the game reads for its format, its pixels unchanged, reported as `portrait_header_rewritten`,",
-      "except an uncompressed one no other header can describe, which is converted), and a portrait in",
-      "any other format becomes a BC3 `.dds` of the same size with its mip levels. For PES 2015 to",
-      "2018, which cannot read BC4, BC5 or BC7, a `.dds` portrait in one of those formats, under either",
-      "header, is converted like any other image. A texture whose name ends in `_nrm`",
-      "(`skin_nrm.png`) is a normal map and is encoded as one. A texture named with `kit1` to `kit9`",
-      "(`pants_kit1.dds`, `pants_kit2.dds`) is the one the game shows when that kit is picked before",
-      "a match, through a model that names `pants_kitN` instead: the game puts the picked kit's number",
-      "in place of the `N`. A texture named `kitF` (`pants_kitF.dds`) is the set's fallback, the file",
-      "a kit number with no variant of its own gets; it is never used under its own name, so a model",
-      "naming `pants_kitF` finds nothing. When the team has a kit number (a `p1` to `p9` folder in `Kits`; the",
-      "goalkeeper's `g1` goes with the number picked) with no texture of its own, it gets the set's",
-      "fallback (`kitF`, else the lowest variant): for PES 2018 to 2021 the fallback is written once",
-      "as `pants_kitN`, for PES 2015 to 2017 it is copied under the missing number's name, so the",
-      "game never shows a missing texture; the warning `kit_variant_missing`",
-      "names the texture, the kit and the copied file, and fires only when the set has no `kitF`.",
-      "Per-kit models (`pants_kit1.fmdl` beside",
-      "`pants_kit2.fmdl`, or `.model` files, or a mix of the two) need a `face.xml` to name them. On",
-      "PES 2018 to 2021, and on PES 2015 to 2017 in a shared boots or gloves folder and in a folder",
-      "holding `ingame_face`, the set's fallback is used (a model in the other game's format",
-      "converted, a `.model` with its `.mtl`), and the warning `kit_variant_model_left_out` says so.",
-      "On PES 2015 to 2017 a face's set is listed once in the",
-      "`face.xml`, as `pants_kitN`, every variant is packed and the game loads the one for the kit",
-      "picked; each variant's `.mtl` goes by the same rule (`pants_kit1.mtl` and `pants_kit2.mtl`, or",
-      "one `pants.mtl` for all), and the warning `kit_variant_mtl_differs` names a variant whose `.mtl`",
-      "would not be found that way. A kit number the team has with no model of the set gets the",
-      "fallback's model copied for it, as a texture does (its `.mtl` too when that is the variant's own,",
-      "`pants_kit1.mtl`), so the game never shows the player without that part; the `kitF` model and",
-      "its `.mtl` are never packed under their own names, and the warning",
-      "`kit_variant_missing` names the set, the kit and the copied model only when there is no",
-      "`kitF`; the same holds for a set a player's own `face.xml` names. Six lines name a texture that cannot be",
-      "used, each with the file: `texture_too_small` (a side under 4 pixels), `texture_not_div4` (for",
-      "PES 2015 to 2017, a width or height that is not a multiple of 4: 1000 is one, 1002 is not),",
-      "`texture_not_pow2` (a portrait whose width or height is not a power of two, or, for PES 2018",
-      "to 2021, a texture with mip levels when neither its width nor its height is: 256, 512, 1024,",
-      "...; a `.png` or other image always gets mip levels, a `.dds` or `.ftex` with a single level",
-      "passes at any size), `kit_texture_too_big` (for PES 2015 to 2017, a kit's main `kit` texture,",
-      "its own or the one from `all`, wider or taller than 2048 pixels or with a side that is not a",
-      "power of two), `texture_type_mismatch` (a file renamed to another",
-      "format instead of resaved, a PNG called `skin.dds`) and `texture_codec_unsupported` (a `.dds`",
-      "or `.ftex` in a format the compiler does not read, BC6H for one, or a 16-bit or interleaved",
-      "`.tga`: resave it). Both commands report them from the start of each file alone, so `check`",
-      "finds them too, except a codec only converting the texture finds unreadable (BC6H): `compile`",
-      "reports that one. What is left out depends on where the texture is: a player's or shared",
-      "folder's texture leaves out the whole folder, a kit's texture the whole kit (a texture in `all`",
-      "leaves out every kit using it), a `Common` texture only that file (the rest of `Common` is still",
-      "built, and a player linking that file is left out with the line `link_target_dropped`), a",
-      "portrait only that portrait. A `Common` texture that `compile` fails to convert, past those",
-      "checks (`texture_codec_unsupported`, or `folder_pack_failed` for a file cut short), leaves out",
-      "every texture of its folder (`Common/` itself, or the subfolder it is in). With `pass_through`",
-      "on, a texture with `texture_too_small`, `texture_not_pow2` or `kit_texture_too_big`, a portrait",
-      "included, is kept and converted as it is; a renamed one is still left out, and so is one with `texture_not_div4`, which those games cannot load at all. The",
-      "team's logo",
-      "is one image at the export's root named `logo` (`logo.png`), in any of the image formats",
-      "above and of any size: `compile` makes the game's three logo sizes (512, 256 and 128 pixels",
-      "square) from it. An image named `logo_small` beside it is used for the smallest size instead,",
-      "when you want a different picture there. An image that is not square is fitted inside a",
-      "transparent square, unless its name ends in `_crop` (`logo_crop.png`: the middle square is",
-      "kept and the sides are cut off) or `_stretch` (the whole image is stretched to a square); the",
-      "note `logo_fit_applied` says which was done. The warning `logo_upscaled` names an image",
-      "smaller than the size it is made into, which is then enlarged and less sharp. A `logo` image at",
-      "the export's root that is not a readable image is the line `logo_file_invalid`, from both",
-      "commands, and the logo is left out even with `pass_through` on (a bad `logo_small` image",
-      "leaves out all three sizes). A texture that",
-      "cannot be read for any other reason is reported as",
-      "`folder_pack_failed`, naming the file, and its folder is left out. For PES 2015 to 2017 a",
-      "kit's `kit_mask` texture is built, a kit without one gets the compiler's built-in mask, and a",
-      "`kit_srm` texture gets the line `kit_texture_not_used`: these versions do not read it, so it",
-      "is not built, and the rest of the kit is. For PES 2018 to 2021 it is the other way round: the",
-      "`kit_srm` is built, a kit without one gets none, and a `kit_mask` gets the line",
-      "`kit_texture_not_used`. Kit configs go into the CPK as loose files, one per kit in the team's",
-      "folder, and for PES 2015 to 2017 there is no `UniformParameter.bin`. The boots and",
-      "gloves get the ID reserved for the player's roster",
-      "slot, the same number for both. A face model whose vertices are weighted to the hand bones",
-      "(`skh_`) has its hands cut off at the wrist into the player's gloves at compile time, which the",
-      "note `model_hand_split` names; a model named as boots or gloves is never cut. A shared `Boots`",
-      "or `Gloves` folder that players point at with a link file (an empty `Crocs.boots` in the",
-      "player's folder names `Boots/Crocs`) is built once, with its own textures, under one of the 17 IDs the team keeps for shared folders, given out in",
-      "the folders' name order (`Apple` before `Zebra`), and a player linking it gets no boots or gloves",
-      "of their own. A player folder holding both a link file and a boots (or gloves) model of its own",
-      "combines the two: the shared folder's models are merged into the player's own boots (or gloves)",
-      "under the player's ID, its textures travel with them, and the line `link_combined` says so; the",
-      "shared folder is still built on its own for any player linking it plainly. A link to a shared",
-      "`Faces` folder (`Longhair.face` names `Faces/Longhair`) always combines: the shared folder's",
-      "face models become part of the player's face, beside any face models of the player's own, and",
-      "its `face_diff.bin` and `fcl_hair_sim.fclo` are used only when the player's folder has none of",
-      "its own. A player can also load a model kept in the export's `Common` folder through an empty",
-      "link file named after it plus `.common` (`legs.fmdl.common` directly in the player's folder",
-      "names `Common/legs.fmdl`): the game cannot read a model",
-      "from there, so the Common model is built into the player's own face, boots or gloves as if it",
-      "were a model of the player's folder, under the name its own name gives it",
-      "(`legs.fmdl.common` is face content, reported as `fmdl_fcl_hair_fallback` like a local",
-      "`legs.fmdl`), and merged with the player's models of that name. A skeleton file named after it",
-      "in `Common` (`Common/legs.skl`) comes with it. A `.model` in `Common` works the same way",
-      "(`legs.model.common`): it is converted for each player linking it, with the `.mtl` a link",
-      "finds (a `.mtl` named like it beside the link, else one in `Common`, else one beside the link),",
-      "and a `.fmdl` of the same name in `Common` is used instead when there is one. A converted",
-      "model's `.mtl` path into the team's PES 2015 to 2017 Common folder",
-      "(`model/character/uniform/common/XXX/skin.dds`) names the team's Common folder instead when",
-      "`Common` holds that texture, and is left as written otherwise. The textures in `Common`",
-      "(image files directly in it) are built once for the whole team, whether a player uses them or not, and a",
-      "Common model's textures of those names are read from there, so twenty players sharing one",
-      "Common model share one copy of its textures. A player's own models can use a texture in",
-      "`Common` the same way: an empty file named after it plus `.common` (`hair.dds.common` directly",
-      "in the player's folder, for `Common/hair.dds`) makes",
-      "the player's models use the team's one copy of `hair`, instead of a copy of the player's own.",
-      "The player's folder must not also hold a texture of that name (`texture_stem_conflict`). The same terminal runs [the Save editor's commands](save-editor#command-line)."
+      "`<cpk_name>.cpk` is never half-written. The same terminal runs [the Save editor's commands](save-editor#command-line)."
     ].join("\n") },
   ] },
   { id: "save-editor", title: "Save editor", topics: [
@@ -1052,6 +955,10 @@ function renderDraftControls() {
         weak("Rewrites the PES folder setting from the running game's install folder"), [button("OK", closeWindow)]) })),
     button("Open help at portrait_conflict", () =>
       openHelp({ tool: "team-compiler", topic: "messages", anchor: "portrait_conflict" })),
+    button("Add 400 log lines", () => appendLog(Array.from({ length: 400 }, (_, i) =>
+      ({ severity: "Info", code: null, scope: "bulk",
+        text: "Info - bulk - filler line " + (S.log.length + i + 1) })))),
+    button("Fatal line", () => appendLog([mkLine("source_changed_during_run", "run")])),
     h("label", { class: "cb" }, "Notice timeout, s",
       h("input", { type: "number", id: "notice-timeout", value: S.noticeTimeoutS, min: 0, step: "any",
         onchange: e => { const v = parseFloat(e.target.value); if (v >= 0) S.noticeTimeoutS = v; } })));
@@ -1094,22 +1001,31 @@ function renderSidebar() {
 // its own draft exists (docs/prototypes/<tool>.html).
 function renderCenter() {
   const center = document.getElementById("center");
+  const oldLog = center.querySelector(".log-body");
+  if (oldLog) S.logScroll = oldLog.scrollTop;
   center.innerHTML = "";
   const t = TOOLS.find(t => t.id === S.activeTool);
   center.append(h("h2", {}, t.label),
     weak("This view is drawn in its own draft, " + t.id.replaceAll("-", "_") + ".html."));
   if (t.id === "team-compiler") {
-    center.append(h("table", { class: "grid" },
-      [["/3/", "701"], ["/a/", "702"], ["/co/", "714"]].map(([name, id]) =>
-        h("tr", { class: "sel" }, h("td", { class: "mono" }, name), h("td", { class: "mono" }, id)))),
-      // The common settings reach every tool at its next frame (ST-SET-02).
-      weak("Threads: " + S.settings.common.thread_count));
     const a = S.activities["team-compiler"];
     const compileBtn = button("Compile", startCompile, { disabled: !!a, title: "A fake run of 48 teams" });
     compileBtn.id = "compile-btn";
-    center.append(row(compileBtn,
-      a ? h("span", { class: "mono", id: "compile-progress" }, `${a.done}/${a.total} · ${mmss(a.elapsed)}`) : null),
-      weak("Log panel: slice 6"));
+    // The pipeline tool's claim order (gui.md "Shell layout"): the grid in what
+    // remains, the run strip, the log panel at the bottom.
+    center.append(h("div", { class: "pipe" },
+      h("div", { class: "pipe-grid" },
+        h("table", { class: "grid" },
+          [["/3/", "701"], ["/a/", "702"], ["/co/", "714"]].map(([name, id]) =>
+            h("tr", { class: "sel" + (S.gridHighlight === name ? " highlight" : ""), "data-scope": name },
+              h("td", { class: "mono" }, name), h("td", { class: "mono" }, id)))),
+        // The common settings reach every tool at its next frame (ST-SET-02).
+        weak("Threads: " + S.settings.common.thread_count)),
+      row(compileBtn,
+        a ? h("span", { class: "mono", id: "compile-progress" }, `${a.done}/${a.total} · ${mmss(a.elapsed)}`) : null),
+      logPanel()));
+    const lb = center.querySelector(".log-body");
+    if (lb) lb.scrollTop = S.logStick ? lb.scrollHeight : S.logScroll;
   }
 }
 
@@ -1175,21 +1091,135 @@ let compileTimer = null;
 function startCompile() {
   const start = Date.now();
   S.activities["team-compiler"] = { done: 0, total: 48, elapsed: 0 };
+  let warnFlip = 0; // every fourth team reports logo_upscaled, kit_colors_derived in turn
   render();
   compileTimer = setInterval(() => {
     const a = S.activities["team-compiler"];
     if (!a) { clearInterval(compileTimer); compileTimer = null; return; }
+    const team = COMPILE_TEAMS[a.done];
     a.done++;
     a.elapsed = Math.floor((Date.now() - start) / 1000);
+    const lines = [mkLine("export_identified", team)];
+    if (a.done % 4 === 0)
+      lines.push(mkLine(["logo_upscaled", "kit_colors_derived"][warnFlip++ % 2], team));
+    if (team === "/co/") lines.push(mkLine("portrait_conflict", team));
+    appendLog(lines);
     if (a.done >= a.total) {
       clearInterval(compileTimer); compileTimer = null;
       delete S.activities["team-compiler"];
+      appendLog([{ severity: "Info", code: null, scope: null, text: "Info - Compiled 48 teams" }]);
       publishNotice("Compiled 48 teams", { label: "Open output",
         run: () => window_("Open output", weak("Opens the output folder in the file browser"), [button("OK", closeWindow)]) });
       return;
     }
-    render();
   }, 250);
+}
+
+// ---- Log panel (gui.md "Log panel"), drawn in the Team compiler's stub ----
+// The simulated compile's 48 teams: teams_list.txt rows 701 to 748, so the
+// three grid rows (/3/, /a/, /co/) are real scopes.
+const COMPILE_TEAMS = ["/3/", "/a/", "/aco/", "/adv/", "/an/", "/asp/", "/b/", "/bant/",
+  "/biz/", "/c/", "/cgl/", "/ck/", "/cm/", "/co/", "/d/", "/diy/", "/e/", "/f/", "/fa/",
+  "/fit/", "/g/", "/gd/", "/gif/", "/h/", "/his/", "/hm/", "/hr/", "/i/", "/ic/", "/int/",
+  "/jp/", "/k/", "/lgbt/", "/lit/", "/m/", "/mlp/", "/mu/", "/n/", "/o/", "/out/", "/p/",
+  "/po/", "/pol/", "/pw/", "/r9k/", "/s/", "/s4s/", "/sci/"];
+const LOG_CAP = 300;
+// One line per catalog code: the console's "<severity> - <scope> - <code>:
+// <sentence>" with the catalog row's severity and text.
+function mkLine(code, scope) {
+  const r = CATALOG["team-compiler"].find(r => r.code === code);
+  return { severity: r.severity, code, scope,
+    text: `${r.severity} - ${scope} - ${code}: ${r.text}` };
+}
+// The widget's single append point: while the view is not stuck to the bottom,
+// arrivals are counted for the jump indicator instead of moving it.
+function appendLog(lines) {
+  S.log.push(...lines);
+  if (!S.logStick) S.logNew += lines.length;
+  render();
+}
+const LOG_FILTERS = {
+  all: () => true,
+  warnings: l => l.severity !== "Info",
+  errors: l => l.severity === "Error" || l.severity === "Fatal",
+};
+const filteredLog = () => S.log.filter(LOG_FILTERS[S.logFilter]);
+// A finding line's scope is a grid row's team name; the click highlights it
+// (one at a time) and scrolls it into view. A scope with no row highlights
+// nothing.
+function gotoScope(scope) {
+  S.gridHighlight = scope;
+  render();
+  const tr = document.querySelector(`#center tr[data-scope="${scope}"]`);
+  if (tr) tr.scrollIntoView({ block: "nearest" });
+}
+// One displayed line, coloured by severity. The code is a link to its catalog
+// row in the help (ST-HELP-03); the rest of a Warning, Error or Fatal line
+// cross-links to the grid (gui.md "Log panel", "Cross-linking").
+function logLine(l) {
+  const cls = l.severity === "Warning" ? " warn" : l.severity === "Info" ? "" : " err";
+  const kids = [l.text];
+  if (l.code) {
+    const i = l.text.indexOf(l.code + ":");
+    kids.splice(0, 1, l.text.slice(0, i),
+      h("span", { class: "msg-link", title: "Open the help at this message",
+        onclick: e => { e.stopPropagation();
+          openHelp({ tool: "team-compiler", topic: "messages", anchor: l.code }); } }, l.code),
+      l.text.slice(i + l.code.length));
+  }
+  return h("div", { class: "line" + cls,
+    onclick: l.severity === "Info" ? null : () => gotoScope(l.scope) }, kids);
+}
+// The 4px handle above the header: a drag rewrites S.logHeight (min 60), the
+// body follows at the next render.
+function logDivider() {
+  return h("div", { class: "log-divider", onmousedown: e => {
+    if (e.button !== 0) return;
+    const startY = e.clientY, startH = S.logHeight;
+    const move = ev => { S.logHeight = Math.max(60, startH + startY - ev.clientY); };
+    const up = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      render();
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+    e.preventDefault();
+  } });
+}
+// The scroll area: fixed S.logHeight, the last LOG_CAP filtered lines. Leaving
+// the bottom pauses the stick and shows the jump counter; returning to it (or
+// clicking it) resumes. The rebuild restores the paused scrollTop, so arriving
+// lines never move the view.
+function logBody(lines) {
+  const body = h("div", { class: "log-body", style: `height:${S.logHeight}px`,
+    onscroll: e => {
+      const b = e.currentTarget;
+      if (b.scrollTop + b.clientHeight >= b.scrollHeight - 2) {
+        if (!S.logStick || S.logNew) { S.logStick = true; S.logNew = 0; render(); }
+      } else if (S.logStick) { S.logStick = false; render(); }
+    } }, lines.map(logLine));
+  return h("div", { class: "log-wrap" }, body,
+    !S.logStick && S.logNew > 0
+      ? h("button", { class: "jump", title: "Jump to the newest line",
+          onclick: () => { S.logStick = true; S.logNew = 0; render(); } }, `↓ ${S.logNew} new`)
+      : null);
+}
+function logPanel() {
+  const chevron = button(S.logCollapsed ? "▸" : "▾",
+    () => { S.logCollapsed = !S.logCollapsed; render(); },
+    { frame0: true, title: S.logCollapsed ? "Expand the log" : "Collapse the log" });
+  chevron.id = "log-chevron";
+  const chips = [["all", "All"], ["warnings", "Warnings"], ["errors", "Errors"]].map(([v, label]) =>
+    selectable(label, S.logFilter === v, () => S.logFilter = v));
+  const shown = filteredLog();
+  const drawn = shown.slice(-LOG_CAP);
+  const count = shown.length > LOG_CAP ? `last ${LOG_CAP} of ${shown.length}`
+    : `${drawn.length} of ${shown.length} lines`;
+  const header = h("div", { class: "log-header" }, chevron, strong("Log"), chips,
+    h("span", { class: "weak log-count" }, count));
+  if (S.logCollapsed) return h("div", { class: "log-panel" }, header);
+  return h("div", { class: "log-panel" }, logDivider(), header, logBody(drawn));
 }
 
 render();
