@@ -325,16 +325,19 @@ impl StudioTool for team_compiler::Tool {
 ```
 
 egui repaints only on input, so a run's events wake the GUI themselves: the shell installs a
-wake callback in the `ToolContext` it hands out (GUI-neutral, `Arc<dyn Fn() + Send + Sync>`
-calling `egui::Context::request_repaint`, the match feed's shape in `architecture.md` "Tool
-plugin interface"), and `ToolContext::emit` calls it after each send, on every sink
-`with_events` makes. The next frame's `tick` then drains the event whichever view is drawn, or
-none while the window is hidden, so a compile behind the Save editor's view still ends its
-activity and updates the window title (ST-TTL-03). We wake on emit, not from the run's view
+wake callback in the `ToolContext` it hands out (GUI-neutral, `Arc<dyn Fn(Duration) + Send +
+Sync>` calling `egui::Context::request_repaint_after`, the match feed's shape in
+`architecture.md` "Tool plugin interface"), and `ToolContext::emit` calls it with no delay
+after each send, on every sink `with_events` makes. The next frame's `tick` then drains the
+event whichever view is drawn, or none while the window is hidden, so a compile behind the Save
+editor's view still ends its activity and updates the window title (ST-TTL-03). A tool's own
+deadlines (the music player's chant and VA timers) go through the same callback, as
+`ToolContext::request_repaint_after(delay)` called from `tick`, which is what keeps them firing
+while another tool is in view. We wake from the context, not from the tool's view
 (`request_repaint_after` while a run is in flight, as the Phase 3 slice does), because a view
-not drawn requests nothing: the run's last events would wait for unrelated input. In the CLI the
-callback does nothing. Other background sources wake the GUI the same way: the match feed on
-publish, timer deadlines through `request_repaint_after`.
+not drawn requests nothing: the run's last events, or a hidden tool's next deadline, would wait
+for unrelated input. In the CLI the callback does nothing. The match feed wakes the GUI the same
+way, on publish.
 
 The grid, log panel, and run strip are all views over the same tool state, updated from the
 same receivers. The stadium compiler view reuses the same grid rendering code with rows =
@@ -401,6 +404,12 @@ of a run's longest tasks. It aborts cleanly: the run's staging is discarded and 
 outputs stay as they were. In the grid, the cells not yet processed return to their check-phase
 state (the run wrote nothing of theirs, so nothing is "done"), and the log's last line says the
 run was cancelled, so a later reader of the log does not take a short run for a finished one.
+
+**Closing the window** asks every tool, not only the one in view: a tool holding unsaved work
+(the Save editor's edits) reports it through a `StudioTool` hook beside
+`version_change_blocker`, and the shell then cancels the close, makes that tool the active
+view and lets its own prompt decide (save or discard closes the window, cancel keeps it). A
+close the shell decided alone would drop the edits of a tool whose view was not drawn.
 
 ### Browser deployment: Studio Web
 
@@ -571,8 +580,8 @@ ST-TTL-02   GIVEN the window unfocused and no tool reporting an activity
             THEN the title reads "Compiled 48 teams - 4cc Studio" until the window gains focus,
                  then "4cc Studio"; GIVEN the window focused when it arrives THEN the title stays
                  "4cc Studio"
-ST-TTL-03   GIVEN two stub tools, the second's view active, and the first's run on a thread of
-                 its own
+ST-TTL-03   GIVEN the window focused, two stub tools, the second's view active, and the first's
+                 run on a thread of its own
             WHEN the run emits its last event through its ToolContext and no input follows
             THEN the emit requests a repaint, and the next frame's tick drains the event into
                  the first tool's state (its activity ended, the title "4cc Studio") without its

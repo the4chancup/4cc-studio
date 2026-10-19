@@ -106,9 +106,10 @@ Planned files that do not exist yet:
   (`aatf.rs`, `comparator.rs`, `transplant.rs`, `interchange.rs` — Team TOML / `.4ccs` / `.4cct`
   / Texport import-export dialogs) and `widgets.rs` (editor-local reusable widgets: version-gated
   control, ID picker; an RGB color field (the team colors) is `color_tools`' picker,
-  `libs/color_tools.md`, not a widget of this crate; skin, iris and wrist-tape colors are
-  palette indices in the save, `settings.toml`'s `skin_color` 0-7, so each is a choice of its
-  palette's named entries, never a picker whose free color no record can hold)
+  `libs/color_tools.md`, not a widget of this crate; every other color the editor shows (skin,
+  iris, wrist tape, spectacles, gloves, hair accessory) is a palette index in the save, as
+  `settings.toml`'s `skin_color` 0-7 is, so each is a choice of its palette's named entries,
+  never a picker whose free color no record can hold)
 
 Placement rules for the planned parts:
 
@@ -360,7 +361,10 @@ the editor exposes them as:
   when the file's version differs.
 - **Legacy import**: `.4ccs` and `.4cct` open through the same import dialog,
   read-only.
-- **Texport import/export** (export is new; PES itself can import the file).
+- **Texport import/export** (export is new; PES itself can import the file). Export writes
+  PES 18-21 files from `Texport::new`'s templates; on a PES 15-17 save it is disabled, its
+  tooltip saying those versions have no template (`spec/pes_savefile/operations.md`
+  "Texport (read + write)").
 - **Aesthetics patch apply** — see "Read-only aesthetics"; the patch is written by the Team
   compiler, never by the editor.
 - **`settings.toml` generation** — per player folder, for migrating a team to the
@@ -475,7 +479,9 @@ SE-GUI-05  GIVEN the save open with unsaved changes
            WHEN the window is closed, or another save opened
            THEN a prompt offers to save, discard or cancel: cancel leaves the session as it
                 was; save writes the edits to the open file, then closes or opens the other
-                save; discard closes or opens it and the open file is unchanged
+                save; discard closes or opens it and the open file is unchanged; GIVEN the
+                Team compiler's view active when the window is closed THEN the close waits,
+                the Save editor becomes the active view and shows the same prompt
 SE-GUI-06  GIVEN a PES 17 save
            WHEN the Abilities & Skills tab is drawn
            THEN the star, playing attitude and stronger hand controls are disabled with a tooltip
@@ -596,8 +602,8 @@ SE-GUI-28  GIVEN the selector at PES 19
            WHEN a PES 21 save is opened
            THEN the view warns, naming both versions, the save keeps its own version (its codec
                 and its widgets' gating are PES 21's), and the selector's setting is unchanged
-SE-GUI-29  manual  GIVEN a Texport written by SE-GUI-17's export from a save of each version
-           Studio writes Texports for
+SE-GUI-29  manual  GIVEN a Texport written by SE-GUI-17's export from a PES 18, 19, 20 and 21
+           save
            WHEN it is imported through the game's own team import, in that version
            THEN the game accepts it and the imported team shows the exported squad and names
 ```

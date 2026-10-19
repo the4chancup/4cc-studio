@@ -1336,7 +1336,7 @@ EU-GUI-01  GIVEN the selector at PES 21, an old export folder dropped on the Upg
                 Upgrade is enabled; GIVEN no discovered save THEN the field is empty and Upgrade
                 is disabled until a save is picked or loose switched on; WHEN loose is switched
                 on and Upgrade clicked THEN the run is `upgrade --loose` with no savefile
-                argument, the output EU-LOOSE-01's
+                argument, its output the one `upgrade --loose` writes for that export
 EU-GUI-02  GIVEN EU-GUI-01's export and save, the export's Other/ holding one file
            WHEN Upgrade is clicked
            THEN the output folder is the one `upgrade --savefile` writes (EU-ROOT's naming), the

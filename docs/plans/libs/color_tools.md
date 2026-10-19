@@ -14,8 +14,8 @@ while a swatch is hovered or the picker is dragged, the host gets the candidate
 color to live-preview in its own UI (the Kit config editor tints its menu-UI
 mockup and icon gallery with it), reverting when the hover ends without a click.
 Its first host is the Save editor's team color fields (`plans/save_editor.md`
-"Crate layout"; skin, iris and wrist-tape colors are palette indices, chosen
-from their palettes, not picked), which is what puts it in
+"Crate layout"; its other colors, skin or spectacles, are palette indices,
+chosen from their palettes, not picked), which is what puts it in
 Phase 8; then the Kit config editor (config colors and kit `colors.txt` colors)
 and the Team creator; any later tool that needs a color field uses it too.
 

@@ -363,7 +363,8 @@ the reliable-event cursor.
   neutral callback specified in the core plan. The feed invokes it on every reliable
   publish, worker-state change, and replacement of the coalesced `ClockWatch` value;
   watch replacements remain rate-limited/coalesced, so they cannot cause an unbounded
-  repaint rate. Timer-only work uses `request_repaint_after`. The core plan's registry
+  repaint rate. Timer-only work uses `ToolContext::request_repaint_after` from `tick`
+(`plans/core/gui.md` "Event wiring"). The core plan's registry
   installs `wake` as an `Arc<dyn Fn() + Send + Sync>` after an `egui::Context` is
   available, so `match_feed` does not depend directly on egui.
 - **Snapshot replay for late subscribers**: when retained match state exists, subscription

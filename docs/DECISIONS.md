@@ -8817,22 +8817,25 @@ Plan: `plans/export_upgrader.md` "GUI", "CLI" (the pointer), "Acceptance" (Phase
 
 ## 2026-10-19 — save editor — only the RGB color fields are `color_tools`' picker
 Decision: amends 2026-10-18 "a color field is `color_tools`' picker": the picker serves the
-Save editor's RGB fields (the team colors); skin, iris and wrist-tape colors are each a choice
-of their palette's named entries.
-Why: those three are palette indices in the save (`settings.toml`'s `skin_color` 0-7,
-`iris_color` 0-10, the seven wrist-tape colors), so a free color from a picker is one no record
-can hold (Astra 8.0.A1-1). The picker keeps its Phase 8 host in the team colors.
+Save editor's RGB fields (the team colors); every other color it shows (skin, iris, wrist
+tape, spectacles, gloves, hair accessory) is a choice of its palette's named entries.
+Why: those are palette indices in the save (`settings.toml`'s `skin_color` 0-7, `iris_color`
+0-10, the wrist-tape and gloves colors 0-7), so a free color from a picker is one no record
+can hold (Astra 8.0.A1-1, SWE-2 8.0.S7-3). The picker keeps its Phase 8 host in the team colors.
 Plan: `plans/save_editor.md` "Crate layout"; `plans/libs/color_tools.md` "Color-picker widget";
 `plans/core/development_plan.md` "Phase 8".
 
 ## 2026-10-19 — core — a run's events wake the GUI on emit
 Decision: the shell installs a GUI-neutral wake callback in every `ToolContext` it hands out
-(calling `egui::Context::request_repaint`), and `ToolContext::emit` calls it after each send;
-a tool's view no longer requests repaints while its run is in flight.
+(taking a delay, calling `egui::Context::request_repaint_after`): `ToolContext::emit` calls it
+with no delay after each send, and a tool's own deadlines call it from `tick` through
+`ToolContext::request_repaint_after`; a tool's view no longer requests repaints while its run
+is in flight.
 Why: egui repaints only on input, and a view not drawn (another tool active, the window
-hidden) requests nothing, so a run's last events waited for unrelated input; waking on emit
-is the match feed's rule (its wake callback on publish), one rule for every background source
-rather than one per view (Astra 8.0.A1-2).
+hidden) requests nothing, so a run's last events, or a hidden tool's timer, waited for
+unrelated input; waking from the context is the match feed's rule (its wake callback on
+publish), one rule for every background source rather than one per view (Astra 8.0.A1-2,
+SWE-2 8.0.S7-2).
 Plan: `plans/core/gui.md` "Event wiring"; ST-TTL-03.
 
 ## 2026-10-18 — export_upgrader — steps 9 and 12's gaps: the missing roster's code, the `players.txt` writer, and what a folder left as it was keeps
@@ -8892,3 +8895,21 @@ with a roster got a false diagnosis, and step 9's purpose is to migrate the main
 referee exports. Two aliases (the file's name, the folders' place) rather than a second layout
 rule, since nothing else differs.
 Plan: `plans/export_upgrader.md` steps 1 and 9.
+
+## 2026-10-19 — core — a tool with unsaved work vetoes the window's close
+Decision: closing the window asks every tool through a `StudioTool` hook beside
+`version_change_blocker`; one holding unsaved work makes the shell cancel the close and switch
+to it, and its own prompt decides (save or discard closes, cancel keeps the window).
+Why: the prompt is the tool's view, which the shell draws only for the active tool, so a close
+decided by the shell alone dropped the Save editor's edits whenever another tool was in view
+(SWE-2 8.0.S7-5). A hook, not a shell-owned prompt, because what "unsaved" means and how it is
+saved are the tool's.
+Plan: `plans/core/gui.md` "Cancellation" ("Closing the window"); SE-GUI-05.
+
+## 2026-10-19 — save editor — the GUI's Texport export writes PES 18-21
+Decision: Texport export is offered on PES 18-21 saves, from `Texport::new`'s templates; on a
+PES 15-17 save it is disabled with a tooltip saying those versions have no template.
+Why: `Texport::new` returns `NoTemplate` for 15-17, whose files can only be written over a real
+one the game exported; a flow that first asks for such a file is machinery no member has asked
+for, and a disabled action with its reason fails loudly rather than late (SWE-2 8.0.S7-6).
+Plan: `plans/save_editor.md` "Interchange formats in the UI"; SE-GUI-29.

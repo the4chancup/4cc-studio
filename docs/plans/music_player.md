@@ -796,7 +796,8 @@ uses of mpv:
   **Zero polling threads**: fades are tweens, song-end is state queried per frame,
   timers (chant, VA, title.log) are deadlines checked per frame. The per-frame work
   runs in the tool's `tick()` — which the shell calls for every tool regardless of
-  whose view is on screen, with `request_repaint_after` scheduling wakeups while the
+  whose view is on screen, with `ToolContext::request_repaint_after` (`plans/core/gui.md`
+  "Event wiring") scheduling wakeups while the
   app is idle — so playback, timers, and autopilot keep working while the streamer
   has another tool (typically the Match tracker) in view.
 
