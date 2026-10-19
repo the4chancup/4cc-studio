@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>4cc Studio (shell draft)</title>
+<!--
+  A draft of the 4cc Studio shell: sidebar, status bar, settings menu, help window
+  and window title (docs/plans/core/gui.md), drawn only with what egui can draw
+  ("Prototypes before implementation"): its behaviour is faked with sample data and
+  nothing is written. Slice 1 of 7: the skeleton, the sidebar with its collapse,
+  stub central panels, the status bar's empty state and the window-title mock.
+  Widget mapping: <select> = ComboBox, .sel = SelectableLabel, .menu = menu_button,
+  details = CollapsingHeader, table.grid = Grid, .window = Window/Modal,
+  title="" = on_hover_text, .sidebar = Panel::left, .bottom = Panel::bottom,
+  .center = CentralPanel, .titlebar = ViewportCommand::Title.
+-->
+<style>
+  :root {
+    --panel: #1b1b1b; --extreme: #0a0a0a; --faint: #202020; --widget: #3c3c3c;
+    --hover: #464646; --active: #373737; --stroke: #3c3c3c; --text: #8c8c8c;
+    --strong: #dcdcdc; --sel-bg: #005c80; --sel-fg: #c0deff; --link: #5aaaff;
+    --warn: #ff8f00; --error: #ff0000; --changed: #2a3a1e;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    background: var(--panel); color: var(--text);
+    font: 300 12.5px "Ubuntu", "Segoe UI", sans-serif;
+    display: flex; flex-direction: column; overflow: hidden;
+  }
+  .top, .bottom { background: var(--panel); padding: 3px 8px; display: flex; gap: 8px; align-items: center; }
+  .top { border-bottom: 1px solid var(--stroke); }
+  .bottom { border-top: 1px solid var(--stroke); min-height: 26px; }
+  .main { flex: 1; display: flex; min-height: 0; }
+  .rail { width: 150px; border-right: 1px solid var(--stroke); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .center { flex: 1; overflow: auto; padding: 8px 12px 40px; min-width: 0; }
+  .data { width: 590px; border-left: 1px solid var(--stroke); display: flex; flex-direction: column; min-height: 0; }
+  .data pre { flex: 1; margin: 0; overflow: auto; background: var(--extreme); padding: 6px; font: 12px "Hack", "Consolas", monospace; color: #b4b4b4; }
+  .data pre div { white-space: pre; min-height: 14px; }
+  .data pre div.changed { background: var(--changed); }
+  .row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin: 3px 0; }
+  .col { display: flex; flex-direction: column; gap: 3px; }
+  h2 { font: 400 15px "Ubuntu", "Segoe UI", sans-serif; color: var(--strong); margin: 4px 0 8px; }
+  .strong { color: var(--strong); }
+  .weak { color: #6e6e6e; }
+  .warn { color: var(--warn); }
+  .err { color: var(--error); }
+  .mono { font-family: "Hack", "Consolas", monospace; font-size: 12px; }
+  button, select, input { font: inherit; color: #b4b4b4; }
+  button { background: var(--widget); border: 0; border-radius: 2px; padding: 1px 6px; cursor: default; }
+  button:hover:not(:disabled) { background: var(--hover); color: #f0f0f0; }
+  button:active:not(:disabled) { background: var(--active); }
+  button:disabled { color: #5a5a5a; }
+  button.frame0 { background: transparent; }
+  button.frame0:hover:not(:disabled) { background: var(--hover); }
+  select { background: var(--widget); border: 0; border-radius: 2px; padding: 1px 2px; }
+  input[type=text], input[type=number] { background: var(--extreme); border: 1px solid var(--stroke); border-radius: 2px; padding: 1px 4px; }
+  input[type=number] { width: 52px; background: var(--widget); border: 0; text-align: center; }
+  input[type=text]:focus, input[type=number]:focus { outline: 1px solid var(--sel-fg); }
+  input[type=color] { width: 22px; height: 16px; border: 0; padding: 0; background: none; }
+  label.cb { display: inline-flex; align-items: center; gap: 4px; }
+  input[type=checkbox], input[type=radio] { accent-color: var(--sel-bg); margin: 0; }
+  .sel { padding: 1px 5px; border-radius: 2px; cursor: default; user-select: none; }
+  .sel:hover { background: var(--hover); color: #f0f0f0; }
+  .sel.on { background: var(--sel-bg); color: var(--sel-fg); }
+  .rail .sel { padding: 3px 6px; display: flex; justify-content: space-between; }
+  table.grid { border-collapse: collapse; }
+  table.grid td, table.grid th { padding: 2px 4px; text-align: left; vertical-align: middle; }
+  table.grid td > .row, table.grid td > span > .row { flex-wrap: nowrap; }
+  table.grid th { font-weight: 400; color: var(--strong); }
+  details { margin: 2px 0 4px; }
+  details > summary { cursor: default; color: var(--strong); list-style: none; }
+  details > summary::before { content: "\25B6"; font-size: 9px; display: inline-block; width: 14px; }
+  details[open] > summary::before { content: "\25BC"; }
+  details > .body { padding-left: 14px; }
+  .group { border: 1px solid var(--stroke); border-radius: 2px; padding: 6px; margin: 6px 0; }
+  .sep { border-top: 1px solid var(--stroke); margin: 8px 0; }
+  .handle { cursor: grab; color: #6e6e6e; padding: 0 4px; user-select: none; }
+  .dragover { outline: 1px solid var(--sel-fg); }
+  .menu { position: fixed; background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px; padding: 4px; z-index: 20; box-shadow: 0 4px 16px #000a; display: flex; flex-direction: column; min-width: 160px; }
+  .menu button { text-align: left; background: transparent; padding: 2px 8px; }
+  .menu button:hover:not(:disabled) { background: var(--hover); }
+  .modal-bg { position: fixed; inset: 0; background: #0008; display: flex; align-items: center; justify-content: center; z-index: 10; }
+  .window { background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px; padding: 8px 12px; box-shadow: 0 8px 24px #000c; min-width: 360px; max-width: 640px; }
+  .window .title { color: var(--strong); font-size: 14px; margin-bottom: 8px; }
+  .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 2px; border: 1px solid #000; vertical-align: middle; }
+  .chip { background: var(--widget); border-radius: 2px; padding: 0 4px; }
+  /* shell */
+  .draft-controls { border: 1px dashed var(--stroke); margin: 4px 4px 0; padding: 3px 8px; display: flex; gap: 10px; align-items: center; }
+  .titlebar { background: var(--extreme); border-bottom: 1px solid var(--stroke); padding: 2px 8px; display: flex; gap: 6px; }
+  .sidebar { width: 160px; }
+  .sidebar.collapsed { width: 56px; align-items: center; }
+  .sidebar.collapsed .tlabel { display: none; }
+  .sidebar.collapsed select { width: 44px; }
+  .sidebar .tool { justify-content: flex-start; align-items: center; gap: 6px; border-left: 3px solid transparent; }
+  .sidebar .tool.on { border-left-color: var(--sel-fg); }
+  .sidebar .tool.planned { color: #6e6e6e; }
+  .sidebar .tool.planned:hover { background: none; color: #6e6e6e; }
+  .icon { display: inline-block; width: 16px; text-align: center; flex: none; }
+  .logo { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--sel-fg); font-size: 15px; border-radius: 2px; user-select: none; }
+  .logo:hover { background: var(--hover); }
+  .sidebar .tail { margin-top: auto; display: flex; gap: 2px; }
+  .sidebar.collapsed .tail { flex-direction: column; align-items: center; }
+  .bottom { height: 24px; min-height: 24px; padding-top: 0; padding-bottom: 0; }
+  .bottom > span { display: flex; align-items: center; flex: 1; }
+  #status-middle { justify-content: center; }
+  #status-right { justify-content: flex-end; }
+  .small { font-size: 11px; }
+  table.grid tr.sel:hover { background: var(--hover); }
+</style>
+</head>
+<body>
+<div class="draft-controls" id="draft-controls"></div>
+<div class="titlebar" id="titlebar"></div>
+<div class="main">
+  <div class="rail sidebar" id="sidebar"></div>
+  <div class="center" id="center"></div>
+</div>
+<div class="bottom" id="bottom"><span id="status-left"></span><span id="status-middle"></span><span id="status-right"></span></div>
+<div id="overlay"></div>
+<script>
+"use strict";
+
+// ---- Widgets (each one an egui widget); the helpers of ruleset_editor.html ----
+const open = new Set();     // the paths of open collapsing headers
+function h(tag, props, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(props || {})) {
+    if (k.startsWith("on")) e.addEventListener(k.slice(2), v);
+    else if (k === "class") e.className = v;
+    else if (k === "style") e.style.cssText = v;
+    else if (v !== false && v !== null && v !== undefined) e.setAttribute(k, v === true ? "" : v);
+  }
+  for (const kid of kids.flat()) if (kid !== null && kid !== undefined && kid !== false)
+    e.append(kid instanceof Node ? kid : document.createTextNode(String(kid)));
+  return e;
+}
+const row = (...kids) => h("div", { class: "row" }, ...kids);
+const weak = text => h("span", { class: "weak" }, text);
+const strong = text => h("span", { class: "strong" }, text);
+function button(text, onclick, opts = {}) {
+  return h("button", { onclick, disabled: opts.disabled, title: opts.title, class: opts.frame0 ? "frame0" : "" }, text);
+}
+function combo(options, value, set, opts = {}) {
+  const s = h("select", { title: opts.title, onchange: e => { set(e.target.value === "\u0000" ? null : e.target.value); structural(); } },
+    options.map(([v, label]) => h("option", { value: v ?? "\u0000", selected: v === value }, label)));
+  return s;
+}
+function selectable(label, on, toggle, title) {
+  return h("span", { class: "sel" + (on ? " on" : ""), title, onclick: () => { toggle(); structural(); } }, label);
+}
+function collapsing(path, title, body, defaultOpen) {
+  const isOpen = open.has(path) || (defaultOpen && !open.has("closed:" + path));
+  const d = h("details", { open: isOpen, ontoggle: e => {
+    if (e.target.open) { open.add(path); open.delete("closed:" + path); }
+    else { open.delete(path); open.add("closed:" + path); }
+  } }, h("summary", {}, title), h("div", { class: "body" }, isOpen ? body() : null));
+  if (!isOpen) d.addEventListener("toggle", () => { if (d.open) render(); }, { once: true });
+  return d;
+}
+function menu(label, items, opts = {}) {
+  return h("button", { class: opts.frame0 ? "frame0" : "", title: opts.title, onclick: e => {
+    e.stopPropagation();
+    closeMenus();
+    const r = e.target.getBoundingClientRect();
+    const m = h("div", { class: "menu", style: `left:${r.left}px; top:${r.bottom + 2}px` },
+      items.map(([text, fn, disabled, title]) => text === "-" ? h("div", { class: "sep", style: "margin:3px 0" })
+        : h("button", { disabled, title, onclick: ev => { ev.stopPropagation(); closeMenus(); fn(); } }, text)));
+    document.body.append(m);
+    const bottom = m.getBoundingClientRect().bottom;
+    if (bottom > window.innerHeight) m.style.top = Math.max(4, r.top - m.offsetHeight - 2) + "px";
+  } }, label + " ⏷");
+}
+function closeMenus() { document.querySelectorAll(".menu").forEach(m => m.remove()); }
+document.addEventListener("click", closeMenus);
+function window_(title, body, buttons) {
+  const ov = document.getElementById("overlay");
+  ov.innerHTML = "";
+  ov.append(h("div", { class: "modal-bg" }, h("div", { class: "window" },
+    h("div", { class: "title" }, title), body, h("div", { class: "row", style: "justify-content:flex-end; margin-top:10px" }, buttons))));
+}
+function closeWindow() { document.getElementById("overlay").innerHTML = ""; }
+
+// ---- State and registry ----
+const S = { activeTool: "team-compiler", sidebarCollapsed: false, pesVersion: "2019" };
+// Registry order of plans/core/architecture.md "Tool plugin interface"; icon is one
+// Unicode glyph standing in for the egui-phosphor icon the comment names (no web
+// font: the file stays self-contained).
+const TOOLS = [
+  { id: "team-compiler", label: "Team compiler", icon: "⚽", registered: true }, // soccer-ball
+  { id: "save-editor", label: "Save editor", icon: "✎", registered: true }, // note-pencil
+  { id: "stadium-compiler", label: "Stadium compiler", icon: "⌂", registered: false }, // stadium
+  { id: "export-upgrader", label: "Export upgrader", icon: "⇧", registered: true }, // arrow-fat-up
+  { id: "music-player", label: "Music player", icon: "♪", registered: false }, // music-note
+  { id: "music-export-editor", label: "Music export editor", icon: "♫", registered: false }, // music-notes
+  { id: "match-tracker", label: "Match tracker", icon: "◎", registered: false }, // crosshair
+  { id: "kit-config-editor", label: "Kit config editor", icon: "▦", registered: false }, // t-shirt
+  { id: "refs-arranger", label: "Refs arranger", icon: "⚑", registered: false }, // flag
+  { id: "balls-compiler", label: "Balls compiler", icon: "◉", registered: false }, // soccer-ball
+  { id: "player-aesthetics-editor", label: "Player aesthetics editor", icon: "☺", registered: false }, // smiley
+  { id: "team-creator", label: "Team creator", icon: "✚", registered: false }, // plus-circle
+  { id: "ruleset-editor", label: "Ruleset editor", icon: "§", registered: false }, // scroll
+  { id: "db-generator", label: "DB generator", icon: "▤", registered: false }, // database
+];
+const PES_VERSIONS = ["2015", "2016", "2017", "2018", "2019", "2020", "2021"];
+
+// ---- Render: one state object, one pass (gui.md "Shell layout") ----
+function windowTitle() { return "4cc Studio"; }   // later slices add activity and held notices
+function structural() { render(); }
+function render() {
+  closeMenus();
+  document.title = windowTitle();
+  const tb = document.getElementById("titlebar");
+  tb.innerHTML = "";
+  tb.append(weak("Window title:"), document.title);
+  const dc = document.getElementById("draft-controls");
+  dc.innerHTML = "";
+  dc.append(weak("Draft controls, not part of Studio"),
+    h("label", { class: "cb" }, h("input", { type: "checkbox", checked: S.sidebarCollapsed,
+      onchange: e => { S.sidebarCollapsed = e.target.checked; render(); } }), "Sidebar collapsed"));
+  renderSidebar();
+  renderCenter();
+  renderStatus();
+}
+
+// Sidebar, top to bottom as gui.md "Sidebar" 1-5.
+function renderSidebar() {
+  const sb = document.getElementById("sidebar");
+  sb.innerHTML = "";
+  sb.classList.toggle("collapsed", S.sidebarCollapsed);
+  sb.append(h("div", { class: "logo", title: "About 4cc Studio", onclick: () =>
+    window_("About 4cc Studio", weak("About: drawn in a later slice"), [button("OK", closeWindow)]) }, "4cc"));
+  sb.append(combo(
+    PES_VERSIONS.map(v => [v, S.sidebarCollapsed ? v.slice(2) : "PES " + v]),
+    S.pesVersion, v => S.pesVersion = v, { title: "The PES version every tool targets" }));
+  for (const t of TOOLS.filter(t => t.registered).concat(TOOLS.filter(t => !t.registered))) {
+    if (t.registered)
+      sb.append(h("span", { class: "sel tool" + (S.activeTool === t.id ? " on" : ""), "data-id": t.id,
+        title: t.label, onclick: () => { S.activeTool = t.id; render(); } },
+        h("span", { class: "icon" }, t.icon), h("span", { class: "tlabel" }, t.label)));
+    else
+      sb.append(h("span", { class: "sel tool planned", "data-id": t.id, disabled: true,
+        title: S.sidebarCollapsed ? t.label : t.label + " is not in this build" },
+        h("span", { class: "icon" }, t.icon), h("span", { class: "tlabel" }, t.label)));
+  }
+  const collapse = button(S.sidebarCollapsed ? "»" : "«",
+    () => { S.sidebarCollapsed = !S.sidebarCollapsed; render(); },
+    { frame0: true, title: S.sidebarCollapsed ? "Expand the sidebar" : "Collapse the sidebar" });
+  collapse.id = "collapse-btn";
+  sb.append(collapse);
+  sb.append(h("div", { class: "tail" },
+    button("?", () => window_("Help", weak("Help window: drawn in slice 5"), [button("OK", closeWindow)]), { frame0: true, title: "Help (F1)" }),
+    button("⚙", () => window_("Settings", weak("Settings menu: drawn in slice 4"), [button("OK", closeWindow)]), { frame0: true, title: "Settings" })));
+}
+
+// The central panel is the active tool's: each registered tool gets a stub until
+// its own draft exists (docs/prototypes/<tool>.html).
+function renderCenter() {
+  const center = document.getElementById("center");
+  center.innerHTML = "";
+  const t = TOOLS.find(t => t.id === S.activeTool);
+  center.append(h("h2", {}, t.label),
+    weak("This view is drawn in its own draft, " + t.id.replaceAll("-", "_") + ".html."));
+  if (t.id === "team-compiler") {
+    center.append(h("table", { class: "grid" },
+      [["/3/", "701"], ["/a/", "702"], ["/co/", "714"]].map(([name, id]) =>
+        h("tr", { class: "sel" }, h("td", { class: "mono" }, name), h("td", { class: "mono" }, id)))),
+      weak("Run strip and log panel: slices 2 and 6"));
+  }
+}
+
+// Status bar (gui.md "Status bar"): three slots, the empty state holding only the
+// version in small text; slice 2 fills the slots.
+function renderStatus() {
+  const left = document.getElementById("status-left");
+  left.innerHTML = "";
+  left.append(h("span", { class: "weak small" }, "v0.1.0"));
+  document.getElementById("status-middle").innerHTML = "";
+  document.getElementById("status-right").innerHTML = "";
+}
+
+render();
+</script>
+</body>
+</html>
