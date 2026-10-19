@@ -105,7 +105,8 @@
   .icon { display: inline-block; width: 16px; text-align: center; flex: none; }
   .logo { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--sel-fg); font-size: 15px; border-radius: 2px; user-select: none; }
   .logo:hover { background: var(--hover); }
-  .sidebar .tail { margin-top: auto; display: flex; gap: 2px; }
+  .sidebar .sep { align-self: stretch; margin: 4px 0; }
+  .sidebar .tail { display: flex; gap: 2px; }
   .sidebar.collapsed .tail { flex-direction: column; align-items: center; }
   .bottom { height: 24px; min-height: 24px; padding-top: 0; padding-bottom: 0; overflow: hidden; }
   .bottom > span { display: flex; align-items: center; flex: 1; gap: 8px; white-space: nowrap; overflow: hidden; min-width: 0; }
@@ -294,7 +295,7 @@ S.settings = {
   },
   tools: {
     "team-compiler": {
-      cpk_name: "4cc_99_test", output_folder_path: "output", savefile_path: "Auto",
+      cpk_name: "4cc_99_test", output_folder_path: "output", savefile_path: "",
       multicpk_mode: false, teams_cpk_name: "teams", cpk_part_max_size: 3221225472,
       bins_cpk_name: "4cc_08_bins", refs_cpk_name: "4cc_18_referees",
       dds_compression: "Auto", strict_file_type_check: true, pass_through: false,
@@ -344,7 +345,10 @@ const CONDITION_DEFS = [
 ];
 const mmss = s => String(Math.floor(s / 60)).padStart(2, "0") + ":" + String(Math.floor(s) % 60).padStart(2, "0");
 const toolLabel = id => TOOLS.find(t => t.id === id).label;
-const activityText = (id, a) => `${toolLabel(id)} · ${a.done}/${a.total} · ${mmss(a.elapsed)}`;
+// A ToolActivity may carry no counts (progress: None): elapsed only then.
+const activityText = (id, a) => a.done == null
+  ? `${toolLabel(id)} · ${mmss(a.elapsed)}`
+  : `${toolLabel(id)} · ${a.done}/${a.total} · ${mmss(a.elapsed)}`;
 // The registered tools reporting an activity, the active tool first when
 // withActive (title order); false drops it (the middle slot hides the active
 // tool's, its own run strip shows it).
@@ -405,13 +409,16 @@ function pollRunningPes() {
   publishNotice("Switched to PES " + rp.version, action);
 }
 // "Fix PES path" rewrites pes_folder_path from the running exe's folder,
-// putting ** back for the two digits of the version where a segment holds its
-// year (D:\Games\PES2021 -> D:\Games\PES20**, since ** stands for two digits);
-// opt-in, never automatic.
+// putting ** back for the two digits of the version in the exe's own folder
+// segment only (D:\Games\PES2021 -> D:\Games\PES20**; a segment without the
+// version's year keeps it and the path writes unchanged); opt-in, never
+// automatic.
 function fixPesPath() {
   const rp = S.runningPes;
   if (!rp) return;
-  S.pesFolder = folderOf(rp.path).split("\\").map(seg => seg.replaceAll(rp.version, "20**")).join("\\");
+  const segs = folderOf(rp.path).split("\\");
+  segs[segs.length - 1] = segs[segs.length - 1].replaceAll(rp.version, "20**");
+  S.pesFolder = segs.join("\\");
   saveSettings(); // pes_folder_path is a common setting
   render();
 }
@@ -582,15 +589,19 @@ function drawHelpTopic(right) {
   return true;
 }
 // The generated Messages topic: one row per catalog entry, the code's cell
-// carrying a msg-<code> id for anchors, the severity coloured.
+// carrying a msg-<code> id for anchors, the severity coloured (a combined cell
+// like E/F red, a withdrawn one uncoloured), the text cells' Markdown rendered.
 function messagesTable(chId) {
-  const sevCls = { Info: "weak", Warning: "warn", Error: "err", Fatal: "err" };
+  const sevCls = s => s === "Info" ? "weak" : s === "Warning" ? "warn"
+    : /[EF]/.test(s) ? "err" : "";
   return h("table", { class: "grid" },
-    h("tr", {}, h("th", {}, "ID"), h("th", {}, "Severity"), h("th", {}, "What it means")),
+    h("tr", {}, h("th", {}, "ID"), h("th", {}, "Severity"),
+      h("th", {}, "Condition"), h("th", {}, "Consequence")),
     CATALOG[chId].map(r => h("tr", { class: r.code === S.help.anchor ? "hl" : "" },
       h("td", {}, h("code", { class: "mono", id: "msg-" + r.code }, r.code)),
-      h("td", {}, h("span", { class: sevCls[r.severity] }, r.severity)),
-      h("td", {}, r.text))));
+      h("td", {}, h("span", { class: sevCls(r.severity) }, r.severity)),
+      h("td", {}, mdInline(r.condition)),
+      h("td", {}, mdInline(r.consequence)))));
 }
 // Case-insensitive substring over every topic paragraph and every catalog row
 // (gui.md "Help window": no index, no fuzzy matching). Each hit is a result:
@@ -600,14 +611,16 @@ function helpSearch(q) {
   for (const ch of HELP) {
     for (const t of ch.topics)
       t.body.split(/\n\s*\n/).forEach((para, i) => {
-        if (para.toLowerCase().includes(q))
-          res.push({ ch: ch.id, slug: t.slug, para: i,
-            label: `${ch.title} › ${t.title} › ${para.replaceAll("\n", " ")}` });
+        if (!para.toLowerCase().includes(q)) return;
+        // The label is the matching physical line (the hit stays the paragraph).
+        const line = para.split("\n").find(l => l.toLowerCase().includes(q));
+        res.push({ ch: ch.id, slug: t.slug, para: i,
+          label: `${ch.title} › ${t.title} › ${line ?? para.replaceAll("\n", " ")}` });
       });
     for (const r of CATALOG[ch.id] || [])
-      if ((r.code + " " + r.text).toLowerCase().includes(q))
+      if ((r.code + " " + r.condition + " " + r.consequence).toLowerCase().includes(q))
         res.push({ ch: ch.id, slug: "messages", code: r.code,
-          label: `${ch.title} › Messages › ${r.code}: ${r.text}` });
+          label: `${ch.title} › Messages › ${r.code}: ${r.condition}` });
   }
   return res;
 }
@@ -655,7 +668,7 @@ function openAbout() {
 const HELP = [
   { id: "setting-up", title: "Setting up", topics: [
     { slug: "install", title: "Installing", body: [
-      "4cc Studio ships as a zip: unpack it anywhere and run `4cc-studio.exe`.",
+      "4cc Studio ships as a `.7z` archive: unpack it anywhere and run `4cc-studio.exe`.",
       "There is no installer, and the program writes nothing outside its data folder.",
       "",
       "The folder you unpack it into is the program's home: move it, copy it or",
@@ -740,34 +753,282 @@ const HELP = [
     ].join("\n") },
   ] },
 ];
-// Per tool id, sample rows of its message catalog: the code, its catalog
-// severity and the first sentence of the enum variant's doc comment
-// (team_compiler/messages.rs CATALOG; the save editor's and export
-// upgrader's own tables). sample wording: the row texts.
+// Per tool id, its whole catalog, generated from the docs' tables
+// (spec/team_compiler/messages.md "Catalog", spec/save_editor.md
+// "Messages", plans/export_upgrader.md "Message catalog"): the code, the
+// severity spelled out (a combined cell like E/F kept as written), the
+// condition and consequence cells verbatim, Markdown spans included.
 const CATALOG = {
   "team-compiler": [
-    { code: "export_extract_failed", severity: "Error", text: "An archive cannot be opened, or its listing is refused." },
-    { code: "no_exports_found", severity: "Warning", text: "The scan of the exports folder found no folder, `.zip` or `.7z`: nothing is checked or compiled." },
-    { code: "export_disabled", severity: "Info", text: "A `NO_USE` marker disables the export." },
-    { code: "export_identified", severity: "Info", text: "The export's team, or the referees, as identified." },
-    { code: "duplicate_aesthetics_export", severity: "Error", text: "Two or more exports resolve to one team: every one of them is skipped, since the compiler cannot tell which one is meant." },
-    { code: "kit_config_generated", severity: "Info", text: "A kit without `config.toml` gets the template config." },
-    { code: "kit_colors_derived", severity: "Info", text: "A kit whose `colors.txt` is missing or gives fewer than two valid colors: its menu colors are taken from its main texture." },
-    { code: "kit_colors_missing", severity: "Warning", text: "A kit with neither two valid colors in its `colors.txt` nor a main texture of its own to take them from (a placeholder kit): magenta and black are written as its menu colors." },
-    { code: "logo_upscaled", severity: "Warning", text: "A logo source whose side the mode maps onto the target is under its largest target (512 pixels for the main file, 128 for the small one): it is emitted upscaled." },
-    { code: "portrait_conflict", severity: "Error", text: "A slot with a portrait in its player folder and one in `Portraits/` whose bytes differ: the export is skipped, since the compiler cannot tell which one the manager means." },
-    { code: "link_combined", severity: "Info", text: "A player holds a boots or gloves link beside a model of the same package: the shared folder's models become parts of the player's own package." },
-    { code: "source_changed_during_run", severity: "Fatal", text: "A file a task read is gone, or its size or modified time is no longer what the export's listing gave (an archive: the archive file's); the run is aborted, its staging discarded." },
+    { code: "export_extract_failed", severity: "Error", condition: "archive cannot be extracted/parsed, or its listing is refused (a path escaping the root, two names that fold to one; context: the path)", consequence: "export skipped (`DropExport`)" },
+    { code: "no_exports_found", severity: "Warning", condition: "discovery finds no export folder, `.zip` or `.7z` in the exports folder (Run scope; context: the folder) - what a fresh install's created `exports/` reports until the user fills it", consequence: "none; nothing is checked or compiled" },
+    { code: "export_disabled", severity: "Info", condition: "root `NO_USE` / `NO_USE.txt` marker disables this source", consequence: "export skipped; omitted from duplicate-ref detection" },
+    { code: "export_identified", severity: "Info", condition: "the export's identity resolved (context: `team` and `id`, or `team` = `referees`)", consequence: "none; how the CLI reports which team an export is" },
+    { code: "source_read_failed", severity: "E/F", condition: "a pinned source entry cannot be read", consequence: "optional root file: `DropFile`; folder/task producer: `DropFolder`; required export metadata or unusable source: `DropExport`; output/global source invariant: `AbortRun`" },
+    { code: "source_changed_during_run", severity: "Fatal", condition: "a file a task read is gone, or its size or modified time is no longer what the export's listing gave (an archive: the archive file's); on the export, context `path`", consequence: "run aborted, the staging output discarded, nothing deployed (`AbortRun`)" },
+    { code: "template_override_unreadable", severity: "Fatal", condition: "a template override file exists but cannot be read, or is one of the three bins and does not parse as it (embedded defaults cannot be missing; context: the file, the whole error chain)", consequence: "run aborted before any export is read, whatever the resource (`AbortRun`; `pipeline.md` \"Resolved decisions\", \"Templates and fallback bins\")" },
+    { code: "template_override_active", severity: "Info", condition: "a `templates/` override file is shadowing an embedded template/fallback-bin resource (context: the file)", consequence: "override used; reported per file per run" },
+    { code: "export_balls_skipped", severity: "Info", condition: "export name's first word is `balls` (balls exports belong to the Balls compiler)", consequence: "export skipped (`DropExport`)" },
+    { code: "multiple_ref_exports", severity: "Error", condition: "more than one non-disabled `refs`-prefixed export found at discovery", consequence: "every conflicting export skipped (`DropExport` per row)" },
+    { code: "duplicate_aesthetics_export", severity: "Error", condition: "multiple exports resolve to the same team ID; found once every export's identity is resolved, so `check` reports it too. An export validation dropped does not count, whether before its identity resolved or after (an exhausted ID pool): it is not compiled anyway (context: `id`, the team ID; `exports`, the conflicting sources' file names in export order)", consequence: "all conflicting exports skipped (`DropExport`, on each)" },
+    { code: "boots_id_pool_exhausted", severity: "Error", condition: "planned player-exclusive/shared boots outputs exceed the team's permanent ID block", consequence: "export skipped (`DropExport`)" },
+    { code: "gloves_id_pool_exhausted", severity: "Error", condition: "planned player-exclusive/shared gloves outputs exceed the team's permanent ID block", consequence: "export skipped (`DropExport`)" },
+    { code: "export_empty", severity: "Error", condition: "no usable content found at root", consequence: "export skipped" },
+    { code: "content_not_yet_compiled", severity: "withdrawn", condition: "step 4.20 withdrew the Phase 3 subset gate that skipped an export holding content `compile` could not build yet (`spec/team_compiler/README.md` \"Phase 3 scope\"); every export now reaches processing, a file no package reads being `file_not_used`", consequence: "-" },
+    { code: "nested_folders_fixed", severity: "Warning", condition: "content found nested one level down (exactly one usable root)", consequence: "auto-fixed" },
+    { code: "nested_root_ambiguous", severity: "Error", condition: "several nested child folders are usable export roots", consequence: "export skipped (`DropExport`)" },
+    { code: "nested_root_conflict", severity: "Error", condition: "loose root file collides with a flattened nested file at the same virtual path", consequence: "export skipped (`DropExport`)" },
+    { code: "export_tag_missing", severity: "Error", condition: "a team export's name has neither `Full` nor `Midcup` as its second word (context `name`: the export's name)", consequence: "export skipped; the hint says to rename it `<team> Full \u2026` or `<team> Midcup \u2026`" },
+    { code: "export_layout_old", severity: "Error", condition: "the export is in the old layout, which the compiler does not read: a root folder named `Kit Configs`, `Kit Textures` or `Other`, names the Studio format never has (its kits live in `Kits/`); context `folder`: the first such folder. Reported alone: the export's other structure findings are not computed, since every one of them would describe the old layout again", consequence: "export skipped; the hint says to run the export through the Export upgrader once" },
+    { code: "team_name_unknown", severity: "Error", condition: "canonical `team_name` not in `teams_list.txt`", consequence: "export skipped" },
+    { code: "team_id_out_of_range", severity: "withdrawn", condition: "nothing produces it: `teams_list::TeamId` holds 701-920 only, and a list line whose ID is outside it is the list reader's own error, so no export resolves to an ID outside the range (converge 4.y-conv, 2026-10-09)", consequence: "-" },
+    { code: "team_colors_missing", severity: "Info", condition: "no root `colors.txt` (it is optional)", consequence: "the team's colors in `TeamColor.bin` are left as they are" },
+    { code: "color_entry_invalid", severity: "Warning", condition: "a `colors.txt` line that does not parse as exactly one color (two colors on one line, the old Team Note kit entry, included), or a valid line past the file's color count (two for a kit, four for the team). Grammar: \"Root files\" (Colors) in `aesthetics_export/player_folders.md`", consequence: "the line skipped" },
+    { code: "root_file_unexpected", severity: "Warning", condition: "unknown file or folder at the export root (a folder other than the content folders - a stale `wrapper/` beside a usable root included), or a file directly inside `Players`, `Kits`, `Faces`, `Boots` or `Gloves`, which hold only folders (`Players/players.txt`)", consequence: "file or folder ignored" },
+    { code: "portrait_conflict", severity: "Error", condition: "a slot with a portrait in its player folder and one in `Portraits/` whose bytes differ (the deep pass compares the two files; byte-identical files are one portrait and no finding)", consequence: "export skipped: the compiler cannot tell which one the manager means" },
+    { code: "notes_found", severity: "Info", condition: "non-empty valid root `notes.txt` present", consequence: "collected into teamnotes.txt by `compile`" },
+    { code: "notes_encoding_invalid", severity: "Error", condition: "root `notes.txt` is not valid UTF-8 after optional BOM handling", consequence: "note dropped; export otherwise continues (`DropFile`, not pass-through-eligible)" },
+    { code: "player_folder_number_invalid", severity: "Error", condition: "without `players.txt`, a team player folder's number is not in 01-23", consequence: "folder discarded (`DropFolder`)" },
+    { code: "players_txt_slot_invalid", severity: "Error", condition: "a `players.txt` line's decimal slot is outside 01-23 (teams) / 01-35 (refs)", consequence: "that `RosterEntry` assignment skipped (`DropSlot`)" },
+    { code: "player_number_duplicate", severity: "Error", condition: "without `players.txt`, two team folder names claim the same player slot", consequence: "both conflicting folders discarded (`DropFolder` on each folder)" },
+    { code: "players_txt_missing", severity: "Error", condition: "referee export has no required root `players.txt` (nor a legacy `refs.txt` alias)", consequence: "export skipped (`DropExport`)" },
+    { code: "refs_txt_ignored", severity: "Warning", condition: "referee export has both `players.txt` and the legacy `refs.txt` alias", consequence: "`players.txt` used, alias ignored" },
+    { code: "players_txt_slot_duplicate", severity: "Error", condition: "authoritative `players.txt` assigns the same slot more than once, making roster identity ambiguous", consequence: "export skipped (`DropExport`)" },
+    { code: "player_unlisted", severity: "Warning", condition: "authoritative `players.txt` is present but does not list this player folder, regardless of any number in its name", consequence: "folder ignored" },
+    { code: "player_layout_proto", severity: "Error", condition: "a referee export's player folder has a direct `face/`, `boots/`, `gloves/` or `common/` subfolder: the AET referee layout, Red's prototype of the player folder, whose subfolders type their files by the subfolder's name where the Studio rule types a subfolder's files by their names (`spec/aesthetics_export/player_folders.md` \"Subfolders\"); in a team export those names are plain subfolders (context `folder`: the first such subfolder)", consequence: "folder discarded (`DropFolder`); the hint says to run the export through the Export upgrader once" },
+    { code: "players_txt_line_invalid", severity: "Error", condition: "one nonblank `players.txt` line cannot be parsed into decimal slot + folder name", consequence: "that `RosterEntry` skipped (`DropSlot`)" },
+    { code: "players_txt_invalid", severity: "Error", condition: "file-level encoding failure or roster-wide ambiguity prevents trustworthy normalization, or a referee roster retains zero valid assignments", consequence: "export skipped (`DropExport`; foundational). An empty normal-team roster remains valid for a kit-only export" },
+    { code: "players_txt_target_missing", severity: "Error", condition: "`players.txt` entry names a nonexistent folder", consequence: "`RosterEntry` scoped assignment skipped (`DropSlot`)" },
+    { code: "link_target_missing", severity: "Error", condition: "link file references a nonexistent shared folder", consequence: "folder discarded" },
+    { code: "link_target_dropped", severity: "Error", condition: "a shared-folder or `.common` link names a target the structure pass or the deep pass dropped, by its effective disposition (context: the link, the target and its finding)", consequence: "folder discarded (`DropFolder`); not reported when `pass_through` keeps the target; never itself pass-through-eligible" },
+    { code: "common_model_beaten_dropped", severity: "Info", condition: "a `Common/` model another representation of its stem beats (`boots.model` beside `boots.fmdl` on PES 18-21, the reverse on PES 15-17), which the deep pass does not read, when the pass drops the winner: without this the winner's drop would leave the unread file as the stem's selected model (context: `file`, the beaten file's export path; `winner`, the dropped file's)", consequence: "file discarded (`DropFile`), so planning never selects a file the pass did not check; the players linking the stem follow `link_target_dropped`; not reported when `pass_through` keeps the winner; never itself pass-through-eligible" },
+    { code: "shared_link_duplicate", severity: "Error", condition: "player folder has more than one shared link for any category (face, boots, or gloves), counted over its whole tree, two links naming one shared folder counting once", consequence: "folder discarded (`DropFolder`)" },
+    { code: "link_combined", severity: "Info", condition: "link file plus local models for the same category; the shared models become parts of the player's own set (Fox: mesh-merged, own ID)", consequence: "none" },
+    { code: "shared_folder_orphaned", severity: "Warning", condition: "shared folder referenced by no player", consequence: "folder skipped" },
+    { code: "settings_toml_invalid", severity: "Error", condition: "optional `settings.toml` is not UTF-8 text or fails to parse, found by the deep pass (context: the file, the error)", consequence: "file ignored; the player compiles with default settings (`DropFile`, not pass-through-eligible); models continue" },
+    { code: "settings_model_id_conflict", severity: "Warning", condition: "`settings.toml` sets `boots_id` or `gloves_id` for a category whose ID the compiler assigns, from the folder's standalone models or a link file (pre-Fox face-XML models assign none; context: the category). Reported on Fox team exports only: on pre-Fox and on a referee export the key reaches nothing yet (the pre-Fox patch, a referee's table rows: worklog issues), and a warning there would single out one ignored key of many", consequence: "the compiler-assigned ID wins; key ignored" },
+    { code: "settings_value_out_of_range", severity: "Warning", condition: "a `settings.toml` value inside its key's widest range but outside the compile target's (`settings_toml.md`, the template's ranges; context: the key, the value, the target's range), found by the deep pass on the player folder", consequence: "the key's default written (`settings_toml.md`: a face type 0, a motion the template's value; a custom skin 7 as 1)" },
+    { code: "settings_toml_name_shared", severity: "Warning", condition: "`name` or `shirt_name` given in a `write_names` export's folder mapped to multiple players (Fox; pre-Fox with the pre-Fox patch)", consequence: "the name, when its check passes, goes to all of them" },
+    { code: "settings_name_invalid", severity: "Warning", condition: "a `name` or `shirt_name` string that does not fit the target version's field or character set (Fox; pre-Fox with the pre-Fox patch; context: the key)", consequence: "not written; the save's name stands" },
+    { code: "fpc_strip_conflict", severity: "Warning", condition: "`settings.toml` sets a key the folder's FPC preset also sets, to another value (for `skin_color`, a custom skin, 7, where the preset sets a preset skin; boots and gloves IDs aside: `settings_toml.md` resolves them)", consequence: "FPC preset wins; keys ignored" },
+    { code: "fpc_inners_break_hiding", severity: "Warning", condition: "`libs/fpc`'s interference rule on a player whose folder carries `fpc_on` (`libs/fpc.md`; context: the player; the marker is the lib's `is_fpc_player`, so its fifth rule, `fpc_custom_skin_on_non_fpc`, is not reported: a custom skin with no marker is the partial-hide setup, a custom body in a stock jersey, which no marker names); the lib's Error, a Warning here because a Studio Error would drop the folder", consequence: "written as authored" },
+    { code: "fpc_undershorts_break_hiding", severity: "Warning", condition: "likewise, the lib's Error too", consequence: "written as authored" },
+    { code: "fpc_taping_shows_pieces", severity: "Info", condition: "likewise", consequence: "written as authored" },
+    { code: "fpc_gloves_checkbox_winter_gloves", severity: "Warning", condition: "`libs/fpc`'s rule on any player: the gloves checkbox on with gloves ID 0, whatever the FPC marker (context: the player); the ID is the one `settings_toml.md` resolves, and a `Midcup` player whose gloves keep his installed row is not checked, `check` reading no installed table", consequence: "written as authored" },
+    { code: "material_texture_unused", severity: "Info", condition: "a texture role the target engine has no sampler for (e.g. `metalness` on pre-Fox); from a conversion, also a native sampler of the source engine's material table the target does not carry (context: `model`; `material`, the index; `texture`, the role or the sampler name)", consequence: "role dropped for that engine" },
+    { code: "bone_folded_for_version", severity: "Info", condition: "a used bone the target PES version's skeleton lacks had its weights transferred to the fold table's (or nearest) bone - see \"Skeleton retargeting\" in the Model conversion plan; on the folder (context: `model`, the source as `model_conversion_failed` names it; `bone`, `<bone> -> <target>`)", consequence: "none" },
+    { code: "skeleton_retargeted", severity: "Info", condition: "the model's bind pose was re-bound from its source version's skeleton to the target's (bones moved more than tolerance); on the folder (context: `model`, the source as `model_conversion_failed` names it; `bones`, how many moved)", consequence: "none" },
+    { code: "bone_matrix_unknown", severity: "Warning", condition: "a converted model's bone has no companion `.skl` and a name in none of the target version's template tables, so its bind matrix is the identity: the mesh it skins sits where the identity puts it (context: `model`; `bone`, the index; `name`, the bone's)", consequence: "none" },
+    { code: "bone_slot_dropped", severity: "Warning", condition: "a mesh's vertex weighted a bone slot past the mesh's bone group; the slot was zeroed and the vertex's weights renormalized, so it skins differently (context: `model`; `mesh`, the index; `count`, the slots dropped)", consequence: "none" },
+    { code: "bone_folded_by_position", severity: "Warning", condition: "a used bone the target version lacks with no fold-table entry was folded onto the nearest target body bone by rest position, a guess (context: `model`; `bone`, `<bone> -> <target>`)", consequence: "none" },
+    { code: "material_family_approximated", severity: "Warning", condition: "no shader rule named the material's shader, so its family is the closest fit and the target shader is that family's: the material may render differently (context: `model`; `material`, the index; `name`, the material's)", consequence: "none" },
+    { code: "material_split_by_flags", severity: "Info", condition: "meshes of one FMDL material instance carried different flags, so the instance split into two materials of the target (context: `model`; `material`, the index; `name`, the new material's)", consequence: "none" },
+    { code: "material_parameter_dropped", severity: "Info", condition: "a native parameter of the source engine's material table the target shader does not carry, the conversion's twin of `material_parameter_unused` (context: `model`; `material`, the index; `parameter`, the name)", consequence: "parameter dropped" },
+    { code: "sampler_settings_defaulted", severity: "Info", condition: "a stored `.mtl` sampler name with no stored settings table exported with the default settings (context: `model`; `material`, the index; `sampler`, the name)", consequence: "none" },
+    { code: "vertex_bitangents_dropped", severity: "Info", condition: "FMDL has no bitangent attribute; the game derives them (context: `model`; `mesh`, the index)", consequence: "none" },
+    { code: "dummy_texture_added", severity: "Info", condition: "a shaded or metal material with no normal or specular map got the game's dummy texture for the sampler Fox requires (context: `model`; `material`, the index; `sampler`, the name)", consequence: "none" },
+    { code: "native_field_dropped", severity: "Info", condition: "a field the IR or the target format has no home for was non-default and was dropped, with nothing the game would show: the FMDL's redundant local-space `bone_matrices`, an SKL parent the FMDL's wins over (`skl_parent`), a `normal_w`/`tangent_w` a `.model` cannot carry, a `.model` field (context: `model`; `field`, the name; and the subject's `mesh`, `material` or `bone` index when it has one)", consequence: "none" },
+    { code: "mesh_flags_dropped", severity: "Warning", condition: "the converter's `native_field_dropped` for the Fox mesh flag a `.mtl` cannot express, `no_shadow_cast`: the mesh casts a shadow where the source did not (a hidden mesh, `invisible`, is left out of the `.model` with no finding, `model_conversion/ir.md`), which a Warning says and an Info would bury under the row above (context: `model`; `field`, the flag; and the subject's index)", consequence: "none" },
+    { code: "model_hidden_dropped", severity: "Info", condition: "every mesh of an FMDL read for PES 15-17 is hidden (`invisible`), so the game drew nothing of it on Fox: the deep pass drops the file, and a `.common` link naming it with the same Info on the link, so no task converts or names it (no `.model`, no `.mtl`, no xml entry, no part of a merge), the folder's other models standing (`spec/model_conversion/ir.md` \"A hidden Fox mesh\"; a blank head's `oral.fmdl`, a one-sided gloves folder's other side). Reported by both commands, on the file, not pass-through-eligible (context: `file`, the file as its folder's per-file findings name it; on a link also `model`, the Common file's export path)", consequence: "none" },
+    { code: "static_bone_added", severity: "Info", condition: "an unskinned mesh was weighted to the `static` bone an FMDL needs (context: `model`; `mesh`, the index)", consequence: "none" },
+    { code: "weight_clamped", severity: "Info", condition: "a weight lane above 1 was clamped to the FMDL weight's maximum (context: `model`; `mesh`, the index; `count`, the vertices clamped)", consequence: "none" },
+    { code: "empty_mesh_bone_group_dropped", severity: "Info", condition: "a vertexless mesh's bone group was written empty, it skins nothing (context: `model`; `mesh`, the index; `count`, the group's size)", consequence: "none" },
+    { code: "kit_variant_missing", severity: "Warning", condition: "a folder's texture variant set (`pants_kit1`, `pants_kit3`), or on PES 15-17 a model set its face's `face.xml` lists, has no variant for a kit number the export defines and no `kitF` fallback; on the folder, once per set and number (context: `texture`, or `model` for a model set, the set's reference as `pants_kitN`, after its directory below the folder for a subfolder's set (`jessie/pants_kitN`); `kit`, the number; `copied`, the lowest variant's stem, after the same directory)", consequence: "the lowest existing variant serves the gap: on PES 15-17 copied into it (for a model set, the files its entries name), on PES 18-21 written once under the reference's spelling, which FoxDen loads for a kit without a variant" },
+    { code: "kit_variant_model_left_out", severity: "Warning", condition: "per-kit model variants (`*_kit1`, `*_kit2`, \u2026; a `*_kitF` joins the set as its fallback) where no `face.xml` names the set, the set's fallback (`kitF`, else the lowest variant) used and a file left out: on a Fox target, which has no model-path indirection, and on PES 15-17 in a shared `Boots/` or `Gloves/` folder's own output (one `boots.model`, one `glove.xml` listing every glove) and under `ingame_face` (his boots and gloves hold parts, not entries); on the folder, once per set, a shared folder's only while a mapped player links it (planning's glTF drop removes the shared folders it leaves with no linking player, with no finding of their own: the drop's names the cause, and such a folder gets no id and no task) (context: `model`, the set's reference with the fallback's extension, `pants_kitN.fmdl` or `pants_kitN.model`; `used`, the fallback's file name, the target's format when both formats hold it)", consequence: "fallback used, others ignored; a variant in the other engine's format converts, a `.model` with its `.mtl`" },
+    { code: "kit_variant_mtl_differs", severity: "Warning", condition: "on PES 15-17 a per-kit model variant whose `.mtl` (the one its search finds) is not the one its set's `face.xml` entry implies for its kit number (the entry's `material` respelled for it, directory included); on the folder (context: `model`, the variant's file name; `mtl`, the `.mtl` its search finds as the `face.xml` would write it, `./materials.mtl`; `expected`, the one the entry implies, `./pants_kit2.mtl`)", consequence: "model packed; the game finds no `.mtl` for that kit" },
+    { code: "common_link_missing", severity: "Error", condition: "a `.common` link - model, material file or texture - names a file missing from the Common folder (a `kitN` stem or directory in it standing for its set, `spec/model_format.md` \"Kit-dependent assets\") (context: the link file, whose name shows its kind, and the Common path looked for); on PES 18-21 a texture link is satisfied by an installed CPK holding the texture at the team's Common path (`pipeline.md` \"Resolved decisions\", \"A texture a model names must exist\")", consequence: "folder discarded" },
+    { code: "fpc_conflict", severity: "Error", condition: "both `fpc_on` and `fpc_off` present in a player folder", consequence: "folder discarded" },
+    { code: "fmdl_name_invalid", severity: "Error", condition: "Fox: FMDL anywhere in a boots/gloves shared folder not resolving to that category's allowed names", consequence: "folder discarded" },
+    { code: "shared_folder_no_model", severity: "Warning", condition: "a shared boots or gloves folder a mapped player links plainly holds no model of its kind (textures only, or nothing; on PES 18-21 a `.common` link to a model of its kind counts as one, and a selected glTF counts as a model, the folder being dropped for it with `model_gltf_unsupported`), so it has nothing to load: it takes no ID and gets no task, and that player wears the game's own; linked beside his own model it is a texture source as any combined folder is, and a `Faces/` folder with no model is one too (context: `player`, the first folder linking it plainly, in roster order)", consequence: "folder emits nothing (`Keep`)" },
+    { code: "shared_ids_unrecorded", severity: "Warning", condition: "a `Midcup` export holding shared boots or gloves folders, and no installed CPK below its output records the team's shared IDs (`spec/aesthetics_export/player_folders.md` \"A `Midcup` export keeps the shared IDs the team already has\"; context: the team)", consequence: "its folders numbered alphabetically, as a `Full` export's; they may take IDs the main CPK gives other folders" },
+    { code: "fmdl_fcl_hair_fallback", severity: "Info", condition: "Fox: arbitrary-named FMDL treated as a face model, routed into the `fcl_hair.fmdl` merge (Red's single-file fallback, generalized)", consequence: "none" },
+    { code: "fmdl_merged", severity: "Info", condition: "Fox: multiple models resolve to the same allowed name; meshes merged into one FMDL (alphabetical source order)", consequence: "none" },
+    { code: "model_merged", severity: "Info", condition: "pre-Fox: several boots models merged into one `boots.model` and its `.mtl` (a shared boots folder holding several, or an `ingame_face` player's boots parts, a combined boots link's model included), in the order `fmdl_merged`'s merge takes; the pre-Fox twin of `fmdl_merged`", consequence: "none" },
+    { code: "model_merge_flags_conflict", severity: "Error", condition: "pre-Fox: merged parts' `.model` headers carry different `flags`, a field of unknown meaning (0 in every file but two Konami face-montage models), so the merge has no rule to combine them", consequence: "that package left out (`DropFolder`), as for `merge_material_conflict`" },
+    { code: "model_hand_split", severity: "Info", condition: "a face model's vertices carry hand-skeleton (`skh_`) weights, so its hands were cut off at the wrist: on Fox into the player's gloves, on pre-Fox into two more `face.xml` entries, `<stem>_glove_l` and `<stem>_glove_r` (`pipeline.md` step 6 of \"Per-export serial steps\", `spec/model_conversion/hand_split.md` \"Pipeline integration\"; context: `model`, the model file, and `gloves`, the parts made: `glove_l`, `glove_r` or both). Reported by `compile`, where the model is compiled", consequence: "none" },
+    { code: "merge_material_conflict", severity: "Error", condition: "merged parts define the same material name differently (Fox merge or pre-Fox `ingame_face` merge)", consequence: "that package (face, boots or gloves) left out (`DropFolder`); the folder's other packages and its textures are still packed, so the player is built incomplete (beside a blank face, no head over the stock body): the Error on the player's folder is what tells the member the folder is not usable until the conflict is fixed, and the help says so" },
+    { code: "skl_merge_conflict", severity: "Error", condition: "merged parts have incompatible skeletons (Fox compares effective SKL content; the pre-Fox merge compares `.model` bone matrices within `1e-4` per component, \"`pes_model::ops::merge`\" in the Libraries plan)", consequence: "that package left out (`DropFolder`), as for `merge_material_conflict`" },
+    { code: "skl_no_slot", severity: "Warning", condition: "Fox: a member's `.skl` paired with a model resolving to `face_high`/`hair_high`/`oral` (no skeleton slot exists for those; context: `file`, the `.skl`, or the `.common` link whose Common model it pairs with). The skeleton a conversion generates for a model of those roles or for a glove part is dropped with no finding (`pipeline.md` step 3 \"Format conversion\"): the member authored no file, and every converted face gets one", consequence: "SKL ignored (no-op file)" },
+    { code: "face_file_not_used", severity: "Info", condition: "a face file (`face_diff.bin`, `face_diff.xml`, and on PES 18-21 `fcl_hair_sim.fclo`, which on PES 15-17 is the other engine's companion and reported by nothing; on PES 15-17 also a member's `face.xml` under `ingame_face`) in a player folder with no face model (a link to a `Faces/` folder holding none gives none), under `ingame_face` or not, or in a shared `Boots/` or `Gloves/` folder, which gives no face; a blank face folder always takes the bundled face diff (context: the file)", consequence: "file not read" },
+    { code: "file_not_used", severity: "Warning", condition: "a file a model folder admits that no package reads, planning giving it no role (`pipeline.md` \"2. Per-export serial steps\", the face-file paragraph): a `.skl` pairing no model, a `.common` link to a kind no role takes (on PES 15-17 a per-kit variant model's too, and any link in a shared folder, deferred until the cup next plays a pre-Fox version), a `materials.toml`, a `.xml`, `.bin` or `.fclo` under no face name, a `.txt` note; a texture of a folder that plans no package (a referee folder or an `ingame_face` player holding textures and no model: no textures task is planned, `pipeline.md` step 3); a `Common/` file of a kind no task reads (`.fclo`, `.xml`, `.bin`, `materials.toml`, a `.txt` note); a refs export's kit folder, logo, portrait or collar file, which have no referee to go to. Not reported: a model another representation of its stem beats and the other engine's companions (`pipeline.md` step 3 \"Format conversion\"), a left-out kit variant (`kit_variant_model_left_out`), a Fox `face.xml` (`xml_ignored_fox`), a Common model, `.mtl` or `.skl` directly in `Common/` no link or conversion takes (`Common/` is a library), and a file the structure pass already named (`file_type_disallowed`). Over mapped player folders, every shared folder, `Common/` and the refs export's root content, by `check` too (context: `file`, the file's path below the folder, or its export path on the export)", consequence: "file not read (`Keep`)" },
+    { code: "ingame_face_explicit_face_model", severity: "Error", condition: "`ingame_face` combined with explicit face models (`face_high`/`hair_high`/`oral`, in any supported source format) or a shared face link, which require the suppressed face folder", consequence: "player folder discarded (`DropFolder`)" },
+    { code: "shared_texture_conflict", severity: "Error", condition: "two shared folders a player combines, of different packages, hold one texture path with different bytes, a texture `.common` link standing there counting as differing from a file (the player's own copy wins over either, `shared_texture_overridden`)", consequence: "the player folder left out (`DropFolder`); identical bytes deduplicate" },
+    { code: "shared_texture_overridden", severity: "Info", condition: "a texture path the player's own folder holds, as a texture or as a texture `.common` link standing there, that a shared folder he combines also holds, the two copies differing or one of them a link (two links naming the one `Common/` texture, nothing is reported): his is the one every model of his names, local files winning over imported ones (`pipeline.md` step 6; context: `texture`, the path below the texture home without its extension; `folder`, the shared folder's export path)", consequence: "the shared folder's copy left out" },
+    { code: "merged_texture_conflict", severity: "withdrawn", condition: "nothing produces it: its one case, the player's own folder against the face folder he combines, is `shared_texture_overridden` since 4.y-sub (b3b3), and a player combines one folder of each kind (2026-10-10)", consequence: "-" },
+    { code: "model_gltf_unsupported", severity: "Error", condition: "a model stem's selected representation is glTF (no target-native model of its stem beside it, in a player folder or a shared one), which the compiler does not read until Phase 7; never compiled from the opposite native format instead, which the glTF beats (`pipeline.md` step 3 \"Format conversion\"); a glTF a target-native model of its stem beats is ignored with no finding; a `Collars/` glTF too, on both engines (`pipeline.md` \"Collars\"), and a glTF directly in `Common/` with no model of the target's format of its stem beside it, dropped the file alone (`file`, its export path; a model of the other engine's format of that stem is beaten by it, as in a player folder, and a mapped player whose `.common` link names that beaten model is dropped, `file` the glTF's export path, as a player linking a shared folder's glTF is); a shared folder's glTF is reported on each player folder linking it, `file` the shared file's export path, the shared folder removed from the export (`pipeline.md` step 3 \"Format conversion\"); reported by `compile` at planning, where the folder's tasks are made, so `check` does not report it (TC-MOD-28; context: `file`, the file below the folder, or a linked shared folder's file by its export path)", consequence: "folder discarded (`DropFolder`), a linking player folder with it; a collar file discarded (`DropFile`), its export compiled without it; not pass-through-eligible" },
+    { code: "model_conversion_failed", severity: "Error", condition: "selected model cannot be converted to the target format: the converter returns an error, or the target format's `check` fires an Error other than the far vertex on the converted form (context: `model`, the source file below the task's folder, or by its export path when a player's task converts a shared folder's file, the finding being on the player's folder; every `model` context a model folder's task reports is named the same way, a split's and a texture's included; a collar task's, whose scope is the file itself, is the file name); an FMDL collar converted for PES 15-17 too, and a `.model` collar converted for PES 18-21 with the templates' `uniform.mtl` (`pipeline.md` \"Collars\")", consequence: "that package left out (`DropFolder`), as for `merge_material_conflict`: a task's failure is its package's, and the folder's other packages and its textures stand (TC-MOD-29); a collar file discarded (`DropFile`), its export compiled without it, the team's kits wearing the game's own collar of the ID planning gave them before the task ran; not pass-through-eligible, the source is in the other engine's format" },
+    { code: "vertex_too_far_from_origin", severity: "Error", condition: "a model has a vertex more than 5000 units from the origin (the format crate's `fmdl_vertex_far_from_origin` / `model_vertex_far_from_origin`, run on every model the compiler processes: native sources as loaded, converted and glTF sources in their target-format form, before any merge; context: model file, offending vertex count). Text: \"Vertex too far away, it will cause persistent lag for the whole matchday\"", consequence: "from the deep pass, which reads the native sources, the folder is discarded (`DropFolder`, TC-MOD-30); from the task that converts a source, on its target form, that package is left out, as every task failure (`model_conversion_failed`); not pass-through-eligible" },
+    { code: "folder_pack_failed", severity: "E/F", condition: "a task cannot build its packed batch", consequence: "folder/task: `DropFolder`; output-writer/global: `AbortRun`" },
+    { code: "model_name_invalid", severity: "Error", condition: "pre-Fox: a model anywhere in a shared boots or gloves folder without its category's suffix, the pre-Fox twin of `fmdl_name_invalid`", consequence: "folder discarded" },
+    { code: "xml_broken", severity: "Error", condition: "XML fails to parse (with line/column)", consequence: "folder discarded" },
+    { code: "mtl_broken", severity: "Error", condition: "MTL fails to parse (with line/column)", consequence: "folder discarded" },
+    { code: "edithair_unsupported", severity: "Error", condition: "pre-Fox: `face_edithair.xml` / `hair.xml` present (anywhere in a player or shared folder; reported by the structure pass, so `check` reports it)", consequence: "folder discarded" },
+    { code: "file_type_disallowed", severity: "E/I", condition: "a file in a player or shared folder's tree, in a kit folder or in `Collars/` that its position's allowlist row does not admit (`spec/aesthetics_export/object_model.md` \"File-type allowlist\": a disallowed extension, or a marker, `settings.toml` or per-player singleton below a subfolder; E if `strict_file_type_check`, else I)", consequence: "folder discarded / kept" },
+    { code: "fmdl_texture_not_found", severity: "E/W", condition: "Fox: a texture one of the model's meshes uses is supplied by nobody: its stem resolves to no file of the folder, or its path names one below the model's folder (`./textures/skin`) where none sits, or its path names the team's Common output, where neither the export's `Common/` nor an installed CPK holds it (`pipeline.md` \"Resolved decisions\", \"A texture a model names must exist\"; context: `model`, the model file, and `texture`, the texture path the model now names). W when no install could be read to look, since the texture may be there. Reported by `compile`, where the model is compiled", consequence: "that package left out (`DropFolder`), as for `merge_material_conflict`, naming the first missing texture; kept when W, one per missing texture" },
+    { code: "fmdl_texture_kit_path", severity: "Warning", condition: "Fox: a texture path one of the model's meshes names in the game's kit texture folder (`/Assets/pes16/model/character/uniform/texture/`): the modded exe swaps the kit textures per match, so a fixed file there is not the kit the player wears; the model's texture should be the `dummy_kit` family or a `kitN` texture of its own (`spec/model_format.md` \"Kit-dependent assets\"). Context: `model`, `texture`, the path. Reported by `compile`, once per model and path (a hand-split model's face and gloves packages each), instead of `fmdl_texture_not_found`", consequence: "kept, the path unchanged" },
+    { code: "model_broken", severity: "Error", condition: "a model file (`.fmdl` or `.model`) does not parse (context: the file, the reader's error)", consequence: "folder discarded; not pass-through-eligible (it cannot be processed)" },
+    { code: "fmdl_mesh_over_bone_limit`, `fmdl_mesh_over_vertex_limit`, `fmdl_mesh_over_face_limit", severity: "Error", condition: "Fox: a mesh exceeds a hard FMDL limit; the game cannot load it", consequence: "folder discarded" },
+    { code: "fmdl_face_index_out_of_range", severity: "Error", condition: "Fox: a face names a vertex that does not exist", consequence: "folder discarded" },
+    { code: "fmdl_mesh_unassigned", severity: "Error", condition: "Fox: no mesh group lists the mesh, so the written file would not contain it", consequence: "folder discarded" },
+    { code: "fmdl_bone_slot_out_of_range", severity: "Warning", condition: "Fox: a weighted bone index points past the mesh's bone group; the game ignores that weight (Konami's own models do this)", consequence: "none" },
+    { code: "fmdl_mesh_empty", severity: "Warning", condition: "Fox: a mesh with no faces", consequence: "none" },
+    { code: "fmdl_duplicate_bone_name", severity: "Warning", condition: "Fox: two bones of one name; merges and `.skl` matching get ambiguous", consequence: "none" },
+    { code: "fmdl_weights_not_normalized", severity: "Info", condition: "Fox: a vertex's weights sum to neither 255 nor 0", consequence: "none" },
+    { code: "fmdl_material_unused", severity: "Info", condition: "Fox: a material instance no mesh uses", consequence: "none" },
+    { code: "model_mesh_over_bone_limit`, `model_mesh_over_vertex_limit`, `model_mesh_over_face_limit", severity: "Error", condition: "pre-Fox: a mesh exceeds a hard `.model` limit; the game cannot load it", consequence: "folder discarded" },
+    { code: "model_face_index_out_of_range", severity: "Error", condition: "pre-Fox: a face of any LOD level names a vertex that does not exist", consequence: "folder discarded" },
+    { code: "model_bone_slot_out_of_range", severity: "Warning", condition: "pre-Fox: a weighted bone index points past the mesh's bone group", consequence: "none" },
+    { code: "model_mesh_empty", severity: "Warning", condition: "pre-Fox: a mesh with no faces", consequence: "none" },
+    { code: "model_duplicate_bone_name", severity: "Warning", condition: "pre-Fox: two bones of one name", consequence: "none" },
+    { code: "model_lod_record_mismatch", severity: "Warning", condition: "pre-Fox: the LOD record's level count disagrees with the meshes' LOD levels", consequence: "none" },
+    { code: "model_weights_not_normalized", severity: "Info", condition: "pre-Fox: a vertex's weights do not sum to 1", consequence: "none" },
+    { code: "model_degenerate_face", severity: "Info", condition: "pre-Fox: a face uses one vertex twice", consequence: "none" },
+    { code: "model_material_unused", severity: "Info", condition: "pre-Fox: a material name no mesh uses", consequence: "none" },
+    { code: "texture_too_small", severity: "Error", condition: "a side under 4 pixels, one block", consequence: "discarded" },
+    { code: "texture_not_pow2", severity: "Error", condition: "a side that is not a power of two on a portrait (any target), or neither side a power of two on a Fox target on a texture that carries a mip chain: a raster source always (its chain is generated), a DDS or FTEX source with more than one level (a single-level one passes at any size). PES 21 draws a mipped texture with one such side (512x461, 797x64) and a 4096 kit. Not reported on a kit's main texture on PES 15-17, where `kit_texture_too_big` covers it", consequence: "discarded" },
+    { code: "texture_not_div4", severity: "Error", condition: "pre-Fox: a side that is not a multiple of 4 (every pre-Fox texture is written block-compressed); not pass-through-eligible", consequence: "discarded" },
+    { code: "kit_texture_too_big", severity: "Error", condition: "a kit's main texture (`kit`, its own or the one inherited from `all/`) wider or taller than 2048 pixels, or with a side that is not a power of two; PES 15-17 only", consequence: "discarded" },
+    { code: "texture_type_mismatch", severity: "Error", condition: "header doesn't match extension (renamed, not resaved)", consequence: "discarded" },
+    { code: "texture_unreadable", severity: "Error", condition: "the header cannot be read as the format the name declares and matches no other accepted format's signature (not a texture, or cut short before its header ends); reported by the deep pass from the header at the place's disposition, as `texture_type_mismatch` is (the file alone in `Common/`, so its other textures are kept; the folder for a model folder's or a kit's); not pass-through-eligible", consequence: "discarded" },
+    { code: "texture_codec_unsupported", severity: "Error", condition: "codec not convertible in-process (`dds_convert` refuses the codec, or the DDS reader refuses the file as a DDS: a signed block format, a volume, an array, a paletted DDS, a header of the wrong size, a zero side, an impossible level count, premultiplied alpha, an unknown four-character code); reported by the deep pass from the header at the place's disposition, as `texture_unreadable` is, and by the Fox cube-map route when `dds_to_ftex` refuses one; not pass-through-eligible", consequence: "discarded" },
+    { code: "portrait_header_rewritten", severity: "Info", condition: "a DDS portrait under a DX10 extension header went out under the legacy header of its format, an sRGB DXGI id as its UNORM twin, its pixel data unchanged (`spec/aesthetics_export/player_folders.md` \"Portraits\": such a file crashed PES 19; context: `file`; `dxgi`, the id the source carried)", consequence: "none" },
+    { code: "texture_stem_conflict", severity: "Error", condition: "two image files with the same stem in one lookup namespace, whatever their extensions: one folder of a model folder's tree, the root or one subfolder (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name; `hair.dds` beside `jessie/hair.dds` is no conflict, a model's texture name resolving nearest first, `spec/aesthetics_export/player_folders.md` \"Subfolders\"), `Common/` (`hair.dds` beside `hair.png`; each directory of `Common/` a namespace of its own), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`player_03.dds` beside `player_03.png`)", consequence: "folder discarded (the model folder, or the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/` and `Common/`, both files (a player linking a dropped Common file follows `link_target_dropped`)" },
+    { code: "mtl_texture_not_found", severity: "Warning", condition: "texture (by stem) used by one of the model's meshes supplied by nobody: resolving nowhere from the `.mtl`'s folder, not at the path below the `.mtl`'s folder a `./textures/skin.dds` names, and for a Common path neither in the export's `Common/` nor in an installed CPK (the lookup of `fmdl_texture_not_found`); a Warning where Fox's is an Error, because the game plays such a face (the paragraph below). On Fox the same check runs, in the deep pass too, on a `.mtl` a selected `.model` pairs with (`pipeline.md` step 3 \"Format conversion\"): the file checked is the member's source, the same whatever the target, so the finding is the same; a `.mtl` no selected model pairs with is read by nothing there", consequence: "folder kept" },
+    { code: "mtl_texture_unused_missing", severity: "Info", condition: "texture referenced only by materials no mesh uses", consequence: "none" },
+    { code: "xml_root_tag_invalid", severity: "Error", condition: "root tag is not `<config>`", consequence: "folder discarded" },
+    { code: "xml_model_type_missing", severity: "Error", condition: "`<model>` without `type`", consequence: "folder discarded" },
+    { code: "xml_model_path_missing", severity: "Error", condition: "`<model>` without `path`", consequence: "folder discarded" },
+    { code: "xml_model_not_found", severity: "Error", condition: "`path` (or `material`) is a `./` or Common reference whose file is missing from the export", consequence: "folder discarded" },
+    { code: "xml_common_path_invalid", severity: "Error", condition: "Common reference without 3-char subfolder", consequence: "folder discarded" },
+    { code: "xml_oral_prefix_missing", severity: "Error", condition: "PES16 target: model file name starting with none of `face_high_`/`hair_high_`/`oral_`", consequence: "folder discarded" },
+    { code: "xml_dif_conflict", severity: "Error", condition: "two sources for one datum in one folder: the xml carries a `<dif>` and the folder also has `face_diff.xml`, or (Fox) the folder has both `face_diff.bin` and `face_diff.xml`. A `<dif>` beside a `face_diff.bin` is no conflict: it is the dual-engine layout of the current referee exports, the xml's `<dif>` going out on PES 15-17 (the `face_diff.bin` ignored there with no finding, as a file only the other engine reads) and the `face_diff.bin` on PES 18-21 (where the xml is `xml_ignored_fox`)", consequence: "folder discarded" },
+    { code: "xml_element_unknown", severity: "Warning", condition: "a child of `<config>` other than `<model>`/`<dif>`", consequence: "kept verbatim" },
+    { code: "xml_attribute_unknown", severity: "Warning", condition: "a `<model>` attribute other than `level`/`type`/`path`/`material`/`ratio`", consequence: "kept verbatim" },
+    { code: "xml_type_unknown", severity: "Warning", condition: "`type` not in the generated vocabulary (the type table plus `uniform_sub`)", consequence: "kept verbatim" },
+    { code: "xml_level_lod", severity: "Info", condition: "`level` other than `0` - the model's LoD level; higher levels are uncommon but known to work", consequence: "kept verbatim" },
+    { code: "xml_ratio_invalid", severity: "Warning", condition: "`ratio` that is not a number", consequence: "kept verbatim" },
+    { code: "xml_path_unchecked", severity: "Warning", condition: "`path`/`material` in a form the compiler cannot resolve (`model/character/face/common/\u2026` or any other game path): not verified to exist", consequence: "kept verbatim" },
+    { code: "xml_face_neck_multiple", severity: "Warning", condition: "more than one `face_neck` entry", consequence: "kept verbatim" },
+    { code: "xml_model_unlisted", severity: "Warning", condition: "a model file in the folder that the xml does not reference (a reference to a per-kit set names every variant of the set)", consequence: "file not emitted, nor read by the deep pass; a `.mtl` the xml does not name is unread the same way, with no finding" },
+    { code: "xml_face_neck_added", severity: "Info", condition: "no `face_neck` entry among a face's models; the dummy entry was appended (Red's rule); not on a blank face", consequence: "dummy model + mtl emitted" },
+    { code: "xml_uniform_pes15", severity: "Info", condition: "PES15 target: `type=\"uniform\"` rewritten to `uniform_sub` (Red's rule)", consequence: "rewritten" },
+    { code: "xml_ignored_fox", severity: "Info", condition: "a user `face.xml` in a folder compiled for a Fox target", consequence: "xml ignored; models compile by the normal route" },
+    { code: "xml_ignored_shared", severity: "Info", condition: "PES 15-17: a `face.xml` in a shared `Boots/` or `Gloves/` folder, whose output (one model, a `glove.xml`) no face xml drives (context: `file`)", consequence: "xml ignored and not checked; the deep pass pairs every model of the folder as without an xml" },
+    { code: "xml_shared_face_conflict", severity: "Error", condition: "PES 15-17: a player folder holding a `face.xml` links a `Faces/` folder, whether or not that folder holds one: a face takes one xml (context: `file`, the player's xml; `link`, the shared folder's export path)", consequence: "folder discarded (`DropFolder`, not pass-through-eligible)" },
+    { code: "face_diff_invalid", severity: "Error", condition: "`face_diff.xml` is not base64 text or a `<dif>` holding it, or its decoded bytes, or a `face_diff.bin`, are not a face diff (`spec/aesthetics_export/player_folders.md` \"`face_diff.xml`\"; context: the file, the reason)", consequence: "folder discarded" },
+    { code: "mtl_material_duplicate", severity: "Error", condition: "material listed twice", consequence: "folder discarded" },
+    { code: "mtl_state_invalid", severity: "Error", condition: "`ztest` \u2260 1 / `blendmode` \u2209 {0,1} / `alphablend` \u2209 {0,1}", consequence: "folder discarded" },
+    { code: "mtl_blendmode_nonzero", severity: "Warning", condition: "`blendmode` = 1 (works, not recommended)", consequence: "none" },
+    { code: "mtl_state_missing", severity: "Info", condition: "state names absent, defaults used", consequence: "none" },
+    { code: "mtl_state_nonrecommended", severity: "Info", condition: "`alphablend`/`zwrite` combination not recommended", consequence: "none" },
+    { code: "mtl_state_unknown", severity: "Info", condition: "a state name outside the seven the schema knows (`shadowcaster` in 18 of Konami's files)", consequence: "kept verbatim" },
+    { code: "model_material_undefined", severity: "Error", condition: "a material name a `.model` uses has no entry in the `.mtl` it is paired with; the mesh would render with the game's fallback (context: the model, the `.mtl`, the undefined names in the model's order). Also a `.model` the search pairs with no `.mtl` (context: the model)", consequence: "folder discarded; pass-through-eligible only when a `.mtl` was found (the file packs as it is), never when none was (the `face.xml` must name one)" },
+    { code: "kit_folder_invalid", severity: "Error", condition: "subfolder name doesn't parse as `<slot>[ - <label>]` with the slot in `p1`-`p9`, `g1`, `all`", consequence: "kit discarded" },
+    { code: "kit_slot_duplicate", severity: "Error", condition: "two subfolders resolve to the same slot (`p1/` and `p1 - Lakers/`)", consequence: "both discarded - never a pick" },
+    { code: "kit_textures_inherited", severity: "Info", condition: "a kit lacks stems that `all/` provides; lists them (`p3: back, leg, name from all/`)", consequence: "textures inherited" },
+    { code: "kit_all_file_ignored", severity: "Warning", condition: "`all/` holds something other than kit textures (`config.toml`, `colors.txt`, an `icon_<N>` marker, anything else)", consequence: "file ignored" },
+    { code: "kit_all_unused", severity: "Warning", condition: "`all/` present but no kit folder to inherit from it", consequence: "-" },
+    { code: "kit_config_generated", severity: "Info", condition: "no `config.toml`; generated from the template, which carries the FPC values whatever the team's FPC status", consequence: "auto-fixed" },
+    { code: "kit_config_invalid", severity: "Error", condition: "`config.toml` is not UTF-8 text or `kit_config` refuses it: not TOML, a key's value of the wrong type or outside its field's encoding, a key that must be a table holding something else; found by the deep pass (context: the file, the error). `kit_config`'s other findings (its two Infos, `kit_collar_zero`) are not reported yet (`pipeline.md` \"Kit configs\")", consequence: "kit discarded (`DropFolder`, not pass-through-eligible)" },
+    { code: "kit_config_version_clamped", severity: "Warning", condition: "a supplied config's field doesn't fit the target PES version's encoding (e.g. a Name Y over 33 before PES 21), found by the deep pass (context: the field, the value, the version's maximum); or an installed config of a kit slot a `Midcup` export does not hold, encoded again for the FPC values or the export's collar, holds such a value (the team export's; context: the slot, the field, the value, the version's maximum; `pipeline.md` \"Bins accumulation\")", consequence: "value clamped when the config is emitted" },
+    { code: "kit_config_option_ignored", severity: "Warning", condition: "a supplied config sets a sleeve or fit option its shirt model does not take (`kit_config`'s `kit_cut_out_requires_model_144_or_160`, `kit_undershirt_only_requires_model_144_or_160`, `kit_tight_requires_model_144_or_160`), found by the deep pass on the config as it is emitted, the FPC values applied when the team's kit-FPC status is On (context: the file, the option, the shirt model as emitted)", consequence: "kept; the game ignores the option" },
+    { code: "kit_config_fpc_adjusted", severity: "Info", condition: "team kit-FPC status is On but a config lacks the FPC values - supplied configs and unexported slots' base entries (pre-Fox: their loose configs) alike, GK kit included; an unexported slot's is the team export's (context: the slot), the slots being the kits its `UniColor.bin` record holds (`pipeline.md` \"Bins accumulation\")", consequence: "auto-fixed (values written; FPC values are never auto-reverted)" },
+    { code: "kit_config_fpc_unpatched", severity: "Warning", condition: "team kit-FPC status is On but an unexported kit slot has no base entry or config to patch, or its entry does not decode as a kit config (the team export's; context: the slot)", consequence: "slot left alone; the team needs a kit export" },
+    { code: "kit_config_collar_unpatched", severity: "Warning", condition: "the export has a collar but an unexported kit slot (one its `UniColor.bin` record holds) has no base entry or config to wear it, or its entry does not decode as a kit config, and `kit_config_fpc_unpatched` has not named the slot (the team export's; context: the slot; `pipeline.md` \"Collars\")", consequence: "slot left alone, wearing its own collar; the team needs a kit export for it" },
+    { code: "kit_placeholder", severity: "Info", condition: "the kit's effective textures lack `kit.dds` (an empty folder included); the bundled checkerboard stands in", consequence: "placeholder kit emitted: checkerboard texture, template config unless supplied, UniColor entry per the colors fallback" },
+    { code: "kit_colors_derived", severity: "Info", condition: "kit `colors.txt` missing, or present but yielding fewer than two valid colors; menu colors extracted from the kit's main texture, the `kit` texture of its effective set (an inherited `all/kit.dds` counts)", consequence: "auto-fixed" },
+    { code: "kit_colors_missing", severity: "Warning", condition: "no usable `colors.txt` and no main texture in the kit's effective set to derive from (placeholder kits without a `colors.txt` always)", consequence: "the magenta/black \"no colors chosen\" pair is written, so the gap shows in the game menus" },
+    { code: "kit_icon_invalid", severity: "Warning", condition: "a kit's `icon_<N>` marker is numbered above 23, or the kit holds two or more (each is reported)", consequence: "default icon (3) used" },
+    { code: "kit_texture_name_invalid", severity: "Error", condition: "texture doesn't carry the `kit` prefix (`kit.dds`, `kit_mask.dds`, \u2026)", consequence: "file discarded" },
+    { code: "kit_texture_not_used", severity: "Info", condition: "a kit texture of the kit's effective set that the target does not emit: a `kit_mask` on a Fox target or a `kit_srm` on a pre-Fox target (the other engine's map), or a `kit_*` stem outside the seven the compiler builds (`kit_spec`; the five the config names, `kit_mask`, `kit_srm`) (context: the file)", consequence: "file dropped from the set at planning, so neither read nor emitted (a map is never converted into the other)" },
+    { code: "kit_layout_conflict", severity: "Error", condition: "both `pre-fox` and `fox` markers in one kit folder", consequence: "kit discarded" },
+    { code: "kit_layout_converted", severity: "Info", condition: "the kit's layout marker names the other engine than the target; names the direction (`p1: pre-fox \u2192 fox`)", consequence: "`kit` and its mask/srm re-laid out per `KIT_LAYOUT_REMAP`; other textures untouched" },
+    { code: "portrait_name_invalid", severity: "Error", condition: "not `player_NN.dds` with NN in 01-23", consequence: "file discarded" },
+    { code: "logo_file_invalid", severity: "Error", condition: "a root `logo*` file has an unknown tag in its stem, a disallowed format, or fails to decode in the deep pass", consequence: "no logo emitted for the team (both files dropped as one unit - the game needs all three sizes)" },
+    { code: "logo_role_duplicate", severity: "Error", condition: "two files claim the same role (two `logo*`, or two `logo_small*`)", consequence: "no logo emitted for the team" },
+    { code: "logo_small_without_main", severity: "Error", condition: "`logo_small*` present with no main `logo*`", consequence: "no logo emitted (the small image is not a source for the large sizes)" },
+    { code: "logo_fit_applied", severity: "Info", condition: "a non-square source was made square; names the file and the mode (`fit` by default, or the file's tag) (context: `file`, `mode`)", consequence: "-" },
+    { code: "logo_upscaled", severity: "Warning", condition: "a source is smaller than its largest target (512\u00b2 for main, 128\u00b2 for small): its long side for `fit`, its short side for `crop` and `stretch` (context: `file`, `size` as `300x300`, `target`)", consequence: "emitted upscaled" },
+    { code: "collar_id_invalid", severity: "Error", condition: "collar filename doesn't parse as `collar_<ID>` (zero padding optional), or the ID is not a stock collar of the target version that a kit config can name (each version's set counted in its install's base data CPK, `dt35`'s `nocloth` collars: PES 15: 1-101 and 901-904; PES 16: 1-105 and 901-904; PES 17 and 18: 1-116 and 901-916; PES 19: 1-124 and 901-916; PES 20: 1-127 and 901-913; PES 21: 1-131 and 901-913; the 9xx collars are stock but a kit config holds a collar in one byte, so no team's kit could wear one: invalid too). The suite's reserved IDs are checked first (`collar_id_conflict`), so `collar_105` is a conflict on PES 15 too", consequence: "collar file discarded" },
+    { code: "collar_id_conflict", severity: "Error", condition: "the stock collar ID is already claimed: by another export earlier in this run (canonical export order), or by the suite itself, which reserves 105 (FPC) and 77 (the referees' marker, `blue_port.md` \"Referee export processing\") (context: the claimant, an export's name or `FPC` / `referees`)", consequence: "the collar is discarded and its team's configs are not rewritten" },
+    { code: "common_file_disallowed", severity: "E/I", condition: "as `file_type_disallowed`, Common scope", consequence: "files discarded / kept" },
+    { code: "kit_collar_reserved", severity: "Error", condition: "a regular team's kit whose effective collar or winter collar, after FPC reconciliation and custom-collar rewriting, is 77, the referees' reserved collar (context: the field, `collar` or `winter_collar`; the kit folder is the message's scope)", consequence: "kit discarded: its players would wear the referee marker" },
+    { code: "duplicate_path", severity: "W/E", condition: "a task's entry, or a bin, at the path of an `overrides/` file (Run scope; context: the path). The folder and export forms (two tasks claiming one path) have no trigger today and are not built (`pipeline.md` \"3. Per-model-folder parallel steps\")", consequence: "override: the `overrides/` file wins, the entry is left out (`Keep`, W); folder collision: losing folder blocked (`DropFolder`, E); whole-export collision: losing export blocked (`DropExport`, E)" },
+    { code: "cpk_write_failed", severity: "Fatal", condition: "incremental CPK writing fails", consequence: "run aborted and partial CPK discarded (`AbortRun`)" },
+    { code: "output_commit_failed", severity: "Fatal", condition: "a completed CPK/tree cannot be atomically committed to its final output path", consequence: "run aborted; prior published outputs remain untouched (`AbortRun`)" },
+    { code: "patch_written", severity: "Info", condition: "the aesthetics patch was written to the output folder (names the path and the teams it covers)", consequence: "none" },
+    { code: "patch_write_failed", severity: "Fatal", condition: "the aesthetics patch could not be written (context: the path, the error)", consequence: "run aborted (`AbortRun`): a deployment is rolled back, the old CPKs back in `download/`, and nothing more is published; a sideload tree stays in place" },
+    { code: "savefile_autodetected", severity: "Info", condition: "`savefile_path = auto` resolved a savefile under Documents\\KONAMI (names the path; noted especially when several account folders existed and the newest was chosen)", consequence: "none" },
+    { code: "savefile_missing", severity: "Warning", condition: "the patch holds entries (Fox: motions and resolved names; pre-Fox: aesthetics) but no savefile is configured/found; the patch is the run's only savefile output", consequence: "savefile step skipped; the message names the patch and the save editor's apply action (context: `patch`, `path` when configured, `command`). A configured path naming a folder is not missing: it is `savefile_invalid`" },
+    { code: "savefile_skipped_pes_running", severity: "Warning", condition: "savefile changes pending but the compile target's PES is running (a PES of another version does not count; any output mode; the motivating case is sideload-mode iteration)", consequence: "savefile step skipped; applied by the next compile with PES closed" },
+    { code: "savefile_write_failed", severity: "E/F", condition: "savefile could not be updated: the patch's apply refused it, or the write failed (context: the path, the error)", consequence: "Fatal (`AbortRun`) after a deployment, which is rolled back and its CPKs promoted to `output/`; an Error in sideload mode, the new tree in place" },
+    { code: "savefile_invalid", severity: "E/F", condition: "the configured or found savefile cannot be read, or its version is not the compile target's (context: the path, the version)", consequence: "Fatal (`AbortRun`) after a deployment, which is rolled back and its CPKs promoted to `output/`; an Error in sideload mode, the new tree in place; the save is not modified" },
+    { code: "savefile_written", severity: "Info", condition: "the patch was applied to the local savefile and the savefile replaced, the previous file kept as `.bak` (context: the path, the team ids applied)", consequence: "none" },
+    { code: "savefile_team_missing", severity: "Error", condition: "a team of the patch is not in the savefile (context: the team)", consequence: "that team's entries are not applied; the rest is; a save holding none of the patch's players (as `savefile_team_missing` or `savefile_player_missing`) is not rewritten, so its `.bak` stays the user's previous backup" },
+    { code: "savefile_player_missing", severity: "Error", condition: "a player of the patch is not in the savefile, his team being there (context: the player id); the save editor's `apply-patch` reports the same skip", consequence: "that player's entries are not applied; the rest is" },
+    { code: "savefile_player_not_stripped", severity: "Warning", condition: "Fox: a compiled player's record in the local save has its appearance id set (a save never stripped, or an id the game's Edit mode restored), so the game shows his record, not the compiled rows (context: the players)", consequence: "reported; the save editor strips them (`strip-and-seed` for a save never stripped, `check-stripped --strip-again` otherwise)" },
+    { code: "teamnotes_write_failed", severity: "Error", condition: "`teamnotes.txt` cannot be written, or a previous one cannot be removed, in the output folder (context: `path`, `error`)", consequence: "the run's CPK stays in place; the notes file is left as it was" },
+    { code: "uniparam_compile_failed", severity: "withdrawn", condition: "an installed `UniformParameter.bin` that does not parse is `installed_bin_unreadable` since 4.21c, and any failure writing the bin is `cpk_write_failed`; nothing between the two can fail (converge 4.y-conv, 2026-10-09)", consequence: "-" },
+    { code: "pes_folder_not_found", severity: "Error", condition: "`pes_folder_path` invalid at deployment time (includes the no-PES-install machine; context: `path`, `output` the path the CPK is promoted to)", consequence: "deployment skipped; staged CPKs promoted to `output/`; savefile step skipped" },
+    { code: "pes_version_mismatch", severity: "Warning", condition: "`pes_folder_path` exists but holds no `PES20{pes_version}.exe` - a different-version exe suggests a wrong `pes_version` setting (Red's suppressible console notice becomes a plain per-run warning, dropping `state/ver_mismatch_warned.txt`; the GUI also surfaces this live via the version selector's red/yellow state - see the core plan's Sidebar; context: `path` the PES folder, `exe` the file looked for)", consequence: "none; deployment proceeds" },
+    { code: "dpfilelist_missing", severity: "E/W", condition: "no `DpFileList.bin` in download folder: an Error in a compile that deploys, a Warning in sideload and test mode and with `--no-deploy` (a clean run, \"Post-processing\"), which deploy nothing, so the user knows no bin from the download folder was used", consequence: "E: deployment skipped; staged CPKs promoted to `output/`; savefile step skipped. W: none; the bins are built on the bundled bases (`bin_source` `bundled`)" },
+    { code: "dpfilelist_not_official", severity: "Warning", condition: "the installed DpFileList's entries differ from the bundled official list's (missing entries, entries the official list lacks, or their order), while every target of this run is listed (context: `path` the installed list; `missing` the official entries it lacks, in the official order; `unofficial` its entries the official list lacks, in its order; `order` = `differs` when the entries both lists hold are in another order; each of these three only when it applies, lists joined by `, `; `command` the subcommand, `4cc-studio team-compiler upgrade-dpfl`)", consequence: "none: the run compiles and deploys; the CLI names `upgrade-dpfl`, which asks before replacing the list" },
+    { code: "dpfilelist_cpk_missing", severity: "Warning", condition: "the installed DpFileList names CPKs with no file in the download folder, other than this run's own target (context: `path` the download folder, `files` the file names in list order, `command` as `dpfilelist_not_official`'s). The game then rejects the whole download folder and runs vanilla", consequence: "none: the run compiles and deploys; the savefile step is skipped; `upgrade-dpfl` writes a placeholder for each" },
+    { code: "dpfilelist_outdated", severity: "Error", condition: "installed DpFileList lacks a target of this run that the bundled official DPFL lists (old layout, e.g. no `teams` slots; context: `cpk` every CPK of the run the installed list lacks and the official one names, joined by `, ` in the run's order (the bins CPK, then the parts by slot number), `path` the installed list, `output` the CPK's path in the output folder, or the output folder when the run writes several, `command` as `dpfilelist_not_official`'s)", consequence: "deployment skipped; staged CPKs promoted to `output/`; CLI names `upgrade-dpfl`; savefile step skipped" },
+    { code: "dpfilelist_cpk_renamed", severity: "Info", condition: "`upgrade-dpfl`: an old DLC's CPK renamed by stem to an official name (context: `from`, `to`, the file names)", consequence: "none" },
+    { code: "dpfilelist_placeholder_written", severity: "Info", condition: "`upgrade-dpfl`: the placeholder CPK written for an official entry with no file in `download/` (context: `cpk`)", consequence: "none" },
+    { code: "dpfilelist_replaced", severity: "Info", condition: "`upgrade-dpfl`: the installed list replaced by the official one (context: `path`; `backup` the `DpFileList.bin.bak` written, absent when there was no list; `unreadable` the error, only when the old list could not be read as a list, so nothing was renamed)", consequence: "the old list kept as `DpFileList.bin.bak`, replacing an older backup" },
+    { code: "dpfilelist_cpk_dropped", severity: "Warning", condition: "`upgrade-dpfl`: an installed entry the official list lacks and that is not renamed (no official name of its stem left, no stem, or the name held by another file) (context: `cpk`; `size` of its file in `download/`, absent when there is none)", consequence: "the game no longer loads it; the file is kept for the user to remove" },
+    { code: "dpfilelist_up_to_date", severity: "Info", condition: "`upgrade-dpfl`: the installed list is the official one byte for byte and every CPK it names is in `download/` (context: `path`)", consequence: "nothing is written" },
+    { code: "dpfilelist_upgrade_planned", severity: "Info", condition: "`upgrade-dpfl` without `--yes`: the lines before it are what `--yes` would do (context: `command`, the subcommand with `--yes`)", consequence: "nothing is written" },
+    { code: "cpk_name_unlisted", severity: "Error", condition: "CPK name in neither the installed nor the bundled DpFileList (a genuinely unknown name; context: `cpk` every CPK of the run neither list names, joined as `dpfilelist_outdated`'s, `path` the installed list, `output` as `dpfilelist_outdated`'s)", consequence: "deployment skipped; staged CPKs promoted to `output/`; savefile step skipped" },
+    { code: "cpk_slots_exhausted", severity: "Fatal", condition: "multi-CPK content does not fit the available slots at `cpk_part_max_size` (context: `export` the first export no slot is left for, `stem` the slots' stem, `slots` how many the official list has, `cap` the cap as a size)", consequence: "run aborted; the DPFL author adds slots or the cap is raised" },
+    { code: "cpk_team_exceeds_cap", severity: "Fatal", condition: "a single team's compiled content is larger than `cpk_part_max_size` (impossible in practice at 3 GiB; context: `export`, `size`, `cap`)", consequence: "run aborted; teams are never split across parts" },
+    { code: "cpk_size_over_limit", severity: "Warning", condition: "a single-CPK output exceeds `cpk_part_max_size` (valid for PES; the DLC repository will reject it; context: `cpk`, `size`, `cap`)", consequence: "none" },
+    { code: "old_cpk_locked", severity: "Error", condition: "old CPK cannot be replaced (PES running): the rename of the copied `.partial` over it fails, or, when the run writes several CPKs, the move of an old CPK aside to `.cpk.old` or of a `.partial` into its place (context: `path` the old CPK, `error`, `output` as `dpfilelist_outdated`'s)", consequence: "deployment skipped; staged CPKs promoted to `output/`; savefile step skipped" },
+    { code: "deploy_target_unwritable", severity: "Error", condition: "destination folder denies writes (typically elevation needed under `Program Files`): the probe before any export is read, or the copy to the `.partial` (context: `path`, `error`, `output`)", consequence: "deployment skipped; staged CPKs promoted to `output/`; savefile step skipped" },
+    { code: "deploy_skipped_by_flag", severity: "Info", condition: "`--no-deploy` given (CLI) (context: `path`, the CPK promoted; one per CPK in multi-CPK mode, the bins CPK first, then the parts by slot number)", consequence: "staged CPKs promoted to `output/`; savefile step skipped; run is clean" },
+    { code: "overrides_active", severity: "Info", condition: "the data directory's `overrides/` folder holds at least one file, each injected at its relative path into the CPK, or into `livecpk\\` in sideload mode (`compile` in normal and sideload mode, the modes that apply overrides; Run scope; context: the folder, the file count)", consequence: "none" },
+    { code: "installed_bin_unreadable", severity: "Fatal", condition: "the working-bin walk (`pipeline.md` \"Bins accumulation\") meets an installed `DpFileList.bin`, a listed CPK or a bin inside it that cannot be read, a bin that does not parse as its format included (context: the file, the whole error chain)", consequence: "run aborted before any export is read; the previous CPK is kept (`AbortRun`)" },
+    { code: "bin_source", severity: "Info", condition: "which installed CPK supplied a working bin in the DpFileList walk, or `bundled` when the embedded base was used (context: the bin, the CPK or `bundled`)", consequence: "none" },
+    { code: "player_table_missing", severity: "Warning", condition: "the run has `PlayerAppearance.bin`, `BootsList.bin` or `GloveList.bin` rows to write (Fox) and no CPK of the working-bin walk holds the table, which has no bundled base (context: the table, the number of rows)", consequence: "the table is not written and the rows are left out: a table of the run's rows alone would hide every other player's (`pipeline.md` \"Bins accumulation\")" },
+    { code: "bin_header_repaired", severity: "Warning", condition: "a working `TeamColor.bin` or `UniColor.bin` held records whose header was not their position's: the team ID, or in `TeamColor.bin` the color count. One finding per bin (context: the bin, the teams). It marks a corrupt installed bin, whatever wrote it, so the cause can be looked for", consequence: "the headers are rewritten; each record's other bytes are kept, so those teams' colors may be wrong until their exports are compiled again" },
   ],
   "save-editor": [
-    { code: "team_exported", severity: "Info", text: "`export-toml` wrote one team's file (`team`, `path`)." },
-    { code: "transplant_target_stripped", severity: "Warning", text: "`transplant`: the target's appearance id is -1, so the game does not read the record the donor's fields went into; the tables decide his look (`player`)." },
-    { code: "patch_team_not_in_save", severity: "Error", text: "`apply-patch`: the save has no team with this id; its players were not looked at (`team`)." },
+    { code: "team_exported", severity: "Info", condition: "`export-toml` wrote one team's file (`team`, `path`)", consequence: "informational; goes on" },
+    { code: "import_key_not_in_version", severity: "Warning", condition: "`import-toml`: a key the document's version stores and the save's does not; dropped (`path`)", consequence: "warns and goes on" },
+    { code: "import_value_not_encodable", severity: "Warning", condition: "`import-toml`: a value the save's version cannot store (an instruction it lacks); written as off (`path`, `label`)", consequence: "warns and goes on" },
+    { code: "import_value_capped", severity: "Warning", condition: "`import-toml`: a face type above the save's version's cap, or a skin the version has no custom slot for; written as `to` (`path`, `from`, `to`)", consequence: "warns and goes on" },
+    { code: "import_slot_empty", severity: "Warning", condition: "`import-toml`: a `[players.NN]` whose roster slot is empty; skipped (`slot`)", consequence: "warns and goes on" },
+    { code: "patch_team_applied", severity: "Info", condition: "`apply-patch`: the save holds the team and at least one of its patch players was written (`team`); a team whose players the save all lacks is not listed", consequence: "informational; goes on" },
+    { code: "patch_team_not_in_save", severity: "Error", condition: "`apply-patch`: the save has no team with this id; its players were not looked at (`team`)", consequence: "the rest is written; exit 1" },
+    { code: "patch_player_not_in_save", severity: "Error", condition: "`apply-patch`: the save has no player with this id (`player`)", consequence: "the rest is written; exit 1" },
+    { code: "transplant_target_stripped", severity: "Warning", condition: "`transplant`: the target's appearance id is -1, so the game does not read the record the donor's fields went into; the tables decide his look (`player`)", consequence: "warns; the write stands" },
+    { code: "transplant_donor_stripped", severity: "Warning", condition: "`transplant`: the donor's appearance id is -1, so the fields copied are his record's, not the look the game shows for him (`player`)", consequence: "warns; the write stands" },
+    { code: "player_diff", severity: "Info", condition: "`diff`: one field of a player in both saves, old to new (`player`, `field`, `old`, `new`)", consequence: "the report's rows; differences are the output, exit 0" },
+    { code: "player_only_in", severity: "Info", condition: "`diff`: a player in one save alone (`player`, `save`: `first` or `second`)", consequence: "informational; goes on" },
+    { code: "player_stripped", severity: "Info", condition: "`diff`: the player's appearance id is -1 in `save` (`first`, `second` or `both`); his record is compared, not the look the game shows (`player`, `save`)", consequence: "marks the player beside his rows; exit 0" },
+    { code: "teams_list_added", severity: "Info", condition: "`export-teams-list`: a team of the save the list lacked, appended or put into a placeholder's slot (`team`, `name`)", consequence: "merged; written only with `--yes`" },
+    { code: "teams_list_overridden", severity: "Info", condition: "`export-teams-list`: a name in both whose id becomes the save's (`name`, `old`, `new`)", consequence: "merged; written only with `--yes`" },
+    { code: "teams_list_unresolved", severity: "Error", condition: "`export-teams-list`: a change dropped because its id collided with another row of the merged list (`team`, `name`)", consequence: "the change is dropped, the other changes written with `--yes`; exit 1" },
+    { code: "teams_list_name_duplicate", severity: "Error", condition: "`export-teams-list`: a team of the save left out because an earlier team folds to the same name, which the list can hold once (`team`, `name`, `kept`)", consequence: "the team is left out; exit 1" },
+    { code: "teams_list_kept", severity: "Info", condition: "`export-teams-list`: the working rows that ended unchanged (`count`)", consequence: "informational; goes on" },
+    { code: "teams_list_written", severity: "Info", condition: "`export-teams-list`: the merged list was written (`path`)", consequence: "informational; goes on" },
+    { code: "teams_list_not_written", severity: "Info", condition: "`export-teams-list` without `--yes`: the summary only, the file untouched (`path`)", consequence: "nothing is written" },
+    { code: "teams_list_read_only", severity: "Error", condition: "`export-teams-list --yes`: the data directory cannot take the file (`path`, `error`)", consequence: "nothing is written; exit 1" },
+    { code: "aatf_violation", severity: "the violation's (Error or Warning)", condition: "`check-aatf`: one rule the team breaks under the ruleset (`team`; `player` for a player's violation; `rule`, then the rule's own fields)", consequence: "printed; an error-severity violation makes the exit code 1" },
+    { code: "aatf_check_failed", severity: "Error", condition: "`check-aatf`: the ruleset's check itself failed on the team, which the other teams' results do not cover (`team`, `error`)", consequence: "the other teams are still checked; exit 1" },
+    { code: "appearance_id_restored", severity: "Error, or Info once re-stripped", condition: "`check-stripped`: the player's appearance id is set again while another player's is stripped, so the game shows his save record, not the database rows (`player`, `name`)", consequence: "exit 1 while he stands listed; reported at Info and exit 0 once `--strip-again` has stripped him" },
+    { code: "strip_base_copied_face", severity: "Warning", condition: "`strip-and-seed`: the player's record copied another player's face, which the seed rows cannot carry, so once stripped he shows the face his row describes; his export describing his face settles it (`player`, `name`, `copied`)", consequence: "warns and goes on" },
   ],
   "export-upgrader": [
-    { code: "no_old_export", severity: "Error", text: "The input holds nothing an old export holds; nothing is written." },
-    { code: "migration_clean", severity: "Info", text: "The last line: nothing above Info, nothing dropped." },
-    { code: "roster_slot_empty", severity: "Warning", text: "A face folder whose slot the save's roster leaves empty: it still becomes its player folder, with no `settings.toml` (`slot`)." },
+    { code: "no_old_export", severity: "Error", condition: "step 1: the input holds nothing an old export holds; nothing is written", consequence: "-" },
+    { code: "export_extract_failed", severity: "Error", condition: "the archive does not open or its listing is refused (the compiler's code); nothing is written", consequence: "`path`, `error`" },
+    { code: "source_read_failed", severity: "Error", condition: "a file of the input does not read after its listing did (the compiler's code); it is not migrated and the run goes on, unless it is the Note, which decides the team: then nothing is written", consequence: "`path`, `error`" },
+    { code: "team_name_unknown", severity: "Error", condition: "the team resolves to no row of the list (the compiler's code), the `Team:` line's file or the export named; nothing is written", consequence: "`name`" },
+    { code: "unmigrated_content", severity: "Error", condition: "an input file no step migrates (step 10), entry by entry; a Note entry whose colors do not read is one, its line in the context, and so is a kit config that does not decode (step 5), its error in the context", consequence: "`line` (a Note entry), `error` (a kit config)" },
+    { code: "migration_clean", severity: "Info", condition: "last line: no Error finding, and no finding drops anything (\"Verification\"'s clean migrated export); exit 0", consequence: "-" },
+    { code: "migration_not_clean", severity: "Info", condition: "last line otherwise: the output is a draft for manual repair (\"Verification\"); exit 1, a Warning that drops a folder included, since the compile would lose it", consequence: "-" },
   ],
 };
 
@@ -788,37 +1049,44 @@ function settingChanged() { saveSettings(); render(); }
 
 // Each tool's rows, in its settings struct's order: the settings key, the plain
 // label a member reads, the kind its type draws ("Other UI components": a bool
-// a checkbox, a string or path a text edit, a number a number input, an enum a
-// combo of its variants), the field's doc comment and a weak hint. The Export
-// upgrader has no settings; its section says so.
-// sample wording: the labels, the doc comments and the hints.
+// a checkbox, a string a text edit, a path a text edit with a Browse button, a
+// number a number input, an enum a combo of its variants) and the field's doc
+// comment (the label's tooltip). The Export upgrader has no settings; its
+// section says so.
+// sample wording: the labels and the doc comments.
 const TOOL_SETTINGS_SPEC = {
   "team-compiler": [
-    ["cpk_name", "Output CPK name", "text", "The single output CPK's name, without .cpk.", "without .cpk"],
-    ["output_folder_path", "Output folder", "text", "Where compiled CPKs go; a relative path resolves beside the executable.", "compiled CPKs go here"],
-    ["savefile_path", "Savefile", ["Auto", "Path"], "The local savefile the compile's aesthetics patch is applied to.", "the savefile the patch is applied to"],
-    ["multicpk_mode", "Cup DLC mode", "bool", "Cup DLC mode: team content split into size-capped parts plus a bins CPK.", "cup DLC mode"],
-    ["teams_cpk_name", "Teams CPK name", "text", "The stem of the teams part slots in multi-CPK mode.", "teams part slots' stem"],
-    ["cpk_part_max_size", "Teams part size cap", "num", "The most bytes a teams part may hold, its table of contents included; a single CPK past it is only warned about.", "bytes per teams part at most"],
-    ["bins_cpk_name", "Bins CPK name", "text", "The CPK, without .cpk, that holds the bins and the overrides in multi-CPK mode.", "multi-CPK bins CPK name"],
-    ["refs_cpk_name", "Refs CPK name", "text", "The CPK, without .cpk, that holds the referees of a normal compile whose exports include a refs export.", "referees CPK name"],
-    ["dds_compression", "DDS compression", ["Auto", "On", "Off"], "Whether every DDS a PES 15-17 run emits is WESYS-zlibbed.", "auto follows cup DLC mode"],
-    ["strict_file_type_check", "Strict file type check", "bool", "Disallowed file types are errors when on, info notes when off.", "disallowed types are errors"],
-    ["pass_through", "Keep folders with errors", "bool", "Keep folders with errors instead of discarding them.", "keep folders with errors"],
-    ["teams_list_path", "Teams list file", "text", "The working teams list; a relative path resolves in the data directory.", "the working teams list"],
+    ["cpk_name", "Output CPK name", "text", "The single output CPK's name, without .cpk."],
+    ["output_folder_path", "Output folder", "text", "Where compiled CPKs go; a relative path resolves beside the executable."],
+    ["savefile_path", "Savefile", "path", "The local savefile the compile's aesthetics patch is applied to; empty means Auto."],
+    ["multicpk_mode", "Cup DLC mode", "bool", "Cup DLC mode: team content split into size-capped parts plus a bins CPK."],
+    ["teams_cpk_name", "Teams CPK name", "text", "The stem of the teams part slots in multi-CPK mode."],
+    ["cpk_part_max_size", "Teams part size cap", "num", "The most bytes a teams part may hold, its table of contents included; a single CPK past it is only warned about."],
+    ["bins_cpk_name", "Bins CPK name", "text", "The CPK, without .cpk, that holds the bins and the overrides in multi-CPK mode."],
+    ["refs_cpk_name", "Refs CPK name", "text", "The CPK, without .cpk, that holds the referees of a normal compile whose exports include a refs export."],
+    ["dds_compression", "DDS compression", ["Auto", "On", "Off"], "Whether every DDS a PES 15-17 run emits is WESYS-zlibbed."],
+    ["strict_file_type_check", "Strict file type check", "bool", "Disallowed file types are errors when on, info notes when off."],
+    ["pass_through", "Keep folders with errors", "bool", "Keep folders with errors instead of discarding them."],
+    ["teams_list_path", "Teams list file", "text", "The working teams list; a relative path resolves in the data directory."],
   ],
   "save-editor": [
-    ["aatf_rules", "AATF rules file", "text", "The AATF rules file check-aatf and the AATF panel run; empty: the official ruleset, built in.", "empty: the built-in ruleset"],
+    ["aatf_rules", "AATF rules file", "text", "The AATF rules file check-aatf and the AATF panel run; empty: the official ruleset, built in."],
   ],
   "export-upgrader": [],
 };
 
-// A settings row: the plain label, its widget and a weak hint; the label's
-// tooltip leads with the settings key, then the field's doc comment, so a
-// member who edits settings.toml by hand still finds it.
-const sRow = (label, key, tip, widget, hint) =>
+// A settings row: the plain label and its widget; the label's tooltip leads
+// with the settings key, then the field's doc comment, so a member who edits
+// settings.toml by hand still finds it.
+const sRow = (label, key, tip, widget) =>
   h("tr", {}, h("td", {}, h("span", { title: key + ": " + tip }, label)),
-    h("td", {}, widget), h("td", {}, weak(hint)));
+    h("td", {}, widget));
+
+// rfd's native picker (a folder or the savefile); closing it returns to the
+// menu. sample wording: the fake dialog's text.
+const browse = () => button("Browse", () => window_("Native folder dialog",
+  weak("The native folder picker (rfd) opens here"),
+  [button("OK", () => { closeWindow(); drawSettings(); })]));
 
 // The common grid, always open (no header): one row per CommonSettings field a
 // member edits, its doc comment the tooltip's source.
@@ -829,40 +1097,33 @@ function commonSettingsRows() {
       if (!Number.isNaN(v)) { c[key] = v; settingChanged(); } } });
   const text = key => h("input", { type: "text", value: c[key],
     onchange: e => { c[key] = e.target.value; settingChanged(); } });
-  // rfd's native folder picker; closing it returns to the menu.
-  // sample wording: the fake dialog's text.
-  const browse = () => button("Browse", () => window_("Native folder dialog",
-    weak("The native folder picker (rfd) opens here"),
-    [button("OK", () => { closeWindow(); drawSettings(); })]));
   const theme = combo([["Dark", "Dark"], ["Light", "Light"]], c.theme,
     v => { c.theme = v; saveSettings(); });
   theme.id = "set-theme";
   return [
     sRow("PES version", "pes_version", "The PES version the suite targets; the sidebar selector.",
       combo(PES_VERSIONS.map(v => [v, "PES " + v]), c.pes_version, setPesVersion,
-        { disabled: !!S.blocker, title: pesSelectorTip() }), "the sidebar selector edits the same value"),
+        { disabled: !!S.blocker, title: pesSelectorTip() })),
     sRow("PES folder", "pes_folder_path", "The PES installation folder, with ** standing for the two-digit version (20**).",
-      [text("pes_folder_path"), browse()], "** stands for the two-digit version"),
+      [text("pes_folder_path"), browse()]),
     sRow("Exports folder", "exports_folder_path", "Where exports are picked up. A relative path resolves beside the executable in both data-location modes, so it sits next to quick_compile.bat.",
-      [text("exports_folder_path"), browse()], "a relative path resolves beside the executable"),
+      [text("exports_folder_path"), browse()]),
     sRow("Threads", "thread_count", "Worker threads for pipelines; 0 means automatic (logical cores minus one).",
-      num("thread_count", { id: "set-thread-count" }), "0 = automatic (logical cores minus one)"),
+      num("thread_count", { id: "set-thread-count" })),
     sRow("Memory cap", "memory_cap_percent", "Memory budget cap for pipelines, as a percentage of physical memory.",
-      [num("memory_cap_percent", { step: "any" }), " %"], "of physical memory"),
-    sRow("Theme", "theme", "GUI color theme.", theme, "dark or light"),
+      [num("memory_cap_percent", { step: "any" }), " %"]),
+    sRow("Theme", "theme", "GUI color theme.", theme),
     sRow("Check for updates", "check_for_updates", "Whether the shell looks for new releases.",
       h("input", { type: "checkbox", checked: c.check_for_updates,
-        onchange: e => { c.check_for_updates = e.target.checked; settingChanged(); } }),
-      "the shell looks for new releases"),
+        onchange: e => { c.check_for_updates = e.target.checked; settingChanged(); } })),
     sRow("Check interval (hours)", "check_interval_hours", "Hours between release checks.",
-      num("check_interval_hours", { disabled: !c.check_for_updates }),
-      "disabled while the check is off"),
+      num("check_interval_hours", { disabled: !c.check_for_updates })),
   ];
 }
 
-// A tool section's grid: the same label / widget / hint rows over its table.
+// A tool section's grid: the same label / widget rows over its table.
 function toolSettingRow(toolId, f) {
-  const [key, label, kind, tip, hint] = f;
+  const [key, label, kind, tip] = f;
   const tbl = S.settings.tools[toolId];
   let widget;
   if (kind === "bool")
@@ -875,9 +1136,14 @@ function toolSettingRow(toolId, f) {
   else if (kind === "text")
     widget = h("input", { type: "text", value: tbl[key],
       onchange: e => { tbl[key] = e.target.value; settingChanged(); } });
+  else if (kind === "path")
+    // An empty field is the variant's empty case (savefile_path: Auto).
+    widget = [h("input", { type: "text", id: "set-" + key.replaceAll("_", "-"),
+      value: tbl[key], placeholder: "Auto",
+      onchange: e => { tbl[key] = e.target.value; settingChanged(); } }), browse()];
   else
     widget = combo(kind.map(v => [v, v]), tbl[key], v => { tbl[key] = v; saveSettings(); });
-  return sRow(label, key, tip, widget, hint);
+  return sRow(label, key, tip, widget);
 }
 
 // The gear opens the menu: the common grid, then one collapsing section per
@@ -1039,15 +1305,17 @@ function renderDraftControls() {
     grp("Status bar"),
     condCb("update_available", "Update available"),
     condCb("pes_install_missing", "PES install missing"),
-    cb("Save editor busy", !!S.activities["save-editor"], v => {
-      if (v) S.activities["save-editor"] = { done: 3, total: 10, elapsed: 45 };
-      else delete S.activities["save-editor"];
-    }),
+    h("label", { class: "cb" }, "Save editor busy",
+      combo([[null, "no"], ["counts", "3/10 · 00:45"], ["free", "00:45, no counts"]],
+        !S.activities["save-editor"] ? null
+          : S.activities["save-editor"].done == null ? "free" : "counts",
+        v => { if (v === null) delete S.activities["save-editor"];
+          else S.activities["save-editor"] =
+            v === "counts" ? { done: 3, total: 10, elapsed: 45 } : { elapsed: 45 }; })),
     // sample wording: the notices' texts and the fake windows' text.
     button("Notice without action", () => publishNotice("Teams list is read-only", null)),
-    button("Notice with action", () => publishNotice("Switched to PES 2021",
-      { label: "Fix PES path", run: () => window_("Fix PES path",
-        weak("Rewrites the PES folder setting from the running game's install folder"), [button("OK", closeWindow)]) })),
+    button("Notice with action", () => publishNotice("Compiled 48 teams",
+      { label: "Open output", run: openOutputStub })),
     // gui.md "Status bar", "After an update": the first start of a new version.
     button("First start after an update", () => publishNotice("Updated to v0.1.0",
       { label: "What's new", run: () => openHelp({ tool: "whats-new" }) })),
@@ -1090,10 +1358,13 @@ function renderSidebar() {
     { title: pesSelectorTip(), cls: pesSelectorClass(), disabled: !!S.blocker });
   pesSel.id = "pes-version";
   sb.append(pesSel);
+  sb.append(h("div", { class: "sep" }));
   for (const t of TOOLS.filter(t => t.registered).concat(TOOLS.filter(t => !t.registered))) {
     if (t.registered)
+      // Expanded, the label is right there; the rail keeps it as the tooltip.
       sb.append(h("span", { class: "sel tool" + (S.activeTool === t.id ? " on" : ""), "data-id": t.id,
-        title: t.label, onclick: () => { S.activeTool = t.id; render(); } },
+        title: S.sidebarCollapsed ? t.label : null,
+        onclick: () => { S.activeTool = t.id; render(); } },
         h("span", { class: "icon" }, t.icon), h("span", { class: "tlabel" }, t.label)));
     else
       sb.append(h("span", { class: "sel tool planned", "data-id": t.id, disabled: true,
@@ -1107,6 +1378,7 @@ function renderSidebar() {
   sb.append(collapse);
   const gear = button("⚙", openSettings, { frame0: true, title: "Settings" });
   gear.id = "settings-btn";
+  sb.append(h("div", { class: "sep", style: "margin-top:auto" }));
   sb.append(h("div", { class: "tail" },
     button("?", () => openHelp({ tool: S.activeTool }), { frame0: true, title: "Help (F1)" }), gear));
 }
@@ -1199,6 +1471,10 @@ function publishNotice(text, action) {
   render();
 }
 function dismissNotice() { S.notice = null; clearTimeout(noticeTimer); noticeTimer = null; render(); }
+// The stub every "Open output" action runs (the compile's included).
+// sample wording: the fake window's text.
+const openOutputStub = () => window_("Open output",
+  weak("Opens the output folder in the file browser"), [button("OK", closeWindow)]);
 
 // The Team compiler stub's fake run: 48 teams, one every 250 ms, elapsed counted
 // from the start; its activity is what the middle slot and the title read while
@@ -1224,9 +1500,7 @@ function startCompile() {
       clearInterval(compileTimer); compileTimer = null;
       delete S.activities["team-compiler"];
       appendLog([{ severity: "Info", code: null, scope: null, text: "Info - Compiled 48 teams" }]);
-      // sample wording: the notice, its action and the fake window's text.
-      publishNotice("Compiled 48 teams", { label: "Open output",
-        run: () => window_("Open output", weak("Opens the output folder in the file browser"), [button("OK", closeWindow)]) });
+      publishNotice("Compiled 48 teams", { label: "Open output", run: openOutputStub });
       return;
     }
   }, 250);
@@ -1241,12 +1515,13 @@ const COMPILE_TEAMS = ["/3/", "/a/", "/aco/", "/adv/", "/an/", "/asp/", "/b/", "
   "/jp/", "/k/", "/lgbt/", "/lit/", "/m/", "/mlp/", "/mu/", "/n/", "/o/", "/out/", "/p/",
   "/po/", "/pol/", "/pw/", "/r9k/", "/s/", "/s4s/", "/sci/"];
 const LOG_CAP = 300;
-// One line per catalog code: the console's "<severity> - <scope> - <code>:
-// <sentence>" with the catalog row's severity and text.
+// One line per catalog code, in the panel's own shape: the severity, the scope,
+// the code (drawn as a link) and the condition's text with its `code` spans
+// unwrapped.
 function mkLine(code, scope) {
   const r = CATALOG["team-compiler"].find(r => r.code === code);
   return { severity: r.severity, code, scope,
-    text: `${r.severity} - ${scope} - ${code}: ${r.text}` };
+    text: `${r.severity} - ${scope} - ${code}: ${r.condition.replaceAll("`", "")}` };
 }
 // The widget's single append point: while the view is not stuck to the bottom,
 // arrivals are counted for the jump indicator instead of moving it.
