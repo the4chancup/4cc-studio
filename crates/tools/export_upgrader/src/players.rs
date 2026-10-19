@@ -13,6 +13,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use aesthetics_export::{FileKind, classify, is_txt_note};
 use pes_version::Engine;
 use studio_core::{Disposition, Message, Scope};
 use vtree::ScopePath;
@@ -37,6 +38,10 @@ pub(crate) struct PlayerFolders {
     /// refused folder, or a marker it normalized): the unmigrated-content
     /// loop skips them.
     pub(crate) consumed: BTreeSet<String>,
+    /// Input files the steps recognized as leftovers (step 10): the run's
+    /// fallback reports each `leftover_dropped`, the run clean, rather than
+    /// `unmigrated_content`. A file here is not in `consumed`.
+    pub(crate) leftovers: BTreeSet<String>,
     /// The findings on the input, in input-path order.
     pub(crate) findings: Vec<Message>,
     /// Each slot's face-folder portrait: slot (1-23) → its input path, for
@@ -106,6 +111,9 @@ struct PlayerFolder {
     has_face: bool,
     /// The bare `ingame_face` marker to write.
     marker: bool,
+    /// The `fpc_on` marker to write: a worn boots or gloves folder holding
+    /// no model hides the player's boots or hands (step 3).
+    fpc_on: bool,
     /// The folder's files: relative path → input path.
     files: BTreeMap<String, String>,
     /// The shared-folder link file names (`Crocs.boots`, `Mitts.gloves`).
@@ -122,6 +130,7 @@ impl PlayerFolder {
             gloves_folder: false,
             has_face: false,
             marker: false,
+            fpc_on: false,
             files: BTreeMap::new(),
             links: BTreeSet::new(),
         }
@@ -182,6 +191,16 @@ impl ItemKind {
             ItemKind::Gloves => player.gloves_id,
         }
     }
+
+    /// The `.fmdl` stems the game loads in a Fox folder of this kind, each
+    /// alone or after a prefix and `_` (`kit_boots.fmdl`, step 10's stray
+    /// rule).
+    fn fmdl_names(self) -> &'static [&'static str] {
+        match self {
+            ItemKind::Boots => &["boots"],
+            ItemKind::Gloves => &["glove_l", "glove_r"],
+        }
+    }
 }
 
 /// An item folder's name: `k` (boots) or `g` (gloves), lower case, then four
@@ -204,32 +223,88 @@ pub(crate) fn parse_item_name(kind: ItemKind, name: &str) -> Option<(u32, String
     ))
 }
 
+/// Whether `name`, a file's own name, is a stray the old format's compile
+/// never loaded (step 10): a file `classify` reads as no known kind and
+/// that is no `.txt` note, wherever it sits in the old format's folders,
+/// or, for a Fox boots or gloves folder (`item`), an `.fmdl` under no name
+/// the game loads there — the kind's names, each alone or after a prefix
+/// and `_` (`boots - Copy.fmdl` beside `boots.fmdl`). Dropped as a
+/// leftover; the folder migrates without it.
+pub(crate) fn is_stray(name: &str, item: Option<(ItemKind, Engine)>) -> bool {
+    if classify(name) == FileKind::Other && !is_txt_note(name) {
+        return true;
+    }
+    let kind = match item {
+        Some((kind, Engine::Fox)) => kind,
+        Some((_, Engine::PreFox)) | None => return false,
+    };
+    let Some((stem, extension)) = name.rsplit_once('.') else {
+        return false;
+    };
+    if !extension.eq_ignore_ascii_case("fmdl") {
+        return false;
+    }
+    let stem = vtree::fold_name(stem);
+    !kind.fmdl_names().iter().any(|base| {
+        stem == *base
+            || stem
+                .strip_suffix(base)
+                .is_some_and(|prefix| prefix.ends_with('_'))
+    })
+}
+
 /// The grouped files by folder under `top` (any letter case): every file
 /// below a direct subfolder, mapped `top/folder` → its files. A file
-/// directly in `top` belongs to none.
-fn folders_below<'a>(files: &'a [String], top: &str) -> BTreeMap<String, Vec<&'a String>> {
-    let mut folders: BTreeMap<String, Vec<&String>> = BTreeMap::new();
+/// directly in `top` belongs to none. `folders`' entries seed the map the
+/// same way, the first two segments of each listed folder: a direct
+/// subfolder holding no file below it (an empty folder) is a folder too.
+fn folders_below<'a>(
+    files: &'a [String],
+    folders: &[String],
+    top: &str,
+) -> BTreeMap<String, Vec<&'a String>> {
+    let mut grouped: BTreeMap<String, Vec<&String>> = BTreeMap::new();
     for file in files {
         let mut parts = file.splitn(3, '/');
         let (Some(head), Some(folder), Some(_)) = (parts.next(), parts.next(), parts.next()) else {
             continue;
         };
         if head.eq_ignore_ascii_case(top) {
-            folders
+            grouped
                 .entry(format!("{head}/{folder}"))
                 .or_default()
                 .push(file);
         }
     }
-    folders
+    for folder in folders {
+        let mut parts = folder.splitn(3, '/');
+        let (Some(head), Some(name)) = (parts.next(), parts.next()) else {
+            continue;
+        };
+        if head.eq_ignore_ascii_case(top) {
+            let key = format!("{head}/{name}");
+            // The same folder as a file group keeps the file's spelling.
+            if !grouped
+                .keys()
+                .any(|group| vtree::fold_name(group) == vtree::fold_name(&key))
+            {
+                grouped.entry(key).or_default();
+            }
+        }
+    }
+    grouped
 }
 
 /// What steps 2-3 make of `files`' face folders for a team export (a referee
 /// export's folders are `referees.rs`'s: `run` does not call this for one) with
 /// `roster` for the names and empty slots (`None` in loose mode), and steps
 /// 3-4 make of its boots and gloves folders for `engine` and `same_bytes`.
+/// `folders` is the export's folder listing: a `Faces/`, `Boots/` or
+/// `Gloves/` subfolder holding no file below it is still a folder (step 3's
+/// empty face folder, and the modelless item folder).
 pub(crate) fn player_folders(
     files: &[String],
+    folders: &[String],
     roster: Option<&Roster>,
     engine: Engine,
     mut same_bytes: impl FnMut(&str, &str) -> bool,
@@ -237,12 +312,17 @@ pub(crate) fn player_folders(
     let mut plan = PlayerFolders::default();
     let mut players: BTreeMap<u8, PlayerFolder> = BTreeMap::new();
     // Step 3's face folders.
-    face_folders(files, roster, &mut players, &mut plan);
+    face_folders(
+        folders_below(files, folders, "faces"),
+        roster,
+        &mut players,
+        &mut plan,
+    );
     // Steps 3-4's item folders: who wears each is the save's, or loose
     // mode's inference from the ID's position in its kind's block (step 11).
     for kind in [ItemKind::Boots, ItemKind::Gloves] {
         item_folders(
-            files,
+            folders_below(files, folders, kind.top()),
             kind,
             roster,
             engine,
@@ -278,6 +358,9 @@ pub(crate) fn player_folders(
         if player.marker {
             plan.markers.push(format!("{folder}/ingame_face"));
         }
+        if player.fpc_on {
+            plan.markers.push(format!("{folder}/fpc_on"));
+        }
         for link in &player.links {
             plan.markers.push(format!("{folder}/{link}"));
         }
@@ -294,17 +377,71 @@ pub(crate) fn player_folders(
     plan
 }
 
+/// Whether `files`, a face folder's files at `skip` bytes below their
+/// input paths' root, are the game's own extracted path to its face
+/// (step 3): every file below `common/character0/model/character/face/
+/// real/` and one folder there, each segment's letter case aside, the
+/// folder the same for every file. An empty folder is not one.
+fn game_path(files: &[&String], skip: usize) -> bool {
+    const REAL: [&str; 6] = ["common", "character0", "model", "character", "face", "real"];
+    let mut inner: Option<&str> = None;
+    for file in files {
+        let mut segments = file[skip..].split('/');
+        for known in REAL {
+            if !segments
+                .next()
+                .is_some_and(|segment| segment.eq_ignore_ascii_case(known))
+            {
+                return false;
+            }
+        }
+        let Some(segment) = segments.next() else {
+            return false;
+        };
+        // A file directly at `real/`'s level is no innermost folder's.
+        if segments.next().is_none() {
+            return false;
+        }
+        match inner {
+            None => inner = Some(segment),
+            Some(seen) if !segment.eq_ignore_ascii_case(seen) => return false,
+            _ => {}
+        }
+    }
+    inner.is_some()
+}
+
+/// `relative` below its first seven segments (`common/character0/model/
+/// character/face/real/<one folder>/`): the file's place in the face
+/// folder once the game's own path is taken off.
+fn below_game_path(relative: &str) -> &str {
+    relative
+        .splitn(8, '/')
+        .nth(7)
+        .expect("a `game_path` file has an eighth segment")
+}
+
 /// Step 3's face folders into `players`: each becomes its player folder,
 /// the portrait renamed and the `ingame_face` spellings normalized.
 fn face_folders(
-    files: &[String],
+    folders: BTreeMap<String, Vec<&String>>,
     roster: Option<&Roster>,
     players: &mut BTreeMap<u8, PlayerFolder>,
     plan: &mut PlayerFolders,
 ) {
     let mut taken = BTreeSet::new();
-    for (folder, folder_files) in folders_below(files, "faces") {
+    for (folder, folder_files) in folders {
         let folder_name = folder.rsplit('/').next().unwrap_or(folder.as_str());
+        // Strays first (step 10): nothing after — not the refusals, not the
+        // game-path check, not the file loop — sees them.
+        let (strays, folder_files): (Vec<&String>, Vec<&String>) =
+            folder_files.into_iter().partition(|file| {
+                let relative = &file[folder.len() + 1..];
+                let name = relative.rsplit('/').next().unwrap_or(relative);
+                is_stray(name, None)
+            });
+        plan.leftovers
+            .extend(strays.iter().map(|file| (*file).clone()));
         let refused = |plan: &mut PlayerFolders| {
             plan.findings.push(tool_message(
                 Code::UnmigratedContent,
@@ -352,6 +489,11 @@ fn face_folders(
         let player = players.entry(nn).or_insert_with(PlayerFolder::new);
         player.face_name_part = name_part.to_owned();
         player.has_face = true;
+        // A face folder that is the game's own extracted path to its face:
+        // the innermost folder's contents move instead, so the face the
+        // old compile packed as it stood lands where the new format puts
+        // it (step 3).
+        let on_game_path = game_path(&folder_files, folder.len() + 1);
         // Every file lands under the player folder at its relative path,
         // except the portrait (`*portrait.dds`, renamed when alone) and the
         // `ingame_face` spellings (normalized to the bare marker).
@@ -359,6 +501,11 @@ fn face_folders(
         for file in &folder_files {
             plan.consumed.insert((*file).clone());
             let relative = &file[folder.len() + 1..];
+            let relative = if on_game_path {
+                below_game_path(relative)
+            } else {
+                relative
+            };
             if relative.contains('/') {
                 player.files.insert(relative.to_owned(), (*file).clone());
                 continue;
@@ -416,7 +563,7 @@ fn loose_slot(id: u32, lowest: u32) -> Option<u8> {
 /// with a link. `roster` is the save's wearer map, `None` in loose mode,
 /// where the wearer is the ID's position in the kind's block (step 11).
 fn item_folders(
-    files: &[String],
+    folders: BTreeMap<String, Vec<&String>>,
     kind: ItemKind,
     roster: Option<&Roster>,
     engine: Engine,
@@ -455,7 +602,6 @@ fn item_folders(
     }
     let mut taken = BTreeSet::new();
     let mut shared: Vec<Shared> = Vec::new();
-    let folders = folders_below(files, kind.top());
     // Loose mode's block is inferred from the kind's own lowest folder ID
     // (step 11): one kind's numbering cannot move the other's pairings.
     let lowest: Option<u32> = folders
@@ -467,6 +613,17 @@ fn item_folders(
         .min();
     for (folder, folder_files) in folders {
         let folder_name = folder.rsplit('/').next().unwrap_or(folder.as_str());
+        // Strays first (step 10): nothing after — not the refusals, not the
+        // shared-folder comparison, the merge or the modelless check —
+        // sees them.
+        let (strays, folder_files): (Vec<&String>, Vec<&String>) =
+            folder_files.into_iter().partition(|file| {
+                let relative = &file[folder.len() + 1..];
+                let name = relative.rsplit('/').next().unwrap_or(relative);
+                is_stray(name, Some((kind, engine)))
+            });
+        plan.leftovers
+            .extend(strays.iter().map(|file| (*file).clone()));
         let refused = |plan: &mut PlayerFolders| {
             plan.findings.push(tool_message(
                 Code::UnmigratedContent,
@@ -506,7 +663,15 @@ fn item_folders(
                 .collect(),
         };
         if wearers.is_empty() {
-            refused(&mut *plan);
+            // With a roster nobody wears it: no player wore it in game, so
+            // its files are leftovers (step 3). Loose mode keeps the
+            // refusal: a folder it cannot place may be anyone's (step 11).
+            match roster {
+                Some(_) => plan
+                    .leftovers
+                    .extend(folder_files.iter().map(|file| (*file).clone())),
+                None => refused(&mut *plan),
+            }
             continue;
         }
         // Step 11: the pairing is an assumption, so the report states it.
@@ -523,6 +688,32 @@ fn item_folders(
                     ("slot", format!("{:02}", wearers[0])),
                 ],
             ));
+        }
+        // A folder holding no model (nothing, or a `boots.skl` alone) is
+        // how a member hid the player's boots or hands: each wearer gets
+        // the `fpc_on` marker and his category is accounted for, the
+        // folder's files are leftovers, and its name part names nobody
+        // (step 3).
+        let modelless = !folder_files.iter().any(|file| {
+            let relative = &file[folder.len() + 1..];
+            let name = relative.rsplit('/').next().unwrap_or(relative);
+            matches!(classify(name), FileKind::Model(_))
+        });
+        if modelless {
+            for &nn in &wearers {
+                let player = players.entry(nn).or_insert_with(PlayerFolder::new);
+                // As for a worn folder's wearer: no kept face folder still
+                // means `ingame_face`.
+                player.marker = player.marker || !player.has_face;
+                player.fpc_on = true;
+                match kind {
+                    ItemKind::Boots => player.boots_folder = true,
+                    ItemKind::Gloves => player.gloves_folder = true,
+                }
+            }
+            plan.leftovers
+                .extend(folder_files.iter().map(|file| (*file).clone()));
+            continue;
         }
         for &nn in &wearers {
             let player = players.entry(nn).or_insert_with(PlayerFolder::new);
@@ -710,6 +901,21 @@ mod tests {
         paths.iter().map(|path| (*path).to_owned()).collect()
     }
 
+    /// The folders a real listing of `files` holds: every file's ancestors.
+    /// A test needing a folder no file sits below calls `player_folders`
+    /// itself.
+    fn ancestors_of(files: &[String]) -> Vec<String> {
+        let mut folders = BTreeSet::new();
+        for file in files {
+            let mut ancestor = file.as_str();
+            while let Some((parent, _)) = ancestor.rsplit_once('/') {
+                folders.insert(parent.to_owned());
+                ancestor = parent;
+            }
+        }
+        folders.into_iter().collect()
+    }
+
     /// `player_folders` with `bytes` as the byte-comparison's answers: each
     /// input path to its bytes; a path not listed answers `false` (as a read
     /// failure does).
@@ -725,7 +931,7 @@ mod tests {
                 .find(|(listed, _)| *listed == path)
                 .map(|(_, bytes)| *bytes)
         };
-        player_folders(files, roster, engine, |a, b| {
+        player_folders(files, &ancestors_of(files), roster, engine, |a, b| {
             match (bytes_of(a), bytes_of(b)) {
                 (Some(a), Some(b)) => a == b,
                 _ => false,
@@ -1047,22 +1253,25 @@ mod tests {
         // `g567`'s three digits carry no name part, so it publishes `g0567`;
         // `g0600 - g0567` publishes the same and sorts first: the same-files
         // merge still goes into the lowest ID's files.
-        let files = files(&["Gloves/g0600 - g0567/x.dds", "Gloves/g567/x.dds"]);
+        let files = files(&[
+            "Gloves/g0600 - g0567/glove_l.fmdl",
+            "Gloves/g567/glove_l.fmdl",
+        ]);
         let roster = wearing(&[(1, ("A", 0, 567)), (2, ("B", 0, 600))]);
         let plan = plan_with_bytes(
             &files,
             Some(&roster),
             Engine::PreFox,
             &[
-                ("Gloves/g0600 - g0567/x.dds", b"same"),
-                ("Gloves/g567/x.dds", b"same"),
+                ("Gloves/g0600 - g0567/glove_l.fmdl", b"same"),
+                ("Gloves/g567/glove_l.fmdl", b"same"),
             ],
         );
         assert_eq!(
             plan.copies,
             [(
-                "Gloves/g567/x.dds".to_owned(),
-                "Gloves/g0567/x.dds".to_owned()
+                "Gloves/g567/glove_l.fmdl".to_owned(),
+                "Gloves/g0567/glove_l.fmdl".to_owned()
             )]
         );
         // The link names the merged folder's name; slot 02's own folder
@@ -1241,9 +1450,10 @@ mod tests {
     }
 
     #[test]
-    fn a_folder_nobody_wears_and_a_second_folder_of_one_id_are_refused() {
-        // EU-PLY-06's shape: no wearer → the folder is unmigrated as a whole;
-        // a second folder of the same ID follows the first by name.
+    fn a_folder_nobody_wears_is_leftovers_and_a_second_folder_of_one_id_is_refused() {
+        // EU-PLY-06's shape: no rostered wearer → the folder's files are
+        // leftovers; a second folder of the same ID follows the first by
+        // name and stays unmigrated.
         let files = files(&[
             "Boots/k0430 - A/boots.fmdl",
             "Boots/k0430 - B/boots.fmdl",
@@ -1260,14 +1470,13 @@ mod tests {
                 _ => None,
             })
             .collect();
+        assert_eq!(folders, ["Boots/k0430 - B".to_owned()]);
         assert!(
-            folders.contains(&"Boots/k0430 - B".to_owned()),
-            "{folders:?}"
+            plan.leftovers.contains("Gloves/g0432 - Mitts/glove_l.fmdl"),
+            "{:?}",
+            plan.leftovers
         );
-        assert!(
-            folders.contains(&"Gloves/g0432 - Mitts".to_owned()),
-            "{folders:?}"
-        );
+        assert!(!plan.consumed.contains("Gloves/g0432 - Mitts/glove_l.fmdl"));
         assert!(
             !plan
                 .copies
@@ -1788,5 +1997,181 @@ mod tests {
             plan.markers
                 .contains(&"Players/03 - Ann/Rex.boots".to_owned())
         );
+    }
+
+    #[test]
+    fn the_stray_file_rule() {
+        let fox_boots = Some((ItemKind::Boots, Engine::Fox));
+        let fox_gloves = Some((ItemKind::Gloves, Engine::Fox));
+        // A file `classify` reads as no known kind and that is no `.txt`
+        // note is a stray wherever it sits.
+        for name in ["face.mtl.backup", "materials.mtl.bak", "junk.doc"] {
+            assert!(is_stray(name, None), "{name}");
+            assert!(is_stray(name, fox_boots), "{name}");
+        }
+        // A `.txt` note is no stray; neither is a file of a known kind.
+        for name in ["notes.txt", "face.mtl", "skin.dds"] {
+            assert!(!is_stray(name, None), "{name}");
+            assert!(!is_stray(name, fox_boots), "{name}");
+        }
+        // In a Fox boots or gloves folder an `.fmdl` under no name the
+        // game loads is a stray; the names alone and after a prefix and
+        // `_` are the folder's own.
+        assert!(is_stray("boots - Copy.fmdl", fox_boots));
+        assert!(is_stray("glove_l - Copy.fmdl", fox_gloves));
+        for (name, item) in [
+            ("boots.fmdl", fox_boots),
+            ("kit_boots.fmdl", fox_boots),
+            ("Boots.FMDL", fox_boots),
+            ("glove_l.fmdl", fox_gloves),
+            ("team_glove_r.fmdl", fox_gloves),
+        ] {
+            assert!(!is_stray(name, item), "{name}");
+        }
+        // The name rule is Fox-only: pre-Fox keeps a copy-named `.model`,
+        // as today.
+        assert!(!is_stray(
+            "boots - Copy.model",
+            Some((ItemKind::Boots, Engine::PreFox))
+        ));
+    }
+
+    #[test]
+    fn a_stray_in_a_face_or_item_folder_is_a_leftover() {
+        let files = files(&[
+            "Faces/XXX05 - A/face.mtl",
+            "Faces/XXX05 - A/face.mtl.backup",
+            "Boots/k0430 - Crocs/boots.fmdl",
+            "Boots/k0430 - Crocs/boots - Copy.fmdl",
+        ]);
+        let roster = wearing(&[(5, ("A", 430, 0))]);
+        let plan = plan_with_bytes(&files, Some(&roster), Engine::Fox, &[]);
+        for stray in [
+            "Faces/XXX05 - A/face.mtl.backup",
+            "Boots/k0430 - Crocs/boots - Copy.fmdl",
+        ] {
+            assert!(plan.leftovers.contains(stray), "{stray}");
+            assert!(!plan.consumed.contains(stray), "{stray}");
+        }
+        for kept in ["face.mtl", "boots.fmdl"] {
+            assert!(
+                plan.copies
+                    .iter()
+                    .any(|(_, to)| to == &format!("Players/05 - A/{kept}")),
+                "{kept}"
+            );
+        }
+    }
+
+    #[test]
+    fn an_empty_face_folder_forms_with_no_marker_and_no_name_change() {
+        // Listed as a folder but holding no file: `has_face` is set (the
+        // wearer keeps his own face), no `ingame_face`, the folder's name
+        // part still names him.
+        let plan = player_folders(
+            &files(&["Boots/k0430 - Crocs/boots.fmdl"]),
+            &files(&["Faces", "Faces/XXX05 - Bob", "Boots", "Boots/k0430 - Crocs"]),
+            Some(&wearing(&[(5, ("SaveName", 430, 0))])),
+            Engine::Fox,
+            |_, _| false,
+        );
+        assert!(plan.folders.contains_key(&5), "{:?}", plan.folders.keys());
+        assert_eq!(plan.folders[&5].path, "Players/05 - Bob");
+        assert!(
+            !plan
+                .markers
+                .contains(&"Players/05 - Bob/ingame_face".to_owned())
+        );
+        // The merged boots still land in it.
+        assert!(
+            plan.copies
+                .iter()
+                .any(|(_, to)| to == "Players/05 - Bob/boots.fmdl")
+        );
+    }
+
+    #[test]
+    fn a_modelless_item_folder_marks_its_wearers_fpc_on() {
+        // A folder holding no model (an empty one included) hides the
+        // player's boots or hands: `fpc_on`, the category claimed, its
+        // files leftovers, its name part naming nobody.
+        let folders = files(&[
+            "Boots/k0430 - EMPTY",
+            "Gloves/g0432 - EMPTY",
+            "Faces/XXX03 - Ann",
+        ]);
+        let plan = player_folders(
+            &files(&["Boots/k0430 - EMPTY/boots.skl"]),
+            &folders,
+            Some(&wearing(&[
+                (3, ("Save", 430, 432)),
+                (4, ("NoFace", 430, 0)),
+            ])),
+            Engine::Fox,
+            |_, _| false,
+        );
+        // One `fpc_on` each; the empty face folder leaves 03 no
+        // `ingame_face`, while 04, no face folder, gets it.
+        for (folder, markers) in [
+            ("Players/03 - Ann", vec!["fpc_on"]),
+            ("Players/04 - NoFace", vec!["fpc_on", "ingame_face"]),
+        ] {
+            for marker in ["fpc_on", "ingame_face"] {
+                let expected = markers.contains(&marker);
+                assert_eq!(
+                    plan.markers.contains(&format!("{folder}/{marker}")),
+                    expected,
+                    "{folder}/{marker}"
+                );
+            }
+        }
+        assert!(plan.leftovers.contains("Boots/k0430 - EMPTY/boots.skl"));
+        assert!(plan.folders[&3].boots_folder);
+        assert!(plan.folders[&3].gloves_folder);
+        assert!(plan.folders[&4].boots_folder);
+        // `EMPTY` names nobody: 04's name fell to the save's.
+        assert_eq!(plan.folders[&4].path, "Players/04 - NoFace");
+    }
+
+    #[test]
+    fn a_game_path_face_folder_moves_its_innermost_folders_files() {
+        let files = files(&[
+            "Faces/71401/common/character0/model/character/face/real/71401/face.xml",
+            "Faces/71401/common/character0/model/character/face/real/71401/face.mtl",
+        ]);
+        let plan = plan_folders(&files);
+        for name in ["face.xml", "face.mtl"] {
+            assert!(
+                plan.copies
+                    .iter()
+                    .any(|(_, to)| to == &format!("Players/01/{name}")),
+                "{name}: {:?}",
+                plan.copies
+            );
+        }
+    }
+
+    #[test]
+    fn a_face_folder_with_one_file_outside_the_game_path_keeps_its_paths() {
+        // One file not below `real/<one folder>/` is no extracted game
+        // path: the folder's files keep their places.
+        let files = files(&[
+            "Faces/71401/common/character0/model/character/face/real/71401/face.xml",
+            "Faces/71401/face.mtl",
+        ]);
+        let plan = plan_folders(&files);
+        for (from, to) in [
+            (
+                "Faces/71401/common/character0/model/character/face/real/71401/face.xml",
+                "Players/01/common/character0/model/character/face/real/71401/face.xml",
+            ),
+            ("Faces/71401/face.mtl", "Players/01/face.mtl"),
+        ] {
+            assert!(
+                plan.copies.contains(&(from.to_owned(), to.to_owned())),
+                "{to}: {:?}",
+                plan.copies
+            );
+        }
     }
 }

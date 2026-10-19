@@ -42,9 +42,11 @@ pub(crate) enum Code {
     /// The last line otherwise: the output is a draft for manual repair
     /// ("Verification").
     MigrationNotClean,
-    /// Content outside the old format's layout that nothing compiled — a
-    /// top-level folder the AET does not define, a root file other than the
-    /// format's own, or a file under `Other/` (step 10): dropped, and the
+    /// Content that never reached a player in game (step 10): outside the
+    /// old format's layout — a top-level folder the AET does not define, a
+    /// root file other than the format's own, a file under `Other/` — or
+    /// inside it — a stray file, an item folder no save record names, a
+    /// file directly in `Faces/`, `Boots/` or `Gloves/`. Dropped, and the
     /// run stays clean since the Studio export needs none of it.
     LeftoverDropped,
     /// An old `.mtl` held text between its elements: dropped as the file is
@@ -184,8 +186,8 @@ impl Code {
 /// structure pass's (`aesthetics_export::ISSUE_CODES`) in `ISSUE_CODES` order.
 /// The issue severities are the Team compiler's catalog's, each run-dependent
 /// row taken as for a compile that deploys with pass-through and the strict
-/// file-type check off, and an E/F row as an Error (`plans/export_upgrader.md`
-/// "Message catalog").
+/// file-type check on (the output's check runs with it), and an E/F row as an
+/// Error (`plans/export_upgrader.md` "Message catalog").
 const CATALOG: &[(&str, Severity)] = &[
     // The tool's own codes.
     ("no_old_export", Severity::Error),
@@ -232,8 +234,8 @@ const CATALOG: &[(&str, Severity)] = &[
     ("player_unlisted", Severity::Warning),
     ("player_folder_number_invalid", Severity::Error),
     ("player_number_duplicate", Severity::Error),
-    ("file_type_disallowed", Severity::Info),
-    ("common_file_disallowed", Severity::Info),
+    ("file_type_disallowed", Severity::Error),
+    ("common_file_disallowed", Severity::Error),
     ("player_layout_proto", Severity::Error),
     ("shared_link_duplicate", Severity::Error),
     ("link_target_missing", Severity::Error),
@@ -426,8 +428,8 @@ mod tests {
             ("no_old_export", Severity::Error),
             ("export_extract_failed", Severity::Error),
             ("root_file_unexpected", Severity::Warning),
-            ("file_type_disallowed", Severity::Info),
-            ("common_file_disallowed", Severity::Info),
+            ("file_type_disallowed", Severity::Error),
+            ("common_file_disallowed", Severity::Error),
             ("export_empty", Severity::Error),
             ("team_name_unknown", Severity::Error),
             ("nested_folders_fixed", Severity::Warning),

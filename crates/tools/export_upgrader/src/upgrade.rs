@@ -559,6 +559,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     // rewrites and the `face.xml` respells: `run`'s findings, then every
     // file copied and written.
     let files = export.files.clone();
+    let folders = export.folders.clone();
     let (mut plan, kits, settings) = match &identity {
         Identity::Referees => (
             referee_folders(&files, |path| export.read(path)),
@@ -572,12 +573,16 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                 aesthetics_export::coverage(&output_name),
                 Some(aesthetics_export::ExportCoverage::Full)
             );
-            let plan = player_folders(&files, roster.as_ref(), version.engine(), |a, b| {
-                match (export.read(a), export.read(b)) {
+            let plan = player_folders(
+                &files,
+                &folders,
+                roster.as_ref(),
+                version.engine(),
+                |a, b| match (export.read(a), export.read(b)) {
                     (Ok(a), Ok(b)) => a == b,
                     _ => false,
-                }
-            });
+                },
+            );
             // Step 8: a `settings.toml` per player folder, from the save's
             // records; loose mode's holds `name = true` alone (step 11).
             let settings = match (&invocation.save, &roster) {
@@ -691,6 +696,18 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     for (path, bytes) in &settings.written {
         write_output_file(&staging, path, bytes)?;
     }
+    // Every player folder exists even when no file lands in it: an empty
+    // face folder's player folder is what makes the compiler write the
+    // blank face (step 3).
+    for folder in plan.folders.values() {
+        fs::create_dir_all(staging.join(&folder.path)).map_err(|error| {
+            aborted(anyhow!(
+                "{}: cannot create the directory: {error}; the output {} is incomplete",
+                staging.join(&folder.path).display(),
+                staging.display()
+            ))
+        })?;
+    }
 
     // Step 10: every input file no step consumed is unmigrated content — or
     // a leftover, content outside the old format's layout (`is_leftover`)
@@ -710,6 +727,8 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             continue;
         }
         let code = if is_leftover(file, invocation.referees, referees_at_root)
+            || plan.leftovers.contains(file)
+            || kits.leftovers.contains(file)
             || carried.leftovers.contains(file)
         {
             Code::LeftoverDropped
@@ -839,14 +858,24 @@ fn lookup(name: TeamName, teams_list: &TeamsList) -> Option<Identity> {
 /// always (the referee plan consumes its own root files — `refs.txt`/`refs
 /// list.txt`, `ref_marker.dds` — before this fallback asks, and nothing
 /// compiled reads a referee's Note either, step 9); a team export's unless
-/// it is a Note. And so is a file under `Other/` (the folder the AET
-/// keeps for the author alone) or under a top-level folder `OLD_FOLDERS`
-/// does not name — save that `referees_at_root` stands a referee export's
-/// referee folders there (`referees.rs`), so theirs are inside the format.
+/// it is a Note. And so is a file directly in `Faces/`, `Boots/` or
+/// `Gloves/` (the old walks list subfolders only: archives made to share
+/// model folders, removed before a compile), a file under `Other/` (the
+/// folder the AET keeps for the author alone) or under a top-level folder
+/// `OLD_FOLDERS` does not name — save that `referees_at_root` stands a
+/// referee export's referee folders there (`referees.rs`), so theirs are
+/// inside the format.
 fn is_leftover(path: &str, referees: bool, referees_at_root: bool) -> bool {
-    let Some((top, _)) = path.split_once('/') else {
+    let Some((top, rest)) = path.split_once('/') else {
         return referees || !note::is_note_name(path);
     };
+    if !rest.contains('/')
+        && ["faces", "boots", "gloves"]
+            .iter()
+            .any(|folder| top.eq_ignore_ascii_case(folder))
+    {
+        return true;
+    }
     if source::OLD_FOLDERS
         .iter()
         .any(|folder| top.eq_ignore_ascii_case(folder))

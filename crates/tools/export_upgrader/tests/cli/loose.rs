@@ -96,3 +96,26 @@ fn the_ids_naming_no_player_are_unmigrated_content() {
     }
     sandbox.assert_nothing_written("a Full Spring", &stdout);
 }
+
+// EU-PLY-16
+#[test]
+fn an_empty_face_folder_makes_its_player_folder() {
+    // An empty face folder is still a player folder (step 3): the
+    // directory is created even with nothing to write into it (loose mode
+    // writes no settings.toml for a number-only name), for the compiler to
+    // fill the blank face.
+    let sandbox = Sandbox::new("loose_empty_face");
+    sandbox.write("a Spring/a Note.txt", b"Team: /a/\r\n");
+    fs::create_dir_all(sandbox.path("a Spring/Faces/71405")).unwrap();
+
+    let run = upgrade_loose(&sandbox, "a Spring");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    let folder = sandbox.path("a Full Spring/Players/05");
+    assert!(folder.is_dir(), "{}", run.stdout());
+    assert!(sandbox.listing("a Full Spring/Players/05").is_empty());
+    assert!(
+        !sandbox
+            .path("a Full Spring/Players/05/ingame_face")
+            .exists()
+    );
+}

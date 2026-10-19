@@ -24,7 +24,7 @@ use crate::messages::{
     Code, INPUT, OUTPUT, extract_failed, issue_message, read_failed, tool_message,
 };
 use crate::model_names::rename_models;
-use crate::players::{ItemKind, clean_folder_name, parse_item_name, path_scope, slot_of};
+use crate::players::{ItemKind, clean_folder_name, is_stray, parse_item_name, path_scope, slot_of};
 use crate::source::{self, OldExport};
 use crate::upgrade::{
     Identity, RunEvents, aborted, finish_staging, invalid, output_issues, resolve_input, verdict,
@@ -189,6 +189,22 @@ pub(crate) fn model_folder_plan(files: &[String], folders: &[String]) -> ModelFo
         let mut marker = false;
         for file in &group {
             let rest = &file[name.len() + 1..];
+            let file_name = rest.rsplit('/').next().unwrap_or(rest);
+            // Step 10's stray rule: a classify-unknown file no package
+            // read is dropped as a leftover rather than staged into a
+            // folder the strict output check would refuse.
+            if is_stray(file_name, None) {
+                plan.findings.push(tool_message(
+                    Code::LeftoverDropped,
+                    Scope::File {
+                        export_id: INPUT,
+                        path: path_scope(file),
+                    },
+                    Disposition::DropFile,
+                    vec![],
+                ));
+                continue;
+            }
             let lowered = rest.to_ascii_lowercase();
             // In a player folder the old `ingame_face` spellings normalize
             // to the bare marker, one per folder; every other file keeps
@@ -817,5 +833,33 @@ mod tests {
             codes.contains(&"model_name_invalid".to_owned()),
             "{codes:?}"
         );
+    }
+
+    #[test]
+    fn a_stray_in_a_model_folder_is_dropped_as_a_leftover() {
+        // Step 10's stray rule: the backup file is no `.txt` note and no
+        // kind `classify` knows — a `leftover_dropped` finding and no copy,
+        // the folder migrating without it.
+        let plan = model_folder_plan(&files(&["k0431/boots.model", "k0431/boots.model.bak"]), &[]);
+        assert_eq!(
+            plan.copies,
+            [(
+                "k0431/boots.model".to_owned(),
+                "Boots/k0431/boots.model".to_owned()
+            )]
+        );
+        let stray = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "leftover_dropped")
+            .expect("leftover_dropped expected");
+        assert_eq!(
+            stray.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("k0431/boots.model.bak")
+            }
+        );
+        assert_eq!(stray.disposition, Disposition::DropFile);
     }
 }

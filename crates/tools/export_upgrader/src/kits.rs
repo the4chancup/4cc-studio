@@ -36,6 +36,10 @@ pub(crate) struct KitFolders {
     pub(crate) copies: Vec<(String, String)>,
     /// Input files accounted for; the run's fallback reports every other one.
     pub(crate) consumed: BTreeSet<String>,
+    /// Input files the step recognized as leftovers (step 10): the run's
+    /// fallback reports each `leftover_dropped`, the run clean, rather than
+    /// `unmigrated_content`. A file here is not in `consumed`.
+    pub(crate) leftovers: BTreeSet<String>,
     /// Findings on the input, in input-path order, a file's own findings in
     /// the order met.
     pub(crate) findings: Vec<Message>,
@@ -199,6 +203,13 @@ pub(crate) fn kit_folders(
             continue;
         }
         let name = rest.rsplit('/').next().unwrap_or(rest);
+        // Step 10's stray rule, wherever the file sits: what `classify`
+        // reads as no known kind and is no `.txt` note never reached the
+        // game.
+        if crate::players::is_stray(name, None) {
+            folders.leftovers.insert(file.clone());
+            continue;
+        }
         let Some(slot) = config_slot(name) else {
             continue;
         };
@@ -663,6 +674,24 @@ mod tests {
                 .map(|bytes| Ok(bytes.to_vec()))
                 .unwrap_or_else(|| panic!("a listed file has no bytes: {path}"))
         })
+    }
+
+    #[test]
+    fn a_classify_unknown_file_in_kit_configs_is_a_leftover() {
+        // Step 10's stray rule wherever it sits: `notes.doc` is no `.txt`
+        // note, `notes.txt` stays for the fallback as unmigrated content.
+        let plan = plan(
+            &[
+                "kit configs/XXX_DEF_1st_realUni.bin",
+                "kit configs/notes.doc",
+                "kit configs/notes.txt",
+            ],
+            &[("kit configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST)],
+        );
+        assert!(plan.leftovers.contains("kit configs/notes.doc"));
+        assert!(!plan.consumed.contains("kit configs/notes.doc"));
+        assert!(!plan.consumed.contains("kit configs/notes.txt"));
+        assert!(!plan.leftovers.contains("kit configs/notes.txt"));
     }
 
     #[test]

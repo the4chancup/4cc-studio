@@ -2200,3 +2200,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.16a1: `Portraits/` files named by slot as player folders are (`05.dds`, `05 - Bob.png`); the
   upgrader reads old portrait names as Red's check did, the refused ones leftovers; its output is now checked with the
   strict file-type check. DBC (exports due 2026-11-18) pulls the Save and Ruleset editors ahead of Phase 8's other views.
+- **2026-10-19** — 6.16a1b-a2: the upgrader drops what never reached the game inside player and item folders (strays,
+  files directly in `Faces/`, unworn folders); empty face folders and modelless item folders (`fpc_on`) migrate.
+  Review rulings now name each acceptance's reach; DBC7's rules are read from the wiki through `stealth-browser-mcp`.

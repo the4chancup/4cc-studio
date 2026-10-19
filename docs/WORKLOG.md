@@ -963,11 +963,17 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
       rows renamed. Files: `aesthetics_export/src/{conventions/mod,validate/root,validate/roster}.rs`,
       `export_upgrader/src/{carried,upgrade}.rs`, `export_upgrader/tests/cli/carried.rs`,
       `team_compiler` tests and `help/01_command_line.md`, `docs/spec/{aesthetics_export,team_compiler}/`
-    - [ ] 6.16a1b the review's follow-ups (SWE-2 S2, `.tmp/6_16/rulings.md`): the shared
+    - [x] 6.16a1b the review's follow-ups (SWE-2 S2, `.tmp/6_16/rulings.md`): the shared
       codes `file_type_disallowed` and `common_file_disallowed` reported as Errors (the
       catalog took the strict check as off), EU-MDL-19's subfolder file and EU-MDL-20
-    - [ ] 6.16a2 player and item folders: EU-PLY-06, -10, -15 to -20, EU-REF-01; the stray
-      rule in every old folder (`Common/`, `Collars/`, `Kit Configs/`, `Logo/` too)
+      (`messages.rs`, `tests/cli/carried.rs`)
+    - [x] 6.16a2 player and item folders: EU-PLY-06, -10, -15 to -20, EU-REF-01; the stray
+      rule in every old folder (`Common/`, `Collars/`, `Kit Configs/`, `Logo/` too): one
+      `players::is_stray` each walker filters through first; empty face folders and
+      modelless item folders (`fpc_on`) from the folder listing; a game-path face folder's
+      innermost folder moved (`players.rs`, `carried.rs`, `kits.rs`, `referees.rs`,
+      `model_folders.rs`, `upgrade.rs`, `tests/cli/`). Model-folder mode does not move a
+      game-path folder: no real input is known, and one fails loudly (`file_type_disallowed`)
     - [ ] 6.16a3 kits and the Note: EU-ROOT-07, EU-KIT-04, -08 (any export kind's
       non-texture names), -12, -16, -19
   - [ ] 6.16b the compiler: in a `Midcup`,
@@ -1227,13 +1233,19 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
   - [ ] 20.0d coverage of the DBC ruleset (maintainer, 2026-10-19), right after Phase 6
     closes (`plans/core/development_plan.md` "Divegrass Before Christmas"): Divegrass Before
     Christmas (DBC), an upcoming invitational, is to be the first test ground for 4cc Studio's
-    Ruleset editor and Save editor. Its rules live in `C:\Data\4cc\Tools_4cc\DBC7-Editor`, a
-    small fork of the official 4cc save editor (C++, `RockAnon/DBC7-Editor`; the rules in
-    `aatf.cpp`, its commits "dbc7 specific aatf and buttons" and "multi gk and no gk stuff"
-    over the initial import). Every DBC rule gets UI-class support in the Ruleset editor (a
+    Ruleset editor and Save editor. Its rules' source of truth is the wiki page
+    `https://implyingrigged.info/wiki/Divegrass_Before_Christmas_7:_Melty_Under_The_Christmas_Tree`
+    ("Tactical export Rules": height brackets, medal systems; the game is PES 2017), read
+    through the `stealth-browser-mcp` server (a plain fetch gets HTTP 403) and re-read when the
+    step starts (snapshot of 2026-10-19: `.tmp/dbc7/wiki_rules_2026-10-19.md`). How they are
+    checked is in `C:\Data\4cc\Tools_4cc\DBC7-Editor`, a small fork of the official 4cc save
+    editor (C++, `RockAnon/DBC7-Editor`; the rules in `aatf.cpp`, its commits "dbc7 specific
+    aatf and buttons" and "multi gk and no gk stuff" over the initial import), a reference
+    where it and the page differ. Every DBC rule gets UI-class support in the Ruleset editor (a
     schema field with its form), except one niche and complex enough to be a custom check,
     each such with its reason → verify: a table in `aatf_rules.md`, as 20.0a's, mapping each
-    DBC rule (read from the fork's diff against the official editor, not from memory) to a
+    DBC rule (read from the page, with the fork's diff against the official editor for how it
+    is checked, not from memory) to a
     schema field or to a custom check, no row empty; the gaps become schema fields (plan edit,
     decision entry) and forms in `ruleset_editor.md` and the draft; a DBC ruleset file in
     `rulesets/` that `check-aatf` runs against a save the fork's check agrees with

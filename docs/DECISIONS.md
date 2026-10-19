@@ -9327,3 +9327,13 @@ Why: the maintainer's choice over redefining 0.1.0, which stays the release with
 compiler's GUI; greying the two tools out tells members what is coming without shipping a
 view half-built. Without an updater, 0.1.0 replaces the preview by hand.
 Plan: `plans/core/development_plan.md` "Releases" (the DBC paragraph).
+
+## 2026-10-19 — export_upgrader — a player marked `fpc_on` keeps his other category's 0 explicit
+Decision: when the upgrader marks a player `fpc_on` for a modelless boots or gloves folder, the
+category no folder of his decides keeps a stored 0 as an explicit `boots_id = 0` or
+`gloves_id = 0`, in a Full output too.
+Why: Astra's review 6.16.A1 found that under the marker an unset key resolves to the hide
+preset's blank-model ID, so a player with hidden boots and normal hands (EGG VGL26's EMPTY
+boots and gloves folders have different wearers) would lose his hands; an explicit 0 is what
+he wore in game.
+Plan: `plans/export_upgrader.md` step 8 (the stored-0 sentence), EU-PLY-17.

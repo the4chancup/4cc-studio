@@ -36,9 +36,17 @@ fn refs_txt_becomes_the_canonical_players_txt_and_the_marker_is_carried() {
     sandbox.write("refs Spring/Players/arbiter/arbiter.dds", b"arbiter");
     sandbox.write("refs Spring/Players/eiki/boots.fmdl", b"boots");
     sandbox.write("refs Spring/Players/eiki/boots.skl", b"skl");
+    // A Note txt: nothing compiled it, referees have no colors (step 9).
+    sandbox.write("refs Spring/refs Note.txt", b"notes");
 
     let run = upgrade(&sandbox, "refs Spring");
     assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert!(
+        run.stdout()
+            .contains("- refs Spring: Warning leftover_dropped at refs Note.txt\n"),
+        "{}",
+        run.stdout()
+    );
     assert_eq!(
         fs::read_to_string(sandbox.path("refs Spring upgraded/players.txt")).unwrap(),
         expected,

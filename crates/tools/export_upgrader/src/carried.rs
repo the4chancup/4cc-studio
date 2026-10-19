@@ -208,14 +208,21 @@ pub(crate) fn carried_files(
 
     // `Collars/` (step 7): every file below it, at its relative path; the
     // shared validation judges what it holds. `Common/` is carried the
-    // same way.
+    // same way. Step 10's stray rule first, a classify-unknown file no
+    // package ever read being a leftover rather than a copied file the
+    // strict output check would refuse the folder for.
     for file in files {
         for (top, output) in [("collars", "Collars"), ("common", "Common")] {
             if let Some(rest) = under(file, top) {
-                carried
-                    .copies
-                    .push((file.clone(), format!("{output}/{rest}")));
-                carried.consumed.insert(file.clone());
+                let name = rest.rsplit('/').next().unwrap_or(rest);
+                if crate::players::is_stray(name, None) {
+                    carried.leftovers.insert(file.clone());
+                } else {
+                    carried
+                        .copies
+                        .push((file.clone(), format!("{output}/{rest}")));
+                    carried.consumed.insert(file.clone());
+                }
             }
         }
     }
@@ -230,6 +237,11 @@ pub(crate) fn carried_files(
         let Some(rest) = under(file, "logo") else {
             continue;
         };
+        let name = rest.rsplit('/').next().unwrap_or(rest);
+        if crate::players::is_stray(name, None) {
+            carried.leftovers.insert(file.clone());
+            continue;
+        }
         if rest.contains('/') {
             continue;
         }
@@ -538,6 +550,44 @@ mod tests {
                 path: path_scope("Portraits/player_XXX07.dds")
             }
         );
+    }
+
+    #[test]
+    fn a_stray_in_common_collars_or_the_logo_folder_is_a_leftover() {
+        let plan = plan(
+            &[
+                "Collars/collar_120.fmdl",
+                "Collars/face.mtl.backup",
+                "Common/kit/sock.dds",
+                "Common/materials.mtl.bak",
+                "Logo/emblem_0XXX_r_ll.png",
+                "Logo/emblem.psd",
+            ],
+            &[],
+            &[
+                ("Collars/collar_120.fmdl", b"collar"),
+                ("Common/kit/sock.dds", b"sock"),
+                ("Logo/emblem_0XXX_r_ll.png", PNG),
+            ],
+        );
+        for (from, to) in [
+            ("Collars/collar_120.fmdl", "Collars/collar_120.fmdl"),
+            ("Common/kit/sock.dds", "Common/kit/sock.dds"),
+            ("Logo/emblem_0XXX_r_ll.png", "logo.png"),
+        ] {
+            assert!(
+                plan.copies.contains(&(from.to_owned(), to.to_owned())),
+                "{to}"
+            );
+        }
+        for stray in [
+            "Collars/face.mtl.backup",
+            "Common/materials.mtl.bak",
+            "Logo/emblem.psd",
+        ] {
+            assert!(plan.leftovers.contains(stray), "{stray}");
+            assert!(!plan.consumed.contains(stray), "{stray}");
+        }
     }
 
     #[test]

@@ -26,7 +26,7 @@ use studio_core::{Disposition, Message, Scope};
 use crate::carried::under;
 use crate::face_xml::named_paths;
 use crate::messages::{Code, INPUT, tool_message};
-use crate::players::{PlayerFolders, path_scope};
+use crate::players::{PlayerFolders, is_stray, path_scope};
 use crate::source::{OLD_FOLDERS, SourceFailure};
 
 /// The old referee layout's subfolder names, folded: the compiler refuses a
@@ -205,10 +205,14 @@ fn flatten(
     read: &mut impl FnMut(&str) -> Result<Vec<u8>, SourceFailure>,
     plan: &mut PlayerFolders,
 ) {
-    let placed: Vec<Placed> = folder_files
+    // Step 10's stray rule first: a classify-unknown file no package read
+    // is a leftover, not a file the fold migrates or clashes over.
+    let (strays, placed): (Vec<Placed>, Vec<Placed>) = folder_files
         .iter()
         .map(|(input, rest)| Placed::new(input, rest))
-        .collect();
+        .partition(|placed| is_stray(placed.file_name(), None));
+    plan.leftovers
+        .extend(strays.iter().map(|placed| placed.input.to_owned()));
     // The findings that leave the folder as it was, each with the input path
     // it sorts by.
     let mut refusals = nested_layouts(&placed);
@@ -779,5 +783,23 @@ mod tests {
             pairs(&[("Players/eiki/boots.fmdl", "Players/eiki/boots.fmdl")])
         );
         assert!(!plan.consumed.contains("boston/Face/x.model"));
+    }
+
+    #[test]
+    fn a_stray_in_a_referee_folder_is_a_leftover() {
+        // Step 10's stray rule, inside the fold too: the backup file is no
+        // `.txt` note and no kind `classify` knows, so it is a leftover —
+        // not a file the fold migrates or clashes over.
+        let plan = plan(
+            &["Players/a/boots.fmdl", "Players/a/face/face.mtl.bak"],
+            &[],
+        );
+        assert_eq!(
+            plan.copies,
+            pairs(&[("Players/a/boots.fmdl", "Players/a/boots.fmdl")])
+        );
+        assert!(plan.leftovers.contains("Players/a/face/face.mtl.bak"));
+        assert!(!plan.consumed.contains("Players/a/face/face.mtl.bak"));
+        assert!(plan.findings.is_empty());
     }
 }

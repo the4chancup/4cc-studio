@@ -544,7 +544,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    it is written (`boots_id = 0`): an unset key there keeps the installed ID
    (`spec/aesthetics_export/settings_toml.md`), which may not be the default his record holds;
    a Full output keeps it unset, since an explicit 0 would also override the hide preset an
-   author who switches to the `fpc_on` marker expects. An ID a migrated boots or gloves folder
+   author who switches to the `fpc_on` marker expects. A player step 3 marks `fpc_on` (a
+   modelless boots or gloves folder) is the exception: the category no folder of his decides
+   keeps a stored 0 as an explicit `= 0`, since under the marker an unset key gives the hide
+   preset's blank-model ID and he would lose the stock boots or the hands he wore (EU-PLY-17). An ID a migrated boots or gloves folder
    claims (his worn ID, merged into his folder or linked from it) is left out whatever its
    value, a stock-band one included: the folder decides that category, and a number beside it
    would be ignored at every compile (`settings_model_id_conflict`). A custom ID worn by a player that no model folder of the export claims is
@@ -577,7 +580,8 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    cannot see: from then on his look is the compiled export's `settings.toml` (a save
    transplant can change his record without changing it, `spec/save_editor.md`), so the
    report's line says the file is generated from a stripped record and that a team compiled
-   by Studio since keeps its own file instead. No `fpc_on` marker is written: an FPC player's record holds the hide strip
+   by Studio since keeps its own file instead. No `fpc_on` marker is written from the record
+   (step 3's modelless item folder writes one from the folder): an FPC player's record holds the hide strip
    and either the stock hide IDs, kept as any stock ID is, or, as the cup's FPC teams mostly do,
    a blank boots ID of his own whose folder migrates like any other (the 2023 Winter Cup save's
    `/a/`: boots and gloves 126 to 148, one per player), so the raw settings reproduce him, while
@@ -1194,10 +1198,11 @@ EU-PLY-16  GIVEN the empty face folder "XXX05 - Bob", slot 05 wearing custom boo
                 ingame_face marker, and the exit code is 0
 EU-PLY-17  GIVEN the boots folder "k0430 - EMPTY" holding boots.skl alone, worn by slots 03 and
                 04, and the empty gloves folder "g0432 - EMPTY", worn by slot 03; slot 03 with
-                the face folder "XXX03 - Ann", slot 04 with none
+                the face folder "XXX03 - Ann", slot 04 with none and storing gloves 0
            WHEN the export is upgraded
            THEN Players/03 - Ann/ holds an fpc_on marker, slot 04's folder, named from his save
-                name, holds fpc_on and ingame_face markers, no folder holds boots.skl or a link,
+                name, holds fpc_on and ingame_face markers and a settings.toml with
+                gloves_id = 0, no folder holds boots.skl or a link,
                 the output holds no Boots/ or Gloves/ folder, leftover_dropped is reported for
                 boots.skl, and the exit code is 0
 EU-PLY-18  GIVEN a pre-Fox face folder "XXX05 - Bob" holding face.mtl and face.mtl.backup, and
@@ -1324,7 +1329,8 @@ EU-KIT-18  GIVEN Kit Textures holding u0XXXp2.dds and u0XXXp2.ftex beside
                 code is 1
 EU-KIT-19  GIVEN the old export "co Midcup Day 5" with Kit Configs XXX_DEF_1st_realUni.bin, a
                 Note with one player kit entry, and Kit Textures u0XXXp1.dds, u0XXXp3.dds,
-                u0XXXp3_back.dds, u0XXXg2.dds and back.dds
+                u0XXXp3_back.dds, u0XXXg2.dds and back.dds, the two main textures of
+                different bytes
            WHEN it is upgraded
            THEN Kits/p3/ holds kit.dds and kit_back.dds and neither config.toml nor colors.txt,
                 no finding names p3 or its textures, leftover_dropped is reported for
@@ -1478,7 +1484,7 @@ EU-SET-06  GIVEN the PES 21 fixture save after strip-and-seed
            THEN the output equals the one from the unstripped save, and the report also names
                 each stripped player, at Info
 EU-SET-07  GIVEN a player whose record holds the hide strip and boots and gloves IDs of his own,
-                with their folders
+                with their folders, each holding its model
            WHEN the export is upgraded
            THEN his folder holds no fpc_on marker, his settings.toml carries the strip, and his
                 boots and gloves folders are merged into his player folder
@@ -1588,7 +1594,7 @@ EU-REP-04  GIVEN a Fox export (as the real KFG VGL26 one) whose boots folder "k0
                 holding boots.model and a root readme.pdf
            WHEN it is upgraded with --loose
            THEN leftover_dropped is reported for FMDL Boots/k0128 - Rex/boots.model and for
-                readme.pdf, Players/03/ holds boots.fmdl (the migration is Fox's: the
+                readme.pdf, Players/03 - Rex/ holds boots.fmdl (the migration is Fox's: the
                 leftover's .model decides nothing), the output holds no Boots/ folder, and the
                 exit code is 0
 EU-REP-03  GIVEN an old export whose migration needs no manual attention

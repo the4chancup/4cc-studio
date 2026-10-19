@@ -157,21 +157,31 @@ fn folders_worn_by_two_share_the_folder_with_links() {
 
 // EU-PLY-06
 #[test]
-fn a_folder_nobody_wears_is_unmigrated_as_a_whole() {
+fn a_folder_no_save_record_wears_is_leftovers() {
     let sandbox = Sandbox::new("ply_unworn");
     face(&sandbox, "co Spring/Faces/XXX03 - A");
     gloves(&sandbox, "co Spring/Gloves/g0432 - Mitts");
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "co Spring", "EDIT");
-    assert_eq!(run.exit_code(), 1);
-    assert!(
-        run.stdout()
-            .contains("- co Spring: Error unmigrated_content at Gloves/g0432 - Mitts\n"),
-        "{}",
-        run.stdout()
-    );
-    sandbox.assert_nothing_written("co Full Spring", &run.stdout());
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    let stdout = run.stdout();
+    for file in ["glove_l.fmdl", "glove_r.fmdl"] {
+        assert!(
+            stdout.contains(&format!(
+                "- co Spring: Warning leftover_dropped at Gloves/g0432 - Mitts/{file}\n"
+            )),
+            "{file}: {stdout}"
+        );
+    }
+    // The output holds no copy of them, under any name.
+    for entry in sandbox.listing("co Full Spring") {
+        assert!(
+            !entry.ends_with("glove_l.fmdl") && !entry.ends_with("glove_r.fmdl"),
+            "{entry}"
+        );
+    }
+    assert!(!stdout.contains("unmigrated_content"), "{stdout}");
 }
 
 // EU-PLY-08
@@ -286,6 +296,11 @@ fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
     face(&sandbox, "co Spring/Faces/XXX23 - Smug Redman");
     boots(&sandbox, "co Spring/Boots/k0430 - A");
     boots(&sandbox, "co Spring/Boots/k0430 - B");
+    // A face folder whose slot reads nothing and a boots folder under a
+    // name the item grammar refuses, each unmigrated as a whole — here
+    // empty, which only the folder listing can still see.
+    fs::create_dir_all(sandbox.path("co Spring/Faces/XXX24 - Ann")).unwrap();
+    fs::create_dir_all(sandbox.path("co Spring/Boots/K0431 - Rex")).unwrap();
     sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
         wears(file, 71423, 430, 0);
     });
@@ -293,14 +308,17 @@ fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
     let run = upgrade(&sandbox, "co Spring", "EDIT");
     assert_eq!(run.exit_code(), 1);
     let stdout = run.stdout();
-    assert!(
-        stdout.contains("unmigrated_content at Faces/XXX23 - Smug Redman"),
-        "{stdout}"
-    );
-    assert!(
-        stdout.contains("unmigrated_content at Boots/k0430 - B"),
-        "{stdout}"
-    );
+    for folder in [
+        "Faces/XXX23 - Smug Redman",
+        "Boots/k0430 - B",
+        "Faces/XXX24 - Ann",
+        "Boots/K0431 - Rex",
+    ] {
+        assert!(
+            stdout.contains(&format!("unmigrated_content at {folder}")),
+            "{folder}: {stdout}"
+        );
+    }
     sandbox.assert_nothing_written("co Full Spring", &stdout);
 }
 
@@ -647,6 +665,277 @@ fn a_fox_hair_skeleton_is_renamed_to_pair_with_its_model() {
     assert!(
         sandbox
             .path("new models upgraded/06 - Ann/fcl_hair_sim.skl")
+            .exists()
+    );
+}
+
+// EU-PLY-15
+#[test]
+fn files_directly_in_the_faces_and_item_tops_are_leftovers() {
+    let sandbox = Sandbox::new("ply_top_files");
+    face(&sandbox, "co Spring/Faces/XXX05 - A");
+    sandbox.write("co Spring/Faces/71406 - Civic cool.7z", b"archive");
+    sandbox.write("co Spring/Boots/boots.fmdl", b"loose boots");
+    sandbox.write("co Spring/Gloves/glove_l.fmdl", b"loose glove");
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    let stdout = run.stdout();
+    for path in [
+        "Faces/71406 - Civic cool.7z",
+        "Boots/boots.fmdl",
+        "Gloves/glove_l.fmdl",
+    ] {
+        assert!(
+            stdout.contains(&format!(
+                "- co Spring: Warning leftover_dropped at {path}\n"
+            )),
+            "{path}: {stdout}"
+        );
+    }
+    // The output holds neither, under any name.
+    for entry in sandbox.listing("co Full Spring") {
+        for name in ["Civic cool.7z", "boots.fmdl", "glove_l.fmdl"] {
+            assert!(!entry.ends_with(name), "{entry}");
+        }
+    }
+    assert!(!stdout.contains("unmigrated_content"), "{stdout}");
+}
+
+// EU-PLY-16
+#[test]
+fn empty_face_folders_make_player_folders_with_no_ingame_face() {
+    let sandbox = Sandbox::new("ply_empty_faces");
+    fs::create_dir_all(sandbox.path("co Spring/Faces/XXX05 - Bob")).unwrap();
+    fs::create_dir_all(sandbox.path("co Spring/Faces/XXX06 - Ann")).unwrap();
+    boots(&sandbox, "co Spring/Boots/k0430 - FBM");
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
+        wears(file, 71405, 430, 0);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    for (name, bytes) in BOOTS_FILES {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Spring/Players/05 - Bob/{name}"))).unwrap(),
+            bytes,
+            "{name}"
+        );
+    }
+    assert!(
+        sandbox
+            .path("co Full Spring/Players/05 - Bob/settings.toml")
+            .is_file()
+    );
+    assert_eq!(
+        sandbox.listing("co Full Spring/Players/06 - Ann"),
+        ["settings.toml".to_owned()]
+    );
+    for player in ["05 - Bob", "06 - Ann"] {
+        assert!(
+            !sandbox
+                .path(&format!("co Full Spring/Players/{player}/ingame_face"))
+                .exists(),
+            "{player}"
+        );
+    }
+    assert!(!sandbox.path("co Full Spring/Boots").exists());
+}
+
+// EU-PLY-17
+#[test]
+fn modelless_item_folders_mark_their_wearers_fpc_on() {
+    let sandbox = Sandbox::new("ply_empty_items");
+    face(&sandbox, "co Spring/Faces/XXX03 - Ann");
+    sandbox.write("co Spring/Boots/k0430 - EMPTY/boots.skl", b"skl");
+    fs::create_dir_all(sandbox.path("co Spring/Gloves/g0432 - EMPTY")).unwrap();
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
+        wears(file, 71403, 430, 432);
+        wears(file, 71404, 430, 0);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/03 - Ann/fpc_on")).unwrap(),
+        b""
+    );
+    assert!(
+        !sandbox
+            .path("co Full Spring/Players/03 - Ann/ingame_face")
+            .exists()
+    );
+    // Slot 04 has no face folder: named from his save name, both markers.
+    let players = sandbox.listing("co Full Spring/Players");
+    let slot04 = players
+        .iter()
+        .find(|entry| entry.starts_with("04"))
+        .expect("slot 04's folder")
+        .clone();
+    for marker in ["fpc_on", "ingame_face"] {
+        assert_eq!(
+            fs::read(sandbox.path(&format!("co Full Spring/Players/{slot04}/{marker}"))).unwrap(),
+            b"",
+            "{marker}"
+        );
+    }
+    let stdout = run.stdout();
+    assert!(
+        stdout.contains("- co Spring: Warning leftover_dropped at Boots/k0430 - EMPTY/boots.skl"),
+        "{stdout}"
+    );
+    // No folder holds boots.skl, no link is written, no shared folder.
+    for entry in sandbox.listing("co Full Spring") {
+        assert!(
+            !entry.ends_with("boots.skl")
+                && !entry.ends_with(".boots")
+                && !entry.ends_with(".gloves"),
+            "{entry}"
+        );
+    }
+    assert!(!sandbox.path("co Full Spring/Boots").exists());
+    assert!(!sandbox.path("co Full Spring/Gloves").exists());
+}
+
+// EU-PLY-18
+#[test]
+fn stray_files_in_face_and_item_folders_are_leftovers() {
+    let sandbox = Sandbox::new("ply_strays");
+    sandbox.write("co Spring/Faces/XXX05 - Bob/face.mtl", &mtl(&[]));
+    sandbox.write("co Spring/Faces/XXX05 - Bob/face.mtl.backup", b"backup");
+    sandbox.write("co Spring/Boots/k0430 - Crocs/boots.model", b"model");
+    sandbox.write("co Spring/Boots/k0430 - Crocs/boots.mtl", &mtl(&[]));
+    sandbox.write("co Spring/Boots/k0430 - Crocs/materials.mtl.bak", b"bak");
+    sandbox.save_edited("EDIT16", pes_version::PesVersion::Pes16, |file| {
+        wears(file, 71403, 430, 0);
+        wears(file, 71404, 430, 0);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT16");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert!(
+        sandbox
+            .path("co Full Spring/Players/05 - Bob/face.mtl")
+            .is_file()
+    );
+    assert!(
+        sandbox
+            .path("co Full Spring/Boots/Crocs/boots.model")
+            .is_file()
+    );
+    assert!(
+        sandbox
+            .path("co Full Spring/Boots/Crocs/boots.mtl")
+            .is_file()
+    );
+    let stdout = run.stdout();
+    for path in [
+        "Faces/XXX05 - Bob/face.mtl.backup",
+        "Boots/k0430 - Crocs/materials.mtl.bak",
+    ] {
+        assert!(
+            stdout.contains(&format!(
+                "- co Spring: Warning leftover_dropped at {path}\n"
+            )),
+            "{path}: {stdout}"
+        );
+    }
+    for entry in sandbox.listing("co Full Spring") {
+        assert!(
+            !entry.ends_with(".backup") && !entry.ends_with(".bak"),
+            "{entry}"
+        );
+    }
+}
+
+// EU-PLY-19
+#[test]
+fn copy_named_fmdls_in_item_folders_are_leftovers() {
+    let sandbox = Sandbox::new("ply_fmdl_copies");
+    face(&sandbox, "co Spring/Faces/XXX05 - A");
+    sandbox.write("co Spring/Boots/k0430 - IKA-CHAN/boots.fmdl", b"boots");
+    sandbox.write(
+        "co Spring/Boots/k0430 - IKA-CHAN/boots - Copy.fmdl",
+        b"copy",
+    );
+    sandbox.write("co Spring/Gloves/g0432/glove_l.fmdl", b"left");
+    sandbox.write("co Spring/Gloves/g0432/glove_r.fmdl", b"right");
+    sandbox.write("co Spring/Gloves/g0432/glove_l - Copy.fmdl", b"copy");
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
+        wears(file, 71405, 430, 432);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    for name in ["boots.fmdl", "glove_l.fmdl", "glove_r.fmdl"] {
+        assert!(
+            sandbox
+                .path(&format!("co Full Spring/Players/05 - A/{name}"))
+                .is_file(),
+            "{name}"
+        );
+    }
+    let stdout = run.stdout();
+    for path in [
+        "Boots/k0430 - IKA-CHAN/boots - Copy.fmdl",
+        "Gloves/g0432/glove_l - Copy.fmdl",
+    ] {
+        assert!(
+            stdout.contains(&format!(
+                "- co Spring: Warning leftover_dropped at {path}\n"
+            )),
+            "{path}: {stdout}"
+        );
+    }
+    for entry in sandbox.listing("co Full Spring") {
+        assert!(!entry.contains("Copy"), "{entry}");
+    }
+}
+
+// EU-PLY-20
+#[test]
+fn a_game_path_face_folder_migrates_its_innermost_folder() {
+    let sandbox = Sandbox::new("ply_game_path");
+    for (name, bytes) in [
+        ("face.xml", b"<config/>" as &[u8]),
+        ("face_high_win32.model", b"face high"),
+        ("face.mtl", &mtl(&[])),
+    ] {
+        sandbox.write(
+            &format!(
+                "co Spring/Faces/71401/common/character0/model/character/face/real/71401/{name}"
+            ),
+            bytes,
+        );
+    }
+    fs::write(
+        sandbox.path("EDIT16"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes16),
+    )
+    .unwrap();
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT16");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    // Slot 01, the folder named from his save record: the innermost
+    // folder's files directly in it, no `common/` tree below.
+    let players = sandbox.listing("co Full Spring/Players");
+    let folder = players
+        .iter()
+        .find(|entry| entry.starts_with("01"))
+        .expect("slot 01's folder")
+        .clone();
+    for name in ["face.xml", "face_high_win32.model", "face.mtl"] {
+        assert!(
+            sandbox
+                .path(&format!("co Full Spring/Players/{folder}/{name}"))
+                .is_file(),
+            "{name}"
+        );
+    }
+    assert!(
+        !sandbox
+            .path(&format!("co Full Spring/Players/{folder}/common"))
             .exists()
     );
 }
