@@ -2158,3 +2158,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.9a: the parity run and a census of 713 old exports found three upgrader gaps,
   fixed in both modes: a hair skeleton renamed to pair, `.fpk.xml` left out, an `.ftex` kit
   texture converted; Astra 6.8.A1's 3 fixes with them; mutation diff 0 missed.
+- **2026-10-19** — 6.9c: each tracer's upgraded export committed as a golden, a test that the
+  upgrader still writes it, and a parity case per tracer compiling it against Red's tree; 6.9
+  done.

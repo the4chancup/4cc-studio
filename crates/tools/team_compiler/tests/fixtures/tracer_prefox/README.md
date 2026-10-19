@@ -44,6 +44,24 @@ materials name no states (Red: an Info). The member's `face.xml` types the boots
   `u0XXXg1.dds`, `config.toml` the GK config decoded as PES 17 by `kit_config`, `colors.txt`
   the note's `1st GK` entry, `#FFFFFF - #000000`.
 
+## `upgraded/jp Full Tracer/`
+
+What the Export upgrader makes of `old/`, as it wrote it: the link that lets a parity test
+compile an upgraded export against `red/` without a tool crate depending on another. Made at
+commit `0e52ddf` by `4cc-studio export-upgrader upgrade "old/jp Tracer" --loose -o <dir>`
+(report: `migration_clean`, exit 0); `export_upgrader`'s tests check that upgrading `old/`
+still gives exactly this tree, so a change to the upgrader's output regenerates it the same
+way. Against the hand-made twin in `studio/`:
+
+- the name says `Full`: the old name carries no additions word;
+- `Players/20 - Fumos/` keeps the member's `face.xml` byte for byte, so the models keep the
+  names it lists (`face_high_win32.model`, `oral_boots_win32.model`, `oral_glove_l_win32.model`,
+  `oral_glove_r_win32.model`) and no `face_diff.bin` is split out;
+- the folder holds a generated `settings.toml` with every key at its default;
+- `colors.txt` and `Kits/g1/colors.txt` carry the note's colors in the note's own forms
+  (`058 080 177`, `#FFFFFF`), where the twin writes lowercase hex;
+- `Kits/g1/config.toml` has no `[source_texture_names]` table.
+
 ## `red/`
 
 The entries of the CPK Red compiled from `old/`, extracted as stored with the `cpk` crate. Red

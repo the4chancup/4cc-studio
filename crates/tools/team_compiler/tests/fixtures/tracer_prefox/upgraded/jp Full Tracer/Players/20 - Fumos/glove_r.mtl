@@ -1,0 +1,26 @@
+<materialset>
+    <material name="Boots_Game_mat1" shader="Boots">
+        <sampler name="DiffuseMap" path="./glove_c.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+        <sampler name="NormalMap" path="./glove_n.dds" srgb="0" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+        <sampler name="SpecularMap" path="./glove_sr.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+        <state name="alpharef" value="0" />
+        <state name="blendmode" value="0" />
+        <state name="alphablend" value="0" />
+        <state name="alphatest" value="0" />
+        <state name="twosided" value="0" />
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="1" />
+    </material>
+    <material name="Boots_Game_Alpha_mat1" shader="Boots">
+        <sampler name="DiffuseMap" path="./glove_c.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+        <sampler name="NormalMap" path="./glove_n.dds" srgb="0" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+        <sampler name="SpecularMap" path="./glove_sr.dds" srgb="1" minfilter="linear" magfilter="linear" mipfilter="linear" uaddr="wrap" vaddr="wrap" waddr="wrap" maxaniso="2" />
+        <state name="alpharef" value="0" />
+        <state name="blendmode" value="0" />
+        <state name="alphablend" value="1" />
+        <state name="alphatest" value="0" />
+        <state name="twosided" value="1" />
+        <state name="ztest" value="1" />
+        <state name="zwrite" value="0" />
+    </material>
+</materialset>

@@ -39,6 +39,23 @@ gloves since step 4.3.
   With the kit's file it makes the compiled `TeamColor.bin` and `UniColor.bin` comparable
   with Red's byte for byte.
 
+## `upgraded/egg Full Tracer/`
+
+What the Export upgrader makes of `old/`, as it wrote it: the link that lets a parity test
+compile an upgraded export against `red/` without a tool crate depending on another. Made at
+commit `0e52ddf` by `4cc-studio export-upgrader upgrade "old/egg Tracer" --loose -o <dir>`
+(report: two `wearer_assumed` Infos and `migration_clean`, exit 0); `export_upgrader`'s tests
+check that upgrading `old/` still gives exactly this tree, so a change to the upgrader's output
+regenerates it the same way. Against the hand-made twin in `studio/`:
+
+- the name says `Full`: the old name carries no additions word;
+- `boots.fmdl` and `fcl_hair.fmdl` have their texture directories repointed to `./`;
+- the boots folder's `boots.skl` is kept beside the face (the twin leaves it out), and
+  `fcl_hair_sim.skl` is renamed `fcl_hair.skl` as in the twin; both are PES 21's `body.skl`;
+- each player folder holds a generated `settings.toml` with every key at its default;
+- `Kits/g1/config.toml` is written by today's `kit_config` (a range comment differs) and has no
+  `[source_texture_names]` table.
+
 ## `red/`
 
 The entries of the CPK Red compiled from `old/`, extracted as stored (17 files). Red 5.0.0-dev,

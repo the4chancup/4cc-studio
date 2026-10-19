@@ -14,8 +14,8 @@ is in `AGENTS.md` ("Working documents").
 (`music_export`, its plan section, `pub` audit and whole-crate mutation run done; converging
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): 6.9 (the parity test and the census: 6.9a's fixes, then
-the census rerun and the parity cases); 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
+**Next:** Phase 6 (Export upgrader): every step done; Astra's checkpoint review over 6.9a-c
+(with its SWE-2 loops), then the phase's close (`AGENTS.md` "Closing a phase"); 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
 and the shell's draft (`docs/prototypes/shell.html`) is on a side branch. Parallel tracks:
 `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
@@ -683,7 +683,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   the fixes in 6.9a. Files: `export_upgrader/src/{model_folders,upgrade,cli,
   source,messages,kit_magic,materials,face_xml,naming,players,lib}.rs`,
   `help/01_command_line.md`, `tests/cli/{models,cli,carried,main}.rs`, `tests/common/mod.rs`
-- [ ] 6.9 the parity test (`team_compiler/testing.md`: an upgraded export compiles to Red's CPK
+- [x] 6.9 the parity test (`team_compiler/testing.md`: an upgraded export compiles to Red's CPK
   for the old one) and a census of every old export on the maintainer's machine through
   `upgrade` (`AGENTS.md` "Closing a phase", the census template) → verify: every outcome class
   tallied and diagnosed; a macOS archive's `__MACOSX/` or `._*` files, if any member export
@@ -709,10 +709,16 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     outcome, 9 changed, every one to clean (INK VGL26 and 8 /fgog/ exports, their `.ftex` kit
     textures converting); no regression; 230 report lines on `.fpk.xml` files gone, 3 of them
     `merge_kept_shared` whose boots folders now merge (`1999  Aesthetics Export VGL26`)
-  - [ ] 6.9c the parity cases: each tracer's upgraded `old/` committed as a golden
+  - [x] 6.9c the parity cases: each tracer's upgraded `old/` committed as a golden
     (`tests/fixtures/<tracer>/upgraded/`), an `export_upgrader` test that upgrading `old/` gives
     it exactly, and a `team_compiler` parity case compiling it against `red/` (tool crates never
-    depend on tool crates: the golden is the link)
+    depend on tool crates: the golden is the link). Done (goldens by the lead at `0e52ddf`, tests
+    by SWE-2, first attempt, each check's perturbation pasted): the parity cases compile the
+    golden under the twin's `Midcup` tag, the `Full` tag's placeholder `p1` kit being the cut's
+    artifact (`spec/team_compiler/testing.md`); the Fox case passes the twin's table unchanged,
+    the pre-Fox one differs by the member's kept `face.xml` alone (`FaceXml::Kept`). Files:
+    `export_upgrader/tests/upgraded_golden.rs`, `team_compiler/tests/{parity,parity_prefox}.rs`,
+    `team_compiler/tests/upgraded/mod.rs`, both tracers' `upgraded/` and `README.md`
 
 ### Phase 8 — GUI
 

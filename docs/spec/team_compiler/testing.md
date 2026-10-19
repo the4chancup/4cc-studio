@@ -22,6 +22,16 @@ committed as the tree itself: the tracer bullet's (`tests/fixtures/tracer/red/`,
 1 MB) and the pre-Fox tracer's (`tests/fixtures/tracer_prefox/red/`, PES 2017, about 660 KB) run
 their parity cases anywhere, CI included, without Red.
 
+Each tracer has two cases: its hand-made Studio twin (`studio/`), and the Export upgrader's own
+output for the old export (`upgraded/`, a golden: tool crates never depend on each other, so
+`export_upgrader`'s `tests/upgraded_golden.rs` checks that upgrading `old/` still gives exactly
+that tree, and the parity case compiles it). The upgraded case compiles the golden under the
+twin's `Midcup` tag: the upgrader tags it `Full`, and a `Full` export missing a player kit gets
+the compiler's placeholder kit, which the tracers' one-kit cut would add to the comparison
+without telling anything about parity. Its expected differences from the twin's case are what
+the member's own `face.xml`, which the upgrader keeps, decides on pre-Fox: the face model packed
+under the name it lists, its entries as the member wrote them, and its `boots` typing's warning.
+
 Intentional differences must be accounted for:
 
 - **Auto-assigned boots/gloves IDs** may differ from the old embedded IDs — the comparison

@@ -1,10 +1,13 @@
 //! Parity against the compiled output for the same export, pre-Fox: compile
-//! `fixtures/tracer_prefox/studio/jp Midcup Tracer` for PES 17 through the `compile` command
+//! `fixtures/tracer_prefox/studio/jp Midcup Tracer`, and the upgrader's output for
+//! `fixtures/tracer_prefox/old/jp Tracer` (`fixtures/tracer_prefox/upgraded/`, copied under
+//! the `Midcup` tag) for PES 17 through the `compile` command
 //! and compare the CPK with the reference tree in `fixtures/tracer_prefox/red/`, one explicit
 //! row per reference entry, and per entry of the reference's nested face CPK, under the tiers
 //! of `docs/spec/team_compiler/testing.md` "Testing: parity against Red (adapted from Blue)".
 
 mod common;
+mod upgraded;
 
 use std::collections::BTreeMap;
 use std::fs;
@@ -14,6 +17,7 @@ use base64::Engine as _;
 use common::Sandbox;
 use pes_model::format::mtl::{MaterialEntry, MaterialSet};
 use studio_core::{PipelineEvent, Severity};
+use upgraded::upgraded_as_midcup;
 
 /// The player's face CPK, at the same path in both trees.
 const FACE_CPK: &str = "common/character0/model/character/face/real/73120.cpk";
@@ -67,10 +71,24 @@ const OUTER: &[(&str, Row)] = &[
     ("common/etc/TeamColor.bin", Row::Exact),
 ];
 
+/// Where the compiled `face.xml` comes from, which decides the face model's packed name.
+#[derive(Clone, Copy)]
+enum FaceXml {
+    /// The export holds none (the hand-made twin): the compiler generates it, per `FACE_XML`'s
+    /// generated column, and packs the face as `oral_face_high_win32.model`.
+    Generated,
+    /// The export keeps the member's (the upgraded golden): its entries are the reference's,
+    /// `FACE_XML`'s first column in the file's order, and the face is packed under the name it
+    /// lists, `face_high_win32.model`, as the reference packed it.
+    Kept,
+}
+
 /// How one entry of the reference's face CPK is compared.
 enum Nested {
     /// Tier 1: the same bytes under the name the compiler packs it as.
     Model(&'static str),
+    /// Tier 1: the face model, packed under the name `FaceXml` gives.
+    FaceModel,
     /// Tier 2: the same materials once each `./` texture path names the relocated directory
     /// (the reference copies the file, unwrapping a WESYS one; the compiler writes it back
     /// through `MaterialSet`, so the text layout may differ).
@@ -89,11 +107,8 @@ enum Nested {
 
 const NESTED: &[(&str, Nested)] = &[
     // The member's own `face.xml` named the boots and gloves by their packed names already;
-    // the face model's packed name gains the compiler's `oral_` prefix.
-    (
-        "face_high_win32.model",
-        Nested::Model("oral_face_high_win32.model"),
-    ),
+    // the face model's packed name is `FaceXml`'s.
+    ("face_high_win32.model", Nested::FaceModel),
     (
         "oral_boots_win32.model",
         Nested::Model("oral_boots_win32.model"),
@@ -253,9 +268,15 @@ fn compare_face_cpk(
     our_face: &[u8],
     reference_face: &[u8],
     ours: &BTreeMap<String, Vec<u8>>,
+    face_xml: FaceXml,
 ) -> Vec<String> {
     let our_entries = archive(our_face);
     let reference_entries = archive(reference_face);
+    // The face model packs under the member's own name when its `face.xml` is kept.
+    let face_model = match face_xml {
+        FaceXml::Generated => "oral_face_high_win32.model",
+        FaceXml::Kept => "face_high_win32.model",
+    };
     let mut accounted = Vec::new();
     let mut nested_accounted = Vec::new();
     for (name, row) in NESTED {
@@ -263,8 +284,13 @@ fn compare_face_cpk(
         let at = |our_name: &str| our_entries.get(&format!("{FACE_DIR}{our_name}"));
         let relocated = format!("common/character1/{RELOCATED}{name}");
         match row {
-            Nested::Model(our_name) => {
-                nested_accounted.push(*our_name);
+            Nested::Model(_) | Nested::FaceModel => {
+                let our_name = if let Nested::Model(our_name) = *row {
+                    our_name
+                } else {
+                    face_model
+                };
+                nested_accounted.push(our_name);
                 match at(our_name) {
                     None => failures.push(format!("{name}: no {our_name} in our face CPK")),
                     Some(ours) if ours != reference => {
@@ -290,7 +316,9 @@ fn compare_face_cpk(
                 nested_accounted.push(name);
                 match at(name) {
                     None => failures.push(format!("{name}: missing from our face CPK")),
-                    Some(ours) => compare_face_xml(failures, ours, reference, &our_entries),
+                    Some(ours) => {
+                        compare_face_xml(failures, ours, reference, &our_entries, face_xml)
+                    }
                 }
             }
             Nested::Texture | Nested::Encoded(_) => {
@@ -343,6 +371,7 @@ fn compare_face_xml(
     ours: &[u8],
     reference: &[u8],
     our_entries: &BTreeMap<String, Vec<u8>>,
+    source: FaceXml,
 ) {
     let (our_models, our_dif) = face_xml(ours);
     let (reference_models, reference_dif) = face_xml(reference);
@@ -358,11 +387,19 @@ fn compare_face_xml(
             "face.xml: the reference's entries are {reference_models:?}"
         ));
     }
-    let mut expected: Vec<_> = FACE_XML
-        .iter()
-        .map(|(_, generated)| owned(*generated))
-        .collect();
-    expected.sort_by(|a, b| a.1.cmp(&b.1));
+    // A kept file is the member's own, so the entries are the reference's in the
+    // file's order; a generated one has the generator's column, in model-name order.
+    let expected: Vec<_> = match source {
+        FaceXml::Kept => listed.clone(),
+        FaceXml::Generated => {
+            let mut generated: Vec<_> = FACE_XML
+                .iter()
+                .map(|(_, generated)| owned(*generated))
+                .collect();
+            generated.sort_by(|a, b| a.1.cmp(&b.1));
+            generated
+        }
+    };
     if our_models != expected {
         failures.push(format!(
             "tier2 face.xml: entries {our_models:?}, expected {expected:?}"
@@ -450,37 +487,12 @@ fn compare_uni_color(failures: &mut Vec<String>, ours: &[u8], reference: &[u8]) 
     }
 }
 
-#[test]
-fn the_pre_fox_tracer_matches_the_reference_tree() {
-    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer_prefox");
-    let sandbox = Sandbox::new("parity_prefox");
-    let output = sandbox.root.join("parity output");
-    let settings = format!(
-        "[common]\npes_version = 17\n[team-compiler]\noutput_folder_path = '{}'\n",
-        output.display()
-    );
-    let exports_root = fixture.join("studio");
-    // Nothing to install into: the reference is the CPK itself.
-    let run = sandbox.run(
-        &settings,
-        &["compile", "--no-deploy", exports_root.to_str().unwrap()],
-    );
-    assert_eq!(run.exit_code(), 0);
-    let warnings: Vec<_> = run
-        .events
-        .iter()
-        .filter_map(|envelope| match &envelope.event {
-            PipelineEvent::Message(message) if message.severity >= Severity::Warning => {
-                Some((message.code.code.to_string(), message.context.clone()))
-            }
-            _ => None,
-        })
-        .collect();
-    // The one warning Red gave too: Fumos's `face.mtl` names a texture the folder does not
-    // hold on a material its face binds, and the face played a cup as compiled, which is why
-    // `mtl_texture_not_found` is a Warning on pre-Fox (`messages.md`, the paragraph after
-    // "Texture existence is checked **deep**").
-    let fumos_texture = (
+/// The one warning Red gave too: Fumos's `face.mtl` names a texture the folder does not
+/// hold on a material its face binds, and the face played a cup as compiled, which is why
+/// `mtl_texture_not_found` is a Warning on pre-Fox (`messages.md`, the paragraph after
+/// "Texture existence is checked **deep**").
+fn fumos_texture() -> (String, Vec<(String, String)>) {
+    (
         "mtl_texture_not_found".to_owned(),
         vec![
             ("file".to_owned(), "face.mtl".to_owned()),
@@ -490,11 +502,43 @@ fn the_pre_fox_tracer_matches_the_reference_tree() {
             ),
             ("materials".to_owned(), "head_phong".to_owned()),
         ],
+    )
+}
+
+/// Compiles the one export under `exports_root` and compares the CPK with the
+/// reference tree: the expected warnings, one `OUTER` row per reference entry,
+/// `face_xml` saying where the compiled `face.xml` comes from.
+fn assert_matches_reference(
+    sandbox: &Sandbox,
+    exports_root: &Path,
+    face_xml: FaceXml,
+    warnings: &[(String, Vec<(String, String)>)],
+) {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer_prefox");
+    let output = sandbox.root.join("parity output");
+    let settings = format!(
+        "[common]\npes_version = 17\n[team-compiler]\noutput_folder_path = '{}'\n",
+        output.display()
     );
+    // Nothing to install into: the reference is the CPK itself.
+    let run = sandbox.run(
+        &settings,
+        &["compile", "--no-deploy", exports_root.to_str().unwrap()],
+    );
+    assert_eq!(run.exit_code(), 0);
+    let reported: Vec<_> = run
+        .events
+        .iter()
+        .filter_map(|envelope| match &envelope.event {
+            PipelineEvent::Message(message) if message.severity >= Severity::Warning => {
+                Some((message.code.code.to_string(), message.context.clone()))
+            }
+            _ => None,
+        })
+        .collect();
     assert_eq!(
-        warnings,
-        [fumos_texture],
-        "the pre-Fox tracer compiles with notes and Red's one warning"
+        reported, warnings,
+        "the pre-Fox tracer compiles with notes and its warnings"
     );
 
     let ours = archive(&fs::read(output.join("4cc_99_test.cpk")).unwrap());
@@ -520,6 +564,7 @@ fn the_pre_fox_tracer_matches_the_reference_tree() {
                 our_bytes,
                 reference_bytes,
                 &ours,
+                face_xml,
             )),
             Row::Texture => {
                 let (width, height, codec, payload) = dds_content(our_bytes);
@@ -554,4 +599,34 @@ fn the_pre_fox_tracer_matches_the_reference_tree() {
     }
 
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn the_pre_fox_tracer_matches_the_reference_tree() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer_prefox");
+    let sandbox = Sandbox::new("parity_prefox");
+    assert_matches_reference(
+        &sandbox,
+        &fixture.join("studio"),
+        FaceXml::Generated,
+        &[fumos_texture()],
+    );
+}
+
+#[test]
+fn the_upgraded_pre_fox_tracer_matches_the_reference_tree() {
+    let sandbox = Sandbox::new("parity_prefox_upgraded");
+    let exports_root = upgraded_as_midcup(&sandbox, "tracer_prefox");
+    // The member typed the boots `boots` (the fixture's README: "The member's `face.xml`
+    // types the boots `boots`"), and Red kept the file as it is too.
+    let boots_typed = (
+        "xml_type_unknown".to_owned(),
+        vec![("type".to_owned(), "boots".to_owned())],
+    );
+    assert_matches_reference(
+        &sandbox,
+        &exports_root,
+        FaceXml::Kept,
+        &[fumos_texture(), boots_typed],
+    );
 }

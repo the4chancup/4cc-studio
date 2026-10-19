@@ -1,10 +1,13 @@
 //! Parity against the compiled output for the same export: compile
-//! `fixtures/tracer/studio/egg Midcup Tracer` through the `compile` command and
-//! compare the CPK with the reference tree in `fixtures/tracer/red/`, one
-//! explicit row per reference entry under the tiers of
+//! `fixtures/tracer/studio/egg Midcup Tracer`, and the upgrader's output for
+//! `fixtures/tracer/old/egg Tracer` (`fixtures/tracer/upgraded/`, copied under
+//! the `Midcup` tag) through the `compile` command and compare the CPK with
+//! the reference tree in `fixtures/tracer/red/`, one explicit row per
+//! reference entry under the tiers of
 //! `docs/spec/team_compiler/testing.md` "Testing: parity against Red (adapted from Blue)".
 
 mod common;
+mod upgraded;
 
 use std::collections::BTreeMap;
 use std::collections::BTreeSet;
@@ -14,6 +17,7 @@ use std::path::Path;
 use common::Sandbox;
 use fpk::FpkFile;
 use studio_core::{PipelineEvent, Severity};
+use upgraded::upgraded_as_midcup;
 
 /// How one entry of the reference tree is compared.
 enum Row {
@@ -252,16 +256,15 @@ fn compare_fpk(
     }
 }
 
-#[test]
-fn the_tracer_bullet_matches_the_reference_tree() {
+/// Compiles the one export under `exports_root` and compares the CPK with the
+/// reference tree, one explicit row per reference entry.
+fn assert_matches_reference(sandbox: &Sandbox, exports_root: &Path) {
     let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer");
-    let sandbox = Sandbox::new("parity");
     let output = sandbox.root.join("parity output");
     let settings = format!(
         "[common]\npes_version = 21\n[team-compiler]\noutput_folder_path = '{}'\n",
         output.display()
     );
-    let exports_root = fixture.join("studio");
     // Nothing to install into: the reference is the CPK itself.
     let run = sandbox.run(
         &settings,
@@ -364,4 +367,18 @@ fn the_tracer_bullet_matches_the_reference_tree() {
     }
 
     assert!(failures.is_empty(), "{}", failures.join("\n"));
+}
+
+#[test]
+fn the_tracer_bullet_matches_the_reference_tree() {
+    let fixture = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/tracer");
+    let sandbox = Sandbox::new("parity");
+    assert_matches_reference(&sandbox, &fixture.join("studio"));
+}
+
+#[test]
+fn the_upgraded_tracer_matches_the_reference_tree() {
+    let sandbox = Sandbox::new("parity_upgraded");
+    let exports_root = upgraded_as_midcup(&sandbox, "tracer");
+    assert_matches_reference(&sandbox, &exports_root);
 }
