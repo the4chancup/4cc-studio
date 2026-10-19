@@ -934,7 +934,7 @@ mod tests {
             &unlimited(),
             PesVersion::Pes21,
             SourceFormat::Png,
-            "player_05.png",
+            "05.png",
             odd.clone(),
             &mut findings,
         )

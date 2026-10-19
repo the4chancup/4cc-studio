@@ -195,8 +195,9 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    Player entries past the ninth have no Studio slot either (Red wrote them as kits past 9) and
    are unmigrated content (step 10). A Kit Textures file inside a subfolder, which Red did not
    read (step 1's same-named subfolder aside), is a leftover, and so, in a `Full` export, is a
-   file naming a slot that no config and no Note entry of the export gives (a `u0XXXp5.dds`
-   beside configs and Note entries for kits 1 to 3): Red packed it, but no kit row named it. In
+   file naming a slot (`p1`-`p9`, `g1`; a `u0XXXg2` and up is a leftover in either kind) that
+   no config and no Note entry of the export gives (a `u0XXXp5.dds` beside configs and Note
+   entries for kits 1 to 3): Red packed it, but no kit row named it. In
    a `Midcup` export such a file is the kit's texture update and becomes its kit folder with no
    `config.toml`, which keeps the slot's installed config (`spec/team_compiler/pipeline.md`
    "Bins accumulation"); so does a slot whose Note entry has no config. A `Kit Configs` subfolder
@@ -299,12 +300,13 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    placeholder or a baked-in team ID as with the kit magic below: 2,248 of the 2,271 old
    portraits on the maintainer's machine; Red read NN as the two characters before `.dds`
    whatever stands between, so `player_736917.dds`, in four real `/o/` exports, is slot 17's); it is renamed `NN.dds`, a name the compiler
-   accepts (`portrait_name_invalid`: `NN`, alone or followed by ` - ` and the player's name, as a
-   player folder is named). Red also converted a portrait of another texture
-   format before placing it, so a `player_???NN` portrait in a format the compiler converts
-   (`png`, `jpg`, ...) migrates as well, renamed `NN` and keeping its format, which the
-   compiler's `Portraits/` takes as it takes any texture (BAG VGL18.5's `player_XXX08.jpg`,
-   packed by Red as `78808.dds`). Red's check refused, and discarded, a name not starting
+   accepts (`portrait_name_invalid`: `NN`, alone or followed by ` - ` and any text, as a
+   player folder is named). Red also packed a portrait of another texture format, renaming it
+   to the game's `.dds` name with its bytes unchanged (BAG VGL18.5's `player_XXX08.jpg`, packed
+   as `78808.dds`); a `player_???NN` portrait in a format the compiler converts (`png`, `jpg`,
+   ...) migrates as well, renamed `NN` and keeping its format, which the compiler's
+   `Portraits/` converts as it converts any texture: the portrait its author meant, now
+   readable by the game whether or not Red's rename was. Red's check refused, and discarded, a name not starting
    `player_` (in that letter case) or whose two characters before a three-letter extension
    are not a slot 01 to 23 (it reads `file_name[-6:-4]`; `XXX17.jpg`, `Vanilla vitamins.png`,
    `player_73906-.dds`, `Player_XXX05.dds`, `player_XXX05.jpeg`): such a portrait never
@@ -633,12 +635,14 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     portrait Red's check refused (step 7); the second color of a team-color entry holding two
     (Red kept the first); an item folder no save record names (VG Summer 20's misspelled
     second set `k2501`-`k2523`); a second or later goalkeeper kit (step 5: no version the cup
-    plays shows one); and two kinds of stray file in a model folder, which the compile would
-    otherwise refuse the whole folder for or misread: a file the shared `classify` reads as no
-    known kind and that is no `.txt` note (`face.mtl.backup`, `materials.mtl.bak`, M Winter 18
-    and two other exports; `file_type_disallowed`, an Error under the default
-    `strict_file_type_check`), and in a Fox boots or gloves folder an FMDL under no name the
-    game loads, Red's names being `boots`, `glove_l` and `glove_r`, each alone or after a
+    plays shows one); and two kinds of stray file, which the compile would otherwise refuse a
+    folder for or misread: a file the shared `classify` reads as no known kind and that is no
+    `.txt` note, wherever it sits in the old format's folders (a model folder, `Common/`,
+    `Collars/`, `Kit Configs/`, `Logo/`: `face.mtl.backup`, `materials.mtl.bak`, M Winter 18 and
+    two other exports; `file_type_disallowed` or `common_file_disallowed`, Errors under the
+    default `strict_file_type_check`; Red's `common_check` deleted such a file and went on, its
+    other checks discarded the folder), and in a Fox boots or gloves folder an FMDL under no
+    name the game loads, Red's names being `boots`, `glove_l` and `glove_r`, each alone or after a
     prefix and `_` (`boots - Copy.fmdl` beside `boots.fmdl`), which in the wearer's player
     folder would be merged into his hair (`fmdl_fcl_hair_fallback`). Red discards the whole
     folder over such a file ("is not allowed", "is not a valid fmdl name for fox mode"); we
@@ -654,8 +658,11 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     two old `Portraits/` files of one slot), Red's pick being a refusal or arbitrary, and a
     whole model folder under a name Red refused (a face folder without a valid slot, a `K0430`
     folder), which would drop a player's face over a typo. A single file under a name Red's
-    checks refused is a leftover (a portrait, a kit texture); a team color's second color is
-    no such choice, Red always keeping the first. We do not refuse a run over a leftover,
+    per-file name checks refused (`portraits_check`, `kittextures_check`) is a leftover; a
+    model folder's file of a known kind under a name the format refuses (a `face_edithair.xml`,
+    a model's name) is not, the author's content in the wrong form, which the output's check or
+    the compile names. A team color's second color is no such choice, Red always keeping the
+    first. We do not refuse a run over a leftover,
     because the game never showed it, so the Studio export is complete without it and the
     Warning tells the author what was left behind; we do refuse one over an unmigrated entry,
     because the compile would miss what the old export compiled.
@@ -941,15 +948,17 @@ validation's findings on what was written.
 | `export_extract_failed` | E | the archive does not open or its listing is refused (the compiler's code); nothing is written | `path`, `error` |
 | `source_read_failed` | E | a file of the input does not read after its listing did (the compiler's code); it is not migrated and the run goes on, unless it is the Note, which decides the team: then nothing is written | `path`, `error` |
 | `team_name_unknown` | E | the team resolves to no row of the list (the compiler's code), the `Team:` line's file or the export named; nothing is written | `name` |
-| `unmigrated_content` | E | an entry inside the old format's folders that no step migrates (step 10; a leftover outside them is `leftover_dropped`), entry by entry; a Note entry whose colors do not read is one, its line in the context, and so is a kit config that does not decode (step 5), its error in the context | `line` (a Note entry), `error` (a kit config) |
+| `unmigrated_content` | E | an entry inside the old format's folders that reached the game and that no step migrates, or that step 10's boundary keeps an Error (two candidates for one place, a misnamed whole folder), entry by entry; a Note entry whose colors do not read is one, its line in the context, and so is a kit config that does not decode (step 5), its error in the context | `line` (a Note entry), `error` (a kit config) |
 | `migration_clean` | I | last line: no Error finding, and no finding drops anything but a leftover ("Verification"'s clean migrated export); exit 0 | — |
-| `migration_not_clean` | I | last line otherwise: nothing is written ("Verification"); exit 1, a Warning that drops a folder included, since the compile would lose it | — |
-| `leftover_dropped` | W | step 10: content outside the old format's layout, not written; the run stays clean | — |
+| `migration_not_clean` | I | last line otherwise: nothing is written ("Verification"); exit 1 after any finding that drops anything but a leftover | — |
+| `leftover_dropped` | W | step 10: content that never reached a player in game, outside the old format's layout or inside it (a refused portrait, a stray file, a second goalkeeper kit, ...), not written; a Note entry's dropped part names its line; the run stays clean | `line` (a Note entry) |
 | `mtl_stray_text_dropped` | I | step 7: an old `.mtl` held text between its elements, dropped as the file is written back | — |
 
 The shared validation's codes (`aesthetics_export::ISSUE_CODES`) keep the Team compiler's
 severity (`spec/team_compiler/messages.md` "Catalog"), each run-dependent one taken as for a
-compile that deploys with pass-through and the strict file-type check off, and an `E/F` one as
+compile that deploys with pass-through and the strict file-type check on (the output's check
+runs with it, "Verification", so `file_type_disallowed` and `common_file_disallowed` are
+Errors), and an `E/F` one as
 an Error, since the run it would abort is the upgrade of this one export, already written: the
 output is judged as its first compile will judge it.
 
@@ -987,7 +996,8 @@ refused the player's folder (6.12c: the nested `face.xml` of step 3's game-path 
 on, the run is not clean and the file is named. Shared validation may produce a sanitized `ValidatedAestheticsExport` with ineligible
 files/folders omitted, but the upgrader applies a stricter publication rule: **it writes its
 output only when the migration is clean**, no Error finding and no finding that drops anything
-but a leftover (step 10's `leftover_dropped` Warnings, content outside the old format).
+but a leftover (step 10's `leftover_dropped` Warnings, content that never reached a player in
+game).
 Otherwise nothing is written and the report is the run's whole result: either the input is not
 a clean old export and is fixed first, or the upgrader failed to migrate a clean one and is
 fixed. We do not write a draft for manual repair, because every Studio export is upgraded once,
@@ -1124,10 +1134,12 @@ EU-PLY-09  GIVEN slot 05's face folder and his alone-worn boots folder "k0430 - 
                 own skin.dds, the kept link is reported; slot 06's folder holds boots.fmdl and
                 one skin.dds
 EU-PLY-10  GIVEN the face folders "XXX23 - Bahsaka" and "XXX23 - Smug Redman", and the boots
-                folders "k0430 - A" and "k0430 - B", 430 worn by slot 23 alone
+                folders "k0430 - A" and "k0430 - B", 430 worn by slot 23 alone; and the face
+                folder "XXX24 - Ann" and the boots folder "K0431 - Rex"
            WHEN the export is upgraded
-           THEN "XXX23 - Smug Redman" and "k0430 - B", the second of each by name, are reported
-                as unmigrated content, nothing is written, and the exit code is 1
+           THEN "XXX23 - Smug Redman" and "k0430 - B", the second of each by name, and
+                "XXX24 - Ann" and "K0431 - Rex", whose names Red refused, are reported as
+                unmigrated content, nothing is written, and the exit code is 1
 EU-PLY-02  GIVEN no face folder for slot 05, whose save record wears custom boots 430, and the
                 boots folder "k0430 - Crocs" no other player wears
            WHEN the export is upgraded
@@ -1171,7 +1183,7 @@ EU-PLY-13  GIVEN a Fox face folder "XXX05 - Bob" holding fcl_hair.fmdl and fcl_h
 EU-PLY-15  GIVEN the files Faces/71406 - Civic cool.7z, Boots/boots.fmdl and
                 Gloves/glove_l.fmdl, directly in those folders
            WHEN the export is upgraded
-           THEN leftover_dropped is reported for each, the output holds neither, and the exit
+           THEN leftover_dropped is reported for each, the output holds none, and the exit
                 code is 0
 EU-PLY-16  GIVEN the empty face folder "XXX05 - Bob", slot 05 wearing custom boots 430 from
                 "k0430 - FBM", which no other player wears, and the empty face folder
@@ -1311,11 +1323,12 @@ EU-KIT-18  GIVEN Kit Textures holding u0XXXp2.dds and u0XXXp2.ftex beside
            THEN u0XXXp2.ftex is reported as unmigrated content, nothing is written, and the exit
                 code is 1
 EU-KIT-19  GIVEN the old export "co Midcup Day 5" with Kit Configs XXX_DEF_1st_realUni.bin, a
-                Note with one player kit entry, and Kit Textures u0XXXp1.dds, u0XXXp3.dds and
-                u0XXXp3_back.dds
+                Note with one player kit entry, and Kit Textures u0XXXp1.dds, u0XXXp3.dds,
+                u0XXXp3_back.dds, u0XXXg2.dds and back.dds
            WHEN it is upgraded
            THEN Kits/p3/ holds kit.dds and kit_back.dds and neither config.toml nor colors.txt,
-                no finding names p3 or its textures, and the exit code is 0
+                no finding names p3 or its textures, leftover_dropped is reported for
+                u0XXXg2.dds and back.dds, the output holds no Kits/g2/, and the exit code is 0
 ```
 
 **Portraits, logo, models and Common**
@@ -1327,11 +1340,15 @@ EU-MDL-01  GIVEN Portraits/player_XXX05.dds, player_71407.dds and player_09.dds,
            THEN Portraits/ holds 05.dds, 07.dds and 09.dds, and Collars/ holds the old folder's
                 files
 EU-MDL-19  GIVEN Portraits/player_XXX08.jpg and XXX17.png (BAG VGL18.5's shapes),
-                player_XXX24.dds, "Vanilla vitamins.png", Player_XXX05.dds and
-                player_XXX06.jpeg
+                player_XXX24.dds, "Vanilla vitamins.png", Player_XXX05.dds,
+                player_XXX06.jpeg and sub/player_XXX07.dds
            WHEN the export is upgraded
            THEN Portraits/ holds 08.jpg with that file's bytes and nothing else,
-                leftover_dropped is reported for each of the other five, and the exit code is 0
+                leftover_dropped is reported for each of the other six, and the exit code is 0
+EU-MDL-20  GIVEN Portraits/player_71405.dds and player_XXX05.dds, of different bytes
+           WHEN the export is upgraded
+           THEN player_XXX05.dds, the second by name, is the only file reported as
+                unmigrated content, nothing is written, and the exit code is 1
 EU-MDL-02  GIVEN the Logo folder of /omg/'s VGL26 export, whose _r is a downscale of its _r_ll
                 with 30 % of pixels differing
            WHEN the export is upgraded

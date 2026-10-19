@@ -5,6 +5,8 @@ mod file_types;
 mod kit_token;
 mod player_folder;
 
+use crate::slots::PlayerSlot;
+
 pub use file_types::{
     FileKind, Marker, MetadataFile, ModelFormat, SharedKind, classify, common_link_name,
     common_link_target, is_txt_note,
@@ -88,6 +90,20 @@ pub(crate) fn split_folder_name(name: &str) -> (&str, Option<&str>) {
         }
         None => (name.trim(), None),
     }
+}
+
+/// The slot a player folder's or portrait's name claims ("Validation
+/// semantics" → "Folder names" and the `Portraits/` row): the
+/// `split_folder_name` head all ASCII digits making a `PlayerSlot` (`05`,
+/// `05 - Bob` and `05-Bob` alike read as slot 05; `081` is no slot 08,
+/// `player_05` no slot at all).
+pub(crate) fn folder_slot(name: &str) -> Option<PlayerSlot> {
+    let (head, _) = split_folder_name(name);
+    head.bytes()
+        .all(|byte| byte.is_ascii_digit())
+        .then(|| head.parse::<u8>().ok())
+        .flatten()
+        .and_then(PlayerSlot::new)
 }
 
 /// The name a numbered player folder's `name = true` writes ("Validation

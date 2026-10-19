@@ -2558,7 +2558,7 @@ mod tests {
                 ("logo.png", b"not an image".to_vec()),
                 ("Kits/p1/kit_back.png", texture("tiny.png")),
                 ("Kits/p1/kit.png", texture("kit.png")),
-                ("Portraits/player_07.png", texture("tiny.png")),
+                ("Portraits/07.png", texture("tiny.png")),
                 ("Common/hair.png", texture("tiny.png")),
                 ("Players/05 - B/portrait.png", texture("tiny.png")),
                 ("Players/03 - A/portrait.png", texture("tiny.png")),
@@ -2577,7 +2577,7 @@ mod tests {
                 ("texture_too_small", "portrait.png"),
                 ("texture_too_small", "portrait.png"),
                 ("texture_too_small", "hair.png"),
-                ("texture_too_small", "player_07.png"),
+                ("texture_too_small", "07.png"),
                 ("texture_too_small", "kit_back.png"),
                 ("logo_file_invalid", "logo.png"),
             ]

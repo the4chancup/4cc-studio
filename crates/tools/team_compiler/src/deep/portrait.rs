@@ -103,15 +103,15 @@ mod tests {
             findings_for(
                 version,
                 temp.path(),
-                &[("Portraits/player_05.png", texture("odd.png"))],
+                &[("Portraits/05.png", texture("odd.png"))],
                 &[],
                 &[],
             )
         };
         let expected = [texture_finding_on(
             "texture_not_pow2",
-            &IssueScope::File(path("Portraits/player_05.png")),
-            "player_05.png",
+            &IssueScope::File(path("Portraits/05.png")),
+            "05.png",
             Disposition::DropFile,
             true,
         )];
@@ -119,17 +119,13 @@ mod tests {
         assert_eq!(odd(PesVersion::Pes17), expected, "PES 17");
         // A single-level DDS of that size, which passes anywhere else on Fox.
         let temp = scratch("deep_portrait_odd_dds");
-        let findings = findings_of(
-            temp.path(),
-            &[("Portraits/player_05.dds", bc1_dds(300, 300))],
-            &[],
-        );
+        let findings = findings_of(temp.path(), &[("Portraits/05.dds", bc1_dds(300, 300))], &[]);
         assert_eq!(
             findings,
             [texture_finding_on(
                 "texture_not_pow2",
-                &IssueScope::File(path("Portraits/player_05.dds")),
-                "player_05.dds",
+                &IssueScope::File(path("Portraits/05.dds")),
+                "05.dds",
                 Disposition::DropFile,
                 true,
             )]
@@ -162,15 +158,15 @@ mod tests {
         // 300x300 PNG bytes, which would be `texture_not_pow2` were their header read.
         let findings = findings_of(
             temp.path(),
-            &[("Portraits/player_05.dds", texture("odd.png"))],
+            &[("Portraits/05.dds", texture("odd.png"))],
             &[],
         );
         assert_eq!(
             findings,
             [texture_finding_on(
                 "texture_type_mismatch",
-                &IssueScope::File(path("Portraits/player_05.dds")),
-                "player_05.dds",
+                &IssueScope::File(path("Portraits/05.dds")),
+                "05.dds",
                 Disposition::DropFile,
                 false,
             )]
@@ -199,7 +195,7 @@ mod tests {
             temp.path(),
             &[
                 ("Players/05 - A/portrait.dds", bc1_dds(64, 64)),
-                ("Portraits/player_05.dds", bc1_dds(128, 128)),
+                ("Portraits/05.dds", bc1_dds(128, 128)),
             ],
             &[],
         );
@@ -207,7 +203,7 @@ mod tests {
             findings,
             [portrait_conflict(
                 "Players/05 - A/portrait.dds",
-                "Portraits/player_05.dds"
+                "Portraits/05.dds"
             )]
         );
         let temp = scratch("deep_portrait_identical");
@@ -215,7 +211,7 @@ mod tests {
             temp.path(),
             &[
                 ("Players/05 - A/portrait.dds", bc1_dds(64, 64)),
-                ("Portraits/player_05.dds", bc1_dds(64, 64)),
+                ("Portraits/05.dds", bc1_dds(64, 64)),
             ],
             &[],
         );
@@ -226,7 +222,7 @@ mod tests {
             temp.path(),
             &[
                 ("Players/05 - A/portrait.dds", bc1_dds(64, 64)),
-                ("Portraits/player_07.dds", bc1_dds(128, 128)),
+                ("Portraits/07.dds", bc1_dds(128, 128)),
             ],
             &[],
         );
@@ -237,7 +233,7 @@ mod tests {
             temp.path(),
             &[
                 ("Players/05 - A/portrait.png", texture("tiny.png")),
-                ("Portraits/player_05.png", texture("portrait.png")),
+                ("Portraits/05.png", texture("portrait.png")),
             ],
             &[],
         );
@@ -251,7 +247,7 @@ mod tests {
                     Disposition::DropFile,
                     true,
                 ),
-                portrait_conflict("Players/05 - A/portrait.png", "Portraits/player_05.png"),
+                portrait_conflict("Players/05 - A/portrait.png", "Portraits/05.png"),
             ]
         );
     }

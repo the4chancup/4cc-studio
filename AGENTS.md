@@ -174,7 +174,11 @@ file, acceptance IDs), never a summary of your own. Its brief asks for every con
 reachability (what real files and the crate's own operations reach first; a hand-built input
 ranks low unless it panics, hangs or writes a wrong file without an error), and for
 over-engineering, and never names a number of concerns. The lead answers every concern in its
-turn report: accepted, with what changed, or rejected, with one line why. Another round runs only
+turn report: accepted, with what changed, or rejected, with one line why. **True is not enough
+to accept**: each acceptance names its reach, (a) a real export whose outcome it changes, (b) a
+contradiction with the code, another rule or a scenario, (c) a THEN that cannot be observed, or
+(d) a wrong fact; a concern with none is rejected however true it is, and a nit fixed in passing
+does not count toward the five. Another round runs only
 when at least five of the last round's concerns were accepted; each round is a fresh reviewer,
 never a resumed one; past the fifth round on one surface the lead reports the counts and classes
 to the maintainer and continues. A review stopped for quota is queued in the worklog's "Handover
@@ -229,9 +233,9 @@ your question may already be listed, with the phase in which it gets resolved.
   with an Error, or a finding that drops what the old export compiled, leaves only its report,
   and the fix is to the input (not a clean old export) or to the upgrader (it failed to
   migrate one). Never a half-migrated output. A leftover, content that never reached a player
-  in game (a side folder of copies, a stray root file, a portrait or kit texture Red's checks
-  deleted, a backup file in a face folder), is dropped with a Warning naming it, and the run
-  stays clean. A quirk Red tolerated in old files (stray text in an `.mtl`) is cleaned
+  in game (a side folder of copies, a stray root file, a portrait or kit texture Red's
+  pipeline never packed, a backup file in a face folder), is dropped with a Warning naming it,
+  and the run stays clean. A quirk Red tolerated in old files (stray text in an `.mtl`) is cleaned
   by the upgrader, through a tolerant read only it uses, rather than tolerated by the compiler
   or a format crate's default reader: every Studio export passes through the upgrader once, so
   the quirk never reaches the compiler, which refuses it loudly when a member types it by hand.

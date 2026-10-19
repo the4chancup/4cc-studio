@@ -1483,7 +1483,7 @@ fn a_refs_export_s_kits_logo_portraits_and_collars_are_not_read() {
     sandbox.write(&format!("{REFS}/Kits/p1/config.toml"), b"not toml");
     sandbox.write(&format!("{REFS}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(&format!("{REFS}/logo.png"), b"junk");
-    sandbox.write(&format!("{REFS}/Portraits/player_01.dds"), b"junk");
+    sandbox.write(&format!("{REFS}/Portraits/01.dds"), b"junk");
     sandbox.write(&format!("{REFS}/Players/Ref A/portrait.dds"), b"junk");
     sandbox.write(&format!("{REFS}/Collars/collar_12.fmdl"), b"junk");
 
@@ -1499,7 +1499,7 @@ fn a_refs_export_s_kits_logo_portraits_and_collars_are_not_read() {
             "Warning file_not_used [Keep] (file=Kits/p1)",
             "Warning file_not_used [Keep] (file=logo.png)",
             "Warning file_not_used [Keep] (file=Players/Ref A/portrait.dds)",
-            "Warning file_not_used [Keep] (file=Portraits/player_01.dds)",
+            "Warning file_not_used [Keep] (file=Portraits/01.dds)",
             "Warning file_not_used [Keep] (file=Collars/collar_12.fmdl)",
         ],
         "{lines:#?}"

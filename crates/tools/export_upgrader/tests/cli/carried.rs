@@ -41,9 +41,9 @@ fn portraits_renamed_and_collars_carried() {
     let run = upgrade(&sandbox, "co Kits", "EDIT");
     assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     for (to, bytes) in [
-        ("player_05.dds", b"p05" as &[u8]),
-        ("player_07.dds", b"p07"),
-        ("player_09.dds", b"p09"),
+        ("05.dds", b"p05" as &[u8]),
+        ("07.dds", b"p07"),
+        ("09.dds", b"p09"),
     ] {
         assert_eq!(
             fs::read(sandbox.path(&format!("co Full Kits/Portraits/{to}"))).unwrap(),
@@ -64,29 +64,60 @@ fn portraits_renamed_and_collars_carried() {
 
 // EU-MDL-19
 #[test]
-fn converted_and_short_named_portraits_migrate() {
-    let sandbox = Sandbox::new("mdl_portraits_converted");
-    // BAG VGL18.5's two shapes: a `player_` name converted from JPEG and
-    // the five-character name without the prefix.
+fn only_a_portrait_the_old_check_passed_migrates_the_refused_are_leftovers() {
+    let sandbox = Sandbox::new("mdl_portraits_leftovers");
+    // BAG VGL18.5's `player_XXX08.jpg` migrated; the five other names the
+    // old check refused never reached the game.
+    let refused = [
+        "XXX17.png",
+        "player_XXX24.dds",
+        "Vanilla vitamins.png",
+        "Player_XXX05.dds",
+        "player_XXX06.jpeg",
+    ];
     sandbox.write("co Kits/Portraits/player_XXX08.jpg", b"portrait jpg");
-    sandbox.write("co Kits/Portraits/XXX17.png", b"portrait png");
+    for name in refused {
+        sandbox.write(&format!("co Kits/Portraits/{name}"), b"leftover");
+    }
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert_eq!(sandbox.listing("co Full Kits/Portraits"), ["08.jpg"]);
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Portraits/08.jpg")).unwrap(),
+        b"portrait jpg"
+    );
+    let stdout = run.stdout();
+    for name in refused {
+        assert!(
+            stdout.contains(&format!("leftover_dropped at Portraits/{name}")),
+            "{name}: {stdout}"
+        );
+    }
+    assert!(!stdout.contains("unmigrated_content"), "{stdout}");
+}
+
+// EU-MDL-19
+#[test]
+fn a_file_in_a_portraits_subfolder_is_a_leftover() {
+    let sandbox = Sandbox::new("mdl_portraits_subfolder");
+    sandbox.write("co Kits/Portraits/player_XXX05.dds", b"portrait");
+    sandbox.write("co Kits/Portraits/sub/player_XXX07.dds", b"subfolder");
     sandbox.save("EDIT");
 
     let run = upgrade(&sandbox, "co Kits", "EDIT");
     assert_eq!(run.exit_code(), 0, "{}", run.stdout());
     assert_eq!(
-        fs::read(sandbox.path("co Full Kits/Portraits/player_08.jpg")).unwrap(),
-        b"portrait jpg"
+        fs::read(sandbox.path("co Full Kits/Portraits/05.dds")).unwrap(),
+        b"portrait"
     );
-    assert_eq!(
-        fs::read(sandbox.path("co Full Kits/Portraits/player_17.png")).unwrap(),
-        b"portrait png"
-    );
+    let stdout = run.stdout();
     assert!(
-        !run.stdout().contains("unmigrated_content"),
-        "{}",
-        run.stdout()
+        stdout.contains("leftover_dropped at Portraits/sub/player_XXX07.dds"),
+        "{stdout}"
     );
+    assert!(!stdout.contains("unmigrated_content"), "{stdout}");
 }
 
 // EU-MDL-02
@@ -685,20 +716,20 @@ fn an_mtl_that_does_not_parse_is_unmigrated_content() {
 
 // EU-REP-02
 #[test]
-fn a_portrait_named_for_a_slot_past_23_is_flagged() {
-    let sandbox = Sandbox::new("rep_portrait_24");
-    sandbox.write("co Kits/Portraits/player_XXX24.dds", b"portrait");
+fn a_face_xml_in_a_subfolder_fails_the_strict_output_check() {
+    let sandbox = Sandbox::new("rep_face_xml_subfolder");
+    sandbox.write("co Spring/Faces/XXX05 - Bob/alt/face.xml", b"<config/>");
     sandbox.save("EDIT");
 
-    let run = upgrade(&sandbox, "co Kits", "EDIT");
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
     let stdout = run.stdout();
     assert!(
-        stdout.contains("portrait_name_invalid at Portraits/player_24.dds"),
+        stdout.contains("file_type_disallowed at Players/05 - Bob (file=alt/face.xml)"),
         "{stdout}"
     );
     assert!(stdout.contains("migration_not_clean"), "{stdout}");
-    sandbox.assert_nothing_written("co Full Kits", &stdout);
+    sandbox.assert_nothing_written("co Full Spring", &stdout);
 }
 
 // EU-MDL-11

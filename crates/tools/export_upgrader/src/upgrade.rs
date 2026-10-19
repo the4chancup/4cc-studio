@@ -693,8 +693,10 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     }
 
     // Step 10: every input file no step consumed is unmigrated content — or
-    // a leftover, content outside the old format's layout, dropped with a
-    // Warning that keeps the run clean (`is_leftover`).
+    // a leftover, content outside the old format's layout (`is_leftover`)
+    // or what a step recognized as never having reached the game (the
+    // steps' `leftovers` sets), dropped with a Warning that keeps the run
+    // clean.
     for file in &export.files {
         // A team export's Note is consumed (the root files above); a referee
         // export's is a leftover (step 9), as `is_leftover` reads it.
@@ -707,7 +709,9 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         {
             continue;
         }
-        let code = if is_leftover(file, invocation.referees, referees_at_root) {
+        let code = if is_leftover(file, invocation.referees, referees_at_root)
+            || carried.leftovers.contains(file)
+        {
             Code::LeftoverDropped
         } else {
             any_unmigrated = true;
@@ -977,7 +981,12 @@ pub(crate) fn output_issues(
     };
     let context = ValidationContext {
         version,
-        strict_file_type_check: false,
+        // On, as the compiler's default has it: a file type no step
+        // expected stops the run rather than being written, the output the
+        // clean export a clean run promises ("Verification"; DECISIONS
+        // 2026-10-19 "the output's validation runs with the strict
+        // file-type check").
+        strict_file_type_check: true,
         pass_through: false,
         installed_common_textures: BTreeSet::new(),
     };
@@ -1214,10 +1223,11 @@ mod tests {
     }
 
     #[test]
-    fn a_disallowed_file_type_is_kept_by_the_output_validation() {
-        // The output's check runs without the strict file-type check: a
-        // disallowed file is noted, not dropped ("Verification": the
-        // compiler's setting is on, this one's off).
+    fn a_disallowed_file_type_drops_its_folder_in_the_output_validation() {
+        // The output's check runs with the strict file-type check on, as the
+        // compiler's default has it: a disallowed file refuses the folder and
+        // stops the run ("Verification"; DECISIONS 2026-10-19 "the output's
+        // validation runs with the strict file-type check").
         let output = scratch("output_issues_strict");
         fs::create_dir_all(output.join("Players/03 - A")).unwrap();
         fs::write(output.join("Players/03 - A/readme.doc"), b"x").unwrap();
@@ -1234,7 +1244,10 @@ mod tests {
             .iter()
             .find(|issue| issue.code == "file_type_disallowed")
             .expect("file_type_disallowed expected");
-        assert_eq!(issue.disposition, aesthetics_export::Disposition::Keep);
+        assert_eq!(
+            issue.disposition,
+            aesthetics_export::Disposition::DropFolder
+        );
         assert!(!issue.passed_through);
     }
 

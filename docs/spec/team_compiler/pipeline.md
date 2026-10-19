@@ -201,7 +201,7 @@ format:
      both → `kit_layout_conflict`, kit discarded); textures named with the `kit` prefix
      (`kit.dds`, `kit_mask.dds`, `kit_chest.dds`, …); supplied configs' FPC fields are checked
      against the team's FPC status (reconciled at compile time — see "FPC toggle" in the [Aesthetics export plan](../aesthetics_export/fpc_toggle.md)).
-   - **Portraits/Logo/Common/Collars**: portrait naming (`player_NN.dds`, NN in 01–23), root logo
+   - **Portraits/Logo/Common/Collars**: portrait naming (`NN.*`, NN in 01–23, as a player folder is numbered), root logo
      files (stem grammar `logo[_small][_<fit>]`, one file per role, main present whenever
      `_small` is, format in the raster allowlist — see "Root files" in the [Aesthetics export
      plan](../aesthetics_export/README.md); decodability is checked in the deep pass), texture integrity

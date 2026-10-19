@@ -87,7 +87,7 @@ fn an_old_layout_export_is_export_layout_old_alone() {
                 ("Faces/01 - A/face.model", 10),
                 (&format!("{kit_configs}/co_DEF_1st_realUni.bin"), 10),
                 ("Kit Textures/u0714p1.dds", 10),
-                ("Portraits/player_01.dds", 10),
+                ("Portraits/01.dds", 10),
             ],
             &[],
             &[],
@@ -3074,10 +3074,7 @@ fn logo_files_get_one_of_each_role() {
 fn a_bad_portrait_name_drops_only_that_file() {
     let report = report(
         "egg Midcup",
-        &[
-            ("Portraits/player_24.dds", 9),
-            ("Portraits/player_03.dds", 9),
-        ],
+        &[("Portraits/24.dds", 9), ("Portraits/03.dds", 9)],
         &[],
         &[],
     );
@@ -3085,10 +3082,7 @@ fn a_bad_portrait_name_drops_only_that_file() {
         issue_codes(&report),
         vec![("portrait_name_invalid", Disposition::DropFile)]
     );
-    assert_eq!(
-        report.issues[0].scope,
-        file_scope("Portraits/player_24.dds")
-    );
+    assert_eq!(report.issues[0].scope, file_scope("Portraits/24.dds"));
     assert_eq!(
         report
             .validated
@@ -3175,31 +3169,77 @@ fn an_all_folder_beside_only_invalid_kits_is_unused() {
 
 #[test]
 fn two_portraits_of_one_slot_conflict_each() {
-    let report = report(
-        "egg Midcup",
-        &[
-            ("Portraits/player_03.dds", 9),
-            ("Portraits/player_03.png", 9),
-        ],
-        &[],
-        &[],
-    );
-    assert_eq!(
-        issue_codes(&report),
-        vec![
-            ("texture_stem_conflict", Disposition::DropFile),
-            ("texture_stem_conflict", Disposition::DropFile),
-        ]
-    );
-    assert_eq!(
-        report.issues[0].scope,
-        file_scope("Portraits/player_03.dds")
-    );
-    assert_eq!(
-        report.issues[1].scope,
-        file_scope("Portraits/player_03.png")
-    );
-    assert!(report.validated.unwrap().portraits.is_empty());
+    for (files, slot) in [
+        (&["Portraits/03.dds", "Portraits/03.png"][..], "03"),
+        (&["Portraits/05 - Bob.png", "Portraits/05.dds"][..], "05"),
+    ] {
+        let report = report(
+            "egg Midcup",
+            &files
+                .iter()
+                .map(|file| (*file, 9))
+                .collect::<Vec<(&str, u64)>>(),
+            &[],
+            &[],
+        );
+        assert_eq!(
+            issue_codes(&report),
+            vec![
+                ("texture_stem_conflict", Disposition::DropFile),
+                ("texture_stem_conflict", Disposition::DropFile),
+            ],
+            "{files:?}"
+        );
+        assert_eq!(report.issues[0].scope, file_scope(files[0]), "{files:?}");
+        assert_eq!(report.issues[1].scope, file_scope(files[1]), "{files:?}");
+        for issue in &report.issues {
+            assert_eq!(issue.context[0], ("stem", slot.to_owned()), "{files:?}");
+        }
+        assert!(report.validated.unwrap().portraits.is_empty());
+    }
+}
+
+#[test]
+fn a_portrait_is_named_by_its_slot_as_a_player_folder_is() {
+    for name in [
+        "Portraits/05.dds",
+        "Portraits/05 - Bob.png",
+        "Portraits/05-Bob.png",
+    ] {
+        let report = report("egg Midcup", &[(name, 9)], &[], &[]);
+        assert_eq!(issue_codes(&report), vec![], "{name}");
+        assert_eq!(
+            report
+                .validated
+                .unwrap()
+                .portraits
+                .keys()
+                .map(|slot| slot.get())
+                .collect::<Vec<_>>(),
+            vec![5],
+            "{name}"
+        );
+    }
+}
+
+#[test]
+fn a_portrait_name_the_slot_rule_refuses_is_invalid() {
+    for name in [
+        "Portraits/player_05.dds",
+        "Portraits/24.dds",
+        "Portraits/081.dds",
+        "Portraits/ab.dds",
+        "Portraits/sub/05.dds",
+    ] {
+        let report = report("egg Midcup", &[(name, 9)], &[], &[]);
+        assert_eq!(
+            issue_codes(&report),
+            vec![("portrait_name_invalid", Disposition::DropFile)],
+            "{name}"
+        );
+        assert_eq!(report.issues[0].scope, file_scope(name), "{name}");
+        assert!(report.validated.unwrap().portraits.is_empty(), "{name}");
+    }
 }
 
 #[test]
@@ -3322,13 +3362,21 @@ fn layout_markers_pick_the_kit_layout() {
 }
 
 #[test]
-fn a_portrait_number_must_be_exactly_two_digits() {
-    let report = report("egg Midcup", &[("Portraits/player_003.dds", 9)], &[], &[]);
+fn a_portrait_number_past_two_digits_reads_its_slot() {
+    // The folder rule reads the head's whole number: `003` is slot 03 as a
+    // player folder `003` is, `081` (no slot 81) is refused.
+    let report = report("egg Midcup", &[("Portraits/003.dds", 9)], &[], &[]);
+    assert_eq!(issue_codes(&report), vec![]);
     assert_eq!(
-        issue_codes(&report),
-        vec![("portrait_name_invalid", Disposition::DropFile)]
+        report
+            .validated
+            .unwrap()
+            .portraits
+            .keys()
+            .map(|slot| slot.get())
+            .collect::<Vec<_>>(),
+        vec![3]
     );
-    assert!(report.validated.unwrap().portraits.is_empty());
 }
 
 #[test]
@@ -4541,13 +4589,13 @@ fn a_content_finding_dropping_a_portrait_or_collar_file_takes_only_that_file_off
     let report = with_findings(
         &[
             ("Players/03 - A/boots.fmdl", 10),
-            ("Portraits/player_03.dds", 9),
-            ("Portraits/player_05.dds", 9),
+            ("Portraits/03.dds", 9),
+            ("Portraits/05.dds", 9),
             ("Collars/collar_101.fmdl", 10),
             ("Collars/collar_102.fmdl", 10),
         ],
         vec![
-            far_vertex(file_scope("Portraits/player_03.dds"), Disposition::DropFile),
+            far_vertex(file_scope("Portraits/03.dds"), Disposition::DropFile),
             far_vertex(file_scope("Collars/collar_101.fmdl"), Disposition::DropFile),
         ],
     );
@@ -4558,7 +4606,7 @@ fn a_content_finding_dropping_a_portrait_or_collar_file_takes_only_that_file_off
             .iter()
             .map(|(slot, file)| (slot.get(), file.path.as_str()))
             .collect::<Vec<_>>(),
-        vec![(5, "Portraits/player_05.dds")]
+        vec![(5, "Portraits/05.dds")]
     );
     assert_eq!(
         validated

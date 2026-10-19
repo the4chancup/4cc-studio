@@ -18,6 +18,20 @@ depends on the Blender `pes-models` codec outside this workspace. Phase numbers 
 every pointer names them. Releases stay `0.x` until Phase 16 closes with **1.0.0**; "first
 release" in the plans means 1.0.0, so a "first-release" feature may land after 0.1.0.
 
+**Divegrass Before Christmas (DBC).** The invitational (exports due 2026-11-18) is the first
+test ground for the Save editor and the Ruleset editor, which members should have as early as
+the usual rigor allows, to get used to them before the deadline. So after Phase 6 closes the
+work runs: the DBC ruleset's coverage (worklog 20.0d), Phase 8's usability pass (8.4) and its
+shell, the Save editor's draft and view first among Phase 8's tool views, then Phase 20 (the
+Ruleset editor) pulled forward to follow it, then Phase 8's other views and Release 0.1.0 as
+above. Members get the two editors as a **preview build, 0.0.1**, cut once the Ruleset editor's
+phase closes: the shell with those two tools active, and the Team compiler and the Export
+upgrader, whose views come later, greyed out on the sidebar as the planned tools are. It needs
+from Release 0.1.0's list the Windows bundle (`just release`, the `.7z` and its checksum) and a
+`CHANGELOG.md` section, nothing else: no updater, since 0.1.0 replaces it by hand. We do not shorten either tool's phase to meet the date: a tool members learn on is
+one whose behavior they will keep relying on, and a rushed rule check that passes a team the
+organizers' check refuses costs the invitational more than a later tool.
+
 ### Phase 6: Export upgrader (`tools/export_upgrader`)
 
 - Implement old-format export loading (the only place old-format knowledge lives)
@@ -355,7 +369,9 @@ database and EDIT (manual, per version).
 ### Phase 20: Ruleset editor (`tools/ruleset_editor`, post-release)
 
 Not a first-release gate: its users are invitational organizers, who use 4ccEditor forks until
-then. Depends on `libs/aatf` with the schema and the interpreter (Phase 5) and the shell (Phase 8).
+then. Pulled forward for DBC ("Divegrass Before Christmas" above): it runs right after Phase 8's
+Save editor view, before Phase 8's other views. Depends on `libs/aatf` with the schema and the
+interpreter (Phase 5) and the shell (Phase 8).
 Plan: [Ruleset editor](../ruleset_editor.md).
 
 - `libs/aatf`'s writer (`Ruleset` → `RULESET` block, deterministic) and the schema-migration hook

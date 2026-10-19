@@ -6,7 +6,7 @@ use std::collections::BTreeMap;
 
 use super::folders::stem;
 use crate::FileKind;
-use crate::conventions::{Marker, MetadataFile, strip_prefix_ci};
+use crate::conventions::{Marker, MetadataFile, folder_slot, strip_prefix_ci};
 use crate::listing::{SmallMetadata, ValidationContext, metadata_text};
 use crate::parse::{AestheticsExportDraft, FileDescriptor};
 use crate::slots::PlayerSlot;
@@ -14,8 +14,9 @@ use crate::validate::{
     Disposition, IssueScope, LogoFile, LogoFiles, LogoFit, RootArtifacts, ValidationIssue, issue_in,
 };
 
-/// `Portraits/player_NN.*`: a direct texture whose stem is `player_` plus
-/// exactly two digits forming a `PlayerSlot`.
+/// `Portraits/NN.*`: a direct texture named by its slot as a player folder is
+/// (`folder_slot`: `NN`, alone or before ` - ` and any text; `05`, `05 - Bob`
+/// and `05-Bob` alike).
 pub(crate) fn check_portraits(
     draft: &AestheticsExportDraft,
     context: &ValidationContext,
@@ -24,7 +25,7 @@ pub(crate) fn check_portraits(
     let mut portraits = BTreeMap::new();
     let mut slotted: Vec<(PlayerSlot, &FileDescriptor)> = Vec::new();
     for file in &draft.portraits {
-        let slot = portrait_slot(stem(file.path.name()));
+        let slot = folder_slot(stem(file.path.name()));
         if file.kind == FileKind::Texture
             && file.path.segments().count() == 2
             && let Some(slot) = slot
@@ -40,23 +41,39 @@ pub(crate) fn check_portraits(
             ));
         }
     }
-    // Two files claiming one stem (`player_NN`) conflict, each dropped — the caller's
-    // `retain` applies the drop; `file_stem_conflicts` is `Common/`'s same namespace rule.
-    super::folders::file_stem_conflicts(context, slotted.iter().map(|(_, file)| *file), issues);
+    // Two files claiming one slot conflict, each dropped (`stem` the slot's
+    // `NN`) — the caller's `retain` applies the drop. Grouped by slot, not by
+    // stem as `file_stem_conflicts` does for `Common/`: `05.dds` and
+    // `05 - Bob.png` are two stems one slot cannot both take.
+    let mut by_slot: BTreeMap<PlayerSlot, Vec<&FileDescriptor>> = BTreeMap::new();
+    for (slot, file) in &slotted {
+        by_slot.entry(*slot).or_default().push(file);
+    }
+    for (slot, files) in by_slot {
+        if files.len() > 1 {
+            let names = files
+                .iter()
+                .map(|file| file.path.name().to_owned())
+                .collect::<Vec<_>>()
+                .join(",");
+            for file in files {
+                issues.push(issue_in(
+                    context,
+                    "texture_stem_conflict",
+                    IssueScope::File(file.path.clone()),
+                    vec![
+                        ("stem", format!("{:02}", slot.get())),
+                        ("files", names.clone()),
+                    ],
+                    Disposition::DropFile,
+                ));
+            }
+        }
+    }
     for (slot, file) in slotted {
         portraits.insert(slot, file.clone());
     }
     portraits
-}
-
-/// `player_` plus exactly two digits forming a `PlayerSlot`.
-fn portrait_slot(stem: &str) -> Option<PlayerSlot> {
-    let rest = strip_prefix_ci(stem, "player_")?;
-    if rest.len() == 2 && rest.bytes().all(|byte| byte.is_ascii_digit()) {
-        rest.parse::<u8>().ok().and_then(PlayerSlot::new)
-    } else {
-        None
-    }
 }
 
 /// A `logo*` stem's grammar: `logo[_small][_<fit>]`, tags in that order,

@@ -228,7 +228,15 @@ distinguishes no behavior a real export reaches. At 3.1 (maintainer's warning), 
 the sidekick's round S2 replaced a growing list of "not compilable yet" cases with one short
 rule, what the tracer compiles, and rejected three narrow additions (a `NO_USE` inside a
 wrapper, folders inside `Common/`, a player folder named `Players`); from GPT round 6 on, both
-reviewers' briefs asked for over-engineering. Past the fifth round on one surface the lead reports the counts and the
+reviewers' briefs asked for over-engineering. Weighing was not enough: at 6.16a the
+lead, with this paragraph and the `duck` skill's "technically correct is not enough" both loaded,
+accepted 14 of 17, 10 of 11 and 11 of 12 concerns on whether each was true, each fix's
+clause the next round's concern, and two rounds added a rule no real export reaches (an
+`.ftex` kit texture in a pre-Fox export: none of the 58 on the maintainer's machine). So every
+acceptance now names its reach (`AGENTS.md` "Second opinion": a real export's outcome, a
+contradiction, an unobservable THEN, a wrong fact), and one that names none is rejected; a
+nit fixed in passing counts toward no round. Re-ruled that way, the third round accepted 4.
+Past the fifth round on one surface the lead reports the counts and the
 classes found to the user and continues unless told otherwise: a check-in, not a stop. Each
 round's reviewer is a fresh `run_subagent`, never a resumed one (`resume`), even though resuming
 saves the re-exploration: 2.20d's fourth round ran both on the same surface, and the reviewer

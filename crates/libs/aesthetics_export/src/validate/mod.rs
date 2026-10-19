@@ -119,7 +119,7 @@ pub struct ValidatedAestheticsExport {
     pub gloves: Vec<SharedModelFolder>,
     /// Per-kit subfolders (config.toml + colors.txt + textures).
     pub kits: KitsFolder,
-    /// `Portraits/player_NN.*`.
+    /// `Portraits/NN.*`.
     pub portraits: BTreeMap<PlayerSlot, FileDescriptor>,
     /// Root `logo*` (+ optional `logo_small*`), each with its fit mode.
     pub logo: Option<LogoFiles>,

@@ -617,7 +617,7 @@ pub(crate) enum TaskKind {
     Portrait {
         /// The player id the portrait is for.
         player_id: u32,
-        /// The portrait file: the player folder's `portrait.*`, or `Portraits/player_NN.*`.
+        /// The portrait file: the player folder's `portrait.*`, or `Portraits/NN.*`.
         file: FileDescriptor,
     },
     /// One kit, its `all/` inheritance already applied to its textures.
@@ -3467,7 +3467,7 @@ mod tests {
                 ("Common/spare.fmdl", 512),
                 ("Common/Cloth.dds", 1024),
                 ("Common/hair.ftex", 2048),
-                ("Portraits/player_05.dds", 3),
+                ("Portraits/05.dds", 3),
             ],
             &[],
             None,
@@ -3492,7 +3492,7 @@ mod tests {
                 "0 714 Face Players/07 - B [71407] charge 17",
                 "0 714 Boots Boots/Crocs [627] charge 2",
                 "0 714 common textures Common (2) charge 3072",
-                "0 714 portrait 71405 Portraits/player_05.dds charge 3",
+                "0 714 portrait 71405 Portraits/05.dds charge 3",
             ]
         );
         let files = |index: usize| -> Vec<&str> {
@@ -3927,8 +3927,8 @@ mod tests {
                 ("Players/Zed/face_high.fmdl", 10),
                 ("Players/Zed/face_diff.bin", 0),
                 ("Players/Zed/portrait.dds", 4),
-                ("Portraits/player_05.dds", 6),
-                ("Portraits/player_01.dds", 5),
+                ("Portraits/05.dds", 6),
+                ("Portraits/01.dds", 5),
                 ("Kits/g1/kit.dds", 7),
             ],
             &[],
@@ -3944,9 +3944,9 @@ mod tests {
             summary(&report),
             [
                 "0 790 Face Players/Zed [79003, 79007] charge 10",
-                "0 790 portrait 79001 Portraits/player_01.dds charge 5",
+                "0 790 portrait 79001 Portraits/01.dds charge 5",
                 "0 790 portrait 79003 Players/Zed/portrait.dds charge 4",
-                "0 790 portrait 79005 Portraits/player_05.dds charge 6",
+                "0 790 portrait 79005 Portraits/05.dds charge 6",
                 "0 790 portrait 79007 Players/Zed/portrait.dds charge 4",
                 "0 790 kit g1 Kits/g1 charge 7",
             ]
@@ -3974,8 +3974,8 @@ mod tests {
                 ("Players/Zed/face_high.fmdl", 10),
                 ("Players/Zed/face_diff.bin", 0),
                 ("Players/Zed/portrait.dds", 4),
-                ("Portraits/player_07.dds", 4),
-                ("Portraits/player_05.dds", 6),
+                ("Portraits/07.dds", 4),
+                ("Portraits/05.dds", 6),
             ],
             &[],
             Some(b"07 Zed\n03 Zed\n"),
@@ -3991,7 +3991,7 @@ mod tests {
             [
                 "0 790 Face Players/Zed [79003, 79007] charge 10",
                 "0 790 portrait 79003 Players/Zed/portrait.dds charge 4",
-                "0 790 portrait 79005 Portraits/player_05.dds charge 6",
+                "0 790 portrait 79005 Portraits/05.dds charge 6",
                 "0 790 portrait 79007 Players/Zed/portrait.dds charge 4",
             ]
         );

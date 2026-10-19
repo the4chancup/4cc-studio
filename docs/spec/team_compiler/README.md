@@ -542,7 +542,7 @@ TC-ROOT-03 GIVEN root logo_zoom.png; then logo.png and logo.dds; then logo_small
            WHEN each export is checked
            THEN the first three report logo_file_invalid, logo_role_duplicate and
                 logo_small_without_main, each export otherwise kept; the fourth reports none
-TC-ROOT-04 GIVEN Portraits/player_24.dds
+TC-ROOT-04 GIVEN Portraits/24.dds
            WHEN the export is checked
            THEN portrait_name_invalid is reported and only that file is dropped
 TC-ROOT-05 GIVEN the tracer bullet's export with a root notes.txt that cannot be read
@@ -700,17 +700,17 @@ boots/gloves ID 625 and the first shared ID is 644; `/egg/` is 792 (the tracer f
 
 ```
 TC-PRT-01  GIVEN a /co/ export whose slot 05 folder holds portrait.dds, and
-           Portraits/player_07.png or .dds
+           Portraits/07.png or .dds
            WHEN it is compiled for PES 21, then for PES 18
            THEN the CPK holds common/render/symbol/player/71405.dds and 71407.dds, then
                 player_71405.dds and player_71407.dds, each a DDS, each .dds source's
                 byte-identical to it
-TC-PRT-02  GIVEN slot 05's folder holding portrait.dds and Portraits/player_05.dds with different
+TC-PRT-02  GIVEN slot 05's folder holding portrait.dds and Portraits/05.dds with different
            contents, and another export where the two files are byte-identical
            WHEN each is compiled
            THEN the first reports portrait_conflict and is skipped; the second compiles with one
                 71405.dds and no portrait finding
-TC-PRT-03  GIVEN Portraits/player_05.dds whose side is 300 pixels
+TC-PRT-03  GIVEN Portraits/05.dds whose side is 300 pixels
            WHEN the export is checked or compiled
            THEN texture_not_pow2 is reported and only that file is dropped (kept, with
                 pass_through on)
@@ -1352,7 +1352,7 @@ TC-TEX-05  GIVEN slot 05's face_high.fmdl naming hair in the team's Common outpu
                 the last compiles with no texture finding, the model naming hair in
                 /Assets/pes16/model/character/common/714/jessie/sourceimages/ and the CPK
                 holding that folder's hair.ftex once
-TC-TEX-06  GIVEN p1/kit.png, p1/kit_back.tga and Portraits/player_05.webp
+TC-TEX-06  GIVEN p1/kit.png, p1/kit_back.tga and Portraits/05.webp
            WHEN the export is compiled for PES 21
            THEN u0714p1.ftex and u0714p1_back.ftex are emitted and 71405.dds is a DDS
 TC-TEX-07  GIVEN slot 05 holding skin.png of 1002x1002 pixels

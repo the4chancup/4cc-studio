@@ -1723,7 +1723,7 @@ mod tests {
         let referees: Vec<(&str, u64)> = [
             ("Players/Ref A/face_high.fmdl", 1),
             ("Players/Ref A/portrait.dds", 1),
-            ("Portraits/player_02.dds", 1),
+            ("Portraits/02.dds", 1),
         ]
         .into_iter()
         .chain(content)
@@ -1735,7 +1735,7 @@ mod tests {
                 "Warning file_not_used [Keep] (file=Kits/p1)",
                 "Warning file_not_used [Keep] (file=logo.png)",
                 "Warning file_not_used [Keep] (file=Players/Ref A/portrait.dds)",
-                "Warning file_not_used [Keep] (file=Portraits/player_02.dds)",
+                "Warning file_not_used [Keep] (file=Portraits/02.dds)",
                 "Warning file_not_used [Keep] (file=Collars/collar_12.fmdl)",
             ]
         );

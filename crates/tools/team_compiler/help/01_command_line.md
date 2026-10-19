@@ -22,7 +22,7 @@ version `compile` builds exports for PES 2018 to 2021 that hold
 only the models of the players in the roster, kept in each player's own folder: face models,
 boots (a model whose name ends in `boots`, such as `kit_boots.fmdl`) and gloves (`glove_l`,
 `glove_r`, or `handL`, `handR`), with their textures, their portraits (a `portrait` image in
-the player's folder, or `player_NN` in the `Portraits` folder; a player with both gets one
+the player's folder, or `NN` in the `Portraits` folder; a player with both gets one
 portrait when the two files are identical, while two that differ are the line
 `portrait_conflict` and the whole export is skipped, since the compiler cannot tell which one
 is meant), and kits. A texture (a player's, a shared folder's, a Common one, a kit's or a

@@ -5,11 +5,12 @@
 //! check against the face folder's own portrait; collars as they are; the
 //! logo members into the root `logo.png` and, only when it is a different
 //! drawing, `logo_small.png`. What cannot be placed is left for the run's
-//! fallback to report as unmigrated content.
+//! fallback, which reports it as unmigrated content or drops it as a
+//! leftover (step 10).
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use aesthetics_export::{FileKind, classify};
+use aesthetics_export::{FileKind, PlayerSlot, classify};
 use dds_convert::{Decoded, SourceFormat};
 use studio_core::{Disposition, Message, Scope};
 
@@ -35,6 +36,10 @@ pub(crate) struct CarriedFiles {
     pub(crate) copies: Vec<(String, String)>,
     /// Input files accounted for; the run's fallback reports every other one.
     pub(crate) consumed: BTreeSet<String>,
+    /// Input files the step recognized as leftovers (step 10): the run's
+    /// fallback reports each `leftover_dropped`, the run clean, rather than
+    /// `unmigrated_content`.
+    pub(crate) leftovers: BTreeSet<String>,
     /// Findings on the input, in input-path order, a file's own findings in
     /// the order met.
     pub(crate) findings: Vec<Message>,
@@ -58,34 +63,29 @@ pub(crate) fn under<'a>(path: &'a str, top: &str) -> Option<&'a str> {
     head.eq_ignore_ascii_case(top).then_some(rest)
 }
 
-/// What an old portrait's name gives when it is one of the shapes step 7
-/// names: the slot's two digits and the extension as written; `player_`
-/// plus at least two characters plus `NN`, or exactly five characters
-/// ending in `NN` (`XXX17`, `73617`), each with an extension `classify`
-/// reads as a texture, the fixed parts in any letter case
-/// (`player_XXX05.dds` → `05`, `XXX17.jpg` → `17`). Names that are neither
-/// shape (`player_73906-.dds`, `XX17.jpg`) give `None`.
+/// What an old portrait's name gives when it is the shape step 7 names: the
+/// slot's two digits and the extension as written, for a name the old check
+/// passed (`file_name[-6:-4]`): `player_` in that letter case, then anything,
+/// then two ASCII digits making a slot 01-23 right before a three-letter
+/// extension `classify` reads as a texture (`player_XXX05.dds` → `05`,
+/// `player_71407.dds` → `07`, `player_XXX08.jpg` → `08`). A name that fails
+/// it (`Player_XXX05.dds`, `player_XXX05.jpeg`, `player_XXX24.dds`,
+/// `XXX17.png`) gives `None`: refused, the file never reached the game.
 fn portrait_name(file_name: &str) -> Option<(&str, &str)> {
-    if !matches!(classify(file_name), FileKind::Texture) {
+    let (stem, ext) = file_name.rsplit_once('.')?;
+    if ext.len() != 3
+        || !stem.starts_with("player_")
+        || !matches!(classify(file_name), FileKind::Texture)
+    {
         return None;
     }
-    let (stem, ext) = file_name.rsplit_once('.')?;
-    let nn = if stem
-        .get(..7)
-        .is_some_and(|head| head.eq_ignore_ascii_case("player_"))
-    {
-        let between = &stem[7..];
-        between.get(between.len().checked_sub(2)?..)?
-    } else if stem.len() == 5 {
-        // `get`: a five-byte stem may hold a non-ASCII name (`Zoé1`), whose
-        // fourth byte is no character boundary.
-        stem.get(3..)?
-    } else {
-        return None;
-    };
-    nn.bytes()
+    let nn = stem.get(stem.len().checked_sub(2)?..)?;
+    let slot = nn
+        .bytes()
         .all(|byte| byte.is_ascii_digit())
-        .then_some((nn, ext))
+        .then(|| nn.parse::<u8>().ok())
+        .flatten()?;
+    PlayerSlot::new(slot).map(|_| (nn, ext))
 }
 
 /// The role a `Logo/` file's name gives, the longest ending first.
@@ -154,18 +154,20 @@ pub(crate) fn carried_files(
     let mut carried = CarriedFiles::default();
     let mut failures: BTreeMap<String, Vec<Message>> = BTreeMap::new();
 
-    // `Portraits/` (step 7): a file directly in it, `player_…NN` or the
-    // five-character `???NN` with a texture extension, in any letter case,
-    // becomes `Portraits/player_NN.<ext>` — the first of two giving one
-    // `NN` by input path. A slot whose face folder carries a different
-    // portrait is `portrait_conflict`: the compiler's deep pass would
-    // refuse the export.
+    // `Portraits/` (step 7): a file directly in it whose name the old check
+    // passed becomes `Portraits/NN.<ext>` — the first of two giving one `NN`
+    // by input path. A name the check refused, a subfolder's file included,
+    // is a leftover (step 10); the second file of a slot stays unmigrated
+    // content, two candidates for one place. A slot whose face folder
+    // carries a different portrait is `portrait_conflict`: the compiler's
+    // deep pass would refuse the export.
     let mut slots = BTreeSet::new();
     for file in files {
         let Some(rest) = under(file, "portraits") else {
             continue;
         };
         let Some((nn, ext)) = (!rest.contains('/')).then(|| portrait_name(rest)).flatten() else {
+            carried.leftovers.insert(file.clone());
             continue;
         };
         if !slots.insert(nn.to_owned()) {
@@ -173,7 +175,7 @@ pub(crate) fn carried_files(
         }
         carried
             .copies
-            .push((file.clone(), format!("Portraits/player_{nn}.{ext}")));
+            .push((file.clone(), format!("Portraits/{nn}.{ext}")));
         carried.consumed.insert(file.clone());
         let slot = nn
             .parse::<u8>()
@@ -451,17 +453,21 @@ mod tests {
             ("player_71407.dds", Some(("07", "dds"))),
             ("player_09.dds", Some(("09", "dds"))),
             ("player_736917.dds", Some(("17", "dds"))),
-            ("player_05.png", Some(("05", "png"))),
-            ("XXX17.jpg", Some(("17", "jpg"))),
-            ("73617.png", Some(("17", "png"))),
+            ("player_05.dds", Some(("05", "dds"))),
+            ("player_XXX08.jpg", Some(("08", "jpg"))),
+            ("Player_XXX05.dds", None),
+            ("player_XXX05.jpeg", None),
+            ("player_XXX24.dds", None),
+            ("player_XXX00.dds", None),
+            ("XXX17.jpg", None),
+            ("73617.png", None),
             ("player_5.dds", None),
             ("portrait_05.dds", None),
             ("player_XXXab.dds", None),
             ("Vanilla vitamins.png", None),
-            ("stinky fox.png", None),
             ("player_73906-.dds", None),
             ("XX17.jpg", None),
-            ("Zoé1.png", None),
+            ("Zoé1.dds", None),
             ("player_05.txt", None),
         ] {
             assert_eq!(portrait_name(name), expected, "{name}");
@@ -500,7 +506,7 @@ mod tests {
             equal.copies,
             vec![(
                 "Portraits/player_XXX07.dds".to_owned(),
-                "Portraits/player_07.dds".to_owned()
+                "Portraits/07.dds".to_owned()
             )]
         );
         assert!(
@@ -681,15 +687,43 @@ mod tests {
             ],
         );
         // `player_71405.dds` sorts before `player_XXX05.dds`: the first by
-        // input path wins the slot.
+        // input path wins the slot. The second is unmigrated content — two
+        // candidates for one place, no leftover (step 10).
         assert_eq!(
             plan.copies,
             vec![(
                 "Portraits/player_71405.dds".to_owned(),
-                "Portraits/player_05.dds".to_owned()
+                "Portraits/05.dds".to_owned()
             )]
         );
         assert!(plan.consumed.contains("Portraits/player_71405.dds"));
         assert!(!plan.consumed.contains("Portraits/player_XXX05.dds"));
+        assert!(!plan.leftovers.contains("Portraits/player_XXX05.dds"));
+    }
+
+    #[test]
+    fn a_portrait_the_old_check_refused_is_a_leftover() {
+        // `XXX17.png` starts no `player_`, the subfolder's file is not
+        // directly in `Portraits/`: each a leftover (step 10), not consumed.
+        let plan = plan(
+            &[
+                "Portraits/player_XXX08.jpg",
+                "Portraits/XXX17.png",
+                "Portraits/sub/player_XXX05.dds",
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(
+            plan.copies,
+            vec![(
+                "Portraits/player_XXX08.jpg".to_owned(),
+                "Portraits/08.jpg".to_owned()
+            )]
+        );
+        for file in ["Portraits/XXX17.png", "Portraits/sub/player_XXX05.dds"] {
+            assert!(plan.leftovers.contains(file), "{file}");
+            assert!(!plan.consumed.contains(file), "{file}");
+        }
     }
 }

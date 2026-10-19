@@ -298,7 +298,7 @@ fn png_and_tga_kit_textures_are_ftex_under_the_kit_s_names_and_a_webp_portrait_i
         &texture_fixture("kit_back.tga"),
     );
     sandbox.write(
-        "exports/co Midcup Kit/Portraits/player_05.webp",
+        "exports/co Midcup Kit/Portraits/05.webp",
         &texture_fixture("portrait.webp"),
     );
 

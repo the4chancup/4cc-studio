@@ -502,7 +502,7 @@ fn an_old_layout_export_is_export_layout_old_alone_and_skipped() {
         "Boots/k0001 - Boots A/boots.model",
         "Kit Configs/co_DEF_1st_realUni.bin",
         "Kit Textures/u0714p1.dds",
-        "Portraits/player_01.dds",
+        "Portraits/01.dds",
     ] {
         sandbox.write(&format!("exports/co Spring 2026/{path}"), b"old");
     }

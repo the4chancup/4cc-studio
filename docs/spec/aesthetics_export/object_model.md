@@ -183,7 +183,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   | anywhere in `Common/` | model content (a subfolder's is read on PES 18-21 when a link names it or a linked model or `.mtl` brings it, `spec/team_compiler/pipeline.md` "Common") | `common_file_disallowed` |
   | directly in `Collars/` | model files (any model format; the game draws a collar with the kit texture, so it has no textures or materials of its own, `spec/team_compiler/pipeline.md` "Collars"); their `collar_<ID>` name is the compiler's to check, since which IDs exist depends on the target version (`collar_id_invalid`) | `file_type_disallowed` |
   | anywhere in `Kits/all/` | textures directly in it | `kit_all_file_ignored` |
-  | anywhere in `Portraits/` | textures named `player_NN` directly in it | `portrait_name_invalid` |
+  | anywhere in `Portraits/` | textures named `NN` directly in it (`NN` a slot 01-23, alone or followed by ` - ` and any text, as a player folder is numbered) | `portrait_name_invalid` |
   | at the root | `players.txt`, `notes.txt`, `colors.txt`, `README.txt`, `logo*` textures; a referee export also `refs.txt`, `ref_lists.txt`, `ref_marker.dds` | `root_file_unexpected` |
 
   A file below a subfolder the table does not name takes the code of the folder holding that
@@ -242,8 +242,10 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   `icon_<N>` marker's name: one numbered above 23 is `kit_icon_invalid`, and two or more are
   each `kit_icon_invalid` whatever their numbers (`File`, `DropFile`; the kit keeps the default
   icon).
-  `Portraits/player_NN.*` maps to slot NN; two files of one stem there are
-  `texture_stem_conflict`, dropping both files. `portrait_conflict` compares contents, so it
+  `Portraits/NN.*` maps to slot NN, the name read as a player folder's (`NN`,
+  alone or followed by ` - ` and any text); two files of one slot there are
+  `texture_stem_conflict` (the context's `stem` the slot's `NN`), dropping both
+  files. `portrait_conflict` compares contents, so it
   belongs to the deep pass. Every root file whose stem starts with `logo` is a logo
   candidate; `logo_file_invalid`, `logo_role_duplicate` and `logo_small_without_main` each drop
   the logo as one unit (`File`-scoped on the offending file, `DropFile`, `logo: None`).
@@ -327,7 +329,7 @@ pub struct ValidatedAestheticsExport {
     pub boots: Vec<SharedModelFolder>,   //   (no IDs — IDs are assigned by run planning)
     pub gloves: Vec<SharedModelFolder>,
     pub kits: KitsFolder,                // per-kit subfolders (config.toml + colors.txt + textures)
-    pub portraits: BTreeMap<PlayerSlot, FileDescriptor>, // `Portraits/player_NN.*`
+    pub portraits: BTreeMap<PlayerSlot, FileDescriptor>, // `Portraits/NN.*`
     pub logo: Option<LogoFiles>,         // root `logo*` (+ optional `logo_small*`), each with its fit mode (see "Root files")
     pub collars: Vec<FileDescriptor>,    // `Collars/`, passed through
     pub common: Vec<FileDescriptor>,     // `Common/`, the targets of `.common` links

@@ -560,7 +560,7 @@ The game is not fussy: the 1534
 portraits in the installed PES 2021 cup CPKs are all DDS passed through as their makers made them,
 in size classes from 64x64 DXT5 to 512x512 DXT5 (uncompressed BGRA8 included), and 128x128 DXT5
 with a full mip chain is the commonest class, so it is the one non-DDS sources are encoded to. The
-standalone `Portraits/` folder (`player_NN.dds` files) is deliberately kept alongside: some managers
+standalone `Portraits/` folder (`NN.*` files, named by slot as a player folder is) is deliberately kept alongside: some managers
 make custom portrait sets — while keeping the players' models unchanged — depending on the opponent
 team they are about to face, and the standalone folder supports those model-less portrait exports.
 A player with a portrait in both locations is an error when the two files differ

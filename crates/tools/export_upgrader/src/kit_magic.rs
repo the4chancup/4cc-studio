@@ -307,7 +307,7 @@ mod tests {
                 ("c".into(), "Common/ltd/u0XXXp5/a.dds".into()),
                 ("d".into(), "Common/u0XXXg1.dds".into()),
                 ("e".into(), "Boots/Crocs/body_d_u0XXXp0.dds".into()),
-                ("f".into(), "Portraits/player_07.dds".into()),
+                ("f".into(), "Portraits/07.dds".into()),
                 ("g".into(), "Kits/p1/kit.dds".into()),
                 ("h".into(), "Players/07 - u0XXXp1/x.dds".into()),
             ],
@@ -321,7 +321,7 @@ mod tests {
                 ("c".to_owned(), "Common/ltd/kit5/a.dds".to_owned()),
                 ("d".to_owned(), "Common/u0714g1.dds".to_owned()),
                 ("e".to_owned(), "Boots/Crocs/body_d_kitF.dds".to_owned()),
-                ("f".to_owned(), "Portraits/player_07.dds".to_owned()),
+                ("f".to_owned(), "Portraits/07.dds".to_owned()),
                 ("g".to_owned(), "Kits/p1/kit.dds".to_owned()),
                 ("h".to_owned(), "Players/07 - u0XXXp1/x.dds".to_owned()),
             ]

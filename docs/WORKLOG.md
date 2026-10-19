@@ -21,7 +21,12 @@ writes a clean export or nothing) and 6.15 (a one-wearer item folder takes its w
 are built, and 6.14c; the maintainer answered 6.14's three questions (2026-10-19), and
 6.12c (the library run against Red) is diagnosed. Then 6.16 (the answers and 6.12c's
 defects: upgrader, compiler, one in-game check), the plans-to-spec move and the worklog's
-collapse; then 8.4, the usability pass before the tools' drafts. 8.0's acceptance sections are reviewed and the shell's draft
+collapse; then, for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset
+editors' first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"):
+20.0d (the DBC ruleset's coverage), 8.4 (the usability pass), Phase 8's shell, the Save
+editor's draft and view, Phase 20 (the Ruleset editor), the 0.0.1 preview build for DBC (the
+two editors; the Team compiler and Export upgrader greyed out), then Phase 8's other views. The
+face_diff model comparison (Issues, "a face diff is engine-specific") follows the editors. 8.0's acceptance sections are reviewed and the shell's draft
 (`docs/prototypes/shell.html`, step 8.2) waits for the maintainer's remarks. Side-leads are
 paused (single lead + SWE-2); the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
@@ -948,13 +953,23 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     minipatch, /co/ fetus); the output's validation with the strict file-type check (DECISIONS
     2026-10-19). Scenarios written (2026-10-19, lead); checkpoint (a) review before the briefs.
     Three slices, each its own commit:
-    - [ ] 6.16a1 portraits: the shared rule (`aesthetics_export` `check_portraits`: `NN` or
+    - [x] 6.16a1 portraits: the shared rule (`aesthetics_export` `check_portraits`: `NN` or
       `NN - <text>`, two of one slot conflicting; plan `aesthetics_export/object_model.md`
       "Validation semantics"), with the compiler's tests and spec rows naming the old form;
       the upgrader writing `NN` and dropping the names Red's check refused (EU-MDL-01, -19);
-      the output's strict file-type check (EU-REP-02)
-    - [ ] 6.16a2 player and item folders: EU-PLY-06, -15 to -20
-    - [ ] 6.16a3 kits and the Note: EU-ROOT-07, EU-KIT-04, -08, -12, -16, -19
+      the output's strict file-type check (EU-REP-02). Done 2026-10-19 (SWE-2): `folder_slot`
+      the one slot parse of folders and portraits (`003.dds` is slot 03, as a folder `003`),
+      `CarriedFiles::leftovers` read by the run's fallback, the compiler's tests, help and spec
+      rows renamed. Files: `aesthetics_export/src/{conventions/mod,validate/root,validate/roster}.rs`,
+      `export_upgrader/src/{carried,upgrade}.rs`, `export_upgrader/tests/cli/carried.rs`,
+      `team_compiler` tests and `help/01_command_line.md`, `docs/spec/{aesthetics_export,team_compiler}/`
+    - [ ] 6.16a1b the review's follow-ups (SWE-2 S2, `.tmp/6_16/rulings.md`): the shared
+      codes `file_type_disallowed` and `common_file_disallowed` reported as Errors (the
+      catalog took the strict check as off), EU-MDL-19's subfolder file and EU-MDL-20
+    - [ ] 6.16a2 player and item folders: EU-PLY-06, -10, -15 to -20, EU-REF-01; the stray
+      rule in every old folder (`Common/`, `Collars/`, `Kit Configs/`, `Logo/` too)
+    - [ ] 6.16a3 kits and the Note: EU-ROOT-07, EU-KIT-04, -08 (any export kind's
+      non-texture names), -12, -16, -19
   - [ ] 6.16b the compiler: in a `Midcup`,
     a kit folder without `config.toml` keeps the installed config and one with no texture
     keeps the installed textures, a `colors.txt`-only folder updating the colors alone (D2:
@@ -1209,6 +1224,19 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     teams 781 to 834, VGL26's own file reports the 2 known violations; the Clouds file places
     every tier and reports only what its own specials ask for (form 8, goalkeeping 85, buffed
     stats 87). Files: `docs/prototypes/ruleset_editor.html`
+  - [ ] 20.0d coverage of the DBC ruleset (maintainer, 2026-10-19), right after Phase 6
+    closes (`plans/core/development_plan.md` "Divegrass Before Christmas"): Divegrass Before
+    Christmas (DBC), an upcoming invitational, is to be the first test ground for 4cc Studio's
+    Ruleset editor and Save editor. Its rules live in `C:\Data\4cc\Tools_4cc\DBC7-Editor`, a
+    small fork of the official 4cc save editor (C++, `RockAnon/DBC7-Editor`; the rules in
+    `aatf.cpp`, its commits "dbc7 specific aatf and buttons" and "multi gk and no gk stuff"
+    over the initial import). Every DBC rule gets UI-class support in the Ruleset editor (a
+    schema field with its form), except one niche and complex enough to be a custom check,
+    each such with its reason → verify: a table in `aatf_rules.md`, as 20.0a's, mapping each
+    DBC rule (read from the fork's diff against the official editor, not from memory) to a
+    schema field or to a custom check, no row empty; the gaps become schema fields (plan edit,
+    decision entry) and forms in `ruleset_editor.md` and the draft; a DBC ruleset file in
+    `rulesets/` that `check-aatf` runs against a save the fork's check agrees with
 
 ---
 

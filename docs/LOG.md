@@ -2197,3 +2197,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.12c diagnosed: every library parity line in a class once `red_parity` paired copies one to one
   and the closest candidate first. Four more defects (two kinds of stray file, game-path face folders, a team-name Common
   path) to 6.16; whether that path's faces should compile is a maintainer question.
+- **2026-10-19** — 6.16a1: `Portraits/` files named by slot as player folders are (`05.dds`, `05 - Bob.png`); the
+  upgrader reads old portrait names as Red's check did, the refused ones leftovers; its output is now checked with the
+  strict file-type check. DBC (exports due 2026-11-18) pulls the Save and Ruleset editors ahead of Phase 8's other views.

@@ -9285,7 +9285,8 @@ Phase 8's bullets; worklog step 8.4.
 
 ## 2026-10-19 — export_upgrader — where "never reached the game" stops being a leftover
 Decision: content Red kept out is a leftover when it is a single file under a name Red's
-checks refused (a portrait, a kit texture), a copy or backup, or content outside the layout;
+per-file name checks refused (a portrait, a kit texture), a copy or backup, or content outside
+the layout;
 it stays `unmigrated_content` when the old export holds two candidates for one place (a second
 face folder of a slot, a second item folder of an ID, two kit textures landing on one name,
 two portraits in one face folder, two old `Portraits/` files of one slot), or a whole model
@@ -9304,3 +9305,25 @@ Decision: an old `Portraits/` file migrates only when Red's `portraits_check` pa
 Why: what migrates should be what the game showed; Red deleted those names (SWE-2 review
 6.16.S1), while the upgrader's earlier reading was case-blind and took any texture extension.
 Plan: `plans/export_upgrader.md` step 7; EU-MDL-19.
+
+## 2026-10-19 — development plan — the Save and Ruleset editors come first, for DBC
+Decision: after Phase 6 closes, the work runs 20.0d (the DBC ruleset's coverage), 8.4 (the
+usability pass), Phase 8's shell, the Save editor's draft and view, Phase 20 (the Ruleset
+editor, pulled forward), then Phase 8's other views and Release 0.1.0 as defined. Neither
+tool's phase is shortened.
+Why: the maintainer: Divegrass Before Christmas (exports due 2026-11-18) is to be the first test
+ground for the two editors, which members should have as early as possible but without
+rushing. Phase 6 finishes first, its close being under way; the face_diff model comparison,
+which has no date, follows the editors.
+Plan: `plans/core/development_plan.md` "Releases" (the DBC paragraph) and Phase 20; worklog
+"Current status" and 20.0d.
+
+## 2026-10-19 — release — a 0.0.1 preview build for DBC
+Decision: DBC participants get the Save editor and the Ruleset editor as a preview build,
+0.0.1, cut once the Ruleset editor's phase closes: the Team compiler and the Export upgrader,
+whose views come later, are greyed out on the sidebar like the planned tools. Of Release
+0.1.0's list it takes the Windows bundle and a changelog section, not the updater.
+Why: the maintainer's choice over redefining 0.1.0, which stays the release with the Team
+compiler's GUI; greying the two tools out tells members what is coming without shipping a
+view half-built. Without an updater, 0.1.0 replaces the preview by hand.
+Plan: `plans/core/development_plan.md` "Releases" (the DBC paragraph).

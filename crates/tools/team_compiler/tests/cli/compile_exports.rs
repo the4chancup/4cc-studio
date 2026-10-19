@@ -228,7 +228,7 @@ fn dds_portraits_from_both_sources_are_emitted_as_they_are_under_the_version_s_n
     let sandbox = Sandbox::new("portraits_dds");
     sandbox.copy_tracer_face("exports/co Midcup Portraits/Players/05 - A");
     sandbox.write(
-        "exports/co Midcup Portraits/Portraits/player_07.dds",
+        "exports/co Midcup Portraits/Portraits/07.dds",
         &tracer_kit(),
     );
 
@@ -288,10 +288,7 @@ fn a_folder_listed_under_two_slots_emits_its_portrait_for_both() {
 fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_identical() {
     let sandbox = Sandbox::new("portraits_both_sources");
     sandbox.copy_tracer_face("exports/co Midcup Both/Players/05 - A");
-    sandbox.write(
-        "exports/co Midcup Both/Portraits/player_05.dds",
-        &tracer_kit(),
-    );
+    sandbox.write("exports/co Midcup Both/Portraits/05.dds", &tracer_kit());
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
@@ -301,7 +298,7 @@ fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_iden
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=fcl_hair.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=glove_l.fmdl, count=2)",
-            "Error portrait_conflict [DropExport] (folder_portrait=Players/05 - A/portrait.dds, portraits_file=Portraits/player_05.dds)",
+            "Error portrait_conflict [DropExport] (folder_portrait=Players/05 - A/portrait.dds, portraits_file=Portraits/05.dds)",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -309,7 +306,7 @@ fn a_slot_s_two_portraits_skip_the_export_when_they_differ_and_are_one_when_iden
 
     // The same bytes in both places are one portrait.
     sandbox.write(
-        "exports/co Midcup Both/Portraits/player_05.dds",
+        "exports/co Midcup Both/Portraits/05.dds",
         &tracer_portrait(),
     );
 
@@ -354,7 +351,7 @@ fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_versi
     let sandbox = Sandbox::new("portraits_dds_and_png");
     sandbox.copy_tracer_face("exports/co Midcup Portraits/Players/05 - A");
     sandbox.write(
-        "exports/co Midcup Portraits/Portraits/player_07.png",
+        "exports/co Midcup Portraits/Portraits/07.png",
         &texture_fixture("portrait.png"),
     );
 
@@ -393,13 +390,10 @@ fn a_dds_portrait_passes_through_and_a_png_one_is_encoded_to_bc3_under_the_versi
 }
 
 /// Writes `exports/co Midcup Odd`: slot 03 the tracer's player, its portrait included, and
-/// `Portraits/player_05.dds`, a single-level DDS of 300x300, not a power of two on either side.
+/// `Portraits/05.dds`, a single-level DDS of 300x300, not a power of two on either side.
 fn write_odd_portrait_export(sandbox: &Sandbox) {
     sandbox.copy_tracer_face("exports/co Midcup Odd/Players/03 - A");
-    sandbox.write(
-        "exports/co Midcup Odd/Portraits/player_05.dds",
-        &bc1_dds(300, 300),
-    );
+    sandbox.write("exports/co Midcup Odd/Portraits/05.dds", &bc1_dds(300, 300));
 }
 
 /// The lines `exports/co Midcup Odd` gets, its portrait's finding with `disposition`.
@@ -408,7 +402,7 @@ fn odd_portrait_findings(disposition: &str) -> [String; 5] {
         "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=boots.fmdl, count=1662)".to_owned(),
         "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=fcl_hair.fmdl, count=1662)".to_owned(),
         "Info fmdl_weights_not_normalized [Keep] at Players/03 - A (file=glove_l.fmdl, count=2)".to_owned(),
-        format!("Error texture_not_pow2 [{disposition}] at Portraits/player_05.dds (file=player_05.dds)"),
+        format!("Error texture_not_pow2 [{disposition}] at Portraits/05.dds (file=05.dds)"),
         "Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
     ]
 }

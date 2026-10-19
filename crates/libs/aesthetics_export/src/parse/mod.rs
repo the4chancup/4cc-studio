@@ -956,7 +956,7 @@ mod tests {
                 ("wrapper/x.txt", 1),
                 ("Players/players.txt", 7),
                 ("Players/03 - A/face_high.fmdl", 10),
-                ("Portraits/x/player_01.dds", 9),
+                ("Portraits/x/01.dds", 9),
                 ("Kits/all/kit_back.dds", 9),
                 ("Faces/Longhair/face_high.fmdl", 10),
                 ("Boots/Crocs/boots.fmdl", 10),
@@ -990,7 +990,7 @@ mod tests {
         );
         assert_eq!(
             parsed.draft.portraits[0].path.as_str(),
-            "Portraits/x/player_01.dds"
+            "Portraits/x/01.dds"
         );
         assert_eq!(parsed.draft.kits[0].path.as_str(), "Kits/all");
         assert_eq!(parsed.draft.players.len(), 1);

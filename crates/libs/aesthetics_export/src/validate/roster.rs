@@ -4,7 +4,7 @@
 
 use std::collections::BTreeMap;
 
-use crate::conventions::split_folder_name;
+use crate::conventions::folder_slot;
 use crate::parse::{AestheticsExportDraft, ExportKind, RawRoster};
 use crate::slots::{PlayerSlot, RefSlot};
 use crate::validate::{Disposition, IssueScope, ValidationIssue, issue};
@@ -217,14 +217,7 @@ fn without_roster(draft: &AestheticsExportDraft, issues: &mut Vec<ValidationIssu
     // both, an invalid head drops its own.
     let mut claims: BTreeMap<PlayerSlot, Vec<usize>> = BTreeMap::new();
     for (index, folder) in draft.players.iter().enumerate() {
-        let (head, _) = split_folder_name(folder.path.name());
-        match head
-            .bytes()
-            .all(|byte| byte.is_ascii_digit())
-            .then(|| head.parse::<u8>().ok())
-            .flatten()
-            .and_then(PlayerSlot::new)
-        {
+        match folder_slot(folder.path.name()) {
             Some(slot) => claims.entry(slot).or_default().push(index),
             None => issues.push(issue(
                 "player_folder_number_invalid",
