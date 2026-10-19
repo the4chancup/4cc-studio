@@ -808,7 +808,33 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     rebuilt bins, number atlases re-arranged, re-encodes, unlisted pre-Fox models not packed,
     the template `face_diff.bin` for a modelless folder, IR re-binding), 8 stricter-than-Red
     classes with Red's package shown present, or the three defect candidates; written for
-    the top lead in `.tmp/6_12/classes.md` of the worktree, with `pilot_tally.txt`
+    the top lead in `.tmp/6_12/classes.md` of the worktree, with `pilot_tally.txt` (copies in
+    the main checkout's `.tmp/6_12/`)
+  - [ ] 6.12c the library: the other ~290 upgradable inputs through Red and `red_parity`
+    (about 4 s of Red and 2 s of ours each), Red rerun on input 106, disk bounded per export
+    (keep both CPK sets' hash manifests, Red's logs and `parity.tsv`; the copies and CPKs
+    removed after comparing; the 10 GB floor checked before each job and before any gates
+    run); the scripts in the worktree's `.tmp/6_12/` (`red_pilot.py`, `pilot_tally.py`) →
+    verify: a per-class tally over the library, every line in a class of `classes.md` or a new
+    one diagnosed, each stricter-than-Red class's export list ready for the maintainer
+- [ ] 6.13 the library parity's defects (6.12a-b, `.tmp/6_12/classes.md` C1-C3, and the top
+  lead's D), each reproduced on its real export before it is fixed:
+  - [ ] 6.13a a `Common/` `.model` of a pre-Fox export goes through the pose pre-check and
+    `mtl_search` pairs the wrong `.mtl` (`apc.mtl` where `fbm.mtl` defines `fbm_u`):
+    `model_conversion_failed` on 4 VG 2018 exports, which Red packs untouched under
+    `common/<id>/`; first why a Common model is converted at all, then the pairing
+  - [ ] 6.13b 23 worn boots folders kept shared (step 3's rule for a same-named texture with
+    other bytes in the face folder) need 23 shared IDs where the block leaves 17:
+    `boots_id_pool_exhausted` drops KFG VGL26 whole, which Red compiled under the folders' own
+    IDs; the rule or the allocation, decided from the plan's step 3 and `player_folders.md`
+  - [ ] 6.13c an `.mtl` with a stray text node (G Autumn 25's `Players/17 - Lisa/apc.mtl`, a `\`
+    after a `<sampler/>`) is `mtl_broken` where Red's ElementTree ignores it: `pes_model`'s
+    `MaterialSet::read` tolerating text between elements, if the census shows no file where
+    such text means something
+  - [ ] 6.13d the upgrader's loose mode validates pre-Fox at PES 16 (DECISIONS 2026-10-18 "its
+    own input read" (5)) while the cup plays PES 17 (`spec/core/development_plan.md` "Target
+    versions"): 8 exports fail a PES-16-only rule (`xml_oral_prefix_missing`); validating at
+    17 instead, the plan's step 11 and "Verification" edited and a decision logged
 
 ### Phase 8 — GUI
 
@@ -1056,9 +1082,12 @@ points there.
   mips in one submission, before `gpu.rs`'s bounded slabs (`SUBMISSION_PIXELS`, c68ef99 at
   04:36); none logged since. Still to rule out: the tests' own load, each GPU test building its
   own device and `cargo test` running them in parallel, several worktrees' gates at once, a
-  `dds_convert` mutation run's parallel jobs. To do: reproduce (the GPU tests looped, alone
-  and in parallel processes, the event log watched), then serialize the tests' device use or
-  lower the budget, whichever the measurement points at.
+  `dds_convert` mutation run's parallel jobs. Parked (the maintainer, 2026-10-19): no
+  investigation now; during every later BC7 test (16.x b, a `dds_convert` mutation run) check
+  the System log for event 4101 (`Get-WinEvent -FilterHashtable @{LogName='System'; Id=4101}`)
+  against the run's times, and if one recurs, reproduce (the GPU tests looped, alone and in
+  parallel processes) and serialize the tests' device use or lower the budget, whichever the
+  measurement points at.
 
 - resolved 2026-10-17 (after Phase 5's close; `scripts/mutants.py` `plan_file_split`) — a split mutation run waits on the
   VPS for crates whose tests dominate: the halves are equal (`--shard 0/2` and `1/2`), but with
