@@ -4,18 +4,19 @@
 <meta charset="utf-8">
 <title>4cc Studio (shell draft)</title>
 <!--
-  A draft of the 4cc Studio shell: sidebar, status bar, settings menu, help window
-  and window title (docs/plans/core/gui.md), drawn only with what egui can draw
-  ("Prototypes before implementation"): its behaviour is faked with sample data and
-  nothing is written. Slices 1 to 6 of 7: the skeleton, the sidebar with its
-  collapse, stub central panels, the status bar's three slots, the window
-  title, the PES selector's states, the About popup, the settings menu, the
-  help window and the log panel.
-  Widget mapping: <select> = ComboBox, .sel = SelectableLabel, .menu = menu_button,
-  details = CollapsingHeader, table.grid = Grid, .window = Window/Modal,
-  title="" = on_hover_text, .sidebar = Panel::left, .bottom = Panel::bottom,
-  .center = CentralPanel, .titlebar = ViewportCommand::Title,
-  .log-panel = studio_core's log panel widget.
+  A draft of the 4cc Studio shell (docs/plans/core/gui.md), drawn only with what
+  egui can draw ("Prototypes before implementation"): the sidebar with the PES
+  selector's states and the About popup, the status bar's three slots, the window
+  title, the settings menu, the help window, the log panel, the first-run
+  data-location dialog, and stub central panels for the registered tools. Its
+  behaviour is faked with sample data, nothing is written.
+  Widget mapping: <select> = ComboBox, <input> = TextEdit / DragValue / CheckBox,
+  .sel = SelectableLabel, .menu = menu_button, details = CollapsingHeader,
+  table.grid = Grid, .window inside .modal-bg = egui's Modal, .help-win = a
+  floating Window (its title-bar drag and CSS resize stand for the movable and
+  resizable Window; drags elsewhere are Sense::drag), title="" = on_hover_text,
+  .sidebar = Panel::left, .bottom = Panel::bottom, .center = CentralPanel,
+  .titlebar = ViewportCommand::Title, .log-body = the log panel's ScrollArea.
 -->
 <style>
   :root {
@@ -89,7 +90,9 @@
   .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 2px; border: 1px solid #000; vertical-align: middle; }
   .chip { background: var(--widget); border-radius: 2px; padding: 0 4px; }
   /* shell */
-  .draft-controls { border: 1px dashed var(--stroke); margin: 4px 4px 0; padding: 3px 8px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .draft-controls { border: 1px dashed var(--stroke); margin: 4px 4px 0; padding: 3px 8px;
+    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+    position: relative; z-index: 15; /* not part of Studio: stays usable over a modal */ }
   .titlebar { background: var(--extreme); border-bottom: 1px solid var(--stroke); padding: 2px 8px; display: flex; gap: 6px; }
   .sidebar { width: 160px; }
   .sidebar.collapsed { width: 56px; align-items: center; }
@@ -146,6 +149,11 @@
   .msg-link { color: var(--link); }
   .msg-link:hover { text-decoration: underline; }
   .jump { position: absolute; right: 10px; bottom: 10px; }
+  .firstrun { display: flex; gap: 16px; margin: 2px 0 8px; }
+  .firstrun .choice { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+  .firstrun button { font-size: 15px; padding: 10px 14px; }
+  .draft-controls > details { flex-basis: 100%; }
+  .draft-controls .dcgroup { margin-left: 6px; }
 </style>
 </head>
 <body>
@@ -254,7 +262,12 @@ const S = { activeTool: "team-compiler", sidebarCollapsed: false, pesVersion: "2
   // count of lines arrived while paused, the body's scrollTop kept across
   // render() rebuilds, and the grid scope a line click last highlighted.
   log: [], logHeight: 180, logCollapsed: false, logFilter: "all",
-  logStick: true, logNew: 0, logScroll: 0, gridHighlight: null };
+  logStick: true, logNew: 0, logScroll: 0, gridHighlight: null,
+  // First run (distribution.md "Data location"): which settings file exists
+  // ("portable": data/settings.toml beside the exe, "config": the config-dir
+  // one, "none": neither, so the GUI asks), and whether a portable file lies
+  // beside the exe while the user picks the config dir.
+  settingsFile: "portable", portableFilePresent: false };
 // The settings file's in-memory copy (spec/core/gui.md "Settings menu"):
 // [common] is CommonSettings at its defaults (studio_core/settings/common.rs)
 // and each tool's table, keyed by its id, its settings struct's defaults
@@ -315,8 +328,8 @@ const TOOLS = [
 ];
 const PES_VERSIONS = ["2015", "2016", "2017", "2018", "2019", "2020", "2021"];
 
-// The three ShellCondition variants, keyed by id; the wording is sample text for
-// the maintainer to refine (the plan fixes kinds and lifetimes, not strings).
+// The three ShellCondition variants, keyed by id. sample wording, for the
+// maintainer to refine (the plan fixes kinds and lifetimes, not strings).
 const CONDITION_DEFS = [
   { id: "data_dir_read_only", icon: "⚠", // warning
     text: () => "Data folder is read-only",
@@ -357,6 +370,7 @@ const runningPesKey = () => !S.runningPes ? "none"
 // yellow when it holds no PES exe or does not exist (ST-SIDE-03; the two yellow
 // cases differ in the tooltip only). Under a blocker the tooltip is the
 // reason instead and the combo is disabled.
+// sample wording: the tooltip texts.
 const pesSelectorClass = () =>
   S.exeFound === "other" ? "err" : S.exeFound === "none" || S.exeFound === "no_folder" ? "warn" : "";
 function pesSelectorTip() {
@@ -387,6 +401,7 @@ function pollRunningPes() {
   saveSettings(); // the switch writes the pes_version setting
   const action = folderOf(rp.path) !== resolvedPesFolder()
     ? { label: "Fix PES path", run: fixPesPath } : null;
+  // sample wording: the notice text and its action's label.
   publishNotice("Switched to PES " + rp.version, action);
 }
 // "Fix PES path" rewrites pes_folder_path from the running exe's folder,
@@ -401,12 +416,20 @@ function fixPesPath() {
   render();
 }
 
+// The two data locations of distribution.md "Data location": the sample exe
+// folder the portable choice uses, the config dir the user-folder choice uses.
+// "none" never reaches dataLocation(): the first-run dialog covers the sidebar.
+const EXE_FOLDER = "C:\\4cc\\4cc-studio";
+const CONFIG_DIR = "C:\\Users\\you\\AppData\\Roaming\\4cc-studio";
+const dataLocation = () =>
+  S.settingsFile === "portable" ? EXE_FOLDER + "\\data" : CONFIG_DIR;
 // The logo's popup (ST-SIDE-06): the block a member pastes into a bug report.
 // lastCopied is what the harness reads; headless runs may deny the clipboard.
 let lastCopied = null;
+// sample wording: the block's field labels.
 function aboutText() {
   return ["4cc Studio v0.1.0", "Build: release", "Target: x86_64-pc-windows-msvc",
-    "Data location: C:\\Users\\you\\AppData\\Roaming\\4cc-studio",
+    "Data location: " + dataLocation(),
     "PES version: PES " + S.pesVersion].join("\n");
 }
 // openHelp opens, or retargets, the floating (non-modal) help window: target is
@@ -488,6 +511,8 @@ function md(body, hlPara) {
 // The help window's own drawer (like windowDrawer for modals): render() calls
 // it every frame, so it must keep the search text, the input's focus and the
 // panes' scroll positions across its own rebuild.
+// sample wording: the window's strings (title, search placeholder, the empty
+// result line, the Messages table's headers).
 function drawHelp() {
   const layer = document.getElementById("help-layer");
   if (!S.help) { layer.innerHTML = ""; return; }
@@ -611,6 +636,7 @@ function startHelpDrag(e, win) {
   e.preventDefault();
 }
 function openAbout() {
+  // sample wording: the window's title and its link and button labels.
   const link = (t, fn) => h("a", { href: "#", onclick: e => { e.preventDefault(); if (fn) fn(); } }, t);
   window_("About 4cc Studio",
     h("div", {}, h("pre", { class: "mono" }, aboutText()),
@@ -623,9 +649,9 @@ function openAbout() {
 
 // ---- Help window (gui.md "Help window") ----
 // The help chapters (studio_core::help shapes): the four core chapters first,
-// then one per registered tool in sidebar order. Sample bodies stand for the
-// include_str! topics and the CHANGELOG embed; the Messages topic is appended
-// by the renderer, never written here.
+// then one per registered tool in sidebar order. sample wording: the bodies
+// stand for the include_str! topics and the CHANGELOG embed; the Messages topic
+// is appended by the renderer, never written here.
 const HELP = [
   { id: "setting-up", title: "Setting up", topics: [
     { slug: "install", title: "Installing", body: [
@@ -717,7 +743,7 @@ const HELP = [
 // Per tool id, sample rows of its message catalog: the code, its catalog
 // severity and the first sentence of the enum variant's doc comment
 // (team_compiler/messages.rs CATALOG; the save editor's and export
-// upgrader's own tables).
+// upgrader's own tables). sample wording: the row texts.
 const CATALOG = {
   "team-compiler": [
     { code: "export_extract_failed", severity: "Error", text: "An archive cannot be opened, or its listing is refused." },
@@ -760,36 +786,38 @@ function saveSettings() {
 // No Save or Apply: a change applies as it is made, then the frame ends.
 function settingChanged() { saveSettings(); render(); }
 
-// Each tool's rows, in its settings struct's order: the settings key, the kind
-// its type draws ("Other UI components": a bool a checkbox, a string or path a
-// text edit, a number a number input, an enum a combo of its variants), the
-// field's doc comment (the label's tooltip) and a weak hint. The Export
+// Each tool's rows, in its settings struct's order: the settings key, the plain
+// label a member reads, the kind its type draws ("Other UI components": a bool
+// a checkbox, a string or path a text edit, a number a number input, an enum a
+// combo of its variants), the field's doc comment and a weak hint. The Export
 // upgrader has no settings; its section says so.
+// sample wording: the labels, the doc comments and the hints.
 const TOOL_SETTINGS_SPEC = {
   "team-compiler": [
-    ["cpk_name", "text", "The single output CPK's name, without .cpk.", "without .cpk"],
-    ["output_folder_path", "text", "Where compiled CPKs go; a relative path resolves beside the executable.", "compiled CPKs go here"],
-    ["savefile_path", ["Auto", "Path"], "The local savefile the compile's aesthetics patch is applied to.", "the savefile the patch is applied to"],
-    ["multicpk_mode", "bool", "Cup DLC mode: team content split into size-capped parts plus a bins CPK.", "cup DLC mode"],
-    ["teams_cpk_name", "text", "The stem of the teams part slots in multi-CPK mode.", "teams part slots' stem"],
-    ["cpk_part_max_size", "num", "The most bytes a teams part may hold, its table of contents included; a single CPK past it is only warned about.", "bytes per teams part at most"],
-    ["bins_cpk_name", "text", "The CPK, without .cpk, that holds the bins and the overrides in multi-CPK mode.", "multi-CPK bins CPK name"],
-    ["refs_cpk_name", "text", "The CPK, without .cpk, that holds the referees of a normal compile whose exports include a refs export.", "referees CPK name"],
-    ["dds_compression", ["Auto", "On", "Off"], "Whether every DDS a PES 15-17 run emits is WESYS-zlibbed.", "auto follows cup DLC mode"],
-    ["strict_file_type_check", "bool", "Disallowed file types are errors when on, info notes when off.", "disallowed types are errors"],
-    ["pass_through", "bool", "Keep folders with errors instead of discarding them.", "keep folders with errors"],
-    ["teams_list_path", "text", "The working teams list; a relative path resolves in the data directory.", "the working teams list"],
+    ["cpk_name", "Output CPK name", "text", "The single output CPK's name, without .cpk.", "without .cpk"],
+    ["output_folder_path", "Output folder", "text", "Where compiled CPKs go; a relative path resolves beside the executable.", "compiled CPKs go here"],
+    ["savefile_path", "Savefile", ["Auto", "Path"], "The local savefile the compile's aesthetics patch is applied to.", "the savefile the patch is applied to"],
+    ["multicpk_mode", "Cup DLC mode", "bool", "Cup DLC mode: team content split into size-capped parts plus a bins CPK.", "cup DLC mode"],
+    ["teams_cpk_name", "Teams CPK name", "text", "The stem of the teams part slots in multi-CPK mode.", "teams part slots' stem"],
+    ["cpk_part_max_size", "Teams part size cap", "num", "The most bytes a teams part may hold, its table of contents included; a single CPK past it is only warned about.", "bytes per teams part at most"],
+    ["bins_cpk_name", "Bins CPK name", "text", "The CPK, without .cpk, that holds the bins and the overrides in multi-CPK mode.", "multi-CPK bins CPK name"],
+    ["refs_cpk_name", "Refs CPK name", "text", "The CPK, without .cpk, that holds the referees of a normal compile whose exports include a refs export.", "referees CPK name"],
+    ["dds_compression", "DDS compression", ["Auto", "On", "Off"], "Whether every DDS a PES 15-17 run emits is WESYS-zlibbed.", "auto follows cup DLC mode"],
+    ["strict_file_type_check", "Strict file type check", "bool", "Disallowed file types are errors when on, info notes when off.", "disallowed types are errors"],
+    ["pass_through", "Keep folders with errors", "bool", "Keep folders with errors instead of discarding them.", "keep folders with errors"],
+    ["teams_list_path", "Teams list file", "text", "The working teams list; a relative path resolves in the data directory.", "the working teams list"],
   ],
   "save-editor": [
-    ["aatf_rules", "text", "The AATF rules file check-aatf and the AATF panel run; empty: the official ruleset, built in.", "empty: the built-in ruleset"],
+    ["aatf_rules", "AATF rules file", "text", "The AATF rules file check-aatf and the AATF panel run; empty: the official ruleset, built in.", "empty: the built-in ruleset"],
   ],
   "export-upgrader": [],
 };
 
-// A settings row: the settings key, its widget and a weak hint; the field's
-// doc comment is the label's tooltip.
-const sRow = (key, tip, widget, hint) =>
-  h("tr", {}, h("td", {}, h("span", { title: tip }, key)),
+// A settings row: the plain label, its widget and a weak hint; the label's
+// tooltip leads with the settings key, then the field's doc comment, so a
+// member who edits settings.toml by hand still finds it.
+const sRow = (label, key, tip, widget, hint) =>
+  h("tr", {}, h("td", {}, h("span", { title: key + ": " + tip }, label)),
     h("td", {}, widget), h("td", {}, weak(hint)));
 
 // The common grid, always open (no header): one row per CommonSettings field a
@@ -802,6 +830,7 @@ function commonSettingsRows() {
   const text = key => h("input", { type: "text", value: c[key],
     onchange: e => { c[key] = e.target.value; settingChanged(); } });
   // rfd's native folder picker; closing it returns to the menu.
+  // sample wording: the fake dialog's text.
   const browse = () => button("Browse", () => window_("Native folder dialog",
     weak("The native folder picker (rfd) opens here"),
     [button("OK", () => { closeWindow(); drawSettings(); })]));
@@ -809,23 +838,23 @@ function commonSettingsRows() {
     v => { c.theme = v; saveSettings(); });
   theme.id = "set-theme";
   return [
-    sRow("pes_version", "The PES version the suite targets; the sidebar selector.",
+    sRow("PES version", "pes_version", "The PES version the suite targets; the sidebar selector.",
       combo(PES_VERSIONS.map(v => [v, "PES " + v]), c.pes_version, setPesVersion,
         { disabled: !!S.blocker, title: pesSelectorTip() }), "the sidebar selector edits the same value"),
-    sRow("pes_folder_path", "The PES installation folder, with ** standing for the two-digit version (20**).",
+    sRow("PES folder", "pes_folder_path", "The PES installation folder, with ** standing for the two-digit version (20**).",
       [text("pes_folder_path"), browse()], "** stands for the two-digit version"),
-    sRow("exports_folder_path", "Where exports are picked up. A relative path resolves beside the executable in both data-location modes, so it sits next to quick_compile.bat.",
+    sRow("Exports folder", "exports_folder_path", "Where exports are picked up. A relative path resolves beside the executable in both data-location modes, so it sits next to quick_compile.bat.",
       [text("exports_folder_path"), browse()], "a relative path resolves beside the executable"),
-    sRow("thread_count", "Worker threads for pipelines; 0 means automatic (logical cores minus one).",
+    sRow("Threads", "thread_count", "Worker threads for pipelines; 0 means automatic (logical cores minus one).",
       num("thread_count", { id: "set-thread-count" }), "0 = automatic (logical cores minus one)"),
-    sRow("memory_cap_percent", "Memory budget cap for pipelines, as a percentage of physical memory.",
+    sRow("Memory cap", "memory_cap_percent", "Memory budget cap for pipelines, as a percentage of physical memory.",
       [num("memory_cap_percent", { step: "any" }), " %"], "of physical memory"),
-    sRow("theme", "GUI color theme.", theme, "dark or light"),
-    sRow("check_for_updates", "Whether the shell looks for new releases.",
+    sRow("Theme", "theme", "GUI color theme.", theme, "dark or light"),
+    sRow("Check for updates", "check_for_updates", "Whether the shell looks for new releases.",
       h("input", { type: "checkbox", checked: c.check_for_updates,
         onchange: e => { c.check_for_updates = e.target.checked; settingChanged(); } }),
       "the shell looks for new releases"),
-    sRow("check_interval_hours", "Hours between release checks.",
+    sRow("Check interval (hours)", "check_interval_hours", "Hours between release checks.",
       num("check_interval_hours", { disabled: !c.check_for_updates }),
       "disabled while the check is off"),
   ];
@@ -833,7 +862,7 @@ function commonSettingsRows() {
 
 // A tool section's grid: the same label / widget / hint rows over its table.
 function toolSettingRow(toolId, f) {
-  const [key, kind, tip, hint] = f;
+  const [key, label, kind, tip, hint] = f;
   const tbl = S.settings.tools[toolId];
   let widget;
   if (kind === "bool")
@@ -848,7 +877,7 @@ function toolSettingRow(toolId, f) {
       onchange: e => { tbl[key] = e.target.value; settingChanged(); } });
   else
     widget = combo(kind.map(v => [v, v]), tbl[key], v => { tbl[key] = v; saveSettings(); });
-  return sRow(key, tip, widget, hint);
+  return sRow(label, key, tip, widget, hint);
 }
 
 // The gear opens the menu: the common grid, then one collapsing section per
@@ -868,9 +897,40 @@ function drawSettings() {
       TOOLS.filter(t => t.registered).map(t => collapsing("settings/" + t.id, t.label, () =>
         TOOL_SETTINGS_SPEC[t.id].length
           ? h("table", { class: "grid" }, TOOL_SETTINGS_SPEC[t.id].map(f => toolSettingRow(t.id, f)))
-          : weak("No settings")))),
+          : weak("No settings")))), // sample wording: the empty section's line
     [button("Close", closeWindow)]);
   windowDrawer = drawSettings; // render() rebuilds the open window
+}
+
+// ---- First-run dialog (distribution.md "Data location") ----
+// ST-RUN-01: neither settings file exists, so the GUI asks where settings and
+// data live before any tool view, a modal with no Cancel (the choice is needed
+// to start). The central panel stays empty while it is up.
+// sample wording: the title, the two buttons and hints, the footer line.
+function drawFirstRun() {
+  const choice = (label, hint, loc) => h("div", { class: "choice" },
+    button(label, () => chooseDataLocation(loc)), weak(hint));
+  window_("Where should 4cc Studio keep its settings and data?",
+    h("div", {},
+      h("div", { class: "firstrun" },
+        choice("Next to the program",
+          "A data folder beside 4cc-studio.exe: portable, moves and deletes with it", "portable"),
+        choice("In my user folder",
+          CONFIG_DIR + ": survives replacing or moving the program folder", "config")),
+      weak("You can move the data later by moving the folder.")),
+    []);
+}
+// Choosing writes the choice: the settings file's existence is what makes it
+// stick. The portable location wins when both files exist, so a portable file
+// left beside the exe is renamed out of the way.
+function chooseDataLocation(loc) {
+  S.settingsFile = loc;
+  closeWindow();
+  saveSettings();
+  if (loc === "config" && S.portableFilePresent)
+    // sample wording: the rename notice.
+    publishNotice("data\\settings.toml renamed to settings.toml.bak", null);
+  else render();
 }
 
 // ---- Render: one state object, one pass (gui.md "Shell layout") ----
@@ -905,7 +965,8 @@ function render() {
   renderSidebar();
   renderCenter();
   renderStatus();
-  if (windowDrawer) windowDrawer();
+  if (S.settingsFile === "none") drawFirstRun();
+  else if (windowDrawer) windowDrawer();
   drawHelp();
 }
 
@@ -913,7 +974,42 @@ function cb(label, checked, set) {
   return h("label", { class: "cb" }, h("input", { type: "checkbox", checked,
     onchange: e => { set(e.target.checked); render(); } }), label);
 }
-// The strip visibly outside Studio: every control writes S and redraws.
+// One line per ST scenario of gui.md "Acceptance", in id order: which control
+// to flip and what to look at, or why the draft does not draw it.
+const WALK = [
+  ["ST-SIDE-01", "the registered tools list in order under the selector; a click switches the center"],
+  ["ST-SIDE-02", "Sidebar collapsed: the rail keeps icons only, labels move to the tooltips, clicks still switch"],
+  ["ST-SIDE-03", "Exe in the PES folder: another version's exe turns the selector red, no exe or a missing folder yellow, its tooltip says what was found"],
+  ["ST-SIDE-04", "Match tracker blocks version changes: the selector greys out, its tooltip gives the reason"],
+  ["ST-SIDE-05", "not drawn: manual, it needs a real PES running; the Running game combo and Poll now fake the poll"],
+  ["ST-SIDE-06", "click the 4cc logo: the About block, its links and the Copy button"],
+  ["ST-SIDE-07", "the grayed tool names under the registered ones: not clickable, each tooltip says it is not in this build"],
+  ["ST-SET-01", "the gear: the common rows, then one section per tool, the active tool's open"],
+  ["ST-SET-02", "change Threads in the menu: it saves at once, the Team compiler stub's Threads line follows"],
+  ["ST-SET-03", "Data folder unwritable plus a change: the value keeps for the session, the read-only warning shows in the bar"],
+  ["ST-BAR-01", "nothing switched on: the bar shows v0.1.0 alone"],
+  ["ST-BAR-02", "Save editor busy: its progress sits in the middle slot, gone while the Save editor is the view"],
+  ["ST-BAR-03", "the Notice buttons: one with an action stays until clicked or dismissed, one without fades, a later one replaces it"],
+  ["ST-TTL-01", "Save editor busy or Compile: the window title carries the progress, idle without it"],
+  ["ST-TTL-02", "Window focused off, then a Notice button: the title holds the notice until focus returns"],
+  ["ST-TTL-03", "not drawn: the repaint wake and the per-tool tick belong to the real shell's event wiring"],
+  ["ST-HELP-01", "the ? button or F1: the help opens on the active tool's chapter, Messages its last topic"],
+  ["ST-HELP-02", "type a message code or a body word in the help's search box: a result click jumps to the highlighted hit"],
+  ["ST-HELP-03", "click a log line's message code: the help opens at its catalog row; an in-doc link works alike"],
+  ["ST-HELP-04", "not drawn: CLI, `4cc-studio help` prints and exports the chapters"],
+  ["ST-LOG-01", "Add 400 log lines: only the last 300 draw, the newest at the bottom"],
+  ["ST-LOG-02", "scroll up, then add lines: the view holds, \"↓ N new\" counts them and jumps back"],
+  ["ST-LOG-03", "the All, Warnings, Errors chips: a filter hides lines, never drops them"],
+  ["ST-LOG-04", "the header chevron collapses the panel; the thin divider above it drags its height"],
+  ["ST-RUN-01", "Settings file to none: the first-run dialog asks before any view; each button writes its location"],
+  ["ST-RUN-02", "not drawn: launch logic, the GUI reopens the tool last used"],
+  ["ST-RUN-03", "not drawn: launch logic, --gui <tool-id> <command> autoruns it"],
+  ["ST-RUN-04", "not drawn: manual, no console window on double-click, terminal output stays in the terminal"],
+  ["ST-CLI-01", "not drawn: CLI, conditions and notices print as stderr lines"],
+  ["ST-CLI-02", "not drawn: manual CLI, the progress line redraws on a terminal's stderr"],
+];
+// The strip visibly outside Studio: every control writes S and redraws. The
+// weak labels group the controls by the surface they exercise.
 function renderDraftControls() {
   const dc = document.getElementById("draft-controls");
   dc.innerHTML = "";
@@ -921,15 +1017,10 @@ function renderDraftControls() {
     const i = S.conditions.indexOf(id);
     if (on && i < 0) S.conditions.push(id); else if (!on && i >= 0) S.conditions.splice(i, 1);
   });
+  const grp = label => h("span", { class: "weak dcgroup" }, label);
   dc.append(weak("Draft controls, not part of Studio"),
+    grp("Sidebar"),
     cb("Sidebar collapsed", S.sidebarCollapsed, v => S.sidebarCollapsed = v),
-    cb("Data folder unwritable", S.dataDirUnwritable, v => S.dataDirUnwritable = v),
-    condCb("update_available", "Update available"),
-    condCb("pes_install_missing", "PES install missing"),
-    cb("Window focused", S.focused, v => {
-      S.focused = v;
-      if (v) S.heldTitleNotice = null;
-    }),
     h("label", { class: "cb" }, "Exe in the PES folder",
       combo([["selected", "the selected version's exe"], ["other", "another version's exe (PES 2017)"],
         ["none", "no exe"], ["no_folder", "folder missing"]],
@@ -945,23 +1036,46 @@ function renderDraftControls() {
           path: (v === "resolved" ? resolvedPesFolder() : "D:\\Games\\PES2021") + "\\PES2021.exe" };
       }),
       button("Poll now", () => pollRunningPes())),
+    grp("Status bar"),
+    condCb("update_available", "Update available"),
+    condCb("pes_install_missing", "PES install missing"),
     cb("Save editor busy", !!S.activities["save-editor"], v => {
       if (v) S.activities["save-editor"] = { done: 3, total: 10, elapsed: 45 };
       else delete S.activities["save-editor"];
     }),
+    // sample wording: the notices' texts and the fake windows' text.
     button("Notice without action", () => publishNotice("Teams list is read-only", null)),
     button("Notice with action", () => publishNotice("Switched to PES 2021",
       { label: "Fix PES path", run: () => window_("Fix PES path",
         weak("Rewrites the PES folder setting from the running game's install folder"), [button("OK", closeWindow)]) })),
+    // gui.md "Status bar", "After an update": the first start of a new version.
+    button("First start after an update", () => publishNotice("Updated to v0.1.0",
+      { label: "What's new", run: () => openHelp({ tool: "whats-new" }) })),
+    h("label", { class: "cb" }, "Notice timeout, s",
+      h("input", { type: "number", id: "notice-timeout", value: S.noticeTimeoutS, min: 0, step: "any",
+        onchange: e => { const v = parseFloat(e.target.value); if (v >= 0) S.noticeTimeoutS = v; } })),
+    cb("Window focused", S.focused, v => {
+      S.focused = v;
+      if (v) S.heldTitleNotice = null;
+    }),
+    grp("Settings"),
+    cb("Data folder unwritable", S.dataDirUnwritable, v => S.dataDirUnwritable = v),
+    grp("Help"),
     button("Open help at portrait_conflict", () =>
       openHelp({ tool: "team-compiler", topic: "messages", anchor: "portrait_conflict" })),
+    grp("Log"),
     button("Add 400 log lines", () => appendLog(Array.from({ length: 400 }, (_, i) =>
       ({ severity: "Info", code: null, scope: "bulk",
         text: "Info - bulk - filler line " + (S.log.length + i + 1) })))),
     button("Fatal line", () => appendLog([mkLine("source_changed_during_run", "run")])),
-    h("label", { class: "cb" }, "Notice timeout, s",
-      h("input", { type: "number", id: "notice-timeout", value: S.noticeTimeoutS, min: 0, step: "any",
-        onchange: e => { const v = parseFloat(e.target.value); if (v >= 0) S.noticeTimeoutS = v; } })));
+    grp("Launch"),
+    h("label", { class: "cb" }, "Settings file",
+      combo([["portable", "data\\settings.toml beside the exe"], ["config", "in the user folder"],
+        ["none", "none: first run"]], S.settingsFile, v => S.settingsFile = v)),
+    cb("a portable settings.toml is also present", S.portableFilePresent,
+      v => S.portableFilePresent = v),
+    collapsing("walk", "How to walk the scenarios", () => WALK.map(([id, how]) =>
+      h("div", {}, strong(id), " ", how))));
 }
 
 // Sidebar, top to bottom as gui.md "Sidebar" 1-5.
@@ -1004,6 +1118,8 @@ function renderCenter() {
   const oldLog = center.querySelector(".log-body");
   if (oldLog) S.logScroll = oldLog.scrollTop;
   center.innerHTML = "";
+  // The first-run dialog asks before any tool view (ST-RUN-01).
+  if (S.settingsFile === "none") return;
   const t = TOOLS.find(t => t.id === S.activeTool);
   center.append(h("h2", {}, t.label),
     weak("This view is drawn in its own draft, " + t.id.replaceAll("-", "_") + ".html."));
@@ -1108,6 +1224,7 @@ function startCompile() {
       clearInterval(compileTimer); compileTimer = null;
       delete S.activities["team-compiler"];
       appendLog([{ severity: "Info", code: null, scope: null, text: "Info - Compiled 48 teams" }]);
+      // sample wording: the notice, its action and the fake window's text.
       publishNotice("Compiled 48 teams", { label: "Open output",
         run: () => window_("Open output", weak("Opens the output folder in the file browser"), [button("OK", closeWindow)]) });
       return;
@@ -1156,6 +1273,7 @@ function gotoScope(scope) {
 // One displayed line, coloured by severity. The code is a link to its catalog
 // row in the help (ST-HELP-03); the rest of a Warning, Error or Fatal line
 // cross-links to the grid (gui.md "Log panel", "Cross-linking").
+// sample wording: the link's tooltip.
 function logLine(l) {
   const cls = l.severity === "Warning" ? " warn" : l.severity === "Info" ? "" : " err";
   const kids = [l.text];
@@ -1190,7 +1308,8 @@ function logDivider() {
 // The scroll area: fixed S.logHeight, the last LOG_CAP filtered lines. Leaving
 // the bottom pauses the stick and shows the jump counter; returning to it (or
 // clicking it) resumes. The rebuild restores the paused scrollTop, so arriving
-// lines never move the view.
+// lines never move the view. sample wording: the jump button's tooltip, the
+// chevrons' tooltips and the header's count line.
 function logBody(lines) {
   const body = h("div", { class: "log-body", style: `height:${S.logHeight}px`,
     onscroll: e => {
@@ -1215,7 +1334,8 @@ function logPanel() {
   const shown = filteredLog();
   const drawn = shown.slice(-LOG_CAP);
   const count = shown.length > LOG_CAP ? `last ${LOG_CAP} of ${shown.length}`
-    : `${drawn.length} of ${shown.length} lines`;
+    : shown.length < S.log.length ? `${shown.length} of ${S.log.length} lines`
+    : `${shown.length} lines`;
   const header = h("div", { class: "log-header" }, chevron, strong("Log"), chips,
     h("span", { class: "weak log-count" }, count));
   if (S.logCollapsed) return h("div", { class: "log-panel" }, header);
