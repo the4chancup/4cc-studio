@@ -4,9 +4,11 @@
 
 use std::fs;
 
+use pes_version::PesVersion;
 use studio_core::PipelineEvent;
 
 use crate::common::Sandbox;
+use crate::players::wears;
 
 /// `upgrade <input> --savefile <save>`.
 fn upgrade(sandbox: &Sandbox, input: &str, save: &str) -> crate::common::Run {
@@ -24,7 +26,11 @@ fn a_note_team_line_overrides_the_exports_name() {
     // for the settings.toml half of the scenario.
     sandbox.copy_fixture_dir("co Spring", "Numbers");
     sandbox.write("Numbers/Faces/XXX05 - PLACEHOLDER/fcl_hair.fmdl", b"hair");
-    sandbox.save("EDIT");
+    // Slot 05's record carries the boots ID, so his generated settings.toml
+    // proves it came from /co/'s records. A stock model's ID: one in the
+    // team's old block (426-450) names an export's own boots and is not
+    // written.
+    sandbox.save_edited("EDIT", PesVersion::Pes21, |file| wears(file, 71405, 42, 0));
 
     let run = upgrade(&sandbox, "Numbers", "EDIT");
     assert_eq!(run.exit_code(), 1);
@@ -41,6 +47,13 @@ fn a_note_team_line_overrides_the_exports_name() {
             "{folder}"
         );
     }
+    let text =
+        fs::read_to_string(sandbox.path("co Full Numbers/Players/05 - PLACEHOLDER/settings.toml"))
+            .unwrap();
+    assert!(
+        text.contains("boots_id = 42"),
+        "slot 05's record's ID: {text}"
+    );
 }
 
 // EU-ROOT-01
@@ -126,7 +139,10 @@ fn the_notes_team_colors_and_other_notes_become_the_root_files() {
     let note_txts: Vec<String> = sandbox
         .listing("co Full Spring")
         .into_iter()
-        .filter(|path| path.ends_with(".txt") && path.contains("note"))
+        .filter(|path| {
+            let lowered = path.to_ascii_lowercase();
+            lowered.ends_with(".txt") && lowered.contains("note")
+        })
         .collect();
     assert_eq!(note_txts, ["notes.txt"], "{note_txts:?}");
 }

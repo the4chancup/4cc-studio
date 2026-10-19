@@ -371,6 +371,10 @@ fn a_kit_entry_without_a_config_still_forms_its_kit() {
     // The third entry's slot has no config: the folder holds its colors
     // alone.
     assert_eq!(sandbox.listing("co Full Kits/Kits/p3"), ["colors.txt"]);
+    assert_eq!(
+        fs::read(sandbox.path("co Full Kits/Kits/p3/colors.txt")).unwrap(),
+        b"255 000 000\n255 255 255\n"
+    );
     assert!(
         run.stdout()
             .contains("kit_without_config at co Note.txt (slot=p3)"),

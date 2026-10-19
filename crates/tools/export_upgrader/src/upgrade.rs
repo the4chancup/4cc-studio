@@ -1022,6 +1022,87 @@ mod tests {
     }
 
     #[test]
+    fn a_refs_txt_that_is_not_utf8_is_unmigrated_and_no_players_txt_is_written() {
+        let root = scratch("refs_not_utf8");
+        // Notepad's ANSI: an accented name is no UTF-8 (step 9's
+        // `Some((path, None))`).
+        fs::create_dir_all(root.join("refs Spring/Players/arbiter")).unwrap();
+        fs::write(root.join("refs Spring/refs.txt"), b"01 M\xfcller\r\n").unwrap();
+        fs::write(
+            root.join("refs Spring/Players/arbiter/boots.fmdl"),
+            b"boots",
+        )
+        .unwrap();
+        let (ctx, events_rx) = test_ctx();
+        let args = UpgradeArgs {
+            export: root.join("refs Spring"),
+            savefile: None,
+            loose: false,
+            output: None,
+        };
+
+        let exit = run(&args, &ctx).unwrap();
+        drop(ctx);
+        assert_eq!(exit, ERRORS);
+        let messages: Vec<Message> = events_rx
+            .iter()
+            .filter_map(|envelope| match envelope.event {
+                PipelineEvent::Message(message) => Some(message),
+                _ => None,
+            })
+            .collect();
+        let unmigrated = messages
+            .iter()
+            .filter(|m| m.code.code.as_ref() == "unmigrated_content")
+            .collect::<Vec<_>>();
+        assert_eq!(
+            unmigrated.iter().map(|m| &m.scope).collect::<Vec<_>>(),
+            [&Scope::File {
+                export_id: INPUT,
+                path: path_scope("refs.txt")
+            }],
+            "{:?}",
+            messages
+                .iter()
+                .map(|m| m.code.code.as_ref().to_owned())
+                .collect::<Vec<_>>()
+        );
+        assert!(!root.join("refs Spring upgraded/players.txt").exists());
+    }
+
+    #[test]
+    fn an_unwritable_parent_dir_aborts_naming_it_and_the_incomplete_output() {
+        let output = scratch("write_parent_blocked");
+        // `Players` is a file: the parent of the `settings.toml` cannot be
+        // created.
+        fs::write(output.join("Players"), b"x").unwrap();
+        let error = write_output_file(&output, "Players/03 - A/settings.toml", b"x")
+            .expect_err("the parent cannot be created");
+        assert_eq!(error.exit_code, ABORTED, "{error}");
+        // The incomplete output is left as it is.
+        assert!(output.join("Players").is_file());
+        let text = error.to_string();
+        assert!(text.contains("cannot create the directory"), "{text}");
+        assert!(text.contains("03 - A"), "{text}");
+        assert!(text.contains("incomplete"), "{text}");
+    }
+
+    #[test]
+    fn an_unwritable_file_aborts_naming_it_and_the_incomplete_output() {
+        let output = scratch("write_file_blocked");
+        // `colors.txt` is a directory: the file cannot be written.
+        fs::create_dir(output.join("colors.txt")).unwrap();
+        let error =
+            write_output_file(&output, "colors.txt", b"x").expect_err("the file cannot be written");
+        assert_eq!(error.exit_code, ABORTED, "{error}");
+        assert!(output.join("colors.txt").is_dir());
+        let text = error.to_string();
+        assert!(text.contains("cannot write the file"), "{text}");
+        assert!(text.contains("colors.txt"), "{text}");
+        assert!(text.contains("incomplete"), "{text}");
+    }
+
+    #[test]
     fn a_disallowed_file_type_is_kept_by_the_output_validation() {
         // The output's check runs without the strict file-type check: a
         // disallowed file is noted, not dropped ("Verification": the

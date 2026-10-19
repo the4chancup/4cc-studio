@@ -243,13 +243,21 @@ fn a_stripped_save_writes_the_same_files_and_names_him() {
             );
         }
     }
-    // One Info finding per generated file (the two player folders).
-    let findings = stripped
-        .stdout()
+    // One Info finding per generated file, each naming its own slot.
+    let stdout = stripped.stdout();
+    let findings: Vec<&str> = stdout
         .lines()
-        .filter(|line| line.contains("Info settings_from_stripped_record"))
-        .count();
-    assert_eq!(findings, 2, "{}", stripped.stdout());
+        .filter(|line| line.contains("settings_from_stripped_record"))
+        .collect();
+    assert_eq!(findings.len(), 2, "{stdout}");
+    for (slot, name) in [("03", "PLACEHOLDER"), ("05", "PLACEHOLDER")] {
+        assert!(
+            stdout.contains(&format!(
+                "Info settings_from_stripped_record (slot={slot}, name={name})"
+            )),
+            "{slot}: {stdout}"
+        );
+    }
     assert!(!normal.stdout().contains("settings_from_stripped_record"));
 }
 

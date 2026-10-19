@@ -540,6 +540,115 @@ mod tests {
     }
 
     #[test]
+    fn a_large_member_that_does_not_decode_falls_back_to_the_medium() {
+        let plan = plan(
+            &[
+                "Logo/emblem_0XXX_r.png",
+                "Logo/emblem_0XXX_r_l.png",
+                "Logo/emblem_0XXX_r_ll.png",
+            ],
+            &[],
+            &[
+                ("Logo/emblem_0XXX_r.png", PNG),
+                ("Logo/emblem_0XXX_r_l.png", PNG),
+                ("Logo/emblem_0XXX_r_ll.png", b"not a png"),
+            ],
+        );
+        assert_eq!(
+            plan.copies,
+            [("Logo/emblem_0XXX_r_l.png".to_owned(), "logo.png".to_owned())]
+        );
+        // `unmigrated_content` at the `_r_ll` with its decode error in the
+        // context; `logo_fallback` at the `_r_l` it fell back to; no small
+        // logo is written or judged.
+        let unmigrated = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "unmigrated_content")
+            .expect("unmigrated_content expected");
+        assert_eq!(
+            unmigrated.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Logo/emblem_0XXX_r_ll.png")
+            }
+        );
+        assert!(
+            unmigrated.context.iter().any(|(key, _)| key == "error"),
+            "{:?}",
+            unmigrated.context
+        );
+        let fallback = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "logo_fallback")
+            .expect("logo_fallback expected");
+        assert_eq!(
+            fallback.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Logo/emblem_0XXX_r_l.png")
+            }
+        );
+        assert!(
+            plan.findings
+                .iter()
+                .all(|m| !m.code.code.as_ref().starts_with("logo_small"))
+        );
+    }
+
+    #[test]
+    fn both_larger_members_undecodable_fall_back_to_the_small_one() {
+        let plan = plan(
+            &[
+                "Logo/emblem_0XXX_r.png",
+                "Logo/emblem_0XXX_r_l.png",
+                "Logo/emblem_0XXX_r_ll.png",
+            ],
+            &[],
+            &[
+                ("Logo/emblem_0XXX_r.png", PNG),
+                ("Logo/emblem_0XXX_r_l.png", b"not a png"),
+                ("Logo/emblem_0XXX_r_ll.png", b"not a png"),
+            ],
+        );
+        assert_eq!(
+            plan.copies,
+            [("Logo/emblem_0XXX_r.png".to_owned(), "logo.png".to_owned())]
+        );
+        let unmigrated: Vec<&Message> = plan
+            .findings
+            .iter()
+            .filter(|m| m.code.code.as_ref() == "unmigrated_content")
+            .collect();
+        assert_eq!(
+            unmigrated.iter().map(|m| &m.scope).collect::<Vec<_>>(),
+            [
+                &Scope::File {
+                    export_id: INPUT,
+                    path: path_scope("Logo/emblem_0XXX_r_l.png")
+                },
+                &Scope::File {
+                    export_id: INPUT,
+                    path: path_scope("Logo/emblem_0XXX_r_ll.png")
+                }
+            ]
+        );
+        let fallback = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "logo_fallback")
+            .expect("logo_fallback expected");
+        assert_eq!(
+            fallback.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Logo/emblem_0XXX_r.png")
+            }
+        );
+    }
+
+    #[test]
     fn two_portraits_giving_one_slot_keep_the_first() {
         let plan = plan(
             &["Portraits/player_71405.dds", "Portraits/player_XXX05.dds"],
