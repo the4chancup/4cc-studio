@@ -105,9 +105,9 @@ Planned files that do not exist yet:
   stats), `tabs/` (`abilities.rs`, `appearance.rs`, `team.rs`, `tactics.rs`), `panels/`
   (`aatf.rs`, `comparator.rs`, `transplant.rs`, `interchange.rs` — Team TOML / `.4ccs` / `.4cct`
   / Texport import-export dialogs) and `widgets.rs` (editor-local reusable widgets: version-gated
-  control, ID picker; a color is drawn by how the save stores it: an RGB one (the team colors;
-  the hair, eyebrow and facial-hair colors, 6 bits per channel, the picked color rounded to
-  them) is `color_tools`' picker, `libs/color_tools.md`, not a widget of this crate; a palette
+  control, ID picker; a color is drawn by how the save stores it: an RGB one (the team colors,
+  the only RGB fields a tab draws) is `color_tools`' picker, `libs/color_tools.md`, not a
+  widget of this crate; a palette
   index (skin, iris, wrist tape, spectacles, gloves, hair accessory, as `settings.toml`'s
   `skin_color` 0-7) is a choice of its palette's entries, never a picker whose free color no
   record can hold)

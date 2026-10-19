@@ -8817,14 +8817,14 @@ Plan: `plans/export_upgrader.md` "GUI", "CLI" (the pointer), "Acceptance" (Phase
 
 ## 2026-10-19 — save editor — only the RGB color fields are `color_tools`' picker
 Decision: amends 2026-10-18 "a color field is `color_tools`' picker": the picker serves the
-Save editor's colors the save stores as RGB (the team colors; hair, eyebrow and facial-hair
-colors at 6 bits per channel, the picked color rounded to them); a color stored as a palette
-index (skin, iris, wrist tape, spectacles, gloves, hair accessory) is a choice of its palette's
-entries.
+Save editor's colors the save stores as RGB (the team colors, the only RGB fields its tabs
+draw: the in-game face run's hair, eyebrow and facial-hair colors are outside the Appearance
+tab's 4ccEditor contents); a color stored as a palette index (skin, iris, wrist tape,
+spectacles, gloves, hair accessory) is a choice of its palette's entries.
 Why: the rule follows the storage kind, not a list of fields: a palette index cannot hold a
 free color from a picker (`settings.toml`'s `skin_color` 0-7, `iris_color` 0-10, the wrist-tape
-and gloves colors 0-7), while an RGB field can (Astra 8.0.A1-1, SWE-2 8.0.S7-3, S8-4, S8-5). The
-picker keeps its Phase 8 host in the team colors.
+and gloves colors 0-7), while an RGB field can (Astra 8.0.A1-1, SWE-2 8.0.S7-3, S8-4, S8-5,
+S9-1). The picker keeps its Phase 8 host in the team colors.
 Plan: `plans/save_editor.md` "Crate layout"; `plans/libs/color_tools.md` "Color-picker widget";
 `plans/core/development_plan.md` "Phase 8".
 
@@ -8904,12 +8904,17 @@ Decision: closing the window, by the member or by the shell itself (the quick-co
 success), asks every tool through a `StudioTool` hook beside `version_change_blocker`; one
 holding unsaved work makes the shell cancel the close and switch to it, and its own prompt
 decides: save or discard sends a close request back (a `ShellRequest`), which asks every tool
-again, so a second tool with unsaved work prompts in turn; cancel keeps the window.
+again, so a second tool with unsaved work prompts in turn; cancel keeps the window. A tool
+with a run in flight (a compile, an upgrade) reports it through the same hook; its prompt
+offers to cancel the run and close once the cancellation has ended, or to keep running.
 Why: the prompt is the tool's view, which the shell draws only for the active tool, so a close
 decided by the shell alone dropped the Save editor's edits whenever another tool was in view
 (SWE-2 8.0.S7-5). A hook, not a shell-owned prompt, because what "unsaved" means and how it is
-saved are the tool's.
-Plan: `plans/core/gui.md` "Cancellation" ("Closing the window"); SE-GUI-05.
+saved are the tool's. A run in flight is asked about because an exit cannot discard its
+staging as a cancel does, and one killed while deploying can leave a torn output (SWE-2
+8.0.S9-3).
+Plan: `plans/core/gui.md` "Cancellation" ("Closing the window"); SE-GUI-05, ST-RUN-05,
+ST-RUN-06.
 
 ## 2026-10-19 — save editor — the GUI's Texport export writes PES 18-21
 Decision: Texport export is offered on PES 18-21 saves, from `Texport::new`'s templates; on a

@@ -413,7 +413,11 @@ holding unsaved work (the Save editor's edits) reports it through a `StudioTool`
 active view and lets its own prompt decide. Save or discard sends a close request back to the
 shell (a `ShellRequest`, as a tool switch is), which asks every tool again, so a second tool
 with unsaved work gets its own prompt in turn; cancel keeps the window and ends the close. A
-close the shell decided alone would drop the edits of a tool whose view was not drawn.
+close the shell decided alone would drop the edits of a tool whose view was not drawn. A tool
+with a run in flight (a compile, an upgrade) reports it through the same hook, and its prompt
+offers to cancel the run and close, the close request going back once the cancellation above
+has ended, or to keep running: an exit cannot discard the run's staging as a cancel does, and
+a run killed while deploying can leave a torn output (ST-RUN-05, ST-RUN-06).
 
 ### Browser deployment: Studio Web
 
@@ -639,7 +643,7 @@ ST-LOG-04   GIVEN the log panel open at its default height
                  frames
 ```
 
-**Launch**
+**Launch and close**
 
 ```
 ST-RUN-01   GIVEN neither settings file exists
@@ -659,6 +663,18 @@ ST-RUN-04   manual  GIVEN the Windows bundle
                     WHEN the exe is double-clicked
                     THEN no console window opens beside the GUI; WHEN `4cc-studio team-compiler
                          check` runs from a terminal THEN its output reaches that terminal
+ST-RUN-05   GIVEN two stub tools each reporting unsaved work, a third tool's view active
+            WHEN the window's close is requested
+            THEN the window stays and the first stub's view is active with its prompt; WHEN
+                 it discards THEN the second stub's view is active with its prompt; WHEN that
+                 one discards THEN the window closes; GIVEN either prompt cancelled instead
+                 THEN the window stays and no further prompt shows
+ST-RUN-06   GIVEN a stub tool reporting a run in flight, another tool's view active
+            WHEN the window's close is requested
+            THEN the window stays and the stub's view is active with its prompt; WHEN it
+                 chooses cancel-and-close THEN the run's cancel flag is set and the window
+                 closes once the run has ended, not before; WHEN it chooses to keep running
+                 THEN the window stays and the run goes on
 ST-CLI-01   GIVEN a data directory that cannot be written
             WHEN a CLI command runs
             THEN stderr starts with the data_dir_read_only condition as one line, and a notice a

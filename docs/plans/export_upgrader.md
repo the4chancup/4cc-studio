@@ -1224,8 +1224,8 @@ EU-REF-09  GIVEN a referee folder without a face.xml whose common/ holds parts_b
            THEN parts_body.model is reported as unmigrated content, the referee folder does not
                 hold it, and the exit code is 1
 EU-REF-10  GIVEN an old referee export in the refs compiler's layout (as "refs for Winter 25
-                Day 2"): a root Refs list.txt and Common/, each referee folder at the root with
-                its Face/ and Common/ subfolders, no Players/
+                Day 2"): a root Refs list.txt and Common/, the referee folders at the root, each
+                with a Face/ and some with a Common/ of their own, no Players/
            WHEN it is upgraded without --savefile or --loose
            THEN the output's players.txt holds Refs list.txt's mapping, each referee folder is
                 under Players/ with its subfolders folded as EU-REF-02's, Common/ is carried, and
