@@ -15,7 +15,8 @@ is in `AGENTS.md` ("Working documents").
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
 **Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"; the
-lead's audit found one gap, step 6.10, a referee tracer, done; its mutation run's survivors are
+lead's audit found one gap, step 6.10, a referee tracer, done, which found the team tracers'
+references compiled by unreleased Red, step 6.11; its mutation run's survivors are
 tested or ruled equivalent; SWE-2's converge round found nothing to accept), then Astra's
 converge review; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
 and the shell's draft (`docs/prototypes/shell.html`, step 8.2) is done, waiting for the
@@ -748,6 +749,15 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     mutate (tests and fixtures only). Files: `team_compiler/tests/{parity.rs,
     fixtures/tracer_refs/}`, `export_upgrader/tests/upgraded_golden.rs`,
     `spec/team_compiler/testing.md`, `justfile`, `scripts/provenance/`
+- [ ] 6.11 the team tracers' references from released Red: `tracer/red/` and
+  `tracer_prefox/red/` were compiled by Red `e12aa01`, on the unreleased `dev/pre-studio-format`
+  branch (both READMEs say so), which no member ever ran, the premise 6.0c corrected for the
+  inventory (DECISIONS 2026-10-18 "the 5.0c Red inventory re-read on released Red"). Recompile
+  both `old/` exports with Red `main` (`1a48fa5`, 4.4.0) as `tracer_refs`' README does, and
+  diff each against the committed `red/` → verify: equal, or every difference diagnosed: a
+  development-branch behavior replaced by released Red's in `red/`, the README's provenance
+  corrected, the four parity cases' tables updated with each new difference's reason, and a
+  real compiler or upgrader defect reported rather than tabulated
 
 ### Phase 8 — GUI
 
