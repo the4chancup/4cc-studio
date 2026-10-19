@@ -18,8 +18,9 @@ editor's coverage table and draft).
 every converge review loop has ended (2026-10-19) and the close mutation run of
 `export_upgrader` is triaged (2 missed, the placeholder views, worklog 8.3); 6.14 (an upgrade
 writes a clean export or nothing) and 6.15 (a one-wearer item folder takes its wearer's ID)
-are built, 6.14's census classes wait on three `QUESTIONS.md` entries; then 6.14c (portraits
-Red converted), 6.12c (the library run), the plans-to-spec move and the worklog's collapse. 8.0's acceptance sections are reviewed and the shell's draft
+are built, and 6.14c; the maintainer answered 6.14's three questions (2026-10-19). Then the
+rest of 6.12c's diagnosis (the library run, 737 lines left), 6.16 (the answers and 6.12c's
+defects, two slices), the plans-to-spec move and the worklog's collapse. 8.0's acceptance sections are reviewed and the shell's draft
 (`docs/prototypes/shell.html`, step 8.2) waits for the maintainer's remarks. Side-leads are
 paused (single lead + SWE-2); the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
@@ -809,7 +810,13 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     classes with Red's package shown present, or the three defect candidates; written for
     the top lead in `.tmp/6_12/classes.md` of the worktree, with `pilot_tally.txt` (copies in
     the main checkout's `.tmp/6_12/`)
-  - [ ] 6.12c the library: the other ~290 upgradable inputs through Red and `red_parity`
+  - [ ] 6.12c (run 2026-10-19, 2ec367e; `.tmp/6_12c/`: `library.py`, `attribute.py`,
+    `findings.md`) the 250 clean upgrades of census 614 through Red and `red_parity`: 54,216
+    lines, all but 737 attributed (`attribution_summary.txt`); new intentional classes I2
+    copies, I7b, I18, I19; defects D1, D2 and D3 to 6.16; Red crashes on two
+    referee folder exports every time (`os.remove` on a directory), ours compiles them clean.
+    Open: the 737 lines' groups (`.tmp/6_12c/findings.md` "To diagnose"). Was:
+    the library: the other ~290 upgradable inputs through Red and `red_parity`
     (about 4 s of Red and 2 s of ours each), pre-Fox ones compiled for PES 17
     (`--prefox-version 17`), Red rerun on input 106, disk bounded per export
     (keep both CPK sets' hash manifests, Red's logs and `parity.tsv`; the copies and CPKs
@@ -914,7 +921,30 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   - [x] 6.14c (2026-10-19; `carried.rs` `portrait_name`, EU-MDL-19's test) a portrait Red
     converted or read by its short name migrates (plan step 7, DECISIONS 2026-10-19), keeping
     its format; verified on BAG VGL18.5's real archive: `player_XXX08.jpg` and `XXX17.jpg` no
-    longer reported, its four misnamed portraits still are
+    longer reported, its four misnamed portraits still are; half wrong (6.12c, DECISIONS
+    2026-10-19 "correction"): Red's check discarded `XXX17.jpg`, which 6.16a makes a leftover
+- [ ] 6.16 the maintainer's answers of 2026-10-19 and the 6.12c library run's defects
+  (DECISIONS 2026-10-19: the correction on portraits, `Portraits/NN`, content that never
+  reached the game, a `Midcup` kit keeping what it does not resend, no second GK slot, an empty
+  face folder; plan `export_upgrader.md` steps 2, 3, 7, 10, edited). Closes 6.14's parent step
+  with it. → verify: the census rerun (the 6.14 classes the answers cover now clean or
+  leftovers), and the 6.12c run over the exports each slice touches, D1 and D2 gone
+  - [ ] 6.16a the upgrader: the leftover kinds of step 10 (files directly in `Faces/`,
+    `Boots/`, `Gloves/`; a `Full` export's kit texture no kit row names, a Kit Textures
+    subfolder; portraits Red's check refused; a team-color entry's second color; an item
+    folder no save record names; second and later GK kits); a `Midcup`'s texture-only kit
+    update as a kit folder without `config.toml`; `Portraits/NN.<ext>`; an empty face folder
+    kept as the player's face folder, no `ingame_face` (D1: PMMM, GIG VGL26); a boots or
+    gloves folder with no model marking its wearers `fpc_on`, its files leftovers (D3: EGG
+    VGL26's `k2176 - EMPTY`, 9 exports; maintainer, 2026-10-19); the scenarios
+    (EU-MDL-01, -19, EU-REP-02 and new ones) written by the lead first
+  - [ ] 6.16b the compiler: `Portraits/` named `NN`, alone or followed by ` - ` and any text,
+    ignored (`17 - Snuffy.png`; `portrait_name_invalid`); in a `Midcup`,
+    a kit folder without `config.toml` keeps the installed config and one with no texture
+    keeps the installed textures, a `colors.txt`-only folder updating the colors alone (D2:
+    six Midcups compiled checkerboard kits); spec rows (`messages.md` `kit_placeholder`,
+    `kit_config_generated`, `portrait_name_invalid`; `spec/team_compiler/pipeline.md` "Bins accumulation") with
+    the code
 
 ### Phase 8 — GUI
 

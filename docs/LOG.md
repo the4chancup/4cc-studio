@@ -2191,3 +2191,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 6.14's census rerun: 250 of 639 real inputs upgrade clean (229 before), none lost, every
   unclean run writing nothing; three classes left wait on `QUESTIONS.md`. 6.14c: a portrait Red converted from
   another format or read by its five-character name (`XXX17.jpg`) migrates, keeping its format.
+- **2026-10-19** — 6.12c's library run: 250 clean upgrades through Red and `red_parity`, 54,216 lines, all but 737
+  attributed; an empty face folder lost (D1) and Midcup checkerboard kits (D2) found, and Red discarded `XXX17.jpg`
+  after all. The maintainer answered 6.14's three questions; with the defects they are step 6.16.

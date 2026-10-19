@@ -91,7 +91,17 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    tolerated `ingame_face.txt` markers are preserved and normalized to the new bare `ingame_face`
    marker; a player whose savefile record wears boots/gloves but who has **no face folder** also gets
    a player folder with an `ingame_face` marker, since a stray boots/gloves folder is exactly the
-   ingame-face case. On a Fox export, model folders used by exactly **one** player are merged
+   ingame-face case. An empty face folder is a face folder all the same, never that case: it
+   is how a player with an FBM removes the placeholder face, as part of the FPC system (Red
+   packs an empty face package for it, so the player's own face never shows), so its player
+   folder gets no marker and the compiler writes the blank face (`spec/team_compiler/pipeline.md`
+   step 1); the real PMMM, GIG VGL26 exports hold 18 and 10 such folders. A boots or gloves
+   folder holding no model (nothing, or a `boots.skl` alone) is how a member hid a player's
+   boots or hands: Red packed an empty package under its ID, and any ID naming no model looks
+   the same in game, as the FPC preset's IDs do. Each player wearing one gets the `fpc_on`
+   marker, which gives him the preset's blank-model IDs (`spec/aesthetics_export/fpc_toggle.md`),
+   rather than an empty package, and the folder's files are leftovers (step 10); the real EGG
+   VGL26 export's `Boots/k2176 - EMPTY` and `Gloves/g2177 - EMPTY`, 9 exports in all. On a Fox export, model folders used by exactly **one** player are merged
    into that player's folder (a boots folder used only by player 15 becomes `boots.fmdl` +
    textures inside `15 - Name/`). A file path the two folders share is kept once when the
    bytes match; with different bytes the model folder is not merged but kept shared with a
@@ -152,7 +162,9 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    every later kit's colors one slot down, onto another kit's config. The Note's kit-entry order maps
    entries to slots (player entries → `p1`…, `gk:` entries → `g1`…), matching how Red numbered them
    in `UniColor.bin`. An entry whose slot has no config still becomes its kit folder, holding
-   its `colors.txt` alone, which the compiler builds as a placeholder kit, because a Note's
+   its `colors.txt` alone, which the compiler builds as a placeholder kit in a `Full` export
+   and, in a `Midcup` one, as an update of the kit's colors alone, its installed textures and
+   config staying (Red wrote the colors to `UniColor.bin` and packed nothing else), because a Note's
    kit lines are what told Red how many kits the team has (the AET page: "The amount of lines
    will let PES understand how many kits you have"); it is reported (`kit_without_config`, W,
    naming the slot), since the page also tells authors to delete lines of kits they lack. Both
@@ -163,11 +175,19 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    beside three player entries) still becomes its kit folder, reported
    (`config_without_kit_entry`, W, naming the slot), as Red warned on the mismatch: Red packed
    the config but, counting the Note's entries, never offered the kit, which the upgraded
-   export offers; the author deletes the folder if the kit was dropped. A second `gk:` entry and player entries past the ninth have no Studio slot
-   (Red wrote them to `UniColor.bin` as kit 0x11 and kits past 9): each is reported as
-   unmigrated content (step 10), and so is a Kit Textures file inside a subfolder, which Red
-   did not read (step 1's same-named subfolder aside), or a file naming a slot that no config and no Note entry of the export gives (a
-   `u0XXXp5.dds` beside configs and Note entries for kits 1 to 3). A `Kit Configs` subfolder
+   export offers; the author deletes the folder if the kit was dropped. A second or later
+   goalkeeper kit (a second `gk:` entry, a `u0XXXg2` texture, a `XXX_DEF_GK2nd_realUni.bin`
+   config) has no Studio slot and is a leftover (step 10): no version the cup plays shows a
+   goalkeeper kit past the first (Red wrote the entry to `UniColor.bin` as kit 0x11). The slot
+   names leave room for one: a version that shows a `g2` gets a new slot, not a new format.
+   Player entries past the ninth have no Studio slot either (Red wrote them as kits past 9) and
+   are unmigrated content (step 10). A Kit Textures file inside a subfolder, which Red did not
+   read (step 1's same-named subfolder aside), is a leftover, and so, in a `Full` export, is a
+   file naming a slot that no config and no Note entry of the export gives (a `u0XXXp5.dds`
+   beside configs and Note entries for kits 1 to 3): Red packed it, but no kit row named it. In
+   a `Midcup` export such a file is the kit's texture update and becomes its kit folder with no
+   `config.toml`, which keeps the slot's installed config (`spec/team_compiler/pipeline.md`
+   "Bins accumulation"); so does a slot whose Note entry has no config. A `Kit Configs` subfolder
    (the AET page's old `Kit Configs/<team id>/` layout, 953 configs on the maintainer's machine)
    is read as if its files sat at the folder's root, as Red flattens it (`export_check.py`); a
    name found at both places is one config when the bytes match and unmigrated content
@@ -254,14 +274,16 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    portrait is named `player_???NN.dds` (the AET page's `player_XXXNN.dds`, the `???` the
    placeholder or a baked-in team ID as with the kit magic below: 2,248 of the 2,271 old
    portraits on the maintainer's machine; Red read NN as the two characters before `.dds`
-   whatever stands between, so `player_736917.dds`, in four real `/o/` exports, is slot 17's); it is renamed `player_NN.dds`, the only name the
-   compiler accepts (`portrait_name_invalid`), and one already named so keeps its name. Red
-   also converted a portrait of another texture format before placing it, and read a name not
-   starting `player_` by its fourth and fifth characters (`XXX17.jpg` is slot 17's), so a
-   `player_???NN` or `???NN` portrait in a format the compiler converts (`png`, `jpg`, ...)
-   migrates as well, renamed `player_NN` and keeping its format, which the compiler's
-   `Portraits/` takes as it takes any texture (BAG VGL18.5's `player_XXX08.jpg` and `XXX17.jpg`, both shown in game by
-   Red); a name Red misread into one the game never loads stays unmigrated content. A slot
+   whatever stands between, so `player_736917.dds`, in four real `/o/` exports, is slot 17's); it is renamed `NN.dds`, a name the compiler
+   accepts (`portrait_name_invalid`: `NN`, alone or followed by ` - ` and the player's name, as a
+   player folder is named). Red also converted a portrait of another texture
+   format before placing it, so a `player_???NN` portrait in a format the compiler converts
+   (`png`, `jpg`, ...) migrates as well, renamed `NN` and keeping its format, which the
+   compiler's `Portraits/` takes as it takes any texture (BAG VGL18.5's `player_XXX08.jpg`,
+   packed by Red as `78808.dds`). Red's check refused, and discarded, a name not starting
+   `player_` or whose two characters before the extension are not a slot 01 to 23 (`XXX17.jpg`,
+   `Vanilla vitamins.png`, `player_73906-.dds`): such a portrait never reached the game and is a
+   leftover (step 10; Red's own output for BAG VGL18.5 holds no `78817.dds`). A slot
    with a portrait here and a different one in its face folder is kept both ways, and the
    upgrader compares the two files' bytes and reports `portrait_conflict` (E, exit 1; on the
    `Portraits/` file, the slot in the context, `slot`; both files stay where they are), as Red
@@ -570,15 +592,24 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     reported once by its path; a file a step leaves in the output as named (a second portrait)
     is reported all the same.
     Two kinds of entry, since only one keeps the run from being clean ("Verification"): a
-    **leftover**, content outside the old format's layout that nothing compiled (a top-level
-    folder the AET does not define, such as the real KFG VGL26 export's `FMDL Boots/` of
-    `.model` copies; a file at the root other than the Note; `Other/`'s files, which the AET
-    keeps for the author alone), is dropped with a Warning naming it (`leftover_dropped`); an
-    entry inside the format's folders that no step migrates (an item folder no player wears,
-    a second face folder of one slot, a texture that does not decode) is `unmigrated_content`,
-    an Error. We do not refuse a run over a leftover, because the Studio export is complete
-    without it and the Warning tells the author what was left behind; we do refuse one over an
-    unmigrated entry, because the compile would miss what the old export compiled.
+    **leftover**, content that never reached a player in game, is dropped with a Warning naming
+    it (`leftover_dropped`). It is content outside the old format's layout that nothing
+    compiled (a top-level folder the AET does not define, such as the real KFG VGL26 export's
+    `FMDL Boots/` of `.model` copies; a file at the root other than the Note; `Other/`'s files,
+    which the AET keeps for the author alone), or content inside it that Red never read or that
+    the game never loaded: a file directly in `Faces/`, `Boots/` or `Gloves/`, where Red's walks
+    list subfolders only (`Faces/73606 - Civic cool.7z`, `Boots/boots.fmdl`: archives made to
+    share model folders, removed before a compile); a `Full` export's kit texture whose slot no
+    config and no Note entry gives, or one no kit row names (`u0XXXp2 - Copy.dds`); a portrait
+    Red's check refused (step 7); the second color of a team-color entry holding two (Red kept
+    the first); an item folder no save record names (VG Summer 20's misspelled second set
+    `k2501`-`k2523`); a second or later goalkeeper kit (step 2: no version the cup plays shows
+    one). An entry inside the format's folders that reached the game but that no step migrates
+    (a second face folder of one slot, a texture that does not decode, a folder loose mode
+    cannot place) is `unmigrated_content`, an Error. We do not refuse a run over a leftover,
+    because the game never showed it, so the Studio export is complete without it and the
+    Warning tells the author what was left behind; we do refuse one over an unmigrated entry,
+    because the compile would miss what the old export compiled.
 11. **Loose mode** (no savefile available): step 2 needs the savefile only to learn which player
     wears which old boots/gloves ID. When no savefile is given, the upgrader offers loose mode,
     which infers the wearer from the **ID's position inside the team's Red block** instead —

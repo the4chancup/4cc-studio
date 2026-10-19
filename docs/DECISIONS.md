@@ -9116,3 +9116,79 @@ Why: Red converted every portrait to DDS before placing it and read a name not s
 `XXX17.jpg` were in game; the upgrader, reading `.dds` names alone, reported them as
 unmigrated content (the 2026-10-19 census rerun, worklog 6.14c).
 Plan: `plans/export_upgrader.md` step 7.
+
+## 2026-10-19 — export_upgrader — correction: a portrait not named `player_???NN` never reached the game
+Decision: the entry above is half wrong. Red converted a `player_???NN` portrait of another
+texture format, so `player_XXX08.jpg` migrates as before; but a name not starting `player_`
+(`XXX17.jpg`), or whose two characters before the extension are not a slot 01 to 23, failed
+Red's `portraits_check` and was discarded, so it is a leftover (the entry below), not migrated.
+Why: the 6.14c reading took Red's `export_move.py` rename for the whole path and missed the
+check that runs before it. Red's own output for BAG VGL18.5 (6.12c, 2026-10-19) holds
+`78808.dds` and no `78817.dds`; the maintainer asked whether Red really converted those.
+Plan: `plans/export_upgrader.md` step 7.
+
+## 2026-10-19 — Studio format — a `Portraits/` file is named `NN`, not `player_NN`
+Decision: a portrait in the export's `Portraits/` folder is named by its slot, in the
+player folder name's form: `NN` (01 to 23), alone or followed by ` - ` and any text, which
+is ignored (`Portraits/08.dds`, `Portraits/17 - Snuffy.png`); the compiler accepts no other
+name (`portrait_name_invalid`), and the upgrader writes `NN` alone.
+Why: the maintainer's simplification; the folder already says what the file is, and the
+`player_` prefix was Red's format, which the upgrader rewrites anyway. The optional name part
+(the maintainer, the same day) lets a member paste the player folder's name; taking the
+folder's own form, not any text after `NN`, keeps `081.dds` from reading as slot 08.
+Plan: `plans/export_upgrader.md` step 7; the compiler's portrait rows with the code (worklog 6.16).
+
+## 2026-10-19 — export_upgrader — content that never reached a player in game is a leftover
+Decision: besides content outside the old layout, a leftover (dropped with `leftover_dropped`,
+the run clean) is content inside it that Red never read or the game never loaded: files
+directly in `Faces/`, `Boots/` or `Gloves/`; a `Full` export's kit texture no kit row names;
+a portrait Red's check refused; a team-color entry's second color; an item folder no save
+record names; second and later goalkeeper kits; a Kit Textures file in a subfolder.
+Why: the maintainer's answer to QUESTIONS.md "Old content that never reached the game"
+("Yes. Those 7z files were only made for sharing the model folders anyway, and would have
+been deleted before compiling the exports"): the game never showed them, so an upgrade
+without them loses nothing, and refusing it would send members to clean exports that played.
+Plan: `plans/export_upgrader.md` step 10, step 2, step 7.
+
+## 2026-10-19 — team_compiler — a `Midcup` kit keeps what it does not resend
+Decision: in a `Midcup` export, a kit folder without `config.toml` keeps the slot's installed
+config (the template only where nothing is installed), and one holding no texture keeps the
+installed textures; a folder holding only `colors.txt` updates the kit's colors alone. The
+upgrader migrates a Midcup's texture-only kit update as a kit folder without `config.toml`.
+Why: the maintainer's answer to QUESTIONS.md "A Midcup kit that updates its textures only"
+("Preferably"), and the 6.12c library run: six Midcups (O 2020 Spring Day 8 Additions, the
+Winter 26 Day 0 Midcups of /a/ and /vg/, ...) list kit colors with no textures, Red writes
+the colors alone, and ours compiled each to a checkerboard placeholder kit and a template
+config, which installed would replace the team's kits.
+Plan: `plans/export_upgrader.md` step 2; the compiler's "Bins accumulation" and the
+`kit_placeholder`/`kit_config_generated` rows with the code (worklog 6.16).
+
+## 2026-10-19 — Studio format — no second goalkeeper kit slot
+Decision: Studio keeps the slots `p1`-`p9` and `g1`; second and later goalkeeper kits are
+leftovers when upgraded. A `g2` slot is a new slot in the same naming if a version ever
+shows one.
+Why: the maintainer's answer: none of the PES versions the cup uses supports goalkeeper kits
+past `g1` ("negative but keep the road open for it").
+Plan: `plans/export_upgrader.md` step 2.
+
+## 2026-10-19 — export_upgrader — an empty face folder is a face folder
+Decision: an empty old face folder migrates as its player's face folder: the player folder
+gets no `ingame_face` marker, and the compiler writes the blank face.
+Why: the maintainer: "Empty face folders are used on players which have an FBM, to remove the
+placeholder face, as part of the FPC system." Red packs an empty face package for one; the
+upgrader listed face folders from file paths, so an empty one was invisible and its wearer got
+`ingame_face`, which would show the default face beside the FBM (6.12c: PMMM VGL26's 18, GIG
+VGL26's 10, the 4.2.2 test export `3`'s 2).
+Plan: `plans/export_upgrader.md` step 3.
+
+## 2026-10-19 — export_upgrader — a modelless boots or gloves folder marks its wearer `fpc_on`
+Decision: a boots or gloves folder holding no model (nothing, or a `boots.skl` alone) gives
+each player wearing it the `fpc_on` marker; its files are leftovers. No empty package is
+written.
+Why: the maintainer: an empty package is the FPC way to hide a player's boots or hands, but
+"an empty folder isn't really needed ... Giving a player a boots/gloves ID for an inexistent
+folder will work as fine", which is why members give such players the FPC preset's IDs or
+their own unused ones; "the upgrade can indeed mark the player instead of packing an empty
+package". Today the upgrade dropped the folder and the player wore stock boots and normal
+hands (6.12c: EGG VGL26's `k2176 - EMPTY` and `g2177 - EMPTY`, 9 exports).
+Plan: `plans/export_upgrader.md` step 3.
