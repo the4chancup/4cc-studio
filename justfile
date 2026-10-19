@@ -85,7 +85,7 @@ clef crate:
 bindings interpreter=python:
     {{python}} scripts/bindings_check.py --python {{quote(interpreter)}}
 
-# The two Red-parity tests alone (the Fox and the pre-Fox tracer exports against Red's CPKs)
+# The two Red-parity tests alone (the Fox, pre-Fox and referee tracer exports against Red's CPKs)
 parity:
     cargo test -p team_compiler --test parity --test parity_prefox
 

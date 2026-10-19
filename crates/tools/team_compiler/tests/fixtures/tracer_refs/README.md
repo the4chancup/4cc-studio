@@ -46,14 +46,14 @@ way. Against `old/`:
 
 ## `red/`
 
-The entries of the referee CPK Red compiled from `old/` (`4cc_35_referees.cpk`, 68 files; Red
+The entries of the referee CPK Red compiled from `old/` (`4cc_35_referees.cpk`, 63 files; Red
 writes no team CPK for a run holding a referee export alone), extracted as stored with the
 `cpk` crate. Red 4.4.0, commit `1a48fa5` of `4cc-aet-compiler-red`, branch `main`, run from a
 copy of its folder (`setup_red.py`) with `settings.ini` at its defaults except
 `pes_version = 21`, `cpk_name = 4cc_90_tracer`, `move_cpks = 0`, `pause_allow = 0`,
 `updates_check = 0`, and `pes_folder_path` pointing at a folder that does not exist. Command:
 `Engines\embed\python.exe Engines\compiler_main.py 0 --no-pause` with
-`exports_to_add\refs Tracer\`: "No issues were found". Its 30 referee template entries
+`exports_to_add\refs Tracer\`: "No issues were found". Its 31 referee template entries
 (`Asset/model/character/uniform/texture/#windx11/referee_*.ftex`, `RefereeAppearance.bin`, the
 20 `referee/referee_*.bin` kit configs) are byte-identical to `resources/templates/referees_fox/`.
 
@@ -68,7 +68,7 @@ test's table carries each row):
   compiler appends the new ones, the old ones left unreferenced;
 - the five textures are at the same paths with the same headers and pixels
   (`masterchef.ftex` byte-identical, the others differing in their zlib chunks only);
-- the `.fpkd` files and the 30 template entries are byte-identical;
+- the `.fpkd` files and the 31 template entries are byte-identical;
 - Red writes a `referee0NN` face FPK holding `face_diff.bin` alone for each slot; the compiler
   writes no face for a referee whose folder holds no face model, so the game's own referee
   head stays (`spec/team_compiler/blue_port.md` "Referee export processing"), and reports
@@ -76,9 +76,9 @@ test's table carries each row):
 - Red copies the source-side `*.fpk.xml` files into the output; the Studio format drops them;
 - the compiler also writes the team side, `4cc_99_test.cpk`, for the bins alone: on PES 18-21
   each referee kit config is also its entry in `UniformParameter.bin`
-  (`spec/team_compiler/pipeline.md` "Output modes and targets"), whose 20 referee entries are
-  Red's 20 files byte for byte over the bundled `UniformParameter19.bin`, beside the bundled
-  `TeamColor.bin` and `UniColor.bin` unchanged.
+  (`spec/team_compiler/pipeline.md` "5. Writer (single-threaded)", its item "Output modes and
+  targets"), whose 20 referee entries are Red's 20 files byte for byte over the bundled
+  `UniformParameter19.bin`, beside the bundled `TeamColor.bin` and `UniColor.bin` unchanged.
 
 The three trees are about 7 MB on disk; git stores identical files once, so the three slots'
 copies of each FPK, the textures `old/` and `upgraded/` share and the template entries

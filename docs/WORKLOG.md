@@ -15,7 +15,7 @@ is in `AGENTS.md` ("Working documents").
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
 **Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"; the
-lead's audit found one gap, step 6.10, a referee tracer; its mutation run's survivors are
+lead's audit found one gap, step 6.10, a referee tracer, done; its mutation run's survivors are
 tested or ruled equivalent; SWE-2's converge round found nothing to accept), then Astra's
 converge review; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
 and the shell's draft (`docs/prototypes/shell.html`, step 8.2) is done, waiting for the
@@ -722,7 +722,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     the pre-Fox one differs by the member's kept `face.xml` alone (`FaceXml::Kept`). Files:
     `export_upgrader/tests/upgraded_golden.rs`, `team_compiler/tests/{parity,parity_prefox}.rs`,
     `team_compiler/tests/upgraded/mod.rs`, both tracers' `upgraded/` and `README.md`
-- [ ] 6.10 a referee tracer, the converge audit's one gap (`plans/export_upgrader.md`
+- [x] 6.10 a referee tracer, the converge audit's one gap (`plans/export_upgrader.md`
   "Verification": a Red-era referee export's flattened result "compiles identically to the
   unflattened original"; the compiler reads no old layout, so this is parity against Red's CPK
   for the original): a fixture `team_compiler/tests/fixtures/tracer_refs/` cut from a real
@@ -732,7 +732,22 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   `upgraded/`; `upgraded_golden.rs` and a parity case of its own compiling the golden against
   `red/` (tiers of `spec/team_compiler/testing.md`) → verify: both tests pass, each check's
   perturbation red; every difference from Red tabulated with its reason, as the tracers' tables
-  do
+  do. Done 2026-10-19 (side-lead G on `side/6.10`):
+  - [x] 6.10a the fixture (lead): referee `masterchef` of the Fox export "refs lan party" (the
+    one Fox referee export with the old subfolders; the cup's are pre-Fox), slots 05, 23, 24,
+    three DXT5 textures reduced; `red/` from Red 4.4.0 `main` (`1a48fa5`; the two team
+    tracers' `red/` came from `e12aa01`, on `dev/pre-studio-format`), `upgraded/` from
+    `b496f48`; provenance scripts `scripts/provenance/tracer_refs/`; about 1.9 MB in git
+  - [x] 6.10b the tests (SWE-2, first attempt, seven perturbations pasted): the golden test's
+    referee case (no flag); `parity.rs`'s referee case, 63 rows: models decoded equal with no
+    directory normalized, textures at Red's own paths, no face for a referee with no face model
+    (Red packs `face_diff.bin` alone), `*.fpk.xml` dropped, the team side written for the bins
+    with Red's 20 referee configs as `UniformParameter.bin` entries; the egg cases' row loop
+    shared as `compare_table`. No difference was a defect. Review: SWE-2 6.10.S1 2 accepted,
+    2 rejected, loop ended (`.tmp/6_10/rulings.md` in the worktree). Mutation diff: nothing to
+    mutate (tests and fixtures only). Files: `team_compiler/tests/{parity.rs,
+    fixtures/tracer_refs/}`, `export_upgrader/tests/upgraded_golden.rs`,
+    `spec/team_compiler/testing.md`, `justfile`, `scripts/provenance/`
 
 ### Phase 8 — GUI
 

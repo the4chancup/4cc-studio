@@ -1,9 +1,11 @@
 //! The goldens the parity cases compile, kept honest: `team_compiler`'s
 //! `parity.rs` and `parity_prefox.rs` compile the export under each
-//! `tests/fixtures/<tracer>/upgraded/`, which is what `upgrade <old> --loose`
-//! wrote of the fixture's `old/` (the fixture's README). Upgrading `old/` must
-//! still give exactly that tree, or the parity case compiles output the
-//! upgrader no longer writes.
+//! `tests/fixtures/<tracer>/upgraded/` (`parity.rs`'s referee case compiles
+//! `tracer_refs`' golden), which is what `upgrade <old>` wrote of the
+//! fixture's `old/` (`--loose` for the team tracers, neither flag for a
+//! referee export; the fixture's README). Upgrading `old/` must still give
+//! exactly that tree, or the parity case compiles output the upgrader no
+//! longer writes.
 
 // The cli suite's shared sandbox, reused wholesale; its file-fixture helpers
 // (`snapshot`, `assert_refused`, the `save`/`write`/`copy_fixture` methods) are
@@ -17,22 +19,25 @@ use std::path::Path;
 
 use common::Sandbox;
 
-/// `upgrade <fixture>/<tracer>/old/<old> --loose -o <sandbox>` gives the exit
+/// `upgrade <fixture>/<tracer>/old/<old> <flags> -o <sandbox>` gives the exit
 /// code 0, the report `report` on stdout, and an output tree equal to
 /// `<fixture>/<tracer>/upgraded/`, file set and bytes.
-fn assert_upgrades_to_golden(sandbox_name: &str, tracer: &str, old: &str, report: &str) {
+fn assert_upgrades_to_golden(
+    sandbox_name: &str,
+    tracer: &str,
+    old: &str,
+    flags: &[&str],
+    report: &str,
+) {
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("../team_compiler/tests/fixtures");
     let sandbox = Sandbox::new(sandbox_name);
     let old = fixtures.join(tracer).join("old").join(old);
     let output = sandbox.arg("upgraded");
     // The fixture is read in place: the upgrader never writes its input.
-    let run = sandbox.run(&[
-        "upgrade",
-        old.to_str().unwrap(),
-        "--loose",
-        "-o",
-        output.as_str(),
-    ]);
+    let mut args = vec!["upgrade", old.to_str().unwrap()];
+    args.extend_from_slice(flags);
+    args.extend(["-o", output.as_str()]);
+    let run = sandbox.run(&args);
     assert_eq!(run.exit_code(), 0);
     assert_eq!(run.stdout(), report);
 
@@ -89,6 +94,7 @@ fn the_fox_tracer_upgrades_to_its_golden() {
         "golden_fox",
         "tracer",
         "egg Tracer",
+        &["--loose"],
         "- egg Tracer: Info wearer_assumed at Boots/k2180 - The Chad Stormworks Player (id=2180, slot=05)\n\
          - egg Tracer: Info wearer_assumed at Gloves/g2180 - The Chad Stormworks Player (id=2180, slot=05)\n\
          - Info migration_clean\n",
@@ -101,6 +107,18 @@ fn the_pre_fox_tracer_upgrades_to_its_golden() {
         "golden_prefox",
         "tracer_prefox",
         "jp Tracer",
+        &["--loose"],
+        "- Info migration_clean\n",
+    );
+}
+
+#[test]
+fn the_referee_tracer_upgrades_to_its_golden() {
+    assert_upgrades_to_golden(
+        "golden_refs",
+        "tracer_refs",
+        "refs Tracer",
+        &[],
         "- Info migration_clean\n",
     );
 }

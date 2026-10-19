@@ -19,10 +19,11 @@ The reference tree is the **extracted contents** of Red's output CPK (Blue's `Si
 convention) — Red itself emits `patches_output/{cpk_name}.cpk`, so the fixture is produced by a
 one-time extraction step. A reference tree small enough to commit is
 committed as the tree itself: the tracer bullet's (`tests/fixtures/tracer/red/`, under
-1 MB) and the pre-Fox tracer's (`tests/fixtures/tracer_prefox/red/`, PES 2017, about 660 KB) run
-their parity cases anywhere, CI included, without Red.
+1 MB), the pre-Fox tracer's (`tests/fixtures/tracer_prefox/red/`, PES 2017, about 660 KB) and the
+referee tracer's (`tests/fixtures/tracer_refs/red/`, PES 2021, about 4.7 MB) run their parity cases anywhere, CI
+included, without Red.
 
-Each tracer has two cases: its hand-made Studio twin (`studio/`), and the Export upgrader's own
+Each team tracer has two cases: its hand-made Studio twin (`studio/`), and the Export upgrader's own
 output for the old export (`upgraded/`, a golden: tool crates never depend on each other, so
 `export_upgrader`'s `tests/upgraded_golden.rs` checks that upgrading `old/` still gives exactly
 that tree, and the parity case compiles it). The upgraded case compiles the golden under the
@@ -31,6 +32,16 @@ the compiler's placeholder kit, which the tracers' one-kit cut would add to the 
 without telling anything about parity. Its expected differences from the twin's case are what
 the member's own `face.xml`, which the upgrader keeps, decides on pre-Fox: the face model packed
 under the name it lists, its entries as the member wrote them, and its `boots` typing's warning.
+
+The referee tracer (`tests/fixtures/tracer_refs/`, one referee of a Fox referee export in the
+old `face/`, `boots/`, `gloves/`, `common/` layout, mapped to three slots) has the upgraded case
+alone, the Export upgrader's flattened output compiled against Red's referee CPK for the old
+export (`tests/parity.rs`): the compiler reads no old layout, so the plan's "compiles
+identically to the unflattened original" is this comparison. A referee export takes no coverage
+tag, so the golden compiles under its own name. Its differences from Red are a referee folder
+with no face model getting no face (Red packs his `face_diff.bin` alone), the dropped
+`*.fpk.xml` files, and the team side written for the bins on PES 18-21, the referee kit configs
+being entries of `UniformParameter.bin` (the fixture's README lists each).
 
 Intentional differences must be accounted for:
 
