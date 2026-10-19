@@ -8814,3 +8814,23 @@ and the save of the selected version is what a member means nine times in ten. T
 review is where the maintainer reshapes it; a handoff to the compiler after a clean upgrade is
 not decided here (`QUESTIONS.md`).
 Plan: `plans/export_upgrader.md` "GUI", "CLI" (the pointer), "Acceptance" (Phase 8 scope).
+
+## 2026-10-19 — save editor — only the RGB color fields are `color_tools`' picker
+Decision: amends 2026-10-18 "a color field is `color_tools`' picker": the picker serves the
+Save editor's RGB fields (the team colors); skin, iris and wrist-tape colors are each a choice
+of their palette's named entries.
+Why: those three are palette indices in the save (`settings.toml`'s `skin_color` 0-7,
+`iris_color` 0-10, the seven wrist-tape colors), so a free color from a picker is one no record
+can hold (Astra 8.0.A1-1). The picker keeps its Phase 8 host in the team colors.
+Plan: `plans/save_editor.md` "Crate layout"; `plans/libs/color_tools.md` "Color-picker widget";
+`plans/core/development_plan.md` "Phase 8".
+
+## 2026-10-19 — core — a run's events wake the GUI on emit
+Decision: the shell installs a GUI-neutral wake callback in every `ToolContext` it hands out
+(calling `egui::Context::request_repaint`), and `ToolContext::emit` calls it after each send;
+a tool's view no longer requests repaints while its run is in flight.
+Why: egui repaints only on input, and a view not drawn (another tool active, the window
+hidden) requests nothing, so a run's last events waited for unrelated input; waking on emit
+is the match feed's rule (its wake callback on publish), one rule for every background source
+rather than one per view (Astra 8.0.A1-2).
+Plan: `plans/core/gui.md` "Event wiring"; ST-TTL-03.

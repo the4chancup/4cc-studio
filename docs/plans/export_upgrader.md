@@ -1311,7 +1311,9 @@ EU-GUI-01  GIVEN the selector at PES 21, an old export folder dropped on the Upg
            THEN the target names the export, the savefile field holds the discovered save, the
                 loose switch is off, the Output-into field reads the input's parent folder, and
                 Upgrade is enabled; GIVEN no discovered save THEN the field is empty and Upgrade
-                is disabled until a save is picked or loose switched on
+                is disabled until a save is picked or loose switched on; WHEN loose is switched
+                on and Upgrade clicked THEN the run is `upgrade --loose` with no savefile
+                argument, the output EU-LOOSE-01's
 EU-GUI-02  GIVEN EU-GUI-01's export and save, the export's Other/ holding one file
            WHEN Upgrade is clicked
            THEN the output folder is the one `upgrade --savefile` writes (EU-ROOT's naming), the
@@ -1329,7 +1331,9 @@ EU-GUI-03  GIVEN the first target filled as in EU-GUI-01, then a folder of old m
                 the folder without models, with its path and unmigrated_content
 EU-GUI-04  GIVEN a referee export dropped on the first target
            WHEN the view is drawn
-           THEN the savefile field and the loose switch are disabled and Upgrade is enabled
+           THEN the savefile field and the loose switch are disabled and Upgrade is enabled;
+                WHEN Upgrade is clicked THEN the run is `upgrade` with neither a savefile nor
+                loose argument, the output EU-REF-01's (its players.txt from refs.txt)
 EU-GUI-05  GIVEN an input whose output folder already exists
            WHEN Upgrade is clicked
            THEN the log shows the abort naming the folder (EU-CLI-05), the last line reads

@@ -169,7 +169,11 @@ TC-GUI-04  GIVEN an exports folder holding a plain-folder export with players 01
 TC-GUI-05  GIVEN the view open on an exports folder
            WHEN an export folder is copied in and has been quiet for the debounce period
            THEN a row for it appears and is checked; WHEN an export is deleted or renamed THEN
-                its row goes, or carries the new name, on the next frame
+                its row goes, or carries the new name, on the next frame; WHEN a file inside a
+                checked export is edited (its players.txt given an unparseable line) and has
+                been quiet for the debounce period THEN its row is checked again and shows the
+                new finding, and a result of the check of its previous revision arriving after
+                that leaves the row's new statuses as they are
 TC-GUI-06  GIVEN an export checked at the last launch and unchanged since
            WHEN the view opens again
            THEN its row shows its last statuses without a check running; GIVEN one of its files

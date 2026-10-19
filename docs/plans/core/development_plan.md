@@ -70,7 +70,7 @@ this phase completes it. Its scenarios are written: the shell's under `gui.md` "
   stderr in a terminal only (`architecture.md` "Event system")
 - Build `color_tools`' Phase 8 widgets (`plans/libs/color_tools.md`): the kit menu icon
   rendering (the grid's kit-cell miniatures, pattern-only mode) and the color-picker popup (the
-  Save editor's color fields; the Kit config editor and the Team creator later)
+  Save editor's team color fields; the Kit config editor and the Team creator later)
 - Implement each tool's `view()`: Team compiler grid (live validation), save editor
   (player/team/tactics editing, AATF checks, comparator, transplant — build order in the [Save
   editor plan](../save_editor.md); the `session/` wiring only the view drives, undo,

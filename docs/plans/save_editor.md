@@ -105,8 +105,10 @@ Planned files that do not exist yet:
   stats), `tabs/` (`abilities.rs`, `appearance.rs`, `team.rs`, `tactics.rs`), `panels/`
   (`aatf.rs`, `comparator.rs`, `transplant.rs`, `interchange.rs` — Team TOML / `.4ccs` / `.4cct`
   / Texport import-export dialogs) and `widgets.rs` (editor-local reusable widgets: version-gated
-  control, ID picker; a color field (team colors, skin, iris, wrist tape) is `color_tools`'
-  picker, `libs/color_tools.md`, not a widget of this crate)
+  control, ID picker; an RGB color field (the team colors) is `color_tools`' picker,
+  `libs/color_tools.md`, not a widget of this crate; skin, iris and wrist-tape colors are
+  palette indices in the save, `settings.toml`'s `skin_color` 0-7, so each is a choice of its
+  palette's named entries, never a picker whose free color no record can hold)
 
 Placement rules for the planned parts:
 
@@ -209,8 +211,10 @@ Win32 original hurt the most):
   tactics tab (parity with the 4ccEditor menu tree, minus the 18-item menu).
 - Formation edits participate in undo/redo like everything else.
 
-Version quirks (advanced-instruction ranges differ 17 vs 18+; tactics import is
-16–18-only for `.4cct`) are enforced by the `pes_savefile` model, not the UI.
+Version quirks (advanced-instruction ranges differ 17 vs 18+) are enforced by the
+`pes_savefile` model, not the UI; a `.4cct` imports into any version `TeamToml::apply`'s
+version rule admits (`spec/pes_savefile/operations.md` "Team TOML"), not only into 16-18 as
+4ccEditor's did.
 
 ## `libs/team_widgets`
 
@@ -469,7 +473,9 @@ SE-GUI-04  GIVEN two edits made in order
                 then the second is reapplied; the file changes only on Save
 SE-GUI-05  GIVEN the save open with unsaved changes
            WHEN the window is closed, or another save opened
-           THEN a prompt offers to save, discard or cancel, and cancel leaves the session as it was
+           THEN a prompt offers to save, discard or cancel: cancel leaves the session as it
+                was; save writes the edits to the open file, then closes or opens the other
+                save; discard closes or opens it and the open file is unchanged
 SE-GUI-06  GIVEN a PES 17 save
            WHEN the Abilities & Skills tab is drawn
            THEN the star, playing attitude and stronger hand controls are disabled with a tooltip
@@ -488,7 +494,10 @@ SE-GUI-09  GIVEN the official ruleset active
            WHEN Make Gold is clicked on a player
            THEN his fields hold the Gold tier's values as `aatf::apply_tier` sets them
                 (`spec/aatf_rules.md`), as one undoable edit, and check-aatf then reports no
-                violation of the Gold tier's targets for him
+                violation of the Gold tier's targets for him; GIVEN the VTL11 ruleset active
+                (bundled, `aatf/rulesets/vtl11.rhai`) THEN the quick actions are Make Gold,
+                Silver, Regular and Buffed in that order, no Bronze or Goalkeeper, and Make
+                Silver sets VTL11's Silver values (rate 89, not the official 92)
 SE-GUI-10  GIVEN the save open on a team
            WHEN its name, a color or the manager id is edited in the Team tab and saved
            THEN the reopened file holds the values
@@ -587,5 +596,9 @@ SE-GUI-28  GIVEN the selector at PES 19
            WHEN a PES 21 save is opened
            THEN the view warns, naming both versions, the save keeps its own version (its codec
                 and its widgets' gating are PES 21's), and the selector's setting is unchanged
+SE-GUI-29  manual  GIVEN a Texport written by SE-GUI-17's export from a save of each version
+           Studio writes Texports for
+           WHEN it is imported through the game's own team import, in that version
+           THEN the game accepts it and the imported team shows the exported squad and names
 ```
 
