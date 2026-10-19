@@ -2149,3 +2149,6 @@ worklog passed 7,000 lines.
 - **2026-10-19** — 16.x a: `dds_convert`'s GPU BC7 encoder built ahead and unwired (Vulkan/Metal,
   bounded slabs, CPU fallback per mip after a device failure); `just gpu-tests` runs its five
   ignored tests; a transient "no adapter" under load noted for the wiring.
+- **2026-10-19** — 6.7 (side-lead D, `side/6.7`): loose mode pairs each boots and gloves folder
+  by its ID's place in its kind's old block of 25, reporting each pairing (`wearer_assumed`);
+  EU-REP-01 and -03 proven; SWE-2 6.7.S1 3 accepted, loop ended.

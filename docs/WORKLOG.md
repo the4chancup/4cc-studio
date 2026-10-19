@@ -14,10 +14,9 @@ is in `AGENTS.md` ("Working documents").
 (`music_export`, its plan section, `pub` audit and whole-crate mutation run done; converging
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): 6.7 (loose mode, step 11, and the report's remaining
-classes, step 10), on a side branch; 8.0's acceptance sections are reviewed (every loop
-ended, 2026-10-19), and the shell's draft (`docs/prototypes/shell.html`) is on a side branch.
-Parallel tracks:
+**Next:** Phase 6 (Export upgrader): 6.8 (model-folder mode), with 6.7's Astra round
+(checkpoint b) owed; 8.0's acceptance sections are reviewed (every loop ended, 2026-10-19),
+and the shell's draft (`docs/prototypes/shell.html`) is on a side branch. Parallel tracks:
 `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
@@ -656,8 +655,18 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     `.tmp/6_6/rulings.md`, copied to the main tree), its two fixes 6.6d; Astra 6.6.A1
     (checkpoint (b), top lead on main) 1 accepted, loop ended: the refs compiler's layout has
     its own scenario, EU-REF-10, which its test now cites
-- [ ] 6.7 loose mode (step 11) and the report's remaining classes (step 10) → verify:
-  EU-LOOSE-01, EU-REP-*
+- [x] 6.7 loose mode (step 11) and the report's remaining classes (step 10) → verify:
+  EU-LOOSE-01, EU-REP-*. Done 2026-10-19 (side-lead D on `side/6.7`): EU-LOOSE-01, EU-REP-01
+  and EU-REP-03 proven (EU-REP-02 was 6.4b1's); each kind's block of 25 from its own lowest
+  folder ID, the pairing reported `wearer_assumed` (I), a spare or past-the-block ID
+  `unmigrated_content` as a whole, a named folder's `settings.toml` `name = true` alone
+  (DECISIONS 2026-10-19 "loose mode's block per kind, its pairing line, and the IDs naming
+  nobody"); step 10's classes needed no code, only the two scenarios' tests; mutation diff 24
+  caught; review: SWE-2 round 6.7.S1 on `5867e7a` (EU-REF-10) and the slice 3 accepted, 2
+  rejected (loop ended; `.tmp/6_7/rulings.md`): a test helper shared, the help's wording, the
+  real GBFG VGL26 gloves `g2522`/`g2523` named in step 11 as reported by design; files:
+  `export_upgrader/src/{players,settings,upgrade,messages}.rs`, `help/01_command_line.md`,
+  `tests/cli/{loose,report,players,main}.rs`, `plans/export_upgrader.md` step 11
 - [ ] 6.8 model-folder mode (`upgrade-models`) → verify: EU-MF-*, EU-CLI-* (the rest, and
   EU-CLI-04's and EU-CLI-05's `upgrade-models` halves: their tests cite the `upgrade` half only)
 - [ ] 6.9 the parity test (`team_compiler/testing.md`: an upgraded export compiles to Red's CPK
