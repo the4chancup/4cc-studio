@@ -757,19 +757,34 @@ TC-MOD-04  GIVEN slot 05 holding a face model, skin.dds and kit_boots.fmdl, and 
 TC-MOD-05  GIVEN Boots/Crocs/ and Boots/Mud/ each holding boots.fmdl and a texture, Crocs linked by
            slots 03 and 07, Mud by slot 11
            WHEN the export is compiled for PES 21
-           THEN k0644 holds Crocs and k0645 Mud (alphabetical), each once with its texture under
-                its own k064N/#windx11/ and its model's path naming it there, and no k06NN
-                folder exists for slots 03, 07 or 11
-TC-MOD-06  GIVEN eighteen shared boots folders each linked by a player
+           THEN k0644, the block's first shared ID, holds Crocs, and k0631, slot 11's own ID
+                (Mud's one wearer), holds Mud, each once with its texture under its own
+                k06NN/#windx11/ and its model's path naming it there, and no k0623 or k0627
+                folder exists
+TC-MOD-06  GIVEN an installed CPK below the output whose /co/ record names seventeen boots
+                folders, 644 to 660, and a Midcup /co/ export holding Boots/Birk, which the
+                record does not name, linked by slots 05 and 06
            WHEN the export is checked
-           THEN boots_id_pool_exhausted is reported and the export is skipped
+           THEN boots_id_pool_exhausted is reported with the count 18 and the export is
+                skipped (a Full export cannot exhaust the pool: with 23 slots at most 11 folders
+                have two wearers)
+TC-MOD-94  GIVEN a /co/ export whose slots 01 to 20 each link their own shared boots folder,
+                Boots/B01 to Boots/B20, each holding boots.model and boots.mtl; slots 01 to 15
+                holding ingame_face and nothing else, slots 16 to 20 face_high.model and
+                face_high.mtl
+           WHEN it is compiled for PES 17
+           THEN no boots_id_pool_exhausted is reported, boots/k0621/ to k0640/ each hold the
+                boots model of the folder slot NN links (k0620+NN), no boots/k0644/ folder
+                exists, no face CPK is written for slots 01 to 15 (71401 to 71415), and slots
+                16 to 20 each get theirs
 TC-MOD-07  GIVEN Boots/Crocs/ holding boots.fmdl and sole.dds, linked by slot 05, which also holds
            kit_boots.fmdl; then slot 07 also linking Crocs.boots plainly
            WHEN the export is compiled for PES 21 each time
            THEN link_combined and fmdl_merged are reported for slot 05, k0625 holds one boots.fmdl
                 whose mesh count is Crocs's plus the local model's, sole.ftex sits under slot
-                05's texture folder, and k0644 is absent from the first run and holds Crocs alone
-                in the second, with its own copy of sole.ftex
+                05's texture folder, and no folder holds Crocs alone in the first run, while in
+                the second k0627, slot 07's own ID (Crocs's one plain wearer), holds Crocs alone,
+                with its own copy of sole.ftex, and no k0644 folder exists
 TC-MOD-08  GIVEN Faces/Longhair/ holding hair_high.fmdl, linked by slot 05, which holds face_high.fmdl
            WHEN the export is compiled for PES 21
            THEN slot 05's face package holds face_high.fmdl and hair_high.fmdl, and no output
@@ -819,8 +834,8 @@ TC-MOD-17  GIVEN slot 05 holding ingame_face, kit_boots.fmdl and Crocs.boots, an
            Crocs.boots plainly
            WHEN the export is compiled for PES 21
            THEN link_combined is reported, k0625 holds the merged boots, no face/real/71405/ path
-                is in the CPK, and Crocs keeps its own shared output only for players linking it
-                plainly
+                is in the CPK, and Crocs keeps its own output for slot 07, who alone links it
+                plainly, under his own k0627
 TC-MOD-18  GIVEN slot 05 holding ingame_face and an empty face/ subfolder, with boots.fmdl
            WHEN the export is compiled
            THEN no finding is reported for face/, no face package is emitted, and k0625 holds the
@@ -847,7 +862,9 @@ TC-MOD-22  GIVEN slot 05 holding face_high.model, face_high.mtl, kit_boots.model
            Crocs.boots, Boots/Crocs/ holding boots.model and boots.mtl (or a boots model of
            another name with its .mtl, and a .mtl no model uses)
            WHEN it is compiled for PES 17
-           THEN common/character0/model/character/boots/k0644/ holds Crocs's files as loose entries,
+           THEN common/character0/model/character/boots/k0625/ (slot 05's own ID: his kit_boots
+                is face content, so his link is plain and he is Crocs's one wearer) holds
+                Crocs's files as loose entries,
                 its boots models merged into one boots.model with their boots.mtl (a .mtl no
                 model uses left out), slot 05's face.xml lists kit_boots's emitted model as a
                 parts entry and none of Crocs's, and no link_combined is reported
@@ -952,7 +969,8 @@ TC-MOD-37  GIVEN slot 05 holding face_high.model, face_high.mtl.common, and Comm
 TC-MOD-38  GIVEN Gloves/Keeper/ holding glove_l.model and glove_r.model with their .mtl files,
            and a materials.mtl no model uses, linked by slot 05
            WHEN the export is compiled for PES 17
-           THEN the shared gloves output of ID 644 holds a glove.xml listing the two emitted
+           THEN the gloves output of ID 625 (slot 05's own, Keeper's one wearer) holds a
+                glove.xml listing the two emitted
                 models typed gloveL and gloveR, and of the .mtl files only those they use
 TC-MOD-39  GIVEN slot 07 holding an empty face/ and a face_diff.bin that is not the bundled one
            WHEN the export is compiled for PES 17
@@ -1075,8 +1093,8 @@ TC-MOD-56  GIVEN Boots/Studs holding boots_kit1.model and boots_kit2.model with 
                 17 a variant of another number in the linking player's own folder is no variant
                 of the folder's
 TC-MOD-57  GIVEN Boots/Studs holding studs.dds and no model (or only models whose every mesh is
-           hidden), Boots/Zebra holding boots.model and its .mtl, slot 05 linking Studs plainly
-           and slot 06 Zebra
+           hidden), Boots/Zebra holding boots.model and its .mtl, slots 05 and 07 linking Studs
+           plainly and slots 06 and 08 Zebra
            WHEN the export is compiled for PES 17
            THEN shared_folder_no_model is reported on Boots/Studs as a Warning, no boots folder is
                 written for it, Zebra takes the block's first shared id, and the exit code is 0
@@ -1174,8 +1192,8 @@ TC-MOD-77  GIVEN a .common link PES 15-17 does not read: a shared folder's (Boot
 TC-MOD-79  GIVEN Common/boots.fmdl, Boots/Crocs holding boots.fmdl.common alone, and slot 05
            holding face_high.fmdl and linking Crocs.boots
            WHEN the export is compiled for PES 21
-           THEN Crocs takes the team's first shared boots id, whose boots package holds
-                Common's boots.fmdl's meshes, slot 05's BootsList row names that id, and
+           THEN Crocs takes slot 05's own boots ID, 625 (he is its one wearer), whose boots
+                package holds Common's boots.fmdl's meshes, slot 05's BootsList row names 625, and
                 neither shared_folder_no_model nor file_not_used is reported
 TC-MOD-80  GIVEN Common/jessie/body.fmdl naming hair and Common/jessie/hair.dds, and slot 05
            holding face_high.fmdl and linking Faces/Round, which holds fcl_hair.fmdl and
@@ -1305,8 +1323,8 @@ TC-TEX-01  GIVEN slot 05 holding skin.png (1024x1024 with alpha) referenced by i
            boots.fmdl
            WHEN the first is compiled for PES 21, then PES 18, and the second for PES 21
            THEN the emitted skin.ftex decodes as BC7 with 11 mip levels, then as BC3 with 11;
-                the second CPK's Common hair.ftex and k0644's sole.ftex are BC7 with a full mip
-                chain
+                the second CPK's Common hair.ftex and k0625's sole.ftex (Crocs under slot 05's
+                own ID) are BC7 with a full mip chain
 TC-TEX-02  GIVEN slot 05 holding skin.dds already BC7 with a full mip chain
            WHEN the export is compiled for PES 21, then PES 18
            THEN on 21 the FTEX's mip data converts back to the source DDS unchanged; on 18 it is BC3
@@ -2027,9 +2045,10 @@ TC-BIN-10  withdrawn: restated as TC-BIN-25 (`spec/team_compiler/README.md`), wh
 TC-BIN-11  GIVEN slot 05 holding boots.fmdl whose task fails, and an installed pair (71405, 7)
            WHEN the export is compiled for PES 21
            THEN BootsList.bin keeps (71405, 7)
-TC-BIN-12  GIVEN slot 05 holding glove_l.fmdl and glove_r.fmdl, and slot 07 linking Gloves/Keeper/
+TC-BIN-12  GIVEN slot 05 holding glove_l.fmdl and glove_r.fmdl, slots 07 and 08 linking
+                Gloves/Keeper/, and slot 09 alone linking Gloves/Grip/
            WHEN the export is compiled for PES 21
-           THEN GloveList.bin holds (71405, 625) and (71407, 644)
+           THEN GloveList.bin holds (71405, 625), (71407, 644), (71408, 644) and (71409, 629)
 TC-BIN-13  GIVEN an installed TeamColor.bin whose record for team 799 starts with color bytes in
            place of its team ID and color count
            WHEN a /co/ export is compiled
@@ -2098,7 +2117,7 @@ TC-BIN-24  GIVEN an installed CPK holding team 714's loose p1 kit config without
 TC-PLN-01  GIVEN /co/ with slot 05 holding boots.fmdl and slot 23 holding glove_l.fmdl
            WHEN the export is compiled twice
            THEN both runs write k0625 and g0643 and the two CPKs are byte-identical
-TC-PLN-02  GIVEN Boots/Zebra/ and Boots/Apple/, each linked by a player
+TC-PLN-02  GIVEN Boots/Zebra/ and Boots/Apple/, each linked by two players
            WHEN the export is compiled, then with a third folder Boots/Mango/ added
            THEN Apple is k0644 and Zebra k0645 the first time; the second time Apple k0644, Mango
                 k0645, Zebra k0646
@@ -2578,23 +2597,29 @@ The /co/ block's shared IDs are 644 to 660 (`spec/aesthetics_export/player_folde
 IDs automatically").
 
 ```
-TC-BIN-34  GIVEN a Full /co/ export holding Boots/Crocs and Boots/adidas, slot 05 linking Crocs
-                and slot 06 adidas (a shared folder no player links takes no ID)
+TC-BIN-34  GIVEN a Full /co/ export holding Boots/Crocs, Boots/adidas and Boots/Birk, slots 05
+                and 07 linking Crocs, slots 06 and 08 adidas, and slot 09 alone Birk (a shared
+                folder no player links takes no ID)
            WHEN it is compiled for PES 21
            THEN the CPK holds 4cc_studio/shared_ids/714.toml whose [boots] names 644 adidas
-                and 645 Crocs, and BootsList.bin holds (71405, 645) and (71406, 644)
+                and 645 Crocs and not Birk, and BootsList.bin holds (71405, 645), (71406, 644),
+                (71407, 645), (71408, 644) and (71409, 629), Birk under slot 09's own ID
 TC-BIN-35  GIVEN an installed CPK below the output holding TC-BIN-34's record, and a Midcup
-                /co/ export holding Boots/Birk and Boots/crocs, slot 05 linking Birk and slot 06
-                linking crocs
+                /co/ export holding Boots/Birk and Boots/crocs, slots 05 and 07 linking Birk and
+                slot 06 alone linking crocs
            WHEN it is compiled for PES 21
-           THEN Birk takes 646 and crocs keeps 645: BootsList.bin holds (71405, 646) and
-                (71406, 645), the CPK's record names 644 adidas, 645 crocs and 646 Birk, and
-                no shared_ids_unrecorded is reported
+           THEN Birk takes 646 and crocs keeps 645, the record naming it though one player
+                wears it: BootsList.bin holds (71405, 646), (71406, 645) and (71407, 646), the
+                CPK's record names 644 adidas, 645 crocs and 646 Birk, and no
+                shared_ids_unrecorded is reported
 TC-BIN-36  GIVEN no installed CPK holding a /co/ record, and a Midcup /co/ export holding
-                Boots/Birk, slot 05 linking it
-           WHEN it is compiled for PES 21
-           THEN Birk takes 644, BootsList.bin holds (71405, 644), shared_ids_unrecorded names
-                team 714, and the CPK's record names 644 Birk
+                Boots/Birk, slots 05 and 06 linking it; and, apart, the same Midcup with slot 05
+                alone linking Birk
+           WHEN each is compiled for PES 21
+           THEN the first's Birk takes 644, BootsList.bin holds (71405, 644) and (71406, 644),
+                shared_ids_unrecorded names team 714, and the CPK's record names 644 Birk; the
+                second's Birk takes 625, slot 05's own ID, and the CPK holds no record and
+                reports no shared_ids_unrecorded
 TC-BIN-39  GIVEN no installed CPK holding a /co/ record, and a Midcup /co/ export whose only
                 player folder, slot 05, holds a settings.toml
            WHEN it is compiled for PES 21
@@ -2614,8 +2639,8 @@ TC-BIN-41  GIVEN four /co/ exports whose slot 05 settings.toml sets the stock ID
                 holding face_high.fmdl and boots.fmdl; the fourth's Crocs.boots, the export's
                 Boots/Crocs/ holding a texture and no model
            WHEN each is checked and compiled for PES 21
-           THEN 71405's GloveList.bin row is 644 (Crocs's shared ID) in the first and 625 (his
-                exclusive ID, the hands split off his body) in the second, and his
+           THEN 71405's GloveList.bin row is 625, his exclusive ID, in the first (Crocs, which
+                he alone wears) and in the second (the hands split off his body), and his
                 BootsList.bin row 625 in the third (Round's boots.fmdl a part of his boots),
                 each run reporting settings_model_id_conflict for the authored key; the
                 fourth's row is the authored 3, shared_folder_no_model names Boots/Crocs, and

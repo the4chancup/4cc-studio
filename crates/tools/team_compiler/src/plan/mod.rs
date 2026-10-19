@@ -33,7 +33,7 @@ use crate::messages::{Code, tool_message};
 use crate::mtl_search::mtl_for;
 use crate::paths::{PackageKey, REFEREE_TEAM_ID, TextureHome};
 use collars::export_collar;
-use ids::{PlannedModelIds, assigned_shared_ids, shared_folders_taking_ids};
+use ids::{PlannedModelIds, assigned_shared_ids, folder_ids};
 use item_rows::{PlayerRows, RowPlayer, export_rows};
 use roles::{
     FolderModels, ModelPackage, PlayerFile, below_common, combined_folders, common_file,
@@ -1150,9 +1150,11 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
                 .collect(),
         };
         // The shared folders taking an id, each with its package and that id, in the id order
-        // of the kind: the boots folders, then the gloves folders. A `Midcup` export's record
-        // keeps the IDs the installed record gives its folders; a `Full` export's, or one the
-        // installed CPKs hold no record of, numbers its own.
+        // of the kind: the boots folders, then the gloves folders. A folder exactly one roster
+        // slot links plainly takes that slot's exclusive id unless the record names it; every
+        // other takes a shared id, which a `Midcup` export's record keeps as the installed
+        // record gives it and a `Full` export's, or one the installed CPKs hold no record of,
+        // numbers on its own. The shared ones alone are recorded.
         let mut shared: Vec<(ModelFolder, ModelPackage, u32)> = Vec::new();
         let midcup_record = match export.coverage {
             ExportCoverage::Midcup => installed_ids.as_ref(),
@@ -1161,23 +1163,44 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
         let mut output_record = midcup_record.cloned().unwrap_or_default();
         for kind in [SharedKind::Boots, SharedKind::Gloves] {
             let package = package_of(kind);
-            let folders =
-                shared_folders_taking_ids(&export, version.engine(), kind, &hand_weighted);
+            let taking = folder_ids(
+                &export,
+                version.engine(),
+                kind,
+                &hand_weighted,
+                midcup_record,
+            );
             let assignment = match model_ids {
-                Some(ids) => assigned_shared_ids(ids, kind, &folders, midcup_record).expect(
+                Some(ids) => assigned_shared_ids(ids, kind, &taking.shared, midcup_record).expect(
                     "a referee's links take no shared id, and the structure pass drops a \
                          team export whose shared pool is exhausted",
                 ),
                 None => Vec::new(),
             };
-            let assigned: Vec<(u16, String)> = folders
+            let assigned: Vec<(u16, String)> = taking
+                .shared
                 .iter()
                 .zip(assignment.iter())
                 .map(|(folder, id)| (*id, folder.folder_name.clone()))
                 .collect();
             output_record = output_record.extended(kind, &assigned);
-            for (folder, shared_id) in folders.into_iter().zip(assignment) {
-                let shared_id = u32::from(shared_id);
+            let mut packing: Vec<(&SharedModelFolder, u32)> = match model_ids {
+                Some(ids) => taking
+                    .own
+                    .iter()
+                    .map(|(folder, slot)| (*folder, u32::from(ids.exclusive(*slot))))
+                    .chain(
+                        taking
+                            .shared
+                            .iter()
+                            .zip(assignment)
+                            .map(|(folder, id)| (*folder, u32::from(id))),
+                    )
+                    .collect(),
+                None => Vec::new(),
+            };
+            packing.sort_by_key(|(_, id)| *id);
+            for (folder, shared_id) in packing {
                 let mut folder = ModelFolder {
                     path: folder.path.clone(),
                     files: folder.files.clone(),
@@ -2747,14 +2770,15 @@ mod tests {
             PesVersion::Pes21,
         );
 
-        // Neither a boots nor a textures task for Studs, and Zebra takes the first shared id.
+        // Neither a boots nor a textures task for Studs, and Zebra takes slot 06's
+        // exclusive id, he being its one wearer.
         assert!(report.messages.is_empty(), "{:?}", report.messages);
         assert_eq!(
             summary(&report),
             [
                 "0 714 Face Players/05 - A [71405] charge 0",
                 "0 714 Face Players/06 - B [71406] charge 0",
-                "0 714 Boots Boots/Zebra [644] charge 8",
+                "0 714 Boots Boots/Zebra [626] charge 8",
             ]
         );
     }
@@ -2786,9 +2810,9 @@ mod tests {
             PesVersion::Pes21,
         );
 
-        // Slots 03 and 11 wear Zebra and 07 apple, so no player has a boots package; team
-        // 714's shared ids start at 644, in case-folded name order. 03 and 11 hold no face
-        // model: theirs are blank.
+        // Slots 03 and 11 wear Zebra and 07 apple, so no player has a boots package; Zebra's
+        // two wearers give it the block's first shared id, and apple and Grip their one
+        // wearer's exclusive id. 03 and 11 hold no face model: theirs are blank.
         assert!(report.messages.is_empty(), "{:?}", report.messages);
         assert_eq!(
             summary(&report),
@@ -2796,10 +2820,10 @@ mod tests {
                 "0 714 Face Players/03 - A [71403] charge 0",
                 "0 714 Face Players/07 - B [71407] charge 33",
                 "0 714 Face Players/11 - C [71411] charge 0",
-                "0 714 Boots Boots/apple [644] charge 4",
-                "0 714 Boots Boots/Zebra [645] charge 10",
+                "0 714 Boots Boots/apple [627] charge 4",
+                "0 714 Boots Boots/Zebra [644] charge 10",
                 "0 714 textures Boots/Zebra charge 16",
-                "0 714 Gloves Gloves/Grip [644] charge 64",
+                "0 714 Gloves Gloves/Grip [623] charge 64",
                 "0 714 textures Gloves/Grip charge 128",
             ]
         );
@@ -2861,23 +2885,23 @@ mod tests {
                 },
                 &TextureHome::SharedOutput {
                     package: ModelPackage::Boots,
+                    id: 627
+                },
+                &TextureHome::SharedOutput {
+                    package: ModelPackage::Boots,
                     id: 644
                 },
                 &TextureHome::SharedOutput {
                     package: ModelPackage::Boots,
-                    id: 645
-                },
-                &TextureHome::SharedOutput {
-                    package: ModelPackage::Boots,
-                    id: 645
-                },
-                &TextureHome::SharedOutput {
-                    package: ModelPackage::Gloves,
                     id: 644
                 },
                 &TextureHome::SharedOutput {
                     package: ModelPackage::Gloves,
-                    id: 644
+                    id: 623
+                },
+                &TextureHome::SharedOutput {
+                    package: ModelPackage::Gloves,
+                    id: 623
                 },
             ]
         );
@@ -3466,7 +3490,7 @@ mod tests {
                 "0 714 Boots Players/05 - A [625] charge 96",
                 "0 714 textures Players/05 - A charge 4",
                 "0 714 Face Players/07 - B [71407] charge 17",
-                "0 714 Boots Boots/Crocs [644] charge 2",
+                "0 714 Boots Boots/Crocs [627] charge 2",
                 "0 714 common textures Common (2) charge 3072",
                 "0 714 portrait 71405 Portraits/player_05.dds charge 3",
             ]
@@ -3798,7 +3822,7 @@ mod tests {
                 "0 714 Face Players/05 - A [71405] charge 0",
                 "0 714 Boots Players/05 - A [625] charge 24",
                 "0 714 Face Players/07 - B [71407] charge 0",
-                "0 714 Boots Boots/Crocs [644] charge 16",
+                "0 714 Boots Boots/Crocs [627] charge 16",
             ]
         );
         assert_eq!(
@@ -3881,7 +3905,8 @@ mod tests {
             [("link_combined", "Players/05 - A", Disposition::Keep)]
         );
 
-        // The link alone loads Crocs as it is, under its shared id; the player has no task.
+        // The link alone loads Crocs as it is, under slot 05's exclusive id, he being its
+        // one wearer; the player has no task.
         let report = plan(&[
             ("Players/05 - A/ingame_face", 0),
             ("Players/05 - A/Crocs.boots", 0),
@@ -3889,7 +3914,7 @@ mod tests {
         ]);
         assert_eq!(
             summary(&report),
-            ["0 714 Boots Boots/Crocs [644] charge 16"]
+            ["0 714 Boots Boots/Crocs [625] charge 16"]
         );
         assert!(report.messages.is_empty(), "{:?}", report.messages);
     }
@@ -4598,13 +4623,13 @@ mod tests {
         );
 
         // The shared face is a second source of slot 05's face; the shared boots are their
-        // own output under team 714's first shared id, which slot 06 loads by that id.
+        // own output under slot 06's exclusive id, he being their one wearer.
         assert_eq!(
             summary(&report),
             [
                 "0 714 Face Players/05 - A [71405] charge 15",
                 "0 714 Face Players/06 - B [71406] charge 0",
-                "0 714 Boots Boots/Crocs [644] charge 17",
+                "0 714 Boots Boots/Crocs [626] charge 17",
                 "0 714 textures Boots/Crocs charge 32",
             ]
         );
@@ -4740,15 +4765,16 @@ mod tests {
         );
 
         // Each marked player's boots and gloves under his exclusive id, a package for each
-        // kind he holds a part of: slot 07 has no boots part, so his Crocs link loads the
-        // shared output, and Keeper, which both combine, takes no id.
+        // kind he holds a part of: slot 07 has no boots part, so his Crocs link is plain and
+        // Crocs takes his exclusive id as its one wearer, and Keeper, which both combine,
+        // takes no id.
         assert_eq!(
             summary(&report),
             [
                 "0 714 Boots Players/05 - A [625] charge 5",
                 "0 714 Gloves Players/05 - A [625] charge 12",
                 "0 714 Gloves Players/07 - B [627] charge 12",
-                "0 714 Boots Boots/Crocs [644] charge 17",
+                "0 714 Boots Boots/Crocs [627] charge 17",
             ]
         );
         assert_eq!(
@@ -4815,7 +4841,7 @@ mod tests {
                 "0 714 Boots Players/05 - A [625] charge 6",
                 "0 714 Gloves Players/05 - A [625] charge 13",
                 "0 714 Face Players/07 - B [71407] charge 0",
-                "0 714 Boots Boots/Crocs [644] charge 17",
+                "0 714 Boots Boots/Crocs [627] charge 17",
             ]
         );
         // His own skeletons go into both his packages, as his `.mtl` files do, each of which

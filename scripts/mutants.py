@@ -96,6 +96,7 @@ WINDOWS_ONLY_TESTS = [
         r"crates/studio_core/src/pes_process\.rs:\d+:\d+: "
         r"(replace (processes|image_path|probe) -> |.* in (processes|image_path|probe)$)"
     ),
+    re.compile(r"crates/tools/export_upgrader/src/upgrade\.rs:\d+:\d+: .* in retry_while_locked$"),
 ]
 # The remote half's systemd unit: a transient service so its cgroup is
 # memory-capped and CPU-idle — an allocating mutant OOM-killed the host at

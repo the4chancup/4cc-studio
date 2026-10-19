@@ -12,14 +12,11 @@ use pes_model::model::Model;
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, tracer_player_file};
 use crate::prefox_faces::{
-    BOOTS_K0644, CLEAN, card_materials, card_model, compile_pes17, entries_under, face_cpk, pes17,
+    BOOTS_K0625, CLEAN, card_materials, card_model, compile_pes17, entries_under, face_cpk, pes17,
     pre_fox_fixture, sampler_paths, small_dds, write_slot_05_face,
 };
 use crate::textures::tracer_model_renaming;
 use crate::{clean_model, findings_of};
-
-/// The folder slot 05's own boots are written to in team 714's export: his exclusive id.
-const BOOTS_K0625: &str = "common/character0/model/character/boots/k0625/";
 
 /// The folder slot 05's own gloves are written to in team 714's export: his exclusive id.
 const GLOVES_G0625: &str = "common/character0/model/character/glove/g0625/";
@@ -342,13 +339,12 @@ fn a_shared_boots_folder_holding_two_boots_models_is_written_as_one_merged_boots
         export,
         &[
             CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             CLEAN[1],
             "Info model_merged [Keep] at Boots/Twin (model=boots.model)",
         ],
     );
 
-    let boots = entries_under(&entries, BOOTS_K0644);
+    let boots = entries_under(&entries, BOOTS_K0625);
     let names: Vec<&str> = boots.keys().copied().collect();
     assert_eq!(names, ["boots.model", "boots.mtl", "left.dds", "right.dds"]);
     assert_eq!(
@@ -801,25 +797,17 @@ fn a_shared_gloves_folder_s_mtl_no_model_uses_is_not_written() {
     );
     sandbox.write(&format!("{keeper}/left.dds"), &small_dds());
 
-    let entries = compile_pes17(
-        &sandbox,
-        export,
-        &[
-            CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
-            CLEAN[1],
-        ],
-    );
+    let entries = compile_pes17(&sandbox, export, &[CLEAN[0], CLEAN[1]]);
 
     let gloves = entries_under(&entries, GLOVES);
     let names: Vec<&str> = gloves.keys().copied().collect();
     assert_eq!(
         names,
         [
-            "g0644/glove.xml",
-            "g0644/glove_l.model",
-            "g0644/glove_l.mtl",
-            "g0644/left.dds",
+            "g0625/glove.xml",
+            "g0625/glove_l.model",
+            "g0625/glove_l.mtl",
+            "g0625/left.dds",
         ]
     );
 }

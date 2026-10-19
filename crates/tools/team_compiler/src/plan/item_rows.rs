@@ -412,7 +412,7 @@ mod tests {
 
     /// The tasks `planned` gives both exports: the three faces, slot 05's and slot 07's boots
     /// under their exclusive ids (07's with `Crocs` combined in, so `Crocs` takes no id), then
-    /// `Keeper`'s gloves under the first shared id.
+    /// `Keeper`'s gloves under slot 05's exclusive id, he being its one wearer.
     fn expected_models() -> Vec<PlannedModels> {
         vec![
             (0, ModelPackage::Face, vec![71405]),
@@ -420,7 +420,7 @@ mod tests {
             (2, ModelPackage::Face, vec![71406]),
             (3, ModelPackage::Face, vec![71407]),
             (4, ModelPackage::Boots, vec![627]),
-            (5, ModelPackage::Gloves, vec![644]),
+            (5, ModelPackage::Gloves, vec![625]),
         ]
     }
 
@@ -432,7 +432,7 @@ mod tests {
             rows,
             [
                 set(ItemTable::Boots, 71405, 625, 1),
-                set(ItemTable::Gloves, 71405, 644, 5),
+                set(ItemTable::Gloves, 71405, 625, 5),
                 default(ItemTable::Boots, 71406, 0),
                 default(ItemTable::Gloves, 71406, 0),
                 set(ItemTable::Boots, 71407, 627, 4),
@@ -449,7 +449,7 @@ mod tests {
             rows,
             [
                 set(ItemTable::Boots, 71405, 625, 1),
-                set(ItemTable::Gloves, 71405, 644, 5),
+                set(ItemTable::Gloves, 71405, 625, 5),
                 set(ItemTable::Boots, 71407, 627, 4),
             ]
         );

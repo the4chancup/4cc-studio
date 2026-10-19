@@ -107,7 +107,7 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_combines_and_a_plain_one_
         &format!("{export}/Boots/Crocs/boots.fmdl"),
         &tracer_player_file("boots.fmdl"),
     );
-    let k0644 = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    let k0627 = "Asset/model/character/boots/k0627/#Win/boots.fpk";
 
     let entries = compile_clean(
         &sandbox,
@@ -116,22 +116,22 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_combines_and_a_plain_one_
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             TEAM_COLORS_MISSING,
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)",
         ],
     );
 
-    // Slot 07 has no marker: it gets the blank face; slot 05 none.
+    // Slot 07 has no marker: it gets the blank face; slot 05 none. Crocs keeps its own
+    // output for slot 07, who alone links it plainly, under his own k0627: no shared id,
+    // so no record.
     assert_eq!(
         paths(&entries),
         [
-            "4cc_studio/shared_ids/714.toml",
             BOOTS_05,
             "Asset/model/character/boots/k0625/#Win/boots.fpkd",
-            k0644,
-            "Asset/model/character/boots/k0644/#Win/boots.fpkd",
+            k0627,
+            "Asset/model/character/boots/k0627/#Win/boots.fpkd",
             "Asset/model/character/face/real/71407/#Win/face.fpk",
             "Asset/model/character/face/real/71407/#Win/face.fpkd",
             "common/character0/model/character/uniform/team/UniColor.bin",
@@ -144,7 +144,7 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_combines_and_a_plain_one_
         2 * tracer_boots_mesh_count(),
         "Crocs's meshes plus the local model's"
     );
-    assert_eq!(boots_mesh_count(&entries, k0644), tracer_boots_mesh_count());
+    assert_eq!(boots_mesh_count(&entries, k0627), tracer_boots_mesh_count());
     assert_blank_face(&entries, FACE_07);
 }
 

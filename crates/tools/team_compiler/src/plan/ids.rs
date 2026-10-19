@@ -65,8 +65,9 @@ impl PlannedModelIds {
     }
 }
 
-/// The shared ID each of `folders` (`shared_folders_taking_ids`' output for `kind`, in its
-/// case-folded alphabetical order) takes, in the same order, for a team of block `ids`
+/// The shared ID each of `folders` (`folder_ids`' `shared` for `kind`, in
+/// `shared_folders_taking_ids`' case-folded alphabetical order) takes, in the same order, for
+/// a team of block `ids`
 /// (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team
 /// already has"): with `record` `None` — a `Full` export, or a `Midcup` the installed CPKs
 /// hold no record of — the `index`-th of the block's shared IDs; with one — a `Midcup`'s —
@@ -126,12 +127,14 @@ pub(crate) fn assigned_shared_ids(
         .collect())
 }
 
-/// The shared folders of `kind` in `export` that take a shared ID when compiled for `engine`,
-/// in ID order: the folders at least one roster-mapped player folder links plainly, by name
-/// (case folded, ties by the plain spelling), that hold a model of their kind
-/// (`holds_model_of_its_kind`). A shared boots or gloves folder holding no model of its kind
-/// takes no ID (`player_folders.md` "Assigns IDs automatically"): it has nothing to load, and an
-/// ID would shift the IDs of the folders sorted after it for an output that emits nothing
+/// The shared folders of `kind` in `export` that take an ID when compiled for `engine`, in
+/// the ID order of those taking a shared one: the folders at least one roster-mapped player
+/// folder links plainly, by name (case folded, ties by the plain spelling), that hold a model
+/// of their kind (`holds_model_of_its_kind`). Which ID each takes, its one wearer's exclusive
+/// one or a shared one, is `folder_ids`' split. A shared boots or gloves folder holding no
+/// model of its kind takes no ID (`player_folders.md` "Assigns IDs automatically"): it has
+/// nothing to load, and an ID would shift the IDs of the folders sorted after it for an
+/// output that emits nothing
 /// (`shared_folders_with_no_model`). A shared face never takes one (on Fox it merges into the
 /// player's face; pre-Fox it is copied per player), neither does a folder only unmapped
 /// folders link, since they are not compiled, and neither does a refs export's, whose every
@@ -157,6 +160,80 @@ pub(crate) fn shared_folders_taking_ids<'a>(
         )
     });
     taking
+}
+
+/// The boots or gloves folders of one kind taking an ID, split by where it comes from
+/// (`player_folders.md` "Assigns IDs automatically").
+pub(crate) struct FolderIds<'a> {
+    /// Each folder exactly one roster slot links plainly and the record does not name,
+    /// with that slot: it takes the slot's exclusive ID.
+    pub(crate) own: Vec<(&'a SharedModelFolder, PlayerSlot)>,
+    /// Every other folder, in `shared_folders_taking_ids`' order: it takes a shared ID
+    /// (`assigned_shared_ids`).
+    pub(crate) shared: Vec<&'a SharedModelFolder>,
+}
+
+/// `shared_folders_taking_ids`' folders of `kind` in `export` compiled for `engine`, split
+/// (`player_folders.md` "Assigns IDs automatically"): a folder exactly one roster slot links
+/// plainly and `record` (a `Midcup`'s installed record, names compared case-folded as
+/// `assigned_shared_ids` compares them; `None` for a `Full` export) does not name takes that
+/// slot's exclusive ID, every other a shared one. The wearers are counted in slots, not
+/// player folders: one folder `players.txt` maps to two slots makes two.
+///
+/// The exclusive ID is free for it: a link is plain exactly when it does not combine, and a
+/// boots or gloves link combines exactly when the player's own package of that kind has a
+/// part (`link_combines`, `has_effective_part`), which is the only case planning emits that
+/// package. A plain linker therefore has no package of his own under his exclusive ID of the
+/// link's kind, and the folder packs there as a shared-ID folder does
+/// (`TextureHome::SharedOutput`).
+pub(crate) fn folder_ids<'a>(
+    export: &'a ValidatedAestheticsExport,
+    engine: Engine,
+    kind: SharedKind,
+    hand_weighted: &BTreeSet<ScopePath>,
+    record: Option<&SharedIds>,
+) -> FolderIds<'a> {
+    let taking = shared_folders_taking_ids(export, engine, kind, hand_weighted);
+    // The record's folder names of the kind, folded as `assigned_shared_ids` folds them. A
+    // face has no table to read and no entry in `taking` either.
+    let named: BTreeSet<String> = match kind {
+        SharedKind::Boots | SharedKind::Gloves => record
+            .map(|record| record.of(kind))
+            .into_iter()
+            .flatten()
+            .map(|(_, name)| vtree::fold_name(name))
+            .collect(),
+        SharedKind::Face => BTreeSet::new(),
+    };
+    // The roster's slot to player folder map. A referee export's `taking` is empty: its
+    // every link feeds the referee's own slot package.
+    let slots: Vec<(PlayerSlot, &PlayerFolder)> = match &export.roster {
+        ValidatedRoster::Team(slots) => slots
+            .iter()
+            .map(|(slot, index)| (*slot, &export.players[index.0]))
+            .collect(),
+        ValidatedRoster::Referees(_) => Vec::new(),
+    };
+    let mut ids = FolderIds {
+        own: Vec::new(),
+        shared: Vec::new(),
+    };
+    for folder in taking {
+        let name_key = vtree::fold_name(&folder.folder_name);
+        let mut wearers = slots
+            .iter()
+            .filter(|(_, player)| {
+                links_plainly(export, player, engine, kind, &name_key, hand_weighted)
+            })
+            .map(|(slot, _)| *slot);
+        match (wearers.next(), wearers.next()) {
+            (Some(slot), None) if !named.contains(&name_key) => {
+                ids.own.push((folder, slot));
+            }
+            _ => ids.shared.push(folder),
+        }
+    }
+    ids
 }
 
 /// The shared folders of `kind` in `export` that a roster-mapped player folder links plainly
@@ -435,6 +512,97 @@ mod tests {
         assert_eq!(
             taking(&files, None, Engine::Fox, SharedKind::Boots),
             Vec::<String>::new()
+        );
+    }
+
+    /// `folder_ids` over the export `co Midcup Shared` for `engine`, `record` a `Midcup`'s
+    /// installed one when given: `own` as (folder name, the wearer's slot number) pairs,
+    /// `shared` as folder names.
+    fn own_and_shared(
+        files: &[&str],
+        players_txt: Option<&[u8]>,
+        record: Option<&SharedIds>,
+    ) -> (Vec<(String, u8)>, Vec<String>) {
+        let files: Vec<(&str, u64)> = files.iter().map(|path| (*path, 1)).collect();
+        let export = resolved("co Midcup Shared", &files, &[], players_txt).export;
+        let ids = folder_ids(
+            &export,
+            Engine::Fox,
+            SharedKind::Boots,
+            &BTreeSet::new(),
+            record,
+        );
+        (
+            ids.own
+                .iter()
+                .map(|(folder, slot)| (folder.folder_name.clone(), slot.get()))
+                .collect(),
+            ids.shared
+                .iter()
+                .map(|folder| folder.folder_name.clone())
+                .collect(),
+        )
+    }
+
+    #[test]
+    fn a_folder_one_slot_links_plainly_takes_that_slot_s_exclusive_id() {
+        let files = ["Players/05 - A/Crocs.boots", "Boots/Crocs/boots.fmdl"];
+        assert_eq!(
+            own_and_shared(&files, None, None),
+            (vec![("Crocs".to_owned(), 5)], Vec::new())
+        );
+    }
+
+    #[test]
+    fn a_folder_two_slots_link_plainly_takes_a_shared_id() {
+        let files = [
+            "Players/05 - A/Crocs.boots",
+            "Players/07 - B/Crocs.boots",
+            "Boots/Crocs/boots.fmdl",
+        ];
+        assert_eq!(
+            own_and_shared(&files, None, None),
+            (Vec::new(), vec!["Crocs".to_owned()])
+        );
+    }
+
+    #[test]
+    fn a_folder_one_player_folder_two_slots_link_takes_a_shared_id() {
+        // `players.txt` maps folder A to slots 06 and 08: Crocs has two wearers, not one.
+        let files = ["Players/A/Crocs.boots", "Boots/Crocs/boots.fmdl"];
+        assert_eq!(
+            own_and_shared(&files, Some(b"06 A\n08 A\n"), None),
+            (Vec::new(), vec!["Crocs".to_owned()])
+        );
+    }
+
+    #[test]
+    fn a_folder_the_record_names_takes_a_shared_id_with_one_wearer() {
+        // The record names `crocs`, folded: the main CPK's other wearers still wear it.
+        let files = ["Players/05 - A/Crocs.boots", "Boots/Crocs/boots.fmdl"];
+        let record = SharedIds {
+            boots: BTreeMap::from([(645, "CROCS".to_owned())]),
+            gloves: BTreeMap::new(),
+        };
+        assert_eq!(
+            own_and_shared(&files, None, Some(&record)),
+            (Vec::new(), vec!["Crocs".to_owned()])
+        );
+    }
+
+    #[test]
+    fn a_combining_slot_is_no_wearer_and_the_folder_takes_the_plain_linker_s_id() {
+        // Slot 05's own boots make his link combine; slot 07, Crocs's only plain wearer,
+        // lends it his exclusive id.
+        let files = [
+            "Players/05 - A/Crocs.boots",
+            "Players/05 - A/kit_boots.fmdl",
+            "Players/07 - B/Crocs.boots",
+            "Boots/Crocs/boots.fmdl",
+        ];
+        assert_eq!(
+            own_and_shared(&files, None, None),
+            (vec![("Crocs".to_owned(), 7)], Vec::new())
         );
     }
 

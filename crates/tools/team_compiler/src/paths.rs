@@ -109,7 +109,7 @@ pub(crate) enum TextureHome {
     SharedOutput {
         /// The output's package, boots or gloves.
         package: ModelPackage,
-        /// Its shared id from the team's block.
+        /// Its id from the team's block: a shared one, or its one wearer's exclusive one.
         id: u32,
     },
 }

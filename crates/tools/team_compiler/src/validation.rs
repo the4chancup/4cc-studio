@@ -30,7 +30,7 @@ use crate::cli::RunInputs;
 use crate::deep;
 use crate::messages::{Code, issue_message, tool_message};
 use crate::plan::ids::{
-    PlannedModelIds, assigned_shared_ids, shared_folders_taking_ids, shared_folders_with_no_model,
+    PlannedModelIds, assigned_shared_ids, folder_ids, shared_folders_with_no_model,
 };
 use crate::plan::item_rows::{check_gloves_id, conflicting_id_keys};
 use crate::plan::mapped_players;
@@ -592,12 +592,13 @@ fn notes(export: &ValidatedAestheticsExport, content: &ContentSource) -> Option<
 }
 
 /// `boots_id_pool_exhausted` and `gloves_id_pool_exhausted`, each when its kind's folders
-/// need more of the team's block's shared ids than it holds (`assigned_shared_ids`), naming
-/// the count; the export is dropped (`team_compiler/README.md` TC-MOD-06). A `Midcup`
-/// export's folders are counted with the `record` the installed CPKs hold, a `Full` export's
-/// from the export alone. A referee export has no block: its ids are its slots' (`k99NN`).
-/// `hand_weighted` is the deep pass's, as planning counts the folders with it
-/// (`shared_folders_taking_ids`).
+/// taking a shared id need more of the team's block's shared ids than it holds
+/// (`assigned_shared_ids` over `folder_ids`' `shared`; a folder one slot links plainly takes
+/// his exclusive id, which is no entry of the pool), naming the count; the export is dropped
+/// (`team_compiler/README.md` TC-MOD-06). A `Midcup` export's folders are counted with the
+/// `record` the installed CPKs hold, a `Full` export's from the export alone. A referee
+/// export has no block: its ids are its slots' (`k99NN`). `hand_weighted` is the deep pass's,
+/// as planning counts the folders with it (`folder_ids`).
 fn pool_messages(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -620,9 +621,14 @@ fn pool_messages(
     ]
     .into_iter()
     .filter_map(|(kind, code)| {
-        let folders =
-            shared_folders_taking_ids(&resolved.export, version.engine(), kind, hand_weighted);
-        assigned_shared_ids(ids, kind, &folders, record)
+        let folders = folder_ids(
+            &resolved.export,
+            version.engine(),
+            kind,
+            hand_weighted,
+            record,
+        );
+        assigned_shared_ids(ids, kind, &folders.shared, record)
             .err()
             .map(|count| {
                 tool_message(
@@ -637,9 +643,10 @@ fn pool_messages(
 }
 
 /// `shared_ids_unrecorded`, naming the team, for a `Midcup` export whose shared boots or
-/// gloves folders take an id while no installed CPK holds the team's record of them
+/// gloves folders take a shared id while no installed CPK holds the team's record of them
 /// (`aesthetics_export/player_folders.md` "A `Midcup` export keeps the shared IDs the team
-/// already has"): numbered alphabetically, they may take ids the main CPK gives other folders.
+/// already has"; a folder under its one wearer's exclusive id takes none): numbered
+/// alphabetically, they may take ids the main CPK gives other folders.
 fn unrecorded_message(
     resolved: &ResolvedAestheticsExport,
     version: PesVersion,
@@ -657,8 +664,15 @@ fn unrecorded_message(
     let takes = [SharedKind::Boots, SharedKind::Gloves]
         .into_iter()
         .any(|kind| {
-            !shared_folders_taking_ids(&resolved.export, version.engine(), kind, hand_weighted)
-                .is_empty()
+            !folder_ids(
+                &resolved.export,
+                version.engine(),
+                kind,
+                hand_weighted,
+                None,
+            )
+            .shared
+            .is_empty()
         });
     takes.then(|| {
         tool_message(
@@ -1234,15 +1248,17 @@ mod tests {
         resolved("co Midcup Pool", &files, &[], None)
     }
 
-    /// `pool_messages` over `export` for `version`, each as (code, disposition, count).
+    /// `pool_messages` over `export` for `version` with the installed `record`, each as
+    /// (code, disposition, count).
     fn pool(
         export: &ResolvedAestheticsExport,
         version: PesVersion,
+        record: Option<&SharedIds>,
     ) -> Vec<(String, Disposition, String)> {
         let scope = Scope::Export {
             export_id: ExportId(0),
         };
-        pool_messages(export, version, &scope, &BTreeSet::new(), None)
+        pool_messages(export, version, &scope, &BTreeSet::new(), record)
             .into_iter()
             .map(|message| {
                 assert_eq!(message.scope, scope);
@@ -2185,22 +2201,45 @@ mod tests {
     }
 
     #[test]
-    fn eighteen_shared_gloves_folders_exhaust_the_pool_and_seventeen_fit() {
+    fn new_folders_past_the_installed_record_s_exhaust_the_pool() {
+        // A record of 16 shared gloves ids leaves one free: a second new folder taking a
+        // shared id needs an 18th. Every folder the record does not name is worn by two
+        // slots: a one-wearer folder takes its wearer's exclusive id and is no entry.
+        let record = SharedIds {
+            boots: BTreeMap::new(),
+            gloves: (0..16u16)
+                .map(|index| (644 + index, format!("R{index:02}")))
+                .collect(),
+        };
+        let export = |folders: u8| {
+            let paths: Vec<String> = (1..=folders)
+                .flat_map(|n| {
+                    [
+                        format!("Players/{:02} - A/S{n:02}.gloves", n * 2 - 1),
+                        format!("Players/{:02} - B/S{n:02}.gloves", n * 2),
+                        format!("Gloves/S{n:02}/glove_l.fmdl"),
+                    ]
+                })
+                .collect();
+            let files: Vec<(&str, u64)> = paths.iter().map(|path| (path.as_str(), 1)).collect();
+            resolved("co Midcup Pool", &files, &[], None)
+        };
         assert_eq!(
-            pool(
-                &linking_export(18, SharedKind::Gloves, &[]),
-                PesVersion::Pes21
-            ),
+            pool(&export(2), PesVersion::Pes21, Some(&record)),
             [(
                 "gloves_id_pool_exhausted".to_owned(),
                 Disposition::DropExport,
                 "18".to_owned()
             )]
         );
+        assert_eq!(pool(&export(1), PesVersion::Pes21, Some(&record)), []);
+        // And without a record the pool is never reached: every folder of `linking_export`
+        // has the one wearer.
         assert_eq!(
             pool(
-                &linking_export(17, SharedKind::Gloves, &[]),
-                PesVersion::Pes21
+                &linking_export(18, SharedKind::Gloves, &[]),
+                PesVersion::Pes21,
+                None
             ),
             []
         );
@@ -2208,18 +2247,22 @@ mod tests {
 
     #[test]
     fn links_beside_local_boots_count_only_pre_fox() {
-        // On Fox each player combines its link into its own package; pre-Fox has no package
-        // of the player's own, so every shared folder takes an id.
+        // On Fox each player combines its link into its own package, so no folder takes an
+        // id; pre-Fox has no package of the player's own, so every folder takes its one
+        // wearer's exclusive id.
         let export = linking_export(18, SharedKind::Boots, &["kit_boots.fmdl"]);
-        assert_eq!(pool(&export, PesVersion::Pes21), []);
-        assert_eq!(
-            pool(&export, PesVersion::Pes17),
-            [(
-                "boots_id_pool_exhausted".to_owned(),
-                Disposition::DropExport,
-                "18".to_owned()
-            )]
-        );
+        let counts = |version: PesVersion| {
+            let ids = folder_ids(
+                &export.export,
+                version.engine(),
+                SharedKind::Boots,
+                &BTreeSet::new(),
+                None,
+            );
+            (ids.own.len(), ids.shared.len())
+        };
+        assert_eq!(counts(PesVersion::Pes21), (0, 0));
+        assert_eq!(counts(PesVersion::Pes17), (18, 0));
     }
 
     #[test]

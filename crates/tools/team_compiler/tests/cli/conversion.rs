@@ -21,7 +21,7 @@ use pes_model::format::mtl::{
 };
 
 use crate::prefox_faces::{
-    BOOTS_K0644, CLEAN, card_materials, card_model, common_output, entries_under, face_cpk,
+    BOOTS_K0625, CLEAN, card_materials, card_model, common_output, entries_under, face_cpk,
     face_folder, nested_entries, ordered_entries, pes17, pre_fox_fixture, sampler_paths, small_dds,
     write_round_hat, write_slot_05_face,
 };
@@ -888,6 +888,8 @@ fn a_shared_boots_folder_s_model_is_converted_to_its_boots_fmdl_on_pes_21() {
     let sandbox = Sandbox::new("conversion_shared_model_for_fox");
     let export = "co Midcup Shared";
     sandbox.write(&format!("{}/Crocs.boots", slot_05(export)), b"");
+    // A second wearer: Crocs takes a shared id, which the package's path names.
+    sandbox.write(&format!("exports/{export}/Players/07 - B/Crocs.boots"), b"");
     let crocs = format!("exports/{export}/Boots/Crocs");
     sandbox.write(&format!("{crocs}/boots.model"), &card_model());
     sandbox.write(&format!("{crocs}/boots.mtl"), &card_materials());
@@ -955,11 +957,10 @@ fn a_shared_folder_s_selected_gltf_drops_every_player_linking_it_on_pes_21_and_1
     let identified = "Info export_identified [Keep] (team=/co/, id=714)";
     let no_colors = "Info team_colors_missing [Keep] ()";
     let slot_06 = format!("exports/{export}/Players/06 - B");
-    let unrecorded = "Warning shared_ids_unrecorded [Keep] (team=714)";
     for (version, findings, kept, dropped) in [
         (
             21,
-            vec![identified, unrecorded, gltf_error, no_colors],
+            vec![identified, gltf_error, no_colors],
             "Asset/model/character/boots/k0626/#Win/boots.fpk".to_owned(),
             ["k0625", "71405", "k0644"],
         ),
@@ -967,13 +968,12 @@ fn a_shared_folder_s_selected_gltf_drops_every_player_linking_it_on_pes_21_and_1
             17,
             vec![
                 identified,
-                unrecorded,
                 gltf_error,
                 no_colors,
                 "Info xml_face_neck_added [Keep] at Players/06 - B ()",
             ],
             face_cpk(6),
-            ["71405", "boots/k0644", "05 - A"],
+            ["71405", "boots/k0625", "05 - A"],
         ),
     ] {
         let sandbox = Sandbox::new(&format!("conversion_shared_gltf_pes{version}"));
@@ -1002,12 +1002,12 @@ fn a_shared_folder_s_selected_gltf_drops_every_player_linking_it_on_pes_21_and_1
             entries.keys()
         );
 
-        // `check` reports neither drop, which is planning's; it does report the
-        // `Midcup`'s missing record.
+        // `check` reports neither drop, which is planning's. No folder takes a shared id
+        // either (Crocs's only wearer is dropped with the glTF), so no `shared_ids_unrecorded`.
         let run = sandbox.run(&pes_settings(&sandbox, version), &["check"]);
         assert_eq!(
             findings_of(&run.messages(), export),
-            [identified, unrecorded],
+            [identified],
             "PES {version}"
         );
         assert_eq!(run.exit_code(), 0, "PES {version}");
@@ -1587,7 +1587,7 @@ fn a_shared_boots_folder_s_model_posed_off_pes_15_s_skeleton_is_moved_onto_it() 
         sandbox.write(&format!("{boots}/boots.mtl"), &mtl);
         let (code, lines, entries) = compiled_for(&sandbox, version, "", export);
         assert_eq!(code, 0, "PES {version}: {lines:#?}");
-        let output = entries_under(&entries, BOOTS_K0644);
+        let output = entries_under(&entries, BOOTS_K0625);
         let names: Vec<&str> = output.keys().copied().collect();
         assert_eq!(names, ["boots.model", "boots.mtl"], "PES {version}");
         (
@@ -1605,24 +1605,11 @@ fn a_shared_boots_folder_s_model_posed_off_pes_15_s_skeleton_is_moved_onto_it() 
     assert_eq!(
         lines_15,
         followed_by(
-            &[
-                states,
-                CLEAN[0],
-                "Warning shared_ids_unrecorded [Keep] (team=714)",
-                CLEAN[1]
-            ],
+            &[states, CLEAN[0], CLEAN[1]],
             moved_cap_lines("at Boots/Cap", "boots.model")
         )
     );
-    assert_eq!(
-        lines_16,
-        [
-            states,
-            CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
-            CLEAN[1]
-        ]
-    );
+    assert_eq!(lines_16, [states, CLEAN[0], CLEAN[1]]);
     // One part: on PES 2016 the output's model is the source as it is.
     assert!(model_16 == source);
     assert!(model_15 != source);
@@ -1642,7 +1629,7 @@ fn a_shared_gloves_folder_s_model_posed_off_pes_15_s_skeleton_is_moved_its_mtl_a
         sandbox.write(&format!("{gloves}/glove_l.mtl"), &mtl);
         let (code, lines, entries) = compiled_for(&sandbox, version, "", export);
         assert_eq!(code, 0, "PES {version}: {lines:#?}");
-        let output = entries_under(&entries, "common/character0/model/character/glove/g0644/");
+        let output = entries_under(&entries, "common/character0/model/character/glove/g0625/");
         let names: Vec<&str> = output.keys().copied().collect();
         assert_eq!(
             names,
@@ -1663,24 +1650,11 @@ fn a_shared_gloves_folder_s_model_posed_off_pes_15_s_skeleton_is_moved_its_mtl_a
     assert_eq!(
         lines_15,
         followed_by(
-            &[
-                states,
-                CLEAN[0],
-                "Warning shared_ids_unrecorded [Keep] (team=714)",
-                CLEAN[1]
-            ],
+            &[states, CLEAN[0], CLEAN[1]],
             moved_cap_lines("at Gloves/Cap", "glove_l.model")
         )
     );
-    assert_eq!(
-        lines_16,
-        [
-            states,
-            CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
-            CLEAN[1]
-        ]
-    );
+    assert_eq!(lines_16, [states, CLEAN[0], CLEAN[1]]);
     assert!(model_16 == source);
     assert!(model_15 != source);
     // The member's `.mtl`, packed as on any version.
@@ -2071,7 +2045,7 @@ fn a_shared_boots_folder_s_metal_material_reflects_the_environment_map_beside_it
     let lines = run.messages();
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    let boots = entries_under(&entries, BOOTS_K0644);
+    let boots = entries_under(&entries, BOOTS_K0625);
     let names: Vec<&str> = boots.keys().copied().collect();
     assert_eq!(names, ["boots.model", "boots.mtl", "env.dds"]);
     // The shared output's textures sit beside its models, the template's among them.

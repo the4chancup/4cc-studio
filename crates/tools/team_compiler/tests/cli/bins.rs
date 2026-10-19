@@ -1145,6 +1145,13 @@ fn a_player_s_own_gloves_and_a_linked_shared_folder_s_set_their_gloves_rows() {
         );
     }
     sandbox.write(&format!("{export}/Players/07 - B/Keeper.gloves"), b"");
+    sandbox.write(&format!("{export}/Players/08 - C/Keeper.gloves"), b"");
+    // Grip, which slot 09 alone wears, takes his exclusive id.
+    sandbox.write(&format!("{export}/Players/09 - D/Grip.gloves"), b"");
+    sandbox.write(
+        &format!("{export}/Gloves/Grip/glove_l.fmdl"),
+        &tracer_player_file("glove_l.fmdl"),
+    );
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
@@ -1152,9 +1159,17 @@ fn a_player_s_own_gloves_and_a_linked_shared_folder_s_set_their_gloves_rows() {
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert!(entries.contains_key("Asset/model/character/glove/g0625/#Win/glove.fpk"));
     assert!(entries.contains_key("Asset/model/character/glove/g0644/#Win/glove.fpk"));
+    assert!(entries.contains_key("Asset/model/character/glove/g0629/#Win/glove.fpk"));
     assert_eq!(
         pairs_of(&entries, GLOVE_LIST),
-        [(70201, 31), (70701, 32), (71405, 625), (71407, 644)]
+        [
+            (70201, 31),
+            (70701, 32),
+            (71405, 625),
+            (71407, 644),
+            (71408, 644),
+            (71409, 629)
+        ]
     );
 }
 
@@ -1367,8 +1382,8 @@ fn a_linked_shared_folder_s_gloves_id_wins_over_an_authored_gloves_id() {
     install_tables(&sandbox, &[(GLOVE_LIST, &item_list(&[(70201, 31)]))]);
     let export = "exports/co Midcup Gloves Id";
     let folder = format!("{export}/Players/05 - A");
-    // A plain link, the folder holding no gloves model: the shared folder's assigned ID is
-    // his, and his settings.toml's stock `gloves_id` conflicts.
+    // A plain link, the folder holding no gloves model: its assigned ID, his own as its one
+    // wearer, is his row, and his settings.toml's stock `gloves_id` conflicts.
     sandbox.write(&format!("{folder}/Crocs.gloves"), b"");
     sandbox.write(&format!("{folder}/settings.toml"), b"gloves_id = 3\n");
     sandbox.write(
@@ -1390,8 +1405,8 @@ fn a_linked_shared_folder_s_gloves_id_wins_over_an_authored_gloves_id() {
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
         pairs_of(&entries, GLOVE_LIST),
-        [(70201, 31), (71405, 644)],
-        "71405's row is the shared folder's assigned ID, not the authored 3"
+        [(70201, 31), (71405, 625)],
+        "71405's row is his exclusive ID, Crocs's one wearer's, not the authored 3"
     );
 }
 
@@ -1908,11 +1923,11 @@ fn a_midcup_markerless_player_is_not_checked_for_the_gloves_rule() {
 
 /// Team 714's record of which shared folder took which of its block's shared IDs, at a path
 /// no game reads.
-const SHARED_IDS_714: &str = "4cc_studio/shared_ids/714.toml";
+pub(crate) const SHARED_IDS_714: &str = "4cc_studio/shared_ids/714.toml";
 
 /// The record file's text for `boots` (shared ID, folder name); the `[gloves]` table is
 /// always written, here empty.
-fn record(boots: &[(u16, &str)]) -> Vec<u8> {
+pub(crate) fn record(boots: &[(u16, &str)]) -> Vec<u8> {
     let mut text = "# Written by 4cc Studio; do not edit.\n[boots]\n".to_owned();
     for (id, name) in boots {
         text.push_str(&format!("{id} = \"{name}\"\n"));
@@ -1926,15 +1941,18 @@ fn a_full_export_s_shared_ids_are_numbered_alphabetically_and_recorded() {
     let sandbox = Sandbox::new("bins_shared_ids_full");
     install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
     let export = "exports/co Full Shared";
-    for folder in ["adidas", "Crocs"] {
+    for folder in ["adidas", "Birk", "Crocs"] {
         sandbox.write(
             &format!("{export}/Boots/{folder}/boots.fmdl"),
             &clean_model(),
         );
     }
     sandbox.write(&format!("{export}/Players/05 - A/Crocs.boots"), b"");
-    // Slot 06 links adidas, so it takes a shared ID too (the scenario's THEN names 05's row).
+    sandbox.write(&format!("{export}/Players/07 - C/Crocs.boots"), b"");
     sandbox.write(&format!("{export}/Players/06 - B/adidas.boots"), b"");
+    sandbox.write(&format!("{export}/Players/08 - D/adidas.boots"), b"");
+    // Birk, which slot 09 alone links, takes his exclusive id and is not recorded.
+    sandbox.write(&format!("{export}/Players/09 - E/Birk.boots"), b"");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
@@ -1942,7 +1960,14 @@ fn a_full_export_s_shared_ids_are_numbered_alphabetically_and_recorded() {
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
         pairs_of(&entries, BOOTS_LIST),
-        [(70201, 11), (71405, 645), (71406, 644)]
+        [
+            (70201, 11),
+            (71405, 645),
+            (71406, 644),
+            (71407, 645),
+            (71408, 644),
+            (71409, 629)
+        ]
     );
     assert_eq!(
         entries[SHARED_IDS_714],
@@ -1971,6 +1996,7 @@ fn a_midcup_export_keeps_the_installed_shared_ids_for_the_folders_it_resends() {
         );
     }
     sandbox.write(&format!("{export}/Players/05 - A/Birk.boots"), b"");
+    sandbox.write(&format!("{export}/Players/07 - C/Birk.boots"), b"");
     sandbox.write(&format!("{export}/Players/06 - B/crocs.boots"), b"");
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
@@ -1986,8 +2012,8 @@ fn a_midcup_export_keeps_the_installed_shared_ids_for_the_folders_it_resends() {
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     assert_eq!(
         pairs_of(&entries, BOOTS_LIST),
-        [(70201, 11), (71405, 646), (71406, 645)],
-        "Birk takes the lowest free ID, crocs keeps the recorded one"
+        [(70201, 11), (71405, 646), (71406, 645), (71407, 646)],
+        "Birk takes the lowest free ID, crocs keeps the recorded one though one slot wears it"
     );
     assert_eq!(
         entries[SHARED_IDS_714],
@@ -1999,11 +2025,20 @@ fn a_midcup_export_keeps_the_installed_shared_ids_for_the_folders_it_resends() {
 // TC-BIN-36
 #[test]
 fn a_midcup_export_with_no_installed_record_is_warned_and_records_its_own() {
-    let sandbox = Sandbox::new("bins_shared_ids_unrecorded");
-    install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
+    // The sandbox's own name must not hold the code it greps for.
+    let sandbox = Sandbox::new("bins_no_installed_record");
+    let appearance = player_appearance();
+    install_tables(
+        &sandbox,
+        &[
+            (BOOTS_LIST, &item_list(&[(70201, 11)])),
+            (PLAYER_APPEARANCE, &appearance),
+        ],
+    );
     let export = "exports/co Midcup Shared";
     sandbox.write(&format!("{export}/Boots/Birk/boots.fmdl"), &clean_model());
     sandbox.write(&format!("{export}/Players/05 - A/Birk.boots"), b"");
+    sandbox.write(&format!("{export}/Players/06 - B/Birk.boots"), b"");
 
     // `check` reports the missing record as `compile` does.
     for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
@@ -2018,8 +2053,36 @@ fn a_midcup_export_with_no_installed_record_is_warned_and_records_its_own() {
         );
     }
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 644)]);
+    assert_eq!(
+        pairs_of(&entries, BOOTS_LIST),
+        [(70201, 11), (71405, 644), (71406, 644)]
+    );
     assert_eq!(entries[SHARED_IDS_714], record(&[(644, "Birk")]));
+
+    // Slot 06's link removed, Birk's one wearer is slot 05: it takes his exclusive id, and
+    // no folder taking a shared id means no record and no warning.
+    fs::remove_file(
+        sandbox
+            .root
+            .join(format!("{export}/Players/06 - B/Birk.boots")),
+    )
+    .unwrap();
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains("shared_ids_unrecorded")),
+        "{lines:#?}"
+    );
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 625)]);
+    assert!(
+        !entries.contains_key(SHARED_IDS_714),
+        "{:?}",
+        entries.keys()
+    );
 }
 
 // TC-BIN-39

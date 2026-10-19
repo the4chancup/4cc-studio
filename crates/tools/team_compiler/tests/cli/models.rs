@@ -14,14 +14,16 @@ use std::path::Path;
 use fmdl::ops::paths::texture_paths;
 use fmdl::{FmdlFile, Model};
 
-use crate::bins::{BOOTS_LIST, GLOVE_LIST, install_tables, item_list, pairs_of};
+use crate::bins::{
+    BOOTS_LIST, GLOVE_LIST, SHARED_IDS_714, install_tables, item_list, pairs_of, record,
+};
 use crate::common::Sandbox;
 use crate::common_links::texture_directories;
 use crate::compile::{cpk_entries, pes21_settings, pixels_cut_dds, tracer_kit, tracer_player_file};
 use crate::conversion::HOME_714_05;
 use crate::face_folders::assert_blank_face;
 use crate::prefox_faces::{
-    BOOTS_K0644, CLEAN, card_materials, card_model, compile_pes17, entries_under, materials_naming,
+    BOOTS_K0625, CLEAN, card_materials, card_model, compile_pes17, entries_under, materials_naming,
     small_dds,
 };
 use crate::textures::{hair_model_naming, tracer_model_pointing, tracer_model_renaming};
@@ -492,7 +494,7 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
         &tracer_player_file("shirt.dds"),
     );
     let k0625 = "Asset/model/character/boots/k0625/#Win/boots.fpk";
-    let k0644 = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    let k0627 = "Asset/model/character/boots/k0627/#Win/boots.fpk";
     let sole = "Asset/model/character/common/714/05 - A/sourceimages/#windx11/sole.ftex";
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
@@ -548,7 +550,6 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
             "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=kit_boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Crocs.boots)",
             "Info fmdl_merged [Keep] at Players/05 - A (model=boots.fmdl)"
@@ -564,23 +565,23 @@ fn a_boots_link_beside_a_local_boots_model_combines_the_shared_folder_into_the_p
     assert_eq!(
         added,
         [
-            // Crocs's shared ID, taken only now that a plain link wears it on its own.
-            "4cc_studio/shared_ids/714.toml",
-            k0644,
-            "Asset/model/character/boots/k0644/#Win/boots.fpkd",
-            "Asset/model/character/boots/k0644/#windx11/sole.ftex",
+            // Crocs's own output under slot 07's exclusive id, he being its one plain
+            // wearer: no shared id, so no record and no `shared_ids_unrecorded`.
+            k0627,
+            "Asset/model/character/boots/k0627/#Win/boots.fpkd",
+            "Asset/model/character/boots/k0627/#windx11/sole.ftex",
             "Asset/model/character/face/real/71407/#Win/face.fpk",
             "Asset/model/character/face/real/71407/#Win/face.fpkd",
         ]
     );
-    assert_eq!(boots_mesh_count(&entries, k0644), tracer_boots_mesh_count());
+    assert_eq!(boots_mesh_count(&entries, k0627), tracer_boots_mesh_count());
     assert_eq!(
         boots_mesh_count(&entries, k0625),
         2 * tracer_boots_mesh_count()
     );
     assert_eq!(
         entries[sole],
-        entries["Asset/model/character/boots/k0644/#windx11/sole.ftex"]
+        entries["Asset/model/character/boots/k0627/#windx11/sole.ftex"]
     );
 }
 
@@ -903,7 +904,6 @@ fn a_shared_folder_s_subfolder_models_are_parts_of_its_package() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=extra/x_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
         ],
         "{lines:#?}"
     );
@@ -915,15 +915,14 @@ fn a_shared_folder_s_subfolder_models_are_parts_of_its_package() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=extra/x_boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
             "Info fmdl_merged [Keep] at Boots/Crocs (model=boots.fmdl)",
         ],
     );
 
-    // The shared boots hold both models' meshes, merged.
+    // The shared boots hold both models' meshes, merged, under slot 05's exclusive id.
     assert_eq!(
-        boots_mesh_count(&entries, "Asset/model/character/boots/k0644/#Win/boots.fpk"),
+        boots_mesh_count(&entries, "Asset/model/character/boots/k0625/#Win/boots.fpk"),
         2 * tracer_boots_mesh_count(),
         "boots.fmdl's and x_boots.fmdl's meshes"
     );
@@ -956,16 +955,15 @@ fn a_subfolder_s_shared_link_is_the_root_s_and_names_one_folder_once() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Warning shared_folder_orphaned [DropFolder] at Boots/Tabi ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    let k0644 = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    let k0625 = "Asset/model/character/boots/k0625/#Win/boots.fpk";
     assert_eq!(
-        boots_mesh_count(&entries, k0644),
+        boots_mesh_count(&entries, k0625),
         tracer_boots_mesh_count(),
         "Crocs' boots, once"
     );
@@ -1902,12 +1900,12 @@ fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
         paths,
         [
             "4cc_studio/shared_ids/714.toml",
+            "Asset/model/character/boots/k0631/#Win/boots.fpk",
+            "Asset/model/character/boots/k0631/#Win/boots.fpkd",
+            "Asset/model/character/boots/k0631/#windx11/shirt.ftex",
             "Asset/model/character/boots/k0644/#Win/boots.fpk",
             "Asset/model/character/boots/k0644/#Win/boots.fpkd",
             "Asset/model/character/boots/k0644/#windx11/shirt.ftex",
-            "Asset/model/character/boots/k0645/#Win/boots.fpk",
-            "Asset/model/character/boots/k0645/#Win/boots.fpkd",
-            "Asset/model/character/boots/k0645/#windx11/shirt.ftex",
             "Asset/model/character/face/real/71403/#Win/face.fpk",
             "Asset/model/character/face/real/71403/#Win/face.fpkd",
             "Asset/model/character/face/real/71407/#Win/face.fpk",
@@ -1917,17 +1915,17 @@ fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
             "common/character0/model/character/uniform/team/UniColor.bin",
             "common/etc/TeamColor.bin",
         ],
-        "no k0623, k0627 or k0631 for the linking slots; each one's face is blank"
+        "no k0623 or k0627 for the linking slots; each one's face is blank"
     );
     let crocs = "Asset/model/character/boots/k0644/#Win/boots.fpk";
-    let mud = "Asset/model/character/boots/k0645/#Win/boots.fpk";
+    let mud = "Asset/model/character/boots/k0631/#Win/boots.fpk";
     assert_eq!(boots_skl(&entries, crocs), crocs_skl);
     assert_eq!(boots_skl(&entries, mud), body_skl("pes21"));
     // Each model names its own folder's textures: the tracer's boots model lists `shirt.dds`
     // in two texture slots, both pointed at the output's folder.
     for (path, directory) in [
         (crocs, "/Assets/pes16/model/character/boots/k0644/"),
-        (mud, "/Assets/pes16/model/character/boots/k0645/"),
+        (mud, "/Assets/pes16/model/character/boots/k0631/"),
     ] {
         let package = fpk::FpkFile::read(&entries[path]).unwrap();
         let model = FmdlFile::read(package.get("boots.fmdl").unwrap()).unwrap();
@@ -1943,44 +1941,33 @@ fn shared_boots_folders_compile_once_each_under_the_shared_ids_in_name_order() {
 
 // TC-MOD-06
 #[test]
-fn eighteen_shared_boots_folders_exhaust_the_team_s_ids_and_check_skips_the_export() {
+fn a_midcup_s_new_shared_folder_past_the_installed_record_exhausts_the_pool() {
     let sandbox = Sandbox::new("mod_boots_pool");
-    for slot in 1..=18u8 {
-        write_shared_boots(
-            &sandbox,
-            "co Midcup Pool",
-            &format!("S{slot:02}"),
-            None,
-            &[slot],
-        );
-    }
+    // The installed CPK's /co/ record names every one of the block's shared boots ids.
+    let names: Vec<(u16, String)> = (0..17u16)
+        .map(|index| (644 + index, format!("R{index:02}")))
+        .collect();
+    let entries: Vec<(u16, &str)> = names
+        .iter()
+        .map(|(id, name)| (*id, name.as_str()))
+        .collect();
+    let installed = record(&entries);
+    install_tables(&sandbox, &[(SHARED_IDS_714, installed.as_slice())]);
+    // Birk, which the record does not name, is worn by two slots, so it takes a shared id,
+    // the 18th needed; a one-wearer folder would take its wearer's exclusive id instead.
+    write_shared_boots(&sandbox, "co Midcup Pool", "Birk", None, &[5, 6]);
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["check"]);
 
+    let lines = run.messages();
     assert_eq!(
-        run.messages(),
+        findings_of(&lines, "co Midcup Pool"),
         [
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S01 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S02 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S03 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S04 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S05 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S06 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S07 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S08 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S09 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S10 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S11 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S12 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S13 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S14 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S15 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S16 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S17 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info fmdl_weights_not_normalized [Keep] at Boots/S18 (file=boots.fmdl, count=1662)",
-            "co Midcup Pool: Info export_identified [Keep] (team=/co/, id=714)",
-            "co Midcup Pool: Error boots_id_pool_exhausted [DropExport] (count=18)"
-        ]
+            "Info fmdl_weights_not_normalized [Keep] at Boots/Birk (file=boots.fmdl, count=1662)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Error boots_id_pool_exhausted [DropExport] (count=18)"
+        ],
+        "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 1);
 }
@@ -1994,8 +1981,14 @@ fn shared_ids_follow_the_folder_names_so_a_new_folder_shifts_the_ones_after_it()
     assert_ne!(apple_skl, body_skl("pes21"));
     assert_ne!(mango_skl, body_skl("pes21"));
     assert_ne!(mango_skl, apple_skl);
-    write_shared_boots(&sandbox, "co Midcup Named", "Zebra", None, &[3]);
-    write_shared_boots(&sandbox, "co Midcup Named", "Apple", Some(&apple_skl), &[7]);
+    write_shared_boots(&sandbox, "co Midcup Named", "Zebra", None, &[3, 4]);
+    write_shared_boots(
+        &sandbox,
+        "co Midcup Named",
+        "Apple",
+        Some(&apple_skl),
+        &[7, 9],
+    );
     let k0644 = "Asset/model/character/boots/k0644/#Win/boots.fpk";
     let k0645 = "Asset/model/character/boots/k0645/#Win/boots.fpk";
     let k0646 = "Asset/model/character/boots/k0646/#Win/boots.fpk";
@@ -2020,7 +2013,7 @@ fn shared_ids_follow_the_folder_names_so_a_new_folder_shifts_the_ones_after_it()
         "co Midcup Named",
         "Mango",
         Some(&mango_skl),
-        &[11],
+        &[11, 13],
     );
     let second = compile_clean(
         &sandbox,
@@ -2474,10 +2467,7 @@ fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
     let check = sandbox.run(&pes21_settings(&sandbox), &["check"]);
     assert_eq!(
         findings_of(&check.messages(), "co Midcup Variant Crocs"),
-        [
-            "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
-        ]
+        ["Info export_identified [Keep] (team=/co/, id=714)"]
     );
     assert_eq!(check.exit_code(), 0);
 
@@ -2487,7 +2477,6 @@ fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
         "co Midcup Variant Crocs",
         &[
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
             "Warning kit_variant_model_left_out [Keep] at Boots/Crocs (model=boots_kitN.fmdl, used=boots_kit1.fmdl)",
         ],
@@ -2497,7 +2486,7 @@ fn per_kit_boots_in_a_shared_boots_folder_are_named_as_boots() {
         .meshes
         .len();
     assert_eq!(
-        boots_mesh_count(&entries, "Asset/model/character/boots/k0644/#Win/boots.fpk"),
+        boots_mesh_count(&entries, "Asset/model/character/boots/k0625/#Win/boots.fpk"),
         variant_meshes,
         "kit 1's meshes alone"
     );
@@ -2549,14 +2538,13 @@ fn a_shared_boots_folder_s_per_kit_models_on_pes_17_collapse_to_the_lowest_varia
         export,
         &[
             CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             CLEAN[1],
             "Warning kit_variant_model_left_out [Keep] at Boots/Studs (model=boots_kitN.model, used=boots_kit1.model)",
         ],
     );
 
     // The one `boots.model` every linking player wears is kit 1's alone, not the two merged.
-    let boots = entries_under(&entries, BOOTS_K0644);
+    let boots = entries_under(&entries, BOOTS_K0625);
     let names: Vec<&str> = boots.keys().copied().collect();
     assert_eq!(names, ["boots.model", "boots.mtl", "studs.dds"]);
     let mesh_count = |bytes: &[u8]| {
@@ -2944,13 +2932,12 @@ fn a_shared_folder_s_texture_link_names_its_common_texture_on_pes_21() {
         &[
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
 
     let package =
-        fpk::FpkFile::read(&entries["Asset/model/character/boots/k0644/#Win/boots.fpk"]).unwrap();
+        fpk::FpkFile::read(&entries["Asset/model/character/boots/k0625/#Win/boots.fpk"]).unwrap();
     let directories = texture_directories(package.get("boots.fmdl").unwrap(), "armor_bsm.dds");
     assert!(!directories.is_empty());
     assert!(
@@ -2988,13 +2975,12 @@ fn a_shared_folder_s_texture_link_takes_the_common_file_s_spelling_on_pes_21() {
         &[
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
 
     let package =
-        fpk::FpkFile::read(&entries["Asset/model/character/boots/k0644/#Win/boots.fpk"]).unwrap();
+        fpk::FpkFile::read(&entries["Asset/model/character/boots/k0625/#Win/boots.fpk"]).unwrap();
     let directories = texture_directories(package.get("boots.fmdl").unwrap(), "armor_bsm.dds");
     assert!(!directories.is_empty());
     assert!(

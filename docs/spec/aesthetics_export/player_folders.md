@@ -672,7 +672,16 @@ At compile time, the pipeline:
    shared-folder IDs** (the remainder, assigned in alphabetical folder-name order, case-insensitive
    as the export's names are (`apple` before `Mango` before `Zebra`), so the order is the one a
    member sees in Explorer rather than one where every capital sorts first — deterministic, so
-   recompiling an unchanged export yields the same IDs). Link files resolve to the assigned IDs.
+   recompiling an unchanged export yields the same IDs). Only a folder that two or more roster
+   slots link plainly takes a shared ID: a folder exactly one slot links plainly takes that
+   slot's exclusive ID instead, still packed as a boots or gloves output of its own and never
+   through his face folder (an `ingame_face` player gets no face folder at all, since any face
+   folder overrides his in-game face). His exclusive ID is free for it, because a player wears
+   one boots and one gloves ID, and a link beside his own model of its kind already merges into
+   his own output. So with 23 slots at most 11 folders of a kind need a shared ID, and a `Full`
+   export never exhausts the 17; we do not lend the unused exclusive IDs to the shared pool
+   instead, because which ones are unused depends on the whole roster, which a `Midcup`
+   compiling some players cannot see. Link files resolve to the assigned IDs.
    A shared boots or gloves folder holding no model of its kind takes no ID: it has nothing to
    load, so a player linking it plainly wears the game's own and is told
    (`shared_folder_no_model`, `team_compiler/messages.md`); linked beside his own model it is a
@@ -715,18 +724,21 @@ game reads; on both engines):
 1684 = "Grip test"
 ```
 
-A `Full` export numbers its folders alphabetically and records them. A `Midcup` export
+A `Full` export numbers its folders taking a shared ID alphabetically and records them; a
+folder under its one wearer's exclusive ID is not recorded, the ID being his. A `Midcup` export
 first reads the team's record from the installed CPKs below its output (the topmost holding
 one, the walk "Bins accumulation" makes for the working bins; `check` reads it too, so the
 two report the pool and `shared_ids_unrecorded` alike): a folder named there, compared
-case-folded as folder names are, keeps its ID; a folder not named takes the lowest of the
+case-folded as folder names are, keeps its ID, even when one slot of the Midcup links it (the
+main CPK's other wearers still wear that ID); a folder not named takes its one wearer's
+exclusive ID as in a `Full` export, or, linked by two or more, the lowest of the
 team's 17 shared IDs of its kind neither the record nor an earlier new folder holds,
-alphabetically; and the CPK records the installed entries with the new ones, each folder the
-Midcup holds under its own spelling. When no installed
+alphabetically; and the CPK records the installed entries with the new shared ones, each folder
+the Midcup holds under its own spelling. When no installed
 CPK holds a record (the main CPK built by Red, or before this rule), the Midcup numbers its
-folders alphabetically and reports `shared_ids_unrecorded` (a warning naming the team): its IDs
-may be ones the main CPK gives other folders. Such a Midcup with no shared folder taking an ID
-writes no record: an empty one would read, to the next Midcup above it, as the team having
+folders taking a shared ID alphabetically and reports `shared_ids_unrecorded` (a warning naming
+the team): its IDs may be ones the main CPK gives other folders. Such a Midcup with no shared
+folder taking a shared ID writes no record: an empty one would read, to the next Midcup above it, as the team having
 no shared folders, and that Midcup's new folders would take the main CPK's IDs without the
 warning. A Midcup whose new folders do not all fit among the
 free IDs is refused as a Full export with more than 17 is (`boots_id_pool_exhausted`,

@@ -351,11 +351,7 @@ fn a_pes_17_compile_writes_both_color_bins_and_no_fox_bin() {
     );
     assert_eq!(
         findings_of(&lines, export),
-        [
-            CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()"
-        ],
+        [CLEAN[0], "Info kit_colors_derived [Keep] at Kits/p1 ()"],
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");

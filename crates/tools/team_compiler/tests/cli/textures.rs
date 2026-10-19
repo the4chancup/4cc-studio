@@ -947,7 +947,6 @@ fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
             "Info fmdl_weights_not_normalized [Keep] at Common/legs.fmdl (file=legs.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info fmdl_fcl_hair_fallback [Keep] at Players/05 - A (file=legs.fmdl.common)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()"
         ]
     );
@@ -955,7 +954,7 @@ fn a_common_texture_and_a_shared_folder_s_texture_in_png_are_emitted_as_ftex() {
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     for path in [
         "Asset/model/character/common/714/sourceimages/#windx11/hair.ftex",
-        "Asset/model/character/boots/k0644/#windx11/sole.ftex",
+        "Asset/model/character/boots/k0625/#windx11/sole.ftex",
     ] {
         let emitted = entries
             .get(path)

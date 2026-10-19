@@ -1100,7 +1100,6 @@ fn a_shared_folder_s_kit_folder_of_links_finds_their_sets_in_common() {
         [
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
@@ -1112,8 +1111,8 @@ fn a_shared_folder_s_kit_folder_of_links_finds_their_sets_in_common() {
     // `Common/kit1/armor_bsm.dds`, the member the `kitN/` link reaches, packed once.
     let armor = "Asset/model/character/common/714/kit1/sourceimages/#windx11/armor_bsm.ftex";
     assert!(entries.contains_key(armor), "{:#?}", entries.keys());
-    // Crocs' shared boots names `armor_bsm` in the `kitN/` directory its link spells.
-    let shared = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    // Crocs' own boots names `armor_bsm` in the `kitN/` directory its link spells.
+    let shared = "Asset/model/character/boots/k0625/#Win/boots.fpk";
     let package = fpk::FpkFile::read(&entries[shared]).unwrap();
     let directories = texture_directories(package.get("boots.fmdl").unwrap(), "armor_bsm.dds");
     assert!(!directories.is_empty());
@@ -2327,7 +2326,7 @@ fn clean_model_naming(file_name: &str) -> Vec<u8> {
 
 // TC-MOD-79
 #[test]
-fn a_shared_folder_holding_only_a_model_link_takes_a_shared_id() {
+fn a_shared_folder_holding_only_a_model_link_takes_its_wearer_s_id() {
     let sandbox = Sandbox::new("cmn_shared_model_link");
     install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
     let export = "exports/co Midcup Crocs";
@@ -2346,21 +2345,21 @@ fn a_shared_folder_holding_only_a_model_link_takes_a_shared_id() {
         findings_of(&lines, "co Midcup Crocs"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()"
         ],
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    // The team's first shared boots id, whose package holds the Common model's meshes.
-    let shared = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    // Slot 05's exclusive boots id, Crocs's one wearer: its package holds the Common
+    // model's meshes.
+    let shared = "Asset/model/character/boots/k0625/#Win/boots.fpk";
     let package = fpk::FpkFile::read(&entries[shared]).unwrap();
     assert_eq!(
         mesh_count(package.get("boots.fmdl").unwrap()),
         mesh_count(&clean_model())
     );
-    assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 644)]);
+    assert_eq!(pairs_of(&entries, BOOTS_LIST), [(70201, 11), (71405, 625)]);
 }
 
 // TC-MOD-83
@@ -2484,16 +2483,15 @@ fn a_shared_folder_s_mtl_link_gives_its_model_the_common_material_set() {
         findings_of(&lines, "co Midcup Crocs"),
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()"
         ],
         "{lines:#?}"
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    // Crocs' shared output: its `boots.model` converted with the Common `.mtl` the link
+    // Crocs' own output: its `boots.model` converted with the Common `.mtl` the link
     // stands for, naming `skin` in the team's Common texture directory.
-    let shared = "Asset/model/character/boots/k0644/#Win/boots.fpk";
+    let shared = "Asset/model/character/boots/k0625/#Win/boots.fpk";
     let package = fpk::FpkFile::read(&entries[shared]).unwrap();
     let boots = package.get("boots.fmdl").unwrap();
     assert_eq!(mesh_count(boots), CONVERTED_CARD_MESHES);

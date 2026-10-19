@@ -78,8 +78,8 @@ pub(crate) fn entries_under<'a>(
         .collect()
 }
 
-/// The outer CPK folder of team 714's first shared boots output.
-pub(crate) const BOOTS_K0644: &str = "common/character0/model/character/boots/k0644/";
+/// The outer CPK folder of team 714's slot 05's exclusive boots output.
+pub(crate) const BOOTS_K0625: &str = "common/character0/model/character/boots/k0625/";
 
 /// Writes slot 05 of the export `export` holding `face_high.model`, its `.mtl` and `skin.dds`.
 pub(crate) fn write_slot_05_face(sandbox: &Sandbox, export: &str) {
@@ -762,7 +762,7 @@ fn a_model_with_no_mtl_drops_its_folder_and_a_face_without_face_neck_gets_the_du
 
 // TC-MOD-22
 #[test]
-fn a_linked_boots_folder_is_written_once_as_boots_model_and_boots_mtl_under_its_shared_id() {
+fn a_linked_boots_folder_is_written_once_as_boots_model_and_boots_mtl_under_its_wearer_s_id() {
     let sandbox = Sandbox::new("prefox_shared_boots");
     let export = "co Midcup Crocs";
     write_slot_05_face(&sandbox, export);
@@ -775,24 +775,17 @@ fn a_linked_boots_folder_is_written_once_as_boots_model_and_boots_mtl_under_its_
     sandbox.write(&format!("{crocs}/boots.mtl"), &materials_naming("crocs"));
     sandbox.write(&format!("{crocs}/crocs.dds"), &small_dds());
 
-    let entries = compile_pes17(
-        &sandbox,
-        export,
-        &[
-            CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
-            CLEAN[1],
-        ],
-    );
+    let entries = compile_pes17(&sandbox, export, &[CLEAN[0], CLEAN[1]]);
 
+    // Crocs under slot 05's own id, he being its one wearer.
     let boots = entries_under(&entries, "common/character0/model/character/boots/");
     let names: Vec<&str> = boots.keys().copied().collect();
     assert_eq!(
         names,
-        ["k0644/boots.model", "k0644/boots.mtl", "k0644/crocs.dds"]
+        ["k0625/boots.model", "k0625/boots.mtl", "k0625/crocs.dds"]
     );
-    assert_eq!(*boots["k0644/boots.model"], card_model());
-    assert_eq!(sampler_paths(boots["k0644/boots.mtl"]), ["./crocs.dds"]);
+    assert_eq!(*boots["k0625/boots.model"], card_model());
+    assert_eq!(sampler_paths(boots["k0625/boots.mtl"]), ["./crocs.dds"]);
     // Slot 05's own boots model is a part of his face, and the shared boots are not.
     let face = nested_entries(&entries[&face_cpk(5)]);
     let xml = String::from_utf8(face[&format!("{}face.xml", face_folder(5))].clone()).unwrap();
@@ -813,7 +806,9 @@ fn a_shared_boots_folder_with_no_model_takes_no_id_and_warns() {
     let export = "co Midcup Studs";
     write_slot_05_face(&sandbox, export);
     sandbox.write(&format!("exports/{export}/Players/05 - A/Studs.boots"), b"");
+    sandbox.write(&format!("exports/{export}/Players/07 - B/Studs.boots"), b"");
     sandbox.write(&format!("exports/{export}/Players/06 - B/Zebra.boots"), b"");
+    sandbox.write(&format!("exports/{export}/Players/08 - D/Zebra.boots"), b"");
     sandbox.write(
         &format!("exports/{export}/Boots/Studs/studs.dds"),
         &small_dds(),
@@ -879,12 +874,11 @@ fn a_shared_boots_folder_s_model_of_another_name_is_written_as_boots_model_with_
         &[
             "Info mtl_texture_unused_missing [Keep] at Boots/Mud (file=materials.mtl, texture=./other.dds, materials=card)",
             CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             CLEAN[1],
         ],
     );
 
-    let boots = entries_under(&entries, BOOTS_K0644);
+    let boots = entries_under(&entries, BOOTS_K0625);
     let names: Vec<&str> = boots.keys().copied().collect();
     assert_eq!(names, ["boots.model", "boots.mtl", "mud.dds"]);
     assert_eq!(*boots["boots.model"], card_model());
@@ -893,7 +887,7 @@ fn a_shared_boots_folder_s_model_of_another_name_is_written_as_boots_model_with_
 
 // TC-MOD-38
 #[test]
-fn a_linked_gloves_folder_is_written_with_a_generated_glove_xml_under_its_shared_id() {
+fn a_linked_gloves_folder_is_written_with_a_generated_glove_xml_under_its_wearer_s_id() {
     let sandbox = Sandbox::new("prefox_shared_gloves");
     let export = "co Midcup Keeper";
     write_slot_05_face(&sandbox, export);
@@ -909,32 +903,25 @@ fn a_linked_gloves_folder_is_written_with_a_generated_glove_xml_under_its_shared
     // The texture both sets name: a shared folder's `.mtl` is checked against its own files.
     sandbox.write(&format!("{keeper}/skin.dds"), &small_dds());
 
-    let entries = compile_pes17(
-        &sandbox,
-        export,
-        &[
-            CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
-            CLEAN[1],
-        ],
-    );
+    let entries = compile_pes17(&sandbox, export, &[CLEAN[0], CLEAN[1]]);
 
+    // Keeper under slot 05's own id, he being its one wearer.
     let gloves = entries_under(&entries, "common/character0/model/character/glove/");
     let names: Vec<&str> = gloves.keys().copied().collect();
     assert_eq!(
         names,
         [
-            "g0644/glove.xml",
-            "g0644/glove_l.model",
-            "g0644/glove_l.mtl",
-            "g0644/glove_r.model",
-            "g0644/glove_r.mtl",
-            "g0644/skin.dds",
+            "g0625/glove.xml",
+            "g0625/glove_l.model",
+            "g0625/glove_l.mtl",
+            "g0625/glove_r.model",
+            "g0625/glove_r.mtl",
+            "g0625/skin.dds",
         ]
     );
-    assert_eq!(*gloves["g0644/glove_l.model"], card_model());
+    assert_eq!(*gloves["g0625/glove_l.model"], card_model());
     assert_eq!(
-        String::from_utf8(gloves["g0644/glove.xml"].clone()).unwrap(),
+        String::from_utf8(gloves["g0625/glove.xml"].clone()).unwrap(),
         "<?xml version='1.0' encoding='UTF-8'?>\r\n\
          <config>\r\n   \
          <model level=\"0\" type=\"gloveL\" path=\"./glove_l.model\" material=\"./glove_l.mtl\" />\r\n   \
@@ -971,32 +958,24 @@ fn a_shared_gloves_folder_s_mtl_files_pack_flattened_at_the_output_s_root() {
     // `glove_l.mtl`'s texture too, at the root.
     sandbox.write(&format!("{keeper}/skin.dds"), &small_dds());
 
-    let entries = compile_pes17(
-        &sandbox,
-        export,
-        &[
-            CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
-            CLEAN[1],
-        ],
-    );
+    let entries = compile_pes17(&sandbox, export, &[CLEAN[0], CLEAN[1]]);
 
     let gloves = entries_under(&entries, "common/character0/model/character/glove/");
     let names: Vec<&str> = gloves.keys().copied().collect();
     assert_eq!(
         names,
         [
-            "g0644/glove.xml",
-            "g0644/glove_l.model",
-            "g0644/glove_l.mtl",
-            "g0644/grip/glove_r.model",
-            "g0644/grip/grip.dds",
-            "g0644/grip_glove_r.mtl",
-            "g0644/skin.dds",
+            "g0625/glove.xml",
+            "g0625/glove_l.model",
+            "g0625/glove_l.mtl",
+            "g0625/grip/glove_r.model",
+            "g0625/grip/grip.dds",
+            "g0625/grip_glove_r.mtl",
+            "g0625/skin.dds",
         ]
     );
     assert_eq!(
-        String::from_utf8(gloves["g0644/glove.xml"].clone()).unwrap(),
+        String::from_utf8(gloves["g0625/glove.xml"].clone()).unwrap(),
         "<?xml version='1.0' encoding='UTF-8'?>\r\n\
          <config>\r\n   \
          <model level=\"0\" type=\"gloveL\" path=\"./glove_l.model\" material=\"./glove_l.mtl\" />\r\n   \
@@ -1004,9 +983,82 @@ fn a_shared_gloves_folder_s_mtl_files_pack_flattened_at_the_output_s_root() {
          </config>"
     );
     assert_eq!(
-        sampler_paths(gloves["g0644/grip_glove_r.mtl"]),
+        sampler_paths(gloves["g0625/grip_glove_r.mtl"]),
         ["./grip/grip.dds", "./skin.dds"]
     );
+}
+
+// TC-MOD-94
+#[test]
+fn each_of_twenty_one_wearer_boots_folders_takes_its_wearer_s_own_id() {
+    let sandbox = Sandbox::new("prefox_one_wearer_ids");
+    let export = "co Midcup Twenty";
+    // `card`, the card-head model's one material, renamed `bNN`: which `Boots/` folder a
+    // `boots.model` came from survives in its bytes.
+    let named_model = |slot: u8| {
+        let file = pes_model::format::PreFoxModel::read(&card_model()).unwrap();
+        let mut model = pes_model::model::Model::from_file(&file).unwrap();
+        model.materials[0] = format!("b{slot:02}");
+        model.to_file().unwrap().write().unwrap()
+    };
+    // A `.mtl` defining `material` and naming no texture.
+    let mtl_without_texture = |material: &str| {
+        let text = String::from_utf8(card_materials()).unwrap();
+        text.replace("name=\"card\"", &format!("name=\"{material}\""))
+            .lines()
+            .filter(|line| !line.contains("<sampler"))
+            .collect::<Vec<_>>()
+            .join("\n")
+            .into_bytes()
+    };
+    for slot in 1..=20u8 {
+        let player = format!("exports/{export}/Players/{slot:02} - P{slot:02}");
+        sandbox.write(&format!("{player}/B{slot:02}.boots"), b"");
+        if slot <= 15 {
+            sandbox.write(&format!("{player}/ingame_face"), b"");
+        } else {
+            sandbox.write(&format!("{player}/face_high.model"), &card_model());
+            sandbox.write(
+                &format!("{player}/face_high.mtl"),
+                &mtl_without_texture("card"),
+            );
+        }
+        let folder = format!("exports/{export}/Boots/B{slot:02}");
+        sandbox.write(&format!("{folder}/boots.model"), &named_model(slot));
+        sandbox.write(
+            &format!("{folder}/boots.mtl"),
+            &mtl_without_texture(&format!("b{slot:02}")),
+        );
+    }
+
+    // Twenty folders past the block's 17 shared ids report no `boots_id_pool_exhausted`:
+    // each takes its one wearer's exclusive id instead.
+    let entries = compile_pes17(&sandbox, export, &CLEAN);
+
+    for slot in 1..=20u8 {
+        let folder = format!(
+            "common/character0/model/character/boots/k06{:02}/",
+            20 + slot
+        );
+        let boots = entries_under(&entries, &folder);
+        assert_eq!(*boots["boots.model"], named_model(slot), "{folder}");
+        assert_eq!(
+            *boots["boots.mtl"],
+            mtl_without_texture(&format!("b{slot:02}")),
+            "{folder}"
+        );
+    }
+    assert!(
+        entries.keys().all(|path| !path.contains("boots/k0644/")),
+        "{:?}",
+        entries.keys()
+    );
+    for slot in 1..=15u8 {
+        assert!(!entries.contains_key(&face_cpk(slot)), "714{slot:02}");
+    }
+    for slot in 16..=20u8 {
+        assert!(entries.contains_key(&face_cpk(slot)), "714{slot:02}");
+    }
 }
 
 // TC-MOD-85
@@ -1038,7 +1090,6 @@ fn a_shared_boots_folder_s_subfolder_fmdl_s_set_names_its_texture_from_the_root(
         &[
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=sub/boots.fmdl, count=1662)",
             CLEAN[0],
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             CLEAN[1],
             "Info native_field_dropped [Keep] at Boots/Crocs (model=sub/boots.fmdl, field=bone_matrices)",
             "Info native_field_dropped [Keep] at Boots/Crocs (model=sub/boots.fmdl, bone=8, field=skl_parent)",
@@ -1047,7 +1098,7 @@ fn a_shared_boots_folder_s_subfolder_fmdl_s_set_names_its_texture_from_the_root(
         ],
     );
 
-    let boots = entries_under(&entries, BOOTS_K0644);
+    let boots = entries_under(&entries, BOOTS_K0625);
     let names: Vec<&str> = boots.keys().copied().collect();
     assert_eq!(names, ["boots.model", "boots.mtl", "sub/shirt.dds"]);
     assert!(
@@ -1079,12 +1130,11 @@ fn a_shared_folder_s_common_link_is_file_not_used_on_pes_17() {
         &[
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Warning file_not_used [Keep] at Boots/Crocs (file=armor.dds.common)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
 
-    let boots = entries_under(&entries, BOOTS_K0644);
+    let boots = entries_under(&entries, BOOTS_K0625);
     let names: Vec<&str> = boots.keys().copied().collect();
     assert_eq!(names, ["boots.model", "boots.mtl", "skin.dds"]);
 }
@@ -1111,12 +1161,11 @@ fn a_shared_folder_s_texture_and_link_of_one_stem_do_not_conflict_on_pes_17() {
         &[
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Warning file_not_used [Keep] at Boots/Crocs (file=skin.dds.common)",
-            "Warning shared_ids_unrecorded [Keep] (team=714)",
             "Info team_colors_missing [Keep] ()",
         ],
     );
 
-    let boots = entries_under(&entries, BOOTS_K0644);
+    let boots = entries_under(&entries, BOOTS_K0625);
     let names: Vec<&str> = boots.keys().copied().collect();
     assert_eq!(names, ["boots.model", "boots.mtl", "skin.dds"]);
 }
@@ -1417,7 +1466,6 @@ fn a_linked_boots_folder_s_fmdl_is_converted_into_boots_model_and_boots_mtl_on_p
                 "Info fmdl_weights_not_normalized [Keep] {folder} (file=boots.fmdl, count=1662)"
             ),
             CLEAN[0].to_owned(),
-            "Warning shared_ids_unrecorded [Keep] (team=714)".to_owned(),
             CLEAN[1].to_owned(),
             format!(
                 "Info native_field_dropped [Keep] {folder} (model=boots.fmdl, field=bone_matrices)"
@@ -1436,7 +1484,7 @@ fn a_linked_boots_folder_s_fmdl_is_converted_into_boots_model_and_boots_mtl_on_p
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    let boots = entries_under(&entries, BOOTS_K0644);
+    let boots = entries_under(&entries, BOOTS_K0625);
     let names: Vec<&str> = boots.keys().copied().collect();
     assert_eq!(names, ["boots.model", "boots.mtl", "shirt.dds"]);
     // Converted: `pes_model` reads it, the hair's anti-blur mesh folded back.
@@ -1496,7 +1544,6 @@ fn a_linked_gloves_folder_s_fmdls_are_converted_and_listed_in_its_glove_xml_on_p
                 "Info fmdl_weights_not_normalized [Keep] {folder} (file=glove_l.fmdl, count=2)"
             ),
             CLEAN[0].to_owned(),
-            "Warning shared_ids_unrecorded [Keep] (team=714)".to_owned(),
             CLEAN[1].to_owned(),
             format!(
                 "Info native_field_dropped [Keep] {folder} (model=glove_l.fmdl, field=bone_matrices)"
@@ -1509,7 +1556,7 @@ fn a_linked_gloves_folder_s_fmdls_are_converted_and_listed_in_its_glove_xml_on_p
     );
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
-    let gloves = entries_under(&entries, "common/character0/model/character/glove/g0644/");
+    let gloves = entries_under(&entries, "common/character0/model/character/glove/g0625/");
     let names: Vec<&str> = gloves.keys().copied().collect();
     assert_eq!(
         names,

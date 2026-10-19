@@ -849,7 +849,9 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     the version's engine, so 16 or 17 gives one outcome; the 8 exports met it because the
     census compiled each pre-Fox output for PES 16. 6.12c compiles them for 17, the cup's
     version (`compile_census.py --prefox-version 17`)
-- [ ] 6.15 a shared boots or gloves folder exactly one player links takes that player's own ID
+- [x] 6.15 (2026-10-19; `plan/ids.rs` `folder_ids`, `plan/mod.rs`, `validation.rs`, tests across
+  `tests/cli/`; TC-MOD-94 compiles 20 one-wearer pre-Fox folders under k0621 to k0640) a shared
+  boots or gloves folder exactly one player links takes that player's own ID
   (maintainer, 2026-10-19; DECISIONS 2026-10-19): only folders two or more roster players link
   take the block's 17 shared IDs, so a Full export never exhausts them (23 slots give at most
   11), where today a pre-Fox export, whose upgrade keeps every worn item folder shared, fails
@@ -860,10 +862,14 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   paragraph edited with the code. Such a folder is still packed as a boots or gloves package under that ID, never through
   the player's face folder: an `ingame_face` player must get no face folder at all, since with
   the cup's "modified face" flag always off any face folder overrides his in-game face
-  ("`ingame_face` marker") → verify: a pre-Fox export of 20 single-wearer boots folders, most
-  wearers `ingame_face`, compiles, each folder under its wearer's ID, his save record naming
-  it, and no face folder written for an `ingame_face` wearer; a folder two players link keeps a
-  shared ID; the parity tracers unchanged
+  ("`ingame_face` marker"). Scenarios rewritten:
+  TC-MOD-05, -06 (now a `Midcup`'s, a `Full` export no longer reaching the pool), -07, -17,
+  -22, -38, -57, -79, TC-TEX-01, TC-BIN-12, -34, -35, -36, -41, TC-PLN-02; new TC-MOD-94 → verify:
+  TC-MOD-94 (a pre-Fox export of 20 single-wearer boots folders, 15 wearers `ingame_face`,
+  compiles, each folder under its wearer's ID, no face CPK for an `ingame_face` wearer); a
+  folder two players link keeps a shared ID; the parity tracers unchanged (none links a shared
+  folder). The pre-Fox save record naming the ID is not checked: pre-Fox compiles write no
+  item IDs to the patch yet
 - [ ] 6.14 an upgrade writes a clean export or nothing (maintainer, 2026-10-19; AGENTS.md
   "Fundamental concepts", DECISIONS 2026-10-19, plan "Verification", "CLI", "GUI", catalog
   `migration_not_clean`, written): the run with any Error, or a finding that drops anything but

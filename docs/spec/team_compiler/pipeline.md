@@ -306,8 +306,8 @@ format:
    are written, on Fox, into the CPK's own `BootsList.bin`/`GloveList.bin` rows, so the CPK carries
    them. A missing local savefile stays a **warning** that
    skips only the savefile step: the patch is still written, and because allocation is
-   deterministic (fixed per-team blocks, exclusive IDs by player number, shared IDs in alphabetical
-   order), recompiling the same exports later with a savefile configured produces identical IDs, so
+   deterministic (fixed per-team blocks, exclusive IDs by player number, a folder one player
+   wears taking his, shared IDs in alphabetical order), recompiling the same exports later with a savefile configured produces identical IDs, so
    a CPK-now/savefile-later split remains consistent.
 
    A face-content FMDL with positive `skh_*_l`/`skh_*_r` weights is **hand auto-split** ("Hand
