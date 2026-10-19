@@ -575,7 +575,9 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     path (from its `common/`, or from any other of its subfolders: the compiler looks a folder's
     own file up before a game path either way, so one rule covers both) names it
     where the flatten puts it (the bare stem, or `./<sub>/x` for a file in a subfolder of
-    `common/`), with no link and no finding, and a `./x` whose file is in neither the referee's subfolders nor its `common/`
+    `common/`), with no link and no finding (from a `.mtl` or FMDL in a subfolder of his, a
+    reference into a `common/` subfolder follows step 7's subfolder rule instead: `./<sub>`
+    from there would name a path below that subfolder), and a `./x` whose file is in neither the referee's subfolders nor its `common/`
     but in the export's `Common/` gets step 7's stem and link when it is an `.mtl`'s or an
     FMDL's texture (a `face.xml`'s `./x` is left as written: the compiler resolves a `path`
     among the folder's own files, no link stands in for a model there, and it reports the miss

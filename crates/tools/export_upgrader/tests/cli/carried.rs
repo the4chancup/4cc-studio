@@ -172,7 +172,7 @@ fn a_portrait_of_other_bytes_in_the_face_folder_is_a_conflict() {
 }
 
 /// A `.mtl` of one material holding one sampler per `paths` entry.
-fn mtl(paths: &[&str]) -> Vec<u8> {
+pub(crate) fn mtl(paths: &[&str]) -> Vec<u8> {
     let samplers: String = paths
         .iter()
         .map(|path| {
@@ -186,7 +186,7 @@ fn mtl(paths: &[&str]) -> Vec<u8> {
 }
 
 /// The one `.mtl` output's text.
-fn mtl_text(sandbox: &Sandbox, output: &str) -> String {
+pub(crate) fn mtl_text(sandbox: &Sandbox, output: &str) -> String {
     fs::read_to_string(sandbox.path(output)).unwrap()
 }
 

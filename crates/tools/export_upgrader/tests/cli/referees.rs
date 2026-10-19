@@ -7,6 +7,7 @@
 
 use std::fs;
 
+use crate::carried::{mtl, mtl_text};
 use crate::common::Sandbox;
 use crate::players::face;
 
@@ -212,6 +213,51 @@ fn a_common_model_no_face_xml_names_is_reported_and_left_out() {
             .any(|path| path.ends_with("parts_body.model")),
         "{listing:?}"
     );
+}
+
+// EU-REF-06
+#[test]
+fn a_referee_s_references_name_his_flattened_files_and_a_common_one_is_linked() {
+    let sandbox = Sandbox::new("ref_references");
+    sandbox.write("refs Spring/refs.txt", b"01 arbiter\n");
+    sandbox.write(
+        "refs Spring/Players/arbiter/face/face.mtl",
+        &mtl(&[
+            "model/character/uniform/common/XXX/hair.dds",
+            "./skin.dds",
+            "model/character/uniform/common/XXX/kit/sock.dds",
+            "./whistle.dds",
+        ]),
+    );
+    sandbox.write("refs Spring/Players/arbiter/face/face.model", b"face");
+    sandbox.write("refs Spring/Players/arbiter/common/hair.dds", b"hair");
+    sandbox.write("refs Spring/Players/arbiter/common/skin.dds", b"skin");
+    sandbox.write("refs Spring/Players/arbiter/common/kit/sock.dds", b"sock");
+    sandbox.write("refs Spring/Common/whistle.dds", b"whistle");
+
+    let run = upgrade(&sandbox, "refs Spring");
+    let text = mtl_text(&sandbox, "refs Spring upgraded/Players/arbiter/face.mtl");
+    for path in [
+        "./hair.dds",
+        "./skin.dds",
+        "./kit/sock.dds",
+        "./whistle.dds",
+    ] {
+        assert!(text.contains(&format!("path=\"{path}\"")), "{path}: {text}");
+    }
+    let listing = sandbox.listing("refs Spring upgraded/Players/arbiter");
+    for file in ["hair.dds", "skin.dds", "kit/sock.dds", "whistle.dds.common"] {
+        assert!(
+            listing.iter().any(|path| path == file),
+            "{file}: {listing:?}"
+        );
+    }
+    assert!(
+        !run.stdout().contains("whistle") && !run.stdout().contains("common_reference_kept"),
+        "{}",
+        run.stdout()
+    );
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
 }
 
 // EU-PLY-04

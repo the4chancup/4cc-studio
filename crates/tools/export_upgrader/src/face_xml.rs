@@ -89,8 +89,9 @@ pub(crate) fn face_xml_rewrites(
         let Some((wrapped, payload)) = read_face_xml(input, &mut read) else {
             continue;
         };
-        let respelled =
-            xml_text(&payload).and_then(|(bom, text)| match respell_face_xml(text, identity) {
+        let folder_files = folder_files(copies, output);
+        let respelled = xml_text(&payload).and_then(|(bom, text)| {
+            match respell_face_xml(text, identity, &folder_files) {
                 Cow::Owned(respelled) => {
                     let mut out = String::new();
                     if bom {
@@ -100,7 +101,8 @@ pub(crate) fn face_xml_rewrites(
                     Some(out.into_bytes())
                 }
                 Cow::Borrowed(_) => None,
-            });
+            }
+        });
         let new = match respelled {
             Some(new) => new,
             // Unchanged, or not UTF-8: a wrapped file still lands
@@ -111,6 +113,45 @@ pub(crate) fn face_xml_rewrites(
         rewrites.push((output.clone(), new));
     }
     rewrites
+}
+
+/// The folded paths below its player folder of every copy in the member
+/// `face.xml` `output`'s folder (`Players/arbiter/kit/kit1.mtl` →
+/// `kit/kit1.mtl`), the files a referee's Common value may name there.
+fn folder_files(copies: &[(String, String)], output: &str) -> BTreeSet<String> {
+    let Some((folder, _)) = output
+        .strip_prefix("Players/")
+        .and_then(|rest| rest.split_once('/'))
+    else {
+        return BTreeSet::new();
+    };
+    let folder = vtree::fold_name(folder);
+    copies
+        .iter()
+        .filter_map(|(_, output)| output.strip_prefix("Players/")?.split_once('/'))
+        .filter(|(copy_folder, _)| vtree::fold_name(copy_folder) == folder)
+        .map(|(_, below)| vtree::fold_name(below))
+        .collect()
+}
+
+/// A referee's Common `path`/`material` value whose file the flatten moved
+/// into his folder (`common_below` one of `folder_files`), spelled below
+/// the folder: `model/character/uniform/common/XXX/kit/x.mtl` →
+/// `./kit/x.mtl`, the rest as written (`plans/export_upgrader.md` step 12).
+/// `None` for any other value, which the team rule's kit magic alone
+/// respells; a `./` value is never changed here, a missing one being the
+/// compile's `xml_model_not_found` (no link resolves a `path`).
+fn flattened_common_value(
+    raw: &str,
+    identity: &Identity,
+    folder_files: &BTreeSet<String>,
+) -> Option<String> {
+    let below = common_below(raw, identity)?;
+    if !folder_files.contains(&below) {
+        return None;
+    }
+    let (_segment, rest) = strip_prefix_ci(raw, COMMON_PREFIX)?.split_once('/')?;
+    Some(format!("./{rest}"))
 }
 
 /// `value` minus `prefix` when it starts with it (ASCII
@@ -231,8 +272,14 @@ pub(crate) fn named_paths(
 /// `text`, a parseable `face.xml`, with the `path` and `material`
 /// attribute values that name the player folder's own (`./`) or the
 /// team's Common (`model/character/uniform/common/`, any letter case) kit
-/// magic respelled; `Cow::Borrowed` when nothing changed.
-fn respell_face_xml<'a>(text: &'a str, identity: &Identity) -> Cow<'a, str> {
+/// magic respelled, a referee's Common value naming one of
+/// `folder_files` first spelled below his folder
+/// (`flattened_common_value`); `Cow::Borrowed` when nothing changed.
+fn respell_face_xml<'a>(
+    text: &'a str,
+    identity: &Identity,
+    folder_files: &BTreeSet<String>,
+) -> Cow<'a, str> {
     let Ok(document) = Document::parse(text) else {
         return Cow::Borrowed(text);
     };
@@ -245,17 +292,16 @@ fn respell_face_xml<'a>(text: &'a str, identity: &Identity) -> Cow<'a, str> {
                 return None;
             }
             let raw = &text[attribute.range_value()];
-            if !(raw.starts_with("./")
-                || raw
-                    .get(..COMMON_PREFIX.len())
-                    .is_some_and(|prefix| prefix.eq_ignore_ascii_case(COMMON_PREFIX)))
-            {
+            let flattened = match identity {
+                Identity::Referees => flattened_common_value(raw, identity, folder_files),
+                Identity::Team { .. } => None,
+            };
+            let value = flattened.as_deref().unwrap_or(raw);
+            if !(value.starts_with("./") || strip_prefix_ci(value, COMMON_PREFIX).is_some()) {
                 return None;
             }
-            match respell(raw, Spelling::Path, identity) {
-                Cow::Owned(new) => Some((attribute.range_value(), new)),
-                Cow::Borrowed(_) => None,
-            }
+            let new = respell(value, Spelling::Path, identity);
+            (new != raw).then(|| (attribute.range_value(), new.into_owned()))
         })
         .collect();
     if edits.is_empty() {
@@ -476,5 +522,50 @@ mod tests {
             ["a_win32.model", "b.model"]
         );
         assert!(named_paths("z/face.xml", &mut read).is_empty());
+    }
+
+    /// A referee export's identity.
+    fn refs() -> Identity {
+        Identity::Referees
+    }
+
+    #[test]
+    fn a_referee_common_value_naming_a_flattened_file_names_it_in_the_folder() {
+        let text = "<config><model path=\"model/character/uniform/common/XXX/parts_body.model\"/><model path=\"./oral_x_*.model\" material=\"model/character/uniform/common/XXX/kit/u0XXXp1.mtl\"/></config>";
+        let rewrite = |identity: &Identity, folder: &str| {
+            let copies = vec![
+                ("x".to_owned(), format!("Players/{folder}/face.xml")),
+                ("b".to_owned(), format!("Players/{folder}/parts_body.model")),
+                (
+                    "o".to_owned(),
+                    format!("Players/{folder}/oral_x_win32.model"),
+                ),
+                ("k".to_owned(), format!("Players/{folder}/kit/kit1.mtl")),
+            ];
+            let mut read = reader(vec![("x".to_owned(), text.as_bytes().to_vec())]);
+            let rewrites = face_xml_rewrites(&copies, identity, &mut read);
+            assert_eq!(rewrites.len(), 1);
+            String::from_utf8(rewrites[0].1.clone()).unwrap()
+        };
+        assert_eq!(
+            rewrite(&refs(), "arbiter"),
+            "<config><model path=\"./parts_body.model\"/><model path=\"./oral_x_*.model\" material=\"./kit/kit1.mtl\"/></config>"
+        );
+        // A team's: the kit magic alone.
+        assert_eq!(
+            rewrite(&team(), "07 - A"),
+            "<config><model path=\"model/character/uniform/common/XXX/parts_body.model\"/><model path=\"./oral_x_*.model\" material=\"model/character/uniform/common/XXX/kit/kit1.mtl\"/></config>"
+        );
+    }
+
+    #[test]
+    fn a_referee_common_value_naming_nothing_in_the_folder_keeps_the_team_rule() {
+        let copies = vec![
+            ("x".to_owned(), "Players/arbiter/face.xml".to_owned()),
+            ("e".to_owned(), "Players/eiki/parts_body.model".to_owned()),
+        ];
+        let text = "<config><model path=\"model/character/uniform/common/XXX/parts_body.model\"/></config>";
+        let mut read = reader(vec![("x".to_owned(), text.as_bytes().to_vec())]);
+        assert!(face_xml_rewrites(&copies, &refs(), &mut read).is_empty());
     }
 }
