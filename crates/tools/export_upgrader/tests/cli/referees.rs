@@ -63,7 +63,7 @@ fn refs_txt_becomes_the_canonical_players_txt_and_the_marker_is_carried() {
     );
 }
 
-// EU-REF-01
+// EU-REF-10
 #[test]
 fn refs_list_txt_and_root_referee_folders_migrate_the_same_way() {
     // The real "refs for Winter 25 Day 2" export's layout: the older

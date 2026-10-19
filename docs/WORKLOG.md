@@ -652,8 +652,9 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     `export_upgrader/src/{referees,source,face_xml,upgrade}.rs`, `help/01_command_line.md`,
     `tests/cli/referees.rs`
   - review: SWE-2 round 6.6.S1 on a573ffa..3183447 2 accepted, 4 rejected (loop ended;
-    `.tmp/6_6/rulings.md` in the side-lead's worktree), its two fixes 6.6d; an Astra round
-    (checkpoint (b): a new module and the shared tail of `run`) is the top lead's
+    `.tmp/6_6/rulings.md`, copied to the main tree), its two fixes 6.6d; Astra 6.6.A1
+    (checkpoint (b), top lead on main) 1 accepted, loop ended: the refs compiler's layout has
+    its own scenario, EU-REF-10, which its test now cites
 - [ ] 6.7 loose mode (step 11) and the report's remaining classes (step 10) → verify:
   EU-LOOSE-01, EU-REP-*
 - [ ] 6.8 model-folder mode (`upgrade-models`) → verify: EU-MF-*, EU-CLI-* (the rest, and
