@@ -766,6 +766,9 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   `Engines/templates/` is the same on both branches (`git diff 1a48fa5 e12aa01 -- Engines/templates` empty), and
   `resources/templates/` equals `main`'s files. Files: both fixtures' `README.md`,
   `tracer_prefox/red/.../face/real/73120.cpk`, `scripts/provenance/{red_main/,README.md}`
+  - [x] 6.11a Astra A1b-1 (converge review, accepted): `parity_prefox.rs`'s two texture arms
+    (`Row::Texture`, `Nested::Texture`) also compare the decoded mips, so a wrong header in
+    ours fails (red: our mip count set to 2 fails both cases, the decode refusing `Truncated`)
 - [ ] 6.12 the library parity, Phase 6's own verification (`plans/core/development_plan.md`
   "Phase 6", `plans/export_upgrader.md` "Verification"'s last paragraph,
   `plans/team_compiler/testing.md`): every old export of the maintainer's library upgraded,

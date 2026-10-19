@@ -35,9 +35,11 @@ enum Row {
     Exact,
     /// The reference's nested face CPK: each entry compared per `NESTED`.
     FaceCpk,
-    /// Tier 2: a DDS with the same dimensions, codec and pixel payload (the reference copies
-    /// the source file as it is, GIMP's reserved bytes and no mip flags; the compiler writes
-    /// its header in one canonical form).
+    /// Tier 2: a DDS with the same dimensions, codec and pixel payload, and the same mips once
+    /// both are decoded (the reference copies the source file as it is, GIMP's reserved bytes
+    /// and no mip flags; the compiler writes its header in one canonical form): the header
+    /// itself is not compared, its decoding is, so a wrong mip count or pixel format in ours
+    /// fails.
     Texture,
     /// Tier 2: the kit config, the same bytes outside the name fields of the four number
     /// textures (`kit_back`, `kit_chest`, `kit_leg`, `kit_name`), which the reference keeps
@@ -96,8 +98,9 @@ enum Nested {
     /// Tier 2: `face.xml`, compared per `FACE_XML`.
     FaceXml,
     /// Tier 2: relocated to the common subfolder; the same dimensions, codec and pixel
-    /// payload (the compiler writes a WESYS-wrapped source unwrapped and its header in one
-    /// canonical form: mip count 1 with its flags).
+    /// payload, and the same mips once both are decoded (the compiler writes a WESYS-wrapped
+    /// source unwrapped and its header in one canonical form: mip count 1 with its flags):
+    /// the header itself is not compared, its decoding is.
     Texture,
     /// Tier 2: relocated, and encoded from an uncompressed source to the codec named (raster
     /// sources are block-compressed on PES 15-17, `pipeline.md` "Texture conversion"): the same
@@ -360,8 +363,13 @@ fn compare_face_cpk(
                             ));
                         }
                     }
-                    Nested::Texture if (codec, &payload) != (ref_codec, &ref_payload) => {
-                        failures.push(format!("tier2 {name}: codec or pixels differ"));
+                    Nested::Texture => {
+                        if (codec, &payload) != (ref_codec, &ref_payload) {
+                            failures.push(format!("tier2 {name}: codec or pixels differ"));
+                        }
+                        if decoded_mips(our_bytes) != decoded_mips(reference) {
+                            failures.push(format!("tier2 {name}: decoded mips differ"));
+                        }
                     }
                     _ => {}
                 }
@@ -598,6 +606,9 @@ fn assert_matches_reference(
                 }
                 if (codec, payload) != (ref_codec, ref_payload) {
                     failures.push(format!("tier2 {path}: codec or pixels differ"));
+                }
+                if decoded_mips(our_bytes) != decoded_mips(reference_bytes) {
+                    failures.push(format!("tier2 {path}: decoded mips differ"));
                 }
             }
             Row::KitConfig => compare_kit_config(&mut failures, our_bytes, reference_bytes),
