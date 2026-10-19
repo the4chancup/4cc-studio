@@ -2140,3 +2140,6 @@ worklog passed 7,000 lines.
 - **2026-10-18** — 8.0 (side-lead C): Phase 8's plan fixes: the shell sketches match the spec,
   drafts first in every build order, watcher and cache in `pipeline`, acceptance sections for the
   shell (`ST`) and the three views, exact egui pins, the spec caught up with the code.
+- **2026-10-19** — 6.6 (side-lead A, `side/6.6`): referee exports upgrade: `refs.txt` or
+  `Refs list.txt` to `players.txt`, the old `face/`/`boots/`/`gloves/`/`common/` folded,
+  references following the files; the `???` respelling takes the export's identity (999).

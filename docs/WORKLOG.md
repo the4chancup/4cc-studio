@@ -14,8 +14,11 @@ is in `AGENTS.md` ("Working documents").
 (`music_export`, its plan section, `pub` audit and whole-crate mutation run done; converging
 with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
 editor's coverage table and draft).
-**Next:** Phase 6 (Export upgrader): 6.6 (referee exports, plan steps 9 and 12), in progress on a
-side branch (`.tmp/lead/tracks.md`). 2.5b (GPU BC7) is step 16.x
+**Next:** Phase 6 (Export upgrader): 6.7 (loose mode, step 11, and the report's remaining
+classes, step 10), once 6.6's Astra round (checkpoint b) is ruled; 8.0's acceptance sections
+are in their review loop (Astra 8.0.A1 ruled, SWE-2 on its fixes). Parallel tracks:
+`.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half being measured
+ahead of its phase
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
 first-class target the Fox version the cup moves to around April 2027 ("Target versions").
@@ -620,9 +623,37 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   `export_upgrader/src/{settings,players,roster,upgrade,messages,lib}.rs`,
   `tests/cli/{settings,roots,players,main}.rs`, `pes_savefile/src/settings_toml/`,
   `aesthetics_export/src/{conventions/mod,validate/folders,lib}.rs`
-- [ ] 6.6 referee exports (steps 9 and 12) → verify: EU-REF-*
-  - the `???` respelling (`materials.rs`, `kit_magic.rs`) takes a `TeamId`, which cannot be
-    999: widen it to the export's ID for referees (round 6.4.S3-4)
+- [x] 6.6 referee exports (steps 9 and 12) → verify: EU-REF-*. Done 2026-10-19 (side-lead A on
+  `side/6.6`): every EU-REF scenario and EU-PLY-04's referee half proven, in three slices:
+  - [x] 6.6a `refs.txt` to the canonical `players.txt` (a line that does not parse kept for the
+    output validation), `ref_marker.dds` carried, the referee folders through the shared tail,
+    `refs_txt_missing` for a `refs` export without a roster; the `???` respelling takes the
+    export's identity (`Identity::path_id`, 999 for referees) instead of a `TeamId` (round
+    6.4.S3-4); mutation diff 52 caught, 2 unviable; files: `export_upgrader/src/{referees,
+    upgrade,kit_magic,materials,face_xml,messages,players,lib}.rs`, `help/01_command_line.md`,
+    `tests/cli/{referees,main,players}.rs`
+  - [x] 6.6b the flatten: `face/`, `boots/`, `gloves/`, `common/` folded into the referee
+    folder's root, an identical twin kept once, a byte clash, a cross-location stem clash or a
+    nested layout name leaving the folder as it was (`PlayerFolders::untouched`, outside step
+    7's renames and rewrites), a `common/` model no `face.xml` names left out, `ingame_face`
+    normalized (DECISIONS 2026-10-18 "steps 9 and 12's gaps…"); mutation diff 43 caught, 4
+    unviable; files: `export_upgrader/src/{referees,face_xml,players,upgrade}.rs`,
+    `help/01_command_line.md`, `tests/cli/{referees,players}.rs`
+  - [x] 6.6c references follow the files: a referee's Common reference his flattened folder
+    holds becomes `./<sub>` (a subfolder file's keeps step 7's subfolder rule), a bare texture
+    only the export's `Common/` holds gets the link, a `face.xml` Common value naming a flattened
+    file is written `./<rest>` while its `./` values stay (DECISIONS 2026-10-18 "a referee
+    `face.xml`'s `./` reference…"); mutation diff 52 caught; files:
+    `export_upgrader/src/{materials,face_xml}.rs`, `tests/cli/{referees,carried}.rs`
+  - [x] 6.6d the refs-compiler layout: a root `Refs list.txt` read when there is no `refs.txt`,
+    and without a `Players/` every root folder step 1 does not know a referee's (four of the
+    eleven real referee exports, Winter to Summer 25; DECISIONS 2026-10-19 "the refs-compiler
+    layout…"); also round S1-OE2 (a team's `face.xml` builds no folder listing); files:
+    `export_upgrader/src/{referees,source,face_xml,upgrade}.rs`, `help/01_command_line.md`,
+    `tests/cli/referees.rs`
+  - review: SWE-2 round 6.6.S1 on a573ffa..3183447 2 accepted, 4 rejected (loop ended;
+    `.tmp/6_6/rulings.md` in the side-lead's worktree), its two fixes 6.6d; an Astra round
+    (checkpoint (b): a new module and the shared tail of `run`) is the top lead's
 - [ ] 6.7 loose mode (step 11) and the report's remaining classes (step 10) → verify:
   EU-LOOSE-01, EU-REP-*
 - [ ] 6.8 model-folder mode (`upgrade-models`) → verify: EU-MF-*, EU-CLI-* (the rest, and
