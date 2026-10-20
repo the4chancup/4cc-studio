@@ -334,6 +334,12 @@ The panel over the spec's `diff` report:
 - Filter toggles: All / Gameplay / Aesthetics; a team filter; export the diff as
   text.
 - Clicking a diff row jumps to that player in the editor.
+- A row is drawn in the tabs' terms: the field under its tab's label, its value as that tab
+  shows it (a free-kick motion 15, where the save stores 14), a field no tab shows keeping the
+  report's name and value. Export writes the CLI's report unchanged, stored values included.
+  Not the report's values on screen, because a member reads a row against the tab it jumps to,
+  and a motion one lower than the tab's reads as a wrong row; not tab values in the report,
+  because the report is what the compare scripts it replaces print.
 
 ---
 

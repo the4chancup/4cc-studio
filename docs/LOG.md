@@ -2233,3 +2233,5 @@ worklog passed 7,000 lines.
 - **2026-10-20** — Phase 6 closes: the closing whole-crate mutation runs (export_upgrader 981 caught, 6 missed; team_compiler 2532
   caught, 3 missed) triaged, a test or a pin each but Phase 8's placeholder views; the spec's dev plan gains its Phase 6 section;
   the worklog's Phase 6 block collapsed. Gates green: 3987 tests, acceptance 564 of 652 proven, the rest Phase 8's GUI.
+- **2026-10-20** — 8.5c: the Save editor draft's Tactics tab (the pitch canvas on 4ccEditor's stored grid, drag lists, role
+  and join-attack assignment, copy/swap menus) and slice 1's card badges; the comparator panel's rows in the tabs' terms (DECISIONS).

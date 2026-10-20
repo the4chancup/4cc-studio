@@ -5,14 +5,13 @@
 <title>4cc Studio: Save editor (draft)</title>
 <!--
   A draft of the Save editor's GUI (docs/plans/save_editor.md "Editing UI"),
-  slice 1 of the build order (open/save, the player list, the info strip and
-  quick actions, the Abilities & Skills and Appearance tabs), drawn only with
-  what egui can draw (docs/plans/core/gui.md "Prototypes before
+  slices 1-3 of the build order (open/save, the player list, the info strip and
+  quick actions, the Abilities & Skills, Appearance, Team and Tactics tabs),
+  drawn only with what egui can draw (docs/plans/core/gui.md "Prototypes before
   implementation"). Its behaviour is faked with sample data transcribed from
-  real saves; nothing is written, nothing reads the real libs. The Team and
-  Tactics tabs are placeholders: later slices draw them. The sidebar is static
-  (the shell is shell.html's draft); its PES selector's value is one of the
-  draft controls' GIVENs.
+  real saves; nothing is written, nothing reads the real libs. The sidebar is
+  static (the shell is shell.html's draft); its PES selector's value is one of
+  the draft controls' GIVENs.
   Widget mapping: <select> = ComboBox, <input type=text> = TextEdit,
   <input type=number> = DragValue, <input type=checkbox> = CheckBox,
   <input type=range> = Slider, .sel = SelectableLabel, .menu = menu_button,
@@ -22,6 +21,13 @@
   on_hover_text (on_disabled_hover_text on the span around a disabled
   control), row drag = Sense::drag, .sidebar = Panel::left, .bottom =
   Panel::bottom, .center = CentralPanel.
+  The Tactics tab's pitch: the <canvas> is the egui Painter (the frame and
+  every marker are drawn there; marker hit tests are ui.interact on each
+  marker's rect, drag Sense::drag); .tpopover = egui::popup (area below the
+  marker); the .lrow lists = the starting-eleven and bench lists (Sense::drag
+  rows, a drop on a pitch marker swaps); a role chip (.rolechip) = a button
+  that arms an assignment mode; .badge = a small framed label
+  (remaining-count badges of the card pickers, red over the limit).
 -->
 <style>
   :root {
@@ -146,6 +152,30 @@
   .palette .swatch:hover { outline: 1px solid var(--hover); }
   .palette.off { pointer-events: none; }
   .vbanner { border: 1px solid var(--warn); border-radius: 2px; padding: 3px 8px; margin: 4px 0; }
+  /* tactics tab */
+  .tacbar { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
+  .taccols { display: flex; gap: 14px; align-items: flex-start; }
+  .pitch { background: #173517; border: 1px solid var(--stroke); display: block;
+    touch-action: none; }
+  .lcol { display: flex; flex-direction: column; gap: 6px; min-width: 210px; }
+  .llist { background: var(--extreme); border: 1px solid var(--stroke);
+    max-height: 300px; overflow: auto; }
+  .lrow { display: flex; gap: 5px; align-items: center; padding: 1px 4px;
+    white-space: nowrap; }
+  .lrow:hover { background: var(--hover); }
+  .lrow .fpos { width: 30px; flex: none; color: #b4b4b4; }
+  .lrow.empty { color: #4e4e4e; }
+  .tpopover { position: absolute; background: var(--panel);
+    border: 1px solid var(--stroke); border-radius: 6px; padding: 6px 8px;
+    z-index: 30; box-shadow: 0 4px 16px #000a; }
+  .rolechip { border-radius: 2px; padding: 1px 6px; cursor: default; }
+  .rolechip:hover { background: var(--hover); color: #f0f0f0; }
+  .rolechip.armed { background: var(--sel-bg); color: var(--sel-fg); }
+  .badge { display: inline-block; background: var(--widget); border-radius: 2px;
+    padding: 0 4px; margin-right: 2px; }
+  .badge.over { color: var(--error); }
+  .assignnote { border: 1px solid var(--sel-fg); border-radius: 2px;
+    padding: 3px 8px; margin: 4px 0; }
 </style>
 </head>
 <body>
@@ -233,7 +263,10 @@ function structural() { render(); }
 // .tmp/8_5/pes17_all, pes21_all; extract.py regenerates this block).
 const SAVES = {
   "pes17": { "version": 17, "teams": [
-      {"id":702,"name":"/a/","short_name":"A","captain":22,"manager_id":null,"stadium_id":null,"color_1":[0,0,10],"color_2":[63,0,38],"kit_slots":[{"number":0,"binding":44928},{"number":1,"binding":44928},{"number":128,"binding":44928},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152}],"edit_flags":{"name":false,"strip":false}, "players": [
+      {"id":702,"name":"/a/","short_name":"A","captain":22,"manager_id":null,"stadium_id":null,"color_1":[0,0,10],"color_2":[63,0,38],"kit_slots":[{"number":0,"binding":44928},{"number":1,"binding":44928},{"number":128,"binding":44928},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152}],"edit_flags":{"name":false,"strip":false}, "tactics": {"starting_eleven":[1,4,5,12,9,15,16,20,19,21,22],"bench_order":[0,2,3,6,7,8,11,10,13,14,18,17,23,24,25,26,27,28,29,30,31],"players_to_join_attack":[20,22,21],"set_pieces":{"free_kick_long":21,"free_kick_short":22,"free_kick_second":21,"corner_left":12,"corner_right":9,"penalty":22},"auto":{"substitution":0,"offside_trap":false,"preset_change":false,"attack_defence_levels":false}, "presets": [
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"centre","buildup":"short_pass","positioning":"maintain","defensive_style":"frontline_pressure","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":4,"defensive_line":6,"compactness":8,"numbers_in_attack":3,"numbers_in_defence":3},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":63,"y":8},{"position":"CB","x":41,"y":8},{"position":"RB","x":89,"y":12},{"position":"LB","x":15,"y":12},{"position":"DMF","x":52,"y":17},{"position":"CMF","x":32,"y":25},{"position":"CMF","x":72,"y":27},{"position":"AMF","x":52,"y":33},{"position":"SS","x":64,"y":42},{"position":"CF","x":40,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":7},{"position":"CB","x":40,"y":7},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"DMF","x":66,"y":16},{"position":"CMF","x":39,"y":20},{"position":"CMF","x":66,"y":27},{"position":"AMF","x":41,"y":33},{"position":"SS","x":64,"y":40},{"position":"CF","x":43,"y":46}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":7},{"position":"CB","x":40,"y":7},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"DMF","x":66,"y":16},{"position":"CMF","x":39,"y":20},{"position":"CMF","x":66,"y":27},{"position":"AMF","x":41,"y":33},{"position":"SS","x":64,"y":40},{"position":"CF","x":43,"y":46}]}],"instructions":{"attack":[{"instruction":"centering_targets","player":255},{"instruction":"off","player":255}],"defence":[{"instruction":"off","player":255},{"instruction":"off","player":255}]}},
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"wide","buildup":"long_pass","positioning":"maintain","defensive_style":"all_out_defence","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":3,"defensive_line":4,"compactness":7,"numbers_in_attack":3,"numbers_in_defence":3},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":63,"y":8},{"position":"CB","x":41,"y":8},{"position":"RB","x":86,"y":10},{"position":"LB","x":18,"y":10},{"position":"DMF","x":63,"y":19},{"position":"CMF","x":40,"y":19},{"position":"SS","x":52,"y":40},{"position":"AMF","x":51,"y":29},{"position":"CF","x":65,"y":47},{"position":"SS","x":39,"y":47}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":63,"y":8},{"position":"CB","x":41,"y":8},{"position":"RB","x":89,"y":12},{"position":"LB","x":15,"y":12},{"position":"DMF","x":52,"y":17},{"position":"CMF","x":65,"y":23},{"position":"SS","x":70,"y":40},{"position":"AMF","x":42,"y":27},{"position":"SS","x":34,"y":40},{"position":"CF","x":52,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":63,"y":8},{"position":"CB","x":41,"y":8},{"position":"RB","x":89,"y":12},{"position":"LB","x":15,"y":12},{"position":"DMF","x":52,"y":17},{"position":"CMF","x":65,"y":23},{"position":"SS","x":70,"y":40},{"position":"AMF","x":42,"y":27},{"position":"SS","x":34,"y":40},{"position":"CF","x":52,"y":45}]}],"instructions":{"attack":[{"instruction":"off","player":255},{"instruction":"off","player":255}],"defence":[{"instruction":"off","player":255},{"instruction":"off","player":255}]}},
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"possession","attacking_zone":"centre","buildup":"short_pass","positioning":"maintain","defensive_style":"frontline_pressure","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":4,"defensive_line":5,"compactness":8,"numbers_in_attack":3,"numbers_in_defence":3},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":63,"y":8},{"position":"CB","x":41,"y":8},{"position":"RB","x":89,"y":12},{"position":"LB","x":15,"y":12},{"position":"DMF","x":63,"y":16},{"position":"CMF","x":40,"y":16},{"position":"SS","x":70,"y":39},{"position":"AMF","x":52,"y":31},{"position":"SS","x":35,"y":39},{"position":"CF","x":52,"y":44}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":7},{"position":"CB","x":40,"y":7},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"DMF","x":66,"y":16},{"position":"CMF","x":39,"y":20},{"position":"CMF","x":66,"y":27},{"position":"AMF","x":41,"y":33},{"position":"SS","x":64,"y":40},{"position":"CF","x":43,"y":46}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":7},{"position":"CB","x":40,"y":7},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"DMF","x":66,"y":16},{"position":"CMF","x":39,"y":20},{"position":"CMF","x":66,"y":27},{"position":"AMF","x":41,"y":33},{"position":"SS","x":64,"y":40},{"position":"CF","x":43,"y":46}]}],"instructions":{"attack":[{"instruction":"off","player":255},{"instruction":"off","player":255}],"defence":[{"instruction":"off","player":255},{"instruction":"off","player":255}]}}]}, "players": [
         {"slot":1,"id":70201,"name":"W I D E F A C E","shirt_name":"MIYAKO","number":77,"nationality":231,"age":21,"height":189,"weight":80,"boots_id":126,"gloves_id":1,"base_copy_id":70201,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0},"positions":{"registered":"GK","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"A"},"playing_style":"offensive_goalkeeper","stronger_foot":"right"},"skills":["low_punt_trajectory"],"com_styles":["long_ball_expert"],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"base_copy":false,"face":false,"hair":false,"physique":false,"strip":false},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":-5,"waist":-2,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":4,"goal_celebration_1":9,"goal_celebration_2":9}}},
         {"slot":2,"id":70202,"name":"QUALITY","shirt_name":"QUALITY ANIME","number":1,"nationality":231,"age":21,"height":189,"weight":80,"boots_id":127,"gloves_id":1,"base_copy_id":70202,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0},"positions":{"registered":"GK","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"A"},"playing_style":"offensive_goalkeeper","stronger_foot":"right"},"skills":["low_punt_trajectory"],"com_styles":["long_ball_expert"],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"base_copy":false,"face":false,"hair":false,"physique":false,"strip":false},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":0,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":3,"hunching_running":3,"arm_movement_dribbling":2,"arm_movement_running":2,"corner_kick":1,"free_kick":1,"penalty_kick":2,"goal_celebration_1":8,"goal_celebration_2":0}}},
         {"slot":3,"id":70203,"name":"SMUG ANIME FACE","shirt_name":"SMUG","number":6,"nationality":231,"age":21,"height":185,"weight":80,"boots_id":128,"gloves_id":128,"base_copy_id":70203,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0},"positions":{"registered":"CB","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"A","LB":"C","RB":"C","GK":"C"},"playing_style":"anchor_man","stronger_foot":"right"},"skills":["heading","one_touch_pass","malicia","man_marking"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"base_copy":false,"face":false,"hair":false,"physique":false,"strip":false},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":-2,"waist":-2,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":4,"hunching_running":1,"arm_movement_dribbling":2,"arm_movement_running":2,"corner_kick":1,"free_kick":1,"penalty_kick":3,"goal_celebration_1":113,"goal_celebration_2":113}}},
@@ -258,7 +291,10 @@ const SAVES = {
         {"slot":22,"id":70222,"name":"YOTSUBA","shirt_name":"YOTSUBA","number":9,"nationality":231,"age":21,"height":185,"weight":80,"boots_id":147,"gloves_id":147,"base_copy_id":70222,"stats":{"attacking_prowess":99,"ball_control":99,"dribbling":99,"low_pass":99,"lofted_pass":99,"finishing":99,"heading":99,"place_kicking":99,"swerve":99,"defensive_prowess":99,"ball_winning":99,"kicking_power":99,"speed":99,"explosive_power":99,"body_control":99,"physical_contact":99,"jump":99,"stamina":99,"goalkeeping":99,"catching":99,"clearing":99,"reflexes":99,"coverage":99,"weak_foot_usage":1,"weak_foot_accuracy":3,"form":7,"injury_resistance":2},"positions":{"registered":"SS","playable":{"CF":"A","SS":"A","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"C"},"playing_style":"goal_poacher","stronger_foot":"right"},"skills":["marseille_turn","sombrero","cut_behind_and_turn","long_range_drive","first_time_shot","outside_curler","track_back"],"com_styles":["mazing_run","speeding_bullet"],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"base_copy":false,"face":false,"hair":false,"physique":false,"strip":false},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":-2,"shoulder_width":-2,"chest":-6,"waist":-7,"arm_size":-2,"arm_length":0,"thigh":-1,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":2,"hunching_running":2,"arm_movement_dribbling":5,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"goal_celebration_1":60,"goal_celebration_2":36}}},
         {"slot":23,"id":70223,"name":"COWBOY BEBOP","shirt_name":"SPIKE","number":11,"nationality":231,"age":21,"height":185,"weight":80,"boots_id":148,"gloves_id":148,"base_copy_id":70223,"stats":{"attacking_prowess":99,"ball_control":99,"dribbling":99,"low_pass":99,"lofted_pass":99,"finishing":99,"heading":99,"place_kicking":99,"swerve":99,"defensive_prowess":99,"ball_winning":99,"kicking_power":99,"speed":99,"explosive_power":99,"body_control":99,"physical_contact":99,"jump":99,"stamina":99,"goalkeeping":99,"catching":99,"clearing":99,"reflexes":99,"coverage":99,"weak_foot_usage":1,"weak_foot_accuracy":3,"form":7,"injury_resistance":2},"positions":{"registered":"CF","playable":{"CF":"A","SS":"A","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"C"},"playing_style":"none","stronger_foot":"left"},"skills":["marseille_turn","sombrero","cut_behind_and_turn","heading","long_range_drive","first_time_shot","track_back","captaincy"],"com_styles":["mazing_run","speeding_bullet"],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"base_copy":false,"face":false,"hair":false,"physique":false,"strip":false},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":4,"chest":2,"waist":-1,"arm_size":3,"arm_length":0,"thigh":4,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":2,"arm_movement_running":2,"corner_kick":2,"free_kick":2,"penalty_kick":1,"goal_celebration_1":86,"goal_celebration_2":56}}}
       ]},
-      {"id":718,"name":"/f/","short_name":"F","captain":10,"manager_id":null,"stadium_id":null,"color_1":[38,25,0],"color_2":[31,8,51],"kit_slots":[{"number":0,"binding":45952},{"number":1,"binding":45952},{"number":128,"binding":45952},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152}],"edit_flags":{"name":false,"strip":false}, "players": [
+      {"id":718,"name":"/f/","short_name":"F","captain":10,"manager_id":null,"stadium_id":null,"color_1":[38,25,0],"color_2":[31,8,51],"kit_slots":[{"number":0,"binding":45952},{"number":1,"binding":45952},{"number":128,"binding":45952},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152},{"number":0,"binding":16777152}],"edit_flags":{"name":false,"strip":false}, "tactics": {"starting_eleven":[11,1,2,9,21,14,16,7,3,8,10],"bench_order":[0,19,13,22,5,6,12,15,18,17,4,20,23,24,25,26,27,28,29,30,31],"players_to_join_attack":[255,255,255],"set_pieces":{"free_kick_long":14,"free_kick_short":8,"free_kick_second":9,"corner_left":3,"corner_right":16,"penalty":10},"auto":{"substitution":0,"offside_trap":false,"preset_change":false,"attack_defence_levels":false}, "presets": [
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"wide","buildup":"short_pass","positioning":"maintain","defensive_style":"frontline_pressure","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":4,"defensive_line":6,"compactness":7,"numbers_in_attack":3,"numbers_in_defence":3},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":66,"y":8},{"position":"CB","x":43,"y":8},{"position":"SS","x":66,"y":40},{"position":"DMF","x":53,"y":16},{"position":"DMF","x":36,"y":23},{"position":"RB","x":88,"y":11},{"position":"AMF","x":52,"y":30},{"position":"LB","x":16,"y":11},{"position":"CMF","x":70,"y":24},{"position":"CF","x":40,"y":42}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":77,"y":10},{"position":"CB","x":55,"y":10},{"position":"RMF","x":84,"y":31},{"position":"CB","x":32,"y":10},{"position":"DMF","x":69,"y":21},{"position":"LMF","x":15,"y":31},{"position":"CF","x":37,"y":42},{"position":"DMF","x":41,"y":21},{"position":"SS","x":51,"y":35},{"position":"CF","x":83,"y":47}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":77,"y":10},{"position":"CB","x":55,"y":10},{"position":"RMF","x":84,"y":31},{"position":"CB","x":32,"y":10},{"position":"DMF","x":69,"y":21},{"position":"LMF","x":15,"y":31},{"position":"CF","x":37,"y":42},{"position":"DMF","x":41,"y":21},{"position":"SS","x":51,"y":35},{"position":"CF","x":83,"y":47}]}],"instructions":{"attack":[{"instruction":"attacking_full_backs","player":0},{"instruction":"off","player":255}],"defence":[{"instruction":"off","player":255},{"instruction":"off","player":255}]}},
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"centre","buildup":"short_pass","positioning":"flexible","defensive_style":"frontline_pressure","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":3,"defensive_line":6,"compactness":7,"numbers_in_attack":3,"numbers_in_defence":3},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":77,"y":9},{"position":"CB","x":53,"y":9},{"position":"SS","x":36,"y":40},{"position":"CB","x":29,"y":9},{"position":"DMF","x":53,"y":19},{"position":"RMF","x":88,"y":21},{"position":"AMF","x":42,"y":30},{"position":"LMF","x":20,"y":21},{"position":"CMF","x":68,"y":28},{"position":"CF","x":68,"y":42}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":77,"y":10},{"position":"CB","x":55,"y":10},{"position":"RMF","x":84,"y":31},{"position":"CB","x":32,"y":10},{"position":"DMF","x":69,"y":21},{"position":"LMF","x":15,"y":31},{"position":"CF","x":37,"y":42},{"position":"DMF","x":41,"y":21},{"position":"SS","x":51,"y":35},{"position":"CF","x":83,"y":47}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":77,"y":10},{"position":"CB","x":55,"y":10},{"position":"RMF","x":84,"y":31},{"position":"CB","x":32,"y":10},{"position":"DMF","x":69,"y":21},{"position":"LMF","x":15,"y":31},{"position":"CF","x":37,"y":42},{"position":"DMF","x":41,"y":21},{"position":"SS","x":51,"y":35},{"position":"CF","x":83,"y":47}]}],"instructions":{"attack":[{"instruction":"off","player":255},{"instruction":"off","player":255}],"defence":[{"instruction":"off","player":255},{"instruction":"off","player":255}]}},
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"wide","buildup":"short_pass","positioning":"maintain","defensive_style":"frontline_pressure","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":4,"defensive_line":3,"compactness":6,"numbers_in_attack":3,"numbers_in_defence":3},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":77,"y":10},{"position":"CB","x":53,"y":10},{"position":"SS","x":76,"y":43},{"position":"CB","x":29,"y":10},{"position":"DMF","x":54,"y":18},{"position":"RMF","x":88,"y":20},{"position":"AMF","x":51,"y":28},{"position":"LMF","x":20,"y":21},{"position":"SS","x":52,"y":36},{"position":"CF","x":29,"y":43}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":77,"y":10},{"position":"CB","x":55,"y":10},{"position":"RMF","x":84,"y":31},{"position":"CB","x":32,"y":10},{"position":"DMF","x":69,"y":21},{"position":"LMF","x":15,"y":31},{"position":"CF","x":37,"y":42},{"position":"DMF","x":41,"y":21},{"position":"SS","x":51,"y":35},{"position":"CF","x":83,"y":47}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":77,"y":10},{"position":"CB","x":55,"y":10},{"position":"RMF","x":84,"y":31},{"position":"CB","x":32,"y":10},{"position":"DMF","x":69,"y":21},{"position":"LMF","x":15,"y":31},{"position":"CF","x":37,"y":42},{"position":"DMF","x":41,"y":21},{"position":"SS","x":51,"y":35},{"position":"CF","x":83,"y":47}]}],"instructions":{"attack":[{"instruction":"off","player":255},{"instruction":"off","player":255}],"defence":[{"instruction":"off","player":255},{"instruction":"off","player":255}]}}]}, "players": [
         {"slot":1,"id":71801,"name":"\u0011cffd28cffROAD\u0011cf389adffTRIP","shirt_name":"EXACT CHANGE","number":50,"nationality":231,"age":20,"height":189,"weight":80,"boots_id":55,"gloves_id":11,"base_copy_id":71801,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0},"positions":{"registered":"GK","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"A"},"playing_style":"offensive_goalkeeper","stronger_foot":"right"},"skills":["low_punt_trajectory","fighting_spirit"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":false,"motion":false,"base_copy":false,"face":false,"hair":false,"physique":false,"strip":false},"appearance":{"skin_color":7,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":0,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"short","inners":"off","socks":"short","undershorts":"off","untucked":true,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"goal_celebration_1":1,"goal_celebration_2":1}}},
         {"slot":2,"id":71802,"name":"\u0011cbadbb2ffGARDEVOIR\u0011cd56671ff PAIZURI","shirt_name":"OLD FOLK TUNE","number":81,"nationality":231,"age":20,"height":185,"weight":80,"boots_id":55,"gloves_id":11,"base_copy_id":71802,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0},"positions":{"registered":"CB","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"A","LB":"C","RB":"C","GK":"C"},"playing_style":"none","stronger_foot":"right"},"skills":["cut_behind_and_turn","one_touch_pass","man_marking","fighting_spirit"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"base_copy":false,"face":false,"hair":false,"physique":false,"strip":false},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":-7,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"goal_celebration_1":1,"goal_celebration_2":1}}},
         {"slot":3,"id":71803,"name":"\u0011cc9002bffPEP\u0011cffffffffSI \u0011c004b93ffMAN","shirt_name":"PSSSHAAAAAAAAAW","number":3,"nationality":231,"age":20,"height":185,"weight":80,"boots_id":55,"gloves_id":11,"base_copy_id":71803,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0},"positions":{"registered":"CB","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"A","LB":"C","RB":"C","GK":"C"},"playing_style":"none","stronger_foot":"right"},"skills":["cut_behind_and_turn","one_touch_pass","man_marking","fighting_spirit"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"base_copy":false,"face":false,"hair":false,"physique":false,"strip":false},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":-7,"chest":0,"waist":-7,"arm_size":0,"arm_length":-7,"thigh":0,"calf":-7,"leg_length":7,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"goal_celebration_1":1,"goal_celebration_2":1}}},
@@ -285,7 +321,10 @@ const SAVES = {
       ]}
   ] },
   "pes21": { "version": 21, "teams": [
-      {"id":701,"name":"/3/","short_name":"3","captain":10,"manager_id":701,"stadium_id":29,"color_1":[63,41,16],"color_2":[0,0,0],"kit_slots":null,"edit_flags":{"name":false,"stadium":false}, "players": [
+      {"id":701,"name":"/3/","short_name":"3","captain":10,"manager_id":701,"stadium_id":29,"color_1":[63,41,16],"color_2":[0,0,0],"kit_slots":null,"edit_flags":{"name":false,"stadium":false}, "tactics": {"starting_eleven":[0,1,2,3,4,6,8,5,9,7,10],"bench_order":[11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31],"players_to_join_attack":[255,255,255],"set_pieces":{"free_kick_long":9,"free_kick_short":10,"free_kick_second":0,"corner_left":6,"corner_right":5,"penalty":9},"auto":{"substitution":0,"offside_trap":false,"preset_change":false,"attack_defence_levels":false}, "presets": [
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"wide","buildup":"short_pass","positioning":"maintain","defensive_style":"frontline_pressure","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":4,"defensive_line":4,"compactness":6,"numbers_in_attack":2,"numbers_in_defence":2},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":51,"y":8},{"position":"CB","x":29,"y":8},{"position":"CB","x":74,"y":8},{"position":"DMF","x":53,"y":17},{"position":"CMF","x":77,"y":24},{"position":"CMF","x":27,"y":24},{"position":"SS","x":69,"y":44},{"position":"SS","x":50,"y":36},{"position":"AMF","x":52,"y":27},{"position":"CF","x":37,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":51,"y":8},{"position":"CB","x":29,"y":8},{"position":"CB","x":74,"y":8},{"position":"DMF","x":53,"y":17},{"position":"CMF","x":77,"y":24},{"position":"CMF","x":27,"y":24},{"position":"SS","x":69,"y":44},{"position":"SS","x":50,"y":36},{"position":"AMF","x":52,"y":27},{"position":"CF","x":37,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":51,"y":8},{"position":"CB","x":29,"y":8},{"position":"CB","x":74,"y":8},{"position":"DMF","x":53,"y":17},{"position":"CMF","x":77,"y":24},{"position":"CMF","x":27,"y":24},{"position":"SS","x":69,"y":44},{"position":"SS","x":50,"y":36},{"position":"AMF","x":52,"y":27},{"position":"CF","x":37,"y":45}]}],"instructions":{"attack":[{"instruction":"off","player":0},{"instruction":"off","player":0}],"defence":[{"instruction":"swarm_the_box","player":0},{"instruction":"off","player":0}]}},
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"wide","buildup":"short_pass","positioning":"maintain","defensive_style":"frontline_pressure","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":4,"defensive_line":4,"compactness":6,"numbers_in_attack":2,"numbers_in_defence":2},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":51,"y":8},{"position":"CB","x":29,"y":8},{"position":"CB","x":74,"y":8},{"position":"DMF","x":53,"y":17},{"position":"CMF","x":77,"y":24},{"position":"CMF","x":27,"y":24},{"position":"SS","x":69,"y":44},{"position":"SS","x":50,"y":36},{"position":"AMF","x":52,"y":27},{"position":"CF","x":37,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":51,"y":8},{"position":"CB","x":29,"y":8},{"position":"CB","x":74,"y":8},{"position":"DMF","x":53,"y":17},{"position":"CMF","x":77,"y":24},{"position":"CMF","x":27,"y":24},{"position":"SS","x":69,"y":44},{"position":"SS","x":50,"y":36},{"position":"AMF","x":52,"y":27},{"position":"CF","x":37,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":51,"y":8},{"position":"CB","x":29,"y":8},{"position":"CB","x":74,"y":8},{"position":"DMF","x":53,"y":17},{"position":"CMF","x":77,"y":24},{"position":"CMF","x":27,"y":24},{"position":"SS","x":69,"y":44},{"position":"SS","x":50,"y":36},{"position":"AMF","x":52,"y":27},{"position":"CF","x":37,"y":45}]}],"instructions":{"attack":[{"instruction":"off","player":0},{"instruction":"off","player":0}],"defence":[{"instruction":"swarm_the_box","player":0},{"instruction":"off","player":0}]}},
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"wide","buildup":"short_pass","positioning":"maintain","defensive_style":"frontline_pressure","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":4,"defensive_line":4,"compactness":6,"numbers_in_attack":2,"numbers_in_defence":2},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":51,"y":8},{"position":"CB","x":29,"y":8},{"position":"CB","x":74,"y":8},{"position":"DMF","x":53,"y":17},{"position":"CMF","x":77,"y":24},{"position":"CMF","x":27,"y":24},{"position":"SS","x":69,"y":44},{"position":"SS","x":50,"y":36},{"position":"AMF","x":52,"y":27},{"position":"CF","x":37,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":51,"y":8},{"position":"CB","x":29,"y":8},{"position":"CB","x":74,"y":8},{"position":"DMF","x":53,"y":17},{"position":"CMF","x":77,"y":24},{"position":"CMF","x":27,"y":24},{"position":"SS","x":69,"y":44},{"position":"SS","x":50,"y":36},{"position":"AMF","x":52,"y":27},{"position":"CF","x":37,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":51,"y":8},{"position":"CB","x":29,"y":8},{"position":"CB","x":74,"y":8},{"position":"DMF","x":53,"y":17},{"position":"CMF","x":77,"y":24},{"position":"CMF","x":27,"y":24},{"position":"SS","x":69,"y":44},{"position":"SS","x":50,"y":36},{"position":"AMF","x":52,"y":27},{"position":"CF","x":37,"y":45}]}],"instructions":{"attack":[{"instruction":"off","player":0},{"instruction":"off","player":0}],"defence":[{"instruction":"swarm_the_box","player":0},{"instruction":"off","player":0}]}}]}, "players": [
         {"slot":1,"id":70101,"name":"QUADS ONLY","shirt_name":"PLACEHOLDER","number":1,"nationality":231,"age":21,"height":189,"weight":70,"boots_id":101,"gloves_id":101,"base_copy_id":0,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"tight_possession":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"aggression":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0,"star":7,"playing_attitude":0},"positions":{"registered":"GK","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"A"},"playing_style":"offensive_goalkeeper","stronger_foot":"right","stronger_hand":"right"},"skills":["gk_long_throw","gk_penalty_specialist"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":false,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":false,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":0,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":true,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":1,"goal_celebration_2":0}}},
         {"slot":2,"id":70102,"name":"UNCANNY VALLEY","shirt_name":"PLACEHOLDER","number":2,"nationality":231,"age":21,"height":185,"weight":70,"boots_id":102,"gloves_id":102,"base_copy_id":0,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"tight_possession":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"aggression":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0,"star":7,"playing_attitude":0},"positions":{"registered":"CB","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"A","LB":"C","RB":"C","GK":"C"},"playing_style":"none","stronger_foot":"right","stronger_hand":"right"},"skills":["weighted_pass","man_marking","acrobatic_clear","no_look_pass","interception"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":false,"registered_position":false,"playable_positions":false,"abilities":true,"skills":true,"playing_style":false,"com_styles":false,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":0,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":true,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":1,"goal_celebration_2":0}}},
         {"slot":3,"id":70103,"name":"3DSMAX HAS STOPPED WORKING","shirt_name":"PLACEHOLDER","number":3,"nationality":231,"age":21,"height":185,"weight":70,"boots_id":103,"gloves_id":103,"base_copy_id":0,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"tight_possession":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"aggression":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0,"star":7,"playing_attitude":0},"positions":{"registered":"CB","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"A","LB":"C","RB":"C","GK":"C"},"playing_style":"none","stronger_foot":"right","stronger_hand":"right"},"skills":["weighted_pass","man_marking","acrobatic_clear","no_look_pass","interception"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":false,"registered_position":false,"playable_positions":false,"abilities":true,"skills":true,"playing_style":false,"com_styles":false,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":0,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":true,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":1,"goal_celebration_2":0}}},
@@ -310,7 +349,10 @@ const SAVES = {
         {"slot":22,"id":70122,"name":"MAKE X IN 5 MINUTES","shirt_name":"PLACEHOLDER","number":22,"nationality":231,"age":21,"height":175,"weight":65,"boots_id":122,"gloves_id":122,"base_copy_id":0,"stats":{"attacking_prowess":82,"ball_control":82,"dribbling":82,"tight_possession":82,"low_pass":82,"lofted_pass":82,"finishing":82,"heading":82,"place_kicking":82,"swerve":82,"defensive_prowess":82,"ball_winning":82,"aggression":82,"kicking_power":82,"speed":82,"explosive_power":82,"body_control":82,"physical_contact":82,"jump":82,"stamina":82,"goalkeeping":82,"catching":82,"clearing":82,"reflexes":82,"coverage":82,"weak_foot_usage":3,"weak_foot_accuracy":3,"form":3,"injury_resistance":0,"star":7,"playing_attitude":0},"positions":{"registered":"SS","playable":{"CF":"C","SS":"A","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"C"},"playing_style":"fox_in_the_box","stronger_foot":"left","stronger_hand":"right"},"skills":["long_range_drive","first_time_shot","track_back","no_look_pass","interception"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":false,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":0,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":true,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":1,"goal_celebration_2":0}}},
         {"slot":23,"id":70123,"name":"RATBOY GENIUS","shirt_name":"PLACEHOLDER","number":23,"nationality":231,"age":21,"height":175,"weight":65,"boots_id":123,"gloves_id":123,"base_copy_id":0,"stats":{"attacking_prowess":82,"ball_control":82,"dribbling":82,"tight_possession":82,"low_pass":82,"lofted_pass":82,"finishing":82,"heading":82,"place_kicking":82,"swerve":82,"defensive_prowess":82,"ball_winning":82,"aggression":82,"kicking_power":82,"speed":82,"explosive_power":82,"body_control":82,"physical_contact":82,"jump":82,"stamina":82,"goalkeeping":82,"catching":82,"clearing":82,"reflexes":82,"coverage":82,"weak_foot_usage":3,"weak_foot_accuracy":3,"form":3,"injury_resistance":0,"star":7,"playing_attitude":0},"positions":{"registered":"SS","playable":{"CF":"C","SS":"A","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"C"},"playing_style":"fox_in_the_box","stronger_foot":"left","stronger_hand":"right"},"skills":["long_range_drive","first_time_shot","track_back","no_look_pass","interception"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":false,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":0,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":true,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":1,"goal_celebration_2":0}}}
       ]},
-      {"id":718,"name":"/f/","short_name":"F","captain":10,"manager_id":718,"stadium_id":29,"color_1":[0,38,26],"color_2":[31,10,51],"kit_slots":null,"edit_flags":{"name":false,"stadium":false}, "players": [
+      {"id":718,"name":"/f/","short_name":"F","captain":10,"manager_id":718,"stadium_id":29,"color_1":[0,38,26],"color_2":[31,10,51],"kit_slots":null,"edit_flags":{"name":false,"stadium":false}, "tactics": {"starting_eleven":[0,9,16,22,21,1,2,8,7,12,10],"bench_order":[11,6,13,14,19,17,15,4,18,3,20,5,32,33,34,35,36,37,38,39,23],"players_to_join_attack":[7,8,255],"set_pieces":{"free_kick_long":9,"free_kick_short":10,"free_kick_second":9,"corner_left":7,"corner_right":8,"penalty":9},"auto":{"substitution":0,"offside_trap":false,"preset_change":false,"attack_defence_levels":false}, "presets": [
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"centre","buildup":"long_pass","positioning":"maintain","defensive_style":"frontline_pressure","containment_area":"middle","pressure":"aggressive","fluid":true},"sliders":{"support_range":5,"defensive_line":8,"compactness":8,"numbers_in_attack":2,"numbers_in_defence":2},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"SS","x":69,"y":35},{"position":"CMF","x":53,"y":26},{"position":"DMF","x":66,"y":17},{"position":"CB","x":32,"y":6},{"position":"CB","x":72,"y":6},{"position":"CB","x":52,"y":7},{"position":"RMF","x":84,"y":27},{"position":"LMF","x":20,"y":26},{"position":"DMF","x":42,"y":17},{"position":"CF","x":42,"y":41}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"SS","x":65,"y":38},{"position":"CMF","x":54,"y":26},{"position":"DMF","x":76,"y":25},{"position":"CB","x":32,"y":6},{"position":"CB","x":72,"y":6},{"position":"CB","x":52,"y":7},{"position":"RWF","x":87,"y":35},{"position":"LWF","x":18,"y":35},{"position":"DMF","x":32,"y":25},{"position":"CF","x":44,"y":40}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CMF","x":63,"y":26},{"position":"CMF","x":43,"y":26},{"position":"DMF","x":65,"y":16},{"position":"CB","x":32,"y":6},{"position":"CB","x":72,"y":6},{"position":"CB","x":52,"y":7},{"position":"RMF","x":84,"y":27},{"position":"LMF","x":20,"y":26},{"position":"DMF","x":42,"y":16},{"position":"CF","x":43,"y":40}]}],"instructions":{"attack":[{"instruction":"centering_targets","player":0},{"instruction":"off","player":0}],"defence":[{"instruction":"counter_target","player":10},{"instruction":"off","player":255}]}},
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"possession","attacking_zone":"centre","buildup":"short_pass","positioning":"maintain","defensive_style":"all_out_defence","containment_area":"middle","pressure":"conservative","fluid":true},"sliders":{"support_range":1,"defensive_line":3,"compactness":8,"numbers_in_attack":2,"numbers_in_defence":2},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"SS","x":69,"y":35},{"position":"CMF","x":53,"y":26},{"position":"DMF","x":66,"y":17},{"position":"CB","x":32,"y":6},{"position":"CB","x":72,"y":6},{"position":"CB","x":52,"y":7},{"position":"RMF","x":84,"y":27},{"position":"LMF","x":20,"y":26},{"position":"DMF","x":42,"y":17},{"position":"CF","x":42,"y":41}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"SS","x":65,"y":38},{"position":"CMF","x":53,"y":26},{"position":"DMF","x":65,"y":18},{"position":"CB","x":32,"y":6},{"position":"CB","x":72,"y":6},{"position":"CB","x":52,"y":7},{"position":"RMF","x":84,"y":25},{"position":"LMF","x":20,"y":25},{"position":"DMF","x":44,"y":18},{"position":"CF","x":44,"y":40}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CMF","x":66,"y":26},{"position":"CMF","x":42,"y":26},{"position":"DMF","x":65,"y":16},{"position":"CB","x":32,"y":6},{"position":"CB","x":72,"y":6},{"position":"CB","x":52,"y":7},{"position":"RMF","x":84,"y":21},{"position":"LMF","x":20,"y":20},{"position":"DMF","x":42,"y":16},{"position":"CF","x":52,"y":40}]}],"instructions":{"attack":[{"instruction":"off","player":0},{"instruction":"off","player":255}],"defence":[{"instruction":"wing_back","player":0},{"instruction":"gegenpress","player":0}]}},
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"possession","attacking_zone":"wide","buildup":"short_pass","positioning":"maintain","defensive_style":"frontline_pressure","containment_area":"middle","pressure":"aggressive","fluid":true},"sliders":{"support_range":5,"defensive_line":8,"compactness":8,"numbers_in_attack":2,"numbers_in_defence":2},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"SS","x":69,"y":35},{"position":"CMF","x":53,"y":26},{"position":"DMF","x":66,"y":17},{"position":"CB","x":32,"y":6},{"position":"CB","x":72,"y":6},{"position":"CB","x":52,"y":7},{"position":"RMF","x":84,"y":27},{"position":"LMF","x":20,"y":26},{"position":"DMF","x":42,"y":17},{"position":"CF","x":42,"y":41}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"SS","x":65,"y":38},{"position":"CMF","x":54,"y":26},{"position":"DMF","x":76,"y":25},{"position":"CB","x":32,"y":6},{"position":"CB","x":72,"y":6},{"position":"CB","x":52,"y":7},{"position":"RWF","x":87,"y":35},{"position":"LWF","x":18,"y":35},{"position":"DMF","x":32,"y":25},{"position":"CF","x":44,"y":40}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CMF","x":63,"y":26},{"position":"CMF","x":43,"y":26},{"position":"DMF","x":65,"y":16},{"position":"CB","x":32,"y":6},{"position":"CB","x":72,"y":6},{"position":"CB","x":52,"y":7},{"position":"RMF","x":84,"y":27},{"position":"LMF","x":20,"y":26},{"position":"DMF","x":42,"y":16},{"position":"CF","x":43,"y":40}]}],"instructions":{"attack":[{"instruction":"false_no_9","player":0},{"instruction":"tiki_taka","player":0}],"defence":[{"instruction":"off","player":0},{"instruction":"off","player":255}]}}]}, "players": [
         {"slot":1,"id":71801,"name":"\u0011cffb50effLORD \u0011cfff17affFULP","shirt_name":"SAVIOR OF FLASH","number":1,"nationality":13,"age":20,"height":189,"weight":80,"boots_id":0,"gloves_id":0,"base_copy_id":0,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"tight_possession":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"aggression":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0,"star":0,"playing_attitude":0},"positions":{"registered":"GK","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"A"},"playing_style":"offensive_goalkeeper","stronger_foot":"right","stronger_hand":"right"},"skills":["low_punt_trajectory","gk_penalty_specialist"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":0,"arm_size":0,"arm_length":7,"thigh":0,"calf":0,"leg_length":7,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"short","inners":"off","socks":"standard","undershorts":"off","untucked":true,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":4,"goal_celebration_2":4}}},
         {"slot":2,"id":71802,"name":"\u0011cbadbb2ffGARD\u0011cffffffffEV\u0011cd56671ffO\u0011cffffffffIR PAIZURI","shirt_name":"OLD FOLK TUNE","number":2,"nationality":13,"age":20,"height":185,"weight":80,"boots_id":529,"gloves_id":529,"base_copy_id":0,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"tight_possession":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"aggression":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0,"star":0,"playing_attitude":0},"positions":{"registered":"CB","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"A","LB":"C","RB":"C","GK":"C"},"playing_style":"the_destroyer","stronger_foot":"left","stronger_hand":"right"},"skills":["rabona","low_lofted_pass","man_marking","track_back","no_look_pass","interception"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":false,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":-7,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":4,"goal_celebration_2":4}}},
         {"slot":3,"id":71803,"name":"\u0011cc9002bffPEP\u0011cffffffffSI \u0011c004b93ffMAN","shirt_name":"PSSSHAAAAAAAAAW","number":3,"nationality":13,"age":20,"height":185,"weight":80,"boots_id":528,"gloves_id":529,"base_copy_id":0,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"tight_possession":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"aggression":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0,"star":0,"playing_attitude":0},"positions":{"registered":"CB","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"A","LB":"C","RB":"C","GK":"C"},"playing_style":"the_destroyer","stronger_foot":"right","stronger_hand":"right"},"skills":["rabona","low_lofted_pass","man_marking","track_back","no_look_pass","interception"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":false,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":-7,"chest":0,"waist":-7,"arm_size":0,"arm_length":-7,"thigh":0,"calf":-7,"leg_length":7,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"off","socks":"short","undershorts":"off","untucked":false,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":4,"goal_celebration_2":4}}},
@@ -335,7 +377,10 @@ const SAVES = {
         {"slot":22,"id":71822,"name":"\u0011cdfc4a8ffHEAP OF TROUBLE","shirt_name":"NAKED MEN","number":22,"nationality":13,"age":20,"height":180,"weight":80,"boots_id":535,"gloves_id":0,"base_copy_id":0,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"tight_possession":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"aggression":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0,"star":0,"playing_attitude":0},"positions":{"registered":"CB","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"A","LB":"C","RB":"C","GK":"C"},"playing_style":"the_destroyer","stronger_foot":"left","stronger_hand":"right"},"skills":["rabona","low_lofted_pass","man_marking","track_back","no_look_pass","interception"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":0,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"short","inners":"off","socks":"standard","undershorts":"off","untucked":true,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":4,"goal_celebration_2":4}}},
         {"slot":23,"id":71823,"name":"\u0011c8edb00ff>RENAMING","shirt_name":"STOP IT","number":23,"nationality":13,"age":20,"height":191,"weight":80,"boots_id":0,"gloves_id":527,"base_copy_id":0,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"tight_possession":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"aggression":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0,"star":0,"playing_attitude":0},"positions":{"registered":"DMF","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"A","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"C"},"playing_style":"anchor_man","stronger_foot":"left","stronger_hand":"right"},"skills":["marseille_turn","weighted_pass","track_back","no_look_pass","interception"],"com_styles":["speeding_bullet"],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":0,"neck_size":0,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":0,"arm_size":0,"arm_length":0,"thigh":0,"calf":0,"leg_length":0,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"short","inners":"off","socks":"standard","undershorts":"off","untucked":true,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":4,"goal_celebration_2":4}}}
       ]},
-      {"id":722,"name":"/gd/","short_name":"GD","captain":7,"manager_id":722,"stadium_id":13,"color_1":[13,13,13],"color_2":[63,63,63],"kit_slots":null,"edit_flags":{"name":false,"stadium":true}, "players": [
+      {"id":722,"name":"/gd/","short_name":"GD","captain":7,"manager_id":722,"stadium_id":13,"color_1":[13,13,13],"color_2":[63,63,63],"kit_slots":null,"edit_flags":{"name":false,"stadium":true}, "tactics": {"starting_eleven":[22,17,5,16,18,21,3,6,2,4,7],"bench_order":[8,14,20,19,0,15,1,11,9,12,10,13,28,29,30,31,32,33,34,35,36],"players_to_join_attack":[255,255,255],"set_pieces":{"free_kick_long":2,"free_kick_short":2,"free_kick_second":7,"corner_left":2,"corner_right":2,"penalty":7},"auto":{"substitution":0,"offside_trap":false,"preset_change":false,"attack_defence_levels":false}, "presets": [
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"wide","buildup":"short_pass","positioning":"maintain","defensive_style":"all_out_defence","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":4,"defensive_line":3,"compactness":5,"numbers_in_attack":2,"numbers_in_defence":2},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":11},{"position":"CB","x":40,"y":11},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"CMF","x":69,"y":24},{"position":"SS","x":70,"y":42},{"position":"DMF","x":41,"y":21},{"position":"AMF","x":53,"y":33},{"position":"SS","x":35,"y":42},{"position":"CF","x":53,"y":46}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":11},{"position":"CB","x":40,"y":11},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"CMF","x":69,"y":24},{"position":"SS","x":70,"y":42},{"position":"DMF","x":41,"y":21},{"position":"AMF","x":53,"y":33},{"position":"SS","x":35,"y":42},{"position":"CF","x":53,"y":46}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":11},{"position":"CB","x":40,"y":11},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"CMF","x":69,"y":24},{"position":"SS","x":70,"y":42},{"position":"DMF","x":41,"y":21},{"position":"AMF","x":53,"y":33},{"position":"SS","x":35,"y":42},{"position":"CF","x":53,"y":46}]}],"instructions":{"attack":[{"instruction":"off","player":255},{"instruction":"attacking_full_backs","player":0}],"defence":[{"instruction":"off","player":255},{"instruction":"off","player":255}]}},
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"wide","buildup":"short_pass","positioning":"maintain","defensive_style":"all_out_defence","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":4,"defensive_line":3,"compactness":5,"numbers_in_attack":2,"numbers_in_defence":2},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":11},{"position":"CB","x":40,"y":11},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"CMF","x":32,"y":25},{"position":"CMF","x":73,"y":25},{"position":"DMF","x":52,"y":19},{"position":"AMF","x":52,"y":32},{"position":"SS","x":40,"y":43},{"position":"CF","x":65,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":11},{"position":"CB","x":40,"y":11},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"CMF","x":32,"y":25},{"position":"CMF","x":73,"y":25},{"position":"DMF","x":52,"y":19},{"position":"AMF","x":52,"y":32},{"position":"SS","x":40,"y":43},{"position":"CF","x":65,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":11},{"position":"CB","x":40,"y":11},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"CMF","x":32,"y":25},{"position":"CMF","x":73,"y":25},{"position":"DMF","x":52,"y":19},{"position":"AMF","x":52,"y":32},{"position":"SS","x":40,"y":43},{"position":"CF","x":65,"y":45}]}],"instructions":{"attack":[{"instruction":"off","player":255},{"instruction":"attacking_full_backs","player":0}],"defence":[{"instruction":"counter_target","player":12},{"instruction":"off","player":255}]}},
+          {"man_marking":[255,255,255,255,255,255,255,255,255,255,255],"style":{"attacking_style":"counter_attack","attacking_zone":"wide","buildup":"short_pass","positioning":"maintain","defensive_style":"all_out_defence","containment_area":"middle","pressure":"aggressive","fluid":false},"sliders":{"support_range":4,"defensive_line":3,"compactness":5,"numbers_in_attack":2,"numbers_in_defence":2},"formations":[{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":11},{"position":"CB","x":40,"y":11},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"CMF","x":28,"y":25},{"position":"CMF","x":77,"y":25},{"position":"DMF","x":52,"y":19},{"position":"AMF","x":65,"y":34},{"position":"AMF","x":42,"y":34},{"position":"CF","x":53,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":11},{"position":"CB","x":40,"y":11},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"CMF","x":28,"y":25},{"position":"CMF","x":77,"y":25},{"position":"DMF","x":52,"y":19},{"position":"AMF","x":65,"y":34},{"position":"AMF","x":42,"y":34},{"position":"CF","x":53,"y":45}]},{"players":[{"position":"GK","x":52,"y":3},{"position":"CB","x":64,"y":11},{"position":"CB","x":40,"y":11},{"position":"RB","x":88,"y":13},{"position":"LB","x":16,"y":13},{"position":"CMF","x":28,"y":25},{"position":"CMF","x":77,"y":25},{"position":"DMF","x":52,"y":19},{"position":"AMF","x":65,"y":34},{"position":"AMF","x":42,"y":34},{"position":"CF","x":53,"y":45}]}],"instructions":{"attack":[{"instruction":"off","player":255},{"instruction":"attacking_full_backs","player":0}],"defence":[{"instruction":"counter_target","player":12},{"instruction":"off","player":255}]}}]}, "players": [
         {"slot":1,"id":72201,"name":"REDESIGN IT","shirt_name":"CONGRATS","number":15,"nationality":236,"age":20,"height":185,"weight":80,"boots_id":629,"gloves_id":0,"base_copy_id":0,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"tight_possession":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"aggression":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0,"star":0,"playing_attitude":0},"positions":{"registered":"CB","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"A","LB":"C","RB":"C","GK":"C"},"playing_style":"none","stronger_foot":"right","stronger_hand":"right"},"skills":["one_touch_pass","weighted_pass","rabona","man_marking","no_look_pass","interception"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":false,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":7,"neck_size":-7,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":-7,"arm_size":0,"arm_length":7,"thigh":0,"calf":0,"leg_length":7,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"turtleneck","socks":"long","undershorts":"short","untucked":true,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":128,"goal_celebration_2":128}}},
         {"slot":2,"id":72202,"name":"RATE MY LOGO","shirt_name":"YOU TRIED","number":14,"nationality":238,"age":20,"height":185,"weight":80,"boots_id":629,"gloves_id":0,"base_copy_id":0,"stats":{"attacking_prowess":77,"ball_control":77,"dribbling":77,"tight_possession":77,"low_pass":77,"lofted_pass":77,"finishing":77,"heading":77,"place_kicking":77,"swerve":77,"defensive_prowess":77,"ball_winning":77,"aggression":77,"kicking_power":77,"speed":77,"explosive_power":77,"body_control":77,"physical_contact":77,"jump":77,"stamina":77,"goalkeeping":77,"catching":77,"clearing":77,"reflexes":77,"coverage":77,"weak_foot_usage":1,"weak_foot_accuracy":1,"form":3,"injury_resistance":0,"star":0,"playing_attitude":0},"positions":{"registered":"CB","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"C","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"A","LB":"C","RB":"C","GK":"C"},"playing_style":"none","stronger_foot":"right","stronger_hand":"right"},"skills":["one_touch_pass","weighted_pass","rabona","man_marking","no_look_pass","interception"],"com_styles":[],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":false,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":7,"neck_size":-7,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":-7,"arm_size":0,"arm_length":7,"thigh":0,"calf":0,"leg_length":7,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"turtleneck","socks":"long","undershorts":"short","untucked":true,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":128,"goal_celebration_2":128}}},
         {"slot":3,"id":72203,"name":"\u0011ce0c068ffHELVETICA","shirt_name":"BAYOL","number":10,"nationality":238,"age":20,"height":185,"weight":80,"boots_id":629,"gloves_id":0,"base_copy_id":0,"stats":{"attacking_prowess":99,"ball_control":99,"dribbling":99,"tight_possession":99,"low_pass":99,"lofted_pass":99,"finishing":99,"heading":99,"place_kicking":99,"swerve":99,"defensive_prowess":99,"ball_winning":99,"aggression":99,"kicking_power":99,"speed":99,"explosive_power":99,"body_control":99,"physical_contact":99,"jump":99,"stamina":99,"goalkeeping":99,"catching":99,"clearing":99,"reflexes":99,"coverage":99,"weak_foot_usage":3,"weak_foot_accuracy":3,"form":7,"injury_resistance":2,"star":0,"playing_attitude":0},"positions":{"registered":"AMF","playable":{"CF":"C","SS":"C","LWF":"C","RWF":"C","AMF":"A","DMF":"C","CMF":"C","LMF":"C","RMF":"C","CB":"C","LB":"C","RB":"C","GK":"C"},"playing_style":"box_to_box","stronger_foot":"right","stronger_hand":"right"},"skills":["marseille_turn","one_touch_pass","weighted_pass","outside_curler","rabona","no_look_pass","interception","long_range_shooting","through_passing"],"com_styles":["speeding_bullet","long_ranger"],"edit_flags":{"player":true,"basic_settings":true,"registered_position":true,"playable_positions":true,"abilities":true,"skills":true,"playing_style":true,"com_styles":true,"motion":true,"face":false,"hair":false,"physique":true,"strip":true},"appearance":{"skin_color":1,"iris_color":1,"physique":{"neck_length":7,"neck_size":-7,"shoulder_height":0,"shoulder_width":0,"chest":0,"waist":-7,"arm_size":0,"arm_length":7,"thigh":0,"calf":0,"leg_length":7,"head_length":0,"head_width":0,"head_depth":0},"strip":{"sleeves":"long","inners":"turtleneck","socks":"long","undershorts":"short","untucked":true,"ankle_taping":false,"wrist_taping":"off","wrist_tape_color_left":0,"wrist_tape_color_right":0,"spectacles":0,"spectacles_color":0,"gloves":false,"gloves_color":0},"motion":{"hunching_dribbling":1,"hunching_running":1,"arm_movement_dribbling":1,"arm_movement_running":1,"corner_kick":1,"free_kick":1,"penalty_kick":1,"dribbling":0,"goal_celebration_1":20,"goal_celebration_2":48}}},
@@ -415,6 +460,64 @@ const SLEEVES = ["seasonal", "short", "long"], INNERS = ["off", "normal", "turtl
   UNDERSHORTS = ["off", "short", "winter_long", "short_winter_long"],
   WRIST_TAPING = ["off", "right", "left", "both"], FOOT = ["right", "left"];
 
+// ---- Tactics closed sets (pes_savefile model/tactics.rs, model/instruction.rs) ----
+// The canonical instruction list (PES 17's stored order for the first
+// thirteen; the PES 18 additions, then Anchoring at the end). The version's
+// own list is the stored table of schema::instruction: 17 -> the first 13,
+// 18/19 -> the STORED_18 order, 20/21 -> the STORED_20 order.
+const INSTRUCTIONS = ["off", "hug_the_touchline", "false_no_9", "false_full_backs",
+  "attacking_full_backs", "wing_rotation", "tiki_taka", "centering_targets",
+  "swarm_the_box", "deep_defensive_line", "gegenpress", "tight_marking",
+  "counter_target", "defensive", "false_winger", "wing_back", "anchoring"];
+const STORED_18 = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 8, 9, 10, 11, 12, 15]
+  .map(i => INSTRUCTIONS[i]);
+const STORED_20 = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 16, 8, 9, 10, 11, 12, 15]
+  .map(i => INSTRUCTIONS[i]);
+const instructionsFor = v => v < 17 ? [] : v === 17 ? INSTRUCTIONS.slice(0, 13)
+  : v >= 20 ? STORED_20 : STORED_18;
+// Instructions whose target-player field applies (the original's rule: the
+// player combo enables for Counter Target on 17, Counter Target or Defensive
+// on 18+).
+const takesTarget = ins => ins === "counter_target" || ins === "defensive";
+// sample wording: the instruction display labels.
+const INSTRUCTION_LABEL = { off: "Unassigned", hug_the_touchline: "Hug the Touchline",
+  false_no_9: "False No. 9", false_full_backs: "False Full-Backs",
+  attacking_full_backs: "Attacking Full-Backs", wing_rotation: "Wing Rotation",
+  tiki_taka: "Tiki-Taka", centering_targets: "Centering Targets",
+  swarm_the_box: "Swarm the Box", deep_defensive_line: "Deep Defensive Line",
+  gegenpress: "Gegenpress", tight_marking: "Tight Marking",
+  counter_target: "Counter Target", defensive: "Defensive",
+  false_winger: "False Winger", wing_back: "Wing-Back", anchoring: "Anchoring" };
+// The seven style switches + fluid (16+): [key, label, off-text, on-text].
+const STYLE_TOGGLES = [
+  ["attacking_style", "Attacking style", "counter_attack", "possession"],
+  ["attacking_zone", "Attacking zone", "centre", "wide"],
+  ["buildup", "Buildup", "long_pass", "short_pass"],
+  ["positioning", "Positioning", "maintain", "flexible"],
+  ["defensive_style", "Defensive style", "frontline_pressure", "all_out_defence"],
+  ["containment_area", "Containment area", "middle", "wide"],
+  ["pressure", "Pressure", "aggressive", "conservative"]];
+const SLIDERS = [["support_range", "Support range", 10],
+  ["defensive_line", "Defensive line", 10], ["compactness", "Compactness", 10],
+  ["numbers_in_attack", "Numbers in attack", 3],
+  ["numbers_in_defence", "Numbers in defence", 3]];
+const FORMATIONS = ["Kick-off", "In-possession", "Out-of-possession"];
+// The six set-piece takers + captain (its own key on the team, as in the
+// model): [key, label]. Takers point at starting-eleven members.
+const SET_PIECES = [["free_kick_long", "Long free kick"],
+  ["free_kick_short", "Short free kick"], ["free_kick_second", "Second free kick"],
+  ["corner_left", "Left corner"], ["corner_right", "Right corner"],
+  ["penalty", "Penalty kick"], ["captain", "Captain"]];
+// The pitch's stored grid: x 0-104, y 0-48 (the record's whole units - the
+// snap, since a finer drop cannot be stored), drawn 3px x 7px per unit inside
+// a 4px/2px margin so the attack end (high y) sits at the top.
+const PITCH = { w: 320, h: 340, xu: 104, yu: 48, ox: 4, oy: 2, px: 3, py: 7 };
+const pitchX = x => PITCH.ox + x * PITCH.px;
+const pitchY = y => PITCH.oy + (PITCH.yu - y) * PITCH.py;
+const snapXY = (px, py) => [
+  Math.min(PITCH.xu, Math.max(0, Math.round((px - PITCH.ox) / PITCH.px))),
+  Math.min(PITCH.yu, Math.max(0, PITCH.yu - Math.round((py - PITCH.oy) / PITCH.py)))];
+
 // ---- The active AATF ruleset's tiers (crates/libs/aatf/rulesets/*.rhai) ----
 // The quick actions are one "Make X" button per tier in the file's order plus
 // Set stats (SE-GUI-09). values is the draft's fake of apply_tier: the rating
@@ -423,41 +526,124 @@ const SLEEVES = ["seasonal", "short", "long"], INNERS = ["off", "normal", "turtl
 // colour code.
 const RULESETS = {
   official: { label: "Official (Autumn 26, built in)", tiers: [
-    { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 } },
-    { id: "silver", label: "Silver", rate: 92, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 } },
-    { id: "bronze", label: "Bronze", rate: 86, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 } },
-    { id: "goalkeeper", label: "Goalkeeper", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 2, accuracy: 2 } },
-    { id: "regular", label: "Regular", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 2, accuracy: 2 } },
-  ] },
+    { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
+      cards: 6, a_positions: 1, free: { tricks: 3, com: 2 } },
+    { id: "silver", label: "Silver", rate: 92, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
+      cards: 5, a_positions: 1, free: { tricks: 3, com: 1 } },
+    { id: "bronze", label: "Bronze", rate: 86, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
+      cards: 4, a_positions: 1, free: { tricks: 3, com: 1 } },
+    { id: "goalkeeper", label: "Goalkeeper", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 2, accuracy: 2 },
+      cards: 2, a_positions: 1, free: {} },
+    { id: "regular", label: "Regular", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 2, accuracy: 2 },
+      cards: 3, a_positions: 1, free: { tricks: 2 } },
+  ],
+    card_groups: { tricks: ["scissors_feint", "flip_flap", "marseille_turn",
+      "sombrero", "cut_behind_and_turn", "scotch_move", "rabona", "double_touch",
+      "crossover_turn", "step_on_skill", "no_look_pass"] },
+    free_specials: [ { card: "malicia" }, { card: "captaincy", captain: true } ] },
   vtl11: { label: "VTL11", tiers: [
     { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
       stats: { place_kicking: 94, defensive_prowess: 65, ball_winning: 94, speed: 94, physical_contact: 94, stamina: 94 },
-      name_color: "cc9900ff" },
+      name_color: "cc9900ff",
+      cards: 7, a_positions: 2, free: { com: 3 } },
     { id: "silver", label: "Silver", rate: 89, form: 8, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
       stats: { attacking_prowess: 94, heading: 94, defensive_prowess: 57, tight_possession: 94, aggression: 94 },
-      name_color: "51bbc4ff" },
+      name_color: "51bbc4ff",
+      cards: 7, a_positions: 3, free: { com: 2 } },
     { id: "regular", label: "Regular", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
       stats: { attacking_prowess: 87, ball_control: 87, dribbling: 87, low_pass: 87, lofted_pass: 92,
         finishing: 92, place_kicking: 70, swerve: 87, defensive_prowess: 73, ball_winning: 70,
         kicking_power: 87, physical_contact: 70, jump: 70, catching: 70, reflexes: 73,
-        coverage: 73, stamina: 62, tight_possession: 87, aggression: 92 } },
+        coverage: 73, stamina: 62, tight_possession: 87, aggression: 92 },
+      cards: 7, a_positions: 2, free: { com: 1 } },
     { id: "buffed", label: "Buffed", rate: 77, form: 4, injury_resistance: 1, weak_foot: { usage: 4, accuracy: 4 },
       stats: { attacking_prowess: 92, ball_control: 87, dribbling: 92, low_pass: 87, lofted_pass: 87,
         finishing: 92, place_kicking: 70, swerve: 87, defensive_prowess: 47, ball_winning: 70,
         kicking_power: 92, speed: 87, explosive_power: 87, body_control: 87, physical_contact: 82,
-        catching: 70, reflexes: 73, coverage: 73, stamina: 62, tight_possession: 87, aggression: 87 } },
-  ] },
+        catching: 70, reflexes: 73, coverage: 73, stamina: 62, tight_possession: 87, aggression: 87 },
+      cards: 7, a_positions: 1, free: { com: 1 } },
+  ],
+    b_uses_a: true,
+    free_specials: [
+      { card: "no_look_pass" }, { card: "double_touch" }, { card: "rabona" },
+      { card: "acrobatic_finishing" }, { card: "first_time_shot" },
+      { card: "dipping_shots" }, { card: "rising_shots" }, { card: "heading" },
+      { card: "malicia" }, { card: "flip_flap" }, { card: "marseille_turn" },
+      { card: "scotch_move" }, { card: "crossover_turn" },
+      { card: "one_touch_pass", tiers: ["regular", "buffed"] },
+      { card: "weighted_pass", tiers: ["regular", "buffed"] },
+      { card: "pinpoint_crossing", tiers: ["regular", "buffed"] },
+      { card: "captaincy", captain: true }, { card: "long_ranger" } ] },
   dbc7: { label: "DBC7", tiers: [
-    { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 } },
-    { id: "silver", label: "Silver", rate: 88, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 } },
-    { id: "regular", label: "Regular", rate: 77, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 } },
-  ] },
+    { id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
+      cards: 17, a_positions: 13, free: {} },
+    { id: "silver", label: "Silver", rate: 88, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
+      cards: 17, a_positions: 13, free: {} },
+    { id: "regular", label: "Regular", rate: 77, form: 8, injury_resistance: 3, weak_foot: { usage: 4, accuracy: 4 },
+      cards: 17, a_positions: 13, free: {} },
+  ],
+    card_groups: {}, free_specials: [] },
 };
 // The rating stats apply_tier moves to the tier's rate (RULESET.stats.rating).
 const RATING_STATS = ["dribbling", "goalkeeping", "finishing", "low_pass", "lofted_pass",
   "heading", "swerve", "catching", "clearing", "reflexes", "coverage", "body_control",
   "physical_contact", "kicking_power", "explosive_power", "ball_control",
   "ball_winning", "jump", "place_kicking", "stamina", "speed", "aggression"];
+
+// ---- The card pickers' remaining-count badges (team_widgets "cards") ----
+// The draft's fake of aatf::card_limits (spec/aatf_rules.md "The card
+// economy"). Read for each number: the tier's `cards` for the limit, its
+// `a_positions` for the A allowance, its `free` groups and the `card_groups`
+// they name for covered cards, and the ruleset's free-card specials whose
+// `when` is absent or mentions only tiers (tested as the queried tier),
+// captain or positions (VTL11's pass skills). Not faked: `choice` effects,
+// `cards`/`a_positions`/`free` effects and `when`s on brackets, systems or
+// heights (the manlet bonus, the medals' choice), so a badge can read low,
+// never high; nor the B-counts-as-A flag for rulesets that lack it.
+function cardLimits(p, t, tier) {
+  const rs = RULESETS[D.ruleset];
+  const freeCards = new Set();
+  for (const s of rs.free_specials || []) {
+    if (s.tiers && !s.tiers.includes(tier.id)) continue;
+    if (s.captain && t.captain !== p.slot - 1) continue;
+    if (s.positions && !s.positions.includes(p.positions.registered)) continue;
+    freeCards.add(s.card);
+  }
+  const left = {};
+  for (const [g, n] of Object.entries(tier.free || {})) left[g] = n;
+  const groupsOf = card =>
+    Object.entries(rs.card_groups || {})
+      .filter(([, members]) => members.includes(card)).map(([g]) => g)
+      .concat(COM_STYLES.includes(card) ? ["com"] : []);
+  let paid = 0;
+  for (const card of p.skills.concat(p.com_styles)) {
+    if (freeCards.has(card)) continue;
+    const cover = groupsOf(card).find(g => left[g] > 0);
+    if (cover) left[cover] -= 1;
+    else paid += 1;
+  }
+  let a = 0, b = 0;
+  for (const r of Object.values(p.positions.playable)) {
+    if (r === "A") a += 1; else if (r === "B") b += 1;
+  }
+  const counted = a + (rs.b_uses_a ? b : 0);
+  const limit = tier.cards - Math.max(0, counted - (tier.a_positions || 0));
+  return { paid, limit, left: limit - paid };
+}
+// One badge per tier of the active ruleset: the cards the player can still
+// afford under it, the error colour when overdrawn. sample wording: the
+// tooltip.
+function cardBadges(p, t) {
+  return h("span", { class: "row", id: "card-badges",
+      title: "Cards left under each tier of the active ruleset (paid cards vs its limit)" },
+    weak("Cards left"),
+    RULESETS[D.ruleset].tiers.map(tier => {
+      const c = cardLimits(p, t, tier);
+      return h("span", { class: "badge" + (c.left < 0 ? " over" : ""),
+        title: tier.label + ": " + c.paid + " paid of " + c.limit },
+        tier.label + " " + c.left);
+    }));
+}
 
 // ---- Savefile discovery (spec/pes_savefile/codec.md "Savefile discovery") ----
 // The real folders under this machine's Documents\KONAMI, one EDIT per version;
@@ -483,7 +669,10 @@ const D = { sample: "pes17", selectorVersion: "2017", gameRunning: false,
   appearanceIds: "all_set", ruleset: "official" };
 const S = { save: null, baseline: null, teamSel: "all", filter: "", sel: null,
   tab: "abilities", editAnyway: false, undo: [], redo: [], recents: [],
-  status: null };
+  status: null,
+  // Tactics tab view state: the drawn preset and formation, the open slot
+  // popover (a formation index), the armed assignment mode and a live drag.
+  tac: { preset: 0, formation: 0 }, slotPop: null, assign: null, pitchDrag: null };
 const clone = x => JSON.parse(JSON.stringify(x));
 function curSave() { return S.save; }
 function curTeam() {
@@ -547,6 +736,7 @@ function openSave(key, path) {
   // The PES 17 sample opens on /f/ (its colour-coded team), PES 21 on ALL.
   S.teamSel = key === "pes17" ? "718" : "all"; S.filter = ""; S.sel = null;
   S.undo = []; S.redo = []; S.editAnyway = false;
+  S.assign = null; S.slotPop = null; S.pitchDrag = null;
   S.status = null;
   pushRecent(S.path);
   const restored = restoredIds();
@@ -752,6 +942,9 @@ const WALK = [
   ["SE-GUI-07", "the Appearance tab is disabled under the ownership line; the switch unlocks it; the switch is off on every open"],
   ["SE-GUI-08", "drag a list row onto another: the order changes and marks the save unsaved"],
   ["SE-GUI-09", "the quick actions follow the ruleset control: Gold/Silver/Bronze/Goalkeeper/Regular under official, VTL11 and DBC7 their own"],
+  ["SE-GUI-12", "the Tactics tab: drag a pitch marker (it snaps to the stored grid, undoable), drop a bench row on a marker to swap, arm a set-piece chip and click a marker, arm Join attack and click two markers"],
+  ["SE-GUI-25", "the tab's menus: Copy preset 1 to 2, then Swap Kick-off and In-possession; each is one undoable edit"],
+  ["card badges", "the Abilities tab shows cards left per tier next to the pickers; under DBC7 ticking cards takes it to 0 then red"],
   ["SE-GUI-20", "Appearance ids = 'stripped, three restored', then reopen the PES 21 save: the set ones are listed with Strip again"],
   ["SE-GUI-21", "the save's game running + Save: refused naming the exe (drawn; the scenario itself is manual)"],
   ["SE-GUI-26", "the Open menu: the discovered saves with version (and account folder from 19), the session's recents, then the picker; Save as keeps the replaced file as .bak"],
@@ -1263,10 +1456,9 @@ function renderDetail() {
     S.tab === "abilities" ? abilitiesTab(p)
     : S.tab === "appearance" ? appearanceTab(p)
     : S.tab === "team" ? teamTab(team)
-    // The Tactics tab is drawn in slice 3.
-    // sample wording: the placeholder line, the section headers, the
-    // "Quick actions" label, the stub dialogs' text, the flag labels.
-    : weak("The Tactics tab is drawn in slice 3.")));
+    // sample wording: the section headers, the "Quick actions" label, the
+    // stub dialogs' text, the flag labels.
+    : tacticsTab(team)));
   return d;
 }
 
@@ -1377,7 +1569,7 @@ function abilitiesTab(p) {
     h("div", { class: "sep" }),
     strong("Ability stats"), stats,
     h("div", { class: "sep" }),
-    strong("Skills"), skills,
+    strong("Skills"), " ", cardBadges(p, teamOf(p)), skills,
     strong("COM playing styles"), coms);
 }
 
@@ -1578,7 +1770,7 @@ function teamTab(t) {
           h("td", {}, "Number ", h("input", { type: "number", value: ks.number,
             onchange: e => { const v = parseInt(e.target.value, 10);
               if (!Number.isNaN(v)) { edit("kit slot number", () => { ks.number = v; }); render(); } } })),
-          h("td", {}, "Bound team id ", h("input", { type: "number", style: "width:80px", value: ks.binding,
+          h("td", {}, "Bound team id ", h("input", { type: "number", style: "width:96px", value: ks.binding,
             onchange: e => { const v = parseInt(e.target.value, 10);
               if (!Number.isNaN(v)) { edit("kit slot binding", () => { ks.binding = v; }); render(); } } })))))
     : null;
@@ -1592,6 +1784,426 @@ function teamTab(t) {
     kits ? kits
       : h("span", { class: "gate", title: "PES 17 only" },
           h("div", { class: "row weak" }, "(no kit slot records on this version)")));
+}
+
+// ---- Tactics (SE-GUI-12, 25) ----
+// The tab of "Tactics editor" in save_editor.md: the pitch is the editor
+// (drag a marker to move it, click for the slot's detail popover), the XI
+// and the bench are drag lists, roles are assigned by clicking pitch players,
+// and the two small menus carry the preset/formation copies and swaps.
+// Man marking rides in the data but is not drawn, as in the original (its
+// codec comment calls those bytes useless for a save).
+const tacPreset = t => t.tactics.presets[S.tac.preset];
+const tacFormation = t => tacPreset(t).formations[S.tac.formation];
+const rosterPlayer = (t, idx) => t.players.find(p => p.slot === idx + 1) || null;
+const playerName = p => p ? displayName(p.name) : "(empty)";
+function copyPreset(t, a, b) {
+  edit("Copy preset " + (a + 1) + " to " + (b + 1), () => {
+    t.tactics.presets[b] = clone(t.tactics.presets[a]); });
+}
+function swapPreset(t, a, b) {
+  edit("Swap presets " + (a + 1) + " and " + (b + 1), () => {
+    const p = t.tactics.presets, tmp = p[a]; p[a] = p[b]; p[b] = tmp; });
+}
+function copyFormation(t, a, b) {
+  edit("Copy formation " + FORMATIONS[a] + " to " + FORMATIONS[b], () => {
+    tacPreset(t).formations[b] = clone(tacPreset(t).formations[a]); });
+}
+function swapFormation(t, a, b) {
+  edit("Swap formations " + FORMATIONS[a] + " and " + FORMATIONS[b], () => {
+    const f = tacPreset(t).formations, tmp = f[a]; f[a] = f[b]; f[b] = tmp; });
+}
+// The lineup swap (SE-GUI-12): the two roster indices exchange, and every
+// set-piece taker, join-attack slot and instruction target naming the
+// outgoing player repoints to the incoming one (the role stays on the pitch).
+// The captain is not repointed, matching the original.
+function swapLineup(t, fieldIdx, benchIdx) {
+  edit("Swap lineup", () => {
+    const tac = t.tactics;
+    const out = tac.starting_eleven[fieldIdx], inn = tac.bench_order[benchIdx];
+    tac.starting_eleven[fieldIdx] = inn;
+    tac.bench_order[benchIdx] = out;
+    for (const k of ["free_kick_long", "free_kick_short", "free_kick_second",
+        "corner_left", "corner_right", "penalty"])
+      if (tac.set_pieces[k] === out) tac.set_pieces[k] = inn;
+    for (const i of [0, 1, 2])
+      if (tac.players_to_join_attack[i] === out) tac.players_to_join_attack[i] = inn;
+    for (const p of tac.presets) if (p.instructions)
+      for (const side of ["attack", "defence"])
+        for (const ins of p.instructions[side])
+          if (ins.player === out) ins.player = inn;
+  });
+}
+// A drag between XI rows swaps the two slots' assigned players; a drag
+// between bench rows moves the entry (the roster's bench order).
+function swapStarters(t, i, j) {
+  if (i === j) return;
+  edit("Reorder lineup", () => {
+    const s = t.tactics.starting_eleven, tmp = s[i]; s[i] = s[j]; s[j] = tmp; });
+}
+function moveBench(t, i, j) {
+  if (i === j) return;
+  edit("Reorder bench", () => {
+    const b = t.tactics.bench_order, [m] = b.splice(i, 1); b.splice(j, 0, m); });
+}
+// Make GK: the picked player's roster index takes the GK formation slot, the
+// keeper takes his (the formation slots keep their positions and coords; the
+// game forces the GK's spot itself).
+function makeGk(t, i) {
+  edit("Make GK", () => {
+    const f = tacFormation(t).players;
+    const gk = f.findIndex(s => s.position === "GK");
+    if (gk < 0 || gk === i) return;
+    const s = t.tactics.starting_eleven, tmp = s[gk]; s[gk] = s[i]; s[i] = tmp;
+  });
+}
+// A pitch click during an armed assignment mode writes the mode's field;
+// the role modes (a taker, the captain) exit on assignment, the join-attack
+// mode toggles members until Done.
+function assignClick(t, fieldIdx) {
+  const a = S.assign, tac = t.tactics;
+  const roster = tac.starting_eleven[fieldIdx];
+  if (!a) return false;
+  if (a.kind === "join") {
+    const at = tac.players_to_join_attack.indexOf(roster);
+    const free = tac.players_to_join_attack.indexOf(255);
+    if (at >= 0 || free >= 0) edit("Players to join attack", () => {
+      if (at >= 0) tac.players_to_join_attack[at] = 255;
+      else tac.players_to_join_attack[free] = roster;
+    });
+    render();
+    return true;
+  }
+  const cur = a.kind === "captain" ? t.captain : tac.set_pieces[a.key];
+  if (cur !== roster) edit("Assign " + a.label, () => {
+    if (a.kind === "captain") t.captain = roster;
+    else tac.set_pieces[a.key] = roster;
+  });
+  S.assign = null;
+  render();
+  return true;
+}
+
+// ---- The pitch (the egui Painter) ----
+// One canvas painted per frame: the touchlines and the eleven markers. A
+// marker is a chip with the slot's position label over the starter's name.
+// The drag state lives in S.pitchDrag; marker hit tests are ui.interact rects.
+function markerRect(t, i) {
+  const s = tacFormation(t).players[i];
+  return { x: pitchX(s.x) - 21, y: pitchY(s.y) - 16, w: 42, h: 26 };
+}
+function hitMarker(t, px, py) {
+  for (let i = 10; i >= 0; i--) {
+    const r = markerRect(t, i);
+    if (px >= r.x && px <= r.x + r.w && py >= r.y && py <= r.y + r.h) return i;
+  }
+  return -1;
+}
+function drawPitch(t) {
+  const cv = document.getElementById("pitch");
+  if (!cv) return;
+  const g = cv.getContext("2d"), d = S.pitchDrag;
+  const L = PITCH.ox, T = PITCH.oy, W = PITCH.xu * PITCH.px, H = PITCH.yu * PITCH.py;
+  g.fillStyle = "#173517"; g.fillRect(0, 0, cv.width, cv.height);
+  g.strokeStyle = "#4a7a4a"; g.lineWidth = 1;
+  g.strokeRect(L, T, W, H);                       // touchlines
+  g.beginPath(); g.moveTo(L, T + H / 2); g.lineTo(L + W, T + H / 2); g.stroke();
+  g.beginPath(); g.arc(L + W / 2, T + H / 2, 30, 0, 7); g.stroke();
+  for (const top of [true, false]) {              // the two boxes
+    const by = top ? T : T + H - 52;
+    g.strokeRect(L + (W - 160) / 2, by, 160, 52);
+    g.strokeRect(L + (W - 76) / 2, top ? T : T + H - 18, 76, 18);
+  }
+  const f = tacFormation(t).players, tac = t.tactics;
+  const joined = tac.players_to_join_attack;
+  g.textAlign = "center";
+  for (let i = 0; i < 11; i++) {
+    const s = f[i], p = rosterPlayer(t, tac.starting_eleven[i]);
+    let cx = pitchX(s.x), cy = pitchY(s.y);
+    const dragged = d && d.i === i && d.moved;
+    if (dragged) { cx = d.px; cy = d.py; }
+    const x = Math.min(PITCH.w - 44, Math.max(2, cx - 21));
+    const y = Math.min(PITCH.h - 30, Math.max(2, cy - 16));
+    g.fillStyle = S.assign && S.assign.kind === "join" && joined.includes(tac.starting_eleven[i])
+      ? "#005c80" : s.position === "GK" ? "#5a4a1e" : "#3c3c3c";
+    g.strokeStyle = S.assign ? "#c0deff" : "#6e6e6e";
+    if (S.slotPop && S.slotPop.i === i) g.strokeStyle = "#ff8f00";
+    g.beginPath(); g.roundRect(x, y, 42, 26, 3); g.fill(); g.stroke();
+    g.fillStyle = "#dcdcdc"; g.font = "10px sans-serif";
+    g.fillText(s.position, x + 21, y + 11);
+    g.fillStyle = "#8c8c8c"; g.font = "9px sans-serif";
+    g.fillText(p ? displayName(p.name).slice(0, 8) : "(empty)", x + 21, y + 22);
+  }
+}
+function pitchCanvas(t) {
+  const cv = h("canvas", { class: "pitch", id: "pitch",
+    width: PITCH.w, height: PITCH.h });
+  cv.addEventListener("pointerdown", e => {
+    const r = cv.getBoundingClientRect();
+    const px = e.clientX - r.left, py = e.clientY - r.top;
+    const i = hitMarker(t, px, py);
+    if (i < 0) return;
+    e.preventDefault();
+    S.pitchDrag = { i, px, py, x0: px, y0: py, moved: false };
+  });
+  // A bench row dropped on the pitch: onto a marker swaps the two roster
+  // spots; an XI row swaps the two starters; onto grass does nothing.
+  cv.addEventListener("dragover", e => e.preventDefault());
+  cv.addEventListener("drop", e => {
+    e.preventDefault();
+    const m = e.dataTransfer.getData("text/plain").match(/^(bench|xi):(\d+)$/);
+    if (!m) return;
+    const r = cv.getBoundingClientRect();
+    const i = hitMarker(t, e.clientX - r.left, e.clientY - r.top);
+    if (i < 0) return;
+    if (m[1] === "bench") swapLineup(t, i, Number(m[2]));
+    else swapStarters(t, Number(m[2]), i);
+    render();
+  });
+  return cv;
+}
+// The drag continues off-canvas, so move/up are document-level: a release
+// over the pitch moves (snapped to the stored unit grid, one undoable edit),
+// a release over a bench row swaps, a click opens the slot popover or serves
+// the armed assignment mode.
+document.addEventListener("pointermove", e => {
+  const d = S.pitchDrag; if (!d) return;
+  const cv = document.getElementById("pitch"); if (!cv) return;
+  const r = cv.getBoundingClientRect();
+  d.px = e.clientX - r.left; d.py = e.clientY - r.top;
+  if (Math.abs(d.px - d.x0) + Math.abs(d.py - d.y0) > 4) d.moved = true;
+  drawPitch(teamOf(curPlayer()));
+});
+document.addEventListener("pointerup", e => {
+  const d = S.pitchDrag; if (!d) return;
+  S.pitchDrag = null;
+  const t = teamOf(curPlayer());
+  if (!d.moved) {
+    if (!assignClick(t, d.i)) { S.slotPop = { i: d.i }; render(); }
+    return;
+  }
+  const el = document.elementFromPoint(e.clientX, e.clientY);
+  const lrow = el && el.closest(".lrow");
+  if (lrow && lrow.dataset.bidx !== undefined) {
+    swapLineup(t, d.i, Number(lrow.dataset.bidx)); render(); return;
+  }
+  if (lrow && lrow.dataset.xidx !== undefined) {
+    swapStarters(t, d.i, Number(lrow.dataset.xidx)); render(); return;
+  }
+  const cv = document.getElementById("pitch"), r = cv.getBoundingClientRect();
+  const [x, y] = snapXY(e.clientX - r.left, e.clientY - r.top);
+  edit("Move on pitch", () => {
+    const s = tacFormation(t).players[d.i]; s.x = x; s.y = y; });
+  render();
+});
+
+// The starting eleven and the bench, reorderable drag lists (SE-GUI-12):
+// an XI row's data is xi:<slot index>, a bench row's bench:<index>. Drops:
+// xi on xi swaps the slots' players, xi on bench swaps them back, bench on
+// xi or on a pitch marker swaps in, bench on bench reorders.
+function listRowDrag(row, data) {
+  row.draggable = true;
+  row.addEventListener("dragstart", e => {
+    e.dataTransfer.setData("text/plain", data);
+    e.dataTransfer.effectAllowed = "move";
+  });
+}
+function rowDrop(row, apply) {
+  row.addEventListener("dragover", e => { e.preventDefault(); row.classList.add("dragover"); });
+  row.addEventListener("dragleave", () => row.classList.remove("dragover"));
+  row.addEventListener("drop", e => {
+    e.preventDefault(); row.classList.remove("dragover");
+    const m = e.dataTransfer.getData("text/plain").match(/^(xi|bench):(\d+)$/);
+    if (m) { apply(m[1], Number(m[2])); render(); }
+  });
+}
+function lineupList(t) {
+  const tac = t.tactics, f = tacFormation(t).players;
+  const box = h("div", { class: "llist", id: "xi-list" });
+  for (let i = 0; i < 11; i++) {
+    const p = rosterPlayer(t, tac.starting_eleven[i]);
+    const r = h("div", { class: "lrow", "data-xidx": i },
+      h("span", { class: "handle" }, "≡"),
+      h("span", { class: "fpos" }, f[i].position),
+      h("span", {}, ...(p ? nameSpans(p.name) : ["(empty)"])));
+    listRowDrag(r, "xi:" + i);
+    rowDrop(r, (kind, j) => kind === "bench" ? swapLineup(t, i, j) : swapStarters(t, j, i));
+    box.append(r);
+  }
+  return box;
+}
+function benchList(t) {
+  const tac = t.tactics;
+  const box = h("div", { class: "llist", id: "bench-list" });
+  tac.bench_order.forEach((idx, i) => {
+    const p = rosterPlayer(t, idx);
+    const r = h("div", { class: "lrow" + (p ? "" : " empty"), "data-bidx": i },
+      h("span", { class: "handle" }, "≡"),
+      h("span", { class: "fpos" }, p ? p.positions.registered : "--"),
+      h("span", {}, ...(p ? nameSpans(p.name) : ["(empty)"])));
+    listRowDrag(r, "bench:" + i);
+    rowDrop(r, (kind, j) => kind === "xi" ? swapLineup(t, j, i) : moveBench(t, j, i));
+    box.append(r);
+  });
+  return box;
+}
+
+// The slot detail popover (the original's Player Controls group): position
+// dropdown (the twelve outfield positions; GK only by "Make GK", which swaps
+// the slots' players), the coordinate fields and Close. Positioned next to
+// the marker inside the pitch's frame.
+function slotPopover(t) {
+  const pop = S.slotPop; if (!pop) return null;
+  const i = pop.i, s = tacFormation(t).players[i];
+  const roster = t.tactics.starting_eleven[i], p = rosterPlayer(t, roster);
+  const r = markerRect(t, i);
+  const num = (label, get, put, max) => h("span", {}, label + " ",
+    h("input", { type: "number", min: 0, max, value: get(),
+      onchange: e => { const v = parseInt(e.target.value, 10);
+        if (!Number.isNaN(v) && v >= 0 && v <= max) { edit("formation " + label, () => put(v)); render(); } } }));
+  return h("div", { class: "tpopover",
+      style: "left:" + Math.min(PITCH.w - 240, r.x + r.w + 6) + "px; top:" + Math.max(0, r.y - 4) + "px" },
+    h("div", { class: "strong" }, ...(p ? nameSpans(p.name) : ["(empty roster slot)"]),
+      " ", weak("roster " + (roster + 1))),
+    h("div", { class: "row" }, "Position ",
+      s.position === "GK"
+        ? combo([["GK", "GK"]], "GK", () => {}, { disabled: true })
+        : combo(POSITIONS.slice(1).map(x => [x, x]), s.position, v => {
+          edit("formation position", () => { s.position = v; }); render(); }),
+      " ", button("Make GK", () => { makeGk(t, i); S.slotPop = null; render(); },
+        { disabled: s.position === "GK", title: "Swaps him into goal; the keeper takes his slot" })),
+    h("div", { class: "row" },
+      num("X", () => s.x, v => { s.x = v; }, PITCH.xu),
+      num("Y", () => s.y, v => { s.y = v; }, PITCH.yu),
+      " ", button("Close", () => { S.slotPop = null; render(); })));
+}
+
+// sample wording: the tab's labels, the menus' entries, the assignment
+// note's text, the auto flags' labels.
+function tacticsTab(t) {
+  const tac = t.tactics, pre = tacPreset(t);
+  const presetSel = h("span", { class: "row", style: "gap:2px" },
+    weak("Preset"), [0, 1, 2].map(i =>
+      selectable(String(i + 1), S.tac.preset === i, () => S.tac.preset = i)));
+  const formationSel = h("span", { class: "row", style: "gap:2px",
+      title: "The game uses formations 2 and 3 only while the preset's fluid formation is on" },
+    FORMATIONS.map((f, i) =>
+      selectable(f, S.tac.formation === i, () => S.tac.formation = i)));
+  const presetMenu = menu("Copy/swap preset",
+    [0, 1, 2].flatMap(a => [0, 1, 2].filter(b => b !== a).map(b =>
+      ["Copy preset " + (a + 1) + " to " + (b + 1), () => { copyPreset(t, a, b); render(); }])).concat(
+    [[0, 1], [0, 2], [1, 2]].map(([a, b]) =>
+      ["Swap presets " + (a + 1) + " and " + (b + 1), () => { swapPreset(t, a, b); render(); }])));
+  const formationMenu = menu("Copy/swap formation",
+    [0, 1, 2].flatMap(a => [0, 1, 2].filter(b => b !== a).map(b =>
+      ["Copy " + FORMATIONS[a] + " to " + FORMATIONS[b],
+        () => { copyFormation(t, a, b); render(); }])).concat(
+    [[0, 1], [0, 2], [1, 2]].map(([a, b]) =>
+      ["Swap " + FORMATIONS[a] + " and " + FORMATIONS[b],
+        () => { swapFormation(t, a, b); render(); }])));
+  // An armed assignment mode draws its note; the join mode's Done exits it.
+  const note = S.assign ? h("div", { class: "assignnote" },
+    S.assign.kind === "join"
+      ? "Click pitch players to join or leave the attack (up to three). "
+      : "Click the pitch player for " + S.assign.label.toLowerCase() + ". ",
+    button(S.assign.kind === "join" ? "Done" : "Cancel",
+      () => { S.assign = null; render(); })) : null;
+  // The role palette: one chip per taker, the captain and the join-attack
+  // pick. The armed chip is highlighted.
+  const holderOf = key => key === "captain" ? t.captain : tac.set_pieces[key];
+  const roleChip = (key, label) => {
+    const idx = holderOf(key);
+    const armed = S.assign && S.assign.key === key;
+    return h("button", { class: "rolechip" + (armed ? " armed" : ""),
+      title: "Click, then a pitch player", id: "role-" + key,
+      onclick: () => {
+        S.assign = armed ? null : { kind: key === "captain" ? "captain" : "setpiece", key, label };
+        S.slotPop = null; render(); } },
+      label + ": " + playerName(rosterPlayer(t, idx)));
+  };
+  const joinChip = h("button", { class: "rolechip" + (S.assign && S.assign.kind === "join" ? " armed" : ""),
+      id: "role-join", title: "Click, then up to three pitch players",
+      onclick: () => { S.assign = S.assign && S.assign.kind === "join" ? null
+        : { kind: "join", label: "the attack" }; S.slotPop = null; render(); } },
+    "Join attack: " + tac.players_to_join_attack.map(idx => playerName(rosterPlayer(t, idx)).split(" ")[0]).join(", "));
+  const slider = (key, label, max) => h("td", {}, label + " ",
+    h("input", { type: "range", min: 1, max, value: pre.sliders[key],
+      onchange: e => { const v = parseInt(e.target.value, 10);
+        edit(label, () => { pre.sliders[key] = v; }); render(); } }),
+    " ", h("span", { class: "mono weak" }, String(pre.sliders[key])));
+  const toggle = (key, label, off, on) => h("td", {}, label + " ",
+    h("span", { class: "rate" }, [off, on].map(v =>
+      h("span", { class: "sel" + (pre.style[key] === v ? " on" : ""),
+        onclick: () => { if (pre.style[key] !== v) { edit(label, () => { pre.style[key] = v; }); render(); } },
+        title: v }, titleCase(v)))));
+  const ins = instructionsFor(version());
+  const instrRow = (label, entries, i) => {
+    const e = entries[i];
+    const targetable = takesTarget(e.instruction);
+    const pick = combo([["255", "Unassigned"]].concat(
+        tac.starting_eleven.map((idx, si) => [String(idx), (si + 1) + " " + playerName(rosterPlayer(t, idx))])),
+      e.player === 255 ? "255" : String(e.player), v => {
+        edit(label + " target", () => { e.player = Number(v); }); render(); });
+    if (!targetable) pick.disabled = true;
+    return h("tr", {}, h("td", {}, label),
+      h("td", {}, combo(ins.map(x => [x, INSTRUCTION_LABEL[x] || titleCase(x)]),
+        e.instruction, v => { edit(label, () => {
+          e.instruction = v; if (!takesTarget(v)) e.player = 255; }); render(); })),
+      h("td", {}, pick));
+  };
+  const instrTable = version() >= 17
+    ? h("table", { class: "grid", id: "instr-table" },
+        h("tr", {}, h("th", {}, ""), h("th", {}, "Instruction"), h("th", {}, "Target")),
+        instrRow("Attack 1", pre.instructions.attack, 0),
+        instrRow("Attack 2", pre.instructions.attack, 1),
+        instrRow("Defence 1", pre.instructions.defence, 0),
+        instrRow("Defence 2", pre.instructions.defence, 1))
+    : null;
+  const auto = tac.auto;
+  const autoCb = (key, label, minV) => {
+    const w = h("label", { class: "cb" },
+      h("input", { type: "checkbox", checked: !!auto[key],
+        onchange: e => { edit(label, () => { auto[key] = e.target.checked; }); render(); } }),
+      " " + label);
+    return minV ? h("span", { class: "row" }, gated(w, minV)) : w;
+  };
+  const fluid = gated(h("label", { class: "cb" },
+    h("input", { type: "checkbox", checked: !!pre.style.fluid, id: "fluid",
+      onchange: e => { edit("Fluid formation", () => { pre.style.fluid = e.target.checked; }); render(); } }),
+    " Fluid formation"), 16);
+  const pitchWrap = h("div", { style: "position:relative" }, pitchCanvas(t), slotPopover(t));
+  const frame = h("div", {},
+    h("div", { class: "tacbar" }, presetSel, presetMenu, formationMenu),
+    note,
+    h("div", { class: "taccols" },
+      h("div", {}, formationSel, pitchWrap),
+      h("div", { class: "lcol" },
+        strong("Starting eleven"), lineupList(t),
+        strong("Bench"), benchList(t))),
+    h("div", { class: "group" }, strong("Formation settings"),
+      h("div", { class: "row" }, fluid),
+      h("table", { class: "grid" },
+        h("tr", {}, SLIDERS.map(([k, l, m]) => slider(k, l, m))),
+        h("tr", {}, STYLE_TOGGLES.slice(0, 4).map(([k, l, o, n]) => toggle(k, l, o, n))),
+        h("tr", {}, STYLE_TOGGLES.slice(4).map(([k, l, o, n]) => toggle(k, l, o, n))))),
+    h("div", { class: "group" }, strong("Advanced instructions"),
+      gated(instrTable || weak("(none on this version)"), 17)),
+    h("div", { class: "group" }, strong("Player assignments"),
+      h("div", { class: "row" }, SET_PIECES.map(([k, l]) => roleChip(k, l)), joinChip)),
+    h("div", { class: "group" }, strong("Automatic settings"),
+      h("div", { class: "row" },
+        h("span", {}, "Substitution ",
+          h("input", { type: "number", min: 0, max: 255, value: auto.substitution ?? 0,
+            title: "The stored setting byte",
+            onchange: e => { const v = parseInt(e.target.value, 10);
+              if (!Number.isNaN(v)) { edit("Auto substitution", () => { auto.substitution = v; }); render(); } } })),
+        autoCb("offside_trap", "Offside trap"),
+        autoCb("preset_change", "Preset change"),
+        autoCb("attack_defence_levels", "Attack/defence levels", 17))));
+  // The canvas paints after insertion (its element must be in the DOM);
+  // the team is looked up then, an undo in between would paint stale data.
+  setTimeout(() => drawPitch(teamOf(curPlayer())), 0);
+  return frame;
 }
 
 openSave(D.sample); // the draft control's open save

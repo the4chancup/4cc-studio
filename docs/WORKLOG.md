@@ -17,7 +17,7 @@ done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Rule
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): the Save
-editor's draft (8.5, slices 3 to 5; 1 and 2 drawn), then its view and Phase 8's shell, Phase
+editor's draft (8.5, slices 4 and 5; 1 to 3 drawn), then its view and Phase 8's shell, Phase
 20 (the Ruleset editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler
 and Export upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20):
 20.0d (the DBC7 ruleset) and 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the
@@ -568,7 +568,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `fix_database()` (DECISIONS 2026-10-20, SE-GUI-27 reworded); slice 1's captain checkbox
     off by one fixed. PES 17's kit-ID repair touches container bytes the draft does not model:
     named in the confirmation. Harness 21 checks
-  - [ ] 8.5c the Tactics tab (SE-GUI-12, 25)
+  - [x] 8.5c the Tactics tab (SE-GUI-12, 25). Done 2026-10-20 (SWE-2, a fresh session after
+    the resumed one stalled at ~20 minutes per turn): the pitch one Painter canvas, markers
+    dragged on the stored grid (x 0 to 104, y 0 to 48, 4ccEditor's range on 16 to 21; the
+    samples' 42570 slots sit inside it), the slot popover, XI and bench drag lists whose swap
+    repoints takers, join-attack and instruction targets, the role palette and join-attack
+    assignment modes, the copy/swap menus; slice 1's card badges (per tier, from each ruleset's
+    `cards`, `a_positions`, `free` and free-card specials; a badge reads low, never high) and
+    slice 2's bound-id width. Drawn for the maintainer's eye: the formation selector stays
+    enabled with fluid off (its tooltip gives the game's rule), auto substitution is the
+    model's raw setting byte, man marking is carried but not drawn (as in 4ccEditor). Harness
+    24 checks
   - [ ] 8.5d the comparator, transplant, AATF and patch panels (SE-GUI-13 to 15, 18)
   - [ ] 8.5e the interchange dialogs and settings.toml generation (SE-GUI-16, 17, 19)
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before

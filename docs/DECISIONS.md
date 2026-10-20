@@ -9516,3 +9516,13 @@ Why: the action is kept for parity ("Feature inventory": "Kept"), and members pa
 into sheets built around that layout; the scenario's "his team among its columns" described a
 different file, written from memory of the plan rather than from the original.
 Plan: `plans/save_editor.md` "Acceptance" SE-GUI-27.
+
+## 2026-10-20 — save_editor — The comparator panel draws rows in the tabs' terms
+Decision: a comparator row shows the field under its tab's label and its value as that tab
+shows it (a free-kick motion 15, stored as 14); a field no tab shows keeps the report's name and
+value. Export writes the CLI's `diff` report unchanged, stored values included.
+Why: `diff` reports stored values (`PlayerDiff::Field`, the compare scripts' output), measured
+on team 739 of the maintainer's PES 21 save: hunching dribbling 2 in the report, 3 in the Team
+TOML and the Appearance tab. A row jumps to its player's tab, where a value one lower reads as a
+wrong row. The plan was silent on the panel's representation.
+Plan: `plans/save_editor.md` "Comparator (gameplay + aesthetics)".
