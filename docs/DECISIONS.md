@@ -9536,3 +9536,14 @@ Why: the plan asks for the squad load's section choices, and a member who untick
 expects what 4ccEditor did; the comparator's scopes classify differences, not import choices.
 The `[team]` keys are the team's identity and settings, closer to gameplay than to the look.
 Plan: `plans/save_editor.md` "Interchange formats in the UI".
+
+## 2026-10-20 — studio_core — Planned tools are data; a tool's icon is a trait method
+Decision: `studio` keeps the full registry as a list of `PlannedTool { id, label, icon }` in the
+registry's order and hands it to the shell with the registered tools; the sidebar lists, after
+the registered tools, every planned entry whose id no registered tool has, grayed. `StudioTool`
+gains `fn icon(&self) -> &'static str`, an `egui-phosphor` glyph, for the collapsed rail.
+Why: ST-SIDE-07 lists the planned tools, and a planned tool has no crate to construct, so the
+list is data; the icon rail (ST-SIDE-02) needs a glyph per entry and the plan named none. The
+0.0.1 preview uses the same list: a build registering the two editors shows the Team compiler
+and the Export upgrader grayed, as the maintainer asked.
+Plan: `plans/core/architecture.md` "Tool plugin interface".

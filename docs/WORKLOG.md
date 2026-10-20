@@ -602,6 +602,40 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     Slice 4's follow-ups: player names on the panels' rows, the AATF and comparator samples
     trimmed. The page is 1.2 MB, real data: the samples with face and hair values (552 KB) and
     team 718's real export text (265 KB). Harness 31 checks
+- Phase 8 opens (itemized 2026-10-20). The shell is Phase 3's slice (a label list and the
+  active view, `studio_core/src/shell/mod.rs`); no `ST` or `SE-GUI` scenario is proven, and
+  neither `libs/team_widgets` nor `color_tools`' widgets exist. The steps run in DBC's order
+  (`plans/core/development_plan.md` "Divegrass Before Christmas"): what the 0.0.1 preview needs
+  first, the Team compiler's and the Export upgrader's views after it. Each step builds against
+  its draft (`shell.html`, `save_editor.html`) and its plan, and cites its scenarios in tests
+  through the shell's headless harness (`shell/mod.rs`'s tests). The drafts wait for the
+  maintainer's remarks, so the steps that draw least of what a remark would change come first
+  - [ ] 8.6 the shell (`plans/core/gui.md`, `spec/core/gui.md`; draft `shell.html`), sliced
+    - [ ] 8.6a the sidebar: the planned-tool registry and its greyed entries, which 0.0.1
+      also uses for the Team compiler and the Export upgrader (DECISIONS 2026-10-20), the
+      logo's About block, the PES selector with its exe check and blocker, the icon rail
+      (`egui-phosphor` registered in `theme.rs`), `last_tool` (ST-SIDE-01 to 04, 06, 07,
+      ST-RUN-02); the `?` and gear buttons are wired with their windows (8.6d, 8.6b)
+    - [ ] 8.6b the settings menu, common rows and one section per tool, saved best effort
+      (ST-SET-01 to 03), and the first-run data-location dialog (ST-RUN-01, ST-CLI-01)
+    - [ ] 8.6c the status bar, the window title and the tools' wake callback (ST-BAR-01 to 03,
+      ST-TTL-01 to 03), the running-PES auto-switch and its "Fix PES path" notice (ST-SIDE-05,
+      manual), and the close hook for unsaved work and runs in flight (ST-RUN-05,
+      06), which the Save editor's unsaved prompt uses
+    - [ ] 8.6d the help window, its generated Messages topics and search, `4cc-studio help`
+      (ST-HELP-01 to 04), and the log panel widget (ST-LOG-01 to 04)
+  - [ ] 8.7 `color_tools`' colour-picker popup (`plans/libs/color_tools.md` Phase 8), the
+    Save editor's team colours; the kit menu icons wait for the Team compiler's grid
+  - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
+    pickers and the violations list first, the tactics editor and its pitch with the view's
+    slice 3
+  - [ ] 8.9 the Save editor's view in the five slices of `plans/save_editor.md` "Build order
+    and verification", with the `session/` wiring each needs (undo, selection, recent files,
+    the FPC toggle, AATF quick actions) and the placeholders of 8.3 gone; each slice's SE-GUI
+    scenarios cited
+  - [ ] 8.10 after 0.0.1: the progress grid, the run strip and the console printer's progress
+    line, the exports folder watcher and check cache, cancellation, the launcher, the Team
+    compiler's and the Export upgrader's views (their drafts first)
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,

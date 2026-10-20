@@ -157,6 +157,14 @@ fn tools(ctx: &egui::Context) -> Vec<Box<dyn StudioTool>> {
 That is the full registry; the three tools registered today are the first, second and fourth
 (`spec/core/architecture.md` "Tool plugin interface").
 
+The sidebar lists the planned tools a build does not register (`gui.md` "Sidebar", item 3), so
+`studio` also keeps the full registry as data: one `PlannedTool { id, label, icon }` per tool
+above, in that order, handed to the shell with the registered tools; the shell lists, after the
+registered ones, every entry whose `id` no registered tool has. A tool's icon for the collapsed
+rail is a trait method, `fn icon(&self) -> &'static str`, one `egui-phosphor` glyph, and the
+planned entry repeats it. Not a second `Vec<Box<dyn StudioTool>>` of disabled tools, because a
+planned tool has no crate to construct; not the labels alone, because the rail draws icons.
+
 These commands extend the spec's CLI examples:
 
 ```
