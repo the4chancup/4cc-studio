@@ -372,6 +372,20 @@ mod tests {
     }
 
     #[test]
+    fn a_stem_that_would_strip_to_nothing_matches_as_it_is() {
+        // `oral__win32` carries both affixes around nothing: read literally,
+        // `oral.mtl` starts it; stripped to an empty stem, no `.mtl` would.
+        assert_eq!(
+            found(
+                "oral__win32.model",
+                &["oral__win32.model", "oral.mtl", "materials.mtl"]
+            )
+            .as_deref(),
+            Some("oral.mtl")
+        );
+    }
+
+    #[test]
     fn a_material_link_stands_for_the_common_mtl_it_names_in_its_folder() {
         assert_eq!(
             found_with("hat.model", &["hat.model", "x.mtl.common"], &["x.mtl"]).as_deref(),

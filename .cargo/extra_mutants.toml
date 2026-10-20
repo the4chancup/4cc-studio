@@ -167,3 +167,9 @@ path = "crates/tools/export_upgrader/src/source.rs"
 kind = "order"
 description = "in flatten_same_named: the sort() statement is deleted | removed: files.sort();"
 why = "files arrive sorted (below_root) and a flatten strips one segment from every file below one top, a contiguous block whose order and place it keeps, so the sort finds them sorted"
+
+[[exclude]]
+path = "crates/tools/team_compiler/src/plan/mod.rs"
+kind = "order"
+description = "in plan_run: the sort_by_key() statement is deleted | removed: packing.sort_by_key(|(_, id)| *id);"
+why = "orders only the shared folders' build tasks: the CPK writer sorts its entries by path and the player tables keep their rows by player id, so no output byte follows the task order"

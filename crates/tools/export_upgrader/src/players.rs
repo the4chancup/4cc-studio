@@ -2157,6 +2157,26 @@ mod tests {
     }
 
     #[test]
+    fn a_game_path_in_another_letter_case_is_the_game_path() {
+        // Windows paths ignore case, so an extraction may spell the
+        // segments either way: `Common/Character0/...` is the same path.
+        let files = files(&[
+            "Faces/71401/Common/Character0/Model/character/Face/REAL/71401/face.xml",
+            "Faces/71401/common/character0/model/Character/face/real/71401/face.mtl",
+        ]);
+        let plan = plan_folders(&files);
+        for name in ["face.xml", "face.mtl"] {
+            assert!(
+                plan.copies
+                    .iter()
+                    .any(|(_, to)| to == &format!("Players/01/{name}")),
+                "{name}: {:?}",
+                plan.copies
+            );
+        }
+    }
+
+    #[test]
     fn a_face_folder_with_one_file_outside_the_game_path_keeps_its_paths() {
         // One file not below `real/<one folder>/` is no extracted game
         // path: the folder's files keep their places.
