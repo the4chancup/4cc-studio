@@ -16,12 +16,13 @@ phases: 10.0a-e (`music_export`, its plan section, `pub` audit and whole-crate m
 done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Ruleset editor's
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
-first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): the Save
-editor's draft (8.5, slice 5; 1 to 4 drawn), then its view and Phase 8's shell, Phase
-20 (the Ruleset editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler
-and Export upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20):
-20.0d (the DBC7 ruleset) and 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the
-maintainer's rulings). The face_diff model comparison (Issues, "a face diff is
+first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
+opens (its steps itemized: the shell, then the Save editor's view), Phase 20 (the Ruleset
+editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
+upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20): 20.0d (the
+DBC7 ruleset), 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's
+rulings) and 8.5 (the Save editor's draft, `docs/prototypes/save_editor.html`, waiting for the
+maintainer's remarks; the view starts with what they are least likely to change). The face_diff model comparison (Issues, "a face diff is
 engine-specific") follows the editors. 8.0's acceptance sections are reviewed and the shell's
 draft (`docs/prototypes/shell.html`, step 8.2) waits for the maintainer's remarks.
 Side-leads are
@@ -541,7 +542,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   transformation; a narrower `portrait_conflict`; model-folder mode placing into an export;
   a `settings.toml` template, which the aesthetics editor covers), named in the turn report.
   Files: `docs/PROPOSALS.md`
-- [ ] 8.5 the Save editor's draft, `docs/prototypes/save_editor.html` (`plans/save_editor.md`
+- [x] 8.5 the Save editor's draft, `docs/prototypes/save_editor.html` (`plans/save_editor.md`
   "Build order and verification"; first of the tool views, for DBC), drawn whole in five
   slices, one per build-order slice, each reviewed before the next is briefed. Drawn before
   the maintainer has ruled 8.4's proposals: the two that touch it (P15, compile findings
@@ -590,7 +591,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     under the official ruleset). Harness 28 checks. Three follow-ups ride on 8.5e's brief:
     player names on the panels' rows, the all-teams AATF sample and the comparator's stored
     report lines trimmed (the page grew to 873 KB)
-  - [ ] 8.5e the interchange dialogs and settings.toml generation (SE-GUI-16, 17, 19)
+  - [x] 8.5e the interchange dialogs and settings.toml generation (SE-GUI-16, 17, 19). Done
+    2026-10-20 (SWE-2, one rework: the harness tail's output line lost in an edit, and every
+    team's export text embedded where SE-GUI-16 checks one, the page at 2.5 MB): one import
+    dialog for Team TOML, `.4ccs`, `.4cct` and Texport, its sections split as 4ccEditor's squad
+    load (DECISIONS 2026-10-20), PES 21 files onto the PES 17 save with the CLI's 189 warnings
+    and its two refusals byte for byte, the real `2HU.4ccs` and `IZA.4ccs` decoded with their
+    record-to-player pairing (2HU refused on 17: a 20-byte shirt name), Texport export disabled
+    on 15 to 17; `settings.toml` generation a player action, coded names written explicitly.
+    Slice 4's follow-ups: player names on the panels' rows, the AATF and comparator samples
+    trimmed. The page is 1.2 MB, real data: the samples with face and hair values (552 KB) and
+    team 718's real export text (265 KB). Harness 31 checks
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,

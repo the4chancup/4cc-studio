@@ -2237,3 +2237,5 @@ worklog passed 7,000 lines.
   and join-attack assignment, copy/swap menus) and slice 1's card badges; the comparator panel's rows in the tabs' terms (DECISIONS).
 - **2026-10-20** — 8.5d: the Save editor draft's comparator, transplant, AATF and patch panels on real samples from the HEAD build
   (a two-save `diff`, scratch-copy transplant and patch, DBC7's check of the PES 17 save, two broken rules files).
+- **2026-10-20** — 8.5e, 8.5 done: the Save editor draft's interchange dialogs (one import dialog for Team TOML, `.4ccs`, `.4cct`,
+  Texport; real files and the CLI's warnings and refusals) and `settings.toml` generation; the draft walks SE-GUI-01 to 28 (31 checks).

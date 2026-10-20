@@ -368,7 +368,11 @@ the editor exposes them as:
   team + tactics + players including full aesthetics and ingame-face data).
   Import goes onto the team selected in the editor and offers the same section choices as
   4ccEditor's squad load (gameplay / aesthetics / tactics), and applies cross-version conversion with a warning list
-  when the file's version differs.
+  when the file's version differs. The sections split the file as the squad load does: names,
+  shirt names and shirt numbers go with aesthetics (its `PlayerImport` copies them under
+  `importAes`), not with gameplay as the comparator's scopes have them, so a file that loads
+  with 4ccEditor's choices loads the same here. The file's `[team]` keys, which the squad file
+  never carried, go with gameplay.
 - **Legacy import**: `.4ccs` and `.4cct` open through the same import dialog,
   read-only.
 - **Texport import/export** (export is new; PES itself can import the file). Export writes

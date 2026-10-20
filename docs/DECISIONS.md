@@ -9526,3 +9526,13 @@ on team 739 of the maintainer's PES 21 save: hunching dribbling 2 in the report,
 TOML and the Appearance tab. A row jumps to its player's tab, where a value one lower reads as a
 wrong row. The plan was silent on the panel's representation.
 Plan: `plans/save_editor.md` "Comparator (gameplay + aesthetics)".
+
+## 2026-10-20 — save_editor — The import dialog's sections split the file as 4ccEditor's squad load
+Decision: names, shirt names and shirt numbers import with the aesthetics section, as 4ccEditor's
+squad load has them (`PlayerImport` copies them under `importAes`; the numbers table is read
+under the same flag); the Team TOML's `[team]` keys, which no squad file carried, import with
+gameplay.
+Why: the plan asks for the squad load's section choices, and a member who unticks aesthetics
+expects what 4ccEditor did; the comparator's scopes classify differences, not import choices.
+The `[team]` keys are the team's identity and settings, closer to gameplay than to the look.
+Plan: `plans/save_editor.md` "Interchange formats in the UI".
