@@ -109,15 +109,17 @@ fn claims_stem(name: &str, stem: &str, set_reference: Option<&str>) -> bool {
 
 /// A reference's `???` marker and `sub` (the path below the Common
 /// directory, ending in `/` or empty) when its directory is
-/// `model/character/uniform/common/` + exactly three characters + `/`, in
-/// any letter case; `None` otherwise.
+/// `model/character/uniform/common/` + a non-empty segment + `/`, in any
+/// letter case; `None` otherwise. The compiler reads any three-character
+/// segment as the team's Common and refuses any other, so one of another
+/// length is still the team's (`common_segment` respells it).
 fn reference_into_common(directory: &str) -> Option<(&str, &str)> {
     let prefix = directory.get(..COMMON_PREFIX.len())?;
     if !prefix.eq_ignore_ascii_case(COMMON_PREFIX) {
         return None;
     }
     let (marker, sub) = directory[COMMON_PREFIX.len()..].split_once('/')?;
-    (marker.chars().count() == 3).then_some((marker, sub))
+    (!marker.is_empty()).then_some((marker, sub))
 }
 
 /// Which kind of folder a `.mtl` lands in: a player folder, a shared
@@ -159,21 +161,28 @@ fn respell_reference(directory: &mut String, file_name: &mut String, identity: &
     }
 }
 
-/// The `???` of `directory`'s Common path respelled the identity's path ID
-/// in place, kept as written when the identity has none (model-folder
-/// mode): `prefix_len` the `model/character/…/common/` prefix's length
+/// The segment a Common path's `???` marker is written as: the identity's
+/// path ID, three digits (a team export's, 999 the referees'); in
+/// model-folder mode (no path ID) `written` kept when it is three
+/// characters and `XXX` otherwise — the compiler reads any
+/// three-character segment as the team's Common and refuses any other.
+pub(crate) fn common_segment(written: &str, identity: &Identity) -> String {
+    match identity.path_id() {
+        Some(id) => format!("{id:03}"),
+        None if written.chars().count() == 3 => written.to_owned(),
+        None => "XXX".to_owned(),
+    }
+}
+
+/// The `???` of `directory`'s Common path respelled (`common_segment`) in
+/// place: `prefix_len` the `model/character/…/common/` prefix's length
 /// (either format's) and `rest` what follows it (`sub` for an `.mtl`,
 /// `sub` + `sourceimages/` for an FMDL), still applied.
 fn respell_marker(directory: &mut String, prefix_len: usize, rest: &str, identity: &Identity) {
-    let marker = match identity.path_id() {
-        Some(id) => format!("{id:03}"),
-        None => {
-            let end = directory[prefix_len..]
-                .find('/')
-                .expect("the callers matched the marker and the `/` after it");
-            directory[prefix_len..prefix_len + end].to_owned()
-        }
-    };
+    let end = directory[prefix_len..]
+        .find('/')
+        .expect("the callers matched the marker and the `/` after it");
+    let marker = common_segment(&directory[prefix_len..prefix_len + end], identity);
     *directory = format!("{}{marker}/{rest}", &directory[..prefix_len]);
 }
 
@@ -761,6 +770,14 @@ mod tests {
     /// A referee export's identity.
     fn refs() -> Identity {
         Identity::Referees
+    }
+
+    /// The resolved team `/vg/` (758).
+    fn vg() -> Identity {
+        Identity::Team {
+            id: TeamId::new(758).unwrap(),
+            name: TeamName::new("vg").unwrap(),
+        }
     }
 
     /// A `.mtl` of one material holding one sampler per `paths` entry.
@@ -1497,6 +1514,94 @@ mod tests {
         );
         assert!(rewrites.links.is_empty());
         assert!(rewrites.findings.is_empty());
+    }
+
+    #[test]
+    fn a_named_common_segment_links_as_the_team_s_common() {
+        // `common/vg/` is the team's Common as `XXX` is: the compiler reads
+        // any segment as the team's own there.
+        let face = mtl(&["model/character/uniform/common/vg/env.dds"]);
+        let rewrites = plan_for(
+            &vg(),
+            &[("Faces/XXX07 - A/face.mtl", "Players/07 - A/face.mtl")],
+            &["Common/env.dds"],
+            &[("Faces/XXX07 - A/face.mtl", &face)],
+        );
+        let out = written_text(&rewrites, "Players/07 - A/face.mtl");
+        assert!(out.contains("./env.dds"), "{out}");
+        assert_eq!(rewrites.links, ["Players/07 - A/env.dds.common".to_owned()]);
+        assert!(rewrites.findings.is_empty());
+    }
+
+    #[test]
+    fn a_named_common_segment_kept_is_respelled_the_id() {
+        let face = mtl(&["model/character/uniform/common/VG/fbm_s.dds"]);
+        let rewrites = plan_for(
+            &vg(),
+            &[("Faces/XXX07 - A/face.mtl", "Players/07 - A/face.mtl")],
+            &[],
+            &[("Faces/XXX07 - A/face.mtl", &face)],
+        );
+        let out = written_text(&rewrites, "Players/07 - A/face.mtl");
+        assert!(
+            out.contains("model/character/uniform/common/758/fbm_s.dds"),
+            "{out}"
+        );
+        assert_eq!(
+            rewrites
+                .findings
+                .iter()
+                .map(|m| m.code.code.as_ref())
+                .collect::<Vec<_>>(),
+            ["common_reference_kept"]
+        );
+    }
+
+    #[test]
+    fn a_common_mtl_s_segment_of_another_length_is_respelled_the_id() {
+        let file = mtl(&["model/character/uniform/common/refs/refkit/texture.dds"]);
+        let rewrites = plan_for(
+            &vg(),
+            &[("Common/refkit.mtl", "Common/refkit.mtl")],
+            &[],
+            &[("Common/refkit.mtl", &file)],
+        );
+        let out = written_text(&rewrites, "Common/refkit.mtl");
+        assert!(
+            out.contains("model/character/uniform/common/758/refkit/texture.dds"),
+            "{out}"
+        );
+        assert_eq!(
+            rewrites
+                .findings
+                .iter()
+                .map(|m| m.code.code.as_ref())
+                .collect::<Vec<_>>(),
+            ["common_reference_kept"]
+        );
+    }
+
+    #[test]
+    fn model_folder_mode_respells_a_short_segment_to_the_placeholder() {
+        let file = mtl(&[
+            "model/character/uniform/common/vg/x.dds",
+            "model/character/uniform/common/abc/x.dds",
+        ]);
+        let rewrites = plan_for(
+            &Identity::ModelFolders,
+            &[("k0431/x.mtl", "Boots/k0431/x.mtl")],
+            &[],
+            &[("k0431/x.mtl", &file)],
+        );
+        let out = written_text(&rewrites, "Boots/k0431/x.mtl");
+        assert!(
+            out.contains("model/character/uniform/common/XXX/x.dds"),
+            "{out}"
+        );
+        assert!(
+            out.contains("model/character/uniform/common/abc/x.dds"),
+            "{out}"
+        );
     }
 
     /// The one output path's `.mtl` text, parsed back.

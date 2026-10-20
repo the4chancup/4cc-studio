@@ -2219,3 +2219,7 @@ worklog passed 7,000 lines.
   collisions become leftovers (6.16a5), a Midcup kit without colors keeps its installed entry (6.16b7).
 - **2026-10-20** — the maintainer answered both open questions: a face for the other engine gets Sopdog's transformation (after DBC),
   a Common path spelled with the team's name is the team's Common (6.16d); 6.12's library parity becomes a rerun at closes.
+- **2026-10-20** — FoxDen session 4: its new version runs on PES 2019's stock exe with every script, and the kit swapper loads
+  per-kit face packages and `kitK` textures from a Studio CPK (kit 1 in Edit mode, kit 2 in a match). Game and saves restored by hash.
+- **2026-10-20** — 6.16d: a pre-Fox Common segment of any name is the team's Common (widened from the team's name to cover ASP's
+  `common/refs/`); the 15 affected library exports upgrade and compile without the Common-path errors. 6.16 and 6.14 closed.

@@ -20,8 +20,7 @@ every converge review loop has ended (2026-10-19) and the close mutation run of
 writes a clean export or nothing) and 6.15 (a one-wearer item folder takes its wearer's ID)
 are built, and 6.14c; the maintainer answered 6.14's three questions (2026-10-19), and
 6.12c (the library run against Red) is diagnosed. 6.16 (the answers and 6.12c's defects) is
-built and verified (2026-10-20), its verify's two findings fixed; left: 6.16d (a Common path
-spelled with the team's name, the maintainer's answer of 2026-10-20) and 6.12d (the library
+built and verified (2026-10-20), its verify's two findings fixed; left: 6.12d (the library
 parity's scripts committed). Then the close's last steps, the plans-to-spec move and the
 worklog's collapse; then, for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset
 editors' first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"):
@@ -900,7 +899,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   folder two players link keeps a shared ID; the parity tracers unchanged (none links a shared
   folder). The pre-Fox save record naming the ID is not checked: pre-Fox compiles write no
   item IDs to the patch yet
-- [ ] 6.14 an upgrade writes a clean export or nothing (maintainer, 2026-10-19; AGENTS.md
+- [x] 6.14 an upgrade writes a clean export or nothing (maintainer, 2026-10-19; AGENTS.md
   "Fundamental concepts", DECISIONS 2026-10-19, plan "Verification", "CLI", "GUI", catalog
   `migration_not_clean`, written): the run with any Error, or a finding that drops anything but
   a leftover, writes no output; a leftover outside the old format's layout (step 10: a
@@ -945,7 +944,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     its format; verified on BAG VGL18.5's real archive: `player_XXX08.jpg` and `XXX17.jpg` no
     longer reported, its four misnamed portraits still are; half wrong (6.12c, DECISIONS
     2026-10-19 "correction"): Red's check discarded `XXX17.jpg`, which 6.16a makes a leftover
-- [ ] 6.16 the maintainer's answers of 2026-10-19 and the 6.12c library run's defects
+- [x] 6.16 the maintainer's answers of 2026-10-19 and the 6.12c library run's defects
   (DECISIONS 2026-10-19: the correction on portraits, `Portraits/NN`, content that never
   reached the game, a `Midcup` kit keeping what it does not resend, no second GK slot, an empty
   face folder; plan `export_upgrader.md` steps 2, 3, 7, 10, edited). Closes 6.14's parent step
@@ -1023,7 +1022,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     in the save records (80306 gloves 4186, 80322 gloves 4202, the route the cup uses today):
     slot 06 wears its crossbow gloves (`w01.png`); EAT shows no stock hands, and the split's
     patch floats as a speck beside the model (`w02.png`, `w02_speck.png`)
-  - [ ] 6.16 verify (2026-10-20, `.tmp/6_16/verify/verify_616.md`): the census rerun at 29f21d9
+  - [x] 6.16 verify (2026-10-20, `.tmp/6_16/verify/verify_616.md`): the census rerun at 29f21d9
     (275 clean, 250 before; every exit 1 writing nothing; the two CM inputs' empty `711XX` an
     input defect Red's own check reports) and the library run over 78 inputs (D1-D3, D6, D7,
     D9 gone or intentional, D4's `.mtl` half refused; new classes I29-I33). Its findings:
@@ -1037,11 +1036,15 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
       2026-10-20; TC-KIT-12, -13 and -25's tests now compile `Full` exports, as their scenarios
       name no coverage); verified: the library rows of JP 2024 Spring Day 5 and VG Day 0 Midcup
       rerun (`.tmp/6_12c/jobs_616b7`), no `UniColor.bin` difference left, no line unattributed
-    - [ ] 6.16d the upgrader's side of D4 (maintainer, 2026-10-20; DECISIONS "a Common path
-      spelled with the team's name is the team's Common"): a Common segment spelled with the
-      team's name read as the team's Common (plan step 7, EU-MDL-22) → verify: the 16 /o/ and
-      VG library exports' faces no longer meet `mtl_common_path_invalid`/
-      `xml_common_path_invalid`, the census and library rows rerun for them
+    - [x] 6.16d (2026-10-20, SWE-2) the upgrader's side of D4 (maintainer, 2026-10-20;
+      DECISIONS "a Common path spelled with the team's name is the team's Common", widened the
+      same day to any pre-Fox segment): a pre-Fox Common segment of any name is the team's
+      Common, one of another length than three written as the team's ID (`materials.rs`
+      `common_segment`, `face_xml.rs` `respell_common_segment`, EU-MDL-22); verified: the 15
+      library exports (14 /o/ and VG, ASP 4CCC) rerun (`.tmp/6_12c/jobs_616d`), upgrades exit
+      0, no `mtl_common_path_invalid`/`xml_common_path_invalid` left, every other compile code
+      as in 616 (ASP now exit 0), every parity line attributed: D4 becomes I34 (Red discards a
+      face whose Common path names the team, ours migrates it); `mutants-diff fec6694` 24/24
 
 ### Phase 8 — GUI
 
@@ -1312,6 +1315,13 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open 2026-10-20 — two `save_editor` CLI tests (`strip::tables_the_bins_lacks_are_created_from_the_seed`,
+  `strip::the_tables_are_seeded_and_every_appearance_id_is_set_to_minus_one`) fail while
+  PES 2019 runs on the machine: the command's running-game refusal (`src/cli.rs`, "is running:
+  it writes its own save back") reads the real process list, so a gate run during an in-game
+  check fails (6.16d's first run). Likely fix: the tests inject the process probe (or the
+  command takes it from its context), so no test depends on what else the machine runs.
+  Until then, close the game before `just gates`.
 - open 2026-10-19 — the maintainer saw AMD driver timeouts during the BC7 encoding tests
   (`dds_convert`'s `gpu.rs` tests, 16.x a). Logged so far: one Windows GPU reset (System log,
   event 4101 "Display driver amduw23g ... stopped responding and has successfully recovered")
@@ -1914,7 +1924,13 @@ points there.
   the running image (the game loads DirectInput at run time); (6) with that check relaxed
   (test copy), the game dies right after the livecpk Lua state is created, on the stock exe as
   on the patched one: `lua_tolstring` resolves to a misaligned address (RVA 0x4bbba5f, the
-  pattern's second pass), most likely mid-function. The kit-swapper script has not run yet.
+  pattern's second pass), most likely mid-function. FoxDen session 4 (2026-10-20, its new
+  version on the same stock exe, scratch `.tmp/foxden/plan.md`): (5) and (6) are fixed (the
+  host check reads the version resource; `lua_tolstring` resolves aligned), the game runs
+  with every script loaded, and the kit-swapper script works on a Studio CPK: kit 1 in Edit
+  mode and kit 2 in a match each load the per-kit face package (`<id>p<K>`) or the `kitK`
+  texture, falling back to `kitN` when neither exists. Not yet checked: the team as away,
+  boots and gloves packages, `dummy_kit`, a `kitN/` folder set.
 - open — a run that does not end cleanly leaves its staging (3.z): closing the window while
   the GUI's compile runs ends the process mid-run, and the coordinator's `Cancelled` path does
   not discard the staging either, so `output/.staging/<run>/` can be left beside the previous

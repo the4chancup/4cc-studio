@@ -367,12 +367,17 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    compiler puts it back only on a reference it resolves to a file of the export: a game path
    written without it would reach the game without it. A reference that pointed into the team's Common folder by game path
    (`model/character/uniform/common/???/hair.dds` in an `.mtl`, the Fox common directory in an FMDL
-   path table; `???` is the `XXX` placeholder or a baked-in team ID, as with the kit magic below,
-   or the team's name without its slashes, letter case aside: `common/o/env.dds`,
-   `common/vg/oral_shirt_*.model`, in /o/'s 2017-2024 and VG's 2017-2018 faces, `.mtl` and
-   `face.xml` alike, since the 2016 batch compiler wrote a pre-Fox export's `Common/` to
-   `model/character/uniform/common/<team name>/` and those faces loaded the files there; the
-   Common segment is read this way wherever this step reads it)
+   path table; `???` is the `XXX` placeholder or a baked-in team ID, as with the kit magic below;
+   in a pre-Fox `.mtl` or `face.xml` it is any folder name, letter case aside: the team's name
+   without its slashes (`common/o/env.dds`, `common/vg/oral_shirt_*.model`, in /o/'s 2017-2024
+   and VG's 2017-2018 faces, since the 2016 batch compiler wrote a pre-Fox export's `Common/` to
+   `model/character/uniform/common/<team name>/` and those faces loaded the files there) or
+   another team's (`common/refs/refkit/texture.dds`, a referee kit's `.mtl` copied into ASP's
+   4CCC face), because a Studio export names no Common but its own and the compiler refuses a
+   segment that is not three characters, so any other reading lets the upgrade end clean and
+   the compile fail; a segment of another length that stays a game path is written as the
+   team's ID, `XXX` in model-folder mode. The Fox common directory keeps a three-character
+   `???`: the batch compiler wrote a Fox export's Common to `common/XXX/`)
    cannot simply become the bare name `./hair.dds` — that would resolve in the player folder and fail — so the
    upgrader writes the bare name **and creates the texture link** `hair.dds.common` (the
    `Common/` file's own name, whose extension the link names) at the root of the

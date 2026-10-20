@@ -9453,3 +9453,18 @@ name)") wrote a pre-Fox export's Common there, so those faces loaded their Commo
 "if we can easily do (a) let's go with that instead, so we can support even older exports".
 Options (b) a leftover and (c) a refusal remain the fallback if (a) proves hard.
 Plan: `plans/export_upgrader.md` step 7 (the Common reference sentence); worklog 6.16d.
+
+## 2026-10-20 — export_upgrader — a pre-Fox Common segment of any name is the team's Common
+Decision: the rule above widens to any folder name after `model/character/uniform/common/` in
+a pre-Fox `.mtl` or `face.xml` (another team's name included), and a segment of another length
+than three that stays a game path is written as the team's ID (`XXX` in model-folder mode). The
+Fox common directory keeps its three-character rule.
+Why: the library run at 6.16 found 15 exports the compile refused over such a segment: 14 are
+/o/ and VG faces naming their own team, the 15th is ASP's 4CCC export, whose `Players/08 - asp`
+carries a referee kit's `refkit.mtl` naming `common/refs/refkit/`. The upgrade ended clean on
+all 15 and the compile failed, against the rule that an upgrade ends in a clean Studio export.
+A Studio export names no Common but its own, and the compiler already reads every
+three-character segment as the team's, so the narrower rule bought nothing and left ASP's
+export to fail; one rule is also less code than comparing against the team's name. Options:
+the team's name alone (the answer as given, ASP refused), or ASP's reference a refusal.
+Plan: `plans/export_upgrader.md` step 7 (the Common reference sentence); worklog 6.16d.

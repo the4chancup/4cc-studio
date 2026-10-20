@@ -357,6 +357,49 @@ fn a_reference_whose_common_file_is_missing_is_kept_and_warned() {
     );
 }
 
+// EU-MDL-22
+#[test]
+fn a_prefox_common_segment_of_any_name_is_the_team_s_common() {
+    let sandbox = Sandbox::new("mdl_common_segment");
+    // `vg` and `VG` are the team's Common as `XXX` is: the batch compiler
+    // wrote a pre-Fox export's Common under its name there.
+    sandbox.write("vg Spring/Faces/XXX07 - A/face_high_win32.model", b"face");
+    sandbox.write(
+        "vg Spring/Faces/XXX07 - A/face.mtl",
+        &mtl(&[
+            "model/character/uniform/common/vg/env.dds",
+            "model/character/uniform/common/VG/fbm_s.dds",
+        ]),
+    );
+    sandbox.write("vg Spring/Common/env.dds", b"env");
+    // /vg/'s records in the fixture save wear custom boots and gloves the
+    // export does not carry: zero them, or `custom_model_missing` is all
+    // the run reports.
+    sandbox.save_edited("EDIT16", pes_version::PesVersion::Pes16, |file| {
+        for slot in 1..=23 {
+            if let Some(player) = file.player_mut(75800 + slot) {
+                player.appearance.boots_id = 0;
+                player.appearance.gloves_id = 0;
+            }
+        }
+    });
+
+    let run = upgrade(&sandbox, "vg Spring", "EDIT16");
+    let stdout = run.stdout();
+    assert_eq!(run.exit_code(), 0, "{stdout}");
+    let face = mtl_text(&sandbox, "vg Full Spring/Players/07 - A/face.mtl");
+    assert!(face.contains("./env.dds"), "{face}");
+    assert!(
+        face.contains("model/character/uniform/common/758/fbm_s.dds"),
+        "{face}"
+    );
+    assert_eq!(
+        fs::read(sandbox.path("vg Full Spring/Players/07 - A/env.dds.common")).unwrap(),
+        b""
+    );
+    assert!(stdout.contains("common_reference_kept"), "{stdout}");
+}
+
 // EU-MDL-07
 #[test]
 fn a_fox_face_folder_s_fmdl_names_its_own_and_common_textures() {
