@@ -1,7 +1,8 @@
 //! The About popup the logo opens (core plan, "Sidebar" item 1; draft
 //! `docs/prototypes/shell.html`): the detailed version block a member pastes into a bug
-//! report, with a Copy button and links to the release page and the repository. The help
-//! link joins when the help window lands (the GUI phase's later step).
+//! report, with a Copy button and links to the release page, the repository and the
+//! help: the Help link closes the popup and has the shell open the help window on the
+//! `setting-up` chapter (ST-SIDE-06).
 
 use pes_version::PesVersion;
 
@@ -36,21 +37,25 @@ pub(crate) fn version_block(paths: &AppPaths, pes_version: PesVersion) -> String
 }
 
 /// Draws the popup while `open` holds and clears it when the user closes it (Close, the
-/// backdrop or Escape). `Modal` carries no `ClosableTag`, so the Close button returns a flag
-/// rather than calling `ui.close`.
+/// backdrop or Escape). Returns `true` when the Help link was clicked, so the sidebar can
+/// ask the shell for the help window — the shell closes the popup itself then, so the link
+/// needs no close path of its own here. `Modal` carries no `ClosableTag`, so the Close
+/// button returns a flag rather than calling `ui.close`.
 pub(crate) fn show(
     ctx: &egui::Context,
     paths: &AppPaths,
     pes_version: PesVersion,
     open: &mut bool,
-) {
+) -> bool {
     let block = version_block(paths, pes_version);
     let modal = egui::Modal::new(egui::Id::new("about-4cc-studio")).show(ctx, |ui| {
         ui.heading("About 4cc Studio");
         ui.label(egui::RichText::new(&block).monospace());
+        let mut help = false;
         ui.horizontal(|ui| {
             ui.hyperlink_to("Release page", RELEASE_PAGE_URL);
             ui.hyperlink_to("Repository", REPOSITORY_URL);
+            help = ui.link("Help").clicked();
         });
         let mut close = false;
         ui.horizontal(|ui| {
@@ -59,9 +64,11 @@ pub(crate) fn show(
             }
             close = ui.button("Close").clicked();
         });
-        close
+        (close, help)
     });
-    if modal.inner || modal.should_close() {
+    let (close, help) = modal.inner;
+    if close || modal.should_close() {
         *open = false;
     }
+    help
 }

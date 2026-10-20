@@ -28,6 +28,9 @@ egui = "=0.36.2"
 # Icon font glyphs for the shell's sidebar, toolbar and status icons (`plans/core/README.md`
 # "External Dependencies"); exact like `egui`, which it must match (this release is egui 0.36's).
 egui-phosphor = "=0.14.0"
+# The help window's Markdown (`plans/core/README.md` "External Dependencies"): exact like `egui`,
+# 0.25.0 being the last release on egui 0.36; no image loaders, the help shows no images.
+egui_commonmark = { version = "=0.25.0", default-features = false, features = ["pulldown_cmark"] }
 env_logger = { version = "0.11.11", default-features = false }
 flate2 = "1.1.10"
 libc = "0.2.189"

@@ -2,7 +2,7 @@ use std::fs;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
-use egui::accesskit::{self, Toggled};
+use egui::accesskit::{self, Role, Toggled};
 use pes_version::PesVersion;
 
 use super::{ExeCheck, selector_color};
@@ -435,7 +435,8 @@ fn the_planned_tools_follow_the_registered_ones_grayed_and_inert() {
     );
 }
 
-// The logo's About block and Copy (ST-SIDE-06's help link arrives with the help window).
+// The logo's About block, its links and Copy; the Help link opens the help window.
+// ST-SIDE-06
 #[test]
 fn the_logo_opens_about_and_copy_puts_the_version_block_on_the_clipboard() {
     let dir = test_dir("studio_core_sidebar_about");
@@ -507,6 +508,30 @@ fn the_logo_opens_about_and_copy_puts_the_version_block_on_the_clipboard() {
     let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
     click(&egui_ctx, &mut app, entry(&nodes, "Close"));
     assert!(!app.sidebar.about_open, "Close dismisses the popup");
+
+    // The popup's Help link closes it and opens the help window on Setting up. The
+    // sidebar's `?` button shares the label; the About one is the link.
+    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+    click(&egui_ctx, &mut app, entry(&nodes, "4cc"));
+    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+    // egui reports a `ui.link` as a `Label` node carrying its text in `label`; the
+    // sidebar's `?` is the `Button` that shares the label.
+    let link = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.label() == Some("Help"))
+        .expect("the About popup's Help link");
+    click(&egui_ctx, &mut app, link);
+    let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+    assert!(!app.sidebar.about_open, "the Help link closed the popup");
+    assert_eq!(
+        app.help_window.showing(),
+        Some(("setting-up", "install")),
+        "the help window opened on the Setting up chapter"
+    );
+    assert!(
+        has_text(&nodes, "unpack it anywhere"),
+        "the chapter's first topic is drawn"
+    );
     fs::remove_dir_all(&dir).unwrap();
 }
 

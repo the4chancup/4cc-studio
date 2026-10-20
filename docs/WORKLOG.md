@@ -17,7 +17,7 @@ done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Rule
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
-(its steps itemized: the shell, 8.6a-c and 8.6d1 done, 8.6d2 the help window next; then the Save
+(its steps itemized: the shell, 8.6a-c and 8.6d1-2 done, 8.6d3 the log panel next; then the Save
 editor's view), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
 upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20): 20.0d (the
@@ -692,9 +692,19 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         copy two spaces short, every compiler row then compared with the spec; a Red state
         file; the upgrader's two shared codes given its own cells), S9 (1 of 4: one of them
         restated), rulings `.tmp/8_6/duck_rulings.md`; Astra waits to batch with 8.6d2
-      - [ ] 8.6d2 the help window: `egui_commonmark` `=0.25.0` (the last release on egui
+      - [x] 8.6d2 the help window: `egui_commonmark` `=0.25.0` (the last release on egui
         0.36), the chapter tree, the Messages topic, search, in-doc links, F1 and `?`, the
-        About popup's help link, a notice's `OpenHelp` (ST-HELP-01, 02, ST-SIDE-06)
+        About popup's help link, a notice's `OpenHelp` (ST-HELP-01, 02, ST-SIDE-06). Done
+        2026-10-21 (SWE-2, one rework): `shell/help_window.rs` (`HelpWindow` over
+        `help::chapters`, a non-modal `egui::Window` with the search box, a `Panel` tree and
+        a `CentralPanel` pane, since a `ui.horizontal` row clips its scroll areas out of the
+        hit test; topics drawn a paragraph per `CommonMarkViewer` call so a search hit's
+        paragraph is the one highlighted; the Messages topic a wrapping `Grid`; link hooks
+        for every `<id>#<slug>`), the sidebar's `?`, F1, the About popup's Help link,
+        `ActionEffect::OpenHelp`, each opening closing a shell modal; geometry for the
+        session only (DECISIONS). ST-HELP-01, 02, ST-HELP-03's in-doc half and ST-SIDE-06
+        proven. Files: `studio_core/src/shell/{help_window,mod,about,test_harness}.rs`,
+        `shell/sidebar/`, `studio_core/Cargo.toml`, the workspace `Cargo.toml`
       - [ ] 8.6d3 the log panel widget (ST-LOG-01 to 04) and its code links (ST-HELP-03)
       - [ ] 8.6d4 a member wording pass over the three catalogs' texts, with the maintainer's
         remarks on the draft, to `CONTRIBUTING.md`'s "written for a layman" rule (as easy to

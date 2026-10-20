@@ -97,6 +97,9 @@ pub(super) struct StubTool {
     id: &'static str,
     label: &'static str,
     icon: &'static str,
+    /// The chapter `help()` reports; `stub` fills an empty one titled by `label`,
+    /// `stub_help` the section the test spells out.
+    help: HelpSection,
     calls: Arc<Calls>,
 }
 
@@ -165,11 +168,7 @@ impl StudioTool for StubTool {
         self.calls.default_settings.lock().unwrap().clone()
     }
     fn help(&self) -> HelpSection {
-        HelpSection {
-            title: "Stub",
-            topics: Vec::new(),
-            messages: Vec::new(),
-        }
+        self.help.clone()
     }
     fn cli_command(&self) -> clap::Command {
         clap::Command::new("stub")
@@ -205,11 +204,30 @@ impl StudioTool for StubTool {
 }
 
 /// A stub tool with its call counts shared with the test; `blocker` reports a
-/// `version_change_blocker` while `Some`.
+/// `version_change_blocker` while `Some`. Its help chapter is empty, titled `label`.
 pub(super) fn stub(
     id: &'static str,
     label: &'static str,
     blocker: Option<&'static str>,
+) -> (Box<dyn StudioTool>, Arc<Calls>) {
+    stub_help(
+        id,
+        label,
+        blocker,
+        HelpSection {
+            title: label,
+            topics: Vec::new(),
+            messages: Vec::new(),
+        },
+    )
+}
+
+/// A stub tool whose help chapter is `section` (the help window's tests).
+pub(super) fn stub_help(
+    id: &'static str,
+    label: &'static str,
+    blocker: Option<&'static str>,
+    help: HelpSection,
 ) -> (Box<dyn StudioTool>, Arc<Calls>) {
     let calls = Arc::new(Calls::default());
     *calls.blocker.lock().unwrap() = blocker;
@@ -220,6 +238,7 @@ pub(super) fn stub(
             id,
             label,
             icon: "i",
+            help,
             calls: Arc::clone(&calls),
         }),
         calls,

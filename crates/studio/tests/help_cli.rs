@@ -21,9 +21,10 @@ fn stderr(output: &Output) -> String {
     String::from_utf8_lossy(&output.stderr).into_owned()
 }
 
-/// The Team compiler's last catalog row (`notes_encoding_invalid`), and the Export
-/// upgrader's, which takes the compiler's spec cells for the shared codes.
+/// The Team compiler's last catalog row (`notes_encoding_invalid`).
 const NOTES_ENCODING_INVALID: &str = "| `notes_encoding_invalid` | Error | root `notes.txt` is not valid UTF-8 after optional BOM handling | note dropped; export otherwise continues (`DropFile`, not pass-through-eligible) |";
+/// The Export upgrader's last catalog row: the same code, the upgrader's own effect.
+const UPGRADER_NOTES_ENCODING_INVALID: &str = "| `notes_encoding_invalid` | Error | root `notes.txt` is not valid UTF-8 after optional BOM handling | the run is not clean, so nothing is written |";
 
 // ST-HELP-04
 #[test]
@@ -80,7 +81,7 @@ fn the_export_writes_one_markdown_file_per_chapter() {
             "save-editor",
             "| `strip_base_copied_face` | Warning | `strip-and-seed`: the player's record copied another player's face, which the seed rows cannot carry, so once stripped he shows the face his row describes; his export describing his face settles it (`player`, `name`, `copied`) | warns and goes on |",
         ),
-        ("export-upgrader", NOTES_ENCODING_INVALID),
+        ("export-upgrader", UPGRADER_NOTES_ENCODING_INVALID),
     ];
     for (id, last_row) in last_rows {
         let printed = studio(&["help", id]);

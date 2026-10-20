@@ -346,31 +346,31 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
         "nested_folders_fixed",
         Severity::Warning,
         r#"content found nested one level down (exactly one usable root)"#,
-        r#"auto-fixed"#,
+        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
     ),
     (
         "nested_root_ambiguous",
         Severity::Error,
         r#"several nested child folders are usable export roots"#,
-        r#"export skipped (`DropExport`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "nested_root_conflict",
         Severity::Error,
         r#"loose root file collides with a flattened nested file at the same virtual path"#,
-        r#"export skipped (`DropExport`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "players_txt_invalid",
         Severity::Error,
         r#"file-level encoding failure or roster-wide ambiguity prevents trustworthy normalization, or a referee roster retains zero valid assignments"#,
-        r#"export skipped (`DropExport`; foundational). An empty normal-team roster remains valid for a kit-only export"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "refs_txt_ignored",
         Severity::Warning,
         r#"referee export has both `players.txt` and the legacy `refs.txt` alias"#,
-        r#"`players.txt` used, alias ignored"#,
+        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
     ),
     (
         "source_read_failed",
@@ -382,7 +382,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
         "export_empty",
         Severity::Error,
         r#"no usable content found at root"#,
-        r#"export skipped"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "team_name_unknown",
@@ -394,235 +394,235 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
         "export_tag_missing",
         Severity::Error,
         r#"a team export's name has neither `Full` nor `Midcup` as its second word (context `name`: the export's name)"#,
-        r#"export skipped; the hint says to rename it `<team> Full …` or `<team> Midcup …`"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "export_layout_old",
         Severity::Error,
         r#"the export is in the old layout, which the compiler does not read: a root folder named `Kit Configs`, `Kit Textures` or `Other`, names the Studio format never has (its kits live in `Kits/`); context `folder`: the first such folder. Reported alone: the export's other structure findings are not computed, since every one of them would describe the old layout again"#,
-        r#"export skipped; the hint says to run the export through the Export upgrader once"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "players_txt_missing",
         Severity::Error,
         r#"referee export has no required root `players.txt` (nor a legacy `refs.txt` alias)"#,
-        r#"export skipped (`DropExport`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "players_txt_line_invalid",
         Severity::Error,
         r#"one nonblank `players.txt` line cannot be parsed into decimal slot + folder name"#,
-        r#"that `RosterEntry` skipped (`DropSlot`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "players_txt_slot_invalid",
         Severity::Error,
         r#"a `players.txt` line's decimal slot is outside 01–23 (teams) / 01–35 (refs)"#,
-        r#"that `RosterEntry` assignment skipped (`DropSlot`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "players_txt_slot_duplicate",
         Severity::Error,
         r#"authoritative `players.txt` assigns the same slot more than once, making roster identity ambiguous"#,
-        r#"export skipped (`DropExport`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "players_txt_target_missing",
         Severity::Error,
         r#"`players.txt` entry names a nonexistent folder"#,
-        r#"`RosterEntry` scoped assignment skipped (`DropSlot`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "player_unlisted",
         Severity::Warning,
         r#"authoritative `players.txt` is present but does not list this player folder, regardless of any number in its name"#,
-        r#"folder ignored"#,
+        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
     ),
     (
         "player_folder_number_invalid",
         Severity::Error,
         r#"without `players.txt`, a team player folder's number is not in 01–23"#,
-        r#"folder discarded (`DropFolder`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "player_number_duplicate",
         Severity::Error,
         r#"without `players.txt`, two team folder names claim the same player slot"#,
-        r#"both conflicting folders discarded (`DropFolder` on each folder)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "file_type_disallowed",
         Severity::Error,
-        r#"a file in a player or shared folder's tree, in a kit folder or in `Collars/` that its position's allowlist row does not admit (`spec/aesthetics_export/object_model.md` "File-type allowlist": a disallowed extension, or a marker, `settings.toml` or per-player singleton below a subfolder; E if `strict_file_type_check`, else I)"#,
-        r#"folder discarded / kept"#,
+        r#"a file in a player or shared folder's tree, in a kit folder or in `Collars/` that its position's allowlist row does not admit (`spec/aesthetics_export/object_model.md` "File-type allowlist": a disallowed extension, or a marker, `settings.toml` or per-player singleton below a subfolder)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "common_file_disallowed",
         Severity::Error,
         r#"as `file_type_disallowed`, Common scope"#,
-        r#"files discarded / kept"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "player_layout_proto",
         Severity::Error,
         r#"a referee export's player folder has a direct `face/`, `boots/`, `gloves/` or `common/` subfolder: the AET referee layout, Red's prototype of the player folder, whose subfolders type their files by the subfolder's name where the Studio rule types a subfolder's files by their names (`spec/aesthetics_export/player_folders.md` "Subfolders"); in a team export those names are plain subfolders (context `folder`: the first such subfolder)"#,
-        r#"folder discarded (`DropFolder`); the hint says to run the export through the Export upgrader once"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "shared_link_duplicate",
         Severity::Error,
         r#"player folder has more than one shared link for any category (face, boots, or gloves), counted over its whole tree, two links naming one shared folder counting once"#,
-        r#"folder discarded (`DropFolder`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "link_target_missing",
         Severity::Error,
         r#"link file references a nonexistent shared folder"#,
-        r#"folder discarded"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "common_link_missing",
         Severity::Error,
         r#"a `.common` link (model, material file or texture) names a file missing from the Common folder (a `kitN` stem or directory in it standing for its set, `spec/model_format.md` "Kit-dependent assets") (context: the link file, whose name shows its kind, and the Common path looked for); on PES 18-21 a texture link is satisfied by an installed CPK holding the texture at the team's Common path (`pipeline.md` "Resolved decisions", "A texture a model names must exist")"#,
-        r#"folder discarded"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "link_target_dropped",
         Severity::Error,
         r#"a shared-folder or `.common` link names a target the structure pass or the deep pass dropped, by its effective disposition (context: the link, the target and its finding)"#,
-        r#"folder discarded (`DropFolder`); not reported when `pass_through` keeps the target; never itself pass-through-eligible"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "shared_folder_orphaned",
         Severity::Warning,
         r#"shared folder referenced by no player"#,
-        r#"folder skipped"#,
+        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
     ),
     (
         "fpc_conflict",
         Severity::Error,
         r#"both `fpc_on` and `fpc_off` present in a player folder"#,
-        r#"folder discarded"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "ingame_face_explicit_face_model",
         Severity::Error,
         r#"`ingame_face` combined with explicit face models (`face_high`/`hair_high`/`oral`, in any supported source format) or a shared face link, which require the suppressed face folder"#,
-        r#"player folder discarded (`DropFolder`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "texture_stem_conflict",
         Severity::Error,
         r#"two image files with the same stem in one lookup namespace, whatever their extensions: one folder of a model folder's tree, the root or one subfolder (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name; `hair.dds` beside `jessie/hair.dds` is no conflict, a model's texture name resolving nearest first, `spec/aesthetics_export/player_folders.md` "Subfolders"), `Common/` (`hair.dds` beside `hair.png`; each directory of `Common/` a namespace of its own), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`05.dds` beside `05 - Bob.png`, two files of one slot)"#,
-        r#"folder discarded (the model folder, or the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/` and `Common/`, both files (a player linking a dropped Common file follows `link_target_dropped`)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "fmdl_name_invalid",
         Severity::Error,
         r#"Fox: FMDL anywhere in a boots/gloves shared folder not resolving to that category's allowed names"#,
-        r#"folder discarded"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "model_name_invalid",
         Severity::Error,
         r#"pre-Fox: a model anywhere in a shared boots or gloves folder without its category's suffix, the pre-Fox twin of `fmdl_name_invalid`"#,
-        r#"folder discarded"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "edithair_unsupported",
         Severity::Error,
         r#"pre-Fox: `face_edithair.xml` / `hair.xml` present (anywhere in a player or shared folder; reported by the structure pass, so `check` reports it)"#,
-        r#"folder discarded"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "kit_folder_invalid",
         Severity::Error,
         r#"subfolder name doesn't parse as `<slot>[ - <label>]` with the slot in `p1`–`p9`, `g1`, `all`"#,
-        r#"kit discarded"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "kit_slot_duplicate",
         Severity::Error,
         r#"two subfolders resolve to the same slot (`p1/` and `p1 - Lakers/`)"#,
-        r#"both discarded, never a pick"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "kit_texture_name_invalid",
         Severity::Error,
         r#"texture doesn't carry the `kit` prefix (`kit.dds`, `kit_mask.dds`, …)"#,
-        r#"file discarded"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "kit_layout_conflict",
         Severity::Error,
         r#"both `pre-fox` and `fox` markers in one kit folder"#,
-        r#"kit discarded"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "kit_icon_invalid",
         Severity::Warning,
         r#"a kit's `icon_<N>` marker is numbered above 23, or the kit holds two or more (each is reported)"#,
-        r#"default icon (3) used"#,
+        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
     ),
     (
         "kit_all_file_ignored",
         Severity::Warning,
         r#"`all/` holds something other than kit textures (`config.toml`, `colors.txt`, an `icon_<N>` marker, anything else)"#,
-        r#"file ignored"#,
+        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
     ),
     (
         "kit_all_unused",
         Severity::Warning,
         r#"`all/` present but no kit folder to inherit from it"#,
-        r#"none"#,
+        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
     ),
     (
         "kit_textures_inherited",
         Severity::Info,
         r#"a kit lacks stems that `all/` provides; lists them (`p3: back, leg, name from all/`)"#,
-        r#"textures inherited"#,
+        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
     ),
     (
         "portrait_name_invalid",
         Severity::Error,
         r#"a `Portraits/` file that is not a texture named `NN` with NN in 01–23 (alone or followed by ` - ` and any text, as a player folder is numbered)"#,
-        r#"file discarded"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "logo_file_invalid",
         Severity::Error,
         r#"a root `logo*` file has an unknown tag in its stem, a disallowed format, or fails to decode in the deep pass"#,
-        r#"no logo emitted for the team (both files dropped as one unit, the game needs all three sizes)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "logo_role_duplicate",
         Severity::Error,
         r#"two files claim the same role (two `logo*`, or two `logo_small*`)"#,
-        r#"no logo emitted for the team"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "logo_small_without_main",
         Severity::Error,
         r#"`logo_small*` present with no main `logo*`"#,
-        r#"no logo emitted (the small image is not a source for the large sizes)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
     (
         "root_file_unexpected",
         Severity::Warning,
         r#"unknown file or folder at the export root (a folder other than the content folders, a stale `wrapper/` beside a usable root included), or a file directly inside `Players`, `Kits`, `Faces`, `Boots` or `Gloves`, which hold only folders (`Players/players.txt`)"#,
-        r#"file or folder ignored"#,
+        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
     ),
     (
         "notes_found",
         Severity::Info,
         r#"non-empty valid root `notes.txt` present"#,
-        r#"collected into teamnotes.txt by `compile`"#,
+        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
     ),
     (
         "notes_encoding_invalid",
         Severity::Error,
         r#"root `notes.txt` is not valid UTF-8 after optional BOM handling"#,
-        r#"note dropped; export otherwise continues (`DropFile`, not pass-through-eligible)"#,
+        r#"the run is not clean, so nothing is written"#,
     ),
 ];
 
@@ -886,8 +886,9 @@ mod tests {
         let row = CATALOG.iter().find(|row| row.0 == "no_old_export").unwrap();
         assert_eq!(row.2, "step 1: the input holds nothing an old export holds");
         assert_eq!(row.3, "nothing is written");
-        // A structure-pass row takes the Team compiler's spec cells for the code, unless this
-        // tool's own table describes it (`team_name_unknown`, `source_read_failed`).
+        // A structure-pass row takes the spec's when cell and the upgrader's own
+        // effect, unless this tool's own table describes the row
+        // (`team_name_unknown`, `source_read_failed`).
         let row = CATALOG
             .iter()
             .find(|row| row.0 == "nested_folders_fixed")
@@ -896,11 +897,25 @@ mod tests {
             row.2,
             "content found nested one level down (exactly one usable root)"
         );
-        assert_eq!(row.3, "auto-fixed");
+        assert_eq!(
+            row.3,
+            "reported on the upgraded export; it is still written unless the finding drops part of it"
+        );
         let row = CATALOG
             .iter()
             .find(|row| row.0 == "team_name_unknown")
             .unwrap();
         assert_eq!(row.3, "nothing is written");
+        // A structure-pass row takes the upgrader's own effect by severity and no
+        // run-dependent alternative in its when.
+        let row = CATALOG
+            .iter()
+            .find(|row| row.0 == "file_type_disallowed")
+            .unwrap();
+        assert_eq!(
+            row.2,
+            "a file in a player or shared folder's tree, in a kit folder or in `Collars/` that its position's allowlist row does not admit (`spec/aesthetics_export/object_model.md` \"File-type allowlist\": a disallowed extension, or a marker, `settings.toml` or per-player singleton below a subfolder)"
+        );
+        assert_eq!(row.3, "the run is not clean, so nothing is written");
     }
 }

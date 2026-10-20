@@ -7,7 +7,7 @@ mod export;
 
 use crate::tool::StudioTool;
 
-pub use export::{chapter_markdown, run_help, topic_markdown};
+pub use export::run_help;
 
 /// One tool's chapter of the help window: a title and its topics, in reading order.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -60,7 +60,7 @@ pub struct CatalogRow {
 /// The chapter list the help window and `4cc-studio help` share (core plan, "Help window"):
 /// the core chapters first, then each registered tool's `help()` under its id, in registry
 /// order.
-pub fn chapters(tools: &[Box<dyn StudioTool>]) -> Vec<(&'static str, HelpSection)> {
+pub(crate) fn chapters(tools: &[Box<dyn StudioTool>]) -> Vec<(&'static str, HelpSection)> {
     let mut chapters = vec![
         (
             "setting-up",

@@ -1,13 +1,14 @@
 //! The app shell: `StudioApp`, the window with a sidebar listing the registered tools, the
-//! status bar under everything, the window title, the settings menu, the first-run
-//! data-location dialog while no data location exists, the active tool's view, every tool
-//! ticked each frame and the tools' shell requests applied; the window's close asks the
-//! tools in sidebar order until one holds it. Plus the launch modes' argument parsing
-//! (`launch`). The help window and the common widgets join this module later in the GUI
-//! phase (core plan, "Shell layout", "Crate structure").
+//! status bar under everything, the window title, the settings menu, the help window, the
+//! first-run data-location dialog while no data location exists, the active tool's view,
+//! every tool ticked each frame and the tools' shell requests applied; the window's close
+//! asks the tools in sidebar order until one holds it. Plus the launch modes' argument
+//! parsing (`launch`). The common widgets join this module later in the GUI phase (core
+//! plan, "Shell layout", "Crate structure").
 
 mod about;
 mod first_run;
+mod help_window;
 mod launch;
 mod settings_menu;
 mod sidebar;
@@ -25,6 +26,7 @@ use log::warn;
 
 pub use launch::{Launch, LaunchMode, parse_launch, run_cli};
 
+use crate::help::{self, HelpTarget};
 use crate::settings::Theme;
 use crate::status::ActionEffect;
 #[cfg(not(target_arch = "wasm32"))]
@@ -32,6 +34,7 @@ use crate::status::ShellCondition;
 use crate::tool::{PlannedTool, ShellRequest, StudioTool, ToolContext};
 
 use self::first_run::FirstRun;
+use self::help_window::HelpWindow;
 use self::settings_menu::SettingsMenu;
 use self::sidebar::{Sidebar, SidebarClick};
 use self::status_bar::StatusBar;
@@ -51,6 +54,9 @@ pub struct StudioApp {
     sidebar: Sidebar,
     status_bar: StatusBar,
     settings_menu: SettingsMenu,
+    /// The help window, built over the registered tools' chapters; drawn only while
+    /// the first-run dialog is not up.
+    help_window: HelpWindow,
     title: WindowTitle,
     /// The common `theme` setting last applied to the context; `None` until the first
     /// frame, which applies it.
@@ -79,6 +85,7 @@ impl StudioApp {
             .last_tool
             .and_then(|last| tools.iter().position(|tool| tool.id() == last))
             .unwrap_or(0);
+        let help_window = HelpWindow::new(help::chapters(&tools));
         StudioApp {
             tools,
             planned,
@@ -88,6 +95,7 @@ impl StudioApp {
             sidebar: Sidebar::default(),
             status_bar: StatusBar::default(),
             settings_menu: SettingsMenu::default(),
+            help_window,
             title: WindowTitle::default(),
             applied_theme: None,
             first_run: FirstRun::new(config_dir),
@@ -183,13 +191,27 @@ impl StudioApp {
         texts
     }
 
+    /// Opens the help window at `target` (gui.md "Help window" "Window"): a shell modal
+    /// (the settings menu, the About popup) closes first so it cannot cover the
+    /// non-modal window.
+    fn open_help(&mut self, target: &HelpTarget) {
+        self.settings_menu.close();
+        self.sidebar.about_open = false;
+        let active = self
+            .tools
+            .get(self.active)
+            .map(|tool| tool.id())
+            .unwrap_or("");
+        self.help_window.open(target, active);
+    }
+
     /// Applies a clicked notice action (the notice is already dismissed). `SwitchTool` goes
     /// through the shell's own switch; `FixPesPath` rewrites `pes_folder_path` from the
     /// running exe's folder, the year of the version the notice was raised for in its last
     /// segment becoming `20**` again (a segment without the year is kept), then saves as any
-    /// change; `OpenSettings` opens the settings menu on the active tool's section.
-    /// `OpenFolder` and `OpenHelp` have no target yet (the compile's "Open output" and the
-    /// help window are later GUI-phase steps): they only dismiss.
+    /// change; `OpenSettings` opens the settings menu on the active tool's section;
+    /// `OpenHelp` opens the help window at the target. `OpenFolder` has no target yet (the
+    /// compile's "Open output" is a later GUI-phase step): it only dismisses.
     fn apply_notice_effect(&mut self, effect: ActionEffect) {
         match effect {
             ActionEffect::SwitchTool(id) => self.switch_to(&id),
@@ -204,7 +226,8 @@ impl StudioApp {
                 self.ctx.request(ShellRequest::SettingsChanged);
             }
             ActionEffect::OpenSettings => self.settings_menu.open(self.active, &self.ctx),
-            effect @ (ActionEffect::OpenFolder(_) | ActionEffect::OpenHelp(_)) => {
+            ActionEffect::OpenHelp(target) => self.open_help(&target),
+            effect @ ActionEffect::OpenFolder(_) => {
                 debug!("notice action {effect:?} has no target yet");
             }
         }
@@ -275,6 +298,7 @@ impl eframe::App for StudioApp {
             Some(SidebarClick::OpenSettings) => {
                 self.settings_menu.open(self.active, &self.ctx);
             }
+            Some(SidebarClick::OpenHelp(target)) => self.open_help(&target),
             None => {}
         }
         egui::CentralPanel::default().show(ui, |ui| {
@@ -286,12 +310,27 @@ impl eframe::App for StudioApp {
                 tool.view(ui, &self.ctx);
             }
         });
-        // The dialog is drawn instead of any other window (the draft's `render`).
+        // The dialog is drawn instead of any other window (the draft's `render`), and
+        // while it is up F1 opens nothing either.
         if self.first_run.up(&self.ctx) {
             self.first_run.show(ui.ctx(), &mut self.ctx);
         } else {
+            // F1 opens the help on the active tool's chapter, as the sidebar's `?` does.
+            if ui.input(|input| input.key_pressed(egui::Key::F1)) {
+                let target = HelpTarget {
+                    tool: self
+                        .tools
+                        .get(self.active)
+                        .map(|tool| tool.id().to_owned())
+                        .unwrap_or_default(),
+                    topic: None,
+                    anchor: None,
+                };
+                self.open_help(&target);
+            }
             self.settings_menu
                 .show(ui.ctx(), &mut self.tools, &self.ctx, &mut self.sidebar);
+            self.help_window.show(ui.ctx());
         }
     }
 }

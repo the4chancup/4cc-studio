@@ -11,7 +11,7 @@ use crate::tool::{CliError, StudioTool};
 
 /// The chapter as one Markdown document: `# <title>`, then each topic as `## <title>` and its
 /// body, then the Messages table when the section holds catalog rows.
-pub fn chapter_markdown(section: &HelpSection) -> String {
+pub(crate) fn chapter_markdown(section: &HelpSection) -> String {
     let mut markdown = format!("# {}\n\n", section.title);
     for topic in &section.topics {
         markdown.push_str(&format!("## {}\n\n{}\n\n", topic.title, topic.body.trim()));
@@ -25,7 +25,7 @@ pub fn chapter_markdown(section: &HelpSection) -> String {
 /// One topic of a chapter as Markdown, by slug: `## <title>` and its body, or the Messages
 /// table for the `messages` slug. `None` names no topic of the chapter (nor `messages` on a
 /// chapter with no catalog rows).
-pub fn topic_markdown(section: &HelpSection, slug: &str) -> Option<String> {
+pub(crate) fn topic_markdown(section: &HelpSection, slug: &str) -> Option<String> {
     if slug == "messages" {
         if section.messages.is_empty() {
             return None;

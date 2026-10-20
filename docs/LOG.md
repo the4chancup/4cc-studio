@@ -2249,3 +2249,5 @@ worklog passed 7,000 lines.
   in sidebar order with each prompt answering through `request_close`; the shell tests' folders now remove themselves. ST-RUN-01, 05, 06 proven.
 - **2026-10-20** — 8.6d1: every catalog row carries its member-facing When and Effect, copied from the spec's tables (331 rows over
   three tools); `4cc-studio help [chapter] [topic]` prints the help's Markdown and `--export` writes a file per chapter. ST-HELP-04 proven.
+- **2026-10-21** — 8.6d2: the help window (`?`, F1, the About popup's Help link, a notice's action): the chapter tree, each topic's
+  Markdown through `egui_commonmark` 0.25, the generated Messages table, search with the hit highlighted, in-doc links. ST-HELP-01, 02, ST-SIDE-06 proven.

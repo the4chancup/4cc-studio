@@ -2,14 +2,14 @@
 //! the logo doubling as the About click target, the PES version selector with its live exe
 //! check, its blocker and the once-per-life auto-switch to a running PES, the tool list
 //! with the planned tools grayed, the collapse button switching the sidebar between
-//! labels and an icon rail, and the settings gear pinned at the bottom. The `?` beside
-//! the gear joins with the help window it opens.
+//! labels and an icon rail, and the help `?` with the settings gear pinned at the bottom.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
 
 use pes_version::PesVersion;
 
+use crate::help::HelpTarget;
 use crate::pes_process::RunningPes;
 use crate::settings::CommonSettings;
 use crate::status::{ActionEffect, Notice, NoticeAction};
@@ -34,6 +34,9 @@ pub(super) enum SidebarClick {
     SwitchTool(usize),
     /// Open the settings menu.
     OpenSettings,
+    /// Open the help window at the target (the `?` targets the active tool's chapter,
+    /// the About popup's Help link `setting-up`).
+    OpenHelp(HelpTarget),
 }
 
 /// The sidebar's state across frames: the collapse, the exe check's last verdict, the
@@ -119,12 +122,19 @@ impl Sidebar {
             self.contents(ui, tools, active, planned, ctx)
         };
         if self.about_open {
-            about::show(
+            let help = about::show(
                 ui.ctx(),
                 ctx.paths(),
                 ctx.common().pes_version,
                 &mut self.about_open,
             );
+            if help {
+                return Some(SidebarClick::OpenHelp(HelpTarget {
+                    tool: "setting-up".to_owned(),
+                    topic: None,
+                    anchor: None,
+                }));
+            }
         }
         clicked
     }
@@ -184,8 +194,8 @@ impl Sidebar {
             self.collapsed = !self.collapsed;
         }
 
-        // The bottom row, pinned to the sidebar's foot: the settings gear, with the help
-        // `?` to join beside it (8.6d). The draft centers the rail's tail.
+        // The bottom row, pinned to the sidebar's foot (the draft centers the rail's
+        // tail): the help `?`, then the settings gear.
         let align = if self.collapsed {
             egui::Align::Center
         } else {
@@ -193,6 +203,19 @@ impl Sidebar {
         };
         ui.with_layout(egui::Layout::bottom_up(align), |ui| {
             ui.horizontal(|ui| {
+                let help = ui.add(egui::Button::new(egui_phosphor::regular::QUESTION).frame(false));
+                help.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Help")
+                });
+                if help.on_hover_text("Help").clicked()
+                    && let Some(tool) = tools.get(active)
+                {
+                    clicked = Some(SidebarClick::OpenHelp(HelpTarget {
+                        tool: tool.id().to_owned(),
+                        topic: None,
+                        anchor: None,
+                    }));
+                }
                 let gear = ui.add(egui::Button::new(egui_phosphor::regular::GEAR).frame(false));
                 gear.widget_info(|| {
                     egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Settings")
