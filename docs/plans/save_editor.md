@@ -602,8 +602,10 @@ SE-GUI-26  GIVEN two PES 21 saves and one PES 19 save under the test's Documents
                 path THEN the file replaced, if any, is kept once as its .bak
 SE-GUI-27  GIVEN the save open
            WHEN Output rosters to TSV runs
-           THEN the file written holds one tab-separated row per player of every team, his
-                team, number and name among its columns; WHEN Fix database is chosen THEN a
+           THEN the file written holds, for every team, its name on a line of its own, then one
+                tab-separated row per player (number, name, registered position, rating,
+                captain mark, height, playing style, skills), as 4ccEditor's output does; WHEN
+                Fix database is chosen THEN a
                 confirmation dialog precedes it and cancelling changes nothing
 SE-GUI-28  GIVEN the selector at PES 19
            WHEN a PES 21 save is opened
