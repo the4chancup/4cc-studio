@@ -13,6 +13,7 @@ clap.workspace = true
 crossbeam-channel.workspace = true
 eframe.workspace = true
 egui.workspace = true
+egui-phosphor.workspace = true
 log.workspace = true
 pes_version.workspace = true
 serde.workspace = true

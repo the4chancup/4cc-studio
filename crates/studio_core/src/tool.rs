@@ -22,6 +22,9 @@ pub trait StudioTool {
     /// Sidebar label (`Team compiler`).
     fn label(&self) -> &'static str;
 
+    /// The tool's `egui-phosphor` glyph, shown in the collapsed sidebar rail.
+    fn icon(&self) -> &'static str;
+
     /// The tool's main view, rendered in the panel right of the tool selector.
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext);
 
@@ -67,6 +70,20 @@ pub trait StudioTool {
     fn activity(&self) -> Option<ToolActivity> {
         None
     }
+}
+
+/// A suite tool a build does not register (core plan, "Tool plugin interface"). `studio` keeps
+/// the full registry as data and hands it to the shell, which lists every entry whose `id` no
+/// registered tool has, grayed after the registered ones, as the roadmap.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct PlannedTool {
+    /// The tool's id once it is built (`stadium-compiler`).
+    pub id: &'static str,
+    /// Sidebar label (`Stadium compiler`).
+    pub label: &'static str,
+    /// The rail's `egui-phosphor` glyph; the planned entry repeats what the tool's `icon()`
+    /// will return.
+    pub icon: &'static str,
 }
 
 /// A CLI command refused or failed before it reached a verdict.
@@ -176,6 +193,13 @@ impl ToolContext {
         self.request(ShellRequest::SettingsChanged);
     }
 
+    /// The settings behind `common` and `tool_settings`, for the shell's own writes (the
+    /// sidebar's `pes_version` and `last_tool`, the settings menu). A write is followed by a
+    /// `ShellRequest::SettingsChanged`, which has the shell save the file at the next frame.
+    pub(crate) fn settings(&self) -> &Arc<Mutex<Settings>> {
+        &self.settings
+    }
+
     /// Sends a pipeline event. A receiver that has gone away (the CLI printer finished, the GUI
     /// closed) is not an error for the sender, so the failure is logged here, once, and dropped.
     pub fn emit(&self, envelope: PipelineEventEnvelope) {
@@ -195,7 +219,9 @@ impl ToolContext {
         self.request(ShellRequest::Notify(notice));
     }
 
-    fn request(&self, request: ShellRequest) {
+    /// Queues a shell request for the end of the frame. Crate-private: the tools' ways in are
+    /// the methods above; the shell's own widgets (the sidebar) send theirs through this.
+    pub(crate) fn request(&self, request: ShellRequest) {
         if self.requests.send(request).is_err() {
             debug!("shell request dropped: no receiver");
         }

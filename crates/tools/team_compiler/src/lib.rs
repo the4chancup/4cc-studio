@@ -62,6 +62,10 @@ impl StudioTool for Tool {
         "Team compiler"
     }
 
+    fn icon(&self) -> &'static str {
+        studio_core::egui_phosphor::regular::USERS_THREE
+    }
+
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
         if view::show(ui, ctx, &self.run_log) {
             self.run_log.start_compile(ctx);

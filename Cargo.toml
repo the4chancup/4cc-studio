@@ -25,6 +25,9 @@ directories = "6.0.0"
 # the `egui` of their release, so the exact `egui` pin holds them without a pin of their own.
 eframe = "=0.36.2"
 egui = "=0.36.2"
+# Icon font glyphs for the shell's sidebar, toolbar and status icons (`plans/core/README.md`
+# "External Dependencies"); exact like `egui`, which it must match (this release is egui 0.36's).
+egui-phosphor = "=0.14.0"
 env_logger = { version = "0.11.11", default-features = false }
 flate2 = "1.1.10"
 libc = "0.2.189"

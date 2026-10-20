@@ -12,12 +12,90 @@ use anyhow::Context;
 use clap::ArgMatches;
 use crossbeam_channel::unbounded;
 use log::LevelFilter;
+use studio_core::egui_phosphor::regular;
 use studio_core::{
-    AppPaths, LaunchMode, SETTINGS_FILE_NAME, Settings, StudioApp, StudioTool, ToolContext,
-    parse_launch, resolve_data_dir, run_cli, run_gui, user_config_dir,
+    AppPaths, LaunchMode, PlannedTool, SETTINGS_FILE_NAME, Settings, StudioApp, StudioTool,
+    ToolContext, parse_launch, resolve_data_dir, run_cli, run_gui, user_config_dir,
 };
 
 use crate::console::spawn_printer;
+
+/// The suite's whole registry as data, in sidebar order (core plan, "Tool plugin
+/// interface"): the shell lists after the registered tools every entry whose id no
+/// registered tool has, grayed as the roadmap. A registered tool's entry repeats what its
+/// `icon()` returns.
+const PLANNED: [PlannedTool; 14] = [
+    PlannedTool {
+        id: "team-compiler",
+        label: "Team compiler",
+        icon: regular::USERS_THREE,
+    },
+    PlannedTool {
+        id: "save-editor",
+        label: "Save editor",
+        icon: regular::NOTE_PENCIL,
+    },
+    PlannedTool {
+        id: "stadium-compiler",
+        label: "Stadium compiler",
+        icon: regular::BUILDINGS,
+    },
+    PlannedTool {
+        id: "export-upgrader",
+        label: "Export upgrader",
+        icon: regular::ARROW_FAT_UP,
+    },
+    PlannedTool {
+        id: "music-player",
+        label: "Music player",
+        icon: regular::MUSIC_NOTE,
+    },
+    PlannedTool {
+        id: "music-export-editor",
+        label: "Music export editor",
+        icon: regular::MUSIC_NOTES,
+    },
+    PlannedTool {
+        id: "match-tracker",
+        label: "Match tracker",
+        icon: regular::CROSSHAIR,
+    },
+    PlannedTool {
+        id: "kit-config-editor",
+        label: "Kit config editor",
+        icon: regular::T_SHIRT,
+    },
+    PlannedTool {
+        id: "refs-arranger",
+        label: "Refs arranger",
+        icon: regular::FLAG,
+    },
+    PlannedTool {
+        id: "balls-compiler",
+        label: "Balls compiler",
+        icon: regular::SOCCER_BALL,
+    },
+    PlannedTool {
+        id: "player-aesthetics-editor",
+        label: "Player aesthetics editor",
+        icon: regular::SMILEY,
+    },
+    PlannedTool {
+        id: "team-creator",
+        label: "Team creator",
+        icon: regular::PLUS_CIRCLE,
+    },
+    PlannedTool {
+        id: "ruleset-editor",
+        label: "Ruleset editor",
+        icon: regular::SCROLL,
+    },
+    PlannedTool {
+        id: "db-generator",
+        label: "DB generator",
+        icon: regular::DATABASE,
+    },
+];
 
 /// The registered tools, in sidebar order.
 fn tools() -> Vec<Box<dyn StudioTool>> {
@@ -150,7 +228,7 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
         events_tx,
         requests_tx,
     );
-    match run_gui(StudioApp::new(tools, ctx, requests_rx)) {
+    match run_gui(StudioApp::new(tools, &PLANNED, ctx, requests_rx)) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("error: {error:#}");
@@ -182,6 +260,20 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // The registry repeats the tools' own labels and icons: a registered tool's rail glyph is
+    // its `icon()`, never a second spelling that could drift.
+    #[test]
+    fn every_registered_tool_has_a_matching_planned_entry() {
+        for tool in tools() {
+            let entry = PLANNED
+                .iter()
+                .find(|entry| entry.id == tool.id())
+                .unwrap_or_else(|| panic!("{} is missing from the registry", tool.id()));
+            assert_eq!(entry.label, tool.label());
+            assert_eq!(entry.icon, tool.icon());
+        }
+    }
 
     #[test]
     fn each_verbosity_maps_to_its_level() {

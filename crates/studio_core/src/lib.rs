@@ -11,8 +11,13 @@ pub mod pes_process;
 pub mod settings;
 pub mod shell;
 pub mod status;
+mod theme;
 pub mod tool;
 
+// The icon font is the sidebar's rail alphabet: `StudioTool::icon` and `PlannedTool::icon`
+// name its glyphs, so the tool crates and `studio`'s registry reach the constants through this
+// re-export instead of each depending on the font crate.
+pub use egui_phosphor;
 pub use events::{
     Disposition, EventLines, ExportId, ExportRevision, FolderStatus, Message, MessageCode,
     PipelineEvent, PipelineEventEnvelope, RunId, Scope, Severity,
@@ -26,4 +31,4 @@ pub use settings::{SETTINGS_FILE_NAME, resolve_data_dir, user_config_dir};
 pub use shell::run_gui;
 pub use shell::{Launch, LaunchMode, StudioApp, parse_launch, run_cli};
 pub use status::{ActionEffect, Notice, NoticeAction, ShellCondition, ToolActivity};
-pub use tool::{AppPaths, CliError, ShellRequest, StudioTool, ToolContext};
+pub use tool::{AppPaths, CliError, PlannedTool, ShellRequest, StudioTool, ToolContext};

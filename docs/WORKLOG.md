@@ -611,18 +611,29 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   through the shell's headless harness (`shell/mod.rs`'s tests). The drafts wait for the
   maintainer's remarks, so the steps that draw least of what a remark would change come first
   - [ ] 8.6 the shell (`plans/core/gui.md`, `spec/core/gui.md`; draft `shell.html`), sliced
-    - [ ] 8.6a the sidebar: the planned-tool registry and its greyed entries, which 0.0.1
+    - [x] 8.6a the sidebar: the planned-tool registry and its greyed entries, which 0.0.1
       also uses for the Team compiler and the Export upgrader (DECISIONS 2026-10-20), the
       logo's About block, the PES selector with its exe check and blocker, the icon rail
-      (`egui-phosphor` registered in `theme.rs`), `last_tool` (ST-SIDE-01 to 04, 06, 07,
-      ST-RUN-02); the `?` and gear buttons are wired with their windows (8.6d, 8.6b)
-    - [ ] 8.6b the settings menu, common rows and one section per tool, saved best effort
-      (ST-SET-01 to 03), and the first-run data-location dialog (ST-RUN-01, ST-CLI-01)
-    - [ ] 8.6c the status bar, the window title and the tools' wake callback (ST-BAR-01 to 03,
-      ST-TTL-01 to 03), the running-PES auto-switch and its "Fix PES path" notice (ST-SIDE-05,
-      manual), and the close hook for unsaved work and runs in flight (ST-RUN-05,
+      (`egui-phosphor` registered in `theme.rs`), `last_tool` (ST-SIDE-01 to 04, 07,
+      ST-RUN-02); the `?` and gear buttons are wired with their windows (8.6d, 8.6c). Done
+      2026-10-20 (SWE-2, one rework): `shell/sidebar.rs`, `shell/about.rs`, `theme.rs`, a
+      `build.rs` for the target triple, `PlannedTool` and `StudioTool::icon()` in the three
+      tools, `egui-phosphor =0.14.0` (egui 0.36's release); the selector's colour one function,
+      only files counted as the exe (as the compiler's preflight), the tests' PES folder their
+      own. `mutants-diff a720c13`: 41 caught, the tools' `icon()` pinned (`studio`'s registry
+      test catches them). Review S1 (SWE-2): 3 accepted of 12, rulings `.tmp/8_6/duck_rulings.md`;
+      Astra runs over 8.6a and 8.6b together
+    - [ ] 8.6b the status bar, the window title and the tools' wake callback (ST-BAR-01 to 03,
+      ST-TTL-01 to 03), the `data_dir_read_only` condition a failed save raises (ST-SET-03, a
+      selector change being a setting change; ST-CLI-01), the running-PES auto-switch and its
+      "Fix PES path" notice (ST-SIDE-05, manual). First, the shell's test harness and the
+      sidebar's tests out of `shell/mod.rs` (979 lines after 8.6a, 800 of them tests)
+    - [ ] 8.6c the settings menu, common rows (the theme's `Visuals` preset applied live
+      among them) and one section per tool (ST-SET-01, 02), the first-run data-location
+      dialog (ST-RUN-01), and the close hook for unsaved work and runs in flight (ST-RUN-05,
       06), which the Save editor's unsaved prompt uses
-    - [ ] 8.6d the help window, its generated Messages topics and search, `4cc-studio help`
+    - [ ] 8.6d the help window (and the About popup's help link, completing ST-SIDE-06), its
+      generated Messages topics and search, `4cc-studio help`
       (ST-HELP-01 to 04), and the log panel widget (ST-LOG-01 to 04)
   - [ ] 8.7 `color_tools`' colour-picker popup (`plans/libs/color_tools.md` Phase 8), the
     Save editor's team colours; the kit menu icons wait for the Team compiler's grid

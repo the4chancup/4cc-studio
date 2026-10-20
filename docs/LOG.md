@@ -2239,3 +2239,5 @@ worklog passed 7,000 lines.
   (a two-save `diff`, scratch-copy transplant and patch, DBC7's check of the PES 17 save, two broken rules files).
 - **2026-10-20** — 8.5e, 8.5 done: the Save editor draft's interchange dialogs (one import dialog for Team TOML, `.4ccs`, `.4cct`,
   Texport; real files and the CLI's warnings and refusals) and `settings.toml` generation; the draft walks SE-GUI-01 to 28 (31 checks).
+- **2026-10-20** — Phase 8 opens, itemized in DBC's order. 8.6a: the shell's sidebar (planned tools grayed, icon rail, About with
+  Copy, the PES selector's exe check and blocker, `last_tool`); ST-SIDE-01 to 04, 07, ST-RUN-02 proven. Disk cleanup: 132.7 GB.

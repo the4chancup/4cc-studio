@@ -202,4 +202,8 @@ exclude_re = [
     # slot has no copies, so wherever the two forms differ ({g1} alone, or no g1) an empty kit
     # already blocks every hoist or there are fewer than two kits.
     "export_upgrader/src/kits\\.rs:600:42: replace != with == in kit_folders",
+    # Every tool's `icon()` (worklog 8.6a): `studio`'s `every_registered_tool_has_a_matching_planned_entry`
+    # pins each registered tool's glyph to its `PLANNED` entry, and a run of the tool's own crate
+    # does not execute `studio`'s tests (as for `fixtures.rs` above); a mutated glyph fails there.
+    "tools/[a-z_]+/src/lib\\.rs:\\d+:\\d+: replace <impl StudioTool for Tool>::icon -> &'static str with",
 ]

@@ -62,6 +62,10 @@ impl StudioTool for Tool {
         "Export upgrader"
     }
 
+    fn icon(&self) -> &'static str {
+        studio_core::egui_phosphor::regular::ARROW_FAT_UP
+    }
+
     fn view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
         ui.label(
             "The Export upgrader's window is not built yet; its commands run from a terminal.",
