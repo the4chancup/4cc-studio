@@ -2225,3 +2225,8 @@ worklog passed 7,000 lines.
   `common/refs/`); the 15 affected library exports upgrade and compile without the Common-path errors. 6.16 and 6.14 closed.
 - **2026-10-20** — 6.12d: the library parity's scripts committed under `scripts/library_parity/` (one `config.py`, a class table, a
   README); a rerun from them over 6.16's 78 inputs reproduces 616's rows and attribution. 6.12 closed.
+- **2026-10-20** — 20.0d: DBC7's rules as three schema fields (medal systems, height systems told apart by their quotas, a shared
+  extra-height pool) and `rulesets/dbc7.rhai`; a tier is recognized before its choices. Parity with the organizer's checker on two
+  PES 2017 saves: every difference a listed class; the warning band is open in QUESTIONS. The draft gains the forms and a DBC7 template.
+- **2026-10-20** — 8.4: the usability pass before the tools' drafts; 22 proposals in `PROPOSALS.md` (findings that say what was
+  lost and the fix, Open folder, an old export's Upgrade button, first-run PES discovery, the upgrader naming its coverage tag, ...).

@@ -55,6 +55,7 @@ fn normalized(rules) {
     rules.team_settings = list(rules, "team_settings");
     rules.suggestions = list(rules, "suggestions");
     rules.card_groups = table(rules, "card_groups");
+    rules.medal_systems = list(rules, "medal_systems");
     let heights = table(rules, "heights");
     heights.brackets = list(heights, "brackets");
     heights.systems = list(heights, "systems");
@@ -213,16 +214,25 @@ fn rated_at(positions, rating) {
     false
 }
 
-// The first height system whose `any_player` holds for some player (`()` without systems);
-// `this` is the ruleset. The condition may name heights and positions only, so it is
-// evaluated with no tier and no bracket.
+// The first height system that holds: its `any_player` holds for some player (empty:
+// always) and, for a `by_quotas` one, its quota and pool checks find nothing with every
+// player read under it — reading the team under each candidate is what lets an allowance
+// or a tier a special gives under one system count toward that system's quotas. `()` when
+// no system holds; `this` is the ruleset.
 fn height_system(team) {
     for system in this.heights.systems {
         let cond = table(system, "any_player");
-        if cond.keys().len() == 0 { return system; }
-        for player in team.players {
-            if team.condition_holds((), player, (), (), cond) { return system; }
+        if cond.keys().len() > 0 {
+            let any = false;
+            for player in team.players {
+                if team.condition_holds((), player, (), (), cond) { any = true; break; }
+            }
+            if !any { continue; }
         }
+        if !flag(system, "by_quotas") { return system; }
+        let read = [];
+        for player in team.players { read.push(this.read_player(team, system, player)); }
+        if this.height_findings(system, read).len() == 0 { return system; }
     }
     ()
 }
@@ -251,7 +261,7 @@ fn profile(team, system, player, tier_id) {
     let p = #{
         allowance: 0, bracket: (), bonus: #{}, targets: #{}, cards: 0, free: #{},
         free_cards: [], require_cards: [], a_positions: 0, max_a_positions: (), weak_foot: (),
-        form: 0, injury_resistance: 0, forbids: [], choices: [], taken: [],
+        form: 0, injury_resistance: 0, forbids: [], choices: [], taken: [], recognized_at: 0,
     };
     for special in this.specials {
         let then = table(special, "then");
@@ -266,6 +276,10 @@ fn profile(team, system, player, tier_id) {
             p = apply_effects(p, tier_id, special.label, severity_of(special), table(special, "then"), i);
         }
     }
+    // Recognition reads the tier before its choices: an option only raises a target, so a
+    // player who rates the tier without it is that tier (a silver taking part of an
+    // optional bonus is no regular).
+    p.recognized_at = this.expected_rating(this.tier(tier_id), p);
     this.resolve_choices(tier_id, p, player)
 }
 
@@ -485,7 +499,7 @@ fn read_player(team, system, player) {
             continue;
         }
         last = #{ player: player, tier: tier, profile: p };
-        if this.expected_rating(tier, p) <= rating { return last; }
+        if p.recognized_at <= rating { return last; }
     }
     last
 }
@@ -681,7 +695,14 @@ fn player_checks(team, system, player, tier, p) {
             kind: "ComStyleCap", slot: slot, count: cards.coms, max: universal.max_com_styles,
         });
     }
-    if p.bracket == () && this.heights.brackets.len() > 0 {
+    // The height: under `extra_height`, over `max` or below every quota
+    // bracket (less the allowance); elsewhere a height no bracket takes.
+    if system != () && "extra_height" in system && system.extra_height != () {
+        if player.height > system.extra_height.max
+            || player.height - p.allowance < this.quota_floor(system) {
+            found.push(#{ kind: "Height", slot: slot, height: player.height });
+        }
+    } else if p.bracket == () && this.heights.brackets.len() > 0 {
         found.push(#{ kind: "Height", slot: slot, height: player.height });
     }
     for forbid in p.forbids {
@@ -764,18 +785,53 @@ fn unused(slot, allowance, used, allowed) {
 // ---- The team checks
 
 // The tier counts (`counts_as` folded in, the tier without a count being the rest of the
-// squad), the system's bracket quotas, the captain, the goalkeepers and the team settings for
-// the save's version; `this` is the ruleset, `read` is `read_player`'s result per player.
+// squad, the medal tiers' counts matched against the `medal_systems`), the system's bracket
+// quotas, the captain, the goalkeepers and the team settings for the save's version;
+// `this` is the ruleset, `read` is `read_player`'s result per player.
 fn team_checks(team, system, read) {
     let found = [];
     let fixed = 0;
     for tier in this.tiers { fixed += num(tier, "count"); }
+    // The tiers the medal systems count, skipped in the `TierCount` loop. The team's system
+    // is the first whose counts equal the team's counts of every named tier (a tier a
+    // system does not name: 0); none matched is one `MedalSystem`, and the rest of the
+    // squad is what the team's own named-tier players leave, so a wrong medal count is not
+    // reported again as the regulars' `TierCount`.
+    let medal_tiers = [];
+    for m in this.medal_systems {
+        for id in table(m, "counts").keys() {
+            if !(id in medal_tiers) { medal_tiers.push(id); }
+        }
+    }
+    let medals = 0;
+    if medal_tiers.len() > 0 {
+        let team_counts = #{};
+        for r in read {
+            if r.tier != () && r.tier.id in medal_tiers {
+                team_counts[r.tier.id] = num(team_counts, r.tier.id) + 1;
+            }
+        }
+        let matched = false;
+        let labels = [];
+        for m in this.medal_systems {
+            labels.push(m.label);
+            let counts = table(m, "counts");
+            let fits = true;
+            for id in medal_tiers {
+                if num(counts, id) != num(team_counts, id) { fits = false; break; }
+            }
+            if fits { matched = true; }
+        }
+        if !matched { found.push(#{ kind: "MedalSystem", systems: labels }); }
+        for id in medal_tiers { medals += num(team_counts, id); }
+    }
     for tier in this.tiers {
         if "counts_as" in tier && tier.counts_as != () { continue; }
+        if tier.id in medal_tiers { continue; }
         let expected = if "count" in tier && tier.count != () {
             tier.count
         } else {
-            this.squad_size - fixed
+            this.squad_size - fixed - medals
         };
         let count = 0;
         for r in read {
@@ -788,20 +844,7 @@ fn team_checks(team, system, read) {
         }
     }
     if system != () {
-        let quotas = table(system, "quotas");
-        for bracket in this.heights.brackets {
-            if !(bracket.id in quotas) { continue; }
-            let count = 0;
-            for r in read {
-                if r.tier != () && r.profile.bracket == bracket.id { count += 1; }
-            }
-            if count != quotas[bracket.id] {
-                found.push(#{
-                    kind: "BracketQuota", system: system.id, bracket: bracket.id, count: count,
-                    quota: quotas[bracket.id],
-                });
-            }
-        }
+        found += this.height_findings(system, read);
     }
     let universal = this.universal;
     if flag(universal, "captain_required") && team.captain == () {
@@ -845,6 +888,96 @@ fn team_checks(team, system, read) {
                         formation: formation.formation, shape: formation.shape,
                     });
                 }
+            }
+        }
+    }
+    found
+}
+
+// The lowest height the system's quota brackets take (a pool system's quotas name
+// `exactly` brackets of one height); `this` is the ruleset.
+fn quota_floor(system) {
+    let quotas = table(system, "quotas");
+    let floor = ();
+    for bracket in this.heights.brackets {
+        if bracket.id in quotas && (floor == () || bracket.exactly[0] < floor) {
+            floor = bracket.exactly[0];
+        }
+    }
+    floor
+}
+
+// The system's bracket quotas against the players read under it: `BracketQuota` per
+// bracket whose count differs from its quota. Under `extra_height` the brackets are
+// filled tallest first: every player read with a tier, at most `max` tall and reaching
+// the lowest quota bracket (his height less allowance), takes the tallest bracket with
+// room his height less allowance reaches and draws the centimetres above it from the
+// pool — `ExtraHeight` when the draw exceeds `total`. `this` is the ruleset, `read` is
+// `read_player`'s result per player.
+fn height_findings(system, read) {
+    let found = [];
+    let quotas = table(system, "quotas");
+    if "extra_height" in system && system.extra_height != () {
+        let pool = system.extra_height;
+        // The quota brackets as slots to fill, ascending height like the
+        // brackets.
+        let slots = [];
+        for bracket in this.heights.brackets {
+            if !(bracket.id in quotas) { continue; }
+            slots.push(#{
+                bracket: bracket.id, height: bracket.exactly[0], quota: quotas[bracket.id],
+                count: 0,
+            });
+        }
+        let floor = this.quota_floor(system);
+        let heights = [];
+        for r in read {
+            if r.tier == () { continue; }
+            if r.player.height > pool.max { continue; }
+            let height = r.player.height - r.profile.allowance;
+            if height < floor { continue; }
+            heights.push(height);
+        }
+        heights.sort();
+        let drawn = 0;
+        for i in 0..heights.len() {
+            let height = heights[heights.len() - 1 - i];
+            let slot = -1;
+            for j in 0..slots.len() {
+                let at = slots.len() - 1 - j;
+                if slots[at].height <= height && slots[at].count < slots[at].quota {
+                    slot = at;
+                    break;
+                }
+            }
+            if slot >= 0 {
+                slots[slot].count += 1;
+                drawn += height - slots[slot].height;
+            }
+        }
+        for slot in slots {
+            if slot.count != slot.quota {
+                found.push(#{
+                    kind: "BracketQuota", system: system.id, bracket: slot.bracket,
+                    count: slot.count, quota: slot.quota,
+                });
+            }
+        }
+        if drawn > pool.total {
+            found.push(#{ kind: "ExtraHeight", used: drawn, total: pool.total });
+        }
+    } else {
+        for bracket in this.heights.brackets {
+            if !(bracket.id in quotas) { continue; }
+            let count = 0;
+            for r in read {
+                if r.tier != () && r.profile.bracket == bracket.id { count += 1; }
+            }
+            if count != quotas[bracket.id] {
+                found.push(#{
+                    kind: "BracketQuota", system: system.id, bracket: bracket.id, count: count,
+                    quota: quotas[bracket.id],
+                });
             }
         }
     }

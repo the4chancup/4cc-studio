@@ -198,6 +198,33 @@ fn a_required_key_absent_is_schema() {
             edit(AUTUMN26, ", above: 81", ""),
             "above",
         ),
+        (
+            "a medal system's counts",
+            edit(
+                AUTUMN26,
+                "    card_groups:",
+                "    medal_systems: [#{ label: \"GGG\" }],\n    card_groups:",
+            ),
+            "counts",
+        ),
+        (
+            "extra_height.total",
+            edit(
+                AUTUMN26,
+                "#{ id: \"red\", label: \"Red\",",
+                "#{ id: \"red\", label: \"Red\", extra_height: #{ max: 210 },",
+            ),
+            "total",
+        ),
+        (
+            "extra_height.max",
+            edit(
+                AUTUMN26,
+                "#{ id: \"red\", label: \"Red\",",
+                "#{ id: \"red\", label: \"Red\", extra_height: #{ total: 50 },",
+            ),
+            "max",
+        ),
     ] {
         let err = Ruleset::from_data_block(&text).expect_err(name);
         assert!(

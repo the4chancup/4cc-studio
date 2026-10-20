@@ -234,8 +234,8 @@ fn medals_and_goalkeepers_cannot_be_giants() {
                 Some(9),
                 special("Medals cannot be giants", "Medals cannot be 190cm")
             ),
-            purple_quota("tall", 4, 5),
-            purple_quota("giant", 7, 6),
+            quota("purple", "tall", 4, 5),
+            quota("purple", "giant", 7, 6),
         ]
     );
     assert_eq!(
@@ -245,8 +245,8 @@ fn medals_and_goalkeepers_cannot_be_giants() {
                 Some(0),
                 special("Goalkeepers cannot be giants", "GKs cannot be 190cm")
             ),
-            purple_quota("tall", 4, 5),
-            purple_quota("giant", 7, 6),
+            quota("purple", "tall", 4, 5),
+            quota("purple", "giant", 7, 6),
         ]
     );
 }
@@ -269,7 +269,7 @@ fn goalkeepers_at_189_count_as_tall_and_186_is_forbidden() {
                     "GKs in this bracket must be 189cm"
                 )
             ),
-            purple_quota("tall", 4, 5),
+            quota("purple", "tall", 4, 5),
         ]
     );
 }

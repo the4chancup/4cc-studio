@@ -593,7 +593,7 @@ fn goalkeepers_at_189_count_as_tall_and_181_to_188_is_forbidden() {
                     "GKs in this bracket must be 189cm"
                 )
             ),
-            green_quota("tall", 5, 6),
+            quota("green", "tall", 5, 6),
         ]
     );
 }
@@ -612,8 +612,8 @@ fn goalkeepers_below_giant_is_a_warning() {
                     "GK heights cannot be 194cm or more"
                 )
             ),
-            green_quota("tall", 5, 6),
-            green_quota("giant", 7, 6),
+            quota("green", "tall", 5, 6),
+            quota("green", "giant", 7, 6),
         ]
     );
 }
@@ -628,8 +628,8 @@ fn gold_below_giant_is_a_warning() {
                 2,
                 special("Gold below giant", "Gold heights cannot be 194cm or more")
             ),
-            green_quota("tall", 5, 6),
-            green_quota("giant", 7, 6),
+            quota("green", "tall", 5, 6),
+            quota("green", "giant", 7, 6),
         ]
     );
 }
@@ -734,7 +734,7 @@ fn red_cbs_count_four_cm_shorter() {
         problems(&rules, &green),
         vec![
             error(Some(8), ViolationKind::Height { height: 189 }),
-            green_quota("giant", 5, 6),
+            quota("green", "giant", 5, 6),
         ]
     );
     // A starting CB: fielded only at CB, then moved to RB in preset 1.

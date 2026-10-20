@@ -22,6 +22,7 @@ use crate::violation::ViolationKind;
 use crate::{PlayerView, Rules, TeamView, Violation};
 
 mod autumn25;
+mod dbc7;
 mod interpreter;
 mod official;
 mod spring26;
@@ -170,25 +171,12 @@ fn warning(slot: u8, kind: ViolationKind) -> Violation {
     }
 }
 
-/// A `BracketQuota` of the Green system.
-fn green_quota(bracket: &str, count: u8, quota: u8) -> Violation {
+/// A `BracketQuota` of height system `system`.
+fn quota(system: &str, bracket: &str, count: u8, quota: u8) -> Violation {
     error(
         None,
         ViolationKind::BracketQuota {
-            system: "green".to_string(),
-            bracket: bracket.to_string(),
-            count,
-            quota,
-        },
-    )
-}
-
-/// A `BracketQuota` of the Purple system.
-fn purple_quota(bracket: &str, count: u8, quota: u8) -> Violation {
-    error(
-        None,
-        ViolationKind::BracketQuota {
-            system: "purple".to_string(),
+            system: system.to_string(),
             bracket: bracket.to_string(),
             count,
             quota,

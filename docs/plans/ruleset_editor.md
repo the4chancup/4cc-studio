@@ -45,12 +45,17 @@ mark in the rail.
   cards, A positions, name colour (none or a swatch). Per row, an expander holds the per-stat
   targets (all ability stats, empty meaning "the rate"), the free cards per group (one number
   per group, COM styles first: as columns they would widen the table past a laptop screen)
-  and the tier's conditions (the condition editor below). The draft is
+  and the tier's conditions (the condition editor below). Below the table, the medal systems
+  (`spec/aatf_rules.md` "The ruleset schema", `medal_systems`): one row per system, its label
+  and a count per tier, a checkbox above each tier's column putting the tier in the systems; a
+  tier in them shows "by medal system" as its count. The draft is
   `docs/prototypes/ruleset_editor.html`.
 - **Heights**: a "use height brackets" switch. On: the brackets in ascending order, each "up to
   N cm" or "exactly N, M cm"; the height systems in order, each "when any player is …" (the
-  condition editor, limited to height and position) with a quota per bracket, the last one
-  "otherwise". Off: heights are left to tier conditions and specials, as in VGL26.
+  condition editor, limited to height and position) and a "when the team meets its quotas"
+  checkbox (`by_quotas`), with a quota per bracket and an optional extra-height pool (the
+  team's total centimetres and the tallest a player may be), the last one "otherwise". Off:
+  heights are left to tier conditions and specials, as in VGL26.
 - **Cards**: the card groups, each a name and a checkbox grid of the 41 skills and 7 COM styles
   (labels as the Save editor shows them); all COM styles are also the built-in `com` group.
 - **Universal rules**: checkboxes and number fields for `universal`, and below them the team

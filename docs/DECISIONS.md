@@ -9468,3 +9468,51 @@ three-character segment as the team's, so the narrower rule bought nothing and l
 export to fail; one rule is also less code than comparing against the team's name. Options:
 the team's name alone (the answer as given, ASP refused), or ASP's reference a refusal.
 Plan: `plans/export_upgrader.md` step 7 (the Common reference sentence); worklog 6.16d.
+
+## 2026-10-20 — aatf — DBC7's rules become three schema fields, none a custom check
+Decision: the ruleset schema gains `medal_systems` (alternative tier counts), `HeightSystem::
+by_quotas` (a system that holds only when the team meets its quotas) and `HeightSystem::
+extra_height` (a team-wide pool of centimetres, filled tallest first), with the violation kinds
+`MedalSystem` and `ExtraHeight`; DBC7's data block uses all three and no custom check.
+Why: the maintainer asked for UI-class support of every DBC rule but niche, complex ones. The
+medal systems tie tier counts together, which per-tier counts cannot say; the systems are told
+apart by their counts, which no one-player condition can say (a giga team may hold a 195 cm
+player); and the pool as a custom check would run after the built-in height checks had already
+failed every giga team standing between bracket heights, while the Manlet bonus needs the system
+the pool decides. Tallest first draws no more of the pool than any order that fills the quotas,
+so it agrees with the organizer's roster-order count on every verdict.
+Plan: `plans/aatf_rules.md` "The ruleset schema", "DBC7", "Coverage of the DBC7 rules";
+`plans/ruleset_editor.md` "The editor" (Tiers, Heights); worklog 20.0d.
+
+## 2026-10-20 — aatf — DBC7 follows its wiki page where the organizer's editor is stricter
+Decision: `dbc7.rhai` checks what the page's "Tactical export Rules" state and nothing else: any
+stat above its tier's target is a violation, where DBC7-Editor only warns up to 7 above (5 for a
+silver or a Manlet regular); the editor's errors for what the page leaves free (registered
+position not A, age, weight, captain, a registered goalkeeper, a 189 cm goalkeeper's second A)
+are not in the data block.
+Why: the maintainer ruled the page the source of truth and the fork a reference, and the page
+says "No tactical export rules for anything else … go crazy". Whether the organizer enforces the
+editor's extra errors is cup practice, asked in `QUESTIONS.md`; an answer turns the matching
+`universal` flags and one special on, without a schema change.
+Plan: `plans/aatf_rules.md` "DBC7" (the differences list).
+
+## 2026-10-20 — aatf — a tier is recognized by its expected rating before its choices
+Decision: the interpreter compares a player's rating with each tier's expected rating as the
+specials leave it before any `choice` is resolved, and DBC7's Manlet bonus is a one-option
+choice.
+Why: the page allows the bonus ("silvers can also be buffed"), so a Manlet silver may sit
+anywhere from 88 to 93. Read after the choices, a silver at 92 uses the option (a stat over 88),
+which lifts his expected rating to 93, past his rating, and he falls to regular: the DBC7 parity
+run found three such players on real teams the organizer's editor reads as silvers. An option
+only raises targets, so the tier reached without it is the player's; VGL25's optional manlet
+bonus had the same gap, unseen for want of a cup save. Every existing fixture passes unchanged.
+Plan: `plans/aatf_rules.md` "The ruleset schema" ("Recognition before choices").
+
+## 2026-10-20 — save_editor — Output rosters to TSV keeps 4ccEditor's layout
+Decision: the TSV holds, per team, the team's name on its own line, then one tab-separated row
+per player (number, name, registered position, rating, captain mark, height, playing style,
+skills), then a blank line: 4ccEditor's `roster_data_output`. SE-GUI-27 is reworded to match.
+Why: the action is kept for parity ("Feature inventory": "Kept"), and members paste the file
+into sheets built around that layout; the scenario's "his team among its columns" described a
+different file, written from memory of the plan rather than from the original.
+Plan: `plans/save_editor.md` "Acceptance" SE-GUI-27.

@@ -284,8 +284,8 @@ fn goalkeepers_and_golds_below_giant_are_warnings() {
                     "GK heights cannot be 194cm or more"
                 )
             ),
-            green_quota("tall", 5, 6),
-            green_quota("giant", 6, 5),
+            quota("green", "tall", 5, 6),
+            quota("green", "giant", 6, 5),
         ]
     );
     assert_eq!(
@@ -295,8 +295,8 @@ fn goalkeepers_and_golds_below_giant_are_warnings() {
                 2,
                 special("Gold below giant", "Gold heights cannot be 194cm or more")
             ),
-            green_quota("tall", 5, 6),
-            green_quota("giant", 6, 5),
+            quota("green", "tall", 5, 6),
+            quota("green", "giant", 6, 5),
         ]
     );
 }

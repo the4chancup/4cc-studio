@@ -785,3 +785,225 @@ fn a_com_style_in_a_group_is_refused() {
         "card_groups.shots",
     );
 }
+
+/// The smallest ruleset with a medal system: `gold` counted by the
+/// systems, `regular` the rest of the squad.
+const MEDAL: &str = "const RULESET = #{
+    schema: 1, name: \"x\", squad_size: 23,
+    universal: #{ max_skill_cards: 10 },
+    tiers: [
+        #{ id: \"gold\", label: \"Gold\", rate: 99 },
+        #{ id: \"regular\", label: \"Regular\", rate: 77 },
+    ],
+    medal_systems: [#{ label: \"GGG\", counts: #{ gold: 3 } }],
+};";
+
+/// A tier a medal system counts is not the rest of the squad: `gold`
+/// counted by GGG and `regular` the rest loads, where counting `gold`
+/// too would be `MoreThanOneRestTier`.
+#[test]
+fn a_medal_tier_is_not_the_rest_of_the_squad() {
+    Ruleset::from_data_block(MEDAL).expect("the medal file loads");
+}
+
+#[test]
+fn a_medal_systems_empty_label_is_refused() {
+    case(
+        "empty medal label",
+        &edit(MEDAL, "label: \"GGG\"", "label: \"\""),
+        LoadRule::Empty,
+        "medal_systems[0].label",
+    );
+}
+
+#[test]
+fn a_medal_system_naming_an_unknown_tier_is_refused() {
+    case(
+        "unknown medal tier",
+        &edit(
+            MEDAL,
+            "counts: #{ gold: 3 }",
+            "counts: #{ gold: 3, gollum: 1 }",
+        ),
+        LoadRule::UnknownId {
+            kind: IdKind::Tier,
+            id: "gollum".to_string(),
+        },
+        "medal_systems[0].counts.gollum",
+    );
+}
+
+#[test]
+fn a_medal_tier_with_a_count_is_refused() {
+    // `gold` gets its own `count`: the systems decide it, not the tier.
+    case(
+        "medal tier with count",
+        &edit(
+            MEDAL,
+            "id: \"gold\", label: \"Gold\", rate",
+            "id: \"gold\", label: \"Gold\", count: 3, rate",
+        ),
+        LoadRule::MedalTierCounted,
+        "tiers[0]",
+    );
+}
+
+#[test]
+fn a_medal_tier_with_counts_as_is_refused() {
+    case(
+        "medal tier with counts_as",
+        &edit(
+            MEDAL,
+            "id: \"gold\", label: \"Gold\", rate",
+            "id: \"gold\", label: \"Gold\", counts_as: \"regular\", rate",
+        ),
+        LoadRule::MedalTierCountsAs,
+        "tiers[0].counts_as",
+    );
+}
+
+#[test]
+fn a_counts_as_naming_a_medal_tier_is_refused() {
+    // A third tier `counts_as` the medal-counted `gold`.
+    case(
+        "counts_as a medal tier",
+        &edit(
+            MEDAL,
+            "#{ id: \"regular\", label: \"Regular\", rate: 77 },",
+            "#{ id: \"keeper\", label: \"Keeper\", counts_as: \"gold\", rate: 77 },\n        #{ id: \"regular\", label: \"Regular\", rate: 77 },",
+        ),
+        LoadRule::CountsAsMedalTier,
+        "tiers[1].counts_as",
+    );
+}
+
+#[test]
+fn a_medal_systems_counts_over_the_squad_are_refused() {
+    case(
+        "medal counts exceed squad",
+        &edit(MEDAL, "counts: #{ gold: 3 }", "counts: #{ gold: 30 }"),
+        LoadRule::CountsExceedSquad {
+            total: 30,
+            squad_size: 23,
+        },
+        "medal_systems[0]",
+    );
+}
+
+#[test]
+fn a_medal_systems_counts_short_of_the_squad_are_refused() {
+    // `regular` counted at 20: no tier is the rest, so every system's
+    // counts must add to `squad_size`.
+    let counted = edit(
+        MEDAL,
+        "id: \"regular\", label: \"Regular\", rate",
+        "id: \"regular\", label: \"Regular\", count: 20, rate",
+    );
+    case(
+        "medal counts short of squad",
+        &edit(&counted, "counts: #{ gold: 3 }", "counts: #{ gold: 2 }"),
+        LoadRule::CountsShortOfSquad {
+            total: 22,
+            squad_size: 23,
+        },
+        "medal_systems[0]",
+    );
+    // 20 + 3 = 23 loads.
+    Ruleset::from_data_block(&counted).expect("counts equal to squad_size load");
+}
+
+#[test]
+fn by_quotas_counts_as_a_systems_condition() {
+    // Green loses `any_player` but is `by_quotas`: the quota check
+    // itself decides whether the system holds.
+    Ruleset::from_data_block(&edit(
+        AUTUMN26,
+        "any_player: #{ height_min: 194 },\n",
+        "by_quotas: true,\n",
+    ))
+    .expect("a non-last system with by_quotas needs no condition");
+    // With no quotas there is nothing to fail: Green would hold for every
+    // team and Red never apply.
+    case(
+        "by_quotas without quotas",
+        &edit(
+            AUTUMN26,
+            "any_player: #{ height_min: 194 },\n               quotas: #{ giga: 0, giant: 6, tall: 6, mid: 5, manlet: 6 } }",
+            "by_quotas: true }",
+        ),
+        LoadRule::SystemWithoutCondition,
+        "heights.systems[0]",
+    );
+}
+
+#[test]
+fn a_last_system_with_by_quotas_is_refused() {
+    case(
+        "last system by_quotas",
+        &edit(
+            AUTUMN26,
+            "#{ id: \"red\", label: \"Red\",",
+            "#{ id: \"red\", label: \"Red\", by_quotas: true,",
+        ),
+        LoadRule::LastSystemHasCondition,
+        "heights.systems[1].by_quotas",
+    );
+}
+
+/// The smallest ruleset with an `extra_height` system: two `exactly`
+/// brackets, quotas adding to `squad_size`.
+const POOL: &str = "const RULESET = #{
+    schema: 1, name: \"x\", squad_size: 23,
+    universal: #{ max_skill_cards: 10 },
+    tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }],
+    heights: #{
+        brackets: [
+            #{ id: \"low\", label: \"Low\", exactly: [175] },
+            #{ id: \"high\", label: \"High\", exactly: [185] },
+        ],
+        systems: [#{ id: \"a\", label: \"A\", quotas: #{ high: 7, low: 16 },
+                      extra_height: #{ total: 50, max: 210 } }],
+    },
+};";
+
+#[test]
+fn an_extra_height_quotas_a_bracket_of_no_one_height_is_refused() {
+    for (name, heights) in [
+        ("up_to", "up_to: 185"),
+        ("two heights", "exactly: [185, 190]"),
+    ] {
+        case(
+            name,
+            &edit(
+                POOL,
+                "label: \"High\", exactly: [185]",
+                &format!("label: \"High\", {heights}"),
+            ),
+            LoadRule::ExtraHeightQuotaNotExact,
+            "heights.systems[0].quotas.high",
+        );
+    }
+}
+
+#[test]
+fn an_extra_height_quotas_off_the_squad_are_refused() {
+    for (name, quotas, total) in [
+        ("short", "high: 7, low: 15", 22),
+        ("over", "high: 8, low: 16", 24),
+    ] {
+        case(
+            name,
+            &edit(
+                POOL,
+                "quotas: #{ high: 7, low: 16 }",
+                &format!("quotas: #{{ {quotas} }}"),
+            ),
+            LoadRule::ExtraHeightQuotasNotSquad {
+                total,
+                squad_size: 23,
+            },
+            "heights.systems[0].quotas",
+        );
+    }
+    Ruleset::from_data_block(POOL).expect("quotas at squad_size load");
+}

@@ -11,10 +11,11 @@ use pes_version::PesVersion;
 use serde::Deserialize;
 
 pub(crate) mod check;
+mod errors;
 #[cfg(test)]
 mod tests;
 
-pub use check::{IdKind, LoadError, LoadRule, RuleError};
+pub use errors::{IdKind, LoadError, LoadRule, RuleError};
 
 // ---------------------------------------------------------------------------
 // The types (`spec/aatf_rules.md` "The ruleset schema", the type block)
@@ -52,6 +53,10 @@ pub struct Ruleset {
     /// seven COM playing styles.
     #[serde(default)]
     pub card_groups: BTreeMap<GroupId, Vec<Card>>,
+    /// Alternative counts for some tiers, of which the team's must equal one (DBC7: GGG,
+    /// GGSS, GSSSS, SSSSSS). Empty: each tier's own `count`.
+    #[serde(default)]
+    pub medal_systems: Vec<MedalSystem>,
     /// The height brackets and the systems that quota them.
     #[serde(default)]
     pub heights: Heights,
@@ -145,6 +150,16 @@ pub struct WeakFoot {
     pub accuracy: u8,
 }
 
+/// One medal count choice a team's counts of the named tiers must equal.
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MedalSystem {
+    /// Shown in the editor and with the violation a team with another count gets.
+    pub label: String,
+    /// A tier another system names and this one does not has 0 here.
+    pub counts: BTreeMap<TierId, u8>,
+}
+
 /// The height brackets and the systems that quota them.
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -236,6 +251,25 @@ pub struct HeightSystem {
     /// Exact count per bracket; a bracket absent here is unconstrained.
     #[serde(default)]
     pub quotas: BTreeMap<BracketId, u8>,
+    /// The system holds only when the team, read under it, meets its quotas (the pool's
+    /// checks included), as well as `any_player`.
+    #[serde(default)]
+    pub by_quotas: bool,
+    /// Centimetres the whole team may add above the bracket heights (DBC7's giga system:
+    /// 50, no player above 210).
+    #[serde(default)]
+    pub extra_height: Option<ExtraHeight>,
+}
+
+/// Centimetres the whole team may add above the bracket heights (DBC7's giga system: 50,
+/// no player above 210).
+#[derive(Debug, Clone, PartialEq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct ExtraHeight {
+    /// The pool's size in centimetres.
+    pub total: u8,
+    /// No player is taller, before any allowance.
+    pub max: u8,
 }
 
 /// Team-wide rules independent of tiers.

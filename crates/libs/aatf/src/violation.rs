@@ -183,6 +183,18 @@ pub enum ViolationKind {
         /// The quota.
         quota: u8,
     },
+    /// The team's counts of the medal tiers equal no `medal_systems` entry's.
+    MedalSystem {
+        /// Every system's label, in the ruleset's order: the counts the team may have.
+        systems: Vec<String>,
+    },
+    /// The pool of centimetres an `extra_height` system gives the team, overdrawn.
+    ExtraHeight {
+        /// The centimetres drawn.
+        used: u16,
+        /// The pool's size.
+        total: u16,
+    },
     /// No captain where `captain_required`.
     Captain,
     /// Fewer goalkeepers than `min_goalkeepers`.
@@ -370,6 +382,8 @@ pub(crate) fn violations(list: Dynamic) -> Result<Vec<Violation>, CheckError> {
             | ViolationKind::Height { .. }
             | ViolationKind::TierCount { .. }
             | ViolationKind::BracketQuota { .. }
+            | ViolationKind::MedalSystem { .. }
+            | ViolationKind::ExtraHeight { .. }
             | ViolationKind::Goalkeepers { .. }
             | ViolationKind::TeamSetting { .. }
             | ViolationKind::FormationShape { .. }
@@ -592,6 +606,28 @@ mod tests {
                 },
             ),
             (
+                "#{ kind: \"MedalSystem\", systems: [\"GGG\", \"GGSS\", \"GSSSS\", \"SSSSSS\"] }",
+                None,
+                Severity::Error,
+                ViolationKind::MedalSystem {
+                    systems: vec![
+                        "GGG".to_string(),
+                        "GGSS".to_string(),
+                        "GSSSS".to_string(),
+                        "SSSSSS".to_string(),
+                    ],
+                },
+            ),
+            (
+                "#{ kind: \"ExtraHeight\", used: 51, total: 50 }",
+                None,
+                Severity::Error,
+                ViolationKind::ExtraHeight {
+                    used: 51,
+                    total: 50,
+                },
+            ),
+            (
                 "#{ kind: \"Captain\" }",
                 None,
                 Severity::Error,
@@ -658,7 +694,7 @@ mod tests {
                 },
             ),
         ];
-        assert_eq!(cases.len(), 32);
+        assert_eq!(cases.len(), 34);
         for (text, slot, severity, kind) in cases {
             let got = violations(one(text)).expect(text).remove(0);
             assert_eq!(
@@ -708,6 +744,7 @@ mod tests {
     fn bad_entries_fail_at_their_index() {
         bad_entry("#{ kind: \"Nope\" }", "Nope");
         bad_entry("#{ kind: \"Age\", age: 15, min: 16 }", "max");
+        bad_entry("#{ kind: \"ExtraHeight\", total: 50 }", "used");
         bad_entry(
             "#{ kind: \"Age\", age: 15, min: 16, max: 40, extra: 1 }",
             "extra",

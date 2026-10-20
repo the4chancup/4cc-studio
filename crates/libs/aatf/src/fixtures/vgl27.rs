@@ -293,7 +293,7 @@ fn a_goalkeeper_at_189_counts_as_tall() {
         problems(&rules, &edited(12, |p| p.height = 189)),
         vec![
             error(Some(12), ViolationKind::Height { height: 189 }),
-            purple_quota("mid", 6, 7),
+            quota("purple", "mid", 6, 7),
         ]
     );
 }
@@ -318,7 +318,7 @@ fn a_tall_goalkeeper_must_be_189() {
     );
     assert_eq!(
         problems(&rules, &edited(0, |p| p.height = 180)),
-        vec![purple_quota("mid", 8, 7), purple_quota("tall", 9, 10)]
+        vec![quota("purple", "mid", 8, 7), quota("purple", "tall", 9, 10)]
     );
 }
 
@@ -332,7 +332,7 @@ fn a_height_no_bracket_takes_is_illegal() {
         problems(&rules, &edited(12, |p| p.height = 183)),
         vec![
             error(Some(12), ViolationKind::Height { height: 183 }),
-            purple_quota("mid", 6, 7),
+            quota("purple", "mid", 6, 7),
         ]
     );
 }
@@ -344,7 +344,10 @@ fn a_bracket_over_its_quota() {
     let rules = rules();
     assert_eq!(
         problems(&rules, &edited(8, |p| p.height = 185)),
-        vec![purple_quota("mid", 6, 7), purple_quota("tall", 11, 10)]
+        vec![
+            quota("purple", "mid", 6, 7),
+            quota("purple", "tall", 11, 10)
+        ]
     );
 }
 

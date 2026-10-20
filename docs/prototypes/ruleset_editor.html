@@ -652,6 +652,66 @@ fn custom_checks(team) {
 }`,
 };
 
+// crates/libs/aatf/rulesets/dbc7.rhai
+const DBC7 = {
+  schema: 1, name: "DBC7", squad_size: 23,
+  stats: {
+    rating: ["dribbling", "goalkeeping", "finishing", "low_pass", "lofted_pass", "heading",
+      "swerve", "catching", "clearing", "reflexes", "coverage", "body_control",
+      "physical_contact", "kicking_power", "explosive_power", "ball_control",
+      "ball_winning", "jump", "place_kicking", "stamina", "speed", "aggression"],
+    at_most: ["attacking_prowess", "ball_control", "dribbling", "low_pass", "lofted_pass",
+      "finishing", "place_kicking", "swerve", "heading", "defensive_prowess",
+      "ball_winning", "kicking_power", "speed", "explosive_power", "body_control",
+      "physical_contact", "jump", "goalkeeping", "catching", "clearing",
+      "reflexes", "coverage", "stamina", "tight_possession", "aggression",
+      "form", "injury_resistance", "weak_foot_usage", "weak_foot_accuracy"],
+  },
+  tiers: [
+    tier("gold", "Gold", null, 99, 8, 3, 4, 17, {}, { a_positions: 13 }),
+    tier("silver", "Silver", null, 88, 8, 3, 4, 17, {}, { a_positions: 13 }),
+    tier("regular", "Regular", null, 77, 8, 3, 4, 17, {}, { a_positions: 13 }),
+  ],
+  medal_systems: [
+    { label: "GGG", counts: { gold: 3 } },
+    { label: "GGSS", counts: { gold: 2, silver: 2 } },
+    { label: "GSSSS", counts: { gold: 1, silver: 4 } },
+    { label: "SSSSSS", counts: { silver: 6 } },
+  ],
+  card_groups: {},
+  heights: {
+    brackets: [
+      { id: "manlet", label: "Manlet", exactly: [175] },
+      { id: "mid", label: "Mid", exactly: [180] },
+      { id: "tall", label: "Tall", exactly: [185] },
+      { id: "giant", label: "Giant", exactly: [195] },
+    ],
+    systems: [
+      { id: "height", label: "Height", any_player: null, by_quotas: true,
+        quotas: { giant: 6, tall: 6, mid: 5, manlet: 6 } },
+      { id: "manlet", label: "Manlet", any_player: null, by_quotas: true,
+        quotas: { giant: 0, tall: 10, mid: 7, manlet: 6 } },
+      { id: "universal", label: "Universal", any_player: null, by_quotas: true,
+        quotas: { giant: 0, tall: 23, mid: 0, manlet: 0 } },
+      { id: "giga", label: "GigaHeight", any_player: null,
+        quotas: { giant: 0, tall: 7, mid: 10, manlet: 6 },
+        extra_height: { total: 50, max: 210 } },
+    ],
+  },
+  universal: { registered_position_a: false, fielded_at_a: [], no_b_ratings: false,
+    b_uses_a_allowance: false, gk_not_second_a: false, age: null, weight: null,
+    captain_required: false, min_goalkeepers: 0, max_skill_cards: 10, max_com_styles: null },
+  specials: [
+    special("Goalkeepers at 189 count as 185", { positions: ["GK"], height_min: 189, height_max: 189 },
+      { height_allowance: 4 }),
+    special("Manlet bonus", { systems: ["manlet"], height_max: 175 },
+      { choice: [{ stat_bonus: { all: { regular: 5, silver: 5 } } }] }),
+  ],
+  team_settings: [],
+  suggestions: [],
+  custom_checks: null,
+};
+
 // VGL26's block extended so that every item of the plain-language proposal
 // (aatf_rules.md "Coverage of a plain-language proposal") the schema can
 // carry is used at least once; each added special's label names its item.
@@ -923,7 +983,7 @@ function commit() {
 }
 function structural() { commit(); render(); }
 function changed() { refresh(); }
-function load(ruleset) { R = clone(ruleset); undo = []; redo = []; last = JSON.stringify(R); saved = last; previousLines = []; render(); }
+function load(ruleset) { R = clone(ruleset); R.medal_systems = R.medal_systems || []; undo = []; redo = []; last = JSON.stringify(R); saved = last; previousLines = []; render(); }
 function doUndo() { if (!undo.length) return; redo.push(last); last = undo.pop(); R = JSON.parse(last); render(); }
 function doRedo() { if (!redo.length) return; undo.push(last); last = redo.pop(); R = JSON.parse(last); render(); }
 document.addEventListener("keydown", e => {
@@ -933,13 +993,16 @@ document.addEventListener("keydown", e => {
 });
 
 // ---- The data block, as the editor writes it (aatf_rules.md "The rules file") ----
+// A map key as Rhai reads it: bare when an identifier, else a string literal (an id is any
+// non-empty string).
+const rk = k => /^[A-Za-z_][A-Za-z0-9_]*$/.test(k) ? k : JSON.stringify(k);
 function rv(v) {
   if (v === null || v === undefined) return "()";
   if (typeof v === "string") return JSON.stringify(v);
   if (typeof v !== "object") return String(v);
   if (Array.isArray(v)) return "[" + v.map(rv).join(", ") + "]";
   const keys = Object.keys(v);
-  return keys.length ? "#{ " + keys.map(k => k + ": " + rv(v[k])).join(", ") + " }" : "#{}";
+  return keys.length ? "#{ " + keys.map(k => rk(k) + ": " + rv(v[k])).join(", ") + " }" : "#{}";
 }
 const isEmpty = v => v === null || v === undefined || v === "" || v === false || v === 0 ||
   (Array.isArray(v) && !v.length) || (typeof v === "object" && !Array.isArray(v) && v && !Object.keys(v).length);
@@ -976,10 +1039,13 @@ function rulesetData(r) {
       ["weak_foot"], ["cards"], ["min_cards"], ["free", "req"], ["a_positions"], ["name_color", "opt"]],
       { when: condData })),
     card_groups: r.card_groups,
+    medal_systems: (r.medal_systems || []).map(m => struct(m, [["label", "req"], ["counts", "req"]])),
     heights: { brackets: r.heights.brackets.map(b => struct(b, [["id", "req"], ["label", "req"],
       ["up_to", "opt"], ["exactly", "opt"]])),
       systems: r.heights.systems.map(s => struct(s, [["id", "req"], ["label", "req"],
-        ["any_player", "opt"], ["quotas", "req"]], { any_player: c => isEmpty(condData(c)) ? null : condData(c) })) },
+        ["any_player", "opt"], ["by_quotas"], ["quotas", "req"], ["extra_height", "opt"]],
+        { any_player: c => isEmpty(condData(c)) ? null : condData(c),
+          extra_height: e => e.total == null || e.max == null ? null : e })) },
     universal: struct(r.universal, [["registered_position_a"], ["fielded_at_a"], ["no_b_ratings"],
       ["b_uses_a_allowance"], ["gk_not_second_a"], ["age", "opt"], ["weight", "opt"],
       ["captain_required"], ["min_goalkeepers"], ["max_skill_cards", "req"], ["max_com_styles", "opt"]]),
@@ -1030,8 +1096,13 @@ function dataBlock(r) {
   L.push(`${I}],`, "");
   if (!isEmpty(d.card_groups)) {
     L.push(`${I}card_groups: #{`);
-    for (const [k, v] of Object.entries(d.card_groups)) L.push(...listLines(I + I, k + ": ", v));
+    for (const [k, v] of Object.entries(d.card_groups)) L.push(...listLines(I + I, rk(k) + ": ", v));
     L.push(`${I}},`, "");
+  }
+  if (d.medal_systems.length) {
+    L.push(`${I}medal_systems: [`);
+    d.medal_systems.forEach(m => L.push(...wrapItem(m, I + I, W)));
+    L.push(`${I}],`, "");
   }
   if (d.heights.brackets.length || d.heights.systems.length) {
     L.push(`${I}heights: #{`, `${I}${I}brackets: [`);
@@ -1113,15 +1184,31 @@ function problems(r) {
       if (!target) add("tiers", `${where}: counts as an unknown tier`);
       else if (target.counts_as) add("tiers", `${where}: counts as a tier that itself counts as another`);
     }
-    if (t.name_color && !bytes8(t.name_color)) add("tiers", `${where}: a name colour code is eight bytes`);
+    if (t.name_color != null && !bytes8(t.name_color)) add("tiers", `${where}: a name colour code is eight bytes`);
     Object.keys(t.free).forEach(g => { if (g !== "com" && !groups.includes(g)) add("tiers", `${where}: free cards of an unknown group "${g}"`); });
     checkCond(t.when, "tiers", where + " when", { noTiers: true });
   });
-  const rest = r.tiers.filter(t => t.count == null && t.counts_as == null);
+  const medalTiers = new Set((r.medal_systems || []).flatMap(s => Object.keys(s.counts)));
+  const rest = r.tiers.filter(t => t.count == null && t.counts_as == null && !medalTiers.has(t.id));
   if (rest.length > 1) add("tiers", "only one tier can be the rest of the squad");
   const counted = r.tiers.reduce((n, t) => n + (t.count || 0), 0);
   if (counted > r.squad_size) add("tiers", `the tier counts add up to ${counted}, over the squad's ${r.squad_size}`);
-  if (!rest.length && counted !== r.squad_size) add("tiers", `the tier counts add up to ${counted}, not the squad's ${r.squad_size}, and no tier is the rest`);
+  if (!rest.length && !medalTiers.size && counted < r.squad_size) add("tiers", `the tier counts add up to ${counted}, not the squad's ${r.squad_size}, and no tier is the rest`);
+  (r.medal_systems || []).forEach((s, i) => {
+    if (s.label === "") add("tiers", `medal system ${i + 1}: an empty label`);
+    Object.keys(s.counts).forEach(id => { if (!tierIds.includes(id)) add("tiers", `medal system "${s.label}": counts an unknown tier "${id}"`); });
+    const sc = counted + Object.values(s.counts).reduce((n, c) => n + c, 0);
+    if (sc > r.squad_size) add("tiers", `medal system "${s.label}": its counts and the tier counts add up to ${sc}, over the squad's ${r.squad_size}`);
+    else if (!rest.length && sc !== r.squad_size) add("tiers", `medal system "${s.label}": its counts and the tier counts add up to ${sc}, not the squad's ${r.squad_size}, and no tier is the rest`);
+  });
+  r.tiers.forEach((t, i) => {
+    const where = `"${t.label || "tier " + (i + 1)}"`;
+    if (t.count != null && medalTiers.has(t.id)) add("tiers", `${where}: a tier the medal systems count has no count of its own`);
+    if (t.counts_as) {
+      if (medalTiers.has(t.id)) add("tiers", `${where}: a tier the medal systems count does not count as another`);
+      if (medalTiers.has(t.counts_as)) add("tiers", `${where}: counts as a tier the medal systems count`);
+    }
+  });
   let top = 0;
   r.heights.brackets.forEach(b => {
     const hs = b.up_to != null ? [b.up_to] : (b.exactly || []);
@@ -1133,10 +1220,21 @@ function problems(r) {
   r.heights.systems.forEach((s, i) => {
     const last = i === r.heights.systems.length - 1, has = !isEmpty(condData(s.any_player));
     if (s.id === "" || s.label === "") add("heights", "a system with an empty id or label");
-    if (!last && !has) add("heights", `system "${s.label}": every system but the last needs a "when any player is" condition`);
-    if (last && has) add("heights", `system "${s.label}": the last system applies otherwise and has no condition`);
+    if (!last && !has && !(s.by_quotas && Object.keys(s.quotas).length)) add("heights", `system "${s.label}": every system but the last needs a "when any player is" condition or "when the team meets its quotas" with quotas`);
+    if (last && (has || s.by_quotas)) add("heights", `system "${s.label}": the last system applies otherwise and has no condition`);
     if (condIsWide(s.any_player || {})) add("heights", `system "${s.label}": "when any player is" may name only heights and positions`);
-    Object.keys(s.quotas).forEach(b => { if (!brackets.includes(b)) add("heights", `system "${s.label}": a quota for an unknown bracket`); });
+    const pool = s.extra_height && s.extra_height.total != null && s.extra_height.max != null;
+    Object.keys(s.quotas).forEach(bid => {
+      const b = r.heights.brackets.find(x => x.id === bid);
+      if (!b) add("heights", `system "${s.label}": a quota for an unknown bracket`);
+      else if (pool && !(b.exactly && b.exactly.length === 1))
+        add("heights", `system "${s.label}": a height pool's quotas name only brackets of exactly one height`);
+    });
+    if (s.extra_height && (s.extra_height.total == null || s.extra_height.max == null)) add("heights", `system "${s.label}": the extra height pool needs both its total and the tallest a player may be`);
+    if (pool) {
+      const quotas = Object.values(s.quotas).reduce((n, q) => n + q, 0);
+      if (quotas !== r.squad_size) add("heights", `system "${s.label}": the pool's quotas add up to ${quotas}, not the squad's ${r.squad_size}`);
+    }
   });
   Object.entries(r.card_groups).forEach(([gid, cards], gi) => {
     if (gid === "") add("cards", "a card group with an empty id");
@@ -1238,21 +1336,30 @@ function summary(r) {
   const L = [`# ${r.name}`, "", `Squad of ${r.squad_size}. A player's rating is his best of: ${r.stats.rating.map(s => human(s).toLowerCase()).join(", ")}.`];
   if (r.stats.at_most.length) L.push(`May sit below their target: ${r.stats.at_most.map(s => human(s).toLowerCase()).join(", ")}.`);
   L.push("", "## Tiers");
+  const medalTiers = new Set((r.medal_systems || []).flatMap(s => Object.keys(s.counts)));
   r.tiers.forEach(t => {
-    const count = t.counts_as ? `counts as ${tierLabel(t.counts_as)}` : t.count === null ? "the rest of the squad" : `${t.count} per team`;
+    const count = medalTiers.has(t.id) ? "by medal system" : t.counts_as ? `counts as ${tierLabel(t.counts_as)}` : t.count === null ? "the rest of the squad" : `${t.count} per team`;
     const when = condText(t.when);
     const free = Object.entries(t.free).map(([g, n]) => `${n} free ${g === "com" ? "COM style" + (n > 1 ? "s" : "") : human(g).toLowerCase()}`);
     const stats = Object.entries(t.stats).map(([s, v]) => `${human(s).toLowerCase()} ${v}`);
     L.push(`- **${t.label}**: ${count}${when ? ", " + when : ""}; every stat ${t.rate}${stats.length ? " (" + stats.join(", ") + ")" : ""}; form ${t.form}, injury resistance ${t.injury_resistance}, weak foot ${t.weak_foot.usage}/${t.weak_foot.accuracy}; ${t.cards} paid cards${t.min_cards ? ` (at least ${t.min_cards})` : ""}${free.length ? ", " + free.join(", ") : ""}; ${t.a_positions} A position${t.a_positions === 1 ? "" : "s"}${t.name_color ? `; name in colour ${t.name_color}` : ""}.`);
   });
+  if ((r.medal_systems || []).length) {
+    const named = r.tiers.filter(t => medalTiers.has(t.id));
+    L.push("Medal systems: " + list(r.medal_systems.map(s => `${s.label} (${named.map(t => `${s.counts[t.id] || 0} ${t.label}`).join(", ")})`), x => x) + ".");
+  }
   if (r.heights.brackets.length) {
     L.push("", "## Heights");
     let prev = 0;
     L.push("Brackets: " + r.heights.brackets.map(b => { const s = b.up_to != null ? `${b.label} ${prev + 1}-${b.up_to}` : `${b.label} ${b.exactly.join(" or ")}`; prev = b.up_to ?? Math.max(...b.exactly); return s; }).join(", ") + " cm.");
     r.heights.systems.forEach((s, i) => {
-      const when = condText(s.any_player);
-      L.push(`- **${s.label}** ${when ? "(when any player is " + when + ")" : i ? "(otherwise)" : ""}: ` +
-        r.heights.brackets.filter(b => b.id in s.quotas).map(b => `${s.quotas[b.id]} ${b.label.toLowerCase()}`).join(", ") + ".");
+      const when = condText(s.any_player), parts = [];
+      if (when) parts.push("any player is " + when);
+      if (s.by_quotas) parts.push("the team meets its quotas");
+      const eh = s.extra_height;
+      L.push(`- **${s.label}** ${parts.length ? "(when " + parts.join(" and ") + ")" : i ? "(otherwise)" : ""}: ` +
+        r.heights.brackets.filter(b => b.id in s.quotas).map(b => `${s.quotas[b.id]} ${b.label.toLowerCase()}`).join(", ") +
+        (eh && eh.total != null && eh.max != null ? `; ${eh.total} cm to share, no player above ${eh.max}` : "") + ".");
     });
   }
   const u = r.universal, U = [];
@@ -1352,6 +1459,7 @@ function startPage() {
     button("VGL26", () => { load(VGL26); closeWindow(); }),
     button("VTL11", () => { load(VTL11); closeWindow(); }),
     button("VTL10", () => { load(VTL10); closeWindow(); }),
+    button("DBC7 (Divegrass Before Christmas 7)", () => { load(DBC7); closeWindow(); }),
     button("Clouds' proposal, every item (from VGL26)", () => { load(CLOUDS); closeWindow(); }),
     button("Blank: one tier, no brackets, the universal rules on", () => { load(blank()); closeWindow(); }),
     h("div", { class: "sep" }),
@@ -1381,13 +1489,17 @@ const VIEWS = {
     const d = h("div", {}, h("h2", {}, "Tiers"), h("div", { class: "weak" },
       "Highest first: a player gets the first tier whose conditions he meets and whose rating he reaches. The Save editor's tier buttons follow this order."));
     const ids = R.tiers.map(t => [t.id, t.label]);
+    const medalTiers = new Set(R.medal_systems.flatMap(s => Object.keys(s.counts)));
     const g = h("table", { class: "grid" }, h("tr", {}, ["", "Label", "Id", "Count", "Counts as", "Rate", "Form", "Injury res.", "Weak foot", "Paid cards", "Min. cards", "A positions", "Name colour", ""].map(x => h("th", {}, x))));
     R.tiers.forEach((t, i) => {
       g.append(reorderable(h("tr", {},
         h("td", {}, handle(i)),
         h("td", {}, text(t.label, v => t.label = v, { width: 100 })),
-        h("td", {}, text(t.id, v => t.id = v, { width: 80, mono: true, title: "What conditions and other tiers refer to" })),
-        h("td", {}, t.counts_as ? weak("—") : h("span", { class: "row", style: "margin:0" },
+        h("td", {}, text(t.id, v => {
+          R.medal_systems.forEach(s => { if (t.id in s.counts && !(v in s.counts)) { s.counts[v] = s.counts[t.id]; delete s.counts[t.id]; } });
+          t.id = v;
+        }, { width: 80, mono: true, title: "What conditions and other tiers refer to" })),
+        h("td", {}, medalTiers.has(t.id) ? weak("by medal system") : t.counts_as ? weak("—") : h("span", { class: "row", style: "margin:0" },
           t.count === null ? weak("the rest") : drag(t.count, v => t.count = v ?? 0, { max: 32 }),
           checkbox("rest", t.count === null, v => t.count = v ? null : 1, "The rest of the squad: one tier at most"))),
         h("td", {}, combo([[null, "—"]].concat(ids.filter(([id]) => id !== t.id)), t.counts_as, v => { t.counts_as = v; if (v) t.count = null; },
@@ -1402,7 +1514,7 @@ const VIEWS = {
         h("td", {}, drag(t.a_positions, v => t.a_positions = v ?? 0, { max: 13 })),
         h("td", {}, h("span", { class: "row", style: "margin:0" }, checkbox("", t.name_color !== null, v => t.name_color = v ? "cc9900ff" : null, "This tier's names carry a colour code"),
           t.name_color !== null ? colour(t.name_color, v => t.name_color = v) : weak("none"))),
-        h("td", {}, R.tiers.length > 1 ? remove(R.tiers, i) : "")), R.tiers, i));
+        h("td", {}, R.tiers.length > 1 ? button("✕", () => { R.medal_systems.forEach(s => { delete s.counts[t.id]; }); R.tiers.splice(i, 1); structural(); }, { frame0: true, title: "Remove" }) : "")), R.tiers, i));
       g.append(h("tr", {}, h("td", {}), h("td", { colspan: 13 }, collapsing(`tier:${i}`, "Stat targets, free cards and conditions", () => h("div", {},
         strong("Per-stat targets"), h("span", { class: "weak" }, " (empty: the rate)"),
         perStatGrid(t),
@@ -1413,6 +1525,22 @@ const VIEWS = {
         condEditor(t.when, `tier:${i}:when`, { noTiers: true }))))));
     });
     d.append(g, row(button("+ Add tier", () => { const n = R.tiers.length + 1; R.tiers.push(tier("tier" + n, "Tier " + n, 1, 80, 4, 1, 2, 3, {})); structural(); })));
+    d.append(h("div", { class: "sep" }), strong("Medal systems"), h("div", { class: "weak" },
+      "Alternative medal counts: the team's counts of the ticked tiers must equal one system's. Unticked tiers keep their own count, one of them the rest of the squad."));
+    const ms = R.medal_systems;
+    const mg = h("table", { class: "grid" }, h("tr", {}, h("th", {}), R.tiers.map(t => h("th", {},
+      h("label", { class: "cb", title: ms.length ? "The medal systems count this tier" : "Add a medal system first" },
+        h("input", { type: "checkbox", checked: medalTiers.has(t.id), disabled: !ms.length, onchange: e => {
+          if (e.target.checked) { ms.forEach(s => { if (!(t.id in s.counts)) s.counts[t.id] = 0; }); t.count = null; }
+          else ms.forEach(s => { delete s.counts[t.id]; });
+          structural();
+        } }), t.label)))));
+    ms.forEach((s, i) => mg.append(h("tr", {},
+      h("td", {}, h("span", { class: "row", style: "margin:0" }, text(s.label, v => s.label = v, { width: 90 }), remove(ms, i))),
+      R.tiers.map(t => h("td", {}, medalTiers.has(t.id)
+        ? drag(s.counts[t.id] ?? null, v => { if (v === null) delete s.counts[t.id]; else s.counts[t.id] = v; }, { max: 32, width: 40, placeholder: "0" })
+        : weak("—"))))));
+    d.append(mg, row(button("+ Add medal system", () => { ms.push({ label: "System " + (ms.length + 1), counts: {} }); structural(); })));
     return d;
   },
   heights() {
@@ -1442,6 +1570,14 @@ const VIEWS = {
         row(handle(i), text(s.label, v => s.label = v, { width: 100 }), text(s.id, v => s.id = v, { width: 70, mono: true }), h("span", { style: "flex:1" }), remove(R.heights.systems, i)),
         last && isEmpty(condData(s.any_player)) ? row(weak("Otherwise (no condition)"), button("+ Add a condition", () => { s.any_player = { height_min: 190 }; structural(); }, { frame0: true }))
           : h("div", {}, weak("When any player is:"), condEditor(s.any_player || (s.any_player = {}), `sys:${i}`, { heightsPositions: true })),
+        row(checkbox("when the team meets its quotas", !!s.by_quotas, v => s.by_quotas = v,
+          "The system holds only when the team, read under it, meets the quotas below")),
+        (() => { const eh = k => drag(s.extra_height ? s.extra_height[k] : null, v => {
+            const e = s.extra_height || (s.extra_height = { total: null, max: null });
+            e[k] = v;
+            if (e.total == null && e.max == null) s.extra_height = null;
+          }, { max: 255, width: 44, placeholder: "-", title: k === "total" ? "Centimetres the team may add above the bracket heights" : "The tallest a player may be" });
+          return row(weak("Extra height pool:"), eh("total"), "cm to share, no player above", eh("max"), "cm", weak("(both empty: none)")); })(),
         h("table", { class: "grid" }, h("tr", {}, h("th", {}, "Quota"), R.heights.brackets.map(b => h("th", {}, b.label))),
           h("tr", {}, h("td", {}, weak("per team")), R.heights.brackets.map(b => h("td", {}, h("span", { class: "row", style: "margin:0" },
             checkbox("", b.id in s.quotas, v => { if (v) s.quotas[b.id] = 0; else delete s.quotas[b.id]; }, "Constrained (unticked: any number)"),

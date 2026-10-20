@@ -12,8 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 6 (Export upgrader), opened 2026-10-17. Phase 5 (Savefile integration) closed
 2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-e
 (`music_export`, its plan section, `pub` audit and whole-crate mutation run done; converging
-with Phase 10), 16.w (the platform floor) and 20.0a-b (the Ruleset
-editor's coverage table and draft).
+with Phase 10), 16.w (the platform floor) and 20.0a-d (the Ruleset
+editor's coverage table and draft, the DBC7 ruleset).
 **Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"):
 every converge review loop has ended (2026-10-19) and the close mutation run of
 `export_upgrader` is triaged (2 missed, the placeholder views, worklog 8.3); 6.14 (an upgrade
@@ -23,7 +23,7 @@ are built, and 6.14c; the maintainer answered 6.14's three questions (2026-10-19
 built and verified (2026-10-20), its verify's two findings fixed; next: the close's last steps, the plans-to-spec move and the
 worklog's collapse; then, for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset
 editors' first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"):
-20.0d (the DBC ruleset's coverage), 8.4 (the usability pass), Phase 8's shell, the Save
+Phase 8's shell (8.4, the usability pass, and 20.0d, the DBC7 ruleset, done 2026-10-20), the Save
 editor's draft and view, Phase 20 (the Ruleset editor), the 0.0.1 preview build for DBC (the
 two editors; the Team compiler and Export upgrader greyed out), then Phase 8's other views. The
 face_diff model comparison (Issues, "a face diff is engine-specific") follows the editors. 8.0's acceptance sections are reviewed and the shell's draft
@@ -1094,12 +1094,47 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   whole-crate runs left missed, deferred because no headless test exists for a label; each
   tool's view brings its own tests (EU-GUI, SE-GUI) and the placeholders go, so the next
   whole-crate run of each crate measures them
-- [ ] 8.4 the usability pass before the tools' drafts (2026-10-19, the maintainer's request;
+- [x] 8.4 the usability pass before the tools' drafts (2026-10-19, the maintainer's request;
   `plans/core/development_plan.md` Phase 8's bullets): after Phase 6 closes and before
   `team_compiler.html`, the lead reads what members already touch (the export format's folder
   conventions, the compiler's and upgrader's message texts, defaults, the upgrade → compile →
   install handoffs) for usability ideas, each a `PROPOSALS.md` entry → verify: the entries are
-  written and the maintainer has had them before the first tool draft starts
+  written and the maintainer has had them before the first tool draft starts. Done
+  2026-10-20: `PROPOSALS.md` P1-P22, curated from 25 candidates a reading subagent gathered
+  (`.tmp/8_4/candidates.md`; left out: the face engine marker, which waits for the face
+  transformation; a narrower `portrait_conflict`; model-folder mode placing into an export;
+  a `settings.toml` template, which the aesthetics editor covers), named in the turn report.
+  Files: `docs/PROPOSALS.md`
+- [ ] 8.5 the Save editor's draft, `docs/prototypes/save_editor.html` (`plans/save_editor.md`
+  "Build order and verification"; first of the tool views, for DBC), drawn whole in five
+  slices, one per build-order slice, each reviewed before the next is briefed. Drawn before
+  the maintainer has ruled 8.4's proposals: the two that touch it (P15, compile findings
+  opening the Save editor; P22's `check-aatf` names) add to it and go in once ruled, as a
+  slice that changes the draft does → verify: every SE-GUI scenario but the manual ones walked
+  in a headless-Edge harness against the page, real sample data (the maintainer's PES 2017
+  and PES 2021 saves through `export-toml`), only representable elements
+  - [x] 8.5a the page, open and save, the team selector and player list, the info strip's
+    quick actions (official, VTL11, DBC7), Abilities & Skills, Appearance (SE-GUI-01 to 09,
+    20, 21, 26, 28). Done 2026-10-20 (SWE-2, one rework: two NUL bytes, the sample data one
+    player per line, the PES 17 save's placeholder team 701 dropped, the gated controls
+    dimmed on screen and the check reading the element): samples from the PES 2017 save
+    (702 `/a/`, 718 `/f/`, whose names carry colour codes) and the PES 2021 save (701, 718,
+    722) through `export-toml`; harness `.tmp/8_5/run_harness.py`, 15 checks. Drawn for the
+    maintainer's eye, each marked in the page: the quick actions follow SE-GUI-09 (one per
+    tier, Goalkeeper included) where the sketch shows four; the list's number is the shirt
+    number; the Open menu lists discovered saves, then recent files, then the picker; the
+    palette swatches' colours are invented (no palette table exists in plan or code), and
+    nationality is a number. Files: `docs/prototypes/save_editor.html`
+  - [x] 8.5b the Team tab, the team and player operations, FPC (SE-GUI-10, 11, 22 to 24, 27).
+    Done 2026-10-20 (SWE-2, one rework): Player, Team and Savefile menus; the boots and gloves
+    dialog in 4ccEditor's shape (`bogloDlgProc`); the FPC toggle reading `ops/fpc.rs`'s
+    classifier; Output rosters to TSV and Fix database as 4ccEditor's `roster_data_output` and
+    `fix_database()` (DECISIONS 2026-10-20, SE-GUI-27 reworded); slice 1's captain checkbox
+    off by one fixed. PES 17's kit-ID repair touches container bytes the draft does not model:
+    named in the confirmation. Harness 21 checks
+  - [ ] 8.5c the Tactics tab (SE-GUI-12, 25)
+  - [ ] 8.5d the comparator, transplant, AATF and patch panels (SE-GUI-13 to 15, 18)
+  - [ ] 8.5e the interchange dialogs and settings.toml generation (SE-GUI-16, 17, 19)
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,
@@ -1288,7 +1323,7 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     teams 781 to 834, VGL26's own file reports the 2 known violations; the Clouds file places
     every tier and reports only what its own specials ask for (form 8, goalkeeping 85, buffed
     stats 87). Files: `docs/prototypes/ruleset_editor.html`
-  - [ ] 20.0d coverage of the DBC ruleset (maintainer, 2026-10-19), right after Phase 6
+  - [x] 20.0d coverage of the DBC ruleset (maintainer, 2026-10-19), right after Phase 6
     closes (`plans/core/development_plan.md` "Divegrass Before Christmas"): Divegrass Before
     Christmas (DBC), an upcoming invitational, is to be the first test ground for 4cc Studio's
     Ruleset editor and Save editor. Its rules' source of truth is the wiki page
@@ -1306,7 +1341,25 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     is checked, not from memory) to a
     schema field or to a custom check, no row empty; the gaps become schema fields (plan edit,
     decision entry) and forms in `ruleset_editor.md` and the draft; a DBC ruleset file in
-    `rulesets/` that `check-aatf` runs against a save the fork's check agrees with
+    `rulesets/` that `check-aatf` runs against a save the fork's check agrees with. Done
+    2026-10-20 (SWE-2, lead fixes): the page re-read (unchanged since 2026-10-19); three schema
+    fields, none a custom check (`plans/aatf_rules.md` "The ruleset schema", "Coverage of the
+    DBC7 rules"; DECISIONS 2026-10-20): `medal_systems` (GGG, GGSS, GSSSS, SSSSSS),
+    `HeightSystem::by_quotas` (a system told apart by its counts) and `extra_height` (GigaHeight's
+    50 cm pool, at most 210), with the violations `MedalSystem` and `ExtraHeight` and their load
+    rules; a tier is recognized before its choices (DECISIONS 2026-10-20), which the parity run
+    found (a Manlet silver at 92 read as a regular); `rulesets/dbc7.rhai` and its fixtures; the
+    draft's forms, load rules, summary and a DBC7 template. Parity against the fork's
+    `aatf_single`, built headless, on the maintainer's two PES 2017 saves (220 teams each):
+    every difference a listed class (`plans/aatf_rules.md` "DBC7"); the fork passes 29 and 36
+    teams that the block fails on stats inside the fork's warning band alone (QUESTIONS "DBC7:
+    the organizer's editor errs on what the page leaves free"). The draft's dumped block runs in
+    `check-aatf` with the same output as `dbc7.rhai`. Reviews: SWE-2 S1 (3 accepted), Astra A1
+    (2), SWE-2 S2 (1) (`.tmp/20_0d/duck_rulings.md`). Files: `crates/libs/aatf/` (`logic/
+    logic.rhai`, `rulesets/dbc7.rhai`, `src/ruleset/{mod,check,errors}.rs`, `src/violation.rs`,
+    `src/file.rs`, `src/fixtures/`, `src/ruleset/tests/`), `crates/tools/save_editor/src/
+    messages.rs`, `docs/plans/aatf_rules.md`, `docs/plans/ruleset_editor.md`,
+    `docs/prototypes/ruleset_editor.html`, `docs/DECISIONS.md`, `docs/QUESTIONS.md`
 
 ---
 

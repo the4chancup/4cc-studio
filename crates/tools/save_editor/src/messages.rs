@@ -458,6 +458,14 @@ pub(crate) fn violation_rule(kind: &ViolationKind) -> (&'static str, Vec<(&'stat
                 ("quota", quota.to_string()),
             ],
         ),
+        ViolationKind::MedalSystem { systems } => (
+            "MedalSystem",
+            vec![("systems", format!("[{}]", systems.join(", ")))],
+        ),
+        ViolationKind::ExtraHeight { used, total } => (
+            "ExtraHeight",
+            vec![("used", used.to_string()), ("total", total.to_string())],
+        ),
         ViolationKind::Captain => ("Captain", vec![]),
         ViolationKind::Goalkeepers { count, min } => (
             "Goalkeepers",
@@ -767,6 +775,19 @@ mod tests {
                     quota: 6,
                 },
                 "rule=BracketQuota, system=red, bracket=tall, count=3, quota=6",
+            ),
+            (
+                ViolationKind::MedalSystem {
+                    systems: vec!["GGG".to_owned(), "GGSS".to_owned()],
+                },
+                "rule=MedalSystem, systems=[GGG, GGSS]",
+            ),
+            (
+                ViolationKind::ExtraHeight {
+                    used: 51,
+                    total: 50,
+                },
+                "rule=ExtraHeight, used=51, total=50",
             ),
             (ViolationKind::Captain, "rule=Captain"),
             (
