@@ -139,11 +139,20 @@ What exists of this is in `spec/core/gui.md` "Settings menu".
 The settings menu is assembled from injected sections:
 
 - **Common settings** (defined by `studio_core`): PES version, PES folder path, exports folder path,
-  thread count, memory cap, theme.
-- **One collapsible section per registered tool**, provided by that tool's `settings_view()` (each
-  tool defines its own settings struct and UI).
+  thread count, memory cap, theme, the update check and its interval. The state the shell writes
+  itself (`last_tool`, `last_update_check`, `skipped_version`) has no row. The PES version row
+  is the sidebar selector's twin: the same blocker, and a pick spends the running-PES
+  auto-switch as the selector's does.
+- **One collapsible section per registered tool that has settings**, provided by that tool's
+  `settings_view(ui, ctx)` (each tool defines its own settings struct and UI, and writes it
+  through `ctx.set_tool_settings`). A tool has settings when its `default_settings()` table is
+  not empty: the table lists every key the tool reads, so an empty one is a tool with nothing
+  to show (the Export upgrader), and a header over nothing would be a dead end.
 - Opening the settings menu shows the **currently selected tool's section expanded** and all other
   sections collapsed.
+- **No Save or Apply**: a change applies as it is made and saves at the end of the frame. A text
+  row (a path, a name) commits when it loses focus or Enter is pressed, not per keystroke: a
+  half-typed folder path would otherwise reach every tool reading it.
 - Saving is **best-effort**: if the write fails (typically a portable install unpacked somewhere
   unwritable), the in-memory settings keep working for the session and the shell raises the
   `data_dir_read_only` condition in the status bar — one condition covering settings and the
@@ -368,7 +377,7 @@ stadiums and cells = components.
 | Common and per-tool settings forms | egui widgets (`TextEdit`, `CheckBox`, `ComboBox`), saved to TOML |
 | Export tree browser | `egui::CollapsingHeader` tree, shows object model |
 | File/folder pickers | `rfd` for native dialogs and supported web file picking; web directory access needs a separate File System Access API adapter (`rfd` has no WASM folder picker) |
-| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_visuals`, no restart); icon glyphs from `egui-phosphor` |
+| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_theme`, no restart; the setting, never the system's theme, decides, so a member on a light desktop still gets the dark default); icon glyphs from `egui-phosphor`. Until the preset is curated it is egui's own dark `Visuals`, the colors the drafts are drawn in (`shell.html`'s stylesheet), so a curation pass changes the drafts' stylesheet first |
 
 ### Prototypes before implementation
 
@@ -430,10 +439,14 @@ run was cancelled, so a later reader of the log does not take a short run for a 
 **Closing the window** asks every tool, not only the one in view, and so does every close the
 shell performs itself (the Team compiler's quick-compile close on success included): a tool
 holding unsaved work (the Save editor's edits) reports it through a `StudioTool` hook beside
-`version_change_blocker`, and the shell then cancels the close, makes the first such tool the
-active view and lets its own prompt decide. Save or discard sends a close request back to the
-shell (a `ShellRequest`, as a tool switch is), which asks every tool again, so a second tool
-with unsaved work gets its own prompt in turn; cancel keeps the window and ends the close. A
+`version_change_blocker`, `fn hold_close(&mut self) -> bool` (default `false`): the shell calls
+it in sidebar order until a tool returns `true`, which also opens that tool's prompt in its
+view, and the shell then cancels the close (`ViewportCommand::CancelClose`) and makes that tool
+the active view. The tools after it are not asked, so only one prompt shows at a time. Save or
+discard sends a close request back to the shell (`ToolContext::request_close`, a
+`ShellRequest`, as a tool switch is), which closes the window through the same path, asking
+every tool again, so a second tool with unsaved work gets its own prompt in turn; cancel sends
+nothing, which keeps the window and ends the close. A
 close the shell decided alone would drop the edits of a tool whose view was not drawn. A tool
 with a run in flight (a compile, an upgrade) reports it through the same hook, and its prompt
 offers to close once the run has ended, cancelling it first where the tool has a Cancel (the

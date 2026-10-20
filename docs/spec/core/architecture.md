@@ -283,9 +283,11 @@ pub trait StudioTool {
     /// nanoseconds, and frames only happen on input or requested repaints.
     fn tick(&mut self, ctx: &ToolContext) {}
 
-    /// The tool's settings section, injected into the settings menu.
-    /// The settings menu shows the current tool's section expanded, others collapsed.
-    fn settings_view(&mut self, ui: &mut egui::Ui);
+    /// The tool's settings section, injected into the settings menu, which draws it only
+    /// for a tool whose `default_settings()` is not empty; the tool writes its table
+    /// through `ctx.set_tool_settings`. The settings menu shows the current tool's section
+    /// expanded, others collapsed. Default: nothing drawn.
+    fn settings_view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {}
     /// Defaults merged into the settings file on first run / new versions
     fn default_settings(&self) -> toml::Table;
 

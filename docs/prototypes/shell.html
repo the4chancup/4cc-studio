@@ -266,9 +266,9 @@ const S = { activeTool: "team-compiler", sidebarCollapsed: false, pesVersion: "2
   logStick: true, logNew: 0, logScroll: 0, gridHighlight: null,
   // First run (distribution.md "Data location"): which settings file exists
   // ("portable": data/settings.toml beside the exe, "config": the config-dir
-  // one, "none": neither, so the GUI asks), and whether a portable file lies
-  // beside the exe while the user picks the config dir.
-  settingsFile: "portable", portableFilePresent: false };
+  // one, "none": neither, so the GUI asks), and whether the program folder
+  // cannot be written (choosing it then fails and the dialog stays).
+  settingsFile: "portable", exeDirUnwritable: false, firstRunError: null };
 // The settings file's in-memory copy (spec/core/gui.md "Settings menu"):
 // [common] is CommonSettings at its defaults (studio_core/settings/common.rs)
 // and each tool's table, keyed by its id, its settings struct's defaults
@@ -1264,24 +1264,28 @@ function drawFirstRun() {
     h("div", {},
       h("div", { class: "firstrun" },
         choice("Next to the program",
-          "A data folder beside 4cc-studio.exe: portable, moves and deletes with it", "portable"),
+          "A data folder beside the program: portable, moves and deletes with it", "portable"),
         choice("In my user folder",
           CONFIG_DIR + ": survives replacing or moving the program folder", "config")),
-      weak("You can move the data later by moving the folder.")),
+      weak("You can move the data later by moving the folder."),
+      // sample wording: the write error.
+      S.firstRunError ? h("div", { class: "err" }, S.firstRunError) : null),
     []);
 }
 // Choosing writes the choice: the settings file's existence is what makes it
-// stick. The portable location wins when both files exist, so a portable file
-// left beside the exe is renamed out of the way.
+// stick. A location that cannot be written keeps the dialog open with the
+// error, so the member picks the other (distribution.md "Data location").
 function chooseDataLocation(loc) {
+  if (loc === "portable" && S.exeDirUnwritable) {
+    S.firstRunError = "Cannot write " + EXE_FOLDER + "\\data\\settings.toml: access is denied. Choose the other location.";
+    render();
+    return;
+  }
+  S.firstRunError = null;
   S.settingsFile = loc;
   closeWindow();
   saveSettings();
-  if (loc === "config" && S.portableFilePresent) {
-    // sample wording: the rename notice. The file is renamed: no longer present.
-    S.portableFilePresent = false;
-    publishNotice("data\\settings.toml renamed to settings.toml.bak", null);
-  } else render();
+  render();
 }
 
 // ---- Render: one state object, one pass (gui.md "Shell layout") ----
@@ -1429,8 +1433,8 @@ function renderDraftControls() {
         ["none", "none: first run"]], S.settingsFile,
         v => { const was = S.settingsFile; S.settingsFile = v;
           if (was === "none" && v !== "none") closeWindow(); })),
-    cb("a portable settings.toml is also present", S.portableFilePresent,
-      v => S.portableFilePresent = v),
+    cb("the program folder cannot be written", S.exeDirUnwritable,
+      v => { S.exeDirUnwritable = v; S.firstRunError = null; }),
     collapsing("walk", "How to walk the scenarios", () => WALK.map(([id, how]) =>
       h("div", {}, strong(id), " ", how))));
 }

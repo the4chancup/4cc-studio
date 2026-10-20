@@ -48,7 +48,7 @@ impl StudioTool for Tool {
         ui.label("The Save editor's window is not built yet; its commands run from a terminal.");
     }
 
-    fn settings_view(&mut self, ui: &mut egui::Ui) {
+    fn settings_view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
         ui.label(
             "The Save editor has one setting, aatf_rules: the AATF rules file check-aatf \
              runs. Its editor comes with the Save editor's window.",

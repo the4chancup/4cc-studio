@@ -33,10 +33,14 @@ program folder. Following EGG-Translator's first-start wizard, the first run ask
 settings and data, with two options (each with a one-line hint, like EGG's buttons).
 
 On a first run the GUI shows the dialog and writes the settings file to the chosen location — the
-file's existence is what makes the choice stick. Since the portable
-location wins when both exist, choosing the config dir while a portable settings file is present
-renames that file to `.bak` so it can't shadow the choice on the next start (EGG's exact fix for
-this edge).
+file's existence is what makes the choice stick. The dialog has no Cancel: the choice is needed
+to start. A location that cannot be written (a program folder unpacked under `Program Files`,
+picked as "Next to the program") keeps the dialog open with the error under the buttons, so the
+member picks the other: a choice that never reached the disk would be asked again at every
+start, and the session's settings would vanish with it. The portable file shadowing a
+config-dir choice, which EGG renames to `.bak`, cannot happen here: the dialog shows only when
+neither file exists, and the program offers no later move of the data location (moving the
+folder is the move).
 
 One more thing is not data-dir cargo:
 

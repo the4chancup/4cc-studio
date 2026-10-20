@@ -147,7 +147,6 @@ mod tests {
             ""
         }
         fn view(&mut self, _ui: &mut egui::Ui, _ctx: &ToolContext) {}
-        fn settings_view(&mut self, _ui: &mut egui::Ui) {}
         fn default_settings(&self) -> toml::Table {
             toml::Table::new()
         }

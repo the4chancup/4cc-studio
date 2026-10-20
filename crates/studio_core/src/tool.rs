@@ -34,8 +34,10 @@ pub trait StudioTool {
     /// not: drain event channels, check timer deadlines. Default no-op.
     fn tick(&mut self, _ctx: &ToolContext) {}
 
-    /// The tool's settings section, injected into the settings menu.
-    fn settings_view(&mut self, ui: &mut egui::Ui);
+    /// The tool's settings section, injected into the settings menu. The menu draws the
+    /// section only for a tool whose `default_settings()` is not empty; the tool writes its
+    /// table through `ctx.set_tool_settings`. Default: nothing drawn.
+    fn settings_view(&mut self, _ui: &mut egui::Ui, _ctx: &ToolContext) {}
 
     /// Defaults merged into the tool's settings table for every key it lacks, on first run and
     /// when a new version adds a key.

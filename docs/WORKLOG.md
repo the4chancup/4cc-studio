@@ -17,7 +17,7 @@ done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Rule
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
-(its steps itemized: the shell, 8.6a-b done, 8.6c the settings menu next; then the Save
+(its steps itemized: the shell, 8.6a-b and 8.6c1 done, 8.6c2 the first-run dialog and close hook next; then the Save
 editor's view), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
 upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20): 20.0d (the
@@ -640,12 +640,24 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       deadline test). Review: S1-S4 (SWE-2) and A1 (Astra over 8.6a and 8.6b), rulings
       `.tmp/8_6/duck_rulings.md`; `mutants-diff 59216630`: every survivor tested or pinned
       (three pins). Open: ST-SIDE-05's manual check (a PES running, F: connected)
-    - [ ] 8.6c the settings menu, common rows (the theme's `Visuals` preset applied live
-      among them) and one section per tool (ST-SET-01, 02), the first-run data-location
-      dialog (ST-RUN-01), and the close hook for unsaved work and runs in flight (ST-RUN-05,
-      06), which the Save editor's unsaved prompt uses; a notice's `OpenSettings` action
-      opens the menu (8.6b leaves it a dismiss); the menu's `pes_version` row spends the
-      running-PES auto-switch as the selector's pick does (`Sidebar::auto_switch_used`)
+    - [ ] 8.6c the settings menu, the first-run dialog and the close hook, sliced
+      - [x] 8.6c1 the settings menu: the sidebar's gear, the common rows (the theme applied
+        live among them) and one section per tool with settings (ST-SET-01, 02); a
+        notice's `OpenSettings` action opens it; its `pes_version` row spends the running-PES
+        auto-switch as the selector's pick does; `settings_view` takes the context
+        (DECISIONS 2026-10-20). The rows' Browse buttons wait for `rfd`, which the Save
+        editor's file open brings (8.9); the tools' own sections are their views' steps
+        (the Save editor's `aatf_rules` row with 8.9, the Team compiler's with 8.10). Done
+        2026-10-20 (SWE-2, first time): `shell/settings_menu.rs` (a `Modal`, the common grid,
+        the sections reset at each opening through `CollapsingHeader::open`), the gear and
+        `SidebarClick`, `Sidebar::pick_version` shared by both rows, `theme::apply`
+        (`set_theme`, applied in `logic` on change); the lead's fix: the number rows clamp
+        only entered values (egui's default clamp rewrote a hand-set `thread_count` on
+        sight). `mutants-diff 42f7c7e6`: 2 survivors (`theme_label`), both caught by an added
+        assertion. Review S5 (SWE-2) runs over the commit
+      - [ ] 8.6c2 the first-run data-location dialog (ST-RUN-01) and the close hook for
+        unsaved work and runs in flight (ST-RUN-05, 06), which the Save editor's unsaved
+        prompt (8.9) and the Team compiler's run (8.10) use
     - [ ] 8.6d the help window (and the About popup's help link, completing ST-SIDE-06), its
       generated Messages topics and search, `4cc-studio help`
       (ST-HELP-01 to 04), and the log panel widget (ST-LOG-01 to 04); a notice's `OpenHelp`

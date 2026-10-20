@@ -23,8 +23,8 @@ use crate::tool::{AppPaths, CliError, PlannedTool, StudioTool, ToolContext};
 pub(super) type Activity = (&'static str, Option<(usize, usize)>, Duration);
 
 /// How often the shell called a stub tool's `tick` and `view`, what its `tick` read and the
-/// knobs a test turns mid-run: the blocker reason, the reported activity and a run's event
-/// receiver for `tick` to drain.
+/// knobs a test turns mid-run: the blocker reason, the reported activity, a run's event
+/// receiver for `tick` to drain and the table `default_settings()` reports.
 #[derive(Default)]
 pub(super) struct Calls {
     pub(super) ticks: AtomicUsize,
@@ -37,6 +37,9 @@ pub(super) struct Calls {
     /// A run's event receiver: `tick` drains it and any envelope ends the activity, as a
     /// run's last event does.
     pub(super) events: Mutex<Option<Receiver<PipelineEventEnvelope>>>,
+    /// The table `default_settings()` reports; `stub()` fills a non-empty one, a test
+    /// clears it for a tool without settings.
+    pub(super) default_settings: Mutex<toml::Table>,
 }
 
 impl Calls {
@@ -97,9 +100,11 @@ impl StudioTool for StubTool {
             self.calls.clear_activity();
         }
     }
-    fn settings_view(&mut self, _ui: &mut egui::Ui) {}
+    fn settings_view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
+        ui.label(format!("{} settings body", self.label));
+    }
     fn default_settings(&self) -> toml::Table {
-        toml::Table::new()
+        self.calls.default_settings.lock().unwrap().clone()
     }
     fn help(&self) -> HelpSection {
         HelpSection {
@@ -135,6 +140,8 @@ pub(super) fn stub(
 ) -> (Box<dyn StudioTool>, Arc<Calls>) {
     let calls = Arc::new(Calls::default());
     *calls.blocker.lock().unwrap() = blocker;
+    *calls.default_settings.lock().unwrap() =
+        toml::Table::from_iter([("enabled".to_owned(), toml::Value::Boolean(true))]);
     (
         Box::new(StubTool {
             id,
@@ -257,7 +264,29 @@ pub(super) fn frame_at(
     focused: bool,
     time: Option<f64>,
 ) -> FrameOutput {
-    let input = egui::RawInput {
+    run_frame(ctx, app, raw_input(events, focused, time, None))
+}
+
+/// `frame` with the OS's theme in `RawInput::system_theme`: the shell must not follow
+/// it — the `theme` setting decides.
+pub(super) fn frame_theme(
+    ctx: &egui::Context,
+    app: &mut StudioApp,
+    events: Vec<egui::Event>,
+    focused: bool,
+    system_theme: Option<egui::Theme>,
+) -> FrameOutput {
+    run_frame(ctx, app, raw_input(events, focused, None, system_theme))
+}
+
+/// The `RawInput` every harness frame shares: an 800 by 600 screen.
+fn raw_input(
+    events: Vec<egui::Event>,
+    focused: bool,
+    time: Option<f64>,
+    system_theme: Option<egui::Theme>,
+) -> egui::RawInput {
+    egui::RawInput {
         screen_rect: Some(egui::Rect::from_min_size(
             egui::Pos2::ZERO,
             egui::vec2(800.0, 600.0),
@@ -265,8 +294,13 @@ pub(super) fn frame_at(
         events,
         focused,
         time,
+        system_theme,
         ..Default::default()
-    };
+    }
+}
+
+/// One frame of `input`.
+fn run_frame(ctx: &egui::Context, app: &mut StudioApp, input: egui::RawInput) -> FrameOutput {
     let mut output = ctx.run_ui(input, |ui| {
         // eframe's own constructor of a `Frame` for testing an `App` without a window.
         app.logic(ui.ctx(), &mut eframe::Frame::_new_kittest());

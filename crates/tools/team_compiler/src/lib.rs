@@ -76,7 +76,7 @@ impl StudioTool for Tool {
         self.run_log.poll();
     }
 
-    fn settings_view(&mut self, ui: &mut egui::Ui) {
+    fn settings_view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
         ui.label("The Team compiler's settings are not built yet.");
     }
 

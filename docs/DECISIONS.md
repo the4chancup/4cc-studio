@@ -9571,3 +9571,32 @@ since 8.6a every tool switch saves `last_tool`, and a regenerated file drops the
 order a member wrote by hand, which they do until the settings menu exists (AGENTS.md "User-facing
 TOML is edited, never regenerated").
 Plan: `plans/core/gui.md` "Settings menu" (the best-effort bullet); `spec/core/gui.md` "Status bar".
+
+## 2026-10-20 — studio_core — `settings_view` takes the context; a tool without settings has no section
+Decision: `StudioTool::settings_view` becomes `settings_view(&mut self, ui, ctx: &ToolContext)`
+with a default that draws nothing, and the settings menu draws a section only for a tool whose
+`default_settings()` table is not empty. The theme applies through `Context::set_theme` from the
+setting alone, and the preset is egui's dark `Visuals` until it is curated.
+Why: a section has to write the tool's table, and `set_tool_settings` is on the context, which
+the old signature did not pass. The draft draws no header for the Export upgrader, which has no
+settings, and the default table already lists every key a tool reads, so no second flag is
+needed. egui follows the system's theme unless told otherwise, which would override the dark
+default on a light desktop; the drafts are drawn in egui's dark colors, so curating the preset
+is a design pass over the drafts first, not a step of the shell's build.
+Plan: `plans/core/gui.md` "Settings menu", "Other UI components"; `spec/core/architecture.md`
+"Tool plugin interface" when the step lands.
+
+## 2026-10-20 — studio_core — The first-run dialog keeps itself open on a failed write; no `.bak` rename; `hold_close`
+Decision: a first-run choice whose settings file cannot be written keeps the dialog open with the
+error, so the member picks the other location. EGG's rename of a shadowing portable file to
+`.bak` is not built. The close hook is `StudioTool::hold_close(&mut self) -> bool`, asked in
+sidebar order until one tool holds the close, and a tool's prompt answers through
+`ToolContext::request_close`.
+Why: a choice that never reached the disk is asked again at every start, and the session's
+settings vanish with it; an unpacked program folder under `Program Files` is the likely case.
+The rename covers a portable file present when the member picks the config dir, which cannot
+happen: the dialog shows only when neither file exists, and no later move of the data
+location exists. Asking the tools one at a time keeps one prompt on screen, the one whose view
+the shell switches to.
+Plan: `plans/core/distribution.md` "Data location: asked on first run"; `plans/core/gui.md`
+"Cancellation".

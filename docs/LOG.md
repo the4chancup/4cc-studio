@@ -2243,3 +2243,5 @@ worklog passed 7,000 lines.
   Copy, the PES selector's exe check and blocker, `last_tool`); ST-SIDE-01 to 04, 07, ST-RUN-02 proven. Disk cleanup: 132.7 GB.
 - **2026-10-20** — 8.6b: the shell's status bar, window title, wake callback and running-PES switch; the CLI's read-only probe; the
   settings file edited in place. Review found a CLI hang (the notice printer held stderr's lock). ST-BAR, ST-TTL, ST-SET-03, ST-CLI-01 proven.
+- **2026-10-20** — 8.6c1: the shell's settings menu (the gear, the common rows, a section per tool with settings, the theme from the
+  setting); `settings_view` takes the context. The lead fixed egui's DragValue clamp rewriting hand-set values on sight. ST-SET-01, 02 proven.

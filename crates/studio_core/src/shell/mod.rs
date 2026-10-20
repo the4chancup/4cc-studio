@@ -1,11 +1,12 @@
 //! The app shell: `StudioApp`, the window with a sidebar listing the registered tools, the
-//! status bar under everything, the window title, the active tool's view, every tool ticked
-//! each frame and the tools' shell requests applied; and the launch modes' argument parsing
-//! (`launch`). The settings menu, the help window and the common widgets join this module
-//! later in the GUI phase (core plan, "Shell layout", "Crate structure").
+//! status bar under everything, the window title, the settings menu, the active tool's
+//! view, every tool ticked each frame and the tools' shell requests applied; and the
+//! launch modes' argument parsing (`launch`). The help window and the common widgets join
+//! this module later in the GUI phase (core plan, "Shell layout", "Crate structure").
 
 mod about;
 mod launch;
+mod settings_menu;
 mod sidebar;
 mod status_bar;
 #[cfg(test)]
@@ -19,12 +20,14 @@ use log::warn;
 
 pub use launch::{Launch, LaunchMode, parse_launch, run_cli};
 
+use crate::settings::Theme;
 use crate::status::ActionEffect;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::status::ShellCondition;
 use crate::tool::{PlannedTool, ShellRequest, StudioTool, ToolContext};
 
-use self::sidebar::Sidebar;
+use self::settings_menu::SettingsMenu;
+use self::sidebar::{Sidebar, SidebarClick};
 use self::status_bar::StatusBar;
 use self::title::WindowTitle;
 
@@ -41,7 +44,11 @@ pub struct StudioApp {
     active: usize,
     sidebar: Sidebar,
     status_bar: StatusBar,
+    settings_menu: SettingsMenu,
     title: WindowTitle,
+    /// The common `theme` setting last applied to the context; `None` until the first
+    /// frame, which applies it.
+    applied_theme: Option<Theme>,
 }
 
 impl StudioApp {
@@ -68,7 +75,9 @@ impl StudioApp {
             active,
             sidebar: Sidebar::default(),
             status_bar: StatusBar::default(),
+            settings_menu: SettingsMenu::default(),
             title: WindowTitle::default(),
+            applied_theme: None,
         }
     }
 
@@ -159,9 +168,9 @@ impl StudioApp {
     /// through the shell's own switch; `FixPesPath` rewrites `pes_folder_path` from the
     /// running exe's folder, the year of the version the notice was raised for in its last
     /// segment becoming `20**` again (a segment without the year is kept), then saves as any
-    /// change. `OpenFolder`, `OpenSettings` and `OpenHelp` have no target yet (the settings
-    /// menu, the help window and the compile's "Open output" are later GUI-phase steps): they
-    /// only dismiss.
+    /// change; `OpenSettings` opens the settings menu on the active tool's section.
+    /// `OpenFolder` and `OpenHelp` have no target yet (the compile's "Open output" and the
+    /// help window are later GUI-phase steps): they only dismiss.
     fn apply_notice_effect(&mut self, effect: ActionEffect) {
         match effect {
             ActionEffect::SwitchTool(id) => self.switch_to(&id),
@@ -175,9 +184,8 @@ impl StudioApp {
                     path.display().to_string();
                 self.ctx.request(ShellRequest::SettingsChanged);
             }
-            effect @ (ActionEffect::OpenFolder(_)
-            | ActionEffect::OpenSettings
-            | ActionEffect::OpenHelp(_)) => {
+            ActionEffect::OpenSettings => self.settings_menu.open(self.active, &self.ctx),
+            effect @ (ActionEffect::OpenFolder(_) | ActionEffect::OpenHelp(_)) => {
                 debug!("notice action {effect:?} has no target yet");
             }
         }
@@ -186,6 +194,13 @@ impl StudioApp {
 
 impl eframe::App for StudioApp {
     fn logic(&mut self, egui_ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // The setting, never the system's theme, decides (gui.md "Other UI components"):
+        // applied once per change, so a change is live at the next frame.
+        let theme = self.ctx.common().theme;
+        if self.applied_theme != Some(theme) {
+            crate::theme::apply(egui_ctx, theme);
+            self.applied_theme = Some(theme);
+        }
         for tool in &mut self.tools {
             tool.tick(&self.ctx);
         }
@@ -221,14 +236,20 @@ impl eframe::App for StudioApp {
                     .show(ui, &self.tools, self.active, self.planned, &self.ctx)
             })
             .inner;
-        if let Some(index) = clicked {
-            self.set_active(index);
+        match clicked {
+            Some(SidebarClick::SwitchTool(index)) => self.set_active(index),
+            Some(SidebarClick::OpenSettings) => {
+                self.settings_menu.open(self.active, &self.ctx);
+            }
+            None => {}
         }
         egui::CentralPanel::default().show(ui, |ui| {
             if let Some(tool) = self.tools.get_mut(self.active) {
                 tool.view(ui, &self.ctx);
             }
         });
+        self.settings_menu
+            .show(ui.ctx(), &mut self.tools, &self.ctx, &mut self.sidebar);
     }
 }
 

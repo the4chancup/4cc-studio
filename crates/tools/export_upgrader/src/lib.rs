@@ -72,10 +72,6 @@ impl StudioTool for Tool {
         );
     }
 
-    fn settings_view(&mut self, ui: &mut egui::Ui) {
-        ui.label("The Export upgrader has no settings.");
-    }
-
     /// The tool has no settings: the teams list path is the compiler's own
     /// (`spec/export_upgrader.md` step 6).
     fn default_settings(&self) -> toml::Table {

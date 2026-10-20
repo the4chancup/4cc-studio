@@ -1,9 +1,9 @@
 //! The sidebar, top to bottom (core plan, "Sidebar"; draft `docs/prototypes/shell.html`):
 //! the logo doubling as the About click target, the PES version selector with its live exe
 //! check, its blocker and the once-per-life auto-switch to a running PES, the tool list
-//! with the planned tools grayed, and the collapse button switching the sidebar between
-//! labels and an icon rail. The `?` and gear buttons that close the draft's column join
-//! with the windows they open.
+//! with the planned tools grayed, the collapse button switching the sidebar between
+//! labels and an icon rail, and the settings gear pinned at the bottom. The `?` beside
+//! the gear joins with the help window it opens.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -27,6 +27,14 @@ const COLLAPSED_WIDTH: f32 = 56.0;
 const ACTIVE_BAR_WIDTH: f32 = 3.0;
 /// Seconds between running-PES polls of the auto-switch (gui.md "Sidebar" item 2).
 const PES_POLL_SECONDS: f64 = 5.0;
+
+/// What a click in the sidebar asks the shell to do.
+pub(super) enum SidebarClick {
+    /// Make the tool at this index the active view.
+    SwitchTool(usize),
+    /// Open the settings menu.
+    OpenSettings,
+}
 
 /// The sidebar's state across frames: the collapse, the exe check's last verdict, the
 /// window's last focus (the check re-runs when focus returns), the logo's About popup and
@@ -93,8 +101,8 @@ impl Sidebar {
         }
     }
 
-    /// Draws the sidebar and returns the registered tool the user clicked, if any. `tools`
-    /// are in sidebar order, `active` the index of the one on screen.
+    /// Draws the sidebar and returns the click's ask, if any. `tools` are in sidebar
+    /// order, `active` the index of the one on screen.
     pub(super) fn show(
         &mut self,
         ui: &mut egui::Ui,
@@ -102,7 +110,7 @@ impl Sidebar {
         active: usize,
         planned: &[PlannedTool],
         ctx: &ToolContext,
-    ) -> Option<usize> {
+    ) -> Option<SidebarClick> {
         let clicked = if self.collapsed {
             // The rail centers its icons (draft: `.sidebar.collapsed`).
             ui.vertical_centered(|ui| self.contents(ui, tools, active, planned, ctx))
@@ -129,7 +137,7 @@ impl Sidebar {
         active: usize,
         planned: &[PlannedTool],
         ctx: &ToolContext,
-    ) -> Option<usize> {
+    ) -> Option<SidebarClick> {
         if ui
             .add(
                 egui::Button::new(
@@ -153,7 +161,7 @@ impl Sidebar {
                 .tool_entry(ui, tool.icon(), tool.label(), index == active)
                 .clicked()
             {
-                clicked = Some(index);
+                clicked = Some(SidebarClick::SwitchTool(index));
             }
         }
         for entry in planned {
@@ -175,6 +183,25 @@ impl Sidebar {
         {
             self.collapsed = !self.collapsed;
         }
+
+        // The bottom row, pinned to the sidebar's foot: the settings gear, with the help
+        // `?` to join beside it (8.6d). The draft centers the rail's tail.
+        let align = if self.collapsed {
+            egui::Align::Center
+        } else {
+            egui::Align::Min
+        };
+        ui.with_layout(egui::Layout::bottom_up(align), |ui| {
+            ui.horizontal(|ui| {
+                let gear = ui.add(egui::Button::new(egui_phosphor::regular::GEAR).frame(false));
+                gear.widget_info(|| {
+                    egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Settings")
+                });
+                if gear.on_hover_text("Settings").clicked() {
+                    clicked = Some(SidebarClick::OpenSettings);
+                }
+            });
+        });
         clicked
     }
 
@@ -188,22 +215,10 @@ impl Sidebar {
         ctx: &ToolContext,
     ) {
         let common = ctx.common();
-        let blocker = tools.iter().find_map(|tool| {
-            tool.version_change_blocker()
-                .map(|reason| (tool.label(), reason))
-        });
+        let blocker = version_blocker(tools);
         let folder = common.pes_folder();
         let check = self.exe_check(&common, ui.input(|input| input.focused));
-        let tooltip = match check {
-            ExeCheck::Found => format!("{}\nThe PES version every tool targets", folder.display()),
-            ExeCheck::OtherVersion(found) => format!(
-                "Found PES{}.exe in {}: a different version than the selection",
-                found.year(),
-                folder.display()
-            ),
-            ExeCheck::NoExe => format!("No PES exe in {}", folder.display()),
-            ExeCheck::NoFolder => format!("{} does not exist", folder.display()),
-        };
+        let tooltip = exe_tooltip(check, &folder);
 
         let mut picked = common.pes_version;
         let combo_response = ui
@@ -240,12 +255,20 @@ impl Sidebar {
             }
         }
 
-        if picked != common.pes_version {
-            ctx.settings().lock().unwrap().common.pes_version = picked;
-            // A manual pick consumes the once-per-life auto-switch (ST-SIDE-05).
-            self.auto_switch_used = true;
-            ctx.request(ShellRequest::SettingsChanged);
+        self.pick_version(picked, ctx);
+    }
+
+    /// A manual pick of the PES version, shared by the sidebar's selector and the settings
+    /// menu's row: a change writes the common setting, spends the once-per-life
+    /// auto-switch so the running-PES poll never fights it (ST-SIDE-05), and asks the
+    /// shell to save.
+    pub(super) fn pick_version(&mut self, version: PesVersion, ctx: &ToolContext) {
+        if version == ctx.common().pes_version {
+            return;
         }
+        ctx.settings().lock().unwrap().common.pes_version = version;
+        self.auto_switch_used = true;
+        ctx.request(ShellRequest::SettingsChanged);
     }
 
     /// The once-per-life auto-switch to a running PES (gui.md "Sidebar" item 2, ST-SIDE-05),
@@ -276,10 +299,7 @@ impl Sidebar {
         *next = now + PES_POLL_SECONDS;
         egui_ctx.request_repaint_after(Duration::from_secs_f64(PES_POLL_SECONDS));
         // The blocker check is cheaper than the process snapshot, so it runs first.
-        if tools
-            .iter()
-            .any(|tool| tool.version_change_blocker().is_some())
-        {
+        if version_blocker(tools).is_some() {
             return;
         }
         let Some(game) = (self.probe)().into_iter().next() else {
@@ -370,8 +390,9 @@ impl Sidebar {
 
     /// The exe check's verdict, listing the resolved PES folder once per change of the
     /// version or the path and once per return of the window's focus, never per frame
-    /// (ST-SIDE-03: "a cheap single directory listing").
-    fn exe_check(&mut self, common: &CommonSettings, focused: bool) -> ExeCheck {
+    /// (ST-SIDE-03: "a cheap single directory listing"). The settings menu's version row
+    /// shares it: the check is one cache for the shell.
+    pub(super) fn exe_check(&mut self, common: &CommonSettings, focused: bool) -> ExeCheck {
         let folder = common.pes_folder();
         let stale = match &self.exe_check {
             Some((version, checked_folder, _)) => {
@@ -390,8 +411,34 @@ impl Sidebar {
     }
 }
 
+/// The first `version_change_blocker` any registered tool reports, as the blocking tool's
+/// label and its reason for the disabled tooltip (ST-SIDE-04); `None` while nothing
+/// blocks.
+pub(super) fn version_blocker(tools: &[Box<dyn StudioTool>]) -> Option<(&'static str, &str)> {
+    tools.iter().find_map(|tool| {
+        tool.version_change_blocker()
+            .map(|reason| (tool.label(), reason))
+    })
+}
+
+/// The version selector's enabled-state tooltip for an exe-check verdict (ST-SIDE-03):
+/// what the last listing of the resolved PES folder found. The settings menu's version
+/// row carries the same one (the draft's `pesSelectorTip`).
+pub(super) fn exe_tooltip(check: ExeCheck, folder: &Path) -> String {
+    match check {
+        ExeCheck::Found => format!("{}\nThe PES version every tool targets", folder.display()),
+        ExeCheck::OtherVersion(found) => format!(
+            "Found PES{}.exe in {}: a different version than the selection",
+            found.year(),
+            folder.display()
+        ),
+        ExeCheck::NoExe => format!("No PES exe in {}", folder.display()),
+        ExeCheck::NoFolder => format!("{} does not exist", folder.display()),
+    }
+}
+
 /// The combo's item label: `PES 2021` expanded, `21` on the rail (draft).
-fn version_label(version: PesVersion, collapsed: bool) -> String {
+pub(super) fn version_label(version: PesVersion, collapsed: bool) -> String {
     if collapsed {
         version.number().to_string()
     } else {

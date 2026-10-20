@@ -1,5 +1,18 @@
-//! The shared look (core plan, "Other UI components"). Only the icon font lives here for now:
-//! the curated `Visuals` presets arrive with the theme step of the GUI phase.
+//! The shared look (core plan, "Other UI components"): the icon font, and the `theme`
+//! setting's application to the egui context. The presets stay egui's own dark and light
+//! `Visuals` until the curated one lands.
+
+use crate::settings::Theme;
+
+/// Applies the common `theme` setting to `ctx` through `Context::set_theme`: the setting,
+/// never the system's theme, decides, so a member on a light desktop still gets the dark
+/// default.
+pub(crate) fn apply(ctx: &egui::Context, theme: Theme) {
+    ctx.set_theme(match theme {
+        Theme::Dark => egui::ThemePreference::Dark,
+        Theme::Light => egui::ThemePreference::Light,
+    });
+}
 
 /// Registers the `egui-phosphor` regular font as a fallback for proportional text, so icon
 /// glyphs (`StudioTool::icon`, `PlannedTool::icon`) render inline inside ordinary labels.
