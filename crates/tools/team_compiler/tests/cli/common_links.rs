@@ -1101,7 +1101,6 @@ fn a_shared_folder_s_kit_folder_of_links_finds_their_sets_in_common() {
             "Info fmdl_weights_not_normalized [Keep] at Boots/Crocs (file=boots.fmdl, count=1662)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ],
         "{lines:#?}"
     );
@@ -1158,9 +1157,6 @@ fn a_common_kit_folder_set_completes_and_the_model_names_the_kitn_reference() {
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
             "Warning kit_variant_missing [Keep] at Common (texture=kitN/armor_bsm, kit=3, copied=kit1/armor_bsm)",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-            "Info kit_colors_derived [Keep] at Kits/p2 ()",
-            "Info kit_colors_derived [Keep] at Kits/p3 ()",
         ],
         "{lines:#?}"
     );

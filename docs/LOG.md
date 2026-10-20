@@ -2214,3 +2214,8 @@ worklog passed 7,000 lines.
   discards (FoxDen gloves issue); with the ids in the save, EAT's two split vertices float as a speck beside the model.
 - **2026-10-20** — 6.16c closed: EAT's split vertices are chest armor with 1/255 pinky residue; the split stays as specified
   (a model issue, DECISIONS).
+- **2026-10-20** — 6.16 verify: the census at 29f21d9 gives 275 clean (250 before), every exit 1 writing nothing; the library run
+  over 78 inputs leaves D1-D9 gone, intentional (I29-I33) or refused (D4's `.mtl`). Its two findings fixed: Red's ID-rename
+  collisions become leftovers (6.16a5), a Midcup kit without colors keeps its installed entry (6.16b7).
+- **2026-10-20** — the maintainer answered both open questions: a face for the other engine gets Sopdog's transformation (after DBC),
+  a Common path spelled with the team's name is the team's Common (6.16d); 6.12's library parity becomes a rerun at closes.

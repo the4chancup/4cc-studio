@@ -564,6 +564,43 @@ fn a_fox_common_keeper_file_and_reference_respell_the_team() {
     );
 }
 
+// EU-MDL-21
+#[test]
+fn two_files_the_old_id_rename_made_one_keep_the_last_renamed() {
+    let sandbox = Sandbox::new("mdl_id_rename");
+    // The rename replaced the file under its target name in listing order:
+    // `u0XXX` sorts after `u0714`/`u0715` folded, so the game loaded the
+    // `u0XXX` file of each pair, different bytes each.
+    sandbox.write("co Spring/Faces/XXX07 - Ann/u0714p2.dds", b"older p2");
+    sandbox.write("co Spring/Faces/XXX07 - Ann/u0XXXp2.dds", b"newer p2");
+    sandbox.write("co Spring/Faces/XXX07 - Ann/u0715p3.dds", b"other p3");
+    sandbox.write("co Spring/Faces/XXX07 - Ann/u0XXXp3.dds", b"team p3");
+    fs::write(
+        sandbox.path("EDIT"),
+        pes_savefile::fixture_save(pes_version::PesVersion::Pes21),
+    )
+    .unwrap();
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    let stdout = run.stdout();
+    assert_eq!(run.exit_code(), 0, "{stdout}");
+    assert!(stdout.contains("migration_clean"), "{stdout}");
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/07 - Ann/kit2.dds")).unwrap(),
+        b"newer p2"
+    );
+    assert_eq!(
+        fs::read(sandbox.path("co Full Spring/Players/07 - Ann/kit3.dds")).unwrap(),
+        b"team p3"
+    );
+    for line in [
+        "leftover_dropped at Faces/XXX07 - Ann/u0714p2.dds",
+        "leftover_dropped at Faces/XXX07 - Ann/u0715p3.dds",
+    ] {
+        assert!(stdout.contains(line), "{line}: {stdout}");
+    }
+}
+
 // EU-MDL-13
 #[test]
 fn a_fox_fmdl_s_other_directories_and_common_sourceimages_behave() {

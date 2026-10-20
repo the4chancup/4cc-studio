@@ -9364,3 +9364,92 @@ means, against the select-grow-separate semantics members reproduce in Blender; 
 maintainer ruled it a model issue.
 Plan: no plan edit needed: `spec/model_conversion/hand_split.md` "Split" step 1 already says
 "any positive weight".
+
+## 2026-10-20 — export_upgrader — a texture the old compile's ID rename replaced is a leftover
+Decision: inputs of one folder whose paths differ only in their kit tokens' three characters
+(`u0XXXp2.dds` beside `u0731p2.dds` in a /jp/ export) keep the one the old compile's rename
+wrote last, the last renamed one in Windows's case-folded name order (an input already spelled
+with the team's ID being replaced by any renamed one), and the others are `leftover_dropped`;
+every other output-path collision stays `unmigrated_content`, and so does every collision in
+model-folder mode, which has no team ID.
+Why: the 6.16 census rerun found four real inputs refused for this alone: the JP Genso Cup
+exports' `Boots/k0860` (an older `u0731p2.dds` beside the newer `u0XXXp2.dds`) and GBPEN
+VGL26's `Gloves/g2336` (identical copies spelled `u0799`, another team's ID, and `u0XXX`).
+Red's `filenames_id_replace` renames every token to the team's ID in listing order, deleting
+the file under the new name first, so its pick is deterministic and the losers never reached
+the game: the maintainer's leftover rule (2026-10-19), not a choice only the author can make.
+The plan had listed the pair as unmigrated content, and the upgrade kept the first input,
+which for JP was the older texture.
+Plan: `plans/export_upgrader.md` step 7 (the collision sentence), step 10's leftover list,
+EU-MDL-21.
+
+## 2026-10-20 — team_compiler — the library parity is a measurement rerun at phase closes
+Decision: the parity over the maintainer's library of old exports is rerun at each phase close
+that changes the Team compiler or the Export upgrader (upgrade census, compile, Red from a fresh
+copy, `red_parity`, every line attributed), its scripts committed under
+`scripts/library_parity/`; no hash manifest of Red's output is committed as a fixture. The three
+tracers stay the committed parity tests.
+Why: 6.12b-c's measurements: the inputs are several hundred members' exports on the maintainer's
+machine alone, so a manifest-backed test could never run in CI; ours differs from Red's by design
+in 28 classes (I1-I28), so a manifest of either tree would be a golden every intentional change
+rewrites; and the run's value is the attribution of each new class, which needs judgement. It
+costs about 20 minutes of Red (median 3.6 s per export) and 17 of ours over 250 exports.
+Plan: `plans/team_compiler/testing.md` "Testing: parity against Red" (the manifest paragraph
+replaced); worklog 6.12.
+
+## 2026-10-20 — export_upgrader — correction: Red does not deliver a game-path face folder
+Decision: unchanged (2026-10-19 "a face folder holding the game path migrates its innermost
+folder"); its reason is corrected. Red's face CPK for such a folder nests the member's tree
+below the player's own path (FGOG VGL6: `face/real/79501.cpk` holding
+`.../real/79501/common/character0/model/character/face/real/81401/face.mtl` and the rest), and
+the `face.xml` Red generates at the player's path, finding none at the folder's top, lists the
+models as `./face_high_*.model` and the like, which are not beside it; the member's own
+`face.xml` (`arm`, `handL` types in /co/'s fetus export, the member's 944-byte diff) stays
+nested. So under Red the face did not load (a CPK listing, not checked in game).
+Why: the 6.16 library run classified the two exports' `face.xml` differences against Red's
+generated one (every model `parts`, the template 960-byte diff). The rule stays because the
+folder is the member's face for the slot, an extracted face CPK of their own (2016-2018
+exports), and migrating it gives the face the export was made to show, where
+reproducing Red's output would ship a face that does not load. The parity difference is an
+intentional class (I30).
+Plan: `plans/export_upgrader.md` step 3 (the game-path sentence).
+
+## 2026-10-20 — team_compiler — a `Midcup` kit without colors keeps its installed menu colors
+Decision: in a `Midcup` export, a kit without a usable `colors.txt` emits no `UniColor.bin`
+entry, its installed entry standing, whether or not it resends its main texture; a `Full`
+export's still derives the pair from the main texture (`kit_colors_derived`).
+Why: the 2026-10-19 rule ("a `Midcup` kit keeps what it does not resend") left derivation as it
+was, so a texture-only update replaced the installed menu colors with ones derived from the
+new texture, where Red keeps them unless the Note lists colors: the 6.16 library run's
+`UniColor.bin` records for JP 2024 Spring Aesthetic Additions for Day 5 (team 731, six kits) and
+VG Aesthetics Day 0 Midcup differed for that alone (Red's base entry, ours derived). The colors
+are what such a folder does not resend.
+Plan: `spec/team_compiler/pipeline.md` step 2 (the **Kits** item), `messages.md`
+`kit_colors_derived`, TC-KIT-36.
+
+## 2026-10-20 — model_conversion — a face made for the other engine is transformed, not passed through
+Decision: a face folder marks the engine its face was made for (`fox`/`pre-fox`, as the kit
+layout marker; none means the target), and a face with face weighting compiled for the other
+engine gets the transformation the Sopdog pair shows applied to its model and diff; if no rule
+reproduces it, the compiler reports the face instead. Lower priority than the Divegrass Before
+Christmas work.
+Why: the maintainer's answer to QUESTIONS.md "Face diffs are engine-specific" (2026-10-20):
+"Apply the same transformation that was done to sopdog's model to any model with face weighting
+which has to change format (as indicated by a fox/pre-fox marker like the one used on kits).
+This might not be possible but we should attempt it." Options (a) silence, (b) a report on
+every pre-Fox face once the cup moves to Fox, and (c) dropping the diff were the alternatives.
+Plan: `plans/model_conversion/conversion.md` "A face made for the other engine"; worklog Issues.
+
+## 2026-10-20 — export_upgrader — a Common path spelled with the team's name is the team's Common
+Decision: in an old face's `.mtl` and `face.xml`, a Common path whose segment is the team's
+name without its slashes (`model/character/uniform/common/o/env.dds` for /o/, `.../common/vg/`
+for VG, letter case aside) is read as the team's Common, as `XXX` and a baked-in ID are, and
+migrated the same way (the bare name and its `.common` link, or the kept Common path).
+Why: the maintainer's answer to QUESTIONS.md "A Common path spelled with the team's name"
+(2026-10-20): the question's premise, that no compiler ever resolved that spelling, was wrong:
+the first, batch-file compiler (`4cc aet compiler/_old/4cc-aet-compiler`, readme "the contents
+of the Common folder will be moved to model/character/uniform/common/---/ (where --- is the team
+name)") wrote a pre-Fox export's Common there, so those faces loaded their Common files then;
+"if we can easily do (a) let's go with that instead, so we can support even older exports".
+Options (b) a leftover and (c) a refusal remain the fallback if (a) proves hard.
+Plan: `plans/export_upgrader.md` step 7 (the Common reference sentence); worklog 6.16d.

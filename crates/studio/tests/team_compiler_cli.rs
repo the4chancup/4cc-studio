@@ -155,7 +155,6 @@ fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone
              - Info bin_source (bin=UniformParameter.bin, cpk=bundled)\n\
              - co Midcup Kit: Info export_identified (team=/co/, id=714)\n\
              - co Midcup Kit: Info team_colors_missing\n\
-             - co Midcup Kit: Info kit_colors_derived at Kits/p1\n\
              - Info deploy_skipped_by_flag (path={})\n",
             cpk.display()
         )

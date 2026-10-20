@@ -1097,12 +1097,10 @@ fn assert_a_kit_reference_completes_its_model_and_mtl_sets(name: &str, pants: &s
             "Warning kit_variant_missing [Keep] at Players/05 - A (model=pants_kitN, kit={kit}, copied=pants_kit1)"
         )
     });
-    let derived = (1..=4).map(|kit| format!("Info kit_colors_derived [Keep] at Kits/p{kit} ()"));
     let expected: Vec<String> = CLEAN
         .iter()
         .map(|line| (*line).to_owned())
         .chain(missing)
-        .chain(derived)
         .chain(generated)
         .collect();
     let entries = compile_pes17(
@@ -1190,7 +1188,6 @@ fn a_kit_reference_into_a_subfolder_names_the_set_there_and_completes_it_at_its_
 
     let generated =
         (1..=3).map(|kit| format!("Info kit_config_generated [Keep] at Kits/p{kit} ()"));
-    let derived = (1..=3).map(|kit| format!("Info kit_colors_derived [Keep] at Kits/p{kit} ()"));
     let expected: Vec<String> = [
         "Warning xml_model_unlisted [Keep] at Players/05 - A (file=pants_kit3.model)".to_owned(),
     ]
@@ -1199,7 +1196,6 @@ fn a_kit_reference_into_a_subfolder_names_the_set_there_and_completes_it_at_its_
     .chain([
         "Warning kit_variant_missing [Keep] at Players/05 - A (model=jessie/pants_kitN, kit=3, copied=jessie/pants_kit1)".to_owned(),
     ])
-    .chain(derived)
     .chain(generated)
     .collect();
     let entries = compile_pes17(
@@ -1289,8 +1285,6 @@ fn a_kit_reference_naming_one_shared_mtl_reports_its_model_set_and_copies_no_mtl
             CLEAN[0],
             CLEAN[1],
             "Warning kit_variant_missing [Keep] at Players/05 - A (model=pants_kitN, kit=2, copied=pants_kit1)",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-            "Info kit_colors_derived [Keep] at Kits/p2 ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_config_generated [Keep] at Kits/p2 ()",
         ],
@@ -1419,9 +1413,6 @@ fn a_shared_xml_s_kit_reference_is_completed_from_the_player_s_kitf_files() {
             IDENTIFIED,
             "Info team_colors_missing [Keep] ()",
             "Info link_combined [Keep] at Players/05 - A (link=Round.face)",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-            "Info kit_colors_derived [Keep] at Kits/p2 ()",
-            "Info kit_colors_derived [Keep] at Kits/p3 ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_config_generated [Keep] at Kits/p2 ()",
             "Info kit_config_generated [Keep] at Kits/p3 ()",

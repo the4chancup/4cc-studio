@@ -12,8 +12,7 @@ use dds_convert::{SourceFormat, decode};
 use crate::common::Sandbox;
 use crate::compile::{cpk_entries, kit_texture, pes21_settings, tracer_export, tracer_kit};
 use crate::compile_exports::{
-    TEAM_COLOR, UNI_COLOR, bundled_team_color, bundled_uni_color, config_path, tracer_kit_colors,
-    uni_record, with_uni_record,
+    TEAM_COLOR, UNI_COLOR, bundled_team_color, bundled_uni_color, config_path,
 };
 use crate::findings_of;
 use crate::kit_layout::{
@@ -86,16 +85,7 @@ fn pes_17_kit_configs_are_loose_files_and_no_uniform_parameter_bin_is_written() 
     write_kit(&sandbox, "co Midcup Configs", "p1");
     write_kit(&sandbox, "co Midcup Configs", "g1");
 
-    let entries = compile_pes17(
-        &sandbox,
-        "co Midcup Configs",
-        &[
-            CLEAN[0],
-            CLEAN[1],
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-            "Info kit_colors_derived [Keep] at Kits/g1 ()",
-        ],
-    );
+    let entries = compile_pes17(&sandbox, "co Midcup Configs", &[CLEAN[0], CLEAN[1]]);
 
     for ordinal in ["1st", "GK1st"] {
         let config = &entries[&config_path(ordinal)];
@@ -125,12 +115,7 @@ fn the_mask_is_emitted_on_pes_17_and_the_srm_on_pes_21_each_dropping_the_other()
     let pes17_entries = compile_pes17(
         &sandbox,
         "co Midcup Maps",
-        &[
-            CLEAN[0],
-            &not_used("kit_srm.dds"),
-            CLEAN[1],
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-        ],
+        &[CLEAN[0], &not_used("kit_srm.dds"), CLEAN[1]],
     );
 
     let emitted = decode(
@@ -151,12 +136,7 @@ fn the_mask_is_emitted_on_pes_17_and_the_srm_on_pes_21_each_dropping_the_other()
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Maps"),
-        [
-            CLEAN[0],
-            &not_used("kit_mask.dds"),
-            CLEAN[1],
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-        ]
+        [CLEAN[0], &not_used("kit_mask.dds"), CLEAN[1],]
     );
     assert_eq!(run.exit_code(), 0);
     let pes21_entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
@@ -350,11 +330,7 @@ fn a_pes_17_compile_writes_both_color_bins_and_no_fox_bin() {
         ],
         "{lines:#?}"
     );
-    assert_eq!(
-        findings_of(&lines, export),
-        [CLEAN[0], "Info kit_colors_derived [Keep] at Kits/p1 ()"],
-        "{lines:#?}"
-    );
+    assert_eq!(findings_of(&lines, export), [CLEAN[0]], "{lines:#?}");
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
 
@@ -365,15 +341,12 @@ fn a_pes_17_compile_writes_both_color_bins_and_no_fox_bin() {
         entries[TEAM_COLOR] == team_color,
         "TeamColor.bin is the base with team 714's colors set"
     );
-    // Team 714's record: kit 0 (p1) replaced with icon 3 and its texture's colors, the
-    // base's other kits kept.
+    // Team 714's record: the kit holds no `colors.txt`, so a `Midcup` kit's entry is the
+    // base's kept and the bin is written as it came.
     let base = bundled_uni_color();
-    let mut record = uni_record(&base, 714).to_vec();
-    record[5..7].copy_from_slice(&[0x00, 0x03]);
-    record[7..13].copy_from_slice(&tracer_kit_colors());
     assert!(
-        entries[UNI_COLOR] == with_uni_record(&base, 714, &record),
-        "UniColor.bin is the base with team 714's p1 entry set"
+        entries[UNI_COLOR] == base,
+        "UniColor.bin is the base, the kit's entry kept"
     );
     for name in [
         "UniformParameter.bin",

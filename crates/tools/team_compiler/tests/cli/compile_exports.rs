@@ -147,7 +147,6 @@ fn an_empty_players_txt_compiles_the_kits_and_no_player() {
             "Warning player_unlisted [DropFolder] at Players/03 - A ()",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
     assert!(compiled_players(&sandbox).is_empty());
@@ -172,8 +171,6 @@ fn kit_folders_are_compiled_as_the_slot_their_name_starts_with() {
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_colors_derived [Keep] at Kits/p1 - Lakers ()",
-            "Info kit_colors_derived [Keep] at Kits/g1 ()",
         ]
     );
     assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p1"]);
@@ -483,7 +480,6 @@ fn a_kit_mask_on_a_fox_target_is_reported_once_and_not_emitted() {
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_mask.dds)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -505,7 +501,6 @@ fn a_kit_texture_stem_the_compiler_does_not_build_is_not_used() {
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_spec.dds)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -532,7 +527,6 @@ fn a_kit_mask_a_fox_target_does_not_emit_is_not_checked() {
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info kit_texture_not_used [DropFile] at Kits/p1 (file=kit_mask.dds)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ],
         "{lines:#?}"
     );
@@ -770,10 +764,7 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
         run.messages(),
         no_deploy_lines(
             &sandbox,
-            [
-                "co Midcup Colors: Info export_identified [Keep] (team=/co/, id=714)",
-                "co Midcup Colors: Info kit_colors_derived [Keep] at Kits/p1 ()"
-            ]
+            ["co Midcup Colors: Info export_identified [Keep] (team=/co/, id=714)",]
         )
     );
     assert_eq!(run.exit_code(), 0);
@@ -803,7 +794,6 @@ fn a_root_colors_txt_sets_the_team_s_colors_and_an_export_without_one_reports_it
             [
                 "dbg Midcup Plain: Info export_identified [Keep] (team=/dbg/, id=790)",
                 "dbg Midcup Plain: Info team_colors_missing [Keep] ()",
-                "dbg Midcup Plain: Info kit_colors_derived [Keep] at Kits/p1 ()"
             ]
         )
     );
@@ -966,29 +956,35 @@ fn each_kit_s_menu_colors_come_from_its_colors_txt_its_texture_or_the_missing_pa
 #[test]
 fn a_kit_without_a_texture_derives_its_colors_from_the_inherited_all_kit_dds() {
     let sandbox = Sandbox::new("kit_colors_inherited");
-    let export = "exports/co Midcup Shared";
+    let export = "exports/co Full Shared";
     sandbox.write(&format!("{export}/Kits/all/kit.dds"), &tracer_kit());
     fs::create_dir_all(sandbox.root.join(format!("{export}/Kits/p2"))).unwrap();
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co Midcup Shared"),
+        findings_of(&run.messages(), "co Full Shared"),
         [
             "Info kit_textures_inherited [Keep] at Kits/p2 (stems=kit)",
+            "Info kit_textures_inherited [Keep] at Kits/g1 (stems=kit)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p2 ()",
+            "Info kit_config_generated [Keep] at Kits/g1 ()",
             "Info kit_colors_derived [Keep] at Kits/p2 ()",
+            "Info kit_colors_derived [Keep] at Kits/g1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);
-    assert_eq!(compiled_kits(&sandbox), ["u0714p2"]);
+    // The inherited `all/kit.dds` is each kit's effective main texture, so neither is a
+    // placeholder and each derives its colors.
+    assert_eq!(compiled_kits(&sandbox), ["u0714g1", "u0714p2"]);
     // p2's entry: kit number 1, icon 3, the pair the extraction gives for all/kit.dds.
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let record = uni_record(&entries[UNI_COLOR], 714);
     let mut entry = vec![0x01, 0x03];
     entry.extend_from_slice(&tracer_kit_colors());
-    assert_eq!(record[13..21], entry);
+    assert_eq!(record[5..13], entry);
 }
 
 // TC-KIT-25
@@ -1013,7 +1009,6 @@ fn an_all_kit_texture_that_does_not_decode_drops_each_kit_inheriting_it_and_not_
             "Error texture_type_mismatch [DropFolder] at Kits/p2 (file=Kits/all/kit.dds)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -1024,7 +1019,7 @@ fn an_all_kit_texture_that_does_not_decode_drops_each_kit_inheriting_it_and_not_
 #[test]
 fn a_kit_colors_txt_with_one_valid_color_reports_its_bad_line_and_derives_both_colors() {
     let sandbox = Sandbox::new("kit_colors_one_valid");
-    let export = "exports/co Midcup Colors";
+    let export = "exports/co Full Colors";
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(
         &format!("{export}/Kits/p1/colors.txt"),
@@ -1034,12 +1029,16 @@ fn a_kit_colors_txt_with_one_valid_color_reports_its_bad_line_and_derives_both_c
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
 
     assert_eq!(
-        findings_of(&run.messages(), "co Midcup Colors"),
+        findings_of(&run.messages(), "co Full Colors"),
         [
             "Warning color_entry_invalid [Keep] at Kits/p1/colors.txt (line=2, reason=not one color)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             "Info team_colors_missing [Keep] ()",
+            "Info kit_config_generated [Keep] at Kits/p1 ()",
+            "Info kit_config_generated [Keep] at Kits/g1 ()",
+            "Info kit_placeholder [Keep] at Kits/g1 ()",
             "Info kit_colors_derived [Keep] at Kits/p1 ()",
+            "Warning kit_colors_missing [Keep] at Kits/g1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -1055,7 +1054,7 @@ fn a_kit_s_icon_marker_gives_its_menu_icon_and_a_kit_without_one_gets_icon_3() {
     // Team 790's base record is a placeholder whose entries carry icon 0, so icon 3 is
     // written, not kept.
     let sandbox = Sandbox::new("kit_icons");
-    let export = "exports/dbg Midcup Icons";
+    let export = "exports/dbg Full Icons";
     sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
     sandbox.write(&format!("{export}/Kits/p1/icon_7"), b"");
     sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
@@ -1070,10 +1069,13 @@ fn a_kit_s_icon_marker_gives_its_menu_icon_and_a_kit_without_one_gets_icon_3() {
         [0x00, 0x00],
         "the base's icon 0"
     );
+    // The export holds no `g1/`: a `Full` export plans an empty one, so the record is
+    // rebuilt as p1, p2, g1 (icons 7, 3 and the placeholder's 3).
     let record = uni_record(&entries[UNI_COLOR], 790);
-    assert_eq!(record[4], 2, "two kits");
+    assert_eq!(record[4], 3, "three kits");
     assert_eq!(record[5..7], [0x00, 0x07], "p1: icon 7");
     assert_eq!(record[13..15], [0x01, 0x03], "p2: icon 3");
+    assert_eq!(record[21..23], [0x10, 0x03], "g1: icon 3");
 }
 
 // TC-KIT-14
@@ -1350,6 +1352,62 @@ fn a_midcup_kit_s_config_names_the_number_textures_the_install_holds() {
     );
 }
 
+// TC-KIT-36
+#[test]
+fn a_midcup_kit_without_usable_colors_keeps_its_installed_menu_colors() {
+    // The installed game holds team 714's configs, textures and `UniColor.bin` entries
+    // for p1 to p3, with colors no extraction of the export's `kit.dds` gives.
+    let sandbox = Sandbox::new("kit_midcup_keeps_colors");
+    install_names(
+        &sandbox,
+        &["4cc_08_bins.cpk", "4cc_61_midcup.cpk", "4cc_99_test.cpk"],
+    );
+    let ftex = ftex::dds_to_ftex(&tracer_kit(), ftex::ColorSpace::Normal).unwrap();
+    install_cpk(
+        &sandbox,
+        "4cc_08_bins.cpk",
+        &[
+            (TEAM_COLOR, &bundled_team_color()),
+            (UNI_COLOR, &uni_color_p1_p2_p3()),
+            (
+                UNIFORM_PARAMETER,
+                &installed_configs(&[(714, KitSlot::P1), (714, KitSlot::P2), (714, KitSlot::P3)]),
+            ),
+            (kit_texture("u0714p1").as_str(), ftex.as_slice()),
+            (kit_texture("u0714p2").as_str(), ftex.as_slice()),
+            (kit_texture("u0714p3").as_str(), ftex.as_slice()),
+        ],
+    );
+    let export = "exports/co Midcup Keep";
+    sandbox.write(&format!("{export}/Kits/p1/kit.dds"), &tracer_kit());
+    sandbox.write(
+        &format!("{export}/Kits/p1/config.toml"),
+        &fs::read(Path::new(&tracer_export()).join("Kits/g1/config.toml")).unwrap(),
+    );
+    sandbox.write(&format!("{export}/Kits/p2/kit.dds"), &tracer_kit());
+    sandbox.write(&format!("{export}/Kits/p2/colors.txt"), b"not a color\n");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    // The line is still refused, but no `kit_colors_derived` is reported: each kit's
+    // installed `UniColor.bin` entry stands.
+    assert_eq!(
+        findings_of(&run.messages(), "co Midcup Keep"),
+        [
+            "Warning color_entry_invalid [Keep] at Kits/p2/colors.txt (line=1, reason=not one color)",
+            "Info export_identified [Keep] (team=/co/, id=714)",
+            "Info team_colors_missing [Keep] ()",
+        ]
+    );
+    assert_eq!(run.exit_code(), 0);
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert_eq!(
+        uni_record(&entries[UNI_COLOR], 714),
+        uni_record(&uni_color_p1_p2_p3(), 714),
+        "team 714's whole record is the installed one"
+    );
+}
+
 // TC-BIN-42
 #[test]
 fn a_midcup_run_whose_only_work_is_a_root_colors_txt_still_writes_team_color_bin() {
@@ -1535,6 +1593,12 @@ fn a_midcup_export_merges_its_kits_into_its_team_s_record() {
     let export = "exports/co Midcup Kits";
     for slot in ["p1", "p8"] {
         sandbox.write(&format!("{export}/Kits/{slot}/kit.dds"), &tracer_kit());
+        // The menu colors the merge writes (the same pair the texture derives to):
+        // without a `colors.txt` a `Midcup` kit's entry stays installed.
+        sandbox.write(
+            &format!("{export}/Kits/{slot}/colors.txt"),
+            b"#ffffff\n#ffffff\n",
+        );
     }
 
     let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
@@ -1643,8 +1707,9 @@ fn a_full_export_lacking_g1_gets_an_empty_one_and_a_midcup_export_none() {
         ),
         "/co/: p1 and p2 new, g1 the placeholder"
     );
-    // Team 702's base record holds nine kits, 0 to 7 and 0x10: p1's is replaced.
-    let mut expected: Vec<[u8; 8]> = (0..9).map(|index| base_entry(&base, 702, index)).collect();
+    // Team 702's base record holds nine kits, 0 to 7 and 0x10: the `Midcup` export's p1
+    // holds no `colors.txt`, so its entry is the base's kept, not replaced.
+    let expected: Vec<[u8; 8]> = (0..9).map(|index| base_entry(&base, 702, index)).collect();
     assert_eq!(
         expected,
         [
@@ -1661,11 +1726,10 @@ fn a_full_export_lacking_g1_gets_an_empty_one_and_a_midcup_export_none() {
         "the base's record for team 702"
     );
     assert_eq!(uni_record(&base, 702)[4], 9);
-    expected[0] = kit_entry(0x00, colors);
     assert_eq!(
         uni_record(&entries[UNI_COLOR], 702),
         record_of(702, 9, &expected),
-        "/a/: p1 replaced, the rest the base's"
+        "/a/: p1 kept, the rest the base's"
     );
 }
 
@@ -2145,7 +2209,6 @@ fn a_root_notes_txt_that_cannot_be_read_is_dropped_and_the_rest_compiled() {
             "egg Midcup Tracer bad notes.zip: Error source_read_failed [DropFile] at notes.txt (reason=Invalid checksum)",
             "egg Midcup Tracer bad notes.zip: Info export_identified [Keep] (team=/egg/, id=792)",
             "egg Midcup Tracer bad notes.zip: Info team_colors_missing [Keep] ()",
-            "egg Midcup Tracer bad notes.zip: Info kit_colors_derived [Keep] at Kits/g1 ()",
             "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
         ],
     );
@@ -2175,7 +2238,6 @@ fn a_7z_over_the_memory_cap_compiles() {
             "egg Midcup Tracer.7z: Info fmdl_weights_not_normalized [Keep] at Players/05 - The Chad Stormworks Player (file=fcl_hair.fmdl, count=1662)",
             "egg Midcup Tracer.7z: Info export_identified [Keep] (team=/egg/, id=792)",
             "egg Midcup Tracer.7z: Info team_colors_missing [Keep] ()",
-            "egg Midcup Tracer.7z: Info kit_colors_derived [Keep] at Kits/g1 ()",
             "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)",
         ],
     );
@@ -2259,7 +2321,6 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
             "message export_disabled",
             "message team_colors_missing",
             "processed 1",
-            "message kit_colors_derived",
             "message folder_pack_failed",
             "processed 0",
             "message deploy_skipped_by_flag",
@@ -2311,9 +2372,6 @@ fn the_worker_count_changes_neither_the_findings_nor_the_cpk() {
             "egg Midcup Tracer: Info export_identified [Keep] (team=/egg/, id=792)",
             "co Midcup Kits: Info team_colors_missing [Keep] ()",
             "dbg Midcup Seven.7z: Info team_colors_missing [Keep] ()",
-            "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/p1 ()",
-            "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/g1 ()",
-            "dbg Midcup Seven.7z: Info kit_colors_derived [Keep] at Kits/g1 ()",
             "Warning player_table_missing [Keep] (table=BootsList.bin, rows=1)",
             "Warning player_table_missing [Keep] (table=GloveList.bin, rows=1)",
             "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=2)"
@@ -2409,7 +2467,6 @@ fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team
     // Planning's notes are `a Midcup Home`'s alone: nothing of `/co/` is planned.
     let planned = [
         "a Midcup Home: Info team_colors_missing [Keep] ()".to_owned(),
-        "a Midcup Home: Info kit_colors_derived [Keep] at Kits/p1 ()".to_owned(),
         "Warning player_table_missing [Keep] (table=PlayerAppearance.bin, rows=1)".to_owned(),
     ];
     let mut expected = no_deploy_lines(&sandbox, [&validated[..], &planned[..]].concat());

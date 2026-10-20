@@ -641,12 +641,7 @@ fn a_kit_config_that_does_not_parse_leaves_its_kit_out_and_the_kit_beside_it_com
     let compile = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
     assert_eq!(
         findings_of(&compile.messages(), "co Midcup Kits"),
-        [
-            KIT_CONFIG_INVALID,
-            IDENTIFIED,
-            TEAM_COLORS_MISSING,
-            "Info kit_colors_derived [Keep] at Kits/p2 ()"
-        ]
+        [KIT_CONFIG_INVALID, IDENTIFIED, TEAM_COLORS_MISSING,]
     );
     assert_eq!(compile.exit_code(), 1);
     assert_eq!(compiled_kits(&sandbox), ["u0714p2"]);
@@ -757,15 +752,7 @@ fn pass_through_keeps_no_face_diff_kit_config_or_settings_toml_that_cannot_be_re
     );
     expected.extend(tracer_face_weights("07 - C"));
     expected.push(settings_invalid("07 - C"));
-    expected.extend(
-        [
-            KIT_CONFIG_INVALID,
-            IDENTIFIED,
-            TEAM_COLORS_MISSING,
-            "Info kit_colors_derived [Keep] at Kits/p2 ()",
-        ]
-        .map(str::to_owned),
-    );
+    expected.extend([KIT_CONFIG_INVALID, IDENTIFIED, TEAM_COLORS_MISSING].map(str::to_owned));
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Unreadable"),
         expected

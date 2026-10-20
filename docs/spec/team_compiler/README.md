@@ -1748,6 +1748,12 @@ TC-KIT-35  GIVEN the installed game holding team 714's p1 textures u0714p1, u071
            WHEN the export is compiled for PES 21
            THEN the emitted p1 config names u0714p1, u0714p1_back and u0714p1_name, its chest
                 and leg fields empty
+TC-KIT-36  GIVEN a Midcup /co/ export whose p1/ holds kit.dds and config.toml and no
+           colors.txt, and p2/ holds kit.dds and a colors.txt of one unparsable line, the
+           installed game holding team 714's UniColor.bin entries for p1 and p2
+           WHEN the export is compiled for PES 21
+           THEN kit_colors_derived is not reported and UniColor.bin's p1 and p2 entries are the
+                installed ones
 ```
 
 **Root files, Common and collars**

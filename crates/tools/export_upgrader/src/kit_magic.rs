@@ -12,7 +12,7 @@
 //! reads the legacy spelling.
 
 use std::borrow::Cow;
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 
 use aesthetics_export::kit_token_starts;
 use studio_core::{Disposition, Message, Scope};
@@ -160,31 +160,119 @@ pub(crate) fn respell_outputs(
 }
 
 /// `copies` minus every output whose path, folded with
-/// `vtree::fold_name`, an earlier copy in the list already takes; the
-/// later input is reported `unmigrated_content` (E,
-/// `Disposition::DropFile`, the fallback's scope and empty context).
+/// `vtree::fold_name`, another copy's already takes: one copy per folded
+/// output path, the kept ones at their own positions in the input list's
+/// order. A group whose inputs were one file to the old compile's ID
+/// rename (`path_id` `Some`: every input path spells one old-compile
+/// name, folded, and the rename changed at least one's) keeps the
+/// renamed input ordered last in Windows's name order — the rename ran
+/// in listing order, replacing the file under the new name, so the last
+/// renamed is what the game loaded — and reports each other input
+/// `leftover_dropped`. Any other group keeps its first in list order
+/// and reports each later one `unmigrated_content`. Every finding is
+/// `File`-scoped `DropFile` at the input path, empty context.
 pub(crate) fn drop_collisions(
     copies: Vec<(String, String)>,
+    path_id: Option<u16>,
 ) -> (Vec<(String, String)>, Vec<Message>) {
+    let mut groups: BTreeMap<String, Vec<usize>> = BTreeMap::new();
+    for (index, (_, to)) in copies.iter().enumerate() {
+        groups.entry(vtree::fold_name(to)).or_default().push(index);
+    }
+    let mut dropped: Vec<Option<Code>> = vec![None; copies.len()];
+    for group in groups.into_values() {
+        match renamed_winner(&copies, &group, path_id) {
+            Some(winner) => {
+                for &index in &group {
+                    if index != winner {
+                        dropped[index] = Some(Code::LeftoverDropped);
+                    }
+                }
+            }
+            None => {
+                for &index in &group[1..] {
+                    dropped[index] = Some(Code::UnmigratedContent);
+                }
+            }
+        }
+    }
     let mut out = Vec::with_capacity(copies.len());
-    let mut taken: BTreeSet<String> = BTreeSet::new();
     let mut findings = Vec::new();
-    for (from, to) in copies {
-        if !taken.insert(vtree::fold_name(&to)) {
-            findings.push(tool_message(
-                Code::UnmigratedContent,
+    for ((from, to), code) in copies.into_iter().zip(dropped) {
+        match code {
+            None => out.push((from, to)),
+            Some(code) => findings.push(tool_message(
+                code,
                 Scope::File {
                     export_id: INPUT,
                     path: path_scope(&from),
                 },
                 Disposition::DropFile,
                 vec![],
-            ));
-            continue;
+            )),
         }
-        out.push((from, to));
     }
     (out, findings)
+}
+
+/// The index of the group's kept copy under the old compile's ID rename:
+/// every input path spelling one old-compile name, folded, with the
+/// rename changing at least one's, the winner the renamed input ordered
+/// last in Windows's name order. `None` for any other group (no path ID,
+/// different old-compile names, no input renamed), which the list-order
+/// rule keeps.
+fn renamed_winner(
+    copies: &[(String, String)],
+    group: &[usize],
+    path_id: Option<u16>,
+) -> Option<usize> {
+    let id = path_id?;
+    let mut names = BTreeSet::new();
+    let mut changed = Vec::new();
+    for &index in group {
+        let old_name = old_compile_name(&copies[index].0, id);
+        names.insert(vtree::fold_name(&old_name));
+        if old_name != copies[index].0 {
+            changed.push(index);
+        }
+    }
+    if names.len() != 1 || changed.is_empty() {
+        return None;
+    }
+    changed
+        .into_iter()
+        .max_by_key(|index| copies[*index].0.to_ascii_uppercase())
+}
+
+/// The old compile's name of `path`: every `u0` + three ASCII letters or
+/// digits + `p` or `g` token's three characters replaced by `id`, three
+/// digits, matched in the letter case written, left to right,
+/// non-overlapping.
+fn old_compile_name(path: &str, id: u16) -> String {
+    let bytes = path.as_bytes();
+    let mut out = String::with_capacity(path.len());
+    let mut cursor = 0;
+    let mut at = 0;
+    while at + 6 <= bytes.len() {
+        let token = bytes[at] == b'u'
+            && bytes[at + 1] == b'0'
+            && bytes[at + 2..at + 5]
+                .iter()
+                .all(|byte| byte.is_ascii_alphanumeric())
+            && matches!(bytes[at + 5], b'p' | b'g');
+        if token {
+            out.push_str(&path[cursor..at]);
+            out.push_str("u0");
+            out.push_str(&format!("{id:03}"));
+            out.push(char::from(bytes[at + 5]));
+            cursor = at + 6;
+            at += 6;
+        } else {
+            at += 1;
+        }
+    }
+    out.push_str(&path[cursor..]);
+    out
 }
 
 #[cfg(test)]
@@ -330,13 +418,16 @@ mod tests {
 
     #[test]
     fn respelled_names_collide_as_before() {
-        let (copies, findings) = drop_collisions(respell_outputs(
-            vec![
-                ("a".into(), "Players/07 - A/u0XXXp1.dds".into()),
-                ("b".into(), "Players/07 - A/u0714p1.dds".into()),
-            ],
-            &team(),
-        ));
+        let (copies, findings) = drop_collisions(
+            respell_outputs(
+                vec![
+                    ("a".into(), "Players/07 - A/u0XXXp1.dds".into()),
+                    ("b".into(), "Players/07 - A/u0714p1.dds".into()),
+                ],
+                &team(),
+            ),
+            team().path_id(),
+        );
         assert_eq!(
             copies,
             vec![("a".to_owned(), "Players/07 - A/kit1.dds".to_owned())]
@@ -354,6 +445,154 @@ mod tests {
     }
 
     #[test]
+    fn inputs_one_file_to_the_old_rename_keep_the_last_renamed() {
+        // The rename replaced the file under its target name in listing
+        // order: `u0XXXp2.dds`, ordered after `u0714p2.dds`, is what the
+        // game loaded — whichever order the input lists them in.
+        for order in [
+            [
+                "Faces/XXX07 - Ann/u0714p2.dds",
+                "Faces/XXX07 - Ann/u0XXXp2.dds",
+            ],
+            [
+                "Faces/XXX07 - Ann/u0XXXp2.dds",
+                "Faces/XXX07 - Ann/u0714p2.dds",
+            ],
+        ] {
+            let (copies, findings) = drop_collisions(
+                order
+                    .iter()
+                    .map(|from| ((*from).to_owned(), "Players/07 - Ann/kit2.dds".to_owned()))
+                    .collect(),
+                team().path_id(),
+            );
+            assert_eq!(
+                copies,
+                vec![(
+                    "Faces/XXX07 - Ann/u0XXXp2.dds".to_owned(),
+                    "Players/07 - Ann/kit2.dds".to_owned()
+                )],
+                "{order:?}"
+            );
+            assert_eq!(findings.len(), 1, "{order:?}");
+            assert_eq!(findings[0].code.code.as_ref(), "leftover_dropped");
+            assert_eq!(
+                findings[0].scope,
+                Scope::File {
+                    export_id: INPUT,
+                    path: path_scope("Faces/XXX07 - Ann/u0714p2.dds")
+                },
+                "{order:?}"
+            );
+            assert_eq!(findings[0].disposition, Disposition::DropFile);
+            assert!(findings[0].context.is_empty());
+        }
+    }
+
+    #[test]
+    fn the_last_renamed_in_windows_name_order_wins() {
+        // `X` sorts after `7` folded: `u0XXXp3.dds` was renamed after
+        // `u0715p3.dds` and replaced it.
+        let (copies, findings) = drop_collisions(
+            vec![
+                (
+                    "Faces/XXX07 - Ann/u0715p3.dds".to_owned(),
+                    "Players/07 - Ann/kit3.dds".to_owned(),
+                ),
+                (
+                    "Faces/XXX07 - Ann/u0XXXp3.dds".to_owned(),
+                    "Players/07 - Ann/kit3.dds".to_owned(),
+                ),
+            ],
+            team().path_id(),
+        );
+        assert_eq!(
+            copies,
+            vec![(
+                "Faces/XXX07 - Ann/u0XXXp3.dds".to_owned(),
+                "Players/07 - Ann/kit3.dds".to_owned()
+            )]
+        );
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].code.code.as_ref(), "leftover_dropped");
+        assert_eq!(
+            findings[0].scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Faces/XXX07 - Ann/u0715p3.dds")
+            }
+        );
+    }
+
+    #[test]
+    fn inputs_of_different_folders_collide_as_before() {
+        // Two folders' inputs are no one file to the old compile: the
+        // first in list order is kept, the second unmigrated content.
+        let (copies, findings) = drop_collisions(
+            vec![
+                (
+                    "Faces/XXX07 - Ann/u0XXXp1.dds".to_owned(),
+                    "Players/07 - Ann/kit1.dds".to_owned(),
+                ),
+                (
+                    "Boots/k0128 - Rex/u0XXXp1.dds".to_owned(),
+                    "Players/07 - Ann/kit1.dds".to_owned(),
+                ),
+            ],
+            team().path_id(),
+        );
+        assert_eq!(
+            copies,
+            vec![(
+                "Faces/XXX07 - Ann/u0XXXp1.dds".to_owned(),
+                "Players/07 - Ann/kit1.dds".to_owned()
+            )]
+        );
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].code.code.as_ref(), "unmigrated_content");
+        assert_eq!(
+            findings[0].scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Boots/k0128 - Rex/u0XXXp1.dds")
+            }
+        );
+    }
+
+    #[test]
+    fn without_a_path_id_a_collision_keeps_the_first() {
+        let (copies, findings) = drop_collisions(
+            vec![
+                (
+                    "Faces/XXX07 - Ann/u0714p2.dds".to_owned(),
+                    "Players/07 - Ann/kit2.dds".to_owned(),
+                ),
+                (
+                    "Faces/XXX07 - Ann/u0XXXp2.dds".to_owned(),
+                    "Players/07 - Ann/kit2.dds".to_owned(),
+                ),
+            ],
+            None,
+        );
+        assert_eq!(
+            copies,
+            vec![(
+                "Faces/XXX07 - Ann/u0714p2.dds".to_owned(),
+                "Players/07 - Ann/kit2.dds".to_owned()
+            )]
+        );
+        assert_eq!(findings.len(), 1);
+        assert_eq!(findings[0].code.code.as_ref(), "unmigrated_content");
+        assert_eq!(
+            findings[0].scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Faces/XXX07 - Ann/u0XXXp2.dds")
+            }
+        );
+    }
+
+    #[test]
     fn a_referee_export_respells_the_placeholder_999() {
         assert_eq!(
             respell("u0XXXg1.dds", Spelling::Name, &Identity::Referees),
@@ -366,6 +605,27 @@ mod tests {
             ),
             vec![("a".to_owned(), "Common/u0999g1.dds".to_owned())]
         );
+    }
+
+    #[test]
+    fn old_compile_name_gives_each_token_the_team_s_id() {
+        // A token not at the start, two tokens, both letters: `u0` + three
+        // letters or digits + `p`/`g`, each getting the team's ID.
+        assert_eq!(
+            old_compile_name("x_u0XXXp1_u0abcg1.dds", 714),
+            "x_u0714p1_u0714g1.dds"
+        );
+        assert_eq!(
+            old_compile_name("Faces/XXX07 - Ann/u0731p2.dds", 714),
+            "Faces/XXX07 - Ann/u0714p2.dds"
+        );
+        // A token ending the text.
+        assert_eq!(old_compile_name("u0XXXp", 714), "u0714p");
+        // The near-misses are no token: not `u`, not `0`, a
+        // non-alphanumeric character, no `p`/`g`.
+        for unchanged in ["k0abcp1.dds", "uaXXXp1.dds", "u0X-Xp1.dds", "u0XXXq1.dds"] {
+            assert_eq!(old_compile_name(unchanged, 714), unchanged);
+        }
     }
 
     #[test]

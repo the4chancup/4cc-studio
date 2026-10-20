@@ -221,19 +221,15 @@ const IDENTIFIED: &str = "Info export_identified [Keep] (team=/co/, id=714)";
 const TEAM_COLORS_MISSING: &str = "Info team_colors_missing [Keep] ()";
 
 /// What `compile` reports for `write_stripes_export`'s export when nothing is re-laid:
-/// its kit holds no `config.toml`, so its installed config is kept (`Midcup`).
-pub(crate) const STRIPES_FINDINGS: [&str; 3] = [
-    IDENTIFIED,
-    TEAM_COLORS_MISSING,
-    "Info kit_colors_derived [Keep] at Kits/p1 ()",
-];
+/// its kit holds no `config.toml` and no `colors.txt`, so its installed config and menu
+/// colors are kept (`Midcup`).
+pub(crate) const STRIPES_FINDINGS: [&str; 2] = [IDENTIFIED, TEAM_COLORS_MISSING];
 
 /// `STRIPES_FINDINGS` for a pre-Fox compile: no installed loose config for the kit to
 /// keep, so the template is generated at bins time, after the task's findings.
-pub(crate) const STRIPES_PRE_FOX_FINDINGS: [&str; 4] = [
+pub(crate) const STRIPES_PRE_FOX_FINDINGS: [&str; 3] = [
     IDENTIFIED,
     TEAM_COLORS_MISSING,
-    "Info kit_colors_derived [Keep] at Kits/p1 ()",
     "Info kit_config_generated [Keep] at Kits/p1 ()",
 ];
 
@@ -454,12 +450,7 @@ fn a_column_number_atlas_compiled_for_pes_21_becomes_a_row_and_a_row_stays_as_gi
 
     assert_eq!(
         findings_of(&run.messages(), "co Midcup Numbers"),
-        [
-            IDENTIFIED,
-            TEAM_COLORS_MISSING,
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-            "Info kit_colors_derived [Keep] at Kits/p2 ()",
-        ]
+        [IDENTIFIED, TEAM_COLORS_MISSING]
     );
     assert_eq!(run.exit_code(), 0);
 
@@ -513,8 +504,6 @@ fn a_row_number_atlas_compiled_for_pes_17_becomes_a_column_and_a_column_stays_as
         [
             IDENTIFIED,
             TEAM_COLORS_MISSING,
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
-            "Info kit_colors_derived [Keep] at Kits/p2 ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
             "Info kit_config_generated [Keep] at Kits/p2 ()",
         ]

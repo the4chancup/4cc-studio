@@ -71,9 +71,14 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    of it below `common/character0/model/character/face/real/` and one folder there (letter
    case aside, OS artifacts aside), has that innermost folder's contents moved instead, the
    files directly in it as a face folder's are:
-   Red packs the folder as it stands, which reproduces the game path, so the face reached the
-   game, while moved as it is the tree would sit below the player folder, where the compile
-   refuses its `face.xml` (`file_type_disallowed`) and drops the player. Name comes, in order of preference, from the **face
+   the folder is the member's face for the slot, an extracted face CPK of their own. Red does
+   not deliver it: its face CPK nests the tree below the player's own path
+   (`face/real/79501.cpk` holding `.../real/79501/common/character0/.../real/81401/face.mtl`),
+   and the `face.xml` it generates at that path, finding none at the folder's top, names models
+   that are not beside it (FGOG VGL6's Red output; a CPK listing, not checked in game). We
+   migrate the member's face rather than reproduce that output, because it is what the export
+   was made to show. Moved as it is, the tree would sit below the player folder, where the
+   compile refuses its `face.xml` (`file_type_disallowed`) and drops the player. Name comes, in order of preference, from the **face
    folder's own name part** (`XXX15 - Snuffy` → `Snuffy`; the author's curated name, and what the
    folder is called today), then from the **worn boots/gloves folder's name part** (a player with
    boots/gloves but no face folder, or whose face folder has no name part: one order for every
@@ -362,7 +367,12 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    compiler puts it back only on a reference it resolves to a file of the export: a game path
    written without it would reach the game without it. A reference that pointed into the team's Common folder by game path
    (`model/character/uniform/common/???/hair.dds` in an `.mtl`, the Fox common directory in an FMDL
-   path table; `???` is the `XXX` placeholder or a baked-in team ID, as with the kit magic below)
+   path table; `???` is the `XXX` placeholder or a baked-in team ID, as with the kit magic below,
+   or the team's name without its slashes, letter case aside: `common/o/env.dds`,
+   `common/vg/oral_shirt_*.model`, in /o/'s 2017-2024 and VG's 2017-2018 faces, `.mtl` and
+   `face.xml` alike, since the 2016 batch compiler wrote a pre-Fox export's `Common/` to
+   `model/character/uniform/common/<team name>/` and those faces loaded the files there; the
+   Common segment is read this way wherever this step reads it)
    cannot simply become the bare name `./hair.dds` — that would resolve in the player folder and fail — so the
    upgrader writes the bare name **and creates the texture link** `hair.dds.common` (the
    `Common/` file's own name, whose extension the link names) at the root of the
@@ -456,8 +466,20 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    are those below a player folder, below a shared `Boots/`/`Gloves/` folder and below
    `Common/` (the kit folders have their own naming, `Kit Textures/` step 6's); an output path,
    renamed or not, that another output path already takes, letter case aside, is the second
-   input's, not written, and reported `unmigrated_content` (`u0XXXp1.dds` beside
-   `u0714p1.dds`; `A.dds` beside `a.dds`), where a second write would silently replace the first.
+   input's, not written, and reported `unmigrated_content` (a face folder's `u0XXXp1.dds` beside
+   the same name in a boots folder merged into its player folder; `A.dds` beside `a.dds`), where a
+   second write would silently replace the first. Inputs of one folder whose paths differ only in
+   their tokens' three characters (`u0XXXp2.dds` beside `u0731p2.dds` in a /jp/ export) are the
+   exception: they were one file to the old compile, whose rename (`filenames_id_replace`) gave
+   each the team's ID and replaced the file already under the new name, in the folder's listing
+   order, Windows's case-folded name order. The one it wrote last is what the game loaded, and is
+   kept: the last renamed one in that order, an input already spelled with the team's ID being
+   replaced by any renamed one. The others are leftovers (step 10), since no compile shipped them.
+   We do not refuse these, because the old compile's pick was neither a refusal nor arbitrary:
+   the real JP Genso Cup exports' `k0860` holds an older `u0731p2.dds` beside the newer
+   `u0XXXp2.dds` the cup showed, and GBPEN VGL26's `g2336` copies spelled `u0799` (another
+   team's ID) and `u0XXX`. Model-folder mode knows no team ID, so its collisions stay
+   `unmigrated_content`.
    The kit folder token is a texture set's alone (`spec/model_format.md` "Kit-dependent
    assets"): a `face.xml` naming a model in a `u0???p0/` folder is respelled `./kitN/…` as
    written, which the compile does not resolve; no real export holds one.
@@ -636,7 +658,8 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     share model folders, removed before a compile); a `Full` export's kit texture whose slot no
     config and no Note entry gives, and in any export a Kit Textures file that is no kit
     texture of a given slot (step 5: `u0XXXp2 - Copy.dds`, `back.dds`, `u0XXXp1.png`); a
-    portrait Red's check refused (step 7); the second color of a team-color entry holding two
+    portrait Red's check refused (step 7); a file the old compile's ID rename replaced (step 7:
+    `u0731p2.dds` beside `u0XXXp2.dds` in one folder); the second color of a team-color entry holding two
     (Red kept the first); an item folder no save record names (VG Summer 20's misspelled
     second set `k2501`-`k2523`); a second or later goalkeeper kit (step 5: no version the cup
     plays shows one); and two kinds of stray file, which the compile would otherwise refuse a
@@ -1382,6 +1405,13 @@ EU-MDL-06  GIVEN a .mtl reference into model/character/uniform/common/XXX/ whose
            WHEN the export is upgraded
            THEN it is reported naming the reference, the .mtl keeps it as written, its XXX
                 now 714, and the exit code is 0
+EU-MDL-22  GIVEN a pre-Fox /vg/ export whose face folder's .mtl references
+                model/character/uniform/common/vg/env.dds and
+                model/character/uniform/common/VG/fbm_s.dds, and Common/ holding env.dds alone
+           WHEN the export is upgraded
+           THEN the .mtl references ./env.dds beside the link env.dds.common, the fbm_s
+                reference is reported and kept as written, its VG now 758, and the exit code
+                is 0
 EU-MDL-07  GIVEN a Fox face folder whose FMDL path table names hair in the Fox common directory,
                 and skin under another directory, hair and skin being in Common/ and not in the
                 folder
@@ -1407,6 +1437,12 @@ EU-MDL-10  GIVEN Common/u0XXXg1.dds and a keeper's face folder whose FMDL names 
            WHEN the export is upgraded
            THEN Common/ holds u0714g1.dds and the keeper's FMDL texture and link both name
                 u0714g1
+EU-MDL-21  GIVEN a /co/ export whose face folder "XXX07 - Ann" holds u0714p2.dds and
+                u0XXXp2.dds, and u0715p3.dds and u0XXXp3.dds, the four of different bytes
+           WHEN the export is upgraded
+           THEN Players/07 - Ann/ holds kit2.dds with u0XXXp2.dds's bytes and kit3.dds with
+                u0XXXp3.dds's, leftover_dropped is reported for u0714p2.dds and u0715p3.dds, and
+                the exit code is 0
 EU-MDL-11  GIVEN a pre-Fox folder without a face.xml holding gloveL_foo.model, bar_gloveR.model
                 and plain.model, and one with a face.xml holding gloveL_baz.model
            WHEN the export is upgraded

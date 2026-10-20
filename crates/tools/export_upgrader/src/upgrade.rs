@@ -642,10 +642,10 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         &kept,
     );
     let carried_copies = renamed.split_off(plan_len);
-    let (copies, dropped) = drop_collisions(renamed);
+    let (copies, dropped) = drop_collisions(renamed, identity.path_id());
     plan.copies = copies;
     plan.findings.extend(dropped);
-    let (copies, dropped) = drop_collisions(carried_copies);
+    let (copies, dropped) = drop_collisions(carried_copies, identity.path_id());
     carried.copies = copies;
     carried.findings.extend(dropped);
     // `Common/` for the materials: the carried files' respelled output

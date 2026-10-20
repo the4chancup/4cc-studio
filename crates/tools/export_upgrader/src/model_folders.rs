@@ -397,7 +397,9 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
     let mut plan = model_folder_plan(&export.files, &export.folders);
     let respelled = respell_outputs(std::mem::take(&mut plan.copies), &identity);
     let kept = kept_common_files(&respelled, &identity, |path| export.read(path));
-    let (copies, dropped) = drop_collisions(rename_models(respelled, &kept));
+    // Model-folder mode has no team ID: the old compile's rename cannot
+    // be replayed, its collisions staying unmigrated content.
+    let (copies, dropped) = drop_collisions(rename_models(respelled, &kept), None);
     plan.copies = copies;
     plan.findings.extend(dropped);
     // `Common/` for the materials: the respelled output paths the links are

@@ -670,7 +670,6 @@ fn a_midcup_kit_without_config_or_an_installed_one_gets_the_template() {
         source("UniformParameter.bin", "4cc_08_bins.cpk"),
         "co Midcup Kits: Info export_identified [Keep] (team=/co/, id=714)".to_owned(),
         "co Midcup Kits: Info team_colors_missing [Keep] ()".to_owned(),
-        "co Midcup Kits: Info kit_colors_derived [Keep] at Kits/p4 ()".to_owned(),
         "co Midcup Kits: Info kit_config_generated [Keep] at Kits/p4 ()".to_owned(),
     ];
     expected.push(deploy_skipped(&sandbox));

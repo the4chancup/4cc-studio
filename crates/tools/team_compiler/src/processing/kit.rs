@@ -91,9 +91,9 @@ pub(super) struct KitJob<'a> {
 /// A `Midcup` kit (`coverage`) keeps what it does not resend: without `config.toml` it
 /// emits no config of its own (the slot's installed config is edited in place, or the
 /// template written where none is installed, `kit_configs`), without a main texture it
-/// emits no placeholder and no mask template (the installed textures stay), and with
-/// nothing to take colors from it emits no `UniColor.bin` entry (the installed one stays,
-/// `uni_color` `None`).
+/// emits no placeholder and no mask template (the installed textures stay), and with no
+/// usable `colors.txt` it emits no `UniColor.bin` entry (the installed one stays, the
+/// extraction not run for it, `uni_color` `None`).
 pub(super) fn kit(
     job: &KitJob,
     ctx: &CompileContext,
@@ -106,6 +106,11 @@ pub(super) fn kit(
         .colors
         .as_ref()
         .and_then(|file| listed_colors(&take(files, file)));
+    // A `Midcup` kit keeps the installed menu colors: only a `Full` export derives them.
+    let derives_colors = match coverage {
+        ExportCoverage::Full => listed.is_none(),
+        ExportCoverage::Midcup => false,
+    };
     let engine = ctx.version.engine();
     let has = |stem: &str| kit.textures.iter().any(|texture| texture.stem == stem);
     // A `Midcup` kit's config names a `back`, `chest`, `leg` or `name` texture the
@@ -192,8 +197,9 @@ pub(super) fn kit(
         let format = texture_format(file_name)
             .expect("a kit texture is classified by an extension `dds_convert` accepts");
         // Only the kit's own main texture gives colors, never the placeholder: its
-        // checkerboard is no color anybody chose.
-        if listed.is_none() && *stem == "kit" && texture.is_some() {
+        // checkerboard is no color anybody chose. A `Midcup` kit keeps the installed
+        // colors either way, so the extraction is not run for one at all.
+        if derives_colors && *stem == "kit" && texture.is_some() {
             derived = derived_colors(&ctx.budget, format, file_name, &bytes);
         }
         let converted = match drawn_for_other {
@@ -261,18 +267,20 @@ pub(super) fn kit(
 
     let colors = match (listed, derived) {
         (Some(colors), _) => Some(colors),
-        (None, Some(colors)) => {
-            findings.push((Code::KitColorsDerived, Vec::new()));
-            Some(colors)
-        }
-        // A `Midcup` kit with nothing to take colors from keeps the installed
-        // `UniColor.bin` entry.
-        (None, None) => match coverage {
+        // A `Midcup` kit without usable `colors.txt` keeps the installed
+        // `UniColor.bin` entry, derived or not.
+        (None, derived) => match coverage {
             ExportCoverage::Midcup => None,
-            ExportCoverage::Full => {
-                findings.push((Code::KitColorsMissing, Vec::new()));
-                Some(MISSING_COLORS)
-            }
+            ExportCoverage::Full => match derived {
+                Some(colors) => {
+                    findings.push((Code::KitColorsDerived, Vec::new()));
+                    Some(colors)
+                }
+                None => {
+                    findings.push((Code::KitColorsMissing, Vec::new()));
+                    Some(MISSING_COLORS)
+                }
+            },
         },
     };
     let entry = colors.map(|colors| KitColorEntry {

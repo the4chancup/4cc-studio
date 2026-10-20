@@ -189,9 +189,11 @@ format:
      (`kit_all_unused`) — grammar and merge in "Kits" in the [Aesthetics export
      plan](../aesthetics_export/README.md); a `Full` export's missing `config.toml`
      is auto-generated from the template (`kit_config_generated`; a `Midcup` kit without one
-     keeps its slot's installed config instead — see "Bins accumulation"); a missing `colors.txt` has its
+     keeps its slot's installed config instead — see "Bins accumulation"); a `Full` export's missing `colors.txt` has its
      two menu colors derived from the main kit texture (`kit_colors_derived` — dominant-color
-     extraction via `libs/color_tools`, see the [library crates plan](../libs/README.md)), and a present file
+     extraction via `libs/color_tools`, see the [library crates plan](../libs/README.md); a
+     `Midcup` kit without one keeps its installed `UniColor.bin` entry, the colors it does not
+     resend, as the old compile did), and a present file
      that yields fewer than two valid colors falls back to the same derivation after its
      `color_entry_invalid` warnings; a `Full` export's kit with no derivable colors gets the loud
      magenta/black "no colors chosen" pair (`kit_colors_missing`, W; a `Midcup` one keeps its

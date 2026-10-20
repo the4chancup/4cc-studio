@@ -19,9 +19,11 @@ every converge review loop has ended (2026-10-19) and the close mutation run of
 `export_upgrader` is triaged (2 missed, the placeholder views, worklog 8.3); 6.14 (an upgrade
 writes a clean export or nothing) and 6.15 (a one-wearer item folder takes its wearer's ID)
 are built, and 6.14c; the maintainer answered 6.14's three questions (2026-10-19), and
-6.12c (the library run against Red) is diagnosed. Then 6.16 (the answers and 6.12c's
-defects: upgrader, compiler, one in-game check), the plans-to-spec move and the worklog's
-collapse; then, for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset
+6.12c (the library run against Red) is diagnosed. 6.16 (the answers and 6.12c's defects) is
+built and verified (2026-10-20), its verify's two findings fixed; left: 6.16d (a Common path
+spelled with the team's name, the maintainer's answer of 2026-10-20) and 6.12d (the library
+parity's scripts committed). Then the close's last steps, the plans-to-spec move and the
+worklog's collapse; then, for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset
 editors' first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"):
 20.0d (the DBC ruleset's coverage), 8.4 (the usability pass), Phase 8's shell, the Save
 editor's draft and view, Phase 20 (the Ruleset editor), the 0.0.1 preview build for DBC (the
@@ -833,7 +835,16 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     run); the scripts in the worktree's `.tmp/6_12/` (`red_pilot.py`, `pilot_tally.py`) →
     verify: a per-class tally over the library, every line in a class of `classes.md` or a new
     one diagnosed, each stricter-than-Red class's export list ready for the maintainer
-- [ ] 6.13 the library parity's defects (6.12a-b, `.tmp/6_12/classes.md` C1-C3, and the top
+  - [x] the committed form decided (2026-10-20, DECISIONS "the library parity is a measurement
+    rerun at phase closes"; `plans/team_compiler/testing.md`, AGENTS.md "Closing a phase"): a
+    rerun at each phase close touching the compiler or the upgrader, no hash manifest
+  - [ ] 6.12d the scripts committed under `scripts/library_parity/` (lead, measurement code):
+    the upgrade census (`.tmp/6_9/census/run.py`, `regress_check.py`, `analyze.py`) and the
+    library run (`.tmp/6_12c/library.py`, `attribute.py`, `tally.py`), the machine paths (Red's
+    checkout, the input lists) in one constants block, the attribution's class table in one
+    file; a README with the order of a rerun → verify: a rerun from the committed scripts over
+    6.16's selection gives the same rows as `.tmp/6_12c/rows_616.tsv`
+- [x] 6.13 the library parity's defects (6.12a-b, `.tmp/6_12/classes.md` C1-C3, and the top
   lead's D), each reproduced on its real export before it is fixed:
   - [x] 6.13a (2026-10-19) the `.mtl` search's name match reads a model stem carrying both
     `oral_` and `_win32` without them, as Red does (`spec/model_format.md`, DECISIONS
@@ -849,7 +860,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     17 shared IDs (no `merge_kept_shared`: the class note's byte-clash reading was wrong).
     A copy without `FMDL Boots/` upgrades clean (exit 0) with the 23 boots merged into the
     player folders (`.tmp/6_13/b/up2`); the fix, a leftover not deciding the engine, is 6.14's
-  - [ ] 6.13c an `.mtl` with a stray text node (G Autumn 25's `72117 - Lisa/apc.mtl`, a `\`
+  - [x] 6.13c an `.mtl` with a stray text node (G Autumn 25's `72117 - Lisa/apc.mtl`, a `\`
     after a `<sampler/>`) is `mtl_broken` where Red's ElementTree ignores it (census: 3 such
     files of 12,755, all typos). The compiler stays strict; the upgrader cleans it (AGENTS.md
     "Fundamental concepts", DECISIONS 2026-10-19, plan step 7, `mtl_stray_text_dropped`):
@@ -860,7 +871,9 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
       EU-MDL-18; 2026-10-19 with 6.14a) → verified: G Autumn 25 upgrades clean, Lisa's
       `apc.mtl` written back without the `\`; compiled for PES 17 her folder no longer meets
       `mtl_broken`, but B3's `model_material_undefined` (her `oral_kit_win32.model` uses
-      `medic`, which none of her `.mtl` files defines; Red packs it), a 6.12c class
+      `medic`, which none of her `.mtl` files defines; Red packs it), diagnosed in 6.12c as
+      a stricter-than-Red class by the plan's rule (`attribution.txt` "error:
+      model_material_undefined", 15 exports; DECISIONS 2026-09-13)
   - [x] 6.13d not an upgrader defect (2026-10-19): `xml_oral_prefix_missing` is the compiler's
     PES 16-only rule, which the upgrader cannot report, and its shared validation reads only
     the version's engine, so 16 or 17 gives one outcome; the 8 exports met it because the
@@ -988,7 +1001,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     `messages.md` row; D4: 8 exports' faces kept where Red discards them); spec rows (`messages.md` `kit_placeholder`,
     `kit_config_generated`, `mtl_common_path_invalid`;
     `spec/team_compiler/pipeline.md` "Bins accumulation") with the code. The upgrader's side of
-    D4 waits on QUESTIONS.md "A Common path spelled with the team's name". Done: a `Midcup`
+    D4 is 6.16d. Done: a `Midcup`
     kit's missing config edited in place as an unresent slot's, the template only where
     nothing is installed; no placeholder or mask template; no colors kept installed
     (TC-KIT-33, -34; `plan/mod.rs` `keeps_installed`, `bins/kit_configs.rs`,
@@ -1010,6 +1023,25 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     in the save records (80306 gloves 4186, 80322 gloves 4202, the route the cup uses today):
     slot 06 wears its crossbow gloves (`w01.png`); EAT shows no stock hands, and the split's
     patch floats as a speck beside the model (`w02.png`, `w02_speck.png`)
+  - [ ] 6.16 verify (2026-10-20, `.tmp/6_16/verify/verify_616.md`): the census rerun at 29f21d9
+    (275 clean, 250 before; every exit 1 writing nothing; the two CM inputs' empty `711XX` an
+    input defect Red's own check reports) and the library run over 78 inputs (D1-D3, D6, D7,
+    D9 gone or intentional, D4's `.mtl` half refused; new classes I29-I33). Its findings:
+    - [x] 6.16a5 (2026-10-20, SWE-2) a texture the old compile's ID rename replaced is a
+      leftover (`kit_magic.rs` `drop_collisions`, `old_compile_name`, EU-MDL-21; DECISIONS
+      2026-10-20); verified: JP Genso Cup x2, JP Winter Cup Garbage Day and GBPEN VGL26 upgrade
+      clean, JP's `kit2.dds` the newer `u0XXXp2.dds` (sha `52e8c6b`); the mutation run's six
+      survivors closed by 6.16a5b (an exact-output test, an equivalent guard removed)
+    - [x] 6.16b7 (2026-10-20, SWE-2) a `Midcup` kit without `colors.txt` keeps its installed
+      `UniColor.bin` entry, the extraction not run (`processing/kit.rs`, TC-KIT-36; DECISIONS
+      2026-10-20; TC-KIT-12, -13 and -25's tests now compile `Full` exports, as their scenarios
+      name no coverage); verified: the library rows of JP 2024 Spring Day 5 and VG Day 0 Midcup
+      rerun (`.tmp/6_12c/jobs_616b7`), no `UniColor.bin` difference left, no line unattributed
+    - [ ] 6.16d the upgrader's side of D4 (maintainer, 2026-10-20; DECISIONS "a Common path
+      spelled with the team's name is the team's Common"): a Common segment spelled with the
+      team's name read as the team's Common (plan step 7, EU-MDL-22) → verify: the 16 /o/ and
+      VG library exports' faces no longer meet `mtl_common_path_invalid`/
+      `xml_common_path_invalid`, the census and library rows rerun for them
 
 ### Phase 8 — GUI
 
@@ -1795,9 +1827,11 @@ points there.
   anime face, `.tmp/face_diff/lapwing/findings.md`): the Fox fix is two eye floats (head 0x2C
   and 0x30, 35 to 45), which PES 21's Edit mode does not show even at 0 and 90. Settled
   2026-10-19 by a second example and its author's explanation (`Sopdog`, the engines animate
-  eyes differently, so model and diff are made per engine and do not convert): what the
-  compiler does with a face made for the other engine waits in `docs/QUESTIONS.md` "Face diffs
-  are engine-specific".
+  eyes differently, so model and diff are made per engine and do not convert). Answered
+  2026-10-20 (DECISIONS "a face made for the other engine is transformed"): a `fox`/`pre-fox`
+  face marker and the Sopdog pair's transformation applied when the engine changes, attempted
+  after the DBC editors (plan `model_conversion/conversion.md` "A face made for the other
+  engine"): derive the rule from the pair, check it in game on both engines, then build it.
 - open — u16 face indices cap a reassembled split mesh (found at 2.20f review): `fmdl::Mesh`
   and the IR (`spec/model_conversion/ir.md` "IR struct") store faces as `[u16; 3]`, so `fmdl::ops::split::decode`
   refuses (loud `VertexMismatch`) an add-on file whose components together reference more

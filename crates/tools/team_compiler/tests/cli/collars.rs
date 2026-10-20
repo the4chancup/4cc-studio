@@ -104,7 +104,6 @@ fn a_team_s_collar_is_compiled_and_every_kit_config_of_the_team_wears_it_after_f
             "Info export_identified [Keep] (team=/co/, id=714)",
             TEAM_COLORS_MISSING,
             "Info kit_config_fpc_adjusted [Keep] at Kits/p1 ()",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 0);
@@ -166,7 +165,6 @@ fn of_two_exports_replacing_one_collar_the_later_one_loses_it_and_keeps_its_conf
             "Info export_identified [Keep] (team=/co/, id=714)",
             TEAM_COLORS_MISSING,
             "Error collar_id_conflict [DropFile] at Collars/collar_12.fmdl (file=collar_12.fmdl, claimant=a Midcup Collars)",
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ]
     );
     assert_eq!(run.exit_code(), 1);
@@ -357,7 +355,6 @@ fn a_pes_17_model_collar_is_compiled_unchanged_and_the_team_s_loose_configs_wear
     let mut expected = vec![
         "Info export_identified [Keep] (team=/co/, id=714)",
         TEAM_COLORS_MISSING,
-        "Info kit_colors_derived [Keep] at Kits/p1 ()",
         "Info kit_config_generated [Keep] at Kits/p1 ()",
     ];
     expected.extend(NO_LOOSE_CONFIGS);
@@ -417,7 +414,6 @@ fn a_pes_17_fmdl_collar_is_converted_with_the_stock_collars_material_names() {
         "Info fmdl_weights_not_normalized [Keep] at Collars/collar_12.fmdl (file=collar_12.fmdl, count=1662)",
         "Info export_identified [Keep] (team=/co/, id=714)",
         TEAM_COLORS_MISSING,
-        "Info kit_colors_derived [Keep] at Kits/p1 ()",
         "Info native_field_dropped [Keep] at Collars/collar_12.fmdl (model=collar_12.fmdl, field=bone_matrices)",
         "Info kit_config_generated [Keep] at Kits/p1 ()",
     ];
@@ -504,7 +500,6 @@ fn a_gltf_collar_is_dropped_and_its_export_compiled_without_it() {
                 "Info export_identified [Keep] (team=/co/, id=714)",
                 TEAM_COLORS_MISSING,
                 "Error model_gltf_unsupported [DropFile] at Collars/collar_12.glb (file=collar_12.glb)",
-                "Info kit_colors_derived [Keep] at Kits/p1 ()",
             ],
             "{version}: {lines:#?}"
         );
@@ -537,7 +532,6 @@ fn a_pes_17_fmdl_collar_whose_conversion_fails_is_dropped_and_its_export_compile
     let mut expected = vec![
         "Info export_identified [Keep] (team=/co/, id=714)",
         TEAM_COLORS_MISSING,
-        "Info kit_colors_derived [Keep] at Kits/p1 ()",
         "Error model_conversion_failed [DropFile] at Collars/collar_12.fmdl (model=collar_12.fmdl, error=a name or path for the `.mtl` holds a character XML 1.0 cannot represent: \"kit\\u{1}\")",
     ];
     expected.extend(NO_LOOSE_CONFIGS);
@@ -607,7 +601,6 @@ fn a_pes_21_model_collar_is_converted_with_the_templates_uniform_mtl() {
         [
             "Info export_identified [Keep] (team=/co/, id=714)",
             TEAM_COLORS_MISSING,
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info vertex_bitangents_dropped [Keep] at Collars/collar_12.model (model=collar_12.model, mesh=0)",
             "Info vertex_bitangents_dropped [Keep] at Collars/collar_12.model (model=collar_12.model, mesh=1)",
         ],
@@ -703,7 +696,6 @@ fn a_model_collar_posed_off_the_version_s_skeleton_is_moved_onto_it_and_kept_wra
     let mut expected = vec![
         "Info export_identified [Keep] (team=/co/, id=714)",
         TEAM_COLORS_MISSING,
-        "Info kit_colors_derived [Keep] at Kits/p1 ()",
         "Info bone_folded_for_version [Keep] at Collars/collar_12.model (model=collar_12.model, bone=dsk_trapezius_l -> sk_shoulder_l)",
         "Info bone_folded_for_version [Keep] at Collars/collar_12.model (model=collar_12.model, bone=dsk_trapezius_r -> sk_shoulder_r)",
         "Info skeleton_retargeted [Keep] at Collars/collar_12.model (model=collar_12.model, bones=4)",
@@ -790,7 +782,6 @@ fn a_pre_fox_collar_past_the_version_s_stock_set_is_refused() {
             "Error collar_id_invalid [DropFile] at Collars/collar_117.model (file=collar_117.model)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             TEAM_COLORS_MISSING,
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
             "Info kit_config_generated [Keep] at Kits/p1 ()",
         ],
         "{lines:#?}"
@@ -847,7 +838,6 @@ fn a_collar_below_a_collars_subfolder_is_kept_by_the_lenient_check_and_not_a_col
             "Info file_type_disallowed [Keep] at Collars/sub/collar_12.model (file=sub/collar_12.model)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             TEAM_COLORS_MISSING,
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ],
         "{lines:#?}"
     );
@@ -879,7 +869,6 @@ fn a_file_of_no_model_kind_in_collars_kept_by_the_lenient_check_gets_no_collar_f
             "Info file_type_disallowed [Keep] at Collars/README.txt (file=README.txt)",
             "Info export_identified [Keep] (team=/co/, id=714)",
             TEAM_COLORS_MISSING,
-            "Info kit_colors_derived [Keep] at Kits/p1 ()",
         ],
         "{lines:#?}"
     );

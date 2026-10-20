@@ -384,8 +384,6 @@ fn kit_findings(last: u8, missing: &[&str]) -> Vec<String> {
         .collect();
     findings.extend(missing.iter().map(|line| (*line).to_owned()));
     findings.push(FINDINGS[2].to_owned());
-    findings
-        .extend((1..=last).map(|kit| format!("Info kit_colors_derived [Keep] at Kits/p{kit} ()")));
     findings.extend(
         (1..=last).map(|kit| format!("Info kit_config_generated [Keep] at Kits/p{kit} ()")),
     );
