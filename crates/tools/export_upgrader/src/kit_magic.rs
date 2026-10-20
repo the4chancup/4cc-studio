@@ -1,4 +1,4 @@
-//! Step 7's legacy kit-dependent magic and its Studio spelling (`plans/
+//! Step 7's legacy kit-dependent magic and its Studio spelling (`spec/
 //! export_upgrader.md` step 7, `DECISIONS.md` 2026-10-18 "the kit magic's
 //! grammar, where it is renamed, and a Common kit set's link"): `u0???pN`
 //! (`u0` and three ASCII letters or digits, `p` and a digit) becomes

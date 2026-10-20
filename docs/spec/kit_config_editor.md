@@ -3,7 +3,7 @@
 This plan specifies **`libs/kit_config`**, the lib crate holding the format
 knowledge, shared by the Kit config editor, the [Team compiler](team_compiler/README.md) (config
 generation, FPC reconciliation, compile-time emission), and the
-[Export upgrader](../plans/export_upgrader.md) (binary → TOML migration) — one crate owns
+[Export upgrader](export_upgrader.md) (binary → TOML migration) — one crate owns
 the format so all three agree on what a valid config is. Platform context is in
 the [core plan](core/README.md).
 
@@ -156,7 +156,7 @@ In the Studio export format, kit configs are canonically authored as **TOML file
 editable without this tool, exactly like the player folders' `settings.toml`.
 The compiler emits the game binary at compile time; no binary config ever appears
 inside a Studio-format export. Old exports' binary configs are converted to
-`Kits/pN/config.toml` by the [Export upgrader](../plans/export_upgrader.md). Auto-generated
+`Kits/pN/config.toml` by the [Export upgrader](export_upgrader.md). Auto-generated
 configs ship with app-injected comments (predefined per-field documentation);
 the editor's `toml_edit`-based writes preserve them.
 

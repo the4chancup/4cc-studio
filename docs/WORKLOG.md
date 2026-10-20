@@ -778,7 +778,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     (`Row::Texture`, `Nested::Texture`) also compare the decoded mips, so a wrong header in
     ours fails (red: our mip count set to 2 fails both cases, the decode refusing `Truncated`)
 - [x] 6.12 the library parity, Phase 6's own verification (`plans/core/development_plan.md`
-  "Phase 6", `plans/export_upgrader.md` "Verification"'s last paragraph,
+  "Phase 6", `spec/export_upgrader.md` "Verification"'s last paragraph,
   `plans/team_compiler/testing.md`): every old export of the maintainer's library upgraded,
   compiled, and its game-facing output compared with Red's for the same export; delivered so
   far are the three tracers and 6.9b's upgrade census (Astra 6.close.A1b-5). Slices: (a) a

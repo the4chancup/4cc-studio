@@ -1,5 +1,5 @@
 //! Steps 2-4 for the face folders and the boots and gloves folders
-//! (`plans/export_upgrader.md` steps 2-4): each face folder becomes its player
+//! (`spec/export_upgrader.md` steps 2-4): each face folder becomes its player
 //! folder under `Players/`, named by the plan's order (the face folder's name
 //! part, the worn boots folder's, the worn gloves folder's, the save's name,
 //! the number alone), its portrait renamed `portrait.dds` and its

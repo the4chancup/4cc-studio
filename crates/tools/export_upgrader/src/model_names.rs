@@ -1,4 +1,4 @@
-//! Step 7's pre-Fox model renames (`plans/export_upgrader.md` step 7,
+//! Step 7's pre-Fox model renames (`spec/export_upgrader.md` step 7,
 //! `DECISIONS.md` 2026-10-18 "a pre-Fox leading type moves only when `_`
 //! follows it…"): the leading type the old export generated `face.xml`
 //! entries from moves to the stem's end (`gloveL_foo` → `foo_gloveL`) and a
@@ -275,7 +275,7 @@ fn pair_hair_skeletons(copies: Vec<(String, String)>) -> Vec<(String, String)> {
         .collect()
 }
 
-/// What step 7 makes of the copies' output names (`plans/
+/// What step 7 makes of the copies' output names (`spec/
 /// export_upgrader.md` step 7): below a `Players/<folder>/` holding no
 /// member `face.xml` (subfolders included), a shared `Boots/<name>/` or
 /// `Gloves/<name>/`, and below `Common/`, a `.model`

@@ -1,5 +1,5 @@
 //! Step 5's `Kit Configs/` and `Kit Textures/` folders into `Kits/`
-//! (`plans/export_upgrader.md` step 5, `DECISIONS.md` 2026-10-18 "the kit
+//! (`spec/export_upgrader.md` step 5, `DECISIONS.md` 2026-10-18 "the kit
 //! configs' and kit textures' rules of 6.3a", "the Note's kit entries'
 //! grammar and the two kit Warnings of 6.3b" and "the kit-texture copy
 //! covers every field naming another texture"): every config becomes its

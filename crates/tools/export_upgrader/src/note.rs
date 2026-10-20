@@ -1,4 +1,4 @@
-//! The Team Note (`plans/export_upgrader.md` step 6): the `.txt` at the export
+//! The Team Note (`spec/export_upgrader.md` step 6): the `.txt` at the export
 //! root whose name holds `note`, and its `Team:` line, which names the team
 //! the export belongs to.
 

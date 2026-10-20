@@ -1,4 +1,4 @@
-//! The Export upgrader's message catalog (`plans/export_upgrader.md` "Message
+//! The Export upgrader's message catalog (`spec/export_upgrader.md` "Message
 //! catalog"): each code the command reports, its severity, and the `Message` it
 //! is sent as. The report names two exports: the input (export 1) for what is
 //! found in it, the output (export 2) for the shared validation's findings on
@@ -186,7 +186,7 @@ impl Code {
 /// The issue severities are the Team compiler's catalog's, each run-dependent
 /// row taken as for a compile that deploys with pass-through and the strict
 /// file-type check on (the output's check runs with it), and an E/F row as an
-/// Error (`plans/export_upgrader.md` "Message catalog").
+/// Error (`spec/export_upgrader.md` "Message catalog").
 const CATALOG: &[(&str, Severity)] = &[
     // The tool's own codes.
     ("no_old_export", Severity::Error),

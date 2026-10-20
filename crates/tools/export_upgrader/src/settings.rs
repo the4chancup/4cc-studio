@@ -1,4 +1,4 @@
-//! Step 8's `settings.toml` files (`plans/export_upgrader.md` step 8): each
+//! Step 8's `settings.toml` files (`spec/export_upgrader.md` step 8): each
 //! rostered player's look as the save records it, generated through the same
 //! `PlayerSettings` the save editor writes, one file per output player
 //! folder. `from_player`'s output is adjusted for what the export's folders

@@ -1,5 +1,5 @@
 //! Step 7's carried-over folders, `Portraits/`, `Collars/` and `Logo/`
-//! (`plans/export_upgrader.md` step 7, `DECISIONS.md` 2026-10-18 "the logo
+//! (`spec/export_upgrader.md` step 7, `DECISIONS.md` 2026-10-18 "the logo
 //! rule remeasured with the compiler's resampler, and its member grammar"):
 //! portraits renamed to the only name the compiler accepts, with a bytes
 //! check against the face folder's own portrait; collars as they are; the

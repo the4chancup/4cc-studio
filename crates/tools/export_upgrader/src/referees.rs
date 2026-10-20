@@ -1,4 +1,4 @@
-//! Steps 9 and 12's referee export (`plans/export_upgrader.md` steps 9 and
+//! Steps 9 and 12's referee export (`spec/export_upgrader.md` steps 9 and
 //! 12, `DECISIONS.md` 2026-10-18 "steps 9 and 12's gaps…"): `refs.txt`
 //! rewritten as the root `players.txt` in the canonical grammar, the root
 //! files, and each referee folder under `Players/` with the old layout's

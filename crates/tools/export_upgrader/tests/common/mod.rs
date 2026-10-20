@@ -153,7 +153,7 @@ impl Sandbox {
     }
 
     /// Asserts the unclean run whose `stdout` is given wrote nothing: neither the output
-    /// folder `output` nor its staging folder (`plans/export_upgrader.md` "CLI").
+    /// folder `output` nor its staging folder (`spec/export_upgrader.md` "CLI").
     pub fn assert_nothing_written(&self, output: &str, stdout: &str) {
         assert!(
             !self.path(output).exists() && !self.path(&format!("{output}.upgrading")).exists(),

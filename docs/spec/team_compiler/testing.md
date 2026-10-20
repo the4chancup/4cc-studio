@@ -43,6 +43,21 @@ with no face model getting no face (Red packs his `face_diff.bin` alone), the dr
 `*.fpk.xml` files, and the team side written for the bins on PES 18-21, the referee kit configs
 being entries of `UniformParameter.bin` (the fixture's README lists each).
 
+Beyond the tracers, whose small trees are committed, the parity over the maintainer's whole
+library of old exports is a **measurement rerun at each phase close** that changes the Team
+compiler or the Export upgrader, not a committed test: every input the upgrade census upgrades
+clean is upgraded, compiled, compiled by Red from a fresh copy, and compared by `red_parity`
+(`team_compiler/examples/red_parity.rs`, one classified line per Red entry), and every line is
+attributed to an intentional class or a defect (`scripts/library_parity/classes.md`), a new
+class diagnosed before the phase closes. We do not commit a hash manifest of Red's trees as a
+fixture, because the inputs are members' exports on the maintainer's machine alone (several
+hundred, several GB), so no such test could run in CI; and because our output differs from
+Red's by design in some thirty classes, so a manifest of either output would be a golden that
+every intentional change rewrites, while the attribution, which needs judgement on each new
+class, is what the run is for. One run takes about 20 minutes of Red and 17 of ours over 250
+exports, with three workers. The scripts and the order of a rerun are under
+`scripts/library_parity/` (its `README.md`).
+
 Intentional differences must be accounted for:
 
 - **Auto-assigned boots/gloves IDs** may differ from the old embedded IDs — the comparison

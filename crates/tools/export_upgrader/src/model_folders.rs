@@ -1,4 +1,4 @@
-//! Model-folder mode (`plans/export_upgrader.md` "Model-folder mode"): a
+//! Model-folder mode (`spec/export_upgrader.md` "Model-folder mode"): a
 //! folder of old-format model folders (the item folders that used to live
 //! under `Faces/`, `Boots/` and `Gloves/`) upgraded one per output folder,
 //! to drop into a Studio export. The copies are staged in the export layout
@@ -7,7 +7,6 @@
 //! off.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::fs;
 
 use aesthetics_export::{IssueScope, ValidationIssue};
 use anyhow::anyhow;
@@ -28,10 +27,8 @@ use crate::players::{
     ItemKind, clean_folder_name, file_name, is_stray, parse_item_name, path_scope, slot_of,
 };
 use crate::source::{self, OldExport};
-use crate::upgrade::{
-    Identity, RunEvents, aborted, finish_staging, invalid, output_issues, resolve_input, verdict,
-    write_output_file,
-};
+use crate::staging::{claim_staging, finish_staging, write_output_file};
+use crate::upgrade::{Identity, RunEvents, invalid, output_issues, resolve_input, verdict};
 
 /// Where an output folder of model-folder mode goes once dropped into a
 /// Studio export.
@@ -332,13 +329,10 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
         }
     };
 
-    // "CLI": the output folder, claimed as `upgrade` claims its own — one
-    // rule for both modes: the path's name is read before anything is
-    // created (a `-o` ending in `..`, or a root, has none and is refused,
-    // never panicking after the parent was made); an existing folder is
-    // refused; the missing parent is made; and the folder itself is
-    // created with `create_dir`, so one that appeared between the check
-    // and the create is never written into.
+    // "CLI": the output folder, claimed as `upgrade` claims its own
+    // (`staging::claim_staging`). The path's name is read before anything is
+    // created: a `-o` ending in `..`, or a root, has none and is refused,
+    // never panicking after the parent was made.
     let output = args.output.clone().unwrap_or_else(|| {
         path.parent()
             .expect("the input is absolute and not a filesystem root (resolve_input)")
@@ -351,42 +345,7 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
         )));
     };
     let output_name = output_name.to_string_lossy().into_owned();
-    if output.exists() {
-        return Err(aborted(anyhow!(
-            "{}: the output folder already exists",
-            output.display()
-        )));
-    }
-    // "CLI": the run writes into the staging folder beside the output and the
-    // verdict publishes it; an existing one is refused before anything is
-    // written (exit 3).
-    let staging = output.with_file_name(format!("{output_name}.upgrading"));
-    if staging.exists() {
-        return Err(aborted(anyhow!(
-            "{}: the staging folder already exists: an aborted run left it, or another run is writing it; remove it and run again",
-            staging.display()
-        )));
-    }
-    // `-o`'s parent is made when missing, as `upgrade` makes its `-o`
-    // directory; the default output's is the input's own folder, which
-    // exists by definition.
-    if let Some(parent) = output.parent()
-        && !parent.as_os_str().is_empty()
-        && !parent.exists()
-    {
-        fs::create_dir_all(parent).map_err(|error| {
-            aborted(anyhow!(
-                "{}: cannot create the directory: {error}",
-                parent.display()
-            ))
-        })?;
-    }
-    fs::create_dir(&staging).map_err(|error| {
-        aborted(anyhow!(
-            "{}: cannot create the staging folder: {error}",
-            staging.display()
-        ))
-    })?;
+    let staging = claim_staging(&output)?;
     events.started(OUTPUT, &output_name);
 
     // Step 7's chain on the staged copies, exactly `upgrade`'s: the kit
@@ -511,6 +470,8 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use studio_core::{PipelineEvent, PipelineEventEnvelope};
 
     use super::*;

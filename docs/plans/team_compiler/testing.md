@@ -10,20 +10,6 @@ Since the Rust compiler only accepts the Studio export format, the parity test b
 **upgrade the old reference exports with the Export upgrader, compile the result, and compare the
 game-facing output** (nested CPK contents, bins, packed structures) against Red's reference output.
 
-Beyond the tracers, whose small trees are committed, the parity over the maintainer's whole
-library of old exports is a **measurement rerun at each phase close** that changes the Team
-compiler or the Export upgrader, not a committed test: every input the upgrade census upgrades
-clean is upgraded, compiled, compiled by Red from a fresh copy, and compared by `red_parity`
-(`team_compiler/examples/red_parity.rs`, one classified line per Red entry), and every line is
-attributed to an intentional class or a defect, a new class diagnosed before the phase closes.
-We do not commit a hash manifest of Red's trees as a fixture, because the inputs are members'
-exports on the maintainer's machine alone (several hundred, several GB), so no such test could
-run in CI; and because our output differs from Red's by design in 28 classes (6.12c), so a
-manifest of either output would be a golden that every intentional change rewrites, while the
-attribution, which needs judgement on each new class, is what the run is for. One run takes
-about 20 minutes of Red and 17 of ours over 250 exports (6.12c), sequentially. The scripts are
-kept under `scripts/library_parity/`.
-
 - **Kit-dependent path magic**: The comparison
   normalizes Red's `u0???p<d>` to `kit<d>` (`p0` → `kitN`) in file names and in decoded FMDL/MTL/XML
   paths before diffing.

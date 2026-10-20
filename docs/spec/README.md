@@ -12,6 +12,7 @@ decisions); the Team compiler and the library crates have their own documents.
 | [Team compiler](team_compiler/README.md) | The flagship tool: pipeline, planning, processing, packing, deployment, referee support, messages, settings, the CLI |
 | [Save editor](save_editor.md) | The Save editor's CLI over `pes_savefile`: Team TOML, the aesthetics patch, AATF checks, the comparator, transplant, strip and seed, the teams list; its messages |
 | [AATF rules](aatf_rules.md) | `libs/aatf`: the ruleset schema, the interpreter and host, the embedded rulesets |
+| [Export upgrader](export_upgrader.md) | The one-time migration of AET exports to the Studio format, and of old model folders, through the CLI; its messages |
 | [Aesthetics export](aesthetics_export/README.md) | The `aesthetics_export` lib and the Studio aesthetics export format: object model and validation progression, player folders, FPC markers, `settings.toml` |
 | [Kit config editor](kit_config_editor.md) | The kit config format reference (recovered by disassembly), TOML configs in exports, and the `kit_config` lib |
 | [Unified model format](model_format.md) | The material schema (shader families, canonical texture roles, per-engine tables), `.mtl` search, `.common` links |

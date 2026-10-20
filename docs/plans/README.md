@@ -17,7 +17,7 @@ compiler, the libraries, the savefile) holds only its unbuilt parts here.
 | [AATF rules](aatf_rules.md) | The `aatf` lib: the ruleset schema (tiers, heights, cards, conditional specials), the generic Rhai interpreter carried in every rules file, suggestions, the host API, the official Autumn 26 and VGL26 rulesets — shared by the Save editor, Team creator and Ruleset editor |
 | [Ruleset editor](ruleset_editor.md) | Forms over the ruleset schema for invitational organizers: tiers, heights, cards, specials, suggestions; rules file open/save with logic identity, rules summary |
 | [Stadium compiler](stadium_compiler.md) | Stadium export compilation, fox2, billboards |
-| [Export upgrader](export_upgrader.md) | Old-format → Studio-format export migration |
+| [Export upgrader](export_upgrader.md) | Old-format → Studio-format export migration: the optional glTF pass (Phase 7) and the tool's view (Phase 8) |
 | [Music player](music_player.md) | Rigdio successor: match-day soundboard — .4ccm exports, conditional goalhorns, chants, loudness normalization (also specs the `music_export`/`audio_engine` libs) |
 | [Music export editor](music_export_editor.md) | RigDJ successor: .4ccm editing UI, condition forms, validation, audition playback |
 | [Match tracker](match_tracker/README.md) | SEN:P-AI successor: live match stats/events read from the game's memory, match records, and the `match_feed` lib driving the Music player's autopilot |

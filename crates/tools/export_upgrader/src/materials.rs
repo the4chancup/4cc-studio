@@ -1,5 +1,5 @@
 //! Step 7's `.mtl` texture references and FMDL path-table entries into the
-//! team's `Common/` (`plans/export_upgrader.md` step 7, `DECISIONS.md`
+//! team's `Common/` (`spec/export_upgrader.md` step 7, `DECISIONS.md`
 //! 2026-10-18 "old `.mtl` references keep their extension, and a Common
 //! reference no link can spell is kept" and "an FMDL's texture entries,
 //! class by class"): a reference naming a `Common/` file becomes the bare
@@ -513,7 +513,7 @@ fn is_referee_file(ctx: &FileContext) -> bool {
 /// Whether a referee's Common reference (`sub`, ending in `/` or empty, and
 /// `file_name`, both respelled) names a texture his folder holds at
 /// `<model folder>/<sub>`, where the flatten put his old `common/`'s files
-/// (`plans/export_upgrader.md` step 12, `DECISIONS.md` 2026-10-18 "steps 9
+/// (`spec/export_upgrader.md` step 12, `DECISIONS.md` 2026-10-18 "steps 9
 /// and 12's gaps…" (6)): the caller then writes `./<sub>`, no link and no
 /// finding. A file in a subfolder naming a `sub` is never held: its `./<sub>`
 /// would name a path below its own subfolder, so the team rule keeps it.

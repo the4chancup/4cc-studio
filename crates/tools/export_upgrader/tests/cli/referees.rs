@@ -124,7 +124,7 @@ fn refs_list_txt_and_root_referee_folders_migrate_the_same_way() {
     );
 }
 
-// EU-REF-10
+// EU-REF-12
 #[test]
 fn a_root_referee_folders_model_counts_toward_the_pre_fox_version() {
     let sandbox = Sandbox::new("ref_root_model");

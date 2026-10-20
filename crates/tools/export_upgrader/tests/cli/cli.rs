@@ -269,7 +269,9 @@ fn a_staging_folder_that_exists_is_refused() {
 
     let before = snapshot(&sandbox);
     let run = upgrade(&sandbox, "co Spring", &["--savefile", &save]);
-    run.assert_refused(3, &["co Full Spring.upgrading"]);
+    // The refusal says what to do: `create_dir` alone would also fail with
+    // exit 3, but not tell the member that the folder is a run's leftover.
+    run.assert_refused(3, &["co Full Spring.upgrading", "remove it and run again"]);
     assert_eq!(snapshot(&sandbox), before, "nothing is written");
 
     // `upgrade-models` refuses its staging folder the same way.
@@ -284,7 +286,10 @@ fn a_staging_folder_that_exists_is_refused() {
     let input = sandbox.arg("new models");
     let before = snapshot(&sandbox);
     let run = sandbox.run(&["upgrade-models", &input]);
-    run.assert_refused(3, &["new models upgraded.upgrading"]);
+    run.assert_refused(
+        3,
+        &["new models upgraded.upgrading", "remove it and run again"],
+    );
     assert_eq!(snapshot(&sandbox), before, "nothing is written");
 }
 

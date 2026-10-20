@@ -1,4 +1,4 @@
-//! The output folder's name (`plans/export_upgrader.md` "CLI"): the resolved
+//! The output folder's name (`spec/export_upgrader.md` "CLI"): the resolved
 //! team's key, the coverage tag, then the rest of the old name — so the
 //! compiler reads the output's team from its first word.
 
@@ -18,7 +18,7 @@ fn after_first_token(name: &str) -> &str {
     }
 }
 
-/// The output folder's name (`plans/export_upgrader.md` "CLI"): the resolved
+/// The output folder's name (`spec/export_upgrader.md` "CLI"): the resolved
 /// team's key without its slashes, then the coverage tag — `Midcup` when the
 /// old name holds `midcup` or `additions` in any letter case, `Full`
 /// otherwise — then the rest of the old name. When the name's first token

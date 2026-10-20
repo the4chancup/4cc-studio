@@ -513,7 +513,7 @@ never writes one: kits have passed through several converters unchanged, so thei
 unknowable from the files, and a wrong guess would silently displace a correct kit. The only
 authored kit config is the TOML file `config.toml` — the
 binary game format is never part of an export and exists only as compile output; old exports' binary
-configs are converted by the [Export upgrader](../../plans/export_upgrader.md) (schema and binary layout in the
+configs are converted by the [Export upgrader](../export_upgrader.md) (schema and binary layout in the
 [Kit config editor plan](../kit_config_editor.md)); each kit folder also has a `colors.txt` with the
 kit's two menu colors (the grammar is under "Root files", "Colors"), and
 optionally an empty `icon_<N>` marker whose name carries the kit's menu icon number (0–23, zero
@@ -754,7 +754,7 @@ the same one. We do not require a Midcup to carry every shared folder, which wou
 members copy folders they did not change.
 
 **The old export format is not supported by the compiler.** Old exports are migrated once with the
-Export upgrader tool (see the [Export upgrader plan](../../plans/export_upgrader.md)), which also resolves old
+Export upgrader tool (see the [Export upgrader plan](../export_upgrader.md)), which also resolves old
 embedded IDs to the new name-based structure.
 
 ---

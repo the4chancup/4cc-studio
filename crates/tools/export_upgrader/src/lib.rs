@@ -1,5 +1,5 @@
 //! The Export upgrader: exports in the old (AET) layout migrated to the Studio
-//! player-folder format the Team compiler reads (`plans/export_upgrader.md`).
+//! player-folder format the Team compiler reads (`spec/export_upgrader.md`).
 //!
 //! `Tool` registers the tool with the shell: its help chapter and its
 //! `export-upgrader` command line. The window is a later phase's; until then
@@ -11,7 +11,8 @@
 //! `materials`, the `face.xml` respells by `face_xml`, the kit magic by
 //! `kit_magic`, the pre-Fox model renames by `model_names`, the
 //! `settings.toml` files by `settings`, the output's name through `naming`,
-//! and every finding goes through the `messages` catalog. The
+//! the staging folder by `staging`, and every finding goes through the
+//! `messages` catalog. The
 //! `upgrade-models` command's folder-of-model-folders mode lives in
 //! `model_folders`.
 
@@ -31,6 +32,7 @@ mod referees;
 mod roster;
 mod settings;
 mod source;
+mod staging;
 #[cfg(test)]
 mod test_support;
 mod upgrade;
@@ -71,7 +73,7 @@ impl StudioTool for Tool {
     }
 
     /// The tool has no settings: the teams list path is the compiler's own
-    /// (`plans/export_upgrader.md` step 6).
+    /// (`spec/export_upgrader.md` step 6).
     fn default_settings(&self) -> toml::Table {
         toml::Table::new()
     }

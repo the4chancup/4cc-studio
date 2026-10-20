@@ -9,7 +9,7 @@ fixtures or reference outputs); the tools follow, each bringing the consumer-sha
 first to need. Each phase's detailed specification lives in the corresponding plan document: phase
 2 in [libs](../libs/README.md)/[model conversion](../model_conversion/README.md)/[savefile](../pes_savefile/README.md), phases
 3–4 in [team compiler](../team_compiler/README.md), phase 5 in [savefile](../pes_savefile/README.md)/[save
-editor](../save_editor.md)/[AATF rules](../aatf_rules.md), phase 6 in [export upgrader](../../plans/export_upgrader.md), phase 7 in [model
+editor](../save_editor.md)/[AATF rules](../aatf_rules.md), phase 6 in [export upgrader](../export_upgrader.md), phase 7 in [model
 conversion](../model_conversion/README.md), phase 9 in [stadium compiler](../../plans/stadium_compiler.md), phase 10 in
 [music player](../../plans/music_player.md)/[music export editor](../../plans/music_export_editor.md), phase 11 in [match
 tracker](../../plans/match_tracker/README.md), phase 12 in [kit config editor](../../plans/kit_config_editor.md), phase 13 in [refs

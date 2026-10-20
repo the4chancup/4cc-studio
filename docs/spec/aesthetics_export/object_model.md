@@ -245,7 +245,12 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
   `Portraits/NN.*` maps to slot NN, the name read as a player folder's (`NN`,
   alone or followed by ` - ` and any text); two files of one slot there are
   `texture_stem_conflict` (the context's `stem` the slot's `NN`), dropping both
-  files. `portrait_conflict` compares contents, so it
+  files. Any other name is `portrait_name_invalid`, `player_NN` included: the folder already
+  says what the file is, and the `player_` prefix was the old format's, which the upgrader
+  rewrites. The rule is the player folder's (the stem split at its first `-`, both sides
+  trimmed, the head all digits making a slot), so `05-Bob.png` is slot 05 as a folder `05-Bob`
+  is and `081.dds` is no slot 08: one rule for the two places a member types a slot.
+  `portrait_conflict` compares contents, so it
   belongs to the deep pass. Every root file whose stem starts with `logo` is a logo
   candidate; `logo_file_invalid`, `logo_role_duplicate` and `logo_small_without_main` each drop
   the logo as one unit (`File`-scoped on the offending file, `DropFile`, `logo: None`).
@@ -412,7 +417,7 @@ pub struct ResolvedAestheticsExport {
 The compiler supports **only the Studio export format**. The old format (separate Faces/Boots/Gloves
 item folders with embedded IDs, Kit Configs/Kit Textures folders, the Other folder) is not supported
 — old exports are migrated with the Export upgrader tool (see the [Export upgrader
-plan](../../plans/export_upgrader.md)). An old-layout export that reaches the compiler anyway is one
+plan](../export_upgrader.md)). An old-layout export that reaches the compiler anyway is one
 finding, `export_layout_old`, and is skipped: a root folder named `Kit Configs`, `Kit Textures`
 or `Other`, which the Studio format never has, tells the two layouts apart with no other
 old-format knowledge, and the dozens of structure findings the old folders would otherwise

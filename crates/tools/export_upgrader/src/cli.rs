@@ -1,4 +1,4 @@
-//! The `export-upgrader` command line (`plans/export_upgrader.md` "CLI"): a
+//! The `export-upgrader` command line (`spec/export_upgrader.md` "CLI"): a
 //! parsed command turned into a run, and the run's outcome turned into the
 //! exit code scripts read.
 

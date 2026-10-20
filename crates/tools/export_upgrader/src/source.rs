@@ -1,4 +1,4 @@
-//! The input (`plans/export_upgrader.md` step 1): an old export — a folder, a
+//! The input (`spec/export_upgrader.md` step 1): an old export — a folder, a
 //! `.zip` or a `.7z` — listed to its root, then read file by file. The root is
 //! the input's own, or its one wrapper folder's when the top level holds
 //! nothing an old export holds; OS artifacts and `*.fpk.xml` files are left

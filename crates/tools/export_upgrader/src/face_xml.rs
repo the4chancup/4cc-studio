@@ -1,5 +1,5 @@
 //! Step 7's respelling of a member `face.xml`, and step 1's unwrapping
-//! (`plans/export_upgrader.md` steps 1 and 7, `DECISIONS.md` 2026-10-18
+//! (`spec/export_upgrader.md` steps 1 and 7, `DECISIONS.md` 2026-10-18
 //! "a WESYS-wrapped `face.xml` is written unwrapped"): `path` and
 //! `material` attributes whose values name the player folder's own or the
 //! team's Common get the kit magic respelled; everything else, the `<dif>`
@@ -143,7 +143,7 @@ fn folder_files(copies: &[(String, String)], output: &str) -> BTreeSet<String> {
 /// A referee's Common `path`/`material` value whose file the flatten moved
 /// into his folder (`common_below` one of `folder_files`), spelled below
 /// the folder: `model/character/uniform/common/XXX/kit/x.mtl` →
-/// `./kit/x.mtl`, the rest as written (`plans/export_upgrader.md` step 12).
+/// `./kit/x.mtl`, the rest as written (`spec/export_upgrader.md` step 12).
 /// `None` for any other value, which the team rule's kit magic alone
 /// respells; a `./` value is never changed here, a missing one being the
 /// compile's `xml_model_not_found` (no link resolves a `path`).
@@ -206,7 +206,7 @@ fn common_below(value: &str, identity: &Identity) -> Option<String> {
 }
 
 /// The `Common/` paths (folded, below `Common/`) that keep their names
-/// through step 7's renames (`plans/export_upgrader.md` step 7,
+/// through step 7's renames (`spec/export_upgrader.md` step 7,
 /// `DECISIONS.md` 2026-10-18 "a pre-Fox leading type moves only when `_`
 /// follows it…" (4)): those a member `face.xml`'s `path`/`material` values
 /// name, and those a `.common` link in such a folder names — the link is

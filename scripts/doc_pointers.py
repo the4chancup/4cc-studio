@@ -51,13 +51,11 @@ LIST_MARKER = re.compile(r"^\s*(?:[-*]|\d+\.)\s+")
 BOLD = re.compile(r"\*\*(?P<title>[^*]+?)\*\*")
 LINK = re.compile(r"\]\((?P<target>[^)\s#:]+\.md)(?:#[^)]*)?\)")
 SKIPPED = {"docs/DECISIONS.md", "docs/LOG.md"}
-# Phase 5 closed (2026-10-16) and moved its sections; Phase 6 is open.
+# Phase 6 closed (2026-10-20) and moved its sections.
 OPEN_PHASE_PLANS = {
     # `libs/music_export` is built ahead of Phase 10 (worklog 10.0); its format section moves
     # to the spec when that phase closes.
     "docs/plans/music_player.md",
-    # Phase 6 is open: the Export upgrader's sections move to the spec when it closes.
-    "docs/plans/export_upgrader.md",
 }
 
 

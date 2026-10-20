@@ -7,7 +7,7 @@ fingerprinting), and the interchange formats (Team TOML, legacy `.4ccs`/`.4cct`
 readers, Texport, the aesthetics patch). Shared by the [Save editor](../save_editor.md), the
 [Team compiler](../team_compiler/README.md), the integrated
 [model conversion](../model_conversion/README.md), and the
-[Export upgrader](../../plans/export_upgrader.md). Platform context is in the
+[Export upgrader](../export_upgrader.md). Platform context is in the
 [core plan](../core/README.md).
 
 ---

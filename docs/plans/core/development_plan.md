@@ -32,22 +32,6 @@ from Release 0.1.0's list the Windows bundle (`just release`, the `.7z` and its 
 one whose behavior they will keep relying on, and a rushed rule check that passes a team the
 organizers' check refuses costs the invitational more than a later tool.
 
-### Phase 6: Export upgrader (`tools/export_upgrader`)
-
-- Implement old-format export loading (the only place old-format knowledge lives)
-- Implement savefile-driven ID→player mapping
-- Implement player folder merging (single-user model folders) and shared folder + link file
-  generation (multi-user folders)
-- Implement kit restructuring (binary kit configs → `config.toml`, `colors.txt` and the `icon_<N>`
-  marker from Team Note colors)
-- Implement `settings.toml` generation from savefile aesthetics: every key, `name = true` when the folder's name part equals the save's name and the explicit
-  string otherwise, `shirt_name` the save's string (a migrated player must look the same once his
-  rows replace his stripped record)
-- CLI: `4cc-studio export-upgrader upgrade ./old_export.zip --savefile <EDIT>`
-
-**Verification:** Upgrade the full library of existing old-format exports; compile the results;
-compare game-facing output against Red's output for the same exports.
-
 ### Phase 7: glTF support
 
 Runs after Release 0.1.0 (see "Releases" above). Besides the codec, it lifts the Team compiler's
