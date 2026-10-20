@@ -1,6 +1,13 @@
 //! Help chapter types. The help window is assembled from the tools: every registered tool
 //! contributes one `HelpSection` through `StudioTool::help()`, and `studio_core` contributes the
-//! core chapters (core plan, "Help window"). Search, rendering and export come with the GUI.
+//! core chapters (core plan, "Help window"). `chapters` lists them; `export` renders the
+//! Markdown `4cc-studio help` prints. Search and the window come with the GUI.
+
+mod export;
+
+use crate::tool::StudioTool;
+
+pub use export::{chapter_markdown, run_help, topic_markdown};
 
 /// One tool's chapter of the help window: a title and its topics, in reading order.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -9,6 +16,9 @@ pub struct HelpSection {
     pub title: &'static str,
     /// Topics in order; the numbered file names in the tool's `help/` folder fix it.
     pub topics: Vec<HelpTopic>,
+    /// The tool's whole catalog, in `messages.rs` order; empty for a core chapter, which then
+    /// has no Messages topic.
+    pub messages: Vec<CatalogRow>,
 }
 
 /// One topic of a chapter: a Markdown body embedded with `include_str!`.
@@ -31,4 +41,52 @@ pub struct HelpTarget {
     pub topic: Option<String>,
     /// Anchor inside the topic, such as a message code in the generated "Messages" topic.
     pub anchor: Option<String>,
+}
+
+/// One row of a tool's message catalog, as the help's generated Messages topic shows it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct CatalogRow {
+    /// The stable code the message carries (`export_extract_failed`).
+    pub code: &'static str,
+    /// The severity spelled out: `Info`, `Warning`, `Error`, `Fatal`, or two joined by
+    /// ` or ` for a code whose severity depends on the run (`Error or Fatal`).
+    pub severity: &'static str,
+    /// What triggers the code (Markdown spans allowed).
+    pub when: &'static str,
+    /// What the tool does about it.
+    pub effect: &'static str,
+}
+
+/// The chapter list the help window and `4cc-studio help` share (core plan, "Help window"):
+/// the core chapters first, then each registered tool's `help()` under its id, in registry
+/// order.
+pub fn chapters(tools: &[Box<dyn StudioTool>]) -> Vec<(&'static str, HelpSection)> {
+    let mut chapters = vec![
+        (
+            "setting-up",
+            HelpSection {
+                title: "Setting up",
+                topics: vec![HelpTopic {
+                    slug: "install",
+                    title: "Installing",
+                    body: include_str!("core/install.md"),
+                }],
+                messages: Vec::new(),
+            },
+        ),
+        (
+            "first-run",
+            HelpSection {
+                title: "First run and data location",
+                topics: vec![HelpTopic {
+                    slug: "data-location",
+                    title: "Choosing the data location",
+                    body: include_str!("core/data_location.md"),
+                }],
+                messages: Vec::new(),
+            },
+        ),
+    ];
+    chapters.extend(tools.iter().map(|tool| (tool.id(), tool.help())));
+    chapters
 }

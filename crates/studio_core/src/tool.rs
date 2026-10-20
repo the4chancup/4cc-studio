@@ -43,8 +43,8 @@ pub trait StudioTool {
     /// when a new version adds a key.
     fn default_settings(&self) -> toml::Table;
 
-    /// The tool's chapter of the help window: prose topics only; the window appends the message
-    /// catalog as a generated topic.
+    /// The tool's chapter of the help window: its prose topics, and `messages`, the catalog
+    /// rows the generated Messages topic is rendered from.
     fn help(&self) -> HelpSection;
 
     /// The tool's CLI subcommand. Its name must equal `id()`; the shell enforces it.

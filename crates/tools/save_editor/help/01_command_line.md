@@ -1,5 +1,3 @@
-# Running from a terminal
-
 The Save editor's batch commands run from a terminal opened in the folder that holds
 `4cc-studio`. Every command names the save it reads (the `EDIT00000000` file of your PES
 install's save folder, or a copy of it); none picks one for you.

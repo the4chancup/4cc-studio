@@ -22,7 +22,10 @@ pub use events::{
     Disposition, EventLines, ExportId, ExportRevision, FolderStatus, Message, MessageCode,
     PipelineEvent, PipelineEventEnvelope, RunId, Scope, Severity,
 };
-pub use help::{HelpSection, HelpTarget, HelpTopic};
+pub use help::{
+    CatalogRow, HelpSection, HelpTarget, HelpTopic, chapter_markdown, chapters, run_help,
+    topic_markdown,
+};
 pub use pes_process::{RunningPes, running_pes};
 pub use settings::{COMMON_KEY, CommonSettings, Settings, SettingsError, Theme};
 #[cfg(not(target_arch = "wasm32"))]

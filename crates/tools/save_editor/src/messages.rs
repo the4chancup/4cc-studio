@@ -1,8 +1,9 @@
 //! The Save editor's message catalog: each code the commands report, its severity, and the
 //! `Message` it is sent as. Every finding is run-wide (`Scope::Run`) and keeps what it is
 //! about (`Disposition::Keep`): a command works on one save, not on exports, and a finding
-//! that drops something says so with its own code. Until the help window needs them a row
-//! holds no text: the console prints the code with its context fields.
+//! that drops something says so with its own code. Each `CATALOG` row also carries the
+//! member-facing `when`/`effect` the help's generated Messages topic shows (`spec/save_editor.md`
+//! "Messages"); the console prints the code with its context fields.
 
 use std::borrow::Cow;
 
@@ -11,7 +12,7 @@ use pes_savefile::interchange::aesthetics_patch::PatchSkip;
 use pes_savefile::interchange::team_toml::ImportNote;
 use pes_savefile::model::PlayerEntry;
 use pes_savefile::ops::compare::PlayerDiff;
-use studio_core::{Disposition, Message, MessageCode, Scope, Severity};
+use studio_core::{CatalogRow, Disposition, Message, MessageCode, Scope, Severity};
 
 use crate::session::Stripped;
 
@@ -189,6 +190,190 @@ impl Code {
                 Severity::Error
             }
         }
+    }
+
+    /// Every code, for the catalog test, in the enum's (and `CATALOG`'s) order.
+    #[cfg(test)]
+    const ALL: &'static [Code] = &[
+        Code::TeamExported,
+        Code::ImportKeyNotInVersion,
+        Code::ImportValueNotEncodable,
+        Code::ImportValueCapped,
+        Code::ImportSlotEmpty,
+        Code::PatchTeamApplied,
+        Code::PatchTeamNotInSave,
+        Code::PatchPlayerNotInSave,
+        Code::TransplantTargetStripped,
+        Code::TransplantDonorStripped,
+        Code::PlayerDiff,
+        Code::PlayerOnlyIn,
+        Code::PlayerStripped,
+        Code::TeamsListAdded,
+        Code::TeamsListOverridden,
+        Code::TeamsListUnresolved,
+        Code::TeamsListNameDuplicate,
+        Code::TeamsListKept,
+        Code::TeamsListWritten,
+        Code::TeamsListNotWritten,
+        Code::TeamsListReadOnly,
+        Code::AatfViolation,
+        Code::AatfCheckFailed,
+        Code::AppearanceIdRestored,
+        Code::StripBaseCopiedFace,
+    ];
+}
+
+/// Every code this tool emits, in the enum's (and the spec table's) order, with the
+/// member-facing `when`/`effect` the help's generated Messages topic shows.
+const CATALOG: &[(Code, &str, &str)] = &[
+    (
+        Code::TeamExported,
+        r#"`export-toml` wrote one team's file (`team`, `path`)"#,
+        r#"informational; goes on"#,
+    ),
+    (
+        Code::ImportKeyNotInVersion,
+        r#"`import-toml`: a key the document's version stores and the save's does not; dropped (`path`)"#,
+        r#"warns and goes on"#,
+    ),
+    (
+        Code::ImportValueNotEncodable,
+        r#"`import-toml`: a value the save's version cannot store (an instruction it lacks); written as off (`path`, `label`)"#,
+        r#"warns and goes on"#,
+    ),
+    (
+        Code::ImportValueCapped,
+        r#"`import-toml`: a face type above the save's version's cap, or a skin the version has no custom slot for; written as `to` (`path`, `from`, `to`)"#,
+        r#"warns and goes on"#,
+    ),
+    (
+        Code::ImportSlotEmpty,
+        r#"`import-toml`: a `[players.NN]` whose roster slot is empty; skipped (`slot`)"#,
+        r#"warns and goes on"#,
+    ),
+    (
+        Code::PatchTeamApplied,
+        r#"`apply-patch`: the save holds the team and at least one of its patch players was written (`team`); a team whose players the save all lacks is not listed"#,
+        r#"informational; goes on"#,
+    ),
+    (
+        Code::PatchTeamNotInSave,
+        r#"`apply-patch`: the save has no team with this id; its players were not looked at (`team`)"#,
+        r#"the rest is written; exit 1"#,
+    ),
+    (
+        Code::PatchPlayerNotInSave,
+        r#"`apply-patch`: the save has no player with this id (`player`)"#,
+        r#"the rest is written; exit 1"#,
+    ),
+    (
+        Code::TransplantTargetStripped,
+        r#"`transplant`: the target's appearance id is -1, so the game does not read the record the donor's fields went into; the tables decide his look (`player`)"#,
+        r#"warns; the write stands"#,
+    ),
+    (
+        Code::TransplantDonorStripped,
+        r#"`transplant`: the donor's appearance id is -1, so the fields copied are his record's, not the look the game shows for him (`player`)"#,
+        r#"warns; the write stands"#,
+    ),
+    (
+        Code::PlayerDiff,
+        r#"`diff`: one field of a player in both saves, old to new (`player`, `field`, `old`, `new`)"#,
+        r#"the report's rows; differences are the output, exit 0"#,
+    ),
+    (
+        Code::PlayerOnlyIn,
+        r#"`diff`: a player in one save alone (`player`, `save`: `first` or `second`)"#,
+        r#"informational; goes on"#,
+    ),
+    (
+        Code::PlayerStripped,
+        r#"`diff`: the player's appearance id is -1 in `save` (`first`, `second` or `both`); his record is compared, not the look the game shows (`player`, `save`)"#,
+        r#"marks the player beside his rows; exit 0"#,
+    ),
+    (
+        Code::TeamsListAdded,
+        r#"`export-teams-list`: a team of the save the list lacked, appended or put into a placeholder's slot (`team`, `name`)"#,
+        r#"merged; written only with `--yes`"#,
+    ),
+    (
+        Code::TeamsListOverridden,
+        r#"`export-teams-list`: a name in both whose id becomes the save's (`name`, `old`, `new`)"#,
+        r#"merged; written only with `--yes`"#,
+    ),
+    (
+        Code::TeamsListUnresolved,
+        r#"`export-teams-list`: a change dropped because its id collided with another row of the merged list (`team`, `name`)"#,
+        r#"the change is dropped, the other changes written with `--yes`; exit 1"#,
+    ),
+    (
+        Code::TeamsListNameDuplicate,
+        r#"`export-teams-list`: a team of the save left out because an earlier team folds to the same name, which the list can hold once (`team`, `name`, `kept`)"#,
+        r#"the team is left out; exit 1"#,
+    ),
+    (
+        Code::TeamsListKept,
+        r#"`export-teams-list`: the working rows that ended unchanged (`count`)"#,
+        r#"informational; goes on"#,
+    ),
+    (
+        Code::TeamsListWritten,
+        r#"`export-teams-list`: the merged list was written (`path`)"#,
+        r#"informational; goes on"#,
+    ),
+    (
+        Code::TeamsListNotWritten,
+        r#"`export-teams-list` without `--yes`: the summary only, the file untouched (`path`)"#,
+        r#"nothing is written"#,
+    ),
+    (
+        Code::TeamsListReadOnly,
+        r#"`export-teams-list --yes`: the data directory cannot take the file (`path`, `error`)"#,
+        r#"nothing is written; exit 1"#,
+    ),
+    (
+        Code::AatfViolation,
+        r#"`check-aatf`: one rule the team breaks under the ruleset (`team`; `player` for a player's violation; `rule`, then the rule's own fields)"#,
+        r#"printed; an error-severity violation makes the exit code 1"#,
+    ),
+    (
+        Code::AatfCheckFailed,
+        r#"`check-aatf`: the ruleset's check itself failed on the team, which the other teams' results do not cover (`team`, `error`)"#,
+        r#"the other teams are still checked; exit 1"#,
+    ),
+    (
+        Code::AppearanceIdRestored,
+        r#"`check-stripped`: the player's appearance id is set again while another player's is stripped, so the game shows his save record, not the database rows (`player`, `name`)"#,
+        r#"exit 1 while he stands listed; reported at Info and exit 0 once `--strip-again` has stripped him"#,
+    ),
+    (
+        Code::StripBaseCopiedFace,
+        r#"`strip-and-seed`: the player's record copied another player's face, which the seed rows cannot carry, so once stripped he shows the face his row describes; his export describing his face settles it (`player`, `name`, `copied`)"#,
+        r#"warns and goes on"#,
+    ),
+];
+
+/// The catalog rows the help's generated Messages topic is rendered from, in `CATALOG`
+/// order (`lib.rs` `help`).
+pub(crate) fn catalog() -> Vec<CatalogRow> {
+    CATALOG
+        .iter()
+        .map(|(code, when, effect)| CatalogRow {
+            code: code.as_str(),
+            severity: catalog_severity(*code),
+            when,
+            effect,
+        })
+        .collect()
+}
+
+/// The severity the Messages topic spells out: the code's own, the two codes whose
+/// `Message` overwrites it spelled as their spec rows do.
+fn catalog_severity(code: Code) -> &'static str {
+    match code {
+        Code::AatfViolation => "Error or Warning",
+        Code::AppearanceIdRestored => "Error or Info",
+        _ => code.severity().name(),
     }
 }
 
@@ -874,6 +1059,53 @@ mod tests {
                 "the check's script failed: x".to_owned()
             )),
             "Error aatf_check_failed (team=701, error=the check's script failed: x)"
+        );
+    }
+
+    #[test]
+    fn every_code_has_exactly_one_catalog_row_and_every_row_its_text() {
+        for code in Code::ALL {
+            let rows = CATALOG.iter().filter(|(known, ..)| known == code).count();
+            assert_eq!(rows, 1, "{}", code.as_str());
+        }
+        for (index, (code, ..)) in CATALOG.iter().enumerate() {
+            assert!(
+                CATALOG[index + 1..].iter().all(|(other, ..)| other != code),
+                "{} appears twice",
+                code.as_str()
+            );
+        }
+        for (code, when, effect) in CATALOG {
+            assert!(!when.is_empty() && !effect.is_empty(), "{}", code.as_str());
+        }
+    }
+
+    #[test]
+    fn the_help_chapter_lists_the_whole_catalog_in_order() {
+        use studio_core::StudioTool;
+
+        let help = crate::Tool::new().help();
+        let codes: Vec<&str> = help.messages.iter().map(|row| row.code).collect();
+        let catalog: Vec<&str> = CATALOG.iter().map(|(code, ..)| code.as_str()).collect();
+        assert_eq!(codes, catalog);
+    }
+
+    #[test]
+    fn a_rows_text_is_its_spec_cells_and_the_run_dependent_severities_spelled_out() {
+        let row = CATALOG
+            .iter()
+            .find(|(code, ..)| *code == Code::TeamExported)
+            .unwrap();
+        assert_eq!(
+            row.1,
+            "`export-toml` wrote one team's file (`team`, `path`)"
+        );
+        assert_eq!(row.2, "informational; goes on");
+        // The two codes whose `Message` overwrites the severity: the spec cell spelled out.
+        assert_eq!(catalog_severity(Code::AatfViolation), "Error or Warning");
+        assert_eq!(
+            catalog_severity(Code::AppearanceIdRestored),
+            "Error or Info"
         );
     }
 }

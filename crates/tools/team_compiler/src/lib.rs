@@ -92,6 +92,7 @@ impl StudioTool for Tool {
                 title: "Running from a terminal",
                 body: include_str!("../help/01_command_line.md"),
             }],
+            messages: messages::catalog(),
         }
     }
 

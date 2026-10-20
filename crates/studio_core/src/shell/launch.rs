@@ -1,15 +1,19 @@
-//! Argument parsing for the three launch modes (core plan, "Launch modes"):
+//! Argument parsing for the launch modes (core plan, "Launch modes"; `gui.md` "Help window"
+//! "CLI equivalence"):
 //!
 //! | Invocation | Mode |
 //! |---|---|
 //! | `4cc-studio` | GUI, last-used tool active |
 //! | `4cc-studio <tool-id> <command> [args]` | headless CLI |
 //! | `4cc-studio --gui <tool-id> <command> [args]` | GUI autorun: the GUI opens on the tool and runs the command |
+//! | `4cc-studio help [chapter] [topic] [--export <dir>]` | prints or exports the help's Markdown |
 //!
 //! Every tool contributes one clap subcommand named after its id; `--gui` and `-v` are the
-//! shell's own flags, parsed here so no tool's command knows about them.
+//! shell's own flags and `help` its own subcommand, parsed here so no tool's command knows
+//! about them. `--gui help` parses as `help`: the flag means nothing for it.
 
 use std::ffi::OsString;
+use std::path::PathBuf;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
@@ -45,16 +49,28 @@ pub enum LaunchMode {
         /// The tool subcommand's parsed arguments.
         matches: ArgMatches,
     },
+    /// `help`: print or export the help's Markdown.
+    Help {
+        /// The chapter's id (a tool's, or a core chapter's); `None` lists the chapters.
+        chapter: Option<String>,
+        /// A topic slug within the chapter; `None` prints the whole chapter.
+        topic: Option<String>,
+        /// `--export`: write every chapter as `<id>.md` under this folder instead of printing.
+        export: Option<PathBuf>,
+    },
 }
 
-/// The root `4cc-studio` command with one subcommand per registered tool.
+/// The root `4cc-studio` command with one subcommand per registered tool plus the shell's own
+/// `help`, which replaces clap's built-in one.
 ///
 /// # Panics
-/// If two tools share an id, or a tool uses the reserved settings key `common` as its id: the
-/// registry is a compile-time list, so this is a programming error caught at startup.
+/// If two tools share an id, or a tool uses the reserved settings key `common` or the help
+/// subcommand's name `help` as its id: the registry is a compile-time list, so this is a
+/// programming error caught at startup.
 fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
     let mut command = Command::new("4cc-studio")
         .about("4cc Studio: the 4cc community's PES tools")
+        .disable_help_subcommand(true)
         .arg(
             Arg::new("gui")
                 .long("gui")
@@ -67,6 +83,20 @@ fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
                 .action(ArgAction::Count)
                 .global(true)
                 .help("Diagnostic output: -v info, -vv debug, -vvv trace"),
+        )
+        .subcommand(
+            Command::new("help")
+                .about("Print a help chapter, or export them all as Markdown")
+                .arg(Arg::new("chapter").help("The chapter's id; absent, the chapters are listed"))
+                .arg(Arg::new("topic").help("A topic slug within the chapter"))
+                .arg(
+                    Arg::new("export")
+                        .long("export")
+                        .value_name("dir")
+                        .value_parser(clap::value_parser!(PathBuf))
+                        .conflicts_with_all(["chapter", "topic"])
+                        .help("Write every chapter as <id>.md into this folder"),
+                ),
         );
     for (index, tool) in tools.iter().enumerate() {
         let id = tool.id();
@@ -74,6 +104,7 @@ fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
             id, COMMON_KEY,
             "`{COMMON_KEY}` is the common settings key, not a tool id"
         );
+        assert_ne!(id, "help", "`help` is the help subcommand, not a tool id");
         assert!(
             tools[..index].iter().all(|other| other.id() != id),
             "two tools are registered with the id `{id}`"
@@ -94,6 +125,12 @@ pub fn parse_launch(
     let verbosity = matches.get_count("verbose");
     let mode = match matches.subcommand() {
         None => LaunchMode::Gui,
+        // The shell's own subcommand, `--gui` or not: the flag means nothing for it.
+        Some(("help", subcommand)) => LaunchMode::Help {
+            chapter: subcommand.get_one::<String>("chapter").cloned(),
+            topic: subcommand.get_one::<String>("topic").cloned(),
+            export: subcommand.get_one::<PathBuf>("export").cloned(),
+        },
         Some((tool, subcommand)) if gui => LaunchMode::GuiAutorun {
             tool: tool.to_owned(),
             matches: subcommand.clone(),
@@ -154,6 +191,7 @@ mod tests {
             HelpSection {
                 title: "Stub",
                 topics: Vec::new(),
+                messages: Vec::new(),
             }
         }
         fn cli_command(&self) -> Command {
@@ -312,5 +350,95 @@ mod tests {
         let error = run_cli(&tools, &tool, &refuse, &ctx).unwrap_err();
         assert_eq!(error.exit_code, 3);
         assert_eq!(error.to_string(), "refused");
+    }
+
+    fn help_args(list: &[&str]) -> (Option<String>, Option<String>, Option<PathBuf>) {
+        let LaunchMode::Help {
+            chapter,
+            topic,
+            export,
+        } = mode(list)
+        else {
+            panic!("expected help mode: {list:?}");
+        };
+        (chapter, topic, export)
+    }
+
+    #[test]
+    fn the_help_subcommand_parses_its_chapter_topic_and_export() {
+        assert_eq!(help_args(&["studio", "help"]), (None, None, None));
+        assert_eq!(
+            help_args(&["studio", "help", "team-compiler"]),
+            (Some("team-compiler".to_owned()), None, None)
+        );
+        assert_eq!(
+            help_args(&["studio", "help", "team-compiler", "command-line"]),
+            (
+                Some("team-compiler".to_owned()),
+                Some("command-line".to_owned()),
+                None
+            )
+        );
+        assert_eq!(
+            help_args(&["studio", "help", "--export", "out"]),
+            (None, None, Some(PathBuf::from("out")))
+        );
+    }
+
+    #[test]
+    fn the_export_flag_conflicts_with_the_positionals() {
+        assert!(parse_launch(&tools(), args(&["studio", "help", "x", "--export", "d"])).is_err());
+        assert!(
+            parse_launch(
+                &tools(),
+                args(&["studio", "help", "x", "y", "--export", "d"])
+            )
+            .is_err()
+        );
+    }
+
+    #[test]
+    fn the_gui_flag_means_nothing_for_the_help_subcommand() {
+        assert!(matches!(
+            mode(&["studio", "--gui", "help"]),
+            LaunchMode::Help { .. }
+        ));
+    }
+
+    #[test]
+    #[should_panic(expected = "`help` is the help subcommand")]
+    fn a_tool_id_of_help_is_a_programming_error() {
+        struct HelpStub;
+
+        impl StudioTool for HelpStub {
+            fn id(&self) -> &'static str {
+                "help"
+            }
+            fn label(&self) -> &'static str {
+                "Help"
+            }
+            fn icon(&self) -> &'static str {
+                ""
+            }
+            fn view(&mut self, _ui: &mut egui::Ui, _ctx: &ToolContext) {}
+            fn default_settings(&self) -> toml::Table {
+                toml::Table::new()
+            }
+            fn help(&self) -> HelpSection {
+                HelpSection {
+                    title: "Help",
+                    topics: Vec::new(),
+                    messages: Vec::new(),
+                }
+            }
+            fn cli_command(&self) -> Command {
+                Command::new("help")
+            }
+            fn cli_run(&self, _matches: &ArgMatches, _ctx: &ToolContext) -> Result<u8, CliError> {
+                Ok(0)
+            }
+        }
+
+        root_command(&[Box::new(HelpStub)]);
     }
 }

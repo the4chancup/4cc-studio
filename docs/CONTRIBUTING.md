@@ -138,6 +138,13 @@ exist yet (every Phase 2 crate), the plan's data-shape rules stand in for one.
 - No child→parent back-references, anywhere: pass resolved identity/context down as parameters; no
   `Rc<RefCell<_>>` graphs. `Arc` for sharing immutable leaf data across threads (textures,
   snapshots, wake callbacks) is not a parent reference and is what the plan intends.
+- **Text a member reads is written for a layman**: the help chapters, the catalog rows' When and
+  Effect, UI strings and the injected `settings.toml` comments say, in plain words, what happened
+  and what the member can do about it, as easy to follow as the fact allows. None of the code's
+  or the docs' own vocabulary reaches them: no disposition names (`DropExport`), no pointers into
+  `docs/`, no internal field or type names, no legacy tool names; a file, folder or setting the
+  member handles is named as they see it. A member who cannot follow a message asks in the cup's
+  chat instead of fixing the export, which is the cost the rule exists to avoid.
 - **No em dashes in text a user reads**: the README, the help chapters, message catalog text,
   UI strings, the comments injected into `settings.toml`/`config.toml`/`materials.toml`, the Team
   creator's `README.txt`. Use a comma, a colon, parentheses or a new sentence. The character has

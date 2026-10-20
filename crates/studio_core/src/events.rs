@@ -174,6 +174,18 @@ pub enum Severity {
     Fatal,
 }
 
+impl Severity {
+    /// The severity's name as the console line and the help's Messages topic spell it.
+    pub fn name(self) -> &'static str {
+        match self {
+            Severity::Info => "Info",
+            Severity::Warning => "Warning",
+            Severity::Error => "Error",
+            Severity::Fatal => "Fatal",
+        }
+    }
+}
+
 /// What the pipeline did in response to a finding. A consequence, not a severity.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Disposition {
@@ -305,7 +317,7 @@ impl EventLines {
         };
         format!(
             "- {source}{} {}{location}{context}",
-            severity_name(message.severity),
+            message.severity.name(),
             message.code.code
         )
     }
@@ -321,15 +333,6 @@ fn one_line(value: &str) -> String {
         .filter(|line| !line.is_empty())
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-fn severity_name(severity: Severity) -> &'static str {
-    match severity {
-        Severity::Info => "Info",
-        Severity::Warning => "Warning",
-        Severity::Error => "Error",
-        Severity::Fatal => "Fatal",
-    }
 }
 
 #[cfg(test)]

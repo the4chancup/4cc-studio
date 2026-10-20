@@ -1,5 +1,3 @@
-# Running from a terminal
-
 The Export upgrader migrates an export in the old (AET) layout to the Studio
 format the Team compiler reads. Its commands run from a terminal opened in the
 folder that holds `4cc-studio`.

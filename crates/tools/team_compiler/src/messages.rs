@@ -1,12 +1,16 @@
 //! The Team compiler's message catalog (`spec/team_compiler/messages.md` "Catalog"): each code's
-//! severity, and the mapping of the structure pass's issues and the tool's own findings to
-//! `Message`s. Until the help window needs them (Phase 8) a row holds no text: the console prints
-//! the code with its context fields.
+//! severity, its member-facing `when`/`effect` for the help's generated Messages topic (the
+//! spec's catalog cells), and the mapping of the structure pass's issues and the tool's own
+//! findings to `Message`s. The console prints the code with its context fields.
 
 use std::borrow::Cow;
 
 use aesthetics_export::{IssueScope, ValidationIssue};
-use studio_core::{Disposition, ExportId, Message, MessageCode, Scope, Severity};
+use studio_core::{CatalogRow, Disposition, ExportId, Message, MessageCode, Scope, Severity};
+
+mod catalog;
+
+use catalog::CATALOG;
 
 /// The tool's id: its CLI subcommand, its settings section and the owner of its message codes.
 pub(crate) const TOOL_ID: &str = "team-compiler";
@@ -901,254 +905,36 @@ enum CatalogSeverity {
     ErrorUnlessKept,
 }
 
-/// Every code this tool emits in Phase 3, with its catalog severity: the structure pass's
-/// (`aesthetics_export::ISSUE_CODES`) and the tool's own.
-const CATALOG: &[(&str, CatalogSeverity)] = &[
-    // The tool's own export-level codes.
-    ("export_extract_failed", CatalogSeverity::Error),
-    ("no_exports_found", CatalogSeverity::Warning),
-    ("export_disabled", CatalogSeverity::Info),
-    ("export_identified", CatalogSeverity::Info),
-    ("export_balls_skipped", CatalogSeverity::Info),
-    ("multiple_ref_exports", CatalogSeverity::Error),
-    ("duplicate_aesthetics_export", CatalogSeverity::Error),
-    ("color_entry_invalid", CatalogSeverity::Warning),
-    ("team_colors_missing", CatalogSeverity::Info),
-    ("kit_config_generated", CatalogSeverity::Info),
-    ("kit_config_invalid", CatalogSeverity::Error),
-    ("kit_config_version_clamped", CatalogSeverity::Warning),
-    ("kit_config_option_ignored", CatalogSeverity::Warning),
-    ("kit_config_fpc_adjusted", CatalogSeverity::Info),
-    ("kit_config_fpc_unpatched", CatalogSeverity::Warning),
-    ("kit_config_collar_unpatched", CatalogSeverity::Warning),
-    ("kit_placeholder", CatalogSeverity::Info),
-    ("kit_texture_not_used", CatalogSeverity::Info),
-    ("kit_colors_derived", CatalogSeverity::Info),
-    ("kit_colors_missing", CatalogSeverity::Warning),
-    ("kit_layout_converted", CatalogSeverity::Info),
-    ("kit_collar_reserved", CatalogSeverity::Error),
-    ("collar_id_invalid", CatalogSeverity::Error),
-    ("collar_id_conflict", CatalogSeverity::Error),
-    ("logo_fit_applied", CatalogSeverity::Info),
-    ("logo_upscaled", CatalogSeverity::Warning),
-    ("boots_id_pool_exhausted", CatalogSeverity::Error),
-    ("gloves_id_pool_exhausted", CatalogSeverity::Error),
-    ("shared_ids_unrecorded", CatalogSeverity::Warning),
-    ("portrait_conflict", CatalogSeverity::Error),
-    ("link_combined", CatalogSeverity::Info),
-    ("settings_toml_invalid", CatalogSeverity::Error),
-    ("settings_model_id_conflict", CatalogSeverity::Warning),
-    ("settings_value_out_of_range", CatalogSeverity::Warning),
-    ("settings_toml_name_shared", CatalogSeverity::Warning),
-    ("settings_name_invalid", CatalogSeverity::Warning),
-    ("fpc_strip_conflict", CatalogSeverity::Warning),
-    ("fpc_inners_break_hiding", CatalogSeverity::Warning),
-    ("fpc_undershorts_break_hiding", CatalogSeverity::Warning),
-    ("fpc_taping_shows_pieces", CatalogSeverity::Info),
-    (
-        "fpc_gloves_checkbox_winter_gloves",
-        CatalogSeverity::Warning,
-    ),
-    ("fmdl_fcl_hair_fallback", CatalogSeverity::Info),
-    ("fmdl_merged", CatalogSeverity::Info),
-    ("model_merged", CatalogSeverity::Info),
-    ("model_merge_flags_conflict", CatalogSeverity::Error),
-    ("model_hand_split", CatalogSeverity::Info),
-    ("merge_material_conflict", CatalogSeverity::Error),
-    ("skl_merge_conflict", CatalogSeverity::Error),
-    ("skl_no_slot", CatalogSeverity::Warning),
-    ("face_file_not_used", CatalogSeverity::Info),
-    ("file_not_used", CatalogSeverity::Warning),
-    ("shared_folder_no_model", CatalogSeverity::Warning),
-    ("kit_variant_missing", CatalogSeverity::Warning),
-    ("kit_variant_model_left_out", CatalogSeverity::Warning),
-    ("kit_variant_mtl_differs", CatalogSeverity::Warning),
-    ("xml_face_neck_added", CatalogSeverity::Info),
-    ("xml_uniform_pes15", CatalogSeverity::Info),
-    ("face_diff_invalid", CatalogSeverity::Error),
-    ("xml_dif_conflict", CatalogSeverity::Error),
-    ("xml_broken", CatalogSeverity::Error),
-    ("mtl_texture_not_found", CatalogSeverity::Warning),
-    ("mtl_texture_unused_missing", CatalogSeverity::Info),
-    ("mtl_common_path_invalid", CatalogSeverity::Error),
-    ("xml_root_tag_invalid", CatalogSeverity::Error),
-    ("xml_model_type_missing", CatalogSeverity::Error),
-    ("xml_model_path_missing", CatalogSeverity::Error),
-    ("xml_model_not_found", CatalogSeverity::Error),
-    ("xml_common_path_invalid", CatalogSeverity::Error),
-    ("xml_oral_prefix_missing", CatalogSeverity::Error),
-    ("xml_element_unknown", CatalogSeverity::Warning),
-    ("xml_attribute_unknown", CatalogSeverity::Warning),
-    ("xml_type_unknown", CatalogSeverity::Warning),
-    ("xml_level_lod", CatalogSeverity::Info),
-    ("xml_ratio_invalid", CatalogSeverity::Warning),
-    ("xml_path_unchecked", CatalogSeverity::Warning),
-    ("xml_face_neck_multiple", CatalogSeverity::Warning),
-    ("xml_model_unlisted", CatalogSeverity::Warning),
-    ("xml_ignored_fox", CatalogSeverity::Info),
-    ("xml_ignored_shared", CatalogSeverity::Info),
-    ("xml_shared_face_conflict", CatalogSeverity::Error),
-    ("shared_texture_conflict", CatalogSeverity::Error),
-    ("shared_texture_overridden", CatalogSeverity::Info),
-    ("texture_too_small", CatalogSeverity::Error),
-    ("texture_not_pow2", CatalogSeverity::Error),
-    ("texture_not_div4", CatalogSeverity::Error),
-    ("kit_texture_too_big", CatalogSeverity::Error),
-    ("texture_type_mismatch", CatalogSeverity::Error),
-    ("texture_unreadable", CatalogSeverity::Error),
-    ("texture_codec_unsupported", CatalogSeverity::Error),
-    ("portrait_header_rewritten", CatalogSeverity::Info),
-    ("material_texture_unused", CatalogSeverity::Info),
-    ("bone_folded_for_version", CatalogSeverity::Info),
-    ("skeleton_retargeted", CatalogSeverity::Info),
-    ("bone_matrix_unknown", CatalogSeverity::Warning),
-    ("bone_slot_dropped", CatalogSeverity::Warning),
-    ("bone_folded_by_position", CatalogSeverity::Warning),
-    ("material_family_approximated", CatalogSeverity::Warning),
-    ("material_split_by_flags", CatalogSeverity::Info),
-    ("material_parameter_dropped", CatalogSeverity::Info),
-    ("sampler_settings_defaulted", CatalogSeverity::Info),
-    ("vertex_bitangents_dropped", CatalogSeverity::Info),
-    ("dummy_texture_added", CatalogSeverity::Info),
-    ("native_field_dropped", CatalogSeverity::Info),
-    ("mesh_flags_dropped", CatalogSeverity::Warning),
-    ("model_hidden_dropped", CatalogSeverity::Info),
-    ("static_bone_added", CatalogSeverity::Info),
-    ("weight_clamped", CatalogSeverity::Info),
-    ("empty_mesh_bone_group_dropped", CatalogSeverity::Info),
-    ("model_gltf_unsupported", CatalogSeverity::Error),
-    ("model_conversion_failed", CatalogSeverity::Error),
-    ("vertex_too_far_from_origin", CatalogSeverity::Error),
-    ("model_broken", CatalogSeverity::Error),
-    ("mtl_broken", CatalogSeverity::Error),
-    ("common_model_beaten_dropped", CatalogSeverity::Info),
-    ("fmdl_texture_not_found", CatalogSeverity::ErrorUnlessKept),
-    ("fmdl_texture_kit_path", CatalogSeverity::Warning),
-    ("folder_pack_failed", CatalogSeverity::ErrorOrFatal),
-    ("dpfilelist_missing", CatalogSeverity::ErrorOrWarning),
-    ("installed_bin_unreadable", CatalogSeverity::Fatal),
-    ("bin_source", CatalogSeverity::Info),
-    ("player_table_missing", CatalogSeverity::Warning),
-    ("template_override_unreadable", CatalogSeverity::Fatal),
-    ("template_override_active", CatalogSeverity::Info),
-    ("bin_header_repaired", CatalogSeverity::Warning),
-    // The catalog's `W/E`: only the override form, a Warning, has a trigger today.
-    ("duplicate_path", CatalogSeverity::Warning),
-    ("cpk_write_failed", CatalogSeverity::Fatal),
-    ("output_commit_failed", CatalogSeverity::Fatal),
-    ("patch_written", CatalogSeverity::Info),
-    ("patch_write_failed", CatalogSeverity::Fatal),
-    ("savefile_autodetected", CatalogSeverity::Info),
-    ("savefile_missing", CatalogSeverity::Warning),
-    ("savefile_skipped_pes_running", CatalogSeverity::Warning),
-    ("savefile_write_failed", CatalogSeverity::ErrorOrFatal),
-    ("savefile_invalid", CatalogSeverity::ErrorOrFatal),
-    ("savefile_written", CatalogSeverity::Info),
-    ("savefile_team_missing", CatalogSeverity::Error),
-    ("savefile_player_missing", CatalogSeverity::Error),
-    ("savefile_player_not_stripped", CatalogSeverity::Warning),
-    ("deploy_skipped_by_flag", CatalogSeverity::Info),
-    ("pes_folder_not_found", CatalogSeverity::Error),
-    ("pes_version_mismatch", CatalogSeverity::Warning),
-    ("dpfilelist_not_official", CatalogSeverity::Warning),
-    ("dpfilelist_cpk_missing", CatalogSeverity::Warning),
-    ("dpfilelist_outdated", CatalogSeverity::Error),
-    ("dpfilelist_cpk_renamed", CatalogSeverity::Info),
-    ("dpfilelist_placeholder_written", CatalogSeverity::Info),
-    ("dpfilelist_replaced", CatalogSeverity::Info),
-    ("dpfilelist_cpk_dropped", CatalogSeverity::Warning),
-    ("dpfilelist_up_to_date", CatalogSeverity::Info),
-    ("dpfilelist_upgrade_planned", CatalogSeverity::Info),
-    ("cpk_name_unlisted", CatalogSeverity::Error),
-    ("cpk_slots_exhausted", CatalogSeverity::Fatal),
-    ("cpk_team_exceeds_cap", CatalogSeverity::Fatal),
-    ("cpk_size_over_limit", CatalogSeverity::Warning),
-    ("old_cpk_locked", CatalogSeverity::Error),
-    ("deploy_target_unwritable", CatalogSeverity::Error),
-    ("overrides_active", CatalogSeverity::Info),
-    ("teamnotes_write_failed", CatalogSeverity::Error),
-    ("source_changed_during_run", CatalogSeverity::Fatal),
-    // The format crates' check codes (`fmdl::check::CODES`, `pes_model::check::CODES`), which
-    // the deep pass reports under their own names, at the crate's severity: the far vertex
-    // excepted, reported as `vertex_too_far_from_origin`. In the order of the plan's "Model
-    // checks", then its `.mtl` rows and `model_material_undefined`.
-    ("fmdl_mesh_over_bone_limit", CatalogSeverity::Error),
-    ("fmdl_mesh_over_vertex_limit", CatalogSeverity::Error),
-    ("fmdl_mesh_over_face_limit", CatalogSeverity::Error),
-    ("fmdl_face_index_out_of_range", CatalogSeverity::Error),
-    ("fmdl_mesh_unassigned", CatalogSeverity::Error),
-    ("fmdl_bone_slot_out_of_range", CatalogSeverity::Warning),
-    ("fmdl_mesh_empty", CatalogSeverity::Warning),
-    ("fmdl_duplicate_bone_name", CatalogSeverity::Warning),
-    ("fmdl_weights_not_normalized", CatalogSeverity::Info),
-    ("fmdl_material_unused", CatalogSeverity::Info),
-    ("model_mesh_over_bone_limit", CatalogSeverity::Error),
-    ("model_mesh_over_vertex_limit", CatalogSeverity::Error),
-    ("model_mesh_over_face_limit", CatalogSeverity::Error),
-    ("model_face_index_out_of_range", CatalogSeverity::Error),
-    ("model_bone_slot_out_of_range", CatalogSeverity::Warning),
-    ("model_mesh_empty", CatalogSeverity::Warning),
-    ("model_duplicate_bone_name", CatalogSeverity::Warning),
-    ("model_lod_record_mismatch", CatalogSeverity::Warning),
-    ("model_weights_not_normalized", CatalogSeverity::Info),
-    ("model_degenerate_face", CatalogSeverity::Info),
-    ("model_material_unused", CatalogSeverity::Info),
-    ("mtl_material_duplicate", CatalogSeverity::Error),
-    ("mtl_state_invalid", CatalogSeverity::Error),
-    ("mtl_blendmode_nonzero", CatalogSeverity::Warning),
-    ("mtl_state_missing", CatalogSeverity::Info),
-    ("mtl_state_nonrecommended", CatalogSeverity::Info),
-    ("mtl_state_unknown", CatalogSeverity::Info),
-    ("model_material_undefined", CatalogSeverity::Error),
-    // The structure pass's codes, in `ISSUE_CODES` order.
-    ("nested_folders_fixed", CatalogSeverity::Warning),
-    ("nested_root_ambiguous", CatalogSeverity::Error),
-    ("nested_root_conflict", CatalogSeverity::Error),
-    ("players_txt_invalid", CatalogSeverity::Error),
-    ("refs_txt_ignored", CatalogSeverity::Warning),
-    ("source_read_failed", CatalogSeverity::ErrorOrFatal),
-    ("export_empty", CatalogSeverity::Error),
-    ("team_name_unknown", CatalogSeverity::Error),
-    ("export_tag_missing", CatalogSeverity::Error),
-    ("export_layout_old", CatalogSeverity::Error),
-    ("players_txt_missing", CatalogSeverity::Error),
-    ("players_txt_line_invalid", CatalogSeverity::Error),
-    ("players_txt_slot_invalid", CatalogSeverity::Error),
-    ("players_txt_slot_duplicate", CatalogSeverity::Error),
-    ("players_txt_target_missing", CatalogSeverity::Error),
-    ("player_unlisted", CatalogSeverity::Warning),
-    ("player_folder_number_invalid", CatalogSeverity::Error),
-    ("player_number_duplicate", CatalogSeverity::Error),
-    ("file_type_disallowed", CatalogSeverity::ErrorOrInfo),
-    ("common_file_disallowed", CatalogSeverity::ErrorOrInfo),
-    ("player_layout_proto", CatalogSeverity::Error),
-    ("shared_link_duplicate", CatalogSeverity::Error),
-    ("link_target_missing", CatalogSeverity::Error),
-    ("common_link_missing", CatalogSeverity::Error),
-    ("link_target_dropped", CatalogSeverity::Error),
-    ("shared_folder_orphaned", CatalogSeverity::Warning),
-    ("fpc_conflict", CatalogSeverity::Error),
-    ("ingame_face_explicit_face_model", CatalogSeverity::Error),
-    ("texture_stem_conflict", CatalogSeverity::Error),
-    ("fmdl_name_invalid", CatalogSeverity::Error),
-    ("model_name_invalid", CatalogSeverity::Error),
-    ("edithair_unsupported", CatalogSeverity::Error),
-    ("kit_folder_invalid", CatalogSeverity::Error),
-    ("kit_slot_duplicate", CatalogSeverity::Error),
-    ("kit_texture_name_invalid", CatalogSeverity::Error),
-    ("kit_layout_conflict", CatalogSeverity::Error),
-    ("kit_icon_invalid", CatalogSeverity::Warning),
-    ("kit_all_file_ignored", CatalogSeverity::Warning),
-    ("kit_all_unused", CatalogSeverity::Warning),
-    ("kit_textures_inherited", CatalogSeverity::Info),
-    ("portrait_name_invalid", CatalogSeverity::Error),
-    ("logo_file_invalid", CatalogSeverity::Error),
-    ("logo_role_duplicate", CatalogSeverity::Error),
-    ("logo_small_without_main", CatalogSeverity::Error),
-    ("root_file_unexpected", CatalogSeverity::Warning),
-    ("notes_found", CatalogSeverity::Info),
-    ("notes_encoding_invalid", CatalogSeverity::Error),
-];
+impl CatalogSeverity {
+    /// The severity as the Messages topic spells it (`E/I` -> `Error or Info`).
+    fn text(self) -> &'static str {
+        match self {
+            CatalogSeverity::Info => "Info",
+            CatalogSeverity::Warning => "Warning",
+            CatalogSeverity::Error => "Error",
+            CatalogSeverity::Fatal => "Fatal",
+            CatalogSeverity::ErrorOrInfo => "Error or Info",
+            CatalogSeverity::ErrorOrWarning | CatalogSeverity::ErrorUnlessKept => {
+                "Error or Warning"
+            }
+            CatalogSeverity::ErrorOrFatal => "Error or Fatal",
+        }
+    }
+}
+
+/// The catalog rows the help's generated Messages topic is rendered from, in `CATALOG`
+/// order (`lib.rs` `help`).
+pub(crate) fn catalog() -> Vec<CatalogRow> {
+    CATALOG
+        .iter()
+        .map(|row| CatalogRow {
+            code: row.0,
+            severity: row.1.text(),
+            when: row.2,
+            effect: row.3,
+        })
+        .collect()
+}
 
 /// The severity `code` is shown at, given what was done about it and `raised`, the run setting
 /// that picks the higher severity of a row giving two: `strict_file_type_check` for `E/I`, a
@@ -1156,8 +942,8 @@ const CATALOG: &[(&str, CatalogSeverity)] = &[
 fn severity(code: &str, disposition: Disposition, raised: bool) -> Severity {
     let catalog = CATALOG
         .iter()
-        .find(|(known, _)| *known == code)
-        .map(|(_, severity)| *severity)
+        .find(|row| row.0 == code)
+        .map(|row| row.1)
         .expect(
             "every code has a catalog row: the catalog test checks `Code::ALL` and `ISSUE_CODES`",
         );
@@ -1331,32 +1117,32 @@ mod tests {
     #[test]
     fn every_issue_code_has_exactly_one_row_and_no_row_is_doubled() {
         for code in ISSUE_CODES {
-            let rows = CATALOG.iter().filter(|(known, _)| known == code).count();
+            let rows = CATALOG.iter().filter(|(known, ..)| known == code).count();
             assert_eq!(rows, 1, "{code}");
         }
-        for (index, (code, _)) in CATALOG.iter().enumerate() {
+        for (index, (code, ..)) in CATALOG.iter().enumerate() {
             assert!(
-                CATALOG[index + 1..].iter().all(|(other, _)| other != code),
+                CATALOG[index + 1..].iter().all(|(other, ..)| other != code),
                 "{code} appears twice"
             );
         }
         for code in Code::ALL {
             let rows = CATALOG
                 .iter()
-                .filter(|(known, _)| *known == code.as_str())
+                .filter(|(known, ..)| *known == code.as_str())
                 .count();
             assert_eq!(rows, 1, "{code:?}");
         }
         for (code, severity) in format_codes() {
             let rows: Vec<CatalogSeverity> = CATALOG
                 .iter()
-                .filter(|(known, _)| *known == code)
-                .map(|(_, severity)| *severity)
+                .filter(|(known, ..)| *known == code)
+                .map(|row| row.1)
                 .collect();
             assert_eq!(rows, [severity], "{code}");
         }
         for code in FAR_VERTEX_CODES {
-            assert!(CATALOG.iter().all(|(known, _)| *known != code), "{code}");
+            assert!(CATALOG.iter().all(|(known, ..)| *known != code), "{code}");
         }
         // The rows beyond the structure pass's are exactly the tool's own codes, in `Code::ALL`
         // order, and the format crates', in the plan table's order, which no list in code
@@ -1370,7 +1156,7 @@ mod tests {
         let beyond_structure = || {
             CATALOG
                 .iter()
-                .map(|(code, _)| *code)
+                .map(|row| row.0)
                 .filter(|code| !ISSUE_CODES.contains(code))
         };
         let own_rows: Vec<&str> = beyond_structure()
@@ -1625,5 +1411,50 @@ mod tests {
             message.context,
             [("exports".to_owned(), "refs a, refs b".to_owned())]
         );
+    }
+
+    #[test]
+    fn every_catalog_row_carries_its_member_facing_text() {
+        for (code, _, when, effect) in CATALOG {
+            assert!(!when.is_empty() && !effect.is_empty(), "{code}");
+        }
+    }
+
+    #[test]
+    fn the_help_chapter_lists_the_whole_catalog_in_order() {
+        use studio_core::StudioTool;
+
+        let help = crate::Tool::new().help();
+        let codes: Vec<&str> = help.messages.iter().map(|row| row.code).collect();
+        let catalog: Vec<&str> = CATALOG.iter().map(|row| row.0).collect();
+        assert_eq!(codes, catalog);
+    }
+
+    // Each catalog severity as the Messages topic spells it, one code per kind.
+    #[test]
+    fn the_help_spells_each_catalog_severity() {
+        let rows = catalog();
+        let severity = |code: &str| rows.iter().find(|row| row.code == code).unwrap().severity;
+        assert_eq!(severity("export_disabled"), "Info");
+        assert_eq!(severity("no_exports_found"), "Warning");
+        assert_eq!(severity("export_extract_failed"), "Error");
+        assert_eq!(severity("source_changed_during_run"), "Fatal");
+        assert_eq!(severity("file_type_disallowed"), "Error or Info");
+        assert_eq!(severity("dpfilelist_missing"), "Error or Warning");
+        assert_eq!(severity("fmdl_texture_not_found"), "Error or Warning");
+        assert_eq!(severity("source_read_failed"), "Error or Fatal");
+    }
+
+    #[test]
+    fn a_rows_text_is_its_spec_cells() {
+        let row = CATALOG
+            .iter()
+            .find(|row| row.0 == "export_extract_failed")
+            .unwrap();
+        assert_eq!(
+            row.2,
+            "archive cannot be extracted/parsed, or its listing is refused (a path escaping the root, two names that fold to one; context: the path)"
+        );
+        assert_eq!(row.3, "export skipped (`DropExport`)");
     }
 }

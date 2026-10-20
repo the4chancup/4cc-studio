@@ -180,7 +180,13 @@ Like the settings menu it is **assembled from the tools**, not written centrally
 - **The Messages topic is generated.** Each chapter ends with a "Messages" topic rendered from the
   tool's `messages.rs` catalog — ID, severity, condition, consequence — so it is always complete
   and never hand-maintained; `help()` carries prose only. This is Red's "Message Types" chapter
-  done once, for every tool.
+  done once, for every tool. The two text cells, *When* and *Effect*, sit in the catalog's row
+  beside the code and its severity, written for members; they start as the spec's catalog
+  table's cells, and that table stays the design record (dispositions, context fields, the
+  why), so the two diverge only by a wording pass. Not a Markdown table in the tool's `help/`
+  folder: the row in `messages.rs` is the one the tests already hold to the codes the tool
+  emits, so a text beside it cannot miss a code or outlive one. A tool lists the shared
+  structure pass's codes it reports (the Export upgrader's) with its own severity and text.
 - **Search.** One text box above the chapter tree, case-insensitive substring over every topic's
   paragraphs and every catalog row; results list as *Chapter › Topic › matching line*, click to
   jump with the hit highlighted. No index and no fuzzy matching: the whole corpus is tens of
@@ -192,15 +198,25 @@ Like the settings menu it is **assembled from the tools**, not written centrally
   the same target type search results and in-doc links resolve to). In-doc links use the form
   `[text](tool-id#topic-slug)` so a topic can point at another tool's topic without knowing where
   it renders.
-- **Window.** An in-app egui window — resizable, position and size remembered in common settings,
-  chapter tree left, rendered topic right. Not a second OS window: egui's multi-viewport support
+- **Window.** An in-app egui window — non-modal and resizable, chapter tree left, rendered topic
+  right, the search box above both. Its position and size hold while the program runs (egui
+  keeps a window's rectangle by its id, across a close and a reopen), not across restarts: a
+  settings field written at every drag's end is a settings save per move for a reader opened
+  now and then. Opening it closes a shell modal (the settings menu, the About popup), which
+  would otherwise cover it. Not a second OS window: egui's multi-viewport support
   exists, but it adds a class of platform bugs that a text reader does not need. Rendering is
   `egui_commonmark` (CommonMark subset with tables, code blocks and links); a hand-rolled
   renderer was considered and rejected as a permanent maintenance item for a solved problem.
 - **CLI equivalence.** `4cc-studio help [tool-id] [topic]` prints the Markdown to stdout, and
   `4cc-studio help --export <dir>` writes every chapter out as `.md` files — the wiki and the release
   page get the same text with no second source, and the `--export` output is what the release
-  process publishes.
+  process publishes. A chapter prints as `# <title>`, then each topic as `## <title>` and its
+  body, the Messages topic last as one table, so a topic file carries no title of its own and
+  its subheadings start at `###`; `help` alone lists the chapters (id, title, topic
+  slugs), `help <id> messages` prints the Messages topic alone, and the export writes
+  `<id>.md` per chapter. Core chapters have ids of their own (`setting-up`, `first-run`), in
+  the tools' namespace, so `help` is no tool's id. An unknown id or slug is refused with exit
+  code 2, naming the ones that exist.
 
 ### Log panel
 
@@ -655,7 +671,8 @@ ST-HELP-03  GIVEN a tool's log panel showing a finding line
 ST-HELP-04  GIVEN the built binary
             WHEN `4cc-studio help team-compiler` runs
             THEN stdout is the chapter's Markdown; WHEN `4cc-studio help --export <dir>` runs
-                 THEN <dir> holds one .md file per chapter, each ending with its Messages topic
+                 THEN <dir> holds one .md file per chapter, each tool's ending with its Messages
+                 topic
 ```
 
 **Log panel widget**

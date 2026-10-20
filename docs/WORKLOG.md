@@ -17,7 +17,7 @@ done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Rule
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
-(its steps itemized: the shell, 8.6a-c done, 8.6d the help window and log panel next; then the Save
+(its steps itemized: the shell, 8.6a-c and 8.6d1 done, 8.6d2 the help window next; then the Save
 editor's view), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
 upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20): 20.0d (the
@@ -673,6 +673,36 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       generated Messages topics and search, `4cc-studio help`
       (ST-HELP-01 to 04), and the log panel widget (ST-LOG-01 to 04); a notice's `OpenHelp`
       action opens the window at its target (8.6b leaves it a dismiss)
+      - [x] 8.6d1 the catalogs' member texts (`When`, `Effect`) in each tool's `messages.rs`,
+        copied from the spec's tables; the core chapters `setting-up` and `first-run`;
+        `4cc-studio help` and `--export` (ST-HELP-04). "Updates" and "What's new" wait for
+        the update check and `CHANGELOG.md` (Release 0.1.0). Done 2026-10-20 (SWE-2):
+        `CatalogRow` and `HelpSection::messages`, `help::chapters`, `help/export.rs`
+        (`chapter_markdown`, `topic_markdown`, `run_help`), `LaunchMode::Help` (clap's own
+        `help` subcommand disabled, `help` no tool's id), `Severity::name`; the rows filled by
+        `.tmp/8_6/copy_catalog_texts.py` (234 compiler rows, 25 editor, 72 upgrader of which
+        47 take the compiler's cells and 18 their code's doc comment), the spec's em dashes
+        rewritten. Lead fixes: three upgrader rows whose doc comment split the wrong way, the
+        compiler's table moved to `messages/catalog.rs` (data, 1415 lines), the tools' topic
+        files' own `#` titles dropped. Files: `studio_core/src/help/`, `shell/launch.rs`,
+        `events.rs`, `studio/src/main.rs`, `studio/tests/help_cli.rs`, each tool's
+        `messages.rs` and `help/01_command_line.md`. `mutants-diff e45c9672`: 43 mutants,
+        `CatalogSeverity::text`'s two missed, caught by an added test of each severity kind's
+        spelling. Reviews: S8 (SWE-2, 5 of 10: a spec row wrapped over three lines and its
+        copy two spaces short, every compiler row then compared with the spec; a Red state
+        file; the upgrader's two shared codes given its own cells), S9 (1 of 4: one of them
+        restated), rulings `.tmp/8_6/duck_rulings.md`; Astra waits to batch with 8.6d2
+      - [ ] 8.6d2 the help window: `egui_commonmark` `=0.25.0` (the last release on egui
+        0.36), the chapter tree, the Messages topic, search, in-doc links, F1 and `?`, the
+        About popup's help link, a notice's `OpenHelp` (ST-HELP-01, 02, ST-SIDE-06)
+      - [ ] 8.6d3 the log panel widget (ST-LOG-01 to 04) and its code links (ST-HELP-03)
+      - [ ] 8.6d4 a member wording pass over the three catalogs' texts, with the maintainer's
+        remarks on the draft, to `CONTRIBUTING.md`'s "written for a layman" rule (as easy to
+        understand as possible for a member who knows nothing of the code): the copied cells
+        carry dispositions (`DropExport`) and pointers
+        into `docs/` a member cannot follow, and name Red (the compiler's
+        `fmdl_fcl_hair_fallback`, `xml_face_neck_added`, `xml_uniform_pes15`, and
+        `player_layout_proto` in both the compiler's and the upgrader's rows)
   - [ ] 8.7 `color_tools`' colour-picker popup (`plans/libs/color_tools.md` Phase 8), the
     Save editor's team colours; the kit menu icons wait for the Team compiler's grid
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card

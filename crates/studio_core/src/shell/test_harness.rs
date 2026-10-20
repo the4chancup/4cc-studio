@@ -168,6 +168,7 @@ impl StudioTool for StubTool {
         HelpSection {
             title: "Stub",
             topics: Vec::new(),
+            messages: Vec::new(),
         }
     }
     fn cli_command(&self) -> clap::Command {

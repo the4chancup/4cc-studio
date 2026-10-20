@@ -1,0 +1,114 @@
+//! `4cc-studio help`, run through the real binary: the Markdown a chapter, the `--export`
+//! files and a refusal's `error: ` line. The help reads no settings, so the binary runs as
+//! built, in place.
+
+use std::fs;
+use std::path::Path;
+use std::process::{Command, Output};
+
+fn studio(args: &[&str]) -> Output {
+    Command::new(env!("CARGO_BIN_EXE_4cc-studio"))
+        .args(args)
+        .output()
+        .unwrap()
+}
+
+fn stdout(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+fn stderr(output: &Output) -> String {
+    String::from_utf8_lossy(&output.stderr).into_owned()
+}
+
+/// The Team compiler's last catalog row (`notes_encoding_invalid`), and the Export
+/// upgrader's, which takes the compiler's spec cells for the shared codes.
+const NOTES_ENCODING_INVALID: &str = "| `notes_encoding_invalid` | Error | root `notes.txt` is not valid UTF-8 after optional BOM handling | note dropped; export otherwise continues (`DropFile`, not pass-through-eligible) |";
+
+// ST-HELP-04
+#[test]
+fn a_chapter_prints_its_markdown_ending_with_the_messages_table() {
+    let output = studio(&["help", "team-compiler"]);
+    assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
+    let stdout = stdout(&output);
+    assert!(stdout.starts_with("# Team compiler\n"), "{stdout}");
+    assert!(stdout.contains("## Running from a terminal"), "{stdout}");
+    assert!(
+        stdout.contains(
+            "| `export_extract_failed` | Error | archive cannot be extracted/parsed, or its listing is refused (a path escaping the root, two names that fold to one; context: the path) | export skipped (`DropExport`) |"
+        ),
+        "{stdout}"
+    );
+    assert_eq!(
+        stdout.lines().last(),
+        Some(NOTES_ENCODING_INVALID),
+        "{stdout}"
+    );
+}
+
+// ST-HELP-04
+#[test]
+fn the_export_writes_one_markdown_file_per_chapter() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("help_cli_export");
+    if dir.exists() {
+        fs::remove_dir_all(&dir).unwrap();
+    }
+    let output = studio(&["help", "--export", dir.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
+    assert!(output.stdout.is_empty(), "the export prints nothing");
+
+    let mut files: Vec<String> = fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .collect();
+    files.sort();
+    assert_eq!(
+        files,
+        [
+            "export-upgrader.md",
+            "first-run.md",
+            "save-editor.md",
+            "setting-up.md",
+            "team-compiler.md"
+        ]
+    );
+
+    // Each file is what `help <id>` prints; each tool's ends with its last catalog row.
+    let last_rows = [
+        ("team-compiler", NOTES_ENCODING_INVALID),
+        (
+            "save-editor",
+            "| `strip_base_copied_face` | Warning | `strip-and-seed`: the player's record copied another player's face, which the seed rows cannot carry, so once stripped he shows the face his row describes; his export describing his face settles it (`player`, `name`, `copied`) | warns and goes on |",
+        ),
+        ("export-upgrader", NOTES_ENCODING_INVALID),
+    ];
+    for (id, last_row) in last_rows {
+        let printed = studio(&["help", id]);
+        assert_eq!(printed.status.code(), Some(0), "{id}: {}", stderr(&printed));
+        let file = fs::read_to_string(dir.join(format!("{id}.md"))).unwrap();
+        assert_eq!(file, stdout(&printed), "{id}.md differs from `help {id}`");
+        assert_eq!(file.lines().last(), Some(last_row), "{id}");
+    }
+    // The core chapters end with their last topic, having no catalog.
+    for id in ["setting-up", "first-run"] {
+        let printed = studio(&["help", id]);
+        assert_eq!(printed.status.code(), Some(0), "{id}: {}", stderr(&printed));
+        assert_eq!(
+            fs::read_to_string(dir.join(format!("{id}.md"))).unwrap(),
+            stdout(&printed),
+            "{id}.md differs from `help {id}`"
+        );
+        assert!(!stdout(&printed).contains("## Messages"), "{id}");
+    }
+}
+
+#[test]
+fn an_unknown_chapter_is_refused_with_exit_2() {
+    let output = studio(&["help", "nope"]);
+    assert_eq!(output.status.code(), Some(2), "stderr: {}", stderr(&output));
+    assert!(
+        stderr(&output).starts_with("error: no help chapter"),
+        "{}",
+        stderr(&output)
+    );
+}

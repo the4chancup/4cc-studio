@@ -1,5 +1,3 @@
-# Running from a terminal
-
 The Team compiler also runs without its window, from a terminal opened in the folder that holds
 `4cc-studio`:
 
@@ -810,7 +808,7 @@ When a command ends, its exit code tells a script how it went:
 | 2 | The command line or a setting is wrong, for example a `cpk_name` that is not a valid file name. Nothing ran. |
 | 3 | The run stopped early, for example because the teams list cannot be read or the output folder cannot be written. |
 
-## The aesthetics patch and your save
+### The aesthetics patch and your save
 
 On PES 2018 to 2021, every `compile` that builds players also writes `aesthetics_patch.toml`
 in the output folder. It holds each compiled player's motions, taken from his

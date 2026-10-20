@@ -15,7 +15,7 @@ use log::LevelFilter;
 use studio_core::egui_phosphor::regular;
 use studio_core::{
     AppPaths, LaunchMode, PlannedTool, SETTINGS_FILE_NAME, Settings, ShellCondition, StudioApp,
-    StudioTool, ToolContext, parse_launch, resolve_data_dir, run_cli, run_gui,
+    StudioTool, ToolContext, parse_launch, resolve_data_dir, run_cli, run_gui, run_help,
     settings_file_writable, user_config_dir,
 };
 
@@ -221,6 +221,30 @@ fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches)
     }
 }
 
+/// `4cc-studio help`: prints or exports the help's Markdown, no settings load (the help reads
+/// none). A refusal prints as `error: …` with its exit code, as a tool's does.
+#[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
+fn run_help_mode(
+    tools: &[Box<dyn StudioTool>],
+    chapter: Option<String>,
+    topic: Option<String>,
+    export: Option<PathBuf>,
+) -> ExitCode {
+    match run_help(
+        tools,
+        chapter.as_deref(),
+        topic.as_deref(),
+        export.as_deref(),
+        &mut std::io::stdout().lock(),
+    ) {
+        Ok(()) => ExitCode::SUCCESS,
+        Err(error) => {
+            eprintln!("error: {error}");
+            ExitCode::from(error.exit_code)
+        }
+    }
+}
+
 /// Opens the shell on the registered tools and returns when the window closes: 0, the startup
 /// failure's code, or 3 when the window could not be opened.
 #[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
@@ -272,6 +296,11 @@ fn main() -> ExitCode {
             ExitCode::from(2)
         }
         LaunchMode::Cli { tool, matches } => run_cli_mode(&tools, &tool, &matches),
+        LaunchMode::Help {
+            chapter,
+            topic,
+            export,
+        } => run_help_mode(&tools, chapter, topic, export),
     }
 }
 

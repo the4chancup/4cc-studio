@@ -2247,3 +2247,5 @@ worklog passed 7,000 lines.
   setting); `settings_view` takes the context. The lead fixed egui's DragValue clamp rewriting hand-set values on sight. ST-SET-01, 02 proven.
 - **2026-10-20** — 8.6c2: the first-run data-location dialog (a failed write keeps it open) and `StudioTool::hold_close`, the close asked
   in sidebar order with each prompt answering through `request_close`; the shell tests' folders now remove themselves. ST-RUN-01, 05, 06 proven.
+- **2026-10-20** — 8.6d1: every catalog row carries its member-facing When and Effect, copied from the spec's tables (331 rows over
+  three tools); `4cc-studio help [chapter] [topic]` prints the help's Markdown and `--export` writes a file per chapter. ST-HELP-04 proven.

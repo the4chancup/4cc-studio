@@ -915,7 +915,7 @@ validation's findings on what was written.
 |---|---|---|---|
 | `no_old_export` | E | step 1: the input holds nothing an old export holds; nothing is written | — |
 | `export_extract_failed` | E | the archive does not open or its listing is refused (the compiler's code); nothing is written | `path`, `error` |
-| `source_read_failed` | E | a file of the input does not read after its listing did (the compiler's code); it is not migrated and the run goes on, unless it is the Note, which decides the team: then nothing is written | `path`, `error` |
+| `source_read_failed` | E | a file of the input does not read after its listing did (the compiler's code); it is not migrated and the run reports on and ends not clean, so nothing is written; an unreadable Note (it decides the team) or a referee export's `refs.txt` (it decides the roster) stops the run at once | `path`, `error` |
 | `team_name_unknown` | E | the team resolves to no row of the list (the compiler's code), the `Team:` line's file or the export named; nothing is written | `name` |
 | `unmigrated_content` | E | an entry inside the old format's folders that reached the game and that no step migrates, or that step 10's boundary keeps an Error (two candidates for one place, a misnamed whole folder), entry by entry; a Note entry whose colors do not read is one, its line in the context, and so is a kit config that does not decode (step 5), its error in the context | `line` (a Note entry), `error` (a kit config) |
 | `migration_clean` | I | last line: no Error finding, and no finding drops anything but a leftover ("Verification"'s clean migrated export); exit 0 | — |

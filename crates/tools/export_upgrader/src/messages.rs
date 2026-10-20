@@ -2,13 +2,14 @@
 //! catalog"): each code the command reports, its severity, and the `Message` it
 //! is sent as. The report names two exports: the input (export 1) for what is
 //! found in it, the output (export 2) for the shared validation's findings on
-//! what was written. Until the help window needs them a row holds no text: the
-//! console prints the code with its context fields.
+//! what was written. Each row also carries the member-facing `when`/`effect`
+//! the help's generated Messages topic shows; the console prints the code with
+//! its context fields.
 
 use std::borrow::Cow;
 
 use aesthetics_export::{IssueScope, ValidationIssue};
-use studio_core::{Disposition, ExportId, Message, MessageCode, Scope, Severity};
+use studio_core::{CatalogRow, Disposition, ExportId, Message, MessageCode, Scope, Severity};
 
 use crate::source::SourceFailure;
 
@@ -20,9 +21,10 @@ pub(crate) const INPUT: ExportId = ExportId(1);
 /// The output export's.
 pub(crate) const OUTPUT: ExportId = ExportId(2);
 
-/// The codes the tool reports itself. `team_name_unknown` is shared with the
-/// structure pass's `ISSUE_CODES` (the plan's catalog takes the compiler's
-/// code), so it lives in `CATALOG`'s issue rows and is emitted by string.
+/// The codes the tool reports itself. `team_name_unknown` and
+/// `source_read_failed` are shared with the structure pass's `ISSUE_CODES`
+/// (the plan's catalog takes the compiler's codes), so they live in
+/// `CATALOG`'s issue rows and are emitted by string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Code {
     /// The input holds nothing an old export holds; nothing is written.
@@ -187,89 +189,463 @@ impl Code {
 /// row taken as for a compile that deploys with pass-through and the strict
 /// file-type check on (the output's check runs with it), and an E/F row as an
 /// Error (`spec/export_upgrader.md` "Message catalog").
-const CATALOG: &[(&str, Severity)] = &[
+const CATALOG: &[(&str, Severity, &str, &str)] = &[
     // The tool's own codes.
-    ("no_old_export", Severity::Error),
-    ("refs_txt_missing", Severity::Error),
-    ("export_extract_failed", Severity::Error),
-    ("unmigrated_content", Severity::Error),
-    ("migration_clean", Severity::Info),
-    ("migration_not_clean", Severity::Info),
-    ("leftover_dropped", Severity::Warning),
-    ("mtl_stray_text_dropped", Severity::Info),
-    ("roster_slot_empty", Severity::Warning),
-    ("merge_kept_shared", Severity::Info),
-    ("wearer_assumed", Severity::Info),
-    ("kit_without_config", Severity::Warning),
-    ("config_without_kit_entry", Severity::Warning),
-    ("kit_texture_copied", Severity::Info),
-    ("kit_texture_hoisted", Severity::Info),
-    ("portrait_conflict", Severity::Error),
-    ("logo_small_carried", Severity::Info),
-    ("logo_small_dropped", Severity::Info),
-    ("logo_fallback", Severity::Warning),
-    ("common_reference_kept", Severity::Warning),
-    ("custom_model_missing", Severity::Error),
-    ("settings_value_refused", Severity::Warning),
-    ("settings_from_stripped_record", Severity::Info),
-    ("settings_not_generated", Severity::Error),
-    ("model_folder_destination", Severity::Info),
+    (
+        "no_old_export",
+        Severity::Error,
+        r#"step 1: the input holds nothing an old export holds"#,
+        r#"nothing is written"#,
+    ),
+    (
+        "refs_txt_missing",
+        Severity::Error,
+        r#"a `refs` export without a `refs.txt` holds no roster to migrate (step 9)"#,
+        r#"nothing is written"#,
+    ),
+    (
+        "export_extract_failed",
+        Severity::Error,
+        r#"the archive does not open or its listing is refused (the compiler's code)"#,
+        r#"nothing is written"#,
+    ),
+    (
+        "unmigrated_content",
+        Severity::Error,
+        r#"an entry inside the old format's folders that reached the game and that no step migrates, or that step 10's boundary keeps an Error (two candidates for one place, a misnamed whole folder), entry by entry; a Note entry whose colors do not read is one, its line in the context, and so is a kit config that does not decode (step 5), its error in the context"#,
+        r#"the entry is not migrated; the run is not clean, so nothing is written"#,
+    ),
+    (
+        "migration_clean",
+        Severity::Info,
+        r#"last line: no Error finding, and no finding drops anything but a leftover ("Verification"'s clean migrated export)"#,
+        r#"exit 0"#,
+    ),
+    (
+        "migration_not_clean",
+        Severity::Info,
+        r#"last line otherwise"#,
+        r#"nothing is written ("Verification"); exit 1 after any finding that drops anything but a leftover"#,
+    ),
+    (
+        "leftover_dropped",
+        Severity::Warning,
+        r#"step 10: content that never reached a player in game, outside the old format's layout or inside it (a refused portrait, a stray file, a second goalkeeper kit, ...); a Note entry's dropped part names its line"#,
+        r#"not written; the run stays clean"#,
+    ),
+    (
+        "mtl_stray_text_dropped",
+        Severity::Info,
+        r#"step 7: an old `.mtl` held text between its elements"#,
+        r#"dropped as the file is written back"#,
+    ),
+    (
+        "roster_slot_empty",
+        Severity::Warning,
+        r#"a face folder whose slot the save's roster leaves empty (`slot`)"#,
+        r#"it still becomes its player folder, with no `settings.toml`"#,
+    ),
+    (
+        "merge_kept_shared",
+        Severity::Info,
+        r#"a path a player folder and a merging item folder share with different bytes (`path`, the first clashing path relative to the player folder)"#,
+        r#"the item folder is kept shared with a link instead"#,
+    ),
+    (
+        "wearer_assumed",
+        Severity::Info,
+        r#"loose mode's assumed wearer of an item folder (step 11): the ID's position in its kind's old block of 25 (`id`, the folder's four-digit ID; `slot`, the player's)"#,
+        r#"reported so the pairing can be checked"#,
+    ),
+    (
+        "kit_without_config",
+        Severity::Warning,
+        r#"a kit slot a Note kit entry gives and no `Kit Configs` config does (`slot`)"#,
+        r#"the kit still forms, a placeholder the compiler fills"#,
+    ),
+    (
+        "config_without_kit_entry",
+        Severity::Warning,
+        r#"a kit slot a `Kit Configs` config gives and no Note kit entry does (`slot`)"#,
+        r#"its `config.toml` is written all the same, the kit offered as the old export never offered it"#,
+    ),
+    (
+        "kit_texture_copied",
+        Severity::Info,
+        r#"a kit's config field named another texture (`kit`, `stem` the field's, `from` the source's slot and stem)"#,
+        r#"the named texture was copied into the kit under the field's generic name"#,
+    ),
+    (
+        "kit_texture_hoisted",
+        Severity::Info,
+        r#"a texture every kit folder held byte-identically (`stem`, the first kit's spelling)"#,
+        r#"it moved to `Kits/all/`"#,
+    ),
+    (
+        "portrait_conflict",
+        Severity::Error,
+        r#"a `Portraits/` file and its slot's face-folder portrait differ in bytes, which the compiler's deep pass would refuse (`slot`)"#,
+        r#"the run is not clean, so nothing is written"#,
+    ),
+    (
+        "logo_small_carried",
+        Severity::Info,
+        r#"the old `_r` small logo is a different drawing (`share`, the differing pixels' percentage)"#,
+        r#"kept as `logo_small.png`"#,
+    ),
+    (
+        "logo_small_dropped",
+        Severity::Info,
+        r#"the old `_r` small logo is a downscale of the large one (`share`)"#,
+        r#"dropped: the compiler regenerates it"#,
+    ),
+    (
+        "logo_fallback",
+        Severity::Warning,
+        r#"no usable `_r_ll` member"#,
+        r#"the largest usable one became `logo.png`"#,
+    ),
+    (
+        "common_reference_kept",
+        Severity::Warning,
+        r#"an `.mtl`/`.fmdl` reference into the team's `Common/` whose file is not in the input's `Common/`, where a link would clash (the folder already holds a texture of that stem, which is the one the model will wear: the compiler looks a game path's file name up in the folder first), or from a subfolder `.mtl` naming a Common subfolder (`reference`, the path as written)"#,
+        r#"the reference is kept as written, its `???` respelled the team's ID"#,
+    ),
+    (
+        "custom_model_missing",
+        Severity::Error,
+        r#"a rostered player's save record wears a custom boots or gloves ID (above 100) no migrated folder claims (step 8; `slot`, `name`, `key` the ID's own, `id`); checked for every rostered player of a Full output but in a Midcup one only for a player the output gives a folder"#,
+        r#"the content is missing: the run is not clean, so nothing is written"#,
+    ),
+    (
+        "settings_value_refused",
+        Severity::Warning,
+        r#"a stored value no `settings.toml` key can hold (`slot`, `name`, `key` the dotted key, `value` the stored value)"#,
+        r#"left out of the player's file"#,
+    ),
+    (
+        "settings_from_stripped_record",
+        Severity::Info,
+        r#"a `settings.toml` generated from a stripped record (`slot`, `name`)"#,
+        r#"the record still is his look until the team's first Studio compile, which keeps its own file instead"#,
+    ),
+    (
+        "settings_not_generated",
+        Severity::Error,
+        r#"a player's `settings.toml` could not be generated at all (`slot`, `name`, `error` the failure's text)"#,
+        r#"the run is not clean, so nothing is written"#,
+    ),
+    (
+        "model_folder_destination",
+        Severity::Info,
+        r#"model-folder mode: where an output folder goes once dropped into a Studio export (`into`: `Players`, `Boots`, `Gloves`, or `root` for `Common/`)"#,
+        r#"informational; goes on"#,
+    ),
     // The structure pass's codes, in `ISSUE_CODES` order.
-    ("nested_folders_fixed", Severity::Warning),
-    ("nested_root_ambiguous", Severity::Error),
-    ("nested_root_conflict", Severity::Error),
-    ("players_txt_invalid", Severity::Error),
-    ("refs_txt_ignored", Severity::Warning),
-    ("source_read_failed", Severity::Error),
-    ("export_empty", Severity::Error),
-    ("team_name_unknown", Severity::Error),
-    ("export_tag_missing", Severity::Error),
-    ("export_layout_old", Severity::Error),
-    ("players_txt_missing", Severity::Error),
-    ("players_txt_line_invalid", Severity::Error),
-    ("players_txt_slot_invalid", Severity::Error),
-    ("players_txt_slot_duplicate", Severity::Error),
-    ("players_txt_target_missing", Severity::Error),
-    ("player_unlisted", Severity::Warning),
-    ("player_folder_number_invalid", Severity::Error),
-    ("player_number_duplicate", Severity::Error),
-    ("file_type_disallowed", Severity::Error),
-    ("common_file_disallowed", Severity::Error),
-    ("player_layout_proto", Severity::Error),
-    ("shared_link_duplicate", Severity::Error),
-    ("link_target_missing", Severity::Error),
-    ("common_link_missing", Severity::Error),
-    ("link_target_dropped", Severity::Error),
-    ("shared_folder_orphaned", Severity::Warning),
-    ("fpc_conflict", Severity::Error),
-    ("ingame_face_explicit_face_model", Severity::Error),
-    ("texture_stem_conflict", Severity::Error),
-    ("fmdl_name_invalid", Severity::Error),
-    ("model_name_invalid", Severity::Error),
-    ("edithair_unsupported", Severity::Error),
-    ("kit_folder_invalid", Severity::Error),
-    ("kit_slot_duplicate", Severity::Error),
-    ("kit_texture_name_invalid", Severity::Error),
-    ("kit_layout_conflict", Severity::Error),
-    ("kit_icon_invalid", Severity::Warning),
-    ("kit_all_file_ignored", Severity::Warning),
-    ("kit_all_unused", Severity::Warning),
-    ("kit_textures_inherited", Severity::Info),
-    ("portrait_name_invalid", Severity::Error),
-    ("logo_file_invalid", Severity::Error),
-    ("logo_role_duplicate", Severity::Error),
-    ("logo_small_without_main", Severity::Error),
-    ("root_file_unexpected", Severity::Warning),
-    ("notes_found", Severity::Info),
-    ("notes_encoding_invalid", Severity::Error),
+    (
+        "nested_folders_fixed",
+        Severity::Warning,
+        r#"content found nested one level down (exactly one usable root)"#,
+        r#"auto-fixed"#,
+    ),
+    (
+        "nested_root_ambiguous",
+        Severity::Error,
+        r#"several nested child folders are usable export roots"#,
+        r#"export skipped (`DropExport`)"#,
+    ),
+    (
+        "nested_root_conflict",
+        Severity::Error,
+        r#"loose root file collides with a flattened nested file at the same virtual path"#,
+        r#"export skipped (`DropExport`)"#,
+    ),
+    (
+        "players_txt_invalid",
+        Severity::Error,
+        r#"file-level encoding failure or roster-wide ambiguity prevents trustworthy normalization, or a referee roster retains zero valid assignments"#,
+        r#"export skipped (`DropExport`; foundational). An empty normal-team roster remains valid for a kit-only export"#,
+    ),
+    (
+        "refs_txt_ignored",
+        Severity::Warning,
+        r#"referee export has both `players.txt` and the legacy `refs.txt` alias"#,
+        r#"`players.txt` used, alias ignored"#,
+    ),
+    (
+        "source_read_failed",
+        Severity::Error,
+        r#"a file of the input does not read after its listing did (the compiler's code; `path`, `error`)"#,
+        r#"it is not migrated and the run reports on and ends not clean, so nothing is written; an unreadable Note (it decides the team) or a referee export's `refs.txt` (it decides the roster) stops the run at once"#,
+    ),
+    (
+        "export_empty",
+        Severity::Error,
+        r#"no usable content found at root"#,
+        r#"export skipped"#,
+    ),
+    (
+        "team_name_unknown",
+        Severity::Error,
+        r#"the team resolves to no row of the list (the compiler's code), the `Team:` line's file or the export named (`name`)"#,
+        r#"nothing is written"#,
+    ),
+    (
+        "export_tag_missing",
+        Severity::Error,
+        r#"a team export's name has neither `Full` nor `Midcup` as its second word (context `name`: the export's name)"#,
+        r#"export skipped; the hint says to rename it `<team> Full …` or `<team> Midcup …`"#,
+    ),
+    (
+        "export_layout_old",
+        Severity::Error,
+        r#"the export is in the old layout, which the compiler does not read: a root folder named `Kit Configs`, `Kit Textures` or `Other`, names the Studio format never has (its kits live in `Kits/`); context `folder`: the first such folder. Reported alone: the export's other structure findings are not computed, since every one of them would describe the old layout again"#,
+        r#"export skipped; the hint says to run the export through the Export upgrader once"#,
+    ),
+    (
+        "players_txt_missing",
+        Severity::Error,
+        r#"referee export has no required root `players.txt` (nor a legacy `refs.txt` alias)"#,
+        r#"export skipped (`DropExport`)"#,
+    ),
+    (
+        "players_txt_line_invalid",
+        Severity::Error,
+        r#"one nonblank `players.txt` line cannot be parsed into decimal slot + folder name"#,
+        r#"that `RosterEntry` skipped (`DropSlot`)"#,
+    ),
+    (
+        "players_txt_slot_invalid",
+        Severity::Error,
+        r#"a `players.txt` line's decimal slot is outside 01–23 (teams) / 01–35 (refs)"#,
+        r#"that `RosterEntry` assignment skipped (`DropSlot`)"#,
+    ),
+    (
+        "players_txt_slot_duplicate",
+        Severity::Error,
+        r#"authoritative `players.txt` assigns the same slot more than once, making roster identity ambiguous"#,
+        r#"export skipped (`DropExport`)"#,
+    ),
+    (
+        "players_txt_target_missing",
+        Severity::Error,
+        r#"`players.txt` entry names a nonexistent folder"#,
+        r#"`RosterEntry` scoped assignment skipped (`DropSlot`)"#,
+    ),
+    (
+        "player_unlisted",
+        Severity::Warning,
+        r#"authoritative `players.txt` is present but does not list this player folder, regardless of any number in its name"#,
+        r#"folder ignored"#,
+    ),
+    (
+        "player_folder_number_invalid",
+        Severity::Error,
+        r#"without `players.txt`, a team player folder's number is not in 01–23"#,
+        r#"folder discarded (`DropFolder`)"#,
+    ),
+    (
+        "player_number_duplicate",
+        Severity::Error,
+        r#"without `players.txt`, two team folder names claim the same player slot"#,
+        r#"both conflicting folders discarded (`DropFolder` on each folder)"#,
+    ),
+    (
+        "file_type_disallowed",
+        Severity::Error,
+        r#"a file in a player or shared folder's tree, in a kit folder or in `Collars/` that its position's allowlist row does not admit (`spec/aesthetics_export/object_model.md` "File-type allowlist": a disallowed extension, or a marker, `settings.toml` or per-player singleton below a subfolder; E if `strict_file_type_check`, else I)"#,
+        r#"folder discarded / kept"#,
+    ),
+    (
+        "common_file_disallowed",
+        Severity::Error,
+        r#"as `file_type_disallowed`, Common scope"#,
+        r#"files discarded / kept"#,
+    ),
+    (
+        "player_layout_proto",
+        Severity::Error,
+        r#"a referee export's player folder has a direct `face/`, `boots/`, `gloves/` or `common/` subfolder: the AET referee layout, Red's prototype of the player folder, whose subfolders type their files by the subfolder's name where the Studio rule types a subfolder's files by their names (`spec/aesthetics_export/player_folders.md` "Subfolders"); in a team export those names are plain subfolders (context `folder`: the first such subfolder)"#,
+        r#"folder discarded (`DropFolder`); the hint says to run the export through the Export upgrader once"#,
+    ),
+    (
+        "shared_link_duplicate",
+        Severity::Error,
+        r#"player folder has more than one shared link for any category (face, boots, or gloves), counted over its whole tree, two links naming one shared folder counting once"#,
+        r#"folder discarded (`DropFolder`)"#,
+    ),
+    (
+        "link_target_missing",
+        Severity::Error,
+        r#"link file references a nonexistent shared folder"#,
+        r#"folder discarded"#,
+    ),
+    (
+        "common_link_missing",
+        Severity::Error,
+        r#"a `.common` link (model, material file or texture) names a file missing from the Common folder (a `kitN` stem or directory in it standing for its set, `spec/model_format.md` "Kit-dependent assets") (context: the link file, whose name shows its kind, and the Common path looked for); on PES 18-21 a texture link is satisfied by an installed CPK holding the texture at the team's Common path (`pipeline.md` "Resolved decisions", "A texture a model names must exist")"#,
+        r#"folder discarded"#,
+    ),
+    (
+        "link_target_dropped",
+        Severity::Error,
+        r#"a shared-folder or `.common` link names a target the structure pass or the deep pass dropped, by its effective disposition (context: the link, the target and its finding)"#,
+        r#"folder discarded (`DropFolder`); not reported when `pass_through` keeps the target; never itself pass-through-eligible"#,
+    ),
+    (
+        "shared_folder_orphaned",
+        Severity::Warning,
+        r#"shared folder referenced by no player"#,
+        r#"folder skipped"#,
+    ),
+    (
+        "fpc_conflict",
+        Severity::Error,
+        r#"both `fpc_on` and `fpc_off` present in a player folder"#,
+        r#"folder discarded"#,
+    ),
+    (
+        "ingame_face_explicit_face_model",
+        Severity::Error,
+        r#"`ingame_face` combined with explicit face models (`face_high`/`hair_high`/`oral`, in any supported source format) or a shared face link, which require the suppressed face folder"#,
+        r#"player folder discarded (`DropFolder`)"#,
+    ),
+    (
+        "texture_stem_conflict",
+        Severity::Error,
+        r#"two image files with the same stem in one lookup namespace, whatever their extensions: one folder of a model folder's tree, the root or one subfolder (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name; `hair.dds` beside `jessie/hair.dds` is no conflict, a model's texture name resolving nearest first, `spec/aesthetics_export/player_folders.md` "Subfolders"), `Common/` (`hair.dds` beside `hair.png`; each directory of `Common/` a namespace of its own), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`05.dds` beside `05 - Bob.png`, two files of one slot)"#,
+        r#"folder discarded (the model folder, or the kit; for `all/`, `all/` itself, so no kit inherits from it); in `Portraits/` and `Common/`, both files (a player linking a dropped Common file follows `link_target_dropped`)"#,
+    ),
+    (
+        "fmdl_name_invalid",
+        Severity::Error,
+        r#"Fox: FMDL anywhere in a boots/gloves shared folder not resolving to that category's allowed names"#,
+        r#"folder discarded"#,
+    ),
+    (
+        "model_name_invalid",
+        Severity::Error,
+        r#"pre-Fox: a model anywhere in a shared boots or gloves folder without its category's suffix, the pre-Fox twin of `fmdl_name_invalid`"#,
+        r#"folder discarded"#,
+    ),
+    (
+        "edithair_unsupported",
+        Severity::Error,
+        r#"pre-Fox: `face_edithair.xml` / `hair.xml` present (anywhere in a player or shared folder; reported by the structure pass, so `check` reports it)"#,
+        r#"folder discarded"#,
+    ),
+    (
+        "kit_folder_invalid",
+        Severity::Error,
+        r#"subfolder name doesn't parse as `<slot>[ - <label>]` with the slot in `p1`–`p9`, `g1`, `all`"#,
+        r#"kit discarded"#,
+    ),
+    (
+        "kit_slot_duplicate",
+        Severity::Error,
+        r#"two subfolders resolve to the same slot (`p1/` and `p1 - Lakers/`)"#,
+        r#"both discarded, never a pick"#,
+    ),
+    (
+        "kit_texture_name_invalid",
+        Severity::Error,
+        r#"texture doesn't carry the `kit` prefix (`kit.dds`, `kit_mask.dds`, …)"#,
+        r#"file discarded"#,
+    ),
+    (
+        "kit_layout_conflict",
+        Severity::Error,
+        r#"both `pre-fox` and `fox` markers in one kit folder"#,
+        r#"kit discarded"#,
+    ),
+    (
+        "kit_icon_invalid",
+        Severity::Warning,
+        r#"a kit's `icon_<N>` marker is numbered above 23, or the kit holds two or more (each is reported)"#,
+        r#"default icon (3) used"#,
+    ),
+    (
+        "kit_all_file_ignored",
+        Severity::Warning,
+        r#"`all/` holds something other than kit textures (`config.toml`, `colors.txt`, an `icon_<N>` marker, anything else)"#,
+        r#"file ignored"#,
+    ),
+    (
+        "kit_all_unused",
+        Severity::Warning,
+        r#"`all/` present but no kit folder to inherit from it"#,
+        r#"none"#,
+    ),
+    (
+        "kit_textures_inherited",
+        Severity::Info,
+        r#"a kit lacks stems that `all/` provides; lists them (`p3: back, leg, name from all/`)"#,
+        r#"textures inherited"#,
+    ),
+    (
+        "portrait_name_invalid",
+        Severity::Error,
+        r#"a `Portraits/` file that is not a texture named `NN` with NN in 01–23 (alone or followed by ` - ` and any text, as a player folder is numbered)"#,
+        r#"file discarded"#,
+    ),
+    (
+        "logo_file_invalid",
+        Severity::Error,
+        r#"a root `logo*` file has an unknown tag in its stem, a disallowed format, or fails to decode in the deep pass"#,
+        r#"no logo emitted for the team (both files dropped as one unit, the game needs all three sizes)"#,
+    ),
+    (
+        "logo_role_duplicate",
+        Severity::Error,
+        r#"two files claim the same role (two `logo*`, or two `logo_small*`)"#,
+        r#"no logo emitted for the team"#,
+    ),
+    (
+        "logo_small_without_main",
+        Severity::Error,
+        r#"`logo_small*` present with no main `logo*`"#,
+        r#"no logo emitted (the small image is not a source for the large sizes)"#,
+    ),
+    (
+        "root_file_unexpected",
+        Severity::Warning,
+        r#"unknown file or folder at the export root (a folder other than the content folders, a stale `wrapper/` beside a usable root included), or a file directly inside `Players`, `Kits`, `Faces`, `Boots` or `Gloves`, which hold only folders (`Players/players.txt`)"#,
+        r#"file or folder ignored"#,
+    ),
+    (
+        "notes_found",
+        Severity::Info,
+        r#"non-empty valid root `notes.txt` present"#,
+        r#"collected into teamnotes.txt by `compile`"#,
+    ),
+    (
+        "notes_encoding_invalid",
+        Severity::Error,
+        r#"root `notes.txt` is not valid UTF-8 after optional BOM handling"#,
+        r#"note dropped; export otherwise continues (`DropFile`, not pass-through-eligible)"#,
+    ),
 ];
+
+/// The catalog rows the help's generated Messages topic is rendered from, in `CATALOG`
+/// order (`lib.rs` `help`).
+pub(crate) fn catalog() -> Vec<CatalogRow> {
+    CATALOG
+        .iter()
+        .map(|row| CatalogRow {
+            code: row.0,
+            severity: row.1.name(),
+            when: row.2,
+            effect: row.3,
+        })
+        .collect()
+}
 
 /// The severity `code` is shown at.
 fn severity(code: &str) -> Severity {
     CATALOG
         .iter()
-        .find(|(known, _)| *known == code)
-        .map(|(_, severity)| *severity)
+        .find(|row| row.0 == code)
+        .map(|row| row.1)
         .expect(
             "every code has a catalog row: the catalog test checks `Code::ALL` and `ISSUE_CODES`",
         )
@@ -398,19 +774,19 @@ mod tests {
     #[test]
     fn every_issue_code_and_every_own_code_has_exactly_one_catalog_row() {
         for code in ISSUE_CODES {
-            let rows = CATALOG.iter().filter(|(known, _)| known == code).count();
+            let rows = CATALOG.iter().filter(|(known, ..)| known == code).count();
             assert_eq!(rows, 1, "{code}");
         }
         for code in Code::ALL {
             let rows = CATALOG
                 .iter()
-                .filter(|(known, _)| *known == code.as_str())
+                .filter(|(known, ..)| *known == code.as_str())
                 .count();
             assert_eq!(rows, 1, "{}", code.as_str());
         }
-        for (index, (code, _)) in CATALOG.iter().enumerate() {
+        for (index, (code, ..)) in CATALOG.iter().enumerate() {
             assert!(
-                CATALOG[index + 1..].iter().all(|(other, _)| other != code),
+                CATALOG[index + 1..].iter().all(|(other, ..)| other != code),
                 "duplicate row: {code}"
             );
         }
@@ -486,5 +862,45 @@ mod tests {
         assert_eq!(message.code.tool_id, "export-upgrader");
         assert_eq!(message.code.code, "unmigrated_content");
         assert_eq!(message.severity, Severity::Error);
+    }
+
+    #[test]
+    fn every_catalog_row_carries_its_member_facing_text() {
+        for (code, _, when, effect) in CATALOG {
+            assert!(!when.is_empty() && !effect.is_empty(), "{code}");
+        }
+    }
+
+    #[test]
+    fn the_help_chapter_lists_the_whole_catalog_in_order() {
+        use studio_core::StudioTool;
+
+        let help = crate::Tool::new().help();
+        let codes: Vec<&str> = help.messages.iter().map(|row| row.code).collect();
+        let catalog: Vec<&str> = CATALOG.iter().map(|row| row.0).collect();
+        assert_eq!(codes, catalog);
+    }
+
+    #[test]
+    fn a_rows_text_is_its_spec_cells() {
+        let row = CATALOG.iter().find(|row| row.0 == "no_old_export").unwrap();
+        assert_eq!(row.2, "step 1: the input holds nothing an old export holds");
+        assert_eq!(row.3, "nothing is written");
+        // A structure-pass row takes the Team compiler's spec cells for the code, unless this
+        // tool's own table describes it (`team_name_unknown`, `source_read_failed`).
+        let row = CATALOG
+            .iter()
+            .find(|row| row.0 == "nested_folders_fixed")
+            .unwrap();
+        assert_eq!(
+            row.2,
+            "content found nested one level down (exactly one usable root)"
+        );
+        assert_eq!(row.3, "auto-fixed");
+        let row = CATALOG
+            .iter()
+            .find(|row| row.0 == "team_name_unknown")
+            .unwrap();
+        assert_eq!(row.3, "nothing is written");
     }
 }

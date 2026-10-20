@@ -9600,3 +9600,38 @@ location exists. Asking the tools one at a time keeps one prompt on screen, the 
 the shell switches to.
 Plan: `plans/core/distribution.md` "Data location: asked on first run"; `plans/core/gui.md`
 "Cancellation".
+
+## 2026-10-20 — help — The Messages topic's text sits in `messages.rs`'s catalog rows; `help`'s output shape
+Decision: each tool's catalog row in `messages.rs` gains two member-facing cells, *When* and
+*Effect*, first copied from the spec's catalog table, which stays the design record; the
+Export upgrader lists the structure pass's codes it reports with its own severity and the
+Team compiler's text, or its own table's where that table describes the code. `4cc-studio help` alone lists the chapters, `help <id> messages` prints
+the Messages topic, `--export` writes `<id>.md` per chapter, and the core chapters' ids
+(`setting-up`, `first-run`) share the tools' namespace, `help` reserved. The core chapters
+"Updates" and "What's new" wait for the update check and `CHANGELOG.md` (Release 0.1.0).
+Why: the plan generates the topic from `messages.rs` but its rows held a code and a severity
+only. A Markdown table in `help/` would be easier prose to edit but a second list of codes,
+which the existing catalog tests do not see; the row beside the code cannot miss one. Copying
+the spec's cells gives members a complete topic now, and the wording pass the draft's review
+asked for edits them for members (the dispositions and docs pointers they carry) without
+losing the maintainer's record. A chapter about a feature not built would describe nothing.
+Plan: `plans/core/gui.md` "Help window" (the Messages and CLI bullets).
+
+## 2026-10-21 — studio_core — The help window's geometry holds for the session only
+Decision: the help window's position and size are egui's own, kept by the window's id while the
+program runs, and are not written to the settings file; opening the window closes the settings
+menu or the About popup.
+Why: remembering them across restarts needs a common-settings field the shell rewrites at the
+end of every drag or resize, a settings save per move for a window members open now and then,
+and `CommonSettings` has no such field (the draft's review found the gap). A modal left open
+would cover the non-modal window it just opened.
+Plan: `plans/core/gui.md` "Help window" ("Window").
+
+## 2026-10-21 — studio_core — `egui_commonmark` `=0.25.0`, without its image loaders
+Decision: the help window renders Markdown with `egui_commonmark` 0.25.0, pinned exactly like
+`egui`, with its default features off and `pulldown_cmark` on.
+Why: 0.25.0 is the last release built on egui 0.36 (0.26.0 requires 0.37, which the workspace's
+exact pin rules out until egui moves). The default `load-images` feature brings `egui_extras`'
+image and file loaders, and the help's topics hold no images. The crate was chosen over a
+hand-rolled renderer on 2026-09-12; its link hooks are what an in-doc link's click reads.
+Plan: `plans/core/README.md` "External Dependencies (Rust crates)".
