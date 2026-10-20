@@ -17,7 +17,7 @@ done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Rule
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): the Save
-editor's draft (8.5, slices 4 and 5; 1 to 3 drawn), then its view and Phase 8's shell, Phase
+editor's draft (8.5, slice 5; 1 to 4 drawn), then its view and Phase 8's shell, Phase
 20 (the Ruleset editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler
 and Export upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20):
 20.0d (the DBC7 ruleset) and 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the
@@ -579,7 +579,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     enabled with fluid off (its tooltip gives the game's rule), auto substitution is the
     model's raw setting byte, man marking is carried but not drawn (as in 4ccEditor). Harness
     24 checks
-  - [ ] 8.5d the comparator, transplant, AATF and patch panels (SE-GUI-13 to 15, 18)
+  - [x] 8.5d the comparator, transplant, AATF and patch panels (SE-GUI-13 to 15, 18). Done
+    2026-10-20 (SWE-2): the panels as floating windows from a Panels menu, the AATF one also a
+    button beside the quick actions; real samples made with the HEAD build
+    (`.tmp/8_5/samples/`: `diff` of two PES 17 saves, a transplant and an `apply-patch` written
+    to scratch copies and diffed, DBC7's `check-aatf`, two broken rules files); comparator rows
+    in the tabs' terms with each field's offset measured on the samples (1-based motions +1,
+    physique -7, no row disagreeing); one sentence per violation kind, marked sample wording
+    (the CLI prints codes). DBC7 defines no `suggestions`, so its toggle shows none (shown
+    under the official ruleset). Harness 28 checks. Three follow-ups ride on 8.5e's brief:
+    player names on the panels' rows, the all-teams AATF sample and the comparator's stored
+    report lines trimmed (the page grew to 873 KB)
   - [ ] 8.5e the interchange dialogs and settings.toml generation (SE-GUI-16, 17, 19)
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven

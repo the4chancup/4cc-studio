@@ -2235,3 +2235,5 @@ worklog passed 7,000 lines.
   the worklog's Phase 6 block collapsed. Gates green: 3987 tests, acceptance 564 of 652 proven, the rest Phase 8's GUI.
 - **2026-10-20** — 8.5c: the Save editor draft's Tactics tab (the pitch canvas on 4ccEditor's stored grid, drag lists, role
   and join-attack assignment, copy/swap menus) and slice 1's card badges; the comparator panel's rows in the tabs' terms (DECISIONS).
+- **2026-10-20** — 8.5d: the Save editor draft's comparator, transplant, AATF and patch panels on real samples from the HEAD build
+  (a two-save `diff`, scratch-copy transplant and patch, DBC7's check of the PES 17 save, two broken rules files).
