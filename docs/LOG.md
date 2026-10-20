@@ -2223,3 +2223,5 @@ worklog passed 7,000 lines.
   per-kit face packages and `kitK` textures from a Studio CPK (kit 1 in Edit mode, kit 2 in a match). Game and saves restored by hash.
 - **2026-10-20** — 6.16d: a pre-Fox Common segment of any name is the team's Common (widened from the team's name to cover ASP's
   `common/refs/`); the 15 affected library exports upgrade and compile without the Common-path errors. 6.16 and 6.14 closed.
+- **2026-10-20** — 6.12d: the library parity's scripts committed under `scripts/library_parity/` (one `config.py`, a class table, a
+  README); a rerun from them over 6.16's 78 inputs reproduces 616's rows and attribution. 6.12 closed.

@@ -20,8 +20,7 @@ every converge review loop has ended (2026-10-19) and the close mutation run of
 writes a clean export or nothing) and 6.15 (a one-wearer item folder takes its wearer's ID)
 are built, and 6.14c; the maintainer answered 6.14's three questions (2026-10-19), and
 6.12c (the library run against Red) is diagnosed. 6.16 (the answers and 6.12c's defects) is
-built and verified (2026-10-20), its verify's two findings fixed; left: 6.12d (the library
-parity's scripts committed). Then the close's last steps, the plans-to-spec move and the
+built and verified (2026-10-20), its verify's two findings fixed; next: the close's last steps, the plans-to-spec move and the
 worklog's collapse; then, for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset
 editors' first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"):
 20.0d (the DBC ruleset's coverage), 8.4 (the usability pass), Phase 8's shell, the Save
@@ -778,7 +777,7 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   - [x] 6.11a Astra A1b-1 (converge review, accepted): `parity_prefox.rs`'s two texture arms
     (`Row::Texture`, `Nested::Texture`) also compare the decoded mips, so a wrong header in
     ours fails (red: our mip count set to 2 fails both cases, the decode refusing `Truncated`)
-- [ ] 6.12 the library parity, Phase 6's own verification (`plans/core/development_plan.md`
+- [x] 6.12 the library parity, Phase 6's own verification (`plans/core/development_plan.md`
   "Phase 6", `plans/export_upgrader.md` "Verification"'s last paragraph,
   `plans/team_compiler/testing.md`): every old export of the maintainer's library upgraded,
   compiled, and its game-facing output compared with Red's for the same export; delivered so
@@ -837,12 +836,15 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
   - [x] the committed form decided (2026-10-20, DECISIONS "the library parity is a measurement
     rerun at phase closes"; `plans/team_compiler/testing.md`, AGENTS.md "Closing a phase"): a
     rerun at each phase close touching the compiler or the upgrader, no hash manifest
-  - [ ] 6.12d the scripts committed under `scripts/library_parity/` (lead, measurement code):
-    the upgrade census (`.tmp/6_9/census/run.py`, `regress_check.py`, `analyze.py`) and the
-    library run (`.tmp/6_12c/library.py`, `attribute.py`, `tally.py`), the machine paths (Red's
-    checkout, the input lists) in one constants block, the attribution's class table in one
-    file; a README with the order of a rerun → verify: a rerun from the committed scripts over
-    6.16's selection gives the same rows as `.tmp/6_12c/rows_616.tsv`
+  - [x] 6.12d (2026-10-20, lead) the scripts committed under `scripts/library_parity/`: the
+    upgrade census (`find_folders.py`, `find_archives.py`, `census.py`, `regress_check.py`,
+    `analyze.py`) and the library run (`library.py`, `attribute.py`, `tally.py`), the machine
+    paths in `config.py`, outputs under `.tmp/library_parity/`, the class table `classes.md`
+    (D4 became I34 at 6.16d), `README.md` with the order of a rerun; `library.py --frozen`
+    reruns an earlier run's binaries; verified: the rerun over 6.16's 78 inputs with 616's
+    binaries gives `rows_616.tsv`'s rows (every column but the timings) and its attribution
+    summary; `regress_check.py`, `analyze.py` and `find_folders.py` give the old copies'
+    outputs byte for byte
 - [x] 6.13 the library parity's defects (6.12a-b, `.tmp/6_12/classes.md` C1-C3, and the top
   lead's D), each reproduced on its real export before it is fixed:
   - [x] 6.13a (2026-10-19) the `.mtl` search's name match reads a model stem carrying both
