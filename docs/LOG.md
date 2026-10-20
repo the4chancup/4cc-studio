@@ -2230,3 +2230,6 @@ worklog passed 7,000 lines.
   PES 2017 saves: every difference a listed class; the warning band is open in QUESTIONS. The draft gains the forms and a DBC7 template.
 - **2026-10-20** — 8.4: the usability pass before the tools' drafts; 22 proposals in `PROPOSALS.md` (findings that say what was
   lost and the fix, Open folder, an old export's Upgrade button, first-run PES discovery, the upgrader naming its coverage tag, ...).
+- **2026-10-20** — Phase 6 closes: the closing whole-crate mutation runs (export_upgrader 981 caught, 6 missed; team_compiler 2532
+  caught, 3 missed) triaged, a test or a pin each but Phase 8's placeholder views; the spec's dev plan gains its Phase 6 section;
+  the worklog's Phase 6 block collapsed. Gates green: 3987 tests, acceptance 564 of 652 proven, the rest Phase 8's GUI.

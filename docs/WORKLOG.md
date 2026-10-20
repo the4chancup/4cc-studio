@@ -9,25 +9,22 @@ is in `AGENTS.md` ("Working documents").
 
 ## Current status
 
-**Phase:** 6 (Export upgrader), opened 2026-10-17. Phase 5 (Savefile integration) closed
-2026-10-17. Phases 1 to 4 done (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their phases: 10.0a-e
-(`music_export`, its plan section, `pub` audit and whole-crate mutation run done; converging
-with Phase 10), 16.w (the platform floor) and 20.0a-d (the Ruleset
-editor's coverage table and draft, the DBC7 ruleset).
-**Next:** Phase 6 (Export upgrader): the close is under way (`AGENTS.md` "Closing a phase"):
-every converge review loop has ended (2026-10-19) and the close mutation run of
-`export_upgrader` is triaged (2 missed, the placeholder views, worklog 8.3); 6.14 (an upgrade
-writes a clean export or nothing) and 6.15 (a one-wearer item folder takes its wearer's ID)
-are built, and 6.14c; the maintainer answered 6.14's three questions (2026-10-19), and
-6.12c (the library run against Red) is diagnosed. 6.16 (the answers and 6.12c's defects) is
-built and verified (2026-10-20), its verify's two findings fixed; next: the close's last steps, the plans-to-spec move and the
-worklog's collapse; then, for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset
-editors' first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"):
-Phase 8's shell (8.4, the usability pass, and 20.0d, the DBC7 ruleset, done 2026-10-20), the Save
-editor's draft and view, Phase 20 (the Ruleset editor), the 0.0.1 preview build for DBC (the
-two editors; the Team compiler and Export upgrader greyed out), then Phase 8's other views. The
-face_diff model comparison (Issues, "a face diff is engine-specific") follows the editors. 8.0's acceptance sections are reviewed and the shell's draft
-(`docs/prototypes/shell.html`, step 8.2) waits for the maintainer's remarks. Side-leads are
+**Phase:** 8 (GUI) is next in the phase order, after the DBC work below. Phase 6 (Export
+upgrader) closed 2026-10-20; Phase 5 (Savefile integration) 2026-10-17. Phases 1 to 4 done
+(Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their
+phases: 10.0a-e (`music_export`, its plan section, `pub` audit and whole-crate mutation run
+done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Ruleset editor's
+coverage table and draft, the DBC7 ruleset).
+**Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
+first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): the Save
+editor's draft (8.5, slices 3 to 5; 1 and 2 drawn), then its view and Phase 8's shell, Phase
+20 (the Ruleset editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler
+and Export upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20):
+20.0d (the DBC7 ruleset) and 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the
+maintainer's rulings). The face_diff model comparison (Issues, "a face diff is
+engine-specific") follows the editors. 8.0's acceptance sections are reviewed and the shell's
+draft (`docs/prototypes/shell.html`, step 8.2) waits for the maintainer's remarks.
+Side-leads are
 paused (single lead + SWE-2); the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
@@ -111,7 +108,7 @@ documents".
 | 3 | Team compiler skeleton | `team_compiler`, `aesthetics_export`, `pipeline` | done |
 | 4 | Processing logic | `team_compiler` (`plan/` `processing/` `bins/` `output/`), `aesthetics_export` deep validation | done |
 | 5 | Savefile integration | `save_editor` logic, `aatf`, `team_compiler` `output/savefile.rs` | done |
-| 6 | Export upgrader | `export_upgrader` | todo |
+| 6 | Export upgrader | `export_upgrader` | done |
 | 7 | glTF support (runs after Release 0.1.0) | `model_convert` (glTF half) | todo |
 | 8 | GUI | `studio_core` shell, `studio`, tool views, `color_tools` widget | todo |
 | 0.1.0 | Release 0.1.0, after Phase 8 (`core/development_plan.md` "Release 0.1.0") | `just release`, `CHANGELOG.md`, help chapters, update check + notice, teams-list merge, maintenance mode | todo |
@@ -446,576 +443,38 @@ right gloves magenta (`r6_slot01.png`, `r6_slot02.png`)
 
 ### Phase 6 — Export upgrader
 
-Opened 2026-10-17. The build steps follow the plan's steps, each landing with its scenarios'
-tests; 6.0c, the compiler-side re-check, runs beside them.
+Done 2026-10-20. Spec now describes what exists: `docs/spec/export_upgrader.md` (steps 1 to 12,
+model-folder mode, the CLI, the message catalog, the Phase 6 acceptance),
+`docs/spec/core/development_plan.md` "Phase 6", `team_compiler/testing.md` (the tracers' upgraded cases and the
+library parity), `aesthetics_export/object_model.md` (Portraits named `NN`); the plan keeps
+step 13 (Phase 7) and the view (Phase 8). Step detail (6.0a-c the open items, the acceptance
+section and the Red inventory on `main`; 6.1-6.8 the build, step by step of the plan; 6.9-6.11
+the tracers' goldens and parity cases, Red's references recompiled with released Red; 6.12 the
+library parity, its census, Red runs and attribution, kept as `scripts/library_parity/`;
+6.13-6.16 the defects and the maintainer's rulings it raised: an upgrade writes a clean export
+or nothing, leftovers dropped with a Warning, one-wearer item folders' exclusive IDs, Midcup
+kits keeping what they do not resend, a pre-Fox Common segment of any name; the converge: the
+lead's audit, the design-health passes, Astra and SWE-2 rounds, the citation audits) in git
+history up to commit `cf78a8e1`. The close (2026-10-20): the census of every old export on the
+maintainer's machine (639 inputs, 279 clean, every unclean run writing nothing, none lost
+against 6.16's run), the library parity over the 279 against released Red (every line
+attributed but two `red_parity` pairing ties, `.tmp/6_close2/`), the design sweep over the code
+since the first close run (`upgrade.rs` past a thousand lines and the staging claim written
+twice: `staging.rs`), the citation audit (one flag, EU-REF-12), and the closing whole-crate
+mutation runs (extra kinds included, split with bonfire, `.tmp/mutants_6_close2_<crate>/`):
+`export_upgrader` 981 caught, 6 missed (the two placeholder views; three equivalents whose
+`exclude_re` pins had drifted, re-pinned; a game path's letter case, a test added in
+`players.rs`), `team_compiler` 2532 caught, 3 missed (the placeholder settings view;
+`match_stem`'s empty-inner guard, a test added; the shared folders' packing sort, an equivalent
+pinned in `.cargo/extra_mutants.toml`, since the CPK sorts its entries and the tables their
+rows). Carried forward: the placeholder views (8.3), the face transformation for a face made for
+the other engine (issue "a face diff is engine-specific", after the DBC editors), the gloves
+half of the in-game checks (issue "FoxDen's PES 2021 gloves trampoline"), the `save_editor`
+tests a running PES game fails (issue), the in-game questions in `docs/QUESTIONS.md`.
 
-- [x] 6.0a the plan's "Open items" settled (`plans/export_upgrader.md`; they must be before the
-  acceptance section is written): a kit config naming another kit's texture, an FMDL texture
-  found only in `Common/`, the `u0???g` token, Note kit entries past Studio's slots → verify:
-  "Open items" is empty, each answer is in the step it belongs to, with a decision entry for
-  each one the plan did not already recommend. Done 2026-10-17: the section removed, the
-  answers in steps 5 and 7, one decision entry for the four (the `u0???g` one the lead's: the
-  team's ID, as Red respells it, after the Everything index found the token in old exports'
-  `Common/` folders, a fixed goalkeeper texture rather than a variant set)
-- [x] 6.0b the Export upgrader's "Acceptance" section (`AGENTS.md` "Before a tool phase";
-  format `CONTRIBUTING.md` "Testing"), CLI scenarios for `upgrade` and `upgrade-models`; the GUI's
-  drop targets are Phase 8's → verify: every numbered step and "Model-folder mode" has a
-  scenario or an explicit "no observable behavior" note, and the cross-family review
-  (checkpoint (a): SWE-2 loop, then Astra) has ended. Done 2026-10-18: 81 scenarios
-  (`plans/export_upgrader.md` "Acceptance"), steps 1 to 12, the CLI and model-folder mode
-  completed where the scenarios needed them; reviews A.S1-A.S4, A.A1, B.S1-B.S4, C.S1-C.S2,
-  A.A2, C.S3-C.S4, A.A3, C.S5 (rulings `.tmp/6_0/duck_rulings.md`), with a pass mapping the
-  5.0c Red inventory's old-layout rows to the steps, re-checked on Red `main`; DECISIONS
-  2026-10-17 (two entries, points (1)-(18)); files: `plans/export_upgrader.md`,
-  `plans/aesthetics_export/settings_toml.md`, `spec/model_format.md`, `GLOSSARY.md`, `AGENTS.md`
-- [x] 6.0c the 5.0c Red inventory re-checked against Red `main` for the Team compiler: it read
-  `dev/pre-studio-format` at `e12aa01`, 16 commits past `main`, eleven library files differing
-  (`fmdl_editing.py`, `portraits_move.py`, `referee_tools.py`, `team_id_get.py`, `export_check.py`,
-  `players_process.py`, `savefile.py`, …); every row from those files, and the DECISIONS entry
-  "the Red behaviors Studio deliberately differs on (Red inventory, 5.0c)", checked against
-  `main` → verify: each such row marked same on `main` or corrected, with any plan or spec
-  change it implies. Already found by 6.0b's pass (`.tmp/6_0/duck_rulings.md` IA-C1, IA-C3,
-  IB-C2): `players_process.py`, `savefile.py` and `export_upgrade.py` do not exist on `main`;
-  the `uniform/texture/` Error that ruling A.3 cites is the dev branch's (on `main` that
-  directory is repointed like any other); `main`'s team-name token still splits on `+`, so the
-  DECISIONS 2026-10-11 deviation is against the dev branch only; `blue_port.md`'s shared
-  referee `Boots/`/`Gloves/` are the dev branch's (all 15 real referee exports use `refs.txt`
-  and `Players/<name>/`). Done 2026-10-18 (two SWE-2 passes over the inventory's tables):
-  no compiler rule changes; two behaviors kept as recorded deviations (the kit-texture path
-  warning, the strict `refs.txt` reading), the BC5 → DXT5nm conversion already one; four
-  premises corrected (DECISIONS 2026-10-18 "the 5.0c Red inventory re-read"); attributions
-  fixed in `team_compiler/pipeline.md`, `blue_port.md`, `libs/teams_list.md`,
-  `libs/dds_convert.md`
+The phase's manual checks:
 
-- [x] 6.1 the thinnest end-to-end path: the `export_upgrader` tool crate (`core/architecture.md`
-  tool-crate skeleton), `upgrade` reading a folder, `.zip` or `.7z` (step 1), resolving the team
-  (step 6) and writing the output with its root `colors.txt`/`notes.txt`, the report (step 10's
-  catalog) and the exit codes ("CLI") → verify: EU-IN-*, EU-ROOT-*, EU-CLI-* (the flag,
-  input, savefile and output-folder ones) pass, red first. Two slices:
-  - [x] 6.1a the crate, `upgrade`'s CLI, the input read (folder through a walk of its own,
-    archives through `archives::Archive::open`; the compiler's reader stays its own, DECISIONS
-    2026-10-18), the root rule, the Note found and its `Team:` line, the output name, every
-    other input file reported `unmigrated_content`, the output validated and the exit codes →
-    verify: EU-IN-01..03, EU-ROOT-02/03, EU-CLI-01..05 and 07 (upgrade cases); EU-ROOT-01's
-    output name. Done 2026-10-18: 12 scenarios proven; review found `upgrade .` writing into
-    the input (fixed); mutation diff 11 survivors tested, 3 accepted (GUI placeholders, an
-    equivalent `Default`); files: `crates/tools/export_upgrader/`, `aesthetics_export`
-    (`coverage`, `is_os_artifact` pub), `studio` (registration), `.gitignore` (fixture
-    `Thumbs.db`), `scripts/doc_pointers.py` (open-phase plan), plan "CLI"/"Message catalog"
-  - [x] 6.1b the Note's team colors to the root `colors.txt` and its "Other Notes" to
-    `notes.txt` → verify: EU-ROOT-04, EU-ROOT-05's root `colors.txt` (its kits' with 6.3),
-    EU-ROOT-01's settings with 6.5. Done 2026-10-18: the Note's section reader (6.3 adds the kit
-    entries), an unreadable or unfilled entry `unmigrated_content`; mutation diff 1 survivor
-    tested; files: `export_upgrader/src/{note,upgrade}.rs`, `tests/cli/roots.rs`, fixture
-    `jp Summer 18/`
-- [x] 6.2 player folders: the savefile read (step 2), face, boots and gloves folders into
-  `Players/`, merges, shared folders and links (steps 3-4) → verify: EU-PLY-*. Three slices:
-  - [x] 6.2a the roster read by player ID, face folders into `Players/` (slot rule, name order
-    and cleaning, portrait, `ingame_face`), `roster_slot_empty`, the `Faces/Faces/` flattening
-    → verify: EU-PLY-01, -03, -04 (the team half; the referee half with 6.6), -07, -11. Done
-    2026-10-18: the first runs to exit 0; a flatten in another letter case read wrong from an
-    archive (fixed); mutation diff 2 survivors tested; files: `export_upgrader/src/{players,
-    roster,source,upgrade,messages}.rs`, `tests/cli/players.rs`, `zip` a dev-dependency
-  - [x] 6.2b boots and gloves folders: wearers from the save, the Fox merge, shared folders and
-    links, pre-Fox links, the lower-case `k`/`g` rule → verify: EU-PLY-02, -05, -06, -08, -09, -10.
-    Done 2026-10-18: 11 EU-PLY scenarios proven; a shared folder split one file per folder
-    (fixed); EU-PLY-08's pre-Fox output was not clean until 6.4d's model renames (its test
-    now asserts exit 0); mutation diff 2 survivors, 1 tested, 1 equivalent (no own finding below
-    Error drops yet); also the first slice's review round S3 (the verdict reads the tool's own
-    dropping findings); files: `export_upgrader/src/{players,roster,upgrade,source,messages,
-    lib}.rs`, `tests/cli/players.rs`, `tests/common/mod.rs`
-  - [x] 6.2c two shared folders of one name and the same files become one (the maintainer's
-    ruling, DECISIONS 2026-10-18 "two shared folders of one name and the same files become
-    one"; plan step 4) → verify: EU-PLY-12; unit tests in `players.rs` (identical pair merged,
-    every wearer linked; a differing pair keeps the ID rule; same paths with one byte differing;
-    a path only one holds). Done 2026-10-18: five unit tests; EU-PLY-12 proven (written at
-    Astra's round 6.3.K-A1); mutation diff clean; files: `export_upgrader/src/players.rs`,
-    `tests/cli/players.rs`
-- [x] 6.3 kits (step 5): configs to `config.toml` via `kit_config`, textures, the Note's kit
-  colors and icons, the copy and the hoist → verify: EU-KIT-*. Three slices:
-  - [x] 6.3a configs and textures into `Kits/<slot>/` (the config grammar, one config per slot,
-    the `Kit Configs/<id>/` subfolder, the positional texture grammar) → verify: EU-KIT-01, -02,
-    -08, -10, -12; also the review rounds S4b and A1's fixes. Done 2026-10-18: 5 EU-KIT
-    scenarios proven; review loops on 6.1-6.2 ended (S4b 4 accepted, Astra A1 4, a Fox merge's
-    case-only clash overwriting a file fixed); mutation diff 1 survivor tested; files:
-    `export_upgrader/src/{kits,players,upgrade,lib}.rs`, `tests/cli/{kits,cli,players}.rs`,
-    fixtures `kit_configs/`, `kit_config/src/names.rs` (`KitSlot::from_config_suffix`)
-  - [x] 6.3b the Note's kit entries: per-kit `colors.txt` and `icon_<N>`, the `gk:` rule,
-    `kit_without_config`, `config_without_kit_entry`, entries with no slot → verify: EU-KIT-03,
-    -04, -09, -11, -13; EU-ROOT-05's exit 0. Done 2026-10-18: 5 EU-KIT scenarios and EU-ROOT-05
-    proven; a Note-only export now exits 0 (its kits give the output content, no
-    `export_empty`); mutation diff 1 survivor tested; review round 6.3.S1 on 6.3a: 5 accepted
-    (`.tmp/6_3/rulings.md`), fixed in 6.3c; files: `export_upgrader/src/{kits,note,messages,
-    upgrade}.rs`, `tests/cli/{kits,roots,input}.rs`
-  - [x] 6.3c the copy of another kit's texture a config names, and the `all/` hoist → verify:
-    EU-KIT-05, -06, -07, -14; the copy rule widened to a field naming another stem (census
-    `.tmp/6_3/census_fields.py`; plan step 5, DECISIONS 2026-10-18 "the kit-texture copy covers
-    every field naming another texture"), its test on MGGG VGL26's configs. Done 2026-10-18:
-    every EU-KIT scenario proven; mutation diff clean; also round 6.3.S1's fixes. Review of 6.3
-    and 6.2c: SWE-2 6.3.S1 5 accepted, 6.3.S2 3; Astra 6.3.K-A1 3 (a Full export's empty
-    kits blocking the hoist, EU-PLY-10's sweep reading nothing, EU-PLY-12 missing), fixed;
-    SWE-2 6.3.S3 on those fixes 1 (two stale comments), both loops ended; files:
-    `export_upgrader/src/{kits,messages,upgrade}.rs`, `tests/cli/{kits,cli}.rs`
-- [x] 6.4 models, portraits, logo and Common (step 7), as ordered slices → verify: EU-MDL-*
-  - [x] 6.4a portraits, collars and the logo → verify: EU-MDL-01 to -04, -15. Done 2026-10-18:
-    5 EU-MDL scenarios proven; the 40 % logo line remeasured with `dds_convert::resize` over
-    the 94 distinct real pairs (downscales 0-30 %, variants 53-97 %; `.tmp/6_4/logo_share/`),
-    the scenarios' pairs now `/omg/` and `/vrg/` VGL26 (fixtures `logos/`; DECISIONS
-    2026-10-18 "the logo rule remeasured…"); `dds_convert` a dependency; mutation diff 2
-    survivors, a no-op 128² shortcut, removed; files: `export_upgrader/src/{carried,players,
-    upgrade,messages,lib,kits}.rs`, `tests/cli/carried.rs`, `Cargo.toml`
-  - [x] 6.4b1 `Common/` carried, `.mtl` references into Common and their links,
-    `common_reference_kept` → verify: EU-MDL-05, -06; also round 6.4.S1's fixes and EU-REP-02.
-    Done 2026-10-18: EU-MDL-05, -06, EU-REP-02 proven; the plan's stripping of `.dds` from
-    `.mtl` references dropped (DECISIONS 2026-10-18 "old `.mtl` references keep their
-    extension…": the compiler restores it only on what it resolves); review round 6.4.S1 on
-    6.4a 3 accepted (`.tmp/6_4/rulings.md`), loop ended; lead fixes: the clash walk skipped
-    the model folder's root from a subfolder `.mtl`, and counted model links; mutation diff 2
-    survivors, both tested; files: `export_upgrader/src/{materials,carried,upgrade,messages,
-    lib}.rs`, `tests/cli/carried.rs`, `Cargo.toml`; review round 6.4.S2 5 accepted, fixed (a
-    shared folder's `.mtl` keeps its Common paths, a link needs exactly one texture; mutation
-    diff 23 caught), so round 6.4.S3 follows
-  - [x] 6.4b2 the kit magic and the goalkeeper token (names, `.mtl` and `face.xml` paths),
-    a `Common/` `.mtl`'s `???`, `face.xml` written unwrapped (DECISIONS 2026-10-18 "the kit
-    magic's grammar…", from a census: `.tmp/6_4/kit_magic_census.txt`) → verify: EU-MDL-09
-    (its FMDL part with 6.4c), -16; EU-MDL-10 waits for 6.4c (its keeper FMDL), -14 for 6.4d
-    (the renames it guards). Done 2026-10-18: EU-MDL-09 (but its FMDL table), -16 proven;
-    review round 6.4.S3 on 6.4b1's rework 3 accepted (loop ended), its fixes here; lead review
-    found a `face.xml` splice that shifted every edit after the first, and a respell panic on
-    overlapping tokens; mutation diff 3 survivors, two tested, one sort removed, then 1 equivalent (`upgrade.rs` copy skip: the rewrite is written after the copy); files:
-    `export_upgrader/src/{kit_magic,face_xml,materials,upgrade,lib}.rs`,
-    `tests/cli/carried.rs`, `Cargo.toml`; `aesthetics_export` `kit_set_member` made `pub`
-  - [x] 6.4c FMDL path tables → verify: EU-MDL-07, -08, -09 (its FMDL table), -10, -13. Done
-    2026-10-18: all proven; the plan's "every other directory becomes the model's folder" kept
-    the game's kit texture folder out, `dummy_` stems untouched, Common subfolders read past
-    the `sourceimages/` level (DECISIONS 2026-10-18 "an FMDL's texture entries, class by
-    class", from `.tmp/6_4/fmdl_dir_census.txt`); the `.mtl` and FMDL passes share one Common
-    decision; review round 6.4.S4 on 6.4b2 2 accepted (loop ended; EU-MDL-09 now names a
-    per-kit model by file token, a model in a kit folder being no set), Astra M-A1 on 6.4a-b2
-    2 accepted (loop ended: a kept clashing reference is worn as the folder's texture, so the
-    warning says so; `dummy_` stems are no Common files), both fixed here; lead review: clippy
-    `too_many_arguments` (a per-file context struct), a perturbation no test caught (tested); mutation diff 3 survivors, all in a set link's member ordering, removed (the link resolves whatever its extension);
-    files: `export_upgrader/src/{materials,messages}.rs`, `tests/cli/carried.rs`,
-    `Cargo.toml`
-  - [x] 6.4d pre-Fox renames: the leading type moved last, `oral_`/`_win32` dropped, the `.mtl`
-    and `.model.common` links following, `Common/` files a member `face.xml` names kept →
-    verify: EU-MDL-11, -12, -14. Done 2026-10-18: all proven, EU-PLY-08 now exits 0; from a
-    census (`.tmp/6_4/model_names_census.txt`) a leading type moves only when `_` follows it,
-    `model_type_` names stay, a `.mtl.common` link follows only its `Common/` target, shared
-    boots/gloves folders rename too
-    (DECISIONS 2026-10-18 "a pre-Fox leading type moves only when `_` follows it…"); one
-    collision check after every rename (`drop_collisions`); review round 6.4.S5's three fixes;
-    the sidekick session that held the crate stalled twice, a fresh one finished; lead review:
-    a face.xml read struct and a redundant `Site` payload simplified; mutation diff 3 survivors,
-    one dead guard removed, two tested; review round 6.4.S6 3 accepted (loop ended), fixed
-    here (the link rule above); files: `export_upgrader/src/{model_names,face_xml,kit_magic,
-    materials,upgrade,lib}.rs`, `tests/cli/{carried,players}.rs`. Astra M-A2 on 6.4c-d 2
-    accepted (loop ended), fixed in a follow-up commit: an author's `kit1` beside a legacy
-    token written `Kit1` (DECISIONS 2026-10-18 "an author's `kit1` beside a legacy kit token
-    is written `Kit1`", five real VGL26 exports), and the compiler's `fmdl_texture_not_found`
-    now reports a bare `./` stem found nowhere (it called it supplied, against
-    `pipeline.md`); SWE-2 round 6.4.S7 on them 1 accepted (an empty FMDL directory is bare
-    too), loop ended
-- [x] 6.5 `settings.toml` generation (step 8) through `PlayerSettings::from_player` → verify:
-  EU-SET-*. Done 2026-10-18: every EU-SET scenario and EU-ROOT-01's settings half proven; step 8's
-  four codes, a Midcup output checking a missing custom model only for players with a folder,
-  a folder-claimed ID left out (DECISIONS 2026-10-18 "step 8's codes…"); `pes_savefile`
-  `from_player_skipping` leaves a value past its key's widest range out (EU-SET-09's real 183),
-  `aesthetics_export` `folder_player_name` public for the name rule; lead review: test helpers
-  shared with `players.rs`, EU-SET-09's face folder made pre-Fox; mutation diff 1 survivor (the
-  stock band's top, 100) tested; review round 6.5.S1 2 accepted (loop ended,
-  `.tmp/6_5/rulings.md`), fixed here; Astra 6.5.A1 1 accepted (loop ended), fixed in a
-  follow-up commit: a face-type cap no game measured (PES 17-18, PES 19's other nine) is the
-  field's bits in `pes_savefile`'s `face_type_cap`, so the compiler keeps EU-SET-05's cheek
-  type 5 (DECISIONS 2026-10-18 "an unmeasured face-type cap is the field's bits…"; TC-BIN-31
-  and SE-TOML-05 rewritten; mutation diff 10 caught; SWE-2 on it: 6.5.S2 6 accepted, 6.5.S3 3,
-  loop ended); the hair half waits for a real value;
-  files:
-  `export_upgrader/src/{settings,players,roster,upgrade,messages,lib}.rs`,
-  `tests/cli/{settings,roots,players,main}.rs`, `pes_savefile/src/settings_toml/`,
-  `aesthetics_export/src/{conventions/mod,validate/folders,lib}.rs`
-- [x] 6.6 referee exports (steps 9 and 12) → verify: EU-REF-*. Done 2026-10-19 (side-lead A on
-  `side/6.6`): every EU-REF scenario and EU-PLY-04's referee half proven, in three slices:
-  - [x] 6.6a `refs.txt` to the canonical `players.txt` (a line that does not parse kept for the
-    output validation), `ref_marker.dds` carried, the referee folders through the shared tail,
-    `refs_txt_missing` for a `refs` export without a roster; the `???` respelling takes the
-    export's identity (`Identity::path_id`, 999 for referees) instead of a `TeamId` (round
-    6.4.S3-4); mutation diff 52 caught, 2 unviable; files: `export_upgrader/src/{referees,
-    upgrade,kit_magic,materials,face_xml,messages,players,lib}.rs`, `help/01_command_line.md`,
-    `tests/cli/{referees,main,players}.rs`
-  - [x] 6.6b the flatten: `face/`, `boots/`, `gloves/`, `common/` folded into the referee
-    folder's root, an identical twin kept once, a byte clash, a cross-location stem clash or a
-    nested layout name leaving the folder as it was (`PlayerFolders::untouched`, outside step
-    7's renames and rewrites), a `common/` model no `face.xml` names left out, `ingame_face`
-    normalized (DECISIONS 2026-10-18 "steps 9 and 12's gaps…"); mutation diff 43 caught, 4
-    unviable; files: `export_upgrader/src/{referees,face_xml,players,upgrade}.rs`,
-    `help/01_command_line.md`, `tests/cli/{referees,players}.rs`
-  - [x] 6.6c references follow the files: a referee's Common reference his flattened folder
-    holds becomes `./<sub>` (a subfolder file's keeps step 7's subfolder rule), a bare texture
-    only the export's `Common/` holds gets the link, a `face.xml` Common value naming a flattened
-    file is written `./<rest>` while its `./` values stay (DECISIONS 2026-10-18 "a referee
-    `face.xml`'s `./` reference…"); mutation diff 52 caught; files:
-    `export_upgrader/src/{materials,face_xml}.rs`, `tests/cli/{referees,carried}.rs`
-  - [x] 6.6d the refs-compiler layout: a root `Refs list.txt` read when there is no `refs.txt`,
-    and without a `Players/` every root folder step 1 does not know a referee's (four of the
-    eleven real referee exports, Winter to Summer 25; DECISIONS 2026-10-19 "the refs-compiler
-    layout…"); also round S1-OE2 (a team's `face.xml` builds no folder listing); files:
-    `export_upgrader/src/{referees,source,face_xml,upgrade}.rs`, `help/01_command_line.md`,
-    `tests/cli/referees.rs`
-  - review: SWE-2 round 6.6.S1 on a573ffa..3183447 2 accepted, 4 rejected (loop ended;
-    `.tmp/6_6/rulings.md`, copied to the main tree), its two fixes 6.6d; Astra 6.6.A1
-    (checkpoint (b), top lead on main) 1 accepted, loop ended: the refs compiler's layout has
-    its own scenario, EU-REF-10, which its test now cites
-- [x] 6.7 loose mode (step 11) and the report's remaining classes (step 10) → verify:
-  EU-LOOSE-01, EU-REP-*. Done 2026-10-19 (side-lead D on `side/6.7`): EU-LOOSE-01, EU-REP-01
-  and EU-REP-03 proven (EU-REP-02 was 6.4b1's); each kind's block of 25 from its own lowest
-  folder ID, the pairing reported `wearer_assumed` (I), a spare or past-the-block ID
-  `unmigrated_content` as a whole, a named folder's `settings.toml` `name = true` alone
-  (DECISIONS 2026-10-19 "loose mode's block per kind, its pairing line, and the IDs naming
-  nobody"); step 10's classes needed no code, only the two scenarios' tests; mutation diff 24
-  caught; review: SWE-2 round 6.7.S1 on `5867e7a` (EU-REF-10) and the slice 3 accepted, 2
-  rejected (loop ended; `.tmp/6_7/rulings.md`): a test helper shared, the help's wording, the
-  real GBFG VGL26 gloves `g2522`/`g2523` named in step 11 as reported by design; files:
-  `export_upgrader/src/{players,settings,upgrade,messages}.rs`, `help/01_command_line.md`,
-  `tests/cli/{loose,report,players,main}.rs`, `plans/export_upgrader.md` step 11
-- [x] 6.8 model-folder mode (`upgrade-models`) → verify: EU-MF-*, EU-CLI-* (the rest, and
-  EU-CLI-04's and EU-CLI-05's `upgrade-models` halves: their tests cite the `upgrade` half only).
-  Done 2026-10-19 (side-lead F on `side/6.8`): EU-MF-01 to -06, EU-CLI-06 and the
-  `upgrade-models` halves of EU-CLI-04/05 proven. The copies are staged in the export layout
-  step 7's functions read and published one level up; a third `Identity` (no team) keeps `???`
-  and `u0???g` as written; the staged listing is validated as `models Midcup`, the placement
-  findings left out (DECISIONS 2026-10-19 "model-folder mode's input, names, validation and
-  report line"; plan "Model-folder mode" and "CLI" filled in, EU-CLI-04 widened, EU-MF-05/06
-  added). Review: SWE-2 round 6.8.S1 4 accepted, 2 rejected (loop ended; `.tmp/6_8/rulings.md`):
-  a folder is a model folder when it holds any file directly in it (5 of the 23 real /jp/ 2024
-  Winter Cup face folders hold no model), an empty folder is reported, EU-MF-05 for the
-  placement test, the help's link wording. Mutation diff 82 mutants, 3 missed: two tested, one
-  equivalent (`.cargo/mutants.toml`). Astra 6.8.A1 (top lead, on main): 3 accepted, loop ended,
-  the fixes in 6.9a. Files: `export_upgrader/src/{model_folders,upgrade,cli,
-  source,messages,kit_magic,materials,face_xml,naming,players,lib}.rs`,
-  `help/01_command_line.md`, `tests/cli/{models,cli,carried,main}.rs`, `tests/common/mod.rs`
-- [x] 6.9 the parity test (`team_compiler/testing.md`: an upgraded export compiles to Red's CPK
-  for the old one) and a census of every old export on the maintainer's machine through
-  `upgrade` (`AGENTS.md` "Closing a phase", the census template) → verify: every outcome class
-  tallied and diagnosed; a macOS archive's `__MACOSX/` or `._*` files, if any member export
-  holds them, are their own class (`.tmp/6_1/duck_rulings.md` S1a-2). Measured first
-  (2026-10-19, top lead, `.tmp/6_9/findings.md`): both tracers' `old/` upgraded and compiled
-  against their twins and Red's tree (game-facing output equal but for the gaps below); census
-  `before` over 713 inputs (293 folders, 420 archives; `F:\Music\`'s 2,203 archives counted, not
-  listed), 54 classes, every one ruled
-  - [x] 6.9a the gaps it found (DECISIONS 2026-10-19 "a hair skeleton renamed to pair, `.fpk.xml`
-    left out, an `.ftex` kit texture converted"): `fcl_hair_sim.skl` beside `fcl_hair.fmdl`
-    becomes `fcl_hair.skl`, `*.fpk.xml` left out, a `Kit Textures` `.ftex` converted to its DDS,
-    both modes; with Astra 6.8.A1's three (`upgrade-models` claims its output with `create_dir`,
-    refuses a `-o` naming no folder, EU-CLI-06's `-o` half) → verify: EU-IN-04, EU-PLY-13,
-    EU-KIT-15, EU-CLI-04, EU-CLI-06. Done (SWE-2, first attempt, red runs pasted): a converted
-    texture is its kit's own file, not seen by the copy between kits or the `all/` hoist, which
-    no real export misses (plan step 5); mutation diff 46, 0 missed. SWE-2 6.9.S1 2 accepted
-    (a `.dds` takes its stem from an `.ftex` whatever the letter case, the failed conversion
-    tested), 4 rejected as edge cases, loop ended (`.tmp/6_9/rulings.md`). Files:
-    `export_upgrader/{Cargo.toml,src/{source,model_names,kits,model_folders}.rs,
-    tests/cli/{input,players,kits,models}.rs}`, `plans/export_upgrader.md` steps 1, 3, 5
-  - [x] 6.9b the census rerun (`after`; the repository's copies under `AppData\Local\Temp\` left
-    out) with a regression check against `before`. Done: 639 inputs in both runs, 630 the same
-    outcome, 9 changed, every one to clean (INK VGL26 and 8 /fgog/ exports, their `.ftex` kit
-    textures converting); no regression; 230 report lines on `.fpk.xml` files gone, 3 of them
-    `merge_kept_shared` whose boots folders now merge (`1999  Aesthetics Export VGL26`)
-  - [x] 6.9c the parity cases: each tracer's upgraded `old/` committed as a golden
-    (`tests/fixtures/<tracer>/upgraded/`), an `export_upgrader` test that upgrading `old/` gives
-    it exactly, and a `team_compiler` parity case compiling it against `red/` (tool crates never
-    depend on tool crates: the golden is the link). Done (goldens by the lead at `0e52ddf`, tests
-    by SWE-2, first attempt, each check's perturbation pasted): the parity cases compile the
-    golden under the twin's `Midcup` tag, the `Full` tag's placeholder `p1` kit being the cut's
-    artifact (`spec/team_compiler/testing.md`); the Fox case passes the twin's table unchanged,
-    the pre-Fox one differs by the member's kept `face.xml` alone (`FaceXml::Kept`). Files:
-    `export_upgrader/tests/upgraded_golden.rs`, `team_compiler/tests/{parity,parity_prefox}.rs`,
-    `team_compiler/tests/upgraded/mod.rs`, both tracers' `upgraded/` and `README.md`
-- [x] 6.10 a referee tracer, the converge audit's one gap (`plans/export_upgrader.md`
-  "Verification": a Red-era referee export's flattened result "compiles identically to the
-  unflattened original"; the compiler reads no old layout, so this is parity against Red's CPK
-  for the original): a fixture `team_compiler/tests/fixtures/tracer_refs/` cut from a real
-  Red-era referee export of the maintainer's library (one or two referees, their `face/`,
-  `boots/`, `gloves/`, `common/` subfolders and `refs.txt`), with `old/`, Red's extracted CPK
-  as `red/` (Red `main`, made as the tracers' READMEs say), and the upgraded golden as
-  `upgraded/`; `upgraded_golden.rs` and a parity case of its own compiling the golden against
-  `red/` (tiers of `spec/team_compiler/testing.md`) → verify: both tests pass, each check's
-  perturbation red; every difference from Red tabulated with its reason, as the tracers' tables
-  do. Done 2026-10-19 (side-lead G on `side/6.10`):
-  - [x] 6.10a the fixture (lead): referee `masterchef` of the Fox export "refs lan party" (the
-    one Fox referee export with the old subfolders; the cup's are pre-Fox), slots 05, 23, 24,
-    three DXT5 textures reduced; `red/` from Red 4.4.0 `main` (`1a48fa5`; the two team
-    tracers' `red/` came from `e12aa01`, on `dev/pre-studio-format`), `upgraded/` from
-    `b496f48`; provenance scripts `scripts/provenance/tracer_refs/`; about 1.9 MB in git
-  - [x] 6.10b the tests (SWE-2, first attempt, seven perturbations pasted): the golden test's
-    referee case (no flag); `parity.rs`'s referee case, 63 rows: models decoded equal with no
-    directory normalized, textures at Red's own paths, no face for a referee with no face model
-    (Red packs `face_diff.bin` alone), `*.fpk.xml` dropped, the team side written for the bins
-    with Red's 20 referee configs as `UniformParameter.bin` entries; the egg cases' row loop
-    shared as `compare_table`. No difference was a defect. Review: SWE-2 6.10.S1 2 accepted,
-    2 rejected, loop ended (`.tmp/6_10/rulings.md` in the worktree). Mutation diff: nothing to
-    mutate (tests and fixtures only). Files: `team_compiler/tests/{parity.rs,
-    fixtures/tracer_refs/}`, `export_upgrader/tests/upgraded_golden.rs`,
-    `spec/team_compiler/testing.md`, `justfile`, `scripts/provenance/`
-- [x] 6.11 the team tracers' references from released Red: `tracer/red/` and
-  `tracer_prefox/red/` were compiled by Red `e12aa01`, on the unreleased `dev/pre-studio-format`
-  branch (both READMEs say so), which no member ever ran, the premise 6.0c corrected for the
-  inventory (DECISIONS 2026-10-18 "the 5.0c Red inventory re-read on released Red"). Recompile
-  both `old/` exports with Red `main` (`1a48fa5`, 4.4.0) as `tracer_refs`' README does, and
-  diff each against the committed `red/` → verify: equal, or every difference diagnosed: a
-  development-branch behavior replaced by released Red's in `red/`, the README's provenance
-  corrected, the four parity cases' tables updated with each new difference's reason, and a
-  real compiler or upgrader defect reported rather than tabulated. Done 2026-10-19 (side-lead G
-  on `side/6.11`, `scripts/provenance/red_main/run_red.py`): `tracer/red/` equal, all 17 files
-  byte for byte; `tracer_prefox/red/` equal but for the face CPK's `ETOC` modification times
-  (its 20 entries byte for byte; two runs of the same Red differ there too), the committed face
-  CPK now released Red's; no parity table changed; both READMEs' provenance corrected. Red's
-  `Engines/templates/` is the same on both branches (`git diff 1a48fa5 e12aa01 --
-  Engines/templates` empty), and `resources/templates/` equals `main`'s files. Files: both fixtures' `README.md`,
-  `tracer_prefox/red/.../face/real/73120.cpk`, `scripts/provenance/{red_main/,README.md}`,
-  `resources/templates/README.md` (its sources also `main`'s). Review: SWE-2 6.11.S1 6 accepted,
-  S2 2 accepted, loop ended (`.tmp/6_11/rulings.md` in the worktree)
-  - [x] 6.11a Astra A1b-1 (converge review, accepted): `parity_prefox.rs`'s two texture arms
-    (`Row::Texture`, `Nested::Texture`) also compare the decoded mips, so a wrong header in
-    ours fails (red: our mip count set to 2 fails both cases, the decode refusing `Truncated`)
-- [x] 6.12 the library parity, Phase 6's own verification (`plans/core/development_plan.md`
-  "Phase 6", `spec/export_upgrader.md` "Verification"'s last paragraph,
-  `plans/team_compiler/testing.md`): every old export of the maintainer's library upgraded,
-  compiled, and its game-facing output compared with Red's for the same export; delivered so
-  far are the three tracers and 6.9b's upgrade census (Astra 6.close.A1b-5). Slices: (a) a
-  compile census: every 6.9b census input that upgrades, compiled, tallied by outcome, every
-  failing class diagnosed; (b) a Red pilot on a sample, measuring Red's time per export and the
-  comparison's difference classes (the intentional differences of `spec/team_compiler/testing.md`
-  normalized as the tracers' tables do); (c) the whole library, every difference class diagnosed
-  as intentional (named in `testing.md`) or a defect (fixed, its regression rerun) → verify: the
-  tallies, every class diagnosed, no undiagnosed difference; the committed form of the test (the
-  hash manifest `plans/team_compiler/testing.md` describes, or a measurement rerun at closes)
-  decided from (b)'s measurements and logged
-  - [x] 6.12a the compile census (2026-10-19, side-lead H, branch `side/6.12`): the 320 census
-    inputs that upgrade (229 clean, 91 with an output beside an Error), re-upgraded and
-    compiled with the release binary at 00950a0, `compile --no-deploy`, PES 21 for Fox and 17
-    for pre-Fox (the cup's pre-Fox version; at the upgrader's loose-mode 16, 8 pre-Fox exports
-    fail `xml_oral_prefix_missing` alone): 106 compile exit 0, 214 exit 1 (143 of the 229
-    clean upgrades), 29 Error codes, every class diagnosed in the slice's report (`.tmp/6_12/`
-    in the worktree: `compile_census.py`, `tally.py`, `census_final.txt`,
-    `error_contexts.txt`, each input's two logs under `work*/<n>/`). The three largest are
-    content the compiler refuses where Red packs it as written: a Fox model naming a texture
-    its folder lacks (80 exports, 25 of 53 VGL26 exports), a pre-Fox mesh over 21845 faces
-    (71, FGOG's and O's history), a `face.xml` naming a missing file (51, which Red refuses
-    too). Defect candidates reported, not fixed: a `Common/` `.model` the pose pre-check
-    converts with the wrong `.mtl` (`model_conversion_failed`, 4 VG exports); a stray `\`
-    text node failing an `.mtl` Red parses (`mtl_broken`, G Autumn 25); 23 worn boots kept
-    shared exhausting the 17 shared IDs (`boots_id_pool_exhausted`, KFG VGL26)
-  - [x] 6.12b the Red pilot (2026-10-19, side-lead H): 27 census inputs spanning the shapes
-    compiled by Red `main` 1a48fa5 from a fresh copy each (1.0-10.4 s per export, one crash
-    on `refs for Spring 25 Q Day 1`) and compared with ours by the measurement tool
-    `team_compiler/examples/red_parity.rs` (one classified line per Red entry; its header
-    defines the classes): 7,660 lines, 4,470 equal or `dropped_fpk_xml`, every other line in
-    one of 17 intentional classes (relocation, planned IDs, `kitN`, `Full` placeholders and
-    rebuilt bins, number atlases re-arranged, re-encodes, unlisted pre-Fox models not packed,
-    the template `face_diff.bin` for a modelless folder, IR re-binding), 8 stricter-than-Red
-    classes with Red's package shown present, or the three defect candidates; written for
-    the top lead in `.tmp/6_12/classes.md` of the worktree, with `pilot_tally.txt` (copies in
-    the main checkout's `.tmp/6_12/`)
-  - [x] 6.12c (run 2026-10-19, 2ec367e; `.tmp/6_12c/`: `library.py`, `attribute.py`,
-    `findings.md`) the 250 clean upgrades of census 614 through Red and `red_parity`: 53,368
-    lines after the rerun of 103 exports with a fixed pairing, every one in a class
-    (`attribution_summary.txt`; one checked by hand); intentional classes I1-I28, the error
-    classes' export lists in `attribution.txt` (the stricter-than-Red ones); defects D1-D4,
-    D6, D7 and D9 to 6.16; Red crashes on two referee folder exports every time (`os.remove`
-    on a directory), ours compiles them clean; `red_parity` pairs unpaired candidates first
-    and keeps the closest; `cpk_list` extracts. The one in-game check it raised is 6.16c.
-    Was:
-    the library: the other ~290 upgradable inputs through Red and `red_parity`
-    (about 4 s of Red and 2 s of ours each), pre-Fox ones compiled for PES 17
-    (`--prefox-version 17`), Red rerun on input 106, disk bounded per export
-    (keep both CPK sets' hash manifests, Red's logs and `parity.tsv`; the copies and CPKs
-    removed after comparing; the 10 GB floor checked before each job and before any gates
-    run); the scripts in the worktree's `.tmp/6_12/` (`red_pilot.py`, `pilot_tally.py`) →
-    verify: a per-class tally over the library, every line in a class of `classes.md` or a new
-    one diagnosed, each stricter-than-Red class's export list ready for the maintainer
-  - [x] the committed form decided (2026-10-20, DECISIONS "the library parity is a measurement
-    rerun at phase closes"; `plans/team_compiler/testing.md`, AGENTS.md "Closing a phase"): a
-    rerun at each phase close touching the compiler or the upgrader, no hash manifest
-  - [x] 6.12d (2026-10-20, lead) the scripts committed under `scripts/library_parity/`: the
-    upgrade census (`find_folders.py`, `find_archives.py`, `census.py`, `regress_check.py`,
-    `analyze.py`) and the library run (`library.py`, `attribute.py`, `tally.py`), the machine
-    paths in `config.py`, outputs under `.tmp/library_parity/`, the class table `classes.md`
-    (D4 became I34 at 6.16d), `README.md` with the order of a rerun; `library.py --frozen`
-    reruns an earlier run's binaries; verified: the rerun over 6.16's 78 inputs with 616's
-    binaries gives `rows_616.tsv`'s rows (every column but the timings) and its attribution
-    summary; `regress_check.py`, `analyze.py` and `find_folders.py` give the old copies'
-    outputs byte for byte
-- [x] 6.13 the library parity's defects (6.12a-b, `.tmp/6_12/classes.md` C1-C3, and the top
-  lead's D), each reproduced on its real export before it is fixed:
-  - [x] 6.13a (2026-10-19) the `.mtl` search's name match reads a model stem carrying both
-    `oral_` and `_win32` without them, as Red does (`spec/model_format.md`, DECISIONS
-    2026-10-19): the 4 VG 2018 exports' `Common/oral_fbm_u_win32.model` paired `apc.mtl` by
-    "any" where `fbm.mtl` defines `fbm_u`, failing its conversion pre-check and the whole
-    Common task (the pre-check itself is the plan's: an off-skeleton Common model is re-bound);
-    `mtl_search.rs` (`match_stem`), `face_xml.rs` (the affix consts shared), a `CommonModels`
-    task test in `processing/mod.rs`
-  - [x] 6.13b no code (2026-10-19): `boots_id_pool_exhausted` on KFG VGL26 came from a
-    half-migrated output. The export is Fox, but its side folder `FMDL Boots/` (unmigrated
-    content) holds `boots.model` copies, which made loose mode migrate it as pre-Fox, where
-    item folders never merge: 23 single-wearer boots folders stayed shared, past the block's
-    17 shared IDs (no `merge_kept_shared`: the class note's byte-clash reading was wrong).
-    A copy without `FMDL Boots/` upgrades clean (exit 0) with the 23 boots merged into the
-    player folders (`.tmp/6_13/b/up2`); the fix, a leftover not deciding the engine, is 6.14's
-  - [x] 6.13c an `.mtl` with a stray text node (G Autumn 25's `72117 - Lisa/apc.mtl`, a `\`
-    after a `<sampler/>`) is `mtl_broken` where Red's ElementTree ignores it (census: 3 such
-    files of 12,755, all typos). The compiler stays strict; the upgrader cleans it (AGENTS.md
-    "Fundamental concepts", DECISIONS 2026-10-19, plan step 7, `mtl_stray_text_dropped`):
-    - [x] `pes_model`: `MaterialSet::read_dropping_stray_text` beside the strict `read`, one
-      shared parse (`format/mtl.rs`, 2026-10-19)
-    - [x] `export_upgrader`: every old `.mtl` read with it and written back when it dropped
-      text; one that does not parse even so is unmigrated content (`materials.rs`, EU-MDL-17,
-      EU-MDL-18; 2026-10-19 with 6.14a) → verified: G Autumn 25 upgrades clean, Lisa's
-      `apc.mtl` written back without the `\`; compiled for PES 17 her folder no longer meets
-      `mtl_broken`, but B3's `model_material_undefined` (her `oral_kit_win32.model` uses
-      `medic`, which none of her `.mtl` files defines; Red packs it), diagnosed in 6.12c as
-      a stricter-than-Red class by the plan's rule (`attribution.txt` "error:
-      model_material_undefined", 15 exports; DECISIONS 2026-09-13)
-  - [x] 6.13d not an upgrader defect (2026-10-19): `xml_oral_prefix_missing` is the compiler's
-    PES 16-only rule, which the upgrader cannot report, and its shared validation reads only
-    the version's engine, so 16 or 17 gives one outcome; the 8 exports met it because the
-    census compiled each pre-Fox output for PES 16. 6.12c compiles them for 17, the cup's
-    version (`compile_census.py --prefox-version 17`)
-- [x] 6.15 (2026-10-19; `plan/ids.rs` `folder_ids`, `plan/mod.rs`, `validation.rs`, tests across
-  `tests/cli/`; TC-MOD-94 compiles 20 one-wearer pre-Fox folders under k0621 to k0640) a shared
-  boots or gloves folder exactly one player links takes that player's own ID
-  (maintainer, 2026-10-19; DECISIONS 2026-10-19): only folders two or more roster players link
-  take the block's 17 shared IDs, so a Full export never exhausts them (23 slots give at most
-  11), where today a pre-Fox export, whose upgrade keeps every worn item folder shared, fails
-  past 17 worn folders (a team ported from Fox with about 20 boots models). `team_compiler`
-  `plan/ids.rs` (`shared_folders_taking_ids`, `assigned_shared_ids`) and the rows and paths
-  that read the IDs; a Midcup's recorded folder keeps its recorded ID;
-  `spec/aesthetics_export/player_folders.md` "Assigns IDs automatically" and the Midcup
-  paragraph edited with the code. Such a folder is still packed as a boots or gloves package under that ID, never through
-  the player's face folder: an `ingame_face` player must get no face folder at all, since with
-  the cup's "modified face" flag always off any face folder overrides his in-game face
-  ("`ingame_face` marker"). Scenarios rewritten:
-  TC-MOD-05, -06 (now a `Midcup`'s, a `Full` export no longer reaching the pool), -07, -17,
-  -22, -38, -57, -79, TC-TEX-01, TC-BIN-12, -34, -35, -36, -41, TC-PLN-02; new TC-MOD-94 → verify:
-  TC-MOD-94 (a pre-Fox export of 20 single-wearer boots folders, 15 wearers `ingame_face`,
-  compiles, each folder under its wearer's ID, no face CPK for an `ingame_face` wearer); a
-  folder two players link keeps a shared ID; the parity tracers unchanged (none links a shared
-  folder). The pre-Fox save record naming the ID is not checked: pre-Fox compiles write no
-  item IDs to the patch yet
-- [x] 6.14 an upgrade writes a clean export or nothing (maintainer, 2026-10-19; AGENTS.md
-  "Fundamental concepts", DECISIONS 2026-10-19, plan "Verification", "CLI", "GUI", catalog
-  `migration_not_clean`, written): the run with any Error, or a finding that drops anything but
-  a leftover, writes no output; a leftover outside the old format's layout (step 10: a
-  top-level folder the AET does not define, a root file other than the Note, `Other/`'s files)
-  is dropped with `leftover_dropped` (W) and the run stays clean (maintainer, the same day),
-  and a leftover's `.model` does not make the migration pre-Fox (6.13b: the real KFG VGL26
-  export then upgrades clean as Fox, its `FMDL Boots/` reported).
-  The plan's scenarios that asserted output contents beside exit 1 are rewritten (70b245e:
-  each THEN says nothing is written, a clean twin where its positive half was covered
-  nowhere else); the code and tests in two SWE-2 slices, each with its `mutants-diff`. → verify: the 6.9b
-  census rerun, every exit 1 run writing nothing, no exit 0 run lost (229 before), the
-  leftovers' runs now clean; the classes of real exports that still fail (`Boots/` items in
-  19 inputs, `Kit Textures/` in 11, portraits in 8, `.tmp/6_13/unmigrated_tally.py`) each
-  diagnosed with the maintainer's check: an input defect, or an upgrader gap fixed under
-  this step
-  - [x] 6.14a (2026-10-19) leftovers: `is_leftover` and `leftover_dropped` in `upgrade.rs`,
-    the run kept clean by them, a leftover's `.model` deciding no engine; a referee export's
-    Note a leftover too (plan step 9); EU-REP-01 rewritten, EU-REP-04 new. Verified on the
-    real KFG VGL26 export: exit 0, its 23 boots merged into the player folders, no `Boots/`,
-    the 322 `FMDL Boots/` files reported as leftovers
-  - [x] 6.14b (2026-10-19) the write-nothing gate: both commands write into
-    `<output>.upgrading`, validate it there and rename it when clean or remove it when not
-    (`upgrade.rs` `finish_staging`, shared with `model_folders.rs`); the rename and removal
-    retry about 2 s on "access denied" (`retry_while_locked`: a just-written file held by
-    another process failed one test run in three); an existing staging folder is refused
-    (EU-CLI-05). Every "nothing is written" THEN's test asserts its finding and an empty
-    output (`Sandbox::assert_nothing_written`); new tests EU-PLY-14, EU-KIT-16 to -18,
-    EU-REF-11, EU-LOOSE-02, EU-REF-10's root referee `.model`; EU-REF-05's fixture got its
-    referee folder. EU-KIT-11 (the split had kept a dropped line's THEN) and EU-MF-01 (its
-    gloves model sat in a boots folder, never clean) rewritten
-  - [x] 6.14 verify run (2026-10-19, 26c59b4; `.tmp/6_15/census_614_classes.md`): the 6.9b
-    census rerun, 250 inputs clean (229 before, the 21 new through leftovers), no clean input
-    lost, every exit 1 run writing nothing. The 57 inputs still unmigrated, by class: item
-    folders loose mode cannot place (spare positions 24-25 or outside the old block, which
-    the cup's save resolves), files directly in `Faces/`/`Boots/`/`Gloves/`, kit textures (a
-    Midcup's texture-only update, a `Full` export's slot with no config, copies, second GK
-    kits), misnamed portraits, two Note lines, and input defects or non-exports by design.
-    Three classes wait on the maintainer (`QUESTIONS.md` "Old content that never reached the
-    game", "A Midcup kit that updates its textures only", "A second goalkeeper kit")
-  - [x] 6.14c (2026-10-19; `carried.rs` `portrait_name`, EU-MDL-19's test) a portrait Red
-    converted or read by its short name migrates (plan step 7, DECISIONS 2026-10-19), keeping
-    its format; verified on BAG VGL18.5's real archive: `player_XXX08.jpg` and `XXX17.jpg` no
-    longer reported, its four misnamed portraits still are; half wrong (6.12c, DECISIONS
-    2026-10-19 "correction"): Red's check discarded `XXX17.jpg`, which 6.16a makes a leftover
-- [x] 6.16 the maintainer's answers of 2026-10-19 and the 6.12c library run's defects
-  (DECISIONS 2026-10-19: the correction on portraits, `Portraits/NN`, content that never
-  reached the game, a `Midcup` kit keeping what it does not resend, no second GK slot, an empty
-  face folder; plan `export_upgrader.md` steps 2, 3, 7, 10, edited). Closes 6.14's parent step
-  with it. → verify: the census rerun (the 6.14 classes the answers cover now clean or
-  leftovers), and the 6.12c run over the exports each slice touches, D1-D3, D6, D7 and D9
-  gone and D4's `.mtl` half refused
-  - [x] 6.16a the upgrader: the leftover kinds of step 10 (files directly in `Faces/`,
-    `Boots/`, `Gloves/`; a `Full` export's kit texture no kit row names, a Kit Textures
-    subfolder; portraits Red's check refused; a team-color entry's second color; an item
-    folder no save record names; second and later GK kits); a `Midcup`'s texture-only kit
-    update as a kit folder without `config.toml`; `Portraits/NN.<ext>`; an empty face folder
-    seen, so its player folder gets no `ingame_face` (D1: PMMM, GIG VGL26); a boots or
-    gloves folder with no model marking its wearers `fpc_on`, its files leftovers (D3: EGG
-    VGL26's `k2176 - EMPTY`, 9 exports; maintainer, 2026-10-19); a stray file a folder is
-    refused for dropped as a leftover, the folder kept (D6: `face.mtl.backup` in M Winter 18
-    and two others; D9: `boots - Copy.fmdl` in `C-blin`, today merged into the wearer's hair);
-    a face folder holding the game path migrating its innermost folder (D7: FGOG VGL6, FGOG
-    minipatch, /co/ fetus); the output's validation with the strict file-type check (DECISIONS
-    2026-10-19). Scenarios written (2026-10-19, lead); checkpoint (a) review before the briefs.
-    Three slices, each its own commit:
-    - [x] 6.16a1 portraits: the shared rule (`aesthetics_export` `check_portraits`: `NN` or
-      `NN - <text>`, two of one slot conflicting; plan `aesthetics_export/object_model.md`
-      "Validation semantics"), with the compiler's tests and spec rows naming the old form;
-      the upgrader writing `NN` and dropping the names Red's check refused (EU-MDL-01, -19);
-      the output's strict file-type check (EU-REP-02). Done 2026-10-19 (SWE-2): `folder_slot`
-      the one slot parse of folders and portraits (`003.dds` is slot 03, as a folder `003`),
-      `CarriedFiles::leftovers` read by the run's fallback, the compiler's tests, help and spec
-      rows renamed. Files: `aesthetics_export/src/{conventions/mod,validate/root,validate/roster}.rs`,
-      `export_upgrader/src/{carried,upgrade}.rs`, `export_upgrader/tests/cli/carried.rs`,
-      `team_compiler` tests and `help/01_command_line.md`, `docs/spec/{aesthetics_export,team_compiler}/`
-    - [x] 6.16a1b the review's follow-ups (SWE-2 S2, `.tmp/6_16/rulings.md`): the shared
-      codes `file_type_disallowed` and `common_file_disallowed` reported as Errors (the
-      catalog took the strict check as off), EU-MDL-19's subfolder file and EU-MDL-20
-      (`messages.rs`, `tests/cli/carried.rs`)
-    - [x] 6.16a2 player and item folders: EU-PLY-06, -10, -15 to -20, EU-REF-01; the stray
-      rule in every old folder (`Common/`, `Collars/`, `Kit Configs/`, `Logo/` too): one
-      `players::is_stray` each walker filters through first; empty face folders and
-      modelless item folders (`fpc_on`) from the folder listing; a game-path face folder's
-      innermost folder moved (`players.rs`, `carried.rs`, `kits.rs`, `referees.rs`,
-      `model_folders.rs`, `upgrade.rs`, `tests/cli/`). Model-folder mode does not move a
-      game-path folder: no real input is known, and one fails loudly (`file_type_disallowed`)
-    - [x] 6.16a3 kits and the Note: EU-ROOT-07, EU-KIT-04, -08 (any export kind's
-      non-texture names), -12, -16, -19: Kit Textures leftovers, a `Midcup`'s texture-only
-      kit, `GK2nd`+ configs and second `gk:` entries as leftovers, a two-color team entry's
-      first kept (`kits.rs`, `upgrade.rs`, `tests/cli/{kits,roots}.rs`); with 6.16a2b (an
-      `fpc_on` player's other category's 0 written, Astra A1-1, `settings.rs`) and 6.16a2c
-      (slice 2's mutation survivors, `players.rs`)
-  - [x] 6.16b the compiler: in a `Midcup`,
-    a kit folder without `config.toml` keeps the installed config and one with no texture
-    keeps the installed textures, a `colors.txt`-only folder updating the colors alone (D2:
-    six Midcups compiled checkerboard kits); a `.mtl` Common path whose subfolder is not three
-    characters long refused as a `face.xml`'s is (`mtl_common_path_invalid`, the plan's
-    `messages.md` row; D4: 8 exports' faces kept where Red discards them); spec rows (`messages.md` `kit_placeholder`,
-    `kit_config_generated`, `mtl_common_path_invalid`;
-    `spec/team_compiler/pipeline.md` "Bins accumulation") with the code. The upgrader's side of
-    D4 is 6.16d. Done: a `Midcup`
-    kit's missing config edited in place as an unresent slot's, the template only where
-    nothing is installed; no placeholder or mask template; no colors kept installed
-    (TC-KIT-33, -34; `plan/mod.rs` `keeps_installed`, `bins/kit_configs.rs`,
-    `processing/kit.rs`, `output/writer.rs`); `mtl_common_path_invalid` sharing
-    `face.xml`'s predicate (`deep/materials.rs`, `user_face_xml.rs`). With 6.16a3b: slice 3's
-    mutation survivors (`export_upgrader` `first_of_two_colors`)
-  - [x] 6.16c in game (PES 21): a one-sided hand split, HDG VGL26 slot 22 `EAT`, whose
-    full-body `fcl_hair.fmdl` (hands posed holding the launchers) gives a gloves package holding
-    `glove_l.fmdl` alone (spec `model_conversion/hand_split.md`). Done: nothing to change in the
-    compiler (DECISIONS "a hand split takes stray hand weights as they are"): two chest-armor
-    vertices (seven loop entries) carry `sk_chest` 253-254 and 1/255 on two `skh_pinky_*_l`
-    bones, a model issue; the split moves them and their grow ring (20 vertices, 10 `armor`
-    faces) into `glove_l` (`.tmp/6_16/fmdl_dump/`).
+6.16c (a one-sided hand split, HDG VGL26 slot 22 `EAT`):
     manual: checked 2026-10-19, PES 21 Edit mode (`.tmp/6_16/ingame/`, the export upgraded
     `--loose` and compiled by dc30c45; /hdg/ is the maintainer's save's VGL 33, team 803; save
     backed up and restored): the compile's `GloveList.bin` rows never reach an outfield player
@@ -1024,29 +483,6 @@ tests; 6.0c, the compiler-side re-check, runs beside them.
     in the save records (80306 gloves 4186, 80322 gloves 4202, the route the cup uses today):
     slot 06 wears its crossbow gloves (`w01.png`); EAT shows no stock hands, and the split's
     patch floats as a speck beside the model (`w02.png`, `w02_speck.png`)
-  - [x] 6.16 verify (2026-10-20, `.tmp/6_16/verify/verify_616.md`): the census rerun at 29f21d9
-    (275 clean, 250 before; every exit 1 writing nothing; the two CM inputs' empty `711XX` an
-    input defect Red's own check reports) and the library run over 78 inputs (D1-D3, D6, D7,
-    D9 gone or intentional, D4's `.mtl` half refused; new classes I29-I33). Its findings:
-    - [x] 6.16a5 (2026-10-20, SWE-2) a texture the old compile's ID rename replaced is a
-      leftover (`kit_magic.rs` `drop_collisions`, `old_compile_name`, EU-MDL-21; DECISIONS
-      2026-10-20); verified: JP Genso Cup x2, JP Winter Cup Garbage Day and GBPEN VGL26 upgrade
-      clean, JP's `kit2.dds` the newer `u0XXXp2.dds` (sha `52e8c6b`); the mutation run's six
-      survivors closed by 6.16a5b (an exact-output test, an equivalent guard removed)
-    - [x] 6.16b7 (2026-10-20, SWE-2) a `Midcup` kit without `colors.txt` keeps its installed
-      `UniColor.bin` entry, the extraction not run (`processing/kit.rs`, TC-KIT-36; DECISIONS
-      2026-10-20; TC-KIT-12, -13 and -25's tests now compile `Full` exports, as their scenarios
-      name no coverage); verified: the library rows of JP 2024 Spring Day 5 and VG Day 0 Midcup
-      rerun (`.tmp/6_12c/jobs_616b7`), no `UniColor.bin` difference left, no line unattributed
-    - [x] 6.16d (2026-10-20, SWE-2) the upgrader's side of D4 (maintainer, 2026-10-20;
-      DECISIONS "a Common path spelled with the team's name is the team's Common", widened the
-      same day to any pre-Fox segment): a pre-Fox Common segment of any name is the team's
-      Common, one of another length than three written as the team's ID (`materials.rs`
-      `common_segment`, `face_xml.rs` `respell_common_segment`, EU-MDL-22); verified: the 15
-      library exports (14 /o/ and VG, ASP 4CCC) rerun (`.tmp/6_12c/jobs_616d`), upgrades exit
-      0, no `mtl_common_path_invalid`/`xml_common_path_invalid` left, every other compile code
-      as in 616 (ASP now exit 0), every parity line attributed: D4 becomes I34 (Red discards a
-      face whose Common path names the team, ours migrates it); `mutants-diff fec6694` 24/24
 
 ### Phase 8 — GUI
 

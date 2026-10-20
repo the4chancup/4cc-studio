@@ -408,3 +408,38 @@ placeholder views, tested with Phase 8's views, and an error arm only Linux reac
 view). The citation audit (`CONTRIBUTING.md` "Citation audit") ruled every test it found not
 proving its scenario. At the close (2026-10-17): `just gates` green, 3513 tests in 63 test
 runs, none failed or ignored; acceptance 442 scenarios (4 manual, 9 withdrawn), all proven.
+
+### Phase 6: Export upgrader (`tools/export_upgrader`)
+
+The one-time migration of AET exports to the Studio format ([Export upgrader](../export_upgrader.md)),
+the only place old-format knowledge lives, through the CLI: `upgrade` (steps 1 to 12) and
+`upgrade-models` (model-folder mode). The glTF pass (step 13) is Phase 7's, the view Phase 8's.
+
+- Old-format export loading (a folder, `.zip` or `.7z`), the team resolved from the Note or the
+  name, the savefile-driven ID→player mapping (or loose mode), player folders merged from
+  single-wearer model folders and shared folders with link files for the rest, kits
+  restructured (binary configs → `config.toml`, `colors.txt` and the `icon_<N>` marker from the
+  Team Note), portraits, logo, Common and the pre-Fox model renames, `settings.toml` generated
+  from the save's records, referee exports flattened.
+- The clean-output rule: an upgrade starts from a clean Red export and writes a clean Studio
+  export or nothing, staged in `<output>.upgrading` and published by the verdict; content that
+  never reached the game is a leftover, dropped with a Warning. The quirks old files carry (an
+  `.mtl`'s stray text) are cleaned by the upgrader's own tolerant reads, the compiler staying
+  strict.
+- On the Team compiler's side, what the upgraded library showed it needed: a boots or gloves
+  folder one player wears takes his exclusive ID, the shared IDs only for folders two or more
+  wear; a Midcup kit keeps the installed config, textures and colors it does not resend; the
+  `.mtl` search reads `oral_X_win32` as `X`.
+
+**Verification (done):** every EU scenario but the GUI's cited by a test; the three tracers
+(Fox, pre-Fox, referee) upgraded into committed goldens and compiled against Red's committed
+output (`team_compiler/testing.md`); the upgrade census of every old export on the maintainer's
+machine (639 inputs, 279 clean, every unclean run writing nothing), and the library parity
+against released Red over the clean ones, every difference attributed
+(`scripts/library_parity/`). In game: a hand-split face's gloves on PES 21 (worklog 6.16c).
+The closing whole-crate mutation runs (2026-10-20, extra kinds included, split with the VPS):
+`export_upgrader` 981 caught, 6 missed, 1 timeout, 102 unviable; `team_compiler` 2532 caught, 3
+missed, 3 timeouts, 405 unviable; every survivor a test added, an equivalent pinned, or the
+placeholder views Phase 8 replaces. At the close (2026-10-20): `just gates` green,
+3987 tests passed in 67 test runs, 6 ignored (the GPU tests); acceptance 652 scenarios (10
+manual, 9 withdrawn), 564 proven, the 88 unproven Phase 8's GUI scenarios.
