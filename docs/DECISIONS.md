@@ -9547,3 +9547,27 @@ list is data; the icon rail (ST-SIDE-02) needs a glyph per entry and the plan na
 0.0.1 preview uses the same list: a build registering the two editors shows the Team compiler
 and the Export upgrader grayed, as the maintainer asked.
 Plan: `plans/core/architecture.md` "Tool plugin interface".
+
+## 2026-10-20 — studio_core — The CLI probes for `data_dir_read_only`; CLI notices go to stderr
+Decision: the CLI raises `data_dir_read_only` at startup from a probe (the settings file opened
+for writing, nothing written) and prints it as stderr's first line; the GUI raises it from a
+failed save and drops it at the next successful one, with no probe. Notices a tool publishes
+during a CLI command print on stderr as they occur.
+Why: the CLI never writes settings, so no save of its own can fail and ST-CLI-01 needs another
+source; a probe that writes nothing leaves the file's time and contents alone. The GUI's first
+tool switch saves anyway, so a probe there adds a second rule for the same condition. Stderr,
+not stdout, because stdout carries the findings a script reads.
+Plan: `plans/core/gui.md` "Status bar", the "CLI equivalence" bullet.
+
+## 2026-10-20 — studio_core — No `pes_install_missing` condition; a settings save edits the file in place
+Decision: `ShellCondition::PesInstallMissing` goes: a PES folder that is missing, or holds no
+exe or another version's, is the version selector's coloring alone. `Settings::save` edits the
+existing file through `toml_edit`, writing only the values that changed, instead of
+regenerating it.
+Why: the condition and the selector's yellow reported one fact twice, and the selector is in
+every tool's sidebar, so a status-bar line adds nothing but a second place to keep in step (the
+side-lead's 8.2 note flagged it; the review A1 found the condition raised nowhere). The save:
+since 8.6a every tool switch saves `last_tool`, and a regenerated file drops the comments and
+order a member wrote by hand, which they do until the settings menu exists (AGENTS.md "User-facing
+TOML is edited, never regenerated").
+Plan: `plans/core/gui.md` "Settings menu" (the best-effort bullet); `spec/core/gui.md` "Status bar".

@@ -32,6 +32,18 @@ pub fn user_config_dir() -> Option<PathBuf> {
     Some(BaseDirs::new()?.config_dir().join("4cc-studio"))
 }
 
+/// Whether the data directory's settings file opens for writing — the CLI's source of
+/// `data_dir_read_only` (gui.md "Status bar" "CLI equivalence"): the CLI writes no settings,
+/// so nothing else could raise the condition. The probe opens the file for writing without
+/// creating or truncating it and writes nothing, so the file's bytes and modified time are
+/// untouched; it reports `false` on a read-only file or folder, or a missing file.
+pub fn settings_file_writable(data_dir: &Path) -> bool {
+    std::fs::OpenOptions::new()
+        .write(true)
+        .open(data_dir.join(SETTINGS_FILE_NAME))
+        .is_ok()
+}
+
 #[cfg(test)]
 mod tests {
     use std::fs;
@@ -130,5 +142,52 @@ mod tests {
     #[test]
     fn user_config_dir_ends_in_the_app_folder() {
         assert!(user_config_dir().unwrap().ends_with("4cc-studio"));
+    }
+
+    #[test]
+    fn the_writable_probe_reads_a_read_only_file_as_unwritable_and_touches_nothing() {
+        let root = sandbox("writable");
+        let data = root.join("exe/data");
+        fs::create_dir_all(&data).unwrap();
+        let file = data.join(SETTINGS_FILE_NAME);
+        fs::write(&file, "[common]\npes_version = 19\n").unwrap();
+
+        // The file's bytes and modified time are read before each probe and again right
+        // after it, on real text: a probe that truncates or rewrites the file shows in
+        // them. Everything is collected before the file is writable again, so a failed
+        // assert cannot strand the sandbox.
+        let bytes = fs::read(&file).unwrap();
+        let modified = fs::metadata(&file).unwrap().modified().unwrap();
+        let probed_writable = settings_file_writable(&data);
+        let bytes_after_writable = fs::read(&file).unwrap();
+        let modified_after_writable = fs::metadata(&file).unwrap().modified().unwrap();
+
+        let mut permissions = fs::metadata(&file).unwrap().permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&file, permissions).unwrap();
+        let probed_read_only = settings_file_writable(&data);
+        let bytes_after_read_only = fs::read(&file).unwrap();
+        let modified_after_read_only = fs::metadata(&file).unwrap().modified().unwrap();
+        let mut writable = fs::metadata(&file).unwrap().permissions();
+        #[expect(
+            clippy::permissions_set_readonly_false,
+            reason = "a test fixture must get its writable bit back or the sandbox cannot be cleared"
+        )]
+        writable.set_readonly(false);
+        fs::set_permissions(&file, writable).unwrap();
+
+        assert!(probed_writable, "a writable file probes true");
+        assert!(!probed_read_only, "a read-only file probes false");
+        assert_eq!(bytes_after_writable, bytes, "the probe writes nothing");
+        assert_eq!(
+            modified_after_writable, modified,
+            "the probe leaves the modified time alone"
+        );
+        assert_eq!(bytes_after_read_only, bytes, "the probe writes nothing");
+        assert_eq!(
+            modified_after_read_only, modified,
+            "the probe leaves the modified time alone"
+        );
+        fs::remove_dir_all(&root).unwrap();
     }
 }

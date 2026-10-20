@@ -14,11 +14,12 @@ use crossbeam_channel::unbounded;
 use log::LevelFilter;
 use studio_core::egui_phosphor::regular;
 use studio_core::{
-    AppPaths, LaunchMode, PlannedTool, SETTINGS_FILE_NAME, Settings, StudioApp, StudioTool,
-    ToolContext, parse_launch, resolve_data_dir, run_cli, run_gui, user_config_dir,
+    AppPaths, LaunchMode, PlannedTool, SETTINGS_FILE_NAME, Settings, ShellCondition, StudioApp,
+    StudioTool, ToolContext, parse_launch, resolve_data_dir, run_cli, run_gui,
+    settings_file_writable, user_config_dir,
 };
 
-use crate::console::spawn_printer;
+use crate::console::{spawn_notice_printer, spawn_printer};
 
 /// The suite's whole registry as data, in sidebar order (core plan, "Tool plugin
 /// interface"): the shell lists after the registered tools every entry whose id no
@@ -183,9 +184,18 @@ fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches)
         Ok(loaded) => loaded,
         Err(code) => return code,
     };
+    // The CLI never writes settings, so the read-only data directory is probed rather than
+    // learned from a failed save; the condition prints once, as stderr's first line
+    // (gui.md "Status bar" "CLI equivalence", ST-CLI-01).
+    if let Some(dir) = &paths.data_dir
+        && !settings_file_writable(dir)
+    {
+        eprintln!("{}", ShellCondition::DataDirReadOnly.text());
+    }
     let (events_tx, events_rx) = unbounded();
-    let (requests_tx, _requests_rx) = unbounded();
+    let (requests_tx, requests_rx) = unbounded();
     let printer = spawn_printer(events_rx);
+    let notices = spawn_notice_printer(requests_rx);
     let ctx = ToolContext::new(
         Arc::new(Mutex::new(settings)),
         paths,
@@ -193,9 +203,10 @@ fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches)
         requests_tx,
     );
     let result = run_cli(tools, tool, matches, &ctx);
-    // The printer ends when every sender is gone, and the context holds them.
+    // The printers end when every sender is gone, and the context holds them.
     drop(ctx);
-    if printer.join().is_err() {
+    // The notice thread's `Err` is a failed stderr write: it loses lines like a panic does.
+    if printer.join().is_err() || !matches!(notices.join(), Ok(Ok(()))) {
         // Findings were lost, so the tool's verdict cannot be reported as it stands: 3 is the
         // code of a run that did not finish as reported.
         eprintln!("error: the console printer stopped unexpectedly");
@@ -218,8 +229,9 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
         Ok(loaded) => loaded,
         Err(code) => return code,
     };
-    // The receiver is dropped at once (the `_` pattern): no shell part consumes events until
-    // the GUI phase's status bar, and a tool's run has its own sink (`ToolContext::with_events`).
+    // The receiver is dropped at once (the `_` pattern): a tool's run has its own sink
+    // (`ToolContext::with_events`), and the notices the tools publish reach the status bar
+    // through the requests channel — the shell consumes no run events of its own.
     let (events_tx, _) = unbounded();
     let (requests_tx, requests_rx) = unbounded();
     let ctx = ToolContext::new(

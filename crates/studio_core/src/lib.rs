@@ -26,7 +26,7 @@ pub use help::{HelpSection, HelpTarget, HelpTopic};
 pub use pes_process::{RunningPes, running_pes};
 pub use settings::{COMMON_KEY, CommonSettings, Settings, SettingsError, Theme};
 #[cfg(not(target_arch = "wasm32"))]
-pub use settings::{SETTINGS_FILE_NAME, resolve_data_dir, user_config_dir};
+pub use settings::{SETTINGS_FILE_NAME, resolve_data_dir, settings_file_writable, user_config_dir};
 #[cfg(not(target_arch = "wasm32"))]
 pub use shell::run_gui;
 pub use shell::{Launch, LaunchMode, StudioApp, parse_launch, run_cli};

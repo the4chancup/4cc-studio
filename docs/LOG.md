@@ -2241,3 +2241,5 @@ worklog passed 7,000 lines.
   Texport; real files and the CLI's warnings and refusals) and `settings.toml` generation; the draft walks SE-GUI-01 to 28 (31 checks).
 - **2026-10-20** — Phase 8 opens, itemized in DBC's order. 8.6a: the shell's sidebar (planned tools grayed, icon rail, About with
   Copy, the PES selector's exe check and blocker, `last_tool`); ST-SIDE-01 to 04, 07, ST-RUN-02 proven. Disk cleanup: 132.7 GB.
+- **2026-10-20** — 8.6b: the shell's status bar, window title, wake callback and running-PES switch; the CLI's read-only probe; the
+  settings file edited in place. Review found a CLI hang (the notice printer held stderr's lock). ST-BAR, ST-TTL, ST-SET-03, ST-CLI-01 proven.

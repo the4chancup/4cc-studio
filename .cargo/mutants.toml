@@ -206,4 +206,21 @@ exclude_re = [
     # pins each registered tool's glyph to its `PLANNED` entry, and a run of the tool's own crate
     # does not execute `studio`'s tests (as for `fixtures.rs` above); a mutated glyph fails there.
     "tools/[a-z_]+/src/lib\\.rs:\\d+:\\d+: replace <impl StudioTool for Tool>::icon -> &'static str with",
+    # studio_core (mutants-diff 5921663, worklog 8.6b): in `StatusBar::expire`, the repaint
+    # request's guard `remaining > 0.0` -> `>=` is equivalent: at exactly no time left the same
+    # call dismisses the notice, so the only difference is one zero-delay repaint, which draws
+    # what the dismissal already drew. Pinned to its site: `> 0.0` -> `==` stays measured.
+    "studio_core/src/shell/status_bar\\.rs:\\d+:\\d+: replace > with >= in StatusBar::expire",
+    # studio (mutants-diff 5921663, worklog 8.6b): `run_cli_mode`'s `printer.join().is_err() ||
+    # !matches!(notices.join(), ..)` -> `&&` is not equivalent, but neither printer can fail
+    # under a test: the event printer fails on a closed stdout, the notice printer on a closed
+    # stderr, and a test cannot hand the binary either portably. Unmeasured on purpose.
+    "studio/src/main\\.rs:\\d+:\\d+: replace \\|\\| with && in run_cli_mode",
+    # studio_core (mutants-diff 59216630, worklog 8.6b, review S4): `Settings::save`'s
+    # read-back guard `read_back == desired` -> `true` survives because no known file edits into
+    # TOML that parses yet reads back as other values: the one shape found (an inline section
+    # under a comment) fails to parse, which the `Err` arm beside it catches and its test pins.
+    # The comparison stays as the net for a shape nobody has found, so that it is written fresh
+    # instead of saved wrong. Unmeasured on purpose; the `Err` arm stays measured.
+    "studio_core/src/settings/mod\\.rs:\\d+:\\d+: replace match guard read_back == desired with true in Settings::save",
 ]

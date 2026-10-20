@@ -17,7 +17,8 @@ done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Rule
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
-opens (its steps itemized: the shell, then the Save editor's view), Phase 20 (the Ruleset
+(its steps itemized: the shell, 8.6a-b done, 8.6c the settings menu next; then the Save
+editor's view), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
 upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20): 20.0d (the
 DBC7 ruleset), 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's
@@ -622,19 +623,33 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       only files counted as the exe (as the compiler's preflight), the tests' PES folder their
       own. `mutants-diff a720c13`: 41 caught, the tools' `icon()` pinned (`studio`'s registry
       test catches them). Review S1 (SWE-2): 3 accepted of 12, rulings `.tmp/8_6/duck_rulings.md`;
-      Astra runs over 8.6a and 8.6b together
-    - [ ] 8.6b the status bar, the window title and the tools' wake callback (ST-BAR-01 to 03,
-      ST-TTL-01 to 03), the `data_dir_read_only` condition a failed save raises (ST-SET-03, a
-      selector change being a setting change; ST-CLI-01), the running-PES auto-switch and its
-      "Fix PES path" notice (ST-SIDE-05, manual). First, the shell's test harness and the
-      sidebar's tests out of `shell/mod.rs` (979 lines after 8.6a, 800 of them tests)
+      Astra ran over 8.6a and 8.6b together (A1, in 8.6b)
+    - [x] 8.6b the status bar, the window title and the tools' wake callback (ST-BAR-01 to 03,
+      ST-TTL-01 to 03), the `data_dir_read_only` condition a failed save raises (ST-SET-03;
+      ST-CLI-01), the running-PES auto-switch and its "Fix PES path" notice (ST-SIDE-05,
+      manual). Done 2026-10-20 (SWE-2, four reworks): the harness out of `shell/mod.rs`
+      (`shell/test_harness.rs`, the sidebar a folder with its `tests.rs`); `shell/status_bar.rs`,
+      `shell/title.rs`, the wake slot in `ToolContext` (`emit` and every shell request wake the
+      GUI; `request_repaint_after` for a tool's deadlines), the poll in the sidebar (every 5 s
+      while unspent, the probe's first game, a blocker deferring it, the action only for a
+      folder on this system, `FixPesPath` carrying its version), the CLI's probe and notice
+      printer; `Settings::save` edits the file in place (`toml_edit`), and
+      `pes_install_missing` is gone (DECISIONS 2026-10-20); a save whose edit would not read
+      back as the settings writes the file fresh. The review found a hang: the notice
+      printer held stderr's lock, so any warning blocked a CLI command (reproduced, fixed, a
+      deadline test). Review: S1-S4 (SWE-2) and A1 (Astra over 8.6a and 8.6b), rulings
+      `.tmp/8_6/duck_rulings.md`; `mutants-diff 59216630`: every survivor tested or pinned
+      (three pins). Open: ST-SIDE-05's manual check (a PES running, F: connected)
     - [ ] 8.6c the settings menu, common rows (the theme's `Visuals` preset applied live
       among them) and one section per tool (ST-SET-01, 02), the first-run data-location
       dialog (ST-RUN-01), and the close hook for unsaved work and runs in flight (ST-RUN-05,
-      06), which the Save editor's unsaved prompt uses
+      06), which the Save editor's unsaved prompt uses; a notice's `OpenSettings` action
+      opens the menu (8.6b leaves it a dismiss); the menu's `pes_version` row spends the
+      running-PES auto-switch as the selector's pick does (`Sidebar::auto_switch_used`)
     - [ ] 8.6d the help window (and the About popup's help link, completing ST-SIDE-06), its
       generated Messages topics and search, `4cc-studio help`
-      (ST-HELP-01 to 04), and the log panel widget (ST-LOG-01 to 04)
+      (ST-HELP-01 to 04), and the log panel widget (ST-LOG-01 to 04); a notice's `OpenHelp`
+      action opens the window at its target (8.6b leaves it a dismiss)
   - [ ] 8.7 `color_tools`' colour-picker popup (`plans/libs/color_tools.md` Phase 8), the
     Save editor's team colours; the kit menu icons wait for the Team compiler's grid
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
@@ -646,7 +661,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     scenarios cited
   - [ ] 8.10 after 0.0.1: the progress grid, the run strip and the console printer's progress
     line, the exports folder watcher and check cache, cancellation, the launcher, the Team
-    compiler's and the Export upgrader's views (their drafts first)
+    compiler's and the Export upgrader's views (their drafts first); the notice action
+    `OpenFolder` opens the system file browser for the compile's "Open output" (8.6b leaves it
+    a dismiss; eframe's `open_url` opens a browser even for a local path, so not through it),
+    and the Team compiler's view stops requesting repaints itself (`ToolContext::emit` wakes
+    the GUI since 8.6b); the first tool that publishes a notice during a CLI command gets a
+    binary test of ST-CLI-01's notice half (8.6b proves it through the printer's loop only)
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,

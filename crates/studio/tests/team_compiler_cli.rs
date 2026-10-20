@@ -85,6 +85,10 @@ fn a_refusal_prints_one_error_line_and_exits_with_its_code() {
 #[test]
 fn check_prints_one_line_per_finding_and_exits_with_the_worst() {
     let sandbox = Sandbox::new("check", "");
+    sandbox.write(
+        "data/settings.toml",
+        &format!("[common]\n{}", sandbox.pes_folder_line()),
+    );
     sandbox.write("data/teams_list.txt", "ID\tName\n714\t/co/\n");
     // `check` reads every model, so the clean export holds a real one with no finding: the
     // tracer's right glove.
@@ -185,6 +189,78 @@ fn the_settings_beside_the_executable_are_read_whatever_the_working_folder() {
     fs::create_dir_all(&elsewhere).unwrap();
     let output = sandbox.run_from(&elsewhere, &["team-compiler", "compile", "--no-deploy"]);
     assert_refused(&output, 2, &["cpk_name"]);
+}
+
+// ST-CLI-01
+#[test]
+fn a_read_only_data_dir_prints_the_condition_as_stderrs_first_line() {
+    let sandbox = Sandbox::new("read_only", "");
+    // The check reads the PES folder, so the setting names the sandbox's own, written while
+    // the file is still writable.
+    sandbox.write(
+        "data/settings.toml",
+        &format!("[common]\n{}", sandbox.pes_folder_line()),
+    );
+    let file = sandbox.root.join("data/settings.toml");
+    let mut readonly = fs::metadata(&file).unwrap().permissions();
+    readonly.set_readonly(true);
+    fs::set_permissions(&file, readonly).unwrap();
+    // The file is made writable again before any assertion, or the sandbox could not be
+    // cleared for the next run.
+    let output = sandbox.run(&["team-compiler", "check"]);
+    let mut writable = fs::metadata(&file).unwrap().permissions();
+    #[expect(
+        clippy::permissions_set_readonly_false,
+        reason = "a test fixture must get its writable bit back or the sandbox cannot be cleared"
+    )]
+    writable.set_readonly(false);
+    fs::set_permissions(&file, writable).unwrap();
+
+    let text = stderr(&output);
+    assert_eq!(
+        text.lines().next(),
+        Some("Data folder is read-only"),
+        "stderr's first line is the condition: {text}"
+    );
+}
+
+/// A warning logged while the notice printer runs reaches stderr and the command ends: the
+/// printer once held stderr's lock for the whole command, and the logger's write of this
+/// warning (the teams list cannot be written into a folder that does not exist) blocked
+/// forever. The binary runs under a deadline so a regression fails instead of hanging.
+#[test]
+fn a_warning_logged_during_a_command_does_not_hang_it() {
+    let sandbox = Sandbox::new("warning_no_hang", "");
+    sandbox.write(
+        "data/settings.toml",
+        &format!(
+            "[common]\n{}\n[team-compiler]\nteams_list_path = 'missing/teams_list.txt'\n",
+            sandbox.pes_folder_line()
+        ),
+    );
+    let mut child = Command::new(&sandbox.exe)
+        .args(["team-compiler", "compile", "--no-deploy"])
+        .current_dir(&sandbox.root)
+        .stdout(fs::File::create(sandbox.root.join("stdout.txt")).unwrap())
+        .stderr(fs::File::create(sandbox.root.join("stderr.txt")).unwrap())
+        .spawn()
+        .unwrap();
+    let deadline = std::time::Instant::now() + std::time::Duration::from_secs(60);
+    let status = loop {
+        if let Some(status) = child.try_wait().unwrap() {
+            break status;
+        }
+        if std::time::Instant::now() > deadline {
+            child.kill().unwrap();
+            panic!("the command was still running after 60 s: a stderr write is blocked");
+        }
+        std::thread::sleep(std::time::Duration::from_millis(100));
+    };
+    let text = fs::read_to_string(sandbox.root.join("stderr.txt")).unwrap();
+    assert!(
+        text.contains("the teams list cannot be written"),
+        "the warning reached stderr ({status}): {text}"
+    );
 }
 
 #[test]

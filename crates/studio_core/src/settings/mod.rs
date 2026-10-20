@@ -18,9 +18,10 @@ use std::sync::atomic::{AtomicU64, Ordering};
 
 pub use common::{CommonSettings, Theme};
 #[cfg(not(target_arch = "wasm32"))]
-pub use location::{SETTINGS_FILE_NAME, resolve_data_dir, user_config_dir};
+pub use location::{SETTINGS_FILE_NAME, resolve_data_dir, settings_file_writable, user_config_dir};
 use log::debug;
 use toml::{Table, Value};
+use toml_edit::{DocumentMut, Item as EditItem, Table as EditTable};
 
 /// The key of the common section; no tool may use it as its id.
 pub const COMMON_KEY: &str = "common";
@@ -81,10 +82,49 @@ impl Settings {
     /// Writes the settings file atomically: to a sibling `<path>.<pid>-<n>.tmp`, then renamed
     /// over `path`, so a failure mid-write never leaves a truncated file behind, and two saves
     /// at once (two Studio processes, the GUI open while `quick_compile.bat` starts another; or
-    /// two threads of one) never share a temporary file.
+    /// two threads of one) never share a temporary file. An existing file is edited in place:
+    /// a save moves only the values that changed (gui.md "Settings menu", the best-effort
+    /// bullet), so comments, blank lines and key order written by hand survive.
     pub fn save(&self, path: &Path) -> io::Result<()> {
         static SAVE_COUNTER: AtomicU64 = AtomicU64::new(0);
-        let text = self.to_toml_string().map_err(io::Error::other)?;
+        let desired = self.to_table().map_err(io::Error::other)?;
+        let regenerated = toml::to_string_pretty(&desired).map_err(io::Error::other)?;
+        // A file with nothing to keep is written fresh: none yet, one that is not text, or one
+        // that is not TOML (broken by hand since the session loaded it). The session's values
+        // win there as they win over any hand edit made while the GUI runs, and a folder that
+        // cannot be written fails the write below, whatever the read said. So is a file whose
+        // edit would not read back as the settings: a shape the in-place edit cannot carry,
+        // such as a section written inline under a comment, which would come out as a table
+        // header `load` refuses and the next start could not open.
+        let text = match fs::read_to_string(path) {
+            Ok(existing) => match (existing.parse::<DocumentMut>(), toml::from_str(&existing)) {
+                (Ok(mut document), Ok(held)) => {
+                    let written = regenerated
+                        .parse::<DocumentMut>()
+                        .expect("`toml`'s own output is valid TOML");
+                    apply_desired(document.as_table_mut(), &held, written.as_table(), &desired);
+                    let edited = document.to_string();
+                    match toml::from_str::<Table>(&edited) {
+                        Ok(read_back) if read_back == desired => edited,
+                        _ => {
+                            debug!(
+                                "{}: written fresh, the edit did not read back",
+                                path.display()
+                            );
+                            regenerated
+                        }
+                    }
+                }
+                _ => {
+                    debug!("{}: written fresh, not TOML", path.display());
+                    regenerated
+                }
+            },
+            Err(error) => {
+                debug!("{}: written fresh, not edited: {error}", path.display());
+                regenerated
+            }
+        };
         let mut temp_name = path.file_name().unwrap_or_default().to_owned();
         let sequence = SAVE_COUNTER.fetch_add(1, Ordering::Relaxed);
         temp_name.push(format!(".{}-{sequence}.tmp", std::process::id()));
@@ -106,14 +146,14 @@ impl Settings {
         Ok(())
     }
 
-    /// The file text: `[common]` first, then one table per tool in id order.
-    fn to_toml_string(&self) -> Result<String, toml::ser::Error> {
+    /// The file's values: `[common]` first, then one table per tool in id order.
+    fn to_table(&self) -> Result<Table, toml::ser::Error> {
         let mut root = Table::new();
         root.insert(COMMON_KEY.to_owned(), Value::try_from(&self.common)?);
         for (id, table) in &self.tools {
             root.insert(id.clone(), Value::Table(table.clone()));
         }
-        toml::to_string_pretty(&root)
+        Ok(root)
     }
 
     /// A tool's section, if the file had one.
@@ -140,6 +180,43 @@ impl Settings {
         assert_reserved_free(tool_id);
         let table = self.tools.entry(tool_id.to_owned()).or_default();
         merge_missing(table, defaults);
+    }
+}
+
+/// Brings `document` (the file as written, whose values are `held`) to the settings' values
+/// `desired`, whose freshly written form is `written`, touching only what differs. The values
+/// are compared as `toml` values, not as `toml_edit` items, whose decor is part of them: a
+/// table both sides hold is recursed into; a value `held` already equals is left alone, so its
+/// line stays byte for byte; any other is copied from `written`; a key `desired` lacks is
+/// removed, and one the file lacks lands at the end of its table.
+fn apply_desired(document: &mut EditTable, held: &Table, written: &EditTable, desired: &Table) {
+    for key in held.keys().filter(|key| !desired.contains_key(*key)) {
+        document.remove(key);
+    }
+    for (key, wanted) in desired {
+        let fresh = written
+            .get(key)
+            .expect("`written` is `desired` written out, so it holds every key");
+        match (held.get(key), wanted, document.get_mut(key)) {
+            (Some(Value::Table(held)), Value::Table(wanted), Some(EditItem::Table(current))) => {
+                let fresh = fresh.as_table().expect("a table is written as a table");
+                apply_desired(current, held, fresh, wanted);
+            }
+            (Some(held), _, Some(_)) if held == wanted => {}
+            // Replaced through the slot, not `insert`: `insert` resets an existing key's
+            // decor, which holds the comment above it. The old value's own decor (its trailing
+            // comment) moves onto the new value.
+            (_, _, Some(slot)) => {
+                let decor = slot.as_value().map(|value| value.decor().clone());
+                *slot = fresh.clone();
+                if let (Some(decor), Some(value)) = (decor, slot.as_value_mut()) {
+                    *value.decor_mut() = decor;
+                }
+            }
+            (_, _, None) => {
+                document.insert(key, fresh.clone());
+            }
+        }
     }
 }
 
@@ -258,6 +335,235 @@ mod tests {
             .collect();
         assert!(leftovers.is_empty(), "no .tmp sibling left behind");
 
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // A save edits the file in place (gui.md "Settings menu", the best-effort bullet):
+    // hand-written comments, blank lines and key order survive a `last_tool` save.
+    #[test]
+    fn save_edits_in_place_and_only_the_changed_line_moves() {
+        let dir = test_dir("studio_core_settings_inplace");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        let original = "# the member's note about this file\n\
+                        [common]\n\
+                        # the version to target\n\
+                        pes_version = 19\n\
+                        thread_count = 4\n\
+                        last_tool = \"team-compiler\"\n\
+                        theme = \"dark\"\n\
+                        pes_folder_path = '/games/Pro Evolution Soccer 20**'\n\
+                        exports_folder_path = \"exports\"\n\
+                        memory_cap_percent = 80.0\n\
+                        check_for_updates = true\n\
+                        check_interval_hours = 24\n\
+                        \n\
+                        [team-compiler]\n\
+                        # its own note\n\
+                        label = 'x'\n\
+                        dt00_overwrite_allow = true\n";
+        fs::write(&path, original).unwrap();
+
+        let mut settings = Settings::load(&path).unwrap();
+        settings.common.last_tool = Some("save-editor".to_owned());
+        settings.save(&path).unwrap();
+
+        let expected = original.replace(
+            "last_tool = \"team-compiler\"",
+            "last_tool = \"save-editor\"",
+        );
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            expected,
+            "only the changed line moved"
+        );
+        assert_eq!(Settings::load(&path).unwrap(), settings);
+
+        // A key the file lacks is added where its section ends.
+        let path = dir.join("settings_missing_key.toml");
+        let original = "[common]\n\
+                        check_for_updates = true\n\
+                        check_interval_hours = 24\n\
+                        exports_folder_path = \"exports\"\n\
+                        memory_cap_percent = 80.0\n\
+                        pes_folder_path = '/games/Pro Evolution Soccer 20**'\n\
+                        pes_version = 19\n\
+                        theme = \"dark\"\n\
+                        thread_count = 4\n\
+                        \n\
+                        [team-compiler]\n\
+                        label = 'x'\n";
+        fs::write(&path, original).unwrap();
+        let mut settings = Settings::load(&path).unwrap();
+        settings.common.last_tool = Some("save-editor".to_owned());
+        settings.save(&path).unwrap();
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            original.replacen(
+                "thread_count = 4\n",
+                "thread_count = 4\nlast_tool = \"save-editor\"\n",
+                1
+            ),
+            "the absent key is appended where its section ends"
+        );
+        assert_eq!(Settings::load(&path).unwrap(), settings);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // A section a member wrote inline, under a comment, is a shape the in-place edit cannot
+    // carry (the comment would land inside the new table header): the save writes the file
+    // fresh rather than one that `load` refuses, so the next start still opens.
+    #[test]
+    fn save_writes_fresh_when_the_edit_would_not_read_back() {
+        let dir = test_dir("studio_core_settings_inline_section");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        fs::write(&path, "# my cup settings\ncommon = { pes_version = 21 }\n").unwrap();
+
+        let mut settings = Settings::load(&path).unwrap();
+        settings.common.last_tool = Some("save-editor".to_owned());
+        settings.save(&path).unwrap();
+
+        assert_eq!(
+            Settings::load(&path).unwrap(),
+            settings,
+            "the saved file loads back: {}",
+            fs::read_to_string(&path).unwrap()
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // A file broken by hand since the session loaded it is written fresh from the session.
+    #[test]
+    fn save_writes_fresh_over_a_file_that_does_not_parse() {
+        let dir = test_dir("studio_core_settings_broken_file");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        let mut settings = Settings::default();
+        settings.common.last_tool = Some("save-editor".to_owned());
+        fs::write(&path, "[common\npes_version = 21\n").unwrap();
+
+        settings.save(&path).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            toml::to_string_pretty(&settings.to_table().unwrap()).unwrap()
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // A tool with no settings keeps an empty table, and a nested table is edited key by key:
+    // the comment inside it survives a change of its sibling.
+    #[test]
+    fn save_writes_an_empty_tool_table_and_edits_a_nested_one_in_place() {
+        let dir = test_dir("studio_core_settings_nested");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        let original = "[team-compiler.kits]\n\
+                        # kept\n\
+                        collar = 3\n\
+                        sleeves = 1\n";
+        fs::write(&path, original).unwrap();
+
+        let mut settings = Settings::load(&path).unwrap();
+        settings.merge_defaults("export-upgrader", &Table::new());
+        let mut tool = settings.tool("team-compiler").unwrap().clone();
+        tool["kits"]
+            .as_table_mut()
+            .unwrap()
+            .insert("sleeves".to_owned(), Value::Integer(2));
+        settings.set_tool("team-compiler", tool);
+        settings.save(&path).unwrap();
+
+        let text = fs::read_to_string(&path).unwrap();
+        assert!(
+            text.contains("[team-compiler.kits]\n# kept\ncollar = 3\nsleeves = 2\n"),
+            "the nested table changed in place: {text}"
+        );
+        assert!(
+            text.contains("[export-upgrader]"),
+            "the empty table is written: {text}"
+        );
+        assert_eq!(Settings::load(&path).unwrap(), settings);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // A changed value keeps the comment above its key and the one after it: a pick in the
+    // version selector rewrites `pes_version`, the key a member most likely annotated.
+    #[test]
+    fn save_keeps_the_comments_around_a_changed_value() {
+        let dir = test_dir("studio_core_settings_changed_comments");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        let original = "[common]\n\
+                        # the version to target\n\
+                        pes_version = 19 # set by hand\n\
+                        thread_count = 4\n\
+                        theme = \"dark\"\n\
+                        pes_folder_path = '/games/Pro Evolution Soccer 20**'\n\
+                        exports_folder_path = \"exports\"\n\
+                        memory_cap_percent = 80.0\n\
+                        check_for_updates = true\n\
+                        check_interval_hours = 24\n";
+        fs::write(&path, original).unwrap();
+
+        let mut settings = Settings::load(&path).unwrap();
+        settings.common.pes_version = PesVersion::Pes21;
+        settings.save(&path).unwrap();
+
+        assert_eq!(
+            fs::read_to_string(&path).unwrap(),
+            original.replace("pes_version = 19 #", "pes_version = 21 #"),
+            "the comments around the changed value survive"
+        );
+        assert_eq!(Settings::load(&path).unwrap(), settings);
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
+    #[test]
+    fn save_removes_dropped_keys_and_appends_new_sections() {
+        let dir = test_dir("studio_core_settings_inplace_keys");
+        fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        let original = "[common]\n\
+                        pes_version = 19\n\
+                        thread_count = 0\n\
+                        memory_cap_percent = 80.0\n\
+                        exports_folder_path = \"exports\"\n\
+                        pes_folder_path = '/games/Pro Evolution Soccer 20**'\n\
+                        theme = \"dark\"\n\
+                        check_for_updates = true\n\
+                        check_interval_hours = 24\n\
+                        last_tool = \"team-compiler\"\n\
+                        \n\
+                        [team-compiler]\n\
+                        label = 'x'\n\
+                        stale = 1\n";
+        fs::write(&path, original).unwrap();
+
+        let mut settings = Settings::load(&path).unwrap();
+        settings.set_tool("team-compiler", table("label = 'x'"));
+        settings.set_tool("save-editor", table("speed = 1"));
+        settings.save(&path).unwrap();
+
+        let expected = "[common]\n\
+                        pes_version = 19\n\
+                        thread_count = 0\n\
+                        memory_cap_percent = 80.0\n\
+                        exports_folder_path = \"exports\"\n\
+                        pes_folder_path = '/games/Pro Evolution Soccer 20**'\n\
+                        theme = \"dark\"\n\
+                        check_for_updates = true\n\
+                        check_interval_hours = 24\n\
+                        last_tool = \"team-compiler\"\n\
+                        \n\
+                        [team-compiler]\n\
+                        label = 'x'\n\
+                        \n\
+                        [save-editor]\n\
+                        speed = 1\n";
+        assert_eq!(fs::read_to_string(&path).unwrap(), expected);
+        assert_eq!(Settings::load(&path).unwrap(), settings);
         fs::remove_dir_all(&dir).unwrap();
     }
 

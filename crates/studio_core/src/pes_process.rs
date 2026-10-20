@@ -23,11 +23,12 @@ pub fn running_pes() -> Vec<RunningPes> {
     probe()
 }
 
-/// The version a process's executable name says it is: `PES2015.exe` to `PES2021.exe` in
+/// The version a `PES20NN.exe` name says it is: `PES2015.exe` to `PES2021.exe` in
 /// any letter case, the names the games ship with. Anything else (`PES2014.exe`,
-/// `PES2021.exe.bak`, `pes2021`, `xPES2021.exe`, `pes21.exe`) is no match.
-#[cfg(any(windows, target_os = "linux", test))]
-fn version_of_exe(name: &str) -> Option<PesVersion> {
+/// `PES20021.exe`, `PES2021.exe.bak`, `pes2021`, `xPES2021.exe`, `pes21.exe`) is no match.
+/// The one rule for an exe's name: the running-PES probe and the sidebar's exe check both
+/// read through it.
+pub(crate) fn version_of_exe(name: &str) -> Option<PesVersion> {
     let lower = name.to_ascii_lowercase();
     let year: u16 = lower
         .strip_prefix("pes")?

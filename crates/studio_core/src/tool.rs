@@ -3,8 +3,10 @@
 //! interface"). `ToolContext` is the tool's one handle on the platform: settings, the event sink,
 //! and requests to the shell (switch tool, notify).
 
+use std::fmt;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
+use std::time::Duration;
 
 use crossbeam_channel::Sender;
 use log::debug;
@@ -127,14 +129,29 @@ pub enum ShellRequest {
     SettingsChanged,
 }
 
-/// The tool's handle on the platform. Cheap to clone; every clone shares the same settings and
-/// channels.
+/// The GUI's repaint waker (`gui.md` "Event wiring"): `run_gui` installs
+/// `egui::Context::request_repaint_after` once the window exists, so a run's `emit` or a tool's
+/// own deadline reaches a frame while no input arrives. egui stays out of this type, which the
+/// CLI never fills.
+struct Wake(Box<dyn Fn(Duration) + Send + Sync>);
+
+// The boxed closure has no `Debug`.
+impl fmt::Debug for Wake {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str("Wake(..)")
+    }
+}
+
+/// The tool's handle on the platform. Cheap to clone; every clone shares the same settings,
+/// channels and wake slot — a `with_events` clone made before the window exists still wakes it.
 #[derive(Debug, Clone)]
 pub struct ToolContext {
     settings: Arc<Mutex<Settings>>,
     paths: AppPaths,
     events: Sender<PipelineEventEnvelope>,
     requests: Sender<ShellRequest>,
+    /// The repaint waker, shared by every clone and filled once, when the window is created.
+    wake: Arc<OnceLock<Wake>>,
 }
 
 impl ToolContext {
@@ -151,6 +168,7 @@ impl ToolContext {
             paths,
             events,
             requests,
+            wake: Arc::new(OnceLock::new()),
         }
     }
 
@@ -200,12 +218,34 @@ impl ToolContext {
         &self.settings
     }
 
+    /// Installs the repaint waker; `run_gui` calls it inside the window's creator closure, on
+    /// the context it already holds. A second call is a no-op. Crate-private: tools never
+    /// install it.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn set_wake(&self, wake: impl Fn(Duration) + Send + Sync + 'static) {
+        if self.wake.set(Wake(Box::new(wake))).is_err() {
+            debug!("a repaint wake is already installed");
+        }
+    }
+
+    /// Asks the GUI for a frame after `delay`: a tool's own deadlines (timers it checks in
+    /// `tick`) call this so they fire while another tool is in view or no input arrives. A
+    /// no-op in the CLI, where no wake is installed.
+    pub fn request_repaint_after(&self, delay: Duration) {
+        if let Some(wake) = self.wake.get() {
+            (wake.0)(delay);
+        }
+    }
+
     /// Sends a pipeline event. A receiver that has gone away (the CLI printer finished, the GUI
     /// closed) is not an error for the sender, so the failure is logged here, once, and dropped.
+    /// A sent event wakes the GUI, so the frame that drains it need not wait for input.
     pub fn emit(&self, envelope: PipelineEventEnvelope) {
         if self.events.send(envelope).is_err() {
             debug!("pipeline event dropped: no receiver");
+            return;
         }
+        self.request_repaint_after(Duration::ZERO);
     }
 
     /// Asks the shell to make the named tool the active view at the end of the frame. Id-based,
@@ -214,17 +254,22 @@ impl ToolContext {
         self.request(ShellRequest::SwitchTool(tool_id.to_owned()));
     }
 
-    /// Publishes a notice to the status bar: the one way a tool puts something there.
+    /// Publishes a notice to the status bar: the one way a tool puts something there. The send
+    /// wakes the GUI, so a notice published from a run's own thread is drawn while no input
+    /// arrives (and reaches the window title while the window is unfocused).
     pub fn notify(&self, notice: Notice) {
         self.request(ShellRequest::Notify(notice));
     }
 
     /// Queues a shell request for the end of the frame. Crate-private: the tools' ways in are
-    /// the methods above; the shell's own widgets (the sidebar) send theirs through this.
+    /// the methods above; the shell's own widgets (the sidebar) send theirs through this. A
+    /// sent request wakes the GUI like a sent event does.
     pub(crate) fn request(&self, request: ShellRequest) {
         if self.requests.send(request).is_err() {
             debug!("shell request dropped: no receiver");
+            return;
         }
+        self.request_repaint_after(Duration::ZERO);
     }
 }
 
@@ -312,5 +357,80 @@ mod tests {
             requests_rx.try_recv().unwrap(),
             ShellRequest::SettingsChanged
         );
+    }
+
+    #[test]
+    fn emit_on_a_with_events_clone_wakes_the_wake_installed_on_the_original() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let (ctx, _events_rx, _requests_rx) = context();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let delays = Arc::new(Mutex::new(Vec::new()));
+        ctx.set_wake({
+            let calls = Arc::clone(&calls);
+            let delays = Arc::clone(&delays);
+            move |delay| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                delays.lock().unwrap().push(delay);
+            }
+        });
+        // A second install is a no-op.
+        ctx.set_wake(|_| panic!("the first wake stays"));
+
+        // The emit goes through a `with_events` clone, as a run's own sink is.
+        let (own_tx, _own_rx) = unbounded();
+        let run_ctx = ctx.with_events(own_tx);
+        run_ctx.emit(envelope());
+        assert_eq!(calls.load(Ordering::SeqCst), 1, "the emit woke the GUI");
+        run_ctx.request_repaint_after(Duration::from_secs(2));
+        assert_eq!(
+            delays.lock().unwrap().as_slice(),
+            [Duration::ZERO, Duration::from_secs(2)],
+            "a send wakes at once, a deadline with its delay"
+        );
+    }
+
+    #[test]
+    fn notify_on_a_with_events_clone_wakes_the_wake_installed_on_the_original() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+
+        let (ctx, _events_rx, _requests_rx) = context();
+        let calls = Arc::new(AtomicUsize::new(0));
+        let delays = Arc::new(Mutex::new(Vec::new()));
+        ctx.set_wake({
+            let calls = Arc::clone(&calls);
+            let delays = Arc::clone(&delays);
+            move |delay| {
+                calls.fetch_add(1, Ordering::SeqCst);
+                delays.lock().unwrap().push(delay);
+            }
+        });
+        // The notice goes through a `with_events` clone, as a run's own context publishes it.
+        let (own_tx, _own_rx) = unbounded();
+        ctx.with_events(own_tx).notify(Notice {
+            text: "Compiled 48 teams".to_owned(),
+            action: None,
+        });
+        assert_eq!(calls.load(Ordering::SeqCst), 1, "the notice woke the GUI");
+        assert_eq!(delays.lock().unwrap().as_slice(), [Duration::ZERO]);
+    }
+
+    #[test]
+    fn a_context_with_a_wake_debug_formats_the_wake_slot() {
+        let (ctx, _events_rx, _requests_rx) = context();
+        ctx.set_wake(|_| {});
+        let debug = format!("{ctx:?}");
+        assert!(debug.contains("Wake(..)"), "the wake is named: {debug}");
+    }
+
+    #[test]
+    fn without_a_wake_emit_and_repaint_requests_do_nothing() {
+        let (ctx, events_rx, _requests_rx) = context();
+        ctx.emit(envelope());
+        assert!(
+            events_rx.try_recv().is_ok(),
+            "the event still reaches its receiver"
+        );
+        ctx.request_repaint_after(Duration::from_secs(1));
     }
 }

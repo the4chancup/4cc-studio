@@ -104,7 +104,8 @@ Top to bottom:
      changes and on window focus — a cheap single directory listing. This is the GUI rendering of
      the same condition the team compiler's `pes_version_mismatch` warning reports at compile time
      (the warning remains for the CLI).
-   - **Auto-switch to the running PES** (Windows desktop): a lightweight background poll watches for
+   - **Auto-switch to the running PES** (desktop, wherever the running-PES probe reads processes:
+     Windows, and Linux under Wine or Proton): a lightweight background poll watches for
      running `PES20XX.exe` processes. **Once per program life**, when a running PES's version
      differs from the selection, the selector switches to it automatically — primarily so the match
      tracker attaches to the right game without ceremony — announced via a status-bar notice.
@@ -117,7 +118,9 @@ Top to bottom:
      install runs from elsewhere), the same notice offers a **"Fix PES path"** action that rewrites
      `pes_folder_path` from the running process — strictly opt-in via the notice's button, never
      applied automatically (re-inserting the `**` version placeholder when the path segment matches
-     the running version, so the fix keeps working across versions).
+     the running version, so the fix keeps working across versions). The action is offered only
+     when the exe's folder is a folder on this system: under Wine or Proton the probe reports the
+     game's Windows path, which a Linux setting cannot use.
 3. **Tool list** — vertical nav with **full text labels** (small text, sidebar wide enough to fit),
    populated from the registered `StudioTool` list. The active tool is highlighted with an
    accent-colored left border bar plus a filled background. The suite's planned tools not in
@@ -144,7 +147,12 @@ The settings menu is assembled from injected sections:
 - Saving is **best-effort**: if the write fails (typically a portable install unpacked somewhere
   unwritable), the in-memory settings keep working for the session and the shell raises the
   `data_dir_read_only` condition in the status bar — one condition covering settings and the
-  teams list, since both live there. No elevation, no retry prompt.
+  teams list, since both live there. No elevation, no retry prompt. A save edits the file in
+  place (`toml_edit`), changing only the values that changed: until the settings menu exists
+  members edit the file by hand, and a tool switch saving `last_tool` must not drop their
+  comments, blank lines or key order. Where the edit would not read back as the settings (a
+  section written inline turned into a table header) or the file is not TOML, the save writes
+  it fresh: a file the next start could not open costs more than the comments.
 
 ### Help window
 
@@ -235,8 +243,13 @@ More rules that keep it worth the row:
   v1.4.0 · [What's new]`, whose action opens the help window at the "What's new" chapter. No
   popup: a notice can be ignored and dismissed; a what's-new dialog is read by nobody who did
   not ask for it.
-- **CLI equivalence:** conditions print once at startup on stderr, notices print as they occur;
-  the same items, rendered as lines.
+- **CLI equivalence:** conditions print once at startup on stderr, notices print on stderr as
+  they occur (stdout is the findings'); the same items, rendered as lines. The CLI writes no
+  settings, so its `data_dir_read_only` comes from a probe at startup: the settings file
+  opened for writing, nothing written, which fails where the file is read-only, as it is in a
+  portable copy on read-only media or in a folder the user may not write. The GUI raises the
+  condition from a save that fails and drops it at the next save that succeeds; it does not
+  probe, since its first switch of tool saves anyway.
 
 ### Window title
 

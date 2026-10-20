@@ -1,16 +1,22 @@
 //! The sidebar, top to bottom (core plan, "Sidebar"; draft `docs/prototypes/shell.html`):
 //! the logo doubling as the About click target, the PES version selector with its live exe
-//! check and its blocker, the tool list with the planned tools grayed, and the collapse
-//! button switching the sidebar between labels and an icon rail. The `?` and gear buttons
-//! that close the draft's column join with the windows they open.
+//! check, its blocker and the once-per-life auto-switch to a running PES, the tool list
+//! with the planned tools grayed, and the collapse button switching the sidebar between
+//! labels and an icon rail. The `?` and gear buttons that close the draft's column join
+//! with the windows they open.
 
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
+use std::time::Duration;
 
 use pes_version::PesVersion;
 
+use crate::pes_process::RunningPes;
 use crate::settings::CommonSettings;
+use crate::status::{ActionEffect, Notice, NoticeAction};
 use crate::tool::{PlannedTool, ShellRequest, StudioTool, ToolContext};
+
+#[cfg(test)]
+mod tests;
 
 use super::about;
 
@@ -19,10 +25,12 @@ const EXPANDED_WIDTH: f32 = 160.0;
 const COLLAPSED_WIDTH: f32 = 56.0;
 /// The accent bar on the active entry's left edge (draft: 3 px).
 const ACTIVE_BAR_WIDTH: f32 = 3.0;
+/// Seconds between running-PES polls of the auto-switch (gui.md "Sidebar" item 2).
+const PES_POLL_SECONDS: f64 = 5.0;
 
 /// The sidebar's state across frames: the collapse, the exe check's last verdict, the
-/// window's last focus (the check re-runs when focus returns) and the logo's About popup.
-#[derive(Default)]
+/// window's last focus (the check re-runs when focus returns), the logo's About popup and
+/// the once-per-life auto-switch to a running PES.
 pub(super) struct Sidebar {
     /// Collapsed: the rail shows icons only and carries the labels as tooltips.
     pub(super) collapsed: bool,
@@ -36,6 +44,29 @@ pub(super) struct Sidebar {
     was_focused: bool,
     /// The logo's About popup.
     pub(super) about_open: bool,
+    /// The auto-switch is once per program life: spent by the switch itself or by a manual
+    /// pick, never by a blocker (ST-SIDE-05).
+    pub(super) auto_switch_used: bool,
+    /// The running-PES probe: `pes_process::running_pes` in the app, replaced by the tests.
+    /// A plain `fn`, not a trait: there is one real probe.
+    pub(super) probe: fn() -> Vec<RunningPes>,
+    /// egui time of the next poll; `None` until `poll_running_pes` first runs.
+    next_poll: Option<f64>,
+}
+
+impl Default for Sidebar {
+    fn default() -> Self {
+        Sidebar {
+            collapsed: false,
+            exe_check: None,
+            exe_listings: 0,
+            was_focused: false,
+            about_open: false,
+            auto_switch_used: false,
+            probe: crate::pes_process::running_pes,
+            next_poll: None,
+        }
+    }
 }
 
 /// What the exe check's last directory listing found (ST-SIDE-03): the selector is red on
@@ -211,8 +242,76 @@ impl Sidebar {
 
         if picked != common.pes_version {
             ctx.settings().lock().unwrap().common.pes_version = picked;
+            // A manual pick consumes the once-per-life auto-switch (ST-SIDE-05).
+            self.auto_switch_used = true;
             ctx.request(ShellRequest::SettingsChanged);
         }
+    }
+
+    /// The once-per-life auto-switch to a running PES (gui.md "Sidebar" item 2, ST-SIDE-05),
+    /// called from the shell's `logic` every `PES_POLL_SECONDS` on egui's clock — and only
+    /// while the switch is unspent, so a spent switch polls nothing. Each call asks for the
+    /// repaint at the next poll so it runs while no input arrives. Of the running games the
+    /// first detected wins ("Sidebar" item 2): the poll switches only when that game's
+    /// version differs from the selection, and a `version_change_blocker` defers the
+    /// switch without spending it. A switch writes `pes_version` and saves like a manual
+    /// pick, and announces itself in the status bar, with a "Fix PES path" action when the
+    /// running exe's folder exists on this system and differs from `pes_folder_path`
+    /// resolved for the new version.
+    pub(super) fn poll_running_pes(
+        &mut self,
+        egui_ctx: &egui::Context,
+        tools: &[Box<dyn StudioTool>],
+        ctx: &ToolContext,
+    ) {
+        if self.auto_switch_used {
+            return;
+        }
+        let now = egui_ctx.input(|input| input.time);
+        let next = self.next_poll.get_or_insert(now + PES_POLL_SECONDS);
+        if now < *next {
+            egui_ctx.request_repaint_after(Duration::from_secs_f64(*next - now));
+            return;
+        }
+        *next = now + PES_POLL_SECONDS;
+        egui_ctx.request_repaint_after(Duration::from_secs_f64(PES_POLL_SECONDS));
+        // The blocker check is cheaper than the process snapshot, so it runs first.
+        if tools
+            .iter()
+            .any(|tool| tool.version_change_blocker().is_some())
+        {
+            return;
+        }
+        let Some(game) = (self.probe)().into_iter().next() else {
+            return;
+        };
+        if game.version == ctx.common().pes_version {
+            return;
+        }
+        ctx.settings().lock().unwrap().common.pes_version = game.version;
+        ctx.request(ShellRequest::SettingsChanged);
+        self.auto_switch_used = true;
+        // The notice offers the path fix only when the running exe sits elsewhere than the
+        // folder the setting resolves for the version just switched to, and that folder
+        // exists on this system: under Wine or Proton the probe reports the game's Windows
+        // path, which `Path::parent` cannot reduce to a usable folder here.
+        let action = game
+            .exe
+            .as_deref()
+            .and_then(Path::parent)
+            .and_then(|folder| {
+                (folder.is_dir() && folder != ctx.common().pes_folder()).then(|| NoticeAction {
+                    label: "Fix PES path".to_owned(),
+                    effect: ActionEffect::FixPesPath {
+                        folder: folder.to_path_buf(),
+                        version: game.version,
+                    },
+                })
+            });
+        ctx.notify(Notice {
+            text: format!("Switched to PES {}", game.version.year()),
+            action,
+        });
     }
 
     /// One registered tool's entry: icon and label, the active one with the accent left bar
@@ -324,7 +423,11 @@ fn check_pes_folder(version: PesVersion, folder: &Path) -> ExeCheck {
         if !entry.path().is_file() {
             continue;
         }
-        let Some(found) = exe_version(&entry.file_name()) else {
+        let Some(found) = entry
+            .file_name()
+            .to_str()
+            .and_then(crate::pes_process::version_of_exe)
+        else {
             continue;
         };
         if found == version {
@@ -335,11 +438,4 @@ fn check_pes_folder(version: PesVersion, folder: &Path) -> ExeCheck {
         }
     }
     other.map_or(ExeCheck::NoExe, ExeCheck::OtherVersion)
-}
-
-/// `PES20NN.exe` in any letter case gives its version; anything else is not a PES exe.
-fn exe_version(name: &OsStr) -> Option<PesVersion> {
-    let lower = name.to_str()?.to_ascii_lowercase();
-    let digits = lower.strip_prefix("pes20")?.strip_suffix(".exe")?;
-    PesVersion::from_number(digits.parse::<u16>().ok()?)
 }
