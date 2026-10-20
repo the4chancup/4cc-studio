@@ -17,7 +17,7 @@ done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Rule
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
-(its steps itemized: the shell, 8.6a-b and 8.6c1 done, 8.6c2 the first-run dialog and close hook next; then the Save
+(its steps itemized: the shell, 8.6a-c done, 8.6d the help window and log panel next; then the Save
 editor's view), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
 upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20): 20.0d (the
@@ -640,7 +640,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       deadline test). Review: S1-S4 (SWE-2) and A1 (Astra over 8.6a and 8.6b), rulings
       `.tmp/8_6/duck_rulings.md`; `mutants-diff 59216630`: every survivor tested or pinned
       (three pins). Open: ST-SIDE-05's manual check (a PES running, F: connected)
-    - [ ] 8.6c the settings menu, the first-run dialog and the close hook, sliced
+    - [x] 8.6c the settings menu, the first-run dialog and the close hook, sliced
       - [x] 8.6c1 the settings menu: the sidebar's gear, the common rows (the theme applied
         live among them) and one section per tool with settings (ST-SET-01, 02); a
         notice's `OpenSettings` action opens it; its `pes_version` row spends the running-PES
@@ -655,9 +655,20 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         only entered values (egui's default clamp rewrote a hand-set `thread_count` on
         sight). `mutants-diff 42f7c7e6`: 2 survivors (`theme_label`), both caught by an added
         assertion. Review S5 (SWE-2) runs over the commit
-      - [ ] 8.6c2 the first-run data-location dialog (ST-RUN-01) and the close hook for
+      - [x] 8.6c2 the first-run data-location dialog (ST-RUN-01) and the close hook for
         unsaved work and runs in flight (ST-RUN-05, 06), which the Save editor's unsaved
-        prompt (8.9) and the Team compiler's run (8.10) use
+        prompt (8.9) and the Team compiler's run (8.10) use. Done 2026-10-20 (SWE-2, one
+        rework): `shell/first_run.rs` (a `Modal` with no Cancel while `data_dir` is `None`,
+        the choice saved through `Settings::save`, a failed write keeping it open with the
+        error; `StudioApp::new` takes the config folder to offer), `StudioTool::hold_close`,
+        `ShellRequest::Close` and `ToolContext::request_close` (the close asked in sidebar
+        order, the answer back through the window's own close); the shell tests' folders a
+        self-removing `TestDir` (they leaked, and three tests shared one); S5's menu fixes.
+        `mutants-diff fe5d4af2`: `hold_close`'s default caught by an added assertion, the
+        browser stand-in's `up` pinned. Reviews: S6 (SWE-2, 3 of 9 accepted), A2 (Astra over 8.6c1
+        and 8.6c2, 4 of 6: a held close closes the settings menu over the prompt, three tests
+        made machine-independent), S7 (SWE-2 over A2's fixes, 1 of 5: the About popup closes too), rulings
+        `.tmp/8_6/duck_rulings.md`
     - [ ] 8.6d the help window (and the About popup's help link, completing ST-SIDE-06), its
       generated Messages topics and search, `4cc-studio help`
       (ST-HELP-01 to 04), and the log panel widget (ST-LOG-01 to 04); a notice's `OpenHelp`

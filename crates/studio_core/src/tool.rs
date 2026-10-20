@@ -69,6 +69,17 @@ pub trait StudioTool {
         None
     }
 
+    /// Called when the window's close is requested, in sidebar order until one tool returns
+    /// `true` (gui.md "Cancellation"): a tool with unsaved work or a run in flight returns
+    /// `true` and opens its own prompt in its view, which the shell makes the active one; the
+    /// tools after it are not asked. The prompt answers by calling
+    /// `ToolContext::request_close` — the work saved or discarded, or the run ended after the
+    /// member chose to close once it ends — or by doing nothing, which keeps the window and
+    /// ends the close. Default: nothing holds the close.
+    fn hold_close(&mut self) -> bool {
+        false
+    }
+
     /// What the tool is doing in the background, for the status bar and the window title.
     /// Default: nothing.
     fn activity(&self) -> Option<ToolActivity> {
@@ -129,6 +140,9 @@ pub enum ShellRequest {
     Notify(Notice),
     /// A tool changed its settings section; save the file (best-effort).
     SettingsChanged,
+    /// Close the window: a close prompt's answer. The shell sends it back through the
+    /// window's own close path, which asks every tool again.
+    Close,
 }
 
 /// The GUI's repaint waker (`gui.md` "Event wiring"): `run_gui` installs
@@ -190,6 +204,16 @@ impl ToolContext {
     /// first GUI start). Tools never see the settings file itself.
     pub fn paths(&self) -> &AppPaths {
         &self.paths
+    }
+
+    /// Sets the data directory the first-run dialog's choice wrote (distribution.md "Data
+    /// location"). Crate-private, called once by the shell before any tool's `view` has
+    /// run: `paths` is a per-clone copy, so a `ToolContext` cloned earlier (a run's
+    /// `with_events` sink) keeps the copy it was made with. The browser build asks no
+    /// data-location question and has no caller for it.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn set_data_dir(&mut self, dir: PathBuf) {
+        self.paths.data_dir = Some(dir);
     }
 
     /// A copy of the common settings as they are now.
@@ -261,6 +285,14 @@ impl ToolContext {
     /// arrives (and reaches the window title while the window is unfocused).
     pub fn notify(&self, notice: Notice) {
         self.request(ShellRequest::Notify(notice));
+    }
+
+    /// Asks the shell to close the window: the way a tool's close prompt answers (gui.md
+    /// "Cancellation"). The close goes back through the window's own close path, so the
+    /// tools are asked again and another one may still hold. The send wakes the GUI, as
+    /// every request does.
+    pub fn request_close(&self) {
+        self.request(ShellRequest::Close);
     }
 
     /// Queues a shell request for the end of the frame. Crate-private: the tools' ways in are

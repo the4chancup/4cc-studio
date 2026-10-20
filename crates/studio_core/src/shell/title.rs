@@ -113,7 +113,12 @@ mod tests {
     // ST-TTL-01
     #[test]
     fn the_title_command_carries_the_activity_once_and_idle_when_it_ends() {
-        let Shell { mut app, calls, .. } = shell();
+        let Shell {
+            mut app,
+            calls,
+            _dir,
+            ..
+        } = shell();
         let egui_ctx = egui::Context::default();
         egui_ctx.enable_accesskit();
 
@@ -136,7 +141,9 @@ mod tests {
     // ST-TTL-02
     #[test]
     fn a_notice_arriving_unfocused_holds_the_title_until_focus_returns() {
-        let Shell { mut app, ctx, .. } = shell();
+        let Shell {
+            mut app, ctx, _dir, ..
+        } = shell();
         let egui_ctx = egui::Context::default();
         egui_ctx.enable_accesskit();
 
@@ -178,6 +185,7 @@ mod tests {
             mut app,
             ctx,
             calls,
+            _dir,
             ..
         } = shell();
         let egui_ctx = egui::Context::default();

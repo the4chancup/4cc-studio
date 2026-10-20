@@ -2245,3 +2245,5 @@ worklog passed 7,000 lines.
   settings file edited in place. Review found a CLI hang (the notice printer held stderr's lock). ST-BAR, ST-TTL, ST-SET-03, ST-CLI-01 proven.
 - **2026-10-20** — 8.6c1: the shell's settings menu (the gear, the common rows, a section per tool with settings, the theme from the
   setting); `settings_view` takes the context. The lead fixed egui's DragValue clamp rewriting hand-set values on sight. ST-SET-01, 02 proven.
+- **2026-10-20** — 8.6c2: the first-run data-location dialog (a failed write keeps it open) and `StudioTool::hold_close`, the close asked
+  in sidebar order with each prompt answering through `request_close`; the shell tests' folders now remove themselves. ST-RUN-01, 05, 06 proven.

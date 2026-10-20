@@ -175,7 +175,7 @@ mod tests {
     // ST-BAR-01
     #[test]
     fn an_empty_bar_shows_the_version_and_nothing_else() {
-        let Shell { mut app, .. } = shell();
+        let Shell { mut app, _dir, .. } = shell();
         let egui_ctx = egui::Context::default();
         egui_ctx.enable_accesskit();
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
@@ -194,6 +194,7 @@ mod tests {
             mut app,
             ctx,
             calls,
+            _dir,
             ..
         } = shell();
         let egui_ctx = egui::Context::default();
@@ -223,7 +224,9 @@ mod tests {
     // ST-BAR-03
     #[test]
     fn a_notice_with_an_action_stays_a_plain_one_leaves_and_a_newer_replaces() {
-        let Shell { mut app, ctx, .. } = shell();
+        let Shell {
+            mut app, ctx, _dir, ..
+        } = shell();
         // The sidebar's poll would ask for its own repaint to the same deadline and mask the
         // notice's; spending the once-per-life auto-switch leaves the expiry the only
         // requester the delay assertion sees.

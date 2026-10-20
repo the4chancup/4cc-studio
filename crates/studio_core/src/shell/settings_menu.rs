@@ -42,14 +42,20 @@ pub(super) struct SettingsMenu {
 }
 
 impl SettingsMenu {
-    /// Opens the menu on `tools[active]`'s section, the buffers filled from the
-    /// settings.
+    /// Opens the menu on `tools[active]`'s section when it has one, the buffers filled
+    /// from the settings.
     pub(super) fn open(&mut self, active: usize, ctx: &ToolContext) {
         self.open = true;
         self.pending = Some(active);
         let common = ctx.common();
         self.pes_folder = common.pes_folder_path;
         self.exports_folder = common.exports_folder_path.display().to_string();
+    }
+
+    /// Closes the menu without a click: a held window close makes the holder's prompt the
+    /// view, and the menu's modal must not cover it (gui.md "Cancellation").
+    pub(super) fn close(&mut self) {
+        self.open = false;
     }
 
     /// Draws the modal while open: the common grid, then one `CollapsingHeader` per tool
@@ -171,7 +177,7 @@ impl SettingsMenu {
                 if ui
                     .add(
                         egui::DragValue::new(&mut memory_cap)
-                            .range(1.0..=100.0)
+                            .range(0.1..=100.0)
                             .clamp_existing_to_range(false)
                             .suffix(" %"),
                     )
@@ -403,11 +409,12 @@ mod tests {
         let (c, calls_c) = stub("c", "C", None);
         // A tool whose `default_settings()` is empty gets no section.
         calls_c.default_settings.lock().unwrap().clear();
+        let dir = TestDir::new("studio_core_settings_sections");
         let Shell { mut app, ctx, .. } = shell_with(
-            test_settings(&test_dir("studio_core_settings_sections")),
+            test_settings(dir.path()),
             vec![a, b, c],
             &[],
-            None,
+            Some(dir.path().to_path_buf()),
             vec![calls_a, calls_b, calls_c],
         );
         ctx.switch_to_tool("b");
@@ -434,6 +441,41 @@ mod tests {
         assert!(
             !has_text(&nodes, "A settings body"),
             "the other sections are collapsed"
+        );
+
+        // A click on B's header collapses its section, and the collapse holds while the
+        // menu stays open: the member's toggle is the state, not the open set.
+        let header = nodes
+            .iter()
+            .find(|node| node.label() == Some("B") && node.toggled().is_none())
+            .expect("B's section header");
+        click(&egui_ctx, &mut app, header);
+        let nodes = idle(&egui_ctx, &mut app, 15).nodes;
+        assert!(
+            !has_text(&nodes, "B settings body"),
+            "the member's collapse holds"
+        );
+        for _ in 0..3 {
+            let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+            assert!(
+                !has_text(&nodes, "B settings body"),
+                "B's section stays collapsed"
+            );
+            assert!(has_text(&nodes, "Threads"), "the menu is still open");
+        }
+
+        // Re-expand B before the close: without the reset, a reopening would show its
+        // section still open, so the collapsed assertion below proves the reset.
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        let header = nodes
+            .iter()
+            .find(|node| node.label() == Some("B") && node.toggled().is_none())
+            .expect("B's section header");
+        click(&egui_ctx, &mut app, header);
+        let nodes = idle(&egui_ctx, &mut app, 15).nodes;
+        assert!(
+            has_text(&nodes, "B settings body"),
+            "B expanded again: the reopening can only collapse it through the reset"
         );
 
         // Close, make A active, reopen: the open set is reset to the active tool.
@@ -479,7 +521,7 @@ mod tests {
         egui_ctx.enable_accesskit();
         assert_ne!(
             ctx.common().thread_count,
-            4,
+            1,
             "the test's pick really changes the setting"
         );
 
@@ -495,18 +537,18 @@ mod tests {
         frame(
             &egui_ctx,
             &mut app,
-            vec![egui::Event::Text("4".to_owned())],
+            vec![egui::Event::Text("1".to_owned())],
             true,
         );
         frame(&egui_ctx, &mut app, vec![key(egui::Key::Enter, true)], true);
-        assert_eq!(ctx.common().thread_count, 4);
+        assert_eq!(ctx.common().thread_count, 1);
         frame(&egui_ctx, &mut app, Vec::new(), true);
 
         let text = fs::read_to_string(data.join(crate::settings::SETTINGS_FILE_NAME)).unwrap();
         let file: toml::Table = toml::from_str(&text).unwrap();
         assert_eq!(
             file["common"]["thread_count"],
-            toml::Value::Integer(4),
+            toml::Value::Integer(1),
             "the file holds the new value under [common]"
         );
         assert_eq!(
@@ -519,8 +561,86 @@ mod tests {
             toml::Value::Table(table_b),
             "b's table as it was"
         );
-        assert_eq!(ctx.common().thread_count, 4);
+        assert_eq!(ctx.common().thread_count, 1);
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // The `Memory cap` row's entry range accepts a fraction of a percent (the common
+    // settings allow `0 < percent <= 100`).
+    #[test]
+    fn the_memory_cap_row_accepts_a_fraction_of_a_percent() {
+        let dir = TestDir::new("studio_core_settings_memcap");
+        let (a, calls_a) = stub("a", "A", None);
+        let settings = test_settings(dir.path());
+        assert_ne!(
+            settings.common.memory_cap_percent, 0.5,
+            "the test's pick really changes the setting"
+        );
+        let Shell { mut app, ctx, .. } = shell_with(
+            settings,
+            vec![a],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a],
+        );
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
+        let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+        click(
+            &egui_ctx,
+            &mut app,
+            widget_on_row(&nodes, "Memory cap", Role::SpinButton),
+        );
+        frame(
+            &egui_ctx,
+            &mut app,
+            vec![egui::Event::Text("0.5".to_owned())],
+            true,
+        );
+        frame(&egui_ctx, &mut app, vec![key(egui::Key::Enter, true)], true);
+        assert_eq!(ctx.common().memory_cap_percent, 0.5);
+    }
+
+    // The `Check interval (hours)` row is disabled while `check_for_updates` is off
+    // and enabled while it is on.
+    #[test]
+    fn the_interval_row_follows_check_for_updates() {
+        let dir = TestDir::new("studio_core_settings_interval");
+        let (a, calls_a) = stub("a", "A", None);
+        let mut settings = test_settings(dir.path());
+        settings.common.check_for_updates = false;
+        let Shell { mut app, .. } = shell_with(
+            settings,
+            vec![a],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a],
+        );
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
+        let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+        let interval = widget_on_row(&nodes, "Check interval (hours)", Role::SpinButton);
+        assert!(
+            interval.is_disabled(),
+            "the interval is disabled while checks are off"
+        );
+
+        click(
+            &egui_ctx,
+            &mut app,
+            widget_on_row(&nodes, "Check for updates", Role::CheckBox),
+        );
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        assert!(
+            !widget_on_row(&nodes, "Check interval (hours)", Role::SpinButton).is_disabled(),
+            "the interval is enabled once checks are on"
+        );
     }
 
     // Opening the menu changes nothing by itself: a hand-set `thread_count` above this
@@ -529,9 +649,16 @@ mod tests {
     #[test]
     fn opening_the_menu_keeps_a_thread_count_above_the_core_count() {
         let (a, calls_a) = stub("a", "A", None);
-        let mut settings = test_settings(&test_dir("studio_core_settings_no_clamp"));
+        let dir = TestDir::new("studio_core_settings_no_clamp");
+        let mut settings = test_settings(dir.path());
         settings.common.thread_count = 4096;
-        let Shell { mut app, ctx, .. } = shell_with(settings, vec![a], &[], None, vec![calls_a]);
+        let Shell { mut app, ctx, .. } = shell_with(
+            settings,
+            vec![a],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a],
+        );
         let egui_ctx = egui::Context::default();
         egui_ctx.enable_accesskit();
 
@@ -632,6 +759,9 @@ mod tests {
         let egui_ctx = egui::Context::default();
         egui_ctx.enable_accesskit();
 
+        // The committed path is under the test's own folder: the next frame's exe
+        // check lists it, so it must not reach a developer path.
+        let pes_folder = dir.join("pes19").display().to_string();
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
         let nodes = idle(&egui_ctx, &mut app, 10).nodes;
@@ -651,7 +781,7 @@ mod tests {
                     repeat: false,
                     modifiers: egui::Modifiers::COMMAND,
                 },
-                egui::Event::Text("Z:\\cup\\pes19".to_owned()),
+                egui::Event::Text(pes_folder.clone()),
             ],
             true,
         );
@@ -663,12 +793,15 @@ mod tests {
         frame(&egui_ctx, &mut app, vec![key(egui::Key::Enter, true)], true);
         assert_eq!(
             ctx.common().pes_folder_path,
-            "Z:\\cup\\pes19",
+            pes_folder,
             "Enter commits the edit"
         );
         frame(&egui_ctx, &mut app, Vec::new(), true);
         let written = Settings::load(&data.join(crate::settings::SETTINGS_FILE_NAME)).unwrap();
-        assert_eq!(written.common.pes_folder_path, "Z:\\cup\\pes19");
+        assert_eq!(
+            written.common.pes_folder_path,
+            dir.join("pes19").display().to_string()
+        );
         fs::remove_dir_all(&dir).unwrap();
     }
 
@@ -683,9 +816,16 @@ mod tests {
             }]
         }
         let (a, calls_a) = stub("a", "A", None);
-        let mut settings = test_settings(&test_dir("studio_core_settings_pick"));
+        let dir = TestDir::new("studio_core_settings_pick");
+        let mut settings = test_settings(dir.path());
         settings.common.pes_version = PesVersion::Pes19;
-        let Shell { mut app, ctx, .. } = shell_with(settings, vec![a], &[], None, vec![calls_a]);
+        let Shell { mut app, ctx, .. } = shell_with(
+            settings,
+            vec![a],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a],
+        );
         let egui_ctx = egui::Context::default();
         egui_ctx.enable_accesskit();
 
@@ -718,11 +858,12 @@ mod tests {
     fn a_blocking_tool_disables_the_menu_version_row_with_its_reason() {
         let (a, calls_a) = stub("a", "A", Some("a compile is running"));
         let (b, calls_b) = stub("b", "B", None);
+        let dir = TestDir::new("studio_core_settings_blocked");
         let Shell { mut app, .. } = shell_with(
-            test_settings(&test_dir("studio_core_settings_blocked")),
+            test_settings(dir.path()),
             vec![a, b],
             &[],
-            None,
+            Some(dir.path().to_path_buf()),
             vec![calls_a, calls_b],
         );
         let egui_ctx = egui::Context::default();
@@ -751,11 +892,12 @@ mod tests {
     fn a_notice_with_open_settings_opens_the_menu_on_the_active_tool() {
         let (a, calls_a) = stub("a", "A", None);
         let (b, calls_b) = stub("b", "B", None);
+        let dir = TestDir::new("studio_core_settings_notice");
         let Shell { mut app, ctx, .. } = shell_with(
-            test_settings(&test_dir("studio_core_settings_notice")),
+            test_settings(dir.path()),
             vec![a, b],
             &[],
-            None,
+            Some(dir.path().to_path_buf()),
             vec![calls_a, calls_b],
         );
         ctx.switch_to_tool("b");
@@ -785,11 +927,12 @@ mod tests {
     #[test]
     fn a_row_labels_tooltip_leads_with_the_settings_key() {
         let (a, calls_a) = stub("a", "A", None);
+        let dir = TestDir::new("studio_core_settings_tooltip");
         let Shell { mut app, .. } = shell_with(
-            test_settings(&test_dir("studio_core_settings_tooltip")),
+            test_settings(dir.path()),
             vec![a],
             &[],
-            None,
+            Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
         let egui_ctx = egui::Context::default();

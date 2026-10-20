@@ -64,6 +64,7 @@ mod tests {
         }))
         .unwrap();
         tx.send(ShellRequest::SettingsChanged).unwrap();
+        tx.send(ShellRequest::Close).unwrap();
         tx.send(ShellRequest::Notify(Notice {
             text: "Compiled 48 teams".to_owned(),
             action: None,

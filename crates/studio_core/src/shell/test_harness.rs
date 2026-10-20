@@ -2,6 +2,7 @@
 //! frames, read the AccessKit tree and click widgets (core plan, "GUI Design" "Acceptance":
 //! what a scenario observes is what a frame draws).
 
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex};
@@ -22,6 +23,17 @@ use crate::tool::{AppPaths, CliError, PlannedTool, StudioTool, ToolContext};
 /// What `activity()` reports while a stub works: `(tool_label, progress, elapsed)`.
 pub(super) type Activity = (&'static str, Option<(usize, usize)>, Duration);
 
+/// What the stub's close prompt asks about while `hold_close` holds a close: unsaved
+/// work offers `Discard`/`Cancel`, a run in flight `Close when it ends`/`Keep the
+/// window` (gui.md "Cancellation").
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub(super) enum ClosePrompt {
+    /// `Discard` and `Cancel`, for unsaved work.
+    Unsaved,
+    /// `Close when it ends` and `Keep the window`, for a run in flight.
+    Run,
+}
+
 /// How often the shell called a stub tool's `tick` and `view`, what its `tick` read and the
 /// knobs a test turns mid-run: the blocker reason, the reported activity, a run's event
 /// receiver for `tick` to drain and the table `default_settings()` reports.
@@ -40,6 +52,16 @@ pub(super) struct Calls {
     /// The table `default_settings()` reports; `stub()` fills a non-empty one, a test
     /// clears it for a tool without settings.
     pub(super) default_settings: Mutex<toml::Table>,
+    /// Whether the stub reports unsaved work: `hold_close` holds the close for it.
+    pub(super) unsaved: Mutex<bool>,
+    /// The prompt `view` draws: written by every `hold_close` ask (`None` when nothing holds
+    /// any more) and cleared by an answer.
+    pub(super) close_prompt: Mutex<Option<ClosePrompt>>,
+    /// Set by a "Close when it ends" click: `tick` sends `request_close` when the run's
+    /// last event lands.
+    pub(super) close_at_run_end: Mutex<bool>,
+    /// How often the shell asked `hold_close`: the asks stop at the first tool that holds.
+    pub(super) holds: AtomicUsize,
 }
 
 impl Calls {
@@ -65,6 +87,10 @@ impl Calls {
     pub(super) fn clear_activity(&self) {
         *self.activity.lock().unwrap() = None;
     }
+    /// How often `hold_close` ran.
+    pub(super) fn holds(&self) -> usize {
+        self.holds.load(Ordering::SeqCst)
+    }
 }
 
 pub(super) struct StubTool {
@@ -84,20 +110,52 @@ impl StudioTool for StubTool {
     fn icon(&self) -> &'static str {
         self.icon
     }
-    fn view(&mut self, _ui: &mut egui::Ui, _ctx: &ToolContext) {
+    fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
         self.calls.views.fetch_add(1, Ordering::SeqCst);
+        // Bound first: a `match` scrutinee's guard would live through the arms, which
+        // lock the same mutex to answer.
+        let prompt = *self.calls.close_prompt.lock().unwrap();
+        match prompt {
+            Some(ClosePrompt::Unsaved) => {
+                if ui.button("Discard").clicked() {
+                    *self.calls.unsaved.lock().unwrap() = false;
+                    *self.calls.close_prompt.lock().unwrap() = None;
+                    ctx.request_close();
+                }
+                if ui.button("Cancel").clicked() {
+                    *self.calls.close_prompt.lock().unwrap() = None;
+                }
+            }
+            Some(ClosePrompt::Run) => {
+                if ui.button("Close when it ends").clicked() {
+                    *self.calls.close_at_run_end.lock().unwrap() = true;
+                    *self.calls.close_prompt.lock().unwrap() = None;
+                }
+                // The latest answer wins: a member who first chose to close once the run
+                // ends, then pressed X again and kept the window, keeps it.
+                if ui.button("Keep the window").clicked() {
+                    *self.calls.close_at_run_end.lock().unwrap() = false;
+                    *self.calls.close_prompt.lock().unwrap() = None;
+                }
+            }
+            None => {}
+        }
     }
     fn tick(&mut self, ctx: &ToolContext) {
         *self.calls.version_seen.lock().unwrap() = Some(ctx.common().pes_version);
         self.calls.ticks.fetch_add(1, Ordering::SeqCst);
         // A run's receiver, when the test gave the stub one: any envelope ends the
-        // activity, as a run's last event does.
+        // activity, as a run's last event does — and sends on the close the member
+        // asked for once the run ends.
         let events = self.calls.events.lock().unwrap();
         if let Some(rx) = events.as_ref()
             && rx.try_recv().is_ok()
         {
             while rx.try_recv().is_ok() {}
             self.calls.clear_activity();
+            if std::mem::replace(&mut *self.calls.close_at_run_end.lock().unwrap(), false) {
+                ctx.request_close();
+            }
         }
     }
     fn settings_view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
@@ -120,6 +178,20 @@ impl StudioTool for StubTool {
     }
     fn version_change_blocker(&self) -> Option<&str> {
         *self.calls.blocker.lock().unwrap()
+    }
+    fn hold_close(&mut self) -> bool {
+        self.calls.holds.fetch_add(1, Ordering::SeqCst);
+        // Unsaved work is asked about before a run, as a tool's own prompt would;
+        // the scenarios never set both.
+        let prompt = if *self.calls.unsaved.lock().unwrap() {
+            Some(ClosePrompt::Unsaved)
+        } else if self.calls.activity.lock().unwrap().is_some() {
+            Some(ClosePrompt::Run)
+        } else {
+            None
+        };
+        *self.calls.close_prompt.lock().unwrap() = prompt;
+        prompt.is_some()
     }
     fn activity(&self) -> Option<ToolActivity> {
         let (tool_label, progress, elapsed) = *self.calls.activity.lock().unwrap().as_ref()?;
@@ -160,12 +232,42 @@ pub(super) struct Shell {
     pub(super) ctx: ToolContext,
     pub(super) settings: Arc<Mutex<Settings>>,
     pub(super) calls: Vec<Arc<Calls>>,
+    /// The `TestDir` a `shell()` made: held here so the data folder lives as long as the
+    /// `Shell`. A destructure must bind it (`_dir`), since `..` drops it at once.
+    pub(super) _dir: Option<TestDir>,
 }
 
-/// A shell over `tools` with `settings` (written through the shared handle), `planned`
-/// as the sidebar's registry and `data_dir` as the settings file's folder. The sidebar's
-/// running-PES probe is stubbed to find nothing: a poll over the developer's real process
-/// list must never leak into a test.
+/// The full constructor: a shell over `tools` with `settings` (written through the
+/// shared handle), `planned` as the sidebar's registry, `paths` as the base folders and
+/// `config_dir` as the location the first-run dialog's second choice offers. The
+/// sidebar's running-PES probe is stubbed to find nothing: a poll over the developer's
+/// real process list must never leak into a test.
+pub(super) fn shell_in(
+    settings: Settings,
+    tools: Vec<Box<dyn StudioTool>>,
+    planned: &'static [PlannedTool],
+    paths: AppPaths,
+    config_dir: Option<PathBuf>,
+    calls: Vec<Arc<Calls>>,
+) -> Shell {
+    let (events_tx, _events_rx) = unbounded();
+    let (requests_tx, requests_rx) = unbounded();
+    let settings = Arc::new(Mutex::new(settings));
+    let ctx = ToolContext::new(Arc::clone(&settings), paths, events_tx, requests_tx);
+    let mut app = StudioApp::new(tools, planned, ctx.clone(), requests_rx, config_dir);
+    app.sidebar.probe = || Vec::new();
+    Shell {
+        app,
+        ctx,
+        settings,
+        calls,
+        _dir: None,
+    }
+}
+
+/// A shell over `tools` with `data_dir` as the settings file's folder and a placeholder
+/// exe folder: tests that spell the base folders out go through `shell_in`. A `None`
+/// `data_dir` opens the first-run dialog (ST-RUN-01).
 pub(super) fn shell_with(
     settings: Settings,
     tools: Vec<Box<dyn StudioTool>>,
@@ -173,44 +275,75 @@ pub(super) fn shell_with(
     data_dir: Option<PathBuf>,
     calls: Vec<Arc<Calls>>,
 ) -> Shell {
-    let (events_tx, _events_rx) = unbounded();
-    let (requests_tx, requests_rx) = unbounded();
-    let settings = Arc::new(Mutex::new(settings));
-    let ctx = ToolContext::new(
-        Arc::clone(&settings),
+    shell_in(
+        settings,
+        tools,
+        planned,
         AppPaths {
             exe_dir: PathBuf::from("exe"),
             data_dir,
         },
-        events_tx,
-        requests_tx,
-    );
-    let mut app = StudioApp::new(tools, planned, ctx.clone(), requests_rx);
-    app.sidebar.probe = || Vec::new();
-    Shell {
-        app,
-        ctx,
-        settings,
+        None,
         calls,
-    }
+    )
 }
 
-/// A shell over the stub tools `a` (labeled `A`) and `b` (`B`).
+/// A shell over the stub tools `a` (labeled `A`) and `b` (`B`), its data directory a
+/// `TestDir` the `Shell` holds so the first-run dialog does not stand in front of the
+/// views and the folder dies with the `Shell`.
 pub(super) fn shell() -> Shell {
     let (a, calls_a) = stub("a", "A", None);
     let (b, calls_b) = stub("b", "B", None);
-    shell_with(
-        test_settings(&test_dir("studio_core_shell")),
+    let dir = TestDir::new("studio_core_shell");
+    let mut shell = shell_with(
+        test_settings(dir.path()),
         vec![a, b],
         &[],
-        None,
+        Some(dir.path().to_path_buf()),
         vec![calls_a, calls_b],
-    )
+    );
+    shell._dir = Some(dir);
+    shell
 }
 
 /// A temp folder unique to this test process, as `settings`' `test_dir` does it.
 pub(super) fn test_dir(name: &str) -> PathBuf {
     std::env::temp_dir().join(format!("{name}_{}", std::process::id()))
+}
+
+/// A temp folder the test owns: `<temp>/<name>_<pid>_<n>` (`n` from a process counter,
+/// so no two calls share a folder), created in `new` and removed in `Drop` — a test
+/// that panics still leaves the temp folder clean. For the tests that want a real
+/// data directory: a `None` `data_dir` opens the first-run dialog (ST-RUN-01) and a
+/// missing folder raises `data_dir_read_only` at the first save.
+pub(super) struct TestDir(PathBuf);
+
+impl TestDir {
+    /// Creates `<temp>/<name>_<pid>_<n>`: unique in this process run.
+    pub(super) fn new(name: &str) -> TestDir {
+        static SEQUENCE: AtomicUsize = AtomicUsize::new(0);
+        let dir = test_dir(&format!(
+            "{name}_{}",
+            SEQUENCE.fetch_add(1, Ordering::SeqCst)
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        TestDir(dir)
+    }
+
+    /// The folder's path.
+    pub(super) fn path(&self) -> &Path {
+        &self.0
+    }
+}
+
+impl Drop for TestDir {
+    fn drop(&mut self) {
+        // A drop cannot fail the test, and a leftover folder in the temp folder harms
+        // nothing: the failure is logged, not raised.
+        if let Err(error) = fs::remove_dir_all(&self.0) {
+            log::debug!("test folder {} not removed: {error}", self.0.display());
+        }
+    }
 }
 
 /// The settings a shell test starts from: the defaults, except `pes_folder_path`
@@ -265,6 +398,19 @@ pub(super) fn frame_at(
     time: Option<f64>,
 ) -> FrameOutput {
     run_frame(ctx, app, raw_input(events, focused, time, None))
+}
+
+/// `frame` with the window's close requested: the OS's `ViewportEvent::Close` on the
+/// root viewport, as the title bar's X sends it.
+pub(super) fn frame_closing(ctx: &egui::Context, app: &mut StudioApp) -> FrameOutput {
+    let mut input = raw_input(Vec::new(), true, None, None);
+    input
+        .viewports
+        .get_mut(&egui::ViewportId::ROOT)
+        .expect("`RawInput::default` carries the root viewport")
+        .events
+        .push(egui::ViewportEvent::Close);
+    run_frame(ctx, app, input)
 }
 
 /// `frame` with the OS's theme in `RawInput::system_theme`: the shell must not follow
@@ -415,4 +561,10 @@ pub(super) fn has_text(nodes: &[accesskit::Node], needle: &str) -> bool {
     nodes
         .iter()
         .any(|node| node.value().is_some_and(|text| text.contains(needle)))
+}
+
+/// Whether a widget labeled `label` is present: a button's text sits in `label`,
+/// not `value`.
+pub(super) fn has_label(nodes: &[accesskit::Node], label: &str) -> bool {
+    nodes.iter().any(|node| node.label() == Some(label))
 }

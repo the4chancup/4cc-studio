@@ -1,10 +1,13 @@
 //! The app shell: `StudioApp`, the window with a sidebar listing the registered tools, the
-//! status bar under everything, the window title, the settings menu, the active tool's
-//! view, every tool ticked each frame and the tools' shell requests applied; and the
-//! launch modes' argument parsing (`launch`). The help window and the common widgets join
-//! this module later in the GUI phase (core plan, "Shell layout", "Crate structure").
+//! status bar under everything, the window title, the settings menu, the first-run
+//! data-location dialog while no data location exists, the active tool's view, every tool
+//! ticked each frame and the tools' shell requests applied; the window's close asks the
+//! tools in sidebar order until one holds it. Plus the launch modes' argument parsing
+//! (`launch`). The help window and the common widgets join this module later in the GUI
+//! phase (core plan, "Shell layout", "Crate structure").
 
 mod about;
+mod first_run;
 mod launch;
 mod settings_menu;
 mod sidebar;
@@ -12,6 +15,8 @@ mod status_bar;
 #[cfg(test)]
 mod test_harness;
 mod title;
+
+use std::path::PathBuf;
 
 use crossbeam_channel::Receiver;
 use log::debug;
@@ -26,6 +31,7 @@ use crate::status::ActionEffect;
 use crate::status::ShellCondition;
 use crate::tool::{PlannedTool, ShellRequest, StudioTool, ToolContext};
 
+use self::first_run::FirstRun;
 use self::settings_menu::SettingsMenu;
 use self::sidebar::{Sidebar, SidebarClick};
 use self::status_bar::StatusBar;
@@ -49,18 +55,24 @@ pub struct StudioApp {
     /// The common `theme` setting last applied to the context; `None` until the first
     /// frame, which applies it.
     applied_theme: Option<Theme>,
+    /// The first-run data-location dialog's state.
+    first_run: FirstRun,
 }
 
 impl StudioApp {
     /// A shell over `tools`, opening on the one the `last_tool` setting names (the first when
     /// it names none or an unregistered one; ST-SIDE-01, ST-RUN-02). `planned` is the suite's
     /// registry including the tools this build does not register. `requests` is the receiving
-    /// end of the channel `ctx` sends shell requests to.
+    /// end of the channel `ctx` sends shell requests to. `config_dir` is the user config
+    /// folder the first-run dialog's "In my user folder" choice offers (`studio` passes
+    /// `user_config_dir()`; `None` drops the choice — and is what the browser build gets,
+    /// which never asks).
     pub fn new(
         tools: Vec<Box<dyn StudioTool>>,
         planned: &'static [PlannedTool],
         ctx: ToolContext,
         requests: Receiver<ShellRequest>,
+        config_dir: Option<PathBuf>,
     ) -> StudioApp {
         let active = ctx
             .common()
@@ -78,6 +90,7 @@ impl StudioApp {
             settings_menu: SettingsMenu::default(),
             title: WindowTitle::default(),
             applied_theme: None,
+            first_run: FirstRun::new(config_dir),
         }
     }
 
@@ -125,6 +138,12 @@ impl StudioApp {
                 ShellRequest::SwitchTool(id) => self.switch_to(id.as_str()),
                 // A settings write queues this; the save is best-effort, at the next frame.
                 ShellRequest::SettingsChanged => self.save_settings(),
+                // A close prompt's answer: sent back through the window's own close
+                // path, which asks the tools again — there is no second path
+                // (gui.md "Cancellation").
+                ShellRequest::Close => {
+                    egui_ctx.send_viewport_cmd(egui::ViewportCommand::Close);
+                }
                 // The newest notice replaces the one before it; while the window is
                 // unfocused its text also holds in the title until focus returns.
                 ShellRequest::Notify(notice) => {
@@ -209,6 +228,21 @@ impl eframe::App for StudioApp {
         self.sidebar
             .poll_running_pes(egui_ctx, &self.tools, &self.ctx);
         self.apply_requests(egui_ctx);
+        // The window's close asks the tools in sidebar order until one holds it (gui.md
+        // "Cancellation"): the holder cancels the close and becomes the active view,
+        // its prompt answering through `ToolContext::request_close`. A close the shell
+        // initiated itself takes the same path — `ShellRequest::Close` comes back as a
+        // close request — so no second path exists.
+        if egui_ctx.input(|input| input.viewport().close_requested())
+            && let Some(index) = self.tools.iter_mut().position(|tool| tool.hold_close())
+        {
+            egui_ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
+            self.set_active(index);
+            // The holder's prompt decides; no shell modal (the settings menu, the About
+            // popup) may cover it.
+            self.settings_menu.close();
+            self.sidebar.about_open = false;
+        }
         let focused = egui_ctx.input(|input| input.focused);
         if let Some(title) = self.title.frame(&self.activities(true), focused) {
             egui_ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
@@ -244,12 +278,21 @@ impl eframe::App for StudioApp {
             None => {}
         }
         egui::CentralPanel::default().show(ui, |ui| {
-            if let Some(tool) = self.tools.get_mut(self.active) {
+            // While the first-run dialog is up no tool's `view` runs: the central panel
+            // stays empty behind the backdrop (ST-RUN-01).
+            if !self.first_run.up(&self.ctx)
+                && let Some(tool) = self.tools.get_mut(self.active)
+            {
                 tool.view(ui, &self.ctx);
             }
         });
-        self.settings_menu
-            .show(ui.ctx(), &mut self.tools, &self.ctx, &mut self.sidebar);
+        // The dialog is drawn instead of any other window (the draft's `render`).
+        if self.first_run.up(&self.ctx) {
+            self.first_run.show(ui.ctx(), &mut self.ctx);
+        } else {
+            self.settings_menu
+                .show(ui.ctx(), &mut self.tools, &self.ctx, &mut self.sidebar);
+        }
     }
 }
 
@@ -276,8 +319,9 @@ pub fn run_gui(app: StudioApp) -> anyhow::Result<()> {
 #[cfg(test)]
 mod tests {
     use std::fs;
+    use std::time::Duration;
 
-    use crossbeam_channel::TryRecvError;
+    use crossbeam_channel::{TryRecvError, unbounded};
     use eframe::App;
 
     use super::test_harness::*;
@@ -292,7 +336,9 @@ mod tests {
 
     #[test]
     fn a_switch_request_makes_the_named_tool_active() {
-        let Shell { mut app, ctx, .. } = shell();
+        let Shell {
+            mut app, ctx, _dir, ..
+        } = shell();
         assert_eq!(app.active, 0);
         ctx.switch_to_tool("b");
         apply_requests(&mut app);
@@ -301,7 +347,9 @@ mod tests {
 
     #[test]
     fn a_switch_to_an_unknown_tool_changes_nothing() {
-        let Shell { mut app, ctx, .. } = shell();
+        let Shell {
+            mut app, ctx, _dir, ..
+        } = shell();
         ctx.switch_to_tool("b");
         ctx.switch_to_tool("zz");
         apply_requests(&mut app);
@@ -310,7 +358,9 @@ mod tests {
 
     #[test]
     fn notices_and_settings_changes_are_drained() {
-        let Shell { mut app, ctx, .. } = shell();
+        let Shell {
+            mut app, ctx, _dir, ..
+        } = shell();
         ctx.notify(Notice {
             text: "hello".to_owned(),
             action: None,
@@ -327,6 +377,7 @@ mod tests {
             mut app,
             ctx,
             calls,
+            _dir,
             ..
         } = shell();
         ctx.switch_to_tool("b");
@@ -383,5 +434,300 @@ mod tests {
         assert_eq!(app.active, 1, "the GUI reopens on the second tool");
         assert_eq!(calls[1].views(), 1);
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    /// A shell over `a`, `b`, `c` with `data_dir` under `dir`: the close scenarios need
+    /// the first-run dialog out of the way, or it would hide the prompts' views.
+    fn close_shell(dir: &std::path::Path) -> Shell {
+        let (a, calls_a) = stub("a", "A", None);
+        let (b, calls_b) = stub("b", "B", None);
+        let (c, calls_c) = stub("c", "C", None);
+        shell_with(
+            test_settings(dir),
+            vec![a, b, c],
+            &[],
+            Some(dir.to_path_buf()),
+            vec![calls_a, calls_b, calls_c],
+        )
+    }
+
+    // ST-RUN-05
+    #[test]
+    fn a_close_is_held_by_the_first_tool_with_unsaved_work_then_the_next() {
+        let dir = TestDir::new("studio_core_close_unsaved");
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+        let Shell { mut app, calls, .. } = close_shell(dir.path());
+        *calls[0].unsaved.lock().unwrap() = true;
+        *calls[1].unsaved.lock().unwrap() = true;
+        app.set_active(2);
+
+        // The window's close is held by the first tool that reports work, in sidebar
+        // order: the tools after it are never asked.
+        let out = frame_closing(&egui_ctx, &mut app);
+        assert!(
+            out.commands.contains(&egui::ViewportCommand::CancelClose),
+            "the window stays while a tool holds the close"
+        );
+        assert_eq!(app.active, 0, "A's prompt is the active view");
+        assert_eq!(
+            (calls[0].holds(), calls[1].holds(), calls[2].holds()),
+            (1, 0, 0),
+            "the asks stop at the first tool that holds"
+        );
+        entry(&out.nodes, "Discard");
+        entry(&out.nodes, "Cancel");
+
+        // A's Discard answers the prompt with a close request; the shell sends it
+        // back through the window's own close path.
+        click(&egui_ctx, &mut app, entry(&out.nodes, "Discard"));
+        let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+        assert!(
+            out.commands.contains(&egui::ViewportCommand::Close),
+            "the answered prompt sends the close on"
+        );
+
+        // The close comes back and asks again: B still holds, its prompt is active.
+        let out = frame_closing(&egui_ctx, &mut app);
+        assert!(out.commands.contains(&egui::ViewportCommand::CancelClose));
+        assert_eq!(app.active, 1, "B's prompt is the active view");
+        entry(&out.nodes, "Discard");
+
+        click(&egui_ctx, &mut app, entry(&out.nodes, "Discard"));
+        frame(&egui_ctx, &mut app, Vec::new(), true);
+        let out = frame_closing(&egui_ctx, &mut app);
+        assert!(
+            !out.commands.contains(&egui::ViewportCommand::CancelClose),
+            "nothing left to hold: the window closes"
+        );
+    }
+
+    // ST-RUN-05
+    #[test]
+    fn a_cancelled_prompt_keeps_the_window_and_asks_no_other_tool() {
+        let dir = TestDir::new("studio_core_close_cancel");
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+        let Shell { mut app, calls, .. } = close_shell(dir.path());
+        *calls[0].unsaved.lock().unwrap() = true;
+        *calls[1].unsaved.lock().unwrap() = true;
+        app.set_active(2);
+
+        let out = frame_closing(&egui_ctx, &mut app);
+        assert_eq!(app.active, 0);
+        click(&egui_ctx, &mut app, entry(&out.nodes, "Cancel"));
+
+        // A cancel sends nothing: the window stays, no other tool's prompt shows.
+        for _ in 0..3 {
+            let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+            assert!(
+                !out.commands.contains(&egui::ViewportCommand::Close),
+                "a cancel sends no close"
+            );
+            for label in ["Discard", "Cancel", "Close when it ends", "Keep the window"] {
+                assert!(
+                    !has_label(&out.nodes, label),
+                    "no prompt is drawn anymore, B's included: {label}"
+                );
+            }
+        }
+        assert_eq!(calls[1].holds(), 0, "B was never asked");
+    }
+
+    // ST-RUN-05
+    #[test]
+    fn a_held_close_closes_the_settings_menu_over_the_prompt() {
+        let dir = TestDir::new("studio_core_close_menu");
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+        let (a, calls_a) = stub("a", "A", None);
+        let (b, calls_b) = stub("b", "B", None);
+        let Shell { mut app, calls, .. } = shell_with(
+            test_settings(dir.path()),
+            vec![a, b],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a, calls_b],
+        );
+        *calls[0].unsaved.lock().unwrap() = true;
+        app.set_active(1);
+
+        // The settings menu open over B's view when the close is asked.
+        let nodes = idle(&egui_ctx, &mut app, 2).nodes;
+        click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
+        let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+        assert!(has_text(&nodes, "Threads"), "the menu is open");
+
+        // The close is held: A's prompt becomes the view, and the menu's modal no
+        // longer covers it.
+        let out = frame_closing(&egui_ctx, &mut app);
+        assert!(out.commands.contains(&egui::ViewportCommand::CancelClose));
+        assert_eq!(app.active, 0);
+        let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+        assert!(
+            !has_text(&nodes, "Threads"),
+            "the settings menu is gone once the close is held"
+        );
+
+        // A's prompt answers: Discard sends the close on.
+        click(&egui_ctx, &mut app, entry(&nodes, "Discard"));
+        let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+        assert!(
+            out.commands.contains(&egui::ViewportCommand::Close),
+            "the answered prompt sends the close on"
+        );
+    }
+
+    // ST-RUN-05
+    #[test]
+    fn a_held_close_closes_the_about_popup_over_the_prompt() {
+        let dir = TestDir::new("studio_core_close_about");
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+        let (a, calls_a) = stub("a", "A", None);
+        let (b, calls_b) = stub("b", "B", None);
+        let Shell { mut app, calls, .. } = shell_with(
+            test_settings(dir.path()),
+            vec![a, b],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a, calls_b],
+        );
+        *calls[0].unsaved.lock().unwrap() = true;
+        app.set_active(1);
+
+        // The About popup open over B's view when the close is asked.
+        app.sidebar.about_open = true;
+        let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+        assert!(has_label(&nodes, "Copy"), "the About popup is open");
+
+        let out = frame_closing(&egui_ctx, &mut app);
+        assert!(out.commands.contains(&egui::ViewportCommand::CancelClose));
+        assert_eq!(app.active, 0);
+        let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+        assert!(
+            !has_label(&nodes, "Copy"),
+            "the About popup is gone once the close is held"
+        );
+        click(&egui_ctx, &mut app, entry(&nodes, "Discard"));
+        let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+        assert!(
+            out.commands.contains(&egui::ViewportCommand::Close),
+            "the prompt is uncovered and answers"
+        );
+    }
+
+    // ST-RUN-06
+    #[test]
+    fn a_run_in_flight_holds_the_close_until_the_run_ends() {
+        let dir = TestDir::new("studio_core_close_run");
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+        let (a, calls_a) = stub("a", "A", None);
+        let (b, calls_b) = stub("b", "B", None);
+        calls_a.set_activity("A", Some((12, 48)), Duration::from_secs(72));
+        let (run_tx, run_rx) = unbounded();
+        *calls_a.events.lock().unwrap() = Some(run_rx);
+        let Shell { mut app, .. } = shell_with(
+            test_settings(dir.path()),
+            vec![a, b],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a, calls_b],
+        );
+        app.set_active(1);
+
+        let out = frame_closing(&egui_ctx, &mut app);
+        assert!(
+            out.commands.contains(&egui::ViewportCommand::CancelClose),
+            "the window stays while the run goes"
+        );
+        assert_eq!(
+            app.active, 0,
+            "the running tool's prompt is the active view"
+        );
+        entry(&out.nodes, "Close when it ends");
+        entry(&out.nodes, "Keep the window");
+
+        click(&egui_ctx, &mut app, entry(&out.nodes, "Close when it ends"));
+        // While the run goes on, no close is sent.
+        for _ in 0..3 {
+            let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+            assert!(
+                !out.commands.contains(&egui::ViewportCommand::Close),
+                "the run still goes: no close"
+            );
+        }
+
+        // The run's last event lands: the tool's tick sees it and sends the close on.
+        run_tx.send(envelope()).unwrap();
+        let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+        assert!(
+            out.commands.contains(&egui::ViewportCommand::Close),
+            "the run ended: the held close goes through"
+        );
+        let out = frame_closing(&egui_ctx, &mut app);
+        assert!(
+            !out.commands.contains(&egui::ViewportCommand::CancelClose),
+            "nothing holds it anymore"
+        );
+    }
+
+    // ST-RUN-06
+    #[test]
+    fn keeping_the_window_lets_the_run_go_on() {
+        let dir = TestDir::new("studio_core_close_keep");
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+        let (a, calls_a) = stub("a", "A", None);
+        let (b, calls_b) = stub("b", "B", None);
+        calls_a.set_activity("A", Some((12, 48)), Duration::from_secs(72));
+        let Shell { mut app, calls, .. } = shell_with(
+            test_settings(dir.path()),
+            vec![a, b],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a, calls_b],
+        );
+        app.set_active(1);
+
+        let out = frame_closing(&egui_ctx, &mut app);
+        assert_eq!(app.active, 0);
+        click(&egui_ctx, &mut app, entry(&out.nodes, "Keep the window"));
+
+        for _ in 0..3 {
+            let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+            assert!(
+                !out.commands.contains(&egui::ViewportCommand::Close),
+                "keeping the window sends no close"
+            );
+        }
+        assert!(
+            calls[0].activity.lock().unwrap().is_some(),
+            "the run is still reported"
+        );
+    }
+
+    #[test]
+    fn a_close_no_tool_holds_goes_through() {
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+        let Shell {
+            mut app,
+            calls,
+            _dir,
+            ..
+        } = shell();
+
+        let out = frame_closing(&egui_ctx, &mut app);
+        assert!(
+            !out.commands.contains(&egui::ViewportCommand::CancelClose),
+            "nothing held: no cancel"
+        );
+        assert_eq!(
+            (calls[0].holds(), calls[1].holds()),
+            (1, 1),
+            "every tool was asked, none held"
+        );
     }
 }

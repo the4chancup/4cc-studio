@@ -16,7 +16,12 @@ use crate::tool::PlannedTool;
 // TC-GUI-03
 #[test]
 fn the_sidebar_marks_the_active_tool_and_a_click_on_an_entry_switches_to_it() {
-    let Shell { mut app, calls, .. } = shell();
+    let Shell {
+        mut app,
+        calls,
+        _dir,
+        ..
+    } = shell();
     let egui_ctx = egui::Context::default();
     egui_ctx.enable_accesskit();
 
@@ -56,13 +61,14 @@ fn the_gui_opens_on_the_tool_last_tool_names_and_lists_all_tools() {
     let (a, calls_a) = stub("a", "A", None);
     let (b, calls_b) = stub("b", "B", None);
     let (c, calls_c) = stub("c", "C", None);
-    let mut settings = test_settings(&test_dir("studio_core_sidebar_last_named"));
+    let dir = TestDir::new("studio_core_sidebar_last_named");
+    let mut settings = test_settings(dir.path());
     settings.common.last_tool = Some("b".to_owned());
     let Shell { mut app, calls, .. } = shell_with(
         settings,
         vec![a, b, c],
         &[],
-        None,
+        Some(dir.path().to_path_buf()),
         vec![calls_a, calls_b, calls_c],
     );
     let egui_ctx = egui::Context::default();
@@ -84,7 +90,12 @@ fn the_gui_opens_on_the_tool_last_tool_names_and_lists_all_tools() {
 // ST-SIDE-02
 #[test]
 fn the_collapse_button_turns_the_sidebar_into_a_working_icon_rail() {
-    let Shell { mut app, calls, .. } = shell();
+    let Shell {
+        mut app,
+        calls,
+        _dir,
+        ..
+    } = shell();
     let egui_ctx = egui::Context::default();
     egui_ctx.enable_accesskit();
     egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
@@ -136,13 +147,14 @@ fn the_selector_is_colored_by_the_exe_found_in_the_pes_folder() {
     egui_ctx.enable_accesskit();
     egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
 
-    // A shell at PES 21 with `data_dir` unset; `pes_folder_path` is the given folder.
+    // A shell at PES 21 with `data_dir` in the given folder; `pes_folder_path` is the
+    // given folder.
     let with_pes_folder = |folder: &PathBuf| {
         let (a, calls_a) = stub("a", "A", None);
         let mut settings = Settings::default();
         settings.common.pes_version = PesVersion::Pes21;
         settings.common.pes_folder_path = folder.display().to_string();
-        shell_with(settings, vec![a], &[], None, vec![calls_a])
+        shell_with(settings, vec![a], &[], Some(folder.clone()), vec![calls_a])
     };
     let hover_selector = |app: &mut StudioApp| {
         let nodes = frame(&egui_ctx, app, Vec::new(), true).nodes;
@@ -260,7 +272,7 @@ fn the_exe_check_relists_on_a_change_or_on_focus_never_per_frame() {
     settings.common.pes_folder_path = dir.display().to_string();
     let Shell {
         mut app, settings, ..
-    } = shell_with(settings, vec![a], &[], None, vec![calls_a]);
+    } = shell_with(settings, vec![a], &[], Some(dir.clone()), vec![calls_a]);
 
     frame(&egui_ctx, &mut app, Vec::new(), true);
     frame(&egui_ctx, &mut app, Vec::new(), true);
@@ -373,11 +385,12 @@ fn the_planned_tools_follow_the_registered_ones_grayed_and_inert() {
     ];
     let (a, calls_a) = stub("a", "A", None);
     let (b, calls_b) = stub("b", "B", None);
+    let dir = TestDir::new("studio_core_sidebar_planned");
     let Shell { mut app, .. } = shell_with(
-        test_settings(&test_dir("studio_core_sidebar_planned")),
+        test_settings(dir.path()),
         vec![a, b],
         PLANNED,
-        None,
+        Some(dir.path().to_path_buf()),
         vec![calls_a, calls_b],
     );
     let egui_ctx = egui::Context::default();
@@ -629,14 +642,21 @@ fn a_version_change_blocker_defers_the_auto_switch_without_spending_it() {
         }]
     }
     let (a, calls_a) = stub("a", "A", Some("a compile is running"));
-    let mut settings = test_settings(&test_dir("studio_core_autoswitch_blocked"));
+    let dir = TestDir::new("studio_core_autoswitch_blocked");
+    let mut settings = test_settings(dir.path());
     settings.common.pes_version = PesVersion::Pes21;
     let Shell {
         mut app,
         ctx,
         calls,
         ..
-    } = shell_with(settings, vec![a], &[], None, vec![calls_a]);
+    } = shell_with(
+        settings,
+        vec![a],
+        &[],
+        Some(dir.path().to_path_buf()),
+        vec![calls_a],
+    );
     app.sidebar.probe = probe;
     let egui_ctx = egui::Context::default();
     egui_ctx.enable_accesskit();
@@ -664,6 +684,8 @@ fn a_version_change_blocker_defers_the_auto_switch_without_spending_it() {
 
 #[test]
 fn the_switch_notice_offers_fix_pes_path_only_when_the_exe_sits_elsewhere() {
+    // `test_dir`, not `TestDir`: the probes are `fn` items that recompute the path by
+    // name, which a `TestDir`'s counter suffix would break.
     let dir = test_dir("studio_core_autoswitch_notice");
     let egui_ctx = egui::Context::default();
     egui_ctx.enable_accesskit();
@@ -678,7 +700,14 @@ fn the_switch_notice_offers_fix_pes_path_only_when_the_exe_sits_elsewhere() {
     let (a, calls_a) = stub("a", "A", None);
     let mut settings = test_settings(&dir);
     settings.common.pes_version = PesVersion::Pes21;
-    let Shell { mut app, .. } = shell_with(settings, vec![a], &[], None, vec![calls_a]);
+    let data = TestDir::new("studio_core_autoswitch_notice_data");
+    let Shell { mut app, .. } = shell_with(
+        settings,
+        vec![a],
+        &[],
+        Some(data.path().to_path_buf()),
+        vec![calls_a],
+    );
     app.sidebar.probe = no_exe;
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.0));
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(5.0));
@@ -714,7 +743,14 @@ fn the_switch_notice_offers_fix_pes_path_only_when_the_exe_sits_elsewhere() {
         .join("Pro Evolution Soccer 20**")
         .display()
         .to_string();
-    let Shell { mut app, .. } = shell_with(settings, vec![a], &[], None, vec![calls_a]);
+    let data = TestDir::new("studio_core_autoswitch_notice_data");
+    let Shell { mut app, .. } = shell_with(
+        settings,
+        vec![a],
+        &[],
+        Some(data.path().to_path_buf()),
+        vec![calls_a],
+    );
     app.sidebar.probe = matching;
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.0));
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(5.0));
@@ -743,7 +779,14 @@ fn the_switch_notice_offers_fix_pes_path_only_when_the_exe_sits_elsewhere() {
     let (a, calls_a) = stub("a", "A", None);
     let mut settings = test_settings(&dir);
     settings.common.pes_version = PesVersion::Pes21;
-    let Shell { mut app, .. } = shell_with(settings, vec![a], &[], None, vec![calls_a]);
+    let data = TestDir::new("studio_core_autoswitch_notice_data");
+    let Shell { mut app, .. } = shell_with(
+        settings,
+        vec![a],
+        &[],
+        Some(data.path().to_path_buf()),
+        vec![calls_a],
+    );
     app.sidebar.probe = missing_folder;
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.0));
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(5.0));
@@ -755,6 +798,7 @@ fn the_switch_notice_offers_fix_pes_path_only_when_the_exe_sits_elsewhere() {
             .all(|node| node.label() != Some("Fix PES path")),
         "no action for a folder that does not exist"
     );
+    fs::remove_dir_all(&dir).unwrap();
 }
 
 #[test]
@@ -831,9 +875,16 @@ fn the_poll_takes_the_first_detected_game_and_stays_put_when_it_is_the_selection
         ]
     }
     let (a, calls_a) = stub("a", "A", None);
-    let mut settings = test_settings(&test_dir("studio_core_autoswitch_first"));
+    let dir = TestDir::new("studio_core_autoswitch_first");
+    let mut settings = test_settings(dir.path());
     settings.common.pes_version = PesVersion::Pes19;
-    let Shell { mut app, ctx, .. } = shell_with(settings, vec![a], &[], None, vec![calls_a]);
+    let Shell { mut app, ctx, .. } = shell_with(
+        settings,
+        vec![a],
+        &[],
+        Some(dir.path().to_path_buf()),
+        vec![calls_a],
+    );
     app.sidebar.probe = probe;
     let egui_ctx = egui::Context::default();
     egui_ctx.enable_accesskit();
@@ -865,11 +916,12 @@ fn the_poll_calls_the_probe_every_five_seconds_and_schedules_its_repaint() {
     }
 
     let (a, calls_a) = stub("a", "A", None);
+    let dir = TestDir::new("studio_core_autoswitch_poll");
     let Shell { mut app, .. } = shell_with(
-        test_settings(&test_dir("studio_core_autoswitch_poll")),
+        test_settings(dir.path()),
         vec![a],
         &[],
-        None,
+        Some(dir.path().to_path_buf()),
         vec![calls_a],
     );
     app.sidebar.probe = probe;

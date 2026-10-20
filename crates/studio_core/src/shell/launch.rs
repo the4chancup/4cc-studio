@@ -265,6 +265,10 @@ mod tests {
         let error = tool.gui_run(&ArgMatches::default(), &ctx).unwrap_err();
         assert_eq!(error.to_string(), "stub has no GUI-runnable commands");
         assert_eq!(tool.version_change_blocker(), None);
+        assert!(
+            !tool.hold_close(),
+            "by default nothing holds the window's close"
+        );
     }
 
     #[test]

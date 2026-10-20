@@ -223,4 +223,10 @@ exclude_re = [
     # The comparison stays as the net for a shape nobody has found, so that it is written fresh
     # instead of saved wrong. Unmeasured on purpose; the `Err` arm stays measured.
     "studio_core/src/settings/mod\\.rs:\\d+:\\d+: replace match guard read_back == desired with true in Settings::save",
+    # studio_core (mutants-diff fe5d4af2, worklog 8.6c2): the browser build's `FirstRun`
+    # stand-in (`first_run.rs`, under `cfg(target_arch = "wasm32")`, after the native impl,
+    # so on a three-digit line where the native `up` sits on a two-digit one) is compiled on
+    # no tested OS, so its `up -> true` builds and "passes" untouched. The native `up` stays
+    # measured.
+    "studio_core/src/shell/first_run\\.rs:1\\d\\d:\\d+: replace FirstRun::up -> bool with true",
 ]

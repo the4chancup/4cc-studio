@@ -240,7 +240,13 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
         events_tx,
         requests_tx,
     );
-    match run_gui(StudioApp::new(tools, &PLANNED, ctx, requests_rx)) {
+    match run_gui(StudioApp::new(
+        tools,
+        &PLANNED,
+        ctx,
+        requests_rx,
+        user_config_dir(),
+    )) {
         Ok(()) => ExitCode::SUCCESS,
         Err(error) => {
             eprintln!("error: {error:#}");

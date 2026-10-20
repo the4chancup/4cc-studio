@@ -21,8 +21,8 @@ pub(crate) fn version_block(paths: &AppPaths, pes_version: PesVersion) -> String
     };
     let data = match &paths.data_dir {
         Some(dir) => dir.display().to_string(),
-        // The first-run dialog picks a location before the sidebar opens; until it exists
-        // (a GUI run with no settings file yet) the block says so rather than guessing one.
+        // A GUI run with no settings file yet has no location until the first-run
+        // dialog's choice lands; until then the block says so rather than guessing one.
         None => "not chosen yet".to_owned(),
     };
     [
