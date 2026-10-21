@@ -19,6 +19,24 @@ chosen from their palettes, not picked), which is what puts it in
 Phase 8; then the Kit config editor (config colors and kit `colors.txt` colors)
 and the Team creator; any later tool that needs a color field uses it too.
 
+The field is a color button showing the color; a click opens the popup, which holds, top to
+bottom: egui's saturation-value square and hue slider, opaque (no export or save stores an
+alpha); the hex field, committed on Enter or when it loses focus, a text that does not read
+as `#RRGGBB` (the `#` optional, either case) put back to the current color when it loses
+focus; the R, G and B fields, 0-255; the host's suggestion swatches; the recent colors.
+Suggestions come from the host and may be none: the Save editor passes none, its team colors
+having no kit texture to extract from. Recent colors are the session's, shared by every
+picker in the program, newest first, at most eight: a color joins when the popup closes on a
+color other than the one it opened on, so a drag across the square adds one entry, not a
+hundred. They are not saved across restarts, as the help window's geometry is not: saving
+would rewrite the settings file for each pick, for a convenience. The contract is the one
+`libs/team_widgets` states (`plans/save_editor.md` "`libs/team_widgets`"): the widget takes the
+color as `&mut [u8; 3]`, draws, and returns whether it changed and the hover candidate; the
+host converts to what it stores (the Save editor's 6 bits per channel). A drag in the square,
+the hue slider or an R/G/B field is a candidate while it lasts and one change when released,
+as a click on a swatch or a committed hex text is one change: the host's undo then takes one
+step per gesture, not one per frame of a drag.
+
 ### Kit menu icon rendering (Phase 8)
 
 The 24 kit menu icons (`icon_<N>`, 0–23) are simple two-color kit icon patterns —

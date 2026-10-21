@@ -29,7 +29,9 @@
   a palette-index choice (framed widgets, never a colour picker), title="" =
   on_hover_text (on_disabled_hover_text on the span around a disabled
   control), row drag = Sense::drag, .sidebar = Panel::left, .bottom =
-  Panel::bottom, .center = CentralPanel.
+  Panel::bottom, .center = CentralPanel, .pkpop = color_tools' color_field
+  (an egui Popup from a colour button; the saturation-value square and the
+  hue strip are drawn by its painter, a <canvas> here).
   The Tactics tab's pitch: the <canvas> is the egui Painter (the frame and
   every marker are drawn there; marker hit tests are ui.interact on each
   marker's rect, drag Sense::drag); .tpopover = egui::popup (area below the
@@ -181,6 +183,20 @@
   .palette.off .swatch:hover { outline: none; }
   .palette .swatch:hover { outline: 1px solid var(--hover); }
   .palette.off { pointer-events: none; }
+  /* the colour picker (color_tools' color_field) */
+  .cbtn { width: 26px; height: 15px; border: 1px solid var(--stroke);
+    border-radius: 2px; padding: 0; vertical-align: middle; }
+  .cbtn:hover { border-color: var(--hover); }
+  .pkfield { position: relative; display: inline-block; }
+  .pkpop { position: absolute; top: 100%; left: 0; margin-top: 3px; z-index: 25;
+    background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px;
+    padding: 8px; box-shadow: 0 4px 16px #000a;
+    display: flex; flex-direction: column; gap: 6px; }
+  .pkpop canvas { display: block; border: 1px solid var(--stroke); }
+  .pkpop input[type=number] { width: 42px; }
+  .pkpop input[type=text] { width: 74px; }
+  .pkrow { display: flex; gap: 5px; align-items: center; }
+  .pkrow .swatch { cursor: default; }
   .vbanner { border: 1px solid var(--warn); border-radius: 2px; padding: 3px 8px; margin: 4px 0; }
   /* tactics tab */
   .tacbar { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
@@ -2297,10 +2313,13 @@ const SAMPLE_PATH = {
 // ---- State ----
 // D: the draft controls' GIVENs. S: the session.
 const D = { sample: "pes17", selectorVersion: "2017", gameRunning: false,
-  appearanceIds: "all_set", ruleset: "official" };
+  appearanceIds: "all_set", ruleset: "official", pickerSugg: false };
 const S = { save: null, baseline: null, teamSel: "all", filter: "", sel: null,
   tab: "abilities", editAnyway: false, undo: [], redo: [], recents: [],
   status: null,
+  // The colour picker: the open popup (its field's key, the shown colour it
+  // opened on and the current one) and the session's recent colours.
+  picker: null, recentColors: [],
   // Tactics tab view state: the drawn preset and formation, the open slot
   // popover (a formation index), the armed assignment mode and a live drag.
   tac: { preset: 0, formation: 0 }, slotPop: null, assign: null, pitchDrag: null };
@@ -2368,6 +2387,7 @@ function openSave(key, path) {
   S.teamSel = key === "pes17" ? "718" : "all"; S.filter = ""; S.sel = null;
   S.undo = []; S.redo = []; S.editAnyway = false;
   S.assign = null; S.slotPop = null; S.pitchDrag = null;
+  S.picker = null;
   S.panel = null;
   S.cmp = { second: null, refused: null, scope: "all", team: "all" };
   S.trn = { donor: null, refused: null, sel: "718,70201:70201", armed: null, preview: null, applied: false };
@@ -2570,6 +2590,9 @@ function renderDraftControls() {
     h("label", { class: "cb", title: "SE-GUI-09" }, "AATF ruleset",
       combo(Object.entries(RULESETS).map(([k, r]) => [k, r.label]), D.ruleset,
         v => D.ruleset = v)),
+    h("span", { title: "the picker's host-supplied swatches; the Save editor passes none" },
+      cb("Picker suggestions, as a kit editor would pass", D.pickerSugg,
+        v => D.pickerSugg = v)),
     collapsing("walk", "How to walk the scenarios", () => WALK.map(([id, how]) =>
       h("div", {}, strong(id), " ", how))));
 }
@@ -3393,6 +3416,177 @@ function appearanceTab(p) {
   return h("div", {}, ...lines, body);
 }
 
+// ---- The colour picker (color_tools' color_field; libs/color_tools.md) ----
+// The field is a colour button; a click opens the popup below it (egui
+// Popup): the saturation-value square and hue strip (egui's own picker draws
+// both with its painter; a <canvas> stands in), the hex field, the R/G/B
+// fields, the host's suggestion swatches and the session's recent colours.
+// A canvas drag or a field being changed reports the hover candidate (the
+// host previews it on the field button); a release, a committed field or a
+// swatch click is one change, so the host's undo takes one step per gesture.
+const PK_W = 168, PK_SV = 120, PK_HUE = 14, PK_GAP = 6;
+const rgbToHex = rgb =>
+  "#" + rgb.map(v => Math.round(v).toString(16).padStart(2, "0")).join("");
+function hexToRgb(s) {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(s.trim());
+  return m ? [0, 2, 4].map(i => parseInt(m[1].slice(i, i + 2), 16)) : null;
+}
+function rgbToHsv([r, g, b]) {
+  r /= 255; g /= 255; b /= 255;
+  const mx = Math.max(r, g, b), d = mx - Math.min(r, g, b);
+  const h = d === 0 ? 0 : mx === r ? ((g - b) / d + 6) % 6
+    : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [h * 60, mx === 0 ? 0 : d / mx, mx];
+}
+function hsvToRgb(h, s, v) {
+  const c = v * s, x = c * (1 - Math.abs(h / 60 % 2 - 1)), m = v - c;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x]
+    : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return [r, g, b].map(n => Math.round((n + m) * 255));
+}
+// The square runs white to the hue colour left to right, then darkens top to
+// bottom; the strip runs the hues. The ring marks the colour's point.
+function drawPickerCanvas(cv, [hue, sat, val]) {
+  const ctx = cv.getContext("2d");
+  const gx = ctx.createLinearGradient(0, 0, PK_W, 0);
+  gx.addColorStop(0, "#ffffff"); gx.addColorStop(1, rgbToHex(hsvToRgb(hue, 1, 1)));
+  ctx.fillStyle = gx; ctx.fillRect(0, 0, PK_W, PK_SV);
+  const gy = ctx.createLinearGradient(0, 0, 0, PK_SV);
+  gy.addColorStop(0, "rgba(0,0,0,0)"); gy.addColorStop(1, "#000000");
+  ctx.fillStyle = gy; ctx.fillRect(0, 0, PK_W, PK_SV);
+  const strip = ctx.createLinearGradient(0, 0, PK_W, 0);
+  for (let i = 0; i <= 6; i++) strip.addColorStop(i / 6, rgbToHex(hsvToRgb(i * 60, 1, 1)));
+  ctx.fillStyle = strip; ctx.fillRect(0, PK_SV + PK_GAP, PK_W, PK_HUE);
+  ctx.strokeStyle = "#000"; ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.arc(sat * PK_W, (1 - val) * PK_SV, 4, 0, 7); ctx.stroke();
+  ctx.strokeStyle = "#fff"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.arc(sat * PK_W, (1 - val) * PK_SV, 4, 0, 7); ctx.stroke();
+  const hx = hue / 360 * PK_W;
+  ctx.fillStyle = "#fff"; ctx.fillRect(hx - 1, PK_SV + PK_GAP - 1, 3, PK_HUE + 2);
+  ctx.strokeStyle = "#000"; ctx.strokeRect(hx - 1, PK_SV + PK_GAP - 1, 3, PK_HUE + 2);
+}
+// Mirror a candidate into the open popup's fields, never into the one being
+// typed in.
+function pickerSyncFields(rgb) {
+  const set = (id, v) => { const el = document.getElementById(id);
+    if (el && el !== document.activeElement) el.value = v; };
+  set("picker-hex", rgbToHex(rgb).toUpperCase());
+  set("picker-r", rgb[0]); set("picker-g", rgb[1]); set("picker-b", rgb[2]);
+}
+// A canvas drag: the part (square or strip) is locked at mousedown, each
+// move previews through the candidate callback, the release commits once.
+let pickerDrag = null;
+function pickerDragAt(e) {
+  const d = pickerDrag, r = d.canvas.getBoundingClientRect();
+  const x = Math.min(Math.max(e.clientX - r.left, 0), PK_W);
+  let [hue, sat, val] = d.hsv;
+  if (d.part === "hue") hue = x / PK_W * 360;
+  else { sat = x / PK_W;
+    val = 1 - Math.min(Math.max(e.clientY - r.top, 0), PK_SV) / PK_SV; }
+  d.hsv = [hue, sat, val];
+  const rgb = hsvToRgb(hue, sat, val);
+  drawPickerCanvas(d.canvas, d.hsv); pickerSyncFields(rgb);
+  d.candidate(rgb);
+}
+document.addEventListener("mousemove", e => { if (pickerDrag) pickerDragAt(e); });
+document.addEventListener("mouseup", () => {
+  const d = pickerDrag; if (!d) return;
+  pickerDrag = null;
+  const rgb = hsvToRgb(...d.hsv);
+  if (rgbToHex(rgb) !== d.start) d.commit(rgb); else d.candidate(null);
+});
+// Closing on a colour other than the one it opened on joins the recent
+// colours (the session's, shared by every picker, newest first, eight at
+// most, no duplicates).
+function closePicker() {
+  const p = S.picker; if (!p) return;
+  S.picker = null;
+  if (p.current !== p.opened) pushRecentColor(p.current);
+}
+function pushRecentColor(hex) {
+  const i = S.recentColors.indexOf(hex);
+  if (i >= 0) S.recentColors.splice(i, 1);
+  S.recentColors.unshift(hex);
+  S.recentColors.length = Math.min(S.recentColors.length, 8);
+}
+document.addEventListener("click", e => {
+  if (S.picker && !(e.target instanceof Element && e.target.closest(".pkfield"))) {
+    closePicker(); render();
+  }
+});
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape" && S.picker) { closePicker(); render(); }
+});
+// The widget's contract: the host passes its field's key and button id, the
+// shown 8-bit colour, a commit callback (each call is one of the host's
+// edits), a candidate callback (the hover preview; null puts the committed
+// colour back) and its suggestion swatches (or none). The widget never reads
+// the host's model.
+function colorPicker(key, fieldId, shown, commit, candidate, suggestions, title) {
+  const hexNow = rgbToHex(shown).toUpperCase();
+  if (S.picker && S.picker.key === key) S.picker.current = hexNow;
+  const btn = h("button", { id: fieldId, class: "cbtn", title,
+    style: "background:" + hexNow,
+    onclick: () => {
+      if (S.picker && S.picker.key === key) closePicker();
+      else {
+        if (S.picker) closePicker();
+        S.picker = { key, opened: hexNow, current: hexNow };
+      }
+      render();
+    } });
+  return h("span", { class: "pkfield" }, btn,
+    S.picker && S.picker.key === key
+      ? pickerPopup(shown, commit, candidate, suggestions) : null);
+}
+function pickerPopup(shown, commit, candidate, suggestions) {
+  const cv = h("canvas", { id: "picker-canvas", width: PK_W,
+    height: PK_SV + PK_GAP + PK_HUE });
+  drawPickerCanvas(cv, rgbToHsv(shown));
+  cv.addEventListener("mousedown", e => {
+    const r = cv.getBoundingClientRect();
+    pickerDrag = { canvas: cv, commit, candidate,
+      part: e.clientY - r.top >= PK_SV + PK_GAP ? "hue" : "sv",
+      hsv: rgbToHsv(shown), start: rgbToHex(shown) };
+    pickerDragAt(e);
+  });
+  // The hex field commits on Enter or when it loses focus; a text that does
+  // not read as #RRGGBB (the # optional, either case) is put back.
+  const hexEl = h("input", { type: "text", id: "picker-hex", class: "mono",
+    value: rgbToHex(shown).toUpperCase(), spellcheck: "false" });
+  const commitHex = () => { const rgb = hexToRgb(hexEl.value);
+    if (rgb && rgbToHex(rgb).toUpperCase() !== rgbToHex(shown).toUpperCase()) commit(rgb);
+    else hexEl.value = rgbToHex(shown).toUpperCase(); };
+  hexEl.addEventListener("keydown", e => { if (e.key === "Enter") commitHex(); });
+  hexEl.addEventListener("blur", () => { if (hexEl.isConnected) commitHex(); });
+  const fieldRgb = () => ["picker-r", "picker-g", "picker-b"]
+    .map((id, i) => { const v = parseInt(document.getElementById(id).value, 10);
+      return Number.isNaN(v) ? shown[i] : v; });
+  const chan = (id, i) => h("input", { type: "number", id, min: 0, max: 255,
+    value: shown[i],
+    oninput: e => { const v = parseInt(e.target.value, 10);
+      if (!Number.isNaN(v) && v >= 0 && v <= 255) {
+        const rgb = fieldRgb(); rgb[i] = v;
+        candidate(rgb); pickerSyncFields(rgb); } },
+    onchange: e => { const v = parseInt(e.target.value, 10);
+      if (!Number.isNaN(v)) { const rgb = fieldRgb();
+        rgb[i] = Math.min(255, Math.max(0, v)); commit(rgb); } } });
+  const swatch = hex => h("span", { class: "swatch",
+    style: "background:" + hex, title: hex,
+    onclick: () => commit(hexToRgb(hex)),
+    onmouseenter: () => candidate(hexToRgb(hex)),
+    onmouseleave: () => candidate(null) });
+  return h("div", { class: "pkpop", id: "picker-" + S.picker.key }, cv,
+    h("div", { class: "pkrow" }, hexEl),
+    h("div", { class: "pkrow" },
+      "R", chan("picker-r", 0), "G", chan("picker-g", 1), "B", chan("picker-b", 2)),
+    suggestions && suggestions.length
+      ? h("div", { class: "pkrow", id: "picker-sugg" }, suggestions.map(swatch)) : null,
+    S.recentColors.length
+      ? h("div", { class: "pkrow", id: "picker-recent" }, S.recentColors.map(swatch)) : null);
+}
+const PICKER_SAMPLE_SUGGESTIONS = ["#C8102E", "#FFFFFF", "#1D428A"];
+
 // ---- Team (SE-GUI-10) ----
 // The save stores 6 bits per channel: a picked channel c is stored c*63/255
 // rounded, a stored v is shown v*255/63 rounded (the view/ bullet's rule), so
@@ -3407,15 +3601,15 @@ function teamTab(t) {
     onchange: e => { edit("team short name", () => { t.short_name = e.target.value; }); render(); } });
   const colour = (key, label) => {
     const shown = shownHex(t[key]);
-    const inp = h("input", { type: "color", id: "team-" + key, value: shown,
-      title: "Stored " + t[key].join(", ") + ", shown " + shown.toUpperCase(),
-      onchange: e => {
-        const hex = e.target.value;
-        const rgb = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
-          .map(chanToSave);
-        edit(label, () => { t[key] = rgb; }); render();
-      } });
-    return h("td", {}, label + " ", inp, " ", h("span", { class: "mono weak" }, shown.toUpperCase()));
+    // The Save editor has no kit to extract colours from, so it passes no
+    // suggestions (the draft control fakes a kit editor's three).
+    const fld = colorPicker(key, "team-" + key, t[key].map(chanToShow),
+      rgb => { edit(label, () => { t[key] = rgb.map(chanToSave); }); render(); },
+      cand => { const b = document.getElementById("team-" + key);
+        if (b) b.style.background = cand ? rgbToHex(cand) : shownHex(t[key]); },
+      D.pickerSugg ? PICKER_SAMPLE_SUGGESTIONS : [],
+      "Stored " + t[key].join(", ") + ", shown " + shown.toUpperCase());
+    return h("td", {}, label + " ", fld, " ", h("span", { class: "mono weak" }, shown.toUpperCase()));
   };
   const num = (label, key, minV) => h("td", {}, gated(h("span", {}, label + " ",
     h("input", { type: "number", id: "team-" + key, value: t[key] ?? 0,

@@ -2255,3 +2255,5 @@ worklog passed 7,000 lines.
   while scrolled up with a `↓ N new` jump, each message code a link to its help row; the Team compiler's window uses it. ST-LOG-01 to 04, ST-HELP-03 proven.
 - **2026-10-21** — 20.0e: the DBC7 organizer chose page or editor on each of seven points; `dbc7.rhai` follows: the editor's stat band as warnings,
   a cap on a player's stats added up, the registered position not rated A a warning, a 189 cm keeper's single A, no card cap.
+- **2026-10-21** — 8.7a: the color picker drafted in the Save editor's Team tab (square and hue strip, hex, R/G/B, swatches, the session's
+  recent colors, one change per gesture); the plan settles recents, suggestions and the drag rule. P23 proposed.

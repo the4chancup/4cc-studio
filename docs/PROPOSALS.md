@@ -235,3 +235,12 @@ the remedy); `texture_type_mismatch` (what format the bytes are); `custom_model_
 names to rename to); `check-aatf`'s `aatf_violation` (the player's name and number, not his
 id). **Adds**, for every member reading a finding: a text that says the fix. **Costs**: a context
 field per code and its tests, mechanical.
+
+## P23. A click on a swatch closes the color picker
+
+From `plans/libs/color_tools.md` "Color-picker widget (Phase 8)" and the picker drawn in
+`docs/prototypes/save_editor.html` (Team tab): a click on a suggestion or recent swatch commits
+the color and leaves the popup open, to be closed by Escape or a click outside. **Adds**, for a
+member reusing a color (a team's two colors matched to an earlier pick), the common case of the
+swatch rows: one click instead of two. The square, the hex and R/G/B fields keep it open, being
+the fine-tuning path. **Costs**: one close call, one draft check.

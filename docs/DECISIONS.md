@@ -9677,3 +9677,21 @@ because DBC7's band differs by tier and by the Manlet bonus. A flat all-77 total
 Manlet bonus unusable beyond trading points, which the page grants.
 Plan: `plans/aatf_rules.md` "The ruleset schema" (the band, the total), "DBC7", "Coverage of the
 DBC7 rules".
+
+## 2026-10-21 — color_tools — The picker popup's layout, its session-only recent colors, and no suggestions in the Save editor
+Decision: the color picker opens from a color button as a popup holding egui's opaque
+saturation-value square and hue slider, a hex field (`#RRGGBB`, `#` optional, either case,
+committed on Enter or focus loss, an unreadable text put back), R/G/B fields, the host's
+suggestion swatches and the recent colors. Recent colors are shared by every picker for the
+session, newest first, at most eight, a color joining when the popup closes on a color other
+than its opening one; the Save editor passes no suggestions. The widget edits a `[u8; 3]` and
+returns whether it changed and the hover candidate; a drag is a candidate until released,
+then one change.
+Why: the plan named the parts but not when a color counts as recent, nor where recents live.
+Joining on close, not on every change, keeps a drag across the square from filling the list
+with its path; session-only, not saved, because saving rewrites the settings file per pick, as
+the help window's geometry decision weighed. The Save editor has no extraction result to
+suggest, and an invented suggestion (the team's other color) offers what is already on screen.
+One change per gesture, because the Save editor pushes an undo entry per change and a drag
+reported frame by frame would take a hundred undos to revert.
+Plan: `plans/libs/color_tools.md` "Color-picker widget (Phase 8)".
