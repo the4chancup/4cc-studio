@@ -108,10 +108,11 @@ fn field(ui: &mut Ui, color: &mut [u8; 3], suggestions: &[[u8; 3]]) -> ColorFiel
     }
 }
 
-/// A typed text still in the hex field or a channel field when the popup closes without
-/// the field losing focus first (a toggle through the field's own button, or a close
-/// that lands between frames): any close but Escape commits it, like focus loss would;
-/// the channel's typed value is already in the working color.
+/// A typed text still in the hex field or a channel field when a gesture takes over:
+/// the settle at `popup_body`'s top (a press outside the field), a toggle through the
+/// field's own button, or a close that lands between frames — any close but Escape
+/// commits it, like focus loss would; the channel's typed value is already in the
+/// working color.
 fn commit_pending_text(
     state: &mut PickerState,
     color: &mut [u8; 3],
@@ -520,9 +521,14 @@ fn popup_body(
     let working_at_start = rgb_of(state.hsva);
     if (state.hex_focused || state.rgb_focused)
         && let Some(rect) = state.text_rect
-        && ui.input(|input| input.pointer.any_pressed())
+        && ui.input(|input| input.pointer.button_pressed(egui::PointerButton::Primary))
         && ui
-            .input(|input| input.pointer.interact_pos())
+            .input(|input| {
+                input
+                    .pointer
+                    .press_origin()
+                    .or_else(|| input.pointer.interact_pos())
+            })
             .is_some_and(|pos| !rect.contains(pos))
     {
         commit_pending_text(state, color, changed, working_at_start);

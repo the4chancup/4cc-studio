@@ -486,6 +486,31 @@ fn a_click_inside_a_typed_channel_moves_the_caret_without_a_commit() {
     assert_eq!(color, [200, 0, 0], "the typed channel committed");
 }
 
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a press on another text
+// field settles a pending text first, then the new field takes the focus.
+#[test]
+fn a_press_on_another_text_field_commits_the_pending_text() {
+    let mut window = Headless::new();
+    let mut color = [255, 0, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+    window.field(&mut color, &[], type_text("#00FF00"));
+    assert_eq!(color, [255, 0, 0], "the typed text is still pending");
+
+    let red = centre(spin_field(&nodes, "R "));
+    let (_, out) = window.field(&mut color, &[], pointer_at(red, true));
+    assert!(out.changed, "the press commits the typed text");
+    assert_eq!(color, [0, 255, 0], "the typed color landed");
+    window.field(&mut color, &[], pointer_at(red, false));
+    // The press also took the focus for the R field: a keystroke lands in it.
+    window.field(&mut color, &[], vec![egui::Event::Text("9".to_owned())]);
+    let (_, out) = window.field(&mut color, &[], key(egui::Key::Enter));
+    assert!(out.changed, "the keystroke landed in the focused R field");
+    assert_eq!(color[0], 9, "the R channel took the keystroke: {color:?}");
+}
+
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a press on a gradient
 // settles a pending text first, then a tap commits the tap's own color.
 #[test]
@@ -513,6 +538,39 @@ fn a_typed_hex_then_a_one_frame_tap_on_the_strip() {
         color[0] < 20 && color[1] < 20,
         "the tap's blue, not the typed green: {color:?}"
     );
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a typed value commits at
+// the press, then the swatch's own commit lands on its release.
+#[test]
+fn a_swatch_click_after_typing_commits_the_text_then_the_swatch() {
+    let mut window = Headless::new();
+    let mut color = [0, 0, 0];
+    // Seed one recent so the row is drawn.
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+    let mut events = type_text("#112233");
+    events.extend(key(egui::Key::Enter));
+    window.field(&mut color, &[], events);
+    window.field(&mut color, &[], key(egui::Key::Escape));
+
+    color = [0, 0, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(spin_field(&nodes, "R ")), &mut color, &[]);
+    window.field(&mut color, &[], type_text("10"));
+    assert_eq!(color, [0, 0, 0], "the typed value is still pending");
+
+    let swatch = centre(entry(&nodes, "#112233"));
+    let (_, out) = window.field(&mut color, &[], pointer_at(swatch, true));
+    assert!(out.changed, "the press commits the typed value");
+    assert_eq!(color, [10, 0, 0], "the typed channel landed");
+    let (_, out) = window.field(&mut color, &[], pointer_at(swatch, false));
+    assert!(out.changed, "the release commits the swatch");
+    assert_eq!(color, [17, 34, 51], "the swatch's color won");
 }
 
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a drag on an R/G/B
@@ -1453,6 +1511,39 @@ fn nine_commits_leave_eight_recent_swatches() {
         swatch_labels(&nodes).len(),
         8,
         "the recents row holds the eight newest"
+    );
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a typed text commits on
+// an outside click too, and the closed color joins the recents.
+#[test]
+fn an_outside_click_commits_the_typed_text_and_joins_recents() {
+    let mut window = Headless::new();
+    let mut color = [0, 0, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+    window.field(&mut color, &[], type_text("#112233"));
+    assert_eq!(color, [0, 0, 0], "the typed text is still pending");
+
+    let outside = egui::pos2(760.0, 560.0);
+    let (_, out) = window.field(&mut color, &[], pointer_at(outside, true));
+    assert!(out.changed, "the outside press commits the typed text");
+    assert_eq!(color, [17, 34, 51], "the typed color landed");
+    window.field(&mut color, &[], pointer_at(outside, false));
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    assert!(
+        !nodes.iter().any(|n| n.role() == Role::TextInput),
+        "the outside click closed the popup"
+    );
+
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    assert!(
+        swatch_labels(&nodes).contains(&"#112233".to_owned()),
+        "the committed color joined the recents"
     );
 }
 
