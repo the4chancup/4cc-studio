@@ -776,6 +776,13 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
     pickers and the violations list first, the tactics editor and its pitch with the view's
     slice 3
+    - [x] 8.8a the Save editor's draft follows DBC7 as 20.0e left it (it still faked 17 cards,
+      stat errors at +4 and `SkillCardCap` rows): the samples rerun with the current build,
+      the panel's warning rows and the `StatTotal` sentence, the card badges' check under a
+      capped ruleset. Done 2026-10-21 (SWE-2; samples by the lead, `check-aatf` on the PES 2017
+      save with the assembled `dbc7.rhai`): 320 DBC7 rows for the six detail teams, 299 of
+      them warnings. A gap of 20.0e's: a ruleset change reaches every draft that fakes the
+      ruleset, not only the Ruleset editor's. Files: `docs/prototypes/save_editor.html`
   - [ ] 8.9 the Save editor's view in the five slices of `plans/save_editor.md` "Build order
     and verification", with the `session/` wiring each needs (undo, selection, recent files,
     the FPC toggle, AATF quick actions) and the placeholders of 8.3 gone; each slice's SE-GUI

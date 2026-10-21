@@ -2261,3 +2261,5 @@ worklog passed 7,000 lines.
   where plain); a `studio` test keeps the code's vocabulary out of every worded catalog.
 - **2026-10-21** — 8.6d4b: the Export upgrader's and the Save editor's catalogs worded for members; the vocabulary test covers every
   registered tool. 8.6d4 closed; the maintainer's remarks on the wording fold in when they come.
+- **2026-10-21** — 8.8a: the Save editor's draft follows DBC7 as the organizer chose it: fresh `check-aatf` samples, stat warnings drawn as
+  warnings, a stat-total sentence, no card cap; its card-badge check moved to the capped official ruleset.
