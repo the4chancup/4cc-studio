@@ -487,11 +487,25 @@ mod tests {
             play(&mut lists, &billy, &state, press(), &mut no_pick),
             Some("b.mp3".to_string())
         );
+        assert!(
+            lists
+                .entries(&billy)
+                .iter()
+                .any(|loaded| loaded.entry.file == "o.mp3"),
+            "reached and spent, not yet unloaded"
+        );
         state.score_goal(Side::Home, "Billy");
         assert_eq!(
             play(&mut lists, &billy, &state, press(), &mut no_pick),
             Some("b.mp3".to_string()),
             "its one reach was the first press"
+        );
+        assert!(
+            !lists
+                .entries(&billy)
+                .iter()
+                .any(|loaded| loaded.entry.file == "o.mp3"),
+            "unloaded on the next reach"
         );
         assert_eq!(lists.entries(&billy).len(), 2, "the entry unloaded");
     }
@@ -878,6 +892,30 @@ mod tests {
             "the entry that just ended is not drawn again"
         );
         assert_eq!(asked, [2, 1], "it still counts for the all-entries check");
+    }
+
+    /// The skipped entry is never drawn, but it still counts for the
+    /// all-`randomise` check: one the skip left out that lacks `randomise`
+    /// keeps the group a priority list.
+    #[test]
+    fn the_skipped_entry_counts_for_the_randomise_check() {
+        let mut state = MatchState::new("jp", "v", MatchType::Group);
+        let billy = player("Billy");
+        let mut lists = team_lists(
+            "goal;main.mp3\nBilly;b1.mp3;advance\nBilly;b2.mp3;randomise;goals >= 9\nBilly;b3.mp3;randomise\n",
+        );
+        state.score_goal(Side::Home, "Billy");
+        let first = lists.select(&billy, &state, press(), &mut no_pick);
+        assert_eq!(file(&lists, &billy, first), Some("b1.mp3".to_string()));
+        let next = Press {
+            skip: ended_id(&lists, &billy, first),
+            ..press()
+        };
+        assert_eq!(
+            play(&mut lists, &billy, &state, next, &mut no_pick),
+            Some("b3.mp3".to_string()),
+            "b1, skipped but not `randomise`, keeps the group from drawing"
+        );
     }
 
     #[test]

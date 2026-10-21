@@ -408,7 +408,31 @@ mod tests {
     #[test]
     fn a_drive_qualified_path_resolves_nowhere() {
         let name = format!("music_export_resolve_root_{}.mp3", std::process::id());
+        // The refused paths name a file that exists. `C:` is no folder name
+        // on Windows: there the path is the seeded file's own absolute
+        // spelling; elsewhere `C:` is an ordinary folder, and `C:<name>` an
+        // ordinary file name, both seeded inside the export folder.
+        #[cfg(windows)]
         let dir = temp_dir("root", &[(name.as_str(), b"x")]);
+        #[cfg(not(windows))]
+        let dir = {
+            let drive_rooted = format!("C:/{name}");
+            let drive_relative = format!("C:{name}");
+            temp_dir(
+                "root",
+                &[
+                    (name.as_str(), b"x"),
+                    (drive_rooted.as_str(), b"x"),
+                    (drive_relative.as_str(), b"x"),
+                ],
+            )
+        };
+        #[cfg(windows)]
+        {
+            let absolute = dir.join(&name).to_string_lossy().into_owned();
+            assert_eq!(resolved(&dir, &absolute, true), None);
+            assert_eq!(resolved(&dir, &absolute.replace('\\', "/"), true), None);
+        }
         assert_eq!(resolved(&dir, &format!("C:/{name}"), true), None);
         assert_eq!(resolved(&dir, &format!("C:\\{name}"), true), None);
         assert_eq!(

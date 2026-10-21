@@ -2278,3 +2278,5 @@ worklog passed 7,000 lines.
   that decides the song (conditions in order, `once` spent when reached, one shared `goal` fallback per team); strict elsewhere.
 - **2026-10-21** — 8.9b1: the Save editor's Abilities & Skills tab with the ruleset's cards-left badges; names may use the
   save's whole field, tinted past what every version holds; Team TOML import crops a too-long name with a note.
+- **2026-10-21** — 10.0g reviewed: three SWE-2 rounds and an Astra round (`knockouts` read only alone, a stable id for the
+  ended entry, three tests that now fail without what they name). `mutants-diff` now runs each crate on its own, timeout 5x.

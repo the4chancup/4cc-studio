@@ -1067,11 +1067,13 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
   test per rule; the census unchanged (56 of 61 read back equal, the same 5 refused: no real
   file uses a changed rule). Files: `crates/libs/music_export/src/{eval,select,parse,tokens,
   write,resolve,state,lib}.rs`
-  - [ ] review (checkpoint b, a new `pub` interface): `just mutants-diff`, a SWE-2 loop
+  - [x] review (checkpoint b, a new `pub` interface): `just mutants-diff`, a SWE-2 loop
     (`.tmp/10_0g/swe_s1.md`), then Astra. The mutation run's survivors and SWE-2 S1 (5 of 10
     accepted: the ended entry named by a stable `EntryId`) fixed in `dff1548f`; S2 (2 of 5:
     `knockouts` only alone, `has_once` without a catch-all) ends the SWE-2 loop, its fix in
-    rework 3; rulings `.tmp/10_0g/duck_rulings.md`. Astra next
+    `5cf02863` (its mutation run: 5 caught, 1 unviable); Astra A1 (2 of 3, all test gaps)
+    ends the Astra loop, its tests in rework 4; the closing SWE-2 round S3 (0 accepted, a nit
+    fixed in passing) ends it; rulings `.tmp/10_0g/duck_rulings.md`. Done 2026-10-21
 
 ### Phase 16 — Polish and distribution
 
