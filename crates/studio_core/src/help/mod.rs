@@ -1,7 +1,7 @@
 //! Help chapter types. The help window is assembled from the tools: every registered tool
 //! contributes one `HelpSection` through `StudioTool::help()`, and `studio_core` contributes the
 //! core chapters (core plan, "Help window"). `chapters` lists them; `export` renders the
-//! Markdown `4cc-studio help` prints. Search and the window come with the GUI.
+//! Markdown `4cc-studio help` prints. The search and the window live in `shell::help_window`.
 
 mod export;
 

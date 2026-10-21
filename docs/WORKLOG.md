@@ -712,7 +712,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         to `pub(crate)`) and `mutants-diff 14c1f645` (81, 29 missed: tests for the tree's
         selection, the scroll to a hit, the jump's scroll to the top, the widths, the
         colors, the fallback chapter; the About popup's redundant close dropped), both in
-        rework 2. Rulings `.tmp/8_6/duck_rulings.md`; Astra A4 over the rework is due
+        rework 2. Review S10 (SWE-2 over rework 2, 4 of 8 accepted: a When cell's link read
+        after the Effect cell had reset it, a tree click while searching kept the results
+        up, a stale module doc, width checks AccessKit's clipping made unfailable) and the
+        12 survivors of `mutants-diff 14c1f645` over it, in rework 3: the width arithmetic
+        in `text_column_width` with a unit test, the row-jump tests proving the pane
+        moved, and the sizing-pass guards tested one by one (only the one keeping the
+        scroll pending across a `Grid`'s sizing pass is needed; the others went).
+        Rulings `.tmp/8_6/duck_rulings.md`; Astra A4 over reworks 2 and 3 is due
       - [ ] 8.6d3 the log panel widget (ST-LOG-01 to 04) and its code links (ST-HELP-03)
       - [ ] when the first topic gains an in-doc link `[text](<id>#<slug>)`, `--export`
         rewrites it to `<id>.md#<slug>` and writes an anchor per topic slug (review A3-7: no

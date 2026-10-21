@@ -882,7 +882,7 @@ mod tests {
     }
 
     #[test]
-    fn a_rows_text_is_its_spec_cells() {
+    fn a_rows_when_is_its_spec_cell_and_its_effect_the_upgraders() {
         let row = CATALOG.iter().find(|row| row.0 == "no_old_export").unwrap();
         assert_eq!(row.2, "step 1: the input holds nothing an old export holds");
         assert_eq!(row.3, "nothing is written");

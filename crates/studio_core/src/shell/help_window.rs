@@ -105,12 +105,15 @@ impl HelpWindow {
     }
 
     /// Shows `chapter`'s topic `topic` (its extended index), dropping any highlight and
-    /// scrolling the pane to its top on the next frame.
+    /// the search box's text — a tree click while the results are up would otherwise
+    /// change the topic invisibly, the results staying on the right — and scrolling the
+    /// pane to its top on the next frame.
     fn jump(&mut self, chapter: usize, topic: usize) {
         self.chapter = chapter;
         self.topic = topic;
         self.highlight_para = None;
         self.highlight_code = None;
+        self.search.clear();
         self.pending_open = Some(chapter);
         self.scroll_pending = true;
     }
@@ -237,9 +240,9 @@ impl HelpWindow {
 
     /// The right pane's topic (the draft's `drawHelpTopic`): its title as a heading,
     /// then the body rendered paragraph by paragraph, the highlighted one inside a
-    /// filled frame and scrolled into view once, on the frame after the jump. A
-    /// Messages topic is the catalog table instead. After the draw, an in-doc link
-    /// whose hook reported a click jumps to its target.
+    /// filled frame and scrolled into view once, on the first drawn frame after the
+    /// jump. A Messages topic is the catalog table instead. After the draw, an
+    /// in-doc link whose hook reported a click jumps to its target.
     fn draw_topic(&mut self, ui: &mut egui::Ui) {
         let mut clicked_link = None;
         let mut applied = false;
@@ -281,16 +284,14 @@ impl HelpWindow {
                             }
                         })
                         .response;
-                    if scroll && self.highlight_para == Some(index) && !ui.is_sizing_pass() {
+                    if scroll && self.highlight_para == Some(index) {
                         response.scroll_to_me(Some(egui::Align::Center));
                     }
                     if let Some((dest, _)) = self.cache.link_hooks().iter().find(|(_, hit)| **hit) {
                         clicked_link = Some(dest.clone());
                     }
                 }
-                // A prose pane is never a sizing pass: the scroll is consumed as it
-                // is drawn.
-                applied = scroll && !ui.is_sizing_pass();
+                applied = !ui.is_sizing_pass();
             }
         }
         // A `Grid`'s first frame is an invisible sizing pass: a scroll consumed by it
@@ -487,10 +488,12 @@ fn messages(
         .iter()
         .map(|row| measure(row.severity, egui::TextStyle::Body))
         .fold(0.0, f32::max);
-    let text_width =
-        (ui.available_width() - code_width - severity_width - 4.0 * ui.spacing().item_spacing.x)
-            .max(60.0)
-            / 2.0;
+    let text_width = text_column_width(
+        ui.available_width(),
+        code_width,
+        severity_width,
+        4.0 * ui.spacing().item_spacing.x,
+    );
     let mut consumed = false;
     let mut clicked_link = None;
     egui::Grid::new(("help-messages", section.title))
@@ -509,10 +512,13 @@ fn messages(
                     egui::RichText::new(row.severity)
                         .color(severity_color(row.severity, ui.visuals())),
                 );
-                let when = text_cell(ui, cache, index, 2, text_width, row.when);
-                let effect = text_cell(ui, cache, index, 3, text_width, row.effect);
-                if let Some((dest, _)) = cache.link_hooks().iter().find(|(_, hit)| **hit) {
-                    clicked_link = Some(dest.clone());
+                let (when, when_link) = text_cell(ui, cache, index, 2, text_width, row.when);
+                let (effect, effect_link) = text_cell(ui, cache, index, 3, text_width, row.effect);
+                // The row keeps the first link clicked, the When cell's before the
+                // Effect's.
+                let dest = when_link.or(effect_link);
+                if clicked_link.is_none() {
+                    clicked_link = dest;
                 }
                 if highlight == Some(row.code) {
                     // The four cells' span, marked after them — a translucent fill
@@ -528,7 +534,7 @@ fn messages(
                         2.0,
                         ui.visuals().selection.bg_fill.gamma_multiply(0.4),
                     );
-                    if scroll && !ui.is_sizing_pass() {
+                    if scroll {
                         code.scroll_to_me(Some(egui::Align::Center));
                     }
                 }
@@ -538,9 +544,18 @@ fn messages(
     (consumed, clicked_link)
 }
 
+/// The width each of the When and Effect columns gets: what the pane has left after
+/// the code and severity columns and the `gap` of grid spacing, split in two, never
+/// under 30 points each — the 60-point floor applies before the halving.
+fn text_column_width(available: f32, code: f32, severity: f32, gap: f32) -> f32 {
+    (available - code - severity - gap).max(60.0) / 2.0
+}
+
 /// A When/Effect cell: a `Ui` of the text-column width, the cell's Markdown rendered
 /// inside it (`\|` read as `|`, the catalog table's escape), wrapping in that width;
-/// the code and severity cells keep their natural width.
+/// the code and severity cells keep their natural width. Returns the cell's response
+/// and, when the cell's link was clicked, its destination — the hooks are read right
+/// after this cell's `show`, before the next cell's `show` resets them all.
 fn text_cell(
     ui: &mut egui::Ui,
     cache: &mut CommonMarkCache,
@@ -548,8 +563,8 @@ fn text_cell(
     column: usize,
     width: f32,
     text: &str,
-) -> egui::Response {
-    ui.allocate_ui_with_layout(
+) -> (egui::Response, Option<String>) {
+    let inner = ui.allocate_ui_with_layout(
         egui::vec2(width, ui.spacing().interact_size.y),
         egui::Layout::top_down(egui::Align::Min),
         |ui| {
@@ -557,9 +572,13 @@ fn text_cell(
                 CommonMarkViewer::new().show(ui, cache, &text.replace("\\|", "|"));
             })
         },
-    )
-    .inner
-    .response
+    );
+    let dest = cache
+        .link_hooks()
+        .iter()
+        .find(|(_, hit)| **hit)
+        .map(|(dest, _)| dest.clone());
+    (inner.inner.response, dest)
 }
 
 /// A row's severity color (the draft's `sevCls`): a severity holding `Error` or `Fatal`
@@ -1063,11 +1082,6 @@ mod tests {
         click(&egui_ctx, &mut app, entry(&nodes, "Messages"));
         let nodes = idle(&egui_ctx, &mut app, 15).nodes;
 
-        let window_right = help_window_node(&nodes)
-            .expect("the help window is drawn")
-            .bounds()
-            .unwrap()
-            .x1;
         // The wrapped label is the `Label` node carrying the whole cell text; its
         // `TextRun` children are per row (each one line tall).
         let cell = nodes
@@ -1091,32 +1105,15 @@ mod tests {
             .expect("the effect cell's label node")
             .bounds()
             .unwrap();
-        assert!(
-            cell.x1 <= window_right,
-            "the cell stays inside the window: {} <= {}",
-            cell.x1,
-            window_right,
-        );
-        // The Effect cell starts inside the window, and the When cell is at least
-        // a third of the row it spans and at most the window's width.
-        assert!(
-            effect.x0 <= window_right,
-            "the effect cell starts inside the window: {} <= {}",
-            effect.x0,
-            window_right,
-        );
+        // The When cell is at least a third of the row it spans. Its right edge is not
+        // checked against the window: AccessKit clips node bounds to the window, so that
+        // check cannot fail; `text_column_width`'s own test holds the width.
         let row_width = effect.x1 - code.x0;
         assert!(
             cell.width() >= row_width / 3.0,
             "the When cell is at least a third of the row's width: {} >= {}",
             cell.width(),
             row_width / 3.0,
-        );
-        assert!(
-            cell.width() <= window_right,
-            "the When cell is at most the window's width: {} <= {}",
-            cell.width(),
-            window_right,
         );
         assert!(
             cell.height() > 2.0 * code.height(),
@@ -1377,7 +1374,7 @@ mod tests {
                 effect: ActionEffect::OpenHelp(HelpTarget {
                     tool: "b".to_owned(),
                     topic: Some("messages".to_owned()),
-                    anchor: Some("row_54".to_owned()),
+                    anchor: Some("row_30".to_owned()),
                 }),
             }),
         });
@@ -1385,17 +1382,184 @@ mod tests {
         click(&egui_ctx, &mut app, entry(&nodes, "Open help"));
         let nodes = idle(&egui_ctx, &mut app, 20).nodes;
         assert_eq!(app.help_window.showing(), Some(("b", "messages")));
-        assert_eq!(app.help_window.highlight(), (None, Some("row_54")));
+        assert_eq!(app.help_window.highlight(), (None, Some("row_30")));
 
         let window = help_window_node(&nodes)
             .expect("the window is drawn")
             .bounds()
             .unwrap();
-        let row = label_bounds(&nodes, "row_54").expect("the row's code node");
+        let row = label_bounds(&nodes, "row_30").expect("the row's code node");
         assert!(
             row.bounds().unwrap().y0 >= window.y0 && row.bounds().unwrap().y1 <= window.y1,
             "the anchored row is inside the window: {row:?}"
         );
+        // A row scrolled away keeps a node but its bounds leave the window's span.
+        for code in ["row_00", "row_59"] {
+            let bounds = label_bounds(&nodes, code).and_then(|node| node.bounds());
+            assert!(
+                bounds.is_none_or(|rect| rect.y1 <= window.y0 || rect.y0 >= window.y1),
+                "{code} is scrolled out of the window's vertical span: {bounds:?} vs {window:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_row_jump_scrolls_only_once() {
+        let dir = TestDir::new("studio_core_help_rowonce");
+        let mut section = beta_section();
+        section.messages = (0..60)
+            .map(|index| CatalogRow {
+                code: Box::leak(format!("row_{index:02}").into_boxed_str()),
+                severity: "Info",
+                when: "when it happens",
+                effect: "what the tool does",
+            })
+            .collect();
+        let (b, calls_b) = stub_help("b", "Beta", None, section);
+        let Shell { mut app, ctx, .. } = shell_with(
+            test_settings(dir.path()),
+            vec![b],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_b],
+        );
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+
+        ctx.notify(Notice {
+            text: "open the help".to_owned(),
+            action: Some(NoticeAction {
+                label: "Open help".to_owned(),
+                effect: ActionEffect::OpenHelp(HelpTarget {
+                    tool: "b".to_owned(),
+                    topic: Some("messages".to_owned()),
+                    anchor: Some("row_30".to_owned()),
+                }),
+            }),
+        });
+        let nodes = idle(&egui_ctx, &mut app, 2).nodes;
+        click(&egui_ctx, &mut app, entry(&nodes, "Open help"));
+        let nodes = idle(&egui_ctx, &mut app, 20).nodes;
+        let before = label_bounds(&nodes, "row_30")
+            .expect("the anchored row")
+            .bounds()
+            .unwrap()
+            .y0;
+
+        // A member can scroll away from the anchored row: wheel down and it moves or
+        // leaves the view.
+        let pane_pos = centre(help_window_node(&nodes).expect("the window is drawn"));
+        frame(
+            &egui_ctx,
+            &mut app,
+            vec![
+                egui::Event::PointerMoved(pane_pos),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, -400.0),
+                    phase: egui::TouchPhase::Move,
+                    modifiers: egui::Modifiers::default(),
+                },
+            ],
+            true,
+        );
+        let nodes = idle(&egui_ctx, &mut app, 15).nodes;
+        let moved = match label_bounds(&nodes, "row_30") {
+            Some(node) => before - node.bounds().unwrap().y0,
+            None => f64::MAX,
+        };
+        assert!(
+            moved >= 100.0,
+            "the member scrolled 400 points: row_30 moved {moved:.1} up or out"
+        );
+    }
+
+    #[test]
+    fn a_when_cell_link_jumps_to_its_target() {
+        let dir = TestDir::new("studio_core_help_celllink");
+        let mut alpha = alpha_section();
+        alpha.messages[0].when = "see [the other topic](b#beta-topic) for it";
+        let (a, calls_a) = stub_help("a", "Alpha", None, alpha);
+        let (b, calls_b) = stub_help("b", "Beta", None, beta_section());
+        let Shell { mut app, .. } = shell_with(
+            test_settings(dir.path()),
+            vec![a, b],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a, calls_b],
+        );
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+
+        // Alpha's chapter opens on `alpha-start`; click its Messages entry, then the
+        // link in the first row's When cell.
+        frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
+        let nodes = idle(&egui_ctx, &mut app, 15).nodes;
+        assert_eq!(app.help_window.showing(), Some(("a", "alpha-start")));
+        click(&egui_ctx, &mut app, entry(&nodes, "Messages"));
+        let nodes = idle(&egui_ctx, &mut app, 15).nodes;
+        click(&egui_ctx, &mut app, entry(&nodes, "the other topic"));
+        let nodes = idle(&egui_ctx, &mut app, 15).nodes;
+        assert_eq!(
+            app.help_window.showing(),
+            Some(("b", "beta-topic")),
+            "the When cell's link jumped to Beta's topic"
+        );
+        assert!(has_text(&nodes, "Beta does things."));
+    }
+
+    #[test]
+    fn a_tree_click_during_search_shows_the_topic() {
+        let dir = TestDir::new("studio_core_help_treeselect");
+        let Shell { mut app, .. } = help_shell(dir.path());
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+
+        frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
+        let nodes = idle(&egui_ctx, &mut app, 15).nodes;
+        click(&egui_ctx, &mut app, search_box(&nodes));
+        frame(
+            &egui_ctx,
+            &mut app,
+            vec![egui::Event::Text("alpha".to_owned())],
+            true,
+        );
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        assert!(
+            has_label(
+                &nodes,
+                "Alpha › Alpha start › Alpha keeps its TEAMS in a folder."
+            ),
+            "the results list is up"
+        );
+
+        // A click on another topic's tree entry (Beta's open chapter) jumps to it
+        // and clears the box.
+        click(&egui_ctx, &mut app, entry(&nodes, "Beta more"));
+        idle(&egui_ctx, &mut app, 15);
+        assert!(
+            app.help_window.search_text().is_empty(),
+            "the tree click cleared the search box"
+        );
+        assert_eq!(
+            app.help_window.showing(),
+            Some(("b", "beta-more")),
+            "the pane shows the clicked topic"
+        );
+    }
+
+    #[test]
+    fn the_text_column_budget_splits_what_is_left_after_the_short_columns() {
+        // A 720-point window's pane yields roughly these inputs: the When and
+        // Effect columns split 500 - 80 - 50 - 32 = 338, each 169.
+        assert_eq!(
+            text_column_width(500.0, 80.0, 50.0, 32.0),
+            169.0,
+            "(500 - 80 - 50 - 32) / 2"
+        );
+        // At the floor: the remaining budget goes under 30 points per column and
+        // clamps there — (150 - 80 - 50 - 32) is negative, so 60 / 2 = 30.
+        assert_eq!(text_column_width(150.0, 80.0, 50.0, 32.0), 30.0, "60 / 2");
     }
 
     #[test]
