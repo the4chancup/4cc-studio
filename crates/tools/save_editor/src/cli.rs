@@ -267,9 +267,9 @@ fn write_save(session: &Session, out: &Path) -> Result<(), CliError> {
 }
 
 /// `import-toml`: the document is parsed and applied in memory first, so a document the lib
-/// refuses (a text too long, a key it does not know) refuses the command with `--out`
-/// unwritten; each note is one line, emitted once `--out` is written, so a failed write
-/// reports no note.
+/// refuses (a team name or short name too long, a key it does not know) refuses the command
+/// with `--out` unwritten; each note is one line, emitted once `--out` is written, so a
+/// failed write reports no note.
 fn import_toml(args: &ApplyArgs, report: &mut Report) -> Result<(), CliError> {
     let mut session = open(&args.base)?;
     refuse_while_running(&running_pes(), session.version())?;

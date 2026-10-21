@@ -3,7 +3,7 @@
 //! tabs. Each control edits a copy of the entry and, when it changes, pushes it
 //! under its own `egui::Id` (the undo stack's merge key).
 
-use pes_savefile::model::names::{crop_player_text, player_text_fits, shirt_name_edit_fits};
+use pes_savefile::model::names::{crop_player_text, name_fits, shirt_name_edit_fits};
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_savefile::schema::fields::{PlayerField, PlayerText, RosterField};
 use pes_savefile::schema::{VersionSchema, portable_text_max, schema_for};
@@ -91,7 +91,7 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             // An edit the codec would refuse is not pushed (the save's own
             // field is the bound): the field shows the stored text again
             // next frame.
-            if player_text_fits(schema.version, PlayerText::Name, &raw) {
+            if name_fits(schema.version, &raw) {
                 edit_player(session, player_id, response.id.value(), |player| {
                     player.name = raw;
                     player.edit_flags.player = true;
@@ -112,10 +112,13 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             response
                 .on_hover_text("PES 2019 and older show 18 letters of a shirt name (PES 2016: 16)")
         } else {
+            // The limit the field enforces, not the field's whole capacity:
+            // the portable 18 binds on PES 20/21, its own 16 on PES 16.
             response.on_hover_text(format!(
                 "Up to {} letters; accented Latin letters are fine, other scripts and symbols \
                  are not",
-                text_len(schema, PlayerText::ShirtName)
+                portable_text_max(PlayerText::ShirtName)
+                    .min(text_len(schema, PlayerText::ShirtName))
             ))
         };
         if response.changed() {
@@ -183,7 +186,7 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
         // radio the second click cannot untick (the captain belongs to the
         // slot).
         let response = ui.radio(captain, "");
-        if response.clicked() && !captain {
+        if response.clicked() {
             edit_team(session, team_id, response.id.value(), |team| {
                 team.tactics.set_pieces.captain = slot;
             });
@@ -245,15 +248,15 @@ fn max(schema: &VersionSchema, field: PlayerField) -> u64 {
         .unwrap_or(u64::MAX)
 }
 
-/// The byte length of the player record's `which` text field, from the
-/// schema (the Name field's bytes, and the Shirt field's char count).
-fn text_len(schema: &VersionSchema, which: PlayerText) -> u32 {
+/// The length of the player record's `which` text field, from the schema
+/// (the Name field's bytes, and the Shirt field's char count).
+fn text_len(schema: &VersionSchema, which: PlayerText) -> usize {
     schema
         .player
         .texts
         .iter()
         .find(|spec| spec.text == which)
-        .map(|spec| spec.len)
+        .map(|spec| usize::try_from(spec.len).expect("a field length fits usize"))
         .expect("every version stores the text")
 }
 

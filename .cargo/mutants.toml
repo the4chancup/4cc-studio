@@ -243,4 +243,9 @@ exclude_re = [
     # `value > target` for an `at_most` name and `value != target` otherwise, so no violation
     # it words has `value == bound`. `bound` has no other comparison.
     "team_widgets/src/violations\\.rs:\\d+:\\d+: replace > with >= in bound",
+    # pes_savefile (mutants-diff 95f20eac, worklog 8.9b1): `text_spans`' character walk
+    # `end < bytes.len()` -> `<=` is equivalent: `is_char_boundary(len)` is true, so at
+    # `end == len` the loop's other test ends it at the same place. Pinned by line and column:
+    # the function's two other `<` (the `\x11c`/`\x11d` look-aheads) stay measured.
+    "pes_savefile/src/model/names\\.rs:112:23: replace < with <= in text_spans",
 ]

@@ -28,22 +28,22 @@ pub(crate) fn single_byte(which: PlayerText) -> bool {
     }
 }
 
-/// Whether `text` fits `version`'s `which` text field, by the codec's own
-/// rule (`text_misfit`: the name's UTF-8 bytes, the shirt name's single-byte
-/// encoding, each within the field's length): the editors refuse what
+/// Whether `text` fits `version`'s name field, by the codec's own rule
+/// (`text_misfit` counting UTF-8 bytes: a plain letter one, an accented
+/// letter two or more, a colour code ten): the editors refuse what
 /// `to_bytes` would.
-pub fn player_text_fits(version: PesVersion, which: PlayerText, text: &str) -> bool {
+pub fn name_fits(version: PesVersion, text: &str) -> bool {
     text_misfit(
         text,
-        text_max(schema_for(version).player.texts, which),
-        single_byte(which),
+        text_max(schema_for(version).player.texts, PlayerText::Name),
+        false,
     )
     .is_none()
 }
 
 /// Whether `text` may replace `stored` in `version`'s shirt-name field
 /// (the info strip's rule, `plans/save_editor.md` "Editing UI"; the name
-/// field's rule is `player_text_fits` on the version's own field): the
+/// field's rule is `name_fits` on the version's own field): the
 /// codec's own content rule (no NUL, the single-byte charset) and, in
 /// length, either within the shorter of `portable_text_max` and the
 /// version's own field, or no longer than `stored`, since a shirt name the
@@ -61,10 +61,13 @@ pub fn shirt_name_edit_fits(version: PesVersion, stored: &str, text: &str) -> bo
     }
 }
 
-/// `text` cut to what `version`'s `which` field holds: the longest prefix
-/// of whole spans (`name_spans`'s boundaries: a character or a colour
-/// code) that fits, so a crop never splits a character or leaves half a
-/// colour code drawn as text. Borrowed when it fits.
+/// `text` cut to what `version`'s `which` field holds in length: the
+/// longest prefix of whole spans (`name_spans`'s boundaries: a character or
+/// a colour code) that fits, so a crop never splits a character or leaves
+/// half a colour code drawn as text. Borrowed when it fits. Length is the
+/// only rule it answers — a text the field refuses for content (a NUL, a
+/// char past U+00FF in a single-byte field) still yields a prefix carrying
+/// it; `text_misfit`/`check_text` is the caller's check to run first.
 pub fn crop_player_text<'a>(version: PesVersion, which: PlayerText, text: &'a str) -> Cow<'a, str> {
     let max = text_max(schema_for(version).player.texts, which);
     if text_misfit(text, max, single_byte(which)).is_none() {
@@ -235,6 +238,27 @@ mod tests {
     }
 
     #[test]
+    fn a_name_is_counted_in_utf8_bytes_codes_ten_each() {
+        // PES 17's field holds 46 bytes: 23 two-byte `é` fit, 24 do not (a
+        // chars-counting rule would take all 24).
+        assert!(name_fits(PesVersion::Pes17, &"é".repeat(23)));
+        assert!(!name_fits(PesVersion::Pes17, &"é".repeat(24)));
+        // A colour code is ten bytes: five codes plus eleven letters is
+        // PES 21's 61 exactly; one letter more does not fit.
+        let codes = "\x11c112233ff".repeat(5);
+        assert!(name_fits(
+            PesVersion::Pes21,
+            &format!("{codes}{}", "x".repeat(11))
+        ));
+        assert!(!name_fits(
+            PesVersion::Pes21,
+            &format!("{codes}{}", "x".repeat(12))
+        ));
+        // A NUL refuses whatever the length.
+        assert!(!name_fits(PesVersion::Pes21, "a\0b"));
+    }
+
+    #[test]
     fn a_crop_cuts_to_the_fields_limit_at_whole_spans() {
         // PES 19's name field holds 46 bytes: a 59-byte ASCII name keeps
         // its first 46; a two-byte `é` on the boundary stays whole before it.
@@ -262,12 +286,41 @@ mod tests {
             crop_player_text(PesVersion::Pes16, PlayerText::ShirtName, &"s".repeat(20)),
             "s".repeat(16)
         );
+        // A `\x11d` reset straddling the cut (its two bytes would land 46th
+        // and 47th of 46) drops whole: the crop keeps the text before it.
+        let name = format!("{}\x11d{}", "N".repeat(45), "N".repeat(19));
+        assert_eq!(name.len(), 66);
+        assert_eq!(
+            crop_player_text(PesVersion::Pes17, PlayerText::Name, &name),
+            "N".repeat(45)
+        );
         // A text that fits is borrowed, not owned.
         let fits = "FITS".to_string();
         assert!(matches!(
             crop_player_text(PesVersion::Pes19, PlayerText::Name, &fits),
             Cow::Borrowed(_)
         ));
+    }
+
+    // A `\x11` byte is a code only before `c` or `d`: `\x11x` is two
+    // characters, not one two-byte span, and a trailing `\x11` is its own
+    // character — the crop may cut between the byte and the next one.
+    #[test]
+    fn a_lone_0x11_byte_is_a_character_not_a_code() {
+        assert_eq!(
+            text_spans("ABC\x11x").collect::<Vec<_>>(),
+            [(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)]
+        );
+        assert_eq!(name_spans("ABC\x11x"), [(None, "ABC\x11x")]);
+        // On PES 17's 46-byte field the cut lands between the `\x11` and
+        // the `x` after it: two characters, the byte kept.
+        let name = format!("{}\x11{}", "N".repeat(45), "N".repeat(19));
+        assert_eq!(
+            crop_player_text(PesVersion::Pes17, PlayerText::Name, &name),
+            format!("{}\x11", "N".repeat(45))
+        );
+        // A `\x11` as the text's last byte reads as a character, no panic.
+        assert_eq!(display_name("ABC\x11"), "ABC\x11");
     }
 
     #[test]

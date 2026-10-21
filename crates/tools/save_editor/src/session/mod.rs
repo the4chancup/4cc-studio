@@ -10,18 +10,24 @@ pub(crate) mod undo;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use anyhow::{Context, anyhow};
 use pes_savefile::interchange::aesthetics_patch::{AestheticsPatch, PatchError, PatchSummary};
-use pes_savefile::interchange::team_toml::{ImportNote, TeamToml, TeamTomlError};
+use pes_savefile::interchange::team_toml::{ImportNote, TeamToml};
 use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
-use pes_savefile::model::{PlayerEntry, RosterSlot, TeamEntry};
+use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_savefile::ops::transplant::{TransplantError, transplant};
 use pes_savefile::{EditFile, SaveError};
 use pes_version::PesVersion;
 use studio_core::RunningPes;
 
 use crate::session::undo::{Change, UndoStack};
+
+/// The ticks `Session::revision` draws from, one per open and per change:
+/// a revision never repeats, so a cache keyed on it (the view's badges) is
+/// never stale across saves.
+static NEXT_REVISION: AtomicU64 = AtomicU64::new(1);
 
 /// The open save: the file, the path it came from, the undo stack and the
 /// baseline the unsaved-changes marks compare against (the file's players
@@ -39,6 +45,9 @@ pub(crate) struct Session {
     /// Whether the model differs from the baseline, recomputed by each
     /// mutating call (the toolbar's marker reads the flag, not a rescan).
     dirty: bool,
+    /// The tick of the last change to the open file (`revision()`; every
+    /// change takes a fresh one, so it never repeats).
+    revision: u64,
 }
 
 /// A player of a transplant pair whose appearance id is -1: his record is not what the game
@@ -88,6 +97,7 @@ impl Session {
             baseline_players,
             baseline_teams,
             dirty: false,
+            revision: NEXT_REVISION.fetch_add(1, Ordering::Relaxed),
         })
     }
 
@@ -104,6 +114,19 @@ impl Session {
     /// The open save, for the read-only operations over two saves (the comparator).
     pub(crate) fn file(&self) -> &EditFile {
         &self.file
+    }
+
+    /// The tick of the last change to the open file (`plans/save_editor.md`
+    /// "Editing UI", the Cards left badges' cache): a fresh number every
+    /// change — an edit pushed, an undo, a redo, an import, a patch, a
+    /// transplant, a strip, a successful open — and never twice the same.
+    pub(crate) fn revision(&self) -> u64 {
+        self.revision
+    }
+
+    /// Marks the model changed: the next `revision`.
+    fn touch(&mut self) {
+        self.revision = NEXT_REVISION.fetch_add(1, Ordering::Relaxed);
     }
 
     /// The ids of the save's teams, in record order.
@@ -129,6 +152,7 @@ impl Session {
                 after: Box::new(edited),
             },
         );
+        self.touch();
         self.dirty = self.compute_dirty();
     }
 
@@ -148,6 +172,7 @@ impl Session {
                 after: Box::new(edited),
             },
         );
+        self.touch();
         self.dirty = self.compute_dirty();
     }
 
@@ -155,6 +180,7 @@ impl Session {
     pub(crate) fn undo(&mut self) -> bool {
         let undone = self.undo.undo(&mut self.file);
         if undone {
+            self.touch();
             self.dirty = self.compute_dirty();
         }
         undone
@@ -165,6 +191,7 @@ impl Session {
     pub(crate) fn redo(&mut self) -> bool {
         let redone = self.undo.redo(&mut self.file);
         if redone {
+            self.touch();
             self.dirty = self.compute_dirty();
         }
         redone
@@ -261,9 +288,9 @@ impl Session {
     /// Imports `document` onto the team its `[team] id` names, with the lib's import rules
     /// (absent = untouched, cross-version conversion when the document's version differs),
     /// all or nothing. The notes are what was converted or dropped. A document with no id,
-    /// one naming a team the save lacks, or one the lib refuses (a text that does not fit the
-    /// version's field, named with the player it is for) is an error and the save is
-    /// untouched.
+    /// one naming a team the save lacks, or one the lib refuses (a team name or short name
+    /// that does not fit the version's field; a player's name or shirt name is cut to it with
+    /// a warning instead) is an error and the save is untouched.
     pub(crate) fn import_team(&mut self, document: &TeamToml) -> anyhow::Result<Vec<ImportNote>> {
         let id = document
             .team
@@ -277,10 +304,9 @@ impl Session {
             .ok_or_else(|| anyhow!("the save has no team {id}"))?
             .clone();
         let version = self.version();
-        let notes = document
-            .apply(version, &mut team, self.file.players_mut())
-            .map_err(|error| import_error(error, &team.roster))?;
+        let notes = document.apply(version, &mut team, self.file.players_mut())?;
         *self.file.team_mut(id).expect("found above") = team;
+        self.touch();
         Ok(notes)
     }
 
@@ -291,7 +317,9 @@ impl Session {
         &mut self,
         patch: &AestheticsPatch,
     ) -> Result<PatchSummary, PatchError> {
-        patch.apply(&mut self.file)
+        let summary = patch.apply(&mut self.file)?;
+        self.touch();
+        Ok(summary)
     }
 
     /// Copies the donor's appearance block (its id aside) and the face, hair, physique and
@@ -304,6 +332,7 @@ impl Session {
         pairs: &[(u32, u32)],
     ) -> Result<Vec<Stripped>, TransplantError> {
         transplant(&mut self.file, &donor.file, pairs)?;
+        self.touch();
         let mut marks = Vec::new();
         for &(target, source) in pairs {
             if is_stripped(&self.file, target) {
@@ -365,6 +394,7 @@ impl Session {
                 player.appearance_id = Some(STRIPPED_APPEARANCE_ID);
             }
         }
+        self.touch();
     }
 
     /// Writes the save to `out`, an existing file there first copied to `<out>.bak` (one
@@ -414,26 +444,6 @@ pub(crate) fn refuse_while_running(
 pub(crate) fn is_stripped(file: &EditFile, id: u32) -> bool {
     file.player(id)
         .is_some_and(|player| player.appearance_id == Some(STRIPPED_APPEARANCE_ID))
-}
-
-/// The import error as the command reports it: a text that does not fit names the player
-/// it is for (the roster slot's player id), since `players.NN` alone does not say who that
-/// is in a save of thousands.
-fn import_error(error: TeamTomlError, roster: &[RosterSlot]) -> anyhow::Error {
-    if let TeamTomlError::TextTooLong { path, .. } = &error
-        && let Some(player) = rostered_player(path, roster)
-    {
-        return anyhow!("player {player}: {error}");
-    }
-    error.into()
-}
-
-/// The player id of the roster slot a `players.NN…` key path names, when the slot is
-/// rostered.
-fn rostered_player(path: &str, roster: &[RosterSlot]) -> Option<u32> {
-    let slot: usize = path.strip_prefix("players.")?.get(..2)?.parse().ok()?;
-    let player = roster.get(slot.checked_sub(1)?)?.player_id;
-    (player != 0).then_some(player)
 }
 
 #[cfg(test)]
@@ -513,41 +523,31 @@ mod tests {
         assert!(!session.is_dirty(), "a save clears it");
     }
 
+    // plans/save_editor.md "Editing UI", the Cards left bullet's cache: the
+    // revision moves on every change to the open file (an edit pushed, an
+    // undo, a redo) and not on a frame's seal.
     #[test]
-    fn a_text_too_long_error_names_the_rostered_player_and_other_errors_pass_through() {
-        let roster = [
-            RosterSlot {
-                player_id: 71401,
-                number: 1,
-            },
-            RosterSlot {
-                player_id: 0,
-                number: 0,
-            },
-            RosterSlot {
-                player_id: 71403,
-                number: 3,
-            },
-        ];
-        let too_long = |path: &str| TeamTomlError::TextTooLong {
-            path: path.to_owned(),
-            max: 46,
-        };
-        assert_eq!(
-            import_error(too_long("players.03.name"), &roster).to_string(),
-            "player 71403: players.03.name: does not fit the field (max 46)"
-        );
-        // An empty slot, a slot past the roster and a team text name no player.
-        for path in ["players.02.name", "players.04.name", "team.name"] {
-            assert_eq!(
-                import_error(too_long(path), &roster).to_string(),
-                format!("{path}: does not fit the field (max 46)"),
-                "{path}"
-            );
-        }
-        assert_eq!(
-            import_error(TeamTomlError::NoSuchSlot { slot: 41 }, &roster).to_string(),
-            "roster has no slot 41"
-        );
+    fn the_revision_moves_on_each_change_and_stays_put_on_a_frame() {
+        let dir = std::env::temp_dir().join("save_editor_session_revision");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("EDIT00000000");
+        std::fs::write(&path, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+        let mut session = Session::open(&path).unwrap();
+        let opened = session.revision();
+
+        // The per-frame seal is not a change.
+        session.seal();
+        assert_eq!(session.revision(), opened, "a frame's seal moves nothing");
+
+        let mut edited = session.file().player(70101).unwrap().clone();
+        edited.basic.height = edited.basic.height.wrapping_add(1);
+        session.edit_player(1, edited);
+        let after_edit = session.revision();
+        assert_ne!(after_edit, opened, "an edit takes the next tick");
+        assert!(session.undo());
+        let after_undo = session.revision();
+        assert_ne!(after_undo, after_edit, "an undo takes the next tick");
+        assert!(session.redo());
+        assert_ne!(session.revision(), after_undo, "a redo takes the next tick");
     }
 }

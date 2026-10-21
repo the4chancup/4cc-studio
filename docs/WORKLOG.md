@@ -899,7 +899,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       fields.rs},model/{names.rs,player.rs},interchange/team_toml/{mod.rs,player/{mod.rs,
       tests.rs}}}`, `team_widgets/src/cards.rs`
       - [ ] review: a SWE-2 loop over 8.9b1, then Astra round A2 (A1 accepted 6 of 6 on 8.9a,
-        folded in here)
+        folded in here). S2 (two halves, 7 of 18 accepted) and the mutation run's survivors
+        fixed in rework 3: the tab wraps to the pane the shell leaves (800 x 516), a COM
+        styles heading, the badges cached on `Session::revision`, the merge keys per player,
+        the Shirt hover's 18, `name_fits` in bytes; rulings `.tmp/8_9/duck_rulings.md`. Open:
+        SWE-2 S3, then A2
     - [x] the portable name limits (`plans/pes_savefile/operations.md` "Team TOML", Portable
       text limits; DECISIONS 2026-10-21), with 8.9b1 and its rework: `portable_text_max` and
       `crop_player_text` in `pes_savefile`; the info strip's Shirt field held to 18 (an

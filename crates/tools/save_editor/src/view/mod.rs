@@ -35,6 +35,10 @@ pub(crate) struct SaveView {
     /// The ruleset the badges use, loaded on the first frame and again only
     /// when the file named differs.
     rules: Option<ActiveRules>,
+    /// The "Cards left" badges as last computed and the `BadgeKey` they
+    /// were computed for: `card_limits` runs again only when the key
+    /// differs, not on every frame.
+    cards: Option<(BadgeKey, Vec<(String, aatf::CardLimits)>)>,
 }
 
 /// The ruleset the Abilities tab's badges use (`plans/save_editor.md`
@@ -45,6 +49,22 @@ pub(crate) struct ActiveRules {
     file: Option<PathBuf>,
     /// The loaded rules or the load error's text (drawn instead of the badges).
     rules: Result<aatf::Rules, String>,
+}
+
+/// What the Abilities tab's badges were computed for: a change of the open
+/// save (`Session::revision`), of the selection or of the rules file
+/// recomputes them; anything else keeps a frame's `card_limits` cost off.
+#[derive(PartialEq)]
+pub(crate) struct BadgeKey {
+    /// `Session::revision` when computed.
+    revision: u64,
+    /// The selected team.
+    team: u32,
+    /// The selected roster slot (0-based).
+    slot: u8,
+    /// The rules file the badges' ruleset came from (`None`: the official
+    /// ruleset).
+    rules_file: Option<PathBuf>,
 }
 
 /// A refusal shown as a dialog: a title, the message and OK.
@@ -71,6 +91,7 @@ impl SaveView {
             selected: None,
             refusal: None,
             rules: None,
+            cards: None,
         }
     }
 
@@ -232,7 +253,7 @@ fn save(view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
 /// until their slices land. No tab enum yet: there is one tab to show.
 fn tab_strip(ui: &mut egui::Ui) {
     ui.horizontal(|ui| {
-        ui.selectable_label(true, "Abilities & Skills").clicked();
+        ui.add(egui::Button::selectable(true, "Abilities & Skills"));
         for label in ["Appearance", "Team", "Tactics"] {
             ui.add_enabled(false, egui::Button::selectable(false, label))
                 .on_disabled_hover_text("Not available yet");

@@ -1288,6 +1288,18 @@ fn a_name_or_shirt_name_past_the_portable_limits_carries_a_note() {
         .find(|line| line.starts_with("name =") && !line.contains("past 46"))
         .expect("an unnoted name line");
     assert!(line.contains("name = "), "{line}");
+    // Exactly the limit gets none either (46 bytes of name, 18 letters of
+    // shirt): a `>=` would stamp a "cut" note nothing makes.
+    for (which, text) in [
+        (PlayerText::Name, "n".repeat(46)),
+        (PlayerText::ShirtName, "s".repeat(18)),
+    ] {
+        assert!(
+            portable_note(which, Some(&text)).is_empty(),
+            "{which:?} at the limit noted: {:?}",
+            portable_note(which, Some(&text))
+        );
+    }
 }
 
 /// A key the document's version lacks emits the commented neutral line,

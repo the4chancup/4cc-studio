@@ -22,7 +22,7 @@ use pes_savefile::schema::first_version_with;
 use team_widgets::cards::{self, TierCards};
 
 use crate::session::Session;
-use crate::view::{ActiveRules, SaveView, edit_player, selected_player};
+use crate::view::{ActiveRules, BadgeKey, SaveView, edit_player, selected_player};
 
 /// The tab for the selected player, below `info_strip` and the tab strip.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
@@ -60,6 +60,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         cards_row(
             ui,
             rules,
+            &mut view.cards,
             session,
             (team_id, slot, player_id),
             version,
@@ -95,102 +96,97 @@ fn first_row(
     version: pes_version::PesVersion,
     positions: &PlayerPositions,
 ) {
-    // The pairs of a row as the width allows, the draft's order kept
-    // (row 2's six fields and the stats grids wrap below one another on
-    // the half-monitor window rather than clip).
     let per_row = pairs_per_row(ui, 250.0);
-    egui::Grid::new("abilities first row")
-        .num_columns(per_row * 2)
-        .show(ui, |ui| {
-            ui.label("Registered position");
-            let mut registered = positions.registered;
-            let combo = egui::ComboBox::from_id_salt("abilities registered position")
-                .selected_text(
-                    POSITIONS
-                        .get(usize::from(registered))
-                        .copied()
-                        .unwrap_or("?"),
-                )
-                .show_ui(ui, |ui| {
-                    for (index, label) in POSITIONS.iter().enumerate() {
-                        ui.selectable_value(&mut registered, index as u8, *label);
-                    }
-                });
-            if registered != positions.registered {
-                edit_player(session, player_id, combo.response.id.value(), |player| {
-                    player.positions.registered = registered;
-                });
-            }
-            maybe_end_row(ui, 1, per_row);
-            ui.label("Playing style");
-            let mut style = positions.playing_style;
-            if cards::playing_style_picker(ui, "abilities playing style", version, &mut style) {
-                edit_player(
-                    session,
-                    player_id,
-                    egui::Id::new("abilities playing style").value(),
-                    |player| {
-                        player.positions.playing_style = style;
-                    },
-                );
-            }
-            maybe_end_row(ui, 2, per_row);
-            ui.label("Stronger foot");
-            let mut foot = positions.stronger_foot;
-            let foot_combo = egui::ComboBox::from_id_salt("abilities stronger foot")
-                .selected_text(foot_label(foot))
-                .show_ui(ui, |ui| {
-                    for (index, label) in FOOT.iter().enumerate() {
-                        ui.selectable_value(&mut foot, index as u8, title_case(label));
-                    }
-                });
-            if foot != positions.stronger_foot {
-                edit_player(
-                    session,
-                    player_id,
-                    foot_combo.response.id.value(),
-                    |player| {
-                        player.positions.stronger_foot = foot;
-                    },
-                );
-            }
-            maybe_end_row(ui, 3, per_row);
-            ui.label("Stronger hand");
-            match positions.stronger_hand {
-                Some(stored) => {
-                    let mut hand = stored;
-                    let hand_combo = egui::ComboBox::from_id_salt("abilities stronger hand")
-                        .selected_text(foot_label(hand))
-                        .show_ui(ui, |ui| {
-                            for (index, label) in FOOT.iter().enumerate() {
-                                ui.selectable_value(&mut hand, index as u8, title_case(label));
-                            }
-                        });
-                    if hand != stored {
-                        edit_player(
-                            session,
-                            player_id,
-                            hand_combo.response.id.value(),
-                            |player| {
-                                player.positions.stronger_hand = Some(hand);
-                            },
-                        );
-                    }
+    egui::Grid::new("abilities first row").show(ui, |ui| {
+        ui.label("Registered position");
+        let mut registered = positions.registered;
+        let combo = egui::ComboBox::from_id_salt("abilities registered position")
+            .selected_text(
+                POSITIONS
+                    .get(usize::from(registered))
+                    .copied()
+                    .unwrap_or("?"),
+            )
+            .show_ui(ui, |ui| {
+                for (index, label) in POSITIONS.iter().enumerate() {
+                    ui.selectable_value(&mut registered, index as u8, *label);
                 }
-                None => {
-                    // The version has no stronger hand: the combo stays, at
-                    // Right, disabled with the `PES NN+` tooltip (SE-GUI-06).
-                    ui.add_enabled_ui(false, |ui| {
-                        egui::ComboBox::from_id_salt("abilities stronger hand")
-                            .selected_text(foot_label(0))
-                            .show_ui(ui, |_ui| ());
-                    })
-                    .response
-                    .on_disabled_hover_text(gating_tooltip(PlayerField::StrongerHand));
+            });
+        if registered != positions.registered {
+            edit_player(session, player_id, combo.response.id.value(), |player| {
+                player.positions.registered = registered;
+            });
+        }
+        maybe_end_row(ui, 1, per_row);
+        ui.label("Playing style");
+        let mut style = positions.playing_style;
+        if cards::playing_style_picker(ui, "abilities playing style", version, &mut style) {
+            edit_player(
+                session,
+                player_id,
+                egui::Id::new(("abilities playing style", player_id)).value(),
+                |player| {
+                    player.positions.playing_style = style;
+                },
+            );
+        }
+        maybe_end_row(ui, 2, per_row);
+        ui.label("Stronger foot");
+        let mut foot = positions.stronger_foot;
+        let foot_combo = egui::ComboBox::from_id_salt("abilities stronger foot")
+            .selected_text(foot_label(foot))
+            .show_ui(ui, |ui| {
+                for (index, label) in FOOT.iter().enumerate() {
+                    ui.selectable_value(&mut foot, index as u8, title_case(label));
+                }
+            });
+        if foot != positions.stronger_foot {
+            edit_player(
+                session,
+                player_id,
+                foot_combo.response.id.value(),
+                |player| {
+                    player.positions.stronger_foot = foot;
+                },
+            );
+        }
+        maybe_end_row(ui, 3, per_row);
+        ui.label("Stronger hand");
+        match positions.stronger_hand {
+            Some(stored) => {
+                let mut hand = stored;
+                let hand_combo = egui::ComboBox::from_id_salt("abilities stronger hand")
+                    .selected_text(foot_label(hand))
+                    .show_ui(ui, |ui| {
+                        for (index, label) in FOOT.iter().enumerate() {
+                            ui.selectable_value(&mut hand, index as u8, title_case(label));
+                        }
+                    });
+                if hand != stored {
+                    edit_player(
+                        session,
+                        player_id,
+                        hand_combo.response.id.value(),
+                        |player| {
+                            player.positions.stronger_hand = Some(hand);
+                        },
+                    );
                 }
             }
-            maybe_end_row(ui, 4, per_row);
-        });
+            None => {
+                // The version has no stronger hand: the combo stays, at
+                // Right, disabled with the `PES NN+` tooltip (SE-GUI-06).
+                ui.add_enabled_ui(false, |ui| {
+                    egui::ComboBox::from_id_salt("abilities stronger hand")
+                        .selected_text(foot_label(0))
+                        .show_ui(ui, |_ui| ());
+                })
+                .response
+                .on_disabled_hover_text(gating_tooltip(PlayerField::StrongerHand));
+            }
+        }
+        maybe_end_row(ui, 4, per_row);
+    });
 }
 
 /// One small stored field of row 2: label, its schema field, the shown
@@ -278,31 +274,29 @@ const SMALL_STATS: [SmallStat; 6] = [
 /// does not store shows `-`, disabled.
 fn small_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats: &PlayerStats) {
     let per_row = pairs_per_row(ui, 170.0);
-    egui::Grid::new("abilities small stats")
-        .num_columns(per_row * 2)
-        .show(ui, |ui| {
-            for (index, small) in SMALL_STATS.iter().enumerate() {
-                match (small.get)(stats) {
-                    Some(stored) => number(
-                        ui,
-                        session,
-                        player_id,
-                        small.label,
-                        stored + small.shift,
-                        small.min..=small.max,
-                        move |player, shown| {
-                            (small.set)(&mut player.stats, shown - small.shift);
-                        },
-                    ),
-                    // The label stays too: the gated control keeps its cell.
-                    None => {
-                        ui.label(small.label);
-                        gated_number(ui, small.field);
-                    }
+    egui::Grid::new("abilities small stats").show(ui, |ui| {
+        for (index, small) in SMALL_STATS.iter().enumerate() {
+            match (small.get)(stats) {
+                Some(stored) => number(
+                    ui,
+                    session,
+                    player_id,
+                    small.label,
+                    stored + small.shift,
+                    small.min..=small.max,
+                    move |player, shown| {
+                        (small.set)(&mut player.stats, shown - small.shift);
+                    },
+                ),
+                // The label stays too: the gated control keeps its cell.
+                None => {
+                    ui.label(small.label);
+                    gated_number(ui, small.field);
                 }
-                maybe_end_row(ui, index + 1, per_row);
             }
-        });
+            maybe_end_row(ui, index + 1, per_row);
+        }
+    });
 }
 
 /// The 13 positions in `POSITIONS` order, four to a row, each its label
@@ -349,62 +343,80 @@ fn playable_positions(
 fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats: &PlayerStats) {
     let abilities = stats.abilities();
     let per_row = pairs_per_row(ui, 160.0);
-    egui::Grid::new("abilities stats")
-        .num_columns(per_row * 2)
-        .show(ui, |ui| {
-            for (index, name) in ABILITY_STATS.iter().enumerate() {
-                match abilities[index] {
-                    Some(value) => number(
-                        ui,
-                        session,
-                        player_id,
-                        title_case(name),
-                        value,
-                        40..=99,
-                        move |player, shown| player.stats.set_ability(index, shown),
-                    ),
-                    // The label stays too: the gated control keeps its cell.
-                    None => {
-                        ui.label(title_case(name));
-                        gated_number(ui, ABILITY_FIELDS[index]);
-                    }
+    egui::Grid::new("abilities stats").show(ui, |ui| {
+        for (index, name) in ABILITY_STATS.iter().enumerate() {
+            match abilities[index] {
+                Some(value) => number(
+                    ui,
+                    session,
+                    player_id,
+                    title_case(name),
+                    value,
+                    40..=99,
+                    move |player, shown| player.stats.set_ability(index, shown),
+                ),
+                // The label stays too: the gated control keeps its cell.
+                None => {
+                    ui.label(title_case(name));
+                    gated_number(ui, ABILITY_FIELDS[index]);
                 }
-                maybe_end_row(ui, index + 1, per_row);
             }
-        });
+            maybe_end_row(ui, index + 1, per_row);
+        }
+    });
 }
 
 /// `card_pickers` over the player's skills, with one `TierCards` per tier
 /// of the loaded ruleset in its order; the load error stands in for the
-/// badges.
+/// badges. The tiers' `card_limits` results live in `cards` under the
+/// `BadgeKey` they were computed for — a `Session::revision` bump, a
+/// selection change or another rules file recomputes them, and any other
+/// frame draws the kept ones.
 fn cards_row(
     ui: &mut egui::Ui,
     rules: Option<&ActiveRules>,
+    cards: &mut Option<(BadgeKey, Vec<(String, CardLimits)>)>,
     session: &mut Session,
     (team_id, slot, player_id): (u32, u8, u32),
     version: pes_version::PesVersion,
     skills: &mut PlayerSkills,
 ) {
-    let mut card_list: Vec<(String, CardLimits)> = Vec::new();
     let mut load_error = None;
-    match rules.map(|active| &active.rules) {
-        Some(Ok(rules)) => {
-            // A tier whose `card_limits` fails is left out of the row (the
-            // AATF panel reports check errors).
-            let file = session.file();
-            if let Ok(team_view) = TeamView::new(file, team_id)
-                && let Some(player_view) = team_view.player(slot)
-            {
-                for tier in &rules.ruleset().tiers {
-                    if let Ok(limits) = rules.card_limits(&team_view, player_view, &tier.id) {
-                        card_list.push((tier.label.clone(), limits));
+    if let Some(active) = rules {
+        match &active.rules {
+            Ok(rules) => {
+                let key = BadgeKey {
+                    revision: session.revision(),
+                    team: team_id,
+                    slot,
+                    rules_file: active.file.clone(),
+                };
+                if cards.as_ref().is_none_or(|(held, _)| *held != key) {
+                    // A tier whose `card_limits` fails is left out of the
+                    // row (the AATF panel reports check errors).
+                    let file = session.file();
+                    let mut list = Vec::new();
+                    if let Ok(team_view) = TeamView::new(file, team_id)
+                        && let Some(player_view) = team_view.player(slot)
+                    {
+                        for tier in &rules.ruleset().tiers {
+                            if let Ok(limits) = rules.card_limits(&team_view, player_view, &tier.id)
+                            {
+                                list.push((tier.label.clone(), limits));
+                            }
+                        }
                     }
+                    *cards = Some((key, list));
                 }
             }
+            // The error stands in for the badges: stale ones go too.
+            Err(error) => {
+                load_error = Some(error.as_str());
+                *cards = None;
+            }
         }
-        Some(Err(error)) => load_error = Some(error.as_str()),
-        None => {}
     }
+    let card_list = cards.as_ref().map_or(&[][..], |(_, list)| list.as_slice());
     if let Some(error) = load_error {
         ui.horizontal(|ui| {
             ui.weak("Cards left");
@@ -420,7 +432,7 @@ fn cards_row(
         edit_player(
             session,
             player_id,
-            egui::Id::new("abilities cards").value(),
+            egui::Id::new(("abilities cards", player_id)).value(),
             |player| {
                 player.skills = skills;
             },

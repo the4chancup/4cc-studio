@@ -153,6 +153,21 @@ fn action_click(window: &mut Headless, view: &mut SaveView, id: accesskit::NodeI
     );
 }
 
+/// An AccessKit `Focus` action on `id`: keyboard focus without a click.
+fn action_focus(window: &mut Headless, view: &mut SaveView, id: accesskit::NodeId) {
+    window.frame(
+        vec![egui::Event::AccessKitActionRequest(
+            accesskit::ActionRequest {
+                action: accesskit::Action::Focus,
+                target_tree: accesskit::TreeId::ROOT,
+                target_node: id,
+                data: None,
+            },
+        )],
+        |ui| show(ui, view, &|| Vec::new(), None),
+    );
+}
+
 /// A key pressed (or released) with `modifiers` held.
 fn key(key: egui::Key, modifiers: egui::Modifiers, pressed: bool) -> egui::Event {
     egui::Event::Key {
@@ -197,6 +212,42 @@ fn text_shape<'a>(
         })
         .next()
         .unwrap_or_else(|| panic!("no painted text starting {starts_with:?}"))
+}
+
+/// The fill under `bounds`' centre: the smallest `Shape::Rect` covering
+/// it (the field's own frame; the panel's background would win an
+/// `intersects` match instead).
+fn fill_at(
+    shapes: &[egui::epaint::ClippedShape],
+    bounds: accesskit::Rect,
+) -> Option<egui::Color32> {
+    let centre = egui::pos2(
+        ((bounds.x0 + bounds.x1) / 2.0) as f32,
+        ((bounds.y0 + bounds.y1) / 2.0) as f32,
+    );
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape) if shape.rect.contains(centre) => {
+                Some((shape.fill, shape.rect.area()))
+            }
+            _ => None,
+        })
+        .min_by(|a, b| a.1.partial_cmp(&b.1).expect("areas"))
+        .map(|(fill, _)| fill)
+}
+
+/// The Shirt field's `TextInput` bounds (the rightmost enabled text edit
+/// holding `value`).
+fn shirt_field(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
+    nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::TextInput && !node.is_disabled() && node.value() == Some(value)
+        })
+        .map(|node| node.bounds().expect("bounds"))
+        .max_by(|a, b| a.x0.partial_cmp(&b.x0).expect("ordered bounds"))
+        .unwrap_or_else(|| panic!("no Shirt field {value:?}"))
 }
 
 // SE-GUI-01
@@ -795,6 +846,16 @@ fn tooltip_after_hover(
     view: &mut SaveView,
     pos: egui::Pos2,
 ) -> Option<String> {
+    tooltip_containing(window, view, pos, "PES ")
+}
+
+/// `tooltip_after_hover` filtered to the tooltip node holding `needle`.
+fn tooltip_containing(
+    window: &mut Headless,
+    view: &mut SaveView,
+    pos: egui::Pos2,
+    needle: &str,
+) -> Option<String> {
     window.frame(vec![egui::Event::PointerMoved(egui::Pos2::ZERO)], |ui| {
         show(ui, view, &|| Vec::new(), None)
     });
@@ -805,7 +866,7 @@ fn tooltip_after_hover(
         let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
         if let Some(node) = nodes
             .iter()
-            .find(|node| node.value().is_some_and(|value| value.contains("PES ")))
+            .find(|node| node.value().is_some_and(|value| value.contains(needle)))
         {
             return node.value().map(str::to_owned);
         }
@@ -1042,6 +1103,22 @@ fn a_name_or_shirt_edit_sets_the_edited_player_flag() {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     assert!(!flag(&view), "undo clears it again");
+
+    // The shirt field sets the same flag.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let shirt = nodes
+        .iter()
+        .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
+        .max_by(|a, b| {
+            let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
+            x(a).partial_cmp(&x(b)).expect("ordered bounds")
+        })
+        .expect("the Shirt field");
+    click(&mut window, shirt, &mut view);
+    window.frame(vec![egui::Event::Text("Z".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert!(flag(&view), "a shirt edit sets the flag too");
 }
 
 // The same sub-bullet: the shirt name is upper-cased as typed.
@@ -1227,15 +1304,17 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
 }
 
 // plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
-// layout" (Studio opens at half the monitor, 960 × 540 on 1080p): the tab's
-// field/control pairs wrap below one another rather than clip — every
-// control's rect lies inside the window.
+// layout" (Studio opens at half the monitor, 960 × 540 on 1080p, the
+// expanded sidebar's 160 and the status bar's 24 spent): the pane the shell
+// leaves is 800 × 516, the player list takes its default width, and the
+// tab's field/control pairs wrap below one another rather than clip —
+// every control's rect lies inside the central panel.
 #[test]
-fn the_tab_fits_the_half_monitor_window() {
-    let path = fixture(PesVersion::Pes21, "half_monitor");
+fn the_tab_fits_the_pane_the_shell_leaves() {
+    let path = fixture(PesVersion::Pes21, "shell_pane");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(960.0, 540.0);
+    let mut window = Headless::sized(800.0, 516.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     for role in [
         Role::Button,
@@ -1250,11 +1329,78 @@ fn the_tab_fits_the_half_monitor_window() {
                 .bounds()
                 .unwrap_or_else(|| panic!("{role:?} has no bounds"));
             assert!(
-                bounds.x1 <= 960.0,
-                "{role:?} {} clips the window's right edge ({bounds:?})",
+                bounds.x1 <= 800.0,
+                "{role:?} {} clips the pane's right edge ({bounds:?})",
                 node.label().unwrap_or("?")
             );
         }
+    }
+}
+
+// The same layout rule, pinned at a known width: an ~880-point pane takes
+// five label/control pairs of the small stats (170 each) and of the
+// ability stats (160 each) a row — the first five sit on the first row's
+// y, the sixth wraps.
+#[test]
+fn the_stats_rows_wrap_at_the_panes_width() {
+    let path = fixture(PesVersion::Pes21, "stats_reflow");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let y = |label: &str| control_right_of(&nodes, label).bounds().expect("bounds").y0;
+    let row_one = y("Attacking Prowess");
+    for label in ["Ball Control", "Dribbling", "Low Pass", "Lofted Pass"] {
+        assert!(
+            (y(label) - row_one).abs() < 1.0,
+            "{label} sits on the first row"
+        );
+    }
+    assert!(y("Finishing") > row_one + 5.0, "the sixth ability wraps");
+    let row_one = y("Form");
+    for label in [
+        "Injury resistance",
+        "Weak foot usage",
+        "Weak foot accuracy",
+        "Star",
+    ] {
+        assert!(
+            (y(label) - row_one).abs() < 1.0,
+            "{label} sits on the first row"
+        );
+    }
+    assert!(
+        y("Playing attitude") > row_one + 5.0,
+        "the sixth small stat wraps"
+    );
+}
+
+// plans/save_editor.md "Editing UI", the Tabs bullet: the four tabs draw,
+// Abilities & Skills selected, the rest disabled until their slices land.
+#[test]
+fn the_tab_strip_shows_abilities_selected_and_three_disabled() {
+    let path = fixture(PesVersion::Pes21, "tab_strip");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::new();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let tab = |label: &str| {
+        nodes
+            .iter()
+            .find(|node| node.role() == Role::Button && node.label() == Some(label))
+            .unwrap_or_else(|| panic!("no tab {label:?}"))
+    };
+    let selected = tab("Abilities & Skills");
+    assert_eq!(
+        selected.toggled(),
+        Some(accesskit::Toggled::True),
+        "Abilities & Skills is the drawn tab"
+    );
+    assert!(!selected.is_disabled());
+    for label in ["Appearance", "Team", "Tactics"] {
+        let tab = tab(label);
+        assert!(tab.is_disabled(), "{label} is disabled");
+        assert_eq!(tab.toggled(), Some(accesskit::Toggled::False));
     }
 }
 
@@ -1298,6 +1444,83 @@ fn a_playable_positions_rating_writes_its_own_slot_and_undoes() {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     assert_eq!(playable(&view)[2], 0, "the one undo restores it");
+}
+
+// plans/save_editor.md "Editing UI", the Undo/redo bullet (one entry per
+// gesture, the merge key the widget's): the cards' and pickers' merge keys
+// are the player's own — while a gesture stays open (a widget keeps the
+// keyboard), a tick on the next player is his own entry, not merged into
+// the first's.
+#[test]
+fn a_card_tick_on_another_player_is_its_own_undo_entry() {
+    let path = fixture(PesVersion::Pes21, "cards_merge_key");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(702);
+    view.selected = Some((702, 0));
+    let mut window = Headless::sized(1100.0, 700.0);
+    let file = EditFile::load(&path).unwrap();
+    let a_id = file.team(702).unwrap().roster[0].player_id;
+    let b_id = file.team(702).unwrap().roster[1].player_id;
+    let heading = |view: &SaveView, id: u32| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(id)
+            .unwrap()
+            .skills
+            .skills[6]
+    };
+    let before_a = heading(&view, a_id);
+    let before_b = heading(&view, b_id);
+
+    // The undo gesture stays open while a widget holds the keyboard: focus
+    // the filter box — it is drawn for every selection, so the entry
+    // survives the player switch — then tick his card through AccessKit.
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (filter, _) = nodes
+        .iter()
+        .find(|(_, node)| {
+            node.role() == Role::TextInput
+                && node.placeholder() == Some("Filter all teams (name, shirt, id)")
+        })
+        .expect("the filter box");
+    let (card_a, _) = nodes
+        .iter()
+        .find(|(_, node)| node.role() == Role::CheckBox && node.label() == Some("Heading"))
+        .expect("the Heading card");
+    action_focus(&mut window, &mut view, *filter);
+    action_click(&mut window, &mut view, *card_a);
+    assert_ne!(heading(&view, a_id), before_a, "the tick landed on him");
+
+    // Select the next player while the gesture stays open (the filter
+    // still has the keyboard), and tick the same card there: his own
+    // entry, not a merge.
+    view.selected = Some((702, 1));
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (card_b, _) = nodes
+        .iter()
+        .find(|(_, node)| node.role() == Role::CheckBox && node.label() == Some("Heading"))
+        .expect("the Heading card");
+    action_click(&mut window, &mut view, *card_b);
+    assert_ne!(heading(&view, b_id), before_b, "his tick landed too");
+
+    // One undo reverts the second tick alone: the first player's card
+    // stays as ticked, his own entry still on the stack.
+    assert!(view.session.as_mut().unwrap().undo());
+    assert_eq!(heading(&view, b_id), before_b, "the second tick undone");
+    assert_ne!(
+        heading(&view, a_id),
+        before_a,
+        "the first player's tick stands"
+    );
+    assert!(
+        view.session.as_ref().unwrap().can_undo(),
+        "the first tick is its own entry"
+    );
 }
 
 // plans/save_editor.md "Editing UI", the Abilities & Skills bullet (the
@@ -1457,7 +1680,16 @@ fn the_cards_left_badges_read_the_active_ruleset() {
         "every badge one lower"
     );
 
-    // A rules file's tiers are the badges': DBC7's, no Bronze.
+    // Ctrl+Z unticks it: the badges are recomputed, back to the old counts.
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(badges(&nodes), expected(&view, &rules), "after the undo");
+    assert_eq!(left_of(&view), before, "every badge restored");
+
+    // A rules file's tiers are the badges': the same view now given the
+    // DBC7 file reloads on the changed path (no fresh window).
     let aatf = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/aatf");
     let data = std::fs::read_to_string(aatf.join("rulesets/dbc7.rhai")).unwrap();
     let logic = std::fs::read_to_string(aatf.join("logic/logic.rhai")).unwrap();
@@ -1473,8 +1705,6 @@ fn the_cards_left_badges_read_the_active_ruleset() {
     )
     .unwrap();
     let dbc7 = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap()).unwrap();
-    let mut view = SaveView::new();
-    view.open(&path);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
     });
@@ -1588,45 +1818,95 @@ fn the_registered_position_combo_stores_the_pick_as_one_edit() {
     assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
 }
 
+// The same bullet (the draft's first row): the stronger-foot combo stores
+// the pick (FOOT index) as one undoable edit.
+#[test]
+fn the_stronger_foot_combo_stores_the_pick_as_one_edit() {
+    let path = fixture(PesVersion::Pes21, "stronger_foot");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    let foot = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .positions
+            .stronger_foot
+    };
+    assert_eq!(foot(&view), 0, "premise: right-footed");
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let combo = right_of_label(&nodes, "Stronger foot", Role::ComboBox)
+        .first()
+        .copied()
+        .expect("the foot combo");
+    click(&mut window, combo, &mut view);
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (item, _) = nodes
+        .iter()
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Left"))
+        .expect("the Left item");
+    action_click(&mut window, &mut view, *item);
+    assert_eq!(foot(&view), 1, "Left stores 1");
+    // One gesture, one entry: a single undo brings Right back.
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(foot(&view), 0, "undone");
+    assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
+}
+
+// The same bullet: the stronger-hand combo (PES 20+) stores the pick the
+// same way.
+#[test]
+fn the_stronger_hand_combo_stores_the_pick_as_one_edit() {
+    let path = fixture(PesVersion::Pes21, "stronger_hand");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    let hand = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .positions
+            .stronger_hand
+    };
+    assert_eq!(hand(&view), Some(0), "premise: right-handed");
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let combo = right_of_label(&nodes, "Stronger hand", Role::ComboBox)
+        .first()
+        .copied()
+        .expect("the hand combo");
+    click(&mut window, combo, &mut view);
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (item, _) = nodes
+        .iter()
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Left"))
+        .expect("the Left item");
+    action_click(&mut window, &mut view, *item);
+    assert_eq!(hand(&view), Some(1), "Left stores 1");
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(hand(&view), Some(0), "undone");
+    assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
+}
+
 // spec/pes_savefile/operations.md "Team TOML" (the portable text limits)
 // and plans/save_editor.md "Editing UI" (the info strip bullet): a stored
 // shirt name past 18 letters is drawn tinted with the versions' hover; an
 // edit may shorten it a keystroke at a time, never lengthen.
 #[test]
 fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
-    /// The fill under `bounds`' centre: the smallest `Shape::Rect` covering
-    /// it (the field's own frame).
-    fn fill_at(
-        shapes: &[egui::epaint::ClippedShape],
-        bounds: accesskit::Rect,
-    ) -> Option<egui::Color32> {
-        let centre = egui::pos2(
-            ((bounds.x0 + bounds.x1) / 2.0) as f32,
-            ((bounds.y0 + bounds.y1) / 2.0) as f32,
-        );
-        shapes
-            .iter()
-            .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Rect(shape) if shape.rect.contains(centre) => {
-                    Some((shape.fill, shape.rect.area()))
-                }
-                _ => None,
-            })
-            .min_by(|a, b| a.1.partial_cmp(&b.1).expect("areas"))
-            .map(|(fill, _)| fill)
-    }
-    /// The Shirt field's `TextInput` (the rightmost enabled text edit).
-    fn shirt_field(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
-        nodes
-            .iter()
-            .filter(|node| {
-                node.role() == Role::TextInput && !node.is_disabled() && node.value() == Some(value)
-            })
-            .map(|node| node.bounds().expect("bounds"))
-            .max_by(|a, b| a.x0.partial_cmp(&b.x0).expect("ordered bounds"))
-            .unwrap_or_else(|| panic!("no Shirt field {value:?}"))
-    }
-
     // 70101 with a 20-letter shirt name, over the portable 18 inside PES
     // 21's own field.
     let path = fixture(PesVersion::Pes21, "long_shirt");
@@ -1766,6 +2046,63 @@ fn a_pes16_strip_refuses_a_17th_shirt_letter() {
             node.role() == Role::TextInput && node.value() == Some(stored.as_str())
         }),
         "the field reverted"
+    );
+}
+
+// plans/save_editor.md "Editing UI" with operations.md's portable limits:
+// the Shirt field's hover says the limit the field enforces — the smaller
+// of the portable 18 and the version's own field — so PES 21's 61-wide
+// field still says 18.
+#[test]
+fn the_shirt_hover_names_the_limit_the_field_enforces() {
+    let path = fixture(PesVersion::Pes21, "shirt_hover_limit");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::new();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let shirt = nodes
+        .iter()
+        .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
+        .max_by(|a, b| {
+            let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
+            x(a).partial_cmp(&x(b)).expect("ordered bounds")
+        })
+        .expect("the Shirt field");
+    let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to");
+    assert_eq!(
+        tooltip,
+        Some(
+            "Up to 18 letters; accented Latin letters are fine, other scripts and symbols are not"
+                .to_string()
+        ),
+        "PES 21's shirt field is 61 wide but the editor holds 18"
+    );
+}
+
+// The same bullet's boundary: a shirt name of exactly the portable 18
+// letters is no warning — the tint is for what a version would cut, and
+// nothing is.
+#[test]
+fn a_shirt_at_the_portable_limit_draws_no_tint() {
+    let path = fixture(PesVersion::Pes21, "shirt_at_limit");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.player_mut(70101).unwrap().shirt_name = "S".repeat(18);
+    file.save(&path).unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
+    let tint = visuals
+        .extreme_bg_color
+        .lerp_to_gamma(visuals.warn_fg_color, 0.25);
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let bounds = shirt_field(&nodes, &"S".repeat(18));
+    assert_ne!(
+        fill_at(&shapes, bounds),
+        Some(tint),
+        "an 18-letter shirt draws no tint"
     );
 }
 
@@ -2116,28 +2453,6 @@ fn scrolling_to_the_end_of_all_selects_the_last_player() {
 // to 61 bytes, a name past 46 tinted with the cut the older versions make).
 #[test]
 fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
-    // The fill under `bounds`' centre: the smallest `Shape::Rect` covering
-    // it (the field's own frame; the panel's background would win an
-    // `intersects` match instead).
-    fn fill_at(
-        shapes: &[egui::epaint::ClippedShape],
-        bounds: accesskit::Rect,
-    ) -> Option<egui::Color32> {
-        let centre = egui::pos2(
-            ((bounds.x0 + bounds.x1) / 2.0) as f32,
-            ((bounds.y0 + bounds.y1) / 2.0) as f32,
-        );
-        shapes
-            .iter()
-            .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Rect(shape) if shape.rect.contains(centre) => {
-                    Some((shape.fill, shape.rect.area()))
-                }
-                _ => None,
-            })
-            .min_by(|a, b| a.1.partial_cmp(&b.1).expect("areas"))
-            .map(|(fill, _)| fill)
-    }
     /// The Name field's `TextInput` node (the enabled text edit left of the
     /// panel's middle).
     fn name_field(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {

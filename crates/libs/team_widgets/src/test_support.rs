@@ -10,14 +10,24 @@ pub(crate) struct Headless {
     /// The context: the painted-color assertions read the theme's visuals
     /// off it.
     pub(crate) ctx: egui::Context,
+    /// The screen size each frame reports.
+    screen: egui::Vec2,
 }
 
 impl Headless {
     /// A window with AccessKit enabled.
     pub(crate) fn new() -> Headless {
+        Headless::sized(800.0, 600.0)
+    }
+
+    /// `new` over a `width` by `height` screen.
+    pub(crate) fn sized(width: f32, height: f32) -> Headless {
         let ctx = egui::Context::default();
         ctx.enable_accesskit();
-        Headless { ctx }
+        Headless {
+            ctx,
+            screen: egui::vec2(width, height),
+        }
     }
 
     /// Runs one frame with `events` as its input; returns the frame's
@@ -40,10 +50,7 @@ impl Headless {
     ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
         let input = egui::RawInput {
             time,
-            screen_rect: Some(egui::Rect::from_min_size(
-                egui::Pos2::ZERO,
-                egui::vec2(800.0, 600.0),
-            )),
+            screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, self.screen)),
             events,
             ..Default::default()
         };

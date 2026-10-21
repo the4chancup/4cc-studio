@@ -10,8 +10,12 @@ use pes_savefile::model::playstyle::PlayStyle;
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::schema::{playstyle, schema_for};
 
-/// The skills grid's column count, the draft's five to a row.
+/// The skills grid's most columns, the draft's five to a row.
 const SKILL_COLUMNS: usize = 5;
+
+/// A skills-grid column's width in points: the five the draft lays in
+/// ~675px, so a narrower pane takes fewer columns rather than clip.
+const SKILL_COLUMN_WIDTH: f32 = 135.0;
 
 /// One badge: a tier's label and the player's card economy under it (the host's
 /// `aatf::Rules::card_limits` result).
@@ -37,7 +41,7 @@ pub fn card_pickers(
     ui.push_id(id_salt, |ui| {
         let mut changed = false;
         if !tiers.is_empty() {
-            ui.horizontal(|ui| {
+            ui.horizontal_wrapped(|ui| {
                 ui.weak("Cards left");
                 for tier in tiers {
                     let left = i32::from(tier.limits.limit) - i32::from(tier.limits.paid);
@@ -53,8 +57,12 @@ pub fn card_pickers(
             });
         }
         let fields = schema_for(version).player_field_set();
+        // The draft's five to a row at ~675px; a pane that holds fewer
+        // wraps instead of clipping the last columns.
+        let per_row = ((ui.available_width() / SKILL_COLUMN_WIDTH).floor().max(1.0) as usize)
+            .min(SKILL_COLUMNS);
         egui::Grid::new("skills")
-            .num_columns(SKILL_COLUMNS)
+            .num_columns(per_row)
             .show(ui, |ui| {
                 for (index, name) in labels::SKILLS.iter().enumerate() {
                     let field = PlayerField::Skill(index as u8);
@@ -72,12 +80,13 @@ pub fn card_pickers(
                         )
                         .on_disabled_hover_text(format!("PES {}+", first_with(field).number()));
                     }
-                    if (index + 1) % SKILL_COLUMNS == 0 {
+                    if (index + 1) % per_row == 0 {
                         ui.end_row();
                     }
                 }
             });
-        ui.horizontal(|ui| {
+        ui.strong("COM playing styles");
+        ui.horizontal_wrapped(|ui| {
             for (index, name) in labels::COM_STYLES.iter().enumerate() {
                 let field = PlayerField::ComStyle(index as u8);
                 if fields.contains(&field) {
@@ -447,6 +456,53 @@ mod tests {
         }
         assert!(y0(cells[5]) > y0(cells[0]), "the sixth starts the next row");
         assert_eq!(x0(cells[5]), x0(cells[0]), "the row starts at the same x");
+    }
+
+    // The same bullet, narrower: a pane that holds fewer than the draft's
+    // five columns wraps instead of clipping (~460 points, three columns);
+    // the COM styles get their own heading and wrap like the grid.
+    #[test]
+    fn the_pickers_wrap_at_the_panes_width() {
+        let mut window = Headless::sized(480.0, 700.0);
+        // Player 78102 of the PES 21 fixture save.
+        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
+        let lim = limits(0, 8);
+        let tiers = [TierCards {
+            label: "Gold",
+            limits: &lim,
+        }];
+        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, &tiers, vec![]);
+        // The badges' row draws under its label.
+        text_entry(&nodes, "Cards left");
+        let mut cells: Vec<&accesskit::Node> = nodes
+            .iter()
+            .filter(|node| node.role() == Role::CheckBox)
+            .collect();
+        cells.sort_by(|a, b| {
+            let key = |node: &&accesskit::Node| {
+                let bounds = node.bounds().expect("drawn bounds");
+                (bounds.y0, bounds.x0)
+            };
+            key(a).partial_cmp(&key(b)).expect("ordered bounds")
+        });
+        let y0 = |node: &accesskit::Node| node.bounds().expect("bounds").y0;
+        // Three to a row here: the fourth sits below the first, the grid
+        // having wrapped rather than run off the pane.
+        for cell in &cells[1..3] {
+            assert!(
+                (y0(cell) - y0(cells[0])).abs() < 1.0,
+                "the first three sit on one row"
+            );
+        }
+        assert!(y0(cells[3]) > y0(cells[0]), "the fourth wraps");
+        // The COM row under its heading wraps too: the last style sits
+        // below the first.
+        text_entry(&nodes, "COM playing styles");
+        assert!(
+            y0(entry(&nodes, Role::CheckBox, "Long Ranger"))
+                > y0(entry(&nodes, Role::CheckBox, "Trickster")),
+            "the COM styles wrap"
+        );
     }
 
     // plans/save_editor.md "Editing UI": a card the version cannot store stays
