@@ -183,8 +183,12 @@ impl Code {
     ];
 }
 
-/// Every code this tool emits, with its severity: the tool's own, then the
-/// structure pass's (`aesthetics_export::ISSUE_CODES`) in `ISSUE_CODES` order.
+/// Every code this tool emits, with its severity and its member-facing
+/// `when`/`effect`: the tool's own, then the structure pass's
+/// (`aesthetics_export::ISSUE_CODES`) in `ISSUE_CODES` order. A structure-pass
+/// row's `when` is the Team compiler's cell word for word (the same condition on
+/// the upgraded export), unless this tool's own table describes the row
+/// (`team_name_unknown`, `source_read_failed`), and its `effect` the upgrade's.
 /// The issue severities are the Team compiler's catalog's, each run-dependent
 /// row taken as for a compile that deploys with pass-through and the strict
 /// file-type check on (the output's check runs with it), and an E/F row as an
@@ -194,435 +198,435 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "no_old_export",
         Severity::Error,
-        r#"step 1: the input holds nothing an old export holds"#,
-        r#"nothing is written"#,
+        r#"The input holds nothing an old export holds: no Team Note, none of the old format's folders, no `refs.txt`."#,
+        r#"Nothing is written."#,
     ),
     (
         "refs_txt_missing",
         Severity::Error,
-        r#"a `refs` export without a `refs.txt` holds no roster to migrate (step 9)"#,
-        r#"nothing is written"#,
+        r#"A `refs` export has no `refs.txt`, so it holds no roster to migrate."#,
+        r#"Nothing is written."#,
     ),
     (
         "export_extract_failed",
         Severity::Error,
-        r#"the archive does not open or its listing is refused (the compiler's code)"#,
-        r#"nothing is written"#,
+        r#"The archive (`.zip` or `.7z`) cannot be opened, or a path inside it is unusable: it leads outside the archive, or two names differ only in letter case or Unicode form."#,
+        r#"Nothing is written. Repack the archive, or unpack it into a folder first."#,
     ),
     (
         "unmigrated_content",
         Severity::Error,
-        r#"an entry inside the old format's folders that reached the game and that no step migrates, or that step 10's boundary keeps an Error (two candidates for one place, a misnamed whole folder), entry by entry; a Note entry whose colors do not read is one, its line in the context, and so is a kit config that does not decode (step 5), its error in the context"#,
-        r#"the entry is not migrated; the run is not clean, so nothing is written"#,
+        r#"An entry inside the old format's folders that reached the game and that no migration covers: two candidates for one place (a second face folder of one slot, two portraits of one), a whole folder under a name the old format refuses, a Note entry whose colors do not read, a kit config that does not decode."#,
+        r#"The entry is not migrated; the run is not clean, so nothing is written. Fix it in the old export and upgrade again."#,
     ),
     (
         "migration_clean",
         Severity::Info,
-        r#"last line: no Error finding, and no finding drops anything but a leftover ("Verification"'s clean migrated export)"#,
-        r#"exit 0"#,
+        r#"The report's last line: no Error finding, and no finding dropped anything but a leftover."#,
+        r#"The upgraded export is written; exit 0."#,
     ),
     (
         "migration_not_clean",
         Severity::Info,
-        r#"last line otherwise"#,
-        r#"nothing is written ("Verification"); exit 1 after any finding that drops anything but a leftover"#,
+        r#"The report's last line, otherwise."#,
+        r#"Nothing is written; exit 1 after any finding that dropped more than a leftover."#,
     ),
     (
         "leftover_dropped",
         Severity::Warning,
-        r#"step 10: content that never reached a player in game, outside the old format's layout or inside it (a refused portrait, a stray file, a second goalkeeper kit, ...); a Note entry's dropped part names its line"#,
-        r#"not written; the run stays clean"#,
+        r#"Content that never reached a player in game, outside the old format's layout or inside it (a refused portrait, a stray file, a second goalkeeper kit, a file directly in `Faces/`, `Boots/` or `Gloves/`); a Note entry's dropped part names its line."#,
+        r#"Not written; the run stays clean."#,
     ),
     (
         "mtl_stray_text_dropped",
         Severity::Info,
-        r#"step 7: an old `.mtl` held text between its elements"#,
-        r#"dropped as the file is written back"#,
+        r#"An old `.mtl` held text between its elements, which the compiler's reader refuses."#,
+        r#"Dropped as the file is written back."#,
     ),
     (
         "roster_slot_empty",
         Severity::Warning,
-        r#"a face folder whose slot the save's roster leaves empty (`slot`)"#,
-        r#"it still becomes its player folder, with no `settings.toml`"#,
+        r#"A face folder's slot is empty in the save's roster (the line names the slot)."#,
+        r#"It still becomes its player folder, with no `settings.toml`."#,
     ),
     (
         "merge_kept_shared",
         Severity::Info,
-        r#"a path a player folder and a merging item folder share with different bytes (`path`, the first clashing path relative to the player folder)"#,
-        r#"the item folder is kept shared with a link instead"#,
+        r#"A player folder and a boots or gloves folder that would merge into it share a file path with different bytes."#,
+        r#"The item folder is kept shared with a link instead."#,
     ),
     (
         "wearer_assumed",
         Severity::Info,
-        r#"loose mode's assumed wearer of an item folder (step 11): the ID's position in its kind's old block of 25 (`id`, the folder's four-digit ID; `slot`, the player's)"#,
-        r#"reported so the pairing can be checked"#,
+        r#"`--loose` paired an item folder with the player its ID's position in the team's old block of 25 gives (the line names the folder's four-digit ID and the slot)."#,
+        r#"Reported so the pairing can be checked; rename the folder, or upgrade with `--savefile`, if it is wrong."#,
     ),
     (
         "kit_without_config",
         Severity::Warning,
-        r#"a kit slot a Note kit entry gives and no `Kit Configs` config does (`slot`)"#,
-        r#"the kit still forms, a placeholder the compiler fills"#,
+        r#"A Team Note kit entry gives a slot no `Kit Configs` config does."#,
+        r#"The kit still forms, a placeholder the compiler fills."#,
     ),
     (
         "config_without_kit_entry",
         Severity::Warning,
-        r#"a kit slot a `Kit Configs` config gives and no Note kit entry does (`slot`)"#,
-        r#"its `config.toml` is written all the same, the kit offered as the old export never offered it"#,
+        r#"A `Kit Configs` config gives a slot no Team Note kit entry does."#,
+        r#"Its `config.toml` is written all the same, the kit offered as the old export never offered it; delete the folder if it should not be."#,
     ),
     (
         "kit_texture_copied",
         Severity::Info,
-        r#"a kit's config field named another texture (`kit`, `stem` the field's, `from` the source's slot and stem)"#,
-        r#"the named texture was copied into the kit under the field's generic name"#,
+        r#"A kit's config names another texture in a number or name field (the line names the kit, the stem and where it came from)."#,
+        r#"The named texture was copied into the kit under the field's generic name."#,
     ),
     (
         "kit_texture_hoisted",
         Severity::Info,
-        r#"a texture every kit folder held byte-identically (`stem`, the first kit's spelling)"#,
-        r#"it moved to `Kits/all/`"#,
+        r#"A texture every kit folder held byte-identically."#,
+        r#"Moved to `Kits/all/`; the kits compile the same without the copies."#,
     ),
     (
         "portrait_conflict",
         Severity::Error,
-        r#"a `Portraits/` file and its slot's face-folder portrait differ in bytes, which the compiler's deep pass would refuse (`slot`)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A `Portraits/` file and its slot's face-folder portrait differ in bytes, which the compiler would refuse."#,
+        r#"The run is not clean, so nothing is written. Keep one portrait in the old export and upgrade again."#,
     ),
     (
         "logo_small_carried",
         Severity::Info,
-        r#"the old `_r` small logo is a different drawing (`share`, the differing pixels' percentage)"#,
-        r#"kept as `logo_small.png`"#,
+        r#"The old `_r` small logo is a different drawing (the line gives how much it differs)."#,
+        r#"Kept as `logo_small.png`."#,
     ),
     (
         "logo_small_dropped",
         Severity::Info,
-        r#"the old `_r` small logo is a downscale of the large one (`share`)"#,
-        r#"dropped: the compiler regenerates it"#,
+        r#"The old `_r` small logo is a downscale of the large one."#,
+        r#"Dropped; the compiler regenerates it. Carry it by hand as `logo_small.png` if it was a variant."#,
     ),
     (
         "logo_fallback",
         Severity::Warning,
-        r#"no usable `_r_ll` member"#,
-        r#"the largest usable one became `logo.png`"#,
+        r#"No usable `_r_ll` member of the `Logo/` folder."#,
+        r#"The largest usable member became `logo.png`, and no `logo_small.png` is written."#,
     ),
     (
         "common_reference_kept",
         Severity::Warning,
-        r#"an `.mtl`/`.fmdl` reference into the team's `Common/` whose file is not in the input's `Common/`, where a link would clash (the folder already holds a texture of that stem, which is the one the model will wear: the compiler looks a game path's file name up in the folder first), or from a subfolder `.mtl` naming a Common subfolder (`reference`, the path as written)"#,
-        r#"the reference is kept as written, its `???` respelled the team's ID"#,
+        r#"An `.mtl` or `.fmdl` reference into the team's `Common/` whose file the input's `Common/` does not hold, and which no link can spell (the folder already holds a texture of that stem, or a subfolder `.mtl` names a Common subfolder)."#,
+        r#"Kept as written, its three-character Common segment respelled the team's ID; an installed CPK may still supply the file."#,
     ),
     (
         "custom_model_missing",
         Severity::Error,
-        r#"a rostered player's save record wears a custom boots or gloves ID (above 100) no migrated folder claims (step 8; `slot`, `name`, `key` the ID's own, `id`); checked for every rostered player of a Full output but in a Midcup one only for a player the output gives a folder"#,
-        r#"the content is missing: the run is not clean, so nothing is written"#,
+        r#"A rostered player's save record wears a custom boots or gloves ID (above 100) no migrated folder claims; checked for every rostered player of a `Full` output, in a `Midcup` one only for a player the output gives a folder."#,
+        r#"The content is missing: the run is not clean, so nothing is written. Add the folder to the old export, or take the ID off his record."#,
     ),
     (
         "settings_value_refused",
         Severity::Warning,
-        r#"a stored value no `settings.toml` key can hold (`slot`, `name`, `key` the dotted key, `value` the stored value)"#,
-        r#"left out of the player's file"#,
+        r#"A stored value no `settings.toml` key can hold (the line names the slot, the player, the key and the value)."#,
+        r#"Left out of the player's file."#,
     ),
     (
         "settings_from_stripped_record",
         Severity::Info,
-        r#"a `settings.toml` generated from a stripped record (`slot`, `name`)"#,
-        r#"the record still is his look until the team's first Studio compile, which keeps its own file instead"#,
+        r#"A `settings.toml` was generated from a stripped record."#,
+        r#"The record still is his look until the team's first Studio compile, which keeps its own file instead."#,
     ),
     (
         "settings_not_generated",
         Severity::Error,
-        r#"a player's `settings.toml` could not be generated at all (`slot`, `name`, `error` the failure's text)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A player's `settings.toml` could not be generated at all (the line names the error)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "model_folder_destination",
         Severity::Info,
-        r#"model-folder mode: where an output folder goes once dropped into a Studio export (`into`: `Players`, `Boots`, `Gloves`, or `root` for `Common/`)"#,
-        r#"informational; goes on"#,
+        r#"`upgrade-models`: where an output folder goes once dropped into a Studio export (`Players`, `Boots`, `Gloves`, or the export root for `Common/`)."#,
+        r#"Nothing to do."#,
     ),
     // The structure pass's codes, in `ISSUE_CODES` order.
     (
         "nested_folders_fixed",
         Severity::Warning,
-        r#"content found nested one level down (exactly one usable root)"#,
-        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
+        r#"The export's content sits one level too deep, inside a single folder."#,
+        r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
         "nested_root_ambiguous",
         Severity::Error,
-        r#"several nested child folders are usable export roots"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"Several folders inside the export each look like its root."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "nested_root_conflict",
         Severity::Error,
-        r#"loose root file collides with a flattened nested file at the same virtual path"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A file at the export's root and one inside the nested folder resolve to the same place."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "players_txt_invalid",
         Severity::Error,
-        r#"file-level encoding failure or roster-wide ambiguity prevents trustworthy normalization, or a referee roster retains zero valid assignments"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"`players.txt` cannot be read as a roster (an encoding failure or a roster-wide ambiguity), or a referee roster keeps no valid assignment."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "refs_txt_ignored",
         Severity::Warning,
-        r#"referee export has both `players.txt` and the legacy `refs.txt` alias"#,
-        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
+        r#"A referee export holds both `players.txt` and the old `refs.txt` name."#,
+        r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
         "source_read_failed",
         Severity::Error,
-        r#"a file of the input does not read after its listing did (the compiler's code; `path`, `error`)"#,
-        r#"it is not migrated and the run reports on and ends not clean, so nothing is written; an unreadable Note (it decides the team) or a referee export's `refs.txt` (it decides the roster) stops the run at once"#,
+        r#"A file of the input could not be read after its listing did."#,
+        r#"It is not migrated and the run ends not clean, so nothing is written; an unreadable Team Note (it decides the team) or a referee export's `refs.txt` (it decides the roster) stops the run at once."#,
     ),
     (
         "export_empty",
         Severity::Error,
-        r#"no usable content found at root"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"No usable content was found at the export's root."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "team_name_unknown",
         Severity::Error,
-        r#"the team resolves to no row of the list (the compiler's code), the `Team:` line's file or the export named (`name`)"#,
-        r#"nothing is written"#,
+        r#"The export's team resolves to no row of the teams list: the Team Note's `Team:` line when there is one, else the export's name (the line names the value)."#,
+        r#"Nothing is written. Check the name, or add the team to the list."#,
     ),
     (
         "export_tag_missing",
         Severity::Error,
-        r#"a team export's name has neither `Full` nor `Midcup` as its second word (context `name`: the export's name)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A team export's name has neither `Full` nor `Midcup` as its second word."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "export_layout_old",
         Severity::Error,
-        r#"the export is in the old layout, which the compiler does not read: a root folder named `Kit Configs`, `Kit Textures` or `Other`, names the Studio format never has (its kits live in `Kits/`); context `folder`: the first such folder. Reported alone: the export's other structure findings are not computed, since every one of them would describe the old layout again"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"The export is in the old layout, which the compiler does not read: a root folder named `Kit Configs`, `Kit Textures` or `Other` (kits live in `Kits/`)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "players_txt_missing",
         Severity::Error,
-        r#"referee export has no required root `players.txt` (nor a legacy `refs.txt` alias)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A referee export has no `players.txt` (nor the old `refs.txt` name)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "players_txt_line_invalid",
         Severity::Error,
-        r#"one nonblank `players.txt` line cannot be parsed into decimal slot + folder name"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A nonblank line of `players.txt` is not a decimal slot plus a folder name."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "players_txt_slot_invalid",
         Severity::Error,
-        r#"a `players.txt` line's decimal slot is outside 01–23 (teams) / 01–35 (refs)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A `players.txt` line's slot is outside 01-23 (teams) or 01-35 (refs)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "players_txt_slot_duplicate",
         Severity::Error,
-        r#"authoritative `players.txt` assigns the same slot more than once, making roster identity ambiguous"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"`players.txt` assigns the same slot more than once, so the roster is ambiguous."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "players_txt_target_missing",
         Severity::Error,
-        r#"`players.txt` entry names a nonexistent folder"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A `players.txt` line names a folder that does not exist."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "player_unlisted",
         Severity::Warning,
-        r#"authoritative `players.txt` is present but does not list this player folder, regardless of any number in its name"#,
-        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
+        r#"`players.txt` is present but does not list this player folder, whatever number its name carries."#,
+        r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
         "player_folder_number_invalid",
         Severity::Error,
-        r#"without `players.txt`, a team player folder's number is not in 01–23"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"Without `players.txt`, a player folder's number is not in 01-23."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "player_number_duplicate",
         Severity::Error,
-        r#"without `players.txt`, two team folder names claim the same player slot"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"Without `players.txt`, two player folder names claim the same slot."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "file_type_disallowed",
         Severity::Error,
-        r#"a file in a player or shared folder's tree, in a kit folder or in `Collars/` that its position's allowlist row does not admit (`spec/aesthetics_export/object_model.md` "File-type allowlist": a disallowed extension, or a marker, `settings.toml` or per-player singleton below a subfolder)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A file sits where its kind is not allowed, in a player or shared folder's tree, in a kit folder, or in `Collars/`: a disallowed extension, or a marker, `settings.toml` or a per-player file below a subfolder."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "common_file_disallowed",
         Severity::Error,
-        r#"as `file_type_disallowed`, Common scope"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A file sits in `Common/` that is not model content (a model, `.mtl`, `.skl`, `.fclo`, `.xml`, `.bin`, texture or `.txt` note would be)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "player_layout_proto",
         Severity::Error,
-        r#"a referee export's player folder has a direct `face/`, `boots/`, `gloves/` or `common/` subfolder: the AET referee layout, Red's prototype of the player folder, whose subfolders type their files by the subfolder's name where the Studio rule types a subfolder's files by their names (`spec/aesthetics_export/player_folders.md` "Subfolders"); in a team export those names are plain subfolders (context `folder`: the first such subfolder)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A referee export's player folder has a `face/`, `boots/`, `gloves/` or `common/` subfolder directly inside, the layout of older referee exports (in a team export those are ordinary subfolders)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "shared_link_duplicate",
         Severity::Error,
-        r#"player folder has more than one shared link for any category (face, boots, or gloves), counted over its whole tree, two links naming one shared folder counting once"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A player folder has more than one shared link for a part (face, boots or gloves), counted over its whole tree (two links naming one folder count once)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "link_target_missing",
         Severity::Error,
-        r#"link file references a nonexistent shared folder"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A link file names a shared folder that does not exist."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "common_link_missing",
         Severity::Error,
-        r#"a `.common` link (model, material file or texture) names a file missing from the Common folder (a `kitN` stem or directory in it standing for its set, `spec/model_format.md` "Kit-dependent assets") (context: the link file, whose name shows its kind, and the Common path looked for)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A `.common` link names a file missing from `Common/` (a `kitN` name or directory stands for its set); on PES 2018 to 2021 a texture link is satisfied when a CPK listed earlier holds it at the team's Common path."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "link_target_dropped",
         Severity::Error,
-        r#"a shared-folder or `.common` link names a target the structure pass or the deep pass dropped, by its effective disposition (context: the link, the target and its finding)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A shared-folder or `.common` link names a target that was left out for its own finding (the line names the link, the target and the finding)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "shared_folder_orphaned",
         Severity::Warning,
-        r#"shared folder referenced by no player"#,
-        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
+        r#"A shared `Faces/`, `Boots/` or `Gloves/` folder is linked by no player."#,
+        r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
         "fpc_conflict",
         Severity::Error,
-        r#"both `fpc_on` and `fpc_off` present in a player folder"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A player folder holds both `fpc_on` and `fpc_off`."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "ingame_face_explicit_face_model",
         Severity::Error,
-        r#"`ingame_face` combined with explicit face models (`face_high`/`hair_high`/`oral`, in any supported source format) or a shared face link, which require the suppressed face folder"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A player folder holds `ingame_face` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, which need the face folder the marker suppresses."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "texture_stem_conflict",
         Severity::Error,
-        r#"two image files with the same stem in one lookup namespace, whatever their extensions: one folder of a model folder's tree, the root or one subfolder (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`, which counts as a file of its linked name; `hair.dds` beside `jessie/hair.dds` is no conflict, a model's texture name resolving nearest first, `spec/aesthetics_export/player_folders.md` "Subfolders"), `Common/` (`hair.dds` beside `hair.png`; each directory of `Common/` a namespace of its own), a kit folder, or `Kits/all/` (`kit.png` beside `kit.dds`; a kit's own file overriding an `all/` file of its stem is not a conflict), or `Portraits/` (`05.dds` beside `05 - Bob.png`, two files of one slot)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"Two image files share one stem in the same place, whatever their extensions (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`; `hair.dds` beside `jessie/hair.dds` is no conflict): in a model folder, a kit folder, `Kits/all/`, a directory of `Common/`, or `Portraits/` (two files of one slot)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "fmdl_name_invalid",
         Severity::Error,
-        r#"Fox: FMDL anywhere in a boots/gloves shared folder not resolving to that category's allowed names"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"PES 2018 to 2021: an `.fmdl` in a shared `Boots/` or `Gloves/` folder whose name does not resolve to that category's names."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "model_name_invalid",
         Severity::Error,
-        r#"pre-Fox: a model anywhere in a shared boots or gloves folder without its category's suffix, the pre-Fox twin of `fmdl_name_invalid`"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"PES 2015 to 2017: a `.model` in a shared `Boots/` or `Gloves/` folder without that category's suffix."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "edithair_unsupported",
         Severity::Error,
-        r#"pre-Fox: `face_edithair.xml` / `hair.xml` present (anywhere in a player or shared folder; reported by the structure pass, so `check` reports it)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"PES 2015 to 2017: a `face_edithair.xml` or `hair.xml` sits anywhere in a player or shared folder."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "kit_folder_invalid",
         Severity::Error,
-        r#"subfolder name doesn't parse as `<slot>[ - <label>]` with the slot in `p1`–`p9`, `g1`, `all`"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A `Kits/` subfolder's name is not `<slot>` or `<slot> - <label>` with the slot in `p1`-`p9`, `g1` or `all`."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "kit_slot_duplicate",
         Severity::Error,
-        r#"two subfolders resolve to the same slot (`p1/` and `p1 - Lakers/`)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"Two `Kits/` subfolders resolve to the same slot (`p1/` and `p1 - Lakers/`)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "kit_texture_name_invalid",
         Severity::Error,
-        r#"texture doesn't carry the `kit` prefix (`kit.dds`, `kit_mask.dds`, …)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A kit texture's name does not carry the `kit` prefix (`kit.dds`, `kit_mask.dds`)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "kit_layout_conflict",
         Severity::Error,
-        r#"both `pre-fox` and `fox` markers in one kit folder"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A kit folder holds both `pre-fox` and `fox` markers."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "kit_icon_invalid",
         Severity::Warning,
-        r#"a kit's `icon_<N>` marker is numbered above 23, or the kit holds two or more (each is reported)"#,
-        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
+        r#"A kit's `icon_<N>` marker is numbered above 23, or the kit holds two or more (each is reported)."#,
+        r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
         "kit_all_file_ignored",
         Severity::Warning,
-        r#"`all/` holds something other than kit textures (`config.toml`, `colors.txt`, an `icon_<N>` marker, anything else)"#,
-        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
+        r#"`Kits/all/` holds something other than kit textures (`config.toml`, `colors.txt`, an `icon_<N>` marker, anything else)."#,
+        r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
         "kit_all_unused",
         Severity::Warning,
-        r#"`all/` present but no kit folder to inherit from it"#,
-        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
+        r#"`Kits/all/` is present but no kit folder inherits from it."#,
+        r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
         "kit_textures_inherited",
         Severity::Info,
-        r#"a kit lacks stems that `all/` provides; lists them (`p3: back, leg, name from all/`)"#,
-        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
+        r#"A kit lacks texture names that `Kits/all/` provides (the line lists them)."#,
+        r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
         "portrait_name_invalid",
         Severity::Error,
-        r#"a `Portraits/` file that is not a texture named `NN` with NN in 01–23 (alone or followed by ` - ` and any text, as a player folder is numbered)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A `Portraits/` file is not a texture named `NN` with NN in 01-23 (alone, or followed by ` - ` and any text)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "logo_file_invalid",
         Severity::Error,
-        r#"a root `logo*` file has an unknown tag in its stem, a disallowed format, or fails to decode in the deep pass"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A root `logo*` file has an unknown tag in its name, a format the compiler does not read, or does not decode."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "logo_role_duplicate",
         Severity::Error,
-        r#"two files claim the same role (two `logo*`, or two `logo_small*`)"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"Two files claim the same logo role (two `logo*`, or two `logo_small*`)."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "logo_small_without_main",
         Severity::Error,
-        r#"`logo_small*` present with no main `logo*`"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"A `logo_small*` image is present with no main `logo*`."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
     (
         "root_file_unexpected",
         Severity::Warning,
-        r#"unknown file or folder at the export root (a folder other than the content folders, a stale `wrapper/` beside a usable root included), or a file directly inside `Players`, `Kits`, `Faces`, `Boots` or `Gloves`, which hold only folders (`Players/players.txt`)"#,
-        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
+        r#"An unknown file or folder sits at the export's root (a stale `wrapper/` beside a usable root included), or a file sits directly inside `Players/`, `Kits/`, `Faces/`, `Boots/` or `Gloves/`, which hold only folders."#,
+        r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
         "notes_found",
         Severity::Info,
-        r#"non-empty valid root `notes.txt` present"#,
-        r#"reported on the upgraded export; it is still written unless the finding drops part of it"#,
+        r#"The export's root holds a non-empty `notes.txt`."#,
+        r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
         "notes_encoding_invalid",
         Severity::Error,
-        r#"root `notes.txt` is not valid UTF-8 after optional BOM handling"#,
-        r#"the run is not clean, so nothing is written"#,
+        r#"The root `notes.txt` is not valid UTF-8."#,
+        r#"The run is not clean, so nothing is written."#,
     ),
 ];
 
@@ -882,12 +886,16 @@ mod tests {
     }
 
     #[test]
-    fn a_rows_when_is_its_spec_cell_and_its_effect_the_upgraders() {
+    fn a_rows_text_is_written_for_a_member() {
         let row = CATALOG.iter().find(|row| row.0 == "no_old_export").unwrap();
-        assert_eq!(row.2, "step 1: the input holds nothing an old export holds");
-        assert_eq!(row.3, "nothing is written");
-        // A structure-pass row takes the spec's when cell and the upgrader's own
-        // effect, unless this tool's own table describes the row
+        assert_eq!(
+            row.2,
+            "The input holds nothing an old export holds: no Team Note, none of the old format's folders, no `refs.txt`."
+        );
+        assert_eq!(row.3, "Nothing is written.");
+        // A structure-pass row takes the Team compiler's `when` cell word for word
+        // (pinned here: the same text as `team_compiler`'s catalog row of the code) and
+        // the upgrader's own `effect`, unless this tool's own table describes the row
         // (`team_name_unknown`, `source_read_failed`).
         let row = CATALOG
             .iter()
@@ -895,27 +903,30 @@ mod tests {
             .unwrap();
         assert_eq!(
             row.2,
-            "content found nested one level down (exactly one usable root)"
+            "The export's content sits one level too deep, inside a single folder."
         );
         assert_eq!(
             row.3,
-            "reported on the upgraded export; it is still written unless the finding drops part of it"
+            "Reported on the upgraded export, which is still written unless the finding drops part of it."
         );
         let row = CATALOG
             .iter()
             .find(|row| row.0 == "team_name_unknown")
             .unwrap();
-        assert_eq!(row.3, "nothing is written");
-        // A structure-pass row takes the upgrader's own effect by severity and no
-        // run-dependent alternative in its when.
+        assert_eq!(
+            row.3,
+            "Nothing is written. Check the name, or add the team to the list."
+        );
+        // `file_type_disallowed` takes the compiler's `when` too; the effect is the
+        // run's verdict, the strict check the upgrade's validation runs making it an Error.
         let row = CATALOG
             .iter()
             .find(|row| row.0 == "file_type_disallowed")
             .unwrap();
         assert_eq!(
             row.2,
-            "a file in a player or shared folder's tree, in a kit folder or in `Collars/` that its position's allowlist row does not admit (`spec/aesthetics_export/object_model.md` \"File-type allowlist\": a disallowed extension, or a marker, `settings.toml` or per-player singleton below a subfolder)"
+            "A file sits where its kind is not allowed, in a player or shared folder's tree, in a kit folder, or in `Collars/`: a disallowed extension, or a marker, `settings.toml` or a per-player file below a subfolder."
         );
-        assert_eq!(row.3, "the run is not clean, so nothing is written");
+        assert_eq!(row.3, "The run is not clean, so nothing is written.");
     }
 }

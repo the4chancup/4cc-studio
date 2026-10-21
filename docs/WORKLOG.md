@@ -17,8 +17,9 @@ done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Rule
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
-(its steps itemized: the shell, 8.6a-c and 8.6d1-3 done, 8.6d4 the wording pass next; then the Save
-editor's view), Phase 20 (the Ruleset
+(its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
+wording to fold in when they come; 8.7a, the picker's draft, done, 8.7b its widget next; then
+the Save editor's view), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
 upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-21): 20.0d (the
 DBC7 ruleset), 20.0e (the organizer's choices in it; QUESTIONS.md "DBC7: the stat total"
@@ -740,7 +741,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       - [ ] when the first topic gains an in-doc link `[text](<id>#<slug>)`, `--export`
         rewrites it to `<id>.md#<slug>` and writes an anchor per topic slug (review A3-7: no
         shipped topic holds one yet, so the exported files have nothing to break)
-      - [ ] 8.6d4 a member wording pass over the three catalogs' texts, with the maintainer's
+      - [x] 8.6d4 a member wording pass over the three catalogs' texts, with the maintainer's
         remarks on the draft, to `CONTRIBUTING.md`'s "written for a layman" rule (as easy to
         understand as possible for a member who knows nothing of the code): the copied cells
         carry dispositions (`DropExport`) and pointers
@@ -754,8 +755,13 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           `docs/` pointers, legacy tool names and em dashes out (280 hits before, red);
           `help_cli.rs`'s two pinned cells follow. Files: `team_compiler/src/messages{.rs,
           /catalog.rs}`, `studio/src/main.rs`, `studio/tests/help_cli.rs`
-        - [ ] 8.6d4b the Export upgrader's and the Save editor's rows; the guard's `WORDED` list
-          goes, so it covers every registered tool
+        - [x] 8.6d4b the Export upgrader's 69 rows and the Save editor's 23. Done 2026-10-21
+          (SWE-2): the upgrader's own rows say what the upgrade does without its step numbers, a
+          structure-pass row takes the compiler's new When (its own table's two excepted) with
+          the upgrade's effect; the Save editor's keep the CLI commands, drop the context lists;
+          the guard covers every registered tool (19 hits before, red). Files:
+          `export_upgrader/src/messages.rs`, `save_editor/src/messages.rs`, `studio/src/main.rs`,
+          `studio/tests/help_cli.rs`
   - [ ] 8.7 `color_tools`' colour-picker popup (`plans/libs/color_tools.md` Phase 8), the
     Save editor's team colours; the kit menu icons wait for the Team compiler's grid
     - [x] 8.7a the picker popup drawn in `docs/prototypes/save_editor.html`'s Team tab (the page

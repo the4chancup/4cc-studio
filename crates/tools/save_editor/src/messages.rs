@@ -228,128 +228,128 @@ impl Code {
 const CATALOG: &[(Code, &str, &str)] = &[
     (
         Code::TeamExported,
-        r#"`export-toml` wrote one team's file (`team`, `path`)"#,
-        r#"informational; goes on"#,
+        r#"`export-toml` wrote one team's file."#,
+        r#"Nothing to do."#,
     ),
     (
         Code::ImportKeyNotInVersion,
-        r#"`import-toml`: a key the document's version stores and the save's does not; dropped (`path`)"#,
-        r#"warns and goes on"#,
+        r#"`import-toml`: a key the document's version stores and the save's does not."#,
+        r#"The key is dropped from the import; the rest is written."#,
     ),
     (
         Code::ImportValueNotEncodable,
-        r#"`import-toml`: a value the save's version cannot store (an instruction it lacks); written as off (`path`, `label`)"#,
-        r#"warns and goes on"#,
+        r#"`import-toml`: a value the save's version cannot store (an instruction it lacks)."#,
+        r#"Written as off; the rest is written."#,
     ),
     (
         Code::ImportValueCapped,
-        r#"`import-toml`: a face type above the save's version's cap, or a skin the version has no custom slot for; written as `to` (`path`, `from`, `to`)"#,
-        r#"warns and goes on"#,
+        r#"`import-toml`: a face type above the save's version's cap, or a custom skin the version has no slot for."#,
+        r#"Written at the lower value (the face type as 0, the skin as 1); the rest is written."#,
     ),
     (
         Code::ImportSlotEmpty,
-        r#"`import-toml`: a `[players.NN]` whose roster slot is empty; skipped (`slot`)"#,
-        r#"warns and goes on"#,
+        r#"`import-toml`: a `[players.NN]` whose roster slot is empty."#,
+        r#"The player is skipped; the rest is written."#,
     ),
     (
         Code::PatchTeamApplied,
-        r#"`apply-patch`: the save holds the team and at least one of its patch players was written (`team`); a team whose players the save all lacks is not listed"#,
-        r#"informational; goes on"#,
+        r#"`apply-patch`: the save holds the team and at least one of its patch players was written; a team whose players the save all lacks is not listed."#,
+        r#"Nothing to do."#,
     ),
     (
         Code::PatchTeamNotInSave,
-        r#"`apply-patch`: the save has no team with this id; its players were not looked at (`team`)"#,
-        r#"the rest is written; exit 1"#,
+        r#"`apply-patch`: the save has no team with this id; its players were not looked at."#,
+        r#"The rest is written; exit 1."#,
     ),
     (
         Code::PatchPlayerNotInSave,
-        r#"`apply-patch`: the save has no player with this id (`player`)"#,
-        r#"the rest is written; exit 1"#,
+        r#"`apply-patch`: the save has no player with this id."#,
+        r#"The rest is written; exit 1."#,
     ),
     (
         Code::TransplantTargetStripped,
-        r#"`transplant`: the target's appearance id is -1, so the game does not read the record the donor's fields went into; the tables decide his look (`player`)"#,
-        r#"warns; the write stands"#,
+        r#"`transplant`: the target's appearance id is -1, so the game does not read the record the donor's fields went into; the seeded tables decide his look."#,
+        r#"The write stands; check him in the game."#,
     ),
     (
         Code::TransplantDonorStripped,
-        r#"`transplant`: the donor's appearance id is -1, so the fields copied are his record's, not the look the game shows for him (`player`)"#,
-        r#"warns; the write stands"#,
+        r#"`transplant`: the donor's appearance id is -1, so the fields copied are his record's, not the look the game shows for him."#,
+        r#"The write stands; the targets get the record, not the look."#,
     ),
     (
         Code::PlayerDiff,
-        r#"`diff`: one field of a player in both saves, old to new (`player`, `field`, `old`, `new`)"#,
-        r#"the report's rows; differences are the output, exit 0"#,
+        r#"`diff`: one field of a player in both saves, old to new."#,
+        r#"A report row; differences are the output, exit 0."#,
     ),
     (
         Code::PlayerOnlyIn,
-        r#"`diff`: a player in one save alone (`player`, `save`: `first` or `second`)"#,
-        r#"informational; goes on"#,
+        r#"`diff`: a player in one save alone (the line says which)."#,
+        r#"A report row; nothing to do."#,
     ),
     (
         Code::PlayerStripped,
-        r#"`diff`: the player's appearance id is -1 in `save` (`first`, `second` or `both`); his record is compared, not the look the game shows (`player`, `save`)"#,
-        r#"marks the player beside his rows; exit 0"#,
+        r#"`diff`: the player's appearance id is -1 in the save the line names; his record is compared, not the look the game shows."#,
+        r#"Marked beside his rows; exit 0."#,
     ),
     (
         Code::TeamsListAdded,
-        r#"`export-teams-list`: a team of the save the list lacked, appended or put into a placeholder's slot (`team`, `name`)"#,
-        r#"merged; written only with `--yes`"#,
+        r#"`export-teams-list`: a team of the save the list lacked, appended or put into a placeholder's slot."#,
+        r#"Merged; written only with `--yes`."#,
     ),
     (
         Code::TeamsListOverridden,
-        r#"`export-teams-list`: a name in both whose id becomes the save's (`name`, `old`, `new`)"#,
-        r#"merged; written only with `--yes`"#,
+        r#"`export-teams-list`: a name in both whose id becomes the save's."#,
+        r#"Merged; written only with `--yes`."#,
     ),
     (
         Code::TeamsListUnresolved,
-        r#"`export-teams-list`: a change dropped because its id collided with another row of the merged list (`team`, `name`)"#,
-        r#"the change is dropped, the other changes written with `--yes`; exit 1"#,
+        r#"`export-teams-list`: a change dropped because its id collided with another row of the merged list."#,
+        r#"The change is dropped, the other changes written with `--yes`; exit 1."#,
     ),
     (
         Code::TeamsListNameDuplicate,
-        r#"`export-teams-list`: a team of the save left out because an earlier team folds to the same name, which the list can hold once (`team`, `name`, `kept`)"#,
-        r#"the team is left out; exit 1"#,
+        r#"`export-teams-list`: a team of the save left out because an earlier team folds to the same name, which the list can hold once."#,
+        r#"The team is left out; exit 1. Rename one of them in the save to keep both."#,
     ),
     (
         Code::TeamsListKept,
-        r#"`export-teams-list`: the working rows that ended unchanged (`count`)"#,
-        r#"informational; goes on"#,
+        r#"`export-teams-list`: the rows that ended unchanged (the line gives the count)."#,
+        r#"Nothing to do."#,
     ),
     (
         Code::TeamsListWritten,
-        r#"`export-teams-list`: the merged list was written (`path`)"#,
-        r#"informational; goes on"#,
+        r#"`export-teams-list`: the merged list was written."#,
+        r#"Nothing to do."#,
     ),
     (
         Code::TeamsListNotWritten,
-        r#"`export-teams-list` without `--yes`: the summary only, the file untouched (`path`)"#,
-        r#"nothing is written"#,
+        r#"`export-teams-list` without `--yes`: the summary only, the file untouched."#,
+        r#"Nothing is written; run it again with `--yes` to write it."#,
     ),
     (
         Code::TeamsListReadOnly,
-        r#"`export-teams-list --yes`: the data directory cannot take the file (`path`, `error`)"#,
-        r#"nothing is written; exit 1"#,
+        r#"`export-teams-list --yes`: the data directory cannot take the file."#,
+        r#"Nothing is written; exit 1."#,
     ),
     (
         Code::AatfViolation,
-        r#"`check-aatf`: one rule the team breaks under the ruleset (`team`; `player` for a player's violation; `rule`, then the rule's own fields)"#,
-        r#"printed; an error-severity violation makes the exit code 1"#,
+        r#"`check-aatf`: one rule the team breaks under the ruleset (the line names the team, the player for a player's violation, the rule and its values)."#,
+        r#"An error-severity violation makes the exit code 1; a warning alone leaves it 0."#,
     ),
     (
         Code::AatfCheckFailed,
-        r#"`check-aatf`: the ruleset's check itself failed on the team, which the other teams' results do not cover (`team`, `error`)"#,
-        r#"the other teams are still checked; exit 1"#,
+        r#"`check-aatf`: the ruleset's check itself failed on the team, which the other teams' results do not cover."#,
+        r#"The other teams are still checked; exit 1."#,
     ),
     (
         Code::AppearanceIdRestored,
-        r#"`check-stripped`: the player's appearance id is set again while another player's is stripped, so the game shows his save record, not the database rows (`player`, `name`)"#,
-        r#"exit 1 while he stands listed; reported at Info and exit 0 once `--strip-again` has stripped him"#,
+        r#"`check-stripped`: the player's appearance id is set again while another player's is stripped, so the game shows his save record, not the database rows."#,
+        r#"An Error while he stands listed (exit 1); reported at Info and exit 0 once `--strip-again` has stripped him."#,
     ),
     (
         Code::StripBaseCopiedFace,
-        r#"`strip-and-seed`: the player's record copied another player's face, which the seed rows cannot carry, so once stripped he shows the face his row describes; his export describing his face settles it (`player`, `name`, `copied`)"#,
-        r#"warns and goes on"#,
+        r#"`strip-and-seed`: the player's record copied another player's face, which the seed rows cannot carry, so once stripped he shows the face his row describes."#,
+        r#"Nothing to do; compiling his export's face settles it."#,
     ),
 ];
 
@@ -1102,17 +1102,15 @@ mod tests {
     }
 
     #[test]
-    fn a_rows_text_is_its_spec_cells_and_the_run_dependent_severities_spelled_out() {
+    fn a_rows_text_is_written_for_a_member() {
         let row = CATALOG
             .iter()
             .find(|(code, ..)| *code == Code::TeamExported)
             .unwrap();
-        assert_eq!(
-            row.1,
-            "`export-toml` wrote one team's file (`team`, `path`)"
-        );
-        assert_eq!(row.2, "informational; goes on");
-        // The two codes whose `Message` overwrites the severity: the spec cell spelled out.
+        assert_eq!(row.1, "`export-toml` wrote one team's file.");
+        assert_eq!(row.2, "Nothing to do.");
+        // The two codes whose `Message` overwrites the severity, spelled out as the
+        // Messages topic shows them.
         assert_eq!(catalog_severity(Code::AatfViolation), "Error or Warning");
         assert_eq!(
             catalog_severity(Code::AppearanceIdRestored),

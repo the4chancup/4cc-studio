@@ -343,13 +343,11 @@ mod tests {
         }
     }
 
-    // Every `when`/`effect` cell of a worded catalog reads for a member: none of the
-    // code's own vocabulary reaches the Messages topic (`CONTRIBUTING.md` "Code style").
-    // `WORDED` holds the catalogs the wording pass has reached; slice 8.6d4b words the
-    // other two catalogs and removes the list.
+    // Every `when`/`effect` cell of every registered tool's catalog reads for a member:
+    // none of the code's own vocabulary reaches the Messages topic (`CONTRIBUTING.md`
+    // "Code style").
     #[test]
     fn every_catalog_row_is_written_for_a_member() {
-        const WORDED: &[&str] = &["team-compiler"];
         const WORDS: &[&str] = &[
             "DropFile",
             "DropSlot",
@@ -364,9 +362,6 @@ mod tests {
         const SUBSTRINGS: &[&str] = &[".md", "spec/", "plans/", "—"];
         let mut hits = Vec::new();
         for tool in tools() {
-            if !WORDED.contains(&tool.id()) {
-                continue;
-            }
             for row in &tool.help().messages {
                 for (cell_name, cell) in [("when", row.when), ("effect", row.effect)] {
                     for word in cell.split(|c: char| !c.is_ascii_alphanumeric()) {

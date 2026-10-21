@@ -2259,3 +2259,5 @@ worklog passed 7,000 lines.
   recent colors, one change per gesture); the plan settles recents, suggestions and the drag rule. P23 proposed.
 - **2026-10-21** — 8.6d4a: the Team compiler's 234 catalog rows worded for members (what the export holds, what the compiler does, the fix
   where plain); a `studio` test keeps the code's vocabulary out of every worded catalog.
+- **2026-10-21** — 8.6d4b: the Export upgrader's and the Save editor's catalogs worded for members; the vocabulary test covers every
+  registered tool. 8.6d4 closed; the maintainer's remarks on the wording fold in when they come.
