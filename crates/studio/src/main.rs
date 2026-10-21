@@ -342,4 +342,46 @@ mod tests {
             assert_eq!(log::max_level(), LevelFilter::Info);
         }
     }
+
+    // Every `when`/`effect` cell of a worded catalog reads for a member: none of the
+    // code's own vocabulary reaches the Messages topic (`CONTRIBUTING.md` "Code style").
+    // `WORDED` holds the catalogs the wording pass has reached; slice 8.6d4b words the
+    // other two catalogs and removes the list.
+    #[test]
+    fn every_catalog_row_is_written_for_a_member() {
+        const WORDED: &[&str] = &["team-compiler"];
+        const WORDS: &[&str] = &[
+            "DropFile",
+            "DropSlot",
+            "DropFolder",
+            "DropExport",
+            "AbortRun",
+            "Red",
+            "Blue",
+            "Fox",
+            "context",
+        ];
+        const SUBSTRINGS: &[&str] = &[".md", "spec/", "plans/", "—"];
+        let mut hits = Vec::new();
+        for tool in tools() {
+            if !WORDED.contains(&tool.id()) {
+                continue;
+            }
+            for row in &tool.help().messages {
+                for (cell_name, cell) in [("when", row.when), ("effect", row.effect)] {
+                    for word in cell.split(|c: char| !c.is_ascii_alphanumeric()) {
+                        if WORDS.contains(&word) {
+                            hits.push(format!("{} {} {cell_name}: {word}", tool.id(), row.code));
+                        }
+                    }
+                    for needle in SUBSTRINGS {
+                        if cell.contains(needle) {
+                            hits.push(format!("{} {} {cell_name}: {needle}", tool.id(), row.code));
+                        }
+                    }
+                }
+            }
+        }
+        assert!(hits.is_empty(), "{}", hits.join("\n"));
+    }
 }

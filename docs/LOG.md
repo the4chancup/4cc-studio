@@ -2257,3 +2257,5 @@ worklog passed 7,000 lines.
   a cap on a player's stats added up, the registered position not rated A a warning, a 189 cm keeper's single A, no card cap.
 - **2026-10-21** — 8.7a: the color picker drafted in the Save editor's Team tab (square and hue strip, hex, R/G/B, swatches, the session's
   recent colors, one change per gesture); the plan settles recents, suggestions and the drag rule. P23 proposed.
+- **2026-10-21** — 8.6d4a: the Team compiler's 234 catalog rows worded for members (what the export holds, what the compiler does, the fix
+  where plain); a `studio` test keeps the code's vocabulary out of every worded catalog.

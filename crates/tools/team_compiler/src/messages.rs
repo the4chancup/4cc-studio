@@ -1,7 +1,9 @@
 //! The Team compiler's message catalog (`spec/team_compiler/messages.md` "Catalog"): each code's
-//! severity, its member-facing `when`/`effect` for the help's generated Messages topic (the
-//! spec's catalog cells), and the mapping of the structure pass's issues and the tool's own
-//! findings to `Message`s. The console prints the code with its context fields.
+//! severity, its member-facing `when`/`effect` for the help's generated Messages topic (started
+//! as the spec's catalog cells and worded for members; the spec's table stays the design
+//! record, dispositions, context fields and the why), and the mapping of the structure pass's
+//! issues and the tool's own findings to `Message`s. The console prints the code with its
+//! context fields.
 
 use std::borrow::Cow;
 
@@ -1445,16 +1447,27 @@ mod tests {
         assert_eq!(severity("source_read_failed"), "Error or Fatal");
     }
 
+    // Two rows pinned word for word, so a later edit does not drift the member-facing
+    // wording back into the code's vocabulary; the whole-catalog guard is `studio`'s
+    // `every_catalog_row_is_written_for_a_member`.
     #[test]
-    fn a_rows_text_is_its_spec_cells() {
-        let row = CATALOG
-            .iter()
-            .find(|row| row.0 == "export_extract_failed")
-            .unwrap();
+    fn a_rows_text_is_written_for_a_member() {
+        let row = |code: &str| CATALOG.iter().find(|row| row.0 == code).unwrap();
         assert_eq!(
-            row.2,
-            "archive cannot be extracted/parsed, or its listing is refused (a path escaping the root, two names that fold to one; context: the path)"
+            row("export_extract_failed").2,
+            "The archive (`.zip` or `.7z`) cannot be opened, or a path inside it is unusable: it leads outside the archive, or two names differ only in letter case or Unicode form."
         );
-        assert_eq!(row.3, "export skipped (`DropExport`)");
+        assert_eq!(
+            row("export_extract_failed").3,
+            "The export is not compiled. Repack the archive, or unpack it into a folder."
+        );
+        assert_eq!(
+            row("file_type_disallowed").2,
+            "A file sits where its kind is not allowed, in a player or shared folder's tree, in a kit folder, or in `Collars/`: a disallowed extension, or a marker, `settings.toml` or a per-player file below a subfolder."
+        );
+        assert_eq!(
+            row("file_type_disallowed").3,
+            "With `Strict file type check` on this is an Error and the folder is left out (in `Collars/`, the file alone); with it off it is an Info and nothing is left out."
+        );
     }
 }

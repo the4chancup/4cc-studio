@@ -747,6 +747,15 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         into `docs/` a member cannot follow, and name Red (the compiler's
         `fmdl_fcl_hair_fallback`, `xml_face_neck_added`, `xml_uniform_pes15`, and
         `player_layout_proto` in both the compiler's and the upgrader's rows)
+        - [x] 8.6d4a the Team compiler's 234 rows. Done 2026-10-21 (SWE-2): each When says what
+          the export holds, each Effect what the compiler does and, where it is plain, the fix;
+          games by name, settings by their labels; `studio`'s
+          `every_catalog_row_is_written_for_a_member` keeps disposition names, `context`,
+          `docs/` pointers, legacy tool names and em dashes out (280 hits before, red);
+          `help_cli.rs`'s two pinned cells follow. Files: `team_compiler/src/messages{.rs,
+          /catalog.rs}`, `studio/src/main.rs`, `studio/tests/help_cli.rs`
+        - [ ] 8.6d4b the Export upgrader's and the Save editor's rows; the guard's `WORDED` list
+          goes, so it covers every registered tool
   - [ ] 8.7 `color_tools`' colour-picker popup (`plans/libs/color_tools.md` Phase 8), the
     Save editor's team colours; the kit menu icons wait for the Team compiler's grid
     - [x] 8.7a the picker popup drawn in `docs/prototypes/save_editor.html`'s Team tab (the page

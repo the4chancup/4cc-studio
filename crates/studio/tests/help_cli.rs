@@ -22,7 +22,7 @@ fn stderr(output: &Output) -> String {
 }
 
 /// The Team compiler's last catalog row (`notes_encoding_invalid`).
-const NOTES_ENCODING_INVALID: &str = "| `notes_encoding_invalid` | Error | root `notes.txt` is not valid UTF-8 after optional BOM handling | note dropped; export otherwise continues (`DropFile`, not pass-through-eligible) |";
+const NOTES_ENCODING_INVALID: &str = "| `notes_encoding_invalid` | Error | The root `notes.txt` is not valid UTF-8. | The note is left out; the export otherwise compiles. |";
 /// The Export upgrader's last catalog row: the same code, the upgrader's own effect.
 const UPGRADER_NOTES_ENCODING_INVALID: &str = "| `notes_encoding_invalid` | Error | root `notes.txt` is not valid UTF-8 after optional BOM handling | the run is not clean, so nothing is written |";
 
@@ -36,7 +36,7 @@ fn a_chapter_prints_its_markdown_ending_with_the_messages_table() {
     assert!(stdout.contains("## Running from a terminal"), "{stdout}");
     assert!(
         stdout.contains(
-            "| `export_extract_failed` | Error | archive cannot be extracted/parsed, or its listing is refused (a path escaping the root, two names that fold to one; context: the path) | export skipped (`DropExport`) |"
+            "| `export_extract_failed` | Error | The archive (`.zip` or `.7z`) cannot be opened, or a path inside it is unusable: it leads outside the archive, or two names differ only in letter case or Unicode form. | The export is not compiled. Repack the archive, or unpack it into a folder. |"
         ),
         "{stdout}"
     );
