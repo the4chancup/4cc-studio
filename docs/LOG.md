@@ -2286,3 +2286,5 @@ worklog passed 7,000 lines.
   tests split by area, the PES 16 Shirt hover pinned. 20.1's S1 (1 of 5): a sixth organizer point (194 cm gold or GK).
 - **2026-10-22** — 8.9b1's A2 (Astra, 4 of 5) ended Astra's loop: the strip's text fields drew 40 px wide and a field's
   history crossed saves, fixed in rework 5. 20.1's A1 (3 of 4): tests tightened; a seventh organizer point (Red manlet bonus).
+- **2026-10-22** — 8.9b1's and 20.1's reviews end: the post-Astra SWE-2 rounds accepted 4 of 11 and 2 of 4 (the Shirt hover's
+  charset, the load error's wrap, tests that see a refusal's typed text and the badges follow the selection; a medal CB pinned).

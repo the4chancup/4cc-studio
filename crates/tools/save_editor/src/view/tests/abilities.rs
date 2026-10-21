@@ -592,11 +592,11 @@ fn the_cards_left_badges_read_the_active_ruleset() {
             .collect()
     }
     /// Each tier's `limit - paid` as `Rules::card_limits` gives it on the
-    /// session's file, team 701, slot 0.
-    fn expected(view: &SaveView, rules: &aatf::Rules) -> Vec<String> {
+    /// session's file, team 701, roster `slot`.
+    fn expected(view: &SaveView, rules: &aatf::Rules, slot: u8) -> Vec<String> {
         let session = view.session.as_ref().unwrap();
         let team = aatf::TeamView::new(session.file(), 701).unwrap();
-        let player = team.player(0).unwrap();
+        let player = team.player(slot).unwrap();
         rules
             .ruleset()
             .tiers
@@ -613,22 +613,33 @@ fn the_cards_left_badges_read_the_active_ruleset() {
     }
 
     let path = fixture(PesVersion::Pes21, "cards_left");
+    // Slot 1's player holds Heading (skill 6), a paid card on every tier:
+    // his badges are one lower than slot 0's unticked player's.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    let second = file.team(701).unwrap().roster[1].player_id;
+    file.player_mut(second).unwrap().skills.skills[6] = true;
+    file.save(&path).unwrap();
+
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(1100.0, 700.0);
     let rules = aatf::Rules::official();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert_eq!(badges(&nodes), expected(&view, &rules), "the tiers' badges");
+    assert_eq!(
+        badges(&nodes),
+        expected(&view, &rules, 0),
+        "the tiers' badges"
+    );
 
     // "Heading" (skill 6) is unticked and counts paid on every tier: the
     // tick lowers each badge by one.
-    let left_of = |view: &SaveView| -> Vec<i32> {
-        expected(view, &rules)
+    let left_of = |view: &SaveView, slot: u8| -> Vec<i32> {
+        expected(view, &rules, slot)
             .iter()
             .map(|badge| badge.rsplit(' ').next().unwrap().parse().unwrap())
             .collect()
     };
-    let before = left_of(&view);
+    let before = left_of(&view, 0);
     assert_eq!(before, [6, 5, 4, 2, 3], "the unticked player's badges");
     let heading = nodes
         .iter()
@@ -636,9 +647,9 @@ fn the_cards_left_badges_read_the_active_ruleset() {
         .expect("the Heading checkbox");
     click(&mut window, heading, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert_eq!(badges(&nodes), expected(&view, &rules), "after the tick");
+    assert_eq!(badges(&nodes), expected(&view, &rules, 0), "after the tick");
     assert_eq!(
-        left_of(&view),
+        left_of(&view, 0),
         before.iter().map(|left| left - 1).collect::<Vec<i32>>(),
         "every badge one lower"
     );
@@ -648,8 +659,19 @@ fn the_cards_left_badges_read_the_active_ruleset() {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert_eq!(badges(&nodes), expected(&view, &rules), "after the undo");
-    assert_eq!(left_of(&view), before, "every badge restored");
+    assert_eq!(badges(&nodes), expected(&view, &rules, 0), "after the undo");
+    assert_eq!(left_of(&view, 0), before, "every badge restored");
+
+    // The selection recomputes them: slot 1's player, his Heading held,
+    // shows his own one-lower counts — not slot 0's.
+    view.selected = Some((701, 1));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(left_of(&view, 1), [5, 4, 3, 1, 2], "his paid counts");
+    assert_eq!(
+        badges(&nodes),
+        expected(&view, &rules, 1),
+        "his badges, not slot 0's"
+    );
 
     // A rules file's tiers are the badges': the same view now given the
     // DBC7 file reloads on the changed path (no fresh window).
@@ -671,13 +693,52 @@ fn the_cards_left_badges_read_the_active_ruleset() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
     });
-    assert_eq!(badges(&nodes), expected(&view, &dbc7), "DBC7's tiers");
+    assert_eq!(badges(&nodes), expected(&view, &dbc7, 1), "DBC7's tiers");
     assert!(
         badges(&nodes)
             .iter()
             .all(|badge| !badge.starts_with("Bronze")),
         "no Bronze: {:?}",
         badges(&nodes)
+    );
+}
+
+// The same bullet, read: the error names the file and its parse error, so
+// it wraps inside the pane rather than clip at its right edge (the window
+// the shell leaves at half a 1080p monitor, as `the_tab_fits`'s).
+#[test]
+fn a_rules_files_load_error_wraps_inside_the_pane() {
+    let path = fixture(
+        PesVersion::Pes21,
+        "rules_load_error_at_a_path_long_enough_to_need_the_wrap",
+    );
+    let dir = path.parent().unwrap().to_path_buf();
+    let bad = dir.join("this_is_not_a_rules_file.rhai");
+    assert!(
+        bad.to_str().unwrap().len() >= 80,
+        "premise: the path is long: {bad:?}"
+    );
+    std::fs::write(&bad, "this is no ruleset").unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(800.0, 516.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
+    });
+    let error = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Label
+                && node
+                    .value()
+                    .is_some_and(|value| value.starts_with("The AATF rules file does not load:"))
+        })
+        .expect("the load error's row");
+    let bounds = error.bounds().expect("bounds");
+    assert!(
+        bounds.x1 <= 800.0,
+        "the load error ends inside the window, drew {bounds:?}"
     );
 }
 

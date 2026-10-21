@@ -409,9 +409,16 @@ fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
         ],
         |ui| show(ui, &mut view, &|| Vec::new(), None),
     );
-    window.frame(vec![egui::Event::Text("SS".to_owned())], |ui| {
+    // The keystrokes land before the refusal: the 20 letters draw once.
+    let (_, nodes, _) = window.frame(vec![egui::Event::Text("SS".to_owned())], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
+    assert!(
+        nodes.iter().any(|node| {
+            node.role() == Role::TextInput && node.value() == Some("S".repeat(20).as_str())
+        }),
+        "the typed letters were drawn"
+    );
     assert_eq!(
         view.session
             .as_ref()
@@ -443,11 +450,35 @@ fn a_pes16_strip_refuses_a_17th_shirt_letter() {
             x(a).partial_cmp(&x(b)).expect("ordered bounds")
         })
         .expect("the Shirt field");
-    let stored = shirt.value().expect("its text").to_owned();
+    let stored = view
+        .session
+        .as_ref()
+        .unwrap()
+        .file()
+        .player(70101)
+        .unwrap()
+        .shirt_name
+        .clone();
     click(&mut window, shirt, &mut view);
-    window.frame(vec![egui::Event::Text("S".repeat(17).to_owned())], |ui| {
+    window.frame(
+        vec![
+            key(egui::Key::End, egui::Modifiers::NONE, true),
+            key(egui::Key::End, egui::Modifiers::NONE, false),
+        ],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    // The keystrokes land before the refusal: the field draws the typed
+    // text on the Text frame, then reverts.
+    let expected = format!("{stored}{}", "S".repeat(17));
+    let (_, nodes, _) = window.frame(vec![egui::Event::Text("S".repeat(17).to_owned())], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
+    assert!(
+        nodes.iter().any(|node| {
+            node.role() == Role::TextInput && node.value() == Some(expected.as_str())
+        }),
+        "the typed 17 letters were drawn"
+    );
     assert!(
         !view.session.as_ref().unwrap().is_dirty(),
         "a 17th letter is refused on PES 16"
@@ -484,7 +515,8 @@ fn the_shirt_hover_names_the_limit_the_field_enforces() {
     assert_eq!(
         tooltip,
         Some(
-            "Up to 18 letters; accented Latin letters are fine, other scripts and symbols are not"
+            "Up to 18 letters; Western European accents (é, ü, ñ) are fine, other letters and \
+                 symbols are not"
                 .to_string()
         ),
         "PES 21's shirt field is 61 wide but the editor holds 18"
@@ -512,11 +544,87 @@ fn the_pes16_shirt_hover_names_its_own_field() {
     assert_eq!(
         tooltip,
         Some(
-            "Up to 16 letters; accented Latin letters are fine, other scripts and symbols are not"
+            "Up to 16 letters; Western European accents (é, ü, ñ) are fine, other letters and \
+                 symbols are not"
                 .to_string()
         ),
         "PES 16's own 16-letter field binds under the portable 18"
     );
+}
+
+// The boundary the hover names: the field's charset is one byte per
+// letter, so é (U+00E9, inside) lands and ł (U+0142, past it) is refused.
+#[test]
+fn a_shirt_name_takes_latin1_letters_and_refuses_past_them() {
+    /// The Shirt field's node: the rightmost enabled text edit (the name
+    /// and shirt hold the same text on this fixture, so position, not
+    /// value, names it).
+    fn shirt(nodes: &[accesskit::Node]) -> &accesskit::Node {
+        nodes
+            .iter()
+            .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
+            .max_by(|a, b| {
+                let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
+                x(a).partial_cmp(&x(b)).expect("ordered bounds")
+            })
+            .expect("the Shirt field")
+    }
+
+    let path = fixture(PesVersion::Pes21, "shirt_latin1");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    let shirt_name = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .shirt_name
+            .clone()
+    };
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let stored = shirt(&nodes).value().expect("its text").to_owned();
+    click(&mut window, shirt(&nodes), &mut view);
+    let type_at_end = |window: &mut Headless, view: &mut SaveView, text: &str| {
+        window.frame(
+            vec![
+                key(egui::Key::End, egui::Modifiers::NONE, true),
+                key(egui::Key::End, egui::Modifiers::NONE, false),
+            ],
+            |ui| show(ui, view, &|| Vec::new(), None),
+        );
+        let (_, nodes, _) = window.frame(vec![egui::Event::Text(text.to_owned())], |ui| {
+            show(ui, view, &|| Vec::new(), None)
+        });
+        nodes
+    };
+
+    // ł is past U+00FF: the letter draws once, then the field reverts and
+    // nothing is stored.
+    let nodes = type_at_end(&mut window, &mut view, "Ł");
+    let typed = format!("{stored}Ł");
+    assert_eq!(
+        shirt(&nodes).value(),
+        Some(typed.as_str()),
+        "the typed ł was drawn before the revert"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        shirt(&nodes).value(),
+        Some(stored.as_str()),
+        "the field reverted to the stored shirt"
+    );
+    assert!(
+        !view.session.as_ref().unwrap().is_dirty(),
+        "the refused letter was not pushed"
+    );
+
+    // é is inside it: the same edit lands.
+    type_at_end(&mut window, &mut view, "É");
+    assert_eq!(shirt_name(&view), format!("{stored}É"), "the é landed");
 }
 
 // The same bullet's boundary: a shirt name of exactly the portable 18
@@ -876,10 +984,25 @@ fn a_pes17_strip_refuses_a_name_past_its_own_field() {
         })
         .expect("the Name field");
     click(&mut window, name_field, &mut view);
-    // 47 bytes past this version's own 46-byte field: refused.
-    window.frame(vec![egui::Event::Text("Z".repeat(47).to_owned())], |ui| {
+    window.frame(
+        vec![
+            key(egui::Key::End, egui::Modifiers::NONE, true),
+            key(egui::Key::End, egui::Modifiers::NONE, false),
+        ],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    // 47 bytes past this version's own 46-byte field: the keystrokes land
+    // and draw before the refusal reverts them.
+    let expected = format!("{stored}{}", "Z".repeat(47));
+    let (_, nodes, _) = window.frame(vec![egui::Event::Text("Z".repeat(47).to_owned())], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
+    assert!(
+        nodes.iter().any(|node| {
+            node.role() == Role::TextInput && node.value() == Some(expected.as_str())
+        }),
+        "the typed 47 bytes were drawn"
+    );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
         nodes.iter().any(|node| {

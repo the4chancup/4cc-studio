@@ -422,7 +422,7 @@ fn cards_row(
     }
     let card_list = cards.as_ref().map_or(&[][..], |(_, list)| list.as_slice());
     if let Some(error) = load_error {
-        ui.horizontal(|ui| {
+        ui.horizontal_wrapped(|ui| {
             ui.weak("Cards left");
             ui.weak(format!("The AATF rules file does not load: {error}"));
         });

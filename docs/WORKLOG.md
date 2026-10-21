@@ -910,8 +910,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         ended Astra's loop; rework 5: the widget ids carry the open's generation (a text
         field's undo history crossed into the next save), Name and Shirt drawn at 240 and 140
         (the grid's sizing pass gave them 40; one grid per row), the shifted fields' writes and
-        the out-of-range display observed, `title_case` tested. Open: the round's mutants-diff,
-        then the post-Astra SWE-2 loop
+        the out-of-range display observed, `title_case` tested; its mutants-diff 7 of 7 caught.
+        S4 (post-Astra SWE-2, 4 of 11) ended the review loops; rework 6: the Shirt hover names
+        the single-byte boundary (é passes, Ł does not), the refusal tests see the typed text
+        drawn first, the rules file's load error wraps, the badges follow the selection. Open:
+        rework 6's mutants-diff
     - [x] the portable name limits (`plans/pes_savefile/operations.md` "Team TOML", Portable
       text limits; DECISIONS 2026-10-21), with 8.9b1 and its rework: `portable_text_max` and
       `crop_player_text` in `pes_savefile`; the info strip's Shirt field held to 18 (an
@@ -1289,12 +1292,13 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
   Files: `aatf/{rulesets/autumn26.rhai,src/fixtures/official.rs,src/ruleset/tests/{mod,
   rules}.rs}`, `team_widgets/src/violations.rs`, `save_editor/tests/cli/check_aatf.rs`,
   `docs/spec/aatf_rules.md`
-  - [ ] review (checkpoint b, three crates): a SWE-2 loop, then Astra. S1 accepted 1 of 5
+  - [x] review (checkpoint b, three crates): a SWE-2 loop, then Astra. S1 accepted 1 of 5
     (an untaken medal trade gave no hint: `"choices"` added to `suggestions`), ending the
     SWE-2 loop; rulings `.tmp/20_au26/duck_rulings.md`. A1 (Astra) accepted 3 of 4, ending
     Astra's loop: the gold's two trades read through the card limits, SE-GUI-15's player
     groups observed again, the Autumn 25/Spring 26 spec list completed; the Red manlet bonus
-    is the organizer's seventh point. Open: the post-Astra SWE-2 loop
+    is the organizer's seventh point. S2 (post-Astra SWE-2, 2 of 4) ended the loops: a medal
+    CB at 189 under Red and check-aatf's player error line pinned
 
 ---
 

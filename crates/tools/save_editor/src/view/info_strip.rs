@@ -125,10 +125,11 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
                 .on_hover_text("PES 2019 and older show 18 letters of a shirt name (PES 2016: 16)")
         } else {
             // The limit the field enforces, not the field's whole capacity:
-            // the portable 18 binds on PES 20/21, its own 16 on PES 16.
+            // the portable 18 binds on PES 20/21, its own 16 on PES 16, and
+            // the charset is single-byte (é passes, ł does not).
             response.on_hover_text(format!(
-                "Up to {} letters; accented Latin letters are fine, other scripts and symbols \
-                 are not",
+                "Up to {} letters; Western European accents (é, ü, ñ) are fine, other letters \
+                 and symbols are not",
                 portable_text_max(PlayerText::ShirtName)
                     .min(text_len(schema, PlayerText::ShirtName))
             ))

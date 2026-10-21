@@ -103,7 +103,7 @@ fn text_spans(text: &str) -> impl Iterator<Item = (usize, usize)> + '_ {
         let code = if bytes[i] == 0x11 && i + 1 < bytes.len() && bytes[i + 1] == b'c' {
             Some(10).filter(|end| i + end <= bytes.len() && text.is_char_boundary(i + end))
         } else if bytes[i] == 0x11 && i + 1 < bytes.len() && bytes[i + 1] == b'd' {
-            Some(2).filter(|end| text.is_char_boundary(i + end))
+            Some(2)
         } else {
             None
         };
@@ -449,9 +449,9 @@ mod tests {
         // A \x11c code whose ten bytes end inside a multi-byte char is not
         // a code: the boundary check rejects it even though the span fits.
         assert_eq!(display_name("x\x11c1234567€"), "x\x11c1234567€");
-        // A \x11d reset two bytes after a two-byte char, before a
-        // three-byte one: the boundary is checked at i + 2 (just past the
-        // reset), not i - 2 (inside 'é').
+        // A \x11d reset is two ASCII bytes: `i + 2` is always a boundary,
+        // so the reset between a two-byte and a three-byte char is
+        // stripped whole.
         assert_eq!(display_name("aéx\x11d€y"), "aéx€y");
     }
 }
