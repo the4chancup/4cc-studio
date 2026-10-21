@@ -776,7 +776,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       (`ColorFieldOutput`: `changed` once per finished gesture, the hover or drag
       `candidate`), egui's `Popup` from the button, the square and hue strip drawn as meshes
       (egui's `color_picker_hsva_2d` adds its own rows and reports no release), recents in
-      the context's temp memory; 9 headless tests and 3 unit tests, each red first. Files:
+      the context's temp memory; 9 headless tests and 3 unit tests, each red first. Review S1
+      (SWE-2, 4 accepted) reworked: a typed hex commits on any close, a host change (an undo)
+      reseeds the open popup and is no pick, 9 more tests (the painted shapes among them). Files:
       `color_tools/{Cargo.toml,src/lib.rs,src/picker.rs}`, `scripts/doc_pointers.py`
       (`plans/libs/color_tools.md` listed as the open phase's)
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card

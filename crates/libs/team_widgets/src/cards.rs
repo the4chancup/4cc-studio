@@ -464,6 +464,7 @@ mod tests {
         let mut window = Headless::new();
         let under = limits(3, 5);
         let over = limits(7, 4);
+        let spent = limits(4, 4);
         let tiers = [
             TierCards {
                 label: "Gold",
@@ -472,6 +473,10 @@ mod tests {
             TierCards {
                 label: "Silver",
                 limits: &over,
+            },
+            TierCards {
+                label: "Bronze",
+                limits: &spent,
             },
         ];
         // Player 70203 of the PES 17 fixture save; the badges only display the
@@ -489,6 +494,8 @@ mod tests {
             .error_fg_color;
         assert_eq!(painted_text_color(&shapes, "Gold 2"), text_color);
         assert_eq!(painted_text_color(&shapes, "Silver -3"), error_color);
+        // No card left is not overdrawn.
+        assert_eq!(painted_text_color(&shapes, "Bronze 0"), text_color);
     }
 
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: the

@@ -47,6 +47,7 @@ fn field(ui: &mut Ui, color: &mut [u8; 3], suggestions: &[[u8; 3]]) -> ColorFiel
     let popup_id = ui.make_persistent_id("picker popup");
     let state_id = ui.make_persistent_id("picker state");
     let was_open = Popup::is_id_open(ui.ctx(), popup_id);
+    let mut changed = false;
     let mut state = ui
         .ctx()
         .data(|data| data.get_temp::<PickerState>(state_id))
@@ -54,35 +55,60 @@ fn field(ui: &mut Ui, color: &mut [u8; 3], suggestions: &[[u8; 3]]) -> ColorFiel
     if !was_open {
         // egui keeps a single popup per viewport: a sibling field's popup opening, or a
         // frame where this field was not drawn, closed this one between frames, and the
-        // close rule applies as if it had closed here.
-        if state.open && *color != state.opened_on {
-            push_recent(ui.ctx(), *color);
+        // close rules apply as if it had closed here.
+        if state.open {
+            commit_pending_hex(&mut state, color, &mut changed);
+            if *color != state.opened_on {
+                push_recent(ui.ctx(), *color);
+            }
         }
         state = PickerState::new(*color);
     }
+    if *color != state.shown {
+        // The host moved the color under the popup (an undo, a palette apply): the
+        // working state reseeds, and the change is not a pick, so `opened_on` moves too
+        // and it cannot join the recents on close. The hex text follows `hsva` in the
+        // body unless the member is typing in it.
+        state.hsva = hsva_of(*color);
+        state.opened_on = *color;
+    }
 
     let mut response = color_button(ui, state.preview.unwrap_or(*color), was_open);
-    let mut changed = false;
     Popup::from_toggle_button_response(&response)
         .id(popup_id)
         .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
         .layout(Layout::top_down_justified(Align::Min))
         .show(|ui| popup_body(ui, &mut state, color, &mut changed, suggestions));
+
+    let is_open = Popup::is_id_open(ui.ctx(), popup_id);
+    if was_open && !is_open {
+        commit_pending_hex(&mut state, color, &mut changed);
+        if *color != state.opened_on {
+            push_recent(ui.ctx(), *color);
+        }
+    }
     if changed {
         response.mark_changed();
     }
-
-    let is_open = Popup::is_id_open(ui.ctx(), popup_id);
-    if was_open && !is_open && *color != state.opened_on {
-        push_recent(ui.ctx(), *color);
-    }
     state.open = is_open;
+    state.shown = *color;
     let candidate = state.preview;
     ui.ctx().data_mut(|data| data.insert_temp(state_id, state));
     ColorFieldOutput {
         response,
         changed,
         candidate,
+    }
+}
+
+/// A typed hex text still in the field when the popup closes without the field losing
+/// focus first (a toggle through the field's own button, or a close that lands between
+/// frames): a parseable text commits exactly as losing focus would have committed it.
+fn commit_pending_hex(state: &mut PickerState, color: &mut [u8; 3], changed: &mut bool) {
+    if state.hex_focused
+        && let Some(parsed) = parse_hex(&state.hex)
+    {
+        commit_color(state, color, changed, parsed);
     }
 }
 
@@ -109,12 +135,12 @@ fn color_button(ui: &mut Ui, rgb: [u8; 3], open: bool) -> Response {
         ui.painter().rect_filled(
             rect.shrink(1.0),
             visuals.corner_radius.at_most(2),
-            Color32::from_rgb(rgb[0], rgb[1], rgb[2]),
+            color32(rgb),
         );
         ui.painter().rect_stroke(
             rect,
             visuals.corner_radius.at_most(2),
-            (1.0, visuals.bg_fill),
+            visuals.bg_stroke,
             StrokeKind::Inside,
         );
     }
@@ -207,6 +233,13 @@ struct PickerState {
     /// per viewport, so a sibling field's popup opening, or a frame where this field is not
     /// drawn, closes this one between frames.
     open: bool,
+    /// The hex field had keyboard focus the last frame the popup's body drew: a typed
+    /// text then commits when the popup closes another way (the field's own button, a
+    /// sibling popup), as losing focus would have committed it.
+    hex_focused: bool,
+    /// The color the field showed at the end of the last frame drawn: anything different
+    /// now is the host moving the color (an undo, a palette apply), not a pick.
+    shown: [u8; 3],
 }
 
 impl PickerState {
@@ -219,6 +252,8 @@ impl PickerState {
             preview: None,
             dragging: false,
             open: false,
+            hex_focused: false,
+            shown: color,
         }
     }
 }
@@ -243,9 +278,10 @@ fn sv_square(ui: &mut Ui, hsva: &mut Hsva) -> Response {
         hsva.v = remap_clamp(pos.y, rect.bottom()..=rect.top(), 0.0..=1.0);
     }
     if ui.is_rect_visible(rect) {
-        // Each RGB channel is bilinear in (s, v) at a fixed hue, so a coarse grid already
-        // renders the gradient exactly (egui's own square samples it densely because its
-        // gamma-space variant is not).
+        // Each RGB channel is v·(a + b·s) at a fixed hue: the s·v term is approximated
+        // only within a channel step, so a small grid already matches the gradient
+        // (egui's own square samples more densely because its gamma-space variant is not
+        // bilinear).
         const SUBDIVISIONS: u32 = 8;
         let color_at = |s: f32, v: f32| -> Color32 {
             Hsva {
@@ -366,7 +402,7 @@ fn color_swatch(ui: &mut Ui, rgb: [u8; 3]) -> Response {
         ui.painter().rect_stroke(
             rect,
             visuals.corner_radius.at_most(2),
-            (1.0, visuals.bg_fill),
+            visuals.bg_stroke,
             StrokeKind::Inside,
         );
     }
@@ -440,6 +476,7 @@ fn popup_body(
         }
         state.hex = format_hex(rgb_of(state.hsva));
     }
+    state.hex_focused = ui.memory(|memory| memory.has_focus(hex_id));
 
     // R/G/B fields: a typed value commits once (`update_while_editing(false)` keeps the
     // keystrokes inside the field until Enter or focus loss); a drag only previews until
@@ -504,13 +541,18 @@ mod tests {
     /// `Ui`).
     struct Headless {
         ctx: egui::Context,
+        /// The last frame's paint shapes (`FullOutput::shapes`), kept for assertions.
+        shapes: Vec<egui::epaint::ClippedShape>,
     }
 
     impl Headless {
         fn new() -> Headless {
             let ctx = egui::Context::default();
             ctx.enable_accesskit();
-            Headless { ctx }
+            Headless {
+                ctx,
+                shapes: Vec::new(),
+            }
         }
 
         /// Runs one frame with `events` as its input; returns the frame's AccessKit
@@ -534,6 +576,7 @@ mod tests {
                 .accesskit_update
                 .take()
                 .expect("AccessKit is enabled on the context");
+            self.shapes = std::mem::take(&mut output.shapes);
             // Nothing renders here, so the frame's texture deltas are dropped on
             // purpose.
             output.drop_without_applying_deltas();
@@ -567,7 +610,9 @@ mod tests {
             self.field(color, suggestions, pointer_at(pos, false))
         }
 
-        /// One frame over two fields, returning the nodes and each field's output.
+        /// One frame over two fields, returning the nodes and each field's output. The
+        /// spacer keeps `b`'s button below `a`'s popup, so it stays clickable while `a`'s
+        /// is open.
         fn two_fields(
             &mut self,
             a: &mut [u8; 3],
@@ -578,6 +623,7 @@ mod tests {
             let mut out_b = None;
             let nodes = self.frame(events, |ui| {
                 out_a = Some(color_field(ui, "a", a, &[]));
+                ui.add_space(400.0);
                 out_b = Some(color_field(ui, "b", b, &[]));
             });
             (
@@ -635,12 +681,73 @@ mod tests {
         buttons.get(index).expect("not enough color fields drawn")
     }
 
-    /// The hex field's node: the popup's one text input.
+    /// The hex field's node: the popup's text input showing a `#RRGGBB` value.
     fn hex_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
         nodes
             .iter()
-            .find(|node| node.role() == Role::TextInput)
+            .find(|node| {
+                node.role() == Role::TextInput
+                    && node.value().is_some_and(|value| value.starts_with('#'))
+            })
             .expect("no hex field drawn")
+    }
+
+    /// The R, G or B field's node: a spin button whose value text carries its prefix
+    /// (`"R 128"`-shaped).
+    fn spin_field<'a>(nodes: &'a [accesskit::Node], prefix: &str) -> &'a accesskit::Node {
+        nodes
+            .iter()
+            .find(|node| {
+                node.role() == Role::SpinButton
+                    && node.value().is_some_and(|value| value.starts_with(prefix))
+            })
+            .unwrap_or_else(|| panic!("no field with prefix {prefix:?}"))
+    }
+
+    /// `node`'s AccessKit bounds as an egui `Rect`.
+    fn egui_rect(node: &accesskit::Node) -> egui::Rect {
+        let bounds = node.bounds().expect("a drawn node has bounds");
+        egui::Rect::from_min_max(
+            egui::pos2(bounds.x0 as f32, bounds.y0 as f32),
+            egui::pos2(bounds.x1 as f32, bounds.y1 as f32),
+        )
+    }
+
+    /// The frame's mesh covering `rect` (within `tolerance` points of error) that also
+    /// satisfies `has` (bounds alone cannot tell a fill mesh from its outline stroke).
+    fn mesh_at(
+        shapes: &[egui::epaint::ClippedShape],
+        rect: egui::Rect,
+        tolerance: f32,
+        has: impl Fn(&egui::Mesh) -> bool,
+    ) -> &egui::Mesh {
+        shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                egui::Shape::Mesh(mesh)
+                    if has(mesh)
+                        && (mesh.calc_bounds().min - rect.min).length() < tolerance
+                        && (mesh.calc_bounds().max - rect.max).length() < tolerance =>
+                {
+                    Some(mesh.as_ref())
+                }
+                _ => None,
+            })
+            .expect("no mesh drawn at the expected bounds")
+    }
+
+    /// The color of `mesh`'s vertex nearest to `pos`.
+    fn color_at(mesh: &egui::Mesh, pos: egui::Pos2) -> Color32 {
+        mesh.vertices
+            .iter()
+            .min_by(|a, b| {
+                a.pos
+                    .distance_sq(pos)
+                    .partial_cmp(&b.pos.distance_sq(pos))
+                    .expect("no NaN positions")
+            })
+            .expect("a mesh has vertices")
+            .color
     }
 
     /// The centre of `node`'s bounds, where a click lands.
@@ -754,6 +861,99 @@ mod tests {
         assert!(!out.changed, "changed fires on the commit frame only");
     }
 
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a parseable text commits
+    // whenever the field loses focus, the popup closing included; the field's own
+    // button closing it is not an exception.
+    #[test]
+    fn a_typed_hex_commits_when_the_button_closes_the_popup() {
+        let mut window = Headless::new();
+        let mut color = [0, 0, 0];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+        window.field(&mut color, &[], type_text("#112233"));
+
+        let (_, out) = window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        assert!(out.changed, "the typed text commits on the button close");
+        assert_eq!(color, [17, 34, 51], "the typed color committed");
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert!(!out.changed, "the commit fires once");
+
+        // The close also joins the recents, since the color is not the one it opened on.
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        assert!(
+            swatch_labels(&nodes).contains(&"#112233".to_owned()),
+            "the close joined the recents"
+        );
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a committed R/G/B value
+    // is one change.
+    #[test]
+    fn a_typed_rgb_value_commits_on_enter() {
+        let mut window = Headless::new();
+        let mut color = [0, 0, 0];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(spin_field(&nodes, "R ")), &mut color, &[]);
+
+        let mut events = type_text("10");
+        events.extend(key(egui::Key::Enter));
+        let (_, out) = window.field(&mut color, &[], events);
+        assert!(out.changed, "the typed value commits once");
+        assert_eq!(color, [10, 0, 0], "the typed channel committed");
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert!(!out.changed, "changed fires on the commit frame only");
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a drag on an R/G/B
+    // field is a candidate while it lasts and one change when released.
+    #[test]
+    fn a_drag_on_an_rgb_field_is_one_change() {
+        let mut window = Headless::new();
+        let mut color = [255, 128, 0];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        let green = centre(spin_field(&nodes, "G "));
+
+        let mut last_candidate = None;
+        for (index, dx) in [10.0, 20.0, 30.0].iter().enumerate() {
+            let pos = egui::pos2(green.x + dx, green.y);
+            let (_, out) = window.field(
+                &mut color,
+                &[],
+                if index == 0 {
+                    pointer_at(pos, true)
+                } else {
+                    vec![egui::Event::PointerMoved(pos)]
+                },
+            );
+            assert!(out.candidate.is_some(), "the dragged value previews");
+            assert!(!out.changed, "no commit while the drag runs");
+            assert_eq!(color, [255, 128, 0], "the color waits for the release");
+            last_candidate = out.candidate;
+        }
+
+        let (_, out) = window.field(
+            &mut color,
+            &[],
+            pointer_at(egui::pos2(green.x + 30.0, green.y), false),
+        );
+        assert!(out.changed, "the release commits once");
+        assert_eq!(
+            color,
+            last_candidate.expect("the drag previewed"),
+            "the committed color is the last candidate"
+        );
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert!(!out.changed, "no repeat on the idle frame");
+        assert_eq!(out.candidate, None);
+    }
+
     // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a text that does not
     // read as `#RRGGBB` is put back when the field loses focus.
     #[test]
@@ -817,6 +1017,162 @@ mod tests {
         assert_eq!(color_b, [17, 34, 51], "the swatch's color committed");
         let (_, _, out_b) = window.two_fields(&mut color_a, &mut color_b, Vec::new());
         assert!(!out_b.changed, "changed fires on the click frame only");
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a color joins the
+    // recents only when the popup closes on a color other than the one it opened on.
+    #[test]
+    fn closing_unchanged_adds_no_recent() {
+        let mut window = Headless::new();
+        let mut color = [255, 128, 0];
+
+        // Open and close with no pick is not a pick, by Escape.
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        window.field(&mut color, &[], Vec::new());
+        window.field(&mut color, &[], key(egui::Key::Escape));
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        let labels = swatch_labels(&nodes);
+        assert!(
+            labels.is_empty(),
+            "an unchanged Escape close adds no recent: {labels:?}"
+        );
+        window.field(&mut color, &[], key(egui::Key::Escape));
+
+        // Nor is a close between frames, when the field is not drawn for a frame (the
+        // host switched tabs) and egui reaps the abandoned popup.
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        window.field(&mut color, &[], Vec::new());
+        window.frame(Vec::new(), |_| {});
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        let labels = swatch_labels(&nodes);
+        assert!(
+            labels.is_empty(),
+            "an unchanged between-frame close adds no recent: {labels:?}"
+        );
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a color joins the
+    // recents when the popup closes, not when the gesture commits.
+    #[test]
+    fn a_commit_joins_the_recents_only_on_close() {
+        let mut window = Headless::new();
+        let mut color = [0, 0, 0];
+        // Seed one recent so the row is drawn, then commit a second color and check the
+        // row while the popup is still open.
+        for hex in ["#556677", "#112233"] {
+            let (nodes, _) = window.field(&mut color, &[], Vec::new());
+            window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+            let (nodes, _) = window.field(&mut color, &[], Vec::new());
+            window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+            let mut events = type_text(hex);
+            events.extend(key(egui::Key::Enter));
+            window.field(&mut color, &[], events);
+            if hex == "#112233" {
+                let (nodes, _) = window.field(&mut color, &[], Vec::new());
+                assert_eq!(
+                    swatch_labels(&nodes),
+                    vec!["#556677".to_owned()],
+                    "the commit is not a recent while the popup is open"
+                );
+            }
+            window.field(&mut color, &[], key(egui::Key::Escape));
+        }
+
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        assert_eq!(
+            swatch_labels(&nodes),
+            vec!["#112233".to_owned(), "#556677".to_owned()],
+            "on close the committed color fronts the recents"
+        );
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the recents are the
+    // session's, shared by every picker in the program.
+    #[test]
+    fn a_sibling_field_close_pushes_the_color_to_the_shared_recents() {
+        let mut window = Headless::new();
+        let mut color_a = [0, 0, 0];
+        let mut color_b = [64, 64, 64];
+
+        let (nodes, _, _) = window.two_fields(&mut color_a, &mut color_b, Vec::new());
+        window.click_two(centre(field_button(&nodes, 0)), &mut color_a, &mut color_b);
+        let (nodes, _, _) = window.two_fields(&mut color_a, &mut color_b, Vec::new());
+        window.click_two(centre(hex_field(&nodes)), &mut color_a, &mut color_b);
+        let mut events = type_text("#112233");
+        events.extend(key(egui::Key::Enter));
+        window.two_fields(&mut color_a, &mut color_b, events);
+
+        // Clicking field b's button opens its popup: egui keeps one popup per viewport,
+        // so a's closes and its changed color joins the shared recents.
+        window.click_two(centre(field_button(&nodes, 1)), &mut color_a, &mut color_b);
+        let (nodes, _, _) = window.two_fields(&mut color_a, &mut color_b, Vec::new());
+        let labels = swatch_labels(&nodes);
+        assert!(
+            labels.contains(&"#112233".to_owned()),
+            "field b's recents hold field a's color: {labels:?}"
+        );
+        window.two_fields(&mut color_a, &mut color_b, key(egui::Key::Escape));
+
+        // The same rule applies when the popup closes between frames (the field is not
+        // drawn for a frame and egui reaps the abandoned popup).
+        color_b = [32, 32, 32];
+        let (nodes, _, _) = window.two_fields(&mut color_a, &mut color_b, Vec::new());
+        window.click_two(centre(field_button(&nodes, 1)), &mut color_a, &mut color_b);
+        let (nodes, _, _) = window.two_fields(&mut color_a, &mut color_b, Vec::new());
+        window.click_two(centre(hex_field(&nodes)), &mut color_a, &mut color_b);
+        let mut events = type_text("#778899");
+        events.extend(key(egui::Key::Enter));
+        window.two_fields(&mut color_a, &mut color_b, events);
+        window.frame(Vec::new(), |ui| {
+            color_field(ui, "a", &mut color_a, &[]);
+        });
+        let (_, _, _) = window.two_fields(&mut color_a, &mut color_b, Vec::new());
+        let (nodes, _, _) = window.two_fields(&mut color_a, &mut color_b, Vec::new());
+        window.click_two(centre(field_button(&nodes, 1)), &mut color_a, &mut color_b);
+        let (nodes, _, _) = window.two_fields(&mut color_a, &mut color_b, Vec::new());
+        let labels = swatch_labels(&nodes);
+        assert!(
+            labels.contains(&"#778899".to_owned()),
+            "the between-frame close joined the recents: {labels:?}"
+        );
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the host owns the
+    // color; its own edits (an undo) are not picks, so the popup follows and nothing
+    // joins the recents.
+    #[test]
+    fn a_host_change_reseeds_the_open_popup_and_is_not_a_pick() {
+        let mut window = Headless::new();
+        let mut color = [255, 128, 0];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        window.field(&mut color, &[], Vec::new());
+
+        // The host moves the color between frames (an undo): the popup reseeds to it.
+        color = [50, 60, 70];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        assert_eq!(
+            hex_field(&nodes).value(),
+            Some("#323C46"),
+            "the hex field shows the host's color"
+        );
+
+        // Closing after the host's move is not a pick: nothing joins the recents.
+        window.field(&mut color, &[], key(egui::Key::Escape));
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        assert!(
+            swatch_labels(&nodes).is_empty(),
+            "a host change does not join the recents"
+        );
     }
 
     // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a hovered swatch is a
@@ -911,6 +1267,57 @@ mod tests {
         let (_, out) = window.field(&mut color, &[], Vec::new());
         assert!(!out.changed, "no repeat on the idle frame");
         assert_eq!(out.candidate, None);
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a drag on the hue strip
+    // is a candidate while it lasts and one change when released.
+    #[test]
+    fn a_drag_on_the_hue_strip_is_one_change() {
+        let mut window = Headless::new();
+        let mut color = [255, 128, 0];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        let strip = entry(&nodes, "hue");
+        let rect = strip.bounds().expect("the strip is drawn");
+        let point = |x: f64| {
+            egui::pos2(
+                (rect.x0 + x * (rect.x1 - rect.x0)) as f32,
+                ((rect.y0 + rect.y1) / 2.0) as f32,
+            )
+        };
+
+        let mut last_candidate = None;
+        for (index, x) in [0.3, 0.5, 0.8].iter().enumerate() {
+            let (_, out) = window.field(
+                &mut color,
+                &[],
+                if index == 0 {
+                    pointer_at(point(*x), true)
+                } else {
+                    vec![egui::Event::PointerMoved(point(*x))]
+                },
+            );
+            assert!(out.candidate.is_some(), "the dragged hue previews");
+            assert!(!out.changed, "no commit while the drag runs");
+            assert_eq!(color, [255, 128, 0], "the color waits for the release");
+            last_candidate = out.candidate;
+        }
+
+        let (_, out) = window.field(&mut color, &[], pointer_at(point(0.8), false));
+        assert!(out.changed, "the release commits once");
+        assert_eq!(
+            color,
+            last_candidate.expect("the drag previewed"),
+            "the committed color is the last candidate"
+        );
+        assert_ne!(
+            hsva_of(color).h,
+            hsva_of([255, 128, 0]).h,
+            "the committed hue differs from the start's"
+        );
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert!(!out.changed, "no repeat on the idle frame");
     }
 
     // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the recent colors row
@@ -1019,6 +1426,114 @@ mod tests {
             recents.iter().filter(|&&c| c == [3, 0, 0]).count(),
             1,
             "no duplicate"
+        );
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the popup holds egui's
+    // saturation-value square and hue strip, opaque, and the swatch rows.
+    #[test]
+    fn the_painted_shapes_match_the_working_color() {
+        let mut window = Headless::new();
+        let mut color = [255, 128, 0];
+        let suggestions = [[200, 16, 46]];
+        let (nodes, _) = window.field(&mut color, &suggestions, Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &suggestions);
+        let (nodes, _) = window.field(&mut color, &suggestions, Vec::new());
+
+        let square_rect = egui_rect(entry(&nodes, "saturation and value"));
+        let strip_rect = egui_rect(entry(&nodes, "hue"));
+        let swatch_rect = egui_rect(entry(&nodes, "#C8102E"));
+
+        // egui's Areas fade in over about a third of a second; the paint assertions
+        // need the fade done, which takes some twenty frames at the harness's dt.
+        for _ in 0..25 {
+            window.field(&mut color, &suggestions, Vec::new());
+        }
+
+        // The square runs white to the hue color left to right, and darkens top to
+        // bottom (the draft's canvas).
+        let square = mesh_at(&window.shapes, square_rect, 0.5, |mesh| {
+            mesh.vertices.len() > 20
+        });
+        let pure: Color32 = Hsva {
+            h: hsva_of(color).h,
+            s: 1.0,
+            v: 1.0,
+            a: 1.0,
+        }
+        .into();
+        assert_eq!(
+            color_at(square, square_rect.left_top()),
+            Color32::WHITE,
+            "the top-left is white"
+        );
+        assert_eq!(
+            color_at(square, square_rect.right_top()),
+            pure,
+            "the top-right is the pure hue"
+        );
+        for corner in [square_rect.left_bottom(), square_rect.right_bottom()] {
+            assert_eq!(
+                color_at(square, corner),
+                Color32::BLACK,
+                "the bottom edge is black"
+            );
+        }
+
+        // The strip runs the hues: red at both edges.
+        let strip = mesh_at(&window.shapes, strip_rect, 0.5, |mesh| {
+            mesh.vertices
+                .iter()
+                .any(|vertex| vertex.color == Color32::RED)
+        });
+        for vertex in &strip.vertices {
+            if vertex.pos.x == strip_rect.left() || vertex.pos.x == strip_rect.right() {
+                assert_eq!(vertex.color, Color32::RED, "the hue edges are red");
+            }
+        }
+
+        // The hue marker is the draft's 3px bar, two points taller than the strip and
+        // centred on the hue's x.
+        let marker = window
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                egui::Shape::Rect(shape)
+                    if shape.fill == Color32::WHITE
+                        && (shape.rect.width() - 3.0).abs() < 0.5
+                        && (shape.rect.height() - (STRIP_H + 2.0)).abs() < 0.5 =>
+                {
+                    Some(shape)
+                }
+                _ => None,
+            })
+            .expect("a 3px marker over the strip");
+        let hue_x = lerp(strip_rect.left()..=strip_rect.right(), hsva_of(color).h);
+        assert!(
+            (marker.rect.center().x - hue_x).abs() < 0.5,
+            "the marker centres on the hue's x: {} vs {}",
+            marker.rect.center().x,
+            hue_x
+        );
+
+        // A swatch's fill is its color.
+        let fill = window
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                egui::Shape::Rect(shape)
+                    if shape.fill == color32([200, 16, 46])
+                        && (shape.rect.center() - swatch_rect.center()).length() < 0.5 =>
+                {
+                    Some(shape)
+                }
+                _ => None,
+            })
+            .expect("a filled swatch at its bounds");
+        assert_eq!(
+            fill.fill,
+            color32([200, 16, 46]),
+            "the swatch fills with its color"
         );
     }
 }
