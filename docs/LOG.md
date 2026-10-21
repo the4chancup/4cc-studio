@@ -2263,3 +2263,5 @@ worklog passed 7,000 lines.
   registered tool. 8.6d4 closed; the maintainer's remarks on the wording fold in when they come.
 - **2026-10-21** — 8.8a: the Save editor's draft follows DBC7 as the organizer chose it: fresh `check-aatf` samples, stat warnings drawn as
   warnings, a stat-total sentence, no card cap; its card-badge check moved to the capped official ruleset.
+- **2026-10-21** — 8.7b: `color_tools`' color picker widget: a color button opening the popup the draft draws, one change per gesture,
+  the session's recent colors; tested headless.

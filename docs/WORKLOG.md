@@ -771,8 +771,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       (nine checks, red before the page edit). Plan: `plans/libs/color_tools.md`'s picker
       paragraph; P23 (a swatch click closes the popup) awaits a ruling. Files:
       `docs/prototypes/save_editor.html`
-    - [ ] 8.7b `color_tools`' picker widget against the draft, tested headless; the Team tab
-      hosts it with its view slice (8.9)
+    - [x] 8.7b `color_tools`' picker widget against the draft, tested headless; the Team tab
+      hosts it with its view slice (8.9). Done 2026-10-21 (SWE-2): `picker::color_field`
+      (`ColorFieldOutput`: `changed` once per finished gesture, the hover or drag
+      `candidate`), egui's `Popup` from the button, the square and hue strip drawn as meshes
+      (egui's `color_picker_hsva_2d` adds its own rows and reports no release), recents in
+      the context's temp memory; 9 headless tests and 3 unit tests, each red first. Files:
+      `color_tools/{Cargo.toml,src/lib.rs,src/picker.rs}`, `scripts/doc_pointers.py`
+      (`plans/libs/color_tools.md` listed as the open phase's)
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
     pickers and the violations list first, the tactics editor and its pitch with the view's
     slice 3
