@@ -35,6 +35,9 @@ pub(crate) struct Session {
     baseline_players: HashMap<u32, PlayerEntry>,
     /// Every team by id, as opened or last saved.
     baseline_teams: HashMap<u32, TeamEntry>,
+    /// Whether the model differs from the baseline, recomputed by each
+    /// mutating call (the toolbar's marker reads the flag, not a rescan).
+    dirty: bool,
 }
 
 /// A player of a transplant pair whose appearance id is -1: his record is not what the game
@@ -83,6 +86,7 @@ impl Session {
             undo: UndoStack::new(),
             baseline_players,
             baseline_teams,
+            dirty: false,
         })
     }
 
@@ -124,6 +128,7 @@ impl Session {
                 after: Box::new(edited),
             },
         );
+        self.dirty = self.compute_dirty();
     }
 
     /// `edit_player` for a team entry (a roster slot's number, the captain).
@@ -142,17 +147,26 @@ impl Session {
                 after: Box::new(edited),
             },
         );
+        self.dirty = self.compute_dirty();
     }
 
     /// Undoes the newest gesture; `false` when the stack is empty.
     pub(crate) fn undo(&mut self) -> bool {
-        self.undo.undo(&mut self.file)
+        let undone = self.undo.undo(&mut self.file);
+        if undone {
+            self.dirty = self.compute_dirty();
+        }
+        undone
     }
 
     /// Reapplies the newest undone gesture; `false` when the redo stack is
     /// empty.
     pub(crate) fn redo(&mut self) -> bool {
-        self.undo.redo(&mut self.file)
+        let redone = self.undo.redo(&mut self.file);
+        if redone {
+            self.dirty = self.compute_dirty();
+        }
+        redone
     }
 
     /// Whether `undo` would do anything (the Undo button's enabled state).
@@ -171,8 +185,16 @@ impl Session {
     }
 
     /// Whether the save differs from the file as opened or last saved (the
-    /// plan's Unsaved changes bullet; the toolbar's marker).
+    /// plan's Unsaved changes bullet; the toolbar's marker). The flag is kept
+    /// by `compute_dirty` at every mutating call, so a frame can ask it
+    /// without rescanning the model.
     pub(crate) fn is_dirty(&self) -> bool {
+        self.dirty
+    }
+
+    /// The deep compare behind `dirty`: any player or team unlike its
+    /// baseline entry.
+    fn compute_dirty(&self) -> bool {
         self.file
             .players()
             .iter()
@@ -215,6 +237,7 @@ impl Session {
         refuse_while_running(running, self.version())?;
         self.write(&self.path)?;
         (self.baseline_players, self.baseline_teams) = baselines(&self.file);
+        self.dirty = false;
         Ok(())
     }
 
@@ -459,6 +482,34 @@ mod tests {
         session.save(&[]).unwrap();
         assert!(!session.is_dirty());
         assert!(!session.player_dirty(701, 0));
+    }
+
+    #[test]
+    fn the_dirty_flag_and_the_redo_stack_track_edits_undos_redos_and_save() {
+        let dir = std::env::temp_dir().join("save_editor_session_dirty_flag");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("EDIT00000000");
+        std::fs::write(&path, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+        let mut session = Session::open(&path).unwrap();
+        assert!(!session.can_redo(), "nothing to redo on an open save");
+
+        let mut edited = session.file().player(70101).unwrap().clone();
+        edited.basic.height = edited.basic.height.wrapping_add(1);
+        session.edit_player(1, edited);
+        assert!(session.is_dirty(), "an edit marks the save");
+        assert!(!session.can_redo(), "a new edit clears redo");
+
+        assert!(session.undo());
+        assert!(
+            !session.is_dirty(),
+            "undoing back to the baseline clears it"
+        );
+        assert!(session.can_redo(), "the undone edit is redoable");
+
+        assert!(session.redo());
+        assert!(session.is_dirty(), "redo marks it again");
+        session.save(&[]).unwrap();
+        assert!(!session.is_dirty(), "a save clears it");
     }
 
     #[test]

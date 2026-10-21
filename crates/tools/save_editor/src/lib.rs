@@ -50,7 +50,7 @@ impl StudioTool for Tool {
     }
 
     fn view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
-        view::show(ui, &mut self.view, &studio_core::running_pes());
+        view::show(ui, &mut self.view, &studio_core::running_pes);
     }
 
     fn settings_view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {

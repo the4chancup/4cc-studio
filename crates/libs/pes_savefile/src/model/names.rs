@@ -1,6 +1,12 @@
 //! `display_name`: a raw save name without its colour codes. `name` keeps the
 //! raw form for the editor's colour rendering; this is the text consumers show.
 
+use pes_version::PesVersion;
+
+use crate::codec::{text_max, text_misfit};
+use crate::schema::fields::PlayerText;
+use crate::schema::schema_for;
+
 /// The name without its colour codes: every `\x11c` plus the exactly eight
 /// bytes that follow it (any bytes — the game does not check they are hex, so
 /// a code at the string's end shorter than that is not a code and stays) and
@@ -9,6 +15,20 @@
 /// valid UTF-8.
 pub fn display_name(raw: &str) -> String {
     name_spans(raw).into_iter().map(|(_, text)| text).collect()
+}
+
+/// Whether `text` fits the player record's `which` text on `version`, by the
+/// codec's own rule (the name's UTF-8 bytes, the shirt name's single-byte
+/// encoding, each within the field's length): the editors refuse what
+/// `to_bytes` would.
+pub fn player_text_fits(version: PesVersion, which: PlayerText, text: &str) -> bool {
+    let schema = schema_for(version);
+    let max = text_max(schema.player.texts, which);
+    let single_byte = match which {
+        PlayerText::Name => false,
+        PlayerText::ShirtName => true,
+    };
+    text_misfit(text, max, single_byte).is_none()
 }
 
 /// The name's text runs and the color each is drawn in, as the game draws
@@ -89,6 +109,62 @@ pub fn name_color(raw: &str) -> Option<&str> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn a_name_is_accepted_up_to_the_fields_bytes_and_a_shirt_name_only_single_byte() {
+        // The fields' lengths are the codec's own per-version limits (61
+        // bytes on PES 20/21, 46 on PES 17 and earlier, 18 chars for its
+        // shirt name).
+        for (version, name_max, shirt_max) in [
+            (PesVersion::Pes17, 46usize, 18),
+            (PesVersion::Pes21, 61, 61),
+        ] {
+            assert!(player_text_fits(
+                version,
+                PlayerText::Name,
+                &"n".repeat(name_max)
+            ));
+            assert!(!player_text_fits(
+                version,
+                PlayerText::Name,
+                &"n".repeat(name_max + 1)
+            ));
+            assert!(player_text_fits(
+                version,
+                PlayerText::ShirtName,
+                &"s".repeat(shirt_max)
+            ));
+            assert!(!player_text_fits(
+                version,
+                PlayerText::ShirtName,
+                &"s".repeat(shirt_max + 1)
+            ));
+        }
+        // Colour codes count in bytes: ten for each, inside the same limit.
+        assert!(player_text_fits(
+            PesVersion::Pes21,
+            PlayerText::Name,
+            &("\x11c112233ff".repeat(5) + &"x".repeat(11))
+        ));
+        // A multi-byte char still counts in bytes.
+        assert!(!player_text_fits(
+            PesVersion::Pes21,
+            PlayerText::Name,
+            &"€".repeat(61)
+        ));
+        // The shirt name's rule is chars, each below U+0100.
+        assert!(!player_text_fits(
+            PesVersion::Pes21,
+            PlayerText::ShirtName,
+            "ła"
+        ));
+        // A NUL is a misfit either way.
+        assert!(!player_text_fits(
+            PesVersion::Pes21,
+            PlayerText::Name,
+            "a\0b"
+        ));
+    }
 
     #[test]
     fn colour_codes_strip_and_everything_else_stays() {

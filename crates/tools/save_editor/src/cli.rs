@@ -867,6 +867,17 @@ mod tests {
     }
 
     #[test]
+    fn refuse_while_running_refuses_only_the_saves_own_version() {
+        let game = |version| RunningPes { version, exe: None };
+        assert!(refuse_while_running(&[], PesVersion::Pes21).is_ok());
+        assert!(refuse_while_running(&[game(PesVersion::Pes15)], PesVersion::Pes21).is_ok());
+        let error =
+            refuse_while_running(&[game(PesVersion::Pes21)], PesVersion::Pes21).unwrap_err();
+        assert_eq!(error.exit_code, 2);
+        assert!(error.error.to_string().contains("PES 2021"));
+    }
+
+    #[test]
     fn parse_teams_reads_ids_and_inclusive_ranges_sorted_without_duplicates() {
         assert_eq!(parse_teams("718").unwrap(), vec![718]);
         assert_eq!(

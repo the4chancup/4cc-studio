@@ -3,8 +3,9 @@
 //! tabs. Each control edits a copy of the entry and, when it changes, pushes it
 //! under its own `egui::Id` (the undo stack's merge key).
 
+use pes_savefile::model::names::player_text_fits;
 use pes_savefile::model::{PlayerEntry, TeamEntry};
-use pes_savefile::schema::fields::{PlayerField, RosterField};
+use pes_savefile::schema::fields::{PlayerField, PlayerText, RosterField};
 use pes_savefile::schema::{VersionSchema, schema_for};
 
 use crate::session::Session;
@@ -63,17 +64,32 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
         ui.label("Name");
         let response = ui
             .add(egui::TextEdit::singleline(&mut name).desired_width(240.0))
-            .on_hover_text("The raw name; \\x11c followed by 8 hex digits is a colour code");
+            .on_hover_text(format!(
+                "Up to {} bytes: a plain letter takes one, an accented letter two or more, a \
+                 colour code ten",
+                text_len(schema, PlayerText::Name)
+            ));
         if response.changed() {
-            edit_player(session, player_id, response.id.value(), |player| {
-                player.name = name.replace("\\x11", "\x11");
-            });
+            let raw = name.replace("\\x11", "\x11");
+            // An edit the codec would refuse is not pushed: the field shows
+            // the stored text again next frame.
+            if player_text_fits(schema.version, PlayerText::Name, &raw) {
+                edit_player(session, player_id, response.id.value(), |player| {
+                    player.name = raw;
+                });
+            }
         }
         ui.label("ID");
         ui.monospace(player_id.to_string());
         ui.label("Shirt");
-        let response = ui.add(egui::TextEdit::singleline(&mut shirt).desired_width(140.0));
-        if response.changed() {
+        let response = ui
+            .add(egui::TextEdit::singleline(&mut shirt).desired_width(140.0))
+            .on_hover_text(format!(
+                "Up to {} letters; accented Latin letters are fine, other scripts and symbols \
+                 are not",
+                text_len(schema, PlayerText::ShirtName)
+            ));
+        if response.changed() && player_text_fits(schema.version, PlayerText::ShirtName, &shirt) {
             edit_player(session, player_id, response.id.value(), |player| {
                 player.shirt_name = shirt.clone();
             });
@@ -193,6 +209,18 @@ fn max(schema: &VersionSchema, field: PlayerField) -> u64 {
         .find(|spec| spec.field == field)
         .map(|spec| (1u64 << spec.bit_width) - 1)
         .unwrap_or(u64::MAX)
+}
+
+/// The byte length of the player record's `which` text field, from the
+/// schema (the Name field's bytes, and the Shirt field's char count).
+fn text_len(schema: &VersionSchema, which: PlayerText) -> u32 {
+    schema
+        .player
+        .texts
+        .iter()
+        .find(|spec| spec.text == which)
+        .map(|spec| spec.len)
+        .expect("every version stores the text")
 }
 
 /// The same bound for the roster's shirt-number run.

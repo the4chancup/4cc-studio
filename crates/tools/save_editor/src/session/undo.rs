@@ -295,6 +295,23 @@ mod tests {
     }
 
     #[test]
+    fn a_merged_entry_redoes_to_the_latest_after() {
+        let mut file = file();
+        let mut stack = UndoStack::new();
+        stack.push(1, change(70101, 10, 11));
+        // Merged under the same key: one entry holding before=10 after=12.
+        stack.push(1, change(70101, 11, 12));
+        stack.undo(&mut file);
+        assert_eq!(height(&file, 70101), 10);
+        stack.redo(&mut file);
+        assert_eq!(
+            height(&file, 70101),
+            12,
+            "the latest after, not the first's"
+        );
+    }
+
+    #[test]
     fn undo_then_redo_round_trips() {
         let mut file = file();
         let mut stack = UndoStack::new();

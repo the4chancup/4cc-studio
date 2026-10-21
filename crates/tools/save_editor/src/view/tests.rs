@@ -97,8 +97,8 @@ fn pointer_at(pos: egui::Pos2, pressed: bool) -> Vec<egui::Event> {
 /// A click on `node`: press on one frame, release on the next.
 fn click(window: &mut Headless, node: &accesskit::Node, view: &mut SaveView) {
     let at = centre(node);
-    window.frame(pointer_at(at, true), |ui| show(ui, view, &[]));
-    window.frame(pointer_at(at, false), |ui| show(ui, view, &[]));
+    window.frame(pointer_at(at, true), |ui| show(ui, view, &|| Vec::new()));
+    window.frame(pointer_at(at, false), |ui| show(ui, view, &|| Vec::new()));
 }
 
 /// A key pressed (or released) with `modifiers` held.
@@ -155,7 +155,7 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let selector = nodes
         .iter()
@@ -163,14 +163,19 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
         .expect("the team selector");
     assert_eq!(selector.value(), Some("ALL"));
 
-    let rows = nodes
+    // The list lays out only the visible rows (`show_rows`): a screenful is
+    // drawn, and scrolling reaches every rostered player (the tail's test).
+    let drawn = nodes
         .iter()
         .filter(|node| {
             node.role() == Role::Button
                 && !matches!(node.label(), Some("Open…" | "Save" | "Undo" | "Redo"))
         })
         .count();
-    assert_eq!(rows, rostered, "a row per rostered player of every team");
+    assert!(
+        drawn >= 20 && drawn < rostered,
+        "a full first page, not the whole save ({drawn} of {rostered})"
+    );
     // The first row is team 701's first rostered player: number, position,
     // team name and display name.
     assert!(
@@ -207,7 +212,7 @@ fn a_players_name_paints_in_the_colors_his_codes_set() {
     view.open(&path);
     view.team = TeamChoice::Team(718);
     let mut window = Headless::new();
-    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
 
     let shape = text_shape(&shapes, "50 GK ROADTRIP");
     let painted: Vec<(egui::Color32, String)> = shape
@@ -256,7 +261,7 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
 
     // Click the filter box (its hint is its AccessKit placeholder), then type
     // the name.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let filter_box = nodes
         .iter()
         .find(|node| {
@@ -266,7 +271,7 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
         .expect("the filter box");
     click(&mut window, filter_box, &mut view);
     let (_, nodes, _) = window.frame(vec![egui::Event::Text("quality".to_owned())], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
 
     // 70202 of team 702 is listed, his row naming his team under a filter.
@@ -275,7 +280,7 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
         .find(|node| node.role() == Role::Button && node.label() == Some("1 GK /a/ QUALITY"))
         .expect("the filtered row");
     click(&mut window, row, &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         nodes.iter().any(|node| node.value() == Some("70202")),
         "the info strip shows his ID"
@@ -294,20 +299,20 @@ fn an_edit_marks_the_row_until_ctrl_s_writes_the_save() {
     let mut window = Headless::new();
 
     // 70101's Height is 180: focus the control and type a new one.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let height = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("180"))
         .expect("the Height control");
     click(&mut window, height, &mut view);
     window.frame(vec![egui::Event::Text("170".to_owned())], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &[]),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(
         row(&nodes, "1 CB /3/ PLACEHOLDER ●").label(),
         Some("1 CB /3/ PLACEHOLDER ●")
@@ -320,9 +325,9 @@ fn an_edit_marks_the_row_until_ctrl_s_writes_the_save() {
 
     // Ctrl+S writes it; the dot goes.
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     row(&nodes, "1 CB /3/ PLACEHOLDER");
     assert!(
         !nodes
@@ -352,38 +357,38 @@ fn undo_and_redo_step_the_edits_back_and_forth() {
     };
 
     // Height 180 to 170, then Weight 80 to 90: two gestures, two entries.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let height = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("180"))
         .expect("the Height control");
     click(&mut window, height, &mut view);
     window.frame(vec![egui::Event::Text("170".to_owned())], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &[]),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let weight = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("80"))
         .expect("the Weight control");
     click(&mut window, weight, &mut view);
     window.frame(vec![egui::Event::Text("90".to_owned())], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &[]),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(basics(&view), (170, 90));
 
     // Ctrl+Z takes back the second edit only; Ctrl+Y redoes it.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(
         basics(&view),
@@ -391,7 +396,7 @@ fn undo_and_redo_step_the_edits_back_and_forth() {
         "the weight edit undone, height kept"
     );
     window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
     assert_eq!(basics(&view), (170, 90), "the weight edit redone");
     assert_eq!(
@@ -422,24 +427,26 @@ fn a_drag_on_a_control_is_one_undo_entry() {
     };
 
     // Drag the Height control over several frames.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let control = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("180"))
         .expect("the Height control");
     let at = centre(control);
-    window.frame(pointer_at(at, true), |ui| show(ui, &mut view, &[]));
+    window.frame(pointer_at(at, true), |ui| {
+        show(ui, &mut view, &|| Vec::new())
+    });
     for step in 1..=5 {
         window.frame(
             vec![egui::Event::PointerMoved(egui::pos2(
                 at.x + 3.0 * step as f32,
                 at.y,
             ))],
-            |ui| show(ui, &mut view, &[]),
+            |ui| show(ui, &mut view, &|| Vec::new()),
         );
     }
     window.frame(pointer_at(egui::pos2(at.x + 15.0, at.y), false), |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
     let dragged = height(&view);
     assert_ne!(dragged, 180, "the drag changed the height");
@@ -457,7 +464,7 @@ fn a_second_gesture_on_the_same_control_is_its_own_entry() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let at = centre(
         nodes
             .iter()
@@ -465,13 +472,13 @@ fn a_second_gesture_on_the_same_control_is_its_own_entry() {
             .expect("the Height control"),
     );
     let drag = |window: &mut Headless, view: &mut SaveView, at: egui::Pos2| {
-        window.frame(pointer_at(at, true), |ui| show(ui, view, &[]));
+        window.frame(pointer_at(at, true), |ui| show(ui, view, &|| Vec::new()));
         window.frame(
             vec![egui::Event::PointerMoved(egui::pos2(at.x + 30.0, at.y))],
-            |ui| show(ui, view, &[]),
+            |ui| show(ui, view, &|| Vec::new()),
         );
         window.frame(pointer_at(egui::pos2(at.x + 30.0, at.y), false), |ui| {
-            show(ui, view, &[])
+            show(ui, view, &|| Vec::new())
         });
     };
     drag(&mut window, &mut view, at);
@@ -479,16 +486,18 @@ fn a_second_gesture_on_the_same_control_is_its_own_entry() {
     assert_eq!(undo_entries(&mut window, &mut view), 2, "two entries");
 }
 
-/// The undo stack's depth, counted by Ctrl+Z until it is empty.
+/// The undo stack's depth, counted by Ctrl+Z until it is empty (bounded, so
+/// a stuck stack fails rather than hangs).
 fn undo_entries(window: &mut Headless, view: &mut SaveView) -> usize {
-    let mut count = 0;
-    while view.session.as_ref().is_some_and(|s| s.can_undo()) {
+    for count in 0..64 {
+        if !view.session.as_ref().is_some_and(|s| s.can_undo()) {
+            return count;
+        }
         window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-            show(ui, view, &[])
+            show(ui, view, &|| Vec::new())
         });
-        count += 1;
     }
-    count
+    panic!("Ctrl+Z did not empty the undo stack in 64 presses")
 }
 
 // SE-GUI-21 (the scenario is manual; this is its logic)
@@ -513,9 +522,9 @@ fn save_is_refused_while_the_saves_own_pes_runs() {
         version: PesVersion::Pes21,
         exe: None,
     }];
-    save(&mut view, &running_own);
+    save(&mut view, &|| running_own.to_vec());
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert!(
         nodes.iter().any(|node| {
             node.value()
@@ -542,12 +551,19 @@ fn save_is_refused_while_the_saves_own_pes_runs() {
         &mut view,
     );
     assert!(view.refusal.is_none(), "OK closes the refusal");
-    // A game of another version does not block it.
+    // A game of another version does not block it; a write that succeeds
+    // clears the refusal an earlier one left too.
     let running_other = [RunningPes {
         version: PesVersion::Pes19,
         exe: None,
     }];
-    save(&mut view, &running_other);
+    save(&mut view, &|| running_own.to_vec());
+    assert!(view.refusal.is_some());
+    save(&mut view, &|| running_other.to_vec());
+    assert!(
+        view.refusal.is_none(),
+        "a successful save clears the refusal"
+    );
     assert!(!view.session.as_ref().unwrap().is_dirty(), "the save wrote");
 }
 
@@ -560,26 +576,26 @@ fn undoing_back_to_the_saved_state_clears_the_dot() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let height = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("180"))
         .expect("the Height control");
     click(&mut window, height, &mut view);
     window.frame(vec![egui::Event::Text("170".to_owned())], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &[]),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     row(&nodes, "1 CB /3/ PLACEHOLDER ●");
     // Undoing the only edit clears the dot.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     row(&nodes, "1 CB /3/ PLACEHOLDER");
     assert!(
         !nodes
@@ -601,10 +617,10 @@ fn the_refusal_dialog_dismisses_on_escape() {
     assert!(view.refusal.is_some());
     let mut window = Headless::new();
     // One frame for the modal to register as the top one, then Escape.
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     window.frame(
         vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &[]),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert!(view.refusal.is_none(), "Escape closes it");
 }
@@ -628,12 +644,12 @@ fn the_captain_box_ticks_on_the_captains_slot() {
     };
     // Select the captain's slot: the box is ticked.
     view.selected = Some((701, captain));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(toggled(&nodes), Some(Some(accesskit::Toggled::True)));
     // Another slot: unticked.
     let other = if captain == 0 { 1 } else { 0 };
     view.selected = Some((701, other));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     assert_eq!(toggled(&nodes), Some(Some(accesskit::Toggled::False)));
 }
 
@@ -657,18 +673,18 @@ fn a_typed_number_clamps_to_the_fields_stored_width() {
         .expect("the schema stores Age");
 
     // Type 99 into Age (stored 20): the field clamps it.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let age = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("20"))
         .expect("the Age control");
     click(&mut window, age, &mut view);
     window.frame(vec![egui::Event::Text("99".to_owned())], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &[]),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         view.session
@@ -684,18 +700,18 @@ fn a_typed_number_clamps_to_the_fields_stored_width() {
     );
 
     // Type 23 into Number (in range): it lands as typed.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let number = nodes
         .iter()
         .find(|node| node.role() == Role::SpinButton && node.value() == Some("1"))
         .expect("the Number control");
     click(&mut window, number, &mut view);
     window.frame(vec![egui::Event::Text("23".to_owned())], |ui| {
-        show(ui, &mut view, &[])
+        show(ui, &mut view, &|| Vec::new())
     });
     window.frame(
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, &mut view, &[]),
+        |ui| show(ui, &mut view, &|| Vec::new()),
     );
     assert_eq!(
         view.session
@@ -718,7 +734,7 @@ fn the_selected_row_reports_selected() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let rows: Vec<&accesskit::Node> = nodes
         .iter()
         .filter(|node| {
@@ -737,6 +753,111 @@ fn the_selected_row_reports_selected() {
     );
 }
 
+// The list's scroll reaches every rostered player (SE-GUI-01's list drawn
+// through `show_rows`): the last row of ALL clicks like any other.
+#[test]
+fn scrolling_to_the_end_of_all_selects_the_last_player() {
+    let path = fixture(PesVersion::Pes21, "scroll_to_end");
+    let file = EditFile::load(&path).unwrap();
+    // The last rostered slot of the last team, as the row labels it.
+    let team = file.teams().last().expect("teams exist");
+    let (_, roster_slot) = team
+        .roster
+        .iter()
+        .enumerate()
+        .rev()
+        .find(|(_, slot)| slot.player_id != 0)
+        .expect("the last team has a rostered slot");
+    let player = file.player(roster_slot.player_id).expect("the last player");
+    let label = format!(
+        "{} {} {} {}",
+        roster_slot.number,
+        pes_savefile::interchange::team_toml::labels::POSITIONS
+            [usize::from(player.positions.registered)],
+        team.name,
+        pes_savefile::model::names::display_name(&player.name)
+    );
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::new();
+    // Drag the scroll bar's handle to the bottom: a pointer press inside the
+    // bar, a move to its last pixels, release.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let bar = nodes
+        .iter()
+        .find(|node| node.role() == Role::ScrollBar)
+        .expect("the list's scroll bar");
+    let track = centre(bar);
+    window.frame(
+        pointer_at(egui::pos2(track.x, track.y - 200.0), true),
+        |ui| show(ui, &mut view, &|| Vec::new()),
+    );
+    window.frame(
+        vec![egui::Event::PointerMoved(egui::pos2(track.x, 595.0))],
+        |ui| show(ui, &mut view, &|| Vec::new()),
+    );
+    window.frame(pointer_at(egui::pos2(track.x, 595.0), false), |ui| {
+        show(ui, &mut view, &|| Vec::new())
+    });
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let last = row(&nodes, &label);
+    click(&mut window, last, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let id = roster_slot.player_id.to_string();
+    assert!(
+        nodes.iter().any(|node| node.value() == Some(id.as_str())),
+        "the info strip shows the last player's ID"
+    );
+}
+
+// plans/save_editor.md "Editing UI", the strip's rule that a typed value is
+// never one the codec refuses: a name past the field's byte limit is not
+// pushed, the field reverts, and Save then writes the file.
+#[test]
+fn a_name_past_the_fields_limit_is_not_taken() {
+    let path = fixture(PesVersion::Pes21, "overlong_name");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::new();
+    // The Name field is the enabled text input carrying the stored name.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    let name_field = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::TextInput
+                && !node.is_disabled()
+                && node.value() == Some("PLACEHOLDER")
+                && node.bounds().is_some_and(|bounds| bounds.x0 < 300.0)
+        })
+        .expect("the Name field");
+    click(&mut window, name_field, &mut view);
+    // 71 bytes past the field's limit (61 on this version).
+    window.frame(vec![egui::Event::Text("Z".repeat(60).to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new())
+    });
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
+    assert!(
+        nodes
+            .iter()
+            .any(|node| { node.role() == Role::TextInput && node.value() == Some("PLACEHOLDER") }),
+        "the field reverted to the stored name"
+    );
+    assert!(
+        !view.session.as_ref().unwrap().is_dirty(),
+        "the refused edit was not pushed"
+    );
+    // Ctrl+S writes the file (the `.bak` of the previous one is the proof).
+    window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new())
+    });
+    assert!(view.refusal.is_none());
+    let bak = path.with_file_name("EDIT00000000.bak");
+    assert!(bak.exists(), "the save wrote ({})", bak.display());
+    let reopened = Session::open(&path).unwrap();
+    assert_eq!(reopened.file().player(70101).unwrap().name, "PLACEHOLDER");
+}
+
 // plans/save_editor.md "Editing UI", the open path's refusal: a file that is
 // no save shows the `Session::open` error and the open save is untouched.
 #[test]
@@ -749,7 +870,7 @@ fn an_unreadable_file_is_refused_and_keeps_the_open_save() {
     view.open(&bad);
 
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &[]));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new()));
     let message = format!("{}: cannot open the save", bad.display());
     assert!(
         nodes

@@ -81,9 +81,9 @@ impl SaveView {
     }
 }
 
-/// Shows the window for one frame. `running` is the running-PES probe the
-/// save refusal checks.
-pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &[RunningPes]) {
+/// Shows the window for one frame. `running` is the running-PES probe,
+/// called only when Save runs (a process snapshot is not a frame's cost).
+pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
     toolbar(ui, view, running);
     if view.session.is_none() {
         ui.weak("No save open.");
@@ -106,7 +106,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &[RunningPes
 
 /// The toolbar: Open, Save, Undo, Redo and the open save's path with its
 /// unsaved-changes marker (the draft's toolbar row).
-fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &[RunningPes]) {
+fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
     // Ctrl+S saves even while a widget holds the keyboard; the other
     // shortcuts do nothing then (a text field's own undo is egui's).
     let save_key = ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::S));
@@ -172,14 +172,17 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &[RunningPes]) {
 }
 
 /// `session.save` and the modal its refusal takes (the draft's `saveFile`).
-fn save(view: &mut SaveView, running: &[RunningPes]) {
-    if let Some(session) = view.session.as_mut()
-        && let Err(error) = session.save(running)
-    {
-        view.refusal = Some(Refusal {
-            title: "Save refused",
-            message: format!("{error:#}"),
-        });
+fn save(view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
+    if let Some(session) = view.session.as_mut() {
+        match session.save(&running()) {
+            Ok(()) => view.refusal = None,
+            Err(error) => {
+                view.refusal = Some(Refusal {
+                    title: "Save refused",
+                    message: format!("{error:#}"),
+                });
+            }
+        }
     }
 }
 

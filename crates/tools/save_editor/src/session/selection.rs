@@ -2,6 +2,8 @@
 //! team while the filter box is in use (`plans/save_editor.md` "Editing UI",
 //! the Player list bullet).
 
+use std::collections::HashMap;
+
 use pes_savefile::EditFile;
 use pes_savefile::model::names::display_name;
 use pes_savefile::model::{PlayerEntry, TeamEntry};
@@ -34,6 +36,13 @@ pub(crate) struct Row {
 pub(crate) fn rows(file: &EditFile, team: &TeamChoice, filter: &str) -> Vec<Row> {
     let query = filter.trim().to_lowercase();
     let filtering = !query.is_empty();
+    // Player ids are stable inside an open file: one map serves the whole
+    // scan instead of a `file.player()` linear scan per slot.
+    let players: HashMap<u32, &PlayerEntry> = file
+        .players()
+        .iter()
+        .map(|player| (player.id, player))
+        .collect();
     let mut rows = Vec::new();
     for team_entry in file.teams() {
         if !filtering
@@ -42,22 +51,22 @@ pub(crate) fn rows(file: &EditFile, team: &TeamChoice, filter: &str) -> Vec<Row>
         {
             continue;
         }
-        rows.extend(team_rows(team_entry, file, &query));
+        rows.extend(team_rows(team_entry, &players, &query));
     }
     rows
 }
 
 /// The rostered slots of `team`, in slot order; with `query` non-empty only
 /// the players matching it.
-fn team_rows(team: &TeamEntry, file: &EditFile, query: &str) -> Vec<Row> {
+fn team_rows(team: &TeamEntry, players: &HashMap<u32, &PlayerEntry>, query: &str) -> Vec<Row> {
     let mut rows = Vec::new();
     for (slot, roster_slot) in team.roster.iter().enumerate() {
         if roster_slot.player_id == 0 {
             continue;
         }
         if !query.is_empty()
-            && !file
-                .player(roster_slot.player_id)
+            && !players
+                .get(&roster_slot.player_id)
                 .is_some_and(|player| matches(player, query))
         {
             continue;

@@ -32,8 +32,12 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // does under `ALL` (the draft's `tshort`).
     let show_team = !filter.trim().is_empty() || *team == TeamChoice::All;
     let rows = selection::rows(file, team, filter);
-    egui::ScrollArea::vertical().show(ui, |ui| {
-        for row in &rows {
+    // Only the visible rows are laid out: `show_rows` draws the range the
+    // viewport shows, each row's click target at the text row's height plus
+    // the button padding (`interact_size.y`, what a selectable occupies).
+    let row_height = ui.spacing().interact_size.y;
+    egui::ScrollArea::vertical().show_rows(ui, row_height, rows.len(), |ui, range| {
+        for row in &rows[range] {
             player_row(ui, selected, session, row, show_team);
         }
     });
