@@ -246,33 +246,52 @@ fn interpolated_at_x(mesh: &egui::Mesh, x: f32) -> Color32 {
     lerp_color(c0, c1, (x - x0) / (x1 - x0))
 }
 
-/// The color the square's mesh shows at `pos`: the four vertex colors of the grid
-/// cell holding `pos`, bilinearly interpolated.
-fn interpolated_in_cell(mesh: &egui::Mesh, pos: egui::Pos2) -> Color32 {
-    let mut xs: Vec<f32> = mesh.vertices.iter().map(|v| v.pos.x).collect();
-    let mut ys: Vec<f32> = mesh.vertices.iter().map(|v| v.pos.y).collect();
-    xs.sort_by(|a, b| a.partial_cmp(b).expect("ordered xs"));
-    xs.dedup_by_key(|x| x.to_bits());
-    ys.sort_by(|a, b| a.partial_cmp(b).expect("ordered ys"));
-    ys.dedup_by_key(|y| y.to_bits());
-    let ix = xs
+/// The barycentric weights of `pos` over the triangle `(a, b, c)`: all three are
+/// positive exactly when `pos` is inside the triangle.
+fn barycentric(pos: egui::Pos2, a: egui::Pos2, b: egui::Pos2, c: egui::Pos2) -> (f32, f32, f32) {
+    let determinant = (b.y - c.y) * (a.x - c.x) + (c.x - b.x) * (a.y - c.y);
+    let u = ((b.y - c.y) * (pos.x - c.x) + (c.x - b.x) * (pos.y - c.y)) / determinant;
+    let v = ((c.y - a.y) * (pos.x - c.x) + (a.x - c.x) * (pos.y - c.y)) / determinant;
+    (u, v, 1.0 - u - v)
+}
+
+/// The index of `mesh`'s triangle containing `pos` (a triplet in `indices`), and `pos`'s
+/// barycentric weights over its vertices.
+fn triangle_holding(mesh: &egui::Mesh, pos: egui::Pos2) -> Option<(usize, (f32, f32, f32))> {
+    mesh.indices
+        .as_chunks::<3>()
+        .0
         .iter()
-        .position(|&x| x > pos.x)
-        .unwrap_or(xs.len() - 1)
-        .max(1);
-    let iy = ys
-        .iter()
-        .position(|&y| y > pos.y)
-        .unwrap_or(ys.len() - 1)
-        .max(1);
-    let (x0, x1) = (xs[ix - 1], xs[ix]);
-    let (y0, y1) = (ys[iy - 1], ys[iy]);
-    let color_of = |x: f32, y: f32| color_at(mesh, egui::pos2(x, y));
-    let t = (pos.x - x0) / (x1 - x0);
-    lerp_color(
-        lerp_color(color_of(x0, y0), color_of(x1, y0), t),
-        lerp_color(color_of(x0, y1), color_of(x1, y1), t),
-        (pos.y - y0) / (y1 - y0),
+        .enumerate()
+        .find_map(|(index, triplet)| {
+            let (a, b, c) = (
+                mesh.vertices[triplet[0] as usize].pos,
+                mesh.vertices[triplet[1] as usize].pos,
+                mesh.vertices[triplet[2] as usize].pos,
+            );
+            let weights @ (u, v, w) = barycentric(pos, a, b, c);
+            (u > 0.0 && v > 0.0 && w > 0.0).then_some((index, weights))
+        })
+}
+
+/// The color the renderer shows inside a mesh triangle: its three vertex colors mixed
+/// by `pos`'s barycentric weights.
+fn weights_color(
+    weights: (f32, f32, f32),
+    a: &egui::epaint::Vertex,
+    b: &egui::epaint::Vertex,
+    c: &egui::epaint::Vertex,
+) -> Color32 {
+    let (u, v, w) = weights;
+    let channel = |channel: fn(&Color32) -> u8| -> u8 {
+        (u * channel(&a.color) as f32 + v * channel(&b.color) as f32 + w * channel(&c.color) as f32)
+            .round() as u8
+    };
+    Color32::from_rgba_unmultiplied(
+        channel(|color| color.r()),
+        channel(|color| color.g()),
+        channel(|color| color.b()),
+        channel(|color| color.a()),
     )
 }
 
@@ -400,10 +419,13 @@ fn a_typed_hex_commits_when_the_button_closes_the_popup() {
     window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
     window.field(&mut color, &[], type_text("#112233"));
 
-    let (_, out) = window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    // The press on the field's own button settles the typed text (the draft's
+    // mousedown order); the release then closes the popup.
+    let button = centre(field_button(&nodes, 0));
+    let (_, out) = window.field(&mut color, &[], pointer_at(button, true));
     assert!(out.changed, "the typed text commits on the button close");
     assert_eq!(color, [17, 34, 51], "the typed color committed");
-    let (_, out) = window.field(&mut color, &[], Vec::new());
+    let (_, out) = window.field(&mut color, &[], pointer_at(button, false));
     assert!(!out.changed, "the commit fires once");
 
     // The close also joins the recents, since the color is not the one it opened on.
@@ -437,6 +459,60 @@ fn a_typed_rgb_value_commits_on_enter() {
     assert_eq!(color, [10, 0, 0], "the typed channel committed");
     let (_, out) = window.field(&mut color, &[], Vec::new());
     assert!(!out.changed, "changed fires on the commit frame only");
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": typing is not a
+// gesture; a click inside the field being edited moves the caret and commits
+// nothing.
+#[test]
+fn a_click_inside_a_typed_channel_moves_the_caret_without_a_commit() {
+    let mut window = Headless::new();
+    let mut color = [0, 0, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    let red = centre(spin_field(&nodes, "R "));
+    window.click_at(red, &mut color, &[]);
+    window.field(&mut color, &[], type_text("200"));
+
+    // A click inside the field to place the caret is not a gesture: no commit.
+    window.click_at(red, &mut color, &[]);
+    let (_, out) = window.field(&mut color, &[], Vec::new());
+    assert!(!out.changed, "a caret click commits nothing");
+    assert_eq!(color, [0, 0, 0], "the typed value is still pending");
+
+    let (_, out) = window.field(&mut color, &[], key(egui::Key::Enter));
+    assert!(out.changed, "the Enter commits once");
+    assert_eq!(color, [200, 0, 0], "the typed channel committed");
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a press on a gradient
+// settles a pending text first, then a tap commits the tap's own color.
+#[test]
+fn a_typed_hex_then_a_one_frame_tap_on_the_strip() {
+    let mut window = Headless::new();
+    let mut color = [255, 0, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+    window.field(&mut color, &[], type_text("#00FF00"));
+    assert_eq!(color, [255, 0, 0], "the typed text is still pending");
+
+    let rect = entry(&nodes, "hue").bounds().expect("the strip is drawn");
+    let pos = egui::pos2(
+        (rect.x0 + (rect.x1 - rect.x0) * (2.0 / 3.0)) as f32,
+        (rect.y0 + rect.y1) as f32 / 2.0,
+    );
+    let mut events = pointer_at(pos, true);
+    events.extend(pointer_at(pos, false));
+    let (_, out) = window.field(&mut color, &[], events);
+    assert!(out.changed, "the one-frame tap commits");
+    assert_eq!(color[2], 255, "blue's channel is full: {color:?}");
+    assert!(
+        color[0] < 20 && color[1] < 20,
+        "the tap's blue, not the typed green: {color:?}"
+    );
 }
 
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a drag on an R/G/B
@@ -497,10 +573,13 @@ fn a_typed_channel_commits_when_the_button_closes_the_popup() {
     window.click_at(centre(spin_field(&nodes, "R ")), &mut color, &[]);
     window.field(&mut color, &[], type_text("10"));
 
-    let (_, out) = window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    // The press on the field's own button settles the typed value (the draft's
+    // mousedown order); the release then closes the popup.
+    let button = centre(field_button(&nodes, 0));
+    let (_, out) = window.field(&mut color, &[], pointer_at(button, true));
     assert!(out.changed, "the typed value commits on the button close");
     assert_eq!(color, [10, 0, 0], "the typed channel committed");
-    let (_, out) = window.field(&mut color, &[], Vec::new());
+    let (_, out) = window.field(&mut color, &[], pointer_at(button, false));
     assert!(!out.changed, "the commit fires once");
 }
 
@@ -1026,6 +1105,55 @@ fn a_drag_on_the_hue_strip_is_one_change() {
     assert!(!out.changed, "no repeat on the idle frame");
 }
 
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": Escape cancels a running
+// gesture: the dragged candidate never lands.
+#[test]
+fn escape_during_a_square_drag_cancels_it() {
+    let mut window = Headless::new();
+    let mut color = [255, 128, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    let rect = entry(&nodes, "saturation and value")
+        .bounds()
+        .expect("the square is drawn");
+    let point = |x: f64, y: f64| egui::pos2((rect.x0 + x) as f32, (rect.y0 + y) as f32);
+
+    window.field(&mut color, &[], pointer_at(point(30.0, 30.0), true));
+    window.field(
+        &mut color,
+        &[],
+        vec![egui::Event::PointerMoved(point(80.0, 70.0))],
+    );
+    let (_, out) = window.field(&mut color, &[], key(egui::Key::Escape));
+    assert!(!out.changed, "Escape commits nothing");
+    assert_eq!(color, [255, 128, 0], "the dragged candidate was dropped");
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the same for a drag on
+// the hue strip.
+#[test]
+fn escape_during_a_strip_drag_cancels_it() {
+    let mut window = Headless::new();
+    let mut color = [255, 128, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    let rect = entry(&nodes, "hue").bounds().expect("the strip is drawn");
+    let point = |x: f64| {
+        egui::pos2(
+            (rect.x0 + x * (rect.x1 - rect.x0)) as f32,
+            ((rect.y0 + rect.y1) / 2.0) as f32,
+        )
+    };
+
+    window.field(&mut color, &[], pointer_at(point(0.2), true));
+    window.field(&mut color, &[], vec![egui::Event::PointerMoved(point(0.7))]);
+    let (_, out) = window.field(&mut color, &[], key(egui::Key::Escape));
+    assert!(!out.changed, "Escape commits nothing");
+    assert_eq!(color, [255, 128, 0], "the dragged candidate was dropped");
+}
+
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on the square
 // or the slider is a gesture too, however short.
 #[test]
@@ -1086,6 +1214,75 @@ fn a_one_frame_click_on_the_strip_commits() {
     );
     let (_, out) = window.field(&mut color, &[], Vec::new());
     assert!(!out.changed, "no repeat on the idle frame");
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a drag only previews
+// while it lasts; a held press commits nothing until its release.
+#[test]
+fn a_held_press_after_focusing_the_hex_commits_nothing_until_release() {
+    let mut window = Headless::new();
+    let mut color = [255, 128, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+    let rect = entry(&nodes, "saturation and value")
+        .bounds()
+        .expect("the square is drawn");
+    let pos = egui::pos2((rect.x0 + 40.0) as f32, (rect.y0 + 60.0) as f32);
+
+    window.field(&mut color, &[], pointer_at(pos, true));
+    for _ in 0..3 {
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert!(!out.changed, "a held press commits nothing mid-gesture");
+        assert_eq!(color, [255, 128, 0], "the color waits for the release");
+    }
+    let (_, out) = window.field(&mut color, &[], pointer_at(pos, false));
+    assert!(out.changed, "the release commits once");
+    assert_ne!(color, [255, 128, 0], "the release's color committed");
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": and on a hueless color
+// the working hue survives a held press, not just a release.
+#[test]
+fn a_held_press_on_gray_keeps_the_hue_chosen_on_the_strip() {
+    let mut window = Headless::new();
+    let mut color = [200, 200, 200];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+    let strip_rect = egui_rect(entry(&nodes, "hue"));
+    let square_rect = egui_rect(entry(&nodes, "saturation and value"));
+
+    let strip_y = (strip_rect.top() + strip_rect.bottom()) / 2.0;
+    let blue_x = strip_rect.left() + strip_rect.width() * (2.0 / 3.0);
+    window.field(
+        &mut color,
+        &[],
+        pointer_at(egui::pos2(blue_x, strip_y), true),
+    );
+    window.field(
+        &mut color,
+        &[],
+        pointer_at(egui::pos2(blue_x, strip_y), false),
+    );
+
+    let pos = egui::pos2(
+        square_rect.left() + square_rect.width() * 0.9,
+        square_rect.top() + 20.0,
+    );
+    window.field(&mut color, &[], pointer_at(pos, true));
+    for _ in 0..3 {
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert!(!out.changed, "a held press commits nothing mid-gesture");
+    }
+    let (_, out) = window.field(&mut color, &[], pointer_at(pos, false));
+    assert!(out.changed, "the release commits once");
+    assert!(
+        (hsva_of(color).h - 2.0 / 3.0).abs() < 0.05,
+        "the hue chosen on the strip survived the press: {color:?}"
+    );
 }
 
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a press on the square
@@ -1488,15 +1685,40 @@ fn a_click_inside_the_gradients_picks_the_shown_color() {
         "the pick matches the shown color: {color:?} vs {shown:?}"
     );
 
-    // A click at the square's centre commits the color its mesh interpolates there.
-    let square = mesh_at(&window.shapes, square_rect, 0.5, |mesh| {
-        mesh.vertices.len() > 20
-    });
-    let centre = square_rect.center();
-    let shown = interpolated_in_cell(square, centre);
-    window.click_at(centre, &mut color, &[]);
-    assert!(
-        channels(color, shown) <= 1,
-        "the pick matches the shown color: {color:?} vs {shown:?}"
-    );
+    // A click strictly inside the square commits the color the painted mesh shows at
+    // that exact point: find the emitted triangle containing it by `indices` and
+    // barycentric weights (a point whose cell loses its bottom-left half has no
+    // containing triangle and fails the lookup), then read the drawn color off the same
+    // weights — two points, one in each half of a cell.
+    let points: Vec<(egui::Pos2, Color32)> = {
+        let square = mesh_at(&window.shapes, square_rect, 0.5, |mesh| {
+            mesh.vertices.len() > 20
+        });
+        [(0.3, 0.7), (0.7, 0.3)]
+            .iter()
+            .map(|&(fx, fy)| {
+                let pos = egui::pos2(
+                    square_rect.left() + square_rect.width() * fx,
+                    square_rect.top() + square_rect.height() * fy,
+                );
+                let (triplet, weights) =
+                    triangle_holding(square, pos).expect("no painted triangle contains the point");
+                let triplet = &square.indices[triplet * 3..triplet * 3 + 3];
+                let shown = weights_color(
+                    weights,
+                    &square.vertices[triplet[0] as usize],
+                    &square.vertices[triplet[1] as usize],
+                    &square.vertices[triplet[2] as usize],
+                );
+                (pos, shown)
+            })
+            .collect()
+    };
+    for (pos, shown) in points {
+        window.click_at(pos, &mut color, &[]);
+        assert!(
+            channels(color, shown) <= 1,
+            "the pick matches the drawn color at {pos:?}: {color:?} vs {shown:?}"
+        );
+    }
 }

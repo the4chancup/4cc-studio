@@ -792,7 +792,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       on the hue strip tested, the commit condition's `drag_stopped()` terms dropped (the
       held press covers them). Review S2 (SWE-2, 3 of 9 accepted; the loop ends) reworked
       in rework 4: a click or a drag after the hex field had focus lands the pick, the
-      tests in `picker/tests.rs`. Astra's second round next. Files:
+      tests in `picker/tests.rs`. Review A2 (Astra on Devin brother, 5 of 7 accepted)
+      reworked in rework 5: one rule where typed text meets a gesture (a press outside the
+      focused field settles its text before anything draws; a field's focus loss never
+      commits during a gesture; typing is no gesture), Escape cancelling a gesture, the
+      square's test sampling inside the painted triangles. A SWE-2 loop, then Astra's third
+      round. Files:
       `color_tools/{Cargo.toml,src/lib.rs,src/picker.rs}`, `scripts/doc_pointers.py`
       (`plans/libs/color_tools.md` listed as the open phase's)
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
@@ -831,7 +836,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       Files: `team_widgets/src/{lib.rs,violations.rs,test_support.rs,cards.rs}`,
       `aatf/src/{violation.rs,fixtures/official.rs}`, `save_editor/src/messages.rs`
     - [ ] 8.8 review: Astra over 8.8b-c (one review, `.tmp/8_8/duck_rulings.md`); the SWE-2
-      loops ended (S1 2 of 7, S2 3 of 9)
+      loops ended (S1 2 of 7, S2 3 of 9). Review A1 (Astra on Codex own, 6 of 6 accepted)
+      reworked in rework 4: the skills grid wraps at five, a card the version lacks stays
+      disabled with a `PES NN+` tooltip, the sentences follow a value's direction and name
+      what `MinCards` and a reserved name colour count (the draft's `violationSentence`
+      alike), a COM style's tick tested. A SWE-2 loop, then Astra's second round
   - [ ] 8.9 the Save editor's view in the five slices of `plans/save_editor.md` "Build order
     and verification", with the `session/` wiring each needs (undo, selection, recent files,
     the FPC toggle, AATF quick actions) and the placeholders of 8.3 gone; each slice's SE-GUI

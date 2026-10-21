@@ -283,6 +283,10 @@ struct PickerState {
     /// arriving as a color change on the next frame, is feedback and not an undo, so it
     /// must not move `opened_on`.
     committed: bool,
+    /// The text field's rect as of the last frame drawn (the hex field's or a channel's,
+    /// whichever has keyboard focus): a press landing outside it settles its text before
+    /// the gesture runs.
+    text_rect: Option<Rect>,
 }
 
 impl PickerState {
@@ -299,6 +303,7 @@ impl PickerState {
             rgb_focused: false,
             shown: color,
             committed: false,
+            text_rect: None,
         }
     }
 }
@@ -508,7 +513,24 @@ fn popup_body(
     changed: &mut bool,
     suggestions: &[[u8; 3]],
 ) {
-    let hsva_at_start = state.hsva;
+    // Settle the text before anything else draws: a field focused on the last frame,
+    // and a primary press this frame outside its rect, commits its pending text and
+    // loses the focus, the draft's mousedown order. One step serving a tap or drag on
+    // the square or the strip, a swatch click, and a press on another field.
+    let working_at_start = rgb_of(state.hsva);
+    if (state.hex_focused || state.rgb_focused)
+        && let Some(rect) = state.text_rect
+        && ui.input(|input| input.pointer.any_pressed())
+        && ui
+            .input(|input| input.pointer.interact_pos())
+            .is_some_and(|pos| !rect.contains(pos))
+    {
+        commit_pending_text(state, color, changed, working_at_start);
+        if let Some(id) = ui.memory(|memory| memory.focused()) {
+            ui.memory_mut(|memory| memory.surrender_focus(id));
+        }
+    }
+
     let sv = sv_square(ui, &mut state.hsva);
     let hue = hue_strip(ui, &mut state.hsva);
     let mut down = sv.is_pointer_button_down_on() || hue.is_pointer_button_down_on();
@@ -527,16 +549,7 @@ fn popup_body(
             .font(TextStyle::Monospace)
             .desired_width(f32::INFINITY),
     );
-    if hex_response.lost_focus()
-        && !ui.input(|input| input.key_pressed(Key::Escape))
-        && !sv.dragged()
-        && !hue.dragged()
-    {
-        if let Some(parsed) = parse_hex(&state.hex) {
-            commit_color(state, color, changed, parsed);
-        }
-        state.hex = format_hex(rgb_of(state.hsva));
-    }
+    let hex_lost_focus = hex_response.lost_focus();
     state.hex_focused = ui.memory(|memory| memory.has_focus(hex_id));
 
     // R/G/B fields: typing moves the working color the popup shows (`update_while_editing`'s
@@ -547,8 +560,7 @@ fn popup_body(
     let mut channel_changed = false;
     let mut channel_focused = false;
     let mut channel_lost_focus = false;
-    let mut any_dragged = false;
-    let mut pressing_focused = false;
+    let mut text_rect = hex_response.has_focus().then_some(hex_response.rect);
     ui.horizontal(|ui| {
         for (index, prefix) in ["R ", "G ", "B "].iter().enumerate() {
             let mut channel = channels[index];
@@ -557,28 +569,31 @@ fn popup_body(
             channel_changed |= response.changed();
             channel_focused |= response.has_focus();
             channel_lost_focus |= response.lost_focus();
-            down |= response.is_pointer_button_down_on();
-            any_dragged |= response.dragged();
-            pressing_focused |= response.has_focus() && response.is_pointer_button_down_on();
+            // A field in text-editing mode is not a gesture control: clicks and
+            // drag-selects inside it move the caret, not the color.
+            if response.has_focus() {
+                text_rect = Some(response.rect);
+            } else {
+                down |= response.is_pointer_button_down_on();
+            }
         }
     });
-    let dragging_now = sv.dragged() || hue.dragged() || any_dragged;
     state.rgb_focused = channel_focused;
+    state.text_rect = text_rect;
     if channel_changed {
         state.hsva = hsva_of(channels);
     }
-    // A press on another control first commits the pending text and surrenders its
-    // focus, the draft's mousedown order: the gesture then runs on top of the committed
-    // value and ends on the dragged color. A press into the field being edited is a
-    // caret move, not that.
-    if down && !state.dragging && !pressing_focused {
-        commit_pending_text(state, color, changed, rgb_of(hsva_at_start));
-        if let Some(id) = ui.memory(|memory| memory.focused()) {
-            ui.memory_mut(|memory| memory.surrender_focus(id));
-        }
-    }
-    if channel_lost_focus && !ui.input(|input| input.key_pressed(Key::Escape)) && !dragging_now {
+    // A text field's `lost_focus` commits only when no gesture is down this frame:
+    // egui's second `lost_focus` frame while a press is held must not commit the
+    // candidate early (the settle at the top already did).
+    if channel_lost_focus && !ui.input(|input| input.key_pressed(Key::Escape)) && !down {
         commit_color(state, color, changed, channels);
+    }
+    if hex_lost_focus && !ui.input(|input| input.key_pressed(Key::Escape)) && !down {
+        if let Some(parsed) = parse_hex(&state.hex) {
+            commit_color(state, color, changed, parsed);
+        }
+        state.hex = format_hex(rgb_of(state.hsva));
     }
 
     let mut hovered = None;
@@ -595,14 +610,16 @@ fn popup_body(
     }
 
     // A press still held previews; a release after one (`state.dragging`) and a click
-    // completed in a single frame (`clicked()`) each commit the working color once
-    // (`commit_working` keeps the working hsv, so a hue chosen on a hueless color
-    // survives).
+    // completed in a single frame (`clicked()`) each commit the working color once,
+    // unless Escape cancelled the gesture (`commit_working` keeps the working hsv, so a
+    // hue chosen on a hueless color survives).
     if down {
         state.preview = Some(rgb_of(state.hsva));
     } else {
         state.preview = hovered;
-        if state.dragging || sv.clicked() || hue.clicked() {
+        if (state.dragging || sv.clicked() || hue.clicked())
+            && !ui.input(|input| input.key_pressed(Key::Escape))
+        {
             commit_working(state, color, changed);
         }
     }
