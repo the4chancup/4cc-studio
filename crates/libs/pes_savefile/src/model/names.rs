@@ -62,7 +62,7 @@ pub fn shirt_name_edit_fits(version: PesVersion, stored: &str, text: &str) -> bo
 }
 
 /// `text` cut to what `version`'s `which` field holds in length: the
-/// longest prefix of whole spans (`name_spans`'s boundaries: a character or
+/// longest prefix of whole spans (`text_spans`'s boundaries: a character or
 /// a colour code) that fits, so a crop never splits a character or leaves
 /// half a colour code drawn as text. Borrowed when it fits. Length is the
 /// only rule it answers — a text the field refuses for content (a NUL, a

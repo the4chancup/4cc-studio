@@ -2282,3 +2282,5 @@ worklog passed 7,000 lines.
   ended entry, three tests that now fail without what they name). `mutants-diff` now runs each crate on its own, timeout 5x.
 - **2026-10-21** — 20.1: Autumn 26 follows the wiki where the two 4ccEditor editions differ (medals trade a free COM style
   for an A, bronze 2 free tricks, a Red CB at 185 legal again, preset 1 at A); an organizer page lists five points to confirm.
+- **2026-10-21** — 8.9b1 review S3 (3 of 14) ended the SWE-2 loop; rework 4: an import marks the save dirty, the view's
+  tests split by area, the PES 16 Shirt hover pinned. 20.1's S1 (1 of 5): a sixth organizer point (194 cm gold or GK).

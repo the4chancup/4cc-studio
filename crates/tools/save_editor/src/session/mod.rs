@@ -307,6 +307,7 @@ impl Session {
         let notes = document.apply(version, &mut team, self.file.players_mut())?;
         *self.file.team_mut(id).expect("found above") = team;
         self.touch();
+        self.dirty = self.compute_dirty();
         Ok(notes)
     }
 
@@ -319,6 +320,7 @@ impl Session {
     ) -> Result<PatchSummary, PatchError> {
         let summary = patch.apply(&mut self.file)?;
         self.touch();
+        self.dirty = self.compute_dirty();
         Ok(summary)
     }
 
@@ -333,6 +335,7 @@ impl Session {
     ) -> Result<Vec<Stripped>, TransplantError> {
         transplant(&mut self.file, &donor.file, pairs)?;
         self.touch();
+        self.dirty = self.compute_dirty();
         let mut marks = Vec::new();
         for &(target, source) in pairs {
             if is_stripped(&self.file, target) {
@@ -395,6 +398,7 @@ impl Session {
             }
         }
         self.touch();
+        self.dirty = self.compute_dirty();
     }
 
     /// Writes the save to `out`, an existing file there first copied to `<out>.bak` (one
@@ -521,6 +525,37 @@ mod tests {
         assert!(session.is_dirty(), "redo marks it again");
         session.save(&[]).unwrap();
         assert!(!session.is_dirty(), "a save clears it");
+    }
+
+    // The mutators keep `dirty` beside `revision`: an import that changes a
+    // player marks the save too (the window's unsaved-changes marker reads
+    // `is_dirty`, and the interchange commands are the view's write paths).
+    #[test]
+    fn an_import_marks_the_save_dirty() {
+        let dir = std::env::temp_dir().join("save_editor_session_import_dirty");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("EDIT00000000");
+        std::fs::write(&path, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+        let mut session = Session::open(&path).unwrap();
+        assert!(!session.is_dirty());
+
+        use pes_savefile::interchange::team_toml::{PlayerSection, TeamSection};
+        let mut document = TeamToml {
+            team: TeamSection {
+                id: Some(701),
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        document.players.insert(
+            3,
+            PlayerSection {
+                name: Some("NEWNAME".to_string()),
+                ..Default::default()
+            },
+        );
+        session.import_team(&document).unwrap();
+        assert!(session.is_dirty(), "the import changed a player");
     }
 
     // plans/save_editor.md "Editing UI", the Cards left bullet's cache: the

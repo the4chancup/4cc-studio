@@ -361,8 +361,9 @@ pub(crate) fn bit_width(version: PesVersion, field: PlayerField) -> Option<u32> 
     })
 }
 
-/// The oldest version whose player record stores `field`; `None` for a field
-/// no version stores. Behind the editors' disabled `PES NN+` tooltips.
+/// The oldest version whose player (or appearance) record stores `field`;
+/// `None` for a field no version stores. Behind the editors' disabled `PES
+/// NN+` tooltips.
 pub fn first_version_with(field: PlayerField) -> Option<PesVersion> {
     PesVersion::ALL
         .iter()

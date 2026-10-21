@@ -36,11 +36,11 @@ hidden shortcut on the team selector that empties a team's roster slots past 23 
 rosters hold 40). Do cups still use it (a team brought down to a 23-man squad), so the Save
 editor should keep it as a team operation, or can it go?
 
-### Autumn 26: five points for the 4cc organizer
+### Autumn 26: six points for the 4cc organizer
 
 From worklog 20.1 (`spec/aatf_rules.md` "The official ruleset", DECISIONS 2026-10-21 "Autumn 26
-follows the wiki's written rules…"). `autumn26.rhai` follows the wiki's Appendix:Rules on each;
-the organizer's page `.tmp/20_au26/autumn26_rule_choices.html` (one pick per point and a line to
+follows the wiki's written rules…"). `autumn26.rhai` follows the wiki's Appendix:Rules on the
+first four and the tools on the last two, where every tool agrees; the organizer's page `.tmp/20_au26/autumn26_rule_choices.html` (one pick per point and a line to
 post back) sets each beside the two 4ccEditor editions:
 
 1. May a gold trade both of his free COM styles for A positions, or only one?
@@ -52,5 +52,7 @@ post back) sets each beside the two 4ccEditor editions:
 4. A Green silver at 194 cm, legal with every stat 3 lower (the wiki), or never (the official
    4ccEditor)?
 5. Heights 176 to 179: counted as 180 (every tool), or illegal (the wiki's "exactly 180")?
+6. A gold or a goalkeeper at 194 cm: a warning, the team still passing (every tool), or a
+   failure (the wiki's "cannot be this height")?
 
 ## Small confirmations

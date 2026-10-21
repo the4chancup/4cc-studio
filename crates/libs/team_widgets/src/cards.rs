@@ -5,7 +5,7 @@
 //! tiers each say how many paid ones he may hold, so the pickers show what
 //! each tier leaves him.
 
-use pes_savefile::interchange::team_toml::labels;
+use pes_savefile::interchange::team_toml::labels::{self, title_case};
 use pes_savefile::model::playstyle::PlayStyle;
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::schema::{playstyle, schema_for};
@@ -156,18 +156,6 @@ fn style_label(style: PlayStyle) -> String {
         .position(|canonical| *canonical == style)
         .expect("`PlayStyle::ALL` lists every style");
     title_case(labels::PLAY_STYLES[at])
-}
-
-/// `name`'s label as the draft's `titleCase` writes it: underscores as spaces,
-/// each word capitalized.
-fn title_case(name: &str) -> String {
-    name.split('_')
-        .map(|word| {
-            let (first, rest) = word.split_at(1);
-            format!("{}{rest}", first.to_uppercase())
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 #[cfg(test)]

@@ -173,6 +173,19 @@ pub const ABILITY_STATS: [&str; 25] = [
     "aggression",
 ];
 
+/// `name`'s label as the draft's `titleCase` writes it: underscores as
+/// spaces, each word capitalized (the card and stat labels the save editor
+/// draws from these tables).
+pub fn title_case(name: &str) -> String {
+    name.split('_')
+        .map(|word| {
+            let (first, rest) = word.split_at(1);
+            format!("{}{rest}", first.to_uppercase())
+        })
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

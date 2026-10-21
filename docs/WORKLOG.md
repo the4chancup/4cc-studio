@@ -902,8 +902,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         folded in here). S2 (two halves, 7 of 18 accepted) and the mutation run's survivors
         fixed in rework 3: the tab wraps to the pane the shell leaves (800 x 516), a COM
         styles heading, the badges cached on `Session::revision`, the merge keys per player,
-        the Shirt hover's 18, `name_fits` in bytes; rulings `.tmp/8_9/duck_rulings.md`. Open:
-        SWE-2 S3, then A2
+        the Shirt hover's 18, `name_fits` in bytes; rulings `.tmp/8_9/duck_rulings.md`. S3 (3
+        of 14) ended the SWE-2 loop; rework 4: the cross-player Speed test types a value no
+        fixture player stores, `view/tests.rs` split by area into `view/tests/`, the PES 16
+        Shirt hover pinned, an import marks the save dirty, `title_case` once in `labels.rs`.
+        Open: the round's mutants-diff, then A2
     - [x] the portable name limits (`plans/pes_savefile/operations.md` "Team TOML", Portable
       text limits; DECISIONS 2026-10-21), with 8.9b1 and its rework: `portable_text_max` and
       `crop_player_text` in `pes_savefile`; the info strip's Shirt field held to 18 (an
@@ -1274,12 +1277,15 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
   at CB was in no bracket: five such CBs on each of the fixture saves' teams 718 and 734); D5
   Studio stands; D6 set. Done 2026-10-21 (SWE-2, a run and a resume after the session
   crash): `autumn26.rhai`, the spec's block and prose, every fixture and consumer test that
-  pinned the old reading re-derived with its ruling named. The organizer's five points
-  (`QUESTIONS.md` "Autumn 26: five points for the 4cc organizer") may move D1, D3, D4 and D5.
+  pinned the old reading re-derived with its ruling named. The organizer's six points
+  (`QUESTIONS.md` "Autumn 26: six points for the 4cc organizer") may move D1, D3, D4 and D5,
+  the 176-179 leniency and the 194 cm gold or goalkeeper's warning severity.
   Files: `aatf/{rulesets/autumn26.rhai,src/fixtures/official.rs,src/ruleset/tests/{mod,
   rules}.rs}`, `team_widgets/src/violations.rs`, `save_editor/tests/cli/check_aatf.rs`,
   `docs/spec/aatf_rules.md`
-  - [ ] review (checkpoint b, three crates): a SWE-2 loop, then Astra
+  - [ ] review (checkpoint b, three crates): a SWE-2 loop, then Astra. S1 accepted 1 of 5
+    (an untaken medal trade gave no hint: `"choices"` added to `suggestions`), ending the
+    SWE-2 loop; rulings `.tmp/20_au26/duck_rulings.md`
 
 ---
 

@@ -14,7 +14,7 @@ use std::ops::RangeInclusive;
 
 use aatf::{CardLimits, TeamView};
 use pes_savefile::interchange::team_toml::labels::{
-    ABILITY_STATS, FOOT, PLAYABLE_POSITIONS, POSITIONS,
+    ABILITY_STATS, FOOT, PLAYABLE_POSITIONS, POSITIONS, title_case,
 };
 use pes_savefile::model::{PlayerEntry, PlayerPositions, PlayerSkills, PlayerStats};
 use pes_savefile::schema::fields::{ABILITY_FIELDS, PlayerField};
@@ -497,18 +497,6 @@ fn foot_label(stored: u8) -> String {
     FOOT.get(usize::from(stored))
         .map(|name| title_case(name))
         .unwrap_or_else(|| stored.to_string())
-}
-
-/// `name`'s label as the draft's `titleCase` writes it: underscores as
-/// spaces, each word capitalized.
-fn title_case(name: &str) -> String {
-    name.split('_')
-        .map(|word| {
-            let (first, rest) = word.split_at(1);
-            format!("{}{rest}", first.to_uppercase())
-        })
-        .collect::<Vec<_>>()
-        .join(" ")
 }
 
 #[cfg(test)]
