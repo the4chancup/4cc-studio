@@ -31,6 +31,6 @@ pub use model::{
 pub use parse::{ParseError, ParseErrorKind, Parsed, Warning, parse};
 #[cfg(not(target_arch = "wasm32"))]
 pub use resolve::{Resolution, resolve_export, resolve_song};
-pub use select::{Loaded, Press, TeamLists};
+pub use select::{EntryId, Loaded, Press, TeamLists};
 pub use state::{MatchState, Side, TeamState};
 pub use write::write;

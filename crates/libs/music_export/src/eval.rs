@@ -31,8 +31,8 @@ impl Condition {
     }
 
     /// `eval` with the selection's memory: a `once` the walk already reached
-    /// reads `NeverAgain` here, where the pure check reads `True`
-    /// (`OnceCondition.check` raises `UnloadSong` on its second call).
+    /// reads `NeverAgain` here, where the pure check reads `True` — a `once`
+    /// reached a second time unloads the entry.
     pub(crate) fn eval_spent(
         &self,
         state: &MatchState,
@@ -139,7 +139,7 @@ impl SongEntry {
     /// All conditions must hold (AND), checked in the order written: the
     /// first verdict that is not `True` is the answer, so a condition after a
     /// failing one is not evaluated — it neither unloads the entry, nor
-    /// spends a `once`, nor asks for the goal minute (`ConditionList.check`).
+    /// spends a `once`, nor asks for the goal minute.
     /// `once` is `True` in this pure evaluation: the selection remembers the
     /// check and unloads the entry on the next reach.
     pub fn eval(&self, state: &MatchState, side: Side, player: &str) -> Verdict {
@@ -175,8 +175,9 @@ impl SongEntry {
         check
     }
 
-    /// Whether any condition reads the goal minute, so the view can ask for it
-    /// before the evaluation.
+    /// Whether the entry carries a `time` anywhere (under `not` too): what
+    /// the editor warns about. The view's prompt question is the whole
+    /// walk's — [`crate::TeamLists::needs_goal_minute`].
     pub fn needs_goal_minute(&self) -> bool {
         self.conditions.iter().any(Condition::needs_goal_minute)
     }

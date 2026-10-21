@@ -5,19 +5,28 @@ Team compiler (aesthetics exports to CPK archives), a save editor, and the small
 them (kit configs, referees, balls, music, match tracking, model conversion), in a single binary
 that is both a GUI and a CLI.
 
-**Status: in development.** Phases 1 and 2 of 19 are done: the workspace skeleton and the
-standalone library crates, covering the game's containers and archives (CPK, FPK/FPKD, FTEX,
-DDS, WESYS, uniparam, zip/7z), both model families (FMDL for PES 18-21, `.model`/`.mtl` for
-PES 15-17) with cross-version conversion through `model_convert`'s IR, kit configs, the teams
-list, and the savefile (`pes_savefile` decrypts, edits and rewrites real saves
-byte-identically; its squad reads match 4ccEditor's exports on PES 15-21). Phase 3, the Team
-compiler skeleton, is under way:
-- a first `team_compiler` crate compiles a real export's face and kit for PES 21 and matches the
-  older compiler's output;
-- `aesthetics_export`, the export format's shared model, parses an export's structure and
-  roster, with the validation pass next.
+**Status: in development, not released yet.** Six of twenty phases are done:
 
-1,089 tests, all gates green. The GUI does not exist yet; `studio` is a CLI-only skeleton.
+- **Phases 1 and 2**, the foundations: readers and writers for the game's files (CPK, FPK,
+  FTEX, DDS, WESYS, uniparam, zip/7z), both model families (FMDL for PES 18-21, `.model`/`.mtl`
+  for PES 15-17) with conversion between versions, kit configs, the teams list, and the
+  savefile (real saves decrypted, edited and rewritten byte for byte).
+- **Phases 3 and 4**, the Team compiler: a cup's aesthetics exports checked and compiled into
+  CPK archives for PES 2015 to 2021 (faces, boots, gloves, kits, portraits, referees), compared
+  with the community's current compiler on its library of real exports.
+- **Phase 5**, the savefile side: the settings an export carries written into a save, the AATF
+  rules checked on a save's teams (the official rulesets and the invitationals' own), and the
+  save editor's command line (team exports and imports, comparisons, transplants).
+- **Phase 6**, the Export upgrader: an export in the old layout migrated once to the new one.
+
+Phase 8, the window, is under way: the shell (sidebar, help, log panel), the color picker, the
+AATF card pickers, and the save editor's first screens (the player list, the info strip, the
+Abilities & Skills tab). The first preview, planned for the Divegrass Before Christmas cup, is
+to ship the save editor and the ruleset editor. The `.4ccm` music format (Rigdio's) is built ahead of its
+phase.
+
+4,261 tests, all gates green. Every finished tool also runs from the command line
+(`4cc-studio <tool> <command>`), the way to use those the window does not show yet.
 
 The architectural plan lives in `docs/plans/` (start at `docs/plans/README.md`). `AGENTS.md` is
 the short orientation for anyone working on the code; `docs/CONTRIBUTING.md` holds the coding

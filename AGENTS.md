@@ -87,7 +87,11 @@ gates run, comment-only edits included: a comment can sit inside text a test pin
 repointed one in `aatf`'s hashed `logic.rhai`, and the crate's close mutation run found its
 baseline failing); (3) collapse the
 worklog's step list to the phase row, keeping its `manual: checked`
-lines, which are the manual scenarios' proofs (`CONTRIBUTING.md` "Testing"). Moving per phase, not at the
+lines, which are the manual scenarios' proofs (`CONTRIBUTING.md` "Testing"); (4) bring the
+root `README.md` to the closed phase: what the suite does now, the phases done and the one
+next, the test count from the gates' last run, in words for someone who has never opened
+`docs/` (it is the first page a visitor reads, and it still said Phase 3 was under way after
+four more phases had closed). Moving per phase, not at the
 end of the project, is what keeps the spec true while the memory of the work is fresh.
 
 **Lead and sidekick.** Sessions run as a lead model that plans, briefs, reviews and talks to the

@@ -9,20 +9,35 @@ use crate::eval::Verdict;
 use crate::model::{Instruction, MusicExport, Slot, SongEntry};
 use crate::state::{MatchState, Side};
 
+/// One entry's identity within a team's lists, unique and never reused: a
+/// press names the entry that ended (`advance`) by it, where an index would
+/// name another entry — or none — after an unload.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct EntryId(u32);
+
 /// One entry of a list with what the match has done to it.
 #[derive(Debug, Clone, PartialEq)]
 pub struct Loaded {
     /// The entry.
     pub entry: SongEntry,
+    /// Its identity for the match.
+    id: EntryId,
     /// A `once` the walk already reached: the next reach unloads the entry.
     once_spent: bool,
 }
 
+impl Loaded {
+    /// The entry's identity: stable across the lists' unloads.
+    pub fn id(&self) -> EntryId {
+        self.id
+    }
+}
+
 /// One team's button lists: every slot's entries, shrinking as entries
 /// unload, with the `goal` slot's stored once — it is the `goal` button's
-/// own list and every player's fallback (`rigparse` appends the same
-/// entries to every player's list), so an unload or a spent `once` through
-/// one button holds for every button.
+/// own list and every player's fallback — appended once, never copied per
+/// button — so an unload or a spent `once` through one button holds for
+/// every button.
 #[derive(Debug, Clone, PartialEq)]
 pub struct TeamLists {
     /// Every slot's entries but the `goal` slot's, in the export's order.
@@ -36,20 +51,30 @@ pub struct TeamLists {
 pub struct Press {
     /// The team the button belongs to.
     pub side: Side,
-    /// The entry that just ended (`advance`), skipped this time: its index
-    /// into `entries(slot)` as the list stood when the press began.
-    pub skip: Option<usize>,
+    /// The entry that just ended (`advance`), skipped this time, named by
+    /// its [`Loaded::id`].
+    pub skip: Option<EntryId>,
     /// A warcry already played for this press: warcries are excluded now.
     pub after_warcry: bool,
 }
 
 impl TeamLists {
-    /// The lists a team's buttons walk, built from the export's slots.
+    /// The lists a team's buttons walk, built from the export's slots;
+    /// every entry gets an [`EntryId`], unique within the team's lists and
+    /// never reused.
     pub fn load(export: &MusicExport) -> TeamLists {
         let mut lists = IndexMap::new();
         let mut goal = Vec::new();
+        let mut next_id = 0;
         for (slot, entries) in &export.slots {
-            let loaded: Vec<Loaded> = entries.iter().map(load).collect();
+            let loaded: Vec<Loaded> = entries
+                .iter()
+                .map(|entry| {
+                    let loaded = load(entry, EntryId(next_id));
+                    next_id += 1;
+                    loaded
+                })
+                .collect();
             match slot {
                 Slot::Goal => goal = loaded,
                 Slot::Anthem | Slot::Victory | Slot::Chant | Slot::Player(_) => {
@@ -138,7 +163,7 @@ impl TeamLists {
         match walk(own, fallback, slot.keyword(), state, press).0 {
             Walk::Play(index) => Some(index),
             Walk::Draw(pool) => Some(pool[pick(pool.len())]),
-            Walk::Nothing => press.skip.map(|skip| last_resort(own, fallback, skip)),
+            Walk::Nothing => press.skip.and_then(|skip| last_resort(own, fallback, skip)),
         }
     }
 }
@@ -154,7 +179,7 @@ enum Walk {
     Nothing,
 }
 
-/// The top-down walk of `getSong`: `own`, then the shared `goal` list as the
+/// The top-down walk of a press: `own`, then the shared `goal` list as the
 /// player's fallback; also returns whether it reached a `time` condition —
 /// `needs_goal_minute`'s whole question (its copies make the walk's unloads
 /// and spent `once`s vanish; `select` ignores it).
@@ -170,7 +195,10 @@ fn walk(
     // one is drawn.
     if !press.after_warcry {
         let warcries: Vec<usize> = (0..own.len() + fallback.len())
-            .filter(|&i| Some(i) != press.skip && at(own, fallback, own.len(), i).entry.is_warcry())
+            .filter(|&i| {
+                Some(at(own, fallback, own.len(), i).id) != press.skip
+                    && at(own, fallback, own.len(), i).entry.is_warcry()
+            })
             .collect();
         if !warcries.is_empty()
             && warcries
@@ -180,12 +208,11 @@ fn walk(
             return (Walk::Draw(warcries), false);
         }
     }
-    let mut skip = press.skip;
     let mut own_len = own.len();
     let mut reached_minute = false;
     let mut i = 0;
     while i < own_len + fallback.len() {
-        if Some(i) == skip {
+        if Some(at(own, fallback, own_len, i).id) == press.skip {
             i += 1;
             continue;
         }
@@ -209,17 +236,12 @@ fn walk(
                 if in_own {
                     own_len -= 1;
                 }
-                // An entry unloaded before the skipped one moves its index
-                // down with it.
-                if skip.is_some_and(|skip| i < skip) {
-                    skip = skip.map(|skip| skip - 1);
-                }
             }
             check
         };
         // A reached `time` prompts inside the check, whatever the verdict
-        // after it (`TimeCondition.check` asks before the entry's outcome is
-        // decided — even one that unloads the entry).
+        // after it — the minute is asked before the entry's outcome is
+        // decided, even one that unloads the entry.
         reached_minute |= check.minute;
         if check.verdict == Verdict::NeverAgain {
             continue;
@@ -242,7 +264,8 @@ fn walk(
             {
                 let draw: Vec<usize> = (start..start + list.len())
                     .filter(|&j| {
-                        Some(j) != skip && !at(own, fallback, own_len, j).entry.is_warcry()
+                        Some(at(own, fallback, own_len, j).id) != press.skip
+                            && !at(own, fallback, own_len, j).entry.is_warcry()
                     })
                     .collect();
                 return (Walk::Draw(draw), reached_minute);
@@ -257,15 +280,18 @@ fn walk(
 }
 
 /// `advance`'s last resort: the first non-warcry entry other than the one
-/// that ended, conditions unread (`getSong`'s fallback); with none, that
-/// entry itself.
-fn last_resort(own: &[Loaded], fallback: &[Loaded], skip: usize) -> usize {
+/// that ended, conditions unread; with none, that entry itself (`None` when
+/// it is no longer in the lists).
+fn last_resort(own: &[Loaded], fallback: &[Loaded], skip: EntryId) -> Option<usize> {
     for i in 0..own.len() + fallback.len() {
-        if i != skip && !at(own, fallback, own.len(), i).entry.is_warcry() {
-            return i;
+        let loaded = at(own, fallback, own.len(), i);
+        if loaded.id != skip && !loaded.entry.is_warcry() {
+            return Some(i);
         }
     }
-    skip
+    own.iter()
+        .chain(fallback.iter())
+        .position(|loaded| loaded.id == skip)
 }
 
 /// The combined-list entry at index `i`: `own_len` and under is `own`,
@@ -278,9 +304,10 @@ fn at<'a>(own: &'a [Loaded], fallback: &'a [Loaded], own_len: usize, i: usize) -
     }
 }
 
-fn load(entry: &SongEntry) -> Loaded {
+fn load(entry: &SongEntry, id: EntryId) -> Loaded {
     Loaded {
         entry: entry.clone(),
+        id,
         once_spent: false,
     }
 }
@@ -348,6 +375,11 @@ mod tests {
     ) -> Option<String> {
         let chosen = lists.select(slot, state, press, pick);
         file(lists, slot, chosen)
+    }
+
+    /// The [`EntryId`] of the entry `index` names, for the `advance` press.
+    fn ended_id(lists: &TeamLists, slot: &Slot, index: Option<usize>) -> Option<EntryId> {
+        index.map(|i| lists.entries(slot)[i].id)
     }
 
     #[test]
@@ -659,12 +691,29 @@ mod tests {
         let first = lists.select(&billy, &state, press(), &mut no_pick);
         assert_eq!(file(&lists, &billy, first), Some("b1.mp3".to_string()));
         let next = Press {
-            skip: first,
+            skip: ended_id(&lists, &billy, first),
             ..press()
         };
         assert_eq!(
             play(&mut lists, &billy, &state, next, &mut no_pick),
             Some("b2.mp3".to_string())
+        );
+    }
+
+    /// A warcry carrying `randomise` is not in the `randomise` draw check:
+    /// it plays as a warcry.
+    #[test]
+    fn a_warcry_carrying_randomise_is_no_draw() {
+        let state = MatchState::new("jp", "v", MatchType::Group);
+        let billy = player("Billy");
+        // `w2` lacks `randomise`, so the warcry pre-draw does not happen.
+        let mut lists = team_lists(
+            "Billy;w1.mp3;warcry;randomise\nBilly;w2.mp3;warcry\nBilly;b1.mp3;randomise\nBilly;b2.mp3;randomise\n",
+        );
+        assert_eq!(
+            play(&mut lists, &billy, &state, press(), &mut no_pick),
+            Some("w1.mp3".to_string()),
+            "a warcry plays first; the randomise it carries is no draw"
         );
     }
 
@@ -678,7 +727,7 @@ mod tests {
         let first = lists.select(&billy, &state, press(), &mut no_pick);
         assert_eq!(file(&lists, &billy, first), Some("b1.mp3".to_string()));
         let next = Press {
-            skip: first,
+            skip: ended_id(&lists, &billy, first),
             ..press()
         };
         assert_eq!(
@@ -689,7 +738,7 @@ mod tests {
         // Only the ended one and a warcry: it plays again.
         let mut lists = team_lists("Billy;b1.mp3;advance\nBilly;c.mp3;warcry\n");
         let next = Press {
-            skip: Some(0),
+            skip: ended_id(&lists, &billy, Some(0)),
             after_warcry: true,
             ..press()
         };
@@ -697,6 +746,111 @@ mod tests {
             play(&mut lists, &billy, &state, next, &mut no_pick),
             Some("b1.mp3".to_string()),
             "no other non-warcry entry: the skipped one plays again"
+        );
+    }
+
+    /// The last resort scans the fallback too: the first non-warcry `goal`
+    /// entry plays, conditions unread.
+    #[test]
+    fn advance_s_last_resort_reaches_the_fallback() {
+        let state = MatchState::new("jp", "v", MatchType::Group);
+        let billy = player("Billy");
+        let mut lists = team_lists("Billy;b1.mp3;advance\ngoal;g1.mp3;goals >= 9\n");
+        let first = lists.select(&billy, &state, press(), &mut no_pick);
+        assert_eq!(file(&lists, &billy, first), Some("b1.mp3".to_string()));
+        let next = Press {
+            skip: ended_id(&lists, &billy, first),
+            ..press()
+        };
+        assert_eq!(
+            play(&mut lists, &billy, &state, next, &mut no_pick),
+            Some("g1.mp3".to_string()),
+            "the ended one and a fallback that fails: the fallback plays anyway"
+        );
+    }
+
+    /// The `advance` skip names the entry that ended even when an unload
+    /// earlier in the press shifted its index.
+    #[test]
+    fn an_advance_skip_names_the_entry_that_ended() {
+        // `once;goals >= 5` is spent and unloads ahead of the skipped index
+        // during the second press; the ended song must not play again.
+        let mut state = MatchState::new("jp", "v", MatchType::Group);
+        let billy = player("Billy");
+        let mut lists = team_lists(
+            "Billy;o.mp3;once;goals >= 5\nBilly;b1.mp3;advance\nBilly;b2.mp3;goals >= 9\n",
+        );
+        state.score_goal(Side::Home, "Billy");
+        let first = lists.select(&billy, &state, press(), &mut no_pick);
+        assert_eq!(file(&lists, &billy, first), Some("b1.mp3".to_string()));
+        let next = Press {
+            skip: ended_id(&lists, &billy, first),
+            ..press()
+        };
+        assert_eq!(
+            play(&mut lists, &billy, &state, next, &mut no_pick),
+            Some("b2.mp3".to_string()),
+            "the entry that ended is not played again"
+        );
+    }
+
+    /// The skip names the ended entry across the shared fallback's unloads:
+    /// another button's press can shrink it between a song's start and the
+    /// `advance` press at its end.
+    #[test]
+    fn an_advance_skip_survives_another_button_s_unload() {
+        let mut state = MatchState::new("jp", "v", MatchType::Group);
+        let billy = player("Billy");
+        let mut lists = team_lists(
+            "goal;g0.mp3;time < 30\ngoal;g1.mp3;advance\nBilly;b.mp3;goals >= 9\nA;a.mp3;goals >= 9\n",
+        );
+        let first = lists.select(&billy, &state, press(), &mut no_pick);
+        assert_eq!(file(&lists, &billy, first), Some("g1.mp3".to_string()));
+        let ended = ended_id(&lists, &billy, first);
+        // A's press at minute 40 unloads `g0` from the one shared list.
+        state.goal_minute = Some(40);
+        assert!(
+            lists
+                .select(&player("A"), &state, press(), &mut no_pick)
+                .is_some()
+        );
+        state.goal_minute = None;
+        let next = Press {
+            skip: ended,
+            ..press()
+        };
+        assert_eq!(
+            play(&mut lists, &billy, &state, next, &mut no_pick),
+            Some("b.mp3".to_string()),
+            "the ended fallback entry is not replayed (its index shifted)"
+        );
+    }
+
+    /// Only warcries left besides the ended one: the last resort's index
+    /// stays inside `entries` (no out-of-bounds).
+    #[test]
+    fn an_advance_skip_s_last_resort_stays_in_bounds() {
+        let state = MatchState::new("jp", "v", MatchType::Group);
+        let billy = player("Billy");
+        let mut lists = team_lists(
+            "Billy;o.mp3;once;goals >= 9\nBilly;w.mp3;warcry;goals >= 9\nBilly;c.mp3;warcry;advance\n",
+        );
+        let first = lists.select(&billy, &state, press(), &mut no_pick);
+        assert_eq!(file(&lists, &billy, first), Some("c.mp3".to_string()));
+        let next = Press {
+            skip: ended_id(&lists, &billy, first),
+            after_warcry: true,
+            ..press()
+        };
+        let second = lists.select(&billy, &state, next, &mut no_pick);
+        assert!(
+            second.is_some_and(|i| i < lists.entries(&billy).len()),
+            "{second:?} is not an index into `entries`"
+        );
+        assert_eq!(
+            file(&lists, &billy, second),
+            Some("c.mp3".to_string()),
+            "no other non-warcry entry: the ended one plays again"
         );
     }
 
@@ -715,7 +869,7 @@ mod tests {
         let first = lists.select(&billy, &state, press(), &mut first_of);
         assert_eq!(file(&lists, &billy, first), Some("b1.mp3".to_string()));
         let next = Press {
-            skip: first,
+            skip: ended_id(&lists, &billy, first),
             ..press()
         };
         assert_eq!(
@@ -739,7 +893,7 @@ mod tests {
         // The `once` entry spent on the first press unloads on the way to
         // the skipped index.
         let next = Press {
-            skip: first,
+            skip: ended_id(&lists, &billy, first),
             ..press()
         };
         assert_eq!(

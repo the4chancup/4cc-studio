@@ -40,8 +40,7 @@ pub struct Resolution {
 pub fn resolve_song(folder: &Path, file: &str, normalization_applies: bool) -> Option<PathBuf> {
     // A song is always under the export's folder: a leading separator is
     // dropped (`/x.mp3` is the folder's `x.mp3`), and a path whose first
-    // component names a drive (`C:`) resolves nowhere — as `songCheck`'s
-    // `folder + name` string join does.
+    // component names a drive (`C:`) resolves nowhere.
     let relative = file.replace('\\', "/");
     let relative = relative.trim_start_matches('/');
     let bytes = relative.as_bytes();
@@ -345,7 +344,7 @@ mod tests {
     }
 
     /// The companion's stem folds like the plain name does, Unicode included:
-    /// `songCheck` lowercases both.
+    /// the lookup folds the name and the stem alike.
     #[test]
     fn a_companion_s_stem_folds_non_ascii_letters() {
         let dir = temp_dir("unicode", &[("CAFÉ_normalized.opus", b"normalized")]);

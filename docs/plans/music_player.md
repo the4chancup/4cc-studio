@@ -427,12 +427,14 @@ the machine writes one; `special` is `False`, never auto-played (DECISIONS 2026-
 **Selection**, one set of lists per team:
 
 ```rust
-pub struct Loaded { pub entry: SongEntry, /* once_spent: private */ }
+pub struct EntryId(/* private */);   // Copy, Eq: one entry of a team's lists, stable for the match
+pub struct Loaded { pub entry: SongEntry, /* id, once_spent: private */ }
+impl Loaded { pub fn id(&self) -> EntryId; }
 pub struct TeamLists { /* each slot's own entries, shrinking as entries unload; the `goal` slot's once */ }
 
 pub struct Press {
     pub side: Side,
-    pub skip: Option<usize>,   // the entry that just ended (`advance`): its index into `entries(slot)` as the list stood when the press began
+    pub skip: Option<EntryId>, // the entry that just ended (`advance`)
     pub after_warcry: bool,    // a warcry already played for this press: warcries are passed over
 }
 
@@ -461,6 +463,10 @@ impl TeamLists {
   `entries(slot)` as it stands after the press's unloads, or `None` for "no song found"; the
   caller plays `entries(slot)[i].entry`. The random pick is the caller's: `pick(n)` returns an
   index below `n` (the scenario tests are deterministic, the player passes its RNG).
+- The entry that ended is named by its `EntryId`, not by its index: between a song's start
+  and the `advance` press at its end, another button's press can unload an earlier entry of
+  the shared fallback, and an index would then name another entry or none. The id is given
+  at load and never reused, so it names the same entry for the whole match.
 - `needs_goal_minute` is the same walk on the lists as they stand, changing nothing: whether
   it reaches a `time` condition (under `not` too) while `state.goal_minute` is `None`. The view
   asks it, prompts when it says so, sets the minute, then calls `select`; the walk up to the
@@ -989,7 +995,9 @@ Parsing/validation CLI lives with the [Music export editor](music_export_editor.
   the lowercased stem (Rigdio keeps its case, which nothing compares case-sensitively); a
   song in a subfolder looked up case-insensitively, its `_normalized` companion with it
   (Rigdio's `songCheck` lists the export's own folder only, `rigparse.py:176-199`; no export
-  on the machine has a subfolder). The player's controls get the same audit when its
+  on the machine has a subfolder); a warcry plays again on the button's next press even when
+  the follow-up after it found nothing (Rigdio then skips that button's warcries for the
+  rest of the match, a latch no author relies on). The player's controls get the same audit when its
   Acceptance section is written (DECISIONS 2026-10-21).
 
 ## Testing
