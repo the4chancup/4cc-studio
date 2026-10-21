@@ -38,6 +38,13 @@ The sidebar lists the registered tools in registry order (today the Team compile
 editor, the Export upgrader), then the planned ones in parentheses here, grayed in the window
 ("Sidebar").
 
+**The window's size.** Studio opens at about half the monitor's width and half its height,
+centered, not maximized; the fractions are tuned once the views have been seen at that size.
+Every view is laid out to work at it, which is why the drafts draw their UI in a window of
+that size ("Prototypes before implementation"). The monitor's size is known only once the
+window exists (`ViewportInfo::monitor_size`), so the shell sizes and centers it on its first
+frame (`ViewportCommand::InnerSize`, `OuterPosition`).
+
 The shell draws only what is its own. Panels claim space in call order, so the status bar is
 added first to span the full width, the sidebar next, and the central panel, whatever is left,
 is handed to the active tool's `view()`:
@@ -199,12 +206,18 @@ Like the settings menu it is **assembled from the tools**, not written centrally
   `[text](tool-id#topic-slug)` so a topic can point at another tool's topic without knowing where
   it renders.
 - **Window.** An in-app egui window — non-modal and resizable, chapter tree left, rendered topic
-  right, the search box above both. Its position and size hold while the program runs (egui
+  right, the search box above both. It first opens at 90% of Studio's window, centered in it,
+  so it fits whatever size that window has ("Shell layout", The window's size), rather than at
+  a fixed size a small window cuts off. Its position and size hold while the program runs (egui
   keeps a window's rectangle by its id, across a close and a reopen), not across restarts: a
   settings field written at every drag's end is a settings save per move for a reader opened
   now and then. Opening it closes a shell modal (the settings menu, the About popup), which
   would otherwise cover it. Not a second OS window: egui's multi-viewport support
-  exists, but it adds a class of platform bugs that a text reader does not need. Rendering is
+  exists, but it adds a class of platform bugs that a text reader does not need (re-checked
+  2026-10-21 at egui 0.37: about 130 open issues mention viewports, among them child windows
+  lost on a macOS Space switch, deferred ones not redrawing on Windows, and focus across
+  windows on Wayland), and no headless test reaches it, since a test draws the embedded
+  fallback. Rendering is
   `egui_commonmark` (CommonMark subset with tables, code blocks and links); a hand-rolled
   renderer was considered and rejected as a permanent maintenance item for a solved problem.
 - **CLI equivalence.** `4cc-studio help [tool-id] [topic]` prints the Markdown to stdout, and
@@ -436,6 +449,16 @@ to the table first (a new dependency, asked for first):
 - **Look:** one shared stylesheet in Studio's dark theme, so every draft looks like Studio and
   the drafts look like one another. Drafts are not reviewed in the light theme, which is
   second-class.
+- **Size:** the UI is drawn inside a simulated window of the window's default size ("Shell
+  layout": half the screen each way, from the browser's `screen` size), centered on a
+  desktop-colored page, with a size choice (50, 60, 75 or 100% of the monitor) and the draft
+  controls outside it. Like Studio Web's window ("Browser deployment: Studio Web") it resizes
+  from its bottom-right corner and maximizes to the page from its title bar (a button, or a
+  double-click on the bar), and the bar above it reads its size live, in pixels and as a
+  share of the monitor, which is how the default size is tuned. A full-page draft in a maximized browser shows room the real window
+  does not have. The frame is the harness, not the UI, like the draft controls; its CSS
+  transform makes the fixed-position menus and dialogs place themselves inside it, as egui's
+  do in the window.
 
 A draft is one self-contained HTML file (its script and styles inline), so it can be sent as a
 single attachment; its behavior is faked with sample data, never wired to the real libs. The
@@ -501,6 +524,19 @@ via the browser's File System Access API (`showDirectoryPicker`).
 | Desktop-only by construction | Match tracker (Win32 memory), Player aesthetics editor's Blender launch, self-update, elevation, live folder watching | Not offered; the WASM build hides them (saved-match viewing stays available — see the Match tracker plan) |
 
 Differences from the desktop build:
+- **A window on the page, not the page.** The browser is usually maximized, and the views are
+  laid out for the desktop window's size ("Shell layout"), so stretched over the whole page
+  they turn sparse. Studio Web draws the same shell (sidebar, tool view, status bar) inside one
+  `egui::Window` titled "4cc Studio" over a plain backdrop, at the desktop window's default
+  size, centered, movable and resizable, with a maximize button in its title bar that pins it
+  to the whole page (`fixed_rect`) and restores the earlier rectangle. One shell function draws
+  into either host: the desktop's root `Ui`, or this window's (`Panel::show` takes any `Ui`
+  since egui 0.34). Not a window manager of one window per tool: on the desktop the system's
+  window manager already does that job and Studio shows one tool at a time, and the page
+  keeps the same one-tool shell. The floating windows (the shell's help and settings, the
+  Save editor's panels) are the egui context's, not Studio's window's, so they float over the
+  whole page rather than inside it, as a second desktop window would; a modal dims the whole
+  page.
 - **No folder watching**: browsers don't support `notify`. The user picks their exports folder
   manually; a "Rescan" button replaces the automatic watcher.
 - **File access is permission-gated**: the user must grant access to each folder (exports, output,

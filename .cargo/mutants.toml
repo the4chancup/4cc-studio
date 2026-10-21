@@ -13,6 +13,13 @@
 additional_cargo_args = ["--jobs", "-9"]
 additional_cargo_test_args = ["--", "--test-threads=7"]
 
+# A mutant's tests time out at three times the baseline's test time, not cargo-mutants' default
+# five: a hung mutant holds its job that long before the next starts. At 2026-10-21's
+# `mutants-diff 12ffa8c3` ten mutants hung a `while`-loop test helper, each for 1048 s (5 x a
+# 209 s baseline) where a passing mutant took about 135 s; three times still leaves a starved
+# low-priority local run (RUNBOOK "Mutation runs") over four times a mutant's usual time.
+timeout_multiplier = 3.0
+
 # Each run copies the source tree to a `%TEMP%` build directory, and by default the copy includes
 # gitignored files: the session scratch `.tmp/` (17 GB of archived runs and probes at 3.8) filled
 # the disk and killed both of 3.7's diff runs. No test reads a gitignored file.
@@ -234,4 +241,9 @@ exclude_re = [
     # to 0, so `offset.y == max_offset` beside it already holds. `body` has no other `<`;
     # `< 0.0` -> `==` stays measured (`a_log_shorter_than_the_view_shows_no_jump_button`).
     "studio_core/src/widgets/log_panel\\.rs:\\d+:\\d+: replace < with <= in body",
+    # team_widgets (mutants-diff 12ffa8c3, worklog 8.8): `bound`'s `value > bound` -> `>=` is
+    # equivalent: `bound` words a violation `logic.rhai`'s `misses` emitted, which is
+    # `value > target` for an `at_most` name and `value != target` otherwise, so no violation
+    # it words has `value == bound`. `bound` has no other comparison.
+    "team_widgets/src/violations\\.rs:\\d+:\\d+: replace > with >= in bound",
 ]

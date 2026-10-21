@@ -20,6 +20,7 @@
 -->
 <style>
   :root {
+    color-scheme: dark;
     --panel: #1b1b1b; --extreme: #0a0a0a; --faint: #202020; --widget: #3c3c3c;
     --hover: #464646; --active: #373737; --stroke: #3c3c3c; --text: #8c8c8c;
     --strong: #dcdcdc; --sel-bg: #005c80; --sel-fg: #c0deff; --link: #5aaaff;
@@ -28,10 +29,29 @@
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    background: var(--panel); color: var(--text);
+    background: #3a3f47; color: var(--text);
     font: 300 12.5px "Ubuntu", "Segoe UI", sans-serif;
-    display: flex; flex-direction: column; overflow: hidden;
+    display: flex; flex-direction: column; align-items: flex-start; overflow: auto;
   }
+  /* The simulated window: Studio's window at its default size (plans/core/gui.md "Shell
+     layout"), on a desktop-colored page, so the draft shows what fits at that size. The
+     harness, not the UI, like the draft controls. Its transform makes the fixed-position
+     menus, dialogs and the help window place themselves inside it, as egui's do. */
+  .win { flex: none; margin: 8px 16px 12px; width: var(--win-w, 50vw); height: var(--win-h, 50vh);
+    display: flex; flex-direction: column; overflow: hidden; position: relative;
+    transform: translateZ(0); background: var(--panel);
+    border: 1px solid #000; box-shadow: 0 8px 32px #000c; }
+  /* Resizable from its bottom-right corner, and maximized to fill the page by the title
+     bar's button or a double-click on the bar, as Studio Web's window is (plans/core/gui.md
+     "Browser deployment: Studio Web"); the size bar above reads its size live. */
+  .win { resize: both; min-width: 480px; min-height: 320px; }
+  .win.max { position: fixed; inset: 0; margin: 0; width: auto !important; height: auto !important;
+    resize: none; z-index: 1000; border: none; }
+  .titlebar { align-items: center; }
+  .titlebar .win-title { flex: 1; }
+  .titlebar .win-max { padding: 0 6px; line-height: 1; }
+  .win-size, .draft-controls { align-self: stretch; }
+  .win-size { padding: 4px 8px 0; display: flex; gap: 8px; align-items: center; }
   .top, .bottom { background: var(--panel); padding: 3px 8px; display: flex; gap: 8px; align-items: center; }
   .top { border-bottom: 1px solid var(--stroke); }
   .bottom { border-top: 1px solid var(--stroke); min-height: 26px; }
@@ -158,7 +178,9 @@
 </style>
 </head>
 <body>
+<div class="win-size" id="win-size"></div>
 <div class="draft-controls" id="draft-controls"></div>
+<div class="win" id="win">
 <div class="titlebar" id="titlebar"></div>
 <div class="main">
   <div class="rail sidebar" id="sidebar"></div>
@@ -167,8 +189,73 @@
 <div class="bottom" id="bottom"><span id="status-left"></span><span id="status-middle"></span><span id="status-right"></span></div>
 <div id="help-layer"></div>
 <div id="overlay"></div>
+</div>
 <script>
 "use strict";
+
+// ---- The simulated window (the harness, not the UI) ----
+// Studio's window opens at half the monitor's width and height (plans/core/gui.md
+// "Shell layout"); the draft draws the UI at that size, so what fits here is what
+// fits there. `screen` is in CSS pixels, which match egui's points at the same
+// scale factor (browser zoom at 100%). The other fractions try a bigger default.
+const WIN_FRACTIONS = [0.5, 0.6, 0.75, 1];
+function sizeWindow(fraction) {
+  const win = document.getElementById("win");
+  win.classList.remove("max");
+  win.style.width = ""; win.style.height = "";
+  win.style.setProperty("--win-w", Math.round(screen.width * fraction) + "px");
+  win.style.setProperty("--win-h", Math.round(screen.height * fraction) + "px");
+  const bar = document.getElementById("win-size");
+  bar.innerHTML = "";
+  const pick = document.createElement("select");
+  for (const f of WIN_FRACTIONS) {
+    const o = document.createElement("option");
+    o.value = f; o.textContent = Math.round(f * 100) + "% of the monitor";
+    o.selected = f === fraction;
+    pick.append(o);
+  }
+  pick.onchange = () => sizeWindow(Number(pick.value));
+  const label = document.createElement("span");
+  label.className = "weak"; label.id = "win-size-label";
+  bar.append(pick, label);
+  sizeLabel();
+}
+// The size readout, kept live while the corner is dragged, so a default can be read off a
+// size that feels right: the window's size and its share of the monitor.
+function sizeLabel() {
+  const win = document.getElementById("win"), label = document.getElementById("win-size-label");
+  if (!label) return;
+  const w = win.offsetWidth, hgt = win.offsetHeight;
+  label.textContent = "Window " + w + " × " + hgt + ", " + Math.round(100 * w / screen.width) + "% × "
+    + Math.round(100 * hgt / screen.height) + "% of the monitor (" + screen.width + " × " + screen.height + ")"
+    + (win.classList.contains("max") ? ", maximized" : "; drag its bottom-right corner to resize");
+}
+new ResizeObserver(sizeLabel).observe(document.getElementById("win"));
+// The title bar's maximize button, the window's own chrome rather than a Studio widget: it
+// fills the page, and pressed again restores the size the window had.
+function toggleMax() {
+  const win = document.getElementById("win");
+  win.classList.toggle("max");
+  const title = win.classList.contains("max") ? "Restore" : "Maximize";
+  document.querySelectorAll(".win-max").forEach(b => { b.title = title; });
+  sizeLabel();
+}
+function maxButton() {
+  const b = document.createElement("button");
+  b.className = "win-max";
+  b.textContent = "\u25a1";
+  b.title = document.getElementById("win").classList.contains("max") ? "Restore" : "Maximize";
+  b.onclick = e => { e.stopPropagation(); toggleMax(); };
+  return b;
+}
+document.getElementById("titlebar").addEventListener("dblclick", toggleMax);
+sizeWindow(WIN_FRACTIONS[0]);
+// A menu or popup placed from a pointer or a button's rect: viewport coordinates
+// turned into the simulated window's, where its fixed position is measured.
+function inWin(x, y) {
+  const win = document.getElementById("win"), r = win.getBoundingClientRect();
+  return [x - r.left - win.clientLeft, y - r.top - win.clientTop];
+}
 
 // ---- Widgets (each one an egui widget); the helpers of ruleset_editor.html ----
 const open = new Set();     // the paths of open collapsing headers
@@ -213,12 +300,13 @@ function menu(label, items, opts = {}) {
     e.stopPropagation();
     closeMenus();
     const r = e.target.getBoundingClientRect();
-    const m = h("div", { class: "menu", style: `left:${r.left}px; top:${r.bottom + 2}px` },
+    const [left, top] = inWin(r.left, r.top), below = top + r.height + 2;
+    const m = h("div", { class: "menu", style: `left:${left}px; top:${below}px` },
       items.map(([text, fn, disabled, title]) => text === "-" ? h("div", { class: "sep", style: "margin:3px 0" })
         : h("button", { disabled, title, onclick: ev => { ev.stopPropagation(); closeMenus(); fn(); } }, text)));
-    document.body.append(m);
-    const bottom = m.getBoundingClientRect().bottom;
-    if (bottom > window.innerHeight) m.style.top = Math.max(4, r.top - m.offsetHeight - 2) + "px";
+    const win = document.getElementById("win");
+    win.append(m);
+    if (below + m.offsetHeight > win.clientHeight) m.style.top = Math.max(4, top - m.offsetHeight - 2) + "px";
   } }, label + " ⏷");
 }
 function closeMenus() { document.querySelectorAll(".menu").forEach(m => m.remove()); }
@@ -257,7 +345,7 @@ const S = { activeTool: "team-compiler", sidebarCollapsed: false, pesVersion: "2
   // Help window (gui.md "Help window"): open target (HelpTarget's shape plus the
   // draft's extras), its geometry remembered across closes, and the panes'
   // scroll positions kept across render() rebuilds.
-  help: null, helpWindow: { x: 120, y: 80, w: 760, h: 480 }, helpScroll: { tree: 0, topic: 0 },
+  help: null, helpWindow: null, helpScroll: { tree: 0, topic: 0 },
   // Log panel (gui.md "Log panel"): the Team compiler's lines { severity, code,
   // scope, text }; its height, collapse and filter; the auto-scroll's stick, the
   // count of lines arrived while paused, the body's scrollTop kept across
@@ -527,6 +615,14 @@ function drawHelp() {
   const oldInput = layer.querySelector(".help-search");
   const hadFocus = oldInput && document.activeElement === oldInput;
   const caret = hadFocus ? oldInput.selectionStart : 0;
+  // Opened first at 90% of Studio's window, centered in it; then where the member left
+  // it (plans/core/gui.md "Help window").
+  if (!S.helpWindow) {
+    const area = document.getElementById("win");
+    const w = Math.round(area.clientWidth * 0.9), hgt = Math.round(area.clientHeight * 0.9);
+    S.helpWindow = { x: Math.round((area.clientWidth - w) / 2),
+      y: Math.round((area.clientHeight - hgt) / 2), w, h: hgt };
+  }
   const geo = S.helpWindow;
   const closeBtn = button("×", closeHelp, { frame0: true, title: "Close" });
   const win = h("div", { class: "window help-win",
@@ -641,7 +737,10 @@ function drawHelpResults(right) {
 // S.helpWindow.x/y.
 function startHelpDrag(e, win) {
   if (e.button !== 0) return;
-  const dx = e.clientX - win.offsetLeft, dy = e.clientY - win.offsetTop;
+  // The fixed position's own left/top, measured in the simulated window (a fixed
+  // element's offsetLeft is not, in every browser).
+  const at = () => [parseFloat(getComputedStyle(win).left), parseFloat(getComputedStyle(win).top)];
+  const [x0, y0] = at(), dx = e.clientX - x0, dy = e.clientY - y0;
   const move = ev => {
     win.style.left = Math.max(0, ev.clientX - dx) + "px";
     win.style.top = Math.max(0, ev.clientY - dy) + "px";
@@ -649,7 +748,7 @@ function startHelpDrag(e, win) {
   const up = () => {
     document.removeEventListener("mousemove", move);
     document.removeEventListener("mouseup", up);
-    S.helpWindow.x = win.offsetLeft; S.helpWindow.y = win.offsetTop;
+    [S.helpWindow.x, S.helpWindow.y] = at();
   };
   document.addEventListener("mousemove", move);
   document.addEventListener("mouseup", up);
@@ -1310,7 +1409,7 @@ function setTitle() {
   document.title = t;
   const tb = document.getElementById("titlebar");
   tb.innerHTML = "";
-  tb.append(weak("Window title:"), t);
+  tb.append(h("span", { class: "win-title" }, t), maxButton());
 }
 function structural() { render(); }
 function render() {

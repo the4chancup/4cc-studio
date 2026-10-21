@@ -234,6 +234,11 @@ Requirements:
   fixture's value coincides, a skipped write passes the test. Three review rounds
   at step 5.1d found such tests, among them one that compared a name against a different player
   and one that swapped two roster slots without moving the player it patched.
+- **A test fails, it never hangs.** A loop that waits for a condition (frames until a state
+  shows, Ctrl+Z until the undo stack is empty) has a bound and panics past it, naming what
+  never happened. Broken code then fails in seconds; unbounded, it spins until the mutation
+  run's timeout: at 2026-10-21's `mutants-diff 12ffa8c3` one such helper hung ten mutants for
+  17 minutes each.
 - **A test never reaches the developer's own files.** A setting whose default finds something on
   the machine (`savefile_path = auto` walks Documents\KONAMI, `pes_folder_path` names the real
   install) is set to a path under the test's own folder by every test context that runs the

@@ -2271,3 +2271,6 @@ worklog passed 7,000 lines.
   widget for both hosts; `aatf::ViolationKind::rule` shared with the CLI. 8.8b's review S1 folded in (PES 15 tested).
 - **2026-10-21** — 8.9a: the Save editor's window opens a save, lists its players across teams in their names' colors,
   edits the info strip with undo and redo (one step per gesture), marks unsaved players and saves, refused while the game runs.
+- **2026-10-21** — Reviews closed on the color picker (8.7b) and `team_widgets` (8.8); 8.9a's first rework makes the
+  player list draw only its visible rows (27.7 ms to 0.22 ms a frame) and refuses names the save cannot hold. The drafts
+  draw in a resizable window of Studio's default size (half the monitor); egui 0.37 queued as 8.11.

@@ -164,6 +164,15 @@ mirroring 4ccEditor's structure without its dialog sprawl:
     styles, up to 41 skill checkboxes (version-gated), ~25 ability stats with
     spinners, playstyle / registered position / form / injury / weak foot,
     version-gated extras (star 19+, playing attitude & stronger hand 20+).
+    Its numbers are the game's, in 4ccEditor's ranges: abilities 40 to 99, form 1 to 8,
+    injury resistance 1 to 3, weak foot usage and accuracy 1 to 4 (these four stored one
+    lower), star 0 to 7, playing attitude 0 to 3, each inside the field's bit width on every
+    version. A value the save holds outside its range shows as stored and changes only when
+    the member edits it: drawing a player never edits him (an egui number control clamps the
+    value it draws unless told not to, which would mark him unsaved on sight). The skills'
+    **Cards left** badges are the active ruleset's, the one `check-aatf` runs (the
+    `aatf_rules` setting's file, else the official one), one badge per tier; a file that does
+    not load shows its error in the badges' place.
   - **Appearance** — edit flags (face/hair/physique/strip, base copy + copy-from
     ID), physique sliders (14 values), colors (wrist tape L/R, spectacles), strip
     style (boots ID, gloves ID — any player's, 0 = normal hands — taping, spectacles,
@@ -187,7 +196,16 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   entry and his roster slot's shirt number.
 - Keyboard shortcuts preserved where they earn their keep (Ctrl+S save, Ctrl+F
   clear visual flags, Ctrl+I FPC toggle).
-- Closing, or opening another save, with unsaved changes prompts.
+- Closing, or opening another save, with unsaved changes prompts: save, discard or cancel,
+  over a table of what would be saved or lost, columns Item, Old value and New value (the
+  table spans the prompt's width, the two value columns sharing its right part), one row
+  per changed field against the file as opened or last saved (the dots' baseline, so an edit
+  undone back is not listed), the players' rows first, then the teams' own fields. A row is
+  worded as the Comparator panel's are, in the tabs' terms: the item is the player's display
+  name (or the team's name) and the field's tab label, the values as that tab shows them.
+  The table is computed when the prompt opens, not per frame; players through
+  `pes_savefile`'s `compare_players`, teams through a team twin of it over the team, roster
+  and tactics schemas.
 - Save is refused while the save's own PES runs, as the CLI's writing commands are (the game
   writes its save back when it closes, over the one just written); another version's game does
   not block it.
@@ -523,7 +541,10 @@ SE-GUI-04  GIVEN two edits made in order
                 then the second is reapplied; the file changes only on Save
 SE-GUI-05  GIVEN the save open with unsaved changes
            WHEN the window is closed, or another save opened
-           THEN a prompt offers to save, discard or cancel: cancel leaves the session as it
+           THEN a prompt offers to save, discard or cancel over a table of the changes, one
+                row per changed field (GIVEN a player's Height and Speed edited and a third
+                field edited then undone THEN two rows, each naming him and the field with its
+                old and new value as the tab shows them); cancel leaves the session as it
                 was; save writes the edits to the open file, then closes or opens the other
                 save; discard closes or opens it and the open file is unchanged; GIVEN the
                 Team compiler's view active when the window is closed THEN the close waits,

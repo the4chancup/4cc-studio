@@ -63,6 +63,7 @@
 -->
 <style>
   :root {
+    color-scheme: dark;
     --panel: #1b1b1b; --extreme: #0a0a0a; --faint: #202020; --widget: #3c3c3c;
     --hover: #464646; --active: #373737; --stroke: #3c3c3c; --text: #8c8c8c;
     --strong: #dcdcdc; --sel-bg: #005c80; --sel-fg: #c0deff; --link: #5aaaff;
@@ -71,10 +72,29 @@
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
   body {
-    background: var(--panel); color: var(--text);
+    background: #3a3f47; color: var(--text);
     font: 300 12.5px "Ubuntu", "Segoe UI", sans-serif;
-    display: flex; flex-direction: column; overflow: hidden;
+    display: flex; flex-direction: column; align-items: flex-start; overflow: auto;
   }
+  /* The simulated window: Studio's window at its default size (plans/core/gui.md "Shell
+     layout"), on a desktop-colored page, so the draft shows what fits at that size. The
+     harness, not the UI, like the draft controls. Its transform makes the fixed-position
+     menus, dialogs and panels place themselves inside it, as egui's do in the window. */
+  .win { flex: none; margin: 8px 16px 12px; width: var(--win-w, 50vw); height: var(--win-h, 50vh);
+    display: flex; flex-direction: column; overflow: hidden; position: relative;
+    transform: translateZ(0); background: var(--panel);
+    border: 1px solid #000; box-shadow: 0 8px 32px #000c; }
+  /* Resizable from its bottom-right corner, and maximized to fill the page by the title
+     bar's button or a double-click on the bar, as Studio Web's window is (plans/core/gui.md
+     "Browser deployment: Studio Web"); the size bar above reads its size live. */
+  .win { resize: both; min-width: 480px; min-height: 320px; }
+  .win.max { position: fixed; inset: 0; margin: 0; width: auto !important; height: auto !important;
+    resize: none; z-index: 1000; border: none; }
+  .titlebar { align-items: center; }
+  .titlebar .win-title { flex: 1; }
+  .titlebar .win-max { padding: 0 6px; line-height: 1; }
+  .win-size, .draft-controls { align-self: stretch; }
+  .win-size { padding: 4px 8px 0; display: flex; gap: 8px; align-items: center; }
   .top, .bottom { background: var(--panel); padding: 3px 8px; display: flex; gap: 8px; align-items: center; }
   .top { border-bottom: 1px solid var(--stroke); }
   .bottom { border-top: 1px solid var(--stroke); min-height: 26px; height: 24px; padding-top: 0; padding-bottom: 0; overflow: hidden; }
@@ -115,6 +135,8 @@
   table.grid td, table.grid th { padding: 2px 4px; text-align: left; vertical-align: middle; }
   table.grid td > .row, table.grid td > span > .row { flex-wrap: nowrap; }
   table.grid th { font-weight: 400; color: var(--strong); }
+  #unsaved-changes { width: 100%; }
+  #unsaved-changes th:nth-child(n+2), #unsaved-changes td:nth-child(n+2) { width: 30%; }
   details { margin: 2px 0 4px; }
   details > summary { cursor: default; color: var(--strong); list-style: none; }
   details > summary::before { content: "\25B6"; font-size: 9px; display: inline-block; width: 14px; }
@@ -249,7 +271,9 @@
 </style>
 </head>
 <body>
+<div class="win-size" id="win-size"></div>
 <div class="draft-controls" id="draft-controls"></div>
+<div class="win" id="win">
 <div class="titlebar" id="titlebar"></div>
 <div class="main">
   <div class="rail sidebar" id="sidebar"></div>
@@ -257,8 +281,73 @@
 </div>
 <div class="bottom" id="bottom"><span id="status-left"></span><span id="status-middle"></span><span id="status-right"></span></div>
 <div id="overlay"></div>
+</div>
 <script>
 "use strict";
+
+// ---- The simulated window (the harness, not the UI) ----
+// Studio's window opens at half the monitor's width and height (plans/core/gui.md
+// "Shell layout"); the draft draws the UI at that size, so what fits here is what
+// fits there. `screen` is in CSS pixels, which match egui's points at the same
+// scale factor (browser zoom at 100%). The other fractions try a bigger default.
+const WIN_FRACTIONS = [0.5, 0.6, 0.75, 1];
+function sizeWindow(fraction) {
+  const win = document.getElementById("win");
+  win.classList.remove("max");
+  win.style.width = ""; win.style.height = "";
+  win.style.setProperty("--win-w", Math.round(screen.width * fraction) + "px");
+  win.style.setProperty("--win-h", Math.round(screen.height * fraction) + "px");
+  const bar = document.getElementById("win-size");
+  bar.innerHTML = "";
+  const pick = document.createElement("select");
+  for (const f of WIN_FRACTIONS) {
+    const o = document.createElement("option");
+    o.value = f; o.textContent = Math.round(f * 100) + "% of the monitor";
+    o.selected = f === fraction;
+    pick.append(o);
+  }
+  pick.onchange = () => sizeWindow(Number(pick.value));
+  const label = document.createElement("span");
+  label.className = "weak"; label.id = "win-size-label";
+  bar.append(pick, label);
+  sizeLabel();
+}
+// The size readout, kept live while the corner is dragged, so a default can be read off a
+// size that feels right: the window's size and its share of the monitor.
+function sizeLabel() {
+  const win = document.getElementById("win"), label = document.getElementById("win-size-label");
+  if (!label) return;
+  const w = win.offsetWidth, hgt = win.offsetHeight;
+  label.textContent = "Window " + w + " × " + hgt + ", " + Math.round(100 * w / screen.width) + "% × "
+    + Math.round(100 * hgt / screen.height) + "% of the monitor (" + screen.width + " × " + screen.height + ")"
+    + (win.classList.contains("max") ? ", maximized" : "; drag its bottom-right corner to resize");
+}
+new ResizeObserver(sizeLabel).observe(document.getElementById("win"));
+// The title bar's maximize button, the window's own chrome rather than a Studio widget: it
+// fills the page, and pressed again restores the size the window had.
+function toggleMax() {
+  const win = document.getElementById("win");
+  win.classList.toggle("max");
+  const title = win.classList.contains("max") ? "Restore" : "Maximize";
+  document.querySelectorAll(".win-max").forEach(b => { b.title = title; });
+  sizeLabel();
+}
+function maxButton() {
+  const b = document.createElement("button");
+  b.className = "win-max";
+  b.textContent = "\u25a1";
+  b.title = document.getElementById("win").classList.contains("max") ? "Restore" : "Maximize";
+  b.onclick = e => { e.stopPropagation(); toggleMax(); };
+  return b;
+}
+document.getElementById("titlebar").addEventListener("dblclick", toggleMax);
+sizeWindow(WIN_FRACTIONS[0]);
+// A menu or popup placed from a pointer or a button's rect: viewport coordinates
+// turned into the simulated window's, where its fixed position is measured.
+function inWin(x, y) {
+  const win = document.getElementById("win"), r = win.getBoundingClientRect();
+  return [x - r.left - win.clientLeft, y - r.top - win.clientTop];
+}
 
 // ---- Widgets (each one an egui widget); the helpers of shell.html ----
 const open = new Set();
@@ -303,12 +392,13 @@ function menu(label, items, opts = {}) {
     e.stopPropagation();
     closeMenus();
     const r = e.target.getBoundingClientRect();
-    const m = h("div", { class: "menu", style: `left:${r.left}px; top:${r.bottom + 2}px` },
+    const [left, top] = inWin(r.left, r.top), below = top + r.height + 2;
+    const m = h("div", { class: "menu", style: `left:${left}px; top:${below}px` },
       items.map(([text, fn, disabled, title]) => text === "-" ? h("div", { class: "sep", style: "margin:3px 0" })
         : h("button", { disabled, title, onclick: ev => { ev.stopPropagation(); closeMenus(); fn(); } }, text)));
-    document.body.append(m);
-    const bottom = m.getBoundingClientRect().bottom;
-    if (bottom > window.innerHeight) m.style.top = Math.max(4, r.top - m.offsetHeight - 2) + "px";
+    const win = document.getElementById("win");
+    win.append(m);
+    if (below + m.offsetHeight > win.clientHeight) m.style.top = Math.max(4, top - m.offsetHeight - 2) + "px";
   } }, label + " ⏷");
 }
 function closeMenus() { document.querySelectorAll(".menu").forEach(m => m.remove()); }
@@ -2488,11 +2578,57 @@ function saveAs() {
 }
 
 // ---- The prompts and notices ----
-// SE-GUI-05: save, discard or cancel before another save opens.
-// sample wording: the prompt's text.
+// SE-GUI-05: save, discard or cancel before another save opens, over the list
+// of what would be saved or lost: one row per changed field against the file as
+// opened or last saved (the dots' baseline), players then teams' own fields.
+// The real view words a row in the tabs' terms (the Comparator panel's rule);
+// the draft's labels are the model's keys title-cased and its values stored.
+// sample wording: the prompt's text and the column heads.
+function flatDiff(a, b, path, out) {
+  if (a !== null && b !== null && typeof a === "object" && typeof b === "object") {
+    for (const k of new Set([...Object.keys(a), ...Object.keys(b)]))
+      flatDiff(a[k], b[k], path.concat(k), out);
+  } else if (JSON.stringify(a) !== JSON.stringify(b)) {
+    out.push([path, a, b]);
+  }
+}
+function changeLabel(path) {
+  const named = path.filter(k => !/^\d+$/.test(k));
+  const index = path.filter(k => /^\d+$/.test(k)).map(k => Number(k) + 1);
+  return titleCase(named[named.length - 1] || "") + (index.length ? " " + index.join(".") : "");
+}
+function unsavedChanges() {
+  const base = JSON.parse(S.baseline);
+  const rows = [];
+  for (const t of S.save.teams) {
+    const bt = base.find(x => x.id === t.id);
+    if (!bt) continue;
+    for (const p of t.players) {
+      const bp = bt.players.find(x => x.id === p.id);
+      if (!bp) continue;
+      const out = []; flatDiff(bp, p, [], out);
+      for (const [path, o, n] of out)
+        rows.push([displayName(p.name) + " · " + changeLabel(path), o, n]);
+    }
+  }
+  for (const t of S.save.teams) {
+    const bt = base.find(x => x.id === t.id);
+    if (!bt) continue;
+    const out = [];
+    flatDiff({ ...bt, players: undefined }, { ...t, players: undefined }, [], out);
+    for (const [path, o, n] of out) rows.push([t.name + " · " + changeLabel(path), o, n]);
+  }
+  return rows;
+}
 function drawUnsavedPrompt(then) {
+  const show = v => v === undefined || v === null ? "" : typeof v === "object" ? JSON.stringify(v) : String(v);
+  const changes = h("table", { class: "grid", id: "unsaved-changes" },
+    h("tr", {}, h("th", {}, "Item"), h("th", {}, "Old value"), h("th", {}, "New value")),
+    unsavedChanges().map(([item, o, n]) => h("tr", {},
+      h("td", {}, item), h("td", { class: "mono" }, show(o)), h("td", { class: "mono" }, show(n)))));
   window_("Unsaved changes", h("div", {},
     h("p", {}, "The open save has unsaved changes."),
+    h("div", { style: "max-height:240px; overflow:auto" }, changes),
     h("p", {}, weak("Save writes them to " + S.path + "; discard loses them."))),
     [button("Save", () => { closeWindow(); saveFile(); if (!D.gameRunning) { then(); } render(); }),
      button("Discard", () => { closeWindow(); then(); render(); }),
@@ -2659,7 +2795,7 @@ function setTitle() {
   document.title = t;
   const tb = document.getElementById("titlebar");
   tb.innerHTML = "";
-  tb.append(weak("Window title:"), t);
+  tb.append(h("span", { class: "win-title" }, t), maxButton());
 }
 function render() {
   closeMenus();
@@ -3162,7 +3298,7 @@ function abilitiesTab(p) {
     const tr = h("tr", {});
     for (const s of ABILITY_STATS.slice(i, i + perRow)) {
       const minV = STAT_MIN_VERSION[s] || 15;
-      const inp = h("input", { type: "number", value: p.stats[s] ?? "", min: 0, max: 99,
+      const inp = h("input", { type: "number", value: p.stats[s] ?? "", min: 40, max: 99,
         onchange: e => { const v = parseInt(e.target.value, 10);
           if (!Number.isNaN(v)) { set(p, x => x.stats[s], (x, v2) => x.stats[s] = v2, v, s); render(); } } });
       tr.append(h("td", {}, gated(h("span", {}, STAT_LABEL[s] + " ", inp), minV)));
@@ -3202,7 +3338,7 @@ function abilitiesTab(p) {
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v)) { set(p, x => x.stats.star, (x, v2) => x.stats.star = v2, v, "star"); render(); } } })), 19));
   const att = h("td", {}, gated(h("span", {}, "Playing attitude ",
-    h("input", { type: "number", id: "f-attitude", value: p.stats.playing_attitude ?? 0, min: 0, max: 99,
+    h("input", { type: "number", id: "f-attitude", value: p.stats.playing_attitude ?? 0, min: 0, max: 3,
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v)) { set(p, x => x.stats.playing_attitude, (x, v2) => x.stats.playing_attitude = v2, v, "playing attitude"); render(); } } })), 20));
   const skills = h("table", { class: "grid skillgrid" });

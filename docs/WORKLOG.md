@@ -768,6 +768,13 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           the guard covers every registered tool (19 hits before, red). Files:
           `export_upgrader/src/messages.rs`, `save_editor/src/messages.rs`, `studio/src/main.rs`,
           `studio/tests/help_cli.rs`
+    - [ ] 8.6e the window opens at half the monitor each way, centered (`plans/core/gui.md`
+      "Shell layout", "The window's size"; the maintainer's request of 2026-10-21): its
+      scenario written into `plans/core/gui.md` "Acceptance" first (manual: it needs a
+      display), then the first frame's `InnerSize` and `OuterPosition`. The drafts already
+      draw at that size (2026-10-21). The help window first opens at 90% of the window,
+      centered (`plans/core/gui.md` "Help window"), replacing its fixed 720 x 480, which a
+      1080p monitor at 125% scaling (a 768 x 432 window) cuts off
   - [ ] 8.7 `color_tools`' colour-picker popup (`plans/libs/color_tools.md` Phase 8), the
     Save editor's team colours; the kit menu icons wait for the Team compiler's grid
     - [x] 8.7a the picker popup drawn in `docs/prototypes/save_editor.html`'s Team tab (the page
@@ -796,8 +803,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       reworked in rework 5: one rule where typed text meets a gesture (a press outside the
       focused field settles its text before anything draws; a field's focus loss never
       commits during a gesture; typing is no gesture), Escape cancelling a gesture, the
-      square's test sampling inside the painted triangles. A SWE-2 loop, then Astra's third
-      round. Files:
+      square's test sampling inside the painted triangles. Review S3 (SWE-2, 1 of 6; the loop
+      ends) reworked in rework 6: the settle's other cases tested. Review A3 (Astra on Devin
+      brother, 3 of 3; Astra's loop ends, the review done) reworked in rework 7: Tab between
+      R, G and B is one edit, committed when the focus leaves all three; the tap test types a
+      50% value and checks the exact pick; Escape's discard of typed text tested.
+      `mutants-diff 12ffa8c3` (reworks 4 to 6) caught every `color_tools` mutant. Files:
       `color_tools/{Cargo.toml,src/lib.rs,src/picker.rs}`, `scripts/doc_pointers.py`
       (`plans/libs/color_tools.md` listed as the open phase's)
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
@@ -835,12 +846,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       `rule()` tested in `aatf`; rework 3 pins the row's geometry (two mutation survivors).
       Files: `team_widgets/src/{lib.rs,violations.rs,test_support.rs,cards.rs}`,
       `aatf/src/{violation.rs,fixtures/official.rs}`, `save_editor/src/messages.rs`
-    - [ ] 8.8 review: Astra over 8.8b-c (one review, `.tmp/8_8/duck_rulings.md`); the SWE-2
+    - [x] 8.8 review: Astra over 8.8b-c (one review, `.tmp/8_8/duck_rulings.md`); the SWE-2
       loops ended (S1 2 of 7, S2 3 of 9). Review A1 (Astra on Codex own, 6 of 6 accepted)
       reworked in rework 4: the skills grid wraps at five, a card the version lacks stays
       disabled with a `PES NN+` tooltip, the sentences follow a value's direction and name
       what `MinCards` and a reserved name colour count (the draft's `violationSentence`
-      alike), a COM style's tick tested. A SWE-2 loop, then Astra's second round
+      alike), a COM style's tick tested. Review S3 (SWE-2, 3 of 7; the loop ends) reworked in
+      rework 5: one bound sentence for a maximum and an exact target. Review A2 (Astra on
+      Devin brother, 2 of 3; Astra's loop ends) reworked in rework 6: the playing-style test
+      asserts no change on idle, open and re-pick, the grid test writes its five. Done
+      2026-10-21. `mutants-diff 12ffa8c3`: one survivor, `bound`'s `>` to `>=`, equivalent
+      (`.cargo/mutants.toml`)
   - [ ] 8.9 the Save editor's view in the five slices of `plans/save_editor.md` "Build order
     and verification", with the `session/` wiring each needs (undo, selection, recent files,
     the FPC toggle, AATF quick actions) and the placeholders of 8.3 gone; each slice's SE-GUI
@@ -858,7 +874,16 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       `save_editor/{Cargo.toml,help/02_window.md,src/lib.rs,src/cli.rs,src/session/{mod.rs,
       selection.rs,undo.rs},src/view/{mod.rs,player_list.rs,info_strip.rs,tests.rs}}`,
       `pes_savefile/src/model/names.rs`, the root `Cargo.toml`
-      - [ ] review: a SWE-2 loop over 8.9a, then Astra
+      - [ ] review: a SWE-2 loop over 8.9a, then Astra. Review S1 (SWE-2, 4 of 13; the loop
+        ends, `.tmp/8_9/duck_rulings.md`) reworked in rework 1: the list lays out only its
+        visible rows (`show_rows`; a frame of the PES 2021 save's ALL list 27.7 ms before,
+        0.22 ms after, release), the running-game probe runs at Save only, the unsaved marker
+        is a flag the session keeps, a name or shirt name the codec would refuse is not taken
+        (`pes_savefile::model::names::player_text_fits`), a successful Save clears an earlier
+        refusal. `mutants-diff 12ffa8c3`'s six survivors killed; its ten timeouts came from a
+        test helper's unbounded Ctrl+Z loop, now bounded (CONTRIBUTING.md "A test fails, it
+        never hangs"; the timeout multiplier lowered to 3 in `.cargo/mutants.toml`). Astra
+        over 8.9a next
     - [ ] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
@@ -876,6 +901,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     and the Team compiler's view stops requesting repaints itself (`ToolContext::emit` wakes
     the GUI since 8.6b); the first tool that publishes a notice during a CLI command gets a
     binary test of ST-CLI-01's notice half (8.6b proves it through the printer's loop only)
+  - [ ] 8.11 egui 0.36.2 to 0.37 (`spec/core/gui.md` "egui version discipline"; agreed
+    2026-10-21), waiting on an `egui-phosphor` release for 0.37 (0.14.0, 2026-09-10, is
+    0.36's; `egui_commonmark` 0.26.0 shipped with egui 0.37). Run between two slices of 8.9,
+    with no sidekick in UI code. Why: 0.37 draws any glyph the system's fonts have (members'
+    names carry symbols, a Japanese team's names non-Latin text that the bundled fonts draw
+    as boxes). The work: `Id::new` and `AsId` deprecated or removed and `Ui::id` renamed
+    `scope_id` (deprecations are errors here); `default_fonts` no longer a default feature;
+    the AccessKit tree changed (the headless tests find widgets by role and label); the
+    picker's tests rerun with care, since 0.37 changes popups closing on release and
+    `DragValue` while typing; the drafts' look checked against 0.37's roomier buttons and
+    rounder corners; `egui_extras` and `egui_animation` to their 0.37 releases where used
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,

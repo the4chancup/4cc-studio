@@ -129,7 +129,8 @@ new format crate's fixture round-trip, says so). Omitting the section or an item
 violation, not an oversight. On the lead's side, every review before a commit includes two
 sweeps of the diff and re-runs the gates in the real workspace; the sidekick's pasted gate
 tails are a claim. The **honesty sweep** looks for a hidden failure: `#[allow`, `#[expect`,
-`#[ignore`, `.ok();`, `let _ =`, `drop(` on a `Result`, `unwrap_or_default`, `unwrap_or(`. The **design sweep** looks
+`#[ignore`, `.ok();`, `let _ =`, `drop(` on a `Result`, `unwrap_or_default`, `unwrap_or(`, and
+a `while` or `loop` in a test with no bound (`CONTRIBUTING.md`: a test fails, it never hangs). The **design sweep** looks
 for code that passes and is worse, the thing neither the gates nor a model's training penalize:
 `impl .* for` (a new trait: does it have two real implementors?), `dyn `, `_ =>` on one of our
 enums, `== Engine::`/`!= Engine::` (a test against one engine, which a third one would pass

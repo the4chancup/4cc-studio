@@ -308,7 +308,8 @@ def sized_config(
         )
     lines = []
     for key, value in config.items():
-        serializable = isinstance(value, (str, int, bool)) or (
+        # A float (`timeout_multiplier`) dumps as a TOML float: `3.0`, never `3`.
+        serializable = isinstance(value, (str, int, float, bool)) or (
             isinstance(value, list) and all(isinstance(item, str) for item in value)
         )
         if not serializable:

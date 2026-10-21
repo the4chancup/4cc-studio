@@ -9758,3 +9758,58 @@ Why: the game does not check the bytes are hex (nine PES 21 names carry `\x11ca0
 alpha of `ON`), and what it shows for a non-hex RGB is not measured; the normal color draws
 nothing invented.
 Plan: `plans/save_editor.md` "Editing UI", the Player list bullet.
+
+## 2026-10-21 — save_editor — The Abilities tab shows the game's numbers and never edits a player by drawing him
+Decision: the tab's controls use 4ccEditor's ranges at the game's numbers (abilities 40 to 99,
+form 1 to 8, injury resistance 1 to 3, weak foot 1 to 4, these four stored one lower; star 0
+to 7; playing attitude 0 to 3), and a stored value outside its range is drawn as stored, not
+clamped; the Cards left badges use the ruleset `check-aatf` runs.
+Why: field-level parity with 4ccEditor is the plan's verification, so a member reads the same
+number in both; egui's number control clamps the value it draws by default, which would mark
+every out-of-range player unsaved the moment he is selected; one ruleset for the badges and
+the check, not one each, or the badges and the check could disagree on the same player.
+Plan: `plans/save_editor.md` "Editing UI", the Abilities & Skills bullet.
+
+## 2026-10-21 — save_editor — The unsaved-changes prompt lists each changed field, old and new
+Decision: the save/discard/cancel prompt shows a table (Item, Old value, New value), one row
+per field that differs from the file as opened or last saved, players first, then the teams'
+own fields, worded in the tabs' terms as the Comparator panel's rows are; it is computed when
+the prompt opens, players through `compare_players` and teams through a team twin of it.
+Why: the maintainer asked for it (2026-10-21): a member deciding to discard should see what
+goes. Against the baseline, not the undo history, because the history lists edits that undo
+or redo cancelled out, which would not be saved or lost; per field, not per player, because
+"Snuffy changed" does not say what a discard loses; one wording rule with the Comparator, not
+a second one, so a field reads the same in both.
+Plan: `plans/save_editor.md` "Editing UI", the prompt bullet, and SE-GUI-05.
+
+## 2026-10-21 — gui — Studio opens at half the monitor, and the drafts draw at that size
+Decision: the window opens at about half the monitor's width and height, centered; every
+draft draws its UI inside a simulated window of that size (from the browser's `screen`),
+with a 50/60/75/100% choice and the draft controls outside it.
+Why: the maintainer asked for both (2026-10-21): a full-page draft in a maximized browser
+shows room the real window will not have, so a layout that fits there can be cramped in the
+app, and checking it meant restoring the browser by hand. The size comes from `screen`, not
+from fixed pixels, so the draft tracks the monitor it is opened on as the app will.
+Plan: `plans/core/gui.md` "Shell layout" (The window's size) and "Prototypes before
+implementation" (the Size bullet).
+
+## 2026-10-21 — gui — Studio Web draws Studio as a window on the page
+Decision: Studio Web draws the desktop shell inside one movable, resizable `egui::Window` at
+the desktop window's default size, centered over a plain backdrop, with a maximize button
+that pins it to the page; the floating windows stay the context's and float over the page.
+Why: the maintainer's idea (2026-10-21): a browser is usually maximized, and views laid out
+for a half-monitor window turn sparse across a whole page. One window, not one per tool (the
+window-manager idea, ruled not useful for the desktop on 2026-10-20 because the system's
+window manager does that job there): the page then shows exactly the desktop's shell, so a
+view is laid out once for both.
+Plan: `plans/core/gui.md` "Browser deployment: Studio Web", the first difference bullet.
+
+## 2026-10-21 — gui — The help window stays inside Studio and opens at 90% of it
+Decision: the help stays an in-app window, first opened at 90% of Studio's window and
+centered, not a fixed 720 x 480 and not a second OS window.
+Why: the maintainer weighed a separate OS window and chose this, after a check of egui's
+multi-viewport state at 0.37 (2026-10-21): about 130 open issues mention viewports, child
+windows still misbehave per platform, and the headless tests draw only the embedded
+fallback. A fixed size is cut off by a small window (a 1080p monitor at 125% scaling gives a
+768 x 432 one), and a share of the window fits any size it has.
+Plan: `plans/core/gui.md` "Help window", the Window bullet.
