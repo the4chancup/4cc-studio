@@ -13,7 +13,8 @@ pub struct ListedPlayer<'a> {
     /// The shirt number, as wide as `pes_savefile`'s `RosterSlot::number` (PES 19 on stores
     /// numbers past 99).
     pub number: u16,
-    /// The display name, colour codes included, drawn as plain text.
+    /// The name as the save stores it: the host passes the raw name (colour
+    /// codes included), the header draws it code-free.
     pub name: &'a str,
 }
 
@@ -124,45 +125,109 @@ fn group_header(ui: &mut egui::Ui, team: &TeamViolations<'_>, slot: Option<u8>) 
     let text = match slot {
         None => "the team".to_string(),
         Some(slot) => match team.players.iter().find(|p| p.slot == slot) {
-            Some(player) => format!("Player {}  {} {}", player.id, player.number, player.name),
+            Some(player) => format!(
+                "Player {}  {} {}",
+                player.id,
+                player.number,
+                pes_savefile::model::names::display_name(player.name)
+            ),
             None => format!("Slot {slot}"),
         },
     };
     ui.weak(text);
 }
 
-/// One row: the rule's name (monospace) and `sentence`, the severity's color.
-/// A player's row is clickable, returning `SelectedPlayer` on click.
+/// The rule name's column, the draft's `.f`: 190 points of proportional text,
+/// cut with an ellipsis when longer, never wrapping.
+const RULE_COL: f32 = 190.0;
+
+/// `text` laid out in `font`/`color`, wrapped as `wrap` says.
+fn layout(
+    ui: &egui::Ui,
+    text: String,
+    font: egui::FontId,
+    color: egui::Color32,
+    wrap: egui::text::TextWrapping,
+) -> std::sync::Arc<egui::Galley> {
+    let mut job =
+        egui::text::LayoutJob::single_section(text, egui::TextFormat::simple(font, color));
+    job.wrap = wrap;
+    ui.fonts_mut(|f| f.layout_job(job))
+}
+
+/// One row, the draft's `.drow`: the rule's name in `RULE_COL` points of
+/// severity-colored proportional text, one line cut with an ellipsis (the
+/// draft's `text-overflow: ellipsis`), then `sentence` in the strong text
+/// color, wrapped so a long custom check's text stays readable; the whole row
+/// one click target. A player's row
+/// returns `SelectedPlayer` on click; a team row only hovers.
 fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<SelectedPlayer> {
     let (rule, _) = violation.kind.rule();
-    let visuals = ui.visuals();
-    let color = match violation.severity {
-        aatf::Severity::Error => visuals.error_fg_color,
-        aatf::Severity::Warning => visuals.warn_fg_color,
-        aatf::Severity::Suggestion => visuals.text_color(),
+    let (rule_color, strong_color) = {
+        let visuals = ui.visuals();
+        (
+            match violation.severity {
+                aatf::Severity::Error => visuals.error_fg_color,
+                aatf::Severity::Warning => visuals.warn_fg_color,
+                aatf::Severity::Suggestion => visuals.text_color(),
+            },
+            visuals.strong_text_color(),
+        )
     };
-    let mut job = egui::text::LayoutJob::default();
-    job.append(
-        rule,
-        0.0,
-        egui::TextFormat::simple(egui::TextStyle::Monospace.resolve(ui.style()), color),
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    let rule_galley = layout(
+        ui,
+        rule.to_string(),
+        font.clone(),
+        rule_color,
+        egui::text::TextWrapping::truncate_at_width(RULE_COL),
     );
-    job.append(
-        &format!(" {}", sentence(violation)),
-        0.0,
-        egui::TextFormat::simple(egui::TextStyle::Body.resolve(ui.style()), color),
+    let text = sentence(violation);
+    let sentence_galley = layout(
+        ui,
+        text.clone(),
+        font,
+        strong_color,
+        egui::text::TextWrapping::wrap_at_width((ui.available_width() - RULE_COL).max(0.0)),
     );
+    let height = rule_galley.size().y.max(sentence_galley.size().y);
+    let (rect, response) = ui.allocate_exact_size(
+        egui::vec2(ui.available_width(), height),
+        if violation.slot.is_some() {
+            egui::Sense::click()
+        } else {
+            egui::Sense::hover()
+        },
+    );
+    if ui.is_rect_visible(rect) {
+        if response.hovered() {
+            ui.painter()
+                .rect_filled(rect, 2.0, ui.style().visuals.widgets.hovered.bg_fill);
+        }
+        ui.painter()
+            .add(egui::Shape::galley(rect.min, rule_galley, rule_color));
+        ui.painter().add(egui::Shape::galley(
+            rect.min + egui::vec2(RULE_COL, 0.0),
+            sentence_galley,
+            strong_color,
+        ));
+    }
+    let label = format!("{rule} {text}");
     match violation.slot {
         Some(slot) => {
-            let response = ui
-                .selectable_label(false, job)
-                .on_hover_text("Select this player");
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label.as_str())
+            });
             response
+                .on_hover_text("Select this player")
                 .clicked()
                 .then_some(SelectedPlayer { team_id, slot })
         }
         None => {
-            ui.label(job).on_hover_text("A team-level violation");
+            response.widget_info(|| {
+                egui::WidgetInfo::labeled(egui::WidgetType::Label, ui.is_enabled(), label.as_str())
+            });
+            response.on_hover_text("A team-level violation");
             None
         }
     }
@@ -408,12 +473,12 @@ mod tests {
             .expect("the check runs")
     }
 
-    // SE-GUI-15
     /// The official ruleset's check on team 734 ("/lit/") of the PES 17
     /// fixture save reports 17 violations: a `Height` error on slots 0, 1, 3,
     /// 5 and 19, then the team's own (three `TierCount` and a
     /// `BracketQuota`), and eight `Unused` suggestions on slots 9, 10, 14 and
     /// 22. The list groups them in the check's slot order, `the team` last.
+    // SE-GUI-15
     #[test]
     fn the_list_groups_the_checks_violations_per_player() {
         let file = fixture();
@@ -508,13 +573,35 @@ mod tests {
             drawn_lines(&nodes),
             ["Team 1 T", "Player 1  9 X", stat_total, height, stat]
         );
-        assert_eq!(painted_text_color(&shapes, stat_total), error_color);
-        assert_eq!(painted_text_color(&shapes, height), error_color);
-        assert_eq!(painted_text_color(&shapes, stat), warn_color);
+        let strong_color = window
+            .ctx
+            .style_of(window.ctx.theme())
+            .visuals
+            .strong_text_color();
+        // The rule name carries the severity's color, the sentence always the
+        // strong text color (the draft's `.f`/`.v`).
+        for (rule_name, color) in [
+            ("StatTotal", error_color),
+            ("Height", error_color),
+            ("Stat", warn_color),
+        ] {
+            assert_eq!(painted_text_color(&shapes, rule_name), color, "{rule_name}");
+        }
+        for sentence in [
+            "stats added up 1772, over the limit 1771",
+            "height 185 takes no bracket",
+            "speed 80 over the target 92, inside the warning band",
+        ] {
+            assert_eq!(
+                painted_text_color(&shapes, sentence),
+                strong_color,
+                "{sentence}"
+            );
+        }
     }
 
-    // SE-GUI-15
     /// Clicking a player's row selects him; a team's row is not clickable.
+    // SE-GUI-15
     #[test]
     fn a_player_rows_click_selects_him_on_that_frame_only() {
         let violations = [
@@ -560,9 +647,9 @@ mod tests {
         assert_eq!(selected, None, "a team row is not clickable");
     }
 
-    // SE-GUI-15
     /// Suggestions draw only when asked, in their own group after the
     /// violations: team 734's eight `Unused` rows on slots 9, 10, 14 and 22.
+    // SE-GUI-15
     #[test]
     fn suggestions_draw_on_request_in_their_own_group() {
         let file = fixture();
@@ -583,7 +670,7 @@ mod tests {
                 .any(|line| line == "Suggestions" || line.starts_with("Unused")),
             "no suggestion drawn when off"
         );
-        let (nodes, _, _) = window.list(&teams, true, vec![]);
+        let (nodes, shapes, _) = window.list(&teams, true, vec![]);
         let lines = drawn_lines(&nodes);
         let at = lines
             .iter()
@@ -606,6 +693,11 @@ mod tests {
                 "Unused only 4 of 5 cards used",
                 "Unused only 2 of 4 weak_foot used",
             ]
+        );
+        assert_eq!(
+            painted_text_color(&shapes, "Unused"),
+            window.ctx.style_of(window.ctx.theme()).visuals.text_color(),
+            "a suggestion's rule name is the normal text color"
         );
     }
 
@@ -723,6 +815,136 @@ mod tests {
                 "Height height 185 takes no bracket",
             ],
             "the empty team's header is not drawn"
+        );
+    }
+
+    // plans/save_editor.md "libs/team_widgets", `violations` bullet: the group
+    // header draws the name code-free (a cup save's medal players carry colour
+    // codes).
+    #[test]
+    fn a_coded_name_draws_as_plain_text() {
+        // Player 71801 of the PES 17 fixture save: his name carries two colour
+        // codes.
+        let file = fixture();
+        let raw = file.player(71801).expect("player 71801").name.as_str();
+        assert!(
+            pes_savefile::model::names::name_color(raw).is_some(),
+            "premise: the fixture name is coded"
+        );
+        let violations = [violation(
+            Some(0),
+            aatf::Severity::Error,
+            aatf::ViolationKind::Height { height: 185 },
+        )];
+        let players = [listed(0, 71801, 50, raw)];
+        let teams = [TeamViolations {
+            team_id: 718,
+            team_name: "/f/",
+            players: &players,
+            violations: &violations,
+        }];
+        let mut window = Headless::new();
+        let (nodes, _, _) = window.list(&teams, false, vec![]);
+        let lines = drawn_lines(&nodes);
+        assert_eq!(
+            lines,
+            [
+                "Team 718 /f/",
+                "Player 71801  50 ROADTRIP",
+                "Height height 185 takes no bracket",
+            ]
+        );
+        assert!(
+            lines.iter().all(|line| !line.contains('\u{11}')),
+            "no colour code byte is drawn"
+        );
+    }
+
+    // plans/save_editor.md "libs/team_widgets", `violations` bullet, the draft's
+    // `.drow`: a sentence longer than the row wraps under its own column, so a
+    // long check's text stays readable rather than cut off.
+    #[test]
+    fn a_long_sentence_wraps_rather_than_being_cut() {
+        let violations = [
+            violation(
+                Some(3),
+                aatf::Severity::Error,
+                aatf::ViolationKind::Height { height: 185 },
+            ),
+            violation(
+                Some(3),
+                aatf::Severity::Error,
+                aatf::ViolationKind::MedalSystem {
+                    systems: [
+                        "ggss regulars",
+                        "ggs regulars",
+                        "gggs regulars",
+                        "gssss regulars",
+                        "ggss giants",
+                        "ggs giants",
+                        "gggs giants",
+                        "gssss giants",
+                        "ggss manlets",
+                        "ggs manlets",
+                        "gggs manlets",
+                        "gssss manlets",
+                    ]
+                    .iter()
+                    .map(|s| s.to_string())
+                    .collect(),
+                },
+            ),
+        ];
+        let players = [listed(3, 70103, 3, "NAME")];
+        let teams = [TeamViolations {
+            team_id: 701,
+            team_name: "/3/",
+            players: &players,
+            violations: &violations,
+        }];
+        let mut window = Headless::new();
+        let (nodes, _, _) = window.list(&teams, false, vec![]);
+        let height_of = |text: &str| {
+            let bounds = nodes
+                .iter()
+                .find(|node| node.role() == Role::Button && node.label() == Some(text))
+                .unwrap_or_else(|| panic!("no row {text:?}"))
+                .bounds()
+                .expect("bounds");
+            bounds.y1 - bounds.y0
+        };
+        let one_line = height_of("Height height 185 takes no bracket");
+        let longest = height_of(
+            "MedalSystem the tier counts match no medal system [ggss regulars, ggs regulars, gggs regulars, gssss regulars, ggss giants, ggs giants, gggs giants, gssss giants, ggss manlets, ggs manlets, gggs manlets, gssss manlets]",
+        );
+        assert!(
+            longest >= 2.0 * one_line,
+            "the long sentence wraps onto more rows: {longest} vs {one_line}"
+        );
+    }
+
+    // plans/save_editor.md "libs/team_widgets", `violations` bullet: the
+    // `Suggestions` header needs a suggestion row to head, not only
+    // `show_suggestions`.
+    #[test]
+    fn no_suggestions_header_without_a_suggestion() {
+        let violations = [violation(
+            Some(2),
+            aatf::Severity::Error,
+            aatf::ViolationKind::Height { height: 185 },
+        )];
+        let players = [listed(2, 70202, 2, "NAME")];
+        let teams = [TeamViolations {
+            team_id: 702,
+            team_name: "/a/",
+            players: &players,
+            violations: &violations,
+        }];
+        let mut window = Headless::new();
+        let (nodes, _, _) = window.list(&teams, true, vec![]);
+        assert!(
+            !drawn_lines(&nodes).iter().any(|line| line == "Suggestions"),
+            "a team with violations but no suggestion draws no Suggestions header"
         );
     }
 }

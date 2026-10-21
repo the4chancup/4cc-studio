@@ -458,7 +458,7 @@ pub(crate) fn patch_skip(skip: PatchSkip) -> Message {
 /// The message for one `check-aatf` violation of `team`: `player` is the rostered player's
 /// id when the violation names a slot, `severity` the violation's (a suggestion is filtered
 /// by the caller, which prints nothing for it), and `rule` with its fields is
-/// `violation_rule`'s.
+/// `aatf::ViolationKind::rule`'s.
 pub(crate) fn aatf_violation(
     team: u32,
     player: Option<u32>,

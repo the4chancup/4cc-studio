@@ -970,4 +970,38 @@ mod tests {
             violations(engine().eval::<Dynamic>("#{}").expect("a map")).expect_err("not a list");
         assert!(matches!(err, CheckError::NotAList { .. }), "{err:?}");
     }
+
+    /// `rule` spells the kind and its fields as the CLI prints them (the
+    /// spellings of `save_editor`'s
+    /// `every_violation_kind_prints_its_rules_file_fields`).
+    #[test]
+    fn rule_spells_the_kind_and_its_fields() {
+        assert_eq!(
+            ViolationKind::FieldedNotA {
+                preset: 2,
+                position: Position(12)
+            }
+            .rule(),
+            (
+                "FieldedNotA",
+                vec![("preset", "2".to_string()), ("position", "CF".to_string())]
+            )
+        );
+        // An `Option` field prints only when `Some`.
+        assert_eq!(
+            ViolationKind::NameColor {
+                color: None,
+                expected: Some("cc9900ff".to_string())
+            }
+            .rule(),
+            ("NameColor", vec![("expected", "cc9900ff".to_string())])
+        );
+        assert_eq!(
+            ViolationKind::MedalSystem {
+                systems: vec!["GGG".to_string(), "GGSS".to_string()]
+            }
+            .rule(),
+            ("MedalSystem", vec![("systems", "[GGG, GGSS]".to_string())])
+        );
+    }
 }
