@@ -242,14 +242,14 @@ pub(super) fn stub_help(
 }
 
 /// A stub whose `view` is a `LogPanel` over `lines` (the log-to-help wiring's
-/// tests): its help chapter is `section`, so its line codes are its own catalog's.
+/// tests): its help chapter is `help`, so its line codes are its own catalog's.
 pub(super) fn stub_log(
     id: &'static str,
     label: &'static str,
     help: HelpSection,
     lines: Vec<LogLine>,
 ) -> (Box<dyn StudioTool>, Arc<Calls>) {
-    stub_parts(id, label, None, help, Some((LogPanel::new(), lines)))
+    stub_parts(id, label, None, help, Some((LogPanel::new(id), lines)))
 }
 
 fn stub_parts(

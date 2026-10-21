@@ -42,16 +42,24 @@ use crate::messages::TOOL_ID;
 /// The Team compiler, as registered with the `studio` binary. Its window state is
 /// the run log — the `compile` the Compile button started, and its lines — and the
 /// log panel's own view state.
-#[derive(Default)]
 pub struct Tool {
     run_log: RunLog,
     log_panel: LogPanel,
 }
 
 impl Tool {
-    /// The tool with no run started.
+    /// The tool with no run started. The log panel's egui state keys on the tool id.
     pub fn new() -> Tool {
-        Tool::default()
+        Tool {
+            run_log: RunLog::default(),
+            log_panel: LogPanel::new(TOOL_ID),
+        }
+    }
+}
+
+impl Default for Tool {
+    fn default() -> Tool {
+        Tool::new()
     }
 }
 

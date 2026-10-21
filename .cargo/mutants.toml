@@ -229,4 +229,9 @@ exclude_re = [
     # no tested OS, so its `up -> true` builds and "passes" untouched. The native `up` stays
     # measured.
     "studio_core/src/shell/first_run\\.rs:1\\d\\d:\\d+: replace FirstRun::up -> bool with true",
+    # studio_core (mutants-diff b635aafe, worklog 8.6d3): the log panel's `at_bottom` guard
+    # `max_offset < 0.0` -> `<=` is equivalent: at an end of exactly 0 egui clamps the offset
+    # to 0, so `offset.y == max_offset` beside it already holds. `body` has no other `<`;
+    # `< 0.0` -> `==` stays measured (`a_log_shorter_than_the_view_shows_no_jump_button`).
+    "studio_core/src/widgets/log_panel\\.rs:\\d+:\\d+: replace < with <= in body",
 ]

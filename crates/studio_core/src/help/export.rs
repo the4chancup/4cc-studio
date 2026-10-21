@@ -6,7 +6,7 @@
 use std::io::Write;
 use std::path::Path;
 
-use crate::help::{CatalogRow, HelpSection, chapters};
+use crate::help::{CatalogRow, HelpSection, MESSAGES_SLUG, chapters};
 use crate::tool::{CliError, StudioTool};
 
 /// The chapter as one Markdown document: `# <title>`, then each topic as `## <title>` and its
@@ -26,7 +26,7 @@ pub(crate) fn chapter_markdown(section: &HelpSection) -> String {
 /// table for the `messages` slug. `None` names no topic of the chapter (nor `messages` on a
 /// chapter with no catalog rows).
 pub(crate) fn topic_markdown(section: &HelpSection, slug: &str) -> Option<String> {
-    if slug == "messages" {
+    if slug == MESSAGES_SLUG {
         if section.messages.is_empty() {
             return None;
         }
@@ -87,7 +87,7 @@ pub fn run_help(
     let slugs_of = |section: &HelpSection| {
         let mut slugs: Vec<&str> = section.topics.iter().map(|topic| topic.slug).collect();
         if !section.messages.is_empty() {
-            slugs.push("messages");
+            slugs.push(MESSAGES_SLUG);
         }
         slugs.join(", ")
     };

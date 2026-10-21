@@ -8,7 +8,7 @@
 
 use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 
-use crate::help::{HelpSection, HelpTarget};
+use crate::help::{HelpSection, HelpTarget, MESSAGES_SLUG};
 
 /// The window's default size in points (the draft's `.help-win`).
 const DEFAULT_SIZE: [f32; 2] = [720.0, 480.0];
@@ -98,7 +98,7 @@ impl HelpWindow {
     /// when the chapter has catalog rows. `None` names no topic of the chapter.
     fn topic_index(&self, chapter: usize, slug: &str) -> Option<usize> {
         let (_, section) = &self.chapters[chapter];
-        if slug == "messages" {
+        if slug == MESSAGES_SLUG {
             return (!section.messages.is_empty()).then_some(section.topics.len());
         }
         section.topics.iter().position(|topic| topic.slug == slug)
@@ -337,7 +337,7 @@ impl HelpWindow {
         let slug = if self.topic < section.topics.len() {
             section.topics[self.topic].slug
         } else {
-            "messages"
+            MESSAGES_SLUG
         };
         Some((id, slug))
     }

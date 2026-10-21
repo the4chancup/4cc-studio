@@ -163,7 +163,7 @@ mod tests {
     fn without_a_click_nothing_is_reported_and_compile_is_enabled() {
         let ctx = settings_only_context();
         let log = RunLog::default();
-        let mut panel = LogPanel::new();
+        let mut panel = LogPanel::new(TOOL_ID);
         let (clicked, nodes) =
             Headless::new().frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));
         assert!(!clicked);
@@ -174,7 +174,7 @@ mod tests {
     fn a_click_on_compile_is_reported_on_the_frame_of_the_release() {
         let ctx = settings_only_context();
         let log = RunLog::default();
-        let mut panel = LogPanel::new();
+        let mut panel = LogPanel::new(TOOL_ID);
         let mut window = Headless::new();
         // The first frame lays the button out; egui hit-tests a click against the previous
         // frame's widgets, so the press comes on the second frame and the release on the third.
@@ -192,7 +192,7 @@ mod tests {
         let ctx = settings_only_context();
         let (release_run, until) = unbounded();
         let mut log = RunLog::in_flight(until);
-        let mut panel = LogPanel::new();
+        let mut panel = LogPanel::new(TOOL_ID);
         let (_, nodes) = Headless::new().frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));
         assert!(button(&nodes, "Compile").is_disabled());
         release_run.send(()).unwrap();
@@ -208,7 +208,7 @@ mod tests {
     fn the_settings_section_opens_on_the_effective_settings() {
         let ctx = settings_only_context();
         let log = RunLog::default();
-        let mut panel = LogPanel::new();
+        let mut panel = LogPanel::new(TOOL_ID);
         let mut window = Headless::new();
         let (_, nodes) = window.frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));
         assert!(
@@ -274,13 +274,15 @@ mod tests {
 
     /// The log body's scroll offset: its `scroll_area::State` under the id the
     /// panel's `id_salt` chain builds — the root ui's top id, the open dock panel's
-    /// (`LogPanel` salts it `log`), the panel frame's `child` content salt, then
-    /// the body's `log-body` salt (`studio_core`'s `widgets/log_panel.rs`).
+    /// (the tool's own id), the panel frame's `child` content salt, the body
+    /// frame's, then the dock id's `body` child salt (`studio_core`'s
+    /// `widgets/log_panel.rs`).
     fn scroll_offset(ctx: &egui::Context) -> f32 {
         let id = egui::Id::new((egui::ViewportId::ROOT, "__top_ui"))
-            .with(egui::IdSalt::new(egui::Id::new("log")))
+            .with(egui::IdSalt::new(egui::Id::new(TOOL_ID)))
             .with(egui::IdSalt::new("child"))
-            .with(egui::IdSalt::new("log-body"));
+            .with(egui::IdSalt::new("child"))
+            .with(egui::IdSalt::new(egui::Id::new(TOOL_ID).with("body")));
         egui::scroll_area::State::load(ctx, id)
             .map(|state| state.offset.y)
             .expect("the log body's scroll area")
@@ -293,7 +295,7 @@ mod tests {
         let mut log = RunLog::default();
         let lines: Vec<String> = (1..=40).map(|line| format!("log line {line}")).collect();
         log.append_test_lines(&lines.iter().map(String::as_str).collect::<Vec<_>>());
-        let mut panel = LogPanel::new();
+        let mut panel = LogPanel::new(TOOL_ID);
         let mut window = Headless::new();
         // The log overflows the panel's body: stuck to the end, the offset is off the top.
         window.frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));

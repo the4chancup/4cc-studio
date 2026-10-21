@@ -18,9 +18,6 @@ const LOG_CAP: usize = 300;
 /// The jump button's margin from the body's bottom-right corner, in points.
 const JUMP_MARGIN: f32 = 10.0;
 
-/// The body's scroll area salt (its `scroll_area::State` key for the tests).
-const SCROLL_SALT: &str = "log-body";
-
 /// One drawn line: its severity (color and filter), the message code its code part
 /// links to the help for, and the text as `EventLines` prints it.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -108,15 +105,22 @@ struct Follow {
 /// filter and the follow state. The lines live with the tool.
 pub struct LogPanel {
     dock: BottomDock,
+    /// The body scroll area's salt, derived from the dock's: two tools' panels keep
+    /// their scroll and dock heights apart (the Export upgrader's own log, worklog
+    /// 8.10).
+    salt: egui::Id,
     filter: Filter,
     follow: Follow,
 }
 
 impl LogPanel {
-    /// A panel titled `Log`, open, showing every line, stuck to the bottom.
-    pub fn new() -> LogPanel {
+    /// A panel titled `Log` whose egui state (the dock height, the scroll offset)
+    /// is keyed under `id_salt`: pass the tool's own id, or a salt of its own.
+    pub fn new(id_salt: impl Into<egui::Id>) -> LogPanel {
+        let id = id_salt.into();
         LogPanel {
-            dock: BottomDock::new("log", "Log"),
+            dock: BottomDock::new(id, "Log"),
+            salt: id.with("body"),
             filter: Filter::All,
             follow: Follow {
                 stick: true,
@@ -153,16 +157,19 @@ impl LogPanel {
                     ui.weak(count_text(filter.get(), lines));
                 });
             },
-            |ui| body(&mut self.follow, ui, lines, filter.get(), &mut clicked),
+            |ui| {
+                body(
+                    &mut self.follow,
+                    self.salt,
+                    ui,
+                    lines,
+                    filter.get(),
+                    &mut clicked,
+                )
+            },
         );
         self.filter = filter.get();
         clicked
-    }
-}
-
-impl Default for LogPanel {
-    fn default() -> LogPanel {
-        LogPanel::new()
     }
 }
 
@@ -171,6 +178,7 @@ impl Default for LogPanel {
 /// bottom-right while new lines wait unseen.
 fn body(
     follow: &mut Follow,
+    salt: egui::Id,
     ui: &mut egui::Ui,
     lines: &[LogLine],
     filter: Filter,
@@ -181,56 +189,57 @@ fn body(
         .filter(|line| filter.shows(line.severity))
         .count();
     let skip = shown.saturating_sub(LOG_CAP);
-    let output = egui::ScrollArea::both()
-        .id_salt(SCROLL_SALT)
-        .auto_shrink([false, false])
-        .stick_to_bottom(true)
-        // The jump button's scroll lands at once; the member's wheel input keeps
-        // egui's own smoothing, which is a different path.
-        .animated(false)
+    let output = egui::Frame::new()
+        .fill(ui.visuals().extreme_bg_color)
+        .stroke(ui.visuals().window_stroke())
+        .inner_margin(egui::Margin::symmetric(6, 2))
         .show(ui, |ui| {
-            for line in lines
-                .iter()
-                .filter(|line| filter.shows(line.severity))
-                .skip(skip)
-            {
-                if let Some(code) = show_line(ui, line) {
-                    *clicked = Some(code);
-                }
-            }
-            if follow.snap {
-                ui.scroll_to_cursor(Some(egui::Align::BOTTOM));
-            }
-        });
+            egui::ScrollArea::both()
+                .id_salt(salt)
+                .auto_shrink([false, false])
+                .stick_to_bottom(true)
+                // The jump button's scroll lands at once; the member's wheel input
+                // keeps egui's own smoothing, which is a different path.
+                .animated(false)
+                .show(ui, |ui| {
+                    for line in lines
+                        .iter()
+                        .filter(|line| filter.shows(line.severity))
+                        .skip(skip)
+                    {
+                        if let Some(code) = show_line(ui, line) {
+                            *clicked = Some(code);
+                        }
+                    }
+                    if follow.snap {
+                        ui.scroll_to_cursor(Some(egui::Align::BOTTOM));
+                    }
+                })
+        })
+        .inner;
     follow.snap = false;
-    let max_offset = (output.content_size.y - output.inner_rect.height()).max(0.0);
-    let at_bottom = output.state.offset.y >= max_offset - 1.0;
+    // egui's own criterion for `scroll_stuck_to_end` (scroll_area.rs): the offset
+    // at exactly the clamped end, or content fitting the view. A wheel back down
+    // that stops a fraction short leaves the bottom too — the button must show.
+    let max_offset = output.content_size.y - output.inner_rect.height();
+    let at_bottom = output.state.offset.y == max_offset || max_offset < 0.0;
     if follow.stick && !at_bottom {
         follow.left_at = lines.len();
     }
     follow.stick = at_bottom;
     let new = lines.len().saturating_sub(follow.left_at);
     if !follow.stick && new > 0 {
-        let text = format!("↓ {new} new");
-        let size = ui
-            .fonts_mut(|fonts| {
-                fonts.layout_no_wrap(
-                    text.clone(),
-                    egui::TextStyle::Button.resolve(ui.style()),
-                    egui::Color32::PLACEHOLDER,
-                )
-            })
-            .size()
-            + 2.0 * ui.spacing().button_padding;
-        let corner = output.inner_rect.right_bottom() - egui::vec2(JUMP_MARGIN, JUMP_MARGIN);
-        if ui
-            .put(
-                egui::Rect::from_min_size(corner - size, size),
-                egui::Button::new(text),
+        // A bottom-up, right-aligned child over the body's bottom-right sizes and
+        // places the button itself.
+        let button = ui
+            .scope_builder(
+                egui::UiBuilder::new()
+                    .max_rect(output.inner_rect.shrink(JUMP_MARGIN))
+                    .layout(egui::Layout::bottom_up(egui::Align::Max)),
+                |ui| ui.button(format!("↓ {new} new")),
             )
-            .on_hover_text("Jump to the newest line")
-            .clicked()
-        {
+            .inner;
+        if button.on_hover_text("Jump to the newest line").clicked() {
             follow.stick = true;
             follow.left_at = lines.len();
             follow.snap = true;
@@ -300,9 +309,7 @@ fn show_line(ui: &mut egui::Ui, line: &LogLine) -> Option<MessageCode> {
         {
             clicked = Some(code.clone());
         }
-        if code_end < line.text.len() {
-            ui.label(rich(&line.text[code_end..]));
-        }
+        ui.label(rich(&line.text[code_end..]));
     });
     clicked
 }
@@ -311,10 +318,11 @@ fn show_line(ui: &mut egui::Ui, line: &LogLine) -> Option<MessageCode> {
 mod tests {
     use std::borrow::Cow;
 
-    use egui::accesskit;
+    use egui::accesskit::{self, Role, Toggled};
 
     use super::*;
-    use crate::events::{Disposition, Message, Scope};
+    use crate::events::{Disposition, ExportId, Message, Scope};
+    use vtree::ScopePath;
 
     /// A headless window: one egui context with AccessKit on, run a frame at a time
     /// over an 800 by 600 screen (the shell harness's `frame`, for a bare `Ui`).
@@ -420,6 +428,28 @@ mod tests {
         ]
     }
 
+    /// A wheel of `delta` points at `pos` (positive scrolls up, negative down), the
+    /// pointer moved there first: egui's wheel lands on the scroll area under it.
+    fn wheel_at(pos: egui::Pos2, delta: f32) -> Vec<egui::Event> {
+        vec![
+            egui::Event::PointerMoved(pos),
+            egui::Event::MouseWheel {
+                unit: egui::MouseWheelUnit::Point,
+                delta: egui::vec2(0.0, delta),
+                phase: egui::TouchPhase::Move,
+                modifiers: egui::Modifiers::default(),
+            },
+        ]
+    }
+
+    /// Whether a `↓ N new` jump button is drawn, at any count.
+    fn has_jump(nodes: &[accesskit::Node]) -> bool {
+        nodes.iter().any(|node| {
+            node.label()
+                .is_some_and(|label| label.starts_with("↓ ") && label.ends_with(" new"))
+        })
+    }
+
     /// A click on `node`: press frame, release frame, returning the release's nodes —
     /// the frame `clicked()` lands in.
     fn click(
@@ -435,13 +465,14 @@ mod tests {
 
     /// The log body's scroll offset: its `scroll_area::State` under the id the
     /// `id_salt` chain builds — the root ui's top id, the open panel's, the panel
-    /// frame's `child` content salt, then the body's `SCROLL_SALT`.
+    /// frame's `child` content salt, the body frame's, then the panel's `salt`.
     fn scroll_offset(ctx: &egui::Context, panel: &LogPanel) -> f32 {
         let (open, _) = panel.dock.panel_ids();
         let id = egui::Id::new((egui::ViewportId::ROOT, "__top_ui"))
             .with(egui::IdSalt::new(open))
             .with(egui::IdSalt::new("child"))
-            .with(egui::IdSalt::new(SCROLL_SALT));
+            .with(egui::IdSalt::new("child"))
+            .with(egui::IdSalt::new(panel.salt));
         egui::scroll_area::State::load(ctx, id)
             .map(|state| state.offset.y)
             .expect("the log body's scroll area")
@@ -465,7 +496,7 @@ mod tests {
     #[test]
     fn only_the_capped_tail_of_the_log_is_drawn() {
         let lines = plain_lines(350);
-        let mut panel = LogPanel::new();
+        let mut panel = LogPanel::new("test-log");
         let mut window = Headless::new();
         let nodes = window.idle(&mut panel, &lines);
         assert!(
@@ -510,7 +541,7 @@ mod tests {
         // 200 lines: over the body's ~11-row view but under the cap, so the drawn
         // window cannot slide underneath the assertion.
         let mut lines = plain_lines(200);
-        let mut panel = LogPanel::new();
+        let mut panel = LogPanel::new("test-log");
         let mut window = Headless::new();
         window.idle(&mut panel, &lines);
 
@@ -596,6 +627,237 @@ mod tests {
         );
     }
 
+    #[test]
+    fn a_wheel_stopping_a_point_short_of_the_end_leaves_the_bottom_too() {
+        let mut lines = plain_lines(200);
+        let mut panel = LogPanel::new("test-log");
+        let mut window = Headless::new();
+        window.idle(&mut panel, &lines);
+        // Stuck at the end, the offset is the clamped maximum.
+        let max = scroll_offset(&window.ctx, &panel);
+        // A wheel up by half a point: egui clears its end flag on any wheel scroll,
+        // and the offset lands inside a point of the end but not on it.
+        window.show(&mut panel, &lines, wheel_at(egui::pos2(400.0, 500.0), 0.5));
+        for _ in 0..5 {
+            window.idle(&mut panel, &lines);
+        }
+        assert!(
+            scroll_offset(&window.ctx, &panel) < max,
+            "the view left the bottom: {} vs {max}",
+            scroll_offset(&window.ctx, &panel)
+        );
+        // Two lines arrive: the jump button counts them — a "still at the bottom"
+        // reading would hide it.
+        lines.extend((201..=202).map(|n| LogLine::plain(Severity::Info, format!("log line {n}"))));
+        let nodes = window.idle(&mut panel, &lines);
+        entry(&nodes, "↓ 2 new");
+    }
+
+    /// One frame with two panels drawn: `lower` claims the lowest slot, `upper` the
+    /// one above it (`Panel::bottom` claims the bottom of what is left).
+    fn draw_two(
+        window: &mut Headless,
+        lower: &mut LogPanel,
+        upper: &mut LogPanel,
+        lines: &[LogLine],
+        events: Vec<egui::Event>,
+    ) -> Vec<accesskit::Node> {
+        window.frame(events, |ui| {
+            lower.show(ui, lines);
+            upper.show(ui, lines);
+        })
+    }
+
+    #[test]
+    fn two_panels_have_separate_scroll_state() {
+        let lines = plain_lines(200);
+        let mut lower = LogPanel::new("lower-log");
+        let mut upper = LogPanel::new("upper-log");
+        let mut window = Headless::new();
+        draw_two(&mut window, &mut lower, &mut upper, &lines, Vec::new());
+        let bottom = scroll_offset(&window.ctx, &lower);
+        // Wheel up over the lower panel's body: it scrolls, the one above does not.
+        draw_two(
+            &mut window,
+            &mut lower,
+            &mut upper,
+            &lines,
+            wheel_at(egui::pos2(400.0, 550.0), 400.0),
+        );
+        for _ in 0..15 {
+            draw_two(&mut window, &mut lower, &mut upper, &lines, Vec::new());
+        }
+        assert!(
+            scroll_offset(&window.ctx, &lower) < bottom,
+            "the lower panel scrolled up: {} vs {bottom}",
+            scroll_offset(&window.ctx, &lower)
+        );
+        assert_eq!(
+            scroll_offset(&window.ctx, &upper),
+            bottom,
+            "the upper panel did not move"
+        );
+    }
+
+    #[test]
+    fn a_new_runs_shorter_log_resets_the_jump_count() {
+        // 300 lines scrolled well up, three lines arriving.
+        let mut lines = plain_lines(300);
+        let mut panel = LogPanel::new("test-log");
+        let mut window = Headless::new();
+        window.idle(&mut panel, &lines);
+        window.show(
+            &mut panel,
+            &lines,
+            wheel_at(egui::pos2(400.0, 500.0), 3000.0),
+        );
+        for _ in 0..20 {
+            window.idle(&mut panel, &lines);
+        }
+        lines.extend((301..=303).map(|n| LogLine::plain(Severity::Info, format!("log line {n}"))));
+        let nodes = window.idle(&mut panel, &lines);
+        entry(&nodes, "↓ 3 new");
+
+        // A rerun replaces the lines with a shorter list, still overflowing the
+        // body far enough to leave the view off the bottom.
+        lines = (1..=250)
+            .map(|n| LogLine::plain(Severity::Info, format!("rerun line {n}")))
+            .collect();
+        window.idle(&mut panel, &lines);
+        lines
+            .extend((251..=252).map(|n| LogLine::plain(Severity::Info, format!("rerun line {n}"))));
+        let nodes = window.idle(&mut panel, &lines);
+        // The counter starts over from the rerun's lines, not the old count plus 2.
+        entry(&nodes, "↓ 2 new");
+        let nodes = window.idle(&mut panel, &lines);
+        entry(&nodes, "↓ 2 new");
+    }
+
+    #[test]
+    fn the_filter_chips_show_their_selected_state() {
+        let lines = vec![LogLine::plain(Severity::Info, "an info line")];
+        let mut panel = LogPanel::new("test-log");
+        let mut window = Headless::new();
+        // A selectable_label reports its selected state as a toggle (as the help
+        // tree's topics do).
+        let toggled = |nodes: &[accesskit::Node], label: &str| {
+            nodes
+                .iter()
+                .find(|node| node.role() == Role::Button && node.label() == Some(label))
+                .map(|node| node.toggled())
+        };
+        let nodes = window.idle(&mut panel, &lines);
+        assert_eq!(toggled(&nodes, "All"), Some(Some(Toggled::True)));
+        assert_eq!(toggled(&nodes, "Warnings"), Some(Some(Toggled::False)));
+        assert_eq!(toggled(&nodes, "Errors"), Some(Some(Toggled::False)));
+
+        click(&mut window, &mut panel, &lines, entry(&nodes, "Warnings"));
+        // Each chip's `selected` is read when it draws, so the new state shows on
+        // the frame after the click.
+        let nodes = window.idle(&mut panel, &lines);
+        assert_eq!(toggled(&nodes, "All"), Some(Some(Toggled::False)));
+        assert_eq!(toggled(&nodes, "Warnings"), Some(Some(Toggled::True)));
+        assert_eq!(toggled(&nodes, "Errors"), Some(Some(Toggled::False)));
+    }
+
+    #[test]
+    fn at_the_bottom_arriving_lines_show_no_jump_button() {
+        let mut lines = plain_lines(200);
+        let mut panel = LogPanel::new("test-log");
+        let mut window = Headless::new();
+        let nodes = window.idle(&mut panel, &lines);
+        assert!(!has_jump(&nodes), "stuck at the bottom, no jump button");
+
+        lines.extend((201..=205).map(|n| LogLine::plain(Severity::Info, format!("log line {n}"))));
+        let nodes = window.idle(&mut panel, &lines);
+        assert!(
+            !has_jump(&nodes),
+            "the view follows the new lines, still no button"
+        );
+    }
+
+    #[test]
+    fn a_log_shorter_than_the_view_shows_no_jump_button() {
+        // A run's first lines fit the view: egui's offset stays 0 above a negative
+        // end, and that is the bottom too.
+        let mut lines = plain_lines(3);
+        let mut panel = LogPanel::new("test-log");
+        let mut window = Headless::new();
+        window.idle(&mut panel, &lines);
+
+        lines.extend((4..=5).map(|n| LogLine::plain(Severity::Info, format!("log line {n}"))));
+        let nodes = window.idle(&mut panel, &lines);
+        assert!(shows(&nodes, "log line 5"));
+        assert!(!has_jump(&nodes), "five lines fit: nothing to jump to");
+    }
+
+    #[test]
+    fn scrolled_up_without_arrivals_shows_no_jump_button() {
+        let lines = plain_lines(200);
+        let mut panel = LogPanel::new("test-log");
+        let mut window = Headless::new();
+        window.idle(&mut panel, &lines);
+        window.show(
+            &mut panel,
+            &lines,
+            wheel_at(egui::pos2(400.0, 500.0), 200.0),
+        );
+        for _ in 0..15 {
+            window.idle(&mut panel, &lines);
+        }
+        let nodes = window.idle(&mut panel, &lines);
+        assert!(
+            !has_jump(&nodes),
+            "nothing arrived: no button, not even `↓ 0 new`"
+        );
+    }
+
+    #[test]
+    fn scrolling_back_to_the_bottom_by_wheel_resumes_the_follow() {
+        let mut lines = plain_lines(200);
+        let mut panel = LogPanel::new("test-log");
+        let mut window = Headless::new();
+        window.idle(&mut panel, &lines);
+        // Up by the wheel, then back down to the bottom the same way.
+        window.show(
+            &mut panel,
+            &lines,
+            wheel_at(egui::pos2(400.0, 500.0), 400.0),
+        );
+        for _ in 0..15 {
+            window.idle(&mut panel, &lines);
+        }
+        let risen = scroll_offset(&window.ctx, &panel);
+        window.show(
+            &mut panel,
+            &lines,
+            wheel_at(egui::pos2(400.0, 500.0), -800.0),
+        );
+        for _ in 0..15 {
+            window.idle(&mut panel, &lines);
+        }
+        let back = scroll_offset(&window.ctx, &panel);
+        assert!(back > risen, "the wheel reached the bottom again");
+        let nodes = window.idle(&mut panel, &lines);
+        assert!(!has_jump(&nodes), "back at the bottom, no button");
+
+        lines.push(LogLine::plain(Severity::Info, "log line 201"));
+        let nodes = window.idle(&mut panel, &lines);
+        let (open, _) = panel.dock.panel_ids();
+        let bottom = egui::PanelState::load(&window.ctx, open)
+            .expect("the open panel's state")
+            .outer_rect
+            .max
+            .y;
+        assert!(
+            bounds(&nodes, "log line 201").y1 > f64::from(bottom) - 30.0,
+            "the view follows the newest line: {} vs {}",
+            bounds(&nodes, "log line 201").y1,
+            bottom
+        );
+        assert!(!has_jump(&nodes));
+    }
+
     // ST-LOG-03
     #[test]
     fn the_filter_chips_hide_lines_without_dropping_them() {
@@ -611,7 +873,7 @@ mod tests {
             "an error line",
             "a fatal line",
         ];
-        let mut panel = LogPanel::new();
+        let mut panel = LogPanel::new("test-log");
         let mut window = Headless::new();
         let nodes = window.idle(&mut panel, &lines);
         for text in all {
@@ -651,7 +913,7 @@ mod tests {
     #[test]
     fn the_chevron_collapses_to_the_header_and_the_open_height_survives() {
         let lines = plain_lines(20);
-        let mut panel = LogPanel::new();
+        let mut panel = LogPanel::new("test-log");
         let mut window = Headless::new();
         let (open, collapsed) = panel.dock.panel_ids();
         let nodes = window.idle(&mut panel, &lines);
@@ -751,6 +1013,63 @@ mod tests {
                 }
             ),
             None
+        );
+    }
+
+    #[test]
+    fn the_count_line_changes_at_the_cap() {
+        let lines = plain_lines(LOG_CAP);
+        assert_eq!(count_text(Filter::All, &lines), "300 lines");
+        let lines = plain_lines(LOG_CAP + 1);
+        assert_eq!(count_text(Filter::All, &lines), "last 300 of 301");
+    }
+
+    #[test]
+    fn the_line_color_matches_the_severity() {
+        let visuals = egui::Visuals::dark();
+        assert_eq!(line_color(Severity::Info, &visuals), None);
+        assert_eq!(
+            line_color(Severity::Warning, &visuals),
+            Some(visuals.warn_fg_color)
+        );
+        assert_eq!(
+            line_color(Severity::Error, &visuals),
+            Some(visuals.error_fg_color)
+        );
+        assert_eq!(
+            line_color(Severity::Fatal, &visuals),
+            Some(visuals.error_fg_color)
+        );
+    }
+
+    #[test]
+    fn the_text_after_the_code_is_drawn() {
+        let mut formatter = EventLines::new();
+        let event = PipelineEvent::Message(Message {
+            code: MessageCode {
+                tool_id: "team-compiler",
+                code: Cow::Borrowed("player_unlisted"),
+            },
+            severity: Severity::Warning,
+            disposition: Disposition::Keep,
+            scope: Scope::Folder {
+                export_id: ExportId(1),
+                path: ScopePath::new("Players/01 - T").unwrap(),
+            },
+            context: vec![("file".to_owned(), "boots.fmdl".to_owned())],
+        });
+        let line =
+            LogLine::from_event(&mut formatter, &event).expect("a Message event gives a line");
+        assert_eq!(
+            line.text,
+            "- export 1: Warning player_unlisted at Players/01 - T (file=boots.fmdl)"
+        );
+        let mut panel = LogPanel::new("test-log");
+        let mut window = Headless::new();
+        let nodes = window.idle(&mut panel, &[line]);
+        assert!(
+            shows(&nodes, " at Players/01 - T (file=boots.fmdl)"),
+            "the line's text after the code is drawn"
         );
     }
 }

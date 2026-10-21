@@ -10,6 +10,11 @@ use crate::tool::StudioTool;
 
 pub use export::run_help;
 
+/// The generated Messages topic's slug: the one topic not in a chapter's `topics`
+/// list, spelled wherever a slug or anchor names it (the window's `topic_index`
+/// and `showing`, the CLI's topic lookup, a log line's link target).
+pub(crate) const MESSAGES_SLUG: &str = "messages";
+
 /// One tool's chapter of the help window: a title and its topics, in reading order.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct HelpSection {
@@ -51,7 +56,7 @@ impl HelpTarget {
     pub fn message(code: &MessageCode) -> HelpTarget {
         HelpTarget {
             tool: code.tool_id.to_owned(),
-            topic: Some("messages".to_owned()),
+            topic: Some(MESSAGES_SLUG.to_owned()),
             anchor: Some(code.code.to_string()),
         }
     }
