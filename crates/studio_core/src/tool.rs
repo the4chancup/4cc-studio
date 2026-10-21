@@ -12,7 +12,7 @@ use crossbeam_channel::Sender;
 use log::debug;
 
 use crate::events::PipelineEventEnvelope;
-use crate::help::HelpSection;
+use crate::help::{HelpSection, HelpTarget};
 use crate::settings::{CommonSettings, Settings};
 use crate::status::{Notice, ToolActivity};
 
@@ -140,6 +140,8 @@ pub enum ShellRequest {
     Notify(Notice),
     /// A tool changed its settings section; save the file (best-effort).
     SettingsChanged,
+    /// Open the help window at the target (a log line's message-code link).
+    OpenHelp(HelpTarget),
     /// Close the window: a close prompt's answer. The shell sends it back through the
     /// window's own close path, which asks every tool again.
     Close,
@@ -285,6 +287,14 @@ impl ToolContext {
     /// arrives (and reaches the window title while the window is unfocused).
     pub fn notify(&self, notice: Notice) {
         self.request(ShellRequest::Notify(notice));
+    }
+
+    /// Asks the shell to open the help window at `target` (gui.md "Help window",
+    /// "Opening"): the way a tool's view opens it, a log line's message-code link
+    /// being the case it exists for. The shell closes a modal first, so it cannot
+    /// cover the window. The send wakes the GUI, as every request does.
+    pub fn open_help(&self, target: HelpTarget) {
+        self.request(ShellRequest::OpenHelp(target));
     }
 
     /// Asks the shell to close the window: the way a tool's close prompt answers (gui.md

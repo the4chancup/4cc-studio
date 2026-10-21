@@ -2251,3 +2251,5 @@ worklog passed 7,000 lines.
   three tools); `4cc-studio help [chapter] [topic]` prints the help's Markdown and `--export` writes a file per chapter. ST-HELP-04 proven.
 - **2026-10-21** — 8.6d2: the help window (`?`, F1, the About popup's Help link, a notice's action): the chapter tree, each topic's
   Markdown through `egui_commonmark` 0.25, the generated Messages table, search with the hit highlighted, in-doc links. ST-HELP-01, 02, ST-SIDE-06 proven.
+- **2026-10-21** — 8.6d3: the log panel (`BottomDock`, `LogPanel`): 300 lines drawn, severity filters and colors, the follow paused
+  while scrolled up with a `↓ N new` jump, each message code a link to its help row; the Team compiler's window uses it. ST-LOG-01 to 04, ST-HELP-03 proven.

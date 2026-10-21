@@ -34,16 +34,18 @@ mod user_face_xml;
 mod validation;
 mod view;
 
-use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};
+use studio_core::{CliError, HelpSection, HelpTopic, LogPanel, StudioTool, ToolContext};
 
 use crate::gui_run::RunLog;
 use crate::messages::TOOL_ID;
 
-/// The Team compiler, as registered with the `studio` binary. Its one piece of window state is
-/// the run log: the `compile` the Compile button started, and its lines.
+/// The Team compiler, as registered with the `studio` binary. Its window state is
+/// the run log — the `compile` the Compile button started, and its lines — and the
+/// log panel's own view state.
 #[derive(Default)]
 pub struct Tool {
     run_log: RunLog,
+    log_panel: LogPanel,
 }
 
 impl Tool {
@@ -67,7 +69,7 @@ impl StudioTool for Tool {
     }
 
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
-        if view::show(ui, ctx, &self.run_log) {
+        if view::show(ui, ctx, &self.run_log, &mut self.log_panel) {
             self.run_log.start_compile(ctx);
         }
     }

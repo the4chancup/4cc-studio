@@ -5,7 +5,7 @@
 use std::thread::JoinHandle;
 
 use crossbeam_channel::{Receiver, unbounded};
-use studio_core::{CliError, EventLines, PipelineEventEnvelope, ToolContext};
+use studio_core::{CliError, EventLines, LogLine, PipelineEventEnvelope, Severity, ToolContext};
 
 use crate::cli;
 use crate::messages::TOOL_ID;
@@ -20,7 +20,7 @@ struct Run {
 /// with the run's exit code.
 #[derive(Default)]
 pub(crate) struct RunLog {
-    lines: Vec<String>,
+    lines: Vec<LogLine>,
     formatter: EventLines,
     run: Option<Run>,
 }
@@ -58,16 +58,23 @@ impl RunLog {
         // and a drain that ran first could leave them for a frame after the exit-code line.
         let outcome = run.thread.join();
         self.append(&run.events);
-        let last = match outcome {
-            Ok(Ok(code)) => format!("Run finished: exit code {code}"),
+        let (severity, last) = match outcome {
+            Ok(Ok(code)) => (Severity::Info, format!("Run finished: exit code {code}")),
             Ok(Err(error)) => {
                 // As the binary prints a refusal, then the code it exits with.
-                self.lines.push(format!("error: {error}"));
-                format!("Run finished: exit code {}", error.exit_code)
+                self.lines
+                    .push(LogLine::plain(Severity::Error, format!("error: {error}")));
+                (
+                    Severity::Info,
+                    format!("Run finished: exit code {}", error.exit_code),
+                )
             }
-            Err(_) => "Run stopped: the compile thread panicked".to_owned(),
+            Err(_) => (
+                Severity::Error,
+                "Run stopped: the compile thread panicked".to_owned(),
+            ),
         };
-        self.lines.push(last);
+        self.lines.push(LogLine::plain(severity, last));
     }
 
     /// Whether a compile is in flight.
@@ -76,13 +83,13 @@ impl RunLog {
     }
 
     /// The lines shown, oldest first.
-    pub(crate) fn lines(&self) -> &[String] {
+    pub(crate) fn lines(&self) -> &[LogLine] {
         &self.lines
     }
 
     fn append(&mut self, events: &Receiver<PipelineEventEnvelope>) {
         for envelope in events.try_iter() {
-            if let Some(line) = self.formatter.line(&envelope.event) {
+            if let Some(line) = LogLine::from_event(&mut self.formatter, &envelope.event) {
                 self.lines.push(line);
             }
         }
@@ -106,8 +113,17 @@ impl RunLog {
     /// Appends `lines`, as a run's events append them: a view test's overflowed log.
     #[cfg(test)]
     pub(crate) fn append_test_lines(&mut self, lines: &[&str]) {
-        self.lines
-            .extend(lines.iter().map(|line| (*line).to_owned()));
+        self.lines.extend(
+            lines
+                .iter()
+                .map(|line| LogLine::plain(Severity::Info, *line)),
+        );
+    }
+
+    /// The line texts, for assertions about the text the member reads.
+    #[cfg(test)]
+    pub(crate) fn texts(&self) -> Vec<&str> {
+        self.lines.iter().map(|line| line.text.as_str()).collect()
     }
 }
 
@@ -179,12 +195,12 @@ mod tests {
         log.start_compile(&ctx);
         assert!(log.is_running());
         finish(&mut log);
-        assert_eq!(log.lines(), tracer_lines(root));
+        assert_eq!(log.texts(), tracer_lines(root));
         assert!(root.join("PES/download/4cc_99_test.cpk").is_file());
 
         log.start_compile(&ctx);
         finish(&mut log);
-        assert_eq!(log.lines(), tracer_lines(root));
+        assert_eq!(log.texts(), tracer_lines(root));
     }
 
     #[test]
@@ -200,7 +216,7 @@ mod tests {
             log.poll();
             log.is_running()
         });
-        assert_eq!(log.lines(), ["Run finished: exit code 0"]);
+        assert_eq!(log.texts(), ["Run finished: exit code 0"]);
     }
 
     #[test]
@@ -215,7 +231,7 @@ mod tests {
             tool.tick(&ctx);
             tool.run_log.is_running()
         });
-        assert_eq!(tool.run_log.lines(), tracer_lines(root));
+        assert_eq!(tool.run_log.texts(), tracer_lines(root));
     }
 
     #[test]
@@ -228,7 +244,13 @@ mod tests {
         finish(&mut log);
         let lines = log.lines();
         assert_eq!(lines.len(), 2, "{lines:?}");
-        assert!(lines[0].starts_with("error: "), "{lines:?}");
-        assert_eq!(lines[1], "Run finished: exit code 2");
+        assert!(lines[0].text.starts_with("error: "), "{lines:?}");
+        assert_eq!(
+            lines[0].severity,
+            Severity::Error,
+            "the refusal is an error"
+        );
+        assert_eq!(lines[1].text, "Run finished: exit code 2");
+        assert_eq!(lines[1].severity, Severity::Info, "the exit line is info");
     }
 }

@@ -67,9 +67,9 @@ panel's `show` takes any `Ui`, the whole-app one or a tool's (the older `show_in
 deprecated, and deprecations are errors here, `spec/core/gui.md` "egui version discipline"):
 
 ```rust
-// team_compiler::view, inside `view()`
-egui::Panel::bottom("log").resizable(true).default_size(220.0)
-    .show(ui, |ui| log_panel::show(ui, &self.log));
+// team_compiler::view, inside `view()`; the log's `BottomDock` claims its own
+// `Panel::bottom` (resizable, 220 by default), so the dock's frame is one widget
+self.log_panel.show(ui, &self.run.lines);
 egui::Panel::bottom("toolbar").exact_size(32.0)
     .show(ui, |ui| toolbar::show(ui, &self.run));
 egui::CentralPanel::default().show(ui, |ui| grid::show(ui, &self.rows));

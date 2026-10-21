@@ -5,6 +5,7 @@
 
 mod export;
 
+use crate::events::MessageCode;
 use crate::tool::StudioTool;
 
 pub use export::run_help;
@@ -41,6 +42,19 @@ pub struct HelpTarget {
     pub topic: Option<String>,
     /// Anchor inside the topic, such as a message code in the generated "Messages" topic.
     pub anchor: Option<String>,
+}
+
+impl HelpTarget {
+    /// The catalog row `code` identifies: the generated Messages topic of the code's
+    /// own tool, the code highlighted (a log line's link target — core plan, "Help
+    /// window", "Opening").
+    pub fn message(code: &MessageCode) -> HelpTarget {
+        HelpTarget {
+            tool: code.tool_id.to_owned(),
+            topic: Some("messages".to_owned()),
+            anchor: Some(code.code.to_string()),
+        }
+    }
 }
 
 /// One row of a tool's message catalog, as the help's generated Messages topic shows it.

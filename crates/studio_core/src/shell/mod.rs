@@ -3,8 +3,8 @@
 //! first-run data-location dialog while no data location exists, the active tool's view,
 //! every tool ticked each frame and the tools' shell requests applied; the window's close
 //! asks the tools in sidebar order until one holds it. Plus the launch modes' argument
-//! parsing (`launch`). The common widgets join this module later in the GUI phase (core
-//! plan, "Shell layout", "Crate structure").
+//! parsing (`launch`). The common widgets live in `crate::widgets` (core plan, "Shell
+//! layout", "Crate structure").
 
 mod about;
 mod first_run;
@@ -158,6 +158,9 @@ impl StudioApp {
                     self.title.notice(&notice.text, focused);
                     self.status_bar.set_notice(notice);
                 }
+                // A log line's message-code link: the same `open_help` the sidebar's
+                // `?` uses, modal close included.
+                ShellRequest::OpenHelp(target) => self.open_help(&target),
             }
         }
     }

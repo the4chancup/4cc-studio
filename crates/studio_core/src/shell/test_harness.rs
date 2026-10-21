@@ -15,10 +15,11 @@ use pes_version::PesVersion;
 
 use super::StudioApp;
 use crate::events::{PipelineEvent, PipelineEventEnvelope, RunId};
-use crate::help::HelpSection;
+use crate::help::{HelpSection, HelpTarget};
 use crate::settings::Settings;
 use crate::status::ToolActivity;
 use crate::tool::{AppPaths, CliError, PlannedTool, StudioTool, ToolContext};
+use crate::widgets::{LogLine, LogPanel};
 
 /// What `activity()` reports while a stub works: `(tool_label, progress, elapsed)`.
 pub(super) type Activity = (&'static str, Option<(usize, usize)>, Duration);
@@ -100,6 +101,9 @@ pub(super) struct StubTool {
     /// The chapter `help()` reports; `stub` fills an empty one titled by `label`,
     /// `stub_help` the section the test spells out.
     help: HelpSection,
+    /// A `LogPanel` the `view` draws over these lines, `stub_log`'s: the clicked
+    /// message code goes to `ctx.open_help` (the log-to-help wiring).
+    log: Option<(LogPanel, Vec<LogLine>)>,
     calls: Arc<Calls>,
 }
 
@@ -142,6 +146,11 @@ impl StudioTool for StubTool {
                 }
             }
             None => {}
+        }
+        if let Some((panel, lines)) = &mut self.log
+            && let Some(code) = panel.show(ui, lines)
+        {
+            ctx.open_help(HelpTarget::message(&code));
         }
     }
     fn tick(&mut self, ctx: &ToolContext) {
@@ -229,6 +238,27 @@ pub(super) fn stub_help(
     blocker: Option<&'static str>,
     help: HelpSection,
 ) -> (Box<dyn StudioTool>, Arc<Calls>) {
+    stub_parts(id, label, blocker, help, None)
+}
+
+/// A stub whose `view` is a `LogPanel` over `lines` (the log-to-help wiring's
+/// tests): its help chapter is `section`, so its line codes are its own catalog's.
+pub(super) fn stub_log(
+    id: &'static str,
+    label: &'static str,
+    help: HelpSection,
+    lines: Vec<LogLine>,
+) -> (Box<dyn StudioTool>, Arc<Calls>) {
+    stub_parts(id, label, None, help, Some((LogPanel::new(), lines)))
+}
+
+fn stub_parts(
+    id: &'static str,
+    label: &'static str,
+    blocker: Option<&'static str>,
+    help: HelpSection,
+    log: Option<(LogPanel, Vec<LogLine>)>,
+) -> (Box<dyn StudioTool>, Arc<Calls>) {
     let calls = Arc::new(Calls::default());
     *calls.blocker.lock().unwrap() = blocker;
     *calls.default_settings.lock().unwrap() =
@@ -239,6 +269,7 @@ pub(super) fn stub_help(
             label,
             icon: "i",
             help,
+            log,
             calls: Arc::clone(&calls),
         }),
         calls,

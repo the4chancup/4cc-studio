@@ -564,13 +564,20 @@ fn text_cell(
     width: f32,
     text: &str,
 ) -> (egui::Response, Option<String>) {
-    let inner = ui.allocate_ui_with_layout(
-        egui::vec2(width, ui.spacing().interact_size.y),
-        egui::Layout::top_down(egui::Align::Min),
+    // A scoped child gets the grid's `available_rect`: anchored at the cell's top,
+    // spanning the rows below. `allocate_ui_with_layout` would vertically center a
+    // small rect in the cell instead, and a wrapping cell's Markdown would draw
+    // past its bottom onto the next row. The child's `min_rect` is what the grid
+    // measures the row height from.
+    let inner = ui.scope_builder(
+        egui::UiBuilder::new()
+            .id_salt(("help-msg", row, column))
+            .layout(egui::Layout::top_down(egui::Align::Min)),
         |ui| {
-            ui.push_id(("help-msg", row, column), |ui| {
-                CommonMarkViewer::new().show(ui, cache, &text.replace("\\|", "|"));
-            })
+            // The last column's `available_rect` runs to the pane's edge; the cell
+            // keeps the shared text-column width whatever the grid offers.
+            ui.set_max_width(width);
+            CommonMarkViewer::new().show(ui, cache, &text.replace("\\|", "|"))
         },
     );
     let dest = cache
@@ -578,7 +585,7 @@ fn text_cell(
         .iter()
         .find(|(_, hit)| **hit)
         .map(|(dest, _)| dest.clone());
-    (inner.inner.response, dest)
+    (inner.response, dest)
 }
 
 /// A row's severity color (the draft's `sevCls`): a severity holding `Error` or `Fatal`
@@ -595,12 +602,16 @@ fn severity_color(severity: &str, visuals: &egui::Visuals) -> egui::Color32 {
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use egui::accesskit::{self, Role, Toggled};
 
     use super::*;
+    use crate::events::{MessageCode, Severity};
     use crate::help::{CatalogRow, HelpTopic};
     use crate::shell::test_harness::*;
     use crate::status::{ActionEffect, Notice, NoticeAction};
+    use crate::widgets::LogLine;
 
     /// Two chapters with a topic and a catalog row each, as a tool's `help()` yields.
     fn sections() -> Vec<(&'static str, HelpSection)> {
@@ -1014,6 +1025,55 @@ mod tests {
         assert!(has_text(&nodes, "Beta does things."));
     }
 
+    // ST-HELP-03
+    #[test]
+    fn a_log_lines_message_code_opens_the_help_at_its_catalog_row() {
+        let dir = TestDir::new("studio_core_help_loglink");
+        // Alpha's view is a log panel showing a finding line of its own catalog.
+        let (a, calls_a) = stub_log(
+            "a",
+            "Alpha",
+            alpha_section(),
+            vec![LogLine {
+                severity: Severity::Error,
+                code: Some(MessageCode {
+                    tool_id: "a",
+                    code: Cow::Borrowed("alpha_error"),
+                }),
+                text: "- Error alpha_error at Players/01 - T".to_owned(),
+            }],
+        );
+        let Shell { mut app, .. } = shell_with(
+            test_settings(dir.path()),
+            vec![a],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a],
+        );
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+
+        // egui reports a `ui.link` as a `Label` node carrying its text in `label`.
+        let nodes = idle(&egui_ctx, &mut app, 2).nodes;
+        let link = nodes
+            .iter()
+            .find(|node| node.role() == Role::Label && node.label() == Some("alpha_error"))
+            .expect("the code's link node");
+        click(&egui_ctx, &mut app, link);
+        let nodes = idle(&egui_ctx, &mut app, 15).nodes;
+        assert_eq!(
+            app.help_window.showing(),
+            Some(("a", "messages")),
+            "the help opened at the code's Messages topic"
+        );
+        assert_eq!(
+            app.help_window.highlight(),
+            (None, Some("alpha_error")),
+            "the row is highlighted"
+        );
+        assert!(has_text(&nodes, "alpha fails"), "the row is drawn");
+    }
+
     #[test]
     fn an_openhelp_notice_opens_the_window_at_the_target_closing_a_modal() {
         let dir = TestDir::new("studio_core_help_notice");
@@ -1120,6 +1180,96 @@ mod tests {
             "the long cell wraps onto several lines: {} vs {}",
             cell.height(),
             code.height(),
+        );
+    }
+
+    #[test]
+    fn a_wrapping_catalog_cell_pushes_the_next_row_down() {
+        let dir = TestDir::new("studio_core_help_rowheight");
+        let mut section = alpha_section();
+        // Long enough to wrap onto at least four lines in the default window.
+        let long = Box::leak(
+            "a condition long enough to need several wrapped lines in the pane "
+                .repeat(4)
+                .into_boxed_str(),
+        );
+        section.messages = vec![
+            CatalogRow {
+                code: "first_code",
+                severity: "Info",
+                when: long,
+                effect: "first effect",
+            },
+            CatalogRow {
+                code: "second_code",
+                severity: "Warning",
+                when: "second",
+                effect: "second effect",
+            },
+            CatalogRow {
+                code: "third_code",
+                severity: "Error",
+                when: "third",
+                effect: "third effect",
+            },
+        ];
+        let (a, calls_a) = stub_help("a", "Alpha", None, section);
+        let Shell { mut app, .. } = shell_with(
+            test_settings(dir.path()),
+            vec![a],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a],
+        );
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+
+        frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
+        let nodes = idle(&egui_ctx, &mut app, 15).nodes;
+        click(&egui_ctx, &mut app, entry(&nodes, "Messages"));
+        let nodes = idle(&egui_ctx, &mut app, 15).nodes;
+
+        let when = label_bounds(&nodes, "condition long enough")
+            .expect("the long When cell")
+            .bounds()
+            .unwrap();
+        let second = label_bounds(&nodes, "second_code")
+            .expect("the second row's code")
+            .bounds()
+            .unwrap();
+        let third = label_bounds(&nodes, "third_code")
+            .expect("the third row's code")
+            .bounds()
+            .unwrap();
+        // All three are inside the window: the vertical bounds are real, not
+        // window-clipped.
+        let window = help_window_node(&nodes)
+            .expect("the help window is drawn")
+            .bounds()
+            .unwrap();
+        for (name, bounds) in [("when", when), ("second", second), ("third", third)] {
+            assert!(
+                bounds.y0 >= window.y0 && bounds.y1 <= window.y1,
+                "{name} is in view: {bounds:?} vs {window:?}"
+            );
+        }
+        assert!(
+            when.height() > 3.0 * second.height(),
+            "the When cell wraps onto at least four lines: {} vs {}",
+            when.height(),
+            second.height()
+        );
+        assert!(
+            second.y0 >= when.y1,
+            "the second row starts at or below the long cell's bottom: {} >= {}",
+            second.y0,
+            when.y1
+        );
+        assert!(
+            third.y0 >= second.y1,
+            "the third row starts at or below the second's bottom: {} >= {}",
+            third.y0,
+            second.y1
         );
     }
 
@@ -1560,6 +1710,44 @@ mod tests {
         // At the floor: the remaining budget goes under 30 points per column and
         // clamps there — (150 - 80 - 50 - 32) is negative, so 60 / 2 = 30.
         assert_eq!(text_column_width(150.0, 80.0, 50.0, 32.0), 30.0, "60 / 2");
+    }
+
+    #[test]
+    fn the_catalog_grid_stays_inside_the_panes_width() {
+        // AccessKit clips node bounds to the window, so a too-wide grid cannot be
+        // caught from the drawn nodes; `ui.min_rect()` reads what the grid laid out.
+        let long = Box::leak(
+            "a condition long enough to wrap onto several lines when the column is narrow "
+                .repeat(4)
+                .into_boxed_str(),
+        );
+        let mut section = alpha_section();
+        for row in &mut section.messages {
+            row.when = long;
+            row.effect = long;
+        }
+        let mut cache = CommonMarkCache::default();
+        let egui_ctx = egui::Context::default();
+        let input = || egui::RawInput {
+            screen_rect: Some(egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(500.0, 600.0),
+            )),
+            ..Default::default()
+        };
+        let mut width = 0.0;
+        for _ in 0..2 {
+            egui_ctx
+                .run_ui(input(), |ui| {
+                    messages(ui, &mut cache, &section, None, false);
+                    width = ui.min_rect().width();
+                })
+                .drop_without_applying_deltas();
+        }
+        assert!(
+            width <= 500.0,
+            "the catalog grid is {width} wide on a 500-point pane"
+        );
     }
 
     #[test]

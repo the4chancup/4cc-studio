@@ -1,17 +1,29 @@
 //! The Team compiler's window, render-only (`spec/team_compiler/README.md` "Crate layout"): it reads
 //! the tool's state and reports the user's intent (Compile clicked); it never calls into the
 //! pipeline itself. In Phase 3: the effective settings read-only, the Compile button and the
-//! run log; the grid and the toolbar arrive with the GUI phase.
+//! log panel; the grid and the toolbar arrive later in the GUI phase.
 
 use std::time::Duration;
 
-use studio_core::ToolContext;
+use studio_core::{HelpTarget, LogPanel, ToolContext};
 
 use crate::gui_run::RunLog;
 use crate::messages::TOOL_ID;
 
 /// Shows the window; `true` when Compile was clicked this frame.
-pub(crate) fn show(ui: &mut egui::Ui, ctx: &ToolContext, log: &RunLog) -> bool {
+pub(crate) fn show(
+    ui: &mut egui::Ui,
+    ctx: &ToolContext,
+    log: &RunLog,
+    panel: &mut LogPanel,
+) -> bool {
+    // The dock claims the bottom first (core plan, "Shell layout"); the settings
+    // and the button take what is left until the grid and the toolbar arrive. A
+    // clicked message code is a shell request, not a pipeline call: the view
+    // stays render-only.
+    if let Some(code) = panel.show(ui, log.lines()) {
+        ctx.open_help(HelpTarget::message(&code));
+    }
     ui.collapsing("Settings", |ui| show_settings(ui, ctx));
     let clicked = ui
         .add_enabled(!log.is_running(), egui::Button::new("Compile"))
@@ -21,13 +33,6 @@ pub(crate) fn show(ui: &mut egui::Ui, ctx: &ToolContext, log: &RunLog) -> bool {
         // the log would advance only when the mouse moves.
         ui.ctx().request_repaint_after(Duration::from_millis(100));
     }
-    egui::ScrollArea::vertical()
-        .stick_to_bottom(true)
-        .show(ui, |ui| {
-            for line in log.lines() {
-                ui.monospace(line);
-            }
-        });
     clicked
 }
 
@@ -158,7 +163,9 @@ mod tests {
     fn without_a_click_nothing_is_reported_and_compile_is_enabled() {
         let ctx = settings_only_context();
         let log = RunLog::default();
-        let (clicked, nodes) = Headless::new().frame(Vec::new(), |ui| show(ui, &ctx, &log));
+        let mut panel = LogPanel::new();
+        let (clicked, nodes) =
+            Headless::new().frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));
         assert!(!clicked);
         assert!(!button(&nodes, "Compile").is_disabled());
     }
@@ -167,14 +174,15 @@ mod tests {
     fn a_click_on_compile_is_reported_on_the_frame_of_the_release() {
         let ctx = settings_only_context();
         let log = RunLog::default();
+        let mut panel = LogPanel::new();
         let mut window = Headless::new();
         // The first frame lays the button out; egui hit-tests a click against the previous
         // frame's widgets, so the press comes on the second frame and the release on the third.
-        let (_, nodes) = window.frame(Vec::new(), |ui| show(ui, &ctx, &log));
+        let (_, nodes) = window.frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));
         let target = centre(button(&nodes, "Compile"));
-        let (clicked, _) = window.frame(press(target), |ui| show(ui, &ctx, &log));
+        let (clicked, _) = window.frame(press(target), |ui| show(ui, &ctx, &log, &mut panel));
         assert!(!clicked, "not before the release");
-        let (clicked, _) = window.frame(release(target), |ui| show(ui, &ctx, &log));
+        let (clicked, _) = window.frame(release(target), |ui| show(ui, &ctx, &log, &mut panel));
         assert!(clicked);
     }
 
@@ -184,14 +192,15 @@ mod tests {
         let ctx = settings_only_context();
         let (release_run, until) = unbounded();
         let mut log = RunLog::in_flight(until);
-        let (_, nodes) = Headless::new().frame(Vec::new(), |ui| show(ui, &ctx, &log));
+        let mut panel = LogPanel::new();
+        let (_, nodes) = Headless::new().frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));
         assert!(button(&nodes, "Compile").is_disabled());
         release_run.send(()).unwrap();
         poll_until_done(|| {
             log.poll();
             log.is_running()
         });
-        assert_eq!(log.lines(), ["Run finished: exit code 0"]);
+        assert_eq!(log.texts(), ["Run finished: exit code 0"]);
     }
 
     // TC-GUI-03
@@ -199,16 +208,17 @@ mod tests {
     fn the_settings_section_opens_on_the_effective_settings() {
         let ctx = settings_only_context();
         let log = RunLog::default();
+        let mut panel = LogPanel::new();
         let mut window = Headless::new();
-        let (_, nodes) = window.frame(Vec::new(), |ui| show(ui, &ctx, &log));
+        let (_, nodes) = window.frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));
         assert!(
             !shows_text(&nodes, "pes_version = 21"),
             "collapsed at first"
         );
         let header = centre(button(&nodes, "Settings"));
-        window.frame(press(header), |ui| show(ui, &ctx, &log));
-        window.frame(release(header), |ui| show(ui, &ctx, &log));
-        let (_, nodes) = window.frame(Vec::new(), |ui| show(ui, &ctx, &log));
+        window.frame(press(header), |ui| show(ui, &ctx, &log, &mut panel));
+        window.frame(release(header), |ui| show(ui, &ctx, &log, &mut panel));
+        let (_, nodes) = window.frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));
         assert!(shows_text(&nodes, "pes_version = 21"));
         assert!(shows_text(&nodes, "cpk_name = \"4cc_99_test\""));
     }
@@ -232,7 +242,7 @@ mod tests {
             tool.run_log.is_running()
         });
         assert_eq!(
-            tool.run_log.lines(),
+            tool.run_log.texts(),
             [
                 "- Info bin_source (bin=TeamColor.bin, cpk=bundled)".to_owned(),
                 "- Info bin_source (bin=UniColor.bin, cpk=bundled)".to_owned(),
@@ -262,13 +272,18 @@ mod tests {
         );
     }
 
-    /// The log's scroll offset: the scroll area's own id in the window's root ui.
+    /// The log body's scroll offset: its `scroll_area::State` under the id the
+    /// panel's `id_salt` chain builds — the root ui's top id, the open dock panel's
+    /// (`LogPanel` salts it `log`), the panel frame's `child` content salt, then
+    /// the body's `log-body` salt (`studio_core`'s `widgets/log_panel.rs`).
     fn scroll_offset(ctx: &egui::Context) -> f32 {
         let id = egui::Id::new((egui::ViewportId::ROOT, "__top_ui"))
-            .with(egui::IdSalt::new("scroll_area"));
+            .with(egui::IdSalt::new(egui::Id::new("log")))
+            .with(egui::IdSalt::new("child"))
+            .with(egui::IdSalt::new("log-body"));
         egui::scroll_area::State::load(ctx, id)
             .map(|state| state.offset.y)
-            .expect("the window holds one scroll area")
+            .expect("the log body's scroll area")
     }
 
     // TC-GUI-03
@@ -278,14 +293,15 @@ mod tests {
         let mut log = RunLog::default();
         let lines: Vec<String> = (1..=40).map(|line| format!("log line {line}")).collect();
         log.append_test_lines(&lines.iter().map(String::as_str).collect::<Vec<_>>());
+        let mut panel = LogPanel::new();
         let mut window = Headless::new();
-        // The log overflows the window: stuck to the end, the offset is off the top.
-        window.frame(Vec::new(), |ui| show(ui, &ctx, &log));
+        // The log overflows the panel's body: stuck to the end, the offset is off the top.
+        window.frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));
         let before = scroll_offset(&window.ctx);
         assert!(before > 0.0, "stuck to the bottom of a log that overflows");
         // A line arrives: the offset grows with the content, the last line still shown.
         log.append_test_lines(&["log line 41"]);
-        window.frame(Vec::new(), |ui| show(ui, &ctx, &log));
+        window.frame(Vec::new(), |ui| show(ui, &ctx, &log, &mut panel));
         let after = scroll_offset(&window.ctx);
         assert!(
             after > before,

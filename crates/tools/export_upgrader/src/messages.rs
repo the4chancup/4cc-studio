@@ -483,7 +483,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "common_link_missing",
         Severity::Error,
-        r#"a `.common` link (model, material file or texture) names a file missing from the Common folder (a `kitN` stem or directory in it standing for its set, `spec/model_format.md` "Kit-dependent assets") (context: the link file, whose name shows its kind, and the Common path looked for); on PES 18-21 a texture link is satisfied by an installed CPK holding the texture at the team's Common path (`pipeline.md` "Resolved decisions", "A texture a model names must exist")"#,
+        r#"a `.common` link (model, material file or texture) names a file missing from the Common folder (a `kitN` stem or directory in it standing for its set, `spec/model_format.md` "Kit-dependent assets") (context: the link file, whose name shows its kind, and the Common path looked for)"#,
         r#"the run is not clean, so nothing is written"#,
     ),
     (

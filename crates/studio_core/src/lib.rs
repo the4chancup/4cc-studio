@@ -1,9 +1,10 @@
 //! The platform: what runs with zero tools installed.
 //!
 //! `studio_core` holds the tool plugin trait, the settings framework, the pipeline event types
-//! every tool emits, the status bar's typed items and the help chapter types. The module tree is
-//! closed (core plan, "Crate structure"): format knowledge belongs in a lib crate, a widget used by
-//! one tool in that tool's `view/`. This file only re-exports.
+//! every tool emits, the status bar's typed items, the help chapter types and the widgets the
+//! tools' views share. The module tree is closed (core plan, "Crate structure"): format knowledge
+//! belongs in a lib crate, a widget used by one tool in that tool's `view/`. This file only
+//! re-exports.
 
 pub mod events;
 pub mod help;
@@ -13,6 +14,7 @@ pub mod shell;
 pub mod status;
 mod theme;
 pub mod tool;
+pub mod widgets;
 
 // The icon font is the sidebar's rail alphabet: `StudioTool::icon` and `PlannedTool::icon`
 // name its glyphs, so the tool crates and `studio`'s registry reach the constants through this
@@ -32,3 +34,4 @@ pub use shell::run_gui;
 pub use shell::{Launch, LaunchMode, StudioApp, parse_launch, run_cli};
 pub use status::{ActionEffect, Notice, NoticeAction, ShellCondition, ToolActivity};
 pub use tool::{AppPaths, CliError, PlannedTool, ShellRequest, StudioTool, ToolContext};
+pub use widgets::{BottomDock, LogLine, LogPanel};

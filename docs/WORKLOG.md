@@ -17,7 +17,7 @@ done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Rule
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
-(its steps itemized: the shell, 8.6a-c and 8.6d1-2 done, 8.6d3 the log panel next; then the Save
+(its steps itemized: the shell, 8.6a-c and 8.6d1-3 done, 8.6d4 the wording pass next; then the Save
 editor's view), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
 upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20): 20.0d (the
@@ -720,7 +720,22 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         moved, and the sizing-pass guards tested one by one (only the one keeping the
         scroll pending across a `Grid`'s sizing pass is needed; the others went).
         Rulings `.tmp/8_6/duck_rulings.md`; Astra A4 over reworks 2 and 3 is due
-      - [ ] 8.6d3 the log panel widget (ST-LOG-01 to 04) and its code links (ST-HELP-03)
+      - [x] 8.6d3 the log panel widget (ST-LOG-01 to 04) and its code links (ST-HELP-03):
+        `widgets/dock.rs` `BottomDock` (the bottom panel's frame: chevron, title, the caller's
+        header, the resizable divider; a second panel id while collapsed keeps the open
+        height), the frame the Save editor's Live AATF list reuses; `widgets/log_panel.rs`
+        `LogLine` (`from_event`, `plain`) and `LogPanel` (300 lines drawn, All / Warnings /
+        Errors, colored by severity, the follow paused while scrolled up with `↓ N new`, the
+        code a link); `ShellRequest::OpenHelp`, `ToolContext::open_help`,
+        `HelpTarget::message`; the Team compiler's window draws its run in the panel. The
+        grid cross-link waits for the grid (8.10). Also a test of the catalog grid's laid-out
+        width (the two survivors of rework 3's mutation run). ST-LOG-01 to 04 and ST-HELP-03
+        proven. Files: `studio_core/src/{widgets/,tool.rs,lib.rs,help/mod.rs}`,
+        `shell/{mod,help_window,test_harness}.rs`, `team_compiler/src/{gui_run.rs,lib.rs,
+        view/mod.rs}`. Review A4 (Astra on Codex own over 8.6d2's reworks 2 and 3, 2 of 3
+        accepted: a long catalog cell overlapping the next row, in 8.6d3's rework; the
+        upgrader's `common_link_missing` row promising an exception it never applies) ends
+        Astra's loop on the help window
       - [ ] when the first topic gains an in-doc link `[text](<id>#<slug>)`, `--export`
         rewrites it to `<id>.md#<slug>` and writes an anchor per topic slug (review A3-7: no
         shipped topic holds one yet, so the exported files have nothing to break)
@@ -748,8 +763,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       2026-10-21: `check-aatf` on a PES 2017 save, 220 teams in 10.7 s; the engine built per
       team, the script, the team's view) and cut what is not the script's own work: speed is
       the suite's first goal, and both AATF panels wait on it
-  - [ ] 8.10 after 0.0.1: the progress grid, the run strip and the console printer's progress
-    line, the exports folder watcher and check cache, cancellation, the launcher, the Team
+  - [ ] 8.10 after 0.0.1: the progress grid (with the log panel's cross-link: a warning or
+    error line's click highlights its grid cell, `gui.md` "Log panel", which 8.6d3 leaves for
+    the grid), the run strip and the console printer's progress line, the exports folder watcher and check cache, cancellation, the launcher, the Team
     compiler's and the Export upgrader's views (their drafts first); the notice action
     `OpenFolder` opens the system file browser for the compile's "Open output" (8.6b leaves it
     a dismiss; eframe's `open_url` opens a browser even for a local path, so not through it),
@@ -995,6 +1011,17 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     `src/file.rs`, `src/fixtures/`, `src/ruleset/tests/`), `crates/tools/save_editor/src/
     messages.rs`, `docs/plans/aatf_rules.md`, `docs/plans/ruleset_editor.md`,
     `docs/prototypes/ruleset_editor.html`, `docs/DECISIONS.md`, `docs/QUESTIONS.md`
+  - [ ] 20.0e the DBC7 organizer's choices (2026-10-21, `plans/aatf_rules.md` "DBC7", DECISIONS
+    2026-10-21): `Tier::stat_warning`, `Tier::total_within_targets` and the `stat_warning`
+    effect (`plans/aatf_rules.md` "The ruleset schema", "The stat band"), the `Stat`
+    violation's severity and `StatTotal`, their load rules and the Save editor's texts;
+    `dbc7.rhai` (the band, the total, the registered-position warning, the 189 cm goalkeeper's
+    single A, no card caps); the Ruleset editor's forms (`plans/ruleset_editor.md` "The
+    editor") in the draft → verify: the 20.0d parity run against the fork on the two PES 2017
+    saves, every difference a listed class (the total and the registered-position severity
+    the new ones), the 29 and 36 teams the band alone failed now passing unless the total
+    catches them, tallied; the stat total's two readings wait on QUESTIONS.md "DBC7: the stat
+    total"
 
 ---
 
