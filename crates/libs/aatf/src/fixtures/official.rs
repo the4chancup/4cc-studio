@@ -809,8 +809,20 @@ fn red_cbs_at_189_count_as_tall() {
             quota("red", "mid", 6, 7),
         ]
     );
+    // A medal registered at CB at 189 under Red: the allowance is the
+    // non-medals' (D3), so he is in no bracket and the tall quota one short.
+    assert_eq!(player(&red, 20).position, Some(cb));
+    assert_eq!(player(&red, 20).height, 185);
+    assert_eq!(
+        problems(&rules, &red_edited(20, |p| p.height = 189)),
+        vec![
+            error(Some(20), ViolationKind::Height { height: 189 }),
+            quota("red", "tall", 9, 10),
+        ]
+    );
     // A CB under Green: 189 is in no bracket.
     let mut green = legal_team();
+    assert_eq!(player(&green, 8).position, Some(cb));
     assert_eq!(player(&green, 8).height, 194);
     player_mut(&mut green, 8).height = 189;
     assert_eq!(
