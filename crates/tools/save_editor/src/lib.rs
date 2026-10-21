@@ -2,9 +2,9 @@
 //! Team compiler's aesthetics patch, the teams list), transplanted and compared.
 //!
 //! `Tool` registers the tool with the shell: its settings section, its help chapter and its
-//! `save-editor` command line (`spec/save_editor.md` "CLI"). The window is a later phase's;
-//! until then `view` shows a placeholder line. `pes_savefile` owns every byte and every
-//! operation on the model; this crate owns the session (the file that is open) and the
+//! `save-editor` command line (`spec/save_editor.md` "CLI"), and the window (`view/`, the
+//! master-detail of `plans/save_editor.md` "Editing UI"). `pes_savefile` owns every byte and
+//! every operation on the model; this crate owns the session (the file that is open) and the
 //! command line over it.
 
 mod cli;
@@ -14,20 +14,25 @@ mod messages;
 mod session;
 mod settings;
 mod teams_list;
+mod view;
 
 use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};
 
 use crate::messages::TOOL_ID;
 
-/// The Save editor, as registered with the `studio` binary. No window state yet: the view
-/// arrives with the GUI phase.
+/// The Save editor, as registered with the `studio` binary. `view` is the window's
+/// state (`plans/save_editor.md` "Editing UI").
 #[derive(Default)]
-pub struct Tool;
+pub struct Tool {
+    view: view::SaveView,
+}
 
 impl Tool {
     /// The tool, with no save open.
     pub fn new() -> Tool {
-        Tool
+        Tool {
+            view: view::SaveView::new(),
+        }
     }
 }
 
@@ -45,7 +50,7 @@ impl StudioTool for Tool {
     }
 
     fn view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
-        ui.label("The Save editor's window is not built yet; its commands run from a terminal.");
+        view::show(ui, &mut self.view, &studio_core::running_pes());
     }
 
     fn settings_view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {

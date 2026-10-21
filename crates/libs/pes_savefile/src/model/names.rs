@@ -30,6 +30,68 @@ pub fn display_name(raw: &str) -> String {
     String::from_utf8(out).expect("stripping at char boundaries keeps UTF-8 valid")
 }
 
+/// The name's text runs and the color each is drawn in, as the game draws
+/// them: a `\x11c` code (`display_name`'s rule for what one is) colors the
+/// text after it with its first six bytes as RGB hex (the alpha not drawn),
+/// `\x11d` resets to the normal color; a code whose six bytes are not hex
+/// resets too. Runs are never empty; the runs' text joined is
+/// `display_name(raw)`.
+pub fn name_spans(raw: &str) -> Vec<(Option<[u8; 3]>, &str)> {
+    let bytes = raw.as_bytes();
+    let mut spans = Vec::new();
+    let mut color = None;
+    let mut start = 0;
+    let mut i = 0;
+    while i < bytes.len() {
+        // The same boundaries `display_name` strips at: `\x11c` plus exactly
+        // eight bytes ending on a char boundary, or the two-byte `\x11d`.
+        let code = if bytes[i] == 0x11 && i + 1 < bytes.len() && bytes[i + 1] == b'c' {
+            Some(10).filter(|end| i + end <= bytes.len() && raw.is_char_boundary(i + end))
+        } else if bytes[i] == 0x11 && i + 1 < bytes.len() && bytes[i + 1] == b'd' {
+            Some(2).filter(|end| raw.is_char_boundary(i + end))
+        } else {
+            None
+        };
+        match code {
+            Some(len) => {
+                if start < i {
+                    spans.push((color, &raw[start..i]));
+                }
+                color = match len {
+                    10 => rgb(&bytes[i + 2..i + 8]),
+                    _ => None,
+                };
+                i += len;
+                start = i;
+            }
+            None => i += 1,
+        }
+    }
+    if start < bytes.len() {
+        spans.push((color, &raw[start..]));
+    }
+    spans
+}
+
+/// The RGB of a `\x11c` code's first six bytes (`code`), `None` when one is
+/// not hex (the game does not check: the text keeps the normal color).
+fn rgb(code: &[u8]) -> Option<[u8; 3]> {
+    let nibble = |byte: u8| -> Option<u8> {
+        match byte {
+            b'0'..=b'9' => Some(byte - b'0'),
+            b'a'..=b'f' => Some(byte - b'a' + 10),
+            b'A'..=b'F' => Some(byte - b'A' + 10),
+            _ => None,
+        }
+    };
+    let channel = |hi: u8, lo: u8| Some(nibble(hi)? * 16 + nibble(lo)?);
+    Some([
+        channel(code[0], code[1])?,
+        channel(code[2], code[3])?,
+        channel(code[4], code[5])?,
+    ])
+}
+
 /// The eight bytes after a leading `\x11c` colour code (`"cc9900ff"`),
 /// under `display_name`'s rule for what a code is (exactly eight bytes,
 /// ending at a char boundary). `None` for a name without a leading code —
@@ -74,6 +136,64 @@ mod tests {
         assert_eq!(display_name("\x11c12345"), "\x11c12345");
         assert_eq!(display_name("plain"), "plain");
         assert_eq!(display_name("\x11x?"), "\x11x?");
+    }
+
+    #[test]
+    fn name_spans_carry_the_color_of_the_code_before_them() {
+        assert_eq!(
+            name_spans("\x11cc9002bffPEP\x11cffffffffSI \x11c004b93ffMAN"),
+            [
+                (Some([0xc9, 0x00, 0x2b]), "PEP"),
+                (Some([0xff, 0xff, 0xff]), "SI "),
+                (Some([0x00, 0x4b, 0x93]), "MAN"),
+            ]
+        );
+        assert_eq!(
+            name_spans("WHEN THE \x11cb7bec5ffWORK RESULT\x11d WAS GOOD"),
+            [
+                (None, "WHEN THE "),
+                (Some([0xb7, 0xbe, 0xc5]), "WORK RESULT"),
+                (None, " WAS GOOD"),
+            ]
+        );
+        // The code's alpha is no part of the color, even when it is not hex.
+        assert_eq!(
+            name_spans("\x11ca000c8ONAME"),
+            [(Some([0xa0, 0x00, 0xc8]), "AME")]
+        );
+        assert_eq!(name_spans("plain"), [(None, "plain")]);
+    }
+
+    #[test]
+    fn name_spans_reset_on_a_reset_or_a_non_hex_code() {
+        // A non-hex RGB resets like `\x11d` does (the game does not check).
+        assert_eq!(
+            name_spans("\x11ca000c8ONone\x11cggggggffplain\x11dagain"),
+            [
+                (Some([0xa0, 0x00, 0xc8]), "one"),
+                (None, "plain"),
+                (None, "again"),
+            ]
+        );
+        // Two resets in a row merge into one run; runs are never empty.
+        assert_eq!(
+            name_spans("\x11c112233ffcolor\x11d\x11dplain"),
+            [(Some([0x11, 0x22, 0x33]), "color"), (None, "plain")]
+        );
+        // A code-shaped suffix that is not a code is text, color and all.
+        assert_eq!(
+            name_spans("\x11c112233ffend\x11c123"),
+            [(Some([0x11, 0x22, 0x33]), "end\x11c123")]
+        );
+        // The runs joined are the display name.
+        for name in [
+            "\x11cffd28cffROAD\x11cf389adffTRIP",
+            "\x11ca51818ffRESIZE\x11cdddf3bffTHE\x11ca51818ffFLASH!",
+            "plain",
+        ] {
+            let joined: String = name_spans(name).into_iter().map(|(_, text)| text).collect();
+            assert_eq!(joined, display_name(name), "{name:?}");
+        }
     }
 
     #[test]

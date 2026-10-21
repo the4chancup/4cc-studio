@@ -154,7 +154,10 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   replaces the up/down spinner. A dot marks players with unsaved changes. Names
   render with their savefile colour codes applied as text colours (the in-game
   look; 4ccEditor shows the raw control characters), and the name edit field
-  keeps the raw string so codes survive a roundtrip untouched.
+  keeps the raw string so codes survive a roundtrip untouched. A code's first six bytes are
+  the RGB hex; its alpha is not drawn, and a code whose six are not hex leaves the text the
+  normal color (the game does not check them: `spec/pes_savefile/codec.md` "Name colour
+  codes, as measured").
 - **General info strip** and **quick actions** always visible above the tabs.
 - **Tabs** (contents 1:1 with 4ccEditor):
   - **Abilities & Skills** — 13 playable positions with A/B/C ratings, 7 COM
@@ -172,9 +175,16 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   - **Tactics** — see below.
 - Version-gated widgets render disabled with a tooltip ("PES 19+") rather than
   disappearing, so the UI stays spatially stable across versions.
-- **Undo/redo** across all edits (the model is plain data; an undo stack of
-  field-level changes is cheap) — the single biggest safety upgrade over
-  4ccEditor.
+- **Undo/redo** across all edits — the single biggest safety upgrade over
+  4ccEditor. An undo entry holds the before and after of each model entry it changed (a
+  `PlayerEntry`, a `TeamEntry`): the model is plain data, an entry is a few hundred bytes, and
+  one mechanism serves every widget, since a widget edits a copy and reports only that it
+  changed (`libs/team_widgets`' contract), not which field. One entry per gesture: changes
+  from one widget merge into the open entry while a pointer button is held or a widget has
+  keyboard focus, so a drag or a typed value is one undo step, not one per frame.
+- **Unsaved changes** are the difference from the file as opened or last saved, not the undo
+  stack's length: undoing back to the saved state clears the dot. A player's dot covers his
+  entry and his roster slot's shirt number.
 - Keyboard shortcuts preserved where they earn their keep (Ctrl+S save, Ctrl+F
   clear visual flags, Ctrl+I FPC toggle).
 - Closing, or opening another save, with unsaved changes prompts.

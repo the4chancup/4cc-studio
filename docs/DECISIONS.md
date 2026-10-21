@@ -9739,3 +9739,22 @@ Why: Astra's review A1 found the linear `Hsva` gradients showing other colors th
 click picks, a hue lost on white, and every Save editor pick kept out of the recents by the
 undo rule, since the host always rounds it.
 Plan: `plans/libs/color_tools.md` "Color-picker widget (Phase 8)".
+
+## 2026-10-21 — save_editor — Undo holds whole entries, one per gesture; unsaved means unlike the file
+Decision: an undo entry is the before and after of each `PlayerEntry` or `TeamEntry` it changed;
+changes from one widget merge into the open entry while a pointer button is held or a widget
+has keyboard focus; a player's unsaved-changes dot compares his entry and his roster number
+with the file as opened or last saved.
+Why: per-field changes need every widget to say which field it changed, while
+`team_widgets`' contract reports only that something did; an entry per frame would make a
+drag dozens of undo steps; a dot tied to the undo stack would stay after undoing back to the
+saved state.
+Plan: `plans/save_editor.md` "Editing UI", the Undo/redo and Unsaved changes bullets.
+
+## 2026-10-21 — save_editor — A name's color code draws its RGB, and a non-hex code draws nothing
+Decision: the player list draws a `\x11c` code's first six bytes as the RGB of the text after
+it, ignores the alpha, and leaves the text the normal color when those six are not hex.
+Why: the game does not check the bytes are hex (nine PES 21 names carry `\x11ca000c8ON`, an
+alpha of `ON`), and what it shows for a non-hex RGB is not measured; the normal color draws
+nothing invented.
+Plan: `plans/save_editor.md` "Editing UI", the Player list bullet.
