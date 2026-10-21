@@ -43,7 +43,7 @@ fn the_official_ruleset_loads() {
             ("tall", 6)
         ]
     );
-    assert_eq!(ruleset.specials.len(), 12);
+    assert_eq!(ruleset.specials.len(), 13);
     let last = ruleset.specials.last().expect("a last special");
     assert_eq!(last.then.choice.len(), 2);
     // "Red manlet bonus": `stat_bonus` is `all` keyed by four tiers.

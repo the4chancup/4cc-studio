@@ -28,9 +28,14 @@ fn rules_file(ruleset: &str) -> String {
 }
 
 /// The VGL27 violation team 701 of the PES 21 fixture save carries and the official ruleset
-/// cannot produce (it has no `fielded_at_a`).
-const FIELDED_NOT_A: &str =
-    "Error aatf_violation (team=701, player=70101, rule=FieldedNotA, preset=1, position=GK)";
+/// cannot produce: VGL27's one height system is `purple`, the official's are `red` and
+/// `green`. (The official file now has `fielded_at_a` too, so `FieldedNotA` no longer
+/// tells the files apart.)
+const PICKED_FILE_VIOLATION: &str = "Error aatf_violation (team=701, rule=BracketQuota, system=purple, bracket=tall, count=0, quota=10)";
+
+/// The official ruleset's marker violation on team 701 of the same save: a `red`
+/// quota the VGL27 file cannot produce.
+const OFFICIAL_VIOLATION: &str = "Error aatf_violation (team=701, rule=BracketQuota, system=red, bracket=tall, count=0, quota=10)";
 
 /// `check-aatf <save>` with the given extra arguments.
 fn check(sandbox: &Sandbox, save: &str, extra: &[&str]) -> crate::common::Run {
@@ -48,18 +53,16 @@ fn a_teams_violations_print_in_order_and_an_error_exits_1() {
 
     let run = check(&sandbox, "EDIT", &["--teams", "718"]);
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
+    // D3/D4: the five Height lines and the tall quota are gone — the
+    // five players (regulars registered at CB at the ordinary 185 cm,
+    // once "in no bracket" under the allowed height) are tall now, so
+    // the red quota holds at 10 of 10.
     assert_eq!(
         run.messages(),
         [
-            "Error aatf_violation (team=718, player=71802, rule=Height, height=185)",
-            "Error aatf_violation (team=718, player=71803, rule=Height, height=185)",
-            "Error aatf_violation (team=718, player=71820, rule=Height, height=185)",
-            "Error aatf_violation (team=718, player=71822, rule=Height, height=185)",
-            "Error aatf_violation (team=718, player=71823, rule=Height, height=185)",
             "Error aatf_violation (team=718, rule=TierCount, tier=gold, count=2, expected=1)",
             "Error aatf_violation (team=718, rule=TierCount, tier=bronze, count=0, expected=2)",
             "Error aatf_violation (team=718, rule=TierCount, tier=regular, count=19, expected=18)",
-            "Error aatf_violation (team=718, rule=BracketQuota, system=red, bracket=tall, count=5, quota=10)",
         ]
     );
 }
@@ -111,12 +114,14 @@ fn teams_limits_the_check_to_the_named_teams_in_id_order() {
     let run = check(&sandbox, "EDIT", &["--teams", "704,718"]);
     assert_eq!(run.exit_code(), 1);
     let messages = run.messages();
+    // D6: 42 lines now, the 11 starters' FieldedNotA on top (a
+    // placeholder team fielded at positions nobody is rated A at).
     assert_eq!(
         messages
             .iter()
             .filter(|line| line.contains("team=704"))
             .count(),
-        31,
+        42,
         "{messages:?}"
     );
     let last_704 = messages
@@ -189,7 +194,9 @@ fn rules_and_the_aatf_rules_setting_pick_the_rules_file() {
     );
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
     assert!(
-        run.messages().iter().any(|line| line == FIELDED_NOT_A),
+        run.messages()
+            .iter()
+            .any(|line| line == PICKED_FILE_VIOLATION),
         "{:?}",
         run.messages()
     );
@@ -202,17 +209,19 @@ fn rules_and_the_aatf_rules_setting_pick_the_rules_file() {
     );
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
     assert!(
-        run.messages().iter().any(|line| line == FIELDED_NOT_A),
+        run.messages()
+            .iter()
+            .any(|line| line == PICKED_FILE_VIOLATION),
         "{:?}",
         run.messages()
     );
 
+    // No file picked: the default official ruleset runs, its own marker
+    // the `red` quota VGL27 cannot emit.
     let run = check(&sandbox, "EDIT", &["--teams", "701"]);
     assert!(
-        !run.messages()
-            .iter()
-            .any(|line| line.contains("rule=FieldedNotA")),
-        "the official ruleset has no fielded_at_a: {:?}",
+        run.messages().iter().any(|line| line == OFFICIAL_VIOLATION),
+        "the official file's own quota: {:?}",
         run.messages()
     );
 }
@@ -347,12 +356,12 @@ fn rules_wins_over_the_aatf_rules_setting() {
         ],
     );
     // A run that checked (0 or 1), not a refused one: a refusal prints no rule line either.
+    // The official file's `red` quota proves it is the one checked (D6 gave it
+    // `fielded_at_a` too, so FieldedNotA no longer tells the files apart).
     assert!(run.exit_code() < 2, "{:?}", run.messages());
     assert!(
-        !run.messages()
-            .iter()
-            .any(|line| line.contains("rule=FieldedNotA")),
-        "the VGL27 rule the official ruleset does not have: {:?}",
+        run.messages().iter().any(|line| line == OFFICIAL_VIOLATION),
+        "the official file's own quota: {:?}",
         run.messages()
     );
 }
@@ -373,7 +382,9 @@ fn a_relative_aatf_rules_resolves_in_the_data_directory() {
     );
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
     assert!(
-        run.messages().iter().any(|line| line == FIELDED_NOT_A),
+        run.messages()
+            .iter()
+            .any(|line| line == PICKED_FILE_VIOLATION),
         "{:?}",
         run.messages()
     );

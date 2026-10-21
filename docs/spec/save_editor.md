@@ -345,7 +345,7 @@ finding that drops something says so with its own code.
 | `import_value_not_encodable` | Warning | `import-toml`: a value the save's version cannot store (an instruction it lacks); written as off (`path`, `label`) | warns and goes on |
 | `import_value_capped` | Warning | `import-toml`: a face type above the save's version's cap, or a skin the version has no custom slot for; written as `to` (`path`, `from`, `to`) | warns and goes on |
 | `import_slot_empty` | Warning | `import-toml`: a `[players.NN]` whose roster slot is empty; skipped (`slot`) | warns and goes on |
-| `import_text_cropped` | Warning | `import-toml`: a name or shirt name longer than the save's field; cut to it at whole characters and colour codes (`path`, `cropped`) | warns and goes on |
+| `import_text_cropped` | Warning | `import-toml`: a name or shirt name longer than the save's field; cut to it at whole characters and colour codes (`path`; `cropped`, the cut text as the game shows it, colour codes left out) | warns and goes on |
 | `patch_team_applied` | Info | `apply-patch`: the save holds the team and at least one of its patch players was written (`team`); a team whose players the save all lacks is not listed | informational; goes on |
 | `patch_team_not_in_save` | Error | `apply-patch`: the save has no team with this id; its players were not looked at (`team`) | the rest is written; exit 1 |
 | `patch_player_not_in_save` | Error | `apply-patch`: the save has no player with this id (`player`) | the rest is written; exit 1 |
@@ -432,7 +432,7 @@ SE-TOML-06 GIVEN a Team TOML with a player name longer than the target version's
            WHEN it is imported
            THEN it exits 0, --out holds the name cut to the field at whole characters and
                 colour codes, and an import_text_cropped warning names the player's key and
-                the text as cut
+                the cut name as the game shows it (colour codes left out)
 SE-TOML-07 GIVEN a stripped PES 21 save and the unstripped PES 21 fixture save
            WHEN a team whose slot 3 is rostered is exported from the stripped one with
                 export-toml, given an appearance table for its slot 3, and imported into each

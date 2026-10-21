@@ -489,17 +489,21 @@ mod tests {
     }
 
     /// The official ruleset's check on team 734 ("/lit/") of the PES 17
-    /// fixture save reports 17 violations: a `Height` error on slots 0, 1, 3,
-    /// 5 and 19, then the team's own (three `TierCount` and a
-    /// `BracketQuota`), and eight `Unused` suggestions on slots 9, 10, 14 and
-    /// 22. The list groups them in the check's slot order, `the team` last.
+    /// fixture save reports 11 violations: the team's own (three
+    /// `TierCount`) and eight `Unused` suggestions on slots 9, 10, 14 and
+    /// 22. The five `Height` errors slots 0, 1, 3, 5 and 19 used to
+    /// report, regulars registered at CB at the ordinary 185 cm, are
+    /// gone: the allowance now only raises 189, so they are tall again
+    /// and the red tall quota holds at 10 of 10. The list draws the
+    /// team's group alone.
     // SE-GUI-15
     #[test]
     fn the_list_groups_the_checks_violations_per_player() {
         let file = fixture();
         let players = listed_players(&file, 734);
         let violations = check(&file, 734);
-        assert_eq!(violations.len(), 17, "the check's count");
+        // D3/D4: the Red CB allowance at 189 alone; ordinary 185 is tall.
+        assert_eq!(violations.len(), 11, "the check's count");
         let team = file.team(734).expect("team 734");
         let teams = [TeamViolations {
             team_id: 734,
@@ -514,21 +518,10 @@ mod tests {
             drawn_lines(&nodes),
             [
                 "Team 734 /lit/",
-                "Player 73401  49 Muh Spooks",
-                "Height height 185 takes no bracket",
-                "Player 73402  55 knee-chee",
-                "Height height 185 takes no bracket",
-                "Player 73404  45 Yuki-kun ^~^",
-                "Height height 185 takes no bracket",
-                "Player 73406  85 Huge Orson Welles",
-                "Height height 185 takes no bracket",
-                "Player 73420  82 Tolstoyevsky's War and Punishment",
-                "Height height 185 takes no bracket",
                 "the team",
                 "TierCount 2 gold players, expected 1",
                 "TierCount 0 bronze players, expected 2",
                 "TierCount 19 regular players, expected 18",
-                "BracketQuota 5 players in bracket tall of red, quota 10",
             ]
         );
     }
@@ -691,12 +684,14 @@ mod tests {
             .iter()
             .position(|line| line == "Suggestions")
             .expect("the Suggestions header");
+        // D1: 73410's extra A position now costs a card against the
+        // gold's 6 (his trade covers the COM style, not the position).
         assert_eq!(
             lines[at..],
             [
                 "Suggestions",
                 "Player 73410  46 DFW",
-                "Unused only 4 of 6 cards used",
+                "Unused only 4 of 5 cards used",
                 "Unused only 2 of 4 weak_foot used",
                 "Player 73411  1 Start With the Greeks",
                 "Unused only 5 of 6 cards used",

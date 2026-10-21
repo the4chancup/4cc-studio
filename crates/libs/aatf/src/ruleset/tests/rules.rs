@@ -80,11 +80,7 @@ fn an_unknown_counts_as_is_refused() {
 fn an_unknown_free_group_is_refused() {
     case(
         "unknown free group",
-        &edit(
-            AUTUMN26,
-            "free: #{ tricks: 3, com: 2 }",
-            "free: #{ trickz: 3, com: 2 }",
-        ),
+        &edit(AUTUMN26, "free: #{ tricks: 3 }", "free: #{ trickz: 3 }"),
         LoadRule::UnknownId {
             kind: IdKind::Group,
             id: "trickz".to_string(),
@@ -365,6 +361,8 @@ fn an_empty_tier_id_makes_its_names_unknown() {
     e6.path = "specials[6].when.tiers[0]".to_string();
     let mut e11 = unknown();
     e11.path = "specials[11].when.tiers[0]".to_string();
+    let mut e12 = unknown();
+    e12.path = "specials[12].when.tiers[0]".to_string();
     assert_eq!(
         err,
         LoadError::Rules(vec![
@@ -375,6 +373,7 @@ fn an_empty_tier_id_makes_its_names_unknown() {
             e2,
             e6,
             e11,
+            e12,
         ]),
         "{err:?}"
     );
@@ -636,11 +635,7 @@ fn counts_over_the_squad_are_refused() {
 fn a_preset_out_of_range_is_refused() {
     case(
         "preset out of range",
-        &edit(
-            AUTUMN26,
-            "registered_position_a: true",
-            "registered_position_a: true, fielded_at_a: [4]",
-        ),
+        &edit(AUTUMN26, "fielded_at_a: [1]", "fielded_at_a: [4]"),
         LoadRule::PresetOutOfRange { preset: 4 },
         "universal.fielded_at_a[0]",
     );

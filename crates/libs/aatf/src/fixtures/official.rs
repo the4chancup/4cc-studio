@@ -103,6 +103,54 @@ fn gk_second_a() {
     );
 }
 
+/// The deadline export's first preset fields every starter at one of his
+/// A positions: slot 9 (rated A at SS alone) moved to AMF in preset 1's
+/// kick-off formation is the violation; the same move in preset 2 is not
+/// checked, and a substitute (slot 14, outside the starting eleven) has
+/// no fielded position to check.
+#[test]
+fn a_starter_is_fielded_only_at_his_a_positions_in_preset_1() {
+    let rules = Rules::official();
+    let (ss, amf) = (position("SS"), position("AMF"));
+    let team = legal_team();
+    // Premise: slot 9 is the starter at formation index 8, fielded at SS
+    // in presets 1 and 2's kick-off formations and rated C at AMF.
+    let index = team
+        .tactics
+        .starting_eleven
+        .iter()
+        .position(|slot| *slot == 9)
+        .expect("slot 9 starts");
+    assert_eq!(player(&team, 9).position, Some(ss));
+    assert_eq!(player(&team, 9).ratings[usize::from(amf.0)], 0);
+    assert_eq!(
+        team.tactics.presets[0].formations[0].players[index].position,
+        ss.0
+    );
+    assert_eq!(
+        team.tactics.presets[1].formations[0].players[index].position,
+        ss.0
+    );
+    let mut team = team;
+    team.tactics.presets[0].formations[0].players[index].position = amf.0;
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(
+            Some(9),
+            ViolationKind::FieldedNotA {
+                preset: 1,
+                position: amf
+            }
+        )]
+    );
+    // A substitute has no fielded position to check.
+    assert!(team.fielded_positions(14, 1).is_empty());
+    // The same move in preset 2 is not checked.
+    let mut team = legal_team();
+    team.tactics.presets[1].formations[0].players[index].position = amf.0;
+    assert_eq!(problems(&rules, &team), vec![]);
+}
+
 #[test]
 fn age_outside_the_bounds() {
     let rules = Rules::official();
@@ -379,13 +427,17 @@ fn a_height_in_no_bracket() {
     );
 }
 
-/// The gold made a silver: no gold, three silvers.
+/// The gold made a silver: no gold, three silvers. Read as silver he
+/// also overpays a card: nine cards, three tricks and one COM style free
+/// (the silver's one trade going to the style), so paid 5, and his
+/// second A position takes the limit to 5 - 1.
 #[test]
 fn tier_counts_off() {
     let team = edited(2, |p| set_tier(p, 92, 8, 3));
     assert_eq!(
         problems(&Rules::official(), &team),
         vec![
+            error(Some(2), ViolationKind::Cards { paid: 5, limit: 4 }),
             error(
                 None,
                 ViolationKind::TierCount {
@@ -436,8 +488,9 @@ fn bracket_quotas_off() {
     );
 }
 
-/// No captain set. Slot 10's Captaincy card is then paid, within his
-/// silver limit still.
+/// No captain set. Slot 10's Captaincy card is then paid, and paid over
+/// his limit: nine cards less the two free tricks and the one COM style
+/// the trade covers is six against a silver's 5.
 #[test]
 fn no_captain() {
     let mut team = legal_team();
@@ -445,7 +498,10 @@ fn no_captain() {
     team.captain = None;
     assert_eq!(
         problems(&Rules::official(), &team),
-        vec![error(None, ViolationKind::Captain)]
+        vec![
+            error(Some(10), ViolationKind::Cards { paid: 6, limit: 5 }),
+            error(None, ViolationKind::Captain)
+        ]
     );
 }
 
@@ -527,8 +583,10 @@ fn malicia_is_a_free_card() {
     );
 }
 
-/// Captaincy on slot 12 is a paid card, and free once he is the captain
-/// (slot 10, the captain before, then pays his own within his limit).
+/// Captaincy on slot 12 is a paid card, and free once he is the
+/// captain. Slot 10, the captain before, then pays his own: with the
+/// silver's one trade covering one of his two COM styles that is paid 6
+/// over limit 5.
 #[test]
 fn the_captains_captaincy_card_is_free() {
     let rules = Rules::official();
@@ -539,11 +597,16 @@ fn the_captains_captaincy_card_is_free() {
     let mut team = edited(12, |p| p.cards.push(card("captaincy")));
     assert!(player(&team, 10).cards.contains(&card("captaincy")));
     team.captain = Some(12);
-    assert_eq!(problems(&rules, &team), vec![]);
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(Some(10), ViolationKind::Cards { paid: 6, limit: 5 })]
+    );
 }
 
 /// Slot 9, a bronze, registered GK with his A moved there, at a
-/// goalkeeper's tall height (189, so that rule alone breaks).
+/// goalkeeper's tall height (189, so that rule alone breaks). A starter
+/// fielded at SS in preset 1, where he is no longer rated A, he is also
+/// the first-preset violation.
 #[test]
 fn medals_cannot_be_goalkeepers() {
     let gk = position("GK");
@@ -558,10 +621,19 @@ fn medals_cannot_be_goalkeepers() {
     });
     assert_eq!(
         problems(&Rules::official(), &team),
-        vec![error(
-            Some(9),
-            special("Medals cannot be goalkeepers", "Medals cannot play as GK")
-        )]
+        vec![
+            error(
+                Some(9),
+                ViolationKind::FieldedNotA {
+                    preset: 1,
+                    position: ss
+                }
+            ),
+            error(
+                Some(9),
+                special("Medals cannot be goalkeepers", "Medals cannot play as GK")
+            ),
+        ]
     );
 }
 
@@ -646,7 +718,8 @@ fn red_legal_records() -> Records {
     for slot in [5, 20] {
         records.player_mut(slot).basic.height = 185;
     }
-    // The two regular CBs fielded only at CB count 4 cm shorter: 189 is their tall.
+    // The two regulars registered at CB count as tall at 189, the
+    // registered position alone asking (slots 14 and 17).
     for slot in [14, 17] {
         records.player_mut(slot).basic.height = 189;
     }
@@ -697,33 +770,43 @@ fn red_manlet_bonus() {
     );
 }
 
-/// Under Red a regular CB fielded only at CB counts 4 cm shorter at every
-/// height, as `aatf.cpp` reads "Red CBs up to 189": slot 14 (a tall
-/// substitute, so his registered position counts) is tall at 189 and in no
-/// bracket at 185; a CB under Green at 189 is in no bracket; and slot 17, a
-/// starting CB at 189, loses the allowance once one fielded formation moves
-/// him to RB.
+/// Under Red a non-medal player registered at CB is tall at 189, as the
+/// wiki's "Center Back in both Registered and Playable Position ... can
+/// go up to 189cm" reads: slot 14 (a substitute, so the registered
+/// position is all the rule asks) is tall at 189 and at 185 like
+/// anyone, and in no bracket at 187, one tall player short. A regular
+/// registered at CMF at 189 under Red is in no bracket, and a CB at 189
+/// under Green too. Slot 17, a starter at 189, keeps the allowance
+/// fielded at RB in preset 1 (the registered position counts); the
+/// fielded position is then the first-preset violation instead.
 #[test]
-fn red_cbs_count_four_cm_shorter() {
+fn red_cbs_at_189_count_as_tall() {
     let rules = Rules::official();
-    let cb = position("CB");
+    let (cb, cmf, rb) = (position("CB"), position("CMF"), position("RB"));
     let red = red_legal_team();
     assert_eq!(player(&red, 14).position, Some(cb));
     assert_eq!(player(&red, 14).height, 189);
     assert!(!red.tactics.starting_eleven.contains(&14));
+    assert_eq!(problems(&rules, &red), vec![]);
     assert_eq!(
         problems(&rules, &red_edited(14, |p| p.height = 185)),
+        vec![]
+    );
+    assert_eq!(
+        problems(&rules, &red_edited(14, |p| p.height = 187)),
         vec![
-            error(Some(14), ViolationKind::Height { height: 185 }),
-            error(
-                None,
-                ViolationKind::BracketQuota {
-                    system: "red".to_string(),
-                    bracket: "tall".to_string(),
-                    count: 9,
-                    quota: 10
-                }
-            ),
+            error(Some(14), ViolationKind::Height { height: 187 }),
+            quota("red", "tall", 9, 10),
+        ]
+    );
+    // A regular registered at CMF at 189 under Red: no allowance, no
+    // bracket, one mid player short.
+    assert_eq!(player(&red, 12).position, Some(cmf));
+    assert_eq!(
+        problems(&rules, &red_edited(12, |p| p.height = 189)),
+        vec![
+            error(Some(12), ViolationKind::Height { height: 189 }),
+            quota("red", "mid", 6, 7),
         ]
     );
     // A CB under Green: 189 is in no bracket.
@@ -737,10 +820,11 @@ fn red_cbs_count_four_cm_shorter() {
             quota("green", "giant", 5, 6),
         ]
     );
-    // A starting CB: fielded only at CB, then moved to RB in preset 1.
+    // The starter: registered CB is what counts, so fielded at RB in
+    // preset 1 he is still tall at 189, and the fielded position is the
+    // violation instead.
     let mut team = red_legal_team();
     assert_eq!(player(&team, 17).height, 189);
-    assert!(team.fielded_only_at(17, cb));
     assert_eq!(problems(&rules, &team), vec![]);
     let index = team
         .tactics
@@ -748,22 +832,20 @@ fn red_cbs_count_four_cm_shorter() {
         .iter()
         .position(|slot| *slot == 17)
         .expect("slot 17 starts");
-    team.tactics.presets[0].formations[0].players[index].position = position("RB").0;
-    assert!(!team.fielded_only_at(17, cb));
+    assert_eq!(
+        team.tactics.presets[0].formations[0].players[index].position,
+        cb.0
+    );
+    team.tactics.presets[0].formations[0].players[index].position = rb.0;
     assert_eq!(
         problems(&rules, &team),
-        vec![
-            error(Some(17), ViolationKind::Height { height: 189 }),
-            error(
-                None,
-                ViolationKind::BracketQuota {
-                    system: "red".to_string(),
-                    bracket: "tall".to_string(),
-                    count: 9,
-                    quota: 10
-                }
-            ),
-        ]
+        vec![error(
+            Some(17),
+            ViolationKind::FieldedNotA {
+                preset: 1,
+                position: rb
+            }
+        )]
     );
 }
 
@@ -817,49 +899,90 @@ fn green_silver_giants_rate_three_below() {
     );
 }
 
-/// Slot 9, a bronze at his limit with one COM style (free): a second A
-/// position is the free one; with a second COM style the choice goes to
-/// the COM style and the A position costs a card. Slot 10, a silver with
-/// two COM styles (the choice taken), pays for a second A.
+/// The medals' trades: each free COM style a medal may hold is instead a
+/// free extra A position. Slot 9 (a bronze: marseille_turn and
+/// cut_behind_and_turn the two free tricks, four paid skills, the COM
+/// style speeding_bullet the one trade keeps free; rated A at SS alone)
+/// pays his 4. An extra A beside the kept style spends the trade on the
+/// style, so the A costs a card (paid 4 over limit 4 - 1); the style
+/// dropped for the A is the same paid 4 inside the limit.
+///
+/// Slot 2 (a gold: four tricks of which three free, three paid skills,
+/// the COM styles trickster and mazing_run; rated A at CF and AMF) has
+/// two trades: both styles dropped, the third A position is free too
+/// (paid 4 of 6); one kept, the second trade covers the extra A (paid 4
+/// of 6); both kept, the extra A costs a card, the limit 6 - 1 = 5 his
+/// paid 4 still meets until two more skills make it 6.
 #[test]
-fn medals_choose_a_free_a_position_or_a_free_com_style() {
+fn medals_trade_a_free_com_style_for_a_free_a_position() {
     let rules = Rules::official();
-    let cf = position("CF");
-    let amf = position("AMF");
+    let (cf, ss) = (position("CF"), position("SS"));
     let bronze = player(&legal_team(), 9).clone();
     assert_eq!(bronze.cards.len(), 7);
     assert_eq!(bronze.cards[6], card("speeding_bullet"));
+    assert_eq!(problems(&rules, &legal_team()), vec![]);
     assert_eq!(
         problems(&rules, &edited(9, |p| p.ratings[usize::from(cf.0)] = 2)),
-        vec![]
-    );
-    let team = edited(9, |p| {
-        p.ratings[usize::from(cf.0)] = 2;
-        p.cards.push(card("mazing_run"));
-    });
-    assert_eq!(
-        problems(&rules, &team),
         vec![error(Some(9), ViolationKind::Cards { paid: 4, limit: 3 })]
     );
-    let silver = player(&legal_team(), 10).clone();
-    assert_eq!(silver.cards.len(), 9);
-    let team = edited(10, |p| {
-        p.ratings[usize::from(amf.0)] = 2;
+    let team = edited(9, |p| {
+        assert_eq!(p.cards.pop(), Some(card("speeding_bullet")));
+        p.ratings[usize::from(cf.0)] = 2;
+    });
+    assert_eq!(problems(&rules, &team), vec![]);
+
+    let gold = player(&legal_team(), 2).clone();
+    assert_eq!(gold.cards.len(), 9);
+    assert_eq!(
+        (gold.cards[7], gold.cards[8]),
+        (card("trickster"), card("mazing_run"))
+    );
+    // Both styles dropped, a second extra A: both trades spent on A
+    // positions, paid 4 of 6.
+    let team = edited(2, |p| {
+        assert_eq!(p.cards.pop(), Some(card("mazing_run")));
+        assert_eq!(p.cards.pop(), Some(card("trickster")));
+        p.ratings[usize::from(ss.0)] = 2;
+    });
+    assert_eq!(problems(&rules, &team), vec![]);
+    // One style kept, one trade on the extra A: paid 4 of 6.
+    let team = edited(2, |p| {
+        assert_eq!(p.cards.pop(), Some(card("mazing_run")));
+    });
+    assert_eq!(problems(&rules, &team), vec![]);
+    // Both kept, the extra A costs a card: paid 4 of 5 is legal, two
+    // more paid skills are over.
+    let team = edited(2, |p| {
+        p.cards.push(card("long_range_drive"));
         p.cards.push(card("knuckle_shot"));
     });
     assert_eq!(
         problems(&rules, &team),
-        vec![error(Some(10), ViolationKind::Cards { paid: 5, limit: 4 })]
+        vec![error(Some(2), ViolationKind::Cards { paid: 6, limit: 5 })]
+    );
+}
+
+/// A bronze's free tricks are two: slot 9 at his limit of four paid
+/// cards pays for a third trick, paid 5 over 4 (the COM style still the
+/// trade's free one).
+#[test]
+fn a_bronze_pays_for_a_third_trick() {
+    let team = edited(9, |p| p.cards.push(card("sombrero")));
+    assert_eq!(
+        problems(&Rules::official(), &team),
+        vec![error(Some(9), ViolationKind::Cards { paid: 5, limit: 4 })]
     );
 }
 
 // ---- Suggestions
 
 /// Each listed allowance a player does not use up is one suggestion:
-/// slot 12 holds no trick (two free); the gold (slot 2) pays four of six
-/// and has weak foot usage 2 of 4, then, with a COM style dropped, one
-/// of two, and with injury resistance 2, one short of 3 (no error: the
-/// target is `at_most`).
+/// slot 12 holds no trick (two free); the gold (slot 2) pays four of
+/// five (the extra A costs a card against the tier's 6) and has weak
+/// foot usage 2 of 4, then, with a COM style dropped, four of six and
+/// injury resistance one short of 3 (no error: the target is
+/// `at_most`). The one COM style still held is the one trade's, so no
+/// `com` suggestion.
 #[test]
 fn suggestions_name_each_unused_allowance() {
     let rules = Rules::official();
@@ -870,7 +993,7 @@ fn suggestions_name_each_unused_allowance() {
     );
     assert_eq!(
         suggestions_for(&rules, &team, 2),
-        vec![unused("cards", 4, 6), unused("weak_foot", 2, 4)]
+        vec![unused("cards", 4, 5), unused("weak_foot", 2, 4)]
     );
     let team = edited(2, |p| {
         assert_eq!(p.cards.pop(), Some(card("mazing_run")));
@@ -881,7 +1004,6 @@ fn suggestions_name_each_unused_allowance() {
         suggestions_for(&rules, &team, 2),
         vec![
             unused("cards", 4, 6),
-            unused("com", 1, 2),
             unused("weak_foot", 2, 4),
             unused("injury_resistance", 2, 3),
         ]
@@ -990,8 +1112,8 @@ fn tier_values_carry_the_specials() {
 
 /// The card economy per player and tier: a regular's limit and free
 /// tricks, a manlet's extra card and A position, the silver captain's
-/// free Captaincy and the choice gone to his second COM style, and the
-/// same player read as gold (free COM 2 by the tier, no option used).
+/// free Captaincy and the trade covering one of his two COM styles, and
+/// the same player read as gold (both trades covering both).
 #[test]
 fn card_limits_name_the_economy() {
     let rules = Rules::official();
@@ -1019,7 +1141,7 @@ fn card_limits_name_the_economy() {
     assert_eq!(captain.limit, 5);
     assert_eq!(
         captain.free,
-        BTreeMap::from([("com".to_string(), 2), ("tricks".to_string(), 3)])
+        BTreeMap::from([("com".to_string(), 1), ("tricks".to_string(), 3)])
     );
     assert_eq!(captain.free_cards, vec![card("malicia"), card("captaincy")]);
     let as_gold = limits(10, "gold");
@@ -1029,37 +1151,36 @@ fn card_limits_name_the_economy() {
     // The whole economy per tier: the paid limit, the A positions, the
     // free counts (the exact map, so a group named nowhere in it shows)
     // and `max_a_positions` unset, plus `tier_values`' weak foot.
-    // Slot 0 for the goalkeeper, slot 9 for the bronze (a member taking
-    // no option of the medals' choice); the other medals each carry a
-    // share of the choice — slot 2's second A position takes the `a`
-    // option (his `a_positions` reads the tier's 1 plus its share),
-    // slot 5's the same, slot 10's second COM style takes the `com`
-    // option (his `free` reads the tier's {tricks 3, com 1} plus its
-    // share — the a_positions still the tier's own). Where a member's
-    // share masks the file's value, the probe names it.
+    // Slot 0 for the goalkeeper; the medals' `com` frees come from the
+    // trades their held COM styles take — slot 2's two trades cover both
+    // of his (his second A position costs a card off the limit: 6 - 1),
+    // slot 5's one trade covers his one (his second A costs the limit
+    // 5 - 1), slot 10's second COM style is paid (the silver's one trade
+    // spent), slot 9's one trade covers his one. Where a member's trade
+    // masks the file's value, the probe names it.
     assert_economy(
         &rules,
         &team,
         &[
-            (2, "gold", 6, 2, &[("com", 2), ("tricks", 3)], (4, 4)),
-            (5, "silver", 5, 2, &[("com", 1), ("tricks", 3)], (4, 4)),
-            (10, "silver", 5, 1, &[("com", 2), ("tricks", 3)], (4, 4)),
-            (9, "bronze", 4, 1, &[("com", 1), ("tricks", 3)], (4, 4)),
+            (2, "gold", 5, 1, &[("com", 2), ("tricks", 3)], (4, 4)),
+            (5, "silver", 4, 1, &[("com", 1), ("tricks", 3)], (4, 4)),
+            (10, "silver", 5, 1, &[("com", 1), ("tricks", 3)], (4, 4)),
+            (9, "bronze", 4, 1, &[("com", 1), ("tricks", 2)], (4, 4)),
             (0, "goalkeeper", 2, 1, &[], (2, 2)),
             (12, "regular", 3, 1, &[("tricks", 2)], (2, 2)),
         ],
     );
-    // The gold's `a_positions` masked by his option: the tier's own 1
-    // reads on a member of another tier — the captain (a silver, one A
-    // and two COM styles the gold's free two cover) read as gold.
-    assert_eq!(limits(10, "gold").a_positions, 1);
+    // A gold's second trade on an A position: slot 5, read as gold,
+    // takes it — one COM style held spends the first, his second A
+    // position the second.
+    assert_eq!(limits(5, "gold").a_positions, 2);
 }
 
 /// `paid` counts the held cards no free group or free card covers:
 /// slot 2, a gold holding nine cards — four tricks, three other skills
-/// and two COM styles — under the gold's free three tricks and two COM
-/// styles, so the four the frees leave are his paid ones. The badge a
-/// card picker shows under a tier is `limit - paid`.
+/// and two COM styles — under the gold's free three tricks and the two
+/// COM styles his trades cover, so the four the frees leave are his paid
+/// ones. The badge a card picker shows under a tier is `limit - paid`.
 #[test]
 fn card_limits_reports_the_paid_count() {
     let rules = Rules::official();
@@ -1089,8 +1210,8 @@ fn card_limits_reports_the_paid_count() {
 }
 
 /// An allowance the file does not list is never suggested: a manlet
-/// (slot 3) with one A of two, and a bronze (slot 9) taking no option of
-/// the medals' choice, get no `a_positions` or `choices` suggestion.
+/// (slot 3) with one A of two, and a bronze (slot 9) whose trade the
+/// held COM style takes, get no `a_positions` or `choices` suggestion.
 #[test]
 fn nothing_is_suggested_for_an_allowance_not_listed() {
     let rules = Rules::official();

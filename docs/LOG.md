@@ -2280,3 +2280,5 @@ worklog passed 7,000 lines.
   save's whole field, tinted past what every version holds; Team TOML import crops a too-long name with a note.
 - **2026-10-21** — 10.0g reviewed: three SWE-2 rounds and an Astra round (`knockouts` read only alone, a stable id for the
   ended entry, three tests that now fail without what they name). `mutants-diff` now runs each crate on its own, timeout 5x.
+- **2026-10-21** — 20.1: Autumn 26 follows the wiki where the two 4ccEditor editions differ (medals trade a free COM style
+  for an A, bronze 2 free tricks, a Red CB at 185 legal again, preset 1 at A); an organizer page lists five points to confirm.

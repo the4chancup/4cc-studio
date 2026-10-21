@@ -9976,3 +9976,33 @@ the earlier entry's principle (a reading that changes the song matches Rigdio; w
 silently drops is refused), a refusal at load breaks nothing that played and tells the author
 the word did nothing.
 Plan: `plans/music_player.md` "Conditions" (the `match` row).
+
+## 2026-10-21 — aatf — Autumn 26 follows the wiki's written rules where the two 4ccEditor editions differ
+Decision: the six places where `autumn26.rhai` (transcribed from the fork's `Autumn_2026_AATF`)
+and the official 4ccEditor's Autumn 26 edition differ are ruled against the wiki's
+`Appendix:Rules` Chapter III as edited on 2026-10-06 (read 2026-10-21):
+- D1, a medal's free COM style is traded for a free extra A position ("Medals may trade the Free
+  COM Playing Style for a Double A Position instead"), not given an extra free COM or A on top:
+  each tier's free COM styles (gold 2, silver 1, bronze 1) become one choice each, a free COM
+  style or a free extra A position (never GK). Gold may trade both, as the official edition does
+  (the wiki's singular "the Free COM" was written for the tiers with one).
+- D2, bronze gets 2 free trick cards, not 3 ("2 trick cards and 1 COM Playing Style").
+- D3, the Red CB allowance goes to a non-medal player registered at CB ("Center Back in both
+  Registered and Playable Position"), with no further condition: neither the fork's "fielded
+  only at CB" nor the official edition's "CB his only A position".
+- D4, the allowance lets that CB stand at 189 and count as 185 ("If GK or CB, increase height to
+  189cm", the goalkeepers' wording), and is optional: at 185 he stays tall. Before, it applied at
+  every height, so a Red CB at the ordinary 185 fielded at CB was in no bracket, an error on a
+  legal team, and 180 to 184 counted as mid.
+- D5, a Green silver at 194 is legal with every stat 3 lower, as Studio has it (the official
+  edition fails every one, a bug the fork fixed).
+- D6, every player on the first preset of the deadline export stands at one of his A positions:
+  `universal.fielded_at_a: [1]` set.
+Why: the maintainer's standing rule that the wiki is the source of truth; each of the two
+editions departs from it somewhere. D3 drops a restriction both editions add (each its own),
+which a manager may have relied on as written; the alternative reading is noted here so the
+maintainer can reinstate one. Heights 186 to 188 for such a CB ("can go up to 189") stay outside
+every bracket, as the goalkeepers' do: nothing is gained by them, and the table's wording is the
+goalkeepers'. Not a difference, noted: both editions and Studio take 176 to 179 as mid where the
+wiki says "exactly 180", a leniency that gains no one anything.
+Plan: `spec/aatf_rules.md` "The official ruleset" (with the change); WORKLOG 20.1.

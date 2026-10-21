@@ -466,8 +466,10 @@ as Autumn 25 and VGL25 do. Minor invitationals (VTLA, UnityCup) get no template.
 ## The official ruleset
 
 The default file, embedded in `libs/aatf`. Transcribed from `aatf.cpp` at 4ccEditor's
-`Autumn_2026_AATF` tip `8f01926` (the file last changed in `f5e7b3e`). The card groups take
-`aatf.cpp`'s skill indices as canonical slots, checked against `pes_savefile`'s schema.
+`Autumn_2026_AATF` tip `8f01926` (the file last changed in `f5e7b3e`), then corrected to the
+cup's written rules where the two 4ccEditor editions read them differently (below). The card
+groups take `aatf.cpp`'s skill indices as canonical slots, checked against `pes_savefile`'s
+schema.
 
 ```rhai
 const RULESET = #{
@@ -486,11 +488,11 @@ const RULESET = #{
 
     tiers: [
         #{ id: "gold", label: "Gold", count: 1, rate: 99, form: 8, injury_resistance: 3,
-           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 6, free: #{ tricks: 3, com: 2 }, a_positions: 1 },
+           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 6, free: #{ tricks: 3 }, a_positions: 1 },
         #{ id: "silver", label: "Silver", count: 2, rate: 92, form: 8, injury_resistance: 3,
-           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 5, free: #{ tricks: 3, com: 1 }, a_positions: 1 },
+           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 5, free: #{ tricks: 3 }, a_positions: 1 },
         #{ id: "bronze", label: "Bronze", count: 2, rate: 86, form: 8, injury_resistance: 3,
-           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 4, free: #{ tricks: 3, com: 1 }, a_positions: 1 },
+           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 4, free: #{ tricks: 2 }, a_positions: 1 },
         #{ id: "goalkeeper", label: "Goalkeeper", counts_as: "regular", when: #{ positions: ["GK"] },
            rate: 77, form: 4, injury_resistance: 1,
            weak_foot: #{ usage: 2, accuracy: 2 }, cards: 2, free: #{}, a_positions: 1 },
@@ -521,7 +523,8 @@ const RULESET = #{
     },
 
     universal: #{
-        registered_position_a: true, no_b_ratings: true, gk_not_second_a: true,
+        registered_position_a: true, fielded_at_a: [1], no_b_ratings: true,
+        gk_not_second_a: true,
         age: [15, 50], weight: #{ floor: 30, below: 129, above: 81 },
         captain_required: true, min_goalkeepers: 1, max_skill_cards: 10,
     },
@@ -545,8 +548,9 @@ const RULESET = #{
         #{ label: "Gold below giant", severity: "warning",
            when: #{ tiers: ["gold"], height_min: 194 },
            then: #{ forbid: "Gold heights cannot be 194cm or more" } },
-        #{ label: "Red CBs up to 189",
-           when: #{ tiers: ["regular"], systems: ["red"], positions: ["CB"], fielded_only_at: "CB" },
+        #{ label: "Red CBs at 189 count as tall",
+           when: #{ tiers: ["regular"], systems: ["red"], positions: ["CB"], height_min: 189,
+                    height_max: 189 },
            then: #{ height_allowance: 4 } },
         #{ label: "Manlets", when: #{ brackets: ["manlet"] },
            then: #{ cards: 1, a_positions: 1, weak_foot: #{ usage: 4, accuracy: 4 } } },
@@ -554,8 +558,11 @@ const RULESET = #{
            then: #{ stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } } } },
         #{ label: "Green silver giants", when: #{ tiers: ["silver"], systems: ["green"], height_min: 194 },
            then: #{ stat_bonus: #{ all: -3 } } },
-        #{ label: "Medals: a free A position or a free COM style",
+        #{ label: "Medals trade a free COM style for a free A position",
            when: #{ tiers: ["gold", "silver", "bronze"] },
+           then: #{ choice: [#{ free: #{ com: 1 } }, #{ a_positions: 1 }] } },
+        #{ label: "Gold trades a second free COM style for a free A position",
+           when: #{ tiers: ["gold"] },
            then: #{ choice: [#{ free: #{ com: 1 } }, #{ a_positions: 1 }] } },
     ],
 
@@ -568,10 +575,14 @@ warnings for gold (above 194, and at 194) separately; here they are one. A playe
 no tier's target is placed by expected rating rather than by `aatf.cpp`'s thresholds, so an illegal
 player can be reported against a different tier; both report the player.
 
-The Red CBs' 4 cm apply at every height, as in `aatf.cpp`, whatever the label's "up to 189"
-suggests: a Red regular CB fielded only at CB is tall at 189, mid at 180 to 184, a manlet at 179
-or below, and in no bracket at 185 to 188. (The goalkeepers' allowance, by contrast, is bounded to
-189 by its own condition.)
+Where the transcription's reading and the cup's written rules differ, the file follows the wiki's
+Appendix:Rules as edited on 2026-10-06 (`DECISIONS.md`, 2026-10-21): a medal's free COM styles
+are trades, each kept as a free COM style or spent on a free extra A position (gold has two to
+trade, silver and bronze one, and an extra A at GK is already `gk_not_second_a`'s violation); a
+bronze has two free trick cards, not three; the Red CB allowance asks only the registered
+position, so a Red non-medal CB is tall at 189 and, like anyone, at 185, while 181 to 184 and 186
+to 188 stand outside every bracket, as the goalkeepers' heights do; and the deadline export's
+first preset fields every starter at one of his A positions.
 
 ## Autumn 25 and Spring 26
 
@@ -584,7 +595,7 @@ Autumn 26 file with:
 - medals' `weak_foot` usage 2, accuracy 4;
 - Green quotas giga 0, giant 5, tall 6, mid 6, manlet 6;
 - the "Red manlet bonus" for regular and goalkeeper only (+5);
-- no "Green silver giants", "Red CBs up to 189" or medals' A-or-COM choice.
+- no "Green silver giants", "Red CBs at 189 count as tall" or the medals' COM-style trades.
 
 They differ from each other in two values: Autumn 25 has 2 silvers and goalkeepers at 77, Spring
 26 has 3 silvers and goalkeepers at 74.

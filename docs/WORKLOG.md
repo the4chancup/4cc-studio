@@ -1258,7 +1258,7 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     `src/violation.rs`, `src/file.rs`, `src/fixtures/dbc7.rs`, `src/ruleset/tests/rules.rs`),
     `crates/tools/save_editor/src/messages.rs`, `docs/prototypes/ruleset_editor.html`, the
     plans and decision named above
-- [ ] 20.1 Autumn 26 against the official 4ccEditor's Autumn 26 edition (the maintainer,
+- [x] 20.1 Autumn 26 against the official 4ccEditor's Autumn 26 edition (the maintainer,
   2026-10-21; upstream `origin/master` `cb211f4` and `82879a7`, 2026-10-20). `autumn26.rhai`
   was transcribed from the fork's `Autumn_2026_AATF` branch (`spec/aatf_rules.md` "The
   official ruleset"); upstream wrote its own, and they differ in six places
@@ -1268,10 +1268,18 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
   CB); D4 which height brackets that allowance shifts; D5 Green 194 cm silvers (upstream
   fails every one, a bug the fork fixed); D6 upstream's new check that preset 1's starters
   stand at A positions, which Studio has as `universal.fielded_at_a: [1]` and autumn26 leaves
-  unset. Waiting on the wiki (offline 2026-10-21, "hopefully no more than 12 hours"): each
-  difference ruled against the cup's written rules, then `autumn26.rhai`, its fixtures and the
-  spec section changed where the wiki sides with upstream, a question to the maintainer
-  where it is silent, and the spec's source line repointed to the official edition
+  unset. Ruled 2026-10-21 against the wiki's `Appendix:Rules` (edited 2026-10-06; DECISIONS
+  "Autumn 26 follows the wiki's written rules…"): D1 a trade, gold twice; D2 bronze 2; D3
+  registered CB only; D4 the allowance at 189 alone, 185 staying tall (a Red CB at 185 fielded
+  at CB was in no bracket: five such CBs on each of the fixture saves' teams 718 and 734); D5
+  Studio stands; D6 set. Done 2026-10-21 (SWE-2, a run and a resume after the session
+  crash): `autumn26.rhai`, the spec's block and prose, every fixture and consumer test that
+  pinned the old reading re-derived with its ruling named. The organizer's five points
+  (`QUESTIONS.md` "Autumn 26: five points for the 4cc organizer") may move D1, D3, D4 and D5.
+  Files: `aatf/{rulesets/autumn26.rhai,src/fixtures/official.rs,src/ruleset/tests/{mod,
+  rules}.rs}`, `team_widgets/src/violations.rs`, `save_editor/tests/cli/check_aatf.rs`,
+  `docs/spec/aatf_rules.md`
+  - [ ] review (checkpoint b, three crates): a SWE-2 loop, then Astra
 
 ---
 
@@ -1282,14 +1290,13 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
-- open 2026-10-21 — `mutants-diff` now runs one cargo-mutants per crate, each with its own
-  baseline and timeout, and `timeout_multiplier` is back to 5 (`RUNBOOK.md` "Mutation runs and
-  the VPS", DECISIONS 2026-10-21): built, not measured yet. Close it with the first diff run
-  spanning a crate whose tests take seconds and one whose tests take minutes, comparing each
-  crate's timeout and the wall time with `mutants-diff 95f20eac` (751 s timeouts here, about
-  1100 s on bonfire, 21 missed and 9 timeouts). Uneven shares by machine speed
-  (`mutants.local_share`, whole-crate runs only) are a smaller gain for a diff and wait for
-  that measurement
+- resolved 2026-10-21 — `mutants-diff` runs one cargo-mutants per crate, each with its own
+  baseline and timeout, `timeout_multiplier` back to 5 (`RUNBOOK.md` "Mutation runs and the
+  VPS", DECISIONS 2026-10-21). Measured on `mutants-diff 86492df7` (90 mutants over
+  `music_export`, `pes_savefile`, `save_editor`, `team_widgets`): timeouts set to 20 s, 399 s,
+  700 s and 20 s, none hit, about 28 min in all, locally; `mutants-diff 95f20eac` had one
+  751 s timeout for every crate and 9 timeouts. Uneven shares by machine speed for a diff
+  stay unbuilt: the timeouts were the cost
 - open 2026-10-21 — the 4ccEditor source audit's rows that need a measurement or a check of
   built code (the rest are in `plans/save_editor.md`'s parity table and "Editing UI", and in
   8.9b1's rework): (1) a custom skin of 7 on PES 18+ becomes 0 in 4ccEditor (`main.cpp`
