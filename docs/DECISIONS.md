@@ -10006,3 +10006,12 @@ every bracket, as the goalkeepers' do: nothing is gained by them, and the table'
 goalkeepers'. Not a difference, noted: both editions and Studio take 176 to 179 as mid where the
 wiki says "exactly 180", a leniency that gains no one anything.
 Plan: `spec/aatf_rules.md` "The official ruleset" (with the change); WORKLOG 20.1.
+
+## 2026-10-21 — aatf — Autumn 26 suggests a medal's untaken trade
+Decision: `autumn26.rhai` lists `"choices"` in `suggestions`, so a medal who keeps neither his
+free COM style nor an extra A position for a trade is told of it (`UnusedChoice`, the trade's
+label).
+Why: before D1 a medal's free COM style was unconditional, and one holding none got the
+`Unused com` hint; as a trade, the free style exists only once taken, so without the listing the
+member who could use it hears nothing. The 20.1 review's S1-2.
+Plan: `spec/aatf_rules.md` "The official ruleset" (the block's `suggestions`).

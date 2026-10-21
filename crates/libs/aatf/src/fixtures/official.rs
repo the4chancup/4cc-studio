@@ -1211,14 +1211,13 @@ fn card_limits_reports_the_paid_count() {
 
 /// An allowance the file does not list is never suggested: a manlet
 /// (slot 3) with one A of two, and a bronze (slot 9) whose trade the
-/// held COM style takes, get no `a_positions` or `choices` suggestion.
+/// held COM style takes, get no `a_positions` suggestion.
 #[test]
 fn nothing_is_suggested_for_an_allowance_not_listed() {
     let rules = Rules::official();
     let team = legal_team();
     let official = rules.ruleset();
     assert!(!official.suggestions.iter().any(|s| s == "a_positions"));
-    assert!(!official.suggestions.iter().any(|s| s == "choices"));
     assert_eq!(
         player(&team, 3).ratings.iter().filter(|r| **r == 2).count(),
         1
@@ -1236,4 +1235,51 @@ fn nothing_is_suggested_for_an_allowance_not_listed() {
             "{slot}"
         );
     }
+}
+
+/// A medal's free COM style is a trade (DECISIONS 2026-10-21 D1), so one
+/// who holds neither a COM style nor an extra A position is told of the
+/// trade he leaves: the bronze (slot 9) without his COM style, and the
+/// gold (slot 2) keeping one COM style of two and no extra A position,
+/// for his second trade.
+#[test]
+fn an_untaken_medal_trade_is_suggested() {
+    let rules = Rules::official();
+    let trade = |special: &str| ViolationKind::UnusedChoice {
+        special: special.to_string(),
+    };
+    let bronze = edited(9, |p| {
+        assert_eq!(p.cards.pop(), Some(card("speeding_bullet")));
+    });
+    assert!(
+        suggestions_for(&rules, &bronze, 9).contains(&trade(
+            "Medals trade a free COM style for a free A position"
+        )),
+        "{:?}",
+        suggestions_for(&rules, &bronze, 9)
+    );
+    let (cf, amf) = (position("CF"), position("AMF"));
+    let gold = edited(2, |p| {
+        assert_eq!(p.cards.pop(), Some(card("mazing_run")));
+        let extra = if p.position == Some(cf) { amf } else { cf };
+        assert_eq!(
+            p.ratings[usize::from(extra.0)],
+            2,
+            "premise: A at CF and AMF"
+        );
+        p.ratings[usize::from(extra.0)] = 0;
+    });
+    let suggested = suggestions_for(&rules, &gold, 2);
+    assert!(
+        suggested.contains(&trade(
+            "Gold trades a second free COM style for a free A position"
+        )),
+        "{suggested:?}"
+    );
+    assert!(
+        !suggested.contains(&trade(
+            "Medals trade a free COM style for a free A position"
+        )),
+        "the held COM style takes the first trade: {suggested:?}"
+    );
 }

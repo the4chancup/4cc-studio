@@ -93,5 +93,5 @@ const RULESET = #{
            then: #{ choice: [#{ free: #{ com: 1 } }, #{ a_positions: 1 }] } },
     ],
 
-    suggestions: ["cards", "tricks", "com", "weak_foot", "injury_resistance"],
+    suggestions: ["cards", "tricks", "com", "weak_foot", "injury_resistance", "choices"],
 };
