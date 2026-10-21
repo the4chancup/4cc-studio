@@ -461,6 +461,32 @@ fn a_typed_rgb_value_commits_on_enter() {
     assert!(!out.changed, "changed fires on the commit frame only");
 }
 
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": Tab between the channel
+// fields is one edit: the last focus loss commits all three at once.
+#[test]
+fn tab_between_channels_commits_only_when_the_edit_ends() {
+    let mut window = Headless::new();
+    let mut color = [255, 0, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(spin_field(&nodes, "R ")), &mut color, &[]);
+    window.field(&mut color, &[], type_text("10"));
+
+    // Tab to G and type there: the edit is still open, nothing commits.
+    window.field(&mut color, &[], key(egui::Key::Tab));
+    window.field(&mut color, &[], vec![egui::Event::Text("20".to_owned())]);
+    for _ in 0..3 {
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert!(!out.changed, "the edit is still open: nothing commits");
+        assert_eq!(color, [255, 0, 0], "the color waits for the last loss");
+    }
+
+    let (_, out) = window.field(&mut color, &[], key(egui::Key::Enter));
+    assert!(out.changed, "the last focus loss commits all three at once");
+    assert_eq!(color, [10, 20, 0], "R's and G's edits both landed");
+}
+
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": typing is not a
 // gesture; a click inside the field being edited moves the caret and commits
 // nothing.
@@ -521,7 +547,7 @@ fn a_typed_hex_then_a_one_frame_tap_on_the_strip() {
     window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
     let (nodes, _) = window.field(&mut color, &[], Vec::new());
     window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
-    window.field(&mut color, &[], type_text("#00FF00"));
+    window.field(&mut color, &[], type_text("#008000"));
     assert_eq!(color, [255, 0, 0], "the typed text is still pending");
 
     let rect = entry(&nodes, "hue").bounds().expect("the strip is drawn");
@@ -533,10 +559,12 @@ fn a_typed_hex_then_a_one_frame_tap_on_the_strip() {
     events.extend(pointer_at(pos, false));
     let (_, out) = window.field(&mut color, &[], events);
     assert!(out.changed, "the one-frame tap commits");
-    assert_eq!(color[2], 255, "blue's channel is full: {color:?}");
-    assert!(
-        color[0] < 20 && color[1] < 20,
-        "the tap's blue, not the typed green: {color:?}"
+    // The typed text's saturation and value (1.0, 0.5) with the tap's hue (2/3):
+    // hsv → [0, 0, 128], proving the text's value drove the pick, not the tap's alone.
+    assert_eq!(
+        color,
+        [0, 0, 128],
+        "the tap's hue over the typed value: {color:?}"
     );
 }
 
@@ -1186,6 +1214,60 @@ fn escape_during_a_square_drag_cancels_it() {
     let (_, out) = window.field(&mut color, &[], key(egui::Key::Escape));
     assert!(!out.changed, "Escape commits nothing");
     assert_eq!(color, [255, 128, 0], "the dragged candidate was dropped");
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": Escape cancels the edit
+// instead; a typed text is discarded, not committed.
+#[test]
+fn escape_discards_a_typed_hex() {
+    let mut window = Headless::new();
+    let mut color = [255, 0, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+    window.field(&mut color, &[], type_text("#00FF00"));
+
+    let (_, out) = window.field(&mut color, &[], key(egui::Key::Escape));
+    assert!(!out.changed, "Escape commits nothing");
+    assert_eq!(color, [255, 0, 0], "the typed text was discarded");
+    let (_, out) = window.field(&mut color, &[], Vec::new());
+    assert!(!out.changed, "no commit lands later either");
+
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    assert!(
+        !swatch_labels(&nodes).contains(&"#00FF00".to_owned()),
+        "the discarded text joined no recents"
+    );
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the same for a typed
+// channel value.
+#[test]
+fn escape_discards_a_typed_channel() {
+    let mut window = Headless::new();
+    let mut color = [0, 0, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(spin_field(&nodes, "R ")), &mut color, &[]);
+    window.field(&mut color, &[], type_text("20"));
+
+    let (_, out) = window.field(&mut color, &[], key(egui::Key::Escape));
+    assert!(!out.changed, "Escape commits nothing");
+    assert_eq!(color, [0, 0, 0], "the typed value was discarded");
+    let (_, out) = window.field(&mut color, &[], Vec::new());
+    assert!(!out.changed, "no commit lands later either");
+
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    assert!(
+        !swatch_labels(&nodes).contains(&"#140000".to_owned()),
+        "the discarded value joined no recents"
+    );
 }
 
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the same for a drag on

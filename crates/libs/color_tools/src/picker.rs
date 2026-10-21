@@ -591,8 +591,14 @@ fn popup_body(
     }
     // A text field's `lost_focus` commits only when no gesture is down this frame:
     // egui's second `lost_focus` frame while a press is held must not commit the
-    // candidate early (the settle at the top already did).
-    if channel_lost_focus && !ui.input(|input| input.key_pressed(Key::Escape)) && !down {
+    // candidate early (the settle at the top already did). And only when no channel
+    // holds the focus now: Tab between the fields is one edit, so R's blur must not
+    // commit G's unfinished text; the last focus loss commits all three at once.
+    if channel_lost_focus
+        && !ui.input(|input| input.key_pressed(Key::Escape))
+        && !down
+        && !channel_focused
+    {
         commit_color(state, color, changed, channels);
     }
     if hex_lost_focus && !ui.input(|input| input.key_pressed(Key::Escape)) && !down {
