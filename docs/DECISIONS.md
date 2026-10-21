@@ -9949,3 +9949,30 @@ rendering would not play the bot's real-time clips. The in-game harness (`script
 already installs a CPK in a test slot, drives the pad and captures through OBS; installing the
 savefile beside it is the missing step.
 Plan: `plans/core/development_plan.md` "Unscheduled tools".
+
+## 2026-10-21 — tooling — `mutants-diff` runs each crate on its own, and the timeout multiplier is back to 5
+Decision: `scripts/mutants_diff.py` runs one cargo-mutants per crate the diff mutates
+(`--in-diff <diff> -p <crate>`), one after the other, each split or local by its own estimate,
+each crate's results moved to `mutants.diff/<crate>/` and every survivor listed in
+`mutants.diff/missed_all.txt`; `.cargo/mutants.toml`'s `timeout_multiplier` goes from 3 back to
+cargo-mutants' default 5.
+Why: a mutant times out at a multiple of the run's baseline, and one run's baseline tests
+every crate it mutates, so a hung mutant of a crate with fast tests waited out the slowest
+crate's suite (751 s here at `mutants-diff 95f20eac`, nine timeouts costing about 2.5 h of
+job time). Uneven shares by machine speed would gain less: the timeouts, not the machines'
+speed, dominated that run. A crate's own baseline costs one build per crate, about a minute,
+and makes 5x cheap again, which leaves slow tests in a starved low-priority run room before
+they count as hangs (the maintainer, 2026-10-21).
+Plan: `RUNBOOK.md` "Mutation runs and the VPS"; `CONTRIBUTING.md` "Mutation runs" (where the
+results land).
+
+## 2026-10-21 — music_export — `knockouts` beside other match types is refused
+Decision: `match knockouts` expands to the five knockout stages only when `knockouts` is the
+line's sole argument; beside other types (`match knockouts final`) the line is refused,
+naming the word.
+Why: Rigdio expands it only alone and otherwise keeps it as a type no match has, so that line
+plays in the final only there, where expanding it played it in every knockout stage. Under
+the earlier entry's principle (a reading that changes the song matches Rigdio; what Rigdio
+silently drops is refused), a refusal at load breaks nothing that played and tells the author
+the word did nothing.
+Plan: `plans/music_player.md` "Conditions" (the `match` row).

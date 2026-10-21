@@ -1068,7 +1068,10 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
   file uses a changed rule). Files: `crates/libs/music_export/src/{eval,select,parse,tokens,
   write,resolve,state,lib}.rs`
   - [ ] review (checkpoint b, a new `pub` interface): `just mutants-diff`, a SWE-2 loop
-    (`.tmp/10_0g/swe_s1.md`), then Astra
+    (`.tmp/10_0g/swe_s1.md`), then Astra. The mutation run's survivors and SWE-2 S1 (5 of 10
+    accepted: the ended entry named by a stable `EntryId`) fixed in `dff1548f`; S2 (2 of 5:
+    `knockouts` only alone, `has_once` without a catch-all) ends the SWE-2 loop, its fix in
+    rework 3; rulings `.tmp/10_0g/duck_rulings.md`. Astra next
 
 ### Phase 16 — Polish and distribution
 
@@ -1273,21 +1276,14 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
-- open 2026-10-21 — a `mutants-diff` spanning crates of very different test times pays the
-  slowest crate's timeout for every hanging mutant. `mutants-diff 95f20eac` (music_export,
-  pes_savefile, save_editor): one baseline tests every crate (250 s here, 420 s on bonfire), so
-  cargo-mutants' timeout is 751 s here and about 1100 s there, and a `music_export` mutant that
-  hangs its loop (whose tests take 1 to 2 s) waits that long. Nine timeouts cost about 2.5 h of
-  job time across the halves, more than the machines' speed difference costs (a tested
-  `pes_savefile` mutant took 97 s here and 118 s on bonfire; `music_export` was faster there).
-  Fix to measure: `scripts/mutants_diff.py` runs each crate's mutants as its own cargo-mutants
-  invocation, each with its own baseline and timeout, still split between the halves (a
-  baseline costs one build per crate, about a minute), and with it `timeout_multiplier` in
-  `.cargo/mutants.toml` goes back from 3 to 5 (the maintainer, 2026-10-21): it was lowered to
-  3 at 8.9a's review because one baseline made every timeout expensive, and a crate's own
-  baseline makes 5x cheap again while leaving slow tests room; then rerun a diff with a loop
-  crate and compare the wall time. Uneven shares by machine speed (`mutants.local_share`, used by
-  whole-crate runs) are a smaller gain for a diff and wait until timeouts are fixed
+- open 2026-10-21 — `mutants-diff` now runs one cargo-mutants per crate, each with its own
+  baseline and timeout, and `timeout_multiplier` is back to 5 (`RUNBOOK.md` "Mutation runs and
+  the VPS", DECISIONS 2026-10-21): built, not measured yet. Close it with the first diff run
+  spanning a crate whose tests take seconds and one whose tests take minutes, comparing each
+  crate's timeout and the wall time with `mutants-diff 95f20eac` (751 s timeouts here, about
+  1100 s on bonfire, 21 missed and 9 timeouts). Uneven shares by machine speed
+  (`mutants.local_share`, whole-crate runs only) are a smaller gain for a diff and wait for
+  that measurement
 - open 2026-10-21 — the 4ccEditor source audit's rows that need a measurement or a check of
   built code (the rest are in `plans/save_editor.md`'s parity table and "Editing UI", and in
   8.9b1's rework): (1) a custom skin of 7 on PES 18+ becomes 0 in 4ccEditor (`main.cpp`

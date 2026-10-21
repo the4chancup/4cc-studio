@@ -100,7 +100,18 @@ impl Condition {
         match self {
             Condition::Once => true,
             Condition::Not(inner) => inner.has_once(),
-            _ => false,
+            Condition::Goals(..)
+            | Condition::TeamGoals(..)
+            | Condition::Lead(..)
+            | Condition::Every(_)
+            | Condition::Opponent(_)
+            | Condition::Match(_)
+            | Condition::Home
+            | Condition::First
+            | Condition::Comeback
+            | Condition::MostGoals(_)
+            | Condition::Special(_)
+            | Condition::Time(..) => false,
         }
     }
 

@@ -291,17 +291,15 @@ fn parse_item(keyword: &str, arguments: &[String]) -> Result<Item, ParseErrorKin
             if arguments.is_empty() {
                 return Err(missing(keyword, "a match type"));
             }
-            let mut types = Vec::new();
-            for argument in arguments {
-                if argument.eq_ignore_ascii_case("knockouts") {
-                    types.extend(MatchType::KNOCKOUTS);
-                } else {
-                    types.push(
-                        MatchType::from_keyword(argument)
-                            .ok_or_else(|| invalid(keyword, argument))?,
-                    );
-                }
-            }
+            // `knockouts` alone stands for the five stages; beside other
+            // types it names none and is refused like any unknown word.
+            let types = match arguments {
+                [word] if word.eq_ignore_ascii_case("knockouts") => MatchType::KNOCKOUTS.to_vec(),
+                _ => arguments
+                    .iter()
+                    .map(|word| MatchType::from_keyword(word).ok_or_else(|| invalid(keyword, word)))
+                    .collect::<Result<_, _>>()?,
+            };
             condition(Condition::Match(types))
         }
         "home" => condition(no_arguments(keyword, arguments, Condition::Home)?),
@@ -608,13 +606,31 @@ mod tests {
 
     #[test]
     fn knockouts_expands_to_the_five_stages() {
-        let export = parsed("name;x\nanthem;a.mp3;match Knockouts group\n");
-        let mut expected = MatchType::KNOCKOUTS.to_vec();
-        expected.push(MatchType::Group);
+        let export = parsed("name;x\nanthem;a.mp3;match Knockouts\n");
         assert_eq!(
             entries(&export, &Slot::Anthem)[0].conditions,
-            [Condition::Match(expected)]
+            [Condition::Match(MatchType::KNOCKOUTS.to_vec())]
         );
+    }
+
+    #[test]
+    fn knockouts_beside_another_type_is_refused() {
+        for text in [
+            "name;x\nanthem;a.mp3;match knockouts final\n",
+            "name;x\nanthem;a.mp3;match final knockouts\n",
+        ] {
+            assert_eq!(
+                refused(text),
+                ParseError {
+                    line: 2,
+                    kind: ParseErrorKind::InvalidArgument {
+                        keyword: "match".into(),
+                        argument: "knockouts".into(),
+                    },
+                },
+                "{text:?}"
+            );
+        }
     }
 
     #[test]

@@ -13,12 +13,14 @@
 additional_cargo_args = ["--jobs", "-9"]
 additional_cargo_test_args = ["--", "--test-threads=7"]
 
-# A mutant's tests time out at three times the baseline's test time, not cargo-mutants' default
-# five: a hung mutant holds its job that long before the next starts. At 2026-10-21's
-# `mutants-diff 12ffa8c3` ten mutants hung a `while`-loop test helper, each for 1048 s (5 x a
-# 209 s baseline) where a passing mutant took about 135 s; three times still leaves a starved
-# low-priority local run (RUNBOOK "Mutation runs") over four times a mutant's usual time.
-timeout_multiplier = 3.0
+# A mutant's tests time out at five times the baseline's test time, cargo-mutants' default,
+# which leaves a starved low-priority local run (RUNBOOK "Mutation runs") room before a slow
+# test counts as a hang. The baseline is one crate's suite: `just mutants` takes one crate and
+# `mutants-diff` runs each crate on its own (`scripts/mutants_diff.py`). When one diff run tested
+# every crate, its baseline summed them, and at `mutants-diff 95f20eac` a `music_export` mutant
+# that hung a loop (its tests take 1-2 s) waited 751 s here; three times was tried then, and per-
+# crate baselines replaced it.
+timeout_multiplier = 5.0
 
 # Each run copies the source tree to a `%TEMP%` build directory, and by default the copy includes
 # gitignored files: the session scratch `.tmp/` (17 GB of archived runs and probes at 3.8) filled

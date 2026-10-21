@@ -1,5 +1,6 @@
-"""Tests of `mutants.py`'s readings of a finished run's files: which mutants never ran, which
-builds were killed, and when a split run's summary fails. Each builds a `mutants.out` in a
+"""Tests of `mutants.py`'s and `mutants_diff.py`'s readings of a finished run's files: which
+mutants never ran, which builds were killed, when a split run's summary fails, and which list
+holds a crate's survivors. Each builds a `mutants.out` in a
 temporary directory the way cargo-mutants writes one; nothing reaches the host. Run by `just
 test` (`python scripts/mutants_test.py`)."""
 import contextlib
@@ -13,6 +14,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import mutants  # noqa: E402
+import mutants_diff  # noqa: E402
 
 
 def mutant(name: str) -> dict:
@@ -306,6 +308,26 @@ class CostCache(unittest.TestCase):
             self.assertEqual(cache["remote_mutant"], {"cpk": 2.0})
             self.assertNotIn("cpk", cache["mutant"])
             self.assertNotIn("cpk", cache["baseline"])
+
+
+class RemoteSelection(unittest.TestCase):
+    def test_a_per_crate_diff_run_keeps_its_crate_on_the_remote(self):
+        self.assertEqual(
+            mutants.remote_selection(["--in-diff", "C:/tmp/x.diff", "-p", "music_export"]),
+            '--in-diff "$HOME/studio-mutants/run/in.diff" -p music_export',
+        )
+        self.assertEqual(mutants.remote_selection(["-p", "cpk"]), "-p cpk")
+
+
+class DiffSurvivors(unittest.TestCase):
+    def test_a_split_crate_run_gives_its_merged_list_and_a_local_one_its_own(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp)
+            self.assertEqual(mutants_diff.missed_lines(out), [])
+            (out / "missed.txt").write_text("local only\n", encoding="utf-8")
+            self.assertEqual(mutants_diff.missed_lines(out), ["local only"])
+            (out / "missed_all.txt").write_text("local\nremote\n", encoding="utf-8")
+            self.assertEqual(mutants_diff.missed_lines(out), ["local", "remote"])
 
 
 if __name__ == "__main__":

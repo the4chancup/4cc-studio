@@ -133,7 +133,7 @@ asks for the goal minute. Entries are checked top-down per slot; the first passi
 | `lead` | op, n | goal difference (us − them) compares true |
 | `every` | n | player's goal count is divisible by n |
 | `opponent` | team names | the opponent is one of the listed teams |
-| `match` | type list | match type is one of: Group, Survival, RO16, Quarterfinal, Semifinal, Final, Third-Place, Boss, Consolation; `knockouts` expands to RO16…Third-Place |
+| `match` | type list | match type is one of: Group, Survival, RO16, Quarterfinal, Semifinal, Final, Third-Place, Boss, Consolation; `knockouts`, as the only argument, expands to RO16…Third-Place; beside other types it is refused (Rigdio reads it there as a type no match has) |
 | `home` | — | the team is in the home slot |
 | `once` | — | the first time the check reaches it; the entry is unloaded the next time (`goals >= 2;once` plays on the second goal) |
 | `first` | — | this is the team's first goal (score == 1 after increment) |
@@ -472,7 +472,9 @@ impl TeamLists {
   asks it, prompts when it says so, sets the minute, then calls `select`; the walk up to the
   first `time` is the same with or without the minute, so the two agree.
 - The lists are plain data (`Clone`): the player snapshots them per goal for Undo and rebuilds
-  them from the export for Reset, with no reload.
+  them from the export for Reset, with no reload. A Reset also drops a pending `advance`
+  press: its `EntryId` names an entry of the lists it was given, and the rebuilt ones number
+  theirs afresh.
 
 ---
 
@@ -997,7 +999,10 @@ Parsing/validation CLI lives with the [Music export editor](music_export_editor.
   (Rigdio's `songCheck` lists the export's own folder only, `rigparse.py:176-199`; no export
   on the machine has a subfolder); a warcry plays again on the button's next press even when
   the follow-up after it found nothing (Rigdio then skips that button's warcries for the
-  rest of the match, a latch no author relies on). The player's controls get the same audit when its
+  rest of the match, a latch no author relies on); and an `advance` press whose ended song
+  was unloaded meanwhile (its `once` spent, or another button's press unloading the shared
+  `goal` entry) plays nothing when nothing else is left, where Rigdio replays the song that
+  ended. The player's controls get the same audit when its
   Acceptance section is written (DECISIONS 2026-10-21).
 
 ## Testing

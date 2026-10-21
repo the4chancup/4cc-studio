@@ -327,7 +327,9 @@ Requirements:
   (the mutated code computes the same value; its pattern goes into `.cargo/mutants.toml` with
   the equivalence named, so that file is the list of what the runs no longer measure), or
   unreachable code (a design finding). A survivor with no bucket is a review finding, not a
-  number to accept. Results land in `mutants.out/` (gitignored). What a clean run cannot
+  number to accept. Results land in `mutants.out/` (gitignored); a diff run's in
+  `mutants.diff/<crate>/`, one cargo-mutants run per crate so each times its mutants out
+  against its own baseline, every crate's survivors in `mutants.diff/missed_all.txt`. What a clean run cannot
   vouch for: `cargo-mutants` rewrites operators, a `!`, match arms and guards, a field, and a
   function's whole return value; it never edits a literal or removes a method call. So `just
   mutants <crate>` first runs four such kinds (`EXTRA_KINDS` in `scripts/mutants.py`, listed by

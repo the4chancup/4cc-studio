@@ -30,8 +30,16 @@ Agent and IDE shells started before the variable was set do not see it, so the s
 reads it from the user's registry environment; the run's first line says which mode it took
 ("splitting the run with bonfire" or "running every mutant on this machine"). At 2.20i an
 agent shell without the variable ran all 806 `pes_savefile` mutants locally, over three
-hours. An empty value in the process opts out. `mutants-diff` splits the same way only when
-its estimated local time is at least 4 minutes (`SPLIT_THRESHOLD_SECONDS`): the estimate is the
+hours. An empty value in the process opts out. `mutants-diff` runs one cargo-mutants per crate
+the diff mutates, one after the other, each with its own baseline and so its own timeout, not
+one run for the diff: one run's baseline tests every crate it mutates, and at `mutants-diff
+95f20eac` (`music_export`, `pes_savefile`, `save_editor`) a `music_export` mutant that hung a
+loop waited 751 s here and about 1100 s on the VPS where its tests take 1 to 2 s; nine timeouts
+cost about 2.5 h of job time, more than the two machines' speed difference. Each crate's
+results move to `mutants.diff/<crate>/` and their survivors are listed together in
+`mutants.diff/missed_all.txt`; a crate killed mid-run leaves its results in `mutants.out/` for
+`just mutants-collect`, and the crates after it did not run. Each crate's run splits the same
+way only when its estimated local time is at least 4 minutes (`SPLIT_THRESHOLD_SECONDS`): the estimate is the
 unmutated baseline plus each mutant's crate's measured mean seconds per mutant over the two
 jobs (`target/mutants-cost.json`, refreshed by every local run; a never-run crate falls back to
 its size, a never-measured baseline to 60 s), because cost follows a crate's test suite, not

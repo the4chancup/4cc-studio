@@ -497,6 +497,16 @@ class RemoteDied(RuntimeError):
     """The remote half stopped without an exit code."""
 
 
+def remote_selection(selection: list[str]) -> str:
+    """The remote half's selection arguments: a `--in-diff` selection reads the
+    uploaded copy of the diff (`run/in.diff`) and keeps what follows it, such as
+    the `-p <crate>` of a per-crate diff run, which would otherwise test every
+    crate's diff mutants on the remote."""
+    if selection[0] == "--in-diff":
+        return " ".join(['--in-diff "$HOME/studio-mutants/run/in.diff"', *selection[2:]])
+    return " ".join(selection)
+
+
 def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
     """Writes `run/job.sh` (and `run/in.diff` for a `--in-diff` selection,
     the same diff the local half reads) and starts it as the `REMOTE_UNIT`
@@ -510,10 +520,7 @@ def launch_remote(host: str, selection: list[str], whole: bool = False) -> None:
     `run/pid` is the service's MainPID and `run/memory_max` its cap
     (`remote_memory_max`); a failed `systemd-run` fails the launch (no
     fallback)."""
-    if selection[0] == "--in-diff":
-        remote_args = '--in-diff "$HOME/studio-mutants/run/in.diff"'
-    else:
-        remote_args = " ".join(selection)
+    remote_args = remote_selection(selection)
     shard = "" if whole else "--shard 1/2 --sharding round-robin "
     job = (
         "#!/bin/bash\n"
@@ -614,7 +621,7 @@ def run_split(
     today; a thread transfers the snapshot, writes the remote config and launches
     the remote half, so the transfer counts against the remote side only.
     `selection` is the mutant-selection arguments (`["-p", crate]` or
-    `["--in-diff", path]`); the remote reads an uploaded copy of a diff.
+    `["--in-diff", path, "-p", crate]`); the remote reads an uploaded copy of a diff.
     Without `local` (`REMOTE_ONLY`) the remote runs the whole selection and
     nothing runs here. With `local_files` (a whole-crate file split) neither
     half takes a `--shard`: the local config examines those files and the
