@@ -3950,6 +3950,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "team_widgets"
+version = "0.1.0"
+dependencies = [
+ "aatf",
+ "egui",
+ "pes_savefile",
+ "pes_version",
+]
+
+[[package]]
 name = "teams_list"
 version = "0.1.0"
 dependencies = [

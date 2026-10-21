@@ -119,6 +119,7 @@ fn card_limits(player, tier, team) {
     let required_cards = [];
     for required in p.require_cards { required_cards.push(required.card); }
     #{
+        paid: cards.paid,
         limit: cards.limit, free: cards.free, free_cards: free_cards,
         required_cards: required_cards, a_positions: cards.a_allowance,
         max_a_positions: p.max_a_positions,

@@ -9695,3 +9695,13 @@ suggest, and an invented suggestion (the team's other color) offers what is alre
 One change per gesture, because the Save editor pushes an undo entry per change and a drag
 reported frame by frame would take a hundred undos to revert.
 Plan: `plans/libs/color_tools.md` "Color-picker widget (Phase 8)".
+
+## 2026-10-21 — aatf — `card_limits` returns the paid cards the player holds
+Decision: the logic's `card_limits` map, and `aatf::CardLimits`, gain `paid`, the player's cards
+no free group or free card covers, beside `limit`; a card picker's badge is `limit - paid`. The
+logic's version-1 hash is replaced rather than a version 2 added, since no ruleset file has been
+released with the old one.
+Why: the spec named `card_limits` as behind the badges, but the map held the limit without the
+count it is compared with; a widget counting paid cards itself would be a second card economy,
+drifting from the checks the first time a free-card rule changes.
+Plan: `spec/aatf_rules.md` "The interpreter" (the `card_limits` bullet).

@@ -18,8 +18,8 @@ coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
-wording to fold in when they come; 8.7a, the picker's draft, done, 8.7b its widget next; then
-the Save editor's view), Phase 20 (the Ruleset
+wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
+`team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
 upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-21): 20.0d (the
 DBC7 ruleset), 20.0e (the organizer's choices in it; QUESTIONS.md "DBC7: the stat total"
@@ -789,6 +789,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       save with the assembled `dbc7.rhai`): 320 DBC7 rows for the six detail teams, 299 of
       them warnings. A gap of 20.0e's: a ruleset change reaches every draft that fakes the
       ruleset, not only the Ruleset editor's. Files: `docs/prototypes/save_editor.html`
+    - [x] 8.8b the crate and its `cards` module, and `paid` in `aatf`'s `card_limits`. Done
+      2026-10-21 (SWE-2): `card_pickers` (the skills grid five to a row and the COM styles,
+      gated by the version's schema field set, a "Cards left" badge row per tier, `limit -
+      paid`, the error color when overdrawn) and `playing_style_picker` (the version's styles,
+      in stored order); the badge row stands before the grid and the section headings are the
+      host's. 4 headless tests on fixture players, each red first; the badge color read from
+      the painted text. Files: `aatf/{logic/logic.rhai,src/values.rs,src/file.rs,
+      src/fixtures/official.rs}`, `team_widgets/{Cargo.toml,src/lib.rs,src/cards.rs}`,
+      `docs/spec/aatf_rules.md`
+    - [ ] 8.8c `team_widgets::violations`: the AATF rows grouped per player, a row's click
+      selecting its player (the draft's `#aatf-rows`)
   - [ ] 8.9 the Save editor's view in the five slices of `plans/save_editor.md` "Build order
     and verification", with the `session/` wiring each needs (undo, selection, recent files,
     the FPC toggle, AATF quick actions) and the placeholders of 8.3 gone; each slice's SE-GUI

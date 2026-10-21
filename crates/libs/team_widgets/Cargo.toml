@@ -1,0 +1,22 @@
+[package]
+name = "team_widgets"
+description = "The egui widgets the Save editor and the Team creator share: the card pickers, the tactics editor and the AATF violations list"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+aatf.workspace = true
+egui.workspace = true
+pes_savefile.workspace = true
+pes_version.workspace = true
+
+[dev-dependencies]
+# The fixture saves as whole encrypted files (`fixture_save`), for the
+# headless tests' real players.
+pes_savefile = { workspace = true, features = ["test-support"] }
+
+[lints]
+workspace = true

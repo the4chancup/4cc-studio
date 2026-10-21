@@ -2265,3 +2265,5 @@ worklog passed 7,000 lines.
   warnings, a stat-total sentence, no card cap; its card-badge check moved to the capped official ruleset.
 - **2026-10-21** — 8.7b: `color_tools`' color picker widget: a color button opening the popup the draft draws, one change per gesture,
   the session's recent colors; tested headless.
+- **2026-10-21** — 8.8b: `libs/team_widgets` with the card pickers (skills, COM styles, playing style) and their cards-left
+  badges; `aatf`'s `card_limits` returns the paid count the badges subtract.

@@ -1004,6 +1004,7 @@ fn card_limits_name_the_economy() {
     assert_eq!(
         limits(12, "regular"),
         CardLimits {
+            paid: 3,
             limit: 3,
             free: BTreeMap::from([("tricks".to_string(), 2)]),
             free_cards: vec![card("malicia")],
@@ -1052,6 +1053,38 @@ fn card_limits_name_the_economy() {
     // reads on a member of another tier — the captain (a silver, one A
     // and two COM styles the gold's free two cover) read as gold.
     assert_eq!(limits(10, "gold").a_positions, 1);
+}
+
+/// `paid` counts the held cards no free group or free card covers:
+/// slot 2, a gold holding nine cards — four tricks, three other skills
+/// and two COM styles — under the gold's free three tricks and two COM
+/// styles, so the four the frees leave are his paid ones. The badge a
+/// card picker shows under a tier is `limit - paid`.
+#[test]
+fn card_limits_reports_the_paid_count() {
+    let rules = Rules::official();
+    let team = legal_team();
+    let gold = player(&team, 2);
+    assert_eq!(
+        gold.cards
+            .iter()
+            .filter(|held| {
+                [
+                    card("scissors_feint"),
+                    card("marseille_turn"),
+                    card("cut_behind_and_turn"),
+                    card("scotch_move"),
+                ]
+                .contains(held)
+            })
+            .count(),
+        4,
+        "premise: four of the gold's nine cards are tricks"
+    );
+    let limits = rules.card_limits(&team, gold, "gold").expect("limits");
+    assert_eq!(limits.free.get("com"), Some(&2));
+    assert_eq!(limits.free.get("tricks"), Some(&3));
+    assert_eq!(limits.paid, 4);
 }
 
 /// An allowance the file does not list is never suggested: a manlet

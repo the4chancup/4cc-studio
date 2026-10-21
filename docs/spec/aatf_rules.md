@@ -711,10 +711,12 @@ host's registered accessors:
 - `check_team(team) -> [violation]`: steps 1–4 of "How a player is read" for every player.
 - `tier_values(player, tier, team) -> map`: the targets a player of `tier` must carry (per stat,
   form, injury resistance, weak foot), specials applied. Behind `apply_tier`.
-- `card_limits(player, tier, team) -> map`: paid limit (below zero when the extra A positions
-  outnumber the cards), free count per group, free and required cards, A positions allowed, and
-  the `max_a_positions` cap when a special sets one. Behind the card pickers' remaining-count
-  badges (the Save editor's, Phase 8).
+- `card_limits(player, tier, team) -> map`: the paid cards the player holds now, paid limit
+  (below zero when the extra A positions outnumber the cards), free count per group, free and
+  required cards, A positions allowed, and the `max_a_positions` cap when a special sets one.
+  Behind the card pickers' remaining-count badges (the Save editor's, Phase 8), each `limit -
+  paid`: the logic counts the paid cards, so a widget never recounts them with a second card
+  economy that could drift from the checks.
 
 A violation crosses back as a map the host converts into:
 

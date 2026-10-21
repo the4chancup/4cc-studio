@@ -56,8 +56,10 @@ OPEN_PHASE_PLANS = {
     # `libs/music_export` is built ahead of Phase 10 (worklog 10.0); its format section moves
     # to the spec when that phase closes.
     "docs/plans/music_player.md",
-    # Phase 8 (open): `color_tools`' picker widget (worklog 8.7b).
+    # Phase 8 (open): `color_tools`' picker widget (worklog 8.7b) and the Save editor's
+    # `team_widgets` (8.8).
     "docs/plans/libs/color_tools.md",
+    "docs/plans/save_editor.md",
 }
 
 
