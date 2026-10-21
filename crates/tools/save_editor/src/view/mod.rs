@@ -1,7 +1,9 @@
 //! The Save editor's window (`plans/save_editor.md` "Editing UI"): a toolbar over a
 //! master-detail layout, the player list left (`player_list`) and the general info
-//! strip right (`info_strip`). Render-only over the session's state; the undo stack
-//! and the edits the strip's controls make arrive with the tabs' slice.
+//! strip right (`info_strip`). Render-only over the session's state: it opens a
+//! save, filters and selects players, edits the strip's fields through
+//! `Session::edit_player`/`edit_team` (one undo entry per gesture), saves, and
+//! shows a refusal in a modal.
 
 mod info_strip;
 mod player_list;
@@ -80,15 +82,9 @@ impl SaveView {
 }
 
 /// Shows the window for one frame. `running` is the running-PES probe the
-/// save refusal checks (the Save button's slice wires it).
-pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, _running: &[RunningPes]) {
-    ui.horizontal(|ui| {
-        if ui.button("Open…").clicked()
-            && let Some(path) = rfd::FileDialog::new().pick_file()
-        {
-            view.open(&path);
-        }
-    });
+/// save refusal checks.
+pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &[RunningPes]) {
+    toolbar(ui, view, running);
     if view.session.is_none() {
         ui.weak("No save open.");
     } else {
@@ -98,6 +94,93 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, _running: &[RunningPe
         egui::CentralPanel::default().show(ui, |ui| info_strip::show(ui, view));
     }
     refusal_dialog(ui, view);
+    // One undo entry per gesture: seal when the pointer is up and no widget
+    // holds the keyboard.
+    if let Some(session) = view.session.as_mut()
+        && !ui.input(|input| input.pointer.any_down())
+        && !ui.ctx().egui_wants_keyboard_input()
+    {
+        session.seal();
+    }
+}
+
+/// The toolbar: Open, Save, Undo, Redo and the open save's path with its
+/// unsaved-changes marker (the draft's toolbar row).
+fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &[RunningPes]) {
+    // Ctrl+S saves even while a widget holds the keyboard; the other
+    // shortcuts do nothing then (a text field's own undo is egui's).
+    let save_key = ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::S));
+    let typing = ui.ctx().egui_wants_keyboard_input();
+    let undo_key =
+        !typing && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::Z));
+    let redo_key = !typing
+        && ui.input_mut(|input| {
+            input.consume_key(egui::Modifiers::CTRL, egui::Key::Y)
+                || input.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Z)
+        });
+    ui.horizontal(|ui| {
+        if ui.button("Open…").clicked()
+            && let Some(path) = rfd::FileDialog::new().pick_file()
+        {
+            view.open(&path);
+        }
+        let (can_undo, can_redo) = view
+            .session
+            .as_ref()
+            .map(|session| (session.can_undo(), session.can_redo()))
+            .unwrap_or((false, false));
+        if (ui
+            .add_enabled(can_undo, egui::Button::new("Undo"))
+            .clicked()
+            || undo_key)
+            && let Some(session) = view.session.as_mut()
+        {
+            session.undo();
+        }
+        if (ui
+            .add_enabled(can_redo, egui::Button::new("Redo"))
+            .clicked()
+            || redo_key)
+            && let Some(session) = view.session.as_mut()
+        {
+            session.redo();
+        }
+        if ui
+            .add_enabled(view.session.is_some(), egui::Button::new("Save"))
+            .clicked()
+            || save_key
+        {
+            save(view, running);
+        }
+        if let Some(session) = view.session.as_ref() {
+            let path = session.path().display().to_string();
+            let marker = if session.is_dirty() {
+                "  \u{2022} unsaved changes"
+            } else {
+                ""
+            };
+            ui.add(
+                egui::Label::new(
+                    egui::RichText::new(format!("{path}{marker}"))
+                        .monospace()
+                        .weak(),
+                )
+                .truncate(),
+            );
+        }
+    });
+}
+
+/// `session.save` and the modal its refusal takes (the draft's `saveFile`).
+fn save(view: &mut SaveView, running: &[RunningPes]) {
+    if let Some(session) = view.session.as_mut()
+        && let Err(error) = session.save(running)
+    {
+        view.refusal = Some(Refusal {
+            title: "Save refused",
+            message: format!("{error:#}"),
+        });
+    }
 }
 
 /// The refusal's dialog, while `view.refusal` holds one.

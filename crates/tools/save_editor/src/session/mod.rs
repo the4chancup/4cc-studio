@@ -5,21 +5,36 @@
 //! the lib the entries it asks for.
 
 pub(crate) mod selection;
+pub(crate) mod undo;
 
-use std::path::Path;
+use std::collections::HashMap;
+use std::path::{Path, PathBuf};
 
 use anyhow::{Context, anyhow};
 use pes_savefile::interchange::aesthetics_patch::{AestheticsPatch, PatchError, PatchSummary};
 use pes_savefile::interchange::team_toml::{ImportNote, TeamToml, TeamTomlError};
 use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
-use pes_savefile::model::{PlayerEntry, RosterSlot};
+use pes_savefile::model::{PlayerEntry, RosterSlot, TeamEntry};
 use pes_savefile::ops::transplant::{TransplantError, transplant};
 use pes_savefile::{EditFile, SaveError};
 use pes_version::PesVersion;
+use studio_core::RunningPes;
 
-/// The open save.
+use crate::session::undo::{Change, UndoStack};
+
+/// The open save: the file, the path it came from, the undo stack and the
+/// baseline the unsaved-changes marks compare against (the file's players
+/// and teams as opened or last saved).
 pub(crate) struct Session {
     file: EditFile,
+    /// The path `open` read, which `save` writes back to.
+    path: PathBuf,
+    /// Undo and redo (`plans/save_editor.md` "Editing UI", the Undo/redo bullet).
+    undo: UndoStack,
+    /// Every player by id, as opened or last saved.
+    baseline_players: HashMap<u32, PlayerEntry>,
+    /// Every team by id, as opened or last saved.
+    baseline_teams: HashMap<u32, TeamEntry>,
 }
 
 /// A player of a transplant pair whose appearance id is -1: his record is not what the game
@@ -61,7 +76,19 @@ impl Session {
     pub(crate) fn open(path: &Path) -> anyhow::Result<Session> {
         let file = EditFile::load(path)
             .with_context(|| format!("{}: cannot open the save", path.display()))?;
-        Ok(Session { file })
+        let (baseline_players, baseline_teams) = baselines(&file);
+        Ok(Session {
+            file,
+            path: path.to_path_buf(),
+            undo: UndoStack::new(),
+            baseline_players,
+            baseline_teams,
+        })
+    }
+
+    /// The path the save was opened from, where Save writes it back.
+    pub(crate) fn path(&self) -> &Path {
+        &self.path
     }
 
     /// The open save's game version.
@@ -77,6 +104,118 @@ impl Session {
     /// The ids of the save's teams, in record order.
     pub(crate) fn team_ids(&self) -> impl Iterator<Item = u32> {
         self.file.teams().iter().map(|team| team.id)
+    }
+
+    /// Replaces the player `edited.id` names with `edited` and pushes the
+    /// change under `key` (the widget's `egui::Id` value, the undo stack's
+    /// merge key); `edited` equal to the stored entry pushes nothing.
+    pub(crate) fn edit_player(&mut self, key: u64, edited: PlayerEntry) {
+        let Some(entry) = self.file.player_mut(edited.id) else {
+            return;
+        };
+        if *entry == edited {
+            return;
+        }
+        let before = std::mem::replace(entry, edited.clone());
+        self.undo.push(
+            key,
+            Change::Player {
+                before: Box::new(before),
+                after: Box::new(edited),
+            },
+        );
+    }
+
+    /// `edit_player` for a team entry (a roster slot's number, the captain).
+    pub(crate) fn edit_team(&mut self, key: u64, edited: TeamEntry) {
+        let Some(entry) = self.file.team_mut(edited.id) else {
+            return;
+        };
+        if *entry == edited {
+            return;
+        }
+        let before = std::mem::replace(entry, edited.clone());
+        self.undo.push(
+            key,
+            Change::Team {
+                before: Box::new(before),
+                after: Box::new(edited),
+            },
+        );
+    }
+
+    /// Undoes the newest gesture; `false` when the stack is empty.
+    pub(crate) fn undo(&mut self) -> bool {
+        self.undo.undo(&mut self.file)
+    }
+
+    /// Reapplies the newest undone gesture; `false` when the redo stack is
+    /// empty.
+    pub(crate) fn redo(&mut self) -> bool {
+        self.undo.redo(&mut self.file)
+    }
+
+    /// Whether `undo` would do anything (the Undo button's enabled state).
+    pub(crate) fn can_undo(&self) -> bool {
+        self.undo.can_undo()
+    }
+
+    /// Whether `redo` would do anything.
+    pub(crate) fn can_redo(&self) -> bool {
+        self.undo.can_redo()
+    }
+
+    /// Ends the open gesture: the next change starts a fresh undo entry.
+    pub(crate) fn seal(&mut self) {
+        self.undo.seal();
+    }
+
+    /// Whether the save differs from the file as opened or last saved (the
+    /// plan's Unsaved changes bullet; the toolbar's marker).
+    pub(crate) fn is_dirty(&self) -> bool {
+        self.file
+            .players()
+            .iter()
+            .any(|player| self.baseline_players.get(&player.id) != Some(player))
+            || self
+                .file
+                .teams()
+                .iter()
+                .any(|team| self.baseline_teams.get(&team.id) != Some(team))
+    }
+
+    /// Whether the player of `team`'s roster `slot` (0-based) differs from
+    /// the baseline: his `PlayerEntry` or his slot's shirt number (the dot's
+    /// rule, `plans/save_editor.md` "Editing UI" Unsaved changes).
+    pub(crate) fn player_dirty(&self, team_id: u32, slot: u8) -> bool {
+        let Some(slot_entry) = self
+            .file
+            .team(team_id)
+            .and_then(|team| team.roster.get(usize::from(slot)))
+        else {
+            return false;
+        };
+        let baseline_slot = self
+            .baseline_teams
+            .get(&team_id)
+            .and_then(|team| team.roster.get(usize::from(slot)));
+        if baseline_slot.is_none_or(|base| base != slot_entry) {
+            return true;
+        }
+        self.file
+            .player(slot_entry.player_id)
+            .is_some_and(|player| self.baseline_players.get(&player.id) != Some(player))
+    }
+
+    /// Writes the save back to the path it was opened from, then makes the
+    /// current model the baseline. Refused while the save's own PES runs (the
+    /// game writes its save back when it closes, over ours); a game of
+    /// another version does not block it.
+    pub(crate) fn save(&mut self, running: &[RunningPes]) -> anyhow::Result<()> {
+        refuse_while_running(running, self.version())?;
+        self.write(&self.path)?;
+        (self.baseline_players, self.baseline_teams) = baselines(&self.file);
+        Ok(())
     }
 
     /// The Team TOML text of the team with `id`: its entry, tactics and every rostered
@@ -213,6 +352,39 @@ impl Session {
     }
 }
 
+/// The save's players and teams by id: the baseline `is_dirty` and
+/// `player_dirty` compare against, taken at `open` and after `save`.
+fn baselines(file: &EditFile) -> (HashMap<u32, PlayerEntry>, HashMap<u32, TeamEntry>) {
+    (
+        file.players()
+            .iter()
+            .map(|player| (player.id, player.clone()))
+            .collect(),
+        file.teams()
+            .iter()
+            .map(|team| (team.id, team.clone()))
+            .collect(),
+    )
+}
+
+/// The refusal a writing operation makes while the PES of `version` runs: the
+/// game writes its own save back when it closes, over the one just written.
+/// A game of another version never writes this save, so it does not refuse
+/// (the CLI's rule: `spec/save_editor.md` "CLI" SE-CLI-02).
+pub(crate) fn refuse_while_running(
+    running: &[RunningPes],
+    version: PesVersion,
+) -> anyhow::Result<()> {
+    match running.iter().find(|game| game.version == version) {
+        Some(game) => Err(anyhow!(
+            "{} is running: it writes its own save back when it closes, over this one; \
+             close the game first",
+            game.version
+        )),
+        None => Ok(()),
+    }
+}
+
 /// Whether the player with `id` is at appearance id -1 (`STRIPPED_APPEARANCE_ID`): the
 /// tables decide his look, not his record. A player the save lacks is not stripped.
 pub(crate) fn is_stripped(file: &EditFile, id: u32) -> bool {
@@ -243,6 +415,51 @@ fn rostered_player(path: &str, roster: &[RosterSlot]) -> Option<u32> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn refuse_while_running_refuses_only_the_saves_own_version() {
+        assert!(refuse_while_running(&[], PesVersion::Pes21).is_ok());
+        let game = |version| RunningPes { version, exe: None };
+        // Another version's game never writes this save.
+        assert!(refuse_while_running(&[game(PesVersion::Pes15)], PesVersion::Pes21).is_ok());
+        let running = [game(PesVersion::Pes15), game(PesVersion::Pes21)];
+        let error = refuse_while_running(&running, PesVersion::Pes21).unwrap_err();
+        assert!(error.to_string().contains("PES 2021"), "{error}");
+    }
+
+    #[test]
+    fn a_players_dot_covers_his_entry_and_his_roster_number() {
+        let dir = std::env::temp_dir().join("save_editor_session_dirty");
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("EDIT00000000");
+        std::fs::write(&path, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+        let mut session = Session::open(&path).unwrap();
+        assert!(!session.is_dirty());
+        assert!(!session.player_dirty(701, 0));
+
+        // A player edit marks him.
+        let mut edited = session.file().player(70101).unwrap().clone();
+        edited.basic.height = edited.basic.height.wrapping_add(1);
+        session.edit_player(1, edited);
+        assert!(session.player_dirty(701, 0));
+        assert!(session.is_dirty());
+
+        // Undo clears his mark; editing his roster number marks him too.
+        assert!(session.undo());
+        assert!(!session.player_dirty(701, 0));
+        let mut team = session.file().team(701).unwrap().clone();
+        team.roster[0].number = team.roster[0].number.wrapping_add(1);
+        session.edit_team(1, team);
+        assert!(session.player_dirty(701, 0));
+
+        // A roster number elsewhere marks nobody here.
+        assert!(!session.player_dirty(701, 1));
+
+        // Save makes the current model the baseline: clean again.
+        session.save(&[]).unwrap();
+        assert!(!session.is_dirty());
+        assert!(!session.player_dirty(701, 0));
+    }
 
     #[test]
     fn a_text_too_long_error_names_the_rostered_player_and_other_errors_pass_through() {

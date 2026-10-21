@@ -67,11 +67,18 @@ impl StudioTool for Tool {
     fn help(&self) -> HelpSection {
         HelpSection {
             title: "Save editor",
-            topics: vec![HelpTopic {
-                slug: "command-line",
-                title: "Running from a terminal",
-                body: include_str!("../help/01_command_line.md"),
-            }],
+            topics: vec![
+                HelpTopic {
+                    slug: "command-line",
+                    title: "Running from a terminal",
+                    body: include_str!("../help/01_command_line.md"),
+                },
+                HelpTopic {
+                    slug: "window",
+                    title: "The window",
+                    body: include_str!("../help/02_window.md"),
+                },
+            ],
             messages: messages::catalog(),
         }
     }
@@ -95,6 +102,6 @@ mod tests {
         assert_eq!(tool.id(), "save-editor");
         assert_eq!(tool.label(), "Save editor");
         assert_eq!(tool.default_settings()["aatf_rules"].as_str(), Some(""));
-        assert_eq!(tool.help().topics.len(), 1);
+        assert_eq!(tool.help().topics.len(), 2);
     }
 }

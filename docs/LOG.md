@@ -2269,3 +2269,5 @@ worklog passed 7,000 lines.
   badges; `aatf`'s `card_limits` returns the paid count the badges subtract.
 - **2026-10-21** — 8.8c: `team_widgets`' violations list, grouped per player in check order with errors first, worded by the
   widget for both hosts; `aatf::ViolationKind::rule` shared with the CLI. 8.8b's review S1 folded in (PES 15 tested).
+- **2026-10-21** — 8.9a: the Save editor's window opens a save, lists its players across teams in their names' colors,
+  edits the info strip with undo and redo (one step per gesture), marks unsaved players and saves, refused while the game runs.

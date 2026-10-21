@@ -23,7 +23,7 @@ use crate::messages::{
     Code, TOOL_ID, aatf_check_failed, aatf_violation, appearance_id_restored, import_note, message,
     patch_skip, strip_base_copied_face, stripped_mark,
 };
-use crate::session::Session;
+use crate::session::{self, Session};
 use crate::{diff, settings, teams_list};
 
 // The exit codes are the command line's contract with scripts, the Team compiler's meanings.
@@ -235,14 +235,7 @@ fn invalid(error: anyhow::Error) -> CliError {
 /// writes its own save back when it closes, over the one the command wrote. A game of another
 /// version never writes this save, so it does not refuse.
 fn refuse_while_running(running: &[RunningPes], version: PesVersion) -> Result<(), CliError> {
-    match running.iter().find(|game| game.version == version) {
-        Some(game) => Err(invalid(anyhow!(
-            "{} is running: it writes its own save back when it closes, over this one; \
-             close it and run the command again",
-            game.version
-        ))),
-        None => Ok(()),
-    }
+    session::refuse_while_running(running, version).map_err(invalid)
 }
 
 /// Opens the save a command reads; an unreadable one is a refusal.
@@ -871,22 +864,6 @@ mod tests {
         assert_eq!(exit_code(Some(Severity::Warning)), 0);
         assert_eq!(exit_code(Some(Severity::Error)), 1);
         assert_eq!(exit_code(Some(Severity::Fatal)), 1);
-    }
-
-    #[test]
-    fn refuse_while_running_refuses_only_the_saves_own_version() {
-        assert!(refuse_while_running(&[], PesVersion::Pes21).is_ok());
-        let game = |version| RunningPes { version, exe: None };
-        // Another version's game never writes this save.
-        assert!(refuse_while_running(&[game(PesVersion::Pes15)], PesVersion::Pes21).is_ok());
-        let running = [game(PesVersion::Pes15), game(PesVersion::Pes21)];
-        let error = refuse_while_running(&running, PesVersion::Pes21).unwrap_err();
-        assert_eq!(error.exit_code, 2);
-        assert!(
-            error.error.to_string().contains("PES 2021"),
-            "{}",
-            error.error
-        );
     }
 
     #[test]

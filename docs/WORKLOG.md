@@ -845,11 +845,20 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     and verification", with the `session/` wiring each needs (undo, selection, recent files,
     the FPC toggle, AATF quick actions) and the placeholders of 8.3 gone; each slice's SE-GUI
     scenarios cited
-    - [ ] 8.9a slice 1's skeleton, in two runs: (a1) Open, the team selector with ALL, the
-      cross-team filter, the list with its names' colors (`pes_savefile`'s `name_spans`), the
-      info strip read-only, `rfd` as the file picker; (a2) the strip's edits, the undo stack
-      (whole entries, one per gesture), the unsaved dots, Save and its refusal while the
-      game runs (SE-GUI-01 to 04, 21)
+    - [x] 8.9a slice 1's skeleton, in two runs. Done 2026-10-21 (SWE-2): (a1) Open (`rfd`
+      0.17.2, `xdg-portal` only: no async runtime), the team selector with ALL, the
+      cross-team filter on the display name, shirt name or id, the list with its names'
+      colors (`pes_savefile`'s `name_spans`, which `display_name` now joins); (a2) the info
+      strip's edits (ranges from the schema's bit widths), `session/undo.rs` (whole entries,
+      boxed, one per gesture: a widget's changes merge until the frame ends with no button
+      down and no keyboard focus), the dots against the file as opened or saved, Save and
+      Ctrl+S refused while the save's own game runs (the CLI's rule, now the session's),
+      Undo/Redo and their shortcuts, the help topic `The window`. 23 view tests, SE-GUI-01,
+      02 and 04 proven; SE-GUI-03 waits for 8.9b's Abilities tab. Files:
+      `save_editor/{Cargo.toml,help/02_window.md,src/lib.rs,src/cli.rs,src/session/{mod.rs,
+      selection.rs,undo.rs},src/view/{mod.rs,player_list.rs,info_strip.rs,tests.rs}}`,
+      `pes_savefile/src/model/names.rs`, the root `Cargo.toml`
+      - [ ] review: a SWE-2 loop over 8.9a, then Astra
     - [ ] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,

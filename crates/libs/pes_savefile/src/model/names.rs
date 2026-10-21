@@ -8,26 +8,7 @@
 /// Stripping happens on bytes at char boundaries only, so the result is always
 /// valid UTF-8.
 pub fn display_name(raw: &str) -> String {
-    let bytes = raw.as_bytes();
-    let mut out = Vec::with_capacity(bytes.len());
-    let mut i = 0;
-    while i < bytes.len() {
-        let strip = if bytes[i] == 0x11 && i + 1 < bytes.len() && bytes[i + 1] == b'c' {
-            Some(10).filter(|end| i + end <= bytes.len() && raw.is_char_boundary(i + end))
-        } else if bytes[i] == 0x11 && i + 1 < bytes.len() && bytes[i + 1] == b'd' {
-            Some(2).filter(|end| raw.is_char_boundary(i + end))
-        } else {
-            None
-        };
-        match strip {
-            Some(len) => i += len,
-            None => {
-                out.push(bytes[i]);
-                i += 1;
-            }
-        }
-    }
-    String::from_utf8(out).expect("stripping at char boundaries keeps UTF-8 valid")
+    name_spans(raw).into_iter().map(|(_, text)| text).collect()
 }
 
 /// The name's text runs and the color each is drawn in, as the game draws
@@ -184,6 +165,23 @@ mod tests {
         assert_eq!(
             name_spans("\x11c112233ffend\x11c123"),
             [(Some([0x11, 0x22, 0x33]), "end\x11c123")]
+        );
+        // A code ending at the string's end is a code: the run before it is
+        // kept and there is nothing after.
+        assert_eq!(name_spans("end\x11c12345678"), [(None, "end")]);
+        // Seven bytes after `\x11c` is not a code: kept as text.
+        assert_eq!(name_spans("end\x11c1234567"), [(None, "end\x11c1234567")]);
+        // A lone `\x11` at the end is not a code's start: kept.
+        assert_eq!(name_spans("end\x11"), [(None, "end\x11")]);
+        // A trailing `\x11d` is a code: it resets and leaves no run after.
+        assert_eq!(
+            name_spans("\x11c112233ffcolor\x11d"),
+            [(Some([0x11, 0x22, 0x33]), "color")]
+        );
+        // Upper-case hex is hex.
+        assert_eq!(
+            name_spans("\x11cA0B0C8FFNAME"),
+            [(Some([0xa0, 0xb0, 0xc8]), "NAME")]
         );
         // The runs joined are the display name.
         for name in [

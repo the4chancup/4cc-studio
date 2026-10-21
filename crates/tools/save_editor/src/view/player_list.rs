@@ -7,6 +7,7 @@ use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::names::name_spans;
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 
+use crate::session::Session;
 use crate::session::selection::{self, Row, TeamChoice};
 use crate::view::SaveView;
 
@@ -33,7 +34,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let rows = selection::rows(file, team, filter);
     egui::ScrollArea::vertical().show(ui, |ui| {
         for row in &rows {
-            player_row(ui, selected, file, row, show_team);
+            player_row(ui, selected, session, row, show_team);
         }
     });
 }
@@ -64,17 +65,27 @@ fn team_selector(ui: &mut egui::Ui, choice: &mut TeamChoice, file: &EditFile) {
 fn player_row(
     ui: &mut egui::Ui,
     selected: &mut Option<(u32, u8)>,
-    file: &EditFile,
+    session: &Session,
     row: &Row,
     show_team: bool,
 ) {
+    let file = session.file();
     let team = file.team(row.team_id);
     let player = file.player(row.player_id);
+    let dirty = session.player_dirty(row.team_id, row.slot);
     let is_selected = *selected == Some((row.team_id, row.slot));
-    if ui
-        .selectable_label(is_selected, row_text(team, player, row, show_team))
-        .clicked()
-    {
+    let mut job = row_text(team, player, row, show_team);
+    if dirty {
+        job.append(" \u{25cf}", 0.0, egui::TextFormat::default());
+    }
+    let response = ui.selectable_label(is_selected, job);
+    // The whole row is the one click target; the dot's hover text rides it.
+    let response = if dirty {
+        response.on_hover_text("Unsaved changes")
+    } else {
+        response
+    };
+    if response.clicked() {
         *selected = Some((row.team_id, row.slot));
     }
 }
