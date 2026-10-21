@@ -2288,3 +2288,5 @@ worklog passed 7,000 lines.
   history crossed saves, fixed in rework 5. 20.1's A1 (3 of 4): tests tightened; a seventh organizer point (Red manlet bonus).
 - **2026-10-22** — 8.9b1's and 20.1's reviews end: the post-Astra SWE-2 rounds accepted 4 of 11 and 2 of 4 (the Shirt hover's
   charset, the load error's wrap, tests that see a refusal's typed text and the badges follow the selection; a medal CB pinned).
+- **2026-10-22** — 8.9c1: the roster-order rule (slot NN holds team x 100 + NN) in `pes_savefile`, raised by the AATF host for
+  every ruleset and noted by Team TOML's export; a census of 29 real saves found breaks only in five older PES 16 saves.

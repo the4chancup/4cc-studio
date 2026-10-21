@@ -72,7 +72,7 @@ impl Records {
 
     /// The records' view.
     fn view(&self) -> TeamView {
-        TeamView::view(self.version, &self.team, |id| {
+        TeamView::view(self.version, &self.team, Vec::new(), |id| {
             self.players.iter().find(|player| player.id == id)
         })
         .expect("the records view")

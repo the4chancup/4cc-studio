@@ -75,7 +75,35 @@ pub struct RosterSlot {
     pub number: u16,
 }
 
+/// The player id 4cc's roster-order rule puts in `slot` of team `team_id`
+/// (`slot` 0-based as stored, so slot 0 holds `team_id * 100 + 1`):
+/// `team_id * 100 + slot + 1`. The rule is the only link between the two
+/// interchange formats' player addressing: an aesthetics export names
+/// players by id, a Team TOML by roster slot.
+/// `TeamEntry::roster_order_breaks` lists a team's slots that break it.
+pub fn roster_order_player_id(team_id: u32, slot: u8) -> u32 {
+    team_id * 100 + u32::from(slot) + 1
+}
+
 impl TeamEntry {
+    /// The roster slots that break 4cc's roster-order rule — slot `NN`
+    /// holds player `team id x 100 + NN` (`roster_order_player_id`), so
+    /// stored slot 0 holds `id x 100 + 01` — as `(slot, player_id)`, in
+    /// slot order; an empty slot (`player_id` 0) is not a break. The rule
+    /// is the only link between the two interchange formats' player
+    /// addressing: an aesthetics export names players by id, a Team TOML
+    /// by roster slot.
+    pub fn roster_order_breaks(&self) -> Vec<(u8, u32)> {
+        let mut out = Vec::new();
+        for (i, slot) in self.roster.iter().enumerate() {
+            let i = u8::try_from(i).expect("a roster holds fewer than 256 slots");
+            if slot.player_id != 0 && slot.player_id != roster_order_player_id(self.id, i) {
+                out.push((i, slot.player_id));
+            }
+        }
+        out
+    }
+
     /// The model value a team bit run carries.
     pub(crate) fn get(&self, field: TeamField) -> Result<u32, CodecError> {
         let v = match field {
@@ -217,7 +245,31 @@ impl TeamEntry {
 
 #[cfg(test)]
 mod tests {
+    use pes_version::PesVersion;
+
     use super::*;
+    use crate::test_support::open;
+
+    /// 4cc's roster-order rule on a real save: team 701 of the PES 21
+    /// fixture keeps it, swapping two slots' player ids breaks those two,
+    /// an emptied slot is not a break.
+    #[test]
+    fn roster_order_breaks_lists_the_slots_holding_a_wrong_player() {
+        let (mut file, _) = open(PesVersion::Pes21);
+        let team = file.team(701).expect("team 701");
+        assert!(team.roster_order_breaks().is_empty());
+        // Premise: slots 0 and 1 hold the players the rule puts there.
+        assert_eq!(team.roster[0].player_id, 70101);
+        assert_eq!(team.roster[1].player_id, 70102);
+        let team = file.team_mut(701).expect("team 701");
+        (team.roster[0].player_id, team.roster[1].player_id) = (70102, 70101);
+        let team = file.team(701).expect("team 701");
+        assert_eq!(team.roster_order_breaks(), vec![(0, 70102), (1, 70101)]);
+        // The emptied slot is not a break; slot 1's stays.
+        let team = file.team_mut(701).expect("team 701");
+        team.roster[0].player_id = 0;
+        assert_eq!(team.roster_order_breaks(), vec![(1, 70101)]);
+    }
 
     /// `roster_set` grows the roster to the written slot (`i + 1`), so
     /// indexing it does not read past the end.

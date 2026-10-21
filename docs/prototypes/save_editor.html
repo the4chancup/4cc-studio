@@ -2689,18 +2689,30 @@ function set(p, get, put, v, label) {
   if (get(p) === v) return;
   edit(label || "edit", () => put(p, v));
 }
-// Drag to reorder (SE-GUI-08): moving a list row reorders the team's roster;
-// the ids follow the player, the roster's stored order changes.
+// Drag to reorder (SE-GUI-08): the records move, the roster does not. Slot NN
+// keeps player id `team id × 100 + NN` (plans/aatf_rules.md "The host"), its
+// base_copy_id and its shirt number, and the captain stays with his slot; the
+// dragged player's record lands on the target slot's id and the records in
+// between shift one slot along, as 4ccEditor's spinner trades two records per
+// step.
+const SLOT_KEEPS = ["slot", "id", "base_copy_id", "number"];
 function movePlayer(team, fromSlot, toSlot) {
   if (fromSlot === toSlot) return;
   edit("Reorder", () => {
     const arr = team.players;
     const i = arr.findIndex(p => p.slot === fromSlot);
     const j = arr.findIndex(p => p.slot === toSlot);
-    const [m] = arr.splice(i, 1);
-    arr.splice(j, 0, m);
+    const records = arr.map(p => Object.fromEntries(
+      Object.entries(p).filter(([k]) => !SLOT_KEEPS.includes(k))));
+    const [m] = records.splice(i, 1);
+    records.splice(j, 0, m);
+    arr.forEach((p, k) => {
+      for (const key of Object.keys(p)) if (!SLOT_KEEPS.includes(key)) delete p[key];
+      Object.assign(p, records[k]);
+    });
   });
-  S.sel = { team: team.id, slot: fromSlot };
+  // The selection follows the dragged player, now on the target slot.
+  S.sel = { team: team.id, slot: toSlot };
 }
 
 // ---- Draft controls: the scenarios' GIVENs, visibly outside Studio ----
@@ -2741,7 +2753,7 @@ const WALK = [
   ["SE-GUI-05", "edit, then open the other sample save from the draft control: the prompt offers save, discard, cancel"],
   ["SE-GUI-06", "PES 17 sample: star, playing attitude and stronger hand sit disabled in place, tooltips naming PES 19+/20+; PES 21: enabled"],
   ["SE-GUI-07", "the Appearance tab is disabled under the ownership line; the switch unlocks it; the switch is off on every open"],
-  ["SE-GUI-08", "drag a list row onto another: the order changes and marks the save unsaved"],
+  ["SE-GUI-08", "drag a list row onto another: the dragged player's name, stats and look land on the target slot, those between shift one along, while every slot keeps its id, shirt number and captain mark; the save is marked unsaved"],
   ["SE-GUI-09", "the quick actions follow the ruleset control: Gold/Silver/Bronze/Goalkeeper/Regular under official, VTL11 and DBC7 their own"],
   ["SE-GUI-12", "the Tactics tab: drag a pitch marker (it snaps to the stored grid, undoable), drop a bench row on a marker to swap, arm a set-piece chip and click a marker, arm Join attack and click two markers"],
   ["SE-GUI-25", "the tab's menus: Copy preset 1 to 2, then Swap Kick-off and In-possession; each is one undoable edit"],

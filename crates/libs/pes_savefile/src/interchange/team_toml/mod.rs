@@ -41,6 +41,13 @@ pub struct TeamToml {
     pub tactics: TacticsSection,
     /// The `[players.NN]` tables by roster slot.
     pub players: BTreeMap<u8, PlayerSection>,
+    /// The roster slots whose player is not the roster-order rule's, as
+    /// `TeamEntry::roster_order_breaks` reports them (`(slot, player_id)`,
+    /// 0-based). Set by `from_team` alone: a parsed or hand-built document
+    /// holds no ids to check. Emitted as a `[players.NN]` header note;
+    /// `apply` never reads it (it is no key), so `parse` of the text a
+    /// breaking team's `to_toml` wrote does not reproduce it.
+    pub roster_breaks: Vec<(u8, u32)>,
 }
 
 /// `[team]`: identity, links and the version-gated colour/kit fields. `id` is

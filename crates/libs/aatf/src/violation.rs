@@ -256,6 +256,15 @@ pub enum ViolationKind {
         /// The special's label.
         special: String,
     },
+    /// The roster slot's player is not `team id x 100 + slot + 1` (4cc's
+    /// roster order, `TeamEntry::roster_order_breaks`): the aesthetics
+    /// export names players by id, a Team TOML by slot, and this rule is
+    /// their only link. Raised by the host before the script runs; the
+    /// script never sees or emits it.
+    RosterOrder {
+        /// The player id the slot holds.
+        player: u32,
+    },
 }
 
 impl ViolationKind {
@@ -438,6 +447,9 @@ impl ViolationKind {
             ViolationKind::UnusedChoice { special } => {
                 ("UnusedChoice", vec![("special", special.clone())])
             }
+            ViolationKind::RosterOrder { player } => {
+                ("RosterOrder", vec![("player", player.to_string())])
+            }
         }
     }
 }
@@ -583,7 +595,8 @@ pub(crate) fn violations(list: Dynamic) -> Result<Vec<Violation>, CheckError> {
             | ViolationKind::Special { .. }
             | ViolationKind::Custom { .. }
             | ViolationKind::Unused { .. }
-            | ViolationKind::UnusedChoice { .. } => {}
+            | ViolationKind::UnusedChoice { .. }
+            | ViolationKind::RosterOrder { .. } => {}
         }
         out.push(Violation {
             slot,
@@ -895,8 +908,14 @@ mod tests {
                     special: "Medals".to_string(),
                 },
             ),
+            (
+                "#{ kind: \"RosterOrder\", player: 70102, slot: 0 }",
+                Some(0),
+                Severity::Error,
+                ViolationKind::RosterOrder { player: 70102 },
+            ),
         ];
-        assert_eq!(cases.len(), 35);
+        assert_eq!(cases.len(), 36);
         for (text, slot, severity, kind) in cases {
             let got = violations(one(text)).expect(text).remove(0);
             assert_eq!(

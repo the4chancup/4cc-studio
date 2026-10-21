@@ -30,4 +30,4 @@ pub use tactics::{
     AdvancedInstruction, Formation, FormationSlot, SetPieceTakers, TacticSliders, TacticStyle,
     TacticsPreset, TeamAutoFlags, TeamTactics,
 };
-pub use team::{KitSlot, RosterSlot, TeamColor, TeamEditFlags, TeamEntry};
+pub use team::{KitSlot, RosterSlot, TeamColor, TeamEditFlags, TeamEntry, roster_order_player_id};

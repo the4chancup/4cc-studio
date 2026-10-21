@@ -109,6 +109,7 @@ impl TeamToml {
         }
         Ok(TeamToml {
             pes_version: Some(version),
+            roster_breaks: team.roster_order_breaks(),
             team: TeamSection {
                 id: Some(team.id),
                 name: Some(team.name.clone()),
@@ -175,7 +176,7 @@ impl TeamToml {
         out.push('\n');
         emit_team(&mut out, &self.team);
         emit_tactics(&mut out, &self.tactics)?;
-        player::emit_players(&mut out, &self.players)?;
+        player::emit_players(&mut out, &self.players, self.team.id, &self.roster_breaks)?;
         Ok(out)
     }
 

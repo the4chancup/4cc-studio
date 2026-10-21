@@ -216,8 +216,10 @@ texport of team 804 lists 80401, 80402, 80423, 80404, …, `spec/pes_savefile/op
 "Texport"), so a manager can break it by mistake. The host checks it itself, in Rust before the
 script runs, so no ruleset can leave it out and `logic.rhai` is untouched: each filled slot
 whose player is not `team id × 100 + slot` is an error, `ViolationKind::RosterOrder { player }`
-on that slot. The rule itself is `pes_savefile`'s (`roster_order_breaks(&EditFile, TeamId) ->
-Vec<(u8, PlayerId)>`, the slots and the players they hold), so the tools that guard the same
+on that slot. The rule itself is `pes_savefile`'s (`TeamEntry::roster_order_breaks(&self) ->
+Vec<(u8, u32)>`, the roster slots, 0-based as stored, and the player ids they hold; a method on
+the team record rather than a function of the whole file, since every caller already holds
+the team's entry and the rule reads nothing else), so the tools that guard the same
 thing call one function: this check, Team TOML's export (a note per slot, since the file lands
 its players by slot) and the Team compiler applying a Complete export's `tactics.toml`, which
 refuses onto a local save whose team breaks the rule

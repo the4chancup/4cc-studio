@@ -7,11 +7,12 @@
 
 use std::borrow::Cow;
 
-use aatf::Violation;
+use aatf::{Violation, ViolationKind};
 use pes_savefile::interchange::aesthetics_patch::PatchSkip;
 use pes_savefile::interchange::team_toml::ImportNote;
 use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::names::display_name;
+use pes_savefile::model::roster_order_player_id;
 use pes_savefile::ops::compare::PlayerDiff;
 use studio_core::{CatalogRow, Disposition, Message, MessageCode, Scope, Severity};
 
@@ -475,7 +476,9 @@ pub(crate) fn patch_skip(skip: PatchSkip) -> Message {
 /// The message for one `check-aatf` violation of `team`: `player` is the rostered player's
 /// id when the violation names a slot, `severity` the violation's (a suggestion is filtered
 /// by the caller, which prints nothing for it), and `rule` with its fields is
-/// `aatf::ViolationKind::rule`'s.
+/// `aatf::ViolationKind::rule`'s. A `RosterOrder` names the held id in its own `player`
+/// field (the context's would repeat it) and adds `expected`, the id the rule puts in the
+/// slot.
 pub(crate) fn aatf_violation(
     team: u32,
     player: Option<u32>,
@@ -484,11 +487,16 @@ pub(crate) fn aatf_violation(
 ) -> Message {
     let (rule, fields) = violation.kind.rule();
     let mut context = vec![("team", team.to_string())];
-    if let Some(player) = player {
+    if let Some(player) = player
+        && !matches!(violation.kind, ViolationKind::RosterOrder { .. })
+    {
         context.push(("player", player.to_string()));
     }
     context.push(("rule", rule.to_owned()));
     context.extend(fields);
+    if let (ViolationKind::RosterOrder { .. }, Some(slot)) = (&violation.kind, violation.slot) {
+        context.push(("expected", roster_order_player_id(team, slot).to_string()));
+    }
     let mut message = message(Code::AatfViolation, context);
     message.severity = severity;
     message
@@ -902,6 +910,23 @@ mod tests {
                 "{kind:?}"
             );
         }
+        // `RosterOrder` prints its held id as `player` (the context's own
+        // would repeat it) and `expected`, the id the rule puts in the slot
+        // (slot 0 of team 718: 71801).
+        let roster_order = Violation {
+            slot: Some(0),
+            severity: aatf::Severity::Error,
+            kind: ViolationKind::RosterOrder { player: 71802 },
+        };
+        assert_eq!(
+            line(&aatf_violation(
+                718,
+                Some(71802),
+                &roster_order,
+                Severity::Error
+            )),
+            "Error aatf_violation (team=718, rule=RosterOrder, player=71802, expected=71801)"
+        );
         // A team-level violation names no player, an `Option` field none when `None`, and
         // the severity is the violation's.
         let name_color = Violation {

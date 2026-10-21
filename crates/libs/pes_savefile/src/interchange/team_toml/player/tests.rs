@@ -2008,3 +2008,62 @@ fn a_foreign_motion_at_the_targets_top_converts_with_no_note() {
         "the free kick at PES 18's top is stored as is"
     );
 }
+
+/// The `[players.NN]` header lines of `text`, in slot order (the `.stats`
+/// et al. sub-headers differ at byte 11).
+fn player_headers(text: &str) -> Vec<&str> {
+    text.lines()
+        .filter(|line| line.starts_with("[players.") && line.as_bytes().get(11) == Some(&b']'))
+        .collect()
+}
+
+/// The roster-order note (`plans/pes_savefile/operations.md` "Roster
+/// order"): team 701 of the PES 21 fixture with slots 0 and 1's player
+/// ids swapped carries the note on those headers alone.
+#[test]
+fn a_broken_roster_order_notes_the_held_ids_on_the_headers() {
+    let (mut file, _) = open(PesVersion::Pes21);
+    let team = file.team_mut(701).expect("team 701");
+    assert_eq!(team.roster[0].player_id, 70101, "premise: slot 0's player");
+    assert_eq!(team.roster[1].player_id, 70102, "premise: slot 1's player");
+    (team.roster[0].player_id, team.roster[1].player_id) = (70102, 70101);
+    let team = file.team(701).expect("team 701");
+    let refs: Vec<&PlayerEntry> = file.players().iter().collect();
+    let doc = TeamToml::from_team(PesVersion::Pes21, team, &refs).expect("from_team");
+    assert_eq!(doc.roster_breaks, vec![(0, 70102), (1, 70101)]);
+    let text = doc.to_toml().expect("to_toml");
+    let headers = player_headers(&text);
+    assert_eq!(
+        headers[0],
+        "[players.01]                    # roster slot 01 .. 40 (32 on PES 15-18); holds player 70102, not 70101: applied, this record lands on slot 01, apart from 70102's aesthetics export"
+    );
+    assert_eq!(
+        headers[1],
+        "[players.02]                    # roster slot 01 .. 40 (32 on PES 15-18); holds player 70101, not 70102: applied, this record lands on slot 02, apart from 70101's aesthetics export"
+    );
+    assert_eq!(
+        headers
+            .iter()
+            .filter(|line| line.contains("holds player"))
+            .count(),
+        2,
+        "no other header notes"
+    );
+}
+
+/// An export whose roster keeps the order emits the headers it always
+/// did: no note, the range comment as it is.
+#[test]
+fn an_ordered_roster_emits_no_note() {
+    let (file, _) = open(PesVersion::Pes21);
+    let team = file.team(701).expect("team 701");
+    let refs: Vec<&PlayerEntry> = file.players().iter().collect();
+    let doc = TeamToml::from_team(PesVersion::Pes21, team, &refs).expect("from_team");
+    let text = doc.to_toml().expect("to_toml");
+    assert!(!text.contains("holds player"), "no note anywhere");
+    let headers = player_headers(&text);
+    assert_eq!(
+        headers[0],
+        "[players.01]                    # roster slot 01 .. 40 (32 on PES 15-18)"
+    );
+}

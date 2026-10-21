@@ -182,7 +182,7 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
         rule_color,
         egui::text::TextWrapping::truncate_at_width(RULE_COL),
     );
-    let text = sentence(violation);
+    let text = sentence(violation, team_id);
     let sentence_galley = layout(
         ui,
         text.clone(),
@@ -246,8 +246,9 @@ fn bound(label: &str, value: u8, bound: u8) -> String {
 }
 
 /// What is wrong with `violation`, in the draft's `violationSentence` wording:
-/// one arm per `ViolationKind`.
-fn sentence(violation: &aatf::Violation) -> String {
+/// one arm per `ViolationKind`. `team_id` is the team's, for the rules whose
+/// expected value it sets (the roster order's `team id x 100 + slot + 1`).
+fn sentence(violation: &aatf::Violation, team_id: u32) -> String {
     use aatf::ViolationKind as K;
     match &violation.kind {
         K::RegisteredNotA => "the registered position is not rated A".to_string(),
@@ -349,6 +350,13 @@ fn sentence(violation: &aatf::Violation) -> String {
             allowed,
         } => format!("only {used} of {allowed} {allowance} used"),
         K::UnusedChoice { special } => format!("no option of {special} taken"),
+        K::RosterOrder { player } => match violation.slot {
+            Some(slot) => format!(
+                "the slot holds player {player}, not {}",
+                pes_savefile::model::roster_order_player_id(team_id, slot)
+            ),
+            None => format!("a roster slot holds player {player} outside the roster order"),
+        },
     }
 }
 
@@ -727,8 +735,9 @@ mod tests {
         use aatf::Severity::{Error, Warning};
         use aatf::ViolationKind as K;
         let player = |severity, kind| violation(Some(1), severity, kind);
+        let sent = |v: &aatf::Violation| sentence(v, 701);
         assert_eq!(
-            sentence(&player(
+            sent(&player(
                 Error,
                 K::FieldedNotA {
                     preset: 1,
@@ -738,7 +747,7 @@ mod tests {
             "fielded at CB in preset 1 without an A rating"
         );
         assert_eq!(
-            sentence(&player(
+            sent(&player(
                 Error,
                 K::Stat {
                     stat: stat("speed"),
@@ -750,7 +759,7 @@ mod tests {
             "speed 80, below the 92 the rule sets"
         );
         assert_eq!(
-            sentence(&player(
+            sent(&player(
                 Error,
                 K::Stat {
                     stat: stat("speed"),
@@ -762,7 +771,7 @@ mod tests {
             "speed 95, above the 92 the rule sets"
         );
         assert_eq!(
-            sentence(&player(
+            sent(&player(
                 Error,
                 K::Stat {
                     stat: stat("speed"),
@@ -774,7 +783,7 @@ mod tests {
             "speed 80 over the maximum 92"
         );
         assert_eq!(
-            sentence(&player(
+            sent(&player(
                 Warning,
                 K::Stat {
                     stat: stat("speed"),
@@ -786,7 +795,7 @@ mod tests {
             "speed 80 over the target 92, inside the warning band"
         );
         assert_eq!(
-            sentence(&player(
+            sent(&player(
                 Error,
                 K::NameColor {
                     color: None,
@@ -796,11 +805,11 @@ mod tests {
             "name colour none, the tier wants cc9900ff"
         );
         assert_eq!(
-            sentence(&player(Error, K::Cards { paid: 10, limit: 8 })),
+            sent(&player(Error, K::Cards { paid: 10, limit: 8 })),
             "10 paid cards over the limit of 8"
         );
         assert_eq!(
-            sentence(&player(
+            sent(&player(
                 Error,
                 K::TierCount {
                     tier: "gold".to_string(),
@@ -849,8 +858,18 @@ mod tests {
                 "name colour cc9900ff is reserved for a tier",
             ),
         ] {
-            assert_eq!(sentence(&player(Error, kind.clone())), expected, "{kind:?}");
+            assert_eq!(sent(&player(Error, kind.clone())), expected, "{kind:?}");
         }
+
+        // `RosterOrder` words the held id and the rule's, the latter from
+        // the team id and the slot: slot 4 of team 701 is player 70105.
+        assert_eq!(
+            sentence(
+                &violation(Some(4), Error, K::RosterOrder { player: 70106 }),
+                701
+            ),
+            "the slot holds player 70106, not 70105"
+        );
     }
 
     // plans/save_editor.md "libs/team_widgets", `violations` bullet: a team the

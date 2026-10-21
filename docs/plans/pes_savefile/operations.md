@@ -31,6 +31,16 @@ team moved from PES 21 to PES 17 (2026-10-21: 12 of 4,830 names in a PES 21 save
 bytes, the longest 59), and a cut nobody was told about renames the player. The Save editor
 draws a name that a version would crop as a warning (its plan, "Editing UI").
 
+**Roster order.** Export from a team that breaks 4cc's roster order (slot `NN` holding a player
+other than `team id × 100 + NN`: `roster_order_breaks`, `plans/aatf_rules.md` "The host")
+writes the slot as the save holds it, with a note on that slot's header line naming the player
+it holds and the one the rule puts there ("holds player 80423, not 80403: applied, this record
+lands on slot 03, apart from 80423's aesthetics export"). A Team TOML lands players by slot, so the record leaves
+its id behind, and the aesthetics export, which names players by id, no longer matches it; the
+note is how a member learns that before applying the file. `apply` adds no note: the file holds
+no ids. Measured 2026-10-22 (worklog 8.9): no current cup save breaks the rule; five older PES
+16 saves break it in 13 to 25 teams each.
+
 ### Aesthetics patch (new)
 
 What exists of this is in `spec/pes_savefile/operations.md` "Aesthetics patch (new)" (the

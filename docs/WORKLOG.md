@@ -898,7 +898,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       player_list.rs,tests.rs}},tests/cli/import_toml.rs}`, `pes_savefile/src/{schema/{mod.rs,
       fields.rs},model/{names.rs,player.rs},interchange/team_toml/{mod.rs,player/{mod.rs,
       tests.rs}}}`, `team_widgets/src/cards.rs`
-      - [ ] review: a SWE-2 loop over 8.9b1, then Astra round A2 (A1 accepted 6 of 6 on 8.9a,
+      - [x] review: a SWE-2 loop over 8.9b1, then Astra round A2 (A1 accepted 6 of 6 on 8.9a,
         folded in here). S2 (two halves, 7 of 18 accepted) and the mutation run's survivors
         fixed in rework 3: the tab wraps to the pane the shell leaves (800 x 516), a COM
         styles heading, the badges cached on `Session::revision`, the merge keys per player,
@@ -913,8 +913,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         the out-of-range display observed, `title_case` tested; its mutants-diff 7 of 7 caught.
         S4 (post-Astra SWE-2, 4 of 11) ended the review loops; rework 6: the Shirt hover names
         the single-byte boundary (é passes, Ł does not), the refusal tests see the typed text
-        drawn first, the rules file's load error wraps, the badges follow the selection. Open:
-        rework 6's mutants-diff
+        drawn first, the rules file's load error wraps, the badges follow the selection; its
+        mutants-diff caught every mutant. Review closed 2026-10-22
     - [x] the portable name limits (`plans/pes_savefile/operations.md` "Team TOML", Portable
       text limits; DECISIONS 2026-10-21), with 8.9b1 and its rework: `portable_text_max` and
       `crop_player_text` in `pes_savefile`; the info strip's Shirt field held to 18 (an
@@ -927,8 +927,26 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       AATF host's `RosterOrder` error for every ruleset, Team TOML export's note per slot;
       drag reorder trading the players' records between the ids (4ccEditor's spinner),
       never the roster's order. The draft's `movePlayer` still reorders the roster (its
-      comment says "the ids follow the player") and is corrected first. Real saves first
-      measured for teams that break the rule, since a first AATF run would flag them
+      comment says "the ids follow the player") and is corrected first. Real saves measured
+      2026-10-22 (`.tmp/8_9/roster_census/`, cup teams 701-920 of the 29 real saves on the
+      machine): every current cup save (202, 210 and 220 teams; PES 17 to 21, the PES 16
+      SBCF26 and refs saves) breaks the rule nowhere; the five older 192-team PES 16 saves
+      break it in 13 to 25 teams each (`/vg/`, `/fit/`, `VGL 4` ... with half a roster out of
+      place), and one lab PES 16 save in one team. A first AATF run flags no current cup team.
+      The draft's `movePlayer` corrected 2026-10-22 (records shift, each slot keeps its id,
+      base copy, number and captain mark; checked under Node). Two slices:
+      - [x] 8.9c1 the rule (`TeamEntry::roster_order_breaks`, DECISIONS 2026-10-22), the AATF
+        host's `RosterOrder`, the consumers' text, Team TOML export's note. Done 2026-10-22
+        (SWE-2): `roster_order_player_id` the rule's one formula; `TeamView.roster_breaks`
+        filled by `new`, empty from a Team TOML; the export's note on the slot's header line
+        (`TeamToml.roster_breaks`, set by `from_team` alone, so a breaking team's text does
+        not parse back to it). Files: `pes_savefile/src/{model/{mod.rs,team.rs},
+        interchange/team_toml/{mod.rs,team.rs,player/{mod.rs,tests.rs}}}`,
+        `aatf/src/{rules.rs,team.rs,violation.rs,fixtures/mod.rs}`,
+        `team_widgets/src/violations.rs`, `save_editor/{src/messages.rs,tests/cli/check_aatf.rs}`
+        - [ ] review (checkpoint b: a new `pub` interface over four crates): a SWE-2 loop, then
+          Astra
+      - [ ] 8.9c2 drag reorder in the player list (SE-GUI-08)
     - [ ] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
@@ -1316,6 +1334,14 @@ points there.
   700 s and 20 s, none hit, about 28 min in all, locally; `mutants-diff 95f20eac` had one
   751 s timeout for every crate and 9 timeouts. Uneven shares by machine speed for a diff
   stay unbuilt: the timeouts were the cost
+- open 2026-10-22 — tests leave their save copies in the system Temp folder: `save_editor`'s
+  view tests copy a fixture save (5 to 11 MB) per test into `%TEMP%/save_editor_view_<pid>/`
+  and never remove it, so every run, a mutation run's mutants included, adds about 0.5 GB;
+  42 such folders held 19.9 GB on 2026-10-22. Fifteen files call `std::env::temp_dir()`
+  (`grep -rln "std::env::temp_dir()" crates`); the session tests' fixed names are overwritten,
+  the pid-named ones pile up. Direction: a per-checkout folder under the crate's own `target/`
+  (gone with `cargo clean`, a mutation run's copy has its own), named per test without the
+  pid; measure which other crates' tests leave files first
 - open 2026-10-21 — the 4ccEditor source audit's rows that need a measurement or a check of
   built code (the rest are in `plans/save_editor.md`'s parity table and "Editing UI", and in
   8.9b1's rework): (1) a custom skin of 7 on PES 18+ becomes 0 in 4ccEditor (`main.cpp`

@@ -6,10 +6,10 @@ use pes_savefile::model::player::PlayerEntry;
 use serde::de::DeserializeOwned;
 
 use crate::file::{LogicIdentity, assemble, identity};
-use crate::ruleset::{LoadError, Ruleset, ruleset_from_scope, run_top_level};
+use crate::ruleset::{LoadError, Ruleset, Severity, ruleset_from_scope, run_top_level};
 use crate::team::{PlayerView, TeamView};
 use crate::values::{CardLimits, TierValues};
-use crate::violation::{CheckError, Violation, violations};
+use crate::violation::{CheckError, Violation, ViolationKind, violations};
 
 /// The official data block, embedded. The other rulesets' blocks are
 /// embedded by their fixtures until the Ruleset editor's templates
@@ -99,9 +99,19 @@ impl Rules {
         self.logic
     }
 
-    /// `team`'s violations: the file's `check_team(team)`, its returned
-    /// list converted.
+    /// `team`'s violations: the roster-order breaks first, the host's own
+    /// check raised in Rust before the script runs (`spec/aatf_rules.md`
+    /// "The host"), then the file's `check_team(team)` converted.
     pub fn check_team(&self, team: &TeamView) -> Result<Vec<Violation>, CheckError> {
+        let mut out: Vec<Violation> = team
+            .roster_breaks
+            .iter()
+            .map(|&(slot, player)| Violation {
+                slot: Some(slot),
+                severity: Severity::Error,
+                kind: ViolationKind::RosterOrder { player },
+            })
+            .collect();
         let list = self
             .engine
             .call_fn::<rhai::Dynamic>(
@@ -113,7 +123,8 @@ impl Rules {
             .map_err(|e| CheckError::Script {
                 message: e.to_string(),
             })?;
-        violations(list)
+        out.extend(violations(list)?);
+        Ok(out)
     }
 
     /// The targets `player` (of `team`) must carry as tier `tier`, the

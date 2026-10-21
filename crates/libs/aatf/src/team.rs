@@ -137,6 +137,12 @@ pub struct TeamView {
     pub(crate) captain: Option<u8>,
     /// The team's tactics (starting eleven, presets, formations).
     pub(crate) tactics: TeamTactics,
+    /// The roster slots whose player is not the roster-order rule's, as
+    /// `TeamEntry::roster_order_breaks` reports them (`(slot, player_id)`,
+    /// 0-based): the host's `RosterOrder` check reads this. `new` fills it
+    /// from the save's team record; `from_team_toml` leaves it empty (a
+    /// Team TOML holds no ids).
+    pub(crate) roster_breaks: Vec<(u8, u32)>,
 }
 
 /// Why a team cannot be viewed.
@@ -214,14 +220,16 @@ impl TeamView {
         let team = file
             .team(team_id)
             .ok_or(TeamViewError::UnknownTeam { team_id })?;
-        Self::view(file.version(), team, |id| file.player(id))
+        Self::view(file.version(), team, team.roster_order_breaks(), |id| {
+            file.player(id)
+        })
     }
 
     /// The team a Team TOML document describes, on the version its
     /// `pes_version` names: every `players` key one bare slot.
     pub fn from_team_toml(document: &TeamToml) -> Result<TeamView, TeamViewError> {
         let (version, team, players) = records_from_team_toml(document)?;
-        Self::view(version, &team, |id| {
+        Self::view(version, &team, Vec::new(), |id| {
             players.iter().find(|player| player.id == id)
         })
     }
@@ -232,10 +240,12 @@ impl TeamView {
     }
 
     /// The builder `new` and `from_team_toml` share: a version, a
-    /// `&TeamEntry` and a player lookup by id.
+    /// `&TeamEntry`, its roster-order breaks (`Vec::new()` where the
+    /// records came from no save) and a player lookup by id.
     pub(crate) fn view<'a>(
         version: PesVersion,
         team: &'a TeamEntry,
+        roster_breaks: Vec<(u8, u32)>,
         player: impl Fn(u32) -> Option<&'a PlayerEntry>,
     ) -> Result<TeamView, TeamViewError> {
         // Every formation's position bytes are checked here so the
@@ -276,6 +286,7 @@ impl TeamView {
             players,
             captain,
             tactics: team.tactics.clone(),
+            roster_breaks,
         })
     }
 }
@@ -561,6 +572,55 @@ mod tests {
         assert_eq!(
             team.players.iter().map(|p| p.slot).collect::<Vec<_>>(),
             (0..23).collect::<Vec<u8>>()
+        );
+    }
+
+    /// The roster-order rule is the host's own check, ahead of the
+    /// script's list (`spec/aatf_rules.md` "The host"): team 701 keeps it,
+    /// two slots' player ids swapped raise one error each.
+    #[test]
+    fn roster_order_breaks_report_first() {
+        let rules = Rules::official();
+        let (mut file, team) = view(PesVersion::Pes21);
+        assert!(team.roster_breaks.is_empty(), "team 701 keeps the order");
+        let found = rules.check_team(&team).expect("the check runs");
+        assert!(
+            !found
+                .iter()
+                .any(|v| matches!(v.kind, ViolationKind::RosterOrder { .. })),
+            "no RosterOrder on an ordered roster: {found:?}"
+        );
+        {
+            let roster = &mut team_mut(&mut file).roster;
+            // Premise: slots 0 and 1 hold the players the rule puts there.
+            assert_eq!(roster[0].player_id, 70101);
+            assert_eq!(roster[1].player_id, 70102);
+            (roster[0].player_id, roster[1].player_id) = (70102, 70101);
+        }
+        let team = TeamView::new(&file, 701).expect("the team views");
+        assert_eq!(team.roster_breaks, vec![(0, 70102), (1, 70101)]);
+        let found = rules.check_team(&team).expect("the check runs");
+        assert_eq!(
+            found[0],
+            Violation {
+                slot: Some(0),
+                severity: Severity::Error,
+                kind: ViolationKind::RosterOrder { player: 70102 },
+            }
+        );
+        assert_eq!(
+            found[1],
+            Violation {
+                slot: Some(1),
+                severity: Severity::Error,
+                kind: ViolationKind::RosterOrder { player: 70101 },
+            }
+        );
+        assert!(
+            found[2..]
+                .iter()
+                .all(|v| !matches!(v.kind, ViolationKind::RosterOrder { .. })),
+            "no other violation is a RosterOrder: {found:?}"
         );
     }
 

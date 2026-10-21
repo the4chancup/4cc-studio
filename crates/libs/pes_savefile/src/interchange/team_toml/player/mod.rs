@@ -19,7 +19,7 @@ use crate::interchange::team_toml::{
 use crate::model::names::{crop_player_text, single_byte};
 use crate::model::player::{PlayerEntry, STRIPPED_APPEARANCE_ID};
 use crate::model::playstyle::PlayStyle;
-use crate::model::team::TeamEntry;
+use crate::model::team::{TeamEntry, roster_order_player_id};
 use crate::schema::fields::{PlayerField, PlayerText, RosterField};
 use crate::schema::ingame_face::INGAME_FACE_FIELDS;
 use crate::schema::limits::{face_type_cap, motion_top};
@@ -109,13 +109,16 @@ fn player_from(
 // ---------------------------------------------------------------------------
 // Emit
 
-/// Every `PlayerSection`, in slot order.
+/// Every `PlayerSection`, in slot order. `team_id` and `roster_breaks`
+/// feed the breaking slots' header note (`roster_note`).
 pub(super) fn emit_players(
     out: &mut String,
     players: &BTreeMap<u8, PlayerSection>,
+    team_id: Option<u32>,
+    roster_breaks: &[(u8, u32)],
 ) -> Result<(), TeamTomlError> {
     for (slot, section) in players {
-        emit_player(out, *slot, section)?;
+        emit_player(out, *slot, section, team_id, roster_breaks)?;
     }
     Ok(())
 }
@@ -137,12 +140,21 @@ fn player_path(slot: u8) -> String {
     format!("players.{slot:02}")
 }
 
-fn emit_player(out: &mut String, slot: u8, section: &PlayerSection) -> Result<(), TeamTomlError> {
+fn emit_player(
+    out: &mut String,
+    slot: u8,
+    section: &PlayerSection,
+    team_id: Option<u32>,
+    roster_breaks: &[(u8, u32)],
+) -> Result<(), TeamTomlError> {
     let path = player_path(slot);
     out.push('\n');
     out.push_str(&padded(
         &format!("[{path}]"),
-        "roster slot 01 .. 40 (32 on PES 15-18)",
+        &format!(
+            "roster slot 01 .. 40 (32 on PES 15-18){}",
+            roster_note(slot, team_id, roster_breaks)
+        ),
     ));
     out.push('\n');
     emit(
@@ -253,6 +265,25 @@ fn emit_player(out: &mut String, slot: u8, section: &PlayerSection) -> Result<()
         AppearanceDocument::TeamToml,
     )?;
     Ok(())
+}
+
+/// The `;`-joined addition to a `[players.NN]` header's comment when the
+/// slot breaks the roster order (`plans/pes_savefile/operations.md`
+/// "Roster order"): the player the slot holds and the one the rule puts
+/// there. Empty when the slot keeps the order or the document carries no
+/// ids to check (a parsed or hand-built one).
+fn roster_note(slot: u8, team_id: Option<u32>, roster_breaks: &[(u8, u32)]) -> String {
+    let Some(team_id) = team_id else {
+        return String::new();
+    };
+    let Some(&(_, held)) = roster_breaks.iter().find(|(i, _)| *i == slot - 1) else {
+        return String::new();
+    };
+    format!(
+        "; holds player {held}, not {}: applied, this record lands on slot \
+         {slot:02}, apart from {held}'s aesthetics export",
+        roster_order_player_id(team_id, slot - 1)
+    )
 }
 
 /// The note a `name`/`shirt_name` line carries when the text is past the

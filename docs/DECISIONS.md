@@ -10015,3 +10015,12 @@ Why: before D1 a medal's free COM style was unconditional, and one holding none 
 `Unused com` hint; as a trade, the free style exists only once taken, so without the listing the
 member who could use it hears nothing. The 20.1 review's S1-2.
 Plan: `spec/aatf_rules.md` "The official ruleset" (the block's `suggestions`).
+
+## 2026-10-22 — pes_savefile — The roster-order rule is a method on the team record
+Decision: `TeamEntry::roster_order_breaks(&self) -> Vec<(u8, u32)>` (roster slots 0-based as
+stored, the player ids they hold), not the plan's `roster_order_breaks(&EditFile, TeamId)`.
+Why: the rule reads the team's roster alone; the AATF host (`TeamView::new`, which looks the
+entry up) and Team TOML's export (`from_team`, which is handed it) both hold the entry, and a
+whole-file signature would make the export reach for a file it is not given.
+Plan: `plans/aatf_rules.md` "The host"; `plans/pes_savefile/operations.md` "Team TOML", the
+paragraph "Roster order".

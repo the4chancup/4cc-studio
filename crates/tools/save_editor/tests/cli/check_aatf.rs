@@ -374,6 +374,45 @@ fn rules_wins_over_the_aatf_rules_setting() {
     );
 }
 
+// SE-AATF-01
+#[test]
+fn a_roster_order_break_reports_the_held_and_expected_ids() {
+    let sandbox = Sandbox::new("aatf_roster_order");
+    // Team 701's roster slots 0 and 1 with their player ids swapped.
+    let mut file = EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+    let roster = &mut file.team_mut(701).unwrap().roster;
+    assert_eq!(
+        roster[0].player_id, 70101,
+        "premise: slot 0 holds its player"
+    );
+    assert_eq!(
+        roster[1].player_id, 70102,
+        "premise: slot 1 holds its player"
+    );
+    (roster[0].player_id, roster[1].player_id) = (70102, 70101);
+    fs::write(sandbox.path("EDIT"), file.to_bytes(&TEST_SALT).unwrap()).unwrap();
+
+    let run = check(&sandbox, "EDIT", &["--teams", "701"]);
+    assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
+    let messages = run.messages();
+    assert_eq!(
+        messages[..2],
+        [
+            "Error aatf_violation (team=701, rule=RosterOrder, player=70102, expected=70101)",
+            "Error aatf_violation (team=701, rule=RosterOrder, player=70101, expected=70102)",
+        ],
+        "{messages:?}"
+    );
+    assert_eq!(
+        messages
+            .iter()
+            .filter(|line| line.contains("RosterOrder"))
+            .count(),
+        2,
+        "{messages:?}"
+    );
+}
+
 // SE-AATF-04
 #[test]
 fn a_relative_aatf_rules_resolves_in_the_data_directory() {
