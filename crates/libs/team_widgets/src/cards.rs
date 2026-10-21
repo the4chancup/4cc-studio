@@ -10,6 +10,9 @@ use pes_savefile::model::playstyle::PlayStyle;
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::schema::{playstyle, schema_for};
 
+/// The skills grid's column count, the draft's five to a row.
+const SKILL_COLUMNS: usize = 5;
+
 /// One badge: a tier's label and the player's card economy under it (the host's
 /// `aatf::Rules::card_limits` result).
 pub struct TierCards<'a> {
@@ -19,9 +22,11 @@ pub struct TierCards<'a> {
     pub limits: &'a aatf::CardLimits,
 }
 
-/// The skills grid and the COM playing styles of `skills`, as the version stores them,
-/// with one badge per tier: the cards it leaves, in the error color when overdrawn.
-/// Returns whether a card was ticked or unticked this frame.
+/// The skills grid and the COM playing styles of `skills`, with one badge per
+/// tier: the cards it leaves, in the error color when overdrawn. Every card is
+/// drawn on every version; one the version cannot store stays in its cell,
+/// disabled with a `PES NN+` tooltip. Returns whether a card was ticked or
+/// unticked this frame.
 pub fn card_pickers(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
@@ -48,28 +53,30 @@ pub fn card_pickers(
             });
         }
         let fields = schema_for(version).player_field_set();
-        egui::Grid::new("skills").num_columns(5).show(ui, |ui| {
-            for (index, name) in labels::SKILLS.iter().enumerate() {
-                let field = PlayerField::Skill(index as u8);
-                if fields.contains(&field) {
-                    changed |= ui
-                        .checkbox(&mut skills.skills[index], title_case(name))
-                        .changed();
-                } else {
-                    // A card the version cannot store stays, disabled, its
-                    // tooltip naming the first version that has it
-                    // (plans/save_editor.md "Editing UI").
-                    ui.add_enabled(
-                        false,
-                        egui::Checkbox::new(&mut skills.skills[index], title_case(name)),
-                    )
-                    .on_disabled_hover_text(format!("PES {}+", first_with(field).number()));
+        egui::Grid::new("skills")
+            .num_columns(SKILL_COLUMNS)
+            .show(ui, |ui| {
+                for (index, name) in labels::SKILLS.iter().enumerate() {
+                    let field = PlayerField::Skill(index as u8);
+                    if fields.contains(&field) {
+                        changed |= ui
+                            .checkbox(&mut skills.skills[index], title_case(name))
+                            .changed();
+                    } else {
+                        // A card the version cannot store stays, disabled, its
+                        // tooltip naming the first version that has it
+                        // (plans/save_editor.md "Editing UI").
+                        ui.add_enabled(
+                            false,
+                            egui::Checkbox::new(&mut skills.skills[index], title_case(name)),
+                        )
+                        .on_disabled_hover_text(format!("PES {}+", first_with(field).number()));
+                    }
+                    if (index + 1) % SKILL_COLUMNS == 0 {
+                        ui.end_row();
+                    }
                 }
-                if (index + 1) % 5 == 0 {
-                    ui.end_row();
-                }
-            }
-        });
+            });
         ui.horizontal(|ui| {
             for (index, name) in labels::COM_STYLES.iter().enumerate() {
                 let field = PlayerField::ComStyle(index as u8);
@@ -437,11 +444,18 @@ mod tests {
         assert_eq!(cells[0].label(), Some("Scissors Feint"));
         let y0 = |node: &accesskit::Node| node.bounds().expect("bounds").y0;
         let x0 = |node: &accesskit::Node| node.bounds().expect("bounds").x0;
-        for cell in &cells[1..5] {
+        for cell in &cells[1..SKILL_COLUMNS] {
             assert_eq!(y0(cell), y0(cells[0]), "the first five sit on one row");
         }
-        assert!(y0(cells[5]) > y0(cells[0]), "the sixth starts the next row");
-        assert_eq!(x0(cells[5]), x0(cells[0]), "the row starts at the same x");
+        assert!(
+            y0(cells[SKILL_COLUMNS]) > y0(cells[0]),
+            "the sixth starts the next row"
+        );
+        assert_eq!(
+            x0(cells[SKILL_COLUMNS]),
+            x0(cells[0]),
+            "the row starts at the same x"
+        );
     }
 
     // plans/save_editor.md "Editing UI": a card the version cannot store stays
@@ -465,6 +479,13 @@ mod tests {
             at(&nodes15, "Through Passing"),
             at(&nodes21, "Through Passing"),
             "the same card sits in the same cell on every version"
+        );
+        // Malicia (index 21, mid-grid): the assert that proves the cell, not
+        // only the row's left edge.
+        assert_eq!(
+            at(&nodes15, "Malicia"),
+            at(&nodes21, "Malicia"),
+            "a mid-grid card sits in the same cell on every version"
         );
         let cell = entry(&nodes15, Role::CheckBox, "Through Passing");
         assert!(cell.is_disabled(), "PES 20+, disabled on PES 15");

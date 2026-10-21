@@ -4551,6 +4551,8 @@ function transplantPanel() {
 // sample wording: every sentence below, one per kind.
 function violationSentence(rule, kv, sev) {
   const v = (k, d) => kv[k] ?? d;
+  const bound = (label, value, max) => label + " " + value
+    + (Number(value) > Number(max) ? ", above the " + max + " the rule sets" : ", below the " + max + " the rule sets");
   switch (rule) {
     case "RegisteredNotA": return "the registered position is not rated A";
     case "FieldedNotA": return "fielded at " + v("position") + " in preset " + v("preset") + " without an A rating";
@@ -4561,19 +4563,15 @@ function violationSentence(rule, kv, sev) {
     case "PositionRange": return "a registered position past the version's positions";
     case "PlayingStyleRange": return "a playing style the version does not allow";
     case "NoTier": return "fits no tier";
-    case "Stat": return v("stat") + " " + v("value") + (sev === "Warning"
-      ? " over the target " + v("target") + ", inside the warning band"
-      : v("at_most") === "true" ? " over the maximum " + v("target")
-      : Number(v("value")) < Number(v("target")) ? ", under the " + v("target") + " the rule wants"
-      : ", not the target " + v("target"));
+    case "Stat": return sev === "Warning"
+      ? v("stat") + " " + v("value") + " over the target " + v("target") + ", inside the warning band"
+      : v("at_most") === "true" ? v("stat") + " " + v("value") + " over the maximum " + v("target")
+      : bound(v("stat"), v("value"), v("target"));
     case "StatTotal": return "stats added up " + v("total") + ", over the limit " + v("limit");
     case "Form": return "form " + v("value") + ", not the target " + v("target");
-    case "InjuryResistance": return "injury resistance " + v("value")
-      + (Number(v("value")) < Number(v("max")) ? ", under the " + v("max") + " the rule wants" : " over the maximum " + v("max"));
-    case "WeakFootUsage": return "weak foot usage " + v("value")
-      + (Number(v("value")) < Number(v("max")) ? ", under the " + v("max") + " the rule wants" : " over the maximum " + v("max"));
-    case "WeakFootAccuracy": return "weak foot accuracy " + v("value")
-      + (Number(v("value")) < Number(v("max")) ? ", under the " + v("max") + " the rule wants" : " over the maximum " + v("max"));
+    case "InjuryResistance": return bound("injury resistance", v("value"), v("max"));
+    case "WeakFootUsage": return bound("weak foot usage", v("value"), v("max"));
+    case "WeakFootAccuracy": return bound("weak foot accuracy", v("value"), v("max"));
     case "NameColor": return "name colour " + v("color", "none")
       + (v("expected") === undefined ? " is reserved for a tier" : ", the tier wants " + v("expected"));
     case "Cards": return v("paid") + " paid cards over the limit of " + v("limit");

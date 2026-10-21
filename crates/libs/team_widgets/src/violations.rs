@@ -233,6 +233,18 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
     }
 }
 
+/// A bound check's sentence: "{label} {value}, above|below the {bound} the
+/// rule sets" — true whether the bound is a maximum (the official ruleset's
+/// `at_most`) or an exact target (the invitationals'), which `max` is either
+/// way.
+fn bound(label: &str, value: u8, bound: u8) -> String {
+    if value > bound {
+        format!("{label} {value}, above the {bound} the rule sets")
+    } else {
+        format!("{label} {value}, below the {bound} the rule sets")
+    }
+}
+
 /// What is wrong with `violation`, in the draft's `violationSentence` wording:
 /// one arm per `ViolationKind`.
 fn sentence(violation: &aatf::Violation) -> String {
@@ -261,37 +273,17 @@ fn sentence(violation: &aatf::Violation) -> String {
                 format!("{stat} {value} over the target {target}, inside the warning band")
             } else if *at_most {
                 format!("{stat} {value} over the maximum {target}")
-            } else if value < target {
-                format!("{stat} {value}, under the {target} the rule wants")
             } else {
-                format!("{stat} {value}, not the target {target}")
+                bound(stat, *value, *target)
             }
         }
         K::StatTotal { total, limit } => {
             format!("stats added up {total}, over the limit {limit}")
         }
         K::Form { value, target } => format!("form {value}, not the target {target}"),
-        K::InjuryResistance { value, max } => {
-            if value > max {
-                format!("injury resistance {value} over the maximum {max}")
-            } else {
-                format!("injury resistance {value}, under the {max} the rule wants")
-            }
-        }
-        K::WeakFootUsage { value, max } => {
-            if value > max {
-                format!("weak foot usage {value} over the maximum {max}")
-            } else {
-                format!("weak foot usage {value}, under the {max} the rule wants")
-            }
-        }
-        K::WeakFootAccuracy { value, max } => {
-            if value > max {
-                format!("weak foot accuracy {value} over the maximum {max}")
-            } else {
-                format!("weak foot accuracy {value}, under the {max} the rule wants")
-            }
-        }
+        K::InjuryResistance { value, max } => bound("injury resistance", *value, *max),
+        K::WeakFootUsage { value, max } => bound("weak foot usage", *value, *max),
+        K::WeakFootAccuracy { value, max } => bound("weak foot accuracy", *value, *max),
         K::NameColor { color, expected } => match expected.as_deref() {
             Some(expected) => format!(
                 "name colour {}, the tier wants {}",
@@ -752,7 +744,7 @@ mod tests {
                     at_most: false
                 }
             )),
-            "speed 80, under the 92 the rule wants"
+            "speed 80, below the 92 the rule sets"
         );
         assert_eq!(
             sentence(&player(
@@ -764,7 +756,7 @@ mod tests {
                     at_most: false
                 }
             )),
-            "speed 95, not the target 92"
+            "speed 95, above the 92 the rule sets"
         );
         assert_eq!(
             sentence(&player(
@@ -816,25 +808,31 @@ mod tests {
             "0 gold players, expected 1"
         );
 
-        // A value under its bound says so: VTL11's weak foot is an exact
-        // target (`aatf`'s `weak_foot_below_the_exact_target`, slot 14), 3
-        // against the required 4.
+        // A value off its bound says which side it sits on: VTL11's weak foot
+        // is an exact target (`aatf`'s `weak_foot_below_the_exact_target`,
+        // slot 14), 3 against the required 4; VTL10's usage 4 is over its
+        // exact 2 (fixtures/vtl10.rs:272); the official regulars' weak foot
+        // at_most 2 is a maximum.
         for (kind, expected) in [
             (
                 K::WeakFootUsage { value: 3, max: 4 },
-                "weak foot usage 3, under the 4 the rule wants",
+                "weak foot usage 3, below the 4 the rule sets",
             ),
             (
                 K::WeakFootAccuracy { value: 3, max: 4 },
-                "weak foot accuracy 3, under the 4 the rule wants",
+                "weak foot accuracy 3, below the 4 the rule sets",
             ),
             (
                 K::InjuryResistance { value: 1, max: 3 },
-                "injury resistance 1, under the 3 the rule wants",
+                "injury resistance 1, below the 3 the rule sets",
             ),
             (
-                K::WeakFootUsage { value: 4, max: 3 },
-                "weak foot usage 4 over the maximum 3",
+                K::WeakFootUsage { value: 4, max: 2 },
+                "weak foot usage 4, above the 2 the rule sets",
+            ),
+            (
+                K::WeakFootUsage { value: 3, max: 2 },
+                "weak foot usage 3, above the 2 the rule sets",
             ),
             (
                 K::MinCards { paid: 2, min: 5 },
