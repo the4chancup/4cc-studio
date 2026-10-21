@@ -38,7 +38,7 @@ overlays.
 |------|------|----------|
 | Rigdio | Match-day music player (streamer side) | `Tools_4cc/rigdio` |
 | RigDJ | `.4ccm` GUI editor (manager side, same codebase) | `Tools_4cc/rigdio` |
-| Rigdio fork | The ATF bot's author's fork (v2.2.1, 2026-10-11): upstream v2.2.0 plus a local API and event clips, fed by the SEN:P-AI fork; surveyed 2026-10-13: event clips kept apart from the slots ("Model"), the fixed library path for auto team loading, per-side event clips, the stoppage chant and its 15 % default, fuzzy scorer matching (at 90, not its 70) ("Autopilot"); its inbound API is not adopted: its driver joins the suite instead ("Autopilot") | `Tools_Marco/rigdio` |
+| Rigdio fork | The ATF bot's author's fork (v2.2.1, 2026-10-11): upstream v2.2.0 plus a local API and event clips, fed by the SEN:P-AI fork; surveyed 2026-10-13: event clips kept apart from the slots ("Model"), the fixed library path for auto team loading, the stoppage chant and its 15 % default, fuzzy scorer matching (at 90, not its 70) ("Autopilot"); its inbound API is not adopted: its driver joins the suite instead ("Autopilot") | `Tools_Marco/rigdio` |
 
 Playback goes through **libmpv** (`libmpv-2.dll`, pinned to an April 2024 Win7-compatible
 build) via the `python-mpv` binding. Loudness analysis shells out to a custom-minified
@@ -87,12 +87,18 @@ unchanged syntax is not a guarantee of identical behavior in buggy legacy reader
 
 Plain text, one entry per line, `;`-separated fields:
 
-- Lines are whitespace-trimmed. Empty lines and lines starting with `#` are comments.
+- Lines are whitespace-trimmed. Empty lines and lines starting with `#` are comments. A
+  leading UTF-8 byte-order mark is dropped (Notepad writes one; Rigdio, reading in the
+  locale's encoding, sees it as part of the first line).
 - First significant line: `name;<teamname>` (team name is matched case-insensitively).
-  If absent, the filename stem is used and a warning is emitted.
+  If absent, the filename stem is used and a warning is emitted. A `name` line anywhere
+  else is refused as a reserved word, as Rigdio reads only the first significant line
+  (`rigparse.py:33-41`) and takes a later one for a slot.
 - Then optional flag lines, in any order: `sync;<val>` and `normalize;<val>`, where
-  a value of `no`/`off`/`false`/`0` disables and anything else enables. Both default
-  to enabled.
+  a value of `no`/`off`/`false`/`0` disables and anything else enables, keyword and value
+  read case-insensitively as Rigdio does (`rigparse.py:47-60`: `Sync;No` is a flag, not a
+  player named Sync). Both default to enabled. Blank and comment lines may sit between them,
+  which Rigdio does not allow; lenient on purpose, since it loses nothing.
 - Every other significant line is a song entry:
   `<slot>;<filename>;<condition-or-instruction>;<...>`
   - **slot** — `anthem`, `victory`, `goal` (default goalhorn), `chant`, or a player
@@ -102,7 +108,11 @@ Plain text, one entry per line, `;`-separated fields:
     Anthem, Goalhorn, Chant) or `{team} - {player} Goalhorn.mp3` for players.
   - Each further `;`-field is one condition or instruction: the first whitespace-token
     is the type, the rest are arguments. `[bracketed text]` groups a spaced string
-    into a single token; `\[`, `\]`, and a leading `\` escape.
+    into a single token; `\[`, `\]`, and a leading `\` escape. An empty group `[]` is no
+    token (`special []` reads as `special`), and the writer never writes one, nor brackets
+    around a single word: Rigdio's group runs from the `[` word to a *later* word ending in `]`
+    (`processTokens`, `condition.py:816-837`), so on either it crashes at the line's end or
+    swallows the words after it.
 - Reserved words (not usable as player names): `name`, `sync`, `normalize`, `anthem`,
   `victory`, `goal`, `chant`. (Rigdio's set also contained the literal string
   `;event`, unreachable since `;` is the field separator — dropped here; `event`
@@ -110,8 +120,11 @@ Plain text, one entry per line, `;`-separated fields:
 
 ### Conditions
 
-All conditions on an entry must hold (AND). Entries are checked top-down per slot;
-the first passing entry plays (priority order).
+All conditions on an entry must hold (AND), checked in the order written and stopping at
+the first that does not (Rigdio's `ConditionList.check`, `legacy.py:363-370`): a condition
+after a failing one is not evaluated, so it neither unloads its entry nor spends a `once` nor
+asks for the goal minute. Entries are checked top-down per slot; the first passing entry plays
+(priority order).
 
 | Condition | Arguments | Plays when |
 |-----------|-----------|-----------|
@@ -122,12 +135,12 @@ the first passing entry plays (priority order).
 | `opponent` | team names | the opponent is one of the listed teams |
 | `match` | type list | match type is one of: Group, Survival, RO16, Quarterfinal, Semifinal, Final, Third-Place, Boss, Consolation; `knockouts` expands to RO16…Third-Place |
 | `home` | — | the team is in the home slot |
-| `once` | — | first check only; the entry is unloaded afterwards |
+| `once` | — | the first time the check reaches it; the entry is unloaded the next time (`goals >= 2;once` plays on the second goal) |
 | `first` | — | this is the team's first goal (score == 1 after increment) |
 | `comeback` | — | after scoring, still level or behind, and the opponent has scored |
 | `mostgoals` | [player] | this (or the named) player has the most goals on the team (ties count) |
 | `special` | [label] | never auto-plays; marks a victory anthem selectable from the VA dropdown |
-| `time` | op, minute | the goal minute compares true; the minute is prompted from the streamer |
+| `time` | op, minute | the goal minute compares true; the minute is prompted from the streamer when the check reaches it |
 | `not` | condition | negation of the wrapped condition |
 
 Conditions that can never become true again (`once` after firing, `time` with `<`/`<=`/
@@ -183,9 +196,12 @@ Song paths resolve against the `.4ccm`'s folder with the same semantics as Rigdi
   reads the folder's listing rather than asking whether the written path exists, which a
   case-insensitive filesystem answers with the written spelling.
 
-The old parser read files in the system locale encoding and crashed with
-`UnicodeDecodeError` on non-ASCII names; the new parser reads UTF-8 with a lossy
-Windows-1252 fallback and warns instead of crashing.
+Rigdio reads a file, and RigDJ writes one, in the system locale's encoding (Windows-1252 on
+the community's machines): a UTF-8 file's accented names read as mojibake there, and a file
+holding one of the five bytes Windows-1252 leaves undefined stops the load with
+`UnicodeDecodeError`. The new parser reads UTF-8 with a lossy Windows-1252 fallback and warns
+instead of crashing. Which encoding the editor writes, for files a Rigdio user still loads, is
+an open point of the [music export editor](music_export_editor.md), settled before it is built.
 
 The lookup as built (10.0d; native only, behind `#[cfg(not(target_arch = "wasm32"))]`, since
 the wasm build has no filesystem):
@@ -201,9 +217,11 @@ pub fn resolve_export(export: &MusicExport, folder: &Path, normalization_applies
 ```
 
 `resolve_song` joins `file` onto `folder` (a `\` separator is read as `/`, so a path written
-on Windows resolves on Linux; a path anchored by a leading separator or a drive, root-level or
-not, is used as written, a join's rule and `os.path.join`'s, which no export on the machine
-exercises: 0 of its 1,808 song lines are anchored or name a subfolder) and tries two
+on Windows resolves on Linux; a song is always under the export's folder, as in Rigdio, which
+concatenates the folder and the name (`rigparse.py:117`): a leading separator is dropped, so
+`/x.mp3` is the export's `x.mp3`, and a path naming a drive (`C:/x.mp3`) resolves nowhere; no
+export on the machine exercises either: 0 of its 1,808 song lines are anchored or name a
+subfolder) and tries two
 candidates in the joined path's folder, by its file name: the plain file, and the companion,
 a file whose stem is `<stem>_normalized` whatever its extension, the song's own extension
 first when there are several. With `normalization_applies` unset the companion comes first,
@@ -254,8 +272,10 @@ pub struct EventClip {
   because tokens survive the round trip typed instead of as strings.
 - Evaluation is pure: `Condition::eval(&self, state: &MatchState, side: Side, player: &str)
   -> Verdict`. No `eval()` strings, no dialogs — `MatchState` carries
-  `goal_minute: Option<u32>`, and the *view* prompts for the minute when a loaded entry
-  needs it (`needs_goal_minute()` query), before evaluation runs. When a Match tracker
+  `goal_minute: Option<u32>`, and the *view* prompts for the minute when the press's walk
+  would reach a `time` condition (the `needs_goal_minute` query, a dry run of the selection),
+  before the selection runs: Rigdio prompts at that point of its check, so a press that
+  plays before any `time` is reached asks nothing. When a Match tracker
   event supplies the goal clock, `goal_minute` comes from `Clock.display_minute` and the
   view skips the prompt. Otherwise the ordinary view-driven prompt rules apply (see
   "Autopilot").
@@ -337,7 +357,7 @@ pub struct Parsed { pub export: MusicExport, pub warnings: Vec<Warning> }
 pub enum Warning { TeamNameMissing, NotUtf8 }
 pub struct ParseError { pub line: usize, pub kind: ParseErrorKind }   // Display: `line {line}: {kind}`
 pub enum ParseErrorKind {
-    EmptyTeamName, SecondTeamName, ReservedWord(String), EmptySlot, EmptyFile, EmptyField,
+    EmptyTeamName, ReservedWord(String), EmptySlot, EmptyFile, EmptyField,   // a second `name` is a `ReservedWord`
     UnclosedBracket, UnknownKeyword(String),
     MissingArgument { keyword: String, what: &'static str },
     ExtraArgument { keyword: String, argument: String },
@@ -389,55 +409,64 @@ impl Condition {
     pub fn needs_goal_minute(&self) -> bool;   // a `time`, under `not` included
 }
 impl SongEntry {
-    pub fn eval(&self, state: &MatchState, side: Side, player: &str) -> Verdict;   // AND; `NeverAgain` wins over `False`
-    pub fn needs_goal_minute(&self) -> bool;
+    pub fn eval(&self, state: &MatchState, side: Side, player: &str) -> Verdict;   // AND in written order: the first verdict that is not `True`
+    pub fn needs_goal_minute(&self) -> bool;   // carries a `time` anywhere (the editor's Rigdio warning)
     pub fn is_warcry(&self) -> bool;      // the player's play-to-completion, the editor's Randomise Horns skip list
     pub fn is_randomise(&self) -> bool;   // the editor's Randomise Horns mixed state
 }
 ```
 
-The counts include the goal being scored. `once` is `True` at every evaluation and the
-selection unloads the entry after its first check (a pure evaluation cannot remember one);
-`time` without a minute is `False`; `not` of a `NeverAgain` is `True`, the negation holding
-from then on; `special` is `False`, never auto-played (DECISIONS 2026-10-14).
+The counts include the goal being scored. `once` is `True` in a pure evaluation, and the
+selection, which remembers, makes it `NeverAgain` once spent: it is spent the first time the
+check reaches it (every condition before it held), as Rigdio's `OnceCondition.check`
+(`condition.py:250-261`) does; `time` without a minute is `False`; `not` of a `NeverAgain` is
+`True`, the negation holding from then on, where Rigdio unloads the entry (its `UnloadSong`
+passes through `not`): a departure, since the negation does hold from then on, and no file on
+the machine writes one; `special` is `False`, never auto-played (DECISIONS 2026-10-14).
 
-**Selection**, one list per button:
+**Selection**, one set of lists per team:
 
 ```rust
-pub struct Loaded { pub entry: SongEntry, /* fallback: pub(crate); checked_once: private */ }
-pub struct PriorityList { /* entries: Vec<Loaded>, shrinking as entries unload */ }
+pub struct Loaded { pub entry: SongEntry, /* once_spent: private */ }
+pub struct TeamLists { /* each slot's own entries, shrinking as entries unload; the `goal` slot's once */ }
 
-pub struct Press<'a> {
+pub struct Press {
     pub side: Side,
-    pub player: &'a str,       // the button's slot name: the player, or the reserved keyword
-    pub skip: Option<usize>,   // the entry that just ended (`advance`): its index into `entries()` as the list stood when the press began
+    pub skip: Option<usize>,   // the entry that just ended (`advance`): its index into `entries(slot)` as the list stood when the press began
     pub after_warcry: bool,    // a warcry already played for this press: warcries are passed over
 }
 
-impl PriorityList {
-    pub fn for_slot(export: &MusicExport, slot: &Slot) -> PriorityList;
-    pub fn entries(&self) -> &[Loaded];
-    pub fn needs_goal_minute(&self) -> bool;
+impl TeamLists {
+    pub fn load(export: &MusicExport) -> TeamLists;
+    pub fn entries(&self, slot: &Slot) -> Vec<&Loaded>;   // the button's list: the slot's own, then for a player the `goal` slot's
+    pub fn needs_goal_minute(&self, slot: &Slot, state: &MatchState, press: Press) -> bool;
     pub fn select(
         &mut self,
+        slot: &Slot,
         state: &MatchState,
-        press: Press<'_>,
+        press: Press,
         pick: &mut impl FnMut(usize) -> usize,
     ) -> Option<usize>;
 }
 ```
 
-- `for_slot` builds a button's list at load: the slot's entries, then the `goal` slot's as the
-  fallback when the slot is a player's (reserved slots and `goal` itself get none). A fallback
-  entry evaluates under the name `goal`, so its `goals` counts the default goalhorn button's
-  presses, and it is not the player's for the `randomise` check or pool.
-- `select` walks the list as "Song selection" says and returns an index into `entries()` as it
-  stands after the press's unloads, or `None` for "no song found"; the caller plays
-  `entries()[i].entry`. The random pick is the caller's: `pick(n)` returns an index below `n`
-  (the scenario tests are deterministic, the player passes its RNG). `Press` borrows the
-  button's name for the one call, the crate's one struct lifetime.
-- The list is plain data (`Clone`): the player snapshots it per goal for Undo and rebuilds it
-  from the export for Reset, with no reload.
+- A button's list is its slot's entries, then the `goal` slot's as the fallback when the slot
+  is a player's (reserved slots and `goal` itself get none). The fallback is **one list per
+  team**, not a copy per button: Rigdio appends the same entry objects to every player's list
+  (`rigparse.py:169-172`), so an entry unloaded or a `once` spent through one button is gone
+  for every button, the `goal` button's own included. A fallback entry evaluates under the
+  name `goal`, so its `goals` counts the default goalhorn button's presses, and it is not the
+  player's for the `randomise` check or pool, which are its own group's (below).
+- `select` walks the button's list as "Song selection" says and returns an index into
+  `entries(slot)` as it stands after the press's unloads, or `None` for "no song found"; the
+  caller plays `entries(slot)[i].entry`. The random pick is the caller's: `pick(n)` returns an
+  index below `n` (the scenario tests are deterministic, the player passes its RNG).
+- `needs_goal_minute` is the same walk on the lists as they stand, changing nothing: whether
+  it reaches a `time` condition (under `not` too) while `state.goal_minute` is `None`. The view
+  asks it, prompts when it says so, sets the minute, then calls `select`; the walk up to the
+  first `time` is the same with or without the minute, so the two agree.
+- The lists are plain data (`Clone`): the player snapshots them per goal for Undo and rebuilds
+  them from the export for Reset, with no reload.
 
 ---
 
@@ -450,18 +479,27 @@ What the soundboard must do, distilled from Rigdio's behavior:
 1. Pressing a player's goalhorn button **scores a goal** for that player (per-player
    scorer counts + team score; a snapshot is taken for undo). Reserved buttons
    (anthem, VA, chant) don't score. Pressing again pauses (buttons are toggles).
-2. The entry to play is chosen from the slot's priority list, top-down: skip the entry
-   that just ended (for `advance`), evaluate conditions, unload `NeverAgain` entries,
-   play the first pass. At load time, the default goalhorn (`goal`) list is appended
-   to every player's list as the fallback. Event clips are not in any slot's list (see
-   "Model"), so selection never sees them.
-3. **Randomise**: if all of the player's own non-warcry entries carry `randomise`,
-   pick uniformly at random among them instead (the appended default-goalhorn entries
-   belong to the `goal` slot and count for neither the check nor the pool; the entry that
-   just ended, step 2's skip, counts for the check and is not drawn).
+2. The entry to play is chosen from the button's list, top-down: skip the entry that just
+   ended (for `advance`), check the entry's conditions in order ("Conditions"), unload it
+   on `NeverAgain`, play the first that passes. The default goalhorn (`goal`) list is
+   every player's fallback, after their own entries, one list shared by the team's buttons
+   ("Model"). Event clips are not in any slot's list (see "Model"), so selection never sees
+   them. This is Rigdio's `getSong` (`legacy.py:618-700`), steps 3 to 6 included.
+3. **Randomise**: when the walk reaches a non-warcry entry carrying `randomise` (whatever its
+   own verdict, once it is not unloaded) and every non-warcry entry of its group carries it
+   too, one of that group's non-warcry entries is drawn uniformly instead, conditions
+   unread. The group is the player's own entries, or the fallback's for a fallback entry
+   (Rigdio's pool is the entries of the reached entry's `pname`). The entry that just ended,
+   step 2's skip, counts for the check and is not drawn, where Rigdio may redraw it: a
+   departure (DECISIONS 2026-10-18), since a horn that ends and restarts itself is what
+   `advance` exists to avoid.
 4. **Warcry**: warcry entries play first and to completion, then selection re-runs
-   excluding warcries; multiple warcries with `randomise` pick randomly.
-5. If nothing passes, report "no song found" (never crash).
+   excluding warcries. Before the walk, when every warcry in the button's list (the
+   fallback's included, the skipped one excepted) carries `randomise`, one of them is drawn.
+5. **`advance` with nothing passing**: when the press follows an `advance` and the walk finds
+   nothing, the first non-warcry entry other than the one that ended plays, conditions
+   unread; with none, the one that ended plays again (`legacy.py:683-695`).
+6. Otherwise, if nothing passes, report "no song found" (never crash).
 
 ### Playback behavior
 
@@ -545,7 +583,10 @@ and lane contract live in the Match tracker plan).
   **music library folder**: first `<library>/<name>/<name>.4ccm`, `<name>` being the in-game
   name with its surrounding slashes stripped, matched case-insensitively (the fixed path
   the forks' tooling already produces); when that file is absent, a scan of the library's
-  exports by their `name` field (the filename stem when absent), case-insensitive. Detecting
+  exports by their `name` field (the filename stem when absent), case-insensitive: every
+  `.4ccm` in the library's subfolders, and in a `Music/` folder inside them, so a library that
+  is a folder of Complete exports (`plans/aesthetics_export/player_folders.md` "Complete
+  export") or the organizer's pack of their `Music/` folders works as it is. Detecting
   the same pair again (a re-attach, a re-found table) is a no-op that keeps the score. If a
   slot was auto-loaded for an earlier feed team and the
   detected team identity changes, reset and replace that slot. Never overwrite a manually
@@ -647,7 +688,9 @@ and lane contract live in the Match tracker plan).
   before scoring, just as for `Goal`; it must not count the same delta twice.
 - **Event clips revived**: `Card` and `SubOn` events trigger the matching player's
   `event red|yellow|sub` clips in the export of the side the event names (the other side's
-  export is never checked) — one clip per eligible event, picked uniformly at random when
+  export is never checked, where the Rigdio fork checks both teams' exports for the name,
+  `webserver.py:218-220`: the feed names the side, so a same-named player on the other team
+  never fires) — one clip per eligible event, picked uniformly at random when
   the player has several of that type, deduplicated by the feed's
   `(match_id, sequence)`, not by minute (distinct events can share a minute). A `SecondYellow`
   dismissal fires the `event red` clip (the same clip a straight red uses); a single `Yellow` fires `event yellow`.
@@ -828,6 +871,10 @@ Rigdio's proven three-column soundboard inside the suite shell:
 
 - Team columns scroll independently (long rosters). Playing buttons render "sunken"
   (toggled style); the boost label blinks while a boosted track plays.
+- An export with no `anthem` entry, or players but no `goal` entry, loads with a warning
+  naming the slot, and that button is absent (the players' buttons then have no fallback).
+  Rigdio refuses such a team with a `KeyError` (`songgui.py:353` reads `players["anthem"]`,
+  `rigparse.py:172` `players['goal']`): a crash, not a rule, and the rest of the team plays.
 - The **Volume Boost slider sits directly below its team's Normalize toggle** (shown
   only when the team has louder-marked tracks). Rigdio's dynamic tkinter grid made it
   look like it lived below the victory anthem row; the intended position is the top of
@@ -925,6 +972,25 @@ Parsing/validation CLI lives with the [Music export editor](music_export_editor.
 - Legacy quirks kept: team names are lowercased on load, `opponent` names are written
   without slashes, and the comparison is case-insensitive (see the correctness notes
   under Conditions — Rigdio's own comparison only matched lowercase-written names).
+- **Where Studio reads a file as Rigdio does, and where it departs.** A member's `.4ccm` was
+  written and tested against Rigdio, so wherever Rigdio's reading decides which song plays,
+  Studio's matches it (the walk in "Song selection", the condition order, `once`, the shared
+  fallback, the first-line `name`, the case of the flags, a song path kept under the export).
+  Where Rigdio crashes, drops what the author typed, or loads a line whose meaning is a typo,
+  Studio refuses the line at load, naming it, rather than guess: so a file that loads in
+  Studio plays as its author heard it in Rigdio, and one that does not says why. The
+  departures of that kind: an extra or malformed argument (`pause restart each 2`,
+  `goals >= 2.5`, `every 0` or `-2`, a bare `opponent` or `match`) and an unknown `match`
+  word, which Rigdio ignores or never matches; `event` twice on a line, on a reserved slot, or
+  under `not`; an empty team name (`name;`) or slot (`;a.mp3`); a `start` time in a form
+  Rigdio's reader half-parses; and `not` keeping a bracketed group whole (Rigdio's `not`
+  keeps its first word: `not mostgoals [Get Out]` tests "Get"). Kept on purpose besides:
+  scorer names and `opponent` matched case-insensitively; a file with no `name` line keeps
+  the lowercased stem (Rigdio keeps its case, which nothing compares case-sensitively); a
+  song in a subfolder looked up case-insensitively, its `_normalized` companion with it
+  (Rigdio's `songCheck` lists the export's own folder only, `rigparse.py:176-199`; no export
+  on the machine has a subfolder). The player's controls get the same audit when its
+  Acceptance section is written (DECISIONS 2026-10-21).
 
 ## Testing
 

@@ -6,7 +6,7 @@
 //! ([`write`]), shared by the music player and the music export editor, plus
 //! what the player runs a match on: the match state ([`MatchState`]), the
 //! condition evaluator ([`Verdict`]), each button's song selection
-//! ([`PriorityList`]) and the on-disk lookup of an export's songs
+//! ([`TeamLists`]) and the on-disk lookup of an export's songs
 //! (`resolve_export`, native only). The grammar, condition and instruction
 //! tables and every type's shape are in
 //! `docs/plans/music_player.md` "The `.4ccm` format". Callers own file I/O:
@@ -31,6 +31,6 @@ pub use model::{
 pub use parse::{ParseError, ParseErrorKind, Parsed, Warning, parse};
 #[cfg(not(target_arch = "wasm32"))]
 pub use resolve::{Resolution, resolve_export, resolve_song};
-pub use select::{Loaded, Press, PriorityList};
+pub use select::{Loaded, Press, TeamLists};
 pub use state::{MatchState, Side, TeamState};
 pub use write::write;

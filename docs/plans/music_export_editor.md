@@ -67,7 +67,8 @@ Feature parity with RigDJ, restated on the shared model:
   [Music player plan](music_player.md)).
 - **Guard rails carried over**: `special` and `unrandom` are hidden from the general
   condition menu; rows with `randomise`/`special` don't offer Add Condition; `not`
-  refuses instructions and double negation.
+  refuses instructions and double negation. An empty label, scorer or team name is refused
+  at entry: the writer writes an empty token as no token, so it would not survive a save.
 - **Randomise Horns** checkbox per slot: applies/removes `randomise` on all of the
   slot's entries (skipping `special`/warcry entries), reflecting mixed state. This
   matches the player's activation check, which counts every entry that can play in
@@ -152,6 +153,16 @@ and `config.yml` handling all disappear into the platform.
   skipped, flags only written when opted out.
 - **Validation**: fixture exports with missing/case-mismatched/`_normalized` files.
 - Manual pass by a manager building a real export end to end (with audition).
+
+## Open questions
+
+- **The encoding a save writes.** Rigdio reads a `.4ccm` in the system locale's encoding
+  (Windows-1252 on the community's machines; [Music player plan](music_player.md) "File
+  resolution"), so a UTF-8 file's accented player names and song file names show as mojibake
+  there, and such a song is not found. Writing Windows-1252 whenever every character fits, and
+  UTF-8 otherwise, keeps Rigdio users whole; whether any member still loads exports in
+  Rigdio once Studio ships decides whether that is worth its branch. Settled before the
+  editor is built.
 
 ## Key decisions
 

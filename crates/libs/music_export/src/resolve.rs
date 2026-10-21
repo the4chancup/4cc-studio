@@ -23,8 +23,9 @@ pub struct Resolution {
 ///
 /// Two candidates are tried in the song's folder (`folder`, or its subfolder
 /// when `file` names one, a `\` separator read as `/`, so a path written on
-/// Windows resolves on Linux; a path anchored by a leading separator or a
-/// drive is used as written, root-level ones included, as a join does): the
+/// Windows resolves on Linux; a song is always under the folder: a leading
+/// separator is dropped, and a path whose first component names a drive
+/// resolves nowhere, on every OS): the
 /// plain file, and its `_normalized` companion, a file whose stem is
 /// `<stem>_normalized` whatever its extension (real exports pair `X.mp3` with
 /// `X_normalized.opus`), the one with the song's own extension first when
@@ -37,14 +38,23 @@ pub struct Resolution {
 /// path. A path with no file name (`sub/`) resolves nowhere, and an unreadable
 /// folder is "not found" for that candidate.
 pub fn resolve_song(folder: &Path, file: &str, normalization_applies: bool) -> Option<PathBuf> {
+    // A song is always under the export's folder: a leading separator is
+    // dropped (`/x.mp3` is the folder's `x.mp3`), and a path whose first
+    // component names a drive (`C:`) resolves nowhere — as `songCheck`'s
+    // `folder + name` string join does.
     let relative = file.replace('\\', "/");
+    let relative = relative.trim_start_matches('/');
+    let bytes = relative.as_bytes();
+    if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+        return None;
+    }
     // The name as written, not the joined path's `file_name()`, which for
     // `sub/` is the subfolder itself.
     let name = relative.rsplit('/').next()?;
     if name.is_empty() {
         return None;
     }
-    let path = folder.join(&relative);
+    let path = folder.join(relative);
     let dir = path.parent()?;
     let (stem, extension) = split_extension(name);
     let folded_name = name.to_lowercase();
@@ -228,21 +238,26 @@ mod tests {
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
-    /// A leading separator or a drive anchors the path, as a join does: it is
-    /// not looked up under the export's folder.
+    /// A leading separator is dropped: the song is always under the export's
+    /// folder.
     #[test]
-    fn an_anchored_path_is_not_looked_up_under_the_folder() {
-        // The subfolder's name exists under the folder alone, nowhere at a
-        // root, so the anchored spellings find nothing.
+    fn a_leading_separator_is_dropped() {
         let sub = format!("music_export_resolve_anchor_{}", std::process::id());
         let relative = format!("{sub}/x.mp3");
-        let dir = temp_dir("anchored", &[(relative.as_str(), b"x")]);
-        assert_eq!(resolved(&dir, &format!("/{relative}"), true), None);
-        assert_eq!(resolved(&dir, &format!("\\{sub}\\x.mp3"), true), None);
+        let dir = temp_dir("anchored", &[(relative.as_str(), b"x"), ("y.mp3", b"y")]);
         assert_eq!(
-            resolved(&dir, &relative, true).as_deref(),
+            resolved(&dir, &format!("/{relative}"), true).as_deref(),
             Some(relative.as_str()),
-            "the same file under a relative path is found"
+            "`/{sub}/x.mp3` is the folder's `{sub}/x.mp3`"
+        );
+        assert_eq!(
+            resolved(&dir, &format!("\\{sub}\\x.mp3"), true).as_deref(),
+            Some(relative.as_str())
+        );
+        assert_eq!(
+            resolved(&dir, "/y.mp3", true).as_deref(),
+            Some("y.mp3"),
+            "a root-level anchor is the folder's file too"
         );
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
@@ -389,14 +404,19 @@ mod tests {
         std::fs::remove_dir_all(&dir).expect("cleanup");
     }
 
-    /// A root-level anchored path (`/x.mp3`, `C:/x.mp3`) is as anchored as one
-    /// with a subfolder: the folder's own file of that name is not it.
+    /// A path whose first component names a drive (`C:`) is never under the
+    /// export's folder: it resolves nowhere, on every OS.
     #[test]
-    fn a_root_level_anchored_path_is_not_the_folder_s_file() {
+    fn a_drive_qualified_path_resolves_nowhere() {
         let name = format!("music_export_resolve_root_{}.mp3", std::process::id());
         let dir = temp_dir("root", &[(name.as_str(), b"x")]);
-        assert_eq!(resolved(&dir, &format!("/{name}"), true), None);
         assert_eq!(resolved(&dir, &format!("C:/{name}"), true), None);
+        assert_eq!(resolved(&dir, &format!("C:\\{name}"), true), None);
+        assert_eq!(
+            resolved(&dir, &format!("C:{name}"), true),
+            None,
+            "a drive-relative path resolves nowhere too"
+        );
         assert_eq!(
             resolved(&dir, &name, true).as_deref(),
             Some(name.as_str()),

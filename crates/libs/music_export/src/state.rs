@@ -109,9 +109,9 @@ pub struct MatchState {
     /// The match type the streamer selected (or the cup stage, once known).
     pub match_type: MatchType,
     /// The minute of the goal being scored: prompted from the streamer or
-    /// taken from the Match tracker's clock when a loaded entry needs it
-    /// ([`crate::SongEntry::needs_goal_minute`]); `None` until then and after
-    /// each play.
+    /// taken from the Match tracker's clock when the press's walk would
+    /// reach a `time` condition ([`crate::TeamLists::needs_goal_minute`]);
+    /// `None` until then and after each play.
     pub goal_minute: Option<u32>,
 }
 

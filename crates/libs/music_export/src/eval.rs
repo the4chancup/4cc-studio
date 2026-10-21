@@ -19,13 +19,27 @@ impl Condition {
     /// Evaluates for `player`'s entry on `side`, after the goal has been
     /// scored (the counts include it).
     ///
-    /// `once` is `True` here every time: the slot's selection unloads a `once`
-    /// entry after its first check, since a pure evaluation cannot remember
-    /// one. `time` without a known [`MatchState::goal_minute`] is `False`; the
-    /// view asks for the minute first ([`SongEntry::needs_goal_minute`]).
+    /// `once` is `True` here every time: the selection spends it when the
+    /// check reaches it and unloads the entry on the next reach, since a pure
+    /// evaluation cannot remember one. `time` without a known
+    /// [`MatchState::goal_minute`] is `False`; the view asks for the minute
+    /// first ([`crate::TeamLists::needs_goal_minute`]).
     /// `not` of a condition that can never hold again is `True`, not
     /// `NeverAgain`: it is the negation that holds from then on.
     pub fn eval(&self, state: &MatchState, side: Side, player: &str) -> Verdict {
+        self.eval_spent(state, side, player, false)
+    }
+
+    /// `eval` with the selection's memory: a `once` the walk already reached
+    /// reads `NeverAgain` here, where the pure check reads `True`
+    /// (`OnceCondition.check` raises `UnloadSong` on its second call).
+    pub(crate) fn eval_spent(
+        &self,
+        state: &MatchState,
+        side: Side,
+        player: &str,
+        once_spent: bool,
+    ) -> Verdict {
         let team = state.team(side);
         let holds = |held: bool| if held { Verdict::True } else { Verdict::False };
         match self {
@@ -45,7 +59,13 @@ impl Condition {
             }
             Condition::Match(types) => holds(types.contains(&state.match_type)),
             Condition::Home => holds(side == Side::Home),
-            Condition::Once => Verdict::True,
+            Condition::Once => {
+                if once_spent {
+                    Verdict::NeverAgain
+                } else {
+                    Verdict::True
+                }
+            }
             Condition::First => holds(team.score == 1),
             Condition::Comeback => {
                 let opponent = state.opponent(side);
@@ -68,10 +88,19 @@ impl Condition {
                 }
                 Some(now) => holds(comparison.holds(i64::from(now), i64::from(*minute))),
             },
-            Condition::Not(inner) => match inner.eval(state, side, player) {
+            Condition::Not(inner) => match inner.eval_spent(state, side, player, once_spent) {
                 Verdict::True => Verdict::False,
                 Verdict::False | Verdict::NeverAgain => Verdict::True,
             },
+        }
+    }
+
+    /// Whether the condition wraps a `once` (a `not` counts).
+    pub(crate) fn has_once(&self) -> bool {
+        match self {
+            Condition::Once => true,
+            Condition::Not(inner) => inner.has_once(),
+            _ => false,
         }
     }
 
@@ -96,34 +125,60 @@ impl Condition {
     }
 }
 
+/// What one pass over an entry's conditions found, checked in written order.
+pub(crate) struct EntryCheck {
+    /// The first verdict that is not `True` (`True` when all held).
+    pub(crate) verdict: Verdict,
+    /// A `once` was evaluated: the selection spends it.
+    pub(crate) once: bool,
+    /// A `time` was evaluated: the walk reports it, the view's prompt question.
+    pub(crate) minute: bool,
+}
+
 impl SongEntry {
-    /// All conditions must hold (AND): `NeverAgain` when any condition can
-    /// never hold again (the entry leaves the slot whatever the others say),
-    /// else `False` when any fails, else `True`. An entry with no conditions
-    /// always plays.
+    /// All conditions must hold (AND), checked in the order written: the
+    /// first verdict that is not `True` is the answer, so a condition after a
+    /// failing one is not evaluated — it neither unloads the entry, nor
+    /// spends a `once`, nor asks for the goal minute (`ConditionList.check`).
+    /// `once` is `True` in this pure evaluation: the selection remembers the
+    /// check and unloads the entry on the next reach.
     pub fn eval(&self, state: &MatchState, side: Side, player: &str) -> Verdict {
-        let mut verdict = Verdict::True;
+        self.check(state, side, player, false).verdict
+    }
+
+    /// `eval` with the selection's memory of `once`, reporting also what the
+    /// check reached: `once` for the selection to spend, `minute` for the
+    /// walk's reached-a-`time` report.
+    pub(crate) fn check(
+        &self,
+        state: &MatchState,
+        side: Side,
+        player: &str,
+        once_spent: bool,
+    ) -> EntryCheck {
+        let mut check = EntryCheck {
+            verdict: Verdict::True,
+            once: false,
+            minute: false,
+        };
         for condition in &self.conditions {
-            match condition.eval(state, side, player) {
+            check.once |= condition.has_once();
+            check.minute |= condition.needs_goal_minute();
+            match condition.eval_spent(state, side, player, once_spent) {
                 Verdict::True => {}
-                Verdict::False => verdict = Verdict::False,
-                Verdict::NeverAgain => return Verdict::NeverAgain,
+                verdict => {
+                    check.verdict = verdict;
+                    return check;
+                }
             }
         }
-        verdict
+        check
     }
 
     /// Whether any condition reads the goal minute, so the view can ask for it
     /// before the evaluation.
     pub fn needs_goal_minute(&self) -> bool {
         self.conditions.iter().any(Condition::needs_goal_minute)
-    }
-
-    /// Whether the entry carries `once` and so leaves its slot after its first check.
-    pub(crate) fn is_once(&self) -> bool {
-        self.conditions
-            .iter()
-            .any(|condition| matches!(condition, Condition::Once))
     }
 }
 
@@ -295,12 +350,36 @@ mod tests {
         assert_eq!(at(vec![Condition::Home, Condition::First]), False);
         assert_eq!(
             at(vec![Condition::First, Condition::Time(Lt, 45)]),
+            False,
+            "`first` fails before `time` is reached: no unload"
+        );
+        assert_eq!(
+            at(vec![Condition::Time(Lt, 45), Condition::First]),
             NeverAgain,
-            "a failing condition does not hide the unload"
+            "written the other way, the passed `time` is reached"
         );
         assert!(entry(vec![Condition::Home, Condition::Time(Gt, 1)]).needs_goal_minute());
         assert!(!entry(vec![Condition::Home]).needs_goal_minute());
-        assert!(entry(vec![Condition::Comeback, Condition::Once]).is_once());
-        assert!(!entry(vec![Condition::Comeback]).is_once());
+        assert!(Condition::Not(Box::new(Condition::Once)).has_once());
+        assert!(!Condition::Comeback.has_once());
+    }
+
+    #[test]
+    fn the_check_stops_at_the_first_condition_that_does_not_hold() {
+        use Comparison::*;
+        // `goals >= 2;time < 30` at the first goal, minute 40: the failed
+        // `goals` ends the check before `time` is reached, so it cannot
+        // unload the entry (nor spend a `once`, nor ask for the minute).
+        let mut first_goal = MatchState::new("jp", "v", MatchType::Final);
+        first_goal.score_goal(Side::Home, "Billy");
+        first_goal.goal_minute = Some(40);
+        assert_eq!(
+            entry(vec![Condition::Goals(Ge, 2), Condition::Time(Lt, 30)]).eval(
+                &first_goal,
+                Side::Home,
+                "Billy"
+            ),
+            False
+        );
     }
 }

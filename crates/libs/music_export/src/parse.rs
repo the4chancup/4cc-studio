@@ -45,11 +45,9 @@ pub enum ParseErrorKind {
     /// `name;` with nothing after it.
     #[error("the team name is empty")]
     EmptyTeamName,
-    /// A `name` line after the first.
-    #[error("a second `name` line")]
-    SecondTeamName,
-    /// `name`, `sync` or `normalize` after a song entry, where only a player
-    /// name could stand, and these are reserved.
+    /// `name` not as the first significant line, or `sync`/`normalize` after
+    /// a song entry: a spot only a player name could take, and these are
+    /// reserved.
     #[error("`{0}` is a reserved word, not a player name")]
     ReservedWord(String),
     /// A line starting with `;`.
@@ -107,7 +105,8 @@ pub enum ParseErrorKind {
 pub fn parse(bytes: &[u8], file_stem: &str) -> Result<Parsed, ParseError> {
     let mut warnings = Vec::new();
     let text = match std::str::from_utf8(bytes) {
-        Ok(text) => Cow::Borrowed(text),
+        // A leading byte-order mark is dropped (Notepad writes one).
+        Ok(text) => Cow::Borrowed(text.strip_prefix('\u{FEFF}').unwrap_or(text)),
         Err(_) => {
             warnings.push(Warning::NotUtf8);
             Cow::Owned(decode_windows_1252(bytes))
@@ -121,6 +120,7 @@ pub fn parse(bytes: &[u8], file_stem: &str) -> Result<Parsed, ParseError> {
         events: Vec::new(),
     };
     let mut team: Option<String> = None;
+    let mut seen_line = false;
     let mut seen_entry = false;
     for (index, raw) in text.lines().enumerate() {
         let number = index + 1;
@@ -131,24 +131,32 @@ pub fn parse(bytes: &[u8], file_stem: &str) -> Result<Parsed, ParseError> {
         }
         let fields: Vec<&str> = line.split(';').map(str::trim).collect();
         let key = fields[0];
+        let flag = key.to_lowercase();
+        let first_line = !seen_line;
+        seen_line = true;
         match key {
-            "name" | "sync" | "normalize" if seen_entry => {
+            // `name` is accepted only as the first significant line: a later
+            // one is refused where a lenient reader loads a `name` player.
+            "name" if !first_line => {
                 return Err(fail(ParseErrorKind::ReservedWord(key.to_string())));
             }
             "name" => {
-                if team.is_some() {
-                    return Err(fail(ParseErrorKind::SecondTeamName));
-                }
                 let value = fields.get(1).copied().unwrap_or("");
                 if value.is_empty() {
                     return Err(fail(ParseErrorKind::EmptyTeamName));
                 }
                 team = Some(value.to_lowercase());
             }
-            "sync" | "normalize" => {
+            // Flag keywords and values read case-insensitively (`Sync;No` is
+            // a flag, not a player named Sync); after a song entry they are
+            // reserved words.
+            _ if flag == "sync" || flag == "normalize" => {
+                if seen_entry {
+                    return Err(fail(ParseErrorKind::ReservedWord(key.to_string())));
+                }
                 let value = fields.get(1).copied().unwrap_or("").to_lowercase();
                 let enabled = !matches!(value.as_str(), "no" | "off" | "false" | "0");
-                if key == "sync" {
+                if flag == "sync" {
                     export.sync = enabled;
                 } else {
                     export.normalize = enabled;
@@ -465,7 +473,7 @@ mod tests {
 
     #[test]
     fn flags_read_any_order_and_any_disabling_value() {
-        let export = parsed("normalize;No\nname;x\nsync;0\nanthem;a.mp3\n");
+        let export = parsed("name;x\nnormalize;No\nsync;0\nanthem;a.mp3\n");
         assert!(!export.sync);
         assert!(!export.normalize);
         let export = parsed("name;x\nsync;yes\nnormalize;off\nanthem;a.mp3\n");
@@ -474,6 +482,48 @@ mod tests {
         let export = parsed("name;x\nsync\nnormalize;false\nanthem;a.mp3\n");
         assert!(export.sync);
         assert!(!export.normalize);
+    }
+
+    #[test]
+    fn a_byte_order_mark_is_dropped() {
+        let parsed = parse("\u{FEFF}name;jp\nanthem;a.mp3\n".as_bytes(), "stem").expect("parses");
+        assert!(parsed.warnings.is_empty(), "{:?}", parsed.warnings);
+        assert_eq!(parsed.export.team, "jp");
+    }
+
+    /// `name` is accepted only as the first significant line: a later one is
+    /// refused as the reserved word, where a lenient reader loads a player
+    /// named `name`.
+    #[test]
+    fn name_is_the_first_significant_line_or_a_refusal() {
+        assert_eq!(
+            refused("sync;no\nname;jp\n"),
+            ParseError {
+                line: 2,
+                kind: ParseErrorKind::ReservedWord("name".into()),
+            }
+        );
+    }
+
+    /// Flag keywords and values are case-insensitive: `Sync;No` is the sync
+    /// flag, not a player named Sync.
+    #[test]
+    fn flags_read_case_insensitively() {
+        let export = parsed("name;x\nSync;No\nNormalize;OFF\nanthem;a.mp3\n");
+        assert!(!export.sync);
+        assert!(!export.normalize);
+        assert_eq!(export.slots.len(), 1, "`Sync` is a flag, not a player");
+    }
+
+    /// An empty group `[]` is no token: `special []` reads as a bare
+    /// `special`.
+    #[test]
+    fn an_empty_group_is_no_token() {
+        let export = parsed("name;x\nvictory;v.mp3;special []\n");
+        assert_eq!(
+            entries(&export, &Slot::Victory)[0].conditions,
+            [Condition::Special(None)]
+        );
     }
 
     #[test]
@@ -671,7 +721,7 @@ mod tests {
         use ParseErrorKind::*;
         let cases: Vec<(&str, usize, ParseErrorKind)> = vec![
             ("name;\nanthem\n", 1, EmptyTeamName),
-            ("name;x\nname;y\nanthem\n", 2, SecondTeamName),
+            ("name;x\nname;y\nanthem\n", 2, ReservedWord("name".into())),
             ("name;x\nanthem\nsync;no\n", 3, ReservedWord("sync".into())),
             ("name;x\nanthem\nname;y\n", 3, ReservedWord("name".into())),
             ("name;x\n;a.mp3\n", 2, EmptySlot),

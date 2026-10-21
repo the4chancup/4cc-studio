@@ -83,7 +83,11 @@ pub(crate) fn condition_text(condition: &Condition) -> String {
         Condition::Lead(comparison, n) => format!("lead {} {n}", comparison.keyword()),
         Condition::Every(n) => format!("every {n}"),
         Condition::Opponent(teams) => {
-            let names: Vec<String> = teams.iter().map(|team| write_token(team)).collect();
+            let names: Vec<String> = teams
+                .iter()
+                .map(|team| write_token(team))
+                .filter(|name| !name.is_empty())
+                .collect();
             format!("opponent {}", names.join(" "))
         }
         Condition::Match(types) => {
@@ -102,9 +106,10 @@ pub(crate) fn condition_text(condition: &Condition) -> String {
 }
 
 fn labeled(keyword: &str, label: Option<&str>) -> String {
-    match label {
-        Some(label) => format!("{keyword} {}", write_token(label)),
-        None => keyword.to_string(),
+    match label.map(write_token) {
+        // An empty token is no token: the bare keyword.
+        Some(token) if !token.is_empty() => format!("{keyword} {token}"),
+        _ => keyword.to_string(),
     }
 }
 
@@ -277,6 +282,41 @@ mod tests {
         for (instruction, text) in cases {
             assert_eq!(instruction_text(&instruction), text);
         }
+    }
+
+    /// An empty token writes as nothing: `Special(Some(""))` writes `special`
+    /// and reads back `Special(None)`, never a `[]` group.
+    #[test]
+    fn an_empty_token_writes_nothing() {
+        let mut slots = IndexMap::new();
+        slots.insert(
+            Slot::Victory,
+            vec![entry(
+                "v.mp3",
+                vec![Condition::Special(Some(String::new()))],
+                vec![],
+            )],
+        );
+        let export = MusicExport {
+            team: "x".into(),
+            sync: true,
+            normalize: true,
+            slots,
+            events: vec![],
+        };
+        let written = write(&export);
+        assert!(written.contains("victory;v.mp3;special\n"), "{written:?}");
+        let again = parse(written.as_bytes(), "x")
+            .expect("the written text parses")
+            .export;
+        assert_eq!(
+            entries(&again, &Slot::Victory)[0].conditions,
+            [Condition::Special(None)]
+        );
+    }
+
+    fn entries<'a>(export: &'a MusicExport, slot: &Slot) -> &'a [SongEntry] {
+        export.slots.get(slot).map(Vec::as_slice).unwrap_or(&[])
     }
 
     #[test]

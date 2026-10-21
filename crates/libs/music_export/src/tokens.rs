@@ -16,7 +16,11 @@ pub(crate) fn tokenize(field: &str) -> Result<Vec<String>, UnclosedBracket> {
         if let Some(escaped) = word.strip_prefix('\\') {
             tokens.push(escaped.to_string());
         } else if let Some(opened) = word.strip_prefix('[') {
-            tokens.push(group(opened, &mut words)?);
+            let token = group(opened, &mut words)?;
+            // An empty group `[]` is no token.
+            if !token.is_empty() {
+                tokens.push(token);
+            }
         } else {
             tokens.push(word.to_string());
         }
@@ -50,11 +54,12 @@ fn group<'a>(
     }
 }
 
-/// Writes one token so that [`tokenize`] reads it back: bracketed when it holds
-/// whitespace or is empty, escaped when it starts with `[` or `\`.
+/// Writes one token so that [`tokenize`] reads it back: bracketed when it
+/// holds whitespace, escaped when it starts with `[` or `\`. An empty token
+/// writes nothing: an empty group is no token.
 pub(crate) fn write_token(token: &str) -> String {
     if token.is_empty() {
-        return "[]".to_string();
+        return String::new();
     }
     if !token.contains(char::is_whitespace) {
         return if token.starts_with('[') || token.starts_with('\\') {
@@ -110,7 +115,11 @@ mod tests {
             ["mostgoals", "Get Out", "x"]
         );
         assert_eq!(tokens("special [One]"), ["special", "One"]);
-        assert_eq!(tokens("special []"), ["special", ""]);
+        assert_eq!(
+            tokens("special []"),
+            ["special"],
+            "an empty group is no token"
+        );
     }
 
     #[test]
@@ -129,10 +138,13 @@ mod tests {
 
     #[test]
     fn written_tokens_read_back() {
+        // An empty token writes as nothing: no `[]` (it reads back as no
+        // token, not as an empty one).
+        assert!(write_token("").is_empty());
+        assert!(tokens("").is_empty());
         let cases = [
             ("ro16", "ro16"),
             ("Promotion Anthem", "[Promotion Anthem]"),
-            ("", "[]"),
             ("[x", "\\[x"),
             ("\\x", "\\\\x"),
             ("a] b", "[a\\] b]"),
