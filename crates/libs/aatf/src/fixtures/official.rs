@@ -1065,6 +1065,7 @@ fn card_limits_reports_the_paid_count() {
     let rules = Rules::official();
     let team = legal_team();
     let gold = player(&team, 2);
+    assert_eq!(gold.cards.len(), 9, "premise: the gold holds nine cards");
     assert_eq!(
         gold.cards
             .iter()

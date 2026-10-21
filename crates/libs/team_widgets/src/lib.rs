@@ -8,3 +8,9 @@
 /// The card pickers: the skills grid and COM playing styles with a
 /// remaining-count badge per ruleset tier, and the playing-style combo.
 pub mod cards;
+/// The headless egui harness the tests share.
+#[cfg(test)]
+mod test_support;
+/// The AATF results list: a team's violations grouped per player, a row's
+/// click reporting the player to select.
+pub mod violations;

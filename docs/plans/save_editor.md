@@ -243,7 +243,9 @@ Contents:
 - `tactics` — preset selector, sliders, style toggles, advanced instructions (with target-player
   pick), set-piece role palette, auto flags, click-to-assign modes.
 - `cards` — skill, COM-style and playstyle pickers, version-gated, with remaining-count badges per
-  tier from the AATF rules file (`card_limits`).
+  tier from the AATF rules file (`card_limits`). The playing styles are listed in the order the
+  version stores them, which is the game's own Edit-mode list, not the canonical order the
+  Team TOML names them in: a member compares the combo against the game's list.
 - `violations` — the AATF results list grouped per player, emitting a "selected player" event for
   the host's jump-to. The groups keep `check_team`'s order (the players by slot, then the team's
   own rows), each group's errors before its warnings; a team header heads each team's rows;

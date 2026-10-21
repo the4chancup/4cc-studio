@@ -79,8 +79,10 @@ pub fn playing_style_picker(
     style: &mut u8,
 ) -> bool {
     ui.push_id(id_salt, |ui| {
-        // The version's styles, in the order the save stores them (a stored
-        // value indexes the version's list, whose holes are skipped).
+        // The version's styles in its stored order, not the canonical one:
+        // the order the game's own Edit-mode list shows (plans/save_editor.md
+        // "`libs/team_widgets`", the `cards` bullet). A stored value indexes
+        // the version's list, whose holes are skipped.
         let styles: Vec<(u8, String)> = (0..=u8::MAX)
             .filter_map(|index| {
                 let style = playstyle::decode(version, index).ok()?;
@@ -139,52 +141,9 @@ mod tests {
     use pes_version::PesVersion;
 
     use super::*;
-
-    /// A headless window: one egui context with AccessKit on, run a frame at a
-    /// time over an 800 by 600 screen (the `color_tools` picker's harness, for
-    /// a bare `Ui`).
-    struct Headless {
-        ctx: egui::Context,
-    }
+    use crate::test_support::{Headless, centre, painted_text_color, pointer_at};
 
     impl Headless {
-        fn new() -> Headless {
-            let ctx = egui::Context::default();
-            ctx.enable_accesskit();
-            Headless { ctx }
-        }
-
-        /// Runs one frame with `events` as its input; returns the frame's
-        /// AccessKit nodes and painted shapes.
-        fn frame(
-            &mut self,
-            events: Vec<egui::Event>,
-            contents: impl FnMut(&mut egui::Ui),
-        ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
-            let input = egui::RawInput {
-                screen_rect: Some(egui::Rect::from_min_size(
-                    egui::Pos2::ZERO,
-                    egui::vec2(800.0, 600.0),
-                )),
-                events,
-                ..Default::default()
-            };
-            let mut output = self.ctx.run_ui(input, contents);
-            let update = output
-                .platform_output
-                .accesskit_update
-                .take()
-                .expect("AccessKit is enabled on the context");
-            let shapes = std::mem::take(&mut output.shapes);
-            // Nothing renders here, so the frame's texture deltas are dropped on
-            // purpose.
-            output.drop_without_applying_deltas();
-            (
-                update.nodes.into_iter().map(|(_, node)| node).collect(),
-                shapes,
-            )
-        }
-
         /// One frame of `card_pickers` over `skills` and `tiers`, returning the
         /// nodes, the painted shapes and whether the frame changed a card.
         fn pickers(
@@ -258,29 +217,6 @@ mod tests {
             .unwrap_or_else(|| panic!("no label {text:?}"))
     }
 
-    /// The centre of `node`'s bounds, where a click lands.
-    fn centre(node: &accesskit::Node) -> egui::Pos2 {
-        let bounds = node.bounds().expect("a widget has bounds");
-        egui::pos2(
-            ((bounds.x0 + bounds.x1) / 2.0) as f32,
-            ((bounds.y0 + bounds.y1) / 2.0) as f32,
-        )
-    }
-
-    /// The primary button pressed (or released) at `pos`, the pointer moved
-    /// there first.
-    fn pointer_at(pos: egui::Pos2, pressed: bool) -> Vec<egui::Event> {
-        vec![
-            egui::Event::PointerMoved(pos),
-            egui::Event::PointerButton {
-                pos,
-                button: egui::PointerButton::Primary,
-                pressed,
-                modifiers: egui::Modifiers::default(),
-            },
-        ]
-    }
-
     /// `name`'s label as the pickers show it: underscores as spaces, each word
     /// capitalized (the draft's `titleCase`, restated so the tests check it
     /// rather than share it).
@@ -341,37 +277,6 @@ mod tests {
         (drawn_skills, drawn_coms)
     }
 
-    /// The color `shape`'s text paints in: a section's own color when the
-    /// `RichText` set one, else the shape's fallback (what an uncolored label
-    /// paints in).
-    fn painted_color(shape: &egui::epaint::TextShape) -> egui::Color32 {
-        if let Some(overridden) = shape.override_text_color {
-            return overridden;
-        }
-        shape
-            .galley
-            .job
-            .sections
-            .iter()
-            .map(|section| section.format.color)
-            .find(|&color| color != egui::Color32::PLACEHOLDER)
-            .unwrap_or(shape.fallback_color)
-    }
-
-    /// The color the text `text` was painted in this frame.
-    fn painted_text_color(shapes: &[egui::epaint::ClippedShape], text: &str) -> egui::Color32 {
-        shapes
-            .iter()
-            .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Text(shape) if shape.galley.job.text == text => {
-                    Some(painted_color(shape))
-                }
-                _ => None,
-            })
-            .next()
-            .unwrap_or_else(|| panic!("no painted text {text:?}"))
-    }
-
     /// An empty `CardLimits` but for `paid` and `limit`.
     fn limits(paid: u8, limit: i8) -> aatf::CardLimits {
         aatf::CardLimits {
@@ -391,6 +296,22 @@ mod tests {
     #[test]
     fn the_pickers_draw_the_versions_cards() {
         let mut window = Headless::new();
+        // Player 71802 of the PES 15 fixture save; PES 15 stores 22 skills
+        // with holes in the canonical order (schema/pes15.rs: `malicia` at
+        // index 21 is one the version does not store).
+        let mut skills = fixture_skills(PesVersion::Pes15, 71802);
+        let (nodes, _, _) = window.pickers(PesVersion::Pes15, &mut skills, &[], vec![]);
+        let (drawn_skills, drawn_coms) = drawn_cards(&nodes);
+        assert_eq!(
+            (drawn_skills.len(), drawn_coms.len()),
+            (22, 7),
+            "PES 15: 22 skills, 7 COM styles"
+        );
+        assert!(
+            nodes.iter().all(|node| node.label() != Some("Malicia")),
+            "a skill PES 15 does not store is not drawn"
+        );
+
         // Player 70203 of the PES 17 fixture save; PES 17 stores the first 28
         // canonical skills.
         let mut skills = fixture_skills(PesVersion::Pes17, 70203);

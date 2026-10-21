@@ -7,7 +7,7 @@
 
 use std::borrow::Cow;
 
-use aatf::{Violation, ViolationKind};
+use aatf::Violation;
 use pes_savefile::interchange::aesthetics_patch::PatchSkip;
 use pes_savefile::interchange::team_toml::ImportNote;
 use pes_savefile::model::PlayerEntry;
@@ -465,7 +465,7 @@ pub(crate) fn aatf_violation(
     violation: &Violation,
     severity: Severity,
 ) -> Message {
-    let (rule, fields) = violation_rule(&violation.kind);
+    let (rule, fields) = violation.kind.rule();
     let mut context = vec![("team", team.to_string())];
     if let Some(player) = player {
         context.push(("player", player.to_string()));
@@ -517,188 +517,6 @@ pub(crate) fn strip_base_copied_face(player: &PlayerEntry, copied: u32) -> Messa
     )
 }
 
-/// A violation's rule: its kind as a rules file writes it (`FieldedNotA`) and the kind's
-/// own fields by their field names, in declaration order, each value spelled as the file
-/// spells it. One arm per kind, so a new one does not compile past this match.
-pub(crate) fn violation_rule(kind: &ViolationKind) -> (&'static str, Vec<(&'static str, String)>) {
-    match kind {
-        ViolationKind::RegisteredNotA => ("RegisteredNotA", vec![]),
-        ViolationKind::FieldedNotA { preset, position } => (
-            "FieldedNotA",
-            vec![
-                ("preset", preset.to_string()),
-                ("position", position.label().to_owned()),
-            ],
-        ),
-        ViolationKind::BRating => ("BRating", vec![]),
-        ViolationKind::GkSecondA => ("GkSecondA", vec![]),
-        ViolationKind::Age { age, min, max } => (
-            "Age",
-            vec![
-                ("age", age.to_string()),
-                ("min", min.to_string()),
-                ("max", max.to_string()),
-            ],
-        ),
-        ViolationKind::Weight { weight, min, max } => (
-            "Weight",
-            vec![
-                ("weight", weight.to_string()),
-                ("min", min.to_string()),
-                ("max", max.to_string()),
-            ],
-        ),
-        ViolationKind::PositionRange => ("PositionRange", vec![]),
-        ViolationKind::PlayingStyleRange => ("PlayingStyleRange", vec![]),
-        ViolationKind::NoTier => ("NoTier", vec![]),
-        ViolationKind::Stat {
-            stat,
-            value,
-            target,
-            at_most,
-        } => (
-            "Stat",
-            vec![
-                ("stat", stat.label().to_owned()),
-                ("value", value.to_string()),
-                ("target", target.to_string()),
-                ("at_most", at_most.to_string()),
-            ],
-        ),
-        ViolationKind::StatTotal { total, limit } => (
-            "StatTotal",
-            vec![("total", total.to_string()), ("limit", limit.to_string())],
-        ),
-        ViolationKind::Form { value, target } => (
-            "Form",
-            vec![("value", value.to_string()), ("target", target.to_string())],
-        ),
-        ViolationKind::InjuryResistance { value, max } => (
-            "InjuryResistance",
-            vec![("value", value.to_string()), ("max", max.to_string())],
-        ),
-        ViolationKind::WeakFootUsage { value, max } => (
-            "WeakFootUsage",
-            vec![("value", value.to_string()), ("max", max.to_string())],
-        ),
-        ViolationKind::WeakFootAccuracy { value, max } => (
-            "WeakFootAccuracy",
-            vec![("value", value.to_string()), ("max", max.to_string())],
-        ),
-        ViolationKind::NameColor { color, expected } => (
-            "NameColor",
-            [
-                color.as_ref().map(|color| ("color", color.clone())),
-                expected
-                    .as_ref()
-                    .map(|expected| ("expected", expected.clone())),
-            ]
-            .into_iter()
-            .flatten()
-            .collect(),
-        ),
-        ViolationKind::Cards { paid, limit } => (
-            "Cards",
-            vec![("paid", paid.to_string()), ("limit", limit.to_string())],
-        ),
-        ViolationKind::MinCards { paid, min } => (
-            "MinCards",
-            vec![("paid", paid.to_string()), ("min", min.to_string())],
-        ),
-        ViolationKind::SkillCardCap { count, max } => (
-            "SkillCardCap",
-            vec![("count", count.to_string()), ("max", max.to_string())],
-        ),
-        ViolationKind::ComStyleCap { count, max } => (
-            "ComStyleCap",
-            vec![("count", count.to_string()), ("max", max.to_string())],
-        ),
-        ViolationKind::RequiredCard { card } => {
-            ("RequiredCard", vec![("card", card.label().to_owned())])
-        }
-        ViolationKind::APositions { count, max } => (
-            "APositions",
-            vec![("count", count.to_string()), ("max", max.to_string())],
-        ),
-        ViolationKind::Height { height } => ("Height", vec![("height", height.to_string())]),
-        ViolationKind::TierCount {
-            tier,
-            count,
-            expected,
-        } => (
-            "TierCount",
-            vec![
-                ("tier", tier.clone()),
-                ("count", count.to_string()),
-                ("expected", expected.to_string()),
-            ],
-        ),
-        ViolationKind::BracketQuota {
-            system,
-            bracket,
-            count,
-            quota,
-        } => (
-            "BracketQuota",
-            vec![
-                ("system", system.clone()),
-                ("bracket", bracket.clone()),
-                ("count", count.to_string()),
-                ("quota", quota.to_string()),
-            ],
-        ),
-        ViolationKind::MedalSystem { systems } => (
-            "MedalSystem",
-            vec![("systems", format!("[{}]", systems.join(", ")))],
-        ),
-        ViolationKind::ExtraHeight { used, total } => (
-            "ExtraHeight",
-            vec![("used", used.to_string()), ("total", total.to_string())],
-        ),
-        ViolationKind::Captain => ("Captain", vec![]),
-        ViolationKind::Goalkeepers { count, min } => (
-            "Goalkeepers",
-            vec![("count", count.to_string()), ("min", min.to_string())],
-        ),
-        ViolationKind::TeamSetting { label, setting } => (
-            "TeamSetting",
-            vec![("label", label.clone()), ("setting", setting.clone())],
-        ),
-        ViolationKind::FormationShape {
-            preset,
-            formation,
-            shape,
-        } => (
-            "FormationShape",
-            vec![
-                ("preset", preset.to_string()),
-                ("formation", formation.to_string()),
-                ("shape", format!("{shape:?}")),
-            ],
-        ),
-        ViolationKind::Special { label, text } => (
-            "Special",
-            vec![("label", label.clone()), ("text", text.clone())],
-        ),
-        ViolationKind::Custom { text } => ("Custom", vec![("text", text.clone())]),
-        ViolationKind::Unused {
-            allowance,
-            used,
-            allowed,
-        } => (
-            "Unused",
-            vec![
-                ("allowance", allowance.clone()),
-                ("used", used.to_string()),
-                ("allowed", allowed.to_string()),
-            ],
-        ),
-        ViolationKind::UnusedChoice { special } => {
-            ("UnusedChoice", vec![("special", special.clone())])
-        }
-    }
-}
-
 /// The message for `code` with its context fields, in template order.
 pub(crate) fn message(code: Code, context: Vec<(&'static str, String)>) -> Message {
     Message {
@@ -718,6 +536,8 @@ pub(crate) fn message(code: Code, context: Vec<(&'static str, String)>) -> Messa
 
 #[cfg(test)]
 mod tests {
+    use aatf::ViolationKind;
+
     use super::*;
 
     #[test]

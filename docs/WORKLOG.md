@@ -804,8 +804,20 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       the painted text. Files: `aatf/{logic/logic.rhai,src/values.rs,src/file.rs,
       src/fixtures/official.rs}`, `team_widgets/{Cargo.toml,src/lib.rs,src/cards.rs}`,
       `docs/spec/aatf_rules.md`
-    - [ ] 8.8c `team_widgets::violations`: the AATF rows grouped per player, a row's click
-      selecting its player (the draft's `#aatf-rows`)
+      Review S1 (SWE-2, 2 of 7 accepted: the style order logged, PES 15's holed skill set
+      tested) folded into 8.8c's rework.
+    - [x] 8.8c `team_widgets::violations`: the AATF rows grouped per player, a row's click
+      selecting its player (the draft's `#aatf-rows`). Done 2026-10-21 (SWE-2):
+      `violations_list` (`TeamViolations`, `ListedPlayer`, `SelectedPlayer`; the check's slot
+      order, the team's rows last, errors before warnings per group, suggestions on request),
+      the sentences the widget's own, one per kind; `aatf`'s `ViolationKind::rule` (moved from
+      the Save editor's `messages.rs`, the CLI's output unchanged); the crate's tests share
+      `test_support.rs`. 6 tests, on team 734 of the PES 2017 fixture save among them, each
+      red first. The player header's name is plain text until 8.9's player list draws the
+      color codes. Files: `team_widgets/src/{lib.rs,violations.rs,test_support.rs,cards.rs}`,
+      `aatf/src/{violation.rs,fixtures/official.rs}`, `save_editor/src/messages.rs`
+    - [ ] 8.8 review: Astra over 8.8b-c (one review, `.tmp/8_8/duck_rulings.md`), after a
+      SWE-2 round on 8.8c
   - [ ] 8.9 the Save editor's view in the five slices of `plans/save_editor.md` "Build order
     and verification", with the `session/` wiring each needs (undo, selection, recent files,
     the FPC toggle, AATF quick actions) and the placeholders of 8.3 gone; each slice's SE-GUI

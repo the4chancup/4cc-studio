@@ -2267,3 +2267,5 @@ worklog passed 7,000 lines.
   the session's recent colors; tested headless.
 - **2026-10-21** — 8.8b: `libs/team_widgets` with the card pickers (skills, COM styles, playing style) and their cards-left
   badges; `aatf`'s `card_limits` returns the paid count the badges subtract.
+- **2026-10-21** — 8.8c: `team_widgets`' violations list, grouped per player in check order with errors first, worded by the
+  widget for both hosts; `aatf::ViolationKind::rule` shared with the CLI. 8.8b's review S1 folded in (PES 15 tested).

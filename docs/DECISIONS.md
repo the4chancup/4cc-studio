@@ -9719,3 +9719,11 @@ both draw from. The rules-file spelling is `aatf`'s knowledge, not a tool's mess
 within a group, not a list sorted by severity, because a member fixes one player at a time and
 the slot order is the player list's.
 Plan: `plans/save_editor.md` "`libs/team_widgets`" (the `violations` bullet).
+
+## 2026-10-21 — team_widgets — The playing-style combo lists the version's stored order
+Decision: `playing_style_picker` lists a version's playing styles in the order the save stores
+them, not in the canonical order of `PlayStyle::ALL` that the draft's combo uses.
+Why: the stored order is the game's own Edit-mode list (PES 15-18 permute it against the
+canonical one), and a member checking a style compares the two lists; the canonical order is
+the Team TOML's naming, which nobody reads as a list.
+Plan: `plans/save_editor.md` "`libs/team_widgets`" (the `cards` bullet).
