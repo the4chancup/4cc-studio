@@ -444,18 +444,13 @@ mod tests {
         assert_eq!(cells[0].label(), Some("Scissors Feint"));
         let y0 = |node: &accesskit::Node| node.bounds().expect("bounds").y0;
         let x0 = |node: &accesskit::Node| node.bounds().expect("bounds").x0;
-        for cell in &cells[1..SKILL_COLUMNS] {
+        // Cells 0 to 4 sit on row one, cell 5 starts row two: written as five
+        // on purpose, so a wrong `SKILL_COLUMNS` fails here, not follows it.
+        for cell in &cells[1..5] {
             assert_eq!(y0(cell), y0(cells[0]), "the first five sit on one row");
         }
-        assert!(
-            y0(cells[SKILL_COLUMNS]) > y0(cells[0]),
-            "the sixth starts the next row"
-        );
-        assert_eq!(
-            x0(cells[SKILL_COLUMNS]),
-            x0(cells[0]),
-            "the row starts at the same x"
-        );
+        assert!(y0(cells[5]) > y0(cells[0]), "the sixth starts the next row");
+        assert_eq!(x0(cells[5]), x0(cells[0]), "the row starts at the same x");
     }
 
     // plans/save_editor.md "Editing UI": a card the version cannot store stays
@@ -614,12 +609,14 @@ mod tests {
         let mut window = Headless::new();
         // Player 70203 of the PES 17 fixture save; stored playing style 8.
         let mut style = fixture_style(PesVersion::Pes17, 70203);
-        let (nodes, _) = window.style_picker(PesVersion::Pes17, &mut style, vec![]);
+        let (nodes, changed) = window.style_picker(PesVersion::Pes17, &mut style, vec![]);
+        assert!(!changed, "an idle frame is no change");
         let combo = nodes
             .iter()
             .find(|node| node.role() == Role::ComboBox)
             .expect("the combo");
-        let (_, _) = window.click_style(centre(combo), PesVersion::Pes17, &mut style);
+        let (_, changed) = window.click_style(centre(combo), PesVersion::Pes17, &mut style);
+        assert!(!changed, "opening the combo is no change");
         let (nodes, _) = window.style_picker(PesVersion::Pes17, &mut style, vec![]);
         // `nodes` come back in `IdMap` order, not layout order: sort the open
         // items top to bottom by their bounds.
@@ -651,6 +648,14 @@ mod tests {
             "a PES 19+ style is not listed"
         );
 
+        // The current style picked again: no change, the value unmoved.
+        let item = entry(&nodes, Role::Button, "Anchor Man");
+        let (_, changed) = window.click_style(centre(item), PesVersion::Pes17, &mut style);
+        assert!(!changed, "the current style picked again is no change");
+        assert_eq!(style, 8);
+
+        let (_, changed) = window.click_style(centre(combo), PesVersion::Pes17, &mut style);
+        assert!(!changed, "reopening the combo is no change");
         let (nodes, _) = window.style_picker(PesVersion::Pes17, &mut style, vec![]);
         let item = entry(&nodes, Role::Button, "Goal Poacher");
         let wanted = playstyle::encode(PesVersion::Pes17, PlayStyle::GoalPoacher)
