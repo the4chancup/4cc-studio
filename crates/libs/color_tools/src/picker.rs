@@ -566,19 +566,15 @@ fn popup_body(
         });
     }
 
-    // A press still held previews; a release, a one-frame click and a drag's stop all
-    // commit the working color once (`commit_working` keeps the working hsv, so a hue
-    // chosen on a hueless color survives).
+    // A press still held previews; a release after one (`state.dragging`) and a click
+    // completed in a single frame (`clicked()`) each commit the working color once
+    // (`commit_working` keeps the working hsv, so a hue chosen on a hueless color
+    // survives).
     if down {
         state.preview = Some(rgb_of(state.hsva));
     } else {
         state.preview = hovered;
-        if state.dragging
-            || sv.clicked()
-            || hue.clicked()
-            || sv.drag_stopped()
-            || hue.drag_stopped()
-        {
+        if state.dragging || sv.clicked() || hue.clicked() {
             commit_working(state, color, changed);
         }
     }
@@ -1518,6 +1514,37 @@ mod tests {
             color,
             [0, 0, 0],
             "the click point's colour committed: {color:?}"
+        );
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert!(!out.changed, "no repeat on the idle frame");
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on the square
+    // or the slider is a gesture too, however short.
+    #[test]
+    fn a_one_frame_click_on_the_strip_commits() {
+        let mut window = Headless::new();
+        // A saturated color: a hue tap must land somewhere visible (on a hueless one it
+        // would be a commit that changes nothing, which the widget rightly skips).
+        let mut color = [255, 0, 0];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        let strip = entry(&nodes, "hue");
+        let rect = strip.bounds().expect("the strip is drawn");
+        let pos = egui::pos2(
+            (rect.x0 + (rect.x1 - rect.x0) * 0.4) as f32,
+            (rect.y0 + rect.y1) as f32 / 2.0,
+        );
+
+        let mut events = pointer_at(pos, true);
+        events.extend(pointer_at(pos, false));
+        let (_, out) = window.field(&mut color, &[], events);
+        assert!(out.changed, "the one-frame tap commits once");
+        assert_ne!(
+            color,
+            [255, 0, 0],
+            "the tap point's colour committed: {color:?}"
         );
         let (_, out) = window.field(&mut color, &[], Vec::new());
         assert!(!out.changed, "no repeat on the idle frame");

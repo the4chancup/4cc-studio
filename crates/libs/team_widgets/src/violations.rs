@@ -343,7 +343,7 @@ mod tests {
     use pes_version::PesVersion;
 
     use super::*;
-    use crate::test_support::{Headless, centre, painted_text_color, pointer_at};
+    use crate::test_support::{Headless, centre, painted_text_color, pointer_at, text_shape};
 
     impl Headless {
         /// One frame of `violations_list` over `teams`, returning the nodes,
@@ -903,23 +903,45 @@ mod tests {
             violations: &violations,
         }];
         let mut window = Headless::new();
-        let (nodes, _, _) = window.list(&teams, false, vec![]);
-        let height_of = |text: &str| {
-            let bounds = nodes
+        let (nodes, shapes, _) = window.list(&teams, false, vec![]);
+        let bounds_of = |text: &str| {
+            nodes
                 .iter()
                 .find(|node| node.role() == Role::Button && node.label() == Some(text))
                 .unwrap_or_else(|| panic!("no row {text:?}"))
                 .bounds()
-                .expect("bounds");
+                .expect("bounds")
+        };
+        let height_of = |text: &str| {
+            let bounds = bounds_of(text);
             bounds.y1 - bounds.y0
         };
         let one_line = height_of("Height height 185 takes no bracket");
-        let longest = height_of(
-            "MedalSystem the tier counts match no medal system [ggss regulars, ggs regulars, gggs regulars, gssss regulars, ggss giants, ggs giants, gggs giants, gssss giants, ggss manlets, ggs manlets, gggs manlets, gssss manlets]",
-        );
+        let longest_label = "MedalSystem the tier counts match no medal system [ggss regulars, ggs regulars, gggs regulars, gssss regulars, ggss giants, ggs giants, gggs giants, gssss giants, ggss manlets, ggs manlets, gggs manlets, gssss manlets]";
+        let longest = height_of(longest_label);
         assert!(
             longest >= 2.0 * one_line,
             "the long sentence wraps onto more rows: {longest} vs {one_line}"
+        );
+
+        // The sentence sits in its own column, inside the row: its origin is
+        // the row's left edge plus `RULE_COL`, its right edge inside the row.
+        let medal_bounds = bounds_of(longest_label);
+        let rule_shape = text_shape(&shapes, "MedalSystem");
+        let sentence_shape = text_shape(&shapes, "the tier counts match");
+        assert!(
+            (f64::from(rule_shape.pos.x) - medal_bounds.x0).abs() <= 0.5,
+            "the rule name starts at the row's left edge"
+        );
+        assert!(
+            (f64::from(sentence_shape.pos.x) - (medal_bounds.x0 + f64::from(RULE_COL))).abs()
+                <= 0.5,
+            "the sentence starts at its column"
+        );
+        assert!(
+            f64::from(sentence_shape.pos.x + sentence_shape.galley.rect.width())
+                <= medal_bounds.x1 + 0.5,
+            "the sentence does not run past the row's right edge"
         );
     }
 

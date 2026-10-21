@@ -743,7 +743,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         collapse tests observe their THENs. Astra's loop on the log panel ends. Review S12
         (SWE-2, 2 of 9 accepted: the no-wrap test asserts the width, the paused test the jump
         landing) reworked in rework 4, the tests moved to `widgets/log_panel/tests.rs`; the
-        log panel's reviews are done
+        log panel's reviews are done, and the mutation run since rework 2 left it no survivor
       - [ ] when the first topic gains an in-doc link `[text](<id>#<slug>)`, `--export`
         rewrites it to `<id>.md#<slug>` and writes an anchor per topic slug (review A3-7: no
         shipped topic holds one yet, so the exported files have nothing to break)
@@ -788,7 +788,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       Review A1 (Astra on Devin brother, 6 of 9 accepted) reworked: HSV over sRGB values so
       the gradients show what a click picks, the hue kept on white, gray and black, a typed
       R/G/B value committed on any close, the host's 6-bit rounding of a pick still a pick, a
-      one-frame click committing; 44 tests. A SWE-2 loop, then Astra's second round. Files:
+      one-frame click committing; 44 tests. Rework 3 (mutation survivor): a one-frame tap
+      on the hue strip tested, the commit condition's `drag_stopped()` terms dropped (the
+      held press covers them). A SWE-2 loop, then Astra's second round. Files:
       `color_tools/{Cargo.toml,src/lib.rs,src/picker.rs}`, `scripts/doc_pointers.py`
       (`plans/libs/color_tools.md` listed as the open phase's)
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
@@ -823,7 +825,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       color codes. Review S2 (SWE-2, 3 of 9 accepted) reworked: the acceptance citations
       `just gates` refused, the names' color codes decoded, the row as the draft draws it (the
       rule name in a 190-point column colored by severity, the sentence strong and wrapping),
-      `rule()` tested in `aatf`. Files: `team_widgets/src/{lib.rs,violations.rs,test_support.rs,cards.rs}`,
+      `rule()` tested in `aatf`; rework 3 pins the row's geometry (two mutation survivors).
+      Files: `team_widgets/src/{lib.rs,violations.rs,test_support.rs,cards.rs}`,
       `aatf/src/{violation.rs,fixtures/official.rs}`, `save_editor/src/messages.rs`
     - [ ] 8.8 review: Astra over 8.8b-c (one review, `.tmp/8_8/duck_rulings.md`); the SWE-2
       loops ended (S1 2 of 7, S2 3 of 9)

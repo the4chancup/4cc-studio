@@ -91,6 +91,23 @@ pub(crate) fn painted_color(shape: &egui::epaint::TextShape) -> egui::Color32 {
         .unwrap_or(shape.fallback_color)
 }
 
+/// The painted text shape whose galley text starts with `starts_with`.
+pub(crate) fn text_shape<'a>(
+    shapes: &'a [egui::epaint::ClippedShape],
+    starts_with: &str,
+) -> &'a egui::epaint::TextShape {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) if shape.galley.job.text.starts_with(starts_with) => {
+                Some(shape)
+            }
+            _ => None,
+        })
+        .next()
+        .unwrap_or_else(|| panic!("no painted text starting {starts_with:?}"))
+}
+
 /// The color the text `text` was painted in this frame.
 pub(crate) fn painted_text_color(
     shapes: &[egui::epaint::ClippedShape],
