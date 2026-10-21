@@ -740,8 +740,10 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         Astra's loop on the help window. Review A5 (Astra on Codex brother over the log
         panel's reworks, 4 of 4 accepted) reworked in rework 3: a paused panel draws the lines
         it held when the pause began, past the cap too; a line never wraps; the jump and
-        collapse tests observe their THENs. Astra's loop on the log panel ends; a SWE-2 round
-        on rework 3 next
+        collapse tests observe their THENs. Astra's loop on the log panel ends. Review S12
+        (SWE-2, 2 of 9 accepted: the no-wrap test asserts the width, the paused test the jump
+        landing) reworked in rework 4, the tests moved to `widgets/log_panel/tests.rs`; the
+        log panel's reviews are done
       - [ ] when the first topic gains an in-doc link `[text](<id>#<slug>)`, `--export`
         rewrites it to `<id>.md#<slug>` and writes an anchor per topic slug (review A3-7: no
         shipped topic holds one yet, so the exported files have nothing to break)
@@ -782,7 +784,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       (egui's `color_picker_hsva_2d` adds its own rows and reports no release), recents in
       the context's temp memory; 9 headless tests and 3 unit tests, each red first. Review S1
       (SWE-2, 4 accepted) reworked: a typed hex commits on any close, a host change (an undo)
-      reseeds the open popup and is no pick, 9 more tests (the painted shapes among them). Files:
+      reseeds the open popup and is no pick, 9 more tests (the painted shapes among them).
+      Review A1 (Astra on Devin brother, 6 of 9 accepted) reworked: HSV over sRGB values so
+      the gradients show what a click picks, the hue kept on white, gray and black, a typed
+      R/G/B value committed on any close, the host's 6-bit rounding of a pick still a pick, a
+      one-frame click committing; 44 tests. A SWE-2 loop, then Astra's second round. Files:
       `color_tools/{Cargo.toml,src/lib.rs,src/picker.rs}`, `scripts/doc_pointers.py`
       (`plans/libs/color_tools.md` listed as the open phase's)
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
@@ -814,10 +820,13 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       the Save editor's `messages.rs`, the CLI's output unchanged); the crate's tests share
       `test_support.rs`. 6 tests, on team 734 of the PES 2017 fixture save among them, each
       red first. The player header's name is plain text until 8.9's player list draws the
-      color codes. Files: `team_widgets/src/{lib.rs,violations.rs,test_support.rs,cards.rs}`,
+      color codes. Review S2 (SWE-2, 3 of 9 accepted) reworked: the acceptance citations
+      `just gates` refused, the names' color codes decoded, the row as the draft draws it (the
+      rule name in a 190-point column colored by severity, the sentence strong and wrapping),
+      `rule()` tested in `aatf`. Files: `team_widgets/src/{lib.rs,violations.rs,test_support.rs,cards.rs}`,
       `aatf/src/{violation.rs,fixtures/official.rs}`, `save_editor/src/messages.rs`
-    - [ ] 8.8 review: Astra over 8.8b-c (one review, `.tmp/8_8/duck_rulings.md`), after a
-      SWE-2 round on 8.8c
+    - [ ] 8.8 review: Astra over 8.8b-c (one review, `.tmp/8_8/duck_rulings.md`); the SWE-2
+      loops ended (S1 2 of 7, S2 3 of 9)
   - [ ] 8.9 the Save editor's view in the five slices of `plans/save_editor.md` "Build order
     and verification", with the `session/` wiring each needs (undo, selection, recent files,
     the FPC toggle, AATF quick actions) and the placeholders of 8.3 gone; each slice's SE-GUI
