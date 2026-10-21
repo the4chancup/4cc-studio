@@ -489,21 +489,24 @@ mod tests {
     }
 
     /// The official ruleset's check on team 734 ("/lit/") of the PES 17
-    /// fixture save reports 11 violations: the team's own (three
-    /// `TierCount`) and eight `Unused` suggestions on slots 9, 10, 14 and
-    /// 22. The five `Height` errors slots 0, 1, 3, 5 and 19 used to
-    /// report, regulars registered at CB at the ordinary 185 cm, are
-    /// gone: the allowance now only raises 189, so they are tall again
-    /// and the red tall quota holds at 10 of 10. The list draws the
-    /// team's group alone.
+    /// fixture save, with two of its tall regulars (slots 0 and 3, 185
+    /// cm) set to 183, which no Red bracket takes: 14 violations, a
+    /// `Height` error on each of the two, the team's own (three
+    /// `TierCount`, and the red tall quota at 8 of 10) and eight `Unused`
+    /// suggestions on slots 9, 10, 14 and 22. The list draws each player's
+    /// group in roster order, then the team's.
     // SE-GUI-15
     #[test]
     fn the_list_groups_the_checks_violations_per_player() {
-        let file = fixture();
+        let mut file = fixture();
+        for id in [73401, 73404] {
+            let player = file.player_mut(id).expect("rostered");
+            assert_eq!(player.basic.height, 185, "premise: {id} is tall");
+            player.basic.height = 183;
+        }
         let players = listed_players(&file, 734);
         let violations = check(&file, 734);
-        // D3/D4: the Red CB allowance at 189 alone; ordinary 185 is tall.
-        assert_eq!(violations.len(), 11, "the check's count");
+        assert_eq!(violations.len(), 14, "the check's count");
         let team = file.team(734).expect("team 734");
         let teams = [TeamViolations {
             team_id: 734,
@@ -518,10 +521,15 @@ mod tests {
             drawn_lines(&nodes),
             [
                 "Team 734 /lit/",
+                "Player 73401  49 Muh Spooks",
+                "Height height 183 takes no bracket",
+                "Player 73404  45 Yuki-kun ^~^",
+                "Height height 183 takes no bracket",
                 "the team",
                 "TierCount 2 gold players, expected 1",
                 "TierCount 0 bronze players, expected 2",
                 "TierCount 19 regular players, expected 18",
+                "BracketQuota 8 players in bracket tall of red, quota 10",
             ]
         );
     }

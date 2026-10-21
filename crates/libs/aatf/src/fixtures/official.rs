@@ -945,6 +945,12 @@ fn medals_trade_a_free_com_style_for_a_free_a_position() {
         p.ratings[usize::from(ss.0)] = 2;
     });
     assert_eq!(problems(&rules, &team), vec![]);
+    // Paid 4 is legal at a limit of 5 too: the limit itself shows both
+    // trades taken, three A positions free and no card spent on them.
+    let limits = rules
+        .card_limits(&team, team.player(2).expect("filled"), "gold")
+        .expect("limits");
+    assert_eq!((limits.a_positions, limits.limit), (3, 6));
     // One style kept, one trade on the extra A: paid 4 of 6.
     let team = edited(2, |p| {
         assert_eq!(p.cards.pop(), Some(card("mazing_run")));

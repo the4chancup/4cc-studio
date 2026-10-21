@@ -592,10 +592,13 @@ its Version B, `aae4835` and `bb3e54a`, changed no rule) and `c92d535` (Spring 2
 Autumn 26 file with:
 
 - no bronze tier; gold `count` 2; silver `rate` 88 and `cards` 4; gold `cards` 5;
+- the medals' COM styles free outright, no trade: `free: #{ tricks: 3, com: 2 }` for gold,
+  `com: 1` for silver;
 - medals' `weak_foot` usage 2, accuracy 4;
 - Green quotas giga 0, giant 5, tall 6, mid 6, manlet 6;
 - the "Red manlet bonus" for regular and goalkeeper only (+5);
-- no "Green silver giants", "Red CBs at 189 count as tall" or the medals' COM-style trades.
+- no "Green silver giants", "Red CBs at 189 count as tall" or the medals' COM-style trades;
+- no `fielded_at_a`, and no `"choices"` in `suggestions`.
 
 They differ from each other in two values: Autumn 25 has 2 silvers and goalkeepers at 77, Spring
 26 has 3 silvers and goalkeepers at 74.
