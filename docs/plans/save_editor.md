@@ -407,6 +407,21 @@ What this editor adds on top of the lib:
   selection matches 4ccEditor (current team or a multi-select list). A **Show suggestions**
   toggle, off by default, lists unused allowances apart from errors and warnings (see
   "Suggestions" in the AATF rules plan). The panel is `team_widgets`' violations list.
+- **Live AATF.** A toolbar toggle, off by default and remembered in the tool's settings
+  (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
+  docked at the bottom of the view lists the open team's violations, errors first, grouped per
+  player as the AATF panel does, under the header `N issues · <ruleset>`, or `No issues:
+  <team> passes <ruleset>` once the list is empty; clicking a row selects that player. The
+  team is re-checked after every edit to it, undo and redo included, and when another team is
+  opened, so the list shrinks as the member fixes it. One team's check takes about 50 ms in a
+  release build (2026-10-21, the official ruleset on a PES 2017 save: 220 teams in 10.7 s),
+  more than a frame, so it runs on a worker once the edit settles (a drag released, a field
+  committed) and the list keeps the previous result, marked as checking, until the new one
+  arrives. The panel is the log panel widget's frame (its chevron collapses it to the header,
+  its divider resizes it). At the bottom, not at a side: the player list holds the left and the
+  tabs need their width (the Abilities grid), and a bottom strip is where the Team compiler's
+  log already sits. The floating AATF panel stays for several teams at once, suggestions,
+  Validate rules and Save a copy; its whole-save check (10.7 s above) runs on a worker too.
 - **Validate rules.** A button running the lib's load-time validation on the chosen file, its
   findings shown with line or key path.
 - A **"save a copy"** action writes the embedded official ruleset out.
@@ -625,5 +640,12 @@ SE-GUI-29  manual  GIVEN a Texport written by SE-GUI-17's export from a PES 18, 
            save
            WHEN it is imported through the game's own team import, in that version
            THEN the game accepts it and the imported team shows the exported squad and names
+SE-GUI-30  GIVEN the save open on a team with violations under the active ruleset
+           WHEN Live AATF is switched on
+           THEN the docked panel lists the team's violations under `N issues · <ruleset>`;
+                WHEN an edit fixes one of them THEN, once the check returns, its row is gone
+                and N is one less, and an undo brings it back; WHEN the last one is fixed THEN
+                the header reads `No issues: <team> passes <ruleset>`; WHEN the tool is
+                reopened THEN Live AATF is still on
 ```
 

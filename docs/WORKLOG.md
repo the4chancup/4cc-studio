@@ -704,8 +704,19 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         `ActionEffect::OpenHelp`, each opening closing a shell modal; geometry for the
         session only (DECISIONS). ST-HELP-01, 02, ST-HELP-03's in-doc half and ST-SIDE-06
         proven. Files: `studio_core/src/shell/{help_window,mod,about,test_harness}.rs`,
-        `shell/sidebar/`, `studio_core/Cargo.toml`, the workspace `Cargo.toml`
+        `shell/sidebar/`, `studio_core/Cargo.toml`, the workspace `Cargo.toml`. Review A3
+        (Astra on Codex brother, over 8.6d1 and 8.6d2, 6 of 8 accepted: a jump consumed by
+        a `Grid`'s sizing pass, the width budget on the text columns alone, the whole row
+        highlighted, the upgrader's shared rows given its own effects, the catalog cells
+        through the Markdown viewer instead of a hand-rolled one, three functions narrowed
+        to `pub(crate)`) and `mutants-diff 14c1f645` (81, 29 missed: tests for the tree's
+        selection, the scroll to a hit, the jump's scroll to the top, the widths, the
+        colors, the fallback chapter; the About popup's redundant close dropped), both in
+        rework 2. Rulings `.tmp/8_6/duck_rulings.md`; Astra A4 over the rework is due
       - [ ] 8.6d3 the log panel widget (ST-LOG-01 to 04) and its code links (ST-HELP-03)
+      - [ ] when the first topic gains an in-doc link `[text](<id>#<slug>)`, `--export`
+        rewrites it to `<id>.md#<slug>` and writes an anchor per topic slug (review A3-7: no
+        shipped topic holds one yet, so the exported files have nothing to break)
       - [ ] 8.6d4 a member wording pass over the three catalogs' texts, with the maintainer's
         remarks on the draft, to `CONTRIBUTING.md`'s "written for a layman" rule (as easy to
         understand as possible for a member who knows nothing of the code): the copied cells
@@ -722,6 +733,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     and verification", with the `session/` wiring each needs (undo, selection, recent files,
     the FPC toggle, AATF quick actions) and the placeholders of 8.3 gone; each slice's SE-GUI
     scenarios cited
+    - [ ] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
+      AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
+      request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
+      the list shrinking as a fix lands, the checking mark, the empty state
+    - [ ] before slice 4, measure where one team's AATF check spends its ~48 ms (release,
+      2026-10-21: `check-aatf` on a PES 2017 save, 220 teams in 10.7 s; the engine built per
+      team, the script, the team's view) and cut what is not the script's own work: speed is
+      the suite's first goal, and both AATF panels wait on it
   - [ ] 8.10 after 0.0.1: the progress grid, the run strip and the console printer's progress
     line, the exports folder watcher and check cache, cancellation, the launcher, the Team
     compiler's and the Export upgrader's views (their drafts first); the notice action
@@ -857,7 +876,21 @@ Steps are itemized when Phase 15 closes; two are fixed already:
     once and the GPU joins when its device is ready, started when the run has BC7 work
     (`plans/libs/README.md` "First-release desktop GPU BC7"); start it after the window's
     renderer is up, a failed start this run's CPU fallback with its reason in the report
-    (`.tmp/16x/findings.md`, the transient adapter failure seen under load)
+    (`.tmp/16x/findings.md`, the transient adapter failure seen under load). The system log
+    (checked 2026-10-21) has no driver reset at any of those failures (04:07, 04:15 and later
+    on 2026-10-19); that day's one reset, 03:16:41, which Adrenalin reported twice (two
+    `LiveKernelEvent` reports), was the probe's single-submission DX12 run of an 8192 chain.
+    So the adapter blip is not a timeout: most likely the Vulkan loader with several processes
+    opening it at once, unexplained
+  - [ ] 16.x c the BC7 speed probe, after all of DBC's work (the maintainer, 2026-10-21;
+    `plans/libs/README.md` "The workload the speed is judged on"): on the RX 9060 XT and its
+    CPU, real kits (4096² and 8192²) and faces, time and PSNR for `block_compression`'s BC7
+    presets (`ultra_fast` to `basic`) on GPU and CPU, `intel_tex_2`'s on CPU, BC3 as the
+    quality floor; a team's ~30 chains in flight on the GPU at once against one at a time; the
+    share of flat 4×4 blocks in real kits and faces, and the time a direct write of them saves
+    → verify: a table per encoder and preset, and a recommendation: the preset and CPU encoder
+    to ship, or the BC3 fallback, with a decision entry; our own encoder only if every lever
+    falls short
 
 ### Phase 20 — Ruleset editor (post-release)
 

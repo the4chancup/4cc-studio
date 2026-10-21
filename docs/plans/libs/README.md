@@ -64,6 +64,24 @@ So:
   returning an error, and a software adapter (a Vulkan driver running on the CPU) is refused
   at the start, being slower than the CPU encoder.
 
+**The workload the speed is judged on.** A Studio export's textures are PNG by design: members
+edit them losslessly, and flat colors make a PNG smaller than its DDS. So on PES 19-21 nearly
+every texture of a compile is encoded, not passed through. A player's textures add up to about
+one 4096² chain, and a team has seven kits, so a team is roughly 30 chains: about 15 s of
+encoding at the 0.48 s measured above, on a fairly high-end GPU, and 16 s per chain on the CPU
+encoder, which the maintainer ruled unacceptable for a suite whose first goal is speed. A
+full-cup compile is run once per set of exports, so its every texture is encoded cold: no
+conversion cache, in memory or on disk, shortens it, and the encoder's own speed is the floor.
+The levers left are the encoder's: a faster BC7 preset (`fast`, `very_fast`, `ultra_fast`),
+several textures in flight on the GPU at once rather than one, and flat 4×4 blocks (common in
+PNG kits) written directly and kept out of the encoder's search, BC7 blocks being independent.
+A faster preset is taken only if its quality stays above BC3's; on the CPU the same holds for a
+SIMD encoder (`intel_tex_2`'s ISPC kernels) against the current one. If no CPU BC7 gets close, a
+compile for PES 19-21 that has no GPU writes BC3, as for PES 15-18 (the maintainer's fallback,
+2026-10-21). Writing our own GPU encoder is the last resort, only if these fall short: it is a
+permanent maintenance item the library spares us. The measurement deciding all this is
+worklog 16.x c.
+
 **Built ahead (16.x a, before Release 0.1.0):** the encoder itself, in `dds_convert` behind
 `cfg(not(target_arch = "wasm32"))`, with its quality and fallback tests. Wiring it into the
 Team compiler's texture step stays after 0.1.0, which ships the CPU encoder only.

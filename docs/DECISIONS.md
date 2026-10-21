@@ -9635,3 +9635,28 @@ exact pin rules out until egui moves). The default `load-images` feature brings 
 image and file loaders, and the help's topics hold no images. The crate was chosen over a
 hand-rolled renderer on 2026-09-12; its link hooks are what an in-doc link's click reads.
 Plan: `plans/core/README.md` "External Dependencies (Rust crates)".
+
+## 2026-10-21 — save_editor — Live AATF: the open team re-checked after every edit, in a panel docked at the bottom
+Decision (maintainer's request): a "Live AATF" toolbar toggle, remembered in the Save editor's
+settings, docks a panel at the bottom of the view listing the open team's violations, re-checked
+on a worker after every settled edit (undo and redo included) and on a team switch, so the list
+empties as the member fixes the team; `No issues: <team> passes <ruleset>` once it is empty. The
+floating AATF panel stays for several teams, suggestions and the rules file's tools.
+Why: the planned panel was a one-shot check a member had to rerun after each fix. The bottom
+over a side because the player list holds the left and the tabs need their width, and the
+Team compiler's log already sits there, so the log panel widget's frame serves both. On a worker
+because one team's check takes about 50 ms in a release build (measured on a PES 2017 save),
+more than a frame, which a stat drag would pay at every frame.
+Plan: `plans/save_editor.md` "Configurable AATF rules" ("Live AATF"), SE-GUI-30.
+
+## 2026-10-21 — dds_convert — BC7 speed is judged on a cold full-cup compile; BC3 when no BC7 encoder is fast enough
+Decision (maintainer): a full-cup compile runs once per set of exports, so its PNG textures are
+always encoded cold and no conversion cache shortens it; the encoder's speed is the measure. The
+16 s per 4096² chain of the current CPU BC7 encoder is unacceptable: unless a faster CPU encoder
+or preset keeps quality above BC3's, a PES 19-21 compile without a GPU writes BC3. The GPU's own
+time (0.48 s per chain at `basic`, about 15 s for a team of PNG textures) is to be cut through the
+preset, several textures in flight and flat blocks kept out of the search, measured after DBC's
+work (worklog 16.x c); our own encoder only if those fall short.
+Why: Studio exports are PNG by design (lossless edits, smaller files with flat colors), so nearly
+every Fox texture is encoded, a team's being about 30 chains; speed is the suite's first goal.
+Plan: `plans/libs/README.md` "First-release desktop GPU BC7" ("The workload the speed is judged on").

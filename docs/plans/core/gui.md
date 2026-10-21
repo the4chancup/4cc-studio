@@ -222,7 +222,9 @@ Like the settings menu it is **assembled from the tools**, not written centrally
 
 - Fixed-height region below the toolbar, monospace, colored lines (info/warning/error mapped from
   `PipelineEvent`); its chevron collapses it to its header row and back, and dragging its
-  divider resizes it, the height kept across frames.
+  divider resizes it, the height kept across frames. That frame (header row, chevron, divider)
+  is the widget's own part, apart from the lines it holds: the Save editor's Live AATF list
+  (`plans/save_editor.md` "Configurable AATF rules") docks in it too.
 - **Capped display**: only the last few hundred lines are rendered (egui text rendering is not
   optimized for thousands of lines). Full logs are written to disk (`issues.log`, `suggestions.log`)
   as before.
