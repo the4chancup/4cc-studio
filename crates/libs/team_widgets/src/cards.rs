@@ -50,19 +50,39 @@ pub fn card_pickers(
         let fields = schema_for(version).player_field_set();
         egui::Grid::new("skills").num_columns(5).show(ui, |ui| {
             for (index, name) in labels::SKILLS.iter().enumerate() {
-                if fields.contains(&PlayerField::Skill(index as u8)) {
+                let field = PlayerField::Skill(index as u8);
+                if fields.contains(&field) {
                     changed |= ui
                         .checkbox(&mut skills.skills[index], title_case(name))
                         .changed();
+                } else {
+                    // A card the version cannot store stays, disabled, its
+                    // tooltip naming the first version that has it
+                    // (plans/save_editor.md "Editing UI").
+                    ui.add_enabled(
+                        false,
+                        egui::Checkbox::new(&mut skills.skills[index], title_case(name)),
+                    )
+                    .on_disabled_hover_text(format!("PES {}+", first_with(field).number()));
+                }
+                if (index + 1) % 5 == 0 {
+                    ui.end_row();
                 }
             }
         });
         ui.horizontal(|ui| {
             for (index, name) in labels::COM_STYLES.iter().enumerate() {
-                if fields.contains(&PlayerField::ComStyle(index as u8)) {
+                let field = PlayerField::ComStyle(index as u8);
+                if fields.contains(&field) {
                     changed |= ui
                         .checkbox(&mut skills.com_styles[index], title_case(name))
                         .changed();
+                } else {
+                    ui.add_enabled(
+                        false,
+                        egui::Checkbox::new(&mut skills.com_styles[index], title_case(name)),
+                    )
+                    .on_disabled_hover_text(format!("PES {}+", first_with(field).number()));
                 }
             }
         });
@@ -105,6 +125,16 @@ pub fn playing_style_picker(
         changed
     })
     .inner
+}
+
+/// The oldest version storing `field` (for the disabled cell's `PES NN+`
+/// tooltip; every card is stored by some version).
+fn first_with(field: PlayerField) -> pes_version::PesVersion {
+    pes_version::PesVersion::ALL
+        .iter()
+        .copied()
+        .find(|version| schema_for(*version).player_has(field))
+        .expect("every card is stored by some version")
 }
 
 /// `style`'s label: its Team TOML name, title-cased.
@@ -153,8 +183,20 @@ mod tests {
             tiers: &[TierCards],
             events: Vec<egui::Event>,
         ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>, bool) {
+            self.pickers_at(None, version, skills, tiers, events)
+        }
+
+        /// `pickers` with `time` as the frame's timestamp (for tooltips).
+        fn pickers_at(
+            &mut self,
+            time: Option<f64>,
+            version: PesVersion,
+            skills: &mut PlayerSkills,
+            tiers: &[TierCards],
+            events: Vec<egui::Event>,
+        ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>, bool) {
             let mut changed = None;
-            let (nodes, shapes) = self.frame(events, |ui| {
+            let (nodes, shapes) = self.frame_at(time, events, |ui| {
                 changed = Some(card_pickers(ui, "pickers", version, skills, tiers));
             });
             (nodes, shapes, changed.expect("the pickers ran"))
@@ -290,27 +332,37 @@ mod tests {
         }
     }
 
-    // plans/save_editor.md "libs/team_widgets", the `cards` bullet: the pickers
-    // are version-gated; a card the save cannot store is not drawn (the draft
-    // greys it, egui drops it).
+    // plans/save_editor.md "libs/team_widgets", the `cards` bullet, and
+    // "Editing UI" (a version-gated widget renders disabled, never
+    // disappearing): every card is drawn on every version, a card the save
+    // cannot store disabled.
     #[test]
     fn the_pickers_draw_the_versions_cards() {
+        /// The labels of the disabled checkboxes.
+        fn disabled(nodes: &[accesskit::Node]) -> Vec<&str> {
+            nodes
+                .iter()
+                .filter(|node| node.role() == Role::CheckBox && node.is_disabled())
+                .filter_map(|node| node.label())
+                .collect()
+        }
+
         let mut window = Headless::new();
-        // Player 71802 of the PES 15 fixture save; PES 15 stores 22 skills
-        // with holes in the canonical order (schema/pes15.rs: `malicia` at
-        // index 21 is one the version does not store).
+        // Player 71802 of the PES 15 fixture save; PES 15 stores 22 of the 41
+        // skills and 7 COM styles (schema/pes15.rs: `malicia` at index 21 is
+        // one the version does not store, so its cell is disabled).
         let mut skills = fixture_skills(PesVersion::Pes15, 71802);
         let (nodes, _, _) = window.pickers(PesVersion::Pes15, &mut skills, &[], vec![]);
         let (drawn_skills, drawn_coms) = drawn_cards(&nodes);
-        assert_eq!(
-            (drawn_skills.len(), drawn_coms.len()),
-            (22, 7),
-            "PES 15: 22 skills, 7 COM styles"
-        );
-        assert!(
-            nodes.iter().all(|node| node.label() != Some("Malicia")),
-            "a skill PES 15 does not store is not drawn"
-        );
+        assert_eq!((drawn_skills.len(), drawn_coms.len()), (41, 7));
+        let off = disabled(&nodes);
+        assert_eq!(off.len(), 41 - 22, "19 skills PES 15 does not store");
+        for label in ["Malicia", "Heading", "Chip Shot", "Through Passing"] {
+            assert!(off.contains(&label), "{label} disabled on PES 15");
+        }
+        for label in ["Scissors Feint", "Track Back", "Trickster", "Long Ranger"] {
+            assert!(!entry(&nodes, Role::CheckBox, label).is_disabled());
+        }
 
         // Player 70203 of the PES 17 fixture save; PES 17 stores the first 28
         // canonical skills.
@@ -318,32 +370,19 @@ mod tests {
         let (nodes, _, changed) = window.pickers(PesVersion::Pes17, &mut skills, &[], vec![]);
         assert!(!changed);
         let (drawn_skills, drawn_coms) = drawn_cards(&nodes);
-        assert_eq!(
-            (drawn_skills.len(), drawn_coms.len()),
-            (28, 7),
-            "PES 17: 28 skills, 7 COM styles"
-        );
+        assert_eq!((drawn_skills.len(), drawn_coms.len()), (41, 7));
+        let off = disabled(&nodes);
+        assert_eq!(off.len(), 41 - 28, "13 skills PES 17 does not store");
         for label in ["Scissors Feint", "Track Back", "Trickster", "Long Ranger"] {
-            entry(&nodes, Role::CheckBox, label);
+            assert!(!entry(&nodes, Role::CheckBox, label).is_disabled());
         }
-        assert!(
-            nodes
-                .iter()
-                .all(|node| node.label() != Some("Chip Shot")
-                    && node.label() != Some("Through Passing")),
-            "PES 19+ skills are not drawn on PES 17"
-        );
 
         // Player 78102 of the PES 21 fixture save; PES 21 stores all 41.
         let mut skills = fixture_skills(PesVersion::Pes21, 78102);
         let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, &[], vec![]);
         let (drawn_skills, drawn_coms) = drawn_cards(&nodes);
-        assert_eq!(
-            (drawn_skills.len(), drawn_coms.len()),
-            (41, 7),
-            "PES 21: 41 skills, 7 COM styles"
-        );
-        entry(&nodes, Role::CheckBox, "Through Passing");
+        assert_eq!((drawn_skills.len(), drawn_coms.len()), (41, 7));
+        assert!(disabled(&nodes).is_empty(), "PES 21 stores every card");
     }
 
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: a checkbox
@@ -373,6 +412,134 @@ mod tests {
             window.click_pickers(centre(checkbox), PesVersion::Pes17, &mut skills, &[]);
         assert!(changed, "the untick is a change");
         assert!(!skills.skills[index], "the flag is cleared");
+    }
+
+    // plans/save_editor.md "libs/team_widgets", the `cards` bullet; the draft's
+    // `abilitiesTab` draws the skills five to a row.
+    #[test]
+    fn the_skills_grid_wraps_at_five() {
+        let mut window = Headless::new();
+        // Player 78102 of the PES 21 fixture save.
+        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
+        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, &[], vec![]);
+        // The skill checkboxes in draw order, left to right, top to bottom.
+        let mut cells: Vec<&accesskit::Node> = nodes
+            .iter()
+            .filter(|node| node.role() == Role::CheckBox)
+            .collect();
+        cells.sort_by(|a, b| {
+            let key = |node: &&accesskit::Node| {
+                let bounds = node.bounds().expect("drawn bounds");
+                (bounds.y0, bounds.x0)
+            };
+            key(a).partial_cmp(&key(b)).expect("ordered bounds")
+        });
+        assert_eq!(cells[0].label(), Some("Scissors Feint"));
+        let y0 = |node: &accesskit::Node| node.bounds().expect("bounds").y0;
+        let x0 = |node: &accesskit::Node| node.bounds().expect("bounds").x0;
+        for cell in &cells[1..5] {
+            assert_eq!(y0(cell), y0(cells[0]), "the first five sit on one row");
+        }
+        assert!(y0(cells[5]) > y0(cells[0]), "the sixth starts the next row");
+        assert_eq!(x0(cells[5]), x0(cells[0]), "the row starts at the same x");
+    }
+
+    // plans/save_editor.md "Editing UI": a card the version cannot store stays
+    // in its cell, disabled (the layout stays put across versions), the tooltip
+    // naming the first version that has it (`PES NN+`, the draft's wording).
+    #[test]
+    fn a_card_the_version_lacks_keeps_its_cell_disabled() {
+        let mut window = Headless::new();
+        // "Through Passing" is the last skill (index 40), PES 20 and 21 only.
+        let mut skills15 = fixture_skills(PesVersion::Pes15, 71802);
+        let mut skills21 = fixture_skills(PesVersion::Pes21, 78102);
+        let (nodes15, _, _) = window.pickers(PesVersion::Pes15, &mut skills15, &[], vec![]);
+        let (nodes21, _, _) = window.pickers(PesVersion::Pes21, &mut skills21, &[], vec![]);
+        let at = |nodes: &[accesskit::Node], label: &str| {
+            let bounds = entry(nodes, Role::CheckBox, label)
+                .bounds()
+                .expect("bounds");
+            (bounds.x0, bounds.y0)
+        };
+        assert_eq!(
+            at(&nodes15, "Through Passing"),
+            at(&nodes21, "Through Passing"),
+            "the same card sits in the same cell on every version"
+        );
+        let cell = entry(&nodes15, Role::CheckBox, "Through Passing");
+        assert!(cell.is_disabled(), "PES 20+, disabled on PES 15");
+
+        // A click on the disabled cell changes nothing and reports no change.
+        let held = skills15.skills[40];
+        let (_, _, changed) =
+            window.click_pickers(centre(cell), PesVersion::Pes15, &mut skills15, &[]);
+        assert!(!changed);
+        assert_eq!(skills15.skills[40], held);
+    }
+
+    // plans/save_editor.md "Editing UI": the disabled cell's hover text names
+    // the first version that stores the card (the draft's `PES NN+`).
+    #[test]
+    fn the_disabled_cell_names_the_first_version() {
+        let mut window = Headless::new();
+        // Player 71802 of the PES 15 fixture save; `malicia` first stores in
+        // PES 16.
+        let mut skills = fixture_skills(PesVersion::Pes15, 71802);
+        let (nodes, _, _) = window.pickers(PesVersion::Pes15, &mut skills, &[], vec![]);
+        let cell = entry(&nodes, Role::CheckBox, "Malicia");
+        let pos = centre(cell);
+        // The pointer rests on the cell while the clock passes the tooltip's
+        // delay.
+        window.pickers_at(
+            Some(0.0),
+            PesVersion::Pes15,
+            &mut skills,
+            &[],
+            vec![egui::Event::PointerMoved(pos)],
+        );
+        let mut shown = false;
+        for frame in 1..20 {
+            let (nodes, _, _) = window.pickers_at(
+                Some(f64::from(frame) * 0.5),
+                PesVersion::Pes15,
+                &mut skills,
+                &[],
+                vec![],
+            );
+            if nodes
+                .iter()
+                .any(|node| node.role() == Role::Label && node.value() == Some("PES 16+"))
+            {
+                shown = true;
+                break;
+            }
+        }
+        assert!(shown, "the tooltip names the first version, PES 16+");
+    }
+
+    // plans/save_editor.md "libs/team_widgets", the `cards` bullet: a COM
+    // style's tick is a change like a skill's.
+    #[test]
+    fn a_com_style_tick_is_one_change_on_that_frame_only() {
+        let mut window = Headless::new();
+        // Player 78102 of the PES 21 fixture save ("THE YOINKY SPLOINKY") holds
+        // no COM style.
+        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
+        assert!(!skills.com_styles[0], "premise: no Trickster");
+        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, &[], vec![]);
+        let checkbox = entry(&nodes, Role::CheckBox, "Trickster");
+
+        let (_, _, changed) =
+            window.click_pickers(centre(checkbox), PesVersion::Pes21, &mut skills, &[]);
+        assert!(changed, "the tick is a change");
+        assert!(skills.com_styles[0], "the flag is set");
+        let (_, _, changed) = window.pickers(PesVersion::Pes21, &mut skills, &[], vec![]);
+        assert!(!changed, "the next frame reports nothing new");
+
+        let (_, _, changed) =
+            window.click_pickers(centre(checkbox), PesVersion::Pes21, &mut skills, &[]);
+        assert!(changed, "the untick is a change");
+        assert!(!skills.com_styles[0], "the flag is cleared");
     }
 
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: "Cards

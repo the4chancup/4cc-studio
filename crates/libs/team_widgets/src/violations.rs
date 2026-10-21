@@ -261,6 +261,8 @@ fn sentence(violation: &aatf::Violation) -> String {
                 format!("{stat} {value} over the target {target}, inside the warning band")
             } else if *at_most {
                 format!("{stat} {value} over the maximum {target}")
+            } else if value < target {
+                format!("{stat} {value}, under the {target} the rule wants")
             } else {
                 format!("{stat} {value}, not the target {target}")
             }
@@ -270,21 +272,42 @@ fn sentence(violation: &aatf::Violation) -> String {
         }
         K::Form { value, target } => format!("form {value}, not the target {target}"),
         K::InjuryResistance { value, max } => {
-            format!("injury resistance {value} over the maximum {max}")
+            if value > max {
+                format!("injury resistance {value} over the maximum {max}")
+            } else {
+                format!("injury resistance {value}, under the {max} the rule wants")
+            }
         }
         K::WeakFootUsage { value, max } => {
-            format!("weak foot usage {value} over the maximum {max}")
+            if value > max {
+                format!("weak foot usage {value} over the maximum {max}")
+            } else {
+                format!("weak foot usage {value}, under the {max} the rule wants")
+            }
         }
         K::WeakFootAccuracy { value, max } => {
-            format!("weak foot accuracy {value} over the maximum {max}")
+            if value > max {
+                format!("weak foot accuracy {value} over the maximum {max}")
+            } else {
+                format!("weak foot accuracy {value}, under the {max} the rule wants")
+            }
         }
-        K::NameColor { color, expected } => format!(
-            "name colour {}, the tier wants {}",
-            color.as_deref().unwrap_or("none"),
-            expected.as_deref().unwrap_or("none")
-        ),
+        K::NameColor { color, expected } => match expected.as_deref() {
+            Some(expected) => format!(
+                "name colour {}, the tier wants {}",
+                color.as_deref().unwrap_or("none"),
+                expected
+            ),
+            // A colour another tier reserved on a player outside it.
+            None => format!(
+                "name colour {} is reserved for a tier",
+                color.as_deref().unwrap_or("none")
+            ),
+        },
         K::Cards { paid, limit } => format!("{paid} paid cards over the limit of {limit}"),
-        K::MinCards { paid, min } => format!("{paid} paid cards under the minimum of {min}"),
+        K::MinCards { paid, min } => {
+            format!("{paid} paid skill cards and extra positions under the minimum of {min}")
+        }
         K::SkillCardCap { count, max } => {
             format!("{count} skill cards over the cap of {max}")
         }
@@ -729,7 +752,19 @@ mod tests {
                     at_most: false
                 }
             )),
-            "speed 80, not the target 92"
+            "speed 80, under the 92 the rule wants"
+        );
+        assert_eq!(
+            sentence(&player(
+                Error,
+                K::Stat {
+                    stat: stat("speed"),
+                    value: 95,
+                    target: 92,
+                    at_most: false
+                }
+            )),
+            "speed 95, not the target 92"
         );
         assert_eq!(
             sentence(&player(
@@ -780,6 +815,41 @@ mod tests {
             )),
             "0 gold players, expected 1"
         );
+
+        // A value under its bound says so: VTL11's weak foot is an exact
+        // target (`aatf`'s `weak_foot_below_the_exact_target`, slot 14), 3
+        // against the required 4.
+        for (kind, expected) in [
+            (
+                K::WeakFootUsage { value: 3, max: 4 },
+                "weak foot usage 3, under the 4 the rule wants",
+            ),
+            (
+                K::WeakFootAccuracy { value: 3, max: 4 },
+                "weak foot accuracy 3, under the 4 the rule wants",
+            ),
+            (
+                K::InjuryResistance { value: 1, max: 3 },
+                "injury resistance 1, under the 3 the rule wants",
+            ),
+            (
+                K::WeakFootUsage { value: 4, max: 3 },
+                "weak foot usage 4 over the maximum 3",
+            ),
+            (
+                K::MinCards { paid: 2, min: 5 },
+                "2 paid skill cards and extra positions under the minimum of 5",
+            ),
+            (
+                K::NameColor {
+                    color: Some("cc9900ff".to_string()),
+                    expected: None,
+                },
+                "name colour cc9900ff is reserved for a tier",
+            ),
+        ] {
+            assert_eq!(sentence(&player(Error, kind.clone())), expected, "{kind:?}");
+        }
     }
 
     // plans/save_editor.md "libs/team_widgets", `violations` bullet: a team the

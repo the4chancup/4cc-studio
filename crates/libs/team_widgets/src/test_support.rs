@@ -27,7 +27,19 @@ impl Headless {
         events: Vec<egui::Event>,
         contents: impl FnMut(&mut egui::Ui),
     ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
+        self.frame_at(None, events, contents)
+    }
+
+    /// `frame` with `time` as the frame's timestamp (a tooltip's delay counts
+    /// in seconds of it).
+    pub(crate) fn frame_at(
+        &mut self,
+        time: Option<f64>,
+        events: Vec<egui::Event>,
+        contents: impl FnMut(&mut egui::Ui),
+    ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
         let input = egui::RawInput {
+            time,
             screen_rect: Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,
                 egui::vec2(800.0, 600.0),
