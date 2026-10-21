@@ -253,9 +253,11 @@ the loop, so a verified concern is never withheld to keep the list short; paddin
 the accept rate, which is what that rule is for. At converge the surface is one crate (or one
 coupled pair), never the phase. The user can request a critique at any time with `/duck`, and
 since 2026-10-09 the lead runs the `duck` skill itself for every scheduled critique. Astra's
-five-hour quota holds five or six reviews (the weekly one about forty): a call stopped for quota
-puts the review on the worklog's "Handover" queue, the lead retries once an hour, and a working
-call runs the queue until the next stop; the work in between continues.
+five-hour quota holds five or six reviews (the weekly one about forty). The accounts' order of
+preference never makes a review wait: when the preferred ones are spent, the review runs now on
+any account that can take it. Only a review no account can take goes on the worklog's
+"Handover" queue: the lead retries once an hour, and a working call runs the queue until the
+next stop; the work in between continues.
 
 **A review is sized before it is briefed.** Every plan's quota (Devin's, Codex's, Claude's) is
 a fixed amount of API-priced dollars shown as a percentage, so a review costs what its tokens

@@ -361,6 +361,42 @@ pub(crate) fn bit_width(version: PesVersion, field: PlayerField) -> Option<u32> 
     })
 }
 
+/// The oldest version whose player record stores `field`; `None` for a field
+/// no version stores. Behind the editors' disabled `PES NN+` tooltips.
+pub fn first_version_with(field: PlayerField) -> Option<PesVersion> {
+    PesVersion::ALL
+        .iter()
+        .copied()
+        .find(|version| schema_for(*version).player_has(field))
+}
+
+/// The smallest `which` player text field over the versions it counts
+/// (`spec/pes_savefile/operations.md` "Team TOML", the portable text
+/// limits): the name over every version (46 bytes), the shirt name over PES
+/// 15 and 17 to 21 (18 letters). PES 16's shirt field is the one outlier
+/// left out (16 letters): `apply` onto a PES 16 save crops a longer shirt
+/// name to the field's 16 with a note rather than hold every shirt name to
+/// 16.
+pub fn portable_text_max(which: PlayerText) -> usize {
+    const SHIRT_VERSIONS: [PesVersion; 6] = [
+        PesVersion::Pes15,
+        PesVersion::Pes17,
+        PesVersion::Pes18,
+        PesVersion::Pes19,
+        PesVersion::Pes20,
+        PesVersion::Pes21,
+    ];
+    let versions: &[PesVersion] = match which {
+        PlayerText::Name => &PesVersion::ALL,
+        PlayerText::ShirtName => &SHIRT_VERSIONS,
+    };
+    versions
+        .iter()
+        .map(|version| crate::codec::text_max(schema_for(*version).player.texts, which))
+        .min()
+        .expect("a non-empty version list")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -577,5 +613,42 @@ mod tests {
         assert!(schema_for(PesVersion::Pes15).player_has(PlayerField::NeckLength));
         assert!(schema_for(PesVersion::Pes16).player_has(PlayerField::NeckLength));
         assert!(!schema_for(PesVersion::Pes15).player_has(PlayerField::TightPossession));
+    }
+
+    /// `first_version_with` answers the oldest storing version: a field of
+    /// every version, the version-gated ones, and `None` for a field no
+    /// version's player record stores.
+    #[test]
+    fn first_version_with_names_the_oldest_storing_version() {
+        assert_eq!(
+            first_version_with(PlayerField::Speed),
+            Some(PesVersion::Pes15)
+        );
+        assert_eq!(
+            first_version_with(PlayerField::Clearing),
+            Some(PesVersion::Pes16)
+        );
+        assert_eq!(
+            first_version_with(PlayerField::PhysicalContact),
+            Some(PesVersion::Pes17)
+        );
+        assert_eq!(
+            first_version_with(PlayerField::Star),
+            Some(PesVersion::Pes19)
+        );
+        assert_eq!(
+            first_version_with(PlayerField::StrongerHand),
+            Some(PesVersion::Pes20)
+        );
+        assert_eq!(first_version_with(PlayerField::Skill(60)), None);
+    }
+
+    /// The portable limits are the shortest fields of the versions they
+    /// count: 46 bytes of name over every version, 18 shirt-name letters
+    /// over PES 15 and 17 to 21 (PES 16's 16 left out).
+    #[test]
+    fn portable_text_max_is_the_shortest_field_of_its_versions() {
+        assert_eq!(portable_text_max(PlayerText::Name), 46);
+        assert_eq!(portable_text_max(PlayerText::ShirtName), 18);
     }
 }

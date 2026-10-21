@@ -4,6 +4,33 @@
 
 ## Interchange formats
 
+### Team TOML (new, replaces `.4ccs`/`.4cct`)
+
+What exists of this is in `spec/pes_savefile/operations.md` "Team TOML". Planned on top of it:
+
+**Portable text limits.** A Team TOML is meant to apply to a save of any version, so
+`pes_savefile` exposes what every version can hold, computed from the schema tables rather than
+typed in (`portable_text_max(PlayerText)`): a player's name is the shortest name field of PES 15
+to 21 (46 bytes; 20 and 21 hold 61), a shirt name the shortest of PES 15 and 17 to 21 (18
+letters; PES 16's field, 16, is the one outlier left out). The Save editor holds a shirt name
+to 18 letters on every version, while a name may use the whole field of the version it is
+written on (61 bytes on PES 20/21), since a member may want a long name on the versions that
+show it (its plan, "Editing UI").
+
+`apply` onto a version whose field is shorter than a name or shirt name crops it to that field,
+with a note naming the player and the text as cut, never a refusal:
+`crop_player_text(version, PlayerText, &str) -> Cow<str>`, the longest prefix of whole spans
+(`name_spans`: a character or a colour code) that fits, so a crop never splits a character or
+leaves half a colour code drawn as text. The cases real files reach: a PES 20/21 name past 46
+bytes applied to PES 15 to 19, and a shirt name past 16 letters applied to PES 16.
+
+Export from a save writes every name as the save holds it (the dump stays full-fidelity), with
+a note for each name past 46 bytes or shirt name past 18 letters, naming the player and the
+versions that crop it. A crop is never silent: real cup saves show names cut at 45 bytes when a
+team moved from PES 21 to PES 17 (2026-10-21: 12 of 4,830 names in a PES 21 save were past 46
+bytes, the longest 59), and a cut nobody was told about renames the player. The Save editor
+draws a name that a version would crop as a warning (its plan, "Editing UI").
+
 ### Aesthetics patch (new)
 
 What exists of this is in `spec/pes_savefile/operations.md` "Aesthetics patch (new)" (the

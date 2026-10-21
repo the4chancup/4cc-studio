@@ -4,7 +4,7 @@
 
 use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
-use pes_savefile::model::names::name_spans;
+use pes_savefile::model::names::{display_name, name_spans};
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 
 use crate::session::Session;
@@ -21,6 +21,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         filter,
         selected,
         refusal: _,
+        rules: _,
     } = view;
     let Some(session) = session.as_ref() else {
         return;
@@ -80,18 +81,27 @@ fn player_row(
     let is_selected = *selected == Some((row.team_id, row.slot));
     let mut job = row_text(team, player, row, show_team);
     if dirty {
-        job.append(" \u{25cf}", 0.0, egui::TextFormat::default());
+        job.append(" \u{25cf}", 0.0, plain_format());
     }
-    let response = ui.selectable_label(is_selected, job);
-    // The whole row is the one click target; the dot's hover text rides it.
+    // One line, truncated when the name is too long for the panel: the full
+    // display name rides the hover, a dirty row's with the dot's text.
+    let hover = player.map_or_else(|| "?".to_owned(), |player| display_name(&player.name));
+    let response = ui.add(egui::Button::selectable(is_selected, job).truncate());
     let response = if dirty {
-        response.on_hover_text("Unsaved changes")
+        response.on_hover_text(format!("{hover}\nUnsaved changes"))
     } else {
-        response
+        response.on_hover_text(hover)
     };
     if response.clicked() {
         *selected = Some((row.team_id, row.slot));
     }
+}
+
+/// The format of a plain run (no code, after a reset or a non-hex code):
+/// `PLACEHOLDER`, which the widget replaces with its own text color —
+/// `TextFormat::default()`'s gray is not it.
+fn plain_format() -> egui::TextFormat {
+    egui::TextFormat::simple(egui::FontId::default(), egui::Color32::PLACEHOLDER)
 }
 
 /// The row's text as one `LayoutJob`: number, position, team name while the
@@ -111,29 +121,25 @@ fn row_text(
         .and_then(|player| POSITIONS.get(usize::from(player.positions.registered)))
         .copied()
         .unwrap_or("?");
-    job.append(
-        &format!("{number} {position}"),
-        0.0,
-        egui::TextFormat::default(),
-    );
+    job.append(&format!("{number} {position}"), 0.0, plain_format());
     if show_team && let Some(name) = team.map(|team| team.name.as_str()) {
-        job.append(&format!(" {name}"), 0.0, egui::TextFormat::default());
+        job.append(&format!(" {name}"), 0.0, plain_format());
     }
     match player {
         Some(player) => {
-            job.append(" ", 0.0, egui::TextFormat::default());
+            job.append(" ", 0.0, plain_format());
             for (color, text) in name_spans(&player.name) {
                 let format = match color {
                     Some([red, green, blue]) => egui::TextFormat::simple(
                         egui::FontId::default(),
                         egui::Color32::from_rgb(red, green, blue),
                     ),
-                    None => egui::TextFormat::default(),
+                    None => plain_format(),
                 };
                 job.append(text, 0.0, format);
             }
         }
-        None => job.append(" ?", 0.0, egui::TextFormat::default()),
+        None => job.append(" ?", 0.0, plain_format()),
     }
     job
 }

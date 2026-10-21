@@ -710,34 +710,8 @@ mod tests {
         use crate::model::tactics::TeamTactics;
         use crate::schema::fields::TacticsField;
 
-        /// `abilities()`' index order as `PlayerField`s.
-        const ABILITY_FIELDS: [PlayerField; 25] = [
-            PlayerField::AttackingProwess,
-            PlayerField::BallControl,
-            PlayerField::Dribbling,
-            PlayerField::LowPass,
-            PlayerField::LoftedPass,
-            PlayerField::Finishing,
-            PlayerField::PlaceKicking,
-            PlayerField::Swerve,
-            PlayerField::Heading,
-            PlayerField::DefensiveProwess,
-            PlayerField::BallWinning,
-            PlayerField::KickingPower,
-            PlayerField::Speed,
-            PlayerField::ExplosivePower,
-            PlayerField::BodyControl,
-            PlayerField::PhysicalContact,
-            PlayerField::Jump,
-            PlayerField::Goalkeeping,
-            PlayerField::Catching,
-            PlayerField::Clearing,
-            PlayerField::Reflexes,
-            PlayerField::Coverage,
-            PlayerField::Stamina,
-            PlayerField::TightPossession,
-            PlayerField::Aggression,
-        ];
+        use crate::schema::fields::ABILITY_FIELDS;
+
         for version in PesVersion::ALL {
             let schema = schema_for(version);
             let abilities = PlayerEntry::bare(version).stats.abilities();

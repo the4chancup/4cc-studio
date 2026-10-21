@@ -137,11 +137,7 @@ pub fn playing_style_picker(
 /// The oldest version storing `field` (for the disabled cell's `PES NN+`
 /// tooltip; every card is stored by some version).
 fn first_with(field: PlayerField) -> pes_version::PesVersion {
-    pes_version::PesVersion::ALL
-        .iter()
-        .copied()
-        .find(|version| schema_for(*version).player_has(field))
-        .expect("every card is stored by some version")
+    pes_savefile::schema::first_version_with(field).expect("every card is stored by some version")
 }
 
 /// `style`'s label: its Team TOML name, title-cased.

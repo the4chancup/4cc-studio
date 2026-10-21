@@ -38,7 +38,12 @@ tool's plan gets an "Acceptance" section: stable-ID, GIVEN/WHEN/THEN scenarios f
 user-observable behavior that phase delivers (format in `CONTRIBUTING.md` "Testing"). Written
 just-in-time for that phase only, never for the whole project up front: requirements written far
 ahead of the code that meets them go stale. Lib phases do not get one; for a format crate the
-fixture and the parity standard *are* the spec.
+fixture and the parity standard *are* the spec. A scenario for something a legacy tool already
+does (a control Studio keeps or replaces) states the effect read from that tool's source, citing
+the function, never one inferred from the control's name: SE-GUI-08 was written from the plan's
+"drag-and-drop reordering replaces the up/down spinner" and reordered the roster, where
+4ccEditor's spinner trades the two players' records between their ids, and the draft built on it
+carried the error two more days, every review checking the draft against the scenario.
 
 **Closing a phase**, in this order: (1) **converge**: audit the code against the phase's plan
 sections and acceptance IDs, the lead's own audit first (every plan code block compared line by
@@ -249,7 +254,10 @@ your question may already be listed, with the phase in which it gets resolved.
 - **Legacy tools are evidence, not source.** Red, Blue, 4ccEditor, Midcupping, Rigdio, SEN:P-AI,
   the converters and the Blender addons define *what* must be produced (formats, observable
   behavior), never *how* the Rust code is organized: no line-by-line translation, no copied module
-  structure. Red's CPK output is the parity golden standard.
+  structure. Red's CPK output is the parity golden standard. Marco's reverse engineering of the
+  PES 2021 executable (`C:/Data/4cc/Tools_Marco/GodotFootball/docs/re/`, index `README.md`;
+  save records, kits, faces, formats, each claim tagged observed or inferred) is evidence of
+  the same kind, for PES 2021 only.
 - **Findings, not messages, in libs.** Lib crates return stable finding codes with context; each
   tool's `messages.rs` maps them to user-facing text, severity and disposition. Tools report
   progress through `PipelineEvent`s addressed by `vtree::ScopePath`.

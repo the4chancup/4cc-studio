@@ -1,17 +1,20 @@
 //! The Save editor's window (`plans/save_editor.md` "Editing UI"): a toolbar over a
 //! master-detail layout, the player list left (`player_list`) and the general info
-//! strip right (`info_strip`). Render-only over the session's state: it opens a
+//! strip right (`info_strip`) over the tab strip and the Abilities & Skills tab
+//! (`abilities`). Render-only over the session's state: it opens a
 //! save, filters and selects players, edits the strip's fields through
 //! `Session::edit_player`/`edit_team` (one undo entry per gesture), saves, and
 //! shows a refusal in a modal.
 
+mod abilities;
 mod info_strip;
 mod player_list;
 #[cfg(test)]
 mod tests;
 
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
+use pes_savefile::model::PlayerEntry;
 use studio_core::RunningPes;
 
 use crate::session::Session;
@@ -29,6 +32,19 @@ pub(crate) struct SaveView {
     selected: Option<(u32, u8)>,
     /// A refusal to show until dismissed (an open the save refused).
     refusal: Option<Refusal>,
+    /// The ruleset the badges use, loaded on the first frame and again only
+    /// when the file named differs.
+    rules: Option<ActiveRules>,
+}
+
+/// The ruleset the Abilities tab's badges use (`plans/save_editor.md`
+/// "Editing UI", the Cards left bullet): the file it was loaded from and
+/// the outcome as the badges' row draws it.
+pub(crate) struct ActiveRules {
+    /// The file `rules` was loaded from (`None`: the embedded official ruleset).
+    file: Option<PathBuf>,
+    /// The loaded rules or the load error's text (drawn instead of the badges).
+    rules: Result<aatf::Rules, String>,
 }
 
 /// A refusal shown as a dialog: a title, the message and OK.
@@ -54,6 +70,7 @@ impl SaveView {
             filter: String::new(),
             selected: None,
             refusal: None,
+            rules: None,
         }
     }
 
@@ -83,7 +100,22 @@ impl SaveView {
 
 /// Shows the window for one frame. `running` is the running-PES probe,
 /// called only when Save runs (a process snapshot is not a frame's cost).
-pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
+/// `rules_file` is the AATF rules file the `aatf_rules` setting resolved
+/// to; the ruleset loads on the first frame and again only when it differs.
+pub(crate) fn show(
+    ui: &mut egui::Ui,
+    view: &mut SaveView,
+    running: &dyn Fn() -> Vec<RunningPes>,
+    rules_file: Option<&Path>,
+) {
+    let file = rules_file.map(Path::to_path_buf);
+    if view.rules.as_ref().is_none_or(|active| active.file != file) {
+        view.rules = Some(ActiveRules {
+            rules: crate::session::rules::load_rules(file.as_deref())
+                .map_err(|error| format!("{error:#}")),
+            file,
+        });
+    }
     toolbar(ui, view, running);
     if view.session.is_none() {
         ui.weak("No save open.");
@@ -91,7 +123,13 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() ->
         egui::Panel::left("save_editor_players")
             .resizable(true)
             .show(ui, |ui| player_list::show(ui, view));
-        egui::CentralPanel::default().show(ui, |ui| info_strip::show(ui, view));
+        egui::CentralPanel::default().show(ui, |ui| {
+            info_strip::show(ui, view);
+            tab_strip(ui);
+            egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .show(ui, |ui| abilities::show(ui, view));
+        });
     }
     refusal_dialog(ui, view);
     // One undo entry per gesture: seal when the pointer is up and no widget
@@ -111,13 +149,16 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
     // shortcuts do nothing then (a text field's own undo is egui's).
     let save_key = ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::S));
     let typing = ui.ctx().egui_wants_keyboard_input();
-    let undo_key =
-        !typing && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::Z));
+    // Ctrl+Shift+Z first: `consume_key(Ctrl, Z)` matches it too, so the more
+    // specific shortcut has to be tested before the plainer one.
     let redo_key = !typing
         && ui.input_mut(|input| {
-            input.consume_key(egui::Modifiers::CTRL, egui::Key::Y)
-                || input.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Z)
+            input.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Z)
+                || input.consume_key(egui::Modifiers::CTRL, egui::Key::Y)
         });
+    let undo_key = !typing
+        && !redo_key
+        && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::Z));
     ui.horizontal(|ui| {
         if ui.button("Open…").clicked()
             && let Some(path) = rfd::FileDialog::new().pick_file()
@@ -184,6 +225,47 @@ fn save(view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
             }
         }
     }
+}
+
+/// The detail pane's tabs (`plans/save_editor.md` "Editing UI", the Tabs
+/// bullet): `Abilities & Skills` selected; the other three drawn disabled
+/// until their slices land. No tab enum yet: there is one tab to show.
+fn tab_strip(ui: &mut egui::Ui) {
+    ui.horizontal(|ui| {
+        ui.selectable_label(true, "Abilities & Skills").clicked();
+        for label in ["Appearance", "Team", "Tactics"] {
+            ui.add_enabled(false, egui::Button::selectable(false, label))
+                .on_disabled_hover_text("Not available yet");
+        }
+    });
+}
+
+/// Clones the player's entry, applies `edit` and pushes it under `key` (the
+/// widget's `egui::Id` value, the undo stack's merge key).
+pub(crate) fn edit_player(
+    session: &mut Session,
+    id: u32,
+    key: u64,
+    edit: impl FnOnce(&mut PlayerEntry),
+) {
+    let mut edited = session
+        .file()
+        .player(id)
+        .expect("the selected player")
+        .clone();
+    edit(&mut edited);
+    session.edit_player(key, edited);
+}
+
+/// The selected player's `(team_id, roster slot, player_id)`; `None` when
+/// the selection names no rostered player (a stale slot, an empty save's
+/// list).
+pub(crate) fn selected_player(view: &SaveView) -> Option<(u32, u8, u32)> {
+    let (team_id, slot) = view.selected?;
+    let file = &view.session.as_ref()?.file();
+    let player_id = file.team(team_id)?.roster.get(usize::from(slot))?.player_id;
+    file.player(player_id)?;
+    Some((team_id, slot, player_id))
 }
 
 /// The refusal's dialog, while `view.refusal` holds one.

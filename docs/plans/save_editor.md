@@ -43,19 +43,24 @@ implementation is measured against.
 | 4ccEditor | Fate |
 |-----------|------|
 | Load 15/16/17/18/19/20/21 EDIT file (7 menu items) | One **Open savefile** action; auto-detect the version by master keys / container shape. The loaded file's version governs its codec and editing widgets; warn on a global-selector mismatch, never reinterpret the open file. The Open menu lists the saves `pes_savefile`'s discovery finds under `Documents\KONAMI` for every version (labelled by version and, for 19+, account folder) as one-click entries, with the files opened earlier in the session, above the ordinary file picker, and the picker opens in the selected version's save folder when it exists — see "Savefile discovery" in the Savefile plan |
-| Save EDIT file (encrypted) | Kept; plus **Save as** and an automatic `.bak` of the file each save replaces (one level) |
+| Save EDIT file (encrypted; always asks for a path; the first save after a load keeps the file it replaces as `<file>.BACKUP`) | Kept; plus **Save as**, and the file each save replaces kept as `.bak` (one level), at every save rather than the first after a load only |
 | Import Texport file (per-version submenu) | Kept, auto-detected version; plus **Texport export** (new — PES itself can import the result; see [Savefile plan](pes_savefile/README.md)) |
 
 ### Player operations
 
 | 4ccEditor | Fate |
 |-----------|------|
-| Set all ability stats (dialog) | Kept |
-| Bump all ability stats ±N (dialog) | Kept |
-| Copy player stats (source PID → dest PID) | Kept |
-| Swap player stats (two PIDs) | Kept |
+| Set all ability stats (dialog: every ability stat to N, 40 to 99, prefilled with the player's first; weak foot, form and injury untouched) | Kept, same fields and range |
+| Bump all ability stats ±N (dialog, Ctrl+B: N from -10 to 10, remembered; each ability stat clamped to 40 to 99; weak foot, form and injury untouched) | Kept, same; N is read whole (4ccEditor reads two characters, so -10 bumps by -1) |
+| Copy player stats (source PID → dest PID: height, weight, every ability, form, injury, weak foot, registered and playable positions, playing style, skills, COM styles, stronger foot and hand, star, playing attitude, the free-kick motion only, and the edited-player and gameplay edit flags) | Kept, same field set |
+| Swap player stats (two PIDs; the same field set as Copy) | Kept |
+| Move a player up or down the list (the spinner beside it: one step per click, within one team; the two players' records trade places between their ids, `base_copy_id` traded back to match each slot, shirt numbers and the captain left with the slots) | Kept as drag reorder, with the same effect ("Editing UI", the Player list bullet) |
 | Toggle FPC settings (Ctrl+I) | Kept (see "Full Player Customization" below) |
-| Quick actions: Make Gold / Make Silver / Make Bronze / Make Regular / Set stats | Kept, **driven by the AATF rules file** instead of hardcoded rates — the buttons and the checker can never disagree |
+| Quick actions: Make Gold / Make Silver / Make Bronze (from the Autumn 26 edition) / Make Regular / Set stats | Kept, **driven by the AATF rules file** instead of hardcoded rates — the buttons and the checker can never disagree |
+| Hidden shortcuts: PgUp/PgDn (previous/next player from any field) | Kept, the list's selection moving |
+| Hidden shortcuts: Ctrl+Shift+P (a joke preset), Ctrl+Shift+B (a sound), Ctrl+Shift+H (show the dribbling-motion and hand controls), Ctrl+O and Ctrl+5 to Ctrl+1 (open as a given version) | Not kept: Open detects the version and every control is always drawn |
+| Hidden shortcut: Ctrl+Shift+T on the team selector (empties the team's slots past 23; its team index looks one off) | Open: whether cups still need it is the maintainer's call (`docs/QUESTIONS.md`) |
+| Is a copy? (Appearance; ticking it also sets the ability, COM, motion, playable-position, registered-position, skill and playing-style edit flags) | Kept, the same flags set |
 
 ### Team operations
 
@@ -66,8 +71,8 @@ What exists of this is in `spec/save_editor.md` "Team operations".
 | Clear visual settings flags (all players on team) | Kept |
 | Set edited/created flag (all players on team) | Kept |
 | Set / remove FPC invisibility (whole team) | Kept |
-| Set boot/glove IDs for everyone (unchanged / incremental / same-for-all) | Kept |
-| Set player names to positions | Kept |
+| Set boot/glove IDs for everyone (boots: unchanged, incremental or same for all; gloves: unchanged, like the boots, or same for all; incremental gives slot `k` the start ID + `k` − 1, slots 1 to 23) | Kept, every filled slot of the roster numbered by its slot (4ccEditor stops at the first id missing from the team, a bug not kept) |
+| Set player names to positions (each name becomes its registered position's full name, "Goalkeeper", and the edited-player flag is set) | Kept, same |
 | Load squad (`.4ccs`, with stats/aesthetics/tactics checkboxes) | Kept as read-only legacy import, same section checkboxes; Team TOML import is the primary path. Cross-version import applies the playstyle/skill conversion maps |
 
 ### Tactics operations
@@ -85,8 +90,8 @@ What exists of this is in `spec/save_editor.md` "Database operations".
 
 | 4ccEditor | Fate |
 |-----------|------|
-| Output rosters to TSV | Kept |
-| Fix database (clear all visual flags, reset kit slots, PES17 kit-ID repair) | Kept as a maintenance action behind a confirmation dialog |
+| Output rosters to TSV (`EDIT.tsv` in the working folder, no dialog, UTF-8; every team, hidden ones included, in roster order; per player: number, name, registered position, Finishing as the "rating", captain mark, height, playing style, skills, COM styles) | Kept, the same columns; written where a save dialog says, `EDIT.tsv` its default name |
+| Fix database (clear all visual flags, reset kit slots, PES17 kit-ID repair; a player's base-copy id cleared when it is neither his own nor 0 and his base-copy flag is off, the flag cleared when the id is his own or 0; every team's strip-edited flag cleared) | Kept as a maintenance action behind a confirmation dialog, all of it |
 
 ---
 
@@ -110,7 +115,9 @@ Planned files that do not exist yet:
   widget of this crate, the host converting between the picker's 8 bits and the save's 6 per
   channel: a picked channel `c` is stored as `c * 63 / 255` rounded, a stored `v` shown as
   `v * 255 / 63` rounded (the Team compiler's widening of 5:6:5 colors), so a save always
-  holds the nearest color it can; a palette
+  holds the nearest color it can; 4ccEditor stores `ceil(c / 4.05)` and shows `floor(4.05 v)`,
+  so a value can read one higher here (`v` 32: 130, where 4ccEditor shows 129), a difference
+  kept on purpose, since the stored value is what reaches the game; a palette
   index (skin, iris, wrist tape, spectacles, gloves, hair accessory, as `settings.toml`'s
   `skin_color` 0-7) is a choice of its palette's entries, never a picker whose free color no
   record can hold)
@@ -151,15 +158,41 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   longer requires knowing their team first. Matching uses the colour-code-free
   `display_name()` (see the pes_savefile plan's "Name colour codes").
 - **Player list**: shows number, position, name; **drag-and-drop reordering**
-  replaces the up/down spinner. A dot marks players with unsaved changes. Names
+  replaces the up/down spinner, and moves what the spinner moves: the players' records trade
+  places between the ids, each id staying in its roster slot (`base_copy_id` traded so each
+  matches its new slot), and the shirt numbers, held by the roster's slots, stay where they
+  are, as does the captain mark. The roster's own order is never changed: by 4cc rule slot `NN`
+  holds player `team id × 100 + NN` (`plans/aatf_rules.md` "The host"), and reordering the
+  roster itself would break it. A drop several rows away is the spinner pressed that many
+  times, so the players in between shift one slot along; drag works in one team's list and is
+  off in ALL and while a filter is typed, where neighbouring rows are not one team's
+  neighbouring slots. A dot marks players with unsaved changes. Names
   render with their savefile colour codes applied as text colours (the in-game
   look; 4ccEditor shows the raw control characters), and the name edit field
   keeps the raw string so codes survive a roundtrip untouched. A code's first six bytes are
   the RGB hex; its alpha is not drawn, and a code whose six are not hex leaves the text the
   normal color (the game does not check them: `spec/pes_savefile/codec.md` "Name colour
   codes, as measured").
-- **General info strip** and **quick actions** always visible above the tabs.
-- **Tabs** (contents 1:1 with 4ccEditor):
+- **General info strip** and **quick actions** always visible above the tabs. The save is where
+  a member writes the names a tactical export carries to a cup of any version, so its Name and
+  Shirt fields follow `pes_savefile`'s portable limits ("Team TOML" in its operations plan):
+  - **Name**: the open save's own field (61 bytes on PES 20/21, 46 before). A name past 46
+    bytes, which only a PES 20/21 save holds, draws its field with an amber tint and a hover
+    "In PES 2019 and older this name will be cut to: «…»", the name as `crop_player_text`
+    would cut it. A tint of the theme's warning colour, not a pale yellow fill: the theme is
+    dark and its text light, which a pale fill would wash out.
+  - **Shirt**: 18 letters on every version but PES 16 (its field holds 16). A shirt name the
+    save already holds past 18 (PES 20/21 allow more) is kept, drawn with the same tint and a
+    hover "PES 2019 and older show 18 letters of a shirt name (PES 2016: 16)"; an edit may shorten it but not lengthen
+    it, so it can be fixed a keystroke at a time.
+  - Nothing more: a warning, never a block on Save, so editing a save stays frictionless.
+  - What 4ccEditor's fields do besides storing, kept: a name or shirt name edit sets the
+    player's edited-player flag; a shirt name is upper-cased as typed; Captain is a radio
+    that makes this player's slot the team's captain and is not unticked by a second click
+    (the captain belongs to the slot).
+- **Tabs** (contents 1:1 with 4ccEditor, but for star, playing attitude and stronger hand,
+  which 4ccEditor draws on its Appearance tab and the approved draft on Abilities & Skills,
+  beside the gameplay values they are):
   - **Abilities & Skills** — 13 playable positions with A/B/C ratings, 7 COM
     styles, up to 41 skill checkboxes (version-gated), ~25 ability stats with
     spinners, playstyle / registered position / form / injury / weak foot,
@@ -405,7 +438,10 @@ the editor exposes them as:
   4ccEditor's squad load (gameplay / aesthetics / tactics), and applies cross-version conversion with a warning list
   when the file's version differs. The sections split the file as the squad load does: names,
   shirt names and shirt numbers go with aesthetics (its `PlayerImport` copies them under
-  `importAes`), not with gameplay as the comparator's scopes have them, so a file that loads
+  `importAes`), not with gameplay as the comparator's scopes have them, and so do nationality,
+  age, every motion but the free kick's, the dribbling motion and the base-copy flag and id;
+  the free-kick motion, height, weight, star, playing attitude and stronger hand go with
+  gameplay (`editor.h` `PlayerImport`, read 2026-10-21), so a file that loads
   with 4ccEditor's choices loads the same here. The file's `[team]` keys, which the squad file
   never carried, go with gameplay.
 - **Legacy import**: `.4ccs` and `.4cct` open through the same import dialog,
@@ -562,7 +598,10 @@ SE-GUI-07  GIVEN the save open
                 a stripped player the tab says the game does not read the record
 SE-GUI-08  GIVEN the save open on a team
            WHEN player 02 is dragged above player 01 in the list
-           THEN the list shows the new order, and after Save the file's roster has them swapped
+           THEN the list shows the new order, and after Save slot 01 still holds player
+                `team id × 100 + 01`, whose record (name, stats, appearance) is the one player
+                02 had, and the other way round; the roster's ids and shirt numbers are as they
+                were, and the AATF check reports no `RosterOrder` error for the team
 SE-GUI-09  GIVEN the official ruleset active
            WHEN Make Gold is clicked on a player
            THEN his fields hold the Gold tier's values as `aatf::apply_tier` sets them
@@ -650,8 +689,10 @@ SE-GUI-23  GIVEN the save open on a team and "Edit aesthetics anyway" on
 SE-GUI-24  GIVEN the save open on a player
            WHEN Set all stats to N, Bump all stats by N, Copy stats from another player or Swap
                 stats with him runs from the player operations
-           THEN his ability values are the operation's result, as one undoable edit, and the
-                saved file holds them
+           THEN his ability values are the operation's result (Set and Bump clamped to 40 to
+                99, weak foot, form and injury untouched; Copy and Swap over the parity row's
+                field set, positions, skills and COM styles included), as one undoable edit,
+                and the saved file holds them
 SE-GUI-25  GIVEN the Tactics tab on preset 1
            WHEN Copy preset to 2, then Swap formation kick-off with in-possession, run from the
                 tab's menus
@@ -666,8 +707,9 @@ SE-GUI-26  GIVEN two PES 21 saves and one PES 19 save under the test's Documents
 SE-GUI-27  GIVEN the save open
            WHEN Output rosters to TSV runs
            THEN the file written holds, for every team, its name on a line of its own, then one
-                tab-separated row per player (number, name, registered position, rating,
-                captain mark, height, playing style, skills), as 4ccEditor's output does; WHEN
+                tab-separated row per player (number, name, registered position, Finishing as
+                the rating, captain mark, height, playing style, skills, COM styles), as
+                4ccEditor's output does; WHEN
                 Fix database is chosen THEN a
                 confirmation dialog precedes it and cancelling changes nothing
 SE-GUI-28  GIVEN the selector at PES 19

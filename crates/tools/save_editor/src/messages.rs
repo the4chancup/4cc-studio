@@ -11,6 +11,7 @@ use aatf::Violation;
 use pes_savefile::interchange::aesthetics_patch::PatchSkip;
 use pes_savefile::interchange::team_toml::ImportNote;
 use pes_savefile::model::PlayerEntry;
+use pes_savefile::model::names::display_name;
 use pes_savefile::ops::compare::PlayerDiff;
 use studio_core::{CatalogRow, Disposition, Message, MessageCode, Scope, Severity};
 
@@ -35,6 +36,9 @@ pub(crate) enum Code {
     ImportValueCapped,
     /// `import-toml`: a `[players.NN]` whose roster slot is empty; skipped (`slot`).
     ImportSlotEmpty,
+    /// `import-toml`: a name or shirt name longer than the save's field; cropped to it
+    /// (`path`, `cropped`).
+    ImportTextCropped,
     /// `apply-patch`: the save holds the team and at least one of its patch players was
     /// written (`team`). A team whose players the save all lacks is not listed.
     PatchTeamApplied,
@@ -126,6 +130,7 @@ impl Code {
             Code::ImportValueNotEncodable => "import_value_not_encodable",
             Code::ImportValueCapped => "import_value_capped",
             Code::ImportSlotEmpty => "import_slot_empty",
+            Code::ImportTextCropped => "import_text_cropped",
             Code::PatchTeamApplied => "patch_team_applied",
             Code::PatchTeamNotInSave => "patch_team_not_in_save",
             Code::PatchPlayerNotInSave => "patch_player_not_in_save",
@@ -170,6 +175,7 @@ impl Code {
             | Code::ImportValueNotEncodable
             | Code::ImportValueCapped
             | Code::ImportSlotEmpty
+            | Code::ImportTextCropped
             | Code::TransplantTargetStripped
             | Code::TransplantDonorStripped
             | Code::StripBaseCopiedFace => Severity::Warning,
@@ -200,6 +206,7 @@ impl Code {
         Code::ImportValueNotEncodable,
         Code::ImportValueCapped,
         Code::ImportSlotEmpty,
+        Code::ImportTextCropped,
         Code::PatchTeamApplied,
         Code::PatchTeamNotInSave,
         Code::PatchPlayerNotInSave,
@@ -250,6 +257,11 @@ const CATALOG: &[(Code, &str, &str)] = &[
         Code::ImportSlotEmpty,
         r#"`import-toml`: a `[players.NN]` whose roster slot is empty."#,
         r#"The player is skipped; the rest is written."#,
+    ),
+    (
+        Code::ImportTextCropped,
+        r#"`import-toml`: a name or shirt name longer than the save's field; the field holds fewer letters there."#,
+        r#"Cut to the text the line shows; the rest is written."#,
     ),
     (
         Code::PatchTeamApplied,
@@ -398,6 +410,11 @@ pub(crate) fn import_note(note: &ImportNote) -> Message {
         ImportNote::EmptySlot { slot } => {
             message(Code::ImportSlotEmpty, vec![("slot", format!("{slot:02}"))])
         }
+        ImportNote::TextCropped { path, cropped } => message(
+            Code::ImportTextCropped,
+            // As the game draws it: a colour code's bytes are no text a member reads.
+            vec![("path", path.clone()), ("cropped", display_name(cropped))],
+        ),
     }
 }
 
@@ -600,6 +617,21 @@ mod tests {
         assert_eq!(
             line(&import_note(&ImportNote::EmptySlot { slot: 7 })),
             "Warning import_slot_empty (slot=07)"
+        );
+        assert_eq!(
+            line(&import_note(&ImportNote::TextCropped {
+                path: "players.02.shirt_name".to_owned(),
+                cropped: "ABCDEFGHIJKLMNOP".to_owned()
+            })),
+            "Warning import_text_cropped (path=players.02.shirt_name, cropped=ABCDEFGHIJKLMNOP)"
+        );
+        // A coloured name is shown as the game draws it, its codes left out.
+        assert_eq!(
+            line(&import_note(&ImportNote::TextCropped {
+                path: "players.03.name".to_owned(),
+                cropped: "\x11cFF0000FFAKI\x11dRA".to_owned()
+            })),
+            "Warning import_text_cropped (path=players.03.name, cropped=AKIRA)"
         );
     }
 

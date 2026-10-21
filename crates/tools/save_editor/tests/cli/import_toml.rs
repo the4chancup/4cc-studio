@@ -182,7 +182,7 @@ fn a_pes21_document_imports_into_pes18_converted_with_a_note_per_value() {
 
 // SE-TOML-06
 #[test]
-fn a_name_longer_than_the_field_is_refused_naming_the_player() {
+fn a_name_longer_than_the_field_crops_to_it_with_a_note() {
     let sandbox = Sandbox::new("import_name_too_long");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
     fs::write(
@@ -195,8 +195,21 @@ fn a_name_longer_than_the_field_is_refused_naming_the_player() {
     )
     .unwrap();
     let run = sandbox.import("long.toml", "EDIT", "OUT");
-    run.assert_refused(2, &[&CO_SLOT_3.to_string(), "does not fit"]);
-    assert!(!sandbox.path("OUT").exists());
+    assert_eq!(run.exit_code(), 0, "{:?}", run.messages());
+    assert!(
+        run.messages().contains(&format!(
+            "Warning import_text_cropped (path=players.03.name, cropped={})",
+            "A".repeat(61)
+        )),
+        "{:?}",
+        run.messages()
+    );
+    let written = EditFile::load(&sandbox.path("OUT")).unwrap();
+    assert_eq!(
+        written.player(CO_SLOT_3).unwrap().name,
+        "A".repeat(61),
+        "the name is written at the field's whole length"
+    );
 }
 
 // SE-TOML-07

@@ -6,7 +6,7 @@ use std::fs;
 use std::io::{self, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
 
-use aatf::{Rules, TeamView};
+use aatf::TeamView;
 use anyhow::anyhow;
 use clap::{ArgGroup, Args, Command, FromArgMatches, Subcommand};
 use cpk::{CpkArchive, CpkWriter};
@@ -453,11 +453,7 @@ fn check_aatf(
     ctx: &ToolContext,
     report: &mut Report,
 ) -> Result<(), CliError> {
-    let rules = match rules_path(args, ctx)? {
-        Some(path) => Rules::load(&read_text(&path)?)
-            .map_err(|error| invalid(anyhow!("{}: {error}", path.display())))?,
-        None => Rules::official(),
-    };
+    let rules = session::rules::load_rules(rules_path(args, ctx)?.as_deref()).map_err(invalid)?;
     let session = open(&args.save)?;
     let ids = match &args.teams {
         Some(text) => parse_teams(text).map_err(|error| invalid(anyhow!("--teams: {error}")))?,
@@ -506,10 +502,8 @@ fn check_aatf(
 
 /// The rules file `check-aatf` reads: `--rules`, else the `aatf_rules` setting when it names
 /// one, else `None` (the embedded official ruleset). `--rules`, a command-line path, is used
-/// as given; the setting's relative path resolves in the data directory, as
-/// `teams_list_path` does (a rules file is user data beside the settings file, not a file
-/// beside wherever the command was started): an absolute one, or a relative one with no data
-/// directory chosen, is used as given.
+/// as given; the setting's file resolves as `session::rules::rules_file` resolves it (the
+/// window's badges use the same resolution).
 fn rules_path(args: &CheckAatfArgs, ctx: &ToolContext) -> Result<Option<PathBuf>, CliError> {
     if let Some(path) = &args.rules {
         return Ok(Some(path.clone()));
@@ -521,14 +515,10 @@ fn rules_path(args: &CheckAatfArgs, ctx: &ToolContext) -> Result<Option<PathBuf>
             error.to_string().trim_end()
         ))
     })?;
-    if settings.aatf_rules.is_empty() {
-        return Ok(None);
-    }
-    let path = PathBuf::from(&settings.aatf_rules);
-    Ok(Some(match (path.is_relative(), &ctx.paths().data_dir) {
-        (true, Some(data_dir)) => data_dir.join(path),
-        _ => path,
-    }))
+    Ok(session::rules::rules_file(
+        &settings.aatf_rules,
+        ctx.paths().data_dir.as_deref(),
+    ))
 }
 
 /// `--teams`' list: comma-separated ids and inclusive ranges (`701,705-710`), sorted with

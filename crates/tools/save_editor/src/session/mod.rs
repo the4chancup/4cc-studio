@@ -4,6 +4,7 @@
 //! every operation on the model; the session resolves ids against the open save and hands
 //! the lib the entries it asks for.
 
+pub(crate) mod rules;
 pub(crate) mod selection;
 pub(crate) mod undo;
 

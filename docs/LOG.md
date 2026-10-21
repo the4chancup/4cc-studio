@@ -2274,3 +2274,7 @@ worklog passed 7,000 lines.
 - **2026-10-21** — Reviews closed on the color picker (8.7b) and `team_widgets` (8.8); 8.9a's first rework makes the
   player list draw only its visible rows (27.7 ms to 0.22 ms a frame) and refuses names the save cannot hold. The drafts
   draw in a resizable window of Studio's default size (half the monitor); egui 0.37 queued as 8.11.
+- **2026-10-21** — 10.0f-g: Rigdio v2.2.0 audited against `music_export`; the crate now reads a `.4ccm` as Rigdio does where
+  that decides the song (conditions in order, `once` spent when reached, one shared `goal` fallback per team); strict elsewhere.
+- **2026-10-21** — 8.9b1: the Save editor's Abilities & Skills tab with the ruleset's cards-left badges; names may use the
+  save's whole field, tinted past what every version holds; Team TOML import crops a too-long name with a note.

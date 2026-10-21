@@ -921,10 +921,12 @@ fn skin_seven_resets_only_where_the_target_has_no_custom_skin() {
     assert_eq!(stored, 2);
 }
 
-/// A name longer than the target field is `TextTooLong`, returned
-/// before anything is written.
+/// A name longer than the target field writes its `crop_player_text`
+/// result — cut at whole spans — with a `TextCropped` note naming the
+/// player's slot and the text as cut (`spec/pes_savefile/
+/// operations.md` "Team TOML").
 #[test]
-fn a_name_longer_than_the_field_is_refused_and_writes_nothing() {
+fn a_name_longer_than_the_field_crops_to_it_with_a_note() {
     let (file, _) = open(PesVersion::Pes16);
     let (team, slot) = first_slot(&file);
     let max = usize::try_from(
@@ -939,8 +941,8 @@ fn a_name_longer_than_the_field_is_refused_and_writes_nothing() {
     .expect("fits usize");
     assert_eq!(max, 46, "the field holds 46 bytes");
 
-    // A section that would write cleanly at a lower slot than the
-    // overlong one: the refusal must leave him as he was too.
+    // A section that writes cleanly at a lower slot, and an overlong one:
+    // both write, the long one as its crop.
     assert!(
         team.roster[slot + 1].player_id != 0,
         "the next slot is rostered"
@@ -965,25 +967,41 @@ fn a_name_longer_than_the_field_is_refused_and_writes_nothing() {
     );
     let mut target = team.clone();
     let mut players = file.players().to_vec();
-    let err = doc
+    let notes = doc
         .apply(PesVersion::Pes16, &mut target, &mut players)
-        .expect_err("too long");
-    assert!(
-        matches!(
-            err,
-            TeamTomlError::TextTooLong { ref path, max: 46 }
-                if *path == format!("players.{:02}.name", slot + 2)
-        ),
-        "{err:?}"
+        .expect("a long name crops, never refuses");
+    assert_eq!(
+        notes,
+        [ImportNote::TextCropped {
+            path: format!("players.{:02}.name", slot + 2),
+            cropped: "N".repeat(46),
+        }]
     );
-    assert_eq!(&target, team, "nothing was written");
-    assert_eq!(players, file.players(), "every player is his before");
+    assert_eq!(
+        players
+            .iter()
+            .find(|p| p.id == team.roster[slot + 1].player_id)
+            .expect("the cropped player")
+            .name,
+        "N".repeat(46),
+        "the name cut to the field"
+    );
+    assert_eq!(
+        players
+            .iter()
+            .find(|p| p.id == team.roster[slot].player_id)
+            .expect("the earlier player")
+            .name,
+        "FINE",
+        "the earlier slot wrote cleanly"
+    );
 }
 
 /// A name or shirt name of exactly the field's capacity applies; one
-/// byte over is `TextTooLong`.
+/// over crops to the field with a `TextCropped` note (`apply` crops,
+/// never refuses, a longer name or shirt name).
 #[test]
-fn a_player_text_at_the_fields_capacity_applies_and_one_more_is_refused() {
+fn a_player_text_at_the_fields_capacity_applies_and_one_more_crops() {
     let (file, _) = open(PesVersion::Pes16);
     let (team, slot) = first_slot(&file);
     let id = team.roster[slot].player_id;
@@ -1008,9 +1026,9 @@ fn a_player_text_at_the_fields_capacity_applies_and_one_more_is_refused() {
     assert_eq!(applied.name, "N".repeat(name_max));
     assert_eq!(applied.shirt_name, "S".repeat(shirt_max));
 
-    for (name_over, shirt_over, leaf, max) in [
-        (true, false, "name", name_max),
-        (false, true, "shirt_name", shirt_max),
+    for (name_over, shirt_over, leaf, cropped) in [
+        (true, false, "name", "N".repeat(name_max)),
+        (false, true, "shirt_name", "S".repeat(shirt_max)),
     ] {
         let section = PlayerSection {
             name: Some("N".repeat(name_max + usize::from(name_over))),
@@ -1019,25 +1037,98 @@ fn a_player_text_at_the_fields_capacity_applies_and_one_more_is_refused() {
         };
         let mut target = team.clone();
         let mut players = file.players().to_vec();
-        let err = one_section(PesVersion::Pes16, slot, section)
+        let notes = one_section(PesVersion::Pes16, slot, section)
             .apply(PesVersion::Pes16, &mut target, &mut players)
-            .expect_err("one byte over");
-        assert!(
-            matches!(
-                err,
-                TeamTomlError::TextTooLong { ref path, max: m }
-                    if *path == format!("players.{:02}.{leaf}", slot + 1) && m == max
-            ),
-            "{err:?}"
+            .expect("one over crops");
+        assert_eq!(
+            notes,
+            [ImportNote::TextCropped {
+                path: format!("players.{:02}.{leaf}", slot + 1),
+                cropped,
+            }],
+            "{leaf}"
         );
-        assert_eq!(&target, team, "nothing was written");
+        let applied = players
+            .iter()
+            .find(|player| player.id == id)
+            .expect("the player");
+        if leaf == "name" {
+            assert_eq!(applied.name, "N".repeat(name_max));
+        } else {
+            assert_eq!(applied.shirt_name, "S".repeat(shirt_max));
+        }
     }
 }
 
-/// A `shirt_name` of exactly the field's capacity applies; one more char
-/// is `TextTooLong` (pins `check_text`'s `len > max` at the boundary).
+/// PES 16's shirt field is the one outlier the portable limit leaves
+/// out: a shirt name past its 16 chars crops to 16 with a `TextCropped`
+/// note, never a refusal (`spec/pes_savefile/operations.md` "Team TOML").
 #[test]
-fn a_shirt_name_at_capacity_applies_and_one_more_is_refused() {
+fn a_pes16_shirt_name_past_the_field_crops_to_16_with_a_note() {
+    let (file, _) = open(PesVersion::Pes16);
+    let (team, slot) = first_slot(&file);
+    let id = team.roster[slot].player_id;
+    let text = "ABCDEFGHIJKLMNOPQRST"; // 20 chars over PES 16's 16-char field.
+
+    let section = PlayerSection {
+        shirt_name: Some(text.to_string()),
+        ..PlayerSection::default()
+    };
+    let mut target = team.clone();
+    let mut players = file.players().to_vec();
+    let notes = one_section(PesVersion::Pes16, slot, section)
+        .apply(PesVersion::Pes16, &mut target, &mut players)
+        .expect("a PES 16 shirt name crops, never refuses");
+    assert_eq!(
+        notes,
+        [ImportNote::TextCropped {
+            path: format!("players.{:02}.shirt_name", slot + 1),
+            cropped: "ABCDEFGHIJKLMNOP".to_string(),
+        }]
+    );
+    let applied = players
+        .iter()
+        .find(|player| player.id == id)
+        .expect("the player");
+    assert_eq!(applied.shirt_name, "ABCDEFGHIJKLMNOP");
+}
+
+/// A PES 21 document's 52-byte name, applied to the PES 17 save (46-byte
+/// field), writes the 46-byte crop with one note — the cross-version case
+/// the portable limits exist for.
+#[test]
+fn a_pes21_name_applied_to_pes17_writes_the_46_byte_crop() {
+    let (file, _) = open(PesVersion::Pes17);
+    let (team, slot) = first_slot(&file);
+    let id = team.roster[slot].player_id;
+    let section = PlayerSection {
+        name: Some("N".repeat(52)),
+        ..PlayerSection::default()
+    };
+    let mut target = team.clone();
+    let mut players = file.players().to_vec();
+    let notes = one_section(PesVersion::Pes21, slot, section)
+        .apply(PesVersion::Pes17, &mut target, &mut players)
+        .expect("the longer name crops, never refuses");
+    assert_eq!(
+        notes,
+        [ImportNote::TextCropped {
+            path: format!("players.{:02}.name", slot + 1),
+            cropped: "N".repeat(46),
+        }]
+    );
+    let applied = players
+        .iter()
+        .find(|player| player.id == id)
+        .expect("the player");
+    assert_eq!(applied.name, "N".repeat(46));
+}
+
+/// A `shirt_name` of exactly the field's capacity applies; one more char
+/// crops to the field with a `TextCropped` note — on every version, not
+/// only PES 16 (`spec/pes_savefile/operations.md` "Team TOML").
+#[test]
+fn a_shirt_name_at_capacity_applies_and_one_more_crops() {
     let (file, _) = open(PesVersion::Pes19);
     let (team, slot) = first_slot(&file);
     let id = team.roster[slot].player_id;
@@ -1067,19 +1158,21 @@ fn a_shirt_name_at_capacity_applies_and_one_more_is_refused() {
     };
     let mut target = team.clone();
     let mut players = file.players().to_vec();
-    let err = one_section(PesVersion::Pes19, slot, section)
+    let notes = one_section(PesVersion::Pes19, slot, section)
         .apply(PesVersion::Pes19, &mut target, &mut players)
-        .expect_err("one char over");
-    assert!(
-        matches!(
-            err,
-            TeamTomlError::TextTooLong { ref path, max: m }
-                if *path == format!("players.{:02}.shirt_name", slot + 1) && m == max
-        ),
-        "{err:?}"
+        .expect("one char over crops");
+    assert_eq!(
+        notes,
+        [ImportNote::TextCropped {
+            path: format!("players.{:02}.shirt_name", slot + 1),
+            cropped: "a".repeat(max),
+        }]
     );
-    assert_eq!(&target, team, "nothing was written");
-    assert_eq!(players, file.players(), "nothing was written");
+    let applied = players
+        .iter()
+        .find(|player| player.id == id)
+        .expect("the player");
+    assert_eq!(applied.shirt_name, "a".repeat(max));
 }
 
 /// The `NotEncodable` note names the label of the style the target
@@ -1144,6 +1237,57 @@ fn from_team_carries_every_rostered_slots_shirt_number() {
             }
         }
     }
+}
+
+/// A name or shirt name past the portable limit emits a note on its own
+/// line, in the file the dump writes (`spec/pes_savefile/operations.md`
+/// "Team TOML", the portable text limits).
+#[test]
+fn a_name_or_shirt_name_past_the_portable_limits_carries_a_note() {
+    let (mut file, _) = open(PesVersion::Pes21);
+    let (team_id, slot, player_id) = {
+        let (team, slot) = first_slot(&file);
+        (team.id, slot, team.roster[slot].player_id)
+    };
+    let player = file.player_mut(player_id).expect("the player");
+    player.name = "N".repeat(59);
+    player.shirt_name = "S".repeat(19);
+    let refs: Vec<&PlayerEntry> = file.players().iter().collect();
+    let doc = TeamToml::from_team(
+        PesVersion::Pes21,
+        file.team(team_id).expect("the team"),
+        &refs,
+    )
+    .expect("from_team");
+    let text = doc.to_toml().expect("to_toml");
+    let block = text
+        .split_once(&format!("[players.{:02}]", slot + 1))
+        .and_then(|(_, rest)| rest.split_once("\n["))
+        .map(|(block, _)| block)
+        .expect("the player's block");
+    let name_line = block
+        .lines()
+        .find(|line| line.starts_with("name ="))
+        .expect("the name line");
+    assert!(
+        name_line.contains("# name past 46 bytes: cut on PES 2015 to 2019"),
+        "{name_line}"
+    );
+    let shirt_line = block
+        .lines()
+        .find(|line| line.starts_with("shirt_name ="))
+        .expect("the shirt_name line");
+    assert!(
+        shirt_line
+            .contains("# shirt name past 18 letters: cut on PES 2015 to 2019 (PES 2016: past 16)"),
+        "{shirt_line}"
+    );
+    // A text inside the limits gets no note.
+    let line = text
+        .lines()
+        .find(|line| line.starts_with("name =") && !line.contains("past 46"))
+        .expect("an unnoted name line");
+    assert!(line.contains("name = "), "{line}");
 }
 
 /// A key the document's version lacks emits the commented neutral line,

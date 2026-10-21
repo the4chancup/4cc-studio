@@ -49,8 +49,19 @@ impl StudioTool for Tool {
         studio_core::egui_phosphor::regular::NOTE_PENCIL
     }
 
-    fn view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
-        view::show(ui, &mut self.view, &studio_core::running_pes);
+    fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
+        // A settings error counts as an empty setting (the embedded
+        // official ruleset).
+        let aatf_rules = settings::from_table(&ctx.tool_settings(TOOL_ID))
+            .map(|settings| settings.aatf_rules)
+            .unwrap_or_default();
+        let file = session::rules::rules_file(&aatf_rules, ctx.paths().data_dir.as_deref());
+        view::show(
+            ui,
+            &mut self.view,
+            &studio_core::running_pes,
+            file.as_deref(),
+        );
     }
 
     fn settings_view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
@@ -78,6 +89,11 @@ impl StudioTool for Tool {
                     title: "The window",
                     body: include_str!("../help/02_window.md"),
                 },
+                HelpTopic {
+                    slug: "abilities",
+                    title: "Abilities & Skills",
+                    body: include_str!("../help/03_abilities.md"),
+                },
             ],
             messages: messages::catalog(),
         }
@@ -102,6 +118,6 @@ mod tests {
         assert_eq!(tool.id(), "save-editor");
         assert_eq!(tool.label(), "Save editor");
         assert_eq!(tool.default_settings()["aatf_rules"].as_str(), Some(""));
-        assert_eq!(tool.help().topics.len(), 2);
+        assert_eq!(tool.help().topics.len(), 3);
     }
 }

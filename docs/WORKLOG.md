@@ -12,8 +12,8 @@ is in `AGENTS.md` ("Working documents").
 **Phase:** 8 (GUI) is next in the phase order, after the DBC work below. Phase 6 (Export
 upgrader) closed 2026-10-20; Phase 5 (Savefile integration) 2026-10-17. Phases 1 to 4 done
 (Phase 4 closed 2026-10-12, Phase 3 2026-10-02, Phase 2 2026-09-30). Built ahead of their
-phases: 10.0a-e (`music_export`, its plan section, `pub` audit and whole-crate mutation run
-done; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Ruleset editor's
+phases: 10.0a-g (`music_export`, its plan section, `pub` audit and whole-crate mutation run
+done, then matched to Rigdio's reading by the 10.0f audit; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Ruleset editor's
 coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
@@ -884,6 +884,35 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         test helper's unbounded Ctrl+Z loop, now bounded (CONTRIBUTING.md "A test fails, it
         never hangs"; the timeout multiplier lowered to 3 in `.cargo/mutants.toml`). Astra
         over 8.9a next
+    - [x] 8.9b1 the Abilities & Skills tab, with the 8.9a review's fixes. Done 2026-10-21
+      (SWE-2, a run and two reworks): the tab (`view/abilities.rs`: the game's numbers, a
+      field the version lacks drawn as a disabled "-" naming the first version with it, the
+      cards row with the ruleset's cards-left badges, reflowed to fit Studio's 960 x 540
+      window), the ruleset loaded from the `aatf_rules` setting (`session/rules.rs`, shared
+      with `check-aatf`), the help topic `03_abilities.md`; the strip and the tab under the
+      player's id (no text field or value crosses players), single-line list rows, Ctrl+Shift+Z
+      before Ctrl+Z, plain runs in the label's colour, the rename and shirt flags, the upper-cased
+      shirt name, Captain a radio. Files: `save_editor/{help/03_abilities.md,src/{lib.rs,cli.rs,
+      messages.rs,session/{mod.rs,rules.rs},view/{mod.rs,abilities.rs,info_strip.rs,
+      player_list.rs,tests.rs}},tests/cli/import_toml.rs}`, `pes_savefile/src/{schema/{mod.rs,
+      fields.rs},model/{names.rs,player.rs},interchange/team_toml/{mod.rs,player/{mod.rs,
+      tests.rs}}}`, `team_widgets/src/cards.rs`
+      - [ ] review: a SWE-2 loop over 8.9b1, then Astra round A2 (A1 accepted 6 of 6 on 8.9a,
+        folded in here)
+    - [x] the portable name limits (`plans/pes_savefile/operations.md` "Team TOML", Portable
+      text limits; DECISIONS 2026-10-21), with 8.9b1 and its rework: `portable_text_max` and
+      `crop_player_text` in `pes_savefile`; the info strip's Shirt field held to 18 (an
+      existing longer one shortened only), its Name field to the save's own, either past the
+      portable limit drawn amber with the cut text in its hover; Team TOML export's notes past
+      them; `apply` cropping a name or shirt name to a shorter field with a note naming the
+      text as cut (SE-TOML-06 rewritten)
+    - [ ] the roster-order rule (`plans/aatf_rules.md` "The host"; DECISIONS 2026-10-21), with
+      the slice that builds drag reorder (SE-GUI-08): `pes_savefile::roster_order_breaks`, the
+      AATF host's `RosterOrder` error for every ruleset, Team TOML export's note per slot;
+      drag reorder trading the players' records between the ids (4ccEditor's spinner),
+      never the roster's order. The draft's `movePlayer` still reorders the roster (its
+      comment says "the ids follow the player") and is corrected first. Real saves first
+      measured for teams that break the rule, since a first AATF run would flag them
     - [ ] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
@@ -912,6 +941,24 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     picker's tests rerun with care, since 0.37 changes popups closing on release and
     `DragValue` while typing; the drafts' look checked against 0.37's roomier buttons and
     rounder corners; `egui_extras` and `egui_animation` to their 0.37 releases where used
+  - [ ] 8.12 after DBC: the Texport coverage audit, the measurement that decides whether a
+    Team TOML can stand for a tactical export (`plans/aesthetics_export/player_folders.md`
+    "Complete export"; agreed 2026-10-21). Every byte of the real texports of each version
+    (`spec/pes_savefile/operations.md` "Texport") classified: carried by Team TOML, worth
+    adding to the half that owns it (the candidates, set in game: the team record's emblem, stadium settings, rivals,
+    callname, banners, goal-net colours, manager name, PES 18's kit slots; the tactics'
+    lineup slots 32 to 39 on PES 19-21, Switch Preset Tactics, Auto Lineup Select; a
+    player's commentary name and PES 20/21's print name), or not a tactic (the 660-byte block,
+    the tail); the meanings checked in game, and for PES 2021 against Marco's reverse
+    engineering of the game's executable (`C:/Data/4cc/Tools_Marco/GodotFootball/docs/re/`;
+    the repository is in active evolution, so before the audit starts its new commits are
+    pulled, `git pull --ff-only` in that clone, a pull that cannot fast-forward reported to
+    the maintainer rather than forced;
+    index `README.md`, every claim tagged observed or inferred: `pes-re-matchlogic.md` for the
+    player and team records, `pes-kit-assembly.md` §8.1 for the EDIT save's layout); each
+    "worth adding" a Team TOML key; then a test
+    per version taking a real texport to Team TOML and back, byte for byte apart from the
+    bytes classified as not a tactic
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,
@@ -993,6 +1040,34 @@ The phase's steps are itemized when Phase 9 closes; its format crate was built a
     branch `side/10.0e`. Files:
     `docs/plans/music_player.md`, `docs/DECISIONS.md`,
     `crates/libs/music_export/src/{lib,model,eval,state,select,resolve,parse}.rs`
+- [x] 10.0f the legacy-behavior audit (the maintainer, 2026-10-21, after SE-GUI-08's reorder
+  was found written from a control's name; `AGENTS.md` "Before a tool phase"): every behavior
+  of Rigdio v2.2.0 (`Tools_4cc/rigdio`; the fork only where the plan adopts it) compared with
+  the crate's code and the plan, citing both sides: the `.4ccm` keywords, conditions,
+  selection, resolution and normalisation first (built), the player's controls second (planned
+  only). Each "different" or "not stated" row ruled: a plan fix and a decision entry, a code
+  fix with its test, or recorded as deliberate. Before the tool's Acceptance section is
+  written. Audit done 2026-10-21 (`.tmp/10_0f/rigdio_audit.md`, with the lead's rulings):
+  part 1, the built crate, has eleven rows to match to Rigdio (among them `once` spent when
+  evaluated rather than when reached, so `goals >= 2;once` never plays, verified at
+  `select.rs:112` and Rigdio's `legacy.py:364-370`; the fallback `goal` entries cloned per
+  button where Rigdio shares one list; `randomise` and `advance` over the fallback; a leading
+  BOM; an anchored song path), plan fixes, and deliberate departures to mark; part 2, the
+  player's controls, ruled when the tool's plan is written. Plan edits done 2026-10-21
+  (DECISIONS 2026-10-21, "A `.4ccm` reads as Rigdio reads it"). Files: `docs/plans/music_player.md`,
+  `docs/plans/music_export_editor.md`, `docs/DECISIONS.md`
+- [x] 10.0g the crate to the audit's rulings (`music_player.md` "Grammar", "Conditions", "File
+  resolution", "Model", "Song selection"): in-order conditions and `once` spent when reached;
+  `TeamLists` with one shared `goal` fallback per team, replacing `PriorityList`; the
+  fallback's `randomise` group and warcries; `advance`'s last resort; `needs_goal_minute` as a
+  walk without the minute; `name` first, flags case-insensitive, a byte-order mark dropped;
+  anchored paths under the export; `[]` as no token, never written; `SecondTeamName` gone (a
+  second `name` is a reserved word). Done 2026-10-21 (SWE-2, a run and a rework): a red-run
+  test per rule; the census unchanged (56 of 61 read back equal, the same 5 refused: no real
+  file uses a changed rule). Files: `crates/libs/music_export/src/{eval,select,parse,tokens,
+  write,resolve,state,lib}.rs`
+  - [ ] review (checkpoint b, a new `pub` interface): `just mutants-diff`, a SWE-2 loop
+    (`.tmp/10_0g/swe_s1.md`), then Astra
 
 ### Phase 16 — Polish and distribution
 
@@ -1173,6 +1248,20 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     `src/violation.rs`, `src/file.rs`, `src/fixtures/dbc7.rs`, `src/ruleset/tests/rules.rs`),
     `crates/tools/save_editor/src/messages.rs`, `docs/prototypes/ruleset_editor.html`, the
     plans and decision named above
+- [ ] 20.1 Autumn 26 against the official 4ccEditor's Autumn 26 edition (the maintainer,
+  2026-10-21; upstream `origin/master` `cb211f4` and `82879a7`, 2026-10-20). `autumn26.rhai`
+  was transcribed from the fork's `Autumn_2026_AATF` branch (`spec/aatf_rules.md` "The
+  official ruleset"); upstream wrote its own, and they differ in six places
+  (`.tmp/20_au26/upstream_compare.md`): D1 the medals' free A position as a trade of their
+  own free COM styles (upstream) or one extra choice on top (Studio); D2 bronze free tricks 2
+  or 3; D3 who gets the Red CB +4 cm (registered CB with a single A at CB, or fielded only at
+  CB); D4 which height brackets that allowance shifts; D5 Green 194 cm silvers (upstream
+  fails every one, a bug the fork fixed); D6 upstream's new check that preset 1's starters
+  stand at A positions, which Studio has as `universal.fielded_at_a: [1]` and autumn26 leaves
+  unset. Waiting on the wiki (offline 2026-10-21, "hopefully no more than 12 hours"): each
+  difference ruled against the cup's written rules, then `autumn26.rhai`, its fixtures and the
+  spec section changed where the wiki sides with upstream, a question to the maintainer
+  where it is silent, and the spec's source line repointed to the official edition
 
 ---
 
@@ -1182,6 +1271,20 @@ Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolv
 pruned when their phase closes; they stay in git history. A question only the maintainer
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
+
+- open 2026-10-21 — the 4ccEditor source audit's rows that need a measurement or a check of
+  built code (the rest are in `plans/save_editor.md`'s parity table and "Editing UI", and in
+  8.9b1's rework): (1) a custom skin of 7 on PES 18+ becomes 0 in 4ccEditor (`main.cpp`
+  `show_player_info` and the squad load), where `spec/pes_savefile/model.md` `SkinColor::Preset`
+  and the cross-version conversion reset it to 1: which one the game shows as the intended
+  skin, checked in Edit mode; (2) 4ccEditor clamps a shirt number to 231 below PES 19 (its
+  number field and the squad load), where the info strip takes the field's bit width: why 231,
+  checked in game; (3) 4ccEditor's ALL hides players on no team and its team list hides a team
+  whose first slot is empty (`pes20.cpp`), lists both in record order: compare with 8.9a's
+  selector and list, and rule; (4) the motion randomizer's ranges (hunching 1 to 3, arm 1 to 8,
+  corner 1 to 6, free kick 1 to 16, penalty 1 to 4, goal celebrations 1 to 122; on PES 20+ 5,
+  10, 10, 20, 7, 162; never the dribbling motion) go into the Appearance tab's plan when its
+  slice (8.9b2) is briefed
 
 - open 2026-10-20 — two `save_editor` CLI tests (`strip::tables_the_bins_lacks_are_created_from_the_seed`,
   `strip::the_tables_are_seeded_and_every_appearance_id_is_set_to_minus_one`) fail while

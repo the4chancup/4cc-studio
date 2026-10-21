@@ -396,6 +396,14 @@ pub enum ImportNote {
         /// The roster slot (1-based, as the key spells it).
         slot: u8,
     },
+    /// `path`'s text was longer than the target field and was cut to it;
+    /// `cropped` is the text as stored, colour codes as in the save.
+    TextCropped {
+        /// The dotted key path.
+        path: String,
+        /// The text as stored.
+        cropped: String,
+    },
 }
 
 /// What parsing, emitting or applying a `team.toml` can fail with.

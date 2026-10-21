@@ -205,6 +205,24 @@ What exists of this is in `spec/aatf_rules.md` "The interpreter".
 Every surface that shows results (the Save editor's AATF panel, the Team creator's) has a "Show
 suggestions" toggle, off by default, and lists them apart from errors and warnings, uncounted.
 
+## The host
+
+What exists of this is in `spec/aatf_rules.md` "The host".
+
+**The roster order, checked for every ruleset.** By 4cc rule a team's roster slot `NN` holds
+player `team id × 100 + NN`: the aesthetics export names players by that id and a Team TOML by
+slot, and the two meet only through this rule. PES lets a roster be reordered (a real PES 16
+texport of team 804 lists 80401, 80402, 80423, 80404, …, `spec/pes_savefile/operations.md`
+"Texport"), so a manager can break it by mistake. The host checks it itself, in Rust before the
+script runs, so no ruleset can leave it out and `logic.rhai` is untouched: each filled slot
+whose player is not `team id × 100 + slot` is an error, `ViolationKind::RosterOrder { player }`
+on that slot. The rule itself is `pes_savefile`'s (`roster_order_breaks(&EditFile, TeamId) ->
+Vec<(u8, PlayerId)>`, the slots and the players they hold), so the tools that guard the same
+thing call one function: this check, Team TOML's export (a note per slot, since the file lands
+its players by slot) and the Team compiler applying a Complete export's `tactics.toml`, which
+refuses onto a local save whose team breaks the rule
+(`plans/aesthetics_export/player_folders.md` "Complete export").
+
 ## Loading and validation
 
 What exists of this is in `spec/aatf_rules.md` "Loading and validation".

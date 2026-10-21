@@ -1,11 +1,13 @@
 //! `display_name`: a raw save name without its colour codes. `name` keeps the
 //! raw form for the editor's colour rendering; this is the text consumers show.
 
+use std::borrow::Cow;
+
 use pes_version::PesVersion;
 
-use crate::codec::{text_max, text_misfit};
+use crate::codec::{TextMisfit, text_max, text_misfit};
 use crate::schema::fields::PlayerText;
-use crate::schema::schema_for;
+use crate::schema::{portable_text_max, schema_for};
 
 /// The name without its colour codes: every `\x11c` plus the exactly eight
 /// bytes that follow it (any bytes — the game does not check they are hex, so
@@ -17,18 +19,102 @@ pub fn display_name(raw: &str) -> String {
     name_spans(raw).into_iter().map(|(_, text)| text).collect()
 }
 
-/// Whether `text` fits the player record's `which` text on `version`, by the
-/// codec's own rule (the name's UTF-8 bytes, the shirt name's single-byte
+/// The field's length unit (`PlayerText`'s): the name counts UTF-8 bytes,
+/// the shirt name single-byte chars.
+pub(crate) fn single_byte(which: PlayerText) -> bool {
+    match which {
+        PlayerText::Name => false,
+        PlayerText::ShirtName => true,
+    }
+}
+
+/// Whether `text` fits `version`'s `which` text field, by the codec's own
+/// rule (`text_misfit`: the name's UTF-8 bytes, the shirt name's single-byte
 /// encoding, each within the field's length): the editors refuse what
 /// `to_bytes` would.
 pub fn player_text_fits(version: PesVersion, which: PlayerText, text: &str) -> bool {
-    let schema = schema_for(version);
-    let max = text_max(schema.player.texts, which);
-    let single_byte = match which {
-        PlayerText::Name => false,
-        PlayerText::ShirtName => true,
-    };
-    text_misfit(text, max, single_byte).is_none()
+    text_misfit(
+        text,
+        text_max(schema_for(version).player.texts, which),
+        single_byte(which),
+    )
+    .is_none()
+}
+
+/// Whether `text` may replace `stored` in `version`'s shirt-name field
+/// (the info strip's rule, `plans/save_editor.md` "Editing UI"; the name
+/// field's rule is `player_text_fits` on the version's own field): the
+/// codec's own content rule (no NUL, the single-byte charset) and, in
+/// length, either within the shorter of `portable_text_max` and the
+/// version's own field, or no longer than `stored`, since a shirt name the
+/// save already holds past the limit can be shortened a keystroke at a
+/// time, never lengthened.
+pub fn shirt_name_edit_fits(version: PesVersion, stored: &str, text: &str) -> bool {
+    let max = portable_text_max(PlayerText::ShirtName).min(text_max(
+        schema_for(version).player.texts,
+        PlayerText::ShirtName,
+    ));
+    match text_misfit(text, max, true) {
+        None => true,
+        Some(TextMisfit::TooLong { .. }) => text.chars().count() <= stored.chars().count(),
+        Some(TextMisfit::Nul | TextMisfit::BeyondSingleByte) => false,
+    }
+}
+
+/// `text` cut to what `version`'s `which` field holds: the longest prefix
+/// of whole spans (`name_spans`'s boundaries: a character or a colour
+/// code) that fits, so a crop never splits a character or leaves half a
+/// colour code drawn as text. Borrowed when it fits.
+pub fn crop_player_text<'a>(version: PesVersion, which: PlayerText, text: &'a str) -> Cow<'a, str> {
+    let max = text_max(schema_for(version).player.texts, which);
+    if text_misfit(text, max, single_byte(which)).is_none() {
+        return Cow::Borrowed(text);
+    }
+    let mut left = max;
+    let mut end = 0;
+    for (start, stop) in text_spans(text) {
+        let len = if single_byte(which) {
+            text[start..stop].chars().count()
+        } else {
+            stop - start
+        };
+        if len > left {
+            break;
+        }
+        left -= len;
+        end = stop;
+    }
+    Cow::Owned(text[..end].to_string())
+}
+
+/// The raw text's spans as `(start, end)` byte ranges: each colour code
+/// whole (`\x11c` plus its eight bytes, `\x11d`) or one character — the
+/// boundaries `name_spans` uses.
+fn text_spans(text: &str) -> impl Iterator<Item = (usize, usize)> + '_ {
+    let bytes = text.as_bytes();
+    let mut i = 0;
+    std::iter::from_fn(move || {
+        if i >= bytes.len() {
+            return None;
+        }
+        let code = if bytes[i] == 0x11 && i + 1 < bytes.len() && bytes[i + 1] == b'c' {
+            Some(10).filter(|end| i + end <= bytes.len() && text.is_char_boundary(i + end))
+        } else if bytes[i] == 0x11 && i + 1 < bytes.len() && bytes[i + 1] == b'd' {
+            Some(2).filter(|end| text.is_char_boundary(i + end))
+        } else {
+            None
+        };
+        let end = code.map(|len| i + len).unwrap_or_else(|| {
+            let mut end = i + 1;
+            while end < bytes.len() && !text.is_char_boundary(end) {
+                end += 1;
+            }
+            end
+        });
+        let span = (i, end);
+        i = end;
+        Some(span)
+    })
 }
 
 /// The name's text runs and the color each is drawn in, as the game draws
@@ -38,37 +124,24 @@ pub fn player_text_fits(version: PesVersion, which: PlayerText, text: &str) -> b
 /// resets too. Runs are never empty; the runs' text joined is
 /// `display_name(raw)`.
 pub fn name_spans(raw: &str) -> Vec<(Option<[u8; 3]>, &str)> {
-    let bytes = raw.as_bytes();
     let mut spans = Vec::new();
     let mut color = None;
     let mut start = 0;
-    let mut i = 0;
-    while i < bytes.len() {
-        // The same boundaries `display_name` strips at: `\x11c` plus exactly
-        // eight bytes ending on a char boundary, or the two-byte `\x11d`.
-        let code = if bytes[i] == 0x11 && i + 1 < bytes.len() && bytes[i + 1] == b'c' {
-            Some(10).filter(|end| i + end <= bytes.len() && raw.is_char_boundary(i + end))
-        } else if bytes[i] == 0x11 && i + 1 < bytes.len() && bytes[i + 1] == b'd' {
-            Some(2).filter(|end| raw.is_char_boundary(i + end))
-        } else {
-            None
+    for (s, e) in text_spans(raw) {
+        // The colour the code sets for the text after it (`None`: the normal
+        // colour); a character span is no code.
+        let next_color = match &raw.as_bytes()[s..e] {
+            [0x11, b'c', ..] => rgb(&raw.as_bytes()[s + 2..s + 8]),
+            [0x11, b'd'] => None,
+            _ => continue,
         };
-        match code {
-            Some(len) => {
-                if start < i {
-                    spans.push((color, &raw[start..i]));
-                }
-                color = match len {
-                    10 => rgb(&bytes[i + 2..i + 8]),
-                    _ => None,
-                };
-                i += len;
-                start = i;
-            }
-            None => i += 1,
+        if start < s {
+            spans.push((color, &raw[start..s]));
         }
+        color = next_color;
+        start = e;
     }
-    if start < bytes.len() {
+    if start < raw.len() {
         spans.push((color, &raw[start..]));
     }
     spans
@@ -111,58 +184,89 @@ mod tests {
     use super::*;
 
     #[test]
-    fn a_name_is_accepted_up_to_the_fields_bytes_and_a_shirt_name_only_single_byte() {
-        // The fields' lengths are the codec's own per-version limits (61
-        // bytes on PES 20/21, 46 on PES 17 and earlier, 18 chars for its
-        // shirt name).
-        for (version, name_max, shirt_max) in [
-            (PesVersion::Pes17, 46usize, 18),
-            (PesVersion::Pes21, 61, 61),
-        ] {
-            assert!(player_text_fits(
-                version,
-                PlayerText::Name,
-                &"n".repeat(name_max)
-            ));
-            assert!(!player_text_fits(
-                version,
-                PlayerText::Name,
-                &"n".repeat(name_max + 1)
-            ));
-            assert!(player_text_fits(
-                version,
-                PlayerText::ShirtName,
-                &"s".repeat(shirt_max)
-            ));
-            assert!(!player_text_fits(
-                version,
-                PlayerText::ShirtName,
-                &"s".repeat(shirt_max + 1)
-            ));
-        }
-        // Colour codes count in bytes: ten for each, inside the same limit.
-        assert!(player_text_fits(
+    fn a_text_is_accepted_up_to_the_portable_limit_or_no_longer_than_stored() {
+        // The portable shirt-name limit (18 letters) holds whatever the
+        // save's version is; on PES 16 the shirt's own 16 letters bind
+        // instead.
+        assert!(shirt_name_edit_fits(
             PesVersion::Pes21,
-            PlayerText::Name,
-            &("\x11c112233ff".repeat(5) + &"x".repeat(11))
+            "s",
+            &"t".repeat(18)
         ));
-        // A multi-byte char still counts in bytes.
-        assert!(!player_text_fits(
+        assert!(shirt_name_edit_fits(PesVersion::Pes21, "s", "t"));
+        assert!(!shirt_name_edit_fits(
             PesVersion::Pes21,
-            PlayerText::Name,
-            &"€".repeat(61)
+            "s",
+            &"s".repeat(19)
         ));
-        // The shirt name's rule is chars, each below U+0100.
-        assert!(!player_text_fits(
+        assert!(!shirt_name_edit_fits(
+            PesVersion::Pes16,
+            "s",
+            &"s".repeat(17)
+        ));
+        assert!(shirt_name_edit_fits(
+            PesVersion::Pes16,
+            "s",
+            &"s".repeat(16)
+        ));
+        // A stored shirt name past the limit shortens a keystroke at a
+        // time, in letters.
+        assert!(shirt_name_edit_fits(
             PesVersion::Pes21,
-            PlayerText::ShirtName,
+            &"s".repeat(19),
+            &"x".repeat(19)
+        ));
+        assert!(!shirt_name_edit_fits(
+            PesVersion::Pes21,
+            &"s".repeat(19),
+            &"x".repeat(20)
+        ));
+        // A NUL and a char above U+00FF refuse whatever the lengths.
+        assert!(!shirt_name_edit_fits(
+            PesVersion::Pes21,
+            &"s".repeat(19),
+            "a\0b"
+        ));
+        assert!(!shirt_name_edit_fits(
+            PesVersion::Pes21,
+            &"s".repeat(19),
             "ła"
         ));
-        // A NUL is a misfit either way.
-        assert!(!player_text_fits(
-            PesVersion::Pes21,
-            PlayerText::Name,
-            "a\0b"
+    }
+
+    #[test]
+    fn a_crop_cuts_to_the_fields_limit_at_whole_spans() {
+        // PES 19's name field holds 46 bytes: a 59-byte ASCII name keeps
+        // its first 46; a two-byte `é` on the boundary stays whole before it.
+        let name = "N".repeat(59);
+        assert_eq!(
+            crop_player_text(PesVersion::Pes19, PlayerText::Name, &name),
+            "N".repeat(46)
+        );
+        let name = format!("{}é{}", "N".repeat(45), "N".repeat(13));
+        assert_eq!(name.len(), 60);
+        assert_eq!(
+            crop_player_text(PesVersion::Pes19, PlayerText::Name, &name),
+            "N".repeat(45)
+        );
+        // A limit inside a colour code (ten bytes) drops the code whole,
+        // never the text after it either: the crop is the prefix.
+        let name = format!("{}\x11c112233ff{}", "N".repeat(40), "N".repeat(10));
+        assert_eq!(name.len(), 60);
+        assert_eq!(
+            crop_player_text(PesVersion::Pes19, PlayerText::Name, &name),
+            "N".repeat(40)
+        );
+        // PES 16's shirt field holds 16 letters: a 20-letter one keeps 16.
+        assert_eq!(
+            crop_player_text(PesVersion::Pes16, PlayerText::ShirtName, &"s".repeat(20)),
+            "s".repeat(16)
+        );
+        // A text that fits is borrowed, not owned.
+        let fits = "FITS".to_string();
+        assert!(matches!(
+            crop_player_text(PesVersion::Pes19, PlayerText::Name, &fits),
+            Cow::Borrowed(_)
         ));
     }
 

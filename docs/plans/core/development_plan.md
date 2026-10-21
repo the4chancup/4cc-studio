@@ -391,4 +391,31 @@ Tools the suite will take in, with no phase or plan yet:
   source (2026-10-18), so it waits; nothing scheduled depends on it, and until then what it does
   is known only from the forks' READMEs.
 
+Not a tool of the suite but a way to run it, also with no phase yet:
+
+- **A cup's submission server**, on the community's server (the wiki's host or `bonfire`): a
+  script that runs the export checks on every export a manager submits and rejects it, with
+  the findings, when they hold an Error; when the deadline hits, it compiles the DLC and the
+  savefile and gives the organizer one download link per group of outputs (the DLC, the
+  savefile, the pack of the teams' music exports, "Complete export" in
+  `plans/aesthetics_export/player_folders.md`), some of which the organizer passes on to the
+  streamer. It needs nothing the suite does not already aim for: the CLI runs every check and
+  compile with no display, Linux is a first-class target, and findings carry stable codes
+  that a script can sort. Keeping those three true is what keeps the server cheap when it
+  comes; a design that only works with the GUI, or only on Windows, is a cost to it.
+
+  After the compile it can also check the result in game: install the DLC and the savefile into
+  the cup's PES version, run the Aesthetics ATF bot over every team (its stills and clips) and
+  publish the captures on a page per team for managers and organizers. That half cannot run on
+  the community server itself, which has no graphics card (`bonfire`: 8 virtual cores, 15 GB,
+  a virtual display adapter): PES needs a real GPU on Windows, the bot's virtual pad a Windows
+  driver (ViGEmBus) and its recording OBS. So it runs on a Windows machine with a GPU and that
+  PES version installed, which takes the job from the server, plays it and uploads the
+  captures; one machine plays one version at a time, and a whole cup's pass takes hours (the
+  bot records each player's clips in real time). The pieces exist: the bot (PES 15 and 21 so
+  far) and the in-game harness that already launches a version, puts a compiled CPK in its
+  test slot and takes it out again (PES 17, 19 and 21), drives the pad and captures through OBS
+  (`scripts/ingame/`); installing the savefile beside it, with the player's own save kept
+  aside, is the step still missing.
+
 ---

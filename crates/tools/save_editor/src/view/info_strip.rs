@@ -3,44 +3,45 @@
 //! tabs. Each control edits a copy of the entry and, when it changes, pushes it
 //! under its own `egui::Id` (the undo stack's merge key).
 
-use pes_savefile::model::names::player_text_fits;
+use pes_savefile::model::names::{crop_player_text, player_text_fits, shirt_name_edit_fits};
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_savefile::schema::fields::{PlayerField, PlayerText, RosterField};
-use pes_savefile::schema::{VersionSchema, schema_for};
+use pes_savefile::schema::{VersionSchema, portable_text_max, schema_for};
+use pes_version::PesVersion;
 
 use crate::session::Session;
-use crate::view::SaveView;
+use crate::view::{SaveView, edit_player, selected_player};
 
 /// The strip for the selected player; nothing when the selection names no
 /// rostered player (a stale slot, an empty save's list).
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
-    let Some((team_id, slot)) = view.selected else {
+    let Some((team_id, slot, player_id)) = selected_player(view) else {
         return;
     };
     let Some(session) = view.session.as_mut() else {
         return;
     };
-    let file = session.file();
-    let Some(team) = file.team(team_id) else {
-        return;
-    };
-    let Some(player_id) = team
-        .roster
-        .get(usize::from(slot))
-        .map(|slot| slot.player_id)
-    else {
-        return;
-    };
-    if file.player(player_id).is_none() {
-        return;
-    }
-    strip(ui, session, team_id, slot, player_id);
+    // Every widget id under the strip is the player's: a text field's undo
+    // history and a DragValue's in-progress edit never cross players.
+    ui.push_id(player_id, |ui| {
+        strip(ui, session, team_id, slot, player_id);
+    });
 }
 
 /// One row of name/ID/shirt and one of height, weight, age, nation, number
 /// and captain.
 fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, player_id: u32) {
-    let (mut name, mut shirt, mut nation, mut shirt_number, basics, stored_captain, schema) = {
+    let (
+        mut name,
+        stored_name,
+        mut shirt,
+        stored_shirt,
+        mut nation,
+        mut shirt_number,
+        basics,
+        stored_captain,
+        schema,
+    ) = {
         let file = session.file();
         let player = file.player(player_id).expect("the selected player");
         let team = file.team(team_id).expect("the selected team");
@@ -49,6 +50,8 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             // four characters `\\x11` (the draft's `escName`); on edit the
             // field's text is turned back before it is stored.
             player.name.replace('\x11', "\\x11"),
+            player.name.clone(),
+            player.shirt_name.clone(),
             player.shirt_name.clone(),
             player.basic.nationality,
             team.roster
@@ -59,40 +62,73 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             schema_for(file.version()),
         )
     };
-    let mut captain = stored_captain == slot;
+    let captain = stored_captain == slot;
     egui::Grid::new("save_editor_info_strip").show(ui, |ui| {
         ui.label("Name");
-        let response = ui
-            .add(egui::TextEdit::singleline(&mut name).desired_width(240.0))
-            .on_hover_text(format!(
+        let overlong = stored_name.len() > portable_text_max(PlayerText::Name);
+        let mut name_edit = egui::TextEdit::singleline(&mut name).desired_width(240.0);
+        if overlong {
+            name_edit = name_edit.background_color(warning_tint(ui.visuals()));
+        }
+        let response = ui.add(name_edit);
+        // A name past what every version holds is drawn tinted with the cut
+        // PES 15 to 19 would make: a warning, never a block on Save.
+        let response = if overlong {
+            response.on_hover_text(format!(
+                "In PES 2019 and older this name will be cut to: «{}»",
+                crop_player_text(PesVersion::Pes19, PlayerText::Name, &stored_name)
+                    .replace('\x11', "\\x11")
+            ))
+        } else {
+            response.on_hover_text(format!(
                 "Up to {} bytes: a plain letter takes one, an accented letter two or more, a \
                  colour code ten",
                 text_len(schema, PlayerText::Name)
-            ));
+            ))
+        };
         if response.changed() {
             let raw = name.replace("\\x11", "\x11");
-            // An edit the codec would refuse is not pushed: the field shows
-            // the stored text again next frame.
+            // An edit the codec would refuse is not pushed (the save's own
+            // field is the bound): the field shows the stored text again
+            // next frame.
             if player_text_fits(schema.version, PlayerText::Name, &raw) {
                 edit_player(session, player_id, response.id.value(), |player| {
                     player.name = raw;
+                    player.edit_flags.player = true;
                 });
             }
         }
         ui.label("ID");
         ui.monospace(player_id.to_string());
         ui.label("Shirt");
-        let response = ui
-            .add(egui::TextEdit::singleline(&mut shirt).desired_width(140.0))
-            .on_hover_text(format!(
+        let shirt_overlong =
+            stored_shirt.chars().count() > portable_text_max(PlayerText::ShirtName);
+        let mut shirt_edit = egui::TextEdit::singleline(&mut shirt).desired_width(140.0);
+        if shirt_overlong {
+            shirt_edit = shirt_edit.background_color(warning_tint(ui.visuals()));
+        }
+        let response = ui.add(shirt_edit);
+        let response = if shirt_overlong {
+            response
+                .on_hover_text("PES 2019 and older show 18 letters of a shirt name (PES 2016: 16)")
+        } else {
+            response.on_hover_text(format!(
                 "Up to {} letters; accented Latin letters are fine, other scripts and symbols \
                  are not",
                 text_len(schema, PlayerText::ShirtName)
-            ));
-        if response.changed() && player_text_fits(schema.version, PlayerText::ShirtName, &shirt) {
-            edit_player(session, player_id, response.id.value(), |player| {
-                player.shirt_name = shirt.clone();
-            });
+            ))
+        };
+        if response.changed() {
+            // Upper-cased as typed, then the fit check (the portable limit
+            // or the version's own, whichever is shorter; a longer stored
+            // name shortens, never lengthens).
+            let upper = shirt.to_uppercase();
+            if shirt_name_edit_fits(schema.version, &stored_shirt, &upper) {
+                edit_player(session, player_id, response.id.value(), |player| {
+                    player.shirt_name = upper;
+                    player.edit_flags.player = true;
+                });
+            }
         }
         ui.end_row();
 
@@ -143,15 +179,24 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             });
         }
         ui.label("Captain");
-        // The team's `captain` is this roster slot, 0-based as stored;
-        // unticking stores 255.
-        let response = ui.add(egui::Checkbox::new(&mut captain, ""));
-        if response.changed() {
+        // The team's `captain` is this roster slot, 0-based as stored: a
+        // radio the second click cannot untick (the captain belongs to the
+        // slot).
+        let response = ui.radio(captain, "");
+        if response.clicked() && !captain {
             edit_team(session, team_id, response.id.value(), |team| {
-                team.tactics.set_pieces.captain = if captain { slot } else { u8::MAX };
+                team.tactics.set_pieces.captain = slot;
             });
         }
     });
+}
+
+/// The tint of a field whose text a version would crop: its usual
+/// background drawn a quarter toward the warning colour.
+fn warning_tint(visuals: &egui::Visuals) -> egui::Color32 {
+    visuals
+        .extreme_bg_color
+        .lerp_to_gamma(visuals.warn_fg_color, 0.25)
 }
 
 /// A `label`/`DragValue` pair capped at `max`; a change pushes the player's
@@ -176,17 +221,6 @@ fn number<N: egui::emath::Numeric + TryFrom<u64>>(
             set(player, value);
         });
     }
-}
-
-/// Clones the player's entry, applies `edit` and pushes it under `key`.
-fn edit_player(session: &mut Session, id: u32, key: u64, edit: impl FnOnce(&mut PlayerEntry)) {
-    let mut edited = session
-        .file()
-        .player(id)
-        .expect("the selected player")
-        .clone();
-    edit(&mut edited);
-    session.edit_player(key, edited);
 }
 
 /// `edit_player` for the team's entry.

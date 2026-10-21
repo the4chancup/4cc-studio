@@ -209,6 +209,36 @@ pub enum PlayerText {
     ShirtName,
 }
 
+/// The `PlayerField` of each ability stat, in `PlayerStats::abilities`' order
+/// (`interchange::team_toml::labels::ABILITY_STATS`').
+pub const ABILITY_FIELDS: [PlayerField; 25] = [
+    PlayerField::AttackingProwess,
+    PlayerField::BallControl,
+    PlayerField::Dribbling,
+    PlayerField::LowPass,
+    PlayerField::LoftedPass,
+    PlayerField::Finishing,
+    PlayerField::PlaceKicking,
+    PlayerField::Swerve,
+    PlayerField::Heading,
+    PlayerField::DefensiveProwess,
+    PlayerField::BallWinning,
+    PlayerField::KickingPower,
+    PlayerField::Speed,
+    PlayerField::ExplosivePower,
+    PlayerField::BodyControl,
+    PlayerField::PhysicalContact,
+    PlayerField::Jump,
+    PlayerField::Goalkeeping,
+    PlayerField::Catching,
+    PlayerField::Clearing,
+    PlayerField::Reflexes,
+    PlayerField::Coverage,
+    PlayerField::Stamina,
+    PlayerField::TightPossession,
+    PlayerField::Aggression,
+];
+
 /// A bit-run field of the team record.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum TeamField {

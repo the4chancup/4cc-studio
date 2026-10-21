@@ -9,20 +9,21 @@ use std::collections::{BTreeMap, HashSet};
 use pes_version::PesVersion;
 use toml_edit::{Item, TableLike, Value};
 
-use crate::codec::text_max;
+use crate::codec::{TextMisfit, text_max, text_misfit};
 use crate::interchange::players_key;
 use crate::interchange::team_toml::labels;
 use crate::interchange::team_toml::player_keys::PlayerKey;
 use crate::interchange::team_toml::{
     ImportNote, PlayerSection, PositionsSection, SkillsSection, TeamTomlError,
 };
+use crate::model::names::{crop_player_text, single_byte};
 use crate::model::player::{PlayerEntry, STRIPPED_APPEARANCE_ID};
 use crate::model::playstyle::PlayStyle;
 use crate::model::team::TeamEntry;
 use crate::schema::fields::{PlayerField, PlayerText, RosterField};
 use crate::schema::ingame_face::INGAME_FACE_FIELDS;
 use crate::schema::limits::{face_type_cap, motion_top};
-use crate::schema::{bit_width, playstyle, schema_for};
+use crate::schema::{bit_width, playstyle, portable_text_max, schema_for};
 use crate::settings_toml::document::{
     AppearanceDocument, emit_appearance, leaf_path, padded, parse_appearance,
 };
@@ -152,7 +153,7 @@ fn emit_player(out: &mut String, slot: u8, section: &PlayerSection) -> Result<()
             .as_ref()
             .map(|n| Value::from(n.as_str()).to_string()),
         "\"\"",
-        "",
+        &portable_note(PlayerText::Name, section.name.as_deref()),
     );
     emit(
         out,
@@ -162,7 +163,7 @@ fn emit_player(out: &mut String, slot: u8, section: &PlayerSection) -> Result<()
             .as_ref()
             .map(|n| Value::from(n.as_str()).to_string()),
         "\"\"",
-        "",
+        &portable_note(PlayerText::ShirtName, section.shirt_name.as_deref()),
     );
     emit(
         out,
@@ -252,6 +253,36 @@ fn emit_player(out: &mut String, slot: u8, section: &PlayerSection) -> Result<()
         AppearanceDocument::TeamToml,
     )?;
     Ok(())
+}
+
+/// The note a `name`/`shirt_name` line carries when the text is past the
+/// portable limit (`spec/pes_savefile/operations.md` "Team TOML"): which
+/// versions would crop it. Empty when it fits.
+fn portable_note(which: PlayerText, text: Option<&str>) -> String {
+    let Some(text) = text else {
+        return String::new();
+    };
+    let (len, note) = match which {
+        PlayerText::Name => (
+            text.len(),
+            format!(
+                "name past {} bytes: cut on PES 2015 to 2019",
+                portable_text_max(PlayerText::Name)
+            ),
+        ),
+        PlayerText::ShirtName => (
+            text.chars().count(),
+            format!(
+                "shirt name past {} letters: cut on PES 2015 to 2019 (PES 2016: past 16)",
+                portable_text_max(PlayerText::ShirtName)
+            ),
+        ),
+    };
+    if len > portable_text_max(which) {
+        note
+    } else {
+        String::new()
+    }
 }
 
 /// `{ CF = "A", SS = "B", …, GK = "C" }` — `playable`'s order
@@ -636,25 +667,22 @@ fn apply_player(
         target.team.roster[index].number = number;
     }
     if let Some(name) = &section.name {
-        check_text(
+        player.name = apply_text(
             &format!("{path}.name"),
+            PlayerText::Name,
             name,
-            text_max(schema_for(target.context.to).player.texts, PlayerText::Name),
-            false,
+            target.context.to,
+            target.notes,
         )?;
-        player.name = name.clone();
     }
     if let Some(shirt_name) = &section.shirt_name {
-        check_text(
+        player.shirt_name = apply_text(
             &format!("{path}.shirt_name"),
+            PlayerText::ShirtName,
             shirt_name,
-            text_max(
-                schema_for(target.context.to).player.texts,
-                PlayerText::ShirtName,
-            ),
-            true,
+            target.context.to,
+            target.notes,
         )?;
-        player.shirt_name = shirt_name.clone();
     }
     for key in PlayerKey::ALL {
         let Some(value) = key.get_section(section) else {
@@ -748,6 +776,35 @@ fn apply_player(
     let context = &target.context;
     apply_appearance_table(&section.appearance, player, context, target.notes, &path)?;
     Ok(())
+}
+
+/// `apply`'s `name`/`shirt_name` rule (`spec/pes_savefile/operations.md`
+/// "Team TOML"): a text longer than `version`'s `which` field writes its
+/// `crop_player_text` result (whole characters and colour codes) with a
+/// `TextCropped` note naming the path and the text as cut, never a refusal;
+/// a text the field refuses for content is the `check_text` error. Returns
+/// the text to store.
+fn apply_text(
+    path: &str,
+    which: PlayerText,
+    text: &str,
+    version: PesVersion,
+    notes: &mut Vec<ImportNote>,
+) -> Result<String, TeamTomlError> {
+    let max = text_max(schema_for(version).player.texts, which);
+    if matches!(
+        text_misfit(text, max, single_byte(which)),
+        Some(TextMisfit::TooLong { .. })
+    ) {
+        let cropped = crop_player_text(version, which, text).into_owned();
+        notes.push(ImportNote::TextCropped {
+            path: path.to_string(),
+            cropped: cropped.clone(),
+        });
+        return Ok(cropped);
+    }
+    check_text(path, text, max, single_byte(which))?;
+    Ok(text.to_string())
 }
 
 /// The `[players.NN.appearance]` keys onto `player`. A foreign document's

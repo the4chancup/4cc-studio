@@ -9813,3 +9813,139 @@ windows still misbehave per platform, and the headless tests draw only the embed
 fallback. A fixed size is cut off by a small window (a 1080p monitor at 125% scaling gives a
 768 x 432 one), and a share of the window fits any size it has.
 Plan: `plans/core/gui.md` "Help window", the Window bullet.
+
+## 2026-10-21 — pes_savefile, save_editor — Names warn past what every version holds, and apply crops
+Decision: the Save editor holds a shirt name to 18 letters on every version (PES 16's field
+holds 16) and lets a name use the open save's whole field (61 bytes on PES 20/21), drawing a
+name past 46 bytes or an existing shirt name past 18 letters with an amber tint and a hover
+that shows the text as the older versions cut it; Team TOML's export notes such texts, and
+`apply` crops a name or shirt name to a shorter field (on whole characters and colour codes)
+with a note, never refusing. The maintainer asked for a pale yellow field; the tint is of the
+theme's warning colour instead, because the theme is dark and its text light.
+Why: the maintainer's aim is one tactical export that applies to a save of any version, while
+some members want a long name on PES 20/21 that the older versions cut (2026-10-21 census: 12
+of 4,830 names in one PES 21 save past 46 bytes, the longest 59, the same names cut at 45 in a
+PES 17 save). A warning tells the member where the cut falls; a refusal would block a name the
+versions that show it can hold, and editing saves is to stay frictionless. PES 16 is the outlier
+the maintainer chose to crop rather than hold every shirt name to 16.
+Plan: `plans/pes_savefile/operations.md` "Team TOML" (Portable text limits);
+`plans/save_editor.md` "Editing UI", the info strip bullet.
+
+## 2026-10-21 — aesthetics_export, pes_savefile — A Complete export carries its tactical file at the root
+Decision: an aesthetics team export may hold `tactics.toml` at its root, a Team TOML from the
+Save editor's export, making it a Complete export compiled for any version. The aesthetics half
+owns the looks and the tactical file carries none (an appearance table or a kit or colour key
+in it is an export-check error); the tactical file owns names, gameplay and tactics; the
+aesthetics patch writes names only for an export without one, so autopilot teams keep the
+`write_names` route. The bundle is optional, under that one name, which the compiler, the
+upgrader and the checks recognize.
+Why: the maintainer's aim is one folder per team that compiles for any target version; one
+owner per field means a name or a look never has two sources that drift apart, and either half
+alone keeps working as today. The maintainer's account of cup practice settles where it is
+used: official cups have two deadlines and often two builders, so they keep two exports; a
+Complete export is made at a cup's end to collect a team for invitationals, which have one
+deadline and one organizer, so the compiler applies `tactics.toml` in its own savefile stage.
+By 4cc rule roster slot `NN` holds player `team id × 100 + NN`, so the two halves' player
+addressing agrees by definition.
+Plan: `plans/aesthetics_export/player_folders.md` "Complete export".
+
+## 2026-10-21 — aatf, pes_savefile, save_editor — The roster order is checked, and drag reorder never breaks it
+Decision: the AATF host checks for every ruleset, in Rust before the script, that roster slot
+`NN` holds player `team id × 100 + NN`, an error (`RosterOrder`) per slot that does not;
+`pes_savefile::roster_order_breaks` holds the rule, also used by Team TOML's export notes and
+by the compiler refusing a Complete export's `tactics.toml` onto a breaking team. The Save
+editor's drag reorder trades the players' records between the ids, as 4ccEditor's spinner
+does, instead of reordering the roster as the plan and the draft had it.
+Why: the rule is 4cc's definition and the only link between the aesthetics export (by id) and
+a Team TOML (by slot); the maintainer asked for a check because PES lets a roster be
+reordered, which a real PES 16 texport of team 804 shows (80401, 80402, 80423, ...). A host
+check reaches every ruleset without each one repeating it and leaves the hashed `logic.rhai`
+alone. SE-GUI-08 as written reordered the roster, breaking the rule on every drag;
+4ccEditor's move (`main.cpp`, `UDN_DELTAPOS`: `PlayerExport`/`PlayerImport` swapped,
+`copy_id` traded back to match the slot, numbers untouched) shows the move members know.
+Plan: `plans/aatf_rules.md` "The host"; `plans/save_editor.md` "Editing UI", the Player list
+bullet, and SE-GUI-08; `plans/aesthetics_export/player_folders.md` "Complete export".
+
+## 2026-10-21 — save_editor — The parity table states each 4ccEditor operation's effect, read from its source
+Decision: every 4ccEditor control whose handler does more than store a value has its effect
+written in `plans/save_editor.md`'s parity table or "Editing UI", read from `origin/master` of
+the official repository: the Set and Bump stats ranges and field scope, Copy/Swap's field set,
+the boots and gloves numbering (gloves "like the boots" added), names to positions, the TSV's
+columns (COM styles added, Finishing as the rating), Fix database's base-copy and strip-flag
+repair, the squad load's section split, "Is a copy?"'s edit flags, and the info strip's rename
+flag, upper-cased shirt name and radio Captain. Kept apart on purpose: Bump reads -10 whole,
+the boots numbering does not stop at a missing id, a `.bak` at every save, the TSV through a
+save dialog, the color rounding, Open's version detection, and the hidden debug shortcuts
+dropped. The "Make everyone else Messi" action is the maintainer's local experiment, out of
+scope.
+Why: SE-GUI-08 was written from a control's name and reversed its effect; a source audit
+(2026-10-21) found the same gap, smaller, in twenty other controls. The official repository
+merged the Tactics fork the docs had named as the reference, so the reference is now one.
+Plan: `plans/save_editor.md` "Feature inventory", "Crate layout" (`widgets.rs`), "Editing
+UI", "Interchange formats", SE-GUI-24 and 27; `spec/save_editor.md` "Background: 4ccEditor".
+
+## 2026-10-21 — music_export — A `.4ccm` reads as Rigdio reads it wherever that decides the song; strict where Rigdio crashes or guesses
+Decision: the 10.0f audit of Rigdio v2.2.0 against the built crate is ruled row by row on one
+principle: where Rigdio's reading decides which song plays, Studio matches it; where Rigdio
+crashes, drops what the author typed, or loads a typo, Studio refuses the line, naming it.
+Matched: an entry's conditions are checked in the written order, stopping at the first that
+fails, so a later one neither unloads the entry nor spends a `once` nor asks for the goal
+minute; `once` is spent when the check reaches it (`goals >= 2;once` plays on the second goal;
+Studio's crate spent it at the first press, so it never played); the `goal` fallback is one list
+per team, an unload or a spent `once` holding for every button; `randomise` reached on a
+fallback entry draws among the fallback's entries; the random warcry pool takes the
+fallback's warcries; a press after `advance` that finds nothing plays the first other
+non-warcry entry, else the one that ended; the view asks for the goal minute only when the
+walk reaches a `time`; `name` only as the first significant line; flag keywords and values
+case-insensitive; a leading byte-order mark dropped; a song path always under the export (a
+leading separator dropped, a drive-qualified path missing, superseding 2026-10-18's "a
+root-level anchor holds"); `[]` read as no token and never
+written, nor a one-word group. An export with no `anthem`, or players and no `goal`, loads with
+a warning and the button absent, where Rigdio raises `KeyError`. Kept as departures, now
+listed in the plan: the refusals of extra, malformed or unknown arguments, `event` misplaced,
+empty names and slots; `not` keeping its bracketed group and holding after a never-again
+condition; case-insensitive scorers and `opponent`; subfolder lookups; `advance`'s draw
+leaving out the entry that ended (2026-10-18).
+Why: a member's file was tested by ear in Rigdio, so a reading that changes which song plays
+breaks a file that "worked", silently, on match day; a refusal at load breaks nothing that
+played. The `once` divergence was found only by reading Rigdio's `check` against the crate,
+which is why the audit exists (the SE-GUI-08 lesson, `AGENTS.md` "Before a tool phase").
+The player's controls (part 2 of the audit) are ruled when that tool's Acceptance is written.
+Plan: `plans/music_player.md` "Grammar", "Conditions", "File resolution", "Model" (the
+selection's `TeamLists`, replacing the per-button `PriorityList`), "Song selection", "GUI
+view", "Dropped features and compatibility notes", the fork's row in "Background", "Event
+clips revived"; `plans/music_export_editor.md` "What the editor does", "Open questions".
+
+## 2026-10-21 — aesthetics_export, music_player — A Complete export may carry the team's music as `Music/`
+Decision: a team export may hold its music export as a root folder `Music/`: one `.4ccm`
+(any file name) and its songs, resolved against that folder, so the folder copied out loads
+in the Music player or Rigdio unchanged. The Team compiler never reads or packs it, the
+Export upgrader carries it over, and the export checks parse it and resolve its songs, every
+finding a Warning (none drops the export: no compiled output depends on the music), including
+a `Music/` with no `.4ccm` or several and a `.4ccm` naming another team. A referee export has
+none. The Music player's library scan also reads `<export>/Music/*.4ccm`, so a folder of
+Complete exports, or the organizer's pack of their `Music/` folders, is a library as it is.
+The folder is capitalized and files lower case, every export's naming rule. A submission
+server that checks, rejects and compiles at the deadline is recorded as unscheduled.
+Why: the maintainer (2026-10-21): the streamer is usually not the organizer, but organizers
+often gather every team's music into one download for the streamer, and a future server
+should hand the organizer one link per group (DLC, savefile, music pack). A team's music is
+the one part of its identity a collected Complete export would otherwise leave behind. A
+Warning, not an Error, because an Error drops the export from a compile the music never
+reaches.
+Plan: `plans/aesthetics_export/player_folders.md` "Complete export"; `plans/music_player.md`
+"Autopilot" (auto team loading); `plans/core/development_plan.md` "Unscheduled tools".
+
+## 2026-10-21 — core — The submission server's in-game check runs on a Windows GPU worker, not on the server
+Decision: the unscheduled submission server may also check its compile in game: install the
+DLC and the savefile into the cup's PES version, run the Aesthetics ATF bot over every team and
+publish the stills and clips on a page per team. That part runs on a Windows machine with a GPU
+and that version installed, which takes the job from the server and uploads the captures; the
+server keeps the checks, the compile and the page.
+Why: the maintainer asked (2026-10-21) whether the server could run it. PES needs a real GPU on
+Windows, the bot's virtual pad a Windows driver (ViGEmBus) and its recording OBS; `bonfire` has
+8 virtual cores, 15 GB and a virtual display adapter only (read 2026-10-21), and software
+rendering would not play the bot's real-time clips. The in-game harness (`scripts/ingame/`)
+already installs a CPK in a test slot, drives the pad and captures through OBS; installing the
+savefile beside it is the missing step.
+Plan: `plans/core/development_plan.md` "Unscheduled tools".

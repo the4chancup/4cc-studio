@@ -29,4 +29,11 @@ first of each until the organizer says otherwise:
    stats by more in total; or only the stats that matter for his role (which ones would then
    need a list).
 
+### 4ccEditor's team trim (Ctrl+Shift+T)
+
+From `plans/save_editor.md` "Feature inventory", the 2026-10-21 source audit. 4ccEditor has a
+hidden shortcut on the team selector that empties a team's roster slots past 23 (PES 19 to 21
+rosters hold 40). Do cups still use it (a team brought down to a 23-man squad), so the Save
+editor should keep it as a team operation, or can it go?
+
 ## Small confirmations

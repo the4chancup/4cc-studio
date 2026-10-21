@@ -3538,6 +3538,7 @@ dependencies = [
  "serde",
  "serde_json",
  "studio_core",
+ "team_widgets",
  "teams_list",
  "toml",
 ]

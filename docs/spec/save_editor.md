@@ -2,8 +2,12 @@
 
 ## Background: 4ccEditor
 
-4ccEditor (`Tools_4cc/4ccEditor-1`) is a raw Win32 C++ application that edits PES save files
-(`EDIT00000000`) for PES 2015–2021. Its codebase breaks down as:
+4ccEditor (`Tools_4cc/4ccEditor`, the official repository's `origin/master`; its Autumn 26
+edition, 2026-10-20, merged the Tactics tab and Texport import from the fork in
+`Tools_4cc/4ccEditor-1`) is a raw Win32 C++ application that edits PES save files
+(`EDIT00000000`) for PES 2015–2021. The local `master` carries two of the maintainer's own
+experiments upstream does not have (the "Make everyone else Messi" team action, out of
+scope); read the official code through `origin/master`. Its codebase breaks down as:
 
 | Component | Files | Size | Fate in the Rust port |
 |-----------|-------|------|----------------------|
@@ -341,6 +345,7 @@ finding that drops something says so with its own code.
 | `import_value_not_encodable` | Warning | `import-toml`: a value the save's version cannot store (an instruction it lacks); written as off (`path`, `label`) | warns and goes on |
 | `import_value_capped` | Warning | `import-toml`: a face type above the save's version's cap, or a skin the version has no custom slot for; written as `to` (`path`, `from`, `to`) | warns and goes on |
 | `import_slot_empty` | Warning | `import-toml`: a `[players.NN]` whose roster slot is empty; skipped (`slot`) | warns and goes on |
+| `import_text_cropped` | Warning | `import-toml`: a name or shirt name longer than the save's field; cut to it at whole characters and colour codes (`path`, `cropped`) | warns and goes on |
 | `patch_team_applied` | Info | `apply-patch`: the save holds the team and at least one of its patch players was written (`team`); a team whose players the save all lacks is not listed | informational; goes on |
 | `patch_team_not_in_save` | Error | `apply-patch`: the save has no team with this id; its players were not looked at (`team`) | the rest is written; exit 1 |
 | `patch_player_not_in_save` | Error | `apply-patch`: the save has no player with this id (`player`) | the rest is written; exit 1 |
@@ -425,7 +430,9 @@ SE-TOML-05 GIVEN a Team TOML, exported from the PES 21 fixture save, of a team b
                 value is printed as a note line, and the exit code is 0
 SE-TOML-06 GIVEN a Team TOML with a player name longer than the target version's name field
            WHEN it is imported
-           THEN it is refused naming the player, with exit code 2, and --out is not written
+           THEN it exits 0, --out holds the name cut to the field at whole characters and
+                colour codes, and an import_text_cropped warning names the player's key and
+                the text as cut
 SE-TOML-07 GIVEN a stripped PES 21 save and the unstripped PES 21 fixture save
            WHEN a team whose slot 3 is rostered is exported from the stripped one with
                 export-toml, given an appearance table for its slot 3, and imported into each
