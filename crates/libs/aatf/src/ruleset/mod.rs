@@ -137,6 +137,14 @@ pub struct Tier {
     /// none of the codes the tiers set (VTL11: medals gold or silver, the rest without).
     #[serde(default)]
     pub name_color: Option<String>,
+    /// Points an `at_most` ability stat may sit above its target with a warning, past which it
+    /// is an error (DBC7: 7 for a regular, 5 for a silver). 0: any point above is an error.
+    #[serde(default)]
+    pub stat_warning: u8,
+    /// The player's `at_most` ability stats, added up over the stats the version has, are at
+    /// most the sum of their targets (DBC7's regulars and silvers), an error.
+    #[serde(default)]
+    pub total_within_targets: bool,
 }
 
 /// A weak-foot target (usage and accuracy). A present `weak_foot` names
@@ -306,8 +314,9 @@ pub struct Universal {
     /// At least this many goalkeepers.
     #[serde(default)]
     pub min_goalkeepers: u8,
-    /// Skill cards a player may hold, free ones included (the game's limit: 10; VTL11 uses 11,
-    /// on every version).
+    /// Skill cards a player may hold, free ones included: a ruleset's choice (the official
+    /// rules' 10; VTL11 uses 11, on every version; DBC7 none, the game not holding a player to
+    /// ten in play).
     pub max_skill_cards: u8,
     /// COM playing styles at most, unset for no limit.
     #[serde(default)]
@@ -542,6 +551,10 @@ pub struct Effects {
     /// `specials` says.
     #[serde(default)]
     pub choice: Vec<Effects>,
+    /// Replaces the tier's `stat_warning` (DBC7: 5 for a Manlet regular at 175, so his
+    /// warning stops short of a silver's 88). Not a `choice` option's: it raises no limit.
+    #[serde(default)]
+    pub stat_warning: Option<PerTier<u8>>,
 }
 
 /// Team tactics settings required on the listed versions (every version when empty); each

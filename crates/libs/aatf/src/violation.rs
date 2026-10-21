@@ -77,6 +77,14 @@ pub enum ViolationKind {
         /// one over it is the violation.
         at_most: bool,
     },
+    /// The `at_most` ability stats' sum over the sum of their targets (under
+    /// a tier's `total_within_targets`).
+    StatTotal {
+        /// The player's stats added up.
+        total: u16,
+        /// The targets' sum.
+        limit: u16,
+    },
     /// Form off the tier's target (over it, for an `at_most` target).
     Form {
         /// The player's form.
@@ -368,6 +376,7 @@ pub(crate) fn violations(list: Dynamic) -> Result<Vec<Violation>, CheckError> {
             | ViolationKind::Age { .. }
             | ViolationKind::Weight { .. }
             | ViolationKind::Stat { .. }
+            | ViolationKind::StatTotal { .. }
             | ViolationKind::Form { .. }
             | ViolationKind::InjuryResistance { .. }
             | ViolationKind::WeakFootUsage { .. }
@@ -502,6 +511,15 @@ mod tests {
                     value: 80,
                     target: 92,
                     at_most: true,
+                },
+            ),
+            (
+                "#{ kind: \"StatTotal\", total: 1772, limit: 1771, slot: 3 }",
+                Some(3),
+                Severity::Error,
+                ViolationKind::StatTotal {
+                    total: 1772,
+                    limit: 1771,
                 },
             ),
             (
@@ -694,7 +712,7 @@ mod tests {
                 },
             ),
         ];
-        assert_eq!(cases.len(), 34);
+        assert_eq!(cases.len(), 35);
         for (text, slot, severity, kind) in cases {
             let got = violations(one(text)).expect(text).remove(0);
             assert_eq!(
@@ -745,6 +763,7 @@ mod tests {
         bad_entry("#{ kind: \"Nope\" }", "Nope");
         bad_entry("#{ kind: \"Age\", age: 15, min: 16 }", "max");
         bad_entry("#{ kind: \"ExtraHeight\", total: 50 }", "used");
+        bad_entry("#{ kind: \"StatTotal\", total: 1772 }", "limit");
         bad_entry(
             "#{ kind: \"Age\", age: 15, min: 16, max: 40, extra: 1 }",
             "extra",

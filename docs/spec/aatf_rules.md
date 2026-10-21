@@ -55,7 +55,7 @@ names required to carry a gold or silver colour code and other players' forbidde
 registered positions among the 188 cm players, no 180 cm player sharing one (by user decision a
 custom check, not schema; as the cup's checker does, "one" is the first two such positions in
 roster order, since a third is already the too-many error); the skill card limit raised to 11 on every version (PES 21 loads
-more than the game's 10); two warnings for a player rated A at CF, whose playing style the
+more than the official rules' 10); two warnings for a player rated A at CF, whose playing style the
 league's exe treats differently there (a Goal Poacher's does not take effect, a Creative
 Playmaker's does); and, on PES 16
 only, team tactics settings (no man marking set up, auto substitution, offside trap and preset
@@ -241,8 +241,9 @@ pub struct Universal {
     pub weight: Option<WeightRule>,
     pub captain_required: bool,
     pub min_goalkeepers: u8,
-    /// Skill cards a player may hold, free ones included (the game's limit: 10; VTL11 uses 11,
-    /// on every version).
+    /// Skill cards a player may hold, free ones included: a ruleset's choice (the official
+    /// rules' 10; VTL11 uses 11, on every version; DBC7 none, the game not holding a player to
+    /// ten in play).
     pub max_skill_cards: u8,
     pub max_com_styles: Option<u8>,
 }

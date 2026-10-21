@@ -2253,3 +2253,5 @@ worklog passed 7,000 lines.
   Markdown through `egui_commonmark` 0.25, the generated Messages table, search with the hit highlighted, in-doc links. ST-HELP-01, 02, ST-SIDE-06 proven.
 - **2026-10-21** — 8.6d3: the log panel (`BottomDock`, `LogPanel`): 300 lines drawn, severity filters and colors, the follow paused
   while scrolled up with a `↓ N new` jump, each message code a link to its help row; the Team compiler's window uses it. ST-LOG-01 to 04, ST-HELP-03 proven.
+- **2026-10-21** — 20.0e: the DBC7 organizer chose page or editor on each of seven points; `dbc7.rhai` follows: the editor's stat band as warnings,
+  a cap on a player's stats added up, the registered position not rated A a warning, a 189 cm keeper's single A, no card cap.

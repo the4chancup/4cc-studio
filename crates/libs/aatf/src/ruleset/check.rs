@@ -654,6 +654,9 @@ impl Ruleset {
                 self.check_per_tier(per_tier, &format!("{path}.{name}"), out);
             }
         }
+        if let Some(per_tier) = &effects.stat_warning {
+            self.check_per_tier(per_tier, &format!("{path}.stat_warning"), out);
+        }
         for (group, per_tier) in &effects.free {
             if !self.group_has(group) {
                 out.push(RuleError {
@@ -688,6 +691,7 @@ impl Ruleset {
                 ("height_allowance", option.height_allowance.is_some()),
                 ("forbid", option.forbid.is_some()),
                 ("choice", !option.choice.is_empty()),
+                ("stat_warning", option.stat_warning.is_some()),
             ] {
                 if present {
                     out.push(RuleError {

@@ -262,6 +262,7 @@ fn profile(team, system, player, tier_id) {
         allowance: 0, bracket: (), bonus: #{}, targets: #{}, cards: 0, free: #{},
         free_cards: [], require_cards: [], a_positions: 0, max_a_positions: (), weak_foot: (),
         form: 0, injury_resistance: 0, forbids: [], choices: [], taken: [], recognized_at: 0,
+        stat_warning: (),
     };
     for special in this.specials {
         let then = table(special, "then");
@@ -339,6 +340,12 @@ fn apply_effects(p, tier_id, label, severity, then, from) {
     }
     if "forbid" in then {
         p.forbids.push(#{ label: label, text: then.forbid, severity: severity });
+    }
+    // Replaces the tier's `stat_warning`, the last in `specials` order; no `from`
+    // gate, since a `choice` option may not hold one (the load rules refuse it).
+    if "stat_warning" in then {
+        let value = per_tier(then.stat_warning, tier_id);
+        if value != () { p.stat_warning = value; }
     }
     if "choice" in then {
         p.choices.push(#{ label: label, severity: severity, options: then.choice, from: from });
@@ -473,6 +480,12 @@ fn player_rating(player) {
 // The weak-foot limits: a special's replacement, else the tier's.
 fn weak_foot_of(tier, p) {
     if p.weak_foot != () { p.weak_foot } else { table(tier, "weak_foot") }
+}
+
+// The band above an `at_most` ability stat's target that is a warning rather
+// than an error: the last `stat_warning` effect's, else the tier's.
+fn stat_warning_of(tier, p) {
+    if p.stat_warning != () { p.stat_warning } else { num(tier, "stat_warning") }
 }
 
 // The tier's `key` value plus the specials' effects of the same key.
@@ -620,15 +633,35 @@ fn player_checks(team, system, player, tier, p) {
         }
     }
     let targets = targets(tier, p);
+    let band = stat_warning_of(tier, p);
     for stat in ability_stats() {
         let value = player.stat(stat);
         if value == () { continue; }
         let target = targets[stat];
         if misses(at_most, stat, value, target) {
+            // The band warns only for an `at_most` ability stat; an exact
+            // target and a stat past the band err, as they always did.
+            let severity = if stat in at_most && value <= target + band { "warning" } else { "error" };
             found.push(#{
                 kind: "Stat", slot: slot, stat: stat, value: value, target: target,
-                at_most: stat in at_most,
+                at_most: stat in at_most, severity: severity,
             });
+        }
+    }
+    // The same `at_most` ability stats added up, against the sum of their
+    // targets: the band never raises a player overall.
+    if flag(tier, "total_within_targets") {
+        let total = 0;
+        let limit = 0;
+        for stat in ability_stats() {
+            if !(stat in at_most) { continue; }
+            let value = player.stat(stat);
+            if value == () { continue; }
+            total += value;
+            limit += targets[stat];
+        }
+        if total > limit {
+            found.push(#{ kind: "StatTotal", slot: slot, total: total, limit: limit });
         }
     }
     let form = raised_target(tier, p, "form");

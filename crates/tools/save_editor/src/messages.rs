@@ -565,6 +565,10 @@ pub(crate) fn violation_rule(kind: &ViolationKind) -> (&'static str, Vec<(&'stat
                 ("at_most", at_most.to_string()),
             ],
         ),
+        ViolationKind::StatTotal { total, limit } => (
+            "StatTotal",
+            vec![("total", total.to_string()), ("limit", limit.to_string())],
+        ),
         ViolationKind::Form { value, target } => (
             "Form",
             vec![("value", value.to_string()), ("target", target.to_string())],
@@ -887,6 +891,13 @@ mod tests {
                     at_most: true,
                 },
                 "rule=Stat, stat=dribbling, value=80, target=92, at_most=true",
+            ),
+            (
+                ViolationKind::StatTotal {
+                    total: 1772,
+                    limit: 1771,
+                },
+                "rule=StatTotal, total=1772, limit=1771",
             ),
             (
                 ViolationKind::Form {

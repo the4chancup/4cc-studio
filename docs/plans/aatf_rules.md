@@ -8,9 +8,10 @@ What exists of this is in `spec/aatf_rules.md` "4cc Studio — AATF rules plan".
 
 What exists of this is in `spec/aatf_rules.md` "The ruleset schema".
 
-DBC7 ("DBC7" below) adds three things the schema cannot say (worklog 20.0d): a choice between
-several medal counts, height systems told apart by their counts, and a pool of centimetres
-shared by the team.
+DBC7 ("DBC7" below) adds five things the schema cannot say (worklog 20.0d, 20.0e): a choice
+between several medal counts, height systems told apart by their counts, a pool of centimetres
+shared by the team, a band above a stat's target that warns rather than errs, and a cap on a
+player's stats added up.
 
 ```rust
 pub struct Ruleset {
@@ -18,6 +19,23 @@ pub struct Ruleset {
     /// Alternative counts for some tiers, of which the team's must equal one (DBC7: GGG,
     /// GGSS, GSSSS, SSSSSS). Empty: each tier's own `count`.
     pub medal_systems: Vec<MedalSystem>,
+}
+
+pub struct Tier {
+    // ... every field in the spec, and:
+    /// Points an `at_most` ability stat may sit above its target with a warning, past which it
+    /// is an error (DBC7: 7 for a regular, 5 for a silver). 0: any point above is an error.
+    pub stat_warning: u8,
+    /// The player's `at_most` ability stats, added up over the stats the version has, are at
+    /// most the sum of their targets (DBC7's regulars and silvers), an error.
+    pub total_within_targets: bool,
+}
+
+pub struct Effects {
+    // ... every field in the spec, and:
+    /// Replaces the tier's `stat_warning` (DBC7: 5 for a Manlet regular at 175, so his
+    /// warning stops short of a silver's 88). Not a `choice` option's: it raises no limit.
+    pub stat_warning: Option<PerTier<u8>>,
 }
 
 pub struct MedalSystem {
@@ -84,8 +102,17 @@ carry such a silver, and VGL25's optional manlet bonus had the same gap with no 
 it. A mandatory effect still moves the threshold, as the Green silver giant's does.
 
 New violation kinds: `MedalSystem { systems: Vec<String> }` (the team; every system's label, so
-the message lists the counts the team may have) and
-`ExtraHeight { used: u16, total: u16 }`.
+the message lists the counts the team may have),
+`ExtraHeight { used: u16, total: u16 }` and `StatTotal { slot, total: u16, limit: u16 }`.
+
+**The stat band.** A `Stat` violation carries a severity: a warning while the stat is at most
+`stat_warning` above its target, an error past it, so a regular's 84 against 77 is one warning
+and his 85 one error. The band is the tier's, or the last `stat_warning` effect's; it applies to
+`at_most` ability stats only (a target that must be met exactly has no band), and recognition
+does not see it (a regular's 84 still rates under a silver's 88). We do not give the band to
+`at_most`'s list, per stat: DBC7's band differs by tier and by the Manlet bonus, not by stat.
+The stat total compares the player's values with his targets after every effect and chosen
+option, so a Manlet regular who takes the bonus is held to an all-82 sum.
 
 New load-time rules: a medal system's label is not empty, it names existing tiers, and those
 tiers have no `count` and no `counts_as` and no tier `counts_as` them; every system's counts plus
@@ -109,28 +136,42 @@ the two differ.
 
 | Feature | DBC7 |
 |---|---|
-| Tiers | gold 99 and silver 88 by the medal systems GGG, GGSS, GSSSS, SSSSSS (`medal_systems`); regular 77, the rest; no per-stat targets; every ability stat at most its target |
+| Tiers | gold 99 and silver 88 by the medal systems GGG, GGSS, GSSSS, SSSSSS (`medal_systems`); regular 77, the rest; no per-stat targets; every ability stat at most its target, a regular's up to 7 above it and a silver's up to 5 with a warning (`stat_warning`), and a regular's or silver's ability stats adding up to at most their targets' sum (`total_within_targets`) |
 | Tier recognition | rating alone (the official rating stats) |
 | Heights | four brackets of one height each (175, 180, 185, 195); three systems `by_quotas` in the organizer's order, Height (6, 6, 5, 6 from 195 down), Manlet (0, 10, 7, 6) and Universal (0, 23, 0, 0), then GigaHeight (0, 7, 10, 6 with `extra_height` 50, at most 210) for every other team; a registered goalkeeper at 189 counts as 185 (`height_allowance: 4`) in every system, after the pool under GigaHeight, as the page says |
-| Specials | the GK allowance; under Manlet, players at 175 may take +5 on every stat, regulars and silvers (the page's "silvers can also be buffed"; a gold is at 99 already), a one-option `choice` since the page allows the bonus rather than requiring it |
-| Cards, positions, form, weak foot, injury resistance | none: "No tactical export rules for anything else … go crazy". Paid cards 17 (the game's 10 skills and 7 COM styles), 13 A positions, B ratings allowed, form, injury resistance and weak foot at most the game's maxima |
-| Universal | none of the official file's checks; `max_skill_cards` 10, the game's own limit |
+| Specials | the GK allowance; a goalkeeper at 189 holds at most one A position (`max_a_positions: 1`, an error; that it is the registered one is the registered-position warning's); under Manlet, players at 175 may take +5 on every stat, regulars and silvers (the page's "silvers can also be buffed"; a gold is at 99 already), a one-option `choice` since the page allows the bonus rather than requiring it, and a Manlet regular's band narrowed to 5 (`stat_warning`), so his warning stops short of a silver's 88; the registered position not rated A, a warning (a `forbid` special over the 13 positions) |
+| Cards, positions, form, weak foot, injury resistance | none: "No tactical export rules for anything else … go crazy". Paid cards 48 (the 41 skills of the version with the most, and 7 COM styles), 13 A positions, B ratings allowed, form, injury resistance and weak foot at most the game's maxima |
+| Universal | none of the official file's checks; `max_skill_cards` 41, so no cap |
 
-Where the data reads differently from the fork, on purpose, since the page is followed:
+The page and the fork differ on seven points; the organizer chose one side for each
+(2026-10-21), and the data block follows the choice:
 
-- The fork warns of a stat above its target by up to 7 (a regular) or 5 (a silver, a Manlet
-  regular) and errs only past that; the page's "Non-Medals are 77 rated, Silvers are 88 rated"
-  makes any stat above the target a violation.
-- The fork also errs on what the page leaves free: the registered position not rated A, an age
-  outside 15 to 50, a weight outside the official range, no captain, no registered goalkeeper,
-  and a 189 cm goalkeeper with a second A position. None is in the data block (QUESTIONS.md
-  "DBC7: the organizer's editor errs on what the page leaves free").
-- The fork assigns GigaHeight's brackets in roster order and puts a player with no room left
-  in the lowest bracket his height reaches, past its quota, drawing for him too; the pool places
-  no one past a quota. On a team that fills the quotas the two place the same counts and draw
-  the same total; on one that cannot (a stripped save's 23 placeholders at 180) the fork also
-  reports the draw of the players it overfilled, the pool only the short bracket.
-- The fork does not check the game's ten-skill limit, which `max_skill_cards` keeps.
+- The fork's warning band is kept: a stat above its target by up to 7 (a regular) or 5 (a
+  silver, a Manlet regular) is a warning, past that an error, where the page's "Non-Medals are
+  77 rated, Silvers are 88 rated" reads as a cap. The organizer adds what the fork lacks: a
+  regular's or a silver's ability stats, added up, may not exceed the sum of their targets (an
+  all-77 or all-88 player's), an error, so the band trades a few points between stats and never
+  raises a player overall. The sum runs over every ability stat the version has, a goalkeeping
+  stat of an outfielder included, against each stat's own target, a Manlet bonus taken
+  included (QUESTIONS.md "DBC7: the stat total").
+- The registered position not rated A, which the fork errs on, is a warning: the page leaves
+  it free, and the organizer wants the member alerted.
+- A 189 cm goalkeeper with a second A position, which the page leaves free, is an error as in
+  the fork: a team of registered goalkeepers at 189 would otherwise reach a full squad of
+  "185s" and play its other positions through A ratings.
+- What the page leaves free and the fork errs on stays free: an age outside 15 to 50, a weight
+  outside the official range, no captain, no registered goalkeeper.
+
+No card is capped: the game does not hold a player to ten skill cards in play (the organizer's
+finding of 2026-10-21; the fork checks no card count either), so the block caps neither skill
+cards nor paid cards below every card the game has.
+
+Where the data still reads differently from the fork: the fork assigns GigaHeight's brackets
+in roster order and puts a player with no room left in the lowest bracket his height reaches,
+past its quota, drawing for him too; the pool places no one past a quota. On a team that fills
+the quotas the two place the same counts and draw the same total; on one that cannot (a
+stripped save's 23 placeholders at 180) the fork also reports the draw of the players it
+overfilled, the pool only the short bracket.
 
 ## Coverage of the DBC7 rules
 
@@ -147,10 +188,14 @@ checked:
 | Manlet: stats for 175 cm players increased by 5, silvers too (`silverManletBonus`, gold 0) | a special: `when: #{ systems: ["manlet"], height_max: 175 }`, `choice: [#{ stat_bonus: … }]`, 5 for regular and silver |
 | 185 cm goalkeepers may be 189, after GigaHeight's 50 cm (`heightTallGK`, a GK at 189 counted as 185 with no pool drawn) | a special: a registered GK at 189 gets `height_allowance: 4` |
 | Non-medals 77, silvers 88, golds 99 (the rating's thresholds, each stat at most the target) | `Tier::rate`; recognition by rating; `StatRules::at_most` holding every ability stat |
+| The organizer's choices (2026-10-21): a stat up to 7 above a regular's target or 5 above a silver's or a Manlet regular's is a warning (the fork's `warningRateBonus`) | `Tier::stat_warning`; a special's `stat_warning` for the Manlet regular |
+| A regular's or silver's stats added up at most an all-77 or all-88 player's (the organizer's; the fork has none) | `Tier::total_within_targets` |
+| The registered position rated A, a warning (the fork's error) | a special: `forbid` with `severity: "warning"`, over `any` of 13 positions each `not` `rated_a_at` itself |
+| A goalkeeper at 189 has no second A position (`heightTallGK` with `countA > 1`) | a special: `max_a_positions: 1` |
 | Medal systems GGG, GGSS, GSSSS, SSSSSS (the four count pairs) | `Ruleset::medal_systems` |
-| No rule for anything else (cards, footing, formations) | tiers at the game's maxima, `universal` off but the game's skill limit |
+| No rule for anything else (cards, footing, formations) | tiers at the game's maxima, `universal` off, no card cap (the game holds none in play) |
 
-No row is a custom check: the three new fields are the gaps, each one a form ("The editor" in
+No row is a custom check: the five new fields are the gaps, each one a form ("The editor" in
 `plans/ruleset_editor.md`).
 
 ## The interpreter

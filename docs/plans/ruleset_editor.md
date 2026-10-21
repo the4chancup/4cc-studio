@@ -42,7 +42,9 @@ mark in the rail.
 - **Tiers**: a table, one row per tier, highest first, reordered by dragging, since the order is
   the recognition order and the quick-action buttons' order. Columns: label, count (a number or
   "the rest"), id, counts as, rate, form, injury resistance, weak foot, paid cards, minimum
-  cards, A positions, name colour (none or a swatch). Per row, an expander holds the per-stat
+  cards, A positions, name colour (none or a swatch), warning band (`stat_warning`: points
+  above a stat's target that warn rather than err, 0 meaning none) and a "stats add up to at
+  most the targets" checkbox (`total_within_targets`). Per row, an expander holds the per-stat
   targets (all ability stats, empty meaning "the rate"), the free cards per group (one number
   per group, COM styles first: as columns they would widen the table past a laptop screen)
   and the tier's conditions (the condition editor below). Below the table, the medal systems
@@ -72,7 +74,7 @@ mark in the rail.
   - *Then* is a list of effects, added from a menu that names them in words ("Add to every stat",
     "Set one stat's target", "Extra paid cards", "Free cards", "Required card", "Extra A
     positions", "At most N A positions", "Change form", "Change injury resistance", "Weak-foot limits",
-    "Height allowance", "Forbid"). A
+    "Height allowance", "Warning band", "Forbid"). A
     numeric effect has a "same for every tier / per tier" switch; per tier shows one field per tier.
     *One of* adds a choice: ordered options, each a list of effects, with the rule spelled out
     under it ("the first option the player needs is given"); a choice of one option reads *May

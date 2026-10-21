@@ -18,15 +18,19 @@ const RULESET = #{
     },
 
     // No card or position rule on the page ("No tactical export rules for anything
-    // else"): 17 paid cards cover the game's 10 skills and 7 COM styles, 13 A
-    // positions its 13 positions.
+    // else"): no card cap, the game not holding a player to ten skill cards in
+    // play. 48 paid cards cover every card the game has (41 is the most skills
+    // any version has, with the seven COM styles), 13 A positions its 13
+    // positions.
     tiers: [
         #{ id: "gold", label: "Gold", rate: 99, form: 8, injury_resistance: 3,
-           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 17, a_positions: 13 },
+           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 48, a_positions: 13 },
         #{ id: "silver", label: "Silver", rate: 88, form: 8, injury_resistance: 3,
-           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 17, a_positions: 13 },
+           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 48, a_positions: 13,
+           stat_warning: 5, total_within_targets: true },
         #{ id: "regular", label: "Regular", rate: 77, form: 8, injury_resistance: 3,
-           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 17, a_positions: 13 },
+           weak_foot: #{ usage: 4, accuracy: 4 }, cards: 48, a_positions: 13,
+           stat_warning: 7, total_within_targets: true },
     ],
 
     medal_systems: [
@@ -56,7 +60,8 @@ const RULESET = #{
         ],
     },
 
-    universal: #{ max_skill_cards: 10 },
+    // 41 is the most skills any version has: no cap, like the paid cards.
+    universal: #{ max_skill_cards: 41 },
 
     specials: [
         #{ label: "Goalkeepers at 189 count as 185",
@@ -67,5 +72,30 @@ const RULESET = #{
         #{ label: "Manlet bonus",
            when: #{ systems: ["manlet"], height_max: 175 },
            then: #{ choice: [#{ stat_bonus: #{ all: #{ regular: 5, silver: 5 } } }] } },
+        // The bonus's +5 would let a regular's band reach a silver's 88 (82 + 7):
+        // his narrows to the silver's 5.
+        #{ label: "Manlet regulars: warning band 5",
+           when: #{ systems: ["manlet"], height_max: 175 },
+           then: #{ stat_warning: #{ regular: 5 } } },
+        #{ label: "Goalkeepers at 189 have no second A position",
+           when: #{ positions: ["GK"], height_min: 189, height_max: 189 },
+           then: #{ max_a_positions: 1 } },
+        #{ label: "The registered position must be rated A", severity: "warning",
+           when: #{ any: [
+               #{ positions: ["GK"],  not: #{ rated_a_at: ["GK"] } },
+               #{ positions: ["CB"],  not: #{ rated_a_at: ["CB"] } },
+               #{ positions: ["LB"],  not: #{ rated_a_at: ["LB"] } },
+               #{ positions: ["RB"],  not: #{ rated_a_at: ["RB"] } },
+               #{ positions: ["DMF"], not: #{ rated_a_at: ["DMF"] } },
+               #{ positions: ["CMF"], not: #{ rated_a_at: ["CMF"] } },
+               #{ positions: ["LMF"], not: #{ rated_a_at: ["LMF"] } },
+               #{ positions: ["RMF"], not: #{ rated_a_at: ["RMF"] } },
+               #{ positions: ["AMF"], not: #{ rated_a_at: ["AMF"] } },
+               #{ positions: ["LWF"], not: #{ rated_a_at: ["LWF"] } },
+               #{ positions: ["RWF"], not: #{ rated_a_at: ["RWF"] } },
+               #{ positions: ["SS"],  not: #{ rated_a_at: ["SS"] } },
+               #{ positions: ["CF"],  not: #{ rated_a_at: ["CF"] } },
+           ] },
+           then: #{ forbid: "The registered position is not rated A" } },
     ],
 };

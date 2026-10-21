@@ -950,6 +950,41 @@ fn a_last_system_with_by_quotas_is_refused() {
     );
 }
 
+/// A `choice` option may not hold `stat_warning`: it raises no limit, so no
+/// player could ever be found to use it.
+#[test]
+fn a_stat_warning_in_a_choice_option_is_refused() {
+    case(
+        "stat_warning option",
+        &edit(
+            AUTUMN26,
+            "#{ free: #{ com: 1 } }, #{ a_positions: 1 }",
+            "#{ free: #{ com: 1 }, stat_warning: 3 }, #{ a_positions: 1 }",
+        ),
+        LoadRule::ChoiceOptionEffect,
+        "specials[11].then.choice[0].stat_warning",
+    );
+}
+
+/// A `stat_warning` per-tier map names existing tiers, as every other
+/// per-tier effect's does.
+#[test]
+fn a_stat_warning_naming_an_unknown_tier_is_refused() {
+    case(
+        "stat_warning unknown tier",
+        &edit(
+            AUTUMN26,
+            "then: #{ free_cards: [\"malicia\"] }",
+            "then: #{ free_cards: [\"malicia\"], stat_warning: #{ gollum: 3 } }",
+        ),
+        LoadRule::UnknownId {
+            kind: IdKind::Tier,
+            id: "gollum".to_string(),
+        },
+        "specials[0].then.stat_warning.gollum",
+    );
+}
+
 /// The smallest ruleset with an `extra_height` system: two `exactly`
 /// brackets, quotas adding to `squad_size`.
 const POOL: &str = "const RULESET = #{

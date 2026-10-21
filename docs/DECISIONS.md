@@ -9660,3 +9660,20 @@ work (worklog 16.x c); our own encoder only if those fall short.
 Why: Studio exports are PNG by design (lossless edits, smaller files with flat colors), so nearly
 every Fox texture is encoded, a team's being about 30 chains; speed is the suite's first goal.
 Plan: `plans/libs/README.md` "First-release desktop GPU BC7" ("The workload the speed is judged on").
+
+## 2026-10-21 — aatf — DBC7 follows the organizer's choice on each of the seven page/editor differences
+Decision (the DBC7 organizer, relayed by the maintainer): the stat band is the editor's (a
+regular's stat up to 7 above its target, a silver's or a Manlet regular's up to 5, a warning;
+past it an error), plus an error when a regular's or a silver's stats added up exceed their
+targets' sum; the registered position not rated A is a warning; a 189 cm goalkeeper with a
+second A position is an error; age, weight, captain and a registered goalkeeper stay free, as
+the page leaves them; and no skill-card cap, the game not holding a player to ten in play.
+The schema gains `Tier::stat_warning`, `Tier::total_within_targets` and an effect's
+`stat_warning`; the two position rules are specials. The total is read against the player's own
+targets over every ability stat until the organizer says otherwise (QUESTIONS.md "DBC7: the stat
+total").
+Why: the organizer runs the cup and checks its exports; a band in the schema, not one per stat,
+because DBC7's band differs by tier and by the Manlet bonus. A flat all-77 total would make the
+Manlet bonus unusable beyond trading points, which the page grants.
+Plan: `plans/aatf_rules.md` "The ruleset schema" (the band, the total), "DBC7", "Coverage of the
+DBC7 rules".

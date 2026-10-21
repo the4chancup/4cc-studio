@@ -20,8 +20,9 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-c and 8.6d1-3 done, 8.6d4 the wording pass next; then the Save
 editor's view), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
-upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-20): 20.0d (the
-DBC7 ruleset), 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's
+upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-21): 20.0d (the
+DBC7 ruleset), 20.0e (the organizer's choices in it; QUESTIONS.md "DBC7: the stat total"
+waits on the organizer), 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's
 rulings) and 8.5 (the Save editor's draft, `docs/prototypes/save_editor.html`, waiting for the
 maintainer's remarks; the view starts with what they are least likely to change). The face_diff model comparison (Issues, "a face diff is
 engine-specific") follows the editors. 8.0's acceptance sections are reviewed and the shell's
@@ -764,7 +765,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       team, the script, the team's view) and cut what is not the script's own work: speed is
       the suite's first goal, and both AATF panels wait on it
   - [ ] 8.10 after 0.0.1: the progress grid (with the log panel's cross-link: a warning or
-    error line's click highlights its grid cell, `gui.md` "Log panel", which 8.6d3 leaves for
+    error line's click highlights its grid cell, `plans/core/gui.md` "Log panel", which 8.6d3 leaves for
     the grid), the run strip and the console printer's progress line, the exports folder watcher and check cache, cancellation, the launcher, the Team
     compiler's and the Export upgrader's views (their drafts first); the notice action
     `OpenFolder` opens the system file browser for the compile's "Open output" (8.6b leaves it
@@ -1011,7 +1012,7 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     `src/file.rs`, `src/fixtures/`, `src/ruleset/tests/`), `crates/tools/save_editor/src/
     messages.rs`, `docs/plans/aatf_rules.md`, `docs/plans/ruleset_editor.md`,
     `docs/prototypes/ruleset_editor.html`, `docs/DECISIONS.md`, `docs/QUESTIONS.md`
-  - [ ] 20.0e the DBC7 organizer's choices (2026-10-21, `plans/aatf_rules.md` "DBC7", DECISIONS
+  - [x] 20.0e the DBC7 organizer's choices (2026-10-21, `plans/aatf_rules.md` "DBC7", DECISIONS
     2026-10-21): `Tier::stat_warning`, `Tier::total_within_targets` and the `stat_warning`
     effect (`plans/aatf_rules.md` "The ruleset schema", "The stat band"), the `Stat`
     violation's severity and `StatTotal`, their load rules and the Save editor's texts;
@@ -1021,7 +1022,18 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     saves, every difference a listed class (the total and the registered-position severity
     the new ones), the 29 and 36 teams the band alone failed now passing unless the total
     catches them, tallied; the stat total's two readings wait on QUESTIONS.md "DBC7: the stat
-    total"
+    total". Done 2026-10-21 (SWE-2): the three fields with their load rule (a choice option
+    holding `stat_warning` is refused), the band's severity and `StatTotal` in `logic.rhai`,
+    the Save editor's line for it, `dbc7.rhai` (the band 7 and 5, the Manlet regular's 5, the
+    total, the 189 cm goalkeeper's single A, the registered-position warning over the 13
+    positions, 48 paid cards and 41 skills, no cap), the draft's columns, effect and DBC7
+    template (its dumped block runs as `dbc7.rhai` does). Parity (`.tmp/20_0e/parity.md`): every
+    difference a listed class; the 29 and 36 teams the fork passes fail on `StatTotal` alone,
+    each player 92 to 115 over (every stat at Autumn 24's +4 or +5). Files:
+    `crates/libs/aatf/` (`logic/logic.rhai`, `rulesets/dbc7.rhai`, `src/ruleset/{mod,check}.rs`,
+    `src/violation.rs`, `src/file.rs`, `src/fixtures/dbc7.rs`, `src/ruleset/tests/rules.rs`),
+    `crates/tools/save_editor/src/messages.rs`, `docs/prototypes/ruleset_editor.html`, the
+    plans and decision named above
 
 ---
 

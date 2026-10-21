@@ -206,9 +206,10 @@ fn a_keeper_at_189_counts_as_185_in_every_system() {
 /// team's counts (10x 185, 7x 180, 6x 175) also fill GigaHeight's quotas
 /// (three 185s in mid slots, drawing 15), so the systems' order is what
 /// reads it as Manlet, and only Manlet gives the bonus.
-/// The same regular with one stat at 83 is a `Stat` violation at target
-/// 82; under the Height system (no bonus) the 82s are `Stat` violations
-/// at target 77 — PES 17's twenty-three ability stats.
+/// The same regular with one stat at 83 warns inside his band of 5, but his
+/// 22 others sit at the target, so the sum passes the all-82 one by a point;
+/// under the Height system (no bonus) the 82s warn at target 77 — PES 17's
+/// twenty-three ability stats — and the sum is 115 over the all-77 one.
 #[test]
 fn the_manlet_bonus_raises_the_175_targets() {
     let rules = rules();
@@ -225,27 +226,39 @@ fn the_manlet_bonus_raises_the_175_targets() {
     // read them as regulars over 82).
     set_tier(player_mut(&mut team, 9), 92, 8, 3);
     assert_eq!(problems(&rules, &team), vec![]);
-    // One stat over: dribbling 83 against the bonused target 82.
+    // One stat over: dribbling 83 against the bonused target 82, a warning in
+    // the band and one point over the all-82 sum for the `StatTotal`.
     let dribbling = stat("dribbling");
     player_mut(&mut team, 3).abilities[usize::from(dribbling.0)] = Some(83);
     assert_eq!(
         problems(&rules, &team),
-        vec![error(
-            Some(3),
-            ViolationKind::Stat {
-                stat: dribbling,
-                value: 83,
-                target: 82,
-                at_most: true,
-            }
-        )]
+        vec![
+            warning(
+                3,
+                ViolationKind::Stat {
+                    stat: dribbling,
+                    value: 83,
+                    target: 82,
+                    at_most: true,
+                }
+            ),
+            error(
+                Some(3),
+                ViolationKind::StatTotal {
+                    total: 1887,
+                    limit: 1886
+                }
+            ),
+        ]
     );
-    // The same 82s under Height: no bonus, target 77 on each stat.
+    // The same 82s under Height: no bonus, target 77 on each stat — 23 Stat
+    // warnings inside the band of 7 — and the sum 15 over the all-77 one.
     let team = edited(&HEIGHT, GGSS, 3, |p| set_tier(p, 82, 8, 3));
     let found = problems(&rules, &team);
-    assert_eq!(found.len(), 23, "{found:?}");
+    assert_eq!(found.len(), 24, "{found:?}");
     assert!(
-        found.iter().all(|v| v.slot == Some(3)
+        found[..23].iter().all(|v| v.slot == Some(3)
+            && v.severity == Severity::Warning
             && matches!(
                 &v.kind,
                 ViolationKind::Stat {
@@ -256,6 +269,16 @@ fn the_manlet_bonus_raises_the_175_targets() {
                 }
             )),
         "{found:?}"
+    );
+    assert_eq!(
+        found[23],
+        error(
+            Some(3),
+            ViolationKind::StatTotal {
+                total: 1886,
+                limit: 1771
+            }
+        )
     );
 }
 
@@ -339,26 +362,289 @@ fn a_medal_count_no_system_has_is_one_violation() {
     );
 }
 
-/// Any stat above its target is a violation (the rules page's cap,
-/// stricter than the checker's warning threshold): a regular with one
-/// stat at 78, one `Stat` at target 77.
+/// The band: an `at_most` ability stat above its target by at most the tier's
+/// `stat_warning` is a warning, past it an error — a regular's 84 warns (77 + 7)
+/// and his 85 errs, a silver's 93 warns (88 + 5) and his 94 errs. The sums stay
+/// under the all-77 and all-88 totals (the silver trades a stat down for them),
+/// so no `StatTotal` joins in.
 #[test]
-fn a_stat_one_over_the_target_is_a_violation() {
+fn a_stat_inside_the_band_warns_past_it_errs() {
     let rules = rules();
-    let dribbling = stat("dribbling");
-    let team = edited(&GIGA, GGSS, 12, |p| {
-        p.abilities[usize::from(dribbling.0)] = Some(78)
+    let attacking = stat("attacking_prowess");
+    let defensive = stat("defensive_prowess");
+    // The regular at 84 and at 85.
+    let mut team = edited(&GIGA, GGSS, 12, |p| {
+        p.abilities[usize::from(attacking.0)] = Some(84)
     });
     assert_eq!(
         problems(&rules, &team),
-        vec![error(
-            Some(12),
+        vec![warning(
+            12,
             ViolationKind::Stat {
-                stat: dribbling,
-                value: 78,
+                stat: attacking,
+                value: 84,
                 target: 77,
                 at_most: true,
             }
         )]
     );
+    player_mut(&mut team, 12).abilities[usize::from(attacking.0)] = Some(85);
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(
+            Some(12),
+            ViolationKind::Stat {
+                stat: attacking,
+                value: 85,
+                target: 77,
+                at_most: true,
+            }
+        )]
+    );
+    // The silver at 93 and at 94, defensive prowess traded down for the total.
+    let mut team = edited(&GIGA, GGSS, 9, |p| {
+        p.abilities[usize::from(attacking.0)] = Some(93);
+        p.abilities[usize::from(defensive.0)] = Some(80);
+    });
+    assert_eq!(
+        problems(&rules, &team),
+        vec![warning(
+            9,
+            ViolationKind::Stat {
+                stat: attacking,
+                value: 93,
+                target: 88,
+                at_most: true,
+            }
+        )]
+    );
+    player_mut(&mut team, 9).abilities[usize::from(attacking.0)] = Some(94);
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(
+            Some(9),
+            ViolationKind::Stat {
+                stat: attacking,
+                value: 94,
+                target: 88,
+                at_most: true,
+            }
+        )]
+    );
+}
+
+/// A Manlet regular's band narrows to the silver's 5 (his bonused 82 plus the
+/// regular's 7 would reach a silver's 88): at 87 a warning, at 88 an error, the
+/// target 82 both ways — he is read as a regular, since recognition sees the
+/// unbonused rate and never the band.
+#[test]
+fn a_manlet_regulars_band_is_five() {
+    let rules = rules();
+    let attacking = stat("attacking_prowess");
+    let defensive = stat("defensive_prowess");
+    let mut team = edited(&MANLET_BONUS, GGSS, 3, |p| {
+        set_tier(p, 82, 8, 3);
+        // Defensive prowess traded down keeps the sum under the all-82 total.
+        p.abilities[usize::from(defensive.0)] = Some(74);
+        p.abilities[usize::from(attacking.0)] = Some(87);
+    });
+    assert_eq!(player(&team, 3).height, 175);
+    assert_eq!(
+        problems(&rules, &team),
+        vec![warning(
+            3,
+            ViolationKind::Stat {
+                stat: attacking,
+                value: 87,
+                target: 82,
+                at_most: true,
+            }
+        )]
+    );
+    player_mut(&mut team, 3).abilities[usize::from(attacking.0)] = Some(88);
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(
+            Some(3),
+            ViolationKind::Stat {
+                stat: attacking,
+                value: 88,
+                target: 82,
+                at_most: true,
+            }
+        )]
+    );
+}
+
+/// A regular's or a silver's ability stats add up to at most the sum of their
+/// targets: an all-77 player sums to 1771, and one point over it is one
+/// `StatTotal` error, the raised stat inside the band a warning beside it.
+#[test]
+fn a_stat_total_over_the_sum_is_an_error() {
+    let rules = rules();
+    let physical = stat("physical_contact");
+    let team = edited(&GIGA, GGSS, 12, |p| {
+        set_tier(p, 77, 8, 3);
+        p.abilities[usize::from(physical.0)] = Some(78);
+    });
+    assert_eq!(
+        problems(&rules, &team),
+        vec![
+            warning(
+                12,
+                ViolationKind::Stat {
+                    stat: physical,
+                    value: 78,
+                    target: 77,
+                    at_most: true,
+                }
+            ),
+            error(
+                Some(12),
+                ViolationKind::StatTotal {
+                    total: 1772,
+                    limit: 1771
+                }
+            ),
+        ]
+    );
+}
+
+/// A silver's ability stats add up to at most the all-88 sum (2024): exactly it
+/// is legal, one point over is one `StatTotal` error, the raised stat inside the
+/// band a warning beside it. A Manlet silver at 175 who takes the bonus is held
+/// to the bonused sum: all-93, so one over it is `StatTotal` at limit 2139, the
+/// targets after every effect and the chosen option.
+#[test]
+fn a_silvers_stat_total_over_the_sum_is_an_error() {
+    let rules = rules();
+    let physical = stat("physical_contact");
+    // Exactly the all-88 sum: legal.
+    let team = edited(&GIGA, GGSS, 9, |p| set_tier(p, 88, 8, 3));
+    assert_eq!(problems(&rules, &team), vec![]);
+    // One point over it.
+    let team = edited(&GIGA, GGSS, 9, |p| {
+        set_tier(p, 88, 8, 3);
+        p.abilities[usize::from(physical.0)] = Some(89);
+    });
+    assert_eq!(
+        problems(&rules, &team),
+        vec![
+            warning(
+                9,
+                ViolationKind::Stat {
+                    stat: physical,
+                    value: 89,
+                    target: 88,
+                    at_most: true,
+                }
+            ),
+            error(
+                Some(9),
+                ViolationKind::StatTotal {
+                    total: 2025,
+                    limit: 2024
+                }
+            ),
+        ]
+    );
+    // A Manlet silver who takes the bonus, held to all-93.
+    let team = edited(&MANLET_BONUS, GGSS, 9, |p| {
+        set_tier(p, 93, 8, 3);
+        p.abilities[usize::from(physical.0)] = Some(94);
+    });
+    assert_eq!(
+        problems(&rules, &team),
+        vec![
+            warning(
+                9,
+                ViolationKind::Stat {
+                    stat: physical,
+                    value: 94,
+                    target: 93,
+                    at_most: true,
+                }
+            ),
+            error(
+                Some(9),
+                ViolationKind::StatTotal {
+                    total: 2140,
+                    limit: 2139
+                }
+            ),
+        ]
+    );
+}
+
+/// A 189 cm goalkeeper may hold at most one A position: rated A at CB beside GK
+/// is one `APositions` error at the one-position cap the 189-only special sets;
+/// rated A at CB alone passes the cap and takes the registered-position warning;
+/// at 185 the same ratings are free (the cap does not apply).
+#[test]
+fn a_keeper_at_189_holds_no_second_a() {
+    let rules = rules();
+    let cb = usize::from(position("CB").0);
+    let gk = usize::from(position("GK").0);
+    let team = edited(&GIGA, GGSS, 0, |p| p.ratings[cb] = 2);
+    assert_eq!(
+        problems(&rules, &team),
+        vec![error(
+            Some(0),
+            ViolationKind::APositions { count: 2, max: 1 }
+        )]
+    );
+    // Rated A at CB alone: within the one-position cap, and the registered
+    // position not rated A warns.
+    let team = edited(&GIGA, GGSS, 0, |p| {
+        p.ratings[gk] = 0;
+        p.ratings[cb] = 2;
+    });
+    assert_eq!(
+        problems(&rules, &team),
+        vec![warning(
+            0,
+            special(
+                "The registered position must be rated A",
+                "The registered position is not rated A"
+            )
+        )]
+    );
+    let team = edited(&UNIVERSAL, GGSS, 0, |p| {
+        p.height = 185;
+        p.ratings[cb] = 2;
+    });
+    assert_eq!(problems(&rules, &team), vec![]);
+}
+
+/// The registered position not rated A is a warning, not an error: a player
+/// moved to CB, where he is not rated, gets the special's `forbid` text once.
+#[test]
+fn a_registered_position_not_rated_a_is_a_warning() {
+    let rules = rules();
+    let team = edited(&GIGA, GGSS, 3, |p| p.position = Some(position("CB")));
+    assert_eq!(
+        problems(&rules, &team),
+        vec![warning(
+            3,
+            special(
+                "The registered position must be rated A",
+                "The registered position is not rated A"
+            )
+        )]
+    );
+}
+
+/// No card cap: a regular holding every card PES 2017 has, all 28 skills and
+/// all 7 COM styles, reports nothing, the game not holding a player to the ten
+/// of a regular match.
+#[test]
+fn a_player_holding_every_card_reports_nothing() {
+    let rules = rules();
+    let team = edited(&GIGA, GGSS, 12, |p| {
+        p.cards = (0..28u8)
+            .map(Card::Skill)
+            .chain((0..7u8).map(Card::ComStyle))
+            .collect()
+    });
+    assert_eq!(problems(&rules, &team), vec![]);
 }

@@ -668,9 +668,11 @@ const DBC7 = {
       "form", "injury_resistance", "weak_foot_usage", "weak_foot_accuracy"],
   },
   tiers: [
-    tier("gold", "Gold", null, 99, 8, 3, 4, 17, {}, { a_positions: 13 }),
-    tier("silver", "Silver", null, 88, 8, 3, 4, 17, {}, { a_positions: 13 }),
-    tier("regular", "Regular", null, 77, 8, 3, 4, 17, {}, { a_positions: 13 }),
+    tier("gold", "Gold", null, 99, 8, 3, 4, 48, {}, { a_positions: 13 }),
+    tier("silver", "Silver", null, 88, 8, 3, 4, 48, {}, { a_positions: 13, stat_warning: 5,
+      total_within_targets: true }),
+    tier("regular", "Regular", null, 77, 8, 3, 4, 48, {}, { a_positions: 13, stat_warning: 7,
+      total_within_targets: true }),
   ],
   medal_systems: [
     { label: "GGG", counts: { gold: 3 } },
@@ -700,12 +702,19 @@ const DBC7 = {
   },
   universal: { registered_position_a: false, fielded_at_a: [], no_b_ratings: false,
     b_uses_a_allowance: false, gk_not_second_a: false, age: null, weight: null,
-    captain_required: false, min_goalkeepers: 0, max_skill_cards: 10, max_com_styles: null },
+    captain_required: false, min_goalkeepers: 0, max_skill_cards: 41, max_com_styles: null },
   specials: [
     special("Goalkeepers at 189 count as 185", { positions: ["GK"], height_min: 189, height_max: 189 },
       { height_allowance: 4 }),
     special("Manlet bonus", { systems: ["manlet"], height_max: 175 },
       { choice: [{ stat_bonus: { all: { regular: 5, silver: 5 } } }] }),
+    special("Manlet regulars: warning band 5", { systems: ["manlet"], height_max: 175 },
+      { stat_warning: { regular: 5 } }),
+    special("Goalkeepers at 189 have no second A position", { positions: ["GK"], height_min: 189, height_max: 189 },
+      { max_a_positions: 1 }),
+    special("The registered position must be rated A",
+      { any: POSITIONS.map(p => ({ positions: [p], not: { rated_a_at: [p] } })) },
+      { forbid: "The registered position is not rated A" }, "warning"),
   ],
   team_settings: [],
   suggestions: [],
@@ -830,7 +839,8 @@ function tier(id, label, count, rate, form, injury, weakFoot, cards, free, extra
   const wf = typeof weakFoot === "number" ? { usage: weakFoot, accuracy: weakFoot } : weakFoot;
   return Object.assign({ id, label, count, counts_as: null, when: {}, rate, stats: {}, form,
     injury_resistance: injury, weak_foot: wf, cards,
-    min_cards: 0, free, a_positions: 1, name_color: null }, extra);
+    min_cards: 0, free, a_positions: 1, name_color: null, stat_warning: 0,
+    total_within_targets: false }, extra);
 }
 function special(label, when, then, severity) {
   return { label, when, then, severity: severity || "error" };
@@ -1028,7 +1038,7 @@ function effectsData(e) {
   return struct(e, [["stat_bonus"], ["stat_target"], ["cards", "opt"], ["free"], ["free_cards"],
     ["require_cards"], ["a_positions", "opt"], ["max_a_positions", "opt"], ["form", "opt"],
     ["injury_resistance", "opt"], ["weak_foot", "opt"], ["height_allowance", "opt"], ["forbid", "opt"],
-    ["choice"]], { choice: l => l.map(effectsData) });
+    ["choice"], ["stat_warning", "opt"]], { choice: l => l.map(effectsData) });
 }
 function rulesetData(r) {
   return {
@@ -1036,7 +1046,8 @@ function rulesetData(r) {
     stats: struct(r.stats, [["rating"], ["at_most"]]),
     tiers: r.tiers.map(t => struct(t, [["id", "req"], ["label", "req"], ["count", "opt"],
       ["counts_as", "opt"], ["when"], ["rate", "req"], ["stats"], ["form"], ["injury_resistance"],
-      ["weak_foot"], ["cards"], ["min_cards"], ["free", "req"], ["a_positions"], ["name_color", "opt"]],
+      ["weak_foot"], ["cards"], ["min_cards"], ["free", "req"], ["a_positions"], ["name_color", "opt"],
+      ["stat_warning"], ["total_within_targets"]],
       { when: condData })),
     card_groups: r.card_groups,
     medal_systems: (r.medal_systems || []).map(m => struct(m, [["label", "req"], ["counts", "req"]])),
@@ -1251,7 +1262,7 @@ function problems(r) {
     if (!tierIds.includes(id)) add(sec, `${where}: a per-tier value names no tier "${id}"`); }); };
   const checkEffects = (e, sec, where) => {
     Object.values(e.stat_bonus || {}).concat(Object.values(e.stat_target || {}),
-      [e.cards, e.a_positions, e.form, e.injury_resistance]).forEach(v => perTierIds(v, sec, where));
+      [e.cards, e.a_positions, e.form, e.injury_resistance, e.stat_warning]).forEach(v => perTierIds(v, sec, where));
     Object.entries(e.free || {}).forEach(([g, v]) => {
       if (g !== "com" && !groups.includes(g)) add(sec, `${where}: free cards of an unknown group "${g}"`);
       perTierIds(v, sec, where);
@@ -1327,6 +1338,8 @@ function effectsText(e) {
   if (e.injury_resistance != null) p.push(`${perTierText(e.injury_resistance, "")} injury resistance`);
   if (e.weak_foot) p.push(`weak foot up to ${e.weak_foot.usage}/${e.weak_foot.accuracy}`);
   if (e.height_allowance != null) p.push(`count ${e.height_allowance} cm shorter`);
+  if (e.stat_warning != null) p.push("warning band " + (typeof e.stat_warning === "number" ? e.stat_warning
+    : Object.entries(e.stat_warning).map(([t, n]) => `${n} for ${tierLabel(t)}`).join(", ")));
   if (e.forbid != null) p.push(`not allowed ("${e.forbid}")`);
   if ((e.choice || []).length === 1) p.push("may get " + effectsText(e.choice[0]));
   else if ((e.choice || []).length) p.push("gets the first needed of: " + e.choice.map(effectsText).join("; or "));
@@ -1342,7 +1355,9 @@ function summary(r) {
     const when = condText(t.when);
     const free = Object.entries(t.free).map(([g, n]) => `${n} free ${g === "com" ? "COM style" + (n > 1 ? "s" : "") : human(g).toLowerCase()}`);
     const stats = Object.entries(t.stats).map(([s, v]) => `${human(s).toLowerCase()} ${v}`);
-    L.push(`- **${t.label}**: ${count}${when ? ", " + when : ""}; every stat ${t.rate}${stats.length ? " (" + stats.join(", ") + ")" : ""}; form ${t.form}, injury resistance ${t.injury_resistance}, weak foot ${t.weak_foot.usage}/${t.weak_foot.accuracy}; ${t.cards} paid cards${t.min_cards ? ` (at least ${t.min_cards})` : ""}${free.length ? ", " + free.join(", ") : ""}; ${t.a_positions} A position${t.a_positions === 1 ? "" : "s"}${t.name_color ? `; name in colour ${t.name_color}` : ""}.`);
+    const band = t.stat_warning ? `; a stat up to ${t.stat_warning} over its target warns, past that it is not allowed` : "";
+    const total = t.total_within_targets ? "; his stats added up may not exceed the targets' sum" : "";
+    L.push(`- **${t.label}**: ${count}${when ? ", " + when : ""}; every stat ${t.rate}${stats.length ? " (" + stats.join(", ") + ")" : ""}${band}${total}; form ${t.form}, injury resistance ${t.injury_resistance}, weak foot ${t.weak_foot.usage}/${t.weak_foot.accuracy}; ${t.cards} paid cards${t.min_cards ? ` (at least ${t.min_cards})` : ""}${free.length ? ", " + free.join(", ") : ""}; ${t.a_positions} A position${t.a_positions === 1 ? "" : "s"}${t.name_color ? `; name in colour ${t.name_color}` : ""}.`);
   });
   if ((r.medal_systems || []).length) {
     const named = r.tiers.filter(t => medalTiers.has(t.id));
@@ -1478,7 +1493,7 @@ const VIEWS = {
       h("tr", {}, h("td", {}, "Name"), h("td", {}, text(R.name, v => R.name = v, { width: 220 }))),
       h("tr", {}, h("td", {}, "Squad size"), h("td", {}, drag(R.squad_size, v => R.squad_size = v ?? 0, { min: 1, max: 32 })))));
     d.append(h("div", { class: "sep" }), strong("Rating stats"),
-      h("div", { class: "weak" }, "A player's rating is the highest of these; it picks his tier and must not exceed the tier's rating."),
+      h("div", { class: "weak" }, "A player's rating is the highest of these; it picks his tier. What a stat may sit at is the target, the warning band and the stat total, not the rating."),
       statGrid(STATS, R.stats.rating, v => R.stats.rating = v));
     d.append(h("div", { class: "sep" }), strong("May sit below the target"),
       h("div", { class: "weak" }, "Every other stat must equal its target exactly."),
@@ -1490,7 +1505,7 @@ const VIEWS = {
       "Highest first: a player gets the first tier whose conditions he meets and whose rating he reaches. The Save editor's tier buttons follow this order."));
     const ids = R.tiers.map(t => [t.id, t.label]);
     const medalTiers = new Set(R.medal_systems.flatMap(s => Object.keys(s.counts)));
-    const g = h("table", { class: "grid" }, h("tr", {}, ["", "Label", "Id", "Count", "Counts as", "Rate", "Form", "Injury res.", "Weak foot", "Paid cards", "Min. cards", "A positions", "Name colour", ""].map(x => h("th", {}, x))));
+    const g = h("table", { class: "grid" }, h("tr", {}, ["", "Label", "Id", "Count", "Counts as", "Rate", "Form", "Injury res.", "Weak foot", "Paid cards", "Min. cards", "A positions", "Name colour", "Warn band", "Stats ≤ targets", ""].map(x => h("th", {}, x))));
     R.tiers.forEach((t, i) => {
       g.append(reorderable(h("tr", {},
         h("td", {}, handle(i)),
@@ -1514,8 +1529,12 @@ const VIEWS = {
         h("td", {}, drag(t.a_positions, v => t.a_positions = v ?? 0, { max: 13 })),
         h("td", {}, h("span", { class: "row", style: "margin:0" }, checkbox("", t.name_color !== null, v => t.name_color = v ? "cc9900ff" : null, "This tier's names carry a colour code"),
           t.name_color !== null ? colour(t.name_color, v => t.name_color = v) : weak("none"))),
+        h("td", {}, drag(t.stat_warning, v => t.stat_warning = v ?? 0, { max: 99, width: 40,
+          title: "Points above a stat's target that warn rather than err (0: every point errs)" })),
+        h("td", {}, checkbox("", t.total_within_targets, v => t.total_within_targets = v,
+          "The stats add up to at most the targets, an error past them")),
         h("td", {}, R.tiers.length > 1 ? button("✕", () => { R.medal_systems.forEach(s => { delete s.counts[t.id]; }); R.tiers.splice(i, 1); structural(); }, { frame0: true, title: "Remove" }) : "")), R.tiers, i));
-      g.append(h("tr", {}, h("td", {}), h("td", { colspan: 13 }, collapsing(`tier:${i}`, "Stat targets, free cards and conditions", () => h("div", {},
+      g.append(h("tr", {}, h("td", {}), h("td", { colspan: 15 }, collapsing(`tier:${i}`, "Stat targets, free cards and conditions", () => h("div", {},
         strong("Per-stat targets"), h("span", { class: "weak" }, " (empty: the rate)"),
         perStatGrid(t),
         h("div", { class: "sep" }), strong("Free cards"),
@@ -1623,7 +1642,7 @@ const VIEWS = {
         u.weight ? ["between height −", drag(u.weight.below, v => u.weight.below = v ?? 0), "(at least", drag(u.weight.floor, v => u.weight.floor = v ?? 0), "kg) and height −", drag(u.weight.above, v => u.weight.above = v ?? 0)] : weak("any")),
       checkbox("A captain is required", u.captain_required, v => u.captain_required = v),
       row("At least", drag(u.min_goalkeepers, v => u.min_goalkeepers = v ?? 0, { max: 5 }), "goalkeepers"),
-      row("At most", drag(u.max_skill_cards, v => u.max_skill_cards = v ?? 0, { max: 41 }), "skill cards per player", weak("(the game's limit is 10)")),
+      row("At most", drag(u.max_skill_cards, v => u.max_skill_cards = v ?? 0, { max: 41 }), "skill cards per player", weak("(a ruleset's choice; the official rules use 10)")),
       row(checkbox("At most", u.max_com_styles !== null, v => u.max_com_styles = v ? 5 : null), u.max_com_styles !== null ? drag(u.max_com_styles, v => u.max_com_styles = v ?? 0, { max: 7 }) : "", "COM styles per player")));
     d.append(h("div", { class: "sep" }), strong("Team settings"), h("div", { class: "weak" }, "Tactics settings a team must have, on the versions listed (every version when none is ticked)."));
     const tri = (t, k, label) => row(h("span", { style: "width:220px" }, label), combo([[null, "any"], ["true", "must be on"], ["false", "must be off"]],
@@ -1799,6 +1818,7 @@ const EFFECTS = [
   ["injury_resistance", "Change injury resistance", e => e.injury_resistance = 1],
   ["weak_foot", "Weak-foot limits", e => e.weak_foot = { usage: 4, accuracy: 4 }],
   ["height_allowance", "Height allowance", e => e.height_allowance = 4],
+  ["stat_warning", "Warning band", e => e.stat_warning = 5],
   ["forbid", "Forbid", e => e.forbid = "Not allowed"],
   ["choice", "One of (a choice)", e => e.choice = [{ cards: 1 }, { a_positions: 1 }]],
 ];
@@ -1849,6 +1869,7 @@ function effectsEditor(e, path, inChoice) {
   if (e.weak_foot) line("Weak foot up to", h("span", { class: "row", style: "margin:0" }, "usage", drag(e.weak_foot.usage, v => e.weak_foot.usage = v ?? 0, { max: 4 }),
     "accuracy", drag(e.weak_foot.accuracy, v => e.weak_foot.accuracy = v ?? 0, { max: 4 }), weak("(replaces the tier's)")), () => delete e.weak_foot);
   if (e.height_allowance != null) line("Counts", h("span", {}, drag(e.height_allowance, v => e.height_allowance = v ?? 0, { max: 20 }), " cm shorter for brackets"), () => delete e.height_allowance);
+  if (e.stat_warning != null) line("Warning band", perTier(() => e.stat_warning, v => e.stat_warning = v), () => delete e.stat_warning);
   if (e.forbid != null) line("Forbid, saying", text(e.forbid, v => e.forbid = v, { width: 300 }), () => delete e.forbid);
   if (e.choice) {
     const c = h("div", { class: "col", style: "flex:1" },
