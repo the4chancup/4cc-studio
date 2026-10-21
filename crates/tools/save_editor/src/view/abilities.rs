@@ -43,10 +43,14 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             player.skills.clone(),
         )
     };
-    // Every widget id under the tab is the player's: a DragValue's
-    // in-progress edit, a combo's popup and the pickers' state never cross
-    // players (and the undo merge keys differ per player, which is right).
-    ui.push_id(player_id, |ui| {
+    // Every widget id under the tab is the player's within this open: a
+    // DragValue's in-progress edit, a combo's popup and the pickers' state
+    // never cross players — nor saves, since egui keys a TextEdit's undo
+    // history by widget id and the same player id of the save opened next
+    // would otherwise inherit the last save's (and the undo merge keys
+    // differ per player, which is right).
+    let generation = view.generation;
+    ui.push_id((generation, player_id), |ui| {
         first_row(ui, session, player_id, version, &positions);
         small_stats(ui, session, player_id, &stats);
         ui.separator();

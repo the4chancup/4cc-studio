@@ -23,6 +23,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         refusal: _,
         rules: _,
         cards: _,
+        generation: _,
     } = view;
     let Some(session) = session.as_ref() else {
         return;

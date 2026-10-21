@@ -435,25 +435,39 @@ fn a_card_tick_on_another_player_is_its_own_undo_entry() {
 }
 
 // plans/save_editor.md "Editing UI", the Abilities & Skills bullet (the
-// four fields shown one above their stored value): a stored 3 shows 4;
-// typing 8 stores 7.
+// fields shown one above their stored value — star and playing attitude
+// stored as shown): a stored 3 shows 4; typing 8 stores 7. The other
+// fields of the same player are untouched by each edit.
 #[test]
 fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
     let path = fixture(PesVersion::Pes21, "shifted_fields");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(1100.0, 700.0);
-    assert_eq!(
-        view.session
+    // The six fields the row holds: form, injury resistance, weak foot
+    // usage and accuracy, star, playing attitude.
+    let six = |view: &SaveView| {
+        let stats = &view
+            .session
             .as_ref()
             .unwrap()
             .file()
             .player(70101)
             .unwrap()
-            .stats
-            .form,
-        3,
-        "premise: form is stored 3"
+            .stats;
+        (
+            stats.form,
+            stats.injury_resistance,
+            stats.weak_foot_usage,
+            stats.weak_foot_accuracy,
+            stats.star,
+            stats.playing_attitude,
+        )
+    };
+    assert_eq!(
+        six(&view),
+        (3, 0, 1, 1, Some(0), Some(0)),
+        "premise: the stored values"
     );
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -471,17 +485,49 @@ fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
         |ui| show(ui, &mut view, &|| Vec::new(), None),
     );
     assert_eq!(
-        view.session
-            .as_ref()
-            .unwrap()
-            .file()
-            .player(70101)
-            .unwrap()
-            .stats
-            .form,
-        7,
+        six(&view),
+        (7, 0, 1, 1, Some(0), Some(0)),
         "typed 8 stores 7"
     );
+
+    // The same round trip for the other five fields: each shows the
+    // stored value plus its shift (star and playing attitude shift by
+    // zero), a typed value stores one less, and the row's other fields
+    // keep their stored values.
+    for (label, shown, typed, expected) in [
+        (
+            "Injury resistance",
+            "1",
+            "3",
+            (7, 2, 1, 1, Some(0), Some(0)),
+        ),
+        ("Weak foot usage", "2", "4", (7, 2, 3, 1, Some(0), Some(0))),
+        (
+            "Weak foot accuracy",
+            "2",
+            "4",
+            (7, 2, 3, 3, Some(0), Some(0)),
+        ),
+        ("Star", "0", "7", (7, 2, 3, 3, Some(7), Some(0))),
+        ("Playing attitude", "0", "3", (7, 2, 3, 3, Some(7), Some(3))),
+    ] {
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let control = right_of_label(&nodes, label, Role::SpinButton)
+            .first()
+            .copied()
+            .unwrap_or_else(|| panic!("the {label} control"));
+        assert_eq!(control.value(), Some(shown), "{label} shows {shown}");
+        click(&mut window, control, &mut view);
+        window.frame(vec![egui::Event::Text(typed.to_owned())], |ui| {
+            show(ui, &mut view, &|| Vec::new(), None)
+        });
+        window.frame(
+            vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+            |ui| show(ui, &mut view, &|| Vec::new(), None),
+        );
+        assert_eq!(six(&view), expected, "{label} typed {typed}");
+    }
 }
 
 // plans/save_editor.md "Editing UI", the Abilities & Skills bullet: a value
@@ -501,6 +547,12 @@ fn an_out_of_range_value_draws_as_stored_without_marking_the_player() {
     for _ in 0..5 {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     }
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let speed = right_of_label(&nodes, "Speed", Role::SpinButton)
+        .first()
+        .copied()
+        .expect("the Speed control");
+    assert_eq!(speed.value(), Some("30"), "the control draws the stored 30");
     let session = view.session.as_ref().unwrap();
     assert!(!session.is_dirty(), "drawing left no unsaved changes");
     assert!(!session.can_undo(), "drawing pushed no undo entry");

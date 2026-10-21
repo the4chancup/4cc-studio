@@ -39,6 +39,10 @@ pub(crate) struct SaveView {
     /// were computed for: `card_limits` runs again only when the key
     /// differs, not on every frame.
     cards: Option<(BadgeKey, Vec<(String, aatf::CardLimits)>)>,
+    /// Which open this is: part of the pushed widget id, so egui widget
+    /// state (a text field's undo history, a control's in-progress edit)
+    /// never crosses into the next save's same player id.
+    generation: u64,
 }
 
 /// The ruleset the Abilities tab's badges use (`plans/save_editor.md`
@@ -92,6 +96,7 @@ impl SaveView {
             refusal: None,
             rules: None,
             cards: None,
+            generation: 0,
         }
     }
 
@@ -107,6 +112,7 @@ impl SaveView {
                     .first()
                     .map(|row| (row.team_id, row.slot));
                 self.session = Some(session);
+                self.generation += 1;
                 self.refusal = None;
             }
             Err(error) => {

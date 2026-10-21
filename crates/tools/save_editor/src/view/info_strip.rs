@@ -18,12 +18,16 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, slot, player_id)) = selected_player(view) else {
         return;
     };
+    let generation = view.generation;
     let Some(session) = view.session.as_mut() else {
         return;
     };
-    // Every widget id under the strip is the player's: a text field's undo
-    // history and a DragValue's in-progress edit never cross players.
-    ui.push_id(player_id, |ui| {
+    // Every widget id under the strip is the player's within this open:
+    // a text field's undo history and a DragValue's in-progress edit
+    // never cross players — nor saves, since egui keys a TextEdit's undo
+    // history by widget id and the same player id of the save opened next
+    // would otherwise inherit the last save's.
+    ui.push_id((generation, player_id), |ui| {
         strip(ui, session, team_id, slot, player_id);
     });
 }
@@ -63,6 +67,10 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
         )
     };
     let captain = stored_captain == slot;
+    // One grid per row: a grid unions each column's width across its rows,
+    // so the Name/Shirt fields' 240/140 would stretch every cell column of
+    // row 2 (past the pane at half-monitor widths), and a wider grid
+    // min-rect would widen the whole panel's `max_rect`.
     egui::Grid::new("save_editor_info_strip").show(ui, |ui| {
         ui.label("Name");
         let overlong = stored_name.len() > portable_text_max(PlayerText::Name);
@@ -70,7 +78,10 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
         if overlong {
             name_edit = name_edit.background_color(warning_tint(ui.visuals()));
         }
-        let response = ui.add(name_edit);
+        // `add_sized` allocates the width itself: a fresh grid gives a
+        // non-last column only its `min_cell_size` (40) on the sizing
+        // pass, and a TextEdit caps its width at what the cell offers.
+        let response = ui.add_sized([240.0, ui.spacing().interact_size.y], name_edit);
         // A name past what every version holds is drawn tinted with the cut
         // PES 15 to 19 would make: a warning, never a block on Save.
         let response = if overlong {
@@ -107,7 +118,8 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
         if shirt_overlong {
             shirt_edit = shirt_edit.background_color(warning_tint(ui.visuals()));
         }
-        let response = ui.add(shirt_edit);
+        // The same `add_sized` allocation as the Name field's above.
+        let response = ui.add_sized([140.0, ui.spacing().interact_size.y], shirt_edit);
         let response = if shirt_overlong {
             response
                 .on_hover_text("PES 2019 and older show 18 letters of a shirt name (PES 2016: 16)")
@@ -133,8 +145,8 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
                 });
             }
         }
-        ui.end_row();
-
+    });
+    egui::Grid::new("save_editor_info_strip_basics").show(ui, |ui| {
         let (height, weight, age) = basics;
         number(
             ui,

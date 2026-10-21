@@ -2284,3 +2284,5 @@ worklog passed 7,000 lines.
   for an A, bronze 2 free tricks, a Red CB at 185 legal again, preset 1 at A); an organizer page lists five points to confirm.
 - **2026-10-21** — 8.9b1 review S3 (3 of 14) ended the SWE-2 loop; rework 4: an import marks the save dirty, the view's
   tests split by area, the PES 16 Shirt hover pinned. 20.1's S1 (1 of 5): a sixth organizer point (194 cm gold or GK).
+- **2026-10-22** — 8.9b1's A2 (Astra, 4 of 5) ended Astra's loop: the strip's text fields drew 40 px wide and a field's
+  history crossed saves, fixed in rework 5. 20.1's A1 (3 of 4): tests tightened; a seventh organizer point (Red manlet bonus).

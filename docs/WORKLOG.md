@@ -906,7 +906,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         of 14) ended the SWE-2 loop; rework 4: the cross-player Speed test types a value no
         fixture player stores, `view/tests.rs` split by area into `view/tests/`, the PES 16
         Shirt hover pinned, an import marks the save dirty, `title_case` once in `labels.rs`.
-        Open: the round's mutants-diff, then A2
+        Its mutants-diff: 2 survivors (`title_case` untested in its own crate). A2 (Astra, 4 of 5)
+        ended Astra's loop; rework 5: the widget ids carry the open's generation (a text
+        field's undo history crossed into the next save), Name and Shirt drawn at 240 and 140
+        (the grid's sizing pass gave them 40; one grid per row), the shifted fields' writes and
+        the out-of-range display observed, `title_case` tested. Open: the round's mutants-diff,
+        then the post-Astra SWE-2 loop
     - [x] the portable name limits (`plans/pes_savefile/operations.md` "Team TOML", Portable
       text limits; DECISIONS 2026-10-21), with 8.9b1 and its rework: `portable_text_max` and
       `crop_player_text` in `pes_savefile`; the info strip's Shirt field held to 18 (an
@@ -1277,15 +1282,19 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
   at CB was in no bracket: five such CBs on each of the fixture saves' teams 718 and 734); D5
   Studio stands; D6 set. Done 2026-10-21 (SWE-2, a run and a resume after the session
   crash): `autumn26.rhai`, the spec's block and prose, every fixture and consumer test that
-  pinned the old reading re-derived with its ruling named. The organizer's six points
-  (`QUESTIONS.md` "Autumn 26: six points for the 4cc organizer") may move D1, D3, D4 and D5,
-  the 176-179 leniency and the 194 cm gold or goalkeeper's warning severity.
+  pinned the old reading re-derived with its ruling named. The organizer's seven points
+  (`QUESTIONS.md` "Autumn 26: seven points for the 4cc organizer") may move D1, D3, D4 and D5,
+  the 176-179 leniency, the 194 cm gold or goalkeeper's warning severity and the Red manlet
+  bonus (required by every tool, "may receive" in the wiki).
   Files: `aatf/{rulesets/autumn26.rhai,src/fixtures/official.rs,src/ruleset/tests/{mod,
   rules}.rs}`, `team_widgets/src/violations.rs`, `save_editor/tests/cli/check_aatf.rs`,
   `docs/spec/aatf_rules.md`
   - [ ] review (checkpoint b, three crates): a SWE-2 loop, then Astra. S1 accepted 1 of 5
     (an untaken medal trade gave no hint: `"choices"` added to `suggestions`), ending the
-    SWE-2 loop; rulings `.tmp/20_au26/duck_rulings.md`
+    SWE-2 loop; rulings `.tmp/20_au26/duck_rulings.md`. A1 (Astra) accepted 3 of 4, ending
+    Astra's loop: the gold's two trades read through the card limits, SE-GUI-15's player
+    groups observed again, the Autumn 25/Spring 26 spec list completed; the Red manlet bonus
+    is the organizer's seventh point. Open: the post-Astra SWE-2 loop
 
 ---
 

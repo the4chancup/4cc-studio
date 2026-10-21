@@ -294,6 +294,16 @@ mod tests {
         }
     }
 
+    /// `title_case` writes a table name the way the labels read it:
+    /// underscores as spaces, each word capitalized — on a COM style, a
+    /// play style and a one-word skill.
+    #[test]
+    fn title_case_writes_the_labels_as_drawn() {
+        assert_eq!(title_case("speeding_bullet"), "Speeding Bullet");
+        assert_eq!(title_case("goal_poacher"), "Goal Poacher");
+        assert_eq!(title_case("sombrero"), "Sombrero");
+    }
+
     #[test]
     fn labels_are_snake_case_or_the_uppercase_short_forms() {
         // Positions ("GK") and the ratings' letter grades are uppercase by the

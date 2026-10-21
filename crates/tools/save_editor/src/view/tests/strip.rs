@@ -34,7 +34,7 @@ fn a_name_edit_does_not_reach_the_next_players_field() {
         .find(|node| {
             node.role() == Role::TextInput
                 && !node.is_disabled()
-                && node.bounds().is_some_and(|bounds| bounds.x0 < 300.0)
+                && node.value() == Some(a_before.as_str())
         })
         .expect("the Name field");
     click(&mut window, name_field, &mut view);
@@ -52,14 +52,156 @@ fn a_name_edit_does_not_reach_the_next_players_field() {
         .find(|node| {
             node.role() == Role::TextInput
                 && !node.is_disabled()
-                && node.bounds().is_some_and(|bounds| bounds.x0 < 300.0)
+                && node.value() == Some(b_before.as_str())
         })
         .expect("the Name field");
     click(&mut window, name_field, &mut view);
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+    // The field's own undo answers Ctrl+Z (the `command` bit is what its
+    // `matches_logically(COMMAND)` arm tests, as a real key event carries
+    // it): 70202's field has none of 70201's history to restore.
+    window.frame(
+        vec![key(
+            egui::Key::Z,
+            egui::Modifiers::CTRL | egui::Modifiers::COMMAND,
+            true,
+        )],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert_eq!(name_of(&view, b_id), b_before, "70202's name is unchanged");
+}
+
+// The same rule across opens: egui keeps a TextEdit's undo history by
+// widget id, so the pushed id carries the open's generation — a save
+// opened next starts the same player id's Name field with no history,
+// and Ctrl+Z past the field's own edit restores none of the last save's
+// text. (egui's undoer only commits a change to an undo point once the
+// text has sat for a second, so each typed stretch waits out its 60-odd
+// headless frames.)
+#[test]
+fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
+    let path_a = fixture(PesVersion::Pes21, "history_a");
+    let path_b = fixture(PesVersion::Pes21, "history_b");
+    let mut view = SaveView::new();
+    let mut window = Headless::sized(1100.0, 700.0);
+    let name_of = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .name
+            .clone()
+    };
+    /// The Name field's node (the enabled text edit holding `value`;
+    /// matched on its text, since the nodes' order is hash-stable, not
+    /// positional).
+    fn name_field<'a>(nodes: &'a [accesskit::Node], value: &str) -> &'a accesskit::Node {
+        nodes
+            .iter()
+            .find(|node| {
+                node.role() == Role::TextInput && !node.is_disabled() && node.value() == Some(value)
+            })
+            .unwrap_or_else(|| panic!("no Name field {value:?}"))
+    }
+    let settle = |window: &mut Headless, view: &mut SaveView| {
+        for _ in 0..70 {
+            window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        }
+    };
+
+    // Save A: type into the selected player's (70101's) Name field, twice,
+    // letting the field's undoer commit each stretch as an undo point.
+    view.open(&path_a);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, name_field(&nodes, "PLACEHOLDER"), &mut view);
+    window.frame(vec![egui::Event::Text("Z".to_owned())], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
-    assert_eq!(name_of(&view, b_id), b_before, "70202's name is unchanged");
+    settle(&mut window, &mut view);
+    window.frame(vec![egui::Event::Text("Y".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    settle(&mut window, &mut view);
+    let a_name = name_of(&view);
+    assert_ne!(a_name, "PLACEHOLDER", "premise: save A's edit landed");
+
+    // Save B (a fresh copy): one letter into the same player's Name field,
+    // then two Ctrl+Z with the focus still on it — the first undoes the
+    // letter, the second has nothing of this save's left to undo and must
+    // not reach into save A's history.
+    view.open(&path_b);
+    let stored = name_of(&view);
+    assert_eq!(stored, "PLACEHOLDER", "premise: save B opens unedited");
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, name_field(&nodes, "PLACEHOLDER"), &mut view);
+    window.frame(vec![egui::Event::Text("X".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    // A field's own undo answers Ctrl+Z: the event's `command` bit is what
+    // its `matches_logically(COMMAND)` arm tests (a real platform event
+    // carries it together with `ctrl`; `Modifiers::CTRL` alone is not).
+    for _ in 0..2 {
+        window.frame(
+            vec![key(
+                egui::Key::Z,
+                egui::Modifiers::CTRL | egui::Modifiers::COMMAND,
+                true,
+            )],
+            |ui| show(ui, &mut view, &|| Vec::new(), None),
+        );
+    }
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        name_of(&view),
+        stored,
+        "the field's undo stops at save B's own edit: {a_name} never lands",
+    );
+}
+
+// The strip's Name field draws 240 wide and the Shirt field 140: a fresh
+// grid gives a non-last column only `min_cell_size` (40) on its sizing
+// pass, and a TextEdit caps its width at what the cell offers, so the
+// fields' sizes are allocated rather than left to the cell.
+#[test]
+fn the_name_and_shirt_fields_draw_at_their_set_widths() {
+    let path = fixture(PesVersion::Pes21, "field_widths");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    for _ in 0..3 {
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    }
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let name = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::TextInput
+                && !node.is_disabled()
+                && node.value() == Some("PLACEHOLDER")
+        })
+        .expect("the Name field")
+        .bounds()
+        .expect("bounds");
+    assert!(
+        name.x1 - name.x0 >= 240.0,
+        "the Name field draws 240 wide, drew {name:?}"
+    );
+    let shirt = nodes
+        .iter()
+        .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
+        .max_by(|a, b| {
+            let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
+            x(a).partial_cmp(&x(b)).expect("ordered bounds")
+        })
+        .expect("the Shirt field")
+        .bounds()
+        .expect("bounds");
+    assert!(
+        shirt.x1 - shirt.x0 >= 140.0,
+        "the Shirt field draws 140 wide, drew {shirt:?}"
+    );
 }
 
 // plans/save_editor.md "Editing UI", the info strip bullet's last
@@ -717,15 +859,22 @@ fn a_pes17_strip_refuses_a_name_past_its_own_field() {
     view.selected = Some((701, 0));
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let file = EditFile::load(&path).unwrap();
+    // The field draws the raw name with `\x11` spelled out (the strip's
+    // `escName`): match it as drawn.
+    let stored = file
+        .player(file.team(701).unwrap().roster[0].player_id)
+        .unwrap()
+        .name
+        .replace('\x11', "\\x11");
     let name_field = nodes
         .iter()
         .find(|node| {
             node.role() == Role::TextInput
                 && !node.is_disabled()
-                && node.bounds().is_some_and(|bounds| bounds.x0 < 300.0)
+                && node.value() == Some(stored.as_str())
         })
         .expect("the Name field");
-    let stored = name_field.value().expect("its text").to_owned();
     click(&mut window, name_field, &mut view);
     // 47 bytes past this version's own 46-byte field: refused.
     window.frame(vec![egui::Event::Text("Z".repeat(47).to_owned())], |ui| {
