@@ -57,7 +57,7 @@ fn field(ui: &mut Ui, color: &mut [u8; 3], suggestions: &[[u8; 3]]) -> ColorFiel
         // frame where this field was not drawn, closed this one between frames, and the
         // close rules apply as if it had closed here.
         if state.open {
-            commit_pending_hex(&mut state, color, &mut changed);
+            commit_pending_text(&mut state, color, &mut changed);
             if *color != state.opened_on {
                 push_recent(ui.ctx(), *color);
             }
@@ -65,12 +65,16 @@ fn field(ui: &mut Ui, color: &mut [u8; 3], suggestions: &[[u8; 3]]) -> ColorFiel
         state = PickerState::new(*color);
     }
     if *color != state.shown {
-        // The host moved the color under the popup (an undo, a palette apply): the
-        // working state reseeds, and the change is not a pick, so `opened_on` moves too
-        // and it cannot join the recents on close. The hex text follows `hsva` in the
-        // body unless the member is typing in it.
+        // The host moved the color under the popup. When the last drawn frame committed,
+        // this is the host rounding that pick back (the Save editor's 6 bits): feedback,
+        // so `opened_on` stays and the pick still joins the recents on close. Otherwise
+        // it is a host edit (an undo, a palette apply): the working state reseeds and
+        // the change is not a pick, so `opened_on` moves and it cannot join the recents.
+        // The hex text follows `hsva` in the body unless the member is typing in it.
         state.hsva = hsva_of(*color);
-        state.opened_on = *color;
+        if !state.committed {
+            state.opened_on = *color;
+        }
     }
 
     let mut response = color_button(ui, state.preview.unwrap_or(*color), was_open);
@@ -82,7 +86,7 @@ fn field(ui: &mut Ui, color: &mut [u8; 3], suggestions: &[[u8; 3]]) -> ColorFiel
 
     let is_open = Popup::is_id_open(ui.ctx(), popup_id);
     if was_open && !is_open {
-        commit_pending_hex(&mut state, color, &mut changed);
+        commit_pending_text(&mut state, color, &mut changed);
         if *color != state.opened_on {
             push_recent(ui.ctx(), *color);
         }
@@ -92,6 +96,7 @@ fn field(ui: &mut Ui, color: &mut [u8; 3], suggestions: &[[u8; 3]]) -> ColorFiel
     }
     state.open = is_open;
     state.shown = *color;
+    state.committed = changed;
     let candidate = state.preview;
     ui.ctx().data_mut(|data| data.insert_temp(state_id, state));
     ColorFieldOutput {
@@ -101,14 +106,18 @@ fn field(ui: &mut Ui, color: &mut [u8; 3], suggestions: &[[u8; 3]]) -> ColorFiel
     }
 }
 
-/// A typed hex text still in the field when the popup closes without the field losing
-/// focus first (a toggle through the field's own button, or a close that lands between
-/// frames): a parseable text commits exactly as losing focus would have committed it.
-fn commit_pending_hex(state: &mut PickerState, color: &mut [u8; 3], changed: &mut bool) {
+/// A typed text still in the hex field or a channel field when the popup closes without
+/// the field losing focus first (a toggle through the field's own button, or a close
+/// that lands between frames): any close but Escape commits it, like focus loss would;
+/// the channel's typed value is already in the working color.
+fn commit_pending_text(state: &mut PickerState, color: &mut [u8; 3], changed: &mut bool) {
     if state.hex_focused
         && let Some(parsed) = parse_hex(&state.hex)
     {
         commit_color(state, color, changed, parsed);
+    }
+    if state.rgb_focused {
+        commit_color(state, color, changed, rgb_of(state.hsva));
     }
 }
 
@@ -195,15 +204,35 @@ fn push_recent(ctx: &egui::Context, color: [u8; 3]) {
     });
 }
 
-/// `[u8; 3]` sRGB as egui's `Hsva` (alpha pinned opaque: no export or save stores one).
+/// `[u8; 3]` sRGB as the working hsv: the formula is the same in every color space, h,
+/// s and v are parameters of it, not colors. `hsv_from_rgb` on the sRGB fractions gives
+/// the triple the fields and the gradients all share.
 fn hsva_of(rgb: [u8; 3]) -> Hsva {
-    Hsva::from(Color32::from_rgb(rgb[0], rgb[1], rgb[2]))
+    let (h, s, v) = egui::ecolor::hsv_from_rgb([
+        rgb[0] as f32 / 255.0,
+        rgb[1] as f32 / 255.0,
+        rgb[2] as f32 / 255.0,
+    ]);
+    Hsva { h, s, v, a: 1.0 }
 }
 
-/// The working `Hsva` as `[u8; 3]` sRGB.
+/// The working hsv as `[u8; 3]` sRGB, in the plan's "HSV over sRGB values" (the draft's
+/// `hsvToRgb`): the formula's output used as the sRGB value, not re-encoded, so a pick
+/// equals the color the gradients show, which a renderer interpolates as sRGB.
 fn rgb_of(hsva: Hsva) -> [u8; 3] {
-    let color = Color32::from(hsva);
-    [color.r(), color.g(), color.b()]
+    let [r, g, b] = egui::ecolor::rgb_from_hsv((hsva.h, hsva.s, hsva.v));
+    [channel(r), channel(g), channel(b)]
+}
+
+/// `fraction` of 1.0 as an sRGB byte.
+fn channel(fraction: f32) -> u8 {
+    (fraction.clamp(0.0, 1.0) * 255.0).round() as u8
+}
+
+/// The working hsv as `Color32` for vertex colors and swatch fills.
+fn srgb_of(hsva: Hsva) -> Color32 {
+    let [r, g, b] = rgb_of(hsva);
+    Color32::from_rgb(r, g, b)
 }
 
 /// `rgb` as `Color32`.
@@ -237,9 +266,16 @@ struct PickerState {
     /// text then commits when the popup closes another way (the field's own button, a
     /// sibling popup), as losing focus would have committed it.
     hex_focused: bool,
+    /// An R, G or B field had keyboard focus the last frame the popup's body drew: its
+    /// typed value commits on the same closes as the hex text.
+    rgb_focused: bool,
     /// The color the field showed at the end of the last frame drawn: anything different
     /// now is the host moving the color (an undo, a palette apply), not a pick.
     shown: [u8; 3],
+    /// Whether the last frame drawn committed a pick: the host's rounding of that pick,
+    /// arriving as a color change on the next frame, is feedback and not an undo, so it
+    /// must not move `opened_on`.
+    committed: bool,
 }
 
 impl PickerState {
@@ -253,7 +289,9 @@ impl PickerState {
             dragging: false,
             open: false,
             hex_focused: false,
+            rgb_focused: false,
             shown: color,
+            committed: false,
         }
     }
 }
@@ -278,19 +316,17 @@ fn sv_square(ui: &mut Ui, hsva: &mut Hsva) -> Response {
         hsva.v = remap_clamp(pos.y, rect.bottom()..=rect.top(), 0.0..=1.0);
     }
     if ui.is_rect_visible(rect) {
-        // Each RGB channel is v·(a + b·s) at a fixed hue: the s·v term is approximated
-        // only within a channel step, so a small grid already matches the gradient
-        // (egui's own square samples more densely because its gamma-space variant is not
-        // bilinear).
+        // In sRGB terms each channel is v·(a + b·s), bilinear in (s, v), so a small grid
+        // already matches the gradient a click picks; egui's own square samples its
+        // gamma-space variant more densely, which is not bilinear.
         const SUBDIVISIONS: u32 = 8;
         let color_at = |s: f32, v: f32| -> Color32 {
-            Hsva {
+            srgb_of(Hsva {
                 h: hsva.h,
                 s,
                 v,
                 a: 1.0,
-            }
-            .into()
+            })
         };
         let mut mesh = Mesh::default();
         for xi in 0..=SUBDIVISIONS {
@@ -349,13 +385,12 @@ fn hue_strip(ui: &mut Ui, hsva: &mut Hsva) -> Response {
         let mut mesh = Mesh::default();
         for sector in 0..=6_u32 {
             let h = sector as f32 / 6.0;
-            let color: Color32 = Hsva {
+            let color: Color32 = srgb_of(Hsva {
                 h,
                 s: 1.0,
                 v: 1.0,
                 a: 1.0,
-            }
-            .into();
+            });
             let x = lerp(rect.left()..=rect.right(), h);
             mesh.colored_vertex(pos2(x, rect.top()), color);
             mesh.colored_vertex(pos2(x, rect.bottom()), color);
@@ -410,13 +445,26 @@ fn color_swatch(ui: &mut Ui, rgb: [u8; 3]) -> Response {
 }
 
 /// A finished gesture lands: `color` moves once (not at all when the gesture ended on the
-/// color it started from), and the popup's working state follows.
+/// color it started from), and the working hsv is rebuilt from the committed RGB, the
+/// right reset for a typed text, a swatch or a host edit.
 fn commit_color(state: &mut PickerState, color: &mut [u8; 3], changed: &mut bool, c: [u8; 3]) {
     if c != *color {
         *color = c;
         *changed = true;
     }
     state.hsva = hsva_of(c);
+}
+
+/// A gesture release on the square, the strip or an R/G/B field lands: one commit for the
+/// whole gesture. The working hsv is *kept* rather than rebuilt from the committed RGB:
+/// white, gray and black hold no hue, so rebuilding would drop a hue the member just
+/// chose on the strip before moving into the square.
+fn commit_working(state: &mut PickerState, color: &mut [u8; 3], changed: &mut bool) {
+    let working = rgb_of(state.hsva);
+    if working != *color {
+        *color = working;
+        *changed = true;
+    }
 }
 
 /// One row of swatches (suggestions or recents): each previews into `hovered` while the
@@ -478,30 +526,31 @@ fn popup_body(
     }
     state.hex_focused = ui.memory(|memory| memory.has_focus(hex_id));
 
-    // R/G/B fields: a typed value commits once (`update_while_editing(false)` keeps the
-    // keystrokes inside the field until Enter or focus loss); a drag only previews until
-    // its release lands in the gesture below.
+    // R/G/B fields: typing updates the working color live (`update_while_editing`'s
+    // default, the draft's live preview) and commits on Enter or focus loss (or through
+    // `commit_pending_text` when the popup closes first); a drag only previews until its
+    // release lands in the gesture below.
     let mut channels = rgb_of(state.hsva);
     let mut channel_changed = false;
+    let mut channel_focused = false;
+    let mut channel_lost_focus = false;
     ui.horizontal(|ui| {
         for (index, prefix) in ["R ", "G ", "B "].iter().enumerate() {
             let mut channel = channels[index];
-            let response = ui.add(
-                DragValue::new(&mut channel)
-                    .speed(0.5)
-                    .update_while_editing(false)
-                    .prefix(*prefix),
-            );
+            let response = ui.add(DragValue::new(&mut channel).speed(0.5).prefix(*prefix));
             channels[index] = channel;
             channel_changed |= response.changed();
+            channel_focused |= response.has_focus();
+            channel_lost_focus |= response.lost_focus();
             down |= response.is_pointer_button_down_on();
         }
     });
+    state.rgb_focused = channel_focused;
     if channel_changed {
         state.hsva = hsva_of(channels);
-        if !down {
-            commit_color(state, color, changed, channels);
-        }
+    }
+    if channel_lost_focus && !ui.input(|input| input.key_pressed(Key::Escape)) {
+        commit_color(state, color, changed, channels);
     }
 
     let mut hovered = None;
@@ -517,14 +566,20 @@ fn popup_body(
         });
     }
 
+    // A press still held previews; a release, a one-frame click and a drag's stop all
+    // commit the working color once (`commit_working` keeps the working hsv, so a hue
+    // chosen on a hueless color survives).
     if down {
         state.preview = Some(rgb_of(state.hsva));
     } else {
         state.preview = hovered;
-        if state.dragging {
-            // The release ends the gesture: one commit for the whole drag, or none when
-            // it ended back on the color it started from (`commit_color` checks).
-            commit_color(state, color, changed, rgb_of(state.hsva));
+        if state.dragging
+            || sv.clicked()
+            || hue.clicked()
+            || sv.drag_stopped()
+            || hue.drag_stopped()
+        {
+            commit_working(state, color, changed);
         }
     }
     state.dragging = down;
@@ -750,6 +805,66 @@ mod tests {
             .color
     }
 
+    /// `a` lerped to `b` by `t`, per channel, as the renderer blends vertex colors.
+    fn lerp_color(a: Color32, b: Color32, t: f32) -> Color32 {
+        let channel = |a: u8, b: u8| -> u8 { (a as f32 + (b as f32 - a as f32) * t).round() as u8 };
+        Color32::from_rgba_unmultiplied(
+            channel(a.r(), b.r()),
+            channel(a.g(), b.g()),
+            channel(a.b(), b.b()),
+            channel(a.a(), b.a()),
+        )
+    }
+
+    /// The color the strip's mesh shows at `x`: its vertex columns (one per sextant
+    /// boundary) lerped between the two bracketing `x`.
+    fn interpolated_at_x(mesh: &egui::Mesh, x: f32) -> Color32 {
+        let mut columns: Vec<(f32, Color32)> = mesh
+            .vertices
+            .iter()
+            .map(|vertex| (vertex.pos.x, vertex.color))
+            .collect();
+        columns.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("ordered xs"));
+        columns.dedup_by_key(|column| column.0.to_bits());
+        let right = columns
+            .iter()
+            .position(|&(col_x, _)| col_x > x)
+            .unwrap_or(columns.len() - 1);
+        let (x0, c0) = columns[right - 1];
+        let (x1, c1) = columns[right];
+        lerp_color(c0, c1, (x - x0) / (x1 - x0))
+    }
+
+    /// The color the square's mesh shows at `pos`: the four vertex colors of the grid
+    /// cell holding `pos`, bilinearly interpolated.
+    fn interpolated_in_cell(mesh: &egui::Mesh, pos: egui::Pos2) -> Color32 {
+        let mut xs: Vec<f32> = mesh.vertices.iter().map(|v| v.pos.x).collect();
+        let mut ys: Vec<f32> = mesh.vertices.iter().map(|v| v.pos.y).collect();
+        xs.sort_by(|a, b| a.partial_cmp(b).expect("ordered xs"));
+        xs.dedup_by_key(|x| x.to_bits());
+        ys.sort_by(|a, b| a.partial_cmp(b).expect("ordered ys"));
+        ys.dedup_by_key(|y| y.to_bits());
+        let ix = xs
+            .iter()
+            .position(|&x| x > pos.x)
+            .unwrap_or(xs.len() - 1)
+            .max(1);
+        let iy = ys
+            .iter()
+            .position(|&y| y > pos.y)
+            .unwrap_or(ys.len() - 1)
+            .max(1);
+        let (x0, x1) = (xs[ix - 1], xs[ix]);
+        let (y0, y1) = (ys[iy - 1], ys[iy]);
+        let color_of = |x: f32, y: f32| color_at(mesh, egui::pos2(x, y));
+        let t = (pos.x - x0) / (x1 - x0);
+        lerp_color(
+            lerp_color(color_of(x0, y0), color_of(x1, y0), t),
+            lerp_color(color_of(x0, y1), color_of(x1, y1), t),
+            (pos.y - y0) / (y1 - y0),
+        )
+    }
+
     /// The centre of `node`'s bounds, where a click lands.
     fn centre(node: &accesskit::Node) -> egui::Pos2 {
         let bounds = node.bounds().expect("a widget has bounds");
@@ -890,7 +1005,7 @@ mod tests {
     }
 
     // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a committed R/G/B value
-    // is one change.
+    // is one change; the keystrokes before it change nothing.
     #[test]
     fn a_typed_rgb_value_commits_on_enter() {
         let mut window = Headless::new();
@@ -900,10 +1015,14 @@ mod tests {
         let (nodes, _) = window.field(&mut color, &[], Vec::new());
         window.click_at(centre(spin_field(&nodes, "R ")), &mut color, &[]);
 
-        let mut events = type_text("10");
-        events.extend(key(egui::Key::Enter));
-        let (_, out) = window.field(&mut color, &[], events);
-        assert!(out.changed, "the typed value commits once");
+        // The keystrokes themselves are not commits: one each frame, untouched.
+        for text in ["1", "0"] {
+            let (_, out) = window.field(&mut color, &[], vec![egui::Event::Text(text.to_owned())]);
+            assert!(!out.changed, "a keystroke is not a commit");
+            assert_eq!(color, [0, 0, 0], "the color waits for the Enter");
+        }
+        let (_, out) = window.field(&mut color, &[], key(egui::Key::Enter));
+        assert!(out.changed, "the Enter commits once");
         assert_eq!(color, [10, 0, 0], "the typed channel committed");
         let (_, out) = window.field(&mut color, &[], Vec::new());
         assert!(!out.changed, "changed fires on the commit frame only");
@@ -952,6 +1071,26 @@ mod tests {
         let (_, out) = window.field(&mut color, &[], Vec::new());
         assert!(!out.changed, "no repeat on the idle frame");
         assert_eq!(out.candidate, None);
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": any close but Escape
+    // commits a parseable typed text, hex or R/G/B; the field's own button closing it
+    // is not an exception.
+    #[test]
+    fn a_typed_channel_commits_when_the_button_closes_the_popup() {
+        let mut window = Headless::new();
+        let mut color = [0, 0, 0];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(spin_field(&nodes, "R ")), &mut color, &[]);
+        window.field(&mut color, &[], type_text("10"));
+
+        let (_, out) = window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        assert!(out.changed, "the typed value commits on the button close");
+        assert_eq!(color, [10, 0, 0], "the typed channel committed");
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert!(!out.changed, "the commit fires once");
     }
 
     // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a text that does not
@@ -1175,6 +1314,39 @@ mod tests {
         );
     }
 
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the host's rounding of
+    // the widget's own commit (the Save editor's 6 bits), arriving the next frame, is
+    // that commit, which still joins the recents on close.
+    #[test]
+    fn the_hosts_rounding_of_a_commit_still_joins_the_recents() {
+        let mut window = Headless::new();
+        let mut color = [0, 0, 0];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+        let mut events = type_text("#FF8000");
+        events.extend(key(egui::Key::Enter));
+        window.field(&mut color, &[], events);
+        assert_eq!(color, [255, 128, 0], "the pick committed");
+
+        // The host stores the pick rounded to 6 bits a channel and shows it widened
+        // back: 0x80 stores as 32, shown as 130; the widget must read that as the same
+        // commit, not as an undo.
+        color = [255, 130, 0];
+        window.field(&mut color, &[], Vec::new());
+        window.field(&mut color, &[], key(egui::Key::Escape));
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        let labels = swatch_labels(&nodes);
+        assert_eq!(
+            labels,
+            vec!["#FF8200".to_owned()],
+            "the rounded commit joined the recents: {labels:?}"
+        );
+    }
+
     // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a hovered swatch is a
     // hover candidate for the host's live preview, not a change.
     #[test]
@@ -1320,6 +1492,107 @@ mod tests {
         assert!(!out.changed, "no repeat on the idle frame");
     }
 
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on the square
+    // or the slider is a gesture too, however short.
+    #[test]
+    fn a_one_frame_click_on_the_square_commits() {
+        let mut window = Headless::new();
+        let mut color = [0, 0, 0];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        let square = entry(&nodes, "saturation and value");
+        let rect = square.bounds().expect("the square is drawn");
+        let pos = egui::pos2(
+            (rect.x0 + rect.x1) as f32 / 2.0,
+            (rect.y0 + rect.y1) as f32 / 2.0,
+        );
+
+        // A press and its release in one input frame (a touchpad tap) is a click:
+        // one change, to the colour under the point.
+        let mut events = pointer_at(pos, true);
+        events.extend(pointer_at(pos, false));
+        let (_, out) = window.field(&mut color, &[], events);
+        assert!(out.changed, "the one-frame click commits once");
+        assert_ne!(
+            color,
+            [0, 0, 0],
+            "the click point's colour committed: {color:?}"
+        );
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert!(!out.changed, "no repeat on the idle frame");
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the working hue
+    // survives a gesture on white, gray or black, whose RGB holds no hue.
+    #[test]
+    fn a_hue_chosen_on_a_hueless_color_survives_for_the_square() {
+        let mut window = Headless::new();
+        let mut color = [255, 255, 255];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        let strip_rect = egui_rect(entry(&nodes, "hue"));
+        let square_rect = egui_rect(entry(&nodes, "saturation and value"));
+
+        // Drag the strip to blue's x (hue 2/3) and release: white has no hue, so the
+        // release commits nothing, but the marker stays at blue's x.
+        let blue_x = strip_rect.left() + strip_rect.width() * (2.0 / 3.0);
+        let strip_y = (strip_rect.top() + strip_rect.bottom()) / 2.0;
+        let (_, out) = window.field(
+            &mut color,
+            &[],
+            pointer_at(egui::pos2(blue_x, strip_y), true),
+        );
+        assert!(out.candidate.is_some() && !out.changed);
+        let (_, out) = window.field(
+            &mut color,
+            &[],
+            pointer_at(egui::pos2(blue_x, strip_y), false),
+        );
+        assert!(!out.changed, "white commits nothing on release");
+        assert_eq!(color, [255, 255, 255]);
+        let (_, out) = window.field(&mut color, &[], Vec::new());
+        assert_eq!(out.candidate, None, "the gesture ended cleanly");
+        // The marker's fill rect (its stroke sibling's fill is transparent; the Area
+        // fade keeps its white premultiplied until the fade is over, so match on
+        // non-transparent, not white).
+        let marker = window
+            .shapes
+            .iter()
+            .find_map(|clipped| match &clipped.shape {
+                egui::Shape::Rect(shape)
+                    if shape.fill != Color32::TRANSPARENT
+                        && (shape.rect.width() - 3.0).abs() < 0.5
+                        && (shape.rect.height() - (STRIP_H + 2.0)).abs() < 0.5 =>
+                {
+                    Some(shape)
+                }
+                _ => None,
+            })
+            .expect("the hue marker is drawn");
+        assert!(
+            (marker.rect.center().x - blue_x).abs() < 1.0,
+            "the marker stays at the chosen hue: {} vs {}",
+            marker.rect.center().x,
+            blue_x
+        );
+
+        // A click at the square's top-right (s=1, v=1) then commits the chosen hue:
+        // a saturated blue.
+        let (_, out) = window.click_at(
+            egui::pos2(square_rect.right(), square_rect.top()),
+            &mut color,
+            &[],
+        );
+        assert!(out.changed, "the square click commits");
+        assert_eq!(color[2], 255, "blue's channel is full: {color:?}");
+        assert!(
+            color[0] < 20 && color[1] < 20,
+            "a blue, not a warm gray: {color:?}"
+        );
+    }
+
     // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the recent colors row
     // keeps at most eight.
     #[test]
@@ -1455,13 +1728,12 @@ mod tests {
         let square = mesh_at(&window.shapes, square_rect, 0.5, |mesh| {
             mesh.vertices.len() > 20
         });
-        let pure: Color32 = Hsva {
+        let pure: Color32 = srgb_of(Hsva {
             h: hsva_of(color).h,
             s: 1.0,
             v: 1.0,
             a: 1.0,
-        }
-        .into();
+        });
         assert_eq!(
             color_at(square, square_rect.left_top()),
             Color32::WHITE,
@@ -1534,6 +1806,59 @@ mod tests {
             fill.fill,
             color32([200, 16, 46]),
             "the swatch fills with its color"
+        );
+    }
+
+    // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the gradients show the
+    // color a click there picks (HSV over sRGB).
+    #[test]
+    fn a_click_inside_the_gradients_picks_the_shown_color() {
+        let mut window = Headless::new();
+        let mut color = [255, 128, 0];
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        let strip_rect = egui_rect(entry(&nodes, "hue"));
+        let square_rect = egui_rect(entry(&nodes, "saturation and value"));
+        // The Area fade-in is over before the paints are read.
+        for _ in 0..25 {
+            window.field(&mut color, &[], Vec::new());
+        }
+
+        // A click at hue 1/12, halfway between red's and yellow's columns, commits the
+        // color the strip shows there.
+        let strip = mesh_at(&window.shapes, strip_rect, 0.5, |mesh| {
+            mesh.vertices
+                .iter()
+                .any(|vertex| vertex.color == Color32::RED)
+        });
+        let hue_x = strip_rect.left() + strip_rect.width() / 12.0;
+        let shown = interpolated_at_x(strip, hue_x);
+        let pos = egui::pos2(hue_x, (strip_rect.top() + strip_rect.bottom()) / 2.0);
+        window.click_at(pos, &mut color, &[]);
+        let channels = |a: [u8; 3], b: Color32| {
+            [a[0], a[1], a[2]]
+                .iter()
+                .zip([b.r(), b.g(), b.b()])
+                .map(|(&picked, shown)| picked.abs_diff(shown))
+                .max()
+                .unwrap_or(0)
+        };
+        assert!(
+            channels(color, shown) <= 1,
+            "the pick matches the shown color: {color:?} vs {shown:?}"
+        );
+
+        // A click at the square's centre commits the color its mesh interpolates there.
+        let square = mesh_at(&window.shapes, square_rect, 0.5, |mesh| {
+            mesh.vertices.len() > 20
+        });
+        let centre = square_rect.center();
+        let shown = interpolated_in_cell(square, centre);
+        window.click_at(centre, &mut color, &[]);
+        assert!(
+            channels(color, shown) <= 1,
+            "the pick matches the shown color: {color:?} vs {shown:?}"
         );
     }
 }

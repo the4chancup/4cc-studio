@@ -9727,3 +9727,15 @@ Why: the stored order is the game's own Edit-mode list (PES 15-18 permute it aga
 canonical one), and a member checking a style compares the two lists; the canonical order is
 the Team TOML's naming, which nobody reads as a list.
 Plan: `plans/save_editor.md` "`libs/team_widgets`" (the `cards` bullet).
+
+## 2026-10-21 — color_tools — The picker's HSV is over sRGB, and a host's rounding of a pick is still the pick
+Decision: the picker's square and slider work in HSV over sRGB values (not `ecolor::Hsva`,
+which is linear, nor `HsvaGamma`, which re-encodes the value alone), keeping the working hue
+across gestures on colors with no hue; a change of the color the frame after the widget's own
+commit is that commit's feedback (the Save editor's 6-bit rounding), so the pick joins the
+recents; any other host change under the open popup is not a pick; every close but Escape
+commits a parseable typed hex or R/G/B value.
+Why: Astra's review A1 found the linear `Hsva` gradients showing other colors than the ones a
+click picks, a hue lost on white, and every Save editor pick kept out of the recents by the
+undo rule, since the host always rounds it.
+Plan: `plans/libs/color_tools.md` "Color-picker widget (Phase 8)".

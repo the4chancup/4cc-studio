@@ -35,7 +35,16 @@ color as `&mut [u8; 3]`, draws, and returns whether it changed and the hover can
 host converts to what it stores (the Save editor's 6 bits per channel). A drag in the square,
 the hue slider or an R/G/B field is a candidate while it lasts and one change when released,
 as a click on a swatch or a committed hex text is one change: the host's undo then takes one
-step per gesture, not one per frame of a drag.
+step per gesture, not one per frame of a drag. A click on the square or the slider is a
+gesture too, however short. Any close but Escape commits a parseable typed text, hex or R/G/B.
+The square and the slider work in HSV over sRGB values (the formula applied to the sRGB
+fractions, as the draft's `hsvToRgb` does), not over linear ones, egui's `Hsva`, nor egui's
+`HsvaGamma`, which re-encodes only the value: a renderer blends vertex colors as sRGB, so only
+then does the gradient show the color a click there picks. The working hue survives a gesture on white, gray or black, whose RGB holds
+no hue, so a hue chosen on the slider is still there for the square. A color the host changes
+under the open popup (an undo) moves the popup to it and is not a pick; but the host's
+rounding of the widget's own commit (the Save editor's 6 bits), arriving the next frame, is
+that commit, which still joins the recents on close.
 
 ### Kit menu icon rendering (Phase 8)
 
