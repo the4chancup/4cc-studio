@@ -184,7 +184,15 @@ fn body(
     filter: Filter,
     clicked: &mut Option<MessageCode>,
 ) {
-    let shown = lines
+    // A paused view draws only the lines present when the pause began
+    // (`lines[..follow.left_at]`): later arrivals raise the `↓ N new` count
+    // without moving the text under a member reading scrolled-up lines.
+    let pool = if follow.stick {
+        lines
+    } else {
+        &lines[..follow.left_at]
+    };
+    let shown = pool
         .iter()
         .filter(|line| filter.shows(line.severity))
         .count();
@@ -202,7 +210,10 @@ fn body(
                 // keeps egui's own smoothing, which is a different path.
                 .animated(false)
                 .show(ui, |ui| {
-                    for line in lines
+                    // Labels in a vertical layout wrap by default
+                    // (`Ui::wrap_mode`); a long line scrolls sideways instead.
+                    ui.style_mut().wrap_mode = Some(egui::TextWrapMode::Extend);
+                    for line in pool
                         .iter()
                         .filter(|line| filter.shows(line.severity))
                         .skip(skip)
@@ -601,12 +612,17 @@ mod tests {
         let body_bottom = jump.bounds().expect("the jump button's bounds").y1 + JUMP_MARGIN as f64;
 
         click(&mut window, &mut panel, &lines, jump);
-        // The click set the snap; it lands on the next frame.
+        // The click sets the snap: the next frame issues `scroll_to_cursor`,
+        // which updates the offset after that frame's draw, so the snapped
+        // layout shows on the frame after.
+        window.idle(&mut panel, &lines);
         let nodes = window.idle(&mut panel, &lines);
         let last = bounds(&nodes, "log line 203");
+        // The scroll reached its maximum: the newest line's bounds are wholly
+        // inside the body — an offscreen line would still pass a floor check.
         assert!(
-            last.y1 >= body_bottom - 2.0,
-            "the last line is back at the bottom: {} vs {}",
+            last.y1 >= body_bottom - 2.0 && last.y1 <= body_bottom + 1.0,
+            "the last line's bottom edge is at the body's: {} vs {}",
             last.y1,
             body_bottom
         );
@@ -615,16 +631,59 @@ mod tests {
             "the button is gone"
         );
 
-        // One more arrives: the view follows it to the bottom again.
+        // One more arrives: the view follows it to the bottom again — the
+        // stick lands after that frame's draw, so it shows one frame later.
         lines.push(LogLine::plain(Severity::Info, "log line 204"));
+        window.idle(&mut panel, &lines);
         let nodes = window.idle(&mut panel, &lines);
         let last = bounds(&nodes, "log line 204");
         assert!(
-            last.y1 >= body_bottom - 2.0,
-            "the view follows the newest line: {} vs {}",
+            last.y1 >= body_bottom - 2.0 && last.y1 <= body_bottom + 1.0,
+            "the view follows the newest line to the body's bottom: {} vs {}",
             last.y1,
             body_bottom
         );
+    }
+
+    // ST-LOG-02
+    #[test]
+    fn a_paused_log_past_the_cap_holds_the_lines_it_had() {
+        let mut lines = plain_lines(310);
+        let mut panel = LogPanel::new("test-log");
+        let mut window = Headless::new();
+        let nodes = window.idle(&mut panel, &lines);
+        // Over the cap, the drawn window is the last 300: line 11 is its first.
+        assert!(shows(&nodes, "log line 11"), "the capped tail is drawn");
+        assert!(!shows(&nodes, "log line 10"), "lines over the cap are not");
+
+        // Scroll up to pause the follow, letting the wheel delta drain.
+        window.show(
+            &mut panel,
+            &lines,
+            wheel_at(egui::pos2(400.0, 500.0), 400.0),
+        );
+        for _ in 0..15 {
+            window.idle(&mut panel, &lines);
+        }
+
+        // Five lines arrive: the drawn window cannot slide — its topmost line
+        // is the same, and the arrivals are counted by the button, not drawn.
+        lines.extend((311..=315).map(|n| LogLine::plain(Severity::Info, format!("log line {n}"))));
+        let nodes = window.idle(&mut panel, &lines);
+        assert!(
+            shows(&nodes, "log line 11"),
+            "paused, the window keeps the first line it had"
+        );
+        assert!(
+            !shows(&nodes, "log line 315"),
+            "arrivals past the pause are counted, not drawn"
+        );
+        let jump = entry(&nodes, "↓ 5 new");
+
+        // The jump lands at the tail: the newest line is drawn.
+        click(&mut window, &mut panel, &lines, jump);
+        let nodes = window.idle(&mut panel, &lines);
+        assert!(shows(&nodes, "log line 315"), "the newest line is drawn");
     }
 
     #[test]
@@ -909,6 +968,29 @@ mod tests {
         assert!(shows(&nodes, "4 lines"));
     }
 
+    /// One frame drawing `panel` with a central panel over the space left
+    /// above it; returns the frame's nodes and the central panel's height —
+    /// the "view above" whose growth the collapsed dock hands back.
+    fn with_central(
+        window: &mut Headless,
+        panel: &mut LogPanel,
+        lines: &[LogLine],
+        events: Vec<egui::Event>,
+    ) -> (Vec<accesskit::Node>, f32) {
+        let mut height = 0.0;
+        let nodes = window.frame(events, |ui| {
+            panel.show(ui, lines);
+            height = egui::CentralPanel::default()
+                .show(ui, |ui| {
+                    ui.label("tool view");
+                })
+                .response
+                .rect
+                .height();
+        });
+        (nodes, height)
+    }
+
     // ST-LOG-04
     #[test]
     fn the_chevron_collapses_to_the_header_and_the_open_height_survives() {
@@ -916,7 +998,7 @@ mod tests {
         let mut panel = LogPanel::new("test-log");
         let mut window = Headless::new();
         let (open, collapsed) = panel.dock.panel_ids();
-        let nodes = window.idle(&mut panel, &lines);
+        let (nodes, central) = with_central(&mut window, &mut panel, &lines, Vec::new());
         let open_height = panel_height(&window.ctx, open);
         assert!(
             (open_height - 220.0).abs() < 1.0,
@@ -924,24 +1006,33 @@ mod tests {
         );
 
         // The chevron collapses to the header row alone; the body is gone on the
-        // frame after the click (the panel branch is chosen before the header draws).
+        // frame after the click (the panel branch is chosen before the header draws)
+        // and the view above takes the freed space.
         click(&mut window, &mut panel, &lines, entry(&nodes, "▾"));
-        let nodes = window.idle(&mut panel, &lines);
+        let (nodes, collapsed_central) = with_central(&mut window, &mut panel, &lines, Vec::new());
         assert!(!shows(&nodes, "log line 20"), "the body is not drawn");
         let header = panel_height(&window.ctx, collapsed);
         assert!(
             header < 60.0 && header > 10.0,
             "collapsed, the panel is its header row: {header}"
         );
+        assert!(
+            collapsed_central > central + 100.0,
+            "the view above takes the freed space: {collapsed_central} vs {central}"
+        );
 
-        // Expanding restores the stored open height.
+        // Expanding restores the stored open height and the earlier view.
         click(&mut window, &mut panel, &lines, entry(&nodes, "▸"));
-        let nodes = window.idle(&mut panel, &lines);
+        let (nodes, restored_central) = with_central(&mut window, &mut panel, &lines, Vec::new());
         assert!(shows(&nodes, "log line 20"), "the body is drawn again");
         let back = panel_height(&window.ctx, open);
         assert!(
             (back - open_height).abs() < 1.0,
             "the open height survived the collapse: {back} vs {open_height}"
+        );
+        assert!(
+            (restored_central - central).abs() < 1.0,
+            "the view above returns to its earlier height: {restored_central} vs {central}"
         );
 
         // Dragging the divider up 80 points grows the panel by about 80, kept across
@@ -967,6 +1058,27 @@ mod tests {
         window.idle(&mut panel, &lines);
         let kept = panel_height(&window.ctx, open);
         assert_eq!(kept, grown, "the dragged height holds across frames");
+
+        // Collapsing and expanding again comes back at the dragged height, not
+        // the default: the open panel's stored height outlives the collapse.
+        let (nodes, _) = with_central(&mut window, &mut panel, &lines, Vec::new());
+        click(&mut window, &mut panel, &lines, entry(&nodes, "▾"));
+        let (nodes, second_collapsed) = with_central(&mut window, &mut panel, &lines, Vec::new());
+        assert!(
+            (second_collapsed - collapsed_central).abs() < 2.0,
+            "the header collapse frees the same space: {second_collapsed} vs {collapsed_central}"
+        );
+        click(&mut window, &mut panel, &lines, entry(&nodes, "▸"));
+        let (_, second_central) = with_central(&mut window, &mut panel, &lines, Vec::new());
+        let again = panel_height(&window.ctx, open);
+        assert!(
+            (again - grown).abs() < 1.0,
+            "the dragged height survives the collapse: {again} vs {grown}"
+        );
+        assert!(
+            (second_central - (central - (grown - open_height))).abs() < 8.0,
+            "the view above sits under the dragged dock: {second_central}"
+        );
     }
 
     #[test]
@@ -1070,6 +1182,29 @@ mod tests {
         assert!(
             shows(&nodes, " at Players/01 - T (file=boots.fmdl)"),
             "the line's text after the code is drawn"
+        );
+    }
+
+    #[test]
+    fn a_codeless_line_stays_one_row_and_scrolls_sideways() {
+        // A long line without a code must not wrap (the body's contract). AccessKit
+        // clips a node's bounds to the clip rect, so its width cannot show it; a
+        // wrapped label would be several rows tall instead of one.
+        let long = "a".repeat(400);
+        let lines = vec![
+            LogLine::plain(Severity::Info, long.clone()),
+            LogLine::plain(Severity::Info, "a tail row"),
+        ];
+        let mut panel = LogPanel::new("test-log");
+        let mut window = Headless::new();
+        let nodes = window.idle(&mut panel, &lines);
+        let wide = bounds(&nodes, &long);
+        let row = bounds(&nodes, "a tail row");
+        assert!(
+            (wide.y1 - wide.y0 - (row.y1 - row.y0)).abs() < 1.0,
+            "the long line stays one row tall, not wrapped: {} vs {}",
+            wide.y1 - wide.y0,
+            row.y1 - row.y0
         );
     }
 }

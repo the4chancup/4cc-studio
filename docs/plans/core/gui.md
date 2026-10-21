@@ -229,7 +229,12 @@ Like the settings menu it is **assembled from the tools**, not written centrally
   optimized for thousands of lines). Full logs are written to disk (`issues.log`, `suggestions.log`)
   as before.
 - **Auto-scroll with interruption**: sticks to the bottom until the user scrolls up, which pauses
-  auto-scroll and shows a "↓ N new" jump-back indicator.
+  auto-scroll and shows a "↓ N new" jump-back indicator. While paused, the panel draws the
+  lines it held when the pause began, and the arrivals are counted, not drawn, until the jump
+  back or a scroll to the bottom: past the cap, a window sliding with each arrival would move
+  the text under the reader at an unchanged scroll offset.
+- **No wrapping**: a line longer than the panel scrolls sideways, as the draft's `white-space:
+  pre` does; a wrapped line breaks the one-line-per-finding reading.
 - **Filter toggles**: All; Warnings (the warning, error and fatal lines); Errors (the error and
   fatal lines). A filter hides lines, never drops them: All shows every line again.
 - **Cross-linking**: clicking a warning/error line highlights the corresponding grid cell (they

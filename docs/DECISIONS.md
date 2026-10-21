@@ -9705,3 +9705,17 @@ Why: the spec named `card_limits` as behind the badges, but the map held the lim
 count it is compared with; a widget counting paid cards itself would be a second card economy,
 drifting from the checks the first time a free-card rule changes.
 Plan: `spec/aatf_rules.md` "The interpreter" (the `card_limits` bullet).
+
+## 2026-10-21 — team_widgets — The violations list words the violations itself, in check order, errors first per group
+Decision: `team_widgets::violations` draws each violation as its rule's name and a sentence of
+its own, one per `ViolationKind`, for both the Save editor and the Team creator; the name and
+fields as a rules file spells them move from the Save editor's `messages.rs` to `aatf` as
+`ViolationKind::rule`, which the CLI and the widget share. The groups keep `check_team`'s order
+(the players by slot, then the team's rows), each group's errors before its warnings, and
+suggestions only on the host's request, after the violations.
+Why: the plan named the list but not where its words live. A sentence table in each host would
+word one violation two ways the first time one host's table changed; the lib is the one place
+both draw from. The rules-file spelling is `aatf`'s knowledge, not a tool's message. Errors first
+within a group, not a list sorted by severity, because a member fixes one player at a time and
+the slot order is the player list's.
+Plan: `plans/save_editor.md` "`libs/team_widgets`" (the `violations` bullet).

@@ -245,7 +245,12 @@ Contents:
 - `cards` — skill, COM-style and playstyle pickers, version-gated, with remaining-count badges per
   tier from the AATF rules file (`card_limits`).
 - `violations` — the AATF results list grouped per player, emitting a "selected player" event for
-  the host's jump-to.
+  the host's jump-to. The groups keep `check_team`'s order (the players by slot, then the team's
+  own rows), each group's errors before its warnings; a team header heads each team's rows;
+  suggestions are drawn only when the host asks, in their own group after the violations. A row
+  is the rule's name as a rules file writes it and a sentence saying what is wrong; the
+  sentences are the widget's, one per `ViolationKind`, so both hosts word a violation alike
+  (the CLI prints the name and the fields only, `aatf`'s `ViolationKind::rule`, which both use).
 
 Stock-formation constants stay in the Team creator (its only consumer) until this editor wants
 an "apply stock formation" action, at which point they move here.

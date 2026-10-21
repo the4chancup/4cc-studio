@@ -737,7 +737,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         view/mod.rs}`. Review A4 (Astra on Codex own over 8.6d2's reworks 2 and 3, 2 of 3
         accepted: a long catalog cell overlapping the next row, in 8.6d3's rework; the
         upgrader's `common_link_missing` row promising an exception it never applies) ends
-        Astra's loop on the help window
+        Astra's loop on the help window. Review A5 (Astra on Codex brother over the log
+        panel's reworks, 4 of 4 accepted) reworked in rework 3: a paused panel draws the lines
+        it held when the pause began, past the cap too; a line never wraps; the jump and
+        collapse tests observe their THENs. Astra's loop on the log panel ends; a SWE-2 round
+        on rework 3 next
       - [ ] when the first topic gains an in-doc link `[text](<id>#<slug>)`, `--export`
         rewrites it to `<id>.md#<slug>` and writes an anchor per topic slug (review A3-7: no
         shipped topic holds one yet, so the exported files have nothing to break)
