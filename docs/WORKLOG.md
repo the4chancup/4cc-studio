@@ -790,7 +790,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       R/G/B value committed on any close, the host's 6-bit rounding of a pick still a pick, a
       one-frame click committing; 44 tests. Rework 3 (mutation survivor): a one-frame tap
       on the hue strip tested, the commit condition's `drag_stopped()` terms dropped (the
-      held press covers them). A SWE-2 loop, then Astra's second round. Files:
+      held press covers them). Review S2 (SWE-2, 3 of 9 accepted; the loop ends) reworked
+      in rework 4: a click or a drag after the hex field had focus lands the pick, the
+      tests in `picker/tests.rs`. Astra's second round next. Files:
       `color_tools/{Cargo.toml,src/lib.rs,src/picker.rs}`, `scripts/doc_pointers.py`
       (`plans/libs/color_tools.md` listed as the open phase's)
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
