@@ -2312,3 +2312,5 @@ worklog passed 7,000 lines.
   Show body with the interference findings, Ctrl+I, the team's Set and Remove FPC invisibility, a model's own IDs kept).
 - **2026-10-22** — 8.9d3: the Save editor's Savefile menu, Output rosters to TSV and Fix database (base copies repaired on PES
   15 to 18 only, 4ccEditor's PES 17 strip-table write not kept: its writes drift off the table's 132-byte entries).
+- **2026-10-22** — 8.9d2/d3 rework 2 after a SWE-2 round (4 accepted) and Astra A1 (5 accepted): the Fix database question names
+  only what the open save has, the help's FPC findings limit and Copy/Swap flags, and the tests a mutant would have passed.

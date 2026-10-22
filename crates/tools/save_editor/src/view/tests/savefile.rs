@@ -115,8 +115,8 @@ fn fix_database_repairs_the_save_behind_a_confirmation_and_one_undo() {
     assert!(
         label_value(
             &nodes,
-            "Repair base copies, clear every player's visual settings flags and the teams' \
-             strip flag, and reset the kit slots to their defaults?"
+            "Repair base copies, clear every player's visual flags and the teams' strip \
+             flag, and reset the kit slots to their defaults?"
         ),
         "the confirmation's question"
     );
@@ -263,9 +263,49 @@ fn fix_database_repairs_the_save_behind_a_confirmation_and_one_undo() {
     );
 }
 
-// SE-GUI-22 (the Savefile menu's part): under the lock Fix database is
-// disabled with the ownership line as its hover, while the read-only TSV
-// item stays enabled.
+// The confirmation names only the repairs the open save's version
+// carries: every clause derives from the records themselves, the visual
+// flags being the one repair every version has.
+// SE-GUI-27
+#[test]
+fn the_fix_database_question_names_only_what_the_save_has() {
+    for (version, question) in [
+        (PesVersion::Pes21, "Clear every player's visual flags?"),
+        (
+            PesVersion::Pes17,
+            "Repair base copies, clear every player's visual flags and the teams' strip flag, \
+             and reset the kit slots to their defaults?",
+        ),
+    ] {
+        let path = fixture(version, &format!("fix_db_question_{}", version.number()));
+        let mut view = SaveView::new();
+        view.open(&path);
+        view.edit_aesthetics = true;
+        let mut window = Headless::sized(1100.0, 700.0);
+        let nodes = open_savefile_menu(&mut window, &mut view);
+        click(
+            &mut window,
+            labeled(&nodes, Role::Button, "Fix database\u{2026}"),
+            &mut view,
+        );
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        assert!(
+            label_value(&nodes, question),
+            "{version}'s question is {question:?}"
+        );
+        click(
+            &mut window,
+            labeled(&nodes, Role::Button, "Cancel"),
+            &mut view,
+        );
+    }
+}
+
+// The lock's Savefile half: under the lock Fix database is disabled with
+// the ownership line as its hover, while the read-only TSV item stays
+// enabled.
+// SE-GUI-22
 #[test]
 fn the_locked_savefile_menu_disables_fix_database_only() {
     let path = fixture(PesVersion::Pes21, "savefile_menu_locked");

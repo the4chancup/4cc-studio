@@ -3187,10 +3187,11 @@ function fixDatabase() {
     }
   });
 }
-// sample wording: the confirmation's text.
+// sample wording: the confirmation's text on PES 2017; the editor names only the repairs the
+// open save's version has (PES 2021: "Clear every player's visual flags?").
 function dlgFixDb() {
   window_("Fix database", h("div", {},
-    h("p", {}, "Repair base copies, clear every player's visual settings flags and the teams' strip flag, and reset the kit slots to their defaults?")),
+    h("p", {}, "Repair base copies, clear every player's visual flags and the teams' strip flag, and reset the kit slots to their defaults?")),
     [button("Fix database", () => { fixDatabase(); closeWindow(); render(); }),
      button("Cancel", closeWindow)]);
 }

@@ -3,8 +3,9 @@
 //! the Team menu's operations over the selected player's team, each a
 //! sealed undo entry (`session/{player,team}_ops.rs`), the Savefile
 //! menu's roster sheet and Fix database (`session/database.rs`), and the
-//! dialogs they open (`Boglo`, `StatNum` and `CopySwap`; the draft's
-//! `dlgBoglo`, `dlgNum` and `dlgCopySwap`).
+//! dialogs they open (`Boglo`, `StatNum`, `CopySwap` and the Fix database
+//! confirmation; the draft's `dlgBoglo`, `dlgNum`, `dlgCopySwap` and
+//! `dlgFixDb`).
 
 use std::ops::RangeInclusive;
 
@@ -77,7 +78,7 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
             .on_disabled_hover_text(ownership_tip(version))
             .clicked()
         {
-            session.team_fpc(team_id, true);
+            session.team_fpc(team_id, fpc::Preset::Hide);
             ui.close();
         }
         if ui
@@ -85,7 +86,7 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
             .on_disabled_hover_text(ownership_tip(version))
             .clicked()
         {
-            session.team_fpc(team_id, false);
+            session.team_fpc(team_id, fpc::Preset::Unhide);
             ui.close();
         }
     });
@@ -202,10 +203,54 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     });
 }
 
+/// The Fix database confirmation's question for the open save: each
+/// clause the repair writes where the records carry it — base copies
+/// where a player has the base-copy flag (PES 15 to 18), the teams'
+/// strip flag and the kit slots where a team has them (PES 17), the
+/// visual flags always.
+fn fix_database_question(file: &EditFile) -> String {
+    let mut clauses = Vec::new();
+    if file
+        .players()
+        .iter()
+        .any(|player| player.edit_flags.base_copy.is_some())
+    {
+        clauses.push("repair base copies".to_owned());
+    }
+    let mut clear = "clear every player's visual flags".to_owned();
+    if file
+        .teams()
+        .iter()
+        .any(|team| team.edit_flags.strip.is_some())
+    {
+        clear.push_str(" and the teams' strip flag");
+    }
+    clauses.push(clear);
+    if file.teams().iter().any(|team| team.kit_slots.is_some()) {
+        clauses.push("reset the kit slots to their defaults".to_owned());
+    }
+    let last = clauses
+        .pop()
+        .expect("the visual-flags clause is always pushed");
+    let joined = if clauses.is_empty() {
+        last
+    } else {
+        let separator = if clauses.len() == 1 {
+            " and "
+        } else {
+            ", and "
+        };
+        format!("{}{separator}{last}", clauses.join(", "))
+    };
+    let (head, tail) = joined.split_at(1);
+    format!("{}{tail}?", head.to_uppercase())
+}
+
 /// The Fix database confirmation while `view.fix_database` holds (the
-/// draft's `dlgFixDb`): the repair's line, Fix database applies it as one
-/// sealed undo entry (`Session::fix_database`), Cancel or Escape closes
-/// with nothing changed.
+/// draft's `dlgFixDb`): the repair's line (`fix_database_question`), Fix
+/// database applies it as one sealed undo entry
+/// (`Session::fix_database`), Cancel or Escape closes with nothing
+/// changed.
 pub(crate) fn fix_database_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     if !view.fix_database {
         return;
@@ -214,10 +259,9 @@ pub(crate) fn fix_database_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     let response =
         egui::Modal::new(egui::Id::new("save_editor_fix_database")).show(ui.ctx(), |ui| {
             ui.heading("Fix database");
-            ui.label(
-                "Repair base copies, clear every player's visual settings flags and the \
-                 teams' strip flag, and reset the kit slots to their defaults?",
-            );
+            if let Some(session) = view.session.as_ref() {
+                ui.label(fix_database_question(session.file()));
+            }
             ui.horizontal(|ui| {
                 if ui.button("Fix database").clicked()
                     && let Some(session) = view.session.as_mut()

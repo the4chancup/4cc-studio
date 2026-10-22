@@ -147,17 +147,12 @@ impl Session {
         Ok(())
     }
 
-    /// Applies the hide (`hide` true) or show preset to every filled
+    /// Applies `kind` (`fpc::Preset::Hide` or `Unhide`) to every filled
     /// roster slot of `team_id` (the menu's Set / Remove FPC
     /// invisibility), each record's own boots and gloves IDs kept
     /// (`player_ops::preset_for`), one sealed undo entry.
-    pub(crate) fn team_fpc(&mut self, team_id: u32, hide: bool) {
+    pub(crate) fn team_fpc(&mut self, team_id: u32, kind: fpc::Preset) {
         let version = self.version();
-        let kind = if hide {
-            fpc::Preset::Hide
-        } else {
-            fpc::Preset::Unhide
-        };
         let edited = self
             .edited_players(team_id, |_, player| {
                 let appearance = crate::session::player_ops::preset_for(player, kind);

@@ -1041,7 +1041,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         (the help export's last catalog row)
         - [ ] review (checkpoint b: one crate, no `pub` item; rides with 8.9d3's): a SWE-2
           loop, then Astra. `mutants-diff 4fb6c077` at `e3d652da`: 10 missed, all in the
-          dialogs (`.tmp/8_9/survivors_d2.md`), tested with 8.9d3's rework
+          dialogs (`.tmp/8_9/survivors_d2.md`), tested with 8.9d3's rework; the review runs
+          over both commits, below
       - [x] 8.9d3 the Savefile menu (SE-GUI-27): Output rosters to TSV and Fix database behind
         its confirmation. Done 2026-10-22 (SWE-2, a run and one rework): `session/database.rs`
         (`rosters_tsv` with the original's skill and COM spellings, the playing style through
@@ -1055,7 +1056,13 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         session/{mod.rs,database.rs},view/{mod.rs,menus.rs,player_list.rs,tests.rs,tests/{
         savefile.rs,player.rs}}}}`
         - [ ] review (checkpoint b, with 8.9d2's): a SWE-2 loop, then Astra, over
-          `e3d652da^..` the commit; `mutants-diff e3d652da` at the commit
+          `e3d652da^..` the commit; `mutants-diff e3d652da` at the commit: 2 missed (the
+          base-copy rule's flag-off guard). SWE-2 S1 (two halves) 4 accepted, ending its loop;
+          Astra A1 5 accepted, all tests a mutant would pass (`.tmp/8_9/duck_rulings_d23.md`).
+          Rework 2 (SWE-2): the FPC findings' limit and Copy/Swap's flags in the help, the Fix
+          database question built from what the save has, `team_fpc` taking `fpc::Preset`, and
+          the tests (base-copy halves, every team in the sheet, Set's clamp, Bump's remembered
+          N, Ctrl+I both ways). Open: `mutants-diff 7ad77f2e` at the rework, SWE-2 S2, Astra A2
     - [ ] the FPC hide IDs (55, 11) as a suite-common setting the editor and the Team compiler
       both read (`plans/save_editor.md` "Full Player Customization (FPC)"), in one step; both
       use `libs/fpc`'s constants until then

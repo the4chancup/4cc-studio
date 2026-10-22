@@ -374,6 +374,33 @@ mod tests {
             "an empty line follows the last row"
         );
 
+        // Every team of the save writes one block, in record order: the
+        // name line, one row per filled roster slot, an empty line.
+        let mut offset = 0;
+        for team in file.teams() {
+            assert_eq!(lines[offset], team.name, "team {}'s name line", team.id);
+            let team_filled = team
+                .roster
+                .iter()
+                .filter(|slot| slot.player_id != 0)
+                .count();
+            for row in &lines[offset + 1..offset + 1 + team_filled] {
+                assert!(
+                    row.contains('\t'),
+                    "a player row of team {}: {row}",
+                    team.id
+                );
+            }
+            assert_eq!(
+                lines[offset + 1 + team_filled],
+                "",
+                "an empty line after team {}",
+                team.id
+            );
+            offset += team_filled + 2;
+        }
+        assert_eq!(offset, lines.len(), "one block per team, no more");
+
         // The written file: the byte-order mark first, the text after it.
         let path = crate::test_support::scratch("rosters_tsv").join("EDIT.tsv");
         write_rosters_tsv(&file, &path).unwrap();
@@ -457,11 +484,24 @@ mod tests {
             player.edit_flags.base_copy = Some(true);
             player.appearance.base_copy_id = 70104;
         }
+        // The flag-on arm's zero half: the flag set with copy id 0.
         {
-            let flags = &file.player(70103).unwrap().edit_flags;
+            let player = file.player_mut(70104).unwrap();
+            player.edit_flags.base_copy = Some(true);
+            player.appearance.base_copy_id = 0;
+        }
+        // The flag-off arm's own-id half: a copy id naming himself is
+        // consistent, not a stray.
+        {
+            let player = file.player_mut(70105).unwrap();
+            player.edit_flags.base_copy = Some(false);
+            player.appearance.base_copy_id = 70105;
+        }
+        for id in [70103u32, 70104, 70105] {
+            let flags = &file.player(id).unwrap().edit_flags;
             assert!(
                 !(flags.face || flags.hair || flags.physique || flags.strip),
-                "premise: his visual flags are clear, so nothing changes"
+                "premise: {id}'s visual flags are clear"
             );
         }
         file.team_mut(701).unwrap().edit_flags.strip = Some(true);
@@ -489,6 +529,16 @@ mod tests {
         assert!(
             !players.iter().any(|player| player.id == 70103),
             "a real base copy changes nothing: he is not returned"
+        );
+        let fourth = players
+            .iter()
+            .find(|player| player.id == 70104)
+            .expect("the flag with copy id 0 clears");
+        assert_eq!(fourth.edit_flags.base_copy, Some(false));
+        assert_eq!(fourth.appearance.base_copy_id, 0, "the copy id stays 0");
+        assert!(
+            !players.iter().any(|player| player.id == 70105),
+            "a flag-off copy of himself changes nothing: he is not returned"
         );
         let team = teams
             .iter()

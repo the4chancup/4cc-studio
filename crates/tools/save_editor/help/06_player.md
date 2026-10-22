@@ -18,5 +18,7 @@ The **Player** menu works on the selected player:
   gameplay edit flags move; names, nationality, age, the other motions and
   every appearance field stay.
 
-Every operation is one undoable step, and the stat operations write the
-same fields the Abilities & Skills tab edits, so they set no edit flag.
+Every operation is one undoable step. Set all stats and Bump all stats
+write the same fields the Abilities & Skills tab edits, so they set no
+edit flag; Copy and Swap stats move the gameplay edit flags with the
+stats.

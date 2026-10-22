@@ -272,6 +272,60 @@ fn set_and_bump_stats_write_every_ability_as_one_undoable_edit() {
     );
 }
 
+// The Set dialog's own clamp: the field's 40 to 99 range settles a typed
+// 100 at 99 and a typed 30 at 40 (SE-GUI-24's "Set and Bump clamped to
+// 40 to 99").
+// SE-GUI-24
+#[test]
+fn the_set_dialog_clamps_the_typed_value_to_40_and_99() {
+    let path = fixture(PesVersion::Pes21, "player_set_clamp");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    let name = display_name(&player_entry(&view, 70101).name);
+    for (typed, clamped) in [("100", 99u8), ("30", 40u8)] {
+        run_stat_dialog(
+            &mut window,
+            &mut view,
+            "Set all stats",
+            &set_line(&name),
+            typed,
+        );
+        assert_abilities(&player_entry(&view, 70101), clamped);
+    }
+}
+
+// The Bump dialog's field prefills with the last N used in the window
+// (`view.bump`): after a bump by 7 the reopened dialog's field shows 7.
+// SE-GUI-24
+#[test]
+fn the_bump_dialog_prefills_the_last_n_used() {
+    let path = fixture(PesVersion::Pes21, "player_bump_remember");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    let name = display_name(&player_entry(&view, 70101).name);
+
+    run_stat_dialog(
+        &mut window,
+        &mut view,
+        "Bump all stats",
+        &bump_line(&name),
+        "7",
+    );
+
+    // Reopen the dialog: the field carries the last N, before anything
+    // is typed.
+    let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
+    click(&mut window, menu_item(&nodes, "Bump all stats"), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let field = right_of_label(&nodes, &bump_line(&name), Role::SpinButton)
+        .first()
+        .copied()
+        .expect("the Bump dialog's value field");
+    assert_eq!(field.value(), Some("7"), "the last bump is prefilled");
+}
+
 /// `entry` with the copy/swap field set taken from `source`: height,
 /// weight, the whole stats, positions and skills, the free-kick motion
 /// alone, and the eight gameplay edit flags (`plans/save_editor.md`
@@ -859,6 +913,64 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
         assert_eq!(strip.3, boots, "restored");
         assert_eq!(strip.4, gloves, "restored");
     }
+}
+
+// Ctrl+I toggles both ways (the SE-GUI-11 test covers it hidden to
+// shown): on a shown player it hides, again it shows, and the Player
+// menu's Toggle FPC settings, enabled under the unlock, hides again.
+// SE-GUI-11
+#[test]
+fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
+    let path = fixture(PesVersion::Pes21, "fpc_ctrl_i");
+    // 70101 dressed "body shown": boots and gloves 0.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    {
+        let player = file.player_mut(70101).unwrap();
+        player.appearance.boots_id = 0;
+        player.appearance.gloves_id = 0;
+        player.appearance.sleeves = 1;
+        player.appearance.untucked = true;
+        player.appearance.socks = 0;
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1100.0, 700.0);
+    let nodes = appearance_frame(&mut window, &mut view);
+    assert!(label_drawn(&nodes, "FPC: body shown"), "premise: shown");
+
+    // Ctrl+I on a shown player hides him: the hide preset lands.
+    window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let nodes = appearance_frame(&mut window, &mut view);
+    assert!(label_drawn(&nodes, "FPC: hidden body"), "Ctrl+I hid him");
+    assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
+
+    // Ctrl+I again shows him: the show preset lands.
+    window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let nodes = appearance_frame(&mut window, &mut view);
+    assert!(label_drawn(&nodes, "FPC: body shown"), "Ctrl+I showed him");
+    assert_eq!(strip_of(&view, 70101), (1, true, 0, 0, 0));
+
+    // The Player menu's Toggle FPC settings, enabled under the unlock,
+    // hides him again.
+    let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
+    let item = menu_item(&nodes, "Toggle FPC settings");
+    assert!(
+        !item.is_disabled(),
+        "the toggle is enabled under the unlock"
+    );
+    click(&mut window, item, &mut view);
+    let nodes = appearance_frame(&mut window, &mut view);
+    assert!(
+        label_drawn(&nodes, "FPC: hidden body"),
+        "the menu toggle hid him"
+    );
+    assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
 }
 
 // The PES 15/16 half of the same scenario: the appearance block is a

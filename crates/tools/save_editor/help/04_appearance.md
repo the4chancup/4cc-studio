@@ -39,7 +39,13 @@ his model hides him, which is why these are two buttons and not a checkbox.
 Hide body writes long sleeves, a tucked shirt, short socks, boots 55 and
 gloves 11 where the IDs are 0 (a model's own boots or gloves ID is kept);
 Show body writes short sleeves, untucked, standard socks, and boots and
-gloves 0 where they are 55 and 11. Under the reading the group lists any
-strip settings that interfere (inners or undershorts that break the hiding,
-taping that still shows, the gloves checkbox with ID 0 giving winter
-gloves): they are reported, never changed for you.
+gloves 0 where they are 55 and 11. Under the reading the group lists the
+strip settings that would interfere with a hidden body (inners or
+undershorts that break the hiding, taping that still shows, the gloves
+checkbox with ID 0 giving winter gloves): they are reported, never
+changed for you. The list follows the save's own reading, so it only
+covers a player the save calls hidden: one hidden by his model's own
+boots ID (a compile-allocated one such as 627) reads "body shown" and
+his interfering settings are not listed, though the game hides his body
+all the same. The Team compiler's check knows the folder's FPC marker,
+so it reports them for a compiled team.
