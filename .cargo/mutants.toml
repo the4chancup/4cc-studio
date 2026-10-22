@@ -261,4 +261,11 @@ exclude_re = [
     # which odd seed the clock takes is unconstrained. The arithmetic it
     # wrapped lives in `odd_seed` and is tested.
     "save_editor/src/view/appearance/mod\\.rs:\\d+:\\d+: replace clock_seed",
+    # team_widgets (mutants-diff, worklog 8.9e): `bench_row`'s bench move
+    # `from < index` -> `<=` and `from > index` -> `>=` are equivalent: at
+    # `from == index` the rotated slice is the one row, which
+    # `rotate_left(1)` and `rotate_right(1)` leave as it was. Its only `<`
+    # and `>`; the move's two directions stay measured.
+    "team_widgets/src/pitch/lineup\\.rs:\\d+:\\d+: replace < with <= in bench_row",
+    "team_widgets/src/pitch/lineup\\.rs:\\d+:\\d+: replace > with >= in bench_row",
 ]

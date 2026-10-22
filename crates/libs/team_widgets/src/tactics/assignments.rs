@@ -2,7 +2,7 @@
 //! (`plans/save_editor.md` "Tactics editor", the click-to-assign bullet
 //! and "What the controls write"): the six set-piece takers, the captain
 //! and the join-attack pick as chips that arm a pitch click, and the note
-//! `pitch` draws while one is armed.
+//! a host draws while one is armed.
 
 use pes_savefile::model::tactics::{SetPieceTakers, TeamTactics};
 
@@ -177,10 +177,11 @@ pub(super) fn player_assignments(
     });
 }
 
-/// The armed mode's note over the pitch (the draft's `assignnote`; drawn
-/// by `pitch` at the column's head): what the next click does, and Cancel
-/// — join's Done — disarming it.
-pub(crate) fn assign_note(ui: &mut egui::Ui, view: &mut TacticsView) {
+/// The armed mode's note (the draft's `assignnote`): what the next pitch
+/// click does, and Cancel — join's Done — disarming it. A host draws it
+/// above the pitch and lineup columns, where it spans both (the draft's
+/// `note` before `taccols`).
+pub fn assign_note(ui: &mut egui::Ui, view: &mut TacticsView) {
     let Some(assign) = view.assign else {
         return;
     };

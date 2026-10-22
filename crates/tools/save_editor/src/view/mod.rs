@@ -452,7 +452,7 @@ pub(crate) fn edit_player(
 }
 
 /// `edit_player` for the team's entry (the info strip's Number and
-/// Captain, the Team tab's fields).
+/// Captain, the Team tab's fields, the Tactics tab's edited clone).
 pub(crate) fn edit_team(
     session: &mut Session,
     id: u32,

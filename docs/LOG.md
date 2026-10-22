@@ -2322,3 +2322,5 @@ worklog passed 7,000 lines.
   bench player dragged in taking the starter's roles; the pitch is next.
 - **2026-10-22** — 8.9e3: the Tactics tab's pitch (drag with snapping, the slot popover, bench drops, the assignment chips);
   SWE-2 S1 over e1+e2 accepted 5 (the bench move rotated backwards), fixed with the widget modules split into folders.
+- **2026-10-22** — 8.9e review: SWE-2 S2 over the Tactics tab accepted 5 (two dropped-marker decisions
+  untested, the armed note's width) and the diff mutation run found 43 missing pitch tests; rework 2 added them.

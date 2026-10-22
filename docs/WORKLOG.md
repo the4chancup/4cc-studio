@@ -1153,7 +1153,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         `team_widgets/src/{lib.rs,tactics/{mod.rs,instructions.rs,assignments.rs},pitch/{mod.rs,
         lineup.rs,popover.rs}}`, `save_editor/{help/08_tactics.md,src/view/{tactics.rs,
         tests/tactics.rs}}`
-      - [ ] review: a SWE-2 loop, then Astra, over e1 and e2 together, and over e3
+      - [ ] review: a SWE-2 loop, then Astra, over e1 and e2 together, and over e3. So far:
+        SWE-2 S2 over the whole tab, 5 of 9 accepted (the decision's marker-on-marker and
+        off-pitch drops untested, a swap test the identity eleven let pass, the armed note
+        spanning both columns as the draft draws it); `mutants-diff 610bbb5c` at `ec53b1c4`, 45
+        missed in `pitch/`: 43 missing tests, 2 equivalent (`.cargo/mutants.toml`); rework 2
+        (SWE-2) fixed both, the pitch tests moved to `pitch/tests.rs`. Next: S3, then Astra
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,

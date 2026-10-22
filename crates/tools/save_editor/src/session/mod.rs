@@ -241,7 +241,8 @@ impl Session {
         self.dirty = self.compute_dirty();
     }
 
-    /// `edit_player` for a team entry (a roster slot's number, the captain).
+    /// `edit_player` for a team entry (a roster slot's number, the
+    /// captain, the Tactics tab's edited clone).
     pub(crate) fn edit_team(&mut self, key: u64, edited: TeamEntry) {
         let Some(entry) = self.file.team_mut(edited.id) else {
             return;

@@ -3,13 +3,14 @@ three presets is on screen, its formation settings, the advanced instructions
 and the team's automatic settings. A field the save's version does not hold
 stays in its place, disabled, with a note naming the first version that has it.
 
-The **pitch** is where the formation takes shape: each starter's chip sits at
-his spot, and dragging a chip to a new place moves him there, snapped to the
-positions the save can hold. A bench player dropped on a pitch player swaps
-them, and a chip dropped on a bench row does the same. Clicking a chip opens
-his details: a position pick, the exact X and Y fields and **Make GK**, which
-puts him in goal and brings the goalkeeper out onto his spot. The
-goalkeeper's own chip cannot be dragged and his position and spot stay fixed.
+The **pitch** is where the formation takes shape: each starter stands at
+his spot, and dragging a pitch player to a new place moves him there,
+snapped to the positions the save can hold. A bench player dropped on a
+pitch player swaps them, and a pitch player dropped on a bench row does the
+same. Clicking a pitch player opens his details: a position pick, the exact
+X and Y fields and **Make GK**, which puts him in goal and brings the
+goalkeeper out onto his spot. The goalkeeper cannot be dragged and his
+position and spot stay fixed.
 The **Kick-off**, **In-possession** and **Out-of-possession** buttons above
 the pitch pick which of the preset's three formations it shows (the game
 uses the second and third only while the preset's fluid formation is on).

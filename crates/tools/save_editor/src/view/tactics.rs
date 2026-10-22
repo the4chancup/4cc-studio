@@ -76,6 +76,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         });
         let mut edited = team.tactics.clone();
         let mut changed = false;
+        // The draft's `note`: an armed mode's note spans both columns.
+        tactics::assign_note(ui, tactics);
         // The draft's `taccols`: the pitch in the left column, the lists
         // at its right.
         ui.columns(2, |columns| {

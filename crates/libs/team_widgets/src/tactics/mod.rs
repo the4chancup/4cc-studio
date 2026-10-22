@@ -19,7 +19,8 @@ mod assignments;
 /// The "Advanced instructions" table and its rows.
 mod instructions;
 
-pub(crate) use assignments::{Assign, OpenSlot, assign_note};
+pub use assignments::assign_note;
+pub(crate) use assignments::{Assign, OpenSlot};
 
 /// What the tactics editor shows that the record does not hold: the
 /// preset and the formation on screen, the armed assignment mode and the

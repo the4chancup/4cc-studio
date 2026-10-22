@@ -473,7 +473,7 @@ fn marker_centre(canvas: accesskit::Rect, slot: FormationSlot) -> egui::Pos2 {
     );
     egui::pos2(
         (centre.x - 21.0).clamp(canvas.x0 as f32 + 2.0, canvas.x1 as f32 - 44.0) + 21.0,
-        (centre.y - 16.0).clamp(canvas.y0 as f32 + 2.0, canvas.y1 as f32 - 30.0) + 13.0,
+        (centre.y - 13.0).clamp(canvas.y0 as f32 + 2.0, canvas.y1 as f32 - 30.0) + 13.0,
     )
 }
 
