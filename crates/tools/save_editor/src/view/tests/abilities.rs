@@ -679,7 +679,7 @@ fn the_cards_left_badges_read_the_active_ruleset() {
     let aatf = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/aatf");
     let data = std::fs::read_to_string(aatf.join("rulesets/dbc7.rhai")).unwrap();
     let logic = std::fs::read_to_string(aatf.join("logic/logic.rhai")).unwrap();
-    let rules_path = fixture(PesVersion::Pes21, "cards_left").with_file_name("dbc7.rhai");
+    let rules_path = path.with_file_name("dbc7.rhai");
     std::fs::write(
         &rules_path,
         format!(

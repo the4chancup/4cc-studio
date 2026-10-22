@@ -90,14 +90,10 @@ impl Headless {
     }
 }
 
-/// Writes `version`'s fixture save under a scratch folder fresh to this
-/// test run (the process id, so a `.bak` left by an older run cannot shadow
-/// the assertions; the folder is left, nothing removes it).
+/// Writes `version`'s fixture save under `test`'s scratch folder (fresh each
+/// call, so a `.bak` an older run left cannot shadow the assertions).
 fn fixture(version: PesVersion, test: &str) -> PathBuf {
-    let dir = std::env::temp_dir()
-        .join(format!("save_editor_view_{}", std::process::id()))
-        .join(test);
-    std::fs::create_dir_all(&dir).unwrap();
+    let dir = crate::test_support::scratch(test);
     let path = dir.join("EDIT00000000");
     std::fs::write(&path, fixture_save(version)).unwrap();
     path

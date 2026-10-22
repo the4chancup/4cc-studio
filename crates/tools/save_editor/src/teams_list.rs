@@ -167,8 +167,7 @@ mod tests {
 
     #[test]
     fn a_missing_file_loads_as_the_upstream_list() {
-        let dir = std::env::temp_dir().join("save_editor_teams_list");
-        fs::create_dir_all(&dir).unwrap();
+        let dir = crate::test_support::scratch("teams_list_missing");
         let list = load_working(Some(&dir.join("absent.txt"))).unwrap();
         assert_eq!(list, TeamsList::parse(TeamsList::UPSTREAM).unwrap());
     }
@@ -193,8 +192,7 @@ mod tests {
 
     #[test]
     fn a_write_replaces_the_file_whole_and_leaves_no_temporary() {
-        let dir = std::env::temp_dir().join("save_editor_teams_list");
-        fs::create_dir_all(&dir).unwrap();
+        let dir = crate::test_support::scratch("teams_list_write");
         let path = dir.join("written.txt");
         fs::write(&path, "stale").unwrap();
         let list = TeamsList::parse("ID\tName\n714\t/co/\n").unwrap();

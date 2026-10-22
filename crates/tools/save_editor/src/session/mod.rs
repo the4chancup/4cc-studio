@@ -582,8 +582,7 @@ mod tests {
     /// Writes `version`'s fixture save under the test's scratch folder and
     /// opens it as a `Session`.
     fn open(version: PesVersion, test: &str) -> Session {
-        let dir = std::env::temp_dir().join(format!("save_editor_session_{test}"));
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = crate::test_support::scratch(test);
         let path = dir.join("EDIT00000000");
         std::fs::write(&path, pes_savefile::fixture_save(version)).unwrap();
         Session::open(&path).unwrap()
@@ -871,8 +870,7 @@ mod tests {
 
     #[test]
     fn a_players_dot_covers_his_entry_and_his_roster_number() {
-        let dir = std::env::temp_dir().join("save_editor_session_dirty");
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = crate::test_support::scratch("dirty");
         let path = dir.join("EDIT00000000");
         std::fs::write(&path, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
         let mut session = Session::open(&path).unwrap();
@@ -905,8 +903,7 @@ mod tests {
 
     #[test]
     fn the_dirty_flag_and_the_redo_stack_track_edits_undos_redos_and_save() {
-        let dir = std::env::temp_dir().join("save_editor_session_dirty_flag");
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = crate::test_support::scratch("dirty_flag");
         let path = dir.join("EDIT00000000");
         std::fs::write(&path, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
         let mut session = Session::open(&path).unwrap();
@@ -936,8 +933,7 @@ mod tests {
     // `is_dirty`, and the interchange commands are the view's write paths).
     #[test]
     fn an_import_marks_the_save_dirty() {
-        let dir = std::env::temp_dir().join("save_editor_session_import_dirty");
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = crate::test_support::scratch("import_dirty");
         let path = dir.join("EDIT00000000");
         std::fs::write(&path, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
         let mut session = Session::open(&path).unwrap();
@@ -967,8 +963,7 @@ mod tests {
     // undo, a redo) and not on a frame's seal.
     #[test]
     fn the_revision_moves_on_each_change_and_stays_put_on_a_frame() {
-        let dir = std::env::temp_dir().join("save_editor_session_revision");
-        std::fs::create_dir_all(&dir).unwrap();
+        let dir = crate::test_support::scratch("revision");
         let path = dir.join("EDIT00000000");
         std::fs::write(&path, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
         let mut session = Session::open(&path).unwrap();

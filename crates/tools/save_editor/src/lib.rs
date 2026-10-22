@@ -14,6 +14,8 @@ mod messages;
 mod session;
 mod settings;
 mod teams_list;
+#[cfg(test)]
+mod test_support;
 mod view;
 
 use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};

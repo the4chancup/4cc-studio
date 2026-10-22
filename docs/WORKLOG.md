@@ -1354,7 +1354,9 @@ points there.
   700 s and 20 s, none hit, about 28 min in all, locally; `mutants-diff 95f20eac` had one
   751 s timeout for every crate and 9 timeouts. Uneven shares by machine speed for a diff
   stay unbuilt: the timeouts were the cost
-- open 2026-10-22 — tests leave their save copies in the system Temp folder: `save_editor`'s
+- resolved 2026-10-22 (`save_editor/src/test_support.rs` `scratch`: every unit test's folder is
+  `target/<profile>/save_editor_tests/<test>`, emptied at its start; no other crate's tests left
+  anything in Temp, measured the same day) — tests leave their save copies in the system Temp folder: `save_editor`'s
   view tests copy a fixture save (5 to 11 MB) per test into `%TEMP%/save_editor_view_<pid>/`
   and never remove it, so every run, a mutation run's mutants included, adds about 0.5 GB;
   42 such folders held 19.9 GB on 2026-10-22. Fifteen files call `std::env::temp_dir()`
