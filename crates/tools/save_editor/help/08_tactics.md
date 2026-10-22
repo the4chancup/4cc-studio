@@ -3,6 +3,16 @@ three presets is on screen, its formation settings, the advanced instructions
 and the team's automatic settings. A field the save's version does not hold
 stays in its place, disabled, with a note naming the first version that has it.
 
+The **Starting eleven** and **Bench** lists set who plays and in which order:
+drag a row by its handle onto another to move or swap it. A starter dropped on
+another starter trades their places. A bench player dropped on a starter takes
+his place and every job he held (set pieces, joining the attack, instruction
+targets); the captain stays who he was. The **Kick-off**, **In-possession** and
+**Out-of-possession** buttons pick which of the preset's three formations the
+eleven's position labels show (the game uses the second and third only while
+the preset's fluid formation is on). Switching formations changes nothing by
+itself.
+
 The **Preset** buttons pick which of the team's three presets the groups below
 edit. Switching presets changes nothing by itself.
 

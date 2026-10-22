@@ -2,7 +2,13 @@
 //! AccessKit on, run a frame at a time over an 800 by 600 screen, plus the
 //! click and painted-text helpers.
 
-use egui::accesskit;
+use egui::accesskit::{self, Role};
+use pes_savefile::EditFile;
+use pes_savefile::model::names::display_name;
+use pes_savefile::model::tactics::TeamTactics;
+use pes_version::PesVersion;
+
+use crate::tactics::RosterRow;
 
 /// A headless window: one egui context with AccessKit on, run a frame at a
 /// time over an 800 by 600 screen, for drawing a bare `Ui`'s widgets.
@@ -81,6 +87,132 @@ impl Headless {
         output.drop_without_applying_deltas();
         (update.nodes, shapes)
     }
+}
+
+/// Team 701's `TeamTactics` of `version`'s fixture save.
+pub(crate) fn fixture_tactics(version: PesVersion) -> TeamTactics {
+    EditFile::from_bytes(&pes_savefile::fixture_save(version))
+        .expect("fixture save")
+        .team(701)
+        .expect("team 701 is in the fixture")
+        .tactics
+        .clone()
+}
+
+/// Team 701's roster as the widgets' `roster` sees it, indexed by slot:
+/// `(display name, registered position)`, `("", None)` an empty slot, as
+/// the hosts build it.
+pub(crate) fn fixture_rows(version: PesVersion) -> Vec<(String, Option<u8>)> {
+    let file = EditFile::from_bytes(&pes_savefile::fixture_save(version)).expect("fixture save");
+    let team = file.team(701).expect("team 701 is in the fixture");
+    team.roster
+        .iter()
+        .map(|slot| {
+            file.player(slot.player_id).map_or_else(
+                || (String::new(), None),
+                |player| {
+                    (
+                        display_name(&player.name),
+                        Some(player.positions.registered),
+                    )
+                },
+            )
+        })
+        .collect()
+}
+
+/// `rows` as the `&[RosterRow]` the widgets take.
+pub(crate) fn roster_rows(rows: &[(String, Option<u8>)]) -> Vec<RosterRow<'_>> {
+    rows.iter()
+        .map(|(name, position)| RosterRow {
+            name: name.as_str(),
+            registered_position: *position,
+        })
+        .collect()
+}
+
+/// The widget node of `role` labeled `label`.
+pub(crate) fn entry<'a>(
+    nodes: &'a [accesskit::Node],
+    role: Role,
+    label: &str,
+) -> &'a accesskit::Node {
+    nodes
+        .iter()
+        .find(|node| node.role() == role && node.label() == Some(label))
+        .unwrap_or_else(|| panic!("no {role:?} labeled {label:?}"))
+}
+
+/// The nodes of `role` right of `label`'s, on its row, in x order.
+pub(crate) fn controls_right_of<'a>(
+    nodes: &'a [accesskit::Node],
+    label: &str,
+    role: Role,
+) -> Vec<&'a accesskit::Node> {
+    let label_node = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some(label))
+        .unwrap_or_else(|| panic!("no label {label:?}"));
+    let bounds = label_node.bounds().expect("the label's bounds");
+    let mut found: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == role
+                && node
+                    .bounds()
+                    .is_some_and(|b| (b.y0 - bounds.y0).abs() < 4.0 && b.x0 >= bounds.x1 - 1.0)
+        })
+        .collect();
+    found.sort_by(|a, b| {
+        let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
+        x(a).partial_cmp(&x(b)).expect("ordered bounds")
+    });
+    found
+}
+
+/// The first node of `role` right of `label`'s, on its row.
+pub(crate) fn control_right_of<'a>(
+    nodes: &'a [accesskit::Node],
+    label: &str,
+    role: Role,
+) -> &'a accesskit::Node {
+    controls_right_of(nodes, label, role)
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| panic!("no {role:?} right of {label:?}"))
+}
+
+/// `nodes`' buttons' labels in draw order (top to bottom, left to
+/// right), kept only when `keep` holds.
+pub(crate) fn button_labels(nodes: &[accesskit::Node], keep: impl Fn(&str) -> bool) -> Vec<String> {
+    let mut buttons: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| node.role() == Role::Button && node.label().is_some_and(&keep))
+        .collect();
+    buttons.sort_by(|a, b| {
+        let key = |node: &&accesskit::Node| {
+            let bounds = node.bounds().expect("drawn bounds");
+            (bounds.y0, bounds.x0)
+        };
+        key(a).partial_cmp(&key(b)).expect("ordered bounds")
+    });
+    buttons
+        .iter()
+        .filter_map(|node| node.label().map(str::to_owned))
+        .collect()
+}
+
+/// The AccessKit id of the widget node of `role` labeled `label`.
+pub(crate) fn entry_id(
+    nodes: &[(accesskit::NodeId, accesskit::Node)],
+    role: Role,
+    label: &str,
+) -> accesskit::NodeId {
+    nodes
+        .iter()
+        .find(|(_, node)| node.role() == role && node.label() == Some(label))
+        .map(|(id, _)| *id)
+        .unwrap_or_else(|| panic!("no {role:?} labeled {label:?}"))
 }
 
 /// The centre of `node`'s bounds, where a click lands.

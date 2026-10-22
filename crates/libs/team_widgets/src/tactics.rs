@@ -18,11 +18,26 @@ use pes_version::PesVersion;
 const NO_TARGET: u8 = 0xFF;
 
 /// What the tactics editor shows that the record does not hold: the
-/// preset on screen.
+/// preset and the formation on screen.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct TacticsView {
     /// The preset the controls edit, 0 to 2, shown 1 to 3.
     pub preset: usize,
+    /// The preset's formation the lineup and pitch show: 0 kick-off, 1
+    /// in-possession, 2 out-of-possession.
+    pub formation: usize,
+}
+
+/// What a roster slot shows where the editor lists it (the instruction
+/// targets, the lineup and bench rows): the player's display name and
+/// registered position, both `None`-equivalent on an empty slot ("" and
+/// `None` read "(empty)" and "--").
+#[derive(Debug, Clone, Copy)]
+pub struct RosterRow<'a> {
+    /// The slot's display name, "" an empty or nameless one.
+    pub name: &'a str,
+    /// The player's registered position byte; `None` an empty slot.
+    pub registered_position: Option<u8>,
 }
 
 /// One of the five sliders (the draft's `SLIDERS`): its label, its range
@@ -142,18 +157,18 @@ const STYLE_TOGGLES: [StyleToggle; 7] = [
 ];
 
 /// The preset selector and the three groups, in the draft's order and
-/// wording. `names` gives each roster slot's display name, indexed by
-/// slot (an empty string an empty one); a slot past `names`, or an empty
-/// one, shows "(empty)". Answers `true` only when `tactics` changed this
-/// frame: the preset selector writes `view`, not the record, and an idle
-/// frame, a hover or a re-pick of the stored value leaves it equal.
+/// wording. `roster` gives each roster slot's row, indexed by slot (an
+/// empty name or a slot past `roster` shows "(empty)"). Answers `true`
+/// only when `tactics` changed this frame: the preset selector writes
+/// `view`, not the record, and an idle frame, a hover or a re-pick of the
+/// stored value leaves it equal.
 pub fn tactics_settings(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
     version: PesVersion,
     tactics: &mut TeamTactics,
     view: &mut TacticsView,
-    names: &[&str],
+    roster: &[RosterRow<'_>],
 ) -> bool {
     ui.push_id(id_salt, |ui| {
         // The answer is the deep compare, not the responses' `changed()`:
@@ -174,7 +189,7 @@ pub fn tactics_settings(
         } = tactics;
         let preset = &mut presets[view.preset.min(2)];
         formation_settings(ui, preset);
-        instruction_table(ui, version, preset, starting_eleven, names);
+        instruction_table(ui, version, preset, starting_eleven, roster);
         automatic_settings(ui, auto);
         *tactics != before
     })
@@ -250,7 +265,7 @@ fn instruction_table(
     version: PesVersion,
     preset: &mut TacticsPreset,
     starting_eleven: &[u8; 11],
-    names: &[&str],
+    roster: &[RosterRow<'_>],
 ) {
     ui.strong("Advanced instructions");
     let (Some(attack), Some(defence)) = (
@@ -283,7 +298,7 @@ fn instruction_table(
                 "Attack 1",
                 &mut attack[0],
                 starting_eleven,
-                names,
+                roster,
             );
             ui.end_row();
             instruction_row(
@@ -293,7 +308,7 @@ fn instruction_table(
                 "Attack 2",
                 &mut attack[1],
                 starting_eleven,
-                names,
+                roster,
             );
             ui.end_row();
             instruction_row(
@@ -303,7 +318,7 @@ fn instruction_table(
                 "Defence 1",
                 &mut defence[0],
                 starting_eleven,
-                names,
+                roster,
             );
             ui.end_row();
             instruction_row(
@@ -313,7 +328,7 @@ fn instruction_table(
                 "Defence 2",
                 &mut defence[1],
                 starting_eleven,
-                names,
+                roster,
             );
             ui.end_row();
         });
@@ -333,7 +348,7 @@ fn instruction_row(
     label: &str,
     entry: &mut AdvancedInstruction,
     starting_eleven: &[u8; 11],
-    names: &[&str],
+    roster: &[RosterRow<'_>],
 ) {
     ui.label(label);
     let current = instruction::decode(version, entry.instruction)
@@ -369,8 +384,8 @@ fn instruction_row(
         "Unassigned".to_owned()
     } else {
         match starting_eleven.iter().position(|slot| *slot == target) {
-            Some(index) => format!("{} {}", index + 1, name_at(names, target)),
-            None => name_at(names, target).to_owned(),
+            Some(index) => format!("{} {}", index + 1, name_at(roster, target)),
+            None => name_at(roster, target).to_owned(),
         }
     };
     ui.add_enabled_ui(current.is_some_and(|inst| inst.takes_player()), |ui| {
@@ -382,7 +397,7 @@ fn instruction_row(
                     ui.selectable_value(
                         &mut target,
                         *slot,
-                        format!("{} {}", index + 1, name_at(names, *slot)),
+                        format!("{} {}", index + 1, name_at(roster, *slot)),
                     );
                 }
             });
@@ -465,12 +480,12 @@ fn first_tactics_version(field: TacticsField) -> PesVersion {
         .expect("a gated field is stored by some version")
 }
 
-/// Roster `slot`'s display name, `(empty)` when `names` is shorter than
+/// Roster `slot`'s display name, `(empty)` when `roster` is shorter than
 /// the slot or the slot names nobody.
-fn name_at<'a>(names: &[&'a str], slot: u8) -> &'a str {
-    names
+pub(crate) fn name_at<'a>(roster: &[RosterRow<'a>], slot: u8) -> &'a str {
+    roster
         .get(usize::from(slot))
-        .copied()
+        .map(|row| row.name)
         .filter(|name| !name.is_empty())
         .unwrap_or("(empty)")
 }
@@ -502,25 +517,26 @@ fn instruction_label(instruction: Instruction) -> &'static str {
 #[cfg(test)]
 mod tests {
     use egui::accesskit::{self, Role};
-    use pes_savefile::EditFile;
-    use pes_savefile::model::names::display_name;
 
     use super::*;
-    use crate::test_support::{Headless, centre, pointer_at};
+    use crate::test_support::{
+        Headless, button_labels, centre, control_right_of, controls_right_of, entry, entry_id,
+        fixture_rows, fixture_tactics, pointer_at, roster_rows,
+    };
 
     impl Headless {
         /// One frame of `tactics_settings` over `tactics`, `view` and
-        /// `names`: the frame's AccessKit nodes and whether the frame
+        /// `roster`: the frame's AccessKit nodes and whether the frame
         /// changed `tactics`.
         fn tactics(
             &mut self,
             version: PesVersion,
             tactics: &mut TeamTactics,
             view: &mut TacticsView,
-            names: &[&str],
+            roster: &[RosterRow<'_>],
             events: Vec<egui::Event>,
         ) -> (Vec<accesskit::Node>, bool) {
-            self.tactics_at(None, version, tactics, view, names, events)
+            self.tactics_at(None, version, tactics, view, roster, events)
         }
 
         /// `tactics` with `time` as the frame's timestamp (tooltips count
@@ -531,13 +547,13 @@ mod tests {
             version: PesVersion,
             tactics: &mut TeamTactics,
             view: &mut TacticsView,
-            names: &[&str],
+            roster: &[RosterRow<'_>],
             events: Vec<egui::Event>,
         ) -> (Vec<accesskit::Node>, bool) {
             let mut changed = None;
             let (nodes, _) = self.frame_at(time, events, |ui| {
                 changed = Some(tactics_settings(
-                    ui, "tactics", version, tactics, view, names,
+                    ui, "tactics", version, tactics, view, roster,
                 ));
             });
             (nodes, changed.expect("the widget ran"))
@@ -551,10 +567,10 @@ mod tests {
             version: PesVersion,
             tactics: &mut TeamTactics,
             view: &mut TacticsView,
-            names: &[&str],
+            roster: &[RosterRow<'_>],
         ) -> (Vec<accesskit::Node>, bool) {
-            self.tactics(version, tactics, view, names, pointer_at(pos, true));
-            self.tactics(version, tactics, view, names, pointer_at(pos, false))
+            self.tactics(version, tactics, view, roster, pointer_at(pos, true));
+            self.tactics(version, tactics, view, roster, pointer_at(pos, false))
         }
 
         /// `tactics` keeping the nodes' AccessKit ids (for
@@ -564,13 +580,13 @@ mod tests {
             version: PesVersion,
             tactics: &mut TeamTactics,
             view: &mut TacticsView,
-            names: &[&str],
+            roster: &[RosterRow<'_>],
             events: Vec<egui::Event>,
         ) -> (Vec<(accesskit::NodeId, accesskit::Node)>, bool) {
             let mut changed = None;
             let (nodes, _) = self.frame_at_ids(None, events, |ui| {
                 changed = Some(tactics_settings(
-                    ui, "tactics", version, tactics, view, names,
+                    ui, "tactics", version, tactics, view, roster,
                 ));
             });
             (nodes, changed.expect("the widget ran"))
@@ -585,13 +601,13 @@ mod tests {
             version: PesVersion,
             tactics: &mut TeamTactics,
             view: &mut TacticsView,
-            names: &[&str],
+            roster: &[RosterRow<'_>],
         ) -> (Vec<accesskit::Node>, bool) {
             self.tactics(
                 version,
                 tactics,
                 view,
-                names,
+                roster,
                 vec![egui::Event::AccessKitActionRequest(
                     accesskit::ActionRequest {
                         action: accesskit::Action::Click,
@@ -615,24 +631,24 @@ mod tests {
             version: PesVersion,
             tactics: &mut TeamTactics,
             view: &mut TacticsView,
-            names: &[&str],
+            roster: &[RosterRow<'_>],
         ) -> Option<String> {
             self.tactics(
                 version,
                 tactics,
                 view,
-                names,
+                roster,
                 vec![egui::Event::PointerMoved(egui::Pos2::ZERO)],
             );
             self.tactics(
                 version,
                 tactics,
                 view,
-                names,
+                roster,
                 vec![egui::Event::PointerMoved(pos)],
             );
             for _ in 0..90 {
-                let (nodes, _) = self.tactics(version, tactics, view, names, vec![]);
+                let (nodes, _) = self.tactics(version, tactics, view, roster, vec![]);
                 if let Some(value) = nodes.iter().find_map(|node| {
                     node.value()
                         .filter(|value| value.contains(needle))
@@ -645,117 +661,6 @@ mod tests {
         }
     }
 
-    /// Team 701's `TeamTactics` of `version`'s fixture save.
-    fn fixture_tactics(version: PesVersion) -> TeamTactics {
-        EditFile::from_bytes(&pes_savefile::fixture_save(version))
-            .expect("fixture save")
-            .team(701)
-            .expect("team 701 is in the fixture")
-            .tactics
-            .clone()
-    }
-
-    /// Team 701's roster's display names, indexed by slot ("" an empty
-    /// one), as the host builds them for `names`.
-    fn fixture_names(version: PesVersion) -> Vec<String> {
-        let file =
-            EditFile::from_bytes(&pes_savefile::fixture_save(version)).expect("fixture save");
-        let team = file.team(701).expect("team 701 is in the fixture");
-        team.roster
-            .iter()
-            .map(|slot| {
-                file.player(slot.player_id)
-                    .map(|player| display_name(&player.name))
-                    .unwrap_or_default()
-            })
-            .collect()
-    }
-
-    /// `names` as the `&[&str]` the widget takes.
-    fn name_refs(names: &[String]) -> Vec<&str> {
-        names.iter().map(String::as_str).collect()
-    }
-
-    /// The widget node of `role` labeled `label`.
-    fn entry<'a>(nodes: &'a [accesskit::Node], role: Role, label: &str) -> &'a accesskit::Node {
-        nodes
-            .iter()
-            .find(|node| node.role() == role && node.label() == Some(label))
-            .unwrap_or_else(|| panic!("no {role:?} labeled {label:?}"))
-    }
-
-    /// The nodes of `role` right of `label`'s, on its row, in x order.
-    fn controls_right_of<'a>(
-        nodes: &'a [accesskit::Node],
-        label: &str,
-        role: Role,
-    ) -> Vec<&'a accesskit::Node> {
-        let label_node = nodes
-            .iter()
-            .find(|node| node.role() == Role::Label && node.value() == Some(label))
-            .unwrap_or_else(|| panic!("no label {label:?}"));
-        let bounds = label_node.bounds().expect("the label's bounds");
-        let mut found: Vec<&accesskit::Node> = nodes
-            .iter()
-            .filter(|node| {
-                node.role() == role
-                    && node
-                        .bounds()
-                        .is_some_and(|b| (b.y0 - bounds.y0).abs() < 4.0 && b.x0 >= bounds.x1 - 1.0)
-            })
-            .collect();
-        found.sort_by(|a, b| {
-            let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
-            x(a).partial_cmp(&x(b)).expect("ordered bounds")
-        });
-        found
-    }
-
-    /// The first node of `role` right of `label`'s, on its row.
-    fn control_right_of<'a>(
-        nodes: &'a [accesskit::Node],
-        label: &str,
-        role: Role,
-    ) -> &'a accesskit::Node {
-        controls_right_of(nodes, label, role)
-            .into_iter()
-            .next()
-            .unwrap_or_else(|| panic!("no {role:?} right of {label:?}"))
-    }
-
-    /// `nodes`' buttons' labels in draw order (top to bottom, left to
-    /// right), kept only when `keep` holds.
-    fn button_labels(nodes: &[accesskit::Node], keep: impl Fn(&str) -> bool) -> Vec<String> {
-        let mut buttons: Vec<&accesskit::Node> = nodes
-            .iter()
-            .filter(|node| node.role() == Role::Button && node.label().is_some_and(&keep))
-            .collect();
-        buttons.sort_by(|a, b| {
-            let key = |node: &&accesskit::Node| {
-                let bounds = node.bounds().expect("drawn bounds");
-                (bounds.y0, bounds.x0)
-            };
-            key(a).partial_cmp(&key(b)).expect("ordered bounds")
-        });
-        buttons
-            .iter()
-            .filter_map(|node| node.label().map(str::to_owned))
-            .collect()
-    }
-
-    /// The AccessKit id of the widget node of `role` labeled `label`.
-    fn entry_id(
-        nodes: &[(accesskit::NodeId, accesskit::Node)],
-        role: Role,
-        label: &str,
-    ) -> accesskit::NodeId {
-        nodes
-            .iter()
-            .find(|(_, node)| node.role() == role && node.label() == Some(label))
-            .map(|(id, _)| *id)
-            .unwrap_or_else(|| panic!("no {role:?} labeled {label:?}"))
-    }
-
     /// A click on `node`: press on one frame, release on the next.
     fn click(
         window: &mut Headless,
@@ -763,9 +668,9 @@ mod tests {
         version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
-        names: &[&str],
+        roster: &[RosterRow<'_>],
     ) -> (Vec<accesskit::Node>, bool) {
-        window.click_tactics(centre(node), version, tactics, view, names)
+        window.click_tactics(centre(node), version, tactics, view, roster)
     }
 
     // plans/save_editor.md "Tactics editor", "What the controls write": the
@@ -781,11 +686,18 @@ mod tests {
         ] {
             let mut tactics = fixture_tactics(version);
             let mut view = TacticsView::default();
-            let names = fixture_names(version);
-            let names = name_refs(&names);
-            let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+            let rows = fixture_rows(version);
+            let roster = roster_rows(&rows);
+            let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
             let combo = control_right_of(&nodes, "Attack 1", Role::ComboBox);
-            let (nodes, _) = click(&mut window, combo, version, &mut tactics, &mut view, &names);
+            let (nodes, _) = click(
+                &mut window,
+                combo,
+                version,
+                &mut tactics,
+                &mut view,
+                &roster,
+            );
             let offered = instruction::instructions(version)
                 .iter()
                 .copied()
@@ -801,7 +713,14 @@ mod tests {
             );
             assert_eq!(drawn, offered, "{version:?}'s items in stored order");
             // Close the combo again for the next version's frame.
-            let _ = click(&mut window, combo, version, &mut tactics, &mut view, &names);
+            let _ = click(
+                &mut window,
+                combo,
+                version,
+                &mut tactics,
+                &mut view,
+                &roster,
+            );
         }
     }
 
@@ -819,11 +738,11 @@ mod tests {
             .expect("PES 21 stores Tight Marking");
         let before = tactics.clone();
         let mut view = TacticsView::default();
-        let names = fixture_names(PesVersion::Pes21);
-        let names = name_refs(&names);
+        let rows = fixture_rows(PesVersion::Pes21);
+        let roster = roster_rows(&rows);
 
         let (nodes, changed) =
-            window.tactics(PesVersion::Pes21, &mut tactics, &mut view, &names, vec![]);
+            window.tactics(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let combo = control_right_of(&nodes, "Attack 1", Role::ComboBox);
         assert_eq!(
             combo.value(),
@@ -832,7 +751,7 @@ mod tests {
         );
         assert!(!changed, "the frame reports no change");
         let (_, changed) =
-            window.tactics(PesVersion::Pes21, &mut tactics, &mut view, &names, vec![]);
+            window.tactics(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         assert!(!changed, "an idle frame reports no change");
         assert_eq!(tactics, before, "and leaves the record as stored");
     }
@@ -849,9 +768,10 @@ mod tests {
             .expect("PES 21 has instructions")[0]
             .instruction = 0xAB;
         let mut view = TacticsView::default();
-        let names = fixture_names(PesVersion::Pes21);
-        let names = name_refs(&names);
-        let (nodes, _) = window.tactics(PesVersion::Pes21, &mut tactics, &mut view, &names, vec![]);
+        let rows = fixture_rows(PesVersion::Pes21);
+        let roster = roster_rows(&rows);
+        let (nodes, _) =
+            window.tactics(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let combo = control_right_of(&nodes, "Attack 1", Role::ComboBox);
         assert_eq!(combo.value(), Some("Unknown (0xAB)"));
     }
@@ -865,17 +785,24 @@ mod tests {
         let version = PesVersion::Pes21;
         let mut tactics = fixture_tactics(version);
         let mut view = TacticsView::default();
-        let names = fixture_names(version);
-        let names = name_refs(&names);
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+        let rows = fixture_rows(version);
+        let roster = roster_rows(&rows);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let combo = control_right_of(&nodes, "Attack 1", Role::ComboBox);
 
         // Open the instruction combo and pick Counter Target.
-        let (_, _) = click(&mut window, combo, version, &mut tactics, &mut view, &names);
-        let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &names, vec![]);
+        let (_, _) = click(
+            &mut window,
+            combo,
+            version,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+        let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
         let item = entry_id(&ids, Role::Button, "Counter Target");
         let (_, changed) =
-            window.action_click_tactics(item, version, &mut tactics, &mut view, &names);
+            window.action_click_tactics(item, version, &mut tactics, &mut view, &roster);
         assert!(changed, "the pick changed the record");
         let attack = &mut tactics.presets[0]
             .attack_instructions
@@ -890,7 +817,7 @@ mod tests {
 
         // The target combo is enabled and lists the starters; pick the
         // third: its roster slot is written.
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let target = controls_right_of(&nodes, "Attack 1", Role::ComboBox)
             .into_iter()
             .nth(1)
@@ -902,17 +829,17 @@ mod tests {
             version,
             &mut tactics,
             &mut view,
-            &names,
+            &roster,
         );
         // One idle frame: the instruction popup draws a last time on the
         // frame that closed it, so the items below are the target's alone.
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let starters: Vec<String> = (0..11)
             .map(|index| {
                 format!(
                     "{} {}",
                     index + 1,
-                    name_at(&names, tactics.starting_eleven[index])
+                    name_at(&roster, tactics.starting_eleven[index])
                 )
             })
             .collect();
@@ -926,10 +853,10 @@ mod tests {
         );
         assert_eq!(drawn[0], "Unassigned");
         assert_eq!(drawn[1..], starters[..], "the starters in lineup order");
-        let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &names, vec![]);
+        let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
         let third = entry_id(&ids, Role::Button, &starters[2]);
         let (_, changed) =
-            window.action_click_tactics(third, version, &mut tactics, &mut view, &names);
+            window.action_click_tactics(third, version, &mut tactics, &mut view, &roster);
         assert!(changed, "the target pick changed the record");
         assert_eq!(
             tactics.presets[0]
@@ -943,13 +870,20 @@ mod tests {
 
         // Pick Gegenpress: the byte changes, the target clears to 255 and
         // its combo disables.
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let combo = control_right_of(&nodes, "Attack 1", Role::ComboBox);
-        let (_, _) = click(&mut window, combo, version, &mut tactics, &mut view, &names);
-        let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &names, vec![]);
+        let (_, _) = click(
+            &mut window,
+            combo,
+            version,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+        let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
         let item = entry_id(&ids, Role::Button, "Gegenpress");
         let (_, changed) =
-            window.action_click_tactics(item, version, &mut tactics, &mut view, &names);
+            window.action_click_tactics(item, version, &mut tactics, &mut view, &roster);
         assert!(changed, "the pick changed the record");
         let attack = &tactics.presets[0]
             .attack_instructions
@@ -964,7 +898,7 @@ mod tests {
             attack.player, NO_TARGET,
             "a target-less pick clears the target"
         );
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let target = controls_right_of(&nodes, "Attack 1", Role::ComboBox)
             .into_iter()
             .nth(1)
@@ -974,6 +908,61 @@ mod tests {
             target.value(),
             Some("Unassigned"),
             "and it shows Unassigned"
+        );
+    }
+
+    // The Target combo's shown text: a starter as his lineup position and
+    // name, a bench player as the name alone (`instruction_row`'s
+    // `starting_eleven.position`).
+    #[test]
+    fn the_target_combo_shows_the_starters_position_or_the_name_alone() {
+        let mut window = Headless::sized(800.0, 900.0);
+        let version = PesVersion::Pes21;
+        let mut tactics = fixture_tactics(version);
+        let starter = tactics.starting_eleven[3];
+        let bench = tactics.bench_order[0];
+        assert_ne!(starter, bench, "premise: two different slots");
+        let attack = &mut tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("PES 21 has instructions")[0];
+        attack.instruction =
+            instruction::encode(version, Instruction::CounterTarget).expect("stored");
+        attack.player = starter;
+        let mut view = TacticsView::default();
+        // A name per slot: the fixture's are all "PLACEHOLDER" here.
+        let rows: Vec<(String, Option<u8>)> = (0..32)
+            .map(|slot| (format!("Player {slot}"), Some(0)))
+            .collect();
+        let roster = roster_rows(&rows);
+
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let target = controls_right_of(&nodes, "Attack 1", Role::ComboBox)
+            .into_iter()
+            .nth(1)
+            .expect("the target combo");
+        let expected = format!("4 Player {starter}");
+        assert_eq!(
+            target.value(),
+            Some(expected.as_str()),
+            "a starter shows his lineup position and name"
+        );
+
+        tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("PES 21 has instructions")[0]
+            .player = bench;
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let target = controls_right_of(&nodes, "Attack 1", Role::ComboBox)
+            .into_iter()
+            .nth(1)
+            .expect("the target combo");
+        let expected = format!("Player {bench}");
+        assert_eq!(
+            target.value(),
+            Some(expected.as_str()),
+            "a bench player shows the name alone"
         );
     }
 
@@ -990,9 +979,10 @@ mod tests {
         // disabled with "PES 17+".
         let mut tactics = fixture_tactics(PesVersion::Pes16);
         let mut view = TacticsView::default();
-        let names = fixture_names(PesVersion::Pes16);
-        let names = name_refs(&names);
-        let (nodes, _) = window.tactics(PesVersion::Pes16, &mut tactics, &mut view, &names, vec![]);
+        let rows = fixture_rows(PesVersion::Pes16);
+        let roster = roster_rows(&rows);
+        let (nodes, _) =
+            window.tactics(PesVersion::Pes16, &mut tactics, &mut view, &roster, vec![]);
         let table = nodes
             .iter()
             .find(|node| {
@@ -1007,7 +997,7 @@ mod tests {
                 PesVersion::Pes16,
                 &mut tactics,
                 &mut view,
-                &names,
+                &roster,
             ),
             Some("PES 17+".to_string()),
             "the instruction table's hover"
@@ -1021,7 +1011,7 @@ mod tests {
                 PesVersion::Pes16,
                 &mut tactics,
                 &mut view,
-                &names,
+                &roster,
             ),
             Some("PES 17+".to_string()),
             "Attack/defence levels' hover"
@@ -1030,9 +1020,10 @@ mod tests {
         // PES 15: Fluid formation is disabled with "PES 16+".
         let mut tactics = fixture_tactics(PesVersion::Pes15);
         let mut view = TacticsView::default();
-        let names = fixture_names(PesVersion::Pes15);
-        let names = name_refs(&names);
-        let (nodes, _) = window.tactics(PesVersion::Pes15, &mut tactics, &mut view, &names, vec![]);
+        let rows = fixture_rows(PesVersion::Pes15);
+        let roster = roster_rows(&rows);
+        let (nodes, _) =
+            window.tactics(PesVersion::Pes15, &mut tactics, &mut view, &roster, vec![]);
         let fluid = entry(&nodes, Role::CheckBox, "Fluid formation");
         assert!(fluid.is_disabled(), "the flag is disabled on PES 15");
         assert_eq!(
@@ -1042,7 +1033,7 @@ mod tests {
                 PesVersion::Pes15,
                 &mut tactics,
                 &mut view,
-                &names,
+                &roster,
             ),
             Some("PES 16+".to_string()),
             "Fluid formation's hover"
@@ -1057,21 +1048,24 @@ mod tests {
         let mut window = Headless::sized(800.0, 900.0);
         let version = PesVersion::Pes21;
         let mut tactics = fixture_tactics(version);
-        let mut view = TacticsView { preset: 1 };
-        let names = fixture_names(version);
-        let names = name_refs(&names);
+        let mut view = TacticsView {
+            preset: 1,
+            ..TacticsView::default()
+        };
+        let rows = fixture_rows(version);
+        let roster = roster_rows(&rows);
         let presets_before = tactics.presets.clone();
 
         // The preset selector: pick 2 (writes `view`, not the record).
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let two = entry(&nodes, Role::Button, "2");
-        let (_, changed) = click(&mut window, two, version, &mut tactics, &mut view, &names);
+        let (_, changed) = click(&mut window, two, version, &mut tactics, &mut view, &roster);
         assert_eq!(view.preset, 1, "preset 2 stays on screen");
         assert!(!changed, "the preset selector writes no record");
         assert_eq!(tactics.presets, presets_before, "nor touches one");
 
         // Move Support range's slider one stop up.
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let slider = control_right_of(&nodes, "Support range", Role::Slider);
         let bounds = slider.bounds().expect("slider bounds");
         let from = egui::pos2(((bounds.x0 + bounds.x1) / 2.0) as f32, centre(slider).y);
@@ -1083,7 +1077,7 @@ mod tests {
             pointer_at(to, false),
         ] {
             let (_, frame_changed) =
-                window.tactics(version, &mut tactics, &mut view, &names, events);
+                window.tactics(version, &mut tactics, &mut view, &roster, events);
             changed |= frame_changed;
         }
         assert!(changed, "the drag changed the record");
@@ -1095,7 +1089,7 @@ mod tests {
         assert_eq!(tactics.presets[2], presets_before[2], "preset 3 untouched");
 
         // Click a style pair's on choice.
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let possession = entry(&nodes, Role::Button, "Possession");
         let (_, changed) = click(
             &mut window,
@@ -1103,7 +1097,7 @@ mod tests {
             version,
             &mut tactics,
             &mut view,
-            &names,
+            &roster,
         );
         assert!(changed, "the click changed the record");
         assert!(
@@ -1114,10 +1108,10 @@ mod tests {
         assert_eq!(tactics.presets[2], presets_before[2], "preset 3 untouched");
     }
 
-    // `names` shorter than a slot, or an empty one, shows "(empty)" in the
-    // target items.
+    // `roster` shorter than a slot, or an empty one, shows "(empty)" in
+    // the target items.
     #[test]
-    fn a_short_or_empty_names_slice_shows_empty() {
+    fn a_short_or_empty_roster_slice_shows_empty() {
         let mut window = Headless::sized(800.0, 900.0);
         let version = PesVersion::Pes21;
         let mut tactics = fixture_tactics(version);
@@ -1128,11 +1122,15 @@ mod tests {
             .instruction =
             instruction::encode(version, Instruction::CounterTarget).expect("stored");
         let mut view = TacticsView::default();
-        // Three names for forty roster slots: slots past the slice, and
+        // Three rows for forty roster slots: slots past the slice, and
         // an empty one, show "(empty)".
-        let names = ["ALPHA".to_owned(), "BETA".to_owned(), String::new()];
-        let names = name_refs(&names);
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+        let rows = [
+            ("ALPHA".to_owned(), Some(0)),
+            ("BETA".to_owned(), Some(0)),
+            (String::new(), None),
+        ];
+        let roster = roster_rows(&rows);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let target = controls_right_of(&nodes, "Attack 1", Role::ComboBox)
             .into_iter()
             .nth(1)
@@ -1143,15 +1141,15 @@ mod tests {
             version,
             &mut tactics,
             &mut view,
-            &names,
+            &roster,
         );
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let starters: Vec<String> = (0..11)
             .map(|index| {
                 format!(
                     "{} {}",
                     index + 1,
-                    name_at(&names, tactics.starting_eleven[index])
+                    name_at(&roster, tactics.starting_eleven[index])
                 )
             })
             .collect();
@@ -1181,9 +1179,10 @@ mod tests {
             let mut tactics = fixture_tactics(version);
             let before = tactics.clone();
             let mut view = TacticsView::default();
-            let names = fixture_names(version);
-            let names = name_refs(&names);
-            let (nodes, changed) = window.tactics(version, &mut tactics, &mut view, &names, vec![]);
+            let rows = fixture_rows(version);
+            let roster = roster_rows(&rows);
+            let (nodes, changed) =
+                window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
             assert!(!changed, "{version:?}: an idle frame reports no change");
             assert_eq!(tactics, before, "{version:?}: and edits nothing");
 
@@ -1208,7 +1207,7 @@ mod tests {
                     version,
                     &mut tactics,
                     &mut view,
-                    &names,
+                    &roster,
                     vec![egui::Event::PointerMoved(pos)],
                 );
                 assert!(!changed, "{version:?}: a hover reports no change");
@@ -1220,16 +1219,23 @@ mod tests {
             }
             // Open the Attack 1 instruction combo and close it again.
             let combo = control_right_of(&nodes, "Attack 1", Role::ComboBox);
-            let (_, changed) = click(&mut window, combo, version, &mut tactics, &mut view, &names);
+            let (_, changed) = click(
+                &mut window,
+                combo,
+                version,
+                &mut tactics,
+                &mut view,
+                &roster,
+            );
             assert!(!changed, "{version:?}: opening the combo writes nothing");
             assert_eq!(tactics, before, "{version:?}: and edits nothing");
 
             // Re-pick the current value inside it (the fixture's Attack 1
             // is Off, "Unassigned"): no change, nothing written.
-            let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &names, vec![]);
+            let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
             let same = entry_id(&ids, Role::Button, "Unassigned");
             let (_, changed) =
-                window.action_click_tactics(same, version, &mut tactics, &mut view, &names);
+                window.action_click_tactics(same, version, &mut tactics, &mut view, &roster);
             assert!(!changed, "{version:?}: re-picking the value writes nothing");
             assert_eq!(tactics, before, "{version:?}: and edits nothing");
 
@@ -1239,7 +1245,7 @@ mod tests {
             out_of_range.presets[0].sliders.support_range = 0;
             let expected = out_of_range.clone();
             let (nodes, changed) =
-                window.tactics(version, &mut out_of_range, &mut view, &names, vec![]);
+                window.tactics(version, &mut out_of_range, &mut view, &roster, vec![]);
             assert!(
                 !changed,
                 "{version:?}: an out-of-range value is not rewritten"
@@ -1253,7 +1259,14 @@ mod tests {
             );
 
             // A click on the open combo toggles it closed again.
-            let (_, changed) = click(&mut window, combo, version, &mut tactics, &mut view, &names);
+            let (_, changed) = click(
+                &mut window,
+                combo,
+                version,
+                &mut tactics,
+                &mut view,
+                &roster,
+            );
             assert!(!changed, "{version:?}: closing the combo writes nothing");
             assert_eq!(tactics, before, "{version:?}: and edits nothing");
         }

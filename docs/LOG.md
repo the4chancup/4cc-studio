@@ -2318,3 +2318,5 @@ worklog passed 7,000 lines.
   the stock band (1-100, gloves 11-100); 8.9d2/d3's help fixes from SWE-2 S2 and Astra A2 ride along.
 - **2026-10-22** — Slice 2's parity against 4ccEditor's build on the PES 16, 17 and 21 fixtures: every batch operation and Fix
   database matches but for four kept differences (DECISIONS); slice 2 closed. Slice 3's Tactics rulings logged, 8.9e1 briefed.
+- **2026-10-22** — 8.9e1 and e2: the Tactics tab's settings, copy/swap menus and its starting eleven and bench lists, a
+  bench player dragged in taking the starter's roles; the pitch is next.

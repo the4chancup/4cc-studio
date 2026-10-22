@@ -54,7 +54,8 @@ pub(crate) struct SaveView {
     /// The drawn tab.
     tab: Tab,
     /// The Tactics tab's on-screen state (`team_widgets`' `TacticsView`:
-    /// the preset its groups edit); back to preset 1 on every open.
+    /// the preset its groups edit and the formation its lists show); back
+    /// to preset 1 and kick-off on every open.
     tactics: team_widgets::tactics::TacticsView,
     /// A refusal to show until dismissed (an open the save refused).
     refusal: Option<Refusal>,

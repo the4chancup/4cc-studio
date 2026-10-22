@@ -3923,9 +3923,11 @@ function assignClick(t, fieldIdx) {
   if (a.kind === "join") {
     const at = tac.players_to_join_attack.indexOf(roster);
     const free = tac.players_to_join_attack.indexOf(255);
+    // The list stays packed: a removal moves the later entries up.
     if (at >= 0 || free >= 0) edit("Players to join attack", () => {
-      if (at >= 0) tac.players_to_join_attack[at] = 255;
-      else tac.players_to_join_attack[free] = roster;
+      const list = tac.players_to_join_attack;
+      if (at >= 0) { list.splice(at, 1); list.push(255); }
+      else list[free] = roster;
     });
     render();
     return true;
@@ -4000,7 +4002,10 @@ function pitchCanvas(t) {
     const i = hitMarker(t, px, py);
     if (i < 0) return;
     e.preventDefault();
-    S.pitchDrag = { i, px, py, x0: px, y0: py, moved: false };
+    // The keeper's marker takes clicks (popover, assignment) but is not
+    // dragged: Edit mode does not move him.
+    S.pitchDrag = { i, px, py, x0: px, y0: py, moved: false,
+      gk: tacFormation(t).players[i].position === "GK" };
   });
   // A bench row dropped on the pitch: onto a marker swaps the two roster
   // spots; an XI row swaps the two starters; onto grass does nothing.
@@ -4027,7 +4032,7 @@ document.addEventListener("pointermove", e => {
   const cv = document.getElementById("pitch"); if (!cv) return;
   const r = cv.getBoundingClientRect();
   d.px = e.clientX - r.left; d.py = e.clientY - r.top;
-  if (Math.abs(d.px - d.x0) + Math.abs(d.py - d.y0) > 4) d.moved = true;
+  if (!d.gk && Math.abs(d.px - d.x0) + Math.abs(d.py - d.y0) > 4) d.moved = true;
   drawPitch(teamOf(curPlayer()));
 });
 document.addEventListener("pointerup", e => {
@@ -4113,8 +4118,10 @@ function slotPopover(t) {
   const i = pop.i, s = tacFormation(t).players[i];
   const roster = t.tactics.starting_eleven[i], p = rosterPlayer(t, roster);
   const r = markerRect(t, i);
+  // The keeper's slot is fixed: Edit mode does not move him.
   const num = (label, get, put, max) => h("span", {}, label + " ",
-    h("input", { type: "number", min: 0, max, value: get(),
+    h("input", { type: "number", min: 0, max, value: get(), disabled: s.position === "GK",
+      title: s.position === "GK" ? "The goalkeeper's spot is fixed" : "",
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v) && v >= 0 && v <= max) { edit("formation " + label, () => put(v)); render(); } } }));
   return h("div", { class: "tpopover",

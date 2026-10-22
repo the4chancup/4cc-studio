@@ -8,6 +8,9 @@
 /// The card pickers: the skills grid and COM playing styles with a
 /// remaining-count badge per ruleset tier, and the playing-style combo.
 pub mod cards;
+/// The tactics editor's pitch side: the starting-eleven and bench lists
+/// with swap-by-drag; the formation canvas lands here.
+pub mod pitch;
 /// The tactics editor's settings half: preset selector, sliders, style
 /// pairs, advanced instructions and automatic settings.
 pub mod tactics;

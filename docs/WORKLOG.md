@@ -1124,8 +1124,18 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         `team_widgets/src/{lib.rs,tactics.rs,test_support.rs}`, `save_editor/{help/08_tactics.md,
         src/{lib.rs,session/{mod.rs,tactics_ops.rs},view/{mod.rs,player_list.rs,tactics.rs,
         tests.rs,tests/{abilities.rs,tactics.rs}}}}`
-      - [ ] 8.9e2 the starting eleven and bench lists, swap by drag with the roles handed over
-        (the plan's last bullet) → verify: a swap's repointing tested on every role
+      - [x] 8.9e2 the starting eleven and bench lists, swap by drag with the roles handed over
+        (the plan's last bullet) → verify: a swap's repointing tested on every role. Done
+        2026-10-22 (SWE-2, one run and one rework): `team_widgets::pitch` (`lineup`,
+        `LineupDrag` for the pitch's markers to drop, `swap_in`), `RosterRow` in place of the
+        names, `TacticsView::formation` and its selector above the lists; an empty bench row
+        (a roster slot with no player; `bench_order` has no sentinel) is no drag source and
+        takes no starter; the lists in `ui.columns` (inside a `horizontal` their scroll areas
+        overlapped). SE-GUI-12's bench half tested, its citation waiting for e3. Rework 1:
+        `mutants-diff a7b144f0` at `610bbb5c` (8.9e1): 2 missed, the rest caught or unviable (the Target combo's
+        lineup number, the formation menu's copies), both now tested. Files:
+        `team_widgets/src/{lib.rs,pitch.rs,tactics.rs,test_support.rs}`,
+        `save_editor/{help/08_tactics.md,src/view/{mod.rs,tactics.rs,tests/tactics.rs}}`
       - [ ] 8.9e3 the pitch: markers dragged with snapping, the slot popover, a bench row
         dropped on a marker, the role palette and join-attack modes (SE-GUI-12); the draft
         first gets the keeper lock and the packed join list, and its harness

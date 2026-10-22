@@ -1,23 +1,22 @@
 //! The Tactics tab (`plans/save_editor.md` "Tactics editor"; the draft's
-//! `tacticsTab`): `team_widgets`' tactics settings over the selected
-//! player's team — the preset selector, the Formation settings, Advanced
+//! `tacticsTab`): `team_widgets`' lineup lists and tactics settings over
+//! the selected player's team — the starting eleven and the bench with
+//! swap-by-drag, the preset selector, the Formation settings, Advanced
 //! instructions and Automatic settings groups — plus the tab's own
 //! Copy/swap preset and Copy/swap formation menus (the editor's alone,
-//! the plan's placement rules; `session::tactics_ops`). The pitch and the
-//! lineup land with the next part. The widget edits a clone of the team's
-//! tactics and reports a change; the tab pushes the clone back with
+//! the plan's placement rules; `session::tactics_ops`). The pitch lands
+//! with the next part. The widgets edit a clone of the team's tactics and
+//! report a change; the tab pushes the clone back with
 //! `Session::edit_team` under one key per team and tab, so a slider drag
 //! is one undo entry (`seal` runs when the pointer is up and no widget
 //! has focus).
 
 use pes_savefile::model::names::display_name;
-use team_widgets::tactics::tactics_settings;
+use team_widgets::pitch::{self, FORMATIONS};
+use team_widgets::tactics::{self, RosterRow};
 
 use crate::session::Session;
 use crate::view::{SaveView, edit_team, selected_player};
-
-/// The formations' names, in the record's order.
-const FORMATIONS: [&str; 3] = ["Kick-off", "In-possession", "Out-of-possession"];
 
 /// The tab for the selected player's team, below `info_strip` and the tab
 /// strip.
@@ -41,20 +40,31 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         };
         (file.version(), team.clone())
     };
-    // The target pickers' labels: the roster's display names as the
-    // player list shows them, indexed by roster slot ("" an empty one).
-    let names: Vec<String> = team
+    // The roster as the widgets list it: the display names as the player
+    // list shows them and the registered positions, indexed by roster
+    // slot (an empty slot "" and none).
+    let rows: Vec<(String, Option<u8>)> = team
         .roster
         .iter()
         .map(|slot| {
-            session
-                .file()
-                .player(slot.player_id)
-                .map(|player| display_name(&player.name))
-                .unwrap_or_default()
+            session.file().player(slot.player_id).map_or_else(
+                || (String::new(), None),
+                |player| {
+                    (
+                        display_name(&player.name),
+                        Some(player.positions.registered),
+                    )
+                },
+            )
         })
         .collect();
-    let names: Vec<&str> = names.iter().map(String::as_str).collect();
+    let roster: Vec<RosterRow> = rows
+        .iter()
+        .map(|(name, position)| RosterRow {
+            name: name.as_str(),
+            registered_position: *position,
+        })
+        .collect();
     // Every widget id under the tab is the team's within this open (the
     // Team tab's rule): a combo's popup, a DragValue's in-progress edit
     // and the widget's state never cross teams nor saves.
@@ -64,14 +74,23 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             copy_swap_formation_menu(ui, session, team_id, tactics.preset);
         });
         let mut edited = team.tactics.clone();
-        if tactics_settings(
+        let mut changed = false;
+        // The pitch canvas lands in the left column with the next part;
+        // the lists sit at its right, as the draft's `taccols` draws them.
+        ui.columns(2, |columns| {
+            columns[1].vertical(|ui| {
+                changed = pitch::lineup(ui, "lineup", &mut edited, tactics, &roster);
+            });
+        });
+        changed |= tactics::tactics_settings(
             ui,
             "tactics settings",
             version,
             &mut edited,
             tactics,
-            &names,
-        ) {
+            &roster,
+        );
+        if changed {
             edit_team(
                 session,
                 team_id,
