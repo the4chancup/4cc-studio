@@ -150,11 +150,12 @@ mod tests {
         let index = 4;
         assert_ne!(index, keeper, "premise: not the keeper's slot");
 
-        let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let at = marker_centre(&nodes, formation.players[index]);
-        let (_, changed) = window.click_pitch(at, &mut tactics, &mut view, &roster);
+        let (_, changed) =
+            window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
         assert!(!changed, "opening the popover writes no record");
-        let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         assert_eq!(
             view.popover.map(|open| open.slot),
             Some(index),
@@ -169,7 +170,13 @@ mod tests {
         );
 
         let make_gk = entry(&nodes, Role::Button, "Make GK");
-        let (_, changed) = window.click_pitch(centre(make_gk), &mut tactics, &mut view, &roster);
+        let (_, changed) = window.click_pitch(
+            centre(make_gk),
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
         assert!(changed, "Make GK is an edit");
         assert_eq!(
             tactics.starting_eleven[index], before.starting_eleven[keeper],
@@ -197,22 +204,30 @@ mod tests {
         assert_ne!(formation.players[index].x, 55, "premise: a real change");
         let y = formation.players[index].y;
 
-        let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let at = marker_centre(&nodes, formation.players[index]);
-        window.click_pitch(at, &mut tactics, &mut view, &roster);
-        let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+        window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+        let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let field = controls_right_of(&nodes, "X", Role::SpinButton)
             .into_iter()
             .next()
             .expect("the X field");
-        window.click_pitch(centre(field), &mut tactics, &mut view, &roster);
+        window.click_pitch(
+            centre(field),
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
         window.pitch(
+            PesVersion::Pes21,
             &mut tactics,
             &mut view,
             &roster,
             vec![egui::Event::Text("55".to_owned())],
         );
         window.pitch(
+            PesVersion::Pes21,
             &mut tactics,
             &mut view,
             &roster,
@@ -248,10 +263,10 @@ mod tests {
             .position(|slot| slot.position == 0)
             .expect("the fixture has a keeper slot");
 
-        let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let at = marker_centre(&nodes, tactics.presets[0].formations[0].players[keeper]);
-        window.click_pitch(at, &mut tactics, &mut view, &roster);
-        let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+        window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+        let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let position = controls_right_of(&nodes, "Position", Role::ComboBox)
             .into_iter()
             .next()
@@ -268,6 +283,7 @@ mod tests {
                 window.pitch_tooltip(
                     centre(field),
                     "goalkeeper",
+                    PesVersion::Pes21,
                     &mut tactics,
                     &mut view,
                     &roster,
@@ -294,17 +310,23 @@ mod tests {
         let index = 4;
         let slot = tactics.presets[0].formations[0].players[index];
 
-        let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let at = marker_centre(&nodes, slot);
-        window.click_pitch(at, &mut tactics, &mut view, &roster);
-        let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+        window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+        let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         entry(&nodes, Role::Button, "Close");
 
         let other = entry(&nodes, Role::Button, "In-possession");
-        window.click_pitch(centre(other), &mut tactics, &mut view, &roster);
+        window.click_pitch(
+            centre(other),
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
         assert_eq!(view.formation, 1, "in-possession is on screen");
         assert_eq!(view.popover, None, "and the popover closed");
-        let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         assert!(
             nodes.iter().all(|node| node.label() != Some("Close")),
             "no popover is drawn"

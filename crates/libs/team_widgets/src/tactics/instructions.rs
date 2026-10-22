@@ -17,8 +17,9 @@ const NO_TARGET: u8 = 0xFF;
 
 /// The "Advanced instructions" group (PES 17+): the four rows Attack 1,
 /// Attack 2, Defence 1, Defence 2, each its instruction and its target.
-/// A version with no instruction table keeps the group, disabled, with
-/// the `PES NN+` tooltip naming the first version that has it.
+/// A version with no instruction table draws the same rows, disabled —
+/// the plan's version-gating rule — each combo showing the empty pick's
+/// text and the `PES NN+` tooltip on hover.
 pub(super) fn instruction_table(
     ui: &mut egui::Ui,
     version: PesVersion,
@@ -32,7 +33,29 @@ pub(super) fn instruction_table(
         preset.defence_instructions.as_mut(),
     ) else {
         ui.add_enabled_ui(false, |ui| {
-            ui.weak("(none on this version)");
+            egui::Grid::new("advanced instructions")
+                .num_columns(3)
+                .show(ui, |ui| {
+                    ui.weak("");
+                    ui.weak("Instruction");
+                    ui.weak("Target");
+                    ui.end_row();
+                    for (id, label) in [
+                        ("attack 1", "Attack 1"),
+                        ("attack 2", "Attack 2"),
+                        ("defence 1", "Defence 1"),
+                        ("defence 2", "Defence 2"),
+                    ] {
+                        ui.label(label);
+                        egui::ComboBox::from_id_salt((id, "instruction"))
+                            .selected_text("Unassigned")
+                            .show_ui(ui, |_ui| {});
+                        egui::ComboBox::from_id_salt((id, "target"))
+                            .selected_text("Unassigned")
+                            .show_ui(ui, |_ui| {});
+                        ui.end_row();
+                    }
+                });
         })
         .response
         .on_disabled_hover_text(gate_tip(TacticsField::Instruction {
@@ -225,6 +248,15 @@ mod tests {
                 &mut view,
                 &roster,
             );
+            // The popup's buttons, unfiltered: offering Tight Marking
+            // must fail here, not inside the `labels` filter below (a
+            // filter that already excludes it would hide the offer).
+            assert!(
+                !nodes.iter().any(|node| {
+                    node.role() == Role::Button && node.label() == Some("Tight Marking")
+                }),
+                "{version:?} does not offer Tight Marking"
+            );
             let offered = instruction::instructions(version)
                 .iter()
                 .copied()
@@ -234,10 +266,6 @@ mod tests {
             let labels: std::collections::BTreeSet<&str> = offered.iter().copied().collect();
             let drawn = button_labels(&nodes, |label| labels.contains(label));
             assert_eq!(drawn.len(), count, "{version:?}'s item count");
-            assert!(
-                !drawn.iter().any(|label| label == "Tight Marking"),
-                "{version:?} does not offer Tight Marking"
-            );
             assert_eq!(drawn, offered, "{version:?}'s items in stored order");
             // Close the combo again for the next version's frame.
             let _ = click(
@@ -311,6 +339,11 @@ mod tests {
         let mut window = Headless::sized(800.0, 900.0);
         let version = PesVersion::Pes21;
         let mut tactics = fixture_tactics(version);
+        // A non-identity eleven: an arm writing the position index for
+        // the roster slot would look right on the fixture's [0, 1, ...].
+        tactics.starting_eleven.swap(2, 9);
+        let picked = tactics.starting_eleven[2];
+        assert_ne!(picked, 2, "premise: slot and index differ");
         let mut view = TacticsView::default();
         let rows = fixture_rows(version);
         let roster = roster_rows(&rows);
@@ -391,7 +424,7 @@ mod tests {
                 .as_ref()
                 .expect("instructions")[0]
                 .player,
-            tactics.starting_eleven[2],
+            picked,
             "the third starter's roster slot is written"
         );
 

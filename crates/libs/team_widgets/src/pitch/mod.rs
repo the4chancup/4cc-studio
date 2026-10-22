@@ -7,6 +7,7 @@
 
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::tactics::{FormationSlot, TeamTactics};
+use pes_version::PesVersion;
 
 use crate::tactics::{Assign, OpenSlot, RosterRow, TacticsView, name_at};
 
@@ -83,10 +84,12 @@ const CHIP_NAME: egui::Color32 = egui::Color32::from_rgb(0x8c, 0x8c, 0x8c);
 /// exchanges the two starters — and a release on the grass writes its
 /// slot's snapped coordinates, where a row's release does nothing.
 /// The keeper's marker (position 0) is not a drag source; its spot is
-/// fixed. Answers `true` only when `tactics` changed this frame.
+/// fixed. `version` is the open save's (`swap_in`'s instruction decode).
+/// Answers `true` only when `tactics` changed this frame.
 pub fn pitch(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
+    version: PesVersion,
     tactics: &mut TeamTactics,
     view: &mut TacticsView,
     roster: &[RosterRow<'_>],
@@ -136,7 +139,7 @@ pub fn pitch(
                 .map(|payload| (None, *payload));
         }
         match dropped {
-            Some((Some(onto), LineupDrag::Bench(from))) => swap_in(tactics, onto, from),
+            Some((Some(onto), LineupDrag::Bench(from))) => swap_in(version, tactics, onto, from),
             Some((Some(onto), LineupDrag::Starter(from) | LineupDrag::Marker(from)))
                 if onto != from =>
             {

@@ -27,3 +27,33 @@ pub fn append_name(job: &mut egui::text::LayoutJob, name: &str) {
         job.append(text, 0.0, format);
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // A coded run takes its code's color; a plain run, before a code or
+    // after a reset, takes `PLACEHOLDER`, so the widget's own text color
+    // replaces it.
+    #[test]
+    fn a_names_runs_carry_their_code_or_the_placeholder() {
+        let mut job = egui::text::LayoutJob::default();
+        append_name(&mut job, "WHEN THE \x11cb7bec5ffWORK RESULT\x11d WAS GOOD");
+        let runs: Vec<(&str, egui::Color32)> = job
+            .sections
+            .iter()
+            .map(|section| {
+                let range = section.byte_range.start.0..section.byte_range.end.0;
+                (&job.text[range], section.format.color)
+            })
+            .collect();
+        assert_eq!(
+            runs,
+            [
+                ("WHEN THE ", egui::Color32::PLACEHOLDER),
+                ("WORK RESULT", egui::Color32::from_rgb(0xb7, 0xbe, 0xc5)),
+                (" WAS GOOD", egui::Color32::PLACEHOLDER),
+            ]
+        );
+    }
+}

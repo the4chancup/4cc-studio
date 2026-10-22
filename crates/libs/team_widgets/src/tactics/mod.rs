@@ -220,8 +220,13 @@ pub fn tactics_settings(
 }
 
 /// The "Formation settings" group: the fluid-formation switch, the five
-/// sliders and the seven style pairs (the draft's grid: five cells, then
-/// four, then three).
+/// sliders and the seven style pairs, in rows that wrap (the draft's
+/// `.row`, `flex-wrap: wrap`): each cell — a slider's label and slider,
+/// a pair's label and two choices — stays whole on one row, and a host's
+/// vertical-only scroll never clips a row's end at a narrow pane.
+/// egui's wrap sees only widgets, so each cell is allocated at its
+/// measured width: a bare `ui.horizontal` inside `horizontal_wrapped`
+/// claims the row's remaining width and never reaches the wrap check.
 fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
     ui.strong("Formation settings");
     match &mut preset.style.fluid {
@@ -237,9 +242,17 @@ fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
                 }));
         }
     }
-    egui::Grid::new("formation settings").show(ui, |ui| {
+    ui.horizontal_wrapped(|ui| {
+        let spacing = ui.spacing().item_spacing.x;
         for spec in &SLIDERS {
-            ui.horizontal(|ui| {
+            // The cell's drawn width: the label, the rail
+            // (`slider_width`) and the value field (a DragValue's
+            // `interact_size.x`), plus the gaps.
+            let width = text_width(ui, spec.label)
+                + ui.spacing().slider_width
+                + ui.spacing().interact_size.x
+                + 4.0 * spacing;
+            cell(ui, width, |ui| {
                 ui.label(spec.label);
                 let mut value = (spec.get)(&preset.sliders);
                 if ui
@@ -253,30 +266,57 @@ fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
                 }
             });
         }
-        ui.end_row();
-        for chunk in STYLE_TOGGLES.chunks(4) {
-            for toggle in chunk {
-                style_toggle(ui, &mut preset.style, toggle);
-            }
-            ui.end_row();
+        for toggle in &STYLE_TOGGLES {
+            // The pair cell: the label and the two choices, each choice a
+            // selectable's text and padding.
+            let width = text_width(ui, toggle.label)
+                + choice_width(ui, toggle.off)
+                + choice_width(ui, toggle.on)
+                + 4.0 * spacing;
+            cell(ui, width, |ui| style_toggle(ui, &mut preset.style, toggle));
         }
     });
 }
 
-/// One style pair's cell: its label and the two choices as the game names
-/// them.
+/// `text`'s galley width in the body font.
+fn text_width(ui: &egui::Ui, text: &str) -> f32 {
+    ui.painter()
+        .layout_no_wrap(
+            text.to_owned(),
+            egui::TextStyle::Body.resolve(ui.style()),
+            egui::Color32::PLACEHOLDER,
+        )
+        .size()
+        .x
+}
+
+/// A style choice's drawn width: its text plus a button's padding.
+fn choice_width(ui: &egui::Ui, text: &str) -> f32 {
+    text_width(ui, text) + ui.spacing().button_padding.x * 2.0
+}
+
+/// One cell of a wrapping row at `width`: a child row laid out like
+/// `ui.horizontal`, so the cell's label and control keep one row.
+fn cell(ui: &mut egui::Ui, width: f32, add: impl FnOnce(&mut egui::Ui)) {
+    ui.allocate_ui_with_layout(
+        egui::vec2(width, ui.spacing().interact_size.y),
+        egui::Layout::left_to_right(egui::Align::Center),
+        add,
+    );
+}
+
+/// One style pair's cell's contents: its label and the two choices as the
+/// game names them.
 fn style_toggle(ui: &mut egui::Ui, style: &mut TacticStyle, toggle: &StyleToggle) {
-    ui.horizontal(|ui| {
-        ui.label(toggle.label);
-        let mut value = (toggle.get)(style);
-        // Both choices are drawn every frame: an `||` over the two would
-        // skip the second on the frame the first is clicked.
-        ui.selectable_value(&mut value, false, toggle.off);
-        ui.selectable_value(&mut value, true, toggle.on);
-        if value != (toggle.get)(style) {
-            (toggle.set)(style, value);
-        }
-    });
+    ui.label(toggle.label);
+    let mut value = (toggle.get)(style);
+    // Both choices are drawn every frame: an `||` over the two would
+    // skip the second on the frame the first is clicked.
+    ui.selectable_value(&mut value, false, toggle.off);
+    ui.selectable_value(&mut value, true, toggle.on);
+    if value != (toggle.get)(style) {
+        (toggle.set)(style, value);
+    }
 }
 
 /// The "Automatic settings" group: the substitution byte as stored, the
@@ -375,408 +415,4 @@ pub(crate) fn raw_name_at<'a>(roster: &[RosterRow<'a>], slot: u8) -> &'a str {
 }
 
 #[cfg(test)]
-mod tests {
-    use egui::accesskit::{self, Role};
-
-    use super::*;
-    use crate::test_support::{
-        Headless, centre, control_right_of, entry, entry_id, fixture_rows, fixture_tactics,
-        pointer_at, roster_rows,
-    };
-
-    impl Headless {
-        /// One frame of `tactics_settings` over `tactics`, `view` and
-        /// `roster`: the frame's AccessKit nodes and whether the frame
-        /// changed `tactics`.
-        pub(crate) fn tactics(
-            &mut self,
-            version: PesVersion,
-            tactics: &mut TeamTactics,
-            view: &mut TacticsView,
-            roster: &[RosterRow<'_>],
-            events: Vec<egui::Event>,
-        ) -> (Vec<accesskit::Node>, bool) {
-            self.tactics_at(None, version, tactics, view, roster, events)
-        }
-
-        /// `tactics` with `time` as the frame's timestamp (tooltips count
-        /// their delay on it).
-        pub(crate) fn tactics_at(
-            &mut self,
-            time: Option<f64>,
-            version: PesVersion,
-            tactics: &mut TeamTactics,
-            view: &mut TacticsView,
-            roster: &[RosterRow<'_>],
-            events: Vec<egui::Event>,
-        ) -> (Vec<accesskit::Node>, bool) {
-            let mut changed = None;
-            let (nodes, _) = self.frame_at(time, events, |ui| {
-                preset_selector(ui, view);
-                changed = Some(tactics_settings(
-                    ui, "tactics", version, tactics, view, roster,
-                ));
-            });
-            (nodes, changed.expect("the widget ran"))
-        }
-
-        /// A click at `pos` over the widget (press frame, then the release
-        /// frame `clicked()` lands on).
-        pub(crate) fn click_tactics(
-            &mut self,
-            pos: egui::Pos2,
-            version: PesVersion,
-            tactics: &mut TeamTactics,
-            view: &mut TacticsView,
-            roster: &[RosterRow<'_>],
-        ) -> (Vec<accesskit::Node>, bool) {
-            self.tactics(version, tactics, view, roster, pointer_at(pos, true));
-            self.tactics(version, tactics, view, roster, pointer_at(pos, false))
-        }
-
-        /// `tactics` keeping the nodes' AccessKit ids (for
-        /// `AccessKitActionRequest` events).
-        pub(crate) fn tactics_ids(
-            &mut self,
-            version: PesVersion,
-            tactics: &mut TeamTactics,
-            view: &mut TacticsView,
-            roster: &[RosterRow<'_>],
-            events: Vec<egui::Event>,
-        ) -> (Vec<(accesskit::NodeId, accesskit::Node)>, bool) {
-            let mut changed = None;
-            let (nodes, _) = self.frame_at_ids(None, events, |ui| {
-                preset_selector(ui, view);
-                changed = Some(tactics_settings(
-                    ui, "tactics", version, tactics, view, roster,
-                ));
-            });
-            (nodes, changed.expect("the widget ran"))
-        }
-
-        /// An AccessKit `Click` action on `id`: a click delivered as the
-        /// accessibility event, for widgets a pointer click does not reach
-        /// (a combo's popup items).
-        pub(crate) fn action_click_tactics(
-            &mut self,
-            id: accesskit::NodeId,
-            version: PesVersion,
-            tactics: &mut TeamTactics,
-            view: &mut TacticsView,
-            roster: &[RosterRow<'_>],
-        ) -> (Vec<accesskit::Node>, bool) {
-            self.tactics(
-                version,
-                tactics,
-                view,
-                roster,
-                vec![egui::Event::AccessKitActionRequest(
-                    accesskit::ActionRequest {
-                        action: accesskit::Action::Click,
-                        target_tree: accesskit::TreeId::ROOT,
-                        target_node: id,
-                        data: None,
-                    },
-                )],
-            )
-        }
-
-        /// The text of the tooltip drawn while the pointer rests at `pos`
-        /// containing `needle` (bounded: a missing tooltip fails rather
-        /// than hangs; needs the context's `tooltip_delay` at 0). The
-        /// pointer first moves away for a frame: egui refuses a tooltip
-        /// while the last click is more recent than the last movement.
-        pub(crate) fn tactics_tooltip(
-            &mut self,
-            pos: egui::Pos2,
-            needle: &str,
-            version: PesVersion,
-            tactics: &mut TeamTactics,
-            view: &mut TacticsView,
-            roster: &[RosterRow<'_>],
-        ) -> Option<String> {
-            self.tactics(
-                version,
-                tactics,
-                view,
-                roster,
-                vec![egui::Event::PointerMoved(egui::Pos2::ZERO)],
-            );
-            self.tactics(
-                version,
-                tactics,
-                view,
-                roster,
-                vec![egui::Event::PointerMoved(pos)],
-            );
-            for _ in 0..90 {
-                let (nodes, _) = self.tactics(version, tactics, view, roster, vec![]);
-                if let Some(value) = nodes.iter().find_map(|node| {
-                    node.value()
-                        .filter(|value| value.contains(needle))
-                        .map(str::to_owned)
-                }) {
-                    return Some(value);
-                }
-            }
-            None
-        }
-    }
-
-    /// A click on `node`: press on one frame, release on the next.
-    pub(crate) fn click(
-        window: &mut Headless,
-        node: &accesskit::Node,
-        version: PesVersion,
-        tactics: &mut TeamTactics,
-        view: &mut TacticsView,
-        roster: &[RosterRow<'_>],
-    ) -> (Vec<accesskit::Node>, bool) {
-        window.click_tactics(centre(node), version, tactics, view, roster)
-    }
-
-    // plans/save_editor.md "Editing UI" (the version-gated bullet) on this
-    // tab: a field the version lacks stays in its place, disabled, its
-    // hover naming the first version that has it.
-    #[test]
-    fn fields_the_version_lacks_draw_disabled_with_their_versions() {
-        let mut window = Headless::sized(800.0, 900.0);
-        window
-            .ctx
-            .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
-        // PES 16: the instruction table and Attack/defence levels are
-        // disabled with "PES 17+".
-        let mut tactics = fixture_tactics(PesVersion::Pes16);
-        let mut view = TacticsView::default();
-        let rows = fixture_rows(PesVersion::Pes16);
-        let roster = roster_rows(&rows);
-        let (nodes, _) =
-            window.tactics(PesVersion::Pes16, &mut tactics, &mut view, &roster, vec![]);
-        let table = nodes
-            .iter()
-            .find(|node| {
-                node.role() == Role::Label && node.value() == Some("(none on this version)")
-            })
-            .expect("the table's stand-in");
-        assert!(table.is_disabled(), "the table's stand-in is disabled");
-        assert_eq!(
-            window.tactics_tooltip(
-                centre(table),
-                "PES 17+",
-                PesVersion::Pes16,
-                &mut tactics,
-                &mut view,
-                &roster,
-            ),
-            Some("PES 17+".to_string()),
-            "the instruction table's hover"
-        );
-        let levels = entry(&nodes, Role::CheckBox, "Attack/defence levels");
-        assert!(levels.is_disabled(), "the flag is disabled on PES 16");
-        assert_eq!(
-            window.tactics_tooltip(
-                centre(levels),
-                "PES 17+",
-                PesVersion::Pes16,
-                &mut tactics,
-                &mut view,
-                &roster,
-            ),
-            Some("PES 17+".to_string()),
-            "Attack/defence levels' hover"
-        );
-
-        // PES 15: Fluid formation is disabled with "PES 16+".
-        let mut tactics = fixture_tactics(PesVersion::Pes15);
-        let mut view = TacticsView::default();
-        let rows = fixture_rows(PesVersion::Pes15);
-        let roster = roster_rows(&rows);
-        let (nodes, _) =
-            window.tactics(PesVersion::Pes15, &mut tactics, &mut view, &roster, vec![]);
-        let fluid = entry(&nodes, Role::CheckBox, "Fluid formation");
-        assert!(fluid.is_disabled(), "the flag is disabled on PES 15");
-        assert_eq!(
-            window.tactics_tooltip(
-                centre(fluid),
-                "PES 16+",
-                PesVersion::Pes15,
-                &mut tactics,
-                &mut view,
-                &roster,
-            ),
-            Some("PES 16+".to_string()),
-            "Fluid formation's hover"
-        );
-    }
-
-    // Every control edits `presets[view.preset]` or the team-wide fields,
-    // nothing else: with preset 2 on screen, a slider move and a style
-    // click write the second preset alone.
-    #[test]
-    fn the_controls_edit_the_preset_on_screen() {
-        let mut window = Headless::sized(800.0, 900.0);
-        let version = PesVersion::Pes21;
-        let mut tactics = fixture_tactics(version);
-        let mut view = TacticsView {
-            preset: 1,
-            ..TacticsView::default()
-        };
-        let rows = fixture_rows(version);
-        let roster = roster_rows(&rows);
-        let presets_before = tactics.presets.clone();
-
-        // The preset selector: pick 2 (writes `view`, not the record).
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-        let two = entry(&nodes, Role::Button, "2");
-        let (_, changed) = click(&mut window, two, version, &mut tactics, &mut view, &roster);
-        assert_eq!(view.preset, 1, "preset 2 stays on screen");
-        assert!(!changed, "the preset selector writes no record");
-        assert_eq!(tactics.presets, presets_before, "nor touches one");
-
-        // Move Support range's slider one stop up.
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-        let slider = control_right_of(&nodes, "Support range", Role::Slider);
-        let bounds = slider.bounds().expect("slider bounds");
-        let from = egui::pos2(((bounds.x0 + bounds.x1) / 2.0) as f32, centre(slider).y);
-        let to = egui::pos2(bounds.x1 as f32 - 4.0, from.y);
-        let mut changed = false;
-        for events in [
-            pointer_at(from, true),
-            vec![egui::Event::PointerMoved(to)],
-            pointer_at(to, false),
-        ] {
-            let (_, frame_changed) =
-                window.tactics(version, &mut tactics, &mut view, &roster, events);
-            changed |= frame_changed;
-        }
-        assert!(changed, "the drag changed the record");
-        assert_ne!(
-            tactics.presets[1].sliders, presets_before[1].sliders,
-            "preset 2's sliders moved"
-        );
-        assert_eq!(tactics.presets[0], presets_before[0], "preset 1 untouched");
-        assert_eq!(tactics.presets[2], presets_before[2], "preset 3 untouched");
-
-        // Click a style pair's on choice.
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-        let possession = entry(&nodes, Role::Button, "Possession");
-        let (_, changed) = click(
-            &mut window,
-            possession,
-            version,
-            &mut tactics,
-            &mut view,
-            &roster,
-        );
-        assert!(changed, "the click changed the record");
-        assert!(
-            tactics.presets[1].style.attacking_style,
-            "preset 2's attacking style is Possession"
-        );
-        assert_eq!(tactics.presets[0], presets_before[0], "preset 1 untouched");
-        assert_eq!(tactics.presets[2], presets_before[2], "preset 3 untouched");
-    }
-
-    // plans/save_editor.md "Tactics editor" (the widget's contract): an
-    // idle frame, a hover, opening a combo and closing it, or re-picking
-    // the current value reports no change and leaves the record equal.
-    #[test]
-    fn no_gesture_no_change() {
-        let mut window = Headless::sized(800.0, 900.0);
-        for version in [PesVersion::Pes15, PesVersion::Pes17, PesVersion::Pes21] {
-            let mut tactics = fixture_tactics(version);
-            let before = tactics.clone();
-            let mut view = TacticsView::default();
-            let rows = fixture_rows(version);
-            let roster = roster_rows(&rows);
-            let (nodes, changed) =
-                window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-            assert!(!changed, "{version:?}: an idle frame reports no change");
-            assert_eq!(tactics, before, "{version:?}: and edits nothing");
-
-            // Hover over every interactive control: each frame reports no
-            // change and edits nothing.
-            let controls: Vec<egui::Pos2> = nodes
-                .iter()
-                .filter(|node| {
-                    matches!(
-                        node.role(),
-                        Role::Button
-                            | Role::CheckBox
-                            | Role::ComboBox
-                            | Role::Slider
-                            | Role::SpinButton
-                    ) && !node.is_disabled()
-                })
-                .map(centre)
-                .collect();
-            for pos in controls {
-                let (_, changed) = window.tactics(
-                    version,
-                    &mut tactics,
-                    &mut view,
-                    &roster,
-                    vec![egui::Event::PointerMoved(pos)],
-                );
-                assert!(!changed, "{version:?}: a hover reports no change");
-                assert_eq!(tactics, before, "{version:?}: a hover edits nothing");
-            }
-
-            if version == PesVersion::Pes15 {
-                continue;
-            }
-            // Open the Attack 1 instruction combo and close it again.
-            let combo = control_right_of(&nodes, "Attack 1", Role::ComboBox);
-            let (_, changed) = click(
-                &mut window,
-                combo,
-                version,
-                &mut tactics,
-                &mut view,
-                &roster,
-            );
-            assert!(!changed, "{version:?}: opening the combo writes nothing");
-            assert_eq!(tactics, before, "{version:?}: and edits nothing");
-
-            // Re-pick the current value inside it (the fixture's Attack 1
-            // is Off, "Unassigned"): no change, nothing written.
-            let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
-            let same = entry_id(&ids, Role::Button, "Unassigned");
-            let (_, changed) =
-                window.action_click_tactics(same, version, &mut tactics, &mut view, &roster);
-            assert!(!changed, "{version:?}: re-picking the value writes nothing");
-            assert_eq!(tactics, before, "{version:?}: and edits nothing");
-
-            // An out-of-range stored slider value shows as stored and is
-            // not rewritten until the member moves it.
-            let mut out_of_range = before.clone();
-            out_of_range.presets[0].sliders.support_range = 0;
-            let expected = out_of_range.clone();
-            let (nodes, changed) =
-                window.tactics(version, &mut out_of_range, &mut view, &roster, vec![]);
-            assert!(
-                !changed,
-                "{version:?}: an out-of-range value is not rewritten"
-            );
-            assert_eq!(out_of_range, expected, "{version:?}: nor clamped on draw");
-            let slider = control_right_of(&nodes, "Support range", Role::Slider);
-            assert_eq!(
-                slider.numeric_value(),
-                Some(0.0),
-                "{version:?}: the slider shows the stored value"
-            );
-
-            // A click on the open combo toggles it closed again.
-            let (_, changed) = click(
-                &mut window,
-                combo,
-                version,
-                &mut tactics,
-                &mut view,
-                &roster,
-            );
-            assert!(!changed, "{version:?}: closing the combo writes nothing");
-            assert_eq!(tactics, before, "{version:?}: and edits nothing");
-        }
-    }
-}
+mod tests;

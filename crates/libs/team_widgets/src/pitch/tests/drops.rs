@@ -1,6 +1,8 @@
 //! The drag-and-drop tests: marker and row drops, the exchanges and
 //! swaps, and the grass, own-chip and off-pitch releases.
 
+use pes_savefile::model::instruction::Instruction;
+use pes_savefile::schema::instruction;
 use pes_version::PesVersion;
 
 use super::*;
@@ -17,7 +19,7 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     let roster = roster_rows(&rows);
     let formation = tactics.presets[0].formations[0].clone();
     let index = 4;
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     let from = marker_centre(&nodes, formation.players[index]);
     let onto = grass_point(canvas, &formation.players);
@@ -25,7 +27,14 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     let slot = formation.players[index];
     assert_ne!((slot.x, slot.y), (x, y), "premise: a real move");
 
-    let changed = window.drag_pitch(from, onto, &mut tactics, &mut view, &roster);
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
     assert!(changed, "the drop changed the record");
     let mut expect = formation.clone();
     expect.players[index].x = x;
@@ -52,7 +61,7 @@ fn a_marker_dropped_on_another_marker_exchanges_the_two_starters() {
     let dragged = before.starting_eleven[from];
     let dropped = before.starting_eleven[onto];
     assert_ne!(dragged, dropped, "premise: two different slots");
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     let at = marker_centre(&nodes, formation.players[from]);
     let over = marker_centre(&nodes, formation.players[onto]);
@@ -63,7 +72,14 @@ fn a_marker_dropped_on_another_marker_exchanges_the_two_starters() {
         "premise: no later marker covers the drop point"
     );
 
-    let changed = window.drag_pitch(at, over, &mut tactics, &mut view, &roster);
+    let changed = window.drag_pitch(
+        at,
+        over,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
     assert!(changed, "the drop changed the record");
     assert_eq!(tactics.starting_eleven[from], dropped);
     assert_eq!(tactics.starting_eleven[onto], dragged);
@@ -87,7 +103,7 @@ fn a_marker_released_off_the_pitch_changes_nothing() {
     let before = tactics.clone();
     let formation = before.presets[0].formations[0].clone();
     let index = 3;
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     let from = marker_centre(&nodes, formation.players[index]);
     // Right of the canvas but inside the window.
@@ -95,7 +111,14 @@ fn a_marker_released_off_the_pitch_changes_nothing() {
     assert!(!canvas.contains(onto), "premise: a release off the pitch");
     assert!(onto.x < 600.0, "premise: still inside the window");
 
-    let changed = window.drag_pitch(from, onto, &mut tactics, &mut view, &roster);
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
     assert!(!changed, "a release off the pitch writes nothing");
     assert_eq!(tactics, before, "and nothing moved");
 }
@@ -112,13 +135,15 @@ fn an_eleven_row_released_on_the_grass_changes_nothing() {
     let roster = roster_rows(&rows);
     let before = tactics.clone();
     let formation = before.presets[0].formations[0].clone();
-    let (nodes, _) = window.pitch_and_lineup(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) =
+        window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     let onto = grass_point(canvas, &formation.players);
 
     let changed = window.drag_pitch_and_lineup(
         row_centre(&nodes, 3),
         onto,
+        PesVersion::Pes21,
         &mut tactics,
         &mut view,
         &roster,
@@ -138,7 +163,7 @@ fn a_marker_released_on_his_own_chip_moves() {
     let rows = fixture_rows(PesVersion::Pes21);
     let roster = roster_rows(&rows);
     let formation = tactics.presets[0].formations[0].clone();
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     // An outfield slot whose x + 4 stays on the grid and whose +12 px
     // drop point covers no other marker's chip.
@@ -164,7 +189,14 @@ fn a_marker_released_on_his_own_chip_moves() {
         "premise: the release is still on his own chip"
     );
 
-    let changed = window.drag_pitch(from, onto, &mut tactics, &mut view, &roster);
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
     assert!(changed, "the drop changed the record");
     let moved = tactics.presets[0].formations[0].players[index];
     assert_eq!(moved.x, slot.x + 4, "x grew by the 4 dragged units");
@@ -187,12 +219,19 @@ fn the_keepers_marker_cannot_be_dragged() {
         .position(|slot| slot.position == 0)
         .expect("the fixture has a keeper slot");
     let before = tactics.clone();
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     let from = marker_centre(&nodes, formation.players[keeper]);
     let onto = grass_point(canvas, &formation.players);
 
-    let changed = window.drag_pitch(from, onto, &mut tactics, &mut view, &roster);
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
     assert!(!changed, "the keeper's spot is fixed");
     assert_eq!(tactics, before, "and nothing wrote");
     assert_eq!(view.popover, None, "a dragged press is not a click");
@@ -208,11 +247,13 @@ fn an_idle_frame_and_a_hover_change_nothing() {
     let rows = fixture_rows(PesVersion::Pes21);
     let roster = roster_rows(&rows);
     let before = tactics.clone();
-    let (nodes, changed) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, changed) =
+        window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     assert!(!changed, "an idle frame reports no change");
     assert_eq!(tactics, before, "and edits nothing");
 
     let (_, changed) = window.pitch(
+        PesVersion::Pes21,
         &mut tactics,
         &mut view,
         &roster,
@@ -236,7 +277,8 @@ fn a_bench_row_dropped_on_a_marker_swaps_him_in() {
     let inn = tactics.bench_order[0];
     assert_ne!(out, inn, "premise: two different slots");
     tactics.set_pieces.penalty = out;
-    let (nodes, _) = window.pitch_and_lineup(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) =
+        window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     let formation = tactics.presets[0].formations[0].clone();
     let onto = marker_rect(
@@ -252,6 +294,7 @@ fn a_bench_row_dropped_on_a_marker_swaps_him_in() {
     let changed = window.drag_pitch_and_lineup(
         row_centre(&nodes, 11),
         onto,
+        PesVersion::Pes21,
         &mut tactics,
         &mut view,
         &roster,
@@ -285,7 +328,8 @@ fn a_starter_row_dropped_on_a_marker_exchanges_the_two() {
     let out = tactics.starting_eleven[2];
     let inn = tactics.starting_eleven[5];
     assert_ne!(out, inn, "premise: two different slots");
-    let (nodes, _) = window.pitch_and_lineup(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) =
+        window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
     let formation = tactics.presets[0].formations[0].clone();
     let onto = marker_rect(
@@ -301,6 +345,7 @@ fn a_starter_row_dropped_on_a_marker_exchanges_the_two() {
     let changed = window.drag_pitch_and_lineup(
         row_centre(&nodes, 2),
         onto,
+        PesVersion::Pes21,
         &mut tactics,
         &mut view,
         &roster,
@@ -308,4 +353,54 @@ fn a_starter_row_dropped_on_a_marker_exchanges_the_two() {
     assert!(changed, "the drop changed the record");
     assert_eq!(tactics.starting_eleven[2], inn);
     assert_eq!(tactics.starting_eleven[5], out);
+}
+
+// `swap_in`'s instruction gate: the outgoing starter's slot in a target
+// byte repoints only where the version's decoded instruction takes one
+// of ours (`takes_player`) — a byte under an instruction that takes none
+// (as real saves hold) or a held Tight Marking (an opponent's) stays.
+#[test]
+fn a_swap_repoints_only_targets_of_instructions_that_take_a_player() {
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let out = tactics.starting_eleven[5];
+    let inn = tactics.bench_order[0];
+    assert_ne!(out, inn, "premise: two different slots");
+    let encode = |inst| instruction::encode(PesVersion::Pes21, inst).expect("PES 21 stores it");
+    let attack = tactics.presets[0]
+        .attack_instructions
+        .as_mut()
+        .expect("PES 21 has instructions");
+    attack[0].instruction = encode(Instruction::CounterTarget);
+    attack[0].player = out;
+    attack[1].instruction = encode(Instruction::TikiTaka);
+    attack[1].player = out;
+    let defence = tactics.presets[0]
+        .defence_instructions
+        .as_mut()
+        .expect("PES 21 has instructions");
+    defence[0].instruction = encode(Instruction::TightMarking);
+    defence[0].player = out;
+
+    swap_in(PesVersion::Pes21, &mut tactics, 5, 0);
+
+    let attack = &tactics.presets[0]
+        .attack_instructions
+        .as_ref()
+        .expect("instructions");
+    assert_eq!(
+        attack[0].player, inn,
+        "a Counter Target's target follows the swap"
+    );
+    assert_eq!(
+        attack[1].player, out,
+        "Tiki-Taka takes no player: the byte stays"
+    );
+    let defence = &tactics.presets[0]
+        .defence_instructions
+        .as_ref()
+        .expect("instructions");
+    assert_eq!(
+        defence[0].player, out,
+        "a held Tight Marking marks an opponent: it stays"
+    );
 }

@@ -4,6 +4,8 @@
 //! move, exchange or `swap_in`.
 
 use pes_savefile::model::tactics::{SetPieceTakers, TeamTactics};
+use pes_savefile::schema::instruction;
+use pes_version::PesVersion;
 
 use super::{LineupDrag, position_label};
 use crate::names::append_name;
@@ -18,11 +20,13 @@ use crate::tactics::{RosterRow, TacticsView, raw_name_at};
 /// moves the dragged entry to the dropped row's place. `roster` gives each
 /// roster slot's row, indexed by slot; an empty bench slot is no drag
 /// source and takes no starter, so the eleven never gains an empty slot.
+/// `version` is the open save's (`swap_in`'s instruction decode).
 /// Answers `true` only when `tactics` changed this frame
 /// (`tactics_settings`' contract).
 pub fn lineup(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
+    version: PesVersion,
     tactics: &mut TeamTactics,
     view: &mut TacticsView,
     roster: &[RosterRow<'_>],
@@ -40,7 +44,7 @@ pub fn lineup(
                 .max_height(300.0)
                 .show(ui, |ui| {
                     for (index, position) in positions.iter().enumerate() {
-                        starter_row(ui, tactics, roster, *position, index);
+                        starter_row(ui, version, tactics, roster, *position, index);
                     }
                 });
         });
@@ -51,7 +55,7 @@ pub fn lineup(
                 .max_height(300.0)
                 .show(ui, |ui| {
                     for index in 0..tactics.bench_order.len() {
-                        bench_row(ui, tactics, roster, index);
+                        bench_row(ui, version, tactics, roster, index);
                     }
                 });
         });
@@ -67,6 +71,7 @@ pub fn lineup(
 /// moves); a bench player swaps in (`swap_in`).
 fn starter_row(
     ui: &mut egui::Ui,
+    version: PesVersion,
     tactics: &mut TeamTactics,
     roster: &[RosterRow<'_>],
     position: u8,
@@ -86,7 +91,7 @@ fn starter_row(
             LineupDrag::Starter(from) | LineupDrag::Marker(from) => {
                 tactics.starting_eleven.swap(from, index);
             }
-            LineupDrag::Bench(from) => swap_in(tactics, index, from),
+            LineupDrag::Bench(from) => swap_in(version, tactics, index, from),
         }
     }
 }
@@ -98,7 +103,13 @@ fn starter_row(
 /// bench row moves the dragged entry to the dropped row's place, the rows
 /// between shifting by one (the draft's `moveBench`, a move, not an
 /// exchange).
-fn bench_row(ui: &mut egui::Ui, tactics: &mut TeamTactics, roster: &[RosterRow<'_>], index: usize) {
+fn bench_row(
+    ui: &mut egui::Ui,
+    version: PesVersion,
+    tactics: &mut TeamTactics,
+    roster: &[RosterRow<'_>],
+    index: usize,
+) {
     let slot = tactics.bench_order[index];
     let row = roster.get(usize::from(slot));
     let empty = row.is_none_or(|row| row.registered_position.is_none());
@@ -117,7 +128,7 @@ fn bench_row(ui: &mut egui::Ui, tactics: &mut TeamTactics, roster: &[RosterRow<'
         match *dropped {
             LineupDrag::Starter(starter) | LineupDrag::Marker(starter) => {
                 if !empty {
-                    swap_in(tactics, starter, index);
+                    swap_in(version, tactics, starter, index);
                 }
             }
             LineupDrag::Bench(from) => {
@@ -169,12 +180,18 @@ fn lineup_row(
 
 /// A bench player swapped onto the pitch: `starting_eleven[starter]` and
 /// `bench_order[bench]` exchange, then every set-piece taker, every
-/// join-attack entry and every preset's instruction target that held the
+/// join-attack entry and every preset's instruction target — where the
+/// version's decoded instruction takes one of ours — that held the
 /// outgoing starter's roster slot now holds the incoming one's, so no
 /// role points at a player who left the pitch (`plans/save_editor.md`
 /// "Tactics editor", "A starter swapped with a bench player"). The
 /// captain stays who he was, benched or not.
-pub(super) fn swap_in(tactics: &mut TeamTactics, starter: usize, bench: usize) {
+pub(super) fn swap_in(
+    version: PesVersion,
+    tactics: &mut TeamTactics,
+    starter: usize,
+    bench: usize,
+) {
     let out = tactics.starting_eleven[starter];
     let inn = tactics.bench_order[bench];
     tactics.starting_eleven[starter] = inn;
@@ -216,7 +233,14 @@ pub(super) fn swap_in(tactics: &mut TeamTactics, starter: usize, bench: usize) {
         .flatten()
         {
             for entry in instructions {
-                if entry.player == out {
+                // The target byte is one of ours only where the
+                // instruction takes one (`takes_player`): a held Tight
+                // Marking's is an opponent's, and a target-less
+                // instruction's is never read — both stay.
+                if entry.player == out
+                    && let Ok(Some(inst)) = instruction::decode(version, entry.instruction)
+                    && inst.takes_player()
+                {
                     entry.player = inn;
                 }
             }
@@ -227,6 +251,7 @@ pub(super) fn swap_in(tactics: &mut TeamTactics, starter: usize, bench: usize) {
 #[cfg(test)]
 mod tests {
     use egui::accesskit::{self, Role};
+    use pes_savefile::model::instruction::Instruction;
     use pes_version::PesVersion;
 
     use super::super::{marker_rect, pitch_point};
@@ -257,6 +282,15 @@ mod tests {
         pieces.penalty = out;
         pieces.captain = out;
         tactics.players_to_join_attack = [other, out, u8::MAX];
+        // The repoint is gated on the instruction taking one of ours:
+        // the entries hold Counter Target.
+        let counter_target = instruction::encode(PesVersion::Pes21, Instruction::CounterTarget)
+            .expect("PES 21 stores Counter Target");
+        tactics.presets[1]
+            .attack_instructions
+            .as_mut()
+            .expect("PES 21 stores instructions")[0]
+            .instruction = counter_target;
         tactics.presets[1]
             .attack_instructions
             .as_mut()
@@ -266,13 +300,23 @@ mod tests {
             .defence_instructions
             .as_mut()
             .expect("PES 21 stores instructions")[1]
+            .instruction = counter_target;
+        tactics.presets[2]
+            .defence_instructions
+            .as_mut()
+            .expect("PES 21 stores instructions")[1]
             .player = out;
         tactics.presets[0]
             .defence_instructions
             .as_mut()
             .expect("PES 21 stores instructions")[0]
+            .instruction = counter_target;
+        tactics.presets[0]
+            .defence_instructions
+            .as_mut()
+            .expect("PES 21 stores instructions")[0]
             .player = other;
-        swap_in(&mut tactics, 4, 2);
+        swap_in(PesVersion::Pes21, &mut tactics, 4, 2);
         assert_eq!(tactics.starting_eleven[4], inn, "the bench player starts");
         assert_eq!(tactics.bench_order[2], out, "the starter sits");
         let pieces = &tactics.set_pieces;
@@ -339,7 +383,7 @@ mod tests {
         pieces.penalty = out;
         pieces.captain = out;
         tactics.players_to_join_attack = [out, u8::MAX, u8::MAX];
-        swap_in(&mut tactics, 0, 0);
+        swap_in(PesVersion::Pes16, &mut tactics, 0, 0);
         assert_eq!(tactics.starting_eleven[0], inn);
         assert_eq!(tactics.bench_order[0], out);
         assert_eq!(tactics.set_pieces.penalty, inn, "the taker follows");
@@ -364,10 +408,11 @@ mod tests {
         let inn = tactics.bench_order[0];
         assert_ne!(out, inn, "premise: two different slots");
         tactics.set_pieces.penalty = out;
-        let (nodes, _) = window.lineup(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let changed = window.drag_lineup(
             row_centre(&nodes, 11),
             row_centre(&nodes, 3),
+            PesVersion::Pes21,
             &mut tactics,
             &mut view,
             &roster,
@@ -394,10 +439,11 @@ mod tests {
         let second = tactics.starting_eleven[2];
         assert_ne!(first, second, "premise: two different slots");
         tactics.set_pieces.penalty = first;
-        let (nodes, _) = window.lineup(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let changed = window.drag_lineup(
             row_centre(&nodes, 1),
             row_centre(&nodes, 2),
+            PesVersion::Pes21,
             &mut tactics,
             &mut view,
             &roster,
@@ -425,10 +471,11 @@ mod tests {
 
         // Row 4 dropped on row 1: it takes 1's place, the rows between
         // shifting down.
-        let (nodes, _) = window.lineup(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let changed = window.drag_lineup(
             row_centre(&nodes, 11 + 4),
             row_centre(&nodes, 11 + 1),
+            PesVersion::Pes21,
             &mut tactics,
             &mut view,
             &roster,
@@ -445,10 +492,11 @@ mod tests {
         // shifting up.
         tactics = fixture_tactics(PesVersion::Pes21);
         let before = tactics.bench_order;
-        let (nodes, _) = window.lineup(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let changed = window.drag_lineup(
             row_centre(&nodes, 11 + 1),
             row_centre(&nodes, 11 + 4),
+            PesVersion::Pes21,
             &mut tactics,
             &mut view,
             &roster,
@@ -492,13 +540,14 @@ mod tests {
                 .map(|(index, _)| index)
                 .expect("an empty bench row is drawn")
         };
-        let (nodes, _) = window.lineup(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let empty = empty_row(&nodes);
 
         // Dragging an empty row onto a starter changes nothing.
         let changed = window.drag_lineup(
             row_centre(&nodes, empty),
             row_centre(&nodes, 5),
+            PesVersion::Pes21,
             &mut tactics,
             &mut view,
             &roster,
@@ -507,11 +556,12 @@ mod tests {
         assert_eq!(tactics, before, "and nothing moved");
 
         // A starter dropped on an empty row changes nothing.
-        let (nodes, _) = window.lineup(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let empty = empty_row(&nodes);
         let changed = window.drag_lineup(
             row_centre(&nodes, 5),
             row_centre(&nodes, empty),
+            PesVersion::Pes21,
             &mut tactics,
             &mut view,
             &roster,
@@ -533,18 +583,31 @@ mod tests {
         let mut view = TacticsView::default();
         let rows = fixture_rows(PesVersion::Pes21);
         let roster = roster_rows(&rows);
-        let (nodes, _) = window.pitch_and_lineup(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) =
+            window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         assert_eq!(position_of_row(&nodes, 5), "DMF", "kick-off's slot 5");
 
         let at = centre(entry(&nodes, Role::Button, "In-possession"));
-        window.pitch_and_lineup(&mut tactics, &mut view, &roster, pointer_at(at, true));
-        let (_, changed) =
-            window.pitch_and_lineup(&mut tactics, &mut view, &roster, pointer_at(at, false));
+        window.pitch_and_lineup(
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+            pointer_at(at, true),
+        );
+        let (_, changed) = window.pitch_and_lineup(
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+            pointer_at(at, false),
+        );
         assert!(!changed, "the selector writes the view, not the record");
         assert_eq!(view.formation, 1, "in-possession is on screen");
         assert_eq!(tactics, before, "and the record is untouched");
 
-        let (nodes, _) = window.pitch_and_lineup(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) =
+            window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         assert_eq!(position_of_row(&nodes, 5), "AMF", "in-possession's slot 5");
     }
 
@@ -563,7 +626,8 @@ mod tests {
         let inn = tactics.bench_order[0];
         assert_ne!(out, inn, "premise: two different slots");
         tactics.set_pieces.penalty = out;
-        let (nodes, _) = window.pitch_and_lineup(&mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) =
+            window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let canvas = canvas_rect(&nodes);
         let formation = tactics.presets[0].formations[0].clone();
         let from = marker_rect(
@@ -579,6 +643,7 @@ mod tests {
         let changed = window.drag_pitch_and_lineup(
             from,
             row_centre(&nodes, 11),
+            PesVersion::Pes21,
             &mut tactics,
             &mut view,
             &roster,

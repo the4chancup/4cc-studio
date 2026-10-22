@@ -23,7 +23,11 @@ fn a_role_chip_then_a_marker_click_writes_the_taker_and_disarms() {
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
     let index = 7;
+    // A non-identity eleven: an arm writing the marker's index for the
+    // roster slot would look right on the fixture's [0, 1, ...].
+    tactics.starting_eleven.swap(2, index);
     let starter = tactics.starting_eleven[index];
+    assert_ne!(starter, index as u8, "premise: slot and index differ");
     assert_ne!(
         tactics.set_pieces.penalty, starter,
         "premise: the marker's player is not already the taker"
@@ -46,7 +50,7 @@ fn a_role_chip_then_a_marker_click_writes_the_taker_and_disarms() {
     assert_eq!(view.assign, Some(Assign::Role(5)), "the mode is armed");
 
     // The pitch draws the note; the marker click writes the taker.
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
     assert!(
         nodes
             .iter()
@@ -65,7 +69,7 @@ fn a_role_chip_then_a_marker_click_writes_the_taker_and_disarms() {
         canvas,
     )
     .center();
-    let (_, changed) = window.click_pitch(at, &mut tactics, &mut view, &roster);
+    let (_, changed) = window.click_pitch(at, version, &mut tactics, &mut view, &roster);
     assert!(changed, "the assignment writes the record");
     assert_eq!(
         tactics.set_pieces.penalty, starter,
@@ -84,6 +88,11 @@ fn join_clicks_fill_three_then_toggle_members_packed() {
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
     tactics.players_to_join_attack = [u8::MAX; 3];
+    // A non-identity eleven: an arm writing the marker's index for the
+    // roster slot would look right on the fixture's [0, 1, ...].
+    tactics.starting_eleven.swap(4, 9);
+    tactics.starting_eleven.swap(5, 10);
+    tactics.starting_eleven.swap(6, 8);
     let mut view = TacticsView::default();
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
@@ -104,13 +113,20 @@ fn join_clicks_fill_three_then_toggle_members_packed() {
 
     // Three marker clicks fill the list, packed.
     let starters = tactics.starting_eleven;
+    assert!(
+        starters[4..=6]
+            .iter()
+            .enumerate()
+            .all(|(i, s)| *s != (i + 4) as u8),
+        "premise: the clicked positions' slots differ from their indices"
+    );
     let click_marker =
         |window: &mut Headless, tactics: &mut TeamTactics, view: &mut TacticsView, index: usize| {
-            let (nodes, _) = window.pitch(tactics, view, &roster, vec![]);
+            let (nodes, _) = window.pitch(version, tactics, view, &roster, vec![]);
             let canvas = canvas_rect(&nodes);
             let slot = tactics.presets[0].formations[0].players[index];
             let at = marker_rect(pitch_point(canvas.min, slot.x, slot.y), canvas).center();
-            window.click_pitch(at, tactics, view, &roster)
+            window.click_pitch(at, version, tactics, view, &roster)
         };
     let (_, changed) = click_marker(&mut window, &mut tactics, &mut view, 4);
     assert!(changed, "the first click wrote");
@@ -141,9 +157,9 @@ fn join_clicks_fill_three_then_toggle_members_packed() {
     assert_eq!(view.assign, Some(Assign::Join), "join stays armed");
 
     // Done disarms.
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
     let done = entry(&nodes, Role::Button, "Done");
-    window.click_pitch(centre(done), &mut tactics, &mut view, &roster);
+    window.click_pitch(centre(done), version, &mut tactics, &mut view, &roster);
     assert_eq!(view.assign, None, "Done disarms the mode");
 }
 
@@ -160,14 +176,14 @@ fn a_preset_switch_closes_the_popover() {
     let formation = tactics.presets[0].formations[0].clone();
     let index = 3;
 
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let at = marker_centre(&nodes, formation.players[index]);
-    window.click_pitch(at, &mut tactics, &mut view, &roster);
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     entry(&nodes, Role::Button, "Close");
 
     view.preset = 1;
-    window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     assert_eq!(view.popover, None, "a preset switch closes the popover");
 }
 
@@ -192,20 +208,27 @@ fn the_popovers_position_pick_writes_the_slot() {
         "premise: a real change"
     );
 
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let at = marker_centre(&nodes, formation.players[index]);
-    window.click_pitch(at, &mut tactics, &mut view, &roster);
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let combo = controls_right_of(&nodes, "Position", Role::ComboBox)
         .into_iter()
         .next()
         .expect("the position combo");
-    window.click_pitch(centre(combo), &mut tactics, &mut view, &roster);
+    window.click_pitch(
+        centre(combo),
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
     // The item pick goes through AccessKit, as the instruction
     // combos' do: a pointer click does not reach a combo's popup.
-    let ids = window.pitch_ids(&mut tactics, &mut view, &roster);
+    let ids = window.pitch_ids(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let item = entry_id(&ids, Role::Button, "CF");
-    let (_, changed) = window.action_click_pitch(item, &mut tactics, &mut view, &roster);
+    let (_, changed) =
+        window.action_click_pitch(item, PesVersion::Pes21, &mut tactics, &mut view, &roster);
     assert!(changed, "the pick changed the record");
     assert_eq!(
         tactics.presets[0].formations[0].players[index].position, cf,

@@ -29,6 +29,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         session,
         tactics,
         generation,
+        focused,
         ..
     } = view;
     let Some(session) = session.as_mut() else {
@@ -86,10 +87,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         let mut changed = [false; 3];
         ui.columns(2, |columns| {
             columns[0].vertical(|ui| {
-                changed[0] = pitch::pitch(ui, "pitch", &mut edited, tactics, &roster);
+                changed[0] = pitch::pitch(ui, "pitch", version, &mut edited, tactics, &roster);
             });
             columns[1].vertical(|ui| {
-                changed[1] = pitch::lineup(ui, "lineup", &mut edited, tactics, &roster);
+                changed[1] = pitch::lineup(ui, "lineup", version, &mut edited, tactics, &roster);
             });
         });
         changed[2] = tactics::tactics_settings(
@@ -108,6 +109,14 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             .zip(changed)
             .find_map(|(widget, changed)| changed.then_some(widget))
         {
+            // A gesture ends mid-frame when its widget loses the
+            // keyboard (a click elsewhere surrenders it): the click's
+            // write lands on this same frame under the same key, and
+            // `view::show`'s seal runs only after the push. Seal here or
+            // it merges into the ended gesture's entry.
+            if focused.is_some() && *focused != ui.ctx().memory(|memory| memory.focused()) {
+                session.seal();
+            }
             edit_team(
                 session,
                 team_id,

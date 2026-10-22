@@ -57,6 +57,14 @@ pub(crate) struct SaveView {
     /// the preset its groups edit and the formation its lists show); back
     /// to preset 1 and kick-off on every open.
     tactics: team_widgets::tactics::TacticsView,
+    /// The widget holding the keyboard at the last frame's end. A
+    /// widget's gesture ends when it loses the keyboard (a click
+    /// elsewhere, a Tab): sealing then keeps two gestures' writes from
+    /// merging into one undo entry (the plan's "one entry per gesture").
+    /// A `None` to `Some` move never seals: a widget can take focus as
+    /// its gesture starts (a DragValue's click), and that gesture stays
+    /// one step.
+    focused: Option<egui::Id>,
     /// A refusal to show until dismissed (an open the save refused).
     refusal: Option<Refusal>,
     /// The ruleset the badges use, loaded on the first frame and again only
@@ -172,6 +180,7 @@ impl SaveView {
             selected: None,
             tab: Tab::Abilities,
             tactics: team_widgets::tactics::TacticsView::default(),
+            focused: None,
             refusal: None,
             rules: None,
             cards: None,
@@ -285,14 +294,18 @@ pub(crate) fn show(
     menus::stat_num_dialog(ui, view);
     menus::copy_swap_dialog(ui, view);
     menus::fix_database_dialog(ui, view);
-    // One undo entry per gesture: seal when the pointer is up and no widget
-    // holds the keyboard.
+    // One undo entry per gesture: seal when the pointer is up and no
+    // widget holds the keyboard, and when the widget that held it ends
+    // the frame without it — a gesture ends when its widget loses the
+    // keyboard. A `None` to `Some` move never seals (the `focused` doc).
+    let focused = ui.ctx().memory(|memory| memory.focused());
     if let Some(session) = view.session.as_mut()
-        && !ui.input(|input| input.pointer.any_down())
-        && !ui.ctx().egui_wants_keyboard_input()
+        && ((!ui.input(|input| input.pointer.any_down()) && focused.is_none())
+            || (view.focused.is_some() && view.focused != focused))
     {
         session.seal();
     }
+    view.focused = focused;
 }
 
 /// The toolbar: Open, Save, Undo, Redo and the open save's path with its

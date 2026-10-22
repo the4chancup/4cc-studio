@@ -87,7 +87,7 @@ fn the_painted_lines_are_the_pitches_markings() {
     let rows = fixture_rows(PesVersion::Pes21);
     let roster = roster_rows(&rows);
 
-    let (nodes, shapes) = window.pitch_paint(&mut tactics, &mut view, &roster);
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let canvas = canvas_rect(&nodes);
     let at = |x: f32, y: f32| canvas.min + egui::vec2(x, y);
     let mut rects: Vec<egui::Rect> = shapes
@@ -156,7 +156,7 @@ fn the_join_modes_members_paint_in_join_fill() {
         .expect("the fixture has a keeper slot");
     assert!(keeper != 3 && keeper != 4, "premise: 3 and 4 are outfield");
 
-    let (nodes, shapes) = window.pitch_paint(&mut tactics, &mut view, &roster);
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let canvas = canvas_rect(&nodes);
     let fill_of = |shapes: &[egui::epaint::ClippedShape], canvas: egui::Rect, index: usize| {
         let slot = players[index];
@@ -183,7 +183,7 @@ fn the_join_modes_members_paint_in_join_fill() {
     );
 
     view.assign = None;
-    let (nodes, shapes) = window.pitch_paint(&mut tactics, &mut view, &roster);
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let canvas = canvas_rect(&nodes);
     assert_eq!(
         fill_of(&shapes, canvas, 3),
@@ -204,16 +204,16 @@ fn the_open_popovers_marker_strokes_orange() {
     let players = tactics.presets[0].formations[0].players;
     let index = 3;
 
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let at = marker_centre(&nodes, players[index]);
-    window.click_pitch(at, &mut tactics, &mut view, &roster);
+    window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
     assert_eq!(
         view.popover.map(|open| open.slot),
         Some(index),
         "the popover is slot 3's"
     );
 
-    let (nodes, shapes) = window.pitch_paint(&mut tactics, &mut view, &roster);
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let canvas = canvas_rect(&nodes);
     let stroke_of = |index: usize| {
         let slot = players[index];
@@ -248,7 +248,7 @@ fn the_markers_texts_anchor_inside_the_chip() {
         .take(8)
         .collect();
 
-    let (nodes, shapes) = window.pitch_paint(&mut tactics, &mut view, &roster);
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let canvas = canvas_rect(&nodes);
     let rect = marker_rect(pitch_point(canvas.min, slot.x, slot.y), canvas);
     let text_at = |pos: egui::Pos2| {
@@ -320,7 +320,7 @@ fn the_rows_and_the_popover_header_draw_the_names_colours() {
             .collect::<Vec<egui::Color32>>()
     };
 
-    let (_, shapes) = window.lineup_paint(&mut tactics, &mut view, &roster);
+    let (_, shapes) = window.lineup_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let colors = run_colors(&shapes, "PEP");
     assert_eq!(colors.len(), 2, "the eleven row's and the bench row's name");
     for color in colors {
@@ -346,11 +346,11 @@ fn the_rows_and_the_popover_header_draw_the_names_colours() {
     }
 
     // The popover header's.
-    let (nodes, _) = window.pitch(&mut tactics, &mut view, &roster, vec![]);
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let formation = tactics.presets[0].formations[0].clone();
     let at = marker_centre(&nodes, formation.players[3]);
-    window.click_pitch(at, &mut tactics, &mut view, &roster);
-    let (_, shapes) = window.pitch_paint(&mut tactics, &mut view, &roster);
+    window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let colors = run_colors(&shapes, "PEP");
     assert_eq!(colors.len(), 1, "the popover header's name");
     assert_eq!(

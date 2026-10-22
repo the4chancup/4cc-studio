@@ -17,6 +17,7 @@ impl Headless {
     /// frame's AccessKit nodes and whether it changed `tactics`.
     pub(crate) fn lineup(
         &mut self,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
@@ -24,7 +25,7 @@ impl Headless {
     ) -> (Vec<accesskit::Node>, bool) {
         let mut changed = None;
         let (nodes, _) = self.frame(events, |ui| {
-            changed = Some(super::lineup(ui, "lineup", tactics, view, roster));
+            changed = Some(super::lineup(ui, "lineup", version, tactics, view, roster));
         });
         (nodes, changed.expect("the widget ran"))
     }
@@ -35,13 +36,20 @@ impl Headless {
         &mut self,
         from: egui::Pos2,
         onto: egui::Pos2,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
     ) -> bool {
-        self.lineup(tactics, view, roster, pointer_at(from, true));
-        self.lineup(tactics, view, roster, vec![egui::Event::PointerMoved(onto)]);
-        let (_, changed) = self.lineup(tactics, view, roster, pointer_at(onto, false));
+        self.lineup(version, tactics, view, roster, pointer_at(from, true));
+        self.lineup(
+            version,
+            tactics,
+            view,
+            roster,
+            vec![egui::Event::PointerMoved(onto)],
+        );
+        let (_, changed) = self.lineup(version, tactics, view, roster, pointer_at(onto, false));
         changed
     }
 
@@ -50,6 +58,7 @@ impl Headless {
     /// armed mode's note heads the frame, as the host draws it.
     pub(crate) fn pitch(
         &mut self,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
@@ -58,7 +67,7 @@ impl Headless {
         let mut changed = None;
         let (nodes, _) = self.frame(events, |ui| {
             tactics::assign_note(ui, view);
-            changed = Some(super::pitch(ui, "pitch", tactics, view, roster));
+            changed = Some(super::pitch(ui, "pitch", version, tactics, view, roster));
         });
         (nodes, changed.expect("the widget ran"))
     }
@@ -67,13 +76,14 @@ impl Headless {
     /// `AccessKitActionRequest` events on a combo's popup items).
     fn pitch_ids(
         &mut self,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
     ) -> Vec<(accesskit::NodeId, accesskit::Node)> {
         let (nodes, _) = self.frame_at_ids(None, vec![], |ui| {
             tactics::assign_note(ui, view);
-            super::pitch(ui, "pitch", tactics, view, roster);
+            super::pitch(ui, "pitch", version, tactics, view, roster);
         });
         nodes
     }
@@ -84,11 +94,13 @@ impl Headless {
     fn action_click_pitch(
         &mut self,
         id: accesskit::NodeId,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
     ) -> (Vec<accesskit::Node>, bool) {
         self.pitch(
+            version,
             tactics,
             view,
             roster,
@@ -107,12 +119,13 @@ impl Headless {
     /// assertions read the rows' text runs.
     fn lineup_paint(
         &mut self,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
     ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
         self.frame(vec![], |ui| {
-            super::lineup(ui, "lineup", tactics, view, roster);
+            super::lineup(ui, "lineup", version, tactics, view, roster);
         })
     }
 
@@ -120,13 +133,14 @@ impl Headless {
     /// assertions read the markers' fills, strokes and text anchors.
     fn pitch_paint(
         &mut self,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
     ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
         self.frame(vec![], |ui| {
             tactics::assign_note(ui, view);
-            super::pitch(ui, "pitch", tactics, view, roster);
+            super::pitch(ui, "pitch", version, tactics, view, roster);
         })
     }
 
@@ -135,12 +149,13 @@ impl Headless {
     pub(crate) fn click_pitch(
         &mut self,
         pos: egui::Pos2,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
     ) -> (Vec<accesskit::Node>, bool) {
-        self.pitch(tactics, view, roster, pointer_at(pos, true));
-        self.pitch(tactics, view, roster, pointer_at(pos, false))
+        self.pitch(version, tactics, view, roster, pointer_at(pos, true));
+        self.pitch(version, tactics, view, roster, pointer_at(pos, false))
     }
 
     /// A drag from `from` to `onto` over `pitch` (press, move,
@@ -149,13 +164,20 @@ impl Headless {
         &mut self,
         from: egui::Pos2,
         onto: egui::Pos2,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
     ) -> bool {
-        self.pitch(tactics, view, roster, pointer_at(from, true));
-        self.pitch(tactics, view, roster, vec![egui::Event::PointerMoved(onto)]);
-        let (_, changed) = self.pitch(tactics, view, roster, pointer_at(onto, false));
+        self.pitch(version, tactics, view, roster, pointer_at(from, true));
+        self.pitch(
+            version,
+            tactics,
+            view,
+            roster,
+            vec![egui::Event::PointerMoved(onto)],
+        );
+        let (_, changed) = self.pitch(version, tactics, view, roster, pointer_at(onto, false));
         changed
     }
 
@@ -163,6 +185,7 @@ impl Headless {
     /// columns draw them side by side: either's change counts.
     pub(crate) fn pitch_and_lineup(
         &mut self,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
@@ -171,8 +194,8 @@ impl Headless {
         let mut changed = false;
         let (nodes, _) = self.frame(events, |ui| {
             tactics::assign_note(ui, view);
-            changed = super::pitch(ui, "pitch", tactics, view, roster);
-            changed |= super::lineup(ui, "lineup", tactics, view, roster);
+            changed = super::pitch(ui, "pitch", version, tactics, view, roster);
+            changed |= super::lineup(ui, "lineup", version, tactics, view, roster);
         });
         (nodes, changed)
     }
@@ -183,13 +206,21 @@ impl Headless {
         &mut self,
         from: egui::Pos2,
         onto: egui::Pos2,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
     ) -> bool {
-        self.pitch_and_lineup(tactics, view, roster, pointer_at(from, true));
-        self.pitch_and_lineup(tactics, view, roster, vec![egui::Event::PointerMoved(onto)]);
-        let (_, changed) = self.pitch_and_lineup(tactics, view, roster, pointer_at(onto, false));
+        self.pitch_and_lineup(version, tactics, view, roster, pointer_at(from, true));
+        self.pitch_and_lineup(
+            version,
+            tactics,
+            view,
+            roster,
+            vec![egui::Event::PointerMoved(onto)],
+        );
+        let (_, changed) =
+            self.pitch_and_lineup(version, tactics, view, roster, pointer_at(onto, false));
         changed
     }
 
@@ -234,19 +265,27 @@ impl Headless {
         &mut self,
         pos: egui::Pos2,
         needle: &str,
+        version: PesVersion,
         tactics: &mut TeamTactics,
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
     ) -> Option<String> {
         self.pitch(
+            version,
             tactics,
             view,
             roster,
             vec![egui::Event::PointerMoved(egui::Pos2::ZERO)],
         );
-        self.pitch(tactics, view, roster, vec![egui::Event::PointerMoved(pos)]);
+        self.pitch(
+            version,
+            tactics,
+            view,
+            roster,
+            vec![egui::Event::PointerMoved(pos)],
+        );
         for _ in 0..90 {
-            let (nodes, _) = self.pitch(tactics, view, roster, vec![]);
+            let (nodes, _) = self.pitch(version, tactics, view, roster, vec![]);
             if let Some(value) = nodes.iter().find_map(|node| {
                 node.value()
                     .filter(|value| value.contains(needle))
