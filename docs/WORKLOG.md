@@ -1187,6 +1187,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       ruling; what the ruling changes in slices 1-3's built tabs becomes a step of its own →
       verify: the harness walks the v2 page as it walks the first, every SE-GUI scenario
       the first draft shows drawn in v2 too
+      - [x] slice 1, the frame: body text at weight 400, the team bar above every tab (name,
+        short name, colours), the tab strip grouped Player / Team, the player header on the
+        player tabs only, a Team settings tab
+      - [x] slice 2, Abilities: Profile, the positions grid in the collaborator's order and the
+        quick actions side by side; stats in four aligned columns in the game's order; one
+        cards badge, the player's own tier
+      - [x] slice 3: star and playing attitude in a Cutscenes group first on Appearance,
+        outside the aesthetics lock; Appearance's groups aligned; Tactics in three columns,
+        every control in view at 1440 x 900. The v2 harness (`.tmp/8_9f/run_harness_v2.py`)
+        53 of 53, the first draft's 32 of 32
+      - [ ] slice 4, after the maintainer's ruling on v2
     - [ ] 8.9g the Tactics pitch as PES 2021's own (the maintainer's request of 2026-10-23;
       `plans/save_editor.md` "Tactics editor", the pitch's look): the reference measured first
       (the game's formation screen captured in game, its UI textures in the game's CPKs), the

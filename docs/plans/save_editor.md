@@ -239,7 +239,9 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   one mechanism serves every widget, since a widget edits a copy and reports only that it
   changed (`libs/team_widgets`' contract), not which field. One entry per gesture: changes
   from one widget merge into the open entry while a pointer button is held or a widget has
-  keyboard focus, so a drag or a typed value is one undo step, not one per frame.
+  keyboard focus, so a drag or a typed value is one undo step, not one per frame. A gesture
+  ends when its widget loses the keyboard (a click on another control, a Tab), so a typed
+  value and the click that follows are two steps even when one widget call reports both.
 - **Unsaved changes** are the difference from the file as opened or last saved, not the undo
   stack's length: undoing back to the saved state clears the dot. A player's dot covers his
   entry and his roster slot's shirt number.
