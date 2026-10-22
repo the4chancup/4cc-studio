@@ -8,6 +8,9 @@
 /// The card pickers: the skills grid and COM playing styles with a
 /// remaining-count badge per ruleset tier, and the playing-style combo.
 pub mod cards;
+/// How the editor and the widgets draw a savefile name, its colour
+/// codes applied as text colours.
+pub mod names;
 /// The tactics editor's pitch side: the formation canvas with its markers
 /// and slot popover, and the starting-eleven and bench lists with
 /// swap-by-drag.

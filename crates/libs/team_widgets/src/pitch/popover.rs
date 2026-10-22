@@ -7,7 +7,8 @@ use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::tactics::TeamTactics;
 
 use super::{GRID_X, GRID_Y, marker_rect, pitch_point, position_label};
-use crate::tactics::{RosterRow, TacticsView, name_at};
+use crate::names::append_name;
+use crate::tactics::{RosterRow, TacticsView, raw_name_at};
 
 /// The slot popover (the draft's `slotPopover`): beside the marker, the
 /// starter's name and roster number, the Position combo of the twelve
@@ -48,7 +49,15 @@ pub(super) fn slot_popover(
     .gap(6.0)
     .show(|ui| {
         ui.horizontal(|ui| {
-            ui.strong(name_at(roster, starting_eleven[index]));
+            // The name's colour codes, plain runs kept strong.
+            let mut name = egui::text::LayoutJob::default();
+            append_name(&mut name, raw_name_at(roster, starting_eleven[index]));
+            for section in &mut name.sections {
+                if section.format.color == egui::Color32::PLACEHOLDER {
+                    section.format.color = ui.visuals().strong_text_color();
+                }
+            }
+            ui.label(name);
             ui.weak(format!(
                 "roster {}",
                 usize::from(starting_eleven[index]) + 1

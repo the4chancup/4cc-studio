@@ -650,3 +650,115 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_tab() {
         "the two clicked players are the setting's players"
     );
 }
+
+// plans/save_editor.md "Editing UI", the Undo/redo bullet ("changes from
+// one widget merge into the open entry"): a popover X typed into, then a
+// style pair clicked in the same unsealed span, is two undo steps — the
+// pitch's and the settings group's own.
+#[test]
+fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
+    let path = fixture(PesVersion::Pes21, "tactics_undo_keys");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(1600.0, 1400.0);
+    let before = team_entry(&view, 701).tactics;
+    let players = before.presets[0].formations[0].players;
+    assert!(
+        !before.presets[0].style.attacking_style,
+        "premise: a real change"
+    );
+
+    // The popover on an outfield marker no other marker covers (a covered
+    // centre would open a later marker's), the X field focused, "55"
+    // typed (no Enter: the field keeps the keyboard, the span unsealed).
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let covered = |centre: egui::Pos2, slot: &FormationSlot| {
+        let other = marker_centre(canvas, *slot);
+        (other.x - centre.x).abs() <= 21.0 && (other.y - centre.y).abs() <= 13.0
+    };
+    let index = (0..11)
+        .find(|&index| {
+            players[index].position != 0
+                && players.iter().enumerate().all(|(other, slot)| {
+                    other == index || !covered(marker_centre(canvas, players[index]), slot)
+                })
+        })
+        .expect("a marker no other marker covers");
+    let slot_before = players[index];
+    click_at(&mut window, marker_centre(canvas, slot_before), &mut view);
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let x_label = ids
+        .iter()
+        .find(|(_, node)| node.role() == Role::Label && node.value() == Some("X"))
+        .and_then(|(_, node)| node.bounds())
+        .expect("the X label");
+    let mut fields: Vec<accesskit::NodeId> = ids
+        .iter()
+        .filter(|(_, node)| {
+            node.role() == Role::SpinButton
+                && node.bounds().is_some_and(|bounds| {
+                    (bounds.y0 - x_label.y0).abs() < 4.0 && bounds.x0 >= x_label.x1 - 1.0
+                })
+        })
+        .map(|(id, _)| *id)
+        .collect();
+    fields.sort_by(|a, b| {
+        let bounds = |id: &accesskit::NodeId| {
+            ids.iter()
+                .find(|(other, _)| other == id)
+                .and_then(|(_, node)| node.bounds())
+                .expect("bounds")
+                .x0
+        };
+        bounds(a).partial_cmp(&bounds(b)).expect("ordered bounds")
+    });
+    let field_id = *fields.first().expect("the X field's id");
+    action_focus(&mut window, &mut view, field_id);
+    window.frame(vec![egui::Event::Text("55".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(
+        team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
+        55,
+        "the typed x is written"
+    );
+
+    // A style pair click in the same span.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Possession"),
+        &mut view,
+    );
+    assert!(
+        team_entry(&view, 701).tactics.presets[0]
+            .style
+            .attacking_style,
+        "the click wrote"
+    );
+
+    // One undo each: the settings click first, then the pitch's X.
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let tactics = &team_entry(&view, 701).tactics;
+    assert!(
+        !tactics.presets[0].style.attacking_style,
+        "the style click reverted"
+    );
+    assert_eq!(
+        tactics.presets[0].formations[0].players[index].x, 55,
+        "the pitch edit still applied"
+    );
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(
+        team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
+        slot_before.x,
+        "the X edit reverted"
+    );
+}

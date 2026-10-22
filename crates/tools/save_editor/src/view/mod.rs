@@ -19,10 +19,10 @@ mod tests;
 
 use std::path::{Path, PathBuf};
 
-use pes_savefile::model::names::name_spans;
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_version::Engine;
 use studio_core::RunningPes;
+use team_widgets::names::append_name;
 
 use crate::session::Session;
 use crate::session::selection::{self, TeamChoice};
@@ -547,29 +547,5 @@ fn strip_again_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
         });
     if close || response.should_close() {
         view.strip_again = None;
-    }
-}
-
-/// The format of a plain run (no code, after a reset or a non-hex code):
-/// `PLACEHOLDER`, which the widget replaces with its own text color —
-/// `TextFormat::default()`'s gray is not it.
-pub(crate) fn plain_format() -> egui::TextFormat {
-    egui::TextFormat::simple(egui::FontId::default(), egui::Color32::PLACEHOLDER)
-}
-
-/// Appends `name`'s runs to `job`, each colored as `name_spans` gives it
-/// (`None` runs the normal text color): how the player list and the Strip
-/// again window draw a savefile name. Sections' byte ranges are relative
-/// to `job`'s own text, so the spans append, never merge another job's.
-pub(crate) fn append_name(job: &mut egui::text::LayoutJob, name: &str) {
-    for (color, text) in name_spans(name) {
-        let format = match color {
-            Some([red, green, blue]) => egui::TextFormat::simple(
-                egui::FontId::default(),
-                egui::Color32::from_rgb(red, green, blue),
-            ),
-            None => plain_format(),
-        };
-        job.append(text, 0.0, format);
     }
 }

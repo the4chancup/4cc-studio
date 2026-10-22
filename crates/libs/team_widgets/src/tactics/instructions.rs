@@ -458,8 +458,8 @@ mod tests {
         attack.player = starter;
         let mut view = TacticsView::default();
         // A name per slot: the fixture's are all "PLACEHOLDER" here.
-        let rows: Vec<(String, Option<u8>)> = (0..32)
-            .map(|slot| (format!("Player {slot}"), Some(0)))
+        let rows: Vec<(String, String, Option<u8>)> = (0..32)
+            .map(|slot| (format!("Player {slot}"), format!("Player {slot}"), Some(0)))
             .collect();
         let roster = roster_rows(&rows);
 
@@ -510,9 +510,9 @@ mod tests {
         // Three rows for forty roster slots: slots past the slice, and
         // an empty one, show "(empty)".
         let rows = [
-            ("ALPHA".to_owned(), Some(0)),
-            ("BETA".to_owned(), Some(0)),
-            (String::new(), None),
+            ("ALPHA".to_owned(), "ALPHA".to_owned(), Some(0)),
+            ("BETA".to_owned(), "BETA".to_owned(), Some(0)),
+            (String::new(), String::new(), None),
         ];
         let roster = roster_rows(&rows);
         let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);

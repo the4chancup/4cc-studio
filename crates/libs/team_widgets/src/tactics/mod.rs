@@ -49,6 +49,10 @@ pub struct TacticsView {
 pub struct RosterRow<'a> {
     /// The slot's display name, "" an empty or nameless one.
     pub name: &'a str,
+    /// The slot's raw savefile name, colour codes kept, "" an empty or
+    /// nameless one: what the lineup rows and the slot popover draw for
+    /// the coloured runs (the markers, chips and combos read `name`).
+    pub raw_name: &'a str,
     /// The player's registered position byte; `None` an empty slot.
     pub registered_position: Option<u8>,
 }
@@ -356,6 +360,16 @@ pub(crate) fn name_at<'a>(roster: &[RosterRow<'a>], slot: u8) -> &'a str {
     roster
         .get(usize::from(slot))
         .map(|row| row.name)
+        .filter(|name| !name.is_empty())
+        .unwrap_or("(empty)")
+}
+
+/// `name_at` on the raw name (the colour codes kept): the lineup rows
+/// and the slot popover draw it for the coloured text runs.
+pub(crate) fn raw_name_at<'a>(roster: &[RosterRow<'a>], slot: u8) -> &'a str {
+    roster
+        .get(usize::from(slot))
+        .map(|row| row.raw_name)
         .filter(|name| !name.is_empty())
         .unwrap_or("(empty)")
 }

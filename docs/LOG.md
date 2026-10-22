@@ -2324,3 +2324,5 @@ worklog passed 7,000 lines.
   SWE-2 S1 over e1+e2 accepted 5 (the bench move rotated backwards), fixed with the widget modules split into folders.
 - **2026-10-22** — 8.9e review: SWE-2 S2 over the Tactics tab accepted 5 (two dropped-marker decisions
   untested, the armed note's width) and the diff mutation run found 43 missing pitch tests; rework 2 added them.
+- **2026-10-22** — 8.9e review: SWE-2 S3 accepted 4 (an eleven row on the grass moved his slot, names without their
+  colour codes, one undo key for the tab), ending the SWE-2 loop; rework 3 fixed them. Astra next.

@@ -24,15 +24,17 @@ use popover::slot_popover;
 pub const FORMATIONS: [&str; 3] = ["Kick-off", "In-possession", "Out-of-possession"];
 
 /// The payload a lineup row's drag carries and the pitch's markers drop
-/// (the canvas lands in this module with it): which list the row is in
-/// and its index in it, into `TeamTactics::starting_eleven` or
-/// `TeamTactics::bench_order`.
+/// (the canvas lands in this module with it): `Starter` and `Marker`
+/// index `TeamTactics::starting_eleven`, `Bench` `TeamTactics::bench_order`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum LineupDrag {
     /// A starting-eleven row.
     Starter(usize),
     /// A bench row.
     Bench(usize),
+    /// A pitch marker: every drop target treats it as its `Starter` index
+    /// — the grass move, a row's release never fires, is its alone.
+    Marker(usize),
 }
 
 /// The canvas' size (the draft's `PITCH`): the record's grid — x 0 to
@@ -74,11 +76,12 @@ const CHIP_NAME: egui::Color32 = egui::Color32::from_rgb(0x8c, 0x8c, 0x8c);
 /// dropped on to swap, clicked for the slot popover — and the open
 /// popover beside its marker.
 ///
-/// A marker carries `LineupDrag::Starter`, so a release over a lineup row
-/// is that row's drop (a bench row swaps him out through `swap_in`, a
-/// starter row exchanges the two); a marker is itself a drop target — a
-/// `Bench` row on it is `swap_in`, a `Starter` exchanges the two starters
-/// — and a release on the grass writes the slot's snapped coordinates.
+/// A marker carries `LineupDrag::Marker`, so a release over a lineup row
+/// is that row's drop (a bench row swaps him out through `swap_in`, an
+/// eleven row exchanges the two); a marker is itself a drop target — a
+/// `Bench` row on it is `swap_in`, a `Starter` or another `Marker`
+/// exchanges the two starters — and a release on the grass writes its
+/// slot's snapped coordinates, where a row's release does nothing.
 /// The keeper's marker (position 0) is not a drag source; its spot is
 /// fixed. Answers `true` only when `tactics` changed this frame.
 pub fn pitch(
@@ -134,12 +137,14 @@ pub fn pitch(
         }
         match dropped {
             Some((Some(onto), LineupDrag::Bench(from))) => swap_in(tactics, onto, from),
-            Some((Some(onto), LineupDrag::Starter(from))) if onto != from => {
+            Some((Some(onto), LineupDrag::Starter(from) | LineupDrag::Marker(from)))
+                if onto != from =>
+            {
                 tactics.starting_eleven.swap(from, onto);
             }
-            // A starter released on the grass (or on his own chip) moves
+            // A marker released on the grass (or on his own chip) moves
             // to the snapped drop point.
-            Some((_, LineupDrag::Starter(from))) => {
+            Some((_, LineupDrag::Marker(from))) => {
                 if let Some(pos) = ui.ctx().pointer_interact_pos() {
                     let (x, y) = snap(pos, canvas.min);
                     let slot = &mut tactics.presets[view.preset.min(2)].formations
@@ -149,8 +154,9 @@ pub fn pitch(
                     slot.y = y;
                 }
             }
-            // A bench row on the grass does nothing.
-            Some((None, LineupDrag::Bench(_))) | None => {}
+            // A row released on the grass or on his own marker does
+            // nothing.
+            Some(_) | None => {}
         }
         slot_popover(ui, tactics, view, roster, canvas);
         *tactics != before
@@ -275,7 +281,7 @@ fn marker(
         )
     });
     if !keeper {
-        response.dnd_set_drag_payload(LineupDrag::Starter(index));
+        response.dnd_set_drag_payload(LineupDrag::Marker(index));
     }
     if response.clicked() {
         match view.assign {

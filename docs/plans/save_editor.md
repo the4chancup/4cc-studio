@@ -316,7 +316,8 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   preset; the starting eleven is the team's and stays.
 - **A pitch player dropped on another** exchanges the two starters (their formation slots stay),
   as in the game's own formation screen; one released on the grass moves to the snapped drop
-  point, and one released off the pitch stays where he was.
+  point, and one released off the pitch stays where he was. A lineup row released on the grass
+  does nothing, as in the draft: a row moves players between the lists, never on the pitch.
 - **A starter swapped with a bench player** hands the bench player every set-piece role, the
   joining of the attack and every preset's instruction targets the starter held; the captain
   stays who he was, as in 4ccEditor.

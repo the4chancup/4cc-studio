@@ -7,9 +7,10 @@
 //! Copy/swap preset and Copy/swap formation menus (the editor's alone,
 //! the plan's placement rules; `session::tactics_ops`). The widgets edit a
 //! clone of the team's tactics and report a change; the tab pushes the
-//! clone back with `Session::edit_team` under one key per team and tab, so
-//! a slider drag or a marker drop is one undo entry (`seal` runs when the
-//! pointer is up and no widget has focus).
+//! clone back with `Session::edit_team` under one key per widget call
+//! (pitch, lineup, settings), so a gesture's frames merge but different
+//! widgets' edits never do (`seal` runs when the pointer is up and no
+//! widget has focus).
 
 use pes_savefile::model::names::display_name;
 use team_widgets::pitch::{self, FORMATIONS};
@@ -41,17 +42,19 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         (file.version(), team.clone())
     };
     // The roster as the widgets list it: the display names as the player
-    // list shows them and the registered positions, indexed by roster
-    // slot (an empty slot "" and none).
-    let rows: Vec<(String, Option<u8>)> = team
+    // list shows them, the raw names for the colour-coded rows and the
+    // registered positions, indexed by roster slot (an empty slot "" and
+    // none).
+    let rows: Vec<(String, String, Option<u8>)> = team
         .roster
         .iter()
         .map(|slot| {
             session.file().player(slot.player_id).map_or_else(
-                || (String::new(), None),
+                || (String::new(), String::new(), None),
                 |player| {
                     (
                         display_name(&player.name),
+                        player.name.clone(),
                         Some(player.positions.registered),
                     )
                 },
@@ -60,8 +63,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         .collect();
     let roster: Vec<RosterRow> = rows
         .iter()
-        .map(|(name, position)| RosterRow {
+        .map(|(name, raw_name, position)| RosterRow {
             name: name.as_str(),
+            raw_name: raw_name.as_str(),
             registered_position: *position,
         })
         .collect();
@@ -75,20 +79,20 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             copy_swap_formation_menu(ui, session, team_id, tactics.preset);
         });
         let mut edited = team.tactics.clone();
-        let mut changed = false;
         // The draft's `note`: an armed mode's note spans both columns.
         tactics::assign_note(ui, tactics);
         // The draft's `taccols`: the pitch in the left column, the lists
         // at its right.
+        let mut changed = [false; 3];
         ui.columns(2, |columns| {
             columns[0].vertical(|ui| {
-                changed |= pitch::pitch(ui, "pitch", &mut edited, tactics, &roster);
+                changed[0] = pitch::pitch(ui, "pitch", &mut edited, tactics, &roster);
             });
             columns[1].vertical(|ui| {
-                changed |= pitch::lineup(ui, "lineup", &mut edited, tactics, &roster);
+                changed[1] = pitch::lineup(ui, "lineup", &mut edited, tactics, &roster);
             });
         });
-        changed |= tactics::tactics_settings(
+        changed[2] = tactics::tactics_settings(
             ui,
             "tactics settings",
             version,
@@ -96,11 +100,18 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             tactics,
             &roster,
         );
-        if changed {
+        // One undo key per widget call (the plan's "changes from one
+        // widget merge into the open entry"): the pitch's drag never
+        // merges into a settings click or a row drop.
+        if let Some(widget) = ["pitch", "lineup", "settings"]
+            .into_iter()
+            .zip(changed)
+            .find_map(|(widget, changed)| changed.then_some(widget))
+        {
             edit_team(
                 session,
                 team_id,
-                egui::Id::new(("tactics", team_id)).value(),
+                egui::Id::new(("tactics", team_id, widget)).value(),
                 |team| team.tactics = edited,
             );
         }

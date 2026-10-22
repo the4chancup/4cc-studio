@@ -6,7 +6,8 @@
 use pes_savefile::model::tactics::{SetPieceTakers, TeamTactics};
 
 use super::{LineupDrag, position_label};
-use crate::tactics::{RosterRow, TacticsView, name_at};
+use crate::names::append_name;
+use crate::tactics::{RosterRow, TacticsView, raw_name_at};
 
 /// The draft's `tacticsTab` beside the pitch: the "Starting eleven" and
 /// "Bench" lists, each row a drag handle, a position and a name (the
@@ -77,12 +78,14 @@ fn starter_row(
         ("starting eleven", index),
         Some(LineupDrag::Starter(index)),
         position_label(position),
-        name_at(roster, slot),
+        raw_name_at(roster, slot),
         false,
     );
     if let Some(dropped) = response.dnd_release_payload::<LineupDrag>() {
         match *dropped {
-            LineupDrag::Starter(from) => tactics.starting_eleven.swap(from, index),
+            LineupDrag::Starter(from) | LineupDrag::Marker(from) => {
+                tactics.starting_eleven.swap(from, index);
+            }
             LineupDrag::Bench(from) => swap_in(tactics, index, from),
         }
     }
@@ -107,12 +110,12 @@ fn bench_row(ui: &mut egui::Ui, tactics: &mut TeamTactics, roster: &[RosterRow<'
         ("bench", index),
         (!empty).then_some(LineupDrag::Bench(index)),
         position,
-        name_at(roster, slot),
+        raw_name_at(roster, slot),
         empty,
     );
     if let Some(dropped) = response.dnd_release_payload::<LineupDrag>() {
         match *dropped {
-            LineupDrag::Starter(starter) => {
+            LineupDrag::Starter(starter) | LineupDrag::Marker(starter) => {
                 if !empty {
                     swap_in(tactics, starter, index);
                 }
@@ -129,14 +132,14 @@ fn bench_row(ui: &mut egui::Ui, tactics: &mut TeamTactics, roster: &[RosterRow<'
 }
 
 /// One lineup row, the draft's `.lrow`: the ≡ handle, the position
-/// column and the name; a drag source when `payload` is some, a drop
-/// target always. `empty` dims the row.
+/// column and the raw name drawn with its colour codes; a drag source
+/// when `payload` is some, a drop target always. `empty` dims the row.
 fn lineup_row(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
     payload: Option<LineupDrag>,
     position: &str,
-    name: &str,
+    raw_name: &str,
     empty: bool,
 ) -> egui::Response {
     let contents = |ui: &mut egui::Ui| {
@@ -147,9 +150,11 @@ fn lineup_row(
                 egui::Label::new(egui::RichText::new(position).weak()),
             );
             if empty {
-                ui.weak(name);
+                ui.weak(raw_name);
             } else {
-                ui.label(name);
+                let mut job = egui::text::LayoutJob::default();
+                append_name(&mut job, raw_name);
+                ui.label(job);
             }
         });
     };

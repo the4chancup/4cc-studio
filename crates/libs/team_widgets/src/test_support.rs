@@ -100,19 +100,20 @@ pub(crate) fn fixture_tactics(version: PesVersion) -> TeamTactics {
 }
 
 /// Team 701's roster as the widgets' `roster` sees it, indexed by slot:
-/// `(display name, registered position)`, `("", None)` an empty slot, as
-/// the hosts build it.
-pub(crate) fn fixture_rows(version: PesVersion) -> Vec<(String, Option<u8>)> {
+/// `(display name, raw name, registered position)`, `("", "", None)` an
+/// empty slot, as the hosts build it.
+pub(crate) fn fixture_rows(version: PesVersion) -> Vec<(String, String, Option<u8>)> {
     let file = EditFile::from_bytes(&pes_savefile::fixture_save(version)).expect("fixture save");
     let team = file.team(701).expect("team 701 is in the fixture");
     team.roster
         .iter()
         .map(|slot| {
             file.player(slot.player_id).map_or_else(
-                || (String::new(), None),
+                || (String::new(), String::new(), None),
                 |player| {
                     (
                         display_name(&player.name),
+                        player.name.clone(),
                         Some(player.positions.registered),
                     )
                 },
@@ -122,10 +123,11 @@ pub(crate) fn fixture_rows(version: PesVersion) -> Vec<(String, Option<u8>)> {
 }
 
 /// `rows` as the `&[RosterRow]` the widgets take.
-pub(crate) fn roster_rows(rows: &[(String, Option<u8>)]) -> Vec<RosterRow<'_>> {
+pub(crate) fn roster_rows(rows: &[(String, String, Option<u8>)]) -> Vec<RosterRow<'_>> {
     rows.iter()
-        .map(|(name, position)| RosterRow {
+        .map(|(name, raw_name, position)| RosterRow {
             name: name.as_str(),
+            raw_name: raw_name.as_str(),
             registered_position: *position,
         })
         .collect()

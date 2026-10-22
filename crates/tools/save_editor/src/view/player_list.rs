@@ -7,9 +7,11 @@ use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::names::display_name;
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 
+use team_widgets::names::{append_name, plain_format};
+
 use crate::session::Session;
 use crate::session::selection::{self, Row, TeamChoice};
-use crate::view::{SaveView, append_name, plain_format};
+use crate::view::SaveView;
 
 /// The selector, the filter box and the list, top to bottom of the side panel.
 /// `view`'s fields are borrowed apart: the session feeds the rows while the

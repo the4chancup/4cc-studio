@@ -1158,7 +1158,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         off-pitch drops untested, a swap test the identity eleven let pass, the armed note
         spanning both columns as the draft draws it); `mutants-diff 610bbb5c` at `ec53b1c4`, 45
         missed in `pitch/`: 43 missing tests, 2 equivalent (`.cargo/mutants.toml`); rework 2
-        (SWE-2) fixed both, the pitch tests moved to `pitch/tests.rs`. Next: S3, then Astra
+        (SWE-2) fixed both, the pitch tests moved to `pitch/tests.rs` (`mutants-diff ec53b1c4`:
+        3, none missed). S3 accepted 4 of 5, ending the SWE-2 loop: an eleven row released on
+        the grass moved his slot (a `LineupDrag::Marker` payload now), the lists and popover
+        drew names without their colour codes (`team_widgets::names`), the pitch tests past a
+        thousand lines (`pitch/tests/`), one undo key for the whole tab (one per widget call);
+        rework 3 (SWE-2) fixed all four. Next: Astra A1, then a SWE-2 loop after it
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
