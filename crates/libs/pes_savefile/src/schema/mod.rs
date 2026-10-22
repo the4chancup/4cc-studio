@@ -105,6 +105,20 @@ impl<F: PartialEq + Copy, T> RecordSchema<F, T> {
                 .iter()
                 .any(|array| (0..array.count).any(|i| (array.make)(i) == field))
     }
+
+    /// The biggest value the record stores in `field` (`2^width - 1`, the codec's
+    /// `ValueTooWide` bound), from its `fields` row or the `arrays` run that makes it;
+    /// `None` for a field the record does not store.
+    pub fn max_value(&self, field: F) -> Option<u64> {
+        if let Some(spec) = self.fields.iter().find(|spec| spec.field == field) {
+            return Some((1u64 << spec.bit_width) - 1);
+        }
+        self.arrays.iter().find_map(|array| {
+            (0..array.count)
+                .any(|i| (array.make)(i) == field)
+                .then_some((1u64 << array.bit_width) - 1)
+        })
+    }
 }
 
 /// A per-preset setting: one byte at `bit_offset + preset * preset_stride_bits`.
@@ -334,6 +348,14 @@ pub(crate) fn widest_bit_width(field: PlayerField) -> u32 {
     *WIDTHS.get(&field).unwrap_or(&0)
 }
 
+/// The biggest value `version`'s player or appearance record stores in
+/// `field` (`2^width - 1`, the codec's `ValueTooWide` bound): the bound a
+/// save's own field allows, wider than `settings.toml`'s ranges. `None`
+/// where the version does not store the field.
+pub fn player_max_value(version: PesVersion, field: PlayerField) -> Option<u64> {
+    bit_width(version, field).map(|width| (1u64 << width) - 1)
+}
+
 /// `field`'s bit width in `version`'s player or appearance record — the
 /// bound Team TOML's `apply` holds a stored value to so `write_player`
 /// cannot refuse it afterwards. `None` where the version does not store the
@@ -369,6 +391,16 @@ pub fn first_version_with(field: PlayerField) -> Option<PesVersion> {
         .iter()
         .copied()
         .find(|version| schema_for(*version).player_has(field))
+}
+
+/// `first_version_with` for a team-record field (the Team tab's disabled
+/// `PES NN+` tooltips): the oldest version whose team record stores
+/// `field`; `None` for a field no version stores.
+pub fn first_version_with_team(field: TeamField) -> Option<PesVersion> {
+    PesVersion::ALL
+        .iter()
+        .copied()
+        .find(|version| schema_for(*version).team.has(field))
 }
 
 /// The smallest `which` player text field over the versions it counts
@@ -614,6 +646,50 @@ mod tests {
         assert!(schema_for(PesVersion::Pes15).player_has(PlayerField::NeckLength));
         assert!(schema_for(PesVersion::Pes16).player_has(PlayerField::NeckLength));
         assert!(!schema_for(PesVersion::Pes15).player_has(PlayerField::TightPossession));
+    }
+
+    /// `max_value` reads `2^width - 1` from the field's own table row — a
+    /// `fields` run (the id fields) and an `arrays` run (the kit-slot team
+    /// bindings) — and `None` where the record lacks the field.
+    #[test]
+    fn max_value_reads_the_fields_own_width() {
+        let pes21 = schema_for(PesVersion::Pes21);
+        for field in [PlayerField::BootsId, PlayerField::GlovesId] {
+            let width = pes21
+                .player
+                .fields
+                .iter()
+                .find(|spec| spec.field == field)
+                .unwrap_or_else(|| panic!("{field:?} is stored on PES 21"))
+                .bit_width;
+            assert_eq!(
+                pes21.player.max_value(field),
+                Some((1u64 << width) - 1),
+                "{field:?} is a {width}-bit field"
+            );
+        }
+        // The kit-slot team binding comes through `arrays`, not `fields`.
+        let width = schema_for(PesVersion::Pes17)
+            .team
+            .arrays
+            .iter()
+            .find(|array| (array.make)(0) == TeamField::KitSlotTeam(0))
+            .expect("PES 17 stores kit slots")
+            .bit_width;
+        assert_eq!(
+            schema_for(PesVersion::Pes17)
+                .team
+                .max_value(TeamField::KitSlotTeam(0)),
+            Some((1u64 << width) - 1),
+            "KitSlotTeam is a {width}-bit field"
+        );
+        assert_eq!(
+            schema_for(PesVersion::Pes15)
+                .team
+                .max_value(TeamField::ManagerId),
+            None,
+            "PES 15 has no manager id"
+        );
     }
 
     /// `first_version_with` answers the oldest storing version: a field of

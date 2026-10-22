@@ -341,12 +341,6 @@ pub(super) fn number_range(key: SettingKey) -> RangeInclusive<u8> {
     min..=max
 }
 
-/// `number_range` widened for the `u32` id fields.
-pub(super) fn number_range_u32(key: SettingKey) -> RangeInclusive<u32> {
-    let range = number_range(key);
-    u32::from(*range.start())..=u32::from(*range.end())
-}
-
 /// The option labels `key` edits by in `settings.toml` (the draft's combos
 /// and swatch hovers): a Labels kind's words title-cased, or the names its
 /// comment lists, or its range's numbers when it names none.
@@ -397,7 +391,15 @@ pub(super) fn named_values(key: SettingKey) -> Option<Vec<String>> {
             let (digits, name) = entry.split_once(' ')?;
             let entry_index = digits.parse::<u16>().ok()?;
             (entry_index == u16::from(min) + u16::try_from(index).ok()?)
-                .then(|| name.split(" (").next().unwrap_or(name).to_owned())
+                // A name ends at a note: " (…)" after it, or "; …" after the
+                // list's last one ("6 special; PES 15 only").
+                .then(|| {
+                    name.split([';', '('])
+                        .next()
+                        .unwrap_or(name)
+                        .trim_end()
+                        .to_owned()
+                })
         })
         .collect()
 }
@@ -465,6 +467,23 @@ mod tests {
         );
         assert_eq!(named_values(SettingKey::WristTapeColorLeft), None);
         assert_eq!(named_values(SettingKey::GlovesColor), None);
+    }
+
+    // A named list over a range that does not start at 0: the entry count is
+    // `max - min + 1`, not `max + min + 1` (Pes15HairLength's 1 to 6).
+    #[test]
+    fn named_values_counts_a_nonzero_mins_list() {
+        assert_eq!(
+            named_values(SettingKey::Pes15HairLength),
+            Some(vec![
+                "skinhead".to_owned(),
+                "very short".to_owned(),
+                "short".to_owned(),
+                "medium".to_owned(),
+                "long".to_owned(),
+                "special".to_owned(),
+            ]),
+        );
     }
 
     // The same source for a Labels key: the words title-cased.

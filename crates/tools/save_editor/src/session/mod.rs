@@ -6,6 +6,7 @@
 
 pub(crate) mod rules;
 pub(crate) mod selection;
+pub(crate) mod team_ops;
 pub(crate) mod undo;
 
 use std::collections::HashMap;
@@ -30,14 +31,11 @@ use crate::session::undo::{Change, UndoStack};
 /// never stale across saves.
 static NEXT_REVISION: AtomicU64 = AtomicU64::new(1);
 
-/// The undo merge key `move_player`'s changes go under: a whole move is one
-/// entry and never part of a widget's open gesture, so it needs no widget id
-/// (the move seals its entry at the end regardless).
-const MOVE_KEY: u64 = u64::MAX;
-
-/// The undo merge key `strip`'s changes go under, `MOVE_KEY`'s twin: the whole
-/// strip is one sealed entry, never part of a widget's open gesture.
-const STRIP_KEY: u64 = u64::MAX - 1;
+/// The undo merge key every sealed operation's changes go under
+/// (`edit_players`, which `move_player`, `strip` and the team operations call):
+/// each is one sealed entry, never part of a widget's open gesture; a widget's
+/// key is its `egui::Id` value, never `u64::MAX`.
+const SEALED_KEY: u64 = u64::MAX;
 
 /// The fields of the in-game face run `player_export` carries (its appearance
 /// section ends at `iris_col`; the face structure and the hair are not in the
@@ -177,6 +175,41 @@ impl Session {
         self.dirty = self.compute_dirty();
     }
 
+    /// Replaces each player `edited` names (by `id`) with its entry, as one sealed undo entry; an
+    /// entry equal to the stored one, or naming a player the save lacks, is skipped; nothing
+    /// changed pushes nothing.
+    pub(crate) fn edit_players(&mut self, edited: Vec<PlayerEntry>) {
+        // The before/after pairs are computed before the first write, as in
+        // `move_player`: the write and the undo entry are the same data.
+        let mut changed = Vec::new();
+        for after in edited {
+            let Some(entry) = self.file.player(after.id) else {
+                continue;
+            };
+            if *entry == after {
+                continue;
+            }
+            changed.push((entry.clone(), after));
+        }
+        if changed.is_empty() {
+            return;
+        }
+        for (before, after) in changed {
+            *self.file.player_mut(after.id).expect("resolved above") = after.clone();
+            self.undo.push(
+                SEALED_KEY,
+                Change::Player {
+                    before: Box::new(before),
+                    after: Box::new(after),
+                },
+            );
+        }
+        // One entry for the whole batch, sealed: the next edit does not merge.
+        self.undo.seal();
+        self.touch();
+        self.dirty = self.compute_dirty();
+    }
+
     /// `edit_player` for a team entry (a roster slot's number, the captain).
     pub(crate) fn edit_team(&mut self, key: u64, edited: TeamEntry) {
         let Some(entry) = self.file.team_mut(edited.id) else {
@@ -242,10 +275,10 @@ impl Session {
             taken,
         );
         // Each filled slot's player takes `order`'s record for it, keeping the
-        // slot's own part of it (`moved_record`). Every before and after is
-        // computed before the first write: a rostered id the save lacks leaves
-        // it untouched.
-        let mut moved = Vec::new();
+        // slot's own part of it (`moved_record`). Every entry is computed
+        // before the first write: a rostered id the save lacks leaves it
+        // untouched, aborting the whole move.
+        let mut edited = Vec::new();
         for (&slot_id, &record_id) in filled.iter().zip(&order) {
             if slot_id == record_id {
                 continue;
@@ -255,22 +288,9 @@ impl Session {
             else {
                 return;
             };
-            moved.push((slot_id, dest.clone(), moved_record(source, dest)));
+            edited.push(moved_record(source, dest));
         }
-        for (id, before, after) in moved {
-            *self.file.player_mut(id).expect("resolved above") = after.clone();
-            self.undo.push(
-                MOVE_KEY,
-                Change::Player {
-                    before: Box::new(before),
-                    after: Box::new(after),
-                },
-            );
-        }
-        // One entry for the whole move, sealed: the next edit does not merge.
-        self.undo.seal();
-        self.touch();
-        self.dirty = self.compute_dirty();
+        self.edit_players(edited);
     }
 
     /// Undoes the newest gesture; `false` when the stack is empty.
@@ -492,34 +512,20 @@ impl Session {
     /// Undo restores every id; an id the save lacks, or a player already at -1,
     /// is left out.
     pub(crate) fn strip(&mut self, ids: &[u32]) {
-        // The before/after pairs are computed before the first push, as in
-        // `move_player`: the write and the undo entry are the same data.
-        let mut changed = Vec::new();
-        for player in self.file.players_mut() {
-            if !ids.contains(&player.id) || player.appearance_id == Some(STRIPPED_APPEARANCE_ID) {
-                continue;
-            }
-            let mut after = player.clone();
-            after.appearance_id = Some(STRIPPED_APPEARANCE_ID);
-            let before = std::mem::replace(player, after.clone());
-            changed.push((before, after));
-        }
-        if changed.is_empty() {
-            return;
-        }
-        for (before, after) in changed {
-            self.undo.push(
-                STRIP_KEY,
-                Change::Player {
-                    before: Box::new(before),
-                    after: Box::new(after),
-                },
-            );
-        }
-        // One entry for the whole strip, sealed: the next edit does not merge.
-        self.undo.seal();
-        self.touch();
-        self.dirty = self.compute_dirty();
+        let edited: Vec<PlayerEntry> = self
+            .file
+            .players()
+            .iter()
+            .filter(|player| {
+                ids.contains(&player.id) && player.appearance_id != Some(STRIPPED_APPEARANCE_ID)
+            })
+            .map(|player| {
+                let mut after = player.clone();
+                after.appearance_id = Some(STRIPPED_APPEARANCE_ID);
+                after
+            })
+            .collect();
+        self.edit_players(edited);
     }
 
     /// Writes the save to `out`, an existing file there first copied to `<out>.bak` (one
@@ -1028,6 +1034,69 @@ mod tests {
         assert_ne!(after_undo, after_edit, "an undo takes the next tick");
         assert!(session.redo());
         assert_ne!(session.revision(), after_undo, "a redo takes the next tick");
+    }
+
+    // `edit_players` is the batch write the team operations go through: the
+    // changed entries land as one sealed undo entry (an equal entry, and an
+    // id the save lacks, are skipped), and the gesture after it — under the
+    // same batch key or a widget's — is its own entry.
+    #[test]
+    fn a_batch_edit_is_one_sealed_entry_of_the_changed_players() {
+        let mut session = open(PesVersion::Pes21, "edit_players");
+        let mut a = session.file().player(70101).unwrap().clone();
+        a.basic.height = a.basic.height.wrapping_add(1);
+        let unchanged = session.file().player(70102).unwrap().clone();
+        let mut missing = session.file().player(70103).unwrap().clone();
+        missing.id = 99999;
+        let before = a.basic.height - 1;
+
+        session.edit_players(vec![a.clone(), unchanged, missing]);
+
+        assert_eq!(
+            session.file().player(70101).unwrap().basic.height,
+            before + 1
+        );
+        // One undo entry restores the one change; nothing else was pushed.
+        assert!(session.undo());
+        assert_eq!(session.file().player(70101).unwrap().basic.height, before);
+        assert!(!session.can_undo(), "the batch was one entry");
+        assert!(session.redo());
+
+        // A widget's edit under another key is a new entry, not a merge into
+        // the batch's.
+        let mut b = session.file().player(70102).unwrap().clone();
+        b.basic.height = b.basic.height.wrapping_add(1);
+        let b_before = b.basic.height - 1;
+        session.edit_player(1, b);
+        assert!(session.undo());
+        assert_eq!(session.file().player(70102).unwrap().basic.height, b_before);
+        assert!(session.can_undo(), "the batch's entry is still there");
+
+        // Back-to-back batches are their own entries: the first's seal keeps
+        // the second from merging into it.
+        let mut c = session.file().player(70101).unwrap().clone();
+        c.basic.height = before + 2;
+        session.edit_players(vec![c.clone()]);
+        c.basic.height = before + 3;
+        session.edit_players(vec![c]);
+        assert_eq!(
+            session.file().player(70101).unwrap().basic.height,
+            before + 3
+        );
+        assert!(session.undo());
+        assert_eq!(
+            session.file().player(70101).unwrap().basic.height,
+            before + 2,
+            "the second batch is its own entry"
+        );
+        session.undo();
+        assert_eq!(
+            session.file().player(70101).unwrap().basic.height,
+            before + 1
+        );
+        session.undo();
+        assert_eq!(session.file().player(70101).unwrap().basic.height, before);
+        assert!(!session.can_undo(), "each push was its own entry");
     }
 
     // plans/save_editor.md "Stripped save" (the GUI parts): `strip` writes

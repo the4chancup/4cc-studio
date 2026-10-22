@@ -2302,3 +2302,7 @@ worklog passed 7,000 lines.
   checking mark, the list shrinking as a fix lands, the empty state; walked in Chrome. Slice 4 can be briefed.
 - **2026-10-22** — 8.9b2: the Save editor's Appearance tab, locked until "Edit aesthetics anyway", the stripped line, Randomize
   within each version's measured motion ranges, and Strip again on a part-stripped Fox save. Slice 1 done.
+- **2026-10-22** — The DBC7 organizer confirmed the stat total as `dbc7.rhai` has it: the player's own targets' sum (a Manlet
+  regular's bonus included), over every ability stat. The open question is closed; no rule changed.
+- **2026-10-22** — 8.9d1: the Save editor's Team tab and Team menu (edited flag, boots and gloves for everyone, names to
+  positions, Clear visual flags); boots and gloves IDs now take the save field's own range, not settings.toml's 0 to 100.

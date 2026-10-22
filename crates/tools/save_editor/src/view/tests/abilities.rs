@@ -288,19 +288,25 @@ fn the_stats_rows_wrap_at_the_panes_width() {
 }
 
 // plans/save_editor.md "Editing UI", the Tabs bullet: the four tabs draw,
-// Abilities & Skills selected, Appearance pickable, Team and Tactics
-// disabled until their slices land.
+// Abilities & Skills selected, Appearance and Team pickable, Tactics
+// disabled until its slice lands.
 #[test]
-fn the_tab_strip_shows_abilities_selected_appearance_pickable_two_disabled() {
+fn the_tab_strip_shows_abilities_selected_three_pickable_tactics_disabled() {
     let path = fixture(PesVersion::Pes21, "tab_strip");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     fn tab<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
+        // `toggled` marks the selectable tabs: the toolbar's "Team" menu
+        // button shares the tab's label but is not selectable.
         nodes
             .iter()
-            .find(|node| node.role() == Role::Button && node.label() == Some(label))
+            .find(|node| {
+                node.role() == Role::Button
+                    && node.label() == Some(label)
+                    && node.toggled().is_some()
+            })
             .unwrap_or_else(|| panic!("no tab {label:?}"))
     }
     let selected = tab(&nodes, "Abilities & Skills");
@@ -310,17 +316,17 @@ fn the_tab_strip_shows_abilities_selected_appearance_pickable_two_disabled() {
         "Abilities & Skills is the drawn tab"
     );
     assert!(!selected.is_disabled());
-    let appearance = tab(&nodes, "Appearance");
-    assert!(!appearance.is_disabled(), "Appearance picks");
-    assert_eq!(appearance.toggled(), Some(accesskit::Toggled::False));
-    for label in ["Team", "Tactics"] {
+    for label in ["Appearance", "Team"] {
         let tab = tab(&nodes, label);
-        assert!(tab.is_disabled(), "{label} is disabled");
+        assert!(!tab.is_disabled(), "{label} picks");
         assert_eq!(tab.toggled(), Some(accesskit::Toggled::False));
     }
+    let tactics = tab(&nodes, "Tactics");
+    assert!(tactics.is_disabled(), "Tactics is disabled");
+    assert_eq!(tactics.toggled(), Some(accesskit::Toggled::False));
 
     // A click switches the drawn tab.
-    click(&mut window, appearance, &mut view);
+    click(&mut window, tab(&nodes, "Appearance"), &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
         tab(&nodes, "Appearance").toggled(),

@@ -27,6 +27,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         generation: _,
         edit_aesthetics: _,
         strip_again: _,
+        boglo: _,
         randomize_draw: _,
     } = view;
     let Some(session) = session.as_mut() else {

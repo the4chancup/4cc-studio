@@ -6,7 +6,7 @@ use std::borrow::Cow;
 use pes_version::PesVersion;
 
 use crate::codec::{TextMisfit, text_max, text_misfit};
-use crate::schema::fields::PlayerText;
+use crate::schema::fields::{PlayerText, TeamText};
 use crate::schema::{portable_text_max, schema_for};
 
 /// The name without its colour codes: every `\x11c` plus the exactly eight
@@ -37,6 +37,21 @@ pub fn name_fits(version: PesVersion, text: &str) -> bool {
         text,
         text_max(schema_for(version).player.texts, PlayerText::Name),
         false,
+    )
+    .is_none()
+}
+
+/// Whether `text` fits `version`'s team `which` field, by the codec's own rule
+/// (`text_misfit`: the name counts UTF-8 bytes, the short name single-byte chars, neither
+/// holds a NUL): the editors refuse what `to_bytes` would.
+pub fn team_text_fits(version: PesVersion, which: TeamText, text: &str) -> bool {
+    text_misfit(
+        text,
+        text_max(schema_for(version).team.texts, which),
+        match which {
+            TeamText::Name => false,
+            TeamText::ShortName => true,
+        },
     )
     .is_none()
 }
@@ -234,6 +249,45 @@ mod tests {
             PesVersion::Pes21,
             &"s".repeat(19),
             "ła"
+        ));
+    }
+
+    // The team's two text fields bound by their own lengths read from PES
+    // 21's schema: the name in UTF-8 bytes, the short name in single-byte
+    // chars (`Ä` fits, `Ł` does not), a NUL refused in either.
+    #[test]
+    fn a_team_text_is_counted_as_its_field_is() {
+        let name_len = text_max(schema_for(PesVersion::Pes21).team.texts, TeamText::Name);
+        assert!(team_text_fits(
+            PesVersion::Pes21,
+            TeamText::Name,
+            &"N".repeat(name_len)
+        ));
+        assert!(!team_text_fits(
+            PesVersion::Pes21,
+            TeamText::Name,
+            &"N".repeat(name_len + 1)
+        ));
+        assert!(!team_text_fits(PesVersion::Pes21, TeamText::Name, "a\0b"));
+        assert!(team_text_fits(
+            PesVersion::Pes21,
+            TeamText::ShortName,
+            "ABC"
+        ));
+        assert!(team_text_fits(
+            PesVersion::Pes21,
+            TeamText::ShortName,
+            "ÄBC"
+        ));
+        assert!(!team_text_fits(
+            PesVersion::Pes21,
+            TeamText::ShortName,
+            "ŁBC"
+        ));
+        assert!(!team_text_fits(
+            PesVersion::Pes21,
+            TeamText::ShortName,
+            "A\0C"
         ));
     }
 

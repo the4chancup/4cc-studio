@@ -10143,3 +10143,35 @@ write arm movements 6 to 8 and celebrations 113 to 122, which that game does not
 PES 18 and 19 it never reaches celebrations 123 to 127 and 123 to 140. The measured table
 already decides the Team TOML's and the conversions' ranges, so the tab agrees with them.
 Plan: `plans/save_editor.md` "Editing UI" (Tabs, Appearance).
+
+## 2026-10-22 — save_editor — Team operations act on the selected player's team alone
+Decision: every Team menu operation acts on the selected player's team (under ALL too), on
+every filled roster slot, as one undoable edit.
+Why: 4ccEditor's team operations do so (`team_vis_clear`, `team_created_set`, `team_fpc_on`
+take the selected player's `team_ind`), but its `player_names_to_positions` renames every row
+its list shows, which under ALL is every player of the save. One scope for every item of one
+menu, not a menu whose fourth item reaches the whole save because its list happened to be ALL.
+Plan: `plans/save_editor.md` "Feature inventory", Team operations.
+
+## 2026-10-22 — save_editor — FPC keeps a model's own IDs, and is two actions, not a checkbox
+Decision: hiding writes the hide preset's boots or gloves ID only where the record holds 0 (or
+already the hide ID), showing writes 0 only where it holds the hide ID; any other ID is kept.
+The Appearance tab reads `is_fpc_player` as a line and offers Hide body and Show body; Ctrl+I
+shows a player read as hidden and hides any other. The hide IDs stay `libs/fpc`'s constants for
+the editor and the compiler alike until the suite-common setting is built for both.
+Why: the wiki's hide list allows "your FBM's custom boots", the compiler keeps a
+`settings.toml`'s own ID over the marker's (TC-BIN-29), and 4ccEditor's enable and disable
+functions swap only 0 and the hide IDs: writing 55 over an FBM's own boots ID would unlink his
+body model. A checkbox drawn from `is_fpc_player` would then stay unticked after hiding such a
+player, and a second click would hide him again rather than show him. A setting in one tool
+only would let the two tools' hide IDs differ.
+Plan: `plans/save_editor.md` "Full Player Customization (FPC)"; SE-GUI-11 reworded.
+
+## 2026-10-22 — aatf (DBC7) — The stat total: the player's own targets, over every ability stat
+Decision: the DBC7 organizer confirmed both readings `dbc7.rhai` already took: a regular's or a
+silver's ability stats, added up, may not exceed the sum of his own targets (so a Manlet regular
+who takes the +5 is held to an all-82 sum), and the sum runs over every ability stat the
+version has, an outfielder's goalkeeping stats included.
+Why: a flat all-77 cap would leave the Manlet bonus nothing but points to trade between stats,
+and a per-role list of stats would be a second rule to maintain for no gain the organizer wants.
+Plan: `plans/aatf_rules.md` "DBC7" (the stat-total bullet); `QUESTIONS.md` entry removed.

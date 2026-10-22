@@ -248,4 +248,11 @@ exclude_re = [
     # `end == len` the loop's other test ends it at the same place. Pinned by line and column:
     # the function's two other `<` (the `\x11c`/`\x11d` look-aheads) stay measured.
     "pes_savefile/src/model/names\\.rs:112:23: replace < with <= in text_spans",
+    # save_editor (mutants-diff, worklog 8.9b2): `clock_seed`'s seed is
+    # `nanos ^ secs | 1`: `^` -> `&` or `|` still yields an odd seed, the
+    # seed's only requirement (a zero state would draw 1 forever); which odd
+    # seed the clock takes is unconstrained. The `| 1` mutants stay measured
+    # (`the_clock_seed_is_odd`).
+    "save_editor/src/view/appearance/mod\\.rs:\\d+:\\d+: replace \\^ with & in clock_seed",
+    "save_editor/src/view/appearance/mod\\.rs:\\d+:\\d+: replace \\^ with \\| in clock_seed",
 ]

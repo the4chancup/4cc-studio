@@ -3,14 +3,14 @@
 //! tabs. Each control edits a copy of the entry and, when it changes, pushes it
 //! under its own `egui::Id` (the undo stack's merge key).
 
+use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::names::{crop_player_text, name_fits, shirt_name_edit_fits};
-use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_savefile::schema::fields::{PlayerField, PlayerText, RosterField};
 use pes_savefile::schema::{VersionSchema, portable_text_max, schema_for};
 use pes_version::PesVersion;
 
 use crate::session::Session;
-use crate::view::{SaveView, edit_player, selected_player};
+use crate::view::{SaveView, edit_player, edit_team, selected_player};
 
 /// The strip for the selected player; nothing when the selection names no
 /// rostered player (a stale slot, an empty save's list).
@@ -177,10 +177,12 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             |player: &mut PlayerEntry, value| player.basic.age = value,
         );
         ui.label("Nation");
-        let response =
-            ui.add(egui::DragValue::new(&mut nation).range(
-                0..=u16::try_from(max(schema, PlayerField::Nationality)).unwrap_or(u16::MAX),
-            ));
+        let response = ui.add(
+            egui::DragValue::new(&mut nation).range(
+                0..=u16::try_from(max(schema, PlayerField::Nationality))
+                    .expect("the nationality field is 16-bit"),
+            ),
+        );
         if response.changed() {
             edit_player(session, player_id, response.id.value(), |player| {
                 player.basic.nationality = nation;
@@ -239,26 +241,15 @@ fn number<N: egui::emath::Numeric + TryFrom<u64>>(
     }
 }
 
-/// `edit_player` for the team's entry.
-fn edit_team(session: &mut Session, id: u32, key: u64, edit: impl FnOnce(&mut TeamEntry)) {
-    let mut edited = session.file().team(id).expect("the selected team").clone();
-    edit(&mut edited);
-    session.edit_team(key, edited);
-}
-
 /// The biggest value the save's `schema` stores in `field`'s player-record
 /// bit run (`2^width - 1`, the codec's `ValueTooWide` bound): the range the
 /// strip's number controls take, so a typed value is never one the codec
-/// refuses. The strip's fields are stored on every version; a field the
-/// schema lacks clamps to the model type's own range.
+/// refuses. The strip's fields are stored on every version.
 fn max(schema: &VersionSchema, field: PlayerField) -> u64 {
     schema
         .player
-        .fields
-        .iter()
-        .find(|spec| spec.field == field)
-        .map(|spec| (1u64 << spec.bit_width) - 1)
-        .unwrap_or(u64::MAX)
+        .max_value(field)
+        .expect("the strip's fields are stored on every version")
 }
 
 /// The length of the player record's `which` text field, from the schema
@@ -275,11 +266,9 @@ fn text_len(schema: &VersionSchema, which: PlayerText) -> usize {
 
 /// The same bound for the roster's shirt-number run.
 fn roster_number_max(schema: &VersionSchema) -> u16 {
-    schema
+    let max = schema
         .roster
-        .arrays
-        .iter()
-        .find(|array| (array.make)(0) == RosterField::Number(0))
-        .map(|array| u16::try_from((1u64 << array.bit_width) - 1).unwrap_or(u16::MAX))
-        .unwrap_or(u16::MAX)
+        .max_value(RosterField::Number(0))
+        .expect("every version stores the shirt number");
+    u16::try_from(max).expect("the shirt number's bound fits u16")
 }

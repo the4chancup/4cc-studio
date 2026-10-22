@@ -10,14 +10,16 @@
 mod abilities;
 mod appearance;
 mod info_strip;
+mod menus;
 mod player_list;
+mod team;
 #[cfg(test)]
 mod tests;
 
 use std::path::{Path, PathBuf};
 
-use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::names::name_spans;
+use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_version::Engine;
 use studio_core::RunningPes;
 
@@ -25,14 +27,16 @@ use crate::session::Session;
 use crate::session::selection::{self, TeamChoice};
 
 /// The detail pane's drawn tabs (`plans/save_editor.md` "Editing UI", the
-/// Tabs bullet): Team and Tactics stay disabled buttons until their slices
-/// land, so they are no variants yet.
+/// Tabs bullet): Tactics stays a disabled button until its slice lands,
+/// so it is no variant yet.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Tab {
     /// Abilities & Skills.
     Abilities,
     /// Appearance (`appearance`).
     Appearance,
+    /// The selected player's team (`team`).
+    Team,
 }
 
 /// The window's state: the open save and what the master-detail shows of it.
@@ -71,6 +75,9 @@ pub(crate) struct SaveView {
     /// with one player stripped by accident would otherwise look up every
     /// other player's team every frame); `None` while it is closed.
     strip_again: Option<Vec<StripRow>>,
+    /// The Set boots and gloves dialog's state while it is open (the Team
+    /// menu's `…` item); `None` while it is closed.
+    boglo: Option<menus::Boglo>,
     /// Where the Appearance tab's Randomize draws a motion value in
     /// `1..=top` from: a field so the tests pin the draws; `new` seeds a
     /// xorshift from the wall clock (the picks need only be unpredictable
@@ -145,6 +152,7 @@ impl SaveView {
             generation: 0,
             edit_aesthetics: false,
             strip_again: None,
+            boglo: None,
             randomize_draw: Box::new(appearance::seeded_draw()),
         }
     }
@@ -186,6 +194,7 @@ impl SaveView {
                 self.session = Some(session);
                 self.generation += 1;
                 self.refusal = None;
+                self.boglo = None;
             }
             Err(error) => {
                 self.refusal = Some(Refusal {
@@ -230,11 +239,13 @@ pub(crate) fn show(
                 .show(ui, |ui| match view.tab {
                     Tab::Abilities => abilities::show(ui, view),
                     Tab::Appearance => appearance::show(ui, view),
+                    Tab::Team => team::show(ui, view),
                 });
         });
     }
     refusal_dialog(ui, view);
     strip_again_dialog(ui, view);
+    menus::boglo_dialog(ui, view);
     // One undo entry per gesture: seal when the pointer is up and no widget
     // holds the keyboard.
     if let Some(session) = view.session.as_mut()
@@ -262,6 +273,10 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
     let undo_key = !typing
         && !redo_key
         && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::Z));
+    // Ctrl+F is Clear visual flags: an aesthetics write, so a no-op under
+    // the lock, and a no-op while a widget holds the keyboard (`typing`).
+    let clear_flags_key =
+        !typing && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::F));
     ui.horizontal(|ui| {
         if ui.button("Open…").clicked()
             && let Some(path) = rfd::FileDialog::new().pick_file()
@@ -296,6 +311,7 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         {
             save(view, running);
         }
+        menus::team_menu(ui, view);
         if let Some(session) = view.session.as_ref() {
             let path = session.path().display().to_string();
             let marker = if session.is_dirty() {
@@ -313,6 +329,13 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
             );
         }
     });
+    if clear_flags_key
+        && view.edit_aesthetics
+        && let Some((team_id, _, _)) = selected_player(view)
+        && let Some(session) = view.session.as_mut()
+    {
+        session.clear_visual_flags(team_id);
+    }
 }
 
 /// `session.save` and the modal its refusal takes (the draft's `saveFile`).
@@ -331,13 +354,14 @@ fn save(view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
 }
 
 /// The detail pane's tabs (`plans/save_editor.md` "Editing UI", the Tabs
-/// bullet): Abilities & Skills and Appearance pick; Team and Tactics are
-/// drawn disabled until their slices land.
+/// bullet): Abilities & Skills, Appearance and Team pick; Tactics is
+/// drawn disabled until its slice lands.
 fn tab_strip(ui: &mut egui::Ui, tab: &mut Tab) {
     ui.horizontal(|ui| {
         for (which, label) in [
             (Tab::Abilities, "Abilities & Skills"),
             (Tab::Appearance, "Appearance"),
+            (Tab::Team, "Team"),
         ] {
             if ui
                 .add(egui::Button::selectable(*tab == which, label))
@@ -346,10 +370,8 @@ fn tab_strip(ui: &mut egui::Ui, tab: &mut Tab) {
                 *tab = which;
             }
         }
-        for label in ["Team", "Tactics"] {
-            ui.add_enabled(false, egui::Button::selectable(false, label))
-                .on_disabled_hover_text("Not available yet");
-        }
+        ui.add_enabled(false, egui::Button::selectable(false, "Tactics"))
+            .on_disabled_hover_text("Not available yet");
     });
 }
 
@@ -368,6 +390,19 @@ pub(crate) fn edit_player(
         .clone();
     edit(&mut edited);
     session.edit_player(key, edited);
+}
+
+/// `edit_player` for the team's entry (the info strip's Number and
+/// Captain, the Team tab's fields).
+pub(crate) fn edit_team(
+    session: &mut Session,
+    id: u32,
+    key: u64,
+    edit: impl FnOnce(&mut TeamEntry),
+) {
+    let mut edited = session.file().team(id).expect("the selected team").clone();
+    edit(&mut edited);
+    session.edit_team(key, edited);
 }
 
 /// The selected player's `(team_id, roster slot, player_id)`; `None` when

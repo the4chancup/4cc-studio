@@ -2793,6 +2793,7 @@ const WALK = [
   ["SE-GUI-07", "the Appearance tab is disabled under the ownership line; the switch unlocks it; the switch is off on every open"],
   ["SE-GUI-08", "drag a list row onto another: the dragged player's name, stats and look land on the target slot, those between shift one along, while every slot keeps its id, shirt number and captain mark; the save is marked unsaved"],
   ["SE-GUI-09", "the quick actions follow the ruleset control: Gold/Silver/Bronze/Goalkeeper/Regular under official, VTL11 and DBC7 their own"],
+  ["SE-GUI-11", "switch Edit aesthetics anyway on; the Appearance tab's FPC group: Hide body (or Ctrl+I) gives the hide preset and reads 'FPC: hidden body', Show body (or Ctrl+I again) the show preset; a player with his own boots ID keeps it"],
   ["SE-GUI-12", "the Tactics tab: drag a pitch marker (it snaps to the stored grid, undoable), drop a bench row on a marker to swap, arm a set-piece chip and click a marker, arm Join attack and click two markers"],
   ["SE-GUI-25", "the tab's menus: Copy preset 1 to 2, then Swap Kick-off and In-possession; each is one undoable edit"],
   ["card badges", "the Abilities tab shows cards left per tier next to the pickers; under DBC7 the count stays positive (no card is capped), under the official ruleset ticking cards takes it to 0 then red"],
@@ -2934,15 +2935,21 @@ const FPC_UNHIDE = { sleeves: "short", untucked: true, socks: "standard", boots_
 // The save-side classifier (ops/fpc.rs::is_fpc_player): the convention's
 // nonexistent boots id, or a custom skin.
 const isFpc = p => p.boots_id === 55 || p.appearance.skin_color === 7;
+// A model's own boots or gloves ID is kept: a preset's ID replaces only 0 or
+// the hide ID (plans/save_editor.md "Full Player Customization (FPC)").
+const presetId = (own, hideId, presetValue) => own === 0 || own === hideId ? presetValue : own;
 function applyPreset(p, pre) {
   const st = p.appearance.strip;
   st.sleeves = pre.sleeves; st.untucked = pre.untucked; st.socks = pre.socks;
-  p.boots_id = pre.boots_id; p.gloves_id = pre.gloves_id;
+  p.boots_id = presetId(p.boots_id, FPC_HIDE.boots_id, pre.boots_id);
+  p.gloves_id = presetId(p.gloves_id, FPC_HIDE.gloves_id, pre.gloves_id);
   if (p.appearance.skin_color === 7) p.appearance.skin_color = 1;
 }
-function fpcToggle(p) {
-  edit("Toggle FPC", () => applyPreset(p, isFpc(p) ? FPC_UNHIDE : FPC_HIDE));
+function fpcHide(p, on) {
+  edit(on ? "Hide body" : "Show body", () => applyPreset(p, on ? FPC_HIDE : FPC_UNHIDE));
 }
+// Ctrl+I: shows a player the classifier reads as hidden, hides any other.
+function fpcToggle(p) { fpcHide(p, !isFpc(p)); }
 // The interference rules' findings for `p` (fpc::check's fixed order).
 // sample wording: the findings' texts.
 function fpcFindings(p) {
@@ -3588,17 +3595,19 @@ function appearanceTab(p) {
       paletteRow("skin", p.appearance.skin_color, (x, v) => x.appearance.skin_color = v, p, "skin colour")),
     h("div", { class: "row" }, "Iris ",
       paletteRow("iris", p.appearance.iris_color, (x, v) => x.appearance.iris_color = v, p, "iris colour")));
-  // The per-player FPC toggle (also Ctrl+I) and the interference findings of
-  // fpc::check, fixed order. Disabled with the rest of the tab under the lock.
+  // The classifier's reading, Hide body and Show body (Ctrl+I picks one), and
+  // the interference findings of fpc::check, fixed order. Not a checkbox: a
+  // player hidden by his model's own boots ID reads as shown. Disabled with
+  // the rest of the tab under the lock.
   const findings = fpcFindings(p);
   const fpcGroup = h("div", { class: "group", title: en ? null : ownershipTip() },
     strong("Full Player Customization"),
     h("div", { class: "row" },
-      h("label", { class: "cb" },
-        h("input", { type: "checkbox", id: "fpc-toggle", checked: isFpc(p),
-          title: "The hide preset's values; the team-wide switch is in the Team menu",
-          onchange: () => { fpcToggle(p); render(); } }),
-        " FPC (invisible body)")),
+      h("span", { id: "fpc-state" }, isFpc(p) ? "FPC: hidden body" : "FPC: body shown"), " ",
+      button("Hide body", () => { fpcHide(p, true); render(); },
+        { title: "The hide preset: long sleeves, tucked, short socks; boots 55 and gloves 11 where the IDs are 0 (a model's own IDs are kept). Ctrl+I; the whole team: Team menu" }),
+      button("Show body", () => { fpcHide(p, false); render(); },
+        { title: "The show preset: short sleeves, untucked, standard socks; boots and gloves 0 where they are 55 and 11" })),
     findings.length
       ? findings.map(([sev, text]) => h("div", { class: "row " + sev },
           (sev === "err" ? "Error: " : sev === "warn" ? "Warning: " : "Info: ") + text))

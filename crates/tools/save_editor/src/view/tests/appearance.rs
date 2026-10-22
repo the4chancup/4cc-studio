@@ -404,7 +404,19 @@ fn a_fox_save_with_some_ids_set_lists_them_with_strip_again() {
     for player in file.players_mut() {
         player.appearance_id = Some(STRIPPED_APPEARANCE_ID);
     }
-    for id in [70101u32, 70102, 70103] {
+    // Team 702's first three rostered players are the ones left set: their
+    // rows' team names are 702's own, which is not the first team the save
+    // lists (so a wrong-team lookup shows).
+    let listed_ids: Vec<u32> = file
+        .team(702)
+        .unwrap()
+        .roster
+        .iter()
+        .map(|slot| slot.player_id)
+        .filter(|&id| id != 0)
+        .take(3)
+        .collect();
+    for &id in &listed_ids {
         file.player_mut(id).unwrap().appearance_id = Some(id);
     }
     file.save(&path).unwrap();
@@ -434,7 +446,19 @@ fn a_fox_save_with_some_ids_set_lists_them_with_strip_again() {
         .filter_map(|node| node.value())
         .collect();
     listed.sort();
-    assert_eq!(listed, ["70101", "70102", "70103"], "exactly the three");
+    let expected_ids: Vec<String> = listed_ids.iter().map(u32::to_string).collect();
+    assert_eq!(listed, expected_ids, "exactly the three");
+    // Each row names the team whose roster holds its player: team 702's
+    // "/a/", three times.
+    let team_labels = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Label
+                && node.bounds().is_some_and(|bounds| bounds.y0 > heading_y)
+                && node.value() == Some("/a/")
+        })
+        .count();
+    assert_eq!(team_labels, 3, "each row's team name is its player's team");
     assert!(
         label_drawn(
             &nodes,
@@ -449,7 +473,7 @@ fn a_fox_save_with_some_ids_set_lists_them_with_strip_again() {
         .find(|node| node.role() == Role::Button && node.label() == Some("Strip again"))
         .expect("the Strip again button");
     click(&mut window, strip, &mut view);
-    for id in [70101u32, 70102, 70103] {
+    for &id in &listed_ids {
         assert_eq!(
             view.session
                 .as_ref()
@@ -470,7 +494,7 @@ fn a_fox_save_with_some_ids_set_lists_them_with_strip_again() {
     );
 
     assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
-    for id in [70101u32, 70102, 70103] {
+    for &id in &listed_ids {
         assert_eq!(
             view.session
                 .as_ref()
@@ -532,6 +556,50 @@ fn randomize_low_end_stores_zero_for_one_based_and_one_for_celebrations() {
     assert_eq!(motion.dribbling, Some(0), "the dribbling motion is left");
 }
 
+// plans/save_editor.md "Editing UI", the physique bullet's scale: a `Signed`
+// key shows `stored - limit` and stores `shown + limit` (limit 7). Stored
+// 12 draws 5; typing 3 stores 10.
+#[test]
+fn a_physique_field_shows_stored_minus_limit_and_stores_shown_plus_it() {
+    let path = fixture(PesVersion::Pes21, "physique_scale");
+    // A stored value off the neutral 7, so `- limit` and `/ limit` differ.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.player_mut(70101).unwrap().appearance.neck_length = 12;
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    let neck_length = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .appearance
+            .neck_length
+    };
+    assert_eq!(neck_length(&view), 12, "premise: stored 12");
+    let mut window = Headless::sized(1100.0, 700.0);
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let neck = right_of_label(&nodes, "Neck length", Role::SpinButton)
+        .first()
+        .copied()
+        .expect("the Neck length control");
+    assert_eq!(neck.value(), Some("5"), "stored 12 shows 5");
+    click(&mut window, neck, &mut view);
+    window.frame(vec![egui::Event::Text("3".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert_eq!(neck_length(&view), 10, "typed 3 stores 3 + 7");
+}
+
 // plans/save_editor.md "Editing UI", the palette bullet: a swatch click
 // writes its index as one undoable edit.
 #[test]
@@ -567,4 +635,349 @@ fn a_swatch_click_stores_its_index() {
     assert_eq!(skin_of(&view), 5, "brown stores 5");
     assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
     assert_eq!(skin_of(&view), 1, "the undo restores it");
+}
+
+// The motion fields' scales (`motion_number`): a 1-based motion shows
+// `stored + 1` and its range ends at the version's shown top (a typed value
+// past it clamps there), storing `shown - 1`; a celebration shows as stored.
+#[test]
+fn a_one_based_motion_shows_one_above_stored_within_the_measured_top() {
+    let path = fixture(PesVersion::Pes21, "motion_one_based");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1100.0, 700.0);
+    let motion_of = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .motion
+            .clone()
+    };
+    let stored = motion_of(&view).free_kick;
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let free = right_of_label(&nodes, "Free kick", Role::SpinButton)
+        .first()
+        .copied()
+        .expect("the Free kick control");
+    assert_eq!(
+        free.value(),
+        Some((stored + 1).to_string()).as_deref(),
+        "a 1-based motion shows stored + 1"
+    );
+    let celebration = right_of_label(&nodes, "Goal celebration 1", Role::SpinButton)
+        .first()
+        .copied()
+        .expect("the Goal celebration 1 control");
+    assert_eq!(
+        celebration.value(),
+        Some(motion_of(&view).goal_celebration_1.to_string()).as_deref(),
+        "a celebration shows as stored"
+    );
+
+    // Typing 7 stores 6; typing past the shown top clamps to it (PES 21's
+    // free-kick top 19, shown 20) and stores 19.
+    click(&mut window, free, &mut view);
+    window.frame(vec![egui::Event::Text("7".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert_eq!(motion_of(&view).free_kick, 6, "typed 7 stores 6");
+    click(&mut window, free, &mut view);
+    window.frame(vec![egui::Event::Text("99".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert_eq!(
+        motion_of(&view).free_kick,
+        19,
+        "past the shown top it stops at 20, stored 19"
+    );
+}
+
+// A combo pick stores the option's index (`combo`'s `picked != stored`
+// write): Sleeves' "Long" is index 2, one undo entry.
+#[test]
+fn a_combo_pick_stores_the_options_index_as_one_undo_entry() {
+    let path = fixture(PesVersion::Pes21, "combo_sleeves");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    let sleeves = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .appearance
+            .sleeves
+    };
+    assert_ne!(sleeves(&view), 2, "premise: not Long");
+    let mut window = Headless::sized(1100.0, 700.0);
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let combo = right_of_label(&nodes, "Sleeves", Role::ComboBox)
+        .first()
+        .copied()
+        .expect("the Sleeves combo");
+    click(&mut window, combo, &mut view);
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (item, _) = nodes
+        .iter()
+        .find(|(_, node)| node.label() == Some("Long"))
+        .expect("the Long option");
+    action_click(&mut window, &mut view, *item);
+
+    assert_eq!(sleeves(&view), 2, "Long stores 2");
+    assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
+}
+
+// The Player gloves checkbox draws the face run's PlayerGloves flag: 1
+// ticked, 0 not (`face(..., PlayerGloves) != 0`).
+#[test]
+fn the_player_gloves_checkbox_draws_the_runs_flag() {
+    let path = fixture(PesVersion::Pes21, "gloves_checkbox");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    for (id, gloves) in [(70101u32, 1u8), (70102, 0)] {
+        file.player_mut(id)
+            .unwrap()
+            .appearance
+            .ingame_face
+            .set(IngameFaceField::PlayerGloves, gloves)
+            .unwrap();
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1100.0, 700.0);
+    fn gloves_box(nodes: &[accesskit::Node]) -> &accesskit::Node {
+        nodes
+            .iter()
+            .find(|node| node.role() == Role::CheckBox && node.label() == Some("Player gloves"))
+            .expect("the Player gloves checkbox")
+    }
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        gloves_box(&nodes).toggled(),
+        Some(accesskit::Toggled::True),
+        "70101's run flag 1 ticks it"
+    );
+    view.selected = Some((701, 1));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        gloves_box(&nodes).toggled(),
+        Some(accesskit::Toggled::False),
+        "70102's run flag 0 unticks it"
+    );
+}
+
+/// The swatches of the Skin row (`Role::ColorWell`, labeled "Skin …"),
+/// in x order.
+fn skin_swatches(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
+    let mut swatches: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::ColorWell
+                && node.label().is_some_and(|label| label.starts_with("Skin "))
+        })
+        .collect();
+    swatches.sort_by(|a, b| {
+        a.bounds()
+            .expect("bounds")
+            .x0
+            .partial_cmp(&b.bounds().expect("bounds").x0)
+            .expect("ordered bounds")
+    });
+    swatches
+}
+
+/// A Label node with `value` on `row`'s y (within four points).
+fn label_on_row<'a>(
+    nodes: &'a [accesskit::Node],
+    row: &accesskit::Node,
+    value: &str,
+) -> Option<&'a accesskit::Node> {
+    let y = row.bounds().expect("the row's bounds").y0;
+    nodes.iter().find(|node| {
+        node.role() == Role::Label
+            && node.value() == Some(value)
+            && node.bounds().is_some_and(|b| (b.y0 - y).abs() < 4.0)
+    })
+}
+
+// The Skin palette draws the palette's entries: on Fox the Custom entry
+// is dropped (0 to 6), on PES 17 the whole palette (0 to 7); the held
+// index's swatch reports selected; a stored value past the top draws its
+// number after the swatches, one at the top none.
+#[test]
+fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
+    let path = fixture(PesVersion::Pes21, "palette_skin");
+    // Held at 3 ("Skin Medium"), then past the top (7, a PES 21 save can
+    // hold it) for the number case.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.player_mut(70101)
+        .unwrap()
+        .appearance
+        .ingame_face
+        .set(IngameFaceField::SkinColor, 3)
+        .unwrap();
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1100.0, 700.0);
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let swatches = skin_swatches(&nodes);
+    assert_eq!(
+        swatches.len(),
+        7,
+        "Fox draws entries 0 to 6, Custom dropped"
+    );
+    assert!(
+        !swatches.iter().any(|sw| sw.label() == Some("Skin Custom")),
+        "no Custom swatch on PES 21"
+    );
+    let held: Vec<&accesskit::Node> = swatches
+        .iter()
+        .copied()
+        .filter(|sw| sw.toggled() == Some(accesskit::Toggled::True))
+        .collect();
+    assert_eq!(held.len(), 1, "exactly the held swatch is selected");
+    assert_eq!(held[0].label(), Some("Skin Medium"), "skin 3 held");
+
+    // A stored value past the top draws its number after the swatches.
+    file.player_mut(70101)
+        .unwrap()
+        .appearance
+        .ingame_face
+        .set(IngameFaceField::SkinColor, 7)
+        .unwrap();
+    file.save(&path).unwrap();
+    view.open(&path);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let swatches = skin_swatches(&nodes);
+    assert!(
+        label_on_row(&nodes, swatches[0], "7").is_some(),
+        "the past-top value's number draws"
+    );
+    // One at the top draws none.
+    file.player_mut(70101)
+        .unwrap()
+        .appearance
+        .ingame_face
+        .set(IngameFaceField::SkinColor, 6)
+        .unwrap();
+    file.save(&path).unwrap();
+    view.open(&path);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let swatches = skin_swatches(&nodes);
+    assert!(
+        label_on_row(&nodes, swatches[0], "6").is_none(),
+        "a value at the top draws no number"
+    );
+
+    // Pre-Fox draws the whole palette, Custom included.
+    let path17 = fixture(PesVersion::Pes17, "palette_skin_17");
+    let mut view17 = SaveView::new();
+    view17.open(&path17);
+    view17.tab = Tab::Appearance;
+    view17.edit_aesthetics = true;
+    let mut window17 = Headless::sized(1100.0, 700.0);
+    let (_, nodes, _) =
+        window17.frame(Vec::new(), |ui| show(ui, &mut view17, &|| Vec::new(), None));
+    let swatches = skin_swatches(&nodes);
+    assert_eq!(swatches.len(), 8, "PES 17 draws the whole palette");
+    assert!(
+        swatches.iter().any(|sw| sw.label() == Some("Skin Custom")),
+        "Custom on PES 17"
+    );
+}
+
+// The strip and motion grids break a row after `pairs_per_row` pairs (190
+// each, so four at this pane's width): the first four controls of each
+// share one row, the fifth wraps below — the same rule
+// `the_stats_rows_wrap_at_the_panes_width` pins for the stats.
+#[test]
+fn the_strip_and_motion_grids_wrap_after_the_fitted_pairs() {
+    let path = fixture(PesVersion::Pes21, "grid_wraps");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1100.0, 700.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let y = |label: &str| control_right_of(&nodes, label).bounds().expect("bounds").y0;
+
+    let first = y("Boots ID");
+    for label in ["Gloves ID", "Sleeves", "Inners"] {
+        assert!((y(label) - first).abs() < 1.0, "{label} on the first row");
+    }
+    assert!(y("Socks") > first + 5.0, "Socks wraps below");
+
+    let first = y("Hunching (dribbling)");
+    for label in [
+        "Hunching (running)",
+        "Arm movement (dribbling)",
+        "Arm movement (running)",
+    ] {
+        assert!((y(label) - first).abs() < 1.0, "{label} on the first row");
+    }
+    assert!(y("Corner kick") > first + 5.0, "Corner kick wraps below");
+}
+
+// The id controls take the record's own bound (`player_max_value`, the
+// codec's 14-bit field — wider than `settings.toml`'s 0 to 100 stock
+// range): a compile-allocated 627 types and stores.
+#[test]
+fn the_boots_id_control_takes_the_records_bound() {
+    let path = fixture(PesVersion::Pes21, "boots_id_627");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1100.0, 700.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let boots = right_of_label(&nodes, "Boots ID", Role::SpinButton)
+        .first()
+        .copied()
+        .expect("the Boots ID control");
+    click(&mut window, boots, &mut view);
+    window.frame(vec![egui::Event::Text("627".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert_eq!(
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .appearance
+            .boots_id,
+        627,
+        "a compile-allocated id stores"
+    );
 }

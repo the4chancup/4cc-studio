@@ -22,8 +22,8 @@ wording to fold in when they come; 8.7a-b, the color picker, done, its reviews g
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
 upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-21): 20.0d (the
-DBC7 ruleset), 20.0e (the organizer's choices in it; QUESTIONS.md "DBC7: the stat total"
-waits on the organizer), 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's
+DBC7 ruleset), 20.0e (the organizer's choices in it; the stat total's two readings confirmed
+by the organizer 2026-10-22), 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's
 rulings) and 8.5 (the Save editor's draft, `docs/prototypes/save_editor.html`, waiting for the
 maintainer's remarks; the view starts with what they are least likely to change). The face_diff model comparison (Issues, "a face diff is
 engine-specific") follows the editors. 8.0's acceptance sections are reviewed and the shell's
@@ -933,8 +933,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       draft's `isFox` corrected). Files: `save_editor/{help/04_appearance.md,src/{lib.rs,
       session/mod.rs,view/{mod.rs,abilities.rs,player_list.rs,appearance/{mod.rs,fields.rs},
       tests.rs,tests/{abilities.rs,appearance.rs}}}}`
-      - [ ] review: rides with the next checkpoint (b) review (one crate, no `pub` item);
-        `mutants-diff 06e66939`
+      - [ ] review: rides with the next checkpoint (b) review (one crate, no `pub` item).
+        `mutants-diff e34d1afc` at `0c748396`: 34 survivors, triaged in
+        `.tmp/8_9/survivors_b2.md` (30 missing tests: physique, motion, combo, gloves checkbox,
+        palettes, Strip again's team, the grids' row breaks, Randomize's generator; 2 equivalent;
+        2 removed by giving every sealed operation one undo key); fixed with 8.9d1's rework
     - [x] the portable name limits (`plans/pes_savefile/operations.md` "Team TOML", Portable
       text limits; DECISIONS 2026-10-21), with 8.9b1 and its rework: `portable_text_max` and
       `crop_player_text` in `pes_savefile`; the info strip's Shirt field held to 18 (an
@@ -986,6 +989,39 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         - [x] review: with 8.9c1's (one surface, the rule and its first user): SWE-2 S1 on
           each (0 of 8, 2 of 5), Astra A3 (3 of 4, rework 2), SWE-2 S2 over the reworks (0; two
           nits fixed); `mutants-diff 78b049a8` at `eca895b1`: every viable mutant caught
+    - [ ] 8.9d slice 2 (Team tab, batch operations, FPC), in three parts:
+      - [x] 8.9d1 the Team tab (SE-GUI-10) and the Team menu but its FPC items (SE-GUI-23,
+        SE-GUI-22's menu part): Set edited flag, Set boots and gloves IDs for everyone, Set
+        player names to positions, Clear visual flags (Ctrl+F), on the selected player's team
+        (DECISIONS 2026-10-22); `Session::edit_players`, one sealed entry, which `strip` then
+        uses; `pes_savefile`'s team text check. Done 2026-10-22 (SWE-2, a run, a finish and one
+        rework; the first run stalled on its own `find /`): `view/team.rs` (names with
+        `team_text_fits`, the colours through `color_tools`' picker at 6 bits a channel, the
+        manager and stadium ids, PES 17's kit slots as `binding / 64`), `view/menus.rs` (the
+        Team menu, the boots and gloves dialog), `session/team_ops.rs` (one roster walk),
+        `help/05_team.md`; every sealed operation (move, strip, team batch) through
+        `edit_players` under one `SEALED_KEY`; the boots and gloves IDs bounded by the
+        record's own field (`RecordSchema::max_value`, `player_max_value`), not
+        `settings.toml`'s 0 to 100, which the Appearance tab had also used since 8.9b2 (a
+        compiler-allocated 627 could not be typed). With it, 8.9b2's survivors' tests and
+        `named_values` ending a name at "; ". Files: `pes_savefile/src/{model/names.rs,
+        schema/mod.rs}`, `save_editor/{Cargo.toml,help/05_team.md,src/{lib.rs,session/{mod.rs,
+        team_ops.rs},view/{mod.rs,menus.rs,team.rs,info_strip.rs,player_list.rs,appearance/{mod.rs,
+        fields.rs},tests.rs,tests/{abilities.rs,appearance.rs,team.rs}}}}`, `.cargo/mutants.toml`
+        - [ ] review (checkpoint b: `team_text_fits`, `first_version_with_team`, `max_value`,
+          `player_max_value`): a SWE-2 loop, then Astra, from the review worktree at the commit;
+          then `mutants-diff 0c748396`
+      - [ ] 8.9d2 the Player menu (SE-GUI-24: Set all, Bump all, Copy and Swap stats) and FPC
+        (SE-GUI-11, SE-GUI-22's FPC parts): Hide body and Show body on the Appearance tab with
+        the interference findings, Ctrl+I, the Team menu's Set and Remove FPC invisibility; a
+        model's own IDs kept (DECISIONS 2026-10-22). The draft's checkbox and `applyPreset`
+        corrected first
+      - [ ] 8.9d3 the Savefile menu (SE-GUI-27): Output rosters to TSV and Fix database behind
+        its confirmation (the PES 17 kit-ID repair writes the container's Unknown section, which
+        the model does not carry: read `fix_database` first)
+    - [ ] the FPC hide IDs (55, 11) as a suite-common setting the editor and the Team compiler
+      both read (`plans/save_editor.md` "Full Player Customization (FPC)"), in one step; both
+      use `libs/fpc`'s constants until then
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
@@ -1329,8 +1365,8 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     editor") in the draft → verify: the 20.0d parity run against the fork on the two PES 2017
     saves, every difference a listed class (the total and the registered-position severity
     the new ones), the 29 and 36 teams the band alone failed now passing unless the total
-    catches them, tallied; the stat total's two readings wait on QUESTIONS.md "DBC7: the stat
-    total". Done 2026-10-21 (SWE-2): the three fields with their load rule (a choice option
+    catches them, tallied; the stat total's two readings (the player's own targets' sum, over
+    every ability stat) confirmed by the organizer 2026-10-22. Done 2026-10-21 (SWE-2): the three fields with their load rule (a choice option
     holding `stat_warning` is refused), the band's severity and `StatTotal` in `logic.rhai`,
     the Save editor's line for it, `dbc7.rhai` (the band 7 and 5, the Manlet regular's 5, the
     total, the 189 cm goalkeeper's single A, the registered-position warning over the 13

@@ -66,6 +66,11 @@ implementation is measured against.
 
 What exists of this is in `spec/save_editor.md` "Team operations".
 
+Each operation below acts on the selected player's team (under ALL too, as 4ccEditor's do),
+on every filled roster slot, as one undoable edit. 4ccEditor's Set player names to positions
+alone renames every row its list shows, which under ALL is every player of the save; that is
+not kept, so no team operation reaches past one team.
+
 | 4ccEditor | Fate |
 |-----------|------|
 | Clear visual settings flags (all players on team) | Kept |
@@ -343,9 +348,24 @@ presets (their fields are listed in the [libs/fpc spec](../spec/libs/fpc.md)); t
 that break or bend hiding (inners, undershorts, taping, the gloves checkbox) are reported by
 its interference rules on the Appearance tab, not cleared. The ID constants become a suite-common setting consumed by
 the presets rather than being hardcoded (any nonexistent ID works;
-55/11 are the 4cc convention). The same presets serve the
+55/11 are the 4cc convention), in one step for both tools; until then both use `libs/fpc`'s
+constants. The same presets serve the
 [Team compiler's](team_compiler/README.md) per-player-folder `fpc_on`/`fpc_off` marker
 files, so the editor's toggle and the compiler's markers cannot drift apart.
+
+- **A model's own IDs are kept.** The wiki's hide list reads "Boots 55 (or any other
+  nonexistent boots ID), or your FBM's custom boots if it uses that", and the compiler keeps a
+  `settings.toml`'s own `boots_id` over the marker's (TC-BIN-29). So the editor writes a
+  preset's boots or gloves ID only where the record holds 0 or the hide preset's ID, and keeps
+  any other: hiding turns 0 into 55 and keeps 627, showing turns 55 into 0 and keeps 627.
+  4ccEditor's `enable_fpc_invis_for_player` and `disable_fpc_invis_for_player` do the same.
+- **Hide and Show, not a checkbox.** A player hidden by his model's own boots ID reads as not
+  hidden to `is_fpc_player`, which sees only the save (the convention's ID or a custom skin),
+  so a checkbox drawn from it would stay unticked after a click and could never show him
+  again. The Appearance tab draws the classifier's reading ("FPC: hidden body" or "FPC: body
+  shown") with two actions, Hide body and Show body; Ctrl+I shows a player the classifier
+  reads as hidden and hides any other, and the Team menu's Set and Remove FPC invisibility are
+  the same two actions over the team.
 
 ---
 
@@ -629,10 +649,12 @@ SE-GUI-10  GIVEN the save open on a team
            THEN the reopened file holds the values; GIVEN #FF8000 picked as color 1 THEN the
                 reopened team's color 1 is (63, 32, 0) and the Team tab shows it as #FF8200
 SE-GUI-11  GIVEN a player without FPC and "Edit aesthetics anyway" switched on
-           WHEN Ctrl+I, or the FPC toggle, is used
-           THEN his record carries the FPC enable preset's values and the toggle reads on; the
-                team-wide switch applies it to every player of the team; a strip setting that
-                breaks hiding is listed on the Appearance tab as an interference finding
+           WHEN Ctrl+I, or Hide body, is used
+           THEN his record carries the hide preset's values and the tab reads "FPC: hidden
+                body"; Ctrl+I again, or Show body, gives him the show preset's; GIVEN a player
+                whose boots ID is 627 THEN hiding keeps 627; Set FPC invisibility applies the
+                hide preset to every player of the team; a strip setting that breaks hiding is
+                listed on the Appearance tab as an interference finding
 SE-GUI-12  GIVEN the Tactics tab on preset 1
            WHEN a pitch player is dragged to another spot
            THEN the slot's position is the drop point after snapping, undoable, and the saved

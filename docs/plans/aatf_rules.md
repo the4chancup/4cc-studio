@@ -153,7 +153,9 @@ The page and the fork differ on seven points; the organizer chose one side for e
   all-77 or all-88 player's), an error, so the band trades a few points between stats and never
   raises a player overall. The sum runs over every ability stat the version has, a goalkeeping
   stat of an outfielder included, against each stat's own target, a Manlet bonus taken
-  included (QUESTIONS.md "DBC7: the stat total").
+  included: a Manlet regular who takes the +5 is held to an all-82 player's sum, not an
+  all-77 one, which would leave his bonus nothing but points to trade; and no list of the
+  stats that matter per role is needed.
 - The registered position not rated A, which the fork errs on, is a warning: the page leaves
   it free, and the organizer wants the member alerted.
 - A 189 cm goalkeeper with a second A position, which the page leaves free, is an error as in
@@ -257,7 +259,7 @@ DBC7's fields and data block (worklog 20.0d) are verified as the others are:
   what is compared is the findings, each difference one listed under "DBC7" or a fix. Run at
   20.0d (2026-10-20, 220 teams each): every difference is one of those classes; the one fix it
   found is "Recognition before choices". The fork passes 29 and 36 teams, and the data block
-  fails each of them on stats inside the fork's warning band alone (`QUESTIONS.md`).
+  fails each of them on stats inside the fork's warning band alone.
 - Fixtures: a legal team under each height system and each medal system; a Manlet regular and a
   Manlet silver at their raised targets, and the silver at 92 (still a silver); a goalkeeper at 189 under Universal and under GigaHeight;
   GigaHeight teams at exactly 50 cm, at 51, with a player at 211, with one at 174, with a 185

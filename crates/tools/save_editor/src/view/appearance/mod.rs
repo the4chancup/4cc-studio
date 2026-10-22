@@ -18,6 +18,7 @@ use pes_savefile::model::{PlayerAppearance, PlayerEditFlags, PlayerEntry, Player
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::schema::ingame_face::IngameFaceField;
 use pes_savefile::schema::limits::motion_top;
+use pes_savefile::schema::player_max_value;
 use pes_savefile::settings_toml::{Kind, SettingKey};
 use pes_version::{Engine, PesVersion};
 
@@ -25,7 +26,7 @@ use crate::session::{Session, is_stripped};
 use crate::view::abilities::{gating_tooltip, maybe_end_row, number, pairs_per_row};
 use crate::view::appearance::fields::{
     IRIS_COLORS, MOTIONS, MotionField, PHYSIQUE, Palette, SKIN_COLORS, STRIP_ENUMS, combo_options,
-    named_values, number_range, number_range_u32, strip_palette,
+    named_values, number_range, strip_palette,
 };
 use crate::view::{SaveView, edit_player, selected_player};
 /// The tab for the selected player, below `info_strip` and the tab strip.
@@ -107,7 +108,7 @@ fn groups(
     physique_grid(ui, session, player_id, &player.appearance);
     ui.separator();
     ui.strong("Strip style");
-    strip_rows(ui, session, player_id, &player.appearance);
+    strip_rows(ui, session, player_id, version, &player.appearance);
     ui.separator();
     ui.strong("Motion");
     motion_grid(ui, session, player_id, version, &player.motion, draw);
@@ -133,8 +134,9 @@ fn ownership_line(ui: &mut egui::Ui, version: PesVersion) {
 }
 
 /// The ownership sentence (the draft's `ownershipTip`): the line over the
-/// tab and the disabled groups' hover.
-fn ownership_tip(version: PesVersion) -> &'static str {
+/// tab, the disabled groups' hover and the locked Team-menu items'
+/// (`menus.rs`).
+pub(crate) fn ownership_tip(version: PesVersion) -> &'static str {
     match version.engine() {
         Engine::PreFox => {
             "Owned by the team's export: edit its settings.toml and recompile, \
@@ -242,17 +244,25 @@ fn strip_rows(
     ui: &mut egui::Ui,
     session: &mut Session,
     player_id: u32,
+    version: PesVersion,
     appearance: &PlayerAppearance,
 ) {
     let per_row = pairs_per_row(ui, 190.0);
     egui::Grid::new("appearance strip").show(ui, |ui| {
+        // The id fields take the record's own bound (`player_max_value`,
+        // wider than `settings.toml`'s stock range): a compile-allocated
+        // ID such as 627 is a value the save holds.
         number(
             ui,
             session,
             player_id,
             "Boots ID",
             appearance.boots_id,
-            number_range_u32(SettingKey::BootsId),
+            0..=u32::try_from(
+                player_max_value(version, PlayerField::BootsId)
+                    .expect("the boots id is stored on every version"),
+            )
+            .expect("the boots id's bound fits u32"),
             |player, shown| {
                 player.appearance.boots_id = shown;
             },
@@ -264,7 +274,11 @@ fn strip_rows(
             player_id,
             "Gloves ID",
             appearance.gloves_id,
-            number_range_u32(SettingKey::GlovesId),
+            0..=u32::try_from(
+                player_max_value(version, PlayerField::GlovesId)
+                    .expect("the gloves id is stored on every version"),
+            )
+            .expect("the gloves id's bound fits u32"),
             |player, shown| {
                 player.appearance.gloves_id = shown;
             },
@@ -688,11 +702,13 @@ fn swatch(ui: &mut egui::Ui, rgb: [u8; 3], held: bool, label: &str) -> egui::Res
     let size = egui::vec2(14.0, 14.0);
     let (rect, response) = ui.allocate_at_least(size, egui::Sense::click());
     response.widget_info(|| {
-        egui::WidgetInfo::labeled(
+        let mut info = egui::WidgetInfo::labeled(
             egui::WidgetType::ColorButton,
             ui.is_enabled(),
             label.to_owned(),
-        )
+        );
+        info.selected = Some(held);
+        info
     });
     if ui.is_rect_visible(rect) {
         ui.painter().rect_filled(
@@ -728,25 +744,67 @@ fn face(appearance: &PlayerAppearance, field: IngameFaceField) -> u8 {
         .expect("a loaded player's face run holds the tab's colour fields")
 }
 
-/// A xorshift64 draw in `1..=top`, seeded from the wall clock (`SaveView::new`
-/// wires it as `randomize_draw`; the tests substitute a fixed source). The
-/// button's picks need only be unpredictable to a member, not cryptographic.
-pub(crate) fn seeded_draw() -> impl FnMut(u8) -> u8 {
-    let mut state = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|since| u64::from(since.subsec_nanos()) ^ since.as_secs() | 1)
-        .unwrap_or(0x9E37_79B9_7F4A_7C15);
+/// A xorshift64 (13, 7, 17) draw in `1..=top` from `seed` (the Randomize
+/// source). The picks need only be unpredictable to a member, not
+/// cryptographic.
+pub(crate) fn xorshift_draw(seed: u64) -> impl FnMut(u8) -> u8 {
+    let mut state = seed;
     move |top| {
         state ^= state << 13;
         state ^= state >> 7;
         state ^= state << 17;
-        1 + (state % u64::from(top.max(1))) as u8
+        1 + u8::try_from(state % u64::from(top.max(1))).expect("a remainder below a u8 top fits u8")
     }
+}
+
+/// `xorshift_draw` seeded from the wall clock (`SaveView::new` wires it as
+/// `randomize_draw`; the tests substitute a fixed source).
+pub(crate) fn seeded_draw() -> impl FnMut(u8) -> u8 {
+    xorshift_draw(clock_seed())
+}
+
+/// The wall-clock seed for `seeded_draw`, forced odd: a zero state draws 1
+/// forever.
+fn clock_seed() -> u64 {
+    std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| u64::from(since.subsec_nanos()) ^ since.as_secs() | 1)
+        .unwrap_or(0x9E37_79B9_7F4A_7C15)
 }
 
 #[cfg(test)]
 mod tests {
-    use super::seeded_draw;
+    use super::{clock_seed, seeded_draw, xorshift_draw};
+
+    // The Randomize generator is xorshift64 (13, 7, 17): each draw is
+    // `1 + state % top` after one round of the three shifts. The first
+    // state from seed 1 is 1082269761; the three draws' states are stepped
+    // out here by hand, so the test never calls the code under test.
+    #[test]
+    fn xorshift_draw_returns_the_states_remainders_plus_one() {
+        let mut state = 1u64;
+        let mut expected = Vec::new();
+        for _ in 0..3 {
+            state ^= state << 13;
+            state ^= state >> 7;
+            state ^= state << 17;
+            expected.push(1 + u8::try_from(state % 162).expect("a remainder fits u8"));
+        }
+        let mut first_state = 1u64;
+        first_state ^= first_state << 13;
+        first_state ^= first_state >> 7;
+        first_state ^= first_state << 17;
+        assert_eq!(first_state, 1082269761, "the pinned first state");
+        let mut draw = xorshift_draw(1);
+        let drawn: Vec<u8> = (0..3).map(|_| draw(162)).collect();
+        assert_eq!(drawn, expected);
+    }
+
+    // The clock seed must be odd (a zero state draws 1 forever).
+    #[test]
+    fn the_clock_seed_is_odd() {
+        assert_eq!(clock_seed() % 2, 1, "an even or zero seed draws 1 forever");
+    }
 
     // `seeded_draw` returns values in `1..=top`, both ends occurring over a
     // long enough run (the source need only be unpredictable to a member).
