@@ -1513,6 +1513,10 @@ fn the_fpc_marker_defaults_are_the_common_settings_hide_ids() {
     let settings = format!("{}fpc_hide_boots_id = 627\n", pes21_settings(&sandbox));
     let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
     run.assert_refused(2, &["fpc_hide_boots_id", "1 to 100"]);
+    assert!(
+        !sandbox.root.join("output").exists(),
+        "the refusal wrote no output"
+    );
 }
 
 // TC-BIN-41

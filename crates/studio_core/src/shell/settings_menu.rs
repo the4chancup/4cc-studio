@@ -660,6 +660,10 @@ mod tests {
             settings.common.fpc_hide_boots_id, 60,
             "the test's pick really changes the setting"
         );
+        assert_ne!(
+            settings.common.fpc_hide_gloves_id, 12,
+            "the test's pick really changes the setting"
+        );
         let Shell { mut app, ctx, .. } = shell_with(
             settings,
             vec![a],
@@ -698,6 +702,21 @@ mod tests {
         );
         frame(&egui_ctx, &mut app, vec![key(egui::Key::Enter, true)], true);
         assert_eq!(ctx.common().fpc_hide_boots_id, 60);
+
+        click(
+            &egui_ctx,
+            &mut app,
+            widget_on_row(&nodes, "FPC hide gloves ID", Role::SpinButton),
+        );
+        frame(
+            &egui_ctx,
+            &mut app,
+            vec![egui::Event::Text("12".to_owned())],
+            true,
+        );
+        frame(&egui_ctx, &mut app, vec![key(egui::Key::Enter, true)], true);
+        assert_eq!(ctx.common().fpc_hide_gloves_id, 12);
+        assert_eq!(ctx.common().fpc_hide_boots_id, 60, "the boots write stands");
     }
 
     // The `Check interval (hours)` row is disabled while `check_for_updates` is off

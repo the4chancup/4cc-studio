@@ -383,25 +383,40 @@ fn tooltip_after_hover(
 }
 
 /// `tooltip_after_hover` filtered to the tooltip node holding `needle`.
+/// The hover must add a node holding `needle` to the frame the pointer
+/// left from: a label the view always draws with the same text (the
+/// ownership line, an error line) is counted there already, so it cannot
+/// pass for the tooltip.
 fn tooltip_containing(
     window: &mut Headless,
     view: &mut SaveView,
     pos: egui::Pos2,
     needle: &str,
 ) -> Option<String> {
-    window.frame(vec![egui::Event::PointerMoved(egui::Pos2::ZERO)], |ui| {
+    let holding = |nodes: &[accesskit::Node]| -> Vec<String> {
+        nodes
+            .iter()
+            .filter_map(|node| node.value())
+            .filter(|value| value.contains(needle))
+            .map(str::to_owned)
+            .collect()
+    };
+    let (_, resting, _) = window.frame(vec![egui::Event::PointerMoved(egui::Pos2::ZERO)], |ui| {
         show(ui, view, &|| Vec::new(), None)
     });
+    let resting = holding(&resting);
     window.frame(vec![egui::Event::PointerMoved(pos)], |ui| {
         show(ui, view, &|| Vec::new(), None)
     });
+    let count = |values: &[String], value: &String| values.iter().filter(|v| *v == value).count();
     for _ in 0..90 {
         let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
-        if let Some(node) = nodes
+        let values = holding(&nodes);
+        if let Some(added) = values
             .iter()
-            .find(|node| node.value().is_some_and(|value| value.contains(needle)))
+            .find(|value| count(&values, value) > count(&resting, value))
         {
-            return node.value().map(str::to_owned);
+            return Some(added.clone());
         }
     }
     None

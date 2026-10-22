@@ -105,7 +105,7 @@ impl Session {
     /// boots first, then the gloves, so `GlovesMode::LikeBoots` copies the
     /// new IDs. Every written value is checked against the field's own
     /// bound (the record's `2^width - 1`, wider than `settings.toml`'s
-    /// 0 to 100: the FPC marker 55 and a compile-allocated ID such as 627
+    /// 0 to 100: the FPC hide ID and a compile-allocated ID such as 627
     /// are values the save holds) before the first write — a value outside
     /// it refuses the whole operation with an error naming the slot, the
     /// value and the range, the save untouched.

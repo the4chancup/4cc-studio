@@ -1145,6 +1145,7 @@ fn the_hide_ids_come_from_the_settings() {
 // The same setting carried through `Tool::view`: a `ToolContext` whose
 // common settings hold 60 and 12, one frame of `tool.view`, and Hide
 // body writes 60.
+// SE-GUI-31
 #[test]
 fn the_tool_carries_the_common_hide_ids_into_the_view() {
     use studio_core::StudioTool;
@@ -1221,7 +1222,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
         assert_eq!(
             tooltip_containing(&mut window, &mut view, centre(button), "fpc_hide_boots_id"),
             Some(error.clone()),
-            "{label}'s hover is the error's text"
+            "{label}'s hover adds a tooltip holding the error's text"
         );
     }
 
@@ -1233,7 +1234,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
     assert_eq!(
         tooltip_containing(&mut window, &mut view, centre(toggle), "fpc_hide_boots_id"),
         Some(error.clone()),
-        "the toggle's hover is the error's text"
+        "the toggle's hover adds a tooltip holding the error's text"
     );
     assert!(
         !menu_item(&nodes, "Set all stats").is_disabled(),
@@ -1248,7 +1249,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
         assert_eq!(
             tooltip_containing(&mut window, &mut view, centre(item), "fpc_hide_boots_id"),
             Some(error.clone()),
-            "{label}'s hover is the error's text"
+            "{label}'s hover adds a tooltip holding the error's text"
         );
     }
 
@@ -1258,4 +1259,158 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
     });
     assert_eq!(player_entry(&view, 70101), before, "Ctrl+I changed nothing");
     assert!(!view.session.as_ref().unwrap().is_dirty());
+}
+
+// Every FPC path reads the same settings' hide IDs (`view.hide_ids` =
+// 60 and 12): Ctrl+I hides and shows under them, the Player menu's
+// Toggle FPC settings hides the same, and the Team menu's Set and
+// Remove FPC invisibility write and clear them on every filled slot
+// whose IDs were 0, a model's own kept.
+// SE-GUI-31
+#[test]
+fn every_fpc_path_writes_the_settings_hide_ids() {
+    let path = fixture(PesVersion::Pes21, "fpc_hide_ids_paths");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    {
+        let player = file.player_mut(70101).unwrap();
+        player.appearance.boots_id = 0;
+        player.appearance.gloves_id = 0;
+        player.appearance.sleeves = 1;
+        player.appearance.untucked = true;
+        player.appearance.socks = 0;
+    }
+    {
+        // A second slot whose IDs are 0, so the team run's write is not
+        // the selected player's alone.
+        let player = file.player_mut(70102).unwrap();
+        player.appearance.boots_id = 0;
+        player.appearance.gloves_id = 0;
+    }
+    {
+        // Hidden under the previous setting's 55 and 11: under 60 and 12
+        // these are his own IDs, which the team's Set and Remove keep (the
+        // fixture's other slots all hold 0).
+        let player = file.player_mut(70103).unwrap();
+        player.appearance.boots_id = 55;
+        player.appearance.gloves_id = 11;
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.edit_aesthetics = true;
+    view.hide_ids = fpc::HideIds::new(60, 12);
+    let mut window = Headless::sized(1100.0, 700.0);
+    assert_eq!(
+        strip_of(&view, 70101),
+        (1, true, 0, 0, 0),
+        "premise: dressed, boots and gloves 0"
+    );
+    assert_eq!(
+        (strip_of(&view, 70102).3, strip_of(&view, 70102).4),
+        (0, 0),
+        "premise: 70102's IDs are 0"
+    );
+
+    // Ctrl+I on a shown player hides him with the settings' IDs; again
+    // it shows him.
+    window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(
+        strip_of(&view, 70101),
+        (2, false, 2, 60, 12),
+        "Ctrl+I hides with the settings' IDs"
+    );
+    window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(
+        strip_of(&view, 70101),
+        (1, true, 0, 0, 0),
+        "Ctrl+I shows him again"
+    );
+
+    // The Player menu's Toggle FPC settings hides him the same way.
+    let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
+    click(
+        &mut window,
+        menu_item(&nodes, "Toggle FPC settings"),
+        &mut view,
+    );
+    assert_eq!(
+        strip_of(&view, 70101),
+        (2, false, 2, 60, 12),
+        "the menu toggle hides with the settings' IDs"
+    );
+
+    // The Team menu's Set FPC invisibility: the settings' IDs on every
+    // filled slot whose IDs were 0 or already the hide IDs, a model's
+    // own kept.
+    let before: Vec<(usize, u32, u32, u32)> = rostered(&view, 701)
+        .iter()
+        .map(|&(slot, id)| {
+            let player = player_entry(&view, id);
+            (
+                slot,
+                id,
+                player.appearance.boots_id,
+                player.appearance.gloves_id,
+            )
+        })
+        .collect();
+    let nodes = open_menu(&mut window, &mut view, "Team", "Set edited flag");
+    click(
+        &mut window,
+        menu_item(&nodes, "Set FPC invisibility"),
+        &mut view,
+    );
+    for &(slot, id, boots, gloves) in &before {
+        let strip = strip_of(&view, id);
+        let expected_boots = if boots == 0 || boots == 60 { 60 } else { boots };
+        let expected_gloves = if gloves == 0 || gloves == 12 {
+            12
+        } else {
+            gloves
+        };
+        assert_eq!(
+            (strip.3, strip.4),
+            (expected_boots, expected_gloves),
+            "slot {}'s IDs",
+            slot + 1
+        );
+    }
+    assert_eq!(
+        (strip_of(&view, 70103).3, strip_of(&view, 70103).4),
+        (55, 11),
+        "the previous setting's IDs are kept as his own"
+    );
+
+    // Remove FPC invisibility zeroes the slots the Set wrote (0 or the
+    // hide ID), a model's own kept again.
+    let nodes = open_menu(&mut window, &mut view, "Team", "Set edited flag");
+    click(
+        &mut window,
+        menu_item(&nodes, "Remove FPC invisibility"),
+        &mut view,
+    );
+    for &(slot, id, boots, gloves) in &before {
+        let strip = strip_of(&view, id);
+        let expected_boots = if boots == 0 || boots == 60 { 0 } else { boots };
+        let expected_gloves = if gloves == 0 || gloves == 12 {
+            0
+        } else {
+            gloves
+        };
+        assert_eq!(
+            (strip.3, strip.4),
+            (expected_boots, expected_gloves),
+            "slot {}'s IDs back",
+            slot + 1
+        );
+    }
+    assert_eq!(
+        (strip_of(&view, 70103).3, strip_of(&view, 70103).4),
+        (55, 11),
+        "Remove leaves the previous setting's IDs alone"
+    );
 }

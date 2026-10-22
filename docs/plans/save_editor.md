@@ -374,7 +374,7 @@ files, so the editor's toggle and the compiler's markers cannot drift apart.
   (55 standing for the configured hide ID, above).
   4ccEditor's `enable_fpc_invis_for_player` and `disable_fpc_invis_for_player` do the same.
 - **Hide and Show, not a checkbox.** A player hidden by his model's own boots ID reads as not
-  hidden to `is_fpc_player`, which sees only the save (the convention's ID or a custom skin),
+  hidden to `is_fpc_player`, which sees only the save (the hide ID or a custom skin),
   so a checkbox drawn from it would stay unticked after a click and could never show him
   again. The Appearance tab draws the classifier's reading ("FPC: hidden body" or "FPC: body
   shown") with two actions, Hide body and Show body; Ctrl+I shows a player the classifier
@@ -794,6 +794,8 @@ SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (glo
            WHEN Hide body is used on a player whose boots and gloves IDs are 0
            THEN his record holds boots 60 and gloves 12 and the tab reads "FPC: hidden body";
                 WHEN Show body is used THEN both are 0 again; GIVEN a player whose boots ID is
-                55 THEN the tab reads "FPC: body shown"
+                55 THEN the tab reads "FPC: body shown"; WHEN Ctrl+I, the Player menu's Toggle
+                FPC settings or the Team menu's Set and Remove FPC invisibility run THEN they
+                write and clear 60 and 12 the same, and a player holding 55 and 11 keeps them
 ```
 

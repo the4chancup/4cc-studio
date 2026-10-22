@@ -123,9 +123,9 @@ pub fn custom_skin_available(version: PesVersion) -> bool {
     )
 }
 
-/// One of the three appearance presets. Boots/gloves ids are the `HideIds`
-/// `preset` was given; a custom model's own boots/gloves are the caller's
-/// substitution.
+/// One of the three appearance presets. The hide preset's boots/gloves ids
+/// are the `HideIds` `preset` was given, the others' 0; a custom model's own
+/// boots/gloves are the caller's substitution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Appearance {
     /// Sleeve length.
