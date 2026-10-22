@@ -77,7 +77,7 @@ not kept, so no team operation reaches past one team.
 | Set edited/created flag (all players on team) | Kept |
 | Set / remove FPC invisibility (whole team) | Kept |
 | Set boot/glove IDs for everyone (boots: unchanged, incremental or same for all; gloves: unchanged, like the boots, or same for all; incremental gives slot `k` the start ID + `k` − 1, slots 1 to 23) | Kept, every filled slot of the roster numbered by its slot (4ccEditor stops at the first id missing from the team, a bug not kept) |
-| Set player names to positions (each name becomes its registered position's full name, "Goalkeeper", and the edited-player flag is set) | Kept, same |
+| Set player names to positions (each name becomes its registered position's full name, "Goalkeeper", and the edited-player flag is set) | Kept, same, and written: 4ccEditor renames the players in memory but never marks the records changed, so its Save writes none of it back (measured, the slice 2 parity run) |
 | Load squad (`.4ccs`, with stats/aesthetics/tactics checkboxes) | Kept as read-only legacy import, same section checkboxes; Team TOML import is the primary path. Cross-version import applies the playstyle/skill conversion maps |
 
 ### Tactics operations
@@ -293,6 +293,31 @@ Win32 original hurt the most):
   tactics tab (parity with the 4ccEditor menu tree, minus the 18-item menu).
 - Formation edits participate in undo/redo like everything else.
 
+What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc`) could differ:
+
+- **An advanced instruction's list** is the version's stored table in its stored order (the
+  game's own list), less Tight Marking: it marks an opponent, which a member sets in a match,
+  and Edit mode does not offer it (4ccEditor's lists leave it out for that reason). A record
+  that holds it shows it as the current choice. The target-player pick is enabled only for the
+  instructions that take one of ours, Counter Target and Defensive (`pes_savefile`'s
+  `Instruction::takes_player`, the one place the rule lives); picking an instruction that takes
+  none sets the target to none (255), so no stale target is kept where 4ccEditor left one.
+- **Players to join the attack stay packed**: removing one moves the later ones up, as
+  4ccEditor's three combos keep them (an empty first entry clears the rest), so the record
+  never holds a gap.
+- **The goalkeeper's slot is fixed**: its marker is not dragged and its position, X and Y are
+  not edited, as 4ccEditor locks them (the game's Edit mode does not move the keeper). Make GK
+  swaps the selected starter with the keeper in the starting eleven only; the formation's
+  slots stay.
+- **A preset copy or swap moves the whole preset**, man marking included (4ccEditor's preset
+  holds no man marking, so its copy leaves the target's): the game's own copy preset is how
+  members bring a match's man marking into a team (DECISIONS 2026-10-12), so the copy carries
+  it. A formation copy or swap moves the eleven slots' position, X and Y within the shown
+  preset; the starting eleven is the team's and stays.
+- **A starter swapped with a bench player** hands the bench player every set-piece role, the
+  joining of the attack and every preset's instruction targets the starter held; the captain
+  stays who he was, as in 4ccEditor.
+
 Version quirks (advanced-instruction ranges differ 17 vs 18+) are enforced by the
 `pes_savefile` model, not the UI; a `.4cct` imports into any version `TeamToml::apply`'s
 version rule admits (`spec/pes_savefile/operations.md` "Team TOML"), not only into 16-18 as
@@ -373,6 +398,9 @@ files, so the editor's toggle and the compiler's markers cannot drift apart.
   any other: hiding turns 0 into 55 and keeps 627, showing turns 55 into 0 and keeps 627
   (55 standing for the configured hide ID, above).
   4ccEditor's `enable_fpc_invis_for_player` and `disable_fpc_invis_for_player` do the same.
+  On PES 15 to 17 they also set the Custom skin when hiding; Hide body does not, since the
+  wiki's full hide sets no skin and the Custom skin is its partial hide's setting (both tools'
+  Show body give such a player the Light skin back, so the two converge).
 - **Hide and Show, not a checkbox.** A player hidden by his model's own boots ID reads as not
   hidden to `is_fpc_player`, which sees only the save (the hide ID or a custom skin),
   so a checkbox drawn from it would stay unticked after a click and could never show him

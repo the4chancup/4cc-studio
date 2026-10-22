@@ -429,4 +429,5 @@ mod player;
 mod savefile;
 mod shell;
 mod strip;
+mod tactics;
 mod team;

@@ -64,11 +64,40 @@ impl Instruction {
         Instruction::WingBack,
         Instruction::Anchoring,
     ];
+
+    /// Whether the instruction is given to one of the team's own players,
+    /// picked with it: the instructions whose target-player field applies.
+    pub fn takes_player(self) -> bool {
+        matches!(self, Instruction::CounterTarget | Instruction::Defensive)
+    }
 }
 
 impl Default for Instruction {
     /// The empty instruction (`Off` is the game's own "unset" value).
     fn default() -> Self {
         Instruction::Off
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // plans/save_editor.md "Tactics editor", "What the controls write":
+    // the target-player pick is enabled only for the instructions that
+    // take one of ours, Counter Target and Defensive; here is the one
+    // place the rule lives.
+    #[test]
+    fn only_counter_target_and_defensive_take_a_player() {
+        for instruction in Instruction::ALL {
+            assert_eq!(
+                instruction.takes_player(),
+                matches!(
+                    instruction,
+                    Instruction::CounterTarget | Instruction::Defensive
+                ),
+                "{instruction:?}"
+            );
+        }
     }
 }

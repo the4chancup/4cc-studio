@@ -19,7 +19,8 @@ coverage table and draft, the DBC7 ruleset).
 first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
-`team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view), Phase 20 (the Ruleset
+`team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
+8.9: slices 1 and 2 done, slice 3 (the Tactics tab) under way), Phase 20 (the Ruleset
 editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
 upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-21): 20.0d (the
 DBC7 ruleset), 20.0e (the organizer's choices in it; the stat total's two readings confirmed
@@ -877,7 +878,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       `save_editor/{Cargo.toml,help/02_window.md,src/lib.rs,src/cli.rs,src/session/{mod.rs,
       selection.rs,undo.rs},src/view/{mod.rs,player_list.rs,info_strip.rs,tests.rs}}`,
       `pes_savefile/src/model/names.rs`, the root `Cargo.toml`
-      - [ ] review: a SWE-2 loop over 8.9a, then Astra. Review S1 (SWE-2, 4 of 13; the loop
+      - [x] review: a SWE-2 loop over 8.9a, then Astra. Review S1 (SWE-2, 4 of 13; the loop
         ends, `.tmp/8_9/duck_rulings.md`) reworked in rework 1: the list lays out only its
         visible rows (`show_rows`; a frame of the PES 2021 save's ALL list 27.7 ms before,
         0.22 ms after, release), the running-game probe runs at Save only, the unsaved marker
@@ -885,8 +886,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         (`pes_savefile::model::names::player_text_fits`), a successful Save clears an earlier
         refusal. `mutants-diff 12ffa8c3`'s six survivors killed; its ten timeouts came from a
         test helper's unbounded Ctrl+Z loop, now bounded (CONTRIBUTING.md "A test fails, it
-        never hangs"; the timeout multiplier lowered to 3 in `.cargo/mutants.toml`). Astra
-        over 8.9a next
+        never hangs"; the timeout multiplier lowered to 3 in `.cargo/mutants.toml`). Astra A1
+        over 8.9a 6 of 6 accepted, its fixes landed in 8.9b1, whose Astra A2 (4 of 5) ended the
+        Astra loop and whose SWE-2 loops followed (`.tmp/8_9/duck_rulings.md`)
     - [x] 8.9b1 the Abilities & Skills tab, with the 8.9a review's fixes. Done 2026-10-21
       (SWE-2, a run and two reworks): the tab (`view/abilities.rs`: the game's numbers, a
       field the version lacks drawn as a disabled "-" naming the first version with it, the
@@ -934,7 +936,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       draft's `isFox` corrected). Files: `save_editor/{help/04_appearance.md,src/{lib.rs,
       session/mod.rs,view/{mod.rs,abilities.rs,player_list.rs,appearance/{mod.rs,fields.rs},
       tests.rs,tests/{abilities.rs,appearance.rs}}}}`
-      - [ ] review: rides with 8.9d1's (one crate, no `pub` item); Astra A4 covered both.
+      - [x] review: rides with 8.9d1's (one crate, no `pub` item); Astra A4 covered both.
         `mutants-diff e34d1afc` at `0c748396`: 34 survivors, triaged in
         `.tmp/8_9/survivors_b2.md` (30 missing tests: physique, motion, combo, gloves checkbox,
         palettes, Strip again's team, the grids' row breaks, Randomize's generator; 2 equivalent;
@@ -946,7 +948,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       portable limit drawn amber with the cut text in its hover; Team TOML export's notes past
       them; `apply` cropping a name or shirt name to a shorter field with a note naming the
       text as cut (SE-TOML-06 rewritten)
-    - [ ] the roster-order rule (`plans/aatf_rules.md` "The host"; DECISIONS 2026-10-21), with
+    - [x] the roster-order rule (`plans/aatf_rules.md` "The host"; DECISIONS 2026-10-21), with
       the slice that builds drag reorder (SE-GUI-08): `pes_savefile::roster_order_breaks`, the
       AATF host's `RosterOrder` error for every ruleset, Team TOML export's note per slot;
       drag reorder trading the players' records between the ids (4ccEditor's spinner),
@@ -990,7 +992,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         - [x] review: with 8.9c1's (one surface, the rule and its first user): SWE-2 S1 on
           each (0 of 8, 2 of 5), Astra A3 (3 of 4, rework 2), SWE-2 S2 over the reworks (0; two
           nits fixed); `mutants-diff 78b049a8` at `eca895b1`: every viable mutant caught
-    - [ ] 8.9d slice 2 (Team tab, batch operations, FPC), in three parts:
+    - [x] 8.9d slice 2 (Team tab, batch operations, FPC), in four parts:
       - [x] 8.9d1 the Team tab (SE-GUI-10) and the Team menu but its FPC items (SE-GUI-23,
         SE-GUI-22's menu part): Set edited flag, Set boots and gloves IDs for everyone, Set
         player names to positions, Clear visual flags (Ctrl+F), on the selected player's team
@@ -1039,7 +1041,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         messages.rs,session/{mod.rs,player_ops.rs,team_ops.rs},view/{mod.rs,menus.rs,
         player_list.rs,appearance/mod.rs,tests.rs,tests/player.rs}}}`, `studio/tests/help_cli.rs`
         (the help export's last catalog row)
-        - [ ] review (checkpoint b: one crate, no `pub` item; rides with 8.9d3's): a SWE-2
+        - [x] review (checkpoint b: one crate, no `pub` item; rides with 8.9d3's): a SWE-2
           loop, then Astra. `mutants-diff 4fb6c077` at `e3d652da`: 10 missed, all in the
           dialogs (`.tmp/8_9/survivors_d2.md`), tested with 8.9d3's rework; the review runs
           over both commits, below
@@ -1055,7 +1057,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         lists; 8.9d2's survivors' tests. Files: `save_editor/{help/07_savefile.md,src/{lib.rs,
         session/{mod.rs,database.rs},view/{mod.rs,menus.rs,player_list.rs,tests.rs,tests/{
         savefile.rs,player.rs}}}}`
-        - [ ] review (checkpoint b, with 8.9d2's): a SWE-2 loop, then Astra, over
+        - [x] review (checkpoint b, with 8.9d2's): a SWE-2 loop, then Astra, over
           `e3d652da^..` the commit; `mutants-diff e3d652da` at the commit: 2 missed (the
           base-copy rule's flag-off guard). SWE-2 S1 (two halves) 4 accepted, ending its loop;
           Astra A1 5 accepted, all tests a mutant would pass (`.tmp/8_9/duck_rulings_d23.md`).
@@ -1067,14 +1069,21 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           two scenarios widened to state what their tests check), ending its loop; Astra A2 2
           accepted (help/06's Ctrl+I on a model's own boots ID, the presets' skin reset unnamed),
           ending the Astra loop. The four help fixes landed with the FPC hide IDs commit, their
-          SWE-2 pass riding with that step's loop (they edit the same pages)
-    - [ ] 8.9d4 slice 2's parity (`plans/save_editor.md` "Build order and verification", the
+          SWE-2 pass riding with that step's loop (they edit the same pages; its S1 verified
+          all four)
+    - [x] 8.9d4 slice 2's parity (`plans/save_editor.md` "Build order and verification", the
       second bullet): each batch operation and Fix database run on the same fixture save in
       4ccEditor (its local `Release/4ccEditor.exe`, driven through its menu command IDs in
       `resource.h`) and in Studio, the decrypted payloads compared field by field, every
       difference either a logged decision (no PES 17 strip-table write, base copies only where
       the flag exists, Set and Bump setting no flag) or a bug → verify: the difference list,
       each line ruled
+      Done 2026-10-22 (SWE-2 drove the local build through Win32 messages; the lead ruled):
+      on PES 16, 17 and 21 every operation gives 4ccEditor's fields, an open and save is
+      byte-identical in both, and four differences are kept (DECISIONS 2026-10-22 "Slice 2's
+      parity"): names to positions written (4ccEditor's never reaches the file), no Custom
+      skin on a pre-Fox hide, name bytes past the terminator kept, the TSV's LF; Fix
+      database's two are the earlier decision's. No bug. Outputs: `.tmp/8_9/parity/`
     - [x] the FPC hide IDs (55, 11) as a suite-common setting the editor and the Team compiler
       both read (`plans/save_editor.md` "Full Player Customization (FPC)"), in one step; both
       use `libs/fpc`'s constants until then
@@ -1098,6 +1107,31 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         `afb01451`: 19 caught across the five crates, none missed. SWE-2 S2 after Astra 2
         accepted (the team test's own-ID branch never fired; SE-GUI-31 widened to the paths
         its tests check), fixed by the lead in the same commit; the loops end
+    - [ ] 8.9e slice 3, the Tactics tab (`plans/save_editor.md` "Tactics editor" with its "What
+      the controls write", "`libs/team_widgets`"; SE-GUI-12, 25; DECISIONS 2026-10-22 "The
+      Tactics tab's edits"), in three parts, the pitch last:
+      - [x] 8.9e1 the settings: `Instruction::takes_player` in `pes_savefile`, `team_widgets`'
+        `tactics` module (preset selector, sliders, style pairs, advanced instructions with
+        their target, automatic settings), the Tactics tab enabled in the editor with its
+        copy/swap preset and formation menus as sealed edits (SE-GUI-25) → verify: SE-GUI-25
+        proven, the instruction list per version tested on 17, 18 and 21. Done 2026-10-22
+        (SWE-2, one run; the lead drew both choices of a style pair every frame, which an `||`
+        skipped on a click, dropped the copy/swap ops' unreachable index guards and worded the
+        substitution setting for members, the draft too): `schema::instruction::instructions`
+        public (the version's list in the game's order), `TacticsView`, `tactics_settings`
+        (a stored value outside a slider's range is kept until moved; the answer is a deep
+        compare), help topic 08. Files: `pes_savefile/src/{model,schema}/instruction.rs`,
+        `team_widgets/src/{lib.rs,tactics.rs,test_support.rs}`, `save_editor/{help/08_tactics.md,
+        src/{lib.rs,session/{mod.rs,tactics_ops.rs},view/{mod.rs,player_list.rs,tactics.rs,
+        tests.rs,tests/{abilities.rs,tactics.rs}}}}`
+      - [ ] 8.9e2 the starting eleven and bench lists, swap by drag with the roles handed over
+        (the plan's last bullet) → verify: a swap's repointing tested on every role
+      - [ ] 8.9e3 the pitch: markers dragged with snapping, the slot popover, a bench row
+        dropped on a marker, the role palette and join-attack modes (SE-GUI-12); the draft
+        first gets the keeper lock and the packed join list, and its harness
+        (`.tmp/8_5/run_harness.py`) the SE-GUI-07 and 08 checks that fail since those scenarios
+        changed → verify: SE-GUI-12 proven, the harness all ok
+      - [ ] review: a SWE-2 loop, then Astra, over e1 and e2 together, and over e3
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,

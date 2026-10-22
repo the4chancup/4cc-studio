@@ -2239,8 +2239,10 @@ const STORED_18 = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 8, 9, 10, 11, 12, 15]
   .map(i => INSTRUCTIONS[i]);
 const STORED_20 = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 16, 8, 9, 10, 11, 12, 15]
   .map(i => INSTRUCTIONS[i]);
-const instructionsFor = v => v < 17 ? [] : v === 17 ? INSTRUCTIONS.slice(0, 13)
-  : v >= 20 ? STORED_20 : STORED_18;
+// Tight Marking is left out of what the tab offers: it marks an opponent, set in
+// a match; Edit mode does not offer it. A record holding it still shows it.
+const instructionsFor = v => (v < 17 ? [] : v === 17 ? INSTRUCTIONS.slice(0, 13)
+  : v >= 20 ? STORED_20 : STORED_18).filter(x => x !== "tight_marking");
 // Instructions whose target-player field applies (the original's rule: the
 // player combo enables for Counter Target on 17, Counter Target or Defensive
 // on 18+).
@@ -4200,7 +4202,8 @@ function tacticsTab(t) {
         edit(label + " target", () => { e.player = Number(v); }); render(); });
     if (!targetable) pick.disabled = true;
     return h("tr", {}, h("td", {}, label),
-      h("td", {}, combo(ins.map(x => [x, INSTRUCTION_LABEL[x] || titleCase(x)]),
+      h("td", {}, combo((ins.includes(e.instruction) ? ins : ins.concat([e.instruction]))
+        .map(x => [x, INSTRUCTION_LABEL[x] || titleCase(x)]),
         e.instruction, v => { edit(label, () => {
           e.instruction = v; if (!takesTarget(v)) e.player = 255; }); render(); })),
       h("td", {}, pick));
@@ -4248,7 +4251,7 @@ function tacticsTab(t) {
       h("div", { class: "row" },
         h("span", {}, "Substitution ",
           h("input", { type: "number", min: 0, max: 255, value: auto.substitution ?? 0,
-            title: "The stored setting byte",
+            title: "The automatic substitution setting as the save stores it: 0 is off; on PES 2021, 1 is very late, 2 flexible and 3 very early",
             onchange: e => { const v = parseInt(e.target.value, 10);
               if (!Number.isNaN(v)) { edit("Auto substitution", () => { auto.substitution = v; }); render(); } } })),
         autoCb("offside_trap", "Offside trap"),

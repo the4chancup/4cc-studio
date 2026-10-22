@@ -288,10 +288,9 @@ fn the_stats_rows_wrap_at_the_panes_width() {
 }
 
 // plans/save_editor.md "Editing UI", the Tabs bullet: the four tabs draw,
-// Abilities & Skills selected, Appearance and Team pickable, Tactics
-// disabled until its slice lands.
+// Abilities & Skills selected and the other three pickable.
 #[test]
-fn the_tab_strip_shows_abilities_selected_three_pickable_tactics_disabled() {
+fn the_tab_strip_shows_abilities_selected_and_four_pickable_tabs() {
     let path = fixture(PesVersion::Pes21, "tab_strip");
     let mut view = SaveView::new();
     view.open(&path);
@@ -316,14 +315,11 @@ fn the_tab_strip_shows_abilities_selected_three_pickable_tactics_disabled() {
         "Abilities & Skills is the drawn tab"
     );
     assert!(!selected.is_disabled());
-    for label in ["Appearance", "Team"] {
+    for label in ["Appearance", "Team", "Tactics"] {
         let tab = tab(&nodes, label);
         assert!(!tab.is_disabled(), "{label} picks");
         assert_eq!(tab.toggled(), Some(accesskit::Toggled::False));
     }
-    let tactics = tab(&nodes, "Tactics");
-    assert!(tactics.is_disabled(), "Tactics is disabled");
-    assert_eq!(tactics.toggled(), Some(accesskit::Toggled::False));
 
     // A click switches the drawn tab.
     click(&mut window, tab(&nodes, "Appearance"), &mut view);

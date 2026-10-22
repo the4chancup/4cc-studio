@@ -117,6 +117,11 @@ impl StudioTool for Tool {
                     title: "The Savefile menu",
                     body: include_str!("../help/07_savefile.md"),
                 },
+                HelpTopic {
+                    slug: "tactics",
+                    title: "The Tactics tab",
+                    body: include_str!("../help/08_tactics.md"),
+                },
             ],
             messages: messages::catalog(),
         }
@@ -141,6 +146,6 @@ mod tests {
         assert_eq!(tool.id(), "save-editor");
         assert_eq!(tool.label(), "Save editor");
         assert_eq!(tool.default_settings()["aatf_rules"].as_str(), Some(""));
-        assert_eq!(tool.help().topics.len(), 7);
+        assert_eq!(tool.help().topics.len(), 8);
     }
 }

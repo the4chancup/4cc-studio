@@ -56,13 +56,15 @@ const STORED_20: [Instruction; 17] = [
     I::WingBack,
 ];
 
-/// The stored-value list `version` uses, `None` on PES 15/16 (no table).
-fn stored(version: PesVersion) -> Option<&'static [Instruction]> {
+/// The instructions `version` lists, in the order the game lists them:
+/// its stored table, the index the stored value. Empty on PES 15/16,
+/// which have no instruction table.
+pub fn instructions(version: PesVersion) -> &'static [Instruction] {
     match version {
-        PesVersion::Pes15 | PesVersion::Pes16 => None,
-        PesVersion::Pes17 => Some(&Instruction::ALL[..13]),
-        PesVersion::Pes18 | PesVersion::Pes19 => Some(&STORED_18),
-        PesVersion::Pes20 | PesVersion::Pes21 => Some(&STORED_20),
+        PesVersion::Pes15 | PesVersion::Pes16 => &[],
+        PesVersion::Pes17 => &Instruction::ALL[..13],
+        PesVersion::Pes18 | PesVersion::Pes19 => &STORED_18,
+        PesVersion::Pes20 | PesVersion::Pes21 => &STORED_20,
     }
 }
 
@@ -70,9 +72,10 @@ fn stored(version: PesVersion) -> Option<&'static [Instruction]> {
 /// version has no instruction table, `Err(UnknownInstruction)` for a value its
 /// table does not list.
 pub fn decode(version: PesVersion, value: u8) -> Result<Option<Instruction>, CodecError> {
-    let Some(table) = stored(version) else {
+    let table = instructions(version);
+    if table.is_empty() {
         return Ok(None);
-    };
+    }
     match table.get(usize::from(value)) {
         Some(instruction) => Ok(Some(*instruction)),
         None => Err(CodecError::UnknownInstruction { version, value }),
@@ -82,8 +85,41 @@ pub fn decode(version: PesVersion, value: u8) -> Result<Option<Instruction>, Cod
 /// The stored value `instruction` has in `version`'s table, `None` when the
 /// version has no table or no such instruction.
 pub fn encode(version: PesVersion, instruction: Instruction) -> Option<u8> {
-    stored(version)?
+    instructions(version)
         .iter()
         .position(|i| *i == instruction)
         .map(|index| u8::try_from(index).expect("the tables fit u8"))
+}
+
+#[cfg(test)]
+mod tests {
+    use pes_version::PesVersion;
+
+    use super::*;
+    use crate::model::instruction::Instruction;
+
+    // `instructions` lists the version's stored table in its stored order
+    // (the widget's combo offers it, ordered as the game lists it); empty
+    // on PES 15/16, which have no instruction table.
+    #[test]
+    fn instructions_lists_the_versions_table_or_nothing() {
+        assert!(instructions(PesVersion::Pes15).is_empty());
+        assert!(instructions(PesVersion::Pes16).is_empty());
+        assert_eq!(
+            instructions(PesVersion::Pes17),
+            &Instruction::ALL[..13],
+            "PES 17's thirteen in canonical order, ending CounterTarget"
+        );
+        assert_eq!(
+            instructions(PesVersion::Pes17)[12],
+            Instruction::CounterTarget
+        );
+        assert_eq!(instructions(PesVersion::Pes18).len(), 16);
+        assert_eq!(instructions(PesVersion::Pes19).len(), 16);
+        for version in [PesVersion::Pes20, PesVersion::Pes21] {
+            let table = instructions(version);
+            assert_eq!(table.len(), 17, "{version:?}'s table");
+            assert_eq!(table[0x0A], Instruction::Anchoring, "{version:?}'s 0x0A");
+        }
+    }
 }

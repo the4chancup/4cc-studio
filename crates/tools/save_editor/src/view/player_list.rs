@@ -21,6 +21,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         filter,
         selected,
         tab: _,
+        tactics: _,
         refusal: _,
         rules: _,
         cards: _,

@@ -2316,3 +2316,5 @@ worklog passed 7,000 lines.
   only what the open save has, the help's FPC findings limit and Copy/Swap flags, and the tests a mutant would have passed.
 - **2026-10-22** — The FPC hide IDs (55, 11) are two common settings the save editor and the Team compiler read, bounded to
   the stock band (1-100, gloves 11-100); 8.9d2/d3's help fixes from SWE-2 S2 and Astra A2 ride along.
+- **2026-10-22** — Slice 2's parity against 4ccEditor's build on the PES 16, 17 and 21 fixtures: every batch operation and Fix
+  database matches but for four kept differences (DECISIONS); slice 2 closed. Slice 3's Tactics rulings logged, 8.9e1 briefed.

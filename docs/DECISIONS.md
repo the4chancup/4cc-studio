@@ -10242,3 +10242,37 @@ old ID as well after a change would be machinery for a setting changed once, if 
 Plan: `plans/save_editor.md` "Full Player Customization (FPC)", `plans/libs/fpc.md`,
 `plans/core/gui.md` "Settings menu", `plans/team_compiler/settings.md` "Common settings";
 SE-GUI-31, TC-BIN-43.
+
+## 2026-10-22 — save_editor, team_widgets, pes_savefile — The Tactics tab's edits where the draft and 4ccEditor differ
+Decision: the instruction list is the version's stored table less Tight Marking, a held one
+still shown; the target pick is enabled for Counter Target and Defensive only
+(`Instruction::takes_player` in `pes_savefile`), and a pick that takes none sets the target to
+255. Players to join the attack stay packed. The goalkeeper's slot is not dragged or edited;
+Make GK swaps two starting-eleven entries. A preset copy or swap moves the whole preset, man
+marking included. PES 20/21's instructions use the measured table (Anchoring at 0x0A), not
+4ccEditor's, which numbers them as on 18/19.
+Why: Tight Marking marks an opponent, set in a match; Edit mode does not offer it and 4ccEditor
+leaves it out. One home for the target rule, so the editor and the Team creator cannot drift;
+clearing a stale target keeps the record saying only what the tab shows. A gap in the join list
+is a state 4ccEditor never writes. The keeper's lock is 4ccEditor's, and its drawing ignores
+the stored keeper coordinates. Members bring a match's man marking into a team through the
+game's own copy preset (2026-10-12), so a copy that dropped it would undo that. The PES 21
+table was measured in game (`spec/pes_savefile/model.md`).
+Plan: `plans/save_editor.md` "Tactics editor".
+
+## 2026-10-22 — save_editor — Slice 2's parity with 4ccEditor: four differences kept
+Decision: run on the PES 16, 17 and 21 fixture saves, every batch operation and Fix database
+gives 4ccEditor's fields but for four differences, kept: (1) Set player names to positions is
+written (4ccEditor's never reaches the file); (2) Hide body on PES 15 to 17 sets no Custom skin
+(4ccEditor sets it); (3) a rewritten name keeps the bytes after its terminator where 4ccEditor
+zeroes them; (4) the rosters TSV ends lines with LF where 4ccEditor writes CRLF. Fix database's
+two differences are the earlier entry's (base copies only where the flag exists, no PES 17
+strip-table write).
+Why: (1) the operation's effect is the one 4ccEditor's code means, and its Save drops it only
+because the records are never marked changed; (2) the wiki, the source of truth, sets no skin
+for the full hide and Custom is its partial hide's, and both tools' Show body converge on the
+Light skin; (3) the game reads a name up to its terminator, and keeping the rest is what keeps
+an opened-and-saved file byte-identical (both tools' were, on all three saves); (4) a
+spreadsheet reads either, and the content is identical line for line.
+Plan: `plans/save_editor.md` "Team operations", "Full Player Customization (FPC)"; the run's
+outputs in `.tmp/8_9/parity/RESULT.md`.

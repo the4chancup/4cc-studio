@@ -8,6 +8,7 @@ pub(crate) mod database;
 pub(crate) mod player_ops;
 pub(crate) mod rules;
 pub(crate) mod selection;
+pub(crate) mod tactics_ops;
 pub(crate) mod team_ops;
 pub(crate) mod undo;
 

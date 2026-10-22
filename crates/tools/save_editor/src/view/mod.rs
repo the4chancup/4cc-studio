@@ -12,6 +12,7 @@ mod appearance;
 mod info_strip;
 mod menus;
 mod player_list;
+mod tactics;
 mod team;
 #[cfg(test)]
 mod tests;
@@ -27,8 +28,7 @@ use crate::session::Session;
 use crate::session::selection::{self, TeamChoice};
 
 /// The detail pane's drawn tabs (`plans/save_editor.md` "Editing UI", the
-/// Tabs bullet): Tactics stays a disabled button until its slice lands,
-/// so it is no variant yet.
+/// Tabs bullet).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Tab {
     /// Abilities & Skills.
@@ -37,6 +37,8 @@ pub(crate) enum Tab {
     Appearance,
     /// The selected player's team (`team`).
     Team,
+    /// The team's tactics (`tactics`).
+    Tactics,
 }
 
 /// The window's state: the open save and what the master-detail shows of it.
@@ -51,6 +53,9 @@ pub(crate) struct SaveView {
     selected: Option<(u32, u8)>,
     /// The drawn tab.
     tab: Tab,
+    /// The Tactics tab's on-screen state (`team_widgets`' `TacticsView`:
+    /// the preset its groups edit); back to preset 1 on every open.
+    tactics: team_widgets::tactics::TacticsView,
     /// A refusal to show until dismissed (an open the save refused).
     refusal: Option<Refusal>,
     /// The ruleset the badges use, loaded on the first frame and again only
@@ -165,6 +170,7 @@ impl SaveView {
             filter: String::new(),
             selected: None,
             tab: Tab::Abilities,
+            tactics: team_widgets::tactics::TacticsView::default(),
             refusal: None,
             rules: None,
             cards: None,
@@ -217,6 +223,7 @@ impl SaveView {
                 };
                 self.session = Some(session);
                 self.generation += 1;
+                self.tactics = team_widgets::tactics::TacticsView::default();
                 self.refusal = None;
                 self.boglo = None;
                 self.stat_num = None;
@@ -267,6 +274,7 @@ pub(crate) fn show(
                     Tab::Abilities => abilities::show(ui, view),
                     Tab::Appearance => appearance::show(ui, view),
                     Tab::Team => team::show(ui, view),
+                    Tab::Tactics => tactics::show(ui, view),
                 });
         });
     }
@@ -406,14 +414,14 @@ fn save(view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
 }
 
 /// The detail pane's tabs (`plans/save_editor.md` "Editing UI", the Tabs
-/// bullet): Abilities & Skills, Appearance and Team pick; Tactics is
-/// drawn disabled until its slice lands.
+/// bullet): Abilities & Skills, Appearance, Team and Tactics pick.
 fn tab_strip(ui: &mut egui::Ui, tab: &mut Tab) {
     ui.horizontal(|ui| {
         for (which, label) in [
             (Tab::Abilities, "Abilities & Skills"),
             (Tab::Appearance, "Appearance"),
             (Tab::Team, "Team"),
+            (Tab::Tactics, "Tactics"),
         ] {
             if ui
                 .add(egui::Button::selectable(*tab == which, label))
@@ -422,8 +430,6 @@ fn tab_strip(ui: &mut egui::Ui, tab: &mut Tab) {
                 *tab = which;
             }
         }
-        ui.add_enabled(false, egui::Button::selectable(false, "Tactics"))
-            .on_disabled_hover_text("Not available yet");
     });
 }
 

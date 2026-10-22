@@ -48,6 +48,21 @@ impl Headless {
         events: Vec<egui::Event>,
         contents: impl FnMut(&mut egui::Ui),
     ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
+        let (nodes, shapes) = self.frame_at_ids(time, events, contents);
+        (nodes.into_iter().map(|(_, node)| node).collect(), shapes)
+    }
+
+    /// `frame_at` keeping the nodes' AccessKit ids (for
+    /// `AccessKitActionRequest` events, which target a node by id).
+    pub(crate) fn frame_at_ids(
+        &mut self,
+        time: Option<f64>,
+        events: Vec<egui::Event>,
+        contents: impl FnMut(&mut egui::Ui),
+    ) -> (
+        Vec<(accesskit::NodeId, accesskit::Node)>,
+        Vec<egui::epaint::ClippedShape>,
+    ) {
         let input = egui::RawInput {
             time,
             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, self.screen)),
@@ -64,10 +79,7 @@ impl Headless {
         // Nothing renders here, so the frame's texture deltas are dropped on
         // purpose.
         output.drop_without_applying_deltas();
-        (
-            update.nodes.into_iter().map(|(_, node)| node).collect(),
-            shapes,
-        )
+        (update.nodes, shapes)
     }
 }
 

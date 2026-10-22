@@ -8,6 +8,9 @@
 /// The card pickers: the skills grid and COM playing styles with a
 /// remaining-count badge per ruleset tier, and the playing-style combo.
 pub mod cards;
+/// The tactics editor's settings half: preset selector, sliders, style
+/// pairs, advanced instructions and automatic settings.
+pub mod tactics;
 /// The headless egui harness the tests share.
 #[cfg(test)]
 mod test_support;
