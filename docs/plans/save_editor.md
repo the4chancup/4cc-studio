@@ -95,8 +95,8 @@ What exists of this is in `spec/save_editor.md` "Database operations".
 
 | 4ccEditor | Fate |
 |-----------|------|
-| Output rosters to TSV (`EDIT.tsv` in the working folder, no dialog, UTF-8; every team, hidden ones included, in roster order; per player: number, name, registered position, Finishing as the "rating", captain mark, height, playing style, skills, COM styles) | Kept, the same columns; written where a save dialog says, `EDIT.tsv` its default name |
-| Fix database (clear all visual flags, reset kit slots, PES17 kit-ID repair; a player's base-copy id cleared when it is neither his own nor 0 and his base-copy flag is off, the flag cleared when the id is his own or 0; every team's strip-edited flag cleared) | Kept as a maintenance action behind a confirmation dialog, all of it |
+| Output rosters to TSV (`EDIT.tsv` in the working folder, no dialog, UTF-8; every team, hidden ones included, in roster order; per player: number, name, registered position, Finishing as the "rating", captain mark, height, playing style, skills, COM styles) | Kept, the same columns and label spellings, UTF-8 with a byte-order mark (4ccEditor's `ccs=UTF-8` writes one, and a spreadsheet reads accented names right by it); written where a save dialog says, `EDIT.tsv` its default name |
+| Fix database (clear all visual flags, reset kit slots, PES17 kit-ID repair; a player's base-copy id cleared when it is neither his own nor 0 and his base-copy flag is off, the flag cleared when the id is his own or 0; every team's strip-edited flag cleared) | Kept as a maintenance action behind a confirmation dialog, under the aesthetics lock (it clears what Clear visual flags clears), one undo step, but for two parts. The base-copy repair runs only where the record has the flag (PES 15 to 18): on 19 to 21 4ccEditor tests a flag it never reads (an uninitialized field), and clearing copy ids there would change players' looks. The PES 17 kit-ID repair is not kept: its 2,500 writes step 131 bytes (`write_dataOld` advances its cursor 3 bytes, then the loop adds 0x80) over a strip table whose entries are 132 bytes (`spec/pes_savefile/model.md` "Kit slots and the strip table"), so all but the first land inside entries' bodies, and each writes 0xC0 into the strip-number byte; a repair of that table waits for its layout to be measured. The kit slots reset where the model has them (PES 17, the one version 4ccEditor writes them on) |
 
 ---
 
@@ -391,7 +391,7 @@ hand edit silently diverges from the DLC — so the editor **does not edit aesth
   patch" and a link to the apply action).
 - The same lock covers every other aesthetics write path: the team operations that write
   appearance fields (set boots/gloves IDs for everyone, set/remove FPC for the team, clear visual
-  flags, the FPC toggle), the aesthetics transplant, and the aesthetics section of Team TOML and
+  flags, the FPC toggle), Fix database (it clears the same flags), the aesthetics transplant, and the aesthetics section of Team TOML and
   legacy squad imports (the section checkbox is disabled, gameplay and tactics import as before).
 - **Apply aesthetics patch** is the one aesthetics write open by default: open a patch; the
   version must match the save and the allocation scheme the suite's (refused otherwise, save
@@ -719,10 +719,11 @@ SE-GUI-21  manual  GIVEN the save's game running
                    THEN it is refused naming the game, as the CLI's writing commands are
                         (SE-CLI-02), and the file is unchanged
 SE-GUI-22  GIVEN the save open with "Edit aesthetics anyway" off (every start of the tool)
-           WHEN the Appearance tab, the team operations menu, the transplant panel and the
-                import dialog are drawn
+           WHEN the Appearance tab, the team operations menu, the Savefile menu, the
+                transplant panel and the import dialog are drawn
            THEN the FPC toggle and the team-wide FPC switch, the boots and gloves assignment,
-                Clear visual flags, the transplant's Apply and the imports' aesthetics section
+                Clear visual flags, Fix database, the transplant's Apply and the imports'
+                aesthetics section
                 are disabled, each with the ownership line as its tooltip, while Apply
                 aesthetics patch is enabled
 SE-GUI-23  GIVEN the save open on a team and "Edit aesthetics anyway" on

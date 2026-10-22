@@ -4,6 +4,7 @@
 //! every operation on the model; the session resolves ids against the open save and hands
 //! the lib the entries it asks for.
 
+pub(crate) mod database;
 pub(crate) mod player_ops;
 pub(crate) mod rules;
 pub(crate) mod selection;
@@ -33,9 +34,10 @@ use crate::session::undo::{Change, UndoStack};
 static NEXT_REVISION: AtomicU64 = AtomicU64::new(1);
 
 /// The undo merge key every sealed operation's changes go under
-/// (`edit_players`, which `move_player`, `strip` and the team operations call):
-/// each is one sealed entry, never part of a widget's open gesture; a widget's
-/// key is its `egui::Id` value, never `u64::MAX`.
+/// (`edit_entries`, which `edit_players`, `fix_database`, `move_player`,
+/// `strip` and the team operations call): each is one sealed entry, never
+/// part of a widget's open gesture; a widget's key is its `egui::Id` value,
+/// never `u64::MAX`.
 const SEALED_KEY: u64 = u64::MAX;
 
 /// The fields of the in-game face run `player_export` carries (its appearance
@@ -180,26 +182,53 @@ impl Session {
     /// entry equal to the stored one, or naming a player the save lacks, is skipped; nothing
     /// changed pushes nothing.
     pub(crate) fn edit_players(&mut self, edited: Vec<PlayerEntry>) {
+        self.edit_entries(edited, Vec::new());
+    }
+
+    /// `edit_players` widened to teams (Fix database changes both in one
+    /// step): every player of `players` and every team of `teams` replaced
+    /// as one sealed undo entry, the same skip rules on both.
+    pub(crate) fn edit_entries(&mut self, players: Vec<PlayerEntry>, teams: Vec<TeamEntry>) {
         // The before/after pairs are computed before the first write, as in
         // `move_player`: the write and the undo entry are the same data.
-        let mut changed = Vec::new();
-        for after in edited {
+        let mut changed_players = Vec::new();
+        for after in players {
             let Some(entry) = self.file.player(after.id) else {
                 continue;
             };
             if *entry == after {
                 continue;
             }
-            changed.push((entry.clone(), after));
+            changed_players.push((entry.clone(), after));
         }
-        if changed.is_empty() {
+        let mut changed_teams = Vec::new();
+        for after in teams {
+            let Some(entry) = self.file.team(after.id) else {
+                continue;
+            };
+            if *entry == after {
+                continue;
+            }
+            changed_teams.push((entry.clone(), after));
+        }
+        if changed_players.is_empty() && changed_teams.is_empty() {
             return;
         }
-        for (before, after) in changed {
+        for (before, after) in changed_players {
             *self.file.player_mut(after.id).expect("resolved above") = after.clone();
             self.undo.push(
                 SEALED_KEY,
                 Change::Player {
+                    before: Box::new(before),
+                    after: Box::new(after),
+                },
+            );
+        }
+        for (before, after) in changed_teams {
+            *self.file.team_mut(after.id).expect("resolved above") = after.clone();
+            self.undo.push(
+                SEALED_KEY,
+                Change::Team {
                     before: Box::new(before),
                     after: Box::new(after),
                 },

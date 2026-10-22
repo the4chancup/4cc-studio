@@ -3007,7 +3007,7 @@ function teamMenu() {
 function databaseMenu() {
   return menu("Savefile", [
     ["Output rosters to TSV\u2026", dlgTsv],
-    ["Fix database\u2026", dlgFixDb],
+    ["Fix database\u2026", dlgFixDb, !S.editAnyway, ownershipTip()],
   ]);
 }
 const POS_LONG = { GK: "Goalkeeper", CB: "Center Back", LB: "Left Back", RB: "Right Back",
@@ -3146,7 +3146,7 @@ function rosterTsv() {
 }
 function dlgTsv() {
   const input = h("input", { type: "text", style: "width:420px",
-    value: S.path + ".rosters.tsv" });
+    value: "EDIT.tsv" });
   window_("Output rosters to TSV", h("div", {},
     h("p", {}, weak("The native save dialog (rfd) opens here; the draft edits the path inline.")),
     input),
@@ -3157,20 +3157,22 @@ function dlgTsv() {
     }), button("Cancel", closeWindow)]);
 }
 // Fix database behind a confirmation dialog; Cancel changes nothing
-// (SE-GUI-27). The original's resets, field by field: a base copy with no
-// flag loses its copy id, a flag with no real target loses the flag, the four
-// visual flags clear on every player, the team's strip flag clears, the kit
-// slots return to their defaults (Kit 1, Kit 2, GK bound to team id x64; the
-// rest to the nonexistent id 0xFFFFC0). The PES 17 repair writes the
-// container's Unknown section, which the model does not carry.
+// (SE-GUI-27), under the aesthetics lock (SE-GUI-22). The original's resets,
+// field by field: where the record has the base-copy flag (PES 15 to 18), a
+// base copy with no flag loses its copy id and a flag with no real target
+// loses the flag; the four visual flags clear on every player, the team's
+// strip flag clears, the kit slots return to their defaults (Kit 1, Kit 2, GK
+// bound to team id x64; the rest to the nonexistent id 0xFFFFC0). The
+// original's PES 17 strip-table write is not kept (plans/save_editor.md,
+// the Database operations table).
 function fixDatabase() {
   edit("Fix database", () => {
     for (const t of curSave().teams) {
       for (const p of t.players) {
         const ef = p.edit_flags;
-        if (!ef.base_copy && p.base_copy_id !== p.id && p.base_copy_id !== 0)
+        if (ef.base_copy === false && p.base_copy_id !== p.id && p.base_copy_id !== 0)
           p.base_copy_id = 0;
-        else if (ef.base_copy && (p.base_copy_id === p.id || p.base_copy_id === 0))
+        else if (ef.base_copy === true && (p.base_copy_id === p.id || p.base_copy_id === 0))
           ef.base_copy = false;
         for (const k of ["face", "hair", "physique", "strip"]) ef[k] = false;
       }
@@ -3188,8 +3190,7 @@ function fixDatabase() {
 // sample wording: the confirmation's text.
 function dlgFixDb() {
   window_("Fix database", h("div", {},
-    h("p", {}, "Repair base copies, clear every player's visual settings flags and the teams' strip flag, and reset the kit slots to their defaults"
-      + (version() === 17 ? " (the PES 17 kit-ID repair runs on this version)" : "") + "?")),
+    h("p", {}, "Repair base copies, clear every player's visual settings flags and the teams' strip flag, and reset the kit slots to their defaults?")),
     [button("Fix database", () => { fixDatabase(); closeWindow(); render(); }),
      button("Cancel", closeWindow)]);
 }

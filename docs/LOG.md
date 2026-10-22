@@ -2310,3 +2310,5 @@ worklog passed 7,000 lines.
   the seven gameplay flags, a kit-slot edit the PES 17 strip flag, a stripped player's motions are said to be read; missing tests added.
 - **2026-10-22** — 8.9d2: the Save editor's Player menu (Set all and Bump all stats, Copy and Swap stats) and FPC (Hide body and
   Show body with the interference findings, Ctrl+I, the team's Set and Remove FPC invisibility, a model's own IDs kept).
+- **2026-10-22** — 8.9d3: the Save editor's Savefile menu, Output rosters to TSV and Fix database (base copies repaired on PES
+  15 to 18 only, 4ccEditor's PES 17 strip-table write not kept: its writes drift off the table's 132-byte entries).

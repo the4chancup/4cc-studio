@@ -1040,10 +1040,22 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         player_list.rs,appearance/mod.rs,tests.rs,tests/player.rs}}}`, `studio/tests/help_cli.rs`
         (the help export's last catalog row)
         - [ ] review (checkpoint b: one crate, no `pub` item; rides with 8.9d3's): a SWE-2
-          loop, then Astra; `mutants-diff 4fb6c077` at the commit
-      - [ ] 8.9d3 the Savefile menu (SE-GUI-27): Output rosters to TSV and Fix database behind
-        its confirmation (the PES 17 kit-ID repair writes the container's Unknown section, which
-        the model does not carry: read `fix_database` first)
+          loop, then Astra. `mutants-diff 4fb6c077` at `e3d652da`: 10 missed, all in the
+          dialogs (`.tmp/8_9/survivors_d2.md`), tested with 8.9d3's rework
+      - [x] 8.9d3 the Savefile menu (SE-GUI-27): Output rosters to TSV and Fix database behind
+        its confirmation. Done 2026-10-22 (SWE-2, a run and one rework): `session/database.rs`
+        (`rosters_tsv` with the original's skill and COM spellings, the playing style through
+        `schema::playstyle::decode`, a BOM first; the pure `fix_database`), `edit_players`
+        widened to `edit_entries` (players and teams, one sealed entry), the Savefile menu and
+        the confirmation, `help/07_savefile.md`. Fix database repairs base copies on PES 15 to
+        18 only, writes no PES 17 strip table and sits under the lock (DECISIONS 2026-10-22).
+        The rework: the first run's own PES 19 style table had two styles swapped (a lead
+        script comparing it with the original's found it), replaced by the schema's measured
+        lists; 8.9d2's survivors' tests. Files: `save_editor/{help/07_savefile.md,src/{lib.rs,
+        session/{mod.rs,database.rs},view/{mod.rs,menus.rs,player_list.rs,tests.rs,tests/{
+        savefile.rs,player.rs}}}}`
+        - [ ] review (checkpoint b, with 8.9d2's): a SWE-2 loop, then Astra, over
+          `e3d652da^..` the commit; `mutants-diff e3d652da` at the commit
     - [ ] the FPC hide IDs (55, 11) as a suite-common setting the editor and the Team compiler
       both read (`plans/save_editor.md` "Full Player Customization (FPC)"), in one step; both
       use `libs/fpc`'s constants until then

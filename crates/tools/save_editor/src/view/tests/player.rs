@@ -517,6 +517,136 @@ fn swap_stats_trades_the_field_set_on_pes16() {
     );
 }
 
+// The four menu dialogs' headings are their titles (`StatNum::title`,
+// `CopySwap::title`): the heading text is what a member reads the dialog
+// by.
+#[test]
+fn the_menu_dialogs_draw_their_headings() {
+    let path = fixture(PesVersion::Pes21, "player_dialog_headings");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    for (item, title) in [
+        ("Set all stats", "Set all stats"),
+        ("Bump all stats", "Bump all stats"),
+        ("Copy stats from", "Copy stats"),
+        ("Swap stats with", "Swap stats"),
+    ] {
+        let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
+        click(&mut window, menu_item(&nodes, item), &mut view);
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        assert!(
+            label_drawn(&nodes, title),
+            "the {item:?} dialog draws its heading {title:?}"
+        );
+        click(
+            &mut window,
+            labeled(&nodes, Role::Button, "Cancel"),
+            &mut view,
+        );
+    }
+}
+
+// The Copy/Swap dialog's pick: it opens on the selected player's team's
+// first filled roster slot, and picking another team re-picks that
+// team's first filled slot — the combo's shown text names the picked
+// player by his number, position and name.
+#[test]
+fn the_copy_swap_dialog_picks_the_teams_first_filled_slot() {
+    let path = fixture(PesVersion::Pes21, "player_copy_swap_pick");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    // The selected player is the first listed, so his team's first
+    // filled slot is the pick. Another team of the fixture, for the
+    // switch: read both from the save, never typed in.
+    let (slot, first_id) = rostered(&view, 701)
+        .first()
+        .copied()
+        .expect("team 701 has a filled slot");
+    let first = player_entry(&view, first_id);
+    let number = team_entry(&view, 701).roster[slot].number;
+    let second_id = view
+        .session
+        .as_ref()
+        .unwrap()
+        .file()
+        .teams()
+        .iter()
+        .find(|team| team.id != 701 && team.roster.iter().any(|slot| slot.player_id != 0))
+        .expect("another team with a filled slot")
+        .id;
+    let second_name = team_entry(&view, second_id).name.clone();
+    let (second_slot, second_player_id) = rostered(&view, second_id)
+        .first()
+        .copied()
+        .expect("the other team has a filled slot");
+    let second = player_entry(&view, second_player_id);
+    let second_number = team_entry(&view, second_id).roster[second_slot].number;
+
+    let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
+    click(&mut window, menu_item(&nodes, "Copy stats from"), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        player_combo(&nodes).value().map(str::to_owned),
+        Some(slot_label(&first, number)),
+        "the pick is the team's first filled slot, shown by his label"
+    );
+
+    // Pick the other team in the Team combo: the pick re-seats on its
+    // first filled slot.
+    let team_combo = right_of_label(&nodes, "Team", Role::ComboBox)
+        .first()
+        .copied()
+        .expect("the team combo");
+    click(&mut window, team_combo, &mut view);
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (option, _) = nodes
+        .iter()
+        .find(|(_, node)| node.label() == Some(second_name.as_str()))
+        .unwrap_or_else(|| panic!("no {second_name:?} in the team combo"));
+    action_click(&mut window, &mut view, *option);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        player_combo(&nodes).value().map(str::to_owned),
+        Some(slot_label(&second, second_number)),
+        "the pick is the picked team's first filled slot"
+    );
+}
+
+/// The Copy/Swap dialog's player combo node.
+fn player_combo(nodes: &[accesskit::Node]) -> &accesskit::Node {
+    right_of_label(nodes, "Player", Role::ComboBox)
+        .first()
+        .copied()
+        .expect("the player combo")
+}
+
+// The Copy/Swap dialog leaves on OK as on Cancel (`view.copy_swap` is
+// `None` after both), the `&&` mutant's keep-it-open case.
+#[test]
+fn the_copy_swap_dialog_closes_on_ok_and_cancel() {
+    let path = fixture(PesVersion::Pes21, "player_copy_swap_close");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+
+    for button in ["OK", "Cancel"] {
+        let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
+        click(&mut window, menu_item(&nodes, "Copy stats from"), &mut view);
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        click(
+            &mut window,
+            labeled(&nodes, Role::Button, button),
+            &mut view,
+        );
+        assert!(view.copy_swap.is_none(), "{button} closed the dialog");
+    }
+}
+
 /// Whether the nodes draw a Label node with `value` as its text.
 fn label_drawn(nodes: &[accesskit::Node], value: &str) -> bool {
     nodes

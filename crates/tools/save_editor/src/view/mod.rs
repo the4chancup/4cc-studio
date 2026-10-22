@@ -88,6 +88,9 @@ pub(crate) struct SaveView {
     /// The Copy/Swap stats dialog's state while it is open (the Player
     /// menu's `…` items); `None` while it is closed.
     copy_swap: Option<menus::CopySwap>,
+    /// The Fix database confirmation is open (the Savefile menu's item);
+    /// `false` while it is closed.
+    fix_database: bool,
     /// Where the Appearance tab's Randomize draws a motion value in
     /// `1..=top` from: a field so the tests pin the draws; `new` seeds a
     /// xorshift from the wall clock (the picks need only be unpredictable
@@ -166,6 +169,7 @@ impl SaveView {
             stat_num: None,
             bump: 0,
             copy_swap: None,
+            fix_database: false,
             randomize_draw: Box::new(appearance::seeded_draw()),
         }
     }
@@ -210,6 +214,7 @@ impl SaveView {
                 self.boglo = None;
                 self.stat_num = None;
                 self.copy_swap = None;
+                self.fix_database = false;
             }
             Err(error) => {
                 self.refusal = Some(Refusal {
@@ -263,6 +268,7 @@ pub(crate) fn show(
     menus::boglo_dialog(ui, view);
     menus::stat_num_dialog(ui, view);
     menus::copy_swap_dialog(ui, view);
+    menus::fix_database_dialog(ui, view);
     // One undo entry per gesture: seal when the pointer is up and no widget
     // holds the keyboard.
     if let Some(session) = view.session.as_mut()
@@ -336,6 +342,7 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         }
         menus::player_menu(ui, view);
         menus::team_menu(ui, view);
+        menus::savefile_menu(ui, view);
         if let Some(session) = view.session.as_ref() {
             let path = session.path().display().to_string();
             let marker = if session.is_dirty() {

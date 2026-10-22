@@ -10209,3 +10209,18 @@ five codes with member-facing text, rather than text of its own in the view.
 Why: a finding's text written in the view would be a second copy of what the help's Messages
 topic lists, and the two would drift; through the catalog the tab and the topic read one row.
 Plan: `plans/save_editor.md` "Full Player Customization (FPC)", the bullet on the findings.
+
+## 2026-10-22 — save_editor — Fix database: base copies only where the flag exists, no PES 17 table write, under the lock
+Decision: Fix database repairs base copies only on PES 15 to 18, where the record has the
+base-copy flag; it does not write PES 17's strip table; and it sits under the aesthetics lock,
+one undo step. The rest is 4ccEditor's: the four visual flags cleared on every player, the
+teams' strip flag cleared, the kit slots reset to Kit 1, Kit 2 and the goalkeeper's bound to
+the team and the rest to the nonexistent team id.
+Why: on PES 19 to 21 4ccEditor's rule reads `b_base_copy`, which its readers never set and its
+constructor leaves uninitialized, so what it clears there is chance; a copy id is the player's
+look on those versions. Its PES 17 repair steps 131 bytes (`write_dataOld` advances the cursor
+by reference) over 132-byte entries and writes 0xFFFFC0 from bit 0, so it puts 0xC0 in the
+strip-number byte and, past the first entry, writes into entries' bodies. Clear visual flags
+is locked because it writes what a team's export owns; Fix database writes the same flags, and
+one guard is one rule.
+Plan: `plans/save_editor.md` "Feature inventory", the Database operations table.

@@ -411,6 +411,7 @@ mod abilities;
 mod appearance;
 mod list;
 mod player;
+mod savefile;
 mod shell;
 mod strip;
 mod team;

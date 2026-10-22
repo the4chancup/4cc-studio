@@ -1,9 +1,10 @@
 //! The toolbar's menu buttons (`plans/save_editor.md` "Feature
 //! inventory"): the Player menu's four stat operations and FPC toggle,
 //! the Team menu's operations over the selected player's team, each a
-//! sealed undo entry (`session/{player,team}_ops.rs`), and the dialogs
-//! they open (`Boglo`, `StatNum` and `CopySwap`; the draft's `dlgBoglo`,
-//! `dlgNum` and `dlgCopySwap`).
+//! sealed undo entry (`session/{player,team}_ops.rs`), the Savefile
+//! menu's roster sheet and Fix database (`session/database.rs`), and the
+//! dialogs they open (`Boglo`, `StatNum` and `CopySwap`; the draft's
+//! `dlgBoglo`, `dlgNum` and `dlgCopySwap`).
 
 use std::ops::RangeInclusive;
 
@@ -12,9 +13,10 @@ use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::names::display_name;
 
 use crate::session::Session;
+use crate::session::database;
 use crate::session::team_ops::{BootsMode, GlovesMode};
 use crate::view::appearance::ownership_tip;
-use crate::view::{SaveView, selected_player};
+use crate::view::{Refusal, SaveView, selected_player};
 
 /// The Team menu button (the draft's `teamMenu`): Set edited flag, the
 /// boots/gloves dialog, Set player names to positions, Clear visual flags
@@ -154,6 +156,83 @@ pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
             ui.close();
         }
     });
+}
+
+/// The Savefile menu button (the draft's `databaseMenu`): Output rosters
+/// to TSV, a pure read of the open save so never locked — `rfd`'s save
+/// dialog with `EDIT.tsv` as the default name, a write error shown as the
+/// refusal — and Fix database, under the aesthetics lock with the
+/// ownership line as its disabled hover (SE-GUI-22). The menu is
+/// disabled with no save open.
+pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
+    let (unlocked, version) = {
+        let Some(session) = view.session.as_ref() else {
+            ui.add_enabled_ui(false, |ui| {
+                ui.menu_button("Savefile", |_| ());
+            });
+            return;
+        };
+        (view.edit_aesthetics, session.version())
+    };
+    ui.menu_button("Savefile", |ui| {
+        let Some(session) = view.session.as_mut() else {
+            return;
+        };
+        if ui.button("Output rosters to TSV\u{2026}").clicked() {
+            let written = rfd::FileDialog::new()
+                .set_file_name("EDIT.tsv")
+                .save_file()
+                .map(|path| database::write_rosters_tsv(session.file(), &path));
+            if let Some(Err(error)) = written {
+                view.refusal = Some(Refusal {
+                    title: "Cannot write the roster sheet",
+                    message: format!("{error:#}"),
+                });
+            }
+            ui.close();
+        }
+        if ui
+            .add_enabled(unlocked, egui::Button::new("Fix database\u{2026}"))
+            .on_disabled_hover_text(ownership_tip(version))
+            .clicked()
+        {
+            view.fix_database = true;
+            ui.close();
+        }
+    });
+}
+
+/// The Fix database confirmation while `view.fix_database` holds (the
+/// draft's `dlgFixDb`): the repair's line, Fix database applies it as one
+/// sealed undo entry (`Session::fix_database`), Cancel or Escape closes
+/// with nothing changed.
+pub(crate) fn fix_database_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
+    if !view.fix_database {
+        return;
+    }
+    let mut close = false;
+    let response =
+        egui::Modal::new(egui::Id::new("save_editor_fix_database")).show(ui.ctx(), |ui| {
+            ui.heading("Fix database");
+            ui.label(
+                "Repair base copies, clear every player's visual settings flags and the \
+                 teams' strip flag, and reset the kit slots to their defaults?",
+            );
+            ui.horizontal(|ui| {
+                if ui.button("Fix database").clicked()
+                    && let Some(session) = view.session.as_mut()
+                {
+                    session.fix_database();
+                    close = true;
+                }
+                if ui.button("Cancel").clicked() {
+                    close = true;
+                }
+            });
+        });
+    if close || response.should_close() {
+        view.fix_database = false;
+    }
 }
 
 /// The Set boots and gloves IDs for everyone dialog's state (`view.boglo`
