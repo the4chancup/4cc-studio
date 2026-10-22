@@ -10106,3 +10106,20 @@ did; the exhaustive model passes over every fixture team and player (11 to 17 s 
 since the fixtures' records are not placeholders: every team is distinct (220 of 220; 200 of
 202 on PES 18) and each version has 415 to 2,509 distinct players.
 Plan: `Cargo.toml` `[profile.dev.package.*]`; `spec/save_editor.md` SE-TOML-02.
+
+## 2026-10-22 — aatf — A loaded ruleset is shared across threads, and the whole-save check runs its teams in parallel
+Decision: `rhai` builds with its `sync` feature, so `aatf::Rules` is `Send + Sync`;
+`check-aatf` checks its teams in parallel (rayon) on the one loaded file and reports them in id
+order as before. The Live AATF worker and the AATF panel's whole-save check will use the
+window's `Rules` the same way. `sync` brings two small crates, `no-std-compat` and `spin` 0.5
+(rhai's lock), both through `cargo deny`. The script's own work is not cut here: a rewrite of
+`logic.rhai`'s per-tier reading is a worklog step of its own.
+Why: measured where one team's check spends its 56 ms (release, the official ruleset, a PES
+2017 save's 220 cup teams): building the team's view 0.03 ms, copying it under 0.001 ms, an
+empty script 0.03 ms, so there was nothing outside the script to cut; `read_player`'s profile
+of each tier is 50 of the 56 ms (rhai copies every map argument per call). Checking teams on
+16 threads takes the command from 13.2 s to 2.0 s with identical output, and `sync` costs about
+3% per team. Loading one `Rules` per thread instead would pay the ~70 ms load and its sample
+check per thread, and the Live worker could not take the window's ruleset at all.
+Plan: `spec/aatf_rules.md` "The host"; `plans/save_editor.md` "Configurable AATF rules" (Live
+AATF); the root `Cargo.toml`'s `rhai` line.

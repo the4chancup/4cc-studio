@@ -945,8 +945,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         interchange/team_toml/{mod.rs,team.rs,player/{mod.rs,tests.rs}}}`,
         `aatf/src/{rules.rs,team.rs,violation.rs,fixtures/mod.rs}`,
         `team_widgets/src/violations.rs`, `save_editor/{src/messages.rs,tests/cli/check_aatf.rs}`
-        - [ ] review (checkpoint b: a new `pub` interface over four crates): a SWE-2 loop, then
-          Astra
+        - [x] review (checkpoint b: a new `pub` interface over four crates): a SWE-2 loop, then
+          Astra; run with 8.9c2's (below)
       - [x] 8.9c2 drag reorder in the player list (SE-GUI-08): `Session::move_player`, the
         records rotating between the slots' ids as 4ccEditor's spinner trades them (`id`,
         `appearance_id` and `base_copy_id` stay with the id: its `player_export` carries no id
@@ -971,10 +971,20 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
       the list shrinking as a fix lands, the checking mark, the empty state
-    - [ ] before slice 4, measure where one team's AATF check spends its ~48 ms (release,
-      2026-10-21: `check-aatf` on a PES 2017 save, 220 teams in 10.7 s; the engine built per
-      team, the script, the team's view) and cut what is not the script's own work: speed is
-      the suite's first goal, and both AATF panels wait on it
+    - [x] before slice 4, measure where one team's AATF check spends its time and cut what is
+      not the script's own work. Done 2026-10-22 (lead): 56 ms a team, the host's part (the
+      team's view, its copy, the call) under 1%, `read_player` 50 ms of it
+      (`.tmp/8_9/aatf_timing/`); `rhai` built with `sync` so `Rules` is shared across threads,
+      `check-aatf` checks its teams in parallel (PES 2017 save, 220 teams: 13.2 s to 2.0 s,
+      output identical; DECISIONS 2026-10-22). Files: `Cargo.toml`, `aatf/src/rules.rs`,
+      `save_editor/{Cargo.toml,src/cli.rs}`, `spec/aatf_rules.md`, `plans/save_editor.md`
+    - [ ] the script's own work: `logic.rhai`'s `read_player` profiles every tier for each
+      player, 2.2 ms a player, because rhai copies every map argument per call (measured
+      without each part: choices' `option_used` 22 ms of the 56, the two walks over the
+      specials 38 ms with the choices they feed). A rewrite that copies less (one card summary
+      per choice rather than per option, the specials' conditions read once per player)
+      updates `LOGIC_VERSIONS`' hash and must leave every fixture's violations unchanged; not
+      before slice 4, since the check already runs off the frame
   - [ ] 8.10 after 0.0.1: the progress grid (with the log panel's cross-link: a warning or
     error line's click highlights its grid cell, `plans/core/gui.md` "Log panel", which 8.6d3 leaves for
     the grid), the run strip and the console printer's progress line, the exports folder watcher and check cache, cancellation, the launcher, the Team

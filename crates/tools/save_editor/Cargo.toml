@@ -16,6 +16,7 @@ egui.workspace = true
 log.workspace = true
 pes_savefile.workspace = true
 pes_version.workspace = true
+rayon.workspace = true
 rfd.workspace = true
 serde.workspace = true
 serde_json.workspace = true

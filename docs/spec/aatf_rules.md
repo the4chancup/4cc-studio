@@ -845,6 +845,14 @@ engine.set_max_call_levels(32);
 engine.set_max_expr_depths(64, 64);              // rhai's debug and release defaults differ, and the interpreter nests past the debug limit
 ```
 
+rhai is built with its `sync` feature, so a loaded `Rules` is `Send + Sync`: the whole-save
+check runs its teams in parallel on one `Rules`, and a worker checks a team on the ruleset the
+window loaded rather than loading its own. Measured 2026-10-22 (release, the official ruleset
+on a PES 2017 save's 220 cup teams): one team's check takes about 56 ms, of which building the
+team's view, copying it and calling into the script take under 1%; the rest is the script's
+own work, `read_player`'s profile of each tier the most of it. `sync` costs about 3% per team;
+the parallel check takes 1.8 s on 16 threads where one thread took 12.8 s.
+
 The script API, which `libs/aatf`'s crate doc lists too:
 
 | Accessor | Returns |

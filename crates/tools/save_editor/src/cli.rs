@@ -6,7 +6,7 @@ use std::fs;
 use std::io::{self, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
 
-use aatf::TeamView;
+use aatf::{TeamView, Violation};
 use anyhow::anyhow;
 use clap::{ArgGroup, Args, Command, FromArgMatches, Subcommand};
 use cpk::{CpkArchive, CpkWriter};
@@ -16,6 +16,7 @@ use pes_savefile::ops::compare::{CompareError, DiffScope};
 use pes_savefile::ops::transplant::{TransplantError, parse_selection};
 use pes_savefile::player_tables::{AppearanceTable, ItemList, PlayerTable, PlayerTableFile};
 use pes_version::{Engine, PesVersion};
+use rayon::prelude::*;
 use studio_core::{CliError, RunningPes, Severity, ToolContext, running_pes};
 
 use crate::events::Report;
@@ -445,9 +446,10 @@ fn diff_saves(args: &DiffArgs, report: &mut Report) -> Result<(), CliError> {
 
 /// `check-aatf`: the ruleset is `--rules`, else the `aatf_rules` setting's file, else the
 /// embedded official ruleset; a file that does not read or fails load-time validation is
-/// refused naming it, so the command doubles as a rules file's check. Each team is checked
-/// in turn, a team's failed check is an error line and the next team is still checked; a
-/// violation is one line at its severity, suggestions aside.
+/// refused naming it, so the command doubles as a rules file's check. The teams are checked in
+/// parallel on the one loaded file (each check is ~50 ms of script) and reported in id order; a
+/// team's failed check is an error line and the other teams are still reported; a violation is
+/// one line at its severity, suggestions aside.
 fn check_aatf(
     args: &CheckAatfArgs,
     ctx: &ToolContext,
@@ -471,12 +473,17 @@ fn check_aatf(
             return Err(invalid(anyhow!("the save has no team {id}")));
         }
     }
-    for id in ids {
+    let results: Vec<Result<Vec<Violation>, String>> = ids
+        .par_iter()
+        .map(|&id| {
+            TeamView::new(session.file(), id)
+                .map_err(|error| error.to_string())
+                .and_then(|view| rules.check_team(&view).map_err(|error| error.to_string()))
+        })
+        .collect();
+    for (id, result) in ids.into_iter().zip(results) {
         let team = session.file().team(id).expect("checked above");
-        let violations = match TeamView::new(session.file(), id)
-            .map_err(|error| error.to_string())
-            .and_then(|view| rules.check_team(&view).map_err(|error| error.to_string()))
-        {
+        let violations = match result {
             Ok(violations) => violations,
             Err(error) => {
                 report.message(aatf_check_failed(id, error));

@@ -2296,3 +2296,5 @@ worklog passed 7,000 lines.
   cm bonus optional). Plans: Studio opens at 1440 × 900 points, the Ruleset editor's preview behind a toggle; team trim dropped.
 - **2026-10-22** — 8.9c2 rework 1: a drag leaves each slot its in-game face and hairstyle (4ccEditor's
   exported record has neither; skin, iris and gloves move), and two drags undo as two steps.
+- **2026-10-22** — AATF timing: one team's check is 56 ms of script (the host's part under 1%); a ruleset is shared
+  across threads (`rhai` `sync`) and `check-aatf` checks teams in parallel: 220 teams in 2.0 s, 13.2 s before.

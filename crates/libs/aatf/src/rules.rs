@@ -17,7 +17,8 @@ use crate::violation::{CheckError, Violation, ViolationKind, violations};
 const AUTUMN26: &str = include_str!("../rulesets/autumn26.rhai");
 
 /// A loaded rules file: its ruleset, its compiled script and the engine
-/// it runs on.
+/// it runs on. `Send + Sync` (rhai's `sync` feature): several threads
+/// check teams on one loaded file.
 #[derive(Debug)]
 pub struct Rules {
     /// The ruleset the file's `RULESET` deserialized into.
@@ -257,6 +258,22 @@ mod tests {
     /// one-tier `RULESET`.
     fn minimal_file() -> String {
         "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }] };\nfn check_team(team) { [] }\nfn tier_values(player, tier, team) { #{} }\nfn card_limits(player, tier, team) { #{} }".to_string()
+    }
+
+    /// Two threads check on one loaded file and agree: the whole-save
+    /// check and the Live AATF worker share the window's `Rules`.
+    #[test]
+    fn two_threads_check_on_one_loaded_file() {
+        let rules = Rules::official();
+        let team = fixture_team(PesVersion::Pes17);
+        let [first, second] = std::thread::scope(|scope| {
+            [
+                scope.spawn(|| rules.check_team(&team).expect("checks")),
+                scope.spawn(|| rules.check_team(&team).expect("checks")),
+            ]
+            .map(|thread| thread.join().expect("the thread ends"))
+        });
+        assert_eq!(first, second);
     }
 
     /// The official file loads, and its check runs without a script

@@ -486,15 +486,17 @@ What this editor adds on top of the lib:
   player as the AATF panel does, under the header `N issues · <ruleset>`, or `No issues:
   <team> passes <ruleset>` once the list is empty; clicking a row selects that player. The
   team is re-checked after every edit to it, undo and redo included, and when another team is
-  opened, so the list shrinks as the member fixes it. One team's check takes about 50 ms in a
-  release build (2026-10-21, the official ruleset on a PES 2017 save: 220 teams in 10.7 s),
-  more than a frame, so it runs on a worker once the edit settles (a drag released, a field
-  committed) and the list keeps the previous result, marked as checking, until the new one
-  arrives. The panel is the log panel widget's frame (its chevron collapses it to the header,
+  opened, so the list shrinks as the member fixes it. One team's check takes about 56 ms in a
+  release build, nearly all of it the script's own work (`spec/aatf_rules.md` "The host"),
+  more than a frame, so it runs on a worker, on the ruleset the window loaded, once the edit
+  settles (a drag released, a field committed) and the list keeps the previous result, marked
+  as checking, until the new one arrives. The panel is the log panel widget's frame (its chevron collapses it to the header,
   its divider resizes it). At the bottom, not at a side: the player list holds the left and the
   tabs need their width (the Abilities grid), and a bottom strip is where the Team compiler's
   log already sits. The floating AATF panel stays for several teams at once, suggestions,
-  Validate rules and Save a copy; its whole-save check (10.7 s above) runs on a worker too.
+  Validate rules and Save a copy; its whole-save check runs on a worker too, its teams in
+  parallel as `check-aatf` runs them (220 teams of a PES 2017 save in 2.0 s on 16 threads, 13.2
+  s on one).
 - **Validate rules.** A button running the lib's load-time validation on the chosen file, its
   findings shown with line or key path.
 - A **"save a copy"** action writes the embedded official ruleset out.
