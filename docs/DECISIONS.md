@@ -10123,3 +10123,12 @@ of each tier is 50 of the 56 ms (rhai copies every map argument per call). Check
 check per thread, and the Live worker could not take the window's ruleset at all.
 Plan: `spec/aatf_rules.md` "The host"; `plans/save_editor.md` "Configurable AATF rules" (Live
 AATF); the root `Cargo.toml`'s `rhai` line.
+
+## 2026-10-22 — save_editor — With ALL picked, Live AATF checks the selected player's team
+Decision: Live AATF's "open team" is the team selector's; with ALL picked, it is the selected
+player's team, the one the info strip and the tabs are editing.
+Why: under ALL no team is open, and the edits Live AATF follows are the selected player's, so
+his team is the one whose list should shrink; checking every team instead would be the AATF
+panel's whole-save run on every edit, and checking nothing would switch the panel off in the
+list's default view of the PES 21 sample.
+Plan: `plans/save_editor.md` "Configurable AATF rules" (Live AATF); the draft's `liveTeam`.

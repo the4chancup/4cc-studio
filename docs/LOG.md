@@ -2298,3 +2298,5 @@ worklog passed 7,000 lines.
   exported record has neither; skin, iris and gloves move), and two drags undo as two steps.
 - **2026-10-22** — AATF timing: one team's check is 56 ms of script (the host's part under 1%); a ruleset is shared
   across threads (`rhai` `sync`) and `check-aatf` checks teams in parallel: 220 teams in 2.0 s, 13.2 s before.
+- **2026-10-22** — The Save editor draft draws Live AATF (SE-GUI-30): the toolbar toggle, the docked bottom panel, the
+  checking mark, the list shrinking as a fix lands, the empty state; walked in Chrome. Slice 4 can be briefed.

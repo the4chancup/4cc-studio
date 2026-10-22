@@ -482,7 +482,8 @@ What this editor adds on top of the lib:
   "Suggestions" in the AATF rules plan). The panel is `team_widgets`' violations list.
 - **Live AATF.** A toolbar toggle, off by default and remembered in the tool's settings
   (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
-  docked at the bottom of the view lists the open team's violations, errors first, grouped per
+  docked at the bottom of the view lists the open team's violations (with ALL picked, the
+  selected player's team: the one the strip and tabs are editing), errors first, grouped per
   player as the AATF panel does, under the header `N issues · <ruleset>`, or `No issues:
   <team> passes <ruleset>` once the list is empty; clicking a row selects that player. The
   team is re-checked after every edit to it, undo and redo included, and when another team is

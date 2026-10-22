@@ -45,6 +45,10 @@
   ComboBox; the transplant's two panes = two scroll areas of selectable
   rows; the AATF team multi-select = a scroll area of CheckBoxes; Export,
   Apply, Validate rules and Save a copy = buttons; radio labels = RadioButton.
+  Live AATF: the toolbar toggle = a SelectableLabel; .live-panel = the log
+  panel widget's frame docked at the bottom of the view (its chevron and
+  divider as shell.html's log panel); the dimmed list = the previous result
+  while the worker checks.
   The interchange panel: the file picker = a ComboBox (the rfd dialog in
   the real view; its entries are the draft's samples); the section choices
   = CheckBoxes drawn only for the sections the file holds, the aesthetics
@@ -259,6 +263,20 @@
   .panel .drow .f { width: 190px; flex: none; overflow: hidden; text-overflow: ellipsis; }
   .panel .drow .v { color: var(--strong); }
   .panel .grp { color: var(--strong); margin: 6px 0 2px; }
+  /* Live AATF: the log panel widget's frame (shell.html), docked under the view */
+  .center.docked { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 6px; }
+  .center.docked .view-scroll { flex: 1; min-height: 0; overflow: auto; }
+  .live-panel { flex: none; margin-top: 6px; }
+  .live-divider { height: 4px; cursor: ns-resize; }
+  .live-divider:hover { background: var(--hover); }
+  .live-header { display: flex; align-items: center; gap: 6px; padding: 1px 0; }
+  .live-body { overflow: auto; background: var(--extreme); border: 1px solid var(--stroke); padding: 2px 6px; }
+  .live-body.checking { opacity: .55; }
+  .live-body .drow { display: flex; gap: 8px; padding: 0 4px; white-space: nowrap; border-radius: 2px; }
+  .live-body .drow:hover { background: var(--sel-bg); }
+  .live-body .drow .f { width: 190px; flex: none; overflow: hidden; text-overflow: ellipsis; }
+  .live-body .drow .v { color: var(--strong); }
+  .live-body .grp { color: var(--strong); margin: 4px 0 1px; }
   .panel .tlist { background: var(--extreme); border: 1px solid var(--stroke);
     max-height: 180px; overflow: auto; }
   .panel .panes { display: flex; gap: 10px; }
@@ -2415,7 +2433,7 @@ const SAMPLE_PATH = {
 // ---- State ----
 // D: the draft controls' GIVENs. S: the session.
 const D = { sample: "pes17", selectorVersion: "2017", gameRunning: false,
-  appearanceIds: "all_set", ruleset: "official", pickerSugg: false };
+  appearanceIds: "all_set", ruleset: "official", pickerSugg: false, liveTeamRows: true };
 const S = { save: null, baseline: null, teamSel: "all", filter: "", sel: null,
   tab: "abilities", editAnyway: false, undo: [], redo: [], recents: [],
   status: null,
@@ -2753,6 +2771,8 @@ function renderDraftControls() {
     h("label", { class: "cb", title: "SE-GUI-09" }, "AATF ruleset",
       combo(Object.entries(RULESETS).map(([k, r]) => [k, r.label]), D.ruleset,
         v => D.ruleset = v)),
+    h("span", { title: "SE-GUI-30: the draft recomputes player rows only; off drops the team's rows so the empty state can be reached" },
+      cb("Live AATF keeps the sample's team rows", D.liveTeamRows, v => D.liveTeamRows = v)),
     h("span", { title: "the picker's host-supplied swatches; the Save editor passes none" },
       cb("Picker suggestions, as a kit editor would pass", D.pickerSugg,
         v => D.pickerSugg = v)),
@@ -2780,6 +2800,7 @@ const WALK = [
   ["SE-GUI-13", "Panels, Comparator: pick the PES 21 sample (refused), then Autumn24Q; the toggles and the team filter narrow the rows, Export writes their report lines, a row click selects the player"],
   ["SE-GUI-14", "Panels, Aesthetics transplant: the PES 21 donor is refused; pick Autumn24Q, keep the --select text, Preview then Apply (the lock must be on); a pair also builds by clicking a target then a donor in the two panes"],
   ["SE-GUI-15", "the AATF button or Panels menu: violations grouped per player, a click selects him; Show suggestions (official), Validate rules on the broken files, Save a copy; Select teams ticks e.g. 708 for its Height, BracketQuota and ExtraHeight"],
+  ["SE-GUI-30", "PES 17 sample, team 718, the DBC7 ruleset: switch Live AATF on in the toolbar; the bottom panel lists the team's issues, errors first, under 'N issues · DBC7'. Lower a stat over its maximum (a Stat row) to its target: the list dims, marked checking, then the row is gone and N is one less; Undo brings it back. Under the official ruleset on 718, untick the team-rows control and set each Height row's player to 180: 'No issues: ... passes ...'. Reload the page: Live AATF is still on"],
   ["SE-GUI-18", "Panels, Apply aesthetics patch: on the PES 21 sample the preview lists the changed players, Apply is one edit; on the PES 17 sample the same patch is refused"],
   ["SE-GUI-16", "Panels, Team file interchange: Team TOML export writes the team's file; pick 701.toml (PES 21) for the warning list, a 718 or 722 one for the refusals; Apply is one undoable edit"],
   ["SE-GUI-17", "same panel: the .4ccs files pair records with the rostered players; the .4cct imports tactics; on PES 21 Texport export writes a .ted the picker then reads back; on PES 17 it is disabled"],
@@ -2826,6 +2847,7 @@ function setTitle() {
 }
 function render() {
   closeMenus();
+  scheduleLiveCheck();
   setTitle();
   renderDraftControls();
   renderSidebar();
@@ -2877,6 +2899,8 @@ function renderToolbar() {
   return h("div", { class: "toolbar" },
     openMenu(), saveBtn, button("Save as", saveAs), playerMenu(), teamMenu(), databaseMenu(),
     panelsMenu(), undoBtn, redoBtn,
+    selectable("Live AATF", LIVE.on, () => setLive(!LIVE.on),
+      "Check the open team after every edit, in a panel at the bottom (remembered)"),
     h("span", { class: "weak mono", style: "overflow:hidden; text-overflow:ellipsis" },
       S.path + (dirty() ? "  • unsaved changes" : "")));
 }
@@ -3163,10 +3187,16 @@ function renderView() {
   const center = document.getElementById("center");
   center.innerHTML = "";
   if (!S.save) { center.append(h("h2", {}, "Save editor"), weak("No save open.")); return; }
-  center.append(h("h2", {}, "Save editor"), renderToolbar());
+  // Live AATF docks at the bottom (egui's Panel::bottom inside the view): the
+  // view's content scrolls above it, the panel keeps its strip.
+  const live = livePanel();
+  center.classList.toggle("docked", !!live);
+  const host = live ? h("div", { class: "view-scroll" }) : center;
+  if (live) center.append(host, live);
+  host.append(h("h2", {}, "Save editor"), renderToolbar());
   const banner = versionBanner();
-  if (banner) center.append(banner);
-  center.append(h("div", { class: "master" }, renderMaster(), renderDetail()));
+  if (banner) host.append(banner);
+  host.append(h("div", { class: "master" }, renderMaster(), renderDetail()));
   const panel = renderPanel();
   if (panel) center.append(panel);
 }
@@ -4948,6 +4978,133 @@ function aatfPanel() {
   }
   c.append(list);
   return c;
+}
+
+// ---- Live AATF (SE-GUI-30) ----
+// A toolbar toggle; on, a panel docked at the bottom of the view lists the
+// open team's violations (the selector's team; under ALL, the selected
+// player's). `live_aatf` is a tool setting, so it outlives an open and a
+// reload (localStorage stands for the settings file here). The panel is the
+// log panel widget's frame (shell.html): the chevron collapses it to the
+// header, the divider above it drags its height.
+const LIVE = { on: localStorage.getItem("save_editor.live_aatf") === "true",
+  collapsed: false, height: 150, sig: null, result: null, checking: false, timer: null };
+function setLive(on) {
+  LIVE.on = on; LIVE.sig = null; LIVE.result = null;
+  localStorage.setItem("save_editor.live_aatf", String(on));
+}
+const liveTeam = () => S.teamSel === "all" ? teamOf(curPlayer()) : curTeam();
+// What the check reads: a change (an edit, an undo or redo, another team or
+// ruleset) starts a check.
+const liveSig = () => {
+  const t = liveTeam();
+  return [D.ruleset, S.saveKey, t.id, D.liveTeamRows, JSON.stringify(t.players)].join("|");
+};
+// Called by render(). The real check runs on a worker once the edit settles
+// (about 56 ms a team); the draft waits 400 ms, restarted by every change,
+// so the mark can be seen. Until the result lands, the list keeps the
+// previous one, marked as checking.
+function scheduleLiveCheck() {
+  if (!LIVE.on || !S.save) return;
+  const sig = liveSig();
+  if (sig === LIVE.sig) return;
+  LIVE.sig = sig;
+  LIVE.checking = true;
+  clearTimeout(LIVE.timer);
+  LIVE.timer = setTimeout(() => {
+    const t = liveTeam();
+    LIVE.result = { team: t, rows: liveRows(t) };
+    LIVE.checking = false;
+    render();
+  }, 400);
+}
+// A sample row re-read against the player's current values, as the real
+// check would see the edit (the draft cannot run the script): the kinds
+// below are recomputed from the record; any other row stays as the sample
+// run reported it, and the team's rows go only with the draft control.
+function liveRow(row, team) {
+  const [sev, , pid, rule, fields] = row;
+  if (!pid) return D.liveTeamRows ? row : null;
+  const p = team.players.find(q => q.id === pid);
+  if (!p) return row;
+  const kv = kvOf(fields);
+  switch (rule) {
+    case "Stat": {
+      const value = p.stats[kv.stat], target = Number(kv.target);
+      const holds = kv.at_most === "true" ? value > target : value !== target;
+      return holds ? [sev, team.id, pid, rule, fields.replace(/value=\d+/, "value=" + value)] : null;
+    }
+    case "StatTotal": {
+      // The sample's total moved by the edit's difference from the save as opened.
+      const opened = SAVES[S.saveKey].teams.find(t => t.id === team.id).players.find(q => q.id === pid);
+      const sum = q => ABILITY_STATS.reduce((n, s) => n + (q.stats[s] ?? 0), 0);
+      const total = Number(kv.total) + sum(p) - sum(opened);
+      return total > Number(kv.limit) ? [sev, team.id, pid, rule, "total=" + total + ";limit=" + kv.limit] : null;
+    }
+    case "Height": return p.height === Number(kv.height) ? row : null;
+    case "Special":
+      if (kv.label === "The registered position must be rated A")
+        return p.positions.playable[p.positions.registered] !== "A" ? row : null;
+      return row;
+  }
+  return row;
+}
+// The team's rows, errors first, each severity in the check's order (by slot,
+// the team's rows last); `null` when the draft holds no sample run for it.
+function liveRows(t) {
+  const sample = S.saveKey === "pes17" ? AATF_ROWS[D.ruleset] : null;
+  if (!sample || !sample.some(r => r[1] === t.id)) return null;
+  const rows = sample.filter(r => r[1] === t.id).map(r => liveRow(r, t)).filter(Boolean);
+  return ["Error", "Warning"].flatMap(sev => rows.filter(r => r[0] === sev));
+}
+// The 4px handle above the header, as the log panel's: a drag rewrites
+// LIVE.height (min 60).
+function liveDivider() {
+  return h("div", { class: "live-divider", onmousedown: e => {
+    if (e.button !== 0) return;
+    const startY = e.clientY, startH = LIVE.height;
+    const move = ev => { LIVE.height = Math.max(60, startH + startY - ev.clientY); };
+    const up = () => {
+      document.removeEventListener("mousemove", move);
+      document.removeEventListener("mouseup", up);
+      render();
+    };
+    document.addEventListener("mousemove", move);
+    document.addEventListener("mouseup", up);
+    e.preventDefault();
+  } });
+}
+// sample wording: the header's lines, the checking mark, the chevron's
+// tooltips and the draft's no-sample line.
+function livePanel() {
+  if (!LIVE.on || !S.save) return null;
+  const rs = RULESETS[D.ruleset];
+  const chevron = button(LIVE.collapsed ? "▸" : "▾", () => { LIVE.collapsed = !LIVE.collapsed; render(); },
+    { frame0: true, title: LIVE.collapsed ? "Expand Live AATF" : "Collapse Live AATF" });
+  chevron.id = "live-chevron";
+  const res = LIVE.result;
+  const n = res && res.rows ? res.rows.length : 0;
+  const head = !res ? strong("Checking " + liveTeam().name + "…")
+    : res.rows === null ? weak("No sample run for " + res.team.name + " under " + rs.label + " in the draft.")
+    : n ? strong(n + (n === 1 ? " issue" : " issues") + " · " + rs.label)
+    : strong("No issues: " + res.team.name + " passes " + rs.label);
+  const header = h("div", { class: "live-header", id: "live-header" }, chevron, strong("Live AATF"), head,
+    res && LIVE.checking ? h("span", { class: "weak", id: "live-checking" }, "↻ checking…") : null);
+  if (LIVE.collapsed) return h("div", { class: "live-panel" }, header);
+  const body = h("div", { class: "live-body" + (LIVE.checking ? " checking" : ""), id: "live-rows",
+    style: `height:${LIVE.height}px` });
+  let lastPid = null;
+  for (const [sev, team, pid, rule, fields] of (res && res.rows) || []) {
+    if (pid !== lastPid) {
+      body.append(pid ? playerHead(pid) : h("div", { class: "grp weak" }, "the team"));
+      lastPid = pid;
+    }
+    body.append(h("div", { class: "drow sel " + (sev === "Error" ? "err" : "warn"),
+      onclick: () => { if (pid) { jumpToPlayer(team, pid % 100); render(); } },
+      title: pid ? "Select this player" : "A team-level violation" },
+      h("span", { class: "f" }, rule), h("span", { class: "v" }, violationSentence(rule, kvOf(fields), sev))));
+  }
+  return h("div", { class: "live-panel" }, liveDivider(), header, body);
 }
 
 // ---- Apply aesthetics patch (SE-GUI-18) ----

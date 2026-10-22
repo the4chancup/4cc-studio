@@ -967,10 +967,16 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         - [x] review: with 8.9c1's (one surface, the rule and its first user): SWE-2 S1 on
           each (0 of 8, 2 of 5), Astra A3 (3 of 4, rework 2), SWE-2 S2 over the reworks (0; two
           nits fixed); `mutants-diff 78b049a8` at `eca895b1`: every viable mutant caught
-    - [ ] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
+    - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
-      the list shrinking as a fix lands, the checking mark, the empty state
+      the list shrinking as a fix lands, the checking mark, the empty state. Done 2026-10-22
+      (lead): under ALL the selected player's team is checked; the draft recomputes the
+      sample's Stat, StatTotal, Height and rated-A rows from the edited player, keeps the
+      team's rows (a draft control drops them, for the empty state); walked in Chrome
+      (DBC7 on /f/: 48 issues, a stat fixed 47 and back on undo; official with the heights
+      fixed: "No issues"; the toggle kept over a reload). Waits for the maintainer's remarks
+      with the rest of the draft
     - [x] before slice 4, measure where one team's AATF check spends its time and cut what is
       not the script's own work. Done 2026-10-22 (lead): 56 ms a team, the host's part (the
       team's view, its copy, the call) under 1%, `read_player` 50 ms of it
