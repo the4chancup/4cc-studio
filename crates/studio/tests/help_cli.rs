@@ -79,7 +79,7 @@ fn the_export_writes_one_markdown_file_per_chapter() {
         ("team-compiler", NOTES_ENCODING_INVALID),
         (
             "save-editor",
-            "| `strip_base_copied_face` | Warning | `strip-and-seed`: the player's record copied another player's face, which the seed rows cannot carry, so once stripped he shows the face his row describes. | Nothing to do; compiling his export's face settles it. |",
+            "| `fpc_custom_skin_on_non_fpc` | Warning | A custom skin on a player whose body is not hidden by the convention's boots ID hides the body but not the jersey. | Nothing is changed for you; hide the body too, or pick a preset skin. |",
         ),
         ("export-upgrader", UPGRADER_NOTES_ENCODING_INVALID),
     ];

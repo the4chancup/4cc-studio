@@ -1,0 +1,281 @@
+//! The Player menu's operations (`plans/save_editor.md` "Feature
+//! inventory", the Player operations table, and "Full Player
+//! Customization (FPC)"): the four stat operations and the FPC
+//! hide/show/toggle, each one sealed `edit_players` undo entry. egui-free,
+//! so the operations are testable without a frame; the lock's part (the
+//! FPC items' disabled state) is the view's to apply, not these
+//! functions'.
+
+use pes_savefile::model::PlayerEntry;
+
+use crate::session::Session;
+
+impl Session {
+    /// Every ability stat the version has becomes `value` (the dialog's
+    /// Set all stats: `set_ability` over the 25, a `None` one stays
+    /// `None`). Weak foot, form and injury are not ability stats and stay;
+    /// no edit flag is set, as the Abilities tab's own fields set none.
+    pub(crate) fn set_all_stats(&mut self, player_id: u32, value: u8) {
+        let Some(mut edited) = self.file.player(player_id).cloned() else {
+            return;
+        };
+        for index in 0..edited.stats.abilities().len() {
+            edited.stats.set_ability(index, value);
+        }
+        self.edit_players(vec![edited]);
+    }
+
+    /// Every ability stat the version has becomes `value + by` clamped to
+    /// 40 to 99 (the dialog's Bump all stats; `by` is read whole, so a -10
+    /// bumps by -10). The same not-an-ability list and no-flag rule as
+    /// `set_all_stats`.
+    pub(crate) fn bump_stats(&mut self, player_id: u32, by: i8) {
+        let Some(mut edited) = self.file.player(player_id).cloned() else {
+            return;
+        };
+        for (index, value) in edited.stats.abilities().iter().enumerate() {
+            if let Some(value) = value {
+                let bumped = i32::from(*value) + i32::from(by);
+                edited.stats.set_ability(
+                    index,
+                    u8::try_from(bumped.clamp(40, 99)).expect("in 40 to 99"),
+                );
+            }
+        }
+        self.edit_players(vec![edited]);
+    }
+
+    /// Copy stats from `source_id` onto `dest_id` (the dialog's Copy
+    /// stats): the field set the parity row lists, and nothing else —
+    /// names, nationality, age, every motion but the free kick's, the
+    /// motion and appearance flags and every appearance field stay
+    /// `dest`'s (`copy_stat_fields`). Picking the same player is a no-op
+    /// (`edit_players` skips an unchanged record).
+    pub(crate) fn copy_stats(&mut self, dest_id: u32, source_id: u32) {
+        let (Some(source), Some(dest)) = (self.file.player(source_id), self.file.player(dest_id))
+        else {
+            return;
+        };
+        let mut edited = dest.clone();
+        copy_stat_fields(source, &mut edited);
+        self.edit_players(vec![edited]);
+    }
+
+    /// Swap stats between `first_id` and `second_id` (the dialog's Swap
+    /// stats): `copy_stat_fields`' set traded both ways, the whole swap
+    /// one sealed undo entry.
+    pub(crate) fn swap_stats(&mut self, first_id: u32, second_id: u32) {
+        let (Some(first), Some(second)) = (self.file.player(first_id), self.file.player(second_id))
+        else {
+            return;
+        };
+        let mut first_after = first.clone();
+        let mut second_after = second.clone();
+        copy_stat_fields(second, &mut first_after);
+        copy_stat_fields(first, &mut second_after);
+        self.edit_players(vec![first_after, second_after]);
+    }
+
+    /// Hide body or Show body on `player_id` (the Appearance tab's buttons
+    /// and the Player menu's Toggle FPC settings): `kind`'s preset applied
+    /// through `ops::fpc::apply` with the record's own IDs substituted in
+    /// (`preset_for`), one sealed undo entry. The strip settings the
+    /// preset does not set are not cleared — they are the interference
+    /// findings' to report. No edit flag is set.
+    pub(crate) fn apply_fpc(&mut self, player_id: u32, kind: fpc::Preset) {
+        let version = self.version();
+        let Some(mut edited) = self.file.player(player_id).cloned() else {
+            return;
+        };
+        let appearance = preset_for(&edited, kind);
+        // The presets here write no custom skin, and a loaded player's
+        // face run holds the fields `apply` writes through.
+        pes_savefile::ops::fpc::apply(&mut edited, &appearance, version)
+            .expect("a loaded player's face run holds the strip fields");
+        self.edit_players(vec![edited]);
+    }
+
+    /// Ctrl+I's toggle: Show body on a player `is_fpc_player` reads as
+    /// hidden, Hide body on any other.
+    pub(crate) fn toggle_fpc(&mut self, player_id: u32) {
+        let Some(hidden) = self.file.player(player_id).map(|player| {
+            pes_savefile::ops::fpc::is_fpc_player(player)
+                .expect("a loaded player's face run holds the skin field")
+        }) else {
+            return;
+        };
+        self.apply_fpc(
+            player_id,
+            if hidden {
+                fpc::Preset::Unhide
+            } else {
+                fpc::Preset::Hide
+            },
+        );
+    }
+}
+
+/// The field set Copy and Swap stats move (the parity row's field set):
+/// height, weight, the whole `stats`, `positions` and `skills`,
+/// `motion.free_kick` alone, and the eight gameplay edit flags. Everything
+/// else — name, shirt name, nationality, age, the other motions, the
+/// motion and base-copy flags, every appearance field — stays `dest`'s.
+fn copy_stat_fields(source: &PlayerEntry, dest: &mut PlayerEntry) {
+    dest.basic.height = source.basic.height;
+    dest.basic.weight = source.basic.weight;
+    dest.stats = source.stats.clone();
+    dest.positions = source.positions.clone();
+    dest.skills = source.skills.clone();
+    dest.motion.free_kick = source.motion.free_kick;
+    dest.edit_flags.player = source.edit_flags.player;
+    dest.edit_flags.basic_settings = source.edit_flags.basic_settings;
+    dest.edit_flags.registered_position = source.edit_flags.registered_position;
+    dest.edit_flags.playable_positions = source.edit_flags.playable_positions;
+    dest.edit_flags.abilities = source.edit_flags.abilities;
+    dest.edit_flags.skills = source.edit_flags.skills;
+    dest.edit_flags.playing_style = source.edit_flags.playing_style;
+    dest.edit_flags.com_styles = source.edit_flags.com_styles;
+}
+
+/// `kind`'s preset for `player`, his own IDs kept (`plans/save_editor.md`
+/// "Full Player Customization (FPC)", the first bullet): a preset's
+/// boots or gloves ID is written only where the record holds 0 or the
+/// hide preset's ID, so hiding turns 0 into 55 and keeps 627, showing
+/// turns 55 into 0 and keeps 627. The per-player and the team operations
+/// both apply this.
+pub(crate) fn preset_for(player: &PlayerEntry, kind: fpc::Preset) -> fpc::Appearance {
+    let mut appearance = fpc::preset(kind);
+    appearance.boots_id = preset_id(
+        player.appearance.boots_id,
+        fpc::NONEXISTENT_BOOTS_ID,
+        appearance.boots_id,
+    );
+    appearance.gloves_id = preset_id(
+        player.appearance.gloves_id,
+        fpc::NONEXISTENT_GLOVES_ID,
+        appearance.gloves_id,
+    );
+    appearance
+}
+
+/// The value a preset ID slot takes on a record holding `own`: the
+/// preset's where `own` is 0 or the hide preset's `hide_id`, `own`
+/// otherwise (a model's own ID is kept).
+fn preset_id(own: u32, hide_id: u16, preset: u16) -> u16 {
+    if own == 0 || own == u32::from(hide_id) {
+        preset
+    } else {
+        u16::try_from(own).expect("a stored boots or gloves ID fits u16")
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use pes_version::PesVersion;
+
+    use super::*;
+
+    /// Writes `version`'s fixture save under the test's scratch folder and
+    /// opens it as a `Session`.
+    fn open(version: PesVersion, test: &str) -> Session {
+        let dir = crate::test_support::scratch(test);
+        let path = dir.join("EDIT00000000");
+        std::fs::write(&path, pes_savefile::fixture_save(version)).unwrap();
+        Session::open(&path).unwrap()
+    }
+
+    // plans/save_editor.md "Full Player Customization (FPC)", the first
+    // bullet: a preset's ID lands only where the record holds 0 or the
+    // hide preset's ID; any other stays (a model's own ID).
+    #[test]
+    fn a_preset_keeps_a_models_own_ids() {
+        let mut player = PlayerEntry::default();
+        player.appearance.boots_id = 0;
+        player.appearance.gloves_id = 0;
+        let hide = preset_for(&player, fpc::Preset::Hide);
+        assert_eq!(hide.boots_id, fpc::NONEXISTENT_BOOTS_ID);
+        assert_eq!(hide.gloves_id, fpc::NONEXISTENT_GLOVES_ID);
+
+        player.appearance.boots_id = 627;
+        player.appearance.gloves_id = 21;
+        let hide = preset_for(&player, fpc::Preset::Hide);
+        assert_eq!(hide.boots_id, 627, "the model's own boots ID stays");
+        assert_eq!(hide.gloves_id, 21, "the model's own gloves ID stays");
+        let show = preset_for(&player, fpc::Preset::Unhide);
+        assert_eq!(show.boots_id, 627);
+        assert_eq!(show.gloves_id, 21);
+
+        player.appearance.boots_id = u32::from(fpc::NONEXISTENT_BOOTS_ID);
+        player.appearance.gloves_id = u32::from(fpc::NONEXISTENT_GLOVES_ID);
+        let show = preset_for(&player, fpc::Preset::Unhide);
+        assert_eq!(show.boots_id, 0, "the hide ID shows as 0");
+        assert_eq!(show.gloves_id, 0);
+        let hide = preset_for(&player, fpc::Preset::Hide);
+        assert_eq!(hide.boots_id, fpc::NONEXISTENT_BOOTS_ID);
+        assert_eq!(hide.gloves_id, fpc::NONEXISTENT_GLOVES_ID);
+    }
+
+    // The bump's whole-number read and the 40 to 99 clamp, the parts a
+    // view test cannot reach without the dialog: each ability's value
+    // moves by `by`, a `None` one stays `None`, and the non-ability
+    // fields stand.
+    #[test]
+    fn bump_stats_moves_every_ability_and_no_other_field() {
+        let mut session = open(PesVersion::Pes21, "bump_stats");
+        session
+            .file
+            .player_mut(70101)
+            .unwrap()
+            .stats
+            .attacking_prowess = 60;
+        let before = session.file().player(70101).unwrap().clone();
+        assert_eq!(before.stats.attacking_prowess, 60, "premise");
+
+        session.bump_stats(70101, -10);
+
+        let bumped = session.file().player(70101).unwrap();
+        assert_eq!(bumped.stats.attacking_prowess, 50, "-10 moves by -10");
+        for (index, ability) in bumped.stats.abilities().iter().enumerate() {
+            match (ability, before.stats.abilities()[index]) {
+                (Some(now), Some(was)) => {
+                    assert_eq!(*now, was.saturating_sub(10).max(40), "ability {index}")
+                }
+                (now, was) => assert_eq!(now, &was, "ability {index} stays absent"),
+            }
+        }
+        assert_eq!(bumped.stats.form, before.stats.form);
+        assert_eq!(
+            bumped.stats.injury_resistance,
+            before.stats.injury_resistance
+        );
+        assert_eq!(bumped.stats.weak_foot_usage, before.stats.weak_foot_usage);
+        assert_eq!(bumped.edit_flags, before.edit_flags, "no edit flag set");
+        assert!(session.undo(), "one sealed entry");
+        assert_eq!(session.file().player(70101).unwrap(), &before);
+    }
+
+    // Set all stats leaves a `None` ability alone on a version that lacks
+    // it (PES 16's tight possession and aggression).
+    #[test]
+    fn set_all_stats_leaves_absent_abilities_absent() {
+        let mut session = open(PesVersion::Pes16, "set_all_absent");
+        let before = session.file().player(70101).unwrap().clone();
+        assert_eq!(
+            before.stats.tight_possession, None,
+            "premise: PES 16 lacks it"
+        );
+
+        session.set_all_stats(70101, 75);
+
+        let player = session.file().player(70101).unwrap();
+        for (index, ability) in player.stats.abilities().iter().enumerate() {
+            if let Some(ability) = ability {
+                assert_eq!(*ability, 75, "ability {index}");
+            }
+        }
+        assert_eq!(player.stats.tight_possession, None);
+        assert_eq!(player.stats.aggression, None);
+        assert_eq!(player.stats.form, before.stats.form);
+        assert_eq!(player.edit_flags, before.edit_flags);
+    }
+}

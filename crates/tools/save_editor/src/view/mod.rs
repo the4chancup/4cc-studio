@@ -78,6 +78,16 @@ pub(crate) struct SaveView {
     /// The Set boots and gloves dialog's state while it is open (the Team
     /// menu's `…` item); `None` while it is closed.
     boglo: Option<menus::Boglo>,
+    /// The Set all stats / Bump all stats dialog's state while it is open
+    /// (the Player menu's `…` items, and Ctrl+B); `None` while it is
+    /// closed.
+    stat_num: Option<menus::StatNum>,
+    /// The Bump dialog's last N used in this window (its field's
+    /// prefill), starting at 0.
+    bump: i32,
+    /// The Copy/Swap stats dialog's state while it is open (the Player
+    /// menu's `…` items); `None` while it is closed.
+    copy_swap: Option<menus::CopySwap>,
     /// Where the Appearance tab's Randomize draws a motion value in
     /// `1..=top` from: a field so the tests pin the draws; `new` seeds a
     /// xorshift from the wall clock (the picks need only be unpredictable
@@ -153,6 +163,9 @@ impl SaveView {
             edit_aesthetics: false,
             strip_again: None,
             boglo: None,
+            stat_num: None,
+            bump: 0,
+            copy_swap: None,
             randomize_draw: Box::new(appearance::seeded_draw()),
         }
     }
@@ -195,6 +208,8 @@ impl SaveView {
                 self.generation += 1;
                 self.refusal = None;
                 self.boglo = None;
+                self.stat_num = None;
+                self.copy_swap = None;
             }
             Err(error) => {
                 self.refusal = Some(Refusal {
@@ -246,6 +261,8 @@ pub(crate) fn show(
     refusal_dialog(ui, view);
     strip_again_dialog(ui, view);
     menus::boglo_dialog(ui, view);
+    menus::stat_num_dialog(ui, view);
+    menus::copy_swap_dialog(ui, view);
     // One undo entry per gesture: seal when the pointer is up and no widget
     // holds the keyboard.
     if let Some(session) = view.session.as_mut()
@@ -277,6 +294,12 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
     // the lock, and a no-op while a widget holds the keyboard (`typing`).
     let clear_flags_key =
         !typing && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::F));
+    // Ctrl+I is Toggle FPC settings, the same lock as Ctrl+F; Ctrl+B
+    // opens the Bump dialog, a gameplay write the lock does not stop.
+    let fpc_key =
+        !typing && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::I));
+    let bump_key =
+        !typing && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::B));
     ui.horizontal(|ui| {
         if ui.button("Open…").clicked()
             && let Some(path) = rfd::FileDialog::new().pick_file()
@@ -311,6 +334,7 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         {
             save(view, running);
         }
+        menus::player_menu(ui, view);
         menus::team_menu(ui, view);
         if let Some(session) = view.session.as_ref() {
             let path = session.path().display().to_string();
@@ -335,6 +359,19 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         && let Some(session) = view.session.as_mut()
     {
         session.clear_visual_flags(team_id);
+    }
+    if fpc_key
+        && view.edit_aesthetics
+        && let Some((_, _, player_id)) = selected_player(view)
+        && let Some(session) = view.session.as_mut()
+    {
+        session.toggle_fpc(player_id);
+    }
+    if bump_key
+        && let Some((_, _, player_id)) = selected_player(view)
+        && let Some(session) = view.session.as_mut()
+    {
+        view.stat_num = Some(menus::StatNum::bump(session, player_id, view.bump));
     }
 }
 

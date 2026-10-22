@@ -42,9 +42,14 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // field's undo history, a DragValue's in-progress edit and the pickers'
     // state never cross teams — nor saves (the `generation` half).
     ui.push_id((generation, team_id), |ui| {
-        egui::Grid::new("team fields").show(ui, |ui| {
+        // The names get a grid of their own: a grid unions each column's
+        // width across its rows, so the Name field's 240 would push every
+        // later row's second column out (the info strip's rule).
+        egui::Grid::new("team names").show(ui, |ui| {
             names_row(ui, session, team_id, version, &team);
             ui.end_row();
+        });
+        egui::Grid::new("team fields").show(ui, |ui| {
             colours_row(ui, session, team_id, &team);
             ui.end_row();
             ids_row(ui, session, team_id, schema, &team);

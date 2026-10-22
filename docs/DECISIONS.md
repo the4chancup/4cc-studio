@@ -10191,3 +10191,21 @@ which a tester can replace by hand when told.
 Plan: `plans/core/development_plan.md` "Releases", "Release 0.1.0", the new "Release 0.2.0",
 Phase 16; `plans/core/distribution.md` (the updater's steps ship at 0.2.0);
 `spec/core/distribution.md` (the compatibility rule binds from 1.0.0).
+
+## 2026-10-22 — save_editor — Set and Bump stats set no edit flag; Copy and Swap pick the other player by team, then slot
+Decision: Set all stats and Bump all stats write the ability values and no edit flag. Copy and
+Swap stats pick the other player with two combo boxes, the team (the selected player's first)
+and then one of its filled roster slots, rather than 4ccEditor's typed player ids or the
+draft's one list of every player; Copy writes the picked player's stats onto the selected one.
+Why: 4ccEditor's two dialogs only fill the Abilities tab's fields, as typing does, and neither
+it nor Studio's Abilities tab sets a flag for that, so a flag here would make one write path
+differ from the other. A cup save holds about 4,600 players: one list of them all cannot be
+browsed, and a typed id is the number a member has to look up first.
+Plan: `plans/save_editor.md` "Feature inventory", the Player operations rows.
+
+## 2026-10-22 — save_editor — The FPC interference findings are message-catalog codes
+Decision: the Appearance tab draws `fpc::check`'s findings through the tool's message catalog,
+five codes with member-facing text, rather than text of its own in the view.
+Why: a finding's text written in the view would be a second copy of what the help's Messages
+topic lists, and the two would drift; through the catalog the tab and the topic read one row.
+Plan: `plans/save_editor.md` "Full Player Customization (FPC)", the bullet on the findings.

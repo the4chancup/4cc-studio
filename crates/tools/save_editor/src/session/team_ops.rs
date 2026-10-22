@@ -147,6 +147,30 @@ impl Session {
         Ok(())
     }
 
+    /// Applies the hide (`hide` true) or show preset to every filled
+    /// roster slot of `team_id` (the menu's Set / Remove FPC
+    /// invisibility), each record's own boots and gloves IDs kept
+    /// (`player_ops::preset_for`), one sealed undo entry.
+    pub(crate) fn team_fpc(&mut self, team_id: u32, hide: bool) {
+        let version = self.version();
+        let kind = if hide {
+            fpc::Preset::Hide
+        } else {
+            fpc::Preset::Unhide
+        };
+        let edited = self
+            .edited_players(team_id, |_, player| {
+                let appearance = crate::session::player_ops::preset_for(player, kind);
+                // The hide and show presets write no custom skin, and a
+                // loaded player's face run holds the fields `apply` needs.
+                pes_savefile::ops::fpc::apply(player, &appearance, version)
+                    .expect("a loaded player's face run holds the strip fields");
+                Ok(())
+            })
+            .expect("the fpc edit cannot fail");
+        self.edit_players(edited);
+    }
+
     /// The filled roster slots of `team_id` as edited entries, in slot
     /// order (`player_id != 0`; a rostered id the save lacks is skipped):
     /// each rostered player's entry with `edit` applied to it, the first

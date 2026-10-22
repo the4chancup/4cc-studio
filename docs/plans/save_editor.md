@@ -50,10 +50,10 @@ implementation is measured against.
 
 | 4ccEditor | Fate |
 |-----------|------|
-| Set all ability stats (dialog: every ability stat to N, 40 to 99, prefilled with the player's first; weak foot, form and injury untouched) | Kept, same fields and range |
-| Bump all ability stats ±N (dialog, Ctrl+B: N from -10 to 10, remembered; each ability stat clamped to 40 to 99; weak foot, form and injury untouched) | Kept, same; N is read whole (4ccEditor reads two characters, so -10 bumps by -1) |
-| Copy player stats (source PID → dest PID: height, weight, every ability, form, injury, weak foot, registered and playable positions, playing style, skills, COM styles, stronger foot and hand, star, playing attitude, the free-kick motion only, and the edited-player and gameplay edit flags) | Kept, same field set |
-| Swap player stats (two PIDs; the same field set as Copy) | Kept |
+| Set all ability stats (dialog: every ability stat to N, 40 to 99, prefilled with the player's first; weak foot, form and injury untouched) | Kept, same fields and range; no edit flag set (the dialog writes the Abilities tab's fields, as typing does, and the tab sets none) |
+| Bump all ability stats ±N (dialog, Ctrl+B: N from -10 to 10, remembered; each ability stat clamped to 40 to 99; weak foot, form and injury untouched) | Kept, same, no edit flag set; N is read whole (4ccEditor reads two characters, so -10 bumps by -1) |
+| Copy player stats (source PID → dest PID: height, weight, every ability, form, injury, weak foot, registered and playable positions, playing style, skills, COM styles, stronger foot and hand, star, playing attitude, the free-kick motion only, and the edited-player and gameplay edit flags) | Kept, same field set; the other player is picked by team, then by roster slot (two combo boxes: one list of a cup save's 4,600 players cannot be browsed), and copied onto the selected one |
+| Swap player stats (two PIDs; the same field set as Copy) | Kept, the other player picked as for Copy |
 | Move a player up or down the list (the spinner beside it: one step per click, within one team; the two players' records trade places between their ids, `base_copy_id` traded back to match each slot, shirt numbers and the captain left with the slots) | Kept as drag reorder, with the same effect ("Editing UI", the Player list bullet) |
 | Toggle FPC settings (Ctrl+I) | Kept (see "Full Player Customization" below) |
 | Quick actions: Make Gold / Make Silver / Make Bronze (from the Autumn 26 edition) / Make Regular / Set stats | Kept, **driven by the AATF rules file** instead of hardcoded rates — the buttons and the checker can never disagree |
@@ -366,6 +366,12 @@ files, so the editor's toggle and the compiler's markers cannot drift apart.
   shown") with two actions, Hide body and Show body; Ctrl+I shows a player the classifier
   reads as hidden and hides any other, and the Team menu's Set and Remove FPC invisibility are
   the same two actions over the team.
+- **The findings are catalog codes.** `fpc::check`'s five codes are rows of the tool's message
+  catalog (`fpc_inners_break_hiding`, `fpc_undershorts_break_hiding`, `fpc_taping_shows_pieces`,
+  `fpc_gloves_checkbox_winter_gloves`, `fpc_custom_skin_on_non_fpc`), so the tab's text and the
+  help's Messages topic are one; they join the spec's Messages table when this phase closes.
+  The last never fires here: the save's classifier counts a custom skin as hidden, so only the
+  compiler, which classifies by the folder's marker, can meet it.
 
 ---
 
@@ -396,7 +402,8 @@ hand edit silently diverges from the DLC — so the editor **does not edit aesth
 - **Unlock: "Edit aesthetics anyway"**, a switch on the Appearance tab, off at every start of the
   tool. Turning it on re-enables all the paths above for the session, with the note that on
   pre-Fox a later patch overwrites whatever is edited by hand, and on a stripped Fox save the game
-  does not read it. It exists for the cases the rule does not cover — a
+  takes the player's look from the database tables and reads only his motions (they sit before
+  the appearance block). It exists for the cases the rule does not cover — a
   team with no export, a cup-night fix when recompiling is not an option — and it is a session
   switch rather than a setting so that the default cannot quietly become "unlocked" on the
   savefile builder's machine.
@@ -412,7 +419,8 @@ What exists of this is in `spec/save_editor.md` "Stripped save".
 
 - The GUI parts of its rules: `.4ccs`/`.4cct` and Texport imports leave the appearance block's
   id as it is, as every import does; the unlocked Appearance tab writes the record's fields but
-  not its id, and on a stripped save it says that the game does not read it; every reader of a
+  not its id, and on a stripped save it says that the look comes from the tables and the motions
+  are still read; every reader of a
   record's appearance in the GUI (the Appearance tab, the FPC classifier and its interference
   findings) marks a player at -1 as stripped beside what it shows; `settings.toml` generation
   skips him ("Player settings in exports" in the
@@ -629,7 +637,8 @@ SE-GUI-07  GIVEN the save open
            THEN its values are disabled with the line saying the team's export owns them (and
                 on pre-Fox, the patch step); WHEN "Edit aesthetics anyway" is switched on THEN
                 they are editable, the switch is off again at the next start of the tool, and on
-                a stripped player the tab says the game does not read the record
+                a stripped player the tab says his look comes from the database tables and his
+                motions are still read
 SE-GUI-08  GIVEN the save open on a team
            WHEN player 02 is dragged above player 01 in the list
            THEN the list shows the new order, and after Save slot 01 still holds player

@@ -106,6 +106,11 @@ impl StudioTool for Tool {
                     title: "The Team tab and the Team menu",
                     body: include_str!("../help/05_team.md"),
                 },
+                HelpTopic {
+                    slug: "player",
+                    title: "The Player menu",
+                    body: include_str!("../help/06_player.md"),
+                },
             ],
             messages: messages::catalog(),
         }
@@ -130,6 +135,6 @@ mod tests {
         assert_eq!(tool.id(), "save-editor");
         assert_eq!(tool.label(), "Save editor");
         assert_eq!(tool.default_settings()["aatf_rules"].as_str(), Some(""));
-        assert_eq!(tool.help().topics.len(), 5);
+        assert_eq!(tool.help().topics.len(), 6);
     }
 }

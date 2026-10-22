@@ -14,6 +14,7 @@ clap.workspace = true
 color_tools.workspace = true
 cpk.workspace = true
 egui.workspace = true
+fpc.workspace = true
 log.workspace = true
 pes_savefile.workspace = true
 pes_version.workspace = true

@@ -1,20 +1,27 @@
 //! The toolbar's menu buttons (`plans/save_editor.md` "Feature
-//! inventory"): the Team menu's operations over the selected player's
-//! team, each a sealed undo entry (`session/team_ops.rs`), and the Set
-//! boots and gloves IDs for everyone dialog (`Boglo`, the draft's
-//! `dlgBoglo`).
+//! inventory"): the Player menu's four stat operations and FPC toggle,
+//! the Team menu's operations over the selected player's team, each a
+//! sealed undo entry (`session/{player,team}_ops.rs`), and the dialogs
+//! they open (`Boglo`, `StatNum` and `CopySwap`; the draft's `dlgBoglo`,
+//! `dlgNum` and `dlgCopySwap`).
+
+use std::ops::RangeInclusive;
+
+use pes_savefile::EditFile;
+use pes_savefile::interchange::team_toml::labels::POSITIONS;
+use pes_savefile::model::names::display_name;
 
 use crate::session::Session;
 use crate::session::team_ops::{BootsMode, GlovesMode};
 use crate::view::appearance::ownership_tip;
 use crate::view::{SaveView, selected_player};
 
-/// The Team menu button (the draft's `teamMenu`, the FPC items apart):
-/// Set edited flag, the boots/gloves dialog, Set player names to
-/// positions, and Clear visual flags (its Ctrl+F drawn beside). Every item
-/// acts on the selected player's team (`DECISIONS.md` 2026-10-22); the
-/// menu is disabled with no save open, and the two aesthetics items carry
-/// the ownership line as their disabled hover (SE-GUI-22).
+/// The Team menu button (the draft's `teamMenu`): Set edited flag, the
+/// boots/gloves dialog, Set player names to positions, Clear visual flags
+/// (its Ctrl+F drawn beside) and the two FPC items. Every item acts on the
+/// selected player's team (`DECISIONS.md` 2026-10-22); the menu is
+/// disabled with no save open, and the aesthetics items carry the
+/// ownership line as their disabled hover (SE-GUI-22).
 pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, _, player_id)) = selected_player(view) else {
         ui.add_enabled_ui(false, |ui| {
@@ -61,6 +68,89 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
             .clicked()
         {
             session.clear_visual_flags(team_id);
+            ui.close();
+        }
+        if ui
+            .add_enabled(unlocked, egui::Button::new("Set FPC invisibility"))
+            .on_disabled_hover_text(ownership_tip(version))
+            .clicked()
+        {
+            session.team_fpc(team_id, true);
+            ui.close();
+        }
+        if ui
+            .add_enabled(unlocked, egui::Button::new("Remove FPC invisibility"))
+            .on_disabled_hover_text(ownership_tip(version))
+            .clicked()
+        {
+            session.team_fpc(team_id, false);
+            ui.close();
+        }
+    });
+}
+
+/// The Player menu button (the draft's `playerMenu`, the Generate
+/// settings.toml item a later slice's): the Set all stats and Bump all
+/// stats dialogs, Toggle FPC settings (its Ctrl+I drawn beside) and the
+/// Copy and Swap stats dialogs. Every item acts on the selected player;
+/// the menu is disabled with no save open, and the FPC item carries the
+/// ownership line as its disabled hover (SE-GUI-22).
+pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
+    let Some((team_id, _, player_id)) = selected_player(view) else {
+        ui.add_enabled_ui(false, |ui| {
+            ui.menu_button("Player", |_| ());
+        });
+        return;
+    };
+    let (unlocked, version) = {
+        let Some(session) = view.session.as_ref() else {
+            return;
+        };
+        (view.edit_aesthetics, session.version())
+    };
+    ui.menu_button("Player", |ui| {
+        let Some(session) = view.session.as_mut() else {
+            return;
+        };
+        if ui.button("Set all stats\u{2026}").clicked() {
+            view.stat_num = Some(StatNum::set_all(session, player_id));
+            ui.close();
+        }
+        if ui
+            .add(egui::Button::new("Bump all stats\u{2026}").shortcut_text("Ctrl+B"))
+            .clicked()
+        {
+            view.stat_num = Some(StatNum::bump(session, player_id, view.bump));
+            ui.close();
+        }
+        if ui
+            .add_enabled(
+                unlocked,
+                egui::Button::new("Toggle FPC settings").shortcut_text("Ctrl+I"),
+            )
+            .on_disabled_hover_text(ownership_tip(version))
+            .clicked()
+        {
+            session.toggle_fpc(player_id);
+            ui.close();
+        }
+        ui.separator();
+        if ui.button("Copy stats from\u{2026}").clicked() {
+            view.copy_swap = Some(CopySwap::new(
+                session,
+                player_id,
+                team_id,
+                CopySwapMode::Copy,
+            ));
+            ui.close();
+        }
+        if ui.button("Swap stats with\u{2026}").clicked() {
+            view.copy_swap = Some(CopySwap::new(
+                session,
+                player_id,
+                team_id,
+                CopySwapMode::Swap,
+            ));
             ui.close();
         }
     });
@@ -218,5 +308,323 @@ pub(crate) fn boglo_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     });
     if close || response.should_close() {
         view.boglo = None;
+    }
+}
+
+/// Which of the two number dialogs OK runs (the draft's `dlgNum`).
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum StatNumOp {
+    /// Set all stats: N 40 to 99, prefilled with the player's first
+    /// ability.
+    Set,
+    /// Bump all stats: N -10 to 10, prefilled with the window's last N.
+    Bump,
+}
+
+/// A stat number dialog's state (`view.stat_num` while it is open): which
+/// operation OK runs, the player it runs on, the line above the field and
+/// the field's value.
+pub(crate) struct StatNum {
+    /// Which operation OK runs.
+    op: StatNumOp,
+    /// The player the operation runs on.
+    player_id: u32,
+    /// The line over the field (names the player).
+    line: String,
+    /// The field's value.
+    value: i32,
+}
+
+impl StatNum {
+    /// Set all stats as it opens on `player_id`: N in 40 to 99, prefilled
+    /// with his Attacking Prowess, the first ability stat.
+    fn set_all(session: &Session, player_id: u32) -> StatNum {
+        let player = session
+            .file()
+            .player(player_id)
+            .expect("the selected player");
+        StatNum {
+            op: StatNumOp::Set,
+            player_id,
+            line: format!(
+                "Every ability stat of {} to the value",
+                display_name(&player.name)
+            ),
+            value: i32::from(player.stats.attacking_prowess),
+        }
+    }
+
+    /// Bump all stats as it opens on `player_id`: N in -10 to 10,
+    /// prefilled with `last` (the last N used in this window, `view.bump`).
+    pub(crate) fn bump(session: &Session, player_id: u32, last: i32) -> StatNum {
+        let player = session
+            .file()
+            .player(player_id)
+            .expect("the selected player");
+        StatNum {
+            op: StatNumOp::Bump,
+            player_id,
+            line: format!(
+                "Add to every ability stat of {}, clamped to 40 to 99",
+                display_name(&player.name)
+            ),
+            value: last,
+        }
+    }
+
+    /// The dialog's heading.
+    fn title(&self) -> &'static str {
+        match self.op {
+            StatNumOp::Set => "Set all stats",
+            StatNumOp::Bump => "Bump all stats",
+        }
+    }
+
+    /// The field's range for the operation.
+    fn range(&self) -> RangeInclusive<i32> {
+        match self.op {
+            StatNumOp::Set => 40..=99,
+            StatNumOp::Bump => -10..=10,
+        }
+    }
+
+    /// OK's operation on `session`; a bump's N, for `view.bump` to keep.
+    fn apply(&self, session: &mut Session) -> Option<i32> {
+        match self.op {
+            StatNumOp::Set => {
+                session.set_all_stats(
+                    self.player_id,
+                    u8::try_from(self.value).expect("the range holds 40 to 99"),
+                );
+                None
+            }
+            StatNumOp::Bump => {
+                session.bump_stats(
+                    self.player_id,
+                    i8::try_from(self.value).expect("the range holds -10 to 10"),
+                );
+                Some(self.value)
+            }
+        }
+    }
+}
+
+/// The number dialog while `view.stat_num` holds one (the draft's
+/// `dlgNum`): the line, the field on it inside the operation's range, OK
+/// and Cancel; OK applies and closes (a Bump's N stays as `view.bump`),
+/// Cancel or Escape closes.
+pub(crate) fn stat_num_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
+    if view.stat_num.is_none() {
+        return;
+    }
+    let mut close = false;
+    let mut bumped = None;
+    let response = egui::Modal::new(egui::Id::new("save_editor_stat_num")).show(ui.ctx(), |ui| {
+        let stat_num = view.stat_num.as_mut().expect("checked above");
+        ui.heading(stat_num.title());
+        let range = stat_num.range();
+        ui.horizontal(|ui| {
+            ui.label(&stat_num.line);
+            ui.add(egui::DragValue::new(&mut stat_num.value).range(range));
+        });
+        ui.horizontal(|ui| {
+            if ui.button("OK").clicked()
+                && let Some(session) = view.session.as_mut()
+            {
+                bumped = stat_num.apply(session);
+                close = true;
+            }
+            if ui.button("Cancel").clicked() {
+                close = true;
+            }
+        });
+    });
+    if let Some(n) = bumped {
+        view.bump = n;
+    }
+    if close || response.should_close() {
+        view.stat_num = None;
+    }
+}
+
+/// Copy or swap, as the dialog's mode.
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum CopySwapMode {
+    /// Copy the picked player's stats onto the selected one.
+    Copy,
+    /// Trade them.
+    Swap,
+}
+
+/// The Copy/Swap stats dialog's state (`view.copy_swap` while it is
+/// open): the mode, the selected player it runs on, and the other player
+/// picked by team then roster slot (the draft's `dlgCopySwap`'s two
+/// combo boxes — one list of a cup save's 4,600 players cannot be
+/// browsed).
+pub(crate) struct CopySwap {
+    /// Copy or swap.
+    mode: CopySwapMode,
+    /// The selected player (the destination, the first swap side).
+    player_id: u32,
+    /// The picked team's id.
+    team_id: u32,
+    /// The picked player's id, a filled slot of `team_id`.
+    other_id: u32,
+}
+
+impl CopySwap {
+    /// The dialog as it opens: the picked team the selected player's own,
+    /// the picked player its first filled roster slot.
+    fn new(session: &Session, player_id: u32, team_id: u32, mode: CopySwapMode) -> CopySwap {
+        let other_id = first_filled(session.file(), team_id).unwrap_or(player_id);
+        CopySwap {
+            mode,
+            player_id,
+            team_id,
+            other_id,
+        }
+    }
+
+    /// The dialog's heading.
+    fn title(&self) -> &'static str {
+        match self.mode {
+            CopySwapMode::Copy => "Copy stats",
+            CopySwapMode::Swap => "Swap stats",
+        }
+    }
+
+    /// OK's operation on `session`.
+    fn apply(&self, session: &mut Session) {
+        match self.mode {
+            CopySwapMode::Copy => session.copy_stats(self.player_id, self.other_id),
+            CopySwapMode::Swap => session.swap_stats(self.player_id, self.other_id),
+        }
+    }
+}
+
+/// The first filled roster slot's player id on `team_id` (`None` for an
+/// empty or missing team).
+fn first_filled(file: &EditFile, team_id: u32) -> Option<u32> {
+    file.team(team_id).and_then(|team| {
+        team.roster
+            .iter()
+            .map(|slot| slot.player_id)
+            .find(|&id| id != 0)
+    })
+}
+
+/// The player combo's `(player_id, label)` options for `team_id`: every
+/// filled roster slot in slot order, each labeled by its shirt number,
+/// registered position and display name, as the player list shows them.
+fn roster_options(file: &EditFile, team_id: u32) -> Vec<(u32, String)> {
+    let mut options = Vec::new();
+    let Some(team) = file.team(team_id) else {
+        return options;
+    };
+    for slot in &team.roster {
+        if slot.player_id == 0 {
+            continue;
+        }
+        let label = match file.player(slot.player_id) {
+            Some(player) => {
+                let position = POSITIONS
+                    .get(usize::from(player.positions.registered))
+                    .copied()
+                    .unwrap_or("?");
+                format!(
+                    "{} {} {}",
+                    slot.number,
+                    position,
+                    display_name(&player.name)
+                )
+            }
+            None => format!("{} ?", slot.number),
+        };
+        options.push((slot.player_id, label));
+    }
+    options
+}
+
+/// The Copy/Swap stats dialog while `view.copy_swap` holds one (the
+/// draft's `dlgCopySwap`): the heading and line naming the selected
+/// player, the team combo prefilled with his own team, the player combo
+/// listing that team's filled roster slots; OK applies and closes,
+/// Cancel or Escape closes.
+pub(crate) fn copy_swap_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
+    if view.copy_swap.is_none() {
+        return;
+    }
+    let mut close = false;
+    let response = egui::Modal::new(egui::Id::new("save_editor_copy_swap")).show(ui.ctx(), |ui| {
+        let (Some(session), Some(dialog)) = (view.session.as_mut(), view.copy_swap.as_mut()) else {
+            return;
+        };
+        ui.heading(dialog.title());
+        let name = session
+            .file()
+            .player(dialog.player_id)
+            .map(|player| display_name(&player.name))
+            .unwrap_or_else(|| dialog.player_id.to_string());
+        match dialog.mode {
+            CopySwapMode::Copy => {
+                ui.label(format!("Copy the picked player's stats onto {name}."));
+            }
+            CopySwapMode::Swap => {
+                ui.label(format!("Swap {name}'s stats with the picked player's."));
+            }
+        }
+        ui.horizontal(|ui| {
+            ui.label("Team");
+            let mut picked = dialog.team_id;
+            egui::ComboBox::from_id_salt("save_editor_copy_swap_team")
+                .selected_text(
+                    session
+                        .file()
+                        .team(picked)
+                        .map(|team| team.name.clone())
+                        .unwrap_or_else(|| picked.to_string()),
+                )
+                .show_ui(ui, |ui| {
+                    for team in session.file().teams() {
+                        ui.selectable_value(&mut picked, team.id, &team.name);
+                    }
+                });
+            if picked != dialog.team_id {
+                dialog.team_id = picked;
+                // The new team's first filled slot is the new pick.
+                dialog.other_id = first_filled(session.file(), picked).unwrap_or(dialog.player_id);
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.label("Player");
+            let options = roster_options(session.file(), dialog.team_id);
+            let mut picked = dialog.other_id;
+            egui::ComboBox::from_id_salt("save_editor_copy_swap_player")
+                .selected_text(
+                    options
+                        .iter()
+                        .find(|(id, _)| *id == picked)
+                        .map(|(_, label)| label.clone())
+                        .unwrap_or_else(|| "?".to_owned()),
+                )
+                .show_ui(ui, |ui| {
+                    for (id, label) in &options {
+                        ui.selectable_value(&mut picked, *id, label);
+                    }
+                });
+            dialog.other_id = picked;
+        });
+        ui.horizontal(|ui| {
+            if ui.button("OK").clicked() {
+                dialog.apply(session);
+                close = true;
+            }
+            if ui.button("Cancel").clicked() {
+                close = true;
+            }
+        });
+    });
+    if close || response.should_close() {
+        view.copy_swap = None;
     }
 }

@@ -23,9 +23,13 @@ roster slot in one undoable step:
   registered position's full name.
 - **Clear visual flags** (Ctrl+F) unmarks the face, hair, physique and strip
   edits on every player of the team.
+- **Set FPC invisibility** writes the hide preset on every player of the
+  team: long sleeves, tucked, short socks, boots 55 and gloves 11 where the
+  IDs are 0 (a model's own boots or gloves ID is kept, as on the Appearance
+  tab). **Remove FPC invisibility** writes the show preset on them all.
 
-The boots and gloves item and Clear visual flags stay disabled while the
-aesthetics lock is on (the Appearance tab's **Edit aesthetics anyway**
-switch): they write what the team's export owns, so a hand edit would be
-overwritten the next time the team is recompiled or patched. Ctrl+F does
-nothing while the lock is on.
+The boots and gloves item, Clear visual flags and the FPC items stay
+disabled while the aesthetics lock is on (the Appearance tab's **Edit
+aesthetics anyway** switch): they write what the team's export owns, so a
+hand edit would be overwritten the next time the team is recompiled or
+patched. Ctrl+F does nothing while the lock is on.

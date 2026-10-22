@@ -1020,15 +1020,27 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           `pes_savefile/src/schema/mod.rs`, `save_editor/{help/04_appearance.md,src/{session/
           team_ops.rs,view/{team.rs,menus.rs,appearance/mod.rs,tests/{team.rs,appearance.rs}}}}`,
           `.cargo/mutants.toml`
-        - [ ] review (checkpoint b: `team_text_fits`, `first_version_with_team`, `max_value`,
-          `player_max_value`): SWE-2 S1 (3 accepted, loop ended), Astra A4 (6 of 6, rework 2);
-          next: `mutants-diff` from 8.9d1's commit at rework 2's, a SWE-2 loop over rework 2,
-          then Astra A5
-      - [ ] 8.9d2 the Player menu (SE-GUI-24: Set all, Bump all, Copy and Swap stats) and FPC
+        - [x] review (checkpoint b: `team_text_fits`, `first_version_with_team`, `max_value`,
+          `player_max_value`): SWE-2 S1 (3 accepted), Astra A4 (6 of 6, rework 2), SWE-2 S2 over
+          rework 2 (3), Astra A5 (2, ending Astra's loop); `mutants-diff 18132ce8` at
+          `4fb6c077`: 1 missed (`odd_seed -> 1`). S2's, A5's and that survivor's fixes landed with
+          8.9d2's commit (lead): `odd_seed` tested on exact values, the names row in its own
+          grid, the stripped-save plan text and help, the menu route's test seeding every slot
+      - [x] 8.9d2 the Player menu (SE-GUI-24: Set all, Bump all, Copy and Swap stats) and FPC
         (SE-GUI-11, SE-GUI-22's FPC parts): Hide body and Show body on the Appearance tab with
         the interference findings, Ctrl+I, the Team menu's Set and Remove FPC invisibility; a
-        model's own IDs kept (DECISIONS 2026-10-22). The draft's checkbox and `applyPreset`
-        corrected first
+        model's own IDs kept (DECISIONS 2026-10-22). Done 2026-10-22 (SWE-2, one run):
+        `session/player_ops.rs` (the four stat operations, `copy_stat_fields` audited line by
+        line against `PlayerImport`'s stats half, `preset_for` keeping a model's own IDs), the
+        team's `team_fpc`, the Player menu and its two dialogs (`StatNum`, `CopySwap`: team,
+        then slot), Ctrl+I and Ctrl+B, the FPC group last on the Appearance tab, the five
+        `fpc::check` codes in the message catalog, `help/06_player.md`. Files:
+        `save_editor/{Cargo.toml,help/{04_appearance.md,05_team.md,06_player.md},src/{lib.rs,
+        messages.rs,session/{mod.rs,player_ops.rs,team_ops.rs},view/{mod.rs,menus.rs,
+        player_list.rs,appearance/mod.rs,tests.rs,tests/player.rs}}}`, `studio/tests/help_cli.rs`
+        (the help export's last catalog row)
+        - [ ] review (checkpoint b: one crate, no `pub` item; rides with 8.9d3's): a SWE-2
+          loop, then Astra; `mutants-diff 4fb6c077` at the commit
       - [ ] 8.9d3 the Savefile menu (SE-GUI-27): Output rosters to TSV and Fix database behind
         its confirmation (the PES 17 kit-ID repair writes the container's Unknown section, which
         the model does not carry: read `fix_database` first)

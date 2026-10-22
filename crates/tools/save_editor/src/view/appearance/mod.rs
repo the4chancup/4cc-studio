@@ -119,6 +119,9 @@ fn groups(
     ui.separator();
     ui.strong("Colours");
     colour_rows(ui, session, player_id, version, &player.appearance);
+    ui.separator();
+    ui.strong("Full Player Customization");
+    fpc_group(ui, session, player_id, player);
 }
 
 /// The ownership row: the sentence itself (pre-Fox carries the patch step
@@ -147,6 +150,73 @@ pub(crate) fn ownership_tip(version: PesVersion) -> &'static str {
              then apply the patch."
         }
         Engine::Fox => "Owned by the team's export: edit its settings.toml and recompile.",
+    }
+}
+
+/// The FPC group, last on the tab (the draft's `fpcGroup`): the
+/// classifier's reading (`is_fpc_player`: hidden by the convention's boots
+/// ID or a custom skin — a player hidden by his model's own boots ID reads
+/// as shown, so no checkbox), the Hide body and Show body buttons with the
+/// draft's hover texts, then the interference findings of `fpc::check` in
+/// its order. Under the lock the whole group is disabled with the rest of
+/// the tab — the reading and the findings still draw, since they read and
+/// do not write.
+fn fpc_group(ui: &mut egui::Ui, session: &mut Session, player_id: u32, player: &PlayerEntry) {
+    let hidden = pes_savefile::ops::fpc::is_fpc_player(player)
+        .expect("a loaded player's face run holds the skin field");
+    ui.horizontal_wrapped(|ui| {
+        ui.label(if hidden {
+            "FPC: hidden body"
+        } else {
+            "FPC: body shown"
+        });
+        if ui
+            .button("Hide body")
+            .on_hover_text(
+                "The hide preset: long sleeves, tucked, short socks; \
+                 boots 55 and gloves 11 where the IDs are 0 \
+                 (a model's own IDs are kept). Ctrl+I; the whole team: Team menu",
+            )
+            .clicked()
+        {
+            session.apply_fpc(player_id, fpc::Preset::Hide);
+        }
+        if ui
+            .button("Show body")
+            .on_hover_text(
+                "The show preset: short sleeves, untucked, standard socks; \
+                 boots and gloves 0 where they are 55 and 11",
+            )
+            .clicked()
+        {
+            session.apply_fpc(player_id, fpc::Preset::Unhide);
+        }
+    });
+    let style = pes_savefile::ops::fpc::strip_style(player)
+        .expect("a loaded player's face run holds the strip fields");
+    let findings = fpc::check(&style, hidden);
+    if findings.is_empty() {
+        ui.weak("No interference findings.");
+    } else {
+        for finding in &findings {
+            let message = crate::messages::fpc_finding(finding);
+            let text = format!(
+                "{}: {}",
+                message.severity.name(),
+                crate::messages::when_text(&message)
+            );
+            match message.severity {
+                studio_core::Severity::Error | studio_core::Severity::Fatal => {
+                    ui.colored_label(ui.visuals().error_fg_color, text);
+                }
+                studio_core::Severity::Warning => {
+                    ui.colored_label(ui.visuals().warn_fg_color, text);
+                }
+                studio_core::Severity::Info => {
+                    ui.label(text);
+                }
+            }
+        }
     }
 }
 
@@ -831,11 +901,10 @@ mod tests {
     // The forcing is the `| 1`: on even inputs `& 1` would hand back 0.
     #[test]
     fn the_odd_seed_is_odd_on_even_inputs() {
-        assert_eq!(
-            odd_seed(2, 4) % 2,
-            1,
-            "an even or zero seed draws 1 forever"
-        );
+        // Exact values: an odd-only check passes a constant 1, and on
+        // (2, 4) `| 1` -> `^ 1` gives 7 too; on (1, 2) it gives 2.
+        assert_eq!(odd_seed(2, 4), 7, "2 ^ 4 forced odd");
+        assert_eq!(odd_seed(1, 2), 3, "1 ^ 2, already odd, kept");
     }
 
     // `seeded_draw` returns values in `1..=top`, both ends occurring over a

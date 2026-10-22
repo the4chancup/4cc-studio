@@ -98,6 +98,21 @@ pub(crate) enum Code {
     /// rows cannot carry, so once stripped he shows the face his row describes; his export
     /// describing his face settles it (`player`, `name`, `copied`).
     StripBaseCopiedFace,
+    /// The Appearance tab's FPC group: the player wears inners under a hidden body, which
+    /// breaks the hiding.
+    FpcInnersBreakHiding,
+    /// The Appearance tab's FPC group: the player wears undershorts under a hidden body,
+    /// which breaks the hiding.
+    FpcUndershortsBreakHiding,
+    /// The Appearance tab's FPC group: the player wears wrist or ankle taping under a
+    /// hidden body, so the taped pieces still show.
+    FpcTapingShowsPieces,
+    /// The Appearance tab's FPC group: the gloves checkbox is on with gloves ID 0, so the
+    /// player wears winter gloves in winter conditions.
+    FpcGlovesCheckboxWinterGloves,
+    /// The Appearance tab's FPC group: a custom skin on a player whose body is not hidden
+    /// hides the body but not the jersey.
+    FpcCustomSkinOnNonFpc,
 }
 
 /// Which of `diff`'s two saves a finding is about, as the console names them.
@@ -152,6 +167,11 @@ impl Code {
             Code::AatfCheckFailed => "aatf_check_failed",
             Code::AppearanceIdRestored => "appearance_id_restored",
             Code::StripBaseCopiedFace => "strip_base_copied_face",
+            Code::FpcInnersBreakHiding => "fpc_inners_break_hiding",
+            Code::FpcUndershortsBreakHiding => "fpc_undershorts_break_hiding",
+            Code::FpcTapingShowsPieces => "fpc_taping_shows_pieces",
+            Code::FpcGlovesCheckboxWinterGloves => "fpc_gloves_checkbox_winter_gloves",
+            Code::FpcCustomSkinOnNonFpc => "fpc_custom_skin_on_non_fpc",
         }
     }
 
@@ -168,7 +188,8 @@ impl Code {
             | Code::TeamsListOverridden
             | Code::TeamsListKept
             | Code::TeamsListWritten
-            | Code::TeamsListNotWritten => Severity::Info,
+            | Code::TeamsListNotWritten
+            | Code::FpcTapingShowsPieces => Severity::Info,
             // A value the save did not take as written, or a record the game does not read:
             // worth knowing, not a failure (the plan's cross-version import converts "with a
             // warning list").
@@ -179,7 +200,9 @@ impl Code {
             | Code::ImportTextCropped
             | Code::TransplantTargetStripped
             | Code::TransplantDonorStripped
-            | Code::StripBaseCopiedFace => Severity::Warning,
+            | Code::StripBaseCopiedFace
+            | Code::FpcGlovesCheckboxWinterGloves
+            | Code::FpcCustomSkinOnNonFpc => Severity::Warning,
             // A skipped team or player is an error and the rest is written (the plan's
             // `apply-patch`: exit 1); so is a dropped teams-list change and a list that
             // cannot be written (`export-teams-list`: exit 1).
@@ -187,7 +210,9 @@ impl Code {
             | Code::PatchPlayerNotInSave
             | Code::TeamsListUnresolved
             | Code::TeamsListNameDuplicate
-            | Code::TeamsListReadOnly => Severity::Error,
+            | Code::TeamsListReadOnly
+            | Code::FpcInnersBreakHiding
+            | Code::FpcUndershortsBreakHiding => Severity::Error,
             // `check-aatf`: a failed check is an error; a violation's own severity decides,
             // and `aatf_violation` overwrites this default with it. `check-stripped`: a
             // listed player is an error (`check-stripped`: exit 1);
@@ -228,6 +253,11 @@ impl Code {
         Code::AatfCheckFailed,
         Code::AppearanceIdRestored,
         Code::StripBaseCopiedFace,
+        Code::FpcInnersBreakHiding,
+        Code::FpcUndershortsBreakHiding,
+        Code::FpcTapingShowsPieces,
+        Code::FpcGlovesCheckboxWinterGloves,
+        Code::FpcCustomSkinOnNonFpc,
     ];
 }
 
@@ -363,6 +393,31 @@ const CATALOG: &[(Code, &str, &str)] = &[
         Code::StripBaseCopiedFace,
         r#"`strip-and-seed`: the player's record copied another player's face, which the seed rows cannot carry, so once stripped he shows the face his row describes."#,
         r#"Nothing to do; compiling his export's face settles it."#,
+    ),
+    (
+        Code::FpcInnersBreakHiding,
+        r#"The player wears inners under a hidden body, which breaks the hiding."#,
+        r#"Nothing is changed for you; take the inners off, or the body will not hide."#,
+    ),
+    (
+        Code::FpcUndershortsBreakHiding,
+        r#"The player wears undershorts under a hidden body, which breaks the hiding."#,
+        r#"Nothing is changed for you; take the undershorts off, or the body will not hide."#,
+    ),
+    (
+        Code::FpcTapingShowsPieces,
+        r#"The player wears wrist or ankle taping under a hidden body: the taped pieces still show."#,
+        r#"Deliberate in custom setups; nothing to do."#,
+    ),
+    (
+        Code::FpcGlovesCheckboxWinterGloves,
+        r#"The gloves checkbox is on with gloves ID 0."#,
+        r#"Nothing is changed for you; the player wears winter gloves in winter conditions. Untick the checkbox or give him a gloves ID if that is not wanted."#,
+    ),
+    (
+        Code::FpcCustomSkinOnNonFpc,
+        r#"A custom skin on a player whose body is not hidden by the convention's boots ID hides the body but not the jersey."#,
+        r#"Nothing is changed for you; hide the body too, or pick a preset skin."#,
     ),
 ];
 
@@ -540,6 +595,37 @@ pub(crate) fn strip_base_copied_face(player: &PlayerEntry, copied: u32) -> Messa
             ("copied", copied.to_string()),
         ],
     )
+}
+
+/// The message for one `fpc::check` finding of the Appearance tab's FPC group: the code
+/// it maps to and the finding's own severity. A code `fpc::check` does not emit is a
+/// programming error and panics naming it.
+pub(crate) fn fpc_finding(finding: &fpc::Finding) -> Message {
+    let code = match finding.code {
+        "fpc_inners_break_hiding" => Code::FpcInnersBreakHiding,
+        "fpc_undershorts_break_hiding" => Code::FpcUndershortsBreakHiding,
+        "fpc_taping_shows_pieces" => Code::FpcTapingShowsPieces,
+        "fpc_gloves_checkbox_winter_gloves" => Code::FpcGlovesCheckboxWinterGloves,
+        "fpc_custom_skin_on_non_fpc" => Code::FpcCustomSkinOnNonFpc,
+        other => panic!("fpc::check emits its five codes, got {other}"),
+    };
+    let mut message = message(code, vec![]);
+    message.severity = match finding.severity {
+        fpc::Severity::Info => Severity::Info,
+        fpc::Severity::Warning => Severity::Warning,
+        fpc::Severity::Error => Severity::Error,
+    };
+    message
+}
+
+/// The `when` text `CATALOG` spells for `message`'s code: the sentence a view draws
+/// for the finding (the Appearance tab's FPC findings).
+pub(crate) fn when_text(message: &Message) -> &'static str {
+    CATALOG
+        .iter()
+        .find(|(code, ..)| code.as_str() == message.code.code)
+        .map(|(_, when, _)| *when)
+        .expect("every emitted code has a catalog row")
 }
 
 /// The message for `code` with its context fields, in template order.

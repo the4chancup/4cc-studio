@@ -215,7 +215,7 @@ fn the_tab_is_locked_on_a_pre_fox_save_with_the_patch_step() {
 
 // SE-GUI-07 (its THEN's last clause)
 #[test]
-fn a_stripped_players_tab_says_the_game_does_not_read_the_record() {
+fn a_stripped_players_tab_says_the_look_is_the_tables_and_the_motions_are_read() {
     let path = fixture(PesVersion::Pes21, "appearance_stripped_line");
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
     file.player_mut(70101).unwrap().appearance_id = Some(STRIPPED_APPEARANCE_ID);

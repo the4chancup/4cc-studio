@@ -878,15 +878,24 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
     }
 }
 
-// SE-GUI-22's enabled half: the menu item itself (the SE-GUI-23 test only
-// ever runs the clear through Ctrl+F). Every filled slot's four visual
-// flags cleared, one undo restoring them, redo clearing them again, and
-// the saved file holding them clear.
+// The menu item itself (the other SE-GUI-23 test runs the clear through
+// Ctrl+F). Every filled slot's four visual flags set first, then cleared,
+// one undo restoring every one of them, redo clearing them again, and the
+// saved file holding them clear.
+// SE-GUI-23
 #[test]
 fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
     let path = fixture(PesVersion::Pes21, "team_menu_clear_flags");
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
-    for id in [70101u32, 70102] {
+    let filled: Vec<u32> = file
+        .team(701)
+        .unwrap()
+        .roster
+        .iter()
+        .map(|slot| slot.player_id)
+        .filter(|&id| id != 0)
+        .collect();
+    for &id in &filled {
         let flags = &mut file.player_mut(id).unwrap().edit_flags;
         flags.face = true;
         flags.hair = true;
@@ -901,6 +910,10 @@ fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
     let cleared = |view: &SaveView, id: u32| {
         let flags = &player_entry(view, id).edit_flags;
         !(flags.face || flags.hair || flags.physique || flags.strip)
+    };
+    let all_set = |view: &SaveView, id: u32| {
+        let flags = &player_entry(view, id).edit_flags;
+        flags.face && flags.hair && flags.physique && flags.strip
     };
 
     let nodes = open_team_menu(&mut window, &mut view);
@@ -922,8 +935,8 @@ fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
 
     // One undo entry restores them; redo clears them again.
     assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
-    for id in [70101u32, 70102] {
-        assert!(!cleared(&view, id), "{id}'s flags restored");
+    for &id in &filled {
+        assert!(all_set(&view, id), "{id}'s four flags restored");
     }
     window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
