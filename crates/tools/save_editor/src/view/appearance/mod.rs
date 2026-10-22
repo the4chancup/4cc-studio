@@ -60,13 +60,17 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         if *edit_aesthetics {
             ui.weak(match version.engine() {
                 Engine::PreFox => "A later patch overwrites whatever is edited by hand.",
-                Engine::Fox => "On a stripped save the game does not read these.",
+                Engine::Fox => {
+                    "On a stripped save the game still reads the motions; \
+                     the look comes from the database tables."
+                }
             });
         }
         if stripped {
             ui.colored_label(
                 ui.visuals().warn_fg_color,
-                "Stripped: the game reads the database tables, not this record.",
+                "Stripped: the game takes his look from the database tables; \
+                 the motions are still read.",
             );
         }
         ui.add_enabled_ui(*edit_aesthetics, |ui| {
@@ -148,7 +152,9 @@ pub(crate) fn ownership_tip(version: PesVersion) -> &'static str {
 
 /// The edit flags' row (the draft's Edit flags group): the six flags, then
 /// the copy-from id. `base_copy` exists on PES 15 to 18 only; like a gated
-/// field it keeps its place, disabled.
+/// field it keeps its place, disabled. Ticking it also sets the seven
+/// gameplay flags (`plans/save_editor.md`'s "Is a copy?" row: a copy's
+/// sections count as edited); unticking clears `base_copy` alone.
 fn edit_flags(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -181,6 +187,15 @@ fn edit_flags(
     match flags.base_copy {
         Some(held) => checkbox(ui, session, player_id, "Base copy", held, |p, v| {
             p.edit_flags.base_copy = Some(v);
+            if v {
+                p.edit_flags.abilities = true;
+                p.edit_flags.com_styles = true;
+                p.edit_flags.motion = true;
+                p.edit_flags.playable_positions = true;
+                p.edit_flags.registered_position = true;
+                p.edit_flags.skills = true;
+                p.edit_flags.playing_style = true;
+            }
         }),
         None => {
             ui.add_enabled(false, egui::Checkbox::new(&mut false, "Base copy"))
@@ -768,13 +783,20 @@ pub(crate) fn seeded_draw() -> impl FnMut(u8) -> u8 {
 fn clock_seed() -> u64 {
     std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
-        .map(|since| u64::from(since.subsec_nanos()) ^ since.as_secs() | 1)
+        .map(|since| odd_seed(u64::from(since.subsec_nanos()), since.as_secs()))
         .unwrap_or(0x9E37_79B9_7F4A_7C15)
+}
+
+/// `clock_seed`'s arithmetic as a pure function (its test needs even
+/// inputs, which a real clock does not hand it on demand): `nanos ^ secs`
+/// forced odd, a zero state drawing 1 forever.
+fn odd_seed(nanos: u64, secs: u64) -> u64 {
+    nanos ^ secs | 1
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{clock_seed, seeded_draw, xorshift_draw};
+    use super::{clock_seed, odd_seed, seeded_draw, xorshift_draw};
 
     // The Randomize generator is xorshift64 (13, 7, 17): each draw is
     // `1 + state % top` after one round of the three shifts. The first
@@ -804,6 +826,16 @@ mod tests {
     #[test]
     fn the_clock_seed_is_odd() {
         assert_eq!(clock_seed() % 2, 1, "an even or zero seed draws 1 forever");
+    }
+
+    // The forcing is the `| 1`: on even inputs `& 1` would hand back 0.
+    #[test]
+    fn the_odd_seed_is_odd_on_even_inputs() {
+        assert_eq!(
+            odd_seed(2, 4) % 2,
+            1,
+            "an even or zero seed draws 1 forever"
+        );
     }
 
     // `seeded_draw` returns values in `1..=top`, both ends occurring over a

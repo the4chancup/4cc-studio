@@ -1,4 +1,6 @@
 use pes_savefile::model::TeamEntry;
+use pes_savefile::schema::fields::TeamText;
+use pes_savefile::schema::schema_for;
 
 use super::*;
 
@@ -177,6 +179,7 @@ fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() 
 
     // Colour 1: the picker's hex field takes #FF8000; the save keeps 6
     // bits a channel, so the stored colour is the nearest the save holds.
+    // Both colour fields share the grid row, so Colour 1 is the leftmost.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let field = nodes
         .iter()
@@ -187,8 +190,8 @@ fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() 
                     .is_some_and(|label| label.starts_with("color field"))
         })
         .min_by(|a, b| {
-            let y = |node: &&accesskit::Node| node.bounds().expect("bounds").y0;
-            y(a).partial_cmp(&y(b)).expect("ordered bounds")
+            let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
+            x(a).partial_cmp(&x(b)).expect("ordered bounds")
         })
         .expect("the Colour 1 field");
     click(&mut window, field, &mut view);
@@ -235,6 +238,7 @@ fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() 
 fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
     let path = fixture(PesVersion::Pes17, "team_kit_slots");
     // Give slot 1 a binding with low bits set: the edit must keep them.
+    // The strip flag clear, so a kit-slot edit's setting it shows.
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes17)).unwrap();
     let slots = file
         .team_mut(701)
@@ -244,6 +248,7 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
         .expect("PES 17 kit slots");
     slots[0].binding = 701 * 64 + 5;
     let binding = slots[0].binding;
+    file.team_mut(701).unwrap().edit_flags.strip = Some(false);
     file.save(&path).unwrap();
 
     let mut view = SaveView::new();
@@ -281,6 +286,38 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
         "Bound team ID shows binding / 64"
     );
 
+    // A Number edit sets the team's strip flag, as the stadium edit sets
+    // its own (PES 17 is the version with kit slots, so the flag is Some).
+    click(&mut window, controls[0], &mut view);
+    window.frame(vec![egui::Event::Text("9".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert_eq!(
+        team_entry(&view, 701).kit_slots.expect("kit slots")[0].number,
+        9
+    );
+    assert_eq!(
+        team_entry(&view, 701).edit_flags.strip,
+        Some(true),
+        "a kit-slot edit sets the strip flag"
+    );
+    // The one undo restores the edit whole, the flag back to clear (a
+    // frame first, so the field has given up the keyboard and Ctrl+Z is
+    // the session's undo, not the text's own).
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(
+        team_entry(&view, 701).edit_flags.strip,
+        Some(false),
+        "the undo restores the flag too"
+    );
+
     // An edit writes `id * 64 + binding % 64`: the low 5 stays.
     click(&mut window, bound, &mut view);
     window.frame(vec![egui::Event::Text("702".to_owned())], |ui| {
@@ -295,6 +332,188 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
         slots[0].binding,
         702 * 64 + binding % 64,
         "the low bits are kept as stored"
+    );
+    assert_eq!(
+        team_entry(&view, 701).edit_flags.strip,
+        Some(true),
+        "the bound edit sets the strip flag too"
+    );
+
+    // The shown id's top is the binding field's own top / 64 (PES 17's
+    // binding is 24 bits, so 262143): typing 262144 stops there.
+    click(&mut window, bound, &mut view);
+    window.frame(vec![egui::Event::Text("262144".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    let slots = team_entry(&view, 701).kit_slots.expect("kit slots");
+    assert_eq!(
+        slots[0].binding,
+        262143 * 64 + binding % 64,
+        "past the top the id is 262143, the low bits still kept"
+    );
+}
+
+// The Name field gets its 240 points from `add_sized` (the info strip's
+// fix): inside a grid `desired_width` alone would cap it at the cell's
+// `min_cell_size` on the sizing pass.
+#[test]
+fn the_team_name_field_gets_its_full_width_on_the_first_frame() {
+    let path = fixture(PesVersion::Pes21, "team_name_width");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Team;
+    let mut window = Headless::sized(1100.0, 700.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let name = nodes
+        .iter()
+        .find(|node| node.role() == Role::TextInput && node.value() == Some("/3/"))
+        .expect("the team's Name field");
+    let bounds = name.bounds().expect("bounds");
+    assert!(
+        bounds.x1 - bounds.x0 >= 230.0,
+        "the Name field draws near 240 wide, got {bounds:?}"
+    );
+}
+
+// `names_row`'s `changed() && team_text_fits` guard is what keeps drawing
+// from being an edit: frames of the tab with no input leave the flag and
+// the session as they were.
+#[test]
+fn drawing_the_team_tab_edits_nothing() {
+    let path = fixture(PesVersion::Pes21, "team_tab_no_input");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Team;
+    assert!(
+        !team_entry(&view, 701).edit_flags.name,
+        "premise: the name flag is clear"
+    );
+    let mut window = Headless::sized(1100.0, 700.0);
+    for _ in 0..3 {
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    }
+    let session = view.session.as_ref().unwrap();
+    assert!(!session.is_dirty(), "three frames left the session clean");
+    assert!(!session.can_undo(), "and pushed no undo entry");
+    assert!(
+        !team_entry(&view, 701).edit_flags.name,
+        "the name flag stayed clear"
+    );
+}
+
+// The same guard's other arm: a keystroke `team_text_fits` refuses is not
+// taken — the field shows the stored text again next frame (the info
+// strip's Name field's rule).
+#[test]
+fn a_team_name_keystroke_past_the_fields_limit_is_not_taken() {
+    let path = fixture(PesVersion::Pes21, "team_name_overlong");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Team;
+    let mut window = Headless::sized(1100.0, 700.0);
+    // The version's own field length in bytes, read from the schema —
+    // never a typed constant.
+    let limit = usize::try_from(
+        schema_for(PesVersion::Pes21)
+            .team
+            .texts
+            .iter()
+            .find(|spec| spec.text == TeamText::Name)
+            .expect("every version stores the team name")
+            .len,
+    )
+    .expect("a text field's length fits usize");
+    let full = "A".repeat(limit);
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let name_field = nodes
+        .iter()
+        .find(|node| node.role() == Role::TextInput && node.value() == Some("/3/"))
+        .expect("the team's Name field");
+    click(&mut window, name_field, &mut view);
+    type_text(&mut window, &mut view, &full);
+    assert_eq!(
+        team_entry(&view, 701).name,
+        full,
+        "a name at the limit lands"
+    );
+
+    // One more letter past it: refused, the stored name stands.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let name_field = nodes
+        .iter()
+        .find(|node| node.role() == Role::TextInput && node.value() == Some(full.as_str()))
+        .expect("the team's Name field");
+    click(&mut window, name_field, &mut view);
+    window.frame(
+        vec![
+            key(egui::Key::End, egui::Modifiers::NONE, true),
+            egui::Event::Text("B".to_owned()),
+        ],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert_eq!(
+        team_entry(&view, 701).name,
+        full,
+        "the past-limit keystroke is not taken"
+    );
+}
+
+// The dialog's "(→ N)" preview reads the last *filled* slot's resulting
+// ID: slot k (1-based) gets start + k - 1, so the preview is the start
+// plus the filled slot's 0-based index (an empty last slot is not it).
+#[test]
+fn the_boglo_dialogs_preview_names_the_last_filled_slots_id() {
+    let path = fixture(PesVersion::Pes21, "boglo_preview");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1100.0, 700.0);
+    // The last filled slot's index, read from the roster, never typed in.
+    let last = rostered(&view, 701)
+        .last()
+        .expect("team 701 has filled slots")
+        .0;
+
+    let nodes = open_team_menu(&mut window, &mut view);
+    click(
+        &mut window,
+        labeled(
+            &nodes,
+            Role::Button,
+            "Set boots and gloves IDs for everyone\u{2026}",
+        ),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        labeled(&nodes, Role::RadioButton, "Incremental from"),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let incremental = labeled(&nodes, Role::RadioButton, "Incremental from");
+    let start = right_of(&nodes, incremental, Role::SpinButton);
+    click(&mut window, start, &mut view);
+    window.frame(vec![egui::Event::Text("100".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let preview = format!("(\u{2192} {})", 100 + last);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.role() == Role::Label && node.value() == Some(preview.as_str())),
+        "the preview names {preview}"
     );
 }
 
@@ -588,6 +807,17 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
 #[test]
 fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() {
     let path = fixture(PesVersion::Pes21, "team_menu_locked");
+    // Two players' visual flags set, so a guardless Ctrl+F would make a
+    // visible change (the fixture's are clear, which let the guard go).
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    for id in [70101u32, 70102] {
+        let flags = &mut file.player_mut(id).unwrap().edit_flags;
+        flags.face = true;
+        flags.hair = true;
+        flags.physique = true;
+        flags.strip = true;
+    }
+    file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(1100.0, 700.0);
@@ -620,7 +850,7 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
         );
     }
 
-    // Ctrl+F under the lock: nothing changes.
+    // Ctrl+F under the lock: nothing changes, the flags still set.
     window.frame(vec![key(egui::Key::F, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
@@ -628,6 +858,13 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
         !view.session.as_ref().unwrap().is_dirty(),
         "Ctrl+F changed nothing"
     );
+    for id in [70101u32, 70102] {
+        let flags = &player_entry(&view, id).edit_flags;
+        assert!(
+            flags.face && flags.hair && flags.physique && flags.strip,
+            "{id}'s visual flags survived the locked Ctrl+F"
+        );
+    }
 
     // Set edited flag still runs.
     let nodes = open_team_menu(&mut window, &mut view);
@@ -638,5 +875,73 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
     );
     for &(_, id) in &rostered(&view, 701) {
         assert!(player_entry(&view, id).edit_flags.player, "{id} flagged");
+    }
+}
+
+// SE-GUI-22's enabled half: the menu item itself (the SE-GUI-23 test only
+// ever runs the clear through Ctrl+F). Every filled slot's four visual
+// flags cleared, one undo restoring them, redo clearing them again, and
+// the saved file holding them clear.
+#[test]
+fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
+    let path = fixture(PesVersion::Pes21, "team_menu_clear_flags");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    for id in [70101u32, 70102] {
+        let flags = &mut file.player_mut(id).unwrap().edit_flags;
+        flags.face = true;
+        flags.hair = true;
+        flags.physique = true;
+        flags.strip = true;
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1100.0, 700.0);
+    let cleared = |view: &SaveView, id: u32| {
+        let flags = &player_entry(view, id).edit_flags;
+        !(flags.face || flags.hair || flags.physique || flags.strip)
+    };
+
+    let nodes = open_team_menu(&mut window, &mut view);
+    let item = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Button
+                && node
+                    .label()
+                    .is_some_and(|label| label.starts_with("Clear visual flags"))
+        })
+        .expect("the Clear visual flags item");
+    assert!(!item.is_disabled(), "unlocked, the item is enabled");
+    click(&mut window, item, &mut view);
+    let slots = rostered(&view, 701);
+    for &(_, id) in &slots {
+        assert!(cleared(&view, id), "{id}'s visual flags cleared");
+    }
+
+    // One undo entry restores them; redo clears them again.
+    assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
+    for id in [70101u32, 70102] {
+        assert!(!cleared(&view, id), "{id}'s flags restored");
+    }
+    window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    for &(_, id) in &slots {
+        assert!(cleared(&view, id), "{id}'s flags cleared again");
+    }
+
+    // Save; the reopened file holds them cleared.
+    window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let reopened = EditFile::load(&path).unwrap();
+    for &(_, id) in &slots {
+        let flags = &reopened.player(id).unwrap().edit_flags;
+        assert!(
+            !(flags.face || flags.hair || flags.physique || flags.strip),
+            "{id}'s flags cleared in the saved file"
+        );
     }
 }

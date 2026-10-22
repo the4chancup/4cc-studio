@@ -934,7 +934,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       draft's `isFox` corrected). Files: `save_editor/{help/04_appearance.md,src/{lib.rs,
       session/mod.rs,view/{mod.rs,abilities.rs,player_list.rs,appearance/{mod.rs,fields.rs},
       tests.rs,tests/{abilities.rs,appearance.rs}}}}`
-      - [ ] review: rides with the next checkpoint (b) review (one crate, no `pub` item).
+      - [ ] review: rides with 8.9d1's (one crate, no `pub` item); Astra A4 covered both.
         `mutants-diff e34d1afc` at `0c748396`: 34 survivors, triaged in
         `.tmp/8_9/survivors_b2.md` (30 missing tests: physique, motion, combo, gloves checkbox,
         palettes, Strip again's team, the grids' row breaks, Randomize's generator; 2 equivalent;
@@ -1009,9 +1009,21 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         schema/mod.rs}`, `save_editor/{Cargo.toml,help/05_team.md,src/{lib.rs,session/{mod.rs,
         team_ops.rs},view/{mod.rs,menus.rs,team.rs,info_strip.rs,player_list.rs,appearance/{mod.rs,
         fields.rs},tests.rs,tests/{abilities.rs,appearance.rs,team.rs}}}}`, `.cargo/mutants.toml`
+        - [x] rework 2 (SWE-2 S1: 3 of 10 accepted; Astra A4 over 8.9b2 and 8.9d1: 6 of 6;
+          `mutants-diff 0c748396`: 12 missed, `.tmp/8_9/survivors_d1.md`): a kit-slot edit sets
+          PES 17's team strip flag; ticking Base copy sets the seven gameplay flags ("Is a
+          copy?"); the Team tab's name fields sized as the info strip's; a stripped player's
+          motions said to be read (they sit before the appearance block); tests for the boots
+          and gloves modes, the rename's flag, the dialog's end ID, the kit slots' top, the
+          locked Ctrl+F, the menu's Clear visual flags, `player_max_value` and
+          `first_version_with_team`; `clock_seed`'s arithmetic as a tested `odd_seed`. Files:
+          `pes_savefile/src/schema/mod.rs`, `save_editor/{help/04_appearance.md,src/{session/
+          team_ops.rs,view/{team.rs,menus.rs,appearance/mod.rs,tests/{team.rs,appearance.rs}}}}`,
+          `.cargo/mutants.toml`
         - [ ] review (checkpoint b: `team_text_fits`, `first_version_with_team`, `max_value`,
-          `player_max_value`): a SWE-2 loop, then Astra, from the review worktree at the commit;
-          then `mutants-diff 0c748396`
+          `player_max_value`): SWE-2 S1 (3 accepted, loop ended), Astra A4 (6 of 6, rework 2);
+          next: `mutants-diff` from 8.9d1's commit at rework 2's, a SWE-2 loop over rework 2,
+          then Astra A5
       - [ ] 8.9d2 the Player menu (SE-GUI-24: Set all, Bump all, Copy and Swap stats) and FPC
         (SE-GUI-11, SE-GUI-22's FPC parts): Hide body and Show body on the Appearance tab with
         the interference findings, Ctrl+I, the Team menu's Set and Remove FPC invisibility; a

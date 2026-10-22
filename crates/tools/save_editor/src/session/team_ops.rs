@@ -126,7 +126,7 @@ impl Session {
                 BootsMode::Incremental { start } => in_range(
                     "boots ID",
                     slot,
-                    u64::from(start) + u64::try_from(slot).expect("a roster has at most 40 slots"),
+                    u64::from(start) + u64::try_from(slot).expect("a slot index fits u64"),
                     &boots_range,
                 )?,
                 BootsMode::Same(id) => in_range("boots ID", slot, u64::from(id), &boots_range)?,
@@ -310,5 +310,104 @@ mod tests {
         // One undo entry for the whole team.
         assert!(session.undo());
         assert!(!session.can_undo(), "the operation was one entry");
+    }
+
+    // The kept half of each side: `Unchanged` boots leave every filled
+    // slot's ID as it was while a `Same` gloves ID lands on all of them.
+    #[test]
+    fn unchanged_boots_and_one_gloves_id_for_all() {
+        let mut session = open(PesVersion::Pes21, "boglo_same_gloves");
+        // Distinct boots IDs and gloves IDs off 11, so a kept or written
+        // value is not the fixture's by coincidence.
+        for &(_, id) in &rostered(&session, 701) {
+            let appearance = &mut session.file.player_mut(id).unwrap().appearance;
+            appearance.boots_id = 300 + id % 100;
+            appearance.gloves_id = 400 + id % 100;
+        }
+        let before: Vec<(usize, u32, u32)> = rostered(&session, 701)
+            .iter()
+            .map(|&(slot, id)| {
+                let boots = session.file().player(id).unwrap().appearance.boots_id;
+                (slot, id, boots)
+            })
+            .collect();
+
+        session
+            .set_boots_and_gloves(701, BootsMode::Unchanged, GlovesMode::Same(11))
+            .unwrap();
+
+        for (slot, id, boots) in before {
+            let player = session.file().player(id).unwrap();
+            assert_eq!(
+                player.appearance.boots_id,
+                boots,
+                "slot {}'s boots kept",
+                slot + 1
+            );
+            assert_eq!(
+                player.appearance.gloves_id,
+                11,
+                "slot {}'s gloves",
+                slot + 1
+            );
+        }
+    }
+
+    // The other kept half: a `Same` boots ID on every filled slot while
+    // `Unchanged` gloves keep each slot's own.
+    #[test]
+    fn one_boots_id_for_all_and_unchanged_gloves() {
+        let mut session = open(PesVersion::Pes21, "boglo_same_boots");
+        // Distinct gloves IDs and boots IDs off 627, the same premise.
+        for &(_, id) in &rostered(&session, 701) {
+            let appearance = &mut session.file.player_mut(id).unwrap().appearance;
+            appearance.boots_id = 300 + id % 100;
+            appearance.gloves_id = 400 + id % 100;
+        }
+        let before: Vec<(usize, u32, u32)> = rostered(&session, 701)
+            .iter()
+            .map(|&(slot, id)| {
+                let gloves = session.file().player(id).unwrap().appearance.gloves_id;
+                (slot, id, gloves)
+            })
+            .collect();
+
+        session
+            .set_boots_and_gloves(701, BootsMode::Same(627), GlovesMode::Unchanged)
+            .unwrap();
+
+        for (slot, id, gloves) in before {
+            let player = session.file().player(id).unwrap();
+            assert_eq!(player.appearance.boots_id, 627, "slot {}'s boots", slot + 1);
+            assert_eq!(
+                player.appearance.gloves_id,
+                gloves,
+                "slot {}'s gloves kept",
+                slot + 1
+            );
+        }
+    }
+
+    // The rename's other half: it sets the edited-player flag, not only
+    // the name (the SE-GUI-23 view test runs Set edited flag first, so no
+    // test saw the flag's set).
+    #[test]
+    fn names_to_positions_sets_the_edited_player_flag() {
+        let mut session = open(PesVersion::Pes21, "names_to_positions_flag");
+        session.file.player_mut(70101).unwrap().edit_flags.player = false;
+        assert!(
+            !session.file().player(70101).unwrap().edit_flags.player,
+            "premise: the flag starts clear"
+        );
+
+        session.names_to_positions(701);
+
+        let player = session.file().player(70101).unwrap();
+        assert!(player.edit_flags.player, "the rename sets the flag");
+        assert_eq!(
+            player.name,
+            POSITION_NAMES[usize::from(player.positions.registered)],
+            "his registered position's name"
+        );
     }
 }

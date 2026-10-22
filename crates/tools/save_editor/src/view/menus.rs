@@ -179,8 +179,7 @@ pub(crate) fn boglo_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
             if let Some(slot) = last_slot {
                 ui.weak(format!(
                     "(\u{2192} {})",
-                    u64::from(boglo.start)
-                        + u64::try_from(slot).expect("a roster has at most 40 slots")
+                    u64::from(boglo.start) + u64::try_from(slot).expect("a slot index fits u64")
                 ));
             }
         });

@@ -2306,3 +2306,5 @@ worklog passed 7,000 lines.
   regular's bonus included), over every ability stat. The open question is closed; no rule changed.
 - **2026-10-22** — 8.9d1: the Save editor's Team tab and Team menu (edited flag, boots and gloves for everyone, names to
   positions, Clear visual flags); boots and gloves IDs now take the save field's own range, not settings.toml's 0 to 100.
+- **2026-10-22** — 8.9d1 rework 2, from SWE-2, Astra A4 (6 of 6 accepted) and the mutation run's 12 survivors: Base copy sets
+  the seven gameplay flags, a kit-slot edit the PES 17 strip flag, a stripped player's motions are said to be read; missing tests added.

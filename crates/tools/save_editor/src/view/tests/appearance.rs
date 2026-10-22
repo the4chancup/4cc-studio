@@ -82,12 +82,15 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
         assert!(control.is_disabled(), "{label}");
     }
 
-    // On: the note says the game does not read these on a stripped save,
-    // and the controls draw enabled.
+    // On: the note says a stripped player's look comes from the tables
+    // while his motions are still read, and the controls draw enabled.
     click(&mut window, edit_anyway(&nodes), &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        label_drawn(&nodes, "On a stripped save the game does not read these."),
+        label_drawn(
+            &nodes,
+            "On a stripped save the game still reads the motions; the look comes from the database tables."
+        ),
         "the Fox note under the switch"
     );
     let chest = right_of_label(&nodes, "Chest", Role::SpinButton)
@@ -217,7 +220,8 @@ fn a_stripped_players_tab_says_the_game_does_not_read_the_record() {
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
     file.player_mut(70101).unwrap().appearance_id = Some(STRIPPED_APPEARANCE_ID);
     file.save(&path).unwrap();
-    const LINE: &str = "Stripped: the game reads the database tables, not this record.";
+    const LINE: &str =
+        "Stripped: the game takes his look from the database tables; the motions are still read.";
 
     let mut view = SaveView::new();
     view.open(&path);
@@ -980,4 +984,100 @@ fn the_boots_id_control_takes_the_records_bound() {
         627,
         "a compile-allocated id stores"
     );
+}
+
+// plans/save_editor.md "Feature inventory", the "Is a copy?" row: ticking
+// Base copy sets the seven gameplay edit flags in the same edit (a copy's
+// sections count as edited); unticking clears `base_copy` alone. On PES
+// 18, the last version with the flag.
+#[test]
+fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
+    let path = fixture(PesVersion::Pes18, "base_copy_flags");
+    // The eight cleared, so each set bit is the tick's doing.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes18)).unwrap();
+    {
+        let flags = &mut file.player_mut(70101).unwrap().edit_flags;
+        flags.base_copy = Some(false);
+        flags.abilities = false;
+        flags.com_styles = false;
+        flags.motion = false;
+        flags.playable_positions = false;
+        flags.registered_position = false;
+        flags.skills = false;
+        flags.playing_style = false;
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(1100.0, 700.0);
+    let flags_of = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .edit_flags
+            .clone()
+    };
+    let all_set = |view: &SaveView| {
+        let flags = flags_of(view);
+        flags.base_copy == Some(true)
+            && flags.abilities
+            && flags.com_styles
+            && flags.motion
+            && flags.playable_positions
+            && flags.registered_position
+            && flags.skills
+            && flags.playing_style
+    };
+    assert!(!all_set(&view), "premise: the eight start cleared");
+    let before = flags_of(&view);
+    let base_copy_of = |view: &SaveView| flags_of(view).base_copy;
+    let seven_set = |view: &SaveView| {
+        let flags = flags_of(view);
+        flags.abilities
+            && flags.com_styles
+            && flags.motion
+            && flags.playable_positions
+            && flags.registered_position
+            && flags.skills
+            && flags.playing_style
+    };
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let checkbox = nodes
+        .iter()
+        .find(|node| node.role() == Role::CheckBox && node.label() == Some("Base copy"))
+        .expect("the Base copy flag on PES 18");
+    assert!(!checkbox.is_disabled(), "PES 18 holds the flag");
+    click(&mut window, checkbox, &mut view);
+    assert!(all_set(&view), "the tick sets base copy and the seven");
+
+    // One undo step restores all eight.
+    assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
+    assert_eq!(flags_of(&view), before, "the undo restores all eight");
+
+    // Ticked again, then unticked: `base_copy` alone clears.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let checkbox = nodes
+        .iter()
+        .find(|node| node.role() == Role::CheckBox && node.label() == Some("Base copy"))
+        .expect("the Base copy flag");
+    click(&mut window, checkbox, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let checkbox = nodes
+        .iter()
+        .find(|node| node.role() == Role::CheckBox && node.label() == Some("Base copy"))
+        .expect("the Base copy flag");
+    click(&mut window, checkbox, &mut view);
+    assert_eq!(
+        base_copy_of(&view),
+        Some(false),
+        "the untick clears base copy alone"
+    );
+    assert!(seven_set(&view), "the seven stay set");
 }

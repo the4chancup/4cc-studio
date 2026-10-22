@@ -59,9 +59,11 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 /// The name and short-name fields (the draft's first row). A keystroke
 /// `team_text_fits` refuses is not taken — the field shows the stored text
 /// again next frame, the info strip's Name field's rule; the short name is
-/// upper-cased as typed and holds at most three letters (the codec's
-/// four-byte field keeps a NUL). A changed name sets the name flag, a
-/// changed short name sets it and, on PES 15, the short-name flag too.
+/// upper-cased as typed and holds at most three letters (the cap the
+/// draft's short-name field enforced; the codec's four-byte field is
+/// unterminated and would take a fourth). A changed name sets the name
+/// flag, a changed short name sets it and, on PES 15, the short-name flag
+/// too.
 fn names_row(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -71,7 +73,13 @@ fn names_row(
 ) {
     ui.label("Name");
     let mut name = team.name.clone();
-    let response = ui.add(egui::TextEdit::singleline(&mut name).desired_width(240.0));
+    // `add_sized` allocates the width itself: a fresh grid gives a
+    // non-last column only its `min_cell_size` (40) on the sizing pass,
+    // and a TextEdit caps its width at what the cell offers.
+    let response = ui.add_sized(
+        [240.0, ui.spacing().interact_size.y],
+        egui::TextEdit::singleline(&mut name).desired_width(240.0),
+    );
     if response.changed() && team_text_fits(version, TeamText::Name, &name) {
         edit_team(session, team_id, response.id.value(), |team| {
             team.name = name;
@@ -80,7 +88,11 @@ fn names_row(
     }
     ui.label("Short name");
     let mut short = team.short_name.clone();
-    let response = ui.add(egui::TextEdit::singleline(&mut short).desired_width(60.0));
+    // The same `add_sized` allocation as the Name field's above.
+    let response = ui.add_sized(
+        [60.0, ui.spacing().interact_size.y],
+        egui::TextEdit::singleline(&mut short).desired_width(60.0),
+    );
     if response.changed() {
         let upper = short.to_uppercase();
         if upper.chars().count() <= 3 && team_text_fits(version, TeamText::ShortName, &upper) {
@@ -211,8 +223,10 @@ fn ids_row(
 
 /// The ten kit slot rows (PES 17 only): each its Number (the stored `u8`)
 /// and Bound team ID, drawn as `binding / 64` and written as
-/// `id * 64 + binding % 64` (the low bits kept as stored). Elsewhere the
-/// draft's no-records line, its tooltip naming PES 17 only.
+/// `id * 64 + binding % 64` (the low bits kept as stored). Either edit sets
+/// the strip flag where the version has it (PES 17 alone, so `Some`), as
+/// the stadium edit sets its own. Elsewhere the draft's no-records line,
+/// its tooltip naming PES 17 only.
 fn kit_slots(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -248,6 +262,9 @@ fn kit_slots(
                         .as_mut()
                         .expect("the kit slots exist on PES 17")[index]
                         .number = shown;
+                    if team.edit_flags.strip.is_some() {
+                        team.edit_flags.strip = Some(true);
+                    }
                 },
             );
             let low = kit.binding % 64;
@@ -263,6 +280,9 @@ fn kit_slots(
                         .as_mut()
                         .expect("the kit slots exist on PES 17")[index]
                         .binding = shown * 64 + low;
+                    if team.edit_flags.strip.is_some() {
+                        team.edit_flags.strip = Some(true);
+                    }
                 },
             );
             ui.end_row();

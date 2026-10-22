@@ -692,6 +692,47 @@ mod tests {
         );
     }
 
+    /// `player_max_value` is `2^width - 1` over whichever record holds the
+    /// field: the player record on PES 21, the appearance record on PES 15;
+    /// `None` for a field the version lacks.
+    #[test]
+    fn player_max_value_reads_whichever_record_holds_the_field() {
+        let pes21 = schema_for(PesVersion::Pes21);
+        let width = pes21
+            .player
+            .fields
+            .iter()
+            .find(|spec| spec.field == PlayerField::BootsId)
+            .expect("PES 21's player record stores the boots id")
+            .bit_width;
+        assert_eq!(
+            player_max_value(PesVersion::Pes21, PlayerField::BootsId),
+            Some((1u64 << width) - 1),
+            "PES 21's boots id is a {width}-bit field"
+        );
+        let pes15 = schema_for(PesVersion::Pes15);
+        let (_, appearance) = pes15
+            .appearance
+            .as_ref()
+            .expect("PES 15 has an appearance record");
+        let width = appearance
+            .fields
+            .iter()
+            .find(|spec| spec.field == PlayerField::BootsId)
+            .expect("PES 15's appearance record stores the boots id")
+            .bit_width;
+        assert_eq!(
+            player_max_value(PesVersion::Pes15, PlayerField::BootsId),
+            Some((1u64 << width) - 1),
+            "PES 15's boots id is a {width}-bit field"
+        );
+        assert_eq!(
+            player_max_value(PesVersion::Pes15, PlayerField::DribblingMotion),
+            None,
+            "PES 15 has no dribbling motion"
+        );
+    }
+
     /// `first_version_with` answers the oldest storing version: a field of
     /// every version, the version-gated ones, and `None` for a field no
     /// version's player record stores.
@@ -718,6 +759,28 @@ mod tests {
             Some(PesVersion::Pes20)
         );
         assert_eq!(first_version_with(PlayerField::Skill(60)), None);
+    }
+
+    /// `first_version_with_team` answers the oldest version whose team
+    /// record stores the field: the kit slots' PES 17, and the manager
+    /// id's, computed the same way the tooltip's `PES NN+` reads it.
+    #[test]
+    fn first_version_with_team_names_the_oldest_storing_version() {
+        assert_eq!(
+            first_version_with_team(TeamField::KitSlotTeam(0)),
+            Some(PesVersion::Pes17),
+            "the kit slots are PES 17 only"
+        );
+        let expected = PesVersion::ALL
+            .iter()
+            .copied()
+            .find(|version| schema_for(*version).team.has(TeamField::ManagerId));
+        assert_eq!(
+            expected,
+            Some(PesVersion::Pes19),
+            "the Team tab's tooltip says PES 19+"
+        );
+        assert_eq!(first_version_with_team(TeamField::ManagerId), expected);
     }
 
     /// The portable limits are the shortest fields of the versions they
