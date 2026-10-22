@@ -3607,9 +3607,9 @@ function appearanceTab(p) {
     h("div", { class: "row" },
       h("span", { id: "fpc-state" }, isFpc(p) ? "FPC: hidden body" : "FPC: body shown"), " ",
       button("Hide body", () => { fpcHide(p, true); render(); },
-        { title: "The hide preset: long sleeves, tucked, short socks; boots 55 and gloves 11 where the IDs are 0 (a model's own IDs are kept). Ctrl+I; the whole team: Team menu" }),
+        { title: "The hide preset: long sleeves, tucked, short socks; the hide IDs from Settings where the IDs are 0 (a model's own IDs are kept); a Custom skin (PES 2015 to 2017) becomes Light. Ctrl+I; the whole team: Team menu" }),
       button("Show body", () => { fpcHide(p, false); render(); },
-        { title: "The show preset: short sleeves, untucked, standard socks; boots and gloves 0 where they are 55 and 11" })),
+        { title: "The show preset: short sleeves, untucked, standard socks; boots and gloves 0 where they are the hide IDs; a Custom skin (PES 2015 to 2017) becomes Light" })),
     findings.length
       ? findings.map(([sev, text]) => h("div", { class: "row " + sev },
           (sev === "err" ? "Error: " : sev === "warn" ? "Warning: " : "Info: ") + text))

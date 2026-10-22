@@ -10,8 +10,8 @@ mod player;
 pub use interference::{Finding, Severity, StripStyle, check};
 pub use kit::{KitFpcValues, kit_values};
 pub use player::{
-    Appearance, GK_GLOVES_RANGE, NONEXISTENT_BOOTS_ID, NONEXISTENT_GLOVES_ID, Preset, SkinColor,
-    Sleeves, Socks, Tuck, custom_skin_available, preset,
+    Appearance, GK_GLOVES_RANGE, HideIds, HideIdsError, Preset, SkinColor, Sleeves, Socks, Tuck,
+    custom_skin_available, preset,
 };
 
 #[cfg(test)]
@@ -44,7 +44,7 @@ mod tests {
     #[test]
     fn presets_match_the_text() {
         assert_eq!(
-            preset(Preset::Hide),
+            preset(Preset::Hide, HideIds::CONVENTION),
             Appearance {
                 sleeves: Sleeves::Long,
                 tuck: Tuck::Tucked,
@@ -55,7 +55,7 @@ mod tests {
             }
         );
         assert_eq!(
-            preset(Preset::Unhide),
+            preset(Preset::Unhide, HideIds::CONVENTION),
             Appearance {
                 sleeves: Sleeves::Short,
                 tuck: Tuck::Untucked,
@@ -66,12 +66,51 @@ mod tests {
             }
         );
         assert_eq!(
-            preset(Preset::PartialHide),
+            preset(Preset::PartialHide, HideIds::CONVENTION),
             Appearance {
                 skin_color: SkinColor::Custom,
-                ..preset(Preset::Unhide)
+                ..preset(Preset::Unhide, HideIds::CONVENTION)
             }
         );
+    }
+
+    // The hide IDs live only inside `HideIds::BOOTS`/`GLOVES`: the
+    // constructor's fields are private so an out-of-band pair cannot be
+    // built, and the error names the setting and its range.
+    #[test]
+    fn hide_ids_stay_in_their_bands() {
+        let ids = HideIds::new(1, 11).expect("in band");
+        assert_eq!((ids.boots(), ids.gloves()), (1, 11));
+        let ids = HideIds::new(100, 100).expect("in band");
+        assert_eq!((ids.boots(), ids.gloves()), (100, 100));
+        assert_eq!(HideIds::new(0, 11), Err(HideIdsError::Boots(0)));
+        assert_eq!(HideIds::new(101, 11), Err(HideIdsError::Boots(101)));
+        assert_eq!(HideIds::new(55, 10), Err(HideIdsError::Gloves(10)));
+        assert_eq!(HideIds::new(55, 101), Err(HideIdsError::Gloves(101)));
+        assert_eq!(
+            HideIdsError::Boots(627).to_string(),
+            "fpc_hide_boots_id = 627: must be 1 to 100 \
+             (above 100 the Team compiler allocates its own IDs)"
+        );
+        assert_eq!(
+            HideIdsError::Gloves(5).to_string(),
+            "fpc_hide_gloves_id = 5: must be 11 to 100 (1 to 10 are goalkeeper gloves)"
+        );
+    }
+
+    // The hide preset's boots and gloves IDs are the argument's; the other
+    // presets' are 0 and 0 whatever the argument.
+    #[test]
+    fn the_hide_preset_writes_the_given_ids() {
+        let ids = HideIds::new(60, 12).expect("in band");
+        let hide = preset(Preset::Hide, ids);
+        assert_eq!(hide.boots_id, 60);
+        assert_eq!(hide.gloves_id, 12);
+        for kind in [Preset::Unhide, Preset::PartialHide] {
+            let appearance = preset(kind, ids);
+            assert_eq!(appearance.boots_id, 0, "{kind:?}");
+            assert_eq!(appearance.gloves_id, 0, "{kind:?}");
+        }
     }
 
     #[test]

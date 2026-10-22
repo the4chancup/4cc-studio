@@ -2314,3 +2314,5 @@ worklog passed 7,000 lines.
   15 to 18 only, 4ccEditor's PES 17 strip-table write not kept: its writes drift off the table's 132-byte entries).
 - **2026-10-22** — 8.9d2/d3 rework 2 after a SWE-2 round (4 accepted) and Astra A1 (5 accepted): the Fix database question names
   only what the open save has, the help's FPC findings limit and Copy/Swap flags, and the tests a mutant would have passed.
+- **2026-10-22** — The FPC hide IDs (55, 11) are two common settings the save editor and the Team compiler read, bounded to
+  the stock band (1-100, gloves 11-100); 8.9d2/d3's help fixes from SWE-2 S2 and Astra A2 ride along.

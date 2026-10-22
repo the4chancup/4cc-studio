@@ -11,7 +11,10 @@ fn the_hide_preset_overrides_an_authored_sleeves_and_reports_it() {
     let mut settings =
         PlayerSettings::parse("[appearance.strip]\nsleeves = \"short\"\n").expect("parses");
     assert_eq!(settings.get(SettingKey::Sleeves), Some(1), "authored short");
-    let overridden = settings.apply_fpc_preset(&::fpc::preset(::fpc::Preset::Hide));
+    let overridden = settings.apply_fpc_preset(&::fpc::preset(
+        ::fpc::Preset::Hide,
+        ::fpc::HideIds::CONVENTION,
+    ));
     assert_eq!(overridden, ["appearance.strip.sleeves"]);
     assert_eq!(settings.get(SettingKey::Sleeves), Some(2), "preset long");
     assert_eq!(settings.get(SettingKey::Socks), Some(2), "preset short");
@@ -26,7 +29,10 @@ fn the_hide_preset_overrides_an_authored_sleeves_and_reports_it() {
 fn an_authored_value_equal_to_the_preset_s_is_kept_and_unreported() {
     let mut settings =
         PlayerSettings::parse("[appearance.strip]\nsocks = \"short\"\n").expect("parses");
-    let overridden = settings.apply_fpc_preset(&::fpc::preset(::fpc::Preset::Hide));
+    let overridden = settings.apply_fpc_preset(&::fpc::preset(
+        ::fpc::Preset::Hide,
+        ::fpc::HideIds::CONVENTION,
+    ));
     assert_eq!(overridden, Vec::<String>::new());
     assert_eq!(settings.get(SettingKey::Socks), Some(2));
 }
@@ -36,13 +42,19 @@ fn an_authored_value_equal_to_the_preset_s_is_kept_and_unreported() {
 #[test]
 fn a_custom_skin_resets_and_reports_where_another_skin_is_left_alone() {
     let mut settings = PlayerSettings::parse("[appearance]\nskin_color = 7\n").expect("parses");
-    let overridden = settings.apply_fpc_preset(&::fpc::preset(::fpc::Preset::Hide));
+    let overridden = settings.apply_fpc_preset(&::fpc::preset(
+        ::fpc::Preset::Hide,
+        ::fpc::HideIds::CONVENTION,
+    ));
     assert_eq!(overridden, ["appearance.skin_color"]);
     assert_eq!(settings.get(SettingKey::SkinColor), Some(1));
 
     let mut settings = PlayerSettings::parse("[appearance]\nskin_color = 3\n").expect("parses");
     assert_eq!(
-        settings.apply_fpc_preset(&::fpc::preset(::fpc::Preset::Hide)),
+        settings.apply_fpc_preset(&::fpc::preset(
+            ::fpc::Preset::Hide,
+            ::fpc::HideIds::CONVENTION
+        )),
         Vec::<String>::new(),
         "a preset skin is no conflict"
     );
@@ -54,13 +66,19 @@ fn a_custom_skin_resets_and_reports_where_another_skin_is_left_alone() {
 #[test]
 fn a_partial_hide_preset_reports_a_preset_skin_and_keeps_a_custom_one() {
     let mut settings = PlayerSettings::parse("[appearance]\nskin_color = 3\n").expect("parses");
-    let overridden = settings.apply_fpc_preset(&::fpc::preset(::fpc::Preset::PartialHide));
+    let overridden = settings.apply_fpc_preset(&::fpc::preset(
+        ::fpc::Preset::PartialHide,
+        ::fpc::HideIds::CONVENTION,
+    ));
     assert_eq!(overridden, ["appearance.skin_color"]);
     assert_eq!(settings.get(SettingKey::SkinColor), Some(7));
 
     let mut settings = PlayerSettings::parse("[appearance]\nskin_color = 7\n").expect("parses");
     assert_eq!(
-        settings.apply_fpc_preset(&::fpc::preset(::fpc::Preset::PartialHide)),
+        settings.apply_fpc_preset(&::fpc::preset(
+            ::fpc::Preset::PartialHide,
+            ::fpc::HideIds::CONVENTION
+        )),
         Vec::<String>::new(),
         "an authored custom skin is the preset's own"
     );

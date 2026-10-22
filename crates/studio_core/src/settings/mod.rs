@@ -368,10 +368,17 @@ mod tests {
         settings.common.last_tool = Some("save-editor".to_owned());
         settings.save(&path).unwrap();
 
-        let expected = original.replace(
-            "last_tool = \"team-compiler\"",
-            "last_tool = \"save-editor\"",
-        );
+        let expected = original
+            .replace(
+                "last_tool = \"team-compiler\"",
+                "last_tool = \"save-editor\"",
+            )
+            .replace(
+                "check_interval_hours = 24\n",
+                "check_interval_hours = 24\n\
+                 fpc_hide_boots_id = 55\n\
+                 fpc_hide_gloves_id = 11\n",
+            );
         assert_eq!(
             fs::read_to_string(&path).unwrap(),
             expected,
@@ -401,7 +408,9 @@ mod tests {
             fs::read_to_string(&path).unwrap(),
             original.replacen(
                 "thread_count = 4\n",
-                "thread_count = 4\nlast_tool = \"save-editor\"\n",
+                "thread_count = 4\n\
+                 fpc_hide_boots_id = 55\nfpc_hide_gloves_id = 11\n\
+                 last_tool = \"save-editor\"\n",
                 1
             ),
             "the absent key is appended where its section ends"
@@ -513,7 +522,13 @@ mod tests {
 
         assert_eq!(
             fs::read_to_string(&path).unwrap(),
-            original.replace("pes_version = 19 #", "pes_version = 21 #"),
+            original
+                .replace("pes_version = 19 #", "pes_version = 21 #")
+                .replace(
+                    "check_interval_hours = 24\n",
+                    "check_interval_hours = 24\n\
+                     fpc_hide_boots_id = 55\nfpc_hide_gloves_id = 11\n"
+                ),
             "the comments around the changed value survive"
         );
         assert_eq!(Settings::load(&path).unwrap(), settings);
@@ -556,6 +571,8 @@ mod tests {
                         check_for_updates = true\n\
                         check_interval_hours = 24\n\
                         last_tool = \"team-compiler\"\n\
+                        fpc_hide_boots_id = 55\n\
+                        fpc_hide_gloves_id = 11\n\
                         \n\
                         [team-compiler]\n\
                         label = 'x'\n\

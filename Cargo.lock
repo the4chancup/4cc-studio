@@ -1603,6 +1603,7 @@ name = "fpc"
 version = "0.1.0"
 dependencies = [
  "pes_version",
+ "thiserror 2.0.20",
 ]
 
 [[package]]
@@ -3917,6 +3918,7 @@ dependencies = [
  "egui",
  "egui-phosphor",
  "egui_commonmark",
+ "fpc",
  "log",
  "pes_version",
  "serde",

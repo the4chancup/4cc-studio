@@ -32,11 +32,17 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
         });
         return;
     };
-    let (unlocked, version) = {
+    let (unlocked, version, hide_ids) = {
         let Some(session) = view.session.as_ref() else {
             return;
         };
-        (view.edit_aesthetics, session.version())
+        (view.edit_aesthetics, session.version(), view.hide_ids)
+    };
+    // An out-of-band hide ID disables the FPC items behind the error's
+    // text; the lock's ownership line covers the rest (SE-GUI-22).
+    let (fpc_ok, fpc_tip) = match hide_ids {
+        Ok(_) => (unlocked, ownership_tip(version).to_owned()),
+        Err(error) => (false, error.to_string()),
     };
     ui.menu_button("Team", |ui| {
         let Some(session) = view.session.as_mut() else {
@@ -74,19 +80,21 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
             ui.close();
         }
         if ui
-            .add_enabled(unlocked, egui::Button::new("Set FPC invisibility"))
-            .on_disabled_hover_text(ownership_tip(version))
+            .add_enabled(fpc_ok, egui::Button::new("Set FPC invisibility"))
+            .on_disabled_hover_text(&fpc_tip)
             .clicked()
+            && let Ok(ids) = hide_ids
         {
-            session.team_fpc(team_id, fpc::Preset::Hide);
+            session.team_fpc(team_id, fpc::Preset::Hide, ids);
             ui.close();
         }
         if ui
-            .add_enabled(unlocked, egui::Button::new("Remove FPC invisibility"))
-            .on_disabled_hover_text(ownership_tip(version))
+            .add_enabled(fpc_ok, egui::Button::new("Remove FPC invisibility"))
+            .on_disabled_hover_text(&fpc_tip)
             .clicked()
+            && let Ok(ids) = hide_ids
         {
-            session.team_fpc(team_id, fpc::Preset::Unhide);
+            session.team_fpc(team_id, fpc::Preset::Unhide, ids);
             ui.close();
         }
     });
@@ -105,11 +113,17 @@ pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
         });
         return;
     };
-    let (unlocked, version) = {
+    let (unlocked, version, hide_ids) = {
         let Some(session) = view.session.as_ref() else {
             return;
         };
-        (view.edit_aesthetics, session.version())
+        (view.edit_aesthetics, session.version(), view.hide_ids)
+    };
+    // As on the Team menu: an out-of-band hide ID disables the toggle
+    // behind the error's text.
+    let (fpc_ok, fpc_tip) = match hide_ids {
+        Ok(_) => (unlocked, ownership_tip(version).to_owned()),
+        Err(error) => (false, error.to_string()),
     };
     ui.menu_button("Player", |ui| {
         let Some(session) = view.session.as_mut() else {
@@ -128,13 +142,14 @@ pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
         }
         if ui
             .add_enabled(
-                unlocked,
+                fpc_ok,
                 egui::Button::new("Toggle FPC settings").shortcut_text("Ctrl+I"),
             )
-            .on_disabled_hover_text(ownership_tip(version))
+            .on_disabled_hover_text(&fpc_tip)
             .clicked()
+            && let Ok(ids) = hide_ids
         {
-            session.toggle_fpc(player_id);
+            session.toggle_fpc(player_id, ids);
             ui.close();
         }
         ui.separator();

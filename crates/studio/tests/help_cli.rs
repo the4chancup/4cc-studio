@@ -79,7 +79,7 @@ fn the_export_writes_one_markdown_file_per_chapter() {
         ("team-compiler", NOTES_ENCODING_INVALID),
         (
             "save-editor",
-            "| `fpc_custom_skin_on_non_fpc` | Warning | A custom skin on a player whose body is not hidden by the convention's boots ID hides the body but not the jersey. | Nothing is changed for you; hide the body too, or pick a preset skin. |",
+            "| `fpc_custom_skin_on_non_fpc` | Warning | A custom skin on a player whose body is not hidden by the FPC hide boots ID from Settings hides the body but not the jersey. | Nothing is changed for you; hide the body too, or pick a preset skin. |",
         ),
         ("export-upgrader", UPGRADER_NOTES_ENCODING_INVALID),
     ];

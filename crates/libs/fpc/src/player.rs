@@ -44,12 +44,71 @@ pub enum SkinColor {
     Custom,
 }
 
-/// The nonexistent boots ID the hide preset uses (FPC.wikitext line 30); a
-/// custom model's own boots are substituted by the caller instead.
-pub const NONEXISTENT_BOOTS_ID: u16 = 55;
-/// The nonexistent gloves ID the hide preset uses (FPC.wikitext line 31); a
-/// custom model's own gloves are substituted by the caller instead.
-pub const NONEXISTENT_GLOVES_ID: u16 = 11;
+/// The boots and gloves IDs the hide preset writes (FPC.wikitext lines
+/// 30–31): IDs the game has no model for, so the player's own body is
+/// drawn without boots, gloves or legs. They are the common settings
+/// `fpc_hide_boots_id` and `fpc_hide_gloves_id`; a custom model's own
+/// boots or gloves are substituted by the caller instead.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct HideIds {
+    boots: u16,
+    gloves: u16,
+}
+
+impl HideIds {
+    /// 4cc's convention (boots 55, gloves 11), the settings' defaults: a
+    /// convention, not a game fact, since any ID the game has no model for
+    /// hides.
+    pub const CONVENTION: HideIds = HideIds {
+        boots: 55,
+        gloves: 11,
+    };
+    /// The band a boots hide ID is valid in: above 100 the Team compiler
+    /// allocates its per-team blocks, so an ID there would be another
+    /// player's real model.
+    pub const BOOTS: RangeInclusive<u16> = 1..=100;
+    /// The band a gloves hide ID is valid in: 1 to 10 are the goalkeepers'
+    /// real gloves.
+    pub const GLOVES: RangeInclusive<u16> = 11..=100;
+
+    /// The pair, or the setting's `HideIdsError` naming the ID outside
+    /// its band.
+    pub fn new(boots: u16, gloves: u16) -> Result<HideIds, HideIdsError> {
+        if !Self::BOOTS.contains(&boots) {
+            return Err(HideIdsError::Boots(boots));
+        }
+        if !Self::GLOVES.contains(&gloves) {
+            return Err(HideIdsError::Gloves(gloves));
+        }
+        Ok(HideIds { boots, gloves })
+    }
+
+    /// The boots ID.
+    pub fn boots(self) -> u16 {
+        self.boots
+    }
+
+    /// The gloves ID.
+    pub fn gloves(self) -> u16 {
+        self.gloves
+    }
+}
+
+/// A `fpc_hide_boots_id` or `fpc_hide_gloves_id` setting outside its band
+/// (`HideIds::BOOTS`/`GLOVES`): the message names the setting and its range.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
+pub enum HideIdsError {
+    /// `fpc_hide_boots_id` outside 1 to 100.
+    #[error(
+        "fpc_hide_boots_id = {0}: must be 1 to 100 \
+         (above 100 the Team compiler allocates its own IDs)"
+    )]
+    Boots(u16),
+    /// `fpc_hide_gloves_id` outside 11 to 100.
+    #[error("fpc_hide_gloves_id = {0}: must be 11 to 100 (1 to 10 are goalkeeper gloves)")]
+    Gloves(u16),
+}
+
 /// The real gloves IDs goalkeepers may use when un-hidden (FPC.wikitext
 /// line 40).
 pub const GK_GLOVES_RANGE: RangeInclusive<u16> = 1..=10;
@@ -64,8 +123,8 @@ pub fn custom_skin_available(version: PesVersion) -> bool {
     )
 }
 
-/// One of the three appearance presets. Boots/gloves ids are the nonexistent
-/// ids the text prescribes; a custom model's own boots/gloves are the caller's
+/// One of the three appearance presets. Boots/gloves ids are the `HideIds`
+/// `preset` was given; a custom model's own boots/gloves are the caller's
 /// substitution.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Appearance {
@@ -94,15 +153,17 @@ pub enum Preset {
     PartialHide,
 }
 
-/// The appearance one preset prescribes.
-pub fn preset(kind: Preset) -> Appearance {
+/// The appearance one preset prescribes. `ids` gives the hide preset's
+/// boots and gloves IDs (the common settings' values); the other presets
+/// ignore it.
+pub fn preset(kind: Preset, ids: HideIds) -> Appearance {
     match kind {
         Preset::Hide => Appearance {
             sleeves: Sleeves::Long,
             tuck: Tuck::Tucked,
             socks: Socks::Short,
-            boots_id: NONEXISTENT_BOOTS_ID,
-            gloves_id: NONEXISTENT_GLOVES_ID,
+            boots_id: ids.boots,
+            gloves_id: ids.gloves,
             skin_color: SkinColor::Preset,
         },
         Preset::Unhide => Appearance {

@@ -189,6 +189,50 @@ impl SettingsMenu {
                 }
                 ui.end_row();
 
+                let hide_boots = row_label(
+                    ui,
+                    "FPC hide boots ID",
+                    "fpc_hide_boots_id",
+                    "The boots ID Hide body and an fpc_on marker write: an ID the \
+                     game has no boots for. 4cc uses 55.",
+                );
+                let mut hide_boots_id = common.fpc_hide_boots_id;
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut hide_boots_id)
+                            .range(fpc::HideIds::BOOTS)
+                            .clamp_existing_to_range(false),
+                    )
+                    .labelled_by(hide_boots.id)
+                    .changed()
+                {
+                    common.fpc_hide_boots_id = hide_boots_id;
+                    changed = true;
+                }
+                ui.end_row();
+
+                let hide_gloves = row_label(
+                    ui,
+                    "FPC hide gloves ID",
+                    "fpc_hide_gloves_id",
+                    "The gloves ID Hide body and an fpc_on marker write: an ID the \
+                     game has no gloves for. 4cc uses 11.",
+                );
+                let mut hide_gloves_id = common.fpc_hide_gloves_id;
+                if ui
+                    .add(
+                        egui::DragValue::new(&mut hide_gloves_id)
+                            .range(fpc::HideIds::GLOVES)
+                            .clamp_existing_to_range(false),
+                    )
+                    .labelled_by(hide_gloves.id)
+                    .changed()
+                {
+                    common.fpc_hide_gloves_id = hide_gloves_id;
+                    changed = true;
+                }
+                ui.end_row();
+
                 let theme = row_label(ui, "Theme", "theme", "GUI color theme.");
                 let mut picked = common.theme;
                 egui::ComboBox::from_id_salt("settings-theme")
@@ -602,6 +646,58 @@ mod tests {
         );
         frame(&egui_ctx, &mut app, vec![key(egui::Key::Enter, true)], true);
         assert_eq!(ctx.common().memory_cap_percent, 0.5);
+    }
+
+    // The FPC hide ID rows, after the memory cap: the boots row's entry range is
+    // the stock band (1 to 100), the gloves row's its own (11 to 100), and a
+    // typed value writes the common setting.
+    #[test]
+    fn the_hide_id_rows_write_the_common_settings() {
+        let dir = TestDir::new("studio_core_settings_hide_ids");
+        let (a, calls_a) = stub("a", "A", None);
+        let settings = test_settings(dir.path());
+        assert_ne!(
+            settings.common.fpc_hide_boots_id, 60,
+            "the test's pick really changes the setting"
+        );
+        let Shell { mut app, ctx, .. } = shell_with(
+            settings,
+            vec![a],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a],
+        );
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
+        let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+        for (label, min, max) in [
+            ("FPC hide boots ID", 1.0, 100.0),
+            ("FPC hide gloves ID", 11.0, 100.0),
+        ] {
+            let field = widget_on_row(&nodes, label, Role::SpinButton);
+            assert_eq!(
+                (field.min_numeric_value(), field.max_numeric_value()),
+                (Some(min), Some(max)),
+                "{label}'s entry range"
+            );
+        }
+
+        click(
+            &egui_ctx,
+            &mut app,
+            widget_on_row(&nodes, "FPC hide boots ID", Role::SpinButton),
+        );
+        frame(
+            &egui_ctx,
+            &mut app,
+            vec![egui::Event::Text("60".to_owned())],
+            true,
+        );
+        frame(&egui_ctx, &mut app, vec![key(egui::Key::Enter, true)], true);
+        assert_eq!(ctx.common().fpc_hide_boots_id, 60);
     }
 
     // The `Check interval (hours)` row is disabled while `check_for_updates` is off

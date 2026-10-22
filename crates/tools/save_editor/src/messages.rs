@@ -416,7 +416,7 @@ const CATALOG: &[(Code, &str, &str)] = &[
     ),
     (
         Code::FpcCustomSkinOnNonFpc,
-        r#"A custom skin on a player whose body is not hidden by the convention's boots ID hides the body but not the jersey."#,
+        r#"A custom skin on a player whose body is not hidden by the FPC hide boots ID from Settings hides the body but not the jersey."#,
         r#"Nothing is changed for you; hide the body too, or pick a preset skin."#,
     ),
 ];

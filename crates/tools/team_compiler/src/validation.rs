@@ -429,6 +429,7 @@ fn check_source(
                     source.export_id,
                     &mut settings,
                     &hand_weighted,
+                    inputs.hide_ids,
                 ));
                 messages.extend(settings_name_messages(
                     &resolved,
@@ -762,6 +763,7 @@ fn fpc_settings_messages(
     export_id: ExportId,
     settings: &mut BTreeMap<ScopePath, PlayerSettings>,
     hand_weighted: &BTreeSet<ScopePath>,
+    hide_ids: fpc::HideIds,
 ) -> Vec<Message> {
     let engine = version.engine();
     let mut messages = Vec::new();
@@ -771,10 +773,13 @@ fn fpc_settings_messages(
         }
         let folder_settings = settings.entry(player.path.clone()).or_default();
         if let Some(directive) = player.fpc {
-            let preset = fpc::preset(match directive {
-                FpcDirective::On => fpc::Preset::Hide,
-                FpcDirective::Off => fpc::Preset::Unhide,
-            });
+            let preset = fpc::preset(
+                match directive {
+                    FpcDirective::On => fpc::Preset::Hide,
+                    FpcDirective::Off => fpc::Preset::Unhide,
+                },
+                hide_ids,
+            );
             for key in folder_settings.apply_fpc_preset(&preset) {
                 messages.push(tool_message(
                     Code::FpcStripConflict,
@@ -793,6 +798,7 @@ fn fpc_settings_messages(
             Some(&*folder_settings),
             engine,
             hand_weighted,
+            hide_ids,
         );
         // A `None` ID only gates the gloves rule; the field's value feeds nothing else.
         let style = folder_settings.strip_style(gloves_id.unwrap_or(0));
@@ -2077,6 +2083,7 @@ mod tests {
         let inputs = RunInputs {
             settings: crate::settings::TeamCompilerSettings::default(),
             common: crate::testing::tool_context(root, "").common(),
+            hide_ids: fpc::HideIds::CONVENTION,
             teams_list: teams_list::TeamsList::parse("ID\tName\n714\t/co/\n792\t/egg/\n").unwrap(),
             exports_root: exports.clone(),
             exports: Vec::new(),

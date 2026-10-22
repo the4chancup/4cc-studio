@@ -152,7 +152,9 @@ What exists of this is in `spec/core/gui.md` "Settings menu".
 The settings menu is assembled from injected sections:
 
 - **Common settings** (defined by `studio_core`): PES version, PES folder path, exports folder path,
-  thread count, memory cap, theme, the update check and its interval. The state the shell writes
+  thread count, memory cap, theme, the update check and its interval, and the FPC hide boots and
+  gloves IDs (`plans/save_editor.md` "Full Player Customization (FPC)": number rows bounded to
+  the stock band, boots 1 to 100 and gloves 11 to 100). The state the shell writes
   itself (`last_tool`, `last_update_check`, `skipped_version`) has no row. The PES version row
   is the sidebar selector's twin: the same blocker, and a pick spends the running-PES
   auto-switch as the selector's does.

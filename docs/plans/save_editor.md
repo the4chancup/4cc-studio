@@ -346,18 +346,32 @@ The editor's side of this, ported from `fpc.cpp`: a per-player toggle and a
 team-wide on/off that apply `libs/fpc`'s FPC enable/disable
 presets (their fields are listed in the [libs/fpc spec](../spec/libs/fpc.md)); the strip settings
 that break or bend hiding (inners, undershorts, taping, the gloves checkbox) are reported by
-its interference rules on the Appearance tab, not cleared. The ID constants become a suite-common setting consumed by
-the presets rather than being hardcoded (any nonexistent ID works;
-55/11 are the 4cc convention), in one step for both tools; until then both use `libs/fpc`'s
-constants. The same presets serve the
+its interference rules on the Appearance tab, not cleared. The same presets serve the
 [Team compiler's](team_compiler/README.md) per-player-folder `fpc_on`/`fpc_off` marker
 files, so the editor's toggle and the compiler's markers cannot drift apart.
+
+- **The hide IDs are a common setting.** Any boots or gloves ID the game has no model for
+  hides the body; 55 and 11 are the 4cc convention, not a game fact. So the two IDs are
+  common settings (`fpc_hide_boots_id`, `fpc_hide_gloves_id`, defaults 55 and 11; core plan
+  "Settings menu"), and `libs/fpc`'s hide preset takes them as an `fpc::HideIds` value rather
+  than reading constants: the editor's Hide body, Show body, Ctrl+I, the team's Set and Remove
+  FPC invisibility and the classifier (`is_fpc_player`) read the setting, and so do the
+  compiler's `fpc_on` marker and its default-ID rule. One setting, not one per tool: a
+  compiler writing 60 for a marker and an editor reading only 55 as hidden would show every
+  compiled FPC player as "body shown". A hide ID is valid in the stock band only, boots 1 to
+  100 and gloves 11 to 100: above 100 the compiler allocates its per-team blocks (an ID there
+  would be another player's real model), and gloves 1 to 10 are the goalkeepers' real gloves.
+  Whether an ID in the band exists in a given game is the member's knowledge, as it is for
+  55 today. Changing the setting does not rewrite a save: a player hidden with the old ID
+  reads "body shown" afterwards, and Show body leaves his ID alone (it is no longer the hide
+  ID); the help says so.
 
 - **A model's own IDs are kept.** The wiki's hide list reads "Boots 55 (or any other
   nonexistent boots ID), or your FBM's custom boots if it uses that", and the compiler keeps a
   `settings.toml`'s own `boots_id` over the marker's (TC-BIN-29). So the editor writes a
   preset's boots or gloves ID only where the record holds 0 or the hide preset's ID, and keeps
-  any other: hiding turns 0 into 55 and keeps 627, showing turns 55 into 0 and keeps 627.
+  any other: hiding turns 0 into 55 and keeps 627, showing turns 55 into 0 and keeps 627
+  (55 standing for the configured hide ID, above).
   4ccEditor's `enable_fpc_invis_for_player` and `disable_fpc_invis_for_player` do the same.
 - **Hide and Show, not a checkbox.** A player hidden by his model's own boots ID reads as not
   hidden to `is_fpc_player`, which sees only the save (the convention's ID or a custom skin),
@@ -738,7 +752,8 @@ SE-GUI-24  GIVEN the save open on a player
            THEN his ability values are the operation's result (Set and Bump clamped to 40 to
                 99, weak foot, form and injury untouched; Copy and Swap over the parity row's
                 field set, positions, skills and COM styles included), as one undoable edit,
-                and the saved file holds them
+                and the saved file holds them; WHEN Bump all stats is opened again THEN its
+                field holds the last N used
 SE-GUI-25  GIVEN the Tactics tab on preset 1
            WHEN Copy preset to 2, then Swap formation kick-off with in-possession, run from the
                 tab's menus
@@ -757,7 +772,8 @@ SE-GUI-27  GIVEN the save open
                 the rating, captain mark, height, playing style, skills, COM styles), as
                 4ccEditor's output does; WHEN
                 Fix database is chosen THEN a
-                confirmation dialog precedes it and cancelling changes nothing
+                confirmation dialog precedes it, its question naming only the repairs the
+                save's version has, and cancelling changes nothing
 SE-GUI-28  GIVEN the selector at PES 19
            WHEN a PES 21 save is opened
            THEN the view warns, naming both versions, the save keeps its own version (its codec
@@ -773,5 +789,11 @@ SE-GUI-30  GIVEN the save open on a team with violations under the active rulese
                 and N is one less, and an undo brings it back; WHEN the last one is fixed THEN
                 the header reads `No issues: <team> passes <ruleset>`; WHEN the tool is
                 reopened THEN Live AATF is still on
+SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (gloves), and "Edit
+                aesthetics anyway" switched on
+           WHEN Hide body is used on a player whose boots and gloves IDs are 0
+           THEN his record holds boots 60 and gloves 12 and the tab reads "FPC: hidden body";
+                WHEN Show body is used THEN both are 0 again; GIVEN a player whose boots ID is
+                55 THEN the tab reads "FPC: body shown"
 ```
 

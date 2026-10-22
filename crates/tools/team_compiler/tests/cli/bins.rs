@@ -1465,6 +1465,56 @@ fn the_authored_stock_id_the_marker_defaults_and_the_assigned_id_resolve_in_orde
     );
 }
 
+// The hide preset's boots and gloves IDs are the common settings
+// `fpc_hide_boots_id` and `fpc_hide_gloves_id` (55 and 11 by default): an
+// `fpc_on` player with no models or authored IDs resolves to them, and a
+// value outside the stock band (1 to 100) refuses the run before any
+// output, the message naming the setting and its range.
+// TC-BIN-43
+#[test]
+fn the_fpc_marker_defaults_are_the_common_settings_hide_ids() {
+    let sandbox = Sandbox::new("bins_hide_ids_setting");
+    install_tables(
+        &sandbox,
+        &[
+            (BOOTS_LIST, &item_list(&[(70201, 11)])),
+            (GLOVE_LIST, &item_list(&[(70201, 31)])),
+        ],
+    );
+    let export = "exports/co Full Hide Ids";
+    // Slot 05: fpc_on, no boots or gloves models and no authored IDs.
+    sandbox.write(&format!("{export}/Players/05 - A/fpc_on"), b"");
+    sandbox.write(
+        &format!("{export}/Players/05 - A/face_high.fmdl"),
+        &clean_model(),
+    );
+
+    let settings = format!(
+        "{}fpc_hide_boots_id = 60\nfpc_hide_gloves_id = 12\n",
+        pes21_settings(&sandbox)
+    );
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    assert!(
+        pairs_of(&entries, BOOTS_LIST).contains(&(71405, 60)),
+        "BootsList.bin holds (71405, 60)"
+    );
+    assert!(
+        pairs_of(&entries, GLOVE_LIST).contains(&(71405, 12)),
+        "GloveList.bin holds (71405, 12)"
+    );
+
+    // fpc_hide_boots_id = 627 is outside the stock band: the run is
+    // refused as an invalid configuration before any output.
+    let sandbox = Sandbox::new("bins_hide_ids_refused");
+    sandbox.write(&format!("{export}/Players/05 - A/fpc_on"), b"");
+    let settings = format!("{}fpc_hide_boots_id = 627\n", pes21_settings(&sandbox));
+    let run = sandbox.run(&settings, &["compile", "--no-deploy"]);
+    run.assert_refused(2, &["fpc_hide_boots_id", "1 to 100"]);
+}
+
 // TC-BIN-41
 #[test]
 fn a_linked_shared_folder_s_gloves_id_wins_over_an_authored_gloves_id() {
@@ -1965,7 +2015,7 @@ fn an_fpc_on_player_gets_the_hide_preset_with_the_interference_reported() {
     .unwrap();
     // The preset's sleeves win; the inners, undershorts and taping are as authored.
     let mut expected = PlayerSettings::parse(toml).unwrap();
-    expected.apply_fpc_preset(&fpc::preset(fpc::Preset::Hide));
+    expected.apply_fpc_preset(&fpc::preset(fpc::Preset::Hide, fpc::HideIds::CONVENTION));
     assert_eq!(
         expected.get(SettingKey::Sleeves),
         Some(2),

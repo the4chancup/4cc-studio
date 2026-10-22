@@ -150,12 +150,13 @@ impl Session {
     /// Applies `kind` (`fpc::Preset::Hide` or `Unhide`) to every filled
     /// roster slot of `team_id` (the menu's Set / Remove FPC
     /// invisibility), each record's own boots and gloves IDs kept
-    /// (`player_ops::preset_for`), one sealed undo entry.
-    pub(crate) fn team_fpc(&mut self, team_id: u32, kind: fpc::Preset) {
+    /// (`player_ops::preset_for` under `ids`, the settings' hide IDs), one
+    /// sealed undo entry.
+    pub(crate) fn team_fpc(&mut self, team_id: u32, kind: fpc::Preset, ids: fpc::HideIds) {
         let version = self.version();
         let edited = self
             .edited_players(team_id, |_, player| {
-                let appearance = crate::session::player_ops::preset_for(player, kind);
+                let appearance = crate::session::player_ops::preset_for(player, kind, ids);
                 // The hide and show presets write no custom skin, and a
                 // loaded player's face run holds the fields `apply` needs.
                 pes_savefile::ops::fpc::apply(player, &appearance, version)

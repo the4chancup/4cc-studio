@@ -85,6 +85,10 @@ pub(crate) struct RunInputs {
     pub(crate) settings: TeamCompilerSettings,
     /// The suite-wide settings: the target PES version among them.
     pub(crate) common: CommonSettings,
+    /// The FPC hide preset's boots and gloves IDs the common settings give
+    /// (`fpc_hide_boots_id`/`fpc_hide_gloves_id`, refused by `read_settings`
+    /// when outside their band): the `fpc_on` marker's default IDs.
+    pub(crate) hide_ids: fpc::HideIds,
     /// The working teams list (the embedded one when none is installed), which maps each
     /// export's team name to its id.
     pub(crate) teams_list: TeamsList,
@@ -294,6 +298,9 @@ fn read_settings(
         ))
     })?;
     check_memory_cap(common.memory_cap_percent)?;
+    common
+        .fpc_hide_ids()
+        .map_err(|error| invalid(anyhow!("{error}")))?;
     Ok(settings)
 }
 
@@ -410,6 +417,9 @@ fn resolve_inputs(
     let teams_list = load_teams_list(&settings.teams_list_path, paths.data_dir.as_deref())?;
     Ok(RunInputs {
         settings,
+        hide_ids: common
+            .fpc_hide_ids()
+            .expect("read_settings refuses an out-of-band hide ID"),
         common,
         teams_list,
         exports_root,

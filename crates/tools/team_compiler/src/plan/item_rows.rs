@@ -87,14 +87,15 @@ pub(super) struct RowPlayer {
 /// validation reports `settings_model_id_conflict` for it (`conflicting_id_keys`), which
 /// `check` reaches too. A link that combines makes the shared folder
 /// a part of his own package, so his own task is the one. With neither, an authored stock
-/// ID is written, else the default `default_id` resolves: the hide preset's nonexistent ID
-/// for `fpc_on`, 0 for `fpc_off` or a `Full` export's markerless player, and no row for a
-/// `Midcup` one's, who keeps his installed row. Gloves alike.
+/// ID is written, else the default `default_id` resolves: `hide_ids`'s (the common
+/// settings' hide IDs) for `fpc_on`, 0 for `fpc_off` or a `Full` export's markerless player,
+/// and no row for a `Midcup` one's, who keeps his installed row. Gloves alike.
 pub(super) fn export_rows(
     tasks: &[BuildTask],
     first: usize,
     players: &[RowPlayer],
     coverage: ExportCoverage,
+    hide_ids: fpc::HideIds,
 ) -> PlayerRows {
     let mut items = Vec::new();
     let mut appearance = Vec::new();
@@ -131,7 +132,7 @@ pub(super) fn export_rows(
                 None => {
                     let id = authored_id(player.settings.as_ref(), table)
                         .map(u32::from)
-                        .or_else(|| default_id(player.fpc, table, coverage));
+                        .or_else(|| default_id(player.fpc, table, coverage, hide_ids));
                     if let Some(id) = id {
                         items.extend(player.player_ids.iter().map(|player_id| ItemRow {
                             table,
@@ -230,18 +231,19 @@ fn linked_takes_id(
 }
 
 /// The ID the resolution's default rule gives a player whose folder provides neither the
-/// category's models nor a stock key: the hide preset's nonexistent ID for `fpc_on`, 0 for
-/// `fpc_off` or no marker of a `Full` export's player, and no row for a `Midcup` export's
-/// markerless player, who keeps his installed row.
+/// category's models nor a stock key: `hide_ids`'s (the common settings' hide IDs) for
+/// `fpc_on`, 0 for `fpc_off` or no marker of a `Full` export's player, and no row for a
+/// `Midcup` export's markerless player, who keeps his installed row.
 fn default_id(
     fpc: Option<FpcDirective>,
     table: ItemTable,
     coverage: ExportCoverage,
+    hide_ids: fpc::HideIds,
 ) -> Option<u32> {
     match fpc {
         Some(FpcDirective::On) => Some(u32::from(match table {
-            ItemTable::Boots => fpc::NONEXISTENT_BOOTS_ID,
-            ItemTable::Gloves => fpc::NONEXISTENT_GLOVES_ID,
+            ItemTable::Boots => hide_ids.boots(),
+            ItemTable::Gloves => hide_ids.gloves(),
         })),
         Some(FpcDirective::Off) => Some(0),
         None => match coverage {
@@ -265,6 +267,7 @@ pub(crate) fn check_gloves_id(
     settings: Option<&PlayerSettings>,
     engine: Engine,
     hand_weighted: &BTreeSet<ScopePath>,
+    hide_ids: fpc::HideIds,
 ) -> Option<u16> {
     let assigned = category_assigned(export, player, ItemTable::Gloves, engine, hand_weighted)
         || player.links.iter().any(|link| {
@@ -279,8 +282,8 @@ pub(crate) fn check_gloves_id(
     authored_id(settings, ItemTable::Gloves)
         .map(u16::from)
         .or_else(|| {
-            default_id(player.fpc, ItemTable::Gloves, export.coverage)
-                .map(|id| u16::try_from(id).expect("the resolved defaults are 0 and 11"))
+            default_id(player.fpc, ItemTable::Gloves, export.coverage, hide_ids)
+                .map(|id| u16::try_from(id).expect("the resolved defaults fit u16"))
         })
 }
 
@@ -364,6 +367,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         let models = report
             .manifest
@@ -470,6 +474,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         // A's face (0) and boots (1) under slots 03 and 08; B's face (2); Keeper's gloves (3).
         assert_eq!(

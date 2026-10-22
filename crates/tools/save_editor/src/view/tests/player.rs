@@ -1091,3 +1091,171 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
     assert_eq!(player_entry(&view, 70101), before, "Ctrl+I changed nothing");
     assert!(!view.session.as_ref().unwrap().is_dirty());
 }
+
+// The hide IDs are the common settings' (`view.hide_ids`): with IDs 60
+// and 12, Hide body writes them and the classifier reads them back; a
+// player still on the convention's 55 reads "FPC: body shown", the save
+// itself never rewritten by the change.
+// SE-GUI-31
+#[test]
+fn the_hide_ids_come_from_the_settings() {
+    let path = fixture(PesVersion::Pes21, "fpc_hide_ids_setting");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    {
+        let player = file.player_mut(70101).unwrap();
+        player.appearance.boots_id = 0;
+        player.appearance.gloves_id = 0;
+        player.appearance.sleeves = 1;
+        player.appearance.untucked = true;
+        player.appearance.socks = 0;
+    }
+    {
+        let player = file.player_mut(70102).unwrap();
+        player.appearance.boots_id = 55;
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.edit_aesthetics = true;
+    view.hide_ids = fpc::HideIds::new(60, 12);
+    let mut window = Headless::sized(1100.0, 700.0);
+
+    // Hide body on 70101 (IDs 0): boots 60 and gloves 12, "FPC: hidden body".
+    let nodes = appearance_frame(&mut window, &mut view);
+    assert!(label_drawn(&nodes, "FPC: body shown"), "premise: shown");
+    click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
+    assert_eq!(strip_of(&view, 70101), (2, false, 2, 60, 12));
+    let nodes = appearance_frame(&mut window, &mut view);
+    assert!(label_drawn(&nodes, "FPC: hidden body"));
+
+    // Show body: both 0 again (the record holds the hide IDs).
+    click(&mut window, fpc_button(&nodes, "Show body"), &mut view);
+    assert_eq!(strip_of(&view, 70101), (1, true, 0, 0, 0));
+
+    // 70102 still on the convention's boots 55 reads "FPC: body shown":
+    // the new hide ID is 60, and the save was never rewritten.
+    view.selected = Some((701, 1));
+    let nodes = appearance_frame(&mut window, &mut view);
+    assert!(
+        label_drawn(&nodes, "FPC: body shown"),
+        "the old convention's ID is no longer the hide ID"
+    );
+}
+
+// The same setting carried through `Tool::view`: a `ToolContext` whose
+// common settings hold 60 and 12, one frame of `tool.view`, and Hide
+// body writes 60.
+#[test]
+fn the_tool_carries_the_common_hide_ids_into_the_view() {
+    use studio_core::StudioTool;
+
+    let path = fixture(PesVersion::Pes21, "fpc_hide_ids_context");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    {
+        let player = file.player_mut(70101).unwrap();
+        player.appearance.boots_id = 0;
+        player.appearance.gloves_id = 0;
+    }
+    file.save(&path).unwrap();
+    let (events_tx, _events_rx) = crossbeam_channel::unbounded();
+    let (requests_tx, _requests_rx) = crossbeam_channel::unbounded();
+    let mut settings = studio_core::Settings::default();
+    settings.common.fpc_hide_boots_id = 60;
+    settings.common.fpc_hide_gloves_id = 12;
+    let ctx = studio_core::ToolContext::new(
+        std::sync::Arc::new(std::sync::Mutex::new(settings)),
+        studio_core::AppPaths {
+            exe_dir: std::path::PathBuf::from("exe"),
+            data_dir: None,
+        },
+        events_tx,
+        requests_tx,
+    );
+    let mut tool = crate::Tool::new();
+    tool.view.open(&path);
+    tool.view.edit_aesthetics = true;
+    tool.view.tab = Tab::Appearance;
+    let mut window = Headless::sized(1100.0, 700.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    assert_eq!(
+        tool.view.hide_ids,
+        fpc::HideIds::new(60, 12),
+        "the frame set the view's hide IDs from the settings"
+    );
+
+    click(&mut window, fpc_button(&nodes, "Hide body"), &mut tool.view);
+    assert_eq!(strip_of(&tool.view, 70101).3, 60, "Hide body wrote 60");
+    assert_eq!(strip_of(&tool.view, 70101).4, 12, "Hide body wrote 12");
+}
+
+// `view.hide_ids` an `Err` (a setting outside its band): the FPC line
+// reads the error's text instead of "FPC: …", the tab's buttons and the
+// menus' FPC items are disabled with it as their hover, and Ctrl+I does
+// nothing.
+#[test]
+fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
+    let path = fixture(PesVersion::Pes21, "fpc_hide_ids_err");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.player_mut(70101).unwrap().appearance.boots_id = 0;
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.edit_aesthetics = true;
+    view.hide_ids = Err(fpc::HideIdsError::Boots(627));
+    let error = fpc::HideIdsError::Boots(627).to_string();
+    let mut window = Headless::sized(1100.0, 700.0);
+    let before = player_entry(&view, 70101);
+
+    let nodes = appearance_frame(&mut window, &mut view);
+    assert!(
+        label_drawn(&nodes, &error),
+        "the FPC line is the error's text"
+    );
+    assert!(
+        !label_drawn(&nodes, "FPC: body shown"),
+        "the reading is not drawn"
+    );
+    for label in ["Hide body", "Show body"] {
+        let button = fpc_button(&nodes, label);
+        assert!(button.is_disabled(), "{label} is disabled");
+        assert_eq!(
+            tooltip_containing(&mut window, &mut view, centre(button), "fpc_hide_boots_id"),
+            Some(error.clone()),
+            "{label}'s hover is the error's text"
+        );
+    }
+
+    // The Player menu's toggle disabled with the same hover; a gameplay
+    // item stays enabled.
+    let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
+    let toggle = menu_item(&nodes, "Toggle FPC settings");
+    assert!(toggle.is_disabled());
+    assert_eq!(
+        tooltip_containing(&mut window, &mut view, centre(toggle), "fpc_hide_boots_id"),
+        Some(error.clone()),
+        "the toggle's hover is the error's text"
+    );
+    assert!(
+        !menu_item(&nodes, "Set all stats").is_disabled(),
+        "Set all stats stays enabled"
+    );
+
+    // The Team menu's two items the same.
+    let nodes = open_menu(&mut window, &mut view, "Team", "Set edited flag");
+    for label in ["Set FPC invisibility", "Remove FPC invisibility"] {
+        let item = menu_item(&nodes, label);
+        assert!(item.is_disabled(), "{label} is disabled");
+        assert_eq!(
+            tooltip_containing(&mut window, &mut view, centre(item), "fpc_hide_boots_id"),
+            Some(error.clone()),
+            "{label}'s hover is the error's text"
+        );
+    }
+
+    // Ctrl+I changes nothing.
+    window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(player_entry(&view, 70101), before, "Ctrl+I changed nothing");
+    assert!(!view.session.as_ref().unwrap().is_dirty());
+}

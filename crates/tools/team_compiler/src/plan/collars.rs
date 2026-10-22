@@ -106,7 +106,7 @@ mod tests {
                 )
             })
             .collect();
-        plan_run(exports, version)
+        plan_run(exports, version, fpc::HideIds::CONVENTION)
     }
 
     /// Each collar task of `report` as (export, file path, ID).
@@ -342,6 +342,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(collar_tasks(&report), []);

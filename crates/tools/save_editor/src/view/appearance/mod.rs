@@ -39,6 +39,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         edit_aesthetics,
         randomize_draw,
         generation,
+        hide_ids,
         ..
     } = view;
     let generation = *generation;
@@ -81,6 +82,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 version,
                 &player,
                 randomize_draw.as_mut(),
+                *hide_ids,
             );
         })
         .response
@@ -96,6 +98,7 @@ fn groups(
     version: PesVersion,
     player: &PlayerEntry,
     draw: &mut dyn FnMut(u8) -> u8,
+    hide_ids: Result<fpc::HideIds, fpc::HideIdsError>,
 ) {
     ui.strong("Edit flags");
     ui.horizontal_wrapped(|ui| {
@@ -121,7 +124,7 @@ fn groups(
     colour_rows(ui, session, player_id, version, &player.appearance);
     ui.separator();
     ui.strong("Full Player Customization");
-    fpc_group(ui, session, player_id, player);
+    fpc_group(ui, session, player_id, player, hide_ids);
 }
 
 /// The ownership row: the sentence itself (pre-Fox carries the patch step
@@ -154,15 +157,37 @@ pub(crate) fn ownership_tip(version: PesVersion) -> &'static str {
 }
 
 /// The FPC group, last on the tab (the draft's `fpcGroup`): the
-/// classifier's reading (`is_fpc_player`: hidden by the convention's boots
-/// ID or a custom skin — a player hidden by his model's own boots ID reads
-/// as shown, so no checkbox), the Hide body and Show body buttons with the
-/// draft's hover texts, then the interference findings of `fpc::check` in
-/// its order. Under the lock the whole group is disabled with the rest of
-/// the tab — the reading and the findings still draw, since they read and
-/// do not write.
-fn fpc_group(ui: &mut egui::Ui, session: &mut Session, player_id: u32, player: &PlayerEntry) {
-    let hidden = pes_savefile::ops::fpc::is_fpc_player(player)
+/// classifier's reading (`is_fpc_player` under `hide_ids`, the settings'
+/// hide IDs — a player hidden by his model's own boots ID reads as shown,
+/// so no checkbox), the Hide body and Show body buttons with the draft's
+/// hover texts, then the interference findings of `fpc::check` in its
+/// order. Under the lock the whole group is disabled with the rest of the
+/// tab — the reading and the findings still draw, since they read and do
+/// not write. `hide_ids` an `Err` (a setting outside its band): the line
+/// reads the error's text instead of "FPC: …" and both buttons are
+/// disabled with it as their hover; the classifier has no IDs to read, so
+/// no findings either.
+fn fpc_group(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    player: &PlayerEntry,
+    hide_ids: Result<fpc::HideIds, fpc::HideIdsError>,
+) {
+    let ids = match hide_ids {
+        Ok(ids) => ids,
+        Err(error) => {
+            ui.horizontal_wrapped(|ui| {
+                ui.label(error.to_string());
+                for label in ["Hide body", "Show body"] {
+                    ui.add_enabled(false, egui::Button::new(label))
+                        .on_disabled_hover_text(error.to_string());
+                }
+            });
+            return;
+        }
+    };
+    let hidden = pes_savefile::ops::fpc::is_fpc_player(player, ids)
         .expect("a loaded player's face run holds the skin field");
     ui.horizontal_wrapped(|ui| {
         ui.label(if hidden {
@@ -174,22 +199,24 @@ fn fpc_group(ui: &mut egui::Ui, session: &mut Session, player_id: u32, player: &
             .button("Hide body")
             .on_hover_text(
                 "The hide preset: long sleeves, tucked, short socks; \
-                 boots 55 and gloves 11 where the IDs are 0 \
-                 (a model's own IDs are kept). Ctrl+I; the whole team: Team menu",
+                 the hide IDs from Settings where the IDs are 0 \
+                 (a model's own IDs are kept); a Custom skin (PES 2015 to 2017) \
+                 becomes Light. Ctrl+I; the whole team: Team menu",
             )
             .clicked()
         {
-            session.apply_fpc(player_id, fpc::Preset::Hide);
+            session.apply_fpc(player_id, fpc::Preset::Hide, ids);
         }
         if ui
             .button("Show body")
             .on_hover_text(
                 "The show preset: short sleeves, untucked, standard socks; \
-                 boots and gloves 0 where they are 55 and 11",
+                 boots and gloves 0 where they are the hide IDs; a Custom skin \
+                 (PES 2015 to 2017) becomes Light",
             )
             .clicked()
         {
-            session.apply_fpc(player_id, fpc::Preset::Unhide);
+            session.apply_fpc(player_id, fpc::Preset::Unhide, ids);
         }
     });
     let style = pes_savefile::ops::fpc::strip_style(player)

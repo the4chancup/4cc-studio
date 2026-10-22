@@ -1952,6 +1952,7 @@ mod tests {
             let report = plan_run(
                 vec![to_plan(ExportId(0), export, two_team_colors(), None)],
                 version,
+                fpc::HideIds::CONVENTION,
             );
 
             // Each drop is reported once, on the kit, naming the file.

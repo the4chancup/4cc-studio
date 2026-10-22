@@ -4,6 +4,15 @@
 
 ## Settings
 
+### Common settings (studio_core)
+
+What exists of this is in `spec/team_compiler/settings.md` "Common settings (studio_core)".
+
+| Setting | Old default | Notes |
+|---|---|---|
+| `fpc_hide_boots_id` | — (new default 55) | The boots ID an `fpc_on` marker writes where the folder sets none (`plans/save_editor.md` "Full Player Customization (FPC)"); 1 to 100. A run with a value outside is refused as an invalid configuration (exit code 2), as `memory_cap_percent` is |
+| `fpc_hide_gloves_id` | — (new default 11) | The same for gloves; 11 to 100 |
+
 ### Team compiler settings
 
 What exists of this is in `spec/team_compiler/settings.md` "Team compiler settings".

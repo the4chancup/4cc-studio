@@ -364,6 +364,15 @@ mod tests {
         );
     }
 
+    // The blocks sit above the stock band the hide IDs live in
+    // (`fpc::HideIds::BOOTS` ends at 100): an allocated ID can never be
+    // read as a hide ID, and a hide ID never as an allocated one.
+    #[test]
+    fn the_blocks_start_above_the_hide_id_band() {
+        assert!(FIRST_BLOCK > *fpc::HideIds::BOOTS.end());
+        assert!(FIRST_BLOCK > *fpc::HideIds::GLOVES.end());
+    }
+
     #[test]
     fn the_shared_ids_follow_the_exclusive_ones_and_stop_at_seventeen() {
         let co = PlannedModelIds::for_team(team(714));

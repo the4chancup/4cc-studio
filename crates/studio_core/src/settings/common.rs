@@ -42,6 +42,11 @@ pub struct CommonSettings {
     pub skipped_version: Option<String>,
     /// The tool active when the GUI last closed; `studio` with no arguments reopens it.
     pub last_tool: Option<String>,
+    /// The boots ID the FPC hide preset writes (the `fpc` crate's `HideIds`), an ID the
+    /// game has no boots model for.
+    pub fpc_hide_boots_id: u16,
+    /// The gloves ID it writes; gloves 1 to 10 are the goalkeepers' real gloves.
+    pub fpc_hide_gloves_id: u16,
 }
 
 impl Default for CommonSettings {
@@ -58,6 +63,8 @@ impl Default for CommonSettings {
             last_update_check: None,
             skipped_version: None,
             last_tool: None,
+            fpc_hide_boots_id: fpc::HideIds::CONVENTION.boots(),
+            fpc_hide_gloves_id: fpc::HideIds::CONVENTION.gloves(),
         }
     }
 }
@@ -68,6 +75,14 @@ impl CommonSettings {
     pub fn pes_folder(&self) -> PathBuf {
         let version = self.pes_version.number().to_string();
         PathBuf::from(self.pes_folder_path.replace("**", &version))
+    }
+
+    /// The FPC hide preset's boots and gloves IDs the settings give, or the
+    /// `HideIdsError` naming the one outside its band: a value a member set by
+    /// hand is not clamped (the settings menu's drag range bounds only what it
+    /// enters), so an out-of-band pair is an error the consumers surface.
+    pub fn fpc_hide_ids(&self) -> Result<fpc::HideIds, fpc::HideIdsError> {
+        fpc::HideIds::new(self.fpc_hide_boots_id, self.fpc_hide_gloves_id)
     }
 }
 
@@ -124,7 +139,8 @@ mod tests {
     // "Update state" table (`check_for_updates` true, `check_interval_hours` 24,
     // `last_update_check` and `skipped_version` empty). `theme` is the dark
     // preset, the default the GUI phase plans, `last_tool` empty on a first
-    // run.
+    // run. The hide IDs are the FPC convention's 55 and 11
+    // (`fpc::HideIds::CONVENTION`).
     #[test]
     fn the_defaults_match_the_settings_tables() {
         // `pes_folder_path` is the shipped pattern on Windows and empty
@@ -147,7 +163,36 @@ mod tests {
                 last_update_check: None,
                 skipped_version: None,
                 last_tool: None,
+                fpc_hide_boots_id: 55,
+                fpc_hide_gloves_id: 11,
             }
         );
+    }
+
+    // A settings file whose `[common]` lacks both keys loads the
+    // convention's 55 and 11 (the struct's `serde(default)`); a key set by
+    // hand loads as written, clamped nowhere, and `fpc_hide_ids` reports
+    // the band the value left.
+    #[test]
+    fn the_hide_ids_default_to_the_convention_and_load_as_written() {
+        let settings = crate::settings::Settings::parse("[common]\npes_version = 21\n")
+            .expect("parses")
+            .common;
+        assert_eq!(settings.fpc_hide_boots_id, 55);
+        assert_eq!(settings.fpc_hide_gloves_id, 11);
+        assert_eq!(
+            settings.fpc_hide_ids(),
+            Ok(fpc::HideIds::CONVENTION),
+            "the defaults resolve to the convention"
+        );
+
+        let settings = crate::settings::Settings::parse(
+            "[common]\nfpc_hide_boots_id = 627\nfpc_hide_gloves_id = 12\n",
+        )
+        .expect("parses")
+        .common;
+        assert_eq!(settings.fpc_hide_boots_id, 627, "as written, no clamp");
+        assert_eq!(settings.fpc_hide_gloves_id, 12);
+        assert_eq!(settings.fpc_hide_ids(), Err(fpc::HideIdsError::Boots(627)));
     }
 }

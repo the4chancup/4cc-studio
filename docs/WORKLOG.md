@@ -1062,10 +1062,28 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           Rework 2 (SWE-2): the FPC findings' limit and Copy/Swap's flags in the help, the Fix
           database question built from what the save has, `team_fpc` taking `fpc::Preset`, and
           the tests (base-copy halves, every team in the sheet, Set's clamp, Bump's remembered
-          N, Ctrl+I both ways). Open: `mutants-diff 7ad77f2e` at the rework, SWE-2 S2, Astra A2
+          N, Ctrl+I both ways). `mutants-diff 7ad77f2e` at the rework (`1c6f41fc`): 3 caught,
+          none missed. SWE-2 S2 3 accepted (two help texts untrue on some players or versions;
+          two scenarios widened to state what their tests check), ending its loop; Astra A2 2
+          accepted (help/06's Ctrl+I on a model's own boots ID, the presets' skin reset unnamed),
+          ending the Astra loop. The four help fixes landed with the FPC hide IDs commit, their
+          SWE-2 pass riding with that step's loop (they edit the same pages)
     - [ ] the FPC hide IDs (55, 11) as a suite-common setting the editor and the Team compiler
       both read (`plans/save_editor.md` "Full Player Customization (FPC)"), in one step; both
       use `libs/fpc`'s constants until then
+      - [x] briefed 2026-10-22 (`.tmp/8_9/brief_8_9_fpc_ids.md`, SWE-2): `fpc::HideIds` in place
+        of the constants, `fpc_hide_boots_id`/`fpc_hide_gloves_id` in `CommonSettings` and the
+        settings menu, bounded to the stock band (DECISIONS 2026-10-22), read by the editor's FPC
+        paths and the compiler's `fpc_on`; SE-GUI-31, TC-BIN-43 → verify: both scenarios
+        proven, a compile with an out-of-band ID refused. Done 2026-10-22 (one run; the lead
+        folded `fpc_group`'s two `Ok`/`Err` branches into one match). Files: `fpc/src/{lib.rs,
+        player.rs}`, `pes_savefile/src/ops/fpc.rs`, `studio_core/src/{settings/{common.rs,
+        mod.rs},shell/settings_menu.rs}`, `save_editor/{help/0{4,5,6,7}_*.md,src/{lib.rs,
+        messages.rs,session/{player_ops.rs,team_ops.rs},view/{mod.rs,menus.rs,player_list.rs,
+        appearance/mod.rs,tests/player.rs}}}`, `team_compiler/{src/{cli.rs,compile.rs,
+        validation.rs,plan/{mod.rs,ids.rs,item_rows.rs}},tests/cli/bins.rs}`
+      - [ ] review (checkpoints a and b: two new scenarios, a new `pub` type, five crates): a
+        SWE-2 loop, then Astra
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,

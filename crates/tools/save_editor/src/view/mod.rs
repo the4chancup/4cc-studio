@@ -91,6 +91,12 @@ pub(crate) struct SaveView {
     /// The Fix database confirmation is open (the Savefile menu's item);
     /// `false` while it is closed.
     fix_database: bool,
+    /// The hide IDs the common settings give (`fpc_hide_boots_id` and
+    /// `fpc_hide_gloves_id`), refreshed from `ctx.common()` each `Tool::view`
+    /// frame: every FPC path (Hide/Show body, Ctrl+I, the classifier's
+    /// reading, the Team menu's Set/Remove) reads them, and an out-of-band
+    /// pair disables those paths behind the error's text.
+    pub(crate) hide_ids: Result<fpc::HideIds, fpc::HideIdsError>,
     /// Where the Appearance tab's Randomize draws a motion value in
     /// `1..=top` from: a field so the tests pin the draws; `new` seeds a
     /// xorshift from the wall clock (the picks need only be unpredictable
@@ -170,6 +176,7 @@ impl SaveView {
             bump: 0,
             copy_swap: None,
             fix_database: false,
+            hide_ids: Ok(fpc::HideIds::CONVENTION),
             randomize_draw: Box::new(appearance::seeded_draw()),
         }
     }
@@ -369,10 +376,11 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
     }
     if fpc_key
         && view.edit_aesthetics
+        && let Ok(ids) = view.hide_ids
         && let Some((_, _, player_id)) = selected_player(view)
         && let Some(session) = view.session.as_mut()
     {
-        session.toggle_fpc(player_id);
+        session.toggle_fpc(player_id, ids);
     }
     if bump_key
         && let Some((_, _, player_id)) = selected_player(view)

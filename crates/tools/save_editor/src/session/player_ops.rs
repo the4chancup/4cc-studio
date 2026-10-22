@@ -79,15 +79,15 @@ impl Session {
     /// Hide body or Show body on `player_id` (the Appearance tab's buttons
     /// and the Player menu's Toggle FPC settings): `kind`'s preset applied
     /// through `ops::fpc::apply` with the record's own IDs substituted in
-    /// (`preset_for`), one sealed undo entry. The strip settings the
-    /// preset does not set are not cleared — they are the interference
-    /// findings' to report. No edit flag is set.
-    pub(crate) fn apply_fpc(&mut self, player_id: u32, kind: fpc::Preset) {
+    /// (`preset_for`), one sealed undo entry. `ids` is the settings' hide
+    /// IDs. The strip settings the preset does not set are not cleared —
+    /// they are the interference findings' to report. No edit flag is set.
+    pub(crate) fn apply_fpc(&mut self, player_id: u32, kind: fpc::Preset, ids: fpc::HideIds) {
         let version = self.version();
         let Some(mut edited) = self.file.player(player_id).cloned() else {
             return;
         };
-        let appearance = preset_for(&edited, kind);
+        let appearance = preset_for(&edited, kind, ids);
         // The presets here write no custom skin, and a loaded player's
         // face run holds the fields `apply` writes through.
         pes_savefile::ops::fpc::apply(&mut edited, &appearance, version)
@@ -96,10 +96,10 @@ impl Session {
     }
 
     /// Ctrl+I's toggle: Show body on a player `is_fpc_player` reads as
-    /// hidden, Hide body on any other.
-    pub(crate) fn toggle_fpc(&mut self, player_id: u32) {
+    /// hidden, Hide body on any other, under `ids`.
+    pub(crate) fn toggle_fpc(&mut self, player_id: u32, ids: fpc::HideIds) {
         let Some(hidden) = self.file.player(player_id).map(|player| {
-            pes_savefile::ops::fpc::is_fpc_player(player)
+            pes_savefile::ops::fpc::is_fpc_player(player, ids)
                 .expect("a loaded player's face run holds the skin field")
         }) else {
             return;
@@ -111,6 +111,7 @@ impl Session {
             } else {
                 fpc::Preset::Hide
             },
+            ids,
         );
     }
 }
@@ -138,21 +139,21 @@ fn copy_stat_fields(source: &PlayerEntry, dest: &mut PlayerEntry) {
 }
 
 /// `kind`'s preset for `player`, his own IDs kept (`plans/save_editor.md`
-/// "Full Player Customization (FPC)", the first bullet): a preset's
-/// boots or gloves ID is written only where the record holds 0 or the
-/// hide preset's ID, so hiding turns 0 into 55 and keeps 627, showing
-/// turns 55 into 0 and keeps 627. The per-player and the team operations
-/// both apply this.
-pub(crate) fn preset_for(player: &PlayerEntry, kind: fpc::Preset) -> fpc::Appearance {
-    let mut appearance = fpc::preset(kind);
-    appearance.boots_id = preset_id(
-        player.appearance.boots_id,
-        fpc::NONEXISTENT_BOOTS_ID,
-        appearance.boots_id,
-    );
+/// "Full Player Customization (FPC)"): a preset's boots or gloves ID is
+/// written only where the record holds 0 or `ids`'s hide ID, so hiding
+/// turns 0 into the hide ID and keeps 627, showing turns the hide ID into
+/// 0 and keeps 627. The per-player and the team operations both apply
+/// this.
+pub(crate) fn preset_for(
+    player: &PlayerEntry,
+    kind: fpc::Preset,
+    ids: fpc::HideIds,
+) -> fpc::Appearance {
+    let mut appearance = fpc::preset(kind, ids);
+    appearance.boots_id = preset_id(player.appearance.boots_id, ids.boots(), appearance.boots_id);
     appearance.gloves_id = preset_id(
         player.appearance.gloves_id,
-        fpc::NONEXISTENT_GLOVES_ID,
+        ids.gloves(),
         appearance.gloves_id,
     );
     appearance
@@ -184,35 +185,36 @@ mod tests {
         Session::open(&path).unwrap()
     }
 
-    // plans/save_editor.md "Full Player Customization (FPC)", the first
-    // bullet: a preset's ID lands only where the record holds 0 or the
-    // hide preset's ID; any other stays (a model's own ID).
+    // plans/save_editor.md "Full Player Customization (FPC)": a preset's
+    // ID lands only where the record holds 0 or the hide ID; any other
+    // stays (a model's own ID).
     #[test]
     fn a_preset_keeps_a_models_own_ids() {
+        let ids = fpc::HideIds::CONVENTION;
         let mut player = PlayerEntry::default();
         player.appearance.boots_id = 0;
         player.appearance.gloves_id = 0;
-        let hide = preset_for(&player, fpc::Preset::Hide);
-        assert_eq!(hide.boots_id, fpc::NONEXISTENT_BOOTS_ID);
-        assert_eq!(hide.gloves_id, fpc::NONEXISTENT_GLOVES_ID);
+        let hide = preset_for(&player, fpc::Preset::Hide, ids);
+        assert_eq!(hide.boots_id, 55);
+        assert_eq!(hide.gloves_id, 11);
 
         player.appearance.boots_id = 627;
         player.appearance.gloves_id = 21;
-        let hide = preset_for(&player, fpc::Preset::Hide);
+        let hide = preset_for(&player, fpc::Preset::Hide, ids);
         assert_eq!(hide.boots_id, 627, "the model's own boots ID stays");
         assert_eq!(hide.gloves_id, 21, "the model's own gloves ID stays");
-        let show = preset_for(&player, fpc::Preset::Unhide);
+        let show = preset_for(&player, fpc::Preset::Unhide, ids);
         assert_eq!(show.boots_id, 627);
         assert_eq!(show.gloves_id, 21);
 
-        player.appearance.boots_id = u32::from(fpc::NONEXISTENT_BOOTS_ID);
-        player.appearance.gloves_id = u32::from(fpc::NONEXISTENT_GLOVES_ID);
-        let show = preset_for(&player, fpc::Preset::Unhide);
+        player.appearance.boots_id = 55;
+        player.appearance.gloves_id = 11;
+        let show = preset_for(&player, fpc::Preset::Unhide, ids);
         assert_eq!(show.boots_id, 0, "the hide ID shows as 0");
         assert_eq!(show.gloves_id, 0);
-        let hide = preset_for(&player, fpc::Preset::Hide);
-        assert_eq!(hide.boots_id, fpc::NONEXISTENT_BOOTS_ID);
-        assert_eq!(hide.gloves_id, fpc::NONEXISTENT_GLOVES_ID);
+        let hide = preset_for(&player, fpc::Preset::Hide, ids);
+        assert_eq!(hide.boots_id, 55);
+        assert_eq!(hide.gloves_id, 11);
     }
 
     // The bump's whole-number read and the 40 to 99 clamp, the parts a

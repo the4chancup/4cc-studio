@@ -355,7 +355,7 @@ fn plan(
         });
     }
 
-    let report = plan_run(exports, version);
+    let report = plan_run(exports, version, inputs.hide_ids);
     for message in report.messages.into_iter().chain(overrides_active) {
         events.message(message);
     }
@@ -1900,6 +1900,7 @@ mod tests {
         RunInputs {
             settings: TeamCompilerSettings::default(),
             common: ctx.common(),
+            hide_ids: fpc::HideIds::CONVENTION,
             teams_list: TeamsList::parse("ID\tName\n792\t/egg/\n").unwrap(),
             exports_root: root.join("exports"),
             exports: Vec::new(),

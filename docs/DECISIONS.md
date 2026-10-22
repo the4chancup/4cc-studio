@@ -10224,3 +10224,21 @@ strip-number byte and, past the first entry, writes into entries' bodies. Clear 
 is locked because it writes what a team's export owns; Fix database writes the same flags, and
 one guard is one rule.
 Plan: `plans/save_editor.md` "Feature inventory", the Database operations table.
+
+## 2026-10-22 — fpc, studio_core, save_editor, team_compiler — The FPC hide IDs are two common settings bounded to the stock band
+Decision: `fpc_hide_boots_id` (55) and `fpc_hide_gloves_id` (11) are common settings, carried
+to `libs/fpc`'s hide preset as an `fpc::HideIds` argument that replaces the two constants; the
+save editor's FPC actions and classifier and the compiler's `fpc_on` marker read them. A valid
+ID is in the stock band, boots 1 to 100 and gloves 11 to 100; the settings menu bounds its rows
+there, and a compile with a hand-set value outside is refused (exit code 2). Changing the
+setting rewrites no save: a player hidden with the old ID reads "body shown".
+Why: the plan made the IDs a suite-common setting (any nonexistent ID hides; 55 and 11 are the
+4cc convention). One setting for both tools, since a compiler writing one ID and an editor
+classifying by another would read every compiled FPC player as shown. Above 100 the compiler
+allocates its per-team blocks (101 to 8900, `plan/ids.rs`), so a hide ID there would be a real
+model of another player; gloves 1 to 10 are goalkeepers' real gloves. Keeping the constants
+beside the setting would leave a second source every caller could reach for. Recognizing the
+old ID as well after a change would be machinery for a setting changed once, if ever.
+Plan: `plans/save_editor.md` "Full Player Customization (FPC)", `plans/libs/fpc.md`,
+`plans/core/gui.md` "Settings menu", `plans/team_compiler/settings.md` "Common settings";
+SE-GUI-31, TC-BIN-43.

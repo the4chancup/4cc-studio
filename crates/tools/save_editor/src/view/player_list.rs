@@ -32,6 +32,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         bump: _,
         copy_swap: _,
         fix_database: _,
+        hide_ids: _,
         randomize_draw: _,
     } = view;
     let Some(session) = session.as_mut() else {

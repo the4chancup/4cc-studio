@@ -24,9 +24,11 @@ roster slot in one undoable step:
 - **Clear visual flags** (Ctrl+F) unmarks the face, hair, physique and strip
   edits on every player of the team.
 - **Set FPC invisibility** writes the hide preset on every player of the
-  team: long sleeves, tucked, short socks, boots 55 and gloves 11 where the
-  IDs are 0 (a model's own boots or gloves ID is kept, as on the Appearance
-  tab). **Remove FPC invisibility** writes the show preset on them all.
+  team: long sleeves, tucked, short socks, and the hide IDs from Settings
+  (55 and 11 unless changed) where the IDs are 0 (a model's own boots or
+  gloves ID is kept, as on the Appearance tab). **Remove FPC invisibility**
+  writes the show preset on them all. On PES 2015 to 2017 both also turn a
+  Custom skin into Light.
 
 The boots and gloves item, Clear visual flags and the FPC items stay
 disabled while the aesthetics lock is on (the Appearance tab's **Edit

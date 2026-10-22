@@ -32,20 +32,24 @@ dribbling motion is left as it is. One Undo restores them all.
 The **Full Player Customization** group, last on the tab, is where FPC
 invisibility lives: the save's own reading of the player, then **Hide body**
 and **Show body**. The reading says "FPC: hidden body" when the record's
-boots ID is the convention's nonexistent one (55) or his skin is Custom,
-"FPC: body shown" otherwise. A player hidden by his model's own boots ID,
-such as a compile-allocated one, reads "body shown": the save cannot tell
-his model hides him, which is why these are two buttons and not a checkbox.
-Hide body writes long sleeves, a tucked shirt, short socks, boots 55 and
-gloves 11 where the IDs are 0 (a model's own boots or gloves ID is kept);
-Show body writes short sleeves, untucked, standard socks, and boots and
-gloves 0 where they are 55 and 11. Under the reading the group lists the
-strip settings that would interfere with a hidden body (inners or
-undershorts that break the hiding, taping that still shows, the gloves
-checkbox with ID 0 giving winter gloves): they are reported, never
-changed for you. The list follows the save's own reading, so it only
-covers a player the save calls hidden: one hidden by his model's own
-boots ID (a compile-allocated one such as 627) reads "body shown" and
-his interfering settings are not listed, though the game hides his body
-all the same. The Team compiler's check knows the folder's FPC marker,
-so it reports them for a compiled team.
+boots ID is the hide ID from Settings (55 unless changed) or his skin is
+Custom, "FPC: body shown" otherwise. A player hidden by his model's own
+boots ID, such as a compile-allocated one, reads "body shown": the save
+cannot tell his model hides him, which is why these are two buttons and not
+a checkbox. Hide body writes long sleeves, a tucked shirt, short socks, and
+the hide IDs from Settings (55 and 11 unless changed) where the IDs are 0 (a
+model's own boots or gloves ID is kept); Show body writes short sleeves,
+untucked, standard socks, and boots and gloves 0 where they are the hide
+IDs. On PES 2015 to 2017 both also turn a Custom skin into Light. Changing
+the setting rewrites no save: a player hidden with the old ID then reads
+"body shown", and Show body leaves his ID alone (it is no longer the hide
+ID). Under the reading the group lists the strip settings that would
+interfere with a hidden body (inners or undershorts that break the hiding,
+taping that still shows) and the gloves checkbox with ID 0, which gives
+winter gloves to any player: they are reported, never changed for you. The
+inners, undershorts and taping follow the save's own reading, so they are
+listed only for a player the save calls hidden: one hidden by his model's
+own boots ID (a compile-allocated one such as 627) reads "body shown" and
+they are not listed for him, though the game hides his body all the same.
+The Team compiler's check knows the folder's FPC marker, so it reports them
+for a compiled team.

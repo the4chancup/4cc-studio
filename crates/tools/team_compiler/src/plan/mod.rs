@@ -1037,7 +1037,13 @@ pub(crate) struct ExportToPlan {
 /// refs export plans its referee folders, shared folders, Common textures and marker under
 /// team id 999 (`REFEREE_TEAM_ID`), each folder's packages keyed by its referee slots, and
 /// nothing else: it has no colors record, kits, rows, portraits, logo or collar.
-pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanReport {
+/// `hide_ids` is the common settings' FPC hide IDs, the `fpc_on` marker's
+/// default boots and gloves IDs (`item_rows::default_id`).
+pub(crate) fn plan_run(
+    exports: Vec<ExportToPlan>,
+    version: PesVersion,
+    hide_ids: fpc::HideIds,
+) -> PlanReport {
     let mut tasks = Vec::new();
     let mut team_colors = Vec::new();
     let mut team_kits = Vec::new();
@@ -1405,7 +1411,7 @@ pub(crate) fn plan_run(exports: Vec<ExportToPlan>, version: PesVersion) -> PlanR
             Engine::PreFox => false,
         };
         if writes_item_rows {
-            let rows = export_rows(&tasks, first_task, &row_players, export.coverage);
+            let rows = export_rows(&tasks, first_task, &row_players, export.coverage, hide_ids);
             player_rows.items.extend(rows.items);
             player_rows.appearance.extend(rows.appearance);
             // The same compiled players get the patch's `[[teams]]` block: the run's one
@@ -2458,6 +2464,7 @@ mod tests {
                 to_plan(ExportId(1), second, two_team_colors(), None),
             ],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -2504,6 +2511,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -2547,6 +2555,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         // Slots 05 and 07 of team 714 own the exclusive ids 625 and 627; slot 23 owns 643.
@@ -2609,6 +2618,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         let [message] = report.messages.as_slice() else {
@@ -2656,6 +2666,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), alone, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         assert!(report.messages.is_empty(), "{:?}", report.messages);
         assert_eq!(
@@ -2677,6 +2688,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes17,
+            fpc::HideIds::CONVENTION,
         );
         assert!(report.messages.is_empty(), "{:?}", report.messages);
         let files: Vec<&str> = report.manifest.tasks[0]
@@ -2695,6 +2707,7 @@ mod tests {
             plan_run(
                 vec![to_plan(ExportId(0), export, two_team_colors(), None)],
                 PesVersion::Pes17,
+                fpc::HideIds::CONVENTION,
             )
         };
 
@@ -2778,6 +2791,7 @@ mod tests {
                 to_plan(ExportId(1), without_kits, two_team_colors(), None),
             ],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         // The goalkeeper's `g1` is not a number of its own.
@@ -2830,6 +2844,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         // Neither a boots nor a textures task for Studs, and Zebra takes slot 06's
@@ -2870,6 +2885,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         // Slots 03 and 11 wear Zebra and 07 apple, so no player has a boots package; Zebra's
@@ -3000,6 +3016,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         // Slot 05's folder plans nothing: no face 71405, no boots 625, no textures; the
@@ -3039,6 +3056,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes17,
+            fpc::HideIds::CONVENTION,
         );
         let files: Vec<&str> = report
             .messages
@@ -3088,6 +3106,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), referees, None, None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         assert_eq!(
             message_summary(&report),
@@ -3142,6 +3161,7 @@ mod tests {
             let report = plan_run(
                 vec![to_plan(ExportId(0), export, two_team_colors(), None)],
                 version,
+                fpc::HideIds::CONVENTION,
             );
 
             assert_eq!(
@@ -3292,6 +3312,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -3314,6 +3335,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -3364,6 +3386,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         // The shared folders are only sources of parts: no shared id, no output of their own.
@@ -3471,6 +3494,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         // The boots alone: the face of a folder whose only model is in `boots/` is blank.
@@ -3538,6 +3562,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         // Slot 05's face reads the local part, the two Common models and the hair's skeleton,
@@ -3647,6 +3672,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         let Some(folder) = report
@@ -3702,6 +3728,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         // Slot 05's textures task reads its own `skin.dds` alone; slot 07, holding a model
@@ -3750,6 +3777,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         // The face task exists for the shared model alone, and is charged the player's
@@ -3822,6 +3850,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         assert_eq!(
             report
@@ -3876,6 +3905,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -3914,6 +3944,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert!(report.messages.is_empty(), "{:?}", report.messages);
@@ -3947,6 +3978,7 @@ mod tests {
             plan_run(
                 vec![to_plan(ExportId(0), export, two_team_colors(), None)],
                 PesVersion::Pes21,
+                fpc::HideIds::CONVENTION,
             )
         };
         let shared = ("Boots/Crocs/boots.fmdl", 16);
@@ -4000,6 +4032,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -4046,6 +4079,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -4071,6 +4105,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(3), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         let messages: Vec<(&str, &Scope, Disposition)> = report
@@ -4162,6 +4197,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -4201,6 +4237,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert!(report.messages.is_empty(), "{:?}", report.messages);
@@ -4235,6 +4272,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         report
             .manifest
@@ -4298,6 +4336,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         assert_eq!(
             report.manifest.tasks[0].kind.folder_path(),
@@ -4322,6 +4361,7 @@ mod tests {
         let with = plan_run(
             vec![to_plan(ExportId(0), kit(), Some(colors.clone()), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         assert_eq!(with.manifest.team_colors, [(714, colors.clone())]);
         // The export holds no `g1/`: a `Full` export plans an empty one beside its p1.
@@ -4337,6 +4377,7 @@ mod tests {
         let without = plan_run(
             vec![to_plan(ExportId(4), kit(), None, None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         assert_eq!(without.manifest.team_colors, []);
         let [missing, generated, ..] = without.messages.as_slice() else {
@@ -4360,6 +4401,7 @@ mod tests {
         let refused_lines = plan_run(
             vec![to_plan(ExportId(0), kit(), Some(Vec::new()), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         assert_eq!(refused_lines.manifest.team_colors, []);
         assert_eq!(
@@ -4379,6 +4421,7 @@ mod tests {
                 to_plan(ExportId(1), kit(), Some(colors.clone()), None),
             ],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         assert_eq!(
             both.manifest.team_colors,
@@ -4408,6 +4451,7 @@ mod tests {
                 to_plan(ExportId(3), kit("co Midcup Kit"), None, note("co's note")),
             ],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -4460,6 +4504,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), referees, None, None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -4551,6 +4596,7 @@ mod tests {
                     to_plan(ExportId(1), team, two_team_colors(), None),
                 ],
                 version,
+                fpc::HideIds::CONVENTION,
             );
 
             let textures: Vec<&str> = report
@@ -4590,7 +4636,11 @@ mod tests {
                 Some(b"01 Ref A\n20 Ref A\n"),
             );
 
-            let report = plan_run(vec![to_plan(ExportId(0), referees, None, None)], version);
+            let report = plan_run(
+                vec![to_plan(ExportId(0), referees, None, None)],
+                version,
+                fpc::HideIds::CONVENTION,
+            );
 
             // No blank face: a referee has no FPC body to bring a head.
             assert_eq!(
@@ -4632,7 +4682,11 @@ mod tests {
                 Some(b"01 Ref A\n20 Ref A\n"),
             );
 
-            let report = plan_run(vec![to_plan(ExportId(0), referees, None, None)], version);
+            let report = plan_run(
+                vec![to_plan(ExportId(0), referees, None, None)],
+                version,
+                fpc::HideIds::CONVENTION,
+            );
 
             assert_eq!(
                 summary(&report),
@@ -4662,7 +4716,11 @@ mod tests {
                 &[],
                 Some(b"01 Ref A\n"),
             );
-            let report = plan_run(vec![to_plan(ExportId(0), referees, None, None)], version);
+            let report = plan_run(
+                vec![to_plan(ExportId(0), referees, None, None)],
+                version,
+                fpc::HideIds::CONVENTION,
+            );
             assert_eq!(
                 summary(&report),
                 ["0 999 Face Players/Ref A [referee 1] charge 10"],
@@ -4687,6 +4745,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), team, two_team_colors(), None)],
             PesVersion::Pes17,
+            fpc::HideIds::CONVENTION,
         );
         assert_eq!(
             summary(&report),
@@ -4717,6 +4776,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes17,
+            fpc::HideIds::CONVENTION,
         );
 
         // The shared face is a second source of slot 05's face; the shared boots are their
@@ -4773,6 +4833,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes17,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -4812,6 +4873,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert_eq!(
@@ -4859,6 +4921,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes17,
+            fpc::HideIds::CONVENTION,
         );
 
         // Each marked player's boots and gloves under his exclusive id, a package for each
@@ -4925,7 +4988,7 @@ mod tests {
         );
         let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
         planned.metal_models = metal_models.iter().map(|path| scope_path(path)).collect();
-        plan_run(vec![planned], PesVersion::Pes17)
+        plan_run(vec![planned], PesVersion::Pes17, fpc::HideIds::CONVENTION)
     }
 
     #[test]
@@ -5036,6 +5099,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes17,
+            fpc::HideIds::CONVENTION,
         );
 
         assert!(report.messages.is_empty(), "{:?}", report.messages);
@@ -5149,6 +5213,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), fox, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         let folder = models_folder(&report.manifest.tasks[0]);
         assert_eq!(folder.common_models.len(), 1);
@@ -5175,6 +5240,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
 
         assert!(report.messages.is_empty(), "{:?}", report.messages);
@@ -5253,7 +5319,7 @@ mod tests {
         );
         let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
         planned.metal_models = metal_models.iter().map(|path| scope_path(path)).collect();
-        plan_run(vec![planned], PesVersion::Pes17)
+        plan_run(vec![planned], PesVersion::Pes17, fpc::HideIds::CONVENTION)
     }
 
     /// The `environment_map` flag of the plan's Common textures task, `None` when it has none.
@@ -5366,7 +5432,7 @@ mod tests {
         );
         let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
         planned.metal_models = [scope_path("Common/legs.fmdl")].into();
-        let report = plan_run(vec![planned], PesVersion::Pes21);
+        let report = plan_run(vec![planned], PesVersion::Pes21, fpc::HideIds::CONVENTION);
         assert_eq!(common_environment_map(&report), Some(false));
     }
 
@@ -5379,7 +5445,7 @@ mod tests {
             let export = resolved("co Midcup Common", files, &[], None);
             let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
             planned.metal_models = [scope_path("Common/sub/legs.fmdl")].into();
-            let report = plan_run(vec![planned], PesVersion::Pes17);
+            let report = plan_run(vec![planned], PesVersion::Pes17, fpc::HideIds::CONVENTION);
             let mut textures = Vec::new();
             let mut models = Vec::new();
             for task in &report.manifest.tasks {
@@ -5482,6 +5548,7 @@ mod tests {
             let report = plan_run(
                 vec![to_plan(ExportId(0), export, two_team_colors(), None)],
                 version,
+                fpc::HideIds::CONVENTION,
             );
             let lines: Vec<String> = report
                 .messages
@@ -5617,6 +5684,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes17,
+            fpc::HideIds::CONVENTION,
         );
         // The textures tasks, each by folder with the paths of the textures it reads, and
         // the folders of the models tasks.
@@ -5698,6 +5766,7 @@ mod tests {
             let report = plan_run(
                 vec![to_plan(ExportId(0), export, two_team_colors(), None)],
                 version,
+                fpc::HideIds::CONVENTION,
             );
             let folder = report
                 .manifest
@@ -5755,6 +5824,7 @@ mod tests {
         let report = plan_run(
             vec![to_plan(ExportId(0), export, two_team_colors(), None)],
             PesVersion::Pes21,
+            fpc::HideIds::CONVENTION,
         );
         let folder = report
             .manifest
@@ -5803,7 +5873,7 @@ mod tests {
             scope_path("Players/06 - B/boots.fmdl"),
         ]
         .into();
-        plan_run(vec![planned], version)
+        plan_run(vec![planned], version, fpc::HideIds::CONVENTION)
     }
 
     /// The paths of the files `task` reads.
@@ -5906,7 +5976,7 @@ mod tests {
         .map(scope_path)
         .into();
 
-        let report = plan_run(vec![planned], PesVersion::Pes17);
+        let report = plan_run(vec![planned], PesVersion::Pes17, fpc::HideIds::CONVENTION);
 
         // One face task per face, and no gloves task for the split: its hands are entries of
         // the face's own `face.xml`.
@@ -5976,7 +6046,7 @@ mod tests {
         ]
         .into();
 
-        let report = plan_run(vec![planned], PesVersion::Pes17);
+        let report = plan_run(vec![planned], PesVersion::Pes17, fpc::HideIds::CONVENTION);
 
         let tasks = &report.manifest.tasks;
         assert_eq!(
@@ -6031,7 +6101,7 @@ mod tests {
             scope_path("Faces/Round/boots.fmdl"),
         ]
         .into();
-        plan_run(vec![planned], version)
+        plan_run(vec![planned], version, fpc::HideIds::CONVENTION)
     }
 
     /// Each `Models` and `Textures` task of `report` as its folder's path with whether the
@@ -6112,7 +6182,7 @@ mod tests {
             let export = resolved("co Midcup Metal", files, &[], None);
             let mut planned = to_plan(ExportId(0), export, two_team_colors(), None);
             planned.metal_models = [scope_path("Players/05 - A/boots.fmdl")].into();
-            plan_run(vec![planned], PesVersion::Pes17)
+            plan_run(vec![planned], PesVersion::Pes17, fpc::HideIds::CONVENTION)
         };
 
         // The link's Common texture is the map: a textures task would emit nothing.

@@ -1,7 +1,7 @@
 //! Maps the `libs/fpc` presets onto a player and derives the interference
 //! inputs: `apply` writes one preset's appearance, `strip_style` reads the
-//! strip settings `fpc::check` reasons over, `is_fpc_player` is the 4cc
-//! convention's hidden-player test.
+//! strip settings `fpc::check` reasons over, `is_fpc_player` is the
+//! hidden-player test under the settings' hide IDs.
 
 use pes_version::PesVersion;
 
@@ -124,22 +124,20 @@ pub fn strip_style(player: &PlayerEntry) -> Result<fpc::StripStyle, FpcError> {
     })
 }
 
-/// What the save shows, not what the team intends: the nonexistent boots ID
-/// of the 4cc convention, or a custom skin. A hide preset applied with a
-/// substituted (real) boots ID is indistinguishable from a dressed player by
-/// construction, so this is the save editor's read-only classifier; the
-/// compiler, which knows the folder's marker, passes its own `is_fpc_player`
-/// to `fpc::check`. Reads the skin through the ingame-face run, hence
-/// `Result`.
-pub fn is_fpc_player(player: &PlayerEntry) -> Result<bool, FpcError> {
-    Ok(
-        player.appearance.boots_id == u32::from(fpc::NONEXISTENT_BOOTS_ID)
-            || player
-                .appearance
-                .ingame_face
-                .get(IngameFaceField::SkinColor)?
-                == 7,
-    )
+/// What the save shows, not what the team intends: a boots ID of `ids`'s
+/// (the hide ID the settings give), or a custom skin. A hide preset applied
+/// with a substituted (real) boots ID is indistinguishable from a dressed
+/// player by construction, so this is the save editor's read-only
+/// classifier; the compiler, which knows the folder's marker, passes its
+/// own `is_fpc_player` to `fpc::check`. Reads the skin through the
+/// ingame-face run, hence `Result`.
+pub fn is_fpc_player(player: &PlayerEntry, ids: fpc::HideIds) -> Result<bool, FpcError> {
+    Ok(player.appearance.boots_id == u32::from(ids.boots())
+        || player
+            .appearance
+            .ingame_face
+            .get(IngameFaceField::SkinColor)?
+            == 7)
 }
 
 #[cfg(test)]
@@ -158,26 +156,32 @@ mod tests {
     }
 
     #[test]
-    fn the_hide_preset_writes_long_sleeves_and_the_nonexistent_ids() {
+    fn the_hide_preset_writes_long_sleeves_and_the_hide_ids() {
         let mut player = player_70101(PesVersion::Pes19);
         apply(
             &mut player,
-            &fpc::preset(fpc::Preset::Hide),
+            &fpc::preset(fpc::Preset::Hide, fpc::HideIds::CONVENTION),
             PesVersion::Pes19,
         )
         .expect("apply");
         assert_eq!(player.appearance.sleeves, 2);
         assert!(!player.appearance.untucked);
         assert_eq!(player.appearance.socks, 2);
-        assert_eq!(
-            player.appearance.boots_id,
-            u32::from(fpc::NONEXISTENT_BOOTS_ID)
-        );
-        assert_eq!(
-            player.appearance.gloves_id,
-            u32::from(fpc::NONEXISTENT_GLOVES_ID)
-        );
-        assert!(is_fpc_player(&player).expect("is_fpc_player"));
+        assert_eq!(player.appearance.boots_id, 55);
+        assert_eq!(player.appearance.gloves_id, 11);
+        assert!(is_fpc_player(&player, fpc::HideIds::CONVENTION).expect("is_fpc_player"));
+    }
+
+    // The classifier reads the hide IDs it is given, not the convention:
+    // under IDs (60, 12) boots 60 is hidden and the convention's 55 is not.
+    #[test]
+    fn is_fpc_player_reads_the_given_hide_ids() {
+        let ids = fpc::HideIds::new(60, 12).expect("in band");
+        let mut player = player_70101(PesVersion::Pes19);
+        player.appearance.boots_id = 60;
+        assert!(is_fpc_player(&player, ids).expect("is_fpc_player"));
+        player.appearance.boots_id = 55;
+        assert!(!is_fpc_player(&player, ids).expect("is_fpc_player"));
     }
 
     #[test]
@@ -191,7 +195,7 @@ mod tests {
         assert_ne!(skin, 7, "the fixture's skin is not custom");
         apply(
             &mut player,
-            &fpc::preset(fpc::Preset::Unhide),
+            &fpc::preset(fpc::Preset::Unhide, fpc::HideIds::CONVENTION),
             PesVersion::Pes19,
         )
         .expect("apply");
@@ -200,7 +204,7 @@ mod tests {
         assert_eq!(player.appearance.socks, 0);
         assert_eq!(player.appearance.boots_id, 0);
         assert_eq!(player.appearance.gloves_id, 0);
-        assert!(!is_fpc_player(&player).expect("is_fpc_player"));
+        assert!(!is_fpc_player(&player, fpc::HideIds::CONVENTION).expect("is_fpc_player"));
     }
 
     #[test]
@@ -209,7 +213,7 @@ mod tests {
         let before = player.clone();
         match apply(
             &mut player,
-            &fpc::preset(fpc::Preset::PartialHide),
+            &fpc::preset(fpc::Preset::PartialHide, fpc::HideIds::CONVENTION),
             PesVersion::Pes19,
         ) {
             Err(FpcError::CustomSkinUnavailable { version }) => {
@@ -222,7 +226,7 @@ mod tests {
         let mut player = player_70101(PesVersion::Pes16);
         apply(
             &mut player,
-            &fpc::preset(fpc::Preset::PartialHide),
+            &fpc::preset(fpc::Preset::PartialHide, fpc::HideIds::CONVENTION),
             PesVersion::Pes16,
         )
         .expect("apply");
@@ -234,7 +238,7 @@ mod tests {
                 .expect("read run"),
             7
         );
-        assert!(is_fpc_player(&player).expect("is_fpc_player"));
+        assert!(is_fpc_player(&player, fpc::HideIds::CONVENTION).expect("is_fpc_player"));
     }
 
     #[test]
@@ -247,7 +251,7 @@ mod tests {
             .expect("set");
         apply(
             &mut player,
-            &fpc::preset(fpc::Preset::Unhide),
+            &fpc::preset(fpc::Preset::Unhide, fpc::HideIds::CONVENTION),
             PesVersion::Pes16,
         )
         .expect("apply");
@@ -312,7 +316,7 @@ mod tests {
         let mut player = PlayerEntry::default();
         match apply(
             &mut player,
-            &fpc::preset(fpc::Preset::Hide),
+            &fpc::preset(fpc::Preset::Hide, fpc::HideIds::CONVENTION),
             PesVersion::Pes19,
         ) {
             Err(FpcError::Codec(CodecError::NoIngameFaceRun { .. })) => {}
@@ -328,7 +332,7 @@ mod tests {
         let mut player = find_player(&payload, schema, 70101);
         apply(
             &mut player,
-            &fpc::preset(fpc::Preset::Hide),
+            &fpc::preset(fpc::Preset::Hide, fpc::HideIds::CONVENTION),
             PesVersion::Pes19,
         )
         .expect("apply");
