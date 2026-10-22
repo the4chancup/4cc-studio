@@ -63,7 +63,7 @@ release checking, download/verification, and binary replacement; `studio` separa
 `teams_list`'s parse/reconcile logic for teams-list reconciliation. Core knows neither
 teams-list/team-ID semantics nor team-format types. No plugin hook or new updater framework is
 needed. This is desktop-only (`#[cfg(not(target_arch = "wasm32"))]`); the browser build updates
-server-side. Release 0.1.0 ships step 1, step 2 as a notice (release notes and a link to the
+server-side. Release 0.2.0 ships step 1, step 2 as a notice (release notes and a link to the
 release page, no *Update now*) and step 5; steps 3, 4, 6, the `update` subcommand and rollback
 arrive in Phase 16:
 

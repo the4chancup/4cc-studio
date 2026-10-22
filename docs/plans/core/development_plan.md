@@ -18,6 +18,15 @@ depends on the Blender `pes-models` codec outside this workspace. Phase numbers 
 every pointer names them. Releases stay `0.x` until Phase 16 closes with **1.0.0**; "first
 release" in the plans means 1.0.0, so a "first-release" feature may land after 0.1.0.
 
+**`0.x` releases are test releases.** They go to a restricted group of testers, who are told in
+person of every change that reaches them, so everything can still change: no released surface
+(export layout, `settings.toml`/`config.toml` keys, CLI flags and exit codes, finding codes) is
+a compatibility contract before 1.0.0, and the maintenance-mode procedure that would hold them
+to one is written for 1.0.0 (Phase 16). What a tester would notice still gets its
+`CHANGELOG.md` line, which is what the personal notice is written from. The help chapters
+beyond the per-view topics, the update check and the teams-list merge, which a wide audience
+needs and a tester told in person does not, ship in Release 0.2.0 or later.
+
 **Divegrass Before Christmas (DBC).** The invitational (exports due 2026-11-18) is the first
 test ground for the Save editor and the Ruleset editor, which members should have as early as
 the usual rigor allows, to get used to them before the deadline. So after Phase 6 closes the
@@ -100,8 +109,10 @@ feedback from the modding community arrives through Release 0.1.0, which follows
 
 ### Release 0.1.0
 
-Cut once Phase 8 closes. It is a milestone rather than a numbered phase: its deliverables are the
-slice of Phase 16 an early release cannot do without, pulled forward.
+Cut once Phase 8 closes, as an early test release ("Releases" above: testers told of every
+change in person, nothing a compatibility contract yet). It is a milestone rather than a
+numbered phase: its deliverables are the slice of Phase 16 an early release cannot do without,
+pulled forward.
 
 **Ships:** the Team compiler (Phases 3–5: native FMDL/`.model` sources, CPU texture encoding,
 compile-time aesthetics, on Fox the output CPK's database tables and on pre-Fox savefile writing),
@@ -113,28 +124,40 @@ referee export's per-referee `face/`, `boots/`, `gloves/` and `common/` subfolde
 through the upgrader too (`player_layout_proto`).
 
 **Does not ship:** glTF (Phase 7), desktop GPU BC7, the Linux bundle, and the updater's
-download/swap/rollback (all Phase 16), and the tools of Phases 9–15.
+download/swap/rollback (all Phase 16), the tools of Phases 9–15, and what Release 0.2.0 brings
+(the help chapters beyond the per-view topics, the update check, the teams-list merge).
 
 - Release bundling as the `just release <version>` recipe, Windows bundle only (`distribution.md`
   "Distribution: portable .7z bundle", "Changelog and version display"): the `.7z` with a SHA256
   checksum asset, the release body copied from the version's `CHANGELOG.md` section
-- `CHANGELOG.md` started; help chapters for the shipped tools and the core chapters (Red's two
-  readmes migrated into the Team compiler and core chapters); `4cc-studio help --export` wired
-  into the release process
+- `CHANGELOG.md` started, a line for every change a tester would notice. The help a tool
+  carries is the topics its view's steps write (the Save editor's, the shell's core chapters)
+- Phases 7 and 9–15 keep the phase procedure; each may ship as a `0.x` release
+
+**Verification:** `just release 0.1.0` produces the bundle and checksum; a recorded manual check
+on a clean Windows machine: the bundle extracted to a fresh folder, the first-run dialog, and a
+fixture export compiled through `quick_compile.bat`. The release closes with converge and
+rewrite over its own sections.
+
+### Release 0.2.0
+
+A later test release (or a later `0.x`; "Releases" above), with what a wide audience needs and a
+tester told in person does not:
+
+- Help chapters for the shipped tools beyond their views' topics (Red's two readmes migrated
+  into the Team compiler and core chapters, "Updates" and "What's new"); `4cc-studio help
+  --export` wired into the release process
 - The updater's check and notice (`distribution.md` "Self-update: in-place binary swap", step 1,
   and step 2 reduced to a notice): the release notes and a link to the release page, with *Skip
   this version* / *Remind me later*; the CLI one-line notice. Plus step 5, the teams-list
   reconciliation on the first start of a new version: it runs on a new binary's first start
-  however the binary arrived, so a manual update needs it as much as the swap does
-- Maintenance mode, moved here from Phase 16: the `AGENTS.md` section written as 0.1.0 is cut,
-  since from this release on the released surfaces (export layout, `settings.toml`/`config.toml`
-  keys, CLI flags and exit codes, finding codes) are compatibility contracts. The outline is Phase
-  16's bullet. Phases 7 and 9–15 keep the phase procedure; each may ship as a `0.x` release
+  however the binary arrived, so a manual update needs it as much as the swap does. Until it
+  ships, a new build does not replace a tester's working `data/teams_list.txt`, so a team added
+  upstream is missing until the tester takes the new list by hand, which the release's notice
+  says
 
-**Verification:** `just release 0.1.0` produces the bundle and checksum; a recorded manual check
-on a clean Windows machine: the bundle extracted to a fresh folder, the first-run dialog, a
-fixture export compiled through `quick_compile.bat`, and the update notice shown against a test
-release with a higher tag. The release closes with converge and rewrite over its own sections.
+**Verification:** the update notice shown against a test release with a higher tag, and the
+teams-list merge's summary on a new binary's first start over a working list with a local row.
 
 ### Phase 9: Stadium compiler (`tools/stadium_compiler`)
 
@@ -253,8 +276,8 @@ from unintended conversion loss.
 ### Phase 16: Polish and distribution
 
 Closes with the **1.0.0** release. Release 0.1.0 already delivered the Windows `just release`
-recipe, `CHANGELOG.md`, the first help chapters, the update check and notice with the teams-list
-merge, and the maintenance-mode section; this phase completes them.
+recipe and `CHANGELOG.md`, Release 0.2.0 the first help chapters and the update check and notice
+with the teams-list merge; this phase completes them and writes the maintenance-mode section.
 
 - Release bundling: the Linux bundle joins the `just release <version>` recipe (see
   `distribution.md` "Distribution and updates", `distribution.md` "Changelog and version
@@ -265,7 +288,8 @@ merge, and the maintenance-mode section; this phase completes them.
   cold pipeline creation and upload/readback measured first, then bounded batches, the Auto/CPU
   setting and the fallback report
 - Documentation: every shipped tool's `help/` chapter written for members (a tool shipping in a
-  `0.x` release carries its chapter from that release); the bundled readme stays a pointer (the
+  `0.x` release from 0.2.0 on carries its chapter from that release; 0.1.0's carry their views'
+  topics); the bundled readme stays a pointer (the
   window itself is Phase 8)
 - Web guide: after the pre-release testing and before 1.0.0, a guide to the whole suite in web
   format, with as many visual elements as can be made (screenshots, annotated folder trees,
@@ -274,8 +298,9 @@ merge, and the maintenance-mode section; this phase completes them.
   reference; the guide is where a member learns the layout before opening the app, because
   the export's flexibility is what a new manager gets wrong first
 - Maintenance mode: the `AGENTS.md` section on how the project changes once released is written
-  at Release 0.1.0 (not earlier: a procedure written far ahead of its use goes stale) and reviewed
-  here for 1.0.0. Agreed outline: the plans stay the spec, edited in place, and `DECISIONS.md` stays the
+  here, for 1.0.0, the first release whose surfaces are compatibility contracts (the `0.x`
+  releases go to testers told of every change in person; "Releases"), and not earlier: a
+  procedure written far ahead of its use goes stale. Agreed outline: the plans stay the spec, edited in place, and `DECISIONS.md` stays the
   decision (ADR) log, split per year past about 4-5k lines, with no per-file ADRs or ADR
   tooling. A fix is a failing regression test first, a plan edit only if behavior changes, and
   `mutants-diff`. A feature runs the phase procedure at small scale (acceptance scenarios,

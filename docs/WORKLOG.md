@@ -116,7 +116,8 @@ documents".
 | 6 | Export upgrader | `export_upgrader` | done |
 | 7 | glTF support (runs after Release 0.1.0) | `model_convert` (glTF half) | todo |
 | 8 | GUI | `studio_core` shell, `studio`, tool views, `color_tools` widget | todo |
-| 0.1.0 | Release 0.1.0, after Phase 8 (`core/development_plan.md` "Release 0.1.0") | `just release`, `CHANGELOG.md`, help chapters, update check + notice, teams-list merge, maintenance mode | todo |
+| 0.1.0 | Release 0.1.0, after Phase 8, a test release (`core/development_plan.md` "Release 0.1.0") | `just release`, `CHANGELOG.md` | todo |
+| 0.2.0 | Release 0.2.0 or a later `0.x` (`core/development_plan.md` "Release 0.2.0") | help chapters, update check + notice, teams-list merge | todo |
 | 9 | Stadium compiler | `stadium_compiler` | todo |
 | 10 | Music tools | `music_player`, `music_export_editor`, `music_export`, `audio_engine` | todo |
 | 11 | Match tracker | `match_tracker`, `match_feed` | todo |
@@ -679,7 +680,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       - [x] 8.6d1 the catalogs' member texts (`When`, `Effect`) in each tool's `messages.rs`,
         copied from the spec's tables; the core chapters `setting-up` and `first-run`;
         `4cc-studio help` and `--export` (ST-HELP-04). "Updates" and "What's new" wait for
-        the update check and `CHANGELOG.md` (Release 0.1.0). Done 2026-10-20 (SWE-2):
+        the update check and `CHANGELOG.md` (Release 0.2.0). Done 2026-10-20 (SWE-2):
         `CatalogRow` and `HelpSection::messages`, `help::chapters`, `help/export.rs`
         (`chapter_markdown`, `topic_markdown`, `run_help`), `LaunchMode::Help` (clap's own
         `help` subcommand disabled, `help` no tool's id), `Severity::name`; the rows filled by

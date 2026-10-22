@@ -10175,3 +10175,19 @@ version has, an outfielder's goalkeeping stats included.
 Why: a flat all-77 cap would leave the Manlet bonus nothing but points to trade between stats,
 and a per-role list of stats would be a second rule to maintain for no gain the organizer wants.
 Plan: `plans/aatf_rules.md` "DBC7" (the stat-total bullet); `QUESTIONS.md` entry removed.
+
+## 2026-10-22 — releases — 0.x are test releases; compatibility contracts start at 1.0.0
+Decision: 0.1.0 is an early test release for a restricted group of testers, told in person of
+every change: no released surface is a compatibility contract before 1.0.0, and the
+maintenance-mode section of `AGENTS.md` is written for 1.0.0 (Phase 16) rather than at 0.1.0.
+0.1.0 ships the bundle and `CHANGELOG.md` only; the help chapters beyond the views' own topics,
+the update check and notice, and the teams-list merge move to Release 0.2.0 or later.
+Why: holding the export layout, the settings keys and the finding codes to a contract while a
+handful of testers use them would make every early correction an upgrader migration; told in
+person, a tester can take the change by hand. What a tester would notice still gets its
+`CHANGELOG.md` line (the rule `AGENTS.md` already sets once a release exists), since the notice
+is written from it. Without the teams-list merge a new build keeps a tester's old working list,
+which a tester can replace by hand when told.
+Plan: `plans/core/development_plan.md` "Releases", "Release 0.1.0", the new "Release 0.2.0",
+Phase 16; `plans/core/distribution.md` (the updater's steps ship at 0.2.0);
+`spec/core/distribution.md` (the compatibility rule binds from 1.0.0).

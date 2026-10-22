@@ -152,8 +152,9 @@ Rationale:
 A release is cut (tag, GitHub Release, `.7z` asset) when there's something to distribute; not every
 commit is a release. The workspace version is the next-release version; the tag is what the updater
 compares against. The suite ships `0.x` releases from 0.1.0 (end of Phase 8) until 1.0.0 (end of
-Phase 16; `plans/core/development_plan.md` "Releases"); `0.x` does not loosen the compatibility rule for
-released surfaces, which binds from 0.1.0 (`plans/core/development_plan.md` "Release 0.1.0").
+Phase 16; `plans/core/development_plan.md` "Releases"). The compatibility rule for released
+surfaces binds from 1.0.0: the `0.x` releases are test releases for a restricted group of
+testers, told in person of every change, so everything can still change before then.
 
 **One exception: `python_bindings`.** It is built via maturin into a wheel that Blender users
 install independently of the Studio binary, and its consumers are not Studio users. Its version is
