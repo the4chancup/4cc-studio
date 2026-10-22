@@ -964,8 +964,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           reopen on PES 21 and 16; the help says the filter must be empty to drag. Files:
           `aatf/src/{rules.rs,team.rs}`, `save_editor/{help/02_window.md,src/session/mod.rs,
           tests/cli/check_aatf.rs}`
-        - [ ] review: with 8.9c1's (one surface, the rule and its first user): SWE-2 S1 on
-          each, Astra A3 done; the post-Astra SWE-2 loop over the two reworks is next
+        - [x] review: with 8.9c1's (one surface, the rule and its first user): SWE-2 S1 on
+          each (0 of 8, 2 of 5), Astra A3 (3 of 4, rework 2), SWE-2 S2 over the reworks (0; two
+          nits fixed); `mutants-diff 78b049a8` at `eca895b1`: every viable mutant caught
     - [ ] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,

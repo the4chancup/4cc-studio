@@ -119,3 +119,21 @@ debug = false
 # encoder builds optimized in dev").
 [profile.dev.package.block_compression]
 opt-level = 3
+
+# The AATF rules interpreter and the save container's inflate and hashes are the bulk of the
+# test suites' time unoptimized: `check-aatf` over a fixture save's 220 teams took 128 s in a
+# test build against 19 s with these four optimized, a one-team check 5.6 s against 2.5 s, and
+# the build took no longer (DECISIONS.md 2026-10-22 "the hot dependencies build optimized in
+# dev"). Every dependency optimized gained little more and cost 88 s per cold
+# build, which every mutation run pays.
+[profile.dev.package.rhai]
+opt-level = 3
+
+[profile.dev.package.zlib-rs]
+opt-level = 3
+
+[profile.dev.package.md-5]
+opt-level = 3
+
+[profile.dev.package.sha2]
+opt-level = 3

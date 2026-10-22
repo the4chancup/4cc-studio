@@ -1231,18 +1231,25 @@ mod tests {
         );
     }
 
-    /// SE-TOML-02's lib half: every team of the save exports and each text
-    /// parses as a Team TOML naming its team.
+    /// SE-TOML-02's lib half: every team of the save exports naming its team,
+    /// and the text of the first, /co/ (714) and the last parses as a Team
+    /// TOML naming it. The text pass on all 220 took 49 s in a test build;
+    /// `every_fixture_team_round_trips_through_the_document` samples it too.
     #[test]
     fn every_team_exports_and_parses_naming_it() {
         let (file, _) = open(PesVersion::Pes21);
         let refs: Vec<&PlayerEntry> = file.players().iter().collect();
-        for team in file.teams() {
+        let teams = file.teams();
+        for team in teams {
             let doc = TeamToml::from_team(PesVersion::Pes21, team, &refs).expect("from_team");
             assert_eq!(doc.team.id, Some(team.id), "names its team");
+        }
+        for id in [teams[0].id, 714, teams[teams.len() - 1].id] {
+            let team = file.team(id).expect("the fixture holds the team");
+            let doc = TeamToml::from_team(PesVersion::Pes21, team, &refs).expect("from_team");
             let parsed = TeamToml::parse(&doc.to_toml().expect("to_toml"))
                 .expect("the emitted text reparses");
-            assert_eq!(parsed.team.id, Some(team.id));
+            assert_eq!(parsed.team.id, Some(id));
         }
     }
 

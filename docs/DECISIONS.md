@@ -10087,3 +10087,22 @@ and a run's build copies take about 8 GiB more, so a phase-close cleanup alone f
 but one new leaking test filled 27 GB in two days, so only a check at every run catches it in
 time. The 20 GiB floor leaves the host about 10 GiB while a run's copies stand.
 Plan: RUNBOOK "The scratch folder"; `scripts/mutants.py` `REMOTE_DISK_BUDGET`, `REMOTE_FREE_FLOOR`.
+
+## 2026-10-22 — tooling — The hot dependencies build optimized in dev, and the two all-teams CLI tests check fewer teams
+Decision: `rhai`, `zlib-rs`, `md-5` and `sha2` build at `opt-level = 3` in the dev profile
+(as `block_compression` does), and two of the Save editor's CLI tests stop doing their work 220
+times: SE-AATF-05's test checks five cup teams (the fixture's others renumbered below the cup
+range) and asserts exactly those print, in id order; SE-TOML-02's test checks every exported
+file's version and team id lines as text and parses three back whole (its THEN says so).
+Why: the save editor's 49 CLI tests took 417 s run one by one, 179 of them in those two
+tests: the AATF check runs the rules interpreter unoptimized (0.5 s a team; 19 s for 220 with
+`rhai` optimized), and the export test parsed 220 files of 5,143 lines each in debug code (the
+export itself took 2.5 s). The four crates cut a one-team test from 5.6 to 2.5 s at no build
+cost measured; optimizing every dependency (`"*"`) cut the workspace's tests from 351 to 209 s
+but cost 88 s per cold build, which every mutation run's copy of the tree pays, so it is not
+done. The maintainer: "don't be afraid of reducing the fixtures". SE-TOML-02's library half in
+`pes_savefile` (49 s) samples its text pass the same way, as its round-trip siblings already
+did; the exhaustive model passes over every fixture team and player (11 to 17 s each) stay,
+since the fixtures' records are not placeholders: every team is distinct (220 of 220; 200 of
+202 on PES 18) and each version has 415 to 2,509 distinct players.
+Plan: `Cargo.toml` `[profile.dev.package.*]`; `spec/save_editor.md` SE-TOML-02.

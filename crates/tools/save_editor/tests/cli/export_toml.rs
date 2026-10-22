@@ -41,10 +41,26 @@ fn all_teams_writes_one_file_per_team_replacing_an_older_one() {
     let mut expected: Vec<String> = ids.iter().map(|id| format!("{id}.toml")).collect();
     expected.sort();
     assert_eq!(written, expected, "one <id>.toml per team, nothing else");
+    // Each file is its own team's: its version line and its `[team]` id line, read as text.
+    // Parsing all 220 files (5,143 lines each) took most of a minute in a test build; three
+    // are parsed whole: the first, 714 (written over the older file) and the last.
+    let value = |line: &str| line.split('#').next().unwrap().trim().to_owned();
     for id in &ids {
         let text = fs::read_to_string(sandbox.path(&format!("teams/{id}.toml"))).unwrap();
+        assert_eq!(
+            value(text.lines().next().unwrap()),
+            "pes_version = 21",
+            "{id}"
+        );
+        assert!(
+            text.lines().any(|line| value(line) == format!("id = {id}")),
+            "{id}: no `id = {id}` line"
+        );
+    }
+    for id in [ids[0], 714, ids[ids.len() - 1]] {
+        let text = fs::read_to_string(sandbox.path(&format!("teams/{id}.toml"))).unwrap();
         let document = TeamToml::parse(&text).unwrap_or_else(|error| panic!("{id}: {error}"));
-        assert_eq!(document.team.id, Some(*id));
+        assert_eq!(document.team.id, Some(id));
         assert_eq!(document.pes_version, Some(PesVersion::Pes21));
     }
     assert_eq!(

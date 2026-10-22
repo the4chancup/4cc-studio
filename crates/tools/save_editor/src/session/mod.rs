@@ -197,9 +197,9 @@ impl Session {
     /// bullet): the record on roster slot `from` lands on `to`'s player id and the
     /// records between shift one filled slot along, each slot keeping what belongs
     /// to its id (`id`, `appearance_id`, `appearance.base_copy_id`, and the face and
-    /// hair in the in-game face run: `moved_record`). The roster is never written, so its ids, the shirt numbers
-    /// and the captain stay put (slot `NN` holds player `team id x 100 + NN` by
-    /// 4cc rule). The whole move is one sealed undo entry. `from == to`, a team
+    /// hair in the in-game face run: `moved_record`). The roster is never written,
+    /// so its ids, the shirt numbers and the captain stay put (slot `NN` holds
+    /// player `team id x 100 + NN` by 4cc rule). The whole move is one sealed undo entry. `from == to`, a team
     /// or player the save lacks, or an empty `from` or `to` slot does nothing; an
     /// empty slot between them is skipped over.
     pub(crate) fn move_player(&mut self, team_id: u32, from: u8, to: u8) {

@@ -258,6 +258,19 @@ fn without_teams_every_cup_team_is_checked_in_id_order() {
     // the team outside 701 to 920, and it breaks the same rules (`--teams 925` flags it)
     // but the default selection leaves it out.
     let mut file = EditFile::from_bytes(&pes_savefile::fixture_save(PesVersion::Pes15)).unwrap();
+    // Five cup teams are enough to show the selection and its order, and checking all 220
+    // took two minutes in a test build: the others move below the cup range (ids 100 and up,
+    // free in this save), where the default selection leaves them out as it does 925.
+    let kept = [701, 702, 703, 704, 718, 920];
+    let moved: Vec<u32> = file
+        .teams()
+        .iter()
+        .map(|team| team.id)
+        .filter(|id| !kept.contains(id))
+        .collect();
+    for (offset, id) in (100..).zip(moved) {
+        file.team_mut(id).unwrap().id = offset;
+    }
     file.team_mut(703).unwrap().id = 925;
     // Swapping 704's and 718's ids (through the free id 921) makes record order disagree
     // with id order: the record at 704's place now carries 718, the one at 718's place 704.
@@ -298,10 +311,9 @@ fn without_teams_every_cup_team_is_checked_in_id_order() {
     );
     let mut teams = ids.clone();
     teams.dedup();
-    assert!(
-        teams.windows(2).all(|pair| pair[0] < pair[1]),
-        "team id order: {teams:?}"
-    );
+    // Every cup team left breaks a rule (the fixture's placeholder players do), so each
+    // prints, once, in id order: exactly these five, the record order notwithstanding.
+    assert_eq!(teams, [701, 702, 704, 718, 920], "team id order: {teams:?}");
 }
 
 // SE-AATF-06
@@ -430,6 +442,10 @@ fn a_roster_order_break_reports_the_held_and_expected_ids() {
     assert_eq!(
         messages[0], breaks[0],
         "slot 0's break is the first line: {messages:?}"
+    );
+    assert_ne!(
+        messages[1], breaks[1],
+        "slot 0's own rows come before slot 1's break: {messages:?}"
     );
 }
 

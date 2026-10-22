@@ -413,7 +413,9 @@ SE-TOML-02 GIVEN the PES 21 fixture save
            WHEN export-toml --all-teams --out-dir is run into a folder holding an older <id>.toml
                 of a team the save holds
            THEN the folder holds one <id>.toml per team of the save, the older one replaced, each
-                parsing as a Team TOML of its team
+                headed by the save's version and its team's id; the first, the replaced one and
+                the last parse as a Team TOML of their team (all 220 is a minute of parsing in a
+                test build, and the format's own tests cover the parse)
 SE-TOML-03 GIVEN the PES 21 fixture save
            WHEN export-toml names a --team the save lacks, or both --team and --all-teams
            THEN it is refused with exit code 2 and no file is written
