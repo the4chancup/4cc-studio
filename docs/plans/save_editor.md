@@ -214,6 +214,15 @@ mirroring 4ccEditor's structure without its dialog sprawl:
     sleeves, inners, socks, undershorts, shirttail, the player-gloves checkbox), motion (hunching, arm movement, kick
     motions, gc1/gc2, randomize; dribbling motion 20+), skin/iris color.
     **Read-only by default** — see "Read-only aesthetics" below.
+    The motion fields' ranges are the version's measured ones (`pes_savefile`'s `motion_top`:
+    a 1-based motion runs from 1 to its top plus one, a goal celebration from 0, OFF, to its
+    top). **Randomize** sets every motion but the dribbling motion to a value drawn from 1 to
+    its shown top, as one undoable edit. 4ccEditor's button (`main.cpp`, `IDB_MOTI_RAND`)
+    also draws from 1 and leaves the dribbling motion alone, but caps by two fixed sets
+    (PES 15 to 19: hunching 3, arm movement 8, corner kick 6, free kick 16, penalty 4,
+    celebrations 122; PES 20+: 5, 10, 10, 20, 7, 162), which give a PES 15 player arm
+    movements and celebrations that game does not have (its tops are 5 and 112) and never
+    reach PES 18's and 19's last celebrations (127, 140); the measured tops do neither.
   - **Team** — team name/short name, colors 1–2 (RGB), manager ID, stadium ID,
     kit slot assignments.
   - **Tactics** — see below.

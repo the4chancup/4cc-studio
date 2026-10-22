@@ -78,13 +78,13 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 /// rather than clip (a column count from the width `ui.available_width()`
 /// gives; the estimate is a typical pair's width, so a slightly wider pair
 /// still lands inside).
-fn pairs_per_row(ui: &egui::Ui, pair_width: f32) -> usize {
+pub(crate) fn pairs_per_row(ui: &egui::Ui, pair_width: f32) -> usize {
     (ui.available_width() / pair_width).floor().max(1.0) as usize
 }
 
 /// `end_row` after `index` pairs (1-based) of `per_row` are done, so a row
 /// takes as many pairs as `per_row` allows.
-fn maybe_end_row(ui: &mut egui::Ui, index: usize, per_row: usize) {
+pub(crate) fn maybe_end_row(ui: &mut egui::Ui, index: usize, per_row: usize) {
     if index.is_multiple_of(per_row) {
         ui.end_row();
     }
@@ -281,17 +281,19 @@ fn small_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats: 
     egui::Grid::new("abilities small stats").show(ui, |ui| {
         for (index, small) in SMALL_STATS.iter().enumerate() {
             match (small.get)(stats) {
-                Some(stored) => number(
-                    ui,
-                    session,
-                    player_id,
-                    small.label,
-                    stored + small.shift,
-                    small.min..=small.max,
-                    move |player, shown| {
-                        (small.set)(&mut player.stats, shown - small.shift);
-                    },
-                ),
+                Some(stored) => {
+                    number(
+                        ui,
+                        session,
+                        player_id,
+                        small.label,
+                        stored + small.shift,
+                        small.min..=small.max,
+                        move |player, shown| {
+                            (small.set)(&mut player.stats, shown - small.shift);
+                        },
+                    );
+                }
                 // The label stays too: the gated control keeps its cell.
                 None => {
                     ui.label(small.label);
@@ -350,15 +352,17 @@ fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats
     egui::Grid::new("abilities stats").show(ui, |ui| {
         for (index, name) in ABILITY_STATS.iter().enumerate() {
             match abilities[index] {
-                Some(value) => number(
-                    ui,
-                    session,
-                    player_id,
-                    title_case(name),
-                    value,
-                    40..=99,
-                    move |player, shown| player.stats.set_ability(index, shown),
-                ),
+                Some(value) => {
+                    number(
+                        ui,
+                        session,
+                        player_id,
+                        title_case(name),
+                        value,
+                        40..=99,
+                        move |player, shown| player.stats.set_ability(index, shown),
+                    );
+                }
                 // The label stays too: the gated control keeps its cell.
                 None => {
                     ui.label(title_case(name));
@@ -450,15 +454,15 @@ fn cards_row(
 /// value it draws unless told not to, and a stored value past the range
 /// would come back changed on the frame that drew it (drawing a player
 /// never edits him).
-fn number(
+pub(crate) fn number<T: egui::emath::Numeric>(
     ui: &mut egui::Ui,
     session: &mut Session,
     player_id: u32,
     label: impl Into<egui::WidgetText>,
-    shown: u8,
-    range: RangeInclusive<u8>,
-    store: impl FnOnce(&mut PlayerEntry, u8),
-) {
+    shown: T,
+    range: RangeInclusive<T>,
+    store: impl FnOnce(&mut PlayerEntry, T),
+) -> egui::Response {
     let mut shown = shown;
     ui.label(label);
     let response = ui.add(
@@ -471,13 +475,14 @@ fn number(
             store(player, shown);
         });
     }
+    response
 }
 
 /// The disabled stand-in for a number the save's version does not store:
 /// `-` inside the control's usual bounds (a Button at the DragValue's
 /// minimum size, so an enabled version's control takes the same rect,
 /// SE-GUI-06) with the `PES NN+` tooltip.
-fn gated_number(ui: &mut egui::Ui, field: PlayerField) {
+pub(crate) fn gated_number(ui: &mut egui::Ui, field: PlayerField) {
     ui.add_enabled(
         false,
         egui::Button::new("-").min_size(ui.spacing().interact_size),
@@ -486,7 +491,7 @@ fn gated_number(ui: &mut egui::Ui, field: PlayerField) {
 }
 
 /// The tooltip naming the first version that stores `field` (`PES NN+`).
-fn gating_tooltip(field: PlayerField) -> String {
+pub(crate) fn gating_tooltip(field: PlayerField) -> String {
     format!(
         "PES {}+",
         first_version_with(field)

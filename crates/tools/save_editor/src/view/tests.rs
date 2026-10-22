@@ -408,6 +408,7 @@ fn tooltip_containing(
 }
 
 mod abilities;
+mod appearance;
 mod list;
 mod shell;
 mod strip;

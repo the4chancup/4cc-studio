@@ -96,6 +96,11 @@ impl StudioTool for Tool {
                     title: "Abilities & Skills",
                     body: include_str!("../help/03_abilities.md"),
                 },
+                HelpTopic {
+                    slug: "appearance",
+                    title: "Appearance",
+                    body: include_str!("../help/04_appearance.md"),
+                },
             ],
             messages: messages::catalog(),
         }
@@ -120,6 +125,6 @@ mod tests {
         assert_eq!(tool.id(), "save-editor");
         assert_eq!(tool.label(), "Save editor");
         assert_eq!(tool.default_settings()["aatf_rules"].as_str(), Some(""));
-        assert_eq!(tool.help().topics.len(), 3);
+        assert_eq!(tool.help().topics.len(), 4);
     }
 }

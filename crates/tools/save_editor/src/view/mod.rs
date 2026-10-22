@@ -8,6 +8,7 @@
 //! shows a refusal in a modal.
 
 mod abilities;
+mod appearance;
 mod info_strip;
 mod player_list;
 #[cfg(test)]
@@ -16,10 +17,23 @@ mod tests;
 use std::path::{Path, PathBuf};
 
 use pes_savefile::model::PlayerEntry;
+use pes_savefile::model::names::name_spans;
+use pes_version::Engine;
 use studio_core::RunningPes;
 
 use crate::session::Session;
 use crate::session::selection::{self, TeamChoice};
+
+/// The detail pane's drawn tabs (`plans/save_editor.md` "Editing UI", the
+/// Tabs bullet): Team and Tactics stay disabled buttons until their slices
+/// land, so they are no variants yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Tab {
+    /// Abilities & Skills.
+    Abilities,
+    /// Appearance (`appearance`).
+    Appearance,
+}
 
 /// The window's state: the open save and what the master-detail shows of it.
 pub(crate) struct SaveView {
@@ -31,6 +45,8 @@ pub(crate) struct SaveView {
     filter: String,
     /// The selected player, by team and roster slot.
     selected: Option<(u32, u8)>,
+    /// The drawn tab.
+    tab: Tab,
     /// A refusal to show until dismissed (an open the save refused).
     refusal: Option<Refusal>,
     /// The ruleset the badges use, loaded on the first frame and again only
@@ -44,6 +60,22 @@ pub(crate) struct SaveView {
     /// state (a text field's undo history, a control's in-progress edit)
     /// never crosses into the next save's same player id.
     generation: u64,
+    /// "Edit aesthetics anyway" (`plans/save_editor.md` "Read-only
+    /// aesthetics", the Unlock bullet): off at every start of the tool, and
+    /// deliberately not reset when another save opens — a session switch,
+    /// not a per-save one.
+    edit_aesthetics: bool,
+    /// The players the Strip again window lists (SE-GUI-20): the rows
+    /// `Session::restored_players` named when the open save was a Fox one
+    /// with some stripped and some restored, resolved once at open (a save
+    /// with one player stripped by accident would otherwise look up every
+    /// other player's team every frame); `None` while it is closed.
+    strip_again: Option<Vec<StripRow>>,
+    /// Where the Appearance tab's Randomize draws a motion value in
+    /// `1..=top` from: a field so the tests pin the draws; `new` seeds a
+    /// xorshift from the wall clock (the picks need only be unpredictable
+    /// to a member, not cryptographic).
+    randomize_draw: Box<dyn FnMut(u8) -> u8>,
 }
 
 /// The ruleset the Abilities tab's badges use (`plans/save_editor.md`
@@ -80,6 +112,18 @@ struct Refusal {
     message: String,
 }
 
+/// One row of the Strip again window, resolved at open (the draft's row:
+/// the player's team, his id and his savefile name, colour codes included).
+#[derive(Clone)]
+pub(crate) struct StripRow {
+    /// The player's team's name (`None` when he sits on no roster).
+    team: Option<String>,
+    /// The player id.
+    id: u32,
+    /// His savefile name, colour codes included.
+    name: String,
+}
+
 impl Default for SaveView {
     fn default() -> SaveView {
         SaveView::new()
@@ -94,16 +138,23 @@ impl SaveView {
             team: TeamChoice::All,
             filter: String::new(),
             selected: None,
+            tab: Tab::Abilities,
             refusal: None,
             rules: None,
             cards: None,
             generation: 0,
+            edit_aesthetics: false,
+            strip_again: None,
+            randomize_draw: Box::new(appearance::seeded_draw()),
         }
     }
 
     /// Opens the save at `path`: on success the selector reads `ALL`, the
     /// filter is empty and the first listed player is selected; a file the
     /// save refuses is shown as a refusal and the open session is untouched.
+    /// A Fox save with some appearance ids stripped and some set opens the
+    /// Strip again window over the ones still set (SE-GUI-20); the
+    /// aesthetics lock is deliberately not reset (`edit_aesthetics`).
     pub(crate) fn open(&mut self, path: &Path) {
         match Session::open(path) {
             Ok(session) => {
@@ -112,6 +163,26 @@ impl SaveView {
                 self.selected = selection::rows(session.file(), &self.team, "")
                     .first()
                     .map(|row| (row.team_id, row.slot));
+                self.strip_again = match session.version().engine() {
+                    Engine::Fox => {
+                        let rows: Vec<StripRow> = session
+                            .restored_players()
+                            .iter()
+                            .map(|player| {
+                                let team = session.file().teams().iter().find(|team| {
+                                    team.roster.iter().any(|slot| slot.player_id == player.id)
+                                });
+                                StripRow {
+                                    team: team.map(|team| team.name.clone()),
+                                    id: player.id,
+                                    name: player.name.clone(),
+                                }
+                            })
+                            .collect();
+                        (!rows.is_empty()).then_some(rows)
+                    }
+                    Engine::PreFox => None,
+                };
                 self.session = Some(session);
                 self.generation += 1;
                 self.refusal = None;
@@ -153,13 +224,17 @@ pub(crate) fn show(
             .show(ui, |ui| player_list::show(ui, view));
         egui::CentralPanel::default().show(ui, |ui| {
             info_strip::show(ui, view);
-            tab_strip(ui);
+            tab_strip(ui, &mut view.tab);
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
-                .show(ui, |ui| abilities::show(ui, view));
+                .show(ui, |ui| match view.tab {
+                    Tab::Abilities => abilities::show(ui, view),
+                    Tab::Appearance => appearance::show(ui, view),
+                });
         });
     }
     refusal_dialog(ui, view);
+    strip_again_dialog(ui, view);
     // One undo entry per gesture: seal when the pointer is up and no widget
     // holds the keyboard.
     if let Some(session) = view.session.as_mut()
@@ -256,12 +331,22 @@ fn save(view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
 }
 
 /// The detail pane's tabs (`plans/save_editor.md` "Editing UI", the Tabs
-/// bullet): `Abilities & Skills` selected; the other three drawn disabled
-/// until their slices land. No tab enum yet: there is one tab to show.
-fn tab_strip(ui: &mut egui::Ui) {
+/// bullet): Abilities & Skills and Appearance pick; Team and Tactics are
+/// drawn disabled until their slices land.
+fn tab_strip(ui: &mut egui::Ui, tab: &mut Tab) {
     ui.horizontal(|ui| {
-        ui.add(egui::Button::selectable(true, "Abilities & Skills"));
-        for label in ["Appearance", "Team", "Tactics"] {
+        for (which, label) in [
+            (Tab::Abilities, "Abilities & Skills"),
+            (Tab::Appearance, "Appearance"),
+        ] {
+            if ui
+                .add(egui::Button::selectable(*tab == which, label))
+                .clicked()
+            {
+                *tab = which;
+            }
+        }
+        for label in ["Team", "Tactics"] {
             ui.add_enabled(false, egui::Button::selectable(false, label))
                 .on_disabled_hover_text("Not available yet");
         }
@@ -312,5 +397,85 @@ fn refusal_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     }
     if close {
         view.refusal = None;
+    }
+}
+
+/// The Strip again window (SE-GUI-20, the draft's `drawStripAgain`): while
+/// `view.strip_again` holds rows, a modal lists them — team name, player id
+/// and the name as the player list colours it — with Strip again (one
+/// sealed undo entry, `Session::strip`) and Close.
+fn strip_again_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
+    let Some(rows) = view.strip_again.clone() else {
+        return;
+    };
+    let mut close = false;
+    let response =
+        egui::Modal::new(egui::Id::new("save_editor_strip_again")).show(ui.ctx(), |ui| {
+            ui.heading("Appearance ids set on a stripped save");
+            ui.label(format!(
+                "{} player(s) have an appearance id set while the rest are stripped:",
+                rows.len()
+            ));
+            egui::ScrollArea::vertical()
+                .max_height(200.0)
+                .show(ui, |ui| {
+                    for row in &rows {
+                        ui.horizontal(|ui| {
+                            if let Some(team) = &row.team {
+                                ui.add(
+                                    egui::Label::new(egui::RichText::new(team).monospace().weak())
+                                        .truncate(),
+                                );
+                            }
+                            ui.add(
+                                egui::Label::new(
+                                    egui::RichText::new(row.id.to_string()).monospace(),
+                                )
+                                .truncate(),
+                            );
+                            let mut name = egui::text::LayoutJob::default();
+                            append_name(&mut name, &row.name);
+                            ui.label(name);
+                        });
+                    }
+                });
+            ui.horizontal(|ui| {
+                if ui.button("Strip again").clicked()
+                    && let Some(session) = view.session.as_mut()
+                {
+                    session.strip(&rows.iter().map(|row| row.id).collect::<Vec<_>>());
+                    close = true;
+                }
+                if ui.button("Close").clicked() {
+                    close = true;
+                }
+            });
+        });
+    if close || response.should_close() {
+        view.strip_again = None;
+    }
+}
+
+/// The format of a plain run (no code, after a reset or a non-hex code):
+/// `PLACEHOLDER`, which the widget replaces with its own text color —
+/// `TextFormat::default()`'s gray is not it.
+pub(crate) fn plain_format() -> egui::TextFormat {
+    egui::TextFormat::simple(egui::FontId::default(), egui::Color32::PLACEHOLDER)
+}
+
+/// Appends `name`'s runs to `job`, each colored as `name_spans` gives it
+/// (`None` runs the normal text color): how the player list and the Strip
+/// again window draw a savefile name. Sections' byte ranges are relative
+/// to `job`'s own text, so the spans append, never merge another job's.
+pub(crate) fn append_name(job: &mut egui::text::LayoutJob, name: &str) {
+    for (color, text) in name_spans(name) {
+        let format = match color {
+            Some([red, green, blue]) => egui::TextFormat::simple(
+                egui::FontId::default(),
+                egui::Color32::from_rgb(red, green, blue),
+            ),
+            None => plain_format(),
+        };
+        job.append(text, 0.0, format);
     }
 }

@@ -1,0 +1,767 @@
+//! The Appearance tab (`plans/save_editor.md` "Editing UI", the Appearance
+//! bullet and "Read-only aesthetics"; the draft's `appearanceTab` and
+//! `paletteRow`): the ownership line and the "Edit aesthetics anyway"
+//! switch over the five groups — Edit flags, Physique, Strip style,
+//! Motion, Colours. Locked at every start of the tool (`SaveView`'s
+//! `edit_aesthetics`), every control of the groups disabled under the
+//! ownership line as hover; the switch re-enables them for the rest of the
+//! run. A stripped player gets the draft's stripped line whatever the
+//! switch. Edits go through `Session::edit_player` under the widget's id,
+//! one undo entry per gesture, as `abilities.rs` does; a stored value past
+//! a control's range draws as stored (`clamp_existing_to_range` off) and
+//! changes only when edited.
+
+mod fields;
+
+use pes_savefile::interchange::team_toml::labels::title_case;
+use pes_savefile::model::{PlayerAppearance, PlayerEditFlags, PlayerEntry, PlayerMotion};
+use pes_savefile::schema::fields::PlayerField;
+use pes_savefile::schema::ingame_face::IngameFaceField;
+use pes_savefile::schema::limits::motion_top;
+use pes_savefile::settings_toml::{Kind, SettingKey};
+use pes_version::{Engine, PesVersion};
+
+use crate::session::{Session, is_stripped};
+use crate::view::abilities::{gating_tooltip, maybe_end_row, number, pairs_per_row};
+use crate::view::appearance::fields::{
+    IRIS_COLORS, MOTIONS, MotionField, PHYSIQUE, Palette, SKIN_COLORS, STRIP_ENUMS, combo_options,
+    named_values, number_range, number_range_u32, strip_palette,
+};
+use crate::view::{SaveView, edit_player, selected_player};
+/// The tab for the selected player, below `info_strip` and the tab strip.
+pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
+    let Some((_, _, player_id)) = selected_player(view) else {
+        return;
+    };
+    let SaveView {
+        session,
+        edit_aesthetics,
+        randomize_draw,
+        generation,
+        ..
+    } = view;
+    let generation = *generation;
+    let Some(session) = session.as_mut() else {
+        return;
+    };
+    let (version, stripped, player) = {
+        let file = session.file();
+        let Some(player) = file.player(player_id) else {
+            return;
+        };
+        (file.version(), is_stripped(file, player_id), player.clone())
+    };
+    // Every widget id under the tab is the player's within this open, as on
+    // the Abilities tab.
+    ui.push_id((generation, player_id), |ui| {
+        ownership_line(ui, version);
+        ui.checkbox(edit_aesthetics, "Edit aesthetics anyway");
+        if *edit_aesthetics {
+            ui.weak(match version.engine() {
+                Engine::PreFox => "A later patch overwrites whatever is edited by hand.",
+                Engine::Fox => "On a stripped save the game does not read these.",
+            });
+        }
+        if stripped {
+            ui.colored_label(
+                ui.visuals().warn_fg_color,
+                "Stripped: the game reads the database tables, not this record.",
+            );
+        }
+        ui.add_enabled_ui(*edit_aesthetics, |ui| {
+            groups(
+                ui,
+                session,
+                player_id,
+                version,
+                &player,
+                randomize_draw.as_mut(),
+            );
+        })
+        .response
+        .on_disabled_hover_text(ownership_tip(version));
+    });
+}
+
+/// The five groups, the draft's order.
+fn groups(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    version: PesVersion,
+    player: &PlayerEntry,
+    draw: &mut dyn FnMut(u8) -> u8,
+) {
+    ui.strong("Edit flags");
+    ui.horizontal_wrapped(|ui| {
+        edit_flags(
+            ui,
+            session,
+            player_id,
+            &player.edit_flags,
+            player.appearance.base_copy_id,
+        );
+    });
+    ui.separator();
+    ui.strong("Physique");
+    physique_grid(ui, session, player_id, &player.appearance);
+    ui.separator();
+    ui.strong("Strip style");
+    strip_rows(ui, session, player_id, &player.appearance);
+    ui.separator();
+    ui.strong("Motion");
+    motion_grid(ui, session, player_id, version, &player.motion, draw);
+    ui.separator();
+    ui.strong("Colours");
+    colour_rows(ui, session, player_id, version, &player.appearance);
+}
+
+/// The ownership row: the sentence itself (pre-Fox carries the patch step
+/// and the Apply aesthetics patch link; the panel is a later slice's, so
+/// the link opens nothing and its hover says so).
+fn ownership_line(ui: &mut egui::Ui, version: PesVersion) {
+    ui.horizontal_wrapped(|ui| {
+        ui.label(ownership_tip(version));
+        match version.engine() {
+            Engine::PreFox => {
+                ui.link("Apply aesthetics patch")
+                    .on_hover_text("The patch panel is not built yet");
+            }
+            Engine::Fox => {}
+        }
+    });
+}
+
+/// The ownership sentence (the draft's `ownershipTip`): the line over the
+/// tab and the disabled groups' hover.
+fn ownership_tip(version: PesVersion) -> &'static str {
+    match version.engine() {
+        Engine::PreFox => {
+            "Owned by the team's export: edit its settings.toml and recompile, \
+             then apply the patch."
+        }
+        Engine::Fox => "Owned by the team's export: edit its settings.toml and recompile.",
+    }
+}
+
+/// The edit flags' row (the draft's Edit flags group): the six flags, then
+/// the copy-from id. `base_copy` exists on PES 15 to 18 only; like a gated
+/// field it keeps its place, disabled.
+fn edit_flags(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    flags: &PlayerEditFlags,
+    base_copy_id: u32,
+) {
+    checkbox(ui, session, player_id, "Face", flags.face, |p, v| {
+        p.edit_flags.face = v;
+    });
+    checkbox(ui, session, player_id, "Hair", flags.hair, |p, v| {
+        p.edit_flags.hair = v;
+    });
+    checkbox(
+        ui,
+        session,
+        player_id,
+        "Physique",
+        flags.physique,
+        |p, v| {
+            p.edit_flags.physique = v;
+        },
+    );
+    checkbox(ui, session, player_id, "Strip", flags.strip, |p, v| {
+        p.edit_flags.strip = v;
+    });
+    checkbox(ui, session, player_id, "Motion", flags.motion, |p, v| {
+        p.edit_flags.motion = v;
+    });
+    match flags.base_copy {
+        Some(held) => checkbox(ui, session, player_id, "Base copy", held, |p, v| {
+            p.edit_flags.base_copy = Some(v);
+        }),
+        None => {
+            ui.add_enabled(false, egui::Checkbox::new(&mut false, "Base copy"))
+                .on_disabled_hover_text("PES 15 to 18 only");
+        }
+    }
+    number(
+        ui,
+        session,
+        player_id,
+        "Copy from ID",
+        base_copy_id,
+        0..=u32::MAX,
+        |player, shown| {
+            player.appearance.base_copy_id = shown;
+        },
+    );
+}
+
+/// The 14 physique fields in a wrapping grid, each on its key's `Signed`
+/// scale (±7: `shown - limit` stores `shown + limit`).
+fn physique_grid(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    appearance: &PlayerAppearance,
+) {
+    let per_row = pairs_per_row(ui, 190.0);
+    egui::Grid::new("appearance physique").show(ui, |ui| {
+        for (index, (label, key, get, set)) in PHYSIQUE.iter().enumerate() {
+            let Kind::Signed { limit } = key.spec().kind else {
+                unreachable!("the physique keys are Signed");
+            };
+            let limit = i32::from(limit);
+            let stored = get(appearance);
+            let mut shown = i32::from(stored) - limit;
+            ui.label(*label);
+            let response = ui.add(
+                egui::DragValue::new(&mut shown)
+                    .range(-limit..=limit)
+                    .clamp_existing_to_range(false),
+            );
+            if response.changed() {
+                edit_player(session, player_id, response.id.value(), |player| {
+                    set(
+                        &mut player.appearance,
+                        u8::try_from(shown + limit)
+                            .expect("the control keeps the value inside the key's range"),
+                    );
+                });
+            }
+            maybe_end_row(ui, index + 1, per_row);
+        }
+    });
+}
+
+/// The draft's Strip style group: the ids, the enums and checkboxes in the
+/// grid, then the wrist-taping, spectacles and player-gloves rows with
+/// their palettes.
+fn strip_rows(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    appearance: &PlayerAppearance,
+) {
+    let per_row = pairs_per_row(ui, 190.0);
+    egui::Grid::new("appearance strip").show(ui, |ui| {
+        number(
+            ui,
+            session,
+            player_id,
+            "Boots ID",
+            appearance.boots_id,
+            number_range_u32(SettingKey::BootsId),
+            |player, shown| {
+                player.appearance.boots_id = shown;
+            },
+        );
+        maybe_end_row(ui, 1, per_row);
+        number(
+            ui,
+            session,
+            player_id,
+            "Gloves ID",
+            appearance.gloves_id,
+            number_range_u32(SettingKey::GlovesId),
+            |player, shown| {
+                player.appearance.gloves_id = shown;
+            },
+        )
+        .on_hover_text("Any player's; 0 = normal hands");
+        maybe_end_row(ui, 2, per_row);
+        for (index, (label, key, get, set)) in STRIP_ENUMS.iter().enumerate() {
+            combo(
+                ui,
+                session,
+                player_id,
+                label,
+                *key,
+                get(appearance),
+                move |player, shown| {
+                    set(&mut player.appearance, shown);
+                },
+            );
+            maybe_end_row(ui, 3 + index, per_row);
+        }
+        checkbox(
+            ui,
+            session,
+            player_id,
+            "Shirttail out",
+            appearance.untucked,
+            |p, v| {
+                p.appearance.untucked = v;
+            },
+        );
+        checkbox(
+            ui,
+            session,
+            player_id,
+            "Ankle taping",
+            appearance.ankle_taping,
+            |p, v| {
+                p.appearance.ankle_taping = v;
+            },
+        );
+    });
+    ui.horizontal_wrapped(|ui| {
+        combo(
+            ui,
+            session,
+            player_id,
+            "Wrist taping",
+            SettingKey::WristTaping,
+            appearance.wrist_taping,
+            |player, shown| {
+                player.appearance.wrist_taping = shown;
+            },
+        );
+        ui.label("Left");
+        palette_row(
+            ui,
+            session,
+            player_id,
+            &strip_palette("Wrist tape left", SettingKey::WristTapeColorLeft),
+            appearance.wrist_tape_color_left,
+            |player, shown| {
+                player.appearance.wrist_tape_color_left = shown;
+            },
+        );
+        ui.label("Right");
+        palette_row(
+            ui,
+            session,
+            player_id,
+            &strip_palette("Wrist tape right", SettingKey::WristTapeColorRight),
+            appearance.wrist_tape_color_right,
+            |player, shown| {
+                player.appearance.wrist_tape_color_right = shown;
+            },
+        );
+    });
+    ui.horizontal_wrapped(|ui| {
+        combo(
+            ui,
+            session,
+            player_id,
+            "Spectacles",
+            SettingKey::Spectacles,
+            appearance.spectacles_style,
+            |player, shown| {
+                player.appearance.spectacles_style = shown;
+            },
+        );
+        palette_row(
+            ui,
+            session,
+            player_id,
+            &strip_palette("Spectacles colour", SettingKey::SpectaclesColor),
+            appearance.spectacles_color,
+            |player, shown| {
+                player.appearance.spectacles_color = shown;
+            },
+        );
+    });
+    ui.horizontal_wrapped(|ui| {
+        let gloves = face(appearance, IngameFaceField::PlayerGloves);
+        checkbox(
+            ui,
+            session,
+            player_id,
+            "Player gloves",
+            gloves != 0,
+            |p, v| {
+                p.appearance
+                    .ingame_face
+                    .set(IngameFaceField::PlayerGloves, u8::from(v))
+                    .expect("a loaded player's face run holds player gloves");
+            },
+        );
+        let gloves_color = face(appearance, IngameFaceField::PlayerGlovesColor);
+        palette_row(
+            ui,
+            session,
+            player_id,
+            &strip_palette("Gloves colour", SettingKey::GlovesColor),
+            gloves_color,
+            |player, shown| {
+                player
+                    .appearance
+                    .ingame_face
+                    .set(IngameFaceField::PlayerGlovesColor, shown)
+                    .expect("a loaded player's face run holds the gloves colour");
+            },
+        );
+    });
+}
+
+/// The draft's Motion group: the nine measured motions in the draft's
+/// order, the dribbling motion between the kicks and the celebrations (PES
+/// 20+, drawn disabled with the version tooltip before it).
+fn motion_grid(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    version: PesVersion,
+    motion: &PlayerMotion,
+    draw: &mut dyn FnMut(u8) -> u8,
+) {
+    let per_row = pairs_per_row(ui, 190.0);
+    egui::Grid::new("appearance motion").show(ui, |ui| {
+        let mut pair = 0usize;
+        for field in &MOTIONS[..7] {
+            motion_number(ui, session, player_id, version, field, motion);
+            pair += 1;
+            maybe_end_row(ui, pair, per_row);
+        }
+        // The dribbling motion sits between the kicks and the celebrations
+        // (the draft's second row's last cell); a version without it draws
+        // it disabled at 0 with the `PES NN+` tooltip.
+        ui.label("Dribbling motion");
+        match motion.dribbling {
+            Some(stored) => {
+                let mut shown = stored;
+                let range = number_range(SettingKey::Dribbling);
+                let response = ui.add(
+                    egui::DragValue::new(&mut shown)
+                        .range(range)
+                        .clamp_existing_to_range(false),
+                );
+                if response.changed() {
+                    edit_player(session, player_id, response.id.value(), |player| {
+                        player.motion.dribbling = Some(shown);
+                    });
+                }
+            }
+            None => {
+                ui.add_enabled_ui(false, |ui| {
+                    ui.add(
+                        egui::DragValue::new(&mut 0u8).range(number_range(SettingKey::Dribbling)),
+                    );
+                })
+                .response
+                .on_disabled_hover_text(gating_tooltip(PlayerField::DribblingMotion));
+            }
+        }
+        pair += 1;
+        maybe_end_row(ui, pair, per_row);
+        for field in &MOTIONS[7..] {
+            motion_number(ui, session, player_id, version, field, motion);
+            pair += 1;
+            maybe_end_row(ui, pair, per_row);
+        }
+    });
+    // Every motion but the dribbling motion, from 1 to the version's shown
+    // top, one undoable edit (DECISIONS.md 2026-10-22's ruling).
+    if ui
+        .button("Randomize")
+        .on_hover_text("Random motion values (the dribbling motion is left as it is)")
+        .clicked()
+    {
+        randomize(session, player_id, version, draw);
+    }
+}
+
+/// One motion's label/`DragValue` pair on the shown scale: a 1-based motion
+/// shows 1 to `motion_top` + 1 (stored one below), a celebration 0 to the
+/// top (stored as shown).
+fn motion_number(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    version: PesVersion,
+    field: &MotionField,
+    motion: &PlayerMotion,
+) {
+    let top = motion_top(version, field.field).expect("a motion field has a top");
+    let stored = (field.get)(motion);
+    let (shown, range) = if field.one_based {
+        (stored + 1, 1..=top + 1)
+    } else {
+        (stored, 0..=top)
+    };
+    let set = field.set;
+    let one_based = field.one_based;
+    number(
+        ui,
+        session,
+        player_id,
+        field.label,
+        shown,
+        range,
+        move |player, shown| {
+            set(
+                &mut player.motion,
+                if one_based { shown - 1 } else { shown },
+            );
+        },
+    );
+}
+
+/// Randomize (the draft's button): every motion but the dribbling motion
+/// drawn from 1 to its shown top, the writes landing as one undo entry.
+fn randomize(
+    session: &mut Session,
+    player_id: u32,
+    version: PesVersion,
+    draw: &mut dyn FnMut(u8) -> u8,
+) {
+    edit_player(
+        session,
+        player_id,
+        egui::Id::new(("appearance randomize", player_id)).value(),
+        |player| {
+            for field in MOTIONS {
+                let top = motion_top(version, field.field).expect("a motion field has a top");
+                let shown_top = if field.one_based { top + 1 } else { top };
+                let drawn = draw(shown_top);
+                (field.set)(
+                    &mut player.motion,
+                    if field.one_based { drawn - 1 } else { drawn },
+                );
+            }
+        },
+    );
+}
+
+/// The draft's Colours group: skin and iris, each its palette's entries as
+/// swatches. The skin palette drops the Custom entry on Fox (PES 15 to 17
+/// alone have it, the three pre-Fox versions).
+fn colour_rows(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    version: PesVersion,
+    appearance: &PlayerAppearance,
+) {
+    let skin_top = match version.engine() {
+        Engine::PreFox => *number_range(SettingKey::SkinColor).end(),
+        Engine::Fox => *number_range(SettingKey::SkinColor).end() - 1,
+    };
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Skin");
+        palette_row(
+            ui,
+            session,
+            player_id,
+            &Palette {
+                label: "Skin",
+                key: SettingKey::SkinColor,
+                top: skin_top,
+                colors: &SKIN_COLORS,
+            },
+            face(appearance, IngameFaceField::SkinColor),
+            |player, shown| {
+                player
+                    .appearance
+                    .ingame_face
+                    .set(IngameFaceField::SkinColor, shown)
+                    .expect("a loaded player's face run holds the skin colour");
+            },
+        );
+    });
+    ui.horizontal_wrapped(|ui| {
+        ui.label("Iris");
+        palette_row(
+            ui,
+            session,
+            player_id,
+            &Palette {
+                label: "Iris",
+                key: SettingKey::IrisColor,
+                top: *number_range(SettingKey::IrisColor).end(),
+                colors: &IRIS_COLORS,
+            },
+            face(appearance, IngameFaceField::IrisColor),
+            |player, shown| {
+                player
+                    .appearance
+                    .ingame_face
+                    .set(IngameFaceField::IrisColor, shown)
+                    .expect("a loaded player's face run holds the iris colour");
+            },
+        );
+    });
+}
+
+/// One label/checkbox pair; a change writes `set` through `edit_player`
+/// under the widget's id.
+fn checkbox(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    label: &'static str,
+    held: bool,
+    set: impl FnOnce(&mut PlayerEntry, bool),
+) {
+    let mut value = held;
+    let response = ui.checkbox(&mut value, label);
+    if response.changed() {
+        edit_player(session, player_id, response.id.value(), |player| {
+            set(player, value);
+        });
+    }
+}
+
+/// One label/`ComboBox` pair over `key`'s option labels (`combo_options`);
+/// a stored index past the list shows its number, a pick writes it.
+fn combo(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    label: &'static str,
+    key: SettingKey,
+    stored: u8,
+    set: impl FnOnce(&mut PlayerEntry, u8),
+) {
+    ui.label(label);
+    let options = combo_options(key);
+    let mut picked = stored;
+    let selected = options
+        .get(usize::from(stored))
+        .cloned()
+        .unwrap_or_else(|| stored.to_string());
+    let combo = egui::ComboBox::from_id_salt(("appearance", label))
+        .selected_text(selected)
+        .show_ui(ui, |ui| {
+            for (index, option) in options.iter().enumerate() {
+                ui.selectable_value(
+                    &mut picked,
+                    u8::try_from(index).expect("the key's options fit a u8"),
+                    option,
+                );
+            }
+        });
+    if picked != stored {
+        edit_player(session, player_id, combo.response.id.value(), |player| {
+            set(player, picked)
+        });
+    }
+}
+
+/// One palette row (the draft's `paletteRow`): a framed swatch per palette
+/// entry 0 to `palette.top`, the entry's name or index in its widget label
+/// and hover; a stored value past `top` draws its number after the
+/// swatches. A click writes the swatch's index through `edit_player`.
+fn palette_row(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    palette: &Palette,
+    stored: u8,
+    set: impl Fn(&mut PlayerEntry, u8),
+) {
+    ui.push_id(("appearance palette", palette.label), |ui| {
+        let names = named_values(palette.key);
+        for (index, rgb) in palette.colors[..=usize::from(palette.top)]
+            .iter()
+            .enumerate()
+        {
+            let name = names
+                .as_ref()
+                .and_then(|names| names.get(index))
+                .map(|name| title_case(name))
+                .unwrap_or_else(|| index.to_string());
+            let widget_label = format!("{} {name}", palette.label);
+            let response =
+                swatch(ui, *rgb, index == usize::from(stored), &widget_label).on_hover_text(name);
+            if response.clicked() {
+                edit_player(session, player_id, response.id.value(), |player| {
+                    set(
+                        player,
+                        u8::try_from(index).expect("a palette has at most eleven entries"),
+                    );
+                });
+            }
+        }
+        if stored > palette.top {
+            ui.weak(stored.to_string());
+        }
+    });
+}
+
+/// One palette entry's framed square (the draft's `.swatch`): the colour in
+/// a dark frame, the held entry outlined as `.on` is.
+fn swatch(ui: &mut egui::Ui, rgb: [u8; 3], held: bool, label: &str) -> egui::Response {
+    let size = egui::vec2(14.0, 14.0);
+    let (rect, response) = ui.allocate_at_least(size, egui::Sense::click());
+    response.widget_info(|| {
+        egui::WidgetInfo::labeled(
+            egui::WidgetType::ColorButton,
+            ui.is_enabled(),
+            label.to_owned(),
+        )
+    });
+    if ui.is_rect_visible(rect) {
+        ui.painter().rect_filled(
+            rect,
+            egui::CornerRadius::same(2),
+            egui::Color32::from_rgb(rgb[0], rgb[1], rgb[2]),
+        );
+        ui.painter().rect_stroke(
+            rect,
+            egui::CornerRadius::same(2),
+            egui::Stroke::new(1.0, egui::Color32::BLACK),
+            egui::StrokeKind::Inside,
+        );
+        if held {
+            ui.painter().rect_stroke(
+                rect.expand(1.0),
+                egui::CornerRadius::same(2),
+                egui::Stroke::new(1.0, ui.visuals().selection.stroke.color),
+                egui::StrokeKind::Outside,
+            );
+        }
+    }
+    response
+}
+
+/// `field`'s value inside `appearance`'s ingame-face run: the run a loaded
+/// save's players always carry, and a field `layout()` names for every
+/// version (the four the tab edits are `None`, both layouts).
+fn face(appearance: &PlayerAppearance, field: IngameFaceField) -> u8 {
+    appearance
+        .ingame_face
+        .get(field)
+        .expect("a loaded player's face run holds the tab's colour fields")
+}
+
+/// A xorshift64 draw in `1..=top`, seeded from the wall clock (`SaveView::new`
+/// wires it as `randomize_draw`; the tests substitute a fixed source). The
+/// button's picks need only be unpredictable to a member, not cryptographic.
+pub(crate) fn seeded_draw() -> impl FnMut(u8) -> u8 {
+    let mut state = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|since| u64::from(since.subsec_nanos()) ^ since.as_secs() | 1)
+        .unwrap_or(0x9E37_79B9_7F4A_7C15);
+    move |top| {
+        state ^= state << 13;
+        state ^= state >> 7;
+        state ^= state << 17;
+        1 + (state % u64::from(top.max(1))) as u8
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::seeded_draw;
+
+    // `seeded_draw` returns values in `1..=top`, both ends occurring over a
+    // long enough run (the source need only be unpredictable to a member).
+    #[test]
+    fn the_seeded_draw_covers_the_whole_range() {
+        let mut draw = seeded_draw();
+        for top in [1u8, 5, 162] {
+            let (mut low, mut high) = (u8::MAX, u8::MIN);
+            for _ in 0..10_000 {
+                let value = draw(top);
+                assert!((1..=top).contains(&value), "{value} out of 1..={top}");
+                low = low.min(value);
+                high = high.max(value);
+            }
+            assert_eq!((low, high), (1, top), "top {top}: both ends occur");
+        }
+    }
+}

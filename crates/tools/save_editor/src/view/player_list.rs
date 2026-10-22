@@ -4,12 +4,12 @@
 
 use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
-use pes_savefile::model::names::{display_name, name_spans};
+use pes_savefile::model::names::display_name;
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 
 use crate::session::Session;
 use crate::session::selection::{self, Row, TeamChoice};
-use crate::view::SaveView;
+use crate::view::{SaveView, append_name, plain_format};
 
 /// The selector, the filter box and the list, top to bottom of the side panel.
 /// `view`'s fields are borrowed apart: the session feeds the rows while the
@@ -20,10 +20,14 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         team,
         filter,
         selected,
+        tab: _,
         refusal: _,
         rules: _,
         cards: _,
         generation: _,
+        edit_aesthetics: _,
+        strip_again: _,
+        randomize_draw: _,
     } = view;
     let Some(session) = session.as_mut() else {
         return;
@@ -125,16 +129,9 @@ fn player_row(
     }
 }
 
-/// The format of a plain run (no code, after a reset or a non-hex code):
-/// `PLACEHOLDER`, which the widget replaces with its own text color —
-/// `TextFormat::default()`'s gray is not it.
-fn plain_format() -> egui::TextFormat {
-    egui::TextFormat::simple(egui::FontId::default(), egui::Color32::PLACEHOLDER)
-}
-
 /// The row's text as one `LayoutJob`: number, position, team name while the
 /// list crosses teams, then the name's runs, each colored as `name_spans`
-/// gives it (`None` runs the normal text color).
+/// gives it (`None` runs the normal text color, `append_name`).
 fn row_text(
     team: Option<&TeamEntry>,
     player: Option<&PlayerEntry>,
@@ -156,16 +153,7 @@ fn row_text(
     match player {
         Some(player) => {
             job.append(" ", 0.0, plain_format());
-            for (color, text) in name_spans(&player.name) {
-                let format = match color {
-                    Some([red, green, blue]) => egui::TextFormat::simple(
-                        egui::FontId::default(),
-                        egui::Color32::from_rgb(red, green, blue),
-                    ),
-                    None => plain_format(),
-                };
-                job.append(text, 0.0, format);
-            }
+            append_name(&mut job, &player.name);
         }
         None => job.append(" ?", 0.0, plain_format()),
     }

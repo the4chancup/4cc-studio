@@ -35,6 +35,10 @@ static NEXT_REVISION: AtomicU64 = AtomicU64::new(1);
 /// (the move seals its entry at the end regardless).
 const MOVE_KEY: u64 = u64::MAX;
 
+/// The undo merge key `strip`'s changes go under, `MOVE_KEY`'s twin: the whole
+/// strip is one sealed entry, never part of a widget's open gesture.
+const STRIP_KEY: u64 = u64::MAX - 1;
+
 /// The fields of the in-game face run `player_export` carries (its appearance
 /// section ends at `iris_col`; the face structure and the hair are not in the
 /// struct): a move trades them with the record, the rest of the run stays with
@@ -483,13 +487,37 @@ impl Session {
     }
 
     /// Sets the appearance id of every player `ids` names to -1
-    /// (`STRIPPED_APPEARANCE_ID`): the tables decide his look from then on.
+    /// (`STRIPPED_APPEARANCE_ID`): the tables decide his look from then on. The
+    /// whole strip is one sealed undo entry (SE-GUI-20's Strip again), so one
+    /// Undo restores every id; an id the save lacks, or a player already at -1,
+    /// is left out.
     pub(crate) fn strip(&mut self, ids: &[u32]) {
+        // The before/after pairs are computed before the first push, as in
+        // `move_player`: the write and the undo entry are the same data.
+        let mut changed = Vec::new();
         for player in self.file.players_mut() {
-            if ids.contains(&player.id) {
-                player.appearance_id = Some(STRIPPED_APPEARANCE_ID);
+            if !ids.contains(&player.id) || player.appearance_id == Some(STRIPPED_APPEARANCE_ID) {
+                continue;
             }
+            let mut after = player.clone();
+            after.appearance_id = Some(STRIPPED_APPEARANCE_ID);
+            let before = std::mem::replace(player, after.clone());
+            changed.push((before, after));
         }
+        if changed.is_empty() {
+            return;
+        }
+        for (before, after) in changed {
+            self.undo.push(
+                STRIP_KEY,
+                Change::Player {
+                    before: Box::new(before),
+                    after: Box::new(after),
+                },
+            );
+        }
+        // One entry for the whole strip, sealed: the next edit does not merge.
+        self.undo.seal();
         self.touch();
         self.dirty = self.compute_dirty();
     }
@@ -1000,5 +1028,59 @@ mod tests {
         assert_ne!(after_undo, after_edit, "an undo takes the next tick");
         assert!(session.redo());
         assert_ne!(session.revision(), after_undo, "a redo takes the next tick");
+    }
+
+    // plans/save_editor.md "Stripped save" (the GUI parts): `strip` writes
+    // every id as one sealed undo entry, so the Strip again button's whole
+    // change is one Undo. An already-stripped player pushes nothing.
+    #[test]
+    fn a_strip_is_one_sealed_undo_entry() {
+        let mut session = open(PesVersion::Pes21, "strip_undo");
+        assert_eq!(
+            session.file().player(70101).unwrap().appearance_id,
+            Some(70101),
+            "premise: the fixture's ids are set"
+        );
+
+        session.strip(&[70101, 70103]);
+
+        for id in [70101u32, 70103] {
+            assert_eq!(
+                session.file().player(id).unwrap().appearance_id,
+                Some(STRIPPED_APPEARANCE_ID),
+                "{id} is stripped"
+            );
+        }
+        assert!(session.is_dirty());
+
+        // One undo restores both ids; the stack is then empty (the strip
+        // sealed its entry, so no gesture could merge into it).
+        assert!(session.undo());
+        for id in [70101u32, 70103] {
+            assert_eq!(
+                session.file().player(id).unwrap().appearance_id,
+                Some(id),
+                "{id} is restored"
+            );
+        }
+        assert!(!session.can_undo(), "the whole strip was one entry");
+        assert!(session.redo());
+        assert_eq!(
+            session.file().player(70101).unwrap().appearance_id,
+            Some(STRIPPED_APPEARANCE_ID)
+        );
+
+        // A second strip changes nobody: no entry, no dirt left once undone.
+        session.undo();
+        assert!(!session.is_dirty());
+        session.strip(&[70101]);
+        assert_eq!(
+            session.file().player(70101).unwrap().appearance_id,
+            Some(STRIPPED_APPEARANCE_ID)
+        );
+        session.undo();
+        assert!(!session.is_dirty());
+        session.strip(&[]);
+        assert!(!session.can_undo(), "an empty strip pushes nothing");
     }
 }

@@ -916,6 +916,25 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         the single-byte boundary (é passes, Ł does not), the refusal tests see the typed text
         drawn first, the rules file's load error wraps, the badges follow the selection; its
         mutants-diff caught every mutant. Review closed 2026-10-22
+    - [x] 8.9b2 the Appearance tab, slice 1's last part (`plans/save_editor.md` "Editing UI"
+      Tabs, "Read-only aesthetics", "Stripped save"; the draft's `appearanceTab`): the tab's
+      groups as the draft draws them, every value disabled under the ownership line (and on
+      pre-Fox the patch step) until "Edit aesthetics anyway", a session switch off at every
+      start; on a stripped player the line that the game does not read the record; the
+      motion ranges and Randomize per the plan; opening a Fox save lists the players whose
+      appearance id is set while others are stripped, with Strip again (one undoable edit).
+      SE-GUI-07, SE-GUI-20, SE-GUI-22's Appearance-tab part (its FPC toggle and the menus are
+      slice 2's, the transplant and imports slices 4 and 5); the FPC group and its findings
+      wait for slice 2. Done 2026-10-22 (SWE-2, a run and one rework): `view/appearance/`
+      (`mod.rs` the tab, `fields.rs` its tables; scales and names from `settings_toml`'s
+      keys, motion tops from `motion_top`, swatches approximating the keys' colour names),
+      the switch on `SaveView` kept across opens, `Session::strip` one sealed undo entry, the
+      Strip again window's rows built at open, `help/04_appearance.md`; Fox is PES 18+ (the
+      draft's `isFox` corrected). Files: `save_editor/{help/04_appearance.md,src/{lib.rs,
+      session/mod.rs,view/{mod.rs,abilities.rs,player_list.rs,appearance/{mod.rs,fields.rs},
+      tests.rs,tests/{abilities.rs,appearance.rs}}}}`
+      - [ ] review: rides with the next checkpoint (b) review (one crate, no `pub` item);
+        `mutants-diff 06e66939`
     - [x] the portable name limits (`plans/pes_savefile/operations.md` "Team TOML", Portable
       text limits; DECISIONS 2026-10-21), with 8.9b1 and its rework: `portable_text_max` and
       `crop_player_text` in `pes_savefile`; the info strip's Shirt field held to 18 (an
@@ -1409,10 +1428,8 @@ points there.
   number field and the squad load), where the info strip takes the field's bit width: why 231,
   checked in game; (3) 4ccEditor's ALL hides players on no team and its team list hides a team
   whose first slot is empty (`pes20.cpp`), lists both in record order: compare with 8.9a's
-  selector and list, and rule; (4) the motion randomizer's ranges (hunching 1 to 3, arm 1 to 8,
-  corner 1 to 6, free kick 1 to 16, penalty 1 to 4, goal celebrations 1 to 122; on PES 20+ 5,
-  10, 10, 20, 7, 162; never the dribbling motion) go into the Appearance tab's plan when its
-  slice (8.9b2) is briefed
+  selector and list, and rule. (4), the motion randomizer's ranges, is in the plan
+  (2026-10-22: from 1 to the measured tops, never the dribbling motion; DECISIONS)
 
 - open 2026-10-20 — two `save_editor` CLI tests (`strip::tables_the_bins_lacks_are_created_from_the_seed`,
   `strip::the_tables_are_seeded_and_every_appearance_id_is_set_to_minus_one`) fail while

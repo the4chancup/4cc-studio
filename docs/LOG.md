@@ -2300,3 +2300,5 @@ worklog passed 7,000 lines.
   across threads (`rhai` `sync`) and `check-aatf` checks teams in parallel: 220 teams in 2.0 s, 13.2 s before.
 - **2026-10-22** — The Save editor draft draws Live AATF (SE-GUI-30): the toolbar toggle, the docked bottom panel, the
   checking mark, the list shrinking as a fix lands, the empty state; walked in Chrome. Slice 4 can be briefed.
+- **2026-10-22** — 8.9b2: the Save editor's Appearance tab, locked until "Edit aesthetics anyway", the stripped line, Randomize
+  within each version's measured motion ranges, and Strip again on a part-stripped Fox save. Slice 1 done.

@@ -10132,3 +10132,14 @@ his team is the one whose list should shrink; checking every team instead would 
 panel's whole-save run on every edit, and checking nothing would switch the panel off in the
 list's default view of the PES 21 sample.
 Plan: `plans/save_editor.md` "Configurable AATF rules" (Live AATF); the draft's `liveTeam`.
+
+## 2026-10-22 — save_editor — Randomize motion draws within each version's measured ranges
+Decision: the Appearance tab's Randomize sets every motion but the dribbling motion to a value
+from 1 to the version's measured top (`pes_savefile::schema::limits::motion_top`, shown scale),
+one undoable edit; the motion fields' ranges are the same tops.
+Why: 4ccEditor's button (`main.cpp` `IDB_MOTI_RAND`) draws from 1 and skips the dribbling
+motion, which we keep, but its two fixed sets of maxima, not the version's: on PES 15 it can
+write arm movements 6 to 8 and celebrations 113 to 122, which that game does not have, and on
+PES 18 and 19 it never reaches celebrations 123 to 127 and 123 to 140. The measured table
+already decides the Team TOML's and the conversions' ranges, so the tab agrees with them.
+Plan: `plans/save_editor.md` "Editing UI" (Tabs, Appearance).

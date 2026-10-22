@@ -288,32 +288,49 @@ fn the_stats_rows_wrap_at_the_panes_width() {
 }
 
 // plans/save_editor.md "Editing UI", the Tabs bullet: the four tabs draw,
-// Abilities & Skills selected, the rest disabled until their slices land.
+// Abilities & Skills selected, Appearance pickable, Team and Tactics
+// disabled until their slices land.
 #[test]
-fn the_tab_strip_shows_abilities_selected_and_three_disabled() {
+fn the_tab_strip_shows_abilities_selected_appearance_pickable_two_disabled() {
     let path = fixture(PesVersion::Pes21, "tab_strip");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let tab = |label: &str| {
+    fn tab<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
         nodes
             .iter()
             .find(|node| node.role() == Role::Button && node.label() == Some(label))
             .unwrap_or_else(|| panic!("no tab {label:?}"))
-    };
-    let selected = tab("Abilities & Skills");
+    }
+    let selected = tab(&nodes, "Abilities & Skills");
     assert_eq!(
         selected.toggled(),
         Some(accesskit::Toggled::True),
         "Abilities & Skills is the drawn tab"
     );
     assert!(!selected.is_disabled());
-    for label in ["Appearance", "Team", "Tactics"] {
-        let tab = tab(label);
+    let appearance = tab(&nodes, "Appearance");
+    assert!(!appearance.is_disabled(), "Appearance picks");
+    assert_eq!(appearance.toggled(), Some(accesskit::Toggled::False));
+    for label in ["Team", "Tactics"] {
+        let tab = tab(&nodes, label);
         assert!(tab.is_disabled(), "{label} is disabled");
         assert_eq!(tab.toggled(), Some(accesskit::Toggled::False));
     }
+
+    // A click switches the drawn tab.
+    click(&mut window, appearance, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        tab(&nodes, "Appearance").toggled(),
+        Some(accesskit::Toggled::True),
+        "Appearance is the drawn tab"
+    );
+    assert_eq!(
+        tab(&nodes, "Abilities & Skills").toggled(),
+        Some(accesskit::Toggled::False)
+    );
 }
 
 // plans/save_editor.md "Editing UI", the Abilities & Skills bullet (the

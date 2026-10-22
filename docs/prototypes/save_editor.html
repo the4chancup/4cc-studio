@@ -2458,7 +2458,9 @@ function curPlayer() {
   return findPlayer(S.sel.team, S.sel.slot) || curTeam().players[0];
 }
 const version = () => curSave().version;
-const isFox = () => version() >= 19;
+// The Fox engine is PES 18 to 21 (pes_version's Engine), the stripping and
+// ownership rules' boundary.
+const isFox = () => version() >= 18;
 
 // ---- Name colour codes (spec/pes_savefile/model.md "Name colour codes") ----
 // \x11c + 8 hex digits (RRGGBBAA) colours the text after it; \x11d resets.
@@ -2505,7 +2507,8 @@ function openSave(key, path) {
     S.basePlayers[t.id + ":" + p.slot] = JSON.stringify(p);
   // The PES 17 sample opens on /f/ (its colour-coded team), PES 21 on ALL.
   S.teamSel = key === "pes17" ? "718" : "all"; S.filter = ""; S.sel = null;
-  S.undo = []; S.redo = []; S.editAnyway = false;
+  // "Edit aesthetics anyway" is the tool run's, off only at its start: an open keeps it.
+  S.undo = []; S.redo = [];
   S.assign = null; S.slotPop = null; S.pitchDrag = null;
   S.picker = null;
   S.panel = null;
@@ -3554,36 +3557,32 @@ function appearanceTab(p) {
     h("input", { type: "number", min: lo, max: hiV, value: mo[key] ?? "",
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v)) { set(p, x => x.appearance.motion[key], (x, v2) => x.appearance.motion[key] = v2, v, label); render(); } } }));
-  const gmax = version() >= 21 ? 162 : version() >= 20 ? 152 : version() >= 19 ? 140 : version() >= 18 ? 127 : 122;
+  // The version's measured tops (motion_top, shown scale); a celebration's 0 is OFF.
+  const top = key => motionTop(version(), key);
   const motion = h("div", { class: "group" }, strong("Motion"),
     h("table", { class: "grid" },
-      h("tr", {}, mv("Hunching (dribbling)", "hunching_dribbling", 1, version() >= 20 ? 5 : 3),
-        mv("Hunching (running)", "hunching_running", 1, version() >= 20 ? 5 : 3),
-        mv("Arm movement (dribbling)", "arm_movement_dribbling", 1, version() >= 20 ? 10 : 8),
-        mv("Arm movement (running)", "arm_movement_running", 1, version() >= 20 ? 10 : 8)),
-      h("tr", {}, mv("Corner kick", "corner_kick", 1, version() >= 20 ? 10 : 6),
-        mv("Free kick", "free_kick", 1, version() >= 20 ? 20 : 16),
-        mv("Penalty kick", "penalty_kick", 1, version() >= 20 ? 7 : 4),
+      h("tr", {}, mv("Hunching (dribbling)", "hunching_dribbling", 1, top("hunching_dribbling")),
+        mv("Hunching (running)", "hunching_running", 1, top("hunching_running")),
+        mv("Arm movement (dribbling)", "arm_movement_dribbling", 1, top("arm_movement_dribbling")),
+        mv("Arm movement (running)", "arm_movement_running", 1, top("arm_movement_running"))),
+      h("tr", {}, mv("Corner kick", "corner_kick", 1, top("corner_kick")),
+        mv("Free kick", "free_kick", 1, top("free_kick")),
+        mv("Penalty kick", "penalty_kick", 1, top("penalty_kick")),
         gated(h("td", {}, "Dribbling motion ",
           h("input", { type: "number", min: 0, max: 3, value: mo.dribbling ?? 0,
             onchange: e => { const v = parseInt(e.target.value, 10);
               if (!Number.isNaN(v)) { set(p, x => x.appearance.motion.dribbling, (x, v2) => x.appearance.motion.dribbling = v2, v, "dribbling motion"); render(); } } })), 20)),
-      h("tr", {}, mv("Goal celebration 1", "goal_celebration_1", 0, gmax),
-        mv("Goal celebration 2", "goal_celebration_2", 0, gmax))),
+      h("tr", {}, mv("Goal celebration 1", "goal_celebration_1", 0, top("goal_celebration_1")),
+        mv("Goal celebration 2", "goal_celebration_2", 0, top("goal_celebration_2")))),
     h("div", { class: "row" },
+      // Every motion but the dribbling motion, from 1 (a celebration never OFF)
+      // to the version's top, as 4ccEditor's button but within the measured ranges.
       button("Randomize", () => {
         edit("Randomize motion", () => {
-          const rnd = (lo, hi) => lo + Math.floor(Math.random() * (hi - lo + 1));
-          const hmax = version() >= 20 ? 5 : 3, amax = version() >= 20 ? 10 : 8;
-          mo.hunching_dribbling = rnd(1, hmax); mo.hunching_running = rnd(1, hmax);
-          mo.arm_movement_dribbling = rnd(1, amax); mo.arm_movement_running = rnd(1, amax);
-          mo.corner_kick = rnd(1, version() >= 20 ? 10 : 6);
-          mo.free_kick = rnd(1, version() >= 20 ? 20 : 16);
-          mo.penalty_kick = rnd(1, version() >= 20 ? 7 : 4);
-          mo.goal_celebration_1 = rnd(0, gmax); mo.goal_celebration_2 = rnd(0, gmax);
-          if (version() >= 20) mo.dribbling = rnd(0, 3);
+          const rnd = hi => 1 + Math.floor(Math.random() * hi);
+          for (const key of Object.keys(MOTION_TOP)) mo[key] = rnd(top(key));
         }); render();
-      }, { title: "Random motion values" })));
+      }, { title: "Random motion values (the dribbling motion is left as it is)" })));
   const colors = h("div", { class: "group" }, strong("Colours"),
     h("div", { class: "row" }, "Skin ",
       paletteRow("skin", p.appearance.skin_color, (x, v) => x.appearance.skin_color = v, p, "skin colour")),
