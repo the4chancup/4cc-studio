@@ -4051,8 +4051,14 @@ document.addEventListener("pointerup", e => {
   if (lrow && lrow.dataset.xidx !== undefined) {
     swapStarters(t, d.i, Number(lrow.dataset.xidx)); render(); return;
   }
+  // Dropped on another marker: the two starters exchange (as the game's
+  // formation screen does); released off the pitch: he stays.
   const cv = document.getElementById("pitch"), r = cv.getBoundingClientRect();
-  const [x, y] = snapXY(e.clientX - r.left, e.clientY - r.top);
+  const lx = e.clientX - r.left, ly = e.clientY - r.top;
+  if (lx < 0 || ly < 0 || lx > r.width || ly > r.height) { render(); return; }
+  const onto = hitMarker(t, lx, ly);
+  if (onto >= 0 && onto !== d.i) { swapStarters(t, d.i, onto); render(); return; }
+  const [x, y] = snapXY(lx, ly);
   edit("Move on pitch", () => {
     const s = tacFormation(t).players[d.i]; s.x = x; s.y = y; });
   render();
@@ -4182,13 +4188,14 @@ function tacticsTab(t) {
       onclick: () => {
         S.assign = armed ? null : { kind: key === "captain" ? "captain" : "setpiece", key, label };
         S.slotPop = null; render(); } },
-      label + ": " + playerName(rosterPlayer(t, idx)));
+      label + ": " + (idx === 255 ? "Unassigned" : playerName(rosterPlayer(t, idx))));
   };
   const joinChip = h("button", { class: "rolechip" + (S.assign && S.assign.kind === "join" ? " armed" : ""),
       id: "role-join", title: "Click, then up to three pitch players",
       onclick: () => { S.assign = S.assign && S.assign.kind === "join" ? null
         : { kind: "join", label: "the attack" }; S.slotPop = null; render(); } },
-    "Join attack: " + tac.players_to_join_attack.map(idx => playerName(rosterPlayer(t, idx)).split(" ")[0]).join(", "));
+    "Join attack: " + (tac.players_to_join_attack.filter(idx => idx !== 255)
+      .map(idx => playerName(rosterPlayer(t, idx)).split(" ")[0]).join(", ") || "none"));
   const slider = (key, label, max) => h("td", {}, label + " ",
     h("input", { type: "range", min: 1, max, value: pre.sliders[key],
       onchange: e => { const v = parseInt(e.target.value, 10);

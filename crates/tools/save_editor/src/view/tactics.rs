@@ -1,15 +1,15 @@
 //! The Tactics tab (`plans/save_editor.md` "Tactics editor"; the draft's
-//! `tacticsTab`): `team_widgets`' lineup lists and tactics settings over
-//! the selected player's team — the starting eleven and the bench with
-//! swap-by-drag, the preset selector, the Formation settings, Advanced
-//! instructions and Automatic settings groups — plus the tab's own
+//! `tacticsTab`): `team_widgets`' pitch, lineup lists and tactics settings
+//! over the selected player's team — the formation canvas with its markers
+//! and slot popover, the starting eleven and the bench with swap-by-drag,
+//! the preset selector, the Formation settings, Advanced instructions,
+//! Player assignments and Automatic settings groups — plus the tab's own
 //! Copy/swap preset and Copy/swap formation menus (the editor's alone,
-//! the plan's placement rules; `session::tactics_ops`). The pitch lands
-//! with the next part. The widgets edit a clone of the team's tactics and
-//! report a change; the tab pushes the clone back with
-//! `Session::edit_team` under one key per team and tab, so a slider drag
-//! is one undo entry (`seal` runs when the pointer is up and no widget
-//! has focus).
+//! the plan's placement rules; `session::tactics_ops`). The widgets edit a
+//! clone of the team's tactics and report a change; the tab pushes the
+//! clone back with `Session::edit_team` under one key per team and tab, so
+//! a slider drag or a marker drop is one undo entry (`seal` runs when the
+//! pointer is up and no widget has focus).
 
 use pes_savefile::model::names::display_name;
 use team_widgets::pitch::{self, FORMATIONS};
@@ -70,16 +70,20 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // and the widget's state never cross teams nor saves.
     ui.push_id((*generation, team_id), |ui| {
         ui.horizontal(|ui| {
+            tactics::preset_selector(ui, tactics);
             copy_swap_preset_menu(ui, session, team_id);
             copy_swap_formation_menu(ui, session, team_id, tactics.preset);
         });
         let mut edited = team.tactics.clone();
         let mut changed = false;
-        // The pitch canvas lands in the left column with the next part;
-        // the lists sit at its right, as the draft's `taccols` draws them.
+        // The draft's `taccols`: the pitch in the left column, the lists
+        // at its right.
         ui.columns(2, |columns| {
+            columns[0].vertical(|ui| {
+                changed |= pitch::pitch(ui, "pitch", &mut edited, tactics, &roster);
+            });
             columns[1].vertical(|ui| {
-                changed = pitch::lineup(ui, "lineup", &mut edited, tactics, &roster);
+                changed |= pitch::lineup(ui, "lineup", &mut edited, tactics, &roster);
             });
         });
         changed |= tactics::tactics_settings(

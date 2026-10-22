@@ -2320,3 +2320,5 @@ worklog passed 7,000 lines.
   database matches but for four kept differences (DECISIONS); slice 2 closed. Slice 3's Tactics rulings logged, 8.9e1 briefed.
 - **2026-10-22** — 8.9e1 and e2: the Tactics tab's settings, copy/swap menus and its starting eleven and bench lists, a
   bench player dragged in taking the starter's roles; the pitch is next.
+- **2026-10-22** — 8.9e3: the Tactics tab's pitch (drag with snapping, the slot popover, bench drops, the assignment chips);
+  SWE-2 S1 over e1+e2 accepted 5 (the bench move rotated backwards), fixed with the widget modules split into folders.

@@ -1136,11 +1136,23 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         lineup number, the formation menu's copies), both now tested. Files:
         `team_widgets/src/{lib.rs,pitch.rs,tactics.rs,test_support.rs}`,
         `save_editor/{help/08_tactics.md,src/view/{mod.rs,tactics.rs,tests/tactics.rs}}`
-      - [ ] 8.9e3 the pitch: markers dragged with snapping, the slot popover, a bench row
+      - [x] 8.9e3 the pitch: markers dragged with snapping, the slot popover, a bench row
         dropped on a marker, the role palette and join-attack modes (SE-GUI-12); the draft
         first gets the keeper lock and the packed join list, and its harness
         (`.tmp/8_5/run_harness.py`) the SE-GUI-07 and 08 checks that fail since those scenarios
-        changed → verify: SE-GUI-12 proven, the harness all ok
+        changed → verify: SE-GUI-12 proven, the harness all ok. Done 2026-10-22 (SWE-2, one
+        run; the lead fixed the harness's SE-GUI-07, 08 and 11 checks, 32 of 32 ok): `pitch`
+        (the canvas, markers as AccessKit buttons, `snap`, the keeper not dragged, the popover
+        closing on a preset, formation or team change), the assignment chips and note; a
+        marker dropped on another exchanges the two starters, one released off the pitch stays
+        (DECISIONS 2026-10-22, the draft synced). With rework 1 (SWE-2 S1 over e1+e2, 5 of 8
+        accepted, `.tmp/8_9/duck_rulings_e.md`; a run that stopped half-way, finished by a fresh
+        one and the lead): the bench move's rotation was backwards and its test copied it;
+        `LineupDrag` crate-private; `tactics/` and `pitch/` split into folders (48 tests before
+        and after); the Preset selector in the toolbar row beside the menus acting on it. Files:
+        `team_widgets/src/{lib.rs,tactics/{mod.rs,instructions.rs,assignments.rs},pitch/{mod.rs,
+        lineup.rs,popover.rs}}`, `save_editor/{help/08_tactics.md,src/view/{tactics.rs,
+        tests/tactics.rs}}`
       - [ ] review: a SWE-2 loop, then Astra, over e1 and e2 together, and over e3
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's

@@ -1,4 +1,5 @@
 use pes_savefile::model::TeamEntry;
+use pes_savefile::model::tactics::FormationSlot;
 
 use super::*;
 
@@ -290,8 +291,6 @@ fn the_preset_selector_writes_nothing() {
     assert!(!session.can_undo());
 }
 
-// SE-GUI-12's bench half (the scenario's citation waits for the pitch:
-// its drag, the role palette and the join-attack mode), and
 // plans/save_editor.md "Tactics editor", "A starter swapped with a bench
 // player": the roles follow the swap, one undo entry, saved.
 #[test]
@@ -451,5 +450,203 @@ fn the_copy_swap_menus_items_and_the_formation_copy() {
             "Swap presets 2 and 3",
         ],
         "the preset menu's items in the draft's order"
+    );
+}
+
+/// The pitch canvas' rect (the widget's "pitch" node).
+fn canvas_of(nodes: &[accesskit::Node]) -> accesskit::Rect {
+    nodes
+        .iter()
+        .find(|node| node.label() == Some("pitch"))
+        .and_then(accesskit::Node::bounds)
+        .expect("the pitch canvas")
+}
+
+/// The centre of `slot`'s marker on `canvas` (the widget's marker math:
+/// the stored grid is 104 by 48 at 3 px and 7 px a unit inside a 4 px / 2
+/// px margin, high y on top; the 42 by 26 chip centres on the point and
+/// clamps 2 px inside the canvas).
+fn marker_centre(canvas: accesskit::Rect, slot: FormationSlot) -> egui::Pos2 {
+    let centre = egui::pos2(
+        canvas.x0 as f32 + 4.0 + f32::from(slot.x) * 3.0,
+        canvas.y0 as f32 + 2.0 + (48.0 - f32::from(slot.y)) * 7.0,
+    );
+    egui::pos2(
+        (centre.x - 21.0).clamp(canvas.x0 as f32 + 2.0, canvas.x1 as f32 - 44.0) + 21.0,
+        (centre.y - 16.0).clamp(canvas.y0 as f32 + 2.0, canvas.y1 as f32 - 30.0) + 13.0,
+    )
+}
+
+/// A point on `canvas` covered by no marker of `players` (a grass drop:
+/// the first free of the grid scan).
+fn grass_point(canvas: accesskit::Rect, players: &[FormationSlot; 11]) -> egui::Pos2 {
+    let covered = |x: f32, y: f32| {
+        players.iter().any(|slot| {
+            let centre = marker_centre(canvas, *slot);
+            (centre.x - x).abs() <= 21.0 && (centre.y - y).abs() <= 13.0
+        })
+    };
+    for x in 0..=104_u8 {
+        for y in 0..=48_u8 {
+            let (px, py) = (
+                canvas.x0 as f32 + 4.0 + f32::from(x) * 3.0,
+                canvas.y0 as f32 + 2.0 + (48.0 - f32::from(y)) * 7.0,
+            );
+            if !covered(px, py) {
+                return egui::pos2(px, py);
+            }
+        }
+    }
+    panic!("no free point on the canvas")
+}
+
+/// `pos` inside `canvas` snapped to the stored grid (the widget's snap:
+/// the nearest unit, clamped).
+fn snap(canvas: accesskit::Rect, pos: egui::Pos2) -> (u8, u8) {
+    let x = ((pos.x - canvas.x0 as f32 - 4.0) / 3.0)
+        .round()
+        .clamp(0.0, 104.0) as u8;
+    let y = (48.0 - ((pos.y - canvas.y0 as f32 - 2.0) / 7.0).round()).clamp(0.0, 48.0) as u8;
+    (x, y)
+}
+
+/// A click at `pos` (press on one frame, release on the next): the
+/// release frame's nodes.
+fn click_at(window: &mut Headless, pos: egui::Pos2, view: &mut SaveView) -> Vec<accesskit::Node> {
+    window.frame(pointer_at(pos, true), |ui| {
+        show(ui, view, &|| Vec::new(), None)
+    });
+    let (_, nodes, _) = window.frame(pointer_at(pos, false), |ui| {
+        show(ui, view, &|| Vec::new(), None)
+    });
+    nodes
+}
+
+/// The chip of the "Player assignments" palette labeled with `prefix`.
+fn chip<'a>(nodes: &'a [accesskit::Node], prefix: &str) -> &'a accesskit::Node {
+    nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Button
+                && node.label().is_some_and(|label| label.starts_with(prefix))
+        })
+        .unwrap_or_else(|| panic!("no chip {prefix:?}"))
+}
+
+// SE-GUI-12
+#[test]
+fn the_pitch_moves_assigns_and_swaps_on_the_tactics_tab() {
+    let path = fixture(PesVersion::Pes21, "tactics_pitch");
+    // The join-attack list starts empty so the scenario's clicks alone
+    // fill it.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.team_mut(701).unwrap().tactics.players_to_join_attack = [u8::MAX; 3];
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(1600.0, 1400.0);
+    let index = 4;
+    let before = team_entry(&view, 701).tactics;
+    let slot_before = before.presets[0].formations[0].players[index];
+
+    // A pitch player dragged to another spot: the slot's x and y are the
+    // snapped drop point, undoable.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let from = marker_centre(canvas, slot_before);
+    let onto = grass_point(canvas, &before.presets[0].formations[0].players);
+    let (x, y) = snap(canvas, onto);
+    assert_ne!(
+        (slot_before.x, slot_before.y),
+        (x, y),
+        "premise: a real move"
+    );
+    drag(&mut window, from, onto, &mut view);
+    let written = team_entry(&view, 701).tactics.presets[0].formations[0].players[index];
+    assert_eq!((written.x, written.y), (x, y), "the snapped drop point");
+
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let undone = team_entry(&view, 701).tactics.presets[0].formations[0].players[index];
+    assert_eq!(
+        (undone.x, undone.y),
+        (slot_before.x, slot_before.y),
+        "undo restored"
+    );
+    window.frame(
+        vec![key(
+            egui::Key::Z,
+            egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
+            true,
+        )],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    let redone = team_entry(&view, 701).tactics.presets[0].formations[0].players[index];
+    assert_eq!((redone.x, redone.y), (x, y), "redo moved it back");
+
+    // Saved and reopened: the file holds the new spot.
+    window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let reopened = EditFile::load(&path).unwrap();
+    let saved = reopened.team(701).unwrap().tactics.presets[0].formations[0].players[index];
+    assert_eq!((saved.x, saved.y), (x, y), "the file holds the drop point");
+
+    // A bench player dragged onto a pitch player: the two swap.
+    let out = team_entry(&view, 701).tactics.starting_eleven[index];
+    let inn = team_entry(&view, 701).tactics.bench_order[0];
+    assert_ne!(out, inn, "premise: two different slots");
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let moved = team_entry(&view, 701).tactics.presets[0].formations[0].players[index];
+    let onto = marker_centre(canvas, moved);
+    let names = lineup_names(&nodes);
+    drag(&mut window, centre(names[11]), onto, &mut view);
+    let tactics = team_entry(&view, 701).tactics;
+    assert_eq!(
+        tactics.starting_eleven[index], inn,
+        "the bench player starts"
+    );
+    assert_eq!(tactics.bench_order[0], out, "the starter sits");
+
+    // A set-piece role assigned from the palette: arm Penalty kick, click
+    // a pitch player; the taker field holds him.
+    let assignee = 7;
+    let starter = team_entry(&view, 701).tactics.starting_eleven[assignee];
+    assert_ne!(
+        tactics.set_pieces.penalty, starter,
+        "premise: the marker's player is not already the taker"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, chip(&nodes, "Penalty kick:"), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let slot = team_entry(&view, 701).tactics.presets[0].formations[0].players[assignee];
+    click_at(&mut window, marker_centre(canvas, slot), &mut view);
+    assert_eq!(
+        team_entry(&view, 701).tactics.set_pieces.penalty,
+        starter,
+        "the taker field holds the clicked player"
+    );
+
+    // Join mode with two pitch players clicked: they are the setting's
+    // players, the third entry 255.
+    let members = [5_usize, 6_usize].map(|i| team_entry(&view, 701).tactics.starting_eleven[i]);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, chip(&nodes, "Join attack:"), &mut view);
+    for member in [5_usize, 6_usize] {
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let canvas = canvas_of(&nodes);
+        let slot = team_entry(&view, 701).tactics.presets[0].formations[0].players[member];
+        click_at(&mut window, marker_centre(canvas, slot), &mut view);
+    }
+    assert_eq!(
+        team_entry(&view, 701).tactics.players_to_join_attack,
+        [members[0], members[1], u8::MAX],
+        "the two clicked players are the setting's players"
     );
 }

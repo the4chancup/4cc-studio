@@ -314,6 +314,9 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   members bring a match's man marking into a team (DECISIONS 2026-10-12), so the copy carries
   it. A formation copy or swap moves the eleven slots' position, X and Y within the shown
   preset; the starting eleven is the team's and stays.
+- **A pitch player dropped on another** exchanges the two starters (their formation slots stay),
+  as in the game's own formation screen; one released on the grass moves to the snapped drop
+  point, and one released off the pitch stays where he was.
 - **A starter swapped with a bench player** hands the bench player every set-piece role, the
   joining of the attack and every preset's instruction targets the starter held; the captain
   stays who he was, as in 4ccEditor.

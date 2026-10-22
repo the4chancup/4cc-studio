@@ -3,18 +3,31 @@ three presets is on screen, its formation settings, the advanced instructions
 and the team's automatic settings. A field the save's version does not hold
 stays in its place, disabled, with a note naming the first version that has it.
 
+The **pitch** is where the formation takes shape: each starter's chip sits at
+his spot, and dragging a chip to a new place moves him there, snapped to the
+positions the save can hold. A bench player dropped on a pitch player swaps
+them, and a chip dropped on a bench row does the same. Clicking a chip opens
+his details: a position pick, the exact X and Y fields and **Make GK**, which
+puts him in goal and brings the goalkeeper out onto his spot. The
+goalkeeper's own chip cannot be dragged and his position and spot stay fixed.
+The **Kick-off**, **In-possession** and **Out-of-possession** buttons above
+the pitch pick which of the preset's three formations it shows (the game
+uses the second and third only while the preset's fluid formation is on).
+Switching formations changes nothing by itself.
+
 The **Starting eleven** and **Bench** lists set who plays and in which order:
-drag a row by its handle onto another to move or swap it. A starter dropped on
+drag a row onto another to move or swap it. A starter dropped on
 another starter trades their places. A bench player dropped on a starter takes
 his place and every job he held (set pieces, joining the attack, instruction
-targets); the captain stays who he was. The **Kick-off**, **In-possession** and
-**Out-of-possession** buttons pick which of the preset's three formations the
-eleven's position labels show (the game uses the second and third only while
-the preset's fluid formation is on). Switching formations changes nothing by
-itself.
+targets); the captain stays who he was.
 
-The **Preset** buttons pick which of the team's three presets the groups below
-edit. Switching presets changes nothing by itself.
+The **Player assignments** chips set who takes each set piece, the captain and
+who joins the attack: click a chip, then click the pitch player. Join attack
+keeps its mode open so up to three can be picked or unpicked; Done finishes.
+
+The **Preset** buttons at the top, beside the two Copy/swap menus, pick which
+of the team's three presets the groups below edit. Switching presets changes
+nothing by itself.
 
 **Formation settings** holds the fluid-formation switch (PES 2016 and later),
 the five sliders (support range, defensive line, compactness, and the numbers

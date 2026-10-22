@@ -10276,3 +10276,14 @@ an opened-and-saved file byte-identical (both tools' were, on all three saves); 
 spreadsheet reads either, and the content is identical line for line.
 Plan: `plans/save_editor.md` "Team operations", "Full Player Customization (FPC)"; the run's
 outputs in `.tmp/8_9/parity/RESULT.md`.
+
+## 2026-10-22 — team_widgets — A pitch player dropped on another exchanges the two starters
+Decision: on the Tactics tab's pitch, a player dropped on another player exchanges the two
+starters, their formation slots staying; one released on the grass moves to the snapped point;
+one released off the pitch stays.
+Why: the game's own formation screen swaps two players dropped on each other, and the marker's
+drag carries the same payload as a starting-eleven row, whose drop on a marker already exchanges
+them. Writing the drop point instead (the draft's first version) stacked two players on one spot,
+a formation no member means; a release off the pitch clamped to the edge moved a player nobody
+aimed at the edge.
+Plan: `plans/save_editor.md` "Tactics editor", "What the controls write".
