@@ -29,6 +29,11 @@ use crate::session::undo::{Change, UndoStack};
 /// never stale across saves.
 static NEXT_REVISION: AtomicU64 = AtomicU64::new(1);
 
+/// The undo merge key `move_player`'s changes go under: a whole move is one
+/// entry and never part of a widget's open gesture, so it needs no widget id
+/// (the move seals its entry at the end regardless).
+const MOVE_KEY: u64 = u64::MAX;
+
 /// The open save: the file, the path it came from, the undo stack and the
 /// baseline the unsaved-changes marks compare against (the file's players
 /// and teams as opened or last saved).
@@ -172,6 +177,86 @@ impl Session {
                 after: Box::new(edited),
             },
         );
+        self.touch();
+        self.dirty = self.compute_dirty();
+    }
+
+    /// The player-list drop (`plans/save_editor.md` "Editing UI", the Player list
+    /// bullet): the record on roster slot `from` lands on `to`'s player id and the
+    /// records between shift one filled slot along, each slot keeping what belongs
+    /// to its id (`id`, `appearance_id` and `appearance.base_copy_id` never move).
+    /// The roster is never written, so its ids, the shirt numbers and the captain
+    /// stay put (slot `NN` holds player `team id x 100 + NN` by 4cc rule). The whole
+    /// move is one sealed undo entry. `from == to`, a team or player the save lacks,
+    /// or an empty `from` or `to` slot does nothing; an empty slot between them is
+    /// skipped over.
+    pub(crate) fn move_player(&mut self, team_id: u32, from: u8, to: u8) {
+        if from == to {
+            return;
+        }
+        let Some(team) = self.file.team(team_id) else {
+            return;
+        };
+        let (from, to) = (usize::from(from), usize::from(to));
+        let Some(range) = team.roster.get(from.min(to)..=from.max(to)) else {
+            return;
+        };
+        let lo = from.min(to);
+        if range[from - lo].player_id == 0 || range[to - lo].player_id == 0 {
+            return;
+        }
+        // The filled slots' ids in slot order: the sequence the move rotates.
+        let filled: Vec<u32> = range
+            .iter()
+            .filter(|slot| slot.player_id != 0)
+            .map(|slot| slot.player_id)
+            .collect();
+        let mut order = filled.clone();
+        let taken = order.remove(
+            filled
+                .iter()
+                .position(|id| *id == range[from - lo].player_id)
+                .expect("`from` is filled"),
+        );
+        order.insert(
+            filled
+                .iter()
+                .position(|id| *id == range[to - lo].player_id)
+                .expect("`to` is filled"),
+            taken,
+        );
+        // Each filled slot's player takes `order`'s record for it, keeping the
+        // slot's own `id`, `appearance_id` and `base_copy_id`. Every before and
+        // after is computed before the first write: a rostered id the save
+        // lacks leaves it untouched.
+        let mut moved = Vec::new();
+        for (&slot_id, &record_id) in filled.iter().zip(&order) {
+            if slot_id == record_id {
+                continue;
+            }
+            let (Some(dest), Some(source)) =
+                (self.file.player(slot_id), self.file.player(record_id))
+            else {
+                return;
+            };
+            let mut after = source.clone();
+            after.id = dest.id;
+            after.appearance_id = dest.appearance_id;
+            after.appearance.base_copy_id = dest.appearance.base_copy_id;
+            moved.push((slot_id, dest.clone(), after));
+        }
+        for (id, before, after) in moved {
+            *self.file.player_mut(id).expect("resolved above") = after.clone();
+            self.undo.push(
+                MOVE_KEY,
+                Change::Player {
+                    before: Box::new(before),
+                    after: Box::new(after),
+                },
+            );
+        }
+        // One entry for the whole move, sealed: the next edit does not merge.
+        self.undo.seal();
         self.touch();
         self.dirty = self.compute_dirty();
     }
@@ -453,6 +538,175 @@ pub(crate) fn is_stripped(file: &EditFile, id: u32) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Writes the PES 21 fixture save under the test's scratch folder and
+    /// opens it as a `Session`.
+    fn open_pes21(test: &str) -> Session {
+        let dir = std::env::temp_dir().join(format!("save_editor_session_{test}"));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("EDIT00000000");
+        std::fs::write(&path, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+        Session::open(&path).unwrap()
+    }
+
+    /// `entry` without the fields a roster slot owns (`id`, `appearance_id`,
+    /// `appearance.base_copy_id`): the record a move carries.
+    fn record(entry: &PlayerEntry) -> PlayerEntry {
+        let mut record = entry.clone();
+        record.id = 0;
+        record.appearance_id = None;
+        record.appearance.base_copy_id = 0;
+        record
+    }
+
+    // plans/save_editor.md "Editing UI", the Player list bullet: a drop moves
+    // the players' records between the ids, every `id`, `appearance_id` and
+    // `base_copy_id` staying with its slot; the roster (and so the shirt
+    // numbers) is never written, and the whole move is one undo entry.
+    #[test]
+    fn a_move_trades_the_records_between_the_ids_one_undo_entry() {
+        let mut session = open_pes21("move");
+        // The fixture's placeholders are identical records: distinguish the
+        // three the move rotates, so the trades are not vacuous; a save makes
+        // them the baseline, so `is_dirty` measures the move alone.
+        session.file.player_mut(70101).unwrap().name = "FIRST".to_owned();
+        session.file.player_mut(70102).unwrap().stats.speed = 71;
+        session.file.player_mut(70103).unwrap().appearance.boots_id = 13;
+        session.save(&[]).unwrap();
+        let before: Vec<PlayerEntry> = [70101, 70102, 70103]
+            .iter()
+            .map(|id| session.file().player(*id).unwrap().clone())
+            .collect();
+        let roster_before = session.file().team(701).unwrap().roster.clone();
+        assert_ne!(
+            record(&before[0]),
+            record(&before[1]),
+            "premise: the records differ"
+        );
+        assert_ne!(
+            record(&before[1]),
+            record(&before[2]),
+            "premise: the records differ"
+        );
+
+        session.move_player(701, 2, 0);
+
+        // Slot 0's id is still 70101 and holds the record 70103 had; 70102
+        // holds 70101's, 70103 70102's.
+        let after: Vec<PlayerEntry> = [70101, 70102, 70103]
+            .iter()
+            .map(|id| session.file().player(*id).unwrap().clone())
+            .collect();
+        for (moved, held) in after.iter().zip([2usize, 0, 1]) {
+            assert_eq!(
+                record(moved),
+                record(&before[held]),
+                "the record player {} had",
+                before[held].id
+            );
+        }
+        for (moved, id) in after.iter().zip([70101u32, 70102, 70103]) {
+            assert_eq!(moved.id, id, "the id stays with the slot");
+            assert_eq!(moved.appearance_id, Some(id), "the appearance id too");
+        }
+        assert_eq!(
+            after[0].appearance.base_copy_id, before[0].appearance.base_copy_id,
+            "the base copy stays with the slot"
+        );
+        assert_eq!(
+            after[1].appearance.base_copy_id, before[1].appearance.base_copy_id,
+            "the base copy stays with the slot"
+        );
+        assert_eq!(
+            after[2].appearance.base_copy_id, before[2].appearance.base_copy_id,
+            "the base copy stays with the slot"
+        );
+        assert_eq!(
+            session.file().team(701).unwrap().roster,
+            roster_before,
+            "the roster's ids and shirt numbers are unchanged"
+        );
+        assert!(session.is_dirty());
+        assert!(session.player_dirty(701, 0), "the moved players are marked");
+
+        // One undo restores all three entries exactly; one redo reapplies.
+        assert!(session.undo());
+        for (id, entry) in [70101u32, 70102, 70103].iter().zip(&before) {
+            assert_eq!(session.file().player(*id).unwrap(), entry);
+        }
+        assert!(!session.can_undo(), "the whole move is one undo entry");
+        assert!(session.redo());
+        for (id, entry) in [70101u32, 70102, 70103].iter().zip(&after) {
+            assert_eq!(session.file().player(*id).unwrap(), entry);
+        }
+    }
+
+    // A move to itself, onto an empty slot, from an empty slot or past the
+    // roster, and a team the save lacks: nothing changes, no undo entry.
+    #[test]
+    fn a_move_that_names_no_two_filled_slots_does_nothing() {
+        let mut session = open_pes21("move_noop");
+        let empty = session
+            .file()
+            .team(701)
+            .unwrap()
+            .roster
+            .iter()
+            .position(|slot| slot.player_id == 0)
+            .map(|i| u8::try_from(i).unwrap())
+            .expect("the roster has an empty slot");
+
+        session.move_player(701, 0, 0);
+        session.move_player(701, 0, empty);
+        session.move_player(701, empty, 0);
+        session.move_player(701, 0, 250);
+        session.move_player(99999, 0, 1);
+
+        assert!(!session.is_dirty());
+        assert!(!session.can_undo());
+    }
+
+    // plans/save_editor.md "Editing UI", the Player list bullet: an empty
+    // slot between the dragged and the target is skipped over — the records
+    // rotate over the filled slots.
+    #[test]
+    fn a_move_skips_over_an_empty_slot() {
+        let mut session = open_pes21("move_empty");
+        // Distinguish the records (the fixture's placeholders are identical),
+        // then empty out slot 1 (70102's record stays in the pool, unrostered).
+        session.file.player_mut(70101).unwrap().name = "FIRST".to_owned();
+        session.file.player_mut(70103).unwrap().name = "THIRD".to_owned();
+        session.file.team_mut(701).unwrap().roster[1].player_id = 0;
+        let before: Vec<PlayerEntry> = [70101, 70102, 70103]
+            .iter()
+            .map(|id| session.file().player(*id).unwrap().clone())
+            .collect();
+        assert_ne!(
+            record(&before[0]),
+            record(&before[2]),
+            "premise: the records differ"
+        );
+
+        session.move_player(701, 0, 2);
+
+        // Slot 0 (70101) holds 70103's record, slot 2 (70103) 70101's; the
+        // skipped slot stays empty and 70102's record is untouched.
+        assert_eq!(
+            record(session.file().player(70101).unwrap()),
+            record(&before[2])
+        );
+        assert_eq!(
+            record(session.file().player(70103).unwrap()),
+            record(&before[0])
+        );
+        assert_eq!(
+            record(session.file().player(70102).unwrap()),
+            record(&before[1])
+        );
+        assert_eq!(session.file().team(701).unwrap().roster[1].player_id, 0);
+        assert_eq!(session.file().team(701).unwrap().roster[0].player_id, 70101);
+        assert_eq!(session.file().team(701).unwrap().roster[2].player_id, 70103);
+    }
 
     #[test]
     fn refuse_while_running_refuses_only_the_saves_own_version() {

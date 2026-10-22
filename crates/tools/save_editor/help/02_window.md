@@ -7,6 +7,8 @@ list below it holds one row per player: shirt number, position, the team when th
 crosses teams, and the name shown as the game draws it, colors included. A `●` on a row
 marks a player with unsaved changes. The filter box above the list finds a player of any
 team by part of his name, shirt name or id, so finding him does not need his team first.
+With one team picked, drag a row to move the player to a new place in the list; the shirt
+number belongs to the place, so it stays where it was.
 
 **Editing.** Click a row to select the player; the fields right of the list edit his
 general info: name, shirt name, height, weight, age, nationality, shirt number and

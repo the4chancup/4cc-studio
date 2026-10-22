@@ -125,6 +125,43 @@ fn pointer_at(pos: egui::Pos2, pressed: bool) -> Vec<egui::Event> {
     ]
 }
 
+/// A press on `from`'s centre, the pointer dragged to `onto`'s and released:
+/// a drag of `from`'s widget onto `onto`'s.
+fn drag(window: &mut Headless, from: egui::Pos2, onto: egui::Pos2, view: &mut SaveView) {
+    window.frame(pointer_at(from, true), |ui| {
+        show(ui, view, &|| Vec::new(), None)
+    });
+    window.frame(vec![egui::Event::PointerMoved(onto)], |ui| {
+        show(ui, view, &|| Vec::new(), None)
+    });
+    window.frame(pointer_at(onto, false), |ui| {
+        show(ui, view, &|| Vec::new(), None)
+    });
+}
+
+/// `entry` without the fields a roster slot owns (`id`, `appearance_id`,
+/// `appearance.base_copy_id`): the record a drag reorder carries.
+fn record(entry: &PlayerEntry) -> PlayerEntry {
+    let mut record = entry.clone();
+    record.id = 0;
+    record.appearance_id = None;
+    record.appearance.base_copy_id = 0;
+    record
+}
+
+/// The list's player rows' labels in screen order (the AccessKit update is
+/// unordered).
+fn row_labels(nodes: &[accesskit::Node]) -> Vec<String> {
+    let mut rows: Vec<&accesskit::Node> = nodes.iter().filter(|node| player_row(node)).collect();
+    rows.sort_by(|a, b| {
+        let y = |node: &&accesskit::Node| node.bounds().map(|r| r.y0).unwrap_or(0.0);
+        y(a).partial_cmp(&y(b)).expect("ordered bounds")
+    });
+    rows.iter()
+        .filter_map(|node| node.label().map(str::to_owned))
+        .collect()
+}
+
 /// A click on `node`: press on one frame, release on the next.
 fn click(window: &mut Headless, node: &accesskit::Node, view: &mut SaveView) {
     let at = centre(node);

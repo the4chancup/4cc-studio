@@ -2290,3 +2290,5 @@ worklog passed 7,000 lines.
   charset, the load error's wrap, tests that see a refusal's typed text and the badges follow the selection; a medal CB pinned).
 - **2026-10-22** — 8.9c1: the roster-order rule (slot NN holds team x 100 + NN) in `pes_savefile`, raised by the AATF host for
   every ruleset and noted by Team TOML's export; a census of 29 real saves found breaks only in five older PES 16 saves.
+- **2026-10-22** — 8.9c2: drag reorder in the Save editor's player list trades records between the slots' ids as 4ccEditor's
+  spinner does (SE-GUI-08); 8.9c1's first SWE-2 round accepted none of 8, ending its loop.

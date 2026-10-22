@@ -2,7 +2,8 @@
 //! master-detail layout, the player list left (`player_list`) and the general info
 //! strip right (`info_strip`) over the tab strip and the Abilities & Skills tab
 //! (`abilities`). Render-only over the session's state: it opens a
-//! save, filters and selects players, edits the strip's fields through
+//! save, filters and selects players, reorders a team's list by drag
+//! (`Session::move_player`), edits the strip's fields through
 //! `Session::edit_player`/`edit_team` (one undo entry per gesture), saves, and
 //! shows a refusal in a modal.
 

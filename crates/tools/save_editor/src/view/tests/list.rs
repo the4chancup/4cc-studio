@@ -357,3 +357,114 @@ fn scrolling_to_the_end_of_all_selects_the_last_player() {
         "the info strip shows the last player's ID"
     );
 }
+
+// SE-GUI-08
+#[test]
+fn a_row_dragged_above_another_trades_their_records_between_the_ids() {
+    let path = fixture(PesVersion::Pes21, "drag_reorder");
+    // Distinguish the two records the drag trades (the fixture's placeholders
+    // are identical): a name, a stat, a boot id and a base copy each.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.player_mut(70101).unwrap().name = "FIRST".to_owned();
+    file.player_mut(70101).unwrap().stats.speed = 70;
+    file.player_mut(70101).unwrap().appearance.boots_id = 11;
+    file.player_mut(70101).unwrap().appearance.base_copy_id = 9001;
+    file.player_mut(70102).unwrap().name = "SECOND".to_owned();
+    file.player_mut(70102).unwrap().stats.speed = 71;
+    file.player_mut(70102).unwrap().appearance.boots_id = 12;
+    file.player_mut(70102).unwrap().appearance.base_copy_id = 9002;
+    file.save(&path).unwrap();
+    let roster_before = file.team(701).unwrap().roster.clone();
+    let first = file.player(70101).unwrap().clone();
+    let second = file.player(70102).unwrap().clone();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    let mut window = Headless::new();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    // Select another row first, so the selection following the dragged
+    // record is not vacuous.
+    click(&mut window, row(&nodes, "3 CB PLACEHOLDER"), &mut view);
+    assert_eq!(view.selected, Some((701, 2)), "premise: row 03 selected");
+
+    // Drag player 02's row above player 01's.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let from = centre(row(&nodes, "2 CB SECOND"));
+    let onto = centre(row(&nodes, "1 CB FIRST"));
+    drag(&mut window, from, onto, &mut view);
+
+    // The list shows the new order, the moved rows marked unsaved; the
+    // selection followed the dragged record to its new slot.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let labels = row_labels(&nodes);
+    assert_eq!(&labels[..2], ["1 CB SECOND ●", "2 CB FIRST ●"]);
+    assert_eq!(
+        view.selected,
+        Some((701, 0)),
+        "the selection sits on the dropped record's slot"
+    );
+
+    // Save, reopen: slot 01 still holds player 70101, whose record is the
+    // one player 02 had, and the other way round; the roster is untouched.
+    window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let reopened = EditFile::load(&path).unwrap();
+    let team = reopened.team(701).expect("team 701");
+    assert_eq!(
+        team.roster, roster_before,
+        "the roster's ids and shirt numbers are as they were"
+    );
+    let held = reopened.player(70101).expect("player 70101");
+    assert_eq!(record(held), record(&second), "slot 01's record is 70102's");
+    assert_eq!(held.id, 70101);
+    assert_eq!(held.appearance_id, Some(70101));
+    assert_eq!(held.appearance.base_copy_id, 9001);
+    let held = reopened.player(70102).expect("player 70102");
+    assert_eq!(record(held), record(&first), "slot 02's record is 70101's");
+    assert_eq!(held.id, 70102);
+    assert_eq!(held.appearance_id, Some(70102));
+    assert_eq!(held.appearance.base_copy_id, 9002);
+
+    // The roster-order rule is unbroken.
+    let view_team = aatf::TeamView::new(&reopened, 701).expect("the team views");
+    let violations = aatf::Rules::official()
+        .check_team(&view_team)
+        .expect("the check runs");
+    assert!(
+        violations
+            .iter()
+            .all(|violation| !matches!(violation.kind, aatf::ViolationKind::RosterOrder { .. })),
+        "no RosterOrder: {violations:?}"
+    );
+}
+
+// SE-GUI-08: drag reorder is a one-team list's control; under ALL the same
+// drag changes nothing (neighbouring rows are not one team's slots).
+#[test]
+fn under_all_a_row_drag_changes_nothing() {
+    let path = fixture(PesVersion::Pes21, "drag_reorder_all");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.player_mut(70101).unwrap().name = "FIRST".to_owned();
+    file.player_mut(70102).unwrap().name = "SECOND".to_owned();
+    file.save(&path).unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    assert_eq!(view.team, TeamChoice::All, "open selects ALL");
+    let mut window = Headless::new();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let before = row_labels(&nodes);
+
+    let from = centre(row(&nodes, "2 CB /3/ SECOND"));
+    let onto = centre(row(&nodes, "1 CB /3/ FIRST"));
+    drag(&mut window, from, onto, &mut view);
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(row_labels(&nodes), before, "the list is unchanged");
+    let session = view.session.as_ref().expect("the save is open");
+    assert!(!session.is_dirty());
+    assert!(!session.can_undo());
+}

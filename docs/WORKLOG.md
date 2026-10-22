@@ -946,7 +946,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         `team_widgets/src/violations.rs`, `save_editor/{src/messages.rs,tests/cli/check_aatf.rs}`
         - [ ] review (checkpoint b: a new `pub` interface over four crates): a SWE-2 loop, then
           Astra
-      - [ ] 8.9c2 drag reorder in the player list (SE-GUI-08)
+      - [x] 8.9c2 drag reorder in the player list (SE-GUI-08): `Session::move_player`, the
+        records rotating between the slots' ids as 4ccEditor's spinner trades them (`id`,
+        `appearance_id` and `base_copy_id` stay with the id: its `player_export` carries no id
+        and its move trades `copy_id` back), one undo entry; off in ALL and while filtering.
+        Done 2026-10-22 (SWE-2): egui's `dnd_set_drag_payload`/`dnd_release_payload` on each
+        row, an empty slot between skipped over as the draft does. Files: `save_editor/{help/
+        02_window.md,src/{session/mod.rs,view/{mod.rs,player_list.rs,tests.rs,tests/list.rs}}}`
+        - [ ] review: with 8.9c1's (one surface, the rule and its first user)
     - [ ] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,

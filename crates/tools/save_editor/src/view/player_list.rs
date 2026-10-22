@@ -25,7 +25,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         cards: _,
         generation: _,
     } = view;
-    let Some(session) = session.as_ref() else {
+    let Some(session) = session.as_mut() else {
         return;
     };
     let file = session.file();
@@ -34,6 +34,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // A filter in use lists every team, so each row names its team — as it
     // does under `ALL` (the draft's `tshort`).
     let show_team = !filter.trim().is_empty() || *team == TeamChoice::All;
+    // A row drags only inside one team's list: under `ALL` or a typed filter
+    // the neighbouring rows are not one team's neighbouring slots.
+    let draggable = !show_team;
     let rows = selection::rows(file, team, filter);
     // Only the visible rows are laid out: `show_rows` draws the range the
     // viewport shows, each row's click target at the text row's height plus
@@ -41,7 +44,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let row_height = ui.spacing().interact_size.y;
     egui::ScrollArea::vertical().show_rows(ui, row_height, rows.len(), |ui, range| {
         for row in &rows[range] {
-            player_row(ui, selected, session, row, show_team);
+            player_row(ui, selected, session, row, show_team, draggable);
         }
     });
 }
@@ -68,13 +71,17 @@ fn team_selector(ui: &mut egui::Ui, choice: &mut TeamChoice, file: &EditFile) {
 
 /// One list row: number, position, the team's name while the list crosses
 /// teams (`ALL` or a filter in use), and the name with its colour codes drawn.
-/// The whole row is one click target; a click selects it.
+/// The whole row is one click target; a click selects it. `draggable` (one
+/// team's list, no filter) also makes it a drag source and a drop target: a
+/// drop on the row moves the dragged player to it (`Session::move_player`,
+/// SE-GUI-08).
 fn player_row(
     ui: &mut egui::Ui,
     selected: &mut Option<(u32, u8)>,
-    session: &Session,
+    session: &mut Session,
     row: &Row,
     show_team: bool,
+    draggable: bool,
 ) {
     let file = session.file();
     let team = file.team(row.team_id);
@@ -88,7 +95,16 @@ fn player_row(
     // One line, truncated when the name is too long for the panel: the full
     // display name rides the hover, a dirty row's with the dot's text.
     let hover = player.map_or_else(|| "?".to_owned(), |player| display_name(&player.name));
-    let response = ui.add(egui::Button::selectable(is_selected, job).truncate());
+    let sense = if draggable {
+        egui::Sense::click_and_drag()
+    } else {
+        egui::Sense::click()
+    };
+    let response = ui.add(
+        egui::Button::selectable(is_selected, job)
+            .truncate()
+            .sense(sense),
+    );
     let response = if dirty {
         response.on_hover_text(format!("{hover}\nUnsaved changes"))
     } else {
@@ -96,6 +112,16 @@ fn player_row(
     };
     if response.clicked() {
         *selected = Some((row.team_id, row.slot));
+    }
+    if draggable {
+        response.dnd_set_drag_payload(*row);
+        if let Some(dropped) = response.dnd_release_payload::<Row>()
+            && dropped.team_id == row.team_id
+        {
+            session.move_player(row.team_id, dropped.slot, row.slot);
+            // The selection follows the dragged record to its new slot.
+            *selected = Some((row.team_id, row.slot));
+        }
     }
 }
 
