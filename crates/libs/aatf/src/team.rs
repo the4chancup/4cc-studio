@@ -575,9 +575,9 @@ mod tests {
         );
     }
 
-    /// The roster-order rule is the host's own check, ahead of the
-    /// script's list (`spec/aatf_rules.md` "The host"): team 701 keeps it,
-    /// two slots' player ids swapped raise one error each.
+    /// The roster-order rule is the host's own check, leading its slot's
+    /// rows in `check_team`'s list (`spec/aatf_rules.md` "The host"): team
+    /// 701 keeps it, two slots' player ids swapped raise one error each.
     #[test]
     fn roster_order_breaks_report_first() {
         let rules = Rules::official();
@@ -600,27 +600,29 @@ mod tests {
         let team = TeamView::new(&file, 701).expect("the team views");
         assert_eq!(team.roster_breaks, vec![(0, 70102), (1, 70101)]);
         let found = rules.check_team(&team).expect("the check runs");
-        assert_eq!(
-            found[0],
-            Violation {
-                slot: Some(0),
-                severity: Severity::Error,
-                kind: ViolationKind::RosterOrder { player: 70102 },
-            }
-        );
-        assert_eq!(
-            found[1],
-            Violation {
-                slot: Some(1),
-                severity: Severity::Error,
-                kind: ViolationKind::RosterOrder { player: 70101 },
-            }
-        );
-        assert!(
-            found[2..]
+        // Each break is the first violation of its own slot's rows.
+        for (slot, player) in [(0u8, 70102u32), (1, 70101)] {
+            let first = found
                 .iter()
-                .all(|v| !matches!(v.kind, ViolationKind::RosterOrder { .. })),
-            "no other violation is a RosterOrder: {found:?}"
+                .find(|v| v.slot == Some(slot))
+                .unwrap_or_else(|| panic!("slot {slot} has rows"));
+            assert_eq!(
+                *first,
+                Violation {
+                    slot: Some(slot),
+                    severity: Severity::Error,
+                    kind: ViolationKind::RosterOrder { player },
+                },
+                "the break leads slot {slot}'s rows"
+            );
+        }
+        assert_eq!(
+            found
+                .iter()
+                .filter(|v| matches!(v.kind, ViolationKind::RosterOrder { .. }))
+                .count(),
+            2,
+            "one error per breaking slot: {found:?}"
         );
     }
 

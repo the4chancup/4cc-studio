@@ -411,8 +411,16 @@ fn a_roster_order_break_reports_the_held_and_expected_ids() {
     let run = check(&sandbox, "EDIT", &["--teams", "701"]);
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
     let messages = run.messages();
+    // Each slot's break leads its own rows: slot 0's is the first line,
+    // slot 1's follows slot 0's script violations (`check_team` lists the
+    // players by slot, `spec/aatf_rules.md` "The host").
+    let breaks: Vec<&str> = messages
+        .iter()
+        .filter(|line| line.contains("RosterOrder"))
+        .map(String::as_str)
+        .collect();
     assert_eq!(
-        messages[..2],
+        breaks,
         [
             "Error aatf_violation (team=701, rule=RosterOrder, player=70102, expected=70101)",
             "Error aatf_violation (team=701, rule=RosterOrder, player=70101, expected=70102)",
@@ -420,12 +428,8 @@ fn a_roster_order_break_reports_the_held_and_expected_ids() {
         "{messages:?}"
     );
     assert_eq!(
-        messages
-            .iter()
-            .filter(|line| line.contains("RosterOrder"))
-            .count(),
-        2,
-        "{messages:?}"
+        messages[0], breaks[0],
+        "slot 0's break is the first line: {messages:?}"
     );
 }
 

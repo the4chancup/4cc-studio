@@ -958,7 +958,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           `player_export`; the face run's face and hair stay with the slot, its skin, iris and
           gloves fields move (`moved_record`, tested on PES 21 and 16); two drags are two undo
           steps. Files: `save_editor/{help/02_window.md,src/{session/mod.rs,view/tests.rs}}`
-        - [ ] review: with 8.9c1's (one surface, the rule and its first user)
+        - [x] rework 2 (Astra A3 over 8.9c1, 8.9c2 and rework 1, 3 of 4 accepted, ending
+          Astra's loop): `aatf::Rules::check_team` lists by slot, the team's rows last (a break
+          on a later slot grouped its player first); the face and hair checked after Save and
+          reopen on PES 21 and 16; the help says the filter must be empty to drag. Files:
+          `aatf/src/{rules.rs,team.rs}`, `save_editor/{help/02_window.md,src/session/mod.rs,
+          tests/cli/check_aatf.rs}`
+        - [ ] review: with 8.9c1's (one surface, the rule and its first user): SWE-2 S1 on
+          each, Astra A3 done; the post-Astra SWE-2 loop over the two reworks is next
     - [ ] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
@@ -1364,6 +1371,16 @@ points there.
   the pid-named ones pile up. Direction: a per-checkout folder under the crate's own `target/`
   (gone with `cargo clean`, a mutation run's copy has its own), named per test without the
   pid; measure which other crates' tests leave files first
+- open 2026-10-22 — the VPS half's tests use `~/studio-mutants/tmp` (`REMOTE_TMPDIR`) as their
+  temp dir, and a helper that removes its folder at the test's end leaves it on every caught
+  mutant (the test panics first): on 2026-10-22 it held 16,786 such folders, 28.6 GB (27 GB of
+  them `save_editor`'s, fixed at `47e57a0d`; the rest `export_upgrader_*`, `pes_savefile_test_save_*`,
+  `studio_core_*` and others, about 1.5 GB), the host's disk at 99%, and a `mutants-diff` lost
+  5 mutants to it. Cleaned with `.tmp/lead/bonfire_tmp_cleanup.sh` (the disk at 80% after),
+  then the clone's build cache `~/studio-mutants/tree/target` (22 GB; only `just gates-remote`
+  builds there, so its next run starts cold) with `.tmp/lead/bonfire_target_cleanup.sh`: 66%.
+  Direction: `scripts/mutants.py` empties the tests' leftovers from `REMOTE_TMPDIR` after it
+  collects a remote half, or the helpers move under `target/` as `save_editor`'s did
 - open 2026-10-21 — the 4ccEditor source audit's rows that need a measurement or a check of
   built code (the rest are in `plans/save_editor.md`'s parity table and "Editing UI", and in
   8.9b1's rework): (1) a custom skin of 7 on PES 18+ becomes 0 in 4ccEditor (`main.cpp`

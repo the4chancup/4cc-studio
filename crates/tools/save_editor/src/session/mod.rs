@@ -790,17 +790,39 @@ mod tests {
         face_fields_move(PesVersion::Pes16, "move_face16");
     }
 
+    /// `marks`' (field, value on 70101, value on 70102) as the move leaves
+    /// them in `session` (a `face_fields_move` assert, on the open session
+    /// and again on the reopened save): the exported fields hold the
+    /// source's value, the rest the slot's own.
+    fn assert_face_move(session: &Session, marks: &[(IngameFaceField, u8, u8)]) {
+        use IngameFaceField as F;
+        for &(field, a, b) in marks {
+            let carried = matches!(
+                field,
+                F::PlayerGloves | F::PlayerGlovesColor | F::SkinColor | F::IrisColor
+            );
+            // Slot 01 took 70102's record, slot 02 70101's: a carried field
+            // holds the source's value, a kept one the slot's own.
+            let (on_01, on_02) = if carried { (b, a) } else { (a, b) };
+            assert_eq!(get_face(session, 70101, field), on_01, "{field:?}");
+            assert_eq!(get_face(session, 70102, field), on_02, "{field:?}");
+        }
+    }
+
     /// The face-field half of `a_move_trades_the_records_between_the_ids` on
     /// `version`: 70102's record moved onto slot 01 trades the exported
-    /// fields (gloves, skin, iris) and keeps each slot's own face and hair.
+    /// fields (gloves, skin, iris) and keeps each slot's own face and hair,
+    /// in memory and as the file written by Save holds it.
     fn face_fields_move(version: PesVersion, test: &str) {
         use IngameFaceField as F;
         let mut session = open(version, test);
-        // The fixture's runs are identical: mark each of the six fields the
-        // split decides, four carried by `player_export` and two that stay.
-        let marks: [(F, u8, u8); 6] = [
+        // The fixture's runs are identical: mark each of the seven fields the
+        // split decides, four carried by `player_export` and three that stay
+        // (a hair field among them).
+        let marks: [(F, u8, u8); 7] = [
             (F::Jawline, 5, 2),
             (F::NoseType, 7, 3),
+            (F::HairStyle, 2, 5),
             (F::PlayerGloves, 1, 0),
             (F::PlayerGlovesColor, 5, 2),
             (F::SkinColor, 6, 2),
@@ -816,18 +838,13 @@ mod tests {
         }
 
         session.move_player(701, 1, 0);
+        assert_face_move(&session, &marks);
 
-        for &(field, a, b) in &marks {
-            let carried = matches!(
-                field,
-                F::PlayerGloves | F::PlayerGlovesColor | F::SkinColor | F::IrisColor
-            );
-            // Slot 01 took 70102's record, slot 02 70101's: a carried field
-            // holds the source's value, a kept one the slot's own.
-            let (on_01, on_02) = if carried { (b, a) } else { (a, b) };
-            assert_eq!(get_face(&session, 70101, field), on_01, "{field:?}");
-            assert_eq!(get_face(&session, 70102, field), on_02, "{field:?}");
-        }
+        // Saved and reopened: the moved fields and the slots' faces are what
+        // the file holds (SE-GUI-08's THEN after Save).
+        session.save(&[]).unwrap();
+        let reopened = Session::open(session.path()).unwrap();
+        assert_face_move(&reopened, &marks);
     }
 
     // plans/save_editor.md "Editing UI", the Undo/redo bullet: one entry per

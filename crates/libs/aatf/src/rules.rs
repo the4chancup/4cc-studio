@@ -99,9 +99,13 @@ impl Rules {
         self.logic
     }
 
-    /// `team`'s violations: the roster-order breaks first, the host's own
-    /// check raised in Rust before the script runs (`spec/aatf_rules.md`
-    /// "The host"), then the file's `check_team(team)` converted.
+    /// `team`'s violations: the roster-order breaks of the host's own check,
+    /// raised in Rust before the script runs (`spec/aatf_rules.md` "The
+    /// host"), then the file's `check_team(team)` converted. The list is
+    /// ordered by roster slot, each slot's own rows kept (a slot's roster
+    /// break first), the team's rows (no slot) last — the order the
+    /// violations panels display (`plans/save_editor.md`, the groups keep
+    /// `check_team`'s order).
     pub fn check_team(&self, team: &TeamView) -> Result<Vec<Violation>, CheckError> {
         let mut out: Vec<Violation> = team
             .roster_breaks
@@ -124,6 +128,8 @@ impl Rules {
                 message: e.to_string(),
             })?;
         out.extend(violations(list)?);
+        // A stable sort keeps each slot's own order: the break first.
+        out.sort_by_key(|violation| (violation.slot.is_none(), violation.slot));
         Ok(out)
     }
 
@@ -301,7 +307,8 @@ mod tests {
         assert_eq!(rules.logic(), LogicIdentity::Modified);
     }
 
-    /// The custom checks' violations come last, after the interpreter's.
+    /// The custom checks' violations come last in their slot's rows, after
+    /// the interpreter's rows for it.
     #[test]
     fn a_custom_check_reaches_the_result() {
         // The assembled file's `fn custom_checks(team) { [] }` replaced
@@ -326,7 +333,11 @@ mod tests {
                 text: "x".to_string(),
             },
         };
-        assert_eq!(found.last(), Some(&custom));
+        let last_of_slot0 = found
+            .iter()
+            .rfind(|v| v.slot == Some(0))
+            .expect("slot 0 has rows");
+        assert_eq!(last_of_slot0, &custom);
         assert_eq!(found.iter().filter(|v| **v == custom).count(), 1);
         assert!(found.len() > 1, "the interpreter reported on team 701 too");
     }
@@ -362,7 +373,11 @@ mod tests {
                 },
             },
         ];
-        assert_eq!(found[found.len().saturating_sub(2)..], expected);
+        let customs: Vec<&Violation> = found
+            .iter()
+            .filter(|v| matches!(v.kind, ViolationKind::Custom { .. }))
+            .collect();
+        assert_eq!(customs, [&expected[0], &expected[1]]);
     }
 
     #[test]
@@ -400,6 +415,48 @@ mod tests {
                 .iter()
                 .any(|v| matches!(v.kind, crate::violation::ViolationKind::Custom { .. }))
         );
+    }
+
+    /// The result lists the players by slot, then the team's rows: a
+    /// roster-order break on a later slot lands in its slot's place, not
+    /// ahead of every player's violations (`plans/save_editor.md`, the
+    /// violations panel's "the players by slot, then the team's own rows").
+    #[test]
+    fn the_result_is_ordered_by_slot_the_teams_rows_last() {
+        // Team 701 of the PES 15 fixture already errors on slot 0 (Stat
+        // 74 < 77); break slot 5's roster order with a real player id.
+        let mut file =
+            EditFile::from_bytes(&fixture_save(PesVersion::Pes15)).expect("fixture save");
+        file.team_mut(701).unwrap().roster[5].player_id = 70101;
+        let team = TeamView::new(&file, 701).expect("team 701 views");
+        assert_eq!(team.roster_breaks, [(5, 70101)], "premise: slot 5 breaks");
+
+        let found = Rules::official().check_team(&team).expect("the check runs");
+        // Slot 0's Stat error precedes the break's RosterOrder, which leads
+        // slot 5's own group; every slot's rows are contiguous and in order.
+        assert_eq!(found[0].slot, Some(0));
+        assert!(
+            matches!(found[0].kind, ViolationKind::Stat { .. }),
+            "{:?}",
+            found[0].kind
+        );
+        let slots: Vec<Option<u8>> = found.iter().map(|v| v.slot).collect();
+        assert!(
+            slots
+                .windows(2)
+                .all(|pair| pair[0].unwrap_or(u8::MAX) <= pair[1].unwrap_or(u8::MAX)),
+            "the slots are non-decreasing: {slots:?}"
+        );
+        let slot5: Vec<&Violation> = found.iter().filter(|v| v.slot == Some(5)).collect();
+        assert!(
+            matches!(slot5[0].kind, ViolationKind::RosterOrder { player: 70101 }),
+            "the break leads slot 5's group: {slot5:?}"
+        );
+        let team_rows = found
+            .iter()
+            .position(|v| v.slot.is_none())
+            .expect("the team has its own rows");
+        assert!(found[team_rows..].iter().all(|v| v.slot.is_none()));
     }
 
     /// A data block's own CUSTOM CHECKS section is kept by
