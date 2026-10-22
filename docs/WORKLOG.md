@@ -769,8 +769,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           the guard covers every registered tool (19 hits before, red). Files:
           `export_upgrader/src/messages.rs`, `save_editor/src/messages.rs`, `studio/src/main.rs`,
           `studio/tests/help_cli.rs`
-    - [ ] 8.6e the window opens at half the monitor each way, centered (`plans/core/gui.md`
-      "Shell layout", "The window's size"; the maintainer's request of 2026-10-21): its
+    - [ ] 8.6e the window opens at 1440 × 900 points, centered, fitted to a smaller monitor
+      (`plans/core/gui.md` "Shell layout", "The window's size"; the maintainer's requests of
+      2026-10-21 and 2026-10-22): its
       scenario written into `plans/core/gui.md` "Acceptance" first (manual: it needs a
       display), then the first frame's `InnerSize` and `OuterPosition`. The drafts already
       draw at that size (2026-10-21). The help window first opens at 90% of the window,
@@ -1310,10 +1311,8 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
   at CB was in no bracket: five such CBs on each of the fixture saves' teams 718 and 734); D5
   Studio stands; D6 set. Done 2026-10-21 (SWE-2, a run and a resume after the session
   crash): `autumn26.rhai`, the spec's block and prose, every fixture and consumer test that
-  pinned the old reading re-derived with its ruling named. The organizer's seven points
-  (`QUESTIONS.md` "Autumn 26: seven points for the 4cc organizer") may move D1, D3, D4 and D5,
-  the 176-179 leniency, the 194 cm gold or goalkeeper's warning severity and the Red manlet
-  bonus (required by every tool, "may receive" in the wiki).
+  pinned the old reading re-derived with its ruling named. The organizer's seven points were
+  answered 2026-10-22 (20.2).
   Files: `aatf/{rulesets/autumn26.rhai,src/fixtures/official.rs,src/ruleset/tests/{mod,
   rules}.rs}`, `team_widgets/src/violations.rs`, `save_editor/tests/cli/check_aatf.rs`,
   `docs/spec/aatf_rules.md`
@@ -1324,6 +1323,16 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
     groups observed again, the Autumn 25/Spring 26 spec list completed; the Red manlet bonus
     is the organizer's seventh point. S2 (post-Astra SWE-2, 2 of 4) ended the loops: a medal
     CB at 189 under Red and check-aatf's player error line pinned
+- [x] 20.2 Autumn 26 takes the 4cc organizer's answers (DECISIONS 2026-10-22): mid exactly 180
+  (176 to 179 in no bracket), a gold or goalkeeper at 194 an error, the Red 175 cm bonus a
+  one-option `choice`; the other four answers confirm 20.1's rulings. The organizer's page
+  compared the wiki with the official 4ccEditor alone, every editor claim checked against
+  `82879a7`'s `aatf.cpp`. Done 2026-10-22 (SWE-2, the lead adding the bonus's tier scope): tier
+  recognition reads a Red manlet at base or base plus bonus as his own tier (`profile` before
+  `resolve_choices`); SE-AATF-01's warning leg now runs a rules file with a warning, the
+  official file having none. Files: `aatf/{rulesets/autumn26.rhai,src/fixtures/official.rs,
+  src/ruleset/tests/{conditions,mod,rules}.rs}`, `save_editor/tests/{cli/check_aatf.rs,
+  fixtures/aatf/official_warning.toml}`, `docs/spec/{aatf_rules,save_editor}.md`
 
 ---
 

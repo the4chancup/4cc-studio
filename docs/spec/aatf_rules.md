@@ -509,7 +509,7 @@ const RULESET = #{
     heights: #{
         brackets: [
             #{ id: "manlet", label: "Manlet", up_to: 175 },
-            #{ id: "mid",    label: "Mid",    up_to: 180 },
+            #{ id: "mid",    label: "Mid",    exactly: [180] },
             #{ id: "tall",   label: "Tall",   exactly: [185] },
             #{ id: "giant",  label: "Giant",  exactly: [194] },
             #{ id: "giga",   label: "Giga",   exactly: [199] },
@@ -542,10 +542,10 @@ const RULESET = #{
         #{ label: "Tall goalkeepers are 189",
            when: #{ positions: ["GK"], height_min: 181, height_max: 188 },
            then: #{ forbid: "GKs in this bracket must be 189cm" } },
-        #{ label: "Goalkeepers below giant", severity: "warning",
+        #{ label: "Goalkeepers below giant",
            when: #{ positions: ["GK"], height_min: 194 },
            then: #{ forbid: "GK heights cannot be 194cm or more" } },
-        #{ label: "Gold below giant", severity: "warning",
+        #{ label: "Gold below giant",
            when: #{ tiers: ["gold"], height_min: 194 },
            then: #{ forbid: "Gold heights cannot be 194cm or more" } },
         #{ label: "Red CBs at 189 count as tall",
@@ -554,8 +554,10 @@ const RULESET = #{
            then: #{ height_allowance: 4 } },
         #{ label: "Manlets", when: #{ brackets: ["manlet"] },
            then: #{ cards: 1, a_positions: 1, weak_foot: #{ usage: 4, accuracy: 4 } } },
-        #{ label: "Red manlet bonus", when: #{ systems: ["red"], height_max: 175 },
-           then: #{ stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } } } },
+        #{ label: "Red manlet bonus",
+           when: #{ tiers: ["regular", "goalkeeper", "bronze", "silver"], systems: ["red"],
+                    height_max: 175 },
+           then: #{ choice: [#{ stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } } }] } },
         #{ label: "Green silver giants", when: #{ tiers: ["silver"], systems: ["green"], height_min: 194 },
            then: #{ stat_bonus: #{ all: -3 } } },
         #{ label: "Medals trade a free COM style for a free A position",
@@ -582,7 +584,12 @@ trade, silver and bronze one, and an extra A at GK is already `gk_not_second_a`'
 bronze has two free trick cards, not three; the Red CB allowance asks only the registered
 position, so a Red non-medal CB is tall at 189 and, like anyone, at 185, while 181 to 184 and 186
 to 188 stand outside every bracket, as the goalkeepers' heights do; and the deadline export's
-first preset fields every starter at one of his A positions.
+first preset fields every starter at one of his A positions. The 4cc organizer's answers
+(`DECISIONS.md`, 2026-10-22) confirmed those and took the wiki's wording on three more points
+where the official 4ccEditor reads otherwise: the middle bracket is exactly 180, so 176 to 179
+stand in no bracket; a gold or a goalkeeper at 194 is an error; and the Red 175 cm bonus is
+optional, a one-option `choice` for the tiers it names (a gold has none), so a manlet at his
+tier's base rate is legal too and the untaken bonus is suggested.
 
 ## Autumn 25 and Spring 26
 

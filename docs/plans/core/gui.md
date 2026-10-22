@@ -38,12 +38,18 @@ The sidebar lists the registered tools in registry order (today the Team compile
 editor, the Export upgrader), then the planned ones in parentheses here, grayed in the window
 ("Sidebar").
 
-**The window's size.** Studio opens at about half the monitor's width and half its height,
-centered, not maximized; the fractions are tuned once the views have been seen at that size.
-Every view is laid out to work at it, which is why the drafts draw their UI in a window of
-that size ("Prototypes before implementation"). The monitor's size is known only once the
-window exists (`ViewportInfo::monitor_size`), so the shell sizes and centers it on its first
-frame (`ViewportCommand::InnerSize`, `OuterPosition`).
+**The window's size.** Studio opens at 1440 × 900 points (16:10), centered, not maximized.
+Points are egui's logical units, so the system's display scaling applies: at 150% the window
+covers 2160 × 1350 pixels and looks the same size it does at 100%. A fixed size, not a share of
+the monitor, because a share makes the window as wide as an ultrawide monitor is. On a monitor
+whose logical size cannot hold it with room for the taskbar and the title bar (a 1366 × 768
+laptop, a 1080p monitor at 150%, 1280 × 720 logical), it opens at the largest 16:10 size within
+90% of the monitor's logical width and height: 1037 × 648 at 1280 × 720, the smallest default
+a member meets. Every view is laid out to work at that smallest default, which is why the
+drafts draw their UI in a window of Studio's default size and offer the smallest one
+("Prototypes before implementation"). The monitor's size is known only once the window
+exists (`ViewportInfo::monitor_size`, in points), so the shell sizes and centers it on its
+first frame (`ViewportCommand::InnerSize`, `OuterPosition`).
 
 The shell draws only what is its own. Panels claim space in call order, so the status bar is
 added first to span the full width, the sidebar next, and the central panel, whatever is left,
@@ -450,9 +456,10 @@ to the table first (a new dependency, asked for first):
   the drafts look like one another. Drafts are not reviewed in the light theme, which is
   second-class.
 - **Size:** the UI is drawn inside a simulated window of the window's default size ("Shell
-  layout": half the screen each way, from the browser's `screen` size), centered on a
-  desktop-colored page, with a size choice (50, 60, 75 or 100% of the monitor) and the draft
-  controls outside it. Like Studio Web's window ("Browser deployment: Studio Web") it resizes
+  layout": 1440 × 900, fitted to 90% of the browser's `screen` size as Studio fits the
+  monitor; CSS pixels are logical pixels, as egui's points are), centered on a
+  desktop-colored page, with a size choice (the default, the smallest default of 1037 × 648,
+  the whole monitor) and the draft controls outside it. Like Studio Web's window ("Browser deployment: Studio Web") it resizes
   from its bottom-right corner and maximizes to the page from its title bar (a button, or a
   double-click on the bar), and the bar above it reads its size live, in pixels and as a
   share of the monitor, which is how the default size is tuned. A full-page draft in a maximized browser shows room the real window

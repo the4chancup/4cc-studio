@@ -73,14 +73,28 @@ fn a_warning_only_team_exits_0_and_a_clean_team_prints_nothing() {
     let sandbox = Sandbox::new("aatf_warning_legal");
     sandbox.fixture(PesVersion::Pes15, "EDIT");
     let fixtures = Path::new(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/aatf");
-    for (file, expected) in [
+    // The embedded file's only warnings were its two 194 cm specials,
+    // errors since the cup's 2026-10-22 answers: the warning leg runs a
+    // rules file that is the official one with the severity restored.
+    fs::write(
+        sandbox.path("warning.rhai"),
+        rules_file("autumn26").replacen(
+            "#{ label: \"Goalkeepers below giant\",",
+            "#{ label: \"Goalkeepers below giant\", severity: \"warning\",",
+            1,
+        ),
+    )
+    .unwrap();
+    let warning_rules = sandbox.arg("warning.rhai");
+    for (file, extra, expected) in [
         (
             "official_warning.toml",
+            vec!["--rules", warning_rules.as_str()],
             vec![
                 "Warning aatf_violation (team=714, player=71401, rule=Special, label=Goalkeepers below giant, text=GK heights cannot be 194cm or more)",
             ],
         ),
-        ("official_legal.toml", Vec::new()),
+        ("official_legal.toml", Vec::new(), Vec::new()),
     ] {
         let run = sandbox.run(&[
             "import-toml",
@@ -91,7 +105,9 @@ fn a_warning_only_team_exits_0_and_a_clean_team_prints_nothing() {
             &sandbox.arg("OUT"),
         ]);
         assert_eq!(run.exit_code(), 0, "{file}: {:?}", run.messages());
-        let run = check(&sandbox, "OUT", &["--teams", "714"]);
+        let mut args = vec!["--teams", "714"];
+        args.extend(extra);
+        let run = check(&sandbox, "OUT", &args);
         assert_eq!(run.exit_code(), 0, "{file}");
         assert_eq!(run.messages(), expected, "{file}");
     }

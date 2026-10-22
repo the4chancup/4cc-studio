@@ -215,9 +215,10 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
 }
 
 // plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
-// layout" (Studio opens at half the monitor, 960 × 540 on 1080p, the
-// expanded sidebar's 160 and the status bar's 24 spent): the pane the shell
-// leaves is 800 × 516, the player list takes its default width, and the
+// layout": an 800 × 516 pane, smaller than the one the shell leaves in its
+// smallest default window (1037 × 648, less the expanded sidebar's 160 and
+// the status bar's 24: 877 × 624), so what fits here fits there; the
+// player list takes its default width, and the
 // tab's field/control pairs wrap below one another rather than clip —
 // every control's rect lies inside the central panel.
 #[test]

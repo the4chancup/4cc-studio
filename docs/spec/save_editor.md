@@ -524,8 +524,11 @@ SE-DIF-04  GIVEN a stripped PES 21 save and the fixture it was stripped from
 
 ```
 SE-AATF-01 GIVEN a cup save with known error-severity violations, a team-level one (a tier
-                count) among them, one whose only violations are warning-severity, and a clean
-                one, and no --rules and no rules file configured (the official ruleset)
+                count) among them, and a clean one, with no --rules and no rules file
+                configured (the official ruleset); and one whose only violations are
+                warning-severity under a rules file that has warnings (the official file with
+                one special's severity a warning: the official ruleset itself has none since
+                2026-10-22)
            WHEN check-aatf is run on each
            THEN the first prints each violation with its team and, for a player's, the
                 player, and exits 1; the second prints its warnings and exits 0; the third

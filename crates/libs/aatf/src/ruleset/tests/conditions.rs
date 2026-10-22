@@ -311,7 +311,7 @@ fn an_unknown_tier_in_an_effect_is_refused() {
             kind: IdKind::Tier,
             id: "silverr".to_string(),
         },
-        "specials[9].then.stat_bonus.all.silverr",
+        "specials[9].then.choice[0].stat_bonus.all.silverr",
     );
 }
 
@@ -341,44 +341,35 @@ fn an_unknown_bracket_in_a_specials_condition_is_refused() {
 }
 
 /// Unknown tier ids inside a `then`'s per-tier maps are `UnknownId` at
-/// their own key paths — every `PerTier` field walks it.
+/// their own key paths — every `PerTier` field walks it. The anchor is
+/// "Green silver giants"' `then` (specials[10]): "Red manlet bonus"'s
+/// `then` holds only a `choice`, whose options may not carry
+/// `stat_target`, `form` or `injury_resistance`.
 #[test]
 fn an_unknown_tier_in_effects_maps_is_refused() {
-    for (from, to, path) in [
+    for (to, path) in [
         (
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
             "stat_target: #{ dribbling: #{ gollum: 3 } }",
-            "specials[9].then.stat_target.dribbling.gollum",
+            "specials[10].then.stat_target.dribbling.gollum",
         ),
+        ("cards: #{ gollum: 3 }", "specials[10].then.cards.gollum"),
         (
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
-            "cards: #{ gollum: 3 }",
-            "specials[9].then.cards.gollum",
-        ),
-        (
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
             "a_positions: #{ gollum: 3 }",
-            "specials[9].then.a_positions.gollum",
+            "specials[10].then.a_positions.gollum",
         ),
         (
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
             "free: #{ tricks: #{ gollum: 2 } }",
-            "specials[9].then.free.tricks.gollum",
+            "specials[10].then.free.tricks.gollum",
         ),
+        ("form: #{ gollum: 1 }", "specials[10].then.form.gollum"),
         (
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
-            "form: #{ gollum: 1 }",
-            "specials[9].then.form.gollum",
-        ),
-        (
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
             "injury_resistance: #{ gollum: 1 }",
-            "specials[9].then.injury_resistance.gollum",
+            "specials[10].then.injury_resistance.gollum",
         ),
     ] {
         case(
-            from,
-            &edit(AUTUMN26, from, to),
+            to,
+            &edit(AUTUMN26, "stat_bonus: #{ all: -3 }", to),
             LoadRule::UnknownId {
                 kind: IdKind::Tier,
                 id: "gollum".to_string(),
@@ -391,14 +382,14 @@ fn an_unknown_tier_in_effects_maps_is_refused() {
         "free group key",
         &edit(
             AUTUMN26,
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
+            "stat_bonus: #{ all: -3 }",
             "free: #{ gollum: #{ regular: 2 } }",
         ),
         LoadRule::UnknownId {
             kind: IdKind::Group,
             id: "gollum".to_string(),
         },
-        "specials[9].then.free.gollum",
+        "specials[10].then.free.gollum",
     );
     // The same keys naming a real tier load.
     for to in [
@@ -409,12 +400,8 @@ fn an_unknown_tier_in_effects_maps_is_refused() {
         "form: #{ regular: 1 }",
         "injury_resistance: #{ regular: 1 }",
     ] {
-        Ruleset::from_data_block(&edit(
-            AUTUMN26,
-            "stat_bonus: #{ all: #{ regular: 5, goalkeeper: 5, bronze: 3, silver: 2 } }",
-            to,
-        ))
-        .expect("a real tier key loads");
+        Ruleset::from_data_block(&edit(AUTUMN26, "stat_bonus: #{ all: -3 }", to))
+            .expect("a real tier key loads");
     }
 }
 

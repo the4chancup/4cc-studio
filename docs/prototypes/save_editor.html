@@ -286,27 +286,39 @@
 "use strict";
 
 // ---- The simulated window (the harness, not the UI) ----
-// Studio's window opens at half the monitor's width and height (plans/core/gui.md
-// "Shell layout"); the draft draws the UI at that size, so what fits here is what
-// fits there. `screen` is in CSS pixels, which match egui's points at the same
-// scale factor (browser zoom at 100%). The other fractions try a bigger default.
-const WIN_FRACTIONS = [0.5, 0.6, 0.75, 1];
-function sizeWindow(fraction) {
+// Studio's window opens at 1440 × 900 points, centered (plans/core/gui.md "Shell layout",
+// "The window's size"), shrunk on a monitor too small for it to the largest 16:10 size within
+// 90% of the monitor's logical size. `screen` is in CSS pixels, which are logical pixels as
+// egui's points are (browser zoom at 100%), so the draft fits its window as Studio does. The
+// size choice also tries the smallest default a member meets (a 1080p monitor at 150%
+// scaling, 1280 × 720 logical) and the whole monitor.
+const WIN_SIZES = [
+  ["default", "Studio's default"],
+  ["smallest", "the smallest default (1037 × 648)"],
+  ["monitor", "the whole monitor"],
+];
+function fitted(monitorW, monitorH) {
+  const w = Math.min(1440, 0.9 * monitorW, 0.9 * monitorH * 1.6);
+  return [Math.round(w), Math.round(w / 1.6)];
+}
+function sizeWindow(which) {
   const win = document.getElementById("win");
   win.classList.remove("max");
   win.style.width = ""; win.style.height = "";
-  win.style.setProperty("--win-w", Math.round(screen.width * fraction) + "px");
-  win.style.setProperty("--win-h", Math.round(screen.height * fraction) + "px");
+  const [w, hgt] = which === "monitor" ? [screen.width, screen.height]
+    : which === "smallest" ? fitted(1280, 720) : fitted(screen.width, screen.height);
+  win.style.setProperty("--win-w", w + "px");
+  win.style.setProperty("--win-h", hgt + "px");
   const bar = document.getElementById("win-size");
   bar.innerHTML = "";
   const pick = document.createElement("select");
-  for (const f of WIN_FRACTIONS) {
+  for (const [key, label] of WIN_SIZES) {
     const o = document.createElement("option");
-    o.value = f; o.textContent = Math.round(f * 100) + "% of the monitor";
-    o.selected = f === fraction;
+    o.value = key; o.textContent = label;
+    o.selected = key === which;
     pick.append(o);
   }
-  pick.onchange = () => sizeWindow(Number(pick.value));
+  pick.onchange = () => sizeWindow(pick.value);
   const label = document.createElement("span");
   label.className = "weak"; label.id = "win-size-label";
   bar.append(pick, label);
@@ -341,7 +353,7 @@ function maxButton() {
   return b;
 }
 document.getElementById("titlebar").addEventListener("dblclick", toggleMax);
-sizeWindow(WIN_FRACTIONS[0]);
+sizeWindow("default");
 // A menu or popup placed from a pointer or a button's rect: viewport coordinates
 // turned into the simulated window's, where its fixed position is measured.
 function inWin(x, y) {

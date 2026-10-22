@@ -46,14 +46,17 @@ fn the_official_ruleset_loads() {
     assert_eq!(ruleset.specials.len(), 13);
     let last = ruleset.specials.last().expect("a last special");
     assert_eq!(last.then.choice.len(), 2);
-    // "Red manlet bonus": `stat_bonus` is `all` keyed by four tiers.
+    // "Red manlet bonus": a one-option `choice` whose `stat_bonus` is
+    // `all` keyed by four tiers.
     let bonus = ruleset
         .specials
         .iter()
         .find(|special| special.label == "Red manlet bonus")
         .expect("the manlet bonus");
-    let Some(PerTier::ByTier(by_tier)) = bonus.then.stat_bonus.get(&StatOrAll::All) else {
-        panic!("the bonus is not All-by-tier: {:?}", bonus.then.stat_bonus);
+    assert_eq!(bonus.then.choice.len(), 1);
+    let option = bonus.then.choice.first().expect("the bonus's option");
+    let Some(PerTier::ByTier(by_tier)) = option.stat_bonus.get(&StatOrAll::All) else {
+        panic!("the bonus is not All-by-tier: {:?}", option.stat_bonus);
     };
     assert_eq!(by_tier.len(), 4);
     for (id, amount) in [

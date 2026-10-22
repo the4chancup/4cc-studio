@@ -427,6 +427,30 @@ fn a_height_in_no_bracket() {
     );
 }
 
+/// The mid bracket takes 180 cm alone ("Five of exactly 180cm", "Seven
+/// players of height exactly 180cm"): slot 12 at 178 stands in no
+/// bracket under Green or under Red, the mid quota one short each.
+#[test]
+fn a_height_between_manlet_and_mid_is_in_no_bracket() {
+    let rules = Rules::official();
+    assert_eq!(player(&legal_team(), 12).height, 180);
+    assert_eq!(
+        problems(&rules, &edited(12, |p| p.height = 178)),
+        vec![
+            error(Some(12), ViolationKind::Height { height: 178 }),
+            quota("green", "mid", 4, 5),
+        ]
+    );
+    assert_eq!(player(&red_legal_team(), 12).height, 180);
+    assert_eq!(
+        problems(&rules, &red_edited(12, |p| p.height = 178)),
+        vec![
+            error(Some(12), ViolationKind::Height { height: 178 }),
+            quota("red", "mid", 6, 7),
+        ]
+    );
+}
+
 /// The gold made a silver: no gold, three silvers. Read as silver he
 /// also overpays a card: nine cards, three tricks and one COM style free
 /// (the silver's one trade going to the style), so paid 5, and his
@@ -670,15 +694,16 @@ fn goalkeepers_at_189_count_as_tall_and_181_to_188_is_forbidden() {
     );
 }
 
-/// A goalkeeper at 194 is a warning, not an error (and a tall player
+/// A goalkeeper at 194 is an error ("Gold Medal Players and
+/// Goalkeepers cannot be this height"), and the quotas (a tall player
 /// short, a giant over, in the brackets' order).
 #[test]
-fn goalkeepers_below_giant_is_a_warning() {
+fn goalkeepers_below_giant_is_an_error() {
     assert_eq!(
         problems(&Rules::official(), &edited(0, |p| p.height = 194)),
         vec![
-            warning(
-                0,
+            error(
+                Some(0),
                 special(
                     "Goalkeepers below giant",
                     "GK heights cannot be 194cm or more"
@@ -690,14 +715,14 @@ fn goalkeepers_below_giant_is_a_warning() {
     );
 }
 
-/// The gold (slot 2, 185 cm) at 194: a warning, and the quotas.
+/// The gold (slot 2, 185 cm) at 194: an error, and the quotas.
 #[test]
-fn gold_below_giant_is_a_warning() {
+fn gold_below_giant_is_an_error() {
     assert_eq!(
         problems(&Rules::official(), &edited(2, |p| p.height = 194)),
         vec![
-            warning(
-                2,
+            error(
+                Some(2),
                 special("Gold below giant", "Gold heights cannot be 194cm or more")
             ),
             quota("green", "tall", 5, 6),
@@ -748,25 +773,95 @@ fn the_red_legal_team_reports_nothing() {
     assert_eq!(problems(&Rules::official(), &red_legal_team()), vec![]);
 }
 
-/// Under Red a regular manlet rates 82: one at 77 is off every rating
-/// stat's target (17 of PES 15's 19 abilities; the prowess pair may sit
-/// below). Under Green the same manlet at 77 is the legal team's.
+/// The Red manlet bonus is optional ("non-medal players may receive a
+/// +5 bonus ... Bronze Medal players may receive a +3 bonus ... Silver
+/// Medal players may receive a +2 bonus"): a regular manlet rates 77
+/// or 82, one at 79 (the bonus taken but not met) is off every rating
+/// stat's raised target, a bronze manlet rates 86 or 89 and a silver
+/// manlet 92 or 94. An untaken bonus is named in the suggestions.
 #[test]
 fn red_manlet_bonus() {
-    let team = red_edited(3, |p| set_tier(p, 77, 4, 1));
-    let found = problems(&Rules::official(), &team);
+    let rules = Rules::official();
+    // A regular manlet at 77 takes no bonus (the suggestion names it);
+    // the legal Red team's manlets at 82 take it.
+    let at_base = red_edited(3, |p| set_tier(p, 77, 4, 1));
+    assert_eq!(problems(&rules, &at_base), vec![]);
+    assert!(
+        suggestions_for(&rules, &at_base, 3).contains(&ViolationKind::UnusedChoice {
+            special: "Red manlet bonus".to_string(),
+        }),
+        "{:?}",
+        suggestions_for(&rules, &at_base, 3)
+    );
+    assert_eq!(problems(&rules, &red_legal_team()), vec![]);
+    // At 79 the bonus is taken (79 is over the base 77) and not met:
+    // every rating stat is off the raised target (17 of PES 15's 19
+    // abilities; the prowess pair may sit below).
+    let found = problems(&rules, &red_edited(3, |p| set_tier(p, 79, 4, 1)));
     assert_eq!(found.len(), 17, "{found:?}");
     assert!(
         found.iter().all(|v| matches!(
             v.kind,
             ViolationKind::Stat {
-                value: 77,
+                value: 79,
                 target: 82,
                 at_most: false,
                 ..
             }
         )),
         "{found:?}"
+    );
+    // A bronze manlet at 86 and 89: slot 3 made a bronze, slot 9 a
+    // regular, so the tier counts keep.
+    let bronze_manlet = |rate: u8| {
+        let mut team = red_legal_team();
+        set_tier(player_mut(&mut team, 3), rate, 8, 3);
+        let regular = player_mut(&mut team, 9);
+        set_tier(regular, 77, 4, 1);
+        regular.weak_foot_usage = 2;
+        regular.weak_foot_accuracy = 2;
+        // A regular's three paid cards: the COM style was the medals'
+        // trade's, one more skill is over his limit.
+        assert_eq!(regular.cards.pop(), Some(card("speeding_bullet")));
+        assert_eq!(regular.cards.pop(), Some(card("outside_curler")));
+        team
+    };
+    let at_base = bronze_manlet(86);
+    assert_eq!(problems(&rules, &at_base), vec![]);
+    assert!(
+        suggestions_for(&rules, &at_base, 3).contains(&ViolationKind::UnusedChoice {
+            special: "Red manlet bonus".to_string(),
+        }),
+        "{:?}",
+        suggestions_for(&rules, &at_base, 3)
+    );
+    assert_eq!(problems(&rules, &bronze_manlet(89)), vec![]);
+    // A silver manlet at 92 and 94: slot 3 a silver, slot 5 a bronze,
+    // slot 9 a regular, so the tier counts keep.
+    let silver_manlet = |rate: u8| {
+        let mut team = red_legal_team();
+        set_tier(player_mut(&mut team, 3), rate, 8, 3);
+        set_tier(player_mut(&mut team, 5), 86, 8, 3);
+        let regular = player_mut(&mut team, 9);
+        set_tier(regular, 77, 4, 1);
+        regular.weak_foot_usage = 2;
+        regular.weak_foot_accuracy = 2;
+        assert_eq!(regular.cards.pop(), Some(card("speeding_bullet")));
+        assert_eq!(regular.cards.pop(), Some(card("outside_curler")));
+        team
+    };
+    assert_eq!(problems(&rules, &silver_manlet(92)), vec![]);
+    assert_eq!(problems(&rules, &silver_manlet(94)), vec![]);
+    // The bonus has no gold amount (the wiki names regulars, bronzes and
+    // silvers; the official 4ccEditor's gold bonus is 0), so a gold at
+    // 175 under Red is offered no bonus to take.
+    let gold_manlet = red_edited(2, |p| p.height = 175);
+    assert!(
+        !suggestions_for(&rules, &gold_manlet, 2).contains(&ViolationKind::UnusedChoice {
+            special: "Red manlet bonus".to_string(),
+        }),
+        "{:?}",
+        suggestions_for(&rules, &gold_manlet, 2)
     );
 }
 
@@ -1033,7 +1128,8 @@ fn suggestions_name_each_unused_allowance() {
 /// For every tier of the official file, a player of that tier in the
 /// legal team, his stats, form, injury resistance and weak foot broken,
 /// is legal again after `apply_tier`: the silver giant under Green (89)
-/// and a regular manlet under Red (82) included.
+/// and a regular manlet under Red (77, the optional bonus untaken)
+/// included.
 #[test]
 fn apply_tier_then_check_reports_nothing_for_every_official_tier() {
     let rules = Rules::official();
@@ -1074,9 +1170,9 @@ fn apply_tier_then_check_reports_nothing_for_every_official_tier() {
 }
 
 /// The targets carry the specials: the Green silver giant rates 89, a
-/// manlet gets weak foot 4/4 and, under Red, 82; a regular who is no
-/// manlet gets 2/2, form 4, injury resistance 1. An id no tier has is
-/// refused before the script runs.
+/// manlet gets weak foot 4/4 and, under Red, the 82 of the bonus he
+/// takes; a regular who is no manlet gets 2/2, form 4, injury
+/// resistance 1. An id no tier has is refused before the script runs.
 #[test]
 fn tier_values_carry_the_specials() {
     let rules = Rules::official();

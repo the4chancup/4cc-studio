@@ -6,8 +6,9 @@
 <!--
   A draft of the Ruleset editor's GUI (docs/plans/ruleset_editor.md "The editor"), drawn only
   with what egui can draw (docs/plans/core/gui.md "Prototypes before implementation"): its
-  behaviour is faked with sample data and nothing is written. The right-hand pane shows the
-  ruleset file's data block as the editor would write it, rebuilt on every edit.
+  behaviour is faked with sample data and nothing is written. The top bar's "Show preview"
+  toggle opens a right-hand pane with the ruleset file's data block as the editor would write
+  it, rebuilt on every edit.
   Widget mapping: <input type=number> = DragValue, <select> = ComboBox, .sel = SelectableLabel,
   <details> = CollapsingHeader, table.grid = Grid, .menu = menu_button, .window = Window/Modal,
   the colour swatch = color_edit_button, title="" = on_hover_text.
@@ -53,6 +54,8 @@
   .rail { width: 150px; border-right: 1px solid var(--stroke); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
   .center { flex: 1; overflow: auto; padding: 8px 12px 40px; min-width: 0; }
   .data { width: 590px; border-left: 1px solid var(--stroke); display: flex; flex-direction: column; min-height: 0; }
+  /* The data block pane shows only while the top bar's "Show preview" toggle is on. */
+  .data.hidden { display: none; }
   .data pre { flex: 1; margin: 0; overflow: auto; background: var(--extreme); padding: 6px; font: 12px "Hack", "Consolas", monospace; color: #b4b4b4; }
   .data pre div { white-space: pre; min-height: 14px; }
   .data pre div.changed { background: var(--changed); }
@@ -113,7 +116,7 @@
 <div class="main">
   <div class="rail" id="rail"></div>
   <div class="center" id="center"></div>
-  <div class="data">
+  <div class="data hidden" id="data">
     <div class="row" style="padding:4px 8px; margin:0">
       <span class="strong">Rules file: data block</span>
       <span class="weak" title="The editor writes this block; you can also edit it by hand. Changed lines are highlighted.">(read-only)</span>
@@ -128,27 +131,39 @@
 "use strict";
 
 // ---- The simulated window (the harness, not the UI) ----
-// Studio's window opens at half the monitor's width and height (plans/core/gui.md
-// "Shell layout"); the draft draws the UI at that size, so what fits here is what
-// fits there. `screen` is in CSS pixels, which match egui's points at the same
-// scale factor (browser zoom at 100%). The other fractions try a bigger default.
-const WIN_FRACTIONS = [0.5, 0.6, 0.75, 1];
-function sizeWindow(fraction) {
+// Studio's window opens at 1440 × 900 points, centered (plans/core/gui.md "Shell layout",
+// "The window's size"), shrunk on a monitor too small for it to the largest 16:10 size within
+// 90% of the monitor's logical size. `screen` is in CSS pixels, which are logical pixels as
+// egui's points are (browser zoom at 100%), so the draft fits its window as Studio does. The
+// size choice also tries the smallest default a member meets (a 1080p monitor at 150%
+// scaling, 1280 × 720 logical) and the whole monitor.
+const WIN_SIZES = [
+  ["default", "Studio's default"],
+  ["smallest", "the smallest default (1037 × 648)"],
+  ["monitor", "the whole monitor"],
+];
+function fitted(monitorW, monitorH) {
+  const w = Math.min(1440, 0.9 * monitorW, 0.9 * monitorH * 1.6);
+  return [Math.round(w), Math.round(w / 1.6)];
+}
+function sizeWindow(which) {
   const win = document.getElementById("win");
   win.classList.remove("max");
   win.style.width = ""; win.style.height = "";
-  win.style.setProperty("--win-w", Math.round(screen.width * fraction) + "px");
-  win.style.setProperty("--win-h", Math.round(screen.height * fraction) + "px");
+  const [w, hgt] = which === "monitor" ? [screen.width, screen.height]
+    : which === "smallest" ? fitted(1280, 720) : fitted(screen.width, screen.height);
+  win.style.setProperty("--win-w", w + "px");
+  win.style.setProperty("--win-h", hgt + "px");
   const bar = document.getElementById("win-size");
   bar.innerHTML = "";
   const pick = document.createElement("select");
-  for (const f of WIN_FRACTIONS) {
+  for (const [key, label] of WIN_SIZES) {
     const o = document.createElement("option");
-    o.value = f; o.textContent = Math.round(f * 100) + "% of the monitor";
-    o.selected = f === fraction;
+    o.value = key; o.textContent = label;
+    o.selected = key === which;
     pick.append(o);
   }
-  pick.onchange = () => sizeWindow(Number(pick.value));
+  pick.onchange = () => sizeWindow(pick.value);
   const label = document.createElement("span");
   label.className = "weak"; label.id = "win-size-label";
   bar.append(pick, label);
@@ -186,7 +201,7 @@ document.getElementById("titlebar").addEventListener("dblclick", toggleMax);
 // This draft draws no shell, so the title bar holds the window's title alone.
 { const t = document.createElement("span"); t.className = "win-title"; t.textContent = "4cc Studio";
   document.getElementById("titlebar").append(t, maxButton()); }
-sizeWindow(WIN_FRACTIONS[0]);
+sizeWindow("default");
 // A menu or popup placed from a pointer or a button's rect: viewport coordinates
 // turned into the simulated window's, where its fixed position is measured.
 function inWin(x, y) {
@@ -1490,6 +1505,8 @@ function summary(r) {
 }
 
 // ---- Layout ----
+// The top bar's "Show preview" toggle; off at every start.
+let showPreview = false;
 function render() {
   if (!R) return;
   closeMenus();
@@ -1507,7 +1524,12 @@ function render() {
     h("span", { class: "sep", style: "border-top:0; border-left:1px solid var(--stroke); height:14px; margin:0 4px" }),
     strong(R.name + (JSON.stringify(R) !== saved ? " •" : "")),
     h("span", { style: "flex:1" }),
-    weak("Draft: sample data, nothing is written"));
+    weak("Draft: sample data, nothing is written"),
+    // A toggle_value: the data block pane right of the form, off at every start
+    // (plans/ruleset_editor.md "The editor").
+    h("span", { class: "sel" + (showPreview ? " on" : ""), title: "Show the rules file's data block as the editor writes it",
+      onclick: () => { showPreview = !showPreview; render(); } }, "Show preview"));
+  document.getElementById("data").classList.toggle("hidden", !showPreview);
   const rail = document.getElementById("rail");
   rail.innerHTML = "";
   for (const [id, label] of SECTIONS) {

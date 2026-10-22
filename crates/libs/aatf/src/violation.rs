@@ -260,7 +260,7 @@ pub enum ViolationKind {
     /// roster order, `TeamEntry::roster_order_breaks`): the aesthetics
     /// export names players by id, a Team TOML by slot, and this rule is
     /// their only link. Raised by the host before the script runs; the
-    /// script never sees or emits it.
+    /// script does not see it, and the shipped logic emits none.
     RosterOrder {
         /// The player id the slot holds.
         player: u32,

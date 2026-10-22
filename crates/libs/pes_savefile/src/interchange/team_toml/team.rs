@@ -611,6 +611,10 @@ mod tests {
                             team.id
                         )
                     });
+                    // Identity holds for a team keeping the roster order
+                    // only: `roster_breaks` is written as a header comment,
+                    // never a key, so it does not parse back (every fixture
+                    // team keeps the order).
                     assert_eq!(parsed, *doc, "{version:?} team {}", team.id);
                 }
                 let mut target = blank_slate(team);

@@ -487,8 +487,8 @@ fn brackets_out_of_order_are_refused() {
     case(
         "brackets swapped",
         &AUTUMN26.replacen(
-            "#{ id: \"manlet\", label: \"Manlet\", up_to: 175 },\n            #{ id: \"mid\",    label: \"Mid\",    up_to: 180 },",
-            "#{ id: \"mid\",    label: \"Mid\",    up_to: 180 },\n            #{ id: \"manlet\", label: \"Manlet\", up_to: 175 },",
+            "#{ id: \"manlet\", label: \"Manlet\", up_to: 175 },\n            #{ id: \"mid\",    label: \"Mid\",    exactly: [180] },",
+            "#{ id: \"mid\",    label: \"Mid\",    exactly: [180] },\n            #{ id: \"manlet\", label: \"Manlet\", up_to: 175 },",
             1,
         ),
         LoadRule::BracketsNotAscending,
@@ -599,8 +599,8 @@ fn giga_first_fails_every_later_bracket() {
     // `giga` first: every bracket after it sits under its 199 — a check
     // against only the immediate predecessor would pass `[2]` to `[4]`.
     let err = Ruleset::from_data_block(&AUTUMN26.replacen(
-        "#{ id: \"manlet\", label: \"Manlet\", up_to: 175 },\n            #{ id: \"mid\",    label: \"Mid\",    up_to: 180 },\n            #{ id: \"tall\",   label: \"Tall\",   exactly: [185] },\n            #{ id: \"giant\",  label: \"Giant\",  exactly: [194] },\n            #{ id: \"giga\",   label: \"Giga\",   exactly: [199] },",
-        "#{ id: \"giga\",   label: \"Giga\",   exactly: [199] },\n            #{ id: \"manlet\", label: \"Manlet\", up_to: 175 },\n            #{ id: \"mid\",    label: \"Mid\",    up_to: 180 },\n            #{ id: \"tall\",   label: \"Tall\",   exactly: [185] },\n            #{ id: \"giant\",  label: \"Giant\",  exactly: [194] },",
+        "#{ id: \"manlet\", label: \"Manlet\", up_to: 175 },\n            #{ id: \"mid\",    label: \"Mid\",    exactly: [180] },\n            #{ id: \"tall\",   label: \"Tall\",   exactly: [185] },\n            #{ id: \"giant\",  label: \"Giant\",  exactly: [194] },\n            #{ id: \"giga\",   label: \"Giga\",   exactly: [199] },",
+        "#{ id: \"giga\",   label: \"Giga\",   exactly: [199] },\n            #{ id: \"manlet\", label: \"Manlet\", up_to: 175 },\n            #{ id: \"mid\",    label: \"Mid\",    exactly: [180] },\n            #{ id: \"tall\",   label: \"Tall\",   exactly: [185] },\n            #{ id: \"giant\",  label: \"Giant\",  exactly: [194] },",
         1,
     ))
     .expect_err("giga first");

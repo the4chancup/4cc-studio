@@ -35,7 +35,11 @@ or **Blank** (one tier, no brackets, the universal rules on); *Random*, in three
 flavors (see "Randomize"); and *Open file*. Recent files below.
 
 A left rail lists the sections; each is a form, and a section with a validation error shows a
-mark in the rail.
+mark in the rail. The rules file's data block, as the editor would write it, shows in a pane
+right of the form only while the **Show preview** toggle at the top right of the tool's bar is
+on, off at every start: open beside the form it would leave the sections a third of Studio's
+window, and the block is a check on the form, not where the work happens. Shown, its lines
+the last edit changed are highlighted.
 
 - **General**: name, squad size, the rating stats and the at-most stats (stat checklists, with
   one line on what each list does).

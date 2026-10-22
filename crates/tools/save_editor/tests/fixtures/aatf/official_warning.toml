@@ -1,7 +1,8 @@
-# `official_legal.toml` with two heights changed: the goalkeeper in slot 01 at 194 cm, which the
-# official ruleset reports as a warning ("Goalkeepers below giant"), and slot 02 at 185 cm, a
-# tall player again, so the bracket quotas still hold. Imported onto pes_savefile's PES 15 fixture
-# save, team 714 reports that warning and nothing else.
+# `official_legal.toml` with two heights changed: the goalkeeper in slot 01 at 194 cm, the
+# "Goalkeepers below giant" violation (an error under the embedded official ruleset, a warning
+# under one that carries the severity), and slot 02 at 185 cm, a tall player again, so the
+# bracket quotas still hold. Imported onto pes_savefile's PES 15 fixture save, team 714 reports
+# that violation and nothing else.
 pes_version = 15
 
 [team]

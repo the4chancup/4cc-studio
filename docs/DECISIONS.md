@@ -10024,3 +10024,45 @@ entry up) and Team TOML's export (`from_team`, which is handed it) both hold the
 whole-file signature would make the export reach for a file it is not given.
 Plan: `plans/aatf_rules.md` "The host"; `plans/pes_savefile/operations.md` "Team TOML", the
 paragraph "Roster order".
+
+## 2026-10-22 — gui — Studio opens at 1440 × 900 points, fitted to a smaller monitor
+Decision: the window's default is 1440 × 900 points (16:10), centered, replacing the 2026-10-21
+half-monitor default. Points are logical pixels, so the display scaling applies. On a monitor
+whose logical size cannot hold it, the window opens at the largest 16:10 size within 90% of
+the monitor's logical width and height (1037 × 648 on a 1080p monitor at 150%). The drafts
+draw at that default and offer the smallest one.
+Why: the maintainer's request (75% of the monitor's width at 16:10, then a fixed width, since a
+share of an ultrawide monitor is too wide, with system scaling accounted for). The 90% fit is
+the lead's: a fixed size alone opens past the screen on a laptop or a scaled 1080p monitor,
+and 90% leaves the taskbar and the title bar room.
+Plan: `plans/core/gui.md` "Shell layout", "The window's size", and "Prototypes before
+implementation", the Size bullet.
+
+## 2026-10-22 — ruleset_editor — The data block preview is behind a "Show preview" toggle
+Decision: the Ruleset editor's data block pane shows only while a "Show preview" toggle at the
+top right of the tool's bar is on, off at every start.
+Why: the maintainer's request: open beside the form, the pane left the sections a third of the
+window.
+Plan: `plans/ruleset_editor.md` "The editor".
+
+## 2026-10-22 — aatf — Autumn 26 takes the 4cc organizer's answers
+Decision: on the seven points where the wiki's Appendix:Rules and the official 4ccEditor
+(`82879a7`, Autumn 26 Version B) differ, the organizer chose (2026-10-22, the answer line "1.
+gold-trades=editor 2.red-cb-who=wiki 3.red-cb-185=wiki 4.green-silver-194=wiki 5.mid-176-179=wiki
+6.gold-gk-194=wiki 7.red-manlet-bonus=wiki"): a gold trades both free COM styles; any non-medal
+registered at CB may be 189 under Red, and may stay at 185; a Green silver at 194 is legal at
+every stat 3 lower; heights 176 to 179 are in no bracket (mid is exactly 180); a gold or a
+goalkeeper at 194 cm is an error, not a warning; the Red 175 cm bonus is optional (a one-option
+`choice`), the tier's base rating legal too, and names the tiers it has an amount for (regular,
+goalkeeper, bronze, silver), so a gold at 175 is offered no bonus he cannot take. The first four confirm the 2026-10-21 rulings
+(D1, D3, D4, D5); the last three change `autumn26.rhai`.
+Why: the organizer sets the cup's rules; the page asked each point against the wiki and the
+editor alone (`.tmp/20_au26/autumn26_rule_choices.html`).
+Plan: `spec/aatf_rules.md` "The official ruleset" (its block and prose); WORKLOG 20.2.
+
+## 2026-10-22 — save_editor — 4ccEditor's hidden team trim (Ctrl+Shift+T) is dropped
+Decision: the Save editor has no counterpart of 4ccEditor's Ctrl+Shift+T on the team selector,
+which empties a team's roster slots past 23.
+Why: the maintainer's answer: cups no longer need it. It is in 4ccEditor's first public commit
+(`49926fa`, 2019-08-16) and was last widened to PES 19's 40-slot rosters (`8d78775`).
+Plan: `plans/save_editor.md` "Feature inventory", the hidden shortcut's row.

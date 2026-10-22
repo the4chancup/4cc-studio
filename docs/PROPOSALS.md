@@ -248,9 +248,9 @@ the fine-tuning path. **Costs**: one close call, one draft check.
 ## P24. Studio reopens at the size and place it was closed at
 
 From `plans/core/gui.md` "Shell layout", "The window's size" (2026-10-21): the window opens at
-half the monitor each way, centered, every start. **Adds**, for a member who resized or moved
+1440 × 900 points (fitted to a smaller monitor), centered, every start. **Adds**, for a member who resized or moved
 it (a second monitor, a window beside the game): it comes back where they left it, as most
-desktop programs do; the half-monitor default stays for the first start and for a window
+desktop programs do; the default stays for the first start and for a window
 whose saved place is off every monitor now. **Costs**: eframe's window persistence (its
 `persistence` feature, which writes its own small file and adds `ron` to the build; `serde`
 is in the workspace already), or two settings the shell writes on close; one manual check.

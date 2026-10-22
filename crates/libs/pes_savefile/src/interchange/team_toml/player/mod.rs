@@ -276,13 +276,18 @@ fn roster_note(slot: u8, team_id: Option<u32>, roster_breaks: &[(u8, u32)]) -> S
     let Some(team_id) = team_id else {
         return String::new();
     };
-    let Some(&(_, held)) = roster_breaks.iter().find(|(i, _)| *i == slot - 1) else {
+    // A `players` map can carry 0 (`parse` refuses it, a built document
+    // need not), as `apply_player` guards too.
+    let Some(index) = slot.checked_sub(1) else {
+        return String::new();
+    };
+    let Some(&(_, held)) = roster_breaks.iter().find(|(i, _)| *i == index) else {
         return String::new();
     };
     format!(
         "; holds player {held}, not {}: applied, this record lands on slot \
          {slot:02}, apart from {held}'s aesthetics export",
-        roster_order_player_id(team_id, slot - 1)
+        roster_order_player_id(team_id, index)
     )
 }
 

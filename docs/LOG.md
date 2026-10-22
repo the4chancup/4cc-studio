@@ -2292,3 +2292,5 @@ worklog passed 7,000 lines.
   every ruleset and noted by Team TOML's export; a census of 29 real saves found breaks only in five older PES 16 saves.
 - **2026-10-22** — 8.9c2: drag reorder in the Save editor's player list trades records between the slots' ids as 4ccEditor's
   spinner does (SE-GUI-08); 8.9c1's first SWE-2 round accepted none of 8, ending its loop.
+- **2026-10-22** — 20.2: Autumn 26 takes the organizer's answers (176-179 in no bracket, a gold or GK at 194 an error, the Red 175
+  cm bonus optional). Plans: Studio opens at 1440 × 900 points, the Ruleset editor's preview behind a toggle; team trim dropped.
