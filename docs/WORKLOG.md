@@ -954,6 +954,10 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         Done 2026-10-22 (SWE-2): egui's `dnd_set_drag_payload`/`dnd_release_payload` on each
         row, an empty slot between skipped over as the draft does. Files: `save_editor/{help/
         02_window.md,src/{session/mod.rs,view/{mod.rs,player_list.rs,tests.rs,tests/list.rs}}}`
+        - [x] rework 1 (SWE-2 round S1 on 8.9c2): every `PlayerEntry` field audited against
+          `player_export`; the face run's face and hair stay with the slot, its skin, iris and
+          gloves fields move (`moved_record`, tested on PES 21 and 16); two drags are two undo
+          steps. Files: `save_editor/{help/02_window.md,src/{session/mod.rs,view/tests.rs}}`
         - [ ] review: with 8.9c1's (one surface, the rule and its first user)
     - [ ] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's

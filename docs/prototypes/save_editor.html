@@ -2706,7 +2706,8 @@ function set(p, get, put, v, label) {
 // base_copy_id and its shirt number, and the captain stays with his slot; the
 // dragged player's record lands on the target slot's id and the records in
 // between shift one slot along, as 4ccEditor's spinner trades two records per
-// step.
+// step. Its exported record has no face structure or hairstyle, so each slot
+// also keeps its appearance's face and hair (skin, iris and gloves move).
 const SLOT_KEEPS = ["slot", "id", "base_copy_id", "number"];
 function movePlayer(team, fromSlot, toSlot) {
   if (fromSlot === toSlot) return;
@@ -2716,11 +2717,13 @@ function movePlayer(team, fromSlot, toSlot) {
     const j = arr.findIndex(p => p.slot === toSlot);
     const records = arr.map(p => Object.fromEntries(
       Object.entries(p).filter(([k]) => !SLOT_KEEPS.includes(k))));
+    const looks = arr.map(p => p.appearance && { face: p.appearance.face, hair: p.appearance.hair });
     const [m] = records.splice(i, 1);
     records.splice(j, 0, m);
     arr.forEach((p, k) => {
       for (const key of Object.keys(p)) if (!SLOT_KEEPS.includes(key)) delete p[key];
       Object.assign(p, records[k]);
+      if (p.appearance && looks[k]) p.appearance = { ...p.appearance, ...looks[k] };
     });
   });
   // The selection follows the dragged player, now on the target slot.

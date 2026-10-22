@@ -160,7 +160,9 @@ mirroring 4ccEditor's structure without its dialog sprawl:
 - **Player list**: shows number, position, name; **drag-and-drop reordering**
   replaces the up/down spinner, and moves what the spinner moves: the players' records trade
   places between the ids, each id staying in its roster slot (`base_copy_id` traded so each
-  matches its new slot), and the shirt numbers, held by the roster's slots, stay where they
+  matches its new slot, and the in-game face run's face structure and hairstyle staying too:
+  the spinner's record, the `.4ccs` one, holds of that run only the skin, iris and player
+  gloves), and the shirt numbers, held by the roster's slots, stay where they
   are, as does the captain mark. The roster's own order is never changed: by 4cc rule slot `NN`
   holds player `team id × 100 + NN` (`plans/aatf_rules.md` "The host"), and reordering the
   roster itself would break it. A drop several rows away is the spinner pressed that many
@@ -599,8 +601,8 @@ SE-GUI-07  GIVEN the save open
 SE-GUI-08  GIVEN the save open on a team
            WHEN player 02 is dragged above player 01 in the list
            THEN the list shows the new order, and after Save slot 01 still holds player
-                `team id × 100 + 01`, whose record (name, stats, appearance) is the one player
-                02 had, and the other way round; the roster's ids and shirt numbers are as they
+                `team id × 100 + 01`, whose record (name, stats, appearance but the face and
+                hair) is the one player 02 had, and the other way round; the roster's ids and shirt numbers are as they
                 were, and the AATF check reports no `RosterOrder` error for the team
 SE-GUI-09  GIVEN the official ruleset active
            WHEN Make Gold is clicked on a player

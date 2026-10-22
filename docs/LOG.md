@@ -2294,3 +2294,5 @@ worklog passed 7,000 lines.
   spinner does (SE-GUI-08); 8.9c1's first SWE-2 round accepted none of 8, ending its loop.
 - **2026-10-22** — 20.2: Autumn 26 takes the organizer's answers (176-179 in no bracket, a gold or GK at 194 an error, the Red 175
   cm bonus optional). Plans: Studio opens at 1440 × 900 points, the Ruleset editor's preview behind a toggle; team trim dropped.
+- **2026-10-22** — 8.9c2 rework 1: a drag leaves each slot its in-game face and hairstyle (4ccEditor's
+  exported record has neither; skin, iris and gloves move), and two drags undo as two steps.

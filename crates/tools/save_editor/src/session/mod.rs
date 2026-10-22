@@ -18,6 +18,7 @@ use pes_savefile::interchange::team_toml::{ImportNote, TeamToml};
 use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_savefile::ops::transplant::{TransplantError, transplant};
+use pes_savefile::schema::ingame_face::IngameFaceField;
 use pes_savefile::{EditFile, SaveError};
 use pes_version::PesVersion;
 use studio_core::RunningPes;
@@ -33,6 +34,17 @@ static NEXT_REVISION: AtomicU64 = AtomicU64::new(1);
 /// entry and never part of a widget's open gesture, so it needs no widget id
 /// (the move seals its entry at the end regardless).
 const MOVE_KEY: u64 = u64::MAX;
+
+/// The fields of the in-game face run `player_export` carries (its appearance
+/// section ends at `iris_col`; the face structure and the hair are not in the
+/// struct): a move trades them with the record, the rest of the run stays with
+/// the slot's id (`move_player`, SE-GUI-08).
+const EXPORT_FACE_FIELDS: [IngameFaceField; 4] = [
+    IngameFaceField::PlayerGloves,
+    IngameFaceField::PlayerGlovesColor,
+    IngameFaceField::SkinColor,
+    IngameFaceField::IrisColor,
+];
 
 /// The open save: the file, the path it came from, the undo stack and the
 /// baseline the unsaved-changes marks compare against (the file's players
@@ -184,12 +196,12 @@ impl Session {
     /// The player-list drop (`plans/save_editor.md` "Editing UI", the Player list
     /// bullet): the record on roster slot `from` lands on `to`'s player id and the
     /// records between shift one filled slot along, each slot keeping what belongs
-    /// to its id (`id`, `appearance_id` and `appearance.base_copy_id` never move).
-    /// The roster is never written, so its ids, the shirt numbers and the captain
-    /// stay put (slot `NN` holds player `team id x 100 + NN` by 4cc rule). The whole
-    /// move is one sealed undo entry. `from == to`, a team or player the save lacks,
-    /// or an empty `from` or `to` slot does nothing; an empty slot between them is
-    /// skipped over.
+    /// to its id (`id`, `appearance_id`, `appearance.base_copy_id`, and the face and
+    /// hair in the in-game face run: `moved_record`). The roster is never written, so its ids, the shirt numbers
+    /// and the captain stay put (slot `NN` holds player `team id x 100 + NN` by
+    /// 4cc rule). The whole move is one sealed undo entry. `from == to`, a team
+    /// or player the save lacks, or an empty `from` or `to` slot does nothing; an
+    /// empty slot between them is skipped over.
     pub(crate) fn move_player(&mut self, team_id: u32, from: u8, to: u8) {
         if from == to {
             return;
@@ -226,9 +238,9 @@ impl Session {
             taken,
         );
         // Each filled slot's player takes `order`'s record for it, keeping the
-        // slot's own `id`, `appearance_id` and `base_copy_id`. Every before and
-        // after is computed before the first write: a rostered id the save
-        // lacks leaves it untouched.
+        // slot's own part of it (`moved_record`). Every before and after is
+        // computed before the first write: a rostered id the save lacks leaves
+        // it untouched.
         let mut moved = Vec::new();
         for (&slot_id, &record_id) in filled.iter().zip(&order) {
             if slot_id == record_id {
@@ -239,11 +251,7 @@ impl Session {
             else {
                 return;
             };
-            let mut after = source.clone();
-            after.id = dest.id;
-            after.appearance_id = dest.appearance_id;
-            after.appearance.base_copy_id = dest.appearance.base_copy_id;
-            moved.push((slot_id, dest.clone(), after));
+            moved.push((slot_id, dest.clone(), moved_record(source, dest)));
         }
         for (id, before, after) in moved {
             *self.file.player_mut(id).expect("resolved above") = after.clone();
@@ -495,6 +503,35 @@ impl Session {
     }
 }
 
+/// `source`'s record retargeted onto `dest`'s slot (`move_player`): the fields
+/// `player_export` carries move with the record; the fields it does not carry
+/// are `dest`'s — `id`, `appearance_id`, `base_copy_id`, and the in-game face
+/// run apart from `EXPORT_FACE_FIELDS`, whose four the export holds and so
+/// moves (its appearance section ends at `iris_col`; the face structure and
+/// the hair are not in the struct).
+fn moved_record(source: &PlayerEntry, dest: &PlayerEntry) -> PlayerEntry {
+    let mut record = source.clone();
+    record.id = dest.id;
+    record.appearance_id = dest.appearance_id;
+    record.appearance.base_copy_id = dest.appearance.base_copy_id;
+    record.appearance.ingame_face = dest.appearance.ingame_face.clone();
+    // A loaded save reads every player's whole run, and both layouts hold
+    // the four fields, so neither call can fail on a record of the save.
+    for field in EXPORT_FACE_FIELDS {
+        let value = source
+            .appearance
+            .ingame_face
+            .get(field)
+            .expect("a loaded player's face run holds the exported fields");
+        record
+            .appearance
+            .ingame_face
+            .set(field, value)
+            .expect("two players of one save share a face layout");
+    }
+    record
+}
+
 /// The save's players and teams by id: the baseline `is_dirty` and
 /// `player_dirty` compare against, taken at `open` and after `save`.
 fn baselines(file: &EditFile) -> (HashMap<u32, PlayerEntry>, HashMap<u32, TeamEntry>) {
@@ -537,25 +574,31 @@ pub(crate) fn is_stripped(file: &EditFile, id: u32) -> bool {
 
 #[cfg(test)]
 mod tests {
+    use pes_savefile::model::ingame_face::IngameFace;
+    use pes_savefile::schema::ingame_face::IngameFaceField;
+
     use super::*;
 
-    /// Writes the PES 21 fixture save under the test's scratch folder and
+    /// Writes `version`'s fixture save under the test's scratch folder and
     /// opens it as a `Session`.
-    fn open_pes21(test: &str) -> Session {
+    fn open(version: PesVersion, test: &str) -> Session {
         let dir = std::env::temp_dir().join(format!("save_editor_session_{test}"));
         std::fs::create_dir_all(&dir).unwrap();
         let path = dir.join("EDIT00000000");
-        std::fs::write(&path, pes_savefile::fixture_save(PesVersion::Pes21)).unwrap();
+        std::fs::write(&path, pes_savefile::fixture_save(version)).unwrap();
         Session::open(&path).unwrap()
     }
 
-    /// `entry` without the fields a roster slot owns (`id`, `appearance_id`,
-    /// `appearance.base_copy_id`): the record a move carries.
+    /// `entry` without what a roster slot owns (`id`, `appearance_id`,
+    /// `appearance.base_copy_id`, and the in-game face run apart from the
+    /// exported fields, which `a_move_carries_only_the_exported_face_fields`
+    /// checks on its own): the record a move carries.
     fn record(entry: &PlayerEntry) -> PlayerEntry {
         let mut record = entry.clone();
         record.id = 0;
         record.appearance_id = None;
         record.appearance.base_copy_id = 0;
+        record.appearance.ingame_face = IngameFace::default();
         record
     }
 
@@ -565,7 +608,7 @@ mod tests {
     // numbers) is never written, and the whole move is one undo entry.
     #[test]
     fn a_move_trades_the_records_between_the_ids_one_undo_entry() {
-        let mut session = open_pes21("move");
+        let mut session = open(PesVersion::Pes21, "move");
         // The fixture's placeholders are identical records: distinguish the
         // three the move rotates, so the trades are not vacuous; a save makes
         // them the baseline, so `is_dirty` measures the move alone.
@@ -645,7 +688,7 @@ mod tests {
     // roster, and a team the save lacks: nothing changes, no undo entry.
     #[test]
     fn a_move_that_names_no_two_filled_slots_does_nothing() {
-        let mut session = open_pes21("move_noop");
+        let mut session = open(PesVersion::Pes21, "move_noop");
         let empty = session
             .file()
             .team(701)
@@ -671,7 +714,7 @@ mod tests {
     // rotate over the filled slots.
     #[test]
     fn a_move_skips_over_an_empty_slot() {
-        let mut session = open_pes21("move_empty");
+        let mut session = open(PesVersion::Pes21, "move_empty");
         // Distinguish the records (the fixture's placeholders are identical),
         // then empty out slot 1 (70102's record stays in the pool, unrostered).
         session.file.player_mut(70101).unwrap().name = "FIRST".to_owned();
@@ -706,6 +749,113 @@ mod tests {
         assert_eq!(session.file().team(701).unwrap().roster[1].player_id, 0);
         assert_eq!(session.file().team(701).unwrap().roster[0].player_id, 70101);
         assert_eq!(session.file().team(701).unwrap().roster[2].player_id, 70103);
+    }
+
+    /// Writes `value` into `field` of `id`'s in-game face run.
+    fn set_face(session: &mut Session, id: u32, field: IngameFaceField, value: u8) {
+        session
+            .file
+            .player_mut(id)
+            .unwrap()
+            .appearance
+            .ingame_face
+            .set(field, value)
+            .unwrap();
+    }
+
+    /// `field` of `id`'s in-game face run.
+    fn get_face(session: &Session, id: u32, field: IngameFaceField) -> u8 {
+        session
+            .file()
+            .player(id)
+            .unwrap()
+            .appearance
+            .ingame_face
+            .get(field)
+            .unwrap()
+    }
+
+    // plans/save_editor.md "Editing UI", the Player list bullet: the move
+    // carries the fields `player_export` carries — the player-gloves, skin
+    // and iris fields inside the face run — and leaves the rest of the run
+    // (the face structure and the hair) with the slot.
+    #[test]
+    fn a_move_carries_only_the_exported_face_fields() {
+        face_fields_move(PesVersion::Pes21, "move_face21");
+    }
+
+    // The same on a version whose appearance block is a separate record
+    // joined by id (PES 15/16, `appearance_id` `None`): it stays joined.
+    #[test]
+    fn a_move_carries_only_the_exported_face_fields_on_a_split_record() {
+        face_fields_move(PesVersion::Pes16, "move_face16");
+    }
+
+    /// The face-field half of `a_move_trades_the_records_between_the_ids` on
+    /// `version`: 70102's record moved onto slot 01 trades the exported
+    /// fields (gloves, skin, iris) and keeps each slot's own face and hair.
+    fn face_fields_move(version: PesVersion, test: &str) {
+        use IngameFaceField as F;
+        let mut session = open(version, test);
+        // The fixture's runs are identical: mark each of the six fields the
+        // split decides, four carried by `player_export` and two that stay.
+        let marks: [(F, u8, u8); 6] = [
+            (F::Jawline, 5, 2),
+            (F::NoseType, 7, 3),
+            (F::PlayerGloves, 1, 0),
+            (F::PlayerGlovesColor, 5, 2),
+            (F::SkinColor, 6, 2),
+            (F::IrisColor, 9, 4),
+        ];
+        for &(field, a, b) in &marks {
+            set_face(&mut session, 70101, field, a);
+            set_face(&mut session, 70102, field, b);
+        }
+        for &(field, a, b) in &marks {
+            assert_eq!(get_face(&session, 70101, field), a, "premise");
+            assert_eq!(get_face(&session, 70102, field), b, "premise");
+        }
+
+        session.move_player(701, 1, 0);
+
+        for &(field, a, b) in &marks {
+            let carried = matches!(
+                field,
+                F::PlayerGloves | F::PlayerGlovesColor | F::SkinColor | F::IrisColor
+            );
+            // Slot 01 took 70102's record, slot 02 70101's: a carried field
+            // holds the source's value, a kept one the slot's own.
+            let (on_01, on_02) = if carried { (b, a) } else { (a, b) };
+            assert_eq!(get_face(&session, 70101, field), on_01, "{field:?}");
+            assert_eq!(get_face(&session, 70102, field), on_02, "{field:?}");
+        }
+    }
+
+    // plans/save_editor.md "Editing UI", the Undo/redo bullet: one entry per
+    // gesture — a second drag is its own entry, not a merge into the first's.
+    #[test]
+    fn two_moves_are_two_undo_steps() {
+        let mut session = open(PesVersion::Pes21, "two_moves");
+        session.file.player_mut(70101).unwrap().name = "FIRST".to_owned();
+        session.file.player_mut(70102).unwrap().name = "SECOND".to_owned();
+        session.file.player_mut(70103).unwrap().name = "THIRD".to_owned();
+
+        session.move_player(701, 1, 0);
+        session.move_player(701, 2, 1);
+        assert_eq!(session.file().player(70101).unwrap().name, "SECOND");
+        assert_eq!(session.file().player(70102).unwrap().name, "THIRD");
+        assert_eq!(session.file().player(70103).unwrap().name, "FIRST");
+
+        // One undo reverts only the second move; the next undoes the first.
+        assert!(session.undo());
+        assert_eq!(session.file().player(70101).unwrap().name, "SECOND");
+        assert_eq!(session.file().player(70102).unwrap().name, "FIRST");
+        assert_eq!(session.file().player(70103).unwrap().name, "THIRD");
+        assert!(session.undo());
+        assert_eq!(session.file().player(70101).unwrap().name, "FIRST");
+        assert_eq!(session.file().player(70102).unwrap().name, "SECOND");
+        assert_eq!(session.file().player(70103).unwrap().name, "THIRD");
+        assert!(!session.can_undo());
     }
 
     #[test]

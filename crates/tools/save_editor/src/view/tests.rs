@@ -6,6 +6,7 @@
 use std::path::PathBuf;
 
 use egui::accesskit::{self, Role};
+use pes_savefile::model::ingame_face::IngameFace;
 use pes_savefile::model::names::name_spans;
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::{EditFile, fixture_save};
@@ -139,13 +140,15 @@ fn drag(window: &mut Headless, from: egui::Pos2, onto: egui::Pos2, view: &mut Sa
     });
 }
 
-/// `entry` without the fields a roster slot owns (`id`, `appearance_id`,
-/// `appearance.base_copy_id`): the record a drag reorder carries.
+/// `entry` without what a roster slot owns (`id`, `appearance_id`,
+/// `appearance.base_copy_id`, and the in-game face run apart from the
+/// exported fields): the record a drag reorder carries.
 fn record(entry: &PlayerEntry) -> PlayerEntry {
     let mut record = entry.clone();
     record.id = 0;
     record.appearance_id = None;
     record.appearance.base_copy_id = 0;
+    record.appearance.ingame_face = IngameFace::default();
     record
 }
 

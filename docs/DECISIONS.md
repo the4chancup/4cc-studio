@@ -10066,3 +10066,12 @@ which empties a team's roster slots past 23.
 Why: the maintainer's answer: cups no longer need it. It is in 4ccEditor's first public commit
 (`49926fa`, 2019-08-16) and was last widened to PES 19's 40-slot rosters (`8d78775`).
 Plan: `plans/save_editor.md` "Feature inventory", the hidden shortcut's row.
+
+## 2026-10-22 — save_editor — A drag reorder leaves each slot its face and hairstyle
+Decision: the move keeps on each slot, besides its id, appearance id and base copy, the in-game
+face run's face structure and hairstyle; the four fields of that run the spinner's record holds
+(skin colour, iris colour, player gloves and their colour) move with the rest of the record.
+Why: 4ccEditor's spinner moves exactly its `player_export` record (`editor.h`, `PlayerExport`/
+`PlayerImport`), which ends at `iris_col` and has no face or hair; the 8.9c2 audit compared
+every `PlayerEntry` field with it and found no other difference.
+Plan: `plans/save_editor.md` "Editing UI", the Player list bullet, and SE-GUI-08.
