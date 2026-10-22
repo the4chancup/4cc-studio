@@ -99,6 +99,9 @@ double-click, done. The launcher is two lines (`start "" "%~dp04cc-studio.exe" -
 compile`) so its console window closes immediately and only the GUI remains; the Linux bundle ships
 the equivalent `quick_compile.sh`. Red's other staged bats (`1_`–`3_`) have no successor: the
 unified pipeline has no stages to run separately. Users who want the plain GUI double-click the exe.
+Until the Team compiler's view exists, the 0.0.1 bundle's `quick_compile.bat` runs the plain CLI
+compile in its console instead, beside an interim `quick_upgrade.bat` (`development_plan.md`
+"The /vg/ League 27 (VGL)").
 
 The shell reuses the tool's own CLI parser for the arguments (one grammar for both
 modes) and hands the parsed `ArgMatches` to the tool's `gui_run` hook (see the trait below) once

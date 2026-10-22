@@ -13,6 +13,9 @@ There is no installer. Each release is a `.7z` archive containing:
 - `4cc-studio.exe` (or the `4cc-studio` Linux binary) — the single self-contained binary
 - `quick_compile.bat` (`quick_compile.sh` on Linux) — the double-click launcher: opens the GUI on
   the Team compiler and starts a compile (see `architecture.md` "Launch modes" under Architecture)
+- in the 0.0.1 preview only, until the two tools' views land: `quick_compile.bat` in its CLI
+  form, `quick_upgrade.bat` and an empty `old_exports/` (`development_plan.md` "The /vg/
+  League 27 (VGL)")
 - a basic readme (pointing into the app: the full help and the changelog live in the help window
   — see `gui.md` "Help window" under GUI Design — and `4cc-studio help --export` produces the same text as
   files for the release page), with the two license files beside it

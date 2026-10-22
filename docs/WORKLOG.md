@@ -20,9 +20,12 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1 and 2 done, slice 3 (the Tactics tab) under way), Phase 20 (the Ruleset
-editor), the 0.0.1 preview build for DBC (the two editors; the Team compiler and Export
-upgrader greyed out), then Phase 8's other views. Done for DBC so far (2026-10-21): 20.0d (the
+8.9: slices 1 and 2 done, slice 3 (the Tactics tab) under way), then 0.0.1a-e (the Team
+compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
+the console's progress line, the launchers, the interruption check, `just release`, a
+rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
+editors, and the compiler and upgrader through the CLI, their views greyed out), then Phase
+8's other views. Done for DBC so far (2026-10-21): 20.0d (the
 DBC7 ruleset), 20.0e (the organizer's choices in it; the stat total's two readings confirmed
 by the organizer 2026-10-22), 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's
 rulings) and 8.5 (the Save editor's draft, `docs/prototypes/save_editor.html`, waiting for the
@@ -117,6 +120,7 @@ documents".
 | 6 | Export upgrader | `export_upgrader` | done |
 | 7 | glTF support (runs after Release 0.1.0) | `model_convert` (glTF half) | todo |
 | 8 | GUI | `studio_core` shell, `studio`, tool views, `color_tools` widget | todo |
+| 0.0.1 | Preview build: the Save and Ruleset editors for DBC, the Team compiler and Export upgrader through their CLI for VGL 27 (`core/development_plan.md` "Divegrass Before Christmas", "The /vg/ League 27 (VGL)") | `just release`, the launchers, the console's progress line | todo |
 | 0.1.0 | Release 0.1.0, after Phase 8, a test release (`core/development_plan.md` "Release 0.1.0") | `just release`, `CHANGELOG.md` | todo |
 | 0.2.0 | Release 0.2.0 or a later `0.x` (`core/development_plan.md` "Release 0.2.0") | help chapters, update check + notice, teams-list merge | todo |
 | 9 | Stadium compiler | `stadium_compiler` | todo |
@@ -1163,7 +1167,31 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         the grass moved his slot (a `LineupDrag::Marker` payload now), the lists and popover
         drew names without their colour codes (`team_widgets::names`), the pitch tests past a
         thousand lines (`pitch/tests/`), one undo key for the whole tab (one per widget call);
-        rework 3 (SWE-2) fixed all four. Next: Astra A1, then a SWE-2 loop after it
+        rework 3 (SWE-2) fixed all four. Astra A1 (Devin work; Codex own ran out of its
+        window first) accepted 7 of 7 (`.tmp/8_9/duck_rulings_e.md`): settings rows clipped at a
+        narrow window, two gestures in one widget merged into one undo step, a swap repointed
+        instructions that take no player of ours, PES 15/16 lost the instruction rows, and
+        three tests could not fail; rework 4 (SWE-2) fixed all seven. Then a SWE-2 loop and
+        Astra A2
+    - [ ] 8.9f the draft's second arrangement (the maintainer's request of 2026-10-23: several
+      usability issues, mostly badly arranged elements; their own remarks to follow). A new
+      page, `docs/prototypes/save_editor_v2.html`, beside the first until the maintainer picks,
+      arranged on the lead's judgment, weighing a collaborator's remarks on the first draft
+      (not yet ruled by the maintainer): the team's name and abbreviation always in view, not
+      on a tab (invitational members edit them often); fonts too thin (seen on the draft only:
+      check the built view too); the card count derivable from stats, registered position and
+      height rather than listed; star rating and playing attitude toward Appearance (they act
+      only in cutscenes); the stats and the playable positions aligned, the positions in the
+      grid CF SS LWF RWF / AMF LMF RMF CMF DMF / CB LB RB GK. Each remark adopted or not, with
+      why, written in the page beside its draft controls. Slice 4 waits for the maintainer's
+      ruling; what the ruling changes in slices 1-3's built tabs becomes a step of its own →
+      verify: the harness walks the v2 page as it walks the first, every SE-GUI scenario
+      the first draft shows drawn in v2 too
+    - [ ] 8.9g the Tactics pitch as PES 2021's own (the maintainer's request of 2026-10-23;
+      `plans/save_editor.md` "Tactics editor", the pitch's look): the reference measured first
+      (the game's formation screen captured in game, its UI textures in the game's CPKs), the
+      starters' portraits read from the selected game's `download/` CPKs; in the v2 draft
+      first, with real portraits, then in `team_widgets::pitch`
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
@@ -1190,7 +1218,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       before slice 4, since the check already runs off the frame
   - [ ] 8.10 after 0.0.1: the progress grid (with the log panel's cross-link: a warning or
     error line's click highlights its grid cell, `plans/core/gui.md` "Log panel", which 8.6d3 leaves for
-    the grid), the run strip and the console printer's progress line, the exports folder watcher and check cache, cancellation, the launcher, the Team
+    the grid), the run strip, the exports folder watcher and check cache, cancellation, the launcher (`quick_compile.bat` to its `--gui` form, `quick_upgrade.bat` dropped once the upgrader's view lands), the Team
     compiler's and the Export upgrader's views (their drafts first); the notice action
     `OpenFolder` opens the system file browser for the compile's "Open output" (8.6b leaves it
     a dismiss; eframe's `open_url` opens a browser even for a local path, so not through it),
@@ -1269,6 +1297,47 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   No Astra round here (checkpoint b on the draft is the top lead's call). To show the
   maintainer; their remarks go into the plan before the shell slices are briefed. Files:
   `docs/prototypes/shell.html`
+
+### Release 0.0.1 — the preview build (DBC's editors, VGL 27's compiler and upgrader)
+
+`plans/core/development_plan.md` "Divegrass Before Christmas" and "The /vg/ League 27 (VGL)"
+(the maintainer's choice of 2026-10-23: the CLI half joins the build already planned). Steps
+a-e run once 8.9e and the second draft (8.9f) are done, while the maintainer rules on that
+draft, and before Phase 20, so the rehearsal's findings have the most time before the league;
+f is the cut, once Phase 20 closes. The usual rigor holds throughout:
+briefs, review loops, gates and mutation runs as for any step.
+
+- [ ] 0.0.1a the console's progress line and run summary (`plans/core/architecture.md` "The
+  console's progress line and run summary", with `indicatif` as it names; moved from 8.10) →
+  verify: ST-CLI-02's piped half by a CLI test (stdout byte-identical with and without the
+  printer, nothing on stderr but findings' lines), its terminal half `manual: checked` on a
+  real compile
+- [ ] 0.0.1b the launchers: `quick_compile.bat` in its CLI form and `quick_upgrade.bat` over
+  `old_exports/` (`plans/core/development_plan.md` "The /vg/ League 27 (VGL)") → verify: each bat run by
+  a test through `cmd /c` in a temporary bundle layout over fixture exports (an old export
+  upgraded into `exports/` and the tally line; no file dropped: the how-to text and nothing
+  written; an export already upgraded: refused, counted, the others still run; the compile
+  over `exports/` writing its output)
+- [ ] 0.0.1c an interrupted run: Ctrl+C in the launcher's console at several points of a PES
+  2019 compile (planning, packing, deploying), of a pre-Fox compile's savefile write and of an
+  upgrade; what is left where the game reads it (`download/`, the DpFileList, the savefile) and
+  in `exports/`, tallied per point; a half-written file the game would read is fixed (written
+  under a temporary name and renamed, as the upgrader's staging does) or recorded with why not
+  → verify: the tally in the Done line, each fix tested
+- [ ] 0.0.1d `just release <version>` (`plans/core/distribution.md` "Distribution: portable .7z
+  bundle"; Windows only): the exe, the two launchers, empty `exports/` and `old_exports/`, the
+  teams list, the readme and the licenses, packed as the `.7z` with its SHA256 file; the
+  0.0.1 readme in a layman's words (open the exe once to pick PES and its exe on the sidebar,
+  then the two launchers; Red as the fallback) → verify: the recipe from a clean checkout
+  produces both files, and the archive's listing matches the plan's
+- [ ] 0.0.1e the rehearsal on PES 2019 with FoxDen: VGL26's old exports (the upgrader
+  census's copies) through `quick_upgrade.bat` and `quick_compile.bat` from the extracted
+  bundle, then checked in game in Edit mode (the `F:` drive connected by the maintainer);
+  every failing class diagnosed and fixed, or written down as a reason to fall back to Red →
+  verify: the tallies, `manual: checked` lines for the in-game look
+- [ ] 0.0.1f the cut, once Phase 20 closes: the clean-machine check (`plans/core/development_plan.md`
+  "Release 0.1.0"'s verification, both launchers included), `just release 0.0.1`, handed to
+  DBC's testers and VGL's organizer
 
 ### Phase 10 — Music tools
 

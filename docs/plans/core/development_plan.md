@@ -36,10 +36,41 @@ Ruleset editor) pulled forward to follow it, then Phase 8's other views and Rele
 above. Members get the two editors as a **preview build, 0.0.1**, cut once the Ruleset editor's
 phase closes: the shell with those two tools active, and the Team compiler and the Export
 upgrader, whose views come later, greyed out on the sidebar as the planned tools are. It needs
-from Release 0.1.0's list the Windows bundle (`just release`, the `.7z` and its checksum) and a
-`CHANGELOG.md` section, nothing else: no updater, since 0.1.0 replaces it by hand. We do not shorten either tool's phase to meet the date: a tool members learn on is
+from Release 0.1.0's list the Windows bundle (`just release`, the `.7z` and its checksum),
+nothing else: no updater, since 0.1.0 replaces it by hand, and no `CHANGELOG.md`, which starts
+with 0.1.0 (0.0.1's few testers are told in person what it holds). We do not shorten either tool's phase to meet the date: a tool members learn on is
 one whose behavior they will keep relying on, and a rushed rule check that passes a team the
 organizers' check refuses costs the invitational more than a later tool.
+
+**The /vg/ League 27 (VGL).** The league starts in late November 2026 on PES 2019 with FoxDen,
+and its organizer tests the Team compiler there: managers send their exports in the old format,
+as for any cup; the maintainer and the organizer upgrade them with the Export upgrader, compile
+them, and fall back to Red if a major issue surfaces. So 0.0.1 also carries those two tools
+through their CLI. They need no view for it, and the window stays as above, the two greyed
+out. The bundle's launchers run the CLI in their console window, as Red's own bat runs its
+CLI, and wait for a key at the end so the report can be read:
+
+- `quick_compile.bat` runs `4cc-studio team-compiler compile` over the bundle's `exports/`.
+  It takes its `--gui` form (`architecture.md` "Launch modes") when the Team compiler's view
+  lands.
+- `quick_upgrade.bat` upgrades every export in the bundle's `old_exports/` (folders, `.zip`,
+  `.7z`) into `exports/` against the savefile dropped onto it, then prints how many were
+  upgraded and how many were not. A team export needs `--savefile` or `--loose` (`spec/export_upgrader.md` "CLI"),
+  and loose mode is an assumption the user opts into, so the bat asks for the save rather than
+  falling back to loose; with no file dropped it says how to drop one and stops. The bat goes
+  when the Export upgrader's view lands.
+
+The console's progress line and run summary (`architecture.md`, ST-CLI-02) come with them,
+pulled forward from Phase 8's progress-grid step: a whole league compiled with nothing on the
+screen for minutes reads as a hung program. Two checks join the release's own:
+
+- an interrupted run (Ctrl+C in the console) leaves no half-written file where the game reads
+  it;
+- a rehearsal on PES 2019: a past VGL's old exports upgraded and compiled from the extracted
+  bundle through the two launchers, then checked in game with FoxDen.
+
+Both tools stay what their phases delivered; nothing is shortened for the league's date
+either.
 
 ### Phase 7: glTF support
 

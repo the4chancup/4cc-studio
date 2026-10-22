@@ -2326,3 +2326,7 @@ worklog passed 7,000 lines.
   untested, the armed note's width) and the diff mutation run found 43 missing pitch tests; rework 2 added them.
 - **2026-10-22** — 8.9e review: SWE-2 S3 accepted 4 (an eleven row on the grass moved his slot, names without their
   colour codes, one undo key for the tab), ending the SWE-2 loop; rework 3 fixed them. Astra next.
+- **2026-10-23** — Release 0.0.1 widened (maintainer): the Team compiler and Export upgrader through their CLI for VGL 27
+  (PES 2019), two launchers, the console progress line; steps 0.0.1a-f, a-e after 8.9. Astra A1 over the Tactics tab: 7 accepted.
+- **2026-10-23** — 8.9e rework 4 fixed A1's seven (wrapping settings rows, a seal on focus loss, player-taking repoints
+  only). 8.9f slice 1 briefed. 8.9g: PES 2021's Game Plan pitch captured in game as the reference.

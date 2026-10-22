@@ -282,6 +282,12 @@ Win32 original hurt the most):
   players are **dragged** to reposition (x/y), with position labels and snapping.
   4ccEditor's per-slot dropdown + coordinate fields remain as a detail popover on
   click, not the primary interface.
+- **The pitch looks like PES 2021's own formation screen**, reproduced as closely as the
+  game's assets and a capture of its screen allow: its turf and lines, and each starter shown
+  as the game shows him, by his portrait, read from the selected game's `download/` CPKs when
+  that folder is found and holds one (the plain chip otherwise). Every version's save draws
+  the same pitch: it is the editor's look, not a version gate. What the reproduction is
+  measured against is settled when its step is briefed (worklog 8.9g).
 - **Lineup by drag-and-drop**: the starting XI and bench are reorderable lists;
   **dragging a bench player onto a pitch player swaps them** (and vice versa).
   The arrow-button ordering UI is gone.

@@ -10287,3 +10287,38 @@ them. Writing the drop point instead (the draft's first version) stacked two pla
 a formation no member means; a release off the pitch clamped to the edge moved a player nobody
 aimed at the edge.
 Plan: `plans/save_editor.md` "Tactics editor", "What the controls write".
+
+## 2026-10-23 — release — 0.0.1 also carries the Team compiler and the Export upgrader through their CLI, for VGL 27
+Decision: the 0.0.1 preview build also ships the Team compiler and the Export upgrader, run
+through their CLI, for the /vg/ League 27 (PES 2019 with FoxDen, from late November): managers
+send old-format exports; the maintainer and the organizer upgrade and compile them, with Red as
+the fallback. The window stays as planned, the two tools greyed out. The bundle's
+`quick_compile.bat` runs the CLI compile until the Team compiler's view lands, and an interim
+`quick_upgrade.bat` upgrades every export in `old_exports/` into `exports/` against the savefile
+dropped onto it, stopping with a how-to when none is dropped. The console's progress line and run
+summary move from 8.10 into 0.0.1. Two checks join the release: an interrupted run leaves no
+half-written file the game reads, and a rehearsal on PES 2019 with VGL26's old exports. 0.0.1 has
+no `CHANGELOG.md`; the file starts with 0.1.0.
+Why: the maintainer's choice (one build rather than a separate compiler preview; "CLI-only"
+meaning no GUI needed yet, not a binary without one; the progress line wanted; no changelog at
+0.0.1; launchers like Red's, which runs its CLI from a bat). The lead's parts: the upgrader's
+bat takes the save by drag-and-drop and never falls back to `--loose`, because loose mode is an
+assumption the user opts into (`spec/export_upgrader.md` "CLI"), and a silent loose run on a
+league's exports would write teams from guesses; `old_exports/` beside `exports/` keeps the two
+formats apart, so the compiler never sees an old export; the interruption check and the
+rehearsal come from the answer given before the choice (an interrupted compile was unchecked,
+and no release had run the two tools end to end from a bundle).
+Plan: `plans/core/development_plan.md` "Releases" (the DBC paragraph and "The /vg/ League 27
+(VGL)"), `plans/core/architecture.md` "Launch modes", `plans/core/distribution.md`
+"Distribution: portable .7z bundle".
+
+## 2026-10-23 — save_editor, team_widgets — the Tactics pitch reproduces PES 2021's formation screen, with portraits
+Decision: the Tactics tab's pitch is drawn as close as possible to PES 2021's own formation
+screen (turf, lines, each starter as the game shows him), every starter by his portrait read from
+the selected game's `download/` CPKs when that folder is found and holds one, the plain chip
+otherwise; every version's save gets the same pitch.
+Why: the maintainer's request: members read a formation the way the game shows it, and a pitch
+that looks like the game's needs no translating. One look for every version rather than one per
+game, because the look is the editor's, not data the version gates, and one reproduction is
+what can be made exact.
+Plan: `plans/save_editor.md` "Tactics editor" (the pitch's look); worklog 8.9g.
