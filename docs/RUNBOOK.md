@@ -153,6 +153,21 @@ script that copied `remote/` whole into its archive filled C: and stopped the tw
 When C: fills, clear `target/debug/incremental` first (64 GiB then), which cargo rebuilds, never
 the whole `target/`: it also holds `mutants-cost.json` and the runs' generated configs.
 
+**On the VPS the project may hold about 40 GB** (the maintainer's figure), on a disk the host's
+production services share. Every run that uses the host passes a guard first (`remote_refusal`):
+it empties `~/studio-mutants/tmp` (`REMOTE_TMPDIR`, the remote tests' temp dir), where a test
+that removes its folder at its end leaves it on every caught mutant and a killed half leaves its
+tree copies, then refuses when `~/studio-mutants` still holds over 30 GiB
+(`REMOTE_DISK_BUDGET`, leaving room for a half's two build copies) or the disk has under
+20 GiB free (`REMOTE_FREE_FLOOR`; this project's cleanup may not lift that one, so the
+maintainer is asked). On 2026-10-22, before the guard, the folder held 50 GB (28.6 of them test
+leftovers, 27 the Save editor's pid-named copies of a fixture save), the disk was at 99% and a
+half lost five mutants. **At each phase's close**, after its last mutation run, the lead
+removes the clone's build cache, `~/studio-mutants/tree/target` (22 GB after two phases; only
+`just gates-remote` builds there, which then starts cold) with `scripts/remote_clean_target.sh`
+(its header has the two ssh lines: a dry run first, then `--delete`); it refuses while a half,
+the gates or a cargo process runs.
+
 ## Agents and harness
 
 Three model families, three roles. Lead: Claude (Fable) in Devin CLI's Fusion mode. Sidekick:

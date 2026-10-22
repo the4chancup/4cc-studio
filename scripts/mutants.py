@@ -132,6 +132,16 @@ LOCAL_ONLY_CRATES: frozenset[str] = frozenset()
 # and counted against the unit's MemoryMax: the 4.14d kills were per-mutant
 # rebuilds of 1-2 GiB on top of two such trees, not the egui build itself.
 REMOTE_TMPDIR = "$HOME/studio-mutants/tmp"
+# The most of the host's disk `REMOTE_BASE` may hold when a run that uses the
+# remote starts: the maintainer affords about 40 GB, and a running half adds its
+# two build copies (about 4 GiB each) on top. On 2026-10-22 it held 50 GB (28.6 of
+# them tests' leftovers in `REMOTE_TMPDIR`, 22 the clone's build cache), the host's
+# disk was at 99%, and a half lost five mutants to it (RUNBOOK "The scratch folder").
+REMOTE_DISK_BUDGET = 30 * 2**30
+# The least free space the host's disk must have when such a run starts, whatever
+# this project holds: the host's production services grow on the same disk, and a
+# half's build copies and tests take about 10 GiB of it, which leaves them 10.
+REMOTE_FREE_FLOOR = 20 * 2**30
 # Where the local half's cargo-mutants makes its copies of the tree (and its
 # builds and tests their temporary files): one fixed folder, so a single
 # antivirus exclusion covers every run's randomly named copy, whose tests write
@@ -446,8 +456,9 @@ def remote_refusal(host: str, remote: bool) -> str | None:
     or finished but uncollected, whose collection summarizes the local `mutants.out` with
     it, which a new local half would replace. A run that uses the remote (`remote`) also
     refuses while the host cannot be reached or `just gates-remote` runs there, since each
-    rewrites the remote clone under the other; a local one starts when the host cannot be
-    reached, which is no reason to stop it."""
+    rewrites the remote clone under the other, and past the disk guard (`disk_refusal`,
+    after `remote_disk_use` has emptied the tests' leftovers); a local one starts when the
+    host cannot be reached, which is no reason to stop it."""
     state = remote_run_state(host)
     if state is None:
         return f"cannot reach {host}" if remote else None
@@ -468,6 +479,47 @@ def remote_refusal(host: str, remote: bool) -> str | None:
         return f"cannot reach {host}"
     if gates == 0:
         return f"`just gates-remote` is running on {host}: start the new run when it ends"
+    return disk_refusal(*remote_disk_use(host))
+
+
+def remote_disk_use(host: str) -> tuple[int, int]:
+    """Empties `REMOTE_TMPDIR`, then returns the bytes `REMOTE_BASE` holds and the
+    bytes free on its disk. Called only once `remote_refusal` knows no half and no
+    gates run there, so all the folder holds is leftovers: the scratch folders of
+    tests that remove theirs at their end, which a caught mutant's panic skips
+    (16,786 of them on 2026-10-22), and the tree copies of a killed half."""
+    out = ssh(
+        host,
+        f'd="{REMOTE_TMPDIR}"; mkdir -p "$d" && '
+        'find "$d" -mindepth 1 -maxdepth 1 -exec rm -rf -- {} + && '
+        f"du -sk {REMOTE_BASE} | cut -f1 && "
+        f"df -Pk {REMOTE_BASE} | awk 'NR == 2 {{print $4}}'",
+        capture_output=True, text=True, check=True,
+    ).stdout
+    used, free = out.split()
+    return int(used) * 1024, int(free) * 1024
+
+
+def disk_refusal(used: int, free: int) -> str | None:
+    """A refusal when `REMOTE_BASE` holds more than `REMOTE_DISK_BUDGET` or its
+    disk has less than `REMOTE_FREE_FLOOR` free (`used` and `free` in bytes,
+    `remote_disk_use`), naming the cleanup; None, after printing both figures,
+    otherwise."""
+    figures = (
+        f"{used / 2**30:.1f} GiB in {REMOTE_BASE} (budget {REMOTE_DISK_BUDGET / 2**30:.0f} "
+        f"GiB), {free / 2**30:.1f} GiB free (floor {REMOTE_FREE_FLOOR / 2**30:.0f} GiB)"
+    )
+    if used > REMOTE_DISK_BUDGET:
+        return (
+            f"remote disk: {figures}: over the budget, run RUNBOOK \"The scratch folder\"'s "
+            "remote cleanup, then start the run"
+        )
+    if free < REMOTE_FREE_FLOOR:
+        return (
+            f"remote disk: {figures}: below the floor, which this project's cleanup alone may "
+            "not lift; ask the maintainer before starting the run"
+        )
+    print(f"remote disk: {figures}", flush=True)
     return None
 
 

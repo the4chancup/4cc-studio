@@ -1371,7 +1371,9 @@ points there.
   the pid-named ones pile up. Direction: a per-checkout folder under the crate's own `target/`
   (gone with `cargo clean`, a mutation run's copy has its own), named per test without the
   pid; measure which other crates' tests leave files first
-- open 2026-10-22 — the VPS half's tests use `~/studio-mutants/tmp` (`REMOTE_TMPDIR`) as their
+- resolved 2026-10-22 (`scripts/mutants.py` `remote_disk_use`/`disk_refusal`, the guard every
+  run that uses the host passes, and the phase-close cleanup: RUNBOOK "The scratch folder"; the
+  emptying's first live run is the next run that uses the host) — the VPS half's tests use `~/studio-mutants/tmp` (`REMOTE_TMPDIR`) as their
   temp dir, and a helper that removes its folder at the test's end leaves it on every caught
   mutant (the test panics first): on 2026-10-22 it held 16,786 such folders, 28.6 GB (27 GB of
   them `save_editor`'s, fixed at `47e57a0d`; the rest `export_upgrader_*`, `pes_savefile_test_save_*`,

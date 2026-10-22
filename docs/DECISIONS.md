@@ -10075,3 +10075,15 @@ Why: 4ccEditor's spinner moves exactly its `player_export` record (`editor.h`, `
 `PlayerImport`), which ends at `iris_col` and has no face or hair; the 8.9c2 audit compared
 every `PlayerEntry` field with it and found no other difference.
 Plan: `plans/save_editor.md` "Editing UI", the Player list bullet, and SE-GUI-08.
+
+## 2026-10-22 — mutants — The VPS keeps this project under 30 GiB and 20 GiB free, cleaned at each phase's close
+Decision: every run that uses the mutation host first empties its tests' temp folder
+(`~/studio-mutants/tmp`), then refuses when `~/studio-mutants` holds over 30 GiB or the host's
+disk has under 20 GiB free; at each phase's close the lead removes the clone's build cache
+(`scripts/remote_clean_target.sh`).
+Why: the maintainer affords about 40 GB on a disk the host's production services share, and
+asked for the free-space check as well. Between phase closes the clone's cache reached 22 GB
+and a run's build copies take about 8 GiB more, so a phase-close cleanup alone fits the 40;
+but one new leaking test filled 27 GB in two days, so only a check at every run catches it in
+time. The 20 GiB floor leaves the host about 10 GiB while a run's copies stand.
+Plan: RUNBOOK "The scratch folder"; `scripts/mutants.py` `REMOTE_DISK_BUDGET`, `REMOTE_FREE_FLOOR`.

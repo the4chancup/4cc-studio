@@ -319,6 +319,31 @@ class RemoteSelection(unittest.TestCase):
         self.assertEqual(mutants.remote_selection(["-p", "cpk"]), "-p cpk")
 
 
+class DiskRefusal(unittest.TestCase):
+    """The disk guard at its two bounds, with 2026-10-22's figures as the failing case."""
+
+    def quiet(self, used: int, free: int) -> str | None:
+        with contextlib.redirect_stdout(io.StringIO()):
+            return mutants.disk_refusal(used, free)
+
+    def test_the_budget_and_the_floor_themselves_pass(self):
+        self.assertIsNone(self.quiet(mutants.REMOTE_DISK_BUDGET, mutants.REMOTE_FREE_FLOOR))
+
+    def test_one_byte_over_the_budget_refuses_naming_the_cleanup(self):
+        refusal = self.quiet(mutants.REMOTE_DISK_BUDGET + 1, 60 * 2**30)
+        self.assertIn("over the budget", refusal)
+        self.assertIn("The scratch folder", refusal)
+
+    def test_one_byte_below_the_floor_refuses_naming_the_maintainer(self):
+        refusal = self.quiet(2**30, mutants.REMOTE_FREE_FLOOR - 1)
+        self.assertIn("below the floor", refusal)
+        self.assertIn("maintainer", refusal)
+
+    def test_the_full_disk_of_2026_10_22_refuses(self):
+        # 50 GB of this project's on a disk with 2.2 GB free.
+        self.assertIn("over the budget", self.quiet(50 * 2**30, 2 * 2**30))
+
+
 class DiffSurvivors(unittest.TestCase):
     def test_a_split_crate_run_gives_its_merged_list_and_a_local_one_its_own(self):
         with tempfile.TemporaryDirectory() as tmp:
