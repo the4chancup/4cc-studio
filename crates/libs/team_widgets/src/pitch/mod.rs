@@ -250,12 +250,15 @@ pub fn pitch(
             Some(_) | None => {}
         }
         // Painted top of the canvas down (a lower marker covers the one
-        // above it), the dragged one last.
+        // above it), the dragged one last — the keeper's `dragged` is
+        // skipped: his slot is fixed, he is painted at his spot, never
+        // at the pointer.
         let dragged = order.iter().copied().find(|index| {
-            responses[*index]
-                .as_ref()
-                .expect("every marker interacted")
-                .dragged()
+            players[*index].position != 0
+                && responses[*index]
+                    .as_ref()
+                    .expect("every marker interacted")
+                    .dragged()
         });
         let mut still_for: Option<f32> = None;
         let mut record = |until: Option<f32>| {
@@ -372,6 +375,12 @@ fn draw_order(centres: &[egui::Pos2; 11]) -> [usize; 11] {
     let mut order: [usize; 11] = std::array::from_fn(|index| index);
     order.sort_by(|a, b| centres[*a].y.total_cmp(&centres[*b].y).then(a.cmp(b)));
     order
+}
+
+/// A name no wider than the badge fits: it is centred and never moves
+/// (the plan's "a name that fits never moves").
+fn name_fits(width: f32) -> bool {
+    width <= BADGE_W
 }
 
 /// The leftward offset of a name `width` wide `seconds` after the
@@ -502,10 +511,11 @@ fn paint_pitch(painter: &egui::Painter, canvas: egui::Rect) {
 
 /// One marker (the draft's chip grown to the screen's marker): the
 /// slot's position over the starter's name, its AccessKit node a button
-/// labeled with both. The keeper's slot (position 0) is not a drag source
-/// but still clicks. A click serves the armed mode when one is armed,
-/// else opens the slot's popover. The answer is the marker's response,
-/// for the caller's drop check; `paint_marker` draws it.
+/// labeled with both. The keeper's slot (position 0) senses like the
+/// others but sets no drag payload, so a press-drag-release on him goes
+/// nowhere; he still clicks. A click serves the armed mode when one is
+/// armed, else opens the slot's popover. The answer is the marker's
+/// response, for the caller's drop check; `paint_marker` draws it.
 fn marker(
     ui: &mut egui::Ui,
     canvas: egui::Rect,
@@ -515,14 +525,14 @@ fn marker(
     spot: Spot,
 ) -> egui::Response {
     let keeper = spot.slot.position == 0;
+    // The keeper senses drag like the others although he never moves:
+    // egui's hit test answers a drag with the topmost drag-sensing
+    // widget, so click-only would send a press on him to the marker
+    // underneath.
     let response = ui.interact(
         marker_rect(spot.centre, canvas),
         ui.id().with(("pitch marker", spot.index)),
-        if keeper {
-            egui::Sense::click()
-        } else {
-            egui::Sense::click_and_drag()
-        },
+        egui::Sense::click_and_drag(),
     );
     let name = name_at(roster, tactics.starting_eleven[spot.index]);
     response.widget_info(|| {
@@ -612,7 +622,7 @@ fn paint_marker(
     }
     let galley = painter.layout_job(job);
     let size = galley.size();
-    let wide = size.x > BADGE_W;
+    let wide = !name_fits(size.x);
     let left = if wide {
         badge.left() - name_scroll(size.x, seconds)
     } else {

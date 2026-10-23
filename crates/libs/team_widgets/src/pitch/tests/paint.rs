@@ -169,6 +169,24 @@ fn the_turf_is_the_game_textures_bands_with_its_grain() {
     assert_eq!(turf_image().pixels, image.pixels, "deterministic");
 }
 
+// The grain itself, pixel-exact on row 0's dark band: the fixed-seed
+// xorshift32's known answer.
+#[test]
+fn the_turf_grain_is_the_fixed_seed_xorshift() {
+    let image = turf_image();
+    for (x, expected) in [
+        egui::Color32::from_rgb(43, 85, 27),
+        egui::Color32::from_rgb(50, 92, 34),
+        egui::Color32::from_rgb(45, 87, 29),
+        egui::Color32::from_rgb(39, 81, 23),
+    ]
+    .into_iter()
+    .enumerate()
+    {
+        assert_eq!(image.pixels[x], expected, "pixel {x}");
+    }
+}
+
 // The lines (the plan's "Lines" sub-bullet), read off the painted shapes
 // in canvas-relative coordinates: the halfway line, the centre circle,
 // the two penalty boxes and goal areas as segments, the two arcs as
@@ -270,6 +288,40 @@ fn the_painted_lines_are_the_screens_markings() {
             );
         }
     }
+}
+
+// The badge's position-text colours are the game's groups (the plan's
+// "A marker" sub-bullet): forwards, midfielders, defenders and the
+// keeper in their own colours, a position past the table white.
+#[test]
+fn the_position_colours_follow_the_game_s_groups() {
+    assert_eq!(
+        position_colour(0),
+        egui::Color32::from_rgb(0xff, 0xde, 0x00),
+        "GK"
+    );
+    for position in 1..=3 {
+        assert_eq!(
+            position_colour(position),
+            egui::Color32::from_rgb(0x00, 0xd2, 0xff),
+            "{position} a defender"
+        );
+    }
+    for position in 4..=8 {
+        assert_eq!(
+            position_colour(position),
+            egui::Color32::from_rgb(0x57, 0xe4, 0x2b),
+            "{position} a midfielder"
+        );
+    }
+    for position in 9..=12 {
+        assert_eq!(
+            position_colour(position),
+            egui::Color32::from_rgb(0xff, 0x2c, 0x77),
+            "{position} a forward"
+        );
+    }
+    assert_eq!(position_colour(13), egui::Color32::WHITE, "past the table");
 }
 
 // The markers on the fixture's formation (the plan's "A marker"
@@ -462,8 +514,28 @@ fn the_corners_and_the_join_fill_mark_the_states() {
             })
             .collect::<Vec<[egui::Pos2; 2]>>()
     };
+    // Each of `segments` is a 9 px arm, one end a `portrait_box` corner.
+    let assert_corner_arms = |segments: &[[egui::Pos2; 2]], portrait_box: egui::Rect| {
+        let box_corners = [
+            portrait_box.left_top(),
+            portrait_box.right_top(),
+            portrait_box.left_bottom(),
+            portrait_box.right_bottom(),
+        ];
+        for points in segments {
+            assert!(
+                (points[0].distance(points[1]) - 9.0).abs() <= 0.01,
+                "a 9 px arm"
+            );
+            assert!(
+                box_corners.iter().any(|corner| points.contains(corner)),
+                "{points:?} ends on a portrait-box corner"
+            );
+        }
+    };
     let selected = corners(&shapes, SELECTED_CORNERS);
     assert_eq!(selected.len(), 8, "the open marker's four corner arms");
+    assert_corner_arms(&selected, portrait_box);
     for points in selected {
         for point in points {
             assert!(
@@ -478,16 +550,42 @@ fn the_corners_and_the_join_fill_mark_the_states() {
         "no candidate corners with nothing armed"
     );
 
-    // An armed mode: the candidates' corners on every marker.
+    // An armed mode: the candidates' corners on every marker (marker
+    // `index`'s own checked the same way). The armed note shifts the
+    // canvas down, so the box is recomputed.
     view.popover = None;
     view.assign = Some(Assign::Role(5));
-    let (_, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let candidates = corners(&shapes, CANDIDATE_CORNERS);
     assert_eq!(
-        corners(&shapes, CANDIDATE_CORNERS).len(),
+        candidates.len(),
         88,
         "the candidates' corners on all eleven"
     );
     assert_eq!(corners(&shapes, SELECTED_CORNERS).len(), 0);
+    let canvas = canvas_rect(&nodes);
+    let badge =
+        egui::Rect::from_center_size(centres_of(canvas, &players)[index], egui::vec2(50.0, 14.0));
+    let portrait_box = egui::Rect::from_min_size(
+        egui::pos2(badge.left(), badge.top() - 50.0),
+        egui::vec2(50.0, 50.0),
+    );
+    let own: Vec<[egui::Pos2; 2]> = candidates
+        .iter()
+        .copied()
+        .filter(|points| {
+            [
+                portrait_box.left_top(),
+                portrait_box.right_top(),
+                portrait_box.left_bottom(),
+                portrait_box.right_bottom(),
+            ]
+            .iter()
+            .any(|corner| points.contains(corner))
+        })
+        .collect();
+    assert_eq!(own.len(), 8, "the marker's own four corner arms");
+    assert_corner_arms(&own, portrait_box);
 
     // Join armed: a member's badge fills JOIN_FILL, a non-member's
     // stays BADGE_FILL.
@@ -575,6 +673,15 @@ fn the_lower_marker_paints_last_and_takes_the_press() {
         Some(b),
         "the press hits the marker drawn on top"
     );
+}
+
+// `name_fits`: a name no wider than the badge is centred and never
+// moves; a hair wider scrolls.
+#[test]
+fn a_name_as_wide_as_the_badge_fits() {
+    assert!(name_fits(50.0), "the badge's own width fits");
+    assert!(!name_fits(50.01), "a hair wider scrolls");
+    assert!(name_fits(12.0), "a narrow one fits");
 }
 
 // `name_scroll` (the plan's measured scroll): a wide name holds still

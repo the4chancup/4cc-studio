@@ -203,6 +203,62 @@ fn a_marker_released_on_his_own_marker_moves() {
     assert_eq!(moved.y, slot.y, "y stayed");
 }
 
+// A press on the keeper where his marker covers another's is his (the
+// plan's "a press or a drop hits the marker drawn on top" and "The
+// goalkeeper's slot is fixed"): he senses click-and-drag like the
+// others so egui's hit test gives him both hits — a press-drag-release
+// on him moves neither and clicks nothing.
+#[test]
+fn a_press_on_the_keeper_over_another_marker_moves_neither() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let keeper = tactics.presets[0].formations[0]
+        .players
+        .iter()
+        .position(|slot| slot.position == 0)
+        .expect("the fixture has a keeper slot");
+    // The first outfield slot moved so its marker box covers the
+    // keeper's (badge centre about (159.8, 323.0) to his (160, 358.5)).
+    let under = tactics.presets[0].formations[0]
+        .players
+        .iter()
+        .position(|slot| slot.position != 0)
+        .expect("an outfield slot");
+    tactics.presets[0].formations[0].players[under].x = 52;
+    tactics.presets[0].formations[0].players[under].y = 6;
+    let before = tactics.clone();
+    let players = tactics.presets[0].formations[0].players;
+
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    let point = canvas.min + egui::vec2(160.0, 330.0);
+    assert!(
+        marker_rect(centres[keeper], canvas).contains(point)
+            && marker_rect(centres[under], canvas).contains(point),
+        "premise: the point is inside both boxes"
+    );
+    assert!(
+        draw_position(canvas, &players, keeper) > draw_position(canvas, &players, under),
+        "premise: the keeper paints on top"
+    );
+
+    let changed = window.drag_pitch(
+        point,
+        grass_point(canvas, &players),
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(!changed, "neither marker moves");
+    assert_eq!(tactics, before, "and nothing wrote");
+    assert_eq!(view.popover, None, "a dragged press is not a click");
+}
+
 // The plan's "The goalkeeper's slot is fixed": his marker clicks but
 // is no drag source, so a press-drag-release on it writes nothing.
 #[test]

@@ -1250,7 +1250,16 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         scroll's clock in the context's memory restarting when a frame skips the pitch, a
         repaint asked for at the next name's move; `RosterRow::portrait` added, the host
         passing none until slice 2; the save editor's view tests ported to the new geometry.
-        Not yet seen in the built window beside the draft (with slice 2's portraits). Files:
+        Rework 2 (SWE-2 review S1, 12 min): the keeper senses drag too, so a press on him where
+        he covers another marker is his and moves neither (egui gives the drag hit to the
+        topmost drag-sensing widget); the mutation run's 12 survivors tested (the position
+        colours against literals, the grain's first pixels, a name as wide as the badge
+        fitting, the corners' 9 px arms).
+        Seen in the built window (lead, a portable copy on a copy of the maintainer's PES 2021
+        save, team /3/): beside the draft at 2x the same markers and lines, the keeper's
+        badge at (160, 359), the halfway line on rows 191-192, every badge 50 x 14; a capture
+        a second showed the two wide names moving about 4 s and holding about 9 s of a
+        13.5 s period, the narrow one never moving. Portraits are seen with slice 2. Files:
         `team_widgets/src/{pitch/{mod.rs,popover.rs,lineup.rs,tests/*},tactics/mod.rs,
         test_support.rs}`, `save_editor/src/view/{tactics.rs,tests.rs,tests/*}`
       - [ ] slice 2, the portraits: the save editor reads each starter's portrait from the
@@ -1258,7 +1267,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         compiler's portrait path: PES 15-18 `player_<id>.dds`, PES 19-21 `<id>.dds`; a
         WESYS-wrapped DDS unwrapped, as `dds_convert::decode` does), off the UI thread,
         cached per save; none found, the marker draws without one → verify: a fixture CPK's
-        portrait reaches its marker, a missing folder leaves every marker without one
+        portrait reaches its marker, a missing folder leaves every marker without one; the
+        built window beside the draft with its portraits (`.tmp/8_9g/app_setup.py`,
+        `app_ui.ps1`, `compare_built.py` drive and capture a portable copy)
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,

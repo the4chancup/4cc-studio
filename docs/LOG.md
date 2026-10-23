@@ -2357,3 +2357,5 @@ worklog passed 7,000 lines.
   captures) into the plan; the v2 draft paints it with the sample teams' real portraits and coloured names.
 - **2026-10-23** — 8.9g slice 1: the Tactics pitch paints PES 2021's formation screen (turf, lines, the screen's mapping,
   portrait-badge-name markers drawn top-down), long names scrolling on the game's measured timing (the maintainer's idea).
+- **2026-10-23** — 8.9g slice 1 rework: a press on the keeper over another marker no longer drags the one beneath (SWE-2
+  review); the mutation run's 12 survivors tested; slice 1 seen in the built window beside the draft.
