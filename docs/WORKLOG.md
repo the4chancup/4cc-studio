@@ -20,7 +20,7 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1 and 2 done, slice 3 (the Tactics tab) under way), then 0.0.1a-e (0.0.1a-b done; the Team
+8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9f-h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-b done; the Team
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
@@ -1115,7 +1115,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         `afb01451`: 19 caught across the five crates, none missed. SWE-2 S2 after Astra 2
         accepted (the team test's own-ID branch never fired; SE-GUI-31 widened to the paths
         its tests check), fixed by the lead in the same commit; the loops end
-    - [ ] 8.9e slice 3, the Tactics tab (`plans/save_editor.md` "Tactics editor" with its "What
+    - [x] 8.9e slice 3, the Tactics tab (`plans/save_editor.md` "Tactics editor" with its "What
       the controls write", "`libs/team_widgets`"; SE-GUI-12, 25; DECISIONS 2026-10-22 "The
       Tactics tab's edits"), in three parts, the pitch last:
       - [x] 8.9e1 the settings: `Instruction::takes_player` in `pes_savefile`, `team_widgets`'
@@ -1161,7 +1161,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         `team_widgets/src/{lib.rs,tactics/{mod.rs,instructions.rs,assignments.rs},pitch/{mod.rs,
         lineup.rs,popover.rs}}`, `save_editor/{help/08_tactics.md,src/view/{tactics.rs,
         tests/tactics.rs}}`
-      - [ ] review: a SWE-2 loop, then Astra, over e1 and e2 together, and over e3. So far:
+      - [x] review: a SWE-2 loop, then Astra, over e1 and e2 together, and over e3. Done
+        2026-10-23:
         SWE-2 S2 over the whole tab, 5 of 9 accepted (the decision's marker-on-marker and
         off-pitch drops untested, a swap test the identity eleven let pass, the armed note
         spanning both columns as the draft draws it); `mutants-diff 610bbb5c` at `ec53b1c4`, 45
@@ -1175,8 +1176,13 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         window first) accepted 7 of 7 (`.tmp/8_9/duck_rulings_e.md`): settings rows clipped at a
         narrow window, two gestures in one widget merged into one undo step, a swap repointed
         instructions that take no player of ours, PES 15/16 lost the instruction rows, and
-        three tests could not fail; rework 4 (SWE-2) fixed all seven. Then a SWE-2 loop and
-        Astra A2
+        three tests could not fail; rework 4 (SWE-2) fixed all seven. SWE-2 S4 accepted 3 of
+        8, ending that loop (a drag after a typed field merged with it: a press now ends a
+        field's focus; rows wrapped; Tight Marking's target text), rework 5; Astra A2 (Devin
+        work) accepted 2 (every instruction row and chip untested), ending Astra's loop,
+        rework 6; S5 accepted 2 of 7 (two tests that could not fail), ending the last loop,
+        rework 7 (tests only). Mutation runs over reworks 4-6: 17, 10 and 0 missed, the
+        missing ones tested in the next rework
     - [ ] 8.9f the draft's second arrangement (the maintainer's request of 2026-10-23: several
       usability issues, mostly badly arranged elements; their own remarks to follow). A new
       page, `docs/prototypes/save_editor_v2.html`, beside the first until the maintainer picks,
@@ -1202,6 +1208,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         every control in view at 1440 x 900. The v2 harness (`.tmp/8_9f/run_harness_v2.py`)
         53 of 53, the first draft's 32 of 32
       - [ ] slice 4, after the maintainer's ruling on v2
+    - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
+      (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's
+      `ScrollArea::vertical` the content's width grows to fit its widest row (measured at a
+      580 px window: the Tactics note's row reached 790 px), so a wrapping row overflows to
+      the right, clipped, instead of wrapping; the wraps are tested only in `team_widgets`'
+      pane → verify: the Tactics and Abilities tabs at a 580 px window, every control inside
+      the window, by a test in `save_editor`'s view tests; folded into slice 4's layout if v2
+      changes the host
     - [ ] 8.9g the Tactics pitch as PES 2021's own (the maintainer's request of 2026-10-23;
       `plans/save_editor.md` "Tactics editor", the pitch's look): the reference measured first
       (the game's formation screen captured in game, its UI textures in the game's CPKs), the

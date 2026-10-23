@@ -530,12 +530,12 @@ fn the_automatic_settings_and_the_note_wrap_inside_a_narrow_window() {
         );
     }
 
-    // Arm a role: the note draws; its button lands inside.
-    click(&mut window, chip(&nodes, "Penalty kick:"), &mut view);
+    // Arm join: the note draws its longer line; its button lands inside.
+    click(&mut window, chip(&nodes, "Join attack:"), &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let cancel = node_labeled(&nodes, Role::Button, "Cancel");
+    let done = node_labeled(&nodes, Role::Button, "Done");
     assert!(
-        cancel.bounds().expect("button bounds").x1 <= 800.0,
+        done.bounds().expect("button bounds").x1 <= 800.0,
         "the note's button inside the window's width"
     );
 }

@@ -2336,3 +2336,5 @@ worklog passed 7,000 lines.
   `Complete`; the Team compiler sends `Progress` per committed task and one `Complete`. Checked in a pseudo-console.
 - **2026-10-23** — 0.0.1b: `quick_upgrade.bat` (every old export upgraded against the dropped save, then the tally) and
   `quick_compile.bat` (the bundle's `exports/`), each pausing at the end; tested through `cmd /c` in a sandboxed bundle.
+- **2026-10-23** — 8.9e closed: SWE-2 S5 accepted 2 of 7 (two tests that could not fail), ending the review loops;
+  rework 7 fixed both. 8.9h opened: inside the editor's scroll area a narrow window clips the rows instead of wrapping.

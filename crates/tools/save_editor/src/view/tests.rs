@@ -491,7 +491,7 @@ fn canvas_of(nodes: &[accesskit::Node]) -> accesskit::Rect {
 /// The centre of `slot`'s marker on `canvas` (the widget's marker math:
 /// the stored grid is 104 by 48 at 3 px and 7 px a unit inside a 4 px / 2
 /// px margin, high y on top; the 42 by 26 chip centres on the point and
-/// clamps 2 px inside the canvas).
+/// clamps 2 px inside the canvas, 4 px at the bottom edge).
 fn marker_centre(canvas: accesskit::Rect, slot: FormationSlot) -> egui::Pos2 {
     let centre = egui::pos2(
         canvas.x0 as f32 + 4.0 + f32::from(slot.x) * 3.0,

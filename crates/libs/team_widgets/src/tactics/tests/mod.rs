@@ -734,24 +734,28 @@ fn the_wrap_cells_pack_without_overlapping_or_wrapping_early() {
     // right (bounded by the next cell's label on the same row).
     let mut measure = Headless::sized(1600.0, 900.0);
     let (nodes, _) = measure.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-    let mut cells: Vec<(accesskit::Rect, usize)> = slider_labels
+    let mut cells: Vec<(&'static str, accesskit::Rect, usize)> = slider_labels
         .iter()
         .chain(pair_labels.iter())
-        .map(|label| (label_bounds(&nodes, label), 2))
-        .chain(std::iter::once((label_bounds(&nodes, "Substitution"), 1)))
+        .map(|&label| (label, label_bounds(&nodes, label), 2))
+        .chain(std::iter::once((
+            "Substitution",
+            label_bounds(&nodes, "Substitution"),
+            1,
+        )))
         .collect();
     cells.sort_by(|a, b| {
-        (a.0.y0, a.0.x0)
-            .partial_cmp(&(b.0.y0, b.0.x0))
+        (a.1.y0, a.1.x0)
+            .partial_cmp(&(b.1.y0, b.1.x0))
             .expect("ordered bounds")
     });
-    let cell_widths: Vec<f64> = cells
+    let cell_widths: Vec<(&'static str, f64)> = cells
         .iter()
         .enumerate()
-        .map(|(index, (label, count))| {
+        .map(|(index, (name, label, count))| {
             let next_on_row = cells
                 .get(index + 1)
-                .and_then(|next| ((next.0.y0 - label.y0).abs() < 4.0).then_some(next.0.x0));
+                .and_then(|next| ((next.1.y0 - label.y0).abs() < 4.0).then_some(next.1.x0));
             let mut bounds: Vec<accesskit::Rect> = nodes
                 .iter()
                 .filter(|node| {
@@ -771,18 +775,24 @@ fn the_wrap_cells_pack_without_overlapping_or_wrapping_early() {
                 .filter_map(|node| node.bounds())
                 .collect();
             bounds.sort_by(|a, b| a.x0.partial_cmp(&b.x0).expect("ordered bounds"));
-            bounds
+            let width = bounds
                 .iter()
                 .take(*count)
                 .map(|bounds| bounds.x1)
                 .fold(label.x1, f64::max)
-                - label.x0
+                - label.x0;
+            (*name, width)
         })
         .collect();
 
     // The five slider cells' summed widths plus margins — 1,284 px here
-    // (247 + 246 + 242 + 269 + 281) — the window for the packing checks.
-    let natural: f64 = cell_widths[..5].iter().sum();
+    // (239 + 238 + 234 + 261 + 272 = 1,244, plus 40) — the window for
+    // the packing checks.
+    let natural: f64 = cell_widths
+        .iter()
+        .filter(|(name, _)| slider_labels.contains(name))
+        .map(|(_, width)| *width)
+        .sum();
     let width = (natural + 40.0).ceil() as f32;
 
     let mut window = Headless::sized(width, 900.0);
@@ -795,21 +805,21 @@ fn the_wrap_cells_pack_without_overlapping_or_wrapping_early() {
     let mut expected = Vec::new();
     window.frame(vec![], |ui| {
         for spec in &SLIDERS {
-            expected.push(slider_cell_width(ui, spec.label));
+            expected.push((spec.label, slider_cell_width(ui, spec.label)));
         }
         for toggle in &STYLE_TOGGLES {
-            expected.push(pair_cell_width(ui, toggle));
+            expected.push((toggle.label, pair_cell_width(ui, toggle)));
         }
-        expected.push(sub_cell_width(ui));
+        expected.push(("Substitution", sub_cell_width(ui)));
     });
-    for (index, cell) in cell_widths.iter().enumerate() {
-        let name = slider_labels
-            .iter()
-            .chain(pair_labels.iter())
-            .chain(std::iter::once(&"Substitution"))
-            .nth(index)
-            .expect("the cell's name");
-        let estimated = f64::from(expected[index]);
+    for (name, cell) in &cell_widths {
+        let estimated = f64::from(
+            expected
+                .iter()
+                .find(|(label, _)| label == name)
+                .expect("the cell's estimate")
+                .1,
+        );
         assert!(
             *cell <= estimated + 1.0 && *cell >= estimated - 1.0,
             "{name}: allocated {estimated} vs drawn {cell}"
@@ -824,15 +834,27 @@ fn the_wrap_cells_pack_without_overlapping_or_wrapping_early() {
     assert_eq!(rows.len(), 1, "the five slider cells share one row");
 
     // And the seven pairs take as few rows as their measured widths
-    // allow: a greedy pack of the measured cells (the inter-cell gap is
-    // inside each span already) — their ~190-320 px cells land 5 + 2 on
-    // the ~1,320 px above.
+    // allow: a greedy pack of their measured cells (the inter-cell gap
+    // is inside each span already) — their ~190-320 px cells land 5 + 2
+    // on the ~1,280 px above. The Substitution cell is not in the pack:
+    // it wraps on the Automatic settings row, below the pairs, and can
+    // never share one of theirs.
+    let pair_widths: Vec<f64> = cell_widths
+        .iter()
+        .filter(|(name, _)| pair_labels.contains(name))
+        .map(|(_, width)| *width)
+        .collect();
+    assert_eq!(
+        pair_widths.len(),
+        pair_labels.len(),
+        "premise: every pair's cell was measured"
+    );
     let mut greedy_rows = 1;
     let mut used = 0.0;
-    for cell in &cell_widths[5..] {
+    for &cell in &pair_widths {
         if used > 0.0 && used + cell > f64::from(width) {
             greedy_rows += 1;
-            used = *cell;
+            used = cell;
         } else {
             used += cell;
         }
@@ -877,15 +899,28 @@ fn the_automatic_settings_and_the_note_wrap_at_a_narrow_pane() {
         "it wrapped to a new line below the Substitution pair"
     );
 
-    // Arm a role: the note's button lands inside the pane.
-    view.assign = Some(Assign::Role(5));
-    let (nodes, _) = window.frame(vec![], |ui| {
+    // Arm join: at a pane narrower than the note plus its button, Done
+    // wraps to a line below the note and still lands inside the pane.
+    view.assign = Some(Assign::Join);
+    let mut narrow = Headless::sized(360.0, 900.0);
+    let (nodes, _) = narrow.frame(vec![], |ui| {
         assign_note(ui, &mut view);
         tactics_settings(ui, "tactics", version, &mut tactics, &mut view, &roster);
     });
-    let cancel = entry(&nodes, Role::Button, "Cancel");
+    let note = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Label
+                && node.value()
+                    == Some("Click pitch players to join or leave the attack (up to three).")
+        })
+        .expect("the join note");
+    let done = entry(&nodes, Role::Button, "Done");
+    let note_bounds = note.bounds().expect("note bounds");
+    let done_bounds = done.bounds().expect("button bounds");
     assert!(
-        cancel.bounds().expect("button bounds").x1 <= 400.0,
-        "the note's button inside the pane"
+        done_bounds.y0 > note_bounds.y0 + 4.0,
+        "Done starts below the note's first line (note {note_bounds:?}, Done {done_bounds:?})"
     );
+    assert!(done_bounds.x1 <= 360.0, "Done ends inside the pane");
 }
