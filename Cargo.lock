@@ -4,7 +4,7 @@ version = 4
 
 [[package]]
 name = "aatf"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "pes_savefile",
  "pes_version",
@@ -152,7 +152,7 @@ checksum = "320119579fcad9c21884f5c4861d16174d0e06250625266f50fe6898340abefa"
 
 [[package]]
 name = "aesthetics_export"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "kit_config",
  "pes_version",
@@ -311,7 +311,7 @@ dependencies = [
 
 [[package]]
 name = "archives"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "sevenz-rust2",
  "thiserror 2.0.20",
@@ -830,7 +830,7 @@ dependencies = [
 
 [[package]]
 name = "color_tools"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "egui",
 ]
@@ -939,7 +939,7 @@ dependencies = [
 
 [[package]]
 name = "cpk"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "thiserror 2.0.20",
 ]
@@ -1019,7 +1019,7 @@ checksum = "f27ae1dd37df86211c42e150270f82743308803d90a6f6e6651cd730d5e1732f"
 
 [[package]]
 name = "dds_convert"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "block_compression",
  "ftex",
@@ -1299,7 +1299,7 @@ checksum = "252afb9ae5eaa683babdc6a068b3f5726eb19e05070c731f9b2a23a7c3e8ed34"
 
 [[package]]
 name = "elevation"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "libc",
  "thiserror 2.0.20",
@@ -1472,7 +1472,7 @@ dependencies = [
 
 [[package]]
 name = "export_upgrader"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "aesthetics_export",
  "anyhow",
@@ -1498,7 +1498,7 @@ dependencies = [
 
 [[package]]
 name = "extra_mutants"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "proc-macro2",
  "syn 3.0.5",
@@ -1550,7 +1550,7 @@ dependencies = [
 
 [[package]]
 name = "fmdl"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "binrw",
  "thiserror 2.0.20",
@@ -1609,7 +1609,7 @@ dependencies = [
 
 [[package]]
 name = "fox2"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "roxmltree",
  "thiserror 2.0.20",
@@ -1617,7 +1617,7 @@ dependencies = [
 
 [[package]]
 name = "fpc"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "pes_version",
  "thiserror 2.0.20",
@@ -1625,7 +1625,7 @@ dependencies = [
 
 [[package]]
 name = "fpk"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "binrw",
  "md-5",
@@ -1634,7 +1634,7 @@ dependencies = [
 
 [[package]]
 name = "ftex"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "binrw",
  "flate2",
@@ -2211,7 +2211,7 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
 name = "kit_config"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "fpc",
  "pes_version",
@@ -2375,7 +2375,7 @@ dependencies = [
 
 [[package]]
 name = "model_convert"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "fmdl",
  "pes_model",
@@ -2395,7 +2395,7 @@ dependencies = [
 
 [[package]]
 name = "music_export"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "indexmap",
  "thiserror 2.0.20",
@@ -2942,7 +2942,7 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "pes_model"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "binrw",
  "roxmltree",
@@ -2952,7 +2952,7 @@ dependencies = [
 
 [[package]]
 name = "pes_savefile"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "directories",
  "flate2",
@@ -2968,7 +2968,7 @@ dependencies = [
 
 [[package]]
 name = "pes_version"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "serde",
  "toml",
@@ -3045,7 +3045,7 @@ checksum = "a89322df9ebe1c1578d689c92318e070967d1042b512afbe49518723f4e6d5cd"
 
 [[package]]
 name = "pipeline"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "thiserror 2.0.20",
  "windows",
@@ -3562,7 +3562,7 @@ dependencies = [
 
 [[package]]
 name = "save_editor"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "aatf",
  "anyhow",
@@ -3921,7 +3921,7 @@ checksum = "7da8b5736845d9f2fcb837ea5d9e2628564b3b043a70948a3f0b778838c5fb4f"
 
 [[package]]
 name = "studio"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -3939,7 +3939,7 @@ dependencies = [
 
 [[package]]
 name = "studio_core"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "anyhow",
  "clap",
@@ -4001,7 +4001,7 @@ checksum = "adb6935a6f5c20170eeceb1a3835a49e12e19d792f6dd344ccc76a985ca5a6ca"
 
 [[package]]
 name = "team_compiler"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "aesthetics_export",
  "anyhow",
@@ -4038,7 +4038,7 @@ dependencies = [
 
 [[package]]
 name = "team_widgets"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "aatf",
  "egui",
@@ -4048,7 +4048,7 @@ dependencies = [
 
 [[package]]
 name = "teams_list"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "thiserror 2.0.20",
 ]
@@ -4378,7 +4378,7 @@ checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
 
 [[package]]
 name = "uniparam"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "thiserror 2.0.20",
  "wezlib",
@@ -4460,7 +4460,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 
 [[package]]
 name = "vtree"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "thiserror 2.0.20",
  "unicode-normalization",
@@ -4725,7 +4725,7 @@ checksum = "a28ac98ddc8b9274cb41bb4d9d4d5c425b6020c50c46f25559911905610b4a88"
 
 [[package]]
 name = "wezlib"
-version = "0.1.0"
+version = "0.0.1"
 dependencies = [
  "flate2",
  "thiserror 2.0.20",

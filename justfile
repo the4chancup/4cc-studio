@@ -93,3 +93,8 @@ parity:
 deps-check:
     {{python}} scripts/deps_check.py
     cargo deny check licenses
+
+# The portable release bundle, target/dist/UnlimitedToolWorks-<version>-windows.7z and its .sha256; Windows only
+release version:
+    {{python}} scripts/release_test.py
+    {{python}} scripts/release.py {{version}}

@@ -76,6 +76,10 @@ fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
             "{}: the 4cc community's PES tools",
             crate::APP_NAME
         ))
+        // `--version` prints the status bar's version beside the name, the line a member
+        // pastes into a report (`spec/core/distribution.md` "Versioning: one workspace
+        // version, one exception").
+        .version(concat!("v", env!("CARGO_PKG_VERSION")))
         .disable_help_subcommand(true)
         .arg(
             Arg::new("gui")

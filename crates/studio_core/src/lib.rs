@@ -29,9 +29,10 @@ pub use pes_process::{RunningPes, running_pes};
 pub use settings::{COMMON_KEY, CommonSettings, Settings, SettingsError, Theme};
 #[cfg(not(target_arch = "wasm32"))]
 pub use settings::{SETTINGS_FILE_NAME, resolve_data_dir, settings_file_writable, user_config_dir};
+pub(crate) use shell::APP_NAME;
 #[cfg(not(target_arch = "wasm32"))]
 pub use shell::run_gui;
-pub use shell::{APP_NAME, EXE_NAME, Launch, LaunchMode, StudioApp, parse_launch, run_cli};
+pub use shell::{EXE_NAME, Launch, LaunchMode, StudioApp, parse_launch, run_cli};
 pub use status::{ActionEffect, Notice, NoticeAction, ShellCondition, ToolActivity};
 pub use tool::{AppPaths, CliError, PlannedTool, ShellRequest, StudioTool, ToolContext};
 pub use widgets::{BottomDock, LogLine, LogPanel};

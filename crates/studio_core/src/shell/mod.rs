@@ -60,8 +60,9 @@ macro_rules! app_name {
 
 /// The executable's name: `exe_name!()` where a `concat!` needs the literal.
 pub const EXE_NAME: &str = exe_name!();
-/// The display name: `app_name!()` where a `concat!` needs the literal.
-pub const APP_NAME: &str = app_name!();
+/// The display name: `app_name!()` where a `concat!` needs the literal (the tools' catalogs
+/// use the macro, so the constant serves the shell alone).
+pub(crate) const APP_NAME: &str = app_name!();
 
 /// The window: the registered tools in sidebar order, the platform handle they share, the
 /// receiving end of their shell requests, and which tool's view is on screen.

@@ -139,7 +139,15 @@ Top to bottom:
    accent-colored left border bar plus a filled background. The suite's planned tools not in
    this build (the registry's, `architecture.md` "Tool plugin interface") are listed after the
    registered ones, grayed and not clickable, each tooltip saying the tool is not in this build:
-   the list communicates the suite roadmap.
+   the list communicates the suite roadmap. A registered tool the registry marks **CLI-only**
+   (in the 0.0.1 preview the Team compiler and the Export upgrader, whose views come later;
+   `development_plan.md` "Divegrass Before Christmas") is drawn as its planned entry, grayed
+   and not clickable, its tooltip saying it has no window in this version and runs from the
+   command line, and it is never the active tool (a `last_tool` naming it opens the first
+   window tool). It stays registered for everything else: its CLI commands, its help chapter
+   and its settings section, which the command line reads. The mark is the registry's, in
+   `studio`, not a `StudioTool` method: which tools a build shows is the build's choice, and
+   the preview's list goes when the views land.
 4. **Collapse button** — collapses the sidebar into an icon-only rail (tooltips carry the labels).
    Width toggles between ~160px and ~56px.
 5. **Help `?` and settings gear** pinned at the bottom — open the help window and the settings
@@ -647,6 +655,13 @@ ST-SIDE-07  GIVEN a build registering two of the suite's tools
             WHEN the sidebar is drawn
             THEN the suite's other planned tools are listed after them, grayed and not
                  clickable, each tooltip saying the tool is not in this build
+ST-SIDE-08  GIVEN a build registering two window tools and one marked CLI-only, and a settings
+                  file whose last_tool names the CLI-only one
+            WHEN the GUI opens
+            THEN the CLI-only tool is listed as a planned entry, grayed and not clickable, its
+                 tooltip saying it runs from the command line in this version; the first window
+                 tool is active; the CLI-only tool's help chapter is in the help window and its
+                 settings section in the settings menu; and its CLI commands still run
 ```
 
 **Settings menu**

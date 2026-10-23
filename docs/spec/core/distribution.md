@@ -129,7 +129,7 @@ once in the root `Cargo.toml`:
 
 ```toml
 [workspace.package]
-version = "0.1.0"
+version = "0.0.1"
 ```
 
 Every tool and lib crate inherits it via `version.workspace = true`. Bumping is one line, applied to
@@ -151,10 +151,14 @@ Rationale:
 
 A release is cut (tag, GitHub Release, `.7z` asset) when there's something to distribute; not every
 commit is a release. The workspace version is the next-release version; the tag is what the updater
-compares against. The suite ships `0.x` releases from 0.1.0 (end of Phase 8) until 1.0.0 (end of
-Phase 16; `plans/core/development_plan.md` "Releases"). The compatibility rule for released
+compares against. The suite ships `0.x` releases from the 0.0.1 preview (`plans/core/development_plan.md`
+"Divegrass Before Christmas") and 0.1.0 (end of Phase 8) until 1.0.0 (end of Phase 16; the same
+plan's "Releases"), so the workspace says 0.0.1 until that preview is cut. The compatibility rule for released
 surfaces binds from 1.0.0: the `0.x` releases are test releases for a restricted group of
 testers, told in person of every change, so everything can still change before then.
+
+The version a member sees is `v{CARGO_PKG_VERSION}`: in the status bar, and from `--version`
+beside the executable's name (`UnlimitedToolWorks v0.0.1`), the line a bug report quotes.
 
 **One exception: `python_bindings`.** It is built via maturin into a wheel that Blender users
 install independently of the Studio binary, and its consumers are not Studio users. Its version is

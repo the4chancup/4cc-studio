@@ -10421,3 +10421,25 @@ the exe among the member's files; `.txt`, not `.md`, because a double-click open
 Windows; the exe's name from the exe, not a second constant in the script, so the codename has
 one home in code.
 Plan: `plans/core/distribution.md` "Distribution: portable .7z bundle".
+
+## 2026-10-23 — release — the workspace version is 0.0.1 until the preview is cut
+Decision: the workspace version goes from 0.1.0 to 0.0.1, and `just release` finds the target
+directory through `cargo metadata` (the archive in its `dist/`) rather than `target/`.
+Why: the spec makes the workspace version the next release's, and 0.0.1 now comes before 0.1.0;
+with 0.1.0 left, `just release 0.0.1` refused at its version check and `just release 0.1.0` at
+its readme check, so no version could be released (the sidekick's report on 0.0.1d2). Asked of
+cargo, not assumed, because CONTRIBUTING's recipes never hardcode `target/`.
+Plan: `spec/core/distribution.md` "Versioning: one workspace version, one exception";
+`plans/core/distribution.md` "Distribution: portable .7z bundle".
+
+## 2026-10-23 — studio, studio_core — a CLI-only tool: registered, drawn as its planned entry
+Decision: in the 0.0.1 preview the registry in `studio` marks the Team compiler and the Export
+upgrader CLI-only; the sidebar draws each as its planned entry (grayed, not clickable, a tooltip
+saying it runs from the command line in this version) and never makes it active, while it stays
+registered for its CLI, its help chapter and its settings section (ST-SIDE-08).
+Why: the plan wants them "greyed out on the sidebar as the planned tools are", and nothing did
+it: a registered tool was always drawn live (0.0.1d's review S1-1). Registered and marked, not
+left out of the window's tool list, because the help window's chapters and the settings menu
+come from that list, and the readme sends members to the help for every finding's code. The
+mark is the build's, not a `StudioTool` method, since which tools a build shows is its choice.
+Plan: `plans/core/gui.md` "Sidebar" item 3 and ST-SIDE-08.

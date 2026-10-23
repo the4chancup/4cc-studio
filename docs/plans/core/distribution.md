@@ -28,7 +28,8 @@ There is no installer. Each release is a `.7z` archive containing:
 `just release <version>` (`scripts/release.py`, Windows only) builds the exe with `--locked`,
 stages those files under one top folder, `UnlimitedToolWorks-<version>/`, so "Extract here"
 makes one folder rather than scattering the files, and packs it with 7-Zip as
-`target/dist/UnlimitedToolWorks-<version>-windows.7z`, beside its checksum,
+`UnlimitedToolWorks-<version>-windows.7z` in the `dist/` folder of cargo's target directory
+(asked of `cargo metadata`: a developer may have moved it), beside its checksum,
 `<archive>.sha256`, in `sha256sum`'s format (`<hex>  <archive name>`), which
 `sha256sum -c` and PowerShell's `Get-FileHash` both check. It refuses a dirty tree, a version
 other than the workspace's, an archive that already exists (a release is never overwritten)
@@ -166,7 +167,8 @@ appears:
 
 - **Status bar empty state** — the one always-visible place, and the line to paste into a report.
 - **About** (logo click) — the detailed block with Copy (see `gui.md` "Sidebar" item 1).
-- **`4cc-studio --version`** — the same one-liner on stdout (CLI equivalence).
+- **`4cc-studio --version`** — the same one-liner on stdout (CLI equivalence); built,
+  `spec/core/distribution.md` "Versioning: one workspace version, one exception".
 - **Not the title bar**: the title is what the taskbar and alt-tab show — the surface for what
   the Studio is *doing* while the window is not in front (see `gui.md` "Window title"), and it is outside
   every screenshot a user crops to the window content. **Not beside the logo**: duplicate of the

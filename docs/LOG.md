@@ -2345,3 +2345,7 @@ worklog passed 7,000 lines.
   mutation run's 14 missed mutants have tests. 0.0.1d planned: the codename's reach and the release recipe's refusals.
 - **2026-10-23** — 0.0.1d1: the preview names itself Unlimited Tool Works in the window, the CLI, the findings and the
   help, from two constants; a test over the help export and every `--help` finds any "4cc Studio" left.
+- **2026-10-23** — 0.0.1d2: `just release 0.0.1` from a clean worktree packed the preview as an 11 MB `.7z` whose
+  checksum and listing match the plan; the workspace version is 0.0.1. The exe is 35.3 MiB, past the 30 MB budget.
+- **2026-10-23** — 0.0.1d closed after its reviews (SWE-2 4 of 8, Astra 2 of 5): `--version` added, the readme's
+  colours corrected, `APP_NAME` crate-private. 0.0.1g opened: the two CLI-only tools are still live on the sidebar.

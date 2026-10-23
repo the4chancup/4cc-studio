@@ -223,6 +223,16 @@ fn no_member_visible_text_names_4cc_studio() {
 }
 
 #[test]
+fn version_prints_the_name_and_the_status_bar_s_version() {
+    let output = studio(&["--version"]);
+    assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
+    assert_eq!(
+        stdout(&output),
+        format!("{EXE_NAME} v{}\n", env!("CARGO_PKG_VERSION"))
+    );
+}
+
+#[test]
 fn an_unknown_chapter_is_refused_with_exit_2() {
     let output = studio(&["help", "nope"]);
     assert_eq!(output.status.code(), Some(2), "stderr: {}", stderr(&output));

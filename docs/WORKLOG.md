@@ -20,7 +20,7 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9f-h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-c done, 0.0.1d next; the Team
+8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9f-h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-d done, 0.0.1g next, then 0.0.1e; the Team
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
@@ -1381,7 +1381,7 @@ briefs, review loops, gates and mutation runs as for any step.
   `compile.rs`, `check.rs`, the catalog and help), with 0.0.1a rework 3. The worklog's "pre-Fox compile's savefile
   write" does not exist (the pre-Fox patch half is unbuilt): the save editor's
   `import-toml` on a PES 16 save stood in, the same writer
-- [ ] 0.0.1d `just release <version>` (`plans/core/distribution.md` "Distribution: portable .7z
+- [x] 0.0.1d `just release <version>` (`plans/core/distribution.md` "Distribution: portable .7z
   bundle"; Windows only), under the codename (`plans/core/development_plan.md` "The preview's
   codename: Unlimited Tool Works": one display-name constant for the title, About, first run,
   `--help` and its usage examples, and the help pages; the executable `UnlimitedToolWorks.exe`;
@@ -1391,7 +1391,9 @@ briefs, review loops, gates and mutation runs as for any step.
   not a bundle file: it is embedded, `spec/core/distribution.md` "Distribution: portable .7z
   bundle"); the 0.0.1 readme in a layman's words (open the exe once to pick PES and its exe on
   the sidebar, then the two launchers; Red as the fallback) → verify: the recipe from a clean
-  checkout produces both files, and the archive's listing matches the plan's
+  checkout produces both files, and the archive's listing matches the plan's. Reviews: SWE-2
+  S1 4 of 8 accepted, Astra A1 2 of 5 (`.tmp/0_0_1/duck_rulings_d.md`), a mutation run 0
+  missed; S1-1 opened 0.0.1g
   - [x] 0.0.1d1 the codename: the two constants, every member-visible "4cc Studio" in code,
     the help pages and the findings' text, name-free file text, the test. Done:
     `studio_core` `EXE_NAME`/`APP_NAME` (with `exe_name!`/`app_name!` for the catalogs'
@@ -1399,15 +1401,34 @@ briefs, review loops, gates and mutation runs as for any step.
     Export upgrader's catalogs and commands, the help pages, the AATF ruleset headers and logic
     banner (its hash updated), the shared-IDs comment; `studio/tests/help_cli.rs`
     `no_member_visible_text_names_4cc_studio` over the help export and every `--help`
-  - [ ] 0.0.1d2 `just release` (`scripts/release.py`), the readme, a run from a clean worktree
+  - [x] 0.0.1d2 `just release` (`scripts/release.py`), the readme, a run from a clean worktree.
+    Done: `scripts/release.py` with `release_test.py` (7 tests, the listing one through the real
+    7-Zip), the `justfile` recipe, `resources/bundle/README.txt`, the workspace version 0.0.1
+    (with 0.1.0 no version could be released). `just release 0.0.1` from a fresh worktree at
+    51e32df0: `UnlimitedToolWorks-0.0.1-windows.7z`, 10,743,690 bytes, `sha256sum -c` OK, its
+    listing the plan's (one top folder, `exports/` and `old_exports/` empty, the exe, the two
+    launchers CRLF, the readme, the two licenses); the extracted exe's usage line names
+    `UnlimitedToolWorks`. The exe is 35.3 MiB (30.8 on 2026-10-15): past the size budget's
+    "about 30 MB", inside its 50 MB ceiling; where the growth comes from is measured with
+    `cargo bloat` before the cut (0.0.1f)
 - [ ] 0.0.1e the rehearsal on PES 2019 with FoxDen: VGL26's old exports (the upgrader
   census's copies) through `quick_upgrade.bat` and `quick_compile.bat` from the extracted
   bundle, then checked in game in Edit mode (the `F:` drive connected by the maintainer);
   every failing class diagnosed and fixed, or written down as a reason to fall back to Red →
   verify: the tallies, `manual: checked` lines for the in-game look
+- [ ] 0.0.1g the Team compiler and the Export upgrader greyed on the sidebar while their CLI
+  stays (`plans/core/development_plan.md` "Divegrass Before Christmas": "greyed out on the
+  sidebar as the planned tools are"; found by 0.0.1d's review S1-1): today a registered tool
+  is always drawn live and a planned entry with its id is skipped
+  (`studio_core/src/shell/sidebar/mod.rs` `contents`), so the bundle's readme, which says they
+  are greyed, would be false; the registry marks a tool whose view is not built as CLI-only
+  (`plans/core/gui.md` "Sidebar" item 3) → verify: ST-SIDE-08 by a shell test, and the
+  bundle's launcher tests (`studio/tests/launchers.rs`) still compiling and upgrading
 - [ ] 0.0.1f the cut, once Phase 20 closes: the clean-machine check (`plans/core/development_plan.md`
-  "Release 0.1.0"'s verification, both launchers included), `just release 0.0.1`, handed to
-  DBC's testers and VGL's organizer
+  "Release 0.1.0"'s verification, both launchers included), the exe's size measured crate by
+  crate with `cargo bloat` (35.3 MiB at 0.0.1d2, past the budget's "about 30 MB";
+  `spec/core/distribution.md` "Distribution: portable .7z bundle" gets the new measurement),
+  `just release 0.0.1`, handed to DBC's testers and VGL's organizer
 
 ### Phase 10 — Music tools
 
