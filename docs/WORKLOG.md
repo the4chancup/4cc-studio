@@ -1349,6 +1349,9 @@ briefs, review loops, gates and mutation runs as for any step.
     export with no empty frame, its clock ticked between findings to 1:37, findings printed
     above it, and `Done: 188 files written, 0 folders skipped, 0 folders with errors, 1:37`
     remained; `check` left no line after its last finding
+    manual: checked again 2026-10-23 after rework 3's printer (8995b3b0), the same run: 197
+    frames, the first `[ 0/1 exports | 0:00 ]`, none empty, the parts rising to 116/117, and
+    `Done: 188 files written, 0 exports skipped, 0 folders skipped, 0 folders with errors, 1:37`
 - [x] 0.0.1b the launchers: `quick_compile.bat` in its CLI form and `quick_upgrade.bat` over
   `old_exports/` (`plans/core/development_plan.md` "The /vg/ League 27 (VGL)") → verify: each bat run by
   a test through `cmd /c` in a temporary bundle layout over fixture exports (an old export

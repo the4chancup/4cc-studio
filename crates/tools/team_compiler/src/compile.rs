@@ -38,7 +38,7 @@ use crate::output::writer::{BinsEdits, CpkOutput, Referees};
 use crate::paths::REFEREE_TEAM_ID;
 use crate::plan::{BuildManifest, BuildTask, ExportToPlan, overrides, plan_run};
 use crate::processing::{
-    CompileContext, EntryTarget, TEST_BINS_PREFIX, TaskBatch, TaskFiles, process_task,
+    CompileContext, EntryTarget, TEST_BINS_PREFIX, TaskBatch, TaskFiles, dropped_unit, process_task,
 };
 use crate::reader::{self, ContentSource, ExportSource, SourceFailure, SourceKind, SourceRevision};
 use crate::settings::SavefilePath;
@@ -1200,7 +1200,8 @@ fn write_batches(
 
 /// The batch of `task`, the manifest's task number `index`, processed over `files`, the
 /// coordinator's read of it. A file that could not be read fails the task with
-/// `source_read_failed` naming it, on the task's folder, and the task is not processed.
+/// `source_read_failed` naming it, on the task's folder, dropping the task's unit as a failed
+/// processing does (`dropped_unit`), and the task is not processed.
 fn task_batch(
     index: usize,
     task: BuildTask,
@@ -1222,7 +1223,7 @@ fn task_batch(
                     export_id: task.export_id,
                     path: task.kind.folder_path(),
                 },
-                Disposition::DropFolder,
+                dropped_unit(&task.kind),
                 vec![("path", failure.path), ("error", failure.error)],
             )],
             permit: None,
@@ -1859,6 +1860,38 @@ mod tests {
             ("path".to_owned(), path.display().to_string())
         );
         assert_eq!(message.context[1].0, "error");
+    }
+
+    #[test]
+    fn a_portrait_that_cannot_be_read_drops_its_file_as_a_failed_processing_does() {
+        let source = tracer_source();
+        // The tracer holds no `Portraits/` folder.
+        let task = BuildTask {
+            export_id: ExportId(4),
+            team_id: 792,
+            kind: TaskKind::Portrait {
+                player_id: 79205,
+                file: tracer_file("Portraits/05.dds"),
+            },
+            charge: 0,
+            group: None,
+        };
+
+        let files = read_files(
+            &task,
+            &ContentSource::new(&source, &MemoryBudget::new(1 << 30)),
+        );
+        let batch = task_batch(0, task, files, &context_with(&MemoryBudget::new(1 << 30)));
+
+        let [message] = batch.messages.as_slice() else {
+            panic!("{:?}", batch.messages);
+        };
+        assert_eq!(message.code.code, "source_read_failed");
+        assert_eq!(
+            message.disposition,
+            Disposition::DropFile,
+            "a portrait task's unit is its one file, whichever step fails"
+        );
     }
 
     /// How far a test moves a modified time: far past any file system's time granularity.

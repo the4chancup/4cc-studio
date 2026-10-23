@@ -101,14 +101,20 @@ fn print_events(
             | PipelineEvent::UnmigratedContentFound => None,
         };
         match summary {
-            Some((files, exports, skipped, errors)) => {
+            Some((files, skipped_exports, skipped_folders, folders_with_errors)) => {
                 ended = true;
                 bar.finish_and_clear();
                 if draw {
                     writeln!(
                         err,
                         "{}",
-                        summary_line(files, exports, skipped, errors, bar.elapsed())
+                        summary_line(
+                            files,
+                            skipped_exports,
+                            skipped_folders,
+                            folders_with_errors,
+                            bar.elapsed()
+                        )
                     )?;
                 }
             }
@@ -190,21 +196,21 @@ fn progress_line(
 /// with its plural right, and the run's elapsed `m:ss`.
 fn summary_line(
     files: usize,
-    exports: usize,
-    skipped: usize,
-    errors: usize,
+    skipped_exports: usize,
+    skipped_folders: usize,
+    folders_with_errors: usize,
     elapsed: Duration,
 ) -> String {
     format!(
         "Done: {} file{} written, {} export{} skipped, {} folder{} skipped, {} folder{} with errors, {}",
         grouped(files),
         plural_s(files),
-        grouped(exports),
-        plural_s(exports),
-        grouped(skipped),
-        plural_s(skipped),
-        grouped(errors),
-        plural_s(errors),
+        grouped(skipped_exports),
+        plural_s(skipped_exports),
+        grouped(skipped_folders),
+        plural_s(skipped_folders),
+        grouped(folders_with_errors),
+        plural_s(folders_with_errors),
         elapsed_text(elapsed)
     )
 }
@@ -321,12 +327,12 @@ mod tests {
                 export_id: ExportId(2),
             },
             PipelineEvent::Complete {
-                success: true,
+                success: false,
                 files_written: 12,
-                skipped_exports: 0,
-                skipped_folders: 0,
+                skipped_exports: 1,
+                skipped_folders: 2,
                 duplicates: 0,
-                folders_with_errors: 0,
+                folders_with_errors: 3,
             },
         ] {
             tx.send(envelope(event)).unwrap();
@@ -350,7 +356,7 @@ mod tests {
         let err = String::from_utf8(err_draw).unwrap();
         assert!(
             err.starts_with(
-                "Done: 12 files written, 0 exports skipped, 0 folders skipped, 0 folders with errors, 0:"
+                "Done: 12 files written, 1 export skipped, 2 folders skipped, 3 folders with errors, 0:"
             ),
             "the summary is all a drawn run leaves on stderr: {err}"
         );

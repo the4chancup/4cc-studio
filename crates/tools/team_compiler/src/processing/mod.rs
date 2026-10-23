@@ -405,30 +405,34 @@ pub(crate) fn process_task(
                 .collect();
         }
         // A failed task reports its failure alone: a note about a merge whose output is not
-        // in the CPK would describe nothing the member can find. What was dropped is the
-        // task's unit: a portrait task is its one file, the logo task its files, the marker
-        // task its texture, the collar task its file, every other task a folder.
+        // in the CPK would describe nothing the member can find.
         Err(failure) => {
-            let disposition = match task.kind {
-                TaskKind::Portrait { .. }
-                | TaskKind::Logo { .. }
-                | TaskKind::RefereeMarker { .. }
-                | TaskKind::Collar { .. } => Disposition::DropFile,
-                TaskKind::Models { .. }
-                | TaskKind::Textures { .. }
-                | TaskKind::CommonTextures { .. }
-                | TaskKind::CommonModels { .. }
-                | TaskKind::Kit { .. } => Disposition::DropFolder,
-            };
             batch.messages.push(tool_message(
                 failure.code,
                 scope,
-                disposition,
+                dropped_unit(&task.kind),
                 failure.context,
             ));
         }
     }
     batch
+}
+
+/// What a failed task drops, whichever step failed (its sources' read or its processing):
+/// its unit. A portrait task is its one file, the logo task its files, the marker task its
+/// texture, the collar task its file, every other task a folder.
+pub(crate) fn dropped_unit(kind: &TaskKind) -> Disposition {
+    match kind {
+        TaskKind::Portrait { .. }
+        | TaskKind::Logo { .. }
+        | TaskKind::RefereeMarker { .. }
+        | TaskKind::Collar { .. } => Disposition::DropFile,
+        TaskKind::Models { .. }
+        | TaskKind::Textures { .. }
+        | TaskKind::CommonTextures { .. }
+        | TaskKind::CommonModels { .. }
+        | TaskKind::Kit { .. } => Disposition::DropFolder,
+    }
 }
 
 /// Replaces each `.dds` entry of `entries` (the extension in any case) by its bytes

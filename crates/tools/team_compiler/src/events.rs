@@ -99,8 +99,9 @@ impl RunEvents {
         self.emit(None, PipelineEvent::Progress { processed, total });
     }
 
-    /// The run ended after compiling (`Complete`): `files_written` entries in the output, the
-    /// counts the findings kept, and `success` when nothing error-level was reported.
+    /// The run ended after compiling (`Complete`): `files_written` entries put in place (the
+    /// output folder, or the game's `download/` when the run deploys), the counts the findings
+    /// kept, and `success` when nothing error-level was reported.
     pub(crate) fn complete(&self, files_written: usize) {
         self.emit(
             None,
