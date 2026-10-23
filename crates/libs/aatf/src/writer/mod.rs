@@ -88,6 +88,17 @@ fn rhai_list(items: impl IntoIterator<Item = String>) -> String {
     format!("[{}]", items.into_iter().collect::<Vec<_>>().join(", "))
 }
 
+/// `[1, 2]` of the numbers.
+fn number_list(numbers: &[u8]) -> String {
+    rhai_list(numbers.iter().map(u8::to_string))
+}
+
+/// `#{ id: n }` of the counts: a tier's free cards, a medal system's counts, a height
+/// system's quotas, a per-tier value's `ByTier` map.
+fn id_counts<T: fmt::Display>(counts: &std::collections::BTreeMap<String, T>) -> String {
+    rhai_map(counts.iter().map(|(id, count)| field(map_key(id), count)))
+}
+
 /// `["a", "b"]` of the items as string literals.
 fn quoted_list<'a>(items: impl IntoIterator<Item = &'a str>) -> String {
     rhai_list(items.into_iter().map(string_literal))
@@ -123,9 +134,7 @@ fn push_some<T>(
 fn per_tier<T: fmt::Display>(per_tier: &PerTier<T>) -> String {
     match per_tier {
         PerTier::All(value) => value.to_string(),
-        PerTier::ByTier(by_tier) => {
-            rhai_map(by_tier.iter().map(|(id, value)| field(map_key(id), value)))
-        }
+        PerTier::ByTier(by_tier) => id_counts(by_tier),
     }
 }
 
@@ -372,12 +381,7 @@ fn tier_fields(tier: &Tier) -> Vec<String> {
     push_set(&mut fields, "weak_foot", weak_foot, weak_foot_map);
     push_set(&mut fields, "cards", cards, ToString::to_string);
     push_set(&mut fields, "min_cards", min_cards, ToString::to_string);
-    push_set(&mut fields, "free", free, |free| {
-        rhai_map(
-            free.iter()
-                .map(|(group, count)| field(map_key(group), count)),
-        )
-    });
+    push_set(&mut fields, "free", free, id_counts);
     push_set(&mut fields, "a_positions", a_positions, ToString::to_string);
     push_some(&mut fields, "name_color", name_color, |color| {
         string_literal(color)
@@ -403,10 +407,7 @@ fn medal_system_fields(system: &MedalSystem) -> Vec<String> {
     let MedalSystem { label, counts } = system;
     vec![
         field("label", string_literal(label)),
-        field(
-            "counts",
-            rhai_map(counts.iter().map(|(id, count)| field(map_key(id), count))),
-        ),
+        field("counts", id_counts(counts)),
     ]
 }
 
@@ -420,10 +421,7 @@ fn bracket_fields(bracket: &Bracket) -> Vec<String> {
     ];
     match heights {
         BracketHeights::UpTo(up_to) => fields.push(field("up_to", up_to)),
-        BracketHeights::Exactly(exactly) => fields.push(field(
-            "exactly",
-            rhai_list(exactly.iter().map(u8::to_string)),
-        )),
+        BracketHeights::Exactly(exactly) => fields.push(field("exactly", number_list(exactly))),
     }
     fields
 }
@@ -445,13 +443,7 @@ fn system_fields(system: &HeightSystem) -> Vec<String> {
     ];
     push_some(&mut fields, "any_player", any_player, condition_map);
     push_set(&mut fields, "by_quotas", by_quotas, ToString::to_string);
-    push_set(&mut fields, "quotas", quotas, |quotas| {
-        rhai_map(
-            quotas
-                .iter()
-                .map(|(bracket, count)| field(map_key(bracket), count)),
-        )
-    });
+    push_set(&mut fields, "quotas", quotas, id_counts);
     push_some(&mut fields, "extra_height", extra_height, extra_height_map);
     fields
 }
@@ -503,13 +495,7 @@ fn team_settings_fields(settings: &TeamSettings) -> Vec<String> {
         &mut fields,
         "forbidden_shapes",
         forbidden_shapes,
-        |shapes| {
-            rhai_list(
-                shapes
-                    .iter()
-                    .map(|shape| rhai_list(shape.iter().map(u8::to_string))),
-            )
-        },
+        |shapes| rhai_list(shapes.iter().map(|shape| number_list(shape))),
     );
     fields
 }
@@ -538,7 +524,7 @@ fn universal_fields(universal: &Universal) -> Vec<String> {
         ToString::to_string,
     );
     push_set(&mut fields, "fielded_at_a", fielded_at_a, |fielded_at_a| {
-        rhai_list(fielded_at_a.iter().map(u8::to_string))
+        number_list(fielded_at_a)
     });
     push_set(
         &mut fields,

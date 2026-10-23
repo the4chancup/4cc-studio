@@ -421,14 +421,14 @@ fn tier_line(ruleset: &Ruleset, medal_tiers: &BTreeSet<&str>, tier: &Tier) -> St
         .free
         .iter()
         .map(|(group, count)| {
-            if group == "com" {
-                format!(
-                    "{count} free COM style{}",
-                    if *count > 1 { "s" } else { "" }
-                )
+            // Only COM styles take a plural: a group's own name is the
+            // organizer's word for its cards, as the draft spells it.
+            let plural = if group == "com" && *count > 1 {
+                "s"
             } else {
-                format!("{count} free {}", words(group))
-            }
+                ""
+            };
+            format!("{count} free {}{plural}", group_label(group))
         })
         .collect();
     let free = if free.is_empty() {
@@ -619,14 +619,10 @@ fn effects_text(ruleset: &Ruleset, effects: &Effects) -> String {
         ));
     }
     for (group, value) in &effects.free {
-        let label = if group == "com" {
-            "COM style".to_string()
-        } else {
-            words(group)
-        };
         parts.push(format!(
-            "{} free {label}",
-            per_tier_text(ruleset, value, "")
+            "{} free {}",
+            per_tier_text(ruleset, value, ""),
+            group_label(group)
         ));
     }
     parts.extend(
@@ -721,6 +717,16 @@ pub(crate) fn human(id: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
+}
+
+/// A card group's name in a sentence: the built-in `com` group is
+/// "COM style", any other its id as words.
+fn group_label(group: &str) -> String {
+    if group == "com" {
+        "COM style".to_string()
+    } else {
+        words(group)
+    }
 }
 
 /// `id` as lowercase words (`attacking_prowess` → `attacking prowess`).

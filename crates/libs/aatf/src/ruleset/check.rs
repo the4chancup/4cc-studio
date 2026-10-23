@@ -88,15 +88,8 @@ impl Ruleset {
                 self.check_id(&mut out, format!("{path}.free.{key}"), IdKind::Group, key);
             }
             self.check_condition(&tier.when, &format!("{path}.when"), false, &mut out);
-            // Eight bytes, like a `name_colors` entry.
-            if let Some(name_color) = &tier.name_color
-                && name_color.len() != 8
-            {
-                push(
-                    &mut out,
-                    format!("{path}.name_color"),
-                    LoadRule::ColorCodeLength,
-                );
+            if let Some(name_color) = &tier.name_color {
+                check_color_code(&mut out, format!("{path}.name_color"), name_color);
             }
         }
         let total: u32 = self
@@ -514,16 +507,8 @@ impl Ruleset {
             IdKind::Bracket,
             &condition.brackets,
         );
-        // `name_colors`: eight bytes each, any bytes (a partial paste
-        // matches no name).
         for (i, entry) in condition.name_colors.iter().enumerate() {
-            if entry.len() != 8 {
-                push(
-                    out,
-                    format!("{path}.name_colors[{i}]"),
-                    LoadRule::ColorCodeLength,
-                );
-            }
+            check_color_code(out, format!("{path}.name_colors[{i}]"), entry);
         }
         for (i, entry) in condition.any.iter().enumerate() {
             self.check_condition(entry, &format!("{path}.any[{i}]"), allow_tiers, out);
@@ -614,6 +599,15 @@ impl Ruleset {
 /// rule reports through.
 fn push(out: &mut Vec<RuleError>, path: String, rule: LoadRule) {
     out.push(RuleError { path, rule });
+}
+
+/// `ColorCodeLength` at `path` unless `code` is eight bytes: a tier's
+/// `name_color` and a condition's `name_colors` entry alike (any bytes:
+/// a partial paste matches no name).
+fn check_color_code(out: &mut Vec<RuleError>, path: String, code: &str) {
+    if code.len() != 8 {
+        push(out, path, LoadRule::ColorCodeLength);
+    }
 }
 
 /// `Empty` at `path` when `value` is empty.
