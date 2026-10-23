@@ -22,20 +22,25 @@ fn the_preview_draws_the_block_and_the_edit_marks_its_changed_lines() {
     assert!(view.show_preview);
     let frame = window.draw(&mut view, &ctx);
     assert!(drawn(&frame.nodes, "Rules file: data block"));
-    assert!(
-        labels(&frame.nodes)
-            .iter()
-            .any(|label| label.contains("const RULESET")),
-        "the block's lines are drawn"
+    let block_line = frame
+        .nodes
+        .iter()
+        .find(|node| {
+            node.value()
+                .is_some_and(|text| text.starts_with("const RULESET"))
+        })
+        .expect("the block's lines are drawn");
+    assert_eq!(
+        block_line.role(),
+        Role::Label,
+        "read-only lines, not editors"
     );
 
     // A checkbox edit in the at-most list (the second same-named
     // checkbox): one gesture, one recorded snapshot, and `changed` is
     // the block's lines the edit rewrote.
     let before = view.document.as_ref().unwrap().ruleset.clone();
-    let prowess = nodes_labeled(&frame.nodes, "Attacking Prowess");
-    assert_eq!(prowess.len(), 2, "one checkbox per checklist");
-    click(&mut window, prowess[1], &mut view, &ctx);
+    click_drawn_nth(&mut window, &mut view, &ctx, "Attacking Prowess", 1);
     assert_ne!(
         view.document.as_ref().unwrap().ruleset,
         before,

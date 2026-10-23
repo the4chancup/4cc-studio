@@ -37,16 +37,9 @@ impl Ruleset {
             });
         }
 
-        // stats.at_most: an ability stat, or one of the four non-stat targets.
+        // stats.at_most: an ability stat, or one of the non-stat targets.
         for (i, name) in self.stats.at_most.iter().enumerate() {
-            if !ABILITY_STATS.contains(&name.as_str())
-                && ![
-                    "form",
-                    "injury_resistance",
-                    "weak_foot_usage",
-                    "weak_foot_accuracy",
-                ]
-                .contains(&name.as_str())
+            if !ABILITY_STATS.contains(&name.as_str()) && !NON_STAT_TARGETS.contains(&name.as_str())
             {
                 out.push(RuleError {
                     path: format!("stats.at_most[{i}]"),

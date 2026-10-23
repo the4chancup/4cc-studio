@@ -9,6 +9,7 @@ mod custom_checks;
 mod file;
 mod general;
 mod preview;
+mod problems;
 mod prompt;
 mod start;
 mod summary;
@@ -18,6 +19,8 @@ use std::path::{Path, PathBuf};
 use crossbeam_channel::Receiver;
 use egui::accesskit::{self, Role};
 use studio_core::{PipelineEventEnvelope, ToolContext};
+
+use crate::test_support::{valid_file, write_file};
 
 use super::*;
 
@@ -107,6 +110,19 @@ fn click(window: &mut Headless, node: &accesskit::Node, view: &mut RulesetView, 
     window.frame(pointer_at(at, false), |ui| show(ui, view, ctx));
 }
 
+/// A click on the `nth` node labeled `label`, top to bottom (the two
+/// stat checklists share names).
+fn click_nth(
+    window: &mut Headless,
+    nodes: &[accesskit::Node],
+    label: &str,
+    nth: usize,
+    view: &mut RulesetView,
+    ctx: &ToolContext,
+) {
+    click(window, nodes_labeled(nodes, label)[nth], view, ctx);
+}
+
 /// A click on the node `nodes` holds labeled exactly `label`.
 fn click_labeled(
     window: &mut Headless,
@@ -116,6 +132,52 @@ fn click_labeled(
     ctx: &ToolContext,
 ) {
     click(window, node(nodes, label), view, ctx);
+}
+
+/// A click on the first node whose label starts with `label`, as drawn
+/// on a fresh frame (menu items carry their shortcut in the label).
+fn click_drawn(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext, label: &str) {
+    let frame = window.draw(view, ctx);
+    click_prefix(window, &frame.nodes, label, view, ctx);
+}
+
+/// `click_drawn` for the `nth` of several same-labeled nodes.
+fn click_drawn_nth(
+    window: &mut Headless,
+    view: &mut RulesetView,
+    ctx: &ToolContext,
+    label: &str,
+    nth: usize,
+) {
+    let frame = window.draw(view, ctx);
+    click_nth(window, &frame.nodes, label, nth, view, ctx);
+}
+
+/// File's "New from template…" opens the start page over the document
+/// at once — nothing is lost there, so no prompt.
+fn open_start_modal(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext) {
+    menu_click(window, view, ctx, "File", "New from template…");
+    window.draw(view, ctx);
+    assert!(view.start_open, "the start page opened");
+    assert!(
+        view.pending_action.is_none(),
+        "no prompt for the page itself"
+    );
+}
+
+/// `menu` opened, then its `item` clicked (a menu's items live on the
+/// frame after its button).
+fn menu_click(
+    window: &mut Headless,
+    view: &mut RulesetView,
+    ctx: &ToolContext,
+    menu: &str,
+    item: &str,
+) {
+    let frame = window.draw(view, ctx);
+    click_labeled(window, &frame.nodes, menu, view, ctx);
+    let frame = window.draw(view, ctx);
+    click_prefix(window, &frame.nodes, item, view, ctx);
 }
 
 /// A click on the node whose label starts with `prefix` (menu items
@@ -153,6 +215,13 @@ fn node<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
         .unwrap_or_else(|| panic!("no node labeled {label:?}"))
 }
 
+/// `found` ordered top to bottom by each node's top edge; every node
+/// here is drawn, so a missing bound is a broken test, not a sort key.
+fn sort_top_down(found: &mut [&accesskit::Node]) {
+    let y = |node: &&accesskit::Node| node.bounds().expect("a drawn node has bounds").y0;
+    found.sort_by(|a, b| y(a).partial_cmp(&y(b)).expect("ordered bounds"));
+}
+
 /// Every node labeled `label` top to bottom (the two stat checklists
 /// share names).
 fn nodes_labeled<'a>(nodes: &'a [accesskit::Node], label: &str) -> Vec<&'a accesskit::Node> {
@@ -160,10 +229,7 @@ fn nodes_labeled<'a>(nodes: &'a [accesskit::Node], label: &str) -> Vec<&'a acces
         .iter()
         .filter(|node| node.label() == Some(label) || node.value() == Some(label))
         .collect();
-    found.sort_by(|a, b| {
-        let y = |node: &&accesskit::Node| node.bounds().map(|rect| rect.y0).unwrap_or(0.0);
-        y(a).partial_cmp(&y(b)).expect("ordered bounds")
-    });
+    sort_top_down(&mut found);
     found
 }
 
@@ -189,6 +255,26 @@ fn labels(nodes: &[accesskit::Node]) -> Vec<String> {
         .collect()
 }
 
+/// The rail's section entries in drawn order (an entry carries a `⚠`
+/// inside the label; a section's own heading is not one).
+fn rail_labels(nodes: &[accesskit::Node]) -> Vec<String> {
+    let section_names: Vec<&str> = Section::RAIL.iter().map(|s| s.label()).collect();
+    let mut found: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node
+                    .label()
+                    .is_some_and(|text| section_names.iter().any(|name| text.starts_with(name)))
+        })
+        .collect();
+    sort_top_down(&mut found);
+    found
+        .iter()
+        .filter_map(|node| node.label().map(str::to_owned))
+        .collect()
+}
+
 /// Whether a node labeled `label` was drawn.
 fn drawn(nodes: &[accesskit::Node], label: &str) -> bool {
     nodes
@@ -201,24 +287,12 @@ fn contains_label(nodes: &[accesskit::Node], fragment: &str) -> bool {
     labels(nodes).iter().any(|label| label.contains(fragment))
 }
 
-/// `text` written to `dir/name`; the path.
-fn write_file(dir: &Path, name: &str, text: &str) -> PathBuf {
-    let path = dir.join(name);
-    std::fs::write(&path, text).unwrap();
-    path
-}
-
-/// `test`'s scratch folder with `official_text()` written to `name`
+/// `test`'s scratch folder with `valid_file()` written to `name`
 /// inside; folder and file.
 fn scratch_file(test: &str, name: &str) -> (PathBuf, PathBuf) {
     let dir = crate::test_support::scratch(test);
-    let file = write_file(&dir, name, &official_text());
+    let file = crate::test_support::write_file(&dir, name, &crate::test_support::valid_file());
     (dir, file)
-}
-
-/// The embedded official ruleset's text as an assembled file.
-fn official_text() -> String {
-    aatf::assemble_file(aatf::Rules::official().ruleset(), None, None)
 }
 
 /// A view with `ruleset` opened as a new, unsaved document (a template
@@ -243,6 +317,18 @@ fn fresh() -> (
 ) {
     let (ctx, events) = crate::test_support::context();
     (ctx, events, Headless::new(), RulesetView::new())
+}
+
+/// `fresh()` with Blank opened as the document.
+fn fresh_blank() -> (
+    ToolContext,
+    Receiver<PipelineEventEnvelope>,
+    Headless,
+    RulesetView,
+) {
+    let (ctx, events, window, mut view) = fresh();
+    open_document(&mut view, crate::document::blank());
+    (ctx, events, window, view)
 }
 
 /// `view` with `path` opened.

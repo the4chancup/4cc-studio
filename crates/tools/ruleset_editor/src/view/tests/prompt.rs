@@ -17,7 +17,7 @@ fn prompt_setup(test: &str) -> (PathBuf, ToolContext, Headless) {
 /// A document with unsaved changes over `dir`'s `edited.rhai` (the file
 /// exists for the Save answers): the name edited to "Edited".
 fn dirty_view(ctx: &ToolContext, dir: &Path) -> RulesetView {
-    let file = write_file(dir, "edited.rhai", &official_text());
+    let file = write_file(dir, "edited.rhai", &valid_file());
     let mut view = RulesetView::new();
     open_path(&mut view, ctx, &file);
     edit_ruleset(&mut view, |ruleset| ruleset.name = "Edited".to_string());
@@ -33,8 +33,7 @@ fn prompt_drawn(nodes: &[accesskit::Node]) -> bool {
     drawn(nodes, "Save changes to Edited?")
 }
 
-/// File's item clicked through its menu (`menu` the button, `item` a
-/// label prefix); the prompt is asserted up.
+/// `menu`'s `item` clicked, the prompt asserted up.
 fn menu_pick(
     window: &mut Headless,
     view: &mut RulesetView,
@@ -42,10 +41,7 @@ fn menu_pick(
     menu: &str,
     item: &str,
 ) {
-    let frame = window.draw(view, ctx);
-    click_labeled(window, &frame.nodes, menu, view, ctx);
-    let frame = window.draw(view, ctx);
-    click_prefix(window, &frame.nodes, item, view, ctx);
+    menu_click(window, view, ctx, menu, item);
     let frame = window.draw(view, ctx);
     assert!(prompt_drawn(&frame.nodes), "the prompt is up");
 }
@@ -96,11 +92,14 @@ fn pick_answers(window: &mut Headless, ctx: &ToolContext, dir: &Path, label: &st
     let view = answered_start(window, ctx, dir, label, "Cancel");
     assert_name(&view, "Edited");
     assert!(view.document.as_ref().unwrap().is_dirty());
+    assert!(view.pending_action.is_none(), "Cancel kept everything");
     let view = answered_start(window, ctx, dir, label, "Discard");
     assert_name(&view, name);
+    assert!(!view.start_open, "Discard went on past the start page");
     let view = answered_start(window, ctx, dir, label, "Save");
     assert_saved(dir, "edited.rhai", "Edited");
     assert_name(&view, name);
+    assert!(!view.start_open, "Save went on past the start page");
 }
 
 /// A click on the node `nodes` holds labeled `label`, on `tool`'s view
@@ -168,7 +167,7 @@ fn a_window_close_prompts_and_each_answer_does_what_it_says() {
         ruleset.name = "Edited".to_string()
     });
     let saved = dir.join("kept.rhai");
-    tool.view.save_as_dialog = Box::new(move |_| Some(saved.clone()));
+    tool.view.save_as_dialog = Box::new(move |_, _| Some(saved.clone()));
     assert!(StudioTool::hold_close(&mut tool));
     let frame = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     click_labeled_tool(&mut window, &frame.nodes, "Save", &mut tool, &ctx);
@@ -184,7 +183,7 @@ fn a_window_close_prompts_and_each_answer_does_what_it_says() {
 #[test]
 fn an_open_prompts_and_each_answer_does_what_it_says() {
     let (dir, ctx, mut window) = prompt_setup("prompt_open");
-    let other = write_file(&dir, "other.rhai", &official_text());
+    let other = write_file(&dir, "other.rhai", &valid_file());
 
     // Cancel keeps the document as it was.
     let view = answered(
@@ -200,6 +199,7 @@ fn an_open_prompts_and_each_answer_does_what_it_says() {
         "cancel keeps the document as it was"
     );
     assert!(view.document.as_ref().unwrap().is_dirty());
+    assert!(view.pending_action.is_none(), "Cancel kept everything");
 
     // Discard goes on: the file dialog follows and the file opens.
     let view = answered(
@@ -238,21 +238,6 @@ fn an_open_prompts_and_each_answer_does_what_it_says() {
     );
 }
 
-/// File's "New from template…" opens the start page over the document
-/// at once — nothing is lost there, so no prompt.
-fn open_start_modal(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext) {
-    let frame = window.draw(view, ctx);
-    click_labeled(window, &frame.nodes, "File", view, ctx);
-    let frame = window.draw(view, ctx);
-    click_prefix(window, &frame.nodes, "New from template…", view, ctx);
-    window.draw(view, ctx);
-    assert!(view.start_open, "the start page opened");
-    assert!(
-        view.pending_action.is_none(),
-        "no prompt for the page itself"
-    );
-}
-
 // RE-GUI-15
 #[test]
 fn new_from_template_is_unguarded_but_a_pick_in_it_prompts() {
@@ -278,6 +263,66 @@ fn new_from_template_is_unguarded_but_a_pick_in_it_prompts() {
         view.document.as_ref().expect("opened").ruleset.name,
         "Spring 26"
     );
+
+    // And Close puts the start page away, the document kept as it was.
+    let mut view = dirty_view(&ctx, &dir);
+    open_start_modal(&mut window, &mut view, &ctx);
+    let frame = window.draw(&mut view, &ctx);
+    click_labeled(&mut window, &frame.nodes, "Close", &mut view, &ctx);
+    assert!(!view.start_open, "Close put the start page away");
+    assert_name(&view, "Edited");
+    assert!(view.document.as_ref().unwrap().is_dirty());
+}
+
+// RE-GUI-15
+#[test]
+fn the_keyboard_shortcuts_do_not_act_behind_the_prompt() {
+    let (dir, ctx, mut window) = prompt_setup("keys_modal");
+    let mut view = dirty_view(&ctx, &dir);
+    let before = std::fs::read(dir.join("edited.rhai")).unwrap();
+    // One recorded edit, so an undo would have something to take back.
+    click_drawn_nth(&mut window, &mut view, &ctx, "Attacking Prowess", 1);
+    assert!(
+        view.document.as_ref().unwrap().can_undo(),
+        "premise: an undoable edit"
+    );
+    assert!(
+        !view
+            .document
+            .as_ref()
+            .unwrap()
+            .ruleset
+            .stats
+            .at_most
+            .iter()
+            .any(|name| name == "attacking_prowess")
+    );
+    menu_pick(&mut window, &mut view, &ctx, "File", "Open…");
+    // Ctrl+Z, Ctrl+Y and Ctrl+S are all dead while the prompt is up.
+    for event in [
+        key(egui::Key::Z, egui::Modifiers::CTRL),
+        key(egui::Key::Y, egui::Modifiers::CTRL),
+        key(egui::Key::S, egui::Modifiers::CTRL),
+    ] {
+        window.frame(vec![event], |ui| show(ui, &mut view, &ctx));
+    }
+    let document = view.document.as_ref().unwrap();
+    assert!(
+        !document
+            .ruleset
+            .stats
+            .at_most
+            .iter()
+            .any(|name| name == "attacking_prowess"),
+        "the document is unchanged: no undo, no redo"
+    );
+    assert!(document.can_undo(), "the undo entry is still there");
+    assert!(document.is_dirty(), "and still dirty");
+    assert_eq!(
+        std::fs::read(dir.join("edited.rhai")).unwrap(),
+        before,
+        "Ctrl+S wrote nothing"
+    );
 }
 
 // RE-GUI-15
@@ -286,7 +331,7 @@ fn a_recent_file_pick_prompts_and_each_answer_does_what_it_says() {
     let (dir, ctx, mut window) = prompt_setup("prompt_recent");
     // The recent file the list offers, seeded first; each leg's open of
     // `edited.rhai` then adds its own entry above it.
-    let other = write_file(&dir, "other.rhai", &official_text());
+    let other = write_file(&dir, "other.rhai", &valid_file());
     ctx.set_tool_settings(
         crate::messages::TOOL_ID,
         crate::settings::RulesetEditorSettings {

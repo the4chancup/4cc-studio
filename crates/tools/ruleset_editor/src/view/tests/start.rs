@@ -17,21 +17,6 @@ fn assert_order(labels: &[String], expected: &[&str]) {
     }
 }
 
-/// The rail's section labels drawn for `view` (a `⚠` shows inside the
-/// label), Custom checks only when the document has it.
-fn rail_labels(nodes: &[accesskit::Node]) -> Vec<String> {
-    Section::RAIL
-        .iter()
-        .filter_map(|section| {
-            let label = section.label();
-            nodes
-                .iter()
-                .find(|node| node.label().is_some_and(|text| text.starts_with(label)))
-                .map(|node| node.label().expect("a label").to_string())
-        })
-        .collect()
-}
-
 // RE-GUI-01
 #[test]
 fn the_start_page_offers_its_entries_in_order() {
@@ -53,19 +38,19 @@ fn the_start_page_offers_its_entries_in_order() {
             "Sensible",
             "Weird",
             "Crazy",
+            "Random",
             "Open file…",
             "Recent files",
         ],
     );
-    assert!(drawn(&frame.nodes, "Random"));
 }
 
 // RE-GUI-01
 #[test]
 fn the_recent_files_list_the_later_open_first_and_skip_a_deleted_file() {
     let dir = crate::test_support::scratch("recent_files");
-    let first = write_file(&dir, "first.rhai", &official_text());
-    let second = write_file(&dir, "second.rhai", &official_text());
+    let first = write_file(&dir, "first.rhai", &valid_file());
+    let second = write_file(&dir, "second.rhai", &valid_file());
     let saved = dir.join("saved.rhai");
     let (ctx, _events) = crate::test_support::context();
 
@@ -95,6 +80,44 @@ fn the_recent_files_list_the_later_open_first_and_skip_a_deleted_file() {
     assert!(drawn(&frame.nodes, "first.rhai"));
 }
 
+/// The rail's labels in the plan's order, `Custom checks` when the
+/// document has them — spelled out so a swapped constant fails here
+/// too.
+fn rail_expected(custom_checks: bool) -> Vec<String> {
+    [
+        "General",
+        "Tiers",
+        "Heights",
+        "Cards",
+        "Universal rules",
+        "Specials",
+        "Suggestions",
+        "Custom checks",
+        "Summary",
+    ]
+    .into_iter()
+    .filter(|label| *label != "Custom checks" || custom_checks)
+    .map(str::to_string)
+    .collect()
+}
+
+/// The rail clean: every section in order, no problem mark, and the
+/// bottom bar's valid line.
+fn assert_clean_rail(nodes: &[accesskit::Node], custom_checks: bool) {
+    assert_eq!(rail_labels(nodes), rail_expected(custom_checks));
+    assert!(
+        !labels(nodes).iter().any(|label| label.contains('⚠')),
+        "no rail entry carries a problem mark"
+    );
+    assert!(
+        drawn(
+            nodes,
+            "✔ Valid: the Save editor and the Team creator can use it"
+        ),
+        "the bottom bar's valid line"
+    );
+}
+
 /// `index`'s template opened through its button: the document's name,
 /// General drawn, the rail's sections in order with no problem mark,
 /// and `save_to` writing a file `Rules::load` reads back equal.
@@ -103,36 +126,15 @@ fn template_opens_clean(index: usize, test: &str) {
     let template = &templates[index];
     let dir = crate::test_support::scratch(test);
     let (ctx, _events, mut window, mut view) = fresh();
-    let frame = window.draw(&mut view, &ctx);
-    click_prefix(
-        &mut window,
-        &frame.nodes,
-        &template.ruleset.name,
-        &mut view,
-        &ctx,
-    );
+    click_drawn(&mut window, &mut view, &ctx, &template.ruleset.name);
 
     let document = view.document.as_ref().expect("a document opened");
     assert_eq!(document.ruleset.name, template.ruleset.name);
+    assert!(document.path.is_none(), "an unsaved document");
+    assert!(document.is_dirty(), "unsaved is dirty");
     assert_eq!(view.section, Section::General);
     let frame = window.draw(&mut view, &ctx);
-    let expected: Vec<String> = Section::RAIL
-        .iter()
-        .filter(|section| **section != Section::CustomChecks || template.custom_checks.is_some())
-        .map(|section| section.label().to_string())
-        .collect();
-    assert_eq!(rail_labels(&frame.nodes), expected, "the rail's sections");
-    assert!(
-        !labels(&frame.nodes).iter().any(|label| label.contains('⚠')),
-        "no rail entry carries a problem mark"
-    );
-    assert!(
-        drawn(
-            &frame.nodes,
-            "✔ Valid: the Save editor and the Team creator can use it"
-        ),
-        "the bottom bar's valid line"
-    );
+    assert_clean_rail(&frame.nodes, template.custom_checks.is_some());
 
     let path = dir.join("saved.rhai");
     assert!(save_to(&mut view, &ctx, &path));
@@ -154,30 +156,20 @@ fn each_template_opens_clean_and_saves_back_equal() {
 fn blank_opens_as_new_ruleset_and_saves_back_equal() {
     let dir = crate::test_support::scratch("template_blank");
     let (ctx, _events, mut window, mut view) = fresh();
-    let frame = window.draw(&mut view, &ctx);
-    click_labeled(
+    click_drawn(
         &mut window,
-        &frame.nodes,
-        "Blank: one tier, no brackets, the universal rules on",
         &mut view,
         &ctx,
+        "Blank: one tier, no brackets, the universal rules on",
     );
 
     let document = view.document.as_ref().expect("a document opened");
     assert_eq!(document.ruleset.name, "New ruleset");
     assert!(document.path.is_none(), "unsaved");
+    assert!(document.is_dirty(), "unsaved is dirty");
     assert_eq!(view.section, Section::General);
     let frame = window.draw(&mut view, &ctx);
-    let expected: Vec<String> = Section::RAIL
-        .iter()
-        .filter(|section| **section != Section::CustomChecks)
-        .map(|section| section.label().to_string())
-        .collect();
-    assert_eq!(rail_labels(&frame.nodes), expected);
-    assert!(
-        !labels(&frame.nodes).iter().any(|label| label.contains('⚠')),
-        "no rail entry carries a problem mark"
-    );
+    assert_clean_rail(&frame.nodes, false);
 
     let path = dir.join("saved.rhai");
     assert!(save_to(&mut view, &ctx, &path));
@@ -230,4 +222,58 @@ fn a_duplicate_tier_id_is_refused_with_its_key_path() {
     assert_finding(&labels, |label| {
         label.contains("tiers[1]") && label.contains("gold")
     });
+}
+
+// RE-FILE-03
+#[test]
+fn a_broken_file_is_refused_over_an_open_document() {
+    let (ctx, _events, path, mut view) = official_opened("open_over_doc");
+    let dir = path.parent().expect("the scratch folder").to_path_buf();
+    let broken = write_file(
+        &dir,
+        "broken.rhai",
+        &crate::test_support::parse_error_file(),
+    );
+    open_path(&mut view, &ctx, &broken);
+    assert!(view.document.is_some(), "the open document is kept");
+    assert!(
+        matches!(view.dialog, Some(Dialog::OpenRefused { .. })),
+        "the refusal is a dialog over the document"
+    );
+    // Its contents join the tree one frame after the modal's sizing
+    // pass.
+    let mut window = Headless::new();
+    window.draw(&mut view, &ctx);
+    let frame = window.draw(&mut view, &ctx);
+    assert!(contains_label(&frame.nodes, "Could not open broken.rhai:"));
+    assert!(contains_label(&frame.nodes, "line=12"));
+    click_labeled(&mut window, &frame.nodes, "OK", &mut view, &ctx);
+    assert!(view.dialog.is_none(), "OK closes the refusal");
+}
+
+// A refused open's findings are gone when the start page comes back
+// (the template pick replaced the document).
+#[test]
+fn a_template_pick_clears_the_refused_open_lines() {
+    let dir = crate::test_support::scratch("stale_refusal");
+    let broken = write_file(
+        &dir,
+        "broken.rhai",
+        &crate::test_support::parse_error_file(),
+    );
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_path(&mut view, &ctx, &broken);
+    let frame = window.draw(&mut view, &ctx);
+    assert!(contains_label(&frame.nodes, "Could not open broken.rhai:"));
+
+    // Pick a template, then File > New from template…: no "Could not
+    // open" line on the page's return.
+    click_prefix(&mut window, &frame.nodes, "Autumn 26", &mut view, &ctx);
+    assert!(view.document.is_some(), "the template opened");
+    open_start_modal(&mut window, &mut view, &ctx);
+    let frame = window.draw(&mut view, &ctx);
+    assert!(
+        !contains_label(&frame.nodes, "Could not open"),
+        "the refusal is gone"
+    );
 }

@@ -26,7 +26,7 @@ pub(crate) use prompt::Pending;
 pub(crate) use sections::Section;
 
 use crate::document::{Document, Logic, OpenError, SaveError, Snapshot};
-use crate::messages::{TOOL_ID, finding_text, findings};
+use crate::messages::{TOOL_ID, finding_lines};
 use crate::settings::{self, RulesetEditorSettings};
 
 /// The window's state: the open document and what the frame draws of it.
@@ -67,7 +67,7 @@ pub(crate) struct RulesetView {
     /// field is the precedent).
     pub(crate) open_dialog: FilePicker,
     /// `open_dialog` for Save as.
-    pub(crate) save_as_dialog: FilePicker,
+    pub(crate) save_as_dialog: SaveDialog,
     /// Which document this is: the id salt, so egui widget state never
     /// crosses into the next one (the Save editor's `generation`).
     generation: u64,
@@ -76,6 +76,9 @@ pub(crate) struct RulesetView {
 /// A file-dialog call: the `.rhai` dialog's start folder to the picked
 /// path (`rfd`, or a test's stub).
 type FilePicker = Box<dyn FnMut(&Path) -> Option<PathBuf>>;
+
+/// `FilePicker` for Save as: the suggested file name comes second.
+type SaveDialog = Box<dyn FnMut(&Path, &str) -> Option<PathBuf>>;
 
 /// A dialog until dismissed.
 #[derive(Debug)]
@@ -124,8 +127,8 @@ impl RulesetView {
             pending_action: None,
             dialog: None,
             open_refusal: None,
-            open_dialog: Box::new(|start| ruleset_dialog(start).pick_file()),
-            save_as_dialog: Box::new(|start| ruleset_dialog(start).save_file()),
+            open_dialog: default_open_dialog(),
+            save_as_dialog: default_save_dialog(),
             generation: 0,
         }
     }
@@ -140,12 +143,15 @@ impl RulesetView {
         self.pending = None;
         self.focused = None;
         self.start_open = false;
+        self.open_refusal = None;
         self.document = Some(document);
         self.generation += 1;
     }
 }
 
-/// The `.rhai` file dialog, started in `start` when it names a folder.
+/// The `.rhai` file dialog, started in `start` when it names a folder
+/// (only the real dialogs call it; tests stub the pickers).
+#[cfg(not(test))]
 fn ruleset_dialog(start: &Path) -> rfd::FileDialog {
     let dialog = rfd::FileDialog::new().add_filter("Rules file", &["rhai"]);
     if start.as_os_str().is_empty() {
@@ -153,6 +159,43 @@ fn ruleset_dialog(start: &Path) -> rfd::FileDialog {
     } else {
         dialog.set_directory(start)
     }
+}
+
+/// The default Open dialog: `rfd` (reaching a native dialog in a test
+/// panics; tests stub `open_dialog`/`save_as_dialog`).
+#[cfg(not(test))]
+fn default_open_dialog() -> FilePicker {
+    Box::new(|start| ruleset_dialog(start).pick_file())
+}
+
+/// `default_open_dialog` under `cargo test`.
+#[cfg(test)]
+fn default_open_dialog() -> FilePicker {
+    Box::new(|_| panic!("a test reached a real file dialog: stub open_dialog/save_as_dialog"))
+}
+
+/// The default Save as dialog: `rfd`, the file name prefilled.
+#[cfg(not(test))]
+fn default_save_dialog() -> SaveDialog {
+    Box::new(|start, suggested| ruleset_dialog(start).set_file_name(suggested).save_file())
+}
+
+/// `default_save_dialog` under `cargo test`.
+#[cfg(test)]
+fn default_save_dialog() -> SaveDialog {
+    Box::new(|_, _| panic!("a test reached a real file dialog: stub open_dialog/save_as_dialog"))
+}
+
+/// `name` as the suggested file name (the draft's `save()` slug:
+/// lowercase, each whitespace run as `_`), then `.rhai`.
+fn suggested_name(name: &str) -> String {
+    format!(
+        "{}.rhai",
+        name.to_lowercase()
+            .split_whitespace()
+            .collect::<Vec<_>>()
+            .join("_")
+    )
 }
 
 /// Shows the window for one frame: the settings are read each frame
@@ -286,8 +329,7 @@ pub(crate) fn open_path(view: &mut RulesetView, ctx: &ToolContext, path: &Path) 
             remember_path(ctx, path);
         }
         Err(OpenError::Invalid(error)) => {
-            let lines = findings(&error).iter().map(finding_text).collect();
-            refuse_open(view, path, lines);
+            refuse_open(view, path, finding_lines(&error));
         }
         Err(OpenError::Read { error, .. }) => {
             refuse_open(view, path, vec![error.to_string()]);
@@ -325,11 +367,16 @@ pub(crate) fn save_now(
     }
 }
 
-/// Save as…: the `.rhai` dialog starting in `last_folder`, then the
-/// same path as Save.
+/// Save as…: the `.rhai` dialog starting in `last_folder`, suggesting
+/// the ruleset's name slugged, then the same path as Save.
 fn save_as(view: &mut RulesetView, ctx: &ToolContext, settings: &RulesetEditorSettings) -> bool {
     let start = PathBuf::from(&settings.last_folder);
-    match (view.save_as_dialog)(&start) {
+    let suggested = view
+        .document
+        .as_ref()
+        .map(|document| suggested_name(&document.ruleset.name))
+        .unwrap_or_default();
+    match (view.save_as_dialog)(&start, &suggested) {
         Some(path) => save_to(view, ctx, &path),
         None => false,
     }
@@ -351,7 +398,7 @@ pub(crate) fn save_to(view: &mut RulesetView, ctx: &ToolContext, path: &Path) ->
         }
         Err(SaveError::Invalid(error)) => {
             view.dialog = Some(Dialog::SaveRefused {
-                findings: findings(&error).iter().map(finding_text).collect(),
+                findings: finding_lines(&error),
             });
             false
         }
@@ -407,16 +454,23 @@ fn toolbar(
 ) {
     // Ctrl+S saves even while a widget holds the keyboard; the other
     // shortcuts do nothing then (a text field's own undo is egui's).
-    let save_key = ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::S));
+    // None of them act behind a modal (the prompt, a dialog, the modal
+    // start page): an undo under the prompt would write a state it
+    // never showed.
+    let keys_free = !modal_open(view);
+    let save_key =
+        keys_free && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::S));
     let typing = ui.ctx().egui_wants_keyboard_input();
     // Ctrl+Shift+Z first: `consume_key(Ctrl, Z)` matches it too, so the
     // more specific shortcut has to be tested before the plainer one.
-    let redo_key = !typing
+    let redo_key = keys_free
+        && !typing
         && ui.input_mut(|input| {
             input.consume_key(egui::Modifiers::CTRL | egui::Modifiers::SHIFT, egui::Key::Z)
                 || input.consume_key(egui::Modifiers::CTRL, egui::Key::Y)
         });
-    let undo_key = !typing
+    let undo_key = keys_free
+        && !typing
         && !redo_key
         && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::Z));
     egui::Panel::top("ruleset_toolbar").show(ui, |ui| {
@@ -500,11 +554,30 @@ fn menu_item(ui: &mut egui::Ui, enabled: bool, button: egui::Button) -> bool {
     clicked
 }
 
-/// Undo or redo, by button or key: the gesture bookkeeping must not
-/// take the swap for an edit, so `pending` is dropped first; a restored
-/// state is a change the preview shows.
+/// Whether a modal is up over the document: the unsaved-changes prompt,
+/// a dialog, or the modal start page (the keyboard shortcuts' gate).
+fn modal_open(view: &RulesetView) -> bool {
+    view.pending_action.is_some() || view.dialog.is_some() || view.start_open
+}
+
+/// `view`'s pending gesture recorded when its snapshot differs from the
+/// document's (the `seal_gesture` test, shared with `history_step`:
+/// undo seals a gesture in flight rather than lose its start).
+fn seal_pending(view: &mut RulesetView) {
+    if let Some(before) = view.pending.take()
+        && let Some(document) = view.document.as_mut()
+        && document.snapshot() != before
+    {
+        document.record(before);
+        remember_changed(view);
+    }
+}
+
+/// Undo or redo, by button or key: the gesture in flight seals first
+/// (its snapshot is the state the step restores), then steps; a
+/// restored state is a change the preview shows.
 fn history_step(view: &mut RulesetView, step: fn(&mut Document) -> bool) {
-    view.pending = None;
+    seal_pending(view);
     if view.document.as_mut().is_some_and(step) {
         remember_changed(view);
     }
@@ -591,7 +664,7 @@ fn dialog(ui: &mut egui::Ui, view: &mut RulesetView) {
     };
     let (title, lines) = match kind {
         Dialog::OpenRefused { name, findings } => {
-            (format!("Could not open {name}"), findings.clone())
+            (format!("Could not open {name}:"), findings.clone())
         }
         Dialog::SaveRefused { findings } => (
             "Not saved: the ruleset has problems".to_string(),
@@ -623,13 +696,8 @@ fn seal_gesture(ui: &mut egui::Ui, view: &mut RulesetView) {
     let focused = ui.ctx().memory(|memory| memory.focused());
     let sealed = (!ui.input(|input| input.pointer.any_down()) && focused.is_none())
         || (view.focused.is_some() && view.focused != focused);
-    if sealed
-        && let Some(before) = view.pending.take()
-        && let Some(document) = view.document.as_mut()
-        && document.snapshot() != before
-    {
-        document.record(before);
-        remember_changed(view);
+    if sealed {
+        seal_pending(view);
     }
     view.focused = focused;
 }

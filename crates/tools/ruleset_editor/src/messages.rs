@@ -163,9 +163,15 @@ pub(crate) fn findings(error: &LoadError) -> Vec<Message> {
     }
 }
 
+/// `error`'s findings as text lines, as `validate` prints them (the
+/// view's refused-open and refused-save listings).
+pub(crate) fn finding_lines(error: &LoadError) -> Vec<String> {
+    findings(error).iter().map(finding_text).collect()
+}
+
 /// One finding's text, as `validate` prints it: the context fields in
 /// order (`line=12, column=5, error=…`, `path=tiers[1], rule=…`).
-pub(crate) fn finding_text(finding: &Message) -> String {
+fn finding_text(finding: &Message) -> String {
     finding
         .context
         .iter()

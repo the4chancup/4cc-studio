@@ -6,14 +6,14 @@
 
 use super::*;
 
-/// The modified-logic file: the official text with one logic comment
-/// changed (the file still loads, its logic is `Modified`).
-fn modified_logic_file() -> String {
-    official_text().replacen(
-        "// The generic interpreter",
-        "// The interpreter, its comment edited",
-        1,
-    )
+/// `dir`'s file names, sorted.
+fn folder_contents(dir: &Path) -> Vec<String> {
+    let mut inside: Vec<String> = std::fs::read_dir(dir)
+        .unwrap()
+        .map(|entry| entry.unwrap().file_name().to_string_lossy().into_owned())
+        .collect();
+    inside.sort();
+    inside
 }
 
 // RE-FILE-01
@@ -39,7 +39,7 @@ fn a_file_save_wrote_opens_with_no_banner() {
 #[test]
 fn a_modified_logic_file_shows_the_banner_and_save_keeps_its_code() {
     let dir = crate::test_support::scratch("file_02");
-    let text = modified_logic_file();
+    let text = crate::test_support::modified_logic_file();
     let kept = aatf::file_sections(&text).logic.expect("the section");
     let path = write_file(&dir, "rules.rhai", &text);
     let (ctx, _events, mut window, mut view) = fresh();
@@ -48,6 +48,10 @@ fn a_modified_logic_file_shows_the_banner_and_save_keeps_its_code() {
     assert!(
         contains_label(&frame.nodes, "checking code was changed by hand"),
         "the banner says the file's checking code is not this build's"
+    );
+    assert!(
+        contains_label(&frame.nodes, "special rules may not behave"),
+        "and that its special rules may not behave as the forms describe"
     );
 
     // An edit (General's name) and Save: the file's logic kept byte for
@@ -73,6 +77,7 @@ fn a_modified_logic_file_shows_the_banner_and_save_keeps_its_code() {
         contains_label(&frame.nodes, "checking code was changed by hand"),
         "the banner again"
     );
+    assert!(contains_label(&frame.nodes, "special rules may not behave"));
 }
 
 // RE-FILE-05
@@ -86,17 +91,19 @@ fn a_save_with_no_edit_writes_the_same_values_and_no_comments() {
         block.contains("// No card or position rule"),
         "premise: comments inside RULESET"
     );
-    let logic = aatf::file_sections(&official_text())
+    let logic = aatf::file_sections(&valid_file())
         .logic
         .expect("the current section");
-    let stub = "// ==== CUSTOM CHECKS: optional, hand-written; the Ruleset editor keeps this section as it is ====\nfn custom_checks(team) { [] }";
+    let stub = crate::test_support::CUSTOM_CHECKS_STUB;
     let text = format!("{}\n\n{}\n\n{}\n", block.trim_end(), logic.trim_end(), stub);
     let dir = crate::test_support::scratch("file_05");
     let path = write_file(&dir, "dbc7.rhai", &text);
 
-    let (ctx, _events) = crate::test_support::context();
-    let mut view = opened_view(&ctx, &path);
-    assert!(save_to(&mut view, &ctx, &path));
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_path(&mut view, &ctx, &path);
+    // "Save is available on an unedited document": the bottom bar's Save.
+    let frame = window.draw(&mut view, &ctx);
+    click_labeled(&mut window, &frame.nodes, "Save", &mut view, &ctx);
     let written = std::fs::read_to_string(&path).unwrap();
     let data = &written[..written.find("// ==== LOGIC").expect("the logic banner")];
     assert!(
@@ -117,12 +124,9 @@ fn save_leaves_no_sibling_and_reports_a_read_only_file() {
     let (ctx, _events, path, mut view) = official_opened("file_07");
     edit_ruleset(&mut view, |ruleset| ruleset.name = "Renamed".to_string());
     assert!(save_to(&mut view, &ctx, &path));
-    let mut tmp = path.as_os_str().to_owned();
-    tmp.push(".tmp");
-    assert!(
-        !Path::new(&tmp).exists(),
-        "the temporary sibling renamed into place"
-    );
+    let dir = path.parent().expect("the scratch folder").to_path_buf();
+    let inside: Vec<String> = folder_contents(&dir);
+    assert_eq!(inside, ["rules.rhai"], "no other file is left beside it");
 
     // The read-only leg: the write is refused, the file is byte for
     // byte as it was, nothing is left beside it, the document stays
@@ -148,7 +152,11 @@ fn save_leaves_no_sibling_and_reports_a_read_only_file() {
         before,
         "byte for byte as it was"
     );
-    assert!(!Path::new(&tmp).exists(), "no other file beside it");
+    assert_eq!(
+        folder_contents(&dir),
+        ["rules.rhai"],
+        "no other file beside it"
+    );
     assert!(
         view.document.as_ref().expect("the document").is_dirty(),
         "the document stays unsaved"
@@ -161,6 +169,37 @@ fn save_leaves_no_sibling_and_reports_a_read_only_file() {
             .any(|label| label.contains("rules.rhai") && label.contains("read-only")),
         "the window names the file and the error"
     );
+}
+
+// A test reaching the default file dialogs panics instead of opening a
+// real window (the pickers are stubbed per test).
+#[test]
+#[should_panic(expected = "a test reached a real file dialog: stub open_dialog/save_as_dialog")]
+fn a_test_reaching_the_default_dialog_panics() {
+    let (ctx, _events, _window, mut view) = fresh();
+    open_document(&mut view, crate::document::blank());
+    // A never-saved document, Save as: the default picker.
+    let settings = crate::settings::RulesetEditorSettings::default();
+    save_now(&mut view, &ctx, &settings);
+}
+
+// The suggested Save as name is the ruleset's name slugged
+// (the draft's `save()`).
+#[test]
+fn save_as_suggests_the_rulesets_name_slugged() {
+    assert_eq!(crate::view::suggested_name("Autumn 26"), "autumn_26.rhai");
+    assert_eq!(crate::view::suggested_name("DBC7"), "dbc7.rhai");
+}
+
+// A second document gets a fresh widget-state salt (egui state never
+// crosses into it).
+#[test]
+fn a_second_document_gets_a_fresh_widget_salt() {
+    let mut view = RulesetView::new();
+    open_document(&mut view, crate::document::blank());
+    let first = view.generation;
+    open_document(&mut view, crate::document::blank());
+    assert_ne!(view.generation, first, "the id salt differs per document");
 }
 
 // plans/ruleset_editor.md "Settings": a table this build cannot read is

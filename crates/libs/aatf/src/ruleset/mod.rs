@@ -75,6 +75,15 @@ pub struct Ruleset {
     pub suggestions: Vec<String>,
 }
 
+/// The `stats.at_most` targets that are no ability stat (the ability
+/// stats are the rest of its allowed names).
+pub const NON_STAT_TARGETS: [&str; 4] = [
+    "form",
+    "injury_resistance",
+    "weak_foot_usage",
+    "weak_foot_accuracy",
+];
+
 /// Which stats and targets the check reads.
 #[derive(Debug, Clone, PartialEq, Default, Deserialize)]
 #[serde(deny_unknown_fields)]

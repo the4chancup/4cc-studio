@@ -1,7 +1,7 @@
 //! The unit tests' scratch folders and contexts, under the test binary's own
 //! build folder rather than the system Temp.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
 use studio_core::{AppPaths, PipelineEventEnvelope, Settings, ShellRequest, ToolContext};
@@ -61,11 +61,31 @@ pub(crate) fn context_requests() -> (
     (ctx, events_rx, requests_rx)
 }
 
+/// `text` written to `dir/name`; the path.
+pub(crate) fn write_file(dir: &Path, name: &str, text: &str) -> PathBuf {
+    let path = dir.join(name);
+    std::fs::write(&path, text).unwrap();
+    path
+}
+
 /// A valid assembled rules file: the embedded official ruleset written
 /// as the tool's save writes it.
 pub(crate) fn valid_file() -> String {
     aatf::assemble_file(aatf::Rules::official().ruleset(), None, None)
 }
+
+/// The modified-logic file: `valid_file` with one logic comment changed
+/// (the file still loads, its logic is `Modified`).
+pub(crate) fn modified_logic_file() -> String {
+    valid_file().replacen(
+        "// The generic interpreter",
+        "// The interpreter, its comment edited",
+        1,
+    )
+}
+
+/// The CUSTOM CHECKS stub every assembled file without checks carries.
+pub(crate) const CUSTOM_CHECKS_STUB: &str = "// ==== CUSTOM CHECKS: optional, hand-written; the Ruleset editor keeps this section as it is ====\nfn custom_checks(team) { [] }";
 
 /// The first RE-FILE-03 file: a parse error at line 12 (the comma
 /// between `at_most`'s two first entries dropped).

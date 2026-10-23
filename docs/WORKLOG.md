@@ -1417,6 +1417,10 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `studio_core`'s glyph constants → verify: the script rebuilds the committed TTF byte for
     byte; every `icon()` glyph exists in the font (a unit test over the registry); the rail
     seen in the built window, expanded and collapsed, dark and light
+    The draft page done 2026-10-23 (SWE-2, one rework): three candidates for each of the 14
+    tools at 12.5, 19, 25 and 64 px in both themes, a mock rail drawing the picks, all in
+    Phosphor regular's grid and stroke (`.tmp/8_14/check_icons.py`); waiting for the
+    maintainer's picks (QUESTIONS "Which icon does each tool get")
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,
@@ -1947,7 +1951,11 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
       written over. `aatf/src/{templates.rs,rules.rs,lib.rs,ruleset/check.rs}`,
       `ruleset_editor/src/{document,settings,messages,summary,lib,cli,test_support}.rs`,
       `src/view/` (mod, start, prompt, preview, rail, `sections/`, tests),
-      `help/02_window.md`. Open: its SWE-2 (b) review, then `mutants-diff 8aeb0193`
+      `help/02_window.md`. Review rework 2, 2026-10-23 (SWE-2 round 1's 17 accepted findings
+      and the mutation run's survivors): undo seals a gesture in flight, the shortcuts wait
+      behind a modal, Save as suggests the ruleset's name, `aatf::NON_STAT_TARGETS`, the file
+      pickers panic under `cfg(test)`; tests for every survivor. Open: SWE-2 round 2 (both
+      halves), then `mutants-diff d968dd50`
     - 20.6a2 Tiers with the medal systems, Cards, Universal rules with the team settings,
       Suggestions (RE-GUI-03 to 06, 08, RE-FILE-04, 06)
   - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12)
@@ -1966,7 +1974,8 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
-- open — a test can open a real file dialog on the developer's desktop (the maintainer saw
+- open (the Ruleset editor's half fixed 2026-10-23, 20.6a1's rework 2; the Save editor's
+  waits) — a test can open a real file dialog on the developer's desktop (the maintainer saw
   four "Save As" windows, `.rhai` suggested, on 2026-10-23): `mutants-diff 8aeb0193`'s mutant
   `menu_item -> true` clicked every menu item each frame, and the views the tests build with
   `RulesetView::new()` carry the real `rfd` pickers, so Save as… opened a native dialog and

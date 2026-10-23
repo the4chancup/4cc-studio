@@ -2,19 +2,10 @@
 //! name, its squad size and the two stat checklists, bound to the
 //! ruleset in place.
 
-use aatf::{Ruleset, Stat};
+use aatf::{NON_STAT_TARGETS, Ruleset, Stat};
 use pes_savefile::interchange::team_toml::labels::ABILITY_STATS;
 
 use crate::summary::human;
-
-/// The at-most targets that are no ability stat (the draft's
-/// `AT_MOST_EXTRA`).
-const AT_MOST_EXTRA: [&str; 4] = [
-    "form",
-    "injury_resistance",
-    "weak_foot_usage",
-    "weak_foot_accuracy",
-];
 
 /// Which checklist a row toggles.
 #[derive(Debug, Clone, Copy)]
@@ -48,7 +39,11 @@ pub(crate) fn show(ui: &mut egui::Ui, ruleset: &mut Ruleset) {
     ui.separator();
     ui.strong("May sit below the target");
     ui.weak("Every other stat must equal its target exactly.");
-    let all: Vec<&str> = ABILITY_STATS.iter().copied().chain(AT_MOST_EXTRA).collect();
+    let all: Vec<&str> = ABILITY_STATS
+        .iter()
+        .copied()
+        .chain(NON_STAT_TARGETS)
+        .collect();
     checklist(ui, ruleset, Checklist::AtMost, &all);
 }
 

@@ -149,7 +149,11 @@ impl Document {
             LogicIdentity::Current => Logic::Current,
             LogicIdentity::Official { version } => Logic::Older {
                 version,
-                section: sections.logic.unwrap_or_default(),
+                // An Official identity is read from the LOGIC banner's
+                // section, which `file_sections` therefore has.
+                section: sections
+                    .logic
+                    .expect("an Official identity is read from the LOGIC banner's section"),
             },
             LogicIdentity::Modified => Logic::Modified {
                 section: sections.logic.unwrap_or_default(),
@@ -260,12 +264,12 @@ impl Document {
 /// form 4, injury resistance 1, weak foot 2 and 2, 3 paid cards, 1 A
 /// position), no brackets, no specials, and the universal rules on.
 pub(crate) fn blank() -> Ruleset {
-    let official = &aatf::templates()[0].ruleset;
+    let official = aatf::Rules::official();
     Ruleset {
         schema: 1,
         name: "New ruleset".to_string(),
         squad_size: 23,
-        stats: official.stats.clone(),
+        stats: official.ruleset().stats.clone(),
         tiers: vec![Tier {
             id: "regular".to_string(),
             label: "Regular".to_string(),
@@ -344,34 +348,14 @@ pub(crate) fn write_text(path: &Path, text: &str) -> io::Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::test_support::scratch;
+    use crate::test_support::{
+        CUSTOM_CHECKS_STUB, modified_logic_file, scratch, valid_file, write_file,
+    };
 
-    /// The embedded official ruleset's text as an assembled file.
-    fn official_text() -> String {
-        assemble_file(Rules::official().ruleset(), None, None)
-    }
-
-    /// The same text with one logic comment edited: the file still loads,
-    /// its logic is `Modified`.
-    fn modified_text() -> String {
-        official_text().replacen(
-            "// The generic interpreter",
-            "// The interpreter, its comment edited",
-            1,
-        )
-    }
-
-    /// `text` written to `dir/name`; the path.
-    fn write_file(dir: &Path, name: &str, text: &str) -> PathBuf {
-        let path = dir.join(name);
-        fs::write(&path, text).unwrap();
-        path
-    }
-
-    /// `official_text()` as `test`'s `rules.rhai`, opened.
+    /// `valid_file()` as `test`'s `rules.rhai`, opened.
     fn open_official(test: &str) -> (PathBuf, Document) {
         let dir = scratch(test);
-        let path = write_file(&dir, "rules.rhai", &official_text());
+        let path = write_file(&dir, "rules.rhai", &valid_file());
         let document = Document::open(&path).expect("opens");
         (path, document)
     }
@@ -396,7 +380,7 @@ mod tests {
     #[test]
     fn open_marks_a_hand_edited_logic_as_modified() {
         let dir = scratch("open_modified");
-        let text = modified_text();
+        let text = modified_logic_file();
         let expected = file_sections(&text).logic.unwrap();
         let path = write_file(&dir, "rules.rhai", &text);
         let doc = Document::open(&path).expect("opens");
@@ -433,7 +417,7 @@ mod tests {
     #[test]
     fn a_bannerless_file_opens_but_cannot_be_saved() {
         let dir = scratch("bannerless");
-        let text = official_text().replacen(
+        let text = valid_file().replacen(
             "// ==== LOGIC (ruleset-logic 1): the Ruleset editor replaces this section ====\n",
             "",
             1,
@@ -478,7 +462,7 @@ mod tests {
         let checks = file_sections(&block)
             .custom_checks
             .expect("VTL11 has checks");
-        let current = file_sections(&official_text()).logic.unwrap();
+        let current = file_sections(&valid_file()).logic.unwrap();
         let modified = current.replacen(
             "// The generic interpreter",
             "// The interpreter, its comment edited",
@@ -516,8 +500,8 @@ mod tests {
     #[test]
     fn checks_inside_the_logic_are_refused_on_save() {
         let dir = scratch("checks_in_logic");
-        let stub = "// ==== CUSTOM CHECKS: optional, hand-written; the Ruleset editor keeps this section as it is ====\nfn custom_checks(team) { [] }";
-        let text = official_text();
+        let stub = CUSTOM_CHECKS_STUB;
+        let text = valid_file();
         assert!(text.contains(stub), "premise: the stub is appended");
         // VTL11's goalkeeper count, after the logic with no banner.
         let check = "fn custom_checks(team) {
@@ -731,7 +715,7 @@ mod tests {
         assert_eq!(blank.schema, 1);
         assert_eq!(blank.name, "New ruleset");
         assert_eq!(blank.squad_size, 23);
-        assert_eq!(blank.stats, aatf::templates()[0].ruleset.stats);
+        assert_eq!(blank.stats, Rules::official().ruleset().stats.clone());
         assert_eq!(blank.tiers.len(), 1);
         let tier = &blank.tiers[0];
         assert_eq!(tier.id, "regular");
@@ -751,6 +735,10 @@ mod tests {
         assert_eq!(tier.a_positions, 1);
         assert!(blank.heights.brackets.is_empty() && blank.heights.systems.is_empty());
         assert!(blank.specials.is_empty());
+        assert!(blank.card_groups.is_empty());
+        assert!(blank.medal_systems.is_empty());
+        assert!(blank.team_settings.is_empty());
+        assert!(blank.suggestions.is_empty());
         assert_eq!(
             blank.universal,
             Universal {
