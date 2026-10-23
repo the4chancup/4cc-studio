@@ -412,10 +412,9 @@ pub(crate) fn file_label(path: &Path) -> String {
         .unwrap_or_else(|| path.display().to_string())
 }
 
-/// The tool's settings as the table holds them now. A table that fails
-/// to read counts as the defaults: the start page then lists no recent
-/// files, and `remember_path` writes nothing rather than overwrite a
-/// table it cannot read.
+/// The tool's settings as the table holds them now; a table that fails
+/// to read counts as the defaults (the start page then lists no recent
+/// files).
 fn read_settings(ctx: &ToolContext) -> RulesetEditorSettings {
     settings::from_table(&ctx.tool_settings(TOOL_ID)).unwrap_or_default()
 }
@@ -556,12 +555,23 @@ fn menu_item(ui: &mut egui::Ui, enabled: bool, button: egui::Button) -> bool {
 
 /// One modal's scaffolding (the prompt's, the start page's and the
 /// dialogs' share it): shown under `egui::Id::unique(id)`, `body` drawn
-/// inside it and returning whether it asks to close; the return is
-/// whether the modal closes — the body's ask or a dismissal.
+/// inside a scrolling area and returning whether it asks to close; the
+/// return is whether the modal closes — the body's ask or a dismissal.
 pub(crate) fn modal(ui: &mut egui::Ui, id: &str, body: impl FnOnce(&mut egui::Ui) -> bool) -> bool {
     let mut close = false;
     let response = egui::Modal::new(egui::Id::unique(id)).show(ui.ctx(), |ui| {
-        close = body(ui);
+        // The bound keeps the modal on the screen: an `Area` taller
+        // than it is centered with both ends off it, so an unbounded
+        // body's first and last rows are unreachable (a start page's
+        // recent files, a long findings list). `Frame::popup` is the
+        // modal's default frame; its margins and stroke are the
+        // frame's part of the modal's height.
+        egui::ScrollArea::vertical()
+            .max_height(
+                ui.ctx().content_rect().height()
+                    - egui::Frame::popup(ui.style()).total_margin().sum().y,
+            )
+            .show(ui, |ui| close = body(ui));
     });
     close || response.should_close()
 }

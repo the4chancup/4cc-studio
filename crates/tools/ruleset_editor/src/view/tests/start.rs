@@ -279,3 +279,59 @@ fn a_template_pick_clears_the_refused_open_lines() {
         "the refusal is gone"
     );
 }
+
+// `window_size`'s smallest default is 1037 × 648; the start page as a
+// modal with ten recent files is ~615 points tall — inside it, but
+// over a window the member resized shorter (the shell sets no
+// minimum). A vertical scroll over the modal then brings its Close
+// back in reach. The window here is the smallest default's width,
+// resized shorter.
+#[test]
+fn the_start_modal_scrolls_when_it_outgrows_the_screen() {
+    let dir = crate::test_support::scratch("start_modal_scroll");
+    // Ten existing recent files: only those that exist are listed.
+    let recent: Vec<String> = (0..10)
+        .map(|index| {
+            write_file(&dir, &format!("recent_{index}.rhai"), &valid_file())
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    let (ctx, _events) = crate::test_support::context();
+    seed_settings(&ctx, &dir, recent);
+    let mut window = Headless::sized(1037.0, 500.0);
+    let mut view = RulesetView::new();
+    blank_dirty(&mut view);
+    open_start_modal(&mut window, &mut view, &ctx);
+
+    // Premise: the modal's content is taller than the screen — Close
+    // sits below its bottom edge until scrolled to.
+    let frame = window.draw(&mut view, &ctx);
+    let close = node(&frame.nodes, "Close");
+    let over_x = centre(close).x;
+    let last_recent = node(&frame.nodes, "recent_9.rhai");
+    assert!(
+        close.bounds().expect("drawn").y1 > 500.0
+            || last_recent.bounds().expect("drawn").y1 > 500.0,
+        "premise: the modal is taller than the screen (Close {:?}, last recent file {:?})",
+        close.bounds(),
+        last_recent.bounds()
+    );
+
+    // A vertical wheel scroll over the modal brings Close inside the
+    // screen.
+    let frame = scroll_until(
+        &mut window,
+        &mut view,
+        &ctx,
+        egui::pos2(over_x, 300.0),
+        egui::vec2(0.0, -80.0),
+        |frame| node(&frame.nodes, "Close").bounds().expect("drawn").y1 <= 500.0,
+    )
+    .expect("a scroll brought Close inside the screen");
+
+    click(&mut window, node(&frame.nodes, "Close"), &mut view, &ctx);
+    assert!(!view.start_open, "Close put the start page away");
+    assert_name(&view, "Edited");
+    assert!(view.document.as_ref().unwrap().is_dirty());
+}

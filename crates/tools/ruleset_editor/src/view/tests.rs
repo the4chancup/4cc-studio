@@ -220,11 +220,13 @@ fn ctrl_key(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext, pr
     });
 }
 
-/// The node labeled (or valued) `label`.
+/// The topmost node labeled (or valued) `label`: a label can repeat —
+/// a modal's "Save" shares it with the bottom bar's behind the
+/// backdrop — and the centred modal's is always the higher one.
 fn node<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
-    nodes
-        .iter()
-        .find(|node| node.label() == Some(label) || node.value() == Some(label))
+    nodes_labeled(nodes, label)
+        .into_iter()
+        .next()
         .unwrap_or_else(|| panic!("no node labeled {label:?}"))
 }
 
@@ -303,9 +305,79 @@ fn contains_label(nodes: &[accesskit::Node], fragment: &str) -> bool {
 /// `view`'s Save as dialog stubbed to return `path`, then File's "Save
 /// as…" clicked (a real dialog cannot be clicked headless).
 fn save_as_via_menu(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext, path: &Path) {
-    let picked = path.to_path_buf();
-    view.save_as_dialog = Box::new(move |_, _| Some(picked.clone()));
+    view.save_as_dialog = save_as_picking(path.to_path_buf());
     menu_click(window, view, ctx, "File", "Save as…");
+}
+
+/// The Save as dialog stub returning `path`.
+fn save_as_picking(path: PathBuf) -> SaveDialog {
+    Box::new(move |_, _| Some(path.clone()))
+}
+
+/// The Open dialog stub asserting it was started in `expected_start`,
+/// then returning `picked`.
+fn open_picking(expected_start: PathBuf, picked: PathBuf) -> FilePicker {
+    Box::new(move |start| {
+        assert_eq!(
+            start,
+            expected_start.as_path(),
+            "the Open dialog starts in the expected folder"
+        );
+        Some(picked.clone())
+    })
+}
+
+/// `view` with Blank opened and renamed "Edited": a never-saved, dirty
+/// document.
+fn blank_dirty(view: &mut RulesetView) {
+    open_document(view, crate::document::blank());
+    edit_ruleset(view, |ruleset| ruleset.name = "Edited".to_string());
+}
+
+/// The tool's settings seeded through the typed projection (the file.rs
+/// settings tests seed raw tables on purpose).
+fn seed_settings(ctx: &ToolContext, last_folder: &Path, recent_files: Vec<String>) {
+    ctx.set_tool_settings(
+        crate::messages::TOOL_ID,
+        crate::settings::RulesetEditorSettings {
+            last_folder: last_folder.to_string_lossy().into_owned(),
+            recent_files,
+        }
+        .to_table(),
+    );
+}
+
+/// Up to 20 frames of a wheel scroll by `delta` with the pointer at `at`
+/// (over the area to scroll: the wheel lands on the layer under the
+/// pointer), until `done` holds for a frame; that frame, or `None` when
+/// the scroll never got there.
+fn scroll_until(
+    window: &mut Headless,
+    view: &mut RulesetView,
+    ctx: &ToolContext,
+    at: egui::Pos2,
+    delta: egui::Vec2,
+    done: impl Fn(&Frame) -> bool,
+) -> Option<Frame> {
+    for _ in 0..20 {
+        let frame = window.frame(
+            vec![
+                egui::Event::PointerMoved(at),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta,
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Trackpad,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            |ui| show(ui, view, ctx),
+        );
+        if done(&frame) {
+            return Some(frame);
+        }
+    }
+    None
 }
 
 /// `path`'s bytes are `before` still (a write left it alone).

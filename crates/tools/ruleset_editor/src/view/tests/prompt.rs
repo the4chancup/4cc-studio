@@ -126,10 +126,7 @@ fn a_window_close_prompts_and_each_answer_does_what_it_says() {
 
     // Cancel keeps everything: the document as it was, no close asked.
     let mut tool = crate::Tool::new();
-    open_document(&mut tool.view, crate::document::blank());
-    edit_ruleset(&mut tool.view, |ruleset| {
-        ruleset.name = "Edited".to_string()
-    });
+    blank_dirty(&mut tool.view);
     assert!(StudioTool::hold_close(&mut tool), "the close is held");
     let frame = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     click_labeled_tool(&mut window, &frame.nodes, "Cancel", &mut tool, &ctx);
@@ -163,12 +160,9 @@ fn a_window_close_prompts_and_each_answer_does_what_it_says() {
     // Save writes it first (Save as for a never-saved document) and
     // goes on.
     let mut tool = crate::Tool::new();
-    open_document(&mut tool.view, crate::document::blank());
-    edit_ruleset(&mut tool.view, |ruleset| {
-        ruleset.name = "Edited".to_string()
-    });
+    blank_dirty(&mut tool.view);
     let saved = dir.join("kept.rhai");
-    tool.view.save_as_dialog = Box::new(move |_, _| Some(saved.clone()));
+    tool.view.save_as_dialog = save_as_picking(saved);
     assert!(StudioTool::hold_close(&mut tool));
     let frame = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     click_labeled_tool(&mut window, &frame.nodes, "Save", &mut tool, &ctx);
@@ -222,10 +216,7 @@ fn a_save_the_member_cancels_keeps_the_prompt_and_the_document() {
     // asked.
     let (ctx, _events, requests) = crate::test_support::context_requests();
     let mut tool = crate::Tool::new();
-    open_document(&mut tool.view, crate::document::blank());
-    edit_ruleset(&mut tool.view, |ruleset| {
-        ruleset.name = "Edited".to_string()
-    });
+    blank_dirty(&mut tool.view);
     tool.view.save_as_dialog = Box::new(|_, _| None);
     assert!(StudioTool::hold_close(&mut tool), "the close is held");
     let frame = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
@@ -276,23 +267,8 @@ fn an_open_prompts_and_each_answer_does_what_it_says() {
     // argument is the settings', not the fixture's.
     let mut view = dirty_view(&ctx, &dir);
     let start_dir = crate::test_support::scratch("prompt_open_start");
-    ctx.set_tool_settings(
-        crate::messages::TOOL_ID,
-        crate::settings::RulesetEditorSettings {
-            last_folder: start_dir.to_string_lossy().into_owned(),
-            recent_files: Vec::new(),
-        }
-        .to_table(),
-    );
-    let picked = other.clone();
-    view.open_dialog = Box::new(move |start| {
-        assert_eq!(
-            start,
-            start_dir.as_path(),
-            "the Open dialog starts in the settings' last_folder"
-        );
-        Some(picked.clone())
-    });
+    seed_settings(&ctx, &start_dir, Vec::new());
+    view.open_dialog = open_picking(start_dir, other.clone());
     menu_pick(&mut window, &mut view, &ctx, "File", "Open…");
     answer(&mut window, &mut view, &ctx, "Discard");
     assert_eq!(
@@ -328,33 +304,16 @@ fn the_open_after_the_prompts_save_starts_in_the_folder_it_chose() {
     let (dir_a, ctx, mut window) = prompt_setup("prompt_save_start_a");
     let dir_b = crate::test_support::scratch("prompt_save_start_b");
     let other = write_file(&dir_b, "other.rhai", &valid_file());
-    ctx.set_tool_settings(
-        crate::messages::TOOL_ID,
-        crate::settings::RulesetEditorSettings {
-            last_folder: dir_b.to_string_lossy().into_owned(),
-            recent_files: Vec::new(),
-        }
-        .to_table(),
-    );
+    seed_settings(&ctx, &dir_b, Vec::new());
 
     // A never-saved document with an edit; File > Open… prompts, the
     // prompt's Save writes to folder A through the stubbed dialog, and
     // the Open that follows starts there.
     let mut view = RulesetView::new();
-    open_document(&mut view, crate::document::blank());
-    edit_ruleset(&mut view, |ruleset| ruleset.name = "Edited".to_string());
+    blank_dirty(&mut view);
     let saved = dir_a.join("new.rhai");
-    view.save_as_dialog = Box::new(move |_, _| Some(saved.clone()));
-    let folder_a = dir_a.clone();
-    let picked = other.clone();
-    view.open_dialog = Box::new(move |start| {
-        assert_eq!(
-            start,
-            folder_a.as_path(),
-            "the Open dialog starts in the folder the prompt's save chose"
-        );
-        Some(picked.clone())
-    });
+    view.save_as_dialog = save_as_picking(saved);
+    view.open_dialog = open_picking(dir_a, other);
     menu_pick(&mut window, &mut view, &ctx, "File", "Open…");
     answer(&mut window, &mut view, &ctx, "Save");
     assert_name(&view, "Autumn 26");
@@ -494,13 +453,10 @@ fn a_recent_file_pick_prompts_and_each_answer_does_what_it_says() {
     // The recent file the list offers, seeded first; each leg's open of
     // `edited.rhai` then adds its own entry above it.
     let other = write_file(&dir, "other.rhai", &valid_file());
-    ctx.set_tool_settings(
-        crate::messages::TOOL_ID,
-        crate::settings::RulesetEditorSettings {
-            last_folder: String::new(),
-            recent_files: vec![other.to_string_lossy().into_owned()],
-        }
-        .to_table(),
+    seed_settings(
+        &ctx,
+        Path::new(""),
+        vec![other.to_string_lossy().into_owned()],
     );
 
     pick_answers(&mut window, &ctx, &dir, "other.rhai", "Autumn 26");

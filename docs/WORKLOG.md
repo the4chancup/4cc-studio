@@ -1977,7 +1977,12 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
       (the preview narrowed General's checklists past reach), RE-GUI-02's Save as through the
       File menu and an already-saved document's Save as leaving the original, the Open after
       the prompt's save starting in the folder that save chose, a settings key this version
-      does not know kept on write. Open: the SWE-2 loop after Astra
+      does not know kept on write; `mutants-diff 5f3910c6`: 32 caught, the 2 missed (the
+      native window's options) got a test. Rework 5, 2026-10-24 (SWE-2 round 3 after Astra, 3
+      of 3 accepted; the loop ends): the modals scroll, so a long findings list or a window
+      resized shorter keeps every row reachable; the tests' repeated settings seed, dialog
+      stubs and dirty-document setup one helper each. 20.6a1's reviews are done; open: its
+      `mutants-diff b8ed279f`
     - 20.6a2 Tiers with the medal systems, Cards, Universal rules with the team settings,
       Suggestions (RE-GUI-03 to 06, 08, RE-FILE-04, 06)
   - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12)
@@ -2032,7 +2037,12 @@ points there.
   a pair. `AGENTS.md` and CONTRIBUTING "Code style" say both. State: (1) done, the rulings in
   `.tmp/dup_audit/rulings.md` (group IDs `A-F<n>` to `E-F<n>`, the lead's own `C-L<n>`; keep
   that file until (2) ends); (2) the first brief, `aatf` and the Ruleset editor's summary,
-  `.tmp/dup_audit/brief_rework_aatf.md`, runs after 8.11; reworks touching `fmdl` or
+  `.tmp/dup_audit/brief_rework_aatf.md`, done 2026-10-23 (SWE-2; `aatf`'s source clusters 30
+  to 21, the summary's 7 to 5; one `push`, `check_empty`, `check_unique`, `id_known` and
+  `check_id` in the checker, `push_set` and `push_some` in the writer, the new `pub`
+  `PlayerValue::key` spelling a `ranges` key once for the writer, the reader and the
+  summary; the writer's bytes and the summary goldens unchanged), its review and
+  `mutants-diff` next, then the other crates' briefs; reworks touching `fmdl` or
   `pes_model` also run `just bindings`, and the first of them adds each mirrored file's header
   naming its twin (`spec/libs/format_crates.md`, "`ops/` are format-native transformations":
   the two `ops/split/build.rs`, `ops/split/combine.rs`, `ops/vertex_enc.rs`, `check.rs`, and

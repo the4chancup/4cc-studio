@@ -328,34 +328,22 @@ fn the_form_scrolls_sideways_to_its_rightmost_checkbox() {
         "premise: the rightmost checkbox starts past the panel's right edge ({bounds:?} vs x={right})"
     );
 
-    // A horizontal wheel scroll over the form (the pointer moved into
-    // the panel first, the wheel only lands on the area under it).
-    let mut frame = frame;
-    let mut inside = false;
-    for _ in 0..20 {
-        frame = window.frame(
-            vec![
-                egui::Event::PointerMoved(egui::pos2(300.0, 300.0)),
-                egui::Event::MouseWheel {
-                    unit: egui::MouseWheelUnit::Point,
-                    delta: egui::vec2(-80.0, 0.0),
-                    phase: egui::TouchPhase::Move,
-                    source: egui::MouseWheelSource::Trackpad,
-                    modifiers: egui::Modifiers::NONE,
-                },
-            ],
-            |ui| show(ui, &mut view, &ctx),
-        );
-        inside = nodes_labeled(&frame.nodes, &label)[0]
-            .bounds()
-            .expect("the checkbox is drawn")
-            .x1
-            <= right;
-        if inside {
-            break;
-        }
-    }
-    assert!(inside, "a horizontal scroll brought the checkbox inside");
+    // A horizontal wheel scroll over the form.
+    let frame = scroll_until(
+        &mut window,
+        &mut view,
+        &ctx,
+        egui::pos2(300.0, 300.0),
+        egui::vec2(-80.0, 0.0),
+        |frame| {
+            nodes_labeled(&frame.nodes, &label)[0]
+                .bounds()
+                .expect("the checkbox is drawn")
+                .x1
+                <= right
+        },
+    )
+    .expect("a horizontal scroll brought the checkbox inside");
 
     let was_rated = rating(&view).iter().any(|name| name == ABILITY_STATS[4]);
     click(
