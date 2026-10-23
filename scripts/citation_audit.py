@@ -16,8 +16,9 @@ second run pays only for changed pairs. A flag is ruled like a reviewer concern 
 goes into scripts/citation_rulings.md; the key hashes the state, so a ruled pair is not raised
 again until its scenario, test or helpers change. The report is snap.out/citations.md.
 
-The key: `SUBQ_API_KEY`, else the first line of the file `STUDIO_SNAP_KEY_FILE` names (read
-from the user's registry environment too on Windows), outside the repository.
+The keys: `SUBQ_API_KEY`, then each line of the file `STUDIO_SNAP_KEY_FILE` names (both read
+from the user's registry environment too on Windows), outside the repository, spent in that
+order: a key the service refuses is left for the next (`Keys`).
 
 Usage: citation_audit.py
 """
@@ -27,6 +28,7 @@ import json
 import os
 import re
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -171,19 +173,51 @@ def env(name: str) -> str | None:
     return value or None
 
 
-def api_key() -> str:
+def api_keys() -> list[str]:
+    keys = []
     if key := env("SUBQ_API_KEY"):
-        return key
+        keys.append(key)
     if path := env("STUDIO_SNAP_KEY_FILE"):
         lines = [line.strip() for line in Path(path).read_text(encoding="utf-8").splitlines()]
-        if found := next((line for line in lines if line and not line.startswith("#")), None):
-            return found
-    raise AuditError("no key: set SUBQ_API_KEY or STUDIO_SNAP_KEY_FILE")
+        keys += [line for line in lines if line and not line.startswith("#") and line not in keys]
+    if not keys:
+        raise AuditError("no key: set SUBQ_API_KEY or STUDIO_SNAP_KEY_FILE")
+    return keys
 
 
-def ask(key: str, text: str) -> float:
+class Keys:
+    """The keys in the order they are spent: a key the service refuses (401-403), or keeps
+    rate-limiting past the retries, is left for the next one for the rest of the run. The
+    service's word for a spent key is not documented, so every refusal counts as one; the
+    last key's refusal is the run's error."""
+
+    # Refused as a key, not as a request: another key may be accepted.
+    SPENT = (401, 402, 403, 429)
+
+    def __init__(self, keys: list[str]):
+        self.keys = keys
+        self.index = 0
+        self.lock = threading.Lock()
+
+    def current(self) -> tuple[int, str]:
+        with self.lock:
+            return self.index, self.keys[self.index]
+
+    def spend(self, index: int) -> bool:
+        """Leaves key `index` behind; false when no key follows it. A thread whose request
+        raced another's switch moves to the key already current."""
+        with self.lock:
+            if index == self.index and self.index + 1 < len(self.keys):
+                self.index += 1
+                print(f"citation audit: key {index + 1} refused, using key {self.index + 1}", file=sys.stderr)
+            return self.index > index
+
+
+def ask(keys: Keys, text: str) -> float:
     body = json.dumps({"model": MODEL, "state": text, "questions": QUESTION}).encode("utf-8")
-    for attempt in range(4):
+    attempt = 0
+    while True:
+        index, key = keys.current()
         request = urllib.request.Request(
             URL, data=body, method="POST",
             headers={"Content-Type": "application/json", "Authorization": f"Bearer {key}"},
@@ -194,15 +228,19 @@ def ask(key: str, text: str) -> float:
         except urllib.error.HTTPError as error:
             detail = error.read().decode("utf-8", "replace")[:300]
             if error.code in (429, 500, 502, 503) and attempt < 3:
-                time.sleep(2 * (attempt + 1))
+                attempt += 1
+                time.sleep(2 * attempt)
+                continue
+            if error.code in Keys.SPENT and keys.spend(index):
+                attempt = 0
                 continue
             raise AuditError(f"HTTP {error.code}: {detail}".replace(key, "<key>")) from None
         except urllib.error.URLError as error:
             if attempt < 3:
-                time.sleep(2 * (attempt + 1))
+                attempt += 1
+                time.sleep(2 * attempt)
                 continue
             raise AuditError(f"network: {error.reason}") from None
-    raise AuditError("unreachable")
 
 
 def cache_key(text: str) -> str:
@@ -245,9 +283,9 @@ def main() -> int:
     cache = json.loads(cache_path.read_text(encoding="utf-8")) if cache_path.exists() else {}
     todo = [pair for pair in found if cache_key(pair.state) not in cache]
     if todo:
-        key = api_key()
+        keys = Keys(api_keys())
         with ThreadPoolExecutor(max_workers=4) as pool:
-            for pair, score in zip(todo, pool.map(lambda pair: ask(key, pair.state), todo)):
+            for pair, score in zip(todo, pool.map(lambda pair: ask(keys, pair.state), todo)):
                 cache[cache_key(pair.state)] = score
         temporary = cache_path.with_suffix(".tmp")
         temporary.write_text(json.dumps(cache, indent=0), encoding="utf-8")

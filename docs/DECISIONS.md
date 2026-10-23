@@ -10322,3 +10322,14 @@ that looks like the game's needs no translating. One look for every version rath
 game, because the look is the editor's, not data the version gates, and one reproduction is
 what can be made exact.
 Plan: `plans/save_editor.md` "Tactics editor" (the pitch's look); worklog 8.9g.
+
+## 2026-10-23 — scripts — the citation audit spends its keys in order, the next when one is refused
+Decision: `citation_audit.py` reads every key line of `STUDIO_SNAP_KEY_FILE` (after
+`SUBQ_API_KEY`) and, when the service refuses the current key (HTTP 401-403, or a 429 still
+returned after the retries), moves to the next for the rest of the run; the last key's refusal
+is the run's error, the key never printed.
+Why: the maintainer added a second SubQ key, to be used once the first runs out. The service's
+answer to a spent key is not documented, so any refusal counts, rather than one code that might
+be the wrong one and leave the run failing on a usable second key; a request error (400) does
+not switch, since another key would fail it too.
+Plan: `CONTRIBUTING.md` "Citation audit".

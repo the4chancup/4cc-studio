@@ -305,7 +305,8 @@ Requirements:
   under 0.3. Every cited scenario had a test above 0.5, so a flag says a test checks an
   unstated case, never that a scenario is unproven. It runs at a phase's close (the
   design-health pass), never as a gate: it needs the network and a key, read from
-  `SUBQ_API_KEY` or the file `STUDIO_SNAP_KEY_FILE` names, outside the repository. The lead
+  `SUBQ_API_KEY` or the file `STUDIO_SNAP_KEY_FILE` names, outside the repository (one key
+  a line, spent in order: a key the service refuses is left for the next). The lead
   runs it and rules each flag like a reviewer concern, its row (the report prints it) going
   into `scripts/citation_rulings.md`: accepted, the scenario is widened, a scenario is added,
   or the test's citation moves to the scenario it proves; rejected, with a one-line reason.

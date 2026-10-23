@@ -1,10 +1,15 @@
 """Tests of scripts/citation_audit.py's offline parts (no request is sent); `just acceptance`
 runs them."""
 
+import io
+import json
 import unittest
+import urllib.error
+from unittest import mock
 
 from acceptance import Scan, scan_plan, scan_source
-from citation_audit import RULING_ROW, THRESHOLD, Pair, cited_test, pairs, report, ruled_keys, scenario_text, state
+from citation_audit import (RULING_ROW, THRESHOLD, AuditError, Keys, Pair, ask, cited_test, pairs, report,
+                            ruled_keys, scenario_text, state)
 
 PLAN = """# Tool
 
@@ -108,6 +113,46 @@ class ReportTests(unittest.TestCase):
         rows = "| Key | Verdict |\n|---|---|\n| 0123456789abcdef | rejected | 2026-10-17 | TC-KIT-01 | a | 0.10 | why |\n"
         self.assertEqual(ruled_keys(rows), {"0123456789abcdef"})
         self.assertIsNone(RULING_ROW.match("| 0123 | rejected |"))
+
+
+class KeyTests(unittest.TestCase):
+    """`ask` against a stand-in service (`urlopen` replaced): no request leaves the machine."""
+
+    def serve(self, refused: dict[str, int]):
+        sent = []
+
+        def urlopen(request, timeout):
+            key = request.get_header("Authorization").removeprefix("Bearer ")
+            sent.append(key)
+            if key in refused:
+                raise urllib.error.HTTPError(request.full_url, refused[key], "refused", {}, io.BytesIO(b"{}"))
+            return io.BytesIO(json.dumps({"answers": {"proves": {"noul": 0.75}}}).encode("utf-8"))
+
+        patcher = mock.patch("urllib.request.urlopen", urlopen)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        return sent
+
+    def test_a_refused_key_is_left_for_the_next_for_the_rest_of_the_run(self):
+        sent = self.serve({"first": 402})
+        keys = Keys(["first", "second"])
+        self.assertEqual(ask(keys, "state"), 0.75)
+        self.assertEqual(ask(keys, "state"), 0.75)
+        self.assertEqual(sent, ["first", "second", "second"])
+
+    def test_the_last_keys_refusal_is_the_runs_error(self):
+        sent = self.serve({"first": 403, "second": 401})
+        with self.assertRaises(AuditError) as raised:
+            ask(Keys(["first", "second"]), "state")
+        self.assertEqual(sent, ["first", "second"])
+        self.assertIn("HTTP 401", str(raised.exception))
+        self.assertNotIn("second", str(raised.exception), "the key is never printed")
+
+    def test_a_request_error_is_not_a_spent_key(self):
+        sent = self.serve({"first": 400})
+        with self.assertRaises(AuditError):
+            ask(Keys(["first", "second"]), "state")
+        self.assertEqual(sent, ["first"])
 
 
 if __name__ == "__main__":
