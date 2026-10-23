@@ -3,10 +3,12 @@
 
 use aatf::Ruleset;
 
+use super::Section;
+
 /// The Summary form: the rules text in monospace, and the **Copy**
 /// button (`ui.ctx().copy_text`, for posting the rules).
 pub(crate) fn show(ui: &mut egui::Ui, ruleset: &Ruleset) {
-    ui.heading("Summary");
+    ui.heading(Section::Summary.label());
     let text = crate::summary::summary(ruleset);
     ui.horizontal(|ui| {
         if ui

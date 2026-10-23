@@ -93,6 +93,7 @@ fn pick_answers(window: &mut Headless, ctx: &ToolContext, dir: &Path, label: &st
     assert_name(&view, "Edited");
     assert!(view.document.as_ref().unwrap().is_dirty());
     assert!(view.pending_action.is_none(), "Cancel kept everything");
+    assert!(view.start_open, "Cancel keeps the start page up");
     let view = answered_start(window, ctx, dir, label, "Discard");
     assert_name(&view, name);
     assert!(!view.start_open, "Discard went on past the start page");
@@ -181,6 +182,74 @@ fn a_window_close_prompts_and_each_answer_does_what_it_says() {
 
 // RE-GUI-15
 #[test]
+fn a_save_the_member_cancels_keeps_the_prompt_and_the_document() {
+    let dir = crate::test_support::scratch("prompt_save_cancelled");
+    let other = write_file(&dir, "other.rhai", &valid_file());
+
+    // File > Open… on a dirty, never-saved document, the member
+    // cancelling the Save as dialog: the prompt stays up, the document
+    // kept and dirty.
+    let (ctx, _events, mut window, mut view) = fresh_blank();
+    click_drawn_nth(&mut window, &mut view, &ctx, "Attacking Prowess", 1);
+    // The member cancels the Save as dialog; the suggested name is the
+    // ruleset's name slugged.
+    view.save_as_dialog = Box::new(|_, suggested| {
+        assert_eq!(
+            suggested, "new_ruleset.rhai",
+            "Save as suggests the ruleset's name slugged"
+        );
+        None
+    });
+    view.open_dialog = Box::new(move |_| Some(other.clone()));
+    menu_click(&mut window, &mut view, &ctx, "File", "Open…");
+    window.draw(&mut view, &ctx);
+    assert!(view.pending_action.is_some(), "the dirty document prompts");
+    let frame = window.draw(&mut view, &ctx);
+    assert!(drawn(&frame.nodes, "Save changes to New ruleset?"));
+    click_labeled(&mut window, &frame.nodes, "Save", &mut view, &ctx);
+    assert!(
+        view.pending_action.is_some(),
+        "a save that did not happen keeps the prompt"
+    );
+    let document = view.document.as_ref().expect("the document kept");
+    assert_eq!(
+        document.ruleset.name, "New ruleset",
+        "the open went nowhere"
+    );
+    assert!(document.is_dirty(), "still dirty");
+
+    // The same behind the window's close: the prompt stays, no close is
+    // asked.
+    let (ctx, _events, requests) = crate::test_support::context_requests();
+    let mut tool = crate::Tool::new();
+    open_document(&mut tool.view, crate::document::blank());
+    edit_ruleset(&mut tool.view, |ruleset| {
+        ruleset.name = "Edited".to_string()
+    });
+    tool.view.save_as_dialog = Box::new(|_, _| None);
+    assert!(StudioTool::hold_close(&mut tool), "the close is held");
+    let frame = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    click_labeled_tool(&mut window, &frame.nodes, "Save", &mut tool, &ctx);
+    assert!(
+        tool.view.pending_action.is_some(),
+        "a save that did not happen keeps the prompt"
+    );
+    assert!(
+        tool.view
+            .document
+            .as_ref()
+            .expect("the document kept")
+            .is_dirty(),
+        "still dirty"
+    );
+    assert!(
+        requests.try_recv().is_err(),
+        "no close is asked while the prompt stays"
+    );
+}
+
+// RE-GUI-15
+#[test]
 fn an_open_prompts_and_each_answer_does_what_it_says() {
     let (dir, ctx, mut window) = prompt_setup("prompt_open");
     let other = write_file(&dir, "other.rhai", &valid_file());
@@ -201,18 +270,31 @@ fn an_open_prompts_and_each_answer_does_what_it_says() {
     assert!(view.document.as_ref().unwrap().is_dirty());
     assert!(view.pending_action.is_none(), "Cancel kept everything");
 
-    // Discard goes on: the file dialog follows and the file opens.
-    let view = answered(
-        &mut window,
-        &ctx,
-        &dir,
-        |w, v, c| {
-            let picked = other.clone();
-            v.open_dialog = Box::new(move |_| Some(picked.clone()));
-            menu_pick(w, v, c, "File", "Open…");
-        },
-        "Discard",
+    // Discard goes on: the file dialog follows and the file opens. The
+    // dialog starts in the settings' `last_folder` — opening
+    // `edited.rhai` set it to `dir`, so a different folder proves the
+    // argument is the settings', not the fixture's.
+    let mut view = dirty_view(&ctx, &dir);
+    let start_dir = crate::test_support::scratch("prompt_open_start");
+    ctx.set_tool_settings(
+        crate::messages::TOOL_ID,
+        crate::settings::RulesetEditorSettings {
+            last_folder: start_dir.to_string_lossy().into_owned(),
+            recent_files: Vec::new(),
+        }
+        .to_table(),
     );
+    let picked = other.clone();
+    view.open_dialog = Box::new(move |start| {
+        assert_eq!(
+            start,
+            start_dir.as_path(),
+            "the Open dialog starts in the settings' last_folder"
+        );
+        Some(picked.clone())
+    });
+    menu_pick(&mut window, &mut view, &ctx, "File", "Open…");
+    answer(&mut window, &mut view, &ctx, "Discard");
     assert_eq!(
         view.document.as_ref().expect("opened").ruleset.name,
         "Autumn 26",
@@ -274,12 +356,31 @@ fn new_from_template_is_unguarded_but_a_pick_in_it_prompts() {
     assert!(view.document.as_ref().unwrap().is_dirty());
 }
 
+/// The document unchanged behind the modal (the undo entry kept,
+/// dirty, nothing written): what dead Ctrl+Z/Y/S leave behind.
+fn assert_keys_went_nowhere(view: &RulesetView, file: &Path, before: &[u8]) {
+    let document = view.document.as_ref().unwrap();
+    assert!(
+        !document
+            .ruleset
+            .stats
+            .at_most
+            .iter()
+            .any(|name| name == "attacking_prowess"),
+        "the document is unchanged: no undo, no redo"
+    );
+    assert!(document.can_undo(), "the undo entry is still there");
+    assert!(document.is_dirty(), "and still dirty");
+    assert_eq!(std::fs::read(file).unwrap(), before, "Ctrl+S wrote nothing");
+}
+
 // RE-GUI-15
 #[test]
 fn the_keyboard_shortcuts_do_not_act_behind_the_prompt() {
     let (dir, ctx, mut window) = prompt_setup("keys_modal");
     let mut view = dirty_view(&ctx, &dir);
-    let before = std::fs::read(dir.join("edited.rhai")).unwrap();
+    let file = dir.join("edited.rhai");
+    let before = std::fs::read(&file).unwrap();
     // One recorded edit, so an undo would have something to take back.
     click_drawn_nth(&mut window, &mut view, &ctx, "Attacking Prowess", 1);
     assert!(
@@ -299,30 +400,51 @@ fn the_keyboard_shortcuts_do_not_act_behind_the_prompt() {
     );
     menu_pick(&mut window, &mut view, &ctx, "File", "Open…");
     // Ctrl+Z, Ctrl+Y and Ctrl+S are all dead while the prompt is up.
-    for event in [
-        key(egui::Key::Z, egui::Modifiers::CTRL),
-        key(egui::Key::Y, egui::Modifiers::CTRL),
-        key(egui::Key::S, egui::Modifiers::CTRL),
-    ] {
-        window.frame(vec![event], |ui| show(ui, &mut view, &ctx));
+    for pressed in [egui::Key::Z, egui::Key::Y, egui::Key::S] {
+        ctrl_key(&mut window, &mut view, &ctx, pressed);
     }
-    let document = view.document.as_ref().unwrap();
+    assert_keys_went_nowhere(&view, &file, &before);
+}
+
+// RE-GUI-15
+#[test]
+fn the_keyboard_shortcuts_do_not_act_behind_the_start_page_or_a_dialog() {
+    let (dir, ctx, mut window) = prompt_setup("keys_modals");
+    let mut view = dirty_view(&ctx, &dir);
+    let file = dir.join("edited.rhai");
+    let before = std::fs::read(&file).unwrap();
+    // One recorded edit, so an undo would have something to take back.
+    click_drawn_nth(&mut window, &mut view, &ctx, "Attacking Prowess", 1);
     assert!(
-        !document
-            .ruleset
-            .stats
-            .at_most
-            .iter()
-            .any(|name| name == "attacking_prowess"),
-        "the document is unchanged: no undo, no redo"
+        view.document.as_ref().unwrap().can_undo(),
+        "premise: an undoable edit"
     );
-    assert!(document.can_undo(), "the undo entry is still there");
-    assert!(document.is_dirty(), "and still dirty");
-    assert_eq!(
-        std::fs::read(dir.join("edited.rhai")).unwrap(),
-        before,
-        "Ctrl+S wrote nothing"
+
+    // Behind the modal start page (File's "New from template…").
+    open_start_modal(&mut window, &mut view, &ctx);
+    for pressed in [egui::Key::Z, egui::Key::Y, egui::Key::S] {
+        ctrl_key(&mut window, &mut view, &ctx, pressed);
+    }
+    assert_keys_went_nowhere(&view, &file, &before);
+
+    // Behind a refused open's dialog.
+    let frame = window.draw(&mut view, &ctx);
+    click_labeled(&mut window, &frame.nodes, "Close", &mut view, &ctx);
+    assert!(!view.start_open, "the start page is away");
+    let broken = write_file(
+        &dir,
+        "broken.rhai",
+        &crate::test_support::parse_error_file(),
     );
+    open_path(&mut view, &ctx, &broken);
+    assert!(
+        matches!(view.dialog, Some(Dialog::OpenRefused { .. })),
+        "premise: the refusal dialog is up"
+    );
+    for pressed in [egui::Key::Z, egui::Key::Y, egui::Key::S] {
+        ctrl_key(&mut window, &mut view, &ctx, pressed);
+    }
+    assert_keys_went_nowhere(&view, &file, &before);
 }
 
 // RE-GUI-15

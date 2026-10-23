@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use studio_core::ToolContext;
 
 use crate::settings::RulesetEditorSettings;
-use crate::view::{RulesetView, run, save_now};
+use crate::view::{RulesetView, modal, run, save_now};
 
 /// What the prompt does once answered.
 #[derive(Debug)]
@@ -50,7 +50,10 @@ pub(crate) fn show(
         return;
     }
     let mut answer = None;
-    let response = egui::Modal::new(egui::Id::unique("ruleset_unsaved")).show(ui.ctx(), |ui| {
+    // The body returns false: a clicked answer decides below what
+    // happens, and only a dismissal (Esc, the backdrop) counts as
+    // Cancel.
+    let dismissed = modal(ui, "ruleset_unsaved", |ui| {
         let name = view
             .document
             .as_ref()
@@ -68,8 +71,9 @@ pub(crate) fn show(
                 answer = Some(Answer::Cancel);
             }
         });
+        false
     });
-    if response.should_close() {
+    if dismissed {
         answer = Some(Answer::Cancel);
     }
     // A refused or cancelled save keeps the prompt (going on only if

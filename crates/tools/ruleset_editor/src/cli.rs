@@ -211,12 +211,7 @@ mod tests {
     use studio_core::PipelineEvent;
 
     use super::*;
-    use crate::test_support::{context, scratch};
-
-    /// The embedded official ruleset's text as an assembled file.
-    fn official_text() -> String {
-        aatf::assemble_file(aatf::Rules::official().ruleset(), None, None)
-    }
+    use crate::test_support::{context, scratch, valid_file, write_file};
 
     /// `update-logic` on a document whose logic is `Older`: the file gets the
     /// current logic and the replaced file is kept as `.bak`. No real file of
@@ -225,9 +220,8 @@ mod tests {
     #[test]
     fn an_older_logic_is_replaced_with_the_old_file_kept_as_bak() {
         let dir = scratch("update_logic_older");
-        let path = dir.join("rules.rhai");
-        let original = official_text();
-        fs::write(&path, &original).unwrap();
+        let original = valid_file();
+        let path = write_file(&dir, "rules.rhai", &original);
         let mut document = Document::open(&path).expect("opens");
         document.logic = Logic::Older {
             version: 1,
@@ -274,9 +268,8 @@ mod tests {
     #[test]
     fn a_save_that_fails_validation_is_a_refusal() {
         let dir = scratch("update_logic_invalid_save");
-        let path = dir.join("rules.rhai");
-        let original = official_text();
-        fs::write(&path, &original).unwrap();
+        let original = valid_file();
+        let path = write_file(&dir, "rules.rhai", &original);
         let mut document = Document::open(&path).expect("opens");
         document.ruleset.tiers[1].id = document.ruleset.tiers[0].id.clone();
         document.logic = Logic::Older {

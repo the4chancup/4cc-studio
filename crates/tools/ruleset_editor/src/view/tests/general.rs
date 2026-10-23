@@ -53,17 +53,13 @@ fn two_edits_undo_and_redo_by_key_and_button() {
     assert!(rating(&view).iter().any(|name| name == "tight_possession"));
 
     // Ctrl+Z undoes the second edit only; Ctrl+Y redoes it.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL)], |ui| {
-        show(ui, &mut view, &ctx)
-    });
+    ctrl_key(&mut window, &mut view, &ctx, egui::Key::Z);
     assert!(
         !rating(&view).iter().any(|name| name == "tight_possession"),
         "the second edit undone"
     );
     assert!(!has_at_most(&view, "attacking_prowess"), "the first kept");
-    window.frame(vec![key(egui::Key::Y, egui::Modifiers::CTRL)], |ui| {
-        show(ui, &mut view, &ctx)
-    });
+    ctrl_key(&mut window, &mut view, &ctx, egui::Key::Y);
     assert!(
         rating(&view).iter().any(|name| name == "tight_possession"),
         "the second edit redone"
@@ -99,6 +95,14 @@ fn name_field<'a>(nodes: &'a [accesskit::Node], value: &str) -> &'a accesskit::N
         .iter()
         .find(|node| node.role() == Role::TextInput && node.value() == Some(value))
         .expect("the Name field")
+}
+
+/// The Squad size control's node (Blank's squad is 23).
+fn squad_spin(nodes: &[accesskit::Node]) -> &accesskit::Node {
+    nodes
+        .iter()
+        .find(|node| node.role() == Role::SpinButton && node.value() == Some("23"))
+        .expect("the Squad size control")
 }
 
 /// The Name field focused (a click on it).
@@ -156,11 +160,7 @@ fn basics(view: &RulesetView) -> (String, Vec<String>, u8) {
 fn ctrl_z_during_a_drag_restores_the_value_before_it() {
     let (ctx, _events, mut window, mut view) = fresh_blank();
     let frame = window.draw(&mut view, &ctx);
-    let squad = frame
-        .nodes
-        .iter()
-        .find(|node| node.role() == Role::SpinButton && node.value() == Some("23"))
-        .expect("the Squad size control");
+    let squad = squad_spin(&frame.nodes);
     // A drag over two frames, the pointer still down.
     let at = centre(squad);
     window.frame(pointer_at(at, true), |ui| show(ui, &mut view, &ctx));
@@ -177,9 +177,7 @@ fn ctrl_z_during_a_drag_restores_the_value_before_it() {
     assert_ne!(dragged, 23, "premise: the drag changed the squad size");
     // Ctrl+Z while the pointer is still down: the drag seals first, so
     // the undo lands before it.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL)], |ui| {
-        show(ui, &mut view, &ctx)
-    });
+    ctrl_key(&mut window, &mut view, &ctx, egui::Key::Z);
     assert_eq!(
         view.document.as_ref().unwrap().ruleset.squad_size,
         23,
@@ -198,15 +196,11 @@ fn a_text_field_and_a_click_are_two_undo_entries() {
     assert!(!has_at_most(&view, "attacking_prowess"));
 
     // One undo: the checkbox is back, the name kept.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL)], |ui| {
-        show(ui, &mut view, &ctx)
-    });
+    ctrl_key(&mut window, &mut view, &ctx, egui::Key::Z);
     assert_eq!(basics(&view).0, "New rulesetx", "the name kept");
     assert!(has_at_most(&view, "attacking_prowess"), "the checkbox back");
     // A second undo takes the name's whole gesture.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL)], |ui| {
-        show(ui, &mut view, &ctx)
-    });
+    ctrl_key(&mut window, &mut view, &ctx, egui::Key::Z);
     assert_eq!(basics(&view).0, "New ruleset");
 }
 
@@ -222,9 +216,7 @@ fn typing_in_name_is_one_entry_and_focus_move_seals_it() {
     window.frame(pointer_at(away, true), |ui| show(ui, &mut view, &ctx));
     window.frame(pointer_at(away, false), |ui| show(ui, &mut view, &ctx));
     assert_eq!(basics(&view).0, "New rulesetab");
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL)], |ui| {
-        show(ui, &mut view, &ctx)
-    });
+    ctrl_key(&mut window, &mut view, &ctx, egui::Key::Z);
     assert_eq!(basics(&view).0, "New ruleset", "the whole gesture undone");
 
     // Focus Name, type, then move focus to Squad size: the name's
@@ -232,17 +224,11 @@ fn typing_in_name_is_one_entry_and_focus_move_seals_it() {
     focus_name(&mut window, &mut view, &ctx, "New ruleset");
     type_text(&mut window, &mut view, &ctx, "x");
     let frame = window.draw(&mut view, &ctx);
-    let squad = frame
-        .nodes
-        .iter()
-        .find(|node| node.role() == Role::SpinButton && node.value() == Some("23"))
-        .expect("the Squad size control");
+    let squad = squad_spin(&frame.nodes);
     drag_value(&mut window, squad, 2, 30.0, &mut view, &ctx);
     let squad_size = basics(&view).2;
     assert_ne!(squad_size, 23, "premise: the squad edit happened");
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL)], |ui| {
-        show(ui, &mut view, &ctx)
-    });
+    ctrl_key(&mut window, &mut view, &ctx, egui::Key::Z);
     assert_eq!(basics(&view).2, 23, "the squad edit undone");
     assert_eq!(basics(&view).0, "New rulesetx", "the name kept");
 }

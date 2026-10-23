@@ -5,8 +5,7 @@ use super::*;
 
 #[test]
 fn the_problem_count_singularizes_one_and_pluralizes_more() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, crate::document::blank());
+    let (ctx, _events, mut window, mut view) = fresh_blank();
     // One problem: an empty name is an empty-string rule break.
     edit_ruleset(&mut view, |ruleset| ruleset.name = String::new());
     let frame = window.draw(&mut view, &ctx);
@@ -27,8 +26,7 @@ fn the_problem_count_singularizes_one_and_pluralizes_more() {
 
 #[test]
 fn a_problem_marks_only_its_section_in_the_rail() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, crate::document::blank());
+    let (ctx, _events, mut window, mut view) = fresh_blank();
     // A tier's empty id is a `tiers[0].id` problem: Tiers alone marked.
     edit_ruleset(&mut view, |ruleset| {
         ruleset.tiers[0].id = String::new();

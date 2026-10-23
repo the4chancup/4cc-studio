@@ -7,8 +7,7 @@ use super::*;
 
 #[test]
 fn the_preview_draws_the_block_and_the_edit_marks_its_changed_lines() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, crate::document::blank());
+    let (ctx, _events, mut window, mut view) = fresh_blank();
 
     // Off at every start: no preview lines.
     let frame = window.draw(&mut view, &ctx);

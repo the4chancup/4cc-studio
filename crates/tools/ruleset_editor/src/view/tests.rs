@@ -207,6 +207,13 @@ fn key(key: egui::Key, modifiers: egui::Modifiers) -> egui::Event {
     }
 }
 
+/// A Ctrl+`pressed` press sent to the view for one frame.
+fn ctrl_key(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext, pressed: egui::Key) {
+    window.frame(vec![key(pressed, egui::Modifiers::CTRL)], |ui| {
+        show(ui, view, ctx)
+    });
+}
+
 /// The node labeled (or valued) `label`.
 fn node<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
     nodes

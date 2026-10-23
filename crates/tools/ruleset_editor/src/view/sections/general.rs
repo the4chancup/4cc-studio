@@ -5,6 +5,7 @@
 use aatf::{NON_STAT_TARGETS, Ruleset, Stat};
 use pes_savefile::interchange::team_toml::labels::ABILITY_STATS;
 
+use super::Section;
 use crate::summary::human;
 
 /// Which checklist a row toggles.
@@ -18,7 +19,7 @@ enum Checklist {
 
 /// The General form.
 pub(crate) fn show(ui: &mut egui::Ui, ruleset: &mut Ruleset) {
-    ui.heading("General");
+    ui.heading(Section::General.label());
     egui::Grid::new("general-fields")
         .num_columns(2)
         .show(ui, |ui| {

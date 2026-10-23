@@ -9,7 +9,7 @@ use aatf::Template;
 use studio_core::ToolContext;
 
 use crate::settings::RulesetEditorSettings;
-use crate::view::{Pending, RulesetView, file_label, guard};
+use crate::view::{Pending, RulesetView, file_label, guard, refused_block};
 
 /// The templates, parsed once (`aatf::templates` compiles each embedded
 /// block; the list never changes).
@@ -41,15 +41,11 @@ pub(crate) fn modal(
     ctx: &ToolContext,
     settings: &RulesetEditorSettings,
 ) {
-    let mut close = false;
-    let response = egui::Modal::new(egui::Id::unique("ruleset_start")).show(ui.ctx(), |ui| {
+    if super::modal(ui, "ruleset_start", |ui| {
         ui.heading("Ruleset editor");
         body(ui, view, ctx, settings);
-        if ui.button("Close").clicked() {
-            close = true;
-        }
-    });
-    if close || response.should_close() {
+        ui.button("Close").clicked()
+    }) {
         view.start_open = false;
     }
 }
@@ -108,17 +104,10 @@ fn body(
             guard(view, ctx, settings, Pending::OpenPath(path));
         }
     }
-    // The last open's refusal (RE-FILE-03): the file's name, then one
-    // line per finding as `validate` prints them.
+    // The last open's refusal (RE-FILE-03).
     if let Some((name, lines)) = &view.open_refusal {
         ui.separator();
-        ui.colored_label(
-            ui.visuals().error_fg_color,
-            format!("Could not open {name}:"),
-        );
-        for line in lines {
-            ui.colored_label(ui.visuals().error_fg_color, line);
-        }
+        refused_block(ui, name, lines);
     }
 }
 

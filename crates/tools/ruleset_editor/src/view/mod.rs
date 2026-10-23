@@ -161,6 +161,12 @@ fn ruleset_dialog(start: &Path) -> rfd::FileDialog {
     }
 }
 
+/// What a test reaching a real file dialog hits instead of a native
+/// window (the pickers are stubbed per test).
+#[cfg(test)]
+const REAL_DIALOG_PANIC: &str =
+    "a test reached a real file dialog: stub open_dialog/save_as_dialog";
+
 /// The default Open dialog: `rfd` (reaching a native dialog in a test
 /// panics; tests stub `open_dialog`/`save_as_dialog`).
 #[cfg(not(test))]
@@ -171,7 +177,7 @@ fn default_open_dialog() -> FilePicker {
 /// `default_open_dialog` under `cargo test`.
 #[cfg(test)]
 fn default_open_dialog() -> FilePicker {
-    Box::new(|_| panic!("a test reached a real file dialog: stub open_dialog/save_as_dialog"))
+    Box::new(|_| panic!("{REAL_DIALOG_PANIC}"))
 }
 
 /// The default Save as dialog: `rfd`, the file name prefilled.
@@ -183,7 +189,7 @@ fn default_save_dialog() -> SaveDialog {
 /// `default_save_dialog` under `cargo test`.
 #[cfg(test)]
 fn default_save_dialog() -> SaveDialog {
-    Box::new(|_, _| panic!("a test reached a real file dialog: stub open_dialog/save_as_dialog"))
+    Box::new(|_, _| panic!("{REAL_DIALOG_PANIC}"))
 }
 
 /// `name` as the suggested file name (the draft's `save()` slug:
@@ -554,6 +560,18 @@ fn menu_item(ui: &mut egui::Ui, enabled: bool, button: egui::Button) -> bool {
     clicked
 }
 
+/// One modal's scaffolding (the prompt's, the start page's and the
+/// dialogs' share it): shown under `egui::Id::unique(id)`, `body` drawn
+/// inside it and returning whether it asks to close; the return is
+/// whether the modal closes — the body's ask or a dismissal.
+pub(crate) fn modal(ui: &mut egui::Ui, id: &str, body: impl FnOnce(&mut egui::Ui) -> bool) -> bool {
+    let mut close = false;
+    let response = egui::Modal::new(egui::Id::unique(id)).show(ui.ctx(), |ui| {
+        close = body(ui);
+    });
+    close || response.should_close()
+}
+
 /// Whether a modal is up over the document: the unsaved-changes prompt,
 /// a dialog, or the modal start page (the keyboard shortcuts' gate).
 fn modal_open(view: &RulesetView) -> bool {
@@ -590,6 +608,7 @@ fn banners(ui: &mut egui::Ui, view: &mut RulesetView) {
     let Some(document) = view.document.as_mut() else {
         return;
     };
+    let mut update = false;
     if matches!(document.logic, Logic::Modified { .. }) {
         ui.colored_label(
             ui.visuals().warn_fg_color,
@@ -603,11 +622,17 @@ fn banners(ui: &mut egui::Ui, view: &mut RulesetView) {
                 "This file's checking code is an older official version. It keeps working as \
                  it is until you update it.",
             );
-            if ui.button("Update logic").clicked() {
-                document.record(document.snapshot());
-                document.update_logic();
-            }
+            update = ui.button("Update logic").clicked();
         });
+    }
+    if update {
+        // Update logic is an edit like a form's: a gesture in flight
+        // seals first, then the pre-click snapshot records (as
+        // `history_step` does for undo and redo).
+        seal_pending(view);
+        let document = view.document.as_mut().expect("a document is open");
+        document.record(document.snapshot());
+        document.update_logic();
     }
 }
 
@@ -656,33 +681,42 @@ fn bottom_bar(
     });
 }
 
+/// A refused open's listing (RE-FILE-03): the file's name, then one
+/// line per finding as `validate` prints them — the start page's block
+/// and the dialog share it.
+pub(crate) fn refused_block(ui: &mut egui::Ui, name: &str, lines: &[String]) {
+    ui.colored_label(
+        ui.visuals().error_fg_color,
+        format!("Could not open {name}:"),
+    );
+    for line in lines {
+        ui.colored_label(ui.visuals().error_fg_color, line);
+    }
+}
+
 /// The dialogs (`Dialog`): a refused open over a document, a refused
 /// save, a failed write.
 fn dialog(ui: &mut egui::Ui, view: &mut RulesetView) {
     let Some(kind) = &view.dialog else {
         return;
     };
-    let (title, lines) = match kind {
-        Dialog::OpenRefused { name, findings } => {
-            (format!("Could not open {name}:"), findings.clone())
+    let close = modal(ui, "ruleset_dialog", |ui| {
+        match kind {
+            Dialog::OpenRefused { name, findings } => refused_block(ui, name, findings),
+            Dialog::SaveRefused { findings } => {
+                ui.heading("Not saved: the ruleset has problems");
+                for line in findings {
+                    ui.colored_label(ui.visuals().error_fg_color, line);
+                }
+            }
+            Dialog::SaveWrite { text } => {
+                ui.heading("Not saved");
+                ui.colored_label(ui.visuals().error_fg_color, text);
+            }
         }
-        Dialog::SaveRefused { findings } => (
-            "Not saved: the ruleset has problems".to_string(),
-            findings.clone(),
-        ),
-        Dialog::SaveWrite { text } => ("Not saved".to_string(), vec![text.clone()]),
-    };
-    let mut close = false;
-    let response = egui::Modal::new(egui::Id::unique("ruleset_dialog")).show(ui.ctx(), |ui| {
-        ui.heading(title);
-        for line in &lines {
-            ui.colored_label(ui.visuals().error_fg_color, line);
-        }
-        if ui.button("OK").clicked() {
-            close = true;
-        }
+        ui.button("OK").clicked()
     });
-    if close || response.should_close() {
+    if close {
         view.dialog = None;
     }
 }
