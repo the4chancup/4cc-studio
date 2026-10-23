@@ -65,6 +65,15 @@ CLI, and wait for a key at the end so the report can be read:
   `old_exports/`, which an organizer receiving exports over several days needs. The bat goes
   when the Export upgrader's view lands.
 
+The organizer's PES 2019 install carries the official DpFileList (an install with another
+list takes it with `team-compiler upgrade-dpfl`, run once from a console in the bundle's
+folder; no launcher runs it, so the readme gives the line), and the league's initial DLC compiles in multi-CPK mode
+(`multicpk_mode` set in the settings file, as the readme shows): the team content fills
+`4cc_41_teams` and the slots after it by size, the bins go to `4cc_08_bins`, and a later
+matchday compiles single-CPK into its `midcup` slot (`spec/team_compiler/pipeline.md`
+"Multi-CPK mode: teams parts"). The defaults stay as they are: the official list is what every
+install is meant to carry, and `dpfilelist_outdated` already names the upgrade.
+
 The console's progress line and run summary (`architecture.md`, ST-CLI-02) come with them,
 pulled forward from Phase 8's progress-grid step: a whole league compiled with nothing on the
 screen for minutes reads as a hung program. Two checks join the release's own:

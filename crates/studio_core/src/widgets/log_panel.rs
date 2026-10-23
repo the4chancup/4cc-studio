@@ -116,8 +116,8 @@ pub struct LogPanel {
 impl LogPanel {
     /// A panel titled `Log` whose egui state (the dock height, the scroll offset)
     /// is keyed under `id_salt`: pass the tool's own id, or a salt of its own.
-    pub fn new(id_salt: impl Into<egui::Id>) -> LogPanel {
-        let id = id_salt.into();
+    pub fn new(id_salt: impl egui::AsIdSalt) -> LogPanel {
+        let id = egui::Id::unique(id_salt);
         LogPanel {
             dock: BottomDock::new(id, "Log"),
             salt: id.with("body"),
@@ -233,7 +233,7 @@ fn body(
     // at exactly the clamped end, or content fitting the view. A wheel back down
     // that stops a fraction short leaves the bottom too — the button must show.
     let max_offset = output.content_size.y - output.inner_rect.height();
-    let at_bottom = output.state.offset.y == max_offset || max_offset < 0.0;
+    let at_bottom = output.state.clamped_offset().y == max_offset || max_offset < 0.0;
     if follow.stick && !at_bottom {
         follow.left_at = lines.len();
     }

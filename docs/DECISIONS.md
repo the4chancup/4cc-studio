@@ -10599,3 +10599,28 @@ Why: Update logic changes the logic, not the ruleset, so a ruleset-only snapshot
 restore an identical ruleset and leave the new logic in place (20.6a1's first delivery, found
 in review); a separate dirty flag for the logic could not be undone either.
 Plan: `plans/ruleset_editor.md` "The editor", the undo paragraph.
+
+## 2026-10-23 — 0.0.1 — VGL 27's organizer moves to the official DpFileList and compiles in multi-CPK mode
+Decision (maintainer): the organizer's PES 2019 install takes the official DpFileList
+(`upgrade-dpfl`), and the initial DLC compiles into the `teams` slot run, as many slots as its
+size needs (multi-CPK mode: `4cc_41_teams` on, the official list's run counting from 1, the
+bins in `4cc_08_bins`). No default changes for the preview.
+Why: the 4cc PES 2019 patch's 31-entry list has neither `4cc_99_test` nor the `teams` run, so
+a compile with the defaults refused to install (worklog 0.0.1e); the official list is the one
+every install is meant to carry, and the league's whole content (3.7 GiB at the rehearsal)
+is past one part's 3 GiB cap, which the size split handles. The five CPKs the rehearsal's
+upgrade would have dropped (`4cc_03_base`, `4cc_10_scoreboard` and three more) were that
+machine's own older 4cc PES 2019 patch (its list dated 2024-01-19), not VGL's: the last VGL
+ran on PES 21, so VGL 27's install is set up anew.
+Plan: `plans/core/development_plan.md` "The /vg/ League 27 (VGL)"; worklog 0.0.1f.
+
+## 2026-10-23 — 8.11 — The Tactics tab's pitch keeps its width; the lists take the rest
+Decision (lead, found by the egui 0.37 migration): the Tactics tab lays the pitch canvas out
+at its fixed 320 px and gives the starting eleven and bench lists the rest of the pane,
+through two child uis, replacing `ui.columns(2)`.
+Why: `ui.columns` halves the pane, and at a narrow window the pitch overflowed its half; egui
+then widened the pane's layout bound (856 px in a 792 px window), and the formation settings'
+wrapped rows below drew past the window's edge (a test caught it once 0.37's roomier buttons
+pushed one over). The draft's `taccols` is a fixed pitch beside flexible lists, so this is the
+draft's layout, not a new one.
+Plan: `plans/save_editor.md` "Tactics editor", "The pitch is the editor".

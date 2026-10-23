@@ -100,14 +100,54 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         // The draft's `taccols`: the pitch in the left column, the lists
         // at its right.
         let mut changed = [false; 3];
-        ui.columns(2, |columns| {
-            columns[0].vertical(|ui| {
-                changed[0] = pitch::pitch(ui, "pitch", version, &mut edited, tactics, &roster);
-            });
-            columns[1].vertical(|ui| {
-                changed[1] = pitch::lineup(ui, "lineup", version, &mut edited, tactics, &roster);
-            });
-        });
+        // A side-by-side layout built like `ui.columns` but with the widths
+        // the draft means: the pitch at its canvas' fixed width, the lists at
+        // its right in what remains. `ui.columns` halves the pane instead, and
+        // answers a column whose content is wider than its half — the pitch at
+        // a narrow window — by widening the ui's `max_rect`; the settings rows'
+        // wrap below then reads the overflowed width as its bound.
+        let top_left = ui.cursor().min;
+        let bottom = ui.max_rect().right_bottom().y;
+        let pitch_rect =
+            egui::Rect::from_min_max(top_left, egui::pos2(top_left.x + pitch::PITCH.x, bottom));
+        let list_rect = egui::Rect::from_min_max(
+            egui::pos2(pitch_rect.max.x + ui.spacing().item_spacing.x, top_left.y),
+            egui::pos2(ui.max_rect().right(), bottom),
+        );
+        let mut pitch_ui = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(pitch_rect)
+                .layout(egui::Layout::top_down(egui::Align::LEFT)),
+        );
+        let mut list_ui = ui.new_child(
+            egui::UiBuilder::new()
+                .max_rect(list_rect)
+                .layout(egui::Layout::top_down(egui::Align::LEFT)),
+        );
+        changed[0] = pitch::pitch(
+            &mut pitch_ui,
+            "pitch",
+            version,
+            &mut edited,
+            tactics,
+            &roster,
+        );
+        changed[1] = pitch::lineup(
+            &mut list_ui,
+            "lineup",
+            version,
+            &mut edited,
+            tactics,
+            &roster,
+        );
+        let size = egui::vec2(
+            ui.max_rect().right() - top_left.x,
+            pitch_ui
+                .min_rect()
+                .height()
+                .max(list_ui.min_rect().height()),
+        );
+        ui.advance_cursor_after_rect(egui::Rect::from_min_size(top_left, size));
         changed[2] = tactics::tactics_settings(
             ui,
             "tactics settings",
@@ -139,7 +179,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             edit_team(
                 session,
                 team_id,
-                egui::Id::new(("tactics", team_id, widget)).value(),
+                egui::Id::unique(("tactics", team_id, widget)).value(),
                 |team| team.tactics = edited,
             );
         }

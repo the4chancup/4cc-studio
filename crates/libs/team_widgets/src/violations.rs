@@ -216,7 +216,7 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
     match violation.slot {
         Some(slot) => {
             response.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::WidgetType::Button, ui.is_enabled(), label.as_str())
+                egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label.as_str())
             });
             response
                 .on_hover_text("Select this player")
@@ -225,7 +225,7 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
         }
         None => {
             response.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::WidgetType::Label, ui.is_enabled(), label.as_str())
+                egui::WidgetInfo::labeled(egui::Role::Label, ui.is_enabled(), label.as_str())
             });
             response.on_hover_text("A team-level violation");
             None

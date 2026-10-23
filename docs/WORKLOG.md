@@ -26,7 +26,8 @@ compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late N
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor: 20.3-20.5 done 2026-10-23, its
 Acceptance section, the writer and the command line; 20.6a1, the window's frame, done
-2026-10-23, its reviews going; 8.11, egui 0.37, and 8.13 before 20.6a2), the
+2026-10-23, its review rework next; 8.11, egui 0.37, and 8.13, the release stage, done
+2026-10-23), the
 0.0.1 cut (0.0.1f: the two
 editors, and the compiler and upgrader through the CLI, their views greyed out), then Phase
 8's other views. Done for DBC so far (2026-10-21): 20.0d (the
@@ -1340,7 +1341,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     and the Team compiler's view stops requesting repaints itself (`ToolContext::emit` wakes
     the GUI since 8.6b); the first tool that publishes a notice during a CLI command gets a
     binary test of ST-CLI-01's notice half (8.6b proves it through the printer's loop only)
-  - [ ] 8.11 egui 0.36.2 to 0.37 (`spec/core/gui.md` "egui version discipline"; agreed
+  - [x] 8.11 egui 0.36.2 to 0.37 (`spec/core/gui.md` "egui version discipline"; agreed
     2026-10-21; the maintainer asked on 2026-10-23 to migrate as soon as possible, so fewer
     GUI tests are written twice). No `egui-phosphor` release for 0.37 yet (0.14.0,
     2026-09-10, is 0.36's; its 0.37 pull request open since 2026-10-19; `egui_commonmark`
@@ -1358,6 +1359,25 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     picker's tests rerun with care, since 0.37 changes popups closing on release and
     `DragValue` while typing; the drafts' look checked against 0.37's roomier buttons and
     rounder corners; `egui_extras` and `egui_animation` to their 0.37 releases where used
+    Done 2026-10-23 (SWE-2, 87 min, with 8.13): `eframe`/`egui` `=0.37.0`, `egui_commonmark`
+    `=0.26.0`, `egui-phosphor` gone; 24 `Id::new` to `Id::unique` (same hashes), `Ui::id` to
+    `scope_id`, `WidgetType` to `Role`; `LogPanel::new` takes an `AsIdSalt` (0.37 removed
+    `From<&str> for Id`); 16 tests re-driven for the AccessKit changes (a popup's or modal's
+    first frame is a sizing pass, links are `Link`, headers `DisclosureTriangle`, an empty
+    label unset), no THEN changed; the Tactics tab's `ui.columns` replaced by the draft's
+    layout (the pitch at its fixed width, the lists in the rest), since a narrow window's
+    overflowing half widened the wrap bound of the settings rows below (DECISIONS
+    2026-10-23); `studio_core::icons` and the subset font registered second in
+    Proportional, eframe's system-font fallback kept. Files: `Cargo.toml`, `Cargo.lock`,
+    `studio_core/src/{icons.rs,theme.rs,shell/*,widgets/*,status.rs,tool.rs}`,
+    `color_tools/src/picker*`, `team_widgets/src/{pitch/*,tactics/*,violations.rs}`, the
+    four tools' `lib.rs` and views, `save_editor/src/view/{tactics.rs,menus.rs,tests/strip.rs}`
+    manual: checked 2026-10-23, a portable copy of the debug build on a copy of the PES 2021
+    save (`.tmp/egui37/app_setup.py`, `printwin.ps1`): the rail's 19 glyphs drawn, the
+    status bar `v0.0.1 pre-alpha (debug)`, the Tactics tab's pitch at 320 px with the lists
+    beside it, and a name typed as `山田 タロウ ★ Иван` drawn whole in the Name field and the
+    roster (system-font fallback); the drafts' look against 0.37's roomier buttons not
+    compared side by side
   - [ ] 8.12 after DBC: the Texport coverage audit, the measurement that decides whether a
     Team TOML can stand for a tactical export (`plans/aesthetics_export/player_folders.md`
     "Complete export"; agreed 2026-10-21). Every byte of the real texports of each version
@@ -1376,13 +1396,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     "worth adding" a Team TOML key; then a test
     per version taking a real texport to Team TOML and back, byte for byte apart from the
     bytes classified as not a tactic
-  - [ ] 8.13 the release stage after the version (the maintainer's idea of 2026-10-23;
+  - [x] 8.13 the release stage after the version (the maintainer's idea of 2026-10-23;
     `plans/core/distribution.md` "Changelog and version display"): `v0.0.1 pre-alpha` in the
     status bar's left slot, the About block and `--version`, from one `studio_core` function
     deriving the stage from the version's major and minor numbers. Before 0.0.1 is cut; rides
     with 8.11's brief (both `studio_core`) → verify: the function's three stages by unit test
     (0.0.x, 0.y.z, 1.0.0), and the empty status bar, About and `--version` showing the same
     string (ST-BAR-01's test and the About test updated)
+    Done 2026-10-23 (with 8.11): `shell::version_label`, its seven cases by unit test, the
+    status bar, About and `--version` (a `LazyLock` for clap) on it, `help_cli`'s binary test
+    and a `render_version` test. Files: `studio_core/src/shell/{mod.rs,status_bar.rs,about.rs,
+    launch.rs,sidebar/tests.rs}`, `studio/tests/help_cli.rs`
   - [ ] 8.14 the shell's own icon font (the maintainer's request of 2026-10-23;
     `plans/core/README.md` "GUI framework choice: egui"): single-colour icons, one SVG each; each tool's
     drawn to say what it does, the general ones (help, settings, dismiss, warning, download)
@@ -1532,8 +1556,8 @@ briefs, review loops, gates and mutation runs as for any step.
     names ids 31 of them lack), so two launcher passes, as an organizer with two saves:
     the VGL26 save (22 upgraded, boots and gloves kept), then the live save (30 more); AKG
     refused both times (`texture_stem_conflict`, census-known). Compile with the defaults:
-    refused to install (`dpfilelist_outdated`, QUESTIONS "Which DpFileList does VGL 27's
-    PES 2019 install carry"); with `cpk_name = '4cc_69_midcup'`: 248 s, installed, save
+    refused to install (`dpfilelist_outdated`; answered in DECISIONS 2026-10-23, the
+    organizer moving to the official list); with `cpk_name = '4cc_69_midcup'`: 248 s, installed, save
     written, per-export Errors the classes of the library run's close (`fmdl_texture_not_found`
     145, `vertex_too_far_from_origin` 89); `savefile_player_not_stripped` for every player.
     A rerun of the upgrade launcher counts every upgraded export as not upgraded: the readme
@@ -1565,8 +1589,9 @@ briefs, review loops, gates and mutation runs as for any step.
   "Release 0.1.0"'s verification, both launchers included), the exe's size measured crate by
   crate with `cargo bloat` (35.3 MiB at 0.0.1d2, past the budget's "about 30 MB";
   `spec/core/distribution.md` "Distribution: portable .7z bundle" gets the new measurement),
-  the answer to QUESTIONS "Which DpFileList does VGL 27's PES 2019 install carry" applied to
-  the readme (and a default or a finding's advice, if it says so), logic version 1's hash
+  the readme's steps for VGL's organizer (`plans/core/development_plan.md` "The /vg/ League 27
+  (VGL)": `upgrade-dpfl` once for an install with another list, `multicpk_mode` in the
+  settings file), logic version 1's hash
   frozen in `LOGIC_VERSIONS` (`plans/aatf_rules.md` "Loading and validation": a later logic
   change is version 2), `just release 0.0.1`, handed to DBC's testers and VGL's organizer
 
@@ -1941,6 +1966,17 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open — a test can open a real file dialog on the developer's desktop (the maintainer saw
+  four "Save As" windows, `.rhai` suggested, on 2026-10-23): `mutants-diff 8aeb0193`'s mutant
+  `menu_item -> true` clicked every menu item each frame, and the views the tests build with
+  `RulesetView::new()` carry the real `rfd` pickers, so Save as… opened a native dialog and
+  the test hung until the run's timeout killed it (TIMEOUT, not caught). CONTRIBUTING: a test
+  fails, it never hangs, and never reaches the developer's own environment. Fix (20.6a1's
+  review rework, after 8.11): under `cfg(test)` the default pickers panic ("a test reached a
+  real file dialog: stub `open_dialog`/`save_as_dialog`"), so such a mutant fails at once
+  with no window. The Save editor calls `rfd::FileDialog` straight from its click handlers
+  (`view/mod.rs`, `view/menus.rs`): the same exposure under a mutant, and the same fix
+  there (pickers behind fields, panicking under `cfg(test)`), in its next rework
 - open — repetition in the code (the maintainer, 2026-10-23, after the writer's review let
   `aatf`'s `writer/mod.rs` keep one six-line shape over 40 times): CONTRIBUTING's "The third
   copy is a function" had no check, so neither the sidekick nor the lead's sweeps applied it.

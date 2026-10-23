@@ -8,6 +8,7 @@
 
 pub mod events;
 pub mod help;
+pub mod icons;
 pub mod pes_process;
 pub mod settings;
 pub mod shell;
@@ -15,11 +16,6 @@ pub mod status;
 mod theme;
 pub mod tool;
 pub mod widgets;
-
-// The icon font is the sidebar's rail alphabet: `StudioTool::icon` and `PlannedTool::icon`
-// name its glyphs, so the tool crates and `studio`'s registry reach the constants through this
-// re-export instead of each depending on the font crate.
-pub use egui_phosphor;
 pub use events::{
     Disposition, EventLines, ExportId, ExportRevision, FolderStatus, Message, MessageCode,
     PipelineEvent, PipelineEventEnvelope, RunId, Scope, Severity,

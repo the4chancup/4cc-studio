@@ -22,11 +22,11 @@ pub enum ShellCondition {
 }
 
 impl ShellCondition {
-    /// The `egui-phosphor` glyph shown beside the text (the draft's `CONDITION_DEFS`).
+    /// The icon font's glyph shown beside the text (the draft's `CONDITION_DEFS`).
     pub(crate) fn icon(&self) -> &'static str {
         match self {
-            ShellCondition::DataDirReadOnly => egui_phosphor::regular::WARNING,
-            ShellCondition::UpdateAvailable { .. } => egui_phosphor::regular::DOWNLOAD_SIMPLE,
+            ShellCondition::DataDirReadOnly => crate::icons::WARNING,
+            ShellCondition::UpdateAvailable { .. } => crate::icons::DOWNLOAD_SIMPLE,
         }
     }
 

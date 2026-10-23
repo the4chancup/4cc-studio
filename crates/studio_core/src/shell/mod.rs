@@ -64,6 +64,34 @@ pub const EXE_NAME: &str = exe_name!();
 /// use the macro, so the constant serves the shell alone).
 pub(crate) const APP_NAME: &str = app_name!();
 
+/// The version line the shell shows in the three places the plan names — the status bar's
+/// left slot, the About block's first line and `4cc-studio --version`: `v{version}`, the
+/// release stage while there is one (`pre-alpha` for 0.0.x, `alpha` for 0.y.z, nothing
+/// from 1.0.0), then ` (debug)` for a debug build (`spec/core/distribution.md`
+/// "Changelog and version display").
+pub(crate) fn version_label() -> String {
+    version_label_of(env!("CARGO_PKG_VERSION"), cfg!(debug_assertions))
+}
+
+/// `version_label` over a given version string and build flag: the stage comes from the
+/// version's major and minor, so a bump can never leave a stale word. A version that
+/// does not parse is a build error the workspace cannot have, so `expect`, not a
+/// fallback.
+fn version_label_of(version: &str, debug: bool) -> String {
+    let mut parts = version.split('.');
+    let number = |part: Option<&str>| {
+        part.and_then(|part| part.parse::<u32>().ok())
+            .expect("CARGO_PKG_VERSION is a semver triple; the workspace cannot build without one")
+    };
+    let stage = match (number(parts.next()), number(parts.next())) {
+        (0, 0) => " pre-alpha",
+        (0, _) => " alpha",
+        _ => "",
+    };
+    let build = if debug { " (debug)" } else { "" };
+    format!("v{version}{stage}{build}")
+}
+
 /// The window: the registered tools in sidebar order, the platform handle they share, the
 /// receiving end of their shell requests, and which tool's view is on screen.
 pub struct StudioApp {
@@ -430,6 +458,17 @@ mod tests {
     /// `apply_requests` outside a frame: a default egui context.
     fn apply_requests(app: &mut StudioApp) {
         app.apply_requests(&egui::Context::default());
+    }
+
+    #[test]
+    fn the_version_label_carries_the_release_stage_and_the_debug_mark() {
+        assert_eq!(version_label_of("0.0.1", false), "v0.0.1 pre-alpha");
+        assert_eq!(version_label_of("0.0.12", false), "v0.0.12 pre-alpha");
+        assert_eq!(version_label_of("0.1.0", false), "v0.1.0 alpha");
+        assert_eq!(version_label_of("0.12.3", false), "v0.12.3 alpha");
+        assert_eq!(version_label_of("1.0.0", false), "v1.0.0");
+        assert_eq!(version_label_of("2.3.4", false), "v2.3.4");
+        assert_eq!(version_label_of("0.0.1", true), "v0.0.1 pre-alpha (debug)");
     }
 
     #[test]

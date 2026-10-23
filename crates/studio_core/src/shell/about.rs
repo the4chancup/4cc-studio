@@ -27,7 +27,7 @@ pub(crate) fn version_block(paths: &AppPaths, pes_version: PesVersion) -> String
         None => "not chosen yet".to_owned(),
     };
     [
-        format!("{} v{}", crate::APP_NAME, env!("CARGO_PKG_VERSION")),
+        format!("{} {}", crate::APP_NAME, crate::shell::version_label()),
         format!("Build: {build}"),
         format!("Target: {}", env!("STUDIO_TARGET_TRIPLE")),
         format!("Data location: {data}"),
@@ -48,7 +48,7 @@ pub(crate) fn show(
     open: &mut bool,
 ) -> bool {
     let block = version_block(paths, pes_version);
-    let modal = egui::Modal::new(egui::Id::new("about-4cc-studio")).show(ctx, |ui| {
+    let modal = egui::Modal::new(egui::Id::unique("about-4cc-studio")).show(ctx, |ui| {
         ui.heading(format!("About {}", crate::APP_NAME));
         ui.label(egui::RichText::new(&block).monospace());
         let mut help = false;

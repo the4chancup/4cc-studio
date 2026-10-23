@@ -617,9 +617,9 @@ fn the_logo_opens_about_and_copy_puts_the_version_block_on_the_clipboard() {
 
     let out = frame(&egui_ctx, &mut app, Vec::new(), true);
     let block = format!(
-        "{} v{}\nBuild: {}\nTarget: {}\nData location: {}\nPES version: PES 2021",
+        "{} {}\nBuild: {}\nTarget: {}\nData location: {}\nPES version: PES 2021",
         crate::APP_NAME,
-        env!("CARGO_PKG_VERSION"),
+        crate::shell::version_label(),
         if cfg!(debug_assertions) {
             "debug"
         } else {
@@ -678,11 +678,11 @@ fn the_logo_opens_about_and_copy_puts_the_version_block_on_the_clipboard() {
     let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
     click(&egui_ctx, &mut app, entry(&nodes, "4cc"));
     let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
-    // egui reports a `ui.link` as a `Label` node carrying its text in `label`; the
-    // sidebar's `?` is the `Button` that shares the label.
+    // egui reports a `ui.link` as a `Link` node carrying its text in `label`
+    // (egui 0.37's `Role`); the sidebar's `?` is the `Button` sharing the label.
     let link = nodes
         .iter()
-        .find(|node| node.role() == Role::Label && node.label() == Some("Help"))
+        .find(|node| node.role() == Role::Link && node.label() == Some("Help"))
         .expect("the About popup's Help link");
     click(&egui_ctx, &mut app, link);
     let nodes = idle(&egui_ctx, &mut app, 10).nodes;

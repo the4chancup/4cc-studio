@@ -14,11 +14,16 @@
 
 use std::ffi::OsString;
 use std::path::PathBuf;
+use std::sync::LazyLock;
 
 use clap::{Arg, ArgAction, ArgMatches, Command};
 
 use crate::settings::COMMON_KEY;
 use crate::tool::{CliError, StudioTool, ToolContext};
+
+/// The `--version` line — `version_label()`, the same string the status bar shows —
+/// as a `&'static str` clap can take without a new feature.
+static VERSION_LABEL: LazyLock<String> = LazyLock::new(crate::shell::version_label);
 
 /// The parsed command line: the mode plus the shell's own flags.
 #[derive(Debug, Clone)]
@@ -76,10 +81,11 @@ fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
             "{}: the 4cc community's PES tools",
             crate::APP_NAME
         ))
-        // `--version` prints the status bar's version beside the name, the line a member
-        // pastes into a report (`spec/core/distribution.md` "Versioning: one workspace
-        // version, one exception").
-        .version(concat!("v", env!("CARGO_PKG_VERSION")))
+        // `--version` prints the status bar's version line beside the name, the line a
+        // member pastes into a report (`spec/core/distribution.md` "Versioning: one
+        // workspace version, one exception"). clap wants a `&'static str`, so the
+        // label is built once into a static.
+        .version(VERSION_LABEL.as_str())
         .disable_help_subcommand(true)
         .arg(
             Arg::new("gui")
@@ -266,6 +272,14 @@ mod tests {
     #[test]
     fn no_arguments_means_gui() {
         assert!(matches!(mode(&["studio"]), LaunchMode::Gui));
+    }
+
+    #[test]
+    fn the_version_flag_renders_the_status_bar_s_label() {
+        assert_eq!(
+            root_command(&tools()).render_version(),
+            format!("{} {}\n", crate::EXE_NAME, crate::shell::version_label())
+        );
     }
 
     #[test]

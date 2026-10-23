@@ -128,7 +128,7 @@ fn first_row(
             edit_player(
                 session,
                 player_id,
-                egui::Id::new(("abilities playing style", player_id)).value(),
+                egui::Id::unique(("abilities playing style", player_id)).value(),
                 |player| {
                     player.positions.playing_style = style;
                 },
@@ -440,7 +440,7 @@ fn cards_row(
         edit_player(
             session,
             player_id,
-            egui::Id::new(("abilities cards", player_id)).value(),
+            egui::Id::unique(("abilities cards", player_id)).value(),
             |player| {
                 player.skills = skills;
             },

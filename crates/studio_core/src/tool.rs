@@ -24,7 +24,7 @@ pub trait StudioTool {
     /// Sidebar label (`Team compiler`).
     fn label(&self) -> &'static str;
 
-    /// The tool's `egui-phosphor` glyph, shown in the collapsed sidebar rail.
+    /// The tool's icon glyph (`crate::icons`), shown in the collapsed sidebar rail.
     fn icon(&self) -> &'static str;
 
     /// The tool's main view, rendered in the panel right of the tool selector.
@@ -96,8 +96,8 @@ pub struct PlannedTool {
     pub id: &'static str,
     /// Sidebar label (`Stadium compiler`).
     pub label: &'static str,
-    /// The rail's `egui-phosphor` glyph; the planned entry repeats what the tool's `icon()`
-    /// will return.
+    /// The rail's icon glyph (`crate::icons`); the planned entry repeats what the tool's
+    /// `icon()` will return.
     pub icon: &'static str,
 }
 

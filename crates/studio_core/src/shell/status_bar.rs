@@ -99,9 +99,9 @@ impl StatusBar {
             // the text taking what is left and truncating to it.
             if let Some(notice) = &self.notice {
                 columns[2].with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let x = ui.add(egui::Button::new(egui_phosphor::regular::X).frame(false));
+                    let x = ui.add(egui::Button::new(crate::icons::X).frame(false));
                     x.widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Dismiss")
+                        egui::WidgetInfo::labeled(egui::Role::Button, true, "Dismiss")
                     });
                     if x.on_hover_text("Dismiss").clicked() {
                         dismissed = true;
@@ -128,7 +128,7 @@ impl StatusBar {
     fn left_slot(&self, ui: &mut egui::Ui) {
         ui.horizontal(|ui| {
             ui.label(
-                egui::RichText::new(format!("v{}", env!("CARGO_PKG_VERSION")))
+                egui::RichText::new(crate::shell::version_label())
                     .small()
                     .weak(),
             );
@@ -179,7 +179,7 @@ mod tests {
         let egui_ctx = egui::Context::default();
         egui_ctx.enable_accesskit();
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
-        let version = format!("v{}", env!("CARGO_PKG_VERSION"));
+        let version = crate::shell::version_label();
         assert_eq!(
             bottom_texts(&nodes),
             [version.as_str()],
@@ -363,7 +363,7 @@ mod tests {
             "the condition is in the left slot"
         );
         assert!(
-            bottom_texts(&nodes).contains(&egui_phosphor::regular::WARNING),
+            bottom_texts(&nodes).contains(&crate::icons::WARNING),
             "the entry draws the warning glyph"
         );
 

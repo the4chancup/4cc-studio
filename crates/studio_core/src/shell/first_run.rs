@@ -48,7 +48,7 @@ impl FirstRun {
     /// unanswered: the dialog leaves only through a write that lands.
     pub(super) fn show(&mut self, egui_ctx: &egui::Context, ctx: &mut ToolContext) {
         let mut choice = None;
-        egui::Modal::new(egui::Id::new("first-run-data-location")).show(egui_ctx, |ui| {
+        egui::Modal::new(egui::Id::unique("first-run-data-location")).show(egui_ctx, |ui| {
             ui.heading(format!(
                 "Where should {} keep its settings and data?",
                 crate::APP_NAME
@@ -168,7 +168,10 @@ mod tests {
         let egui_ctx = egui::Context::default();
         egui_ctx.enable_accesskit();
 
-        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        // The centered modal settles into place a frame after it first draws (its
+        // first frame is a sizing pass; egui 0.37 hides invisible widgets from the
+        // AccessKit tree), so the nodes come from a settled frame.
+        let nodes = idle(&egui_ctx, &mut app, 2).nodes;
         assert!(
             has_text(&nodes, TITLE),
             "the dialog asks before any tool view"
@@ -186,9 +189,6 @@ mod tests {
         ));
         assert_eq!(calls[0].views(), 0, "no tool view while the dialog is up");
 
-        // The centered modal settles into place a frame after it first draws: click
-        // nodes come from a settled frame.
-        let nodes = idle(&egui_ctx, &mut app, 2).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "In my user folder"));
         let path = config.join(crate::settings::SETTINGS_FILE_NAME);
         assert!(path.is_file(), "the choice wrote the settings file");
@@ -272,7 +272,9 @@ mod tests {
         let egui_ctx = egui::Context::default();
         egui_ctx.enable_accesskit();
 
-        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        // The modal's first frame is a sizing pass; its contents join the
+        // AccessKit tree from the next frame on.
+        let nodes = idle(&egui_ctx, &mut app, 2).nodes;
         assert!(has_text(&nodes, TITLE));
         entry(&nodes, "Next to the program");
         assert!(

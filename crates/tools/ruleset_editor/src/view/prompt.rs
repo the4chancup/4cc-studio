@@ -50,7 +50,7 @@ pub(crate) fn show(
         return;
     }
     let mut answer = None;
-    let response = egui::Modal::new(egui::Id::new("ruleset_unsaved")).show(ui.ctx(), |ui| {
+    let response = egui::Modal::new(egui::Id::unique("ruleset_unsaved")).show(ui.ctx(), |ui| {
         let name = view
             .document
             .as_ref()

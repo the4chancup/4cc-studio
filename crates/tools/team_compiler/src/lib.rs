@@ -73,7 +73,7 @@ impl StudioTool for Tool {
     }
 
     fn icon(&self) -> &'static str {
-        studio_core::egui_phosphor::regular::USERS_THREE
+        studio_core::icons::USERS_THREE
     }
 
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {

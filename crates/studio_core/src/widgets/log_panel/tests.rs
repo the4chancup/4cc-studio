@@ -120,6 +120,7 @@ fn wheel_at(pos: egui::Pos2, delta: f32) -> Vec<egui::Event> {
             delta: egui::vec2(0.0, delta),
             phase: egui::TouchPhase::Move,
             modifiers: egui::Modifiers::default(),
+            source: egui::MouseWheelSource::Wheel,
         },
     ]
 }
@@ -145,24 +146,32 @@ fn click(
     window.show(panel, lines, pointer_at(pos, false))
 }
 
+/// The panel's resolved id: since egui 0.37 a `Panel` persists its `PanelState` under
+/// `parent_scope.with_salt(IdSalt::new(id_salt))` and gives its child ui the same for a
+/// scope — the salt chain resolves the stored `panel_ids()` against the root ui's top id.
+fn panel_id(salt: egui::Id) -> egui::Id {
+    egui::Id::unique((egui::ViewportId::ROOT, "__top_ui")).with(salt)
+}
+
 /// The log body's scroll offset: its `scroll_area::State` under the id the
-/// `id_salt` chain builds — the root ui's top id, the open panel's, the panel
-/// frame's `child` content salt, the body frame's, then the panel's `salt`.
+/// `id_salt` chain builds — the root ui's top id, the open panel's resolved id as the
+/// child scope's salt, the panel frame's `child` content salt, the body frame's, then
+/// the panel's `salt`.
 fn scroll_offset(ctx: &egui::Context, panel: &LogPanel) -> f32 {
     let (open, _) = panel.dock.panel_ids();
-    let id = egui::Id::new((egui::ViewportId::ROOT, "__top_ui"))
-        .with(egui::IdSalt::new(open))
+    let id = egui::Id::unique((egui::ViewportId::ROOT, "__top_ui"))
+        .with(egui::IdSalt::new(panel_id(open)))
         .with(egui::IdSalt::new("child"))
         .with(egui::IdSalt::new("child"))
         .with(egui::IdSalt::new(panel.salt));
     egui::scroll_area::State::load(ctx, id)
-        .map(|state| state.offset.y)
+        .map(|state| state.clamped_offset().y)
         .expect("the log body's scroll area")
 }
 
-/// A dock panel's drawn height (its `PanelState`).
-fn panel_height(ctx: &egui::Context, id: egui::Id) -> f32 {
-    egui::PanelState::load(ctx, id)
+/// A dock panel's drawn height (its `PanelState` under the resolved panel id).
+fn panel_height(ctx: &egui::Context, salt: egui::Id) -> f32 {
+    egui::PanelState::load(ctx, panel_id(salt))
         .expect("the dock's panel state")
         .outer_rect
         .height()
@@ -204,7 +213,7 @@ fn only_the_capped_tail_of_the_log_is_drawn() {
         before.y0
     );
     let (open, _) = panel.dock.panel_ids();
-    let bottom = egui::PanelState::load(&window.ctx, open)
+    let bottom = egui::PanelState::load(&window.ctx, panel_id(open))
         .expect("the open panel's state")
         .outer_rect
         .max
@@ -239,6 +248,7 @@ fn scrolling_up_pauses_the_follow_and_the_jump_button_returns_to_the_bottom() {
                 delta: egui::vec2(0.0, 200.0),
                 phase: egui::TouchPhase::Move,
                 modifiers: egui::Modifiers::default(),
+                source: egui::MouseWheelSource::Wheel,
             },
         ],
     );
@@ -583,7 +593,7 @@ fn scrolling_back_to_the_bottom_by_wheel_resumes_the_follow() {
     lines.push(LogLine::plain(Severity::Info, "log line 201"));
     let nodes = window.idle(&mut panel, &lines);
     let (open, _) = panel.dock.panel_ids();
-    let bottom = egui::PanelState::load(&window.ctx, open)
+    let bottom = egui::PanelState::load(&window.ctx, panel_id(open))
         .expect("the open panel's state")
         .outer_rect
         .max
@@ -716,7 +726,7 @@ fn the_chevron_collapses_to_the_header_and_the_open_height_survives() {
 
     // Dragging the divider up 80 points grows the panel by about 80, kept across
     // frames. The handle is the open panel's top edge.
-    let top = egui::PanelState::load(&window.ctx, open)
+    let top = egui::PanelState::load(&window.ctx, panel_id(open))
         .expect("the open panel's state")
         .outer_rect
         .min

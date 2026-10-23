@@ -231,9 +231,19 @@ fn no_member_visible_text_names_4cc_studio() {
 fn version_prints_the_name_and_the_status_bar_s_version() {
     let output = studio(&["--version"]);
     assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
+    // The status bar's one-liner: the version, the release stage while there is
+    // one, ` (debug)` for a debug build — which the test binary is.
+    let build = if cfg!(debug_assertions) {
+        " (debug)"
+    } else {
+        ""
+    };
     assert_eq!(
         stdout(&output),
-        format!("{EXE_NAME} v{}\n", env!("CARGO_PKG_VERSION"))
+        format!(
+            "{EXE_NAME} v{} pre-alpha{build}\n",
+            env!("CARGO_PKG_VERSION")
+        )
     );
 }
 

@@ -275,17 +275,19 @@ mod tests {
 
     /// The log body's scroll offset: its `scroll_area::State` under the id the
     /// panel's `id_salt` chain builds — the root ui's top id, the open dock panel's
-    /// (the tool's own id), the panel frame's `child` content salt, the body
-    /// frame's, then the dock id's `body` child salt (`studio_core`'s
+    /// resolved id (egui 0.37 salts the panel's child scope with it: the parent
+    /// scope salted by the tool's own id), the panel frame's `child` content salt,
+    /// the body frame's, then the dock id's `body` child salt (`studio_core`'s
     /// `widgets/log_panel.rs`).
     fn scroll_offset(ctx: &egui::Context) -> f32 {
-        let id = egui::Id::new((egui::ViewportId::ROOT, "__top_ui"))
-            .with(egui::IdSalt::new(egui::Id::new(TOOL_ID)))
+        let top = egui::Id::unique((egui::ViewportId::ROOT, "__top_ui"));
+        let id = top
+            .with(egui::IdSalt::new(top.with(egui::Id::unique(TOOL_ID))))
             .with(egui::IdSalt::new("child"))
             .with(egui::IdSalt::new("child"))
-            .with(egui::IdSalt::new(egui::Id::new(TOOL_ID).with("body")));
+            .with(egui::IdSalt::new(egui::Id::unique(TOOL_ID).with("body")));
         egui::scroll_area::State::load(ctx, id)
-            .map(|state| state.offset.y)
+            .map(|state| state.clamped_offset().y)
             .expect("the log body's scroll area")
     }
 

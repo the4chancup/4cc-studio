@@ -43,8 +43,9 @@ pub(crate) enum LineupDrag {
 }
 
 /// The canvas' size: the screen's own pitch drawn at its 720p capture's
-/// scale.
-const PITCH: egui::Vec2 = egui::vec2(320.0, 384.0);
+/// scale. Public so a host's column layout can give the pitch its fixed
+/// width rather than measuring it back.
+pub const PITCH: egui::Vec2 = egui::vec2(320.0, 384.0);
 /// The grid's extent in stored units.
 const GRID_X: u8 = 104;
 const GRID_Y: u8 = 48;
@@ -165,7 +166,9 @@ pub fn pitch(
         // The popover's slot is of the scope, preset and formation it
         // opened on; a change of any of them closes it.
         if view.popover.is_some_and(|open| {
-            open.scope != ui.id() || open.preset != view.preset || open.formation != view.formation
+            open.scope != ui.scope_id()
+                || open.preset != view.preset
+                || open.formation != view.formation
         }) {
             view.popover = None;
         }
@@ -174,7 +177,7 @@ pub fn pitch(
         // on; a frame without it restarts it, and a frame can run the
         // pitch more than once (egui's discard pass), so the same frame
         // number keeps the clock.
-        let clock_id = ui.id().with("name clock");
+        let clock_id = ui.scope_id().with("name clock");
         let now = ui.input(|i| i.time);
         let frame_nr = ui.ctx().cumulative_frame_nr();
         let started = ui
@@ -192,7 +195,7 @@ pub fn pitch(
         let seconds = (now - started) as f32;
         let (canvas, canvas_response) = ui.allocate_exact_size(PITCH, egui::Sense::hover());
         canvas_response.widget_info(|| {
-            egui::WidgetInfo::labeled(egui::WidgetType::Other, ui.is_enabled(), "pitch")
+            egui::WidgetInfo::labeled(egui::Role::Unknown, ui.is_enabled(), "pitch")
         });
         let painter = ui.painter_at(canvas);
         paint_pitch(&painter, canvas);
@@ -453,7 +456,7 @@ fn turf_image() -> egui::ColorImage {
 
 /// The turf texture, loaded once per context under a fixed id.
 fn turf(ctx: &egui::Context) -> egui::TextureHandle {
-    let id = egui::Id::new("pitch turf");
+    let id = egui::Id::unique("pitch turf");
     if let Some(texture) = ctx.data(|data| data.get_temp::<egui::TextureHandle>(id)) {
         return texture;
     }
@@ -533,13 +536,13 @@ fn marker(
     // underneath.
     let response = ui.interact(
         marker_rect(spot.centre, canvas),
-        ui.id().with(("pitch marker", spot.index)),
+        ui.scope_id().with(("pitch marker", spot.index)),
         egui::Sense::click_and_drag(),
     );
     let name = name_at(roster, tactics.starting_eleven[spot.index]);
     response.widget_info(|| {
         egui::WidgetInfo::labeled(
-            egui::WidgetType::Button,
+            egui::Role::Button,
             ui.is_enabled(),
             format!("{} {}", position_label(spot.slot.position), name),
         )
@@ -552,7 +555,7 @@ fn marker(
             Some(assign) => assign.write(tactics, view, spot.index),
             None => {
                 view.popover = Some(OpenSlot {
-                    scope: ui.id(),
+                    scope: ui.scope_id(),
                     preset: view.preset,
                     formation: view.formation,
                     slot: spot.index,

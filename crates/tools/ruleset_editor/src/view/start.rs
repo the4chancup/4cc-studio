@@ -42,7 +42,7 @@ pub(crate) fn modal(
     settings: &RulesetEditorSettings,
 ) {
     let mut close = false;
-    let response = egui::Modal::new(egui::Id::new("ruleset_start")).show(ui.ctx(), |ui| {
+    let response = egui::Modal::new(egui::Id::unique("ruleset_start")).show(ui.ctx(), |ui| {
         ui.heading("Ruleset editor");
         body(ui, view, ctx, settings);
         if ui.button("Close").clicked() {

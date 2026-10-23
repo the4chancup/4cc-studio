@@ -666,11 +666,12 @@ fn the_captain_box_ticks_on_the_captains_slot() {
     let mut window = Headless::new();
 
     // The Captain radio is the strip's unlabeled radio; the tab's skill
-    // boxes carry their names.
+    // boxes carry their names. egui 0.37 leaves an empty label unset in the
+    // AccessKit tree rather than writing `""`, so the node carries `None`.
     let toggled = |nodes: &[accesskit::Node]| {
         nodes
             .iter()
-            .find(|node| node.role() == Role::RadioButton && node.label() == Some(""))
+            .find(|node| node.role() == Role::RadioButton && node.label().is_none())
             .map(|node| node.toggled())
     };
     // Select the captain's slot: the radio is on.
@@ -700,7 +701,7 @@ fn the_captains_radio_cannot_be_unticked() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let radio = nodes
         .iter()
-        .find(|node| node.role() == Role::RadioButton && node.label() == Some(""))
+        .find(|node| node.role() == Role::RadioButton && node.label().is_none())
         .expect("the Captain radio");
 
     // A second click on the captain's radio: still his slot, no undo entry.

@@ -600,7 +600,7 @@ fn dialog(ui: &mut egui::Ui, view: &mut RulesetView) {
         Dialog::SaveWrite { text } => ("Not saved".to_string(), vec![text.clone()]),
     };
     let mut close = false;
-    let response = egui::Modal::new(egui::Id::new("ruleset_dialog")).show(ui.ctx(), |ui| {
+    let response = egui::Modal::new(egui::Id::unique("ruleset_dialog")).show(ui.ctx(), |ui| {
         ui.heading(title);
         for line in &lines {
             ui.colored_label(ui.visuals().error_fg_color, line);

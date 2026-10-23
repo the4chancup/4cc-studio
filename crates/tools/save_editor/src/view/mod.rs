@@ -525,7 +525,7 @@ fn refusal_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     let mut close = false;
     if let Some(refusal) = view.refusal.as_ref() {
         let response =
-            egui::Modal::new(egui::Id::new("save_editor_refusal")).show(ui.ctx(), |ui| {
+            egui::Modal::new(egui::Id::unique("save_editor_refusal")).show(ui.ctx(), |ui| {
                 ui.heading(refusal.title);
                 ui.label(&refusal.message);
                 if ui.button("OK").clicked() {
@@ -549,7 +549,7 @@ fn strip_again_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     };
     let mut close = false;
     let response =
-        egui::Modal::new(egui::Id::new("save_editor_strip_again")).show(ui.ctx(), |ui| {
+        egui::Modal::new(egui::Id::unique("save_editor_strip_again")).show(ui.ctx(), |ui| {
             ui.heading("Appearance ids set on a stripped save");
             ui.label(format!(
                 "{} player(s) have an appearance id set while the rest are stripped:",

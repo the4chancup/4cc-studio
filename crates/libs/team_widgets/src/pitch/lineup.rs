@@ -171,7 +171,7 @@ fn lineup_row(
     };
     match payload {
         Some(payload) => {
-            ui.dnd_drag_source(ui.id().with(id_salt), payload, contents)
+            ui.dnd_drag_source(ui.scope_id().with(id_salt), payload, contents)
                 .response
         }
         None => ui.scope(contents).response,

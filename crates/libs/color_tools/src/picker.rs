@@ -9,8 +9,8 @@
 use egui::ecolor::Hsva;
 use egui::emath::{lerp, remap_clamp};
 use egui::{
-    Align, Color32, DragValue, Key, Layout, Mesh, Popup, PopupCloseBehavior, Rect, Response, Sense,
-    Shape, Stroke, StrokeKind, TextEdit, TextStyle, Ui, WidgetInfo, WidgetType, pos2, vec2,
+    Align, Color32, DragValue, Key, Layout, Mesh, Popup, PopupCloseBehavior, Rect, Response, Role,
+    Sense, Shape, Stroke, StrokeKind, TextEdit, TextStyle, Ui, WidgetInfo, pos2, vec2,
 };
 
 /// The most recent colors the session keeps: newest first, no duplicates.
@@ -137,7 +137,7 @@ fn color_button(ui: &mut Ui, rgb: [u8; 3], open: bool) -> Response {
     let (rect, response) = ui.allocate_exact_size(size, Sense::click());
     response.widget_info(|| {
         WidgetInfo::labeled(
-            WidgetType::ColorButton,
+            Role::ColorWell,
             ui.is_enabled(),
             format!("color field {}", format_hex(rgb)),
         )
@@ -199,7 +199,7 @@ const RECENTS_ID: &str = "4cc studio color_tools recent colors";
 
 /// The recents row as it stands in the context's temp memory.
 fn recent_colors(ctx: &egui::Context) -> Vec<[u8; 3]> {
-    ctx.data(|data| data.get_temp(egui::Id::new(RECENTS_ID)))
+    ctx.data(|data| data.get_temp(egui::Id::unique(RECENTS_ID)))
         .unwrap_or_default()
 }
 
@@ -207,7 +207,7 @@ fn recent_colors(ctx: &egui::Context) -> Vec<[u8; 3]> {
 /// the one it opened on).
 fn push_recent(ctx: &egui::Context, color: [u8; 3]) {
     ctx.data_mut(|data| {
-        let recents = data.get_temp_mut_or_default::<Vec<[u8; 3]>>(egui::Id::new(RECENTS_ID));
+        let recents = data.get_temp_mut_or_default::<Vec<[u8; 3]>>(egui::Id::unique(RECENTS_ID));
         push_recent_color(recents, color);
     });
 }
@@ -321,9 +321,8 @@ const STRIP_H: f32 = 14.0;
 /// `hsva` while a press or a drag is held.
 fn sv_square(ui: &mut Ui, hsva: &mut Hsva) -> Response {
     let (rect, response) = ui.allocate_at_least(vec2(POPUP_W, SQUARE_H), Sense::click_and_drag());
-    response.widget_info(|| {
-        WidgetInfo::labeled(WidgetType::Slider, ui.is_enabled(), "saturation and value")
-    });
+    response
+        .widget_info(|| WidgetInfo::labeled(Role::Slider, ui.is_enabled(), "saturation and value"));
     if let Some(pos) = response.interact_pointer_pos() {
         hsva.s = remap_clamp(pos.x, rect.left()..=rect.right(), 0.0..=1.0);
         hsva.v = remap_clamp(pos.y, rect.bottom()..=rect.top(), 0.0..=1.0);
@@ -388,7 +387,7 @@ fn sv_square(ui: &mut Ui, hsva: &mut Hsva) -> Response {
 /// edits `hsva.h` while a press or a drag is held.
 fn hue_strip(ui: &mut Ui, hsva: &mut Hsva) -> Response {
     let (rect, response) = ui.allocate_at_least(vec2(POPUP_W, STRIP_H), Sense::click_and_drag());
-    response.widget_info(|| WidgetInfo::labeled(WidgetType::Slider, ui.is_enabled(), "hue"));
+    response.widget_info(|| WidgetInfo::labeled(Role::Slider, ui.is_enabled(), "hue"));
     if let Some(pos) = response.interact_pointer_pos() {
         hsva.h = remap_clamp(pos.x, rect.left()..=rect.right(), 0.0..=1.0);
     }
@@ -436,9 +435,7 @@ fn hue_strip(ui: &mut Ui, hsva: &mut Hsva) -> Response {
 fn color_swatch(ui: &mut Ui, rgb: [u8; 3]) -> Response {
     let size = vec2(ui.spacing().interact_size.y, ui.spacing().interact_size.y);
     let (rect, response) = ui.allocate_at_least(size, Sense::click());
-    response.widget_info(|| {
-        WidgetInfo::labeled(WidgetType::ColorButton, ui.is_enabled(), format_hex(rgb))
-    });
+    response.widget_info(|| WidgetInfo::labeled(Role::ColorWell, ui.is_enabled(), format_hex(rgb)));
     if ui.is_rect_visible(rect) {
         let visuals = ui.style().interact(&response);
         let rect = rect.expand(visuals.expansion);

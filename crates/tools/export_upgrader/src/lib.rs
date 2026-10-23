@@ -63,7 +63,7 @@ impl StudioTool for Tool {
     }
 
     fn icon(&self) -> &'static str {
-        studio_core::egui_phosphor::regular::ARROW_FAT_UP
+        studio_core::icons::ARROW_FAT_UP
     }
 
     fn view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {

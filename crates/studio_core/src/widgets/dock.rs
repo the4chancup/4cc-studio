@@ -79,8 +79,9 @@ impl BottomDock {
         }
     }
 
-    /// The open and collapsed panels' egui ids, in that order (the `PanelState` keys
-    /// their heights persist under); the widgets' tests measure them.
+    /// The open and collapsed panels' egui ids, in that order — since egui 0.37 the
+    /// salts a `Panel` resolves its persisted `PanelState` key and child scope from,
+    /// against the parent `Ui`'s scope id; the widgets' tests measure them.
     #[cfg(test)]
     pub(crate) fn panel_ids(&self) -> (egui::Id, egui::Id) {
         (self.id, self.id.with("collapsed"))

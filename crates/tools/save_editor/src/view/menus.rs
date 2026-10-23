@@ -272,7 +272,7 @@ pub(crate) fn fix_database_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     }
     let mut close = false;
     let response =
-        egui::Modal::new(egui::Id::new("save_editor_fix_database")).show(ui.ctx(), |ui| {
+        egui::Modal::new(egui::Id::unique("save_editor_fix_database")).show(ui.ctx(), |ui| {
             ui.heading("Fix database");
             if let Some(session) = view.session.as_ref() {
                 ui.label(fix_database_question(session.file()));
@@ -395,7 +395,7 @@ pub(crate) fn boglo_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
         .and_then(|team| team.roster.iter().rposition(|slot| slot.player_id != 0));
     let boglo = view.boglo.as_mut().expect("checked above");
     let mut close = false;
-    let response = egui::Modal::new(egui::Id::new("save_editor_boglo")).show(ui.ctx(), |ui| {
+    let response = egui::Modal::new(egui::Id::unique("save_editor_boglo")).show(ui.ctx(), |ui| {
         ui.heading("Set boots and gloves IDs for everyone");
         ui.horizontal(|ui| {
             ui.label("Boots:");
@@ -557,26 +557,27 @@ pub(crate) fn stat_num_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     }
     let mut close = false;
     let mut bumped = None;
-    let response = egui::Modal::new(egui::Id::new("save_editor_stat_num")).show(ui.ctx(), |ui| {
-        let stat_num = view.stat_num.as_mut().expect("checked above");
-        ui.heading(stat_num.title());
-        let range = stat_num.range();
-        ui.horizontal(|ui| {
-            ui.label(&stat_num.line);
-            ui.add(egui::DragValue::new(&mut stat_num.value).range(range));
+    let response =
+        egui::Modal::new(egui::Id::unique("save_editor_stat_num")).show(ui.ctx(), |ui| {
+            let stat_num = view.stat_num.as_mut().expect("checked above");
+            ui.heading(stat_num.title());
+            let range = stat_num.range();
+            ui.horizontal(|ui| {
+                ui.label(&stat_num.line);
+                ui.add(egui::DragValue::new(&mut stat_num.value).range(range));
+            });
+            ui.horizontal(|ui| {
+                if ui.button("OK").clicked()
+                    && let Some(session) = view.session.as_mut()
+                {
+                    bumped = stat_num.apply(session);
+                    close = true;
+                }
+                if ui.button("Cancel").clicked() {
+                    close = true;
+                }
+            });
         });
-        ui.horizontal(|ui| {
-            if ui.button("OK").clicked()
-                && let Some(session) = view.session.as_mut()
-            {
-                bumped = stat_num.apply(session);
-                close = true;
-            }
-            if ui.button("Cancel").clicked() {
-                close = true;
-            }
-        });
-    });
     if let Some(n) = bumped {
         view.bump = n;
     }
@@ -693,75 +694,78 @@ pub(crate) fn copy_swap_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
         return;
     }
     let mut close = false;
-    let response = egui::Modal::new(egui::Id::new("save_editor_copy_swap")).show(ui.ctx(), |ui| {
-        let (Some(session), Some(dialog)) = (view.session.as_mut(), view.copy_swap.as_mut()) else {
-            return;
-        };
-        ui.heading(dialog.title());
-        let name = session
-            .file()
-            .player(dialog.player_id)
-            .map(|player| display_name(&player.name))
-            .unwrap_or_else(|| dialog.player_id.to_string());
-        match dialog.mode {
-            CopySwapMode::Copy => {
-                ui.label(format!("Copy the picked player's stats onto {name}."));
+    let response =
+        egui::Modal::new(egui::Id::unique("save_editor_copy_swap")).show(ui.ctx(), |ui| {
+            let (Some(session), Some(dialog)) = (view.session.as_mut(), view.copy_swap.as_mut())
+            else {
+                return;
+            };
+            ui.heading(dialog.title());
+            let name = session
+                .file()
+                .player(dialog.player_id)
+                .map(|player| display_name(&player.name))
+                .unwrap_or_else(|| dialog.player_id.to_string());
+            match dialog.mode {
+                CopySwapMode::Copy => {
+                    ui.label(format!("Copy the picked player's stats onto {name}."));
+                }
+                CopySwapMode::Swap => {
+                    ui.label(format!("Swap {name}'s stats with the picked player's."));
+                }
             }
-            CopySwapMode::Swap => {
-                ui.label(format!("Swap {name}'s stats with the picked player's."));
-            }
-        }
-        ui.horizontal(|ui| {
-            ui.label("Team");
-            let mut picked = dialog.team_id;
-            egui::ComboBox::from_id_salt("save_editor_copy_swap_team")
-                .selected_text(
-                    session
-                        .file()
-                        .team(picked)
-                        .map(|team| team.name.clone())
-                        .unwrap_or_else(|| picked.to_string()),
-                )
-                .show_ui(ui, |ui| {
-                    for team in session.file().teams() {
-                        ui.selectable_value(&mut picked, team.id, &team.name);
-                    }
-                });
-            if picked != dialog.team_id {
-                dialog.team_id = picked;
-                // The new team's first filled slot is the new pick.
-                dialog.other_id = first_filled(session.file(), picked).unwrap_or(dialog.player_id);
-            }
+            ui.horizontal(|ui| {
+                ui.label("Team");
+                let mut picked = dialog.team_id;
+                egui::ComboBox::from_id_salt("save_editor_copy_swap_team")
+                    .selected_text(
+                        session
+                            .file()
+                            .team(picked)
+                            .map(|team| team.name.clone())
+                            .unwrap_or_else(|| picked.to_string()),
+                    )
+                    .show_ui(ui, |ui| {
+                        for team in session.file().teams() {
+                            ui.selectable_value(&mut picked, team.id, &team.name);
+                        }
+                    });
+                if picked != dialog.team_id {
+                    dialog.team_id = picked;
+                    // The new team's first filled slot is the new pick.
+                    dialog.other_id =
+                        first_filled(session.file(), picked).unwrap_or(dialog.player_id);
+                }
+            });
+            ui.horizontal(|ui| {
+                ui.label("Player");
+                let options = roster_options(session.file(), dialog.team_id);
+                let mut picked = dialog.other_id;
+                egui::ComboBox::from_id_salt("save_editor_copy_swap_player")
+                    .selected_text(
+                        options
+                            .iter()
+                            .find(|(id, _)| *id == picked)
+                            .map(|(_, label)| label.clone())
+                            .unwrap_or_else(|| "?".to_owned()),
+                    )
+                    .show_ui(ui, |ui| {
+                        for (id, label) in &options {
+                            ui.selectable_value(&mut picked, *id, label);
+                        }
+                    });
+                dialog.other_id = picked;
+            });
+            ui.horizontal(|ui| {
+                if ui.button("OK").clicked() {
+                    dialog.apply(session);
+                    close = true;
+                }
+                if ui.button("Cancel").clicked() {
+                    close = true;
+                }
+            });
         });
-        ui.horizontal(|ui| {
-            ui.label("Player");
-            let options = roster_options(session.file(), dialog.team_id);
-            let mut picked = dialog.other_id;
-            egui::ComboBox::from_id_salt("save_editor_copy_swap_player")
-                .selected_text(
-                    options
-                        .iter()
-                        .find(|(id, _)| *id == picked)
-                        .map(|(_, label)| label.clone())
-                        .unwrap_or_else(|| "?".to_owned()),
-                )
-                .show_ui(ui, |ui| {
-                    for (id, label) in &options {
-                        ui.selectable_value(&mut picked, *id, label);
-                    }
-                });
-            dialog.other_id = picked;
-        });
-        ui.horizontal(|ui| {
-            if ui.button("OK").clicked() {
-                dialog.apply(session);
-                close = true;
-            }
-            if ui.button("Cancel").clicked() {
-                close = true;
-            }
-        });
-    });
     if close || response.should_close() {
         view.copy_swap = None;
     }

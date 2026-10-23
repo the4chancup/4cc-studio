@@ -1636,7 +1636,10 @@ fn escape_and_an_outside_click_each_close_the_popup() {
     let mut window = Headless::new();
     let mut color = [255, 128, 0];
     let (nodes, _) = window.field(&mut color, &[], Vec::new());
-    let (nodes, _) = window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    // The popup's first frame is a sizing pass; egui 0.37 hides invisible widgets
+    // from the AccessKit tree, so its contents show from the next frame on.
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
     assert!(
         nodes.iter().any(|n| n.role() == Role::TextInput),
         "the popup opened"
@@ -1651,7 +1654,8 @@ fn escape_and_an_outside_click_each_close_the_popup() {
         "Escape closed the popup"
     );
 
-    let (nodes, _) = window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
     assert!(
         nodes.iter().any(|n| n.role() == Role::TextInput),
         "the button reopened the popup"
@@ -1680,7 +1684,10 @@ fn the_suggestion_row_shows_only_when_the_host_passes_some() {
 
     let suggestions = [[200, 16, 46], [255, 255, 255], [29, 66, 138]];
     window.field(&mut color, &suggestions, Vec::new());
-    let (nodes, _) = window.click_at(centre(field_button(&nodes, 0)), &mut color, &suggestions);
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &suggestions);
+    // The popup's first frame is a sizing pass; its contents join the AccessKit
+    // tree from the next frame on (egui 0.37 hides invisible widgets from it).
+    let (nodes, _) = window.field(&mut color, &suggestions, Vec::new());
     assert_eq!(
         swatch_labels(&nodes).len(),
         3,

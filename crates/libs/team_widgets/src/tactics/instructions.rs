@@ -244,7 +244,7 @@ mod tests {
             let roster = roster_rows(&rows);
             let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
             let combo = control_right_of(&nodes, "Attack 1", Role::ComboBox);
-            let (nodes, _) = click(
+            click(
                 &mut window,
                 combo,
                 version,
@@ -252,6 +252,10 @@ mod tests {
                 &mut view,
                 &roster,
             );
+            // The popup's first frame is a sizing pass; egui 0.37 hides
+            // invisible widgets from the AccessKit tree, so its items join
+            // from the next frame on.
+            let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
             // The popup's buttons, unfiltered: offering Tight Marking
             // must fail here, not inside the `labels` filter below (a
             // filter that already excludes it would hide the offer).

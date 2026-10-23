@@ -12,7 +12,7 @@ use anyhow::Context;
 use clap::ArgMatches;
 use crossbeam_channel::unbounded;
 use log::LevelFilter;
-use studio_core::egui_phosphor::regular;
+use studio_core::icons;
 use studio_core::{
     AppPaths, EXE_NAME, LaunchMode, PlannedTool, SETTINGS_FILE_NAME, Settings, ShellCondition,
     StudioApp, StudioTool, ToolContext, parse_launch, resolve_data_dir, run_cli, run_gui, run_help,
@@ -29,72 +29,72 @@ const PLANNED: [PlannedTool; 14] = [
     PlannedTool {
         id: "team-compiler",
         label: "Team compiler",
-        icon: regular::USERS_THREE,
+        icon: icons::USERS_THREE,
     },
     PlannedTool {
         id: "save-editor",
         label: "Save editor",
-        icon: regular::NOTE_PENCIL,
+        icon: icons::NOTE_PENCIL,
     },
     PlannedTool {
         id: "stadium-compiler",
         label: "Stadium compiler",
-        icon: regular::BUILDINGS,
+        icon: icons::BUILDINGS,
     },
     PlannedTool {
         id: "export-upgrader",
         label: "Export upgrader",
-        icon: regular::ARROW_FAT_UP,
+        icon: icons::ARROW_FAT_UP,
     },
     PlannedTool {
         id: "music-player",
         label: "Music player",
-        icon: regular::MUSIC_NOTE,
+        icon: icons::MUSIC_NOTE,
     },
     PlannedTool {
         id: "music-export-editor",
         label: "Music export editor",
-        icon: regular::MUSIC_NOTES,
+        icon: icons::MUSIC_NOTES,
     },
     PlannedTool {
         id: "match-tracker",
         label: "Match tracker",
-        icon: regular::CROSSHAIR,
+        icon: icons::CROSSHAIR,
     },
     PlannedTool {
         id: "kit-config-editor",
         label: "Kit config editor",
-        icon: regular::T_SHIRT,
+        icon: icons::T_SHIRT,
     },
     PlannedTool {
         id: "refs-arranger",
         label: "Refs arranger",
-        icon: regular::FLAG,
+        icon: icons::FLAG,
     },
     PlannedTool {
         id: "balls-compiler",
         label: "Balls compiler",
-        icon: regular::SOCCER_BALL,
+        icon: icons::SOCCER_BALL,
     },
     PlannedTool {
         id: "player-aesthetics-editor",
         label: "Player aesthetics editor",
-        icon: regular::SMILEY,
+        icon: icons::SMILEY,
     },
     PlannedTool {
         id: "team-creator",
         label: "Team creator",
-        icon: regular::PLUS_CIRCLE,
+        icon: icons::PLUS_CIRCLE,
     },
     PlannedTool {
         id: "ruleset-editor",
         label: "Ruleset editor",
-        icon: regular::SCROLL,
+        icon: icons::SCROLL,
     },
     PlannedTool {
         id: "db-generator",
         label: "DB generator",
-        icon: regular::DATABASE,
+        icon: icons::DATABASE,
     },
 ];
 

@@ -283,7 +283,10 @@ Win32 original hurt the most):
 - **The pitch is the editor**: an egui painter canvas draws the formation;
   players are **dragged** to reposition (x/y), with position labels and snapping.
   4ccEditor's per-slot dropdown + coordinate fields remain as a detail popover on
-  click, not the primary interface.
+  click, not the primary interface. The canvas keeps its fixed width at the tab's left, and
+  the starting eleven and bench lists take the rest of the pane at its right (the draft's
+  `taccols`), not half the pane each: a half narrower than the canvas widens the pane's
+  layout bound, and the settings rows below then wrap past the window's edge.
 - **The pitch looks like PES 2021's own formation screen** (Edit, Teams, a team, Game Plan,
   Team Sheet/Edit Position), each starter shown as the game shows him, by his portrait, read
   from the selected game's `download/` CPKs when that folder is found and holds one. Every

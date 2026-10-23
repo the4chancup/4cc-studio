@@ -57,7 +57,7 @@ impl Assign {
 /// and `formation` are still what they were at open.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) struct OpenSlot {
-    /// The pitch widget's `ui.id()` at open.
+    /// The pitch widget's `ui.scope_id()` at open.
     pub(crate) scope: egui::Id,
     /// `view.preset` at open.
     pub(crate) preset: usize,

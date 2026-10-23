@@ -143,7 +143,7 @@ impl HelpWindow {
         }
         let mut open = true;
         egui::Window::new("Help")
-            .id(egui::Id::new("help-window"))
+            .id(egui::Id::unique("help-window"))
             .default_size(DEFAULT_SIZE)
             .collapsible(false)
             .resizable(true)
@@ -852,16 +852,12 @@ mod tests {
         );
 
         // The tree lists the core chapters, then the tools' in registry order. A
-        // header is the Button without a toggled state: the sidebar's tool entries
-        // carry the stubs' labels too (and a toggled state, as do the topics).
+        // chapter's `CollapsingHeader` is a DisclosureTriangle node in the
+        // AccessKit tree (egui 0.37's role names); the topic entries are buttons.
         let top = |title: &str| {
             nodes
                 .iter()
-                .find(|node| {
-                    node.role() == Role::Button
-                        && node.label() == Some(title)
-                        && node.toggled().is_none()
-                })
+                .find(|node| node.role() == Role::DisclosureTriangle && node.label() == Some(title))
                 .unwrap_or_else(|| panic!("no chapter header {title:?}"))
                 .bounds()
                 .unwrap()
@@ -1053,11 +1049,12 @@ mod tests {
         let egui_ctx = egui::Context::default();
         egui_ctx.enable_accesskit();
 
-        // egui reports a `ui.link` as a `Label` node carrying its text in `label`.
+        // egui reports a `ui.link` as a `Link` node carrying its text in `label`
+        // (egui 0.37's `Role`, replacing `WidgetType`).
         let nodes = idle(&egui_ctx, &mut app, 2).nodes;
         let link = nodes
             .iter()
-            .find(|node| node.role() == Role::Label && node.label() == Some("alpha_error"))
+            .find(|node| node.role() == Role::Link && node.label() == Some("alpha_error"))
             .expect("the code's link node");
         click(&egui_ctx, &mut app, link);
         let nodes = idle(&egui_ctx, &mut app, 15).nodes;
@@ -1470,6 +1467,7 @@ mod tests {
                     delta: egui::vec2(0.0, -200.0),
                     phase: egui::TouchPhase::Move,
                     modifiers: egui::Modifiers::default(),
+                    source: egui::MouseWheelSource::Wheel,
                 },
             ],
             true,
@@ -1609,6 +1607,7 @@ mod tests {
                     delta: egui::vec2(0.0, -400.0),
                     phase: egui::TouchPhase::Move,
                     modifiers: egui::Modifiers::default(),
+                    source: egui::MouseWheelSource::Wheel,
                 },
             ],
             true,

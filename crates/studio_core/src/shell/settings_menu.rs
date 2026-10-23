@@ -72,7 +72,7 @@ impl SettingsMenu {
         if !self.open {
             return;
         }
-        let modal = egui::Modal::new(egui::Id::new("settings-menu")).show(egui_ctx, |ui| {
+        let modal = egui::Modal::new(egui::Id::unique("settings-menu")).show(egui_ctx, |ui| {
             ui.set_min_width(WIDTH);
             ui.heading("Settings");
             self.common_grid(ui, tools, ctx, sidebar);

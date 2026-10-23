@@ -225,10 +225,8 @@ impl Sidebar {
         };
         ui.with_layout(egui::Layout::bottom_up(align), |ui| {
             ui.horizontal(|ui| {
-                let help = ui.add(egui::Button::new(egui_phosphor::regular::QUESTION).frame(false));
-                help.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Help")
-                });
+                let help = ui.add(egui::Button::new(crate::icons::QUESTION).frame(false));
+                help.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Help"));
                 if help.on_hover_text("Help").clicked()
                     && let Some(tool) = tools.get(active)
                 {
@@ -238,9 +236,9 @@ impl Sidebar {
                         anchor: None,
                     }));
                 }
-                let gear = ui.add(egui::Button::new(egui_phosphor::regular::GEAR).frame(false));
+                let gear = ui.add(egui::Button::new(crate::icons::GEAR).frame(false));
                 gear.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::WidgetType::Button, true, "Settings")
+                    egui::WidgetInfo::labeled(egui::Role::Button, true, "Settings")
                 });
                 if gear.on_hover_text("Settings").clicked() {
                     clicked = Some(SidebarClick::OpenSettings);
@@ -400,7 +398,7 @@ impl Sidebar {
         // The rail draws the glyph alone; the entry's name stays the full label so tests and
         // screen readers find it unchanged in both modes.
         response.widget_info(|| {
-            egui::WidgetInfo::selected(egui::WidgetType::Button, ui.is_enabled(), active, label)
+            egui::WidgetInfo::selected(egui::Role::Button, ui.is_enabled(), active, label)
         });
         if active {
             ui.painter().rect_filled(
@@ -429,8 +427,7 @@ impl Sidebar {
             format!("{}  {}", entry.icon, entry.label)
         };
         let response = ui.add_enabled(false, egui::Label::new(text).sense(egui::Sense::hover()));
-        response
-            .widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, false, entry.label));
+        response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, false, entry.label));
         response.on_disabled_hover_text(tooltip);
     }
 

@@ -54,7 +54,7 @@ impl StudioTool for Tool {
     }
 
     fn icon(&self) -> &'static str {
-        studio_core::egui_phosphor::regular::SCROLL
+        studio_core::icons::SCROLL
     }
 
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {

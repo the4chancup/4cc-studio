@@ -7,17 +7,19 @@ Part of the [Core plan](README.md). Section headings are unchanged from the sing
 ### Shell layout
 
 In egui, the shell is built with `Panel` (sides) + `CentralPanel`, shown on the whole-app `Ui`
-that `eframe::App::ui` provides (API as of egui 0.36; see "egui version discipline" below).
+that `eframe::App::ui` provides (API as of egui 0.37; see "egui version discipline" below).
 
 ### egui version discipline
 
 egui still ships renames and deprecations most releases (0.31 moved window options into
 `ViewportBuilder`; 0.32 rewrote popups/menus and renamed `Rounding` to `CornerRadius`; 0.34
 deprecated `SidePanel`/`TopBottomPanel` for `Panel`, replaced `App::update(&Context)` with
-`App::ui(&mut Ui)`, and renamed `Context::style` to `global_style`). LLM-assisted coding reproduces
+`App::ui(&mut Ui)`, and renamed `Context::style` to `global_style`; 0.37 deprecated `Id::new`
+for `Id::unique` and `IdSalt`, renamed `Ui::id` to `Ui::scope_id`, and replaced `WidgetType`
+with `egui::Role`). LLM-assisted coding reproduces
 whichever API the model saw most, so it will emit pre-0.34 code by default. Rules:
 
-- `eframe` and `egui` are pinned exact (`=0.36.2`) once in `[workspace.dependencies]` (the
+- `eframe` and `egui` are pinned exact (`=0.37.0`) once in `[workspace.dependencies]` (the
   lock-step rule under `architecture.md` "Workspace guardrails") and upgraded deliberately, one
   release at a time, following each release's migration notes in `CHANGELOG.md` / the GitHub
   release. Exact rather than caret, because a caret already excludes the next minor (the
@@ -29,8 +31,8 @@ whichever API the model saw most, so it will emit pre-0.34 code by default. Rule
   by caret; they carry no API this workspace calls directly.
 - Treat deprecation warnings as errors in CI (`#![deny(deprecated)]` or `-D deprecated`) so stale
   API from generated code is caught at compile time rather than accumulating.
-- The code sketches in these plans follow 0.36; they illustrate structure and must be re-checked
-  against the pinned version when implemented, not pasted.
+- The code sketches in these plans were written against 0.36 and earlier; they illustrate
+  structure and must be re-checked against the pinned version when implemented, not pasted.
 
 ### Settings menu
 

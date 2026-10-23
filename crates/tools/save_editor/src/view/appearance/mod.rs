@@ -637,7 +637,7 @@ fn randomize(
     edit_player(
         session,
         player_id,
-        egui::Id::new(("appearance randomize", player_id)).value(),
+        egui::Id::unique(("appearance randomize", player_id)).value(),
         |player| {
             for field in MOTIONS {
                 let top = motion_top(version, field.field).expect("a motion field has a top");
@@ -814,11 +814,8 @@ fn swatch(ui: &mut egui::Ui, rgb: [u8; 3], held: bool, label: &str) -> egui::Res
     let size = egui::vec2(14.0, 14.0);
     let (rect, response) = ui.allocate_at_least(size, egui::Sense::click());
     response.widget_info(|| {
-        let mut info = egui::WidgetInfo::labeled(
-            egui::WidgetType::ColorButton,
-            ui.is_enabled(),
-            label.to_owned(),
-        );
+        let mut info =
+            egui::WidgetInfo::labeled(egui::Role::ColorWell, ui.is_enabled(), label.to_owned());
         info.selected = Some(held);
         info
     });

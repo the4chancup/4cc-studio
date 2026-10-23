@@ -40,7 +40,7 @@ pub(super) fn slot_popover(
     let keeper = slot.position == 0;
     let rect = marker_rect(badge_centre(canvas.min, slot), canvas);
     egui::Popup::new(
-        ui.id().with("slot popover"),
+        ui.scope_id().with("slot popover"),
         ui.ctx().clone(),
         egui::PopupAnchor::ParentRect(rect),
         ui.layer_id(),
