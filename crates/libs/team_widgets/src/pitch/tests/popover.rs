@@ -2,6 +2,7 @@
 //! and close cases, the fields' writes, the role chips and join.
 
 use egui::accesskit::Role;
+use pes_savefile::model::tactics::SetPieceTakers;
 use pes_version::PesVersion;
 
 use super::*;
@@ -76,6 +77,143 @@ fn a_role_chip_then_a_marker_click_writes_the_taker_and_disarms() {
         "the marker's player takes it"
     );
     assert_eq!(view.assign, None, "and the mode disarms");
+}
+
+// Every chip writes its own field: arm it, click a starter's marker —
+// the chip's field alone takes the clicked starter's roster slot (the
+// fields' own names, never `SET_PIECES`'s table).
+#[test]
+fn each_assignment_chip_writes_its_own_field() {
+    let mut window = Headless::sized(1400.0, 1100.0);
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    // A non-identity eleven: no index equals its roster slot.
+    tactics.starting_eleven.rotate_left(1);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(version);
+    let roster = roster_rows(&rows);
+    let formation = tactics.presets[0].formations[0].clone();
+    /// One chip case: its label prefix, its field's read and the expected
+    /// write — the field's own name, never `SET_PIECES`'s table.
+    struct Chip {
+        /// The chip's label prefix.
+        label: &'static str,
+        /// The field's stored read.
+        get: fn(&SetPieceTakers) -> u8,
+        /// The expected write, on a `TeamTactics` clone.
+        set: fn(&mut SetPieceTakers, u8),
+    }
+    let cases: [Chip; 7] = [
+        Chip {
+            label: "Long free kick",
+            get: |s| s.free_kick_long,
+            set: |s, v| s.free_kick_long = v,
+        },
+        Chip {
+            label: "Short free kick",
+            get: |s| s.free_kick_short,
+            set: |s, v| s.free_kick_short = v,
+        },
+        Chip {
+            label: "Second free kick",
+            get: |s| s.free_kick_second,
+            set: |s, v| s.free_kick_second = v,
+        },
+        Chip {
+            label: "Left corner",
+            get: |s| s.corner_left,
+            set: |s, v| s.corner_left = v,
+        },
+        Chip {
+            label: "Right corner",
+            get: |s| s.corner_right,
+            set: |s, v| s.corner_right = v,
+        },
+        Chip {
+            label: "Penalty kick",
+            get: |s| s.penalty,
+            set: |s, v| s.penalty = v,
+        },
+        Chip {
+            label: "Captain",
+            get: |s| s.captain,
+            set: |s, v| s.captain = v,
+        },
+    ];
+
+    // Markers a click can reach: no marker drawn after it covers its
+    // centre (egui resolves to the topmost).
+    let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let uncovered: Vec<usize> = (1..11)
+        .filter(|&index| {
+            let at = marker_rect(
+                pitch_point(
+                    canvas.min,
+                    formation.players[index].x,
+                    formation.players[index].y,
+                ),
+                canvas,
+            )
+            .center();
+            formation.players[index + 1..].iter().all(|slot| {
+                !marker_rect(pitch_point(canvas.min, slot.x, slot.y), canvas).contains(at)
+            })
+        })
+        .collect();
+    assert!(
+        uncovered.len() >= cases.len(),
+        "premise: enough open markers"
+    );
+
+    for (index, case) in cases.iter().enumerate() {
+        let chip_label = case.label;
+        // Arm the chip.
+        let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
+        let chip = nodes
+            .iter()
+            .find(|node| {
+                node.role() == Role::Button
+                    && node
+                        .label()
+                        .is_some_and(|label| label.starts_with(&format!("{chip_label}:")))
+            })
+            .unwrap_or_else(|| panic!("no chip {chip_label:?}"));
+        let (_, changed) =
+            window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
+        assert!(!changed, "{chip_label}: arming writes no record");
+        assert_eq!(view.assign, Some(Assign::Role(index)), "{chip_label} armed");
+
+        let marker_index = uncovered[index];
+        let starter = tactics.starting_eleven[marker_index];
+        assert_ne!(
+            starter, marker_index as u8,
+            "{chip_label}: slot and index differ"
+        );
+        assert_ne!(
+            (case.get)(&tactics.set_pieces),
+            starter,
+            "{chip_label}: the marker's player is not already the holder"
+        );
+        let mut expected = tactics.clone();
+        (case.set)(&mut expected.set_pieces, starter);
+
+        let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
+        let canvas = canvas_rect(&nodes);
+        let at = marker_rect(
+            pitch_point(
+                canvas.min,
+                formation.players[marker_index].x,
+                formation.players[marker_index].y,
+            ),
+            canvas,
+        )
+        .center();
+        let (_, changed) = window.click_pitch(at, version, &mut tactics, &mut view, &roster);
+        assert!(changed, "{chip_label}: the click wrote the field");
+        assert_eq!(tactics, expected, "{chip_label}: only its field written");
+        assert_eq!(view.assign, None, "{chip_label}: disarmed");
+    }
 }
 
 // The join pick toggles members until Done: three clicks fill the

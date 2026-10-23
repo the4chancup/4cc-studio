@@ -734,24 +734,25 @@ fn the_wrap_cells_pack_without_overlapping_or_wrapping_early() {
     // right (bounded by the next cell's label on the same row).
     let mut measure = Headless::sized(1600.0, 900.0);
     let (nodes, _) = measure.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-    let mut cells: Vec<accesskit::Rect> = slider_labels
+    let mut cells: Vec<(accesskit::Rect, usize)> = slider_labels
         .iter()
         .chain(pair_labels.iter())
-        .map(|label| label_bounds(&nodes, label))
+        .map(|label| (label_bounds(&nodes, label), 2))
+        .chain(std::iter::once((label_bounds(&nodes, "Substitution"), 1)))
         .collect();
     cells.sort_by(|a, b| {
-        (a.y0, a.x0)
-            .partial_cmp(&(b.y0, b.x0))
+        (a.0.y0, a.0.x0)
+            .partial_cmp(&(b.0.y0, b.0.x0))
             .expect("ordered bounds")
     });
     let cell_widths: Vec<f64> = cells
         .iter()
         .enumerate()
-        .map(|(index, label)| {
+        .map(|(index, (label, count))| {
             let next_on_row = cells
                 .get(index + 1)
-                .and_then(|next| ((next.y0 - label.y0).abs() < 4.0).then_some(next.x0));
-            nodes
+                .and_then(|next| ((next.0.y0 - label.y0).abs() < 4.0).then_some(next.0.x0));
+            let mut bounds: Vec<accesskit::Rect> = nodes
                 .iter()
                 .filter(|node| {
                     matches!(
@@ -768,6 +769,11 @@ fn the_wrap_cells_pack_without_overlapping_or_wrapping_early() {
                     })
                 })
                 .filter_map(|node| node.bounds())
+                .collect();
+            bounds.sort_by(|a, b| a.x0.partial_cmp(&b.x0).expect("ordered bounds"));
+            bounds
+                .iter()
+                .take(*count)
                 .map(|bounds| bounds.x1)
                 .fold(label.x1, f64::max)
                 - label.x0
@@ -782,40 +788,31 @@ fn the_wrap_cells_pack_without_overlapping_or_wrapping_early() {
     let mut window = Headless::sized(width, 900.0);
     let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
 
-    // (a) the allocated cell covers its drawn contents: the formula's
-    // width is at least the drawn width for every cell (an underestimate
-    // shows as drawn content past the row's right edge, inside the
-    // cell's own span).
+    // (a) the allocated cell covers its drawn contents to the pixel:
+    // the formula's width is at least the drawn width and at most a
+    // pixel more — an underestimate packs the next cell's content over
+    // this one's drawn end, an overestimate wraps early.
     let mut expected = Vec::new();
     window.frame(vec![], |ui| {
-        let spacing = ui.spacing().item_spacing.x;
         for spec in &SLIDERS {
-            expected.push(
-                text_width(ui, spec.label)
-                    + ui.spacing().slider_width
-                    + ui.spacing().interact_size.x
-                    + 2.0 * spacing,
-            );
+            expected.push(slider_cell_width(ui, spec.label));
         }
         for toggle in &STYLE_TOGGLES {
-            expected.push(
-                text_width(ui, toggle.label)
-                    + choice_width(ui, toggle.off)
-                    + choice_width(ui, toggle.on)
-                    + 2.0 * spacing,
-            );
+            expected.push(pair_cell_width(ui, toggle));
         }
+        expected.push(sub_cell_width(ui));
     });
     for (index, cell) in cell_widths.iter().enumerate() {
         let name = slider_labels
             .iter()
             .chain(pair_labels.iter())
+            .chain(std::iter::once(&"Substitution"))
             .nth(index)
             .expect("the cell's name");
-        let estimated = expected[index];
+        let estimated = f64::from(expected[index]);
         assert!(
-            *cell <= f64::from(estimated) + 1.0,
-            "{name}: allocated {estimated} under its drawn {cell}"
+            *cell <= estimated + 1.0 && *cell >= estimated - 1.0,
+            "{name}: allocated {estimated} vs drawn {cell}"
         );
     }
 

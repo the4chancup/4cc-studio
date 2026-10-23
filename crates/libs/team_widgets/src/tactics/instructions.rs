@@ -302,6 +302,13 @@ mod tests {
         attack[1].instruction =
             instruction::encode(version, Instruction::TikiTaka).expect("stored");
         attack[1].player = 0;
+        let defence = tactics.presets[0]
+            .defence_instructions
+            .as_mut()
+            .expect("PES 21 has instructions");
+        defence[0].instruction =
+            instruction::encode(version, Instruction::CounterTarget).expect("stored");
+        defence[0].player = 0xFF;
         let mut view = TacticsView::default();
         let rows = fixture_rows(version);
         let roster = roster_rows(&rows);
@@ -319,7 +326,15 @@ mod tests {
             Some("Unassigned"),
             "a target-less instruction names none"
         );
-        for target in [target1, target2] {
+        // An unset target under a player-taking instruction reads
+        // "Unassigned" too (no "(empty)" name).
+        let target3 = controls_right_of(&nodes, "Defence 1", Role::ComboBox)[1];
+        assert_eq!(
+            target3.value(),
+            Some("Unassigned"),
+            "an unset target under a player-taking instruction names none"
+        );
+        for target in [target1, target2, target3] {
             let shown = target.value().expect("the combo's text");
             assert!(
                 roster
@@ -520,6 +535,121 @@ mod tests {
             Some("Unassigned"),
             "and it shows Unassigned"
         );
+    }
+
+    // The four rows route to their own entries: an instruction and a
+    // target picked on one row lands on that row's entry alone — the
+    // other three rows, the other presets and every other field stay.
+    #[test]
+    fn each_instruction_row_writes_its_own_entry() {
+        let mut window = Headless::sized(800.0, 900.0);
+        let version = PesVersion::Pes21;
+        let mut tactics = fixture_tactics(version);
+        // The four rows start distinct and a non-identity eleven (a
+        // roster slot that equals its index would hide an index write).
+        let encode = |inst| instruction::encode(version, inst).expect("PES 21 stores it");
+        let rows_init = [
+            Instruction::HugTheTouchline,
+            Instruction::WingRotation,
+            Instruction::DeepDefensiveLine,
+            Instruction::Gegenpress,
+        ];
+        let attack = &mut tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("PES 21 has instructions");
+        attack[0].instruction = encode(rows_init[0]);
+        attack[0].player = 0;
+        attack[1].instruction = encode(rows_init[1]);
+        attack[1].player = 1;
+        let defence = &mut tactics.presets[0]
+            .defence_instructions
+            .as_mut()
+            .expect("PES 21 has instructions");
+        defence[0].instruction = encode(rows_init[2]);
+        defence[0].player = 2;
+        defence[1].instruction = encode(rows_init[3]);
+        defence[1].player = 3;
+        tactics.starting_eleven.swap(2, 9);
+        tactics.starting_eleven.swap(3, 10);
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(version);
+        let roster = roster_rows(&rows);
+
+        for (index, (label, inst, pick)) in [
+            ("Attack 1", Instruction::CounterTarget, 2_usize),
+            ("Attack 2", Instruction::Defensive, 3_usize),
+            ("Defence 1", Instruction::CounterTarget, 4_usize),
+            ("Defence 2", Instruction::Defensive, 5_usize),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let before = tactics.clone();
+            let mut expected = before.clone();
+            let entries = if index < 2 {
+                &mut expected.presets[0]
+                    .attack_instructions
+                    .as_mut()
+                    .expect("instructions")
+            } else {
+                &mut expected.presets[0]
+                    .defence_instructions
+                    .as_mut()
+                    .expect("instructions")
+            };
+            let entry = &mut entries[index % 2];
+            entry.instruction = encode(inst);
+            entry.player = tactics.starting_eleven[pick];
+            assert!(
+                inst.takes_player(),
+                "premise: the picked instruction takes a player"
+            );
+
+            // Pick the instruction on this row's combo.
+            let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+            let combo = control_right_of(&nodes, label, Role::ComboBox);
+            let (_, _) = click(
+                &mut window,
+                combo,
+                version,
+                &mut tactics,
+                &mut view,
+                &roster,
+            );
+            let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
+            let item = entry_id(&ids, Role::Button, instruction_label(inst));
+            let (_, changed) =
+                window.action_click_tactics(item, version, &mut tactics, &mut view, &roster);
+            assert!(changed, "{label}: the pick changed the record");
+
+            // Then the target combo and the pick's starter.
+            let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+            let target = controls_right_of(&nodes, label, Role::ComboBox)[1];
+            assert!(!target.is_disabled(), "{label}: the target is enabled");
+            let (_, _) = click(
+                &mut window,
+                target,
+                version,
+                &mut tactics,
+                &mut view,
+                &roster,
+            );
+            // An idle frame so the instruction popup's items clear.
+            let _ = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+            let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
+            let starter_label = format!(
+                "{} {}",
+                pick + 1,
+                name_at(&roster, tactics.starting_eleven[pick])
+            );
+            let item = entry_id(&ids, Role::Button, &starter_label);
+            let (_, changed) =
+                window.action_click_tactics(item, version, &mut tactics, &mut view, &roster);
+            assert!(changed, "{label}: the target pick changed the record");
+
+            assert_eq!(tactics, expected, "{label}: only that row's entry changed");
+        }
     }
 
     // The Target combo's shown text: a starter as his lineup position and

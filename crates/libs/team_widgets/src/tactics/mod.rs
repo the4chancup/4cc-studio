@@ -244,16 +244,8 @@ fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
         }
     }
     ui.horizontal_wrapped(|ui| {
-        let spacing = ui.spacing().item_spacing.x;
         for spec in &SLIDERS {
-            // The cell's drawn width: the label, the rail
-            // (`slider_width`) and the value field (a DragValue's
-            // `interact_size.x`), plus the gaps.
-            let width = text_width(ui, spec.label)
-                + ui.spacing().slider_width
-                + ui.spacing().interact_size.x
-                + 2.0 * spacing;
-            cell(ui, width, |ui| {
+            cell(ui, slider_cell_width(ui, spec.label), |ui| {
                 ui.label(spec.label);
                 let mut value = (spec.get)(&preset.sliders);
                 if ui
@@ -268,15 +260,35 @@ fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
             });
         }
         for toggle in &STYLE_TOGGLES {
-            // The pair cell: the label and the two choices, each choice a
-            // selectable's text and padding.
-            let width = text_width(ui, toggle.label)
-                + choice_width(ui, toggle.off)
-                + choice_width(ui, toggle.on)
-                + 2.0 * spacing;
-            cell(ui, width, |ui| style_toggle(ui, &mut preset.style, toggle));
+            cell(ui, pair_cell_width(ui, toggle), |ui| {
+                style_toggle(ui, &mut preset.style, toggle)
+            });
         }
     });
+}
+
+/// A slider cell's drawn width: the label, the rail (`slider_width`) and
+/// the value field (a DragValue's `interact_size.x`), plus the gaps.
+fn slider_cell_width(ui: &egui::Ui, label: &str) -> f32 {
+    text_width(ui, label)
+        + ui.spacing().slider_width
+        + ui.spacing().interact_size.x
+        + 2.0 * ui.spacing().item_spacing.x
+}
+
+/// A style pair cell's drawn width: the label and the two choices, each
+/// a selectable's text and padding, plus the gaps.
+fn pair_cell_width(ui: &egui::Ui, toggle: &StyleToggle) -> f32 {
+    text_width(ui, toggle.label)
+        + choice_width(ui, toggle.off)
+        + choice_width(ui, toggle.on)
+        + 2.0 * ui.spacing().item_spacing.x
+}
+
+/// The Substitution pair's drawn width: the label and the DragValue
+/// field (`interact_size.x`), plus the gap.
+fn sub_cell_width(ui: &egui::Ui) -> f32 {
+    text_width(ui, "Substitution") + ui.spacing().interact_size.x + ui.spacing().item_spacing.x
 }
 
 /// `text`'s galley width in the body font.
@@ -327,10 +339,7 @@ fn style_toggle(ui: &mut egui::Ui, style: &mut TacticStyle, toggle: &StyleToggle
 fn automatic_settings(ui: &mut egui::Ui, auto: &mut TeamAutoFlags) {
     ui.strong("Automatic settings");
     ui.horizontal_wrapped(|ui| {
-        let width = text_width(ui, "Substitution")
-            + ui.spacing().interact_size.x
-            + 2.0 * ui.spacing().item_spacing.x;
-        cell(ui, width, |ui| {
+        cell(ui, sub_cell_width(ui), |ui| {
             ui.label("Substitution");
             match &mut auto.substitution {
                 Some(substitution) => {
