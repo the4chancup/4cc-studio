@@ -76,6 +76,10 @@ pub enum PipelineEvent {
     /// whose result is such text reports nothing else on success, so stdout parses
     /// (`save-editor diff --json`).
     Output(String),
+    // The run strip needs stage, elapsed time, files written, and memory in
+    // use — more than `Progress` carries. Extend `Progress` with these fields
+    // or add separate `StageChanged`/`MetricsUpdated` events before implementing
+    // the run strip view (see "Toolbar" in the Team compiler plan).
     /// Coarse run progress: `processed` of `total` units done.
     Progress {
         /// Units finished so far.
@@ -83,6 +87,12 @@ pub enum PipelineEvent {
         /// Units in the run.
         total: usize,
     },
+    // The Team compiler needs separate compile and deployment outcomes (rollback,
+    // "artifacts built but installation failed"). Replace the boolean `success`
+    // with structured CompileOutcome/DeploymentOutcome/CancellationOutcome before
+    // implementing the run-result semantics described in the Team compiler plan.
+    // At that point the placeholder folder-only counters below become task/scoped-
+    // outcome counts, so typed non-folder tasks are represented in the summary.
     /// The run ended.
     Complete {
         /// Whether the run as a whole succeeded.

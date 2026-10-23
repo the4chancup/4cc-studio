@@ -405,6 +405,7 @@ fn build(
         compress_dds,
     } = planned;
     let tasks = manifest.tasks;
+    let task_count = tasks.len();
     let team_colors = manifest.team_colors;
     let team_kits = manifest.team_kits;
     let player_rows = manifest.player_rows;
@@ -512,20 +513,27 @@ fn build(
             let mut events = events;
             // The writer finishes the CPK too, so its file is closed when the thread ends,
             // before a failure removes the staging folder.
-            let written = write_batches(batches_rx, &mut output, &mut events, last_tasks, budget)
-                .and_then(|()| {
-                    output.finish(
-                        version,
-                        bins,
-                        BinsEdits {
-                            team_colors,
-                            team_kits,
-                            player_rows,
-                            shared_ids,
-                        },
-                        templates,
-                    )
-                });
+            let written = write_batches(
+                batches_rx,
+                &mut output,
+                &mut events,
+                last_tasks,
+                task_count,
+                budget,
+            )
+            .and_then(|()| {
+                output.finish(
+                    version,
+                    bins,
+                    BinsEdits {
+                        team_colors,
+                        team_kits,
+                        player_rows,
+                        shared_ids,
+                    },
+                    templates,
+                )
+            });
             (events, written)
         });
         let coordinated = pool.in_place_scope(|pool_scope| {
@@ -550,17 +558,17 @@ fn build(
             Disposition::AbortRun,
             vec![("path", change.path)],
         ));
-        return Ok(events.worst());
+        return Ok(end_run(&events, 0));
     }
 
     // A bins failure is a CPK write failure too: `uniparam_compile_failed` is not reported yet.
     // A working bin that does not parse never gets here, stopped where it was read.
-    let written = match written {
-        Ok((written, messages)) => {
+    let (written, files_written) = match written {
+        Ok((written, entries, messages)) => {
             for message in messages {
                 events.message(message);
             }
-            written
+            (written, entries)
         }
         Err(error) => {
             // A team the parts cannot take is its own finding, not a write failure; no part
@@ -569,11 +577,11 @@ fn build(
                 Ok(Unplaced(message)) => events.message(message),
                 Err(error) => abort_output(&mut events, &target, Code::CpkWriteFailed, error),
             }
-            return Ok(events.worst());
+            return Ok(end_run(&events, 0));
         }
     };
     if !written.team && !written.refs {
-        return Ok(events.worst());
+        return Ok(end_run(&events, files_written));
     }
     if written.team
         && let (OutputMode::Normal { .. }, CpkLayout::Single { name, cap }) = (mode, layout)
@@ -583,7 +591,7 @@ fn build(
             Ok(None) => {}
             Err(error) => {
                 abort_output(&mut events, &target, Code::CpkWriteFailed, error);
-                return Ok(events.worst());
+                return Ok(end_run(&events, 0));
             }
         }
     }
@@ -658,7 +666,7 @@ fn build(
                                         Code::OutputCommitFailed,
                                         error,
                                     );
-                                    return Ok(events.worst());
+                                    return Ok(end_run(&events, 0));
                                 }
                             }
                             // An AbortRun publishes nothing more: no teamnotes.
@@ -693,9 +701,20 @@ fn build(
                 }
             }
         }
-        Err(error) => abort_output(&mut events, &target, Code::OutputCommitFailed, error),
+        Err(error) => {
+            abort_output(&mut events, &target, Code::OutputCommitFailed, error);
+            return Ok(end_run(&events, 0));
+        }
     }
-    Ok(events.worst())
+    Ok(end_run(&events, files_written))
+}
+
+/// The run's `Complete` (sent once, here at each way out of `build`, where the compile ran),
+/// then the worst severity `build` returns. `files_written` counts the entries of the CPKs
+/// the run put in the output folder.
+fn end_run(events: &RunEvents, files_written: usize) -> Option<Severity> {
+    events.complete(files_written);
+    events.worst()
 }
 
 /// Where `build` writes in the run's staging folder `run_folder` for `mode` and `layout`: the
@@ -1119,8 +1138,9 @@ fn source_change<'a>(
 }
 
 /// The writer thread's work: each batch received is committed in manifest order, then every
-/// committed batch's messages reported, and its export's `ExportProcessed` after the export's
-/// last task (`last_tasks`, by manifest position). Returns the first error writing the CPK,
+/// committed batch's messages reported, its `Progress` (`done` of `tasks_total`, the
+/// manifest's task count), and its export's `ExportProcessed` after the export's last task
+/// (`last_tasks`, by manifest position). Returns the first error writing the CPK,
 /// once every batch has been received. A failed `submit` cancels the budget, so the
 /// coordinator stops reading and the pool stops processing the rest of the run: the failure
 /// this function returns is the finding the run reports.
@@ -1129,8 +1149,10 @@ fn write_batches(
     output: &mut CpkOutput,
     events: &mut RunEvents,
     last_tasks: &BTreeMap<usize, ExportId>,
+    tasks_total: usize,
     budget: &Arc<MemoryBudget>,
 ) -> anyhow::Result<()> {
+    let mut done = 0;
     for batch in &batches {
         let committed = match output.submit(batch) {
             Ok(committed) => committed,
@@ -1152,6 +1174,8 @@ fn write_batches(
             if let Some(export_id) = last_tasks.get(&index) {
                 events.processed(*export_id);
             }
+            done += 1;
+            events.progress(done, tasks_total);
         }
     }
     Ok(())
@@ -1758,6 +1782,7 @@ mod tests {
                 &mut output,
                 &mut events,
                 &BTreeMap::new(),
+                1,
                 &budget
             )
             .is_err(),

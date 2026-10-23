@@ -35,6 +35,9 @@ env_logger = { version = "0.11.11", default-features = false }
 flate2 = "1.1.10"
 libc = "0.2.189"
 image = { version = "0.25.10", default-features = false, features = ["png", "jpeg", "bmp", "webp", "tga", "tiff"] }
+# The console's progress line in `studio` (`plans/core/README.md` "External Dependencies"):
+# terminal width handling, the Windows console and the draw-rate cap come with it.
+indicatif = { version = "0.18.6", default-features = false }
 indexmap = "2.14.2"
 log = "0.4.34"
 md-5 = "0.11.0"

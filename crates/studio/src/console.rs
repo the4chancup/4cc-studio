@@ -1,29 +1,189 @@
 //! The CLI's event and notice printers: each drains its channel on its own thread while a
 //! command runs — events' lines go to stdout, as `studio_core::EventLines` formats them (core
 //! plan, "Event system", "CLI translates events"), notices' texts to stderr (the status bar's
-//! right slot, rendered as lines; `gui.md` "Status bar" "CLI equivalence").
+//! right slot, rendered as lines; `gui.md` "Status bar" "CLI equivalence"). On a terminal
+//! stderr the event printer also draws the run's progress line and leaves its summary (core
+//! plan, "The console's progress line and run summary"); piped, it prints stdout alone.
 
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::thread::JoinHandle;
+use std::time::Duration;
 
 use crossbeam_channel::Receiver;
-use studio_core::{EventLines, PipelineEventEnvelope, ShellRequest};
+use indicatif::{ProgressBar, ProgressDrawTarget, ProgressState, ProgressStyle};
+use studio_core::{EventLines, PipelineEvent, PipelineEventEnvelope, ShellRequest};
 
-#[expect(clippy::print_stdout, reason = "CLI result output is the binary's job")]
-fn print_line(line: &str) {
-    println!("{line}");
+/// Drains the channel on its own thread, printing each line to stdout, until every sender is
+/// gone. Whether stderr is a terminal decides whether the progress line is drawn; it is read
+/// here alone, so `print_events` takes the decision and its writers as arguments.
+pub(crate) fn spawn_printer(events: Receiver<PipelineEventEnvelope>) -> JoinHandle<io::Result<()>> {
+    let draw = io::stderr().is_terminal();
+    std::thread::spawn(move || {
+        // The unlocked handles lock per write, as the notice printer's do.
+        print_events(events, draw, &mut io::stdout(), &mut io::stderr())
+    })
 }
 
-/// Drains the channel on its own thread, printing each line to stdout, until every sender is gone.
-pub(crate) fn spawn_printer(events: Receiver<PipelineEventEnvelope>) -> JoinHandle<()> {
-    std::thread::spawn(move || {
-        let mut lines = EventLines::new();
-        for envelope in events {
-            if let Some(line) = lines.line(&envelope.event) {
-                print_line(&line);
+/// The run's events as lines on `out`, as `EventLines` formats them. With `draw`, the run's
+/// progress line (`[ 3/12 exports | 1,284/4,010 parts | 0:42 ]`) is drawn by indicatif on the
+/// process's stderr, redrawn in place at its rate and cleared while each line goes to `out`
+/// (`suspend`); on `Complete` it is replaced on `err` by the run's summary, and a stream that
+/// ends without one (a `check`, an upgrade, a run stopped before it compiled) leaves no line.
+/// Without `draw` the bar is hidden and nothing touches `err`, so piped stdout is
+/// byte-for-byte what it is on a terminal.
+fn print_events(
+    events: Receiver<PipelineEventEnvelope>,
+    draw: bool,
+    out: &mut impl Write,
+    err: &mut impl Write,
+) -> io::Result<()> {
+    let mut lines = EventLines::new();
+    let mut exports_done = 0;
+    let mut exports_total = 0;
+    let mut parts: Option<(usize, usize)> = None;
+    let mut ended = false;
+    // indicatif draws to stderr itself (the Windows console handled), capped at ten draws a
+    // second once its target is set; the line is the counters message and the `{clock}` key,
+    // no bar graphic.
+    let bar = if draw {
+        // Hidden until the first export: a bar redraws after every `suspend`, so it would
+        // draw an empty frame while the findings before it print.
+        let bar = ProgressBar::with_draw_target(None, ProgressDrawTarget::hidden());
+        bar.set_style(
+            ProgressStyle::with_template("[ {msg} | {clock} ]")
+                .expect("a literal template parses")
+                .with_key(
+                    "clock",
+                    |state: &ProgressState, w: &mut dyn std::fmt::Write| {
+                        // Rendered from the bar's state on every draw, so the clock moves
+                        // between events too.
+                        write!(w, "{}", elapsed_text(state.elapsed()))
+                            .expect("writing into the draw buffer does not fail");
+                    },
+                ),
+        );
+        bar
+    } else {
+        ProgressBar::hidden()
+    };
+    for envelope in events {
+        let summary = match &envelope.event {
+            PipelineEvent::ExportStarted { .. } => {
+                exports_total += 1;
+                if exports_total == 1 {
+                    bar.set_message(progress_line(exports_done, exports_total, parts));
+                    if draw {
+                        bar.set_draw_target(ProgressDrawTarget::stderr_with_hz(10));
+                    }
+                    // The steady tick makes the clock tick between findings; enabled
+                    // once the first message is up, so no empty brackets draw first.
+                    bar.enable_steady_tick(Duration::from_millis(500));
+                }
+                None
+            }
+            PipelineEvent::ExportProcessed { .. } => {
+                exports_done += 1;
+                None
+            }
+            PipelineEvent::Progress { processed, total } => {
+                parts = Some((*processed, *total));
+                None
+            }
+            PipelineEvent::Complete {
+                files_written,
+                skipped_folders,
+                folders_with_errors,
+                ..
+            } => Some((*files_written, *skipped_folders, *folders_with_errors)),
+            PipelineEvent::FolderStatus { .. }
+            | PipelineEvent::Message(_)
+            | PipelineEvent::Output(_)
+            | PipelineEvent::UnmigratedContentFound => None,
+        };
+        match summary {
+            Some((files, skipped, errors)) => {
+                ended = true;
+                bar.finish_and_clear();
+                if draw {
+                    writeln!(
+                        err,
+                        "{}",
+                        summary_line(files, skipped, errors, bar.elapsed())
+                    )?;
+                }
+            }
+            None => {
+                // The line draws from the first export started, not the first finding.
+                if exports_total > 0 {
+                    bar.set_message(progress_line(exports_done, exports_total, parts));
+                }
+                if let Some(line) = lines.line(&envelope.event) {
+                    bar.suspend(|| writeln!(out, "{line}"))?;
+                }
             }
         }
-    })
+    }
+    if !ended {
+        bar.finish_and_clear();
+    }
+    Ok(())
+}
+
+/// The progress line's counters, which `set_message` puts inside the template's `[ ... ]`:
+/// the exports done of all started, then the parts done once a `Progress` arrived.
+fn progress_line(
+    exports_done: usize,
+    exports_total: usize,
+    parts: Option<(usize, usize)>,
+) -> String {
+    let parts = match parts {
+        Some((done, total)) => format!(" | {}/{} parts", grouped(done), grouped(total)),
+        None => String::new(),
+    };
+    format!(
+        "{}/{} exports{parts}",
+        grouped(exports_done),
+        grouped(exports_total)
+    )
+}
+
+/// The summary line a `Complete` leaves: the files written, the folders skipped and the
+/// folders with errors, each with its plural right, and the run's elapsed `m:ss`.
+fn summary_line(files: usize, skipped: usize, errors: usize, elapsed: Duration) -> String {
+    format!(
+        "Done: {} file{} written, {} folder{} skipped, {} folder{} with errors, {}",
+        grouped(files),
+        plural_s(files),
+        grouped(skipped),
+        plural_s(skipped),
+        grouped(errors),
+        plural_s(errors),
+        elapsed_text(elapsed)
+    )
+}
+
+/// `n`'s digits grouped by threes with commas (`1,284`).
+fn grouped(n: usize) -> String {
+    let digits = n.to_string();
+    let mut text = String::new();
+    for (index, digit) in digits.chars().enumerate() {
+        if index > 0 && (digits.len() - index).is_multiple_of(3) {
+            text.push(',');
+        }
+        text.push(digit);
+    }
+    text
+}
+
+/// `elapsed` as `m:ss` (`0:42`, `62:07`).
+fn elapsed_text(elapsed: Duration) -> String {
+    let seconds = elapsed.as_secs();
+    format!("{}:{:02}", seconds / 60, seconds % 60)
+}
+
+/// The plural `s`, absent for a count of one.
+fn plural_s(n: usize) -> &'static str {
+    if n == 1 { "" } else { "s" }
 }
 
 /// Drains the shell-request channel, printing each notice's text to `out` on its own line,
@@ -50,10 +210,126 @@ pub(crate) fn spawn_notice_printer(requests: Receiver<ShellRequest>) -> JoinHand
 
 #[cfg(test)]
 mod tests {
+    use std::borrow::Cow;
+
     use crossbeam_channel::unbounded;
-    use studio_core::Notice;
+    use studio_core::{
+        Disposition, ExportId, Message, MessageCode, Notice, RunId, Scope, Severity,
+    };
 
     use super::*;
+
+    /// The `export_id`-less envelope every run's events share.
+    fn envelope(event: PipelineEvent) -> PipelineEventEnvelope {
+        PipelineEventEnvelope {
+            run_id: RunId(1),
+            export_id: None,
+            export_revision: None,
+            event,
+        }
+    }
+
+    /// One run's stream: two exports started, a finding, three parts, both exports done,
+    /// the run's end.
+    fn run_events() -> Receiver<PipelineEventEnvelope> {
+        let (tx, rx) = unbounded();
+        let finding = PipelineEvent::Message(Message {
+            code: MessageCode {
+                tool_id: "team-compiler",
+                code: Cow::Borrowed("bad_file"),
+            },
+            severity: Severity::Warning,
+            disposition: Disposition::Keep,
+            scope: Scope::Export {
+                export_id: ExportId(1),
+            },
+            context: Vec::new(),
+        });
+        for event in [
+            PipelineEvent::ExportStarted {
+                export_id: ExportId(1),
+                display_name: "co One".to_owned(),
+            },
+            PipelineEvent::ExportStarted {
+                export_id: ExportId(2),
+                display_name: "co Two".to_owned(),
+            },
+            finding,
+            PipelineEvent::Progress {
+                processed: 1,
+                total: 3,
+            },
+            PipelineEvent::Progress {
+                processed: 2,
+                total: 3,
+            },
+            PipelineEvent::Progress {
+                processed: 3,
+                total: 3,
+            },
+            PipelineEvent::ExportProcessed {
+                export_id: ExportId(1),
+            },
+            PipelineEvent::ExportProcessed {
+                export_id: ExportId(2),
+            },
+            PipelineEvent::Complete {
+                success: true,
+                files_written: 12,
+                skipped_folders: 0,
+                duplicates: 0,
+                folders_with_errors: 0,
+            },
+        ] {
+            tx.send(envelope(event)).unwrap();
+        }
+        drop(tx);
+        rx
+    }
+
+    #[test]
+    fn the_lines_print_the_same_stdout_whether_the_progress_line_draws_or_not() {
+        let mut out_no_draw = Vec::new();
+        let mut err_no_draw = Vec::new();
+        print_events(run_events(), false, &mut out_no_draw, &mut err_no_draw).unwrap();
+        assert_eq!(out_no_draw, b"- co One: Warning bad_file\n");
+        assert_eq!(err_no_draw, b"", "nothing is drawn on a piped stderr");
+
+        let mut out_draw = Vec::new();
+        let mut err_draw = Vec::new();
+        print_events(run_events(), true, &mut out_draw, &mut err_draw).unwrap();
+        assert_eq!(out_draw, out_no_draw, "the line changes no stdout byte");
+        let err = String::from_utf8(err_draw).unwrap();
+        assert!(
+            err.starts_with("Done: 12 files written, 0 folders skipped, 0 folders with errors, 0:"),
+            "the summary is all a drawn run leaves on stderr: {err}"
+        );
+    }
+
+    #[test]
+    fn the_progress_line_is_the_counters_alone_the_template_adding_brackets_and_clock() {
+        assert_eq!(
+            progress_line(3, 12, Some((1284, 4010))),
+            "3/12 exports | 1,284/4,010 parts"
+        );
+        assert_eq!(progress_line(0, 1, None), "0/1 exports");
+    }
+
+    #[test]
+    fn the_summary_line_counts_the_run_with_each_plural_right() {
+        assert_eq!(
+            summary_line(1284, 2, 1, Duration::from_secs(42)),
+            "Done: 1,284 files written, 2 folders skipped, 1 folder with errors, 0:42"
+        );
+        assert_eq!(
+            summary_line(1, 1, 0, Duration::from_secs(5)),
+            "Done: 1 file written, 1 folder skipped, 0 folders with errors, 0:05"
+        );
+        assert_eq!(
+            summary_line(0, 0, 3, Duration::from_secs(62 * 60 + 7)),
+            "Done: 0 files written, 0 folders skipped, 3 folders with errors, 62:07"
+        );
+    }
 
     #[test]
     fn the_notice_printer_writes_each_notices_text_and_skips_other_requests() {

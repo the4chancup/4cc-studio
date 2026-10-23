@@ -10360,3 +10360,17 @@ per export keeps a refused export (its output already there, a team the save lac
 stopping the rest. cmd misreads a batch file's labels with LF line ends.
 Plan: `plans/core/development_plan.md` "The /vg/ League 27 (VGL)"; `plans/core/distribution.md`
 bundle list; worklog 0.0.1b.
+
+## 2026-10-23 — studio, team_compiler — the console's progress line counts exports from their events and the manifest's tasks as "parts"
+Decision: the progress line's exports counter is the printer's count of `ExportStarted` (total)
+and `ExportProcessed` (done) events; its second counter is `Progress`, which the Team compiler
+emits as each build-manifest task commits, labelled "parts"; `Progress` keeps its one pair; the
+line draws from the first export, and a stream that ends with no `Complete` (a `check`, an
+upgrade) clears it.
+Why: every export starts in the validation pass before any is compiled, so the events already
+carry the total and no new event or field is needed; a task is not always a folder (a kit, the
+logo, a Common directory), so "folders" would not add up to an export's folders, and the
+manifest's tasks are the unit that commits whole. The printer is tool-neutral and cannot know
+a `Complete` is coming until the stream ends, and a count left behind by a run that sends none
+would read as unfinished.
+Plan: `plans/core/architecture.md` "The console's progress line and run summary"; worklog 0.0.1a.

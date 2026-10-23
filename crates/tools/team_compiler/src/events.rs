@@ -1,10 +1,15 @@
 //! A run's event stream: what `check` and `compile` report to the shell or the console, export
 //! by export, and the worst severity among it, which decides the command's exit code.
 
-use studio_core::{
-    ExportId, Message, PipelineEvent, PipelineEventEnvelope, RunId, Severity, ToolContext,
-};
+use std::collections::BTreeSet;
 
+use studio_core::{
+    Disposition, ExportId, Message, PipelineEvent, PipelineEventEnvelope, RunId, Scope, Severity,
+    ToolContext,
+};
+use vtree::ScopePath;
+
+use crate::messages::Code;
 use crate::reader::ExportSource;
 
 /// A command is one run per process, so every event carries the same run id.
@@ -15,6 +20,13 @@ const RUN_ID: RunId = RunId(1);
 pub(crate) struct RunEvents {
     ctx: ToolContext,
     worst: Option<Severity>,
+    /// The folders a finding's verdict dropped (`DropFolder`), for `Complete`'s summary.
+    skipped_folders: usize,
+    /// The entries an `overrides/` file replaced (`duplicate_path`), for `Complete`'s summary.
+    duplicates: usize,
+    /// The folders that reported an error-level finding, by their canonical path inside their
+    /// export: one folder counts once however many findings it has.
+    folders_with_errors: BTreeSet<(ExportId, ScopePath)>,
 }
 
 impl RunEvents {
@@ -24,6 +36,9 @@ impl RunEvents {
         RunEvents {
             ctx: ctx.clone(),
             worst: None,
+            skipped_folders: 0,
+            duplicates: 0,
+            folders_with_errors: BTreeSet::new(),
         }
     }
 
@@ -43,6 +58,23 @@ impl RunEvents {
     /// One finding, addressed to the export its scope names.
     pub(crate) fn message(&mut self, message: Message) {
         self.worst = self.worst.max(Some(message.severity));
+        if message.disposition == Disposition::DropFolder {
+            self.skipped_folders += 1;
+        }
+        if message.code.code.as_ref() == Code::DuplicatePath.as_str() {
+            self.duplicates += 1;
+        }
+        // A file's error is its folder's too; a roster line's or an export's counts no folder.
+        if message.severity >= Severity::Error {
+            let folder = match &message.scope {
+                Scope::Folder { export_id, path } => Some((*export_id, path.clone())),
+                Scope::File { export_id, path } => path.parent().map(|parent| (*export_id, parent)),
+                Scope::Run | Scope::Export { .. } | Scope::RosterEntry { .. } => None,
+            };
+            if let Some(folder) = folder {
+                self.folders_with_errors.insert(folder);
+            }
+        }
         self.emit(message.scope.export_id(), PipelineEvent::Message(message));
     }
 
@@ -51,6 +83,27 @@ impl RunEvents {
         self.emit(
             Some(export_id),
             PipelineEvent::ExportProcessed { export_id },
+        );
+    }
+
+    /// `processed` of the manifest's `total` tasks committed (`Progress`, the console's parts
+    /// counter). Run-wide: a task is the run's work, no export's.
+    pub(crate) fn progress(&self, processed: usize, total: usize) {
+        self.emit(None, PipelineEvent::Progress { processed, total });
+    }
+
+    /// The run ended after compiling (`Complete`): `files_written` entries in the output, the
+    /// counts the findings kept, and `success` when nothing error-level was reported.
+    pub(crate) fn complete(&self, files_written: usize) {
+        self.emit(
+            None,
+            PipelineEvent::Complete {
+                success: self.worst.is_none_or(|worst| worst < Severity::Error),
+                files_written,
+                skipped_folders: self.skipped_folders,
+                duplicates: self.duplicates,
+                folders_with_errors: self.folders_with_errors.len(),
+            },
         );
     }
 

@@ -170,6 +170,46 @@ fn compile_with_a_positional_root_compiles_it_and_leaves_the_settings_file_alone
     );
 }
 
+// ST-CLI-02
+#[test]
+fn a_compile_with_stderr_piped_draws_no_line_and_leaves_stderr_empty() {
+    let sandbox = Sandbox::new("piped_stderr", "");
+    sandbox.write(
+        "data/settings.toml",
+        &format!("[common]\npes_version = 21\n{}", sandbox.pes_folder_line()),
+    );
+    sandbox.write("data/teams_list.txt", "ID\tName\n714\t/co/\n");
+    let kit = Path::new(env!("CARGO_MANIFEST_DIR")).join(
+        "../tools/team_compiler/tests/fixtures/tracer/studio/egg Midcup Tracer/Kits/g1/kit.dds",
+    );
+    let folder = sandbox.root.join("exports/co Midcup Kit/Kits/p1");
+    fs::create_dir_all(&folder).unwrap();
+    fs::copy(&kit, folder.join("kit.dds")).unwrap();
+
+    let output = sandbox.run(&["team-compiler", "compile", "--no-deploy"]);
+
+    // The process's stderr is a pipe, so the progress line and the summary draw nothing:
+    // stderr is empty and stdout holds exactly the lines it holds in a terminal.
+    assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout),
+        format!(
+            "- Info bin_source (bin=TeamColor.bin, cpk=bundled)\n\
+             - Info bin_source (bin=UniColor.bin, cpk=bundled)\n\
+             - Info bin_source (bin=UniformParameter.bin, cpk=bundled)\n\
+             - co Midcup Kit: Info export_identified (team=/co/, id=714)\n\
+             - co Midcup Kit: Info team_colors_missing\n\
+             - Info deploy_skipped_by_flag (path={})\n",
+            sandbox
+                .root
+                .join("output")
+                .join("4cc_99_test.cpk")
+                .display()
+        )
+    );
+    assert!(stderr(&output).is_empty(), "{}", stderr(&output));
+}
+
 #[test]
 fn a_settings_file_that_is_not_toml_stops_the_binary_naming_it() {
     let sandbox = Sandbox::new("bad_settings", "this is = = not toml");

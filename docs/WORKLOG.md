@@ -20,7 +20,7 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1 and 2 done, slice 3 (the Tactics tab) under way), then 0.0.1a-e (the Team
+8.9: slices 1 and 2 done, slice 3 (the Tactics tab) under way), then 0.0.1a-e (0.0.1a done; the Team
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
@@ -1322,11 +1322,19 @@ draft, and before Phase 20, so the rehearsal's findings have the most time befor
 f is the cut, once Phase 20 closes. The usual rigor holds throughout:
 briefs, review loops, gates and mutation runs as for any step.
 
-- [ ] 0.0.1a the console's progress line and run summary (`plans/core/architecture.md` "The
+- [x] 0.0.1a the console's progress line and run summary (`plans/core/architecture.md` "The
   console's progress line and run summary", with `indicatif` as it names; moved from 8.10) →
   verify: ST-CLI-02's piped half by a CLI test (stdout byte-identical with and without the
   printer, nothing on stderr but findings' lines), its terminal half `manual: checked` on a
-  real compile
+  real compile. Done: `studio` `console.rs` (`print_events`, the line, the summary), the Team
+  compiler's `Progress` per committed task and one `Complete` at each way out of `build`
+  (`events.rs`, `compile.rs`; the entries counted in `output/writer.rs` and `parts.rs`); the
+  CLI tests in `studio` and `team_compiler`; help `01_command_line.md`
+    manual: checked 2026-10-23, a ConPTY pseudo-console (`.tmp/conpty_run.py`) over
+    `.tmp/0_0_1/manual_run2/` (one PES 21 export, `--no-deploy`): the line drew from the first
+    export with no empty frame, its clock ticked between findings to 1:37, findings printed
+    above it, and `Done: 188 files written, 0 folders skipped, 0 folders with errors, 1:37`
+    remained; `check` left no line after its last finding
 - [ ] 0.0.1b the launchers: `quick_compile.bat` in its CLI form and `quick_upgrade.bat` over
   `old_exports/` (`plans/core/development_plan.md` "The /vg/ League 27 (VGL)") → verify: each bat run by
   a test through `cmd /c` in a temporary bundle layout over fixture exports (an old export

@@ -2306,6 +2306,10 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
             PipelineEvent::ExportStarted { export_id, .. } => format!("started {}", export_id.0),
             PipelineEvent::Message(message) => format!("message {}", message.code.code),
             PipelineEvent::ExportProcessed { export_id } => format!("processed {}", export_id.0),
+            PipelineEvent::Progress { processed, total } => {
+                format!("progress {processed}/{total}")
+            }
+            PipelineEvent::Complete { .. } => "complete".to_owned(),
             other => format!("{other:?}"),
         })
         .collect();
@@ -2321,9 +2325,12 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
             "message export_disabled",
             "message team_colors_missing",
             "processed 1",
+            "progress 1/2",
             "message folder_pack_failed",
             "processed 0",
+            "progress 2/2",
             "message deploy_skipped_by_flag",
+            "complete",
         ]
     );
     assert_eq!(run.exit_code(), 1);

@@ -10,7 +10,10 @@ The Team compiler also runs without its window, from a terminal opened in the fo
 `check` reads your exports and reports what it finds, without writing anything. `compile` reads
 them, reports the same findings, and builds the CPK named by the `cpk_name` setting in the output
 folder (`output/` beside `4cc-studio` unless you changed the `output_folder_path` setting), as
-`<cpk_name>.cpk`. The CPK is written in full before it replaces the previous one, so
+`<cpk_name>.cpk`. In a terminal window, a line under the findings counts the exports done
+while `check` or `compile` runs, and the parts built while `compile` builds them; when a
+compile ends, one line sums it up: the files written, the folders left out and the folders
+with errors. The CPK is written in full before it replaces the previous one, so
 `<cpk_name>.cpk` is never half-written. A run that finds nothing to compile, and has no file in
 the `overrides` folder (below), writes nothing and leaves the previous CPK as it was. If a file
 of an export changes while `compile` runs (someone saves over it, or replaces the archive), the

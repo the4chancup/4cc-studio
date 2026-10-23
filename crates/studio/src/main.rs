@@ -205,8 +205,8 @@ fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches)
     let result = run_cli(tools, tool, matches, &ctx);
     // The printers end when every sender is gone, and the context holds them.
     drop(ctx);
-    // The notice thread's `Err` is a failed stderr write: it loses lines like a panic does.
-    if printer.join().is_err() || !matches!(notices.join(), Ok(Ok(()))) {
+    // A printer's `Err` is a failed write: it loses lines like a panic does.
+    if !matches!(printer.join(), Ok(Ok(()))) || !matches!(notices.join(), Ok(Ok(()))) {
         // Findings were lost, so the tool's verdict cannot be reported as it stands: 3 is the
         // code of a run that did not finish as reported.
         eprintln!("error: the console printer stopped unexpectedly");

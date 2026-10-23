@@ -2332,3 +2332,5 @@ worklog passed 7,000 lines.
   only). 8.9f slice 1 briefed. 8.9g: PES 2021's Game Plan pitch captured in game as the reference.
 - **2026-10-23** — 8.9f: the second Save editor draft (`docs/prototypes/save_editor_v2.html`), slices 1-3: team bar, tabs
   grouped Player/Team, aligned Abilities grids, a Cutscenes group outside the lock, Tactics in three columns. Waits on a ruling.
+- **2026-10-23** — 0.0.1a: the console's progress line (exports, then parts, a ticking clock) and its summary line on
+  `Complete`; the Team compiler sends `Progress` per committed task and one `Complete`. Checked in a pseudo-console.

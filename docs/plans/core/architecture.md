@@ -189,14 +189,25 @@ The GUI rejects events whose `run_id` or `export_revision` is older than the cur
 results from a stale filesystem snapshot cannot overwrite newer checks.
 
 **The console's progress line and run summary.** When stderr is a terminal
-(`std::io::IsTerminal`), the console printer draws one progress line on stderr from `Progress`
-(`[ 37/120 exports | 1,284/4,010 folders | 0:42 ]`, the stage once `Progress` carries it), redrawn
+(`std::io::IsTerminal`), the console printer draws one progress line on stderr
+(`[ 37/120 exports | 1,284/4,010 parts | 0:42 ]`, the stage once `Progress` carries it), redrawn
 at most ten times a second and cleared while a finding line goes to stdout, then drawn again; on
 `Complete` it leaves one summary line in its place (files written, folders skipped, folders with
 errors, elapsed time). When stderr is not a terminal (piped, redirected, a script or CI) neither is
 drawn, and stdout carries exactly the finding lines and result text it carries without them, so
 the CLI tests and any script reading stdout see no change; no flag turns it on or off. The printer
 is tool-neutral, so every tool that emits `Progress` gets the line; the Team compiler is the first.
+The exports counter is the printer's own count of the run's `ExportStarted` (the total: every
+export starts in the validation pass, before any is compiled) and `ExportProcessed` events, so it
+needs no event of its own and draws from the first export. The parts counter is `Progress`, which
+the Team compiler emits as each task of its build manifest commits (`spec/team_compiler/pipeline.md`
+"3. Per-model-folder parallel steps (rayon)", its first paragraph: a model folder, a kit, the logo, a Common directory, the collars, the
+portraits, the referee marker), `total` being the manifest's task count; "parts", not "folders",
+because a task is not always a folder, and a counter that named folders would not add up to the
+export's folders. A run whose stream ends with no `Complete` (a `check`, an upgrade, a compile
+stopped before it compiled) leaves no line: the printer cannot know a `Complete` is coming
+until the stream ends, so it draws from the first export and clears the line when the stream
+ends without one, rather than leaving a count that reads as unfinished.
 We draw it with `indicatif` (`default-features = false`) rather than a hand-written `\r` line
 because it already handles the terminal width, the Windows console and the draw-rate cap; it adds
 four small crates and about 145 KiB to a release binary (measured 2026-10-16, 0.18.6). The
@@ -216,7 +227,7 @@ These notes extend the spec's `PipelineEvent` enum, the first at `Progress`, the
     // "artifacts built but installation failed"). Replace the boolean `success`
     // with structured CompileOutcome/DeploymentOutcome/CancellationOutcome before
     // implementing the run-result semantics described in the Team compiler plan.
-    // At that point the placeholder folder-only counters above become task/scoped-
+    // At that point the placeholder folder-only counters below become task/scoped-
     // outcome counts, so typed non-folder tasks are represented in the summary.
 ```
 

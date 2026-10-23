@@ -242,6 +242,28 @@ fn assert_commit_failed(sandbox: &Sandbox, run: &Run, before: &BTreeMap<PathBuf,
     assert_eq!(run.exit_code(), 3);
     assert_eq!(&snapshot(&sandbox.root.join("output")), before);
     assert!(!sandbox.root.join("output/.staging").exists());
+    // The compiled entries never reached the output folder.
+    use studio_core::PipelineEvent;
+    let completes: Vec<&PipelineEvent> = run
+        .events
+        .iter()
+        .filter_map(|envelope| match &envelope.event {
+            PipelineEvent::Complete { .. } => Some(&envelope.event),
+            _ => None,
+        })
+        .collect();
+    let [
+        PipelineEvent::Complete {
+            success,
+            files_written,
+            ..
+        },
+    ] = completes.as_slice()
+    else {
+        panic!("exactly one Complete: {completes:?}");
+    };
+    assert_eq!(*files_written, 0, "nothing was put in place");
+    assert!(!*success, "a Fatal finding fails the run");
 }
 
 #[cfg(windows)]
@@ -889,4 +911,73 @@ fn an_export_skipped_by_its_roster_leaves_the_export_beside_it_as_compiled_alone
         fs::read(beside.root.join("output/4cc_99_test.cpk")).unwrap(),
         fs::read(alone.root.join("output/4cc_99_test.cpk")).unwrap()
     );
+}
+
+// ST-CLI-02
+#[test]
+fn a_compile_reports_progress_per_task_and_ends_with_one_complete_holding_the_counts() {
+    use studio_core::PipelineEvent;
+
+    let sandbox = Sandbox::new("progress_events");
+    sandbox.copy_tracer("egg Midcup Tracer");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0);
+    let progress: Vec<(usize, usize)> = run
+        .events
+        .iter()
+        .filter_map(|envelope| match &envelope.event {
+            PipelineEvent::Progress { processed, total } => {
+                assert_eq!(envelope.export_id, None, "a part is the run's, no export's");
+                Some((*processed, *total))
+            }
+            _ => None,
+        })
+        .collect();
+    assert!(!progress.is_empty(), "the manifest's tasks each report one");
+    let total = progress[0].1;
+    assert!(
+        progress.iter().all(|(_, t)| *t == total),
+        "every Progress carries the manifest's task count: {progress:?}"
+    );
+    assert_eq!(
+        progress.iter().map(|(done, _)| *done).collect::<Vec<_>>(),
+        (1..=total).collect::<Vec<_>>(),
+        "the count rises by one to the total"
+    );
+    // `Complete` ends the stream, once, with the counts the run knows.
+    let completes: Vec<&PipelineEvent> = run
+        .events
+        .iter()
+        .filter_map(|envelope| match &envelope.event {
+            PipelineEvent::Complete { .. } => Some(&envelope.event),
+            _ => None,
+        })
+        .collect();
+    assert!(
+        matches!(
+            run.events.last().map(|envelope| &envelope.event),
+            Some(PipelineEvent::Complete { .. })
+        ),
+        "Complete is the last event"
+    );
+    let [
+        PipelineEvent::Complete {
+            success,
+            files_written,
+            skipped_folders,
+            duplicates,
+            folders_with_errors,
+        },
+    ] = completes.as_slice()
+    else {
+        panic!("exactly one Complete: {completes:?}");
+    };
+    assert!(*success, "a clean tracer run");
+    let entries = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk")).len();
+    assert_eq!(*files_written, entries, "the CPK's whole table of contents");
+    assert_eq!(*skipped_folders, 0, "the tracer drops no folder");
+    assert_eq!(*duplicates, 0, "no override replaced an entry");
+    assert_eq!(*folders_with_errors, 0, "its findings are Info at worst");
 }

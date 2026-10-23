@@ -235,8 +235,9 @@ impl TeamsParts {
 
     /// Finishes the open part and writes the placeholder as every slot not opened: every slot
     /// of the list gets its file ("Every slot is always written"). Every team held must have
-    /// been placed.
-    pub(crate) fn finish(self) -> anyhow::Result<()> {
+    /// been placed. Returns the entries the placeholders written carried, for the run's
+    /// files-written count.
+    pub(crate) fn finish(self) -> anyhow::Result<usize> {
         ensure!(
             self.held.is_empty(),
             "the entries of a team were never placed in a part"
@@ -244,12 +245,19 @@ impl TeamsParts {
         if let Some(part) = self.part {
             part.finish()?;
         }
-        for slot in &self.slots[self.opened..] {
+        let slots = &self.slots[self.opened..];
+        for slot in slots {
             let path = self.folder.join(cpk_file_name(slot));
             fs::write(&path, &self.placeholder)
                 .with_context(|| format!("{}: cannot write the placeholder CPK", path.display()))?;
         }
-        Ok(())
+        if slots.is_empty() {
+            return Ok(0);
+        }
+        let entries = cpk::CpkArchive::open(std::io::Cursor::new(&self.placeholder))
+            .map(|archive| archive.entries().len())
+            .context("the placeholder CPK's table of contents does not parse")?;
+        Ok(entries * slots.len())
     }
 }
 
