@@ -2,7 +2,10 @@
 
 Covers the small shared lib crates: the binary format parsers (`cpk`, `fpk`, `fmdl`,
 `pes_model`, `ftex`, `fox2`, `uniparam`, `wezlib`), `dds_convert`, `color_tools`,
-`vtree`, `pes_version`, `archives`, `elevation`, `fpc`, and `teams_list`. The aesthetics export format's object model, folder conventions,
+`vtree`, `pes_version`, `archives`, `elevation`, `fpc`, and `teams_list`. `cpk` also reads an
+install's `download/DpFileList.bin` (`cpk::dp_file_list`, for the Team compiler's working-bin
+walk and the Save editor's portraits; the layout is in the Team compiler's
+[pipeline](../team_compiler/pipeline.md) "DpFileList upgrade"). The aesthetics export format's object model, folder conventions,
 and validation live in `aesthetics_export` (shared by the Team compiler, Export upgrader,
 Kit config editor, Refs arranger, and Team creator), specified in the
 [aesthetics export plan](../aesthetics_export/README.md). The two big libs have their own plans:

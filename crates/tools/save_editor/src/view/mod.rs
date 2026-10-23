@@ -12,6 +12,7 @@ mod appearance;
 mod info_strip;
 mod menus;
 mod player_list;
+mod portraits;
 mod tactics;
 mod team;
 #[cfg(test)]
@@ -20,7 +21,7 @@ mod tests;
 use std::path::{Path, PathBuf};
 
 use pes_savefile::model::{PlayerEntry, TeamEntry};
-use pes_version::Engine;
+use pes_version::{Engine, PesVersion};
 use studio_core::RunningPes;
 use team_widgets::names::append_name;
 
@@ -74,6 +75,10 @@ pub(crate) struct SaveView {
     /// were computed for: `card_limits` runs again only when the key
     /// differs, not on every frame.
     cards: Option<(BadgeKey, Vec<(String, aatf::CardLimits)>)>,
+    /// The Tactics pitch's portraits, read from the selected game's
+    /// `download/` CPKs off the UI thread (`select_portraits` points it at
+    /// the PES folder each frame).
+    portraits: portraits::Portraits,
     /// Which open this is: part of the pushed widget id, so egui widget
     /// state (a text field's undo history, a control's in-progress edit)
     /// never crosses into the next save's same player id.
@@ -184,6 +189,7 @@ impl SaveView {
             refusal: None,
             rules: None,
             cards: None,
+            portraits: portraits::Portraits::new(),
             generation: 0,
             edit_aesthetics: false,
             strip_again: None,
@@ -195,6 +201,17 @@ impl SaveView {
             hide_ids: Ok(fpc::HideIds::CONVENTION),
             randomize_draw: Box::new(appearance::seeded_draw()),
         }
+    }
+
+    /// Points the pitch's portrait source at `pes_folder` for `version`: `Tool::view` calls it
+    /// each frame with the sidebar's PES and the PES folder setting, as it refreshes `hide_ids`.
+    pub(crate) fn select_portraits(
+        &mut self,
+        ctx: &egui::Context,
+        pes_folder: &Path,
+        version: PesVersion,
+    ) {
+        self.portraits.select(ctx, pes_folder, version);
     }
 
     /// Opens the save at `path`: on success the selector reads `ALL`, the

@@ -279,7 +279,10 @@ pub(crate) fn process_task(
                 &mut findings,
             )
             .map(|bytes| {
-                let entry = (paths::portrait(ctx.version, *player_id), bytes);
+                let entry = (
+                    pes_savefile::player_tables::portrait_path(ctx.version, *player_id),
+                    bytes,
+                );
                 (TaskOutput::Entries(vec![entry]), None)
             })
             .map_err(TaskFailure::from)

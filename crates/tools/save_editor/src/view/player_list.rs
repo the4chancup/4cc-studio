@@ -28,6 +28,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         refusal: _,
         rules: _,
         cards: _,
+        portraits: _,
         generation: _,
         edit_aesthetics: _,
         strip_again: _,

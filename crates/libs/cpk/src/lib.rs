@@ -10,10 +10,13 @@
 //! takes) always give the same bytes.
 
 mod crilayla;
+/// The installed `DpFileList.bin`: the CPKs `download/` loads, in order.
+pub mod dp_file_list;
 mod read;
 mod utf;
 mod write;
 
+pub use dp_file_list::DpFileListError;
 pub use read::{CpkArchive, CpkEntry, CpkTimestamp};
 pub use write::CpkWriter;
 

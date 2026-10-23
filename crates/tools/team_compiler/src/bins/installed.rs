@@ -29,7 +29,7 @@ use pes_savefile::player_tables::{AppearanceTable, ItemList, PlayerTableFile};
 
 use super::player_tables::ItemTable;
 use super::shared_ids::SharedIds;
-use super::{TeamColorBin, UniColorBin, WorkingBins, dpfl};
+use super::{TeamColorBin, UniColorBin, WorkingBins};
 use crate::kit_variants::kit_lookup_keys;
 use crate::messages::{Code, deploy_message, tool_message};
 use crate::output::deploy;
@@ -455,7 +455,9 @@ pub(crate) fn read_list(path: &Path) -> Result<Option<Vec<String>>, Unreadable> 
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(None),
         Err(error) => return Err(unreadable(error.into())),
     };
-    dpfl::entries(&bytes).map(Some).map_err(unreadable)
+    cpk::dp_file_list::read(&bytes)
+        .map(Some)
+        .map_err(|error| unreadable(error.into()))
 }
 
 /// The CPK at `path`, opened; `None` when there is no file.

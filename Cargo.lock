@@ -3570,6 +3570,7 @@ dependencies = [
  "color_tools",
  "cpk",
  "crossbeam-channel",
+ "dds_convert",
  "egui",
  "fpc",
  "log",

@@ -1,5 +1,7 @@
-"""Writes team_compiler's tests/fixtures/dpfl/ (step 4.21): the three-entry list the working-bin
-walk's tests install, and copies of two real lists whose bytes outside the names are not zero.
+"""Writes the DpFileList fixtures (step 4.21, moved 8.9g): `cpk`'s tests/fixtures/dpfl/ (the
+reader's: the three-entry list and copies of two real lists whose bytes outside the names are
+not zero) and team_compiler's tests/fixtures/dpfl/ (the three-entry list its working-bin walk's
+tests install).
 
 The three-entry list is built in the layout measured on the maintainer's PES 2017 and PES 2021
 lists (docs/plans/team_compiler/pipeline.md "DpFileList upgrade"): a 16-byte header (u32 0,
@@ -11,7 +13,8 @@ import struct
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[3]
-OUT = REPO / "crates/tools/team_compiler/tests/fixtures/dpfl"
+OUT = REPO / "crates/libs/cpk/tests/fixtures/dpfl"
+WALK_OUT = REPO / "crates/tools/team_compiler/tests/fixtures/dpfl"
 
 REAL = {
     "pes19_official.bin": Path("C:/Program Files/PES2019/download/DpFileList.bin"),
@@ -63,12 +66,13 @@ def main() -> None:
     assert struct.unpack_from("<2I", pes20, 0) == (100, 45)
     assert names(pes20)[-1] == "4cc_90_test.cpk"
 
-    OUT.mkdir(parents=True, exist_ok=True)
-    write(OUT / "walk.bin", walk)
+    for folder in (OUT, WALK_OUT):
+        folder.mkdir(parents=True, exist_ok=True)
+        write(folder / "walk.bin", walk)
     for name, data in real.items():
         write(OUT / name, data)
-    for path in sorted(OUT.glob("*.bin")):
-        print(path.name, path.stat().st_size)
+    for path in sorted(OUT.glob("*.bin")) + sorted(WALK_OUT.glob("*.bin")):
+        print(path, path.stat().st_size)
 
 
 if __name__ == "__main__":

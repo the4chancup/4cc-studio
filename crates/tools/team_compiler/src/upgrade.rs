@@ -13,7 +13,6 @@ use std::path::Path;
 use anyhow::{Context, bail};
 use studio_core::{Disposition, Message, Scope, Severity, ToolContext};
 
-use crate::bins::dpfl;
 use crate::events::RunEvents;
 use crate::messages::{Code, size_text, tool_message};
 use crate::output::deploy::{DPFILELIST, UPGRADE_COMMAND};
@@ -175,7 +174,7 @@ pub(crate) fn run(
     let list_path = download.join(DPFILELIST);
     let old_list = read_list_file(&list_path)?;
     // A list that does not read as a list is replaced like any other, with nothing renamed.
-    let (installed, unreadable) = match old_list.as_deref().map(dpfl::entries) {
+    let (installed, unreadable) = match old_list.as_deref().map(cpk::dp_file_list::read) {
         None => (Vec::new(), None),
         Some(Ok(entries)) => (entries, None),
         Some(Err(error)) => (Vec::new(), Some(format!("{error:#}"))),
@@ -315,7 +314,7 @@ mod tests {
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../../../examples/DpFileList.bin"),
         )
         .unwrap();
-        dpfl::entries(&bytes).unwrap()
+        cpk::dp_file_list::read(&bytes).unwrap()
     }
 
     fn strings(names: &[&str]) -> Vec<String> {

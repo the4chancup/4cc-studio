@@ -1265,14 +1265,27 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         13.5 s period, the narrow one never moving. Portraits are seen with slice 2. Files:
         `team_widgets/src/{pitch/{mod.rs,popover.rs,lineup.rs,tests/*},tactics/mod.rs,
         test_support.rs}`, `save_editor/src/view/{tactics.rs,tests.rs,tests/*}`
-      - [ ] slice 2, the portraits: the save editor reads each starter's portrait from the
-        save's game's `download/` CPKs in DpFileList order (the last listed wins; the
+      - [x] slice 2, the portraits: the save editor reads each starter's portrait from the
+        selected game's `download/` CPKs (the sidebar's PES and the PES folder setting) in
+        DpFileList order (the last listed wins; the
         compiler's portrait path: PES 15-18 `player_<id>.dds`, PES 19-21 `<id>.dds`; a
         WESYS-wrapped DDS unwrapped, as `dds_convert::decode` does), off the UI thread,
-        cached per save; none found, the marker draws without one → verify: a fixture CPK's
+        kept until the game changes; none found, the marker draws without one → verify: a fixture CPK's
         portrait reaches its marker, a missing folder leaves every marker without one; the
         built window beside the draft with its portraits (`.tmp/8_9g/app_setup.py`,
-        `app_ui.ps1`, `compare_built.py` drive and capture a portable copy)
+        `app_ui.ps1`, `compare_built.py` drive and capture a portable copy). Done 2026-10-23
+        (SWE-2, 30 min): the DpFileList reader moved to `cpk::dp_file_list` (a `thiserror`
+        error, the same messages) and the portrait path to
+        `pes_savefile::player_tables::portrait_path`, the compiler's five readers and two
+        writers calling them; the editor's `view/portraits.rs`, one reading thread per selected
+        game fed through `crossbeam-channel`, a failure logged once and every portrait absent;
+        the lead logged a portrait that does not read or decode. Seen in the built window on
+        PES 2021 (E:) with team /3/: every starter's portrait, medals included, as the draft
+        draws them. Files: `cpk/src/{lib.rs,dp_file_list.rs}`, `cpk/tests/fixtures/dpfl/*`,
+        `pes_savefile/src/player_tables.rs`, `team_compiler/src/{bins,paths.rs,templates.rs,
+        upgrade.rs,processing}`, `save_editor/{Cargo.toml,src/{lib.rs,test_support.rs,
+        view/{mod.rs,portraits.rs,player_list.rs,tactics.rs,tests/tactics.rs}}}`,
+        `spec/libs/README.md`
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,

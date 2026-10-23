@@ -1,7 +1,9 @@
 //! Where compiled content goes inside the CPK, for the Fox versions (PES 18-21) and, for the
 //! faces, the shared boots and gloves, a model folder's textures, the team's Common output, the
-//! kits, the portraits and the logo, the pre-Fox ones (PES 15-17) too:
+//! kits and the logo, the pre-Fox ones (PES 15-17) too:
 //! `spec/team_compiler/pipeline.md` "Game paths reference". The CPK paths have no leading `/`.
+//! The portrait path is `pes_savefile::player_tables::portrait_path`'s, shared with the
+//! Save editor.
 
 use std::fs;
 use std::path::Path;
@@ -387,17 +389,6 @@ pub(crate) const TEAM_KIT_CONFIGS: &str = "common/character0/model/character/uni
 /// The CPK path of one kit config, by its entry name (`792_DEF_GK1st_realUni.bin`).
 pub(crate) fn kit_config(team_id: u16, entry_name: &str) -> String {
     format!("{TEAM_KIT_CONFIGS}{team_id}/{entry_name}")
-}
-
-/// The CPK path of one player's portrait, a DDS, by player id: the same folder on every
-/// version, the file named `player_{player id}.dds` up to PES 2018 and `{player id}.dds` from
-/// PES 2019.
-pub(crate) fn portrait(version: PesVersion, player_id: u32) -> String {
-    let prefix = match version {
-        PesVersion::Pes15 | PesVersion::Pes16 | PesVersion::Pes17 | PesVersion::Pes18 => "player_",
-        PesVersion::Pes19 | PesVersion::Pes20 | PesVersion::Pes21 => "",
-    };
-    format!("common/render/symbol/player/{prefix}{player_id}.dds")
 }
 
 /// The CPK paths of team `team_id`'s three logo PNGs, the 512-pixel one first, then the 256 and
@@ -796,29 +787,6 @@ mod tests {
             referee_marker(Engine::PreFox),
             "common/character1/model/character/parts/referee/incom_bsm.dds"
         );
-    }
-
-    #[test]
-    fn a_portrait_is_prefixed_up_to_pes_2018_and_bare_from_pes_2019() {
-        for version in [
-            PesVersion::Pes15,
-            PesVersion::Pes16,
-            PesVersion::Pes17,
-            PesVersion::Pes18,
-        ] {
-            assert_eq!(
-                portrait(version, 71405),
-                "common/render/symbol/player/player_71405.dds",
-                "{version}"
-            );
-        }
-        for version in [PesVersion::Pes19, PesVersion::Pes20, PesVersion::Pes21] {
-            assert_eq!(
-                portrait(version, 71405),
-                "common/render/symbol/player/71405.dds",
-                "{version}"
-            );
-        }
     }
 
     #[test]

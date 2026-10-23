@@ -1,0 +1,398 @@
+//! The selected game's portraits for the Tactics pitch: an index of the portraits the CPKs
+//! `download/DpFileList.bin` lists hold (a later CPK winning), built off the UI thread, and the
+//! textures of the players asked for, decoded off it.
+
+use std::collections::{HashMap, HashSet};
+use std::fs::{self, File};
+use std::io::{self, BufReader};
+use std::path::{Path, PathBuf};
+
+use anyhow::Context;
+use cpk::{CpkArchive, CpkEntry};
+use crossbeam_channel::{Receiver, Sender};
+use pes_savefile::player_tables::portrait_path;
+use pes_version::PesVersion;
+
+/// The portrait folder's prefix in a `download` CPK (`75823.dds` below it).
+const PORTRAITS: &str = "common/render/symbol/player/";
+
+/// The selected game's portraits for the Tactics pitch: an index of the portraits the CPKs
+/// `download/DpFileList.bin` lists hold (a later CPK winning), built off the UI thread, and the
+/// textures of the players asked for, decoded off it.
+#[derive(Default)]
+pub(crate) struct Portraits {
+    /// What `select` last pointed the source at (the PES folder and the version), `None` for
+    /// "no game": an empty setting is no folder.
+    selection: Option<(PathBuf, PesVersion)>,
+    /// The selection's reading thread, `None` when there is no selection.
+    worker: Option<Worker>,
+    /// The ids the worker answered: `Some`'s uploaded texture, `None` a portrait absent from
+    /// the CPKs or undecodable (asked once, never again).
+    resolved: HashMap<u32, Option<egui::TextureHandle>>,
+    /// The ids asked of the worker, not answered yet.
+    pending: HashSet<u32>,
+    /// The images the worker decoded, kept for the tests' pixel checks only.
+    #[cfg(test)]
+    images: HashMap<u32, egui::ColorImage>,
+}
+
+/// A selection's reading thread, as its channels: request batches in, answers out.
+struct Worker {
+    /// The player ids to decode, one batch per send.
+    requests: Sender<Vec<u32>>,
+    /// `(player id, its image)` per asked id; the image `None` when the portrait is absent or
+    /// undecodable.
+    replies: Receiver<(u32, Option<egui::ColorImage>)>,
+}
+
+impl Worker {
+    /// The worker of `folder` at `version`: it reads the index, then serves requests until the
+    /// `requests` sender drops. `ctx` only gets `request_repaint` after each batch.
+    fn spawn(ctx: &egui::Context, folder: &Path, version: PesVersion) -> Worker {
+        let (requests, requests_rx) = crossbeam_channel::unbounded();
+        let (replies, replies_rx) = crossbeam_channel::unbounded();
+        let ctx = ctx.clone();
+        let folder = folder.to_path_buf();
+        std::thread::spawn(move || run(folder, version, requests_rx, replies, ctx));
+        Worker {
+            requests,
+            replies: replies_rx,
+        }
+    }
+}
+
+impl Portraits {
+    /// An empty source: no game, no portraits.
+    pub(crate) fn new() -> Portraits {
+        Portraits::default()
+    }
+
+    /// Points the source at `pes_folder` for `version` (the sidebar's PES and the PES folder
+    /// setting, each frame); a change drops the current worker and its textures and starts a
+    /// new one.
+    pub(crate) fn select(&mut self, ctx: &egui::Context, pes_folder: &Path, version: PesVersion) {
+        let wanted = (!pes_folder.as_os_str().is_empty()).then_some((pes_folder, version));
+        let same = match (&self.selection, wanted) {
+            (Some((held, held_version)), Some((folder, version))) => {
+                held == folder && *held_version == version
+            }
+            (None, None) => true,
+            _ => false,
+        };
+        if same {
+            return;
+        }
+        self.selection = wanted.map(|(folder, version)| (folder.to_path_buf(), version));
+        // Dropping the request sender ends the worker; its textures go with it.
+        self.worker = None;
+        self.resolved.clear();
+        self.pending.clear();
+        #[cfg(test)]
+        self.images.clear();
+        if let Some((folder, version)) = &self.selection {
+            self.worker = Some(Worker::spawn(ctx, folder, *version));
+        }
+    }
+
+    /// The textures of `player_ids` (a roster's, `None` an empty slot), in order: `Some` once
+    /// decoded, `None` while pending, absent from the CPKs, or the game unreadable. Asks the
+    /// worker for the ones neither held nor pending, and uploads what it sent back.
+    pub(crate) fn textures(
+        &mut self,
+        ctx: &egui::Context,
+        player_ids: &[Option<u32>],
+    ) -> Vec<Option<egui::TextureId>> {
+        if let Some(worker) = &self.worker {
+            for (id, image) in worker.replies.try_iter().collect::<Vec<_>>() {
+                self.pending.remove(&id);
+                #[cfg(test)]
+                if let Some(image) = &image {
+                    self.images.insert(id, image.clone());
+                }
+                self.resolved.insert(
+                    id,
+                    image.map(|image| {
+                        ctx.load_texture(
+                            format!("portrait {id}"),
+                            image,
+                            egui::TextureOptions::LINEAR,
+                        )
+                    }),
+                );
+            }
+            let ask: Vec<u32> = player_ids
+                .iter()
+                .flatten()
+                .copied()
+                .filter(|id| !self.resolved.contains_key(id) && self.pending.insert(*id))
+                .collect();
+            // The send fails only when the worker is gone; the ids stay pending and read None.
+            if !ask.is_empty() && worker.requests.send(ask).is_err() {
+                log::debug!("the portraits worker ended while a selection is held");
+            }
+        }
+        player_ids
+            .iter()
+            .map(|id| {
+                id.and_then(|id| {
+                    self.resolved
+                        .get(&id)?
+                        .as_ref()
+                        .map(egui::TextureHandle::id)
+                })
+            })
+            .collect()
+    }
+
+    /// `id`'s answer once the worker gave it (`Some` a decoded texture, `None` a portrait
+    /// absent or undecodable); `None` while pending or never asked. The tests' wait.
+    #[cfg(test)]
+    fn answered(&self, id: u32) -> Option<Option<egui::TextureId>> {
+        self.resolved
+            .get(&id)
+            .map(|held| held.as_ref().map(egui::TextureHandle::id))
+    }
+
+    /// The image the worker decoded for `id`, kept for the tests' pixel checks.
+    #[cfg(test)]
+    fn decoded_image(&self, id: u32) -> Option<&egui::ColorImage> {
+        self.images.get(&id)
+    }
+}
+
+/// The selection's worker (`Worker::spawn`): the index read, then request batches served until
+/// the sender drops, each answered batch followed by a repaint request.
+fn run(
+    folder: PathBuf,
+    version: PesVersion,
+    requests: Receiver<Vec<u32>>,
+    replies: Sender<(u32, Option<egui::ColorImage>)>,
+    ctx: egui::Context,
+) {
+    let mut game = Game::read(&folder).unwrap_or_else(|error| {
+        log::warn!("{}: no portraits: {error:#}", folder.display());
+        Game {
+            archives: Vec::new(),
+            entries: HashMap::new(),
+        }
+    });
+    while let Ok(ids) = requests.recv() {
+        for id in ids {
+            // The send fails once the selection is dropped mid-batch.
+            if replies.send((id, game.image(version, id))).is_err() {
+                return;
+            }
+        }
+        ctx.request_repaint();
+    }
+}
+
+/// The game's portrait index: the CPKs `download/DpFileList.bin` lists, opened, and each
+/// `PORTRAITS` entry's archive, a later CPK's entry overwriting an earlier one's of the path.
+struct Game {
+    /// The listed CPKs that exist, in load order.
+    archives: Vec<CpkArchive<BufReader<File>>>,
+    /// Each `PORTRAITS` entry's path to (its `archives` index, the entry).
+    entries: HashMap<String, (usize, CpkEntry)>,
+}
+
+impl Game {
+    /// `folder`'s index: `download/DpFileList.bin` read, each listed CPK opened (a listed file
+    /// that is missing is skipped, as the game skips it) and its `PORTRAITS` entries recorded.
+    /// A folder, list or CPK that cannot be read is the error: no portrait is shown then, the
+    /// caller's `warn` giving the reason.
+    fn read(folder: &Path) -> anyhow::Result<Game> {
+        let download = folder.join("download");
+        let list = download.join("DpFileList.bin");
+        let bytes =
+            fs::read(&list).with_context(|| format!("{}: cannot read it", list.display()))?;
+        let names = cpk::dp_file_list::read(&bytes)
+            .with_context(|| format!("{}: not a list the reader accepts", list.display()))?;
+        let mut game = Game {
+            archives: Vec::new(),
+            entries: HashMap::new(),
+        };
+        for name in names {
+            let path = download.join(&name);
+            let file = match File::open(&path) {
+                Ok(file) => file,
+                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
+                Err(error) => {
+                    return Err(error)
+                        .with_context(|| format!("{}: cannot open it", path.display()));
+                }
+            };
+            let archive = CpkArchive::open(BufReader::new(file))
+                .with_context(|| format!("{}: not a CPK the reader accepts", path.display()))?;
+            let at = game.archives.len();
+            for entry in archive.entries() {
+                if entry.path.starts_with(PORTRAITS) {
+                    game.entries.insert(entry.path.clone(), (at, entry.clone()));
+                }
+            }
+            game.archives.push(archive);
+        }
+        Ok(game)
+    }
+
+    /// `player_id`'s portrait decoded, `None` when the index has none or it does not read or
+    /// decode (the reason logged).
+    fn image(&mut self, version: PesVersion, player_id: u32) -> Option<egui::ColorImage> {
+        let path = portrait_path(version, player_id);
+        let (archive, entry) = self.entries.get(&path)?;
+        let decoded = self.archives[*archive]
+            .read(entry)
+            .map_err(anyhow::Error::from)
+            .and_then(|bytes| Ok(dds_convert::decode(&bytes, dds_convert::SourceFormat::Dds)?));
+        let decoded = match decoded {
+            Ok(decoded) => decoded,
+            Err(error) => {
+                log::warn!("{path}: no portrait: {error:#}");
+                return None;
+            }
+        };
+        let size = [decoded.width as usize, decoded.height as usize];
+        let mip = decoded.mips.first()?;
+        (mip.len() == size[0] * size[1] * 4)
+            .then(|| egui::ColorImage::from_rgba_unmultiplied(size, mip))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use super::*;
+    use crate::test_support::{dp_file_list, pes_folder, scratch};
+
+    /// PES 2021's `75823.dds` in `4cc_40_faces.cpk`, pixel (64, 64) `(148, 219, 247, 255)`.
+    const FACES: &[u8] = include_bytes!("../../tests/fixtures/portraits/75823_faces.dds");
+    /// The same path in `4cc_66_midcup.cpk`, pixel (64, 64) `(255, 255, 255, 255)`.
+    const MIDCUP: &[u8] = include_bytes!("../../tests/fixtures/portraits/75823_midcup66.dds");
+    /// PES 2017's `player_71801.dds`, WESYS-wrapped as the game ships it.
+    const PES17: &[u8] = include_bytes!("../../tests/fixtures/portraits/player_71801_pes17.dds");
+
+    /// `textures` polled until every asked id's answer lands, a real nap between polls: the
+    /// bound makes a worker that never answers a failure, not a hang.
+    fn served(
+        portraits: &mut Portraits,
+        ctx: &egui::Context,
+        ids: &[Option<u32>],
+    ) -> Vec<Option<egui::TextureId>> {
+        for _ in 0..200 {
+            let answer = portraits.textures(ctx, ids);
+            if ids
+                .iter()
+                .flatten()
+                .all(|id| portraits.answered(*id).is_some())
+            {
+                return answer;
+            }
+            std::thread::sleep(Duration::from_millis(10));
+        }
+        panic!("no answer for {ids:?} after 200 polls")
+    }
+
+    /// `pixel` within 2 of `expected` in every channel (BC rounding differs between decoders).
+    fn close(pixel: egui::Color32, expected: [u8; 4]) {
+        for (channel, expected) in pixel.to_array().into_iter().zip(expected) {
+            assert!(
+                channel.abs_diff(expected) <= 2,
+                "{pixel:?} within 2 of {expected:?}"
+            );
+        }
+    }
+
+    // The pitch's portrait source (`plans/save_editor.md` "Tactics editor", "Portraits"): the
+    // CPKs the selected game's `download/DpFileList.bin` lists, a later one's portrait winning.
+    #[test]
+    fn a_later_listed_cpk_s_portrait_wins() {
+        let ctx = egui::Context::default();
+        let path = portrait_path(PesVersion::Pes21, 75823);
+        for (case, names, expected) in [
+            (
+                "midcup_later",
+                ["4cc_40_faces.cpk", "4cc_66_midcup.cpk"],
+                [255, 255, 255, 255],
+            ),
+            (
+                "faces_later",
+                ["4cc_66_midcup.cpk", "4cc_40_faces.cpk"],
+                [148, 219, 247, 255],
+            ),
+        ] {
+            let bytes = |name: &str| {
+                if name.contains("faces") {
+                    FACES
+                } else {
+                    MIDCUP
+                }
+            };
+            let first: &[(&str, &[u8])] = &[(path.as_str(), bytes(names[0]))];
+            let second: &[(&str, &[u8])] = &[(path.as_str(), bytes(names[1]))];
+            let cpks = [(names[0], first), (names[1], second)];
+            let folder = pes_folder(&format!("portraits_{case}"), &cpks);
+            let mut portraits = Portraits::new();
+            portraits.select(&ctx, &folder, PesVersion::Pes21);
+
+            assert!(
+                served(&mut portraits, &ctx, &[Some(75823)])[0].is_some(),
+                "{case}: a texture for 75823"
+            );
+            let image = portraits.decoded_image(75823).expect("decoded");
+            assert_eq!(image.size, [128, 128], "{case}");
+            close(image.pixels[64 * 128 + 64], expected);
+        }
+    }
+
+    // The same source on a pre-Fox portrait: `player_71801.dds`, WESYS-wrapped as the game
+    // ships it, decoded at the size its header gives.
+    #[test]
+    fn a_pes_17_portrait_unwraps_wesys_and_decodes() {
+        let ctx = egui::Context::default();
+        let path = portrait_path(PesVersion::Pes17, 71801);
+        assert_eq!(path, "common/render/symbol/player/player_71801.dds");
+        let folder = pes_folder(
+            "portraits_pes17",
+            &[("4cc_40_faces.cpk", &[(path.as_str(), PES17)])],
+        );
+        let header = dds_convert::probe(PES17, dds_convert::SourceFormat::Dds).unwrap();
+        let mut portraits = Portraits::new();
+        portraits.select(&ctx, &folder, PesVersion::Pes17);
+
+        assert!(served(&mut portraits, &ctx, &[Some(71801)])[0].is_some());
+        let image = portraits.decoded_image(71801).expect("decoded");
+        assert_eq!(
+            image.size,
+            [header.width as usize, header.height as usize],
+            "the header's size"
+        );
+    }
+
+    // A folder without a `download/` and a list naming a CPK that is not there: no panic, every
+    // id answered None within the bound.
+    #[test]
+    fn an_unreadable_game_and_a_missing_cpk_answer_every_id_none() {
+        let ctx = egui::Context::default();
+        let ids = [None, Some(75823), Some(1)];
+
+        // No `download/` at all.
+        let folder = scratch("portraits_no_download").join("PES");
+        let mut portraits = Portraits::new();
+        portraits.select(&ctx, &folder, PesVersion::Pes21);
+        assert_eq!(served(&mut portraits, &ctx, &ids), [None, None, None]);
+
+        // The list names a CPK that is absent.
+        let download = scratch("portraits_missing_cpk").join("PES/download");
+        fs::create_dir_all(&download).unwrap();
+        fs::write(
+            download.join("DpFileList.bin"),
+            dp_file_list(&["4cc_40_faces.cpk"]),
+        )
+        .unwrap();
+        let folder = download.parent().unwrap().to_path_buf();
+        let mut portraits = Portraits::new();
+        portraits.select(&ctx, &folder, PesVersion::Pes21);
+        assert_eq!(served(&mut portraits, &ctx, &ids), [None, None, None]);
+    }
+}

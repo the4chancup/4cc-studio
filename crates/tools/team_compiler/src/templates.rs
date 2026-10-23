@@ -12,7 +12,7 @@ use pes_version::{Engine, PesVersion};
 use studio_core::{Disposition, Message, Scope, ToolContext};
 use uniparam::UniformParameter;
 
-use crate::bins::{TeamColorBin, UniColorBin, dpfl};
+use crate::bins::{TeamColorBin, UniColorBin};
 use crate::events::RunEvents;
 use crate::messages::{Code, tool_message};
 use crate::paths;
@@ -59,7 +59,7 @@ impl Format {
                 Ok(bytes)
             }
             Format::DpFileList => {
-                dpfl::entries(&bytes)?;
+                cpk::dp_file_list::read(&bytes)?;
                 Ok(bytes)
             }
         }
@@ -602,7 +602,7 @@ impl Templates {
     /// The CPK file names of the official `DpFileList.bin`, in load order: the list a compile
     /// that deploys compares the installed one with.
     pub(crate) fn official_list(&self) -> Vec<String> {
-        dpfl::entries(self.official_list_file()).expect(
+        cpk::dp_file_list::read(self.official_list_file()).expect(
             "the official list reads: an override is read as a list when it is read (`read`), \
              and the embedded one is checked by a test",
         )

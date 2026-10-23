@@ -683,7 +683,7 @@ mod tests {
         };
         assert_placed(
             kind,
-            &[paths::portrait(PesVersion::Pes21, 79205).as_str()],
+            &[pes_savefile::player_tables::portrait_path(PesVersion::Pes21, 79205).as_str()],
             &["egg Midcup Tracer/Players/05 - The Chad Stormworks Player/79205.dds"],
         );
     }

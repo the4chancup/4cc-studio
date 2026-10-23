@@ -7,7 +7,6 @@
 //! kit entries (kit number, menu icon number, two colors). The integers are little-endian
 //! (`resources/bins/README.md`).
 
-pub(crate) mod dpfl;
 pub(crate) mod installed;
 pub(crate) mod kit_configs;
 pub(crate) mod player_tables;

@@ -517,6 +517,72 @@ fn the_formation_settings_wrap_inside_a_narrow_window() {
     }
 }
 
+// plans/save_editor.md "Tactics editor" (the "Portraits" sub-bullet):
+// the pitch draws a starter's portrait read off the UI thread from the
+// selected game's `download/` CPKs; the markers without one paint no
+// image (the turf's is the only other).
+#[test]
+fn the_pitch_draws_a_starter_s_portrait_from_the_selected_game() {
+    let dir = crate::test_support::scratch("tactics_portrait");
+    let path = dir.join("EDIT00000000");
+    std::fs::write(&path, fixture_save(PesVersion::Pes21)).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+    // A portrait for the starter of position index 4, at his player id's
+    // CPK path, in the one listed CPK.
+    let starter = usize::from(team_entry(&view, 701).tactics.starting_eleven[4]);
+    let player_id = team_entry(&view, 701).roster[starter].player_id;
+    let entry = pes_savefile::player_tables::portrait_path(PesVersion::Pes21, player_id);
+    let bytes: &[u8] = include_bytes!("../../../tests/fixtures/portraits/75823_faces.dds");
+    let folder = crate::test_support::pes_folder(
+        "tactics_portrait_pes",
+        &[("4cc_40_faces.cpk", &[(entry.as_str(), bytes)])],
+    );
+    let mut window = Headless::sized(1100.0, 900.0);
+    view.select_portraits(&window.ctx, &folder, PesVersion::Pes21);
+
+    // Bounded: the worker answers off the UI thread, so frames poll with a
+    // real nap between; a portrait never arriving fails rather than hangs.
+    // The portrait rect is matched by size and centre (a pixel's tolerance
+    // for the AccessKit bounds' rounding), not by exact rect equality.
+    let canvas_min = |canvas: accesskit::Rect| egui::pos2(canvas.x0 as f32, canvas.y0 as f32);
+    let canvas_max = |canvas: accesskit::Rect| egui::pos2(canvas.x1 as f32, canvas.y1 as f32);
+    let mut found = false;
+    for _ in 0..200 {
+        let (_, nodes, shapes) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let canvas = canvas_of(&nodes);
+        let canvas_rect = egui::Rect::from_min_max(canvas_min(canvas), canvas_max(canvas));
+        let centre = clamped_centre(
+            canvas,
+            team_entry(&view, 701).tactics.presets[0].formations[0].players[4],
+        );
+        let expected = egui::pos2(centre.x, centre.y - 32.0);
+        let portraits: Vec<egui::Rect> = shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Mesh(_) => Some(clipped.shape.visual_bounding_rect()),
+                _ => None,
+            })
+            .filter(|rect| {
+                canvas_rect.contains_rect(*rect)
+                    && (rect.size() - egui::vec2(50.0, 50.0)).length() < 0.5
+            })
+            .collect();
+        if !portraits.is_empty() {
+            found = portraits.len() == 1 && (portraits[0].center() - expected).length() < 1.0;
+            break;
+        }
+        std::thread::sleep(std::time::Duration::from_millis(10));
+    }
+    assert!(
+        found,
+        "the starter's marker paints his portrait and no other marker's after 200 frames"
+    );
+}
+
 // The same wrap on the Automatic settings row and the armed mode's note:
 // the Substitution pair, the three checkboxes and the note's button all
 // land inside the width (the row fits 800 either way; the wrap itself is

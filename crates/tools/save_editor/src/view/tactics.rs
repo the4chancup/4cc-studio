@@ -30,6 +30,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         tactics,
         generation,
         focused,
+        portraits,
         ..
     } = view;
     let Some(session) = session.as_mut() else {
@@ -62,13 +63,26 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             )
         })
         .collect();
+    // The roster's player ids (`None` an empty slot): the portrait source's ask.
+    let player_ids: Vec<Option<u32>> = team
+        .roster
+        .iter()
+        .map(|slot| {
+            session
+                .file()
+                .player(slot.player_id)
+                .map(|player| player.id)
+        })
+        .collect();
+    let textures = portraits.textures(ui.ctx(), &player_ids);
     let roster: Vec<RosterRow> = rows
         .iter()
-        .map(|(name, raw_name, position)| RosterRow {
+        .zip(textures)
+        .map(|((name, raw_name, position), portrait)| RosterRow {
             name: name.as_str(),
             raw_name: raw_name.as_str(),
             registered_position: *position,
-            portrait: None,
+            portrait,
         })
         .collect();
     // Every widget id under the tab is the team's within this open (the

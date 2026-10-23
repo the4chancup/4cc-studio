@@ -2361,3 +2361,5 @@ worklog passed 7,000 lines.
   review); the mutation run's 12 survivors tested; slice 1 seen in the built window beside the draft.
 - **2026-10-23** — 8.9g slice 1 rework 3 (Astra review): the name scroll's clock no longer restarts when egui draws a frame
   twice; the dragged marker's preview tested.
+- **2026-10-23** — 8.9g slice 2: the Tactics pitch draws each starter's portrait from the selected game's CPKs, read off the
+  UI thread; the DpFileList reader and the portrait path moved to `cpk` and `pes_savefile`, shared with the Team compiler.

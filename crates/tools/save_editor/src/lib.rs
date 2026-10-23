@@ -58,7 +58,10 @@ impl StudioTool for Tool {
             .map(|settings| settings.aatf_rules)
             .unwrap_or_default();
         let file = session::rules::rules_file(&aatf_rules, ctx.paths().data_dir.as_deref());
-        self.view.hide_ids = ctx.common().fpc_hide_ids();
+        let common = ctx.common();
+        self.view.hide_ids = common.fpc_hide_ids();
+        self.view
+            .select_portraits(ui.ctx(), &common.pes_folder(), common.pes_version);
         view::show(
             ui,
             &mut self.view,
