@@ -2351,3 +2351,5 @@ worklog passed 7,000 lines.
   colours corrected, `APP_NAME` crate-private. 0.0.1g opened: the two CLI-only tools are still live on the sidebar.
 - **2026-10-23** — 0.0.1g: the Team compiler and the Export upgrader are greyed on the preview's sidebar, never the
   active view, their CLI, help and settings kept (ST-SIDE-08). 0.0.1e's upgrade passes ran: 52 of 53 VGL26 exports.
+- **2026-10-23** — 0.0.1e: the rehearsal on PES 2019 with FoxDen: 52 of VGL26's 53 exports upgraded, compiled and drawn
+  in Edit mode; the defaults cannot install on the 4cc PES 2019 patch's DpFileList (QUESTIONS). Game and save restored.

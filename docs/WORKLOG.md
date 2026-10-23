@@ -20,7 +20,7 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9f-h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-d and g done, 0.0.1e under way; the Team
+8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9f-h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-e and g done, 0.0.1f at the cut; the Team
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
@@ -1411,11 +1411,33 @@ briefs, review loops, gates and mutation runs as for any step.
     `UnlimitedToolWorks`. The exe is 35.3 MiB (30.8 on 2026-10-15): past the size budget's
     "about 30 MB", inside its 50 MB ceiling; where the growth comes from is measured with
     `cargo bloat` before the cut (0.0.1f)
-- [ ] 0.0.1e the rehearsal on PES 2019 with FoxDen: VGL26's old exports (the upgrader
+- [x] 0.0.1e the rehearsal on PES 2019 with FoxDen: VGL26's old exports (the upgrader
   census's copies) through `quick_upgrade.bat` and `quick_compile.bat` from the extracted
   bundle, then checked in game in Edit mode (the `F:` drive connected by the maintainer);
   every failing class diagnosed and fixed, or written down as a reason to fall back to Red →
   verify: the tallies, `manual: checked` lines for the in-game look
+    Done: the 53 exports of `C:/Data/4cc/Lab/Gud` in a copy of the 0.0.1d bundle (portable
+    settings written by hand, PES 19; the first-run dialog not driven). No PES 2019 save
+    matches them (the live one wears none of their boots/gloves ids, the PES 21 VGL26 cup save
+    names ids 31 of them lack), so two launcher passes, as an organizer with two saves:
+    the VGL26 save (22 upgraded, boots and gloves kept), then the live save (30 more); AKG
+    refused both times (`texture_stem_conflict`, census-known). Compile with the defaults:
+    refused to install (`dpfilelist_outdated`, QUESTIONS "Which DpFileList does VGL 27's
+    PES 2019 install carry"); with `cpk_name = '4cc_69_midcup'`: 248 s, installed, save
+    written, per-export Errors the classes of the library run's close (`fmdl_texture_not_found`
+    145, `vertex_too_far_from_origin` 89); `savefile_player_not_stripped` for every player.
+    A rerun of the upgrade launcher counts every upgraded export as not upgraded: the readme
+    now tells the member to move them out of `old_exports/`. Game, exe, FoxDen and save
+    restored, the install's listing identical to the backup's
+    manual: checked 2026-10-23, PES 2019 stock exe with FoxDen, Edit mode, the save written by
+    the compile: VGL 15 (/aceg/) player 01's plane head and flight suit (a full body in
+    `boots.fmdl`) and the team emblem, players 02-05 each their own head
+    (`.tmp/0_0_1/e_shots/13_full_aceg01.png`, `16_sheet.png`); VGL 14 (/4ccg/) in its kit
+    (green stripes, sponsor) and emblem, five custom heads, player 01 the save's face (his
+    folder failed `fmdl_texture_not_found`) and player 07 headless (the export has no face for
+    him: its `face.fpk.xml` names a `face_diff.bin` the folder lacks) (`17_4ccg.png`,
+    `18_sheet.png`); VGL 13 (/2hug/) player 01's full body (`19_2hug01.png`). Not compared
+    with Red's output in game
 - [x] 0.0.1g the Team compiler and the Export upgrader greyed on the sidebar while their CLI
   stays (`plans/core/development_plan.md` "Divegrass Before Christmas": "greyed out on the
   sidebar as the planned tools are"; found by 0.0.1d's review S1-1): today a registered tool
@@ -1433,6 +1455,8 @@ briefs, review loops, gates and mutation runs as for any step.
   "Release 0.1.0"'s verification, both launchers included), the exe's size measured crate by
   crate with `cargo bloat` (35.3 MiB at 0.0.1d2, past the budget's "about 30 MB";
   `spec/core/distribution.md` "Distribution: portable .7z bundle" gets the new measurement),
+  the answer to QUESTIONS "Which DpFileList does VGL 27's PES 2019 install carry" applied to
+  the readme (and a default or a finding's advice, if it says so),
   `just release 0.0.1`, handed to DBC's testers and VGL's organizer
 
 ### Phase 10 — Music tools

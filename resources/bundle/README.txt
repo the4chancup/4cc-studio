@@ -30,6 +30,9 @@ Exports made for Red need upgrading once before they compile here.
    EDIT00000000, in the game's save folder under Documents\KONAMI.
 3. The upgraded exports land in the exports folder. The window says how many were upgraded;
    for one that was not, it says why above that line.
+4. Then move the upgraded old exports out of old_exports. An export already upgraded is not
+   upgraded again: the next run lists it as not upgraded ("the output folder already
+   exists") and leaves its folder in exports as it is.
 
 
 Compiling

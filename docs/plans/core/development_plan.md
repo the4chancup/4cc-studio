@@ -58,7 +58,11 @@ CLI, and wait for a key at the end so the report can be read:
   `.7z`) into `exports/` against the savefile dropped onto it, then prints how many were
   upgraded and how many were not. A team export needs `--savefile` or `--loose` (`spec/export_upgrader.md` "CLI"),
   and loose mode is an assumption the user opts into, so the bat asks for the save rather than
-  falling back to loose; with no file dropped it says how to drop one and stops. The bat goes
+  falling back to loose; with no file dropped it says how to drop one and stops. An export
+  already upgraded is refused on a second run, its folder in `exports/` existing (replacing
+  it would lose edits made since), and counted as not upgraded; the bat cannot tell that
+  refusal from another, so the readme tells the member to move upgraded old exports out of
+  `old_exports/`, which an organizer receiving exports over several days needs. The bat goes
   when the Export upgrader's view lands.
 
 The console's progress line and run summary (`architecture.md`, ST-CLI-02) come with them,

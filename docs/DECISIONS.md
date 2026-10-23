@@ -10443,3 +10443,16 @@ left out of the window's tool list, because the help window's chapters and the s
 come from that list, and the readme sends members to the help for every finding's code. The
 mark is the build's, not a `StudioTool` method, since which tools a build shows is its choice.
 Plan: `plans/core/gui.md` "Sidebar" item 3 and ST-SIDE-08.
+
+## 2026-10-23 — bundle — the upgrade launcher's rerun: the readme moves upgraded exports out
+Decision: the bundle's readme tells the member to move the upgraded old exports out of
+`old_exports/` after a run; the launcher and the upgrader stay as they are, a second run
+refusing each export already upgraded ("the output folder already exists") and counting it as
+not upgraded.
+Why: the 0.0.1e rehearsal's second pass printed 22 such refusals; VGL's organizer receives
+exports over several days and reruns the launcher. The refusal is right (replacing the folder
+would lose edits made since), and the launcher cannot tell it from another abort (both exit 3)
+nor predict the output's name (the upgrader names it from the resolved team), so a skip in the
+bat would need the upgrader to grow a new exit code for one launcher that goes when the view
+lands. One readme step costs nothing.
+Plan: `plans/core/development_plan.md` "The /vg/ League 27 (VGL)", the `quick_upgrade.bat` item.
