@@ -74,7 +74,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 .map(|player| player.id)
         })
         .collect();
-    let textures = portraits.textures(ui.ctx(), &player_ids);
+    let textures = portraits.textures(ui.ctx(), version, &player_ids);
     let roster: Vec<RosterRow> = rows
         .iter()
         .zip(textures)

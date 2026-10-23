@@ -1222,7 +1222,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       pane → verify: the Tactics and Abilities tabs at a 580 px window, every control inside
       the window, by a test in `save_editor`'s view tests; folded into slice 4's layout if v2
       changes the host
-    - [ ] 8.9i a starter whose portrait the pitch cannot show, for any reason (none in the
+    - [x] 8.9i a starter whose portrait the pitch cannot show, for any reason (none in the
       CPKs, a portrait that does not decode, a `download/` folder that cannot be read), draws
       the game's own placeholder portrait instead of none (the maintainer's request of
       2026-10-23; `plans/save_editor.md` "Tactics editor", a marker and "Portraits"): the
@@ -1231,6 +1231,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       whose portrait the fixture CPK lacks, a portrait that does not decode, and a missing
       `download/` folder each draw the placeholder on the marker, each of the three versions
       chosen for its PES (2015, 2017, 2021); no starter with a real portrait gets it
+      Done 2026-10-23 (SWE-2, 21 min): the three PNGs embedded in `view/portraits.rs`, the
+      version's file by an exhaustive match, decoded and uploaded once per version; every
+      filled slot gets its portrait or the placeholder, a portrait still being read included
+      (DECISIONS 2026-10-23); the pitch test tells the starter's texture from the shared
+      placeholder. Files: `save_editor/src/view/{portraits.rs,tactics.rs,tests/tactics.rs}`
     - [x] 8.9g the Tactics pitch as PES 2021's own (the maintainer's request of 2026-10-23;
       `plans/save_editor.md` "Tactics editor", the pitch's look): the reference measured first
       (the game's formation screen captured in game, its UI textures in the game's CPKs), the
@@ -1954,8 +1959,11 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
       `help/02_window.md`. Review rework 2, 2026-10-23 (SWE-2 round 1's 17 accepted findings
       and the mutation run's survivors): undo seals a gesture in flight, the shortcuts wait
       behind a modal, Save as suggests the ruleset's name, `aatf::NON_STAT_TARGETS`, the file
-      pickers panic under `cfg(test)`; tests for every survivor. Open: SWE-2 round 2 (both
-      halves), then `mutants-diff d968dd50`
+      pickers panic under `cfg(test)`; tests for every survivor. Rework 3, 2026-10-23 (SWE-2
+      round 2, 4 accepted per half; `mutants-diff d968dd50` 1 missed, covered): one modal
+      helper, one refused-open block, Custom checks drawn without its banner, a cancelled
+      Save keeps the prompt, the shortcuts dead behind every modal, the dialogs' arguments
+      asserted. Open: Astra round 1, then `mutants-diff 3a232581`
     - 20.6a2 Tiers with the medal systems, Cards, Universal rules with the team settings,
       Suggestions (RE-GUI-03 to 06, 08, RE-FILE-04, 06)
   - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12)

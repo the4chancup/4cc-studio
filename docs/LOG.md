@@ -2377,3 +2377,5 @@ worklog passed 7,000 lines.
   banners, the unsaved-changes prompt, General, Custom checks and Summary; one rework (undo now restores the logic too).
 - **2026-10-23** — 8.11 and 8.13: egui 0.37 (system fonts draw any name's glyphs; `egui-phosphor` replaced by a
   19-glyph subset font), the Tactics tab's columns as the draft's; the version line reads `v0.0.1 pre-alpha`.
+- **2026-10-23** — 8.9i: a starter whose portrait the Tactics pitch cannot show draws the game's own placeholder
+  for the selected PES (three bundled versions), also while his portrait is still being read.

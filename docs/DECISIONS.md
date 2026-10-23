@@ -10624,3 +10624,12 @@ wrapped rows below drew past the window's edge (a test caught it once 0.37's roo
 pushed one over). The draft's `taccols` is a fixed pitch beside flexible lists, so this is the
 draft's layout, not a new one.
 Plan: `plans/save_editor.md` "Tactics editor", "The pitch is the editor".
+
+## 2026-10-23 — 8.9i — A portrait still being read shows the placeholder meanwhile
+Decision (lead): while the reading thread has not answered for a starter, his marker draws the
+selected game's placeholder portrait, then his portrait once it is decoded.
+Why: the maintainer asked for the placeholder wherever the portrait cannot be shown, to get
+rid of the empty space above a badge; drawing nothing until the answer lands would keep that
+space for the read's duration, then pop the portrait in. The placeholder then the portrait is
+one change instead of two.
+Plan: `plans/save_editor.md` "Tactics editor", "A marker".

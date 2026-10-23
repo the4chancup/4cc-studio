@@ -519,8 +519,8 @@ fn the_formation_settings_wrap_inside_a_narrow_window() {
 
 // plans/save_editor.md "Tactics editor" (the "Portraits" sub-bullet):
 // the pitch draws a starter's portrait read off the UI thread from the
-// selected game's `download/` CPKs; the markers without one paint no
-// image (the turf's is the only other).
+// selected game's `download/` CPKs; the markers without one paint the
+// bundled placeholder (the turf's is the only other image).
 #[test]
 fn the_pitch_draws_a_starter_s_portrait_from_the_selected_game() {
     let dir = crate::test_support::scratch("tactics_portrait");
@@ -560,19 +560,35 @@ fn the_pitch_draws_a_starter_s_portrait_from_the_selected_game() {
             team_entry(&view, 701).tactics.presets[0].formations[0].players[4],
         );
         let expected = egui::pos2(centre.x, centre.y - 32.0);
-        let portraits: Vec<egui::Rect> = shapes
+        let portraits: Vec<(egui::Rect, egui::TextureId)> = shapes
             .iter()
             .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Mesh(_) => Some(clipped.shape.visual_bounding_rect()),
+                egui::Shape::Mesh(mesh) => {
+                    Some((clipped.shape.visual_bounding_rect(), mesh.texture_id))
+                }
                 _ => None,
             })
-            .filter(|rect| {
+            .filter(|(rect, _)| {
                 canvas_rect.contains_rect(*rect)
                     && (rect.size() - egui::vec2(50.0, 50.0)).length() < 0.5
             })
             .collect();
-        if !portraits.is_empty() {
-            found = portraits.len() == 1 && (portraits[0].center() - expected).length() < 1.0;
+        // Until the worker answers, every marker paints the placeholder's one
+        // texture; the starter's arriving shows as a texture id no other
+        // portrait shares, at his spot.
+        let his: Vec<egui::TextureId> = portraits
+            .iter()
+            .filter(|(rect, _)| (rect.center() - expected).length() < 1.0)
+            .map(|(_, texture)| *texture)
+            .collect();
+        if his.len() == 1
+            && portraits
+                .iter()
+                .filter(|(_, texture)| *texture == his[0])
+                .count()
+                == 1
+        {
+            found = true;
             break;
         }
         std::thread::sleep(std::time::Duration::from_millis(10));

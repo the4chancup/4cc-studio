@@ -325,7 +325,8 @@ Win32 original hurt the most):
     together when the tab opens. The captain's mark, a white rounded box with a black "C", 12 x 11, sits
     1 px inside the badge's left edge, 5 px above it, over the portrait. A starter whose
     portrait the editor cannot show, for any reason (none in the CPKs, one that does not
-    decode, a folder, list or CPK that cannot be read, no PES folder set), shows the game's
+    decode, a folder, list or CPK that cannot be read, no PES folder set, or one still being
+    read, which would otherwise draw nothing and then the portrait), shows the game's
     own placeholder in its place, drawn as a portrait: the selected game's
     `common/render/symbol/blank/player-dummy.png`, a 128 x 128 PNG in one of three versions
     (PES 2015; PES 2016-2018; PES 2019-2021). The three are bundled
