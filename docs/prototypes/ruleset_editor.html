@@ -1427,26 +1427,29 @@ function condText(c) {
   if (c.not) p.push("except " + (condText(c.not) || "anyone"));
   return p.join(", ");
 }
+// A per-tier map's entries in the tiers' order, highest first, whatever order the file has.
+const byTier = v => Object.entries(v).sort(([a], [b]) => R.tiers.findIndex(t => t.id === a) - R.tiers.findIndex(t => t.id === b));
 function perTierText(v, unit) {
   if (typeof v === "number") return (v > 0 ? "+" : "") + v + unit;
-  return Object.entries(v).map(([t, n]) => `${(n > 0 ? "+" : "") + n}${unit} for ${tierLabel(t)}`).join(", ");
+  return byTier(v).map(([t, n]) => `${(n > 0 ? "+" : "") + n}${unit} for ${tierLabel(t)}`).join(", ");
 }
 function effectsText(e) {
   const p = [];
   for (const [k, v] of Object.entries(e.stat_bonus || {})) p.push(`${perTierText(v, "")} to ${k === "all" ? "every stat" : human(k).toLowerCase()}`);
-  for (const [k, v] of Object.entries(e.stat_target || {})) p.push(`${human(k).toLowerCase()} target ${typeof v === "number" ? v : JSON.stringify(v)}`);
+  for (const [k, v] of Object.entries(e.stat_target || {})) p.push(`${human(k).toLowerCase()} target ${typeof v === "number" ? v
+    : byTier(v).map(([t, n]) => `${n} for ${tierLabel(t)}`).join(", ")}`);
   if (e.cards != null) p.push(`${perTierText(e.cards, "")} paid card${e.cards === 1 ? "" : "s"}`);
   for (const [k, v] of Object.entries(e.free || {})) p.push(`${perTierText(v, "")} free ${k === "com" ? "COM style" : human(k).toLowerCase()}`);
   if ((e.free_cards || []).length) p.push(list(e.free_cards) + " free");
   if ((e.require_cards || []).length) p.push("must hold " + list(e.require_cards));
   if (e.a_positions != null) p.push(`${perTierText(e.a_positions, "")} A position`);
-  if (e.max_a_positions != null) p.push(`at most ${e.max_a_positions} A positions`);
+  if (e.max_a_positions != null) p.push(`at most ${e.max_a_positions} A position${e.max_a_positions === 1 ? "" : "s"}`);
   if (e.form != null) p.push(`${perTierText(e.form, "")} form`);
   if (e.injury_resistance != null) p.push(`${perTierText(e.injury_resistance, "")} injury resistance`);
   if (e.weak_foot) p.push(`weak foot up to ${e.weak_foot.usage}/${e.weak_foot.accuracy}`);
   if (e.height_allowance != null) p.push(`count ${e.height_allowance} cm shorter`);
   if (e.stat_warning != null) p.push("warning band " + (typeof e.stat_warning === "number" ? e.stat_warning
-    : Object.entries(e.stat_warning).map(([t, n]) => `${n} for ${tierLabel(t)}`).join(", ")));
+    : byTier(e.stat_warning).map(([t, n]) => `${n} for ${tierLabel(t)}`).join(", ")));
   if (e.forbid != null) p.push(`not allowed ("${e.forbid}")`);
   if ((e.choice || []).length === 1) p.push("may get " + effectsText(e.choice[0]));
   else if ((e.choice || []).length) p.push("gets the first needed of: " + e.choice.map(effectsText).join("; or "));
@@ -1473,7 +1476,7 @@ function summary(r) {
   if (r.heights.brackets.length) {
     L.push("", "## Heights");
     let prev = 0;
-    L.push("Brackets: " + r.heights.brackets.map(b => { const s = b.up_to != null ? `${b.label} ${prev + 1}-${b.up_to}` : `${b.label} ${b.exactly.join(" or ")}`; prev = b.up_to ?? Math.max(...b.exactly); return s; }).join(", ") + " cm.");
+    L.push("Brackets: " + r.heights.brackets.map(b => { const s = b.up_to != null ? (prev ? `${b.label} ${prev + 1}-${b.up_to}` : `${b.label} up to ${b.up_to}`) : b.exactly.length ? `${b.label} ${b.exactly.join(" or ")}` : b.label; prev = b.up_to ?? (b.exactly.length ? Math.max(...b.exactly) : prev); return s; }).join(", ") + " cm.");
     r.heights.systems.forEach((s, i) => {
       const when = condText(s.any_player), parts = [];
       if (when) parts.push("any player is " + when);
@@ -1496,7 +1499,24 @@ function summary(r) {
   if (u.min_goalkeepers) U.push(`at least ${u.min_goalkeepers} goalkeeper${u.min_goalkeepers > 1 ? "s" : ""}`);
   U.push(`at most ${u.max_skill_cards} skill cards`);
   if (u.max_com_styles != null) U.push(`at most ${u.max_com_styles} COM styles`);
-  L.push("", "## Every team", U.map(x => x[0].toUpperCase() + x.slice(1)).join("; ") + ".");
+  const every = U.join("; ");
+  L.push("", "## Every team", every[0].toUpperCase() + every.slice(1) + ".");
+  const groups = Object.entries(r.card_groups);
+  if (groups.length) {
+    L.push("", "## Card groups");
+    groups.forEach(([g, cards]) => L.push(`- **${human(g)}**: ${cards.map(c => human(c).toLowerCase()).join(", ")}.`));
+  }
+  if (r.team_settings.length) {
+    L.push("", "## Team settings");
+    const SETTING = { man_marking: "man marking", auto_substitution: "automatic substitution",
+      auto_offside_trap: "automatic offside trap", auto_preset_change: "automatic preset change",
+      auto_attack_defence_levels: "automatic attack/defence levels" };
+    r.team_settings.forEach(t => {
+      const parts = Object.keys(SETTING).filter(k => t[k] != null).map(k => `${SETTING[k]} ${t[k] ? "on" : "off"}`);
+      if (t.forbidden_shapes.length) parts.push("no " + t.forbidden_shapes.map(s => s.join("-")).join(" or ") + " formations");
+      L.push(`- **${t.label}**${t.versions.length ? ` (PES ${t.versions.join(", ")})` : ""}: ${parts.join(", ")}.`);
+    });
+  }
   if (r.specials.length) {
     L.push("", "## Special rules");
     r.specials.forEach(s => { const w = condText(s.when); L.push(`- **${s.label}**${s.severity !== "error" ? ` (${s.severity})` : ""}: ${w ? w.charAt(0).toUpperCase() + w.slice(1) + ": " : ""}${effectsText(s.then)}.`); });
@@ -1701,7 +1721,7 @@ const VIEWS = {
       const last = i === R.heights.systems.length - 1;
       const box = reorderable(h("div", { class: "group" },
         row(handle(i), text(s.label, v => s.label = v, { width: 100 }), text(s.id, v => s.id = v, { width: 70, mono: true }), h("span", { style: "flex:1" }), remove(R.heights.systems, i)),
-        last && isEmpty(condData(s.any_player)) ? row(weak("Otherwise (no condition)"), button("+ Add a condition", () => { s.any_player = { height_min: 190 }; structural(); }, { frame0: true }))
+        last && isEmpty(condData(s.any_player)) ? row(weak("Otherwise (no condition): the last system takes every team the others do not"))
           : h("div", {}, weak("When any player is:"), condEditor(s.any_player || (s.any_player = {}), `sys:${i}`, { heightsPositions: true })),
         row(checkbox("when the team meets its quotas", !!s.by_quotas, v => s.by_quotas = v,
           "The system holds only when the team, read under it, meets the quotas below")),
@@ -1862,7 +1882,7 @@ const has = (c, k) => k === "height" ? c.height_min != null || c.height_max != n
   : k === "captain" || k === "fielded_only_at" || k === "strong_foot" || k === "not" ? c[k] !== undefined && c[k] !== null
   : k === "ranges" ? false : c[k] !== undefined;
 function condEditor(c, path, opts) {
-  const allowed = COND_FIELDS.filter(([k]) => opts.heightsPositions ? ["positions", "height"].includes(k) : !(opts.noTiers && k === "tiers"));
+  const allowed = COND_FIELDS.filter(([k]) => opts.heightsPositions ? ["positions", "height", "any", "not"].includes(k) : !(opts.noTiers && k === "tiers"));
   const box = h("div", { class: "col", style: "flex:1" });
   const drop = (keys) => button("✕", () => { keys.forEach(k => delete c[k]); structural(); }, { frame0: true, title: "Remove this condition" });
   const line = (label, widget, keys) => box.append(row(h("span", { style: "width:150px" }, label), widget, drop(keys)));

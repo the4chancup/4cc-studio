@@ -10530,3 +10530,12 @@ offering the update and keep their old logic on every save. No file of an older 
 can exist before then, so a Phase 20 scenario for it would have no real input.
 Plan: `plans/aatf_rules.md` "Loading and validation"; `plans/ruleset_editor.md` "Acceptance"
 (the paragraph after "Opening and saving").
+
+## 2026-10-23 — ruleset_editor — a file that breaks a load rule is refused at open
+Decision: the Ruleset editor refuses a rules file that reads but breaks a load rule (two tiers
+sharing an id) the way it refuses a parse or schema error: the findings listed with their key
+paths, the forms not opened.
+Why: it is the file the Save editor refuses too, so both tools agree on what a rules file is,
+and `libs/aatf`'s load already refuses it; opening it in the forms with rail marks would need a
+second, unchecked load path for a file only a hand edit produces.
+Plan: `plans/ruleset_editor.md` "Opening and saving" (*Unreadable*), RE-FILE-03.
