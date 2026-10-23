@@ -22,6 +22,17 @@ pub(super) fn fitted_size(monitor: egui::Vec2) -> egui::Vec2 {
     egui::vec2(width.round(), (width / 1.6).round())
 }
 
+/// The native window's options: created at `DEFAULT_SIZE` and centered, the size the first
+/// frame's fit keeps on a monitor that holds it, so nothing jumps there.
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn native_options() -> eframe::NativeOptions {
+    eframe::NativeOptions {
+        viewport: egui::ViewportBuilder::default().with_inner_size(DEFAULT_SIZE),
+        centered: true,
+        ..Default::default()
+    }
+}
+
 /// The fit `viewport` calls for, once it reports the monitor's size: the inner size, and
 /// the outer position that centers the *outer* rectangle (the decorations, outer minus
 /// inner, counted; none when either rect is missing). `None` while the monitor is unknown.
@@ -97,6 +108,13 @@ mod tests {
             fitted_size(egui::vec2(1500.0, 1500.0)),
             egui::vec2(1350.0, 844.0)
         );
+    }
+
+    #[test]
+    fn the_window_is_created_at_the_default_size_and_centered() {
+        let options = native_options();
+        assert_eq!(options.viewport.inner_size, Some(DEFAULT_SIZE));
+        assert!(options.centered, "created centered on the monitor");
     }
 
     // ST-WIN-01

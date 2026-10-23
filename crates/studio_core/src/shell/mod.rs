@@ -444,13 +444,7 @@ impl eframe::App for StudioApp {
 pub fn run_gui(app: StudioApp) -> anyhow::Result<()> {
     eframe::run_native(
         APP_NAME,
-        eframe::NativeOptions {
-            // Created at the size the first frame's fit uses: on a monitor that
-            // holds it, nothing jumps.
-            viewport: egui::ViewportBuilder::default().with_inner_size(window_size::DEFAULT_SIZE),
-            centered: true,
-            ..Default::default()
-        },
+        window_size::native_options(),
         Box::new(|creation| {
             crate::theme::install_fonts(&creation.egui_ctx);
             // The context's clones share the wake slot, so a `with_events` sink made before
