@@ -612,7 +612,7 @@ mod tests {
     }
 
     // And the reverse direction: a marker dragged onto a bench row swaps
-    // him out through `swap_in`, as a marker's `LineupDrag::Starter` is
+    // him out through `swap_in`, as a marker's `LineupDrag::Marker` is
     // the row's payload.
     #[test]
     fn a_marker_dropped_on_a_bench_row_swaps_him_out() {

@@ -260,6 +260,7 @@ pub(crate) fn show(
     running: &dyn Fn() -> Vec<RunningPes>,
     rules_file: Option<&Path>,
 ) {
+    set_surrender_on_press(ui.ctx());
     let file = rules_file.map(Path::to_path_buf);
     if view.rules.as_ref().is_none_or(|active| active.file != file) {
         view.rules = Some(ActiveRules {
@@ -306,6 +307,20 @@ pub(crate) fn show(
         session.seal();
     }
     view.focused = focused;
+}
+
+/// The editor's focus mode: a press on another widget ends the focused
+/// widget's keyboard gesture on the press frame (egui's own default,
+/// `Clicks`, waits for a completed click, so a drag elsewhere would keep
+/// the field focused — its undo entries would merge and Ctrl+Z would
+/// stay swallowed while `typing` holds). The option is the context's, so
+/// once the editor has drawn it holds for every view, which is the
+/// behaviour wanted there too; it moves to the shell's context setup
+/// when the shell gets one (worklog 8.1).
+fn set_surrender_on_press(ctx: &egui::Context) {
+    ctx.memory_mut(|memory| {
+        memory.options.input_options.surrender_focus_on = egui::SurrenderFocusOn::Presses;
+    });
 }
 
 /// The toolbar: Open, Save, Undo, Redo and the open save's path with its

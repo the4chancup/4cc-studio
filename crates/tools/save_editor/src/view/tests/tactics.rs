@@ -1,62 +1,4 @@
-use pes_savefile::model::TeamEntry;
-use pes_savefile::model::tactics::FormationSlot;
-
 use super::*;
-
-/// The team's entry as the session holds it.
-fn team_entry(view: &SaveView, team_id: u32) -> TeamEntry {
-    view.session
-        .as_ref()
-        .unwrap()
-        .file()
-        .team(team_id)
-        .unwrap()
-        .clone()
-}
-
-/// The node of `role` labeled `label`.
-fn node_labeled<'a>(nodes: &'a [accesskit::Node], role: Role, label: &str) -> &'a accesskit::Node {
-    nodes
-        .iter()
-        .find(|node| node.role() == role && node.label() == Some(label))
-        .unwrap_or_else(|| panic!("no {role:?} labeled {label:?}"))
-}
-
-/// The lineup rows' name labels in draw order (the 11 starting-eleven
-/// rows, then the bench rows): each row's last label is its name, found
-/// through the ≡ handles since the fixture's players share names.
-fn lineup_names(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
-    let mut handles: Vec<&accesskit::Node> = nodes
-        .iter()
-        .filter(|node| node.role() == Role::Label && node.value() == Some("≡"))
-        .collect();
-    handles.sort_by(|a, b| {
-        let key = |node: &&accesskit::Node| {
-            let bounds = node.bounds().expect("handle bounds");
-            (bounds.y0, bounds.x0)
-        };
-        key(a).partial_cmp(&key(b)).expect("ordered bounds")
-    });
-    handles
-        .iter()
-        .map(|handle| {
-            let bounds = handle.bounds().expect("handle bounds");
-            nodes
-                .iter()
-                .filter(|node| {
-                    node.role() == Role::Label
-                        && node
-                            .bounds()
-                            .is_some_and(|b| (b.y0 - bounds.y0).abs() < 4.0 && b.x0 > bounds.x0)
-                })
-                .max_by(|a, b| {
-                    let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
-                    x(a).partial_cmp(&x(b)).expect("ordered bounds")
-                })
-                .unwrap_or_else(|| panic!("no name on a lineup row"))
-        })
-        .collect()
-}
 
 /// The open menu's items (labels starting "Copy " or "Swap "), in draw
 /// order.
@@ -219,42 +161,6 @@ fn the_tactics_menus_copy_presets_and_swap_formations_as_undoable_edits() {
     assert_eq!(tactics.presets[0].formations[1], formations_before[0]);
 }
 
-// plans/save_editor.md "Editing UI", the Undo/redo bullet (one entry per
-// gesture) on this tab: a slider drag lands as one undoable edit and the
-// team is marked changed.
-#[test]
-fn a_slider_drag_on_the_tab_is_one_undo_entry_and_marks_the_team() {
-    let path = fixture(PesVersion::Pes21, "tactics_slider_drag");
-    let mut view = SaveView::new();
-    view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
-    let mut window = Headless::sized(1100.0, 900.0);
-    let before = team_entry(&view, 701).tactics.presets[0].sliders.clone();
-
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let slider = control_right_of(&nodes, "Support range");
-    let bounds = slider.bounds().expect("slider bounds");
-    let from = centre(slider);
-    let to = egui::pos2((bounds.x1 - 4.0) as f32, from.y);
-    drag(&mut window, from, to, &mut view);
-
-    assert_ne!(
-        team_entry(&view, 701).tactics.presets[0].sliders,
-        before,
-        "the drag changed preset 1's sliders"
-    );
-    assert!(
-        view.session.as_ref().unwrap().is_dirty(),
-        "the team is marked changed"
-    );
-    assert_eq!(
-        undo_entries(&mut window, &mut view),
-        1,
-        "the whole drag was one undo entry"
-    );
-}
-
 // The preset selector writes `TacticsView`, not the record: switching
 // presets leaves the session clean (no undo entry, no unsaved dot).
 #[test]
@@ -289,73 +195,6 @@ fn the_preset_selector_writes_nothing() {
     let session = view.session.as_ref().unwrap();
     assert!(!session.is_dirty());
     assert!(!session.can_undo());
-}
-
-// plans/save_editor.md "Tactics editor", "A starter swapped with a bench
-// player": the roles follow the swap, one undo entry, saved.
-#[test]
-fn a_bench_player_dragged_onto_a_starter_swaps_them_as_one_undo_entry() {
-    let path = fixture(PesVersion::Pes21, "tactics_lineup_swap");
-    // The starter the drag replaces is the penalty taker, so the role has
-    // to follow the swap.
-    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
-    let starter_slot = file.team(701).unwrap().tactics.starting_eleven[8];
-    let bench_slot = file.team(701).unwrap().tactics.bench_order[0];
-    assert_ne!(starter_slot, bench_slot, "premise: two different slots");
-    file.team_mut(701).unwrap().tactics.set_pieces.penalty = starter_slot;
-    file.save(&path).unwrap();
-    let mut view = SaveView::new();
-    view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
-    let mut window = Headless::sized(1100.0, 1400.0);
-
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let names = lineup_names(&nodes);
-    assert_eq!(names.len(), 32, "the eleven and the bench rows");
-    drag(&mut window, centre(names[11]), centre(names[8]), &mut view);
-
-    let tactics = &team_entry(&view, 701).tactics;
-    assert_eq!(
-        tactics.starting_eleven[8], bench_slot,
-        "the bench player starts"
-    );
-    assert_eq!(tactics.bench_order[0], starter_slot, "the starter sits");
-    assert_eq!(
-        tactics.set_pieces.penalty, bench_slot,
-        "the taker followed the swap"
-    );
-
-    // One undo entry restores both.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    let tactics = &team_entry(&view, 701).tactics;
-    assert_eq!(tactics.starting_eleven[8], starter_slot, "the eleven back");
-    assert_eq!(tactics.bench_order[0], bench_slot, "the bench back");
-    assert_eq!(tactics.set_pieces.penalty, starter_slot, "the taker back");
-    assert!(
-        !view.session.as_ref().unwrap().can_undo(),
-        "the whole drop was one undo entry"
-    );
-
-    // Redo and save: the reopened file holds the swap and the moved taker.
-    window.frame(
-        vec![key(
-            egui::Key::Z,
-            egui::Modifiers::CTRL | egui::Modifiers::SHIFT,
-            true,
-        )],
-        |ui| show(ui, &mut view, &|| Vec::new(), None),
-    );
-    window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    let reopened = EditFile::load(&path).unwrap();
-    let tactics = &reopened.team(701).unwrap().tactics;
-    assert_eq!(tactics.starting_eleven[8], bench_slot, "the swap saved");
-    assert_eq!(tactics.bench_order[0], starter_slot, "the bench saved");
-    assert_eq!(tactics.set_pieces.penalty, bench_slot, "the taker saved");
 }
 
 // plans/save_editor.md "Tactics editor" (the copy/swap menus, the draft's
@@ -451,75 +290,6 @@ fn the_copy_swap_menus_items_and_the_formation_copy() {
         ],
         "the preset menu's items in the draft's order"
     );
-}
-
-/// The pitch canvas' rect (the widget's "pitch" node).
-fn canvas_of(nodes: &[accesskit::Node]) -> accesskit::Rect {
-    nodes
-        .iter()
-        .find(|node| node.label() == Some("pitch"))
-        .and_then(accesskit::Node::bounds)
-        .expect("the pitch canvas")
-}
-
-/// The centre of `slot`'s marker on `canvas` (the widget's marker math:
-/// the stored grid is 104 by 48 at 3 px and 7 px a unit inside a 4 px / 2
-/// px margin, high y on top; the 42 by 26 chip centres on the point and
-/// clamps 2 px inside the canvas).
-fn marker_centre(canvas: accesskit::Rect, slot: FormationSlot) -> egui::Pos2 {
-    let centre = egui::pos2(
-        canvas.x0 as f32 + 4.0 + f32::from(slot.x) * 3.0,
-        canvas.y0 as f32 + 2.0 + (48.0 - f32::from(slot.y)) * 7.0,
-    );
-    egui::pos2(
-        (centre.x - 21.0).clamp(canvas.x0 as f32 + 2.0, canvas.x1 as f32 - 44.0) + 21.0,
-        (centre.y - 13.0).clamp(canvas.y0 as f32 + 2.0, canvas.y1 as f32 - 30.0) + 13.0,
-    )
-}
-
-/// A point on `canvas` covered by no marker of `players` (a grass drop:
-/// the first free of the grid scan).
-fn grass_point(canvas: accesskit::Rect, players: &[FormationSlot; 11]) -> egui::Pos2 {
-    let covered = |x: f32, y: f32| {
-        players.iter().any(|slot| {
-            let centre = marker_centre(canvas, *slot);
-            (centre.x - x).abs() <= 21.0 && (centre.y - y).abs() <= 13.0
-        })
-    };
-    for x in 0..=104_u8 {
-        for y in 0..=48_u8 {
-            let (px, py) = (
-                canvas.x0 as f32 + 4.0 + f32::from(x) * 3.0,
-                canvas.y0 as f32 + 2.0 + (48.0 - f32::from(y)) * 7.0,
-            );
-            if !covered(px, py) {
-                return egui::pos2(px, py);
-            }
-        }
-    }
-    panic!("no free point on the canvas")
-}
-
-/// `pos` inside `canvas` snapped to the stored grid (the widget's snap:
-/// the nearest unit, clamped).
-fn snap(canvas: accesskit::Rect, pos: egui::Pos2) -> (u8, u8) {
-    let x = ((pos.x - canvas.x0 as f32 - 4.0) / 3.0)
-        .round()
-        .clamp(0.0, 104.0) as u8;
-    let y = (48.0 - ((pos.y - canvas.y0 as f32 - 2.0) / 7.0).round()).clamp(0.0, 48.0) as u8;
-    (x, y)
-}
-
-/// A click at `pos` (press on one frame, release on the next): the
-/// release frame's nodes.
-fn click_at(window: &mut Headless, pos: egui::Pos2, view: &mut SaveView) -> Vec<accesskit::Node> {
-    window.frame(pointer_at(pos, true), |ui| {
-        show(ui, view, &|| Vec::new(), None)
-    });
-    let (_, nodes, _) = window.frame(pointer_at(pos, false), |ui| {
-        show(ui, view, &|| Vec::new(), None)
-    });
-    nodes
 }
 
 /// The chip of the "Player assignments" palette labeled with `prefix`.
@@ -671,118 +441,6 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_tab() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Undo/redo bullet ("changes from
-// one widget merge into the open entry"): a popover X typed into, then a
-// style pair clicked in the same unsealed span, is two undo steps — the
-// pitch's and the settings group's own.
-#[test]
-fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
-    let path = fixture(PesVersion::Pes21, "tactics_undo_keys");
-    let mut view = SaveView::new();
-    view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
-    let mut window = Headless::sized(1600.0, 1400.0);
-    let before = team_entry(&view, 701).tactics;
-    let players = before.presets[0].formations[0].players;
-    assert!(
-        !before.presets[0].style.attacking_style,
-        "premise: a real change"
-    );
-
-    // The popover on an outfield marker no other marker covers (a covered
-    // centre would open a later marker's), the X field focused, "55"
-    // typed (no Enter: the field keeps the keyboard, the span unsealed).
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let canvas = canvas_of(&nodes);
-    let covered = |centre: egui::Pos2, slot: &FormationSlot| {
-        let other = marker_centre(canvas, *slot);
-        (other.x - centre.x).abs() <= 21.0 && (other.y - centre.y).abs() <= 13.0
-    };
-    let index = (0..11)
-        .find(|&index| {
-            players[index].position != 0
-                && players.iter().enumerate().all(|(other, slot)| {
-                    other == index || !covered(marker_centre(canvas, players[index]), slot)
-                })
-        })
-        .expect("a marker no other marker covers");
-    let slot_before = players[index];
-    click_at(&mut window, marker_centre(canvas, slot_before), &mut view);
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let x_label = ids
-        .iter()
-        .find(|(_, node)| node.role() == Role::Label && node.value() == Some("X"))
-        .and_then(|(_, node)| node.bounds())
-        .expect("the X label");
-    let mut fields: Vec<accesskit::NodeId> = ids
-        .iter()
-        .filter(|(_, node)| {
-            node.role() == Role::SpinButton
-                && node.bounds().is_some_and(|bounds| {
-                    (bounds.y0 - x_label.y0).abs() < 4.0 && bounds.x0 >= x_label.x1 - 1.0
-                })
-        })
-        .map(|(id, _)| *id)
-        .collect();
-    fields.sort_by(|a, b| {
-        let bounds = |id: &accesskit::NodeId| {
-            ids.iter()
-                .find(|(other, _)| other == id)
-                .and_then(|(_, node)| node.bounds())
-                .expect("bounds")
-                .x0
-        };
-        bounds(a).partial_cmp(&bounds(b)).expect("ordered bounds")
-    });
-    let field_id = *fields.first().expect("the X field's id");
-    action_focus(&mut window, &mut view, field_id);
-    window.frame(vec![egui::Event::Text("55".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    assert_eq!(
-        team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
-        55,
-        "the typed x is written"
-    );
-
-    // A style pair click in the same span.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    click(
-        &mut window,
-        node_labeled(&nodes, Role::Button, "Possession"),
-        &mut view,
-    );
-    assert!(
-        team_entry(&view, 701).tactics.presets[0]
-            .style
-            .attacking_style,
-        "the click wrote"
-    );
-
-    // One undo each: the settings click first, then the pitch's X.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    let tactics = &team_entry(&view, 701).tactics;
-    assert!(
-        !tactics.presets[0].style.attacking_style,
-        "the style click reverted"
-    );
-    assert_eq!(
-        tactics.presets[0].formations[0].players[index].x, 55,
-        "the pitch edit still applied"
-    );
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    assert_eq!(
-        team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
-        slot_before.x,
-        "the X edit reverted"
-    );
-}
-
 // The draft's `.row` (flex-wrap) on the Formation settings cells: the
 // host scrolls only vertically, so at a narrow window every slider and
 // every style choice must land inside the width, the cells wrapping.
@@ -844,127 +502,40 @@ fn the_formation_settings_wrap_inside_a_narrow_window() {
     }
 }
 
-// The Undo/redo bullet's "one entry per gesture" where the same widget
-// key covers two gestures: a typed popover X then a Make GK click (the
-// click's press keeps the span open, and both writes are the pitch's)
-// are two steps — a gesture ends when its widget loses the keyboard.
+// The same wrap on the Automatic settings row and the armed mode's note:
+// the Substitution pair, the three checkboxes and the note's button all
+// land inside the width (the row fits 800 either way; the wrap itself is
+// `the_automatic_settings_and_the_note_wrap_at_a_narrow_pane`'s case,
+// inside the widget's own pane where a narrower width reaches it).
 #[test]
-fn a_typed_popover_edit_then_make_gk_undo_as_two_entries() {
-    let path = fixture(PesVersion::Pes21, "tactics_undo_focus");
+fn the_automatic_settings_and_the_note_wrap_inside_a_narrow_window() {
+    let path = fixture(PesVersion::Pes21, "tactics_wrap2");
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Tactics;
     view.selected = Some((701, 0));
-    let mut window = Headless::sized(1600.0, 1400.0);
-    let before = team_entry(&view, 701).tactics;
-    let players = before.presets[0].formations[0].players;
-    let keeper = players
-        .iter()
-        .position(|slot| slot.position == 0)
-        .expect("the fixture has a keeper slot");
+    let mut window = Headless::sized(800.0, 1400.0);
 
-    // The popover on an outfield marker no other marker covers (a covered
-    // centre would open a later marker's), the X field focused, "55"
-    // typed (no Enter: the field keeps the keyboard, the span unsealed).
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let canvas = canvas_of(&nodes);
-    let covered = |centre: egui::Pos2, slot: &FormationSlot| {
-        let other = marker_centre(canvas, *slot);
-        (other.x - centre.x).abs() <= 21.0 && (other.y - centre.y).abs() <= 13.0
-    };
-    let index = (0..11)
-        .find(|&index| {
-            players[index].position != 0
-                && players.iter().enumerate().all(|(other, slot)| {
-                    other == index || !covered(marker_centre(canvas, players[index]), slot)
-                })
-        })
-        .expect("a marker no other marker covers");
-    assert_ne!(index, keeper, "premise: not the keeper's slot");
-    let slot_before = players[index];
-    click_at(&mut window, marker_centre(canvas, slot_before), &mut view);
-    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let x_label = ids
-        .iter()
-        .find(|(_, node)| node.role() == Role::Label && node.value() == Some("X"))
-        .and_then(|(_, node)| node.bounds())
-        .expect("the X label");
-    let mut fields: Vec<accesskit::NodeId> = ids
-        .iter()
-        .filter(|(_, node)| {
-            node.role() == Role::SpinButton
-                && node.bounds().is_some_and(|bounds| {
-                    (bounds.y0 - x_label.y0).abs() < 4.0 && bounds.x0 >= x_label.x1 - 1.0
-                })
-        })
-        .map(|(id, _)| *id)
-        .collect();
-    fields.sort_by(|a, b| {
-        let bounds = |id: &accesskit::NodeId| {
-            ids.iter()
-                .find(|(other, _)| other == id)
-                .and_then(|(_, node)| node.bounds())
-                .expect("bounds")
-                .x0
-        };
-        bounds(a).partial_cmp(&bounds(b)).expect("ordered bounds")
-    });
-    let field_id = *fields.first().expect("the X field's id");
-    action_focus(&mut window, &mut view, field_id);
-    window.frame(vec![egui::Event::Text("55".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    assert_eq!(
-        team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
-        55,
-        "the typed x is written"
-    );
-
-    // Make GK in the same popover: the keeper swap is its own gesture.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    click(
-        &mut window,
-        node_labeled(&nodes, Role::Button, "Make GK"),
-        &mut view,
-    );
-    let tactics = team_entry(&view, 701).tactics;
-    assert_eq!(
-        tactics.starting_eleven[index], before.starting_eleven[keeper],
-        "he takes the goal"
-    );
-    assert_eq!(
-        tactics.starting_eleven[keeper], before.starting_eleven[index],
-        "the keeper takes his slot"
-    );
-
-    // One Ctrl+Z reverts the keeper swap alone; the X still applied.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    let tactics = team_entry(&view, 701).tactics;
-    assert_eq!(
-        tactics.starting_eleven[index], before.starting_eleven[index],
-        "one undo reverts the keeper swap"
-    );
-    assert_eq!(
-        tactics.starting_eleven[keeper], before.starting_eleven[keeper],
-        "and the keeper's slot"
-    );
-    assert_eq!(
-        tactics.presets[0].formations[0].players[index].x, 55,
-        "the X edit still applied"
-    );
-    // A second reverts the typed X.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    assert_eq!(
-        team_entry(&view, 701).tactics.presets[0].formations[0].players[index].x,
-        slot_before.x,
-        "a second undo reverts the X edit"
-    );
+    let substitution = control_right_of(&nodes, "Substitution");
     assert!(
-        !view.session.as_ref().unwrap().can_undo(),
-        "exactly two entries"
+        substitution.bounds().expect("field bounds").x1 <= 800.0,
+        "the Substitution field inside the window's width"
+    );
+    for label in ["Offside trap", "Preset change", "Attack/defence levels"] {
+        let checkbox = node_labeled(&nodes, Role::CheckBox, label);
+        assert!(
+            checkbox.bounds().expect("checkbox bounds").x1 <= 800.0,
+            "{label} inside the window's width"
+        );
+    }
+
+    // Arm a role: the note draws; its button lands inside.
+    click(&mut window, chip(&nodes, "Penalty kick:"), &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let cancel = node_labeled(&nodes, Role::Button, "Cancel");
+    assert!(
+        cancel.bounds().expect("button bounds").x1 <= 800.0,
+        "the note's button inside the window's width"
     );
 }

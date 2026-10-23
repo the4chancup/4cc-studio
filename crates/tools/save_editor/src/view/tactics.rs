@@ -110,12 +110,16 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             .find_map(|(widget, changed)| changed.then_some(widget))
         {
             // A gesture ends mid-frame when its widget loses the
-            // keyboard (a click elsewhere surrenders it): the click's
+            // keyboard (a press elsewhere surrenders it): the press's
             // write lands on this same frame under the same key, and
             // `view::show`'s seal runs only after the push. Seal here or
-            // it merges into the ended gesture's entry.
-            if focused.is_some() && *focused != ui.ctx().memory(|memory| memory.focused()) {
+            // it merges into the ended gesture's entry, and record the
+            // transition handled: the frame-end check must not seal this
+            // gesture's own entry again.
+            let now = ui.ctx().memory(|memory| memory.focused());
+            if focused.is_some() && *focused != now {
                 session.seal();
+                *focused = now;
             }
             edit_team(
                 session,

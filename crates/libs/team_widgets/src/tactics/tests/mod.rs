@@ -692,3 +692,203 @@ fn each_settings_control_writes_its_own_field() {
         );
     }
 }
+
+// The wrap's measured cell widths are real: (a) no cell's controls cross
+// a label's left edge — an underestimate would pack the next cell over
+// this one; (b) at a window wide enough for the five slider cells in one
+// row the five share a row's y, and the seven style pairs sit on as few
+// rows as their measured widths allow — an overestimate wraps early.
+#[test]
+fn the_wrap_cells_pack_without_overlapping_or_wrapping_early() {
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(version);
+    let roster = roster_rows(&rows);
+    let slider_labels = [
+        "Support range",
+        "Defensive line",
+        "Compactness",
+        "Numbers in attack",
+        "Numbers in defence",
+    ];
+    let pair_labels = [
+        "Attacking style",
+        "Attacking zone",
+        "Buildup",
+        "Positioning",
+        "Defensive style",
+        "Containment area",
+        "Pressure",
+    ];
+    let label_bounds = |nodes: &[accesskit::Node], label: &str| {
+        nodes
+            .iter()
+            .find(|node| node.role() == Role::Label && node.value() == Some(label))
+            .and_then(|node| node.bounds())
+            .unwrap_or_else(|| panic!("no label {label:?}"))
+    };
+
+    // Measure the cells at a wide window: the wrap is one flowing line —
+    // a cell's drawn width is its label's left to its last control's
+    // right (bounded by the next cell's label on the same row).
+    let mut measure = Headless::sized(1600.0, 900.0);
+    let (nodes, _) = measure.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let mut cells: Vec<accesskit::Rect> = slider_labels
+        .iter()
+        .chain(pair_labels.iter())
+        .map(|label| label_bounds(&nodes, label))
+        .collect();
+    cells.sort_by(|a, b| {
+        (a.y0, a.x0)
+            .partial_cmp(&(b.y0, b.x0))
+            .expect("ordered bounds")
+    });
+    let cell_widths: Vec<f64> = cells
+        .iter()
+        .enumerate()
+        .map(|(index, label)| {
+            let next_on_row = cells
+                .get(index + 1)
+                .and_then(|next| ((next.y0 - label.y0).abs() < 4.0).then_some(next.x0));
+            nodes
+                .iter()
+                .filter(|node| {
+                    matches!(
+                        node.role(),
+                        Role::Slider
+                            | Role::SpinButton
+                            | Role::Button
+                            | Role::CheckBox
+                            | Role::ComboBox
+                    ) && node.bounds().is_some_and(|bounds| {
+                        (bounds.y0 - label.y0).abs() < 4.0
+                            && bounds.x0 >= label.x0
+                            && next_on_row.is_none_or(|next| bounds.x0 < next - 1.0)
+                    })
+                })
+                .filter_map(|node| node.bounds())
+                .map(|bounds| bounds.x1)
+                .fold(label.x1, f64::max)
+                - label.x0
+        })
+        .collect();
+
+    // The five slider cells' summed widths plus margins — 1,284 px here
+    // (247 + 246 + 242 + 269 + 281) — the window for the packing checks.
+    let natural: f64 = cell_widths[..5].iter().sum();
+    let width = (natural + 40.0).ceil() as f32;
+
+    let mut window = Headless::sized(width, 900.0);
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+
+    // (a) the allocated cell covers its drawn contents: the formula's
+    // width is at least the drawn width for every cell (an underestimate
+    // shows as drawn content past the row's right edge, inside the
+    // cell's own span).
+    let mut expected = Vec::new();
+    window.frame(vec![], |ui| {
+        let spacing = ui.spacing().item_spacing.x;
+        for spec in &SLIDERS {
+            expected.push(
+                text_width(ui, spec.label)
+                    + ui.spacing().slider_width
+                    + ui.spacing().interact_size.x
+                    + 2.0 * spacing,
+            );
+        }
+        for toggle in &STYLE_TOGGLES {
+            expected.push(
+                text_width(ui, toggle.label)
+                    + choice_width(ui, toggle.off)
+                    + choice_width(ui, toggle.on)
+                    + 2.0 * spacing,
+            );
+        }
+    });
+    for (index, cell) in cell_widths.iter().enumerate() {
+        let name = slider_labels
+            .iter()
+            .chain(pair_labels.iter())
+            .nth(index)
+            .expect("the cell's name");
+        let estimated = expected[index];
+        assert!(
+            *cell <= f64::from(estimated) + 1.0,
+            "{name}: allocated {estimated} under its drawn {cell}"
+        );
+    }
+
+    // (b) the five sliders share one row's y.
+    let rows: std::collections::BTreeSet<i64> = slider_labels
+        .iter()
+        .map(|label| label_bounds(&nodes, label).y0 as i64)
+        .collect();
+    assert_eq!(rows.len(), 1, "the five slider cells share one row");
+
+    // And the seven pairs take as few rows as their measured widths
+    // allow: a greedy pack of the measured cells (the inter-cell gap is
+    // inside each span already) — their ~190-320 px cells land 5 + 2 on
+    // the ~1,320 px above.
+    let mut greedy_rows = 1;
+    let mut used = 0.0;
+    for cell in &cell_widths[5..] {
+        if used > 0.0 && used + cell > f64::from(width) {
+            greedy_rows += 1;
+            used = *cell;
+        } else {
+            used += cell;
+        }
+    }
+    let drawn_rows: std::collections::BTreeSet<i64> = pair_labels
+        .iter()
+        .map(|label| label_bounds(&nodes, label).y0 as i64)
+        .collect();
+    assert_eq!(
+        drawn_rows.len(),
+        greedy_rows,
+        "the pairs take the fewest rows their widths allow \
+         (cells {cell_widths:?}, window {width})"
+    );
+}
+
+// The Automatic settings row wraps like the formation cells' (the
+// draft's `.row`): at a pane narrower than the row the last checkbox
+// lands on a new line below the Substitution pair, inside the pane; the
+// armed note's button lands inside too. (Inside a host's vertical-only
+// scroll area the region grows to the content's width, so the wrap is
+// exercised by the pane itself, not the window's clip.)
+#[test]
+fn the_automatic_settings_and_the_note_wrap_at_a_narrow_pane() {
+    let mut window = Headless::sized(400.0, 900.0);
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(version);
+    let roster = roster_rows(&rows);
+
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let substitution = control_right_of(&nodes, "Substitution", Role::SpinButton);
+    let levels = entry(&nodes, Role::CheckBox, "Attack/defence levels");
+    assert!(
+        levels.bounds().expect("checkbox bounds").x1 <= 400.0,
+        "Attack/defence levels inside the pane"
+    );
+    assert!(
+        levels.bounds().expect("checkbox bounds").y0
+            > substitution.bounds().expect("field bounds").y0,
+        "it wrapped to a new line below the Substitution pair"
+    );
+
+    // Arm a role: the note's button lands inside the pane.
+    view.assign = Some(Assign::Role(5));
+    let (nodes, _) = window.frame(vec![], |ui| {
+        assign_note(ui, &mut view);
+        tactics_settings(ui, "tactics", version, &mut tactics, &mut view, &roster);
+    });
+    let cancel = entry(&nodes, Role::Button, "Cancel");
+    assert!(
+        cancel.bounds().expect("button bounds").x1 <= 400.0,
+        "the note's button inside the pane"
+    );
+}

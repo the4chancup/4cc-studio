@@ -162,13 +162,17 @@ fn instruction_row(
         }
     }
     let mut target = entry.player;
-    let selected = if target == NO_TARGET {
-        "Unassigned".to_owned()
-    } else {
-        match starting_eleven.iter().position(|slot| *slot == target) {
+    let selected = match current {
+        // A held Tight Marking's target byte is the opponent's slot, not
+        // one of ours; a target-less instruction's is never read — the
+        // disabled combo names no player for either.
+        Some(Instruction::TightMarking) => "An opponent".to_owned(),
+        Some(inst) if !inst.takes_player() => "Unassigned".to_owned(),
+        _ if target == NO_TARGET => "Unassigned".to_owned(),
+        _ => match starting_eleven.iter().position(|slot| *slot == target) {
             Some(index) => format!("{} {}", index + 1, name_at(roster, target)),
             None => name_at(roster, target).to_owned(),
-        }
+        },
     };
     ui.add_enabled_ui(current.is_some_and(|inst| inst.takes_player()), |ui| {
         egui::ComboBox::from_id_salt((id, "target"))
@@ -275,6 +279,53 @@ mod tests {
                 &mut tactics,
                 &mut view,
                 &roster,
+            );
+        }
+    }
+
+    // The plan bullet's disabled-target rule: under an instruction that
+    // takes none of ours the target combo names no player of ours — "An
+    // opponent" under a held Tight Marking (its byte is the opposing
+    // formation's slot), "Unassigned" under a target-less one.
+    #[test]
+    fn a_target_less_or_opponent_target_shows_no_player_of_ours() {
+        let mut window = Headless::sized(800.0, 900.0);
+        let version = PesVersion::Pes21;
+        let mut tactics = fixture_tactics(version);
+        let attack = tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("PES 21 has instructions");
+        attack[0].instruction =
+            instruction::encode(version, Instruction::TightMarking).expect("stored");
+        attack[0].player = 4;
+        attack[1].instruction =
+            instruction::encode(version, Instruction::TikiTaka).expect("stored");
+        attack[1].player = 0;
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(version);
+        let roster = roster_rows(&rows);
+
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let target1 = controls_right_of(&nodes, "Attack 1", Role::ComboBox)[1];
+        assert_eq!(
+            target1.value(),
+            Some("An opponent"),
+            "a held Tight Marking's byte is the opponent's"
+        );
+        let target2 = controls_right_of(&nodes, "Attack 2", Role::ComboBox)[1];
+        assert_eq!(
+            target2.value(),
+            Some("Unassigned"),
+            "a target-less instruction names none"
+        );
+        for target in [target1, target2] {
+            let shown = target.value().expect("the combo's text");
+            assert!(
+                roster
+                    .iter()
+                    .all(|row| row.name.is_empty() || !shown.ends_with(row.name)),
+                "{shown}: no roster name appears in a disabled target"
             );
         }
     }

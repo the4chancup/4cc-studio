@@ -185,7 +185,7 @@ pub fn assign_note(ui: &mut egui::Ui, view: &mut TacticsView) {
     let Some(assign) = view.assign else {
         return;
     };
-    ui.horizontal(|ui| match assign {
+    ui.horizontal_wrapped(|ui| match assign {
         Assign::Role(index) => {
             ui.label(format!(
                 "Click the pitch player for {}.",

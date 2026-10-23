@@ -30,8 +30,9 @@ pub struct TacticsView {
     /// The preset the controls edit, 0 to 2, shown 1 to 3.
     pub preset: usize,
     /// The preset's formation the lineup and pitch show: 0 kick-off, 1
-    /// in-possession, 2 out-of-possession.
-    pub formation: usize,
+    /// in-possession, 2 out-of-possession. The pitch's own selector is
+    /// its only writer.
+    pub(crate) formation: usize,
     /// The armed assignment mode, `None` when none: a pitch click then
     /// writes the role instead of opening the slot popover.
     pub(crate) assign: Option<Assign>,
@@ -251,7 +252,7 @@ fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
             let width = text_width(ui, spec.label)
                 + ui.spacing().slider_width
                 + ui.spacing().interact_size.x
-                + 4.0 * spacing;
+                + 2.0 * spacing;
             cell(ui, width, |ui| {
                 ui.label(spec.label);
                 let mut value = (spec.get)(&preset.sliders);
@@ -272,7 +273,7 @@ fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
             let width = text_width(ui, toggle.label)
                 + choice_width(ui, toggle.off)
                 + choice_width(ui, toggle.on)
-                + 4.0 * spacing;
+                + 2.0 * spacing;
             cell(ui, width, |ui| style_toggle(ui, &mut preset.style, toggle));
         }
     });
@@ -320,28 +321,34 @@ fn style_toggle(ui: &mut egui::Ui, style: &mut TacticStyle, toggle: &StyleToggle
 }
 
 /// The "Automatic settings" group: the substitution byte as stored, the
-/// offside trap, the preset change and the attack/defence levels.
+/// offside trap, the preset change and the attack/defence levels. The
+/// row wraps like the formation settings' (the same `cell` measure for
+/// the label's pair).
 fn automatic_settings(ui: &mut egui::Ui, auto: &mut TeamAutoFlags) {
     ui.strong("Automatic settings");
-    ui.horizontal(|ui| {
-        match &mut auto.substitution {
-            Some(substitution) => {
-                ui.label("Substitution");
-                ui.add(egui::DragValue::new(substitution).range(0..=u8::MAX))
-                    .on_hover_text(
-                        "The automatic substitution setting as the save stores it: 0 is off; \
-                         on PES 2021, 1 is very late, 2 flexible and 3 very early",
-                    );
+    ui.horizontal_wrapped(|ui| {
+        let width = text_width(ui, "Substitution")
+            + ui.spacing().interact_size.x
+            + 2.0 * ui.spacing().item_spacing.x;
+        cell(ui, width, |ui| {
+            ui.label("Substitution");
+            match &mut auto.substitution {
+                Some(substitution) => {
+                    ui.add(egui::DragValue::new(substitution).range(0..=u8::MAX))
+                        .on_hover_text(
+                            "The automatic substitution setting as the save stores it: 0 is off; \
+                             on PES 2021, 1 is very late, 2 flexible and 3 very early",
+                        );
+                }
+                None => {
+                    ui.add_enabled(
+                        false,
+                        egui::Button::new("-").min_size(ui.spacing().interact_size),
+                    )
+                    .on_disabled_hover_text(gate_tip(TacticsField::AutoSubstitution));
+                }
             }
-            None => {
-                ui.label("Substitution");
-                ui.add_enabled(
-                    false,
-                    egui::Button::new("-").min_size(ui.spacing().interact_size),
-                )
-                .on_disabled_hover_text(gate_tip(TacticsField::AutoSubstitution));
-            }
-        }
+        });
         auto_flag(
             ui,
             "Offside trap",

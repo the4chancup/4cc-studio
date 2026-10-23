@@ -6,8 +6,10 @@
 use std::path::PathBuf;
 
 use egui::accesskit::{self, Role};
+use pes_savefile::model::TeamEntry;
 use pes_savefile::model::ingame_face::IngameFace;
 use pes_savefile::model::names::name_spans;
+use pes_savefile::model::tactics::FormationSlot;
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::{EditFile, fixture_save};
 use pes_version::PesVersion;
@@ -422,6 +424,130 @@ fn tooltip_containing(
     None
 }
 
+/// The team's entry as the session holds it (the Tactics tab's tests).
+fn team_entry(view: &SaveView, team_id: u32) -> TeamEntry {
+    view.session
+        .as_ref()
+        .unwrap()
+        .file()
+        .team(team_id)
+        .unwrap()
+        .clone()
+}
+
+/// The node of `role` labeled `label`.
+fn node_labeled<'a>(nodes: &'a [accesskit::Node], role: Role, label: &str) -> &'a accesskit::Node {
+    nodes
+        .iter()
+        .find(|node| node.role() == role && node.label() == Some(label))
+        .unwrap_or_else(|| panic!("no {role:?} labeled {label:?}"))
+}
+
+/// The lineup rows' name labels in draw order (the 11 starting-eleven
+/// rows, then the bench rows): each row's last label is its name, found
+/// through the ≡ handles since the fixture's players share names.
+fn lineup_names(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
+    let mut handles: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| node.role() == Role::Label && node.value() == Some("≡"))
+        .collect();
+    handles.sort_by(|a, b| {
+        let key = |node: &&accesskit::Node| {
+            let bounds = node.bounds().expect("handle bounds");
+            (bounds.y0, bounds.x0)
+        };
+        key(a).partial_cmp(&key(b)).expect("ordered bounds")
+    });
+    handles
+        .iter()
+        .map(|handle| {
+            let bounds = handle.bounds().expect("handle bounds");
+            nodes
+                .iter()
+                .filter(|node| {
+                    node.role() == Role::Label
+                        && node
+                            .bounds()
+                            .is_some_and(|b| (b.y0 - bounds.y0).abs() < 4.0 && b.x0 > bounds.x0)
+                })
+                .max_by(|a, b| {
+                    let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
+                    x(a).partial_cmp(&x(b)).expect("ordered bounds")
+                })
+                .unwrap_or_else(|| panic!("no name on a lineup row"))
+        })
+        .collect()
+}
+
+/// The pitch canvas' rect (the widget's "pitch" node).
+fn canvas_of(nodes: &[accesskit::Node]) -> accesskit::Rect {
+    nodes
+        .iter()
+        .find(|node| node.label() == Some("pitch"))
+        .and_then(accesskit::Node::bounds)
+        .expect("the pitch canvas")
+}
+
+/// The centre of `slot`'s marker on `canvas` (the widget's marker math:
+/// the stored grid is 104 by 48 at 3 px and 7 px a unit inside a 4 px / 2
+/// px margin, high y on top; the 42 by 26 chip centres on the point and
+/// clamps 2 px inside the canvas).
+fn marker_centre(canvas: accesskit::Rect, slot: FormationSlot) -> egui::Pos2 {
+    let centre = egui::pos2(
+        canvas.x0 as f32 + 4.0 + f32::from(slot.x) * 3.0,
+        canvas.y0 as f32 + 2.0 + (48.0 - f32::from(slot.y)) * 7.0,
+    );
+    egui::pos2(
+        (centre.x - 21.0).clamp(canvas.x0 as f32 + 2.0, canvas.x1 as f32 - 44.0) + 21.0,
+        (centre.y - 13.0).clamp(canvas.y0 as f32 + 2.0, canvas.y1 as f32 - 30.0) + 13.0,
+    )
+}
+
+/// A point on `canvas` covered by no marker of `players` (a grass drop:
+/// the first free of the grid scan).
+fn grass_point(canvas: accesskit::Rect, players: &[FormationSlot; 11]) -> egui::Pos2 {
+    let covered = |x: f32, y: f32| {
+        players.iter().any(|slot| {
+            let centre = marker_centre(canvas, *slot);
+            (centre.x - x).abs() <= 21.0 && (centre.y - y).abs() <= 13.0
+        })
+    };
+    for x in 0..=104_u8 {
+        for y in 0..=48_u8 {
+            let (px, py) = (
+                canvas.x0 as f32 + 4.0 + f32::from(x) * 3.0,
+                canvas.y0 as f32 + 2.0 + (48.0 - f32::from(y)) * 7.0,
+            );
+            if !covered(px, py) {
+                return egui::pos2(px, py);
+            }
+        }
+    }
+    panic!("no free point on the canvas")
+}
+
+/// `pos` inside `canvas` snapped to the stored grid (the widget's snap:
+/// the nearest unit, clamped).
+fn snap(canvas: accesskit::Rect, pos: egui::Pos2) -> (u8, u8) {
+    let x = ((pos.x - canvas.x0 as f32 - 4.0) / 3.0)
+        .round()
+        .clamp(0.0, 104.0) as u8;
+    let y = (48.0 - ((pos.y - canvas.y0 as f32 - 2.0) / 7.0).round()).clamp(0.0, 48.0) as u8;
+    (x, y)
+}
+
+/// A click at `pos` (press on one frame, release on the next): the
+/// release frame's nodes.
+fn click_at(window: &mut Headless, pos: egui::Pos2, view: &mut SaveView) -> Vec<accesskit::Node> {
+    window.frame(pointer_at(pos, true), |ui| {
+        show(ui, view, &|| Vec::new(), None)
+    });
+    let (_, nodes, _) = window.frame(pointer_at(pos, false), |ui| {
+        show(ui, view, &|| Vec::new(), None)
+    });
+    nodes
+}
+
 mod abilities;
 mod appearance;
 mod list;
@@ -430,4 +556,5 @@ mod savefile;
 mod shell;
 mod strip;
 mod tactics;
+mod tactics_undo;
 mod team;
