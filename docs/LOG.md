@@ -2365,3 +2365,5 @@ worklog passed 7,000 lines.
   UI thread; the DpFileList reader and the portrait path moved to `cpk` and `pes_savefile`, shared with the Team compiler.
 - **2026-10-23** — 8.9g slice 2 rework (SWE-2 review): a listed CPK that is missing shows no portraits, as the game then
   loads none; the Tactics help topic describes the pitch and where its portraits come from.
+- **2026-10-23** — Phase 20 opened (the Ruleset editor, for DBC): itemized 20.3-20.9. 20.4: `libs/aatf`'s writer, a ruleset
+  written as its `RULESET` block that reads back equal, byte for byte when written again.

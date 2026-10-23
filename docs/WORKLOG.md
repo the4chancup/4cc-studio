@@ -1529,8 +1529,9 @@ briefs, review loops, gates and mutation runs as for any step.
   crate with `cargo bloat` (35.3 MiB at 0.0.1d2, past the budget's "about 30 MB";
   `spec/core/distribution.md` "Distribution: portable .7z bundle" gets the new measurement),
   the answer to QUESTIONS "Which DpFileList does VGL 27's PES 2019 install carry" applied to
-  the readme (and a default or a finding's advice, if it says so),
-  `just release 0.0.1`, handed to DBC's testers and VGL's organizer
+  the readme (and a default or a finding's advice, if it says so), logic version 1's hash
+  frozen in `LOGIC_VERSIONS` (`plans/aatf_rules.md` "Loading and validation": a later logic
+  change is version 2), `just release 0.0.1`, handed to DBC's testers and VGL's organizer
 
 ### Phase 10 — Music tools
 
@@ -1666,8 +1667,9 @@ Steps are itemized when Phase 15 closes; two are fixed already:
 
 ### Phase 20 — Ruleset editor (post-release)
 
-The phase is itemized when it opens; its GUI is drafted ahead of it, at the maintainer's request
-(2026-10-14), to show the members who offered to help shape the ruleset format:
+Opened 2026-10-23, pulled forward for DBC (`plans/core/development_plan.md` "Divegrass Before
+Christmas"); itemized as 20.3 onward below. Its GUI was drafted ahead of it, at the maintainer's
+request (2026-10-14), to show the members who offered to help shape the ruleset format:
 
 - [x] 20.0 The Ruleset editor's GUI draft, right after 5.2c3-5.2e1 land with their review
   rework, before 5.2e-2's VGL/VTL rulesets (moved up by the maintainer, 2026-10-14): the draft
@@ -1820,6 +1822,40 @@ The phase is itemized when it opens; its GUI is drafted ahead of it, at the main
   official file having none. Files: `aatf/{rulesets/autumn26.rhai,src/fixtures/official.rs,
   src/ruleset/tests/{conditions,mod,rules}.rs}`, `save_editor/tests/{cli/check_aatf.rs,
   fixtures/aatf/official_warning.toml}`, `docs/spec/{aatf_rules,save_editor}.md`
+- [ ] 20.3 the Acceptance section (lead, 2026-10-23): `plans/ruleset_editor.md` "Acceptance"
+  (RE-GUI, RE-FILE, RE-SUM, RE-RND, RE-CLI), the start page's templates (DBC7 among them) and
+  Blank made exact, logic version 1 frozen at the 0.0.1 cut (DECISIONS 2026-10-23) → verify:
+  checkpoint (a), a SWE-2 loop, then Astra
+- [x] 20.4 `libs/aatf`'s writer (`src/writer.rs`, `Ruleset::to_data_block`; `plans/aatf_rules.md`
+  "Crate layout") → verify: every embedded ruleset and an every-field ruleset read back equal
+  from what it writes, and writing twice gives identical bytes; the layout pinned by one test.
+  Done 2026-10-23 (SWE-2, a run and one rework): each type's fields destructured exhaustively,
+  so a schema field the writer misses fails to compile; a `serde(default)` field left out at its
+  default; map keys bare only when Rhai's own parser takes them (`in`, `go`, `1st` quoted); the
+  draft's layout at 100 columns, a special's `severity` after its label and a system's
+  `by_quotas` before its quotas as the hand-written blocks write them. A test pins that a
+  medal system counting no tier loads: it means "no medal players" (a tier a system leaves out
+  counts 0), which 20.3's review first took for a system every team matches. Files:
+  `crates/libs/aatf/src/{writer.rs,lib.rs,ruleset/tests/rules.rs}`, `docs/plans/aatf_rules.md`
+- [ ] 20.5 the tool crate's egui-free core (`plans/ruleset_editor.md` "Crate layout"), as
+  slices:
+  - 20.5a the crate (`StudioTool` wiring, `settings.rs`, `messages.rs`), `document.rs` (open
+    with the logic status, save through the sample-team check to a temporary sibling, undo
+    snapshots, the dirty flag) and what `libs/aatf` must expose for it (a file's sections, the
+    file assembled with its own logic or custom checks)
+  - 20.5b `summary.rs` and the CLI's `validate`, `update-logic` and `summary` (RE-SUM, RE-CLI-01
+    to 03)
+- [ ] 20.6 the view (`plans/ruleset_editor.md` "The editor", the draft
+  `docs/prototypes/ruleset_editor.html`), as slices:
+  - 20.6a the start page, the rail and its problem marks, the preview pane, General, Tiers with
+    the medal systems, Cards, Universal rules, Suggestions, Custom checks and Summary, undo and
+    redo, the unsaved-changes prompt, Open and Save (RE-GUI-01 to 06, 08, 13 to 15, RE-FILE)
+  - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12)
+- [ ] 20.7 Randomize (`plans/ruleset_editor.md` "Randomize"): `random/`, the start page's and
+  toolbar's entries, the CLI's `random` (RE-RND, RE-CLI-04) → verify: 1,000 seeds per preset,
+  and the share of seeds that needed a redraw measured and reported
+- [ ] 20.8 the help chapter, and the Ruleset editor active on the shell's sidebar
+- [ ] 20.9 converge (AGENTS.md "Closing a phase"), RE-GUI-16 checked by hand
 
 ---
 

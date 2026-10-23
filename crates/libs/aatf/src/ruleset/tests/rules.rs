@@ -811,6 +811,22 @@ fn a_medal_systems_empty_label_is_refused() {
     );
 }
 
+/// A medal system counting no tier loads: a tier a system does not
+/// name counts 0 in it, so an empty system is "no medal players", not
+/// one every team matches (the Ruleset editor can leave one so by
+/// clearing a tier from the systems). `gold` counted at 3, since
+/// uncounted by any system it would be a second rest tier.
+#[test]
+fn a_medal_system_counting_no_tier_loads() {
+    let counted = edit(
+        MEDAL,
+        "id: \"gold\", label: \"Gold\", rate",
+        "id: \"gold\", label: \"Gold\", count: 3, rate",
+    );
+    Ruleset::from_data_block(&edit(&counted, "counts: #{ gold: 3 }", "counts: #{}"))
+        .expect("an empty medal system loads");
+}
+
 #[test]
 fn a_medal_system_naming_an_unknown_tier_is_refused() {
     case(

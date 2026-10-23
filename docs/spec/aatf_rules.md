@@ -86,10 +86,10 @@ rulesets are its fixtures ("Development phase and verification").
 One self-contained `.rhai` file is one ruleset, in three sections:
 
 ```rhai
-// 4cc Studio AATF ruleset. Open it in the Ruleset editor to change it.
+// AATF ruleset. Open it in the Ruleset editor to change it.
 const RULESET = #{ ... };
 
-// ==== LOGIC (ruleset-logic 1): written by 4cc Studio; the Ruleset editor replaces this section ====
+// ==== LOGIC (ruleset-logic 1): the Ruleset editor replaces this section ====
 fn check_team(team) { ... }
 fn tier_values(player, tier, team) { ... }
 fn card_limits(player, tier, team) { ... }

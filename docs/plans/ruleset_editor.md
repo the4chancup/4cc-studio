@@ -30,9 +30,19 @@ schema. Platform context is in the [core plan](core/README.md).
 ## The editor
 
 **Start page:** *New from template*, where the template is one of the embedded rulesets
-(`spec/aatf_rules.md` "Embedded rulesets": the latest two of the 4cc, VGL and VTL, Autumn 26 first)
-or **Blank** (one tier, no brackets, the universal rules on); *Random*, in three
-flavors (see "Randomize"); and *Open file*. Recent files below.
+(`spec/aatf_rules.md` "Embedded rulesets": the latest two of the 4cc, VGL and VTL, Autumn 26
+first: Autumn 26, Spring 26, VGL27, VGL26, VTL11, VTL10), then DBC7, then **Blank**; *Random*,
+in three flavors (see "Randomize"); and *Open file*. Recent files below, newest first.
+DBC7 is a template while Divegrass Before Christmas is the editors' first test ground
+(`core/development_plan.md` "Divegrass Before Christmas"): its organizers and managers start
+from it, and a manager gets the rules file the Save editor checks with by saving the template,
+which no other route offers before the Save editor's "save a copy". It leaves the list when the
+cup ends, as a minor invitational's ruleset would never have joined it. **Blank** is a ruleset
+named "New ruleset", squad 23, Autumn 26's rating and at-most stats, one tier (`regular`,
+"Regular", the rest of the squad, rate 75, form 4, injury resistance 1, weak foot 2 and 2, 3
+paid cards, 1 A position), no brackets, no specials, and the universal rules on: registered
+position rated A, no B ratings, a GK A never a second A, a captain, at least one goalkeeper, at
+most 10 skill cards.
 
 A left rail lists the sections; each is a form, and a section with a validation error shows a
 mark in the rail. The rules file's data block, as the editor would write it, shows in a pane
@@ -75,10 +85,12 @@ the last edit changed are highlighted.
     "fielded only at"; value ranges (a stat, age, weight, form, injury resistance or weak foot,
     each with a from-to pair); stronger foot either / right / left; "any of" (a list of
     sub-conditions, one of which must hold); and an "except when" sub-condition (`not`).
-  - *Then* is a list of effects, added from a menu that names them in words ("Add to every stat",
-    "Set one stat's target", "Extra paid cards", "Free cards", "Required card", "Extra A
-    positions", "At most N A positions", "Change form", "Change injury resistance", "Weak-foot limits",
-    "Height allowance", "Warning band", "Forbid"). A
+  - *Then* is a list of effects, added from a menu that names them in words, one entry per
+    effect of the schema ("Add to every stat" and "Add to one stat", `stat_bonus`'s two keys;
+    "Set one stat's target"; "Extra paid cards"; "Free cards of a group", `free`; "Free card",
+    `free_cards`; "Required card"; "Extra A positions"; "At most N A positions"; "Change form";
+    "Change injury resistance"; "Weak-foot limits"; "Height allowance"; "Warning band";
+    "Forbid"). A
     numeric effect has a "same for every tier / per tier" switch; per tier shows one field per tier.
     *One of* adds a choice: ordered options, each a list of effects, with the rule spelled out
     under it ("the first option the player needs is given"); a choice of one option reads *May
@@ -86,7 +98,9 @@ the last edit changed are highlighted.
   - A severity selector appears when the effects include Forbid or Required card.
 - **Suggestions**: a checkbox per allowance (paid cards, A positions, weak foot, injury
   resistance, height, free cards, choices not taken, and one per card group, COM included).
-- **Custom checks**: present only when the file has them; the code, read-only, with a line saying
+- **Custom checks**: present only when the file has them (the empty stub `fn custom_checks(team)
+  { [] }` that every assembled file without checks carries counts as none, and is kept as it
+  is on save); the code, read-only, with a line saying
   it runs after the ruleset and is kept as is.
 - **Summary**: the ruleset as readable rules text ("Gold: 1 per team, every stat 99, form 8, …";
   each special as a sentence from its When and Then), generated from the data. **Copy** puts it
@@ -203,6 +217,237 @@ crates/tools/ruleset_editor/src/
 Placement rules: reading, validating, writing and migrating a rules file are `libs/aatf`'s
 (`file.rs`, `ruleset.rs`, `writer.rs`); this crate never parses Rhai or formats a `RULESET` block.
 `document.rs`, `summary.rs` and `random/` are egui-free, so the CLI and the GUI share them.
+
+---
+
+## Acceptance
+
+Format and rules: `CONTRIBUTING.md` "Testing". IDs are never reused; later phases append.
+
+**Phase 20 scope.** Phase 20 delivers the whole tool: the view, opening and saving, the summary,
+Randomize and the CLI. What a scenario observes is what a frame draws, through the headless
+harness the Save editor's view tests use (the frame's AccessKit nodes, clicks, drags and key
+events as input frames; a highlight or a mark's colour, which no AccessKit node carries, read
+back from the view state the frame paints from; the clipboard from the frame's platform
+output), the file written, and the CLI's stdout, exit code and files; `manual` marks only what
+needs a display or a native dialog. Rules files are the embedded rulesets (`libs/aatf`'s
+`rulesets/`, assembled with the current logic), copied under the test's own folder; "a team
+passes" or "fails" means `Rules::check_team` on a fixture team of `libs/aatf`'s fixtures (or
+`check-aatf` on the save it comes from), what a player pays for `Rules::card_limits` on him,
+and a random ruleset's witness team is the one the generator returns with it. The writer's
+round trips and the load rules are `libs/aatf`'s own tests, not restated here.
+
+**The editor**
+
+```
+RE-GUI-01  GIVEN the tool opened with no document
+           WHEN the start page is drawn
+           THEN it offers New from template with Autumn 26, Spring 26, VGL27, VGL26, VTL11,
+                VTL10, DBC7 and Blank in that order; Random with Sensible, Weird and Crazy; Open
+                file; and the recent files, newest first; GIVEN a file opened, or one saved, and
+                the tool restarted THEN that file heads the recent files
+RE-GUI-02  GIVEN the start page
+           WHEN a template is picked (each of the seven, and Blank)
+           THEN an unsaved document of the template's name (Blank's is "New ruleset") opens on
+                General, the rail lists General, Tiers, Heights, Cards, Universal rules,
+                Specials, Suggestions, Custom checks (VTL11 and VTL10 alone: the others' files
+                carry only the empty stub) and Summary in that order, no rail entry carries a
+                problem mark, and Save as writes a file that check-aatf loads and whose ruleset
+                equals the template's
+RE-GUI-03  GIVEN Autumn 26 open, Show preview on
+           WHEN the Silver tier's rate is changed from 92 to 90 in the Tiers table
+           THEN the preview's silver line reads rate 90 and is highlighted, the lines no edit
+                changed are not, and the document is marked unsaved; GIVEN the tool restarted
+                THEN Show preview is off
+RE-GUI-04  GIVEN Autumn 26 open
+           WHEN the Bronze row is dragged above the Silver row
+           THEN the Tiers table lists bronze before silver, and the saved file's tiers are
+                gold, bronze, silver, goalkeeper, regular
+RE-GUI-05  GIVEN Autumn 26 open
+           WHEN the Silver tier's id is changed to "gold" (two tiers sharing an id)
+           THEN the Tiers rail entry carries a problem mark; Save writes no file and lists what
+                blocks it, the shared id among it; Undo clears the mark
+RE-GUI-06  GIVEN DBC7 open
+           WHEN the Gold tier's medal-systems checkbox is cleared
+           THEN Gold's count shows "the rest" with its checkbox instead of "by medal system",
+                the systems' Gold cells show "—" under the cleared checkbox, no system counts
+                gold (GGG now counts none: a team with no silver), and the Tiers rail entry
+                carries a problem mark (two tiers are the rest of the squad); WHEN the checkbox
+                is ticked again THEN Gold
+                is by medal system once more and each system counts gold 0, the marks gone;
+                Undo instead restores the counts it had
+RE-GUI-07  GIVEN Autumn 26 open
+           WHEN "use height brackets" is switched off
+           THEN the Heights section shows no bracket or system rows, every condition naming
+                them is listed as a problem until removed (the saved file's heights then empty),
+                and Undo restores them
+RE-GUI-08  GIVEN Blank open
+           WHEN a card group "tricks" is added in Cards with Double Touch and Heel Trick checked,
+                and the Regular tier is given 1 free card of it in its expander
+           THEN the saved file's card_groups holds tricks with those two skills and the regular
+                tier's free cards hold tricks 1; a regular holding both skills and no other
+                card pays for one; the Suggestions section gains a checkbox for tricks
+RE-GUI-09  GIVEN Blank open
+           WHEN a special is added with When "height up to 175" and Then "Add to every stat" 5
+           THEN the saved file's special has that condition and a stat bonus of 5 on every
+                stat for every tier; WHEN its "same for every tier" switch is set to per tier
+                and only Regular is given 5 THEN the bonus is by tier, Regular 5
+RE-GUI-10  GIVEN a special in Blank
+           WHEN "One of" is added with two options (one extra paid card; one extra A position)
+           THEN the rule under it reads that the first option the player needs is given, and
+                the saved file's special holds a choice of those two options in that order;
+                with one option only, the choice reads "May get"
+RE-GUI-11  GIVEN a special whose effects are "Add to every stat" only
+           WHEN Forbid, or Required card, is added to its effects
+           THEN a severity selector appears (error, warning, suggestion), and is gone again
+                once that effect is removed
+RE-GUI-12  GIVEN Autumn 26 open
+           WHEN the special "Medals cannot be goalkeepers" is dragged to the end of the list
+           THEN the saved file's specials end with it, the others in their order
+RE-GUI-13  GIVEN VTL11 open
+           WHEN the Custom checks section is drawn
+           THEN it shows the file's custom-checks code read-only, with the line saying it runs
+                after the ruleset and is kept as it is
+RE-GUI-14  GIVEN two edits made in order
+           WHEN Undo is invoked (button or Ctrl+Z), then Redo (button or Ctrl+Y)
+           THEN the second edit is undone and the first kept, then the second is redone
+RE-GUI-15  GIVEN a document with unsaved changes
+           WHEN the window is closed, another document opened or a template picked
+           THEN a prompt offers to save, discard or cancel; cancel keeps the document as it
+                was; save writes it first (Save as for one never saved); discard goes on
+RE-GUI-16  manual  GIVEN Blank open
+                   WHEN VGL26's data is rebuilt through the forms alone (no text edited)
+                   THEN the saved file validates, its ruleset equals the embedded VGL26's, and
+                        VGL26's fixture teams pass and fail as under the embedded file
+RE-GUI-17  GIVEN a ruleset setting every field of the schema (DBC7's warning band, stat total,
+           quota systems and GigaHeight pool, team settings with a banned shape, suggestions,
+           the rating and at-most stats among them)
+           WHEN each field is changed through its widget, one field at a time, and saved; and,
+                one at a time, an item added to and one removed from each list (tiers, medal
+                systems, brackets, height systems, card groups, specials, a special's effects
+                and a choice's options, team settings)
+           THEN each saved file's ruleset differs from the opened one in that field alone, or by
+                that one item, apart from the references to an id the tool renames with it (a
+                tier's in the medal systems, a card group's in free cards and suggestions)
+RE-GUI-18  GIVEN Autumn 26 open
+           WHEN the condition editor's add menu is opened in a tier's conditions, in a height
+                system's "when any player is …", and in a special's When
+           THEN the tier's menu offers no tiers; the height system's offers heights and
+                positions alone; the special's offers every kind of condition; the last height
+                system (Red) reads "otherwise" and offers no condition
+```
+
+**Opening and saving**
+
+```
+RE-FILE-01  GIVEN a rules file Save wrote
+            WHEN it is opened
+            THEN it opens in the forms with no banner
+RE-FILE-02  GIVEN an Autumn 26 file whose logic section has one comment's text changed by hand
+            (the file still loading)
+            WHEN it is opened, an edit made and Save pressed
+            THEN a banner says the file's logic is not Studio's and its specials may not behave
+                 as the forms describe; the saved file's logic section is the file's own, byte
+                 for byte, and its RULESET holds the edit
+RE-FILE-03  GIVEN a file with a parse error at line 12, and one whose tiers[2].free.tricks is
+            the string "two"
+            WHEN either is opened
+            THEN it is not opened in the forms; the findings are listed, the first with its line
+                 and column, the second with its key path
+RE-FILE-04  GIVEN VTL11 assembled as a file, with its custom checks
+            WHEN it is opened, its Silver tier's label changed, and saved
+            THEN the saved file is the header line, the RULESET block holding the new label, the
+                 current logic, and the custom-checks section, that section byte for byte as it
+                 was read; VTL11's fixture teams pass and fail as under the original file
+RE-FILE-05  GIVEN dbc7.rhai assembled as a file, with the comments inside its RULESET
+            WHEN it is opened and saved with no edit (Save is available on an unedited
+                 document)
+            THEN the saved RULESET holds the same values (the ruleset reads back equal) and none
+                 of the comments
+RE-FILE-06  GIVEN a file of five tiers whose custom check reads the fifth tier
+            (`global::RULESET.tiers[4]`), a tier whose deletion breaks no load rule (it has a
+            count, and no condition or system names it)
+            WHEN it is opened, the fifth tier deleted and Save pressed
+            THEN nothing is written: the sample team's script error is listed as what blocks it
+RE-FILE-07  GIVEN an existing rules file
+            WHEN Save replaces it
+            THEN no other file is left beside it (the temporary sibling renamed into place)
+RE-FILE-08  manual  GIVEN a file opened from one folder
+                    WHEN Open or Save as is used again, also after a restart
+                    THEN the dialog starts in that folder
+```
+
+The older-official path (the banner offering **Update logic**, and `update-logic` migrating a
+file) has no scenario in Phase 20: logic version 1 is the only one, so no real file of an older
+official logic exists. Its first is a file the 0.0.1 preview saves, once a later logic change
+makes version 2 (`aatf_rules.md` "Loading and validation"); the scenarios are written then,
+with such a file as their fixture. Phase 20 builds the path; `libs/aatf`'s own tests prove the
+identity and the section's replacement against a versions table holding a second entry.
+
+**Summary**
+
+```
+RE-SUM-01  GIVEN Autumn 26 open
+           WHEN the Summary section is drawn
+           THEN it has one line per tier, highest first, naming its count, rate and the targets
+                it sets (the draft's "- **Gold**: 1 per team; every stat 99; form 8, …"), the
+                height brackets and systems, the universal rules, and one sentence per special
+                built from its When and Then; Copy puts the same text on the clipboard as
+                Markdown; GIVEN DBC7 THEN it also has the medal systems with each one's counts,
+                Gold and Silver counted "by medal system", the regular's and silver's warning
+                bands and stat totals, each height system's quotas, and GigaHeight's pool
+RE-SUM-02  GIVEN two rulesets differing in one tier's rate (Autumn 26, and Autumn 26 with
+           Silver at 90)
+           WHEN their summaries are compared line by line
+           THEN exactly the Silver line differs
+```
+
+**Randomize**
+
+```
+RE-RND-01  GIVEN a preset and a seed (Weird, 48213)
+           WHEN Weird is drawn from the start page, then drawn again by typing the seed it
+                showed (48213)
+           THEN both are the same ruleset, written to identical bytes, named "Weird #48213"
+RE-RND-02  GIVEN each preset and seeds 1 to 1000
+           WHEN a ruleset is drawn for each
+           THEN each validates, and the witness team the generator returns with it passes
+                `Rules::check_team` with no error
+RE-RND-03  GIVEN Sensible and seeds 1 to 1000
+           WHEN a ruleset is drawn for each
+           THEN each has 3 to 5 tiers, a top rate of 95 to 99, steps of 4 to 8 between rates, a
+                regular rate of 72 to 80, Autumn 26's rating and at-most stats, squad 23, the
+                universal rules on (as Blank's), and 0 to 2 specials
+RE-RND-04  GIVEN a document with unsaved changes
+           WHEN Randomize ▾ Weird is chosen
+           THEN the unsaved-changes prompt comes first; once it is answered with discard (or
+                save), a new unsaved document opens, with no custom checks, and cancel keeps
+                the old one; Again opens another with a new seed and the same preset, with no
+                prompt while the drawn document is unedited
+```
+
+**CLI**
+
+```
+RE-CLI-01  GIVEN a valid rules file, and the RE-FILE-03 files
+           WHEN `ruleset-editor validate` is run on each
+           THEN the valid one prints no finding, exit code 0; each invalid one prints its
+                findings with line and column or key path, exit code 1
+RE-CLI-02  GIVEN a current file, and a file with modified logic
+           WHEN `ruleset-editor update-logic` is run on each
+           THEN the current one is left byte for byte, no .bak written; the modified one is
+                refused naming the reason, unchanged, with a nonzero exit code
+RE-CLI-03  GIVEN Autumn 26 as a file
+           WHEN `ruleset-editor summary` is run, then with -o over an existing file
+           THEN stdout holds the RE-SUM-01 text; with -o the file holds it and <file>.bak the
+                file replaced
+RE-CLI-04  GIVEN `ruleset-editor random --preset weird --seed 48213 -o a.rhai`, and the same
+           without --seed
+           WHEN each is run twice
+           THEN each prints the seed it used; the seeded runs write identical bytes that
+                validate, the second leaving a.rhai.bak holding the first; rerunning the
+                unseeded one with its printed seed reproduces its file
+```
 
 ---
 

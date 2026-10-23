@@ -63,7 +63,8 @@ pub struct ExtraHeight {
 
 **Medal systems.** A tier a medal system names has no `count` and no `counts_as`, and no tier
 `counts_as` it; the tier that is the rest of the squad takes what the team's system leaves.
-The team's system is the first whose counts equal the team's counts of the named tiers; when
+The team's system is the first whose counts equal the team's counts of the named tiers (a tier a
+system leaves out counting 0 in it, so a system with no counts is "no medal players"); when
 none does, the team gets one `MedalSystem` violation and the rest of the squad is what the
 team's named-tier players leave, so a wrong medal count is reported once, not again as the
 regulars' `TierCount`. We do not give each tier a list of allowed counts instead: DBC7's
@@ -235,6 +236,13 @@ A "save a copy" action writes the embedded file out, and a file is validated by 
 "validate rules" button and by the Ruleset editor before saving. A logic change that needs a new
 data shape bumps `schema`; `libs/aatf` keeps a migration from every earlier schema, run by the
 update.
+
+**The first release, for logic identity, is the 0.0.1 preview** (`core/development_plan.md`
+"Divegrass Before Christmas"): its Ruleset editor saves files that DBC's organizers and
+managers keep, so from the cut on a changed logic is version 2, in the banner and in
+`LOGIC_VERSIONS` beside version 1's frozen hash. Waiting for 0.1.0 instead would turn every
+file saved with the preview into a *modified* one at the next logic edit: the editor would no
+longer offer to update it, and would keep its old logic on every save.
 
 ## Crate layout
 

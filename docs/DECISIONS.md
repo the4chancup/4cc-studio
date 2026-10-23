@@ -10508,3 +10508,25 @@ compiler warns of it as `dpfilelist_cpk_missing`); portraits taken from the rema
 would show the tester faces the game will not, and a missing file would hide behind a pitch
 that looks right. The first build skipped it, on a premise the review found false.
 Plan: `plans/save_editor.md` "Tactics editor", "Portraits".
+
+## 2026-10-23 — ruleset_editor — DBC7 is a template while DBC is the editors' test ground
+Decision: the Ruleset editor's start page offers DBC7 after the six embedded rulesets of the
+4cc, VGL and VTL, until Divegrass Before Christmas ends; Blank is defined field by field in the
+plan (one regular tier, rate 75, the universal rules on).
+Why: DBC is where members first use the editor (0.0.1); its organizers start from DBC7, and a
+manager gets the rules file the Save editor checks with by saving that template, which no other
+route offers before the Save editor's "save a copy". The "latest two of each kind" rule would
+leave it out as a minor invitational, which is right once the cup is over, not during it.
+Plan: `plans/ruleset_editor.md` "The editor" (the start page).
+
+## 2026-10-23 — aatf — logic version 1 is frozen at the 0.0.1 cut
+Decision: for logic identity, "the first release" is the 0.0.1 preview: from its cut, a changed
+logic is version 2, version 1's hash staying in `LOGIC_VERSIONS`. The older-official path's
+scenarios are written with version 2, a file the preview saved as their fixture; Phase 20
+builds the path and proves it in `libs/aatf`'s tests.
+Why: the preview's Ruleset editor saves files DBC's organizers and managers keep. Freezing only
+at 0.1.0 would make each of them *modified* at the next logic edit, so the editor would stop
+offering the update and keep their old logic on every save. No file of an older official logic
+can exist before then, so a Phase 20 scenario for it would have no real input.
+Plan: `plans/aatf_rules.md` "Loading and validation"; `plans/ruleset_editor.md` "Acceptance"
+(the paragraph after "Opening and saving").

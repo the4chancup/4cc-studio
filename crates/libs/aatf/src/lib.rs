@@ -56,6 +56,8 @@ mod team;
 mod values;
 /// `Violation` and the script-to-`Violation` conversion.
 mod violation;
+/// `Ruleset` written as its `RULESET` data block (`to_data_block`).
+mod writer;
 
 pub use file::LogicIdentity;
 pub use rules::Rules;
