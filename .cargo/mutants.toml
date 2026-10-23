@@ -268,4 +268,9 @@ exclude_re = [
     # and `>`; the move's two directions stay measured.
     "team_widgets/src/pitch/lineup\\.rs:\\d+:\\d+: replace < with <= in bench_row",
     "team_widgets/src/pitch/lineup\\.rs:\\d+:\\d+: replace > with >= in bench_row",
+    # save_editor (mutants-diff, worklog 8.9g slice 2): `Portraits::select`'s `(None, None)`
+    # arm deleted sends "no game, still no game" to the restart: it sets the selection and the
+    # worker to the `None` they were and clears maps only a worker's replies fill, which are
+    # empty without one. The other arms' change detection stays measured.
+    "save_editor/src/view/portraits\\.rs:\\d+:\\d+: delete match arm \\(None, None\\) in Portraits::select",
 ]

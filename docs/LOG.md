@@ -2363,3 +2363,5 @@ worklog passed 7,000 lines.
   twice; the dragged marker's preview tested.
 - **2026-10-23** — 8.9g slice 2: the Tactics pitch draws each starter's portrait from the selected game's CPKs, read off the
   UI thread; the DpFileList reader and the portrait path moved to `cpk` and `pes_savefile`, shared with the Team compiler.
+- **2026-10-23** — 8.9g slice 2 rework (SWE-2 review): a listed CPK that is missing shows no portraits, as the game then
+  loads none; the Tactics help topic describes the pitch and where its portraits come from.

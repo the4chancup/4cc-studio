@@ -4,7 +4,7 @@
 
 use std::collections::{HashMap, HashSet};
 use std::fs::{self, File};
-use std::io::{self, BufReader};
+use std::io::BufReader;
 use std::path::{Path, PathBuf};
 
 use anyhow::Context;
@@ -16,9 +16,8 @@ use pes_version::PesVersion;
 /// The portrait folder's prefix in a `download` CPK (`75823.dds` below it).
 const PORTRAITS: &str = "common/render/symbol/player/";
 
-/// The selected game's portraits for the Tactics pitch: an index of the portraits the CPKs
-/// `download/DpFileList.bin` lists hold (a later CPK winning), built off the UI thread, and the
-/// textures of the players asked for, decoded off it.
+/// The portrait source's state: the selection `select` last pointed it at, its worker, the
+/// players' answered textures (`resolved`) and the asks still out (`pending`).
 #[derive(Default)]
 pub(crate) struct Portraits {
     /// What `select` last pointed the source at (the PES folder and the version), `None` for
@@ -197,10 +196,10 @@ struct Game {
 }
 
 impl Game {
-    /// `folder`'s index: `download/DpFileList.bin` read, each listed CPK opened (a listed file
-    /// that is missing is skipped, as the game skips it) and its `PORTRAITS` entries recorded.
-    /// A folder, list or CPK that cannot be read is the error: no portrait is shown then, the
-    /// caller's `warn` giving the reason.
+    /// `folder`'s index: `download/DpFileList.bin` read, each listed CPK opened and its
+    /// `PORTRAITS` entries recorded. A folder, list or CPK that cannot be read is the error:
+    /// a listed CPK that is missing is one, the game itself loading none of `download/`'s CPKs
+    /// then; no portrait is shown, the caller's `warn` giving the reason.
     fn read(folder: &Path) -> anyhow::Result<Game> {
         let download = folder.join("download");
         let list = download.join("DpFileList.bin");
@@ -214,14 +213,8 @@ impl Game {
         };
         for name in names {
             let path = download.join(&name);
-            let file = match File::open(&path) {
-                Ok(file) => file,
-                Err(error) if error.kind() == io::ErrorKind::NotFound => continue,
-                Err(error) => {
-                    return Err(error)
-                        .with_context(|| format!("{}: cannot open it", path.display()));
-                }
-            };
+            let file =
+                File::open(&path).with_context(|| format!("{}: cannot open it", path.display()))?;
             let archive = CpkArchive::open(BufReader::new(file))
                 .with_context(|| format!("{}: not a CPK the reader accepts", path.display()))?;
             let at = game.archives.len();
@@ -382,17 +375,117 @@ mod tests {
         portraits.select(&ctx, &folder, PesVersion::Pes21);
         assert_eq!(served(&mut portraits, &ctx, &ids), [None, None, None]);
 
-        // The list names a CPK that is absent.
+        // The list names a CPK that is absent: the game loads none of
+        // `download/` then, so a portrait the other CPK holds is not
+        // served either.
+        let path = portrait_path(PesVersion::Pes21, 75823);
         let download = scratch("portraits_missing_cpk").join("PES/download");
         fs::create_dir_all(&download).unwrap();
         fs::write(
             download.join("DpFileList.bin"),
-            dp_file_list(&["4cc_40_faces.cpk"]),
+            dp_file_list(&["4cc_40_faces.cpk", "4cc_66_midcup.cpk"]),
         )
         .unwrap();
+        crate::test_support::write_cpk(
+            &download.join("4cc_40_faces.cpk"),
+            &[(path.as_str(), FACES)],
+        );
         let folder = download.parent().unwrap().to_path_buf();
         let mut portraits = Portraits::new();
         portraits.select(&ctx, &folder, PesVersion::Pes21);
         assert_eq!(served(&mut portraits, &ctx, &ids), [None, None, None]);
+    }
+
+    // A change of the PES folder or the version drops the worker and every answered texture
+    // (the new selection starts empty); the same selection keeps them.
+    #[test]
+    fn a_changed_selection_starts_over_and_the_same_one_keeps_its_portraits() {
+        let ctx = egui::Context::default();
+        let path = portrait_path(PesVersion::Pes21, 75823);
+        let faces: &[(&str, &[u8])] = &[(path.as_str(), FACES)];
+        let midcup: &[(&str, &[u8])] = &[(path.as_str(), MIDCUP)];
+        let folder_a = pes_folder("portraits_select_a", &[("4cc_40_faces.cpk", faces)]);
+        let folder_b = pes_folder("portraits_select_b", &[("4cc_66_midcup.cpk", midcup)]);
+        let mut portraits = Portraits::new();
+
+        portraits.select(&ctx, &folder_a, PesVersion::Pes21);
+        assert!(served(&mut portraits, &ctx, &[Some(75823)])[0].is_some());
+        close(
+            portraits.decoded_image(75823).expect("decoded").pixels[64 * 128 + 64],
+            [148, 219, 247, 255],
+        );
+
+        // The same selection: the answer is held, nothing re-asked or cleared.
+        portraits.select(&ctx, &folder_a, PesVersion::Pes21);
+        assert!(
+            matches!(portraits.answered(75823), Some(Some(_))),
+            "the same selection keeps the texture"
+        );
+
+        // Another folder: cleared at once, then the new game's portrait.
+        portraits.select(&ctx, &folder_b, PesVersion::Pes21);
+        assert_eq!(portraits.answered(75823), None, "a new folder clears");
+        assert!(served(&mut portraits, &ctx, &[Some(75823)])[0].is_some());
+        close(
+            portraits.decoded_image(75823).expect("decoded").pixels[64 * 128 + 64],
+            [255, 255, 255, 255],
+        );
+
+        // The same folder, another version (the same `<id>.dds` path): cleared again.
+        portraits.select(&ctx, &folder_b, PesVersion::Pes20);
+        assert_eq!(portraits.answered(75823), None, "a version change clears");
+        assert!(served(&mut portraits, &ctx, &[Some(75823)])[0].is_some());
+        close(
+            portraits.decoded_image(75823).expect("decoded").pixels[64 * 128 + 64],
+            [255, 255, 255, 255],
+        );
+    }
+
+    // An asked id sits in `pending` until its answer lands and is asked once: `pending` and
+    // `resolved` are the two gates a request goes through. The worker here is a pair of
+    // test-owned channels, not a thread: a request or an answer lands exactly when the test
+    // says, so the gates are checked with no wait at all.
+    #[test]
+    fn an_asked_id_is_pending_until_answered() {
+        let ctx = egui::Context::default();
+        let (requests, requests_rx) = crossbeam_channel::unbounded();
+        let (replies, replies_rx) = crossbeam_channel::unbounded();
+        let mut portraits = Portraits {
+            worker: Some(Worker {
+                requests,
+                replies: replies_rx,
+            }),
+            ..Portraits::new()
+        };
+
+        // The ask: pending, not resolved, one request on the channel.
+        assert_eq!(portraits.textures(&ctx, &[Some(75823)]), [None]);
+        assert!(portraits.pending.contains(&75823), "asked and pending");
+        assert!(!portraits.resolved.contains_key(&75823));
+        assert_eq!(requests_rx.try_recv().unwrap(), [75823], "the one request");
+
+        // Still pending: the same call sends nothing again.
+        portraits.textures(&ctx, &[Some(75823)]);
+        assert_eq!(
+            requests_rx.try_recv().unwrap_err(),
+            crossbeam_channel::TryRecvError::Empty,
+            "no second request for a pending id"
+        );
+
+        // The answer: resolved, pending emptied, and still nothing re-asked.
+        replies
+            .send((
+                75823,
+                Some(egui::ColorImage::filled([1, 1], egui::Color32::RED)),
+            ))
+            .unwrap();
+        assert!(served(&mut portraits, &ctx, &[Some(75823)])[0].is_some());
+        assert!(portraits.pending.is_empty(), "answered, pending emptied");
+        portraits.textures(&ctx, &[Some(75823)]);
+        assert_eq!(
+            requests_rx.try_recv().unwrap_err(),
+            crossbeam_channel::TryRecvError::Empty,
+            "no request for a held texture"
+        );
     }
 }

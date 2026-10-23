@@ -331,7 +331,9 @@ Win32 original hurt the most):
     PES 2018, `<id>.dds` from PES 2019; a WESYS-wrapped DDS unwrapped). The list and the
     CPKs' tables are read, and the shown team's portraits decoded, off the UI thread; a
     folder, list or CPK that cannot be read leaves the markers without portraits, the reason
-    logged. The DpFileList reader is `cpk`'s and the portrait path `pes_savefile`'s, shared
+    logged. A listed CPK that is missing counts as one that cannot be read: the game then
+    loads none of `download/`'s CPKs (the Team compiler's `dpfilelist_cpk_missing`), so
+    portraits from the others would show what the game does not. The DpFileList reader is `cpk`'s and the portrait path `pes_savefile`'s, shared
     with the Team compiler, so the editor finds a portrait wherever the compiler put it.
   - **What the screen shows that the editor leaves out**: the overall rating at the badge's
     right, the game's own computation, which the suite does not have. The screen's selection

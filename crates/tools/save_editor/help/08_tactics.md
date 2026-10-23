@@ -3,9 +3,14 @@ three presets is on screen, its formation settings, the advanced instructions
 and the team's automatic settings. A field the save's version does not hold
 stays in its place, disabled, with a note naming the first version that has it.
 
-The **pitch** is where the formation takes shape: each starter stands at
-his spot, and dragging a pitch player to a new place moves him there,
-snapped to the positions the save can hold. A bench player dropped on a
+The **pitch** is where the formation takes shape, drawn like the game's own
+formation screen: each starter stands at his spot as his portrait over a
+badge with his position, his name below it (a name too long for the badge
+scrolls now and then, as in the game). The portraits come from the game
+picked at the top of the sidebar, out of the `download` folder inside the
+**PES folder** setting: with that folder missing, or a file it lists
+missing, the starters show without portraits. Dragging a pitch player to a
+new place moves him there, snapped to the positions the save can hold. A bench player dropped on a
 pitch player swaps them, and a pitch player dropped on a bench row does the
 same. Clicking a pitch player opens his details: a position pick, the exact
 X and Y fields and **Make GK**, which puts him in goal and brings the

@@ -10498,3 +10498,13 @@ crate and has no other home for a list of CPKs; `pes_savefile` already holds the
 compiler and the editor share (the player tables).
 Plan: `plans/save_editor.md` "Tactics editor" (the pitch's look, "Portraits"); worklog 8.9g
 slice 2.
+
+## 2026-10-23 — save_editor — a listed CPK that is missing leaves the pitch without portraits
+Decision: when `download/DpFileList.bin` lists a CPK that is not in the folder, the Tactics
+pitch shows no portraits (logged), as for a CPK it cannot read; it does not skip the missing
+one and show the others' portraits.
+Why: the game itself rejects the whole `download/` folder when a listed CPK is absent (the Team
+compiler warns of it as `dpfilelist_cpk_missing`); portraits taken from the remaining CPKs
+would show the tester faces the game will not, and a missing file would hide behind a pitch
+that looks right. The first build skipped it, on a premise the review found false.
+Plan: `plans/save_editor.md` "Tactics editor", "Portraits".

@@ -20,8 +20,8 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9g, the pitch as the game's,
-under way, its reference and draft done; 8.9f and h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-e and g done, 0.0.1f at the cut; the Team
+8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9g, the pitch as the game's
+with the players' portraits, done 2026-10-23; 8.9f and h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-e and g done, 0.0.1f at the cut; the Team
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
@@ -1217,11 +1217,13 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       pane → verify: the Tactics and Abilities tabs at a 580 px window, every control inside
       the window, by a test in `save_editor`'s view tests; folded into slice 4's layout if v2
       changes the host
-    - [ ] 8.9g the Tactics pitch as PES 2021's own (the maintainer's request of 2026-10-23;
+    - [x] 8.9g the Tactics pitch as PES 2021's own (the maintainer's request of 2026-10-23;
       `plans/save_editor.md` "Tactics editor", the pitch's look): the reference measured first
       (the game's formation screen captured in game, its UI textures in the game's CPKs), the
       starters' portraits read from the selected game's `download/` CPKs; in the v2 draft
-      first, with real portraits, then in `team_widgets::pitch`
+      first, with real portraits, then in `team_widgets::pitch`. Done 2026-10-23: both
+      slices reviewed (SWE-2 S1-S3, Astra A1-A2, five mutation runs; rulings and triage in
+      `.tmp/8_9g/duck_rulings_g.md`), seen in the built window on PES 2021
       - [x] the reference and the draft. Done 2026-10-23 (lead): PES 2021's Team Sheet/Edit
         Position captured in game (pad and OBS, /3/ and /f/ of the 4chan Cup save, backed up
         and unchanged after); its pitch texture decoded from `dt11_x64.cpk`'s
@@ -1281,11 +1283,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         game fed through `crossbeam-channel`, a failure logged once and every portrait absent;
         the lead logged a portrait that does not read or decode. Seen in the built window on
         PES 2021 (E:) with team /3/: every starter's portrait, medals included, as the draft
-        draws them. Files: `cpk/src/{lib.rs,dp_file_list.rs}`, `cpk/tests/fixtures/dpfl/*`,
+        draws them. Rework 1 (SWE-2 review S3, 11 min): a listed CPK that is missing leaves the
+        pitch without portraits, as the game then loads none of `download/` (the brief had it
+        skipped); tests for a changed selection starting over and an asked id asked once; the
+        Tactics help topic describes the pitch's look and the portraits' source. Files:
+        `cpk/src/{lib.rs,dp_file_list.rs}`, `cpk/tests/fixtures/{README.md,dpfl/*}`,
         `pes_savefile/src/player_tables.rs`, `team_compiler/src/{bins,paths.rs,templates.rs,
-        upgrade.rs,processing}`, `save_editor/{Cargo.toml,src/{lib.rs,test_support.rs,
+        upgrade.rs,processing}`, `team_compiler/tests/fixtures/dpfl/README.md`,
+        `save_editor/{Cargo.toml,help/08_tactics.md,src/{lib.rs,test_support.rs,
         view/{mod.rs,portraits.rs,player_list.rs,tactics.rs,tests/tactics.rs}}}`,
-        `spec/libs/README.md`
+        `spec/libs/README.md`, `scripts/provenance/fixtures/dpfl_fixtures.py`,
+        `.cargo/mutants.toml`
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,
