@@ -2359,3 +2359,5 @@ worklog passed 7,000 lines.
   portrait-badge-name markers drawn top-down), long names scrolling on the game's measured timing (the maintainer's idea).
 - **2026-10-23** — 8.9g slice 1 rework: a press on the keeper over another marker no longer drags the one beneath (SWE-2
   review); the mutation run's 12 survivors tested; slice 1 seen in the built window beside the draft.
+- **2026-10-23** — 8.9g slice 1 rework 3 (Astra review): the name scroll's clock no longer restarts when egui draws a frame
+  twice; the dragged marker's preview tested.

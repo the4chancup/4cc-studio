@@ -1254,7 +1254,10 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         he covers another marker is his and moves neither (egui gives the drag hit to the
         topmost drag-sensing widget); the mutation run's 12 survivors tested (the position
         colours against literals, the grain's first pixels, a name as wide as the badge
-        fitting, the corners' 9 px arms).
+        fitting, the corners' 9 px arms). Rework 3 (Astra review A1, 18 min): the name clock
+        keeps its start across egui's discard pass (a frame can run the pitch twice; the frame
+        number counts frames, not passes); the drag preview tested (the dragged marker painted
+        last at the pointer, the pressed keeper at his spot).
         Seen in the built window (lead, a portable copy on a copy of the maintainer's PES 2021
         save, team /3/): beside the draft at 2x the same markers and lines, the keeper's
         badge at (160, 359), the halfway line on rows 191-192, every badge 50 x 14; a capture

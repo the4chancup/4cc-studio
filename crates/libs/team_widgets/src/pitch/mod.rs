@@ -171,14 +171,16 @@ pub fn pitch(
         }
         // The name scroll's clock: the time the pitch was first shown,
         // in the context's temp memory with the frame it was last drawn
-        // on; a frame without it restarts it.
+        // on; a frame without it restarts it, and a frame can run the
+        // pitch more than once (egui's discard pass), so the same frame
+        // number keeps the clock.
         let clock_id = ui.id().with("name clock");
         let now = ui.input(|i| i.time);
         let frame_nr = ui.ctx().cumulative_frame_nr();
         let started = ui
             .ctx()
             .data_mut(|data| match data.get_temp::<(f64, u64)>(clock_id) {
-                Some((started, last)) if last + 1 == frame_nr => {
+                Some((started, last)) if frame_nr <= last + 1 => {
                     data.insert_temp(clock_id, (started, frame_nr));
                     started
                 }

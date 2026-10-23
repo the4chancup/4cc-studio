@@ -675,6 +675,187 @@ fn the_lower_marker_paints_last_and_takes_the_press() {
     );
 }
 
+/// The frame's badge rects (`BADGE_FILL`, badge-sized) in paint order.
+fn badge_rects(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::Rect> {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape)
+                if shape.fill == BADGE_FILL
+                    && (shape.rect.width() - BADGE_W).abs() <= 0.5
+                    && (shape.rect.height() - BADGE_H).abs() <= 0.5 =>
+            {
+                Some(shape.rect)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// `a` is off `b`, the negation of `near`'s per-coordinate 0.5.
+fn off(a: egui::Pos2, b: egui::Pos2) -> bool {
+    (a.x - b.x).abs() > 0.5 || (a.y - b.y).abs() > 0.5
+}
+
+// The plan's "the dragged one last": while a marker is dragged he
+// paints last, his badge centred on the clamped pointer — eleven
+// badges as ever, the last at the drop point and none left at his
+// own centre.
+#[test]
+fn a_dragged_marker_paints_last_at_the_pointer() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let players = tactics.presets[0].formations[0].players;
+
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    let order = draw_order(&centres);
+    // `index` is an outfield marker painted after the first outfield in
+    // the order (the first is what a dragged lookup without its
+    // `dragged` half would find), with another outfield marker after
+    // him: `onto` is that marker's badge centre.
+    let first_outfield = order
+        .iter()
+        .copied()
+        .find(|&i| players[i].position != 0)
+        .expect("the formation has outfield slots");
+    let index = order
+        .iter()
+        .copied()
+        .find(|&i| {
+            players[i].position != 0
+                && i != first_outfield
+                && order[draw_position(canvas, &players, i) + 1..]
+                    .iter()
+                    .any(|&j| players[j].position != 0)
+        })
+        .expect("an outfield slot with another painted after him");
+    let onto = centres[order[draw_position(canvas, &players, index) + 1..]
+        .iter()
+        .copied()
+        .find(|&j| players[j].position != 0)
+        .expect("an outfield marker paints after him")];
+    let from = marker_point(&nodes, &players, index);
+    assert!(
+        off(onto, centres[index]),
+        "premise: the target is off his own centre"
+    );
+
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(from, true),
+    );
+    let (_, shapes) = window.frame(vec![egui::Event::PointerMoved(onto)], |ui| {
+        tactics::assign_note(ui, &mut view);
+        pitch(
+            ui,
+            "pitch",
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+    });
+    let badges = badge_rects(&shapes);
+    assert_eq!(badges.len(), 11, "eleven badges, the dragged one's moved");
+    near(
+        badges.last().expect("eleven badges").center(),
+        clamp_centre(onto, canvas),
+        0.5,
+    );
+    assert!(
+        badges
+            .iter()
+            .all(|badge| off(badge.center(), centres[index])),
+        "no badge left at the dragged marker's own centre"
+    );
+}
+
+// The keeper's slot is fixed (the plan's "The goalkeeper's slot is
+// fixed"): pressed and dragged, his marker paints at his own spot — the
+// dragged repaint skips him — and no badge sits at the pointer.
+#[test]
+fn a_pressed_keeper_paints_at_his_spot() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let players = tactics.presets[0].formations[0].players;
+    let keeper = players
+        .iter()
+        .position(|slot| slot.position == 0)
+        .expect("the fixture has a keeper slot");
+
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    let point = marker_point(&nodes, &players, keeper);
+    assert!(
+        centres
+            .iter()
+            .enumerate()
+            .all(|(i, _)| i == keeper || !marker_rect(centres[i], canvas).contains(point)),
+        "premise: no other marker covers the press"
+    );
+    // A grass point off every marker, whose clamped centre is off every
+    // marker's centre too.
+    let onto = (0..=GRID_X)
+        .flat_map(|x| (0..=GRID_Y).map(move |y| (x, y)))
+        .map(|(x, y)| badge_centre(canvas.min, outfield(x, y)))
+        .find(|point| {
+            centres
+                .iter()
+                .all(|centre| !marker_rect(*centre, canvas).contains(*point))
+                && centres
+                    .iter()
+                    .all(|centre| off(*centre, clamp_centre(*point, canvas)))
+        })
+        .expect("a grass point off every marker and centre");
+
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(point, true),
+    );
+    let (_, shapes) = window.frame(vec![egui::Event::PointerMoved(onto)], |ui| {
+        tactics::assign_note(ui, &mut view);
+        pitch(
+            ui,
+            "pitch",
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+    });
+    let badges = badge_rects(&shapes);
+    assert_eq!(badges.len(), 11, "eleven badges");
+    assert!(
+        badges.iter().any(|badge| {
+            let c = badge.center();
+            (c.x - (canvas.min.x + KEEPER_X)).abs() <= 0.5
+                && (c.y - (canvas.min.y + KEEPER_Y)).abs() <= 0.5
+        }),
+        "his badge still centred on his spot"
+    );
+    assert!(
+        badges
+            .iter()
+            .all(|badge| off(badge.center(), clamp_centre(onto, canvas))),
+        "no badge at the pointer"
+    );
+}
+
 // `name_fits`: a name no wider than the badge is centred and never
 // moves; a hair wider scrolls.
 #[test]
@@ -804,6 +985,55 @@ fn the_scrolls_clock_restarts_when_a_frame_skipped_the_pitch() {
     assert!(
         (galleys[0].pos.x - badge_left).abs() <= 0.5,
         "the restarted clock's offset is 0"
+    );
+}
+
+// The same frame can run the pitch more than once when a widget asks
+// for a discard pass (a `Grid`'s, a `Resize`'s sizing pass):
+// `cumulative_frame_nr` counts frames, not passes, so the second pass
+// meets `last == frame_nr` and must keep `started`, not restart it.
+#[test]
+fn the_scrolls_clock_survives_a_discarded_pass() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let mut rows = fixture_rows(PesVersion::Pes21);
+    let index = 4;
+    rows[usize::from(tactics.starting_eleven[index])].1 = "3DSMAX HAS STOPPED WORKING".to_owned();
+    let roster = roster_rows(&rows);
+    let players = tactics.presets[0].formations[0].players;
+
+    // The clock starts at the pitch's first frame, 100.0.
+    window.pitch_paint_at(100.0, PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let passes_before = window.ctx.cumulative_pass_nr();
+    let (nodes, shapes) = window.frame_at(Some(111.5), vec![], |ui| {
+        if ui.ctx().current_pass_index() == 0 {
+            ui.ctx().request_discard("test");
+        }
+        tactics::assign_note(ui, &mut view);
+        pitch(
+            ui,
+            "pitch",
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+    });
+    assert_eq!(
+        window.ctx.cumulative_pass_nr() - passes_before,
+        2,
+        "premise: the frame ran two passes"
+    );
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    let badge_left = centres[index].x - 25.0;
+    let galleys = name_galleys(&shapes, "3DSMAX HAS STOPPED WORKING");
+    assert_eq!(galleys.len(), 2, "the name and its repeat a loop apart");
+    let width = galleys[0].galley.size().x;
+    assert!(
+        (galleys[0].pos.x - (badge_left - name_scroll(width, 11.5))).abs() <= 0.5,
+        "the second pass kept the clock's start"
     );
 }
 
