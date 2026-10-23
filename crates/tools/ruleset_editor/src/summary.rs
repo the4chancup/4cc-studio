@@ -756,7 +756,7 @@ fn tier_label(ruleset: &Ruleset, id: &str) -> String {
 
 /// `id` as titled words (`ball_winning` → `Ball Winning`, `gk` → `GK`,
 /// `com` → `COM`).
-fn human(id: &str) -> String {
+pub(crate) fn human(id: &str) -> String {
     id.split('_')
         .map(|word| match word {
             "gk" | "com" => word.to_uppercase(),

@@ -3,34 +3,44 @@
 //! like the official one (`plans/ruleset_editor.md`).
 //!
 //! `Tool` registers the tool with the shell: its help chapter and its
-//! `ruleset-editor` command line (`validate`, `update-logic`). The window is a
-//! later build's; until then `view` shows a placeholder line. `document` owns a
-//! rules file open in memory (its ruleset, its logic status and its custom
-//! checks as read) and saves it back through the same validation `Rules::load`
-//! applies; `summary` renders the ruleset as readable rules text; `cli` drives
-//! them headless; `messages` is the finding catalog.
+//! `ruleset-editor` command line (`validate`, `update-logic`), and the window
+//! (`view/`: the start page, the rail over the section forms, the optional
+//! data-block preview, and the unsaved-changes prompt the close is held for).
+//! `document` owns a rules file open in memory (its ruleset, its logic status,
+//! its custom checks as read, the undo snapshots and the dirty flag) and saves
+//! it back through the same validation `Rules::load` applies; `summary`
+//! renders the ruleset as readable rules text; `cli` drives them headless;
+//! `settings` is the tool's settings-file section; `messages` is the finding
+//! catalog.
 
 mod cli;
 mod document;
 mod events;
 mod messages;
+mod settings;
 mod summary;
 #[cfg(test)]
 mod test_support;
+mod view;
 
 use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};
 
 use crate::messages::TOOL_ID;
 
-/// The Ruleset editor, as registered with the `studio` binary. No window
-/// state yet: the view arrives with a later build.
+/// The Ruleset editor, as registered with the `studio` binary. `view` is the
+/// window's state (`plans/ruleset_editor.md` "The editor").
 #[derive(Default)]
-pub struct Tool;
+pub struct Tool {
+    /// The window's state; `pub(crate)` so the view's tests drive it.
+    pub(crate) view: view::RulesetView,
+}
 
 impl Tool {
-    /// The tool.
+    /// The tool, with no rules file open.
     pub fn new() -> Tool {
-        Tool
+        Tool {
+            view: view::RulesetView::new(),
+        }
     }
 }
 
@@ -47,23 +57,47 @@ impl StudioTool for Tool {
         studio_core::egui_phosphor::regular::SCROLL
     }
 
-    fn view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
-        ui.label("The Ruleset editor's window comes in a later build; its command line works now.");
+    fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
+        view::show(ui, &mut self.view, ctx);
     }
 
-    /// The tool has no settings yet: `settings.rs` arrives with the view.
+    /// The unsaved-changes prompt guards the window's close too (RE-GUI-15):
+    /// a dirty document holds the close and opens the prompt.
+    fn hold_close(&mut self) -> bool {
+        if self
+            .view
+            .document
+            .as_ref()
+            .is_some_and(|document| document.is_dirty())
+        {
+            if self.view.pending_action.is_none() {
+                self.view.pending_action = Some(view::Pending::Close);
+            }
+            true
+        } else {
+            false
+        }
+    }
+
     fn default_settings(&self) -> toml::Table {
-        toml::Table::new()
+        settings::default_table()
     }
 
     fn help(&self) -> HelpSection {
         HelpSection {
             title: "Ruleset editor",
-            topics: vec![HelpTopic {
-                slug: "command-line",
-                title: "Running from a terminal",
-                body: include_str!("../help/01_command_line.md"),
-            }],
+            topics: vec![
+                HelpTopic {
+                    slug: "command-line",
+                    title: "Running from a terminal",
+                    body: include_str!("../help/01_command_line.md"),
+                },
+                HelpTopic {
+                    slug: "window",
+                    title: "The window",
+                    body: include_str!("../help/02_window.md"),
+                },
+            ],
             messages: messages::catalog(),
         }
     }
@@ -86,7 +120,11 @@ mod tests {
         let tool = Tool::new();
         assert_eq!(tool.id(), "ruleset-editor");
         assert_eq!(tool.label(), "Ruleset editor");
-        assert!(tool.default_settings().is_empty());
-        assert_eq!(tool.help().topics.len(), 1);
+        assert_eq!(tool.default_settings()["last_folder"].as_str(), Some(""));
+        assert_eq!(
+            tool.default_settings()["recent_files"].as_array(),
+            Some(&Vec::new())
+        );
+        assert_eq!(tool.help().topics.len(), 2);
     }
 }

@@ -10539,3 +10539,63 @@ Why: it is the file the Save editor refuses too, so both tools agree on what a r
 and `libs/aatf`'s load already refuses it; opening it in the forms with rail marks would need a
 second, unchecked load path for a file only a hand edit produces.
 Plan: `plans/ruleset_editor.md` "Opening and saving" (*Unreadable*), RE-FILE-03.
+
+## 2026-10-23 — save_editor — a starter without a shown portrait gets the game's placeholder, bundled
+Decision (maintainer): a starter whose portrait the Tactics pitch cannot show, for any reason,
+gets the game's own placeholder portrait (`common/render/symbol/blank/player-dummy.png`, three
+versions: PES 2015, 2016-2018, 2019-2021), drawn as a portrait, instead of the badge and name
+alone. The three PNGs are bundled in `resources/portraits/` and embedded, not read from the
+install.
+Why: it is what the game draws for a player with no portrait, so the pitch keeps looking like
+the game's screen; bundled, it shows with no PES folder set, which is when every portrait is
+missing.
+Plan: `plans/save_editor.md` "Tactics editor" (a marker; "Portraits"); worklog 8.9i.
+
+## 2026-10-23 — studio_core — the shell's icons are a single-colour icon font of our own
+Decision (maintainer): the shell's icons become a single-colour icon font built from our own
+SVGs (each tool's drawn to say what it does; the general ones copied from Phosphor, MIT),
+registered through `FontDefinitions`; `egui-phosphor` leaves the workspace at the egui 0.37
+migration, its regular font bundled until ours replaces it. Multi-colour icons wait until after
+1.0.0.
+Why: `egui-phosphor`'s only tie to egui is a font-registration helper, and it held the egui
+0.37 upgrade (no release three weeks on); its stock glyphs ("users three" for the Team
+compiler) say little about a tool. A font keeps `icon() -> &'static str` and the text-colour
+hover and selection, with no runtime dependency; SVG drawn at run time would add resvg's crates
+for colour the pre-1.0 releases do not need.
+Plan: `plans/core/README.md` "GUI framework choice: egui", "External Dependencies";
+`plans/core/architecture.md`; `plans/core/gui.md`; worklog 8.11, 8.14.
+
+## 2026-10-23 — studio — the version is shown with its release stage, derived from the version
+Decision (maintainer's idea; the stages after 0.0.x the lead's, reversible): the shown version
+string gains the release stage, `v0.0.1 pre-alpha`: pre-alpha for 0.0.x, alpha from 0.1.0,
+none from 1.0.0, derived in one function from the version's major and minor numbers. The
+semver carries no pre-release suffix.
+Why: the previews and test releases are incomplete by design, and the word tells a member so
+where every bug report starts (the status bar's version). Derived rather than written, a
+version bump cannot leave a stale stage; a semver suffix would change the release tags and the
+updater's comparison for a label. 0.1.0 and on are test releases for a restricted group, which
+is what alpha means; a public beta, if any, is a later ruling.
+Plan: `plans/core/distribution.md` "Changelog and version display"; worklog 8.13.
+
+## 2026-10-23 — fmdl, pes_model — the algorithms both crates carry stay mirrored, never merged
+Decision (maintainer, on the lead's recommendation against a merge): the split, its combine,
+the split vertex encoding and the `check` limits stay written once per crate, also when the
+algorithm itself changes. Each mirrored file names its twin in its header, a change to one goes
+to the other in the same commit, and the duplication check's keep list holds each pair.
+Why: the duplication audit found about 400 mirrored lines; the copies differ where the formats
+do (weights, bone positions, mesh fields, errors, bone-group sets), so one shared version needs
+a new crate and a trait carrying every difference, splitting one algorithm across three files
+and giving both crates (and their Python bindings) a new shared dependency. The real risk, a fix
+landing in one copy only, happened once (2026-09-28, fmdl's split fixes ported a day later) and
+is covered by the header and the keep list at a fraction of the cost.
+Plan: `spec/libs/format_crates.md`, "`ops/` are format-native transformations"; worklog issue
+"repetition in the code".
+
+## 2026-10-23 — ruleset_editor — an undo snapshot is the ruleset and the logic status together
+Decision (lead, where the plan said "whole-ruleset snapshots"): each undo entry holds the
+ruleset and the file's logic status; the saved state is one such snapshot, and the document is
+dirty when it differs. **Update logic** records a snapshot like any form edit.
+Why: Update logic changes the logic, not the ruleset, so a ruleset-only snapshot made its undo
+restore an identical ruleset and leave the new logic in place (20.6a1's first delivery, found
+in review); a separate dirty flag for the logic could not be undone either.
+Plan: `plans/ruleset_editor.md` "The editor", the undo paragraph.

@@ -114,8 +114,10 @@ the last edit changed are highlighted.
   on the clipboard as Markdown, for posting an invitational's rules; two summaries diffed in any
   text tool are the comparison between two rulesets.
 
-Undo and redo work on whole-ruleset snapshots (a ruleset is a few kilobytes). Closing with unsaved
-changes prompts.
+Undo and redo work on whole snapshots of the ruleset and its logic status (a ruleset is a few
+kilobytes): **Update logic** is an edit like a form's, and a snapshot of the ruleset alone would
+make its undo restore an identical ruleset and leave the new logic in place. Closing with
+unsaved changes prompts.
 
 ## Randomize
 

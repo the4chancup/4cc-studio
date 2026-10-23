@@ -1,0 +1,90 @@
+//! The rail's section forms (`plans/ruleset_editor.md` "The editor"):
+//! General is a form, Custom checks and Summary read only, and Tiers,
+//! Heights, Cards, Universal rules, Specials and Suggestions are later
+//! builds' — for now they draw one weak line.
+
+pub(crate) mod custom_checks;
+pub(crate) mod general;
+pub(crate) mod summary;
+
+use aatf::Ruleset;
+
+/// A rail section.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum Section {
+    /// Name, squad size, the stat lists (`general`).
+    General,
+    /// The tiers table and the medal systems.
+    Tiers,
+    /// The height brackets and systems.
+    Heights,
+    /// The card groups.
+    Cards,
+    /// The universal rules and the team settings.
+    Universal,
+    /// The conditional special rules.
+    Specials,
+    /// The allowance suggestions.
+    Suggestions,
+    /// The file's hand-written checks, read-only (`custom_checks`);
+    /// offered only when the document has them.
+    CustomChecks,
+    /// The ruleset as readable rules text (`summary`).
+    Summary,
+}
+
+impl Section {
+    /// The rail's order (RE-GUI-02); Custom checks joins only when the
+    /// document has them.
+    pub(crate) const RAIL: &[Section] = &[
+        Section::General,
+        Section::Tiers,
+        Section::Heights,
+        Section::Cards,
+        Section::Universal,
+        Section::Specials,
+        Section::Suggestions,
+        Section::CustomChecks,
+        Section::Summary,
+    ];
+
+    /// The rail's label.
+    pub(crate) fn label(self) -> &'static str {
+        match self {
+            Section::General => "General",
+            Section::Tiers => "Tiers",
+            Section::Heights => "Heights",
+            Section::Cards => "Cards",
+            Section::Universal => "Universal rules",
+            Section::Specials => "Specials",
+            Section::Suggestions => "Suggestions",
+            Section::CustomChecks => "Custom checks",
+            Section::Summary => "Summary",
+        }
+    }
+}
+
+/// The drawn section over `ruleset` (the forms edit it in place;
+/// `custom_checks` is the section's read-only text); the later builds'
+/// draw one weak line for now.
+pub(crate) fn show(
+    ui: &mut egui::Ui,
+    section: Section,
+    ruleset: &mut Ruleset,
+    custom_checks: Option<&str>,
+) {
+    match section {
+        Section::General => general::show(ui, ruleset),
+        Section::CustomChecks => custom_checks::show(ui, custom_checks),
+        Section::Summary => summary::show(ui, ruleset),
+        Section::Tiers
+        | Section::Heights
+        | Section::Cards
+        | Section::Universal
+        | Section::Specials
+        | Section::Suggestions => {
+            ui.heading(section.label());
+            ui.weak("This section's form comes in a later build.");
+        }
+    }
+}

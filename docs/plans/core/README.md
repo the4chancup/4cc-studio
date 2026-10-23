@@ -83,8 +83,15 @@ Trade-offs accepted:
   legibility rather than per view. Views take their colors from the preset's semantic palette
   (status, warning, accent), never a hard-coded color, which is what keeps light readable at no
   per-view cost (the Team compiler's grid derives its label contrast from the cell for the same
-  reason). Icon glyphs from the `egui-phosphor`
-  icon font for sidebar/toolbar/status icons, custom fonts via `FontDefinitions`, and rounded,
+  reason). Icon glyphs for sidebar/toolbar/status icons from the suite's own single-colour
+  icon font, registered through `FontDefinitions` like any font: one SVG per icon, each tool's
+  drawn to say what the tool does, built into `resources/fonts/` by a fontTools script, the
+  general ones (help, settings, dismiss, warning, download) copied from Phosphor (MIT). A glyph
+  takes the text colour, so hover and selection need no code of their own; multi-colour icons
+  (SVG drawn at run time, `egui_extras`' `svg` feature) wait until after 1.0.0. Not the
+  `egui-phosphor` crate: its one tie to egui, a font-registration helper, made every egui
+  upgrade wait on its release (0.37's by weeks), and its stock glyphs say little about a
+  tool. Custom fonts via `FontDefinitions`, and rounded,
   shadowed `Frame` chrome for panels and cards. A 2026 re-evaluation of the Rust GUI landscape
   against this suite's requirements (pure-Rust desktop rendering, same-codebase WASM, embedded
   wgpu viewport, ecosystem maturity for LLM-assisted coding) reconfirmed egui; the visual gap is
@@ -102,7 +109,6 @@ What exists of this is in `spec/core/README.md` "External Dependencies (Rust cra
 | Crate | Purpose | Maturity |
 |-------|---------|----------|
 | `gltf` | glTF parsing | Production-ready |
-| `egui-phosphor` | Icon font glyphs for the shell's sidebar, toolbar, and status icons | Release not yet reviewed; pinned to the workspace egui version once selected |
 | `egui_commonmark` | Markdown rendering for the help window (CommonMark subset: headings, lists, tables, code blocks, links) | `=0.25.0` (2026-08-05), the last release on egui 0.36 (0.26 needs 0.37), with `default-features = false` and `pulldown_cmark` alone: the help shows no images, so `egui_extras`' image and file loaders stay out. Its link hooks carry the in-doc links. Chosen over a hand-rolled renderer (see `gui.md` "Help window") |
 | `egui_animation` | Easing helpers for cell-color fades and panel transitions (on top of egui's built-in `animate_*`) | Release not yet reviewed; dropped if the built-in helpers suffice |
 | `egui_extras` (`default-features = false`) | `TableBuilder` (resizable columns, sticky header, rows drawn only when visible; sorting is a clickable header over our own data) for the Save editor's player and team lists, the comparator and the AATF violations list; `StripBuilder` for proportional splits | Released with egui from its own repository (0.36.2 verified 2026-10-15), so it moves in lock-step with the pinned egui and never holds an upgrade back. Third-party egui crates (`egui_dnd`, `egui_plot`) wait for the tool that needs them, since each can lag an egui release |

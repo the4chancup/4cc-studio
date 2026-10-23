@@ -23,8 +23,10 @@ impl Ruleset {
     /// The rules the types cannot carry, every one broken, in a fixed
     /// order: `Ruleset`'s fields in declaration order, list items in
     /// order, map entries in key order; the tier rules that need the
-    /// medal systems' tiers come after `medal_systems`.
-    pub(crate) fn check(&self) -> Vec<RuleError> {
+    /// medal systems' tiers come after `medal_systems`. The Ruleset
+    /// editor calls it on a ruleset being edited, so the rail can mark
+    /// the sections its errors sit in.
+    pub fn check(&self) -> Vec<RuleError> {
         let mut out = Vec::new();
 
         // name: an emptied string names nothing.

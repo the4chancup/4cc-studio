@@ -25,7 +25,8 @@ with the players' portraits, done 2026-10-23; 8.9f and h wait on the v2 ruling),
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor: 20.3-20.5 done 2026-10-23, its
-Acceptance section, the writer and the command line; 20.6a1, the window's frame, next), the
+Acceptance section, the writer and the command line; 20.6a1, the window's frame, done
+2026-10-23, its reviews going; 8.11, egui 0.37, and 8.13 before 20.6a2), the
 0.0.1 cut (0.0.1f: the two
 editors, and the compiler and upgrader through the CLI, their views greyed out), then Phase
 8's other views. Done for DBC so far (2026-10-21): 20.0d (the
@@ -531,7 +532,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   `docs/plans/{save_editor,export_upgrader}.md`, `docs/plans/libs/color_tools.md`,
   `crates/studio_core/src/shell/mod.rs`, `crates/studio_core/src/pes_process.rs`,
   `crates/tools/team_compiler/src/{view/mod,gui_run}.rs` (citation and pointer comments only)
-- [ ] 8.1 egui's bundled fonts, once the theme settles its icon font (`egui-phosphor`): the
+- [ ] 8.1 egui's bundled fonts, once the theme settles its icon font (the shell's own, 8.14;
+  egui 0.37 also drops `default_fonts` from egui's default features, 8.11): the
   four default fonts are 1.37 MiB of the release exe's `.rdata` (2026-10-16,
   `.tmp/16w/rdata_parts.py`), the two emoji fonts (`NotoEmoji-Regular` 409 KiB,
   `emoji-icon-font` 317 KiB) about 0.7 MiB of it. If the GUI shows no emoji, egui's
@@ -1219,6 +1221,15 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       pane → verify: the Tactics and Abilities tabs at a 580 px window, every control inside
       the window, by a test in `save_editor`'s view tests; folded into slice 4's layout if v2
       changes the host
+    - [ ] 8.9i a starter whose portrait the pitch cannot show, for any reason (none in the
+      CPKs, a portrait that does not decode, a `download/` folder that cannot be read), draws
+      the game's own placeholder portrait instead of none (the maintainer's request of
+      2026-10-23; `plans/save_editor.md` "Tactics editor", a marker and "Portraits"): the
+      selected game's version of the three PNGs bundled in `resources/portraits/` (README:
+      sources, hashes), embedded, decoded once, drawn as a portrait is → verify: a starter
+      whose portrait the fixture CPK lacks, a portrait that does not decode, and a missing
+      `download/` folder each draw the placeholder on the marker, each of the three versions
+      chosen for its PES (2015, 2017, 2021); no starter with a real portrait gets it
     - [x] 8.9g the Tactics pitch as PES 2021's own (the maintainer's request of 2026-10-23;
       `plans/save_editor.md` "Tactics editor", the pitch's look): the reference measured first
       (the game's formation screen captured in game, its UI textures in the game's CPKs), the
@@ -1330,9 +1341,16 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     the GUI since 8.6b); the first tool that publishes a notice during a CLI command gets a
     binary test of ST-CLI-01's notice half (8.6b proves it through the printer's loop only)
   - [ ] 8.11 egui 0.36.2 to 0.37 (`spec/core/gui.md` "egui version discipline"; agreed
-    2026-10-21), waiting on an `egui-phosphor` release for 0.37 (0.14.0, 2026-09-10, is
-    0.36's; `egui_commonmark` 0.26.0 shipped with egui 0.37). Run between two slices of 8.9,
-    with no sidekick in UI code. Why: 0.37 draws any glyph the system's fonts have (members'
+    2026-10-21; the maintainer asked on 2026-10-23 to migrate as soon as possible, so fewer
+    GUI tests are written twice). No `egui-phosphor` release for 0.37 yet (0.14.0,
+    2026-09-10, is 0.36's; its 0.37 pull request open since 2026-10-19; `egui_commonmark`
+    0.26.0 shipped with egui 0.37), so the migration drops it: the 19 glyphs the suite uses
+    cut from its regular Phosphor font (MIT) into `resources/fonts/phosphor-subset.ttf`
+    (7 KB, the lead's, with its `README.md`), their constants (`studio_core::icons`) and the
+    font's registration (`studio_core::theme`, today `egui_phosphor::add_to_fonts`) written in
+    `studio_core`; plan edit and decision entry done. Brief `.tmp/egui37/brief_8_11.md`, with
+    8.13. Run after 20.6a1 lands and before 20.6a2 is briefed, with no sidekick in UI
+    code. Why: 0.37 draws any glyph the system's fonts have (members'
     names carry symbols, a Japanese team's names non-Latin text that the bundled fonts draw
     as boxes). The work: `Id::new` and `AsId` deprecated or removed and `Ui::id` renamed
     `scope_id` (deprecations are errors here); `default_fonts` no longer a default feature;
@@ -1358,6 +1376,23 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     "worth adding" a Team TOML key; then a test
     per version taking a real texport to Team TOML and back, byte for byte apart from the
     bytes classified as not a tactic
+  - [ ] 8.13 the release stage after the version (the maintainer's idea of 2026-10-23;
+    `plans/core/distribution.md` "Changelog and version display"): `v0.0.1 pre-alpha` in the
+    status bar's left slot, the About block and `--version`, from one `studio_core` function
+    deriving the stage from the version's major and minor numbers. Before 0.0.1 is cut; rides
+    with 8.11's brief (both `studio_core`) → verify: the function's three stages by unit test
+    (0.0.x, 0.y.z, 1.0.0), and the empty status bar, About and `--version` showing the same
+    string (ST-BAR-01's test and the About test updated)
+  - [ ] 8.14 the shell's own icon font (the maintainer's request of 2026-10-23;
+    `plans/core/README.md` "GUI framework choice: egui"): single-colour icons, one SVG each; each tool's
+    drawn to say what it does, the general ones (help, settings, dismiss, warning, download)
+    copied from Phosphor (MIT, its licence beside them). First a draft page,
+    `docs/prototypes/icons.html`, with candidates per tool at the rail's sizes, for the
+    maintainer to pick; then a fontTools script in `scripts/` building the TTF into
+    `resources/fonts/` from the picked SVGs, replacing 8.11's `phosphor-subset.ttf`, and
+    `studio_core`'s glyph constants → verify: the script rebuilds the committed TTF byte for
+    byte; every `icon()` glyph exists in the font (a unit test over the registry); the rail
+    seen in the built window, expanded and collapsed, dark and light
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,
@@ -1875,11 +1910,19 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
 - [ ] 20.6 the view (`plans/ruleset_editor.md` "The editor", the draft
   `docs/prototypes/ruleset_editor.html`), as slices:
   - 20.6a the window's frame and the plain forms, as subslices:
-    - 20.6a1 `settings.rs` (`last_folder`, the recent files), the templates (embedded in
+    - [x] 20.6a1 `settings.rs` (`last_folder`, the recent files), the templates (embedded in
       `libs/aatf`) and Blank, the document's dirty flag and undo snapshots, the start page,
       the toolbar (Open, Save, Save as, Undo, Redo, Show preview), the rail and its problem
       marks, the preview pane, the logic banners, the unsaved-changes prompt, General, Custom
-      checks and Summary (RE-GUI-01, 02, 13 to 15, RE-SUM-01, RE-FILE-01 to 03, 05, 07)
+      checks and Summary (RE-GUI-01, 02, 13 to 15, RE-SUM-01, RE-FILE-01 to 03, 05, 07).
+      Done 2026-10-23 after one rework: a snapshot is the ruleset and the logic together (an
+      Update logic's undo was a no-op), the forms bind the ruleset in place with the gesture's
+      snapshot taken around the section call, "New from template" opens the start page
+      unguarded (the picks inside prompt), a settings table that fails to read is never
+      written over. `aatf/src/{templates.rs,rules.rs,lib.rs,ruleset/check.rs}`,
+      `ruleset_editor/src/{document,settings,messages,summary,lib,cli,test_support}.rs`,
+      `src/view/` (mod, start, prompt, preview, rail, `sections/`, tests),
+      `help/02_window.md`. Open: its SWE-2 (b) review, then `mutants-diff 8aeb0193`
     - 20.6a2 Tiers with the medal systems, Cards, Universal rules with the team settings,
       Suggestions (RE-GUI-03 to 06, 08, RE-FILE-04, 06)
   - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12)
@@ -1898,6 +1941,37 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open — repetition in the code (the maintainer, 2026-10-23, after the writer's review let
+  `aatf`'s `writer/mod.rs` keep one six-line shape over 40 times): CONTRIBUTING's "The third
+  copy is a function" had no check, so neither the sidekick nor the lead's sweeps applied it.
+  A shape detector (`.tmp/dup_audit/clones.py`: identifiers, strings and numbers blanked,
+  declarations and table rows set aside; a run of 4 shaped lines found 3 times in a crate, or
+  of 10 found twice, is a cluster; `--across` for runs in two crates) measured HEAD
+  `8aeb0193`: about 260 non-test clusters (pes_savefile 70, aatf 30, team_compiler 31,
+  save_editor 23), 81 across crates (`fmdl`'s and `pes_model`'s `ops/split/build.rs` share
+  about 180 lines), and some 65,000 repeated shaped lines in tests. The work: (1) SWE-2 rules
+  every non-test cluster, five groups (`.tmp/dup_audit/swe_dup_<a-e>.md`, findings beside
+  them), the lead rules the findings; (2) one rework brief per crate for the accepted ones,
+  between the slices in flight, each gated and measured by `mutants-diff` like any rework,
+  `writer/mod.rs` first after 20.6a1; (3) the test clusters, the same way; (4) the detector
+  moves to `scripts/` with a `just clones` recipe, the thresholds the audit's rulings settle,
+  and a committed keep list (each kept cluster's shape and its one-line reason, which the
+  detector then skips), and runs at two points (the maintainer's question of 2026-10-23):
+  in `just gates`, failing on any cluster the keep list does not hold, so a diff that adds a
+  copy is fixed or ruled before it lands, with no reliance on a reviewer noticing; and at
+  every phase's close, whole-crate, in the design-health pass (`AGENTS.md` "Closing a
+  phase", beside `just mutants` and `just citation-audit`), where the keep list's entries for
+  the phase's crates are read again, since a kept pair that grew a third copy is no longer
+  a pair. `AGENTS.md` and CONTRIBUTING "Code style" say both. State: (1) done, the rulings in
+  `.tmp/dup_audit/rulings.md` (group IDs `A-F<n>` to `E-F<n>`, the lead's own `C-L<n>`; keep
+  that file until (2) ends); (2) the first brief, `aatf` and the Ruleset editor's summary,
+  `.tmp/dup_audit/brief_rework_aatf.md`, runs after 8.11; reworks touching `fmdl` or
+  `pes_model` also run `just bindings`, and the first of them adds each mirrored file's header
+  naming its twin (`spec/libs/format_crates.md`, "`ops/` are format-native transformations":
+  the two `ops/split/build.rs`, `ops/split/combine.rs`, `ops/vertex_enc.rs`, `check.rs`, and
+  `model/validate.rs`); (4)'s check also flags a keep-list entry that no longer matches, so a
+  change to one copy of a kept pair stops the gates until both copies agree or the entry is
+  re-ruled
 - resolved 2026-10-21 — `mutants-diff` runs one cargo-mutants per crate, each with its own
   baseline and timeout, `timeout_multiplier` back to 5 (`RUNBOOK.md` "Mutation runs and the
   VPS", DECISIONS 2026-10-21). Measured on `mutants-diff 86492df7` (90 mutants over

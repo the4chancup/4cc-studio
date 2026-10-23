@@ -8,6 +8,7 @@
 use std::borrow::Cow;
 use std::path::Path;
 
+use aatf::LoadError;
 use studio_core::{CatalogRow, Disposition, Message, MessageCode, Scope, Severity};
 
 /// The tool's id: its CLI subcommand, its settings section and the owner of
@@ -132,6 +133,45 @@ pub(crate) fn summary_written(path: &Path) -> Message {
         Code::SummaryWritten,
         vec![("path", path.display().to_string())],
     )
+}
+
+/// The `rules_finding` messages for one `LoadError`: `Rules` fans out to one
+/// message per rule, `Parse` carries its line and column, the rest their text.
+/// `validate` prints them and the view's refused-open and refused-save
+/// listings show them.
+pub(crate) fn findings(error: &LoadError) -> Vec<Message> {
+    match error {
+        LoadError::Rules(rules) => rules
+            .iter()
+            .map(|rule| {
+                rules_finding(vec![
+                    ("path", rule.path.clone()),
+                    ("rule", rule.rule.to_string()),
+                ])
+            })
+            .collect(),
+        LoadError::Parse {
+            line,
+            column,
+            message,
+        } => vec![rules_finding(vec![
+            ("line", line.to_string()),
+            ("column", column.to_string()),
+            ("error", message.clone()),
+        ])],
+        other => vec![rules_finding(vec![("error", other.to_string())])],
+    }
+}
+
+/// One finding's text, as `validate` prints it: the context fields in
+/// order (`line=12, column=5, error=…`, `path=tiers[1], rule=…`).
+pub(crate) fn finding_text(finding: &Message) -> String {
+    finding
+        .context
+        .iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>()
+        .join(", ")
 }
 
 /// The message for `code` with its context fields, in template order.

@@ -159,9 +159,15 @@ describes releases; the three places a user meets release notes all read this fi
 3. **The post-update notice** — `Updated to v1.4.0 · [What's new]` in the status bar on the first
    start of a new version, opening reader 1 (see `spec/core/gui.md` "Status bar").
 
-**One version string, shown in one place.** `v{CARGO_PKG_VERSION}`, with ` (debug)` appended
-when `cfg!(debug_assertions)` — enough to tell a local build from a release, which is the only
-distinction that has ever mattered in a bug report. No git hash: it would need a `build.rs` or
+**One version string, shown in one place.** `v{CARGO_PKG_VERSION}`, then the release stage
+while there is one: ` pre-alpha` for 0.0.x (the previews: a few tools, for one cup's members),
+` alpha` from 0.1.0 (the test releases for a restricted group of testers), nothing from 1.0.0;
+then ` (debug)` when `cfg!(debug_assertions)`, enough to tell a local build from a release,
+which is the only distinction that has ever mattered in a bug report. The stage is derived from
+the version's major and minor numbers in one function, not written beside it, so a version bump
+can never leave a stale word; the semver itself carries no pre-release suffix (`0.0.1`, not
+`0.0.1-pre-alpha`), which would change the release tags and the updater's version comparison
+for a label. A beta stage, if the maintainer opens one, is a ruling added here. No git hash: it would need a `build.rs` or
 `vergen` for information the tag already carries, since releases are built from tags. Where it
 appears:
 

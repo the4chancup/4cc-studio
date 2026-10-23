@@ -2373,3 +2373,5 @@ worklog passed 7,000 lines.
   matching the draft's own wording byte for byte on all nine embedded rulesets. 20.4's writer gained its edge tests.
 - **2026-10-23** — 20.5 closed after its reviews (SWE-2 twice, Astra once): `summary -o` refuses its own input, a refused save exits 2,
   a read-only rules file is never replaced; the mutation run's 6 real survivors got tests.
+- **2026-10-23** — 20.6a1: the Ruleset editor's window: start page with the templates, toolbar, rail, preview, logic
+  banners, the unsaved-changes prompt, General, Custom checks and Summary; one rework (undo now restores the logic too).

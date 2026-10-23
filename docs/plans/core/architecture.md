@@ -72,7 +72,7 @@ crates/studio_core/src/
 │   ├── grid.rs       #   progress grid (rows × cells, FolderStatus colors, fades)
 │   ├── log_panel.rs  #   capped log, auto-scroll, filters, cross-linking
 │   └── run_strip.rs
-├── theme.rs          # the shared Visuals preset, fonts, egui-phosphor registration
+├── theme.rs          # the shared Visuals preset, fonts, the icon font's registration
 └── updater.rs        # release check, download/verify, binary swap, rollback (desktop only)
 ```
 
@@ -164,7 +164,8 @@ The sidebar lists the planned tools a build does not register (`gui.md` "Sidebar
 `studio` also keeps the full registry as data: one `PlannedTool { id, label, icon }` per tool
 above, in that order, handed to the shell with the registered tools; the shell lists, after the
 registered ones, every entry whose `id` no registered tool has. A tool's icon for the collapsed
-rail is a trait method, `fn icon(&self) -> &'static str`, one `egui-phosphor` glyph, and the
+rail is a trait method, `fn icon(&self) -> &'static str`, one glyph of the shell's icon font
+(`README.md` "GUI framework choice: egui"), and the
 planned entry repeats it. Not a second `Vec<Box<dyn StudioTool>>` of disabled tools, because a
 planned tool has no crate to construct; not the labels alone, because the rail draws icons.
 

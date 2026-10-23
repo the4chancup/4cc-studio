@@ -429,7 +429,7 @@ stadiums and cells = components.
 | Common and per-tool settings forms | egui widgets (`TextEdit`, `CheckBox`, `ComboBox`), saved to TOML |
 | Export tree browser | `egui::CollapsingHeader` tree, shows object model |
 | File/folder pickers | `rfd` for native dialogs and supported web file picking; web directory access needs a separate File System Access API adapter (`rfd` has no WASM folder picker) |
-| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_theme`, no restart; the setting, never the system's theme, decides, so a member on a light desktop still gets the dark default); icon glyphs from `egui-phosphor`. Until the preset is curated it is egui's own dark `Visuals`, the colors the drafts are drawn in (`shell.html`'s stylesheet), so a curation pass changes the drafts' stylesheet first |
+| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_theme`, no restart; the setting, never the system's theme, decides, so a member on a light desktop still gets the dark default); icon glyphs from the suite's own icon font (`README.md` "GUI framework choice: egui"). Until the preset is curated it is egui's own dark `Visuals`, the colors the drafts are drawn in (`shell.html`'s stylesheet), so a curation pass changes the drafts' stylesheet first |
 
 ### Prototypes before implementation
 
@@ -442,8 +442,8 @@ run), each idea a `PROPOSALS.md` entry ruled beside the page: a flow problem sho
 page, not in a spec, and moved after implementation it costs a view and its GUI scenarios
 instead of a page edit. The draft then becomes the view's specification, so it uses only the CSS
 and HTML elements the UI crates we plan to use can represent: `egui`/`eframe` and the UI crates
-of the dependency table in `README.md` "External Dependencies" (today `egui-phosphor`,
-`egui_commonmark`, `egui_animation`, `egui_extras`, `rfd`). Anything else would promise a screen the
+of the dependency table in `README.md` "External Dependencies" (today `egui_commonmark`,
+`egui_animation`, `egui_extras`, `rfd`), and the shell's icon font. Anything else would promise a screen the
 implementation cannot deliver. An element only an unlisted crate can draw needs that crate added
 to the table first (a new dependency, asked for first):
 
@@ -453,7 +453,7 @@ to the table first (a new dependency, asked for first):
   grid, scroll area, horizontal and vertical layouts, top, bottom, side and central panels,
   window, modal), tooltips, context and bar menus, drag and drop between widgets and of files
   dropped on the window from outside, native file dialogs (`rfd`), Markdown text
-  (`egui_commonmark`), `egui-phosphor` icons, colour or position transitions with easing
+  (`egui_commonmark`), the icon font's single-colour glyphs, colour or position transitions with easing
   (egui's `animate_*`, `egui_animation`), cards and rows that change on hover (a `Frame` over
   a container that senses hover, `UiBuilder::sense`), mixed inline formatting in one line
   (colour, size, background highlight, underline, strikethrough: egui's `LayoutJob`), and

@@ -5,16 +5,13 @@
 use std::fs;
 use std::path::{Path, PathBuf};
 
-use aatf::LoadError;
 use anyhow::anyhow;
 use clap::{Args, Command, FromArgMatches, Subcommand};
-use studio_core::{CliError, Message, Severity, ToolContext};
+use studio_core::{CliError, Severity, ToolContext};
 
 use crate::document::{Document, Logic, OpenError, SaveError, write_text};
 use crate::events::Report;
-use crate::messages::{
-    TOOL_ID, logic_already_current, logic_updated, rules_finding, summary_written,
-};
+use crate::messages::{TOOL_ID, findings, logic_already_current, logic_updated, summary_written};
 
 // The exit codes are the command line's contract with scripts, the Team
 // compiler's meanings.
@@ -107,32 +104,6 @@ fn validate(args: &FileArgs, report: &mut Report) -> Result<(), CliError> {
         }
     }
     Ok(())
-}
-
-/// The `rules_finding` messages for one `LoadError`: `Rules` fans out to one
-/// line per rule, `Parse` carries its line and column, the rest their text.
-fn findings(error: &LoadError) -> Vec<Message> {
-    match error {
-        LoadError::Rules(rules) => rules
-            .iter()
-            .map(|rule| {
-                rules_finding(vec![
-                    ("path", rule.path.clone()),
-                    ("rule", rule.rule.to_string()),
-                ])
-            })
-            .collect(),
-        LoadError::Parse {
-            line,
-            column,
-            message,
-        } => vec![rules_finding(vec![
-            ("line", line.to_string()),
-            ("column", column.to_string()),
-            ("error", message.clone()),
-        ])],
-        other => vec![rules_finding(vec![("error", other.to_string())])],
-    }
 }
 
 /// `update-logic`: a current file is left as it was; a modified logic is

@@ -84,6 +84,16 @@ Rules:
   writer does not carry a per-file padding mode.
 - **`ops/` are format-native transformations** for lossless same-format work; they operate on the
   crate's own types, never on `model_convert`'s IR (the dependency points the other way).
+  The algorithms both crates carry (mesh splitting, the split's combine, split vertex
+  encoding, the `check` limits) are therefore written twice, and stay so, even when the
+  algorithm itself changes: they differ where the formats do (byte against float weights, bone
+  positions from the bone against the inverse bind matrix, each crate's mesh fields, error type
+  and bone-group set), and one shared version would need a new crate and a trait carrying all
+  of those, so a reader would follow one split through three files instead of one, and both
+  crates would share a dependency their Python bindings now build without. Instead each
+  mirrored file names its twin in its header, and a change to one goes to the other in the
+  same commit; the duplication check's keep list holds each pair, so a diff that changes one
+  copy alone shows in review.
 - **`check.rs` returns findings, not messages** — stable codes with context, mapped to catalog
   entries by the consuming tool, mirroring `aesthetics_export`'s rule.
 - **Geometry far from the origin is an Error in both crates' `check`**

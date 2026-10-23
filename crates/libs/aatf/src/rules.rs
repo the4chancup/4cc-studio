@@ -11,10 +11,10 @@ use crate::team::{PlayerView, TeamView};
 use crate::values::{CardLimits, TierValues};
 use crate::violation::{CheckError, Violation, ViolationKind, violations};
 
-/// The official data block, embedded. The other rulesets' blocks are
-/// embedded by their fixtures until the Ruleset editor's templates
-/// (Phase 20) need them here.
-const AUTUMN26: &str = include_str!("../rulesets/autumn26.rhai");
+/// The official data block, embedded; also `templates.rs`' first entry.
+/// The other rulesets' blocks are embedded by `templates.rs` (the
+/// Ruleset editor's start page) and by their fixtures.
+pub(crate) const AUTUMN26: &str = include_str!("../rulesets/autumn26.rhai");
 
 /// A loaded rules file: its ruleset, its compiled script and the engine
 /// it runs on. `Send + Sync` (rhai's `sync` feature): several threads

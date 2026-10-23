@@ -320,8 +320,14 @@ Win32 original hurt the most):
     moves. Each name's period starts when the pitch first shows it, still first. The game
     staggers names by a rule not established (two names 2.1 s apart); the editor's start
     together when the tab opens. The captain's mark, a white rounded box with a black "C", 12 x 11, sits
-    1 px inside the badge's left edge, 5 px above it, over the portrait. A starter with no
-    portrait found shows the badge and name alone. Markers are drawn from the top of the
+    1 px inside the badge's left edge, 5 px above it, over the portrait. A starter whose
+    portrait the editor cannot show, for any reason (none in the CPKs, one that does not
+    decode, a folder, list or CPK that cannot be read, no PES folder set), shows the game's
+    own placeholder in its place, drawn as a portrait: the selected game's
+    `common/render/symbol/blank/player-dummy.png`, a 128 x 128 PNG in one of three versions
+    (PES 2015; PES 2016-2018; PES 2019-2021). The three are bundled
+    (`resources/portraits/`), not read from the install, so the pitch draws them with no PES
+    folder set or reachable. Markers are drawn from the top of the
     canvas down, a lower marker covering the one above as the game's do (the keeper's
     portrait over a centre-back's badge), the dragged one last; a press or a drop hits the
     marker drawn on top.
@@ -330,8 +336,8 @@ Win32 original hurt the most):
     as in game, at the path the Team compiler writes portraits to (`player_<id>.dds` up to
     PES 2018, `<id>.dds` from PES 2019; a WESYS-wrapped DDS unwrapped). The list and the
     CPKs' tables are read, and the shown team's portraits decoded, off the UI thread; a
-    folder, list or CPK that cannot be read leaves the markers without portraits, the reason
-    logged. A listed CPK that is missing counts as one that cannot be read: the game then
+    folder, list or CPK that cannot be read leaves every marker with the placeholder, the
+    reason logged. A listed CPK that is missing counts as one that cannot be read: the game then
     loads none of `download/`'s CPKs (the Team compiler's `dpfilelist_cpk_missing`), so
     portraits from the others would show what the game does not. The DpFileList reader is `cpk`'s and the portrait path `pes_savefile`'s, shared
     with the Team compiler, so the editor finds a portrait wherever the compiler put it.

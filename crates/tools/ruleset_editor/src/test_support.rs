@@ -4,7 +4,7 @@
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 
-use studio_core::{AppPaths, PipelineEventEnvelope, Settings, ToolContext};
+use studio_core::{AppPaths, PipelineEventEnvelope, Settings, ShellRequest, ToolContext};
 
 /// A fresh, empty scratch folder for `test` under the test binary's build
 /// folder (`target/<profile>/ruleset_editor_tests/<test>`): per checkout, so
@@ -36,8 +36,19 @@ pub(crate) fn context() -> (
     ToolContext,
     crossbeam_channel::Receiver<PipelineEventEnvelope>,
 ) {
+    let (ctx, events, _requests) = context_requests();
+    (ctx, events)
+}
+
+/// `context()` with the shell-requests receiver kept (the close prompt's
+/// `request_close` lands there).
+pub(crate) fn context_requests() -> (
+    ToolContext,
+    crossbeam_channel::Receiver<PipelineEventEnvelope>,
+    crossbeam_channel::Receiver<ShellRequest>,
+) {
     let (events_tx, events_rx) = crossbeam_channel::unbounded();
-    let (requests_tx, _requests_rx) = crossbeam_channel::unbounded();
+    let (requests_tx, requests_rx) = crossbeam_channel::unbounded();
     let ctx = ToolContext::new(
         Arc::new(Mutex::new(Settings::default())),
         AppPaths {
@@ -47,5 +58,49 @@ pub(crate) fn context() -> (
         events_tx,
         requests_tx,
     );
-    (ctx, events_rx)
+    (ctx, events_rx, requests_rx)
+}
+
+/// A valid assembled rules file: the embedded official ruleset written
+/// as the tool's save writes it.
+pub(crate) fn valid_file() -> String {
+    aatf::assemble_file(aatf::Rules::official().ruleset(), None, None)
+}
+
+/// The first RE-FILE-03 file: a parse error at line 12 (the comma
+/// between `at_most`'s two first entries dropped).
+pub(crate) fn parse_error_file() -> String {
+    let text = valid_file().replacen(
+        "\"attacking_prowess\", \"defensive_prowess\"",
+        "\"attacking_prowess\" \"defensive_prowess\"",
+        1,
+    );
+    assert!(
+        text.lines()
+            .nth(11)
+            .unwrap_or_default()
+            .contains("\"attacking_prowess\""),
+        "premise: the edit sits on line 12"
+    );
+    text
+}
+
+/// The second RE-FILE-03 file: `tiers[2].free.tricks` is the string
+/// "two".
+pub(crate) fn schema_error_file() -> String {
+    let mut text = valid_file();
+    let at = text.find("id: \"bronze\"").expect("the bronze tier");
+    let pos = at + text[at..].find("tricks: 2").expect("its free cards");
+    text.replace_range(pos..pos + "tricks: 2".len(), "tricks: \"two\"");
+    text
+}
+
+/// The third RE-FILE-03 file: the second tier (`silver`) carries the
+/// first tier's id (`gold`).
+pub(crate) fn duplicate_id_file() -> String {
+    let text = valid_file();
+    let gold = text.find("id: \"gold\"").expect("the gold tier");
+    let silver = text.find("id: \"silver\"").expect("the silver tier");
+    assert!(gold < silver, "premise: gold is the first tier");
+    text.replacen("id: \"silver\"", "id: \"gold\"", 1)
 }
