@@ -2381,3 +2381,5 @@ worklog passed 7,000 lines.
   for the selected PES (three bundled versions), also while his portrait is still being read.
 - **2026-10-23** — 8.6e: Studio opens at 1440 × 900 points, centered; on a monitor too small for it, at the
   largest 16:10 size within 90% of the screen. The help window first opens at 90% of Studio's window.
+- **2026-10-23** — The repetition rework's first brief: `aatf`'s checker and writer and the Ruleset editor's summary
+  write each rule once (source clusters 30 to 21 and 7 to 5); nothing a member sees changes.

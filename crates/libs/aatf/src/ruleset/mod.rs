@@ -428,19 +428,46 @@ pub enum PlayerValue {
     WeakFootAccuracy,
 }
 
+/// The `ranges` keys that are no ability stat: `key`'s non-`Stat` arms,
+/// the array `TryFrom` reads them back through.
+const NON_STAT_VALUES: [PlayerValue; 6] = [
+    PlayerValue::Age,
+    PlayerValue::Weight,
+    PlayerValue::Form,
+    PlayerValue::InjuryResistance,
+    PlayerValue::WeakFootUsage,
+    PlayerValue::WeakFootAccuracy,
+];
+
+impl PlayerValue {
+    /// The name a `ranges` key carries: a stat's label, else the value's
+    /// `TryFrom` name (`age`, `weight`, `form`, `injury_resistance`,
+    /// `weak_foot_usage`, `weak_foot_accuracy`).
+    pub fn key(self) -> &'static str {
+        match self {
+            PlayerValue::Stat(stat) => stat.label(),
+            PlayerValue::Age => "age",
+            PlayerValue::Weight => "weight",
+            PlayerValue::Form => "form",
+            PlayerValue::InjuryResistance => "injury_resistance",
+            PlayerValue::WeakFootUsage => "weak_foot_usage",
+            PlayerValue::WeakFootAccuracy => "weak_foot_accuracy",
+        }
+    }
+}
+
 impl TryFrom<String> for PlayerValue {
     type Error = String;
 
     fn try_from(name: String) -> Result<Self, Self::Error> {
-        Ok(match name.as_str() {
-            "age" => PlayerValue::Age,
-            "weight" => PlayerValue::Weight,
-            "form" => PlayerValue::Form,
-            "injury_resistance" => PlayerValue::InjuryResistance,
-            "weak_foot_usage" => PlayerValue::WeakFootUsage,
-            "weak_foot_accuracy" => PlayerValue::WeakFootAccuracy,
-            _ => PlayerValue::Stat(Stat::try_from(name)?),
-        })
+        match Stat::try_from(name.clone()) {
+            Ok(stat) => Ok(PlayerValue::Stat(stat)),
+            Err(error) => NON_STAT_VALUES
+                .iter()
+                .find(|value| value.key() == name)
+                .copied()
+                .ok_or(error),
+        }
     }
 }
 

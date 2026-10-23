@@ -6,8 +6,8 @@ use std::fmt;
 
 use crate::ruleset::{
     Bracket, BracketHeights, Condition, Effects, ExtraHeight, HeightSystem, Heights, MedalSystem,
-    PerTier, PlayerValue, Ruleset, Severity, Special, StatOrAll, StatRules, TeamSettings, Tier,
-    Universal, WeakFoot, WeightRule,
+    PerTier, Ruleset, Severity, Special, StatOrAll, StatRules, TeamSettings, Tier, Universal,
+    WeakFoot, WeightRule,
 };
 
 /// The first line of every rules file, as `rulesets/` carries it.
@@ -88,6 +88,37 @@ fn rhai_list(items: impl IntoIterator<Item = String>) -> String {
     format!("[{}]", items.into_iter().collect::<Vec<_>>().join(", "))
 }
 
+/// `["a", "b"]` of the items as string literals.
+fn quoted_list<'a>(items: impl IntoIterator<Item = &'a str>) -> String {
+    rhai_list(items.into_iter().map(string_literal))
+}
+
+/// `key: render(value)` pushed unless `value` equals its default: a
+/// field the reader defaults is left out, so a block lists only what
+/// the ruleset sets.
+fn push_set<T: Default + PartialEq>(
+    fields: &mut Vec<String>,
+    key: &str,
+    value: &T,
+    render: impl FnOnce(&T) -> String,
+) {
+    if *value != T::default() {
+        fields.push(field(key, render(value)));
+    }
+}
+
+/// `key: render(value)` pushed when `value` is `Some`.
+fn push_some<T>(
+    fields: &mut Vec<String>,
+    key: &str,
+    value: &Option<T>,
+    render: impl FnOnce(&T) -> String,
+) {
+    if let Some(value) = value {
+        fields.push(field(key, render(value)));
+    }
+}
+
 /// `All` as its number, `ByTier` as a `#{ id: n }` map.
 fn per_tier<T: fmt::Display>(per_tier: &PerTier<T>) -> String {
     match per_tier {
@@ -132,20 +163,6 @@ fn stat_or_all_key(key: &StatOrAll) -> String {
     }
 }
 
-/// A `ranges` map key: a stat's label or one of the names
-/// `PlayerValue`'s `TryFrom<String>` reads.
-fn player_value_key(value: &PlayerValue) -> String {
-    map_key(match value {
-        PlayerValue::Stat(stat) => stat.label(),
-        PlayerValue::Age => "age",
-        PlayerValue::Weight => "weight",
-        PlayerValue::Form => "form",
-        PlayerValue::InjuryResistance => "injury_resistance",
-        PlayerValue::WeakFootUsage => "weak_foot_usage",
-        PlayerValue::WeakFootAccuracy => "weak_foot_accuracy",
-    })
-}
-
 /// `severity` as its lowercase spelling.
 fn severity_label(severity: Severity) -> &'static str {
     match severity {
@@ -178,96 +195,55 @@ fn condition_map(condition: &Condition) -> String {
         not,
     } = condition;
     let mut fields: Vec<String> = Vec::new();
-    if !tiers.is_empty() {
-        fields.push(field(
-            "tiers",
-            rhai_list(tiers.iter().map(|id| string_literal(id))),
-        ));
-    }
-    if !positions.is_empty() {
-        fields.push(field(
-            "positions",
-            rhai_list(positions.iter().map(|pos| string_literal(pos.label()))),
-        ));
-    }
-    if !systems.is_empty() {
-        fields.push(field(
-            "systems",
-            rhai_list(systems.iter().map(|id| string_literal(id))),
-        ));
-    }
-    if !brackets.is_empty() {
-        fields.push(field(
-            "brackets",
-            rhai_list(brackets.iter().map(|id| string_literal(id))),
-        ));
-    }
-    if let Some(height_min) = height_min {
-        fields.push(field("height_min", height_min));
-    }
-    if let Some(height_max) = height_max {
-        fields.push(field("height_max", height_max));
-    }
-    if let Some(captain) = captain {
-        fields.push(field("captain", captain));
-    }
-    if !playing_styles.is_empty() {
-        fields.push(field(
-            "playing_styles",
-            rhai_list(
-                playing_styles
-                    .iter()
-                    .map(|style| string_literal(style.label())),
-            ),
-        ));
-    }
-    if !holds.is_empty() {
-        fields.push(field(
-            "holds",
-            rhai_list(holds.iter().map(|card| string_literal(card.label()))),
-        ));
-    }
-    if !rated_a_at.is_empty() {
-        fields.push(field(
-            "rated_a_at",
-            rhai_list(rated_a_at.iter().map(|pos| string_literal(pos.label()))),
-        ));
-    }
-    if !rated_b_at.is_empty() {
-        fields.push(field(
-            "rated_b_at",
-            rhai_list(rated_b_at.iter().map(|pos| string_literal(pos.label()))),
-        ));
-    }
-    if !name_colors.is_empty() {
-        fields.push(field(
-            "name_colors",
-            rhai_list(name_colors.iter().map(|code| string_literal(code))),
-        ));
-    }
-    if let Some(fielded_only_at) = fielded_only_at {
-        fields.push(field(
-            "fielded_only_at",
-            string_literal(fielded_only_at.label()),
-        ));
-    }
-    if !ranges.is_empty() {
-        fields.push(field(
-            "ranges",
-            rhai_map(ranges.iter().map(|(value, (low, high))| {
-                field(player_value_key(value), format!("[{low}, {high}]"))
-            })),
-        ));
-    }
-    if let Some(strong_foot) = strong_foot {
-        fields.push(field("strong_foot", string_literal(strong_foot.label())));
-    }
-    if !any.is_empty() {
-        fields.push(field("any", rhai_list(any.iter().map(condition_map))));
-    }
-    if let Some(not) = not {
-        fields.push(field("not", condition_map(not)));
-    }
+    push_set(&mut fields, "tiers", tiers, |ids| {
+        quoted_list(ids.iter().map(String::as_str))
+    });
+    push_set(&mut fields, "positions", positions, |positions| {
+        quoted_list(positions.iter().map(|pos| pos.label()))
+    });
+    push_set(&mut fields, "systems", systems, |ids| {
+        quoted_list(ids.iter().map(String::as_str))
+    });
+    push_set(&mut fields, "brackets", brackets, |ids| {
+        quoted_list(ids.iter().map(String::as_str))
+    });
+    push_some(&mut fields, "height_min", height_min, ToString::to_string);
+    push_some(&mut fields, "height_max", height_max, ToString::to_string);
+    push_some(&mut fields, "captain", captain, ToString::to_string);
+    push_set(&mut fields, "playing_styles", playing_styles, |styles| {
+        quoted_list(styles.iter().map(|style| style.label()))
+    });
+    push_set(&mut fields, "holds", holds, |cards| {
+        quoted_list(cards.iter().map(|card| card.label()))
+    });
+    push_set(&mut fields, "rated_a_at", rated_a_at, |positions| {
+        quoted_list(positions.iter().map(|pos| pos.label()))
+    });
+    push_set(&mut fields, "rated_b_at", rated_b_at, |positions| {
+        quoted_list(positions.iter().map(|pos| pos.label()))
+    });
+    push_set(&mut fields, "name_colors", name_colors, |codes| {
+        quoted_list(codes.iter().map(String::as_str))
+    });
+    push_some(&mut fields, "fielded_only_at", fielded_only_at, |pos| {
+        string_literal(pos.label())
+    });
+    push_set(&mut fields, "ranges", ranges, |ranges| {
+        rhai_map(
+            ranges.iter().map(|(value, (low, high))| {
+                field(map_key(value.key()), format!("[{low}, {high}]"))
+            }),
+        )
+    });
+    push_some(&mut fields, "strong_foot", strong_foot, |foot| {
+        string_literal(foot.label())
+    });
+    push_set(&mut fields, "any", any, |cases| {
+        rhai_list(cases.iter().map(condition_map))
+    });
+    push_some(&mut fields, "not", not, |condition| {
+        condition_map(condition)
+    });
     rhai_map(fields)
 }
 
@@ -292,81 +268,59 @@ fn effects_map(effects: &Effects) -> String {
         stat_warning,
     } = effects;
     let mut fields: Vec<String> = Vec::new();
-    if !stat_bonus.is_empty() {
-        fields.push(field(
-            "stat_bonus",
-            rhai_map(
-                stat_bonus
-                    .iter()
-                    .map(|(key, value)| field(stat_or_all_key(key), per_tier(value))),
-            ),
-        ));
-    }
-    if !stat_target.is_empty() {
-        fields.push(field(
-            "stat_target",
-            rhai_map(
-                stat_target
-                    .iter()
-                    .map(|(stat, value)| field(map_key(stat.label()), per_tier(value))),
-            ),
-        ));
-    }
-    if let Some(cards) = cards {
-        fields.push(field("cards", per_tier(cards)));
-    }
-    if !free.is_empty() {
-        fields.push(field(
-            "free",
-            rhai_map(
-                free.iter()
-                    .map(|(group, value)| field(map_key(group), per_tier(value))),
-            ),
-        ));
-    }
-    if !free_cards.is_empty() {
-        fields.push(field(
-            "free_cards",
-            rhai_list(free_cards.iter().map(|card| string_literal(card.label()))),
-        ));
-    }
-    if !require_cards.is_empty() {
-        fields.push(field(
-            "require_cards",
-            rhai_list(
-                require_cards
-                    .iter()
-                    .map(|card| string_literal(card.label())),
-            ),
-        ));
-    }
-    if let Some(a_positions) = a_positions {
-        fields.push(field("a_positions", per_tier(a_positions)));
-    }
-    if let Some(max_a_positions) = max_a_positions {
-        fields.push(field("max_a_positions", max_a_positions));
-    }
-    if let Some(form) = form {
-        fields.push(field("form", per_tier(form)));
-    }
-    if let Some(injury_resistance) = injury_resistance {
-        fields.push(field("injury_resistance", per_tier(injury_resistance)));
-    }
-    if let Some(weak_foot) = weak_foot {
-        fields.push(field("weak_foot", weak_foot_map(weak_foot)));
-    }
-    if let Some(height_allowance) = height_allowance {
-        fields.push(field("height_allowance", height_allowance));
-    }
-    if let Some(forbid) = forbid {
-        fields.push(field("forbid", string_literal(forbid)));
-    }
-    if !choice.is_empty() {
-        fields.push(field("choice", rhai_list(choice.iter().map(effects_map))));
-    }
-    if let Some(stat_warning) = stat_warning {
-        fields.push(field("stat_warning", per_tier(stat_warning)));
-    }
+    push_set(&mut fields, "stat_bonus", stat_bonus, |stat_bonus| {
+        rhai_map(
+            stat_bonus
+                .iter()
+                .map(|(key, value)| field(stat_or_all_key(key), per_tier(value))),
+        )
+    });
+    push_set(&mut fields, "stat_target", stat_target, |stat_target| {
+        rhai_map(
+            stat_target
+                .iter()
+                .map(|(stat, value)| field(map_key(stat.label()), per_tier(value))),
+        )
+    });
+    push_some(&mut fields, "cards", cards, per_tier);
+    push_set(&mut fields, "free", free, |free| {
+        rhai_map(
+            free.iter()
+                .map(|(group, value)| field(map_key(group), per_tier(value))),
+        )
+    });
+    push_set(&mut fields, "free_cards", free_cards, |cards| {
+        quoted_list(cards.iter().map(|card| card.label()))
+    });
+    push_set(&mut fields, "require_cards", require_cards, |cards| {
+        quoted_list(cards.iter().map(|card| card.label()))
+    });
+    push_some(&mut fields, "a_positions", a_positions, per_tier);
+    push_some(
+        &mut fields,
+        "max_a_positions",
+        max_a_positions,
+        ToString::to_string,
+    );
+    push_some(&mut fields, "form", form, per_tier);
+    push_some(
+        &mut fields,
+        "injury_resistance",
+        injury_resistance,
+        per_tier,
+    );
+    push_some(&mut fields, "weak_foot", weak_foot, weak_foot_map);
+    push_some(
+        &mut fields,
+        "height_allowance",
+        height_allowance,
+        ToString::to_string,
+    );
+    push_some(&mut fields, "forbid", forbid, |text| string_literal(text));
+    push_set(&mut fields, "choice", choice, |options| {
+        rhai_list(options.iter().map(effects_map))
+    });
+    push_some(&mut fields, "stat_warning", stat_warning, per_tier);
     rhai_map(fields)
 }
 
@@ -397,62 +351,49 @@ fn tier_fields(tier: &Tier) -> Vec<String> {
         field("id", string_literal(id)),
         field("label", string_literal(label)),
     ];
-    if let Some(count) = count {
-        fields.push(field("count", count));
-    }
-    if let Some(counts_as) = counts_as {
-        fields.push(field("counts_as", string_literal(counts_as)));
-    }
-    if !when.is_empty() {
-        fields.push(field("when", condition_map(when)));
-    }
+    push_some(&mut fields, "count", count, ToString::to_string);
+    push_some(&mut fields, "counts_as", counts_as, |id| string_literal(id));
+    push_set(&mut fields, "when", when, condition_map);
     fields.push(field("rate", rate));
-    if !stats.is_empty() {
-        fields.push(field(
-            "stats",
-            rhai_map(
-                stats
-                    .iter()
-                    .map(|(stat, target)| field(map_key(stat.label()), target)),
-            ),
-        ));
-    }
-    if *form != 0 {
-        fields.push(field("form", form));
-    }
-    if *injury_resistance != 0 {
-        fields.push(field("injury_resistance", injury_resistance));
-    }
-    if *weak_foot != WeakFoot::default() {
-        fields.push(field("weak_foot", weak_foot_map(weak_foot)));
-    }
-    if *cards != 0 {
-        fields.push(field("cards", cards));
-    }
-    if *min_cards != 0 {
-        fields.push(field("min_cards", min_cards));
-    }
-    if !free.is_empty() {
-        fields.push(field(
-            "free",
-            rhai_map(
-                free.iter()
-                    .map(|(group, count)| field(map_key(group), count)),
-            ),
-        ));
-    }
-    if *a_positions != 0 {
-        fields.push(field("a_positions", a_positions));
-    }
-    if let Some(name_color) = name_color {
-        fields.push(field("name_color", string_literal(name_color)));
-    }
-    if *stat_warning != 0 {
-        fields.push(field("stat_warning", stat_warning));
-    }
-    if *total_within_targets {
-        fields.push(field("total_within_targets", total_within_targets));
-    }
+    push_set(&mut fields, "stats", stats, |stats| {
+        rhai_map(
+            stats
+                .iter()
+                .map(|(stat, target)| field(map_key(stat.label()), target)),
+        )
+    });
+    push_set(&mut fields, "form", form, ToString::to_string);
+    push_set(
+        &mut fields,
+        "injury_resistance",
+        injury_resistance,
+        ToString::to_string,
+    );
+    push_set(&mut fields, "weak_foot", weak_foot, weak_foot_map);
+    push_set(&mut fields, "cards", cards, ToString::to_string);
+    push_set(&mut fields, "min_cards", min_cards, ToString::to_string);
+    push_set(&mut fields, "free", free, |free| {
+        rhai_map(
+            free.iter()
+                .map(|(group, count)| field(map_key(group), count)),
+        )
+    });
+    push_set(&mut fields, "a_positions", a_positions, ToString::to_string);
+    push_some(&mut fields, "name_color", name_color, |color| {
+        string_literal(color)
+    });
+    push_set(
+        &mut fields,
+        "stat_warning",
+        stat_warning,
+        ToString::to_string,
+    );
+    push_set(
+        &mut fields,
+        "total_within_targets",
+        total_within_targets,
+        ToString::to_string,
+    );
     fields
 }
 
@@ -502,25 +443,16 @@ fn system_fields(system: &HeightSystem) -> Vec<String> {
         field("id", string_literal(id)),
         field("label", string_literal(label)),
     ];
-    if let Some(any_player) = any_player {
-        fields.push(field("any_player", condition_map(any_player)));
-    }
-    if *by_quotas {
-        fields.push(field("by_quotas", by_quotas));
-    }
-    if !quotas.is_empty() {
-        fields.push(field(
-            "quotas",
-            rhai_map(
-                quotas
-                    .iter()
-                    .map(|(bracket, count)| field(map_key(bracket), count)),
-            ),
-        ));
-    }
-    if let Some(extra_height) = extra_height {
-        fields.push(field("extra_height", extra_height_map(extra_height)));
-    }
+    push_some(&mut fields, "any_player", any_player, condition_map);
+    push_set(&mut fields, "by_quotas", by_quotas, ToString::to_string);
+    push_set(&mut fields, "quotas", quotas, |quotas| {
+        rhai_map(
+            quotas
+                .iter()
+                .map(|(bracket, count)| field(map_key(bracket), count)),
+        )
+    });
+    push_some(&mut fields, "extra_height", extra_height, extra_height_map);
     fields
 }
 
@@ -534,15 +466,11 @@ fn special_fields(special: &Special) -> Vec<String> {
         severity,
     } = special;
     let mut fields = vec![field("label", string_literal(label))];
-    if *severity != Severity::Error {
-        fields.push(field("severity", string_literal(severity_label(*severity))));
-    }
-    if !when.is_empty() {
-        fields.push(field("when", condition_map(when)));
-    }
-    if *then != Effects::default() {
-        fields.push(field("then", effects_map(then)));
-    }
+    push_set(&mut fields, "severity", severity, |severity| {
+        string_literal(severity_label(*severity))
+    });
+    push_set(&mut fields, "when", when, condition_map);
+    push_set(&mut fields, "then", then, effects_map);
     fields
 }
 
@@ -559,12 +487,9 @@ fn team_settings_fields(settings: &TeamSettings) -> Vec<String> {
         forbidden_shapes,
     } = settings;
     let mut fields = vec![field("label", string_literal(label))];
-    if !versions.is_empty() {
-        fields.push(field(
-            "versions",
-            rhai_list(versions.iter().map(|version| version.number().to_string())),
-        ));
-    }
+    push_set(&mut fields, "versions", versions, |versions| {
+        rhai_list(versions.iter().map(|version| version.number().to_string()))
+    });
     for (key, setting) in [
         ("man_marking", man_marking),
         ("auto_substitution", auto_substitution),
@@ -572,20 +497,20 @@ fn team_settings_fields(settings: &TeamSettings) -> Vec<String> {
         ("auto_preset_change", auto_preset_change),
         ("auto_attack_defence_levels", auto_attack_defence_levels),
     ] {
-        if let Some(setting) = setting {
-            fields.push(field(key, setting));
-        }
+        push_some(&mut fields, key, setting, ToString::to_string);
     }
-    if !forbidden_shapes.is_empty() {
-        fields.push(field(
-            "forbidden_shapes",
+    push_set(
+        &mut fields,
+        "forbidden_shapes",
+        forbidden_shapes,
+        |shapes| {
             rhai_list(
-                forbidden_shapes
+                shapes
                     .iter()
                     .map(|shape| rhai_list(shape.iter().map(u8::to_string))),
-            ),
-        ));
-    }
+            )
+        },
+    );
     fields
 }
 
@@ -606,40 +531,56 @@ fn universal_fields(universal: &Universal) -> Vec<String> {
         max_com_styles,
     } = universal;
     let mut fields: Vec<String> = Vec::new();
-    if *registered_position_a {
-        fields.push(field("registered_position_a", registered_position_a));
-    }
-    if !fielded_at_a.is_empty() {
-        fields.push(field(
-            "fielded_at_a",
-            rhai_list(fielded_at_a.iter().map(u8::to_string)),
-        ));
-    }
-    if *no_b_ratings {
-        fields.push(field("no_b_ratings", no_b_ratings));
-    }
-    if *b_uses_a_allowance {
-        fields.push(field("b_uses_a_allowance", b_uses_a_allowance));
-    }
-    if *gk_not_second_a {
-        fields.push(field("gk_not_second_a", gk_not_second_a));
-    }
-    if let Some((low, high)) = age {
-        fields.push(field("age", format!("[{low}, {high}]")));
-    }
-    if let Some(weight) = weight {
-        fields.push(field("weight", weight_map(weight)));
-    }
-    if *captain_required {
-        fields.push(field("captain_required", captain_required));
-    }
-    if *min_goalkeepers != 0 {
-        fields.push(field("min_goalkeepers", min_goalkeepers));
-    }
+    push_set(
+        &mut fields,
+        "registered_position_a",
+        registered_position_a,
+        ToString::to_string,
+    );
+    push_set(&mut fields, "fielded_at_a", fielded_at_a, |fielded_at_a| {
+        rhai_list(fielded_at_a.iter().map(u8::to_string))
+    });
+    push_set(
+        &mut fields,
+        "no_b_ratings",
+        no_b_ratings,
+        ToString::to_string,
+    );
+    push_set(
+        &mut fields,
+        "b_uses_a_allowance",
+        b_uses_a_allowance,
+        ToString::to_string,
+    );
+    push_set(
+        &mut fields,
+        "gk_not_second_a",
+        gk_not_second_a,
+        ToString::to_string,
+    );
+    push_some(&mut fields, "age", age, |(low, high)| {
+        format!("[{low}, {high}]")
+    });
+    push_some(&mut fields, "weight", weight, weight_map);
+    push_set(
+        &mut fields,
+        "captain_required",
+        captain_required,
+        ToString::to_string,
+    );
+    push_set(
+        &mut fields,
+        "min_goalkeepers",
+        min_goalkeepers,
+        ToString::to_string,
+    );
     fields.push(field("max_skill_cards", max_skill_cards));
-    if let Some(max_com_styles) = max_com_styles {
-        fields.push(field("max_com_styles", max_com_styles));
-    }
+    push_some(
+        &mut fields,
+        "max_com_styles",
+        max_com_styles,
+        ToString::to_string,
+    );
     fields
 }
 

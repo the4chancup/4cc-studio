@@ -316,7 +316,7 @@ fn an_unknown_tier_in_an_effect_is_refused() {
 }
 
 /// A `when.brackets` entry naming a nonexistent bracket is `UnknownId`;
-/// `bracket_has`/`==` at it.
+/// `id_known`/`==` at it.
 #[test]
 fn an_unknown_bracket_in_a_specials_condition_is_refused() {
     case(

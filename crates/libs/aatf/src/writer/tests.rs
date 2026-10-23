@@ -5,7 +5,7 @@ use std::collections::BTreeMap;
 use pes_version::PesVersion;
 
 use super::*;
-use crate::ruleset::{Card, Foot, PlayStyle, Position, Stat};
+use crate::ruleset::{Card, Foot, PlayStyle, PlayerValue, Position, Stat};
 
 /// `name` as a `Stat`.
 fn stat(name: &str) -> Stat {

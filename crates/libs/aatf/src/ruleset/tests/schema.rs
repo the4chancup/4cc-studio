@@ -332,6 +332,36 @@ fn bad_proposal_field_values_are_schema() {
     }
 }
 
+/// `key` spells the name `TryFrom` reads back: the six non-stat values
+/// and one stat round-trip, and `NON_STAT_TARGETS` is the four
+/// below-target names' `key()`s (`key` cannot be `const` —
+/// `Stat::label` goes through `usize::from` — so the array is pinned
+/// by this test instead).
+#[test]
+fn a_player_value_round_trips_through_its_ranges_key() {
+    let stat = Stat::try_from(ABILITY_STATS[0].to_string()).expect("an ability stat");
+    for value in [
+        PlayerValue::Age,
+        PlayerValue::Weight,
+        PlayerValue::Form,
+        PlayerValue::InjuryResistance,
+        PlayerValue::WeakFootUsage,
+        PlayerValue::WeakFootAccuracy,
+        PlayerValue::Stat(stat),
+    ] {
+        assert_eq!(PlayerValue::try_from(value.key().to_string()), Ok(value));
+    }
+    assert_eq!(
+        NON_STAT_TARGETS,
+        [
+            PlayerValue::Form.key(),
+            PlayerValue::InjuryResistance.key(),
+            PlayerValue::WeakFootUsage.key(),
+            PlayerValue::WeakFootAccuracy.key()
+        ]
+    );
+}
+
 /// A present `weak_foot` names both halves (`#{ usage: 4 }` alone would
 /// cap accuracy at 0, below the game's 1): `Schema` on a tier, in a
 /// special's `then` and in a `choice` option. A tier with no `weak_foot`

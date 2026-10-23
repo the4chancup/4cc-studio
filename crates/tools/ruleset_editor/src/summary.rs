@@ -8,9 +8,13 @@ use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Display;
 
 use aatf::{
-    BracketHeights, Condition, Effects, PerTier, PlayerValue, Ruleset, Severity, StatOrAll, Tier,
-    TierId,
+    BracketHeights, Condition, Effects, PerTier, Ruleset, Severity, StatOrAll, Tier, TierId,
 };
+
+/// A section's opening lines: a blank line and its `##` head.
+fn section(title: &str) -> Vec<String> {
+    vec![String::new(), format!("## {title}")]
+}
 
 /// `ruleset` as readable rules text, Markdown (`plans/ruleset_editor.md`
 /// "The editor", the Summary bullet): the draft's wording, ending with
@@ -62,7 +66,7 @@ fn header_lines(ruleset: &Ruleset) -> Vec<String> {
 /// The `## Tiers` section: one line per tier, highest first, then the
 /// medal-systems line when the ruleset has them.
 fn tier_lines(ruleset: &Ruleset) -> Vec<String> {
-    let mut lines = vec![String::new(), "## Tiers".to_string()];
+    let mut lines = section("Tiers");
     let medal_tiers: BTreeSet<&str> = ruleset
         .medal_systems
         .iter()
@@ -108,11 +112,8 @@ fn height_lines(ruleset: &Ruleset) -> Vec<String> {
     if ruleset.heights.brackets.is_empty() {
         return Vec::new();
     }
-    let mut lines = vec![
-        String::new(),
-        "## Heights".to_string(),
-        brackets_text(ruleset),
-    ];
+    let mut lines = section("Heights");
+    lines.push(brackets_text(ruleset));
     for (index, system) in ruleset.heights.systems.iter().enumerate() {
         let when = system
             .any_player
@@ -261,11 +262,9 @@ fn every_team_lines(ruleset: &Ruleset) -> Vec<String> {
         every.push(format!("at most {max} COM styles"));
     }
     let every = every.join("; ");
-    vec![
-        String::new(),
-        "## Every team".to_string(),
-        format!("{}.", upper_first(&every)),
-    ]
+    let mut lines = section("Every team");
+    lines.push(format!("{}.", upper_first(&every)));
+    lines
 }
 
 /// The `## Card groups` section, one line per group; empty without
@@ -274,7 +273,7 @@ fn card_group_lines(ruleset: &Ruleset) -> Vec<String> {
     if ruleset.card_groups.is_empty() {
         return Vec::new();
     }
-    let mut lines = vec![String::new(), "## Card groups".to_string()];
+    let mut lines = section("Card groups");
     for (group, cards) in &ruleset.card_groups {
         let cards: Vec<String> = cards.iter().map(|card| words(card.label())).collect();
         lines.push(format!("- **{}**: {}.", human(group), cards.join(", ")));
@@ -288,7 +287,7 @@ fn team_setting_lines(ruleset: &Ruleset) -> Vec<String> {
     if ruleset.team_settings.is_empty() {
         return Vec::new();
     }
-    let mut lines = vec![String::new(), "## Team settings".to_string()];
+    let mut lines = section("Team settings");
     for settings in &ruleset.team_settings {
         let mut parts = Vec::new();
         for (value, name) in [
@@ -348,7 +347,7 @@ fn special_lines(ruleset: &Ruleset) -> Vec<String> {
     if ruleset.specials.is_empty() {
         return Vec::new();
     }
-    let mut lines = vec![String::new(), "## Special rules".to_string()];
+    let mut lines = section("Special rules");
     for special in &ruleset.specials {
         let when = cond_text(ruleset, &special.when);
         let when = if when.is_empty() {
@@ -462,46 +461,30 @@ fn tier_line(ruleset: &Ruleset, medal_tiers: &BTreeSet<&str>, tier: &Tier) -> St
 /// holds for every player.
 fn cond_text(ruleset: &Ruleset, condition: &Condition) -> String {
     let mut parts: Vec<String> = Vec::new();
-    if !condition.tiers.is_empty() {
-        parts.push(list(&condition.tiers, |id| tier_label(ruleset, id)));
-    }
-    if !condition.positions.is_empty() {
-        parts.push(format!(
-            "registered {}",
-            list(&condition.positions, |position| {
-                position.label().to_string()
+    parts.extend(listed(&condition.tiers, |id| tier_label(ruleset, id)));
+    parts.extend(
+        listed(&condition.positions, |position| {
+            position.label().to_string()
+        })
+        .map(|text| format!("registered {text}")),
+    );
+    parts.extend(
+        listed(&condition.systems, |id| {
+            label_or_id(&ruleset.heights.systems, id, |system| {
+                (system.id.as_str(), system.label.as_str())
             })
-        ));
-    }
-    if !condition.systems.is_empty() {
-        parts.push(format!(
-            "under {}",
-            list(&condition.systems, |id| {
-                ruleset
-                    .heights
-                    .systems
-                    .iter()
-                    .find(|system| system.id == *id)
-                    .map(|system| system.label.clone())
-                    .unwrap_or_else(|| id.clone())
+        })
+        .map(|text| format!("under {text}")),
+    );
+    parts.extend(
+        listed(&condition.brackets, |id| {
+            label_or_id(&ruleset.heights.brackets, id, |bracket| {
+                (bracket.id.as_str(), bracket.label.as_str())
             })
-        ));
-    }
-    if !condition.brackets.is_empty() {
-        parts.push(format!(
-            "{}s",
-            list(&condition.brackets, |id| {
-                ruleset
-                    .heights
-                    .brackets
-                    .iter()
-                    .find(|bracket| bracket.id == *id)
-                    .map(|bracket| bracket.label.clone())
-                    .unwrap_or_else(|| id.clone())
-                    .to_lowercase()
-            })
-        ));
-    }
+            .to_lowercase()
+        })
+        .map(|text| format!("{text}s")),
+    );
     match (condition.height_min, condition.height_max) {
         (Some(min), Some(max)) if min == max => parts.push(format!("{min} cm")),
         (Some(min), Some(max)) => parts.push(format!("{min} to {max} cm")),
@@ -514,45 +497,34 @@ fn cond_text(ruleset: &Ruleset, condition: &Condition) -> String {
         Some(false) => parts.push("not the captain".to_string()),
         None => {}
     }
-    if !condition.playing_styles.is_empty() {
-        parts.push(format!(
-            "playing as {}",
-            list(&condition.playing_styles, |style| human(style.label()))
-        ));
-    }
-    if !condition.holds.is_empty() {
-        parts.push(format!(
-            "holding {}",
-            list(&condition.holds, |card| human(card.label()))
-        ));
-    }
-    if !condition.rated_a_at.is_empty() {
-        parts.push(format!(
-            "rated A at {}",
-            list(&condition.rated_a_at, |position| {
-                position.label().to_string()
-            })
-        ));
-    }
-    if !condition.rated_b_at.is_empty() {
-        parts.push(format!(
-            "rated B at {}",
-            list(&condition.rated_b_at, |position| {
-                position.label().to_string()
-            })
-        ));
-    }
-    if !condition.name_colors.is_empty() {
-        parts.push(format!(
-            "named in colour {}",
-            list(&condition.name_colors, |color| color.clone())
-        ));
-    }
+    parts.extend(
+        listed(&condition.playing_styles, |style| human(style.label()))
+            .map(|text| format!("playing as {text}")),
+    );
+    parts.extend(
+        listed(&condition.holds, |card| human(card.label())).map(|text| format!("holding {text}")),
+    );
+    parts.extend(
+        listed(&condition.rated_a_at, |position| {
+            position.label().to_string()
+        })
+        .map(|text| format!("rated A at {text}")),
+    );
+    parts.extend(
+        listed(&condition.rated_b_at, |position| {
+            position.label().to_string()
+        })
+        .map(|text| format!("rated B at {text}")),
+    );
+    parts.extend(
+        listed(&condition.name_colors, |color| color.clone())
+            .map(|text| format!("named in colour {text}")),
+    );
     if let Some(position) = condition.fielded_only_at {
         parts.push(format!("fielded only at {}", position.label()));
     }
     for (value, (low, high)) in &condition.ranges {
-        parts.push(format!("{} {low} to {high}", words(value_name(value))));
+        parts.push(format!("{} {low} to {high}", words(value.key())));
     }
     if let Some(foot) = condition.strong_foot {
         parts.push(format!("{}-footed", foot.label()));
@@ -561,29 +533,25 @@ fn cond_text(ruleset: &Ruleset, condition: &Condition) -> String {
         let cases: Vec<String> = condition
             .any
             .iter()
-            .map(|case| {
-                let text = cond_text(ruleset, case);
-                if text.is_empty() {
-                    "anyone".to_string()
-                } else {
-                    text
-                }
-            })
+            .map(|case| cond_or_anyone(ruleset, case))
             .collect();
         parts.push(format!("any of ({})", cases.join("; ")));
     }
     if let Some(not) = &condition.not {
-        let text = cond_text(ruleset, not);
-        parts.push(format!(
-            "except {}",
-            if text.is_empty() {
-                "anyone".to_string()
-            } else {
-                text
-            }
-        ));
+        parts.push(format!("except {}", cond_or_anyone(ruleset, not)));
     }
     parts.join(", ")
+}
+
+/// `condition` as words, `anyone` when it holds for every player (an
+/// empty `any` case, an empty `not`).
+fn cond_or_anyone(ruleset: &Ruleset, condition: &Condition) -> String {
+    let text = cond_text(ruleset, condition);
+    if text.is_empty() {
+        "anyone".to_string()
+    } else {
+        text
+    }
 }
 
 /// A `PerTier` value as the draft spells it: `+5` for one number, `+2
@@ -593,11 +561,21 @@ where
     T: Copy + Into<i64> + Display,
 {
     let sign = |n: T| if n.into() > 0 { "+" } else { "" };
+    per_tier_with(ruleset, value, |n| format!("{}{n}{unit}", sign(*n)))
+}
+
+/// `value` as the draft spells it: `number(n)` for one number,
+/// `number(n) for <tier>` joined `, ` in the tiers' order for `ByTier`.
+fn per_tier_with<T>(
+    ruleset: &Ruleset,
+    value: &PerTier<T>,
+    number: impl Fn(&T) -> String,
+) -> String {
     match value {
-        PerTier::All(n) => format!("{}{n}{unit}", sign(*n)),
+        PerTier::All(n) => number(n),
         PerTier::ByTier(map) => by_tier(ruleset, map)
             .into_iter()
-            .map(|(id, n)| format!("{}{n}{unit} for {}", sign(*n), tier_label(ruleset, id)))
+            .map(|(id, n)| format!("{} for {}", number(n), tier_label(ruleset, id)))
             .collect::<Vec<_>>()
             .join(", "),
     }
@@ -624,14 +602,7 @@ fn effects_text(ruleset: &Ruleset, effects: &Effects) -> String {
         parts.push(format!("{} to {stat}", per_tier_text(ruleset, value, "")));
     }
     for (stat, value) in &effects.stat_target {
-        let target = match value {
-            PerTier::All(n) => n.to_string(),
-            PerTier::ByTier(map) => by_tier(ruleset, map)
-                .into_iter()
-                .map(|(id, n)| format!("{n} for {}", tier_label(ruleset, id)))
-                .collect::<Vec<_>>()
-                .join(", "),
-        };
+        let target = per_tier_with(ruleset, value, ToString::to_string);
         parts.push(format!("{} target {target}", words(stat.label())));
     }
     if let Some(cards) = &effects.cards {
@@ -658,18 +629,13 @@ fn effects_text(ruleset: &Ruleset, effects: &Effects) -> String {
             per_tier_text(ruleset, value, "")
         ));
     }
-    if !effects.free_cards.is_empty() {
-        parts.push(format!(
-            "{} free",
-            list(&effects.free_cards, |card| human(card.label()))
-        ));
-    }
-    if !effects.require_cards.is_empty() {
-        parts.push(format!(
-            "must hold {}",
-            list(&effects.require_cards, |card| human(card.label()))
-        ));
-    }
+    parts.extend(
+        listed(&effects.free_cards, |card| human(card.label())).map(|text| format!("{text} free")),
+    );
+    parts.extend(
+        listed(&effects.require_cards, |card| human(card.label()))
+            .map(|text| format!("must hold {text}")),
+    );
     if let Some(a_positions) = &effects.a_positions {
         parts.push(format!(
             "{} A position",
@@ -701,14 +667,7 @@ fn effects_text(ruleset: &Ruleset, effects: &Effects) -> String {
         parts.push(format!("count {allowance} cm shorter"));
     }
     if let Some(stat_warning) = &effects.stat_warning {
-        let band = match stat_warning {
-            PerTier::All(value) => value.to_string(),
-            PerTier::ByTier(map) => by_tier(ruleset, map)
-                .into_iter()
-                .map(|(id, value)| format!("{value} for {}", tier_label(ruleset, id)))
-                .collect::<Vec<_>>()
-                .join(", "),
-        };
+        let band = per_tier_with(ruleset, stat_warning, ToString::to_string);
         parts.push(format!("warning band {band}"));
     }
     if let Some(forbid) = &effects.forbid {
@@ -731,27 +690,25 @@ fn effects_text(ruleset: &Ruleset, effects: &Effects) -> String {
     parts.join(", ")
 }
 
-/// `value`'s `RULESET` spelling (the name a `ranges` key carries).
-fn value_name(value: &PlayerValue) -> &'static str {
-    match value {
-        PlayerValue::Stat(stat) => stat.label(),
-        PlayerValue::Age => "age",
-        PlayerValue::Weight => "weight",
-        PlayerValue::Form => "form",
-        PlayerValue::InjuryResistance => "injury_resistance",
-        PlayerValue::WeakFootUsage => "weak_foot_usage",
-        PlayerValue::WeakFootAccuracy => "weak_foot_accuracy",
-    }
+/// `id`'s label on the item of `items` holding it (`id_label` gives an
+/// item's `(id, label)`), or the id itself when none does.
+fn label_or_id<'a, T>(
+    items: &'a [T],
+    id: &str,
+    id_label: impl Fn(&'a T) -> (&'a str, &'a str),
+) -> String {
+    items
+        .iter()
+        .find(|item| id_label(*item).0 == id)
+        .map(|item| id_label(item).1.to_string())
+        .unwrap_or_else(|| id.to_string())
 }
 
 /// `id`'s tier label, or the id itself when no tier has it.
 fn tier_label(ruleset: &Ruleset, id: &str) -> String {
-    ruleset
-        .tiers
-        .iter()
-        .find(|tier| tier.id == id)
-        .map(|tier| tier.label.clone())
-        .unwrap_or_else(|| id.to_string())
+    label_or_id(&ruleset.tiers, id, |tier| {
+        (tier.id.as_str(), tier.label.as_str())
+    })
 }
 
 /// `id` as titled words (`ball_winning` → `Ball Winning`, `gk` → `GK`,
@@ -777,6 +734,16 @@ fn upper_first(text: &str) -> String {
     match chars.next() {
         Some(first) => first.to_uppercase().collect::<String>() + chars.as_str(),
         None => String::new(),
+    }
+}
+
+/// `items` joined by `list`, `None` when it holds none (a caller
+/// phrases the text around it only when it exists).
+fn listed<T>(items: &[T], label: impl Fn(&T) -> String) -> Option<String> {
+    if items.is_empty() {
+        None
+    } else {
+        Some(list(items, label))
     }
 }
 
