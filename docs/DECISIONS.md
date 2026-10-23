@@ -10374,3 +10374,24 @@ manifest's tasks are the unit that commits whole. The printer is tool-neutral an
 a `Complete` is coming until the stream ends, and a count left behind by a run that sends none
 would read as unfinished.
 Plan: `plans/core/architecture.md` "The console's progress line and run summary"; worklog 0.0.1a.
+
+## 2026-10-23 — studio, team_compiler — the run summary counts exports skipped, and distinct folders
+Decision: `Complete` gains `skipped_exports`, the distinct exports a `DropExport` finding
+refused, and the console's summary reads `Done: 1,284 files written, 1 export skipped,
+2 folders skipped, 1 folder with errors, 0:42`; `skipped_folders` counts distinct folders (a
+file's finding counting its folder), not findings.
+Why: a review found that an export refused whole shows in no folder count, so a run that left
+a team out ended on "0 folders skipped", and that a player folder with two broken files was
+counted twice; the plan's four items were silent on both.
+Plan: `plans/core/architecture.md` "The console's progress line and run summary"; worklog 0.0.1a.
+
+## 2026-10-23 — team_compiler — an unfinished upgrade's staging folder is skipped with a Warning
+Decision: the compiler's discovery skips a folder whose name ends in `.upgrading` with the
+Warning `export_upgrade_unfinished` naming it; the folder takes no part in duplicate detection
+or planning. The upgrader keeps refusing while it exists (EU-CLI-05), and the member removes it.
+Why: 0.0.1c's kill measurement left `<output>.upgrading` in `exports/` after every upgrade
+killed mid-write (10 of 10 fired kills); `quick_upgrade.bat` upgrades into `exports/`, so the
+next `quick_compile.bat` compiled the half-migrated folder as an export of the same team. A
+skip with a Warning rather than an upgrader that sweeps its dead staging: a sweep needs a lock
+the upgrader does not hold today, and the compile must not take the folder in either case.
+Plan: `plans/team_compiler/pipeline.md` "1. Reader"; worklog 0.0.1c.

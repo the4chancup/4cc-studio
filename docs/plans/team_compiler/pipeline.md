@@ -12,6 +12,17 @@ In **Discovery** (step 1): In the GUI this scan is
 continuous (folder watcher, see `plans/team_compiler/gui.md` "Live validation"); in the CLI it runs once.
 A disabled export is omitted from the grid.
 
+Also in **Discovery**: a folder whose name ends in `.upgrading` (any letter case) is skipped
+with a Warning, `export_upgrade_unfinished`, naming it: it is the Export upgrader's staging
+folder (`spec/export_upgrader.md` "CLI"), which an upgrade killed part way (the console
+closed, Ctrl+C) leaves beside the output it was writing. Upgrading into `exports/`, as
+`quick_upgrade.bat` does, puts it where the compiler looks, and its first word is the team's,
+so without the skip a half-migrated export would compile, or refuse its team's finished
+export as a duplicate. A Warning, not the Info `export_disabled` gets: the folder is a
+failure the member has to clear (remove it, then upgrade the old export again; the upgrader
+refuses while it exists, EU-CLI-05), not a choice they made. The skipped folder takes no
+part in duplicate detection or planning, as a disabled export does.
+
 In **Load** (step 4): the eagerly loaded structure is also what the grid needs.
 
 ### 2. Per-export serial steps (coordinator)

@@ -192,8 +192,11 @@ results from a stale filesystem snapshot cannot overwrite newer checks.
 (`std::io::IsTerminal`), the console printer draws one progress line on stderr
 (`[ 37/120 exports | 1,284/4,010 parts | 0:42 ]`, the stage once `Progress` carries it), redrawn
 at most ten times a second and cleared while a finding line goes to stdout, then drawn again; on
-`Complete` it leaves one summary line in its place (files written, folders skipped, folders with
-errors, elapsed time). When stderr is not a terminal (piped, redirected, a script or CI) neither is
+`Complete` it leaves one summary line in its place (files written, exports skipped, folders
+skipped, folders with errors, elapsed time; each a count of distinct exports or folders, never
+of findings, since one folder often has several). Exports skipped are counted apart from
+folders: an export refused whole (two exports of one team, a disabled one) names no folder,
+and counting it as none would end a run that left a team out on "0 folders skipped". When stderr is not a terminal (piped, redirected, a script or CI) neither is
 drawn, and stdout carries exactly the finding lines and result text it carries without them, so
 the CLI tests and any script reading stdout see no change; no flag turns it on or off. The printer
 is tool-neutral, so every tool that emits `Progress` gets the line; the Team compiler is the first.

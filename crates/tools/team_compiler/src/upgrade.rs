@@ -7,7 +7,7 @@
 
 use std::collections::BTreeSet;
 use std::fs;
-use std::io::{self, Write};
+use std::io;
 use std::path::Path;
 
 use anyhow::{Context, bail};
@@ -198,7 +198,7 @@ pub(crate) fn run(
     }
     for cpk in &plan.placeholders {
         if apply {
-            write_new(&download.join(cpk), templates.placeholder_cpk())?;
+            write_new(download, cpk, templates.placeholder_cpk())?;
         }
         let context = vec![("cpk", cpk.clone())];
         events.message(finding(Code::DpfilelistPlaceholderWritten, context));
@@ -283,23 +283,24 @@ fn rename(download: &Path, from: &str, to: &str) -> anyhow::Result<()> {
         .with_context(|| format!("{}: cannot rename it to {to}", source.display()))
 }
 
-/// Writes `bytes` as the new file `path`, never over an existing one. A write that fails part
-/// way removes the file, so a second run writes it again rather than keep a cut one.
-fn write_new(path: &Path, bytes: &[u8]) -> anyhow::Result<()> {
-    let cannot_write = || format!("{}: cannot write it", path.display());
-    let mut file = fs::OpenOptions::new()
-        .write(true)
-        .create_new(true)
-        .open(path)
-        .with_context(cannot_write)?;
-    if let Err(error) = file.write_all(bytes) {
-        drop(file);
-        if let Err(removal) = fs::remove_file(path) {
-            log::debug!("{}: kept: {removal}", path.display());
-        }
-        return Err(error).with_context(cannot_write);
+/// Writes `bytes` as the new file `name` in `download`, never over an existing one and never
+/// half-written under its name: the bytes land in a temporary sibling first, renamed into
+/// place by `rename`, which refuses a name taken since the listing. A run killed mid-write
+/// leaves only the temporary, which the game does not read; a file cut short under the CPK's
+/// own name would be read, and kept by every later run, which writes no name that exists.
+/// A rename rather than a hard link, which is atomic and refuses a taken name by itself:
+/// FAT32 and exFAT, where a game folder may sit, have no hard links.
+fn write_new(download: &Path, name: &str, bytes: &[u8]) -> anyhow::Result<()> {
+    let temporary = format!(".{name}-{}.tmp", std::process::id());
+    let written = fs::write(download.join(&temporary), bytes)
+        .with_context(|| format!("{}: cannot write it", download.join(name).display()))
+        .and_then(|()| rename(download, &temporary, name));
+    if written.is_err()
+        && let Err(removal) = fs::remove_file(download.join(&temporary))
+    {
+        log::debug!("{temporary}: kept: {removal}");
     }
-    Ok(())
+    written
 }
 
 #[cfg(test)]
@@ -491,16 +492,38 @@ mod tests {
     #[test]
     fn a_new_file_is_written_and_an_existing_one_never_overwritten() {
         let temp = scratch("upgrade_write_new");
-        let path = temp.path().join("4cc_61_midcup.cpk");
-        write_new(&path, b"placeholder").unwrap();
+        let download = temp.path();
+        let path = download.join("4cc_61_midcup.cpk");
+        write_new(download, "4cc_61_midcup.cpk", b"placeholder").unwrap();
         assert_eq!(fs::read(&path).unwrap(), b"placeholder");
 
-        let error = write_new(&path, b"another").unwrap_err();
+        let error = write_new(download, "4cc_61_midcup.cpk", b"another").unwrap_err();
         assert!(
-            format!("{error:#}").starts_with(&format!("{}: cannot write it: ", path.display())),
+            format!("{error:#}").ends_with(": the file already exists"),
             "{error:#}"
         );
         assert_eq!(fs::read(&path).unwrap(), b"placeholder");
+        // Neither write leaves its temporary behind.
+        assert_eq!(
+            file_names(download).unwrap(),
+            BTreeSet::from(["4cc_61_midcup.cpk".to_owned()])
+        );
+    }
+
+    #[test]
+    fn a_placeholder_is_written_under_a_temporary_name_first() {
+        // A kill mid-write leaves what `fs::write` had written; it must not be under the
+        // CPK's name, which the game reads and no later run writes again. The temporary this
+        // run would use is made a folder, so the write fails before any byte is written:
+        // the CPK's name stays free.
+        let temp = scratch("upgrade_write_new_temporary");
+        let download = temp.path();
+        let temporary = format!(".4cc_61_midcup.cpk-{}.tmp", std::process::id());
+        fs::create_dir(download.join(&temporary)).unwrap();
+
+        assert!(write_new(download, "4cc_61_midcup.cpk", b"placeholder").is_err());
+
+        assert!(!download.join("4cc_61_midcup.cpk").exists());
     }
 
     #[test]

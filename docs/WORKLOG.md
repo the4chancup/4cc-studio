@@ -1362,7 +1362,21 @@ briefs, review loops, gates and mutation runs as for any step.
   upgrade; what is left where the game reads it (`download/`, the DpFileList, the savefile) and
   in `exports/`, tallied per point; a half-written file the game would read is fixed (written
   under a temporary name and renamed, as the upgrader's staging does) or recorded with why not
-  → verify: the tally in the Done line, each fix tested
+  → verify: the tally in the Done line, each fix tested. So far (2026-10-23, SWE-2's audit
+  and kill harness, `.tmp/0_0_1/interrupt/`: `write_map.md`, `tally.md` from 65 runs, each
+  killed by `taskkill /F /T` and run again): no kill left a cut CPK, save, `.partial` or
+  `.tmp` under a name the game reads, and every second compile ended clean, the dead
+  staging swept. Recorded, not fixed: between moving a CPK aside and renaming its
+  `.partial` in, a kill leaves that CPK missing (the game runs without it until the next
+  compile, which installs it); a kill between the install and the savefile write leaves the
+  new CPKs with the old save, until the next compile. Fixed: `upgrade-dpfl` wrote each
+  placeholder straight under its CPK name, which a kill could cut short for good (it writes
+  no name that exists); it writes a temporary and renames it. Open: a killed upgrade leaves
+  `<output>.upgrading` in `exports/`, which the next compile took as an export (all 10
+  fired kills); the compiler skips it with a Warning (`plans/team_compiler/pipeline.md`
+  "1. Reader"), briefed with 0.0.1a rework 3. The worklog's "pre-Fox compile's savefile
+  write" does not exist (the pre-Fox patch half is unbuilt): the save editor's
+  `import-toml` on a PES 16 save stood in, the same writer
 - [ ] 0.0.1d `just release <version>` (`plans/core/distribution.md` "Distribution: portable .7z
   bundle"; Windows only), under the codename (`plans/core/development_plan.md` "The preview's
   codename: Unlimited Tool Works": one display-name constant for the title, About, first run,

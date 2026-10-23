@@ -2338,3 +2338,5 @@ worklog passed 7,000 lines.
   `quick_compile.bat` (the bundle's `exports/`), each pausing at the end; tested through `cmd /c` in a sandboxed bundle.
 - **2026-10-23** — 8.9e closed: SWE-2 S5 accepted 2 of 7 (two tests that could not fail), ending the review loops;
   rework 7 fixed both. 8.9h opened: inside the editor's scroll area a narrow window clips the rows instead of wrapping.
+- **2026-10-23** — 0.0.1c measured: 65 killed runs left no cut file under a name the game reads; `upgrade-dpfl`'s
+  placeholders now go through a temporary. A killed upgrade's `.upgrading` folder compiled as an export: skip planned.
