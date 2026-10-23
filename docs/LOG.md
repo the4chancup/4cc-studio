@@ -2353,3 +2353,5 @@ worklog passed 7,000 lines.
   active view, their CLI, help and settings kept (ST-SIDE-08). 0.0.1e's upgrade passes ran: 52 of 53 VGL26 exports.
 - **2026-10-23** — 0.0.1e: the rehearsal on PES 2019 with FoxDen: 52 of VGL26's 53 exports upgraded, compiled and drawn
   in Edit mode; the defaults cannot install on the 4cc PES 2019 patch's DpFileList (QUESTIONS). Game and save restored.
+- **2026-10-23** — 8.9g: PES 2021's formation screen measured (its pitch texture decoded from `gamePlan.bin`, two in-game
+  captures) into the plan; the v2 draft paints it with the sample teams' real portraits and coloured names.

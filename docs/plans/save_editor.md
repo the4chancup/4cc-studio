@@ -284,12 +284,48 @@ Win32 original hurt the most):
   players are **dragged** to reposition (x/y), with position labels and snapping.
   4ccEditor's per-slot dropdown + coordinate fields remain as a detail popover on
   click, not the primary interface.
-- **The pitch looks like PES 2021's own formation screen**, reproduced as closely as the
-  game's assets and a capture of its screen allow: its turf and lines, and each starter shown
-  as the game shows him, by his portrait, read from the selected game's `download/` CPKs when
-  that folder is found and holds one (the plain chip otherwise). Every version's save draws
-  the same pitch: it is the editor's look, not a version gate. What the reproduction is
-  measured against is settled when its step is briefed (worklog 8.9g).
+- **The pitch looks like PES 2021's own formation screen** (Edit, Teams, a team, Game Plan,
+  Team Sheet/Edit Position), each starter shown as the game shows him, by his portrait, read
+  from the selected game's `download/` CPKs when that folder is found and holds one. Every
+  version's save draws the same pitch: it is the editor's look, not a version gate. The
+  reference is the screen's own pitch texture (the 480 x 576 pitch with faint lines in the
+  atlas of `common/menu/general/gamePlan.bin`, `Data/dt11_x64.cpk`; the 4cc patch does not
+  replace it) and a 1280 x 720 capture of the screen, which draws that texture at two thirds
+  of its size (mean luma difference 1.7 of 255). The canvas is drawn at the capture's scale,
+  320 x 384, and painted from these measurements rather than from the texture, which is
+  Konami's and which a member without PES 2021 does not have:
+  - **Turf**: eleven equal horizontal bands, dark at both ends, dark `#2d571d` and light
+    `#35602a`, with the texture's grain (a fixed noise of luma deviation about 3.5).
+  - **Lines**: white at 20% opacity, 2 px wide; no touchlines (the texture has none). The
+    halfway line; the centre circle, radius 36; each penalty box 160 wide, centred, 66 deep;
+    each goal area 74 wide, 22 deep; each penalty arc, of the centre circle's radius about the
+    penalty spot 44 from the goal line, drawn outside the box.
+  - **A slot's spot** is its marker's badge centre, at (12.8 + 2.827 x, 363.8 - 6.793 y) on
+    the canvas: x 0 to 104 across the width, y 24 on the halfway line, the attack end up. This
+    is the screen's own mapping, fitted on the ten outfield slots of /3/ (the 4chan Cup save)
+    within half a pixel. A drop snaps through the same mapping. The keeper's marker is drawn
+    where the screen draws him, badge centred on the goal area's line (canvas y 358.5), not
+    through the mapping, which would put his stored spot 15 px higher; that spot is (52, 3)
+    in every one of the PES 2021 save's 1,890 formations, and the editor never moves it.
+  - **A marker**, top to bottom: the portrait, the whole 128 x 128 texture drawn 50 x 50
+    standing on the badge (the cup's portraits carry their own padding and any ribbon); the
+    badge, 50 x 14, `#242b2d`, corners 2, the position's abbreviation at its left in its
+    group's colour (forwards `#ff2c77`, midfielders `#57e42b`, defenders `#00d2ff`, keeper
+    `#ffde00`); the name in its colour codes' colours (white where it has none: the screen
+    draws them as its lists do), 13 px below the badge's centre, centred, or from the
+    badge's left edge and cut at its right when wider (the game then scrolls it; the editor
+    does not animate). The captain's mark, a white rounded box with a black "C", 12 x 11, sits
+    1 px inside the badge's left edge, 5 px above it, over the portrait. A starter with no
+    portrait found shows the badge and name alone. Markers are drawn from the top of the
+    canvas down, a lower marker covering the one above as the game's do (the keeper's
+    portrait over a centre-back's badge), the dragged one last; a press or a drop hits the
+    marker drawn on top.
+  - **What the screen shows that the editor leaves out**: the overall rating at the badge's
+    right, the game's own computation, which the suite does not have. The screen's selection
+    marks are reused for the editor's states: the open popover's marker gets the selected
+    player's corner brackets (`#14fbff`), and every marker the armed assignment mode can take
+    gets the candidates' (`#ff4e7f`), each a 50 x 50 box of corners around the portrait; a
+    join member while join mode is armed has its badge filled `#005c80`.
 - **Lineup by drag-and-drop**: the starting XI and bench are reorderable lists;
   **dragging a bench player onto a pitch player swaps them** (and vice versa).
   The arrow-button ordering UI is gone.

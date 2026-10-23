@@ -20,7 +20,8 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9f-h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-e and g done, 0.0.1f at the cut; the Team
+8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9g, the pitch as the game's,
+under way, its reference and draft done; 8.9f and h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-e and g done, 0.0.1f at the cut; the Team
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
@@ -1221,6 +1222,30 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       (the game's formation screen captured in game, its UI textures in the game's CPKs), the
       starters' portraits read from the selected game's `download/` CPKs; in the v2 draft
       first, with real portraits, then in `team_widgets::pitch`
+      - [x] the reference and the draft. Done 2026-10-23 (lead): PES 2021's Team Sheet/Edit
+        Position captured in game (pad and OBS, /3/ and /f/ of the 4chan Cup save, backed up
+        and unchanged after); its pitch texture decoded from `dt11_x64.cpk`'s
+        `common/menu/general/gamePlan.bin` (WESYS, then an AFP whose TXP2 textures are
+        Okumura LZSS streams of TXDT images: BC1/BC3 in byte-swapped 16-bit words, or ARGB8;
+        `.tmp/8_9g/all_textures.py`) and matched to the capture (mean luma difference 1.7);
+        bands, lines, grain, colours, marker geometry and the slot-to-badge mapping (fitted
+        on ten slots within half a pixel; every keeper of the save at (52, 3)) measured into
+        the plan. The v2 draft paints it, with the sample teams' portraits from both games'
+        `download/` CPKs (138, `.tmp/8_9g/portraits.py`; PES 17's may be WESYS-wrapped) and a
+        draft control for none; side by side with the capture it differs only by the
+        overall rating the plan leaves out. Harness 53 of 53 (its SE-GUI-12 drop now picks
+        a grass spot, since the markers grew). Files: `plans/save_editor.md`,
+        `prototypes/save_editor_v2.html`
+      - [ ] slice 1, the look in `team_widgets::pitch`: the turf, lines, mapping, keeper spot,
+        markers (badge, coloured name, captain mark, selection corners, draw order) and the
+        snap through the same mapping, the portrait drawn from a texture the host hands in →
+        verify: the mapping's fitted points, the keeper spot, the draw order and the snap
+        round trip by unit tests; the Tactics tab beside the draft at the same scale
+      - [ ] slice 2, the portraits: the save editor reads each starter's portrait from the
+        save's game's `download/` CPKs in DpFileList order (the last listed wins; PES 15-17
+        `player_<id>.dds`, WESYS-wrapped or not, PES 18-21 `<id>.dds`), off the UI thread,
+        cached per save; none found, the marker draws without one → verify: a fixture CPK's
+        portrait reaches its marker, a missing folder leaves every marker without one
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live
       AATF (`plans/save_editor.md` "Configurable AATF rules", SE-GUI-30; the maintainer's
       request of 2026-10-21): the toolbar toggle, the docked bottom panel with its header,

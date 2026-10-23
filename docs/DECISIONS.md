@@ -10456,3 +10456,19 @@ nor predict the output's name (the upgrader names it from the resolved team), so
 bat would need the upgrader to grow a new exit code for one launcher that goes when the view
 lands. One readme step costs nothing.
 Plan: `plans/core/development_plan.md` "The /vg/ League 27 (VGL)", the `quick_upgrade.bat` item.
+
+## 2026-10-23 — save_editor, team_widgets — the Tactics pitch is painted from the game's measured screen
+Decision: the Tactics pitch is painted from measurements of PES 2021's formation screen (its own
+pitch texture, decoded from `gamePlan.bin` in `dt11_x64.cpk`, and a capture of the screen): the
+turf's eleven bands and grain, the lines at 20% white, the screen's slot-to-badge mapping fitted
+within half a pixel, the keeper at the screen's own spot, and each marker as portrait, badge and
+name with the game's colours. The badge leaves out the overall rating; the screen's selection
+corners mark the editor's open popover and armed mode.
+Why: the maintainer asked for the game's own look (DECISIONS 2026-10-23, the pitch with
+portraits). Painted rather than the texture drawn: the texture is Konami's, the program does
+not ship it, and a member with only an older game has no PES 2021 install to read it from,
+while every version's save draws the same pitch. The rating is the game's computation, which
+the suite does not have; a number of ours beside the game's own position badge would read as
+the game's. The editor's states reuse the screen's marks so the pitch introduces no look of its
+own.
+Plan: `plans/save_editor.md` "Tactics editor" (the pitch's look); worklog 8.9g.
