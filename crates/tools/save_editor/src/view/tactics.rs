@@ -68,6 +68,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             name: name.as_str(),
             raw_name: raw_name.as_str(),
             registered_position: *position,
+            portrait: None,
         })
         .collect();
     // Every widget id under the tab is the team's within this open (the

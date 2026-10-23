@@ -10472,3 +10472,29 @@ the suite does not have; a number of ours beside the game's own position badge w
 the game's. The editor's states reuse the screen's marks so the pitch introduces no look of its
 own.
 Plan: `plans/save_editor.md` "Tactics editor" (the pitch's look); worklog 8.9g.
+
+## 2026-10-23 — save_editor, team_widgets — the pitch's long names scroll on one clock from the tab's opening
+Decision: a starter's name wider than his badge scrolls as the game's formation screen scrolls
+it (13.5 s period, 40 px/s, a 16 px gap before its start follows), every name's period starting
+when the pitch first shows it, still first; the editor does not reproduce the game's stagger
+between names.
+Why: the maintainer asked for the game's scrolling (an idea, to be dropped if costly; it is one
+offset function and a repaint request while a name moves). Four names measured over 30 s
+captures share the period and the speed, but two started 2.1 s apart by a rule the captures do
+not establish; an invented stagger would be a guess dressed as the game's, and names that start
+together read the same way.
+Plan: `plans/save_editor.md` "Tactics editor" (the pitch's look, "A marker"); worklog 8.9g.
+
+## 2026-10-23 — cpk, pes_savefile, team_compiler — the DpFileList reader and the portrait path move to the libs
+Decision: the Team compiler's DpFileList reader (`bins/dpfl.rs`, with its fixtures and tests)
+moves to `cpk`, its errors a `thiserror` enum with the same texts; the portrait's CPK path
+(`paths::portrait`) moves to `pes_savefile` beside the player tables' paths. The compiler calls
+both from there; the Save editor reads portraits through them.
+Why: the Save editor's pitch shows each starter's portrait from the selected game's
+`download/` CPKs, which needs the list's load order and the path the compiler writes portraits
+to. A copy in the editor would be two rules for one path, and the day one changed, compiled
+portraits would stop showing in the editor with no test failing. `cpk` is the CPK family's
+crate and has no other home for a list of CPKs; `pes_savefile` already holds the CPK paths the
+compiler and the editor share (the player tables).
+Plan: `plans/save_editor.md` "Tactics editor" (the pitch's look, "Portraits"); worklog 8.9g
+slice 2.

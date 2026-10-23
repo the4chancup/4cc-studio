@@ -254,9 +254,8 @@ mod tests {
     use pes_savefile::model::instruction::Instruction;
     use pes_version::PesVersion;
 
-    use super::super::{marker_rect, pitch_point};
     use super::*;
-    use crate::pitch::tests::{canvas_rect, lineup_rows, position_of_row, row_centre};
+    use crate::pitch::tests::{lineup_rows, marker_point, position_of_row, row_centre};
     use crate::test_support::{
         Headless, centre, entry, fixture_rows, fixture_tactics, pointer_at, roster_rows,
     };
@@ -628,17 +627,8 @@ mod tests {
         tactics.set_pieces.penalty = out;
         let (nodes, _) =
             window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-        let canvas = canvas_rect(&nodes);
         let formation = tactics.presets[0].formations[0].clone();
-        let from = marker_rect(
-            pitch_point(
-                canvas.min,
-                formation.players[index].x,
-                formation.players[index].y,
-            ),
-            canvas,
-        )
-        .center();
+        let from = marker_point(&nodes, &formation.players, index);
 
         let changed = window.drag_pitch_and_lineup(
             from,

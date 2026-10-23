@@ -126,25 +126,17 @@ fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
         "premise: a real change"
     );
 
-    // The popover on an outfield marker no other marker covers (a covered
-    // centre would open a later marker's), the X field focused, "55"
+    // The popover on an outfield marker a click can reach (a point inside
+    // its box no marker drawn after it covers), the X field focused, "55"
     // typed (no Enter: the field keeps the keyboard, the span unsealed).
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let canvas = canvas_of(&nodes);
-    let covered = |centre: egui::Pos2, slot: &FormationSlot| {
-        let other = marker_centre(canvas, *slot);
-        (other.x - centre.x).abs() <= 21.0 && (other.y - centre.y).abs() <= 13.0
-    };
-    let index = (0..11)
-        .find(|&index| {
-            players[index].position != 0
-                && players.iter().enumerate().all(|(other, slot)| {
-                    other == index || !covered(marker_centre(canvas, players[index]), slot)
-                })
-        })
-        .expect("a marker no other marker covers");
+    let (index, at) = (0..11)
+        .filter(|&index| players[index].position != 0)
+        .find_map(|index| marker_point(canvas, &players, index).map(|at| (index, at)))
+        .expect("a marker a click can reach");
     let slot_before = players[index];
-    click_at(&mut window, marker_centre(canvas, slot_before), &mut view);
+    click_at(&mut window, at, &mut view);
     let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let x_label = ids
         .iter()
@@ -238,26 +230,18 @@ fn a_typed_popover_edit_then_make_gk_undo_as_two_entries() {
         .position(|slot| slot.position == 0)
         .expect("the fixture has a keeper slot");
 
-    // The popover on an outfield marker no other marker covers (a covered
-    // centre would open a later marker's), the X field focused, "55"
+    // The popover on an outfield marker a click can reach (a point inside
+    // its box no marker drawn after it covers), the X field focused, "55"
     // typed (no Enter: the field keeps the keyboard, the span unsealed).
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let canvas = canvas_of(&nodes);
-    let covered = |centre: egui::Pos2, slot: &FormationSlot| {
-        let other = marker_centre(canvas, *slot);
-        (other.x - centre.x).abs() <= 21.0 && (other.y - centre.y).abs() <= 13.0
-    };
-    let index = (0..11)
-        .find(|&index| {
-            players[index].position != 0
-                && players.iter().enumerate().all(|(other, slot)| {
-                    other == index || !covered(marker_centre(canvas, players[index]), slot)
-                })
-        })
-        .expect("a marker no other marker covers");
+    let (index, at) = (0..11)
+        .filter(|&index| players[index].position != 0)
+        .find_map(|index| marker_point(canvas, &players, index).map(|at| (index, at)))
+        .expect("a marker a click can reach");
     assert_ne!(index, keeper, "premise: not the keeper's slot");
     let slot_before = players[index];
-    click_at(&mut window, marker_centre(canvas, slot_before), &mut view);
+    click_at(&mut window, at, &mut view);
     let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let x_label = ids
         .iter()
@@ -344,9 +328,9 @@ fn a_typed_popover_edit_then_make_gk_undo_as_two_entries() {
     );
 }
 
-/// The popover on an outfield marker no other marker covers (a covered
-/// centre would open a later marker's), opened and its X field focused
-/// (the DragValue holding the keyboard, no Enter): the marker's
+/// The popover on an outfield marker a click can reach (a point inside
+/// its box no marker drawn after it covers), opened and its X field
+/// focused (the DragValue holding the keyboard, no Enter): the marker's
 /// formation index and the X and Y fields' AccessKit ids.
 fn open_popover_and_focus_x(
     window: &mut Headless,
@@ -355,19 +339,12 @@ fn open_popover_and_focus_x(
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
     let canvas = canvas_of(&nodes);
     let players = team_entry(view, 701).tactics.presets[0].formations[0].players;
-    let covered = |centre: egui::Pos2, slot: &FormationSlot| {
-        let other = marker_centre(canvas, *slot);
-        (other.x - centre.x).abs() <= 21.0 && (other.y - centre.y).abs() <= 13.0
-    };
-    let index = (0..11)
-        .find(|&index| {
-            players[index].position != 0
-                && players.iter().enumerate().all(|(other, slot)| {
-                    other == index || !covered(marker_centre(canvas, players[index]), slot)
-                })
-        })
-        .expect("a marker no other marker covers");
-    click_at(window, marker_centre(canvas, players[index]), view);
+    // The popover on an outfield marker a click can reach.
+    let (index, at) = (0..11)
+        .filter(|&index| players[index].position != 0)
+        .find_map(|index| marker_point(canvas, &players, index).map(|at| (index, at)))
+        .expect("a marker a click can reach");
+    click_at(window, at, view);
     let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
     let x_label = ids
         .iter()

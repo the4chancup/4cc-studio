@@ -1236,14 +1236,27 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         overall rating the plan leaves out. Harness 53 of 53 (its SE-GUI-12 drop now picks
         a grass spot, since the markers grew). Files: `plans/save_editor.md`,
         `prototypes/save_editor_v2.html`
-      - [ ] slice 1, the look in `team_widgets::pitch`: the turf, lines, mapping, keeper spot,
+      - [x] slice 1, the look in `team_widgets::pitch`: the turf, lines, mapping, keeper spot,
         markers (badge, coloured name, captain mark, selection corners, draw order) and the
-        snap through the same mapping, the portrait drawn from a texture the host hands in →
-        verify: the mapping's fitted points, the keeper spot, the draw order and the snap
-        round trip by unit tests; the Tactics tab beside the draft at the same scale
+        snap through the same mapping, the portrait drawn from a texture the host hands in;
+        then, in its rework, a wider name's scroll (the maintainer's idea of 2026-10-23,
+        measured in game the same day: 13.5 s period, 40 px/s, 16 px gap; the draft scrolls)
+        → verify: the mapping's fitted points, the keeper spot, the draw order, the snap
+        round trip and the scroll's offsets by unit tests; the Tactics tab beside the draft
+        at the same scale. Done 2026-10-23 (SWE-2, 38 min, and rework 1 for the scroll, 15
+        min; the lead merged the scroll's two phase computations): the turf a 480 x 576
+        texture made once per context, the markers interacted and painted top-down, the
+        captain read from `set_pieces.captain` (the sidekick's correction of the brief), the
+        scroll's clock in the context's memory restarting when a frame skips the pitch, a
+        repaint asked for at the next name's move; `RosterRow::portrait` added, the host
+        passing none until slice 2; the save editor's view tests ported to the new geometry.
+        Not yet seen in the built window beside the draft (with slice 2's portraits). Files:
+        `team_widgets/src/{pitch/{mod.rs,popover.rs,lineup.rs,tests/*},tactics/mod.rs,
+        test_support.rs}`, `save_editor/src/view/{tactics.rs,tests.rs,tests/*}`
       - [ ] slice 2, the portraits: the save editor reads each starter's portrait from the
-        save's game's `download/` CPKs in DpFileList order (the last listed wins; PES 15-17
-        `player_<id>.dds`, WESYS-wrapped or not, PES 18-21 `<id>.dds`), off the UI thread,
+        save's game's `download/` CPKs in DpFileList order (the last listed wins; the
+        compiler's portrait path: PES 15-18 `player_<id>.dds`, PES 19-21 `<id>.dds`; a
+        WESYS-wrapped DDS unwrapped, as `dds_convert::decode` does), off the UI thread,
         cached per save; none found, the marker draws without one → verify: a fixture CPK's
         portrait reaches its marker, a missing folder leaves every marker without one
     - [x] before slice 4 is briefed, the draft `docs/prototypes/save_editor.html` draws Live

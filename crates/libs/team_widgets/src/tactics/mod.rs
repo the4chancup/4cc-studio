@@ -56,6 +56,9 @@ pub struct RosterRow<'a> {
     pub raw_name: &'a str,
     /// The player's registered position byte; `None` an empty slot.
     pub registered_position: Option<u8>,
+    /// The player's portrait, already uploaded by the host; `None` when none
+    /// was found (or the host reads none): the marker then draws without one.
+    pub portrait: Option<egui::TextureId>,
 }
 
 /// One of the five sliders (the draft's `SLIDERS`): its label, its range

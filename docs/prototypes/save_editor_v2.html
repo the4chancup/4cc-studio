@@ -4269,6 +4269,27 @@ function portraitOf(p) {
   }
   return portraitImages[uri].complete ? portraitImages[uri] : null;
 }
+// A wider name's scroll, measured on the game's screen: every `period`
+// seconds it moves left at `speed` px/s through one loop (its width plus
+// `gap`), ending where it began, and holds still the rest of the period.
+const NAME_SCROLL = { period: 13.5, speed: 40, gap: 16 };
+// The name's leftward offset `t` seconds after the pitch first showed it.
+function nameScroll(width, t) {
+  const moving = (width + NAME_SCROLL.gap) / NAME_SCROLL.speed;
+  const into = t % NAME_SCROLL.period - (NAME_SCROLL.period - moving);
+  return into > 0 ? into * NAME_SCROLL.speed : 0;
+}
+// The scroll's clock starts when the pitch appears and stops when it goes;
+// while it is shown, the pitch is redrawn every animation frame.
+function pitchTick() {
+  if (!document.getElementById("pitch")) S.pitchSince = null;
+  else {
+    if (S.pitchSince == null) S.pitchSince = performance.now();
+    drawPitch(teamOf(curPlayer()));
+  }
+  requestAnimationFrame(pitchTick);
+}
+requestAnimationFrame(pitchTick);
 function drawPitch(t) {
   const cv = document.getElementById("pitch");
   if (!cv) return;
@@ -4297,15 +4318,21 @@ function drawPitch(t) {
     g.beginPath(); g.rect(bl, y + 3, MARKER.badgeW, 20); g.clip();
     g.font = "12px sans-serif"; g.textAlign = "left";
     // The name in its colour codes' colours (white where it has none), as the
-    // game's screen draws it. A name wider than the badge shows its start, as
-    // the game's does before it scrolls; a shorter one is centred.
+    // game's screen draws it. A shorter name is centred; a wider one starts at
+    // the badge's left and scrolls as the game's (`nameScroll`), drawn twice
+    // a loop apart so its start follows its end.
     const runs = p ? nameRuns(p.name) : [["(empty)", null]];
     const width = runs.reduce((w, [text]) => w + g.measureText(text).width, 0);
-    let nx = width > MARKER.badgeW ? bl : x - width / 2;
-    for (const [text, color] of runs) {
-      g.fillStyle = color || "#ffffff";
-      g.fillText(text, nx, y + MARKER.nameDy);
-      nx += g.measureText(text).width;
+    const long = width > MARKER.badgeW;
+    const start = long ? bl - nameScroll(width, (performance.now() - (S.pitchSince ?? performance.now())) / 1000)
+      : x - width / 2;
+    for (const copy of long ? [0, width + NAME_SCROLL.gap] : [0]) {
+      let nx = start + copy;
+      for (const [text, color] of runs) {
+        g.fillStyle = color || "#ffffff";
+        g.fillText(text, nx, y + MARKER.nameDy);
+        nx += g.measureText(text).width;
+      }
     }
     g.restore();
     if (roster === t.captain) {

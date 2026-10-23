@@ -18,6 +18,8 @@ pub(crate) struct Headless {
     pub(crate) ctx: egui::Context,
     /// The screen size each frame reports.
     screen: egui::Vec2,
+    /// The root viewport's `repaint_delay` of the last run frame.
+    repaint_delay: std::time::Duration,
 }
 
 impl Headless {
@@ -33,7 +35,13 @@ impl Headless {
         Headless {
             ctx,
             screen: egui::vec2(width, height),
+            repaint_delay: std::time::Duration::MAX,
         }
+    }
+
+    /// The root viewport's `repaint_delay` of the last run frame.
+    pub(crate) fn repaint_delay(&self) -> std::time::Duration {
+        self.repaint_delay
     }
 
     /// Runs one frame with `events` as its input; returns the frame's
@@ -82,6 +90,10 @@ impl Headless {
             .take()
             .expect("AccessKit is enabled on the context");
         let shapes = std::mem::take(&mut output.shapes);
+        self.repaint_delay = output
+            .viewport_output
+            .get(&egui::ViewportId::ROOT)
+            .map_or(std::time::Duration::MAX, |out| out.repaint_delay);
         // Nothing renders here, so the frame's texture deltas are dropped on
         // purpose.
         output.drop_without_applying_deltas();
@@ -129,6 +141,7 @@ pub(crate) fn roster_rows(rows: &[(String, String, Option<u8>)]) -> Vec<RosterRo
             name: name.as_str(),
             raw_name: raw_name.as_str(),
             registered_position: *position,
+            portrait: None,
         })
         .collect()
 }

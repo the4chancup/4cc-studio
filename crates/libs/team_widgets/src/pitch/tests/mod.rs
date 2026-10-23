@@ -144,6 +144,22 @@ impl Headless {
         })
     }
 
+    /// `pitch_paint` at `time` as the frame's timestamp (the name
+    /// scroll's clock and the repaint delay read it).
+    fn pitch_paint_at(
+        &mut self,
+        time: f64,
+        version: PesVersion,
+        tactics: &mut TeamTactics,
+        view: &mut TacticsView,
+        roster: &[RosterRow<'_>],
+    ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
+        self.frame_at(Some(time), vec![], |ui| {
+            tactics::assign_note(ui, view);
+            super::pitch(ui, "pitch", version, tactics, view, roster);
+        })
+    }
+
     /// A click at `pos` over `pitch` (press on one frame, release on
     /// the next): the release frame's nodes and change.
     pub(crate) fn click_pitch(
@@ -311,23 +327,66 @@ pub(crate) fn canvas_rect(nodes: &[accesskit::Node]) -> egui::Rect {
     )
 }
 
-/// The centre of `slot`'s marker as drawn on `nodes`' canvas.
-pub(crate) fn marker_centre(nodes: &[accesskit::Node], slot: FormationSlot) -> egui::Pos2 {
+/// The clamped badge centres of `players`' markers on `canvas`.
+fn centres_of(canvas: egui::Rect, players: &[FormationSlot; 11]) -> [egui::Pos2; 11] {
+    players.map(|slot| clamp_centre(badge_centre(canvas.min, slot), canvas))
+}
+
+/// `index`'s marker's position in the draw order of `players` on
+/// `canvas`: a marker after it wins an overlap.
+fn draw_position(canvas: egui::Rect, players: &[FormationSlot; 11], index: usize) -> usize {
+    draw_order(&centres_of(canvas, players))
+        .iter()
+        .position(|&i| i == index)
+        .expect("every marker is in the order")
+}
+
+/// A point inside `index`'s marker box that no marker drawn after it
+/// covers, so a press or a drop there resolves to `index`: the box's
+/// centre when free, else the first free of a coarse scan.
+pub(crate) fn marker_point(
+    nodes: &[accesskit::Node],
+    players: &[FormationSlot; 11],
+    index: usize,
+) -> egui::Pos2 {
     let canvas = canvas_rect(nodes);
-    marker_rect(pitch_point(canvas.min, slot.x, slot.y), canvas).center()
+    let centres = centres_of(canvas, players);
+    let after = draw_position(canvas, players, index);
+    let later: Vec<usize> = draw_order(&centres)[after + 1..].to_vec();
+    let free = |point: egui::Pos2| {
+        later
+            .iter()
+            .all(|&other| !marker_rect(centres[other], canvas).contains(point))
+    };
+    let rect = marker_rect(centres[index], canvas);
+    if free(rect.center()) {
+        return rect.center();
+    }
+    (0..=10)
+        .flat_map(|ix| {
+            (0..=15).map(move |iy| {
+                rect.min
+                    + egui::vec2(
+                        ix as f32 * rect.width() / 10.0,
+                        iy as f32 * rect.height() / 15.0,
+                    )
+            })
+        })
+        .find(|point| free(*point))
+        .unwrap_or_else(|| panic!("no point on marker {index} is free of later markers"))
 }
 
 /// A point on `canvas` no marker of `players` covers: a grass drop
 /// (the first free of the grid scan).
 fn grass_point(canvas: egui::Rect, players: &[FormationSlot; 11]) -> egui::Pos2 {
     let free = |point: egui::Pos2| {
-        players.iter().all(|slot| {
-            !marker_rect(pitch_point(canvas.min, slot.x, slot.y), canvas).contains(point)
-        })
+        players
+            .iter()
+            .all(|slot| !marker_rect(badge_centre(canvas.min, *slot), canvas).contains(point))
     };
     (0..=GRID_X)
         .flat_map(|x| (0..=GRID_Y).map(move |y| (x, y)))
-        .map(|(x, y)| pitch_point(canvas.min, x, y))
+        .map(|(x, y)| badge_centre(canvas.min, FormationSlot { position: 1, x, y }))
         .find(|point| free(*point))
         .expect("some grid point is free of markers")
 }

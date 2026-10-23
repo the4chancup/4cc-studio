@@ -59,17 +59,8 @@ fn a_role_chip_then_a_marker_click_writes_the_taker_and_disarms() {
         "the armed note is drawn"
     );
     entry(&nodes, Role::Button, "Cancel");
-    let canvas = canvas_rect(&nodes);
     let formation = tactics.presets[0].formations[0].clone();
-    let at = marker_rect(
-        pitch_point(
-            canvas.min,
-            formation.players[index].x,
-            formation.players[index].y,
-        ),
-        canvas,
-    )
-    .center();
+    let at = marker_point(&nodes, &formation.players, index);
     let (_, changed) = window.click_pitch(at, version, &mut tactics, &mut view, &roster);
     assert!(changed, "the assignment writes the record");
     assert_eq!(
@@ -141,24 +132,22 @@ fn each_assignment_chip_writes_its_own_field() {
         },
     ];
 
-    // Markers a click can reach: no marker drawn after it covers its
-    // centre (egui resolves to the topmost).
+    // Markers a click can reach at their box's centre: no marker drawn
+    // after them covers it (egui resolves to the topmost).
     let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &formation.players);
+    let order = draw_order(&centres);
     let uncovered: Vec<usize> = (1..11)
         .filter(|&index| {
-            let at = marker_rect(
-                pitch_point(
-                    canvas.min,
-                    formation.players[index].x,
-                    formation.players[index].y,
-                ),
-                canvas,
-            )
-            .center();
-            formation.players[index + 1..].iter().all(|slot| {
-                !marker_rect(pitch_point(canvas.min, slot.x, slot.y), canvas).contains(at)
-            })
+            let after = order
+                .iter()
+                .position(|&i| i == index)
+                .expect("every marker is in the order");
+            let at = marker_rect(centres[index], canvas).center();
+            order[after + 1..]
+                .iter()
+                .all(|&other| !marker_rect(centres[other], canvas).contains(at))
         })
         .collect();
     assert!(
@@ -199,16 +188,7 @@ fn each_assignment_chip_writes_its_own_field() {
         (case.set)(&mut expected.set_pieces, starter);
 
         let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
-        let canvas = canvas_rect(&nodes);
-        let at = marker_rect(
-            pitch_point(
-                canvas.min,
-                formation.players[marker_index].x,
-                formation.players[marker_index].y,
-            ),
-            canvas,
-        )
-        .center();
+        let at = marker_point(&nodes, &formation.players, marker_index);
         let (_, changed) = window.click_pitch(at, version, &mut tactics, &mut view, &roster);
         assert!(changed, "{chip_label}: the click wrote the field");
         assert_eq!(tactics, expected, "{chip_label}: only its field written");
@@ -261,9 +241,7 @@ fn join_clicks_fill_three_then_toggle_members_packed() {
     let click_marker =
         |window: &mut Headless, tactics: &mut TeamTactics, view: &mut TacticsView, index: usize| {
             let (nodes, _) = window.pitch(version, tactics, view, &roster, vec![]);
-            let canvas = canvas_rect(&nodes);
-            let slot = tactics.presets[0].formations[0].players[index];
-            let at = marker_rect(pitch_point(canvas.min, slot.x, slot.y), canvas).center();
+            let at = marker_point(&nodes, &tactics.presets[0].formations[0].players, index);
             window.click_pitch(at, version, tactics, view, &roster)
         };
     let (_, changed) = click_marker(&mut window, &mut tactics, &mut view, 4);
@@ -315,7 +293,7 @@ fn a_preset_switch_closes_the_popover() {
     let index = 3;
 
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let at = marker_centre(&nodes, formation.players[index]);
+    let at = marker_point(&nodes, &formation.players, index);
     window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     entry(&nodes, Role::Button, "Close");
@@ -347,7 +325,7 @@ fn the_popovers_position_pick_writes_the_slot() {
     );
 
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let at = marker_centre(&nodes, formation.players[index]);
+    let at = marker_point(&nodes, &formation.players, index);
     window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let combo = controls_right_of(&nodes, "Position", Role::ComboBox)

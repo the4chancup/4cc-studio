@@ -2355,3 +2355,5 @@ worklog passed 7,000 lines.
   in Edit mode; the defaults cannot install on the 4cc PES 2019 patch's DpFileList (QUESTIONS). Game and save restored.
 - **2026-10-23** — 8.9g: PES 2021's formation screen measured (its pitch texture decoded from `gamePlan.bin`, two in-game
   captures) into the plan; the v2 draft paints it with the sample teams' real portraits and coloured names.
+- **2026-10-23** — 8.9g slice 1: the Tactics pitch paints PES 2021's formation screen (turf, lines, the screen's mapping,
+  portrait-badge-name markers drawn top-down), long names scrolling on the game's measured timing (the maintainer's idea).

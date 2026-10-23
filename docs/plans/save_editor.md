@@ -313,13 +313,26 @@ Win32 original hurt the most):
     group's colour (forwards `#ff2c77`, midfielders `#57e42b`, defenders `#00d2ff`, keeper
     `#ffde00`); the name in its colour codes' colours (white where it has none: the screen
     draws them as its lists do), 13 px below the badge's centre, centred, or from the
-    badge's left edge and cut at its right when wider (the game then scrolls it; the editor
-    does not animate). The captain's mark, a white rounded box with a black "C", 12 x 11, sits
+    badge's left edge and cut to the badge's width when wider. A wider name scrolls as the
+    game's does (measured on four names over 30 s captures): every 13.5 s it scrolls left at
+    40 px/s through one loop, its width plus a 16 px gap after which its start follows,
+    so it ends where it began, and holds still the rest of the period; a name that fits never
+    moves. Each name's period starts when the pitch first shows it, still first. The game
+    staggers names by a rule not established (two names 2.1 s apart); the editor's start
+    together when the tab opens. The captain's mark, a white rounded box with a black "C", 12 x 11, sits
     1 px inside the badge's left edge, 5 px above it, over the portrait. A starter with no
     portrait found shows the badge and name alone. Markers are drawn from the top of the
     canvas down, a lower marker covering the one above as the game's do (the keeper's
     portrait over a centre-back's badge), the dragged one last; a press or a drop hits the
     marker drawn on top.
+  - **Portraits** come from the selected game (the sidebar's PES and the "PES folder"
+    setting): the CPKs its `download/DpFileList.bin` lists, a later CPK's portrait winning
+    as in game, at the path the Team compiler writes portraits to (`player_<id>.dds` up to
+    PES 2018, `<id>.dds` from PES 2019; a WESYS-wrapped DDS unwrapped). The list and the
+    CPKs' tables are read, and the shown team's portraits decoded, off the UI thread; a
+    folder, list or CPK that cannot be read leaves the markers without portraits, the reason
+    logged. The DpFileList reader is `cpk`'s and the portrait path `pes_savefile`'s, shared
+    with the Team compiler, so the editor finds a portrait wherever the compiler put it.
   - **What the screen shows that the editor leaves out**: the overall rating at the badge's
     right, the game's own computation, which the suite does not have. The screen's selection
     marks are reused for the editor's states: the open popover's marker gets the selected

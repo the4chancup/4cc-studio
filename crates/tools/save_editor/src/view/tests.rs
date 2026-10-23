@@ -488,35 +488,107 @@ fn canvas_of(nodes: &[accesskit::Node]) -> accesskit::Rect {
         .expect("the pitch canvas")
 }
 
-/// The centre of `slot`'s marker on `canvas` (the widget's marker math:
-/// the stored grid is 104 by 48 at 3 px and 7 px a unit inside a 4 px / 2
-/// px margin, high y on top; the 42 by 26 chip centres on the point and
-/// clamps 2 px inside the canvas, 4 px at the bottom edge).
-fn marker_centre(canvas: accesskit::Rect, slot: FormationSlot) -> egui::Pos2 {
-    let centre = egui::pos2(
-        canvas.x0 as f32 + 4.0 + f32::from(slot.x) * 3.0,
-        canvas.y0 as f32 + 2.0 + (48.0 - f32::from(slot.y)) * 7.0,
-    );
+/// `slot`'s badge centre on `canvas` (the widget's spot mapping, fitted
+/// on the screen's capture): an outfield slot at (12.8 + 2.827 x,
+/// 363.8 - 6.793 y) from the canvas' top-left, high y (the attack end) on
+/// top; the keeper at (160, 358.5), where the screen draws him.
+fn badge_centre(canvas: accesskit::Rect, slot: FormationSlot) -> egui::Pos2 {
+    if slot.position == 0 {
+        return egui::pos2(canvas.x0 as f32 + 160.0, canvas.y0 as f32 + 358.5);
+    }
     egui::pos2(
-        (centre.x - 21.0).clamp(canvas.x0 as f32 + 2.0, canvas.x1 as f32 - 44.0) + 21.0,
-        (centre.y - 13.0).clamp(canvas.y0 as f32 + 2.0, canvas.y1 as f32 - 30.0) + 13.0,
+        canvas.x0 as f32 + 12.8 + f32::from(slot.x) * 2.827,
+        canvas.y0 as f32 + 363.8 - f32::from(slot.y) * 6.793,
     )
+}
+
+/// `slot`'s badge centre clamped so the marker's whole box (the badge's
+/// 50 width, 57 above and 20 below the centre) stays inside the canvas.
+fn clamped_centre(canvas: accesskit::Rect, slot: FormationSlot) -> egui::Pos2 {
+    let centre = badge_centre(canvas, slot);
+    egui::pos2(
+        centre
+            .x
+            .clamp(canvas.x0 as f32 + 25.0, canvas.x1 as f32 - 25.0),
+        centre
+            .y
+            .clamp(canvas.y0 as f32 + 57.0, canvas.y1 as f32 - 20.0),
+    )
+}
+
+/// `slot`'s marker box on `canvas` (the badge's width, the portrait's
+/// top to the name's bottom).
+fn marker_rect(canvas: accesskit::Rect, slot: FormationSlot) -> egui::Rect {
+    let centre = clamped_centre(canvas, slot);
+    egui::Rect::from_min_max(
+        egui::pos2(centre.x - 25.0, centre.y - 57.0),
+        egui::pos2(centre.x + 25.0, centre.y + 20.0),
+    )
+}
+
+/// The indices' draw order (the widget's): markers sort by their clamped
+/// badge centre's y, top of the canvas first, and a press or drop hits
+/// the marker drawn last.
+fn draw_order(canvas: accesskit::Rect, players: &[FormationSlot; 11]) -> Vec<usize> {
+    let mut order: Vec<usize> = (0..11).collect();
+    order.sort_by(|&a, &b| {
+        clamped_centre(canvas, players[a])
+            .y
+            .total_cmp(&clamped_centre(canvas, players[b]).y)
+            .then(a.cmp(&b))
+    });
+    order
+}
+
+/// A point inside `index`'s marker box that no marker drawn after it
+/// covers, so a press or a drop there resolves to `index`: the box's
+/// centre when free, else the first free of a coarse scan; `None` when
+/// the box is fully covered.
+fn marker_point(
+    canvas: accesskit::Rect,
+    players: &[FormationSlot; 11],
+    index: usize,
+) -> Option<egui::Pos2> {
+    let order = draw_order(canvas, players);
+    let after = order
+        .iter()
+        .position(|&i| i == index)
+        .expect("every marker is in the order");
+    let free = |point: egui::Pos2| {
+        order[after + 1..]
+            .iter()
+            .all(|&other| !marker_rect(canvas, players[other]).contains(point))
+    };
+    let rect = marker_rect(canvas, players[index]);
+    if free(rect.center()) {
+        return Some(rect.center());
+    }
+    (0..=10)
+        .flat_map(|ix| {
+            (0..=15).map(move |iy| {
+                rect.min
+                    + egui::vec2(
+                        ix as f32 * rect.width() / 10.0,
+                        iy as f32 * rect.height() / 15.0,
+                    )
+            })
+        })
+        .find(|point| free(*point))
 }
 
 /// A point on `canvas` covered by no marker of `players` (a grass drop:
 /// the first free of the grid scan).
 fn grass_point(canvas: accesskit::Rect, players: &[FormationSlot; 11]) -> egui::Pos2 {
     let covered = |x: f32, y: f32| {
-        players.iter().any(|slot| {
-            let centre = marker_centre(canvas, *slot);
-            (centre.x - x).abs() <= 21.0 && (centre.y - y).abs() <= 13.0
-        })
+        players
+            .iter()
+            .any(|slot| marker_rect(canvas, *slot).contains(egui::pos2(x, y)))
     };
     for x in 0..=104_u8 {
         for y in 0..=48_u8 {
             let (px, py) = (
-                canvas.x0 as f32 + 4.0 + f32::from(x) * 3.0,
-                canvas.y0 as f32 + 2.0 + (48.0 - f32::from(y)) * 7.0,
+                canvas.x0 as f32 + 12.8 + f32::from(x) * 2.827,
+                canvas.y0 as f32 + 363.8 - f32::from(y) * 6.793,
             );
             if !covered(px, py) {
                 return egui::pos2(px, py);
@@ -527,12 +599,14 @@ fn grass_point(canvas: accesskit::Rect, players: &[FormationSlot; 11]) -> egui::
 }
 
 /// `pos` inside `canvas` snapped to the stored grid (the widget's snap:
-/// the nearest unit, clamped).
+/// the nearest unit through the spot mapping, clamped).
 fn snap(canvas: accesskit::Rect, pos: egui::Pos2) -> (u8, u8) {
-    let x = ((pos.x - canvas.x0 as f32 - 4.0) / 3.0)
+    let x = ((pos.x - canvas.x0 as f32 - 12.8) / 2.827)
         .round()
         .clamp(0.0, 104.0) as u8;
-    let y = (48.0 - ((pos.y - canvas.y0 as f32 - 2.0) / 7.0).round()).clamp(0.0, 48.0) as u8;
+    let y = ((363.8 - (pos.y - canvas.y0 as f32)) / 6.793)
+        .round()
+        .clamp(0.0, 48.0) as u8;
     (x, y)
 }
 

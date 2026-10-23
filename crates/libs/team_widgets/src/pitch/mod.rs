@@ -3,13 +3,17 @@
 //! `slotPopover` — the formation canvas, a marker per starter dragged to
 //! his spot, dropped on to swap a bench player in, clicked for the slot's
 //! details — plus `lineupList` and `benchList`, the starting eleven and
-//! the bench, reordered and swapped by drag.
+//! the bench, reordered and swapped by drag. The canvas is painted as PES
+//! 2021's own formation screen (the plan's pitch bullet): the game
+//! texture's turf bands, the screen's slot-to-spot mapping and markers of
+//! portrait, badge and coloured name.
 
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::tactics::{FormationSlot, TeamTactics};
 use pes_version::PesVersion;
 
-use crate::tactics::{Assign, OpenSlot, RosterRow, TacticsView, name_at};
+use crate::names::append_name;
+use crate::tactics::{Assign, OpenSlot, RosterRow, TacticsView, name_at, raw_name_at};
 
 /// The "Starting eleven" and "Bench" lists, their rows and `swap_in`.
 mod lineup;
@@ -38,37 +42,89 @@ pub(crate) enum LineupDrag {
     Marker(usize),
 }
 
-/// The canvas' size (the draft's `PITCH`): the record's grid — x 0 to
-/// `GRID_X`, y 0 to `GRID_Y`, the record's whole units — drawn `UNIT` a
-/// unit inside a `MARGIN` margin, high y (the attack end) at the top.
-const PITCH: egui::Vec2 = egui::vec2(320.0, 340.0);
+/// The canvas' size: the screen's own pitch drawn at its 720p capture's
+/// scale.
+const PITCH: egui::Vec2 = egui::vec2(320.0, 384.0);
 /// The grid's extent in stored units.
 const GRID_X: u8 = 104;
 const GRID_Y: u8 = 48;
-/// The margin the grid leaves inside the canvas.
-const MARGIN: egui::Vec2 = egui::vec2(4.0, 2.0);
-/// A stored unit's pitch, x and y.
-const UNIT: egui::Vec2 = egui::vec2(3.0, 7.0);
-/// A marker chip's size (the draft's 42 by 26).
-const CHIP: egui::Vec2 = egui::vec2(42.0, 26.0);
 
-/// The turf's fill (the draft's `#173517`).
-const TURF: egui::Color32 = egui::Color32::from_rgb(0x17, 0x35, 0x17);
-/// The lines' stroke (`#4a7a4a`).
-const LINES: egui::Color32 = egui::Color32::from_rgb(0x4a, 0x7a, 0x4a);
-/// A marker's fill (`#3c3c3c`), the keeper's (`#5a4a1e`) and a join
-/// member's while join mode is armed (`#005c80`).
-const CHIP_FILL: egui::Color32 = egui::Color32::from_rgb(0x3c, 0x3c, 0x3c);
-const KEEPER_FILL: egui::Color32 = egui::Color32::from_rgb(0x5a, 0x4a, 0x1e);
+/// The badge centre's x for stored x 0 (fitted on the screen's capture).
+const SPOT_X0: f32 = 12.8;
+/// The badge centre's x pitch per stored x unit (fitted on the screen's
+/// capture).
+const SPOT_XS: f32 = 2.827;
+/// The badge centre's y for stored y 0 (fitted on the screen's capture).
+const SPOT_Y0: f32 = 363.8;
+/// The badge centre's y pitch per stored y unit (fitted on the screen's
+/// capture).
+const SPOT_YS: f32 = 6.793;
+/// The keeper's badge centre (the screen's keeper spot, on the goal
+/// area's line), whatever his stored x and y.
+const KEEPER_X: f32 = 160.0;
+const KEEPER_Y: f32 = 358.5;
+
+/// The badge and the portrait box's width.
+const BADGE_W: f32 = 50.0;
+/// The badge's height.
+const BADGE_H: f32 = 14.0;
+/// The portrait box's height.
+const PORTRAIT_H: f32 = 50.0;
+/// The marker box's reach above the badge centre: the portrait's 50 plus
+/// the badge's 7 half.
+const ABOVE_CENTRE: f32 = 57.0;
+/// The marker box's reach below the badge centre: the name's bottom edge.
+const BELOW_CENTRE: f32 = 20.0;
+/// The name's centre under the badge centre's.
+const NAME_DY: f32 = 13.0;
+
+/// The turf texture's size: the game texture's own, drawn into the
+/// smaller canvas.
+const TURF_SIZE: [usize; 2] = [480, 576];
+/// The turf's band count: dark at both ends.
+const TURF_BANDS: usize = 11;
+/// A band's dark and light base colours (`#2d571d`, `#35602a`).
+const TURF_DARK: [u8; 3] = [0x2d, 0x57, 0x1d];
+const TURF_LIGHT: [u8; 3] = [0x35, 0x60, 0x2a];
+
+/// The lines' stroke: white at 20% opacity, 2 px wide.
+const LINES: egui::Color32 = egui::Color32::from_rgba_unmultiplied_const(255, 255, 255, 51);
+/// The badge's fill (`#242b2d`) and a join member's while join mode is
+/// armed (`#005c80`).
+const BADGE_FILL: egui::Color32 = egui::Color32::from_rgb(0x24, 0x2b, 0x2d);
 const JOIN_FILL: egui::Color32 = egui::Color32::from_rgb(0x00, 0x5c, 0x80);
-/// A marker's stroke (`#6e6e6e`), the armed mode's (`#c0deff`) and the
-/// open popover's (`#ff8f00`, which wins over the armed one).
-const CHIP_STROKE: egui::Color32 = egui::Color32::from_rgb(0x6e, 0x6e, 0x6e);
-const ARMED_STROKE: egui::Color32 = egui::Color32::from_rgb(0xc0, 0xde, 0xff);
-const OPEN_STROKE: egui::Color32 = egui::Color32::from_rgb(0xff, 0x8f, 0x00);
-/// The marker's texts: the position (`#dcdcdc`) over the name (`#8c8c8c`).
-const CHIP_POSITION: egui::Color32 = egui::Color32::from_rgb(0xdc, 0xdc, 0xdc);
-const CHIP_NAME: egui::Color32 = egui::Color32::from_rgb(0x8c, 0x8c, 0x8c);
+/// The position text's group colours: forwards `#ff2c77`, midfielders
+/// `#57e42b`, defenders `#00d2ff`, the keeper `#ffde00`.
+const FORWARD: egui::Color32 = egui::Color32::from_rgb(0xff, 0x2c, 0x77);
+const MIDFIELDER: egui::Color32 = egui::Color32::from_rgb(0x57, 0xe4, 0x2b);
+const DEFENDER: egui::Color32 = egui::Color32::from_rgb(0x00, 0xd2, 0xff);
+const KEEPER: egui::Color32 = egui::Color32::from_rgb(0xff, 0xde, 0x00);
+/// The corner brackets the screen's selection marks lend the editor's
+/// states: the open popover's marker (`#14fbff`), every marker an armed
+/// assignment mode can take (`#ff4e7f`).
+const SELECTED_CORNERS: egui::Color32 = egui::Color32::from_rgb(0x14, 0xfb, 0xff);
+const CANDIDATE_CORNERS: egui::Color32 = egui::Color32::from_rgb(0xff, 0x4e, 0x7f);
+
+/// A wide name's scroll period in seconds (the game's measured 13.5).
+const NAME_PERIOD: f32 = 13.5;
+/// The scroll's speed, canvas px a second (the game's 40).
+const NAME_SPEED: f32 = 40.0;
+/// The gap between a scrolling name's end and its repeat, in px (the
+/// game's 16).
+const NAME_GAP: f32 = 16.0;
+
+/// A marker as a frame's pass sees it: its index in the shown formation,
+/// the slot and its (clamped) badge centre.
+#[derive(Clone, Copy)]
+struct Spot {
+    /// The slot's index in the formation's eleven.
+    index: usize,
+    /// The formation slot.
+    slot: FormationSlot,
+    /// The badge centre the marker draws and interacts at (the dragged
+    /// one's is the clamped pointer instead).
+    centre: egui::Pos2,
+}
 
 /// The draft's pitch column, the armed mode's note a host draws above it
 /// excepted: the formation selector (the draft heads the pitch with it —
@@ -113,6 +169,25 @@ pub fn pitch(
         }) {
             view.popover = None;
         }
+        // The name scroll's clock: the time the pitch was first shown,
+        // in the context's temp memory with the frame it was last drawn
+        // on; a frame without it restarts it.
+        let clock_id = ui.id().with("name clock");
+        let now = ui.input(|i| i.time);
+        let frame_nr = ui.ctx().cumulative_frame_nr();
+        let started = ui
+            .ctx()
+            .data_mut(|data| match data.get_temp::<(f64, u64)>(clock_id) {
+                Some((started, last)) if last + 1 == frame_nr => {
+                    data.insert_temp(clock_id, (started, frame_nr));
+                    started
+                }
+                _ => {
+                    data.insert_temp(clock_id, (now, frame_nr));
+                    now
+                }
+            });
+        let seconds = (now - started) as f32;
         let (canvas, canvas_response) = ui.allocate_exact_size(PITCH, egui::Sense::hover());
         canvas_response.widget_info(|| {
             egui::WidgetInfo::labeled(egui::WidgetType::Other, ui.is_enabled(), "pitch")
@@ -120,16 +195,29 @@ pub fn pitch(
         let painter = ui.painter_at(canvas);
         paint_pitch(&painter, canvas);
         let players = tactics.presets[view.preset.min(2)].formations[view.formation.min(2)].players;
-        let mut responses = Vec::with_capacity(players.len());
-        for (index, slot) in players.iter().enumerate() {
-            responses.push(marker(ui, canvas, tactics, view, roster, index, *slot));
+        let centres = players.map(|slot| clamp_centre(badge_centre(canvas.min, slot), canvas));
+        let order = draw_order(&centres);
+        // Interact in draw order first: egui gives an overlap to the
+        // widget registered last, so the lowest marker (painted on top)
+        // wins a press.
+        let mut responses: [Option<egui::Response>; 11] = std::array::from_fn(|_| None);
+        for index in order {
+            let spot = Spot {
+                index,
+                slot: players[index],
+                centre: centres[index],
+            };
+            responses[index] = Some(marker(ui, canvas, tactics, view, roster, spot));
         }
         // A drop hits the topmost marker first (the draft's `hitMarker`
         // checks back to front); the canvas' own is the grass.
         let mut dropped = None;
-        for (index, response) in responses.iter().enumerate().rev() {
-            if let Some(payload) = response.dnd_release_payload::<LineupDrag>() {
-                dropped = Some((Some(index), *payload));
+        for index in order.iter().rev() {
+            if let Some(payload) = responses[*index]
+                .as_ref()
+                .and_then(|response| response.dnd_release_payload::<LineupDrag>())
+            {
+                dropped = Some((Some(*index), *payload));
                 break;
             }
         }
@@ -145,7 +233,7 @@ pub fn pitch(
             {
                 tactics.starting_eleven.swap(from, onto);
             }
-            // A marker released on the grass (or on his own chip) moves
+            // A marker released on the grass (or on his own marker) moves
             // to the snapped drop point.
             Some((_, LineupDrag::Marker(from))) => {
                 if let Some(pos) = ui.ctx().pointer_interact_pos() {
@@ -161,191 +249,424 @@ pub fn pitch(
             // nothing.
             Some(_) | None => {}
         }
+        // Painted top of the canvas down (a lower marker covers the one
+        // above it), the dragged one last.
+        let dragged = order.iter().copied().find(|index| {
+            responses[*index]
+                .as_ref()
+                .expect("every marker interacted")
+                .dragged()
+        });
+        let mut still_for: Option<f32> = None;
+        let mut record = |until: Option<f32>| {
+            if let Some(until) = until {
+                still_for = Some(still_for.map_or(until, |min: f32| min.min(until)));
+            }
+        };
+        for index in order {
+            if Some(index) != dragged {
+                record(paint_marker(
+                    &painter,
+                    canvas,
+                    tactics,
+                    view,
+                    roster,
+                    Spot {
+                        index,
+                        slot: players[index],
+                        centre: centres[index],
+                    },
+                    seconds,
+                ));
+            }
+        }
+        if let Some(index) = dragged {
+            let at = ui
+                .ctx()
+                .pointer_interact_pos()
+                .map_or(centres[index], |pos| clamp_centre(pos, canvas));
+            record(paint_marker(
+                &painter,
+                canvas,
+                tactics,
+                view,
+                roster,
+                Spot {
+                    index,
+                    slot: players[index],
+                    centre: at,
+                },
+                seconds,
+            ));
+        }
+        // The next name move asks the repaint (none when every name fits).
+        if let Some(still_for) = still_for {
+            ui.ctx()
+                .request_repaint_after(std::time::Duration::from_secs_f32(still_for));
+        }
         slot_popover(ui, tactics, view, roster, canvas);
         *tactics != before
     })
     .inner
 }
 
-/// The pitch point of grid (`x`, `y`), the draft's `pitchX`/`pitchY`;
-/// `origin` is the canvas' top-left.
-fn pitch_point(origin: egui::Pos2, x: u8, y: u8) -> egui::Pos2 {
+/// A slot's badge centre on the canvas (the screen's own spot mapping,
+/// the draft's `badgeAt` before its clamp): an outfield slot at
+/// (`SPOT_X0` + `SPOT_XS` x, `SPOT_Y0` - `SPOT_YS` y), high y (the attack
+/// end) at the top; the keeper at (`KEEPER_X`, `KEEPER_Y`), where the
+/// screen draws him. `origin` is the canvas' top-left.
+fn badge_centre(origin: egui::Pos2, slot: FormationSlot) -> egui::Pos2 {
+    if slot.position == 0 {
+        return origin + egui::vec2(KEEPER_X, KEEPER_Y);
+    }
     origin
-        + MARGIN
         + egui::vec2(
-            f32::from(x) * UNIT.x,
-            (f32::from(GRID_Y) - f32::from(y)) * UNIT.y,
+            SPOT_X0 + SPOT_XS * f32::from(slot.x),
+            SPOT_Y0 - SPOT_YS * f32::from(slot.y),
         )
 }
 
-/// `pos` inside the canvas (from `origin`) snapped to the stored grid,
-/// the draft's `snapXY`: the nearest unit, clamped to the grid.
+/// `pos` inside the canvas (from `origin`) snapped back through the
+/// mapping to the stored grid (the draft's `snapXY`): the nearest unit,
+/// clamped to the grid.
 fn snap(pos: egui::Pos2, origin: egui::Pos2) -> (u8, u8) {
-    let local = pos - origin - MARGIN;
-    let x = (local.x / UNIT.x).round().clamp(0.0, f32::from(GRID_X)) as u8;
-    let y = (f32::from(GRID_Y) - (local.y / UNIT.y).round()).clamp(0.0, f32::from(GRID_Y)) as u8;
+    let local = pos - origin;
+    let x = ((local.x - SPOT_X0) / SPOT_XS)
+        .round()
+        .clamp(0.0, f32::from(GRID_X)) as u8;
+    let y = ((SPOT_Y0 - local.y) / SPOT_YS)
+        .round()
+        .clamp(0.0, f32::from(GRID_Y)) as u8;
     (x, y)
 }
 
-/// The chip's rect centred on `center`, kept 2 px inside the canvas (the
-/// draft's clamp: it stops short of the far edge by its own size).
-fn marker_rect(center: egui::Pos2, canvas: egui::Rect) -> egui::Rect {
-    egui::Rect::from_min_size(
-        egui::pos2(
-            (center.x - CHIP.x / 2.0).clamp(canvas.left() + 2.0, canvas.right() - CHIP.x - 2.0),
-            (center.y - CHIP.y / 2.0).clamp(canvas.top() + 2.0, canvas.bottom() - CHIP.y - 4.0),
+/// `centre` clamped so the marker's whole box stays inside the canvas
+/// (the draft's `clampBadge`).
+fn clamp_centre(centre: egui::Pos2, canvas: egui::Rect) -> egui::Pos2 {
+    egui::pos2(
+        centre.x.clamp(
+            canvas.left() + BADGE_W / 2.0,
+            canvas.right() - BADGE_W / 2.0,
         ),
-        CHIP,
+        centre
+            .y
+            .clamp(canvas.top() + ABOVE_CENTRE, canvas.bottom() - BELOW_CENTRE),
     )
 }
 
-/// The turf and the lines (the draft's `drawPitch` background): the
-/// touchlines, the halfway line, the centre circle and the two boxes.
-fn paint_pitch(painter: &egui::Painter, canvas: egui::Rect) {
-    let stroke = egui::Stroke::new(1.0, LINES);
-    painter.rect_filled(canvas, 0.0, TURF);
-    let grid = egui::Rect::from_min_size(
-        canvas.min + MARGIN,
-        egui::vec2(f32::from(GRID_X) * UNIT.x, f32::from(GRID_Y) * UNIT.y),
-    );
-    painter.rect_stroke(grid, 0.0, stroke, egui::StrokeKind::Inside);
-    painter.line_segment(
-        [
-            egui::pos2(grid.left(), grid.center().y),
-            egui::pos2(grid.right(), grid.center().y),
-        ],
-        stroke,
-    );
-    painter.circle_stroke(grid.center(), 30.0, stroke);
-    for top in [true, false] {
-        let box_top = if top {
-            grid.top()
-        } else {
-            grid.bottom() - 52.0
-        };
-        painter.rect_stroke(
-            egui::Rect::from_min_size(
-                egui::pos2(grid.left() + 76.0, box_top),
-                egui::vec2(160.0, 52.0),
-            ),
-            0.0,
-            stroke,
-            egui::StrokeKind::Inside,
-        );
-        let six_top = if top {
-            grid.top()
-        } else {
-            grid.bottom() - 18.0
-        };
-        painter.rect_stroke(
-            egui::Rect::from_min_size(
-                egui::pos2(grid.left() + 118.0, six_top),
-                egui::vec2(76.0, 18.0),
-            ),
-            0.0,
-            stroke,
-            egui::StrokeKind::Inside,
-        );
+/// The marker's whole box from the badge centre — the badge's width, the
+/// portrait's top to the name's bottom — the centre clamped so the box
+/// stays inside the canvas (the draft's `markerRect`).
+fn marker_rect(centre: egui::Pos2, canvas: egui::Rect) -> egui::Rect {
+    let centre = clamp_centre(centre, canvas);
+    egui::Rect::from_min_max(
+        centre - egui::vec2(BADGE_W / 2.0, ABOVE_CENTRE),
+        centre + egui::vec2(BADGE_W / 2.0, BELOW_CENTRE),
+    )
+}
+
+/// The order the screen draws markers in (the draft's `drawOrder`): top
+/// of the canvas first, so a lower marker covers the one above it; ties
+/// keep the slot order.
+fn draw_order(centres: &[egui::Pos2; 11]) -> [usize; 11] {
+    let mut order: [usize; 11] = std::array::from_fn(|index| index);
+    order.sort_by(|a, b| centres[*a].y.total_cmp(&centres[*b].y).then(a.cmp(b)));
+    order
+}
+
+/// The leftward offset of a name `width` wide `seconds` after the
+/// scroll's clock started (the draft's `nameScroll`): it holds still
+/// `NAME_PERIOD` less its `width + NAME_GAP` loop at `NAME_SPEED`, then
+/// moves `NAME_SPEED` a second through that loop, ending where it began.
+fn name_scroll(width: f32, seconds: f32) -> f32 {
+    name_moving_for(width, seconds).max(0.0) * NAME_SPEED
+}
+
+/// How long until the name `width` wide next moves at `seconds`: 0 while
+/// it moves.
+fn name_still_for(width: f32, seconds: f32) -> f32 {
+    (-name_moving_for(width, seconds)).max(0.0)
+}
+
+/// How long the name `width` wide has been moving at `seconds` in its
+/// period, negative while it holds still (minus the time left before it
+/// moves): the phase `name_scroll` and `name_still_for` both read.
+fn name_moving_for(width: f32, seconds: f32) -> f32 {
+    let moving = (width + NAME_GAP) / NAME_SPEED;
+    seconds % NAME_PERIOD - (NAME_PERIOD - moving)
+}
+
+/// The position text's colour by the position's group, as the game's
+/// (the draft's `POS_COLOUR` over `POSITIONS`' order): a position past
+/// the table white, as `position_label` reads it "?".
+fn position_colour(position: u8) -> egui::Color32 {
+    match position {
+        0 => KEEPER,
+        1..=3 => DEFENDER,
+        4..=8 => MIDFIELDER,
+        9..=12 => FORWARD,
+        _ => egui::Color32::WHITE,
     }
 }
 
-/// One marker (the draft's chip): the slot's position over the starter's
-/// name cut to 8 characters, its AccessKit node a button labeled with
-/// both; painted at the pointer while dragged. The keeper's slot
-/// (position 0) is not a drag source but still clicks. A click serves the
-/// armed mode when one is armed, else opens the slot's popover. The
-/// answer is the marker's response, for the caller's drop check.
+/// The turf image (the draft's `turf`): the game texture's size, eleven
+/// horizontal bands dark at both ends, and the texture's grain as a
+/// fixed-seed xorshift32 — deterministic, so the loaded texture is made
+/// once per context.
+fn turf_image() -> egui::ColorImage {
+    let (width, height) = (TURF_SIZE[0], TURF_SIZE[1]);
+    let mut pixels = Vec::with_capacity(width * height);
+    // xorshift32 from a fixed seed: the same grain every run.
+    let mut state = 0x9e37_79b9u32;
+    for y in 0..height {
+        let base = if (y * TURF_BANDS / height).is_multiple_of(2) {
+            TURF_DARK
+        } else {
+            TURF_LIGHT
+        };
+        for _x in 0..width {
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            let noise = ((state as f32 / u32::MAX as f32 - 0.5) * 12.1).round() as i32;
+            let channel = |base: u8| (i32::from(base) + noise).clamp(0, 255) as u8;
+            pixels.push(egui::Color32::from_rgb(
+                channel(base[0]),
+                channel(base[1]),
+                channel(base[2]),
+            ));
+        }
+    }
+    egui::ColorImage::new(TURF_SIZE, pixels)
+}
+
+/// The turf texture, loaded once per context under a fixed id.
+fn turf(ctx: &egui::Context) -> egui::TextureHandle {
+    let id = egui::Id::new("pitch turf");
+    if let Some(texture) = ctx.data(|data| data.get_temp::<egui::TextureHandle>(id)) {
+        return texture;
+    }
+    let texture = ctx.load_texture("pitch turf", turf_image(), egui::TextureOptions::LINEAR);
+    ctx.data_mut(|data| data.insert_temp(id, texture.clone()));
+    texture
+}
+
+/// The turf and the lines (the draft's `drawLines`): the halfway line,
+/// the centre circle, and per end the penalty box, the goal area and the
+/// penalty arc — no touchlines and no goal lines (the texture has none).
+fn paint_pitch(painter: &egui::Painter, canvas: egui::Rect) {
+    let stroke = egui::Stroke::new(2.0, LINES);
+    painter.image(
+        turf(painter.ctx()).id(),
+        canvas,
+        egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+        egui::Color32::WHITE,
+    );
+    let at = |x: f32, y: f32| canvas.min + egui::vec2(x, y);
+    painter.line_segment([at(0.0, 192.0), at(320.0, 192.0)], stroke);
+    painter.circle_stroke(at(160.0, 192.0), 36.0, stroke);
+    for top in [true, false] {
+        // The end's goal line and the direction into the field.
+        let (edge, dir) = if top { (0.0, 1.0) } else { (384.0, -1.0) };
+        let line = |x: f32, depth: f32| at(x, edge + dir * depth);
+        // The penalty box, 160 wide centred and 66 deep: its two sides
+        // and its far edge (no goal line).
+        for x in [80.0, 240.0] {
+            painter.line_segment([line(x, 0.0), line(x, 66.0)], stroke);
+        }
+        painter.line_segment([line(80.0, 66.0), line(240.0, 66.0)], stroke);
+        // The goal area, x 123 to 197 and 22 deep.
+        for x in [123.0, 197.0] {
+            painter.line_segment([line(x, 0.0), line(x, 22.0)], stroke);
+        }
+        painter.line_segment([line(123.0, 22.0), line(197.0, 22.0)], stroke);
+        // The penalty arc: the centre circle's radius about the spot 44
+        // from the goal line, only its part beyond the box's far edge
+        // (where a point is more than 22 deep).
+        let spot = line(160.0, 44.0);
+        let half = (22.0f32 / 36.0).acos();
+        let mid = if top {
+            std::f32::consts::FRAC_PI_2
+        } else {
+            -std::f32::consts::FRAC_PI_2
+        };
+        let points: Vec<egui::Pos2> = (0..17)
+            .map(|i| {
+                let angle = mid - half + 2.0 * half * i as f32 / 16.0;
+                spot + egui::vec2(36.0 * angle.cos(), 36.0 * angle.sin())
+            })
+            .collect();
+        painter.line(points, stroke);
+    }
+}
+
+/// One marker (the draft's chip grown to the screen's marker): the
+/// slot's position over the starter's name, its AccessKit node a button
+/// labeled with both. The keeper's slot (position 0) is not a drag source
+/// but still clicks. A click serves the armed mode when one is armed,
+/// else opens the slot's popover. The answer is the marker's response,
+/// for the caller's drop check; `paint_marker` draws it.
 fn marker(
     ui: &mut egui::Ui,
     canvas: egui::Rect,
     tactics: &mut TeamTactics,
     view: &mut TacticsView,
     roster: &[RosterRow<'_>],
-    index: usize,
-    slot: FormationSlot,
+    spot: Spot,
 ) -> egui::Response {
-    let keeper = slot.position == 0;
-    let center = pitch_point(canvas.min, slot.x, slot.y);
+    let keeper = spot.slot.position == 0;
     let response = ui.interact(
-        marker_rect(center, canvas),
-        ui.id().with(("pitch marker", index)),
+        marker_rect(spot.centre, canvas),
+        ui.id().with(("pitch marker", spot.index)),
         if keeper {
             egui::Sense::click()
         } else {
             egui::Sense::click_and_drag()
         },
     );
-    let name = name_at(roster, tactics.starting_eleven[index]);
+    let name = name_at(roster, tactics.starting_eleven[spot.index]);
     response.widget_info(|| {
         egui::WidgetInfo::labeled(
             egui::WidgetType::Button,
             ui.is_enabled(),
-            format!("{} {}", position_label(slot.position), name),
+            format!("{} {}", position_label(spot.slot.position), name),
         )
     });
     if !keeper {
-        response.dnd_set_drag_payload(LineupDrag::Marker(index));
+        response.dnd_set_drag_payload(LineupDrag::Marker(spot.index));
     }
     if response.clicked() {
         match view.assign {
-            Some(assign) => assign.write(tactics, view, index),
+            Some(assign) => assign.write(tactics, view, spot.index),
             None => {
                 view.popover = Some(OpenSlot {
                     scope: ui.id(),
                     preset: view.preset,
                     formation: view.formation,
-                    slot: index,
+                    slot: spot.index,
                 });
             }
         }
     }
-    let at = if response.dragged() {
-        ui.ctx().pointer_interact_pos().unwrap_or(center)
-    } else {
-        center
-    };
-    let rect = marker_rect(at, canvas);
+    response
+}
+
+/// One marker painted (the draft's `drawPitch` body): the portrait, the
+/// badge with the position's abbreviation in its group's colour, the name
+/// in its colour codes' colours (white where it has none), the captain's
+/// mark when he is the starter, and the selection corners the screen's
+/// marks lend the editor's states. `spot.centre` is the clamped badge
+/// centre (the clamped pointer while dragged); `seconds` is the name
+/// scroll's clock. Answers how long until the name next moves, `None`
+/// when it fits and never moves.
+fn paint_marker(
+    painter: &egui::Painter,
+    canvas: egui::Rect,
+    tactics: &TeamTactics,
+    view: &TacticsView,
+    roster: &[RosterRow<'_>],
+    spot: Spot,
+    seconds: f32,
+) -> Option<f32> {
+    let roster_slot = tactics.starting_eleven[spot.index];
+    let badge = egui::Rect::from_center_size(spot.centre, egui::vec2(BADGE_W, BADGE_H));
+    let portrait = egui::Rect::from_min_size(
+        egui::pos2(badge.left(), badge.top() - PORTRAIT_H),
+        egui::vec2(BADGE_W, PORTRAIT_H),
+    );
+    if let Some(texture) = roster
+        .get(usize::from(roster_slot))
+        .and_then(|row| row.portrait)
+    {
+        painter.image(
+            texture,
+            portrait,
+            egui::Rect::from_min_max(egui::pos2(0.0, 0.0), egui::pos2(1.0, 1.0)),
+            egui::Color32::WHITE,
+        );
+    }
     let fill = if view.assign == Some(Assign::Join)
-        && tactics
-            .players_to_join_attack
-            .contains(&tactics.starting_eleven[index])
+        && tactics.players_to_join_attack.contains(&roster_slot)
     {
         JOIN_FILL
-    } else if keeper {
-        KEEPER_FILL
     } else {
-        CHIP_FILL
+        BADGE_FILL
     };
-    let stroke = if view.popover.is_some_and(|open| open.slot == index) {
-        OPEN_STROKE
+    painter.rect_filled(badge, egui::CornerRadius::same(2), fill);
+    painter.text(
+        egui::pos2(badge.left() + 3.0, badge.center().y),
+        egui::Align2::LEFT_CENTER,
+        position_label(spot.slot.position),
+        egui::FontId::proportional(12.0),
+        position_colour(spot.slot.position),
+    );
+    // The name in its colour codes' colours (white where it has none),
+    // centred under the badge or cut at its right when wider.
+    let mut job = egui::text::LayoutJob::default();
+    append_name(&mut job, raw_name_at(roster, roster_slot));
+    for section in &mut job.sections {
+        section.format.font_id = egui::FontId::proportional(12.0);
+        if section.format.color == egui::Color32::PLACEHOLDER {
+            section.format.color = egui::Color32::WHITE;
+        }
+    }
+    let galley = painter.layout_job(job);
+    let size = galley.size();
+    let wide = size.x > BADGE_W;
+    let left = if wide {
+        badge.left() - name_scroll(size.x, seconds)
+    } else {
+        spot.centre.x - size.x / 2.0
+    };
+    let clip = egui::Rect::from_min_max(
+        egui::pos2(badge.left(), canvas.top()),
+        egui::pos2(badge.right(), canvas.bottom()),
+    );
+    let clipped = painter.with_clip_rect(clip);
+    let top = spot.centre.y + NAME_DY - size.y / 2.0;
+    clipped.galley(egui::pos2(left, top), galley.clone(), egui::Color32::WHITE);
+    if wide {
+        // Its repeat a loop to the right, so the start follows the end.
+        clipped.galley(
+            egui::pos2(left + size.x + NAME_GAP, top),
+            galley,
+            egui::Color32::WHITE,
+        );
+    }
+    if roster_slot == tactics.set_pieces.captain {
+        let mark = egui::Rect::from_min_max(
+            egui::pos2(badge.left() + 1.0, badge.top() - 16.0),
+            egui::pos2(badge.left() + 13.0, badge.top() - 5.0),
+        );
+        painter.rect_filled(mark, egui::CornerRadius::same(2), egui::Color32::WHITE);
+        painter.text(
+            mark.center(),
+            egui::Align2::CENTER_CENTER,
+            "C",
+            egui::FontId::proportional(9.0),
+            egui::Color32::BLACK,
+        );
+    }
+    let corners = if view.popover.is_some_and(|open| open.slot == spot.index) {
+        Some(SELECTED_CORNERS)
     } else if view.assign.is_some() {
-        ARMED_STROKE
+        Some(CANDIDATE_CORNERS)
     } else {
-        CHIP_STROKE
+        None
     };
-    let painter = ui.painter_at(canvas);
-    painter.rect(
-        rect,
-        egui::CornerRadius::same(3),
-        fill,
-        egui::Stroke::new(1.0, stroke),
-        egui::StrokeKind::Inside,
-    );
-    painter.text(
-        egui::pos2(rect.center().x, rect.top() + 7.0),
-        egui::Align2::CENTER_CENTER,
-        position_label(slot.position),
-        egui::FontId::proportional(10.0),
-        CHIP_POSITION,
-    );
-    painter.text(
-        egui::pos2(rect.center().x, rect.top() + 19.0),
-        egui::Align2::CENTER_CENTER,
-        name.chars().take(8).collect::<String>(),
-        egui::FontId::proportional(9.0),
-        CHIP_NAME,
-    );
-    response
+    if let Some(color) = corners {
+        let stroke = egui::Stroke::new(2.0, color);
+        let arm = 9.0;
+        let corner = |pos: egui::Pos2, dx: f32, dy: f32| {
+            painter.line_segment([pos + egui::vec2(0.0, dy * arm), pos], stroke);
+            painter.line_segment([pos, pos + egui::vec2(dx * arm, 0.0)], stroke);
+        };
+        corner(portrait.left_top(), 1.0, 1.0);
+        corner(portrait.right_top(), -1.0, 1.0);
+        corner(portrait.left_bottom(), 1.0, -1.0);
+        corner(portrait.right_bottom(), -1.0, -1.0);
+    }
+    wide.then(|| name_still_for(size.x, seconds))
 }
 
 /// The position byte's label (`POSITIONS`), "?" past the table as the

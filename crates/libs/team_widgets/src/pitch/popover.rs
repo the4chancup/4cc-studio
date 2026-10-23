@@ -6,7 +6,7 @@
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::tactics::TeamTactics;
 
-use super::{GRID_X, GRID_Y, marker_rect, pitch_point, position_label};
+use super::{GRID_X, GRID_Y, badge_centre, marker_rect, position_label};
 use crate::names::append_name;
 use crate::tactics::{RosterRow, TacticsView, raw_name_at};
 
@@ -38,7 +38,7 @@ pub(super) fn slot_popover(
     let formation = &mut presets[open.preset.min(2)].formations[open.formation.min(2)];
     let slot = formation.players[index];
     let keeper = slot.position == 0;
-    let rect = marker_rect(pitch_point(canvas.min, slot.x, slot.y), canvas);
+    let rect = marker_rect(badge_centre(canvas.min, slot), canvas);
     egui::Popup::new(
         ui.id().with("slot popover"),
         ui.ctx().clone(),
@@ -123,7 +123,7 @@ mod tests {
     use pes_version::PesVersion;
 
     use super::*;
-    use crate::pitch::tests::marker_centre;
+    use crate::pitch::tests::marker_point;
     use crate::test_support::{
         Headless, centre, controls_right_of, entry, fixture_rows, fixture_tactics, roster_rows,
     };
@@ -151,7 +151,7 @@ mod tests {
         assert_ne!(index, keeper, "premise: not the keeper's slot");
 
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-        let at = marker_centre(&nodes, formation.players[index]);
+        let at = marker_point(&nodes, &formation.players, index);
         let (_, changed) =
             window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
         assert!(!changed, "opening the popover writes no record");
@@ -205,7 +205,7 @@ mod tests {
         let y = formation.players[index].y;
 
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-        let at = marker_centre(&nodes, formation.players[index]);
+        let at = marker_point(&nodes, &formation.players, index);
         window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let field = controls_right_of(&nodes, "X", Role::SpinButton)
@@ -264,7 +264,7 @@ mod tests {
             .expect("the fixture has a keeper slot");
 
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-        let at = marker_centre(&nodes, tactics.presets[0].formations[0].players[keeper]);
+        let at = marker_point(&nodes, &tactics.presets[0].formations[0].players, keeper);
         window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         let position = controls_right_of(&nodes, "Position", Role::ComboBox)
@@ -308,10 +308,9 @@ mod tests {
         let rows = fixture_rows(PesVersion::Pes21);
         let roster = roster_rows(&rows);
         let index = 4;
-        let slot = tactics.presets[0].formations[0].players[index];
 
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-        let at = marker_centre(&nodes, slot);
+        let at = marker_point(&nodes, &tactics.presets[0].formations[0].players, index);
         window.click_pitch(at, PesVersion::Pes21, &mut tactics, &mut view, &roster);
         let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
         entry(&nodes, Role::Button, "Close");

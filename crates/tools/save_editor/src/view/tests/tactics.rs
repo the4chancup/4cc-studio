@@ -337,7 +337,8 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_tab() {
     // snapped drop point, undoable.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let canvas = canvas_of(&nodes);
-    let from = marker_centre(canvas, slot_before);
+    let from = marker_point(canvas, &before.presets[0].formations[0].players, index)
+        .expect("a point on the marker a press can reach");
     let onto = grass_point(canvas, &before.presets[0].formations[0].players);
     let (x, y) = snap(canvas, onto);
     assert_ne!(
@@ -383,8 +384,12 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_tab() {
     assert_ne!(out, inn, "premise: two different slots");
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let canvas = canvas_of(&nodes);
-    let moved = team_entry(&view, 701).tactics.presets[0].formations[0].players[index];
-    let onto = marker_centre(canvas, moved);
+    let onto = marker_point(
+        canvas,
+        &team_entry(&view, 701).tactics.presets[0].formations[0].players,
+        index,
+    )
+    .expect("a point on the marker a drop can reach");
     let names = lineup_names(&nodes);
     drag(&mut window, centre(names[11]), onto, &mut view);
     let tactics = team_entry(&view, 701).tactics;
@@ -410,8 +415,13 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_tab() {
     click(&mut window, chip(&nodes, "Penalty kick:"), &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let canvas = canvas_of(&nodes);
-    let slot = team_entry(&view, 701).tactics.presets[0].formations[0].players[assignee];
-    click_at(&mut window, marker_centre(canvas, slot), &mut view);
+    let at = marker_point(
+        canvas,
+        &team_entry(&view, 701).tactics.presets[0].formations[0].players,
+        assignee,
+    )
+    .expect("a point on the marker a click can reach");
+    click_at(&mut window, at, &mut view);
     assert_eq!(
         team_entry(&view, 701).tactics.set_pieces.penalty,
         starter,
@@ -431,8 +441,13 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_tab() {
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         let canvas = canvas_of(&nodes);
-        let slot = team_entry(&view, 701).tactics.presets[0].formations[0].players[member];
-        click_at(&mut window, marker_centre(canvas, slot), &mut view);
+        let at = marker_point(
+            canvas,
+            &team_entry(&view, 701).tactics.presets[0].formations[0].players,
+            member,
+        )
+        .expect("a point on the marker a click can reach");
+        click_at(&mut window, at, &mut view);
     }
     assert_eq!(
         team_entry(&view, 701).tactics.players_to_join_attack,

@@ -21,7 +21,7 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     let index = 4;
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
-    let from = marker_centre(&nodes, formation.players[index]);
+    let from = marker_point(&nodes, &formation.players, index);
     let onto = grass_point(canvas, &formation.players);
     let (x, y) = snap(onto, canvas.min);
     let slot = formation.players[index];
@@ -62,15 +62,10 @@ fn a_marker_dropped_on_another_marker_exchanges_the_two_starters() {
     let dropped = before.starting_eleven[onto];
     assert_ne!(dragged, dropped, "premise: two different slots");
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let canvas = canvas_rect(&nodes);
-    let at = marker_centre(&nodes, formation.players[from]);
-    let over = marker_centre(&nodes, formation.players[onto]);
-    assert!(
-        formation.players[onto + 1..].iter().all(|slot| {
-            !marker_rect(pitch_point(canvas.min, slot.x, slot.y), canvas).contains(over)
-        }),
-        "premise: no later marker covers the drop point"
-    );
+    // `over` is inside `onto`'s box, free of every marker drawn after it
+    // (`marker_point`), so the topmost-marker drop resolves to `onto`.
+    let at = marker_point(&nodes, &formation.players, from);
+    let over = marker_point(&nodes, &formation.players, onto);
 
     let changed = window.drag_pitch(
         at,
@@ -105,7 +100,7 @@ fn a_marker_released_off_the_pitch_changes_nothing() {
     let index = 3;
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
-    let from = marker_centre(&nodes, formation.players[index]);
+    let from = marker_point(&nodes, &formation.players, index);
     // Right of the canvas but inside the window.
     let onto = egui::pos2(canvas.max.x + 20.0, canvas.center().y);
     assert!(!canvas.contains(onto), "premise: a release off the pitch");
@@ -152,11 +147,11 @@ fn an_eleven_row_released_on_the_grass_changes_nothing() {
     assert_eq!(tactics, before, "and nothing moved");
 }
 
-// A starter released on his own chip moves too (the arm's "or on his
-// own chip"): 4 units right still lands inside the 42 px chip, where
+// A starter released on his own marker moves too (the arm's "or on his
+// own marker"): 4 units right still lands inside the marker box, where
 // the drop is his own and the grass arm writes the snapped point.
 #[test]
-fn a_marker_released_on_his_own_chip_moves() {
+fn a_marker_released_on_his_own_marker_moves() {
     let mut window = Headless::sized(600.0, 450.0);
     let mut tactics = fixture_tactics(PesVersion::Pes21);
     let mut view = TacticsView::default();
@@ -165,28 +160,33 @@ fn a_marker_released_on_his_own_chip_moves() {
     let formation = tactics.presets[0].formations[0].clone();
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
-    // An outfield slot whose x + 4 stays on the grid and whose +12 px
-    // drop point covers no other marker's chip.
-    let (index, from, onto) = (0..11)
+    let centres = centres_of(canvas, &formation.players);
+    let order = draw_order(&centres);
+    // An outfield slot whose x + 4 stays on the grid and whose drop
+    // point covers no marker drawn after it (those would claim the
+    // release first).
+    let (index, onto) = (0..11)
         .filter(|&index| formation.players[index].position != 0)
         .filter_map(|index| {
             let slot = formation.players[index];
-            let centre = pitch_point(canvas.min, slot.x, slot.y);
-            let onto = centre + egui::vec2(4.0 * UNIT.x, 0.0);
+            let onto = badge_centre(canvas.min, slot) + egui::vec2(4.0 * SPOT_XS, 0.0);
+            let after = order
+                .iter()
+                .position(|&i| i == index)
+                .expect("every marker is in the order");
             (slot.x <= 100
-                && formation.players.iter().enumerate().all(|(other, slot)| {
-                    other == index
-                        || !marker_rect(pitch_point(canvas.min, slot.x, slot.y), canvas)
-                            .contains(onto)
-                }))
-            .then_some((index, centre, onto))
+                && order[after + 1..]
+                    .iter()
+                    .all(|&other| !marker_rect(centres[other], canvas).contains(onto)))
+            .then_some((index, onto))
         })
         .next()
         .expect("some outfield slot can move 4 units right");
+    let from = marker_point(&nodes, &formation.players, index);
     let slot = formation.players[index];
     assert!(
-        marker_rect(from, canvas).contains(onto),
-        "premise: the release is still on his own chip"
+        marker_rect(centres[index], canvas).contains(onto),
+        "premise: the release is still on his own marker"
     );
 
     let changed = window.drag_pitch(
@@ -221,7 +221,7 @@ fn the_keepers_marker_cannot_be_dragged() {
     let before = tactics.clone();
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
-    let from = marker_centre(&nodes, formation.players[keeper]);
+    let from = marker_point(&nodes, &formation.players, keeper);
     let onto = grass_point(canvas, &formation.players);
 
     let changed = window.drag_pitch(
@@ -279,17 +279,8 @@ fn a_bench_row_dropped_on_a_marker_swaps_him_in() {
     tactics.set_pieces.penalty = out;
     let (nodes, _) =
         window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let canvas = canvas_rect(&nodes);
     let formation = tactics.presets[0].formations[0].clone();
-    let onto = marker_rect(
-        pitch_point(
-            canvas.min,
-            formation.players[index].x,
-            formation.players[index].y,
-        ),
-        canvas,
-    )
-    .center();
+    let onto = marker_point(&nodes, &formation.players, index);
 
     let changed = window.drag_pitch_and_lineup(
         row_centre(&nodes, 11),
@@ -330,17 +321,8 @@ fn a_starter_row_dropped_on_a_marker_exchanges_the_two() {
     assert_ne!(out, inn, "premise: two different slots");
     let (nodes, _) =
         window.pitch_and_lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-    let canvas = canvas_rect(&nodes);
     let formation = tactics.presets[0].formations[0].clone();
-    let onto = marker_rect(
-        pitch_point(
-            canvas.min,
-            formation.players[index].x,
-            formation.players[index].y,
-        ),
-        canvas,
-    )
-    .center();
+    let onto = marker_point(&nodes, &formation.players, index);
 
     let changed = window.drag_pitch_and_lineup(
         row_centre(&nodes, 2),
