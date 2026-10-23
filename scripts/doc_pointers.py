@@ -60,6 +60,8 @@ OPEN_PHASE_PLANS = {
     # `team_widgets` (8.8).
     "docs/plans/libs/color_tools.md",
     "docs/plans/save_editor.md",
+    # Phase 20 (open): the Ruleset editor, built from its plan (worklog 20.5 onward).
+    "docs/plans/ruleset_editor.md",
 }
 
 

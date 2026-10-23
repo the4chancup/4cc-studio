@@ -24,7 +24,9 @@ wording to fold in when they come; 8.7a-b, the color picker, done, its reviews g
 with the players' portraits, done 2026-10-23; 8.9f and h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-e and g done, 0.0.1f at the cut; the Team
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
-rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
+rehearsal on PES 2019), Phase 20 (the Ruleset editor: 20.3-20.5 done 2026-10-23, its
+Acceptance section, the writer and the command line; 20.6a1, the window's frame, next), the
+0.0.1 cut (0.0.1f: the two
 editors, and the compiler and upgrader through the CLI, their views greyed out), then Phase
 8's other views. Done for DBC so far (2026-10-21): 20.0d (the
 DBC7 ruleset), 20.0e (the organizer's choices in it; the stat total's two readings confirmed
@@ -1822,10 +1824,16 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
   official file having none. Files: `aatf/{rulesets/autumn26.rhai,src/fixtures/official.rs,
   src/ruleset/tests/{conditions,mod,rules}.rs}`, `save_editor/tests/{cli/check_aatf.rs,
   fixtures/aatf/official_warning.toml}`, `docs/spec/{aatf_rules,save_editor}.md`
-- [ ] 20.3 the Acceptance section (lead, 2026-10-23): `plans/ruleset_editor.md` "Acceptance"
+- [x] 20.3 the Acceptance section (lead, 2026-10-23): `plans/ruleset_editor.md` "Acceptance"
   (RE-GUI, RE-FILE, RE-SUM, RE-RND, RE-CLI), the start page's templates (DBC7 among them) and
   Blank made exact, logic version 1 frozen at the 0.0.1 cut (DECISIONS 2026-10-23) → verify:
-  checkpoint (a), a SWE-2 loop, then Astra
+  checkpoint (a), a SWE-2 loop, then Astra. Done 2026-10-23: SWE-2 rounds accepted 5, 8, 4,
+  then 3 and 2 around Astra's 9 and 3. The fixes made the plan and the draft agree (the effects
+  menu's fifteen entries, the per-tier switch, the summary's card groups and team settings, the
+  height systems' drag order, "any of" and "except when" and the last one's "otherwise", the
+  recent files), and a file breaking a load rule is refused at open like a parse error
+  (DECISIONS 2026-10-23). Files: `docs/plans/{ruleset_editor,aatf_rules}.md`,
+  `docs/prototypes/ruleset_editor.html`, `docs/DECISIONS.md`
 - [x] 20.4 `libs/aatf`'s writer (`src/writer.rs`, `Ruleset::to_data_block`; `plans/aatf_rules.md`
   "Crate layout") → verify: every embedded ruleset and an every-field ruleset read back equal
   from what it writes, and writing twice gives identical bytes; the layout pinned by one test.
@@ -1837,19 +1845,43 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
   medal system counting no tier loads: it means "no medal players" (a tier a system leaves out
   counts 0), which 20.3's review first took for a system every team matches. Files:
   `crates/libs/aatf/src/{writer.rs,lib.rs,ruleset/tests/rules.rs}`, `docs/plans/aatf_rules.md`
-- [ ] 20.5 the tool crate's egui-free core (`plans/ruleset_editor.md` "Crate layout"), as
+- [x] 20.5 the tool crate's egui-free core (`plans/ruleset_editor.md` "Crate layout"), as
   slices:
-  - 20.5a the crate (`StudioTool` wiring, `settings.rs`, `messages.rs`), `document.rs` (open
-    with the logic status, save through the sample-team check to a temporary sibling, undo
-    snapshots, the dirty flag) and what `libs/aatf` must expose for it (a file's sections, the
-    file assembled with its own logic or custom checks)
-  - 20.5b `summary.rs` and the CLI's `validate`, `update-logic` and `summary` (RE-SUM, RE-CLI-01
-    to 03)
+  - 20.5a what `libs/aatf` must expose (a file's sections, the file assembled from a ruleset
+    with its own logic or custom checks), the crate (`StudioTool` wiring, registered but CLI-only
+    until its view, `messages.rs`), `document.rs` (open with the logic status, save through
+    the load validation to a temporary sibling, the logic update) and the CLI's
+    `validate` and `update-logic` (RE-CLI-01, 02): each item with a caller in the slice.
+    Landed 2026-10-23 (SWE-2, a run and one rework): `aatf::{file_sections, assemble_file}`
+    share `assemble`'s joining; `update-logic` keeps a `.bak` and reports the version it
+    replaced; a file whose logic lost its banner opens as modified and cannot be saved (the
+    rewrite would hold no logic). Files: `crates/libs/aatf/src/{file,lib}.rs`,
+    `crates/tools/ruleset_editor/`, `crates/studio/{Cargo.toml,src/main.rs,tests/help_cli.rs}`
+  - 20.5b `summary.rs` and the CLI's `summary` (RE-SUM through the CLI, RE-CLI-03). Landed
+    2026-10-23 (SWE-2, a run and one rework): the draft's wording ported, one function per
+    section; nine goldens, the draft's own `summary()` run on each embedded ruleset as the
+    writer writes it (lead-made, `scripts/provenance/fixtures/ruleset_summary_*`), matched
+    byte for byte; generating them fixed four draft defects (the first bracket "up to 175",
+    one capital in "Every team", per-tier values in tier order, "1 A position") and review
+    two more (a per-tier stat target as words, an empty `exactly` list as the label alone).
+    RE-FILE-03's third file (two tiers sharing an id) joined RE-CLI-01's legs.
+  Reviewed 2026-10-23 over 20.4-20.5 (SWE-2 S1a/S1b, Astra A1 on Codex brother, SWE-2 S2: 1, 2,
+  2 and 2 accepted): `summary -o` refuses the rules file it reads, a refused save exits 2, a
+  read-only file is not replaced on Linux either, the writer became `src/writer/` with its
+  tests apart, and the plan's "byte for byte" for a kept section sets its trailing whitespace
+  aside. `just mutants-diff 6447bb31`: 315 mutants, 8 missed; 6 got tests (the list wrap's
+  edge, a zero per-tier value's sign, the help catalog), 2 are the placeholder view and empty
+  settings 20.6a1 replaces
 - [ ] 20.6 the view (`plans/ruleset_editor.md` "The editor", the draft
   `docs/prototypes/ruleset_editor.html`), as slices:
-  - 20.6a the start page, the rail and its problem marks, the preview pane, General, Tiers with
-    the medal systems, Cards, Universal rules, Suggestions, Custom checks and Summary, undo and
-    redo, the unsaved-changes prompt, Open and Save (RE-GUI-01 to 06, 08, 13 to 15, RE-FILE)
+  - 20.6a the window's frame and the plain forms, as subslices:
+    - 20.6a1 `settings.rs` (`last_folder`, the recent files), the templates (embedded in
+      `libs/aatf`) and Blank, the document's dirty flag and undo snapshots, the start page,
+      the toolbar (Open, Save, Save as, Undo, Redo, Show preview), the rail and its problem
+      marks, the preview pane, the logic banners, the unsaved-changes prompt, General, Custom
+      checks and Summary (RE-GUI-01, 02, 13 to 15, RE-SUM-01, RE-FILE-01 to 03, 05, 07)
+    - 20.6a2 Tiers with the medal systems, Cards, Universal rules with the team settings,
+      Suggestions (RE-GUI-03 to 06, 08, RE-FILE-04, 06)
   - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12)
 - [ ] 20.7 Randomize (`plans/ruleset_editor.md` "Randomize"): `random/`, the start page's and
   toolbar's entries, the CLI's `random` (RE-RND, RE-CLI-04) → verify: 1,000 seeds per preset,
@@ -1895,6 +1927,10 @@ points there.
   builds there, so its next run starts cold) with `.tmp/lead/bonfire_target_cleanup.sh`: 66%.
   Direction: `scripts/mutants.py` empties the tests' leftovers from `REMOTE_TMPDIR` after it
   collects a remote half, or the helpers move under `target/` as `save_editor`'s did
+- open 2026-10-23 — a command's `Report` (`events.rs`: its findings sent as events, the worst
+  severity deciding the exit code) is copied in `save_editor` and `ruleset_editor` (20.5a),
+  about 40 lines each, the Save editor's with one more method (`output`). Two copies are not
+  yet a pattern; when a third tool needs it, it moves to `studio_core` and the copies go
 - open 2026-10-21 — the 4ccEditor source audit's rows that need a measurement or a check of
   built code (the rest are in `plans/save_editor.md`'s parity table and "Editing UI", and in
   8.9b1's rework): (1) a custom skin of 7 on PES 18+ becomes 0 in 4ccEditor (`main.cpp`

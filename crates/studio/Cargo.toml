@@ -19,6 +19,7 @@ env_logger.workspace = true
 export_upgrader.workspace = true
 indicatif.workspace = true
 log.workspace = true
+ruleset_editor.workspace = true
 save_editor.workspace = true
 studio_core.workspace = true
 team_compiler.workspace = true

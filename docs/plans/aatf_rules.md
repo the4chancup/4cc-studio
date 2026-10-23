@@ -248,7 +248,7 @@ longer offer to update it, and would keep its old logic on every save.
 
 What exists of this is in `spec/aatf_rules.md` "Crate layout".
 
-`src/writer.rs` (Phase 20): `Ruleset` → `RULESET` map literal, deterministic. A map key that
+`src/writer/` (Phase 20): `Ruleset` → `RULESET` map literal, deterministic. A map key that
 is not an identifier (an id is any non-empty string: `gold-medal`), or is one of Rhai's
 keywords or reserved words (`in`, `for`), is written as a string literal, which Rhai's map
 literal takes.
@@ -257,7 +257,7 @@ literal takes.
 
 What exists of this is in `spec/aatf_rules.md` "Development phase and verification".
 
-The writer (`writer.rs`) and schema migrations arrive with the Ruleset editor in Phase 20.
+The writer (`writer/`) and schema migrations arrive with the Ruleset editor in Phase 20.
 
 DBC7's fields and data block (worklog 20.0d) are verified as the others are:
 

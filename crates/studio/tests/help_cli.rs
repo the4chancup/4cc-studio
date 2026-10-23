@@ -70,6 +70,7 @@ fn the_export_writes_one_markdown_file_per_chapter() {
         [
             "export-upgrader.md",
             "first-run.md",
+            "ruleset-editor.md",
             "save-editor.md",
             "setting-up.md",
             "team-compiler.md"
@@ -84,6 +85,10 @@ fn the_export_writes_one_markdown_file_per_chapter() {
             "| `fpc_custom_skin_on_non_fpc` | Warning | A custom skin on a player whose body is not hidden by the FPC hide boots ID from Settings hides the body but not the jersey. | Nothing is changed for you; hide the body too, or pick a preset skin. |",
         ),
         ("export-upgrader", UPGRADER_NOTES_ENCODING_INVALID),
+        (
+            "ruleset-editor",
+            "| `summary_written` | Info | `summary -o`: the file's readable rules text was written to `path`. | The file it replaced, if there was one, is kept beside it as a .bak copy. |",
+        ),
     ];
     for (id, last_row) in last_rows {
         let printed = studio(&["help", id]);

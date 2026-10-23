@@ -2367,3 +2367,9 @@ worklog passed 7,000 lines.
   loads none; the Tactics help topic describes the pitch and where its portraits come from.
 - **2026-10-23** — Phase 20 opened (the Ruleset editor, for DBC): itemized 20.3-20.9. 20.4: `libs/aatf`'s writer, a ruleset
   written as its `RULESET` block that reads back equal, byte for byte when written again.
+- **2026-10-23** — 20.3: the Ruleset editor's Acceptance section reviewed (SWE-2 five rounds, Astra two); the plan and the draft
+  agree on every menu and section; a rules file that breaks a load rule is refused at open, like a parse error.
+- **2026-10-23** — 20.5a-b: the Ruleset editor's crate, CLI-only for now: `validate`, `update-logic` and `summary`, the summary
+  matching the draft's own wording byte for byte on all nine embedded rulesets. 20.4's writer gained its edge tests.
+- **2026-10-23** — 20.5 closed after its reviews (SWE-2 twice, Astra once): `summary -o` refuses its own input, a refused save exits 2,
+  a read-only rules file is never replaced; the mutation run's 6 real survivors got tests.

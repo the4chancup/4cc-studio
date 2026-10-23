@@ -41,7 +41,8 @@
 
 /// The one engine every script runs on: packages, accessors, limits.
 mod engine;
-/// Assembling a rules file: data block, current logic, custom-checks stub.
+/// Assembling a rules file: data block, current logic, custom-checks
+/// stub, and reading a file's sections back.
 mod file;
 /// The per-ruleset fixtures: known-legal and known-violating teams.
 #[cfg(test)]
@@ -59,7 +60,7 @@ mod violation;
 /// `Ruleset` written as its `RULESET` data block (`to_data_block`).
 mod writer;
 
-pub use file::LogicIdentity;
+pub use file::{FileSections, LogicIdentity, assemble_file, file_sections};
 pub use rules::Rules;
 pub use team::{PlayerView, TeamView, TeamViewError};
 pub use values::{CardLimits, TierValues};

@@ -3499,6 +3499,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "ruleset_editor"
+version = "0.0.1"
+dependencies = [
+ "aatf",
+ "anyhow",
+ "clap",
+ "crossbeam-channel",
+ "egui",
+ "log",
+ "studio_core",
+ "thiserror 2.0.20",
+ "toml",
+]
+
+[[package]]
 name = "rustc-hash"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3933,6 +3948,7 @@ dependencies = [
  "log",
  "pes_savefile",
  "pes_version",
+ "ruleset_editor",
  "save_editor",
  "studio_core",
  "team_compiler",

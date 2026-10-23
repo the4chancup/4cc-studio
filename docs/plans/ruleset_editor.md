@@ -19,8 +19,9 @@ schema. Platform context is in the [core plan](core/README.md).
    shown read-only.
 2. **The tool owns the data, Studio owns the logic, the author owns the custom checks.** Saving
    rewrites the `RULESET` block whole, writes the current logic, and copies the custom-checks
-   section byte for byte. Hand edits inside `RULESET` survive as values; their formatting and
-   comments do not.
+   section byte for byte, its trailing whitespace aside: the file's layout sets that (one
+   newline ends each section), as it does for a kept logic section. Hand edits inside `RULESET`
+   survive as values; their formatting and comments do not.
 3. **An invalid ruleset is never written.** The load-time rules of "Loading and validation" run
    on every edit; Save stays available and, while the ruleset is invalid, lists what blocks it
    instead of writing.
@@ -226,7 +227,7 @@ crates/tools/ruleset_editor/src/
 ```
 
 Placement rules: reading, validating, writing and migrating a rules file are `libs/aatf`'s
-(`file.rs`, `ruleset.rs`, `writer.rs`); this crate never parses Rhai or formats a `RULESET` block.
+(`file.rs`, `ruleset.rs`, `writer/`); this crate never parses Rhai or formats a `RULESET` block.
 `document.rs`, `summary.rs` and `random/` are egui-free, so the CLI and the GUI share them.
 
 ---
@@ -375,7 +376,7 @@ RE-FILE-02  GIVEN an Autumn 26 file whose logic section has one comment's text c
             WHEN it is opened, an edit made and Save pressed
             THEN a banner says the file's logic is not Studio's and its specials may not behave
                  as the forms describe; the saved file's logic section is the file's own, byte
-                 for byte (its trailing blank lines, which are layout, aside), and its RULESET
+                 for byte (its trailing whitespace, which is layout, aside), and its RULESET
                  holds the edit; the saved file reopened shows the banner again
 RE-FILE-03  GIVEN a file with a parse error at line 12, one whose tiers[2].free.tricks is the
             string "two", and one whose second tier has the first tier's id
@@ -386,7 +387,8 @@ RE-FILE-04  GIVEN VTL11 assembled as a file, with its custom checks
             WHEN it is opened, its Silver tier's label changed, and saved
             THEN the saved file is the header line, the RULESET block holding the new label, the
                  current logic, and the custom-checks section, that section byte for byte as it
-                 was read; VTL11's fixture teams pass and fail as under the original file
+                 was read (its trailing whitespace, which is layout, aside); VTL11's fixture
+                 teams pass and fail as under the original file
 RE-FILE-05  GIVEN dbc7.rhai assembled as a file, with the comments inside its RULESET
             WHEN it is opened and saved with no edit (Save is available on an unedited
                  document)
@@ -483,7 +485,8 @@ RE-CLI-03  GIVEN Autumn 26 as a file
            WHEN `ruleset-editor summary` is run, then with -o over an existing file
            THEN stdout holds the RE-SUM-01 text; with -o the file holds it and <file>.bak the
                 file replaced; GIVEN an RE-FILE-03 file THEN it is refused with a nonzero exit
-                code, writing no file
+                code, writing no file; GIVEN -o naming the rules file itself THEN it is refused
+                with a nonzero exit code, the rules file unchanged and no .bak written
 RE-CLI-04  GIVEN `ruleset-editor random --preset weird --seed 48213 -o a.rhai`, and the same
            without --seed
            WHEN each is run twice

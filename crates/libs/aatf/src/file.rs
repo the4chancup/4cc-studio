@@ -1,5 +1,8 @@
 //! Assembling a rules file from a data block, the current logic and the
-//! block's custom-checks section (the empty stub when it has none).
+//! block's custom-checks section (the empty stub when it has none), and
+//! reading a file's sections back.
+
+use crate::ruleset::Ruleset;
 
 /// The current logic section, banner included.
 pub(crate) const LOGIC: &str = include_str!("../logic/logic.rhai");
@@ -20,22 +23,85 @@ fn custom_checks_at(text: &str) -> usize {
     text.len()
 }
 
+/// The CUSTOM CHECKS stub every assembled file without checks carries.
+fn custom_checks_stub() -> String {
+    format!("{CUSTOM_CHECKS}\nfn custom_checks(team) {{ [] }}")
+}
+
+/// `data`, `logic` and `custom` joined into the whole file: each part
+/// written with its trailing whitespace trimmed, separated by a blank
+/// line, the file ending in one newline.
+fn join_file(data: &str, logic: &str, custom: &str) -> String {
+    format!(
+        "{}\n\n{}\n\n{}\n",
+        data.trim_end(),
+        logic.trim_end(),
+        custom.trim_end()
+    )
+}
+
 /// The whole rules file for `data_block`: the block, the current logic
 /// and the block's CUSTOM CHECKS section verbatim, or the empty stub
 /// when the block has none.
 pub(crate) fn assemble(data_block: &str) -> String {
     let (data, section) = data_block.split_at(custom_checks_at(data_block));
     let custom = if section.is_empty() {
-        format!("{CUSTOM_CHECKS}\nfn custom_checks(team) {{ [] }}")
+        custom_checks_stub()
     } else {
-        section.trim_end().to_string()
+        section.to_string()
     };
-    format!(
-        "{}\n\n{}\n\n{}\n",
-        data.trim_end(),
-        LOGIC.trim_end(),
-        custom
+    join_file(data, LOGIC, &custom)
+}
+
+/// The whole rules file for `ruleset`: its data block
+/// (`Ruleset::to_data_block`), then `logic` (the current logic when
+/// `None`), then `custom_checks` (the empty stub when `None`). Each section
+/// is passed as `file_sections` reads it, its banner line first: one
+/// without its banner reads back as part of the section before it.
+pub fn assemble_file(
+    ruleset: &Ruleset,
+    logic: Option<&str>,
+    custom_checks: Option<&str>,
+) -> String {
+    join_file(
+        &ruleset.to_data_block(),
+        logic.unwrap_or(LOGIC),
+        custom_checks.unwrap_or(&custom_checks_stub()),
     )
+}
+
+/// A rules file's sections after its data block, as read
+/// (`spec/aatf_rules.md` "The rules file").
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FileSections {
+    /// The LOGIC section, from its banner line to the CUSTOM CHECKS
+    /// banner line or the end; `None` without a LOGIC banner.
+    pub logic: Option<String>,
+    /// The CUSTOM CHECKS section, banner included, to the end; `None`
+    /// without one, and `None` when it is the empty stub every assembled
+    /// file without checks carries (the plan: the stub counts as none).
+    pub custom_checks: Option<String>,
+}
+
+/// `text`'s sections after its data block.
+pub fn file_sections(text: &str) -> FileSections {
+    let custom_checks = match custom_checks_at(text) {
+        at if at >= text.len() => None,
+        at => {
+            let section = &text[at..];
+            // The stub is normalized before comparing: line endings and
+            // trailing whitespace are the file's layout, not checks.
+            if section.replace("\r\n", "\n").trim_end() == custom_checks_stub() {
+                None
+            } else {
+                Some(section.to_string())
+            }
+        }
+    };
+    FileSections {
+        logic: logic_section(text).map(str::to_string),
+        custom_checks,
+    }
 }
 
 /// What a file's logic section is, against the logic this build has
@@ -208,6 +274,104 @@ mod tests {
                 OFFICIAL.trim_end(),
                 LOGIC.trim_end()
             )
+        );
+    }
+
+    /// `file_sections` of the assembled Autumn 26: the LOGIC section as
+    /// read, and `None` for the stub it carries (the stub counts as
+    /// none).
+    #[test]
+    fn file_sections_reads_autumns_logic_and_no_checks() {
+        let text = assemble(include_str!("../rulesets/autumn26.rhai"));
+        assert!(text.contains("fn custom_checks(team) { [] }"));
+        let sections = file_sections(&text);
+        assert_eq!(
+            sections.logic.as_deref().map(str::trim_end),
+            Some(LOGIC.trim_end())
+        );
+        assert_eq!(sections.custom_checks, None);
+    }
+
+    /// `file_sections` of VTL11's assembled file: its block's CUSTOM
+    /// CHECKS section, banner included, as read.
+    #[test]
+    fn file_sections_reads_vtl11s_custom_checks() {
+        let block = include_str!("../rulesets/vtl11.rhai");
+        let expected = &block[custom_checks_at(block)..];
+        let sections = file_sections(&assemble(block));
+        assert_eq!(
+            sections.custom_checks.as_deref().map(str::trim_end),
+            Some(expected.trim_end())
+        );
+    }
+
+    /// Without the LOGIC banner there is no section.
+    #[test]
+    fn file_sections_without_a_banner_is_none() {
+        let sections = file_sections(OFFICIAL);
+        assert_eq!(sections.logic, None);
+        assert_eq!(sections.custom_checks, None);
+    }
+
+    /// `assemble_file` writes a file `Rules::load` reads back: the
+    /// current logic and an equal ruleset.
+    #[test]
+    fn assemble_file_reads_back_current_with_an_equal_ruleset() {
+        let ruleset =
+            Ruleset::from_data_block(include_str!("../rulesets/autumn26.rhai")).expect("block");
+        let rules = crate::rules::Rules::load(&assemble_file(&ruleset, None, None)).expect("loads");
+        assert_eq!(rules.logic(), LogicIdentity::Current);
+        assert_eq!(rules.ruleset(), &ruleset);
+    }
+
+    /// A file assembled with a changed logic section keeps that section
+    /// and reads back `Modified`; re-assembled with `None` it is
+    /// `Current` again, the replacement `update_logic` performs.
+    #[test]
+    fn assemble_file_keeps_a_given_section_and_none_restores_current() {
+        let modified = LOGIC.replacen(
+            "// The generic interpreter",
+            "// The interpreter, its comment edited",
+            1,
+        );
+        let ruleset =
+            Ruleset::from_data_block(include_str!("../rulesets/autumn26.rhai")).expect("block");
+        let text = assemble_file(&ruleset, Some(&modified), None);
+        assert_eq!(
+            file_sections(&text).logic.as_deref().map(str::trim_end),
+            Some(modified.trim_end()),
+            "the section is kept"
+        );
+        assert_eq!(
+            crate::rules::Rules::load(&text).expect("loads").logic(),
+            LogicIdentity::Modified
+        );
+        let text = assemble_file(&ruleset, None, None);
+        assert_eq!(
+            crate::rules::Rules::load(&text).expect("loads").logic(),
+            LogicIdentity::Current
+        );
+    }
+
+    /// The older-official path: a file whose section hashes to the
+    /// table's first entry is `Official` at that version; re-assembled
+    /// with `None` it is `Current` against the same table, where
+    /// `update-logic`'s replacement is proven (no real older file
+    /// exists while logic 1 is the only version).
+    #[test]
+    fn an_older_section_is_official_then_current_after_reassembly() {
+        let older = LOGIC.replacen("// The generic interpreter", "// An older logic", 1);
+        let older_hash = section_hash(&older);
+        let table = [(1u32, older_hash.as_str()), (2, LOGIC_VERSIONS[0].1)];
+        let ruleset = Ruleset::from_data_block(OFFICIAL).expect("block");
+        let text = assemble_file(&ruleset, Some(&older), None);
+        assert_eq!(
+            identity_with(&text, &table),
+            LogicIdentity::Official { version: 1 }
+        );
+        assert_eq!(
+            identity_with(&assemble_file(&ruleset, None, None), &table),
+            LogicIdentity::Current
         );
     }
 
