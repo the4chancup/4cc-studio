@@ -486,8 +486,10 @@ pub(super) fn frame_theme(
     run_frame(ctx, app, raw_input(events, focused, None, system_theme))
 }
 
-/// The `RawInput` every harness frame shares: an 800 by 600 screen.
-fn raw_input(
+/// The `RawInput` every harness frame shares: an 800 by 600 screen. A test
+/// needing another screen or a root `ViewportInfo` adjusts the result and
+/// hands it to `run_frame`.
+pub(super) fn raw_input(
     events: Vec<egui::Event>,
     focused: bool,
     time: Option<f64>,
@@ -506,8 +508,13 @@ fn raw_input(
     }
 }
 
-/// One frame of `input`.
-fn run_frame(ctx: &egui::Context, app: &mut StudioApp, input: egui::RawInput) -> FrameOutput {
+/// One frame of `input`: the entry point for tests that build their own
+/// `RawInput` from `raw_input`.
+pub(super) fn run_frame(
+    ctx: &egui::Context,
+    app: &mut StudioApp,
+    input: egui::RawInput,
+) -> FrameOutput {
     let mut output = ctx.run_ui(input, |ui| {
         // eframe's own constructor of a `Frame` for testing an `App` without a window.
         app.logic(ui.ctx(), &mut eframe::Frame::_new_kittest());

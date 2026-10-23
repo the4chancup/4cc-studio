@@ -16,6 +16,7 @@ mod status_bar;
 #[cfg(test)]
 mod test_harness;
 mod title;
+mod window_size;
 
 use std::path::PathBuf;
 
@@ -116,6 +117,10 @@ pub struct StudioApp {
     /// The common `theme` setting last applied to the context; `None` until the first
     /// frame, which applies it.
     applied_theme: Option<Theme>,
+    /// The window's fit to the monitor is pending until the first frame whose
+    /// `ViewportInfo` reports the monitor's size sends it; after it, a member's
+    /// own resize or move holds (gui.md "Shell layout", "The window's size").
+    window_fit_pending: bool,
     /// The first-run data-location dialog's state.
     first_run: FirstRun,
 }
@@ -162,6 +167,7 @@ impl StudioApp {
             help_window,
             title: WindowTitle::default(),
             applied_theme: None,
+            window_fit_pending: true,
             first_run: FirstRun::new(config_dir),
         }
     }
@@ -319,6 +325,16 @@ impl eframe::App for StudioApp {
             crate::theme::apply(egui_ctx, theme);
             self.applied_theme = Some(theme);
         }
+        // The window is created at `DEFAULT_SIZE`; the first frame that reports
+        // the monitor fits and centers it, once.
+        if self.window_fit_pending
+            && let Some((size, top_left)) =
+                egui_ctx.input(|input| window_size::fit(input.viewport()))
+        {
+            egui_ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+            egui_ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(top_left));
+            self.window_fit_pending = false;
+        }
         for tool in &mut self.tools {
             tool.tick(&self.ctx);
         }
@@ -428,7 +444,13 @@ impl eframe::App for StudioApp {
 pub fn run_gui(app: StudioApp) -> anyhow::Result<()> {
     eframe::run_native(
         APP_NAME,
-        eframe::NativeOptions::default(),
+        eframe::NativeOptions {
+            // Created at the size the first frame's fit uses: on a monitor that
+            // holds it, nothing jumps.
+            viewport: egui::ViewportBuilder::default().with_inner_size(window_size::DEFAULT_SIZE),
+            centered: true,
+            ..Default::default()
+        },
         Box::new(|creation| {
             crate::theme::install_fonts(&creation.egui_ctx);
             // The context's clones share the wake slot, so a `with_events` sink made before

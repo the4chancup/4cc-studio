@@ -10,9 +10,6 @@ use egui_commonmark::{CommonMarkCache, CommonMarkViewer};
 
 use crate::help::{HelpSection, HelpTarget, MESSAGES_SLUG};
 
-/// The window's default size in points (the draft's `.help-win`).
-const DEFAULT_SIZE: [f32; 2] = [720.0, 480.0];
-
 /// The window's state across frames: the chapters it was built over, whether it is open,
 /// where it is (chapter index; the topic index in the list the tree shows — the written
 /// topics, then `Messages` when the chapter has catalog rows), the paragraph or catalog
@@ -142,9 +139,15 @@ impl HelpWindow {
             return;
         }
         let mut open = true;
+        // `default_rect` counts the whole window — `default_size` is the *outer*
+        // size, egui subtracts the frame's margins and the title bar inside
+        // `Window::show` — so the first rect is 90% of Studio's, centered in it.
+        // A moved or resized rect is kept by the window's id afterwards.
+        let screen = egui_ctx.content_rect();
+        let size = (screen.size() * 0.9).round();
         egui::Window::new("Help")
             .id(egui::Id::unique("help-window"))
-            .default_size(DEFAULT_SIZE)
+            .default_rect(egui::Rect::from_center_size(screen.center(), size))
             .collapsible(false)
             .resizable(true)
             .open(&mut open)
@@ -823,6 +826,53 @@ mod tests {
         );
         shell.ctx.switch_to_tool("b");
         shell
+    }
+
+    // ST-HELP-05
+    #[test]
+    fn the_help_window_first_opens_at_ninety_percent_of_the_shells_window() {
+        let dir = TestDir::new("studio_core_help_size");
+        for (screen, min, size) in [
+            (
+                egui::vec2(1037.0, 648.0),
+                egui::pos2(52.0, 32.5),
+                egui::vec2(933.0, 583.0),
+            ),
+            (
+                egui::vec2(1440.0, 900.0),
+                egui::pos2(72.0, 45.0),
+                egui::vec2(1296.0, 810.0),
+            ),
+        ] {
+            // One context per screen: a kept area rect is per-Context, and each
+            // iteration stands for a program run at that window size.
+            let egui_ctx = egui::Context::default();
+            egui_ctx.enable_accesskit();
+            let Shell { mut app, .. } = help_shell(dir.path());
+            let input = |events: Vec<egui::Event>| {
+                let mut input = raw_input(events, true, None, None);
+                input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, screen));
+                input
+            };
+            run_frame(&egui_ctx, &mut app, input(vec![key(egui::Key::F1, true)]));
+            // The window fades in: its node lands a few frames after it opens.
+            let mut out = run_frame(&egui_ctx, &mut app, input(Vec::new()));
+            for _ in 0..15 {
+                out = run_frame(&egui_ctx, &mut app, input(Vec::new()));
+            }
+            let bounds = help_window_node(&out.nodes)
+                .expect("the help window is drawn")
+                .bounds()
+                .expect("the window carries bounds");
+            let expected = egui::Rect::from_min_size(min, size);
+            assert!(
+                (bounds.x0 as f32 - expected.min.x).abs() <= 0.5
+                    && (bounds.y0 as f32 - expected.min.y).abs() <= 0.5
+                    && (bounds.x1 as f32 - expected.max.x).abs() <= 0.5
+                    && (bounds.y1 as f32 - expected.max.y).abs() <= 0.5,
+                "screen {screen:?}: bounds {bounds:?} vs {expected:?}"
+            );
+        }
     }
 
     // ST-HELP-01

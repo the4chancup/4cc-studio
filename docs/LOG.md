@@ -2379,3 +2379,5 @@ worklog passed 7,000 lines.
   19-glyph subset font), the Tactics tab's columns as the draft's; the version line reads `v0.0.1 pre-alpha`.
 - **2026-10-23** — 8.9i: a starter whose portrait the Tactics pitch cannot show draws the game's own placeholder
   for the selected PES (three bundled versions), also while his portrait is still being read.
+- **2026-10-23** — 8.6e: Studio opens at 1440 × 900 points, centered; on a monitor too small for it, at the
+  largest 16:10 size within 90% of the screen. The help window first opens at 90% of Studio's window.

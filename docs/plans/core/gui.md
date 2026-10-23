@@ -42,14 +42,19 @@ editor, the Export upgrader), then the planned ones in parentheses here, grayed 
 Points are egui's logical units, so the system's display scaling applies: at 150% the window
 covers 2160 × 1350 pixels and looks the same size it does at 100%. A fixed size, not a share of
 the monitor, because a share makes the window as wide as an ultrawide monitor is. On a monitor
-whose logical size cannot hold it with room for the taskbar and the title bar (a 1366 × 768
-laptop, a 1080p monitor at 150%, 1280 × 720 logical), it opens at the largest 16:10 size within
-90% of the monitor's logical width and height: 1037 × 648 at 1280 × 720, the smallest default
-a member meets. Every view is laid out to work at that smallest default, which is why the
+whose logical size cannot hold it with room for the taskbar and the title bar (1440 × 900 is
+over 90% of its logical width or height: a 1366 × 768 laptop, a 1080p monitor at 150%,
+1280 × 720 logical), it opens at the largest 16:10 size within 90% of the monitor's logical
+width and height, rounded to whole points: 1037 × 648 at 1280 × 720, the smallest default a
+member meets. Every view is laid out to work at that smallest default, which is why the
 drafts draw their UI in a window of Studio's default size and offer the smallest one
 ("Prototypes before implementation"). The monitor's size is known only once the window
-exists (`ViewportInfo::monitor_size`, in points), so the shell sizes and centers it on its
-first frame (`ViewportCommand::InnerSize`, `OuterPosition`).
+exists (`ViewportInfo::monitor_size`, in points), so the window is created at 1440 × 900 and
+the shell fits and centers it on the first frame that reports the monitor's size
+(`ViewportCommand::InnerSize`, then `OuterPosition` centering the outer rectangle, title bar
+included), and never again, so a member's own resize or move holds. eframe's own clamp at
+creation is not enough: it clamps to the whole monitor, under the taskbar, and drops the 16:10
+shape. Where no frame reports the monitor's size, the window stays as created.
 
 The shell draws only what is its own. Panels claim space in call order, so the status bar is
 added first to span the full width, the sidebar next, and the central panel, whatever is left,
@@ -222,9 +227,9 @@ Like the settings menu it is **assembled from the tools**, not written centrally
   `[text](tool-id#topic-slug)` so a topic can point at another tool's topic without knowing where
   it renders.
 - **Window.** An in-app egui window — non-modal and resizable, chapter tree left, rendered topic
-  right, the search box above both. It first opens at 90% of Studio's window, centered in it,
-  so it fits whatever size that window has ("Shell layout", The window's size), rather than at
-  a fixed size a small window cuts off. Its position and size hold while the program runs (egui
+  right, the search box above both. It first opens at 90% of Studio's window (its whole frame,
+  title bar included, in whole points), centered in it, so it fits whatever size that window
+  has ("Shell layout", The window's size), rather than at a fixed size a small window cuts off. Its position and size hold while the program runs (egui
   keeps a window's rectangle by its id, across a close and a reopen), not across restarts: a
   settings field written at every drag's end is a settings save per move for a reader opened
   now and then. Opening it closes a shell modal (the settings menu, the About popup), which
@@ -602,8 +607,8 @@ The shell is not a tool, so its scenarios live here, beside the sections they pr
 
 **Phase 8 scope.** Phase 8 completes the shell the Phase 3 slice started: the sidebar, the
 settings menu, the status bar, the window title, the help window and `4cc-studio help`, the
-log panel widget, the first-run data-location dialog, the `last_tool` reopening and the
-`--gui` autorun. What a scenario observes is what a frame draws (through the headless harness
+log panel widget, the first-run data-location dialog, the `last_tool` reopening, the
+`--gui` autorun and the window's opening size. What a scenario observes is what a frame draws (through the headless harness
 of `studio_core/src/shell/mod.rs`: the frame's AccessKit nodes, a click as press and release
 frames, the viewport and output commands a frame emits, a title or a clipboard copy; a color,
 which no AccessKit node carries, is read
@@ -614,6 +619,20 @@ settings file" is one under the test's own folder (`AppPaths` pointed there), ne
 developer's. The Team compiler's own toolbar, grid and cancellation are `TC-GUI` scenarios
 (`plans/team_compiler/README.md` "Acceptance"), the Save editor's view `SE-GUI` and the Export
 upgrader's `EU-GUI`.
+
+**Window**
+
+```
+ST-WIN-01   GIVEN a monitor of 1920 × 1080 points and the window created at 1440 × 900 inside an
+                 outer rectangle 16 points wider and 39 taller (its borders and title bar)
+            WHEN the GUI's first frame runs
+            THEN it asks for a 1440 × 900 inner size and moves the window to (232, 70.5), its
+                 outer rectangle centered on the monitor; GIVEN a monitor of 1280 × 720 points
+                 THEN 1037 × 648 at (113.5, 16.5); GIVEN 1366 × 768 THEN 1106 × 691 at
+                 (122, 19); and no later frame sends either; GIVEN the first frame reporting
+                 no monitor size THEN neither command, and the first frame that reports one
+                 sends both
+```
 
 **Sidebar**
 
@@ -740,6 +759,10 @@ ST-HELP-04  GIVEN the built binary
             THEN stdout is the chapter's Markdown; WHEN `4cc-studio help --export <dir>` runs
                  THEN <dir> holds one .md file per chapter, each tool's ending with its Messages
                  topic
+ST-HELP-05  GIVEN Studio's window at 1037 × 648 points
+            WHEN the help window opens for the first time
+            THEN its rectangle is 933 × 583 points (90% of the window's),
+                 centered in the window; GIVEN the window at 1440 × 900 THEN 1296 × 810
 ```
 
 **Log panel widget**
