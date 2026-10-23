@@ -204,9 +204,10 @@ fn a_savefile_path_naming_a_missing_file_is_a_warning_and_the_patch_is_written()
             sandbox.display("output/aesthetics_patch.toml")
         ),
         format!(
-            "Warning savefile_missing [Keep] (patch={}, path={}, command=4cc-studio save-editor apply-patch)",
+            "Warning savefile_missing [Keep] (patch={}, path={}, command={} save-editor apply-patch)",
             sandbox.display("output/aesthetics_patch.toml"),
-            missing.display()
+            missing.display(),
+            studio_core::EXE_NAME
         ),
     ] {
         assert!(lines.contains(&expected), "{expected}: {lines:#?}");
@@ -563,8 +564,9 @@ fn a_deployed_run_the_game_runs_vanilla_leaves_the_savefile_alone() {
     let lines = run.messages();
     assert_eq!(run.exit_code(), 0, "{lines:#?}");
     let expected = format!(
-        "Warning dpfilelist_cpk_missing [Keep] (path={}, files=4cc_62_midcup.cpk, command=4cc-studio team-compiler upgrade-dpfl)",
-        sandbox.display("PES/download")
+        "Warning dpfilelist_cpk_missing [Keep] (path={}, files=4cc_62_midcup.cpk, command={} team-compiler upgrade-dpfl)",
+        sandbox.display("PES/download"),
+        studio_core::EXE_NAME
     );
     assert!(lines.contains(&expected), "{lines:#?}");
     // A leading space: the code field's position, which a sandbox path never matches.

@@ -80,8 +80,11 @@ fn dropped(cpk: &str) -> String {
     format!("Warning dpfilelist_cpk_dropped [Keep] (cpk={cpk})")
 }
 
-const PLANNED: &str =
-    "Info dpfilelist_upgrade_planned [Keep] (command=4cc-studio team-compiler upgrade-dpfl --yes)";
+const PLANNED: &str = concat!(
+    "Info dpfilelist_upgrade_planned [Keep] (command=",
+    studio_core::exe_name!(),
+    " team-compiler upgrade-dpfl --yes)"
+);
 
 /// The PES 2017 list's entries the official list lacks, but `4cc_40_faces.cpk`, in its order:
 /// what TC-DEP-09's install drops, none of them with a file.

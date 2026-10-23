@@ -70,8 +70,12 @@ pub enum LaunchMode {
 /// subcommand's name `help` as its id: the registry is a compile-time list, so this is a
 /// programming error caught at startup.
 fn root_command(tools: &[Box<dyn StudioTool>]) -> Command {
-    let mut command = Command::new("4cc-studio")
-        .about("4cc Studio: the 4cc community's PES tools")
+    let mut command = Command::new(crate::EXE_NAME)
+        .bin_name(crate::EXE_NAME)
+        .about(format!(
+            "{}: the 4cc community's PES tools",
+            crate::APP_NAME
+        ))
         .disable_help_subcommand(true)
         .arg(
             Arg::new("gui")

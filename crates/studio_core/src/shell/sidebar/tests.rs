@@ -454,7 +454,8 @@ fn the_logo_opens_about_and_copy_puts_the_version_block_on_the_clipboard() {
 
     let out = frame(&egui_ctx, &mut app, Vec::new(), true);
     let block = format!(
-        "4cc Studio v{}\nBuild: {}\nTarget: {}\nData location: {}\nPES version: PES 2021",
+        "{} v{}\nBuild: {}\nTarget: {}\nData location: {}\nPES version: PES 2021",
+        crate::APP_NAME,
         env!("CARGO_PKG_VERSION"),
         if cfg!(debug_assertions) {
             "debug"

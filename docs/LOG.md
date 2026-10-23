@@ -2343,3 +2343,5 @@ worklog passed 7,000 lines.
 - **2026-10-23** — 0.0.1a rework 3 and 0.0.1c closed: the summary counts distinct folders and the exports skipped, both
   upgrade commands advance the exports counter, a `.upgrading` folder is skipped with a Warning (TC-SRC-11), and the
   mutation run's 14 missed mutants have tests. 0.0.1d planned: the codename's reach and the release recipe's refusals.
+- **2026-10-23** — 0.0.1d1: the preview names itself Unlimited Tool Works in the window, the CLI, the findings and the
+  help, from two constants; a test over the help export and every `--help` finds any "4cc Studio" left.

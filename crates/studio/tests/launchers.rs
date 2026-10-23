@@ -29,7 +29,7 @@ impl Sandbox {
         fs::create_dir_all(root.join("old_exports")).unwrap();
         fs::copy(
             env!("CARGO_BIN_EXE_4cc-studio"),
-            root.join("UnlimitedToolWorks.exe"),
+            root.join(format!("{}.exe", studio_core::EXE_NAME)),
         )
         .unwrap();
         let bundle = Path::new(env!("CARGO_MANIFEST_DIR")).join("../../resources/bundle");

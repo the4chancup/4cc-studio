@@ -2072,7 +2072,7 @@ pub(crate) const SHARED_IDS_714: &str = "4cc_studio/shared_ids/714.toml";
 /// The record file's text for `boots` (shared ID, folder name); the `[gloves]` table is
 /// always written, here empty.
 pub(crate) fn record(boots: &[(u16, &str)]) -> Vec<u8> {
-    let mut text = "# Written by 4cc Studio; do not edit.\n[boots]\n".to_owned();
+    let mut text = "# Written by the Team compiler; do not edit.\n[boots]\n".to_owned();
     for (id, name) in boots {
         text.push_str(&format!("{id} = \"{name}\"\n"));
     }

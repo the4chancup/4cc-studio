@@ -1,4 +1,4 @@
-// 4cc Studio AATF ruleset. Open it in the Ruleset editor to change it.
+// AATF ruleset. Open it in the Ruleset editor to change it.
 const RULESET = #{
     schema: 1,
     name: "Autumn 26",

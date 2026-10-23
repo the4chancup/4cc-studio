@@ -6,6 +6,8 @@ use std::fs;
 use std::path::Path;
 use std::process::{Command, Output};
 
+use studio_core::EXE_NAME;
+
 fn studio(args: &[&str]) -> Output {
     Command::new(env!("CARGO_BIN_EXE_4cc-studio"))
         .args(args)
@@ -101,6 +103,123 @@ fn the_export_writes_one_markdown_file_per_chapter() {
         );
         assert!(!stdout(&printed).contains("## Messages"), "{id}");
     }
+}
+
+/// The indented first words of `help`'s `Commands:` section (clap lays the subcommands out
+/// under the `Commands:` heading, one line each, until an unindented line ends it).
+fn commands_of(help: &str) -> Vec<String> {
+    let mut lines = help.lines();
+    let mut commands = Vec::new();
+    while let Some(line) = lines.next() {
+        if line != "Commands:" {
+            continue;
+        }
+        for line in lines.by_ref() {
+            if !line.starts_with(char::is_whitespace) {
+                break;
+            }
+            commands.push(line.split_whitespace().next().unwrap().to_owned());
+        }
+        break;
+    }
+    commands
+}
+
+// 0.0.1d
+#[test]
+fn no_member_visible_text_names_4cc_studio() {
+    let dir = Path::new(env!("CARGO_TARGET_TMPDIR")).join("help_cli_codename");
+    if dir.exists() {
+        fs::remove_dir_all(&dir).unwrap();
+    }
+    let output = studio(&["help", "--export", dir.to_str().unwrap()]);
+    assert_eq!(output.status.code(), Some(0), "stderr: {}", stderr(&output));
+
+    // (source, text): every exported page, the root --help, every tool's --help and every
+    // command's --help under it.
+    let mut pages: Vec<(String, String)> = fs::read_dir(&dir)
+        .unwrap()
+        .map(|entry| {
+            let path = entry.unwrap().path();
+            (
+                path.file_name().unwrap().to_string_lossy().into_owned(),
+                fs::read_to_string(&path).unwrap(),
+            )
+        })
+        .collect();
+    let root = studio(&["--help"]);
+    assert_eq!(root.status.code(), Some(0), "stderr: {}", stderr(&root));
+    let root_help = stdout(&root);
+    let tools = commands_of(&root_help);
+    assert!(
+        tools.len() >= 4,
+        "the root --help's Commands: section lists the tools: {root_help}"
+    );
+    for tool in &tools {
+        let output = studio(&[tool.as_str(), "--help"]);
+        assert_eq!(
+            output.status.code(),
+            Some(0),
+            "{tool} --help: {}",
+            stderr(&output)
+        );
+        let tool_help = stdout(&output);
+        for command in commands_of(&tool_help) {
+            if command == "help" {
+                continue;
+            }
+            let output = studio(&[tool.as_str(), command.as_str(), "--help"]);
+            assert_eq!(
+                output.status.code(),
+                Some(0),
+                "{tool} {command} --help: {}",
+                stderr(&output)
+            );
+            pages.push((format!("{tool} {command} --help"), stdout(&output)));
+        }
+        pages.push((format!("{tool} --help"), tool_help));
+    }
+    pages.push(("--help".to_owned(), root_help.clone()));
+
+    for (source, text) in &pages {
+        // The settings folder keeps its name by the ruling: the only `4cc-studio` left.
+        let text = text
+            .replace("%APPDATA%\\4cc-studio", "")
+            .replace("~/.config/4cc-studio", "");
+        for (number, line) in text.lines().enumerate() {
+            let lower = line.to_ascii_lowercase();
+            assert!(
+                !lower.contains("4cc studio") && !lower.contains("4cc-studio"),
+                "{source}:{}: {line}",
+                number + 1
+            );
+            assert!(
+                !line
+                    .split(|c: char| !c.is_ascii_alphanumeric())
+                    .any(|word| word == "Studio"),
+                "{source}:{}: {line}",
+                number + 1
+            );
+        }
+    }
+
+    let usage = root_help
+        .lines()
+        .find(|line| line.starts_with("Usage:"))
+        .expect("the root --help has a usage line");
+    assert!(
+        usage.starts_with("Usage: UnlimitedToolWorks"),
+        "the usage line names the executable: {usage}"
+    );
+    let compiler = &pages
+        .iter()
+        .find(|(source, _)| source == "team-compiler.md")
+        .expect("the export wrote the Team compiler's page")
+        .1;
+    assert!(
+        compiler.contains(&format!("{EXE_NAME} team-compiler compile")),
+        "the Team compiler's page names the executable"
+    );
 }
 
 #[test]

@@ -49,7 +49,10 @@ impl FirstRun {
     pub(super) fn show(&mut self, egui_ctx: &egui::Context, ctx: &mut ToolContext) {
         let mut choice = None;
         egui::Modal::new(egui::Id::new("first-run-data-location")).show(egui_ctx, |ui| {
-            ui.heading("Where should 4cc Studio keep its settings and data?");
+            ui.heading(format!(
+                "Where should {} keep its settings and data?",
+                crate::APP_NAME
+            ));
             ui.horizontal(|ui| {
                 ui.vertical(|ui| {
                     if ui.button("Next to the program").clicked() {
@@ -128,7 +131,11 @@ mod tests {
     use crate::shell::test_harness::*;
     use crate::tool::AppPaths;
 
-    const TITLE: &str = "Where should 4cc Studio keep its settings and data?";
+    const TITLE: &str = concat!(
+        "Where should ",
+        crate::app_name!(),
+        " keep its settings and data?"
+    );
 
     /// A shell facing the first-run choice: `exe` as the folder holding the program
     /// (created by the caller when the choice must be writable), no data directory

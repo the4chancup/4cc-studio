@@ -14,8 +14,8 @@ use crossbeam_channel::unbounded;
 use log::LevelFilter;
 use studio_core::egui_phosphor::regular;
 use studio_core::{
-    AppPaths, LaunchMode, PlannedTool, SETTINGS_FILE_NAME, Settings, ShellCondition, StudioApp,
-    StudioTool, ToolContext, parse_launch, resolve_data_dir, run_cli, run_gui, run_help,
+    AppPaths, EXE_NAME, LaunchMode, PlannedTool, SETTINGS_FILE_NAME, Settings, ShellCondition,
+    StudioApp, StudioTool, ToolContext, parse_launch, resolve_data_dir, run_cli, run_gui, run_help,
     settings_file_writable, user_config_dir,
 };
 
@@ -291,7 +291,7 @@ fn main() -> ExitCode {
         LaunchMode::Gui => run_gui_mode(tools),
         LaunchMode::GuiAutorun { .. } => {
             eprintln!(
-                "`--gui` is not available yet; it arrives with the GUI phase. Run the command without it, or `4cc-studio` alone for the window."
+                "`--gui` is not available yet; it arrives with the GUI phase. Run the command without it, or `{EXE_NAME}` alone for the window."
             );
             ExitCode::from(2)
         }

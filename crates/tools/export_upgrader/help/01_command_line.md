@@ -1,10 +1,10 @@
-The Export upgrader migrates an export in the old (AET) layout to the Studio
+The Export upgrader migrates an export in the old (AET) layout to the new
 format the Team compiler reads. Its commands run from a terminal opened in the
-folder that holds `4cc-studio`.
+folder that holds `UnlimitedToolWorks.exe`.
 
 ```text
-4cc-studio export-upgrader upgrade <export> (--savefile <EDIT> | --loose) [-o <dir>]
-4cc-studio export-upgrader upgrade-models <folder> [-o <dir>]
+UnlimitedToolWorks export-upgrader upgrade <export> (--savefile <EDIT> | --loose) [-o <dir>]
+UnlimitedToolWorks export-upgrader upgrade-models <folder> [-o <dir>]
 ```
 
 `upgrade` takes one old export: a folder, a `.zip` or a `.7z`. A team export
@@ -28,7 +28,7 @@ additions gets `Midcup`), and when that name is already the input's own,
 that already exists is refused and left untouched.
 
 A referee export is upgraded from its `refs.txt`: the output gets a
-`players.txt` holding the same slots in the Studio spelling (two-digit slot
+`players.txt` holding the same slots in the new spelling (two-digit slot
 numbers, one entry per line) and no `refs.txt`, and its `ref_marker.dds` is
 carried as it is. The roster may also be the older `Refs list.txt`, with
 the referee folders standing directly in the export rather than under
@@ -43,7 +43,7 @@ without a `refs.txt` has no roster to migrate: it is reported
 
 `upgrade-models` takes a folder of old model folders instead: the face, boots
 and gloves folders lying directly in it, one level deep, plus an optional
-`Common` folder. Each becomes one folder to drop into a Studio export. A face
+`Common` folder. Each becomes one folder to drop into an export. A face
 folder becomes a player folder `NN - Name` (its number and name from its own
 name, or its own name alone when it has no number), a boots or gloves folder
 becomes a folder named by its name part (`k0430 - Crocs` becomes `Crocs`) or

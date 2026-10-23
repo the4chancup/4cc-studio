@@ -1,9 +1,9 @@
 //! The window title (core plan, "Window title"): the one surface a user sees while the window
 //! is behind others — the taskbar button, alt-tab. While a tool reports an activity the title
-//! carries it (`Team compiler · 12/48 · 01:12 - 4cc Studio`, the active tool's first, then
-//! sidebar order); idle with a notice that arrived unfocused it holds the notice's text until
-//! focus returns; otherwise it is `4cc Studio`. The shell sends `ViewportCommand::Title` only
-//! when the string changes, once per frame at most — the window opens titled `4cc Studio`, so
+//! carries it (`Team compiler · 12/48 · 01:12 - Unlimited Tool Works`, `APP_NAME` last; the
+//! active tool's first, then sidebar order); idle with a notice that arrived unfocused it holds
+//! the notice's text until focus returns; otherwise it is `APP_NAME`. The shell sends `ViewportCommand::Title` only
+//! when the string changes, once per frame at most — the window opens titled `APP_NAME`, so
 //! an idle start sends nothing.
 
 /// What the title reads from: the last string sent and the notice text held while unfocused.
@@ -16,7 +16,7 @@ pub(super) struct WindowTitle {
 }
 
 /// The idle title — also the title `run_gui` opens the window with.
-const IDLE_TITLE: &str = "4cc Studio";
+const IDLE_TITLE: &str = crate::APP_NAME;
 
 impl Default for WindowTitle {
     fn default() -> Self {
@@ -44,9 +44,9 @@ impl WindowTitle {
         }
         // An activity outranks a held notice (the draft's `windowTitle`).
         let title = if !activities.is_empty() {
-            format!("{} - 4cc Studio", activities.join(" · "))
+            format!("{} - {}", activities.join(" · "), crate::APP_NAME)
         } else if let Some(text) = &self.held_notice {
-            format!("{text} - 4cc Studio")
+            format!("{text} - {}", crate::APP_NAME)
         } else {
             IDLE_TITLE.to_owned()
         };
@@ -76,26 +76,26 @@ mod tests {
     #[test]
     fn the_title_changes_only_when_the_string_changes() {
         let mut title = WindowTitle::default();
-        // The window opens titled `4cc Studio`: an idle start sends nothing.
+        // The window opens titled `APP_NAME`: an idle start sends nothing.
         assert_eq!(title.frame(&texts(&[]), true), None);
 
         let busy = texts(&["Team compiler · 12/48 · 01:12", "B · 00:03"]);
-        assert_eq!(
-            title.frame(&busy, true),
-            Some("Team compiler · 12/48 · 01:12 · B · 00:03 - 4cc Studio".to_owned())
-        );
+        let busy_title = || {
+            format!(
+                "Team compiler · 12/48 · 01:12 · B · 00:03 - {}",
+                crate::APP_NAME
+            )
+        };
+        assert_eq!(title.frame(&busy, true), Some(busy_title()));
         assert_eq!(title.frame(&busy, true), None, "unchanged sends nothing");
         assert_eq!(title.frame(&texts(&[]), true), Some(IDLE_TITLE.to_owned()));
 
         // An activity outranks a held notice.
         title.notice("Compiled 48 teams", false);
-        assert_eq!(
-            title.frame(&busy, false),
-            Some("Team compiler · 12/48 · 01:12 · B · 00:03 - 4cc Studio".to_owned())
-        );
+        assert_eq!(title.frame(&busy, false), Some(busy_title()));
         assert_eq!(
             title.frame(&texts(&[]), false),
-            Some("Compiled 48 teams - 4cc Studio".to_owned())
+            Some(format!("Compiled 48 teams - {}", crate::APP_NAME))
         );
         assert_eq!(title.frame(&texts(&[]), true), Some(IDLE_TITLE.to_owned()));
         assert_eq!(title.frame(&texts(&[]), true), None);
@@ -129,13 +129,16 @@ mod tests {
         }
         assert_eq!(
             sent,
-            ["Team compiler · 12/48 · 01:12 - 4cc Studio"],
+            [format!(
+                "Team compiler · 12/48 · 01:12 - {}",
+                crate::APP_NAME
+            )],
             "one Title command while the string is unchanged"
         );
 
         calls[0].clear_activity();
         let out = frame(&egui_ctx, &mut app, Vec::new(), true);
-        assert_eq!(titles(&out), ["4cc Studio"], "idle again");
+        assert_eq!(titles(&out), [IDLE_TITLE], "idle again");
     }
 
     // ST-TTL-02
@@ -158,14 +161,14 @@ mod tests {
         let out = frame(&egui_ctx, &mut app, Vec::new(), false);
         assert_eq!(
             titles(&out),
-            ["Compiled 48 teams - 4cc Studio"],
+            [format!("Compiled 48 teams - {}", crate::APP_NAME)],
             "the notice's text, never its action"
         );
         let out = frame(&egui_ctx, &mut app, Vec::new(), false);
         assert!(titles(&out).is_empty(), "held, sent once");
 
         let out = frame(&egui_ctx, &mut app, Vec::new(), true);
-        assert_eq!(titles(&out), ["4cc Studio"], "focus returns to idle");
+        assert_eq!(titles(&out), [IDLE_TITLE], "focus returns to idle");
 
         ctx.notify(crate::status::Notice {
             text: "Compiled 48 teams".to_owned(),
@@ -208,7 +211,7 @@ mod tests {
 
         let out = frame(&egui_ctx, &mut app, Vec::new(), true);
         assert!(
-            titles(&out).contains(&"A · 0/1 · 00:01 - 4cc Studio".to_owned()),
+            titles(&out).contains(&format!("A · 0/1 · 00:01 - {}", crate::APP_NAME)),
             "the title carries the first stub's run"
         );
 
@@ -224,7 +227,7 @@ mod tests {
         // title went idle — all while the first stub's view was never drawn.
         let out = frame(&egui_ctx, &mut app, Vec::new(), true);
         assert!(calls[0].activity.lock().unwrap().is_none());
-        assert_eq!(titles(&out), ["4cc Studio"]);
+        assert_eq!(titles(&out), [IDLE_TITLE]);
         assert_eq!(calls[0].views(), 0, "the first stub's view was not drawn");
     }
 }

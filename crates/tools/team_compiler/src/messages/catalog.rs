@@ -802,7 +802,11 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         "savefile_missing",
         CatalogSeverity::Warning,
         r#"The run's patch holds entries (motions and names on PES 2018 to 2021, aesthetics on PES 2015 to 2017) and no savefile is configured or found. A configured path naming a folder is `savefile_invalid` instead."#,
-        r#"The save step is skipped; apply the patch by hand with `4cc-studio save-editor apply-patch`."#,
+        concat!(
+            "The save step is skipped; apply the patch by hand with `",
+            studio_core::exe_name!(),
+            " save-editor apply-patch`."
+        ),
     ),
     (
         "savefile_skipped_pes_running",
@@ -844,7 +848,12 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         "savefile_player_not_stripped",
         CatalogSeverity::Warning,
         r#"PES 2018 to 2021: a compiled player's record in your save has an appearance ID of its own (a save never stripped, or one the game's Edit mode restored), so the game shows his record, not the compiled one."#,
-        r#"Strip it: `4cc-studio save-editor strip-and-seed` for a save never stripped, `check-stripped --strip-again` otherwise."#,
+        concat!(
+            "Strip it: `",
+            studio_core::exe_name!(),
+            " save-editor strip-and-seed` for a save never stripped, `check-stripped \
+             --strip-again` otherwise."
+        ),
     ),
     (
         "deploy_skipped_by_flag",
@@ -868,7 +877,11 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         "dpfilelist_not_official",
         CatalogSeverity::Warning,
         r#"The game's `DpFileList.bin` differs from the cup's official list (entries it is missing, entries the official list does not have, or another order), while every CPK of this run is listed."#,
-        r#"The run compiles and installs anyway. `4cc-studio team-compiler upgrade-dpfl` installs the official list."#,
+        concat!(
+            "The run compiles and installs anyway. `",
+            studio_core::exe_name!(),
+            " team-compiler upgrade-dpfl` installs the official list."
+        ),
     ),
     (
         "dpfilelist_cpk_missing",
@@ -880,7 +893,12 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         "dpfilelist_outdated",
         CatalogSeverity::Error,
         r#"The game's `DpFileList.bin` is an older list that lacks a CPK of this run which the cup's official list names (the line names them)."#,
-        r#"Deployment is skipped: the CPK is left in the output folder and the save is not touched. `4cc-studio team-compiler upgrade-dpfl` installs the official list."#,
+        concat!(
+            "Deployment is skipped: the CPK is left in the output folder and the save is not \
+             touched. `",
+            studio_core::exe_name!(),
+            " team-compiler upgrade-dpfl` installs the official list."
+        ),
     ),
     (
         "dpfilelist_cpk_renamed",
@@ -952,7 +970,12 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         "deploy_target_unwritable",
         CatalogSeverity::Error,
         r#"The `download/` folder cannot be written (usually a game installed under `Program Files`, which needs administrator rights)."#,
-        r#"Deployment is skipped: the CPK is left in the output folder and the save is not touched. Run Studio as administrator and compile again."#,
+        concat!(
+            "Deployment is skipped: the CPK is left in the output folder and the save is not \
+             touched. Run ",
+            studio_core::app_name!(),
+            " as administrator and compile again."
+        ),
     ),
     (
         "overrides_active",

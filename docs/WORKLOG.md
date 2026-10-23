@@ -1389,8 +1389,13 @@ briefs, review loops, gates and mutation runs as for any step.
   bundle"); the 0.0.1 readme in a layman's words (open the exe once to pick PES and its exe on
   the sidebar, then the two launchers; Red as the fallback) → verify: the recipe from a clean
   checkout produces both files, and the archive's listing matches the plan's
-  - [ ] 0.0.1d1 the codename: the two constants, every member-visible "4cc Studio" in code,
-    the help pages and the findings' text, name-free file text, the test
+  - [x] 0.0.1d1 the codename: the two constants, every member-visible "4cc Studio" in code,
+    the help pages and the findings' text, name-free file text, the test. Done:
+    `studio_core` `EXE_NAME`/`APP_NAME` (with `exe_name!`/`app_name!` for the catalogs'
+    `concat!`), the shell's title, About, first run and clap command, the Team compiler's and
+    Export upgrader's catalogs and commands, the help pages, the AATF ruleset headers and logic
+    banner (its hash updated), the shared-IDs comment; `studio/tests/help_cli.rs`
+    `no_member_visible_text_names_4cc_studio` over the help export and every `--help`
   - [ ] 0.0.1d2 `just release` (`scripts/release.py`), the readme, a run from a clean worktree
 - [ ] 0.0.1e the rehearsal on PES 2019 with FoxDen: VGL26's old exports (the upgrader
   census's copies) through `quick_upgrade.bat` and `quick_compile.bat` from the extracted

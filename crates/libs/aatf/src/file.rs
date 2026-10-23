@@ -61,7 +61,7 @@ pub enum LogicIdentity {
 /// banner and the table.
 pub(crate) const LOGIC_VERSIONS: &[(u32, &str)] = &[(
     1,
-    "c7297cd39613ca8092bcaa7bb767c2f4d5192f50569dffac36d1cdc7bde1db15",
+    "d09648cafc7620604d17ed889979a7bc983cafd021ae03393fb974beb29400b2",
 )];
 
 /// `text`'s logic section: from the line starting `// ==== LOGIC` to
@@ -120,8 +120,7 @@ mod tests {
     use super::*;
 
     /// A made-up older logic section.
-    const OLD_SECTION: &str =
-        "// ==== LOGIC (ruleset-logic 0): written by 4cc Studio ====\nfn check_team(team) { [] }\n";
+    const OLD_SECTION: &str = "// ==== LOGIC (ruleset-logic 0): written by the Ruleset editor ====\nfn check_team(team) { [] }\n";
 
     const OFFICIAL: &str = "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }] };\n";
 

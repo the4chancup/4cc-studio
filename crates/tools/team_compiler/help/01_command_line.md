@@ -1,15 +1,16 @@
 The Team compiler also runs without its window, from a terminal opened in the folder that holds
-`4cc-studio`:
+`UnlimitedToolWorks.exe`:
 
 ```text
-4cc-studio team-compiler check [exports-root] [--export <path>]...
-4cc-studio team-compiler compile [exports-root] [--mode normal|test|sideload] [--export <path>]... [--no-deploy]
-4cc-studio team-compiler upgrade-dpfl [--yes]
+UnlimitedToolWorks team-compiler check [exports-root] [--export <path>]...
+UnlimitedToolWorks team-compiler compile [exports-root] [--mode normal|test|sideload] [--export <path>]... [--no-deploy]
+UnlimitedToolWorks team-compiler upgrade-dpfl [--yes]
 ```
 
 `check` reads your exports and reports what it finds, without writing anything. `compile` reads
 them, reports the same findings, and builds the CPK named by the `cpk_name` setting in the output
-folder (`output/` beside `4cc-studio` unless you changed the `output_folder_path` setting), as
+folder (`output/` beside `UnlimitedToolWorks.exe` unless you changed the `output_folder_path`
+setting), as
 `<cpk_name>.cpk`. In a terminal window, a line under the findings counts the exports done
 while `check` or `compile` runs, and the parts built while `compile` builds them; when a
 compile ends, one line sums it up: the files written, the folders left out and the folders
@@ -653,11 +654,11 @@ values set the shirt model to 176, so a config written for model 144 or 160 with
 options is reported with model 176, the model it is built with.
 
 Both commands read every export in the exports folder from the settings (`exports/` beside
-`4cc-studio` unless you changed it). To use another folder for one run, give its path as
-`exports-root`; the setting is not changed. The `exports/` folder beside `4cc-studio` is created
-for you when it is missing; a folder you named yourself, in the `exports_folder_path` setting or
-as `exports-root`, must already exist, or the command stops before anything runs and tells you
-so. An exports folder with no export in it is reported as `no_exports_found`, naming the folder,
+`UnlimitedToolWorks.exe` unless you changed it). To use another folder for one run, give its path
+as `exports-root`; the setting is not changed. The `exports/` folder beside
+`UnlimitedToolWorks.exe` is created for you when it is missing; a folder you named yourself, in
+the `exports_folder_path` setting or as `exports-root`, must already exist, or the command stops
+before anything runs and tells you so. An exports folder with no export in it is reported as `no_exports_found`, naming the folder,
 and nothing is checked or compiled.
 
 An export can be a folder, a `.zip` or a `.7z`, read where it is: nothing is extracted. An archive
@@ -689,12 +690,13 @@ the output folder where it was left instead (`output=...`):
 - `pes_version_mismatch`, a warning: the game folder holds no `PES20NN.exe` of the version you
   compile for. Check `pes_version` and `pes_folder_path`. The CPK is still installed.
 - `dpfilelist_outdated`: the game's `DpFileList.bin` is an older list that does not have the
-  CPK, so the game would not load it. `4cc-studio team-compiler upgrade-dpfl` installs the
-  cup's official list, which has it.
+  CPK, so the game would not load it. `UnlimitedToolWorks team-compiler upgrade-dpfl`
+  installs the cup's official list, which has it.
 - `cpk_name_unlisted`: neither the game's `DpFileList.bin` nor the cup's official list has the
   CPK's name, so the game would not load it. Set `cpk_name` to a name the list has.
 - `deploy_target_unwritable`: the `download` folder cannot be written, usually because the game
-  is installed under `Program Files`. Run Studio as administrator and compile again.
+  is installed under `Program Files`. Run Unlimited Tool Works as administrator and compile
+  again.
 - `old_cpk_locked`: the old CPK could not be replaced because PES is running. Close PES and
   compile again.
 
@@ -702,8 +704,8 @@ Two warnings about the game's `DpFileList.bin` do not stop the install. `dpfilel
 says the list is not the cup's official one: the line names the entries it is missing, the
 entries the official list does not have, or says that the order differs.
 `dpfilelist_cpk_missing` names CPKs the list has that are not in the `download` folder: the game
-then loads none of the CPKs there. Both lines name `4cc-studio team-compiler upgrade-dpfl`,
-which installs the official list.
+then loads none of the CPKs there. Both lines name `UnlimitedToolWorks team-compiler
+upgrade-dpfl`, which installs the official list.
 
 A game folder with no `DpFileList.bin` in its `download` folder is the error
 `dpfilelist_missing`, and the CPK is left in the output folder the same way.
@@ -740,8 +742,8 @@ line is `dpfilelist_up_to_date`, and nothing is written.
 not exist: set `pes_folder_path` to the folder PES is installed in. When a file cannot be
 renamed or written (PES is running and holds the CPK, or the folder needs administrator
 rights), it stops with exit code 3, naming the file. What it did before stays done, and the list
-is replaced last, so the game keeps your old list until the end: close PES, or run Studio as
-administrator, and run the command again to finish. A CPK it already renamed is not renamed
+is replaced last, so the game keeps your old list until the end: close PES, or run Unlimited
+Tool Works as administrator, and run the command again to finish. A CPK it already renamed is not renamed
 again.
 
 `--mode sideload` is for trying a change in a running game. Instead of a CPK, `compile` writes
@@ -821,7 +823,7 @@ in the output folder. It holds each compiled player's motions, taken from his
 `settings.toml` (a motion the file does not set gets the game's default), and, only for an
 export whose root holds the `write_names` marker file, his name and shirt name. The cup's
 official save is built with that file: the cup maintainer compiles the exports and hands
-over the CPKs and the patch, and the save builder applies the patch with `4cc-studio
+over the CPKs and the patch, and the save builder applies the patch with `UnlimitedToolWorks
 save-editor apply-patch`.
 
 `compile` also applies the patch to your own save, so what you just built shows in your
@@ -847,7 +849,7 @@ instead: the exit code is 1 and the new `livecpk/` tree stays in place. The warn
 `savefile_player_not_stripped` names a
 compiled player whose record in your save still has an appearance of its own (a save never
 stripped, or one the game's Edit mode gave one again): the game shows his record, not the
-compiled one. `4cc-studio save-editor strip-and-seed` strips a save that never was, and
-`4cc-studio save-editor check-stripped` with `--strip-again` and `--out` clears the records
-Edit mode brought back. No save found at all is only the warning `savefile_missing`, which names the patch
-file so you can apply it by hand.
+compiled one. `UnlimitedToolWorks save-editor strip-and-seed` strips a save that never was,
+and `UnlimitedToolWorks save-editor check-stripped` with `--strip-again` and `--out` clears
+the records Edit mode brought back. No save found at all is only the warning
+`savefile_missing`, which names the patch file so you can apply it by hand.

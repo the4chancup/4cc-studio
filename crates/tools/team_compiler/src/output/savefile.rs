@@ -21,7 +21,8 @@ use crate::settings::SavefilePath;
 
 /// The save editor's command that applies a patch to a save, which `savefile_missing` names
 /// for the user who applies it by hand.
-const APPLY_COMMAND: &str = "4cc-studio save-editor apply-patch";
+pub(crate) const APPLY_COMMAND: &str =
+    concat!(studio_core::exe_name!(), " save-editor apply-patch");
 
 /// Where the step reads and writes the save.
 #[derive(Debug, PartialEq)]

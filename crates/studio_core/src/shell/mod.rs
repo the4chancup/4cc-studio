@@ -40,6 +40,29 @@ use self::sidebar::{Sidebar, SidebarClick};
 use self::status_bar::StatusBar;
 use self::title::WindowTitle;
 
+/// The executable's name in every release before 1.0.0 (`plans/core/development_plan.md`
+/// "The preview's codename: Unlimited Tool Works"), as a literal so a `&'static str` table
+/// can `concat!` it; `EXE_NAME` is the same name for code that formats at run time.
+#[macro_export]
+macro_rules! exe_name {
+    () => {
+        "UnlimitedToolWorks"
+    };
+}
+
+/// The display name, ditto (`app_name!` for `concat!`).
+#[macro_export]
+macro_rules! app_name {
+    () => {
+        "Unlimited Tool Works"
+    };
+}
+
+/// The executable's name: `exe_name!()` where a `concat!` needs the literal.
+pub const EXE_NAME: &str = exe_name!();
+/// The display name: `app_name!()` where a `concat!` needs the literal.
+pub const APP_NAME: &str = app_name!();
+
 /// The window: the registered tools in sidebar order, the platform handle they share, the
 /// receiving end of their shell requests, and which tool's view is on screen.
 pub struct StudioApp {
@@ -338,12 +361,12 @@ impl eframe::App for StudioApp {
     }
 }
 
-/// Opens the window titled "4cc Studio" on `app` and runs it until it closes; an error is a
+/// Opens the window titled `APP_NAME` on `app` and runs it until it closes; an error is a
 /// window or graphics context that could not be set up.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_gui(app: StudioApp) -> anyhow::Result<()> {
     eframe::run_native(
-        "4cc Studio",
+        APP_NAME,
         eframe::NativeOptions::default(),
         Box::new(|creation| {
             crate::theme::install_fonts(&creation.egui_ctx);

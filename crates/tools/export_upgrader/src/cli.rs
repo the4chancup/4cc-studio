@@ -29,10 +29,10 @@ pub(crate) const ABORTED: u8 = 3;
 
 #[derive(Debug, Subcommand)]
 enum ExportUpgraderCommand {
-    /// Migrate an old (AET) export to the Studio format.
+    /// Migrate an old (AET) export to the new format.
     Upgrade(UpgradeArgs),
     /// Migrate a folder of old-format model folders, each into a folder to
-    /// drop into a Studio export.
+    /// drop into an export.
     UpgradeModels(UpgradeModelsArgs),
 }
 

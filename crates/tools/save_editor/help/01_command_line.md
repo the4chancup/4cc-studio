@@ -1,18 +1,18 @@
 The Save editor's batch commands run from a terminal opened in the folder that holds
-`4cc-studio`. Every command names the save it reads (the `EDIT00000000` file of your PES
-install's save folder, or a copy of it); none picks one for you.
+`UnlimitedToolWorks.exe`. Every command names the save it reads (the `EDIT00000000` file of
+your PES install's save folder, or a copy of it); none picks one for you.
 
 ```text
-4cc-studio save-editor export-toml <save> --team <id> --out <file>
-4cc-studio save-editor export-toml <save> --all-teams --out-dir <folder>
-4cc-studio save-editor import-toml <team.toml> --base <save> --out <save>
-4cc-studio save-editor apply-patch <aesthetics_patch.toml> --base <save> --out <save>
-4cc-studio save-editor transplant <donor save> --base <save> --out <save> --select <list>
-4cc-studio save-editor diff <first save> <second save> [--aesthetics | --gameplay] [--json]
-4cc-studio save-editor check-aatf <save> [--teams <list>] [--rules <file>]
-4cc-studio save-editor strip-and-seed --base <save> --bins <cpk> --out <save> --bins-out <cpk>
-4cc-studio save-editor check-stripped <save> [--strip-again --out <save>]
-4cc-studio save-editor export-teams-list <save> [--yes]
+UnlimitedToolWorks save-editor export-toml <save> --team <id> --out <file>
+UnlimitedToolWorks save-editor export-toml <save> --all-teams --out-dir <folder>
+UnlimitedToolWorks save-editor import-toml <team.toml> --base <save> --out <save>
+UnlimitedToolWorks save-editor apply-patch <aesthetics_patch.toml> --base <save> --out <save>
+UnlimitedToolWorks save-editor transplant <donor save> --base <save> --out <save> --select <list>
+UnlimitedToolWorks save-editor diff <first save> <second save> [--aesthetics | --gameplay] [--json]
+UnlimitedToolWorks save-editor check-aatf <save> [--teams <list>] [--rules <file>]
+UnlimitedToolWorks save-editor strip-and-seed --base <save> --bins <cpk> --out <save> --bins-out <cpk>
+UnlimitedToolWorks save-editor check-stripped <save> [--strip-again --out <save>]
+UnlimitedToolWorks save-editor export-teams-list <save> [--yes]
 ```
 
 A command that writes a save reads the one `--base` names and writes the one `--out` names,
@@ -83,13 +83,13 @@ marks, then the players one save alone holds; nothing else is printed.
 the cup range, 701 to 920, or the ones `--teams` names as a comma-separated list of ids and
 inclusive ranges (`701,705-710`). The ruleset is the file `--rules` names, read from where
 the command runs, else the one the `aatf_rules` setting names (a relative path is read from
-the data folder), else the official ruleset built into 4cc Studio. Each violation
-prints as one `aatf_violation` line with the team, the player's id for a player's violation,
-the rule and what it measured, the teams in id order; a team whose check cannot run is the
-error line `aatf_check_failed` and the rest are still checked. An error-severity violation
-makes the exit code 1, warnings alone leave it 0. A rules file that does not load is refused
-with the line and column or the key path it failed at, so the command also validates a rules
-file; a `--teams` id the save does not hold is refused as well.
+the data folder), else the official ruleset built into Unlimited Tool Works. Each
+violation prints as one `aatf_violation` line with the team, the player's id for a player's
+violation, the rule and what it measured, the teams in id order; a team whose check cannot
+run is the error line `aatf_check_failed` and the rest are still checked. An error-severity
+violation makes the exit code 1, warnings alone leave it 0. A rules file that does not load
+is refused with the line and column or the key path it failed at, so the command also
+validates a rules file; a `--teams` id the save does not hold is refused as well.
 
 `strip-and-seed` prepares the cup's official save, once per PES version, on PES 2018 to
 2021: the game dresses a player from the cup CPK's database tables
@@ -114,11 +114,11 @@ stripped again and the save is written; the tables are not touched and the exit 
 A PES 15 to 17 save is refused.
 
 `export-teams-list` merges the save's teams into the `teams_list.txt` of the data folder
-(the list the Team compiler resolves export names against; the list shipped with 4cc Studio
-when there is no file yet): every team whose name is slash-wrapped (`/co/`) and whose id is
-in the cup range, 701 to 920. It prints what the merge does, one line each: a team the
-list lacked (`teams_list_added`), a name listed under another id, which takes the save's
-(`teams_list_overridden`), a change dropped because two teams would share one id
+(the list the Team compiler resolves export names against; the list shipped with Unlimited
+Tool Works when there is no file yet): every team whose name is slash-wrapped (`/co/`) and
+whose id is in the cup range, 701 to 920. It prints what the merge does, one line each: a
+team the list lacked (`teams_list_added`), a name listed under another id, which takes the
+save's (`teams_list_overridden`), a change dropped because two teams would share one id
 (`teams_list_unresolved`, an error line), a team left out because an earlier team of the
 save has the same name, upper and lower case aside (`teams_list_name_duplicate`, an error
 line naming the team kept: fix the save), and how many rows stay as they were

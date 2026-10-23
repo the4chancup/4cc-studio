@@ -331,7 +331,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
         "settings_from_stripped_record",
         Severity::Info,
         r#"A `settings.toml` was generated from a stripped record."#,
-        r#"The record still is his look until the team's first Studio compile, which keeps its own file instead."#,
+        r#"The record still is his look until the team's first compile, which keeps its own file instead."#,
     ),
     (
         "settings_not_generated",
@@ -342,7 +342,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "model_folder_destination",
         Severity::Info,
-        r#"`upgrade-models`: where an output folder goes once dropped into a Studio export (`Players`, `Boots`, `Gloves`, or the export root for `Common/`)."#,
+        r#"`upgrade-models`: where an output folder goes once dropped into an export (`Players`, `Boots`, `Gloves`, or the export root for `Common/`)."#,
         r#"Nothing to do."#,
     ),
     // The structure pass's codes, in `ISSUE_CODES` order.

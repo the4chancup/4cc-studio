@@ -459,11 +459,12 @@ fn a_list_without_the_teams_slots_is_one_dpfilelist_outdated_and_every_cpk_is_pr
 
     // The PES 2017 list has the bins CPK, and none of the teams slots.
     let expected = format!(
-        "Error dpfilelist_outdated [Keep] (cpk={}, path={}, output={}, command=4cc-studio \
+        "Error dpfilelist_outdated [Keep] (cpk={}, path={}, output={}, command={} \
          team-compiler upgrade-dpfl)",
         TEAMS_SLOTS.join(", "),
         sandbox.display("PES/download/DpFileList.bin"),
-        sandbox.display("output")
+        sandbox.display("output"),
+        studio_core::EXE_NAME
     );
     let lines = run.messages();
     assert_eq!(lines[0], expected, "{lines:#?}");

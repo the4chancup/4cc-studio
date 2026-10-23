@@ -261,11 +261,12 @@ mod tests {
                         .display()
                 ),
                 format!(
-                    "- Warning savefile_missing (patch={}, path={}, command=4cc-studio save-editor apply-patch)",
+                    "- Warning savefile_missing (patch={}, path={}, command={})",
                     root.join("output")
                         .join("aesthetics_patch.toml")
                         .display(),
-                    root.join("save").join("EDIT00000000").display()
+                    root.join("save").join("EDIT00000000").display(),
+                    crate::output::savefile::APPLY_COMMAND
                 ),
                 "Run finished: exit code 0".to_owned(),
             ]

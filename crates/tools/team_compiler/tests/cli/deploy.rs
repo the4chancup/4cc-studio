@@ -23,7 +23,11 @@ const TRACER_FINDINGS: [&str; 7] = [
 
 /// The line every finding about the installed list ends with, naming the subcommand that
 /// installs the official one.
-const UPGRADE: &str = "command=4cc-studio team-compiler upgrade-dpfl";
+const UPGRADE: &str = concat!(
+    "command=",
+    studio_core::exe_name!(),
+    " team-compiler upgrade-dpfl"
+);
 
 /// The repository's `resources/templates/` folder, which holds the official list.
 pub(crate) fn templates_folder() -> PathBuf {

@@ -1,6 +1,6 @@
-// ==== LOGIC (ruleset-logic 1): written by 4cc Studio; the Ruleset editor replaces this section ====
+// ==== LOGIC (ruleset-logic 1): the Ruleset editor replaces this section ====
 // The generic interpreter: it reads the RULESET map above over the Team and Player values the
-// host registers (the script API is listed in 4cc Studio's aatf crate doc) and reports each
+// host registers (the script API is listed in the aatf crate's doc) and reports each
 // violation as a map the host converts. The rules it applies are described in the spec
 // (spec/aatf_rules.md "How a player is read", "The card economy", "The interpreter").
 //

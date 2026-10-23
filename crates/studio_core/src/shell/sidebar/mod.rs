@@ -157,7 +157,7 @@ impl Sidebar {
                 )
                 .frame(false),
             )
-            .on_hover_text("About 4cc Studio")
+            .on_hover_text(format!("About {}", crate::APP_NAME))
             .clicked()
         {
             self.about_open = true;
