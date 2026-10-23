@@ -120,7 +120,7 @@ fn assert_clean_rail(nodes: &[accesskit::Node], custom_checks: bool) {
 
 /// `index`'s template opened through its button: the document's name,
 /// General drawn, the rail's sections in order with no problem mark,
-/// and `save_to` writing a file `Rules::load` reads back equal.
+/// and File > Save as… writing a file `Rules::load` reads back equal.
 fn template_opens_clean(index: usize, test: &str) {
     let templates = crate::view::start::templates();
     let template = &templates[index];
@@ -137,7 +137,8 @@ fn template_opens_clean(index: usize, test: &str) {
     assert_clean_rail(&frame.nodes, template.custom_checks.is_some());
 
     let path = dir.join("saved.rhai");
-    assert!(save_to(&mut view, &ctx, &path));
+    save_as_via_menu(&mut window, &mut view, &ctx, &path);
+    assert!(path.is_file(), "Save as… wrote the file");
     let text = std::fs::read_to_string(&path).unwrap();
     let rules = aatf::Rules::load(&text).expect("the saved file loads");
     assert_eq!(rules.ruleset(), &template.ruleset);
@@ -172,7 +173,8 @@ fn blank_opens_as_new_ruleset_and_saves_back_equal() {
     assert_clean_rail(&frame.nodes, false);
 
     let path = dir.join("saved.rhai");
-    assert!(save_to(&mut view, &ctx, &path));
+    save_as_via_menu(&mut window, &mut view, &ctx, &path);
+    assert!(path.is_file(), "Save as… wrote the file");
     let text = std::fs::read_to_string(&path).unwrap();
     let rules = aatf::Rules::load(&text).expect("the saved file loads");
     assert_eq!(rules.ruleset(), &crate::document::blank());

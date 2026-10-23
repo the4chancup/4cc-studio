@@ -63,14 +63,14 @@ fn body(
     ui.strong("New from template");
     for (index, template) in templates().iter().enumerate() {
         if ui.button(button_label(template)).clicked() {
-            guard(view, ctx, settings, Pending::Template(index));
+            guard(view, ctx, Pending::Template(index));
         }
     }
     if ui
         .button("Blank: one tier, no brackets, the universal rules on")
         .clicked()
     {
-        guard(view, ctx, settings, Pending::Blank);
+        guard(view, ctx, Pending::Blank);
     }
     ui.separator();
     ui.horizontal(|ui| {
@@ -82,7 +82,7 @@ fn body(
     });
     ui.separator();
     if ui.button("Open file…").clicked() {
-        guard(view, ctx, settings, Pending::OpenFile);
+        guard(view, ctx, Pending::OpenFile);
     }
     ui.separator();
     ui.strong("Recent files");
@@ -101,7 +101,7 @@ fn body(
             .on_hover_text(path.display().to_string())
             .clicked()
         {
-            guard(view, ctx, settings, Pending::OpenPath(path));
+            guard(view, ctx, Pending::OpenPath(path));
         }
     }
     // The last open's refusal (RE-FILE-03).

@@ -320,6 +320,46 @@ fn an_open_prompts_and_each_answer_does_what_it_says() {
     );
 }
 
+// plans/ruleset_editor.md "Settings": the Open the prompt's own save
+// unblocks starts in the folder that save chose, not the `last_folder`
+// read before it.
+#[test]
+fn the_open_after_the_prompts_save_starts_in_the_folder_it_chose() {
+    let (dir_a, ctx, mut window) = prompt_setup("prompt_save_start_a");
+    let dir_b = crate::test_support::scratch("prompt_save_start_b");
+    let other = write_file(&dir_b, "other.rhai", &valid_file());
+    ctx.set_tool_settings(
+        crate::messages::TOOL_ID,
+        crate::settings::RulesetEditorSettings {
+            last_folder: dir_b.to_string_lossy().into_owned(),
+            recent_files: Vec::new(),
+        }
+        .to_table(),
+    );
+
+    // A never-saved document with an edit; File > Open… prompts, the
+    // prompt's Save writes to folder A through the stubbed dialog, and
+    // the Open that follows starts there.
+    let mut view = RulesetView::new();
+    open_document(&mut view, crate::document::blank());
+    edit_ruleset(&mut view, |ruleset| ruleset.name = "Edited".to_string());
+    let saved = dir_a.join("new.rhai");
+    view.save_as_dialog = Box::new(move |_, _| Some(saved.clone()));
+    let folder_a = dir_a.clone();
+    let picked = other.clone();
+    view.open_dialog = Box::new(move |start| {
+        assert_eq!(
+            start,
+            folder_a.as_path(),
+            "the Open dialog starts in the folder the prompt's save chose"
+        );
+        Some(picked.clone())
+    });
+    menu_pick(&mut window, &mut view, &ctx, "File", "Open…");
+    answer(&mut window, &mut view, &ctx, "Save");
+    assert_name(&view, "Autumn 26");
+}
+
 // RE-GUI-15
 #[test]
 fn new_from_template_is_unguarded_but_a_pick_in_it_prompts() {

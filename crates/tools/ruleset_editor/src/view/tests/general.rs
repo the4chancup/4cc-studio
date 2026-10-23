@@ -1,5 +1,8 @@
 //! Undo and redo over General edits (RE-GUI-14): two edits in order,
-//! undone and redone by the keys and by the Edit menu's buttons.
+//! undone and redone by the keys and by the Edit menu's buttons; and
+//! the form scrolling sideways when the preview narrows it.
+
+use pes_savefile::interchange::team_toml::labels::ABILITY_STATS;
 
 use super::*;
 
@@ -282,5 +285,88 @@ fn the_checklists_draw_held_stats_checked_and_a_toggle_keeps_the_rest() {
         toggled(&frame.nodes, "Ball Control")[0],
         Some(accesskit::Toggled::True),
         "the neighbours stay checked"
+    );
+}
+
+/// The outer rect of the panel `salt` names (egui persists a panel's
+/// `PanelState` under its scope's id; the central panel's right edge is
+/// the preview panel's left).
+fn panel_outer_rect(window: &Headless, salt: &str) -> egui::Rect {
+    let id = window
+        .ctx
+        .viewport_id()
+        .root_ui_id()
+        .with_salt(egui::IdSalt::new(salt));
+    egui::containers::panel::PanelState::load(&window.ctx, id)
+        .unwrap_or_else(|| panic!("the {salt} panel's state"))
+        .outer_rect
+}
+
+// The draft's `.center` scrolls, it never clips: at the smallest default
+// window (1037 × 648, `window_size`'s smallest) with Show preview on,
+// the General checklist's fifth column starts past the central panel's
+// right edge and a horizontal scroll over the form brings it in reach.
+#[test]
+fn the_form_scrolls_sideways_to_its_rightmost_checkbox() {
+    let (ctx, _events) = crate::test_support::context();
+    let mut window = Headless::sized(1037.0, 648.0);
+    let mut view = RulesetView::new();
+    open_document(&mut view, crate::document::blank());
+    view.show_preview = true;
+
+    // The first checklist row's rightmost checkbox (the rating list's
+    // fifth stat); the same label sits in the at-most list below, so the
+    // first drawn top to bottom is the rating one's.
+    let label = crate::summary::human(ABILITY_STATS[4]);
+    let frame = window.draw(&mut view, &ctx);
+    let right = f64::from(panel_outer_rect(&window, "ruleset_preview").min.x);
+    let bounds = nodes_labeled(&frame.nodes, &label)[0]
+        .bounds()
+        .expect("the checkbox is drawn");
+    assert!(
+        bounds.x1 > right,
+        "premise: the rightmost checkbox starts past the panel's right edge ({bounds:?} vs x={right})"
+    );
+
+    // A horizontal wheel scroll over the form (the pointer moved into
+    // the panel first, the wheel only lands on the area under it).
+    let mut frame = frame;
+    let mut inside = false;
+    for _ in 0..20 {
+        frame = window.frame(
+            vec![
+                egui::Event::PointerMoved(egui::pos2(300.0, 300.0)),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(-80.0, 0.0),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Trackpad,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            |ui| show(ui, &mut view, &ctx),
+        );
+        inside = nodes_labeled(&frame.nodes, &label)[0]
+            .bounds()
+            .expect("the checkbox is drawn")
+            .x1
+            <= right;
+        if inside {
+            break;
+        }
+    }
+    assert!(inside, "a horizontal scroll brought the checkbox inside");
+
+    let was_rated = rating(&view).iter().any(|name| name == ABILITY_STATS[4]);
+    click(
+        &mut window,
+        nodes_labeled(&frame.nodes, &label)[0],
+        &mut view,
+        &ctx,
+    );
+    assert_eq!(
+        rating(&view).iter().any(|name| name == ABILITY_STATS[4]),
+        !was_rated,
+        "the click toggled the stat"
     );
 }

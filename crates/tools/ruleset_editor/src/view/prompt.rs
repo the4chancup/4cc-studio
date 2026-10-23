@@ -88,6 +88,6 @@ pub(crate) fn show(
         None => false,
     };
     if go_on && let Some(action) = view.pending_action.take() {
-        run(view, ctx, settings, action);
+        run(view, ctx, action);
     }
 }

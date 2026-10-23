@@ -25,10 +25,11 @@ use crate::test_support::{valid_file, write_file};
 use super::*;
 
 /// A headless window: one egui context with AccessKit on and animations
-/// off, run a frame at a time over an 800 by 600 screen (the Save
-/// editor's `Headless`).
+/// off, run a frame at a time over an 800 by 600 screen, `sized` when a
+/// test asks for another (the Save editor's `Headless`).
 struct Headless {
     ctx: egui::Context,
+    /// The screen size each frame reports.
     screen: egui::Vec2,
 }
 
@@ -41,13 +42,18 @@ struct Frame {
 
 impl Headless {
     fn new() -> Headless {
+        Headless::sized(800.0, 600.0)
+    }
+
+    /// A window `width` by `height` instead of the default 800 by 600.
+    fn sized(width: f32, height: f32) -> Headless {
         let ctx = egui::Context::default();
         ctx.enable_accesskit();
         ctx.global_style_mut(|style| style.animation_time = 0.0);
         ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
         Headless {
             ctx,
-            screen: egui::vec2(800.0, 600.0),
+            screen: egui::vec2(width, height),
         }
     }
 
@@ -292,6 +298,23 @@ fn drawn(nodes: &[accesskit::Node], label: &str) -> bool {
 /// Whether a label (or value) containing `fragment` was drawn.
 fn contains_label(nodes: &[accesskit::Node], fragment: &str) -> bool {
     labels(nodes).iter().any(|label| label.contains(fragment))
+}
+
+/// `view`'s Save as dialog stubbed to return `path`, then File's "Save
+/// as…" clicked (a real dialog cannot be clicked headless).
+fn save_as_via_menu(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext, path: &Path) {
+    let picked = path.to_path_buf();
+    view.save_as_dialog = Box::new(move |_, _| Some(picked.clone()));
+    menu_click(window, view, ctx, "File", "Save as…");
+}
+
+/// `path`'s bytes are `before` still (a write left it alone).
+fn assert_file_unchanged(path: &Path, before: &[u8]) {
+    assert_eq!(
+        std::fs::read(path).unwrap(),
+        before,
+        "byte for byte as it was"
+    );
 }
 
 /// `test`'s scratch folder with `valid_file()` written to `name`

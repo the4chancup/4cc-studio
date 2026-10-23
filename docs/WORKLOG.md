@@ -785,14 +785,23 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           the guard covers every registered tool (19 hits before, red). Files:
           `export_upgrader/src/messages.rs`, `save_editor/src/messages.rs`, `studio/src/main.rs`,
           `studio/tests/help_cli.rs`
-    - [ ] 8.6e the window opens at 1440 × 900 points, centered, fitted to a smaller monitor
+    - [x] 8.6e the window opens at 1440 × 900 points, centered, fitted to a smaller monitor
       (`plans/core/gui.md` "Shell layout", "The window's size"; the maintainer's requests of
-      2026-10-21 and 2026-10-22): its
-      scenario written into `plans/core/gui.md` "Acceptance" first (manual: it needs a
-      display), then the first frame's `InnerSize` and `OuterPosition`. The drafts already
-      draw at that size (2026-10-21). The help window first opens at 90% of the window,
-      centered (`plans/core/gui.md` "Help window"), replacing its fixed 720 x 480, which a
-      1080p monitor at 125% scaling (a 768 x 432 window) cuts off
+      2026-10-21 and 2026-10-22), and the help window first opens at 90% of it, centered
+      (`plans/core/gui.md` "Help window"), replacing its fixed 720 x 480, which a 1080p
+      monitor at 125% scaling (a 768 x 432 window) cut off. Done 2026-10-23 (SWE-2):
+      ST-WIN-01 and ST-HELP-05 written first, both observable headless (the frame's viewport
+      commands; the help window's node bounds), so neither is manual; `shell/window_size.rs`
+      (`DEFAULT_SIZE`, `fitted_size`, `fit`), the fit sent once, on the first frame that
+      reports the monitor, centering the outer rectangle; the window created at the same size
+      and centered, so nothing jumps where it fits; the help window's `default_rect`, which
+      egui counts title bar included. Lead fix: the fit's arithmetic out of `logic` into
+      `fit`. Real window checked (`.tmp/8_6/win_check.py`, a portable copy): 1456 × 939
+      outer at (232, 71) on a 1920 × 1080 monitor at 100%, the scenario's values; the
+      small-monitor branch is proven headless only. Files:
+      `studio_core/src/shell/{window_size,mod,help_window,test_harness}.rs`,
+      `docs/plans/core/gui.md`. Review: the two scenarios and the code ride with the shell's
+      next Astra review (AGENTS.md: a one-crate step with no new `pub` interface)
   - [ ] 8.7 `color_tools`' colour-picker popup (`plans/libs/color_tools.md` Phase 8), the
     Save editor's team colours; the kit menu icons wait for the Team compiler's grid
     - [x] 8.7a the picker popup drawn in `docs/prototypes/save_editor.html`'s Team tab (the page
@@ -1963,7 +1972,12 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
       round 2, 4 accepted per half; `mutants-diff d968dd50` 1 missed, covered): one modal
       helper, one refused-open block, Custom checks drawn without its banner, a cancelled
       Save keeps the prompt, the shortcuts dead behind every modal, the dialogs' arguments
-      asserted. Open: Astra round 1, then `mutants-diff 3a232581`
+      asserted; `mutants-diff 3a232581`: 24 caught, none missed. Rework 4, 2026-10-23 (Astra
+      round 1 on Codex own, 4 of 4 accepted; Astra's loop ends): the forms scroll sideways
+      (the preview narrowed General's checklists past reach), RE-GUI-02's Save as through the
+      File menu and an already-saved document's Save as leaving the original, the Open after
+      the prompt's save starting in the folder that save chose, a settings key this version
+      does not know kept on write. Open: the SWE-2 loop after Astra
     - 20.6a2 Tiers with the medal systems, Cards, Universal rules with the team settings,
       Suggestions (RE-GUI-03 to 06, 08, RE-FILE-04, 06)
   - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12)

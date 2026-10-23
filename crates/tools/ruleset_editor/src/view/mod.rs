@@ -205,13 +205,10 @@ fn suggested_name(name: &str) -> String {
 }
 
 /// Shows the window for one frame: the settings are read each frame
-/// (the recent files follow a file written elsewhere). A table that
-/// fails to read counts as the defaults: the start page then lists no
-/// recent files, and `remember_path` writes nothing rather than
-/// overwrite a table it cannot read.
+/// (the recent files follow a file written elsewhere).
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut RulesetView, ctx: &ToolContext) {
     set_surrender_on_press(ui.ctx());
-    let settings = read_settings(ctx).unwrap_or_default();
+    let settings = read_settings(ctx);
     if view.document.is_some() {
         toolbar(ui, view, ctx, &settings);
         egui::Panel::bottom("ruleset_bottom").show(ui, |ui| bottom_bar(ui, view, ctx, &settings));
@@ -226,32 +223,30 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut RulesetView, ctx: &ToolContext)
             .show(ui, |ui| rail::show(ui, view));
         egui::CentralPanel::default().show(ui, |ui| {
             banners(ui, view);
-            egui::ScrollArea::vertical()
-                .auto_shrink(false)
-                .show(ui, |ui| {
-                    ui.push_id(view.generation, |ui| {
-                        let document = view.document.as_mut().expect("a document is open");
-                        // The forms edit the ruleset in place; a changed
-                        // one inside this call is the gesture's first
-                        // write, so the pre-call state becomes the
-                        // pending snapshot. Nothing else reaches this
-                        // call, so undo, redo, a new document and Update
-                        // logic are never taken for an edit.
-                        let before = document.ruleset.clone();
-                        sections::show(
-                            ui,
-                            view.section,
-                            &mut document.ruleset,
-                            document.custom_checks.as_deref(),
-                        );
-                        if view.pending.is_none() && document.ruleset != before {
-                            view.pending = Some(Snapshot {
-                                ruleset: before,
-                                logic: document.logic.clone(),
-                            });
-                        }
-                    });
+            egui::ScrollArea::both().auto_shrink(false).show(ui, |ui| {
+                ui.push_id(view.generation, |ui| {
+                    let document = view.document.as_mut().expect("a document is open");
+                    // The forms edit the ruleset in place; a changed
+                    // one inside this call is the gesture's first
+                    // write, so the pre-call state becomes the
+                    // pending snapshot. Nothing else reaches this
+                    // call, so undo, redo, a new document and Update
+                    // logic are never taken for an edit.
+                    let before = document.ruleset.clone();
+                    sections::show(
+                        ui,
+                        view.section,
+                        &mut document.ruleset,
+                        document.custom_checks.as_deref(),
+                    );
+                    if view.pending.is_none() && document.ruleset != before {
+                        view.pending = Some(Snapshot {
+                            ruleset: before,
+                            logic: document.logic.clone(),
+                        });
+                    }
                 });
+            });
         });
     } else {
         egui::CentralPanel::default().show(ui, |ui| {
@@ -277,27 +272,17 @@ fn set_surrender_on_press(ctx: &egui::Context) {
 
 /// `action` on a dirty document goes through the unsaved-changes prompt
 /// first; clean, it runs at once.
-pub(crate) fn guard(
-    view: &mut RulesetView,
-    ctx: &ToolContext,
-    settings: &RulesetEditorSettings,
-    action: Pending,
-) {
+pub(crate) fn guard(view: &mut RulesetView, ctx: &ToolContext, action: Pending) {
     if view.document.as_ref().is_some_and(Document::is_dirty) {
         view.pending_action = Some(action);
     } else {
-        run(view, ctx, settings, action);
+        run(view, ctx, action);
     }
 }
 
 /// `action` performed: the prompt's Discard and saved Save land here,
 /// and the unguarded picks on a clean document.
-pub(crate) fn run(
-    view: &mut RulesetView,
-    ctx: &ToolContext,
-    settings: &RulesetEditorSettings,
-    action: Pending,
-) {
+pub(crate) fn run(view: &mut RulesetView, ctx: &ToolContext, action: Pending) {
     match action {
         Pending::Template(index) => {
             let template = &start::templates()[index];
@@ -307,7 +292,9 @@ pub(crate) fn run(
         }
         Pending::Blank => view.set_document(Document::new(crate::document::blank())),
         Pending::OpenFile => {
-            let start = PathBuf::from(&settings.last_folder);
+            // Read at the pick: the prompt's own save may have moved
+            // `last_folder` since `show`'s snapshot at the frame's top.
+            let start = PathBuf::from(&read_settings(ctx).last_folder);
             if let Some(path) = (view.open_dialog)(&start) {
                 open_path(view, ctx, &path);
             }
@@ -425,18 +412,24 @@ pub(crate) fn file_label(path: &Path) -> String {
         .unwrap_or_else(|| path.display().to_string())
 }
 
-/// The tool's settings table, read; the error a broken table gives.
-fn read_settings(ctx: &ToolContext) -> Result<RulesetEditorSettings, toml::de::Error> {
-    settings::from_table(&ctx.tool_settings(TOOL_ID))
+/// The tool's settings as the table holds them now. A table that fails
+/// to read counts as the defaults: the start page then lists no recent
+/// files, and `remember_path` writes nothing rather than overwrite a
+/// table it cannot read.
+fn read_settings(ctx: &ToolContext) -> RulesetEditorSettings {
+    settings::from_table(&ctx.tool_settings(TOOL_ID)).unwrap_or_default()
 }
 
 /// `path` into the recent files and `last_folder`, written back through
 /// `set_tool_settings` after every open and save (the plan's
-/// "Settings"). A table that fails to read is not overwritten: the
+/// "Settings"). The two keys are written into the table as read, so a
+/// key this version does not know survives (`spec/core/gui.md`
+/// "Settings menu"). A table that fails to read is not overwritten: the
 /// recent files it may hold would be emptied, so the write is skipped
 /// and the error logged.
 fn remember_path(ctx: &ToolContext, path: &Path) {
-    let mut settings = match read_settings(ctx) {
+    let mut table = ctx.tool_settings(TOOL_ID);
+    let mut settings = match settings::from_table(&table) {
         Ok(settings) => settings,
         Err(error) => {
             log::warn!(
@@ -446,7 +439,8 @@ fn remember_path(ctx: &ToolContext, path: &Path) {
         }
     };
     settings.remember(path);
-    ctx.set_tool_settings(TOOL_ID, settings.to_table());
+    table.extend(settings.to_table());
+    ctx.set_tool_settings(TOOL_ID, table);
 }
 
 /// The toolbar (the draft's top bar): the File, Edit and Randomize
@@ -489,7 +483,7 @@ fn toolbar(
                     view.start_open = true;
                 }
                 if menu_item(ui, true, egui::Button::new("Open…")) {
-                    guard(view, ctx, settings, Pending::OpenFile);
+                    guard(view, ctx, Pending::OpenFile);
                 }
                 if menu_item(ui, true, egui::Button::new("Save")) {
                     save_now(view, ctx, settings);

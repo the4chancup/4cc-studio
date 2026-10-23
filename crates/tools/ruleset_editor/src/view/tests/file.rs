@@ -118,6 +118,65 @@ fn a_save_with_no_edit_writes_the_same_values_and_no_comments() {
     );
 }
 
+// RE-GUI-02
+#[test]
+fn save_as_writes_a_copy_and_later_saves_follow_it() {
+    let dir = crate::test_support::scratch("file_save_as");
+    let a = write_file(&dir, "a.rhai", &valid_file());
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_path(&mut view, &ctx, &a);
+    let a_before = std::fs::read(&a).unwrap();
+
+    // One checkbox edit (the at-most list's "Attacking Prowess"), then
+    // File > Save as… to b.rhai: a.rhai untouched, b.rhai holding the
+    // edit and the document's path moved to it.
+    let frame = window.draw(&mut view, &ctx);
+    click_nth(
+        &mut window,
+        &frame.nodes,
+        "Attacking Prowess",
+        1,
+        &mut view,
+        &ctx,
+    );
+    assert!(
+        view.document.as_ref().expect("the document").is_dirty(),
+        "premise: the click edited the ruleset"
+    );
+    let b = dir.join("b.rhai");
+    save_as_via_menu(&mut window, &mut view, &ctx, &b);
+    assert_file_unchanged(&a, &a_before);
+    let rules = aatf::Rules::load(&std::fs::read_to_string(&b).expect("b.rhai was written"))
+        .expect("b.rhai loads");
+    assert_eq!(
+        rules.ruleset(),
+        &view.document.as_ref().expect("the document").ruleset,
+        "b.rhai holds the edit"
+    );
+    assert_eq!(
+        view.document.as_ref().unwrap().path.as_deref(),
+        Some(b.as_path()),
+        "the document's path is b.rhai"
+    );
+
+    // Another edit, then File > Save (the menu's own "Save", the
+    // topmost: the bottom bar's shares the label) writes b.rhai and
+    // leaves a.rhai alone.
+    click_drawn_nth(&mut window, &mut view, &ctx, "Defensive Prowess", 1);
+    let frame = window.draw(&mut view, &ctx);
+    click_labeled(&mut window, &frame.nodes, "File", &mut view, &ctx);
+    let frame = window.draw(&mut view, &ctx);
+    click_nth(&mut window, &frame.nodes, "Save", 0, &mut view, &ctx);
+    let rules =
+        aatf::Rules::load(&std::fs::read_to_string(&b).unwrap()).expect("b.rhai still loads");
+    assert_eq!(
+        rules.ruleset(),
+        &view.document.as_ref().unwrap().ruleset,
+        "Save wrote b.rhai"
+    );
+    assert_file_unchanged(&a, &a_before);
+}
+
 // RE-FILE-07
 #[test]
 fn save_leaves_no_sibling_and_reports_a_read_only_file() {
@@ -147,11 +206,7 @@ fn save_leaves_no_sibling_and_reports_a_read_only_file() {
     permissions.set_readonly(false);
     std::fs::set_permissions(&path, permissions).unwrap();
     assert!(!saved, "Save reports the failure");
-    assert_eq!(
-        std::fs::read(&path).unwrap(),
-        before,
-        "byte for byte as it was"
-    );
+    assert_file_unchanged(&path, &before);
     assert_eq!(
         folder_contents(&dir),
         ["rules.rhai"],
@@ -219,5 +274,34 @@ fn a_broken_settings_table_is_not_written_over() {
         table["recent_files"],
         toml::Value::Integer(3),
         "the table is left as it was"
+    );
+}
+
+// spec/core/gui.md "Settings menu": a key in the tool's table this
+// build does not know is kept as read — a newer version's settings
+// file loses nothing when this one writes.
+#[test]
+fn an_unknown_settings_key_survives_an_open() {
+    let (_dir, path) = scratch_file("settings_future", "rules.rhai");
+    let (ctx, _events) = crate::test_support::context();
+    let mut table = toml::Table::new();
+    table.insert(
+        "future_key".to_string(),
+        toml::Value::String("kept".to_string()),
+    );
+    ctx.set_tool_settings(crate::messages::TOOL_ID, table);
+    let mut view = RulesetView::new();
+    open_path(&mut view, &ctx, &path);
+    let table = ctx.tool_settings(crate::messages::TOOL_ID);
+    assert_eq!(
+        table["future_key"],
+        toml::Value::String("kept".to_string()),
+        "the unknown key is kept"
+    );
+    let settings = crate::settings::from_table(&table).unwrap();
+    assert_eq!(
+        settings.recent_files,
+        [path.to_string_lossy().into_owned()],
+        "the opened file heads the recent files"
     );
 }
