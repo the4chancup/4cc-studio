@@ -10,12 +10,15 @@ What exists of this is in `spec/core/distribution.md` "Distribution: portable .7
 
 There is no installer. Each release is a `.7z` archive containing:
 
-- `4cc-studio.exe` (or the `4cc-studio` Linux binary) — the single self-contained binary
+- `4cc-studio.exe` (or the `4cc-studio` Linux binary) — the single self-contained binary;
+  `UnlimitedToolWorks.exe` in every release before 1.0.0, as the bundle's own name
+  (`development_plan.md` "The preview's codename: Unlimited Tool Works")
 - `quick_compile.bat` (`quick_compile.sh` on Linux) — the double-click launcher: opens the GUI on
   the Team compiler and starts a compile (see `architecture.md` "Launch modes" under Architecture)
 - in the 0.0.1 preview only, until the two tools' views land: `quick_compile.bat` in its CLI
   form, `quick_upgrade.bat` and an empty `old_exports/` (`development_plan.md` "The /vg/
-  League 27 (VGL)")
+  League 27 (VGL)"); the launchers' sources are `resources/bundle/`, checked out with CRLF
+  line ends (`.gitattributes`), since cmd misreads a batch file's labels with LF ones
 - a basic readme (pointing into the app: the full help and the changelog live in the help window
   — see `gui.md` "Help window" under GUI Design — and `4cc-studio help --export` produces the same text as
   files for the release page), with the two license files beside it

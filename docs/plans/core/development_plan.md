@@ -50,7 +50,8 @@ through their CLI. They need no view for it, and the window stays as above, the 
 out. The bundle's launchers run the CLI in their console window, as Red's own bat runs its
 CLI, and wait for a key at the end so the report can be read:
 
-- `quick_compile.bat` runs `4cc-studio team-compiler compile` over the bundle's `exports/`.
+- `quick_compile.bat` runs `team-compiler compile` over the bundle's `exports/` (through
+  `UnlimitedToolWorks.exe`, the preview's codename below).
   It takes its `--gui` form (`architecture.md` "Launch modes") when the Team compiler's view
   lands.
 - `quick_upgrade.bat` upgrades every export in the bundle's `old_exports/` (folders, `.zip`,
@@ -71,6 +72,20 @@ screen for minutes reads as a hung program. Two checks join the release's own:
 
 Both tools stay what their phases delivered; nothing is shortened for the league's date
 either.
+
+**The preview's codename: Unlimited Tool Works.** Every release before 1.0.0 carries the name
+Unlimited Tool Works wherever a user sees it: the window title, the About box, the first-run
+prompt, the CLI's `--help` header and its usage examples, the help pages (and their
+`help --export` files), the readme, the executable (`UnlimitedToolWorks.exe`, which the
+launchers call) and the bundle's file name. DBC's and VGL's testers meet the suite at its
+least finished, and a codename keeps that first impression off the name it keeps; the
+reference (Fate/stay night's reality marble, where every sword once seen is traced) is the
+community's own and fits a suite that traces every tool its cups have used. The name lives in
+one display-name constant, so 1.0.0 switches back in one line. What users never see keeps
+"4cc Studio": the crates, the docs, and the settings folder (`4cc-studio` under the user's
+config directory, which only points at the data location), so a tester's setup carries over
+to 1.0.0 with no migration. Nothing in the preview names 4cc Studio, the readme included: the
+change of name is announced when 1.0.0 ships.
 
 ### Phase 7: glTF support
 

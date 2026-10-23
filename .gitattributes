@@ -8,6 +8,10 @@ crates/**/tests/fixtures/**/README.md text
 # its own write byte for byte; as text, a fresh `git add` (the mutants remote snapshot) made it LF
 crates/libs/teams_list/data/teams_list.txt -text
 
+# The bundle's launchers: cmd reads a batch file with LF line ends wrongly (a `goto` or `call`
+# to a label can miss it), so they are checked out CRLF whatever the platform
+resources/bundle/*.bat text eol=crlf
+
 # A game file copied byte for byte from Red's templates (CRLF): packed as it is
 resources/templates/dummy.mtl -text
 

@@ -535,7 +535,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   `default_fonts` feature goes off and `Ubuntu-Light` and `Hack` are embedded through
   `FontDefinitions` → verify: every view drawn with the emoji fonts removed shows no missing
   glyph (egui's own widgets draw a few symbols from them), and the exe shrinks by about 0.7 MiB
-  (`spec/core/distribution.md` "Size budget")
+  (`spec/core/distribution.md` "Size budget"). That font setup is the shell's first context
+  setup: `surrender_focus_on = Presses`, set today by the Save editor's view every frame
+  (`save_editor` `view::set_surrender_on_press`, 8.9e rework 5: a press elsewhere ends a
+  field's keyboard gesture, which the one-entry-per-gesture undo needs), moves there, set once
+  for every view, the Save editor's test harness setting it the same way
 - [ ] 8.3 carried into the itemizing (2026-10-19): the placeholder `view` and `settings_view`
   of `export_upgrader` and `save_editor` (`lib.rs`, one label each) are the mutants their
   whole-crate runs left missed, deferred because no headless test exists for a label; each
@@ -1336,7 +1340,11 @@ briefs, review loops, gates and mutation runs as for any step.
   under a temporary name and renamed, as the upgrader's staging does) or recorded with why not
   → verify: the tally in the Done line, each fix tested
 - [ ] 0.0.1d `just release <version>` (`plans/core/distribution.md` "Distribution: portable .7z
-  bundle"; Windows only): the exe, the two launchers, empty `exports/` and `old_exports/`, the
+  bundle"; Windows only), under the codename (`plans/core/development_plan.md` "The preview's
+  codename: Unlimited Tool Works": one display-name constant for the title, About, first run,
+  `--help` and its usage examples, and the help pages; the executable `UnlimitedToolWorks.exe`;
+  the settings folder unchanged; verify: no member-visible text names 4cc Studio, by a test
+  over the help pages and the CLI's help output): the exe, the two launchers, empty `exports/` and `old_exports/`, the
   teams list, the readme and the licenses, packed as the `.7z` with its SHA256 file; the
   0.0.1 readme in a layman's words (open the exe once to pick PES and its exe on the sidebar,
   then the two launchers; Red as the fallback) → verify: the recipe from a clean checkout

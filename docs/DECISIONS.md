@@ -10333,3 +10333,30 @@ answer to a spent key is not documented, so any refusal counts, rather than one 
 be the wrong one and leave the run failing on a usable second key; a request error (400) does
 not switch, since another key would fail it too.
 Plan: `CONTRIBUTING.md` "Citation audit".
+
+## 2026-10-23 — release, studio — every release before 1.0.0 is named Unlimited Tool Works
+Decision: the pre-1.0.0 releases carry the codename Unlimited Tool Works on everything a user
+sees (window title, About box, first-run prompt, `--help` header and usage examples, help
+pages, readme, the executable
+`UnlimitedToolWorks.exe`, the bundle's name), through one display-name constant; crates, docs and
+the settings folder keep "4cc Studio"; nothing in the preview names 4cc Studio.
+Why: the maintainer's choice: DBC7's and VGL 27's testers meet the suite at its least finished,
+and a codename keeps that impression off the name it keeps; the maintainer announces the change
+of name at 1.0.0. The settings folder keeps its name so testers' setups carry over with no
+migration, which a renamed folder would need.
+Plan: `plans/core/development_plan.md` "The preview's codename: Unlimited Tool Works";
+`plans/core/distribution.md` bundle list; worklog 0.0.1d.
+
+## 2026-10-23 — release — the 0.0.1 launchers name the bundle's `exports/` and count each upgrade
+Decision: both bats live in `resources/bundle/`, checked out CRLF; `quick_compile.bat` passes
+the bundle's `exports/` as the compile's root rather than relying on `exports_folder_path`;
+`quick_upgrade.bat` runs one `export-upgrader upgrade` per folder, `.zip` and `.7z` in
+`old_exports/`, counts exit code 0 as upgraded and any other as not, prints
+`Upgraded: N. Not upgraded: M.`, and with no savefile dropped prints how to drop one and writes
+nothing.
+Why: the upgrade writes into the bundle's `exports/`, so a compile reading the setting's folder
+instead would miss what was just upgraded once a tester points the setting elsewhere; one call
+per export keeps a refused export (its output already there, a team the save lacks) from
+stopping the rest. cmd misreads a batch file's labels with LF line ends.
+Plan: `plans/core/development_plan.md` "The /vg/ League 27 (VGL)"; `plans/core/distribution.md`
+bundle list; worklog 0.0.1b.

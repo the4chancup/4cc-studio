@@ -310,6 +310,9 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   instructions that take one of ours, Counter Target and Defensive (`pes_savefile`'s
   `Instruction::takes_player`, the one place the rule lives); picking an instruction that takes
   none sets the target to none (255), so no stale target is kept where 4ccEditor left one.
+  Under an instruction that takes none of ours the disabled target shows no player of ours:
+  "An opponent" under a held Tight Marking (its byte is the opposing formation's slot),
+  "Unassigned" under the rest (the game reads no target there).
 - **Players to join the attack stay packed**: removing one moves the later ones up, as
   4ccEditor's three combos keep them (an empty first entry clears the rest), so the record
   never holds a gap.
