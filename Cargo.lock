@@ -3930,6 +3930,8 @@ dependencies = [
  "export_upgrader",
  "indicatif",
  "log",
+ "pes_savefile",
+ "pes_version",
  "save_editor",
  "studio_core",
  "team_compiler",

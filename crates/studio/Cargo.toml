@@ -23,5 +23,9 @@ save_editor.workspace = true
 studio_core.workspace = true
 team_compiler.workspace = true
 
+[dev-dependencies]
+pes_savefile = { workspace = true, features = ["test-support"] }
+pes_version.workspace = true
+
 [lints]
 workspace = true

@@ -2334,3 +2334,5 @@ worklog passed 7,000 lines.
   grouped Player/Team, aligned Abilities grids, a Cutscenes group outside the lock, Tactics in three columns. Waits on a ruling.
 - **2026-10-23** — 0.0.1a: the console's progress line (exports, then parts, a ticking clock) and its summary line on
   `Complete`; the Team compiler sends `Progress` per committed task and one `Complete`. Checked in a pseudo-console.
+- **2026-10-23** — 0.0.1b: `quick_upgrade.bat` (every old export upgraded against the dropped save, then the tally) and
+  `quick_compile.bat` (the bundle's `exports/`), each pausing at the end; tested through `cmd /c` in a sandboxed bundle.

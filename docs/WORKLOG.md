@@ -20,7 +20,7 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1 and 2 done, slice 3 (the Tactics tab) under way), then 0.0.1a-e (0.0.1a done; the Team
+8.9: slices 1 and 2 done, slice 3 (the Tactics tab) under way), then 0.0.1a-e (0.0.1a-b done; the Team
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
@@ -1335,12 +1335,14 @@ briefs, review loops, gates and mutation runs as for any step.
     export with no empty frame, its clock ticked between findings to 1:37, findings printed
     above it, and `Done: 188 files written, 0 folders skipped, 0 folders with errors, 1:37`
     remained; `check` left no line after its last finding
-- [ ] 0.0.1b the launchers: `quick_compile.bat` in its CLI form and `quick_upgrade.bat` over
+- [x] 0.0.1b the launchers: `quick_compile.bat` in its CLI form and `quick_upgrade.bat` over
   `old_exports/` (`plans/core/development_plan.md` "The /vg/ League 27 (VGL)") → verify: each bat run by
   a test through `cmd /c` in a temporary bundle layout over fixture exports (an old export
   upgraded into `exports/` and the tally line; no file dropped: the how-to text and nothing
   written; an export already upgraded: refused, counted, the others still run; the compile
-  over `exports/` writing its output)
+  over `exports/` writing its output). Done: `resources/bundle/quick_{compile,upgrade}.bat`,
+  `crates/studio/tests/launchers.rs` (five scenarios, the compile's CPK deployed into a fake
+  PES 21 install in the sandbox)
 - [ ] 0.0.1c an interrupted run: Ctrl+C in the launcher's console at several points of a PES
   2019 compile (planning, packing, deploying), of a pre-Fox compile's savefile write and of an
   upgrade; what is left where the game reads it (`download/`, the DpFileList, the savefile) and
