@@ -2349,3 +2349,5 @@ worklog passed 7,000 lines.
   checksum and listing match the plan; the workspace version is 0.0.1. The exe is 35.3 MiB, past the 30 MB budget.
 - **2026-10-23** — 0.0.1d closed after its reviews (SWE-2 4 of 8, Astra 2 of 5): `--version` added, the readme's
   colours corrected, `APP_NAME` crate-private. 0.0.1g opened: the two CLI-only tools are still live on the sidebar.
+- **2026-10-23** — 0.0.1g: the Team compiler and the Export upgrader are greyed on the preview's sidebar, never the
+  active view, their CLI, help and settings kept (ST-SIDE-08). 0.0.1e's upgrade passes ran: 52 of 53 VGL26 exports.

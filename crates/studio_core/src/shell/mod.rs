@@ -71,6 +71,9 @@ pub struct StudioApp {
     /// The suite's whole registry as data: the entries no registered tool has are the
     /// sidebar's grayed planned list.
     planned: &'static [PlannedTool],
+    /// The registered tools' ids this build shows only as planned entries: their CLI,
+    /// help chapter and settings section stay.
+    cli_only: &'static [&'static str],
     ctx: ToolContext,
     requests: Receiver<ShellRequest>,
     /// Index into `tools` of the active view.
@@ -90,29 +93,38 @@ pub struct StudioApp {
 }
 
 impl StudioApp {
-    /// A shell over `tools`, opening on the one the `last_tool` setting names (the first when
-    /// it names none or an unregistered one; ST-SIDE-01, ST-RUN-02). `planned` is the suite's
-    /// registry including the tools this build does not register. `requests` is the receiving
-    /// end of the channel `ctx` sends shell requests to. `config_dir` is the user config
-    /// folder the first-run dialog's "In my user folder" choice offers (`studio` passes
-    /// `user_config_dir()`; `None` drops the choice — and is what the browser build gets,
-    /// which never asks).
+    /// A shell over `tools`, opening on the one the `last_tool` setting names (the first
+    /// window tool when it names none, an unregistered one or a CLI-only one; ST-SIDE-01,
+    /// ST-SIDE-08, ST-RUN-02). `planned` is the suite's registry including the tools this
+    /// build does not register; `cli_only` is the registered tools' ids this build shows
+    /// only as planned entries: their CLI, help chapter and settings section stay.
+    /// `requests` is the receiving end of the channel `ctx` sends shell requests to.
+    /// `config_dir` is the user config folder the first-run dialog's "In my user folder"
+    /// choice offers (`studio` passes `user_config_dir()`; `None` drops the choice — and
+    /// is what the browser build gets, which never asks).
     pub fn new(
         tools: Vec<Box<dyn StudioTool>>,
         planned: &'static [PlannedTool],
+        cli_only: &'static [&'static str],
         ctx: ToolContext,
         requests: Receiver<ShellRequest>,
         config_dir: Option<PathBuf>,
     ) -> StudioApp {
+        // A CLI-only tool is never the active view: a `last_tool` naming one falls to the
+        // first window tool; a build whose every tool is CLI-only is not one we make, so
+        // it falls to 0 rather than getting a path of its own.
         let active = ctx
             .common()
             .last_tool
             .and_then(|last| tools.iter().position(|tool| tool.id() == last))
+            .filter(|&index| !cli_only.contains(&tools[index].id()))
+            .or_else(|| tools.iter().position(|tool| !cli_only.contains(&tool.id())))
             .unwrap_or(0);
         let help_window = HelpWindow::new(help::chapters(&tools));
         StudioApp {
             tools,
             planned,
+            cli_only,
             ctx,
             requests,
             active,
@@ -128,9 +140,18 @@ impl StudioApp {
 
     /// Makes `tools[index]` the active view and records it in `last_tool`, through the same
     /// best-effort settings save every change uses: a switch writes it, not the exit, so a
-    /// crash keeps the record (ST-RUN-02).
+    /// crash keeps the record (ST-RUN-02). The one guard of "a CLI-only tool is never the
+    /// active view" (ST-SIDE-08): the sidebar never emits its index, but a `SwitchTool`
+    /// request or notice action can name it, so every switch funnels through here.
     fn set_active(&mut self, index: usize) {
         if index == self.active {
+            return;
+        }
+        if self.cli_only.contains(&self.tools[index].id()) {
+            debug!(
+                "switch to CLI-only tool `{}` ignored",
+                self.tools[index].id()
+            );
             return;
         }
         self.active = index;
@@ -189,7 +210,7 @@ impl StudioApp {
         }
     }
 
-    /// Makes the tool with `id` the active view, if it is registered.
+    /// Makes the tool with `id` the active view, if it is registered and not CLI-only.
     fn switch_to(&mut self, id: &str) {
         match self.tools.iter().position(|tool| tool.id() == id) {
             Some(index) => self.set_active(index),
@@ -282,9 +303,14 @@ impl eframe::App for StudioApp {
         // "Cancellation"): the holder cancels the close and becomes the active view,
         // its prompt answering through `ToolContext::request_close`. A close the shell
         // initiated itself takes the same path — `ShellRequest::Close` comes back as a
-        // close request — so no second path exists.
+        // close request — so no second path exists. A CLI-only tool is never asked:
+        // it can never become the active view, so it could never show its prompt.
+        let cli_only = self.cli_only;
         if egui_ctx.input(|input| input.viewport().close_requested())
-            && let Some(index) = self.tools.iter_mut().position(|tool| tool.hold_close())
+            && let Some(index) = self
+                .tools
+                .iter_mut()
+                .position(|tool| !cli_only.contains(&tool.id()) && tool.hold_close())
         {
             egui_ctx.send_viewport_cmd(egui::ViewportCommand::CancelClose);
             self.set_active(index);
@@ -316,8 +342,14 @@ impl eframe::App for StudioApp {
         let clicked = egui::Panel::left("sidebar")
             .exact_size(self.sidebar.width())
             .show(ui, |ui| {
-                self.sidebar
-                    .show(ui, &self.tools, self.active, self.planned, &self.ctx)
+                self.sidebar.show(
+                    ui,
+                    &self.tools,
+                    self.active,
+                    self.planned,
+                    self.cli_only,
+                    &self.ctx,
+                )
             })
             .inner;
         match clicked {

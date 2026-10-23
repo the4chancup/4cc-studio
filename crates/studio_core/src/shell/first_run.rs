@@ -146,6 +146,7 @@ mod tests {
             settings,
             vec![a],
             &[],
+            &[],
             AppPaths {
                 exe_dir: exe,
                 data_dir: None,

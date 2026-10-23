@@ -20,7 +20,7 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9f-h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-d done, 0.0.1g next, then 0.0.1e; the Team
+8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9f-h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-d and g done, 0.0.1e under way; the Team
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
@@ -1416,7 +1416,7 @@ briefs, review loops, gates and mutation runs as for any step.
   bundle, then checked in game in Edit mode (the `F:` drive connected by the maintainer);
   every failing class diagnosed and fixed, or written down as a reason to fall back to Red →
   verify: the tallies, `manual: checked` lines for the in-game look
-- [ ] 0.0.1g the Team compiler and the Export upgrader greyed on the sidebar while their CLI
+- [x] 0.0.1g the Team compiler and the Export upgrader greyed on the sidebar while their CLI
   stays (`plans/core/development_plan.md` "Divegrass Before Christmas": "greyed out on the
   sidebar as the planned tools are"; found by 0.0.1d's review S1-1): today a registered tool
   is always drawn live and a planned entry with its id is skipped
@@ -1424,6 +1424,11 @@ briefs, review loops, gates and mutation runs as for any step.
   are greyed, would be false; the registry marks a tool whose view is not built as CLI-only
   (`plans/core/gui.md` "Sidebar" item 3) → verify: ST-SIDE-08 by a shell test, and the
   bundle's launcher tests (`studio/tests/launchers.rs`) still compiling and upgrading
+    Done: `StudioApp::new` takes `cli_only`; `set_active` refuses a CLI-only tool on every
+    switch path, a `last_tool` naming one opens the first window tool, and none holds a close
+    (it could never show its prompt); the sidebar draws it as its planned entry with the
+    command-line tooltip. `studio`'s `CLI_ONLY` names the two (`shell/mod.rs`,
+    `shell/sidebar/{mod,tests}.rs`, `shell/test_harness.rs`, `studio/src/main.rs`)
 - [ ] 0.0.1f the cut, once Phase 20 closes: the clean-machine check (`plans/core/development_plan.md`
   "Release 0.1.0"'s verification, both launchers included), the exe's size measured crate by
   crate with `cargo bloat` (35.3 MiB at 0.0.1d2, past the budget's "about 30 MB";

@@ -98,6 +98,12 @@ const PLANNED: [PlannedTool; 14] = [
     },
 ];
 
+/// The registered tools this build shows on the sidebar only as planned entries, grayed
+/// and not clickable: the 0.0.1 preview's two tools whose views come later
+/// (gui.md "Sidebar" item 3). Their CLI, help chapter and settings section
+/// stay; the list goes when their views land.
+const CLI_ONLY: [&str; 2] = ["team-compiler", "export-upgrader"];
+
 /// The registered tools, in sidebar order.
 fn tools() -> Vec<Box<dyn StudioTool>> {
     vec![
@@ -267,6 +273,7 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
     match run_gui(StudioApp::new(
         tools,
         &PLANNED,
+        &CLI_ONLY,
         ctx,
         requests_rx,
         user_config_dir(),
@@ -319,6 +326,20 @@ mod tests {
                 .unwrap_or_else(|| panic!("{} is missing from the registry", tool.id()));
             assert_eq!(entry.label, tool.label());
             assert_eq!(entry.icon, tool.icon());
+        }
+    }
+
+    // The sidebar draws a CLI-only tool as its planned entry, so each mark needs both:
+    // a registered tool (its CLI, help and settings stay) and a registry entry to draw.
+    #[test]
+    fn every_cli_only_tool_is_registered_with_a_planned_entry() {
+        let registered: Vec<&str> = tools().iter().map(|tool| tool.id()).collect();
+        for id in CLI_ONLY {
+            assert!(registered.contains(&id), "{id} is not a registered tool");
+            assert!(
+                PLANNED.iter().any(|entry| entry.id == id),
+                "{id} is missing from the registry"
+            );
         }
     }
 

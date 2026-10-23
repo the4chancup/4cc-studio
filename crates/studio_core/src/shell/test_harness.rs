@@ -289,14 +289,16 @@ pub(super) struct Shell {
 }
 
 /// The full constructor: a shell over `tools` with `settings` (written through the
-/// shared handle), `planned` as the sidebar's registry, `paths` as the base folders and
-/// `config_dir` as the location the first-run dialog's second choice offers. The
-/// sidebar's running-PES probe is stubbed to find nothing: a poll over the developer's
-/// real process list must never leak into a test.
+/// shared handle), `planned` as the sidebar's registry, `cli_only` as the registered
+/// tools drawn as planned entries, `paths` as the base folders and `config_dir` as the
+/// location the first-run dialog's second choice offers. The sidebar's running-PES
+/// probe is stubbed to find nothing: a poll over the developer's real process list
+/// must never leak into a test.
 pub(super) fn shell_in(
     settings: Settings,
     tools: Vec<Box<dyn StudioTool>>,
     planned: &'static [PlannedTool],
+    cli_only: &'static [&'static str],
     paths: AppPaths,
     config_dir: Option<PathBuf>,
     calls: Vec<Arc<Calls>>,
@@ -305,7 +307,14 @@ pub(super) fn shell_in(
     let (requests_tx, requests_rx) = unbounded();
     let settings = Arc::new(Mutex::new(settings));
     let ctx = ToolContext::new(Arc::clone(&settings), paths, events_tx, requests_tx);
-    let mut app = StudioApp::new(tools, planned, ctx.clone(), requests_rx, config_dir);
+    let mut app = StudioApp::new(
+        tools,
+        planned,
+        cli_only,
+        ctx.clone(),
+        requests_rx,
+        config_dir,
+    );
     app.sidebar.probe = || Vec::new();
     Shell {
         app,
@@ -330,6 +339,7 @@ pub(super) fn shell_with(
         settings,
         tools,
         planned,
+        &[],
         AppPaths {
             exe_dir: PathBuf::from("exe"),
             data_dir,

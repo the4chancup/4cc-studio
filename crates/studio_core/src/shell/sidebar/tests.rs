@@ -6,12 +6,12 @@ use egui::accesskit::{self, Role, Toggled};
 use pes_version::PesVersion;
 
 use super::{ExeCheck, selector_color};
+use crate::help::{HelpSection, HelpTarget, HelpTopic};
 use crate::pes_process::RunningPes;
 use crate::settings::Settings;
-use crate::shell::StudioApp;
-use crate::shell::about;
 use crate::shell::test_harness::*;
-use crate::tool::PlannedTool;
+use crate::shell::{StudioApp, about, run_cli};
+use crate::tool::{AppPaths, PlannedTool};
 
 // TC-GUI-03
 #[test]
@@ -433,6 +433,169 @@ fn the_planned_tools_follow_the_registered_ones_grayed_and_inert() {
         has_text(&nodes, "Planned one is not in this build"),
         "the tooltip names the tool and the build"
     );
+}
+
+// ST-SIDE-08
+#[test]
+fn a_cli_only_tool_is_a_planned_entry_never_active_and_still_registered() {
+    const PLANNED: &[PlannedTool] = &[
+        PlannedTool {
+            id: "a",
+            label: "A",
+            icon: "a",
+        },
+        PlannedTool {
+            id: "b",
+            label: "B",
+            icon: "b",
+        },
+        PlannedTool {
+            id: "c",
+            label: "C",
+            icon: "c",
+        },
+        PlannedTool {
+            id: "planned-one",
+            label: "Planned one",
+            icon: "p",
+        },
+    ];
+    let (a, calls_a) = stub("a", "A", None);
+    let (b, calls_b) = stub("b", "B", None);
+    // A chapter with a topic, so `showing` can name what it opened on.
+    let (c, calls_c) = stub_help(
+        "c",
+        "C",
+        None,
+        HelpSection {
+            title: "C",
+            topics: vec![HelpTopic {
+                slug: "c-topic",
+                title: "C's topic",
+                body: "C's help body.",
+            }],
+            messages: Vec::new(),
+        },
+    );
+    let dir = TestDir::new("studio_core_sidebar_cli_only");
+    let mut settings = test_settings(dir.path());
+    settings.common.last_tool = Some("c".to_owned());
+    // C registered first, as `studio` registers the Team compiler: the fallback must skip
+    // it, not just take the first tool.
+    let Shell {
+        mut app,
+        ctx,
+        calls,
+        ..
+    } = shell_in(
+        settings,
+        vec![c, a, b],
+        PLANNED,
+        &["c"],
+        AppPaths {
+            exe_dir: PathBuf::from("exe"),
+            data_dir: Some(dir.path().to_path_buf()),
+        },
+        None,
+        vec![calls_c, calls_a, calls_b],
+    );
+    let egui_ctx = egui::Context::default();
+    egui_ctx.enable_accesskit();
+    egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
+
+    // `last_tool` names the CLI-only tool: the first window tool is active instead.
+    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+    assert_eq!(
+        app.active, 1,
+        "the CLI-only tool is never active: the first window tool is"
+    );
+    assert_eq!(
+        (calls[0].views(), calls[1].views(), calls[2].views()),
+        (0, 1, 0),
+        "A's view is the one drawn"
+    );
+
+    // C has no live entry: the tool entries are buttons labeled with the tool's name.
+    let live = |label: &str| {
+        nodes
+            .iter()
+            .any(|node| node.role() == Role::Button && node.label() == Some(label))
+    };
+    assert!(live("A"), "a window tool's entry is a button");
+    assert!(!live("C"), "the CLI-only tool has no live entry");
+
+    // C is drawn after the window tools, as a planned entry in registry order, grayed.
+    let planned = |label: &str| {
+        nodes
+            .iter()
+            .find(|node| node.value() == Some(label))
+            .unwrap_or_else(|| panic!("no text node {label:?}"))
+    };
+    let top = |node: &accesskit::Node| node.bounds().unwrap().y0;
+    assert!(
+        top(entry(&nodes, "B")) < top(planned("C"))
+            && top(planned("C")) < top(planned("Planned one")),
+        "the CLI-only entry sits among the planned ones, in registry order"
+    );
+    assert!(planned("C").is_disabled(), "the CLI-only entry is grayed");
+
+    // Not clickable: a click changes nothing.
+    click(&egui_ctx, &mut app, planned("C"));
+    assert_eq!(app.active, 1);
+    assert_eq!(calls[0].views(), 0, "C's view never ran");
+
+    // Its tooltip says it runs from the command line in this version.
+    idle(&egui_ctx, &mut app, 10);
+    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+    let node = nodes.iter().find(|node| node.value() == Some("C")).unwrap();
+    frame(&egui_ctx, &mut app, hover(node), true);
+    let nodes = idle(&egui_ctx, &mut app, 8).nodes;
+    assert!(
+        has_text(
+            &nodes,
+            "C has no window in this version: it runs from the command line."
+        ),
+        "the tooltip is the CLI-only one"
+    );
+
+    // A switch request naming it is ignored, as an unknown id is.
+    ctx.switch_to_tool("c");
+    frame(&egui_ctx, &mut app, Vec::new(), true);
+    assert_eq!(app.active, 1, "no switch makes the CLI-only tool active");
+
+    // Its settings section is in the settings menu: whatever the sidebar's entry
+    // contributes, the section header adds one more node labeled "C".
+    let labeled = |nodes: &[accesskit::Node], label: &str| {
+        nodes
+            .iter()
+            .filter(|node| node.label() == Some(label))
+            .count()
+    };
+    let before = labeled(&nodes, "C");
+    click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
+    let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+    assert_eq!(
+        labeled(&nodes, "C"),
+        before + 1,
+        "C's section header is drawn in the settings menu"
+    );
+
+    // Its help chapter is in the help window.
+    app.open_help(&HelpTarget {
+        tool: "c".to_owned(),
+        topic: None,
+        anchor: None,
+    });
+    assert_eq!(
+        app.help_window.showing(),
+        Some(("c", "c-topic")),
+        "C's chapter is in the help window"
+    );
+
+    // And its CLI commands still run.
+    let matches = app.tools[0].cli_command().get_matches_from(vec!["c"]);
+    let code = run_cli(&app.tools, "c", &matches, &ctx);
+    assert_eq!(code.unwrap(), 0, "the CLI-only tool's commands still run");
 }
 
 // The logo's About block, its links and Copy; the Help link opens the help window.

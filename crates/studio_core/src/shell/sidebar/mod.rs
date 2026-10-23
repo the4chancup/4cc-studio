@@ -105,21 +105,23 @@ impl Sidebar {
     }
 
     /// Draws the sidebar and returns the click's ask, if any. `tools` are in sidebar
-    /// order, `active` the index of the one on screen.
+    /// order, `active` the index of the one on screen, `cli_only` the registered tools'
+    /// ids drawn as planned entries (gui.md "Sidebar" item 3).
     pub(super) fn show(
         &mut self,
         ui: &mut egui::Ui,
         tools: &[Box<dyn StudioTool>],
         active: usize,
         planned: &[PlannedTool],
+        cli_only: &[&'static str],
         ctx: &ToolContext,
     ) -> Option<SidebarClick> {
         let clicked = if self.collapsed {
             // The rail centers its icons (draft: `.sidebar.collapsed`).
-            ui.vertical_centered(|ui| self.contents(ui, tools, active, planned, ctx))
+            ui.vertical_centered(|ui| self.contents(ui, tools, active, planned, cli_only, ctx))
                 .inner
         } else {
-            self.contents(ui, tools, active, planned, ctx)
+            self.contents(ui, tools, active, planned, cli_only, ctx)
         };
         if self.about_open {
             let help = about::show(
@@ -146,6 +148,7 @@ impl Sidebar {
         tools: &[Box<dyn StudioTool>],
         active: usize,
         planned: &[PlannedTool],
+        cli_only: &[&'static str],
         ctx: &ToolContext,
     ) -> Option<SidebarClick> {
         if ui
@@ -167,6 +170,11 @@ impl Sidebar {
 
         let mut clicked = None;
         for (index, tool) in tools.iter().enumerate() {
+            // A registered tool marked CLI-only is no tool entry: it is drawn with
+            // the planned entries below (ST-SIDE-08).
+            if cli_only.contains(&tool.id()) {
+                continue;
+            }
             if self
                 .tool_entry(ui, tool.icon(), tool.label(), index == active)
                 .clicked()
@@ -175,10 +183,24 @@ impl Sidebar {
             }
         }
         for entry in planned {
-            if tools.iter().any(|tool| tool.id() == entry.id) {
+            // In the registry's order: a window tool's own entry is drawn above; a
+            // CLI-only tool's is here, its tooltip saying it runs from the command
+            // line in this version (ST-SIDE-08).
+            if tools
+                .iter()
+                .any(|tool| tool.id() == entry.id && !cli_only.contains(&tool.id()))
+            {
                 continue;
             }
-            self.planned_entry(ui, entry);
+            let tooltip = if cli_only.contains(&entry.id) {
+                format!(
+                    "{} has no window in this version: it runs from the command line.",
+                    entry.label
+                )
+            } else {
+                format!("{} is not in this build", entry.label)
+            };
+            self.planned_entry(ui, entry, &tooltip);
         }
 
         let (glyph, tip) = if self.collapsed {
@@ -397,9 +419,10 @@ impl Sidebar {
         }
     }
 
-    /// A planned tool the build does not register: grayed, never clickable, its tooltip
-    /// saying it is not in this build (ST-SIDE-07).
-    fn planned_entry(&self, ui: &mut egui::Ui, entry: &PlannedTool) {
+    /// A tool the sidebar lists grayed and never clickable: one the build does not
+    /// register (ST-SIDE-07) or a registered one marked CLI-only (ST-SIDE-08);
+    /// `tooltip` says which.
+    fn planned_entry(&self, ui: &mut egui::Ui, entry: &PlannedTool, tooltip: &str) {
         let text = if self.collapsed {
             entry.icon.to_owned()
         } else {
@@ -408,7 +431,7 @@ impl Sidebar {
         let response = ui.add_enabled(false, egui::Label::new(text).sense(egui::Sense::hover()));
         response
             .widget_info(|| egui::WidgetInfo::labeled(egui::WidgetType::Label, false, entry.label));
-        response.on_disabled_hover_text(format!("{} is not in this build", entry.label));
+        response.on_disabled_hover_text(tooltip);
     }
 
     /// The exe check's verdict, listing the resolved PES folder once per change of the
