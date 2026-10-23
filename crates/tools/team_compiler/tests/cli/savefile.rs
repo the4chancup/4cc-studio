@@ -371,7 +371,7 @@ fn a_savefile_that_cannot_be_replaced_rolls_the_deployment_back() {
 // TC-SAV-09
 #[test]
 fn a_patch_that_cannot_be_written_rolls_the_deployment_back() {
-    let sandbox = Sandbox::new("patch_write_failed");
+    let sandbox = Sandbox::new("patch_write_rolled_back");
     install_pes(&sandbox);
     let save = install_save(&sandbox, PesVersion::Pes21);
     let before = fs::read(&save).unwrap();
@@ -403,6 +403,11 @@ fn a_patch_that_cannot_be_written_rolls_the_deployment_back() {
         "no .old left"
     );
     assert_eq!(fs::read(&save).unwrap(), before, "byte-identical");
+    assert_eq!(
+        run.complete().files_written,
+        0,
+        "the rolled-back deployment put nothing in place"
+    );
 }
 
 #[cfg(windows)]

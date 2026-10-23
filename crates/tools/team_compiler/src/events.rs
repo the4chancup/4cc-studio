@@ -20,8 +20,12 @@ const RUN_ID: RunId = RunId(1);
 pub(crate) struct RunEvents {
     ctx: ToolContext,
     worst: Option<Severity>,
-    /// The folders a finding's verdict dropped (`DropFolder`), for `Complete`'s summary.
-    skipped_folders: usize,
+    /// The exports a finding refused whole (`DropExport`), by their id, for `Complete`'s
+    /// summary: one export counts once however many findings refused it.
+    skipped_exports: BTreeSet<ExportId>,
+    /// The folders a finding's verdict dropped (`DropFolder`), mapped as
+    /// `folders_with_errors`' are: one folder counts once however many findings it has.
+    skipped_folders: BTreeSet<(ExportId, ScopePath)>,
     /// The entries an `overrides/` file replaced (`duplicate_path`), for `Complete`'s summary.
     duplicates: usize,
     /// The folders that reported an error-level finding, by their canonical path inside their
@@ -36,7 +40,8 @@ impl RunEvents {
         RunEvents {
             ctx: ctx.clone(),
             worst: None,
-            skipped_folders: 0,
+            skipped_exports: BTreeSet::new(),
+            skipped_folders: BTreeSet::new(),
             duplicates: 0,
             folders_with_errors: BTreeSet::new(),
         }
@@ -58,22 +63,24 @@ impl RunEvents {
     /// One finding, addressed to the export its scope names.
     pub(crate) fn message(&mut self, message: Message) {
         self.worst = self.worst.max(Some(message.severity));
-        if message.disposition == Disposition::DropFolder {
-            self.skipped_folders += 1;
+        if message.disposition == Disposition::DropExport
+            && let Some(export_id) = message.scope.export_id()
+        {
+            self.skipped_exports.insert(export_id);
+        }
+        if message.disposition == Disposition::DropFolder
+            && let Some(folder) = scope_folder(&message.scope)
+        {
+            self.skipped_folders.insert(folder);
         }
         if message.code.code.as_ref() == Code::DuplicatePath.as_str() {
             self.duplicates += 1;
         }
         // A file's error is its folder's too; a roster line's or an export's counts no folder.
-        if message.severity >= Severity::Error {
-            let folder = match &message.scope {
-                Scope::Folder { export_id, path } => Some((*export_id, path.clone())),
-                Scope::File { export_id, path } => path.parent().map(|parent| (*export_id, parent)),
-                Scope::Run | Scope::Export { .. } | Scope::RosterEntry { .. } => None,
-            };
-            if let Some(folder) = folder {
-                self.folders_with_errors.insert(folder);
-            }
+        if message.severity >= Severity::Error
+            && let Some(folder) = scope_folder(&message.scope)
+        {
+            self.folders_with_errors.insert(folder);
         }
         self.emit(message.scope.export_id(), PipelineEvent::Message(message));
     }
@@ -100,7 +107,8 @@ impl RunEvents {
             PipelineEvent::Complete {
                 success: self.worst.is_none_or(|worst| worst < Severity::Error),
                 files_written,
-                skipped_folders: self.skipped_folders,
+                skipped_exports: self.skipped_exports.len(),
+                skipped_folders: self.skipped_folders.len(),
                 duplicates: self.duplicates,
                 folders_with_errors: self.folders_with_errors.len(),
             },
@@ -119,5 +127,17 @@ impl RunEvents {
             export_revision: None,
             event,
         });
+    }
+}
+
+/// The folder `scope` names, as a `(export, path)` count key: its own for a folder, its
+/// file's parent for a file; `None` for a scope that names no folder (the run, a whole
+/// export, a roster line, whose finding is often about a malformed line or a missing
+/// target rather than the folder holding the file).
+fn scope_folder(scope: &Scope) -> Option<(ExportId, ScopePath)> {
+    match scope {
+        Scope::Folder { export_id, path } => Some((*export_id, path.clone())),
+        Scope::File { export_id, path } => path.parent().map(|parent| (*export_id, parent)),
+        Scope::Run | Scope::Export { .. } | Scope::RosterEntry { .. } => None,
     }
 }

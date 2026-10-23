@@ -108,42 +108,76 @@ fn source_kind(path: &Path) -> Option<SourceKind> {
     }
 }
 
-/// The export sources of a run: exactly the `exports` paths when any are given (the root is then
-/// not scanned), else every folder and `.zip`/`.7z` file directly in `exports_root`, other files
-/// ignored. Sorted by folded file name, then by the name itself, so the order is the same on
-/// every file system, names differing only in case included, and numbered in that order. An
-/// exports root that cannot be listed is an error naming it, and so is a named path that is no
-/// longer a folder or an archive.
-pub(crate) fn discover(
-    exports_root: &Path,
-    exports: &[PathBuf],
-) -> anyhow::Result<Vec<ExportSource>> {
-    let mut paths = if exports.is_empty() {
-        scan_root(exports_root)?
-    } else {
-        named_paths(exports)?
-    };
-    paths.sort_by_cached_key(|(path, _)| {
-        let name = file_name(path);
-        (vtree::fold_name(&name), name)
-    });
-    Ok(paths
-        .into_iter()
-        .zip(0..)
-        .map(|((path, kind), id)| source(path, kind, ExportId(id)))
-        .collect())
+/// What discovery found in the exports root.
+#[derive(Debug)]
+pub(crate) struct Discovery {
+    /// The export sources of the run, sorted by folded file name then the name itself and
+    /// numbered in that order.
+    pub(crate) sources: Vec<ExportSource>,
+    /// The `.upgrading` folders the scan skipped: the Export upgrader's staging folder an
+    /// interrupted upgrade left is no export (`plans/team_compiler/pipeline.md` "1.
+    /// Reader"), reported `export_upgrade_unfinished` by the run, in the same order.
+    pub(crate) skipped: Vec<PathBuf>,
 }
 
-fn scan_root(exports_root: &Path) -> anyhow::Result<Vec<(PathBuf, SourceKind)>> {
+/// The export sources of a run: exactly the `exports` paths when any are given (the root is then
+/// not scanned — a named path is taken as it is, `.upgrading` ending or not), else every folder
+/// and `.zip`/`.7z` file directly in `exports_root`, other files ignored, a folder whose name
+/// ends in `.upgrading` skipped aside (`skipped`), sorted by folded file name, then by the name
+/// itself, so the order is the same on every file system, names differing only in case included,
+/// and numbered in that order. An exports root that cannot be listed is an error naming it, and
+/// so is a named path that is no longer a folder or an archive.
+pub(crate) fn discover(exports_root: &Path, exports: &[PathBuf]) -> anyhow::Result<Discovery> {
+    let (mut paths, mut skipped) = if exports.is_empty() {
+        let ScanRoot { paths, skipped } = scan_root(exports_root)?;
+        (paths, skipped)
+    } else {
+        (named_paths(exports)?, Vec::new())
+    };
+    let by_name = |path: &Path| {
+        let name = file_name(path);
+        (vtree::fold_name(&name), name)
+    };
+    paths.sort_by_cached_key(|(path, _)| by_name(path));
+    skipped.sort_by_cached_key(|path| by_name(path));
+    Ok(Discovery {
+        sources: paths
+            .into_iter()
+            .zip(0..)
+            .map(|((path, kind), id)| source(path, kind, ExportId(id)))
+            .collect(),
+        skipped,
+    })
+}
+
+/// What `scan_root` read in the exports root.
+struct ScanRoot {
+    /// The sources found: a folder or an archive each, unsorted.
+    paths: Vec<(PathBuf, SourceKind)>,
+    /// The `.upgrading` folders skipped.
+    skipped: Vec<PathBuf>,
+}
+
+/// The exports root's sources, and the `.upgrading` folders skipped beside them.
+fn scan_root(exports_root: &Path) -> anyhow::Result<ScanRoot> {
     let cannot_read = || format!("{}: cannot read the exports folder", exports_root.display());
     let mut paths = Vec::new();
+    let mut skipped = Vec::new();
     for entry in fs::read_dir(exports_root).with_context(cannot_read)? {
         let path = entry.with_context(cannot_read)?.path();
+        if path.is_dir()
+            && file_name(&path)
+                .to_ascii_lowercase()
+                .ends_with(".upgrading")
+        {
+            skipped.push(path);
+            continue;
+        }
         if let Some(kind) = source_kind(&path) {
             paths.push((path, kind));
         }
     }
-    Ok(paths)
+    Ok(ScanRoot { paths, skipped })
 }
 
 /// The `--export` paths with their kinds. The preflight refused any other path; one that
@@ -305,7 +339,7 @@ mod tests {
             fs::write(root.join(file), "").unwrap();
         }
 
-        let sources = discover(root, &[]).unwrap();
+        let sources = discover(root, &[]).unwrap().sources;
 
         let summary: Vec<(u64, &str, &str, SourceKind, Option<&str>)> = sources
             .iter()
@@ -367,7 +401,7 @@ mod tests {
             root.join("zz Midcup Named"),
             root.join("aa Midcup Named.zip"),
         ];
-        let sources = discover(Path::new("no such root"), &named).unwrap();
+        let sources = discover(Path::new("no such root"), &named).unwrap().sources;
 
         let names: Vec<&str> = sources
             .iter()
@@ -393,7 +427,7 @@ mod tests {
         reversed.reverse();
 
         for paths in [given, reversed] {
-            let sources = discover(Path::new("no such root"), &paths).unwrap();
+            let sources = discover(Path::new("no such root"), &paths).unwrap().sources;
             let names: Vec<&str> = sources
                 .iter()
                 .map(|source| source.file_name.as_str())
@@ -483,7 +517,7 @@ mod tests {
         write("refs c/NO_USE.txt");
         write("refs d.zip");
 
-        let sources = discover(root, &[]).unwrap();
+        let sources = discover(root, &[]).unwrap().sources;
         let routes: Vec<String> = route(&sources)
             .into_iter()
             .map(|route| match route {
@@ -519,7 +553,7 @@ mod tests {
         fs::write(root.join("refs a/players.txt"), "").unwrap();
         fs::create_dir_all(root.join("refs b")).unwrap();
         fs::write(root.join("refs b/NO_USE"), "").unwrap();
-        let sources = discover(root, &[]).unwrap();
+        let sources = discover(root, &[]).unwrap().sources;
         let routes = route(&sources);
         assert!(matches!(routes[0], Route::Validate { .. }), "{routes:?}");
         assert_eq!(routes[1], Route::Disabled);
@@ -533,7 +567,7 @@ mod tests {
         for name in ["egg Midcup Tracer.7z", "egg Midcup Tracer.zip"] {
             fs::copy(fixtures.join(name), root.join(name)).unwrap();
         }
-        let sources = discover(root, &[]).unwrap();
+        let sources = discover(root, &[]).unwrap().sources;
 
         let sizes: Vec<(&str, usize)> = sources
             .iter()

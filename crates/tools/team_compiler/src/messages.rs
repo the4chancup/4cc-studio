@@ -28,6 +28,9 @@ pub(crate) enum Code {
     NoExportsFound,
     /// A `NO_USE` marker disables the export.
     ExportDisabled,
+    /// A folder ending in `.upgrading` is the Export upgrader's staging folder an
+    /// interrupted upgrade left, skipped at discovery.
+    ExportUpgradeUnfinished,
     /// The export's team, or the referees, as identified.
     ExportIdentified,
     /// A balls export, which the Balls compiler owns.
@@ -557,10 +560,11 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 161] = [
+    const ALL: [Code; 162] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
+        Code::ExportUpgradeUnfinished,
         Code::ExportIdentified,
         Code::ExportBallsSkipped,
         Code::MultipleRefExports,
@@ -727,6 +731,7 @@ impl Code {
             Code::ExportExtractFailed => "export_extract_failed",
             Code::NoExportsFound => "no_exports_found",
             Code::ExportDisabled => "export_disabled",
+            Code::ExportUpgradeUnfinished => "export_upgrade_unfinished",
             Code::ExportIdentified => "export_identified",
             Code::ExportBallsSkipped => "export_balls_skipped",
             Code::MultipleRefExports => "multiple_ref_exports",

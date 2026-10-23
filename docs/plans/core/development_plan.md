@@ -80,12 +80,22 @@ prompt, the CLI's `--help` header and its usage examples, the help pages (and th
 launchers call) and the bundle's file name. DBC's and VGL's testers meet the suite at its
 least finished, and a codename keeps that first impression off the name it keeps; the
 reference (Fate/stay night's reality marble, where every sword once seen is traced) is the
-community's own and fits a suite that traces every tool its cups have used. The name lives in
-one display-name constant, so 1.0.0 switches back in one line. What users never see keeps
-"4cc Studio": the crates, the docs, and the settings folder (`4cc-studio` under the user's
-config directory, which only points at the data location), so a tester's setup carries over
-to 1.0.0 with no migration. Nothing in the preview names 4cc Studio, the readme included: the
-change of name is announced when 1.0.0 ships.
+community's own and fits a suite that traces every tool its cups have used. The code reads
+the name from two constants in `studio_core`, the display name and the executable's, so the
+window, the CLI and the findings' text switch back in one line at 1.0.0. The help pages and
+the launchers spell the executable's name as text, since a Markdown page and a batch file
+cannot read a Rust constant; a test over the `help --export` files and the CLI's `--help`
+output finds any "4cc Studio" left, which is the list a 1.0.0 switch rewrites. Text a file
+format keeps names no product at all (a ruleset file's header and its logic banner, the
+shared-IDs file's comment: "written by the Ruleset editor", "by the Team compiler"): the
+logic banner is hashed into the ruleset's identity, and a name there would make each
+switch a new logic version. What users never see keeps "4cc Studio": the crates, the docs,
+a written CPK's `Tvers` field, and the settings folder (`4cc-studio` under the user's config
+directory, which only points at the data location), so a tester's setup carries over to
+1.0.0 with no migration; the data-location help page names that folder's path, the one place
+a member reads the old name, because they may need to find it. Otherwise nothing in the
+preview names 4cc Studio, the readme included: the change of name is announced when 1.0.0
+ships.
 
 ### Phase 7: glTF support
 

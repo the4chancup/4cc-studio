@@ -2334,6 +2334,11 @@ fn an_export_is_processed_after_its_last_task_or_after_planning_when_it_has_none
         ]
     );
     assert_eq!(run.exit_code(), 1);
+    assert_eq!(
+        run.complete().skipped_exports,
+        1,
+        "the disabled export counts as skipped"
+    );
 }
 
 // TC-PLN-05
@@ -2484,6 +2489,11 @@ fn two_exports_of_one_team_are_both_skipped_naming_each_other_and_the_other_team
     let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
     let of_714: Vec<&String> = entries.keys().filter(|path| path.contains("714")).collect();
     assert_eq!(of_714, Vec::<&String>::new());
+    assert_eq!(
+        run.complete().skipped_exports,
+        2,
+        "each export of /co/ was refused whole"
+    );
 }
 
 // TC-PLN-07
@@ -2563,6 +2573,13 @@ fn the_overrides_replace_the_export_s_boots_and_the_team_color_bin_and_are_repor
         "{:#?}",
         entries.keys()
     );
+    let complete = run.complete();
+    assert_eq!(
+        complete.files_written,
+        entries.len(),
+        "the overrides among the CPK's table of contents"
+    );
+    assert_eq!(complete.duplicates, 2, "the two entries replaced");
 }
 
 // TC-PLN-04
@@ -2601,4 +2618,9 @@ fn the_overrides_are_written_with_the_bins_when_no_export_compiles() {
     );
     assert_eq!(entries[BOOTS_05], BOOTS_OVERRIDE);
     assert_eq!(entries[TEAM_COLOR], TEAM_COLOR_OVERRIDE);
+    assert_eq!(
+        run.complete().duplicates,
+        1,
+        "the bin's entry alone was replaced"
+    );
 }

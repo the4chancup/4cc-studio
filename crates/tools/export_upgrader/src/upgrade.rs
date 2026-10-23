@@ -172,6 +172,14 @@ impl RunEvents {
         self.emit(None, PipelineEvent::UnmigratedContentFound);
     }
 
+    /// The export left the pipeline, whatever its outcome.
+    pub(crate) fn processed(&self, export_id: ExportId) {
+        self.emit(
+            Some(export_id),
+            PipelineEvent::ExportProcessed { export_id },
+        );
+    }
+
     /// The worst severity reported so far; `None` when no finding was.
     pub(crate) fn worst(&self) -> Option<Severity> {
         self.worst
@@ -295,6 +303,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         Ok(export) => export,
         Err(failure) => {
             events.message(extract_failed(INPUT, failure));
+            events.processed(INPUT);
             return Ok(ERRORS);
         }
     };
@@ -307,6 +316,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             Disposition::DropExport,
             vec![],
         ));
+        events.processed(INPUT);
         return Ok(ERRORS);
     }
 
@@ -323,6 +333,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                 // nothing written (DECISIONS 2026-10-18 "the first slice's
                 // review and the face-folder rules of 6.2a" (2)).
                 events.message(read_failed(INPUT, failure, Disposition::DropExport));
+                events.processed(INPUT);
                 return Ok(ERRORS);
             }
         },
@@ -339,6 +350,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         Ok(identity) => identity,
         Err((scope, name)) => {
             events.message(team_name_unknown(scope, name));
+            events.processed(INPUT);
             return Ok(ERRORS);
         }
     };
@@ -378,12 +390,14 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                     Disposition::DropExport,
                     vec![],
                 ));
+                events.processed(INPUT);
                 return Ok(ERRORS);
             };
             match export.read(&path) {
                 Ok(bytes) => Some((path, players_txt(&bytes))),
                 Err(failure) => {
                     events.message(read_failed(INPUT, failure, Disposition::DropExport));
+                    events.processed(INPUT);
                     return Ok(ERRORS);
                 }
             }
@@ -712,11 +726,15 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     if any_unmigrated {
         events.unmigrated();
     }
+    // The input's half ends here: read and migrated, whatever it left behind.
+    events.processed(INPUT);
 
     // "Verification": the shared validation on what was written, read in the
     // staging folder. Every issue goes through `events.message`, whose
     // disposition sets `dropped`.
     validate_output(&staging, &output_name, version, &mut events);
+    // The output's half ends with its validation.
+    events.processed(OUTPUT);
 
     // "CLI": the verdict line and the exit code: not clean when a finding
     // was an Error or dropped anything, the tool's own and the output
@@ -1245,5 +1263,51 @@ mod tests {
             aesthetics_export::Disposition::DropFolder
         );
         assert!(!issue.passed_through);
+    }
+
+    #[test]
+    fn each_started_export_is_processed_once_after_its_start() {
+        // The console's exports counter reads `0/2` for a whole upgrade when neither the
+        // input nor the output is ever reported processed.
+        let root = scratch("upgrade_processed");
+        fs::create_dir_all(root.join("co Spring/Boots/k0430 - Crocs")).unwrap();
+        fs::write(root.join("co Spring/co Note.txt"), b"Team: /co/\r\n").unwrap();
+        fs::write(
+            root.join("co Spring/Boots/k0430 - Crocs/boots.MODEL"),
+            b"model",
+        )
+        .unwrap();
+        let (ctx, events_rx) = test_ctx();
+        let args = UpgradeArgs {
+            export: root.join("co Spring"),
+            savefile: None,
+            loose: true,
+            output: None,
+        };
+
+        run(&args, &ctx).unwrap();
+        drop(ctx);
+
+        let events: Vec<String> = events_rx
+            .iter()
+            .filter_map(|envelope| match envelope.event {
+                PipelineEvent::ExportStarted { export_id, .. } => {
+                    Some(format!("started {}", export_id.0))
+                }
+                PipelineEvent::ExportProcessed { export_id } => {
+                    Some(format!("processed {}", export_id.0))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            events,
+            [
+                format!("started {}", INPUT.0),
+                format!("started {}", OUTPUT.0),
+                format!("processed {}", INPUT.0),
+                format!("processed {}", OUTPUT.0),
+            ]
+        );
     }
 }

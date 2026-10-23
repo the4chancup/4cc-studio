@@ -481,7 +481,7 @@ pub enum PipelineEvent {
     // "A command's result text" below.
     Output(String),
     Progress { processed: usize, total: usize },
-    Complete { success: bool, files_written: usize, skipped_folders: usize, duplicates: usize, folders_with_errors: usize },
+    Complete { success: bool, files_written: usize, skipped_exports: usize, skipped_folders: usize, duplicates: usize, folders_with_errors: usize },
     UnmigratedContentFound,   // e.g. files the upgrader could not place
 }
 // ExportStarted stays tool-neutral. Team names, resolved team IDs, ball identities,

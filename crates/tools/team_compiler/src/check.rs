@@ -1,11 +1,12 @@
 //! The `check` command: validation (the structure pass and the deep pass) over every export,
 //! reported export by export, with nothing compiled.
 
-use studio_core::{Severity, ToolContext};
+use studio_core::{Disposition, Scope, Severity, ToolContext};
 
 use crate::bins::installed;
 use crate::cli::RunInputs;
 use crate::events::RunEvents;
+use crate::messages::{Code, tool_message};
 use crate::reader::{self, ExportSource};
 use crate::validation::{run_budget, run_pool, validation_pass};
 
@@ -14,7 +15,17 @@ use crate::validation::{run_budget, run_pool, validation_pass};
 /// over when the exports hold a refs export, as `compile` passes it over. Returns the worst
 /// severity reported; an exports folder that cannot be read is an error.
 pub(crate) fn run(inputs: &RunInputs, ctx: &ToolContext) -> anyhow::Result<Option<Severity>> {
-    let sources = reader::discover(&inputs.exports_root, &inputs.exports)?;
+    let mut events = RunEvents::new(ctx);
+    let discovery = reader::discover(&inputs.exports_root, &inputs.exports)?;
+    for path in &discovery.skipped {
+        events.message(tool_message(
+            Code::ExportUpgradeUnfinished,
+            Scope::Run,
+            Disposition::Keep,
+            vec![("path", path.display().to_string())],
+        ));
+    }
+    let sources = discovery.sources;
     let refs_name = sources
         .iter()
         .any(ExportSource::is_referees)
@@ -35,7 +46,6 @@ pub(crate) fn run(inputs: &RunInputs, ctx: &ToolContext) -> anyhow::Result<Optio
         &pool,
         false,
     )?;
-    let mut events = RunEvents::new(ctx);
     for message in pass.run_messages {
         events.message(message);
     }

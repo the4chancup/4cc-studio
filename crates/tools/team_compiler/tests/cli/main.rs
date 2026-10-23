@@ -73,7 +73,51 @@ impl Sandbox {
     }
 }
 
+/// The fields of the run's one `Complete` (`compile` sends it once, `check` never).
+struct CompleteCounts {
+    success: bool,
+    files_written: usize,
+    skipped_exports: usize,
+    skipped_folders: usize,
+    duplicates: usize,
+    folders_with_errors: usize,
+}
+
 impl Run {
+    /// The run's one `Complete`, its fields; panics naming the count found when the stream
+    /// holds any other number of them.
+    fn complete(&self) -> CompleteCounts {
+        let completes: Vec<&PipelineEvent> = self
+            .events
+            .iter()
+            .filter_map(|envelope| match &envelope.event {
+                PipelineEvent::Complete { .. } => Some(&envelope.event),
+                _ => None,
+            })
+            .collect();
+        let [
+            PipelineEvent::Complete {
+                success,
+                files_written,
+                skipped_exports,
+                skipped_folders,
+                duplicates,
+                folders_with_errors,
+            },
+        ] = completes.as_slice()
+        else {
+            panic!("exactly one Complete: {}", completes.len());
+        };
+        CompleteCounts {
+            success: *success,
+            files_written: *files_written,
+            skipped_exports: *skipped_exports,
+            skipped_folders: *skipped_folders,
+            duplicates: *duplicates,
+            folders_with_errors: *folders_with_errors,
+        }
+    }
+
     /// The refusal, asserting its exit code and that its message names every one of `names`.
     fn assert_refused(&self, exit_code: u8, names: &[&str]) {
         let error = match &self.result {

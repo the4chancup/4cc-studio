@@ -2340,3 +2340,6 @@ worklog passed 7,000 lines.
   rework 7 fixed both. 8.9h opened: inside the editor's scroll area a narrow window clips the rows instead of wrapping.
 - **2026-10-23** — 0.0.1c measured: 65 killed runs left no cut file under a name the game reads; `upgrade-dpfl`'s
   placeholders now go through a temporary. A killed upgrade's `.upgrading` folder compiled as an export: skip planned.
+- **2026-10-23** — 0.0.1a rework 3 and 0.0.1c closed: the summary counts distinct folders and the exports skipped, both
+  upgrade commands advance the exports counter, a `.upgrading` folder is skipped with a Warning (TC-SRC-11), and the
+  mutation run's 14 missed mutants have tests. 0.0.1d planned: the codename's reach and the release recipe's refusals.

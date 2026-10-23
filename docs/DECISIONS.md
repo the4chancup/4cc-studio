@@ -10395,3 +10395,29 @@ next `quick_compile.bat` compiled the half-migrated folder as an export of the s
 skip with a Warning rather than an upgrader that sweeps its dead staging: a sweep needs a lock
 the upgrader does not hold today, and the compile must not take the folder in either case.
 Plan: `plans/team_compiler/pipeline.md` "1. Reader"; worklog 0.0.1c.
+
+## 2026-10-23 — studio_core, release — the codename's reach: two constants, spelled pages, name-free file text
+Decision: the code reads Unlimited Tool Works from two `studio_core` constants (display name,
+executable name); the help pages and launchers spell `UnlimitedToolWorks` as text, checked by
+a test over the help export and `--help` that fails on any "4cc Studio"; text a file format
+keeps (ruleset headers and logic banner, the shared-IDs comment) names no product; a CPK's
+`Tvers` field and the settings folder keep "4cc Studio", and the data-location help page
+names that folder's path.
+Why: a Markdown page and a batch file cannot read a Rust constant, so "one line" holds for the
+code only, and the test lists the rest for 1.0.0. Name-free file text, not the codename, because
+the logic banner is hashed into a ruleset's identity: a name there makes each switch a new logic
+version. The folder path stays because a tester's setup must carry over to 1.0.0 and a member
+may need to find it.
+Plan: `plans/core/development_plan.md` "The preview's codename: Unlimited Tool Works".
+
+## 2026-10-23 — release — the bundle's layout and the recipe's refusals
+Decision: `just release <version>` packs `target/dist/UnlimitedToolWorks-<version>-windows.7z`
+with one top folder, `UnlimitedToolWorks-<version>/`, beside a `sha256sum`-format checksum; the
+readme is `README.txt`; the recipe refuses a dirty tree, a mismatched version, an existing
+archive and a stale readme, checks the archive's listing against the staged files, and reads the
+executable's name from the built exe's `--help`.
+Why: one top folder, not loose files, because "Extract here" into Downloads otherwise scatters
+the exe among the member's files; `.txt`, not `.md`, because a double-click opens Notepad on any
+Windows; the exe's name from the exe, not a second constant in the script, so the codename has
+one home in code.
+Plan: `plans/core/distribution.md` "Distribution: portable .7z bundle".

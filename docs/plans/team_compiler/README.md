@@ -146,6 +146,18 @@ data needed.
 What exists of this is in `spec/team_compiler/README.md` "Acceptance", whose rules (format, the
 default export, the default version) these scenarios follow; IDs continue the spec's numbering.
 
+**0.0.1 scope.** The preview's discovery skip (`pipeline.md` "1. Reader"):
+
+```
+TC-SRC-11  GIVEN an exports root holding "co Full Spring.upgrading", a folder an interrupted
+                 upgrade left, beside a finished export of another team; and the same folder
+                 spelled "co Full Spring.UPGRADING"
+           WHEN the root is compiled
+           THEN export_upgrade_unfinished (Warning) names the folder, nothing else is reported
+                about it, and only the finished export is compiled; GIVEN --export naming such
+                a folder THEN it is compiled as any export
+```
+
 **Phase 8 scope.** Phase 8 delivers the view: the live-validating grid (`gui.md`), the toolbar
 with its split Compile button, the run strip, the log panel's cross-links, cancellation
 (`spec/core/gui.md` "Cancellation") and the tool's settings section. What a scenario observes

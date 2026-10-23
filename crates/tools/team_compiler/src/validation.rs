@@ -2088,7 +2088,7 @@ mod tests {
             exports_root: exports.clone(),
             exports: Vec::new(),
         };
-        let sources = reader::discover(&exports, &[]).unwrap();
+        let sources = reader::discover(&exports, &[]).unwrap().sources;
         let pool = rayon::ThreadPoolBuilder::new()
             .num_threads(2)
             .build()

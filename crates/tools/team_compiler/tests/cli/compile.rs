@@ -243,27 +243,9 @@ fn assert_commit_failed(sandbox: &Sandbox, run: &Run, before: &BTreeMap<PathBuf,
     assert_eq!(&snapshot(&sandbox.root.join("output")), before);
     assert!(!sandbox.root.join("output/.staging").exists());
     // The compiled entries never reached the output folder.
-    use studio_core::PipelineEvent;
-    let completes: Vec<&PipelineEvent> = run
-        .events
-        .iter()
-        .filter_map(|envelope| match &envelope.event {
-            PipelineEvent::Complete { .. } => Some(&envelope.event),
-            _ => None,
-        })
-        .collect();
-    let [
-        PipelineEvent::Complete {
-            success,
-            files_written,
-            ..
-        },
-    ] = completes.as_slice()
-    else {
-        panic!("exactly one Complete: {completes:?}");
-    };
-    assert_eq!(*files_written, 0, "nothing was put in place");
-    assert!(!*success, "a Fatal finding fails the run");
+    let complete = run.complete();
+    assert_eq!(complete.files_written, 0, "nothing was put in place");
+    assert!(!complete.success, "a Fatal finding fails the run");
 }
 
 #[cfg(windows)]
@@ -947,14 +929,6 @@ fn a_compile_reports_progress_per_task_and_ends_with_one_complete_holding_the_co
         "the count rises by one to the total"
     );
     // `Complete` ends the stream, once, with the counts the run knows.
-    let completes: Vec<&PipelineEvent> = run
-        .events
-        .iter()
-        .filter_map(|envelope| match &envelope.event {
-            PipelineEvent::Complete { .. } => Some(&envelope.event),
-            _ => None,
-        })
-        .collect();
     assert!(
         matches!(
             run.events.last().map(|envelope| &envelope.event),
@@ -962,22 +936,95 @@ fn a_compile_reports_progress_per_task_and_ends_with_one_complete_holding_the_co
         ),
         "Complete is the last event"
     );
-    let [
-        PipelineEvent::Complete {
-            success,
-            files_written,
-            skipped_folders,
-            duplicates,
-            folders_with_errors,
-        },
-    ] = completes.as_slice()
-    else {
-        panic!("exactly one Complete: {completes:?}");
-    };
-    assert!(*success, "a clean tracer run");
+    let complete = run.complete();
+    assert!(complete.success, "a clean tracer run");
     let entries = cpk_paths(&sandbox.root.join("output/4cc_99_test.cpk")).len();
-    assert_eq!(*files_written, entries, "the CPK's whole table of contents");
-    assert_eq!(*skipped_folders, 0, "the tracer drops no folder");
-    assert_eq!(*duplicates, 0, "no override replaced an entry");
-    assert_eq!(*folders_with_errors, 0, "its findings are Info at worst");
+    assert_eq!(
+        complete.files_written, entries,
+        "the CPK's whole table of contents"
+    );
+    assert_eq!(complete.skipped_exports, 0, "no export was refused whole");
+    assert_eq!(complete.skipped_folders, 0, "the tracer drops no folder");
+    assert_eq!(complete.duplicates, 0, "no override replaced an entry");
+    assert_eq!(
+        complete.folders_with_errors, 0,
+        "its findings are Info at worst"
+    );
+}
+
+// ST-CLI-02
+#[test]
+fn two_dropping_findings_on_one_folder_count_once_in_skipped_folders() {
+    let sandbox = Sandbox::new("skipped_folders_distinct");
+    // Two broken models in one folder are two `model_broken` findings, each dropping the
+    // folder; a second folder holds one.
+    for folder in ["05 - A", "07 - B"] {
+        sandbox.write(
+            &format!("exports/co Midcup Broken/Players/{folder}/boots.fmdl"),
+            b"not a model",
+        );
+    }
+    sandbox.write(
+        "exports/co Midcup Broken/Players/05 - A/face_high.fmdl",
+        b"not a model",
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 1, "{:#?}", run.messages());
+    let lines = run.messages();
+    let findings = findings_of(&lines, "co Midcup Broken");
+    assert_eq!(
+        findings
+            .iter()
+            .filter(|line| line.contains("model_broken"))
+            .count(),
+        3,
+        "{findings:#?}"
+    );
+    let complete = run.complete();
+    assert_eq!(
+        complete.skipped_folders, 2,
+        "the folders the findings name, not the findings"
+    );
+    assert_eq!(complete.folders_with_errors, 2);
+    assert!(!complete.success, "an Error-worst run fails");
+}
+
+// ST-CLI-02
+#[test]
+fn a_warning_only_folder_is_no_folder_with_errors() {
+    let sandbox = Sandbox::new("folders_with_errors_warning");
+    sandbox.write("exports/co Midcup Count/players.txt", b"05 A\n07 B\n");
+    for folder in ["A", "B"] {
+        sandbox.write(
+            &format!("exports/co Midcup Count/Players/{folder}/boots.fmdl"),
+            b"not a model",
+        );
+    }
+    sandbox.write(
+        "exports/co Midcup Count/Players/A/face_high.fmdl",
+        b"not a model",
+    );
+    // The unlisted folder's only finding is `player_unlisted`, a Warning.
+    sandbox.copy_tracer_face("exports/co Midcup Count/Players/C");
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 1, "{:#?}", run.messages());
+    let lines = run.messages();
+    let findings = findings_of(&lines, "co Midcup Count");
+    assert!(
+        findings.contains(&"Warning player_unlisted [DropFolder] at Players/C ()"),
+        "{findings:#?}"
+    );
+    let complete = run.complete();
+    assert_eq!(
+        complete.folders_with_errors, 2,
+        "A and B; C's finding is a Warning"
+    );
+    assert_eq!(
+        complete.skipped_folders, 3,
+        "A and B's errors, C's unlisted warning"
+    );
 }

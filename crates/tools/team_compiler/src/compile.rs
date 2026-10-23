@@ -182,7 +182,16 @@ pub(crate) fn run(
     };
     // Listed before the preflight: whether the run holds a refs export, and so writes the refs
     // CPK, is known from the exports' names before any file is read.
-    let sources = reader::discover(&inputs.exports_root, &inputs.exports)?;
+    let discovery = reader::discover(&inputs.exports_root, &inputs.exports)?;
+    for path in &discovery.skipped {
+        events.message(tool_message(
+            Code::ExportUpgradeUnfinished,
+            Scope::Run,
+            Disposition::Keep,
+            vec![("path", path.display().to_string())],
+        ));
+    }
+    let sources = discovery.sources;
     let refs = refs_name.filter(|_| sources.iter().any(ExportSource::is_referees));
     let download = if mode.deploys() {
         let official = templates.official_list();
@@ -689,15 +698,23 @@ fn build(
                     }
                 }
                 Err(error) => {
-                    if let Published::Deployed { installed, .. } = published {
+                    let rolled_back = if let Published::Deployed { installed, .. } = published {
                         installed.roll_back();
-                    }
+                        true
+                    } else {
+                        false
+                    };
                     abort_output(
                         &mut events,
                         &output_folder.join(patch::FILE_NAME),
                         Code::PatchWriteFailed,
                         error,
                     );
+                    if rolled_back {
+                        // Nothing was promoted to the output folder either: the run put
+                        // nothing in place.
+                        return Ok(end_run(&events, 0));
+                    }
                 }
             }
         }
@@ -711,7 +728,7 @@ fn build(
 
 /// The run's `Complete` (sent once, here at each way out of `build`, where the compile ran),
 /// then the worst severity `build` returns. `files_written` counts the entries of the CPKs
-/// the run put in the output folder.
+/// the run put in place: the output folder, or the game's `download/` when it deploys.
 fn end_run(events: &RunEvents, files_written: usize) -> Option<Severity> {
     events.complete(files_written);
     events.worst()
@@ -1947,7 +1964,7 @@ mod tests {
         .unwrap();
         let ctx = tool_context(root, "");
         let inputs = sandbox_inputs(root, &ctx);
-        let sources = reader::discover(&inputs.exports_root, &[]).unwrap();
+        let sources = reader::discover(&inputs.exports_root, &[]).unwrap().sources;
 
         let planned = plan(
             &inputs,
@@ -2000,7 +2017,7 @@ mod tests {
 
             let (events_tx, events) = unbounded();
             let ctx = ctx.with_events(events_tx);
-            let sources = reader::discover(&inputs.exports_root, &[]).unwrap();
+            let sources = reader::discover(&inputs.exports_root, &[]).unwrap().sources;
             let planned = plan(
                 &inputs,
                 sources,

@@ -662,7 +662,10 @@ and nothing is checked or compiled.
 
 An export can be a folder, a `.zip` or a `.7z`, read where it is: nothing is extracted. An archive
 that cannot be read (damaged, password-protected, or holding two files whose names differ only in
-case) is reported as `export_extract_failed` and left out of the run.
+case) is reported as `export_extract_failed` and left out of the run. A folder whose name ends in
+`.upgrading` is not an export: an upgrade that did not finish left it there, and both commands
+report it as the warning `export_upgrade_unfinished`, naming it. Remove it, then upgrade the old
+export again.
 
 When two exports in the exports folder are for the same team (an old `co Full Spring` folder left
 beside a new `co Full Summer.zip`), both commands skip each of them with the error

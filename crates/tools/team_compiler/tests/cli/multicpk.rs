@@ -159,7 +159,6 @@ fn teams_fill_the_slots_first_fit_and_the_bins_go_into_the_bins_cpk() {
     assert_eq!(lines[lines.len() - 7..], expected_end);
     // `Complete`'s files_written is every entry of every CPK the run wrote: the bins CPK,
     // the two parts it filled and the placeholders of the slots it left.
-    use studio_core::PipelineEvent;
     let written: usize = ["4cc_08_bins.cpk", "4cc_41_teams.cpk", "4cc_42_teams.cpk"]
         .iter()
         .map(|name| cpk_entries(&output.join(name)).len())
@@ -168,18 +167,7 @@ fn teams_fill_the_slots_first_fit_and_the_bins_go_into_the_bins_cpk() {
             .iter()
             .map(|slot| cpk_entries(&output.join(slot)).len())
             .sum::<usize>();
-    let completes: Vec<&PipelineEvent> = run
-        .events
-        .iter()
-        .filter_map(|envelope| match &envelope.event {
-            PipelineEvent::Complete { .. } => Some(&envelope.event),
-            _ => None,
-        })
-        .collect();
-    let [PipelineEvent::Complete { files_written, .. }] = completes.as_slice() else {
-        panic!("exactly one Complete: {completes:?}");
-    };
-    assert_eq!(*files_written, written);
+    assert_eq!(run.complete().files_written, written);
     assert!(!output.join(".staging").exists());
 }
 

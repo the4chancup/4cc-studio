@@ -99,6 +99,8 @@ pub enum PipelineEvent {
         success: bool,
         /// Files written to the output.
         files_written: usize,
+        /// The distinct exports a finding refused whole.
+        skipped_exports: usize,
         /// Folders skipped because of their findings.
         skipped_folders: usize,
         /// Duplicate entries dropped.
@@ -599,6 +601,7 @@ mod tests {
             PipelineEvent::Complete {
                 success: true,
                 files_written: 0,
+                skipped_exports: 0,
                 skipped_folders: 0,
                 duplicates: 0,
                 folders_with_errors: 0,

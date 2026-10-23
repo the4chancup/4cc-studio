@@ -30,6 +30,12 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         r#"The export is not compiled, and it does not count toward the duplicate-referees check."#,
     ),
     (
+        "export_upgrade_unfinished",
+        CatalogSeverity::Warning,
+        r#"An upgrade that did not finish left this folder."#,
+        r#"It is not compiled: remove it, then upgrade the old export again."#,
+    ),
+    (
         "export_identified",
         CatalogSeverity::Info,
         r#"The export was recognized as a team or the referees; the line names which."#,

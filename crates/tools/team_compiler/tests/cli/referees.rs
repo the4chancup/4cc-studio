@@ -1603,6 +1603,13 @@ fn a_refs_export_beside_a_team_goes_into_its_own_cpk_promoted_after_the_team_s()
         ],
         "one each, the team CPK first"
     );
+    let written = cpk_entries(&output.join("4cc_99_test.cpk")).len()
+        + cpk_entries(&output.join(REFS_CPK)).len();
+    assert_eq!(
+        run.complete().files_written,
+        written,
+        "both CPKs' tables of contents, the referee template tree's entries among the refs CPK's"
+    );
 }
 
 // TC-REF-02

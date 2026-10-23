@@ -320,3 +320,83 @@ fn check_and_compile_leave_every_source_as_it_was() {
     assert_eq!(snapshot(&exports), before, "compile");
     assert_eq!(compiled_players(&sandbox), [71405, 79005, 79205, 79303]);
 }
+
+// TC-SRC-11
+#[test]
+fn an_unfinished_upgrade_s_staging_folder_is_skipped_with_a_warning() {
+    let sandbox = Sandbox::new("upgrading_skipped");
+    // A staging folder an interrupted upgrade left, beside a finished export of another
+    // team. Left in the run it would compile, or refuse the team's export as a duplicate.
+    sandbox.copy_tracer("co Full Spring.upgrading");
+    sandbox.write(
+        &format!("exports/dbg Midcup A/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        lines.contains(&format!(
+            "Warning export_upgrade_unfinished [Keep] (path={})",
+            sandbox.display("exports/co Full Spring.upgrading")
+        )),
+        "{lines:#?}"
+    );
+    assert!(
+        findings_of(&lines, "co Full Spring.upgrading").is_empty(),
+        "{lines:#?}"
+    );
+    assert_eq!(compiled_players(&sandbox), [79003]);
+}
+
+// TC-SRC-11
+#[test]
+fn an_unfinished_upgrade_s_staging_folder_is_skipped_in_any_letter_case() {
+    let sandbox = Sandbox::new("upgrading_case");
+    sandbox.copy_tracer("co Full Spring.UPGRADING");
+    sandbox.write(
+        &format!("exports/dbg Midcup A/{CLEAN_PLAYER}"),
+        &clean_model(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        lines.contains(&format!(
+            "Warning export_upgrade_unfinished [Keep] (path={})",
+            sandbox.display("exports/co Full Spring.UPGRADING")
+        )),
+        "{lines:#?}"
+    );
+    assert_eq!(compiled_players(&sandbox), [79003]);
+}
+
+// TC-SRC-11
+#[test]
+fn a_named_export_path_ending_in_upgrading_is_compiled_the_member_named_it() {
+    let sandbox = Sandbox::new("upgrading_named");
+    sandbox.copy_tracer("co Midcup Spring.upgrading");
+
+    let run = sandbox.run(
+        &pes21_settings(&sandbox),
+        &[
+            "compile",
+            "--no-deploy",
+            "--export",
+            &sandbox.arg("exports/co Midcup Spring.upgrading"),
+        ],
+    );
+
+    let lines = run.messages();
+    assert_eq!(run.exit_code(), 0, "{lines:#?}");
+    assert!(
+        findings_of(&lines, "co Midcup Spring.upgrading")
+            .contains(&"Info export_identified [Keep] (team=/co/, id=714)"),
+        "{lines:#?}"
+    );
+    assert_eq!(compiled_players(&sandbox), [71405]);
+}

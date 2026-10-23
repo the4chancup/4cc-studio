@@ -20,7 +20,7 @@ first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"
 (its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
 wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
 `team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9f-h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-b done; the Team
+8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9f-h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-c done, 0.0.1d next; the Team
 compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
 the console's progress line, the launchers, the interruption check, `just release`, a
 rehearsal on PES 2019), Phase 20 (the Ruleset editor), the 0.0.1 cut (0.0.1f: the two
@@ -1357,12 +1357,12 @@ briefs, review loops, gates and mutation runs as for any step.
   over `exports/` writing its output). Done: `resources/bundle/quick_{compile,upgrade}.bat`,
   `crates/studio/tests/launchers.rs` (five scenarios, the compile's CPK deployed into a fake
   PES 21 install in the sandbox)
-- [ ] 0.0.1c an interrupted run: Ctrl+C in the launcher's console at several points of a PES
+- [x] 0.0.1c an interrupted run: Ctrl+C in the launcher's console at several points of a PES
   2019 compile (planning, packing, deploying), of a pre-Fox compile's savefile write and of an
   upgrade; what is left where the game reads it (`download/`, the DpFileList, the savefile) and
   in `exports/`, tallied per point; a half-written file the game would read is fixed (written
   under a temporary name and renamed, as the upgrader's staging does) or recorded with why not
-  → verify: the tally in the Done line, each fix tested. So far (2026-10-23, SWE-2's audit
+  → verify: the tally in the Done line, each fix tested. Done (2026-10-23, SWE-2's audit
   and kill harness, `.tmp/0_0_1/interrupt/`: `write_map.md`, `tally.md` from 65 runs, each
   killed by `taskkill /F /T` and run again): no kill left a cut CPK, save, `.partial` or
   `.tmp` under a name the game reads, and every second compile ended clean, the dead
@@ -1371,10 +1371,11 @@ briefs, review loops, gates and mutation runs as for any step.
   compile, which installs it); a kill between the install and the savefile write leaves the
   new CPKs with the old save, until the next compile. Fixed: `upgrade-dpfl` wrote each
   placeholder straight under its CPK name, which a kill could cut short for good (it writes
-  no name that exists); it writes a temporary and renames it. Open: a killed upgrade leaves
+  no name that exists); it writes a temporary and renames it. Fixed: a killed upgrade leaves
   `<output>.upgrading` in `exports/`, which the next compile took as an export (all 10
-  fired kills); the compiler skips it with a Warning (`plans/team_compiler/pipeline.md`
-  "1. Reader"), briefed with 0.0.1a rework 3. The worklog's "pre-Fox compile's savefile
+  fired kills); the compiler's discovery skips it with the Warning `export_upgrade_unfinished`
+  (`plans/team_compiler/pipeline.md` "1. Reader", TC-SRC-11; `reader/mod.rs` `Discovery`,
+  `compile.rs`, `check.rs`, the catalog and help), with 0.0.1a rework 3. The worklog's "pre-Fox compile's savefile
   write" does not exist (the pre-Fox patch half is unbuilt): the save editor's
   `import-toml` on a PES 16 save stood in, the same writer
 - [ ] 0.0.1d `just release <version>` (`plans/core/distribution.md` "Distribution: portable .7z
@@ -1382,11 +1383,15 @@ briefs, review loops, gates and mutation runs as for any step.
   codename: Unlimited Tool Works": one display-name constant for the title, About, first run,
   `--help` and its usage examples, and the help pages; the executable `UnlimitedToolWorks.exe`;
   the settings folder unchanged; verify: no member-visible text names 4cc Studio, by a test
-  over the help pages and the CLI's help output): the exe, the two launchers, empty `exports/` and `old_exports/`, the
-  teams list, the readme and the licenses, packed as the `.7z` with its SHA256 file; the
-  0.0.1 readme in a layman's words (open the exe once to pick PES and its exe on the sidebar,
-  then the two launchers; Red as the fallback) → verify: the recipe from a clean checkout
-  produces both files, and the archive's listing matches the plan's
+  over the help pages and the CLI's help output): the exe, the two launchers, empty `exports/` and `old_exports/`,
+  the readme and the licenses, packed as the `.7z` with its SHA256 file (the teams list is
+  not a bundle file: it is embedded, `spec/core/distribution.md` "Distribution: portable .7z
+  bundle"); the 0.0.1 readme in a layman's words (open the exe once to pick PES and its exe on
+  the sidebar, then the two launchers; Red as the fallback) → verify: the recipe from a clean
+  checkout produces both files, and the archive's listing matches the plan's
+  - [ ] 0.0.1d1 the codename: the two constants, every member-visible "4cc Studio" in code,
+    the help pages and the findings' text, name-free file text, the test
+  - [ ] 0.0.1d2 `just release` (`scripts/release.py`), the readme, a run from a clean worktree
 - [ ] 0.0.1e the rehearsal on PES 2019 with FoxDen: VGL26's old exports (the upgrader
   census's copies) through `quick_upgrade.bat` and `quick_compile.bat` from the extracted
   bundle, then checked in game in Edit mode (the `F:` drive connected by the maintainer);

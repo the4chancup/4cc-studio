@@ -21,7 +21,22 @@ There is no installer. Each release is a `.7z` archive containing:
   line ends (`.gitattributes`), since cmd misreads a batch file's labels with LF ones
 - a basic readme (pointing into the app: the full help and the changelog live in the help window
   — see `gui.md` "Help window" under GUI Design — and `4cc-studio help --export` produces the same text as
-  files for the release page), with the two license files beside it
+  files for the release page), with the two license files beside it; `README.txt`, not
+  `.md`, because a double-click opens a `.txt` in Notepad on any Windows, where a `.md` opens
+  whatever app claimed it, or asks
+
+`just release <version>` (`scripts/release.py`, Windows only) builds the exe with `--locked`,
+stages those files under one top folder, `UnlimitedToolWorks-<version>/`, so "Extract here"
+makes one folder rather than scattering the files, and packs it with 7-Zip as
+`target/dist/UnlimitedToolWorks-<version>-windows.7z`, beside its checksum,
+`<archive>.sha256`, in `sha256sum`'s format (`<hex>  <archive name>`), which
+`sha256sum -c` and PowerShell's `Get-FileHash` both check. It refuses a dirty tree, a version
+other than the workspace's, an archive that already exists (a release is never overwritten)
+and a readme whose first line names another version, and it ends by listing the archive and
+comparing the listing with the staged files, so a 7-Zip that skipped the empty folders fails
+the recipe. It takes the executable's name from the built exe's own `--help` usage line and
+checks that both launchers call it, so the codename lives in the code's constant and the
+recipe cannot drift from it.
 
 The user extracts the archive anywhere and runs the binary — or, for the common case, drops an
 export into `exports/` (shipped empty beside the binary) and double-clicks

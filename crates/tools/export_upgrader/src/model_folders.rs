@@ -325,6 +325,7 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
         Ok(export) => export,
         Err(failure) => {
             events.message(extract_failed(INPUT, failure));
+            events.processed(INPUT);
             return Ok(ERRORS);
         }
     };
@@ -424,6 +425,8 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
             vec![("into", folder.destination.into_value().to_owned())],
         ));
     }
+    // The input's half ends here: read and migrated, as in `upgrade`.
+    events.processed(INPUT);
 
     // "Verification": the shared validation on the output as it will sit
     // once dropped into an export (the published paths placed back below
@@ -458,6 +461,8 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
         };
         events.message(issue_message(&issue, OUTPUT));
     }
+    // The output's half ends with its validation.
+    events.processed(OUTPUT);
 
     // "CLI": the verdict line and the exit code, as `upgrade`'s, the verdict
     // publishing the staging folder or removing it: only a clean run writes
@@ -803,6 +808,45 @@ mod tests {
         assert!(
             codes.contains(&"model_name_invalid".to_owned()),
             "{codes:?}"
+        );
+    }
+
+    #[test]
+    fn each_started_export_is_processed_once_after_its_start() {
+        // The console's exports counter reads `0/2` for a whole run when neither the input
+        // nor the output is ever reported processed.
+        let root = scratch("models_run_processed");
+        fs::create_dir_all(root.join("new models/k0431")).unwrap();
+        fs::write(root.join("new models/k0431/boots.model"), b"model").unwrap();
+        let (ctx, events_rx) = test_ctx();
+        let args = UpgradeModelsArgs {
+            folder: root.join("new models"),
+            output: None,
+        };
+
+        run(&args, &ctx).unwrap();
+        drop(ctx);
+
+        let events: Vec<String> = events_rx
+            .iter()
+            .filter_map(|envelope| match envelope.event {
+                PipelineEvent::ExportStarted { export_id, .. } => {
+                    Some(format!("started {}", export_id.0))
+                }
+                PipelineEvent::ExportProcessed { export_id } => {
+                    Some(format!("processed {}", export_id.0))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            events,
+            [
+                format!("started {}", INPUT.0),
+                format!("started {}", OUTPUT.0),
+                format!("processed {}", INPUT.0),
+                format!("processed {}", OUTPUT.0),
+            ]
         );
     }
 
