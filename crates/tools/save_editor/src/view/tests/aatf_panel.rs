@@ -3,11 +3,11 @@
 //! the click's selection, suggestions, Validate rules and Save a copy.
 
 use std::collections::HashMap;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use super::*;
-use crate::view::aatf_panel::AatfMode;
+use crate::view::aatf_panel::{AatfMode, CheckKey, PendingCheck};
 
 /// One frame with `rules` as the active rules file (`None`: the embedded
 /// official ruleset).
@@ -204,6 +204,84 @@ fn open_734_with(test: &str, ids: &[u32], height: u8) -> (SaveView, Headless) {
     (view, Headless::sized(1100.0, 800.0))
 }
 
+/// The PES 15 fixture save open with the CLI's `official_legal.toml`
+/// imported onto team 714: the one team the official ruleset finds
+/// clean (its 32 findings are all suggestions).
+fn open_legal_714(test: &str, window: Headless) -> (SaveView, Headless) {
+    let path = fixture(PesVersion::Pes15, test);
+    let mut view = SaveView::new();
+    view.open(&path);
+    let toml = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/aatf/official_legal.toml"
+    ))
+    .unwrap();
+    let document = pes_savefile::interchange::team_toml::TeamToml::parse(&toml).unwrap();
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .import_team(&document)
+        .expect("the legal team imports");
+    view.team = TeamChoice::Team(714);
+    view.selected = Some((714, 0));
+    (view, window)
+}
+
+/// `dir`'s `throw19.rhai` written and its path returned: the official
+/// file with the CLI's custom check that throws on captain 19 (team
+/// 743's; `a_check_that_fails_on_one_team_does_not_stop_the_rest`).
+fn throw19_file(dir: &Path) -> PathBuf {
+    let path = dir.join("throw19.rhai");
+    std::fs::write(
+        &path,
+        aatf::official_file().replacen(
+            "fn custom_checks(team) { [] }",
+            "fn custom_checks(team) { if team.captain == 19 { throw \"boom\" } [] }",
+            1,
+        ),
+    )
+    .unwrap();
+    path
+}
+
+/// The Height-183 rows among `nodes` (the two players' row).
+fn height_rows(nodes: &[accesskit::Node]) -> usize {
+    nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node.label() == Some("Height height 183 takes no bracket")
+        })
+        .count()
+}
+
+/// The panel window's bounds and the last `Unused` row's.
+fn panel_bounds(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules: Option<&Path>,
+) -> (accesskit::Rect, accesskit::Rect) {
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+    let window_bounds = pairs
+        .iter()
+        .find(|(_, node)| {
+            node.label()
+                .is_some_and(|label| label.starts_with("AATF violations"))
+        })
+        .and_then(|(_, node)| node.bounds())
+        .expect("the panel window's bounds");
+    let last = panel_nodes(&pairs)
+        .iter()
+        .filter(|node| {
+            node.label()
+                .is_some_and(|label| label.starts_with("Unused"))
+        })
+        .filter_map(|node| node.bounds())
+        .max_by(|a, b| a.y0.partial_cmp(&b.y0).expect("ordered bounds"))
+        .expect("an Unused row's bounds");
+    (window_bounds, last)
+}
+
 // SE-GUI-15
 #[test]
 fn the_panel_lists_the_current_teams_violations_per_player() {
@@ -294,24 +372,9 @@ fn show_suggestions_reveals_the_unused_allowances() {
     // ruleset (every one carries the TierCount errors): the legal team is
     // the CLI's `official_legal.toml` on team 714 of the PES 15 save,
     // whose 32 findings are all suggestions.
-    let path = fixture(PesVersion::Pes15, "aatf_panel_suggestions");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let toml = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/fixtures/aatf/official_legal.toml"
-    ))
-    .unwrap();
-    let document = pes_savefile::interchange::team_toml::TeamToml::parse(&toml).unwrap();
-    view.session
-        .as_mut()
-        .expect("the save opened")
-        .import_team(&document)
-        .expect("the legal team imports");
-    view.team = TeamChoice::Team(714);
-    view.selected = Some((714, 0));
+    let (mut view, mut window) =
+        open_legal_714("aatf_panel_suggestions", Headless::sized(1100.0, 800.0));
     view.aatf.open = true;
-    let mut window = Headless::sized(1100.0, 800.0);
     let nodes = checked(&mut window, &mut view, None, &[714]);
     assert!(
         nodes
@@ -357,16 +420,7 @@ fn show_suggestions_reveals_the_unused_allowances() {
 fn select_teams_lists_the_picked_teams_and_a_failed_ones_line() {
     let save = fixture(PesVersion::Pes15, "aatf_select_fail");
     let dir = save.parent().expect("the scratch dir").to_path_buf();
-    let rules_path = dir.join("throw19.rhai");
-    std::fs::write(
-        &rules_path,
-        aatf::official_file().replacen(
-            "fn custom_checks(team) { [] }",
-            "fn custom_checks(team) { if team.captain == 19 { throw \"boom\" } [] }",
-            1,
-        ),
-    )
-    .unwrap();
+    let rules_path = throw19_file(&dir);
     let mut view = SaveView::new();
     view.open(&save);
     view.aatf.open = true;
@@ -418,15 +472,7 @@ fn an_edit_rechecks_and_the_old_result_marks_checking() {
     let (mut view, mut window) = open_734_with("aatf_panel_recheck", &[73401, 73404], 183);
     view.aatf.open = true;
     let nodes = checked(&mut window, &mut view, None, &[734]);
-    let count = |nodes: &[accesskit::Node]| {
-        nodes
-            .iter()
-            .filter(|node| {
-                node.role() == Role::Button
-                    && node.label() == Some("Height height 183 takes no bracket")
-            })
-            .count()
-    };
+    let count = height_rows;
     assert_eq!(count(&nodes), 2, "premise: both Height rows");
 
     // 73401 back to his fixture height through the session.
@@ -620,4 +666,312 @@ fn save_a_copy_writes_the_embedded_official_file() {
             .any(|node| node.value() == Some(&format!("Wrote {}", target.display()))),
         "the Wrote line"
     );
+}
+
+/// The results scroll (the rework's scroll fix): the clean team's 32
+/// suggestion rows run past the window's bottom; a wheel over the list
+/// brings the last one in.
+#[test]
+fn the_results_scroll_reaches_the_last_row() {
+    let (mut view, mut window) = open_legal_714("aatf_panel_scroll", Headless::sized(900.0, 600.0));
+    view.aatf.open = true;
+    view.aatf.show_suggestions = true;
+    let _ = checked(&mut window, &mut view, None, &[714]);
+
+    let (window_bounds, last) = panel_bounds(&mut window, &mut view, None);
+    assert!(
+        last.y0 > window_bounds.y1,
+        "the last Unused row starts past the window's bottom: {last:?} vs {window_bounds:?}"
+    );
+
+    // A wheel over the results brings it inside, a few frames at most.
+    let mut last = last;
+    for _ in 0..10 {
+        let at = egui::pos2(
+            ((window_bounds.x0 + window_bounds.x1) / 2.0) as f32,
+            (window_bounds.y1 - 20.0) as f32,
+        );
+        window.frame(
+            vec![
+                egui::Event::PointerMoved(at),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, -400.0),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Wheel,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            |ui| show(ui, &mut view, &|| Vec::new(), None),
+        );
+        let (_, bounds) = panel_bounds(&mut window, &mut view, None);
+        last = bounds;
+        if last.y1 <= window_bounds.y1 {
+            break;
+        }
+    }
+    assert!(
+        last.y1 <= window_bounds.y1,
+        "the scroll reached the last row: {last:?} vs {window_bounds:?}"
+    );
+
+    // An edit while scrolled to the bottom: Checking… stays in view, above
+    // the scroll, so the rows below read as the previous result's.
+    let first = view
+        .session
+        .as_ref()
+        .unwrap()
+        .file()
+        .team(714)
+        .unwrap()
+        .roster[0]
+        .player_id;
+    let mut entry = player_entry(&view, first);
+    entry.basic.height += 1;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_players(vec![entry]);
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let checking = panel_nodes(&pairs)
+        .into_iter()
+        .find(|node| node.value() == Some("Checking\u{2026}"))
+        .and_then(|node| node.bounds())
+        .expect("Checking… drawn after the edit");
+    assert!(
+        checking.y0 >= window_bounds.y0 && checking.y1 <= window_bounds.y1,
+        "Checking… inside the window while scrolled: {checking:?} vs {window_bounds:?}"
+    );
+}
+
+/// A click clears the player list's filter: the selection is only worth
+/// it if the row it lands on can show.
+// SE-GUI-15
+#[test]
+fn a_rows_click_clears_the_filter_so_the_row_shows() {
+    let (mut view, mut window) = open_734_with("aatf_click_filter", &[73401, 73404], 183);
+    view.aatf.open = true;
+    view.aatf.mode = AatfMode::Select;
+    view.filter = "no player named this".to_owned();
+    tick(&mut window, &mut view, None, "734 /lit/");
+    let nodes = checked(&mut window, &mut view, None, &[734]);
+    assert!(
+        row_labels(&nodes).is_empty(),
+        "premise: the filter hides every player"
+    );
+    click(
+        &mut window,
+        height_row_below(&nodes, "Player 73404  45 Yuki-kun ^~^"),
+        &mut view,
+    );
+    assert!(view.filter.is_empty(), "the click cleared the filter");
+    let nodes = draw(&mut window, &mut view, None);
+    assert!(
+        row_labels(&nodes)
+            .iter()
+            .any(|label| label.contains("Yuki-kun")),
+        "the selected player's row shows: {:?}",
+        row_labels(&nodes)
+    );
+}
+
+/// `No violations.` needs every check to have succeeded: beside a failed
+/// team's line it would read as clearing that team, whose violations are
+/// unknown. 743 fails alone, then beside the clean 714.
+// SE-GUI-15
+#[test]
+fn no_violations_needs_every_check_to_succeed() {
+    let (mut view, mut window) = open_legal_714("aatf_fail_only", Headless::sized(1100.0, 800.0));
+    let dir = view
+        .session
+        .as_ref()
+        .unwrap()
+        .path()
+        .parent()
+        .expect("the scratch dir")
+        .to_path_buf();
+    let rules_path = throw19_file(&dir);
+    view.aatf.open = true;
+    view.aatf.mode = AatfMode::Select;
+    let rules = Some(rules_path.as_path());
+    let file = view.session.as_ref().unwrap().file();
+    let name_714 = file.team(714).unwrap().name.clone();
+    let name_743 = file.team(743).unwrap().name.clone();
+    let has_failure_line = |nodes: &[accesskit::Node]| {
+        nodes.iter().any(|node| {
+            node.value().is_some_and(|value| {
+                value.starts_with(&format!("Team 743 {name_743}: the AATF check failed:"))
+            })
+        })
+    };
+    let has_all_clear = |nodes: &[accesskit::Node]| {
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("No violations."))
+    };
+
+    tick(&mut window, &mut view, rules, &format!("743 {name_743}"));
+    let nodes = checked(&mut window, &mut view, rules, &[743]);
+    assert!(has_failure_line(&nodes), "the failure line");
+    assert!(
+        !has_all_clear(&nodes),
+        "no `No violations.` over failures only"
+    );
+
+    tick(&mut window, &mut view, rules, &format!("714 {name_714}"));
+    let nodes = checked(&mut window, &mut view, rules, &[714, 743]);
+    assert!(has_failure_line(&nodes), "the failure line beside 714");
+    assert!(
+        !has_all_clear(&nodes),
+        "no `No violations.` beside a failed team, 714 clean"
+    );
+}
+
+/// Another save starts the panel afresh (`SaveView::open`): picks,
+/// results, the pending check, the validation and the `Wrote` line go
+/// with the old save; open, mode and Show suggestions stay.
+#[test]
+fn another_save_starts_the_panel_afresh() {
+    let save15 = fixture(PesVersion::Pes15, "aatf_open_reset_15");
+    let dir = save15.parent().expect("the scratch dir").to_path_buf();
+    let rules_path = throw19_file(&dir);
+    let mut view = SaveView::new();
+    view.open(&save15);
+    view.aatf.open = true;
+    view.aatf.mode = AatfMode::Select;
+    view.aatf.show_suggestions = true;
+    let copy = dir.join("copy.rhai");
+    view.aatf_copy_dialog = Box::new(move |_| Some(copy.clone()));
+    let rules = Some(rules_path.as_path());
+    let mut window = Headless::sized(1100.0, 800.0);
+    let names = |id: u32| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .team(id)
+            .unwrap()
+            .name
+            .clone()
+    };
+    let (name_743, name_744) = (names(743), names(744));
+    tick(&mut window, &mut view, rules, &format!("743 {name_743}"));
+    tick(&mut window, &mut view, rules, &format!("744 {name_744}"));
+    let _ = checked(&mut window, &mut view, rules, &[743, 744]);
+    let nodes = draw(&mut window, &mut view, rules);
+    click_rules(
+        &mut window,
+        &mut view,
+        node_labeled(&nodes, Role::Button, "Validate rules"),
+        rules,
+    );
+    let nodes = draw(&mut window, &mut view, rules);
+    click_rules(
+        &mut window,
+        &mut view,
+        node_labeled(&nodes, Role::Button, "Save a copy"),
+        rules,
+    );
+    let _ = draw(&mut window, &mut view, rules);
+    assert!(
+        view.aatf.result.is_some() && !view.aatf.picked.is_empty(),
+        "premise: a check ran and teams were picked"
+    );
+
+    let save17 = fixture(PesVersion::Pes17, "aatf_open_reset_17");
+    view.open(&save17);
+    assert!(view.aatf.picked.is_empty(), "the picks went with the save");
+    assert!(
+        view.aatf.result.is_none() && view.aatf.pending.is_none(),
+        "the result and its check went with the save"
+    );
+    assert!(
+        view.aatf.open && view.aatf.mode == AatfMode::Select && view.aatf.show_suggestions,
+        "the view choices stay"
+    );
+    let lines = panel_lines(&mut window, &mut view, None);
+    assert!(
+        lines.iter().any(|line| line == "No team picked."),
+        "nothing picked on the new save: {lines:?}"
+    );
+    assert!(
+        !lines
+            .iter()
+            .any(|line| line.contains("no findings") || line.starts_with("Wrote")),
+        "the validation and copy lines went: {lines:?}"
+    );
+}
+
+/// A worker that ends without replying: `show` drops the dead check's
+/// `pending` and the next settled frame starts a fresh one.
+#[test]
+fn a_worker_that_ends_without_a_reply_is_checked_again() {
+    let (mut view, mut window) = open_734_with("aatf_dead_worker", &[73401, 73404], 183);
+    view.aatf.open = true;
+    // A pending whose sender is already gone: the worker died.
+    let (sender, replies) = crossbeam_channel::unbounded();
+    drop(sender);
+    view.aatf.pending = Some(PendingCheck {
+        key: CheckKey {
+            revision: view.session.as_ref().expect("the save opened").revision(),
+            ids: vec![734],
+            rules_file: None,
+        },
+        replies,
+    });
+    // The dead pending is dropped and a fresh check for the key starts.
+    let nodes = checked(&mut window, &mut view, None, &[734]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Team 734 /lit/")),
+        "a fresh check ran"
+    );
+}
+
+/// An unsettled edit marks the last result `Checking…` and starts no
+/// check until the gesture ends (`due` draws the mark, `settled` gates
+/// the spawn).
+#[test]
+fn an_unsettled_edit_marks_checking_and_holds_the_check() {
+    let (mut view, mut window) = open_734_with("aatf_unsettled", &[73401, 73404], 183);
+    view.aatf.open = true;
+    let nodes = checked(&mut window, &mut view, None, &[734]);
+    assert_eq!(height_rows(&nodes), 2, "premise: both Height rows");
+
+    // The press lands on an empty spot of the central panel; the edit
+    // lands while the pointer stays down.
+    let at = egui::pos2(700.0, 780.0);
+    window.frame(pointer_at(at, true), |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let mut entry = player_entry(&view, 73401);
+    entry.basic.height = 185;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_players(vec![entry]);
+
+    for _ in 0..2 {
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        assert!(
+            nodes
+                .iter()
+                .any(|node| node.value() == Some("Checking\u{2026}")),
+            "marked as checking while held"
+        );
+        assert!(view.aatf.pending.is_none(), "no check started while held");
+        assert_eq!(height_rows(&nodes), 2, "the stale rows stay");
+    }
+    window.frame(pointer_at(at, false), |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert!(
+        view.aatf.pending.is_some(),
+        "the check starts on the release frame"
+    );
+    let nodes = checked(&mut window, &mut view, None, &[734]);
+    assert_eq!(height_rows(&nodes), 1, "73401's row is gone, 73404's stays");
 }

@@ -273,6 +273,7 @@ impl SaveView {
                 self.stat_num = None;
                 self.copy_swap = None;
                 self.fix_database = false;
+                self.aatf.reset();
             }
             Err(error) => {
                 self.refusal = Some(Refusal {

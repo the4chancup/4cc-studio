@@ -28,7 +28,7 @@ toolbar, opens a floating window listing a team's violations against the AATF ru
 in use, grouped per player. **Current team** checks the team the selector names (with
 ALL, the selected player's team); **Select teams** lists every team of the save to
 check several at once, which takes a moment while the results come in. Clicking a
-violation selects the player. **Show suggestions** adds, below the violations, what
+player's violation selects him. **Show suggestions** adds, below the violations, what
 each player could still use within the rules. **Validate rules** checks the rules
 file itself and lists everything it finds wrong with it; **Save a copy** writes the
 built-in official ruleset out to a file.

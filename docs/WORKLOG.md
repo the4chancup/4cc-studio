@@ -1254,7 +1254,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         byte for byte as it was
       - [x] 8.9j2 the AATF panel (SE-GUI-15): teams picked, violations per player, a click
         selecting him, Show suggestions, Validate rules, Save a copy, the whole-save check on a
-        worker. Done 2026-10-24 (SWE-2, 26 min; the open points ruled first, DECISIONS
+        worker. Done 2026-10-24 (SWE-2, 40 min; the open points ruled first, DECISIONS
         2026-10-24 "the AATF panel's current team…"): `aatf::{OFFICIAL_FILE_NAME,
         official_file}` (`Rules::official` loads it), `session::rules::{team_views,
         check_teams, validate}` (`check-aatf` on the same check), `view/aatf_panel.rs` (an
@@ -1268,7 +1268,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         menus.rs,mod.rs,player_list.rs,quick_actions.rs,tests.rs,tests/{aatf_panel.rs,
         quick_actions.rs}}}}`
         - [ ] review: checkpoint (a) for SE-GUI-15's widening and (b) for `aatf`'s two `pub`
-          items: a SWE-2 loop, then Astra; `mutants-diff`
+          items: a SWE-2 loop, then Astra; `mutants-diff`. S1: 6 of 10 accepted, rework 1 (SWE-2,
+          16 min): the results in a scroll area, one player map per frame, a click clearing the
+          list's filter, no "No violations." over failures only, another save resetting the
+          panel, member wording on the hovers. Mutants `a6077a19..d31798d9`: 15 caught, 8
+          unviable, 2 missed (a dead worker, Checking… while an edit is unsettled), rework 2
+          (SWE-2, 11 min): a test each. S2: 2 accepted (an all-clear beside a failed team, the
+          checking mark scrolled off), lead fixes; SWE-2's loop ends (rulings
+          `.tmp/8_9j/duck_rulings_j2.md`). Astra A1 next
       - [ ] 8.9j3 Live AATF (SE-GUI-30)
       - [ ] 8.9j4 the comparator (SE-GUI-13), then 8.9j5 the transplant (SE-GUI-14)
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane

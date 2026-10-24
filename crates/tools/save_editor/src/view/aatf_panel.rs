@@ -11,13 +11,14 @@
 //! validation of the active file; Save a copy writes the embedded
 //! official file out.
 
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context;
 use crossbeam_channel::Receiver;
 use pes_savefile::EditFile;
+use pes_savefile::model::PlayerEntry;
 use team_widgets::violations::{ListedPlayer, SelectedPlayer, TeamViolations, violations_list};
 
 use crate::session::rules::{self, TeamCheck};
@@ -67,15 +68,15 @@ pub(super) struct CheckKey {
     pub(super) ids: Vec<u32>,
     /// The rules file the check's ruleset came from (`None`: the embedded
     /// official ruleset).
-    rules_file: Option<PathBuf>,
+    pub(super) rules_file: Option<PathBuf>,
 }
 
 /// A check in flight: the key it runs for and its reply channel.
 pub(super) struct PendingCheck {
     /// The key the worker's `check_teams` runs for.
-    key: CheckKey,
+    pub(super) key: CheckKey,
     /// The worker's reply: its key and the checks, in `ids`' order.
-    replies: Receiver<(CheckKey, Vec<TeamCheck>)>,
+    pub(super) replies: Receiver<(CheckKey, Vec<TeamCheck>)>,
 }
 
 /// The panel's state on `SaveView` (`view.aatf`): open or not, the mode,
@@ -116,6 +117,18 @@ impl AatfPanel {
             wrote: None,
         }
     }
+
+    /// Another save opened (`SaveView::open`): the picks, results,
+    /// pending check, validation and copy are of the old save's teams;
+    /// open, the mode and Show suggestions are the member's view choices
+    /// and stay.
+    pub(super) fn reset(&mut self) {
+        self.picked.clear();
+        self.result = None;
+        self.pending = None;
+        self.validation = None;
+        self.wrote = None;
+    }
 }
 
 /// The window for one frame, while `view.aatf.open`. The reply is polled
@@ -127,6 +140,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         aatf,
         session,
         team,
+        filter,
         selected,
         rules,
         refusal,
@@ -147,7 +161,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             aatf.pending = None;
         }
         // A worker that died without replying leaves no result to wait
-        // for: drop the pending so the next frame starts a fresh check.
+        // for: drop the pending so the spawn below starts a fresh check.
         Some(Err(crossbeam_channel::TryRecvError::Disconnected)) => {
             log::warn!("the AATF check's worker ended without a reply");
             aatf.pending = None;
@@ -206,14 +220,16 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     {
         aatf.pending = Some(spawn_check(ui.ctx(), file, rules, key.clone()));
     }
-    // `Some(&ruleset name)` on a loaded file, else the file's path.
+    // The ruleset's name on a loaded file, else the file's path: only a
+    // rules file fails to load (`Rules::official` panics rather than err).
     let ruleset_label = match &active.rules {
         Ok(rules) => rules.ruleset().name.clone(),
         Err(_) => active
             .file
             .as_ref()
-            .map(|file| file.display().to_string())
-            .unwrap_or_else(|| "?".to_string()),
+            .expect("only a rules file fails to load")
+            .display()
+            .to_string(),
     };
     let mut open = aatf.open;
     egui::Window::new(format!("AATF violations ({ruleset_label})"))
@@ -224,21 +240,36 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         .open(&mut open)
         .show(ui.ctx(), |ui| {
             rows(ui, aatf, active, aatf_copy_dialog, refusal, file);
+            // Above the scroll, so a member scrolled deep in the list
+            // still sees that the rows are the previous result's.
             if aatf.pending.is_some() || due {
                 ui.weak("Checking\u{2026}");
             }
-            if let Some(line) = no_teams {
-                ui.weak(line);
-            } else if let Some(error) = &load_error {
-                ui.weak(rules_load_error(error));
-            } else if let Some((result_key, checks)) = &aatf.result {
-                let clicked = results(ui, file, result_key, checks, aatf.show_suggestions);
-                if let Some(player) = clicked {
-                    *selected = Some((player.team_id, player.slot));
-                    if *team != TeamChoice::All {
-                        *team = TeamChoice::Team(player.team_id);
+            // The results fill the rest of the window in their own
+            // scroll: a whole-save pick, or one team's suggestions, runs
+            // taller than it.
+            let clicked = egui::ScrollArea::vertical()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    let mut clicked = None;
+                    if let Some(line) = no_teams {
+                        ui.weak(line);
+                    } else if let Some(error) = &load_error {
+                        ui.weak(rules_load_error(error));
+                    } else if let Some((result_key, checks)) = &aatf.result {
+                        clicked = results(ui, file, result_key, checks, aatf.show_suggestions);
                     }
+                    clicked
+                })
+                .inner;
+            if let Some(player) = clicked {
+                *selected = Some((player.team_id, player.slot));
+                if *team != TeamChoice::All {
+                    *team = TeamChoice::Team(player.team_id);
                 }
+                // As `open` clears it: the row the click selects would
+                // be hidden by a filter matching nothing.
+                filter.clear();
             }
         });
     aatf.open = open;
@@ -266,7 +297,7 @@ fn rows(
         ui.checkbox(&mut aatf.show_suggestions, "Show suggestions");
         if ui
             .button("Save a copy")
-            .on_hover_text("Write the embedded official ruleset out")
+            .on_hover_text("Write the built-in official ruleset to a file")
             .clicked()
             && let Some(path) = copy_dialog(aatf::OFFICIAL_FILE_NAME)
         {
@@ -286,7 +317,7 @@ fn rows(
     });
     if ui
         .button("Validate rules")
-        .on_hover_text("The lib's load-time validation on the active rules file")
+        .on_hover_text("Check the rules file in use for errors, each with its line or setting")
         .clicked()
     {
         let name = active
@@ -344,12 +375,20 @@ fn results(
     checks: &[TeamCheck],
     show_suggestions: bool,
 ) -> Option<SelectedPlayer> {
+    // Player ids are stable inside an open file: one map serves the
+    // whole roster scan, as `selection::rows` builds its own (its
+    // construction lives there inline).
+    let players: HashMap<u32, &PlayerEntry> = file
+        .players()
+        .iter()
+        .map(|player| (player.id, player))
+        .collect();
     // One `ListedPlayer` list per checked team, for the group headers;
     // `teams` borrows it below, so it is filled first.
     let mut listed: Vec<Vec<ListedPlayer>> = Vec::with_capacity(key.ids.len());
     for (id, check) in key.ids.iter().zip(checks) {
         listed.push(if check.is_ok() {
-            listed_players(file, *id)
+            listed_players(file, &players, *id)
         } else {
             Vec::new()
         });
@@ -372,25 +411,31 @@ fn results(
             }),
         }
     }
-    let any = checks
+    let clean = checks
         .iter()
         .filter_map(|check| check.as_ref().ok())
         .flatten()
-        .any(|violation| {
-            matches!(
+        .all(|violation| {
+            !matches!(
                 violation.severity,
                 aatf::Severity::Error | aatf::Severity::Warning
             )
         });
-    if !any {
+    // Only when every check succeeded: beside a failed team's line it
+    // would read as clearing that team, whose violations are unknown.
+    if clean && checks.iter().all(Result::is_ok) {
         ui.weak("No violations.");
     }
     violations_list(ui, "aatf", &teams, show_suggestions)
 }
 
 /// Team `id`'s rostered players as the list's `ListedPlayer`s, in slot
-/// order.
-fn listed_players<'a>(file: &'a EditFile, id: u32) -> Vec<ListedPlayer<'a>> {
+/// order, their names read through `players`.
+fn listed_players<'a>(
+    file: &'a EditFile,
+    players: &HashMap<u32, &'a PlayerEntry>,
+    id: u32,
+) -> Vec<ListedPlayer<'a>> {
     let Some(team) = file.team(id) else {
         return Vec::new();
     };
@@ -402,8 +447,8 @@ fn listed_players<'a>(file: &'a EditFile, id: u32) -> Vec<ListedPlayer<'a>> {
             slot: u8::try_from(slot).expect("a roster slot"),
             id: roster.player_id,
             number: roster.number,
-            name: file
-                .player(roster.player_id)
+            name: players
+                .get(&roster.player_id)
                 .map(|player| player.name.as_str())
                 .unwrap_or("?"),
         })
