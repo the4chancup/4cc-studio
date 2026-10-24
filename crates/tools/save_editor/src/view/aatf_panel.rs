@@ -247,8 +247,11 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             }
             // The results fill the rest of the window in their own
             // scroll: a whole-save pick, or one team's suggestions, runs
-            // taller than it.
+            // taller than it. The salt keeps its state apart from the
+            // picker's: both default to this `Ui`'s one `scroll_area`
+            // id, and the shorter area would clamp the other's offset.
             let clicked = egui::ScrollArea::vertical()
+                .id_salt("save_editor_aatf_results")
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     let mut clicked = None;
@@ -345,6 +348,7 @@ fn rows(
     }
     if aatf.mode == AatfMode::Select {
         egui::ScrollArea::vertical()
+            .id_salt("save_editor_aatf_picker")
             .max_height(180.0)
             .show(ui, |ui| {
                 for entry in file.teams() {

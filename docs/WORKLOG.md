@@ -1274,8 +1274,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           panel, member wording on the hovers. Mutants `a6077a19..d31798d9`: 15 caught, 8
           unviable, 2 missed (a dead worker, Checking… while an edit is unsettled), rework 2
           (SWE-2, 11 min): a test each. S2: 2 accepted (an all-clear beside a failed team, the
-          checking mark scrolled off), lead fixes; SWE-2's loop ends (rulings
-          `.tmp/8_9j/duck_rulings_j2.md`). Astra A1 next
+          checking mark scrolled off), lead fixes; SWE-2's loop ends. Astra A1 (Devin `work`): 4 of 5 accepted (the picker and the
+          results sharing one scroll id, no test of a rules-file switch, a vacuous ALL-click
+          assertion, SE-GUI-15 omitting what its tests pin), rework 3 (fresh SWE-2 session, 18
+          min: an id salt each, a rules-file switch test, `checked` waiting on the file) and
+          the plan widened by the lead; Astra's loop ends (rulings
+          `.tmp/8_9j/duck_rulings_j2.md`). S3 next
       - [ ] 8.9j3 Live AATF (SE-GUI-30)
       - [ ] 8.9j4 the comparator (SE-GUI-13), then 8.9j5 the transplant (SE-GUI-14)
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane

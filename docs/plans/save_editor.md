@@ -656,7 +656,8 @@ What this editor adds on top of the lib:
   back to: the panel checks the team the strip and tabs are editing. A **Show suggestions**
   toggle, off by default, lists unused allowances apart from errors and warnings (see
   "Suggestions" in the AATF rules plan). The panel is `team_widgets`' violations list, under
-  "No violations." when no team checked has an error or a warning. The teams are re-checked
+  "No violations." when every team's check succeeded and none has an error or a warning
+  (beside a failed team's line it would read as clearing that team). The teams are re-checked
   when the save changes (an edit, undo, redo), the teams picked change or the rules file
   does; until the new result arrives the previous one stays, marked as checking. A team whose
   check fails (a script error) is a line naming the team and the error, the others still
@@ -839,15 +840,19 @@ SE-GUI-14  GIVEN "Edit aesthetics anyway" switched on and the transplant panel w
 SE-GUI-15  GIVEN a ruleset with violations in the open team
            WHEN the AATF panel is drawn
            THEN the violations are grouped per player, clicking one selects that player (the
-                team selector moving to his team unless at ALL), Show suggestions is off and
-                reveals the unused allowances when on, Validate rules lists a broken rules
-                file's findings with their line or key path, and Save a copy writes the
-                embedded official ruleset out byte for byte; WHEN an edit changes the team
-                THEN the previous list stays, marked as checking, until the new one replaces
-                it, and an undo brings the old one back; GIVEN Select teams with two teams
-                ticked, one whose check fails THEN that team is a line naming it and the
-                error and the other's violations are listed; GIVEN a rules file that does not
-                load THEN its load error stands in the list's place
+                team selector moving to his team unless at ALL, which stays), Show
+                suggestions is off and reveals the unused allowances when on, Validate rules
+                lists a broken rules file's findings with their line or key path (a file that
+                loads: "no findings"), and Save a copy, its dialog suggesting autumn26.rhai,
+                writes the embedded official ruleset out byte for byte and names the path it
+                wrote; GIVEN a team with neither errors nor warnings THEN the panel reads "No
+                violations."; WHEN an edit changes the team THEN the previous list stays,
+                marked as checking, until the new one replaces it, and an undo brings the
+                old one back; WHEN another rules file is chosen THEN its result replaces the
+                previous ruleset's, and a rules file that does not load leaves its load error
+                in the list's place; GIVEN Select teams with two teams ticked, one whose
+                check fails THEN that team is a line naming it and the error, the other's
+                violations are listed, and no "No violations." is drawn
 SE-GUI-16  GIVEN the save open on a team
            WHEN Team TOML export, then import on another team with only the gameplay section
                 chosen, runs from the interchange dialog

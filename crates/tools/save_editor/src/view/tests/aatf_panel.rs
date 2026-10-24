@@ -57,8 +57,8 @@ fn open_panel(
 }
 
 /// Frames until the panel's check lands: `pending` empty and the result
-/// keyed to the session's current revision and `ids` (bounded, so a
-/// worker that never replies fails rather than hangs).
+/// keyed to the session's current revision, `ids` and rules file
+/// (bounded, so a worker that never replies fails rather than hangs).
 fn checked(
     window: &mut Headless,
     view: &mut SaveView,
@@ -70,11 +70,9 @@ fn checked(
         let nodes = draw(window, view, rules);
         let revision = view.session.as_ref().expect("an open save").revision();
         if view.aatf.pending.is_none()
-            && view
-                .aatf
-                .result
-                .as_ref()
-                .is_some_and(|(key, _)| key.revision == revision && key.ids == ids)
+            && view.aatf.result.as_ref().is_some_and(|(key, _)| {
+                key.revision == revision && key.ids == ids && key.rules_file.as_deref() == rules
+            })
         {
             return nodes;
         }
@@ -353,8 +351,10 @@ fn a_rows_click_selects_the_player_and_moves_the_selector() {
     assert_eq!(view.selected, Some((734, 3)), "73404's team and slot");
     assert_eq!(view.team, TeamChoice::Team(734), "the selector moved");
 
-    // At ALL it stays.
+    // At ALL it stays. Another of 734's players selected first, or a
+    // click that did nothing would satisfy both assertions.
     view.team = TeamChoice::All;
+    view.selected = Some((734, 0));
     let nodes = draw(&mut window, &mut view, None);
     click(
         &mut window,
@@ -626,6 +626,91 @@ fn a_rules_file_that_does_not_load_shows_the_error_in_the_lists_place() {
     );
 }
 
+/// Another rules file replaces the completed list's rows: the check's
+/// key carries the file, so the new file's check runs and its rows
+/// stand where the old ones were; a file that does not load draws its
+/// load error there instead.
+// SE-GUI-15
+#[test]
+fn a_rules_file_change_replaces_the_result() {
+    let (mut view, mut window) = open_734_with("aatf_rules_switch", &[73401, 73404], 183);
+    view.aatf.open = true;
+    let dir = view
+        .session
+        .as_ref()
+        .unwrap()
+        .path()
+        .parent()
+        .expect("the scratch dir")
+        .to_path_buf();
+    let nodes = checked(&mut window, &mut view, None, &[734]);
+    assert_eq!(height_rows(&nodes), 2, "the official file's Height rows");
+    assert!(
+        nodes.iter().any(|node| {
+            node.value() == Some("BracketQuota 8 players in bracket tall of red, quota 10")
+        }),
+        "the official file's quota row"
+    );
+
+    // A file that loads with a different result: the official one's
+    // Tall bracket also taking 183, so the two rows are gone and the
+    // two new talls fill the red bracket's quota.
+    let taller = dir.join("taller.rhai");
+    std::fs::write(
+        &taller,
+        aatf::official_file().replacen("exactly: [185]", "exactly: [183, 185]", 1),
+    )
+    .unwrap();
+    let nodes = checked(&mut window, &mut view, Some(taller.as_path()), &[734]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Team 734 /lit/")),
+        "the new file's result drew the team"
+    );
+    assert_eq!(
+        height_rows(&nodes),
+        0,
+        "183 takes the Tall bracket now: the new rows replaced the old"
+    );
+    assert!(
+        !nodes.iter().any(|node| {
+            node.value()
+                .is_some_and(|value| value.starts_with("BracketQuota"))
+        }),
+        "the red quota met: its row is gone too"
+    );
+
+    // A file that does not load: its error in the list's place, and no
+    // row of either result.
+    let broken = dir.join("broken.rhai");
+    std::fs::write(&broken, "let x = ;").unwrap();
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(broken.as_path()))
+    });
+    let nodes = panel_nodes(&pairs);
+    assert!(
+        nodes.iter().any(|node| {
+            node.value()
+                .is_some_and(|value| value.starts_with("The AATF rules file does not load:"))
+        }),
+        "the load error's line"
+    );
+    assert!(
+        !nodes.iter().any(|node| {
+            node.label()
+                .is_some_and(|label| label.starts_with("Height ") || label.starts_with("Team "))
+                || node.value().is_some_and(|value| {
+                    value.starts_with("Team ")
+                        || value.starts_with("Height ")
+                        || value.starts_with("BracketQuota")
+                        || value.starts_with("TierCount")
+                })
+        }),
+        "no row of either result is drawn"
+    );
+}
+
 /// Save a copy: the embedded official file written out under its own name
 /// through the stubbed dialog.
 // SE-GUI-15
@@ -743,6 +828,96 @@ fn the_results_scroll_reaches_the_last_row() {
         checking.y0 >= window_bounds.y0 && checking.y1 <= window_bounds.y1,
         "Checking… inside the window while scrolled: {checking:?} vs {window_bounds:?}"
     );
+}
+
+/// The team picker's scroll is its own scroll area's, not shared with
+/// the results': both sit in the window's `Ui`, where egui's default
+/// `scroll_area` id makes them one state — the short results clamp the
+/// picker's offset to 0 each frame. A wheel over the picker reaches the
+/// last team of the save.
+#[test]
+fn the_picker_scroll_reaches_the_last_team() {
+    let save = fixture(PesVersion::Pes17, "aatf_picker_scroll");
+    let mut view = SaveView::new();
+    view.open(&save);
+    view.aatf.open = true;
+    view.aatf.mode = AatfMode::Select;
+    let mut window = Headless::sized(1100.0, 800.0);
+    let (first_label, last_label) = {
+        let teams = view
+            .session
+            .as_ref()
+            .expect("the save opened")
+            .file()
+            .teams();
+        (
+            format!("{} {}", teams[0].id, teams[0].name),
+            format!(
+                "{} {}",
+                teams[teams.len() - 1].id,
+                teams[teams.len() - 1].name
+            ),
+        )
+    };
+
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = panel_nodes(&pairs);
+    let named = |label: &str| -> &accesskit::Node {
+        nodes
+            .iter()
+            .copied()
+            .find(|node| node.label() == Some(label) || node.value() == Some(label))
+            .unwrap_or_else(|| panic!("no node {label:?}"))
+    };
+    let at = centre(named(&first_label));
+    // The picker's clip: from the first checkbox's top to the "No team
+    // picked." line, the results area's first content just below it.
+    let picker_top = named(&first_label)
+        .bounds()
+        .expect("the first checkbox's bounds")
+        .y0;
+    let results_top = named("No team picked.")
+        .bounds()
+        .expect("the picked line's bounds")
+        .y0;
+    assert!(
+        named(&last_label)
+            .bounds()
+            .expect("the last checkbox's bounds")
+            .y0
+            > results_top,
+        "premise: the last team starts past the picker: {last_label:?}"
+    );
+
+    let mut last = None;
+    for _ in 0..40 {
+        let (_, pairs, _) = window.frame_ids(
+            vec![
+                egui::Event::PointerMoved(at),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, -400.0),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Wheel,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            |ui| show(ui, &mut view, &|| Vec::new(), None),
+        );
+        let nodes = panel_nodes(&pairs);
+        let bounds = nodes
+            .iter()
+            .copied()
+            .find(|node| node.label() == Some(last_label.as_str()))
+            .and_then(|node| node.bounds())
+            .expect("the last checkbox's bounds");
+        if bounds.y0 >= picker_top && bounds.y1 <= results_top {
+            return;
+        }
+        last = Some(bounds);
+    }
+    panic!("the picker's scroll never reached {last_label:?}: {last:?}")
 }
 
 /// A click clears the player list's filter: the selection is only worth
