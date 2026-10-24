@@ -3,6 +3,10 @@ three presets is on screen, its formation settings, the advanced instructions
 and the team's automatic settings. A field the save's version does not hold
 stays in its place, disabled, with a note naming the first version that has it.
 
+The tab is three columns: the pitch, the two lists, then the settings column
+with the preset bar and the groups. On a window too narrow for all three the
+settings column moves below the pitch and the lists instead.
+
 The **pitch** is where the formation takes shape, drawn like the game's own
 formation screen: each starter stands at his spot as his portrait over a
 badge with his position, his name below it (a name too long for the badge
@@ -31,9 +35,9 @@ The **Player assignments** chips set who takes each set piece, the captain and
 who joins the attack: click a chip, then click the pitch player. Join attack
 keeps its mode open so up to three can be picked or unpicked; Done finishes.
 
-The **Preset** buttons at the top, beside the two Copy/swap menus, pick which
-of the team's three presets the groups below edit. Switching presets changes
-nothing by itself.
+The **Preset** buttons at the top of the settings column, beside the two
+Copy/swap menus, pick which of the team's three presets the groups below edit.
+Switching presets changes nothing by itself.
 
 **Formation settings** holds the fluid-formation switch (PES 2016 and later),
 the five sliders (support range, defensive line, compactness, and the numbers

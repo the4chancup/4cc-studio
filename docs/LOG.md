@@ -2428,3 +2428,6 @@ worklog passed 7,000 lines.
 - **2026-10-24** — 8.9f4b: the Abilities tab's top row (Profile, the collaborator's positions grid, the quick actions)
   and stats filled column by column; star and attitude in Appearance's Cutscenes group, outside the lock; the
   team bar's pairs kept whole; 4a's review closed. Two measured-wrap designs failed before the width constants.
+- **2026-10-25** — 8.9f4c: Appearance's groups as aligned grids with the draft's pairs a row as caps; the
+  Tactics tab in three columns (settings below on a narrow pane), the formation settings one grid; widget ids
+  held across width thresholds by explicit scope ids; 4b's review closed.

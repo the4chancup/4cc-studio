@@ -20,15 +20,14 @@ use pes_savefile::schema::{VersionSchema, first_version_with_team, schema_for};
 use pes_version::PesVersion;
 
 use crate::session::Session;
-use crate::view::{SaveView, edit_team, selected_team};
+use crate::view::{SaveView, edit_team, scoped, selected_team};
 
 /// The width the bar's four pairs take on one line, measured once in a
-/// headless frame with the default font at 1440 x 900 (the drawn rect of
-/// each pair, summed with the three item gaps: name pair ~280, short pair
-/// ~100, each colour ~158, so ~718 points). A wrong estimate wraps a bit
-/// early or late; it never splits a pair, since the fallback is whole
-/// pairs on two rows.
-const TEAM_BAR_ONE_ROW: f32 = 720.0;
+/// headless frame at 1600 x 1400 (the drawn row's `min_rect`: ~722.4
+/// points — the pairs' widths are fixed, a longer team name changes
+/// nothing). A wrong estimate wraps a bit early or late; it never splits
+/// a pair, since the fallback is whole pairs on two rows.
+pub(super) const TEAM_BAR_ONE_ROW: f32 = 723.0;
 
 /// The bar over the tab strip, on every tab: the selected player's team's
 /// name, short name and colours — one row where the pane holds
@@ -45,26 +44,44 @@ pub(crate) fn bar(ui: &mut egui::Ui, view: &mut SaveView) {
     };
     // The tab's `push_id` scoping, kept: every widget id under the bar is
     // the team's within this open, so a text field's undo history and the
-    // pickers' state never cross teams — nor saves (the `generation` half).
+    // pickers' state never cross teams — nor saves (the `generation`
+    // half). Each pair under `scoped`'s fixed `scope_id` in both
+    // arrangements too: an id follows call order inside a scope, so
+    // crossing `TEAM_BAR_ONE_ROW` would re-key the fields.
     ui.push_id((generation, team_id), |ui| {
-        if ui.available_width() >= TEAM_BAR_ONE_ROW {
-            ui.horizontal(|ui| {
-                name_pair(ui, session, team_id, version, &team);
-                short_pair(ui, session, team_id, version, &team);
-                colour_unit(ui, session, team_id, &team, 0);
-                colour_unit(ui, session, team_id, &team, 1);
-            });
+        let ids = ["name", "short", "colour 1", "colour 2"].map(|salt| ui.make_persistent_id(salt));
+        let rows: &[&[usize]] = if ui.available_width() >= TEAM_BAR_ONE_ROW {
+            &[&[0, 1, 2, 3]]
         } else {
+            &[&[0, 1], &[2, 3]]
+        };
+        for row in rows {
             ui.horizontal(|ui| {
-                name_pair(ui, session, team_id, version, &team);
-                short_pair(ui, session, team_id, version, &team);
-            });
-            ui.horizontal(|ui| {
-                colour_unit(ui, session, team_id, &team, 0);
-                colour_unit(ui, session, team_id, &team, 1);
+                for &unit in *row {
+                    scoped(ui, ids[unit], |ui| {
+                        bar_unit(ui, session, team_id, version, &team, unit);
+                    });
+                }
             });
         }
     });
+}
+
+/// The bar's `unit`, in its order: the name pair, the short pair, then
+/// the two colours.
+fn bar_unit(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    team_id: u32,
+    version: PesVersion,
+    team: &TeamEntry,
+    unit: usize,
+) {
+    match unit {
+        0 => name_pair(ui, session, team_id, version, team),
+        1 => short_pair(ui, session, team_id, version, team),
+        colour => colour_unit(ui, session, team_id, team, colour - 2),
+    }
 }
 
 /// The Team settings tab for the selected player's team: the manager and

@@ -21,14 +21,6 @@ const POSITION_NAMES: [&str; 13] = [
     "Centre Forward",
 ];
 
-/// The node of `role` with `label`, or panic naming both.
-fn labeled<'a>(nodes: &'a [accesskit::Node], role: Role, label: &str) -> &'a accesskit::Node {
-    nodes
-        .iter()
-        .find(|node| node.role() == role && node.label() == Some(label))
-        .unwrap_or_else(|| panic!("no {role:?} {label:?}"))
-}
-
 /// Replaces the focused text control's contents with `text`: End moves the
 /// caret past the text, the backspaces clear it, then the characters land
 /// (`color_tools`' `type_text`).
@@ -506,7 +498,7 @@ fn the_boglo_dialogs_preview_names_the_last_filled_slots_id() {
     let nodes = open_team_menu(&mut window, &mut view);
     click(
         &mut window,
-        labeled(
+        node_labeled(
             &nodes,
             Role::Button,
             "Set boots and gloves IDs for everyone\u{2026}",
@@ -516,11 +508,11 @@ fn the_boglo_dialogs_preview_names_the_last_filled_slots_id() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
-        labeled(&nodes, Role::RadioButton, "Incremental from"),
+        node_labeled(&nodes, Role::RadioButton, "Incremental from"),
         &mut view,
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let incremental = labeled(&nodes, Role::RadioButton, "Incremental from");
+    let incremental = node_labeled(&nodes, Role::RadioButton, "Incremental from");
     let start = right_of(&nodes, incremental, Role::SpinButton);
     click(&mut window, start, &mut view);
     window.frame(vec![egui::Event::Text("100".to_owned())], |ui| {
@@ -785,7 +777,7 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
     let nodes = open_team_menu(&mut window, &mut view);
     click(
         &mut window,
-        labeled(&nodes, Role::Button, "Set edited flag"),
+        node_labeled(&nodes, Role::Button, "Set edited flag"),
         &mut view,
     );
     let slots = rostered(&view, 701);
@@ -802,7 +794,7 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
     let nodes = open_team_menu(&mut window, &mut view);
     click(
         &mut window,
-        labeled(
+        node_labeled(
             &nodes,
             Role::Button,
             "Set boots and gloves IDs for everyone\u{2026}",
@@ -810,10 +802,10 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
         &mut view,
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let incremental = labeled(&nodes, Role::RadioButton, "Incremental from");
+    let incremental = node_labeled(&nodes, Role::RadioButton, "Incremental from");
     click(&mut window, incremental, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let incremental = labeled(&nodes, Role::RadioButton, "Incremental from");
+    let incremental = node_labeled(&nodes, Role::RadioButton, "Incremental from");
     let start = right_of(&nodes, incremental, Role::SpinButton);
     click(&mut window, start, &mut view);
     window.frame(vec![egui::Event::Text(start_value.to_string())], |ui| {
@@ -826,11 +818,15 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
-        labeled(&nodes, Role::RadioButton, "Same as the boot IDs"),
+        node_labeled(&nodes, Role::RadioButton, "Same as the boot IDs"),
         &mut view,
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    click(&mut window, labeled(&nodes, Role::Button, "OK"), &mut view);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "OK"),
+        &mut view,
+    );
     for &(slot, id) in &slots {
         let player = player_entry(&view, id);
         let expected = start_value + u32::try_from(slot).expect("a roster has at most 40 slots");
@@ -852,7 +848,7 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
     let nodes = open_team_menu(&mut window, &mut view);
     click(
         &mut window,
-        labeled(&nodes, Role::Button, "Set player names to positions"),
+        node_labeled(&nodes, Role::Button, "Set player names to positions"),
         &mut view,
     );
     for &(slot, id) in &slots {
@@ -957,7 +953,7 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
     }
     for label in ["Set edited flag", "Set player names to positions"] {
         assert!(
-            !labeled(&nodes, Role::Button, label).is_disabled(),
+            !node_labeled(&nodes, Role::Button, label).is_disabled(),
             "{label} stays enabled"
         );
     }
@@ -982,7 +978,7 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
     let nodes = open_team_menu(&mut window, &mut view);
     click(
         &mut window,
-        labeled(&nodes, Role::Button, "Set edited flag"),
+        node_labeled(&nodes, Role::Button, "Set edited flag"),
         &mut view,
     );
     for &(_, id) in &rostered(&view, 701) {
@@ -1069,4 +1065,56 @@ fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
             "{id}'s flags cleared in the saved file"
         );
     }
+}
+
+// `TEAM_BAR_ONE_ROW`'s edge: the pane width whose tab area is the
+// constant (`TAB_AREA_OFFSET` more). The bar's pairs are all
+// fixed-width, so the content never varies with the team: at the edge
+// the four pairs still take one row and its last widget ends inside the
+// pane.
+#[test]
+fn the_team_bar_holds_one_row_at_its_edge() {
+    let path = fixture(PesVersion::Pes21, "team_bar_edge");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(crate::view::team::TEAM_BAR_ONE_ROW + TAB_AREA_OFFSET, 900.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let row_y = label_bounds(&nodes, "Short").y0;
+    for label in ["Colour 1", "Colour 2"] {
+        assert!(
+            (label_bounds(&nodes, label).y0 - row_y).abs() < 1.0,
+            "{label} shares the bar's one row"
+        );
+    }
+    // The bar's "Team" weak label on that row (the tab strip draws a
+    // "Team" scope label of its own below).
+    let team = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Label
+                && node.value() == Some("Team")
+                && node.bounds().is_some_and(|b| (b.y0 - row_y).abs() < 1.0)
+        })
+        .expect("the bar's Team label shares the row")
+        .bounds()
+        .expect("bounds");
+    let left = team.x0;
+    // The row's last widget ends inside the constant — the hex Label's
+    // right edge (every widget on the row counts, labels included).
+    let right = nodes
+        .iter()
+        .filter(|node| {
+            node.bounds()
+                .is_some_and(|b| (b.y0 - row_y).abs() < 1.0 && b.x0 >= left - 1.0)
+        })
+        .filter_map(|node| node.bounds())
+        .map(|b| b.x1)
+        .fold(0.0, f64::max);
+    assert!(
+        right <= left + f64::from(crate::view::team::TEAM_BAR_ONE_ROW),
+        "the row ends inside its constant ({right} vs {})",
+        left + f64::from(crate::view::team::TEAM_BAR_ONE_ROW)
+    );
 }

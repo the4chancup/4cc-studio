@@ -370,7 +370,9 @@ fn edit_flags(
     );
 }
 
-/// The 14 physique fields in a wrapping grid, each on its key's `Signed`
+/// The 14 physique fields in an aligned grid of label and field cells,
+/// the draft's two pairs a row as a cap a narrower pane lowers (`pairs_per_row`
+/// at the draft's 190-point pair). Each field is on its key's `Signed`
 /// scale (±7: `shown - limit` stores `shown + limit`).
 fn physique_grid(
     ui: &mut egui::Ui,
@@ -378,7 +380,7 @@ fn physique_grid(
     player_id: u32,
     appearance: &PlayerAppearance,
 ) {
-    let per_row = pairs_per_row(ui, 190.0);
+    let per_row = pairs_per_row(ui, 190.0).min(2);
     egui::Grid::new("appearance physique").show(ui, |ui| {
         for (index, (label, key, get, set)) in PHYSIQUE.iter().enumerate() {
             let Kind::Signed { limit } = key.spec().kind else {
@@ -407,9 +409,14 @@ fn physique_grid(
     });
 }
 
-/// The draft's Strip style group: the ids, the enums and checkboxes in the
-/// grid, then the wrist-taping, spectacles and player-gloves rows with
-/// their palettes.
+/// The draft's Strip style group: the ids, the enums and the two
+/// checkboxes as label and field cells in one grid (the draft's four
+/// pairs a row as a cap a narrower pane lowers — its two table rows fall
+/// out at four: the ids and the first two enums, then the rest with the
+/// checkboxes), then the wrist-taping, spectacles and player-gloves rows
+/// as a second grid, a label cell and a contents cell each. The draft's
+/// colspan rows cannot share the first grid (an egui grid has no span),
+/// so their labels align among themselves instead.
 fn strip_rows(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -417,7 +424,7 @@ fn strip_rows(
     version: PesVersion,
     appearance: &PlayerAppearance,
 ) {
-    let per_row = pairs_per_row(ui, 190.0);
+    let per_row = pairs_per_row(ui, 190.0).min(4);
     egui::Grid::new("appearance strip").show(ui, |ui| {
         // The id fields take the record's own bound (`player_max_value`,
         // wider than `settings.toml`'s stock range): a compile-allocated
@@ -469,7 +476,9 @@ fn strip_rows(
             );
             maybe_end_row(ui, 3 + index, per_row);
         }
-        checkbox(
+        // The checkboxes draw as a label cell and a bare box in the field
+        // cell (the header's Captain shape).
+        bare_checkbox(
             ui,
             session,
             player_id,
@@ -479,7 +488,8 @@ fn strip_rows(
                 p.appearance.untucked = v;
             },
         );
-        checkbox(
+        maybe_end_row(ui, 7, per_row);
+        bare_checkbox(
             ui,
             session,
             player_id,
@@ -489,101 +499,105 @@ fn strip_rows(
                 p.appearance.ankle_taping = v;
             },
         );
+        maybe_end_row(ui, 8, per_row);
     });
-    ui.horizontal_wrapped(|ui| {
-        combo(
-            ui,
-            session,
-            player_id,
-            WRIST_TAPING_LABEL,
-            SettingKey::WristTaping,
-            appearance.wrist_taping,
-            |player, shown| {
-                player.appearance.wrist_taping = shown;
-            },
-        );
-        ui.label("Left");
-        palette_row(
-            ui,
-            session,
-            player_id,
-            &palette(version, SettingKey::WristTapeColorLeft),
-            appearance.wrist_tape_color_left,
-            |player, shown| {
-                player.appearance.wrist_tape_color_left = shown;
-            },
-        );
-        ui.label("Right");
-        palette_row(
-            ui,
-            session,
-            player_id,
-            &palette(version, SettingKey::WristTapeColorRight),
-            appearance.wrist_tape_color_right,
-            |player, shown| {
-                player.appearance.wrist_tape_color_right = shown;
-            },
-        );
-    });
-    ui.horizontal_wrapped(|ui| {
-        combo(
-            ui,
-            session,
-            player_id,
-            SPECTACLES_LABEL,
-            SettingKey::Spectacles,
-            appearance.spectacles_style,
-            |player, shown| {
-                player.appearance.spectacles_style = shown;
-            },
-        );
-        palette_row(
-            ui,
-            session,
-            player_id,
-            &palette(version, SettingKey::SpectaclesColor),
-            appearance.spectacles_color,
-            |player, shown| {
-                player.appearance.spectacles_color = shown;
-            },
-        );
-    });
-    ui.horizontal_wrapped(|ui| {
-        let gloves = face(appearance, IngameFaceField::PlayerGloves);
-        checkbox(
-            ui,
-            session,
-            player_id,
-            PLAYER_GLOVES_LABEL,
-            gloves != 0,
-            |p, v| {
+    egui::Grid::new("appearance strip rows").show(ui, |ui| {
+        ui.label(WRIST_TAPING_LABEL);
+        ui.horizontal(|ui| {
+            combo_box(
+                ui,
+                session,
+                player_id,
+                WRIST_TAPING_LABEL,
+                SettingKey::WristTaping,
+                appearance.wrist_taping,
+                |player, shown| {
+                    player.appearance.wrist_taping = shown;
+                },
+            );
+            ui.label("Left");
+            palette_row(
+                ui,
+                session,
+                player_id,
+                &palette(version, SettingKey::WristTapeColorLeft),
+                appearance.wrist_tape_color_left,
+                |player, shown| {
+                    player.appearance.wrist_tape_color_left = shown;
+                },
+            );
+            ui.label("Right");
+            palette_row(
+                ui,
+                session,
+                player_id,
+                &palette(version, SettingKey::WristTapeColorRight),
+                appearance.wrist_tape_color_right,
+                |player, shown| {
+                    player.appearance.wrist_tape_color_right = shown;
+                },
+            );
+        });
+        ui.end_row();
+        ui.label(SPECTACLES_LABEL);
+        ui.horizontal(|ui| {
+            combo_box(
+                ui,
+                session,
+                player_id,
+                SPECTACLES_LABEL,
+                SettingKey::Spectacles,
+                appearance.spectacles_style,
+                |player, shown| {
+                    player.appearance.spectacles_style = shown;
+                },
+            );
+            palette_row(
+                ui,
+                session,
+                player_id,
+                &palette(version, SettingKey::SpectaclesColor),
+                appearance.spectacles_color,
+                |player, shown| {
+                    player.appearance.spectacles_color = shown;
+                },
+            );
+        });
+        ui.end_row();
+        ui.label(PLAYER_GLOVES_LABEL);
+        ui.horizontal(|ui| {
+            let gloves = face(appearance, IngameFaceField::PlayerGloves);
+            checkbox(ui, session, player_id, "", gloves != 0, |p, v| {
                 p.appearance
                     .ingame_face
                     .set(IngameFaceField::PlayerGloves, u8::from(v))
                     .expect("a loaded player's face run holds player gloves");
-            },
-        );
-        let gloves_color = face(appearance, IngameFaceField::PlayerGlovesColor);
-        palette_row(
-            ui,
-            session,
-            player_id,
-            &palette(version, SettingKey::GlovesColor),
-            gloves_color,
-            |player, shown| {
-                player
-                    .appearance
-                    .ingame_face
-                    .set(IngameFaceField::PlayerGlovesColor, shown)
-                    .expect("a loaded player's face run holds the gloves colour");
-            },
-        );
+            });
+            let gloves_color = face(appearance, IngameFaceField::PlayerGlovesColor);
+            palette_row(
+                ui,
+                session,
+                player_id,
+                &palette(version, SettingKey::GlovesColor),
+                gloves_color,
+                |player, shown| {
+                    player
+                        .appearance
+                        .ingame_face
+                        .set(IngameFaceField::PlayerGlovesColor, shown)
+                        .expect("a loaded player's face run holds the gloves colour");
+                },
+            );
+        });
+        ui.end_row();
     });
 }
 
 /// The draft's Motion group: the nine measured motions in the draft's
-/// order, the dribbling motion between the kicks and the celebrations (PES
-/// 20+, drawn disabled with the version tooltip before it).
+/// order as label/field pairs, the draft's four a row as a cap a narrower
+/// pane lowers (its 4 / 4 / 2 falls out at four), the dribbling motion
+/// between the kicks and the celebrations (PES 20+, drawn disabled with
+/// the version tooltip before it).
 fn motion_grid(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -592,7 +606,7 @@ fn motion_grid(
     motion: &PlayerMotion,
     draw: &mut dyn FnMut(u8) -> u8,
 ) {
-    let per_row = pairs_per_row(ui, 190.0);
+    let per_row = pairs_per_row(ui, 190.0).min(4);
     egui::Grid::new("appearance motion").show(ui, |ui| {
         let mut pair = 0usize;
         for field in &MOTIONS[..7] {
@@ -739,8 +753,10 @@ fn colour_rows(
     }
 }
 
-/// One label/checkbox pair; a change writes `set` through `edit_player`
-/// under the widget's id.
+/// One checkbox pair, the label inside the widget (the edit flags'
+/// shape; `""` draws the bare box — the strip grids' checkboxes and the
+/// gloves row's). A change writes `set` through `edit_player` under the
+/// widget's id.
 fn checkbox(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -758,6 +774,21 @@ fn checkbox(
     }
 }
 
+/// `label` in its own cell, then `checkbox`'s bare box in the field cell
+/// (the strip grids' pair shape, as the header's Captain cell); the same
+/// write.
+fn bare_checkbox(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    label: &'static str,
+    held: bool,
+    set: impl FnOnce(&mut PlayerEntry, bool),
+) {
+    ui.label(label);
+    checkbox(ui, session, player_id, "", held, set);
+}
+
 /// One label/`ComboBox` pair over `key`'s option labels (`combo_options`);
 /// a stored index past the list shows its number, a pick writes it.
 fn combo(
@@ -770,6 +801,20 @@ fn combo(
     set: impl FnOnce(&mut PlayerEntry, u8),
 ) {
     ui.label(label);
+    combo_box(ui, session, player_id, label, key, stored, set);
+}
+
+/// `combo`'s `ComboBox` alone, for a caller whose label sits in its own
+/// cell (the strip rows' grid).
+fn combo_box(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    label: &'static str,
+    key: SettingKey,
+    stored: u8,
+    set: impl FnOnce(&mut PlayerEntry, u8),
+) {
     let options = combo_options(key);
     let mut picked = stored;
     let selected = option_name(key, stored);

@@ -693,181 +693,150 @@ fn each_settings_control_writes_its_own_field() {
     }
 }
 
-// The wrap's measured cell widths are real: (a) no cell's controls cross
-// a label's left edge — an underestimate would pack the next cell over
-// this one; (b) at a window wide enough for the five slider cells in one
-// row the five share a row's y, and the seven style pairs sit on as few
-// rows as their measured widths allow — an overestimate wraps early.
+/// The formation grid's pair labels, the draft's order (the five
+/// sliders, then the seven style pairs).
+const FORMATION_LABELS: [&str; 12] = [
+    "Support range",
+    "Defensive line",
+    "Compactness",
+    "Numbers in attack",
+    "Numbers in defence",
+    "Attacking style",
+    "Attacking zone",
+    "Buildup",
+    "Positioning",
+    "Defensive style",
+    "Containment area",
+    "Pressure",
+];
+
+/// The bounds of the Label node showing `label` (a grid's label cell).
+fn formation_label_bounds(nodes: &[accesskit::Node], label: &str) -> accesskit::Rect {
+    nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some(label))
+        .and_then(|node| node.bounds())
+        .unwrap_or_else(|| panic!("no label {label:?}"))
+}
+
+/// The x of the leftmost control on `label`'s grid row: the control
+/// cell's left edge (the slider, or the pair's first choice).
+fn control_x0(nodes: &[accesskit::Node], label: &str) -> f64 {
+    let bounds = formation_label_bounds(nodes, label);
+    nodes
+        .iter()
+        .filter(|node| {
+            node.role() != Role::Label
+                && node
+                    .bounds()
+                    .is_some_and(|b| (b.y0 - bounds.y0).abs() < 4.0 && b.x0 >= bounds.x1 - 1.0)
+        })
+        .filter_map(|node| node.bounds())
+        .map(|b| b.x0)
+        .fold(f64::MAX, f64::min)
+}
+
+// plans/save_editor.md "Tactics editor" (the formation settings' aligned
+// grid of up to two pairs a row): at a pane the bound lets two pairs
+// share a row (900 wide here), Support range and Defensive line sit on
+// one row and the twelve labels take the two label columns; at a pane
+// under it (500) they take one column and the controls one more.
 #[test]
-fn the_wrap_cells_pack_without_overlapping_or_wrapping_early() {
+fn the_formation_grid_pairs_by_the_columns_width() {
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
     let mut view = TacticsView::default();
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
-    let slider_labels = [
-        "Support range",
-        "Defensive line",
-        "Compactness",
-        "Numbers in attack",
-        "Numbers in defence",
-    ];
-    let pair_labels = [
-        "Attacking style",
-        "Attacking zone",
-        "Buildup",
-        "Positioning",
-        "Defensive style",
-        "Containment area",
-        "Pressure",
-    ];
-    let label_bounds = |nodes: &[accesskit::Node], label: &str| {
-        nodes
-            .iter()
-            .find(|node| node.role() == Role::Label && node.value() == Some(label))
-            .and_then(|node| node.bounds())
-            .unwrap_or_else(|| panic!("no label {label:?}"))
-    };
 
-    // Measure the cells at a wide window: the wrap is one flowing line —
-    // a cell's drawn width is its label's left to its last control's
-    // right (bounded by the next cell's label on the same row).
-    let mut measure = Headless::sized(1600.0, 900.0);
-    let (nodes, _) = measure.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-    let mut cells: Vec<(&'static str, accesskit::Rect, usize)> = slider_labels
+    let mut window = Headless::sized(900.0, 900.0);
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    assert!(
+        (formation_label_bounds(&nodes, "Support range").y0
+            - formation_label_bounds(&nodes, "Defensive line").y0)
+            .abs()
+            < 1.0,
+        "two pairs on the first row"
+    );
+    let columns: std::collections::BTreeSet<i64> = FORMATION_LABELS
         .iter()
-        .chain(pair_labels.iter())
-        .map(|&label| (label, label_bounds(&nodes, label), 2))
-        .chain(std::iter::once((
-            "Substitution",
-            label_bounds(&nodes, "Substitution"),
-            1,
-        )))
+        .map(|label| formation_label_bounds(&nodes, label).x0 as i64)
         .collect();
-    cells.sort_by(|a, b| {
-        (a.1.y0, a.1.x0)
-            .partial_cmp(&(b.1.y0, b.1.x0))
-            .expect("ordered bounds")
-    });
-    let cell_widths: Vec<(&'static str, f64)> = cells
-        .iter()
-        .enumerate()
-        .map(|(index, (name, label, count))| {
-            let next_on_row = cells
-                .get(index + 1)
-                .and_then(|next| ((next.1.y0 - label.y0).abs() < 4.0).then_some(next.1.x0));
-            let mut bounds: Vec<accesskit::Rect> = nodes
-                .iter()
-                .filter(|node| {
-                    matches!(
-                        node.role(),
-                        Role::Slider
-                            | Role::SpinButton
-                            | Role::Button
-                            | Role::CheckBox
-                            | Role::ComboBox
-                    ) && node.bounds().is_some_and(|bounds| {
-                        (bounds.y0 - label.y0).abs() < 4.0
-                            && bounds.x0 >= label.x0
-                            && next_on_row.is_none_or(|next| bounds.x0 < next - 1.0)
-                    })
-                })
-                .filter_map(|node| node.bounds())
-                .collect();
-            bounds.sort_by(|a, b| a.x0.partial_cmp(&b.x0).expect("ordered bounds"));
-            let width = bounds
-                .iter()
-                .take(*count)
-                .map(|bounds| bounds.x1)
-                .fold(label.x1, f64::max)
-                - label.x0;
-            (*name, width)
-        })
-        .collect();
+    assert_eq!(
+        columns.len(),
+        2,
+        "the twelve labels sit in two label columns"
+    );
 
-    // The five slider cells' summed widths plus margins — 1,284 px here
-    // (239 + 238 + 234 + 261 + 272 = 1,244, plus 40) — the window for
-    // the packing checks.
-    let natural: f64 = cell_widths
-        .iter()
-        .filter(|(name, _)| slider_labels.contains(name))
-        .map(|(_, width)| *width)
-        .sum();
-    let width = (natural + 40.0).ceil() as f32;
+    let mut narrow = Headless::sized(500.0, 900.0);
+    let (nodes, _) = narrow.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let label_x0 = formation_label_bounds(&nodes, FORMATION_LABELS[0]).x0;
+    let controls_x0 = control_x0(&nodes, FORMATION_LABELS[0]);
+    for label in &FORMATION_LABELS[1..] {
+        assert_eq!(
+            formation_label_bounds(&nodes, label).x0,
+            label_x0,
+            "{label} shares the labels' column"
+        );
+        assert_eq!(
+            control_x0(&nodes, label),
+            controls_x0,
+            "{label}'s control shares the controls' column"
+        );
+    }
+}
 
-    let mut window = Headless::sized(width, 900.0);
+// The two-pairs bound is computed from the measures, never read back
+// from a drawn frame: at a pane that draws two pairs (900 wide) the
+// drawn row's width sits under the estimate and only a few points below
+// it (8.0 here, the one cell gap of slack) — an underestimate would let
+// a pane at the threshold clip a row's end, a large overestimate wraps
+// rows that fit.
+#[test]
+fn the_pairs_threshold_covers_the_drawn_row() {
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(version);
+    let roster = roster_rows(&rows);
+    let mut window = Headless::sized(900.0, 900.0);
     let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
 
-    // (a) the allocated cell covers its drawn contents to the pixel:
-    // the formula's width is at least the drawn width and at most a
-    // pixel more — an underestimate packs the next cell's content over
-    // this one's drawn end, an overestimate wraps early.
-    let mut expected = Vec::new();
-    window.frame(vec![], |ui| {
-        for spec in &SLIDERS {
-            expected.push((spec.label, slider_cell_width(ui, spec.label)));
-        }
-        for toggle in &STYLE_TOGGLES {
-            expected.push((toggle.label, pair_cell_width(ui, toggle)));
-        }
-        expected.push(("Substitution", sub_cell_width(ui)));
-    });
-    for (name, cell) in &cell_widths {
-        let estimated = f64::from(
-            expected
-                .iter()
-                .find(|(label, _)| label == name)
-                .expect("the cell's estimate")
-                .1,
-        );
-        assert!(
-            *cell <= estimated + 1.0 && *cell >= estimated - 1.0,
-            "{name}: allocated {estimated} vs drawn {cell}"
-        );
-    }
-
-    // (b) the five sliders share one row's y.
-    let rows: std::collections::BTreeSet<i64> = slider_labels
+    // The grid's drawn width: from the labels' left edge to the widest
+    // row's rightmost control (bounded by the grid's rows, the fluid
+    // checkbox above and the instructions table below).
+    let grid_left = FORMATION_LABELS
         .iter()
-        .map(|label| label_bounds(&nodes, label).y0 as i64)
-        .collect();
-    assert_eq!(rows.len(), 1, "the five slider cells share one row");
-
-    // And the seven pairs take as few rows as their measured widths
-    // allow: a greedy pack of their measured cells (the inter-cell gap
-    // is inside each span already) — their ~190-320 px cells land 5 + 2
-    // on the ~1,280 px above. The Substitution cell is not in the pack:
-    // it wraps on the Automatic settings row, below the pairs, and can
-    // never share one of theirs.
-    let pair_widths: Vec<f64> = cell_widths
+        .map(|label| formation_label_bounds(&nodes, label).x0)
+        .fold(f64::MAX, f64::min);
+    let grid_top = formation_label_bounds(&nodes, FORMATION_LABELS[0]).y0 - 2.0;
+    let grid_bottom = FORMATION_LABELS
         .iter()
-        .filter(|(name, _)| pair_labels.contains(name))
-        .map(|(_, width)| *width)
-        .collect();
-    assert_eq!(
-        pair_widths.len(),
-        pair_labels.len(),
-        "premise: every pair's cell was measured"
+        .map(|label| formation_label_bounds(&nodes, label).y0)
+        .fold(0.0, f64::max)
+        + 24.0;
+    let grid_right = nodes
+        .iter()
+        .filter(|node| {
+            node.role() != Role::Label
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.y0 >= grid_top && b.y1 <= grid_bottom && b.x0 >= grid_left)
+        })
+        .filter_map(|node| node.bounds())
+        .map(|b| b.x1)
+        .fold(0.0, f64::max);
+    let drawn = grid_right - grid_left;
+
+    let mut estimate = 0.0f64;
+    window.frame(vec![], |ui| estimate = f64::from(two_pairs_width(ui)));
+    assert!(
+        drawn <= estimate,
+        "the bound covers the drawn row ({drawn} drawn vs {estimate} estimated)"
     );
-    let mut greedy_rows = 1;
-    let mut used = 0.0;
-    for &cell in &pair_widths {
-        if used > 0.0 && used + cell > f64::from(width) {
-            greedy_rows += 1;
-            used = cell;
-        } else {
-            used += cell;
-        }
-    }
-    let drawn_rows: std::collections::BTreeSet<i64> = pair_labels
-        .iter()
-        .map(|label| label_bounds(&nodes, label).y0 as i64)
-        .collect();
-    assert_eq!(
-        drawn_rows.len(),
-        greedy_rows,
-        "the pairs take the fewest rows their widths allow \
-         (cells {cell_widths:?}, window {width})"
+    assert!(
+        estimate - drawn <= 16.0,
+        "by no more than a few points ({estimate} estimated vs {drawn} drawn)"
     );
 }
 

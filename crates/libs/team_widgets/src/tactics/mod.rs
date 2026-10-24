@@ -223,14 +223,12 @@ pub fn tactics_settings(
     .inner
 }
 
-/// The "Formation settings" group: the fluid-formation switch, the five
-/// sliders and the seven style pairs, in rows that wrap (the draft's
-/// `.row`, `flex-wrap: wrap`): each cell — a slider's label and slider,
-/// a pair's label and two choices — stays whole on one row, and a host's
-/// vertical-only scroll never clips a row's end at a narrow pane.
-/// egui's wrap sees only widgets, so each cell is allocated at its
-/// measured width: a bare `ui.horizontal` inside `horizontal_wrapped`
-/// claims the row's remaining width and never reaches the wrap check.
+/// The "Formation settings" group: the fluid-formation switch, then one
+/// `egui::Grid` of the five sliders and the seven style pairs, row-filled
+/// in the draft's order — each pair a label cell and a control cell (the
+/// slider; the two choices in a `ui.horizontal`). Two pairs a row where
+/// the column's width holds two of the widest (`two_pairs_width`), else
+/// one.
 fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
     ui.strong("Formation settings");
     match &mut preset.style.fluid {
@@ -246,46 +244,70 @@ fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
                 }));
         }
     }
-    ui.horizontal_wrapped(|ui| {
+    let per_row = if ui.available_width() >= two_pairs_width(ui) {
+        2
+    } else {
+        1
+    };
+    egui::Grid::new("formation settings").show(ui, |ui| {
+        let mut index = 0usize;
         for spec in &SLIDERS {
-            cell(ui, slider_cell_width(ui, spec.label), |ui| {
-                ui.label(spec.label);
-                let mut value = (spec.get)(&preset.sliders);
-                if ui
-                    .add(
-                        egui::Slider::new(&mut value, 1..=spec.max)
-                            .clamping(egui::SliderClamping::Edits),
-                    )
-                    .changed()
-                {
-                    (spec.set)(&mut preset.sliders, value);
-                }
-            });
+            ui.label(spec.label);
+            let mut value = (spec.get)(&preset.sliders);
+            if ui
+                .add(
+                    egui::Slider::new(&mut value, 1..=spec.max)
+                        .clamping(egui::SliderClamping::Edits),
+                )
+                .changed()
+            {
+                (spec.set)(&mut preset.sliders, value);
+            }
+            index += 1;
+            if index.is_multiple_of(per_row) {
+                ui.end_row();
+            }
         }
         for toggle in &STYLE_TOGGLES {
-            cell(ui, pair_cell_width(ui, toggle), |ui| {
-                style_toggle(ui, &mut preset.style, toggle)
-            });
+            ui.label(toggle.label);
+            ui.horizontal(|ui| style_choices(ui, &mut preset.style, toggle));
+            index += 1;
+            if index.is_multiple_of(per_row) {
+                ui.end_row();
+            }
         }
     });
 }
 
-/// A slider cell's drawn width: the label, the rail (`slider_width`) and
-/// the value field (a DragValue's `interact_size.x`), plus the gaps.
-fn slider_cell_width(ui: &egui::Ui, label: &str) -> f32 {
-    text_width(ui, label)
-        + ui.spacing().slider_width
-        + ui.spacing().interact_size.x
-        + 2.0 * ui.spacing().item_spacing.x
-}
-
-/// A style pair cell's drawn width: the label and the two choices, each
-/// a selectable's text and padding, plus the gaps.
-fn pair_cell_width(ui: &egui::Ui, toggle: &StyleToggle) -> f32 {
-    text_width(ui, toggle.label)
-        + choice_width(ui, toggle.off)
-        + choice_width(ui, toggle.on)
-        + 2.0 * ui.spacing().item_spacing.x
+/// The width a two-pairs row of the grid needs: the pairs' labels land in
+/// two columns, their controls in two more, so the row is the widest
+/// label and the widest control of each column plus the grid's gaps (one
+/// per cell boundary and a little slack — the bound stays an upper one,
+/// so a miss wraps the row to one pair early rather than clipping it).
+fn two_pairs_width(ui: &egui::Ui) -> f32 {
+    let gap = ui.spacing().item_spacing.x;
+    // A slider's control is the rail (`slider_width`), a gap and the
+    // value's field (a DragValue's `interact_size.x`); a pair's is the
+    // two choices in a `ui.horizontal` and their gap.
+    let slider_control = ui.spacing().slider_width + gap + ui.spacing().interact_size.x;
+    let mut label = [0.0f32; 2];
+    let mut control = [0.0f32; 2];
+    let mut widest = |column: usize, label_w: f32, control_w: f32| {
+        label[column] = label[column].max(label_w);
+        control[column] = control[column].max(control_w);
+    };
+    for (index, spec) in SLIDERS.iter().enumerate() {
+        widest(index % 2, text_width(ui, spec.label), slider_control);
+    }
+    for (index, toggle) in STYLE_TOGGLES.iter().enumerate() {
+        let choices = choice_width(ui, toggle.off) + choice_width(ui, toggle.on) + gap;
+        widest(
+            (SLIDERS.len() + index) % 2,
+            text_width(ui, toggle.label),
+            choices,
+        );
+    }
+    label[0] + control[0] + label[1] + control[1] + 4.0 * gap
 }
 
 /// The Substitution pair's drawn width: the label and the DragValue
@@ -321,13 +343,11 @@ fn cell(ui: &mut egui::Ui, width: f32, add: impl FnOnce(&mut egui::Ui)) {
     );
 }
 
-/// One style pair's cell's contents: its label and the two choices as the
-/// game names them.
-fn style_toggle(ui: &mut egui::Ui, style: &mut TacticStyle, toggle: &StyleToggle) {
-    ui.label(toggle.label);
+/// One style pair's control cell: the two choices as the game names
+/// them, both drawn every frame — an `||` over the two would skip the
+/// second on the frame the first is clicked.
+fn style_choices(ui: &mut egui::Ui, style: &mut TacticStyle, toggle: &StyleToggle) {
     let mut value = (toggle.get)(style);
-    // Both choices are drawn every frame: an `||` over the two would
-    // skip the second on the frame the first is clicked.
     ui.selectable_value(&mut value, false, toggle.off);
     ui.selectable_value(&mut value, true, toggle.on);
     if value != (toggle.get)(style) {
@@ -337,8 +357,8 @@ fn style_toggle(ui: &mut egui::Ui, style: &mut TacticStyle, toggle: &StyleToggle
 
 /// The "Automatic settings" group: the substitution byte as stored, the
 /// offside trap, the preset change and the attack/defence levels. The
-/// row wraps like the formation settings' (the same `cell` measure for
-/// the label's pair).
+/// row wraps on the measured `cell` for the label's pair, so a narrow
+/// pane wraps the last checkbox below rather than clipping it.
 fn automatic_settings(ui: &mut egui::Ui, auto: &mut TeamAutoFlags) {
     ui.strong("Automatic settings");
     ui.horizontal_wrapped(|ui| {

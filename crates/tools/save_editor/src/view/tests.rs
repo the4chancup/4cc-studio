@@ -494,6 +494,46 @@ fn label_value(nodes: &[accesskit::Node], value: &str) -> bool {
         .any(|node| node.role() == Role::Label && node.value() == Some(value))
 }
 
+/// What the editor's pane takes before a tab's content: a `Headless`
+/// window `w` wide gives the tab `w - TAB_AREA_OFFSET` of
+/// `available_width` (the 200-wide player list, its separator and the
+/// frame margins; measured once at 1440, where a tab sees 1224).
+const TAB_AREA_OFFSET: f32 = 216.0;
+
+/// The bounds of the Label node showing `value` (a grid's label cell).
+fn label_bounds(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
+    nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some(value))
+        .and_then(accesskit::Node::bounds)
+        .unwrap_or_else(|| panic!("no label {value:?}"))
+}
+
+/// The AccessKit id of the `role` node on `label`'s row to its right (a
+/// label/field pair's field: `right_of_label` on the node pairs `frame_ids`
+/// returns).
+fn node_id_right_of(
+    ids: &[(accesskit::NodeId, accesskit::Node)],
+    label: &str,
+    role: Role,
+) -> accesskit::NodeId {
+    let bounds = ids
+        .iter()
+        .find(|(_, node)| node.role() == Role::Label && node.value() == Some(label))
+        .and_then(|(_, node)| node.bounds())
+        .unwrap_or_else(|| panic!("no label {label:?}"));
+    ids.iter()
+        .filter(|(_, node)| node.role() == role && on_row_right_of(bounds, node))
+        .min_by(|a, b| {
+            let x = |(_, node): &&(accesskit::NodeId, accesskit::Node)| {
+                node.bounds().expect("bounds").x0
+            };
+            x(a).partial_cmp(&x(b)).expect("ordered bounds")
+        })
+        .map(|(id, _)| *id)
+        .unwrap_or_else(|| panic!("no {role:?} right of {label:?}"))
+}
+
 /// The node of `role` labeled `label`.
 fn node_labeled<'a>(nodes: &'a [accesskit::Node], role: Role, label: &str) -> &'a accesskit::Node {
     nodes
@@ -504,7 +544,11 @@ fn node_labeled<'a>(nodes: &'a [accesskit::Node], role: Role, label: &str) -> &'
 
 /// The lineup rows' name labels in draw order (the 11 starting-eleven
 /// rows, then the bench rows): each row's last label is its name, found
-/// through the ≡ handles since the fixture's players share names.
+/// through the ≡ handles since the fixture's players share names. The
+/// name is the label right of the row's position label (≡, position,
+/// name) — the rightmost label of the row is no answer on the
+/// three-column Tactics frame, where a settings label can share the
+/// row's y beside the lists.
 fn lineup_names(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
     let mut handles: Vec<&accesskit::Node> = nodes
         .iter()
@@ -520,20 +564,10 @@ fn lineup_names(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
     handles
         .iter()
         .map(|handle| {
-            let bounds = handle.bounds().expect("handle bounds");
-            nodes
-                .iter()
-                .filter(|node| {
-                    node.role() == Role::Label
-                        && node
-                            .bounds()
-                            .is_some_and(|b| (b.y0 - bounds.y0).abs() < 4.0 && b.x0 > bounds.x0)
-                })
-                .max_by(|a, b| {
-                    let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
-                    x(a).partial_cmp(&x(b)).expect("ordered bounds")
-                })
-                .unwrap_or_else(|| panic!("no name on a lineup row"))
+            let position = first_right_of(nodes, handle, |node| node.role() == Role::Label)
+                .expect("a position label on the lineup row");
+            first_right_of(nodes, position, |node| node.role() == Role::Label)
+                .expect("a name on the lineup row")
         })
         .collect()
 }

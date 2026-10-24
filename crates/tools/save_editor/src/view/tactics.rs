@@ -13,11 +13,21 @@
 //! widget has focus).
 
 use pes_savefile::model::names::display_name;
+use pes_savefile::model::tactics::TeamTactics;
+use pes_version::PesVersion;
 use team_widgets::pitch::{self, FORMATIONS};
 use team_widgets::tactics::{self, RosterRow};
 
 use crate::session::Session;
 use crate::view::{SaveView, edit_team, selected_team};
+
+/// The lists column's width (the draft's `#tac-lists`): the Starting
+/// eleven and Bench lists' fixed narrow column in both arrangements.
+const LISTS_WIDTH: f32 = 240.0;
+/// The settings column's break width (the draft's `#tac-settings` flex
+/// base): beside the pitch and the lists on a wide pane, under them at
+/// the pane's width on a narrow one.
+const SETTINGS_MIN: f32 = 360.0;
 
 /// The tab for the selected player's team, in the strip's `Team` group.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
@@ -81,30 +91,34 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // Team tab's rule): a combo's popup, a DragValue's in-progress edit
     // and the widget's state never cross teams nor saves.
     ui.push_id((*generation, team_id), |ui| {
-        ui.horizontal(|ui| {
-            tactics::preset_selector(ui, tactics);
-            copy_swap_preset_menu(ui, session, team_id);
-            copy_swap_formation_menu(ui, session, team_id, tactics.preset);
-        });
         let mut edited = team.tactics.clone();
-        // The draft's `note`: an armed mode's note spans both columns.
-        tactics::assign_note(ui, tactics);
-        // The draft's `taccols`: the pitch in the left column, the lists
-        // at its right.
         let mut changed = [false; 3];
+        // `three_columns`: the width the draft's `taccols` needs — the
+        // pitch column's fixed `PITCH.x`, the lists' `LISTS_WIDTH` (the
+        // draft's `#tac-lists`), the settings column's `SETTINGS_MIN`
+        // (the draft's `#tac-settings` flex base) and the two
+        // `item_spacing.x` gaps between them, computed from constants
+        // (never measured back: `DECISIONS.md` 2026-10-24, rows picked by
+        // width). Below it the pitch and the lists still sit side by
+        // side and the settings column's content draws under them at the
+        // pane's width.
+        let gap = ui.spacing().item_spacing.x;
+        let three_columns = pitch::PITCH.x + LISTS_WIDTH + SETTINGS_MIN + 2.0 * gap;
         // A side-by-side layout built like `ui.columns` but with the widths
-        // the draft means: the pitch at its canvas' fixed width, the lists at
-        // its right in what remains. `ui.columns` halves the pane instead, and
-        // answers a column whose content is wider than its half — the pitch at
-        // a narrow window — by widening the ui's `max_rect`; the settings rows'
-        // wrap below then reads the overflowed width as its bound.
+        // the draft means: the pitch at its canvas' fixed width, the lists
+        // at its right at their own fixed one. `ui.columns` splits the pane
+        // evenly instead, and answers a column whose content is wider than
+        // its half — the pitch at a narrow window — by widening the ui's
+        // `max_rect`; the settings rows' wrap below then reads the
+        // overflowed width as its bound.
         let top_left = ui.cursor().min;
+        let right = ui.max_rect().right();
         let bottom = ui.max_rect().right_bottom().y;
         let pitch_rect =
             egui::Rect::from_min_max(top_left, egui::pos2(top_left.x + pitch::PITCH.x, bottom));
         let list_rect = egui::Rect::from_min_max(
-            egui::pos2(pitch_rect.max.x + ui.spacing().item_spacing.x, top_left.y),
-            egui::pos2(ui.max_rect().right(), bottom),
+            egui::pos2(pitch_rect.max.x + gap, top_left.y),
+            egui::pos2(pitch_rect.max.x + gap + LISTS_WIDTH, bottom),
         );
         let mut pitch_ui = ui.new_child(
             egui::UiBuilder::new()
@@ -132,22 +146,55 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             tactics,
             &roster,
         );
-        let size = egui::vec2(
-            ui.max_rect().right() - top_left.x,
-            pitch_ui
-                .min_rect()
-                .height()
-                .max(list_ui.min_rect().height()),
+        let block = pitch_ui
+            .min_rect()
+            .height()
+            .max(list_ui.min_rect().height());
+        // The settings column's `Ui` takes one explicit `scope_id` in
+        // both arrangements, so its widgets' ids — the sliders' among
+        // them — are equal either side of `three_columns`: an explicit
+        // scope id makes the child's `unique_id` (what the auto widget
+        // ids seed from) independent of the call counter, where a bare
+        // `id_salt` would still read it.
+        let settings_rect = if ui.available_width() >= three_columns {
+            // The third column takes what the pitch and the lists leave.
+            egui::Rect::from_min_max(
+                egui::pos2(list_rect.max.x + gap, top_left.y),
+                egui::pos2(right, bottom),
+            )
+        } else {
+            // Below the columns' width it draws whole under them, one
+            // item gap down as the next widget below them would sit.
+            egui::Rect::from_min_max(
+                egui::pos2(top_left.x, top_left.y + block + ui.spacing().item_spacing.y),
+                egui::pos2(right, bottom),
+            )
+        };
+        let mut settings_ui = ui.new_child(
+            egui::UiBuilder::new()
+                .scope_id(ui.make_persistent_id("settings"))
+                .max_rect(settings_rect)
+                .layout(egui::Layout::top_down(egui::Align::LEFT)),
         );
-        ui.advance_cursor_after_rect(egui::Rect::from_min_size(top_left, size));
-        changed[2] = tactics::tactics_settings(
-            ui,
-            "tactics settings",
+        changed[2] = settings_column(
+            &mut settings_ui,
+            session,
+            team_id,
             version,
-            &mut edited,
             tactics,
+            &mut edited,
             &roster,
         );
+        // One advance covering the columns' block (the tallest child).
+        let height = [&pitch_ui, &list_ui, &settings_ui]
+            .iter()
+            .map(|child| child.min_rect().max.y)
+            .fold(top_left.y, f32::max)
+            - top_left.y;
+        ui.advance_cursor_after_rect(egui::Rect::from_min_size(
+            top_left,
+            egui::vec2(right - top_left.x, height),
+        ));
         // One undo key per widget call (the plan's "changes from one
         // widget merge into the open entry"): the pitch's drag never
         // merges into a settings click or a row drop.
@@ -176,6 +223,30 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             );
         }
     });
+}
+
+/// The settings column's whole content, in the draft's order (the
+/// `tacbar` then `note` then the settings groups): the preset bar with
+/// the selector and the two copy/swap menus, the armed mode's note, then
+/// `tactics_settings`. On a wide pane it is the third column; below the
+/// three-column width it draws under the pitch and the lists at the
+/// pane's width, the preset bar first.
+fn settings_column(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    team_id: u32,
+    version: PesVersion,
+    view: &mut tactics::TacticsView,
+    edited: &mut TeamTactics,
+    roster: &[RosterRow<'_>],
+) -> bool {
+    ui.horizontal(|ui| {
+        tactics::preset_selector(ui, view);
+        copy_swap_preset_menu(ui, session, team_id);
+        copy_swap_formation_menu(ui, session, team_id, view.preset);
+    });
+    tactics::assign_note(ui, view);
+    tactics::tactics_settings(ui, "tactics settings", version, edited, view, roster)
 }
 
 /// The "Copy/swap preset" menu (the draft's `presetMenu`): six copies,

@@ -517,6 +517,132 @@ fn the_formation_settings_wrap_inside_a_narrow_window() {
     }
 }
 
+// plans/save_editor.md "Tactics editor" (the "pitch is the editor"
+// bullet's three columns): at the default pane (1280 x 876) the settings
+// column sits beside the lists — the Formation settings heading right of
+// the lists column's 240, its top beside the canvas — and the formation
+// grid's labels and controls each share one x0 (the column holds one
+// pair a row), every control inside the pane.
+#[test]
+fn the_tactics_tab_is_three_columns_at_the_default_pane() {
+    let path = fixture(PesVersion::Pes21, "tactics_three_columns");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(1280.0, 876.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let settings = label_bounds(&nodes, "Formation settings");
+    let bench = label_bounds(&nodes, "Bench");
+    let canvas = canvas_of(&nodes);
+    assert!(
+        settings.x0 > bench.x0 + 240.0,
+        "the settings column right of the lists' 240 (settings {settings:?}, bench {bench:?})"
+    );
+    assert!(
+        settings.y0 < canvas.y1,
+        "its top beside the canvas (settings {settings:?}, canvas {canvas:?})"
+    );
+
+    // The formation grid at the column's width: one pair a row — the
+    // twelve labels share one x0 and each pair's control one x0.
+    let labels_x0 = label_bounds(&nodes, "Support range").x0;
+    let controls_x0 = control_right_of(&nodes, "Support range")
+        .bounds()
+        .expect("bounds")
+        .x0;
+    for label in [
+        "Defensive line",
+        "Compactness",
+        "Numbers in attack",
+        "Numbers in defence",
+        "Attacking style",
+        "Attacking zone",
+        "Buildup",
+        "Positioning",
+        "Defensive style",
+        "Containment area",
+        "Pressure",
+    ] {
+        let label_bounds = label_bounds(&nodes, label).x0;
+        assert_eq!(label_bounds, labels_x0, "{label} shares the labels' x0");
+        assert_eq!(
+            control_right_of(&nodes, label).bounds().expect("bounds").x0,
+            controls_x0,
+            "{label}'s control shares the controls' x0"
+        );
+    }
+
+    // The tab's controls (right of the player list's edge: the list's
+    // own scrolled-off rows are no tab's business) end inside the pane.
+    for role in [Role::Slider, Role::Button, Role::ComboBox, Role::CheckBox] {
+        for node in nodes.iter().filter(|node| node.role() == role) {
+            let bounds = node
+                .bounds()
+                .unwrap_or_else(|| panic!("{role:?} has no bounds"));
+            assert!(
+                bounds.x0 < canvas.x0 - 1.0 || (bounds.x1 <= 1280.0 && bounds.y1 <= 876.0),
+                "{role:?} {} ends outside the pane ({bounds:?})",
+                node.label().or(node.value()).unwrap_or("?")
+            );
+        }
+    }
+}
+
+// Below the three-column width (the smallest pane, 877 wide — taller
+// here so the settings' nodes below the fold are still drawn): the
+// settings column draws under the pitch and the lists, its heading below
+// the canvas' bottom and the last bench row, every control inside the
+// pane's width.
+#[test]
+fn the_tactics_tab_stacks_the_settings_below_at_the_smallest_pane() {
+    let path = fixture(PesVersion::Pes21, "tactics_stacked");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(877.0, 1600.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let settings = label_bounds(&nodes, "Formation settings");
+    let canvas = canvas_of(&nodes);
+    assert!(
+        settings.y0 > canvas.y1,
+        "the settings column below the canvas (settings {settings:?}, canvas {canvas:?})"
+    );
+    // And below the bench list's bottom edge as drawn: the bench scroll's
+    // bar (the lists' right side — the starting eleven's 11 rows never
+    // scroll, the tab's own bar would sit at the pane's right edge). The
+    // rows' nodes run to the scrolled-off end of the list, so the bar's
+    // track bottom is the measure, not the last row's node.
+    let bench_bottom = nodes
+        .iter()
+        .filter(|node| node.role() == Role::ScrollBar)
+        .filter_map(|node| node.bounds())
+        .filter(|bounds| bounds.x0 > canvas.x1 && bounds.x0 < canvas.x1 + 260.0)
+        .map(|bounds| bounds.y1)
+        .fold(0.0, f64::max);
+    assert!(bench_bottom > 0.0, "the bench list scrolls (premise)");
+    assert!(
+        settings.y0 > bench_bottom,
+        "and below the last bench row in view (settings {settings:?}, bench list bottom {bench_bottom})"
+    );
+
+    for role in [Role::Slider, Role::Button, Role::ComboBox, Role::CheckBox] {
+        for node in nodes.iter().filter(|node| node.role() == role) {
+            let bounds = node
+                .bounds()
+                .unwrap_or_else(|| panic!("{role:?} has no bounds"));
+            assert!(
+                bounds.x1 <= 877.0,
+                "{role:?} {} clips the pane's right edge ({bounds:?})",
+                node.label().or(node.value()).unwrap_or("?")
+            );
+        }
+    }
+}
+
 // plans/save_editor.md "Tactics editor" (the "Portraits" sub-bullet):
 // the pitch draws a starter's portrait read off the UI thread from the
 // selected game's `download/` CPKs; the markers without one paint the
@@ -634,5 +760,30 @@ fn the_automatic_settings_and_the_note_wrap_inside_a_narrow_window() {
     assert!(
         done.bounds().expect("button bounds").x1 <= 800.0,
         "the note's button inside the window's width"
+    );
+}
+
+// The settings column's widgets keep their ids across `three_columns`
+// (the same class as the width thresholds' ids: the column draws in one
+// salted child `Ui` at the same call position in both arrangements, so a
+// field's AccessKit id is equal at the default pane and at the smallest).
+#[test]
+fn the_settings_widgets_keep_their_ids_across_three_columns() {
+    let path = fixture(PesVersion::Pes21, "settings_ids");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+
+    let mut wide = Headless::sized(1280.0, 876.0);
+    let (_, ids, _) = wide.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let support_range = node_id_right_of(&ids, "Support range", Role::Slider);
+
+    let mut narrow = Headless::sized(877.0, 624.0);
+    let (_, ids, _) = narrow.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        node_id_right_of(&ids, "Support range", Role::Slider),
+        support_range,
+        "the slider's id across the three-column break"
     );
 }

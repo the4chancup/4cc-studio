@@ -242,7 +242,8 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   - **Appearance** — first a **Cutscenes** group, star (19+) and playing attitude (20+),
     outside the aesthetics lock: they change only cutscenes, so they are no aesthetic the
     export owns. Then the ownership line, the switch and the locked groups, each group's
-    labels in their own aligned cells: edit flags (face/hair/physique/strip, base copy + copy-from
+    labels in their own aligned cells, the draft's pairs per row a cap a narrow pane lowers
+    (physique two, the strip's ids, enums and checkboxes four, motion four): edit flags (face/hair/physique/strip, base copy + copy-from
     ID), physique sliders (14 values), colors (wrist tape L/R, spectacles), strip
     style (boots ID, gloves ID — any player's, 0 = normal hands — taping, spectacles,
     sleeves, inners, socks, undershorts, shirttail, the player-gloves checkbox), motion (hunching, arm movement, kick
@@ -315,10 +316,13 @@ Win32 original hurt the most):
   click, not the primary interface. The tab is three columns: the formation selector over the
   canvas at its fixed width, the starting eleven and bench lists at a fixed narrow width, then
   the preset bar, the note and the settings groups taking the rest and wrapping inside it,
-  the formation settings an aligned grid of two pairs per row: every control in view at
-  1440 x 900, not settings rows below the pitch past the window's bottom. Not columns of half
-  the pane each: a column narrower than the canvas widens the pane's layout bound, and the
-  rows then wrap past the window's edge.
+  the formation settings an aligned grid of up to two pairs per row (one where the column
+  cannot hold two, as the ability stats' columns): every control in view at 1440 x 900, not
+  settings rows below the pitch past the window's bottom. A pane too narrow for a settings
+  column of the draft's 360 points beside the other two (the smallest default window's) takes
+  the settings column whole below the pitch and the lists, never a group split between
+  columns. Not columns of half the pane each: a column narrower than the canvas widens the
+  pane's layout bound, and the rows then wrap past the window's edge.
 - **The pitch looks like PES 2021's own formation screen** (Edit, Teams, a team, Game Plan,
   Team Sheet/Edit Position), each starter shown as the game shows him, by his portrait, read
   from the selected game's `download/` CPKs when that folder is found and holds one. Every

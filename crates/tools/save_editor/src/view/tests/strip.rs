@@ -974,13 +974,6 @@ fn a_pes17_strip_refuses_a_name_past_its_own_field() {
     );
 }
 
-/// Whether the nodes draw a Label node with `value` as its text.
-fn label_drawn(nodes: &[accesskit::Node], value: &str) -> bool {
-    nodes
-        .iter()
-        .any(|node| node.role() == Role::Label && node.value() == Some(value))
-}
-
 /// Whether `shapes` paints `text` at the heading size (the header's
 /// title; the tabs' strong lines and the lists' rows are body-sized).
 fn title_painted(shapes: &[egui::epaint::ClippedShape], text: &str, heading: f32) -> bool {
@@ -1073,7 +1066,7 @@ fn the_player_header_tops_the_player_tabs_alone() {
         for label in [
             "Name", "Shirt", "Number", "Captain", "ID", "Nation", "Age", "Height", "Weight",
         ] {
-            assert!(label_drawn(&nodes, label), "{label} on {tab:?}");
+            assert!(label_value(&nodes, label), "{label} on {tab:?}");
         }
     }
     for tab in [Tab::Tactics, Tab::TeamSettings] {
@@ -1087,7 +1080,7 @@ fn the_player_header_tops_the_player_tabs_alone() {
         for label in [
             "Shirt", "Captain", "ID", "Nation", "Age", "Height", "Weight",
         ] {
-            assert!(!label_drawn(&nodes, label), "{label} not on {tab:?}");
+            assert!(!label_value(&nodes, label), "{label} not on {tab:?}");
         }
     }
 }

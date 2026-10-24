@@ -2,14 +2,6 @@ use pes_savefile::model::KitSlot;
 
 use super::*;
 
-/// The node of `role` with `label`, or panic naming both.
-fn labeled<'a>(nodes: &'a [accesskit::Node], role: Role, label: &str) -> &'a accesskit::Node {
-    nodes
-        .iter()
-        .find(|node| node.role() == role && node.label() == Some(label))
-        .unwrap_or_else(|| panic!("no {role:?} {label:?}"))
-}
-
 /// The Savefile menu's popup open for one frame: a click on the Savefile
 /// button (skipped when a previous call left it open), then the frame's
 /// nodes.
@@ -79,7 +71,7 @@ fn fix_database_repairs_the_save_behind_a_confirmation_and_one_undo() {
     let nodes = open_savefile_menu(&mut window, &mut view);
     click(
         &mut window,
-        labeled(&nodes, Role::Button, "Fix database\u{2026}"),
+        node_labeled(&nodes, Role::Button, "Fix database\u{2026}"),
         &mut view,
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -93,7 +85,7 @@ fn fix_database_repairs_the_save_behind_a_confirmation_and_one_undo() {
     );
     click(
         &mut window,
-        labeled(&nodes, Role::Button, "Cancel"),
+        node_labeled(&nodes, Role::Button, "Cancel"),
         &mut view,
     );
     assert!(
@@ -109,13 +101,13 @@ fn fix_database_repairs_the_save_behind_a_confirmation_and_one_undo() {
     let nodes = open_savefile_menu(&mut window, &mut view);
     click(
         &mut window,
-        labeled(&nodes, Role::Button, "Fix database\u{2026}"),
+        node_labeled(&nodes, Role::Button, "Fix database\u{2026}"),
         &mut view,
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
-        labeled(&nodes, Role::Button, "Fix database"),
+        node_labeled(&nodes, Role::Button, "Fix database"),
         &mut view,
     );
     assert_eq!(
@@ -256,7 +248,7 @@ fn the_fix_database_question_names_only_what_the_save_has() {
         let nodes = open_savefile_menu(&mut window, &mut view);
         click(
             &mut window,
-            labeled(&nodes, Role::Button, "Fix database\u{2026}"),
+            node_labeled(&nodes, Role::Button, "Fix database\u{2026}"),
             &mut view,
         );
         let (_, nodes, _) =
@@ -267,7 +259,7 @@ fn the_fix_database_question_names_only_what_the_save_has() {
         );
         click(
             &mut window,
-            labeled(&nodes, Role::Button, "Cancel"),
+            node_labeled(&nodes, Role::Button, "Cancel"),
             &mut view,
         );
     }
@@ -285,7 +277,7 @@ fn the_locked_savefile_menu_disables_fix_database_only() {
     let mut window = Headless::sized(1100.0, 700.0);
     let nodes = open_savefile_menu(&mut window, &mut view);
 
-    let item = labeled(&nodes, Role::Button, "Fix database\u{2026}");
+    let item = node_labeled(&nodes, Role::Button, "Fix database\u{2026}");
     assert!(
         item.is_disabled(),
         "Fix database is disabled under the lock"
@@ -296,7 +288,7 @@ fn the_locked_savefile_menu_disables_fix_database_only() {
         "its hover is the ownership line"
     );
     assert!(
-        !labeled(&nodes, Role::Button, "Output rosters to TSV\u{2026}").is_disabled(),
+        !node_labeled(&nodes, Role::Button, "Output rosters to TSV\u{2026}").is_disabled(),
         "the TSV item stays enabled: it writes nothing of the save's"
     );
 }

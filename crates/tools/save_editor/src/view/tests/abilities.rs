@@ -1303,3 +1303,115 @@ fn the_stronger_hand_combo_stores_the_pick_as_one_edit() {
     assert_eq!(hand(&view), Some(0), "undone");
     assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
 }
+
+// The width thresholds never re-key a widget: an egui id follows call
+// order inside a scope, so crossing one would hand a DragValue's
+// in-progress edit to another control (the `top_row` blocks, `team::bar`'s
+// pairs and the stats cells each sit under a fixed salt). A field's
+// AccessKit id is the egui `Id`: the Ball Control stat's field at four
+// columns and at three, the Profile's Playing style combo at one line
+// and at two, and the team bar's Short field at one row and at two all
+// keep the same id.
+#[test]
+fn widget_ids_hold_across_the_width_thresholds() {
+    let path = fixture(PesVersion::Pes21, "widget_ids");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let id_at = |window: &mut Headless, view: &mut SaveView, label: &str, role: Role| {
+        let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        node_id_right_of(&ids, label, role)
+    };
+
+    let mut wide = Headless::sized(1100.0, 800.0);
+    let ball_control = id_at(&mut wide, &mut view, "Ball Control", Role::SpinButton);
+    let mut narrow = Headless::sized(877.0, 624.0);
+    assert_eq!(
+        id_at(&mut narrow, &mut view, "Ball Control", Role::SpinButton),
+        ball_control,
+        "the stat's field across the column count"
+    );
+
+    let mut wide = Headless::sized(1440.0, 900.0);
+    let playing_style = id_at(&mut wide, &mut view, "Playing style", Role::ComboBox);
+    assert_eq!(
+        id_at(&mut narrow, &mut view, "Playing style", Role::ComboBox),
+        playing_style,
+        "the profile combo across the top row's arrangement"
+    );
+
+    let short = id_at(&mut wide, &mut view, "Short", Role::TextInput);
+    assert_eq!(
+        id_at(&mut narrow, &mut view, "Short", Role::TextInput),
+        short,
+        "the bar's field across the row break"
+    );
+}
+
+// `TOP_ROW_ONE_LINE`'s edge: the pane width whose tab area is the
+// constant (`TAB_AREA_OFFSET` more). With the Profile combos at their
+// widest (the playing style's Defensive Goalkeeper; the other three stay
+// at their minimum width whatever they show) the three blocks
+// still take one line there and the row's last widget ends inside the
+// pane.
+#[test]
+fn the_top_row_holds_one_line_at_its_edge() {
+    use pes_savefile::model::playstyle::PlayStyle;
+    use pes_savefile::schema::playstyle;
+
+    let path = fixture(PesVersion::Pes21, "top_row_edge");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    {
+        let positions = &mut file.player_mut(70101).unwrap().positions;
+        positions.playing_style =
+            playstyle::encode(PesVersion::Pes21, PlayStyle::DefensiveGoalkeeper)
+                .expect("PES 21 stores Defensive Goalkeeper");
+        positions.registered = 3;
+        positions.stronger_foot = 0;
+        positions.stronger_hand = Some(0);
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(
+        crate::view::abilities::TOP_ROW_ONE_LINE + TAB_AREA_OFFSET,
+        1400.0,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let row_y = label_bounds(&nodes, "Profile").y0;
+    for heading in ["Playable positions", "Quick actions"] {
+        assert!(
+            (label_bounds(&nodes, heading).y0 - row_y).abs() < 1.0,
+            "{heading} shares the top row"
+        );
+    }
+    // The row's last widget ends inside the constant (the pane's right
+    // edge is the row's left edge plus `available_width`): the rightmost
+    // control inside the top row's band (everything above the stats).
+    let left = label_bounds(&nodes, "Profile").x0;
+    let stats_top = label_bounds(&nodes, "Ability stats").y0;
+    let right = nodes
+        .iter()
+        .filter(|node| {
+            matches!(
+                node.role(),
+                Role::Button
+                    | Role::CheckBox
+                    | Role::ComboBox
+                    | Role::RadioButton
+                    | Role::Slider
+                    | Role::SpinButton
+                    | Role::TextInput
+            ) && node
+                .bounds()
+                .is_some_and(|b| b.x0 >= left - 1.0 && b.y0 >= row_y - 1.0 && b.y0 < stats_top)
+        })
+        .filter_map(|node| node.bounds())
+        .map(|b| b.x1)
+        .fold(0.0, f64::max);
+    assert!(
+        right <= left + f64::from(crate::view::abilities::TOP_ROW_ONE_LINE),
+        "the row ends inside its constant ({right} vs {})",
+        left + f64::from(crate::view::abilities::TOP_ROW_ONE_LINE)
+    );
+}

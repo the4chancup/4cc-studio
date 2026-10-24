@@ -10815,3 +10815,19 @@ a wrong estimate wraps a little early or late, never splits a unit. Four fixed c
 would clip on the smallest default window's pane if the labels outgrow it, where the old row
 fill wrapped.
 Plan: `plans/save_editor.md` "Editing UI", the team bar bullet and the Abilities & Skills bullet.
+
+## 2026-10-24 — save_editor — The draft's pair counts as caps, and the Tactics settings column below on a narrow pane
+Decision: Appearance's grids take the draft's pairs per row as a cap, fewer where the pane
+cannot hold them: physique two, the strip style's ids, enums and checkboxes four, the motions
+four (the draft's 4 / 4 / 2); the strip's wrist-taping, spectacles and player-gloves rows are a
+grid of their own, label and contents. The Tactics tab's formation settings take up to two
+pairs per row, one where the settings column cannot hold two; the settings column sits beside
+the pitch and the lists where the pane holds it at the draft's 360 points, else whole below
+them.
+Why: the ability stats' rule (the entry above): a fixed count clips the smallest default
+window's pane where the old row fill wrapped. An egui grid has no column span, so the draft's
+colspan rows inside the strip's table would widen one field column to a palette's width and
+push the table off the pane; a separate grid keeps their labels aligned among themselves, not
+with the table's first column, which would need the table's width from a previous frame.
+Plan: `plans/save_editor.md` "Editing UI", the Appearance bullet; "Tactics editor", the
+three-columns sentence.

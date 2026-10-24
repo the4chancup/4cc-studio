@@ -165,7 +165,10 @@ fn lineup_row(
             } else {
                 let mut job = egui::text::LayoutJob::default();
                 append_name(&mut job, raw_name);
-                ui.label(job);
+                // Cut at the row's end (the full name on hover): the
+                // host gives the lists a fixed width, and a long name
+                // would otherwise draw over the column at their right.
+                ui.add(egui::Label::new(job).truncate());
             }
         });
     };

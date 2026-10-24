@@ -26,7 +26,8 @@ use team_widgets::cards::{self, TierCards};
 
 use crate::session::Session;
 use crate::view::{
-    ActiveRules, BadgeKey, SaveView, edit_player, quick_actions, rules_load_error, selected_player,
+    ActiveRules, BadgeKey, SaveView, edit_player, quick_actions, rules_load_error, scoped,
+    selected_player,
 };
 
 /// The Profile grid's registered-position combo.
@@ -97,12 +98,15 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 }
 
 /// The width the three blocks take on one line, measured once in a
-/// headless frame with the default font at 1440 x 900 (the drawn
-/// `min_rect` of each `ui.vertical` block, summed with the two item gaps:
-/// Profile ~450, Playable positions ~474, Quick actions ~114, so ~1054
-/// points). A wrong estimate wraps a block a bit early or late; it never
-/// splits one, since the fallback is whole blocks on two lines.
-const TOP_ROW_ONE_LINE: f32 = 1055.0;
+/// headless frame at 1600 x 1400 with each Profile combo at its widest
+/// option (the playing style's Defensive Goalkeeper; the registered
+/// position, foot and hand combos stay at their minimum `combo_width`
+/// whatever they show): the drawn `min_rect` of each
+/// `ui.vertical` block summed with the two item gaps is Profile ~510,
+/// Playable positions ~474, Quick actions ~116, so ~1117 points. A wrong
+/// estimate wraps a block a bit early or late; it never splits one,
+/// since the fallback is whole blocks on two lines.
+pub(super) const TOP_ROW_ONE_LINE: f32 = 1117.0;
 
 /// The top row (the draft's `topblocks`): the Profile grid, the positions
 /// grid and the quick actions column, top-aligned, on one line where the
@@ -118,25 +122,40 @@ fn top_row(
     positions: &PlayerPositions,
     stats: &PlayerStats,
 ) {
+    // Each block under `scoped`'s fixed `scope_id` in both arrangements:
+    // an egui id follows call order inside a scope, so crossing
+    // `TOP_ROW_ONE_LINE` would re-key the widgets — a DragValue being
+    // typed into while the window is resized would hand its in-progress
+    // edit to another control. The ids are taken on `ui` here, before
+    // the `horizontal_top` child would put them under its own scope.
+    let profile_id = ui.make_persistent_id("profile");
+    let positions_id = ui.make_persistent_id("positions");
+    let actions_id = ui.make_persistent_id("actions");
     let profile_block = |ui: &mut egui::Ui, view: &mut SaveView| {
-        ui.vertical(|ui| {
-            ui.strong("Profile");
-            if let Some(session) = view.session.as_mut() {
-                profile(ui, session, player_id, version, positions, stats);
-            }
+        scoped(ui, profile_id, |ui| {
+            ui.vertical(|ui| {
+                ui.strong("Profile");
+                if let Some(session) = view.session.as_mut() {
+                    profile(ui, session, player_id, version, positions, stats);
+                }
+            });
         });
     };
     let positions_block = |ui: &mut egui::Ui, view: &mut SaveView| {
-        ui.vertical(|ui| {
-            ui.strong(PLAYABLE_POSITIONS_LABEL);
-            if let Some(session) = view.session.as_mut() {
-                playable_positions(ui, session, player_id, positions);
-            }
+        scoped(ui, positions_id, |ui| {
+            ui.vertical(|ui| {
+                ui.strong(PLAYABLE_POSITIONS_LABEL);
+                if let Some(session) = view.session.as_mut() {
+                    playable_positions(ui, session, player_id, positions);
+                }
+            });
         });
     };
     let actions_block = |ui: &mut egui::Ui, view: &mut SaveView| {
-        ui.vertical(|ui| {
-            quick_actions::show(ui, view);
+        scoped(ui, actions_id, |ui| {
+            ui.vertical(|ui| {
+                quick_actions::show(ui, view);
+            });
         });
     };
     if ui.available_width() >= TOP_ROW_ONE_LINE {
@@ -279,7 +298,7 @@ fn profile(
 /// shift between shown and stored (the shifted fields are stored one
 /// below the game's numbers, the draft's `+ 1`/`v - 1`).
 #[derive(Clone, Copy)]
-pub(crate) struct SmallStat {
+pub(super) struct SmallStat {
     /// The control's label.
     pub(super) label: &'static str,
     /// The schema field gating it.
@@ -450,24 +469,30 @@ fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats
                     ui.label("");
                     continue;
                 }
-                match abilities[index] {
-                    Some(value) => {
-                        number(
-                            ui,
-                            session,
-                            player_id,
-                            title_case(ABILITY_STATS[index]),
-                            value,
-                            40..=99,
-                            move |player, shown| player.stats.set_ability(index, shown),
-                        );
+                ui.label(title_case(ABILITY_STATS[index]));
+                // Each stat's field under `scoped`'s scope id: an id
+                // follows call order inside a scope, so a change of
+                // column count would re-key it (the label keeps its own
+                // cell; the scope wraps the field cell only, so the grid
+                // still sees two cells).
+                scoped(ui, ui.make_persistent_id(index), |ui| {
+                    match abilities[index] {
+                        Some(value) => {
+                            number_field(
+                                ui,
+                                session,
+                                player_id,
+                                value,
+                                40..=99,
+                                move |player, shown| player.stats.set_ability(index, shown),
+                            );
+                        }
+                        // The gated control keeps its cell too.
+                        None => {
+                            gated_number(ui, ABILITY_FIELDS[index]);
+                        }
                     }
-                    // The label stays too: the gated control keeps its cell.
-                    None => {
-                        ui.label(title_case(ABILITY_STATS[index]));
-                        gated_number(ui, ABILITY_FIELDS[index]);
-                    }
-                }
+                });
             }
             ui.end_row();
         }
@@ -563,8 +588,23 @@ pub(crate) fn number<T: egui::emath::Numeric>(
     range: RangeInclusive<T>,
     store: impl FnOnce(&mut PlayerEntry, T),
 ) -> egui::Response {
-    let mut shown = shown;
     ui.label(label);
+    number_field(ui, session, player_id, shown, range, store)
+}
+
+/// `number`'s `DragValue` alone, for a caller drawing the label itself
+/// (`ability_stats` wraps the field cell in the stat's `scoped` scope, so
+/// the label keeps its own cell while the field keeps a stable id across
+/// column counts).
+pub(crate) fn number_field<T: egui::emath::Numeric>(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    shown: T,
+    range: RangeInclusive<T>,
+    store: impl FnOnce(&mut PlayerEntry, T),
+) -> egui::Response {
+    let mut shown = shown;
     let response = ui.add(
         egui::DragValue::new(&mut shown)
             .range(range)

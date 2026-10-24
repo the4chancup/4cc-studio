@@ -179,8 +179,8 @@ pub(super) fn player_assignments(
 
 /// The armed mode's note (the draft's `assignnote`): what the next pitch
 /// click does, and Cancel — join's Done — disarming it. A host draws it
-/// above the pitch and lineup columns, where it spans both (the draft's
-/// `note` before `taccols`).
+/// inside the settings column, under the preset bar (the draft's `note`
+/// in `tac-settings`).
 pub fn assign_note(ui: &mut egui::Ui, view: &mut TacticsView) {
     let Some(assign) = view.assign else {
         return;

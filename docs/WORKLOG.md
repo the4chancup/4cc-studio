@@ -20,7 +20,7 @@ coverage table and draft, the DBC7 ruleset).
 (the maintainer, 2026-10-24): the Save editor's view (8.9: slices 1-3 done, with the Tactics
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
 (8.9j1-j3), the comparator done (8.9j4), then the transplant (8.9j5); 8.9f's slice 4: v2 is
-the base, ported in five subslices, 4a the frame and 4b Abilities done, 4c next; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
+the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d next; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; an audit step next), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
 the compiler and the upgrader on the new file; slice 3, the Save editor's, rides with SE-GUI-19), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
@@ -1251,14 +1251,33 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           `small_stat` cell for both tabs. Files: `save_editor/src/{lib.rs,view/{abilities.rs,
           team.rs,quick_actions.rs,terms.rs,appearance/{mod.rs,fields.rs},tests.rs,tests/*}}`,
           `help/{03_abilities,04_appearance}.md`
-          - [ ] review: SWE-2 S1 (also the post-Astra round for 4a's fixes), Astra, mutants-diff
-            786b91ec
-        - [ ] 4c Appearance's groups in aligned cells (physique two pairs per row, the strip's
-          trailing rows in its grid, motion 4 / 4 / 2); Tactics in three columns, the formation
-          settings an aligned grid (help 08)
+          - [x] review (`.tmp/8_9f/duck_rulings_4b.md`): SWE-2 S1 3 accepted (widget ids fixed
+            per block, pair and stats cell; a boundary test per width constant; the test
+            helpers' copies), Astra A1 1 accepted (the top row's constant measured with the
+            Profile combos' longest texts); mutants-diff 786b91ec clean (25 caught, 2
+            unviable); the fixes landed with 4c, whose SWE-2 S1 is the post-Astra round
+        - [x] 4c Appearance's groups in aligned cells, Tactics in three columns (DECISIONS
+          "The draft's pair counts as caps, and the Tactics settings column below on a narrow
+          pane"; help 08). Done 2026-10-25 (SWE-2, one rework carrying 4b's review fixes):
+          physique, strip style and motion grids at the draft's 2 / 4 / 4 pairs a row as caps,
+          the strip's checkboxes a label cell and a bare box, its wrist-taping, spectacles and
+          gloves rows a grid of their own; the Tactics tab's settings column (preset bar,
+          note, groups) beside the pitch and the 240-point lists above a width computed from
+          constants, else whole below them; the formation settings one grid, two pairs a row
+          where a computed upper bound fits; the lists' names cut at their width (seen over
+          the settings column in the built window). Widget ids hold across every width
+          threshold through explicit scope ids (`view::scoped`: a `push_id` salt still reads
+          the parent's call counter). Files: `save_editor/src/view/{mod.rs,abilities.rs,
+          team.rs,tactics.rs,appearance/mod.rs,tests.rs,tests/*}`, `help/08_tactics.md`,
+          `team_widgets/src/{tactics/{mod.rs,assignments.rs,tests/mod.rs},pitch/{lineup.rs,
+          tests/paint.rs}}`
+          - [ ] review: SWE-2 S1 (also 4b's post-Astra round), Astra (checkpoint (b): two
+            crates), mutants-diff 8699f4e6
         - [ ] 4d the one cards badge, the player's own tier, through a tier recognition
           `libs/aatf` exposes (checkpoint (b))
-        - [ ] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file)
+        - [ ] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file);
+          re-measure the width constants taken with the light font (`team.rs`
+          `TEAM_BAR_ONE_ROW`, `abilities.rs` `TOP_ROW_ONE_LINE`)
     - [ ] 8.9j slice 4 (`plans/save_editor.md` "Configurable AATF rules", "Comparator",
       "Aesthetics transplant"), the AATF parts first (the maintainer's direction of 2026-10-24),
       each part its own commit and review:

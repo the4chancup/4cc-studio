@@ -410,6 +410,17 @@ fn set_surrender_on_press(ctx: &egui::Context) {
     });
 }
 
+/// `add` under the `scope_id` `id` — an `IdSource::Explicit` scope, so
+/// the scope's own id and the auto ids it seeds are the same however the
+/// widget tree around it is arranged. `push_id`'s `id_salt` would give
+/// the scope the same name but its `unique_id` still reads the parent's
+/// call counter, which moves with the pane's width. Compute `id` on the
+/// `ui` both arrangements share (`ui.make_persistent_id`): evaluated
+/// inside a child of the arrangement it composes differently again.
+pub(super) fn scoped(ui: &mut egui::Ui, id: egui::Id, add: impl FnOnce(&mut egui::Ui)) {
+    ui.scope_builder(egui::UiBuilder::new().scope_id(id), add);
+}
+
 /// The toolbar: Open, Save, Undo, Redo and the open save's path with its
 /// unsaved-changes marker (the draft's toolbar row).
 fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {

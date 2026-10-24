@@ -14,13 +14,6 @@ fn edit_anyway(nodes: &[accesskit::Node]) -> &accesskit::Node {
         .expect("the Edit aesthetics anyway switch")
 }
 
-/// Whether the tab draws a Label node with `value` as its text.
-fn label_drawn(nodes: &[accesskit::Node], value: &str) -> bool {
-    nodes
-        .iter()
-        .any(|node| node.role() == Role::Label && node.value() == Some(value))
-}
-
 /// The locked tab drawn on `version`: a fresh `SaveView` on the Appearance
 /// tab of `version`'s fixture, one frame's nodes in, window and view back.
 fn locked_tab(version: PesVersion, test: &str) -> (SaveView, Headless, Vec<accesskit::Node>) {
@@ -42,7 +35,7 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
     // the switch and the Cutscenes group's two controls the ones that are
     // not (star and playing attitude sit outside the lock).
     assert!(
-        label_drawn(
+        label_value(
             &nodes,
             "Owned by the team's export: edit its settings.toml and recompile."
         ),
@@ -59,11 +52,11 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
         );
     }
     // The self-labeled controls (checkboxes, the switch, a swatch, the
-    // button) and the label/pair ones (a Label node beside its control).
+    // button) and the label/pair ones (a Label node beside its control —
+    // Player gloves' box is bare, its label in the cell before it).
     for (label, role) in [
         ("Face", Role::CheckBox),
         ("Motion", Role::CheckBox),
-        ("Player gloves", Role::CheckBox),
         ("Edit aesthetics anyway", Role::CheckBox),
         ("Skin Light", Role::ColorWell),
         ("Randomize", Role::Button),
@@ -85,6 +78,9 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
         ("Boots ID", Role::SpinButton),
         ("Copy from ID", Role::SpinButton),
         ("Sleeves", Role::ComboBox),
+        ("Shirttail out", Role::CheckBox),
+        ("Ankle taping", Role::CheckBox),
+        ("Player gloves", Role::CheckBox),
     ] {
         let control = right_of_label(&nodes, label, role)
             .into_iter()
@@ -98,7 +94,7 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
     click(&mut window, edit_anyway(&nodes), &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        label_drawn(
+        label_value(
             &nodes,
             "On a stripped save the game still reads the motions; the look comes from the database tables."
         ),
@@ -176,7 +172,7 @@ fn the_tab_is_locked_on_a_pre_fox_save_with_the_patch_step() {
     // Apply aesthetics patch link (disabled controls' hover is the same
     // sentence).
     assert!(
-        label_drawn(
+        label_value(
             &nodes,
             "Owned by the team's export: edit its settings.toml and recompile, then apply the patch."
         ),
@@ -206,7 +202,7 @@ fn the_tab_is_locked_on_a_pre_fox_save_with_the_patch_step() {
     click(&mut window, edit_anyway(&nodes), &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        label_drawn(
+        label_value(
             &nodes,
             "A later patch overwrites whatever is edited by hand."
         ),
@@ -356,13 +352,13 @@ fn a_stripped_players_tab_says_the_look_is_the_tables_and_the_motions_are_read()
         .expect("the Strip again window's Close");
     click(&mut window, close, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert!(label_drawn(&nodes, LINE), "70101's tab marks him stripped");
+    assert!(label_value(&nodes, LINE), "70101's tab marks him stripped");
 
     // Another player's tab does not draw the line.
     view.selected = Some((701, 1));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        !label_drawn(&nodes, LINE),
+        !label_value(&nodes, LINE),
         "70102's tab draws no stripped line"
     );
 }
@@ -434,7 +430,10 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
     view.tab = Tab::Appearance;
     view.edit_aesthetics = true;
     view.randomize_draw = Box::new(|top| top);
-    let mut window = Headless::sized(1100.0, 700.0);
+    // The dribbling stand-in sits below the 700-point fold since the
+    // physique grid's cap lengthened the tab; the hover needs it inside
+    // the scroll viewport, so the window is taller.
+    let mut window = Headless::sized(1100.0, 1000.0);
     let motion_of = |view: &SaveView| -> PlayerMotion {
         view.session
             .as_ref()
@@ -591,7 +590,7 @@ fn a_fox_save_with_some_ids_set_lists_them_with_strip_again() {
         .count();
     assert_eq!(team_labels, 3, "each row's team name is its player's team");
     assert!(
-        label_drawn(
+        label_value(
             &nodes,
             "3 player(s) have an appearance id set while the rest are stripped:"
         ),
@@ -783,7 +782,10 @@ fn a_one_based_motion_shows_one_above_stored_within_the_measured_top() {
     view.open(&path);
     view.tab = Tab::Appearance;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    // Taller than 700 so the motion rows stay inside the scroll viewport
+    // for the click and typing below (the physique cap lengthened the
+    // tab).
+    let mut window = Headless::sized(1100.0, 1000.0);
     let motion_of = |view: &SaveView| {
         view.session
             .as_ref()
@@ -902,10 +904,11 @@ fn the_player_gloves_checkbox_draws_the_runs_flag() {
     view.tab = Tab::Appearance;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
+    // The box is bare: the label sits in the cell before it.
     fn gloves_box(nodes: &[accesskit::Node]) -> &accesskit::Node {
-        nodes
-            .iter()
-            .find(|node| node.role() == Role::CheckBox && node.label() == Some("Player gloves"))
+        right_of_label(nodes, "Player gloves", Role::CheckBox)
+            .first()
+            .copied()
             .expect("the Player gloves checkbox")
     }
 
@@ -1212,4 +1215,177 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
         "the untick clears base copy alone"
     );
     assert!(seven_set(&view), "the seven stay set");
+}
+
+// plans/save_editor.md "Editing UI", the Appearance bullet: the draft's
+// two physique pairs a row at the default pane — Neck length and Neck
+// size share a row's top, Shoulder height opens the next, and the seven
+// left-column labels share one x0.
+#[test]
+fn the_physique_grid_holds_two_pairs_a_row() {
+    let (mut view, _) = open_734_with("physique_two_pairs", &[], 0);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1280.0, 876.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let first = label_bounds(&nodes, "Neck length").y0;
+    assert!(
+        (label_bounds(&nodes, "Neck size").y0 - first).abs() < 1.0,
+        "Neck size shares the first row"
+    );
+    assert!(
+        label_bounds(&nodes, "Shoulder height").y0 > first + 5.0,
+        "Shoulder height opens the second row"
+    );
+    let x0 = label_bounds(&nodes, "Neck length").x0;
+    for label in [
+        "Shoulder height",
+        "Chest",
+        "Arm size",
+        "Thigh",
+        "Leg length",
+        "Head width",
+    ] {
+        assert!(
+            (label_bounds(&nodes, label).x0 - x0).abs() < 1.0,
+            "{label} shares the left column's x0"
+        );
+    }
+}
+
+// The draft's strip table at the default pane: four pairs a row — Boots
+// ID, Gloves ID, Sleeves, Inners on one row, Socks, Undershorts and the
+// two checkboxes on the next, the checkboxes a label cell and a bare box
+// (the header's Captain shape); the wrist-taping, spectacles and gloves
+// rows a second grid below, a label cell and a contents cell each.
+#[test]
+fn the_strip_groups_hold_the_drafts_rows() {
+    let (mut view, _) = open_734_with("strip_grid_rows", &[], 0);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    let untucked = |view: &SaveView| player_entry(view, 73401).appearance.untucked;
+    assert!(untucked(&view), "premise: the shirt is out (untucked)");
+    let mut window = Headless::sized(1280.0, 876.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let first = label_bounds(&nodes, "Boots ID").y0;
+    for label in ["Gloves ID", "Sleeves", "Inners"] {
+        assert!(
+            (label_bounds(&nodes, label).y0 - first).abs() < 1.0,
+            "{label} shares the first row"
+        );
+    }
+    let second = label_bounds(&nodes, "Socks").y0;
+    assert!(second > first + 5.0, "the second row below the first");
+    for label in ["Undershorts", "Shirttail out", "Ankle taping"] {
+        assert!(
+            (label_bounds(&nodes, label).y0 - second).abs() < 1.0,
+            "{label} shares the second row"
+        );
+    }
+    assert_eq!(
+        label_bounds(&nodes, "Socks").x0,
+        label_bounds(&nodes, "Boots ID").x0,
+        "the rows' first label columns share an x0"
+    );
+    assert_eq!(
+        label_bounds(&nodes, "Shirttail out").x0,
+        label_bounds(&nodes, "Sleeves").x0,
+        "the rows' third label columns share an x0"
+    );
+
+    // The second grid: the three rows' labels in one column, each below
+    // the one before, all below the strip table's last row.
+    let rows_x0 = label_bounds(&nodes, "Wrist taping").x0;
+    let mut last_y = second;
+    for label in ["Wrist taping", "Spectacles", "Player gloves"] {
+        let bounds = label_bounds(&nodes, label);
+        assert_eq!(bounds.x0, rows_x0, "{label} shares the grid's column");
+        assert!(bounds.y0 > last_y + 5.0, "{label} sits below the row above");
+        last_y = bounds.y0;
+    }
+
+    // Shirttail out's control is the bare checkbox right of its label
+    // cell; a click writes `untucked` as one undoable edit.
+    let shirttail = right_of_label(&nodes, "Shirttail out", Role::CheckBox)
+        .first()
+        .copied()
+        .expect("the Shirttail out checkbox");
+    click(&mut window, shirttail, &mut view);
+    assert!(!untucked(&view), "the click stores untucked");
+    assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
+}
+
+// The draft's motion rows at the default pane (four pairs a row): the
+// hunching and arm pairs share the first, the three kicks and the
+// dribbling motion the second, the two celebrations the third.
+#[test]
+fn the_motion_grid_holds_four_pairs_a_row() {
+    let (mut view, _) = open_734_with("motion_four_pairs", &[], 0);
+    view.tab = Tab::Appearance;
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1280.0, 876.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let first = label_bounds(&nodes, "Hunching (dribbling)").y0;
+    for label in [
+        "Hunching (running)",
+        "Arm movement (dribbling)",
+        "Arm movement (running)",
+    ] {
+        assert!(
+            (label_bounds(&nodes, label).y0 - first).abs() < 1.0,
+            "{label} shares the first row"
+        );
+    }
+    let second = label_bounds(&nodes, "Corner kick").y0;
+    assert!(second > first + 5.0, "the kicks open the second row");
+    for label in ["Free kick", "Penalty kick", "Dribbling motion"] {
+        assert!(
+            (label_bounds(&nodes, label).y0 - second).abs() < 1.0,
+            "{label} shares the second row"
+        );
+    }
+    let third = label_bounds(&nodes, "Goal celebration 1").y0;
+    assert!(third > second + 5.0, "the celebrations open the third row");
+    assert!(
+        (label_bounds(&nodes, "Goal celebration 2").y0 - third).abs() < 1.0,
+        "the two celebrations share the third row"
+    );
+}
+
+// plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
+// layout", the same pane rule as the Abilities tab's: on the pane the
+// shell's smallest default window leaves (877 x 624) every drawn node
+// ends inside it — on PES 17 unlocked, and on PES 21 with the switch on.
+#[test]
+fn the_appearance_tab_fits_the_pane_the_shell_leaves() {
+    for (version, test) in [
+        (PesVersion::Pes17, "appearance_pane_17"),
+        (PesVersion::Pes21, "appearance_pane_21"),
+    ] {
+        let path = fixture(version, test);
+        let mut view = SaveView::new();
+        view.open(&path);
+        view.tab = Tab::Appearance;
+        view.edit_aesthetics = true;
+        if version == PesVersion::Pes17 {
+            view.team = TeamChoice::Team(734);
+            view.selected = Some((734, 0));
+        }
+        let mut window = Headless::sized(877.0, 624.0);
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        for node in &nodes {
+            if let Some(bounds) = node.bounds() {
+                assert!(
+                    bounds.x1 <= 877.0,
+                    "{version:?}: {:?} {} clips the pane's right edge ({bounds:?})",
+                    node.role(),
+                    node.label().or(node.value()).unwrap_or("?")
+                );
+            }
+        }
+    }
 }

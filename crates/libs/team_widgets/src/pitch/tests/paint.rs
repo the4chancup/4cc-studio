@@ -1183,3 +1183,34 @@ fn the_rows_and_the_popover_header_draw_the_names_colours() {
         );
     }
 }
+
+// The lists keep the host's fixed width (`plans/save_editor.md` "Tactics
+// editor": the lists at a fixed narrow width beside the pitch): a name
+// longer than the row ends cut at the list's edge, not drawn over the
+// settings column at its right. "3DSMAX HAS STOPPED WORKING" is a /3/
+// starter's name in the maintainer's PES 2021 save, which ran 50 points
+// past the lists at the default window.
+#[test]
+fn a_long_name_is_cut_at_the_lists_width() {
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let mut rows = fixture_rows(PesVersion::Pes21);
+    let slot = usize::from(tactics.starting_eleven[2]);
+    rows[slot].1 = "3DSMAX HAS STOPPED WORKING".to_owned();
+    let roster = roster_rows(&rows);
+    let mut window = Headless::sized(240.0, 900.0);
+    let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+
+    let row = &lineup_rows(&nodes)[2];
+    let name = row.last().expect("the row's name label");
+    assert_eq!(
+        name.value(),
+        Some("3DSMAX HAS STOPPED WORKING"),
+        "premise: the third starter's row names him"
+    );
+    let bounds = name.bounds().expect("name bounds");
+    assert!(
+        bounds.x1 <= 240.0,
+        "the name ends inside the list's width ({bounds:?})"
+    );
+}

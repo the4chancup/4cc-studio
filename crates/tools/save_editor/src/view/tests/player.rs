@@ -20,14 +20,6 @@ fn rostered(view: &SaveView, team_id: u32) -> Vec<(usize, u32)> {
         .collect()
 }
 
-/// The node of `role` with `label`, or panic naming both.
-fn labeled<'a>(nodes: &'a [accesskit::Node], role: Role, label: &str) -> &'a accesskit::Node {
-    nodes
-        .iter()
-        .find(|node| node.role() == role && node.label() == Some(label))
-        .unwrap_or_else(|| panic!("no {role:?} {label:?}"))
-}
-
 /// The Button whose label starts with `label` (a menu item's label carries
 /// its shortcut text after the name).
 fn menu_item<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
@@ -103,7 +95,7 @@ fn run_stat_dialog(
     click(window, field, view);
     type_text(window, view, value);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
-    click(window, labeled(&nodes, Role::Button, "OK"), view);
+    click(window, node_labeled(&nodes, Role::Button, "OK"), view);
 }
 
 /// The line `stat_num` draws for `name`, as the dialog's field anchors on it.
@@ -190,7 +182,11 @@ fn set_and_bump_stats_write_every_ability_as_one_undoable_edit() {
     click(&mut window, field, &mut view);
     type_text(&mut window, &mut view, "10");
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    click(&mut window, labeled(&nodes, Role::Button, "OK"), &mut view);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "OK"),
+        &mut view,
+    );
     assert_abilities(&player_entry(&view, 70101), 99);
 
     // Set to 45, bump -10 through the menu: every ability clamps to 40.
@@ -435,7 +431,7 @@ fn run_copy_swap(window: &mut Headless, view: &mut SaveView, item: &str, label: 
         .unwrap_or_else(|| panic!("no {label:?} in the player combo"));
     action_click(window, view, *option);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
-    click(window, labeled(&nodes, Role::Button, "OK"), view);
+    click(window, node_labeled(&nodes, Role::Button, "OK"), view);
 }
 
 // The Copy row: the picked player's field set lands on the
@@ -582,12 +578,12 @@ fn the_menu_dialogs_draw_their_headings() {
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         assert!(
-            label_drawn(&nodes, title),
+            label_value(&nodes, title),
             "the {item:?} dialog draws its heading {title:?}"
         );
         click(
             &mut window,
-            labeled(&nodes, Role::Button, "Cancel"),
+            node_labeled(&nodes, Role::Button, "Cancel"),
             &mut view,
         );
     }
@@ -679,23 +675,16 @@ fn the_copy_swap_dialog_closes_on_ok_and_cancel() {
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         click(
             &mut window,
-            labeled(&nodes, Role::Button, button),
+            node_labeled(&nodes, Role::Button, button),
             &mut view,
         );
         assert!(view.copy_swap.is_none(), "{button} closed the dialog");
     }
 }
 
-/// Whether the nodes draw a Label node with `value` as its text.
-fn label_drawn(nodes: &[accesskit::Node], value: &str) -> bool {
-    nodes
-        .iter()
-        .any(|node| node.role() == Role::Label && node.value() == Some(value))
-}
-
 /// The Button labeled `label` on the Appearance tab's FPC group.
 fn fpc_button<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
-    labeled(nodes, Role::Button, label)
+    node_labeled(nodes, Role::Button, label)
 }
 
 /// The Appearance tab unlocked, scrolled to the FPC group and drawn for
@@ -794,7 +783,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     // the inners left on as the finding reports rather than clears.
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_drawn(&nodes, "FPC: body shown"),
+        label_value(&nodes, "FPC: body shown"),
         "dressed reads shown"
     );
     click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
@@ -806,11 +795,11 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     assert_eq!(player_entry(&view, 70101).appearance.inners, 1, "kept");
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_drawn(&nodes, "FPC: hidden body"),
+        label_value(&nodes, "FPC: hidden body"),
         "hidden reads hidden"
     );
     assert!(
-        label_drawn(
+        label_value(
             &nodes,
             "Error: The player wears inners under a hidden body, which breaks the hiding."
         ),
@@ -827,7 +816,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
         "the show preset"
     );
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_drawn(&nodes, "FPC: body shown"));
+    assert!(label_value(&nodes, "FPC: body shown"));
 
     // Two operations, two undo entries, the player restored.
     assert_eq!(undo_entries(&mut window, &mut view), 2, "one entry each");
@@ -844,7 +833,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     );
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_drawn(&nodes, "FPC: body shown"),
+        label_value(&nodes, "FPC: body shown"),
         "a model's own boots ID reads as shown"
     );
     click(&mut window, fpc_button(&nodes, "Show body"), &mut view);
@@ -958,14 +947,14 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_drawn(&nodes, "FPC: body shown"), "premise: shown");
+    assert!(label_value(&nodes, "FPC: body shown"), "premise: shown");
 
     // Ctrl+I on a shown player hides him: the hide preset lands.
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_drawn(&nodes, "FPC: hidden body"), "Ctrl+I hid him");
+    assert!(label_value(&nodes, "FPC: hidden body"), "Ctrl+I hid him");
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
 
     // Ctrl+I again shows him: the show preset lands.
@@ -973,7 +962,7 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_drawn(&nodes, "FPC: body shown"), "Ctrl+I showed him");
+    assert!(label_value(&nodes, "FPC: body shown"), "Ctrl+I showed him");
     assert_eq!(strip_of(&view, 70101), (1, true, 0, 0, 0));
 
     // The Player menu's Toggle FPC settings, enabled under the unlock,
@@ -987,7 +976,7 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
     click(&mut window, item, &mut view);
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_drawn(&nodes, "FPC: hidden body"),
+        label_value(&nodes, "FPC: hidden body"),
         "the menu toggle hid him"
     );
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
@@ -1015,7 +1004,7 @@ fn hide_body_round_trips_on_pes16() {
     click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_drawn(&nodes, "FPC: hidden body"));
+    assert!(label_value(&nodes, "FPC: hidden body"));
 
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
@@ -1142,11 +1131,11 @@ fn the_hide_ids_come_from_the_settings() {
 
     // Hide body on 70101 (IDs 0): boots 60 and gloves 12, "FPC: hidden body".
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_drawn(&nodes, "FPC: body shown"), "premise: shown");
+    assert!(label_value(&nodes, "FPC: body shown"), "premise: shown");
     click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 60, 12));
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_drawn(&nodes, "FPC: hidden body"));
+    assert!(label_value(&nodes, "FPC: hidden body"));
 
     // Show body: both 0 again (the record holds the hide IDs).
     click(&mut window, fpc_button(&nodes, "Show body"), &mut view);
@@ -1157,7 +1146,7 @@ fn the_hide_ids_come_from_the_settings() {
     view.selected = Some((701, 1));
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_drawn(&nodes, "FPC: body shown"),
+        label_value(&nodes, "FPC: body shown"),
         "the old convention's ID is no longer the hide ID"
     );
 }
@@ -1219,11 +1208,11 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
 
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_drawn(&nodes, &error),
+        label_value(&nodes, &error),
         "the FPC line is the error's text"
     );
     assert!(
-        !label_drawn(&nodes, "FPC: body shown"),
+        !label_value(&nodes, "FPC: body shown"),
         "the reading is not drawn"
     );
     for label in ["Hide body", "Show body"] {
