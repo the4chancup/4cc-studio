@@ -1010,3 +1010,76 @@ fn eleven_skills_are_the_cap() {
         )]
     );
 }
+
+/// The fixture teams the renamed-file comparison runs on: the legal
+/// team, a Silver player's ability stat over its target, a Silver
+/// player without his name colour, and a regular made to read as a
+/// fourth silver (his counts off by one each way). A tier's label
+/// reaches no violation — its id does — so a handful of teams proves
+/// the rule as well as every one the file builds.
+fn fixture_teams() -> Vec<(&'static str, TeamView)> {
+    vec![
+        ("legal", legal_team()),
+        (
+            "a silver over his target",
+            edited(5, |p| {
+                p.abilities[usize::from(stat("ball_control").0)] = Some(95)
+            }),
+        ),
+        (
+            "a silver without his colour",
+            edited(5, |p| p.name_color = None),
+        ),
+        (
+            "one more silver",
+            edited(14, |p| {
+                p.height = 195;
+                p.abilities[usize::from(stat("swerve").0)] = Some(89);
+            }),
+        ),
+    ]
+}
+
+/// VTL11 with the Silver tier's label changed, assembled with the
+/// current logic and the file's own custom checks: every fixture team
+/// reports the same violations as under the original — a tier's label
+/// reaches no violation (its id does).
+// RE-FILE-04
+#[test]
+fn the_same_teams_pass_and_fail_with_silvers_label_changed() {
+    let mut renamed = rules().ruleset().clone();
+    renamed
+        .tiers
+        .iter_mut()
+        .find(|tier| tier.id == "silver")
+        .expect("the silver tier")
+        .label = "Argent".to_string();
+    let checks = crate::file::file_sections(VTL11)
+        .custom_checks
+        .expect("VTL11 has checks");
+    let text = crate::file::assemble_file(&renamed, None, Some(&checks));
+    let renamed = Rules::load(&text).expect("the renamed file loads");
+    let rules = rules();
+    assert!(
+        fixture_teams().iter().any(|(_, team)| {
+            rules
+                .check_team(team)
+                .expect("the original checks")
+                .iter()
+                .any(|violation| {
+                    matches!(
+                        &violation.kind,
+                        ViolationKind::TierCount { tier, .. } if tier == "silver"
+                    )
+                })
+        }),
+        "premise: a violation under silver's id is compared"
+    );
+    for (name, team) in fixture_teams() {
+        assert_eq!(
+            rules.check_team(&team).expect("the original checks"),
+            renamed.check_team(&team).expect("the renamed checks"),
+            "{name}"
+        );
+    }
+}

@@ -3613,6 +3613,7 @@ dependencies = [
  "aatf",
  "anyhow",
  "clap",
+ "color_tools",
  "crossbeam-channel",
  "egui",
  "log",

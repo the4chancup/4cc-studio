@@ -180,7 +180,10 @@ The settings menu is assembled from injected sections:
   sections collapsed.
 - **No Save or Apply**: a change applies as it is made and saves at the end of the frame. A text
   row (a path, a name) commits when it loses focus or Enter is pressed, not per keystroke: a
-  half-typed folder path would otherwise reach every tool reading it.
+  half-typed folder path would otherwise reach every tool reading it. A path row (the common
+  folders, a tool's file) is that text edit and a Browse button opening `rfd`'s native picker
+  of its kind (a folder, or a file filtered to the type the tool reads), a pick committing at
+  once; `studio_core` owns the row, so every section's path rows commit the same way.
 - Saving is **best-effort**: if the write fails (typically a portable install unpacked somewhere
   unwritable), the in-memory settings keep working for the session and the shell raises the
   `data_dir_read_only` condition in the status bar — one condition covering settings and the

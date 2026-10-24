@@ -2383,3 +2383,11 @@ worklog passed 7,000 lines.
   largest 16:10 size within 90% of the screen. The help window first opens at 90% of Studio's window.
 - **2026-10-23** — The repetition rework's first brief: `aatf`'s checker and writer and the Ruleset editor's summary
   write each rule once (source clusters 30 to 21 and 7 to 5); nothing a member sees changes.
+- **2026-10-24** — The maintainer's direction: the Ruleset editor leaves 0.0.1 (resumes after 0.1.0); a working Save
+  editor with a rock-solid AATF check first; the 0.0.1 bundle carries DBC7's rules file, already selected.
+- **2026-10-24** — The `aatf` repetition rework reviewed (SWE-2 S1, Astra A1, SWE-2 S2): its fixes write the writer's
+  id maps and number lists, the colour-code check and the summary's COM group name once.
+- **2026-10-24** — 20.6a2a: the Ruleset editor's Tiers section, the tiers table with drag reordering, each tier's
+  per-stat targets and free cards, and the medal systems.
+- **2026-10-24** — 8.9j1: the settings menu's path rows get Browse; the Save editor's section picks the AATF rules
+  file; the quick actions (one Make button per tier of the active rules, then Set stats) sit under the info strip.

@@ -1,11 +1,13 @@
 //! The rail's section forms (`plans/ruleset_editor.md` "The editor"):
-//! General is a form, Custom checks and Summary read only, and Tiers,
-//! Heights, Cards, Universal rules, Specials and Suggestions are later
-//! builds' — for now they draw one weak line.
+//! General and Tiers are forms, Custom checks and Summary read only,
+//! and Heights, Cards, Universal rules, Specials and Suggestions are
+//! later builds' — for now they draw one weak line.
 
 pub(crate) mod custom_checks;
 pub(crate) mod general;
 pub(crate) mod summary;
+pub(crate) mod tiers;
+pub(crate) mod widgets;
 
 use aatf::Ruleset;
 
@@ -75,10 +77,10 @@ pub(crate) fn show(
 ) {
     match section {
         Section::General => general::show(ui, ruleset),
+        Section::Tiers => tiers::show(ui, ruleset),
         Section::CustomChecks => custom_checks::show(ui, custom_checks),
         Section::Summary => summary::show(ui, ruleset),
-        Section::Tiers
-        | Section::Heights
+        Section::Heights
         | Section::Cards
         | Section::Universal
         | Section::Specials

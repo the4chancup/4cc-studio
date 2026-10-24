@@ -34,11 +34,10 @@ schema. Platform context is in the [core plan](core/README.md).
 (`spec/aatf_rules.md` "Embedded rulesets": the latest two of the 4cc, VGL and VTL, Autumn 26
 first: Autumn 26, Spring 26, VGL27, VGL26, VTL11, VTL10), then DBC7, then **Blank**; *Random*,
 in three flavors (see "Randomize"); and *Open file*. Recent files below, newest first.
-DBC7 is a template while Divegrass Before Christmas is the editors' first test ground
-(`core/development_plan.md` "Divegrass Before Christmas"): its organizers and managers start
-from it, and a manager gets the rules file the Save editor checks with by saving the template,
-which no other route offers before the Save editor's "save a copy". It leaves the list when the
-cup ends, as a minor invitational's ruleset would never have joined it. **Blank** is a ruleset
+DBC7 is a template while Divegrass Before Christmas is the Save editor's first test ground
+(`core/development_plan.md` "Divegrass Before Christmas"): its organizers start from it (its
+managers get the rules file in the 0.0.1 bundle, which ships before this tool). It leaves the
+list when the cup ends, as a minor invitational's ruleset would never have joined it. **Blank** is a ruleset
 named "New ruleset", squad 23, Autumn 26's rating and at-most stats, one tier (`regular`,
 "Regular", the rest of the squad, rate 75, form 4, injury resistance 1, weak foot 2 and 2, 3
 paid cards, 1 A position), no brackets, no specials, and the universal rules on: registered
@@ -60,9 +59,11 @@ the last edit changed are highlighted.
   cards, A positions, name colour (none or a swatch), warning band (`stat_warning`: points
   above a stat's target that warn rather than err, 0 meaning none) and a "stats add up to at
   most the targets" checkbox (`total_within_targets`). Per row, an expander holds the per-stat
-  targets (all ability stats, empty meaning "the rate"), the free cards per group (one number
-  per group, COM styles first: as columns they would widen the table past a laptop screen)
-  and the tier's conditions (the condition editor below). Below the table, the medal systems
+  targets (all ability stats, each an "own target" checkbox and its number: unticked, the stat
+  follows the rate and has no entry; a number field cannot be left empty, which is how the
+  draft says "the rate"), the free cards per group (one number per group, COM styles first: as
+  columns they would widen the table past a laptop screen; 0 removes the group's entry, as an
+  emptied draft field does) and the tier's conditions (the condition editor below). Below the table, the medal systems
   (`spec/aatf_rules.md` "The ruleset schema", `medal_systems`): one row per system, its label
   and a count per tier, a checkbox above each tier's column putting the tier in the systems; a
   tier in them shows "by medal system" as its count. The draft is

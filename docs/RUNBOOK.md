@@ -201,6 +201,21 @@ The Devin IDE compacts the sidekick's context by itself when it reaches 500K tok
 full sidekick context needs no action from the lead; a brief still stands alone (file under
 `.tmp/`, read in full), because a compaction may fall between two handoffs.
 
+**A Devin CLI run is watched for stalls.** A Claude lead runs SWE-2 through
+`devin_sidekick.py` (implementation) and `duck.py --reviewer swe` (reviews) as background
+commands, and the harness tells the lead only when a command exits; a run whose session goes
+quiet mid-turn never exits. On 2026-10-24 a rework's resumed session went idle at 01:39 in the
+middle of a red run, its hand perturbation still applied, and only the lead's check at 01:50
+found it; the background command's 2-hour cap would have ended it at 03:22. So every such run
+gets a second background command beside it, `python ~/.claude/skills/duck/devin_watch.py
+<brief>` (timeout 7200000): it exits quietly when the run ends, and with `STALLED` (exit 3) when
+for 20 minutes neither the session's `last_activity_at` in Devin's `sessions.db` moved nor the
+run's process tree burned CPU (a build or test burns it without any step). The watcher never
+stops the run: what to do is the lead's call, after reading `git diff`, since a stalled run can
+leave a half-done edit or a perturbation in the tree (the maintainer's ruling, 2026-10-24). A
+session that stalled after its one allowed resume is not resumed again; the lead finishes the
+brief's remaining items itself or briefs a fresh session.
+
 ## Review rounds
 
 **Second opinion.** A model reviewing its own work is bounded by its own training: same data, same

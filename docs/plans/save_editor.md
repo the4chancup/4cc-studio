@@ -629,8 +629,18 @@ What exists of this is in `spec/save_editor.md` "Configurable AATF rules".
 
 What this editor adds on top of the lib:
 
-- **Quick actions.** One button per tier of the active ruleset, in its order (Make Gold / Silver /
-  Bronze / Goalkeeper / Regular under the official one), each `aatf::apply_tier`.
+- **The rules file's row.** The settings menu's Save editor section is one path row, "AATF
+  rules file" (`aatf_rules`; `core/gui.md` "Settings menu"), its Browse picking a `.rhai` file;
+  empty is the embedded official ruleset, and a relative path resolves in the data directory
+  as `check-aatf` resolves it. The window reads the setting every frame, so a commit reaches
+  the badges, the quick actions and the AATF panels on the next one.
+- **Quick actions.** A row under the info strip (the draft's `quickActions`): one button per
+  tier of the active ruleset, in its order (Make Gold / Silver / Bronze / Goalkeeper / Regular
+  under the official one), each `aatf::apply_tier` on the selected player as one undoable edit;
+  then Set stats with its number, the Player menu's Set all stats in one click (40 to 99). A
+  rules file that does not load leaves Set stats alone on the row, the load error in the tier
+  buttons' place as the badges show it; an `apply_tier` that fails (`CheckError`) leaves the
+  player as he was and shows the error in the refusal dialog.
 - **The AATF panel.** Results grouped per player; clicking a violation jumps to the player; team
   selection matches 4ccEditor (current team or a multi-select list). A **Show suggestions**
   toggle, off by default, lists unused allowances apart from errors and warnings (see
@@ -901,5 +911,12 @@ SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (glo
                 55 THEN the tab reads "FPC: body shown"; WHEN Ctrl+I, the Player menu's Toggle
                 FPC settings or the Team menu's Set and Remove FPC invisibility run THEN they
                 write and clear 60 and 12 the same, and a player holding 55 and 11 keeps them
+SE-GUI-32  GIVEN the settings menu open on the Save editor's section and the save open
+           WHEN a VTL11 rules file's path is typed in the AATF rules file row and Enter pressed
+           THEN the `aatf_rules` setting holds the path, the tool's other keys unchanged, and
+                the next frame's quick actions are VTL11's (SE-GUI-09); WHEN the row is
+                emptied THEN they are the official ruleset's again; GIVEN a file that does not
+                load THEN the quick actions row holds Set stats and the load error, and no
+                tier button
 ```
 

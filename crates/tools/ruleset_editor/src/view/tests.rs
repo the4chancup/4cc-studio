@@ -13,6 +13,7 @@ mod problems;
 mod prompt;
 mod start;
 mod summary;
+mod tiers;
 
 use std::path::{Path, PathBuf};
 

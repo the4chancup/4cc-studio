@@ -28,19 +28,25 @@ beyond the per-view topics, the update check and the teams-list merge, which a w
 needs and a tester told in person does not, ship in Release 0.2.0 or later.
 
 **Divegrass Before Christmas (DBC).** The invitational (exports due 2026-11-18) is the first
-test ground for the Save editor and the Ruleset editor, which members should have as early as
-the usual rigor allows, to get used to them before the deadline. So after Phase 6 closes the
-work runs: the DBC ruleset's coverage (worklog 20.0d), Phase 8's usability pass (8.4) and its
-shell, the Save editor's draft and view first among Phase 8's tool views, then Phase 20 (the
-Ruleset editor) pulled forward to follow it, then Phase 8's other views and Release 0.1.0 as
-above. Members get the two editors as a **preview build, 0.0.1**, cut once the Ruleset editor's
-phase closes: the shell with those two tools active, and the Team compiler and the Export
-upgrader, whose views come later, greyed out on the sidebar as the planned tools are. It needs
-from Release 0.1.0's list the Windows bundle (`just release`, the `.7z` and its checksum),
-nothing else: no updater, since 0.1.0 replaces it by hand, and no `CHANGELOG.md`, which starts
-with 0.1.0 (0.0.1's few testers are told in person what it holds). We do not shorten either tool's phase to meet the date: a tool members learn on is
-one whose behavior they will keep relying on, and a rushed rule check that passes a team the
-organizers' check refuses costs the invitational more than a later tool.
+test ground for the Save editor, which members should have as early as the usual rigor allows,
+to get used to it before the deadline. What matters most there is a working editor whose AATF
+check is rock solid (`libs/aatf`), so after Phase 6 closes the work runs: the DBC ruleset's
+coverage (worklog 20.0d), Phase 8's usability pass (8.4) and its shell, the Save editor's draft
+and view first among Phase 8's tool views, then Phase 8's other views and Release 0.1.0 as
+above. Members get the Save editor as a **preview build, 0.0.1**, cut once its view is done:
+the shell with that tool active, and the Team compiler, the Export upgrader and the Ruleset
+editor, whose views come later, greyed out on the sidebar as the planned tools are. The bundle
+carries DBC7 as a rules file (`rules/dbc7.rhai`, assembled with the current logic), and its
+settings name it as the Save editor's `aatf_rules`: 0.0.1's window testers are DBC's managers,
+and no tool of the build writes a template out. It needs from Release 0.1.0's list the Windows
+bundle (`just release`, the `.7z` and its checksum), nothing else: no updater, since 0.1.0
+replaces it by hand, and no `CHANGELOG.md`, which starts with 0.1.0 (0.0.1's few testers are
+told in person what it holds). We do not shorten the Save editor's phase to meet the date: a
+tool members learn on is one whose behavior they will keep relying on, and a rushed rule check
+that passes a team the organizers' check refuses costs the invitational more than a later tool.
+The Ruleset editor (Phase 20) was pulled forward for DBC at first and runs after Release 0.1.0
+instead: DBC's organizers already have their ruleset, the template the suite embeds, and a
+second tool in the preview would split the time the check needs.
 
 **The /vg/ League 27 (VGL).** The league starts in late November 2026 on PES 2019 with FoxDen,
 and its organizer tests the Team compiler there: managers send their exports in the old format,
@@ -447,8 +453,10 @@ database and EDIT (manual, per version).
 ### Phase 20: Ruleset editor (`tools/ruleset_editor`, post-release)
 
 Not a first-release gate: its users are invitational organizers, who use 4ccEditor forks until
-then. Pulled forward for DBC ("Divegrass Before Christmas" above): it runs right after Phase 8's
-Save editor view, before Phase 8's other views. Depends on `libs/aatf` with the schema and the
+then. Runs after Release 0.1.0 ("Divegrass Before Christmas" above says why it is not in
+0.0.1). What it built while it was pulled forward stays (the writer, the CLI, the window's frame
+and its Tiers section, worklog 20.3 to 20.6a2a); until it resumes, the build registers it
+CLI-only, its window a planned entry. Depends on `libs/aatf` with the schema and the
 interpreter (Phase 5) and the shell (Phase 8).
 Plan: [Ruleset editor](../ruleset_editor.md).
 

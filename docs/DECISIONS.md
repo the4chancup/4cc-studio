@@ -10633,3 +10633,44 @@ rid of the empty space above a badge; drawing nothing until the answer lands wou
 space for the read's duration, then pop the portrait in. The placeholder then the portrait is
 one change instead of two.
 Plan: `plans/save_editor.md` "Tactics editor", "A marker".
+
+## 2026-10-24 — ruleset_editor — A tier's per-stat target is a checkbox and a number; a free-card count of 0 is no entry
+Decision (lead): in a tier's expander each ability stat has an "own target" checkbox with its
+number beside it; unticked, the stat has no `stats` entry and follows the rate. A group's free
+cards set to 0 remove the group's `free` entry.
+Why: the draft shows "the rate" as an empty number field, and egui's number field cannot be
+empty; a target of 0 cannot stand for "the rate" either, since 0 is a target a ruleset may set.
+A free count of 0 and no entry give a player the same cards, so dropping the entry keeps the
+written file to what the ruleset sets, as the writer does for every field at its default.
+Plan: `plans/ruleset_editor.md` "The editor", the Tiers bullet.
+
+## 2026-10-24 — development plan — The Ruleset editor leaves 0.0.1; the bundle carries DBC7's rules file
+Decision: the maintainer's directive: the Ruleset editor is not in the 0.0.1 preview and runs
+after Release 0.1.0; for now a working Save editor with a rock-solid AATF check is what matters
+most. The Ruleset editor's work in flight (20.6a2a, the Tiers section) is reviewed and landed,
+then the phase waits; the build keeps it CLI-only. The lead's follow-up, applied: the 0.0.1
+bundle carries DBC7 as an assembled rules file (`rules/dbc7.rhai`) and its settings name it as
+the Save editor's `aatf_rules`.
+Why: the plan's only route for a DBC manager to get DBC7's rules file was saving the template
+in the Ruleset editor; the Save editor's "save a copy" writes the official ruleset only. A file
+in the bundle, already selected, gives the window's testers (DBC's managers) the cup's check
+with no step of their own; the setting stays a member's to change. Not "save a copy" offering
+every embedded ruleset: that is a new control nobody asked for (a `PROPOSALS.md` matter).
+Plan: `plans/core/development_plan.md` "Divegrass Before Christmas", "Phase 20";
+`plans/ruleset_editor.md` "The editor", the start page paragraph.
+
+## 2026-10-24 — save_editor, studio_core — the rules file's settings row and the quick actions' edges
+Decision: the Save editor's settings section is one path row for `aatf_rules` with a Browse
+button picking a `.rhai` file, and `studio_core` owns the path row (text edit committing on Enter
+or focus loss, plus Browse) for every section, the common folder rows gaining their Browse with
+it. The quick actions row sits under the info strip: one Make button per tier, then Set stats
+(the Player menu's Set all stats in one click); a rules file that does not load leaves Set stats
+and the load error on the row; a failed `apply_tier` changes nothing and shows the refusal
+dialog.
+Why: the shell draft draws every path row with a Browse button and the 8.6c1 settings menu
+left them out only until `rfd` was in the workspace; one row in `studio_core`, not a copy per
+tool, so a tool's path row cannot commit differently from the common ones. The error states
+follow the Cards left badges' (the error in the controls' place) rather than hiding the row,
+which would leave a member with no hint why the tier buttons went.
+Plan: `plans/core/gui.md` "Settings menu"; `plans/save_editor.md` "Configurable AATF rules"
+(the rules file's row, Quick actions), SE-GUI-32.

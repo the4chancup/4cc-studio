@@ -258,6 +258,35 @@ impl Document {
     }
 }
 
+/// A tier with the suite's stock defaults (form 4, injury resistance
+/// 1, weak foot 2 and 2, 3 paid cards, 1 A position, no conditions or
+/// extras): Blank's `regular` and the Tiers form's added tier both
+/// start from it (the draft's `tier()`).
+pub(crate) fn tier(id: &str, label: &str, count: Option<u8>, rate: u8) -> Tier {
+    Tier {
+        id: id.to_string(),
+        label: label.to_string(),
+        count,
+        counts_as: None,
+        when: Condition::default(),
+        rate,
+        stats: BTreeMap::new(),
+        form: 4,
+        injury_resistance: 1,
+        weak_foot: WeakFoot {
+            usage: 2,
+            accuracy: 2,
+        },
+        cards: 3,
+        min_cards: 0,
+        free: BTreeMap::new(),
+        a_positions: 1,
+        name_color: None,
+        stat_warning: 0,
+        total_within_targets: false,
+    }
+}
+
 /// The start page's Blank ruleset (`plans/ruleset_editor.md` "The editor",
 /// the start page paragraph): "New ruleset", squad 23, Autumn 26's rating
 /// and at-most stats, one `regular` tier (the rest of the squad, rate 75,
@@ -270,28 +299,7 @@ pub(crate) fn blank() -> Ruleset {
         name: "New ruleset".to_string(),
         squad_size: 23,
         stats: official.ruleset().stats.clone(),
-        tiers: vec![Tier {
-            id: "regular".to_string(),
-            label: "Regular".to_string(),
-            count: None,
-            counts_as: None,
-            when: Condition::default(),
-            rate: 75,
-            stats: BTreeMap::new(),
-            form: 4,
-            injury_resistance: 1,
-            weak_foot: WeakFoot {
-                usage: 2,
-                accuracy: 2,
-            },
-            cards: 3,
-            min_cards: 0,
-            free: BTreeMap::new(),
-            a_positions: 1,
-            name_color: None,
-            stat_warning: 0,
-            total_within_targets: false,
-        }],
+        tiers: vec![tier("regular", "Regular", None, 75)],
         card_groups: BTreeMap::new(),
         medal_systems: Vec::new(),
         heights: Heights::default(),

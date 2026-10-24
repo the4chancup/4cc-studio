@@ -15,28 +15,22 @@ upgrader) closed 2026-10-20; Phase 5 (Savefile integration) 2026-10-17. Phases 1
 phases: 10.0a-g (`music_export`, its plan section, `pub` audit and whole-crate mutation run
 done, then matched to Rigdio's reading by the 10.0f audit; converging with Phase 10), 16.w (the platform floor) and 20.0a-d (the Ruleset editor's
 coverage table and draft, the DBC7 ruleset).
-**Next:** for Divegrass Before Christmas (exports due 2026-11-18, the Save and Ruleset editors'
-first test ground; `plans/core/development_plan.md` "Divegrass Before Christmas"): Phase 8
-(its steps itemized: the shell, 8.6a-d done, the maintainer's remarks on the catalogs' new
-wording to fold in when they come; 8.7a-b, the color picker, done, its reviews going; 8.8a-b,
-`team_widgets`' card pickers, done, 8.8c the violations list next; then the Save editor's view,
-8.9: slices 1-3 done, the Tactics tab reviewed 2026-10-23; 8.9g, the pitch as the game's
-with the players' portraits, done 2026-10-23; 8.9f and h wait on the v2 ruling), then 0.0.1a-e (0.0.1a-e and g done, 0.0.1f at the cut; the Team
-compiler and Export upgrader through their CLI for VGL 27, PES 2019, from late November:
-the console's progress line, the launchers, the interruption check, `just release`, a
-rehearsal on PES 2019), Phase 20 (the Ruleset editor: 20.3-20.5 done 2026-10-23, its
-Acceptance section, the writer and the command line; 20.6a1, the window's frame, done
-2026-10-23, its review rework next; 8.11, egui 0.37, and 8.13, the release stage, done
-2026-10-23), the
-0.0.1 cut (0.0.1f: the two
-editors, and the compiler and upgrader through the CLI, their views greyed out), then Phase
-8's other views. Done for DBC so far (2026-10-21): 20.0d (the
-DBC7 ruleset), 20.0e (the organizer's choices in it; the stat total's two readings confirmed
-by the organizer 2026-10-22), 8.4 (the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's
-rulings) and 8.5 (the Save editor's draft, `docs/prototypes/save_editor.html`, waiting for the
-maintainer's remarks; the view starts with what they are least likely to change). The face_diff model comparison (Issues, "a face diff is
-engine-specific") follows the editors. 8.0's acceptance sections are reviewed and the shell's
-draft (`docs/prototypes/shell.html`, step 8.2) waits for the maintainer's remarks.
+**Next:** for Divegrass Before Christmas (exports due 2026-11-18; `plans/core/development_plan.md`
+"Divegrass Before Christmas"), a working Save editor with a rock-solid AATF check comes first
+(the maintainer, 2026-10-24): the Save editor's view (8.9: slices 1-3 done, with the Tactics
+pitch as the game's, 8.9g and 8.9i; next its slice 4, the AATF panel with the rules file's
+choice, Validate rules and Save a copy, then the comparator and transplant; 8.9f's slice 4 and
+8.9h wait on the maintainer's v2 ruling), `libs/aatf`'s hardening (the repetition rework done and
+reviewed; an audit step next), `ingame_face.toml` (0.0.1h), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
+done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
+and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done, the last one's review
+loop finished before the phase waits. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
+(the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's rulings), 8.5 (the Save
+editor's draft), the shell (8.6a-e), the color picker (8.7a-b), `team_widgets` (8.8), egui 0.37
+and the release stage (8.11, 8.13). The face_diff model comparison (Issues, "a face diff is
+engine-specific") follows the editor. The shell's draft (`docs/prototypes/shell.html`, step
+8.2) and the icon picks (8.14, `docs/QUESTIONS.md`) wait for the maintainer.
 Side-leads are
 paused (single lead + SWE-2); the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
@@ -125,7 +119,7 @@ documents".
 | 6 | Export upgrader | `export_upgrader` | done |
 | 7 | glTF support (runs after Release 0.1.0) | `model_convert` (glTF half) | todo |
 | 8 | GUI | `studio_core` shell, `studio`, tool views, `color_tools` widget | todo |
-| 0.0.1 | Preview build: the Save and Ruleset editors for DBC, the Team compiler and Export upgrader through their CLI for VGL 27 (`core/development_plan.md` "Divegrass Before Christmas", "The /vg/ League 27 (VGL)") | `just release`, the launchers, the console's progress line | todo |
+| 0.0.1 | Preview build: the Save editor for DBC, with DBC7's rules file, the Team compiler and Export upgrader through their CLI for VGL 27 (`core/development_plan.md` "Divegrass Before Christmas", "The /vg/ League 27 (VGL)") | `just release`, the launchers, the console's progress line | todo |
 | 0.1.0 | Release 0.1.0, after Phase 8, a test release (`core/development_plan.md` "Release 0.1.0") | `just release`, `CHANGELOG.md` | todo |
 | 0.2.0 | Release 0.2.0 or a later `0.x` (`core/development_plan.md` "Release 0.2.0") | help chapters, update check + notice, teams-list merge | todo |
 | 9 | Stadium compiler | `stadium_compiler` | todo |
@@ -1223,6 +1217,30 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         every control in view at 1440 x 900. The v2 harness (`.tmp/8_9f/run_harness_v2.py`)
         53 of 53, the first draft's 32 of 32
       - [ ] slice 4, after the maintainer's ruling on v2
+    - [ ] 8.9j slice 4 (`plans/save_editor.md` "Configurable AATF rules", "Comparator",
+      "Aesthetics transplant"), the AATF parts first (the maintainer's direction of 2026-10-24),
+      each part its own commit and review:
+      - [x] 8.9j1 the rules file's settings row (`studio_core`'s path row with Browse, the
+        common folder rows' Browse with it) and the quick actions row (SE-GUI-09, 32) →
+        verify: SE-GUI-09 and 32 by view tests; Browse by hand in the built window (`manual`).
+        Done 2026-10-24 (SWE-2, 31 min, one rework for the lead's review: the row's own error
+        line observed, a Set stats test): `studio_core::widgets::{row_label, path_row,
+        PathKind}` (Browse through `rfd`, native only), the Save editor's one-row section,
+        `Session::apply_tier` (one sealed entry, an `anyhow` error for a team that does not
+        view or an empty slot: the sidekick's contradiction, accepted), `view/quick_actions.rs`
+        under the info strip, the load error's wording shared with the badges
+        (`rules_load_error`); five FPC tests draw a 900-point window, the row pushing the
+        Appearance tab's last group below 700. Files: `studio_core/{Cargo.toml,src/{shell/
+        settings_menu.rs,widgets/{mod.rs,settings_row.rs}}}`, `save_editor/{help/{02_window.md,
+        03_abilities.md},src/{lib.rs,session/player_ops.rs,view/{abilities.rs,mod.rs,
+        player_list.rs,quick_actions.rs,tests.rs,tests/{player.rs,quick_actions.rs}}}}`
+        - [ ] review: checkpoint (a) for SE-GUI-32 and (b) for the new `pub` rows: a SWE-2
+          loop, then Astra; `mutants-diff`; Browse by hand in the built window
+      - [ ] 8.9j2 the AATF panel (SE-GUI-15): teams picked, violations per player, a click
+        selecting him, Show suggestions, Validate rules, Save a copy, the whole-save check on a
+        worker
+      - [ ] 8.9j3 Live AATF (SE-GUI-30)
+      - [ ] 8.9j4 the comparator (SE-GUI-13), then 8.9j5 the transplant (SE-GUI-14)
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
       (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's
       `ScrollArea::vertical` the content's width grows to fit its widest row (measured at a
@@ -1603,7 +1621,22 @@ briefs, review loops, gates and mutation runs as for any step.
     (it could never show its prompt); the sidebar draws it as its planned entry with the
     command-line tooltip. `studio`'s `CLI_ONLY` names the two (`shell/mod.rs`,
     `shell/sidebar/{mod,tests}.rs`, `shell/test_harness.rs`, `studio/src/main.rs`)
-- [ ] 0.0.1f the cut, once Phase 20 closes: the clean-machine check (`plans/core/development_plan.md`
+- [ ] 0.0.1h `ingame_face.toml` (the maintainer's go of 2026-10-24: before 0.0.1, after the
+  reviews in flight then): the marker becomes a file holding the in-game face, and
+  `settings.toml` loses `[appearance.face]` and `[appearance.hair]` (the Issues entry
+  "`ingame_face` as a file" holds the shape and what it touches). First the two measurements in
+  game (save backed up): (1) a face folder with no hair model, and whether the in-game hair
+  draws; (2) iris colour on a face-model player. Then the plan (`aesthetics_export/
+  player_folders.md`, `settings_toml.md`, `object_model.md`) and a decision entry, then the
+  build, sliced (the format and the compiler, then the upgrader, then the Save editor's
+  generation) → verify: the export spec's scenarios for the marker rewritten to the file, a
+  Red export's bare marker upgraded to an empty file, a filled file's face reaching the save
+  on PES 21 and PES 17, and in game the face as the file sets it
+- [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
+  2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
+  `rules/dbc7.rhai`, assembled with the frozen logic version 1, and the bundled settings naming
+  it as the Save editor's `aatf_rules` (how the recipe writes the file is this step's to settle,
+  a command the build already has preferred); the clean-machine check (`plans/core/development_plan.md`
   "Release 0.1.0"'s verification, both launchers included), the exe's size measured crate by
   crate with `cargo bloat` (35.3 MiB at 0.0.1d2, past the budget's "about 30 MB";
   `spec/core/distribution.md` "Distribution: portable .7z bundle" gets the new measurement),
@@ -1950,6 +1983,9 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
   aside. `just mutants-diff 6447bb31`: 315 mutants, 8 missed; 6 got tests (the list wrap's
   edge, a zero per-tier value's sign, the help catalog), 2 are the placeholder view and empty
   settings 20.6a1 replaces
+- Set aside on 2026-10-24 (the maintainer: not in 0.0.1, after Release 0.1.0;
+  `plans/core/development_plan.md` "Phase 20"): 20.6a2a, in flight then, is reviewed and
+  landed, and the steps below wait until after 0.1.0.
 - [ ] 20.6 the view (`plans/ruleset_editor.md` "The editor", the draft
   `docs/prototypes/ruleset_editor.html`), as slices:
   - 20.6a the window's frame and the plain forms, as subslices:
@@ -1984,8 +2020,25 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
       stubs and dirty-document setup one helper each. 20.6a1's reviews are done; open: its
       `mutants-diff b8ed279f`
     - 20.6a2 Tiers with the medal systems, Cards, Universal rules with the team settings,
-      Suggestions (RE-GUI-03 to 06, 08, RE-FILE-04, 06)
-  - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12)
+      Suggestions (RE-GUI-03 to 06, 08, RE-FILE-04, 06), as two subslices (one is past a
+      review's size):
+      - [x] 20.6a2a Tiers and the medal systems, the tier expander's per-stat targets and free
+        cards (its conditions are 20.6b's condition editor), the refused save drawn
+        (review S2b-3) (RE-GUI-03, RE-GUI-04's tiers half, 05, 06, RE-FILE-04, 06). Done
+        2026-10-24 (SWE-2, 54 min; rework 1 for the lead's review, which stalled half-way and
+        the lead finished): `sections/tiers.rs` (one `Grid` of the draft's columns, the handle a
+        `dnd_drag_source` and every cell a drop target, each row's expander in the last column's
+        cell widened back to the table's left edge, `Grid` having no colspan), the medal
+        systems under it, `sections/widgets.rs`, `document::tier` shared with Blank's tier;
+        RE-FILE-04's lib half compares four VTL11 teams under a renamed Silver label. Mutation
+        survivor M5-1 (`modal`'s margin sign) still wants a test that sees it (`.tmp/20_6/
+        rulings.md`). Files: `ruleset_editor/{Cargo.toml,src/{document.rs,view/{sections/
+        {mod.rs,tiers.rs,widgets.rs},tests.rs,tests/tiers.rs}}}`, `aatf/src/fixtures/vtl11.rs`
+        - [ ] review: a SWE-2 loop, then Astra, then SWE-2 (checkpoint b), M5-1 with its fixes;
+          then the Ruleset editor waits for 0.1.0
+      - [ ] 20.6a2b Cards, Universal rules with the team settings, Suggestions (RE-GUI-08)
+  - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12,
+    and RE-GUI-04's height-systems half, whose test joins the tiers half's)
 - [ ] 20.7 Randomize (`plans/ruleset_editor.md` "Randomize"): `random/`, the start page's and
   toolbar's entries, the CLI's `random` (RE-RND, RE-CLI-04) → verify: 1,000 seeds per preset,
   and the share of seeds that needed a redraw measured and reported
@@ -2013,6 +2066,19 @@ points there.
   with no window. The Save editor calls `rfd::FileDialog` straight from its click handlers
   (`view/mod.rs`, `view/menus.rs`): the same exposure under a mutant, and the same fix
   there (pickers behind fields, panicking under `cfg(test)`), in its next rework
+- open — `ingame_face` as a file holding the in-game face (the maintainer's idea of
+  2026-10-24, for later): the marker becomes `ingame_face.toml` with the face sliders and
+  hair, and `settings.toml` loses `[appearance.face]` and `[appearance.hair]` (89 of the
+  template's 134 keys, which 19 players in 20 do not use; an empty file is today's bare
+  marker). The sliders are already mapped (`spec/aesthetics_export/settings_toml.md`, the
+  ingame-face run). Before planning it, measure in game: (1) whether a face folder with no
+  hair model draws the in-game hair (if so the hair keys stay reachable without the marker);
+  (2) whether iris colour shows on a face model (skin and player gloves stay in
+  `settings.toml`). Cheapest before 0.0.1f: afterwards members write Studio exports by hand
+  and the change needs the upgrader to migrate those too. Touches the export spec
+  (`player_folders.md`, `settings_toml.md`, `object_model.md`), `PlayerFolder`, the compiler,
+  the upgrader and the Save editor's generation (SE-GUI-19); Team TOML is not affected.
+  Approved 2026-10-24 for before 0.0.1: step 0.0.1h
 - open — repetition in the code (the maintainer, 2026-10-23, after the writer's review let
   `aatf`'s `writer/mod.rs` keep one six-line shape over 40 times): CONTRIBUTING's "The third
   copy is a function" had no check, so neither the sidekick nor the lead's sweeps applied it.
@@ -2041,9 +2107,11 @@ points there.
   to 21, the summary's 7 to 5; one `push`, `check_empty`, `check_unique`, `id_known` and
   `check_id` in the checker, `push_set` and `push_some` in the writer, the new `pub`
   `PlayerValue::key` spelling a `ranges` key once for the writer, the reader and the
-  summary; the writer's bytes and the summary goldens unchanged), its review and
-  `mutants-diff` next, then the other crates' briefs; reworks touching `fmdl` or
-  `pes_model` also run `just bindings`, and the first of them adds each mirrored file's header
+  summary; the writer's bytes and the summary goldens unchanged), reviewed 2026-10-24 (SWE-2
+  S1 3 of 6, Astra A1 2 of 2, S2 none; the lead's fixes `ff88177d`: `id_counts`,
+  `number_list`, `check_color_code`, the summary's `group_label`; `mutants-diff b8ed279f`:
+  `aatf` 84 caught, none missed; over the fixes, `mutants-diff 86d79c92`: none missed), then
+  the other crates' briefs; reworks touching `fmdl` or `pes_model` also run `just bindings`, and the first of them adds each mirrored file's header
   naming its twin (`spec/libs/format_crates.md`, "`ops/` are format-native transformations":
   the two `ops/split/build.rs`, `ops/split/combine.rs`, `ops/vertex_enc.rs`, `check.rs`, and
   `model/validate.rs`); (4)'s check also flags a keep-list entry that no longer matches, so a
