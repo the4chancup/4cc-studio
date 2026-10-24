@@ -1629,6 +1629,23 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     tools at 12.5, 19, 25 and 64 px in both themes, a mock rail drawing the picks, all in
     Phosphor regular's grid and stroke (`.tmp/8_14/check_icons.py`); waiting for the
     maintainer's picks (QUESTIONS "Which icon does each tool get")
+  - [ ] 8.15 the window's default to 1280 × 800 (the maintainer, 2026-10-25; `core/gui.md`
+    "The window's size", ST-WIN-01, ST-HELP-05; DECISIONS "Studio opens at 1280 × 800
+    points"): `studio_core`'s `DEFAULT_SIZE` and its tests, the help window's; the Save
+    editor's Tactics lists at 200 points, and its tests named for 1440 × 900 → verify: the
+    scenarios' tests; the built window at 1280 × 800 on the FHD monitor, the Tactics tab in
+    three columns. Rides with 8.9f4c's review fixes (one slice)
+  - [ ] 8.16 the drafts as one host and a script per tool (the maintainer, 2026-10-25;
+    `core/gui.md` "Prototypes before implementation"; DECISIONS "The drafts are one host page
+    and a script per tool"; side-lead track A): `docs/prototypes/index.html` from
+    `shell.html`, the Save editor's (v2) and the Ruleset editor's drafts ported to
+    `tools/*.js` at the 1280 × 800 default, the plans' pointers moved, then
+    `scripts/bundle_drafts.py` → verify: every screen the old pages drew draws the same in the
+    host (side-by-side captures), the bundle opens alone from another folder
+  - [ ] 8.17 the Export upgrader's draft, `tools/export_upgrader.js` (`plans/export_upgrader.md`;
+    `core/gui.md` "Prototypes before implementation"; side-lead track A, after 8.16): every
+    screen the plan describes, with sample data; the lead's usability review first, ideas to
+    `PROPOSALS.md`; then the maintainer's remarks
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,
@@ -1865,6 +1882,17 @@ briefs, review loops, gates and mutation runs as for any step.
   set through the Save editor's Team TOML (a pre-Fox compile writes no save yet) and the faces
   deployed into the test slot (save and slot restored by hash): a face model (livecpk 70102)
   draws no in-game hair and the same painted iris for 7 and 10; the marker's player draws both
+- [ ] 0.0.1i `libs/aatf`'s audit for 0.0.1 (the maintainer's "a rock-solid AATF check comes
+  first", 2026-10-24; side-lead track B, 2026-10-25): the converge audit and design-health
+  pass of `AGENTS.md` "Closing a phase" over the crate alone (`plans/aatf_rules.md`,
+  `spec/aatf_rules.md` and their acceptance IDs: every requirement present and tested; the
+  design-tell sweep; `just mutants aatf` with every survivor triaged; `just citation-audit`;
+  every `pub` item and its consumer), plus a census: every save on the machine through
+  `check-aatf` under DBC7's rules file, tallied by outcome, each failing class diagnosed
+  against the reference editor's rules (`aatf.cpp`); each gap a sub-step fixed in its own
+  commit; then 8.9f4d's library half, the player's own tier recognition, as a `pub` API
+  (checkpoint (b)) → verify: the audit's list closed, the census re-run clean or each class
+  ruled, mutation runs clean
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.rhai`, assembled with the frozen logic version 1, and the bundled settings naming

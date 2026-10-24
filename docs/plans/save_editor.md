@@ -314,10 +314,11 @@ Win32 original hurt the most):
   players are **dragged** to reposition (x/y), with position labels and snapping.
   4ccEditor's per-slot dropdown + coordinate fields remain as a detail popover on
   click, not the primary interface. The tab is three columns: the formation selector over the
-  canvas at its fixed width, the starting eleven and bench lists at a fixed narrow width, then
+  canvas at its fixed width, the starting eleven and bench lists at a fixed narrow width (200 points, a long
+  name cut at its edge with the full name on hover), then
   the preset bar, the note and the settings groups taking the rest and wrapping inside it,
   the formation settings an aligned grid of up to two pairs per row (one where the column
-  cannot hold two, as the ability stats' columns): every control in view at 1440 x 900, not
+  cannot hold two, as the ability stats' columns): every control in view at 1280 x 800, not
   settings rows below the pitch past the window's bottom. A pane too narrow for a settings
   column of the draft's 360 points beside the other two (the smallest default window's) takes
   the settings column whole below the pitch and the lists, never a group split between

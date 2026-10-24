@@ -38,18 +38,18 @@ The sidebar lists the registered tools in registry order (today the Team compile
 editor, the Export upgrader), then the planned ones in parentheses here, grayed in the window
 ("Sidebar").
 
-**The window's size.** Studio opens at 1440 × 900 points (16:10), centered, not maximized.
+**The window's size.** Studio opens at 1280 × 800 points (16:10), centered, not maximized.
 Points are egui's logical units, so the system's display scaling applies: at 150% the window
-covers 2160 × 1350 pixels and looks the same size it does at 100%. A fixed size, not a share of
+covers 1920 × 1200 pixels and looks the same size it does at 100%. A fixed size, not a share of
 the monitor, because a share makes the window as wide as an ultrawide monitor is. On a monitor
-whose logical size cannot hold it with room for the taskbar and the title bar (1440 × 900 is
+whose logical size cannot hold it with room for the taskbar and the title bar (1280 × 800 is
 over 90% of its logical width or height: a 1366 × 768 laptop, a 1080p monitor at 150%,
 1280 × 720 logical), it opens at the largest 16:10 size within 90% of the monitor's logical
 width and height, rounded to whole points: 1037 × 648 at 1280 × 720, the smallest default a
 member meets. Every view is laid out to work at that smallest default, which is why the
 drafts draw their UI in a window of Studio's default size and offer the smallest one
 ("Prototypes before implementation"). The monitor's size is known only once the window
-exists (`ViewportInfo::monitor_size`, in points), so the window is created at 1440 × 900 and
+exists (`ViewportInfo::monitor_size`, in points), so the window is created at 1280 × 800 and
 the shell fits and centers it on the first frame that reports the monitor's size
 (`ViewportCommand::InnerSize`, then `OuterPosition` centering the outer rectangle, title bar
 included), and never again, so a member's own resize or move holds. eframe's own clamp at
@@ -474,7 +474,7 @@ to the table first (a new dependency, asked for first):
   the drafts look like one another. Drafts are not reviewed in the light theme, which is
   second-class.
 - **Size:** the UI is drawn inside a simulated window of the window's default size ("Shell
-  layout": 1440 × 900, fitted to 90% of the browser's `screen` size as Studio fits the
+  layout": 1280 × 800, fitted to 90% of the browser's `screen` size as Studio fits the
   monitor; CSS pixels are logical pixels, as egui's points are), centered on a
   desktop-colored page, with a size choice (the default, the smallest default of 1037 × 648,
   the whole monitor) and the draft controls outside it. Like Studio Web's window ("Browser deployment: Studio Web") it resizes
@@ -485,11 +485,21 @@ to the table first (a new dependency, asked for first):
   transform makes the fixed-position menus and dialogs place themselves inside it, as egui's
   do in the window.
 
-A draft is one self-contained HTML file (its script and styles inline), so it can be sent as a
-single attachment; its behavior is faked with sample data, never wired to the real libs. The
-drafts live in `docs/prototypes/`, one file per tool (`team_compiler.html`, `save_editor.html`,
-`export_upgrader.html`), and one for the shell (`shell.html`: sidebar, status bar, settings
-menu, help window, the first-run dialog). Each is the first step of its view's build: Phase 8's
+The drafts are one host page and a page per tool, in `docs/prototypes/`. The host,
+`index.html`, holds what every tool shares, once: the simulated window above (size choice,
+resize, maximize, the size readout), the shell's own elements (the sidebar listing every tool,
+the status bar, the settings menu, the help window, the first-run dialog), the shared
+stylesheet and the drawing helpers. Its sidebar switches the tool view, which draws the picked
+tool's page: `tools/<tool>.js` (`save_editor.js`, `ruleset_editor.js`, `team_compiler.js`,
+`export_upgrader.js`), a script that registers the tool with the host and draws only its view,
+loaded by a `<script>` tag; its images are files under `assets/`. A script, not an HTML page
+the host fetches or frames: a page opened from disk cannot fetch another file, and an iframe
+would hold a tool's menus and dialogs inside the tool area, where egui's span the whole window.
+One host is what keeps the drafts easy to change: the window's size, the sidebar or the theme
+is edited once, not in every draft. Behavior is faked with sample data, never wired to the
+real libs. A draft that must travel as one attachment is bundled by `scripts/bundle_drafts.py`
+(the host, every tool script and its images inlined into one HTML file); easy prototyping comes
+first, so the bundle is a convenience, not the format. Each tool page is the first step of its view's build: Phase 8's
 list in `development_plan.md` names it ahead of every view, and each tool plan says where its
 draft sits in that tool's build order. A draft is drawn whole, every screen the tool's plan
 describes with sample data, before the first slice of the view is coded; a slice that changes
@@ -626,10 +636,10 @@ upgrader's `EU-GUI`.
 **Window**
 
 ```
-ST-WIN-01   GIVEN a monitor of 1920 × 1080 points and the window created at 1440 × 900 inside an
+ST-WIN-01   GIVEN a monitor of 1920 × 1080 points and the window created at 1280 × 800 inside an
                  outer rectangle 16 points wider and 39 taller (its borders and title bar)
             WHEN the GUI's first frame runs
-            THEN it asks for a 1440 × 900 inner size and moves the window to (232, 70.5), its
+            THEN it asks for a 1280 × 800 inner size and moves the window to (312, 120.5), its
                  outer rectangle centered on the monitor; GIVEN a monitor of 1280 × 720 points
                  THEN 1037 × 648 at (113.5, 16.5); GIVEN 1366 × 768 THEN 1106 × 691 at
                  (122, 19); and no later frame sends either; GIVEN the first frame reporting
@@ -765,7 +775,7 @@ ST-HELP-04  GIVEN the built binary
 ST-HELP-05  GIVEN Studio's window at 1037 × 648 points
             WHEN the help window opens for the first time
             THEN its rectangle is 933 × 583 points (90% of the window's),
-                 centered in the window; GIVEN the window at 1440 × 900 THEN 1296 × 810
+                 centered in the window; GIVEN the window at 1280 × 800 THEN 1152 × 720
 ```
 
 **Log panel widget**

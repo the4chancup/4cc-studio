@@ -10831,3 +10831,28 @@ push the table off the pane; a separate grid keeps their labels aligned among th
 with the table's first column, which would need the table's width from a previous frame.
 Plan: `plans/save_editor.md` "Editing UI", the Appearance bullet; "Tactics editor", the
 three-columns sentence.
+
+## 2026-10-25 — gui — Studio opens at 1280 × 800 points
+Decision: the window's default is 1280 × 800 points (16:10), replacing 1440 × 900; the 90% fit
+on a smaller monitor stays, so the smallest default a member meets is still 1037 × 648 (a
+1080p monitor at 150%). The Tactics tab's lists narrow from 240 to 200 points, so its three
+columns (the pitch 320, the lists, the settings 360, two gaps: 896) fit the 904-point tab area
+this window leaves; their names are cut at the column's edge, the full name on hover.
+Why: the maintainer, seeing 1440 × 900 on the desktop monitor rather than over remote
+desktop, found it too large; the reference editor opens at 1248 × 640. At 240 the lists would
+need 936 points and push the settings below the pitch at the new default.
+Plan: `plans/core/gui.md` "Shell layout", "The window's size", the drafts' Size bullet,
+ST-WIN-01, ST-HELP-05; `plans/save_editor.md` "Tactics editor".
+
+## 2026-10-25 — gui — The drafts are one host page and a script per tool
+Decision: `docs/prototypes/index.html` holds the simulated window, the shell's elements, the
+shared stylesheet and the drawing helpers once; each tool's draft is `tools/<tool>.js`, a script
+the host loads with a `<script>` tag that registers the tool and draws only its view, its
+images under `assets/`; `scripts/bundle_drafts.py` inlines everything into one HTML file when a
+draft must travel as an attachment. Replaces one self-contained file per tool.
+Why: the maintainer's request: easy prototyping comes before a single attachment now that the
+GUI is being built; the window size, the sidebar and the theme were copied into every draft
+and changed in each. Not an HTML page per tool fetched by the host (a page opened from disk
+cannot fetch another file), and not an iframe (it would hold a tool's menus and dialogs inside
+the tool area, where egui's span the window).
+Plan: `plans/core/gui.md` "Prototypes before implementation".
