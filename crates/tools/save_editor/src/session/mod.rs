@@ -157,6 +157,24 @@ impl Session {
         self.file.teams().iter().map(|team| team.id)
     }
 
+    /// The player id `team`'s roster `slot` (0-based) holds, `None` for a
+    /// team the save lacks, a slot past the roster, an empty slot (id 0)
+    /// or an id no player record carries. The selection's player and
+    /// `apply_tier`'s are both read this way.
+    pub(crate) fn slot_player(&self, team_id: u32, slot: u8) -> Option<u32> {
+        let player_id = self
+            .file
+            .team(team_id)?
+            .roster
+            .get(usize::from(slot))?
+            .player_id;
+        if player_id == 0 {
+            return None;
+        }
+        self.file.player(player_id)?;
+        Some(player_id)
+    }
+
     /// Replaces the player `edited.id` names with `edited` and pushes the
     /// change under `key` (the widget's `egui::Id` value, the undo stack's
     /// merge key); `edited` equal to the stored entry pushes nothing.
@@ -772,6 +790,33 @@ mod tests {
 
         assert!(!session.is_dirty());
         assert!(!session.can_undo());
+    }
+
+    // The roster slot's player id, the selection's and `apply_tier`'s one
+    // lookup: a filled slot's id, `None` for an empty slot, a slot past the
+    // roster and a team the save lacks.
+    #[test]
+    fn slot_player_is_the_slots_filled_id_or_none() {
+        let session = open(PesVersion::Pes21, "slot_player");
+        assert_eq!(session.slot_player(701, 0), Some(70101));
+        let empty = session
+            .file()
+            .team(701)
+            .unwrap()
+            .roster
+            .iter()
+            .position(|slot| slot.player_id == 0)
+            .map(|index| u8::try_from(index).unwrap())
+            .expect("the roster has an empty slot");
+        assert_eq!(session.slot_player(701, empty), None, "an empty slot");
+        let past = u8::try_from(session.file().team(701).unwrap().roster.len())
+            .expect("the roster has at most 40 slots");
+        assert_eq!(
+            session.slot_player(701, past),
+            None,
+            "a slot past the roster"
+        );
+        assert_eq!(session.slot_player(99999, 0), None, "a team the save lacks");
     }
 
     // plans/save_editor.md "Editing UI", the Player list bullet: an empty

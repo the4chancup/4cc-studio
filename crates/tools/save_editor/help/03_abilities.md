@@ -12,7 +12,8 @@ tooltip names the first version that does (for example PES 19+). The same fields
 stay in the same places on every version, so the tab never rearranges.
 
 **Cards left** counts the paid cards the player has left under each tier of the
-AATF rules in use (the `aatf_rules` setting's file, else the built-in official
-rules): the skills and COM playing styles that count against the tier's limit.
+AATF rules in use (the rules file chosen in the settings menu's Save editor
+section, else the built-in official rules): the skills and COM playing styles
+that count against the tier's limit.
 The number goes red when he holds more than the limit. When the rules file does
 not load, the error shows in the badges' place instead.

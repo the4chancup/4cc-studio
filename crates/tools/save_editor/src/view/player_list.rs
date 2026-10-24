@@ -35,6 +35,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         boglo: _,
         stat_num: _,
         bump: _,
+        set_stats: _,
         copy_swap: _,
         fix_database: _,
         hide_ids: _,

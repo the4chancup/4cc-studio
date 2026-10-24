@@ -13,6 +13,7 @@ mod info_strip;
 mod menus;
 mod player_list;
 mod portraits;
+mod quick_actions;
 mod tactics;
 mod team;
 #[cfg(test)]
@@ -104,6 +105,9 @@ pub(crate) struct SaveView {
     /// The Bump dialog's last N used in this window (its field's
     /// prefill), starting at 0.
     bump: i32,
+    /// The quick actions row's Set stats number (the draft's `set-stats`
+    /// field), starting at 77.
+    set_stats: u8,
     /// The Copy/Swap stats dialog's state while it is open (the Player
     /// menu's `…` items); `None` while it is closed.
     copy_swap: Option<menus::CopySwap>,
@@ -196,6 +200,7 @@ impl SaveView {
             boglo: None,
             stat_num: None,
             bump: 0,
+            set_stats: 77,
             copy_swap: None,
             fix_database: false,
             hide_ids: Ok(fpc::HideIds::CONVENTION),
@@ -295,6 +300,7 @@ pub(crate) fn show(
             .show(ui, |ui| player_list::show(ui, view));
         egui::CentralPanel::default().show(ui, |ui| {
             info_strip::show(ui, view);
+            quick_actions::show(ui, view);
             tab_strip(ui, &mut view.tab);
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
@@ -509,14 +515,19 @@ pub(crate) fn edit_team(
     session.edit_team(key, edited);
 }
 
+/// The line drawn where the ruleset's controls would stand when the active
+/// rules file did not load: the Cards left badges' row and the quick actions
+/// share the one wording.
+pub(crate) fn rules_load_error(error: &str) -> String {
+    format!("The AATF rules file does not load: {error}")
+}
+
 /// The selected player's `(team_id, roster slot, player_id)`; `None` when
 /// the selection names no rostered player (a stale slot, an empty save's
 /// list).
 pub(crate) fn selected_player(view: &SaveView) -> Option<(u32, u8, u32)> {
     let (team_id, slot) = view.selected?;
-    let file = &view.session.as_ref()?.file();
-    let player_id = file.team(team_id)?.roster.get(usize::from(slot))?.player_id;
-    file.player(player_id)?;
+    let player_id = view.session.as_ref()?.slot_player(team_id, slot)?;
     Some((team_id, slot, player_id))
 }
 

@@ -22,7 +22,9 @@ use pes_savefile::schema::first_version_with;
 use team_widgets::cards::{self, TierCards};
 
 use crate::session::Session;
-use crate::view::{ActiveRules, BadgeKey, SaveView, edit_player, selected_player};
+use crate::view::{
+    ActiveRules, BadgeKey, SaveView, edit_player, rules_load_error, selected_player,
+};
 
 /// The tab for the selected player, below `info_strip` and the tab strip.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
@@ -428,7 +430,7 @@ fn cards_row(
     if let Some(error) = load_error {
         ui.horizontal_wrapped(|ui| {
             ui.weak("Cards left");
-            ui.weak(format!("The AATF rules file does not load: {error}"));
+            ui.weak(rules_load_error(error));
         });
     }
     let tiers: Vec<TierCards> = card_list

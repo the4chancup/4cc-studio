@@ -1,5 +1,26 @@
 use super::*;
 
+/// The load error the Cards left row draws: the error label at the pane's
+/// "Cards left" heading's height or below it (the error wraps to the lines
+/// under the heading when the pane is narrow). The quick actions row draws
+/// the same text above the tab strip, and its copy must not pass for the
+/// pane's.
+fn cards_left_error(nodes: &[accesskit::Node]) -> Option<&accesskit::Node> {
+    let heading = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some("Cards left"))
+        .and_then(accesskit::Node::bounds)
+        .map(|bounds| bounds.y0)
+        .expect("the Cards left heading");
+    nodes.iter().find(|node| {
+        node.role() == Role::Label
+            && node
+                .value()
+                .is_some_and(|value| value.starts_with("The AATF rules file does not load:"))
+            && node.bounds().is_some_and(|b| b.y0 >= heading - 1.0)
+    })
+}
+
 // The same rule for a number control's in-progress edit: typing into one
 // player's Speed and selecting another player commits nothing to him.
 #[test]
@@ -746,15 +767,7 @@ fn a_rules_files_load_error_wraps_inside_the_pane() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
     });
-    let error = nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Label
-                && node
-                    .value()
-                    .is_some_and(|value| value.starts_with("The AATF rules file does not load:"))
-        })
-        .expect("the load error's row");
+    let error = cards_left_error(&nodes).expect("the load error's row");
     let bounds = error.bounds().expect("bounds");
     assert!(
         bounds.x1 <= 800.0,
@@ -779,13 +792,8 @@ fn a_rules_file_that_does_not_load_shows_its_error() {
         show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
     });
     assert!(
-        nodes.iter().any(|node| {
-            node.role() == Role::Label
-                && node
-                    .value()
-                    .is_some_and(|value| value.starts_with("The AATF rules file does not load:"))
-        }),
-        "the load error's row"
+        cards_left_error(&nodes).is_some(),
+        "the load error in the Cards left row"
     );
     // The rest of the tab draws: a stat control and a skill checkbox.
     right_of_label(&nodes, "Speed", Role::SpinButton);

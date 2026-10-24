@@ -17,6 +17,12 @@ captain. A `\x11c` plus 8 hex digits inside a name is a color code and is kept a
 Every edit is undoable: **Undo** and **Redo** step through them (Ctrl+Z, Ctrl+Y or
 Ctrl+Shift+Z), and a drag or a run of typing on one field is one undo step.
 
+**Quick actions.** Under the general info, one **Make \<tier\>** button per tier of
+the AATF rules in use gives the player that tier's values (stats, form, injury
+resistance, weak foot, name color) as one undoable edit. **Set stats** sets every
+ability stat to the number beside it (40 to 99). When the rules file does not load,
+its error shows in place of the Make buttons.
+
 **Saving.** **Save** or Ctrl+S writes the edits to the file the save was opened from (a
 file it replaces is kept once as a `.bak` copy). Saving is refused while the save's own
 PES version is running: the game writes its save back when it closes, over the one just

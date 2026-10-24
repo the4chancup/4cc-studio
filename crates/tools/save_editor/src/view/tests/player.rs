@@ -9,17 +9,6 @@ use pes_savefile::model::{PlayerEntry, TeamEntry};
 
 use super::*;
 
-/// `player_id`'s entry as the session holds it.
-fn player_entry(view: &SaveView, player_id: u32) -> PlayerEntry {
-    view.session
-        .as_ref()
-        .unwrap()
-        .file()
-        .player(player_id)
-        .unwrap()
-        .clone()
-}
-
 /// The team's entry as the session holds it.
 fn team_entry(view: &SaveView, team_id: u32) -> TeamEntry {
     view.session
@@ -713,7 +702,9 @@ fn fpc_button<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::N
     labeled(nodes, Role::Button, label)
 }
 
-/// The Appearance tab unlocked and drawn for one frame's nodes.
+/// The Appearance tab unlocked and drawn for one frame's nodes. The FPC
+/// group is the tab's last: under the quick actions row it sits below the
+/// fold at 700 points, so these tests draw a taller window to reach it.
 fn appearance_frame(window: &mut Headless, view: &mut SaveView) -> Vec<accesskit::Node> {
     view.tab = Tab::Appearance;
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
@@ -763,7 +754,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     let mut view = SaveView::new();
     view.open(&path);
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(1100.0, 900.0);
     assert_eq!(
         strip_of(&view, 70101),
         (1, true, 0, 0, 0),
@@ -989,7 +980,7 @@ fn hide_body_round_trips_on_pes16() {
     let mut view = SaveView::new();
     view.open(&path);
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(1100.0, 900.0);
 
     let nodes = appearance_frame(&mut window, &mut view);
     click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
@@ -1118,7 +1109,7 @@ fn the_hide_ids_come_from_the_settings() {
     view.open(&path);
     view.edit_aesthetics = true;
     view.hide_ids = fpc::HideIds::new(60, 12);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(1100.0, 900.0);
 
     // Hide body on 70101 (IDs 0): boots 60 and gloves 12, "FPC: hidden body".
     let nodes = appearance_frame(&mut window, &mut view);
@@ -1158,25 +1149,15 @@ fn the_tool_carries_the_common_hide_ids_into_the_view() {
         player.appearance.gloves_id = 0;
     }
     file.save(&path).unwrap();
-    let (events_tx, _events_rx) = crossbeam_channel::unbounded();
-    let (requests_tx, _requests_rx) = crossbeam_channel::unbounded();
     let mut settings = studio_core::Settings::default();
     settings.common.fpc_hide_boots_id = 60;
     settings.common.fpc_hide_gloves_id = 12;
-    let ctx = studio_core::ToolContext::new(
-        std::sync::Arc::new(std::sync::Mutex::new(settings)),
-        studio_core::AppPaths {
-            exe_dir: std::path::PathBuf::from("exe"),
-            data_dir: None,
-        },
-        events_tx,
-        requests_tx,
-    );
+    let (ctx, _events_rx, _requests_rx) = tool_context(path.parent().unwrap(), settings);
     let mut tool = crate::Tool::new();
     tool.view.open(&path);
     tool.view.edit_aesthetics = true;
     tool.view.tab = Tab::Appearance;
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(1100.0, 900.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     assert_eq!(
         tool.view.hide_ids,
@@ -1204,7 +1185,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
     view.edit_aesthetics = true;
     view.hide_ids = Err(fpc::HideIdsError::Boots(627));
     let error = fpc::HideIdsError::Boots(627).to_string();
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(1100.0, 900.0);
     let before = player_entry(&view, 70101);
 
     let nodes = appearance_frame(&mut window, &mut view);
@@ -1299,7 +1280,7 @@ fn every_fpc_path_writes_the_settings_hide_ids() {
     view.open(&path);
     view.edit_aesthetics = true;
     view.hide_ids = fpc::HideIds::new(60, 12);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(1100.0, 900.0);
     assert_eq!(
         strip_of(&view, 70101),
         (1, true, 0, 0, 0),

@@ -80,17 +80,6 @@ fn team_entry(view: &SaveView, team_id: u32) -> TeamEntry {
         .clone()
 }
 
-/// `player_id`'s entry as the session holds it.
-fn player_entry(view: &SaveView, player_id: u32) -> PlayerEntry {
-    view.session
-        .as_ref()
-        .unwrap()
-        .file()
-        .player(player_id)
-        .unwrap()
-        .clone()
-}
-
 /// The rostered `(slot, player_id)` pairs of `team_id`, in slot order.
 fn rostered(view: &SaveView, team_id: u32) -> Vec<(usize, u32)> {
     team_entry(view, team_id)

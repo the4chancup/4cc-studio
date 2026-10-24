@@ -780,7 +780,10 @@ SE-GUI-09  GIVEN the official ruleset active
                 violation of the Gold tier's targets for him; GIVEN the VTL11 ruleset active
                 (bundled, `aatf/rulesets/vtl11.rhai`) THEN the quick actions are Make Gold,
                 Silver, Regular and Buffed in that order, no Bronze or Goalkeeper, and Make
-                Silver sets VTL11's Silver values (rate 89, not the official 92)
+                Silver sets VTL11's Silver values (rate 89, not the official 92); WHEN 85 is
+                typed into Set stats' number and Set stats clicked THEN every ability stat the
+                version has reads 85 and weak foot, form and injury resistance are unchanged,
+                as one undoable edit, and a typed 120 settles at 99 (the number is 40 to 99)
 SE-GUI-10  GIVEN the save open on a team
            WHEN its name, a color or the manager id is edited in the Team tab and saved
            THEN the reopened file holds the values; GIVEN #FF8000 picked as color 1 THEN the

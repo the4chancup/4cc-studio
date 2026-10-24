@@ -254,3 +254,14 @@ desktop programs do; the default stays for the first start and for a window
 whose saved place is off every monitor now. **Costs**: eframe's window persistence (its
 `persistence` feature, which writes its own small file and adds `ron` to the build; `serde`
 is in the workspace already), or two settings the shell writes on close; one manual check.
+
+## P25. Browse on the PES folder row keeps the version placeholder
+
+From `plans/core/gui.md` "Settings menu" (every path row's Browse, 8.9j1) and the
+`pes_folder_path` setting, whose `**` stands for the selected version's two digits (the
+default `…\Pro Evolution Soccer 20**`): Browse stores the folder picked, so a member who picks
+`…\Pro Evolution Soccer 2019` and later selects PES 21 keeps the 2019 folder, and the exe check
+reports it. **Adds**, for a member with several versions installed side by side: a picked folder
+whose name ends in the selected version's year is stored with `**` in its place, so the version
+selector keeps switching folders as it does for the default. **Costs**: one rule in the row's
+pick (PES folder row only), its test, and a sentence in the row's tooltip.

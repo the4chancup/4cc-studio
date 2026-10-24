@@ -80,6 +80,12 @@ impl Sandbox {
     fn run_full(&self, data_dir: Option<PathBuf>, settings: &str, args: &[&str]) -> Run {
         let tool = Tool::new();
         let mut parsed = Settings::parse(settings).unwrap();
+        // A default that finds a real folder is set to one under the sandbox
+        // before the tool's defaults merge in (CONTRIBUTING.md "Testing and
+        // verification"); a settings text naming `pes_folder_path` is kept.
+        if parsed.common.pes_folder_path == Settings::default().common.pes_folder_path {
+            parsed.common.pes_folder_path = self.root.join("pes").display().to_string();
+        }
         parsed.merge_defaults(tool.id(), &tool.default_settings());
         let (events_tx, events_rx) = unbounded();
         let (requests_tx, _requests_rx) = unbounded();

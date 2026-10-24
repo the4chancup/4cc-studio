@@ -19,6 +19,7 @@ use pes_version::PesVersion;
 
 use crate::settings::{CommonSettings, Theme};
 use crate::tool::{ShellRequest, StudioTool, ToolContext};
+use crate::widgets::{PathKind, path_row, row_label};
 
 use super::sidebar::{Sidebar, exe_tooltip, version_blocker, version_label};
 
@@ -122,6 +123,7 @@ impl SettingsMenu {
                      version (20**).",
                     &mut self.pes_folder,
                     &mut common.pes_folder_path,
+                    PathKind::Folder,
                 ) {
                     changed = true;
                 }
@@ -133,6 +135,7 @@ impl SettingsMenu {
                     "Where exports are picked up.",
                     &mut self.exports_folder,
                     &mut exports,
+                    PathKind::Folder,
                 ) {
                     common.exports_folder_path = PathBuf::from(exports);
                     changed = true;
@@ -338,43 +341,6 @@ fn version_row(
     }
     ui.end_row();
     sidebar.pick_version(picked, ctx);
-}
-
-/// A row's left cell: the plain label, its tooltip the settings key then the field's
-/// doc comment first sentence (the draft's `sRow`), so a member who edits
-/// `settings.toml` by hand still finds it.
-fn row_label(ui: &mut egui::Ui, label: &str, key: &str, tip: &str) -> egui::Response {
-    ui.label(label).on_hover_text(format!("{key}: {tip}"))
-}
-
-/// A path row: the edit binds `buffer` and commits it to `current` when it loses focus
-/// or Enter is pressed, returning whether the commit changed the setting. While the row
-/// has no focus the buffer follows `current`, so a change made outside the menu (the
-/// notice's "Fix PES path") still shows.
-fn path_row(
-    ui: &mut egui::Ui,
-    label: &str,
-    key: &str,
-    tip: &str,
-    buffer: &mut String,
-    current: &mut String,
-) -> bool {
-    let label = row_label(ui, label, key, tip);
-    let response = ui
-        .add(egui::TextEdit::singleline(buffer))
-        .labelled_by(label.id);
-    ui.end_row();
-    if response.lost_focus() {
-        if buffer == current {
-            return false;
-        }
-        *current = buffer.clone();
-        return true;
-    }
-    if !response.has_focus() {
-        *buffer = current.clone();
-    }
-    false
 }
 
 /// The theme combo's item label.
@@ -918,6 +884,35 @@ mod tests {
             dir.join("pes19").display().to_string()
         );
         fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // A path row draws its Browse button right of the edit (gui.md "Settings
+    // menu", the path rows' bullet). The picker itself is `rfd`'s native
+    // dialog, so the test sees the button, never a click.
+    #[test]
+    fn a_path_row_draws_browse_right_of_the_edit() {
+        let dir = TestDir::new("studio_core_settings_browse");
+        let (a, calls_a) = stub("a", "A", None);
+        let Shell { mut app, .. } = shell_with(
+            test_settings(dir.path()),
+            vec![a],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a],
+        );
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
+        let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+        let edit = widget_on_row(&nodes, "PES folder", Role::TextInput);
+        let browse = widget_on_row(&nodes, "PES folder", Role::Button);
+        assert_eq!(browse.label(), Some("Browse"));
+        assert!(
+            centre(browse).x > centre(edit).x,
+            "the button stands right of the edit"
+        );
     }
 
     // The `PES version` row is the sidebar selector's twin: a pick writes the setting

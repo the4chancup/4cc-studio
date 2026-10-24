@@ -361,17 +361,8 @@ fn ctrl_shift_z_redoes_not_undoes() {
 fn the_tool_view_draws_the_window() {
     use studio_core::StudioTool;
 
-    let (events_tx, _events_rx) = crossbeam_channel::unbounded();
-    let (requests_tx, _requests_rx) = crossbeam_channel::unbounded();
-    let ctx = studio_core::ToolContext::new(
-        std::sync::Arc::new(std::sync::Mutex::new(studio_core::Settings::default())),
-        studio_core::AppPaths {
-            exe_dir: std::path::PathBuf::from("exe"),
-            data_dir: None,
-        },
-        events_tx,
-        requests_tx,
-    );
+    let dir = crate::test_support::scratch("tool_view_window");
+    let (ctx, _events_rx, _requests_rx) = tool_context(&dir, studio_core::Settings::default());
     let mut tool = crate::Tool::new();
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));

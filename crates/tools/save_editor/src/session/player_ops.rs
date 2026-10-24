@@ -1,16 +1,45 @@
 //! The Player menu's operations (`plans/save_editor.md` "Feature
 //! inventory", the Player operations table, and "Full Player
-//! Customization (FPC)"): the four stat operations and the FPC
-//! hide/show/toggle, each one sealed `edit_players` undo entry. egui-free,
+//! Customization (FPC)") and the quick actions' `apply_tier`: the four
+//! stat operations, the FPC hide/show/toggle and the tier write, each one
+//! sealed `edit_players` undo entry. egui-free,
 //! so the operations are testable without a frame; the lock's part (the
 //! FPC items' disabled state) is the view's to apply, not these
 //! functions'.
 
+use anyhow::anyhow;
 use pes_savefile::model::PlayerEntry;
 
 use crate::session::Session;
 
 impl Session {
+    /// One "Make <tier>" click (`plans/save_editor.md` "Configurable AATF
+    /// rules", the Quick actions bullet): `Rules::apply_tier` on the roster
+    /// slot's player, as one sealed `edit_players` entry. A team that does
+    /// not view, an empty slot or a failed `apply_tier` is the error the
+    /// view's refusal dialog shows; the player is untouched.
+    pub(crate) fn apply_tier(
+        &mut self,
+        rules: &aatf::Rules,
+        team_id: u32,
+        slot: u8,
+        tier: &str,
+    ) -> anyhow::Result<()> {
+        let team = aatf::TeamView::new(&self.file, team_id)?;
+        let player_id = self
+            .slot_player(team_id, slot)
+            .ok_or_else(|| anyhow!("team {team_id}'s roster slot {slot} is empty"))?;
+        let player = team.player(slot).expect("a filled roster slot views");
+        let mut edited = self
+            .file
+            .player(player_id)
+            .expect("a viewed player exists")
+            .clone();
+        rules.apply_tier(&team, player, tier, &mut edited)?;
+        self.edit_players(vec![edited]);
+        Ok(())
+    }
+
     /// Every ability stat the version has becomes `value` (the dialog's
     /// Set all stats: `set_ability` over the 25, a `None` one stays
     /// `None`). Weak foot, form and injury are not ability stats and stay;
@@ -253,6 +282,31 @@ mod tests {
         assert_eq!(bumped.stats.weak_foot_usage, before.stats.weak_foot_usage);
         assert_eq!(bumped.edit_flags, before.edit_flags, "no edit flag set");
         assert!(session.undo(), "one sealed entry");
+        assert_eq!(session.file().player(70101).unwrap(), &before);
+    }
+
+    // The quick actions' operation (plans/save_editor.md "Configurable AATF
+    // rules", the Quick actions bullet): `apply_tier` writes the tier's
+    // values as the lib computes them, as one sealed undo entry.
+    #[test]
+    fn apply_tier_writes_the_tiers_values_as_one_undoable_edit() {
+        let mut session = open(PesVersion::Pes21, "apply_tier");
+        let before = session.file().player(70101).unwrap().clone();
+        let rules = aatf::Rules::official();
+        let expected = {
+            let team = aatf::TeamView::new(session.file(), 701).unwrap();
+            let player = team.player(0).unwrap();
+            let mut entry = before.clone();
+            rules.apply_tier(&team, player, "gold", &mut entry).unwrap();
+            entry
+        };
+        assert_ne!(expected, before, "premise: Gold changes him");
+
+        session.apply_tier(&rules, 701, 0, "gold").unwrap();
+
+        assert_eq!(session.file().player(70101).unwrap(), &expected);
+        assert!(session.can_undo(), "one sealed entry");
+        assert!(session.undo());
         assert_eq!(session.file().player(70101).unwrap(), &before);
     }
 

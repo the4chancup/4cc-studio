@@ -18,6 +18,7 @@ mod teams_list;
 mod test_support;
 mod view;
 
+use studio_core::widgets::{PathKind, path_row};
 use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};
 
 use crate::messages::TOOL_ID;
@@ -27,6 +28,10 @@ use crate::messages::TOOL_ID;
 #[derive(Default)]
 pub struct Tool {
     view: view::SaveView,
+    /// The AATF rules file row's edit buffer in the settings section (`path_row`
+    /// commits it to the setting on Enter or focus loss, so a half-typed path
+    /// never reaches it).
+    aatf_rules: String,
 }
 
 impl Tool {
@@ -34,6 +39,7 @@ impl Tool {
     pub fn new() -> Tool {
         Tool {
             view: view::SaveView::new(),
+            aatf_rules: String::new(),
         }
     }
 }
@@ -70,11 +76,37 @@ impl StudioTool for Tool {
         );
     }
 
-    fn settings_view(&mut self, ui: &mut egui::Ui, _ctx: &ToolContext) {
-        ui.label(
-            "The Save editor has one setting, aatf_rules: the AATF rules file check-aatf \
-             runs. Its editor comes with the Save editor's window.",
-        );
+    fn settings_view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
+        let mut table = ctx.tool_settings(TOOL_ID);
+        let mut current = table
+            .get("aatf_rules")
+            .and_then(toml::Value::as_str)
+            .unwrap_or_default()
+            .to_owned();
+        let mut committed = false;
+        egui::Grid::new("save_editor_settings")
+            .num_columns(2)
+            .show(ui, |ui| {
+                committed = path_row(
+                    ui,
+                    "AATF rules file",
+                    "aatf_rules",
+                    "The AATF rules file check-aatf and the AATF panel run; empty: the \
+                     official ruleset, built in.",
+                    &mut self.aatf_rules,
+                    &mut current,
+                    PathKind::File {
+                        filter: "AATF rules",
+                        extensions: &["rhai"],
+                    },
+                );
+            });
+        // The table as read with only `aatf_rules` replaced, so any other key
+        // survives.
+        if committed {
+            table.insert("aatf_rules".to_owned(), toml::Value::String(current));
+            ctx.set_tool_settings(TOOL_ID, table);
+        }
     }
 
     fn default_settings(&self) -> toml::Table {

@@ -3,7 +3,7 @@
 //! on, run a frame at a time; what a frame draws is its AccessKit nodes and
 //! painted shapes.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use egui::accesskit::{self, Role};
 use pes_savefile::model::TeamEntry;
@@ -99,6 +99,48 @@ fn fixture(version: PesVersion, test: &str) -> PathBuf {
     let path = dir.join("EDIT00000000");
     std::fs::write(&path, fixture_save(version)).unwrap();
     path
+}
+
+/// `player_id`'s entry as the session holds it.
+fn player_entry(view: &SaveView, player_id: u32) -> PlayerEntry {
+    view.session
+        .as_ref()
+        .unwrap()
+        .file()
+        .player(player_id)
+        .unwrap()
+        .clone()
+}
+
+/// A `ToolContext` for a `tool.view`/`settings_view` test, with the
+/// receivers its sends land on: `settings` is the context's own except
+/// `pes_folder_path`, set to a folder under `dir` (the test's scratch).
+/// Its default names the machine's real `Pro Evolution Soccer 20**`
+/// install, which `Tool::view` points the portraits worker at every frame
+/// (CONTRIBUTING.md "Testing": a test never reaches the developer's own
+/// files; `studio_core`'s `test_settings` does the same). `exe_dir` and
+/// `data_dir` sit under `dir` too.
+fn tool_context(
+    dir: &Path,
+    mut settings: studio_core::Settings,
+) -> (
+    studio_core::ToolContext,
+    crossbeam_channel::Receiver<studio_core::PipelineEventEnvelope>,
+    crossbeam_channel::Receiver<studio_core::ShellRequest>,
+) {
+    settings.common.pes_folder_path = dir.join("pes").display().to_string();
+    let (events_tx, events_rx) = crossbeam_channel::unbounded();
+    let (requests_tx, requests_rx) = crossbeam_channel::unbounded();
+    let ctx = studio_core::ToolContext::new(
+        std::sync::Arc::new(std::sync::Mutex::new(settings)),
+        studio_core::AppPaths {
+            exe_dir: dir.join("exe"),
+            data_dir: Some(dir.to_path_buf()),
+        },
+        events_tx,
+        requests_tx,
+    );
+    (ctx, events_rx, requests_rx)
 }
 
 /// The centre of a node's bounds, where a click lands.
@@ -626,6 +668,7 @@ mod abilities;
 mod appearance;
 mod list;
 mod player;
+mod quick_actions;
 mod savefile;
 mod shell;
 mod strip;

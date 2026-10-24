@@ -1234,8 +1234,24 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         settings_menu.rs,widgets/{mod.rs,settings_row.rs}}}`, `save_editor/{help/{02_window.md,
         03_abilities.md},src/{lib.rs,session/player_ops.rs,view/{abilities.rs,mod.rs,
         player_list.rs,quick_actions.rs,tests.rs,tests/{player.rs,quick_actions.rs}}}}`
-        - [ ] review: checkpoint (a) for SE-GUI-32 and (b) for the new `pub` rows: a SWE-2
-          loop, then Astra; `mutants-diff`; Browse by hand in the built window
+        - [x] review: checkpoint (a) for SE-GUI-32 and (b) for the new `pub` rows: a SWE-2
+          loop, then Astra; `mutants-diff`. S1: 2 of 7 accepted, one rework (SWE-2, 7 min):
+          `Session::slot_player`, the roster slot's one lookup for the selection and
+          `apply_tier`; `row_label` crate-private; a test that the path row draws Browse,
+          and no wasm `browse` stand-in (the mutation run's two survivors). Astra A1: 3 of 3
+          accepted, rework 2 (SWE-2, 10 min): Set stats' number typed into its field (and
+          clamped at 99), the Cards left load-error tests reading the pane's own nodes, and
+          one `tool_context` test helper putting the PES folder under the test's scratch (two
+          tests had started the portrait worker against the real install). S2: 3 of 3
+          accepted, lead fixes: one `player_entry` test helper for four copies, SE-GUI-09's
+          no-violation check covering `NameColor`, SE-GUI-09 gaining Set stats' THEN; the loop
+          ends (rulings `.tmp/8_9/duck_rulings_j.md`; P25 from its notes)
+        manual: checked 2026-10-24, a portable copy of the debug build at `664c98bb` (its own
+        `data/settings.toml`; UI Automation and keys into its own windows only,
+        `.tmp/8_9j/ui.ps1`): the AATF rules file row's Browse opens the native Open dialog
+        filtered to "AATF rules (*.rhai)", a pick writes `aatf_rules` and the row shows it; the
+        Exports folder row's Browse opens Select Folder, and Escape leaves `settings.toml`
+        byte for byte as it was
       - [ ] 8.9j2 the AATF panel (SE-GUI-15): teams picked, violations per player, a click
         selecting him, Show suggestions, Validate rules, Save a copy, the whole-save check on a
         worker
@@ -2079,6 +2095,13 @@ points there.
   (`player_folders.md`, `settings_toml.md`, `object_model.md`), `PlayerFolder`, the compiler,
   the upgrader and the Save editor's generation (SE-GUI-19); Team TOML is not affected.
   Approved 2026-10-24 for before 0.0.1: step 0.0.1h
+- open — tests built on the default settings may reach the real install (Astra A1 on 8.9j1,
+  2026-10-24: a Save editor FPC test's `ToolContext` from `studio_core::Settings::default()`
+  kept the default `pes_folder_path`, and `Tool::view` with a save open started the portrait
+  worker against it; the Save editor's tests fixed in 8.9j1's rework 2). The other crates'
+  tests that build a `Settings::default()` (`team_compiler`, `export_upgrader`,
+  `ruleset_editor`, `studio_core`'s shell harness) are not audited yet: each one that reaches
+  a path setting gets a scratch path, before the 0.0.1 cut
 - open — repetition in the code (the maintainer, 2026-10-23, after the writer's review let
   `aatf`'s `writer/mod.rs` keep one six-line shape over 40 times): CONTRIBUTING's "The third
   copy is a function" had no check, so neither the sidekick nor the lead's sweeps applied it.
