@@ -2046,12 +2046,18 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
         `dnd_drag_source` and every cell a drop target, each row's expander in the last column's
         cell widened back to the table's left edge, `Grid` having no colspan), the medal
         systems under it, `sections/widgets.rs`, `document::tier` shared with Blank's tier;
-        RE-FILE-04's lib half compares four VTL11 teams under a renamed Silver label. Mutation
-        survivor M5-1 (`modal`'s margin sign) still wants a test that sees it (`.tmp/20_6/
-        rulings.md`). Files: `ruleset_editor/{Cargo.toml,src/{document.rs,view/{sections/
+        RE-FILE-04's lib half compares four VTL11 teams under a renamed Silver label. Files: `ruleset_editor/{Cargo.toml,src/{document.rs,view/{sections/
         {mod.rs,tiers.rs,widgets.rs},tests.rs,tests/tiers.rs}}}`, `aatf/src/fixtures/vtl11.rs`
         - [ ] review: a SWE-2 loop, then Astra, then SWE-2 (checkpoint b), M5-1 with its fixes;
-          then the Ruleset editor waits for 0.1.0
+          then the Ruleset editor waits for 0.1.0. S1: 4 of 7 accepted; `mutants-diff
+          ff88177d`: 17 survivors in `tiers.rs`. Rework 2 (SWE-2, 75 min, four contradictions
+          accepted): the open expander's cell recorded at the column's own width (it had
+          widened the table by its own width: dead scroll space), a test for every Tiers
+          control (add tier, the ✕'s presence, the `counts_as` combo, medal count 0, free
+          count, a system's ✕ and add, rest, the name-colour checkbox, a drop on a label
+          cell), the draft's two titles, one `cell` helper for the row's 16 drop targets;
+          M5-1 settled (egui bounds a new modal's first frame; the cap binds on a window
+          shrunk under an open modal, now tested). Astra A1 next
       - [ ] 20.6a2b Cards, Universal rules with the team settings, Suggestions (RE-GUI-08)
   - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12,
     and RE-GUI-04's height-systems half, whose test joins the tiers half's)

@@ -117,6 +117,14 @@ fn click(window: &mut Headless, node: &accesskit::Node, view: &mut RulesetView, 
     window.frame(pointer_at(at, false), |ui| show(ui, view, ctx));
 }
 
+/// Draws two frames and returns the second: a `Grid`'s first draw is
+/// an invisible sizing pass with degenerate bounds, so node lookups
+/// and clicks run on the frame after it.
+fn settled(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext) -> Frame {
+    window.draw(view, ctx);
+    window.draw(view, ctx)
+}
+
 /// A click on the `nth` node labeled `label`, top to bottom (the two
 /// stat checklists share names).
 fn click_nth(

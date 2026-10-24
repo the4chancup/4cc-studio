@@ -2,8 +2,8 @@
 //! RE-FILE-06): a rate edit shows in the preview and dirties the
 //! document, a handle drag reorders the tiers, a shared id marks the
 //! rail and blocks Save, the medal checkbox moves a tier's count into
-//! the systems and back; and the per-stat, free-count, id-rename,
-//! colour-alpha and removal behaviour the scenarios do not reach.
+//! the systems and back; and the controls, layout and removal
+//! behaviour the scenarios do not reach.
 
 use std::collections::BTreeMap;
 
@@ -55,6 +55,29 @@ fn spin_right_of<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit
                     .is_some_and(|b| b.x0 >= bounds.x1 - 1.0 && (b.y0 - bounds.y0).abs() < 20.0)
         })
         .unwrap_or_else(|| panic!("a SpinButton right of {label:?}"))
+}
+
+/// The SpinButtons on `label`'s row, left to right (a medal system's
+/// per-tier counts sit right of its label field).
+fn spins_on_row<'a>(nodes: &'a [accesskit::Node], label: &str) -> Vec<&'a accesskit::Node> {
+    let bounds = node(nodes, label).bounds().expect("a drawn label");
+    let mut found: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::SpinButton
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.x0 >= bounds.x1 - 1.0 && (b.y0 - bounds.y0).abs() < 20.0)
+        })
+        .collect();
+    found.sort_by(|a, b| {
+        a.bounds()
+            .unwrap()
+            .x0
+            .partial_cmp(&b.bounds().unwrap().x0)
+            .expect("ordered bounds")
+    });
+    found
 }
 
 /// `text` typed into the focused field, replacing what it held:
@@ -115,6 +138,17 @@ fn medal_counts(view: &RulesetView, tier: &str) -> Vec<Option<u8>> {
         .collect()
 }
 
+/// The handle column's left edge (the drag handle is the ⠇ Label).
+fn handle_x(nodes: &[accesskit::Node]) -> f64 {
+    nodes_labeled(nodes, "⠇")
+        .into_iter()
+        .find(|node| node.role() == Role::Label)
+        .expect("a handle")
+        .bounds()
+        .expect("a drawn handle")
+        .x0
+}
+
 /// `frame`'s labels include every `fragment` (the refusal dialog's
 /// listing).
 fn assert_shown(frame: &Frame, fragments: &[&str]) {
@@ -136,14 +170,6 @@ fn click_role(
 ) {
     let frame = settled(window, view, ctx);
     click(window, role_labeled(&frame.nodes, role, text), view, ctx);
-}
-
-/// Draws two frames and returns the second: a `Grid`'s first draw is
-/// an invisible sizing pass with degenerate bounds, so node lookups
-/// and clicks run on the frame after it.
-fn settled(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext) -> Frame {
-    window.draw(view, ctx);
-    window.draw(view, ctx)
 }
 
 /// The id fields' values in drawn order, top to bottom (the table's
@@ -591,6 +617,11 @@ fn a_name_colour_pick_keeps_the_alpha() {
     let hex = find(&frame.nodes, "the picker's hex field", |node| {
         node.role() == Role::TextInput && node.value().is_some_and(|value| value.starts_with('#'))
     });
+    assert_eq!(
+        hex.value(),
+        Some("#CC9900"),
+        "the picker opens on the code's channels"
+    );
     click(&mut window, hex, &mut view, &ctx);
     type_replacing(&mut window, &mut view, &ctx, "#112233");
     window.frame(vec![key(egui::Key::Enter, egui::Modifiers::NONE)], |ui| {
@@ -600,5 +631,422 @@ fn a_name_colour_pick_keeps_the_alpha() {
         ruleset(&view).tiers[0].name_color.as_deref(),
         Some("11223380"),
         "the picked colour keeps the code's alpha"
+    );
+}
+
+/// An open expander does not widen the table: its cell is the last
+/// column's, recorded at the column's own width, so a rightward wheel
+/// scroll over a table that fits the window moves nothing.
+#[test]
+fn an_open_expander_adds_no_scroll_space() {
+    let (ctx, _events, _window, mut view) = fresh();
+    let mut window = Headless::sized(1600.0, 900.0);
+    open_document(&mut view, template("VTL11"));
+    view.section = Section::Tiers;
+
+    // The first tier's expander opened and settled.
+    let frame = settled(&mut window, &mut view, &ctx);
+    click_labeled(
+        &mut window,
+        &frame.nodes,
+        "Stat targets, free cards and conditions",
+        &mut view,
+        &ctx,
+    );
+    let frame = settled(&mut window, &mut view, &ctx);
+    let before = handle_x(&frame.nodes);
+
+    // A rightward wheel scroll over the table: the handle column's x
+    // stays where it was (the scroll is a no-op while the table fits).
+    let frame = scroll_until(
+        &mut window,
+        &mut view,
+        &ctx,
+        centre(node(&frame.nodes, "Rate")),
+        egui::vec2(-80.0, 0.0),
+        |frame| handle_x(&frame.nodes) < before - 0.5,
+    )
+    .unwrap_or_else(|| window.draw(&mut view, &ctx));
+    assert_eq!(
+        handle_x(&frame.nodes),
+        before,
+        "the handle column's x is where it was"
+    );
+}
+
+/// The open expander's stat grid spans the table (the child's rect
+/// starts back at the table's left edge): the fifth stat's checkbox
+/// sits right of the "Rate" header. And its cell is the last column's
+/// own: a window the table just fits gets no scroll space from it.
+#[test]
+fn the_open_expanders_stat_grid_spans_the_table() {
+    let (ctx, _events, _window, mut view) = fresh();
+    let mut window = Headless::sized(1600.0, 900.0);
+    open_document(&mut view, template("VTL11"));
+    view.section = Section::Tiers;
+
+    let frame = settled(&mut window, &mut view, &ctx);
+    click_labeled(
+        &mut window,
+        &frame.nodes,
+        "Stat targets, free cards and conditions",
+        &mut view,
+        &ctx,
+    );
+    let frame = settled(&mut window, &mut view, &ctx);
+    let rate = node(&frame.nodes, "Rate").bounds().expect("drawn");
+    let lofted = role_labeled(&frame.nodes, Role::CheckBox, "Lofted Pass")
+        .bounds()
+        .expect("drawn");
+    assert!(
+        lofted.x0 > rate.x1,
+        "the fifth stat checkbox right of the Rate header ({lofted:?} vs {rate:?})"
+    );
+
+    // And its cell is the last column's own: a cell recorded a column
+    // past it adds only scroll space — dead room right of the table —
+    // so on a window the section just fits (its right edge measures a
+    // few points inside the 1292-wide viewport), a rightward wheel
+    // scroll over the table moves nothing.
+    window.screen = egui::vec2(1300.0, 900.0);
+    let frame = settled(&mut window, &mut view, &ctx);
+    let before = handle_x(&frame.nodes);
+    let over = centre(node(&frame.nodes, "Rate"));
+    let frame = scroll_until(
+        &mut window,
+        &mut view,
+        &ctx,
+        over,
+        egui::vec2(-80.0, 0.0),
+        |frame| handle_x(&frame.nodes) < before - 0.5,
+    )
+    .unwrap_or_else(|| window.draw(&mut view, &ctx));
+    assert_eq!(
+        handle_x(&frame.nodes),
+        before,
+        "the handle column's x is where it was"
+    );
+}
+
+/// The stat grid's five columns (the draft's `perStatGrid`): the
+/// sixth stat's checkbox sits under the first's, the fifth right of
+/// the fourth's on the first's row.
+#[test]
+fn the_stat_grid_lays_out_five_columns() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, template("VTL11"));
+    view.section = Section::Tiers;
+
+    let frame = settled(&mut window, &mut view, &ctx);
+    click_labeled(
+        &mut window,
+        &frame.nodes,
+        "Stat targets, free cards and conditions",
+        &mut view,
+        &ctx,
+    );
+    let frame = settled(&mut window, &mut view, &ctx);
+    let checkbox = |nodes: &[accesskit::Node], label: &str| {
+        role_labeled(nodes, Role::CheckBox, label)
+            .bounds()
+            .expect("drawn")
+    };
+    let first = checkbox(&frame.nodes, "Attacking Prowess");
+    let fourth = checkbox(&frame.nodes, "Low Pass");
+    let fifth = checkbox(&frame.nodes, "Lofted Pass");
+    let sixth = checkbox(&frame.nodes, "Finishing");
+    assert!(
+        (sixth.x0 - first.x0).abs() < 1.0 && sixth.y0 > first.y0,
+        "the sixth stat's checkbox under the first's ({sixth:?} vs {first:?})"
+    );
+    assert!(
+        fifth.x0 > fourth.x0 && (fifth.y0 - first.y0).abs() < 1.0,
+        "the fifth right of the fourth on the first's row ({fifth:?} vs {fourth:?} and {first:?})"
+    );
+}
+
+/// "+ Add tier" pushes the draft's new tier (`new_tier`): `tier<N>`,
+/// "Tier <N>", count 1, rate 80.
+#[test]
+fn add_tier_appends_the_drafts_new_tier() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, aatf::Rules::official().ruleset().clone());
+    view.section = Section::Tiers;
+    assert_eq!(
+        ruleset(&view).tiers.len(),
+        5,
+        "premise: Autumn 26's five tiers"
+    );
+
+    let frame = settled(&mut window, &mut view, &ctx);
+    click_labeled(&mut window, &frame.nodes, "+ Add tier", &mut view, &ctx);
+
+    let tier = &ruleset(&view).tiers[5];
+    assert_eq!(tier.id, "tier6");
+    assert_eq!(tier.label, "Tier 6");
+    assert_eq!(tier.count, Some(1));
+    assert_eq!(tier.rate, 80);
+}
+
+/// The ✕ sits on every row while a second tier remains (the draft's
+/// `tiers.length > 1`): Blank's one tier draws none, Autumn 26's five
+/// tiers draw five.
+#[test]
+fn the_remove_button_sits_on_every_row_but_a_last_one() {
+    let (ctx, _events, _window, mut view) = fresh();
+    // The window is wide enough that the last column's ✕ is inside
+    // the visible area.
+    let mut window = Headless::sized(1600.0, 900.0);
+    open_document(&mut view, crate::document::blank());
+    view.section = Section::Tiers;
+    let frame = settled(&mut window, &mut view, &ctx);
+    assert_count(&frame, Role::Button, "✕", 0);
+
+    open_document(&mut view, aatf::Rules::official().ruleset().clone());
+    view.section = Section::Tiers;
+    let frame = settled(&mut window, &mut view, &ctx);
+    assert_count(&frame, Role::Button, "✕", 5);
+}
+
+/// The `counts_as` combo (the draft's): a counted-as tier shows its
+/// target's label; opening a row's combo lists the other tiers, not
+/// its own; a pick writes the id and clears the tier's `count`.
+#[test]
+fn the_counts_as_combo_picks_one_of_the_other_tiers() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, aatf::Rules::official().ruleset().clone());
+    view.section = Section::Tiers;
+
+    // The goalkeeper row's combo shows its `counts_as` tier's label.
+    let frame = settled(&mut window, &mut view, &ctx);
+    let goalkeeper_y = node(&frame.nodes, "goalkeeper")
+        .bounds()
+        .expect("the goalkeeper id field")
+        .y0;
+    let combo = find(&frame.nodes, "the goalkeeper row's combo", |node| {
+        node.role() == Role::ComboBox
+            && node
+                .bounds()
+                .is_some_and(|bounds| (bounds.y0 - goalkeeper_y).abs() < 20.0)
+    });
+    assert_eq!(combo.value(), Some("Regular"), "the goalkeeper's pick");
+
+    // Gold's combo (the first row's) opened: the other tiers' labels,
+    // not "Gold".
+    let gold_y = node(&frame.nodes, "gold").bounds().expect("drawn").y0;
+    let combo = find(&frame.nodes, "the gold row's combo", |node| {
+        node.role() == Role::ComboBox
+            && node
+                .bounds()
+                .is_some_and(|bounds| (bounds.y0 - gold_y).abs() < 20.0)
+    });
+    assert_eq!(ruleset(&view).tiers[0].count, Some(1), "premise");
+    click(&mut window, combo, &mut view, &ctx);
+    let frame = settled(&mut window, &mut view, &ctx);
+    for label in ["Silver", "Bronze", "Goalkeeper", "Regular", "—"] {
+        assert_count(&frame, Role::Button, label, 1);
+    }
+    assert_count(&frame, Role::Button, "Gold", 0);
+
+    // "Silver" picked: `counts_as` takes its id, `count` clears.
+    click_role(&mut window, &mut view, &ctx, Role::Button, "Silver");
+    assert_eq!(
+        ruleset(&view).tiers[0].counts_as.as_deref(),
+        Some("silver"),
+        "the picked id"
+    );
+    assert_eq!(ruleset(&view).tiers[0].count, None, "the count cleared");
+}
+
+/// A medal system's count typed 0 keeps the tier counted (the draft's
+/// `s.counts[t.id] = v`): DBC7's "GGSS" silver count keeps its key.
+#[test]
+fn a_medal_count_of_zero_keeps_the_tier_counted() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, template("DBC7"));
+    view.section = Section::Tiers;
+    assert_eq!(
+        ruleset(&view).medal_systems[1].counts["silver"],
+        2,
+        "premise: GGSS's silver count is 2"
+    );
+
+    // The "GGSS" row's second count field (gold's is the first).
+    let frame = settled(&mut window, &mut view, &ctx);
+    click(
+        &mut window,
+        spins_on_row(&frame.nodes, "GGSS")[1],
+        &mut view,
+        &ctx,
+    );
+    type_replacing(&mut window, &mut view, &ctx, "0");
+    assert_eq!(
+        ruleset(&view).medal_systems[1].counts.get("silver"),
+        Some(&0),
+        "0 keeps the silver entry"
+    );
+}
+
+/// A nonzero free-cards count writes the group's `free` entry (the
+/// zero case removes it — `map_number`'s two arms).
+#[test]
+fn a_free_count_writes_the_groups_entry() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, aatf::Rules::official().ruleset().clone());
+    view.section = Section::Tiers;
+
+    // The regular tier's expander (the last "Stat targets…" header):
+    // its free Tricks count set to 3 writes the entry.
+    let frame = settled(&mut window, &mut view, &ctx);
+    let headers = nodes_labeled(&frame.nodes, "Stat targets, free cards and conditions");
+    assert_eq!(headers.len(), 5, "one expander per tier");
+    click(&mut window, headers[4], &mut view, &ctx);
+    let frame = settled(&mut window, &mut view, &ctx);
+    click(
+        &mut window,
+        spin_right_of(&frame.nodes, "Tricks"),
+        &mut view,
+        &ctx,
+    );
+    type_replacing(&mut window, &mut view, &ctx, "3");
+    assert_eq!(
+        ruleset(&view).tiers[4].free.get("tricks"),
+        Some(&3),
+        "3 written to the entry"
+    );
+}
+
+/// A medal system's ✕ removes that system, its neighbours keeping
+/// their order; "+ Add medal system" pushes "System <N>" counting
+/// nothing yet.
+#[test]
+fn a_medal_system_is_removed_and_added() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, template("DBC7"));
+    view.section = Section::Tiers;
+
+    let frame = settled(&mut window, &mut view, &ctx);
+    click_labeled(
+        &mut window,
+        &frame.nodes,
+        "+ Add medal system",
+        &mut view,
+        &ctx,
+    );
+    let systems = &ruleset(&view).medal_systems;
+    assert_eq!(systems.len(), 5, "a fifth system");
+    assert_eq!(systems[4].label, "System 5");
+    assert!(
+        systems[4].counts.is_empty(),
+        "the new system counts nothing yet"
+    );
+
+    // GGSS's ✕ (the ✕ on its row) removes it.
+    let frame = settled(&mut window, &mut view, &ctx);
+    let ggss_y = node(&frame.nodes, "GGSS").bounds().expect("drawn").y0;
+    let cross = find(&frame.nodes, "the GGSS row's ✕", |node| {
+        node.role() == Role::Button
+            && node.label() == Some("✕")
+            && node
+                .bounds()
+                .is_some_and(|bounds| (bounds.y0 - ggss_y).abs() < 20.0)
+    });
+    click(&mut window, cross, &mut view, &ctx);
+    let labels: Vec<&str> = ruleset(&view)
+        .medal_systems
+        .iter()
+        .map(|system| system.label.as_str())
+        .collect();
+    assert_eq!(labels, ["GGG", "GSSSS", "SSSSSS", "System 5"]);
+}
+
+/// The "rest" checkbox (the draft's): unticked, the tier counts one;
+/// ticked again, the rest of the squad (`count: null`).
+#[test]
+fn the_rest_checkbox_writes_the_count() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, template("DBC7"));
+    view.section = Section::Tiers;
+    assert_eq!(
+        ruleset(&view).tiers[2].count,
+        None,
+        "premise: DBC7's regular is the rest"
+    );
+
+    click_role(&mut window, &mut view, &ctx, Role::CheckBox, "rest");
+    assert_eq!(ruleset(&view).tiers[2].count, Some(1), "unticked: one");
+    click_role(&mut window, &mut view, &ctx, Role::CheckBox, "rest");
+    assert_eq!(ruleset(&view).tiers[2].count, None, "ticked: the rest");
+}
+
+/// The name-colour checkbox (the draft's `colour`): ticked on a tier
+/// without a colour sets `cc9900ff`; unticked clears it.
+#[test]
+fn the_name_colour_checkbox_writes_the_default_code() {
+    let (ctx, _events, _window, mut view) = fresh();
+    // The window is wide enough that the name-colour cell is inside
+    // the visible area.
+    let mut window = Headless::sized(1600.0, 900.0);
+    open_document(&mut view, aatf::Rules::official().ruleset().clone());
+    view.section = Section::Tiers;
+    assert_eq!(
+        ruleset(&view).tiers[0].name_color,
+        None,
+        "premise: gold has no colour"
+    );
+
+    // The unticked cell reads "none"; the checkbox carries its hover
+    // text as its label (gold's is the topmost).
+    let frame = settled(&mut window, &mut view, &ctx);
+    let checkboxes = nodes_labeled(&frame.nodes, "This tier's names carry a colour code")
+        .into_iter()
+        .filter(|node| node.role() == Role::CheckBox)
+        .collect::<Vec<_>>();
+    assert_eq!(checkboxes.len(), 5, "one checkbox per tier");
+    let at = centre(checkboxes[0]);
+    window.frame(pointer_at(at, true), |ui| show(ui, &mut view, &ctx));
+    window.frame(pointer_at(at, false), |ui| show(ui, &mut view, &ctx));
+    assert_eq!(
+        ruleset(&view).tiers[0].name_color.as_deref(),
+        Some("cc9900ff"),
+        "ticked: the draft's default"
+    );
+    window.frame(pointer_at(at, true), |ui| show(ui, &mut view, &ctx));
+    window.frame(pointer_at(at, false), |ui| show(ui, &mut view, &ctx));
+    assert_eq!(
+        ruleset(&view).tiers[0].name_color,
+        None,
+        "unticked: cleared"
+    );
+}
+
+/// A drop on a non-handle cell reorders like a drop on the handle
+/// (the draft's `reorderable` makes the whole row a target).
+#[test]
+fn a_drop_on_the_label_field_reorders_the_tiers() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, aatf::Rules::official().ruleset().clone());
+    view.section = Section::Tiers;
+
+    let frame = settled(&mut window, &mut view, &ctx);
+    let handles: Vec<&accesskit::Node> = nodes_labeled(&frame.nodes, "⠇")
+        .into_iter()
+        .filter(|node| node.role() == Role::Label)
+        .collect();
+    assert_eq!(handles.len(), 5, "one handle per tier");
+
+    // Bronze's handle dragged onto the silver row's label field.
+    let from = centre(handles[2]);
+    let onto = centre(node(&frame.nodes, "Silver"));
+    window.frame(pointer_at(from, true), |ui| show(ui, &mut view, &ctx));
+    window.frame(vec![egui::Event::PointerMoved(onto)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
+    window.frame(pointer_at(onto, false), |ui| show(ui, &mut view, &ctx));
+
+    assert_eq!(
+        tier_ids(&view),
+        ["gold", "bronze", "silver", "goalkeeper", "regular"],
+        "bronze takes silver's place"
     );
 }

@@ -41,17 +41,23 @@ fn medal_tier_ids(ruleset: &Ruleset) -> BTreeSet<TierId> {
         .collect()
 }
 
+/// The tiers' `(id, label)` pairs in the ruleset's order (the combo
+/// and the medal header show the labels, the systems key on the ids).
+fn tier_ids(ruleset: &Ruleset) -> Vec<(TierId, String)> {
+    ruleset
+        .tiers
+        .iter()
+        .map(|tier| (tier.id.clone(), tier.label.clone()))
+        .collect()
+}
+
 /// The tiers table (an `egui::Grid`): the header row, one row per
 /// tier plus its expander row, and "+ Add tier". A drop or a removal
 /// lands after the loop so the rows keep their indices while drawn.
 fn tiers_table(ui: &mut egui::Ui, ruleset: &mut Ruleset, medal_tiers: &BTreeSet<TierId>) {
     let mut drop = None;
     let mut remove = None;
-    let ids: Vec<(TierId, String)> = ruleset
-        .tiers
-        .iter()
-        .map(|tier| (tier.id.clone(), tier.label.clone()))
-        .collect();
+    let ids = tier_ids(ruleset);
     egui::Grid::new("tiers-table")
         .num_columns(COLUMNS)
         .show(ui, |ui| {
@@ -118,87 +124,112 @@ fn tier_row(
     remove: &mut Option<usize>,
 ) {
     // The handle is the drag source (the draft's `handle`).
-    let response = ui
-        .dnd_drag_source(ui.make_persistent_id(("tier-handle", index)), index, |ui| {
+    cell(ui, index, drop, |ui| {
+        ui.dnd_drag_source(ui.make_persistent_id(("tier-handle", index)), index, |ui| {
             ui.label("⠇").on_hover_text("Drag to reorder")
         })
-        .response;
-    drop_target(&response, index, drop);
+        .response
+    });
 
-    let response = widgets::text(ui, &mut ruleset.tiers[index].label, 100.0);
-    drop_target(&response, index, drop);
+    cell(ui, index, drop, |ui| {
+        widgets::text(ui, &mut ruleset.tiers[index].label, 100.0)
+    });
 
     // An id edit renames the tier's key in every medal system's counts.
     let mut id = ruleset.tiers[index].id.clone();
-    let response = ui
-        .add(
+    let response = cell(ui, index, drop, |ui| {
+        ui.add(
             egui::TextEdit::singleline(&mut id)
                 .desired_width(80.0)
                 .font(egui::TextStyle::Monospace),
         )
-        .on_hover_text("What conditions and other tiers refer to");
-    drop_target(&response, index, drop);
-    if response.changed() && id != ruleset.tiers[index].id {
+        .on_hover_text("What conditions and other tiers refer to")
+    });
+    if response.changed() {
         rename_tier_id(ruleset, index, id);
     }
 
     let medal_counted = medal_tiers.contains(&ruleset.tiers[index].id);
-    let response = ui
-        .horizontal(|ui| count_cell(ui, ruleset, index, medal_counted))
-        .response;
-    drop_target(&response, index, drop);
+    cell(ui, index, drop, |ui| {
+        ui.horizontal(|ui| count_cell(ui, ruleset, index, medal_counted))
+            .response
+    });
 
-    let response = counts_as_cell(ui, ruleset, index, ids);
-    drop_target(&response, index, drop);
+    cell(ui, index, drop, |ui| {
+        counts_as_cell(ui, ruleset, index, ids)
+    });
 
-    let response = widgets::number(ui, &mut ruleset.tiers[index].rate, 0..=99);
-    drop_target(&response, index, drop);
-    let response = widgets::number(ui, &mut ruleset.tiers[index].form, 0..=8);
-    drop_target(&response, index, drop);
-    let response = widgets::number(ui, &mut ruleset.tiers[index].injury_resistance, 0..=3);
-    drop_target(&response, index, drop);
-    let response = ui
-        .horizontal(|ui| {
+    cell(ui, index, drop, |ui| {
+        widgets::number(ui, &mut ruleset.tiers[index].rate, 0..=99)
+    });
+    cell(ui, index, drop, |ui| {
+        widgets::number(ui, &mut ruleset.tiers[index].form, 0..=8)
+    });
+    cell(ui, index, drop, |ui| {
+        widgets::number(ui, &mut ruleset.tiers[index].injury_resistance, 0..=3)
+    });
+    cell(ui, index, drop, |ui| {
+        ui.horizontal(|ui| {
             widgets::number(ui, &mut ruleset.tiers[index].weak_foot.usage, 0..=4)
                 .on_hover_text("Usage");
             widgets::number(ui, &mut ruleset.tiers[index].weak_foot.accuracy, 0..=4)
                 .on_hover_text("Accuracy");
         })
-        .response;
-    drop_target(&response, index, drop);
-    let response = widgets::number(ui, &mut ruleset.tiers[index].cards, 0..=20);
-    drop_target(&response, index, drop);
-    let response = widgets::number(ui, &mut ruleset.tiers[index].min_cards, 0..=20);
-    drop_target(&response, index, drop);
-    let response = widgets::number(ui, &mut ruleset.tiers[index].a_positions, 0..=13);
-    drop_target(&response, index, drop);
+        .response
+    });
+    cell(ui, index, drop, |ui| {
+        widgets::number(ui, &mut ruleset.tiers[index].cards, 0..=20)
+    });
+    cell(ui, index, drop, |ui| {
+        widgets::number(ui, &mut ruleset.tiers[index].min_cards, 0..=20)
+    });
+    cell(ui, index, drop, |ui| {
+        widgets::number(ui, &mut ruleset.tiers[index].a_positions, 0..=13)
+    });
 
-    let response = ui
-        .horizontal(|ui| name_color_cell(ui, ruleset, index))
-        .response;
-    drop_target(&response, index, drop);
+    cell(ui, index, drop, |ui| {
+        ui.horizontal(|ui| name_color_cell(ui, ruleset, index))
+            .response
+    });
 
-    let response = widgets::number(ui, &mut ruleset.tiers[index].stat_warning, 0..=99)
-        .on_hover_text(
+    cell(ui, index, drop, |ui| {
+        widgets::number(ui, &mut ruleset.tiers[index].stat_warning, 0..=99).on_hover_text(
             "Points above a stat's target that warn rather than err (0: every point errs)",
-        );
-    drop_target(&response, index, drop);
+        )
+    });
 
-    let response = ui
-        .checkbox(&mut ruleset.tiers[index].total_within_targets, "")
-        .on_hover_text("The stats add up to at most the targets, an error past them");
-    drop_target(&response, index, drop);
+    cell(ui, index, drop, |ui| {
+        ui.checkbox(&mut ruleset.tiers[index].total_within_targets, "")
+            .on_hover_text("The stats add up to at most the targets, an error past them")
+    });
 
     if ruleset.tiers.len() > 1 {
-        let response = ui
-            .add(egui::Button::new("✕").frame_when_inactive(false))
-            .on_hover_text("Remove");
-        drop_target(&response, index, drop);
+        let response = cell(ui, index, drop, |ui| {
+            ui.add(egui::Button::new("✕").frame_when_inactive(false))
+                .on_hover_text("Remove")
+        });
         if response.clicked() {
             *remove = Some(index);
         }
     }
     ui.end_row();
+}
+
+/// A cell of a tier row drawn and made a drop target for the reorder:
+/// a drop on any cell lands the dragged tier on this row (the draft's
+/// `reorderable`). The response comes back for the cells that act on
+/// a click or a change.
+fn cell(
+    ui: &mut egui::Ui,
+    index: usize,
+    drop: &mut Option<(usize, usize)>,
+    draw: impl FnOnce(&mut egui::Ui) -> egui::Response,
+) -> egui::Response {
+    let response = draw(ui);
+    if let Some(from) = response.dnd_release_payload::<usize>() {
+        *drop = Some((*from, index));
+    }
+    response
 }
 
 /// The row's count cell (the draft's): "by medal system" while a
@@ -254,7 +285,8 @@ fn counts_as_cell(
                 ui.selectable_value(&mut choice, Some(id.clone()), label);
             }
         })
-        .response;
+        .response
+        .on_hover_text("The tier whose count this tier's players fill");
     let tier = &mut ruleset.tiers[index];
     if choice != tier.counts_as {
         tier.counts_as = choice;
@@ -298,6 +330,9 @@ fn name_color_cell(ui: &mut egui::Ui, ruleset: &mut Ruleset, index: usize) {
         hex_channel(&code, 4..6),
     ];
     let output = color_tools::picker::color_field(ui, ("tier name colour", index), &mut rgb, &[]);
+    output
+        .response
+        .on_hover_text("Colour (the code's last two digits are the alpha)");
     if output.changed {
         tier.name_color = Some(code_with_alpha(rgb, tier.name_color.as_deref()));
     }
@@ -348,13 +383,6 @@ fn drop_tier(ruleset: &mut Ruleset, index: usize) {
     }
 }
 
-/// `index`'s cell took a drop this frame: remember (from, to).
-fn drop_target(response: &egui::Response, index: usize, drop: &mut Option<(usize, usize)>) {
-    if let Some(from) = response.dnd_release_payload::<usize>() {
-        *drop = Some((*from, index));
-    }
-}
-
 /// The tier "+ Add tier" adds (the draft's `tier()`): `tier<N>`,
 /// "Tier <N>", count 1, rate 80.
 fn new_tier(n: usize) -> Tier {
@@ -363,25 +391,33 @@ fn new_tier(n: usize) -> Tier {
 
 /// The row's expander (the draft's `colspan` row under the data row):
 /// `egui::Grid` has no colspan, so the expander is emitted in the
-/// row's last column — the only column whose width nothing after it
-/// reads — inside a child ui whose rect starts back at the table's
-/// left edge.
+/// row's last column — the only column whose available width runs to
+/// the parent's right (`grid.rs` `available_rect`, `is_last_column`) —
+/// inside a child ui whose rect starts back at the table's left edge.
+/// `advance` records a cell's widget rect as its column's minimum
+/// width (`set_min_col_width`), so the child's table-wide `min_rect`
+/// cannot be what lands: the cell is allocated at the column's
+/// minimum width and the child's drawn height.
 fn expander_row(ui: &mut egui::Ui, ruleset: &mut Ruleset, index: usize) {
     for _ in 0..COLUMNS - 1 {
         ui.label("");
     }
+    let top_left = ui.cursor().min;
     let rect = egui::Rect::from_min_max(
         egui::pos2(
             ui.max_rect().min.x + ui.spacing().interact_size.x,
-            ui.cursor().min.y,
+            top_left.y,
         ),
         ui.max_rect().right_bottom(),
     );
-    ui.scope_builder(egui::UiBuilder::new().max_rect(rect), |ui| {
-        egui::CollapsingHeader::new("Stat targets, free cards and conditions")
-            .id_salt(("tier-expander", index))
-            .show(ui, |ui| expander(ui, ruleset, index));
-    });
+    let mut child = ui.new_child(egui::UiBuilder::new().max_rect(rect));
+    egui::CollapsingHeader::new("Stat targets, free cards and conditions")
+        .id_salt(("tier-expander", index))
+        .show(&mut child, |ui| expander(ui, ruleset, index));
+    ui.advance_cursor_after_rect(egui::Rect::from_min_size(
+        top_left,
+        egui::vec2(ui.spacing().interact_size.x, child.min_rect().height()),
+    ));
     ui.end_row();
 }
 
@@ -412,7 +448,7 @@ fn stat_targets(ui: &mut egui::Ui, ruleset: &mut Ruleset, index: usize) {
     egui::Grid::new(("stat-targets", index))
         .num_columns(5)
         .show(ui, |ui| {
-            for (cell, name) in ABILITY_STATS.iter().enumerate() {
+            for (column, name) in ABILITY_STATS.iter().enumerate() {
                 let stat = Stat::try_from((*name).to_string()).expect("an ability stat");
                 ui.horizontal(|ui| {
                     let tier = &mut ruleset.tiers[index];
@@ -428,7 +464,7 @@ fn stat_targets(ui: &mut egui::Ui, ruleset: &mut Ruleset, index: usize) {
                         widgets::number(ui, target, 0..=99);
                     }
                 });
-                if cell % 5 == 4 {
+                if column % 5 == 4 {
                     ui.end_row();
                 }
             }
@@ -467,56 +503,50 @@ fn medal_systems(ui: &mut egui::Ui, ruleset: &mut Ruleset, medal_tiers: &BTreeSe
         "Alternative medal counts: the team's counts of the ticked tiers must equal one \
          system's. Unticked tiers keep their own count, one of them the rest of the squad.",
     );
-    let tiers: Vec<(TierId, String)> = ruleset
-        .tiers
-        .iter()
-        .map(|tier| (tier.id.clone(), tier.label.clone()))
-        .collect();
+    let tiers = tier_ids(ruleset);
     let has_systems = !ruleset.medal_systems.is_empty();
     let mut remove = None;
-    egui::Grid::new("medal-systems")
-        .num_columns(1 + tiers.len())
-        .show(ui, |ui| {
-            ui.label("");
-            for (index, (id, label)) in tiers.iter().enumerate() {
-                let mut counted = medal_tiers.contains(id);
-                let tip = if has_systems {
-                    "The medal systems count this tier"
+    egui::Grid::new("medal-systems").show(ui, |ui| {
+        ui.label("");
+        for (index, (id, label)) in tiers.iter().enumerate() {
+            let mut counted = medal_tiers.contains(id);
+            let tip = if has_systems {
+                "The medal systems count this tier"
+            } else {
+                "Add a medal system first"
+            };
+            let checkbox = ui.horizontal(|ui| {
+                ui.add_enabled(has_systems, egui::Checkbox::new(&mut counted, label))
+                    .changed()
+            });
+            checkbox.response.on_hover_text(tip);
+            let toggled = checkbox.inner;
+            if toggled {
+                set_counted(ruleset, index, counted);
+            }
+        }
+        ui.end_row();
+        for row in 0..ruleset.medal_systems.len() {
+            ui.horizontal(|ui| {
+                widgets::text(ui, &mut ruleset.medal_systems[row].label, 90.0);
+                if ui
+                    .add(egui::Button::new("✕").frame_when_inactive(false))
+                    .on_hover_text("Remove")
+                    .clicked()
+                {
+                    remove = Some(row);
+                }
+            });
+            for (id, _) in &tiers {
+                if medal_tiers.contains(id) {
+                    map_number(ui, &mut ruleset.medal_systems[row].counts, id, 32, true);
                 } else {
-                    "Add a medal system first"
-                };
-                let cell = ui.horizontal(|ui| {
-                    ui.add_enabled(has_systems, egui::Checkbox::new(&mut counted, label))
-                        .changed()
-                });
-                cell.response.on_hover_text(tip);
-                let toggled = cell.inner;
-                if toggled {
-                    set_counted(ruleset, index, counted);
+                    widgets::dash(ui);
                 }
             }
             ui.end_row();
-            for row in 0..ruleset.medal_systems.len() {
-                ui.horizontal(|ui| {
-                    widgets::text(ui, &mut ruleset.medal_systems[row].label, 90.0);
-                    if ui
-                        .add(egui::Button::new("✕").frame_when_inactive(false))
-                        .on_hover_text("Remove")
-                        .clicked()
-                    {
-                        remove = Some(row);
-                    }
-                });
-                for (id, _) in &tiers {
-                    if medal_tiers.contains(id) {
-                        map_number(ui, &mut ruleset.medal_systems[row].counts, id, 32, true);
-                    } else {
-                        widgets::dash(ui);
-                    }
-                }
-                ui.end_row();
-            }
-        });
+        }
+    });
     if let Some(row) = remove {
         ruleset.medal_systems.remove(row);
     }

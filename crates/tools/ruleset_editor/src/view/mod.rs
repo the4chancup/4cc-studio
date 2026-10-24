@@ -563,9 +563,13 @@ pub(crate) fn modal(ui: &mut egui::Ui, id: &str, body: impl FnOnce(&mut egui::Ui
         // The bound keeps the modal on the screen: an `Area` taller
         // than it is centered with both ends off it, so an unbounded
         // body's first and last rows are unreachable (a start page's
-        // recent files, a long findings list). `Frame::popup` is the
-        // modal's default frame; its margins and stroke are the
-        // frame's part of the modal's height.
+        // recent files, a long findings list). egui bounds a new
+        // modal's first frame itself — a new `Area` opens at
+        // `spacing.default_area_size`, at most the screen — so the cap
+        // binds only once the window shrinks under an open modal (the
+        // shell sets no minimum). `Frame::popup` is the modal's default
+        // frame; its margins and stroke are the frame's part of the
+        // modal's height.
         egui::ScrollArea::vertical()
             .max_height(
                 ui.ctx().content_rect().height()

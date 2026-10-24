@@ -335,3 +335,70 @@ fn the_start_modal_scrolls_when_it_outgrows_the_screen() {
     assert_name(&view, "Edited");
     assert!(view.document.as_ref().unwrap().is_dirty());
 }
+
+// The modal's height cap is for a window shrunk under an open modal
+// (the shell sets no minimum): egui bounds a new modal's first frame
+// itself (a new `Area` opens at `spacing.default_area_size`, at most
+// the screen), so only then does the cap bind. Scrolled to its end,
+// the modal's last row is back on the screen.
+#[test]
+fn the_start_modal_stays_on_a_shrunk_screen() {
+    let dir = crate::test_support::scratch("start_modal_shrink");
+    let recent: Vec<String> = (0..10)
+        .map(|index| {
+            write_file(&dir, &format!("recent_{index}.rhai"), &valid_file())
+                .to_string_lossy()
+                .into_owned()
+        })
+        .collect();
+    let (ctx, _events) = crate::test_support::context();
+    seed_settings(&ctx, &dir, recent);
+    let mut window = Headless::sized(1037.0, 648.0);
+    let mut view = RulesetView::new();
+    blank_dirty(&mut view);
+    open_start_modal(&mut window, &mut view, &ctx);
+
+    // The modal opened on the 1037 x 648 screen and settled; its last
+    // row's x is where a scroll over it lands.
+    let frame = settled(&mut window, &mut view, &ctx);
+    let over_x = centre(node(&frame.nodes, "Close")).x;
+
+    // The window shrunk under the open modal: Close sits below the
+    // 300-point screen until scrolled to.
+    window.screen = egui::vec2(1037.0, 300.0);
+    let frame = settled(&mut window, &mut view, &ctx);
+    let close = node(&frame.nodes, "Close");
+    assert!(
+        close.bounds().expect("drawn").y1 > 300.0,
+        "premise: the modal outgrows the shrunk screen (Close {:?})",
+        close.bounds()
+    );
+    let frame = scroll_until(
+        &mut window,
+        &mut view,
+        &ctx,
+        egui::pos2(over_x, 150.0),
+        egui::vec2(0.0, -80.0),
+        |frame| node(&frame.nodes, "Close").bounds().expect("drawn").y1 <= 300.0,
+    )
+    .expect("a wheel scroll brings Close onto the shrunk screen");
+    // The cap keeps the scroll viewport inside the screen: its bar's
+    // track is the viewport's rect.
+    let track = frame
+        .nodes
+        .iter()
+        .filter(|node| node.role() == Role::ScrollBar && node.bounds().is_some())
+        .min_by(|a, b| {
+            a.bounds()
+                .unwrap()
+                .x0
+                .partial_cmp(&b.bounds().unwrap().x0)
+                .expect("ordered bounds")
+        })
+        .and_then(|node| node.bounds())
+        .expect("the modal's scroll bar");
+    assert!(
+        track.y0 >= 0.0 && track.y1 <= 300.0,
+        "the modal's scroll viewport inside the 300-point screen ({track:?})"
+    );
+}

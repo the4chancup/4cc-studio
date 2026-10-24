@@ -2391,3 +2391,7 @@ worklog passed 7,000 lines.
   per-stat targets and free cards, and the medal systems.
 - **2026-10-24** — 8.9j1: the settings menu's path rows get Browse; the Save editor's section picks the AATF rules
   file; the quick actions (one Make button per tier of the active rules, then Set stats) sit under the info strip.
+- **2026-10-24** — 8.9j1 reviewed (SWE-2 S1, Astra A1, SWE-2 S2; three reworks amended in): one slot lookup, two
+  tests that had started the portrait worker against the real PES install fixed, Set stats in SE-GUI-09.
+- **2026-10-24** — 20.6a2a rework 2: the open expander no longer widens the tiers table, every Tiers control has a
+  test (17 mutation survivors), and M5-1 settled: the modal's height cap binds once the window shrinks under it.
