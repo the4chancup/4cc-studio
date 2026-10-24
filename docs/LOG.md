@@ -2403,3 +2403,5 @@ worklog passed 7,000 lines.
   in-game hair nor the record's iris, so `ingame_face.toml` replaces the marker and takes those 90 keys (planned).
 - **2026-10-24** — 20.6a2a rework 5 (SWE-2 S3, 2 of 6): the colour picker keeps a half-typed hex or channel
   through an Alt+Tab; 20.6a2a's review done, and the Ruleset editor waits for 0.1.0.
+- **2026-10-24** — 0.0.1h slice 1: `pes_savefile` reads and writes `ingame_face.toml`, the in-game face's 90
+  keys in their own document, from the settings key table; nothing reads it yet.

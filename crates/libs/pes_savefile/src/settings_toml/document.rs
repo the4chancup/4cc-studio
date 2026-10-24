@@ -6,8 +6,8 @@ use toml_edit::{DocumentMut, Item, Value};
 
 use super::keys::{self};
 use super::{
-    AppearanceSettings, KeyTable, Kind, MotionSettings, NameSetting, PlayerSettings, SettingKey,
-    SettingsError, get_appearance, set_appearance,
+    AppearanceSettings, IngameFaceSettings, KeyTable, Kind, MotionSettings, NameSetting,
+    PlayerSettings, SettingKey, SettingsError, get_appearance, set_appearance,
 };
 
 // The TOML half: `parse` reads a `settings.toml` text, `to_toml` emits the
@@ -28,6 +28,15 @@ const HEADER: &str = "\
 # name for players.txt-mapped folders); \"text\" = write as is; absent = not written.
 # name and shirt_name are used only when the export's root holds the `write_names` marker;
 # otherwise they are ignored and the names in the save stand.
+";
+
+/// The header of a generated `ingame_face.toml`: the plan block's four
+/// comment lines, verbatim.
+const INGAME_FACE_HEADER: &str = "\
+# ingame_face.toml, inside a player folder: the in-game face, which the game draws when
+# the folder holds no face model and no face link. The file marks the folder as wearing
+# it. Every key is optional: an absent key takes the value shown here, and an empty file
+# is the game's default face. A commented key shows what can be set and its range.
 ";
 
 /// The dotted path of a key ("appearance.strip.sleeves"; a top-level key is
@@ -143,14 +152,22 @@ pub(crate) fn padded(body: &str, comment: &str) -> String {
     format!("{body}{}# {comment}", " ".repeat(pad))
 }
 
-/// The key's dotted path under `root` (`root` = the appearance table's own
-/// path: "appearance" in settings.toml, "players.03.appearance" in team.toml);
-/// a `Top` key never reaches it — its callers filter `Top` first.
-pub(crate) fn leaf_path(root: &str, spec: &keys::KeySpec) -> String {
-    match spec.table.sub_table() {
-        None => format!("{root}.{}", spec.name),
-        Some(sub) => format!("{root}.{sub}.{}", spec.name),
+/// `root` and `name` joined by a dot; `name` alone when the root is empty
+/// (`ingame_face.toml`'s keys sit at the file's top level).
+fn dotted_join(root: &str, name: &str) -> String {
+    if root.is_empty() {
+        name.to_string()
+    } else {
+        format!("{root}.{name}")
     }
+}
+
+/// The key's dotted path under `root` (`root` = the appearance table's own
+/// path: "appearance" in settings.toml, "players.03.appearance" in team.toml,
+/// "" in ingame_face.toml); a `Top` key never reaches it — its callers
+/// filter `Top` first.
+pub(crate) fn leaf_path(root: &str, spec: &keys::KeySpec) -> String {
+    dotted_join(&absolute(root, spec.table), spec.name)
 }
 
 /// The item at a key's `(table, name)` inside the `appearance` table, `None`
@@ -171,7 +188,7 @@ fn lookup<'a>(
                 Some(table) => table,
                 None => {
                     return Err(SettingsError::WrongType {
-                        key: format!("{path}.{sub}"),
+                        key: dotted_join(path, sub),
                         expected: "a table",
                     });
                 }
@@ -344,7 +361,7 @@ fn value(
 fn absolute(root: &str, table: KeyTable) -> String {
     match table.sub_table() {
         None => root.to_string(),
-        Some(sub) => format!("{root}.{sub}"),
+        Some(sub) => dotted_join(root, sub),
     }
 }
 
@@ -356,7 +373,12 @@ fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
     for (name, item) in document.iter() {
         match name {
             "name" | "shirt_name" => {}
-            "appearance" => reject_unknown_table(item, "appearance", "appearance")?,
+            "appearance" => reject_unknown_table(
+                item,
+                "appearance",
+                "appearance",
+                AppearanceDocument::Settings,
+            )?,
             _ if SettingKey::ALL
                 .iter()
                 .any(|key| key.spec().table == KeyTable::Top && key.spec().name == name) => {}
@@ -371,8 +393,14 @@ fn reject_unknown(document: &DocumentMut) -> Result<(), SettingsError> {
 }
 
 /// The recursive half of [`reject_unknown`] and [`parse_appearance`]: `root`
-/// is the appearance table's own dotted path, `path` the table being walked.
-fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), SettingsError> {
+/// is the appearance table's own dotted path, `path` the table being walked,
+/// `document` which keys the walk holds.
+fn reject_unknown_table(
+    item: &Item,
+    root: &str,
+    path: &str,
+    document: AppearanceDocument,
+) -> Result<(), SettingsError> {
     let Some(table) = item.as_table_like() else {
         return Err(SettingsError::WrongType {
             key: path.to_string(),
@@ -380,13 +408,14 @@ fn reject_unknown_table(item: &Item, root: &str, path: &str) -> Result<(), Setti
         });
     };
     for (leaf, sub) in table.iter() {
-        let child = format!("{path}.{leaf}");
-        if SettingKey::ALL.iter().any(|key| {
-            key.spec().table != KeyTable::Top && absolute(root, key.spec().table) == child
-        }) {
-            reject_unknown_table(sub, root, &child)?;
+        let child = dotted_join(path, leaf);
+        if SettingKey::ALL
+            .iter()
+            .any(|key| document.holds(*key) && absolute(root, key.spec().table) == child)
+        {
+            reject_unknown_table(sub, root, &child, document)?;
         } else if !SettingKey::ALL.iter().any(|key| {
-            key.spec().table != KeyTable::Top
+            document.holds(*key)
                 && absolute(root, key.spec().table) == path
                 && key.spec().name == leaf
         }) {
@@ -419,26 +448,41 @@ fn model_id(document: &DocumentMut, key: SettingKey) -> Result<Option<u8>, Setti
 }
 
 /// Which document an appearance table is parsed from or emitted into:
-/// `settings.toml`'s `[appearance]` or Team TOML's `[players.NN.appearance]`.
-/// The document settles the value bounds and the `[appearance.motion]`
-/// note.
+/// `settings.toml`'s `[appearance]`, Team TOML's `[players.NN.appearance]`,
+/// or `ingame_face.toml` (the in-game face's keys alone, at the top level).
+/// The document settles the value bounds, which keys the walks visit and
+/// the `[appearance.motion]` note.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AppearanceDocument {
     /// `settings.toml`: the editor ranges the key comments document apply,
     /// and the motion table carries its note (a settings apply writes the
     /// motions through the aesthetics patch).
-    SettingsToml,
+    Settings,
     /// Team TOML's `[players.NN.appearance]`: bounds are each field's
     /// widest stored bit width (a real save's values go past the editor
     /// ranges), and no motion note.
-    TeamToml,
+    Team,
+    /// `ingame_face.toml`: `iris_color` at the top level, `[face]` and
+    /// `[hair]` — the `[appearance]` face run with the root dropped. The
+    /// editor ranges apply, as `settings.toml`'s; there is no motion note
+    /// (the document holds no motion keys).
+    IngameFace,
 }
 
 impl AppearanceDocument {
     /// Team TOML's range mode: bounds are the field's widest stored bit
     /// width, not the editor ranges `settings.toml` documents.
     fn stored_ranges(self) -> bool {
-        matches!(self, Self::TeamToml)
+        matches!(self, Self::Team)
+    }
+
+    /// Whether the document holds `key`: `settings.toml` and Team TOML hold
+    /// every non-top key, `ingame_face.toml` the in-game face's alone.
+    fn holds(self, key: SettingKey) -> bool {
+        match self {
+            Self::Settings | Self::Team => key.spec().table != KeyTable::Top,
+            Self::IngameFace => key.is_ingame_face(),
+        }
     }
 }
 
@@ -459,8 +503,8 @@ pub(crate) fn parse_appearance(
     let mut out = AppearanceSettings::default();
     for key in SettingKey::ALL {
         let spec = key.spec();
-        if spec.table == KeyTable::Top {
-            continue; // top-level keys are not in the appearance tables
+        if !document.holds(key) {
+            continue; // a key the document does not hold
         }
         let Some(item) = lookup(appearance, &spec, path)? else {
             continue;
@@ -469,14 +513,14 @@ pub(crate) fn parse_appearance(
         let stored = value(&leaf, key, item, document.stored_ranges())?;
         set_appearance(&mut out, key, Some(stored));
     }
-    reject_unknown_table(item, path, path)?;
+    reject_unknown_table(item, path, path, document)?;
     Ok(out)
 }
 
 /// The `[prefix]` table plus its subtables appended to `out`, in key
 /// order: a `Some` emits its line with the key's comment, a `None` the
 /// commented line at the key's default. Shared with `team_toml`'s
-/// `[players.NN.appearance]` (`AppearanceDocument::TeamToml`).
+/// `[players.NN.appearance]` (`AppearanceDocument::Team`).
 pub(crate) fn emit_appearance(
     out: &mut String,
     prefix: &str,
@@ -486,21 +530,26 @@ pub(crate) fn emit_appearance(
     let mut table = KeyTable::Top;
     for key in SettingKey::ALL {
         let spec = key.spec();
-        if spec.table == KeyTable::Top {
-            continue; // top-level keys are not emitted inside a table
+        if !document.holds(key) {
+            continue; // a key the document does not hold
         }
         if spec.table != table {
             // The motion table's note is the settings template's: a settings
             // apply writes the motions through the aesthetics patch, where a
             // team TOML import writes the save directly.
-            let note =
-                if document == AppearanceDocument::SettingsToml && spec.table == KeyTable::Motion {
-                    "on Fox written by the aesthetics patch: the tables do not hold motions"
-                } else {
-                    ""
-                };
-            let header = padded(&format!("[{}]", absolute(prefix, spec.table)), note);
-            out.push_str(&format!("\n{header}\n"));
+            let note = if document == AppearanceDocument::Settings && spec.table == KeyTable::Motion
+            {
+                "on Fox written by the aesthetics patch: the tables do not hold motions"
+            } else {
+                ""
+            };
+            let table_path = absolute(prefix, spec.table);
+            // The document's own root table has no header line: its keys
+            // (`ingame_face.toml`'s `iris_color`) sit at the top level.
+            if !table_path.is_empty() {
+                let header = padded(&format!("[{table_path}]"), note);
+                out.push_str(&format!("\n{header}\n"));
+            }
             table = spec.table;
         }
         let stored = get_appearance(appearance, key);
@@ -643,7 +692,7 @@ impl PlayerSettings {
         settings.gloves_id = model_id(&document, SettingKey::GlovesId)?;
         if let Some(item) = document.get("appearance") {
             settings.appearance =
-                parse_appearance(item, "appearance", AppearanceDocument::SettingsToml)?;
+                parse_appearance(item, "appearance", AppearanceDocument::Settings)?;
         }
         reject_unknown(&document)?;
         Ok(settings)
@@ -692,7 +741,7 @@ impl PlayerSettings {
             &mut out,
             "appearance",
             &self.appearance,
-            AppearanceDocument::SettingsToml,
+            AppearanceDocument::Settings,
         )?;
         Ok(out)
     }
@@ -742,6 +791,44 @@ impl PlayerSettings {
             set(&mut item[spec.name], toml_form(key, stored, false)?);
         }
         Ok(())
+    }
+}
+
+impl IngameFaceSettings {
+    /// Reads an `ingame_face.toml` text: `iris_color` at the top level,
+    /// `[face]` and `[hair]` — the `[appearance]` face run of a
+    /// `settings.toml` with the root dropped, in the same ranges. Every key
+    /// is optional, an empty text the default face; anything the document
+    /// does not hold is `UnknownKey` with its path.
+    pub fn parse(text: &str) -> Result<Self, SettingsError> {
+        let document: DocumentMut = text
+            .parse()
+            .map_err(|e: toml_edit::TomlError| SettingsError::Toml(e.to_string()))?;
+        let appearance = parse_appearance(document.as_item(), "", AppearanceDocument::IngameFace)?;
+        Ok(Self {
+            iris_color: appearance.iris_color,
+            face: appearance.face,
+            hair: appearance.hair,
+        })
+    }
+
+    /// The template `ingame_face.toml`: the header, then the `iris_color`
+    /// line and the `[face]` and `[hair]` tables — `settings.toml`'s key
+    /// lines with the `[appearance]` root dropped. An unset key is its line
+    /// commented out at the key's default (`KeySpec::default`). `OutOfRange`
+    /// for a value written directly into a public field that the key's kind
+    /// cannot represent.
+    pub fn to_toml(&self) -> Result<String, SettingsError> {
+        let mut out = INGAME_FACE_HEADER.to_string();
+        out.push('\n');
+        let appearance = AppearanceSettings {
+            iris_color: self.iris_color,
+            face: self.face.clone(),
+            hair: self.hair.clone(),
+            ..AppearanceSettings::default()
+        };
+        emit_appearance(&mut out, "", &appearance, AppearanceDocument::IngameFace)?;
+        Ok(out)
     }
 }
 

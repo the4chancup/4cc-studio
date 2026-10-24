@@ -1331,3 +1331,22 @@ fn an_unset_settings_is_empty_and_default() {
     }
     assert_eq!(settings.appearance, AppearanceSettings::default());
 }
+
+/// `ingame_face` reads the settings' face keys as `ingame_face.toml` holds
+/// them; `set_ingame_face` writes every one of the file's keys back over
+/// them, a `None` included, and touches nothing else of the settings.
+#[test]
+fn set_ingame_face_moves_the_face_keys_and_leaves_the_rest() {
+    let mut settings =
+        PlayerSettings::parse("[appearance]\nskin_color = 4\n[appearance.hair]\nlength = 5\n")
+            .expect("parses");
+    let face = IngameFaceSettings::parse("iris_color = 7\n").expect("parses");
+    settings.set_ingame_face(face.clone());
+    assert_eq!(settings.appearance.skin_color, Some(4));
+    assert_eq!(settings.appearance.iris_color, Some(7));
+    assert_eq!(
+        settings.appearance.hair.length, None,
+        "a key the file does not set is unset"
+    );
+    assert_eq!(settings.ingame_face(), face);
+}

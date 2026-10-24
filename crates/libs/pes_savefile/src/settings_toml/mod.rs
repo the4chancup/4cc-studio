@@ -425,6 +425,18 @@ pub struct PlayerSettings {
     pub appearance: AppearanceSettings,
 }
 
+/// A player's `ingame_face.toml`: the in-game face's keys, each `None` when
+/// absent.
+#[derive(Debug, Clone, PartialEq, Default)]
+pub struct IngameFaceSettings {
+    /// Iris colour.
+    pub iris_color: Option<u8>,
+    /// `[face]`.
+    pub face: FaceSettings,
+    /// `[hair]`.
+    pub hair: HairSettings,
+}
+
 /// One `settings.toml` value `PlayerSettings::narrow_to` reset to its key's
 /// default for the compile target: what the Team compiler's
 /// `settings_value_out_of_range` reports.
@@ -476,8 +488,9 @@ pub enum SettingsError {
     /// ingame-face run to read or write through).
     #[error(transparent)]
     Codec(#[from] CodecError),
-    /// The text is not valid TOML.
-    #[error("settings.toml is not valid TOML: {0}")]
+    /// The text is not valid TOML. The file is not named: the finding's
+    /// line names it.
+    #[error("not valid TOML: {0}")]
     Toml(String),
     /// A key or table the settings schema does not know, by its dotted path
     /// (`appearance.boots_id`, `appearance.hair`, `stats`).
@@ -1145,6 +1158,22 @@ impl PlayerSettings {
                 fpc::SkinColor::Preset
             },
         }
+    }
+
+    /// The in-game face's keys, as `ingame_face.toml` holds them.
+    pub fn ingame_face(&self) -> IngameFaceSettings {
+        IngameFaceSettings {
+            iris_color: self.appearance.iris_color,
+            face: self.appearance.face.clone(),
+            hair: self.appearance.hair.clone(),
+        }
+    }
+
+    /// The in-game face's keys set from `face`, an absent key unset.
+    pub fn set_ingame_face(&mut self, face: IngameFaceSettings) {
+        self.appearance.iris_color = face.iris_color;
+        self.appearance.face = face.face;
+        self.appearance.hair = face.hair;
     }
 }
 

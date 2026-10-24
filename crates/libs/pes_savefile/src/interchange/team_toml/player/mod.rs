@@ -262,7 +262,7 @@ fn emit_player(
         out,
         &format!("{path}.appearance"),
         &section.appearance,
-        AppearanceDocument::TeamToml,
+        AppearanceDocument::Team,
     )?;
     Ok(())
 }
@@ -436,7 +436,7 @@ fn parse_player(item: &Item, path: &str) -> Result<PlayerSection, TeamTomlError>
         section.appearance = parse_appearance(
             item,
             &format!("{path}.appearance"),
-            AppearanceDocument::TeamToml,
+            AppearanceDocument::Team,
         )?;
     }
     reject(

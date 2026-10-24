@@ -1495,6 +1495,14 @@ impl SettingKey {
             Source::NoseAngle => spec.kind,
         })
     }
+
+    /// Whether the key is one `ingame_face.toml` holds: `iris_color` or a
+    /// `[face]`/`[hair]` key, the in-game face's run. Every walk that
+    /// visits a document's keys decides through this.
+    pub(crate) fn is_ingame_face(self) -> bool {
+        self == SettingKey::IrisColor
+            || matches!(self.spec().table, KeyTable::Face | KeyTable::Hair)
+    }
 }
 
 fn physique(name: &'static str) -> KeySpec {

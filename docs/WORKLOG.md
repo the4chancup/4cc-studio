@@ -22,7 +22,7 @@ pitch as the game's, 8.9g and 8.9i; next its slice 4, the AATF panel with the ru
 choice, Validate rules and Save a copy, then the comparator and transplant; 8.9f's slice 4 and
 8.9h wait on the maintainer's v2 ruling), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; an audit step next), `ingame_face.toml` (0.0.1h: planned and reviewed, slice 1
-under review), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+done, slice 2 the switch next), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
@@ -1650,9 +1650,13 @@ briefs, review loops, gates and mutation runs as for any step.
     editor's lock text), fixed; A2 5 of 5 (the in-game recipe generating both files, the
     Blender manifest naming each key's file, SE-GUI-34 on non-default looks, one file refused
     leaving the other applied, the pre-Fox patch's schema), fixed; A3 none
-  - [ ] slice 1, `pes_savefile`, additive: the `ingame_face.toml` document beside
+  - [x] slice 1, `pes_savefile`, additive: the `ingame_face.toml` document beside
     `settings.toml` (`IngameFaceSettings`, its parse and template, `PlayerSettings` joined
-    from it), nothing reading it yet
+    from it), nothing reading it yet. SWE-2, 14 min: one key-membership function
+    (`SettingKey::is_ingame_face`), the shared walkers at root `""` through a third
+    `AppearanceDocument`, the template pinned by the lead's fixture; lead fix: the variants
+    renamed rather than a clippy opt-out (`settings_toml/{document,keys,mod}.rs`, its tests,
+    `team_toml/player/mod.rs`). Its review (checkpoint b) rides with slice 2's
   - [ ] slice 2, the switch, one commit, since a `settings.toml` without the keys and an
     upgrader still writing them (or a compiler refusing what the upgrader writes) is a broken
     main: `settings.toml` loses the keys, `aesthetics_export` takes the file as

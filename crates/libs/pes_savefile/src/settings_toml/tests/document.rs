@@ -1103,3 +1103,172 @@ fn a_hand_set_id_past_the_stock_band_is_refused_on_write() {
         }
     }
 }
+
+// `ingame_face.toml`: the in-game face's own document — `iris_color` at the
+// top level, `[face]` and `[hair]` — walked with the same key table, the
+// `[appearance]` root dropped.
+
+/// The template `docs/plans/aesthetics_export/player_folders.md` "The
+/// document" describes: `to_toml` of the settings the file parses to must
+/// reproduce it byte for byte.
+const INGAME_FACE_FIXTURE: &str = include_str!("ingame_face_template.toml");
+
+/// `face` read through an `AppearanceSettings`, so a test can ask a
+/// `SettingKey` of it.
+fn ingame_face_as_appearance(face: &IngameFaceSettings) -> AppearanceSettings {
+    AppearanceSettings {
+        iris_color: face.iris_color,
+        face: face.face.clone(),
+        hair: face.hair.clone(),
+        ..AppearanceSettings::default()
+    }
+}
+
+/// `iris_color`, `[face]` and `[hair]` are 90 of the 130 keys.
+#[test]
+fn the_ingame_face_is_90_keys() {
+    assert_eq!(
+        SettingKey::ALL
+            .iter()
+            .filter(|key| key.is_ingame_face())
+            .count(),
+        90
+    );
+}
+
+#[test]
+fn ingame_face_parses_the_fixture_and_emits_it_verbatim() {
+    let face = IngameFaceSettings::parse(INGAME_FACE_FIXTURE).expect("the fixture parses");
+    let appearance = ingame_face_as_appearance(&face);
+    for key in SettingKey::ALL {
+        if key.is_ingame_face() {
+            assert_eq!(
+                get_appearance(&appearance, key),
+                key.spec().default,
+                "{key:?}: the fixture shows the key's default"
+            );
+        }
+    }
+    assert_eq!(face.to_toml().expect("emit"), INGAME_FACE_FIXTURE);
+}
+
+#[test]
+fn ingame_face_default_emits_a_fully_commented_template() {
+    let text = IngameFaceSettings::default().to_toml().expect("emit");
+    for key in SettingKey::ALL {
+        if key.is_ingame_face() {
+            assert!(
+                text.contains(&format!("# {} = ", key.spec().name)),
+                "{key:?} is not a commented line"
+            );
+        }
+    }
+    assert_eq!(
+        IngameFaceSettings::parse(&text).expect("a commented file parses"),
+        IngameFaceSettings::default(),
+        "a commented file is the default face"
+    );
+}
+
+/// `settings.toml`'s `[appearance]` face run and `ingame_face.toml` are the
+/// same keys: the two templates' parses must hold the same face.
+#[test]
+fn the_two_templates_hold_the_same_ingame_face() {
+    let settings = PlayerSettings::parse(PLAN_BLOCK).expect("the plan block parses");
+    let face = IngameFaceSettings::parse(INGAME_FACE_FIXTURE).expect("the fixture parses");
+    assert_eq!(settings.ingame_face(), face);
+}
+
+#[test]
+fn ingame_face_parse_of_an_empty_text_is_the_default() {
+    assert_eq!(
+        IngameFaceSettings::parse("").expect("an empty file parses"),
+        IngameFaceSettings::default()
+    );
+}
+
+#[test]
+fn ingame_face_parse_sets_only_the_written_keys() {
+    let face =
+        IngameFaceSettings::parse("iris_color = 7\n[face]\ncheek_type = 5\n[hair]\nlength = 5\n")
+            .expect("parses");
+    let appearance = ingame_face_as_appearance(&face);
+    for key in SettingKey::ALL {
+        if key.is_ingame_face() {
+            let expected = match key {
+                SettingKey::IrisColor => Some(7),
+                SettingKey::CheekType => Some(5),
+                SettingKey::HairLength => Some(5),
+                _ => None,
+            };
+            assert_eq!(get_appearance(&appearance, key), expected, "{key:?}");
+        }
+    }
+}
+
+#[test]
+fn ingame_face_parse_reports_the_first_error_with_its_path() {
+    let cases: [(&str, SettingsError); 7] = [
+        (
+            "skin_color = 4",
+            SettingsError::UnknownKey {
+                key: "skin_color".to_string(),
+            },
+        ),
+        (
+            "[appearance.face]\ncheek_type = 5",
+            SettingsError::UnknownKey {
+                key: "appearance".to_string(),
+            },
+        ),
+        (
+            "[face]\nbogus = 1",
+            SettingsError::UnknownKey {
+                key: "face.bogus".to_string(),
+            },
+        ),
+        (
+            "[physique]",
+            SettingsError::UnknownKey {
+                key: "physique".to_string(),
+            },
+        ),
+        (
+            "face = 3",
+            SettingsError::WrongType {
+                key: "face".to_string(),
+                expected: "a table",
+            },
+        ),
+        (
+            "iris_color = 11",
+            SettingsError::OutOfRange {
+                key: "iris_color".to_string(),
+                value: 11,
+                range: "0 to 10".to_string(),
+            },
+        ),
+        (
+            "[hair]\nlength = 9",
+            SettingsError::OutOfRange {
+                key: "hair.length".to_string(),
+                value: 9,
+                range: "0 to 5".to_string(),
+            },
+        ),
+    ];
+    for (text, expected) in cases {
+        let error = IngameFaceSettings::parse(text).expect_err(text);
+        assert_eq!(error.to_string(), expected.to_string(), "parsing {text:?}");
+    }
+    let error = IngameFaceSettings::parse("iris_color = ").expect_err("not TOML");
+    match &error {
+        SettingsError::Toml(_) => {
+            assert!(
+                error.to_string().starts_with("not valid TOML: "),
+                "the error names no file: {error}"
+            );
+        }
+        other => panic!("expected Toml, got {other:?}"),
+    }
+}
