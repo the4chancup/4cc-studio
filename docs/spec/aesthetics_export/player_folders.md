@@ -31,7 +31,7 @@ Players/
 │   │                          override per-model, mirroring the .model/.mtl system; a
 │   │                          *.materials.toml.common or *.mtl.common link pulls the file of
 │   │                          that name from Common/ — see the Unified model format plan)
-│   ├── ingame_face           (optional empty marker: remove custom face parts, keep other categories)
+│   ├── ingame_face.toml      (the in-game face; marks the folder)
 │   ├── fpc_on                (optional empty marker: apply the FPC preset at compile time; see `fpc_toggle.md` "FPC toggle")
 │   ├── settings.toml         (the player's settings: on Fox they compile into the CPK's database tables, on pre-Fox into the savefile; see below)
 │   ├── jessie/  shorts/  ...
@@ -89,43 +89,72 @@ all drop reports `players_txt_invalid` and drops the export. An empty authoritat
 roster is allowed for a kit-only export; any present player folders are then unlisted and follow
 `player_unlisted`.
 
-**`ingame_face` marker.** Bare `ingame_face` and the tolerated Notepad form `ingame_face.txt` are
-recognized before extension allowlist checks, represented as `PlayerFolder.ingame_face`, and never
-reported as disallowed files. Parsing normalizes either spelling to the same boolean; generated or
-upgraded exports write the bare marker. At categorization it removes face-classified parts and
-face-specific ancillary files (each reported as `face_file_not_used`), and **no face folder is
-emitted** (on either engine — a face folder
-containing only boots/gloves would override the ingame face, and an empty one would blank it:
-the cup keeps every player's "modified face" flag off, so the game loads a face folder whenever
-one exists for the player's ID, whatever the save says).
+**`ingame_face` marker.** `ingame_face.toml` is the marker: its presence does all the marker did,
+its content sets the in-game face, and an empty file is the game's default face
+(`settings_toml.md` "The defaults are the game's default face"), the old bare marker's successor.
+The old spellings, bare `ingame_face` and the tolerated Notepad form `ingame_face.txt`, are
+recognized only to be reported `ingame_face_marker_renamed` (E, the file): they mark nothing and
+the folder compiles as one without the file; `ingame_face.toml.txt` is not recognized, as
+`settings.toml.txt` is not. The file is a settings-stage input like `settings.toml`: held as
+`PlayerFolder.ingame_face` (`Option<FileDescriptor>`), read by the deep pass, its findings
+reported by `check` and `compile` alike, and never reported as a disallowed file.
+
+It holds the in-game face's keys because the game draws them on the in-game face alone: measured
+on 2026-10-24 in PES 21 and PES 17 Edit mode (a face model without a hair model, the same with
+one, and the marker, each with long red hair and a blue or violet iris set), beside a face model
+the game draws neither the in-game hair nor the record's iris, the model's own eyes standing
+(1,186 of the machine's 1,472 Fox face models carry no eye material of their own; the PES 17
+sample paints its eyes into its texture); the marker's player draws both. The face sliders and
+feature types shape the in-game face's own mesh and textures. So 19 players in 20, who wear a
+face model, carried 90 keys that change nothing, in the file a member reads first; a key that
+changes nothing reads as a bug when it is set and nothing happens. A player without the file gets
+the defaults for them: on Fox his row's face, hair and iris fields hold the game's default face
+(not drawn, his face model standing), as an absent key does; on pre-Fox the settings reach
+nothing yet, the patch's pre-Fox half being the plan's (`plans/pes_savefile/operations.md`
+"Aesthetics patch (new)").
+
+**Findings.** A file that is not UTF-8 or fails to parse, an unknown key included, is
+`ingame_face_toml_invalid` (E, the file and the error): its keys are ignored, as
+`settings_toml_invalid` ignores its file's keys, and the player keeps the in-game face at the
+defaults, the file itself still marking it. A value out of the target's range is
+`settings_value_out_of_range`, as in `settings.toml`. A moved key left in `settings.toml` is an
+unknown key there, so `settings_toml_invalid`, its message naming the key; the help says where
+the face keys went.
+
+At categorization the marker removes face-classified parts and face-specific ancillary files
+(each reported as `face_file_not_used`), and **no face folder is emitted** (on either engine — a
+face folder containing only boots/gloves would override the ingame face, and an empty one would
+blank it: the cup keeps every player's "modified face" flag off, so the game loads a face folder
+whenever one exists for the player's ID, whatever the save says).
 
 The face-classified parts split into two groups with different fates:
 
 - **Explicitly-named face models** (`face_high`, `hair_high`, `oral`) have no skeleton slot and
-  belong only in a face folder — there is none under `ingame_face`, and `fcl_hair` cannot absorb
-  them (it is a single body-skeleton model, not a container for the typed face set). Their presence
-  combined with `ingame_face` is a hard error that drops the whole player folder
+  belong only in a face folder — there is none under `ingame_face.toml`, and `fcl_hair` cannot
+  absorb them (it is a single body-skeleton model, not a container for the typed face set). Their
+  presence combined with `ingame_face.toml` is a hard error that drops the whole player folder
   (`ingame_face_explicit_face_model`).
 - **Arbitrarily-named models** (those that would route to `fcl_hair`, which — like `boots` —
   supports the full body skeleton) **reroute to the boots folder** instead of being dropped:
   renamed to `boots`, or merged into one `boots` if several candidates are present (Fox: `fmdl`
   mesh merging; pre-Fox: `pes_model`'s native merge over the `.model` + `.mtl` pair), and carrying their paired SKL into
-  the `boots.skl` slot (see "SKL pairing"). This generalizes the existing ingame_face boots
+  the `boots.skl` slot (see "SKL pairing"). This generalizes the existing `ingame_face.toml` boots
   relocation to the body-skeleton face content that would otherwise be lost.
 
 Remaining gloves parts are relocated to **player-specific gloves folders** (`glove_l`, `glove_r`),
 and the rerouted arbitrary-named models plus any explicit boots models form the **player-specific
 boots folder** — the one case where pre-Fox produces player-exclusive boots/gloves folders with IDs
-from the per-team block scheme and savefile writes. Without `ingame_face`, a player with boots/gloves
-but no face models keeps a blank face folder (the FPC requirement — see the pipeline walkthrough).
+from the per-team block scheme and savefile writes. Without `ingame_face.toml`, a player with
+boots/gloves but no face models keeps a blank face folder (the FPC requirement — see the pipeline
+walkthrough).
 
 **`ingame_face` with shared links.** A boots/gloves link with no local parts of that category
 resolves as usual: on either engine the player simply wears the shared folder's ID, since nothing
 needs a face folder. A link **combined with local parts** of the same category is where pre-Fox
 must deviate from its no-merge rule: normally the shared folder loads by ID while the local parts
-ride in the face XML, but under `ingame_face` there is no face XML, and relocating the local parts
-to a player-exclusive folder would leave the player with two candidate IDs (the shared folder's and
-the exclusive one) for a single savefile slot. Pre-Fox therefore behaves like Fox's `link_combined`
+ride in the face XML, but under `ingame_face.toml` there is no face XML, and relocating the local
+parts to a player-exclusive folder would leave the player with two candidate IDs (the shared
+folder's and the exclusive one) for a single savefile slot. Pre-Fox therefore behaves like Fox's `link_combined`
 here: the linked shared model is one more input of the player-exclusive merge (`pes_model`'s
 native merge, like the multiple-boots case above), the exclusive ID wins and is written to
 the savefile, and the shared folder is left untouched for players who link it plainly. Gloves
@@ -135,14 +164,14 @@ joining the player's as more entries and a local model whose output name a linke
 replacing it. `glove.xml` lists any number of entries, so the game loads every part as it is,
 while a merge would add conflicts to fix for nothing and could not combine a `handL` part with a
 `gloveL` one, whose types differ. A `.model.common`, `.fmdl.common` or `.mtl.common` link under
-`ingame_face` follows the same rule: with no `face.xml` to name the Common path, the Common
+`ingame_face.toml` follows the same rule: with no `face.xml` to name the Common path, the Common
 model is one more part of his boots or one more model of his gloves, copied in under its own
 name as a combined folder's would be (a Common FMDL converted into the part, as his own FMDL
 parts are), and a Common `.mtl` a part of his uses is copied in with it (its textures stay in
 the team's Common output, which the copy names). A **face** link under
-`ingame_face` is contradictory (the marker suppresses the face folder the link would fill) and drops
-the player folder with `ingame_face_explicit_face_model`, exactly like explicitly-named local face
-models.
+`ingame_face.toml` is contradictory (the marker suppresses the face folder the link would fill)
+and drops the player folder with `ingame_face_explicit_face_model`, exactly like explicitly-named
+local face models.
 
 **Subfolders.** A subfolder of a player folder, of any name and at any depth, is a player folder
 of its own whose output is merged into the root player's: its files take their roles from their
@@ -184,9 +213,9 @@ such tree with nothing to name.
   different subfolders may each have a `skin.dds` of their own: the lookup namespace of
   `texture_stem_conflict` is one folder, not the player folder with its subfolders, and a
   collision is solved by keeping a texture beside the models that use it.
-- **Only the root's markers and settings count.** `ingame_face`, `fpc_on`, `fpc_off` and
+- **Only the root's markers and settings count.** `ingame_face.toml`, `fpc_on`, `fpc_off` and
   `settings.toml` are read directly in the player folder alone; inside a subfolder each is
-  `file_type_disallowed`.
+  `file_type_disallowed`, an old-spelling marker the same.
 - **Shared links count at any depth.** A shared link (`.face`, `.boots`, `.gloves`) below a
   subfolder combines with the tree as a root link combines with local models, and the
   one-per-category rule (`shared_link_duplicate`) counts the whole tree, two links naming one
@@ -272,8 +301,8 @@ gets their deterministic player-exclusive ID rather than the shared folder's, an
 boots/gloves folder that every referencing player combines is only a source of parts — it needs no
 folder of its own in the output and consumes no ID from the scarce shared pool (it is still
 "referenced", so not `shared_folder_orphaned`). Pre-Fox only ever assigns IDs to shared boots/gloves
-folders, since player-exclusive ones don't exist there — except under `ingame_face`, where the
-relocated gloves/boots parts form player-exclusive folders with their own IDs (see "ingame_face
+folders, since player-exclusive ones don't exist there — except under `ingame_face.toml`, where
+the relocated gloves/boots parts form player-exclusive folders with their own IDs (see "ingame_face
 marker").
 
 **Common model links and model merging** — a model can be loaded from the export's `Common` folder
@@ -311,11 +340,11 @@ merged via the `fmdl` crate's mesh merging).
 and gloves are separate ID'd folders with one model each (`boots`, `glove_l`, `glove_r`) — so every
 extra part has to be merged into one of those. Pre-Fox needs none of it: the typed `face.xml`
 absorbs any number of entries of any type, and `.common` links stay runtime references. **Exception
-— `ingame_face`**: with no face folder emitted, non-face parts are relocated to player-specific
-folders; multiple boots models are merged into one (Fox: `fmdl` mesh merging; pre-Fox:
-`pes_model::ops::merge`, the native counterpart with the same rules over the `.model` + `.mtl`
-pair — see "`pes_model::ops::merge`" in the Libraries plan — the one pre-Fox merge case), and
-gloves go to `glove_l`/`glove_r` folders on Fox and to one player-exclusive gloves folder,
+— `ingame_face.toml`**: with no face folder emitted, non-face parts are relocated to
+player-specific folders; multiple boots models are merged into one (Fox: `fmdl` mesh merging;
+pre-Fox: `pes_model::ops::merge`, the native counterpart with the same rules over the `.model` +
+`.mtl` pair — see "`pes_model::ops::merge`" in the Libraries plan — the one pre-Fox merge case),
+and gloves go to `glove_l`/`glove_r` folders on Fox and to one player-exclusive gloves folder,
 unmerged, on pre-Fox (see "ingame_face marker").
 
 **Model names: a free part plus a suffix.** A model file name is `<anything>_<suffix>` (or just
@@ -622,7 +651,7 @@ A player with a portrait in both locations is an error when the two files differ
   `fpc_on` and `fpc_off` in a player folder, `icon_<N>` (0-23, zero padding optional) in a kit
   folder for its menu icon. A dot would make the value a file extension, which file browsers
   hide, sort by and warn about on rename. The valueless markers
-  keep their names: `ingame_face` and the kit layout's `pre-fox` and `fox`. Every marker
+  keep their names: the kit layout's `pre-fox` and `fox`. Every marker
   tolerates a `.txt` after its name, what Notepad's save dialog adds. A kit with two icon
   markers, or one whose number is not 0-23, reports `kit_icon_invalid` and uses the default
   icon.
@@ -666,7 +695,8 @@ At compile time, the pipeline:
    Fox splits the categories into separate folders and merges each category's parts (see "Common
    model links and model merging")
 2. **Assigns IDs automatically** (Fox needs both pools; pre-Fox only the shared one, having no
-   player-exclusive boots/gloves folders — except under `ingame_face`, see "ingame_face marker") —
+   player-exclusive boots/gloves folders — except under `ingame_face.toml`, see "ingame_face
+   marker") —
    from a **hardcoded per-team block of 40 IDs** in the 4-digit boots/gloves ID space: IDs 0 to 100
    are the **stock band** (the cup's stock kit compacts Konami's boots and gloves into it; a player
    wearing one names it with `settings.toml`'s `boots_id`/`gloves_id`, see "Player settings in
@@ -680,8 +710,8 @@ At compile time, the pipeline:
    recompiling an unchanged export yields the same IDs). Only a folder that two or more roster
    slots link plainly takes a shared ID: a folder exactly one slot links plainly takes that
    slot's exclusive ID instead, still packed as a boots or gloves output of its own and never
-   through his face folder (an `ingame_face` player gets no face folder at all, since any face
-   folder overrides his in-game face). His exclusive ID is free for it, because a player wears
+   through his face folder (an `ingame_face.toml` player gets no face folder at all, since any
+   face folder overrides his in-game face). His exclusive ID is free for it, because a player wears
    one boots and one gloves ID, and a link beside his own model of its kind already merges into
    his own output. So with 23 slots at most 11 folders of a kind need a shared ID, and a `Full`
    export never exhausts the 17; we do not lend the unused exclusive IDs to the shared pool

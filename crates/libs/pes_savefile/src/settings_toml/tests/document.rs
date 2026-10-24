@@ -3,7 +3,7 @@ use super::*;
 // The TOML half: the template, the parser's errors, `update_toml`.
 
 /// The `settings.toml` template the tests hold (`tests/settings_template.toml`):
-/// the plan block minus the in-game face's 90 keys, `ingame_face.toml`'s.
+/// the spec block minus the in-game face's 90 keys, `ingame_face.toml`'s.
 /// `to_toml` of the settings it parses to must reproduce it byte for byte.
 const PLAN_BLOCK: &str = include_str!("settings_template.toml");
 
@@ -18,7 +18,7 @@ fn to_toml_of_the_parsed_plan_block_is_the_plan_block() {
     assert_eq!(settings.to_toml().expect("emit"), PLAN_BLOCK);
 }
 
-/// Every value the plan block shows is the key's default: the block is the
+/// Every value the spec block shows is the key's default: the block is the
 /// spec, `KeySpec::default` its stored form (a physique `0` is stored 7, a
 /// motion `1` stored 0, a label its index). `""` is no stored value, so the
 /// two stock IDs are `None` like an absent key. The in-game face's keys are
@@ -288,9 +288,9 @@ fn the_face_runs_kinds_convert_both_ways() {
     }
 }
 
-/// The hair keys' ranges, copied from the plan's `[hair]` block of
+/// The hair keys' ranges, copied from the spec's `[hair]` block of
 /// `ingame_face.toml`: each key's maximum parses, one past it is `OutOfRange`
-/// with the plan's range, and so is one below a range that starts at 1.
+/// with the spec's range, and so is one below a range that starts at 1.
 /// (`wave_level` and `color_preset` are pinned above.)
 #[test]
 fn the_hair_keys_ranges_are_the_plans() {
@@ -979,9 +979,9 @@ fn a_hand_set_id_past_the_stock_band_is_refused_on_write() {
 // top level, `[face]` and `[hair]` — walked with the same key table, the
 // `[appearance]` root dropped.
 
-/// The template `docs/plans/aesthetics_export/player_folders.md` "The
-/// document" describes: `to_toml` of the settings the file parses to must
-/// reproduce it byte for byte.
+/// The template `docs/spec/aesthetics_export/settings_toml.md` "The document"
+/// describes: `to_toml` of the settings the file parses to must reproduce it
+/// byte for byte.
 const INGAME_FACE_FIXTURE: &str = include_str!("ingame_face_template.toml");
 
 /// `face` read through an `AppearanceSettings`, so a test can ask a

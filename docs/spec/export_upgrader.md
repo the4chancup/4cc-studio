@@ -99,10 +99,10 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    `fcl_hair_sim.skl` beside an FMDL on the maintainer's machine are custom ones the hair would
    lose. A folder holding `fcl_hair.skl` already keeps both as named, the compile's pairing
    taking its own. Old `ingame_face` and
-   tolerated `ingame_face.txt` markers are preserved and normalized to the new bare `ingame_face`
-   marker; a player whose savefile record wears boots/gloves but who has **no face folder** also gets
-   a player folder with an `ingame_face` marker, since a stray boots/gloves folder is exactly the
-   ingame-face case. An empty face folder is never that case: it is how a player with an FBM
+   tolerated `ingame_face.txt` markers become `ingame_face.toml`, the file the marker is now
+   (filled from the record at step 8); a player whose savefile record wears boots/gloves but who
+   has **no face folder** also gets a player folder with an `ingame_face.toml`, since a stray
+   boots/gloves folder is exactly the ingame-face case. An empty face folder is never that case: it is how a player with an FBM
    removes the placeholder face, as part of the FPC system (Red packs an empty face package for
    it, so the player's own face never shows). It migrates to nothing of its own: its player
    folder is written as any face folder's is, holding no face file and no marker (its
@@ -562,7 +562,12 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    with no face folder and no custom boots or gloves gets no folder, and his look stays where
    the game reads it now, his record or his installed row), populated from the savefile's aesthetic data
    (physique, strip style, skin/iris color, etc.) — the same TOML-generation logic the save editor
-   uses. Custom boots/gloves IDs (above 100) are omitted: old IDs help resolve the wearers during
+   uses. A marked folder's `ingame_face.toml` is written beside it, filled the same way: the face
+   run, the hair and the iris, every key the save's version holds (`settings_value_refused` and
+   `settings_from_stripped_record` cover both files); a folder without the marker gets a
+   `settings.toml` alone, without those keys, and without a record to generate from (a failed
+   `settings_not_generated`) the file is written empty, so the marker's effect survives.
+   Custom boots/gloves IDs (above 100) are omitted: old IDs help resolve the wearers during
    migration, but the migrated models/links determine Studio's automatic assignments. A stock ID
    (1 to 100: a game model, which no folder carries) is kept as `boots_id`/`gloves_id`, or the
    player would lose it. A stored 0 is left unset, its default, except in a Midcup output, where
@@ -634,8 +639,9 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    not UTF-8 is unmigrated content and no `players.txt` is written, the validation then dropping
    the output for the missing roster), and the `refs.txt` is removed; a root `ref_marker.dds` is carried as it is
    (the format admits it, `spec/aesthetics_export/object_model.md`); each referee's subfolders are **flattened** into
-   the player folder root (step 12). Either old `ingame_face` spelling is normalized exactly as for
-   team player folders. No savefile needed — referee IDs are compiler-generated. A Note txt in a
+   the player folder root (step 12). Either old `ingame_face` spelling becomes `ingame_face.toml`
+   exactly as for team player folders — empty, a referee export having no record to fill it from.
+   No savefile needed — referee IDs are compiler-generated. A Note txt in a
    referee export is a leftover (step 10): step 6 reads a team's colors, which referees have none
    of, so nothing compiled it, and the Warning names it for the author.
 10. **Reports** anything that couldn't be migrated automatically (e.g. contents of the Other folder,
@@ -713,7 +719,7 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     places it by hand or upgrades with the save (the real GBFG VGL26 export numbers two gloves
     folders `g2522` and `g2523` beside `g2301` to `g2320`, the same players' boots being `k2322`
     and `k2323`: loose mode reports the two). An ID on a slot
-    without a face folder still yields a player folder with an `ingame_face` marker, as in step 3.
+    without a face folder still yields a player folder with an `ingame_face.toml`, as in step 3.
     Every other ID maps to exactly one slot, so its folder is always merged in on a Fox export
     (unless a byte clash keeps it shared, `merge_kept_shared`),
     and kept shared with a link on a pre-Fox one (step 3). Loose mode is a documented
@@ -721,7 +727,8 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     states each assumed pairing (I, `wearer_assumed`, on the item folder, its four-digit ID and
     the slot in its context: `id=0128, slot=03`), and no `settings.toml` aesthetic data can be generated (step 8 is
     skipped, apart from `name` handling, which needs no savefile: a folder with a name part gets a
-    `settings.toml` holding `name = true` alone, one named by its number alone none). Red's Pre-Studio upgrader
+    `settings.toml` holding `name = true` alone, one named by its number alone none), every
+    `ingame_face.toml` written empty, the bare marker's effect. Red's Pre-Studio upgrader
     implements this same mode (its `export_upgrade.py`).
 12. **Flattens the AET referee layout's subfolders**: `face/`, `boots/`, `gloves/` and `common/`
     directly inside a referee's player folder (the layout the compiler refuses with
@@ -781,7 +788,7 @@ export.
 
 Each top-level folder is migrated as **one model folder** with the per-folder rules of step 7 —
 `kitN` rewriting in names and path tables, `.mtl` stem normalization, pre-Fox type prefix → suffix
-and the `oral_`/`_win32` drop with their `.mtl` rule (xml-less folders only), `ingame_face` normalization, `.mtl.common` → kept as is (a `Common/` in the
+and the `oral_`/`_win32` drop with their `.mtl` rule (xml-less folders only), `ingame_face`/`ingame_face.txt` → `ingame_face.toml` normalization, `.mtl.common` → kept as is (a `Common/` in the
 input is upgraded with the Common rules and carried over, so the links keep resolving). Output
 naming follows steps 3–4 so the result is directly droppable: a face folder becomes a player folder
 `NN - Name/` (NN from its `XXX` suffix, Name from its name part; without a suffix, the name part
@@ -812,9 +819,9 @@ folder holding one model folder as that model folder. A top-level folder's kind 
 lower case, four digits, then the name part; `g` and three digits); any other name a face
 folder. A face folder's name is step 3's: a slot (characters 4-5 making 01 to 23) gives `NN -
 Name`, or `NN` alone with no name part; without one the folder keeps its own name (`Snuffy`).
-Every name is cleaned as step 3 cleans a candidate. In a face folder only `ingame_face` is
-normalized; its other files keep their names, the portrait included (no `Portraits/` to compare
-it with). Two folders whose output names match, letter case aside (`XXX15 - A` and `71415 - A`,
+Every name is cleaned as step 3 cleans a candidate. In a face folder only the `ingame_face`
+spellings are normalized (either becomes `ingame_face.toml`); its other files keep their names,
+the portrait included (no `Portraits/` to compare it with). Two folders whose output names match, letter case aside (`XXX15 - A` and `71415 - A`,
 or a face folder `Crocs` beside `k0430 - Crocs`, both published at the output's top level), keep
 the first by input name; the later is unmigrated content as a whole folder (`DropFolder`), as
 step 3's second face folder of a slot. A file directly in the input folder is unmigrated content
@@ -976,8 +983,8 @@ a clean old export and is fixed first, or the upgrader failed to migrate a clean
 fixed. We do not write a draft for manual repair, because every Studio export is upgraded once,
 from a clean Red export, and a half-migrated one handed on would be compiled as if it were whole,
 the losses the report named forgotten. Fixtures cover both old
-`ingame_face` spellings and assert one canonical bare marker in the migrated player folder;
-savefile names with colour codes (see the pes_savefile plan) and assert a plain folder name plus an
+`ingame_face` spellings and assert one canonical `ingame_face.toml` in the migrated player
+folder; savefile names with colour codes (see the pes_savefile plan) and assert a plain folder name plus an
 explicit `name = "..."` preserving the codes; a Red-era referee export, asserting that its
 face/boots/gloves/common subfolders are flattened, `refs.txt` becomes `players.txt` and is removed,
 and the result compiles to Red's output for the unflattened original, each difference
@@ -1120,12 +1127,12 @@ EU-PLY-02  GIVEN no face folder for slot 05, whose save record wears custom boot
                 boots folder "k0430 - Crocs" no other player wears
            WHEN the export is upgraded
            THEN Players/05 - Crocs/ holds boots.fmdl with the boots folder's textures and an
-                ingame_face marker, and no Boots/ folder holds the model
+                ingame_face.toml, and no Boots/ folder holds the model
 EU-PLY-03  GIVEN the face folder "XXX09" without a name part, and slot 09's save name carrying
                 name colour codes
            WHEN the export is upgraded
            THEN the player folder is "09 - " followed by that name with the codes stripped
-EU-PLY-04  withdrawn: restated as EU-PLY-22 (`plans/aesthetics_export/player_folders.md`), the
+EU-PLY-04  withdrawn: restated as EU-PLY-22 (`spec/export_upgrader.md`), the
            marker written as ingame_face.toml, filled from the record, since step 0.0.1h
 EU-PLY-05  GIVEN boots folders "k0430 - Crocs", worn by slots 03 and 05, and "k0431", worn by 04
                 and 06, and the gloves folder "g0432 - Mitts", worn by 03 and 04
@@ -1165,13 +1172,13 @@ EU-PLY-16  GIVEN the empty face folder "XXX05 - Bob", slot 05 wearing custom boo
            WHEN the export is upgraded
            THEN Players/05 - Bob/ holds boots.fmdl with the boots folder's textures and
                 settings.toml, Players/06 - Ann/ holds settings.toml alone, neither holds an
-                ingame_face marker, and the exit code is 0
+                ingame_face.toml, and the exit code is 0
 EU-PLY-17  GIVEN the boots folder "k0430 - EMPTY" holding boots.skl alone, worn by slots 03 and
                 04, and the empty gloves folder "g0432 - EMPTY", worn by slot 03; slot 03 with
                 the face folder "XXX03 - Ann", slot 04 with none and storing gloves 0
            WHEN the export is upgraded
            THEN Players/03 - Ann/ holds an fpc_on marker, slot 04's folder, named from his save
-                name, holds fpc_on and ingame_face markers and a settings.toml with
+                name, holds fpc_on and an ingame_face.toml and a settings.toml with
                 gloves_id = 0, no folder holds boots.skl or a link,
                 the output holds no Boots/ or Gloves/ folder, leftover_dropped is reported for
                 boots.skl, and the exit code is 0
@@ -1194,6 +1201,20 @@ EU-PLY-20  GIVEN a pre-Fox face folder "71401" whose files, face.xml, face_high_
            WHEN the export is upgraded with a PES 16 save
            THEN slot 01's folder holds the three files directly and no common/ subfolder, and
                 the exit code is 0
+EU-PLY-21  GIVEN a face folder for slot 03 and no face folder for slot 05, whose record wears
+                 custom boots
+           WHEN the export is upgraded with a save
+           THEN Players/03's settings.toml holds no face, hair or iris key and no
+                ingame_face.toml exists there; Players/05 holds ingame_face.toml with his
+                record's face, hair and iris
+EU-PLY-22  GIVEN one player folder holding ingame_face and another ingame_face.txt, in a team
+                 export and in a referee export
+           WHEN each export is upgraded, the team one with a save, the referee one with
+                neither flag
+           THEN each of those player folders holds ingame_face.toml and no ingame_face or
+                ingame_face.txt; the team export's two files hold their records' face, hair
+                and iris, every key the save's version holds, and their settings.toml none of
+                those keys; the referee export's two are empty
 ```
 
 **Kits**
@@ -1440,7 +1461,7 @@ EU-MDL-18  GIVEN a pre-Fox face folder whose .mtl is not XML (an unclosed <mater
 **Player settings**
 
 ```
-EU-SET-01  withdrawn: restated as EU-SET-10 (`plans/aesthetics_export/player_folders.md`), the
+EU-SET-01  withdrawn: restated as EU-SET-10 (`spec/export_upgrader.md`), the
            face, hair and iris keys out of settings.toml since step 0.0.1h
 EU-SET-02  GIVEN two players with face folders, one wearing stock boots 12 and one custom
                 boots 430 from a migrated folder, both wearing the default gloves 0
@@ -1457,7 +1478,7 @@ EU-SET-04  GIVEN one player whose folder's name part equals his save name, a fac
            WHEN the export is upgraded
            THEN their settings.toml files hold name = true, name = the save name, and name = the
                 save name with its codes byte for byte, in a folder named without them
-EU-SET-05  withdrawn: restated as EU-SET-11 (`plans/aesthetics_export/player_folders.md`), his
+EU-SET-05  withdrawn: restated as EU-SET-11 (`spec/export_upgrader.md`), his
            cheek_type in ingame_face.toml since step 0.0.1h
 EU-SET-06  GIVEN the PES 21 fixture save after strip-and-seed
            WHEN an export of one of its teams is upgraded with it
@@ -1476,6 +1497,15 @@ EU-SET-09  GIVEN a PES 16 save holding a player with a face folder who stores 18
            WHEN his team's pre-Fox export is upgraded with it
            THEN his settings.toml has no goal_celebration_2 key, a warning names him, the key
                 and 183, and the exit code is 0
+EU-SET-10  GIVEN a player with a face folder, and his save record
+           WHEN the export is upgraded
+           THEN his settings.toml sets every key the save's version holds but the face, hair
+                and iris keys to his record's value, shirt_name to his save string, and has no
+                height or weight key, and his folder holds no ingame_face.toml
+EU-SET-11  GIVEN the PES 18 fixture save, holding a player with cheek_type 5 whose slot the
+                 export gives no face folder and custom boots
+           WHEN his team's export is upgraded with it
+           THEN his ingame_face.toml has cheek_type = 5, and nothing is reported about it
 ```
 
 **Referee exports**
@@ -1553,7 +1583,7 @@ EU-LOOSE-01 GIVEN an old /a/ export (Red block 126 to 150) with the face folder 
                  boots folders "k0128 - Rex" and "k0130", and no face folder for slot 05
             WHEN it is upgraded with --loose
             THEN k0128 is merged into Players/03 - Ann/, k0130 into Players/05/, which holds an
-                 ingame_face marker, the report states the pairings 0128 → 03 and 0130 → 05,
+                 ingame_face.toml, the report states the pairings 0128 → 03 and 0130 → 05,
                  03 - Ann/settings.toml holds name = true alone, 05/ holds no settings.toml, and
                  the exit code is 0
 EU-LOOSE-02 GIVEN EU-LOOSE-01's export with the boots folders "k0149" and "k0155" too
@@ -1562,7 +1592,7 @@ EU-LOOSE-02 GIVEN EU-LOOSE-01's export with the boots folders "k0149" and "k0155
                  the exit code is 1
 EU-LOOSE-03 GIVEN a /a/ export holding the empty face folder "71405" alone
             WHEN it is upgraded with --loose
-            THEN the output holds an empty Players/05/, no ingame_face marker in it, and the
+            THEN the output holds an empty Players/05/, no ingame_face.toml in it, and the
                  exit code is 0
 ```
 
@@ -1602,8 +1632,8 @@ EU-MF-01   GIVEN a folder holding a Fox face folder "XXX15 - Snuffy" whose file 
                 hair model and ingame_face.txt, and Common/
            WHEN upgrade-models runs
            THEN the output holds 15 - Snuffy/ with kit1 in every file name and reference,
-                Crocs/ with crocs_gloveL.model, k0431/, Snuffy/ with a bare ingame_face, and an
-                upgraded Common/, and the report names each output folder with where it goes
+                Crocs/ with crocs_gloveL.model, k0431/, Snuffy/ with a bare ingame_face.toml,
+                and an upgraded Common/, and the report names each output folder with where it goes
 EU-MF-02   GIVEN a player folder's .mtl referencing model/character/uniform/common/XXX/hair.dds,
                 another reference whose file Common/ lacks, a .mtl.common link, and Common/
                 holding hair.dds and a .mtl referencing face.dds

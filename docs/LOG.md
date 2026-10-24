@@ -2411,3 +2411,5 @@ worklog passed 7,000 lines.
   citation fixes but one, the upgrader's old-spelling test now the lib's `classify`); amended into slice 2.
 - **2026-10-24** — 8.9j2: the Save editor's floating AATF panel (current team or picked teams, a click selecting
   the player, suggestions, Validate rules, Save a copy), the check on a worker thread.
+- **2026-10-24** — 0.0.1h: the spec describes `ingame_face.toml` as built (marker, templates, codes, the upgrader,
+  ten scenarios); the plan keeps the Save editor half.

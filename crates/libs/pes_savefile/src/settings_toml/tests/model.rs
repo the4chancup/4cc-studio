@@ -708,7 +708,7 @@ fn assert_write_unused_restores(run: &IngameFace) {
 /// hair key PES 17 holds reads its `KeySpec` default from the reset run.
 /// Aside: skin, iris and the player gloves (the reset keeps the player's
 /// own), and the reset's jaw height +2 and lips 1, which the template does
-/// not take (a slider at 0 is the editor's centre; the plan's ingame-face
+/// not take (a slider at 0 is the editor's centre; the spec's ingame-face
 /// rules).
 #[test]
 fn the_face_and_hair_defaults_are_the_reset_run() {

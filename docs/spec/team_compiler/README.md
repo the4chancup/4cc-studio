@@ -379,9 +379,9 @@ TC-STR-08  GIVEN a shared folder no link file names, and one linked only by a pl
 TC-STR-09  GIVEN a player folder holding a file outside the allowlist
            WHEN it is checked with strict_file_type_check on, then off
            THEN file_type_disallowed is an Error dropping the folder, then an Info keeping it
-TC-STR-10  withdrawn: restated as TC-STR-20 (`plans/aesthetics_export/player_folders.md`), the
+TC-STR-10  withdrawn: restated as TC-STR-20 (`spec/team_compiler/README.md`), the
            marker ingame_face.toml since step 0.0.1h and its old spellings reported
-TC-STR-11  GIVEN an ingame_face player folder that also holds face_high.fmdl, or a .face link
+TC-STR-11  GIVEN an ingame_face.toml player folder that also holds face_high.fmdl, or a .face link
            WHEN it is checked
            THEN ingame_face_explicit_face_model is reported and that player folder is dropped
 TC-STR-12  GIVEN a player folder holding both fpc_on and fpc_off
@@ -392,7 +392,7 @@ TC-STR-13  GIVEN a player folder holding hair.dds and hair.png
            THEN texture_stem_conflict is reported and the player folder is dropped (a subfolder's
                 hair.dds is no second hair of the root's: a subfolder is a folder of its own,
                 TC-MOD-66)
-TC-STR-14  GIVEN ingame_face player folders holding, in turn, parts/boots.fmdl with
+TC-STR-14  GIVEN ingame_face.toml player folders holding, in turn, parts/boots.fmdl with
            parts/glove_l.fmdl and parts/skin.dds; parts/hair_high.fmdl; and common/body.fmdl
            with common/extra/readme.txt
            WHEN they are checked
@@ -417,6 +417,26 @@ TC-STR-17  GIVEN a Fox target, Boots/Crocs/ holding torso.fmdl and Boots/Mud/ ho
            THEN fmdl_name_invalid is reported for Crocs, which is dropped with its linking player
                 (link_target_dropped); Mud, its player and the player holding torso.fmdl (face
                 content by the name table) report no Warning or Error
+TC-STR-18  GIVEN /co/ slot 05 holding an ingame_face.toml that does not parse, slot 06 one
+                 holding an unknown key, each beside a settings.toml setting skin_color = 4,
+                 and no model
+           WHEN the export is checked, then compiled for PES 21
+           THEN both runs report ingame_face_toml_invalid for each, naming the file and the
+                error; the CPK holds no face/real/71405/ or 71406/ path, and both players'
+                PlayerAppearance rows hold skin colour 4 and the template's defaults in every
+                face, hair and iris field
+TC-STR-19  GIVEN /co/ slot 05 holding a settings.toml with [appearance.hair] and
+                 skin_color = 4, and an ingame_face.toml setting iris_color = 7, and no model
+           WHEN the export is checked, then compiled for PES 21
+           THEN both runs report settings_toml_invalid naming appearance.hair as an unknown
+                key, and 71405's row holds iris 7 and the template's skin colour, 1
+TC-STR-20  GIVEN /co/ slots 05, 06 and 07 holding, in turn, ingame_face.toml, a bare
+                 ingame_face and ingame_face.txt, and no model
+           WHEN the export is checked, then compiled for PES 21
+           THEN both runs report ingame_face_marker_renamed for 06's and 07's files and
+                neither reports a disallowed file nor a finding on 05; the CPK holds no
+                face/real/71405/ path and a blank face package for 71406 and 71407, as for
+                a folder with no marker
 ```
 
 **Roster**
@@ -769,7 +789,7 @@ TC-MOD-06  GIVEN an installed CPK below the output whose /co/ record names seven
                 have two wearers)
 TC-MOD-94  GIVEN a /co/ export whose slots 01 to 20 each link their own shared boots folder,
                 Boots/B01 to Boots/B20, each holding boots.model and boots.mtl; slots 01 to 15
-                holding ingame_face and nothing else, slots 16 to 20 face_high.model and
+                holding ingame_face.toml and nothing else, slots 16 to 20 face_high.model and
                 face_high.mtl
            WHEN it is compiled for PES 17
            THEN no boots_id_pool_exhausted is reported, boots/k0621/ to k0640/ each hold the
@@ -816,7 +836,7 @@ TC-MOD-13  GIVEN slot 05 holding face_high.fmdl and face_high.skl
            WHEN the export is checked, then compiled, for PES 21
            THEN skl_no_slot is reported and the folder is kept, the .skl not emitted; checked
                 for PES 17, neither skl_no_slot nor fmdl_fcl_hair_fallback is reported
-TC-MOD-14  GIVEN slot 05 holding ingame_face, parts/boots.fmdl and parts/skin.dds
+TC-MOD-14  GIVEN slot 05 holding ingame_face.toml, parts/boots.fmdl and parts/skin.dds
            WHEN the export is compiled for PES 21
            THEN k0625 holds boots.fmdl (the model typed by its name, wherever it sits)
 TC-MOD-15  GIVEN slot 05 holding a face model and face_diff.xml, and another holding a face model
@@ -824,22 +844,22 @@ TC-MOD-15  GIVEN slot 05 holding a face model and face_diff.xml, and another hol
            WHEN each export is compiled for PES 21
            THEN the first's face package holds a face_diff.bin decoded from the xml; the second
                 reports face_diff_invalid and the folder is dropped
-TC-MOD-16  GIVEN slot 05 holding ingame_face, torso.fmdl posed for PES 21, torso.skl and
+TC-MOD-16  GIVEN slot 05 holding ingame_face.toml, torso.fmdl posed for PES 21, torso.skl and
            glove_l.fmdl
            WHEN the export is compiled for PES 21
            THEN the CPK holds no face/real/71405/ path, k0625's package holds boots.fmdl and a
                 boots.skl byte-identical to torso.skl, and g0625's holds glove_l.fmdl
-TC-MOD-17  GIVEN slot 05 holding ingame_face, kit_boots.fmdl and Crocs.boots, and slot 07 linking
-           Crocs.boots plainly
+TC-MOD-17  GIVEN slot 05 holding ingame_face.toml, kit_boots.fmdl and Crocs.boots, and slot 07
+           linking Crocs.boots plainly
            WHEN the export is compiled for PES 21
            THEN link_combined is reported, k0625 holds the merged boots, no face/real/71405/ path
                 is in the CPK, and Crocs keeps its own output for slot 07, who alone links it
                 plainly, under his own k0627
-TC-MOD-18  GIVEN slot 05 holding ingame_face and an empty face/ subfolder, with boots.fmdl
+TC-MOD-18  GIVEN slot 05 holding ingame_face.toml and an empty face/ subfolder, with boots.fmdl
            WHEN the export is compiled
            THEN no finding is reported for face/, no face package is emitted, and k0625 holds the
                 boots
-TC-MOD-19  GIVEN slot 05 holding boots.fmdl only, without ingame_face; and slot 07 holding an
+TC-MOD-19  GIVEN slot 05 holding boots.fmdl only, without ingame_face.toml; and slot 07 holding an
            empty face/ and nothing else
            WHEN the export is compiled for PES 21
            THEN a face package is emitted for 71405 and for 71407 (the blank face folder) and k0625
@@ -923,7 +943,8 @@ TC-MOD-31  GIVEN slot 05 holding body.fmdl whose vertices carry skh_*_l and skh_
                 rest, every face of the source is in exactly one of the three, and
                 model_hand_split names body.fmdl
 TC-MOD-32  GIVEN slot 05 holding boots.fmdl and a face_diff.bin that is not the bundled one,
-           without ingame_face; and slot 07 holding ingame_face, boots.fmdl and face_diff.bin
+           without ingame_face.toml; and slot 07 holding ingame_face.toml, boots.fmdl and
+                face_diff.bin
            WHEN the export is compiled for PES 21
            THEN face_file_not_used names face_diff.bin on each folder, 71405's face package
                 holds the bundled face_diff.bin alone, and no face package is emitted for 71407
@@ -939,12 +960,12 @@ TC-MOD-34  GIVEN slot 05 holding boots.model and boots.mtl naming skin, and skin
                 plus the anti-blur mesh the FMDL export regenerates (the card head's one mesh
                 becomes two), its texture table naming skin.dds under the player's texture
                 home, and skin.ftex sits in the player's common subfolder
-TC-MOD-35  GIVEN slot 05 holding ingame_face, kit_boots.model, kit_boots.mtl and Crocs.boots,
+TC-MOD-35  GIVEN slot 05 holding ingame_face.toml, kit_boots.model, kit_boots.mtl and Crocs.boots,
            Boots/Crocs/ holding boots.model and boots.mtl, linked by no other player; and
-           another export whose slot 05 holds ingame_face, Crocs.boots, and parts/boots.model
+           another export whose slot 05 holds ingame_face.toml, Crocs.boots, and parts/boots.model
            with parts/boots.mtl naming skin.dds and parts/skin.dds, Boots/Crocs/ holding
            boots.model, its boots.mtl naming skin beside its skin.png; and a third whose slot
-           05 holds ingame_face, Studs.boots, and boots.model with a boots.mtl naming
+           05 holds ingame_face.toml, Studs.boots, and boots.model with a boots.mtl naming
            studs.dds, which Boots/Studs/ alone holds, beside its boots.model and boots.mtl
            WHEN each is compiled for PES 17
            THEN link_combined is reported, no 71405 face CPK is written,
@@ -982,9 +1003,10 @@ TC-MOD-40  GIVEN Faces/Longhair/ holding hair_high.model and hair_high.mtl, link
            WHEN the export is compiled for PES 17
            THEN 71405.cpk holds both models, its face.xml lists both, and no output exists for
                 Longhair on its own; a file of slot 05's own replaces Longhair's of its name
-TC-MOD-41  GIVEN slot 05 holding ingame_face, shirt.model and socks.model with .mtl files defining
-           material "skin" differently; and another export whose slot 05 holds ingame_face,
-           shirt.model and socks.model naming one bone with different transforms
+TC-MOD-41  GIVEN slot 05 holding ingame_face.toml, shirt.model and socks.model with .mtl files
+           defining material "skin" differently; and another export whose slot 05 holds
+           ingame_face.toml, shirt.model and socks.model naming one bone with different
+           transforms
            WHEN each export is compiled for PES 17
            THEN the first reports merge_material_conflict and the second skl_merge_conflict,
                 and neither CPK holds common/character0/model/character/boots/k0625/
@@ -1009,15 +1031,15 @@ TC-MOD-43  GIVEN slot 05 holding body.model, whose vertices carry skh_*_l and sk
                 ./oral_body_kitN_*.model and its kitN hands; the third's holds the three split
                 models and no body.mtl, their entries naming
                 model/character/uniform/common/<team>/body.mtl
-TC-MOD-44  GIVEN slot 05 holding ingame_face, socks.model with socks.mtl naming skin.dds, and
-           kit_boots.model.common; Common/ holding kit_boots.model, kit_boots.mtl naming studs
-           and studs.dds
+TC-MOD-44  GIVEN slot 05 holding ingame_face.toml, socks.model with socks.mtl naming skin.dds,
+           and kit_boots.model.common; Common/ holding kit_boots.model, kit_boots.mtl naming
+           studs and studs.dds
            WHEN the export is compiled for PES 17
            THEN no 71405 face CPK is written, boots/k0625/boots.model's mesh count is the Common
                 model's plus socks's, and its boots.mtl names studs.dds in the team's Common
                 output and skin.dds in his common folder
-TC-MOD-45  GIVEN slot 05 holding ingame_face and gloves models of his own or linked from Common
-           (glove_l.model.common, glove_r.model and glove_r.mtl.common); Common/ holding
+TC-MOD-45  GIVEN slot 05 holding ingame_face.toml and gloves models of his own or linked from
+           Common (glove_l.model.common, glove_r.model and glove_r.mtl.common); Common/ holding
            glove_l.model, glove_l.mtl and glove_r.mtl
            WHEN the export is compiled for PES 17
            THEN glove/g0625/ holds each gloves model under its name with its .mtl (here
@@ -1105,7 +1127,7 @@ TC-MOD-61  GIVEN slot 05 holding legs.model.common, a local legs.mtl (the Common
                 skin.ftex is written, Common's skin.ftex is in the team's Common output, and no
                 finding names a texture
 TC-MOD-62  GIVEN slot 05 holding face.fmdl, boots_kit1.fmdl and a boots_kit2.fmdl that does
-           not parse (or, holding ingame_face, boots_kit1.model and a boots_kit2.model that
+           not parse (or, holding ingame_face.toml, boots_kit1.model and a boots_kit2.model that
            does not parse)
            WHEN the export is compiled for PES 21 (PES 17 for the .model files)
            THEN no finding names the unparsable variant but kit_variant_model_left_out, and slot
@@ -1135,7 +1157,8 @@ TC-MOD-66  GIVEN slot 05 holding face_high.model with face_high.mtl naming skin.
                 the root's skin.dds, and no texture_stem_conflict is reported; the second's
                 converted hair_high.fmdl names skin in the texture home's own folder, where its
                 .mtl is, and no texture_not_found is reported
-TC-MOD-67  GIVEN slot 05 holding face_high.fmdl, jessie/ingame_face and jessie/settings.toml
+TC-MOD-67  GIVEN slot 05 holding face_high.fmdl, jessie/ingame_face.toml and
+           jessie/settings.toml
            WHEN the export is checked, then compiled for PES 21 with
                 strict_file_type_check = false
            THEN the check reports file_type_disallowed for each of the two and drops the
@@ -1264,13 +1287,13 @@ TC-MOD-84  GIVEN slot 05 holding Face_High.fmdl and face_high.mtl, which a PES 1
                 its textures standing) while the rest of the export compiles
 TC-MOD-85  GIVEN an FMDL that a PES 15-17 output reads (the tracer's fcl_hair.fmdl with its .skl),
            in a subfolder of slot 05, a shared folder he links, Common/ through a .common
-           link, or among an ingame_face player's boots or gloves parts
+           link, or among an ingame_face.toml player's boots or gloves parts
            WHEN the export is compiled for PES 17
            THEN it is converted into a .model and .mtl written where a .model of its name there
                 would be, the .mtl naming its textures where that output's textures sit, its
                 conversion findings reported at the folder whose output it joins (the player,
-                for a linked face folder's or an ingame_face player's Common part), and no .fmdl
-                or .skl in the CPK
+                for a linked face folder's or an ingame_face.toml player's Common part), and no
+                .fmdl or .skl in the CPK
 TC-MOD-86  GIVEN slot 05 holding a face model, Face_Diff.bin, kit_boots.fmdl naming shirt,
            Shirt.dds and Kit_Boots.skl
            WHEN the export is compiled for PES 21
@@ -1914,7 +1937,7 @@ TC-CMN-23  GIVEN Common/jessie/hair_high.model with Common/jessie/hair_high.mtl 
            THEN the .mtl face.xml names for the hair model points hair at
                 model/character/uniform/common/<team>/jessie/sub/hair.dds, which the Common
                 output holds, and no mtl_texture_not_found is reported
-TC-CMN-24  GIVEN slot 05 holding ingame_face, studs.dds and jessie/kit_boots.model.common,
+TC-CMN-24  GIVEN slot 05 holding ingame_face.toml, studs.dds and jessie/kit_boots.model.common,
            and Common/jessie/kit_boots.model with Common/jessie/kit_boots.mtl naming
            ./studs.dds and Common/jessie/studs.dds
            WHEN the export is compiled for PES 17
@@ -2497,7 +2520,7 @@ TC-BIN-30  GIVEN a Full /co/ export whose slot 05 carries fpc_on, and whose sett
                 value for the key and the inners, undershorts and taping as authored; the
                 Full one reports fpc_gloves_checkbox_winter_gloves for slot 05 (a face link
                 is no gloves ID), and the Midcup one reports no gloves finding
-TC-BIN-31  withdrawn: restated as TC-BIN-49 (`plans/aesthetics_export/player_folders.md`), the
+TC-BIN-31  withdrawn: restated as TC-BIN-49 (`spec/team_compiler/README.md`), the
            face and hair keys read from ingame_face.toml since step 0.0.1h
 TC-BIN-32  GIVEN an installed pair (71405, 7), and a /co/ export whose slot 05 holds a
            boots.fmdl whose task fails and a settings.toml setting an appearance key and a
@@ -2517,8 +2540,32 @@ TC-BIN-37  GIVEN multi-CPK mode, an installed 4cc_08_bins.cpk (the bins CPK) hol
            WHEN it is compiled for PES 21
            THEN the output bins CPK keeps 71423's row and pair as installed, and holds 71405's
                 rows from the export
-TC-BIN-38  withdrawn: restated as TC-BIN-48 (`plans/aesthetics_export/player_folders.md`), the
+TC-BIN-38  withdrawn: restated as TC-BIN-48 (`spec/team_compiler/README.md`), the
            facial hair type read from ingame_face.toml since step 0.0.1h
+TC-BIN-47  GIVEN /egg/ slot 05 holding face_high.fmdl and a settings.toml, and slot 06
+                 holding an ingame_face.toml setting iris_color = 7 and [hair] length = 5
+           WHEN the export is compiled for PES 21
+           THEN 79205's PlayerAppearance row holds the template's defaults for every face,
+                hair and iris field, and 79206's holds iris 7 and hair length 5, its other
+                face and hair fields the defaults
+TC-BIN-48  GIVEN a Midcup /co/ export whose only player folder, slot 05, holds an
+                 ingame_face.toml setting a facial hair type and a settings.toml setting
+                 boots_id = 12, and no model
+           WHEN it is compiled for PES 21
+           THEN the output CPK is written and holds the three player tables, with (71405, 12)
+                in BootsList.bin and 71405's appearance row from his two files, the facial
+                hair type the ingame_face.toml's
+TC-BIN-49  GIVEN a /co/ export whose slot 05 ingame_face.toml holds facial_hair_type = 20
+                 (PES 18 unmeasured: the field's 0 to 31; PES 21: 0 to 19) and in-game hair
+                 (style = 4, color_red = 40), and whose settings.toml holds
+                 hunching_dribbling = 5 (PES 18: 1 to 3) and dribbling = 2 (PES 20 and 21
+                 only)
+           WHEN it is compiled for PES 18, and for PES 21
+           THEN the PES 18 run reports settings_value_out_of_range for hunching_dribbling
+                alone, 71405's row has facial hair type 20, its patch holds
+                hunching_dribbling 1 and no dribbling key, no finding names dribbling; the
+                PES 21 run reports it for facial_hair_type alone and its row has facial hair
+                type 0; both runs' rows carry that hair; both exit 0
 ```
 
 **Aesthetics patch and savefile**

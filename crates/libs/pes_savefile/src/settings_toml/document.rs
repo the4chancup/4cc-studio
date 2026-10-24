@@ -12,11 +12,11 @@ use super::{
 };
 
 // The TOML half: `parse` reads a `settings.toml` text, `to_toml` emits the
-// template (the plan's key-table block verbatim for a fully set settings),
+// template (the spec's key-table block verbatim for a fully set settings),
 // `update_toml` rewrites the `Some` values inside an existing document while
 // preserving its comments and formatting.
 
-/// The header of a generated `settings.toml`: the plan block's six comment
+/// The header of a generated `settings.toml`: the spec block's six comment
 /// lines (the in-game face's sentence pointing at `ingame_face.toml`
 /// included) and its four `name`/`shirt_name` comment lines, verbatim.
 const HEADER: &str = "\
@@ -33,7 +33,7 @@ const HEADER: &str = "\
 # otherwise they are ignored and the names in the save stand.
 ";
 
-/// The header of a generated `ingame_face.toml`: the plan block's four
+/// The header of a generated `ingame_face.toml`: the spec block's four
 /// comment lines, verbatim.
 const INGAME_FACE_HEADER: &str = "\
 # ingame_face.toml, inside a player folder: the in-game face, which the game draws when
@@ -711,7 +711,7 @@ impl PlayerSettings {
         Ok(settings)
     }
 
-    /// The template `settings.toml`: the plan block verbatim for a settings
+    /// The template `settings.toml`: the spec block verbatim for a settings
     /// where every key is `Some`; an unset key is its line commented out at
     /// the key's default (`KeySpec::default`). `OutOfRange` for a value
     /// written directly into a public field that the key's kind cannot

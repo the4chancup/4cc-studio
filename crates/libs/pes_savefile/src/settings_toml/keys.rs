@@ -390,7 +390,7 @@ pub struct KeySpec {
     /// How the TOML value maps to the stored `u8`.
     pub kind: Kind,
     /// The range comment the template emits after the key, verbatim from the
-    /// plan block.
+    /// spec block.
     pub comment: &'static str,
     /// The stored value an absent key applies: the template's shown value (a
     /// physique `0` stores 7, a 1-based motion `1` stores 0, a label its
@@ -417,7 +417,7 @@ pub(crate) enum Source {
 const SEVEN: &str = "-7 to 7";
 
 impl SettingKey {
-    /// Every key, in the plan table's order.
+    /// Every key, in the spec table's order.
     pub const ALL: [SettingKey; 130] = [
         SettingKey::BootsId,
         SettingKey::GlovesId,
@@ -551,7 +551,7 @@ impl SettingKey {
         SettingKey::Pes15HairVariation,
     ];
 
-    /// The key's row in the plan table.
+    /// The key's row in the spec table.
     pub fn spec(self) -> KeySpec {
         match self {
             SettingKey::BootsId => KeySpec {

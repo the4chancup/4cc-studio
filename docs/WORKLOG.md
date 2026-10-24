@@ -1697,8 +1697,15 @@ briefs, review loops, gates and mutation runs as for any step.
     2's commit; the loop ends (rulings `.tmp/0_0_1h/rulings.md`)
   - [ ] slice 3, the Save editor: the generation split, its "Generate in-game face" action
     landing with the view's generation (SE-GUI-19's slice; SE-GUI-33, 34)
-  - [ ] the spec moved for what landed (the plan section's closing paragraph names the
-    sections), and in game a generated file's face on PES 21 (SE-GUI-34). PES 17's save
+  - [x] the spec moved for slices 1 and 2. Done 2026-10-24 (SWE-2, 32 min): the marker
+    paragraph, the two templates (byte-equal to the goldens, checked by script), the object
+    model, the two codes, the upgrader's steps and the ten scenarios in `docs/spec/`; the plan
+    section keeps the Save editor bullet and SE-GUI-33, 34; a GLOSSARY row. Files:
+    `docs/spec/{aesthetics_export/{player_folders,settings_toml,object_model}.md,
+    team_compiler/{README,messages}.md,export_upgrader.md}`, `docs/plans/aesthetics_export/
+    {player_folders,settings_toml,object_model}.md`, `docs/GLOSSARY.md`, comment lines in
+    `pes_savefile/src/settings_toml/`
+  - [ ] in game, after slice 3: a generated file's face on PES 21 (SE-GUI-34). PES 17's save
     route waits for the aesthetics patch's pre-Fox half (`plans/pes_savefile/operations.md`
     "Aesthetics patch (new)"), so a pre-Fox compile is checked by its resolved settings alone
 

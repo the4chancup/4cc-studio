@@ -176,7 +176,7 @@ eligible, roster-entry scope and disposition; confirmed 2026-09-30).
 
   | Where the file sits | Admits | Otherwise |
   |---|---|---|
-  | directly in a player folder | model content, shared and `.common` links, the `ingame_face`, `fpc_on` and `fpc_off` markers, `settings.toml` | `file_type_disallowed` |
+  | directly in a player folder | model content, shared and `.common` links, the `fpc_on` and `fpc_off` markers, `settings.toml` and `ingame_face.toml` (the marker's old spellings `ingame_face` and `ingame_face.txt` are `ingame_face_marker_renamed`, not disallowed) | `file_type_disallowed` |
   | anywhere below a player folder's subfolder (a player folder of its own, `player_folders.md` "Subfolders") | model content but the per-player singletons (`face.xml`, the face diffs, `fcl_hair_sim.fclo`, which count in the root alone), links (a shared link read as the root's; a `.common` link stands for the `Common/` file at the link's own path below the player folder, `spec/model_format.md` "Link files") | `file_type_disallowed` |
   | anywhere in a shared folder (its subfolders are its own, `player_folders.md` "Subfolders") | model content (below a subfolder, but the singletons, as below a player folder's), `.common` links | `file_type_disallowed` |
   | directly in a kit folder | textures, `config.toml`, `colors.txt`, the `pre-fox`, `fox` and `icon_<N>` markers | `file_type_disallowed` |
@@ -599,9 +599,14 @@ pub enum FileKind {
     Other,
 }
 pub enum ModelFormat { Fmdl, PesModel, Gltf }   // `.fmdl`, `.model`, `.glb`/`.gltf`
-pub enum Marker { IngameFace, FpcOn, FpcOff, PreFox, Fox, Icon }   // Icon: `icon_<N>`, the number in the name
+pub enum Marker { OldIngameFace, FpcOn, FpcOff, PreFox, Fox, Icon, WriteNames }
+                                    // Icon: `icon_<N>`, the number in the name; OldIngameFace:
+                                    // the in-game face marker's old spellings `ingame_face` and
+                                    // `ingame_face.txt`, recognized only to be reported
+                                    // (`ingame_face_marker_renamed`)
 pub enum MetadataFile {
-    PlayersTxt, RefsTxt, RefLists, NotesTxt, ColorsTxt, ConfigToml, SettingsToml, Readme,
+    PlayersTxt, RefsTxt, RefLists, NotesTxt, ColorsTxt, ConfigToml, SettingsToml, IngameFaceToml,
+    Readme,
 }
 
 // ---- Slots.
@@ -642,7 +647,8 @@ pub struct PlayerFolder {
     pub links: Vec<SharedLink>,     // shared-folder link files (e.g. "Crocs.boots" → shared Boots/Crocs/);
                                     //   `.common` links (models, material files) are `files` entries
                                     //   of link kind, resolved against the Common folder by the pipeline
-    pub ingame_face: bool,          // recognized ingame_face / ingame_face.txt marker
+    pub ingame_face: Option<FileDescriptor>,  // the folder's ingame_face.toml: its presence
+                                            //   marks the in-game face, its keys set the face
     pub fpc: Option<FpcDirective>,  // normalized fpc_on/fpc_off directive
     pub portrait: Option<FileDescriptor>,
     pub settings: Option<FileDescriptor>,  // settings.toml

@@ -13,41 +13,45 @@ compile carries them to the game:
   by player; a record whose id is set wins over the tables (in-game Test 1, PES 2021: decision
   entry "aesthetics travel in the database tables"). The official save is therefore stripped once
   (every appearance id set to -1, see "Stripped save" in the [Save editor plan](../save_editor.md))
-  and the compiler writes each compiled player's three rows from this file; nothing of a
-  player's appearance is written to the savefile. Gloves need a FoxDen change to keep the table's value (worklog
+  and the compiler writes each compiled player's three rows from his two settings files; nothing
+  of a player's appearance is written to the savefile. Gloves need a FoxDen change to keep the table's value (worklog
   "Issues"); until it does, a Fox gloves row has no effect in the 4cc setup.
 
-**Everything in the file is optional** — including the file itself: a player folder with only
-models is valid. **An absent key takes its default**, the value the template below shows for it,
+**Everything in the files is optional** — each file itself included: a player folder with only
+models is valid. **An absent key takes its default**, the value the templates below show for it,
 on both engines; model-derived ID assignments and FPC
 directives are separate inputs. `name` and `shirt_name` are the exceptions: absent means "not
-written" (see the name rules). A compiled player's appearance is therefore his export (this file,
-his folder's models and markers) and nothing else: no earlier compile, savefile or installed
-table contributes to it, except a boots or gloves ID whose output failed (step 1 below) and,
+written" (see the name rules). A compiled player's appearance is therefore his export (these
+files, his folder's models and markers) and nothing else: no earlier compile, savefile or
+installed table contributes to it, except a boots or gloves ID whose output failed (step 1
+below) and,
 in a `Midcup` export, a category the folder leaves to its default (step 3). A compiled player is
 every player a kept player folder of a team export maps to, whatever his tasks' outcomes. A referee export's
-`settings.toml` reaches no table or patch yet (worklog issue). A `settings.toml`'s findings,
-a referee export's included, are reported by `check` and `compile` alike.
+`settings.toml` reaches no table or patch yet (worklog issue). A `settings.toml`'s and an
+`ingame_face.toml`'s findings, a referee export's included, are reported by `check` and `compile`
+alike.
 
-**The file can express everything the savefile's player appearance record holds.** Its schema is
-`pes_savefile`'s `PlayerSettings`: all of the decoded player appearance record — physique, strip
-style, wrist-tape and spectacle colours, skin and iris colour, the motion block, every setting of
-the ingame-face run (face sliders and feature types, eyebrow and facial-hair colours, in-game
-hair), and stock boots/gloves IDs (below), except the compiler-owned edit flags and base-copy ID.
+**The files can express everything the savefile's player appearance record holds.** Their joined
+schema is `pes_savefile`'s `PlayerSettings`: all of the decoded player appearance record —
+physique, strip style, wrist-tape and spectacle colours, skin and iris colour, the motion block,
+every setting of the ingame-face run (face sliders and feature types, eyebrow and facial-hair
+colours, in-game hair), and stock boots/gloves IDs (below), except the compiler-owned edit flags
+and base-copy ID.
 About one cup player in twenty relies on in-game hair rather than a face model. Every bit of the
 run is a key or measured unused ("The ingame-face run, decoded" in the
 [Savefile plan](../pes_savefile/model.md), whose spec part holds the completeness test).
 Completeness
-matters here because this file is the **only** route by which a team's aesthetics reach the
+matters here because these files are the **only** route by which a team's aesthetics reach the
 game: the save editor's own appearance fields are read-only by default (see "Read-only
 aesthetics" in the [Save editor plan](../../plans/save_editor.md)), and on Fox a stripped player's
-appearance bytes are not read at all. The **template** — what
-the Export upgrader and the save editor generate, and what a new player folder starts from —
-therefore lists every key, one per line, each followed on the same line by the comment that gives
+appearance bytes are not read at all. The **templates** — `settings.toml`'s, which the Export
+upgrader and the save editor generate, and `ingame_face.toml`'s, which the upgrader writes — are
+what a new player folder starts from, and therefore list every key, one per line, each followed
+on the same line by the comment that gives
 its range: set ones with their value, unset ones as commented lines (the boots/gloves IDs as
 `""`, see below), so a team can see what is
-authorable without any other document. The block below is the complete key table; `to_toml`
-emits it in this order and with these comments.
+authorable without any other document. The blocks below are the complete key tables; `to_toml`
+emits them in this order and with these comments.
 
 **Boots/gloves IDs are authored only for stock models.** Custom boots and gloves are folder
 content: local models and shared link files determine the compiler's player-exclusive or shared
@@ -91,6 +95,7 @@ name inside `[appearance]` would collide with.
 # set and its range. The file never references the export's models: what a player wears
 # is decided by the folder contents (models present, link files pointing at shared
 # folders); boots_id/gloves_id only name the game's stock models.
+# The in-game face's keys (iris, face, hair) are in ingame_face.toml.
 
 # true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
 # name for players.txt-mapped folders); "text" = write as is; absent = not written.
@@ -103,7 +108,6 @@ gloves_id = ""                  # "" = default (fpc_on: hidden, fpc_off 0, no ma
 
 [appearance]
 skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)
-iris_color = 0                  # 0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet
 
 [appearance.physique]
 neck_length = 0                 # -7 to 7
@@ -147,8 +151,57 @@ penalty_kick = 1                # 1 to 4 (PES 20 and 21: 1 to 7)
 dribbling = 0                   # 0 to 3, PES 20 and 21 only
 goal_celebration_1 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162
 goal_celebration_2 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162
+```
 
-[appearance.face]
+**`ingame_face.toml`.** The marker's file: a folder holding it wears the in-game face, which the
+file sets (`player_folders.md` "`ingame_face` marker"). The template's `[appearance.face]` table,
+`[appearance.hair]` table and `iris_color`, 90 of its keys, moved into it: in the file they are
+the top-level `iris_color` and the tables `[face]` and `[hair]`, with the same keys, ranges,
+defaults, per-version rules and comments. `skin_color`, the physique (head size included), the
+strip, the motions and the boots/gloves IDs stay in `settings.toml`, since a player with a face
+model wears them too. The keys moved because the game draws them on the in-game face alone (the
+marker paragraph holds the measurement): a player wearing a face model sets them for nothing.
+
+**The document.** `pes_savefile`'s `settings_toml` module reads and writes it beside
+`settings.toml`, from the same key table: its keys sit at their `[appearance]` paths with the
+root dropped (`iris_color`, `face.cheek_type`, `hair.length`), in the same ranges as
+`settings.toml` (the widest per key). Team TOML keeps all of them under
+`[players.NN.appearance]`, unchanged. The player's settings stay one value, joined from the two
+files, so a row or the patch is built from one `PlayerSettings`:
+
+```rust
+/// A player's `ingame_face.toml`: the in-game face's keys, each `None` when absent.
+pub struct IngameFaceSettings {
+    pub iris_color: Option<u8>,
+    pub face: FaceSettings,
+    pub hair: HairSettings,
+}
+impl IngameFaceSettings {
+    pub fn parse(text: &str) -> Result<Self, SettingsError>;
+    /// The template: the header below, then the `iris_color` line, `[face]` and `[hair]`.
+    pub fn to_toml(&self) -> Result<String, SettingsError>;
+}
+impl PlayerSettings {
+    /// The in-game face's keys, as `ingame_face.toml` holds them.
+    pub fn ingame_face(&self) -> IngameFaceSettings;
+    /// The in-game face's keys set from `face`, an absent key unset.
+    pub fn set_ingame_face(&mut self, face: IngameFaceSettings);
+}
+```
+
+Its template's key lines are `settings.toml`'s (the `iris_color` line, then the
+`[appearance.face]` and `[appearance.hair]` blocks under the headers `[face]` and `[hair]`),
+verbatim but for those headers:
+
+```toml
+# ingame_face.toml, inside a player folder: the in-game face, which the game draws when
+# the folder holds no face model and no face link. The file marks the folder as wearing
+# it. Every key is optional: an absent key takes the value shown here, and an empty file
+# is the game's default face. A commented key shows what can be set and its range.
+
+iris_color = 0                  # 0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet
+
+[face]
 jawline = 0                     # -7 to 7
 jaw_height = 0                  # -7 to 7
 cheekbones = 0                  # -7 to 7
@@ -220,7 +273,7 @@ facial_hair_color_blue = 7      # 0 to 63
 facial_hair_thickness = 3       # 0 to 3
 pes15_eye_white = 0             # 0 to 3, brighter eye whites, drawn by PES 15 only
 
-[appearance.hair]
+[hair]
 color_red = 14                  # 0 to 63
 color_green = 10                # 0 to 63
 color_blue = 7                  # 0 to 63
@@ -241,6 +294,53 @@ pes15_length = 2                # 1 skinhead, 2 very short, 3 short, 4 medium, 5
 pes15_type = 1                  # 0 none (skinhead, special), 1 straight, 2 wavy, 3 permed, 4 dreadlocks; PES 15 only
 pes15_variation = 1             # 1 to 82, the editor's grid position (each length and type has its own grid); PES 15 only
 ```
+
+The ingame-face run follows three rules:
+
+- **One file shape on every version.** PES 15 stores its hair differently from PES 16 to 21
+  (`spec/pes_savefile/model.md` "The ingame-face run"). So the keys marked "PES 16 to 21"
+  are skipped on a PES 15 compile, and the `pes15_` hair keys and `pes15_nose_angle` are
+  skipped on a 16 to 21 compile. Either way there is no finding, as for `dribbling`. A PES 16
+  export compiled for PES 21 keeps its in-game hair; one compiled for PES 15 gets PES 15's hair
+  keys, at their defaults if the file does not set them. The other `pes15_` keys exist on every
+  version and only PES 15 draws them. A save of 16 to 21 holds them too, its editor keeps them,
+  and the games' tables fill them for every face. So a generated file carries them and a
+  compile writes them on every version.
+- **The defaults are the game's default face.** The defaults are what PES 17's facial reset
+  writes:
+  - very short Normal hair;
+  - dark brown hair, eyebrows and facial hair (14, 10, 7);
+  - the template's values for the rest.
+
+  The template keeps the sliders at 0 and the feature types at 0, as before. The reset itself
+  also writes jaw height +2 and both lips 1, but a slider at 0 reads as an offset from the
+  editor's centre. An all-zero run would be the editor's Preset look instead, every slider at
+  -7, which is why an absent key is not stored as 0.
+- **Unused bits are not keys.** The run's measured-unused bits are written at the values the
+  games' editors write, on every compile, so a compiled run holds nothing of the save. They
+  are dropped on generation.
+
+The hair lists' ranges also hold the 0 that real saves store, outside the editors' 1-based
+lists: in the fixture cup saves, PES 16, 17 and 18 players hold it in `style`, `front_style`
+and `parted`, some in every list. Of the 1,651 PES 18 cup players, 1,609 hold 0 in those three
+lists under `length` 1 (shaven), and 42 (the /asp/, /w/ and /wsg/ players) hold 0 in every
+list, with `wave_level` -1. A generated file must carry a save's player, so each list takes 0,
+as `variation` does, and `wave_level` (stored as the level plus 1) takes -1. The template's
+defaults stay the editor's.
+
+What a 0 draws was measured on PES 18, from Edit-mode renders of patched saves. A 0 in a list
+the hairstyle uses (`length` and `hairline` were measured) makes the game draw a fallback hair
+that depends on the face, not a look of 0's own: short black spiky hair on one face, short
+brown hair on another, and the all-zero players draw that same fallback. A 0 in a list the
+length greys out (`style`, `front_style`, `parted`, `variation` and `side_back_style` under
+shaven) changes nothing, so the 1,609 draw their shaven look. The editor shows a 0 as its
+first entry (`length` "Shaven", `hairline` "Type 1", `forehead_width` "Narrow",
+`cropped_style` "Type 1", `wave_level` "+0"); changing the length writes 1 into every list at
+0, and confirming a picker on the entry it shows writes 1 into a list at 0 and nothing into a
+list already holding its value. Not measured: `wave_level`, `forehead_width`,
+`cropped_style` or `side_back_style` at 0 with the other lists set, and any length but
+shaven. So the keys keep accepting 0, and a file that carries one compiles to what the save
+drew: the game's fallback.
 
 Where the ranges come from, so a wrong one can be traced: the boots/gloves range is the stock
 band below the compiler's first team block (`spec/aesthetics_export/player_folders.md` "Assigns IDs automatically"); the colour, spectacle, sleeve, inner,
@@ -293,53 +393,6 @@ stored value past a version's top is shown as the top: PES 16's editor shows "12
 player who stores 183 in `goal_celebration_2`, and keeps the 183 when another row of the motion
 screen is edited and the team saved (what a match draws for 183 is unmeasured). Reading such a
 player into a `settings.toml` refuses the value, as any value past the widest range.
-
-The ingame-face run follows three rules:
-
-- **One file shape on every version.** PES 15 stores its hair differently from PES 16 to 21
-  (`spec/pes_savefile/model.md` "The ingame-face run"). So the keys marked "PES 16 to 21"
-  are skipped on a PES 15 compile, and the `pes15_` hair keys and `pes15_nose_angle` are
-  skipped on a 16 to 21 compile. Either way there is no finding, as for `dribbling`. A PES 16
-  export compiled for PES 21 keeps its in-game hair; one compiled for PES 15 gets PES 15's hair
-  keys, at their defaults if the file does not set them. The other `pes15_` keys exist on every
-  version and only PES 15 draws them. A save of 16 to 21 holds them too, its editor keeps them,
-  and the games' tables fill them for every face. So a generated file carries them and a
-  compile writes them on every version.
-- **The defaults are the game's default face.** The defaults are what PES 17's facial reset
-  writes:
-  - very short Normal hair;
-  - dark brown hair, eyebrows and facial hair (14, 10, 7);
-  - the template's values for the rest.
-
-  The template keeps the sliders at 0 and the feature types at 0, as before. The reset itself
-  also writes jaw height +2 and both lips 1, but a slider at 0 reads as an offset from the
-  editor's centre. An all-zero run would be the editor's Preset look instead, every slider at
-  -7, which is why an absent key is not stored as 0.
-- **Unused bits are not keys.** The run's measured-unused bits are written at the values the
-  games' editors write, on every compile, so a compiled run holds nothing of the save. They
-  are dropped on generation.
-
-The hair lists' ranges also hold the 0 that real saves store, outside the editors' 1-based
-lists: in the fixture cup saves, PES 16, 17 and 18 players hold it in `style`, `front_style`
-and `parted`, some in every list. Of the 1,651 PES 18 cup players, 1,609 hold 0 in those three
-lists under `length` 1 (shaven), and 42 (the /asp/, /w/ and /wsg/ players) hold 0 in every
-list, with `wave_level` -1. A generated file must carry a save's player, so each list takes 0,
-as `variation` does, and `wave_level` (stored as the level plus 1) takes -1. The template's
-defaults stay the editor's.
-
-What a 0 draws was measured on PES 18, from Edit-mode renders of patched saves. A 0 in a list
-the hairstyle uses (`length` and `hairline` were measured) makes the game draw a fallback hair
-that depends on the face, not a look of 0's own: short black spiky hair on one face, short
-brown hair on another, and the all-zero players draw that same fallback. A 0 in a list the
-length greys out (`style`, `front_style`, `parted`, `variation` and `side_back_style` under
-shaven) changes nothing, so the 1,609 draw their shaven look. The editor shows a 0 as its
-first entry (`length` "Shaven", `hairline` "Type 1", `forehead_width` "Narrow",
-`cropped_style` "Type 1", `wave_level` "+0"); changing the length writes 1 into every list at
-0, and confirming a picker on the entry it shows writes 1 into a list at 0 and nothing into a
-list already holding its value. Not measured: `wave_level`, `forehead_width`,
-`cropped_style` or `side_back_style` at 0 with the other lists set, and any length but
-shaven. So the keys keep accepting 0, and a file that carries one compiles to what the save
-drew: the game's fallback.
 
 The four `undershorts` labels name the summer/winter pair the game stores (the reference editor
 shows them as "S: Off / W: Off", "S: Short / W: Short", "S: Off / W: Long", "S: Short / W: Long").

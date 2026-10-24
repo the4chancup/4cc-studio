@@ -119,11 +119,6 @@ processing contract as `FaceModelFolder`.
 
 What exists of this is in `spec/aesthetics_export/object_model.md` "Player folders".
 
-`PlayerFolder.ingame_face` becomes `Option<FileDescriptor>`, the folder's `ingame_face.toml`,
-a settings-stage input beside `settings` ("`ingame_face.toml`" in the
-[Player folders plan](player_folders.md)); the bare marker and `ingame_face.txt` stay
-recognized only to be reported.
-
 ```rust
 // tools/team_compiler free functions operate on a materialized folder rather
 // than adding inherent compile methods to aesthetics_export::PlayerFolder.
