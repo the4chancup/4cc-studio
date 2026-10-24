@@ -19,6 +19,11 @@ mod portraits;
 mod quick_actions;
 mod tactics;
 mod team;
+// Dead until the comparator panel draws its rows; the tests are its only
+// callers until then, so the expectation is scoped out of test builds and
+// fires again once a real caller lands.
+#[cfg_attr(not(test), expect(dead_code, reason = "the comparator panel reads it"))]
+mod terms;
 #[cfg(test)]
 mod tests;
 

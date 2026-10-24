@@ -107,6 +107,15 @@ pub fn card_pickers(
     .inner
 }
 
+/// The text the picker shows for a stored style index: the style's label
+/// after `playstyle::decode`, the number when the version's list cannot
+/// decode it (so the combo still says what the save holds).
+pub fn playing_style_text(version: pes_version::PesVersion, stored: u8) -> String {
+    playstyle::decode(version, stored)
+        .map(style_label)
+        .unwrap_or_else(|_| stored.to_string())
+}
+
 /// The playing-style choice, the version's styles only. Returns whether it changed.
 pub fn playing_style_picker(
     ui: &mut egui::Ui,
@@ -125,11 +134,7 @@ pub fn playing_style_picker(
                 Some((index, style_label(style)))
             })
             .collect();
-        // A value the version cannot decode shows as its number, so the
-        // combo still says what the save holds.
-        let selected = playstyle::decode(version, *style)
-            .map(style_label)
-            .unwrap_or_else(|_| style.to_string());
+        let selected = playing_style_text(version, *style);
         let mut changed = false;
         egui::ComboBox::from_id_salt("playing style")
             .selected_text(selected)
@@ -172,6 +177,19 @@ mod tests {
 
     use super::*;
     use crate::test_support::{Headless, centre, painted_text_color, pointer_at};
+
+    /// The picker's text for a stored style is the version's own: PES 17's
+    /// stored 15 is Build Up, PES 21's Offensive Fullback; a value the
+    /// version's list cannot decode reads as its number.
+    #[test]
+    fn a_stored_style_reads_as_the_versions_style() {
+        assert_eq!(playing_style_text(PesVersion::Pes17, 15), "Build Up");
+        assert_eq!(
+            playing_style_text(PesVersion::Pes21, 15),
+            "Offensive Fullback"
+        );
+        assert_eq!(playing_style_text(PesVersion::Pes17, 22), "22");
+    }
 
     impl Headless {
         /// One frame of `card_pickers` over `skills` and `tiers`, returning the

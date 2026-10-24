@@ -2415,3 +2415,5 @@ worklog passed 7,000 lines.
   ten scenarios); the plan keeps the Save editor half.
 - **2026-10-24** — 8.9j3: Live AATF, a toolbar toggle (remembered) docking the open team's violations at the
   bottom of the Save editor, re-checked after every edit on the floating panel's shared check.
+- **2026-10-24** — 8.9j4a: a diff row in the tabs' terms (label and shown values read from the tabs' own
+  tables) and the `diff` report as text, the comparator panel's groundwork; 8.9j3's review closed.

@@ -575,6 +575,15 @@ The panel over the spec's `diff` report:
 - The tabs' terms (a field's label, its stored-to-shown transform) are read from the tabs' own
   tables, not from a second table for the panel, which would drift from the tabs; the
   unsaved-changes prompt reads the same ones.
+- The rows group per team: a player under the first team in the open save's order whose
+  roster holds him (`No team` when none does), as the Strip again list names a player's team,
+  not one heading per roster, which would repeat a player on a club and a national team; his
+  stripped mark beside his head; the players only in one save last, under `Only in the picked
+  save` and `Only in the open save`, as the report lists them. The comparison runs on a worker
+  thread, the held list marked `Comparing…` until it lands, and a frame draws only the rows in
+  view: two real PES 2021 saves differ in 34,379 rows (about half a second for the command).
+- Another save opened keeps the pick and compares it again (a member compares several saves
+  against one reference), refused as any pick is when the versions differ.
 
 ---
 
@@ -710,10 +719,14 @@ operations its commands run, plus the `aatf` rules engine — lands in Phase 5; 
 in Phase 8 with the `session/` wiring only it drives (undo, selection, recent files, the FPC
 toggle, AATF quick actions), each built in the slice that uses it (see the
 [core plan](core/development_plan.md#development-plan)). Within Phase 8, the draft comes first:
-`docs/prototypes/save_editor.html` (`core/gui.md` "Prototypes before implementation") shows the
-master-detail layout, every tab and every panel of the five slices below with sample data, and
-is refined with the maintainer before slice 1 is coded; a slice that changes what the draft
-shows changes the draft first. Then the view builds up as:
+`docs/prototypes/save_editor_v2.html` (`core/gui.md` "Prototypes before implementation") shows
+the master-detail layout, every tab and every panel of the five slices below with sample data,
+and is refined with the maintainer; a slice that changes what the draft shows changes the draft
+first. It is the second arrangement of the first draft, `docs/prototypes/save_editor.html`,
+which the built tabs of slices 1-3 follow until they are ported to it: the team bar above every
+tab, the Player / Team tab groups, the positions grid in the collaborator's order, the Cutscenes
+group (`save_editor_v2.html`'s own notes say why each remark was adopted or not). The two drafts'
+panels (AATF, Live AATF, the comparator, the transplant) are the same. Then the view builds up as:
 
 1. Open/save + player editing tabs (Abilities & Skills, Appearance) — the card pickers as the
    first `team_widgets` content
@@ -834,11 +847,17 @@ SE-GUI-12  GIVEN the Tactics tab on preset 1
                 swap; WHEN a set-piece role is assigned from the palette THEN the taker field
                 holds that player; WHEN "players to join attack" is in its assignment mode and
                 two pitch players are clicked THEN those two are the setting's players
-SE-GUI-13  GIVEN the save open and a second save of the same version loaded in the comparator
+SE-GUI-13  GIVEN the save open and a second save of the same version picked in the comparator
            WHEN the panel is drawn
-           THEN it lists the per-team, per-player differences the diff command reports, the
-                All / Gameplay / Aesthetics toggles and the team filter narrow them, Export
-                writes the same text as the CLI's report, and clicking a row selects that player
+           THEN it lists, per team and per player, the differences `diff <picked> <open>`
+                reports, each row under the label of the tab that shows its field and with
+                its values as that tab shows them (a field no tab shows keeps the report's
+                name and values); the All / Gameplay / Aesthetics toggles and the team filter
+                narrow them; Export writes the text `diff <picked> <open>` prints for the
+                toggled scope, whatever the team filter; clicking a row of a player the open
+                save rosters selects that player (one only in the picked save, or on no
+                roster, is listed and not clickable);
+           GIVEN a save of another version picked THEN it is refused naming both versions
 SE-GUI-14  GIVEN "Edit aesthetics anyway" switched on and the transplant panel with a donor
                  save of another version
            WHEN it is picked
@@ -848,20 +867,24 @@ SE-GUI-14  GIVEN "Edit aesthetics anyway" switched on and the transplant panel w
                 on Save
 SE-GUI-15  GIVEN the PES 17 save and a ruleset with violations in the open team
            WHEN the AATF panel is drawn
-           THEN the violations are grouped per player, clicking one selects that player (the
-                team selector moving to his team unless at ALL, which stays), Show
-                suggestions is off and reveals the unused allowances when on, Validate rules
-                lists a broken rules file's findings with their line or key path (a file that
-                loads: "no findings"), and Save a copy, its dialog suggesting autumn26.rhai,
-                writes the embedded official ruleset out byte for byte and names the path it
-                wrote; GIVEN the PES 15 save with a team with neither errors nor warnings THEN
-                the panel reads "No violations."; WHEN an edit changes the team THEN the previous list stays,
-                marked as checking, until the new one replaces it, and an undo brings the
-                old one back; WHEN another rules file is chosen THEN its result replaces the
-                previous ruleset's, and a rules file that does not load leaves its load error
-                in the list's place; GIVEN Select teams with two teams ticked, one whose
-                check fails THEN that team is a line naming it and the error, the other's
-                violations are listed, and no "No violations." is drawn
+           THEN the window's title names the ruleset (`AATF violations (<ruleset>)`), the
+                violations are grouped per player, a team-wide one under `the team`, which no
+                click follows, and clicking a player's one selects that player, clearing the
+                list's filter so his row shows (the team selector moving to his team unless at
+                ALL, which stays), Show suggestions is off and reveals the unused allowances
+                when on, Validate rules lists a broken rules file's findings under the file's
+                path, each with its line or key path (a file that loads: "no findings"), and
+                Save a copy, its dialog suggesting autumn26.rhai, writes the embedded official
+                ruleset out byte for byte and names the path it wrote; WHEN an edit changes
+                the team THEN the previous list stays, marked as checking, until the new one
+                replaces it, and an undo brings the old one back; WHEN another rules file is
+                chosen THEN its result replaces the previous ruleset's, and a rules file that
+                does not load leaves its load error in the list's place; GIVEN the PES 15 save
+                with a team with neither errors nor warnings THEN the panel reads "No
+                violations."; GIVEN Select teams with no team ticked THEN it reads `No team
+                picked.`, and with two ticked, one whose check fails, THEN that team is a line
+                naming it and the error, the other's violations are listed, and no "No
+                violations." is drawn
 SE-GUI-16  GIVEN the save open on a team
            WHEN Team TOML export, then import on another team with only the gameplay section
                 chosen, runs from the interchange dialog

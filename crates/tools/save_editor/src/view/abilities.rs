@@ -26,6 +26,23 @@ use crate::view::{
     ActiveRules, BadgeKey, SaveView, edit_player, rules_load_error, selected_player,
 };
 
+/// `first_row`'s registered-position combo.
+pub(super) const REGISTERED_POSITION_LABEL: &str = "Registered position";
+/// `first_row`'s playing-style picker.
+pub(super) const PLAYING_STYLE_LABEL: &str = "Playing style";
+/// `first_row`'s stronger-foot combo.
+pub(super) const STRONGER_FOOT_LABEL: &str = "Stronger foot";
+/// `first_row`'s stronger-hand combo.
+pub(super) const STRONGER_HAND_LABEL: &str = "Stronger hand";
+
+/// The playable positions' ratings, `(label, stored)` pairs: a stored
+/// value past the table selects none of the three.
+pub(super) const RATING_LABELS: [(&str, u8); 3] = [("C", 0), ("B", 1), ("A", 2)];
+
+/// The playable positions' group heading; a diff row's own label starts
+/// from it (`terms::row_term`).
+pub(super) const PLAYABLE_POSITIONS_LABEL: &str = "Playable positions";
+
 /// The tab for the selected player, below `info_strip` and the tab strip.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, slot, player_id)) = selected_player(view) else {
@@ -56,7 +73,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         first_row(ui, session, player_id, version, &positions);
         small_stats(ui, session, player_id, &stats);
         ui.separator();
-        ui.strong("Playable positions");
+        ui.strong(PLAYABLE_POSITIONS_LABEL);
         playable_positions(ui, session, player_id, &positions);
         ui.separator();
         ui.strong("Ability stats");
@@ -104,15 +121,10 @@ fn first_row(
 ) {
     let per_row = pairs_per_row(ui, 250.0);
     egui::Grid::new("abilities first row").show(ui, |ui| {
-        ui.label("Registered position");
+        ui.label(REGISTERED_POSITION_LABEL);
         let mut registered = positions.registered;
         let combo = egui::ComboBox::from_id_salt("abilities registered position")
-            .selected_text(
-                POSITIONS
-                    .get(usize::from(registered))
-                    .copied()
-                    .unwrap_or("?"),
-            )
+            .selected_text(position_label(registered))
             .show_ui(ui, |ui| {
                 for (index, label) in POSITIONS.iter().enumerate() {
                     ui.selectable_value(&mut registered, index as u8, *label);
@@ -124,7 +136,7 @@ fn first_row(
             });
         }
         maybe_end_row(ui, 1, per_row);
-        ui.label("Playing style");
+        ui.label(PLAYING_STYLE_LABEL);
         let mut style = positions.playing_style;
         if cards::playing_style_picker(ui, "abilities playing style", version, &mut style) {
             edit_player(
@@ -137,7 +149,7 @@ fn first_row(
             );
         }
         maybe_end_row(ui, 2, per_row);
-        ui.label("Stronger foot");
+        ui.label(STRONGER_FOOT_LABEL);
         let mut foot = positions.stronger_foot;
         let foot_combo = egui::ComboBox::from_id_salt("abilities stronger foot")
             .selected_text(foot_label(foot))
@@ -157,7 +169,7 @@ fn first_row(
             );
         }
         maybe_end_row(ui, 3, per_row);
-        ui.label("Stronger hand");
+        ui.label(STRONGER_HAND_LABEL);
         match positions.stronger_hand {
             Some(stored) => {
                 let mut hand = stored;
@@ -199,17 +211,17 @@ fn first_row(
 /// range and the shift between shown and stored (the fields are stored
 /// one below the game's numbers, the draft's `+ 1`/`v - 1`).
 #[derive(Clone, Copy)]
-struct SmallStat {
+pub(super) struct SmallStat {
     /// The control's label.
-    label: &'static str,
+    pub(super) label: &'static str,
     /// The schema field gating it.
-    field: PlayerField,
+    pub(super) field: PlayerField,
     /// The shown range.
     min: u8,
     /// The shown range's top.
     max: u8,
     /// `shown - shift` is the stored value.
-    shift: u8,
+    pub(super) shift: u8,
     /// The stored value (`None` on a version that does not store it).
     get: fn(&PlayerStats) -> Option<u8>,
     /// The stored write.
@@ -219,7 +231,7 @@ struct SmallStat {
 /// Row 2's fields, in the draft's order: form 1-8, injury resistance 1-3,
 /// weak foot usage and accuracy 1-4 (each stored one lower), star 0-7 and
 /// playing attitude 0-3 as stored.
-const SMALL_STATS: [SmallStat; 6] = [
+pub(super) const SMALL_STATS: [SmallStat; 6] = [
     SmallStat {
         label: "Form",
         field: PlayerField::Form,
@@ -330,7 +342,7 @@ fn playable_positions(
                         .expect("PLAYABLE_POSITIONS is a permutation of 0..13");
                     ui.horizontal(|ui| {
                         ui.label(*name);
-                        for (label, rating) in [("C", 0), ("B", 1), ("A", 2)] {
+                        for (label, rating) in RATING_LABELS {
                             let response = ui.selectable_value(&mut playable[at], rating, label);
                             if response.changed() {
                                 edit_player(session, player_id, response.id.value(), |player| {
@@ -502,9 +514,15 @@ pub(crate) fn gating_tooltip(field: PlayerField) -> String {
     )
 }
 
+/// `stored`'s position name as the registered-position combo shows it,
+/// `?` past the table.
+pub(super) fn position_label(stored: u8) -> &'static str {
+    POSITIONS.get(usize::from(stored)).copied().unwrap_or("?")
+}
+
 /// `stored`'s foot/hand label (`FOOT` title-cased), its number when past
 /// the table.
-fn foot_label(stored: u8) -> String {
+pub(super) fn foot_label(stored: u8) -> String {
     FOOT.get(usize::from(stored))
         .map(|name| title_case(name))
         .unwrap_or_else(|| stored.to_string())

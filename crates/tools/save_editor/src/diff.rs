@@ -5,6 +5,7 @@
 use pes_savefile::EditFile;
 use pes_savefile::ops::compare::{CompareError, DiffScope, compare};
 use serde::Serialize;
+use studio_core::{EventLines, Message, PipelineEvent};
 
 use crate::events::Report;
 use crate::messages::{Code, Side, diff_fields, message, player_diff};
@@ -58,16 +59,56 @@ pub(crate) fn report(
     scope: Option<DiffScope>,
     report: &mut Report,
 ) -> Result<(), CompareError> {
+    for finding in findings(first, second, scope)? {
+        report.message(finding);
+    }
+    Ok(())
+}
+
+/// The report as text: the finding lines `save-editor diff <first> <second>` prints for
+/// `scope`, in the command's order, formed as the console forms them. The comparator
+/// panel's Export writes them (`plans/save_editor.md` "Comparator (gameplay +
+/// aesthetics)", the Export bullet); the `findings` walk is `report`'s, so the two
+/// cannot drift.
+#[cfg_attr(
+    not(test),
+    expect(dead_code, reason = "the comparator panel's Export writes it")
+)]
+pub(crate) fn report_lines(
+    first: &EditFile,
+    second: &EditFile,
+    scope: Option<DiffScope>,
+) -> Result<Vec<String>, CompareError> {
+    let mut lines = EventLines::new();
+    Ok(findings(first, second, scope)?
+        .into_iter()
+        .map(|finding| {
+            lines
+                .line(&PipelineEvent::Message(finding))
+                .expect("a Message event has a console line")
+        })
+        .collect())
+}
+
+/// The report's findings in `report`'s order: each player's stripped mark and his rows
+/// of `scope`, then the players only in one save with theirs. `report` and
+/// `report_lines` share this walk.
+fn findings(
+    first: &EditFile,
+    second: &EditFile,
+    scope: Option<DiffScope>,
+) -> Result<Vec<Message>, CompareError> {
     let data = build(first, second, scope)?;
+    let mut findings = Vec::new();
     for player in &data.players {
         if let Some(side) = player.stripped {
-            report.message(message(
+            findings.push(message(
                 Code::PlayerStripped,
                 vec![("player", player.id.to_string()), ("save", side.to_owned())],
             ));
         }
         for row in &player.rows {
-            report.message(player_diff(player.id, &row.field, &row.old, &row.new));
+            findings.push(player_diff(player.id, &row.field, &row.old, &row.new));
         }
     }
     for (entries, side) in [
@@ -75,7 +116,7 @@ pub(crate) fn report(
         (&data.only_in_second, Side::Second),
     ] {
         for entry in entries {
-            report.message(message(
+            findings.push(message(
                 Code::PlayerOnlyIn,
                 vec![
                     ("player", entry.id.to_string()),
@@ -83,7 +124,7 @@ pub(crate) fn report(
                 ],
             ));
             if let Some(stripped) = entry.stripped {
-                report.message(message(
+                findings.push(message(
                     Code::PlayerStripped,
                     vec![
                         ("player", entry.id.to_string()),
@@ -93,7 +134,7 @@ pub(crate) fn report(
             }
         }
     }
-    Ok(())
+    Ok(findings)
 }
 
 /// `report`'s data as one pretty-printed JSON document, sent as the run's `Output` event:
@@ -171,5 +212,75 @@ fn stripped_side(first: &EditFile, second: &EditFile, id: u32) -> Option<Side> {
         (true, false) => Some(Side::First),
         (false, true) => Some(Side::Second),
         (false, false) => None,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use pes_savefile::fixture_save;
+    use pes_version::PesVersion;
+    use studio_core::{EventLines, Settings};
+
+    use super::*;
+
+    /// The salt the written saves encrypt with (the CLI tests' own).
+    const TEST_SALT: [u8; 320] = [7; 320];
+
+    /// `diff <args>`'s stdout run in-process over `dir`: the run's events
+    /// as `EventLines` writes them, newline-separated. The context is
+    /// `test_support::tool_context`'s, so nothing reaches the developer's
+    /// files.
+    fn cli_stdout(dir: &Path, args: &[&str]) -> String {
+        let mut settings = Settings::default();
+        settings.merge_defaults(crate::messages::TOOL_ID, &crate::settings::default_table());
+        let (ctx, events_rx, _requests_rx) = crate::test_support::tool_context(dir, settings);
+        let matches = crate::cli::command()
+            .try_get_matches_from(std::iter::once("save-editor").chain(args.iter().copied()))
+            .expect("the diff arguments parse");
+        crate::cli::run(&matches, &ctx).expect("the diff command runs");
+        drop(ctx);
+        let mut lines = EventLines::new();
+        let mut out = String::new();
+        for envelope in events_rx.iter() {
+            if let Some(line) = lines.line(&envelope.event) {
+                out.push_str(&line);
+                out.push('\n');
+            }
+        }
+        out
+    }
+
+    /// `report_lines` is the CLI's report text for each scope: All,
+    /// `--gameplay`, `--aesthetics`.
+    #[test]
+    fn report_lines_is_the_clis_stdout_for_each_scope() {
+        let dir = crate::test_support::scratch("report_lines");
+        // Two PES 21 saves: `B` carries 70105's speed +1 (a gameplay row),
+        // 70106's boots +1 (an aesthetics row), and a player each side
+        // lacks.
+        let mut a = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+        a.player_mut(70110).unwrap().id = 9_999_999;
+        std::fs::write(dir.join("A"), a.to_bytes(&TEST_SALT).unwrap()).unwrap();
+        let mut b = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+        b.player_mut(70105).unwrap().stats.speed += 1;
+        b.player_mut(70106).unwrap().appearance.boots_id += 1;
+        std::fs::write(dir.join("B"), b.to_bytes(&TEST_SALT).unwrap()).unwrap();
+
+        let first = dir.join("A").to_str().unwrap().to_owned();
+        let second = dir.join("B").to_str().unwrap().to_owned();
+        for (flag, scope) in [
+            (&[][..], None),
+            (&["--gameplay"][..], Some(DiffScope::Gameplay)),
+            (&["--aesthetics"][..], Some(DiffScope::Aesthetics)),
+        ] {
+            let mut args = vec!["diff", first.as_str(), second.as_str()];
+            args.extend(flag);
+            let stdout = cli_stdout(&dir, &args);
+            let lines = report_lines(&a, &b, scope).unwrap();
+            assert!(!lines.is_empty(), "scope {scope:?} has rows");
+            assert_eq!(stdout, lines.join("\n") + "\n", "scope {scope:?}");
+        }
     }
 }

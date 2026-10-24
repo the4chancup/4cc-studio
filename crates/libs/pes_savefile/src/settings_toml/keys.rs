@@ -1456,6 +1456,29 @@ impl SettingKey {
         }
     }
 
+    /// The save field the key writes when it is a player- or
+    /// appearance-record field; `None` for a key of the ingame-face run
+    /// (`face_field`), and `None` too for PES 15's nose angle, which no
+    /// field alone holds (it is coded into `NoseType`).
+    pub fn player_field(self) -> Option<PlayerField> {
+        match self.source() {
+            Source::Player(field) => Some(field),
+            Source::Face(_) | Source::NoseAngle => None,
+        }
+    }
+
+    /// The save field the key writes when it is a bit run of the
+    /// ingame-face run; `None` for a player- or appearance-record key
+    /// (`player_field`), and `None` too for PES 15's nose angle, which
+    /// `IngameFace::nose` codes into `NoseType` rather than a field of its
+    /// own.
+    pub fn face_field(self) -> Option<IngameFaceField> {
+        match self.source() {
+            Source::Face(field) => Some(field),
+            Source::Player(_) | Source::NoseAngle => None,
+        }
+    }
+
     /// The `Kind` `version` bounds the key to: the widest range narrowed to
     /// the version's own, from the same tables `spec` draws the widest from
     /// (the measured motion tops, the face-type caps, and the custom skin

@@ -18,11 +18,11 @@ coverage table and draft, the DBC7 ruleset).
 **Next:** for Divegrass Before Christmas (exports due 2026-11-18; `plans/core/development_plan.md`
 "Divegrass Before Christmas"), a working Save editor with a rock-solid AATF check comes first
 (the maintainer, 2026-10-24): the Save editor's view (8.9: slices 1-3 done, with the Tactics
-pitch as the game's, 8.9g and 8.9i; next its slice 4, the AATF panel with the rules file's
-choice, Validate rules and Save a copy, then the comparator and transplant; 8.9f's slice 4 and
-8.9h wait on the maintainer's v2 ruling), `libs/aatf`'s hardening (the repetition rework done and
-reviewed; an audit step next), `ingame_face.toml` (0.0.1h: slices 1 and 2 done, the compiler
-and the upgrader on the new file, their review next, then slice 3, the Save editor), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
+(8.9j1-j3), the comparator next (8.9j4a done, the panel 8.9j4b), then the transplant (8.9j5); 8.9f's slice 4 and
+8.9h: v2 is the base, ported after the comparator), `libs/aatf`'s hardening (the repetition rework done and
+reviewed; an audit step next), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
+the compiler and the upgrader on the new file; slice 3, the Save editor's, rides with SE-GUI-19), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
@@ -1216,7 +1216,10 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         outside the aesthetics lock; Appearance's groups aligned; Tactics in three columns,
         every control in view at 1440 x 900. The v2 harness (`.tmp/8_9f/run_harness_v2.py`)
         53 of 53, the first draft's 32 of 32
-      - [ ] slice 4, after the maintainer's ruling on v2
+      - [ ] slice 4: v2 is the base (the maintainer, 2026-10-24; DECISIONS "The second draft
+        arrangement is the base"): the built tabs of slices 1-3 ported to `save_editor_v2.html`'s
+        arrangement, after 8.9j4 (the comparator, panels the same in both drafts) and before
+        8.9j5; the maintainer's fine tweaks follow on v2
     - [ ] 8.9j slice 4 (`plans/save_editor.md` "Configurable AATF rules", "Comparator",
       "Aesthetics transplant"), the AATF parts first (the maintainer's direction of 2026-10-24),
       each part its own commit and review:
@@ -1290,7 +1293,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         `studio_core/src/widgets/{dock.rs,log_panel.rs,log_panel/tests.rs}`,
         `save_editor/{help/02_window.md,src/{lib.rs,settings.rs,view/{aatf_check.rs,aatf_panel.rs,
         live_aatf.rs,mod.rs,player_list.rs,tests.rs,tests/{aatf_panel.rs,live_aatf.rs}}}}`
-        - [ ] review: checkpoint (b) (`BottomDock::new`'s signature, two crates): the lead's
+        - [x] review: checkpoint (b) (`BottomDock::new`'s signature, two crates): the lead's
           review (one issue count, `live` private, U+21BB missing from egui's fonts, the first
           header untested) and S3's items in rework 1 (SWE-2, 17 min); lead: the checking-mark
           tests held the pointer (a reply between a first frame's two passes failed one run in
@@ -1300,15 +1303,30 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           held result, the click helper's copies), rework 2 (SWE-2, 10 min); SWE-2's loop ends.
           Astra A1 (Codex `own`): 2 of 3 accepted (SE-GUI-30 omitting what its tests pin; it,
           SE-GUI-15 and SE-GUI-02 not naming the saves their tests open), both plan edits by the
-          lead; Astra's loop ends. S2 on the scenarios next (rulings `.tmp/8_9j/duck_rulings_j3.md`)
+          lead; Astra's loop ends. S2: 4 accepted (SE-GUI-15's PES 15 clause misplaced, its
+          click's filter clearing, title, team group and empty pick unstated; the dock's stale rows
+          unasserted), plan and test edits by the lead; the review is done (rulings
+          `.tmp/8_9j/duck_rulings_j3.md`)
       - [ ] 8.9j4 the comparator (SE-GUI-13); the direction, Export's scope and the tabs' terms
         ruled first (DECISIONS 2026-10-24 "The comparator's direction…"; code map
         `.tmp/8_9j/j4_map.md`)
-        - [ ] 8.9j4a the tabs' terms as data the tabs and the panel both read (a diff row's label
+        - [x] 8.9j4a the tabs' terms as data the tabs and the panel both read (a diff row's label
           and shown values), the tabs on it unchanged on screen; the `diff` report's text as one
-          function the CLI and Export share
-        - [ ] 8.9j4b the panel: a second save, the scope toggles and team filter, rows in the tabs'
-          terms, a click selecting the player, Export, the version refusal
+          function the CLI and Export share. Done 2026-10-24 (SWE-2, 34 min, rework 1 8 min):
+          `view/terms.rs` `row_term` over the tabs' tables and lifted label consts (a field no tab
+          draws keeps the report's terms); `SettingKey::{player_field, face_field}`;
+          `cards::playing_style_text`; `diff::report_lines` on `report`'s own walk. Both are
+          `expect(dead_code)` outside tests until 8.9j4b calls them. SE-GUI-13 rewritten for
+          the 2026-10-24 rulings. Files: `pes_savefile/src/settings_toml/keys.rs`,
+          `team_widgets/src/cards.rs`, `save_editor/src/{diff.rs,test_support.rs,view/{mod.rs,
+          terms.rs,abilities.rs,info_strip.rs,appearance/{mod.rs,fields.rs},tests.rs}}`
+          - [ ] review: checkpoint (b) (two crates' new `pub` fns, SE-GUI-13's rewrite)
+        - [ ] 8.9j4b the panel (DECISIONS 2026-10-24 "The comparator's groups, its worker and a
+          kept pick")
+          - [ ] 8.9j4b1 the pick and its version refusal, the worker's comparison, the rows per
+            team in the tabs' terms, the scope toggles, a click selecting the player (brief
+            `.tmp/8_9j/brief_8_9j4b1.md`)
+          - [ ] 8.9j4b2 the team filter and Export
       - [ ] 8.9j5 the transplant (SE-GUI-14)
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
       (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's

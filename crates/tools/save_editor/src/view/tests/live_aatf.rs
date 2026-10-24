@@ -295,6 +295,7 @@ fn an_edit_marks_the_previous_result_checking() {
             .any(|node| node.value() == Some("6 issues · Autumn 26")),
         "the previous count still shown"
     );
+    assert_eq!(height_rows(&nodes), 2, "the stale rows stay while checking");
 
     window.frame(pointer_at(at, false), |ui| {
         show(ui, &mut view, &|| Vec::new(), None)

@@ -114,36 +114,8 @@ fn player_entry(view: &SaveView, player_id: u32) -> PlayerEntry {
         .clone()
 }
 
-/// A `ToolContext` for a `tool.view`/`settings_view` test, with the
-/// receivers its sends land on: `settings` is the context's own except
-/// `pes_folder_path`, set to a folder under `dir` (the test's scratch).
-/// Its default names the machine's real `Pro Evolution Soccer 20**`
-/// install, which `Tool::view` points the portraits worker at every frame
-/// (CONTRIBUTING.md "Testing": a test never reaches the developer's own
-/// files; `studio_core`'s `test_settings` does the same). `exe_dir` and
-/// `data_dir` sit under `dir` too.
-fn tool_context(
-    dir: &Path,
-    mut settings: studio_core::Settings,
-) -> (
-    studio_core::ToolContext,
-    crossbeam_channel::Receiver<studio_core::PipelineEventEnvelope>,
-    crossbeam_channel::Receiver<studio_core::ShellRequest>,
-) {
-    settings.common.pes_folder_path = dir.join("pes").display().to_string();
-    let (events_tx, events_rx) = crossbeam_channel::unbounded();
-    let (requests_tx, requests_rx) = crossbeam_channel::unbounded();
-    let ctx = studio_core::ToolContext::new(
-        std::sync::Arc::new(std::sync::Mutex::new(settings)),
-        studio_core::AppPaths {
-            exe_dir: dir.join("exe"),
-            data_dir: Some(dir.to_path_buf()),
-        },
-        events_tx,
-        requests_tx,
-    );
-    (ctx, events_rx, requests_rx)
-}
+/// `tool_context` for the submodule tests (`use super::*`).
+use crate::test_support::tool_context;
 
 /// The centre of a node's bounds, where a click lands.
 fn centre(node: &accesskit::Node) -> egui::Pos2 {

@@ -11,9 +11,8 @@
 //! a control's range draws as stored (`clamp_existing_to_range` off) and
 //! changes only when edited.
 
-mod fields;
+pub(super) mod fields;
 
-use pes_savefile::interchange::team_toml::labels::title_case;
 use pes_savefile::model::{PlayerAppearance, PlayerEditFlags, PlayerEntry, PlayerMotion};
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::schema::ingame_face::IngameFaceField;
@@ -25,10 +24,42 @@ use pes_version::{Engine, PesVersion};
 use crate::session::{Session, is_stripped};
 use crate::view::abilities::{gating_tooltip, maybe_end_row, number, pairs_per_row};
 use crate::view::appearance::fields::{
-    IRIS_COLORS, MOTIONS, MotionField, PHYSIQUE, Palette, SKIN_COLORS, STRIP_ENUMS, combo_options,
-    named_values, number_range, strip_palette,
+    MOTIONS, MotionField, PHYSIQUE, Palette, STRIP_ENUMS, combo_options, number_range, option_name,
+    palette,
 };
 use crate::view::{SaveView, edit_player, selected_player};
+
+/// `edit_flags`' Face checkbox.
+pub(super) const FACE_LABEL: &str = "Face";
+/// `edit_flags`' Hair checkbox.
+pub(super) const HAIR_LABEL: &str = "Hair";
+/// `edit_flags`' Physique checkbox, which the group's heading shares.
+pub(super) const PHYSIQUE_LABEL: &str = "Physique";
+/// `edit_flags`' Strip checkbox.
+pub(super) const STRIP_LABEL: &str = "Strip";
+/// `edit_flags`' Motion checkbox, which the group's heading shares.
+pub(super) const MOTION_LABEL: &str = "Motion";
+/// `edit_flags`' Base copy checkbox.
+pub(super) const BASE_COPY_LABEL: &str = "Base copy";
+/// `edit_flags`' copy-from id number.
+pub(super) const COPY_FROM_ID_LABEL: &str = "Copy from ID";
+/// The strip grid's boots id number.
+pub(super) const BOOTS_ID_LABEL: &str = "Boots ID";
+/// The strip grid's gloves id number.
+pub(super) const GLOVES_ID_LABEL: &str = "Gloves ID";
+/// The strip grid's shirttail-out checkbox.
+pub(super) const SHIRTTAIL_OUT_LABEL: &str = "Shirttail out";
+/// The strip grid's ankle-taping checkbox.
+pub(super) const ANKLE_TAPING_LABEL: &str = "Ankle taping";
+/// The wrist taping combo.
+pub(super) const WRIST_TAPING_LABEL: &str = "Wrist taping";
+/// The spectacles combo.
+pub(super) const SPECTACLES_LABEL: &str = "Spectacles";
+/// The player-gloves checkbox.
+pub(super) const PLAYER_GLOVES_LABEL: &str = "Player gloves";
+/// The dribbling motion's number.
+pub(super) const DRIBBLING_MOTION_LABEL: &str = "Dribbling motion";
+
 /// The tab for the selected player, below `info_strip` and the tab strip.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((_, _, player_id)) = selected_player(view) else {
@@ -111,13 +142,13 @@ fn groups(
         );
     });
     ui.separator();
-    ui.strong("Physique");
+    ui.strong(PHYSIQUE_LABEL);
     physique_grid(ui, session, player_id, &player.appearance);
     ui.separator();
     ui.strong("Strip style");
     strip_rows(ui, session, player_id, version, &player.appearance);
     ui.separator();
-    ui.strong("Motion");
+    ui.strong(MOTION_LABEL);
     motion_grid(ui, session, player_id, version, &player.motion, draw);
     ui.separator();
     ui.strong("Colours");
@@ -259,30 +290,37 @@ fn edit_flags(
     flags: &PlayerEditFlags,
     base_copy_id: u32,
 ) {
-    checkbox(ui, session, player_id, "Face", flags.face, |p, v| {
+    checkbox(ui, session, player_id, FACE_LABEL, flags.face, |p, v| {
         p.edit_flags.face = v;
     });
-    checkbox(ui, session, player_id, "Hair", flags.hair, |p, v| {
+    checkbox(ui, session, player_id, HAIR_LABEL, flags.hair, |p, v| {
         p.edit_flags.hair = v;
     });
     checkbox(
         ui,
         session,
         player_id,
-        "Physique",
+        PHYSIQUE_LABEL,
         flags.physique,
         |p, v| {
             p.edit_flags.physique = v;
         },
     );
-    checkbox(ui, session, player_id, "Strip", flags.strip, |p, v| {
+    checkbox(ui, session, player_id, STRIP_LABEL, flags.strip, |p, v| {
         p.edit_flags.strip = v;
     });
-    checkbox(ui, session, player_id, "Motion", flags.motion, |p, v| {
-        p.edit_flags.motion = v;
-    });
+    checkbox(
+        ui,
+        session,
+        player_id,
+        MOTION_LABEL,
+        flags.motion,
+        |p, v| {
+            p.edit_flags.motion = v;
+        },
+    );
     match flags.base_copy {
-        Some(held) => checkbox(ui, session, player_id, "Base copy", held, |p, v| {
+        Some(held) => checkbox(ui, session, player_id, BASE_COPY_LABEL, held, |p, v| {
             p.edit_flags.base_copy = Some(v);
             if v {
                 p.edit_flags.abilities = true;
@@ -295,7 +333,7 @@ fn edit_flags(
             }
         }),
         None => {
-            ui.add_enabled(false, egui::Checkbox::new(&mut false, "Base copy"))
+            ui.add_enabled(false, egui::Checkbox::new(&mut false, BASE_COPY_LABEL))
                 .on_disabled_hover_text("PES 15 to 18 only");
         }
     }
@@ -303,7 +341,7 @@ fn edit_flags(
         ui,
         session,
         player_id,
-        "Copy from ID",
+        COPY_FROM_ID_LABEL,
         base_copy_id,
         0..=u32::MAX,
         |player, shown| {
@@ -368,7 +406,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            "Boots ID",
+            BOOTS_ID_LABEL,
             appearance.boots_id,
             0..=u32::try_from(
                 player_max_value(version, PlayerField::BootsId)
@@ -384,7 +422,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            "Gloves ID",
+            GLOVES_ID_LABEL,
             appearance.gloves_id,
             0..=u32::try_from(
                 player_max_value(version, PlayerField::GlovesId)
@@ -415,7 +453,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            "Shirttail out",
+            SHIRTTAIL_OUT_LABEL,
             appearance.untucked,
             |p, v| {
                 p.appearance.untucked = v;
@@ -425,7 +463,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            "Ankle taping",
+            ANKLE_TAPING_LABEL,
             appearance.ankle_taping,
             |p, v| {
                 p.appearance.ankle_taping = v;
@@ -437,7 +475,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            "Wrist taping",
+            WRIST_TAPING_LABEL,
             SettingKey::WristTaping,
             appearance.wrist_taping,
             |player, shown| {
@@ -449,7 +487,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            &strip_palette("Wrist tape left", SettingKey::WristTapeColorLeft),
+            &palette(version, SettingKey::WristTapeColorLeft),
             appearance.wrist_tape_color_left,
             |player, shown| {
                 player.appearance.wrist_tape_color_left = shown;
@@ -460,7 +498,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            &strip_palette("Wrist tape right", SettingKey::WristTapeColorRight),
+            &palette(version, SettingKey::WristTapeColorRight),
             appearance.wrist_tape_color_right,
             |player, shown| {
                 player.appearance.wrist_tape_color_right = shown;
@@ -472,7 +510,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            "Spectacles",
+            SPECTACLES_LABEL,
             SettingKey::Spectacles,
             appearance.spectacles_style,
             |player, shown| {
@@ -483,7 +521,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            &strip_palette("Spectacles colour", SettingKey::SpectaclesColor),
+            &palette(version, SettingKey::SpectaclesColor),
             appearance.spectacles_color,
             |player, shown| {
                 player.appearance.spectacles_color = shown;
@@ -496,7 +534,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            "Player gloves",
+            PLAYER_GLOVES_LABEL,
             gloves != 0,
             |p, v| {
                 p.appearance
@@ -510,7 +548,7 @@ fn strip_rows(
             ui,
             session,
             player_id,
-            &strip_palette("Gloves colour", SettingKey::GlovesColor),
+            &palette(version, SettingKey::GlovesColor),
             gloves_color,
             |player, shown| {
                 player
@@ -545,7 +583,7 @@ fn motion_grid(
         // The dribbling motion sits between the kicks and the celebrations
         // (the draft's second row's last cell); a version without it draws
         // it disabled at 0 with the `PES NN+` tooltip.
-        ui.label("Dribbling motion");
+        ui.label(DRIBBLING_MOTION_LABEL);
         match motion.dribbling {
             Some(stored) => {
                 let mut shown = stored;
@@ -662,54 +700,23 @@ fn colour_rows(
     version: PesVersion,
     appearance: &PlayerAppearance,
 ) {
-    let skin_top = match version.engine() {
-        Engine::PreFox => *number_range(SettingKey::SkinColor).end(),
-        Engine::Fox => *number_range(SettingKey::SkinColor).end() - 1,
-    };
-    ui.horizontal_wrapped(|ui| {
-        ui.label("Skin");
-        palette_row(
-            ui,
-            session,
-            player_id,
-            &Palette {
-                label: "Skin",
-                key: SettingKey::SkinColor,
-                top: skin_top,
-                colors: &SKIN_COLORS,
-            },
-            face(appearance, IngameFaceField::SkinColor),
-            |player, shown| {
+    for key in [SettingKey::SkinColor, SettingKey::IrisColor] {
+        let field = key
+            .face_field()
+            .expect("a colour palette's is a face field");
+        let palette = palette(version, key);
+        let stored = face(appearance, field);
+        ui.horizontal_wrapped(|ui| {
+            ui.label(palette.label);
+            palette_row(ui, session, player_id, &palette, stored, |player, shown| {
                 player
                     .appearance
                     .ingame_face
-                    .set(IngameFaceField::SkinColor, shown)
-                    .expect("a loaded player's face run holds the skin colour");
-            },
-        );
-    });
-    ui.horizontal_wrapped(|ui| {
-        ui.label("Iris");
-        palette_row(
-            ui,
-            session,
-            player_id,
-            &Palette {
-                label: "Iris",
-                key: SettingKey::IrisColor,
-                top: *number_range(SettingKey::IrisColor).end(),
-                colors: &IRIS_COLORS,
-            },
-            face(appearance, IngameFaceField::IrisColor),
-            |player, shown| {
-                player
-                    .appearance
-                    .ingame_face
-                    .set(IngameFaceField::IrisColor, shown)
-                    .expect("a loaded player's face run holds the iris colour");
-            },
-        );
-    });
+                    .set(field, shown)
+                    .expect("a loaded player's face run holds the tab's colour fields");
+            });
+        });
+    }
 }
 
 /// One label/checkbox pair; a change writes `set` through `edit_player`
@@ -745,10 +752,7 @@ fn combo(
     ui.label(label);
     let options = combo_options(key);
     let mut picked = stored;
-    let selected = options
-        .get(usize::from(stored))
-        .cloned()
-        .unwrap_or_else(|| stored.to_string());
+    let selected = option_name(key, stored);
     let combo = egui::ComboBox::from_id_salt(("appearance", label))
         .selected_text(selected)
         .show_ui(ui, |ui| {
@@ -779,17 +783,15 @@ fn palette_row(
     stored: u8,
     set: impl Fn(&mut PlayerEntry, u8),
 ) {
+    // The swatch names once per row (each is `option_name`'s entry: the
+    // key's whole range is named, so every drawn index has one).
+    let names = combo_options(palette.key);
     ui.push_id(("appearance palette", palette.label), |ui| {
-        let names = named_values(palette.key);
         for (index, rgb) in palette.colors[..=usize::from(palette.top)]
             .iter()
             .enumerate()
         {
-            let name = names
-                .as_ref()
-                .and_then(|names| names.get(index))
-                .map(|name| title_case(name))
-                .unwrap_or_else(|| index.to_string());
+            let name = &names[index];
             let widget_label = format!("{} {name}", palette.label);
             let response =
                 swatch(ui, *rgb, index == usize::from(stored), &widget_label).on_hover_text(name);

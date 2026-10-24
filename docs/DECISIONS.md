@@ -10737,3 +10737,26 @@ report, not the rows shown as the draft exported them, because the plan and SE-G
 the CLI's text and the command has no team filter, so a filtered Export could not be checked
 against it; the tabs' tables, not a second one for the panel, because two label tables drift.
 Plan: `plans/save_editor.md` "Comparator (gameplay + aesthetics)".
+
+## 2026-10-24 — save_editor — The comparator's groups, its worker and a kept pick
+Decision: the comparator's rows group per team, a player under the first team in the open
+save's order whose roster holds him (`No team` when none does), the players only in one save
+last under `Only in the picked save` and `Only in the open save`; the comparison runs on a
+worker thread with the held list marked `Comparing…`, a frame drawing only the rows in view;
+another save opened keeps the pick and compares it again.
+Why: one group per player, not one per roster, because a player on a club and a national team
+would read twice (the Strip again list already names a player's first team); a worker because
+two real PES 2021 saves differ in 34,379 rows and the command takes about half a second, a
+hitch after every edit on the UI thread; the pick kept because a member compares several saves
+against one reference, and the version check runs again on the new save.
+Plan: `plans/save_editor.md` "Comparator (gameplay + aesthetics)".
+
+## 2026-10-24 — save_editor — The second draft arrangement is the base
+Decision: `docs/prototypes/save_editor_v2.html` is the Save editor's draft; the built tabs of
+8.9's slices 1-3, which follow the first draft, are ported to it as a step of their own (8.9f
+slice 4), and the maintainer's fine tweaks land on it.
+Why: the maintainer's ruling ("V2 is a much better base"): it fixes the first draft's badly
+arranged elements (the team's name in view on every tab, the positions grid in the game's
+order, the cutscene-only stats outside Appearance's lock); the panels are the same in both,
+so the AATF and comparator work goes on unchanged.
+Plan: `plans/save_editor.md` "Build order and verification" (the draft paragraph).

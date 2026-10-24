@@ -10,11 +10,12 @@ use pes_savefile::interchange::team_toml::labels::title_case;
 use pes_savefile::model::{PlayerAppearance, PlayerMotion};
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::settings_toml::{Kind, SettingKey};
+use pes_version::{Engine, PesVersion};
 
 /// One `PlayerAppearance` field's row: `(label, key, get, set)` — `label` is
 /// the control's, `key` its `settings.toml` key (the scale and labels come
 /// from it), `get`/`set` the stored accessors.
-pub(super) type AppearanceField = (
+pub(crate) type AppearanceField = (
     &'static str,
     SettingKey,
     fn(&PlayerAppearance) -> u8,
@@ -22,7 +23,7 @@ pub(super) type AppearanceField = (
 );
 
 /// The 14 physique fields, the draft's order (`Kind::Signed` keys).
-pub(super) const PHYSIQUE: [AppearanceField; 14] = [
+pub(crate) const PHYSIQUE: [AppearanceField; 14] = [
     (
         "Neck length",
         SettingKey::NeckLength,
@@ -140,7 +141,7 @@ pub(super) const PHYSIQUE: [AppearanceField; 14] = [
 /// The strip's `ComboBox` fields inside the grid, the draft's order (the
 /// wrist-taping and spectacles combos draw beside their palettes, below;
 /// `Kind::Labels` keys).
-pub(super) const STRIP_ENUMS: [AppearanceField; 4] = [
+pub(crate) const STRIP_ENUMS: [AppearanceField; 4] = [
     (
         "Sleeves",
         SettingKey::Sleeves,
@@ -180,13 +181,13 @@ pub(super) const STRIP_ENUMS: [AppearanceField; 4] = [
 /// 1-based (a celebration is stored as shown, 0 being OFF), and the
 /// `PlayerMotion` accessors.
 #[derive(Clone, Copy)]
-pub(super) struct MotionField {
+pub(crate) struct MotionField {
     /// The control's label.
-    pub(super) label: &'static str,
+    pub(crate) label: &'static str,
     /// The schema field `motion_top` reads.
-    pub(super) field: PlayerField,
+    pub(crate) field: PlayerField,
     /// A 1-based motion shows `stored + 1`.
-    pub(super) one_based: bool,
+    pub(crate) one_based: bool,
     /// The stored value.
     pub(super) get: fn(&PlayerMotion) -> u8,
     /// The stored write.
@@ -197,7 +198,7 @@ pub(super) struct MotionField {
 /// fields, the three kick motions, then the two celebrations (the dribbling
 /// motion is drawn separately, between the kicks and the celebrations, and
 /// Randomize never touches it).
-pub(super) const MOTIONS: [MotionField; 9] = [
+pub(crate) const MOTIONS: [MotionField; 9] = [
     MotionField {
         label: "Hunching (dribbling)",
         field: PlayerField::HunchingDribbling,
@@ -267,7 +268,7 @@ pub(super) const MOTIONS: [MotionField; 9] = [
 /// colours' names (`SettingKey::SpectaclesColor`), which the gloves colour
 /// shares; the wrist tape's colours are assumed to be the same set,
 /// unverified.
-pub(super) const STRIP_COLORS: [[u8; 3]; 8] = [
+const STRIP_COLORS: [[u8; 3]; 8] = [
     [0xE8, 0xE8, 0xE8],
     [0x1C, 0x1C, 0x1C],
     [0xC0, 0x30, 0x28],
@@ -280,7 +281,7 @@ pub(super) const STRIP_COLORS: [[u8; 3]; 8] = [
 
 /// The skin palette's swatch colours, the draft's approximations; the last
 /// is Custom (the invisible body), which pre-Fox alone has.
-pub(super) const SKIN_COLORS: [[u8; 3]; 8] = [
+const SKIN_COLORS: [[u8; 3]; 8] = [
     [0xF2, 0xD5, 0xC0],
     [0xE8, 0xBF, 0xA0],
     [0xD8, 0xA8, 0x80],
@@ -292,7 +293,7 @@ pub(super) const SKIN_COLORS: [[u8; 3]; 8] = [
 ];
 
 /// The iris palette's swatch colours, the draft's approximations.
-pub(super) const IRIS_COLORS: [[u8; 3]; 11] = [
+const IRIS_COLORS: [[u8; 3]; 11] = [
     [0x14, 0x10, 0x0E],
     [0x2E, 0x1F, 0x14],
     [0x5A, 0x3A, 0x22],
@@ -309,9 +310,9 @@ pub(super) const IRIS_COLORS: [[u8; 3]; 11] = [
 /// What a palette row draws: the widget label's stem, the `settings.toml`
 /// key the entry names come from, the last index drawn and the swatch
 /// colours (the draft's approximations).
-pub(super) struct Palette {
+pub(crate) struct Palette {
     /// The swatch labels' stem (`"Skin"`, `"Wrist tape left"`).
-    pub(super) label: &'static str,
+    pub(crate) label: &'static str,
     /// The settings key the entry names come from (`named_values`).
     pub(super) key: SettingKey,
     /// The last entry index drawn (`key`'s `Number` max, skin's one less on
@@ -321,14 +322,49 @@ pub(super) struct Palette {
     pub(super) colors: &'static [[u8; 3]],
 }
 
-/// A `Palette` over the shared eight-colour strip set (`STRIP_COLORS`), the
-/// key's whole range drawn.
-pub(super) fn strip_palette(label: &'static str, key: SettingKey) -> Palette {
+impl Palette {
+    /// `stored` as the palette shows it: its swatch name, or its number
+    /// when past the drawn entries (a Fox save's Custom skin draws as 7).
+    pub(crate) fn shown(&self, stored: u8) -> String {
+        if stored > self.top {
+            stored.to_string()
+        } else {
+            option_name(self.key, stored)
+        }
+    }
+}
+
+/// The palette `key` draws at `version`, in `colour_rows`' and
+/// `strip_rows`' place: its label stem, swatch set and drawn top.
+pub(crate) fn palette(version: PesVersion, key: SettingKey) -> Palette {
+    let (label, colors) = match key {
+        SettingKey::SkinColor => ("Skin", SKIN_COLORS.as_slice()),
+        SettingKey::IrisColor => ("Iris", IRIS_COLORS.as_slice()),
+        SettingKey::WristTapeColorLeft => ("Wrist tape left", STRIP_COLORS.as_slice()),
+        SettingKey::WristTapeColorRight => ("Wrist tape right", STRIP_COLORS.as_slice()),
+        SettingKey::SpectaclesColor => ("Spectacles colour", STRIP_COLORS.as_slice()),
+        SettingKey::GlovesColor => ("Gloves colour", STRIP_COLORS.as_slice()),
+        _ => unreachable!("{key:?} is not a palette key"),
+    };
     Palette {
         label,
         key,
-        top: *number_range(key).end(),
-        colors: &STRIP_COLORS,
+        top: palette_top(version, key),
+        colors,
+    }
+}
+
+/// `key`'s drawn top at `version`: its `Number` range's top on every
+/// palette but the skin's on Fox, which drops the Custom entry (the three
+/// pre-Fox versions alone have it).
+fn palette_top(version: PesVersion, key: SettingKey) -> u8 {
+    let top = *number_range(key).end();
+    if key != SettingKey::SkinColor {
+        return top;
+    }
+    match version.engine() {
+        Engine::PreFox => top,
+        Engine::Fox => top - 1,
     }
 }
 
@@ -358,13 +394,23 @@ pub(super) fn combo_options(key: SettingKey) -> Vec<String> {
     }
 }
 
+/// The label `key`'s `stored` index shows as: a combo's selected text and
+/// a palette's swatch name — `combo_options`' entry at `stored`, its
+/// number when past the list (a stored value the key cannot represent).
+pub(crate) fn option_name(key: SettingKey, stored: u8) -> String {
+    combo_options(key)
+        .get(usize::from(stored))
+        .cloned()
+        .unwrap_or_else(|| stored.to_string())
+}
+
 /// The value names `key`'s `settings.toml` comment lists (`"0 white, 1
 /// black, ..."`), one per value its `Kind::Number` range gives; `None` when
 /// the comment names no per-value list (a `"0 to N"` range comment). An
 /// entry's parenthesised note (skin's "custom (invisible body, ...)") is
 /// not part of its name; a comma inside it does not start an entry — only a
 /// numeric prefix does.
-pub(super) fn named_values(key: SettingKey) -> Option<Vec<String>> {
+fn named_values(key: SettingKey) -> Option<Vec<String>> {
     let Kind::Number { min, max } = key.spec().kind else {
         return None;
     };

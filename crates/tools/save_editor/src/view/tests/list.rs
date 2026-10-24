@@ -195,6 +195,25 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
         nodes.iter().any(|node| node.value() == Some("70202")),
         "the info strip shows his ID"
     );
+
+    // His id and his shirt name find him too: "anime" is in his shirt name
+    // alone.
+    let entry = player_entry(&view, 70202);
+    assert_eq!(
+        (entry.name.as_str(), entry.shirt_name.as_str()),
+        ("QUALITY", "QUALITY ANIME"),
+        "premise: 70202's names"
+    );
+    for typed in ["70202", "anime"] {
+        view.filter = typed.to_owned();
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        assert!(
+            nodes.iter().any(|node| node.role() == Role::Button
+                && node.label() == Some("1 GK /a/ QUALITY")),
+            "{typed:?} finds 70202"
+        );
+    }
 }
 
 // The selected row's AccessKit node reports toggled, the others not (egui

@@ -2,6 +2,34 @@ use super::*;
 
 use crate::schema::limits::motion_top;
 
+/// A key's field is the one it writes: a player-record key's in
+/// `player_field`, an ingame-face key's in `face_field`, and PES 15's nose
+/// angle, coded into `NoseType`, in neither.
+#[test]
+fn a_keys_field_is_the_one_it_writes() {
+    assert_eq!(
+        (
+            SettingKey::BootsId.player_field(),
+            SettingKey::BootsId.face_field()
+        ),
+        (Some(PlayerField::BootsId), None)
+    );
+    assert_eq!(
+        (
+            SettingKey::SkinColor.player_field(),
+            SettingKey::SkinColor.face_field()
+        ),
+        (None, Some(IngameFaceField::SkinColor))
+    );
+    assert_eq!(
+        (
+            SettingKey::Pes15NoseAngle.player_field(),
+            SettingKey::Pes15NoseAngle.face_field()
+        ),
+        (None, None)
+    );
+}
+
 #[test]
 fn every_settings_field_is_a_key_and_every_key_a_settings_field() {
     let mut fields = HashSet::new();

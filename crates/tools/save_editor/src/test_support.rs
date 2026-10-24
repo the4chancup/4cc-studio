@@ -27,6 +27,37 @@ pub(crate) fn scratch(test: &str) -> PathBuf {
     dir
 }
 
+/// A `ToolContext` for a `tool.view`/`settings_view`/CLI test, with the
+/// receivers its sends land on: `settings` is the context's own except
+/// `pes_folder_path`, set to a folder under `dir` (the test's scratch).
+/// Its default names the machine's real `Pro Evolution Soccer 20**`
+/// install, which `Tool::view` points the portraits worker at every frame
+/// (CONTRIBUTING.md "Testing": a test never reaches the developer's own
+/// files; `studio_core`'s `test_settings` does the same). `exe_dir` and
+/// `data_dir` sit under `dir` too.
+pub(crate) fn tool_context(
+    dir: &Path,
+    mut settings: studio_core::Settings,
+) -> (
+    studio_core::ToolContext,
+    crossbeam_channel::Receiver<studio_core::PipelineEventEnvelope>,
+    crossbeam_channel::Receiver<studio_core::ShellRequest>,
+) {
+    settings.common.pes_folder_path = dir.join("pes").display().to_string();
+    let (events_tx, events_rx) = crossbeam_channel::unbounded();
+    let (requests_tx, requests_rx) = crossbeam_channel::unbounded();
+    let ctx = studio_core::ToolContext::new(
+        std::sync::Arc::new(std::sync::Mutex::new(settings)),
+        studio_core::AppPaths {
+            exe_dir: dir.join("exe"),
+            data_dir: Some(dir.to_path_buf()),
+        },
+        events_tx,
+        requests_tx,
+    );
+    (ctx, events_rx, requests_rx)
+}
+
 /// A `DpFileList.bin` listing `names` in load order: a 16-byte header whose second word is the
 /// count, then one 48-byte NUL-padded record per CPK.
 pub(crate) fn dp_file_list(names: &[&str]) -> Vec<u8> {

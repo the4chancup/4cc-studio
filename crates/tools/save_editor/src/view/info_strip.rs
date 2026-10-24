@@ -12,6 +12,26 @@ use pes_version::PesVersion;
 use crate::session::Session;
 use crate::view::{SaveView, edit_player, edit_team, selected_player};
 
+/// The strip's Name field.
+pub(super) const NAME_LABEL: &str = "Name";
+/// The strip's Shirt name field.
+pub(super) const SHIRT_LABEL: &str = "Shirt";
+/// The strip's Height field.
+pub(super) const HEIGHT_LABEL: &str = "Height";
+/// The strip's Weight field.
+pub(super) const WEIGHT_LABEL: &str = "Weight";
+/// The strip's Age field.
+pub(super) const AGE_LABEL: &str = "Age";
+/// The strip's Nation field.
+pub(super) const NATION_LABEL: &str = "Nation";
+
+/// A player name as the strip draws it: its `\x11` spelled as the four
+/// characters `\\x11` (the draft's `escName`); the field turns it back on
+/// edit.
+pub(super) fn shown_name(name: &str) -> String {
+    name.replace('\x11', "\\x11")
+}
+
 /// The strip for the selected player; nothing when the selection names no
 /// rostered player (a stale slot, an empty save's list).
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
@@ -53,7 +73,7 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             // The name field shows the raw name, its `\x11` spelled as the
             // four characters `\\x11` (the draft's `escName`); on edit the
             // field's text is turned back before it is stored.
-            player.name.replace('\x11', "\\x11"),
+            shown_name(&player.name),
             player.name.clone(),
             player.shirt_name.clone(),
             player.shirt_name.clone(),
@@ -72,7 +92,7 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
     // row 2 (past the pane at half-monitor widths), and a wider grid
     // min-rect would widen the whole panel's `max_rect`.
     egui::Grid::new("save_editor_info_strip").show(ui, |ui| {
-        ui.label("Name");
+        ui.label(NAME_LABEL);
         let overlong = stored_name.len() > portable_text_max(PlayerText::Name);
         let mut name_edit = egui::TextEdit::singleline(&mut name).desired_width(240.0);
         if overlong {
@@ -87,8 +107,11 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
         let response = if overlong {
             response.on_hover_text(format!(
                 "In PES 2019 and older this name will be cut to: «{}»",
-                crop_player_text(PesVersion::Pes19, PlayerText::Name, &stored_name)
-                    .replace('\x11', "\\x11")
+                shown_name(&crop_player_text(
+                    PesVersion::Pes19,
+                    PlayerText::Name,
+                    &stored_name
+                ))
             ))
         } else {
             response.on_hover_text(format!(
@@ -111,7 +134,7 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
         }
         ui.label("ID");
         ui.monospace(player_id.to_string());
-        ui.label("Shirt");
+        ui.label(SHIRT_LABEL);
         let shirt_overlong =
             stored_shirt.chars().count() > portable_text_max(PlayerText::ShirtName);
         let mut shirt_edit = egui::TextEdit::singleline(&mut shirt).desired_width(140.0);
@@ -153,7 +176,7 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             ui,
             session,
             player_id,
-            "Height",
+            HEIGHT_LABEL,
             height,
             max(schema, PlayerField::Height),
             |player: &mut PlayerEntry, value| player.basic.height = value,
@@ -162,7 +185,7 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             ui,
             session,
             player_id,
-            "Weight",
+            WEIGHT_LABEL,
             weight,
             max(schema, PlayerField::Weight),
             |player: &mut PlayerEntry, value| player.basic.weight = value,
@@ -171,12 +194,12 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             ui,
             session,
             player_id,
-            "Age",
+            AGE_LABEL,
             age,
             max(schema, PlayerField::Age),
             |player: &mut PlayerEntry, value| player.basic.age = value,
         );
-        ui.label("Nation");
+        ui.label(NATION_LABEL);
         let response = ui.add(
             egui::DragValue::new(&mut nation).range(
                 0..=u16::try_from(max(schema, PlayerField::Nationality))
