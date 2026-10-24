@@ -1220,6 +1220,20 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         arrangement is the base"): the built tabs of slices 1-3 ported to `save_editor_v2.html`'s
         arrangement, after 8.9j4 (the comparator, panels the same in both drafts) and before
         8.9j5; the maintainer's fine tweaks follow on v2
+        - [ ] 4a the frame: the team bar above every tab (the Team tab's name, short name and
+          colour rows), the tab strip in Player / Team groups (`Team settings`), the player
+          header (the coloured name, v2's info strip grid) on the Player tabs only, the quick
+          actions a column in Abilities' top row (SE-GUI-01, 10, 32; help chapters 02, 05)
+        - [ ] 4b Abilities: the Profile block, the positions grid in the collaborator's order
+          (the registered one outlined), stats in four columns filled column by column; star
+          and playing attitude to Appearance's Cutscenes group, outside the lock (SE-GUI-06,
+          07; help 03, 04)
+        - [ ] 4c Appearance's groups in aligned cells (physique two pairs per row, the strip's
+          trailing rows in its grid, motion 4 / 4 / 2); Tactics in three columns, the formation
+          settings an aligned grid (help 08)
+        - [ ] 4d the one cards badge, the player's own tier, through a tier recognition
+          `libs/aatf` exposes (checkpoint (b))
+        - [ ] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file)
     - [ ] 8.9j slice 4 (`plans/save_editor.md` "Configurable AATF rules", "Comparator",
       "Aesthetics transplant"), the AATF parts first (the maintainer's direction of 2026-10-24),
       each part its own commit and review:

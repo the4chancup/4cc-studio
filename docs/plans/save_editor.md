@@ -146,16 +146,16 @@ The tool view (the panel right of the suite sidebar) is a master-detail layout,
 mirroring 4ccEditor's structure without its dialog sprawl:
 
 ```
-┌────────────────────┬──────────────────────────────────────────────┐
-│ [team selector ▾]  │  Name [........] ID 70103   Shirt [......]   │
-│ [player filter 🔍] │  Height/Weight/Age/Nation/Number/Captain     │
-│                    │  [Gold] [Silver] [Bronze] [Regular] [Set stats: __]   │
-│  01 GK Snuffy      ├──────────────────────────────────────────────┤
-│  02 CB Anon    ●   │  Abilities & Skills │ Appearance │ Team │    │
-│  03 CB Mod         │                       Tactics               │
-│  ⋮  (drag to       │                                              │
-│      reorder)      │  (active tab content)                        │
-└────────────────────┴──────────────────────────────────────────────┘
+┌────────────────────┬──────────────────────────────────────────────────────┐
+│ [team selector ▾]  │  Team [/lit/......] Short [LIT] Colour 1 ■ Colour 2 ■ │
+│ [player filter 🔍] │  Player  Abilities & Skills │ Appearance             │
+│                    │  Team    Tactics │ Team settings                     │
+│  01 GK Snuffy      ├──────────────────────────────────────────────────────┤
+│  02 CB Anon    ●   │  Snuffy  (the name, its colours drawn)               │
+│  03 CB Mod         │  Name [........] Shirt [......] Number [..] Captain ○ │
+│  ⋮  (drag to       │  ID 70103  Nation [..] Age [..] Height [..] Weight […]│
+│      reorder)      │  (the tab's content)                                 │
+└────────────────────┴──────────────────────────────────────────────────────┘
 ```
 
 - **Team selector** with an "ALL" entry (as in 4ccEditor), plus a **filter box
@@ -180,7 +180,15 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   the RGB hex; its alpha is not drawn, and a code whose six are not hex leaves the text the
   normal color (the game does not check them: `spec/pes_savefile/codec.md` "Name colour
   codes, as measured").
-- **General info strip** and **quick actions** always visible above the tabs. The save is where
+- **The team bar** above every tab: the selected player's team's name, short name and colours
+  1-2, the Team settings tab's former first rows. Not on a tab, because invitational members
+  edit the name and the abbreviation often (a collaborator's remark on the first draft).
+- **The tab strip** in two groups, each after its weak scope label: `Player` (Abilities &
+  Skills, Appearance), then `Team` (Tactics, Team settings).
+- **The player header** on the Player tabs only: the selected player's name drawn with its
+  colours as the tab's title, then the general info strip, one grid whose labels sit in their
+  own aligned cells: Name, Shirt, Number, Captain; ID, Nation, Age, Height, Weight. Not on the
+  Team tabs, which edit no player. The save is where
   a member writes the names a tactical export carries to a cup of any version, so its Name and
   Shirt fields follow `pes_savefile`'s portable limits ("Team TOML" in its operations plan):
   - **Name**: the open save's own field (61 bytes on PES 20/21, 46 before). A name past 46
@@ -197,23 +205,34 @@ mirroring 4ccEditor's structure without its dialog sprawl:
     player's edited-player flag; a shirt name is upper-cased as typed; Captain is a radio
     that makes this player's slot the team's captain and is not unticked by a second click
     (the captain belongs to the slot).
-- **Tabs** (contents 1:1 with 4ccEditor, but for star, playing attitude and stronger hand,
-  which 4ccEditor draws on its Appearance tab and the approved draft on Abilities & Skills,
-  beside the gameplay values they are):
-  - **Abilities & Skills** — 13 playable positions with A/B/C ratings, 7 COM
-    styles, up to 41 skill checkboxes (version-gated), ~25 ability stats with
-    spinners, playstyle / registered position / form / injury / weak foot,
-    version-gated extras (star 19+, playing attitude & stronger hand 20+).
+- **Tabs** (contents 1:1 with 4ccEditor, but for stronger hand, which 4ccEditor draws on its
+  Appearance tab and the draft on Abilities & Skills, beside the gameplay values it is; star
+  and playing attitude stay on Appearance, in its Cutscenes group):
+  - **Abilities & Skills** — a top row of three blocks, wrapping in a narrow pane: Profile
+    (registered position, playing style; stronger foot, stronger hand 20+; form, injury
+    resistance; weak foot usage, weak foot accuracy: two pairs per row, labels in aligned
+    cells), the 13 playable positions with A/B/C ratings in the collaborator's grid (CF SS
+    LWF RWF / AMF LMF RMF CMF DMF / CB LB RB GK, the order a member reads a formation in,
+    each position's label above its ratings, the registered one outlined), and the quick
+    actions as a column; then ~25 ability stats with spinners in four aligned columns,
+    filled column by column in the game's order (a row-by-row fill misaligns them as the
+    pane narrows); 7 COM styles, up to 41 skill checkboxes (version-gated).
     Its numbers are the game's, in 4ccEditor's ranges: abilities 40 to 99, form 1 to 8,
     injury resistance 1 to 3, weak foot usage and accuracy 1 to 4 (these four stored one
-    lower), star 0 to 7, playing attitude 0 to 3, each inside the field's bit width on every
+    lower), and the Cutscenes group's star 0 to 7 and playing attitude 0 to 3, each inside the field's bit width on every
     version. A value the save holds outside its range shows as stored and changes only when
     the member edits it: drawing a player never edits him (an egui number control clamps the
     value it draws unless told not to, which would mark him unsaved on sight). The skills'
-    **Cards left** badges are the active ruleset's, the one `check-aatf` runs (the
-    `aatf_rules` setting's file, else the official one), one badge per tier; a file that does
-    not load shows its error in the badges' place.
-  - **Appearance** — edit flags (face/hair/physique/strip, base copy + copy-from
+    **Cards left** badge is the active ruleset's, the one `check-aatf` runs (the
+    `aatf_rules` setting's file, else the official one), and reads the player's own tier
+    alone (`Gold: 6 of 8 cards`; `No tier matches` when none does): the tier his stats,
+    registered position and height match under that ruleset, as `check-aatf` recognizes it,
+    not one badge per tier, which a member had to match to the player by eye; a file that
+    does not load shows its error in the badge's place.
+  - **Appearance** — first a **Cutscenes** group, star (19+) and playing attitude (20+),
+    outside the aesthetics lock: they change only cutscenes, so they are no aesthetic the
+    export owns. Then the ownership line, the switch and the locked groups, each group's
+    labels in their own aligned cells: edit flags (face/hair/physique/strip, base copy + copy-from
     ID), physique sliders (14 values), colors (wrist tape L/R, spectacles), strip
     style (boots ID, gloves ID — any player's, 0 = normal hands — taping, spectacles,
     sleeves, inners, socks, undershorts, shirttail, the player-gloves checkbox), motion (hunching, arm movement, kick
@@ -228,8 +247,8 @@ mirroring 4ccEditor's structure without its dialog sprawl:
     celebrations 122; PES 20+: 5, 10, 10, 20, 7, 162), which give a PES 15 player arm
     movements and celebrations that game does not have (its tops are 5 and 112) and never
     reach PES 18's and 19's last celebrations (127, 140); the measured tops do neither.
-  - **Team** — team name/short name, colors 1–2 (RGB), manager ID, stadium ID,
-    kit slot assignments.
+  - **Team settings** — manager ID, stadium ID, kit slot assignments (the name, short name
+    and colors 1–2, RGB, are the team bar's).
   - **Tactics** — see below.
 - Version-gated widgets render disabled with a tooltip ("PES 19+") rather than
   disappearing, so the UI stays spatially stable across versions.
@@ -283,10 +302,13 @@ Win32 original hurt the most):
 - **The pitch is the editor**: an egui painter canvas draws the formation;
   players are **dragged** to reposition (x/y), with position labels and snapping.
   4ccEditor's per-slot dropdown + coordinate fields remain as a detail popover on
-  click, not the primary interface. The canvas keeps its fixed width at the tab's left, and
-  the starting eleven and bench lists take the rest of the pane at its right (the draft's
-  `taccols`), not half the pane each: a half narrower than the canvas widens the pane's
-  layout bound, and the settings rows below then wrap past the window's edge.
+  click, not the primary interface. The tab is three columns: the formation selector over the
+  canvas at its fixed width, the starting eleven and bench lists at a fixed narrow width, then
+  the preset bar, the note and the settings groups taking the rest and wrapping inside it,
+  the formation settings an aligned grid of two pairs per row: every control in view at
+  1440 x 900, not settings rows below the pitch past the window's bottom. Not columns of half
+  the pane each: a column narrower than the canvas widens the pane's layout bound, and the
+  rows then wrap past the window's edge.
 - **The pitch looks like PES 2021's own formation screen** (Edit, Teams, a team, Game Plan,
   Team Sheet/Edit Position), each starter shown as the game shows him, by his portrait, read
   from the selected game's `download/` CPKs when that folder is found and holds one. Every
@@ -504,7 +526,7 @@ applies the patch. Hand-editing the same fields here
 would create the two-sources problem — the next patch silently overwrites the hand edit, or the
 hand edit silently diverges from the DLC — so the editor **does not edit aesthetics by default**:
 
-- The Appearance tab renders its values disabled, with one line of explanation ("Owned by the
+- The Appearance tab renders its values below the Cutscenes group disabled, with one line of explanation ("Owned by the
   team's export — edit its `settings.toml` (the face, hair and iris: its `ingame_face.toml`)
   and recompile", plus on pre-Fox "then apply the
   patch" and a link to the apply action).
@@ -661,15 +683,16 @@ What this editor adds on top of the lib:
   empty is the embedded official ruleset, and a relative path resolves in the data directory
   as `check-aatf` resolves it. The window reads the setting every frame, so a commit reaches
   the badges, the quick actions and the AATF panels on the next one.
-- **Quick actions.** A row under the info strip (the draft's `quickActions`): one button per
+- **Quick actions.** A column in the Abilities tab's top row (the draft's `quickActions`):
+  one button per
   tier of the active ruleset, in its order (Make Gold / Silver / Bronze / Goalkeeper / Regular
   under the official one), each `aatf::apply_tier` on the selected player as one undoable edit;
   then Set stats with its number, the Player menu's Set all stats in one click (40 to 99). A
-  rules file that does not load leaves Set stats alone on the row, the load error in the tier
+  rules file that does not load leaves Set stats alone in the column, the load error in the tier
   buttons' place as the badges show it; an `apply_tier` that fails (`CheckError`) leaves the
   player as he was and shows the error in the refusal dialog.
 - **The AATF panel.** A floating window, "AATF violations (<ruleset>)", opened from the
-  toolbar's Panels menu ("AATF violations…") and from the quick actions row's "AATF…" button
+  toolbar's Panels menu ("AATF violations…") and from the quick actions' "AATF…" button
   (which opens it on Current team), as the draft shows. Results grouped per player; clicking a
   violation selects the player, switching the team selector to his team unless it is at ALL
   (the list must show the row it selects); team selection matches 4ccEditor (current team or a
@@ -727,9 +750,10 @@ toggle, AATF quick actions), each built in the slice that uses it (see the
 the master-detail layout, every tab and every panel of the five slices below with sample data,
 and is refined with the maintainer; a slice that changes what the draft shows changes the draft
 first. It is the second arrangement of the first draft, `docs/prototypes/save_editor.html`,
-which the built tabs of slices 1-3 follow until they are ported to it: the team bar above every
-tab, the Player / Team tab groups, the positions grid in the collaborator's order, the Cutscenes
-group (`save_editor_v2.html`'s own notes say why each remark was adopted or not). The two drafts'
+whose arrangement the built tabs of slices 1-3 are ported from to the second's (8.9f slice
+4): the team bar above every tab, the Player / Team tab groups, the positions grid in the
+collaborator's order, the Cutscenes group, the one cards badge (`save_editor_v2.html`'s own
+notes say why each remark was adopted or not). The two drafts'
 panels and dialogs are the same, function for function. Then the view builds up as:
 
 1. Open/save + player editing tabs (Abilities & Skills, Appearance) — the card pickers as the
@@ -780,7 +804,7 @@ SE-GUI-01  GIVEN the save
            WHEN it is opened from the view (Open, or its entry in the discovered-saves list)
            THEN the team selector lists its teams and ALL, the player list shows each player's
                 number, position and name with the name's color codes rendered as colors, and
-                the info strip shows the selected player's general fields
+                the player header shows the selected player's name and general fields
 SE-GUI-02  GIVEN the PES 17 save open on team 701
            WHEN a name, shirt name or id of a player of another team is typed in the filter box
            THEN the list shows the matching players across all teams, matched on the
@@ -805,13 +829,15 @@ SE-GUI-05  GIVEN the save open with unsaved changes
                 Team compiler's view active when the window is closed THEN the close waits,
                 the Save editor becomes the active view and shows the same prompt
 SE-GUI-06  GIVEN a PES 17 save
-           WHEN the Abilities & Skills tab is drawn
-           THEN the star, playing attitude and stronger hand controls are disabled with a tooltip
-                naming the first version that has them, in the same place as on a PES 21 save,
-                where they are enabled
+           WHEN the Abilities & Skills and the Appearance tabs are drawn
+           THEN the stronger hand control (Abilities' Profile) and the star and playing attitude
+                controls (Appearance's Cutscenes group) are disabled with a tooltip naming the
+                first version that has them, in the same place as on a PES 21 save, where they
+                are enabled
 SE-GUI-07  GIVEN the save open
            WHEN the Appearance tab is drawn
-           THEN its values are disabled with the line saying the team's export owns them (and
+           THEN its values below the Cutscenes group are disabled with the line saying the
+                team's export owns them, the Cutscenes group's editable (and
                 on pre-Fox, the patch step); WHEN "Edit aesthetics anyway" is switched on THEN
                 they are editable, the switch is off again at the next start of the tool, and on
                 a stripped player the tab says his look comes from the database tables and his
@@ -834,9 +860,10 @@ SE-GUI-09  GIVEN the official ruleset active
                 version has reads 85 and weak foot, form and injury resistance are unchanged,
                 as one undoable edit, and a typed 120 settles at 99 (the number is 40 to 99)
 SE-GUI-10  GIVEN the save open on a team
-           WHEN its name, a color or the manager id is edited in the Team tab and saved
+           WHEN its name or a color is edited in the team bar, or the manager id in the Team
+                settings tab, and saved
            THEN the reopened file holds the values; GIVEN #FF8000 picked as color 1 THEN the
-                reopened team's color 1 is (63, 32, 0) and the Team tab shows it as #FF8200
+                reopened team's color 1 is (63, 32, 0) and the team bar shows it as #FF8200
 SE-GUI-11  GIVEN a player without FPC and "Edit aesthetics anyway" switched on
            WHEN Ctrl+I, or Hide body, is used
            THEN his record carries the hide preset's values and the tab reads "FPC: hidden
@@ -994,7 +1021,7 @@ SE-GUI-32  GIVEN the settings menu open on the Save editor's section and the sav
            THEN the `aatf_rules` setting holds the path, the tool's other keys unchanged, and
                 the next frame's quick actions are VTL11's (SE-GUI-09); WHEN the row is
                 emptied THEN they are the official ruleset's again; GIVEN a file that does not
-                load THEN the quick actions row holds Set stats and the load error, and no
+                load THEN the quick actions hold Set stats and the load error, and no
                 tier button
 ```
 

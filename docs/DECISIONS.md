@@ -10770,3 +10770,16 @@ order) heads a team once per run of its players, and a real save's teams hold pl
 apart, so one team's rows would be scattered under many headings; the team selector's order is
 the one a member reads the teams in everywhere else.
 Plan: `plans/save_editor.md` "Comparator (gameplay + aesthetics)".
+
+## 2026-10-24 — save_editor — Porting the built tabs to the second draft, in five slices
+Decision: 8.9f slice 4 ports the built tabs to `save_editor_v2.html` in five slices, each its
+own commit and review: (a) the frame: the team bar above every tab, the tab strip in Player /
+Team groups, the player header on the Player tabs only, the quick actions into Abilities' top
+row; (b) Abilities' top row and stats columns, with star and playing attitude moved to
+Appearance's Cutscenes group; (c) Appearance's aligned groups and Tactics in three columns; (d)
+the one cards badge, through a tier recognition `libs/aatf` exposes; (e) the regular-weight
+body font, the shell's.
+Why: each slice stays one review's size; (d) adds a `pub` API to the crate the 0.0.1 work wants
+rock-solid, so it lands alone with its own checkpoint (b) review; (e) changes every tool's
+text, not the Save editor's, and adds a bundled font file.
+Plan: `plans/save_editor.md` "Editing UI", SE-GUI-01, 06, 07, 10, 32.
