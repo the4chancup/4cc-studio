@@ -72,7 +72,8 @@ Still open:
 
   [teams.players.03.appearance]
   skin_color = 2
-  # … the PlayerSettings schema, exactly as in settings.toml
+  # … the PlayerSettings schema, as the player's settings.toml and ingame_face.toml give it
+  # together (the face, hair and iris from the latter, the defaults without it)
   ```
 
   The pre-Fox half also lifts the `PreFox` refusal and adds its keys to the spec's types.

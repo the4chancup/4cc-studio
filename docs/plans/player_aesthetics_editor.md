@@ -116,13 +116,17 @@ compiler's planning, not a second implementation in the tool, so the view cannot
 the compile. Rules: `spec/aesthetics_export/player_folders.md` "Subfolders", `model_format.md`
 "Link files" and "Kit-dependent assets".
 
-**Settings panel.** A form over the selected folder's `settings.toml` — the name rule (absent /
-`true` / explicit string) and **every `PlayerSettings` key**, grouped as the schema groups them
-(appearance, physique, strip, motion, colours, ingame-face parameters) — plus the
-`fpc_on`/`fpc_off`/absent marker tri-state and the `ingame_face` marker. The form is **generated
-from the `PlayerSettings` schema**, not hand-built per field: `settings.toml` is the only route by
-which a team's aesthetics reach the game (the compiler builds the Fox appearance tables and the
-pre-Fox aesthetics patch from it, and the save editor's own fields are read-only — see "Player
+**Settings panel.** A form over the selected folder's `settings.toml` and `ingame_face.toml` —
+the name rule (absent / `true` / explicit string) and **every `PlayerSettings` key**, grouped as
+the schema groups them (appearance, physique, strip, motion, colours, ingame-face parameters),
+each key written to the file that owns it (the face, hair and iris keys to `ingame_face.toml`,
+"`ingame_face.toml`" in the [Player folders plan](aesthetics_export/player_folders.md)) — plus
+the `fpc_on`/`fpc_off`/absent marker tri-state and an in-game face toggle, which creates an
+empty `ingame_face.toml` or, once confirmed, removes it (its group shown only while the file
+exists). The form is **generated from the `PlayerSettings` schema**, not hand-built per field:
+the two files are the only route by which a team's aesthetics reach the game (the compiler
+builds the Fox appearance tables and the pre-Fox aesthetics patch from them, and the save
+editor's own fields are read-only — see "Player
 settings in exports" in the [Aesthetics export plan](aesthetics_export/README.md)), so a field the
 schema gains must appear here without anyone
 remembering to add a widget. Each key renders from its schema type and range, with the same
@@ -136,8 +140,10 @@ a player without launching anything.
 The **ingame-face parameters** are the one group the form exposes but does not expect anyone to
 type: the eleven decoded feature types, and from Phase 5 the version's undecoded bits, that
 mean nothing without seeing the face. The expected
-workflow for that group is the game's own face editor, then generating the folder's `settings.toml`
-from the save (the save editor's generation action, or the Export upgrader) and committing the
+workflow for that group is the game's own face editor, then generating the folder's two files
+from the save (the save editor's `settings.toml` generation and "Generate in-game face", or the
+Export upgrader; both, since a skin or physique change made in the same visit is
+`settings.toml`'s) and committing the
 result; on a stripped Fox save, then recompiling and **Strip again** (the edit restored the
 player's id, and the tables hold the new look only once recompiled; see "Stripped save" in the
 [Save editor plan](save_editor.md)). The form shows the numbers so a diff is readable and a
@@ -175,9 +181,13 @@ location per launch:
               "export": "team_x", "export_path": "C:/.../exports/team_x" },
   "studio": { "exe": "C:/.../4cc-studio.exe", "pes_version": 19 },
   "settings_toml": "C:/.../15 - Snuffy/settings.toml",
+  "ingame_face_toml": "C:/.../15 - Snuffy/ingame_face.toml",
   "settings_schema": [
-    { "group": "appearance", "key": "skin_color", "type": "int", "min": 0, "max": 6,
+    { "group": "appearance", "file": "settings", "table": "appearance", "key": "skin_color",
+      "type": "int", "min": 0, "max": 6,
       "doc": "Skin colour, 0 white to 6 black (the game's swatch order)" },
+    { "group": "ingame-face", "file": "ingame_face", "table": "", "key": "iris_color",
+      "type": "int", "min": 0, "max": 10, "doc": "Iris colour, 0 black to 10 violet" },
     "…one entry per PlayerSettings key of this PES version…"
   ],
   "sets": [
@@ -208,7 +218,9 @@ location per launch:
   glTF, then the opposite native format), so what opens visible is what would
   compile.
 - **`settings_schema`** is the `PlayerSettings` field list for the manifest's PES version — group,
-  key, type, range, and the app-injected comment as `doc` — emitted by `pes_savefile` from the same
+  the file that owns the key (`settings` or `ingame_face`, the manifest's `settings_toml` or
+  `ingame_face_toml`) and its table there (empty for the file's top level), key, type, range,
+  and the app-injected comment as `doc` — emitted by `pes_savefile` from the same
   tables that drive the Studio form. The Blender panel builds its widgets from it, so the two
   forms show the same fields by construction and the plugin carries no copy of the schema (the
   "no export-format reasoning on the Python side" rule, applied to settings).
@@ -255,8 +267,8 @@ The loader module does four things:
    as sub-collections, with visibility from the manifest. `fpc_on` hides the base body;
    otherwise it is visible, using the manifest's strip variants. Missing settings remain
    visibly unset in the form, the preview showing their defaults, which the compile writes.
-3. **Sidebar panel** (N-panel): the same `settings.toml` form as the Studio
-   panel — generated from the same schema, which the manifest carries so the two
+3. **Sidebar panel** (N-panel): the same form over `settings.toml` and `ingame_face.toml` as
+   the Studio panel, each key to its own file — generated from the same schema, which the manifest carries so the two
    panels cannot disagree on the field set (`tomlkit` for comment-preserving
    writes, shipped with the addon) — plus the `fpc_on`/`fpc_off` marker tri-state. FPC and strip edits update the base-model
    collection visibility immediately — the "see the setting on the model" loop
@@ -403,7 +415,7 @@ expensive, roughly in drop order:
 | Blender-side packaging | Loader ships as a module of the all-in-one `pes-models` extension (fmdl + .model + PES glTF import/export) | The loader needs all three importers anyway; PES glTF round-trip (import with `materials.toml` + `PES_bone`/`PES_mesh` restored) exists nowhere else; one install, one schema, one retirement path — see `blender_project/pes_models_plan.md` |
 | Studio↔plugin contract | Versioned JSON manifest, loader stays dumb | All export-folder knowledge stays in `aesthetics_export`/Rust; no logic duplicated in Python |
 | Settings editing | Both a Studio panel and a Blender sidebar panel, both generated from the `PlayerSettings` schema (carried in the manifest as `settings_schema`) | Quick edits without Blender; in-Blender edits see FPC/strip reflected live — same file, last writer wins; generated forms cannot fall behind the schema, which is the only route to the save |
-| Ingame-face parameters | Exposed as plain fields; the expected workflow is game face editor → generate `settings.toml` from the save → commit → recompile (the recipe above). A face editor with a live preview is a future step, not a requirement here | Forty numbers mean nothing without a rendered head; the preview needs head-morph data nothing in the suite decodes yet |
+| Ingame-face parameters | Exposed as plain fields; the expected workflow is game face editor → generate `settings.toml` and `ingame_face.toml` from the save → commit → recompile (the recipe above). A face editor with a live preview is a future step, not a requirement here | Forty numbers mean nothing without a rendered head; the preview needs head-morph data nothing in the suite decodes yet |
 | Base models | Extracted from installed PES per version, bundled glTF stand-ins as fallback | Honest FPC/strip preview without redistributing game assets; works without a PES install |
 | glTF conversion | In place, originals removed, backup in app data with Restore | Leftover native files would out-rank the glTF in the compiler's selection rule; in-folder backups would trip export validation |
 | Dual-set merge | Superset glTF; geometry from a preferred set chosen at conversion (default FMDL) | One authoritative file per part going forward; format-exclusive fields of both engines survive |

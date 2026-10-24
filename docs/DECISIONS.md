@@ -10687,3 +10687,25 @@ Gold's counts to `gold2`, Astra A1 on 20.6a2a); one carry per commit, refused wh
 cannot. A clamped draw rewrote DBC7's 48 paid cards to 20 on opening the section, marking the
 file unsaved; 48 is every card the game has (DBC7's own comment).
 Plan: `plans/ruleset_editor.md` "The editor", the Tiers bullet.
+
+## 2026-10-24 — aesthetics_export — `ingame_face.toml` replaces the marker and takes the face, hair and iris keys
+Decision: the `ingame_face` marker becomes `ingame_face.toml` (an empty file is the old marker),
+holding `iris_color` and the `[face]` and `[hair]` tables that leave `settings.toml`; a player
+without it gets the game's default face values. The old spellings are an Error naming the new
+file (`ingame_face_marker_renamed`), recognized only to say so; an unparsable file is
+`ingame_face_toml_invalid`, the player keeping the in-game face at the defaults. The Export
+upgrader fills the file from the record wherever it wrote the marker; the Save editor generates
+it through its own action, "Generate in-game face", apart from `settings.toml`.
+Why: measured in PES 21 and PES 17 Edit mode (WORKLOG 0.0.1h's `manual: checked` lines): beside a face model
+the game draws neither the in-game hair nor the record's iris, so 90 keys did nothing for the 19
+players in 20 who wear one, in the file members read first. Moving the iris with them, not
+keeping it in `settings.toml`, because both samples drew the model's own eyes whatever it was
+set to. One Save editor action for both files was not chosen because the save cannot tell which
+players wear the in-game face (the cup keeps every "modified face" flag off), and a generated
+`ingame_face.toml` beside a face model drops the folder (`ingame_face_explicit_face_model`). The
+old marker is refused rather than read as an empty file because the compiler stays strict: the
+upgrader carries Red's marker over, and the change lands before members write Studio exports by
+hand (0.0.1).
+Plan: `plans/aesthetics_export/player_folders.md` "`ingame_face.toml` (new; step 0.0.1h)", with
+pointers in its `settings_toml.md` and `object_model.md` and in `plans/save_editor.md`'s
+`settings.toml` generation bullet.

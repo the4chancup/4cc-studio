@@ -337,7 +337,7 @@ contract between them.
 
 - Plain-folder player browser/launcher + manifest writing + Blender launch; archives require
   explicit extraction before launch, editing, or conversion
-- settings.toml editing panel (comment-preserving via `toml_edit`) + `fpc_on`/`fpc_off`/`ingame_face` marker
+- settings.toml and ingame_face.toml editing panel (comment-preserving via `toml_edit`) + `fpc_on`/`fpc_off` marker and the in-game face toggle
   toggles; missing settings stay unset until the user edits them
 - In-place glTF conversion (superset merge, app-data backup + restore); `launch`/`convert` CLI
 - Base-model extraction from installed CPKs + bundled glTF stand-ins

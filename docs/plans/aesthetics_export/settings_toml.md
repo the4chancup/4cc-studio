@@ -8,6 +8,10 @@ Part of the [Aesthetics export plan](README.md). Section headings are unchanged 
 
 What exists of this is in `spec/aesthetics_export/settings_toml.md` "Player settings in exports (settings.toml)".
 
+The template's `[appearance.face]` and `[appearance.hair]` tables and `iris_color` leave this
+file for `ingame_face.toml`, which replaces the `ingame_face` marker: the game draws them on the
+in-game face alone ("`ingame_face.toml`" in the [Player folders plan](player_folders.md)).
+
 The spec's engine split has a second half:
 
 - **Pre-Fox (PES 15–17): in the savefile**, through the aesthetics patch the compiler writes and

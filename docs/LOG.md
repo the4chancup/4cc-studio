@@ -2399,3 +2399,7 @@ worklog passed 7,000 lines.
   a tier's id commits on Enter so a rename typed through another tier's id cannot move that tier's medal counts.
 - **2026-10-24** — 20.6a2a rework 4 (Astra A2, 3 of 5): a half-typed tier id or settings path survives an Alt+Tab,
   and removing a tier that shares another's id keeps that tier's medal counts.
+- **2026-10-24** — 0.0.1h measured in PES 21 and PES 17 Edit mode: beside a face model the game draws neither the
+  in-game hair nor the record's iris, so `ingame_face.toml` replaces the marker and takes those 90 keys (planned).
+- **2026-10-24** — 20.6a2a rework 5 (SWE-2 S3, 2 of 6): the colour picker keeps a half-typed hex or channel
+  through an Alt+Tab; 20.6a2a's review done, and the Ruleset editor waits for 0.1.0.

@@ -505,7 +505,8 @@ would create the two-sources problem — the next patch silently overwrites the 
 hand edit silently diverges from the DLC — so the editor **does not edit aesthetics by default**:
 
 - The Appearance tab renders its values disabled, with one line of explanation ("Owned by the
-  team's export — edit its `settings.toml` and recompile", plus on pre-Fox "then apply the
+  team's export — edit its `settings.toml` (the face, hair and iris: its `ingame_face.toml`)
+  and recompile", plus on pre-Fox "then apply the
   patch" and a link to the apply action).
 - The same lock covers every other aesthetics write path: the team operations that write
   appearance fields (set boots/gloves IDs for everyone, set/remove FPC for the team, clear visual
@@ -619,7 +620,11 @@ the editor exposes them as:
   generates without a folder, so it writes the save's strings (`name = true` is the
   Export upgrader's rule) — in particular a
   name carrying colour codes is always emitted as the explicit string, so the
-  next compile preserves the codes.
+  next compile preserves the codes. The face, hair and iris keys are not in it: a second
+  action, **Generate in-game face**, writes them into the folder's `ingame_face.toml`, since
+  the save cannot say which players wear the in-game face ("`ingame_face.toml`" in the
+  [Player folders plan](aesthetics_export/player_folders.md), whose SE-GUI-33 and 34 are this
+  view's).
 
 ---
 

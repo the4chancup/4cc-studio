@@ -21,11 +21,11 @@ coverage table and draft, the DBC7 ruleset).
 pitch as the game's, 8.9g and 8.9i; next its slice 4, the AATF panel with the rules file's
 choice, Validate rules and Save a copy, then the comparator and transplant; 8.9f's slice 4 and
 8.9h wait on the maintainer's v2 ruling), `libs/aatf`'s hardening (the repetition rework done and
-reviewed; an audit step next), `ingame_face.toml` (0.0.1h), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+reviewed; an audit step next), `ingame_face.toml` (0.0.1h: planned and reviewed, slice 1
+under review), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
-and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done, the last one's review
-loop finished before the phase waits. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
+and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
 (the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's rulings), 8.5 (the Save
 editor's draft), the shell (8.6a-e), the color picker (8.7a-b), `team_widgets` (8.8), egui 0.37
 and the release stage (8.11, 8.13). The face_diff model comparison (Issues, "a face diff is
@@ -1639,15 +1639,44 @@ briefs, review loops, gates and mutation runs as for any step.
     `shell/sidebar/{mod,tests}.rs`, `shell/test_harness.rs`, `studio/src/main.rs`)
 - [ ] 0.0.1h `ingame_face.toml` (the maintainer's go of 2026-10-24: before 0.0.1, after the
   reviews in flight then): the marker becomes a file holding the in-game face, and
-  `settings.toml` loses `[appearance.face]` and `[appearance.hair]` (the Issues entry
-  "`ingame_face` as a file" holds the shape and what it touches). First the two measurements in
-  game (save backed up): (1) a face folder with no hair model, and whether the in-game hair
-  draws; (2) iris colour on a face-model player. Then the plan (`aesthetics_export/
-  player_folders.md`, `settings_toml.md`, `object_model.md`) and a decision entry, then the
-  build, sliced (the format and the compiler, then the upgrader, then the Save editor's
-  generation) → verify: the export spec's scenarios for the marker rewritten to the file, a
-  Red export's bare marker upgraded to an empty file, a filled file's face reaching the save
-  on PES 21 and PES 17, and in game the face as the file sets it
+  `settings.toml` loses the face, hair and iris keys
+  (`plans/aesthetics_export/player_folders.md` "`ingame_face.toml` (new; step 0.0.1h)",
+  decision 2026-10-24, its
+  acceptance TC-STR-18 to 20, TC-BIN-47 to 49, EU-PLY-21 and 22, EU-SET-10 and 11,
+  SE-GUI-33 and 34). The two measurements done 2026-10-24 (below); the plan written. Open:
+  - [x] Astra over the plan section and its acceptance (checkpoint a): A1 7 of 7 accepted
+    (scenarios the split broke: TC-BIN-31, EU-SET-01 and 05; THENs observed after compiling;
+    SE-GUI-34 on a stripped save; the Player aesthetics editor, the Team creator and the Save
+    editor's lock text), fixed; A2 5 of 5 (the in-game recipe generating both files, the
+    Blender manifest naming each key's file, SE-GUI-34 on non-default looks, one file refused
+    leaving the other applied, the pre-Fox patch's schema), fixed; A3 none
+  - [ ] slice 1, `pes_savefile`, additive: the `ingame_face.toml` document beside
+    `settings.toml` (`IngameFaceSettings`, its parse and template, `PlayerSettings` joined
+    from it), nothing reading it yet
+  - [ ] slice 2, the switch, one commit, since a `settings.toml` without the keys and an
+    upgrader still writing them (or a compiler refusing what the upgrader writes) is a broken
+    main: `settings.toml` loses the keys, `aesthetics_export` takes the file as
+    `PlayerFolder.ingame_face` and reports the old spellings, the compiler's two codes and its
+    Fox rows from both files, the Export upgrader writing the file where the marker was,
+    filled at step 8 (TC-STR-18 to 20, TC-BIN-47 to 49, EU-PLY-21 and 22, EU-SET-10 and 11,
+    the marker scenarios renamed)
+  - [ ] slice 3, the Save editor: the generation split, its "Generate in-game face" action
+    landing with the view's generation (SE-GUI-19's slice; SE-GUI-33, 34)
+  - [ ] the spec moved for what landed (the plan section's closing paragraph names the
+    sections), and in game a generated file's face on PES 21 (SE-GUI-34). PES 17's save
+    route waits for the aesthetics patch's pre-Fox half (`plans/pes_savefile/operations.md`
+    "Aesthetics patch (new)"), so a pre-Fox compile is checked by its resolved settings alone
+
+  manual: checked 2026-10-24, PES 21 Edit mode, /egg/ (792) slots 05-07 compiled by
+  `00ef6231`'s release exe into the test slot over a stripped copy of the save (restored by
+  hash): a face model (4CCG's "Sou Biden", no eye material) with no hair model draws its own
+  grey scalp, not the in-game long red hair, and blue (7) and violet (10) irises draw the same
+  grey; the marker's player draws the red hair and blue irises. 1186 of the machine's 1472 Fox
+  face models name no eye material
+  manual: checked 2026-10-24, PES 17 Edit mode, /out/ (740) slots 05-07, the same settings
+  set through the Save editor's Team TOML (a pre-Fox compile writes no save yet) and the faces
+  deployed into the test slot (save and slot restored by hash): a face model (livecpk 70102)
+  draws no in-game hair and the same painted iris for 7 and 10; the marker's player draws both
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.rhai`, assembled with the frozen logic version 1, and the bundled settings naming
@@ -2048,7 +2077,7 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
         systems under it, `sections/widgets.rs`, `document::tier` shared with Blank's tier;
         RE-FILE-04's lib half compares four VTL11 teams under a renamed Silver label. Files: `ruleset_editor/{Cargo.toml,src/{document.rs,view/{sections/
         {mod.rs,tiers.rs,widgets.rs},tests.rs,tests/tiers.rs}}}`, `aatf/src/fixtures/vtl11.rs`
-        - [ ] review: a SWE-2 loop, then Astra, then SWE-2 (checkpoint b), M5-1 with its fixes;
+        - [x] review: a SWE-2 loop, then Astra, then SWE-2 (checkpoint b), M5-1 with its fixes;
           then the Ruleset editor waits for 0.1.0. S1: 4 of 7 accepted; `mutants-diff
           ff88177d`: 17 survivors in `tiers.rs`. Rework 2 (SWE-2, 75 min, four contradictions
           accepted): the open expander's cell recorded at the column's own width (it had
@@ -2068,7 +2097,11 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
           rework 4 (SWE-2, 8 min): a half-typed id or settings path survives the window
           losing focus (the buffer follows the stored value only while egui's memory holds no
           focus on the field), a tier's ✕ keeps the medal counts while another tier carries
-          its id, RE-GUI-03's test reads the drawn unsaved marker. SWE-2 S3 next
+          its id, RE-GUI-03's test reads the drawn unsaved marker; `mutants-diff 00ef6231`
+          clean. S3: 2 of 6 accepted, the loop ends with rework 5: `color_tools`' picker
+          keeps a typed hex or channel through a window focus loss (A2-1's class, in the
+          Save editor's picker too), the Tiers tests' repeated preamble one helper
+          (`74dcf473`; `mutants-diff d3bf671f` 3 of 3 caught). Review done
       - [ ] 20.6a2b Cards, Universal rules with the team settings, Suggestions (RE-GUI-08)
   - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12,
     and RE-GUI-04's height-systems half, whose test joins the tiers half's)
@@ -2099,19 +2132,16 @@ points there.
   with no window. The Save editor calls `rfd::FileDialog` straight from its click handlers
   (`view/mod.rs`, `view/menus.rs`): the same exposure under a mutant, and the same fix
   there (pickers behind fields, panicking under `cfg(test)`), in its next rework
-- open — `ingame_face` as a file holding the in-game face (the maintainer's idea of
-  2026-10-24, for later): the marker becomes `ingame_face.toml` with the face sliders and
-  hair, and `settings.toml` loses `[appearance.face]` and `[appearance.hair]` (89 of the
-  template's 134 keys, which 19 players in 20 do not use; an empty file is today's bare
-  marker). The sliders are already mapped (`spec/aesthetics_export/settings_toml.md`, the
-  ingame-face run). Before planning it, measure in game: (1) whether a face folder with no
-  hair model draws the in-game hair (if so the hair keys stay reachable without the marker);
-  (2) whether iris colour shows on a face model (skin and player gloves stay in
-  `settings.toml`). Cheapest before 0.0.1f: afterwards members write Studio exports by hand
-  and the change needs the upgrader to migrate those too. Touches the export spec
-  (`player_folders.md`, `settings_toml.md`, `object_model.md`), `PlayerFolder`, the compiler,
-  the upgrader and the Save editor's generation (SE-GUI-19); Team TOML is not affected.
-  Approved 2026-10-24 for before 0.0.1: step 0.0.1h
+- open (SWE-2 S3 on 20.6a2a, 2026-10-24; for the Ruleset editor's resumption after 0.1.0) — a
+  Ctrl+Z pressed while a tier's drag handle is held restores the tiers under the drag, whose
+  payload is the row index: the release moves whichever tier now holds that index, and panics
+  when the undo left a shorter list (`sections/tiers.rs`, the `dnd_drag_source` payload). A
+  two-handed gesture, rejected for 20.6a2a as an edge case; the fix to weigh then is the
+  tier's id as the payload, resolved at release
+- planned — `ingame_face` as a file holding the in-game face (the maintainer's idea of
+  2026-10-24): measured and planned at step 0.0.1h,
+  `plans/aesthetics_export/player_folders.md` "`ingame_face.toml` (new; step 0.0.1h)"; this
+  entry leaves once it lands
 - open — tests built on the default settings may reach the real install (Astra A1 on 8.9j1,
   2026-10-24: a Save editor FPC test's `ToolContext` from `studio_core::Settings::default()`
   kept the default `pes_folder_path`, and `Tool::view` with a save open started the portrait
