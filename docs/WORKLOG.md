@@ -2057,7 +2057,14 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
           count, a system's ✕ and add, rest, the name-colour checkbox, a drop on a label
           cell), the draft's two titles, one `cell` helper for the row's 16 drop targets;
           M5-1 settled (egui bounds a new modal's first frame; the cap binds on a window
-          shrunk under an open modal, now tested). Astra A1 next
+          shrunk under an open modal, now tested). Astra A1: 5 of 5 accepted, rework 3 (SWE-2,
+          25 min): every section number draws as stored (DBC7's 48 paid cards had been
+          clamped to 20 by drawing the section) and the cards run to 48; the id commits on
+          Enter or focus loss, its medal-key carry refused while ambiguous (typed per
+          keystroke through `gold`, it moved Gold's counts); RE-FILE-04 and RE-GUI-03's tests
+          observe the label and the preview line; each Tiers field changed alone through its
+          control (decision 2026-10-24). S2: 1 of 6 accepted, lead fix: General's squad size
+          drawn as stored too, with four nits. Astra A2 next, then SWE-2
       - [ ] 20.6a2b Cards, Universal rules with the team settings, Suggestions (RE-GUI-08)
   - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12,
     and RE-GUI-04's height-systems half, whose test joins the tiers half's)

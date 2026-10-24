@@ -2395,3 +2395,5 @@ worklog passed 7,000 lines.
   tests that had started the portrait worker against the real PES install fixed, Set stats in SE-GUI-09.
 - **2026-10-24** — 20.6a2a rework 2: the open expander no longer widens the tiers table, every Tiers control has a
   test (17 mutation survivors), and M5-1 settled: the modal's height cap binds once the window shrinks under it.
+- **2026-10-24** — 20.6a2a rework 3 (Astra A1): opening DBC7's Tiers no longer rewrites its 48 paid cards to 20, and
+  a tier's id commits on Enter so a rename typed through another tier's id cannot move that tier's medal counts.

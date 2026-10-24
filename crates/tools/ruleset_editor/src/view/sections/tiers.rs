@@ -135,8 +135,15 @@ fn tier_row(
         widgets::text(ui, &mut ruleset.tiers[index].label, 100.0)
     });
 
-    // An id edit renames the tier's key in every medal system's counts.
-    let mut id = ruleset.tiers[index].id.clone();
+    // The id field edits a buffer that commits on Enter or focus loss
+    // (a path row's edit without Browse): the commit carries the
+    // tier's key in the medal systems (`rename_tier_id`), a keystroke
+    // at a time it would carry through another tier's id. Unfocused,
+    // the buffer follows the tier's id.
+    let buffer_id = ui.make_persistent_id(("tier-id", index));
+    let mut id = ui
+        .data_mut(|data| data.get_temp::<String>(buffer_id))
+        .unwrap_or_else(|| ruleset.tiers[index].id.clone());
     let response = cell(ui, index, drop, |ui| {
         ui.add(
             egui::TextEdit::singleline(&mut id)
@@ -145,9 +152,13 @@ fn tier_row(
         )
         .on_hover_text("What conditions and other tiers refer to")
     });
-    if response.changed() {
-        rename_tier_id(ruleset, index, id);
+    if response.lost_focus() && id != ruleset.tiers[index].id {
+        rename_tier_id(ruleset, index, id.clone());
     }
+    if !response.has_focus() {
+        id = ruleset.tiers[index].id.clone();
+    }
+    ui.data_mut(|data| data.insert_temp(buffer_id, id));
 
     let medal_counted = medal_tiers.contains(&ruleset.tiers[index].id);
     cell(ui, index, drop, |ui| {
@@ -178,10 +189,10 @@ fn tier_row(
         .response
     });
     cell(ui, index, drop, |ui| {
-        widgets::number(ui, &mut ruleset.tiers[index].cards, 0..=20)
+        widgets::number(ui, &mut ruleset.tiers[index].cards, 0..=48)
     });
     cell(ui, index, drop, |ui| {
-        widgets::number(ui, &mut ruleset.tiers[index].min_cards, 0..=20)
+        widgets::number(ui, &mut ruleset.tiers[index].min_cards, 0..=48)
     });
     cell(ui, index, drop, |ui| {
         widgets::number(ui, &mut ruleset.tiers[index].a_positions, 0..=13)
@@ -362,13 +373,22 @@ fn code_with_alpha(rgb: [u8; 3], current: Option<&str>) -> String {
 }
 
 /// `index`'s tier renamed to `id`, its key carried into every medal
-/// system's counts (the draft's id edit, skipped where the new id is
-/// already a key so it never overwrites one).
+/// system's counts — but only while the carry is unambiguous: another
+/// tier still carrying `old` (a shared id moves the wrong tier's
+/// counts) or a system already holding `id` (a key never overwrites
+/// one) renames the tier alone.
 fn rename_tier_id(ruleset: &mut Ruleset, index: usize, id: TierId) {
     let old = std::mem::replace(&mut ruleset.tiers[index].id, id.clone());
+    let shared = ruleset.tiers.iter().any(|tier| tier.id == old);
+    let held = ruleset
+        .medal_systems
+        .iter()
+        .any(|system| system.counts.contains_key(&id));
+    if shared || held {
+        return;
+    }
     for system in &mut ruleset.medal_systems {
-        if system.counts.contains_key(&old) && !system.counts.contains_key(&id) {
-            let count = system.counts.remove(&old).expect("the key is present");
+        if let Some(count) = system.counts.remove(&old) {
             system.counts.insert(id.clone(), count);
         }
     }
@@ -577,8 +597,9 @@ fn set_counted(ruleset: &mut Ruleset, index: usize, counted: bool) {
     }
 }
 
-/// `map[key]` as a `DragValue` clamped to 0..=`max`, absent read as 0;
-/// a written value is kept, 0 keeping its entry (`keep_zero`) or
+/// `map[key]` as a `DragValue` whose edits stay in 0..=`max`, the
+/// stored value drawn as it is (`widgets::number`'s rule), absent read
+/// as 0; a written value is kept, 0 keeping its entry (`keep_zero`) or
 /// removing it (a free-cards count of 0 is no entry).
 fn map_number(
     ui: &mut egui::Ui,
@@ -588,7 +609,11 @@ fn map_number(
     keep_zero: bool,
 ) -> egui::Response {
     let mut value = map.get(key).copied().unwrap_or(0);
-    let response = ui.add(egui::DragValue::new(&mut value).range(0..=max));
+    let response = ui.add(
+        egui::DragValue::new(&mut value)
+            .range(0..=max)
+            .clamp_existing_to_range(false),
+    );
     if response.changed() {
         if value == 0 && !keep_zero {
             map.remove(key);

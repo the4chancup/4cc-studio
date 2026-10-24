@@ -54,11 +54,18 @@ the last edit changed are highlighted.
 - **General**: name, squad size, the rating stats and the at-most stats (stat checklists, with
   one line on what each list does).
 - **Tiers**: a table, one row per tier, highest first, reordered by dragging, since the order is
-  the recognition order and the quick-action buttons' order. Columns: label, count (a number or
-  "the rest"), id, counts as, rate, form, injury resistance, weak foot, paid cards, minimum
+  the recognition order and the quick-action buttons' order. Columns: label, id, count (a number
+  or "the rest"), counts as, rate, form, injury resistance, weak foot, paid cards, minimum
   cards, A positions, name colour (none or a swatch), warning band (`stat_warning`: points
   above a stat's target that warn rather than err, 0 meaning none) and a "stats add up to at
-  most the targets" checkbox (`total_within_targets`). Per row, an expander holds the per-stat
+  most the targets" checkbox (`total_within_targets`). Every number, here and in every
+  section, draws its value as stored, never clamped to its control's range on sight (DBC7's 48
+  paid cards, past a 0-20 range, were rewritten to 20 by drawing the section), and the paid and
+  minimum cards run to 48, every card the game has. The id commits on Enter or focus loss, as a path row does, not per keystroke,
+  and carries the tier's key in the medal systems from the id it had to the one committed, only
+  while no other tier carries the old id and no system holds the new one: carried per
+  keystroke, typing `gold2` over Silver passed through `gold`, the Gold tier's own id, and the
+  next keystroke moved Gold's counts to `gold2`. Per row, an expander holds the per-stat
   targets (all ability stats, each an "own target" checkbox and its number: unticked, the stat
   follows the rate and has no entry; a number field cannot be left empty, which is how the
   draft says "the rate"), the free cards per group (one number per group, COM styles first: as

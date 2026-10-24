@@ -6,6 +6,7 @@ use aatf::{NON_STAT_TARGETS, Ruleset, Stat};
 use pes_savefile::interchange::team_toml::labels::ABILITY_STATS;
 
 use super::Section;
+use super::widgets;
 use crate::summary::human;
 
 /// Which checklist a row toggles.
@@ -27,7 +28,7 @@ pub(crate) fn show(ui: &mut egui::Ui, ruleset: &mut Ruleset) {
             ui.add(egui::TextEdit::singleline(&mut ruleset.name).desired_width(220.0));
             ui.end_row();
             ui.label("Squad size");
-            ui.add(egui::DragValue::new(&mut ruleset.squad_size).range(1..=32));
+            widgets::number(ui, &mut ruleset.squad_size, 1..=32);
             ui.end_row();
         });
     ui.separator();

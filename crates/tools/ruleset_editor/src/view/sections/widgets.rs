@@ -2,13 +2,22 @@
 //! weak "—" helpers): a number with a range, a text field of a given
 //! width and the dash a cell draws where the row has no value.
 
-/// A `DragValue` over `value` clamped to `range` (the draft's `drag`).
+/// A `DragValue` over `value` whose edits stay inside `range`, the
+/// stored value drawn as it is (the draft's `drag`); every section's
+/// number goes through it. `clamp_existing_to_range` stays off: an egui number control clamps
+/// the value it draws unless told not to, and a stored value past the
+/// range would come back changed on the frame that drew it (drawing
+/// DBC7's 48 paid cards past a 0-20 range rewrote them to 20).
 pub(crate) fn number(
     ui: &mut egui::Ui,
     value: &mut u8,
     range: std::ops::RangeInclusive<u8>,
 ) -> egui::Response {
-    ui.add(egui::DragValue::new(value).range(range))
+    ui.add(
+        egui::DragValue::new(value)
+            .range(range)
+            .clamp_existing_to_range(false),
+    )
 }
 
 /// A single-line text field `width` points wide (the draft's `text`).

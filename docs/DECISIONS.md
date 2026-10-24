@@ -10674,3 +10674,16 @@ follow the Cards left badges' (the error in the controls' place) rather than hid
 which would leave a member with no hint why the tier buttons went.
 Plan: `plans/core/gui.md` "Settings menu"; `plans/save_editor.md` "Configurable AATF rules"
 (the rules file's row, Quick actions), SE-GUI-32.
+
+## 2026-10-24 — ruleset_editor — A tier's id commits on Enter or focus loss; the Tiers numbers draw as stored
+Decision: the Tiers table's id field commits on Enter or focus loss, as a settings path row
+does, and the commit carries the tier's key in the medal systems from the id it had to the one
+committed, only while no other tier carries the old id and no system holds the new one. Every
+number in the section draws its value as stored (egui's `clamp_existing_to_range` off), and the
+paid and minimum cards run to 48.
+Why: the draft renames per keystroke, and an id typed through another tier's id moved that
+tier's medal counts (Silver typed to `gold2` passed through `gold`; the keystroke after it moved
+Gold's counts to `gold2`, Astra A1 on 20.6a2a); one carry per commit, refused while ambiguous,
+cannot. A clamped draw rewrote DBC7's 48 paid cards to 20 on opening the section, marking the
+file unsaved; 48 is every card the game has (DBC7's own comment).
+Plan: `plans/ruleset_editor.md` "The editor", the Tiers bullet.

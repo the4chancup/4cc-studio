@@ -382,23 +382,20 @@ fn the_start_modal_stays_on_a_shrunk_screen() {
         |frame| node(&frame.nodes, "Close").bounds().expect("drawn").y1 <= 300.0,
     )
     .expect("a wheel scroll brings Close onto the shrunk screen");
-    // The cap keeps the scroll viewport inside the screen: its bar's
-    // track is the viewport's rect.
-    let track = frame
+    // The cap keeps the scroll viewport inside the screen: a bar's
+    // track is its viewport's rect, and every drawn one (the modal's
+    // among them) lies inside the screen.
+    let tracks: Vec<_> = frame
         .nodes
         .iter()
-        .filter(|node| node.role() == Role::ScrollBar && node.bounds().is_some())
-        .min_by(|a, b| {
-            a.bounds()
-                .unwrap()
-                .x0
-                .partial_cmp(&b.bounds().unwrap().x0)
-                .expect("ordered bounds")
-        })
-        .and_then(|node| node.bounds())
-        .expect("the modal's scroll bar");
-    assert!(
-        track.y0 >= 0.0 && track.y1 <= 300.0,
-        "the modal's scroll viewport inside the 300-point screen ({track:?})"
-    );
+        .filter(|node| node.role() == Role::ScrollBar)
+        .filter_map(|node| node.bounds())
+        .collect();
+    assert!(!tracks.is_empty(), "the modal's scroll bar is drawn");
+    for track in tracks {
+        assert!(
+            track.y0 >= 0.0 && track.y1 <= 300.0,
+            "a scroll viewport inside the 300-point screen ({track:?})"
+        );
+    }
 }

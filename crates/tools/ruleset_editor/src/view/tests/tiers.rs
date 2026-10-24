@@ -42,18 +42,12 @@ fn spin<'a>(nodes: &'a [accesskit::Node], value: &str) -> &'a accesskit::Node {
         .unwrap_or_else(|| panic!("a SpinButton with value {value:?}"))
 }
 
-/// The SpinButton to the right of the label `label` on its row (a
-/// free-cards count sits beside its group's words).
+/// The nearest SpinButton to the right of the label `label` on its row
+/// (a free-cards count sits beside its group's words).
 fn spin_right_of<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
-    let bounds = node(nodes, label).bounds().expect("a drawn label");
-    nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::SpinButton
-                && node
-                    .bounds()
-                    .is_some_and(|b| b.x0 >= bounds.x1 - 1.0 && (b.y0 - bounds.y0).abs() < 20.0)
-        })
+    spins_on_row(nodes, label)
+        .first()
+        .copied()
         .unwrap_or_else(|| panic!("a SpinButton right of {label:?}"))
 }
 
@@ -89,6 +83,41 @@ fn type_replacing(window: &mut Headless, view: &mut RulesetView, ctx: &ToolConte
     window.frame(vec![egui::Event::Text(text.to_string())], |ui| {
         show(ui, view, ctx)
     });
+}
+
+/// `text` typed one character per frame: an edit that lands per
+/// keystroke would commit each one.
+fn type_chars(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext, text: &str) {
+    for character in text.chars() {
+        window.frame(vec![egui::Event::Text(character.to_string())], |ui| {
+            show(ui, view, ctx)
+        });
+    }
+}
+
+/// The numeric field at `index` on the gold row (column order: count,
+/// rate, form, injury resistance, weak foot usage and accuracy, paid
+/// cards, minimum cards, A positions, warning band) changed to `text`
+/// through its SpinButton: the ruleset equals the official ruleset
+/// with `edit` alone applied.
+fn edit_spin(index: usize, text: &str, edit: impl Fn(&mut aatf::Tier), name: &str) {
+    let (ctx, _events, _window, mut view) = fresh();
+    // The window is wide enough that every numeric cell is inside the
+    // visible area (a click off it reaches nothing).
+    let mut window = Headless::sized(1600.0, 900.0);
+    open_document(&mut view, aatf::Rules::official().ruleset().clone());
+    view.section = Section::Tiers;
+    let frame = settled(&mut window, &mut view, &ctx);
+    let spins = spins_on_row(&frame.nodes, "gold");
+    assert_eq!(spins.len(), 10, "the gold row's ten numeric cells");
+    click(&mut window, spins[index], &mut view, &ctx);
+    type_replacing(&mut window, &mut view, &ctx, text);
+    window.frame(vec![key(egui::Key::Enter, egui::Modifiers::NONE)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
+    let mut expected = aatf::Rules::official().ruleset().clone();
+    edit(&mut expected.tiers[0]);
+    assert_eq!(ruleset(&view), &expected, "{name}'s own binding");
 }
 
 /// How many nodes of `role` are labeled (or valued) `text`: every
@@ -218,16 +247,26 @@ fn a_rate_edit_shows_in_the_preview_and_marks_the_document_unsaved() {
         view.document.as_ref().unwrap().is_dirty(),
         "the document is marked unsaved"
     );
-    let line = ruleset(&view)
-        .to_data_block()
-        .lines()
-        .find(|line| line.contains("id: \"silver\""))
-        .expect("the silver line")
+
+    // The settled frame after the edit: the preview's node holding the
+    // silver line reads rate 90, not 92, and that line alone is
+    // highlighted.
+    let frame = settled(&mut window, &mut view, &ctx);
+    let silver = find(&frame.nodes, "the preview's silver line", |node| {
+        node.label()
+            .or(node.value())
+            .is_some_and(|text| text.contains("id: \"silver\""))
+    });
+    let line = silver
+        .label()
+        .or(silver.value())
+        .expect("a labeled line")
         .to_string();
     assert!(
         line.contains("rate: 90"),
         "the silver line reads rate 90: {line:?}"
     );
+    assert!(!line.contains("rate: 92"), "not the rate it had: {line:?}");
     assert_eq!(
         view.changed.iter().collect::<Vec<_>>(),
         vec![&line],
@@ -305,9 +344,13 @@ fn a_shared_tier_id_marks_the_rail_and_blocks_save() {
     let mut window = Headless::new();
     view.section = Section::Tiers;
 
-    // Silver's id typed to "gold": two tiers share the id.
+    // Silver's id typed to "gold" and committed: two tiers share the
+    // id.
     click_role(&mut window, &mut view, &ctx, Role::TextInput, "silver");
     type_replacing(&mut window, &mut view, &ctx, "gold");
+    window.frame(vec![key(egui::Key::Enter, egui::Modifiers::NONE)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
     assert_eq!(ruleset(&view).tiers[1].id, "gold", "premise: the id took");
 
     let frame = window.draw(&mut view, &ctx);
@@ -413,16 +456,20 @@ fn a_label_edit_saves_vtl11s_file_byte_for_byte() {
     open_path(&mut view, &ctx, &path);
     view.section = Section::Tiers;
 
-    // Silver's label edited in the table, then saved.
+    // Silver's label edited in the table, then saved. The expected
+    // ruleset is the original VTL11 with the label alone changed.
+    let mut expected = aatf::Ruleset::from_data_block(&block).expect("VTL11 reads");
+    expected.tiers[1].label = "Argent".to_string();
     click_role(&mut window, &mut view, &ctx, Role::TextInput, "Silver");
     type_replacing(&mut window, &mut view, &ctx, "Argent");
+    assert_eq!(ruleset(&view), &expected, "Silver's label alone changed");
     let frame = window.draw(&mut view, &ctx);
     click_labeled(&mut window, &frame.nodes, "Save", &mut view, &ctx);
 
-    // The saved file is `assemble_file` of the edited ruleset: the
-    // header, the block holding the new label, the current logic and
-    // the custom-checks section, byte for byte.
-    let expected = aatf::assemble_file(&ruleset(&view).clone(), None, Some(&checks));
+    // The saved file is `assemble_file` of it: the header, the block
+    // holding the new label, the current logic and the custom-checks
+    // section, byte for byte.
+    let expected = aatf::assemble_file(&expected, None, Some(&checks));
     assert_eq!(std::fs::read_to_string(&path).unwrap(), expected);
 }
 
@@ -484,6 +531,10 @@ fn the_id_edit_carries_the_tiers_medal_keys() {
 
     click_role(&mut window, &mut view, &ctx, Role::TextInput, "gold");
     type_replacing(&mut window, &mut view, &ctx, "royal");
+    // The id commits on Enter.
+    window.frame(vec![key(egui::Key::Enter, egui::Modifiers::NONE)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
     assert_eq!(ruleset(&view).tiers[0].id, "royal", "the id took");
     let counts: Vec<BTreeMap<String, u8>> = ruleset(&view)
         .medal_systems
@@ -498,6 +549,109 @@ fn the_id_edit_carries_the_tiers_medal_keys() {
     assert!(
         counts.iter().all(|map| !map.contains_key("gold")),
         "gold is gone from every system"
+    );
+}
+
+/// The id commits once, on Enter: `silver` typed `gold2` keystroke by
+/// keystroke carries `silver`'s keys to `gold2` alone — a keystroke
+/// landing on `gold` would have moved Gold's counts to `gold2` (the
+/// keystroke after it, to `gold2`).
+#[test]
+fn the_id_commits_once_and_carries_the_medal_keys() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, template("DBC7"));
+    view.section = Section::Tiers;
+
+    // Silver's id selected and `gold2` typed one character per frame;
+    // Enter commits it.
+    click_role(&mut window, &mut view, &ctx, Role::TextInput, "silver");
+    window.frame(vec![key(egui::Key::A, egui::Modifiers::COMMAND)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
+    type_chars(&mut window, &mut view, &ctx, "gold2");
+    window.frame(vec![key(egui::Key::Enter, egui::Modifiers::NONE)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
+
+    assert_eq!(ruleset(&view).tiers[1].id, "gold2", "the id committed");
+    let counts: Vec<BTreeMap<String, u8>> = ruleset(&view)
+        .medal_systems
+        .iter()
+        .map(|system| system.counts.clone())
+        .collect();
+    assert_eq!(
+        counts[0],
+        BTreeMap::from([("gold".to_string(), 3)]),
+        "GGG keeps its gold: 3"
+    );
+    assert_eq!(
+        counts[1],
+        BTreeMap::from([("gold".to_string(), 2), ("gold2".to_string(), 2)])
+    );
+    assert_eq!(
+        counts[2],
+        BTreeMap::from([("gold".to_string(), 1), ("gold2".to_string(), 4)])
+    );
+    assert_eq!(counts[3], BTreeMap::from([("gold2".to_string(), 6)]));
+    assert!(
+        counts.iter().all(|map| !map.contains_key("silver")),
+        "silver is gone from every system"
+    );
+}
+
+/// An ambiguous commit renames the tier alone: `silver` committed as
+/// `gold` moves no key (a system holds `gold`), and the shared id then
+/// committed as `royal` moves none either (another tier carries `gold`).
+#[test]
+fn an_ambiguous_id_commit_renames_the_tier_alone() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, template("DBC7"));
+    view.section = Section::Tiers;
+    let dbc7_systems = ruleset(&view).medal_systems.clone();
+
+    // Silver's id committed as `gold`: two tiers share it, the rail
+    // marks it, no system's keys move.
+    click_role(&mut window, &mut view, &ctx, Role::TextInput, "silver");
+    type_replacing(&mut window, &mut view, &ctx, "gold");
+    window.frame(vec![key(egui::Key::Enter, egui::Modifiers::NONE)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
+    assert_eq!(ruleset(&view).tiers[1].id, "gold", "the id committed");
+    assert_eq!(
+        ruleset(&view).medal_systems,
+        dbc7_systems,
+        "no key moved to `gold`"
+    );
+    let frame = window.draw(&mut view, &ctx);
+    assert_eq!(rail_labels(&frame.nodes)[1], "Tiers ⚠", "the mark");
+
+    // The second `gold` field (silver's row) committed as `royal`:
+    // `gold` is still another tier's id, so still no key moves — and
+    // the mark clears.
+    let golds: Vec<&accesskit::Node> = nodes_labeled(&frame.nodes, "gold")
+        .into_iter()
+        .filter(|node| node.role() == Role::TextInput)
+        .collect();
+    assert_eq!(golds.len(), 2, "two id fields read gold");
+    click(&mut window, golds[1], &mut view, &ctx);
+    type_replacing(&mut window, &mut view, &ctx, "royal");
+    window.frame(vec![key(egui::Key::Enter, egui::Modifiers::NONE)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
+    assert_eq!(
+        ruleset(&view).tiers[1].id,
+        "royal",
+        "the shared id committed"
+    );
+    assert_eq!(
+        ruleset(&view).medal_systems,
+        dbc7_systems,
+        "still no key moved"
+    );
+    assert_eq!(
+        ruleset(&view).medal_systems[0].counts["gold"],
+        3,
+        "GGG's gold: 3 intact"
     );
 }
 
@@ -725,6 +879,35 @@ fn the_open_expanders_stat_grid_spans_the_table() {
         handle_x(&frame.nodes),
         before,
         "the handle column's x is where it was"
+    );
+}
+
+/// The open expander starts one cell minimum right of the handle
+/// column (the child's rect starts `interact_size.x` in from the
+/// table's left edge, the draft's colspan indent).
+#[test]
+fn the_expander_opens_indented_one_cell_minimum() {
+    let (ctx, _events, _window, mut view) = fresh();
+    let mut window = Headless::sized(1600.0, 900.0);
+    open_document(&mut view, template("VTL11"));
+    view.section = Section::Tiers;
+
+    let frame = settled(&mut window, &mut view, &ctx);
+    click_labeled(
+        &mut window,
+        &frame.nodes,
+        "Stat targets, free cards and conditions",
+        &mut view,
+        &ctx,
+    );
+    let frame = settled(&mut window, &mut view, &ctx);
+    let header = node(&frame.nodes, "Stat targets, free cards and conditions")
+        .bounds()
+        .expect("drawn");
+    let indent = egui::Style::default().spacing.interact_size.x as f64;
+    assert!(
+        header.x0 >= handle_x(&frame.nodes) + indent - 1.0,
+        "the expander's left edge a cell minimum in ({header:?})"
     );
 }
 
@@ -1049,4 +1232,191 @@ fn a_drop_on_the_label_field_reorders_the_tiers() {
         ["gold", "bronze", "silver", "goalkeeper", "regular"],
         "bronze takes silver's place"
     );
+}
+
+/// Every section draws the ruleset as stored: a number's draw never
+/// clamps a stored value to its control's range (a clamped draw
+/// rewrote DBC7's 48 paid cards to 20 and marked the file unsaved).
+#[test]
+fn drawing_every_section_leaves_the_ruleset_untouched() {
+    for template in aatf::templates() {
+        let dir = crate::test_support::scratch("sections_read_only");
+        let path = write_file(
+            &dir,
+            "rules.rhai",
+            &aatf::assemble_file(&template.ruleset, None, template.custom_checks.as_deref()),
+        );
+        let (ctx, _events, mut window, mut view) = fresh();
+        open_path(&mut view, &ctx, &path);
+        let opened = ruleset(&view).clone();
+        for section in Section::RAIL {
+            view.section = *section;
+            settled(&mut window, &mut view, &ctx);
+        }
+        assert_eq!(
+            ruleset(&view),
+            &opened,
+            "{}'s ruleset untouched by drawing every section",
+            opened.name
+        );
+        assert!(
+            !view.document.as_ref().unwrap().is_dirty(),
+            "{}'s document not marked unsaved",
+            opened.name
+        );
+    }
+}
+
+/// General's squad size draws as stored too: a hand-edited file's 40,
+/// past the field's 1-32, stays 40 when General is drawn (the section a
+/// file opens on).
+#[test]
+fn a_squad_size_past_its_range_is_drawn_as_stored() {
+    let mut stored = aatf::Rules::official().ruleset().clone();
+    stored.squad_size = 40;
+    let dir = crate::test_support::scratch("squad_size_read_only");
+    let path = write_file(
+        &dir,
+        "rules.rhai",
+        &aatf::assemble_file(&stored, None, None),
+    );
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_path(&mut view, &ctx, &path);
+    assert_eq!(ruleset(&view).squad_size, 40, "premise: the file's 40 read");
+    view.section = Section::General;
+    settled(&mut window, &mut view, &ctx);
+    assert_eq!(ruleset(&view).squad_size, 40, "drawn as stored");
+    assert!(
+        !view.document.as_ref().unwrap().is_dirty(),
+        "the document not marked unsaved"
+    );
+}
+
+/// Each field of a tier row writes to its own binding, RE-GUI-17's
+/// field isolation for the Tiers section alone (the scenario's whole
+/// schema waits for the other sections): one change through each
+/// control, the ruleset equal to the opened one with that field alone
+/// changed.
+#[test]
+fn each_tier_field_writes_to_its_own_binding() {
+    // The gold row's ten numeric cells, in column order.
+    edit_spin(0, "3", |tier| tier.count = Some(3), "count");
+    edit_spin(1, "55", |tier| tier.rate = 55, "rate");
+    edit_spin(2, "5", |tier| tier.form = 5, "form");
+    edit_spin(
+        3,
+        "1",
+        |tier| tier.injury_resistance = 1,
+        "injury resistance",
+    );
+    edit_spin(4, "1", |tier| tier.weak_foot.usage = 1, "weak foot usage");
+    edit_spin(
+        5,
+        "2",
+        |tier| tier.weak_foot.accuracy = 2,
+        "weak foot accuracy",
+    );
+    edit_spin(6, "9", |tier| tier.cards = 9, "paid cards");
+    edit_spin(7, "2", |tier| tier.min_cards = 2, "minimum cards");
+    edit_spin(8, "5", |tier| tier.a_positions = 5, "A positions");
+    edit_spin(9, "7", |tier| tier.stat_warning = 7, "warning band");
+
+    // The stat-total checkbox on gold's row (the topmost of the five).
+    {
+        let (ctx, _events, _window, mut view) = fresh();
+        // The window is wide enough that the cell is inside the
+        // visible area.
+        let mut window = Headless::sized(1600.0, 900.0);
+        open_document(&mut view, aatf::Rules::official().ruleset().clone());
+        view.section = Section::Tiers;
+        let frame = settled(&mut window, &mut view, &ctx);
+        click(
+            &mut window,
+            role_labeled(
+                &frame.nodes,
+                Role::CheckBox,
+                "The stats add up to at most the targets, an error past them",
+            ),
+            &mut view,
+            &ctx,
+        );
+        let mut expected = aatf::Rules::official().ruleset().clone();
+        expected.tiers[0].total_within_targets = true;
+        assert_eq!(ruleset(&view), &expected, "the stat-total checkbox");
+    }
+
+    // A per-stat target's number (gold's "Attacking Prowess" own-target
+    // checkbox ticked first).
+    {
+        let (ctx, _events, mut window, mut view) = fresh();
+        open_document(&mut view, aatf::Rules::official().ruleset().clone());
+        view.section = Section::Tiers;
+        let frame = settled(&mut window, &mut view, &ctx);
+        click_labeled(
+            &mut window,
+            &frame.nodes,
+            "Stat targets, free cards and conditions",
+            &mut view,
+            &ctx,
+        );
+        click_role(
+            &mut window,
+            &mut view,
+            &ctx,
+            Role::CheckBox,
+            "Attacking Prowess",
+        );
+        let frame = settled(&mut window, &mut view, &ctx);
+        click(
+            &mut window,
+            spin_right_of(&frame.nodes, "Attacking Prowess"),
+            &mut view,
+            &ctx,
+        );
+        type_replacing(&mut window, &mut view, &ctx, "42");
+        window.frame(vec![key(egui::Key::Enter, egui::Modifiers::NONE)], |ui| {
+            show(ui, &mut view, &ctx)
+        });
+        let mut expected = aatf::Rules::official().ruleset().clone();
+        expected.tiers[0].stats.insert(
+            aatf::Stat::try_from("attacking_prowess".to_string()).unwrap(),
+            42,
+        );
+        assert_eq!(ruleset(&view), &expected, "the per-stat target");
+    }
+
+    // The name colour's code text (gold's colour checkbox ticked
+    // first, giving it the default).
+    {
+        let (ctx, _events, _window, mut view) = fresh();
+        // The window is wide enough that the name-colour cell is
+        // inside the visible area.
+        let mut window = Headless::sized(1600.0, 900.0);
+        open_document(&mut view, aatf::Rules::official().ruleset().clone());
+        view.section = Section::Tiers;
+        let frame = settled(&mut window, &mut view, &ctx);
+        let checkboxes = nodes_labeled(&frame.nodes, "This tier's names carry a colour code")
+            .into_iter()
+            .filter(|node| node.role() == Role::CheckBox)
+            .collect::<Vec<_>>();
+        assert_eq!(checkboxes.len(), 5, "one checkbox per tier");
+        click(&mut window, checkboxes[0], &mut view, &ctx);
+        click_role(&mut window, &mut view, &ctx, Role::TextInput, "cc9900ff");
+        type_replacing(&mut window, &mut view, &ctx, "11223344");
+        let mut expected = aatf::Rules::official().ruleset().clone();
+        expected.tiers[0].name_color = Some("11223344".to_string());
+        assert_eq!(ruleset(&view), &expected, "the colour code text");
+    }
+
+    // A medal system's label field on DBC7.
+    {
+        let (ctx, _events, mut window, mut view) = fresh();
+        open_document(&mut view, template("DBC7"));
+        view.section = Section::Tiers;
+        click_role(&mut window, &mut view, &ctx, Role::TextInput, "GGG");
+        type_replacing(&mut window, &mut view, &ctx, "Podium");
+        let mut expected = template("DBC7");
+        expected.medal_systems[0].label = "Podium".to_string();
+        assert_eq!(ruleset(&view), &expected, "the medal system's label");
+    }
 }
