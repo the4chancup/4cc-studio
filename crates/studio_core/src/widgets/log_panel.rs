@@ -119,7 +119,7 @@ impl LogPanel {
     pub fn new(id_salt: impl egui::AsIdSalt) -> LogPanel {
         let id = egui::Id::unique(id_salt);
         LogPanel {
-            dock: BottomDock::new(id, "Log"),
+            dock: BottomDock::new(id, "Log", "the log"),
             salt: id.with("body"),
             filter: Filter::All,
             follow: Follow {

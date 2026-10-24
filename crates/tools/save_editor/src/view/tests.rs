@@ -4,6 +4,7 @@
 //! painted shapes.
 
 use std::path::{Path, PathBuf};
+use std::time::{Duration, Instant};
 
 use egui::accesskit::{self, Role};
 use pes_savefile::model::TeamEntry;
@@ -664,10 +665,124 @@ fn click_at(window: &mut Headless, pos: egui::Pos2, view: &mut SaveView) -> Vec<
     nodes
 }
 
+/// One frame with `rules` as the active rules file (`None`: the embedded
+/// official ruleset).
+fn draw(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>) -> Vec<accesskit::Node> {
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+    nodes
+}
+
+/// Frames until `pick`'s check lands: `pending` empty and the result
+/// keyed to the session's current revision, `ids` and rules file
+/// (bounded, so a worker that never replies fails rather than hangs).
+fn checked(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules: Option<&Path>,
+    pick: impl Fn(&SaveView) -> &aatf_check::TeamsCheck,
+    ids: &[u32],
+) -> Vec<accesskit::Node> {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let nodes = draw(window, view, rules);
+        let revision = view.session.as_ref().expect("an open save").revision();
+        let check = pick(view);
+        if check.pending.is_none()
+            && check.result.as_ref().is_some_and(|(key, _)| {
+                key.revision == revision && key.ids == ids && key.rules_file.as_deref() == rules
+            })
+        {
+            return nodes;
+        }
+        assert!(Instant::now() < deadline, "the AATF check never returned");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+/// The Height row under `header`'s group (two players share the row's
+/// label, so the group header picks the right one).
+fn height_row_below<'a>(nodes: &'a [accesskit::Node], header: &str) -> &'a accesskit::Node {
+    let header = nodes
+        .iter()
+        .find(|node| node.value() == Some(header))
+        .unwrap_or_else(|| panic!("no header {header:?}"));
+    let top = header.bounds().expect("header bounds").y0;
+    nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node.label() == Some("Height height 183 takes no bracket")
+        })
+        .filter(|node| node.bounds().is_some_and(|b| b.y0 > top))
+        .min_by(|a, b| {
+            let y = |n: &&accesskit::Node| n.bounds().expect("bounds").y0;
+            y(a).partial_cmp(&y(b)).expect("ordered bounds")
+        })
+        .expect("a Height row below the header")
+}
+
+/// The Height-183 rows among `nodes` (the two players' row).
+fn height_rows(nodes: &[accesskit::Node]) -> usize {
+    nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node.label() == Some("Height height 183 takes no bracket")
+        })
+        .count()
+}
+
+/// `view` on `version`'s fixture save under `test`, the save open and
+/// team 734 selected with players `ids`' heights set to `height` as one
+/// sealed edit.
+fn open_734_with(test: &str, ids: &[u32], height: u8) -> (SaveView, Headless) {
+    let path = fixture(PesVersion::Pes17, test);
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(734);
+    view.selected = Some((734, 0));
+    let mut edits = Vec::new();
+    for &id in ids {
+        let mut entry = player_entry(&view, id);
+        assert_eq!(entry.basic.height, 185, "premise: {id} is tall");
+        entry.basic.height = height;
+        edits.push(entry);
+    }
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_players(edits);
+    (view, Headless::sized(1100.0, 800.0))
+}
+
+/// The PES 15 fixture save open with the CLI's `official_legal.toml`
+/// imported onto team 714: the one team the official ruleset finds
+/// clean (its 32 findings are all suggestions).
+fn open_legal_714(test: &str, window: Headless) -> (SaveView, Headless) {
+    let path = fixture(PesVersion::Pes15, test);
+    let mut view = SaveView::new();
+    view.open(&path);
+    let toml = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/aatf/official_legal.toml"
+    ))
+    .unwrap();
+    let document = pes_savefile::interchange::team_toml::TeamToml::parse(&toml).unwrap();
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .import_team(&document)
+        .expect("the legal team imports");
+    view.team = TeamChoice::Team(714);
+    view.selected = Some((714, 0));
+    (view, window)
+}
+
 mod aatf_panel;
 mod abilities;
 mod appearance;
 mod list;
+mod live_aatf;
 mod player;
 mod quick_actions;
 mod savefile;

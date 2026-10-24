@@ -4,16 +4,19 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::time::{Duration, Instant};
 
 use super::*;
-use crate::view::aatf_panel::{AatfMode, CheckKey, PendingCheck};
+use crate::view::aatf_check::{CheckKey, PendingCheck};
+use crate::view::aatf_panel::AatfMode;
 
-/// One frame with `rules` as the active rules file (`None`: the embedded
-/// official ruleset).
-fn draw(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>) -> Vec<accesskit::Node> {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
-    nodes
+/// `checked` on the panel's check.
+fn checked(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules: Option<&Path>,
+    ids: &[u32],
+) -> Vec<accesskit::Node> {
+    super::checked(window, view, rules, |view| &view.aatf.check, ids)
 }
 
 /// `node` clicked with `rules` as the active rules file.
@@ -56,31 +59,6 @@ fn open_panel(
     draw(window, view, rules)
 }
 
-/// Frames until the panel's check lands: `pending` empty and the result
-/// keyed to the session's current revision, `ids` and rules file
-/// (bounded, so a worker that never replies fails rather than hangs).
-fn checked(
-    window: &mut Headless,
-    view: &mut SaveView,
-    rules: Option<&Path>,
-    ids: &[u32],
-) -> Vec<accesskit::Node> {
-    let deadline = Instant::now() + Duration::from_secs(30);
-    loop {
-        let nodes = draw(window, view, rules);
-        let revision = view.session.as_ref().expect("an open save").revision();
-        if view.aatf.pending.is_none()
-            && view.aatf.result.as_ref().is_some_and(|(key, _)| {
-                key.revision == revision && key.ids == ids && key.rules_file.as_deref() == rules
-            })
-        {
-            return nodes;
-        }
-        assert!(Instant::now() < deadline, "the AATF check never returned");
-        std::thread::sleep(Duration::from_millis(20));
-    }
-}
-
 /// The CheckBox labeled `label` toggled through its AccessKit action: a
 /// team the picker scroll has not reached sits outside the window, where
 /// a pointer click lands on nothing.
@@ -110,28 +88,6 @@ fn node_named<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::N
         .iter()
         .find(|node| node.label() == Some(label) || node.value() == Some(label))
         .unwrap_or_else(|| panic!("no node {label:?}"))
-}
-
-/// The Height row under `header`'s group (two players share the row's
-/// label, so the group header picks the right one).
-fn height_row_below<'a>(nodes: &'a [accesskit::Node], header: &str) -> &'a accesskit::Node {
-    let header = nodes
-        .iter()
-        .find(|node| node.value() == Some(header))
-        .unwrap_or_else(|| panic!("no header {header:?}"));
-    let top = header.bounds().expect("header bounds").y0;
-    nodes
-        .iter()
-        .filter(|node| {
-            node.role() == Role::Button
-                && node.label() == Some("Height height 183 takes no bracket")
-        })
-        .filter(|node| node.bounds().is_some_and(|b| b.y0 > top))
-        .min_by(|a, b| {
-            let y = |n: &&accesskit::Node| n.bounds().expect("bounds").y0;
-            y(a).partial_cmp(&y(b)).expect("ordered bounds")
-        })
-        .expect("a Height row below the header")
 }
 
 /// The nodes inside the panel's window (its subtree: the player list's
@@ -179,52 +135,6 @@ fn panel_lines(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>)
     lines.into_iter().map(|(_, _, text)| text).collect()
 }
 
-/// `view` on `version`'s fixture save under `test`, the save open and
-/// team 734 selected with players `ids`' heights set to `height` as one
-/// sealed edit.
-fn open_734_with(test: &str, ids: &[u32], height: u8) -> (SaveView, Headless) {
-    let path = fixture(PesVersion::Pes17, test);
-    let mut view = SaveView::new();
-    view.open(&path);
-    view.team = TeamChoice::Team(734);
-    view.selected = Some((734, 0));
-    let mut edits = Vec::new();
-    for &id in ids {
-        let mut entry = player_entry(&view, id);
-        assert_eq!(entry.basic.height, 185, "premise: {id} is tall");
-        entry.basic.height = height;
-        edits.push(entry);
-    }
-    view.session
-        .as_mut()
-        .expect("the save opened")
-        .edit_players(edits);
-    (view, Headless::sized(1100.0, 800.0))
-}
-
-/// The PES 15 fixture save open with the CLI's `official_legal.toml`
-/// imported onto team 714: the one team the official ruleset finds
-/// clean (its 32 findings are all suggestions).
-fn open_legal_714(test: &str, window: Headless) -> (SaveView, Headless) {
-    let path = fixture(PesVersion::Pes15, test);
-    let mut view = SaveView::new();
-    view.open(&path);
-    let toml = std::fs::read_to_string(concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/fixtures/aatf/official_legal.toml"
-    ))
-    .unwrap();
-    let document = pes_savefile::interchange::team_toml::TeamToml::parse(&toml).unwrap();
-    view.session
-        .as_mut()
-        .expect("the save opened")
-        .import_team(&document)
-        .expect("the legal team imports");
-    view.team = TeamChoice::Team(714);
-    view.selected = Some((714, 0));
-    (view, window)
-}
-
 /// `dir`'s `throw19.rhai` written and its path returned: the official
 /// file with the CLI's custom check that throws on captain 19 (team
 /// 743's; `a_check_that_fails_on_one_team_does_not_stop_the_rest`).
@@ -240,17 +150,6 @@ fn throw19_file(dir: &Path) -> PathBuf {
     )
     .unwrap();
     path
-}
-
-/// The Height-183 rows among `nodes` (the two players' row).
-fn height_rows(nodes: &[accesskit::Node]) -> usize {
-    nodes
-        .iter()
-        .filter(|node| {
-            node.role() == Role::Button
-                && node.label() == Some("Height height 183 takes no bracket")
-        })
-        .count()
 }
 
 /// The panel window's bounds and the last `Unused` row's.
@@ -1050,7 +949,7 @@ fn another_save_starts_the_panel_afresh() {
     );
     let _ = draw(&mut window, &mut view, rules);
     assert!(
-        view.aatf.result.is_some() && !view.aatf.picked.is_empty(),
+        view.aatf.check.result.is_some() && !view.aatf.picked.is_empty(),
         "premise: a check ran and teams were picked"
     );
 
@@ -1058,7 +957,7 @@ fn another_save_starts_the_panel_afresh() {
     view.open(&save17);
     assert!(view.aatf.picked.is_empty(), "the picks went with the save");
     assert!(
-        view.aatf.result.is_none() && view.aatf.pending.is_none(),
+        view.aatf.check.result.is_none() && view.aatf.check.pending.is_none(),
         "the result and its check went with the save"
     );
     assert!(
@@ -1087,7 +986,7 @@ fn a_worker_that_ends_without_a_reply_is_checked_again() {
     // A pending whose sender is already gone: the worker died.
     let (sender, replies) = crossbeam_channel::unbounded();
     drop(sender);
-    view.aatf.pending = Some(PendingCheck {
+    view.aatf.check.pending = Some(PendingCheck {
         key: CheckKey {
             revision: view.session.as_ref().expect("the save opened").revision(),
             ids: vec![734],
@@ -1137,14 +1036,17 @@ fn an_unsettled_edit_marks_checking_and_holds_the_check() {
                 .any(|node| node.value() == Some("Checking\u{2026}")),
             "marked as checking while held"
         );
-        assert!(view.aatf.pending.is_none(), "no check started while held");
+        assert!(
+            view.aatf.check.pending.is_none(),
+            "no check started while held"
+        );
         assert_eq!(height_rows(&nodes), 2, "the stale rows stay");
     }
     window.frame(pointer_at(at, false), |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     assert!(
-        view.aatf.pending.is_some(),
+        view.aatf.check.pending.is_some(),
         "the check starts on the release frame"
     );
     let nodes = checked(&mut window, &mut view, None, &[734]);

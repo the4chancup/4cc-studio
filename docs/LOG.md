@@ -2413,3 +2413,5 @@ worklog passed 7,000 lines.
   the player, suggestions, Validate rules, Save a copy), the check on a worker thread.
 - **2026-10-24** — 0.0.1h: the spec describes `ingame_face.toml` as built (marker, templates, codes, the upgrader,
   ten scenarios); the plan keeps the Save editor half.
+- **2026-10-24** — 8.9j3: Live AATF, a toolbar toggle (remembered) docking the open team's violations at the
+  bottom of the Save editor, re-checked after every edit on the floating panel's shared check.

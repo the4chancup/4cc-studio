@@ -1,6 +1,7 @@
 //! The Save editor's section of the settings file. A key enters with the step whose code reads
 //! it, so the file never carries a setting nothing honors yet: `check-aatf` (step 5.4b) reads
-//! `aatf_rules`; the comparator defaults and the last folder arrive with the window.
+//! `aatf_rules`; the window reads `live_aatf` (the toolbar's Live AATF toggle); the comparator
+//! defaults and the last folder arrive with the window.
 
 use serde::{Deserialize, Serialize};
 
@@ -11,11 +12,14 @@ pub(crate) struct SaveEditorSettings {
     /// The AATF rules file `check-aatf` and the AATF panel run; empty: the official ruleset,
     /// built in.
     pub(crate) aatf_rules: String,
+    /// The toolbar's Live AATF toggle; on, a docked panel lists the open team's violations
+    /// after every edit.
+    pub(crate) live_aatf: bool,
 }
 
 /// The defaults as a settings table, merged into the file's section for every key it lacks.
 pub(crate) fn default_table() -> toml::Table {
-    toml::Table::try_from(SaveEditorSettings::default()).expect("the default is one string")
+    toml::Table::try_from(SaveEditorSettings::default()).expect("the defaults serialize")
 }
 
 /// Reads the tool's settings table. A missing key loads as its default; a key this version does

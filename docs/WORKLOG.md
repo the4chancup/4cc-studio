@@ -1267,7 +1267,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         `save_editor/{help/02_window.md,src/{cli.rs,session/rules.rs,view/{aatf_panel.rs,
         menus.rs,mod.rs,player_list.rs,quick_actions.rs,tests.rs,tests/{aatf_panel.rs,
         quick_actions.rs}}}}`
-        - [ ] review: checkpoint (a) for SE-GUI-15's widening and (b) for `aatf`'s two `pub`
+        - [x] review: checkpoint (a) for SE-GUI-15's widening and (b) for `aatf`'s two `pub`
           items: a SWE-2 loop, then Astra; `mutants-diff`. S1: 6 of 10 accepted, rework 1 (SWE-2,
           16 min): the results in a scroll area, one player map per frame, a click clearing the
           list's filter, no "No violations." over failures only, another save resetting the
@@ -1279,8 +1279,19 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           assertion, SE-GUI-15 omitting what its tests pin), rework 3 (fresh SWE-2 session, 18
           min: an id salt each, a rules-file switch test, `checked` waiting on the file) and
           the plan widened by the lead; Astra's loop ends (rulings
-          `.tmp/8_9j/duck_rulings_j2.md`). S3 next
-      - [ ] 8.9j3 Live AATF (SE-GUI-30)
+          `.tmp/8_9j/duck_rulings_j2.md`). Mutants on rework 3: 2 caught. S3: 2 accepted (a
+          doc claim, the tests file past 1000 lines), riding 8.9j3's rework; the review is done
+      - [x] 8.9j3 Live AATF (SE-GUI-30): the toolbar toggle (`live_aatf`, remembered) and a
+        `BottomDock` at the bottom of the view listing the open team's violations under `N issues
+        · <ruleset>`, re-checked after every settled edit. Done 2026-10-24 (SWE-2, 26 min): the
+        floating panel's check moved to `view/aatf_check.rs` (`CheckKey`, the worker, `TeamsCheck`,
+        `current_team`, the shared `results` and `select_player`), both callers on it;
+        `BottomDock::new` takes the chevron tooltips' noun (`Collapse Live AATF`). Files:
+        `studio_core/src/widgets/{dock.rs,log_panel.rs,log_panel/tests.rs}`,
+        `save_editor/{help/02_window.md,src/{lib.rs,settings.rs,view/{aatf_check.rs,aatf_panel.rs,
+        live_aatf.rs,mod.rs,player_list.rs,tests.rs,tests/{aatf_panel.rs,live_aatf.rs}}}}`
+        - [ ] review: checkpoint (b) (`BottomDock::new`'s signature, two crates): the lead's
+          review and S3's items in rework 1, `mutants-diff 1311c1d2`, then a SWE-2 loop and Astra
       - [ ] 8.9j4 the comparator (SE-GUI-13), then 8.9j5 the transplant (SE-GUI-14)
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
       (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's

@@ -59,11 +59,12 @@ impl StudioTool for Tool {
 
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
         // A settings error counts as an empty setting (the embedded
-        // official ruleset).
-        let aatf_rules = settings::from_table(&ctx.tool_settings(TOOL_ID))
-            .map(|settings| settings.aatf_rules)
-            .unwrap_or_default();
-        let file = session::rules::rules_file(&aatf_rules, ctx.paths().data_dir.as_deref());
+        // official ruleset, Live AATF off).
+        let table = ctx.tool_settings(TOOL_ID);
+        let tool_settings = settings::from_table(&table).unwrap_or_default();
+        let file =
+            session::rules::rules_file(&tool_settings.aatf_rules, ctx.paths().data_dir.as_deref());
+        self.view.live_aatf = tool_settings.live_aatf;
         let common = ctx.common();
         self.view.hide_ids = common.fpc_hide_ids();
         self.view
@@ -74,6 +75,17 @@ impl StudioTool for Tool {
             &studio_core::running_pes,
             file.as_deref(),
         );
+        // The toolbar's toggle is a setting: the table as read with only
+        // `live_aatf` replaced, so any other key survives (as
+        // `settings_view` writes `aatf_rules`).
+        if self.view.live_aatf != tool_settings.live_aatf {
+            let mut table = table;
+            table.insert(
+                "live_aatf".to_owned(),
+                toml::Value::Boolean(self.view.live_aatf),
+            );
+            ctx.set_tool_settings(TOOL_ID, table);
+        }
     }
 
     fn settings_view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {

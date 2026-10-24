@@ -901,3 +901,43 @@ fn a_codeless_line_stays_one_row_and_scrolls_sideways() {
         row.y1 - row.y0
     );
 }
+
+/// The chevron's tooltips name the dock's noun (`BottomDock::new`'s third
+/// argument): `the log` on the log panel, and a title whose own lowercase
+/// would garble ("the live aatf") carries its own noun phrase instead. The
+/// tooltip's text lands on the widget's accesskit description.
+#[test]
+fn the_chevrons_tooltip_names_the_docks_noun() {
+    let lines = plain_lines(5);
+    let mut panel = LogPanel::new("test-log");
+    let mut window = Headless::new();
+    let nodes = window.idle(&mut panel, &lines);
+    assert_eq!(entry(&nodes, "▾").description(), Some("Collapse the log"));
+    let nodes = click(&mut window, &mut panel, &lines, entry(&nodes, "▾"));
+    let nodes = if nodes.iter().any(|node| node.label() == Some("▸")) {
+        nodes
+    } else {
+        // The collapsed chevron draws on the frame after the click's.
+        window.idle(&mut panel, &lines)
+    };
+    assert_eq!(entry(&nodes, "▸").description(), Some("Expand the log"));
+
+    // A dock whose title is not its noun.
+    let mut dock = BottomDock::new(egui::Id::unique("live"), "Live AATF", "Live AATF");
+    let mut draw = |events: Vec<egui::Event>| {
+        window.frame(events, |ui| {
+            dock.show(ui, |_| {}, |_| {});
+        })
+    };
+    let nodes = draw(Vec::new());
+    assert_eq!(entry(&nodes, "▾").description(), Some("Collapse Live AATF"));
+    let at = centre(entry(&nodes, "▾"));
+    draw(pointer_at(at, true));
+    let nodes = draw(pointer_at(at, false));
+    let nodes = if nodes.iter().any(|node| node.label() == Some("▸")) {
+        nodes
+    } else {
+        draw(Vec::new())
+    };
+    assert_eq!(entry(&nodes, "▸").description(), Some("Expand Live AATF"));
+}

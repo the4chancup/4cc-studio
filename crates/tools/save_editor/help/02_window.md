@@ -33,6 +33,12 @@ each player could still use within the rules. **Validate rules** checks the rule
 file itself and lists everything it finds wrong with it; **Save a copy** writes the
 built-in official ruleset out to a file.
 
+**Live AATF.** The toolbar's **Live AATF** toggle checks the open team after every
+edit, in a panel docked at the bottom of the window: the violations left, grouped
+per player as the floating window lists them, under `N issues · <ruleset>`, or
+`No issues` once the team passes. Clicking a row selects that player. The toggle
+is remembered, so it is still on the next time the editor is opened.
+
 **Saving.** **Save** or Ctrl+S writes the edits to the file the save was opened from (a
 file it replaces is kept once as a `.bak` copy). Saving is refused while the save's own
 PES version is running: the game writes its save back when it closes, over the one just

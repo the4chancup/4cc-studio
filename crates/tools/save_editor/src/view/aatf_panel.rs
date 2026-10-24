@@ -11,18 +11,15 @@
 //! validation of the active file; Save a copy writes the embedded
 //! official file out.
 
-use std::collections::{BTreeSet, HashMap};
+use std::collections::BTreeSet;
 use std::path::PathBuf;
 use std::sync::Arc;
 
 use anyhow::Context;
-use crossbeam_channel::Receiver;
 use pes_savefile::EditFile;
-use pes_savefile::model::PlayerEntry;
-use team_widgets::violations::{ListedPlayer, SelectedPlayer, TeamViolations, violations_list};
 
-use crate::session::rules::{self, TeamCheck};
-use crate::session::selection::TeamChoice;
+use crate::session::rules;
+use crate::view::aatf_check::{self, CheckKey, TeamsCheck};
 use crate::view::{ActiveRules, Refusal, SaveView, edit_settled, rules_load_error};
 
 /// Which teams the panel checks.
@@ -58,30 +55,9 @@ pub(crate) fn default_copy_dialog() -> SaveCopyDialog {
     Box::new(|_| panic!("a test reached a real file dialog: stub aatf_copy_dialog"))
 }
 
-/// What a check ran for: a change of the open save, of the ids or of the
-/// rules file recomputes it.
-#[derive(Clone, PartialEq)]
-pub(super) struct CheckKey {
-    /// `Session::revision` when the views were built.
-    pub(super) revision: u64,
-    /// The teams checked, in id order.
-    pub(super) ids: Vec<u32>,
-    /// The rules file the check's ruleset came from (`None`: the embedded
-    /// official ruleset).
-    pub(super) rules_file: Option<PathBuf>,
-}
-
-/// A check in flight: the key it runs for and its reply channel.
-pub(super) struct PendingCheck {
-    /// The key the worker's `check_teams` runs for.
-    pub(super) key: CheckKey,
-    /// The worker's reply: its key and the checks, in `ids`' order.
-    pub(super) replies: Receiver<(CheckKey, Vec<TeamCheck>)>,
-}
-
 /// The panel's state on `SaveView` (`view.aatf`): open or not, the mode,
-/// the picked ids, the suggestions toggle, the last result with its key,
-/// the pending check's receiver, the last validation and the copy's path.
+/// the picked ids, the suggestions toggle, the teams' check, the last
+/// validation and the copy's path.
 pub(super) struct AatfPanel {
     /// Whether the window is drawn (the Panels menu's item and the quick
     /// actions' `AATF…` button open it).
@@ -92,10 +68,9 @@ pub(super) struct AatfPanel {
     pub(super) picked: BTreeSet<u32>,
     /// The Show suggestions checkbox (off).
     pub(super) show_suggestions: bool,
-    /// The last check's key and its per-team results.
-    pub(super) result: Option<(CheckKey, Vec<TeamCheck>)>,
-    /// The check in flight, if one is.
-    pub(super) pending: Option<PendingCheck>,
+    /// The picked teams' check (the worker check `aatf_check` shares with
+    /// the Live AATF dock).
+    pub(super) check: TeamsCheck,
     /// The last Validate rules answer: the file's label and its finding
     /// lines.
     validation: Option<(String, Vec<String>)>,
@@ -111,8 +86,7 @@ impl AatfPanel {
             mode: AatfMode::Current,
             picked: BTreeSet::new(),
             show_suggestions: false,
-            result: None,
-            pending: None,
+            check: TeamsCheck::new(),
             validation: None,
             wrote: None,
         }
@@ -124,8 +98,7 @@ impl AatfPanel {
     /// and stay.
     pub(super) fn reset(&mut self) {
         self.picked.clear();
-        self.result = None;
-        self.pending = None;
+        self.check.reset();
         self.validation = None;
         self.wrote = None;
     }
@@ -151,23 +124,6 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     if !aatf.open {
         return;
     }
-    let reply = aatf
-        .pending
-        .as_ref()
-        .map(|pending| pending.replies.try_recv());
-    match reply {
-        Some(Ok((key, checks))) => {
-            aatf.result = Some((key, checks));
-            aatf.pending = None;
-        }
-        // A worker that died without replying leaves no result to wait
-        // for: drop the pending so the spawn below starts a fresh check.
-        Some(Err(crossbeam_channel::TryRecvError::Disconnected)) => {
-            log::warn!("the AATF check's worker ended without a reply");
-            aatf.pending = None;
-        }
-        _ => {}
-    }
     let (Some(session), Some(active)) = (session.as_ref(), rules.as_ref()) else {
         return;
     };
@@ -178,15 +134,12 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // the ticked ids, already in id order.
     let mut no_teams = None;
     let ids: Vec<u32> = match aatf.mode {
-        AatfMode::Current => match *team {
-            TeamChoice::Team(id) => vec![id],
-            TeamChoice::All => match *selected {
-                Some((team_id, _)) => vec![team_id],
-                None => {
-                    no_teams = Some("No team open.");
-                    Vec::new()
-                }
-            },
+        AatfMode::Current => match aatf_check::current_team(*team, *selected) {
+            Some(id) => vec![id],
+            None => {
+                no_teams = Some("No team open.");
+                Vec::new()
+            }
         },
         AatfMode::Select => {
             if aatf.picked.is_empty() {
@@ -206,20 +159,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     };
     // A check is due when the key moved on since the last result (a rules
     // file that does not load never starts one: its error is the list).
-    let due = !key.ids.is_empty()
-        && loaded.is_some()
-        && aatf.result.as_ref().is_none_or(|(held, _)| *held != key);
-    let pending_for_key = aatf
-        .pending
-        .as_ref()
-        .is_some_and(|pending| pending.key == key);
-    if due
-        && settled
-        && !pending_for_key
-        && let Some(rules) = &loaded
-    {
-        aatf.pending = Some(spawn_check(ui.ctx(), file, rules, key.clone()));
-    }
+    let checking = aatf
+        .check
+        .update(ui.ctx(), file, loaded.as_ref(), key, settled);
     // The ruleset's name on a loaded file, else the file's path: only a
     // rules file fails to load (`Rules::official` panics rather than err).
     let ruleset_label = match &active.rules {
@@ -242,7 +184,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             rows(ui, aatf, active, aatf_copy_dialog, refusal, file);
             // Above the scroll, so a member scrolled deep in the list
             // still sees that the rows are the previous result's.
-            if aatf.pending.is_some() || due {
+            if checking {
                 ui.weak("Checking\u{2026}");
             }
             // The results fill the rest of the window in their own
@@ -259,20 +201,22 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         ui.weak(line);
                     } else if let Some(error) = &load_error {
                         ui.weak(rules_load_error(error));
-                    } else if let Some((result_key, checks)) = &aatf.result {
-                        clicked = results(ui, file, result_key, checks, aatf.show_suggestions);
+                    } else if let Some((result_key, checks)) = &aatf.check.result {
+                        clicked = aatf_check::results(
+                            ui,
+                            file,
+                            "aatf",
+                            result_key,
+                            checks,
+                            aatf.show_suggestions,
+                            Some("No violations."),
+                        );
                     }
                     clicked
                 })
                 .inner;
             if let Some(player) = clicked {
-                *selected = Some((player.team_id, player.slot));
-                if *team != TeamChoice::All {
-                    *team = TeamChoice::Team(player.team_id);
-                }
-                // As `open` clears it: the row the click selects would
-                // be hidden by a filter matching nothing.
-                filter.clear();
+                aatf_check::select_player(player, selected, team, filter);
             }
         });
     aatf.open = open;
@@ -366,121 +310,4 @@ fn rows(
                 }
             });
     }
-}
-
-/// The check's results: one error-coloured line per team whose check
-/// failed (as `check-aatf` reports it), `No violations.` when no team
-/// carries an error or a warning, then the `violations_list` itself.
-/// Returns the player whose row was clicked this frame.
-fn results(
-    ui: &mut egui::Ui,
-    file: &EditFile,
-    key: &CheckKey,
-    checks: &[TeamCheck],
-    show_suggestions: bool,
-) -> Option<SelectedPlayer> {
-    // Player ids are stable inside an open file: one map serves the
-    // whole roster scan, as `selection::rows` builds its own (its
-    // construction lives there inline).
-    let players: HashMap<u32, &PlayerEntry> = file
-        .players()
-        .iter()
-        .map(|player| (player.id, player))
-        .collect();
-    // One `ListedPlayer` list per checked team, for the group headers;
-    // `teams` borrows it below, so it is filled first.
-    let mut listed: Vec<Vec<ListedPlayer>> = Vec::with_capacity(key.ids.len());
-    for (id, check) in key.ids.iter().zip(checks) {
-        listed.push(if check.is_ok() {
-            listed_players(file, &players, *id)
-        } else {
-            Vec::new()
-        });
-    }
-    let mut teams = Vec::new();
-    for (i, (id, check)) in key.ids.iter().zip(checks).enumerate() {
-        let name = file.team(*id).map(|team| team.name.as_str()).unwrap_or("?");
-        match check {
-            Err(error) => {
-                ui.colored_label(
-                    ui.visuals().error_fg_color,
-                    format!("Team {id} {name}: the AATF check failed: {error}"),
-                );
-            }
-            Ok(violations) => teams.push(TeamViolations {
-                team_id: *id,
-                team_name: name,
-                players: &listed[i],
-                violations,
-            }),
-        }
-    }
-    let clean = checks
-        .iter()
-        .filter_map(|check| check.as_ref().ok())
-        .flatten()
-        .all(|violation| {
-            !matches!(
-                violation.severity,
-                aatf::Severity::Error | aatf::Severity::Warning
-            )
-        });
-    // Only when every check succeeded: beside a failed team's line it
-    // would read as clearing that team, whose violations are unknown.
-    if clean && checks.iter().all(Result::is_ok) {
-        ui.weak("No violations.");
-    }
-    violations_list(ui, "aatf", &teams, show_suggestions)
-}
-
-/// Team `id`'s rostered players as the list's `ListedPlayer`s, in slot
-/// order, their names read through `players`.
-fn listed_players<'a>(
-    file: &'a EditFile,
-    players: &HashMap<u32, &'a PlayerEntry>,
-    id: u32,
-) -> Vec<ListedPlayer<'a>> {
-    let Some(team) = file.team(id) else {
-        return Vec::new();
-    };
-    team.roster
-        .iter()
-        .enumerate()
-        .filter(|(_, slot)| slot.player_id != 0)
-        .map(|(slot, roster)| ListedPlayer {
-            slot: u8::try_from(slot).expect("a roster slot"),
-            id: roster.player_id,
-            number: roster.number,
-            name: players
-                .get(&roster.player_id)
-                .map(|player| player.name.as_str())
-                .unwrap_or("?"),
-        })
-        .collect()
-}
-
-/// One check's worker: `key`'s teams viewed on the caller's thread (the
-/// `EditFile` lives there), then `check_teams` on the shared ruleset off
-/// it, the key riding the reply so the panel knows what landed.
-fn spawn_check(
-    ctx: &egui::Context,
-    file: &EditFile,
-    rules: &Arc<aatf::Rules>,
-    key: CheckKey,
-) -> PendingCheck {
-    let views = rules::team_views(file, &key.ids);
-    let (sender, replies) = crossbeam_channel::unbounded();
-    let rules = Arc::clone(rules);
-    let ctx = ctx.clone();
-    let reply_key = key.clone();
-    std::thread::spawn(move || {
-        let checks = rules::check_teams(&rules, &views);
-        // A newer check can replace the receiver mid-flight; that send's
-        // failure is the superseded thread ending, not an error.
-        if sender.send((reply_key, checks)).is_err() {
-            log::debug!("the AATF panel dropped a superseded check");
-        }
-        ctx.request_repaint();
-    });
-    PendingCheck { key, replies }
 }

@@ -18,18 +18,26 @@ const MIN_HEIGHT: f32 = 60.0;
 pub struct BottomDock {
     /// The open panel's egui id; the collapsed one's derives from it.
     id: egui::Id,
-    /// The strong text after the chevron (`Log`), and the chevron tooltips' noun.
+    /// The strong text after the chevron (`Log`).
     title: &'static str,
+    /// The chevron tooltips' noun phrase (`the log`, `Live AATF`):
+    /// `Collapse {noun}` / `Expand {noun}`.
+    noun: &'static str,
     /// Whether the body is shown; the chevron flips it.
     expanded: bool,
 }
 
 impl BottomDock {
-    /// A dock titled `title`, open.
-    pub fn new(id_salt: impl Into<egui::Id>, title: &'static str) -> BottomDock {
+    /// A dock titled `title`, open, its chevron tooltips naming `noun`.
+    pub fn new(
+        id_salt: impl Into<egui::Id>,
+        title: &'static str,
+        noun: &'static str,
+    ) -> BottomDock {
         BottomDock {
             id: id_salt.into(),
             title,
+            noun,
             expanded: true,
         }
     }
@@ -42,15 +50,14 @@ impl BottomDock {
         header: impl FnOnce(&mut egui::Ui),
         body: impl FnOnce(&mut egui::Ui),
     ) {
-        let noun = self.title.to_lowercase();
         // Read before the closure borrows the field it flips.
         let expanded = self.expanded;
         let header_row = |ui: &mut egui::Ui| {
             ui.horizontal(|ui| {
                 let (chevron, tooltip) = if self.expanded {
-                    ("▾", format!("Collapse the {noun}"))
+                    ("▾", format!("Collapse {}", self.noun))
                 } else {
-                    ("▸", format!("Expand the {noun}"))
+                    ("▸", format!("Expand {}", self.noun))
                 };
                 if ui
                     .add(egui::Button::new(chevron).frame(false))

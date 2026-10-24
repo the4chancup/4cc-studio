@@ -1,0 +1,325 @@
+//! The Live AATF dock's tests (SE-GUI-30; `plans/save_editor.md`
+//! "Configurable AATF rules", the Live AATF bullet): the docked list
+//! shrinking and growing back with the open team's edits, the `No issues`
+//! header, the remembered toggle, the checking mark, ALL's team and a
+//! row's click.
+
+use std::path::Path;
+
+use super::*;
+
+/// `checked` on the dock's check.
+fn live_checked(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules: Option<&Path>,
+    ids: &[u32],
+) -> Vec<accesskit::Node> {
+    super::checked(window, view, rules, |view| &view.live.check, ids)
+}
+
+/// The dock's issue count as the header counts it: the held result's
+/// Error and Warning violations.
+fn issues(view: &SaveView) -> usize {
+    view.live
+        .check
+        .result
+        .as_ref()
+        .expect("a result held")
+        .1
+        .iter()
+        .filter_map(|check| check.as_ref().ok())
+        .flatten()
+        .filter(|violation| {
+            matches!(
+                violation.severity,
+                aatf::Severity::Error | aatf::Severity::Warning
+            )
+        })
+        .count()
+}
+
+/// A click on `node` through `tool.view` (press on one frame, release on
+/// the next): the `live_aatf` write lives in `Tool::view`, not `show`.
+fn tool_click(
+    window: &mut Headless,
+    tool: &mut crate::Tool,
+    ctx: &studio_core::ToolContext,
+    node: &accesskit::Node,
+) {
+    use studio_core::StudioTool;
+    let at = centre(node);
+    window.frame(pointer_at(at, true), |ui| tool.view(ui, ctx));
+    window.frame(pointer_at(at, false), |ui| tool.view(ui, ctx));
+}
+
+/// The dock lists the open team's violations under `N issues · <ruleset>`;
+/// an edit fixing one drops its row and N by one, an undo brings both back.
+// SE-GUI-30
+#[test]
+fn the_list_shrinks_as_edits_fix_violations_and_grows_back_on_undo() {
+    let (mut view, mut window) = open_734_with("live_aatf_shrink", &[73401, 73404], 183);
+    view.live_aatf = true;
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let n = issues(&view);
+    assert_eq!(height_rows(&nodes), 2, "both players' Height rows");
+    let header = format!("{n} issues · Autumn 26");
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some(header.as_str())),
+        "the count header: {header}"
+    );
+
+    // 73401 back to his fixture height through the session (one sealed
+    // edit): his Height row is gone and the count is one less.
+    let mut entry = player_entry(&view, 73401);
+    entry.basic.height = 185;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_players(vec![entry]);
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let n_fixed = issues(&view);
+    assert_eq!(n_fixed, n - 1, "the edit drops the count by one");
+    assert_eq!(height_rows(&nodes), 1, "73401's Height row is gone");
+    let header = format!("{n_fixed} issues · Autumn 26");
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some(header.as_str())),
+        "the smaller count: {header}"
+    );
+
+    // An undo brings the edit, the row and the count back.
+    view.session.as_mut().expect("the save opened").undo();
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    assert_eq!(issues(&view), n, "the count is back");
+    assert_eq!(height_rows(&nodes), 2, "the row is back");
+}
+
+/// A team that passes reads `No issues: <team> passes <ruleset>` and draws
+/// no violation row; a player's height edit then reads the check's count.
+// SE-GUI-30
+#[test]
+fn a_clean_team_reads_no_issues_and_a_broken_rule_the_count() {
+    let (mut view, mut window) = open_legal_714("live_aatf_clean", Headless::sized(1100.0, 800.0));
+    view.live_aatf = true;
+    let nodes = live_checked(&mut window, &mut view, None, &[714]);
+    let name = view
+        .session
+        .as_ref()
+        .expect("the save opened")
+        .file()
+        .team(714)
+        .expect("team 714")
+        .name
+        .clone();
+    let header = format!("No issues: {name} passes Autumn 26");
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some(header.as_str())),
+        "the passing header: {header}"
+    );
+    // No violation row: a row would be a Button below the header line.
+    let header_bottom = nodes
+        .iter()
+        .find(|node| node.value() == Some(header.as_str()))
+        .and_then(accesskit::Node::bounds)
+        .expect("the header's bounds")
+        .y1;
+    assert!(
+        !nodes.iter().any(|node| {
+            node.role() == Role::Button && node.bounds().is_some_and(|b| b.y0 >= header_bottom)
+        }),
+        "no violation row"
+    );
+
+    // One player's height broken: the count header reads the check's
+    // count.
+    let first = view
+        .session
+        .as_ref()
+        .expect("the save opened")
+        .file()
+        .team(714)
+        .expect("team 714")
+        .roster[0]
+        .player_id;
+    let mut entry = player_entry(&view, first);
+    entry.basic.height = 183;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_players(vec![entry]);
+    let nodes = live_checked(&mut window, &mut view, None, &[714]);
+    let n = issues(&view);
+    let plural = if n == 1 { "issue" } else { "issues" };
+    let header = format!("{n} {plural} · Autumn 26");
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some(header.as_str())),
+        "the count after the edit: {header}"
+    );
+}
+
+/// The toggle is a setting: clicking it writes `live_aatf`, the tool's
+/// other keys untouched, and a fresh `Tool` on the same settings draws the
+/// dock on its first view frame; toggled back, the dock is gone.
+// SE-GUI-30
+#[test]
+fn the_toggle_is_remembered_in_the_settings() {
+    use studio_core::StudioTool;
+
+    let save_path = fixture(PesVersion::Pes17, "live_aatf_remembered");
+    let dir = save_path.parent().expect("the scratch dir").to_path_buf();
+    let mut tool = crate::Tool::new();
+    tool.view.open(&save_path);
+    let mut settings = studio_core::Settings::default();
+    let mut table = tool.default_settings();
+    table.insert("unread_key".to_owned(), toml::Value::Integer(3));
+    settings.set_tool("save-editor", table);
+    let (ctx, _events_rx, _requests_rx) = tool_context(&dir, settings);
+    let mut window = Headless::sized(1100.0, 700.0);
+
+    // The toggle clicked: the setting holds true, the unread key stands.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    tool_click(
+        &mut window,
+        &mut tool,
+        &ctx,
+        node_labeled(&nodes, Role::Button, "Live AATF"),
+    );
+    let table = ctx.tool_settings("save-editor");
+    assert_eq!(
+        table["live_aatf"].as_bool(),
+        Some(true),
+        "the toggle set the setting"
+    );
+    assert_eq!(
+        table["unread_key"].as_integer(),
+        Some(3),
+        "the tool's other key is unchanged"
+    );
+
+    // A fresh tool on the same context: the dock drawn on the first view
+    // frame.
+    let mut tool2 = crate::Tool::new();
+    tool2.view.open(&save_path);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool2.view(ui, &ctx));
+    assert!(
+        nodes.iter().any(|node| node.value() == Some("Live AATF")),
+        "the dock's header on the first frame"
+    );
+
+    // Toggled back: the setting is false and the dock is gone.
+    tool_click(
+        &mut window,
+        &mut tool2,
+        &ctx,
+        node_labeled(&nodes, Role::Button, "Live AATF"),
+    );
+    assert_eq!(
+        ctx.tool_settings("save-editor")["live_aatf"].as_bool(),
+        Some(false),
+        "the toggle wrote false"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool2.view(ui, &ctx));
+    assert!(
+        !nodes.iter().any(|node| node.value() == Some("Live AATF")),
+        "the dock is gone"
+    );
+}
+
+/// An edit starts a re-check: the frame that spawns it draws `↻ checking…`
+/// beside the previous result's header, which still counts the old N.
+// SE-GUI-30
+#[test]
+fn an_edit_marks_the_previous_result_checking() {
+    let (mut view, mut window) = open_734_with("live_aatf_checking", &[73401, 73404], 183);
+    view.live_aatf = true;
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let n = issues(&view);
+    let header = format!("{n} issues · Autumn 26");
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some(header.as_str())),
+        "premise: the count header"
+    );
+
+    let mut entry = player_entry(&view, 73401);
+    entry.basic.height = 185;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_players(vec![entry]);
+    let nodes = draw(&mut window, &mut view, None);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("↻ checking\u{2026}")),
+        "the checking mark beside the old header"
+    );
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some(header.as_str())),
+        "the previous count still shown"
+    );
+}
+
+/// At ALL the dock checks the selected player's team; with no player
+/// selected it reads `No team open.` and starts no check.
+// SE-GUI-30
+#[test]
+fn at_all_the_dock_checks_the_selected_players_team() {
+    let (mut view, mut window) = open_734_with("live_aatf_all", &[73401], 183);
+    view.live_aatf = true;
+    view.team = TeamChoice::All;
+    view.selected = Some((734, 0));
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Team 734 /lit/")),
+        "734's rows under ALL"
+    );
+
+    view.selected = None;
+    let nodes = draw(&mut window, &mut view, None);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("No team open.")),
+        "the empty selection's line"
+    );
+    assert!(view.live.check.pending.is_none(), "no check started");
+    assert!(
+        !nodes
+            .iter()
+            .any(|node| node.value() == Some("Team 734 /lit/")),
+        "the stale team's rows are not drawn"
+    );
+}
+
+/// A violation row's click selects the player: `view.selected` is his
+/// (team, slot).
+// SE-GUI-30
+#[test]
+fn a_rows_click_selects_the_player() {
+    let (mut view, mut window) = open_734_with("live_aatf_click", &[73401, 73404], 183);
+    view.live_aatf = true;
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    // Another of 734's players selected first: a click that did nothing
+    // would satisfy the assertion anyway.
+    view.selected = Some((734, 0));
+    click(
+        &mut window,
+        height_row_below(&nodes, "Player 73404  45 Yuki-kun ^~^"),
+        &mut view,
+    );
+    assert_eq!(view.selected, Some((734, 3)), "73404's team and slot");
+}
