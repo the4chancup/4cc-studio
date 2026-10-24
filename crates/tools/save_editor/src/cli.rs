@@ -6,7 +6,6 @@ use std::fs;
 use std::io::{self, Cursor, Read, Seek};
 use std::path::{Path, PathBuf};
 
-use aatf::{TeamView, Violation};
 use anyhow::anyhow;
 use clap::{ArgGroup, Args, Command, FromArgMatches, Subcommand};
 use cpk::{CpkArchive, CpkWriter};
@@ -16,7 +15,6 @@ use pes_savefile::ops::compare::{CompareError, DiffScope};
 use pes_savefile::ops::transplant::{TransplantError, parse_selection};
 use pes_savefile::player_tables::{AppearanceTable, ItemList, PlayerTable, PlayerTableFile};
 use pes_version::{Engine, PesVersion};
-use rayon::prelude::*;
 use studio_core::{CliError, RunningPes, Severity, ToolContext, running_pes};
 
 use crate::events::Report;
@@ -473,14 +471,8 @@ fn check_aatf(
             return Err(invalid(anyhow!("the save has no team {id}")));
         }
     }
-    let results: Vec<Result<Vec<Violation>, String>> = ids
-        .par_iter()
-        .map(|&id| {
-            TeamView::new(session.file(), id)
-                .map_err(|error| error.to_string())
-                .and_then(|view| rules.check_team(&view).map_err(|error| error.to_string()))
-        })
-        .collect();
+    let views = session::rules::team_views(session.file(), &ids);
+    let results = session::rules::check_teams(&rules, &views);
     for (id, result) in ids.into_iter().zip(results) {
         let team = session.file().team(id).expect("checked above");
         let violations = match result {

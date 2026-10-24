@@ -7,6 +7,7 @@
 //! `Session::edit_player`/`edit_team` (one undo entry per gesture), saves, and
 //! shows a refusal in a modal.
 
+mod aatf_panel;
 mod abilities;
 mod appearance;
 mod info_strip;
@@ -20,6 +21,7 @@ mod team;
 mod tests;
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_version::{Engine, PesVersion};
@@ -72,6 +74,12 @@ pub(crate) struct SaveView {
     /// The ruleset the badges use, loaded on the first frame and again only
     /// when the file named differs.
     rules: Option<ActiveRules>,
+    /// The AATF panel's state (`plans/save_editor.md` "Configurable AATF
+    /// rules", the AATF panel bullet); closed at start.
+    aatf: aatf_panel::AatfPanel,
+    /// The panel's Save a copy dialog (`rfd`, stubbed in tests — the
+    /// Ruleset editor's picker pattern).
+    aatf_copy_dialog: aatf_panel::SaveCopyDialog,
     /// The "Cards left" badges as last computed and the `BadgeKey` they
     /// were computed for: `card_limits` runs again only when the key
     /// differs, not on every frame.
@@ -133,8 +141,10 @@ pub(crate) struct SaveView {
 pub(crate) struct ActiveRules {
     /// The file `rules` was loaded from (`None`: the embedded official ruleset).
     file: Option<PathBuf>,
-    /// The loaded rules or the load error's text (drawn instead of the badges).
-    rules: Result<aatf::Rules, String>,
+    /// The loaded rules or the load error's text (drawn instead of the
+    /// badges). The `Arc` lets the AATF panel's worker check teams on the
+    /// same loaded file the badges read.
+    rules: Result<Arc<aatf::Rules>, String>,
 }
 
 /// What the Abilities tab's badges were computed for: a change of the open
@@ -192,6 +202,8 @@ impl SaveView {
             focused: None,
             refusal: None,
             rules: None,
+            aatf: aatf_panel::AatfPanel::new(),
+            aatf_copy_dialog: aatf_panel::default_copy_dialog(),
             cards: None,
             portraits: portraits::Portraits::new(),
             generation: 0,
@@ -287,6 +299,7 @@ pub(crate) fn show(
     if view.rules.as_ref().is_none_or(|active| active.file != file) {
         view.rules = Some(ActiveRules {
             rules: crate::session::rules::load_rules(file.as_deref())
+                .map(Arc::new)
                 .map_err(|error| format!("{error:#}")),
             file,
         });
@@ -318,18 +331,27 @@ pub(crate) fn show(
     menus::stat_num_dialog(ui, view);
     menus::copy_swap_dialog(ui, view);
     menus::fix_database_dialog(ui, view);
+    aatf_panel::show(ui, view);
     // One undo entry per gesture: seal when the pointer is up and no
     // widget holds the keyboard, and when the widget that held it ends
     // the frame without it — a gesture ends when its widget loses the
     // keyboard. A `None` to `Some` move never seals (the `focused` doc).
-    let focused = ui.ctx().memory(|memory| memory.focused());
-    if let Some(session) = view.session.as_mut()
-        && ((!ui.input(|input| input.pointer.any_down()) && focused.is_none())
-            || (view.focused.is_some() && view.focused != focused))
-    {
+    let (focused, settled) = edit_settled(ui, view.focused);
+    if settled && let Some(session) = view.session.as_mut() {
         session.seal();
     }
     view.focused = focused;
+}
+
+/// The widget holding the keyboard this frame and whether the edit has
+/// settled: the pointer up with no widget focused, or the widget that
+/// held it having lost it. `show`'s seal condition, which the AATF
+/// panel's check start shares so a result never lands mid-gesture.
+fn edit_settled(ui: &egui::Ui, last_focused: Option<egui::Id>) -> (Option<egui::Id>, bool) {
+    let focused = ui.ctx().memory(|memory| memory.focused());
+    let settled = (!ui.input(|input| input.pointer.any_down()) && focused.is_none())
+        || (last_focused.is_some() && last_focused != focused);
+    (focused, settled)
 }
 
 /// The editor's focus mode: a press on another widget ends the focused
@@ -410,6 +432,7 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         menus::player_menu(ui, view);
         menus::team_menu(ui, view);
         menus::savefile_menu(ui, view);
+        menus::panels_menu(ui, view);
         if let Some(session) = view.session.as_ref() {
             let path = session.path().display().to_string();
             let marker = if session.is_dirty() {

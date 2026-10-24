@@ -27,6 +27,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         focused: _,
         refusal: _,
         rules: _,
+        aatf: _,
+        aatf_copy_dialog: _,
         cards: _,
         portraits: _,
         generation: _,

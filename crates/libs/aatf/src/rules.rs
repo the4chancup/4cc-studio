@@ -16,6 +16,16 @@ use crate::violation::{CheckError, Violation, ViolationKind, violations};
 /// Ruleset editor's start page) and by their fixtures.
 pub(crate) const AUTUMN26: &str = include_str!("../rulesets/autumn26.rhai");
 
+/// The embedded official rules file's name, `rulesets/<name>` under the
+/// crate: changed with the `include_str!` above.
+pub const OFFICIAL_FILE_NAME: &str = "autumn26.rhai";
+
+/// The embedded official rules file, the one `Rules::official` loads:
+/// `AUTUMN26` assembled with the current logic.
+pub fn official_file() -> String {
+    assemble(AUTUMN26)
+}
+
 /// A loaded rules file: its ruleset, its compiled script and the engine
 /// it runs on. `Send + Sync` (rhai's `sync` feature): several threads
 /// check teams on one loaded file.
@@ -77,14 +87,15 @@ impl Rules {
     }
 
     /// The official ruleset, the default file: `rulesets/autumn26.rhai`
-    /// assembled with the current logic. Panics only if the embedded
-    /// file does not load, which a test rules out.
+    /// assembled with the current logic (`official_file`). Panics only
+    /// if the embedded file does not load, which a test rules out.
     pub fn official() -> Rules {
-        Rules::from_data_block(AUTUMN26).expect("the embedded official file loads")
+        Rules::load(&official_file()).expect("the embedded official file loads")
     }
 
     /// The rules of an embedded data block assembled with the current
     /// logic: the other rulesets' fixtures run on these.
+    #[cfg(test)]
     pub(crate) fn from_data_block(data_block: &str) -> Result<Rules, LoadError> {
         Rules::load(&assemble(data_block))
     }

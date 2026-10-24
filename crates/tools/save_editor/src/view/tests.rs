@@ -664,6 +664,7 @@ fn click_at(window: &mut Headless, pos: egui::Pos2, view: &mut SaveView) -> Vec<
     nodes
 }
 
+mod aatf_panel;
 mod abilities;
 mod appearance;
 mod list;

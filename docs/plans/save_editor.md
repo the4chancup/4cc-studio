@@ -646,10 +646,22 @@ What this editor adds on top of the lib:
   rules file that does not load leaves Set stats alone on the row, the load error in the tier
   buttons' place as the badges show it; an `apply_tier` that fails (`CheckError`) leaves the
   player as he was and shows the error in the refusal dialog.
-- **The AATF panel.** Results grouped per player; clicking a violation jumps to the player; team
-  selection matches 4ccEditor (current team or a multi-select list). A **Show suggestions**
+- **The AATF panel.** A floating window, "AATF violations (<ruleset>)", opened from the
+  toolbar's Panels menu ("AATF violations…") and from the quick actions row's "AATF…" button
+  (which opens it on Current team), as the draft shows. Results grouped per player; clicking a
+  violation selects the player, switching the team selector to his team unless it is at ALL
+  (the list must show the row it selects); team selection matches 4ccEditor (current team or a
+  multi-select list of the selector's teams). Current team is the selector's team, or with ALL
+  picked the selected player's team, as Live AATF reads it, not the first team the draft falls
+  back to: the panel checks the team the strip and tabs are editing. A **Show suggestions**
   toggle, off by default, lists unused allowances apart from errors and warnings (see
-  "Suggestions" in the AATF rules plan). The panel is `team_widgets`' violations list.
+  "Suggestions" in the AATF rules plan). The panel is `team_widgets`' violations list, under
+  "No violations." when no team checked has an error or a warning. The teams are re-checked
+  when the save changes (an edit, undo, redo), the teams picked change or the rules file
+  does; until the new result arrives the previous one stays, marked as checking. A team whose
+  check fails (a script error) is a line naming the team and the error, the others still
+  listed, as `check-aatf` reports it. The check runs on the ruleset the window loaded; a rules
+  file that does not load leaves the load error in the list's place, as the badges show it.
 - **Live AATF.** A toolbar toggle, off by default and remembered in the tool's settings
   (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
   docked at the bottom of the view lists the open team's violations (with ALL picked, the
@@ -668,9 +680,14 @@ What this editor adds on top of the lib:
   Validate rules and Save a copy; its whole-save check runs on a worker too, its teams in
   parallel as `check-aatf` runs them (220 teams of a PES 2017 save in 2.0 s on 16 threads, 13.2
   s on one).
-- **Validate rules.** A button running the lib's load-time validation on the chosen file, its
-  findings shown with line or key path.
-- A **"save a copy"** action writes the embedded official ruleset out.
+- **Validate rules.** A button in the AATF panel running the lib's load-time validation on
+  the active rules file (the `aatf_rules` setting's, or the embedded one when it is empty), its
+  findings listed one per line with their line and column or key path, or "no findings". The
+  draft's own file combo stands for the settings row's Browse: a second file choice in the
+  panel would let it validate one file and check with another.
+- A **"save a copy"** action in the AATF panel writes the embedded official file
+  (`rulesets/autumn26.rhai` assembled with the current logic, the file `Rules::official()`
+  loads) out through a Save dialog, suggesting its file name.
 
 ---
 
@@ -821,10 +838,16 @@ SE-GUI-14  GIVEN "Edit aesthetics anyway" switched on and the transplant panel w
                 on Save
 SE-GUI-15  GIVEN a ruleset with violations in the open team
            WHEN the AATF panel is drawn
-           THEN the violations are grouped per player, clicking one selects that player, Show
-                suggestions is off and reveals the unused allowances when on, Validate rules
-                lists a broken rules file's findings with their line or key path, and Save a
-                copy writes the embedded official ruleset out byte for byte
+           THEN the violations are grouped per player, clicking one selects that player (the
+                team selector moving to his team unless at ALL), Show suggestions is off and
+                reveals the unused allowances when on, Validate rules lists a broken rules
+                file's findings with their line or key path, and Save a copy writes the
+                embedded official ruleset out byte for byte; WHEN an edit changes the team
+                THEN the previous list stays, marked as checking, until the new one replaces
+                it, and an undo brings the old one back; GIVEN Select teams with two teams
+                ticked, one whose check fails THEN that team is a line naming it and the
+                error and the other's violations are listed; GIVEN a rules file that does not
+                load THEN its load error stands in the list's place
 SE-GUI-16  GIVEN the save open on a team
            WHEN Team TOML export, then import on another team with only the gameplay section
                 chosen, runs from the interchange dialog

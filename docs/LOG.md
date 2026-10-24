@@ -2409,3 +2409,5 @@ worklog passed 7,000 lines.
   `settings.toml` loses the face keys, the old marker names are an error; six scenarios restated.
 - **2026-10-24** — 0.0.1h slices 1-2 reviewed (SWE-2, Astra, SWE-2: 2 accepted in each round, all doc and
   citation fixes but one, the upgrader's old-spelling test now the lib's `classify`); amended into slice 2.
+- **2026-10-24** — 8.9j2: the Save editor's floating AATF panel (current team or picked teams, a click selecting
+  the player, suggestions, Validate rules, Save a copy), the check on a worker thread.

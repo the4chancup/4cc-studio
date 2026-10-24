@@ -7,7 +7,7 @@
 //! buttons' place as the badges show it; a failed `apply_tier` leaves the
 //! player as he was and shows the error in the refusal dialog.
 
-use crate::view::{Refusal, SaveView, rules_load_error, selected_player};
+use crate::view::{Refusal, SaveView, aatf_panel, rules_load_error, selected_player};
 
 /// The row under the info strip; nothing when the selection names no rostered
 /// player (the strip draws nothing then either).
@@ -54,5 +54,13 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             session.set_all_stats(player_id, view.set_stats);
         }
         ui.add(egui::DragValue::new(&mut view.set_stats).range(40..=99));
+        if ui
+            .button("AATF\u{2026}")
+            .on_hover_text("The active ruleset's violations for this team")
+            .clicked()
+        {
+            view.aatf.open = true;
+            view.aatf.mode = aatf_panel::AatfMode::Current;
+        }
     });
 }

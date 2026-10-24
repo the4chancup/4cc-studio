@@ -23,6 +23,16 @@ resistance, weak foot, name color) as one undoable edit. **Set stats** sets ever
 ability stat to the number beside it (40 to 99). When the rules file does not load,
 its error shows in place of the Make buttons.
 
+**AATF violations.** **AATF…** at the end of the quick actions, or **Panels** in the
+toolbar, opens a floating window listing a team's violations against the AATF rules
+in use, grouped per player. **Current team** checks the team the selector names (with
+ALL, the selected player's team); **Select teams** lists every team of the save to
+check several at once, which takes a moment while the results come in. Clicking a
+violation selects the player. **Show suggestions** adds, below the violations, what
+each player could still use within the rules. **Validate rules** checks the rules
+file itself and lists everything it finds wrong with it; **Save a copy** writes the
+built-in official ruleset out to a file.
+
 **Saving.** **Save** or Ctrl+S writes the edits to the file the save was opened from (a
 file it replaces is kept once as a `.bak` copy). Saving is refused while the save's own
 PES version is running: the game writes its save back when it closes, over the one just

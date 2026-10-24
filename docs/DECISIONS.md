@@ -10709,3 +10709,19 @@ hand (0.0.1).
 Plan: `plans/aesthetics_export/player_folders.md` "`ingame_face.toml` (new; step 0.0.1h)", with
 pointers in its `settings_toml.md` and `object_model.md` and in `plans/save_editor.md`'s
 `settings.toml` generation bullet.
+
+## 2026-10-24 — save_editor — the AATF panel's current team, jump, recheck and rules file
+Decision: the floating AATF panel opens from a Panels menu and the quick actions' "AATF…", as
+the draft shows; Current team is the selector's team, or with ALL the selected player's team; a
+click on a row selects the player and switches the selector to his team unless it is at ALL;
+the teams are re-checked on a save, team-pick or rules-file change, the previous result shown
+as checking meanwhile, on a worker; Validate rules runs on the active rules file, and Save a
+copy writes the file `Rules::official()` loads, under its file name.
+Why: the selected player's team, not the draft's first team, because the panel checks what the
+strip and tabs are editing, as Live AATF already reads ALL; switching the selector, because a
+selected player the list does not show is a selection the member cannot see; validating the
+active file, not a second file chosen in the panel, because two file choices would let the
+panel validate one file and check with another; the assembled file, not the data block alone,
+because the data block does not load as a rules file.
+Plan: `plans/save_editor.md` "Configurable AATF rules", the AATF panel, Validate rules and
+"save a copy" bullets.

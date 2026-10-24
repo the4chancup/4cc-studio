@@ -218,6 +218,20 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     });
 }
 
+/// The Panels menu button (after Savefile, the draft's panel items): the
+/// floating AATF violations panel (`plans/save_editor.md` "Configurable
+/// AATF rules", the AATF panel bullet). Disabled with no save open.
+pub(crate) fn panels_menu(ui: &mut egui::Ui, view: &mut SaveView) {
+    ui.add_enabled_ui(view.session.is_some(), |ui| {
+        ui.menu_button("Panels", |ui| {
+            if ui.button("AATF violations\u{2026}").clicked() {
+                view.aatf.open = true;
+                ui.close();
+            }
+        });
+    });
+}
+
 /// The Fix database confirmation's question for the open save: each
 /// clause the repair writes where the records carry it — base copies
 /// where a player has the base-copy flag (PES 15 to 18), the teams'

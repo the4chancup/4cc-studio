@@ -141,6 +141,7 @@ fn the_quick_actions_apply_a_tier_as_one_undoable_edit() {
             "Make Goalkeeper",
             "Make Regular",
             "Set stats",
+            "AATF\u{2026}",
         ],
     );
 
@@ -209,6 +210,7 @@ fn the_quick_actions_follow_the_rules_files_tiers() {
             "Make Regular",
             "Make Buffed",
             "Set stats",
+            "AATF\u{2026}",
         ],
     );
 
@@ -411,6 +413,7 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
             "Make Regular",
             "Make Buffed",
             "Set stats",
+            "AATF\u{2026}",
         ],
     );
 
@@ -451,6 +454,7 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
             "Make Goalkeeper",
             "Make Regular",
             "Set stats",
+            "AATF\u{2026}",
         ],
     );
 

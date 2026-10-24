@@ -1252,9 +1252,23 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         filtered to "AATF rules (*.rhai)", a pick writes `aatf_rules` and the row shows it; the
         Exports folder row's Browse opens Select Folder, and Escape leaves `settings.toml`
         byte for byte as it was
-      - [ ] 8.9j2 the AATF panel (SE-GUI-15): teams picked, violations per player, a click
+      - [x] 8.9j2 the AATF panel (SE-GUI-15): teams picked, violations per player, a click
         selecting him, Show suggestions, Validate rules, Save a copy, the whole-save check on a
-        worker
+        worker. Done 2026-10-24 (SWE-2, 26 min; the open points ruled first, DECISIONS
+        2026-10-24 "the AATF panel's current team…"): `aatf::{OFFICIAL_FILE_NAME,
+        official_file}` (`Rules::official` loads it), `session::rules::{team_views,
+        check_teams, validate}` (`check-aatf` on the same check), `view/aatf_panel.rs` (an
+        `egui::Window` from Panels and the quick actions' `AATF…`, the check on a thread per
+        key, `Arc` rules, started when the edit settles as the undo seal does). The
+        sidekick's contradiction, accepted: no PES 17 fixture team is clean, so the
+        no-violation test is PES 15 team 714 with the CLI suite's legal Team TOML. Lead: SE-GUI-15
+        widened to the recheck, Select teams' failed line and the load error, which the tests
+        observe; five tests' comments made citations. Files: `aatf/src/{lib.rs,rules.rs}`,
+        `save_editor/{help/02_window.md,src/{cli.rs,session/rules.rs,view/{aatf_panel.rs,
+        menus.rs,mod.rs,player_list.rs,quick_actions.rs,tests.rs,tests/{aatf_panel.rs,
+        quick_actions.rs}}}}`
+        - [ ] review: checkpoint (a) for SE-GUI-15's widening and (b) for `aatf`'s two `pub`
+          items: a SWE-2 loop, then Astra; `mutants-diff`
       - [ ] 8.9j3 Live AATF (SE-GUI-30)
       - [ ] 8.9j4 the comparator (SE-GUI-13), then 8.9j5 the transplant (SE-GUI-14)
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane

@@ -1,0 +1,623 @@
+//! The AATF panel's tests (SE-GUI-15; `plans/save_editor.md` "Configurable
+//! AATF rules", the AATF panel bullet): the window, the per-player list,
+//! the click's selection, suggestions, Validate rules and Save a copy.
+
+use std::collections::HashMap;
+use std::path::Path;
+use std::time::{Duration, Instant};
+
+use super::*;
+use crate::view::aatf_panel::AatfMode;
+
+/// One frame with `rules` as the active rules file (`None`: the embedded
+/// official ruleset).
+fn draw(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>) -> Vec<accesskit::Node> {
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+    nodes
+}
+
+/// `node` clicked with `rules` as the active rules file.
+fn click_rules(
+    window: &mut Headless,
+    view: &mut SaveView,
+    node: &accesskit::Node,
+    rules: Option<&Path>,
+) {
+    let at = centre(node);
+    window.frame(pointer_at(at, true), |ui| {
+        show(ui, view, &|| Vec::new(), rules)
+    });
+    window.frame(pointer_at(at, false), |ui| {
+        show(ui, view, &|| Vec::new(), rules)
+    });
+}
+
+/// The panel opened from the toolbar's Panels menu: the "AATF
+/// violations…" item clicked, the next frame's nodes returned.
+fn open_panel(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules: Option<&Path>,
+) -> Vec<accesskit::Node> {
+    let nodes = draw(window, view, rules);
+    click_rules(
+        window,
+        view,
+        node_labeled(&nodes, Role::Button, "Panels"),
+        rules,
+    );
+    let nodes = draw(window, view, rules);
+    click_rules(
+        window,
+        view,
+        node_labeled(&nodes, Role::Button, "AATF violations\u{2026}"),
+        rules,
+    );
+    draw(window, view, rules)
+}
+
+/// Frames until the panel's check lands: `pending` empty and the result
+/// keyed to the session's current revision and `ids` (bounded, so a
+/// worker that never replies fails rather than hangs).
+fn checked(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules: Option<&Path>,
+    ids: &[u32],
+) -> Vec<accesskit::Node> {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let nodes = draw(window, view, rules);
+        let revision = view.session.as_ref().expect("an open save").revision();
+        if view.aatf.pending.is_none()
+            && view
+                .aatf
+                .result
+                .as_ref()
+                .is_some_and(|(key, _)| key.revision == revision && key.ids == ids)
+        {
+            return nodes;
+        }
+        assert!(Instant::now() < deadline, "the AATF check never returned");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
+/// The CheckBox labeled `label` toggled through its AccessKit action: a
+/// team the picker scroll has not reached sits outside the window, where
+/// a pointer click lands on nothing.
+fn tick(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>, label: &str) {
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+    let (id, _) = pairs
+        .iter()
+        .find(|(_, node)| node.label() == Some(label))
+        .unwrap_or_else(|| panic!("no checkbox {label:?}"));
+    let id = *id;
+    window.frame(
+        vec![egui::Event::AccessKitActionRequest(
+            accesskit::ActionRequest {
+                action: accesskit::Action::Click,
+                target_tree: accesskit::TreeId::ROOT,
+                target_node: id,
+                data: None,
+            },
+        )],
+        |ui| show(ui, view, &|| Vec::new(), rules),
+    );
+}
+
+/// The node labeled or valued `label` (a checkbox, radio or weak line).
+fn node_named<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
+    nodes
+        .iter()
+        .find(|node| node.label() == Some(label) || node.value() == Some(label))
+        .unwrap_or_else(|| panic!("no node {label:?}"))
+}
+
+/// The Height row under `header`'s group (two players share the row's
+/// label, so the group header picks the right one).
+fn height_row_below<'a>(nodes: &'a [accesskit::Node], header: &str) -> &'a accesskit::Node {
+    let header = nodes
+        .iter()
+        .find(|node| node.value() == Some(header))
+        .unwrap_or_else(|| panic!("no header {header:?}"));
+    let top = header.bounds().expect("header bounds").y0;
+    nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node.label() == Some("Height height 183 takes no bracket")
+        })
+        .filter(|node| node.bounds().is_some_and(|b| b.y0 > top))
+        .min_by(|a, b| {
+            let y = |n: &&accesskit::Node| n.bounds().expect("bounds").y0;
+            y(a).partial_cmp(&y(b)).expect("ordered bounds")
+        })
+        .expect("a Height row below the header")
+}
+
+/// The nodes inside the panel's window (its subtree: the player list's
+/// rows share the screen). `pairs` is `frame_ids`' output.
+fn panel_nodes(pairs: &[(accesskit::NodeId, accesskit::Node)]) -> Vec<&accesskit::Node> {
+    let (window, _) = pairs
+        .iter()
+        .find(|(_, node)| {
+            node.label()
+                .is_some_and(|label| label.starts_with("AATF violations"))
+        })
+        .expect("the panel window");
+    let by_id: HashMap<accesskit::NodeId, &accesskit::Node> =
+        pairs.iter().map(|(id, node)| (*id, node)).collect();
+    let mut nodes = Vec::new();
+    let mut stack = vec![*window];
+    while let Some(id) = stack.pop() {
+        let node = by_id[&id];
+        stack.extend(node.children());
+        nodes.push(node);
+    }
+    nodes
+}
+
+/// The panel window's Label values and Button labels, in top-to-bottom
+/// order.
+fn panel_lines(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>) -> Vec<String> {
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+    let nodes = panel_nodes(&pairs);
+    let mut lines: Vec<(f64, f64, String)> = Vec::new();
+    for node in nodes {
+        let text = match node.role() {
+            Role::Label => node.value().map(str::to_owned),
+            _ => node.label().map(str::to_owned),
+        };
+        if let (Some(text), Some(bounds)) = (text, node.bounds()) {
+            lines.push((bounds.y0, bounds.x0, text));
+        }
+    }
+    lines.sort_by(|a, b| {
+        a.0.partial_cmp(&b.0)
+            .expect("drawn bounds")
+            .then(a.1.partial_cmp(&b.1).expect("drawn bounds"))
+    });
+    lines.into_iter().map(|(_, _, text)| text).collect()
+}
+
+/// `view` on `version`'s fixture save under `test`, the save open and
+/// team 734 selected with players `ids`' heights set to `height` as one
+/// sealed edit.
+fn open_734_with(test: &str, ids: &[u32], height: u8) -> (SaveView, Headless) {
+    let path = fixture(PesVersion::Pes17, test);
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(734);
+    view.selected = Some((734, 0));
+    let mut edits = Vec::new();
+    for &id in ids {
+        let mut entry = player_entry(&view, id);
+        assert_eq!(entry.basic.height, 185, "premise: {id} is tall");
+        entry.basic.height = height;
+        edits.push(entry);
+    }
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_players(edits);
+    (view, Headless::sized(1100.0, 800.0))
+}
+
+// SE-GUI-15
+#[test]
+fn the_panel_lists_the_current_teams_violations_per_player() {
+    let (mut view, mut window) = open_734_with("aatf_panel_list", &[73401, 73404], 183);
+    let nodes = open_panel(&mut window, &mut view, None);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Checking\u{2026}")),
+        "the frame that starts the check marks it"
+    );
+    let nodes = checked(&mut window, &mut view, None, &[734]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.label() == Some("AATF violations (Autumn 26)")),
+        "the window's title"
+    );
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Team 734 /lit/")),
+        "the team's header"
+    );
+    let heights: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node.label() == Some("Height height 183 takes no bracket")
+        })
+        .collect();
+    assert_eq!(heights.len(), 2, "the two players' Height rows");
+    assert!(
+        !nodes.iter().any(|node| node.value() == Some("Suggestions")),
+        "Show suggestions is off"
+    );
+    assert!(
+        !nodes
+            .iter()
+            .any(|node| node.value() == Some("No violations.")),
+        "the team has violations"
+    );
+}
+
+// SE-GUI-15
+#[test]
+fn a_rows_click_selects_the_player_and_moves_the_selector() {
+    let (mut view, mut window) = open_734_with("aatf_panel_click", &[73401, 73404], 183);
+    view.aatf.open = true;
+    view.aatf.mode = AatfMode::Select;
+    tick(&mut window, &mut view, None, "734 /lit/");
+    let nodes = checked(&mut window, &mut view, None, &[734]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Team 734 /lit/")),
+        "734's rows are up"
+    );
+
+    // The selector on another team: the click selects the player and
+    // moves the selector to his.
+    view.team = TeamChoice::Team(718);
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        height_row_below(&nodes, "Player 73404  45 Yuki-kun ^~^"),
+        &mut view,
+    );
+    assert_eq!(view.selected, Some((734, 3)), "73404's team and slot");
+    assert_eq!(view.team, TeamChoice::Team(734), "the selector moved");
+
+    // At ALL it stays.
+    view.team = TeamChoice::All;
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        height_row_below(&nodes, "Player 73404  45 Yuki-kun ^~^"),
+        &mut view,
+    );
+    assert_eq!(view.selected, Some((734, 3)));
+    assert_eq!(view.team, TeamChoice::All, "ALL is kept");
+}
+
+// SE-GUI-15
+#[test]
+fn show_suggestions_reveals_the_unused_allowances() {
+    // No team of the PES 17 fixture save is clean under the official
+    // ruleset (every one carries the TierCount errors): the legal team is
+    // the CLI's `official_legal.toml` on team 714 of the PES 15 save,
+    // whose 32 findings are all suggestions.
+    let path = fixture(PesVersion::Pes15, "aatf_panel_suggestions");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let toml = std::fs::read_to_string(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/fixtures/aatf/official_legal.toml"
+    ))
+    .unwrap();
+    let document = pes_savefile::interchange::team_toml::TeamToml::parse(&toml).unwrap();
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .import_team(&document)
+        .expect("the legal team imports");
+    view.team = TeamChoice::Team(714);
+    view.selected = Some((714, 0));
+    view.aatf.open = true;
+    let mut window = Headless::sized(1100.0, 800.0);
+    let nodes = checked(&mut window, &mut view, None, &[714]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("No violations.")),
+        "the imported team is clean"
+    );
+    assert!(
+        !nodes.iter().any(|node| node.value() == Some("Suggestions")),
+        "no suggestions group while off"
+    );
+    click(
+        &mut window,
+        node_named(&nodes, "Show suggestions"),
+        &mut view,
+    );
+    let lines = panel_lines(&mut window, &mut view, None);
+    let at = lines
+        .iter()
+        .position(|line| line == "Suggestions")
+        .expect("the Suggestions header");
+    // The imported team's first group: slot 1's player header, then his
+    // Unused rows (the fixture team's own names head each group).
+    assert!(
+        lines[at + 1].starts_with("Player 714"),
+        "a player's group header: {:?}",
+        &lines[at..at + 3]
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == "Unused only 1 of 2 tricks used"),
+        "the first Unused row: {lines:?}"
+    );
+}
+
+/// Select teams checks the ticked teams; a team whose check fails is a
+/// line naming the team and the error, the others still listed (the
+/// throw19 rules file of the CLI's
+/// `a_check_that_fails_on_one_team_does_not_stop_the_rest`).
+// SE-GUI-15
+#[test]
+fn select_teams_lists_the_picked_teams_and_a_failed_ones_line() {
+    let save = fixture(PesVersion::Pes15, "aatf_select_fail");
+    let dir = save.parent().expect("the scratch dir").to_path_buf();
+    let rules_path = dir.join("throw19.rhai");
+    std::fs::write(
+        &rules_path,
+        aatf::official_file().replacen(
+            "fn custom_checks(team) { [] }",
+            "fn custom_checks(team) { if team.captain == 19 { throw \"boom\" } [] }",
+            1,
+        ),
+    )
+    .unwrap();
+    let mut view = SaveView::new();
+    view.open(&save);
+    view.aatf.open = true;
+    let rules = Some(rules_path.as_path());
+    let mut window = Headless::sized(1100.0, 800.0);
+    let names = |id: u32| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .team(id)
+            .unwrap()
+            .name
+            .clone()
+    };
+    let (name_743, name_744) = (names(743), names(744));
+
+    let nodes = draw(&mut window, &mut view, rules);
+    click(&mut window, node_named(&nodes, "Select teams"), &mut view);
+    let nodes = draw(&mut window, &mut view, rules);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("No team picked.")),
+        "nothing ticked"
+    );
+    tick(&mut window, &mut view, rules, &format!("743 {name_743}"));
+    tick(&mut window, &mut view, rules, &format!("744 {name_744}"));
+    let nodes = checked(&mut window, &mut view, rules, &[743, 744]);
+    let failure = nodes
+        .iter()
+        .filter_map(|node| node.value())
+        .find(|value| value.starts_with(&format!("Team 743 {name_743}: the AATF check failed:")))
+        .unwrap_or_else(|| panic!("743's failure line: {nodes:?}"));
+    assert!(failure.contains("boom"), "{failure}");
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some(&format!("Team 744 {name_744}"))),
+        "744's header"
+    );
+}
+
+/// An edit and an undo each restart the check, the previous result
+/// marked Checking… until the new one lands.
+// SE-GUI-15
+#[test]
+fn an_edit_rechecks_and_the_old_result_marks_checking() {
+    let (mut view, mut window) = open_734_with("aatf_panel_recheck", &[73401, 73404], 183);
+    view.aatf.open = true;
+    let nodes = checked(&mut window, &mut view, None, &[734]);
+    let count = |nodes: &[accesskit::Node]| {
+        nodes
+            .iter()
+            .filter(|node| {
+                node.role() == Role::Button
+                    && node.label() == Some("Height height 183 takes no bracket")
+            })
+            .count()
+    };
+    assert_eq!(count(&nodes), 2, "premise: both Height rows");
+
+    // 73401 back to his fixture height through the session.
+    let mut entry = player_entry(&view, 73401);
+    entry.basic.height = 185;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_players(vec![entry]);
+    let nodes = draw(&mut window, &mut view, None);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Checking\u{2026}")),
+        "the frame that starts the recheck marks it"
+    );
+    assert_eq!(count(&nodes), 2, "the stale result stays while checking");
+    let nodes = checked(&mut window, &mut view, None, &[734]);
+    assert_eq!(count(&nodes), 1, "73401's row is gone, 73404's stays");
+    // The row left is 73404's.
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Player 73404  45 Yuki-kun ^~^")),
+        "73404's group"
+    );
+    assert!(
+        !nodes
+            .iter()
+            .any(|node| node.value() == Some("Player 73401  49 Muh Spooks")),
+        "73401's group is gone"
+    );
+
+    // An undo brings the edit, the check and the row back.
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let nodes = checked(&mut window, &mut view, None, &[734]);
+    assert_eq!(count(&nodes), 2, "the undo restores the row");
+}
+
+/// Validate rules: the official ruleset reports no findings; a broken
+/// file lists each finding on its own line under the file's name.
+// SE-GUI-15
+#[test]
+fn validate_rules_reports_the_files_findings() {
+    let save = fixture(PesVersion::Pes17, "aatf_validate");
+    let dir = save.parent().expect("the scratch dir").to_path_buf();
+    let mut view = SaveView::new();
+    view.open(&save);
+    view.aatf.open = true;
+    let mut window = Headless::sized(1100.0, 800.0);
+
+    // The embedded official ruleset.
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Validate rules"),
+        &mut view,
+    );
+    let nodes = draw(&mut window, &mut view, None);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("the official ruleset: no findings")),
+        "the official file loads"
+    );
+
+    // The official file with two values broken: the tier counts over the
+    // squad size and an unknown suggestion word.
+    let two = dir.join("two.rhai");
+    std::fs::write(
+        &two,
+        aatf::official_file()
+            .replacen("squad_size: 23", "squad_size: 4", 1)
+            .replacen("suggestions: [\"cards\"", "suggestions: [\"bogus\"", 1),
+    )
+    .unwrap();
+    let nodes = draw(&mut window, &mut view, Some(two.as_path()));
+    click_rules(
+        &mut window,
+        &mut view,
+        node_labeled(&nodes, Role::Button, "Validate rules"),
+        Some(two.as_path()),
+    );
+    let nodes = draw(&mut window, &mut view, Some(two.as_path()));
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some(&format!("{}:", two.display()))),
+        "the file's name over the findings"
+    );
+    for line in [
+        "tiers: counts total 5 over squad_size 4",
+        "suggestions[0]: unknown suggestion \"bogus\"",
+    ] {
+        assert!(
+            nodes.iter().any(|node| node.value() == Some(line)),
+            "{line:?} drawn"
+        );
+    }
+
+    // A file that does not parse: one line with its position.
+    let broken = dir.join("broken.rhai");
+    std::fs::write(&broken, "let x = ;").unwrap();
+    let nodes = draw(&mut window, &mut view, Some(broken.as_path()));
+    click_rules(
+        &mut window,
+        &mut view,
+        node_labeled(&nodes, Role::Button, "Validate rules"),
+        Some(broken.as_path()),
+    );
+    let nodes = draw(&mut window, &mut view, Some(broken.as_path()));
+    let line = nodes
+        .iter()
+        .filter_map(|node| node.value())
+        .find(|value| value.starts_with("1:"))
+        .unwrap_or_else(|| panic!("the parse error's line: {nodes:?}"));
+    assert_eq!(line, "1:9: Unexpected ';' (line 1, position 9)");
+}
+
+/// A rules file that does not load: the load error stands where the list
+/// would, and no check runs.
+// SE-GUI-15
+#[test]
+fn a_rules_file_that_does_not_load_shows_the_error_in_the_lists_place() {
+    let save = fixture(PesVersion::Pes17, "aatf_broken_rules");
+    let dir = save.parent().expect("the scratch dir").to_path_buf();
+    let broken = dir.join("broken.rhai");
+    std::fs::write(&broken, "let x = ;").unwrap();
+    let mut view = SaveView::new();
+    view.open(&save);
+    view.aatf.open = true;
+    let mut window = Headless::sized(1100.0, 800.0);
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(broken.as_path()))
+    });
+    let nodes = panel_nodes(&pairs);
+    assert!(
+        nodes.iter().any(|node| {
+            node.value()
+                .is_some_and(|value| value.starts_with("The AATF rules file does not load:"))
+        }),
+        "the load error's line"
+    );
+    assert!(
+        !nodes
+            .iter()
+            .any(|node| { node.value().is_some_and(|value| value.starts_with("Team ")) }),
+        "no team listed"
+    );
+}
+
+/// Save a copy: the embedded official file written out under its own name
+/// through the stubbed dialog.
+// SE-GUI-15
+#[test]
+fn save_a_copy_writes_the_embedded_official_file() {
+    let save = fixture(PesVersion::Pes17, "aatf_save_copy");
+    let dir = save.parent().expect("the scratch dir").to_path_buf();
+    let target = dir.join("copy.rhai");
+    let mut view = SaveView::new();
+    view.open(&save);
+    view.aatf.open = true;
+    let for_dialog = target.clone();
+    view.aatf_copy_dialog = Box::new(move |name| {
+        assert_eq!(name, aatf::OFFICIAL_FILE_NAME, "the suggested name");
+        Some(for_dialog.clone())
+    });
+    let mut window = Headless::sized(1100.0, 800.0);
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Save a copy"),
+        &mut view,
+    );
+    let bytes = std::fs::read(&target).expect("the copy written");
+    assert_eq!(
+        bytes,
+        aatf::official_file().as_bytes(),
+        "the embedded file, byte for byte"
+    );
+    let rules = aatf::Rules::load(&String::from_utf8(bytes).expect("the file is text"))
+        .expect("the copy loads");
+    assert_eq!(rules.ruleset().name, "Autumn 26");
+    assert_eq!(rules.logic(), aatf::LogicIdentity::Current);
+    let nodes = draw(&mut window, &mut view, None);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some(&format!("Wrote {}", target.display()))),
+        "the Wrote line"
+    );
+}
