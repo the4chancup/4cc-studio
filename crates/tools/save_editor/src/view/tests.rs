@@ -207,13 +207,21 @@ fn row_labels(nodes: &[accesskit::Node]) -> Vec<String> {
         .collect()
 }
 
+/// A press at `at`, then the release: the release frame's nodes. `draw`
+/// runs the view under test on each of the two frames.
+fn press_release(
+    window: &mut Headless,
+    at: egui::Pos2,
+    mut draw: impl FnMut(&mut egui::Ui),
+) -> Vec<accesskit::Node> {
+    window.frame(pointer_at(at, true), &mut draw);
+    let (_, nodes, _) = window.frame(pointer_at(at, false), draw);
+    nodes
+}
+
 /// A click on `node`: press on one frame, release on the next.
 fn click(window: &mut Headless, node: &accesskit::Node, view: &mut SaveView) {
-    let at = centre(node);
-    window.frame(pointer_at(at, true), |ui| {
-        show(ui, view, &|| Vec::new(), None)
-    });
-    window.frame(pointer_at(at, false), |ui| {
+    press_release(window, centre(node), |ui| {
         show(ui, view, &|| Vec::new(), None)
     });
 }
@@ -657,13 +665,7 @@ fn snap(canvas: accesskit::Rect, pos: egui::Pos2) -> (u8, u8) {
 /// A click at `pos` (press on one frame, release on the next): the
 /// release frame's nodes.
 fn click_at(window: &mut Headless, pos: egui::Pos2, view: &mut SaveView) -> Vec<accesskit::Node> {
-    window.frame(pointer_at(pos, true), |ui| {
-        show(ui, view, &|| Vec::new(), None)
-    });
-    let (_, nodes, _) = window.frame(pointer_at(pos, false), |ui| {
-        show(ui, view, &|| Vec::new(), None)
-    });
-    nodes
+    press_release(window, pos, |ui| show(ui, view, &|| Vec::new(), None))
 }
 
 /// One frame with `rules` as the active rules file (`None`: the embedded
@@ -796,11 +798,7 @@ fn click_rules(
     node: &accesskit::Node,
     rules: Option<&Path>,
 ) {
-    let at = centre(node);
-    window.frame(pointer_at(at, true), |ui| {
-        show(ui, view, &|| Vec::new(), rules)
-    });
-    window.frame(pointer_at(at, false), |ui| {
+    press_release(window, centre(node), |ui| {
         show(ui, view, &|| Vec::new(), rules)
     });
 }

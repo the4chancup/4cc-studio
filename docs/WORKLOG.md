@@ -1295,9 +1295,19 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           header untested) and S3's items in rework 1 (SWE-2, 17 min); lead: the checking-mark
           tests held the pointer (a reply between a first frame's two passes failed one run in
           eight), CONTRIBUTING's rule. Mutants `1311c1d2..55cbede0`: 33 caught, 9 unviable, 1
-          missed (the mark's `&&`, killed by the lead's test), the dock's timeout a slow fail.
-          Then a SWE-2 loop and Astra (rulings `.tmp/8_9j/duck_rulings_j3.md`)
-      - [ ] 8.9j4 the comparator (SE-GUI-13), then 8.9j5 the transplant (SE-GUI-14)
+          missed (the mark's `&&`, killed by the lead's test), the dock's timeout a slow fail;
+          on rework 1: 10 caught. S1: 2 accepted (no test of another team or rules file over a
+          held result, the click helper's copies), rework 2 (SWE-2, 10 min); SWE-2's loop ends.
+          Astra A1 next (rulings `.tmp/8_9j/duck_rulings_j3.md`)
+      - [ ] 8.9j4 the comparator (SE-GUI-13); the direction, Export's scope and the tabs' terms
+        ruled first (DECISIONS 2026-10-24 "The comparator's direction…"; code map
+        `.tmp/8_9j/j4_map.md`)
+        - [ ] 8.9j4a the tabs' terms as data the tabs and the panel both read (a diff row's label
+          and shown values), the tabs on it unchanged on screen; the `diff` report's text as one
+          function the CLI and Export share
+        - [ ] 8.9j4b the panel: a second save, the scope toggles and team filter, rows in the tabs'
+          terms, a click selecting the player, Export, the version refusal
+      - [ ] 8.9j5 the transplant (SE-GUI-14)
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
       (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's
       `ScrollArea::vertical` the content's width grows to fit its widest row (measured at a

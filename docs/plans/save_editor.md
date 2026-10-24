@@ -566,6 +566,15 @@ The panel over the spec's `diff` report:
   Not the report's values on screen, because a member reads a row against the tab it jumps to,
   and a motion one lower than the tab's reads as a wrong row; not tab values in the report,
   because the report is what the compare scripts it replaces print.
+- The picked save is the report's first and the open save its second, so a row reads picked →
+  open: what the member's edits changed against the save he compares with.
+- Export writes the report of the toggled scope over the whole save, the text `save-editor diff
+  <picked> <open>` prints with `--gameplay` or `--aesthetics` (All: neither); the team filter
+  narrows the screen only. Not the rows shown, because the command has no team filter, and an
+  Export no command writes could not be checked against the CLI.
+- The tabs' terms (a field's label, its stored-to-shown transform) are read from the tabs' own
+  tables, not from a second table for the panel, which would drift from the tabs; the
+  unsaved-changes prompt reads the same ones.
 
 ---
 

@@ -10725,3 +10725,15 @@ panel validate one file and check with another; the assembled file, not the data
 because the data block does not load as a rules file.
 Plan: `plans/save_editor.md` "Configurable AATF rules", the AATF panel, Validate rules and
 "save a copy" bullets.
+
+## 2026-10-24 — save_editor — The comparator's direction, Export's scope and where the tabs' terms live
+Decision: the picked save is the `diff` report's first and the open save its second; Export
+writes the report of the toggled scope over the whole save (`save-editor diff <picked> <open>`
+with `--gameplay` or `--aesthetics`, All neither), the team filter narrowing the screen only;
+the tabs' terms are read from the tabs' own label and transform tables.
+Why: picked → open, not the reverse, because a member compares his edited save against a
+reference and reads a row as what his edits changed (the draft's direction); the whole save's
+report, not the rows shown as the draft exported them, because the plan and SE-GUI-13 ask for
+the CLI's text and the command has no team filter, so a filtered Export could not be checked
+against it; the tabs' tables, not a second one for the panel, because two label tables drift.
+Plan: `plans/save_editor.md` "Comparator (gameplay + aesthetics)".

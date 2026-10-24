@@ -27,9 +27,24 @@ fn tool_click(
     node: &accesskit::Node,
 ) {
     use studio_core::StudioTool;
-    let at = centre(node);
-    window.frame(pointer_at(at, true), |ui| tool.view(ui, ctx));
-    window.frame(pointer_at(at, false), |ui| tool.view(ui, ctx));
+    press_release(window, centre(node), |ui| tool.view(ui, ctx));
+}
+
+/// Asserts no violation row is drawn under `header` (a row would be a
+/// Button below the header line).
+fn assert_no_violation_row(nodes: &[accesskit::Node], header: &str) {
+    let header_bottom = nodes
+        .iter()
+        .find(|node| node.value() == Some(header))
+        .and_then(accesskit::Node::bounds)
+        .expect("the header's bounds")
+        .y1;
+    assert!(
+        !nodes.iter().any(|node| {
+            node.role() == Role::Button && node.bounds().is_some_and(|b| b.y0 >= header_bottom)
+        }),
+        "no violation row"
+    );
 }
 
 /// The dock lists the open team's violations under `N issues · <ruleset>`;
@@ -128,19 +143,7 @@ fn a_clean_team_reads_no_issues_and_a_broken_rule_the_count() {
             .any(|node| node.value() == Some(header.as_str())),
         "the passing header: {header}"
     );
-    // No violation row: a row would be a Button below the header line.
-    let header_bottom = nodes
-        .iter()
-        .find(|node| node.value() == Some(header.as_str()))
-        .and_then(accesskit::Node::bounds)
-        .expect("the header's bounds")
-        .y1;
-    assert!(
-        !nodes.iter().any(|node| {
-            node.role() == Role::Button && node.bounds().is_some_and(|b| b.y0 >= header_bottom)
-        }),
-        "no violation row"
-    );
+    assert_no_violation_row(&nodes, &header);
 
     // One player's height broken: the count header reads the check's
     // count.
@@ -166,6 +169,17 @@ fn a_clean_team_reads_no_issues_and_a_broken_rule_the_count() {
             .any(|node| node.value() == Some("3 issues · Autumn 26")),
         "the count after the edit"
     );
+
+    // The last one fixed: `No issues` again, and no row is drawn.
+    view.session.as_mut().expect("the save opened").undo();
+    let nodes = live_checked(&mut window, &mut view, None, &[714]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some(header.as_str())),
+        "the passing header is back"
+    );
+    assert_no_violation_row(&nodes, &header);
 }
 
 /// The toggle is a setting: clicking it writes `live_aatf`, the tool's
@@ -298,6 +312,68 @@ fn an_edit_marks_the_previous_result_checking() {
             .any(|node| node.value() == Some("checking\u{2026}")),
         "and the mark is gone"
     );
+}
+
+/// The dock follows the open team and the rules file: another team picked
+/// re-checks and re-counts it, and a rules file whose result differs
+/// replaces the rows.
+// SE-GUI-30
+#[test]
+fn the_dock_follows_the_open_team_and_the_rules_file() {
+    let (mut view, mut window) = open_734_with("live_aatf_team_rules", &[73401, 73404], 183);
+    view.live_aatf = true;
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("6 issues · Autumn 26")),
+        "premise: 734's count"
+    );
+
+    // Another team picked, as the selector does: the dock re-checks it.
+    view.team = TeamChoice::Team(714);
+    view.selected = Some((714, 0));
+    let nodes = live_checked(&mut window, &mut view, None, &[714]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("3 issues · Autumn 26")),
+        "714's count"
+    );
+    assert!(
+        !nodes
+            .iter()
+            .any(|node| node.value() == Some("Team 734 /lit/")),
+        "no row of 734's"
+    );
+
+    // Back to 734 under a rules file whose result differs: the Tall
+    // bracket also takes 183, so the two Height rows go and the red
+    // quota is met.
+    view.team = TeamChoice::Team(734);
+    view.selected = Some((734, 0));
+    let dir = view
+        .session
+        .as_ref()
+        .unwrap()
+        .path()
+        .parent()
+        .expect("the scratch dir")
+        .to_path_buf();
+    let taller = dir.join("taller.rhai");
+    std::fs::write(
+        &taller,
+        aatf::official_file().replacen("exactly: [185]", "exactly: [183, 185]", 1),
+    )
+    .unwrap();
+    let nodes = live_checked(&mut window, &mut view, Some(taller.as_path()), &[734]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("3 issues · Autumn 26")),
+        "the new file's count"
+    );
+    assert_eq!(height_rows(&nodes), 0, "183 takes the Tall bracket");
 }
 
 /// At ALL the dock checks the selected player's team; with no player
