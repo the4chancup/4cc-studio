@@ -12,7 +12,7 @@ mod aatf_panel;
 mod abilities;
 mod appearance;
 mod info_strip;
-pub(crate) mod live_aatf;
+mod live_aatf;
 mod menus;
 mod player_list;
 mod portraits;
@@ -85,7 +85,7 @@ pub(crate) struct SaveView {
     pub(crate) live_aatf: bool,
     /// The Live AATF dock's state (the Live AATF bullet's docked panel);
     /// drawn while `live_aatf` and a save is open.
-    pub(super) live: live_aatf::LiveAatf,
+    live: live_aatf::LiveAatf,
     /// The panel's Save a copy dialog (`rfd`, stubbed in tests — the
     /// Ruleset editor's picker pattern).
     aatf_copy_dialog: aatf_panel::SaveCopyDialog,
@@ -365,7 +365,7 @@ pub(crate) fn show(
 /// The widget holding the keyboard this frame and whether the edit has
 /// settled: the pointer up with no widget focused, or the widget that
 /// held it having lost it. `show`'s seal condition, which the AATF
-/// panel's check start shares so a result never lands mid-gesture.
+/// checks' start shares, so a check never runs over a mid-gesture file.
 fn edit_settled(ui: &egui::Ui, last_focused: Option<egui::Id>) -> (Option<egui::Id>, bool) {
     let focused = ui.ctx().memory(|memory| memory.focused());
     let settled = (!ui.input(|input| input.pointer.any_down()) && focused.is_none())

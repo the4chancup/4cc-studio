@@ -16,7 +16,7 @@ use crate::view::{SaveView, edit_settled, rules_load_error};
 
 /// The dock's state on `SaveView` (`view.live`): the dock's frame and the
 /// open team's check.
-pub(crate) struct LiveAatf {
+pub(super) struct LiveAatf {
     /// The bottom dock's frame: the chevron, the title and the height.
     dock: BottomDock,
     /// The open team's check, the floating panel's shared with it.
@@ -42,7 +42,7 @@ impl LiveAatf {
 /// revision and rules file once the edit settles, the header counting the
 /// held result's Error and Warning violations (the draft's `livePanel`
 /// wording) and the body listing them through the shared `results`.
-pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
+pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let SaveView {
         live,
         session,
@@ -73,7 +73,6 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let checking = live
         .check
         .update(ui.ctx(), file, loaded.as_ref(), key, settled);
-    let team_name = |id: u32| file.team(id).map(|team| team.name.as_str()).unwrap_or("?");
     live.dock.show(
         ui,
         |ui| {
@@ -86,23 +85,15 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         if let Ok(rules) = &active.rules
                             && checks.iter().all(Result::is_ok)
                         {
-                            let issues = checks
-                                .iter()
-                                .filter_map(|check| check.as_ref().ok())
-                                .flatten()
-                                .filter(|violation| {
-                                    matches!(
-                                        violation.severity,
-                                        aatf::Severity::Error | aatf::Severity::Warning
-                                    )
-                                })
-                                .count();
+                            let issues = aatf_check::issues(checks);
                             if issues == 0 {
-                                let name = result_key
-                                    .ids
-                                    .first()
-                                    .map(|id| team_name(*id))
-                                    .unwrap_or("?");
+                                let name = aatf_check::team_name(
+                                    file,
+                                    *result_key
+                                        .ids
+                                        .first()
+                                        .expect("a held result checked a team"),
+                                );
                                 ui.strong(format!(
                                     "No issues: {name} passes {}",
                                     rules.ruleset().name
@@ -115,12 +106,15 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     }
                     None => {
                         if let Some(id) = team_id {
-                            ui.strong(format!("Checking {}\u{2026}", team_name(id)));
+                            ui.strong(format!(
+                                "Checking {}\u{2026}",
+                                aatf_check::team_name(file, id)
+                            ));
                         }
                     }
                 }
                 if checking && live.check.result.is_some() {
-                    ui.weak("↻ checking\u{2026}");
+                    ui.weak("checking\u{2026}");
                 }
             }
         },

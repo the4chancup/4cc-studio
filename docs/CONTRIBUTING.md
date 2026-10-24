@@ -239,6 +239,12 @@ Requirements:
   never happened. Broken code then fails in seconds; unbounded, it spins until the mutation
   run's timeout: at 2026-10-21's `mutants-diff 12ffa8c3` one such helper hung ten mutants for
   17 minutes each.
+- **A worker's in-between state is read on a frame no reply can reach.** A view that starts a
+  check on a worker thread and marks the list as checking until it replies cannot be tested
+  by drawing the frame that starts it: egui runs a window's or panel's first frame in two
+  passes, and the worker can reply between them, so the frame draws the result instead (8.9j3:
+  one full-suite run in eight). The mark is read on a frame where no check can start (the
+  pointer held over an unsettled edit); the test never widens its assertion to pass both ways.
 - **A test never reaches the developer's own files.** A setting whose default finds something on
   the machine (`savefile_path = auto` walks Documents\KONAMI, `pes_folder_path` names the real
   install) is set to a path under the test's own folder by every test context that runs the

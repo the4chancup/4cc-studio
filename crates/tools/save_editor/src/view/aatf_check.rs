@@ -144,6 +144,32 @@ pub(super) fn select_player(
     filter.clear();
 }
 
+/// The issue count the callers draw: the Error and Warning violations of
+/// the checks that succeeded (suggestions are not issues; a failed check's
+/// violations are unknown and count nothing — the body says why).
+pub(super) fn issues(checks: &[TeamCheck]) -> usize {
+    checks
+        .iter()
+        .filter_map(|check| check.as_ref().ok())
+        .flatten()
+        .filter(|violation| {
+            matches!(
+                violation.severity,
+                aatf::Severity::Error | aatf::Severity::Warning
+            )
+        })
+        .count()
+}
+
+/// Team `id`'s name (every checked id comes from the open file's teams,
+/// the selector or the selection).
+pub(super) fn team_name(file: &EditFile, id: u32) -> &str {
+    file.team(id)
+        .expect("every checked id is a team of the open file")
+        .name
+        .as_str()
+}
+
 /// The check's results: one error-coloured line per team whose check
 /// failed (as `check-aatf` reports it), `clean_line` (the panel's "No
 /// violations."; `None` in the dock, whose header says it) when every
@@ -179,7 +205,7 @@ pub(super) fn results(
     }
     let mut teams = Vec::new();
     for (i, (id, check)) in key.ids.iter().zip(checks).enumerate() {
-        let name = file.team(*id).map(|team| team.name.as_str()).unwrap_or("?");
+        let name = team_name(file, *id);
         match check {
             Err(error) => {
                 ui.colored_label(
@@ -195,19 +221,9 @@ pub(super) fn results(
             }),
         }
     }
-    let clean = checks
-        .iter()
-        .filter_map(|check| check.as_ref().ok())
-        .flatten()
-        .all(|violation| {
-            !matches!(
-                violation.severity,
-                aatf::Severity::Error | aatf::Severity::Warning
-            )
-        });
     // Only when every check succeeded: beside a failed team's line it
     // would read as clearing that team, whose violations are unknown.
-    if clean
+    if issues(checks) == 0
         && checks.iter().all(Result::is_ok)
         && let Some(line) = clean_line
     {

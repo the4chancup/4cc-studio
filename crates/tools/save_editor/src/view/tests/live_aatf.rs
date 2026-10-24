@@ -18,27 +18,6 @@ fn live_checked(
     super::checked(window, view, rules, |view| &view.live.check, ids)
 }
 
-/// The dock's issue count as the header counts it: the held result's
-/// Error and Warning violations.
-fn issues(view: &SaveView) -> usize {
-    view.live
-        .check
-        .result
-        .as_ref()
-        .expect("a result held")
-        .1
-        .iter()
-        .filter_map(|check| check.as_ref().ok())
-        .flatten()
-        .filter(|violation| {
-            matches!(
-                violation.severity,
-                aatf::Severity::Error | aatf::Severity::Warning
-            )
-        })
-        .count()
-}
-
 /// A click on `node` through `tool.view` (press on one frame, release on
 /// the next): the `live_aatf` write lives in `Tool::view`, not `show`.
 fn tool_click(
@@ -60,15 +39,40 @@ fn tool_click(
 fn the_list_shrinks_as_edits_fix_violations_and_grows_back_on_undo() {
     let (mut view, mut window) = open_734_with("live_aatf_shrink", &[73401, 73404], 183);
     view.live_aatf = true;
-    let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let n = issues(&view);
-    assert_eq!(height_rows(&nodes), 2, "both players' Height rows");
-    let header = format!("{n} issues · Autumn 26");
+    // Before the first result: `Checking <team>…`, no count yet. The
+    // pointer is held (on the toolbar's empty end), so no check starts: a
+    // started one can reply between a frame's two passes, and the frame
+    // would draw its count instead.
+    let at = egui::pos2(1090.0, 12.0);
+    let (_, nodes, _) = window.frame(pointer_at(at, true), |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some(header.as_str())),
-        "the count header: {header}"
+            .any(|node| node.value() == Some("Checking /lit/\u{2026}")),
+        "the first check's header"
+    );
+    assert!(
+        view.live.check.pending.is_none() && view.live.check.result.is_none(),
+        "premise: no check started while the pointer is held"
+    );
+    assert!(
+        !nodes.iter().any(|node| node
+            .value()
+            .is_some_and(|v| v.ends_with("issues · Autumn 26"))),
+        "no count before the first result"
+    );
+    window.frame(pointer_at(at, false), |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    assert_eq!(height_rows(&nodes), 2, "both players' Height rows");
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("6 issues · Autumn 26")),
+        "the count header"
     );
 
     // 73401 back to his fixture height through the session (one sealed
@@ -80,22 +84,24 @@ fn the_list_shrinks_as_edits_fix_violations_and_grows_back_on_undo() {
         .expect("the save opened")
         .edit_players(vec![entry]);
     let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let n_fixed = issues(&view);
-    assert_eq!(n_fixed, n - 1, "the edit drops the count by one");
     assert_eq!(height_rows(&nodes), 1, "73401's Height row is gone");
-    let header = format!("{n_fixed} issues · Autumn 26");
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some(header.as_str())),
-        "the smaller count: {header}"
+            .any(|node| node.value() == Some("5 issues · Autumn 26")),
+        "the smaller count"
     );
 
     // An undo brings the edit, the row and the count back.
     view.session.as_mut().expect("the save opened").undo();
     let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    assert_eq!(issues(&view), n, "the count is back");
     assert_eq!(height_rows(&nodes), 2, "the row is back");
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("6 issues · Autumn 26")),
+        "the count is back"
+    );
 }
 
 /// A team that passes reads `No issues: <team> passes <ruleset>` and draws
@@ -154,14 +160,11 @@ fn a_clean_team_reads_no_issues_and_a_broken_rule_the_count() {
         .expect("the save opened")
         .edit_players(vec![entry]);
     let nodes = live_checked(&mut window, &mut view, None, &[714]);
-    let n = issues(&view);
-    let plural = if n == 1 { "issue" } else { "issues" };
-    let header = format!("{n} {plural} · Autumn 26");
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some(header.as_str())),
-        "the count after the edit: {header}"
+            .any(|node| node.value() == Some("3 issues · Autumn 26")),
+        "the count after the edit"
     );
 }
 
@@ -233,23 +236,28 @@ fn the_toggle_is_remembered_in_the_settings() {
     );
 }
 
-/// An edit starts a re-check: the frame that spawns it draws `↻ checking…`
-/// beside the previous result's header, which still counts the old N.
+/// An edit marks the previous result `checking…`, its count still shown,
+/// until the new check's result replaces it. The edit lands while the
+/// pointer is held, so the check waits for the release: a started check
+/// can reply between a frame's two passes, before the mark is read.
 // SE-GUI-30
 #[test]
 fn an_edit_marks_the_previous_result_checking() {
     let (mut view, mut window) = open_734_with("live_aatf_checking", &[73401, 73404], 183);
     view.live_aatf = true;
     let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    let n = issues(&view);
-    let header = format!("{n} issues · Autumn 26");
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some(header.as_str())),
+            .any(|node| node.value() == Some("6 issues · Autumn 26")),
         "premise: the count header"
     );
 
+    // The press lands on the toolbar's empty end.
+    let at = egui::pos2(1090.0, 12.0);
+    window.frame(pointer_at(at, true), |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
     let mut entry = player_entry(&view, 73401);
     entry.basic.height = 185;
     view.session
@@ -258,16 +266,37 @@ fn an_edit_marks_the_previous_result_checking() {
         .edit_players(vec![entry]);
     let nodes = draw(&mut window, &mut view, None);
     assert!(
+        view.live.check.pending.is_none(),
+        "premise: no check started while the pointer is held"
+    );
+    assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("↻ checking\u{2026}")),
+            .any(|node| node.value() == Some("checking\u{2026}")),
         "the checking mark beside the old header"
     );
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some(header.as_str())),
+            .any(|node| node.value() == Some("6 issues · Autumn 26")),
         "the previous count still shown"
+    );
+
+    window.frame(pointer_at(at, false), |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("5 issues · Autumn 26")),
+        "the new count replaces it"
+    );
+    assert!(
+        !nodes
+            .iter()
+            .any(|node| node.value() == Some("checking\u{2026}")),
+        "and the mark is gone"
     );
 }
 

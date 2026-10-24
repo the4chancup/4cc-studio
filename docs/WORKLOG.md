@@ -1291,7 +1291,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         `save_editor/{help/02_window.md,src/{lib.rs,settings.rs,view/{aatf_check.rs,aatf_panel.rs,
         live_aatf.rs,mod.rs,player_list.rs,tests.rs,tests/{aatf_panel.rs,live_aatf.rs}}}}`
         - [ ] review: checkpoint (b) (`BottomDock::new`'s signature, two crates): the lead's
-          review and S3's items in rework 1, `mutants-diff 1311c1d2`, then a SWE-2 loop and Astra
+          review (one issue count, `live` private, U+21BB missing from egui's fonts, the first
+          header untested) and S3's items in rework 1 (SWE-2, 17 min); lead: the checking-mark
+          tests held the pointer (a reply between a first frame's two passes failed one run in
+          eight), CONTRIBUTING's rule. Mutants `1311c1d2..55cbede0`: 33 caught, 9 unviable, 1
+          missed (the mark's `&&`, killed by the lead's test), the dock's timeout a slow fail.
+          Then a SWE-2 loop and Astra (rulings `.tmp/8_9j/duck_rulings_j3.md`)
       - [ ] 8.9j4 the comparator (SE-GUI-13), then 8.9j5 the transplant (SE-GUI-14)
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
       (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's

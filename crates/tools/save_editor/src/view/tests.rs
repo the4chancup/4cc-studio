@@ -3,6 +3,7 @@
 //! on, run a frame at a time; what a frame draws is its AccessKit nodes and
 //! painted shapes.
 
+use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
@@ -778,7 +779,119 @@ fn open_legal_714(test: &str, window: Headless) -> (SaveView, Headless) {
     (view, window)
 }
 
+/// `checked` on the floating AATF panel's check.
+fn panel_checked(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules: Option<&Path>,
+    ids: &[u32],
+) -> Vec<accesskit::Node> {
+    checked(window, view, rules, |view| &view.aatf.check, ids)
+}
+
+/// `node` clicked with `rules` as the active rules file.
+fn click_rules(
+    window: &mut Headless,
+    view: &mut SaveView,
+    node: &accesskit::Node,
+    rules: Option<&Path>,
+) {
+    let at = centre(node);
+    window.frame(pointer_at(at, true), |ui| {
+        show(ui, view, &|| Vec::new(), rules)
+    });
+    window.frame(pointer_at(at, false), |ui| {
+        show(ui, view, &|| Vec::new(), rules)
+    });
+}
+
+/// The CheckBox labeled `label` toggled through its AccessKit action: a
+/// team the picker scroll has not reached sits outside the window, where
+/// a pointer click lands on nothing.
+fn tick(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>, label: &str) {
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+    let (id, _) = pairs
+        .iter()
+        .find(|(_, node)| node.label() == Some(label))
+        .unwrap_or_else(|| panic!("no checkbox {label:?}"));
+    let id = *id;
+    window.frame(
+        vec![egui::Event::AccessKitActionRequest(
+            accesskit::ActionRequest {
+                action: accesskit::Action::Click,
+                target_tree: accesskit::TreeId::ROOT,
+                target_node: id,
+                data: None,
+            },
+        )],
+        |ui| show(ui, view, &|| Vec::new(), rules),
+    );
+}
+
+/// The nodes inside the panel's window (its subtree: the player list's
+/// rows share the screen). `pairs` is `frame_ids`' output.
+fn panel_nodes(pairs: &[(accesskit::NodeId, accesskit::Node)]) -> Vec<&accesskit::Node> {
+    let (window, _) = pairs
+        .iter()
+        .find(|(_, node)| {
+            node.label()
+                .is_some_and(|label| label.starts_with("AATF violations"))
+        })
+        .expect("the panel window");
+    let by_id: HashMap<accesskit::NodeId, &accesskit::Node> =
+        pairs.iter().map(|(id, node)| (*id, node)).collect();
+    let mut nodes = Vec::new();
+    let mut stack = vec![*window];
+    while let Some(id) = stack.pop() {
+        let node = by_id[&id];
+        stack.extend(node.children());
+        nodes.push(node);
+    }
+    nodes
+}
+
+/// The panel window's Label values and Button labels, in top-to-bottom
+/// order.
+fn panel_lines(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>) -> Vec<String> {
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+    let nodes = panel_nodes(&pairs);
+    let mut lines: Vec<(f64, f64, String)> = Vec::new();
+    for node in nodes {
+        let text = match node.role() {
+            Role::Label => node.value().map(str::to_owned),
+            _ => node.label().map(str::to_owned),
+        };
+        if let (Some(text), Some(bounds)) = (text, node.bounds()) {
+            lines.push((bounds.y0, bounds.x0, text));
+        }
+    }
+    lines.sort_by(|a, b| {
+        a.0.partial_cmp(&b.0)
+            .expect("drawn bounds")
+            .then(a.1.partial_cmp(&b.1).expect("drawn bounds"))
+    });
+    lines.into_iter().map(|(_, _, text)| text).collect()
+}
+
+/// `dir`'s `throw19.rhai` written and its path returned: the official
+/// file with the CLI's custom check that throws on captain 19 (team
+/// 743's; `a_check_that_fails_on_one_team_does_not_stop_the_rest`).
+fn throw19_file(dir: &Path) -> PathBuf {
+    let path = dir.join("throw19.rhai");
+    std::fs::write(
+        &path,
+        aatf::official_file().replacen(
+            "fn custom_checks(team) { [] }",
+            "fn custom_checks(team) { if team.captain == 19 { throw \"boom\" } [] }",
+            1,
+        ),
+    )
+    .unwrap();
+    path
+}
+
 mod aatf_panel;
+mod aatf_panel_mechanics;
 mod abilities;
 mod appearance;
 mod list;

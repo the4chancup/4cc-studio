@@ -235,10 +235,9 @@ fn rows(
     file: &EditFile,
 ) {
     ui.horizontal_wrapped(|ui| {
-        match &active.rules {
-            Ok(rules) => ui.weak(format!("Ruleset {} ", rules.ruleset().name)),
-            Err(_) => ui.weak("Ruleset "),
-        };
+        if let Ok(rules) = &active.rules {
+            ui.weak(format!("Ruleset {} ", rules.ruleset().name));
+        }
         ui.radio_value(&mut aatf.mode, AatfMode::Current, "Current team");
         ui.radio_value(&mut aatf.mode, AatfMode::Select, "Select teams");
         ui.checkbox(&mut aatf.show_suggestions, "Show suggestions");
