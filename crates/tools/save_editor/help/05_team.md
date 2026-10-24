@@ -1,7 +1,8 @@
-The **Team** tab edits the selected player's team: its name and three-letter
-short name, its two colours, the manager and stadium IDs, and the kit slot
-assignments (PES 2017 only). A field the save's version does not hold stays
-in its place, disabled, with a note naming the first version that has it.
+The team bar above the tabs edits the selected player's team's name,
+three-letter short name and two colours; the **Team settings** tab holds the
+manager and stadium IDs and the kit slot assignments (PES 2017 only). A field
+the save's version does not hold stays in its place, disabled, with a note
+naming the first version that has it.
 
 The name and short name fields keep only what the save can hold: the name up
 to the save's byte limit (an accented letter counts more than one), the short

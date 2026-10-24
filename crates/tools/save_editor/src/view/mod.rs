@@ -1,7 +1,8 @@
 //! The Save editor's window (`plans/save_editor.md` "Editing UI"): a toolbar over a
-//! master-detail layout, the player list left (`player_list`) and the general info
-//! strip right (`info_strip`) over the tab strip and the Abilities & Skills tab
-//! (`abilities`). Render-only over the session's state: it opens a
+//! master-detail layout, the player list left (`player_list`) and, right, the
+//! team bar (`team::bar`) over the tab strip and the drawn tab; the player
+//! header (`info_strip`) tops the two tabs that edit him (`abilities`,
+//! `appearance`). Render-only over the session's state: it opens a
 //! save, filters and selects players, reorders a team's list by drag
 //! (`Session::move_player`), edits the strip's fields through
 //! `Session::edit_player`/`edit_team` (one undo entry per gesture), saves, and
@@ -37,17 +38,17 @@ use crate::session::Session;
 use crate::session::selection::{self, TeamChoice};
 
 /// The detail pane's drawn tabs (`plans/save_editor.md` "Editing UI", the
-/// Tabs bullet).
+/// Tabs bullet), the Player tabs then the Team ones.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Tab {
     /// Abilities & Skills.
     Abilities,
     /// Appearance (`appearance`).
     Appearance,
-    /// The selected player's team (`team`).
-    Team,
     /// The team's tactics (`tactics`).
     Tactics,
+    /// The team's settings (`team`); the bar holds its names and colours.
+    TeamSettings,
 }
 
 /// The window's state: the open save and what the master-detail shows of it.
@@ -134,7 +135,7 @@ pub(crate) struct SaveView {
     /// The Bump dialog's last N used in this window (its field's
     /// prefill), starting at 0.
     bump: i32,
-    /// The quick actions row's Set stats number (the draft's `set-stats`
+    /// The quick actions' Set stats number (the draft's `set-stats`
     /// field), starting at 77.
     set_stats: u8,
     /// The Copy/Swap stats dialog's state while it is open (the Player
@@ -347,16 +348,21 @@ pub(crate) fn show(
             .resizable(true)
             .show(ui, |ui| player_list::show(ui, view));
         egui::CentralPanel::default().show(ui, |ui| {
-            info_strip::show(ui, view);
-            quick_actions::show(ui, view);
+            team::bar(ui, view);
             tab_strip(ui, &mut view.tab);
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
-                .show(ui, |ui| match view.tab {
-                    Tab::Abilities => abilities::show(ui, view),
-                    Tab::Appearance => appearance::show(ui, view),
-                    Tab::Team => team::show(ui, view),
-                    Tab::Tactics => tactics::show(ui, view),
+                .show(ui, |ui| {
+                    // The player header tops the two tabs that edit him.
+                    if matches!(view.tab, Tab::Abilities | Tab::Appearance) {
+                        info_strip::show(ui, view);
+                    }
+                    match view.tab {
+                        Tab::Abilities => abilities::show(ui, view),
+                        Tab::Appearance => appearance::show(ui, view),
+                        Tab::Tactics => tactics::show(ui, view),
+                        Tab::TeamSettings => team::show(ui, view),
+                    }
                 });
         });
     }
@@ -528,21 +534,37 @@ fn save(view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
     }
 }
 
-/// The detail pane's tabs (`plans/save_editor.md` "Editing UI", the Tabs
-/// bullet): Abilities & Skills, Appearance, Team and Tactics pick.
+/// The detail pane's tabs (`plans/save_editor.md` "Editing UI", the tab
+/// strip bullet): `Player` (Abilities & Skills, Appearance) then `Team`
+/// (Tactics, Team settings), each group after its weak scope label.
 fn tab_strip(ui: &mut egui::Ui, tab: &mut Tab) {
     ui.horizontal(|ui| {
-        for (which, label) in [
-            (Tab::Abilities, "Abilities & Skills"),
-            (Tab::Appearance, "Appearance"),
-            (Tab::Team, "Team"),
-            (Tab::Tactics, "Tactics"),
+        for (scope, tabs) in [
+            (
+                "Player",
+                [
+                    (Tab::Abilities, "Abilities & Skills"),
+                    (Tab::Appearance, "Appearance"),
+                ]
+                .as_slice(),
+            ),
+            (
+                "Team",
+                [
+                    (Tab::Tactics, "Tactics"),
+                    (Tab::TeamSettings, "Team settings"),
+                ]
+                .as_slice(),
+            ),
         ] {
-            if ui
-                .add(egui::Button::selectable(*tab == which, label))
-                .clicked()
-            {
-                *tab = which;
+            ui.weak(scope);
+            for &(which, label) in tabs {
+                if ui
+                    .add(egui::Button::selectable(*tab == which, label))
+                    .clicked()
+                {
+                    *tab = which;
+                }
             }
         }
     });
@@ -565,8 +587,9 @@ pub(crate) fn edit_player(
     session.edit_player(key, edited);
 }
 
-/// `edit_player` for the team's entry (the info strip's Number and
-/// Captain, the Team tab's fields, the Tactics tab's edited clone).
+/// `edit_player` for the team's entry (the header's Number and Captain,
+/// the team bar's and Team settings tab's fields, the Tactics tab's
+/// edited clone).
 pub(crate) fn edit_team(
     session: &mut Session,
     id: u32,
@@ -592,6 +615,16 @@ pub(crate) fn selected_player(view: &SaveView) -> Option<(u32, u8, u32)> {
     let (team_id, slot) = view.selected?;
     let player_id = view.session.as_ref()?.slot_player(team_id, slot)?;
     Some((team_id, slot, player_id))
+}
+
+/// The selected player's `(team_id, save's version, team's entry cloned)`;
+/// `None` when the selection names no rostered player or the entry is
+/// missing (the team widgets' shared head).
+pub(crate) fn selected_team(view: &SaveView) -> Option<(u32, PesVersion, TeamEntry)> {
+    let (team_id, _, _) = selected_player(view)?;
+    let file = view.session.as_ref()?.file();
+    let team = file.team(team_id)?.clone();
+    Some((team_id, file.version(), team))
 }
 
 /// The refusal's dialog, while `view.refusal` holds one.

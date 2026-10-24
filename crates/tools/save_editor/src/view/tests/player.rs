@@ -416,15 +416,28 @@ fn slot_label(entry: &PlayerEntry, number: u16) -> String {
     format!("{number} {position} {}", display_name(&entry.name))
 }
 
+/// The `role` control named by `label` inside a dialog: `right_of_label`,
+/// except the label is picked among its copies (the team bar's "Team"
+/// and the tab strip's "Player" scope carry the same texts) by which
+/// one's row holds a `role` node.
+fn dialog_control<'a>(
+    nodes: &'a [accesskit::Node],
+    label: &str,
+    role: Role,
+) -> &'a accesskit::Node {
+    nodes
+        .iter()
+        .filter(|node| node.role() == Role::Label && node.value() == Some(label))
+        .find_map(|label_node| first_right_of(nodes, label_node, |n| n.role() == role))
+        .unwrap_or_else(|| panic!("no {role:?} right of a {label:?} label"))
+}
+
 /// Picks `label` in the Copy/Swap dialog's player combo and clicks OK.
 fn run_copy_swap(window: &mut Headless, view: &mut SaveView, item: &str, label: &str) {
     let nodes = open_menu(window, view, "Player", "Set all stats");
     click(window, menu_item(&nodes, item), view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
-    let combo = right_of_label(&nodes, "Player", Role::ComboBox)
-        .first()
-        .copied()
-        .unwrap_or_else(|| panic!("the {item:?} dialog's player combo"));
+    let combo = dialog_control(&nodes, "Player", Role::ComboBox);
     click(window, combo, view);
     let (_, nodes, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
     let (option, _) = nodes
@@ -639,10 +652,7 @@ fn the_copy_swap_dialog_picks_the_teams_first_filled_slot() {
 
     // Pick the other team in the Team combo: the pick re-seats on its
     // first filled slot.
-    let team_combo = right_of_label(&nodes, "Team", Role::ComboBox)
-        .first()
-        .copied()
-        .expect("the team combo");
+    let team_combo = dialog_control(&nodes, "Team", Role::ComboBox);
     click(&mut window, team_combo, &mut view);
     let (_, nodes, _) =
         window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -661,10 +671,7 @@ fn the_copy_swap_dialog_picks_the_teams_first_filled_slot() {
 
 /// The Copy/Swap dialog's player combo node.
 fn player_combo(nodes: &[accesskit::Node]) -> &accesskit::Node {
-    right_of_label(nodes, "Player", Role::ComboBox)
-        .first()
-        .copied()
-        .expect("the player combo")
+    dialog_control(nodes, "Player", Role::ComboBox)
 }
 
 // The Copy/Swap dialog leaves on OK as on Cancel (`view.copy_swap` is
@@ -702,13 +709,46 @@ fn fpc_button<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::N
     labeled(nodes, Role::Button, label)
 }
 
-/// The Appearance tab unlocked and drawn for one frame's nodes. The FPC
-/// group is the tab's last: under the quick actions row it sits below the
-/// fold at 700 points, so these tests draw a taller window to reach it.
+/// The Appearance tab unlocked, scrolled to the FPC group and drawn for
+/// one frame's nodes. The group is the tab's last: under the player
+/// header it sits below the fold, and a pointer click or hover lands
+/// only inside the scroll's clip (bounded: a group that never shows
+/// fails rather than hangs).
 fn appearance_frame(window: &mut Headless, view: &mut SaveView) -> Vec<accesskit::Node> {
     view.tab = Tab::Appearance;
+    let at = egui::pos2(600.0, 400.0);
+    let bottom = f64::from(window.screen.y) - 12.0;
+    let in_view = |nodes: &[accesskit::Node]| {
+        nodes.iter().any(|node| {
+            node.role() == Role::Button
+                && node.label() == Some("Hide body")
+                && node.bounds().is_some_and(|b| b.y1 <= bottom)
+        })
+    };
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
-    nodes
+    if in_view(&nodes) {
+        return nodes;
+    }
+    for _ in 0..24 {
+        window.frame(
+            vec![
+                egui::Event::PointerMoved(at),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, -400.0),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Wheel,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            |ui| show(ui, view, &|| Vec::new(), None),
+        );
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        if in_view(&nodes) {
+            return nodes;
+        }
+    }
+    panic!("the FPC group never scrolled into view")
 }
 
 /// 70101's strip fields the presets write, as the session holds him.

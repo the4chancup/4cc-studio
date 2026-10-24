@@ -10783,3 +10783,15 @@ Why: each slice stays one review's size; (d) adds a `pub` API to the crate the 0
 rock-solid, so it lands alone with its own checkpoint (b) review; (e) changes every tool's
 text, not the Save editor's, and adds a bundled font file.
 Plan: `plans/save_editor.md` "Editing UI", SE-GUI-01, 06, 07, 10, 32.
+
+## 2026-10-24 — save_editor — The player header's two rows, two grids
+Decision: the player header draws v2's two rows (Name, Shirt, Number, Captain; ID, Nation, Age,
+Height, Weight) as one grid per row, each label in its own cell, not as one grid whose columns
+both rows share; the Name and Shirt fields take the draft's 190 and 110 points, not the first
+slice's 240 and 140.
+Why: the header must fit the 877-point pane of the shell's smallest default window. An egui
+grid unions each column's width across its rows, so in one grid the Name field's width widens
+row 2's ID column and Height and Weight are cut off; at 240 and 140, row 1 alone (Number and
+Captain now beside Name and Shirt) widens the tab's content past that pane (measured in 8.9f
+slice 4a: a checkbox below it ended at 908).
+Plan: `plans/save_editor.md` "Editing UI", the player header bullet.

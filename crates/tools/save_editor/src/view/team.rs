@@ -1,13 +1,15 @@
-//! The Team tab (`plans/save_editor.md` "Editing UI", the Team bullet; the
-//! draft's `teamTab`): the selected player's team's own fields — name and
-//! short name, colours 1 and 2, manager and stadium IDs, and the kit slot
-//! assignments. Every control edits a copy of the team's entry and, when it
-//! changes, pushes it with `Session::edit_team` under the control's
-//! `egui::Id` (the undo stack's merge key, as `info_strip.rs` does). A field
-//! the version does not store is drawn disabled in its place, its tooltip
-//! naming the first version that has it (the kit slots PES 17 alone has);
-//! a value the save holds outside a control's range shows as stored and
-//! changes only when edited (the Abilities rule: drawing never edits).
+//! The team bar and the Team settings tab (`plans/save_editor.md` "Editing
+//! UI", the team bar and the Tabs bullets; the draft's `teamBar` and
+//! `teamTab`): the bar holds the selected player's team's name, short name
+//! and colours 1-2 over the tab strip on every tab; the tab holds the
+//! manager and stadium IDs and the kit slot assignments. Every control
+//! edits a copy of the team's entry and, when it changes, pushes it with
+//! `Session::edit_team` under the control's `egui::Id` (the undo stack's
+//! merge key, as `info_strip.rs` does). A field the version does not store
+//! is drawn disabled in its place, its tooltip naming the first version
+//! that has it (the kit slots PES 17 alone has); a value the save holds
+//! outside a control's range shows as stored and changes only when edited
+//! (the Abilities rule: drawing never edits).
 
 use std::ops::RangeInclusive;
 
@@ -18,40 +20,47 @@ use pes_savefile::schema::{VersionSchema, first_version_with_team, schema_for};
 use pes_version::PesVersion;
 
 use crate::session::Session;
-use crate::view::{SaveView, edit_team, selected_player};
+use crate::view::{SaveView, edit_team, selected_team};
 
-/// The tab for the selected player's team, below `info_strip` and the tab
-/// strip.
-pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
-    let Some((team_id, _, _)) = selected_player(view) else {
+/// The bar over the tab strip, on every tab: the selected player's team's
+/// name, short name and colours, in a row that wraps on a narrow pane.
+/// Nothing when the selection names no rostered player (the tab draws
+/// nothing then either).
+pub(crate) fn bar(ui: &mut egui::Ui, view: &mut SaveView) {
+    let Some((team_id, version, team)) = selected_team(view) else {
         return;
     };
     let generation = view.generation;
     let Some(session) = view.session.as_mut() else {
         return;
     };
-    let (version, team) = {
-        let file = session.file();
-        let Some(team) = file.team(team_id) else {
-            return;
-        };
-        (file.version(), team.clone())
+    // The tab's `push_id` scoping, kept: every widget id under the bar is
+    // the team's within this open, so a text field's undo history and the
+    // pickers' state never cross teams — nor saves (the `generation` half).
+    ui.push_id((generation, team_id), |ui| {
+        ui.horizontal_wrapped(|ui| {
+            names_row(ui, session, team_id, version, &team);
+            colours_row(ui, session, team_id, &team);
+        });
+    });
+}
+
+/// The Team settings tab for the selected player's team: the manager and
+/// stadium IDs and the kit slot assignments.
+pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
+    let Some((team_id, version, team)) = selected_team(view) else {
+        return;
+    };
+    let generation = view.generation;
+    let Some(session) = view.session.as_mut() else {
+        return;
     };
     let schema = schema_for(version);
-    // Every widget id under the tab is the team's within this open: a text
-    // field's undo history, a DragValue's in-progress edit and the pickers'
-    // state never cross teams — nor saves (the `generation` half).
+    // Every widget id under the tab is the team's within this open: a
+    // DragValue's in-progress edit never crosses teams — nor saves (the
+    // `generation` half).
     ui.push_id((generation, team_id), |ui| {
-        // The names get a grid of their own: a grid unions each column's
-        // width across its rows, so the Name field's 240 would push every
-        // later row's second column out (the info strip's rule).
-        egui::Grid::new("team names").show(ui, |ui| {
-            names_row(ui, session, team_id, version, &team);
-            ui.end_row();
-        });
         egui::Grid::new("team fields").show(ui, |ui| {
-            colours_row(ui, session, team_id, &team);
-            ui.end_row();
             ids_row(ui, session, team_id, schema, &team);
             ui.end_row();
         });
@@ -61,7 +70,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     });
 }
 
-/// The name and short-name fields (the draft's first row). A keystroke
+/// The name and short-name fields (the draft's `teamBar` pair). A keystroke
 /// `team_text_fits` refuses is not taken — the field shows the stored text
 /// again next frame, the info strip's Name field's rule; the short name is
 /// upper-cased as typed and holds at most three letters (the cap the
@@ -76,11 +85,10 @@ fn names_row(
     version: PesVersion,
     team: &TeamEntry,
 ) {
-    ui.label("Name");
+    ui.weak("Team");
     let mut name = team.name.clone();
-    // `add_sized` allocates the width itself: a fresh grid gives a
-    // non-last column only its `min_cell_size` (40) on the sizing pass,
-    // and a TextEdit caps its width at what the cell offers.
+    // `add_sized` allocates the width itself: the field keeps its own 240
+    // whatever the wrapped row offers it.
     let response = ui.add_sized(
         [240.0, ui.spacing().interact_size.y],
         egui::TextEdit::singleline(&mut name).desired_width(240.0),
@@ -91,9 +99,9 @@ fn names_row(
             team.edit_flags.name = true;
         });
     }
-    ui.label("Short name");
+    ui.weak("Short");
     let mut short = team.short_name.clone();
-    // The same `add_sized` allocation as the Name field's above.
+    // The same `add_sized` allocation as the name field's above.
     let response = ui.add_sized(
         [60.0, ui.spacing().interact_size.y],
         egui::TextEdit::singleline(&mut short).desired_width(60.0),

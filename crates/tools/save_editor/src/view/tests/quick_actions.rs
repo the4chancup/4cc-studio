@@ -2,56 +2,80 @@ use super::*;
 
 use std::path::Path;
 
-/// The Make buttons and Set stats of the Quick actions row, left to right.
+/// The Quick actions column's buttons, top to bottom: every button between
+/// the "Quick actions" heading and its last button, `AATF…`, in (y, x)
+/// order — the Make buttons one per line, then Set stats, then `AATF…`.
+/// Left-aligned at the column's edge: a player row in the list shares the
+/// band and must not pass.
 fn quick_action_labels(nodes: &[accesskit::Node]) -> Vec<String> {
-    right_of_label(nodes, "Quick actions:", Role::Button)
+    let heading = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some("Quick actions"))
+        .and_then(accesskit::Node::bounds)
+        .expect("the Quick actions heading");
+    let bottom = node_labeled(nodes, Role::Button, "AATF\u{2026}")
+        .bounds()
+        .expect("bounds")
+        .y0;
+    let mut buttons: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node.bounds().is_some_and(|b| {
+                    b.y0 >= heading.y0 - 1.0 && b.y0 <= bottom + 1.0 && b.x0 >= heading.x0 - 1.0
+                })
+        })
+        .collect();
+    buttons.sort_by(|a, b| {
+        let pos = |node: &&accesskit::Node| {
+            let bounds = node.bounds().expect("bounds");
+            (bounds.y0, bounds.x0)
+        };
+        pos(a).partial_cmp(&pos(b)).expect("ordered bounds")
+    });
+    buttons
         .iter()
         .filter_map(|node| node.label().map(str::to_owned))
         .collect()
 }
 
-/// The row's buttons are `expected` and no others, left to right.
+/// The column's buttons are `expected` and no others, top to bottom.
 fn assert_quick_actions(nodes: &[accesskit::Node], expected: &[&str]) {
     assert_eq!(quick_action_labels(nodes), expected);
 }
 
-/// Label nodes on the Quick actions row: at the "Quick actions:" label's
-/// height and above the tab strip. `right_of_label`'s same-y rule cannot
-/// see the load error, which the wrapped row drops to its second line.
+/// Label nodes in the Quick actions column above the Set stats row: the
+/// heading and, where the rules file fails, the load error standing in
+/// for the Make buttons.
 fn quick_action_row_labels(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
     let row_y = nodes
         .iter()
-        .find(|node| node.role() == Role::Label && node.value() == Some("Quick actions:"))
+        .find(|node| node.role() == Role::Label && node.value() == Some("Quick actions"))
         .and_then(accesskit::Node::bounds)
         .map(|bounds| bounds.y0)
-        .expect("the Quick actions: label");
-    let tabs_y = nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Button
-                && node.label() == Some("Abilities & Skills")
-                && node.toggled().is_some()
-        })
-        .and_then(accesskit::Node::bounds)
-        .map(|bounds| bounds.y0)
-        .expect("the tab strip");
+        .expect("the Quick actions heading");
+    let set_y = node_labeled(nodes, Role::Button, "Set stats")
+        .bounds()
+        .expect("bounds")
+        .y0;
     nodes
         .iter()
         .filter(|node| {
             node.role() == Role::Label
                 && node
                     .bounds()
-                    .is_some_and(|b| b.y0 >= row_y - 1.0 && b.y0 < tabs_y - 1.0)
+                    .is_some_and(|b| b.y0 >= row_y - 1.0 && b.y0 < set_y - 1.0)
         })
         .collect()
 }
 
-/// The Set stats field: the row's one number control, after the button.
+/// The Set stats field: the row's one number control, right of the button.
 fn set_stats_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
-    right_of_label(nodes, "Quick actions:", Role::SpinButton)
-        .first()
-        .copied()
-        .expect("the Set stats field")
+    right_of(
+        nodes,
+        node_labeled(nodes, Role::Button, "Set stats"),
+        Role::SpinButton,
+    )
 }
 
 /// `text` typed into `field`: a click to focus it, select all, the
@@ -123,6 +147,43 @@ fn rules_file_under(dir: &Path, name: &str) -> PathBuf {
     )
     .unwrap();
     path
+}
+
+// The quick actions on the Abilities & Skills tab alone: the column's
+// heading and its buttons there, neither on the other tabs.
+#[test]
+fn the_quick_actions_draw_on_the_abilities_tab_alone() {
+    let (_path, mut view, mut window) = open_701("quick_on_abilities");
+    for tab in [
+        Tab::Abilities,
+        Tab::Appearance,
+        Tab::Tactics,
+        Tab::TeamSettings,
+    ] {
+        view.tab = tab;
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        if tab == Tab::Abilities {
+            assert!(
+                nodes.iter().any(|node| {
+                    node.role() == Role::Label && node.value() == Some("Quick actions")
+                }),
+                "the column's heading"
+            );
+            node_labeled(&nodes, Role::Button, "Make Gold");
+        } else {
+            assert!(
+                nodes.iter().all(|node| node.label() != Some("Make Gold")),
+                "no Make button on {tab:?}"
+            );
+            assert!(
+                !nodes.iter().any(|node| {
+                    node.role() == Role::Label && node.value() == Some("Quick actions")
+                }),
+                "no heading on {tab:?}"
+            );
+        }
+    }
 }
 
 // SE-GUI-09

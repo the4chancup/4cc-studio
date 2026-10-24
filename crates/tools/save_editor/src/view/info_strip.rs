@@ -1,13 +1,16 @@
-//! The general info strip (`plans/save_editor.md` "Editing UI", the draft's
-//! `infoStrip`): the selected player's general fields, always visible above the
-//! tabs. Each control edits a copy of the entry and, when it changes, pushes it
-//! under its own `egui::Id` (the undo stack's merge key).
+//! The player header (`plans/save_editor.md` "Editing UI", the player header
+//! bullet; the draft's `playerHeader`/`infoStrip`): the selected player's name
+//! as the tab's title, then his general fields, drawn at the top of the two
+//! player tabs (Abilities & Skills, Appearance). Each control edits a copy of
+//! the entry and, when it changes, pushes it under its own `egui::Id` (the
+//! undo stack's merge key).
 
 use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::names::{crop_player_text, name_fits, shirt_name_edit_fits};
 use pes_savefile::schema::fields::{PlayerField, PlayerText, RosterField};
 use pes_savefile::schema::{VersionSchema, portable_text_max, schema_for};
 use pes_version::PesVersion;
+use team_widgets::names::append_name;
 
 use crate::session::Session;
 use crate::view::{SaveView, edit_player, edit_team, selected_player};
@@ -32,7 +35,7 @@ pub(super) fn shown_name(name: &str) -> String {
     name.replace('\x11', "\\x11")
 }
 
-/// The strip for the selected player; nothing when the selection names no
+/// The header for the selected player; nothing when the selection names no
 /// rostered player (a stale slot, an empty save's list).
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, slot, player_id)) = selected_player(view) else {
@@ -42,18 +45,23 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some(session) = view.session.as_mut() else {
         return;
     };
-    // Every widget id under the strip is the player's within this open:
-    // a text field's undo history and a DragValue's in-progress edit
-    // never cross players — nor saves, since egui keys a TextEdit's undo
-    // history by widget id and the same player id of the save opened next
-    // would otherwise inherit the last save's.
-    ui.push_id((generation, player_id), |ui| {
+    // Every widget id under the header is the player's within this open —
+    // the salt's `strip` half keys it apart from the tab's own scope (the
+    // tab pushes `(generation, player_id)` beside it): a text field's undo
+    // history and a DragValue's in-progress edit never cross players — nor
+    // saves, since egui keys a TextEdit's undo history by widget id and the
+    // same player id of the save opened next would otherwise inherit the
+    // last save's.
+    ui.push_id(("strip", generation, player_id), |ui| {
         strip(ui, session, team_id, slot, player_id);
     });
 }
 
-/// One row of name/ID/shirt and one of height, weight, age, nation, number
-/// and captain.
+/// The title (the player's name) over one grid per row: Name, Shirt,
+/// Number and Captain on row 1; ID, Nation, Age, Height and Weight on
+/// row 2. One grid for both would union the Name field's 240 into row 2's
+/// ID column and push Height and Weight off the pane (the plan's "a grid
+/// per row").
 fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, player_id: u32) {
     let (
         mut name,
@@ -87,21 +95,27 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
         )
     };
     let captain = stored_captain == slot;
-    // One grid per row: a grid unions each column's width across its rows,
-    // so the Name/Shirt fields' 240/140 would stretch every cell column of
-    // row 2 (past the pane at half-monitor widths), and a wider grid
-    // min-rect would widen the whole panel's `max_rect`.
+    let (height, weight, age) = basics;
+    // The name as the tab's title, its colour codes drawn as the player
+    // list draws them (`append_name`), at the heading text style.
+    let mut title = egui::text::LayoutJob::default();
+    append_name(&mut title, &stored_name);
+    let heading = egui::TextStyle::Heading.resolve(ui.style());
+    for section in &mut title.sections {
+        section.format.font_id = heading.clone();
+    }
+    ui.label(title);
     egui::Grid::new("save_editor_info_strip").show(ui, |ui| {
         ui.label(NAME_LABEL);
         let overlong = stored_name.len() > portable_text_max(PlayerText::Name);
-        let mut name_edit = egui::TextEdit::singleline(&mut name).desired_width(240.0);
+        let mut name_edit = egui::TextEdit::singleline(&mut name).desired_width(190.0);
         if overlong {
             name_edit = name_edit.background_color(warning_tint(ui.visuals()));
         }
         // `add_sized` allocates the width itself: a fresh grid gives a
         // non-last column only its `min_cell_size` (40) on the sizing
         // pass, and a TextEdit caps its width at what the cell offers.
-        let response = ui.add_sized([240.0, ui.spacing().interact_size.y], name_edit);
+        let response = ui.add_sized([190.0, ui.spacing().interact_size.y], name_edit);
         // A name past what every version holds is drawn tinted with the cut
         // PES 15 to 19 would make: a warning, never a block on Save.
         let response = if overlong {
@@ -132,17 +146,15 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
                 });
             }
         }
-        ui.label("ID");
-        ui.monospace(player_id.to_string());
         ui.label(SHIRT_LABEL);
         let shirt_overlong =
             stored_shirt.chars().count() > portable_text_max(PlayerText::ShirtName);
-        let mut shirt_edit = egui::TextEdit::singleline(&mut shirt).desired_width(140.0);
+        let mut shirt_edit = egui::TextEdit::singleline(&mut shirt).desired_width(110.0);
         if shirt_overlong {
             shirt_edit = shirt_edit.background_color(warning_tint(ui.visuals()));
         }
         // The same `add_sized` allocation as the Name field's above.
-        let response = ui.add_sized([140.0, ui.spacing().interact_size.y], shirt_edit);
+        let response = ui.add_sized([110.0, ui.spacing().interact_size.y], shirt_edit);
         let response = if shirt_overlong {
             response
                 .on_hover_text("PES 2019 and older show 18 letters of a shirt name (PES 2016: 16)")
@@ -169,48 +181,6 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
                 });
             }
         }
-    });
-    egui::Grid::new("save_editor_info_strip_basics").show(ui, |ui| {
-        let (height, weight, age) = basics;
-        number(
-            ui,
-            session,
-            player_id,
-            HEIGHT_LABEL,
-            height,
-            max(schema, PlayerField::Height),
-            |player: &mut PlayerEntry, value| player.basic.height = value,
-        );
-        number(
-            ui,
-            session,
-            player_id,
-            WEIGHT_LABEL,
-            weight,
-            max(schema, PlayerField::Weight),
-            |player: &mut PlayerEntry, value| player.basic.weight = value,
-        );
-        number(
-            ui,
-            session,
-            player_id,
-            AGE_LABEL,
-            age,
-            max(schema, PlayerField::Age),
-            |player: &mut PlayerEntry, value| player.basic.age = value,
-        );
-        ui.label(NATION_LABEL);
-        let response = ui.add(
-            egui::DragValue::new(&mut nation).range(
-                0..=u16::try_from(max(schema, PlayerField::Nationality))
-                    .expect("the nationality field is 16-bit"),
-            ),
-        );
-        if response.changed() {
-            edit_player(session, player_id, response.id.value(), |player| {
-                player.basic.nationality = nation;
-            });
-        }
         ui.label("Number");
         let response =
             ui.add(egui::DragValue::new(&mut shirt_number).range(0..=roster_number_max(schema)));
@@ -229,6 +199,51 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
                 team.tactics.set_pieces.captain = slot;
             });
         }
+        ui.end_row();
+    });
+    egui::Grid::new("save_editor_info_strip_basics").show(ui, |ui| {
+        ui.label("ID");
+        ui.monospace(player_id.to_string());
+        ui.label(NATION_LABEL);
+        let response = ui.add(
+            egui::DragValue::new(&mut nation).range(
+                0..=u16::try_from(max(schema, PlayerField::Nationality))
+                    .expect("the nationality field is 16-bit"),
+            ),
+        );
+        if response.changed() {
+            edit_player(session, player_id, response.id.value(), |player| {
+                player.basic.nationality = nation;
+            });
+        }
+        number(
+            ui,
+            session,
+            player_id,
+            AGE_LABEL,
+            age,
+            max(schema, PlayerField::Age),
+            |player: &mut PlayerEntry, value| player.basic.age = value,
+        );
+        number(
+            ui,
+            session,
+            player_id,
+            HEIGHT_LABEL,
+            height,
+            max(schema, PlayerField::Height),
+            |player: &mut PlayerEntry, value| player.basic.height = value,
+        );
+        number(
+            ui,
+            session,
+            player_id,
+            WEIGHT_LABEL,
+            weight,
+            max(schema, PlayerField::Weight),
+            |player: &mut PlayerEntry, value| player.basic.weight = value,
+        );
+        ui.end_row();
     });
 }
 

@@ -2,9 +2,9 @@ use super::*;
 
 /// The load error the Cards left row draws: the error label at the pane's
 /// "Cards left" heading's height or below it (the error wraps to the lines
-/// under the heading when the pane is narrow). The quick actions row draws
-/// the same text above the tab strip, and its copy must not pass for the
-/// pane's.
+/// under the heading when the pane is narrow). The quick actions column
+/// draws the same text at the tab's top, and its copy must not pass for
+/// the row's.
 fn cards_left_error(nodes: &[accesskit::Node]) -> Option<&accesskit::Node> {
     let heading = nodes
         .iter()
@@ -236,10 +236,9 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
 }
 
 // plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
-// layout": an 800 × 516 pane, smaller than the one the shell leaves in its
-// smallest default window (1037 × 648, less the expanded sidebar's 160 and
-// the status bar's 24: 877 × 624), so what fits here fits there; the
-// player list takes its default width, and the
+// layout": the pane the shell leaves in its smallest default window
+// (1037 × 648, less the expanded sidebar's 160 and the status bar's 24:
+// 877 × 624); the player list takes its default width, and the
 // tab's field/control pairs wrap below one another rather than clip —
 // every control's rect lies inside the central panel.
 #[test]
@@ -247,7 +246,7 @@ fn the_tab_fits_the_pane_the_shell_leaves() {
     let path = fixture(PesVersion::Pes21, "shell_pane");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(800.0, 516.0);
+    let mut window = Headless::sized(877.0, 624.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     for role in [
         Role::Button,
@@ -262,7 +261,7 @@ fn the_tab_fits_the_pane_the_shell_leaves() {
                 .bounds()
                 .unwrap_or_else(|| panic!("{role:?} has no bounds"));
             assert!(
-                bounds.x1 <= 800.0,
+                bounds.x1 <= 877.0,
                 "{role:?} {} clips the pane's right edge ({bounds:?})",
                 node.label().unwrap_or("?")
             );
@@ -308,10 +307,12 @@ fn the_stats_rows_wrap_at_the_panes_width() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Tabs bullet: the four tabs draw,
-// Abilities & Skills selected and the other three pickable.
+// plans/save_editor.md "Editing UI", the tab strip bullet: the tabs in two
+// groups, each after its weak scope label — `Player` (Abilities & Skills,
+// Appearance) then `Team` (Tactics, Team settings) — Abilities & Skills
+// selected and the other three pickable.
 #[test]
-fn the_tab_strip_shows_abilities_selected_and_four_pickable_tabs() {
+fn the_tab_strip_groups_the_tabs_under_weak_scope_labels() {
     let path = fixture(PesVersion::Pes21, "tab_strip");
     let mut view = SaveView::new();
     view.open(&path);
@@ -319,7 +320,7 @@ fn the_tab_strip_shows_abilities_selected_and_four_pickable_tabs() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     fn tab<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
         // `toggled` marks the selectable tabs: the toolbar's "Team" menu
-        // button shares the tab's label but is not selectable.
+        // button shares the group label but is not selectable.
         nodes
             .iter()
             .find(|node| {
@@ -329,6 +330,53 @@ fn the_tab_strip_shows_abilities_selected_and_four_pickable_tabs() {
             })
             .unwrap_or_else(|| panic!("no tab {label:?}"))
     }
+    // The strip's row in x order: the weak scope labels (Label nodes) and
+    // the selectable tabs, on the selected tab's row.
+    let strip_y = tab(&nodes, "Abilities & Skills")
+        .bounds()
+        .expect("bounds")
+        .y0;
+    let mut row: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            let wanted = match node.role() {
+                Role::Button => {
+                    node.toggled().is_some()
+                        && matches!(
+                            node.label(),
+                            Some("Abilities & Skills" | "Appearance" | "Tactics" | "Team settings")
+                        )
+                }
+                Role::Label => matches!(node.value(), Some("Player" | "Team")),
+                _ => false,
+            };
+            wanted && node.bounds().is_some_and(|b| (b.y0 - strip_y).abs() < 4.0)
+        })
+        .collect();
+    row.sort_by(|a, b| {
+        let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
+        x(a).partial_cmp(&x(b)).expect("ordered bounds")
+    });
+    let texts: Vec<&str> = row
+        .iter()
+        .map(|node| match node.role() {
+            Role::Label => node.value().expect("a label's text"),
+            _ => node.label().expect("a tab's label"),
+        })
+        .collect();
+    assert_eq!(
+        texts,
+        [
+            "Player",
+            "Abilities & Skills",
+            "Appearance",
+            "Team",
+            "Tactics",
+            "Team settings"
+        ],
+        "the strip's labels in order"
+    );
+
     let selected = tab(&nodes, "Abilities & Skills");
     assert_eq!(
         selected.toggled(),
@@ -336,7 +384,7 @@ fn the_tab_strip_shows_abilities_selected_and_four_pickable_tabs() {
         "Abilities & Skills is the drawn tab"
     );
     assert!(!selected.is_disabled());
-    for label in ["Appearance", "Team", "Tactics"] {
+    for label in ["Appearance", "Tactics", "Team settings"] {
         let tab = tab(&nodes, label);
         assert!(!tab.is_disabled(), "{label} picks");
         assert_eq!(tab.toggled(), Some(accesskit::Toggled::False));
@@ -610,12 +658,23 @@ fn an_out_of_range_value_draws_as_stored_without_marking_the_player() {
 // the badges'; a file that does not load shows its error instead.
 #[test]
 fn the_cards_left_badges_read_the_active_ruleset() {
-    /// The badge texts a frame drew (`"Gold 6"`), in left-to-right order.
+    /// The badge texts a frame drew (`"Gold 6"`), in left-to-right order:
+    /// at the "Cards left" heading's height or below it (the team bar's
+    /// "Colour 1"/"Colour 2" labels match the shape and must not pass).
     fn badges(nodes: &[accesskit::Node]) -> Vec<String> {
+        let heading_y = nodes
+            .iter()
+            .find(|node| node.role() == Role::Label && node.value() == Some("Cards left"))
+            .and_then(accesskit::Node::bounds)
+            .map(|bounds| bounds.y0)
+            .expect("the Cards left heading");
         let mut badges: Vec<&accesskit::Node> = nodes
             .iter()
             .filter(|node| {
                 node.role() == Role::Label
+                    && node
+                        .bounds()
+                        .is_some_and(|bounds| bounds.y0 >= heading_y - 1.0)
                     && node.value().is_some_and(|value| {
                         value
                             .split_once(' ')
@@ -682,11 +741,16 @@ fn the_cards_left_badges_read_the_active_ruleset() {
     };
     let before = left_of(&view, 0);
     assert_eq!(before, [6, 5, 4, 2, 3], "the unticked player's badges");
-    let heading = nodes
+    // The checkbox sits below the fold under the player header: the tick
+    // goes through its AccessKit action (a pointer click lands only
+    // inside the scroll's clip).
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (heading, _) = nodes
         .iter()
-        .find(|node| node.role() == Role::CheckBox && node.label() == Some("Heading"))
+        .find(|(_, node)| node.role() == Role::CheckBox && node.label() == Some("Heading"))
         .expect("the Heading checkbox");
-    click(&mut window, heading, &mut view);
+    action_click(&mut window, &mut view, *heading);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(badges(&nodes), expected(&view, &rules, 0), "after the tick");
     assert_eq!(
@@ -745,8 +809,8 @@ fn the_cards_left_badges_read_the_active_ruleset() {
 }
 
 // The same bullet, read: the error names the file and its parse error, so
-// it wraps inside the pane rather than clip at its right edge (the window
-// the shell leaves at half a 1080p monitor, as `the_tab_fits`'s).
+// it wraps inside the pane rather than clip at its right edge (the pane
+// the shell leaves at its smallest default, as `the_tab_fits`'s).
 #[test]
 fn a_rules_files_load_error_wraps_inside_the_pane() {
     let path = fixture(
@@ -763,14 +827,14 @@ fn a_rules_files_load_error_wraps_inside_the_pane() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(800.0, 516.0);
+    let mut window = Headless::sized(877.0, 624.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
     });
     let error = cards_left_error(&nodes).expect("the load error's row");
     let bounds = error.bounds().expect("bounds");
     assert!(
-        bounds.x1 <= 800.0,
+        bounds.x1 <= 877.0,
         "the load error ends inside the window, drew {bounds:?}"
     );
 }

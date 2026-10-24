@@ -11,19 +11,22 @@ With one team picked and the filter empty, drag a row to move the player to a ne
 the list; the shirt number and the in-game face and hairstyle belong to the place, so they
 stay where they were.
 
-**Editing.** Click a row to select the player; the fields right of the list edit his
-general info: name, shirt name, height, weight, age, nationality, shirt number and
-captain. A `\x11c` plus 8 hex digits inside a name is a color code and is kept as typed.
+**Editing.** Click a row to select the player. The bar over the tabs edits his
+team's name, short name and two colours on any tab. The tabs group as
+**Player** (Abilities & Skills, Appearance) and **Team** (Tactics, Team
+settings); the two player tabs open on his name and general info: shirt name,
+height, weight, age, nationality, shirt number and captain. A `\x11c` plus 8
+hex digits inside a name is a color code and is kept as typed.
 Every edit is undoable: **Undo** and **Redo** step through them (Ctrl+Z, Ctrl+Y or
 Ctrl+Shift+Z), and a drag or a run of typing on one field is one undo step.
 
-**Quick actions.** Under the general info, one **Make \<tier\>** button per tier of
-the AATF rules in use gives the player that tier's values (stats, form, injury
-resistance, weak foot, name color) as one undoable edit. **Set stats** sets every
-ability stat to the number beside it (40 to 99). When the rules file does not load,
-its error shows in place of the Make buttons.
+**Quick actions.** At the top of the Abilities & Skills tab, one **Make \<tier\>**
+button per tier of the AATF rules in use gives the player that tier's values
+(stats, form, injury resistance, weak foot, name color) as one undoable edit.
+**Set stats** sets every ability stat to the number beside it (40 to 99). When
+the rules file does not load, its error shows in place of the Make buttons.
 
-**AATF violations.** **AATF…** at the end of the quick actions, or **Panels** in the
+**AATF violations.** **AATF…** at the bottom of the quick actions, or **Panels** in the
 toolbar, opens a floating window listing a team's violations against the AATF rules
 in use, grouped per player. **Current team** checks the team the selector names (with
 ALL, the selected player's team); **Select teams** lists every team of the save to

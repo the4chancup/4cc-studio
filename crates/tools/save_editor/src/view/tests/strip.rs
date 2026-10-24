@@ -93,16 +93,16 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
             .name
             .clone()
     };
-    /// The Name field's node (the enabled text edit holding `value`;
-    /// matched on its text, since the nodes' order is hash-stable, not
-    /// positional).
+    /// The Name field's node: the enabled text edit right of its label's
+    /// cell, holding `value` (the Shirt field carries the same text on
+    /// this fixture, so position, not value alone, names it).
     fn name_field<'a>(nodes: &'a [accesskit::Node], value: &str) -> &'a accesskit::Node {
-        nodes
-            .iter()
-            .find(|node| {
-                node.role() == Role::TextInput && !node.is_disabled() && node.value() == Some(value)
-            })
-            .unwrap_or_else(|| panic!("no Name field {value:?}"))
+        let field = right_of_label(nodes, "Name", Role::TextInput)
+            .into_iter()
+            .find(|node| !node.is_disabled())
+            .unwrap_or_else(|| panic!("no Name field {value:?}"));
+        assert_eq!(field.value(), Some(value), "the Name field holds {value:?}");
+        field
     }
     let settle = |window: &mut Headless, view: &mut SaveView| {
         for _ in 0..70 {
@@ -159,10 +159,10 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
     );
 }
 
-// The strip's Name field draws 240 wide and the Shirt field 140: a fresh
-// grid gives a non-last column only `min_cell_size` (40) on its sizing
-// pass, and a TextEdit caps its width at what the cell offers, so the
-// fields' sizes are allocated rather than left to the cell.
+// The strip's Name field draws 190 wide and the Shirt field 110 (the
+// draft's): a fresh grid gives a non-last column only `min_cell_size` (40)
+// on its sizing pass, and a TextEdit caps its width at what the cell
+// offers, so the fields' sizes are allocated rather than left to the cell.
 #[test]
 fn the_name_and_shirt_fields_draw_at_their_set_widths() {
     let path = fixture(PesVersion::Pes21, "field_widths");
@@ -174,33 +174,20 @@ fn the_name_and_shirt_fields_draw_at_their_set_widths() {
     }
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    let name = nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::TextInput
-                && !node.is_disabled()
-                && node.value() == Some("PLACEHOLDER")
-        })
+    let name = right_of_label(&nodes, "Name", Role::TextInput)
+        .first()
+        .copied()
         .expect("the Name field")
         .bounds()
         .expect("bounds");
     assert!(
-        name.x1 - name.x0 >= 240.0,
-        "the Name field draws 240 wide, drew {name:?}"
+        name.x1 - name.x0 >= 190.0,
+        "the Name field draws 190 wide, drew {name:?}"
     );
-    let shirt = nodes
-        .iter()
-        .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
-        .max_by(|a, b| {
-            let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
-            x(a).partial_cmp(&x(b)).expect("ordered bounds")
-        })
-        .expect("the Shirt field")
-        .bounds()
-        .expect("bounds");
+    let shirt = shirt_field(&nodes).bounds().expect("bounds");
     assert!(
-        shirt.x1 - shirt.x0 >= 140.0,
-        "the Shirt field draws 140 wide, drew {shirt:?}"
+        shirt.x1 - shirt.x0 >= 110.0,
+        "the Shirt field draws 110 wide, drew {shirt:?}"
     );
 }
 
@@ -257,14 +244,7 @@ fn a_name_or_shirt_edit_sets_the_edited_player_flag() {
 
     // The shirt field sets the same flag.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let shirt = nodes
-        .iter()
-        .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
-        .max_by(|a, b| {
-            let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
-            x(a).partial_cmp(&x(b)).expect("ordered bounds")
-        })
-        .expect("the Shirt field");
+    let shirt = shirt_field(&nodes);
     click(&mut window, shirt, &mut view);
     window.frame(vec![egui::Event::Text("Z".to_owned())], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
@@ -280,14 +260,7 @@ fn a_shirt_name_is_upper_cased_as_typed() {
     view.open(&path);
     let mut window = Headless::sized(1100.0, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let shirt = nodes
-        .iter()
-        .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
-        .max_by(|a, b| {
-            let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
-            x(a).partial_cmp(&x(b)).expect("ordered bounds")
-        })
-        .expect("the Shirt field");
+    let shirt = shirt_field(&nodes);
     let stored = shirt.value().expect("its text").to_owned();
     click(&mut window, shirt, &mut view);
     window.frame(
@@ -337,7 +310,13 @@ fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
     // The field draws the tint and shows the versions' hover.
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let bounds = shirt_field(&nodes, &"S".repeat(20));
+    let field = shirt_field(&nodes);
+    assert_eq!(
+        field.value(),
+        Some("S".repeat(20).as_str()),
+        "the Shirt field holds the 20 letters"
+    );
+    let bounds = field.bounds().expect("bounds");
     assert_eq!(
         fill_at(&shapes, bounds),
         Some(tint),
@@ -442,14 +421,7 @@ fn a_pes16_strip_refuses_a_17th_shirt_letter() {
     view.open(&path);
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let shirt = nodes
-        .iter()
-        .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
-        .max_by(|a, b| {
-            let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
-            x(a).partial_cmp(&x(b)).expect("ordered bounds")
-        })
-        .expect("the Shirt field");
+    let shirt = shirt_field(&nodes);
     let stored = view
         .session
         .as_ref()
@@ -503,14 +475,7 @@ fn the_shirt_hover_names_the_limit_the_field_enforces() {
     view.open(&path);
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let shirt = nodes
-        .iter()
-        .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
-        .max_by(|a, b| {
-            let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
-            x(a).partial_cmp(&x(b)).expect("ordered bounds")
-        })
-        .expect("the Shirt field");
+    let shirt = shirt_field(&nodes);
     let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to");
     assert_eq!(
         tooltip,
@@ -532,14 +497,7 @@ fn the_pes16_shirt_hover_names_its_own_field() {
     view.open(&path);
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let shirt = nodes
-        .iter()
-        .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
-        .max_by(|a, b| {
-            let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
-            x(a).partial_cmp(&x(b)).expect("ordered bounds")
-        })
-        .expect("the Shirt field");
+    let shirt = shirt_field(&nodes);
     let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to");
     assert_eq!(
         tooltip,
@@ -556,18 +514,11 @@ fn the_pes16_shirt_hover_names_its_own_field() {
 // letter, so é (U+00E9, inside) lands and ł (U+0142, past it) is refused.
 #[test]
 fn a_shirt_name_takes_latin1_letters_and_refuses_past_them() {
-    /// The Shirt field's node: the rightmost enabled text edit (the name
-    /// and shirt hold the same text on this fixture, so position, not
-    /// value, names it).
+    /// The Shirt field's node (`shirt_field`; the name and shirt hold the
+    /// same text on this fixture, so the label's cell, not the value,
+    /// names it).
     fn shirt(nodes: &[accesskit::Node]) -> &accesskit::Node {
-        nodes
-            .iter()
-            .filter(|node| node.role() == Role::TextInput && !node.is_disabled())
-            .max_by(|a, b| {
-                let x = |node: &&accesskit::Node| node.bounds().map(|r| r.x0).unwrap_or(0.0);
-                x(a).partial_cmp(&x(b)).expect("ordered bounds")
-            })
-            .expect("the Shirt field")
+        shirt_field(nodes)
     }
 
     let path = fixture(PesVersion::Pes21, "shirt_latin1");
@@ -646,7 +597,13 @@ fn a_shirt_at_the_portable_limit_draws_no_tint() {
         .lerp_to_gamma(visuals.warn_fg_color, 0.25);
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let bounds = shirt_field(&nodes, &"S".repeat(18));
+    let field = shirt_field(&nodes);
+    assert_eq!(
+        field.value(),
+        Some("S".repeat(18).as_str()),
+        "the Shirt field holds the 18 letters"
+    );
+    let bounds = field.bounds().expect("bounds");
     assert_ne!(
         fill_at(&shapes, bounds),
         Some(tint),
@@ -1015,4 +972,75 @@ fn a_pes17_strip_refuses_a_name_past_its_own_field() {
         !view.session.as_ref().unwrap().is_dirty(),
         "the refused edit was not pushed"
     );
+}
+
+/// Whether the nodes draw a Label node with `value` as its text.
+fn label_drawn(nodes: &[accesskit::Node], value: &str) -> bool {
+    nodes
+        .iter()
+        .any(|node| node.role() == Role::Label && node.value() == Some(value))
+}
+
+/// Whether `shapes` paints `text` at the heading size (the header's
+/// title; the tabs' strong lines and the lists' rows are body-sized).
+fn title_painted(shapes: &[egui::epaint::ClippedShape], text: &str, heading: f32) -> bool {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) if shape.galley.job.text == text => Some(shape),
+            _ => None,
+        })
+        .any(|shape| {
+            shape
+                .galley
+                .job
+                .sections
+                .first()
+                .is_some_and(|section| (section.format.font_id.size - heading).abs() < 0.5)
+        })
+}
+
+// plans "Editing UI", the player header bullet: the
+// selected player's name as the tab's title over the strip's nine labels —
+// on the two player tabs alone, the Team tabs editing no player.
+// SE-GUI-01
+#[test]
+fn the_player_header_tops_the_player_tabs_alone() {
+    let (mut view, mut window) = open_734_with("player_header_tabs", &[], 0);
+    // The title's text is the name as `append_name` writes it (its colour
+    // codes' bytes are not text).
+    let title = name_spans(&player_entry(&view, 73401).name)
+        .into_iter()
+        .map(|(_, text)| text)
+        .collect::<String>();
+    let heading =
+        window.ctx.style_of(window.ctx.theme()).text_styles[&egui::TextStyle::Heading].size;
+    for tab in [Tab::Abilities, Tab::Appearance] {
+        view.tab = tab;
+        let (_, nodes, shapes) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        assert!(
+            title_painted(&shapes, &title, heading),
+            "the name as the {tab:?} title"
+        );
+        for label in [
+            "Name", "Shirt", "Number", "Captain", "ID", "Nation", "Age", "Height", "Weight",
+        ] {
+            assert!(label_drawn(&nodes, label), "{label} on {tab:?}");
+        }
+    }
+    for tab in [Tab::Tactics, Tab::TeamSettings] {
+        view.tab = tab;
+        let (_, nodes, shapes) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        assert!(
+            !title_painted(&shapes, &title, heading),
+            "no title on {tab:?}"
+        );
+        for label in [
+            "Shirt", "Captain", "ID", "Nation", "Age", "Height", "Weight",
+        ] {
+            assert!(!label_drawn(&nodes, label), "{label} not on {tab:?}");
+        }
+    }
 }

@@ -23,7 +23,7 @@ use team_widgets::cards::{self, TierCards};
 
 use crate::session::Session;
 use crate::view::{
-    ActiveRules, BadgeKey, SaveView, edit_player, rules_load_error, selected_player,
+    ActiveRules, BadgeKey, SaveView, edit_player, quick_actions, rules_load_error, selected_player,
 };
 
 /// `first_row`'s registered-position combo.
@@ -43,11 +43,13 @@ pub(super) const RATING_LABELS: [(&str, u8); 3] = [("C", 0), ("B", 1), ("A", 2)]
 /// from it (`terms::row_term`).
 pub(super) const PLAYABLE_POSITIONS_LABEL: &str = "Playable positions";
 
-/// The tab for the selected player, below `info_strip` and the tab strip.
+/// The tab for the selected player, under `info_strip`'s header: the
+/// quick actions column opens its content.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, slot, player_id)) = selected_player(view) else {
         return;
     };
+    quick_actions::show(ui, view);
     let rules = view.rules.as_ref();
     let Some(session) = view.session.as_mut() else {
         return;

@@ -17,12 +17,11 @@ use team_widgets::pitch::{self, FORMATIONS};
 use team_widgets::tactics::{self, RosterRow};
 
 use crate::session::Session;
-use crate::view::{SaveView, edit_team, selected_player};
+use crate::view::{SaveView, edit_team, selected_team};
 
-/// The tab for the selected player's team, below `info_strip` and the tab
-/// strip.
+/// The tab for the selected player's team, in the strip's `Team` group.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
-    let Some((team_id, _, _)) = selected_player(view) else {
+    let Some((team_id, version, team)) = selected_team(view) else {
         return;
     };
     let SaveView {
@@ -35,13 +34,6 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     } = view;
     let Some(session) = session.as_mut() else {
         return;
-    };
-    let (version, team) = {
-        let file = session.file();
-        let Some(team) = file.team(team_id) else {
-            return;
-        };
-        (file.version(), team.clone())
     };
     // The roster as the widgets list it: the display names as the player
     // list shows them, the raw names for the colour-coded rows and the

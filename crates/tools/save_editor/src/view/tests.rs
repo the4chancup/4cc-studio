@@ -299,17 +299,13 @@ fn fill_at(
         .map(|(fill, _)| fill)
 }
 
-/// The Shirt field's `TextInput` bounds (the rightmost enabled text edit
-/// holding `value`).
-fn shirt_field(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
-    nodes
-        .iter()
-        .filter(|node| {
-            node.role() == Role::TextInput && !node.is_disabled() && node.value() == Some(value)
-        })
-        .map(|node| node.bounds().expect("bounds"))
-        .max_by(|a, b| a.x0.partial_cmp(&b.x0).expect("ordered bounds"))
-        .unwrap_or_else(|| panic!("no Shirt field {value:?}"))
+/// The Shirt field's `TextInput` node (the text edit right of the
+/// "Shirt" label's cell — the team bar's own text fields draw elsewhere).
+fn shirt_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
+    right_of_label(nodes, "Shirt", Role::TextInput)
+        .first()
+        .copied()
+        .expect("the Shirt field")
 }
 
 /// The undo stack's depth, counted by Ctrl+Z until it is empty (bounded, so
@@ -326,6 +322,38 @@ fn undo_entries(window: &mut Headless, view: &mut SaveView) -> usize {
     panic!("Ctrl+Z did not empty the undo stack in 64 presses")
 }
 
+/// Whether `node` sits on `anchor`'s row (same top within 4 points) and
+/// right of it.
+fn on_row_right_of(anchor: accesskit::Rect, node: &accesskit::Node) -> bool {
+    node.bounds()
+        .is_some_and(|b| (b.y0 - anchor.y0).abs() < 4.0 && b.x0 >= anchor.x1 - 1.0)
+}
+
+/// The leftmost node `keep` passes on `anchor`'s row, right of it.
+fn first_right_of<'a>(
+    nodes: &'a [accesskit::Node],
+    anchor: &accesskit::Node,
+    keep: impl Fn(&accesskit::Node) -> bool,
+) -> Option<&'a accesskit::Node> {
+    let bounds = anchor.bounds().expect("the anchor's bounds");
+    nodes
+        .iter()
+        .filter(|node| keep(node) && on_row_right_of(bounds, node))
+        .min_by(|a, b| {
+            let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
+            x(a).partial_cmp(&x(b)).expect("ordered bounds")
+        })
+}
+
+/// The first node of `role` on `anchor`'s row to its right.
+fn right_of<'a>(
+    nodes: &'a [accesskit::Node],
+    anchor: &accesskit::Node,
+    role: Role,
+) -> &'a accesskit::Node {
+    first_right_of(nodes, anchor, |node| node.role() == role).expect("a node right of the anchor")
+}
+
 /// The widget nodes of `role` on `label`'s row to its right, in x order.
 fn right_of_label<'a>(
     nodes: &'a [accesskit::Node],
@@ -339,12 +367,7 @@ fn right_of_label<'a>(
     let bounds = label_node.bounds().expect("the label's bounds");
     let mut found: Vec<&accesskit::Node> = nodes
         .iter()
-        .filter(|node| {
-            node.role() == role
-                && node
-                    .bounds()
-                    .is_some_and(|b| (b.y0 - bounds.y0).abs() < 4.0 && b.x0 >= bounds.x1 - 1.0)
-        })
+        .filter(|node| node.role() == role && on_row_right_of(bounds, node))
         .collect();
     found.sort_by(|a, b| {
         let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
@@ -371,19 +394,7 @@ fn control_right_of<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a access
         .iter()
         .find(|node| node.role() == Role::Label && node.value() == Some(label))
         .unwrap_or_else(|| panic!("no label {label:?}"));
-    let bounds = label_node.bounds().expect("the label's bounds");
-    nodes
-        .iter()
-        .filter(|node| {
-            node.role() != Role::Label
-                && node
-                    .bounds()
-                    .is_some_and(|b| (b.y0 - bounds.y0).abs() < 4.0 && b.x0 >= bounds.x1 - 1.0)
-        })
-        .min_by(|a, b| {
-            let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
-            x(a).partial_cmp(&x(b)).expect("ordered bounds")
-        })
+    first_right_of(nodes, label_node, |node| node.role() != Role::Label)
         .unwrap_or_else(|| panic!("no control right of {label:?}"))
 }
 

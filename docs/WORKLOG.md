@@ -20,7 +20,7 @@ coverage table and draft, the DBC7 ruleset).
 (the maintainer, 2026-10-24): the Save editor's view (8.9: slices 1-3 done, with the Tactics
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
 (8.9j1-j3), the comparator done (8.9j4), then the transplant (8.9j5); 8.9f's slice 4: v2 is
-the base, ported after the comparator; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
+the base, ported in five subslices, 4a the frame done, 4b next; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; an audit step next), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
 the compiler and the upgrader on the new file; slice 3, the Save editor's, rides with SE-GUI-19), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
@@ -1220,10 +1220,24 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         arrangement is the base"): the built tabs of slices 1-3 ported to `save_editor_v2.html`'s
         arrangement, after 8.9j4 (the comparator, panels the same in both drafts) and before
         8.9j5; the maintainer's fine tweaks follow on v2
-        - [ ] 4a the frame: the team bar above every tab (the Team tab's name, short name and
+        - [x] 4a the frame: the team bar above every tab (the Team tab's name, short name and
           colour rows), the tab strip in Player / Team groups (`Team settings`), the player
           header (the coloured name, v2's info strip grid) on the Player tabs only, the quick
-          actions a column in Abilities' top row (SE-GUI-01, 10, 32; help chapters 02, 05)
+          actions a column in Abilities' top row (SE-GUI-01, 10, 32; help chapters 02, 05).
+          Done 2026-10-24 (SWE-2, two reworks): `team::bar`, `Tab::TeamSettings`, the header a
+          title (`append_name` at the heading size) over two grids at the draft's widths (Name
+          190, Shirt 110: DECISIONS "The player header's two rows, two grids"), the quick
+          actions a column atop Abilities (4b moves the call), `selected_team` the three team
+          views' head; the tab-fit tests at the smallest default's 877 x 624 pane. Seen in the
+          built window on a copy of the maintainer's PES 2021 save, at 1440 x 900 and
+          1037 x 648. Open, for the fine tweaks: at 1037 x 648 the team bar wraps Colour 2's
+          hex alone onto its second line (egui's wrapped row breaks between widgets; keeping a
+          label, swatch and hex together needs their width measured). Files: `save_editor/
+          src/view/{mod.rs,team.rs,info_strip.rs,quick_actions.rs,abilities.rs,tactics.rs,
+          appearance/mod.rs,tests.rs,tests/*}`, `help/{02_window,05_team}.md`
+          - [ ] review: SWE-2 S1 over 4a and `26bc1fe8`'s scenario rewording (SE-GUI-01, 06,
+            07, 10, 32), then Astra (Codex `own`), the SWE-2 loop; mutants `mutants-diff
+            26bc1fe8`
         - [ ] 4b Abilities: the Profile block, the positions grid in the collaborator's order
           (the registered one outlined), stats in four columns filled column by column; star
           and playing attitude to Appearance's Cutscenes group, outside the lock (SE-GUI-06,

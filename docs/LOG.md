@@ -2422,3 +2422,6 @@ worklog passed 7,000 lines.
   its review closed (one group per team in the open save's order, a refused pick clearing the rows).
 - **2026-10-24** — 8.9j4b2: the comparator's team filter (the screen only) and Export (the `diff` command's text
   for the toggled scope, every team, unsaved edits included); 8.9j4, the comparator, done.
+- **2026-10-24** — 8.9f4a: the Save editor's frame in the second draft's arrangement: the team bar above every tab,
+  the Player and Team tab groups, the player header on the two player tabs at the draft's field widths (the
+  smallest default window's pane is the yardstick), the quick actions a column atop Abilities.

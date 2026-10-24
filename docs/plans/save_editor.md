@@ -186,8 +186,14 @@ mirroring 4ccEditor's structure without its dialog sprawl:
 - **The tab strip** in two groups, each after its weak scope label: `Player` (Abilities &
   Skills, Appearance), then `Team` (Tactics, Team settings).
 - **The player header** on the Player tabs only: the selected player's name drawn with its
-  colours as the tab's title, then the general info strip, one grid whose labels sit in their
-  own aligned cells: Name, Shirt, Number, Captain; ID, Nation, Age, Height, Weight. Not on the
+  colours as the tab's title, then the general info strip, a grid per row whose labels sit in
+  their own cells: Name, Shirt, Number, Captain; ID, Nation, Age, Height, Weight, the Name
+  field 190 points wide and the Shirt field 110 (the draft's). Both rows fit the pane the
+  shell leaves at its smallest default window (877 points, `core/gui.md` "Shell layout"),
+  beside the player list: not one grid for both rows, since a grid unions each column's width
+  across its rows, so the Name field's width widens row 2's ID column and Height and Weight
+  are cut off; not the first slice's 240 and 140, at which row 1 alone widens the tab past
+  that pane. Not on the
   Team tabs, which edit no player. The save is where
   a member writes the names a tactical export carries to a cup of any version, so its Name and
   Shirt fields follow `pes_savefile`'s portable limits ("Team TOML" in its operations plan):
