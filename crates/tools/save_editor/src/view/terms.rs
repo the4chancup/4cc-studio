@@ -243,7 +243,7 @@ fn flag(label: &'static str, old: u32, new: u32) -> Term {
 }
 
 /// `stored` narrowed to the byte a byte-sized control stores (the
-/// combos, the palettes, the position and style pickers).
+/// combos, the palettes, and the position, style, foot and hand pickers).
 fn stored_u8(stored: u32) -> u8 {
     u8::try_from(stored).expect("a byte-sized control's field is at most eight bits")
 }

@@ -10739,8 +10739,8 @@ against it; the tabs' tables, not a second one for the panel, because two label 
 Plan: `plans/save_editor.md` "Comparator (gameplay + aesthetics)".
 
 ## 2026-10-24 — save_editor — The comparator's groups, its worker and a kept pick
-Decision: the comparator's rows group per team, a player under the first team in the open
-save's order whose roster holds him (`No team` when none does), the players only in one save
+Decision: the comparator's rows of the players both saves hold group per team, a player
+under the first team in the open save's order whose roster holds him (`No team` when none does), the players only in one save
 last under `Only in the picked save` and `Only in the open save`; the comparison runs on a
 worker thread with the held list marked `Comparing…`, a frame drawing only the rows in view;
 another save opened keeps the pick and compares it again.
@@ -10756,7 +10756,17 @@ Decision: `docs/prototypes/save_editor_v2.html` is the Save editor's draft; the 
 8.9's slices 1-3, which follow the first draft, are ported to it as a step of their own (8.9f
 slice 4), and the maintainer's fine tweaks land on it.
 Why: the maintainer's ruling ("V2 is a much better base"): it fixes the first draft's badly
-arranged elements (the team's name in view on every tab, the positions grid in the game's
-order, the cutscene-only stats outside Appearance's lock); the panels are the same in both,
+arranged elements (the team's name in view on every tab, the positions grid in the
+collaborator's order, the cutscene-only stats outside Appearance's lock); the panels are the same in both,
 so the AATF and comparator work goes on unchanged.
 Plan: `plans/save_editor.md` "Build order and verification" (the draft paragraph).
+
+## 2026-10-24 — save_editor — The comparator's groups in the open save's team order
+Decision: the comparator draws one group per team, in the open save's team order, each
+group's players in the report's order, `No team` after the teams and before the only-in
+sections.
+Why: a heading at each change of team along the report's order (the picked save's record
+order) heads a team once per run of its players, and a real save's teams hold player ids far
+apart, so one team's rows would be scattered under many headings; the team selector's order is
+the one a member reads the teams in everywhere else.
+Plan: `plans/save_editor.md` "Comparator (gameplay + aesthetics)".

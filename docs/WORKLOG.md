@@ -19,8 +19,8 @@ coverage table and draft, the DBC7 ruleset).
 "Divegrass Before Christmas"), a working Save editor with a rock-solid AATF check comes first
 (the maintainer, 2026-10-24): the Save editor's view (8.9: slices 1-3 done, with the Tactics
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
-(8.9j1-j3), the comparator next (8.9j4a done, the panel 8.9j4b), then the transplant (8.9j5); 8.9f's slice 4 and
-8.9h: v2 is the base, ported after the comparator), `libs/aatf`'s hardening (the repetition rework done and
+(8.9j1-j3), the comparator next (8.9j4a done, the panel 8.9j4b), then the transplant (8.9j5); 8.9f's slice 4: v2 is
+the base, ported after the comparator; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; an audit step next), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
 the compiler and the upgrader on the new file; slice 3, the Save editor's, rides with SE-GUI-19), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
@@ -1320,12 +1320,32 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           the 2026-10-24 rulings. Files: `pes_savefile/src/settings_toml/keys.rs`,
           `team_widgets/src/cards.rs`, `save_editor/src/{diff.rs,test_support.rs,view/{mod.rs,
           terms.rs,abilities.rs,info_strip.rs,appearance/{mod.rs,fields.rs},tests.rs}}`
-          - [ ] review: checkpoint (b) (two crates' new `pub` fns, SE-GUI-13's rewrite)
+          - [x] review: checkpoint (b) (two crates' new `pub` fns, SE-GUI-13's rewrite): S1
+            1 accepted (two near-identical key lookups), Astra A1 (Codex `own`) 1 of 3 (SE-GUI-13's
+            click on players no roster holds), S2 2 of 6 (the group bullet's scope, a misattributed
+            grid order); mutants 46 caught, 7 missed (3 tested in their own crates, the palette's
+            restored, 2 equivalent), the fixes' 7 caught; rulings `.tmp/8_9j/duck_rulings_j4.md`
         - [ ] 8.9j4b the panel (DECISIONS 2026-10-24 "The comparator's groups, its worker and a
           kept pick")
-          - [ ] 8.9j4b1 the pick and its version refusal, the worker's comparison, the rows per
-            team in the tabs' terms, the scope toggles, a click selecting the player (brief
-            `.tmp/8_9j/brief_8_9j4b1.md`)
+          - [x] 8.9j4b1 the pick and its version refusal, the worker's comparison, the rows per
+            team in the tabs' terms, the scope toggles, a click selecting the player. Done
+            2026-10-24 (SWE-2, 37 min, rework 1 for the stripped marks' words, the heads' clicks and
+            four repetitions): `view/comparator.rs` on `diff::build`'s one walk (its rows carry
+            their `PlayerDiff`), the worker cycle shared with the AATF checks (`view/worker.rs`),
+            the rows under `ScrollArea::show_rows` (a 10k-line result's frame 11 ms, debug), the
+            refusal's sentence in `messages.rs`, `EditFile: Clone` for the worker (4 ms on the PES
+            21 fixture), `violations::{player_head, row_paint}` shared with the violations list.
+            Files: `pes_savefile/src/file.rs`, `team_widgets/src/violations.rs`,
+            `save_editor/src/{cli.rs,diff.rs,messages.rs,view/{mod.rs,menus.rs,comparator.rs,
+            worker.rs,aatf_check.rs,aatf_panel.rs,live_aatf.rs,player_list.rs,appearance/mod.rs,
+            terms.rs,tests.rs,tests/comparator.rs}}`
+            - [x] review: checkpoint (b) (`EditFile: Clone`, `violations::{player_head,
+              row_paint}`, the plan's new comparator bullets): SWE-2 S1 4 accepted (a team
+              headed once per run of its players, now one group per team in the open save's
+              order; a refused pick keeping the last rows; a re-pick keyed on its path; the `No
+              team` group untested), Astra A1 1 (the kept pick untested), S2 0; mutants 59
+              caught, 2 missed (`reset`, killed by the kept-pick test), the fixes' 4 caught
+              (rework 2); rulings `.tmp/8_9j/duck_rulings_j4.md`
           - [ ] 8.9j4b2 the team filter and Export
       - [ ] 8.9j5 the transplant (SE-GUI-14)
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane

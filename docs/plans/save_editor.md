@@ -575,9 +575,13 @@ The panel over the spec's `diff` report:
 - The tabs' terms (a field's label, its stored-to-shown transform) are read from the tabs' own
   tables, not from a second table for the panel, which would drift from the tabs; the
   unsaved-changes prompt reads the same ones.
-- The rows group per team: a player under the first team in the open save's order whose
-  roster holds him (`No team` when none does), as the Strip again list names a player's team,
-  not one heading per roster, which would repeat a player on a club and a national team; his
+- The rows of the players both saves hold group per team: a player under the first team in
+  the open save's order whose roster holds him (`No team` when none does), as the Strip again list names a player's team,
+  not one heading per roster, which would repeat a player on a club and a national team; one
+  group per team, in the open save's team order (the team selector's), its players in the
+  report's order, `No team` after the teams: not a heading at each change along the report's
+  order, which heads a team once per run of its players, and a real save's teams hold ids far
+  apart; his
   stripped mark beside his head; the players only in one save last, under `Only in the picked
   save` and `Only in the open save`, as the report lists them. The comparison runs on a worker
   thread, the held list marked `Comparing…` until it lands, and a frame draws only the rows in
@@ -726,7 +730,7 @@ first. It is the second arrangement of the first draft, `docs/prototypes/save_ed
 which the built tabs of slices 1-3 follow until they are ported to it: the team bar above every
 tab, the Player / Team tab groups, the positions grid in the collaborator's order, the Cutscenes
 group (`save_editor_v2.html`'s own notes say why each remark was adopted or not). The two drafts'
-panels (AATF, Live AATF, the comparator, the transplant) are the same. Then the view builds up as:
+panels and dialogs are the same, function for function. Then the view builds up as:
 
 1. Open/save + player editing tabs (Abilities & Skills, Appearance) — the card pickers as the
    first `team_widgets` content

@@ -14,6 +14,7 @@ use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::names::display_name;
 use pes_savefile::model::roster_order_player_id;
 use pes_savefile::ops::compare::PlayerDiff;
+use pes_version::PesVersion;
 use studio_core::{CatalogRow, Disposition, Message, MessageCode, Scope, Severity};
 
 use crate::session::Stripped;
@@ -116,7 +117,10 @@ pub(crate) enum Code {
 }
 
 /// Which of `diff`'s two saves a finding is about, as the console names them.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+/// `Serialize` writes the variant `as_str` writes: the JSON report's `save`
+/// and `stripped` fields carry the same word.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
+#[serde(rename_all = "lowercase")]
 pub(crate) enum Side {
     /// The first save on the command line.
     First,
@@ -481,6 +485,20 @@ pub(crate) fn stripped_mark(mark: Stripped) -> Message {
         Stripped::Donor(player) => (Code::TransplantDonorStripped, player),
     };
     message(code, vec![("player", player.to_string())])
+}
+
+/// The refusal's sentence for two saves of different versions, each named as a
+/// member reads it (`PES 2021`): the CLI's refusals and the comparator panel's
+/// pick share the one wording.
+pub(crate) fn version_mismatch_sentence(
+    first_role: &str,
+    first: PesVersion,
+    second_role: &str,
+    second: PesVersion,
+) -> String {
+    format!(
+        "{first_role} is a {first} save and {second_role} a {second} one: both must be of one version"
+    )
 }
 
 /// One `diff` row's texts: the field by its schema name (`BootsId`, `FacialHairType`,

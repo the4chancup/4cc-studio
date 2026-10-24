@@ -784,7 +784,9 @@ fn palette_row(
     set: impl Fn(&mut PlayerEntry, u8),
 ) {
     // The swatch names once per row (each is `option_name`'s entry: the
-    // key's whole range is named, so every drawn index has one).
+    // palette keys' `Kind::Number` ranges start at 0, so `combo_options`
+    // holds one entry per index up to the key's top, and every drawn
+    // index has one).
     let names = combo_options(palette.key);
     ui.push_id(("appearance palette", palette.label), |ui| {
         for (index, rgb) in palette.colors[..=usize::from(palette.top)]

@@ -647,6 +647,28 @@ fn draw(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>) -> Vec
     nodes
 }
 
+/// Frames until `landed` holds for the view's worker result (bounded, so
+/// a worker that never replies fails rather than hangs); `message` is the
+/// deadline's panic. Returns the landing frame's node pairs.
+fn frames_until(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules: Option<&Path>,
+    landed: impl Fn(&SaveView) -> bool,
+    message: &str,
+) -> Vec<(accesskit::NodeId, accesskit::Node)> {
+    let deadline = Instant::now() + Duration::from_secs(30);
+    loop {
+        let (_, pairs, _) =
+            window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
+        if landed(view) {
+            return pairs;
+        }
+        assert!(Instant::now() < deadline, "{message}");
+        std::thread::sleep(Duration::from_millis(20));
+    }
+}
+
 /// Frames until `pick`'s check lands: `pending` empty and the result
 /// keyed to the session's current revision, `ids` and rules file
 /// (bounded, so a worker that never replies fails rather than hangs).
@@ -657,21 +679,23 @@ fn checked(
     pick: impl Fn(&SaveView) -> &aatf_check::TeamsCheck,
     ids: &[u32],
 ) -> Vec<accesskit::Node> {
-    let deadline = Instant::now() + Duration::from_secs(30);
-    loop {
-        let nodes = draw(window, view, rules);
-        let revision = view.session.as_ref().expect("an open save").revision();
-        let check = pick(view);
-        if check.pending.is_none()
-            && check.result.as_ref().is_some_and(|(key, _)| {
-                key.revision == revision && key.ids == ids && key.rules_file.as_deref() == rules
-            })
-        {
-            return nodes;
-        }
-        assert!(Instant::now() < deadline, "the AATF check never returned");
-        std::thread::sleep(Duration::from_millis(20));
-    }
+    frames_until(
+        window,
+        view,
+        rules,
+        |view| {
+            let revision = view.session.as_ref().expect("an open save").revision();
+            let check = pick(view);
+            check.pending.is_none()
+                && check.result.as_ref().is_some_and(|(key, _)| {
+                    key.revision == revision && key.ids == ids && key.rules_file.as_deref() == rules
+                })
+        },
+        "the AATF check never returned",
+    )
+    .into_iter()
+    .map(|(_, node)| node)
+    .collect()
 }
 
 /// The Height row under `header`'s group (two players share the row's
@@ -798,16 +822,17 @@ fn tick(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>, label:
     );
 }
 
-/// The nodes inside the panel's window (its subtree: the player list's
-/// rows share the screen). `pairs` is `frame_ids`' output.
-fn panel_nodes(pairs: &[(accesskit::NodeId, accesskit::Node)]) -> Vec<&accesskit::Node> {
+/// The nodes inside the window titled `title`, with their AccessKit ids
+/// (its subtree: the player list's rows share the screen). `pairs` is
+/// `frame_ids`' output.
+fn nodes_in_window<'a>(
+    pairs: &'a [(accesskit::NodeId, accesskit::Node)],
+    title: &str,
+) -> Vec<(accesskit::NodeId, &'a accesskit::Node)> {
     let (window, _) = pairs
         .iter()
-        .find(|(_, node)| {
-            node.label()
-                .is_some_and(|label| label.starts_with("AATF violations"))
-        })
-        .expect("the panel window");
+        .find(|(_, node)| node.label().is_some_and(|label| label.starts_with(title)))
+        .expect("the window");
     let by_id: HashMap<accesskit::NodeId, &accesskit::Node> =
         pairs.iter().map(|(id, node)| (*id, node)).collect();
     let mut nodes = Vec::new();
@@ -815,18 +840,38 @@ fn panel_nodes(pairs: &[(accesskit::NodeId, accesskit::Node)]) -> Vec<&accesskit
     while let Some(id) = stack.pop() {
         let node = by_id[&id];
         stack.extend(node.children());
-        nodes.push(node);
+        nodes.push((id, node));
     }
     nodes
+}
+
+/// The nodes inside the AATF panel's window (its subtree: the player
+/// list's rows share the screen). `pairs` is `frame_ids`' output.
+fn panel_nodes(pairs: &[(accesskit::NodeId, accesskit::Node)]) -> Vec<&accesskit::Node> {
+    nodes_in_window(pairs, "AATF violations")
+        .into_iter()
+        .map(|(_, node)| node)
+        .collect()
 }
 
 /// The panel window's Label values and Button labels, in top-to-bottom
 /// order.
 fn panel_lines(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>) -> Vec<String> {
+    window_lines(window, view, rules, "AATF violations")
+}
+
+/// The window titled `title`'s Label values and Button labels, in
+/// top-to-bottom order.
+fn window_lines(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules: Option<&Path>,
+    title: &str,
+) -> Vec<String> {
     let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
-    let nodes = panel_nodes(&pairs);
+    let nodes = nodes_in_window(&pairs, title);
     let mut lines: Vec<(f64, f64, String)> = Vec::new();
-    for node in nodes {
+    for (_, node) in nodes {
         let text = match node.role() {
             Role::Label => node.value().map(str::to_owned),
             _ => node.label().map(str::to_owned),
@@ -864,6 +909,7 @@ mod aatf_panel;
 mod aatf_panel_mechanics;
 mod abilities;
 mod appearance;
+mod comparator;
 mod list;
 mod live_aatf;
 mod player;

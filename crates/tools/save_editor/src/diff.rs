@@ -3,7 +3,7 @@
 //! beside his rows (the appearance id itself is no row), then the players only in one save.
 
 use pes_savefile::EditFile;
-use pes_savefile::ops::compare::{CompareError, DiffScope, compare};
+use pes_savefile::ops::compare::{CompareError, DiffScope, PlayerDiff, compare};
 use serde::Serialize;
 use studio_core::{EventLines, Message, PipelineEvent};
 
@@ -12,41 +12,54 @@ use crate::messages::{Code, Side, diff_fields, message, player_diff};
 use crate::session::is_stripped;
 
 /// The report as data, rendered either as finding lines or as one JSON document (`--json`),
-/// so the two forms cannot drift.
+/// so the two forms cannot drift. `pub(crate)` for the comparator panel, which reads this
+/// walk rather than walking the diff again.
 #[derive(Serialize)]
-struct DiffReport {
+pub(crate) struct DiffReport {
     /// `first`'s players that `second` also holds, with a row in scope or a stripped mark, in
     /// `first`'s record order (a player only in `first` is in `only_in_first` alone).
-    players: Vec<PlayerReport>,
+    pub(crate) players: Vec<PlayerReport>,
     /// Ids `first` alone holds, in its record order.
-    only_in_first: Vec<OnlyInPlayer>,
+    pub(crate) only_in_first: Vec<OnlyInPlayer>,
     /// Ids `second` alone holds, in its record order.
-    only_in_second: Vec<OnlyInPlayer>,
+    pub(crate) only_in_second: Vec<OnlyInPlayer>,
 }
 
 /// One player of the report: his stripped mark (`"first"`, `"second"` or `"both"`; null when
 /// his appearance id is set in both saves) and his changed fields.
 #[derive(Serialize)]
-struct PlayerReport {
-    id: u32,
-    stripped: Option<&'static str>,
-    rows: Vec<DiffRow>,
+pub(crate) struct PlayerReport {
+    /// The player id.
+    pub(crate) id: u32,
+    /// Which save he is stripped in, if either.
+    pub(crate) stripped: Option<Side>,
+    /// His rows of the scope the report was built for.
+    pub(crate) rows: Vec<DiffRow>,
 }
 
 /// A player one save alone holds, with his stripped mark.
 #[derive(Serialize)]
-struct OnlyInPlayer {
-    id: u32,
-    stripped: Option<&'static str>,
+pub(crate) struct OnlyInPlayer {
+    /// The player id.
+    pub(crate) id: u32,
+    /// Which save he is stripped in, if either.
+    pub(crate) stripped: Option<Side>,
 }
 
 /// One changed field: `diff_fields`'s schema name and old/new texts, the same strings a
-/// `player_diff` finding carries.
+/// `player_diff` finding carries, beside the `PlayerDiff` they came from (the comparator
+/// panel's `row_term` reads it; `skip` keeps the JSON report unchanged).
 #[derive(Serialize)]
-struct DiffRow {
-    field: String,
-    old: String,
-    new: String,
+pub(crate) struct DiffRow {
+    /// The field's schema name.
+    pub(crate) field: String,
+    /// `first`'s value.
+    pub(crate) old: String,
+    /// `second`'s value.
+    pub(crate) new: String,
+    /// The diff the strings render.
+    #[serde(skip)]
+    pub(crate) diff: PlayerDiff,
 }
 
 /// Reports the differences between `first` and `second` as findings: in `first`'s record
@@ -104,7 +117,10 @@ fn findings(
         if let Some(side) = player.stripped {
             findings.push(message(
                 Code::PlayerStripped,
-                vec![("player", player.id.to_string()), ("save", side.to_owned())],
+                vec![
+                    ("player", player.id.to_string()),
+                    ("save", side.as_str().to_owned()),
+                ],
             ));
         }
         for row in &player.rows {
@@ -128,7 +144,7 @@ fn findings(
                     Code::PlayerStripped,
                     vec![
                         ("player", entry.id.to_string()),
-                        ("save", stripped.to_owned()),
+                        ("save", stripped.as_str().to_owned()),
                     ],
                 ));
             }
@@ -152,7 +168,8 @@ pub(crate) fn report_json(
 }
 
 /// Both saves' report as data. Saves of two versions are the lib's `VersionMismatch`.
-fn build(
+/// `pub(crate)` for the comparator panel's worker.
+pub(crate) fn build(
     first: &EditFile,
     second: &EditFile,
     scope: Option<DiffScope>,
@@ -178,7 +195,12 @@ fn build(
                     .filter(|row| scope.is_none_or(|scope| row.scope() == scope))
                     .map(|row| {
                         let (field, old, new) = diff_fields(row);
-                        DiffRow { field, old, new }
+                        DiffRow {
+                            field,
+                            old,
+                            new,
+                            diff: row.clone(),
+                        }
                     })
                     .collect()
             })
@@ -186,7 +208,7 @@ fn build(
         if stripped.is_some() || !rows.is_empty() {
             data.players.push(PlayerReport {
                 id: player.id,
-                stripped: stripped.map(Side::as_str),
+                stripped,
                 rows,
             });
         }
@@ -198,7 +220,7 @@ fn build(
         for &id in ids {
             entries.push(OnlyInPlayer {
                 id,
-                stripped: stripped_side(first, second, id).map(Side::as_str),
+                stripped: stripped_side(first, second, id),
             });
         }
     }

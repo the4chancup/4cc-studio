@@ -159,9 +159,14 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     };
     // A check is due when the key moved on since the last result (a rules
     // file that does not load never starts one: its error is the list).
-    let checking = aatf
-        .check
-        .update(ui.ctx(), file, loaded.as_ref(), key, settled);
+    let checking = aatf_check::update_check(
+        &mut aatf.check,
+        ui.ctx(),
+        file,
+        loaded.as_ref(),
+        key,
+        settled,
+    );
     // The ruleset's name on a loaded file, else the file's path: only a
     // rules file fails to load (`Rules::official` panics rather than err).
     let ruleset_label = match &active.rules {

@@ -17,6 +17,7 @@ use crate::model::team::TeamEntry;
 use crate::schema::{SectionLayout, VersionSchema, row_offset, schema_for};
 
 /// An open save: the retained container plus the decoded players and teams.
+#[derive(Clone)]
 pub struct EditFile {
     container: SaveContainer,
     schema: &'static VersionSchema,

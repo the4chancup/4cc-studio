@@ -13,13 +13,13 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use crossbeam_channel::Receiver;
 use pes_savefile::EditFile;
 use pes_savefile::model::PlayerEntry;
 use team_widgets::violations::{ListedPlayer, SelectedPlayer, TeamViolations, violations_list};
 
 use crate::session::rules::{self, TeamCheck};
 use crate::session::selection::TeamChoice;
+use crate::view::worker::{Pending, WorkerResult};
 
 /// What a check ran for: a change of the open save, of the ids or of the
 /// rules file recomputes it.
@@ -34,87 +34,43 @@ pub(super) struct CheckKey {
     pub(super) rules_file: Option<PathBuf>,
 }
 
-/// A check in flight: the key it runs for and its reply channel.
-pub(super) struct PendingCheck {
-    /// The key the worker's `check_teams` runs for.
-    pub(super) key: CheckKey,
-    /// The worker's reply: its key and the checks, in `ids`' order.
-    pub(super) replies: Receiver<(CheckKey, Vec<TeamCheck>)>,
-}
+/// A check in flight: the key it runs for and its reply channel (the
+/// worker's reply is its key and the checks, in `ids`' order).
+pub(super) type PendingCheck = Pending<CheckKey, Vec<TeamCheck>>;
 
 /// A team check's state: the last result with its key and the check in
-/// flight, if one is. The AATF panel and the Live AATF dock each hold one.
-pub(super) struct TeamsCheck {
-    /// The last check's key and its per-team results.
-    pub(super) result: Option<(CheckKey, Vec<TeamCheck>)>,
-    /// The check in flight, if one is.
-    pub(super) pending: Option<PendingCheck>,
-}
+/// flight, if one is (`worker::WorkerResult`'s poll-and-spawn cycle). The
+/// AATF panel and the Live AATF dock each hold one.
+pub(super) type TeamsCheck = WorkerResult<CheckKey, Vec<TeamCheck>>;
 
-impl TeamsCheck {
-    /// Nothing checked and nothing running.
-    pub(super) fn new() -> TeamsCheck {
-        TeamsCheck {
-            result: None,
-            pending: None,
-        }
-    }
-
-    /// Another save opened: the result and the check in flight are of the
-    /// old save's teams.
-    pub(super) fn reset(&mut self) {
-        self.result = None;
-        self.pending = None;
-    }
-
-    /// One frame of the check cycle for `key`: the reply polled first, so
-    /// the frame that starts a check still marks the previous result as
-    /// checking; then a check spawned when the key moved on since the last
-    /// result (a rules file that does not load, `rules` `None`, never
-    /// starts one: its error is the list) and the edit has settled.
-    /// Returns whether the list is checking — a check in flight or due at
-    /// the next settled frame — for the callers' checking marks.
-    pub(super) fn update(
-        &mut self,
-        ctx: &egui::Context,
-        file: &EditFile,
-        rules: Option<&Arc<aatf::Rules>>,
-        key: CheckKey,
-        settled: bool,
-    ) -> bool {
-        let reply = self
-            .pending
-            .as_ref()
-            .map(|pending| pending.replies.try_recv());
-        match reply {
-            Some(Ok((key, checks))) => {
-                self.result = Some((key, checks));
-                self.pending = None;
-            }
-            // A worker that died without replying leaves no result to wait
-            // for: drop the pending so the spawn below starts a fresh check.
-            Some(Err(crossbeam_channel::TryRecvError::Disconnected)) => {
-                log::warn!("the AATF check's worker ended without a reply");
-                self.pending = None;
-            }
-            _ => {}
-        }
-        let due = !key.ids.is_empty()
-            && rules.is_some()
-            && self.result.as_ref().is_none_or(|(held, _)| *held != key);
-        let pending_for_key = self
-            .pending
-            .as_ref()
-            .is_some_and(|pending| pending.key == key);
-        if due
-            && settled
-            && !pending_for_key
-            && let Some(rules) = rules
-        {
-            self.pending = Some(spawn_check(ctx, file, rules, key.clone()));
-        }
-        self.pending.is_some() || due
-    }
+/// One frame of the check cycle for `key`: the reply polled first, so
+/// the frame that starts a check still marks the previous result as
+/// checking; then a check spawned when the key moved on since the last
+/// result (a rules file that does not load, `rules` `None`, never
+/// starts one: its error is the list) and the edit has settled.
+/// Returns whether the list is checking — a check in flight or due at
+/// the next settled frame — for the callers' checking marks.
+pub(super) fn update_check(
+    check: &mut TeamsCheck,
+    ctx: &egui::Context,
+    file: &EditFile,
+    rules: Option<&Arc<aatf::Rules>>,
+    key: CheckKey,
+    settled: bool,
+) -> bool {
+    check.update(
+        &key,
+        !key.ids.is_empty() && rules.is_some(),
+        settled,
+        |key| {
+            spawn_check(
+                ctx,
+                file,
+                rules.expect("a due check has its ruleset loaded"),
+                key.clone(),
+            )
+        },
+    )
 }
 
 /// The team the Current-team callers check: the selector's, or with ALL
@@ -281,5 +237,5 @@ fn spawn_check(
         }
         ctx.request_repaint();
     });
-    PendingCheck { key, replies }
+    Pending { key, replies }
 }

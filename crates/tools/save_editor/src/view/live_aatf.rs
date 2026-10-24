@@ -70,9 +70,14 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         ids: team_id.into_iter().collect(),
         rules_file: active.file.clone(),
     };
-    let checking = live
-        .check
-        .update(ui.ctx(), file, loaded.as_ref(), key, settled);
+    let checking = aatf_check::update_check(
+        &mut live.check,
+        ui.ctx(),
+        file,
+        loaded.as_ref(),
+        key,
+        settled,
+    );
     live.dock.show(
         ui,
         |ui| {

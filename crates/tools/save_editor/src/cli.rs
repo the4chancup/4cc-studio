@@ -20,7 +20,7 @@ use studio_core::{CliError, RunningPes, Severity, ToolContext, running_pes};
 use crate::events::Report;
 use crate::messages::{
     Code, TOOL_ID, aatf_check_failed, aatf_violation, appearance_id_restored, import_note, message,
-    patch_skip, strip_base_copied_face, stripped_mark,
+    patch_skip, strip_base_copied_face, stripped_mark, version_mismatch_sentence,
 };
 use crate::session::{self, Session};
 use crate::{diff, settings, teams_list};
@@ -405,17 +405,20 @@ fn transplant(args: &TransplantArgs, report: &mut Report) -> Result<(), CliError
     Ok(())
 }
 
-/// The refusal of two saves of different versions, each named as a member reads it
-/// (`PES 2021`): the lib's own text spells the versions as the enum does.
+/// The refusal of two saves of different versions: `version_mismatch_sentence`
+/// as the command's error.
 fn version_mismatch(
     first_role: &str,
     first: PesVersion,
     second_role: &str,
     second: PesVersion,
 ) -> CliError {
-    invalid(anyhow!(
-        "{first_role} is a {first} save and {second_role} a {second} one: both must be of one version"
-    ))
+    invalid(anyhow!(version_mismatch_sentence(
+        first_role,
+        first,
+        second_role,
+        second
+    )))
 }
 
 /// `diff`: the comparator's report as findings; differences are its output, so the exit

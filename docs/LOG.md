@@ -2417,3 +2417,6 @@ worklog passed 7,000 lines.
   bottom of the Save editor, re-checked after every edit on the floating panel's shared check.
 - **2026-10-24** — 8.9j4a: a diff row in the tabs' terms (label and shown values read from the tabs' own
   tables) and the `diff` report as text, the comparator panel's groundwork; 8.9j3's review closed.
+- **2026-10-24** — 8.9j4b1: the comparator panel: pick a second save of the same version, its rows per team
+  in the tabs' terms, the scope toggles, a click selecting the player; V2 ruled the Save editor's draft;
+  its review closed (one group per team in the open save's order, a refused pick clearing the rows).

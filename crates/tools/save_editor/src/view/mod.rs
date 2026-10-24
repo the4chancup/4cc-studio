@@ -11,6 +11,7 @@ mod aatf_check;
 mod aatf_panel;
 mod abilities;
 mod appearance;
+mod comparator;
 mod info_strip;
 mod live_aatf;
 mod menus;
@@ -19,13 +20,10 @@ mod portraits;
 mod quick_actions;
 mod tactics;
 mod team;
-// Dead until the comparator panel draws its rows; the tests are its only
-// callers until then, so the expectation is scoped out of test builds and
-// fires again once a real caller lands.
-#[cfg_attr(not(test), expect(dead_code, reason = "the comparator panel reads it"))]
 mod terms;
 #[cfg(test)]
 mod tests;
+mod worker;
 
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
@@ -84,6 +82,12 @@ pub(crate) struct SaveView {
     /// The AATF panel's state (`plans/save_editor.md` "Configurable AATF
     /// rules", the AATF panel bullet); closed at start.
     aatf: aatf_panel::AatfPanel,
+    /// The comparator panel's state (`plans/save_editor.md` "Comparator
+    /// (gameplay + aesthetics)"); closed at start.
+    comparator: comparator::Comparator,
+    /// The comparator's Pick dialog (`rfd`, stubbed in tests — the AATF
+    /// panel's copy dialog pattern).
+    open_save_dialog: comparator::OpenSaveDialog,
     /// The Live AATF toolbar toggle's state: `Tool::view` refreshes it
     /// from the `live_aatf` setting and writes the setting back when the
     /// toggle changes it; off in the tests' view-only frames.
@@ -217,6 +221,8 @@ impl SaveView {
             refusal: None,
             rules: None,
             aatf: aatf_panel::AatfPanel::new(),
+            comparator: comparator::Comparator::new(),
+            open_save_dialog: comparator::default_open_dialog(),
             live_aatf: false,
             live: live_aatf::LiveAatf::new(),
             aatf_copy_dialog: aatf_panel::default_copy_dialog(),
@@ -281,6 +287,7 @@ impl SaveView {
                     }
                     Engine::PreFox => None,
                 };
+                self.comparator.reset(session.version());
                 self.session = Some(session);
                 self.generation += 1;
                 self.tactics = team_widgets::tactics::TacticsView::default();
@@ -356,6 +363,7 @@ pub(crate) fn show(
     menus::copy_swap_dialog(ui, view);
     menus::fix_database_dialog(ui, view);
     aatf_panel::show(ui, view);
+    comparator::show(ui, view);
     // One undo entry per gesture: seal when the pointer is up and no
     // widget holds the keyboard, and when the widget that held it ends
     // the frame without it — a gesture ends when its widget loses the

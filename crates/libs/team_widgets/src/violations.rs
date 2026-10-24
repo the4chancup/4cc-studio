@@ -118,6 +118,18 @@ fn slot_order<'a>(violations: impl Iterator<Item = &'a aatf::Violation>) -> Vec<
     order
 }
 
+/// One player's head as the groups draw it: `Player {id}  {number} {name}`
+/// with the name code-free (`name` is the save's raw string). The Save
+/// editor's comparator lists its players under the same head.
+pub fn player_head(id: u32, number: u16, name: &str) -> String {
+    format!(
+        "Player {}  {} {}",
+        id,
+        number,
+        pes_savefile::model::names::display_name(name)
+    )
+}
+
 /// One group's header: `Player {id}  {number} {name}` for a rostered player,
 /// `Slot {slot}` for one the host lists no player for, `the team` for the
 /// team's own rows.
@@ -125,12 +137,7 @@ fn group_header(ui: &mut egui::Ui, team: &TeamViolations<'_>, slot: Option<u8>) 
     let text = match slot {
         None => "the team".to_string(),
         Some(slot) => match team.players.iter().find(|p| p.slot == slot) {
-            Some(player) => format!(
-                "Player {}  {} {}",
-                player.id,
-                player.number,
-                pes_savefile::model::names::display_name(player.name)
-            ),
+            Some(player) => player_head(player.id, player.number, player.name),
             None => format!("Slot {slot}"),
         },
     };
@@ -199,35 +206,68 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
             egui::Sense::hover()
         },
     );
+    let label = format!("{rule} {text}");
+    let select = violation.slot.map(|slot| SelectedPlayer { team_id, slot });
+    row_paint(
+        ui,
+        response,
+        &[
+            egui::Shape::galley(rect.min, rule_galley, rule_color),
+            egui::Shape::galley(
+                rect.min + egui::vec2(RULE_COL, 0.0),
+                sentence_galley,
+                strong_color,
+            ),
+        ],
+        &label,
+        select,
+        Some(if select.is_some() {
+            "Select this player"
+        } else {
+            "A team-level violation"
+        }),
+    )
+}
+
+/// The paint and click tail the violations list's rows and the Save
+/// editor's comparator lines share: `shapes` painted in order under a
+/// hovered row's fill, `label` the AccessKit label under the `Button`
+/// role on a clickable row, `Label` on one that only reports, and `hover`
+/// the tooltip; a `select` row's click reports its player.
+pub fn row_paint(
+    ui: &egui::Ui,
+    response: egui::Response,
+    shapes: &[egui::Shape],
+    label: &str,
+    select: Option<SelectedPlayer>,
+    hover: Option<&str>,
+) -> Option<SelectedPlayer> {
+    let rect = response.rect;
     if ui.is_rect_visible(rect) {
         if response.hovered() {
             ui.painter()
-                .rect_filled(rect, 2.0, ui.style().visuals.widgets.hovered.bg_fill);
+                .rect_filled(rect, 2.0, ui.visuals().widgets.hovered.bg_fill);
         }
-        ui.painter()
-            .add(egui::Shape::galley(rect.min, rule_galley, rule_color));
-        ui.painter().add(egui::Shape::galley(
-            rect.min + egui::vec2(RULE_COL, 0.0),
-            sentence_galley,
-            strong_color,
-        ));
+        ui.painter().extend(shapes.iter().cloned());
     }
-    let label = format!("{rule} {text}");
-    match violation.slot {
-        Some(slot) => {
+    match select {
+        Some(player) => {
             response.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label.as_str())
+                egui::WidgetInfo::labeled(egui::Role::Button, ui.is_enabled(), label)
             });
-            response
-                .on_hover_text("Select this player")
-                .clicked()
-                .then_some(SelectedPlayer { team_id, slot })
+            let response = match hover {
+                Some(hover) => response.on_hover_text(hover),
+                None => response,
+            };
+            response.clicked().then_some(player)
         }
         None => {
             response.widget_info(|| {
-                egui::WidgetInfo::labeled(egui::Role::Label, ui.is_enabled(), label.as_str())
+                egui::WidgetInfo::labeled(egui::Role::Label, ui.is_enabled(), label)
             });
-            response.on_hover_text("A team-level violation");
+            if let Some(hover) = hover {
+                response.on_hover_text(hover);
+            }
             None
         }
     }
