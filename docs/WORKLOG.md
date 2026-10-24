@@ -1298,7 +1298,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           missed (the mark's `&&`, killed by the lead's test), the dock's timeout a slow fail;
           on rework 1: 10 caught. S1: 2 accepted (no test of another team or rules file over a
           held result, the click helper's copies), rework 2 (SWE-2, 10 min); SWE-2's loop ends.
-          Astra A1 next (rulings `.tmp/8_9j/duck_rulings_j3.md`)
+          Astra A1 (Codex `own`): 2 of 3 accepted (SE-GUI-30 omitting what its tests pin; it,
+          SE-GUI-15 and SE-GUI-02 not naming the saves their tests open), both plan edits by the
+          lead; Astra's loop ends. S2 on the scenarios next (rulings `.tmp/8_9j/duck_rulings_j3.md`)
       - [ ] 8.9j4 the comparator (SE-GUI-13); the direction, Export's scope and the tabs' terms
         ruled first (DECISIONS 2026-10-24 "The comparator's direction…"; code map
         `.tmp/8_9j/j4_map.md`)

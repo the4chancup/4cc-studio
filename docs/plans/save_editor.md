@@ -764,7 +764,7 @@ SE-GUI-01  GIVEN the save
            THEN the team selector lists its teams and ALL, the player list shows each player's
                 number, position and name with the name's color codes rendered as colors, and
                 the info strip shows the selected player's general fields
-SE-GUI-02  GIVEN the save open on team 701
+SE-GUI-02  GIVEN the PES 17 save open on team 701
            WHEN a name, shirt name or id of a player of another team is typed in the filter box
            THEN the list shows the matching players across all teams, matched on the
                 color-code-free display name, and selecting one shows him
@@ -846,7 +846,7 @@ SE-GUI-14  GIVEN "Edit aesthetics anyway" switched on and the transplant panel w
                 selection built in the panel THEN the preview lists the affected players with
                 their aesthetics diff before Apply, and Apply is one undoable edit written only
                 on Save
-SE-GUI-15  GIVEN a ruleset with violations in the open team
+SE-GUI-15  GIVEN the PES 17 save and a ruleset with violations in the open team
            WHEN the AATF panel is drawn
            THEN the violations are grouped per player, clicking one selects that player (the
                 team selector moving to his team unless at ALL, which stays), Show
@@ -854,8 +854,8 @@ SE-GUI-15  GIVEN a ruleset with violations in the open team
                 lists a broken rules file's findings with their line or key path (a file that
                 loads: "no findings"), and Save a copy, its dialog suggesting autumn26.rhai,
                 writes the embedded official ruleset out byte for byte and names the path it
-                wrote; GIVEN a team with neither errors nor warnings THEN the panel reads "No
-                violations."; WHEN an edit changes the team THEN the previous list stays,
+                wrote; GIVEN the PES 15 save with a team with neither errors nor warnings THEN
+                the panel reads "No violations."; WHEN an edit changes the team THEN the previous list stays,
                 marked as checking, until the new one replaces it, and an undo brings the
                 old one back; WHEN another rules file is chosen THEN its result replaces the
                 previous ruleset's, and a rules file that does not load leaves its load error
@@ -941,13 +941,19 @@ SE-GUI-29  manual  GIVEN a Texport written by SE-GUI-17's export from a PES 18, 
            save
            WHEN it is imported through the game's own team import, in that version
            THEN the game accepts it and the imported team shows the exported squad and names
-SE-GUI-30  GIVEN the save open on a team with violations under the active ruleset
+SE-GUI-30  GIVEN the PES 17 save open on a team with violations under the active ruleset
            WHEN Live AATF is switched on
-           THEN the docked panel lists the team's violations under `N issues · <ruleset>`;
-                WHEN an edit fixes one of them THEN, once the check returns, its row is gone
-                and N is one less, and an undo brings it back; WHEN the last one is fixed THEN
-                the header reads `No issues: <team> passes <ruleset>`; WHEN the tool is
-                reopened THEN Live AATF is still on
+           THEN the docked panel reads `Checking <team>…` until the first check returns, then
+                lists the team's violations under `N issues · <ruleset>`, and clicking a row
+                selects that player; WHEN an edit fixes one of them THEN the list stays,
+                marked `checking…`, until the check returns, its row then gone and N one less,
+                and an undo brings it back; WHEN another team is opened, or another rules file
+                chosen, THEN the list and N are that team's, or that ruleset's; with ALL picked
+                the panel checks the selected player's team (none selected: `No team open.`);
+                GIVEN the PES 15 save with a team that passes THEN the header reads `No issues:
+                <team> passes <ruleset>`, and WHEN an edit breaks a rule and the last one is
+                fixed THEN it reads so again; WHEN the tool is reopened THEN Live AATF is
+                still on
 SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (gloves), and "Edit
                 aesthetics anyway" switched on
            WHEN Hide body is used on a player whose boots and gloves IDs are 0
