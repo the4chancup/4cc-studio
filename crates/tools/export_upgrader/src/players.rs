@@ -3,7 +3,7 @@
 //! folder under `Players/`, named by the plan's order (the face folder's name
 //! part, the worn boots folder's, the worn gloves folder's, the save's name,
 //! the number alone), its portrait renamed `portrait.dds` and its
-//! `ingame_face` marker normalized. A boots or gloves folder one player wears
+//! `ingame_face` spellings normalized to `ingame_face.toml`. A boots or gloves folder one player wears
 //! merges into his folder on a Fox export; one worn by two or more, or any
 //! worn one on a pre-Fox export, stays a named shared folder with a link file.
 //! Each slot's output folder lands in `PlayerFolders::folders` for step 8's
@@ -13,7 +13,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use aesthetics_export::{FileKind, classify, is_txt_note};
+use aesthetics_export::{FileKind, Marker, classify, is_txt_note};
 use pes_version::Engine;
 use studio_core::{Disposition, Message, Scope};
 use vtree::ScopePath;
@@ -32,7 +32,7 @@ pub(crate) struct PlayerFolders {
     /// leaves as it was (empty for a team export).
     pub(crate) untouched: Vec<(String, String)>,
     /// Empty marker files to write, output paths (`Players/15 -
-    /// Snuffy/ingame_face`, `Players/15 - Snuffy/Crocs.boots`).
+    /// Snuffy/ingame_face.toml`, `Players/15 - Snuffy/Crocs.boots`).
     pub(crate) markers: Vec<String>,
     /// Every input file the plan accounts for (copied, refused as part of a
     /// refused folder, or a marker it normalized): the unmigrated-content
@@ -66,6 +66,10 @@ pub(crate) struct OutputFolder {
     /// A modelless boots or gloves folder of his worn ID marked him `fpc_on`
     /// (step 3): step 8 keeps an unclaimed category's stored 0 explicit.
     pub(crate) fpc_on: bool,
+    /// The folder got the in-game face: it holds `ingame_face.toml`, which
+    /// step 8 fills from the player's record (the empty marker file where
+    /// the generation fails or there is no record).
+    pub(crate) ingame_face: bool,
 }
 
 /// The slot a face folder's name gives: characters 4-5, after any three
@@ -112,7 +116,7 @@ struct PlayerFolder {
     gloves_folder: bool,
     /// A kept face folder exists for the slot.
     has_face: bool,
-    /// The bare `ingame_face` marker to write.
+    /// The `ingame_face.toml` marker file to write.
     marker: bool,
     /// The `fpc_on` marker to write: a worn boots or gloves folder holding
     /// no model hides the player's boots or hands (step 3).
@@ -364,7 +368,7 @@ pub(crate) fn player_folders(
                 .push((source.clone(), format!("{folder}/{relative}")));
         }
         if player.marker {
-            plan.markers.push(format!("{folder}/ingame_face"));
+            plan.markers.push(format!("{folder}/ingame_face.toml"));
         }
         if player.fpc_on {
             plan.markers.push(format!("{folder}/fpc_on"));
@@ -380,6 +384,7 @@ pub(crate) fn player_folders(
                 boots_folder: player.boots_folder,
                 gloves_folder: player.gloves_folder,
                 fpc_on: player.fpc_on,
+                ingame_face: player.marker,
             },
         );
     }
@@ -431,7 +436,8 @@ fn below_game_path(relative: &str) -> &str {
 }
 
 /// Step 3's face folders into `players`: each becomes its player folder,
-/// the portrait renamed and the `ingame_face` spellings normalized.
+/// the portrait renamed and the `ingame_face` spellings normalized to
+/// `ingame_face.toml`.
 fn face_folders(
     folders: BTreeMap<String, Vec<&String>>,
     roster: Option<&Roster>,
@@ -502,7 +508,7 @@ fn face_folders(
         let on_game_path = game_path(&folder_files, folder.len() + 1);
         // Every file lands under the player folder at its relative path,
         // except the portrait (`*portrait.dds`, renamed when alone) and the
-        // `ingame_face` spellings (normalized to the bare marker).
+        // `ingame_face` spellings (normalized to `ingame_face.toml`).
         let mut portraits = Vec::new();
         for file in &folder_files {
             plan.consumed.insert((*file).clone());
@@ -516,10 +522,9 @@ fn face_folders(
                 player.files.insert(relative.to_owned(), (*file).clone());
                 continue;
             }
-            let lowered = relative.to_ascii_lowercase();
-            if lowered == "ingame_face" || lowered == "ingame_face.txt" {
+            if classify(relative) == FileKind::Marker(Marker::OldIngameFace) {
                 player.marker = true;
-            } else if lowered.ends_with("portrait.dds") {
+            } else if relative.to_ascii_lowercase().ends_with("portrait.dds") {
                 portraits.push((*file, relative));
             } else {
                 player.files.insert(relative.to_owned(), (*file).clone());
@@ -704,7 +709,7 @@ fn item_folders(
             for &nn in &wearers {
                 let player = players.entry(nn).or_insert_with(PlayerFolder::new);
                 // As for a worn folder's wearer: no kept face folder still
-                // means `ingame_face`.
+                // means `ingame_face.toml`.
                 player.marker = player.marker || !player.has_face;
                 player.fpc_on = true;
                 match kind {
@@ -718,8 +723,8 @@ fn item_folders(
         }
         for &nn in &wearers {
             let player = players.entry(nn).or_insert_with(PlayerFolder::new);
-            // A wearer with no kept face folder still gets the bare
-            // `ingame_face` marker.
+            // A wearer with no kept face folder still gets the
+            // `ingame_face.toml` marker file.
             player.marker = player.marker || !player.has_face;
             match kind {
                 ItemKind::Boots => {
@@ -1059,7 +1064,7 @@ mod tests {
     }
 
     #[test]
-    fn either_marker_spelling_becomes_one_bare_marker() {
+    fn either_marker_spelling_becomes_one_ingame_face_toml() {
         for names in [
             vec!["ingame_face"],
             vec!["ingame_face.txt"],
@@ -1073,7 +1078,7 @@ mod tests {
             let plan = plan_folders(&files);
             assert_eq!(
                 plan.markers,
-                ["Players/05 - A/ingame_face".to_owned()],
+                ["Players/05 - A/ingame_face.toml".to_owned()],
                 "{names:?}"
             );
             assert!(!plan.copies.iter().any(|(_, to)| to.contains("ingame_face")));
@@ -1300,18 +1305,18 @@ mod tests {
                     "Boots/k0430 - Crocs/boots.fmdl",
                     "Gloves/g0432 - Mitts/glove_l.fmdl",
                 ],
-                "Players/05 - Crocs/ingame_face",
+                "Players/05 - Crocs/ingame_face.toml",
             ),
             (
                 vec![
                     "Boots/k0430/boots.fmdl",
                     "Gloves/g0432 - Mitts/glove_l.fmdl",
                 ],
-                "Players/05 - Mitts/ingame_face",
+                "Players/05 - Mitts/ingame_face.toml",
             ),
             (
                 vec!["Boots/k0430/boots.fmdl", "Gloves/g0432/glove_l.fmdl"],
-                "Players/05 - Save/ingame_face",
+                "Players/05 - Save/ingame_face.toml",
             ),
         ] {
             let plan = plan_with_bytes(&files(&paths), Some(&roster), Engine::Fox, &[]);
@@ -1324,7 +1329,10 @@ mod tests {
             Engine::Fox,
             &[],
         );
-        assert!(plan.markers.contains(&"Players/05/ingame_face".to_owned()));
+        assert!(
+            plan.markers
+                .contains(&"Players/05/ingame_face.toml".to_owned())
+        );
     }
 
     #[test]
@@ -1855,11 +1863,14 @@ mod tests {
         }
         // Slot 05 has no face folder: the bare marker; 03 - Ann's own face
         // means none.
-        assert!(plan.markers.contains(&"Players/05/ingame_face".to_owned()));
+        assert!(
+            plan.markers
+                .contains(&"Players/05/ingame_face.toml".to_owned())
+        );
         assert!(
             !plan
                 .markers
-                .contains(&"Players/03 - Ann/ingame_face".to_owned())
+                .contains(&"Players/03 - Ann/ingame_face.toml".to_owned())
         );
         let unmigrated: Vec<&Message> = plan
             .findings
@@ -2085,7 +2096,7 @@ mod tests {
         assert!(
             !plan
                 .markers
-                .contains(&"Players/05 - Bob/ingame_face".to_owned())
+                .contains(&"Players/05 - Bob/ingame_face.toml".to_owned())
         );
         // The merged boots still land in it.
         assert!(
@@ -2119,9 +2130,9 @@ mod tests {
         // `ingame_face`, while 04, no face folder, gets it.
         for (folder, markers) in [
             ("Players/03 - Ann", vec!["fpc_on"]),
-            ("Players/04 - NoFace", vec!["fpc_on", "ingame_face"]),
+            ("Players/04 - NoFace", vec!["fpc_on", "ingame_face.toml"]),
         ] {
-            for marker in ["fpc_on", "ingame_face"] {
+            for marker in ["fpc_on", "ingame_face.toml"] {
                 let expected = markers.contains(&marker);
                 assert_eq!(
                     plan.markers.contains(&format!("{folder}/{marker}")),

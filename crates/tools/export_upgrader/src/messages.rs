@@ -509,9 +509,15 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
         r#"The run is not clean, so nothing is written."#,
     ),
     (
+        "ingame_face_marker_renamed",
+        Severity::Error,
+        r#"A player folder holds `ingame_face` or `ingame_face.txt`, the in-game face marker's old name: it is now `ingame_face.toml`, which also holds the in-game face's keys."#,
+        r#"The run is not clean, so nothing is written."#,
+    ),
+    (
         "ingame_face_explicit_face_model",
         Severity::Error,
-        r#"A player folder holds `ingame_face` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, which need the face folder the marker suppresses."#,
+        r#"A player folder holds `ingame_face.toml` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, which need the face folder the marker suppresses."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (

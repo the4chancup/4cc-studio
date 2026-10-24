@@ -1,7 +1,8 @@
 //! Step 8's `settings.toml` files (`spec/export_upgrader.md` step 8): each
 //! rostered player's look as the save records it, generated through the same
-//! `PlayerSettings` the save editor writes, one file per output player
-//! folder. `from_player`'s output is adjusted for what the export's folders
+//! `PlayerSettings` the save editor writes, one file per output player folder;
+//! a marked folder's `ingame_face.toml` beside it, the in-game face's keys the
+//! `settings.toml` does not hold. `from_player`'s output is adjusted for what the export's folders
 //! already decide, a line each: a boots or gloves folder of his worn ID
 //! claims the category, so its key is left out whatever the record holds; a
 //! stored 0 stays unset in a Full output but is written `0` in a Midcup one,
@@ -163,6 +164,20 @@ pub(crate) fn settings_files(
                 files
                     .written
                     .push((format!("{}/settings.toml", folder.path), text.into_bytes()));
+                // The in-game face's keys the `settings.toml` does not hold go
+                // to the file that marks it, filled from the same settings
+                // (a marked folder's `ingame_face.toml`; a failed generation
+                // leaves the marker's empty file).
+                if folder.ingame_face {
+                    let face = settings
+                        .ingame_face()
+                        .to_toml()
+                        .expect("every stored value parses back: `from_player_skipping` left the refused unset");
+                    files.written.push((
+                        format!("{}/ingame_face.toml", folder.path),
+                        face.into_bytes(),
+                    ));
+                }
             }
             Err(error) => files.findings.push(tool_message(
                 Code::SettingsNotGenerated,
@@ -204,6 +219,7 @@ pub(crate) fn loose_settings_files(folders: &BTreeMap<u8, OutputFolder>) -> Sett
 
 #[cfg(test)]
 mod tests {
+    use pes_savefile::settings_toml::IngameFaceSettings;
     use pes_version::PesVersion;
     use teams_list::TeamId;
 
@@ -231,6 +247,7 @@ mod tests {
             boots_folder: false,
             gloves_folder: false,
             fpc_on: false,
+            ingame_face: false,
         }
     }
 
@@ -272,6 +289,7 @@ mod tests {
                 boots_folder: true,
                 gloves_folder: false,
                 fpc_on: false,
+                ingame_face: false,
             },
         );
         let files = settings_files(&save, &roster, &folders, true);
@@ -390,12 +408,61 @@ mod tests {
             "05"
         );
         let settings = settings_of(&files, "Players/05 - A");
+        let mut expected = PlayerSettings::from_player(save.player(71405).unwrap()).unwrap();
+        expected.set_ingame_face(IngameFaceSettings::default());
         assert_eq!(
-            settings.appearance,
+            settings.appearance, expected.appearance,
+            "the stripped record's look is written all the same, the face keys"
+        );
+    }
+
+    /// The `ingame_face.toml` written for the marked folder `path`, parsed
+    /// back; panics when the path was written twice or not at all.
+    fn face_of(files: &SettingsFiles, path: &str) -> IngameFaceSettings {
+        let wanted = format!("{path}/ingame_face.toml");
+        let matching: Vec<_> = files
+            .written
+            .iter()
+            .filter(|(written, _)| *written == wanted)
+            .collect();
+        assert_eq!(
+            matching.len(),
+            1,
+            "one write of {wanted}: {:?}",
+            files.written
+        );
+        IngameFaceSettings::parse(std::str::from_utf8(&matching[0].1).unwrap())
+            .expect("the file parses")
+    }
+
+    /// A folder marked `ingame_face` (`OutputFolder::ingame_face`) gets one
+    /// `ingame_face.toml` write beside its `settings.toml`, the record's face,
+    /// hair and iris filling it — never an empty file over the filled one.
+    #[test]
+    fn a_marked_folder_gets_the_filled_ingame_face_toml_once() {
+        let save = save_edited(|_| {});
+        let roster = roster_of(&save);
+        let mut folders = BTreeMap::new();
+        folders.insert(
+            5,
+            OutputFolder {
+                path: "Players/05 - A".to_owned(),
+                ingame_face: true,
+                ..plain("Players/05 - A")
+            },
+        );
+        let files = settings_files(&save, &roster, &folders, true);
+        assert_eq!(
+            face_of(&files, "Players/05 - A"),
             PlayerSettings::from_player(save.player(71405).unwrap())
                 .unwrap()
-                .appearance,
-            "the stripped record's look is written all the same"
+                .ingame_face(),
+            "the record's face, hair and iris"
+        );
+        assert_eq!(
+            settings_of(&files, "Players/05 - A").appearance.iris_color,
+            None,
+            "settings.toml holds none of the face keys"
         );
     }
 
@@ -412,6 +479,7 @@ mod tests {
                 boots_folder: false,
                 gloves_folder: false,
                 fpc_on: false,
+                ingame_face: false,
             },
         );
         folders.insert(5, plain("Players/05"));

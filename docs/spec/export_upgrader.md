@@ -1125,10 +1125,8 @@ EU-PLY-03  GIVEN the face folder "XXX09" without a name part, and slot 09's save
                 name colour codes
            WHEN the export is upgraded
            THEN the player folder is "09 - " followed by that name with the codes stripped
-EU-PLY-04  GIVEN one player folder holding ingame_face and another ingame_face.txt, in a team
-                export and in a referee export
-           WHEN each export is upgraded, the referee one with neither flag
-           THEN each of those player folders holds one bare ingame_face and no ingame_face.txt
+EU-PLY-04  withdrawn: restated as EU-PLY-22 (`plans/aesthetics_export/player_folders.md`), the
+           marker written as ingame_face.toml, filled from the record, since step 0.0.1h
 EU-PLY-05  GIVEN boots folders "k0430 - Crocs", worn by slots 03 and 05, and "k0431", worn by 04
                 and 06, and the gloves folder "g0432 - Mitts", worn by 03 and 04
            WHEN the export is upgraded
@@ -1442,10 +1440,8 @@ EU-MDL-18  GIVEN a pre-Fox face folder whose .mtl is not XML (an unclosed <mater
 **Player settings**
 
 ```
-EU-SET-01  GIVEN a player with a face folder, and his save record
-           WHEN the export is upgraded
-           THEN his settings.toml sets every key the save's version holds to his record's value,
-                shirt_name to his save string, and has no height or weight key
+EU-SET-01  withdrawn: restated as EU-SET-10 (`plans/aesthetics_export/player_folders.md`), the
+           face, hair and iris keys out of settings.toml since step 0.0.1h
 EU-SET-02  GIVEN two players with face folders, one wearing stock boots 12 and one custom
                 boots 430 from a migrated folder, both wearing the default gloves 0
            WHEN the export is upgraded
@@ -1461,9 +1457,8 @@ EU-SET-04  GIVEN one player whose folder's name part equals his save name, a fac
            WHEN the export is upgraded
            THEN their settings.toml files hold name = true, name = the save name, and name = the
                 save name with its codes byte for byte, in a folder named without them
-EU-SET-05  GIVEN the PES 18 fixture save, holding a player with cheek_type 5
-           WHEN his team's export is upgraded with it
-           THEN his settings.toml has cheek_type = 5, and nothing is reported about it
+EU-SET-05  withdrawn: restated as EU-SET-11 (`plans/aesthetics_export/player_folders.md`), his
+           cheek_type in ingame_face.toml since step 0.0.1h
 EU-SET-06  GIVEN the PES 21 fixture save after strip-and-seed
            WHEN an export of one of its teams is upgraded with it
            THEN the output equals the one from the unstripped save, and the report also names

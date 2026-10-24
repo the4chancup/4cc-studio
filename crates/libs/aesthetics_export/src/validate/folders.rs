@@ -40,8 +40,10 @@ pub struct PlayerFolder {
     /// links are `files` entries of link kind, resolved against `Common/` by
     /// the pipeline.
     pub links: Vec<SharedLink>,
-    /// A recognized `ingame_face` / `ingame_face.txt` marker.
-    pub ingame_face: bool,
+    /// The folder's `ingame_face.toml`, whose presence marks the in-game
+    /// face: the game draws it for this player, no face folder is emitted
+    /// and the file's keys set the face.
+    pub ingame_face: Option<FileDescriptor>,
     /// The normalized `fpc_on`/`fpc_off` directive; `None` when absent or when
     /// both markers are present.
     pub fpc: Option<FpcDirective>,
@@ -95,7 +97,7 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
     let depth = draft.path.segments().count() + 1;
     let mut files = Vec::new();
     let mut links = Vec::new();
-    let mut ingame_face = false;
+    let mut ingame_face = None;
     let mut fpc_on = false;
     let mut fpc_off = false;
     let mut portrait = None;
@@ -118,10 +120,13 @@ pub(crate) fn player_folder(draft: &FolderDraft, roster_file: bool) -> PlayerFol
                     .expect("a SharedLink kind implies a non-empty link stem");
                 links.push(SharedLink { kind, name });
             }
-            FileKind::Marker(Marker::IngameFace) => ingame_face = true,
+            FileKind::Marker(Marker::OldIngameFace) => {}
             FileKind::Marker(Marker::FpcOn) => fpc_on = true,
             FileKind::Marker(Marker::FpcOff) => fpc_off = true,
             FileKind::Metadata(MetadataFile::SettingsToml) => settings = Some(file.clone()),
+            FileKind::Metadata(MetadataFile::IngameFaceToml) => {
+                ingame_face = Some(file.clone());
+            }
             FileKind::Texture
                 if name
                     .rsplit_once('.')
@@ -389,8 +394,8 @@ fn player_direct_allowed(file: &FileDescriptor) -> bool {
             file.kind,
             FileKind::SharedLink(_)
                 | FileKind::CommonLink
-                | FileKind::Marker(Marker::IngameFace | Marker::FpcOn | Marker::FpcOff)
-                | FileKind::Metadata(MetadataFile::SettingsToml)
+                | FileKind::Marker(Marker::OldIngameFace | Marker::FpcOn | Marker::FpcOff)
+                | FileKind::Metadata(MetadataFile::SettingsToml | MetadataFile::IngameFaceToml)
         )
 }
 
@@ -515,7 +520,23 @@ pub(crate) fn check_player(
     }
     links::common_link_missing(&scope, &resolved, context, issues);
 
-    // 5. Both fpc markers contradict.
+    // 5. The in-game face marker's old spellings are reported, never read:
+    // `ingame_face.toml` is the marker now.
+    for file in &folder.files {
+        if file.kind == FileKind::Marker(Marker::OldIngameFace)
+            && position(&file.path, &folder.path) == Position::Direct
+        {
+            issues.push(issue_in(
+                context,
+                "ingame_face_marker_renamed",
+                IssueScope::File(file.path.clone()),
+                vec![],
+                Disposition::DropFile,
+            ));
+        }
+    }
+
+    // 6. Both fpc markers contradict.
     let fpc_on = folder.files.iter().any(|file| {
         file.kind == FileKind::Marker(Marker::FpcOn)
             && position(&file.path, &folder.path) == Position::Direct
@@ -534,9 +555,9 @@ pub(crate) fn check_player(
         ));
     }
 
-    // 6. `ingame_face` plus explicit face content contradict.
+    // 7. `ingame_face.toml` plus explicit face content contradict.
     let ingame_face = folder.files.iter().any(|file| {
-        file.kind == FileKind::Marker(Marker::IngameFace)
+        file.kind == FileKind::Metadata(MetadataFile::IngameFaceToml)
             && position(&file.path, &folder.path) == Position::Direct
     });
     if ingame_face {
@@ -573,7 +594,7 @@ pub(crate) fn check_player(
         }
     }
 
-    // 7. Texture stems collide within one folder of the player folder's tree, the
+    // 8. Texture stems collide within one folder of the player folder's tree, the
     // root or one subfolder: a texture name resolves nearest first, in its model's
     // folder before each parent (`player_folders.md` "Subfolders"), so the root's
     // `hair.dds` and a subfolder's are no conflict. A texture `.common` link claims
@@ -581,7 +602,7 @@ pub(crate) fn check_player(
     // local, `spec/model_format.md` "Rules").
     tree_stem_conflicts(folder, texture_claim, context, issues);
 
-    // 8. The edit-hair files.
+    // 9. The edit-hair files.
     edithair_files(folder, context, issues);
 }
 

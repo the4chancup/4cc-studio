@@ -3,6 +3,7 @@
 # set and its range. The file never references the export's models: what a player wears
 # is decided by the folder contents (models present, link files pointing at shared
 # folders); boots_id/gloves_id only name the game's stock models.
+# The in-game face's keys (iris, face, hair) are in ingame_face.toml.
 
 # true = derive from the folder name ("15 - Snuffy" gives "Snuffy"; the whole folder
 # name for players.txt-mapped folders); "text" = write as is; absent = not written.
@@ -15,7 +16,6 @@ gloves_id = ""                  # "" = default (fpc_on: hidden, fpc_off 0, no ma
 
 [appearance]
 # skin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)
-# iris_color = 0                  # 0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet
 
 [appearance.physique]
 # neck_length = 0                 # -7 to 7
@@ -59,96 +59,3 @@ gloves_id = ""                  # "" = default (fpc_on: hidden, fpc_off 0, no ma
 # dribbling = 0                   # 0 to 3, PES 20 and 21 only
 # goal_celebration_1 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162
 # goal_celebration_2 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162
-
-[appearance.face]
-# jawline = 0                     # -7 to 7
-# jaw_height = 0                  # -7 to 7
-# cheekbones = 0                  # -7 to 7
-# cheekbone_height = 0            # -7 to 7 (PES 16 to 21: no editor slider)
-# chin_width = 0                  # -7 to 7
-# chin_height = 0                 # -7 to 7
-# chin_depth = 0                  # -7 to 7
-# face_size = 0                   # -7 to 7
-# face_height = 0                 # -7 to 7
-# brow_width = 0                  # -7 to 7
-# inner_eyebrow_height = 0        # -7 to 7
-# eyebrow_depth = 0               # -7 to 7
-# temple_width = 0                # -7 to 7
-# outer_eyebrow_height = 0        # -7 to 7
-# pupil_size = 0                  # -7 to 7
-# eye_depth = 0                   # -7 to 7
-# inner_eye_position = 0          # -7 to 7
-# inner_eye_height = 0            # -7 to 7
-# outer_eye_position = 0          # -7 to 7
-# eye_corner_height = 0           # -7 to 7
-# upper_eyelid_width_inner = 0    # -7 to 7
-# upper_eyelid_height_inner = 0   # -7 to 7
-# upper_eyelid_width_outer = 0    # -7 to 7
-# upper_eyelid_height_outer = 0   # -7 to 7
-# bottom_eyelid_height = 0        # -7 to 7
-# horizontal_eye_position = 0     # -7 to 7
-# eye_height = 0                  # -7 to 7
-# nose_height = 0                 # -7 to 7
-# nose_tip_depth = 0              # -7 to 7
-# nostril_width = 0               # -7 to 7
-# nose_depth = 0                  # -7 to 7
-# nose_width = 0                  # -7 to 7
-# mouth_height = 0                # -7 to 7
-# mouth_depth = 0                 # -7 to 7
-# lip_size = 0                    # -7 to 7
-# mouth_corner_height = 0         # -7 to 7
-# lip_width = 0                   # -7 to 7
-# ear_length = 0                  # -7 to 7
-# ear_width = 0                   # -7 to 7
-# ear_angle = 0                   # -7 to 7
-# pes15_jaw_depth = 0             # -7 to 7, drawn by PES 15 only
-# pes15_cheekbone_depth = 0       # -7 to 7, drawn by PES 15 only
-# pes15_mouth_edge_position = 0   # -7 to 7, drawn by PES 15 only
-# pes15_eyebrow_depth = 0         # -7 to 7, drawn by PES 15 only
-# pes15_bottom_eyelid_position = 0 # -7 to 7, drawn by PES 15 only
-# pes15_nasal_bridge_position = 0 # -7 to 7, drawn by PES 15 only
-# pes15_nasal_root_height = 0     # -7 to 7, drawn by PES 15 only
-# cheek_type = 0                  # 0 to 3 (PES 15: 0 to 14; PES 19: 0 to 5)
-# forehead_type = 0               # 0 to 5 (PES 15 and 19: 0 to 6)
-# facial_hair_type = 0            # 0 to 12 (PES 15: 0 to 29; PES 20 and 21: 0 to 19)
-# laughter_lines_type = 0         # 0 to 4 (PES 15: 0 to 6)
-# upper_eyelid_type = 0           # 0 to 6 (PES 15: 0 to 14; PES 20 and 21: 0 to 7)
-# lower_eyelid_type = 0           # 0 to 2 (PES 15: 0 to 14; PES 20 and 21: 0 to 6)
-# eyebrow_type = 0                # 0 to 5 (PES 15: 0 to 17; PES 20 and 21: 0 to 7)
-# neck_line_type = 0              # 0 to 2 (PES 15: 0 to 5; PES 20 and 21: 0 to 3)
-# nose_type = 0                   # 0 to 6 (PES 15: 0 to 11; PES 20 and 21: 0 to 7)
-# pes15_nose_angle = 0            # -1 to 1; PES 15 only
-# upper_lip_type = 0              # 0 to 3 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)
-# lower_lip_type = 0              # 0 to 2 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)
-# eyebrow_color_red = 14          # 0 to 63
-# eyebrow_color_green = 10        # 0 to 63
-# eyebrow_color_blue = 7          # 0 to 63
-# eyebrow_style = 0               # 0 normal, 1 thick, 2 thin
-# eyebrow_density = 3             # 0 to 3
-# eyebrow_thickness = 1           # 0 to 3
-# facial_hair_color_red = 14      # 0 to 63
-# facial_hair_color_green = 10    # 0 to 63
-# facial_hair_color_blue = 7      # 0 to 63
-# facial_hair_thickness = 3       # 0 to 3
-# pes15_eye_white = 0             # 0 to 3, brighter eye whites, drawn by PES 15 only
-
-[appearance.hair]
-# color_red = 14                  # 0 to 63
-# color_green = 10                # 0 to 63
-# color_blue = 7                  # 0 to 63
-# color_preset = 0                # 0 custom (the colour above), 1 to 8 the editor's presets
-# accessory = false               # true, false (PES 15: the game sets it with the variation)
-# accessory_color = 0             # 0 white, 1 dark grey, 2 red, 3 blue, 4 yellow, 5 green, 6 magenta, 7 cyan
-# style = 1                       # 1 normal, 2 dry, 3 mohican, 4 afro, 5 dreadlocks, 6 braided, 7 special, 0 in some saves; PES 16 to 21
-# cropped_style = 1               # 1 to 6, 0 in some saves; PES 16 to 21
-# length = 2                      # 1 shaven, 2 very short, 3 short, 4 medium, 5 long, 0 in some saves; PES 16 to 21
-# wave_level = 0                  # 0 to 6, -1 in some saves; PES 16 to 21
-# variation = 0                   # 0 to 29; PES 16 to 21
-# front_style = 1                 # 1 up, 2 down, 3 combed back, 0 in some saves; PES 16 to 21
-# parted = 1                      # 1 off, 2 left 2, 3 left 1, 4 centre, 5 right 1, 6 right 2, 0 in some saves; PES 16 to 21
-# side_back_style = 4             # 1 normal, 2 reduce body, 3 shorter sides, 4 cropped, 0 in some saves; PES 16 to 21
-# hairline = 1                    # 1 to 3, 0 in some saves; PES 16 to 21
-# forehead_width = 2              # 1 narrow, 2 normal, 3 wide, 0 in some saves; PES 16 to 21
-# pes15_length = 2                # 1 skinhead, 2 very short, 3 short, 4 medium, 5 long, 6 special; PES 15 only
-# pes15_type = 1                  # 0 none (skinhead, special), 1 straight, 2 wavy, 3 permed, 4 dreadlocks; PES 15 only
-# pes15_variation = 1             # 1 to 82, the editor's grid position (each length and type has its own grid); PES 15 only

@@ -206,8 +206,14 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "settings_toml_invalid",
         CatalogSeverity::Error,
-        r#"A player's `settings.toml` is not UTF-8 text or does not parse as the settings file (the line names the error)."#,
-        r#"The file is ignored, even with `Keep folders with errors` on, and the player compiles with the default settings; his models still build."#,
+        r#"A player's `settings.toml` is not UTF-8 text or does not parse as the settings file (the line names the error). The in-game face's keys (`iris_color`, `[appearance.face]`, `[appearance.hair]`) are in `ingame_face.toml`: one left here is an unknown key."#,
+        r#"The file is ignored, even with `Keep folders with errors` on, and the player compiles with the default settings in its keys' place; his `ingame_face.toml` still applies and his models still build."#,
+    ),
+    (
+        "ingame_face_toml_invalid",
+        CatalogSeverity::Error,
+        r#"A player's `ingame_face.toml` is not UTF-8 text or does not parse as the in-game face file (the line names the error)."#,
+        r#"Its keys are ignored, even with `Keep folders with errors` on: the player keeps the in-game face, at the game's default face, and his `settings.toml` still applies."#,
     ),
     (
         "settings_model_id_conflict",
@@ -218,7 +224,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "settings_value_out_of_range",
         CatalogSeverity::Warning,
-        r#"A `settings.toml` value is inside its key's widest range but outside the version compiled for (the line names the key, the value and the version's range)."#,
+        r#"A `settings.toml` or `ingame_face.toml` value is inside its key's widest range but outside the version compiled for (the line names the key, the value and the version's range)."#,
         r#"The key's default is written in its place (a face type of 0, the template's motion, a custom skin written as 1)."#,
     ),
     (
@@ -278,7 +284,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "model_merged",
         CatalogSeverity::Info,
-        r#"PES 2015 to 2017: several `.model` files were merged into one `boots.model` and its `.mtl` (a shared boots folder holding several, an `ingame_face` player's boots parts, or a combined boots link's model)."#,
+        r#"PES 2015 to 2017: several `.model` files were merged into one `boots.model` and its `.mtl` (a shared boots folder holding several, an `ingame_face.toml` player's boots parts, or a combined boots link's model)."#,
         r#"Nothing to do."#,
     ),
     (
@@ -314,13 +320,13 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "face_file_not_used",
         CatalogSeverity::Info,
-        r#"A face file (`face_diff.bin`, `face_diff.xml`, `fcl_hair_sim.fclo` on PES 2018 to 2021, a member's `face.xml` under `ingame_face` on PES 2015 to 2017) sits in a folder that builds no face: a player folder with no face model, or a shared `Boots/` or `Gloves/` folder."#,
+        r#"A face file (`face_diff.bin`, `face_diff.xml`, `fcl_hair_sim.fclo` on PES 2018 to 2021, a member's `face.xml` under `ingame_face.toml` on PES 2015 to 2017) sits in a folder that builds no face: a player folder with no face model, or a shared `Boots/` or `Gloves/` folder."#,
         r#"The file is not read."#,
     ),
     (
         "file_not_used",
         CatalogSeverity::Warning,
-        r#"A file the folder admits that nothing reads: a `.skl` pairing no model, a `.common` link to a kind nothing takes, a `materials.toml`, an `.xml`, `.bin` or `.fclo` under no face name, a `.txt` note, a texture of a folder that builds no package (a referee folder's, an `ingame_face` player with textures and no model), a `Common/` file of a kind nothing reads, or a `refs` export's kit folder, logo, portrait or collar file."#,
+        r#"A file the folder admits that nothing reads: a `.skl` pairing no model, a `.common` link to a kind nothing takes, a `materials.toml`, an `.xml`, `.bin` or `.fclo` under no face name, a `.txt` note, a texture of a folder that builds no package (a referee folder's, an `ingame_face.toml` player with textures and no model), a `Common/` file of a kind nothing reads, or a `refs` export's kit folder, logo, portrait or collar file."#,
         r#"The file is not read and left out of the compile."#,
     ),
     (
@@ -338,7 +344,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "kit_variant_model_left_out",
         CatalogSeverity::Warning,
-        r#"Per-kit model variants (`pants_kit1`, `pants_kit2`; a `kitF` joins the set as its fallback) where no `face.xml` names the set, so nothing switches models with the kit: on PES 2018 to 2021, and on PES 2015 to 2017 in a shared `Boots/`/`Gloves/` folder and under `ingame_face`."#,
+        r#"Per-kit model variants (`pants_kit1`, `pants_kit2`; a `kitF` joins the set as its fallback) where no `face.xml` names the set, so nothing switches models with the kit: on PES 2018 to 2021, and on PES 2015 to 2017 in a shared `Boots/`/`Gloves/` folder and under `ingame_face.toml`."#,
         r#"The set's fallback is used and the other variants are left out; a variant in the other games' format is converted."#,
     ),
     (
@@ -1331,9 +1337,15 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         r#"The folder is left out. Keep one marker."#,
     ),
     (
+        "ingame_face_marker_renamed",
+        CatalogSeverity::Error,
+        r#"A player folder holds `ingame_face` or `ingame_face.txt`, the in-game face marker's old name: it is now `ingame_face.toml`, which also holds the in-game face's keys."#,
+        r#"The file is ignored and the folder compiles as one without it (a blank face package unless the folder gives a face). Renamed to `ingame_face.toml`, an empty file gives the game's default face."#,
+    ),
+    (
         "ingame_face_explicit_face_model",
         CatalogSeverity::Error,
-        r#"A player folder holds `ingame_face` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, which need the face folder the marker suppresses."#,
+        r#"A player folder holds `ingame_face.toml` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, which need the face folder the marker suppresses."#,
         r#"The player folder is left out."#,
     ),
     (

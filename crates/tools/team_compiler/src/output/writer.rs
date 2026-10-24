@@ -626,7 +626,7 @@ impl CpkOutput {
             Some(mut table) => {
                 for row in &player_rows.appearance {
                     let bytes = row.settings.appearance_row(row.player_id, version).expect(
-                        "the deep pass narrowed every parsed settings.toml to this \
+                        "the deep pass narrowed every player's joined settings to this \
                              version's ranges and the parser bounds the rest",
                     );
                     table.set(

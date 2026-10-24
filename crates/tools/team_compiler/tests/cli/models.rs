@@ -795,7 +795,7 @@ fn an_unsuffixed_model_is_reported_and_merged_into_the_hair_with_its_own_skeleto
 fn a_subfolder_s_model_is_the_part_its_name_gives_wherever_it_sits() {
     let sandbox = Sandbox::new("mod_subfolder_model");
     let player = "exports/co Midcup Subfolders/Players/05 - A";
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(
         &format!("{player}/parts/boots.fmdl"),
         &tracer_player_file("boots.fmdl"),
@@ -840,11 +840,11 @@ fn a_subfolder_s_marker_and_settings_are_file_type_disallowed_and_count_for_noth
     let export = "co Midcup Subfolders";
     let player = format!("exports/{export}/Players/05 - A");
     sandbox.write(&format!("{player}/face_high.fmdl"), &clean_model());
-    for name in ["ingame_face", "settings.toml"] {
+    for name in ["ingame_face.toml", "settings.toml"] {
         sandbox.write(&format!("{player}/jessie/{name}"), b"");
     }
     let disallowed = |severity: &str, disposition: &str| -> Vec<String> {
-        ["ingame_face", "settings.toml"]
+        ["ingame_face.toml", "settings.toml"]
             .iter()
             .map(|name| {
                 format!(
@@ -1646,7 +1646,7 @@ fn under_ingame_face_a_texture_the_player_and_a_combined_boots_folder_hold_diffe
     let player = format!("{export}/Players/05 - A");
     // His own folder feeds the boots, there being no face: two sources of one package, and
     // the local file still wins.
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(
         &format!("{player}/kit_boots.fmdl"),
         &tracer_player_file("boots.fmdl"),

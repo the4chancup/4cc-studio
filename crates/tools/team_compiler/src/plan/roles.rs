@@ -543,7 +543,7 @@ pub(crate) fn linked_common_files(export: &ValidatedAestheticsExport) -> BTreeSe
         let models = FolderModels::of_player_files(
             &player.path,
             &player.files,
-            player.ingame_face,
+            player.ingame_face.is_some(),
             Engine::Fox,
         );
         linked_common_of(
@@ -1559,7 +1559,7 @@ pub(crate) fn plans_a_package(
     engine: Engine,
     hand_weighted: &BTreeSet<ScopePath>,
 ) -> bool {
-    if matches!(export.roster, ValidatedRoster::Team(_)) && !player.ingame_face {
+    if matches!(export.roster, ValidatedRoster::Team(_)) && !player.ingame_face.is_some() {
         return true;
     }
     let combined = combined_folders(export, player, engine, hand_weighted);
@@ -1567,13 +1567,13 @@ pub(crate) fn plans_a_package(
         &player.path,
         &player.files,
         None,
-        player.ingame_face,
+        player.ingame_face.is_some(),
         &combined,
         engine,
     );
     // The package his own files feed, as `ModelFolder::own_package` gives it: a marked
     // player has no face, his textures counting for his boots.
-    let own_package = if player.ingame_face {
+    let own_package = if player.ingame_face.is_some() {
         ModelPackage::Boots
     } else {
         ModelPackage::Face
@@ -1670,7 +1670,7 @@ pub(crate) fn has_effective_part(
         &player.path,
         &player.files,
         None,
-        player.ingame_face,
+        player.ingame_face.is_some(),
         &faces,
         engine,
     );
@@ -2022,10 +2022,21 @@ mod tests {
             player_name: "A".to_owned(),
             files,
             links: Vec::new(),
-            ingame_face: false,
+            ingame_face: None,
             fpc: None,
             portrait: None,
             settings: None,
+        }
+    }
+
+    /// The folder's `ingame_face.toml`, the file `PlayerFolder::ingame_face` holds.
+    fn ingame_face_toml() -> FileDescriptor {
+        let path = ScopePath::new("Players/03 - A/ingame_face.toml").unwrap();
+        FileDescriptor {
+            size: 0,
+            kind: aesthetics_export::classify(path.name()),
+            source: path.clone(),
+            path,
         }
     }
 
@@ -2043,13 +2054,13 @@ mod tests {
     /// The role of each file of `names` in `Players/03 - A` holding `ingame_face` too.
     fn marked_roles(names: &[&str]) -> Vec<Option<PlayerFile>> {
         let folder = PlayerFolder {
-            ingame_face: true,
+            ingame_face: Some(ingame_face_toml()),
             ..folder(names)
         };
         let models = FolderModels::of_player_files(
             &folder.path,
             &folder.files,
-            folder.ingame_face,
+            folder.ingame_face.is_some(),
             Engine::Fox,
         );
         folder
@@ -2217,13 +2228,13 @@ mod tests {
         );
         // Under `ingame_face` there is no face: the xml is not used.
         let marked = PlayerFolder {
-            ingame_face: true,
+            ingame_face: Some(ingame_face_toml()),
             ..folder(&["kit_boots.model", "face.xml"])
         };
         let models = FolderModels::of_player_files(
             &marked.path,
             &marked.files,
-            marked.ingame_face,
+            marked.ingame_face.is_some(),
             Engine::PreFox,
         );
         let roles: Vec<Option<PlayerFile>> = marked
@@ -2278,7 +2289,7 @@ mod tests {
         );
         // Under `ingame_face` a link to a `.model` or an FMDL is a part of his boots or gloves.
         let marked = PlayerFolder {
-            ingame_face: true,
+            ingame_face: Some(ingame_face_toml()),
             ..folder(&[
                 "legs.model.common",
                 "legs.fmdl.common",
@@ -2288,7 +2299,7 @@ mod tests {
         let models = FolderModels::of_player_files(
             &marked.path,
             &marked.files,
-            marked.ingame_face,
+            marked.ingame_face.is_some(),
             Engine::PreFox,
         );
         let roles: Vec<Option<PlayerFile>> = marked
@@ -2434,13 +2445,13 @@ mod tests {
         // Under `ingame_face` a converted model takes the role an FMDL of its name would.
         let marked = |names: &[&str]| -> Vec<Option<PlayerFile>> {
             let folder = PlayerFolder {
-                ingame_face: true,
+                ingame_face: Some(ingame_face_toml()),
                 ..folder(names)
             };
             let models = FolderModels::of_player_files(
                 &folder.path,
                 &folder.files,
-                folder.ingame_face,
+                folder.ingame_face.is_some(),
                 Engine::Fox,
             );
             folder
@@ -2633,13 +2644,13 @@ mod tests {
             })
         };
         let folder = PlayerFolder {
-            ingame_face: true,
+            ingame_face: Some(ingame_face_toml()),
             ..folder(&names)
         };
         let models = FolderModels::of_player_files(
             &folder.path,
             &folder.files,
-            folder.ingame_face,
+            folder.ingame_face.is_some(),
             Engine::PreFox,
         );
         let marked: Vec<Option<PlayerFile>> = folder
@@ -2693,13 +2704,13 @@ mod tests {
             "face_diff.bin",
         ];
         let folder = PlayerFolder {
-            ingame_face: true,
+            ingame_face: Some(ingame_face_toml()),
             ..folder(&names)
         };
         let models = FolderModels::of_player_files(
             &folder.path,
             &folder.files,
-            folder.ingame_face,
+            folder.ingame_face.is_some(),
             Engine::PreFox,
         );
         let marked: Vec<Option<PlayerFile>> = folder
@@ -2750,13 +2761,13 @@ mod tests {
             })
         };
         let folder = PlayerFolder {
-            ingame_face: true,
+            ingame_face: Some(ingame_face_toml()),
             ..folder(&names)
         };
         let models = FolderModels::of_player_files(
             &folder.path,
             &folder.files,
-            folder.ingame_face,
+            folder.ingame_face.is_some(),
             Engine::PreFox,
         );
         let marked: Vec<Option<PlayerFile>> = folder
@@ -2808,13 +2819,13 @@ mod tests {
         // others are left out.
         let names = ["boots_kit1.model", "boots_kit2.model"];
         let folder = PlayerFolder {
-            ingame_face: true,
+            ingame_face: Some(ingame_face_toml()),
             ..folder(&names)
         };
         let models = FolderModels::of_player_files(
             &folder.path,
             &folder.files,
-            folder.ingame_face,
+            folder.ingame_face.is_some(),
             Engine::PreFox,
         );
         let marked: Vec<Option<PlayerFile>> = folder

@@ -33,8 +33,8 @@ pub(crate) struct PatchNames {
 /// `shirt_name` as a string is written as is, each resolved text checked as
 /// `PlayerSettings::apply` checks it (`NameField::check`), a refused one dropped and its key
 /// in `invalid`. An export without the marker resolves nothing and reports nothing, whatever the
-/// file says; a folder with no `settings.toml` (`settings` `None`, an invalid one included)
-/// resolves nothing either.
+/// file says; a folder with no `settings.toml` (`settings` `None`, or the defaults when the
+/// file was refused or the folder holds only an `ingame_face.toml`) resolves nothing either.
 pub(crate) fn patch_names(
     settings: Option<&PlayerSettings>,
     player_name: &str,

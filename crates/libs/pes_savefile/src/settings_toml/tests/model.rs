@@ -955,11 +955,14 @@ fn a_motion_at_the_versions_top_round_trips() {
 #[test]
 fn a_family_only_key_is_skipped_on_the_other_layout() {
     use IngameFaceField as F;
-    let settings = PlayerSettings::parse(
-        "[appearance.face]\nnose_type = 9\npes15_nose_angle = -1\n\n\
-         [appearance.hair]\nstyle = 4\npes15_length = 5\n",
-    )
-    .expect("parses");
+    let mut settings = PlayerSettings::default();
+    settings.set_ingame_face(
+        IngameFaceSettings::parse(
+            "[face]\nnose_type = 9\npes15_nose_angle = -1\n\n\
+             [hair]\nstyle = 4\npes15_length = 5\n",
+        )
+        .expect("parses"),
+    );
     let mut p15 = find_player(
         &payload(PesVersion::Pes15),
         schema_for(PesVersion::Pes15),
@@ -1337,9 +1340,8 @@ fn an_unset_settings_is_empty_and_default() {
 /// them, a `None` included, and touches nothing else of the settings.
 #[test]
 fn set_ingame_face_moves_the_face_keys_and_leaves_the_rest() {
-    let mut settings =
-        PlayerSettings::parse("[appearance]\nskin_color = 4\n[appearance.hair]\nlength = 5\n")
-            .expect("parses");
+    let mut settings = PlayerSettings::parse("[appearance]\nskin_color = 4\n").expect("parses");
+    settings.set_ingame_face(IngameFaceSettings::parse("[hair]\nlength = 5\n").expect("parses"));
     let face = IngameFaceSettings::parse("iris_color = 7\n").expect("parses");
     settings.set_ingame_face(face.clone());
     assert_eq!(settings.appearance.skin_color, Some(4));

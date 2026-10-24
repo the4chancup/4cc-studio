@@ -4,6 +4,8 @@
 
 use std::fs;
 
+use pes_savefile::EditFile;
+use pes_savefile::settings_toml::{IngameFaceSettings, PlayerSettings};
 use studio_core::PipelineEvent;
 
 use crate::carried::mtl;
@@ -88,9 +90,18 @@ fn a_wearer_without_a_face_folder_gets_one_with_ingame_face() {
             "{name}"
         );
     }
+    // `ingame_face.toml`, filled from his record.
+    let face = IngameFaceSettings::parse(
+        &fs::read_to_string(sandbox.path("co Full Spring/Players/05 - Crocs/ingame_face.toml"))
+            .unwrap(),
+    )
+    .unwrap();
+    let save = EditFile::load(&sandbox.path("EDIT")).unwrap();
     assert_eq!(
-        fs::read(sandbox.path("co Full Spring/Players/05 - Crocs/ingame_face")).unwrap(),
-        b""
+        face,
+        PlayerSettings::from_player(save.player(71405).unwrap())
+            .unwrap()
+            .ingame_face()
     );
     assert!(!sandbox.path("co Full Spring/Boots").exists());
 }
@@ -535,9 +546,9 @@ fn a_nameless_folder_takes_the_saves_display_name_cleaned() {
     );
 }
 
-// EU-PLY-04
+// EU-PLY-22
 #[test]
-fn either_ingame_face_spelling_becomes_one_bare_marker() {
+fn either_ingame_face_spelling_becomes_ingame_face_toml_filled() {
     let sandbox = Sandbox::new("ply_ingame");
     face(&sandbox, "co Spring/Faces/XXX03 - A");
     sandbox.write("co Spring/Faces/XXX03 - A/ingame_face", b"");
@@ -547,21 +558,43 @@ fn either_ingame_face_spelling_becomes_one_bare_marker() {
 
     let run = upgrade(&sandbox, "co Spring", "EDIT");
     assert_eq!(run.exit_code(), 0, "{}", run.stdout());
-    for player in ["Players/03 - A", "Players/04 - B"] {
+    let save = EditFile::load(&sandbox.path("EDIT")).unwrap();
+    for (player, id) in [("Players/03 - A", 71403), ("Players/04 - B", 71404)] {
+        // Each file holds its record's face, hair and iris; its
+        // `settings.toml` holds none of them; and no old spelling is left.
+        let face = IngameFaceSettings::parse(
+            &fs::read_to_string(sandbox.path(&format!("co Full Spring/{player}/ingame_face.toml")))
+                .unwrap(),
+        )
+        .unwrap();
         assert_eq!(
-            fs::read(sandbox.path(&format!("co Full Spring/{player}/ingame_face"))).unwrap(),
-            b"",
+            face,
+            PlayerSettings::from_player(save.player(id).unwrap())
+                .unwrap()
+                .ingame_face(),
             "{player}"
         );
-        assert!(
-            !sandbox
-                .path(&format!("co Full Spring/{player}/ingame_face.txt"))
-                .exists(),
-            "{player}"
+        let settings = PlayerSettings::parse(
+            &fs::read_to_string(sandbox.path(&format!("co Full Spring/{player}/settings.toml")))
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            settings.ingame_face(),
+            IngameFaceSettings::default(),
+            "{player}: settings.toml holds no face key"
         );
+        for name in ["ingame_face", "ingame_face.txt"] {
+            assert!(
+                !sandbox
+                    .path(&format!("co Full Spring/{player}/{name}"))
+                    .exists(),
+                "{player}/{name}"
+            );
+        }
     }
-    // EU-PLY-04's referee half: `referees.rs`'
-    // `either_ingame_face_spelling_in_a_referee_folder_becomes_one_bare_marker`.
+    // EU-PLY-22's referee half: `referees.rs`'
+    // `either_ingame_face_spelling_in_a_referee_folder_becomes_ingame_face_toml`.
 }
 
 // EU-PLY-11
@@ -735,7 +768,7 @@ fn empty_face_folders_make_player_folders_with_no_ingame_face() {
     for player in ["05 - Bob", "06 - Ann"] {
         assert!(
             !sandbox
-                .path(&format!("co Full Spring/Players/{player}/ingame_face"))
+                .path(&format!("co Full Spring/Players/{player}/ingame_face.toml"))
                 .exists(),
             "{player}"
         );
@@ -763,7 +796,7 @@ fn modelless_item_folders_mark_their_wearers_fpc_on() {
     );
     assert!(
         !sandbox
-            .path("co Full Spring/Players/03 - Ann/ingame_face")
+            .path("co Full Spring/Players/03 - Ann/ingame_face.toml")
             .exists()
     );
     // Slot 04 has no face folder: named from his save name, both markers.
@@ -773,13 +806,16 @@ fn modelless_item_folders_mark_their_wearers_fpc_on() {
         .find(|entry| entry.starts_with("04"))
         .expect("slot 04's folder")
         .clone();
-    for marker in ["fpc_on", "ingame_face"] {
-        assert_eq!(
-            fs::read(sandbox.path(&format!("co Full Spring/Players/{slot04}/{marker}"))).unwrap(),
-            b"",
-            "{marker}"
-        );
-    }
+    // `fpc_on` empty as ever; `ingame_face.toml` filled from his record.
+    assert_eq!(
+        fs::read(sandbox.path(&format!("co Full Spring/Players/{slot04}/fpc_on"))).unwrap(),
+        b""
+    );
+    assert!(
+        sandbox
+            .path(&format!("co Full Spring/Players/{slot04}/ingame_face.toml"))
+            .is_file()
+    );
     // His gloves record stores 0 and no gloves folder decides the
     // category: under `fpc_on` an unset `gloves_id` would give the hide
     // preset's ID, so the 0 is written explicitly, a Full output included.
@@ -944,5 +980,45 @@ fn a_game_path_face_folder_migrates_its_innermost_folder() {
         !sandbox
             .path(&format!("co Full Spring/Players/{folder}/common"))
             .exists()
+    );
+}
+
+// EU-PLY-21
+#[test]
+fn only_the_folderless_player_gets_ingame_face_toml_filled() {
+    let sandbox = Sandbox::new("ply_folderless_face");
+    face(&sandbox, "co Spring/Faces/XXX03 - A");
+    boots(&sandbox, "co Spring/Boots/k0430 - Crocs");
+    sandbox.save_edited("EDIT", pes_version::PesVersion::Pes21, |file| {
+        wears(file, 71405, 430, 0);
+    });
+
+    let run = upgrade(&sandbox, "co Spring", "EDIT");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    let save = EditFile::load(&sandbox.path("EDIT")).unwrap();
+    // Slot 03's own face: no `ingame_face.toml`, and his `settings.toml`
+    // holds no face, hair or iris key.
+    assert!(
+        !sandbox
+            .path("co Full Spring/Players/03 - A/ingame_face.toml")
+            .exists()
+    );
+    let settings = PlayerSettings::parse(
+        &fs::read_to_string(sandbox.path("co Full Spring/Players/03 - A/settings.toml")).unwrap(),
+    )
+    .unwrap();
+    assert_eq!(settings.ingame_face(), IngameFaceSettings::default());
+    // Slot 05, no face folder: `ingame_face.toml` with his record's face,
+    // hair and iris.
+    let face = IngameFaceSettings::parse(
+        &fs::read_to_string(sandbox.path("co Full Spring/Players/05 - Crocs/ingame_face.toml"))
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(
+        face,
+        PlayerSettings::from_player(save.player(71405).unwrap())
+            .unwrap()
+            .ingame_face()
     );
 }

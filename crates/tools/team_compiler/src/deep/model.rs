@@ -441,7 +441,7 @@ mod tests {
             PesVersion::Pes17,
             temp.path(),
             &[
-                ("Players/05 - B/ingame_face", Vec::new()),
+                ("Players/05 - B/ingame_face.toml", Vec::new()),
                 ("Players/05 - B/kit_boots.model.common", Vec::new()),
                 (
                     "Common/kit_boots.model",

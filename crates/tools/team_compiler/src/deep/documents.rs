@@ -1,9 +1,9 @@
 //! The deep pass's checks of a folder's small data files, each read whole and parsed: a face
 //! folder's face diff (`player_folders.md` "`face_diff.xml`"), a kit's `config.toml`, a
-//! player's `settings.toml` and a kit's or the root `colors.txt` (`player_folders.md` "Root
+//! player's `settings.toml` and `ingame_face.toml`, and a kit's or the root `colors.txt` (`player_folders.md` "Root
 //! files", "Colors") (`team_compiler/messages.md`: `face_diff_invalid`, `xml_dif_conflict`,
 //! `kit_config_invalid`, `kit_config_version_clamped`, `kit_config_option_ignored`,
-//! `settings_toml_invalid`, `color_entry_invalid`). None of their findings is
+//! `settings_toml_invalid`, `ingame_face_toml_invalid`, `color_entry_invalid`). None of their findings is
 //! pass-through-eligible: a file that cannot be read leaves no value to keep, and a clamped
 //! config value, an ignored config option and a refused `colors.txt` line are Warnings, which
 //! drop nothing.
@@ -15,7 +15,7 @@ use aesthetics_export::{
     PlayerFolder, read_colors_txt,
 };
 use kit_config::{KitConfig, apply_fpc};
-use pes_savefile::settings_toml::PlayerSettings;
+use pes_savefile::settings_toml::{IngameFaceSettings, PlayerSettings};
 use pes_version::PesVersion;
 use vtree::ScopePath;
 
@@ -274,6 +274,28 @@ pub(super) fn player_settings(
     .map(Some)
 }
 
+/// `player`'s `ingame_face.toml` parsed; `None` when it has none. `ingame_face_toml_invalid`
+/// when it is not UTF-8 or `IngameFaceSettings::parse` refuses: the file stays, its presence
+/// still marking the in-game face, and its keys are ignored — the player's face is the
+/// game's default, his `settings.toml` still applying.
+pub(super) fn player_ingame_face(
+    content: &ContentSource,
+    player: &PlayerFolder,
+) -> Result<Option<IngameFaceSettings>, ContentFinding> {
+    let Some(file) = player.ingame_face.as_ref() else {
+        return Ok(None);
+    };
+    parsed_toml(
+        content,
+        file,
+        Code::IngameFaceTomlInvalid,
+        &IssueScope::File(file.path.clone()),
+        Disposition::Keep,
+        IngameFaceSettings::parse,
+    )
+    .map(Some)
+}
+
 /// One `color_entry_invalid` per line the `colors.txt` `file` refuses (`read_colors_txt`, keeping
 /// `capacity` colors), on the file and kept: the line is skipped, nothing is dropped. The
 /// context gives the line's number and the reason. A file that cannot be read is
@@ -344,7 +366,7 @@ mod tests {
     use vtree::ScopePath;
 
     use crate::deep::tests::{
-        dropping, findings_for, findings_of, fixture, folder, path, texture, tracer_file,
+        dropping, findings_for, findings_of, fixture, folder, pass_for, path, texture, tracer_file,
     };
     use crate::plan::EffectiveTeamKitFpc;
     use crate::testing::scratch;
@@ -846,5 +868,93 @@ mod tests {
             ]
         );
         assert_eq!(findings[4].scope, folder("Players/05 - B"));
+    }
+
+    /// A player holding either file gets a `settings` entry: a `settings.toml`
+    /// alone, an `ingame_face.toml` alone giving his face keys, none for a
+    /// folder holding neither.
+    #[test]
+    fn a_player_with_either_settings_file_gets_an_entry() {
+        let temp = scratch("deep_settings_entry");
+        let pass = pass_for(
+            PesVersion::Pes21,
+            temp.path(),
+            &[
+                (
+                    "Players/03 - A/settings.toml",
+                    b"[appearance]\nskin_color = 4\n".to_vec(),
+                ),
+                ("Players/03 - A/face_high.fmdl", clean_model()),
+                (
+                    "Players/05 - B/ingame_face.toml",
+                    b"iris_color = 7\n[hair]\nlength = 5\n".to_vec(),
+                ),
+                ("Players/07 - C/face_high.fmdl", clean_model()),
+            ],
+            &[],
+            &[],
+        );
+        assert_eq!(pass.findings, [], "{:?}", pass.findings);
+        assert_eq!(pass.settings.len(), 2);
+        let joined = &pass.settings[&path("Players/05 - B")];
+        assert_eq!(joined.appearance.iris_color, Some(7));
+        assert_eq!(joined.appearance.hair.length, Some(5));
+        assert_eq!(joined.appearance.skin_color, None);
+    }
+
+    /// One file refused leaves the other applied, both ways: a `settings.toml`
+    /// that does not parse is `settings_toml_invalid` and the face file's keys
+    /// still apply; an `ingame_face.toml` that does not parse is
+    /// `ingame_face_toml_invalid` and the settings file's still apply.
+    #[test]
+    fn a_refused_settings_or_ingame_face_file_leaves_the_other_applied() {
+        for (name, files, code, file, disposition, key, value) in [
+            (
+                "deep_refused_settings",
+                vec![
+                    ("Players/03 - A/settings.toml", b"name = 5".to_vec()),
+                    (
+                        "Players/03 - A/ingame_face.toml",
+                        b"iris_color = 7\n".to_vec(),
+                    ),
+                ],
+                "settings_toml_invalid",
+                "Players/03 - A/settings.toml",
+                Disposition::DropFile,
+                "iris_color",
+                Some(7u8),
+            ),
+            (
+                "deep_refused_face",
+                vec![
+                    (
+                        "Players/03 - A/settings.toml",
+                        b"[appearance]\nskin_color = 4\n".to_vec(),
+                    ),
+                    ("Players/03 - A/ingame_face.toml", b"iris_color = ".to_vec()),
+                ],
+                "ingame_face_toml_invalid",
+                "Players/03 - A/ingame_face.toml",
+                Disposition::Keep,
+                "skin_color",
+                Some(4u8),
+            ),
+        ] {
+            let temp = scratch(name);
+            let pass = pass_for(PesVersion::Pes21, temp.path(), &files, &[], &[]);
+            assert_eq!(pass.findings.len(), 1, "{files:?}: {:?}", pass.findings);
+            let finding = &pass.findings[0];
+            assert_eq!(finding.code, code);
+            assert_eq!(finding.scope, IssueScope::File(path(file)));
+            assert_eq!(finding.disposition, disposition);
+            assert_eq!(finding.context[0].0, "file");
+            assert!(finding.context[1].0 == "error" && !finding.context[1].1.is_empty());
+            let settings = &pass.settings[&path("Players/03 - A")];
+            let got = match key {
+                "iris_color" => settings.appearance.iris_color,
+                _ => settings.appearance.skin_color,
+            };
+            assert_eq!(got, value, "{name}: the applied file's key");
+        }
     }
 }

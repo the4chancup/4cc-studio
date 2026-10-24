@@ -139,7 +139,7 @@ fn a_player_folder_builds_with_its_links_and_markers() {
             ("Players/03 - A/gloves/glove_l.fmdl", 10),
             ("Players/03 - A/common/skin.dds", 9),
             ("Players/03 - A/Crocs.boots.txt", 0),
-            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/ingame_face.toml", 0),
             ("Players/03 - A/fpc_on", 0),
             ("Players/03 - A/portrait.dds", 9),
             ("Players/03 - A/settings.toml", 20),
@@ -158,7 +158,7 @@ fn a_player_folder_builds_with_its_links_and_markers() {
             name: "Crocs".to_owned(),
         }]
     );
-    assert!(folder.ingame_face);
+    assert!(folder.ingame_face.is_some());
     assert_eq!(folder.fpc, Some(FpcDirective::On));
     assert_eq!(
         folder.portrait.as_ref().map(|f| f.path.as_str()),
@@ -710,24 +710,93 @@ fn a_txt_note_is_admitted_in_a_model_folder_but_not_in_a_kit_folder() {
     assert_eq!(validated.boots.len(), 1);
 }
 
-// TC-STR-10
 #[test]
-fn both_ingame_face_spellings_mark_the_folder() {
+fn the_marker_s_old_spellings_are_reported_and_only_ingame_face_toml_marks() {
     let report = report(
         "egg Midcup",
         &[
-            ("Players/03 - A/ingame_face", 0),
-            ("Players/03 - A/hair.dds", 9),
-            ("Players/04 - B/ingame_face.txt", 0),
-            ("Players/04 - B/hair.dds", 9),
+            ("Players/05 - A/ingame_face.toml", 0),
+            ("Players/05 - A/hair.dds", 9),
+            ("Players/06 - B/ingame_face", 0),
+            ("Players/06 - B/hair.dds", 9),
+            ("Players/07 - C/ingame_face.txt", 0),
+            ("Players/07 - C/hair.dds", 9),
         ],
         &[],
         &[],
     );
-    assert_eq!(issue_codes(&report), vec![]);
+    // Each old spelling is reported on its file alone and marks nothing: the
+    // folders are built as ones without it.
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("ingame_face_marker_renamed", Disposition::DropFile),
+            ("ingame_face_marker_renamed", Disposition::DropFile),
+        ]
+    );
+    assert_eq!(
+        report
+            .issues
+            .iter()
+            .map(|issue| issue.scope.clone())
+            .collect::<Vec<_>>(),
+        [
+            IssueScope::File(ScopePath::new("Players/06 - B/ingame_face").unwrap()),
+            IssueScope::File(ScopePath::new("Players/07 - C/ingame_face.txt").unwrap()),
+        ]
+    );
     let validated = report.validated.unwrap();
-    assert!(validated.players[0].ingame_face);
-    assert!(validated.players[1].ingame_face);
+    let marked: Vec<bool> = validated
+        .players
+        .iter()
+        .map(|player| player.ingame_face.is_some())
+        .collect();
+    assert_eq!(marked, [true, false, false]);
+}
+
+/// Off the player folder's direct position everything is today's finding:
+/// an old-spelling marker or an `ingame_face.toml` inside a subfolder is
+/// `file_type_disallowed` like `settings.toml`, and `ingame_face.toml.txt`
+/// is not recognized, as `settings.toml.txt` is not.
+#[test]
+fn the_marker_files_are_disallowed_in_a_subfolder_or_with_a_txt_suffix() {
+    let report = report_with(
+        &context_with(false, false),
+        "egg Midcup",
+        &[
+            ("Players/03 - A/face_high.fmdl", 10),
+            ("Players/03 - A/jessie/ingame_face", 0),
+            ("Players/03 - A/jessie/ingame_face.toml", 0),
+            ("Players/03 - A/ingame_face.toml.txt", 10),
+        ],
+        &[],
+        &[],
+    );
+    assert_eq!(
+        issue_codes(&report),
+        vec![
+            ("file_type_disallowed", Disposition::Keep),
+            ("file_type_disallowed", Disposition::Keep),
+            ("file_type_disallowed", Disposition::Keep),
+        ]
+    );
+    let named: Vec<&str> = report
+        .issues
+        .iter()
+        .map(|issue| issue.context[0].1.as_str())
+        .collect();
+    assert_eq!(
+        named,
+        [
+            "ingame_face.toml.txt",
+            "jessie/ingame_face",
+            "jessie/ingame_face.toml",
+        ]
+    );
+    // None of them counts: the player keeps his face model and has no
+    // in-game face.
+    let player = &report.validated.unwrap().players[0];
+    assert!(player.ingame_face.is_none());
 }
 
 // TC-STR-11
@@ -736,7 +805,7 @@ fn ingame_face_with_explicit_face_content_drops_the_folder() {
     let local = report(
         "egg Midcup",
         &[
-            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/ingame_face.toml", 0),
             ("Players/03 - A/face_high.fmdl", 10),
         ],
         &[],
@@ -751,7 +820,7 @@ fn ingame_face_with_explicit_face_content_drops_the_folder() {
     let linked = report(
         "egg Midcup",
         &[
-            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/ingame_face.toml", 0),
             ("Players/03 - A/Long.face", 0),
             ("Faces/Long/face_high.fmdl", 10),
         ],
@@ -777,7 +846,7 @@ fn an_oral_model_is_explicit_face_content_too() {
     let report = report(
         "egg Midcup",
         &[
-            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/ingame_face.toml", 0),
             ("Players/03 - A/oral.fmdl", 10),
         ],
         &[],
@@ -800,13 +869,13 @@ fn a_subfolder_s_files_are_typed_by_their_names_under_ingame_face_too() {
     let report = report(
         "egg Midcup",
         &[
-            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/ingame_face.toml", 0),
             ("Players/03 - A/parts/boots.fmdl", 10),
             ("Players/03 - A/parts/glove_l.fmdl", 10),
             ("Players/03 - A/parts/skin.dds", 9),
-            ("Players/04 - B/ingame_face", 0),
+            ("Players/04 - B/ingame_face.toml", 0),
             ("Players/04 - B/parts/hair_high.fmdl", 10),
-            ("Players/05 - C/ingame_face", 0),
+            ("Players/05 - C/ingame_face.toml", 0),
             ("Players/05 - C/common/body.fmdl", 10),
             ("Players/05 - C/common/extra/readme.doc", 9),
         ],
@@ -1231,7 +1300,7 @@ fn boots_and_fcl_hair_models_are_no_explicit_face_content() {
     let report = report(
         "egg Midcup",
         &[
-            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/ingame_face.toml", 0),
             ("Players/03 - A/kit_boots.fmdl", 10),
             ("Players/03 - A/x_fcl_hair.fmdl", 10),
         ],
@@ -1337,7 +1406,7 @@ fn a_subfolder_s_markers_and_settings_are_file_type_disallowed() {
         "egg Midcup",
         &[
             ("Players/03 - A/face_high.fmdl", 10),
-            ("Players/03 - A/jessie/ingame_face", 0),
+            ("Players/03 - A/jessie/ingame_face.toml", 0),
             ("Players/03 - A/jessie/fpc_off", 0),
             ("Players/03 - A/jessie/settings.toml", 20),
         ],
@@ -1357,13 +1426,13 @@ fn a_subfolder_s_markers_and_settings_are_file_type_disallowed() {
         named,
         [
             "jessie/fpc_off",
-            "jessie/ingame_face",
+            "jessie/ingame_face.toml",
             "jessie/settings.toml",
         ]
     );
     // None of them counts: the player keeps his face, with no marker or settings.
     let player = &report.validated.unwrap().players[0];
-    assert!(!player.ingame_face);
+    assert!(player.ingame_face.is_none());
     assert_eq!(player.fpc, None);
     assert_eq!(player.settings, None);
 }
@@ -1724,13 +1793,13 @@ fn ingame_face_and_common_links_act_by_target_at_any_depth() {
             ("Common/torso.fmdl", 10),
             ("Common/face_high.dds", 9),
             ("Common/boots/face_high.fmdl", 10),
-            ("Players/01 - A/ingame_face", 0),
+            ("Players/01 - A/ingame_face.toml", 0),
             ("Players/01 - A/face_high.fmdl.common", 0),
-            ("Players/02 - B/ingame_face", 0),
+            ("Players/02 - B/ingame_face.toml", 0),
             ("Players/02 - B/torso.fmdl.common", 0),
-            ("Players/03 - C/ingame_face", 0),
+            ("Players/03 - C/ingame_face.toml", 0),
             ("Players/03 - C/face_high.dds.common", 0),
-            ("Players/04 - D/ingame_face", 0),
+            ("Players/04 - D/ingame_face.toml", 0),
             ("Players/04 - D/boots/face_high.fmdl.common", 0),
         ],
         &[],
@@ -1807,7 +1876,7 @@ fn a_shared_folder_s_subfolders_follow_a_player_folder_s_rules() {
         &[
             ("Faces/Round/face_high.fmdl", 10),
             ("Faces/Round/jessie/face.xml", 10),
-            ("Faces/Round/jessie/ingame_face", 0),
+            ("Faces/Round/jessie/ingame_face.toml", 0),
             ("Faces/Round/jessie/Crocs.boots", 0),
             ("Faces/Round/jessie/skin.dds.common", 0),
             ("Players/03 - A/Round.face", 0),
@@ -1837,7 +1906,7 @@ fn a_shared_folder_s_subfolders_follow_a_player_folder_s_rules() {
         [
             "jessie/Crocs.boots",
             "jessie/face.xml",
-            "jessie/ingame_face",
+            "jessie/ingame_face.toml",
         ]
     );
     assert_eq!(

@@ -312,6 +312,7 @@ impl ParsedAestheticsExport {
                 // standing.
                 player.files.retain(file_kept);
                 player.settings = player.settings.filter(file_kept);
+                player.ingame_face = player.ingame_face.filter(file_kept);
                 player.portrait = player.portrait.filter(file_kept);
                 kept.push(player);
             }

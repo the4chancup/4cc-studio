@@ -8,7 +8,7 @@ use std::path::Path;
 use kit_config::{KitConfig, KitSlot, TexturePresence, texture_names};
 use pes_savefile::interchange::aesthetics_patch::AestheticsPatch;
 use pes_savefile::player_tables::{AppearanceTable, PlayerTableFile};
-use pes_savefile::settings_toml::{PlayerSettings, SettingKey};
+use pes_savefile::settings_toml::{IngameFaceSettings, PlayerSettings, SettingKey};
 use pes_version::PesVersion;
 use uniparam::UniformParameter;
 
@@ -1671,9 +1671,9 @@ fn a_hand_split_face_part_assigns_the_gloves_id_over_an_authored_one() {
     );
 }
 
-// TC-BIN-38
+// TC-BIN-48
 #[test]
-fn a_midcup_export_holding_only_a_settings_toml_writes_the_tables() {
+fn a_midcup_export_holding_only_settings_files_writes_the_tables() {
     let sandbox = Sandbox::new("bins_settings_only");
     install_tables(
         &sandbox,
@@ -1683,10 +1683,14 @@ fn a_midcup_export_holding_only_a_settings_toml_writes_the_tables() {
             (PLAYER_APPEARANCE, &player_appearance()),
         ],
     );
-    // `ingame_face` keeps the folder's only work to its table rows: with no face model it
-    // plans no package, so no task commits and only the rows are the run's.
-    sandbox.write("exports/co Midcup Settings/Players/05 - A/ingame_face", b"");
-    let toml = "boots_id = 12\n[appearance.face]\nfacial_hair_type = 3\n";
+    // `ingame_face.toml` keeps the folder's only work to its table rows: with no face model
+    // it plans no package, so no task commits and only the rows are the run's.
+    let face_toml = "[face]\nfacial_hair_type = 3\n";
+    sandbox.write(
+        "exports/co Midcup Settings/Players/05 - A/ingame_face.toml",
+        face_toml.as_bytes(),
+    );
+    let toml = "boots_id = 12\n";
     sandbox.write(
         "exports/co Midcup Settings/Players/05 - A/settings.toml",
         toml.as_bytes(),
@@ -1704,7 +1708,8 @@ fn a_midcup_export_holding_only_a_settings_toml_writes_the_tables() {
         &entries[PLAYER_APPEARANCE],
     )
     .unwrap();
-    let settings = PlayerSettings::parse(toml).unwrap();
+    let mut settings = PlayerSettings::parse(toml).unwrap();
+    settings.set_ingame_face(IngameFaceSettings::parse(face_toml).unwrap());
     let row = settings.appearance_row(71405, PesVersion::Pes21).unwrap();
     assert_ne!(
         row[4..],
@@ -1716,16 +1721,15 @@ fn a_midcup_export_holding_only_a_settings_toml_writes_the_tables() {
     assert_eq!(
         table.get(71405).copied(),
         Some(row[4..].try_into().unwrap()),
-        "71405's row is his settings.toml's"
+        "71405's row is his two files'"
     );
 }
 
-// TC-BIN-31
+// TC-BIN-49
 #[test]
 fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
-    let toml = "[appearance.motion]\nhunching_dribbling = 5\ndribbling = 2\n\
-        [appearance.face]\nfacial_hair_type = 20\n\
-        [appearance.hair]\nstyle = 4\ncolor_red = 40\n";
+    let toml = "[appearance.motion]\nhunching_dribbling = 5\ndribbling = 2\n";
+    let face_toml = "[face]\nfacial_hair_type = 20\n[hair]\nstyle = 4\ncolor_red = 40\n";
     for (number, version) in [(18u8, PesVersion::Pes18), (21, PesVersion::Pes21)] {
         let sandbox = Sandbox::new(&format!("bins_ranges_{number}"));
         install_tables(
@@ -1741,6 +1745,10 @@ fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
             &format!("exports/{export}/Players/05 - A/settings.toml"),
             toml.as_bytes(),
         );
+        sandbox.write(
+            &format!("exports/{export}/Players/05 - A/ingame_face.toml"),
+            face_toml.as_bytes(),
+        );
 
         let run = sandbox.run(&pes_settings(&sandbox, number), &["compile", "--no-deploy"]);
 
@@ -1755,10 +1763,7 @@ fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
             // `dribbling` is a PES 20 and 21 key: dropped on PES 18, no finding names it.
             // PES 18's facial-hair cap is unmeasured, the field's bits:
             // the authored 20 is inside it, so no finding names it either.
-            for key in [
-                "appearance.motion.dribbling",
-                "appearance.face.facial_hair_type",
-            ] {
+            for key in ["appearance.motion.dribbling", "face.facial_hair_type"] {
                 assert!(
                     !lines
                         .iter()
@@ -1771,7 +1776,7 @@ fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
             // the only out-of-range value.
             let expected = format!(
                 "{export}: Warning settings_value_out_of_range [Keep] at Players/05 - A \
-                 (key=appearance.face.facial_hair_type, value=20, range=0 to 19)"
+                 (key=face.facial_hair_type, value=20, range=0 to 19)"
             );
             assert!(lines.contains(&expected), "{lines:#?}");
         }
@@ -1781,11 +1786,12 @@ fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
             &entries[PLAYER_APPEARANCE],
         )
         .unwrap();
-        // The row is the export's settings narrowed to the target: on PES 18
+        // The row is the export's two files narrowed to the target: on PES 18
         // the hunching is back at the template's 1 and the facial hair kept
         // at its authored 20 (the unmeasured cap is the field's bits); on
         // PES 21's measured cap the facial hair narrows to its 0 default.
         let mut expected = PlayerSettings::parse(toml).unwrap();
+        expected.set_ingame_face(IngameFaceSettings::parse(face_toml).unwrap());
         expected.narrow_to(version);
         assert_eq!(
             expected.get(SettingKey::FacialHairType),
@@ -1828,6 +1834,164 @@ fn a_settings_value_past_the_target_s_range_writes_the_key_s_default() {
             assert!(patch.contains("dribbling = 2"), "{number}: {patch}");
         }
     }
+}
+
+// TC-STR-18
+#[test]
+fn an_invalid_ingame_face_toml_is_reported_and_the_face_is_the_default() {
+    let sandbox = Sandbox::new("str_face_invalid");
+    install_tables(&sandbox, &[(PLAYER_APPEARANCE, &player_appearance())]);
+    let export = "exports/co Midcup Faces";
+    let toml = "[appearance]\nskin_color = 4\n";
+    // Slot 05's `ingame_face.toml` is not TOML at all; slot 06's holds a key
+    // the file does not know.
+    for (slot, face_toml) in [("05 - A", "this is not toml"), ("06 - B", "nonsense = 1\n")] {
+        let player = format!("{export}/Players/{slot}");
+        sandbox.write(&format!("{player}/settings.toml"), toml.as_bytes());
+        sandbox.write(&format!("{player}/ingame_face.toml"), face_toml.as_bytes());
+    }
+    // `check` and `compile` report alike: each file's error on its own line.
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 1, "{args:?}: {lines:#?}");
+        for (slot, face_toml) in [("05 - A", "this is not toml"), ("06 - B", "nonsense = 1\n")] {
+            let error = IngameFaceSettings::parse(face_toml)
+                .unwrap_err()
+                .to_string();
+            assert!(
+                lines.iter().any(|line| line
+                    == &format!(
+                        "co Midcup Faces: Error ingame_face_toml_invalid [Keep] at \
+                         Players/{slot}/ingame_face.toml (file=ingame_face.toml, error={error})"
+                    )),
+                "{slot} {args:?}: {lines:#?}"
+            );
+        }
+    }
+    // Both players keep the in-game face: no face folder is built, and the
+    // refused file's keys are ignored — the row is his `settings.toml`'s
+    // with the game's default face.
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert!(
+        paths.iter().all(|path| !path.contains("/face/real/7140")),
+        "{paths:#?}"
+    );
+    let table = AppearanceTable::read(
+        PlayerTableFile::PlayerAppearance,
+        &entries[PLAYER_APPEARANCE],
+    )
+    .unwrap();
+    let row = PlayerSettings::parse(toml)
+        .unwrap()
+        .appearance_row(71405, PesVersion::Pes21)
+        .unwrap();
+    assert_eq!(
+        table.get(71405).copied(),
+        Some(row[4..].try_into().unwrap()),
+        "71405: skin colour 4, the template's face"
+    );
+    assert_eq!(
+        table.get(71406).copied(),
+        Some(row[4..].try_into().unwrap()),
+        "71406: skin colour 4, the template's face"
+    );
+}
+
+// TC-STR-19
+#[test]
+fn a_settings_toml_with_a_moved_key_is_invalid_and_the_face_file_still_applies() {
+    let sandbox = Sandbox::new("str_face_keys_moved");
+    install_tables(&sandbox, &[(PLAYER_APPEARANCE, &player_appearance())]);
+    let export = "exports/co Midcup Moved";
+    let player = format!("{export}/Players/05 - A");
+    // `[appearance.hair]` is an unknown key in `settings.toml` now: the whole
+    // file is refused, the in-game face's `iris_color` still applies.
+    let toml = "[appearance]\nskin_color = 4\n[appearance.hair]\nlength = 5\n";
+    sandbox.write(&format!("{player}/settings.toml"), toml.as_bytes());
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"iris_color = 7\n");
+
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 1, "{args:?}: {lines:#?}");
+        assert!(
+            lines.iter().any(|line| line
+                == "co Midcup Moved: Error settings_toml_invalid [DropFile] at \
+                    Players/05 - A/settings.toml (file=settings.toml, \
+                    error=appearance.hair: unknown key)"),
+            "{args:?}: {lines:#?}"
+        );
+    }
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let table = AppearanceTable::read(
+        PlayerTableFile::PlayerAppearance,
+        &entries[PLAYER_APPEARANCE],
+    )
+    .unwrap();
+    let mut settings = PlayerSettings::default();
+    settings.set_ingame_face(IngameFaceSettings::parse("iris_color = 7\n").unwrap());
+    assert_eq!(
+        table.get(71405).copied(),
+        Some(
+            settings.appearance_row(71405, PesVersion::Pes21).unwrap()[4..]
+                .try_into()
+                .unwrap()
+        ),
+        "71405: iris 7, the template's skin colour 1"
+    );
+}
+
+// TC-BIN-47
+#[test]
+fn an_ingame_face_toml_s_keys_reach_the_row_beside_a_plain_one_s_defaults() {
+    let sandbox = Sandbox::new("bins_face_keys");
+    install_tables(&sandbox, &[(PLAYER_APPEARANCE, &player_appearance())]);
+    let export = "exports/egg Midcup Keys";
+    let folder = format!("{export}/Players/05 - A");
+    sandbox.write(&format!("{folder}/face_high.fmdl"), &clean_model());
+    let toml = "[appearance]\nskin_color = 3\n";
+    sandbox.write(&format!("{folder}/settings.toml"), toml.as_bytes());
+    let face_toml = "iris_color = 7\n[hair]\nlength = 5\n";
+    sandbox.write(
+        &format!("{export}/Players/06 - B/ingame_face.toml"),
+        face_toml.as_bytes(),
+    );
+
+    let run = sandbox.run(&pes21_settings(&sandbox), &["compile", "--no-deploy"]);
+
+    assert_eq!(run.exit_code(), 0, "{:#?}", run.messages());
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let table = AppearanceTable::read(
+        PlayerTableFile::PlayerAppearance,
+        &entries[PLAYER_APPEARANCE],
+    )
+    .unwrap();
+    // 79205's row: his `settings.toml`'s, the template's defaults in every
+    // face, hair and iris field.
+    let skin = PlayerSettings::parse(toml)
+        .unwrap()
+        .appearance_row(79205, PesVersion::Pes21)
+        .unwrap();
+    assert_eq!(
+        table.get(79205).copied(),
+        Some(skin[4..].try_into().unwrap()),
+        "79205's row"
+    );
+    // 79206's: iris 7 and hair length 5, every other face and hair field the
+    // defaults.
+    let mut settings = PlayerSettings::default();
+    settings.set_ingame_face(IngameFaceSettings::parse(face_toml).unwrap());
+    assert_eq!(
+        table.get(79206).copied(),
+        Some(
+            settings.appearance_row(79206, PesVersion::Pes21).unwrap()[4..]
+                .try_into()
+                .unwrap()
+        ),
+        "79206's row"
+    );
 }
 
 // TC-BIN-32
@@ -2237,7 +2401,7 @@ fn a_midcup_export_with_nothing_to_record_writes_no_shared_ids_record() {
     // A settings-only player folder: no shared folder of either kind takes an ID, so there
     // is no record to write and none to warn about.
     let export = "exports/co Midcup Settings";
-    sandbox.write(&format!("{export}/Players/05 - A/ingame_face"), b"");
+    sandbox.write(&format!("{export}/Players/05 - A/ingame_face.toml"), b"");
     sandbox.write(
         &format!("{export}/Players/05 - A/settings.toml"),
         b"boots_id = 12\n",
@@ -2275,7 +2439,7 @@ fn a_midcup_export_with_nothing_to_record_rewrites_the_installed_one() {
     // The same settings-only export as the no-record case: it carries the record it
     // inherited, even an empty one (a `Full` export with no shared folder writes one).
     let export = "exports/co Midcup Settings";
-    sandbox.write(&format!("{export}/Players/05 - A/ingame_face"), b"");
+    sandbox.write(&format!("{export}/Players/05 - A/ingame_face.toml"), b"");
     sandbox.write(
         &format!("{export}/Players/05 - A/settings.toml"),
         b"boots_id = 12\n",
@@ -2302,7 +2466,7 @@ fn a_full_export_with_nothing_to_record_writes_an_empty_one() {
     install_tables(&sandbox, &[(BOOTS_LIST, &item_list(&[(70201, 11)]))]);
     // A `Full` export's record means "no shared folders": it writes it even empty.
     let export = "exports/co Full Settings";
-    sandbox.write(&format!("{export}/Players/05 - A/ingame_face"), b"");
+    sandbox.write(&format!("{export}/Players/05 - A/ingame_face.toml"), b"");
     sandbox.write(
         &format!("{export}/Players/05 - A/settings.toml"),
         b"boots_id = 12\n",

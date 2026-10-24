@@ -667,6 +667,11 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         write_output_file(&staging, link, b"")?;
     }
     for marker in &plan.markers {
+        // Step 8's filled `ingame_face.toml` supersedes the empty marker file
+        // at the same path, whatever the write order.
+        if settings.written.iter().any(|(path, _)| path == marker) {
+            continue;
+        }
         write_output_file(&staging, marker, b"")?;
     }
     for (path, bytes) in &settings.written {

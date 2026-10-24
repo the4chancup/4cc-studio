@@ -75,8 +75,8 @@ pub(crate) struct CheckedSource {
     /// (`deep::ContentPass::metal_models`), which planning reads for the template environment
     /// map on PES 15-17; empty when the deep pass did not run. Read only beside `resolved`.
     pub(crate) metal_models: BTreeSet<ScopePath>,
-    /// Each player folder's parsed `settings.toml`, by folder path
-    /// (`deep::ContentPass::settings`), which planning resolves the compiled players' table
+    /// Each player folder's settings, its `settings.toml` joined with its
+    /// `ingame_face.toml`'s keys, by folder path (`deep::ContentPass::settings`), which planning resolves the compiled players' table
     /// rows from; empty when the deep pass did not run. Read only beside `resolved`.
     pub(crate) settings: BTreeMap<ScopePath, PlayerSettings>,
     /// What the source looked like when it was listed, which `compile` checks its tasks'
@@ -744,7 +744,7 @@ fn settings_id_messages(
 }
 
 /// The `fpc_on`/`fpc_off` markers' findings on each mapped player folder of `resolved`
-/// holding a `settings.toml` or a marker, for team and referee exports on either engine
+/// holding a `settings.toml`, an `ingame_face.toml` or a marker, for team and referee exports on either engine
 /// (`settings_toml.md`: a `settings.toml`'s findings are reported by `check` and `compile`
 /// alike): the marker's preset (`fpc_on` the hide, `fpc_off` the unhide) is applied to the
 /// `settings` planning receives (a folder with a marker and no `settings.toml` gains an entry,
@@ -968,7 +968,7 @@ fn model_name_messages(
             &folder.path,
             &folder.files,
             None,
-            folder.ingame_face,
+            folder.ingame_face.is_some(),
             &combined,
             engine,
         );
@@ -1407,7 +1407,7 @@ mod tests {
     #[test]
     fn under_ingame_face_a_model_the_hair_would_take_is_no_fallback() {
         let files = [
-            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/ingame_face.toml", 0),
             ("Players/03 - A/torso.fmdl", 1),
             ("Players/03 - A/face/hat.fmdl", 1),
             ("Players/03 - A/legs.fmdl.common", 0),
@@ -1420,7 +1420,7 @@ mod tests {
     #[test]
     fn each_face_file_of_a_folder_with_no_face_model_is_not_used_in_file_order() {
         let files = [
-            ("Players/03 - A/ingame_face", 0),
+            ("Players/03 - A/ingame_face.toml", 0),
             ("Players/03 - A/boots.fmdl", 1),
             ("Players/03 - A/fcl_hair_sim.fclo", 1),
             ("Players/03 - A/face_diff.bin", 1),

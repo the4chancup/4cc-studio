@@ -8,7 +8,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use aesthetics_export::{IssueScope, ValidationIssue};
+use aesthetics_export::{FileKind, IssueScope, Marker, ValidationIssue, classify};
 use anyhow::anyhow;
 use pes_version::{Engine, PesVersion};
 use studio_core::{CliError, Disposition, Message, Scope, ToolContext};
@@ -80,7 +80,7 @@ pub(crate) struct ModelFolderPlan {
     /// functions read (`Players/15 - Snuffy/face.fmdl`, `Boots/Crocs/x.model`,
     /// `Common/hair.dds`).
     pub(crate) copies: Vec<(String, String)>,
-    /// The bare `ingame_face` markers to write, staged paths.
+    /// The `ingame_face.toml` marker files to write, staged paths.
     pub(crate) markers: Vec<String>,
     /// The output folders, in input-name order.
     pub(crate) folders: Vec<PlacedFolder>,
@@ -210,14 +210,13 @@ pub(crate) fn model_folder_plan(files: &[String], folders: &[String]) -> ModelFo
                 ));
                 continue;
             }
-            let lowered = rest.to_ascii_lowercase();
             // In a player folder the old `ingame_face` spellings normalize
-            // to the bare marker, one per folder; every other file keeps
+            // to `ingame_face.toml`, one per folder; every other file keeps
             // its name (no portrait rename: no `Portraits/` to compare it
             // with).
             if destination == Destination::Players
                 && !rest.contains('/')
-                && (lowered == "ingame_face" || lowered == "ingame_face.txt")
+                && classify(rest) == FileKind::Marker(Marker::OldIngameFace)
             {
                 marker = true;
                 continue;
@@ -232,7 +231,7 @@ pub(crate) fn model_folder_plan(files: &[String], folders: &[String]) -> ModelFo
         }
         if marker {
             plan.markers
-                .push(format!("Players/{published_name}/ingame_face"));
+                .push(format!("Players/{published_name}/ingame_face.toml"));
         }
         plan.folders.push(PlacedFolder {
             name: published_name,
@@ -543,7 +542,7 @@ mod tests {
                 ),
             ]
         );
-        assert_eq!(plan.markers, ["Players/Snuffy/ingame_face".to_owned()]);
+        assert_eq!(plan.markers, ["Players/Snuffy/ingame_face.toml".to_owned()]);
         assert!(plan.findings.is_empty(), "{:?}", plan.findings);
     }
 
@@ -553,7 +552,7 @@ mod tests {
             &files(&["Snuffy/INGAME_FACE.TXT", "Snuffy/hair.model"]),
             &[],
         );
-        assert_eq!(plan.markers, ["Players/Snuffy/ingame_face".to_owned()]);
+        assert_eq!(plan.markers, ["Players/Snuffy/ingame_face.toml".to_owned()]);
         assert_eq!(
             plan.copies,
             [(

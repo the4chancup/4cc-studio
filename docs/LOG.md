@@ -2405,3 +2405,7 @@ worklog passed 7,000 lines.
   through an Alt+Tab; 20.6a2a's review done, and the Ruleset editor waits for 0.1.0.
 - **2026-10-24** — 0.0.1h slice 1: `pes_savefile` reads and writes `ingame_face.toml`, the in-game face's 90
   keys in their own document, from the settings key table; nothing reads it yet.
+- **2026-10-24** — 0.0.1h slice 2: `ingame_face.toml` replaces the marker in the compiler and the Export upgrader,
+  `settings.toml` loses the face keys, the old marker names are an error; six scenarios restated.
+- **2026-10-24** — 0.0.1h slices 1-2 reviewed (SWE-2, Astra, SWE-2: 2 accepted in each round, all doc and
+  citation fixes but one, the upgrader's old-spelling test now the lib's `classify`); amended into slice 2.

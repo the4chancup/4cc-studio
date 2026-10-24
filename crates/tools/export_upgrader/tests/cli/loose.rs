@@ -44,8 +44,9 @@ fn the_ids_position_in_the_block_pairs_the_wearer() {
         fs::read(sandbox.path(&format!("{out}/Players/05/boots.fmdl"))).unwrap(),
         b"boots"
     );
+    // Loose mode has no record to fill it with: the marker's file is empty.
     assert_eq!(
-        fs::read(sandbox.path(&format!("{out}/Players/05/ingame_face"))).unwrap(),
+        fs::read(sandbox.path(&format!("{out}/Players/05/ingame_face.toml"))).unwrap(),
         b""
     );
     assert!(
@@ -115,7 +116,7 @@ fn an_empty_face_folder_makes_its_player_folder() {
     assert!(sandbox.listing("a Full Spring/Players/05").is_empty());
     assert!(
         !sandbox
-            .path("a Full Spring/Players/05/ingame_face")
+            .path("a Full Spring/Players/05/ingame_face.toml")
             .exists()
     );
 }

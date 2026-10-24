@@ -126,11 +126,15 @@ pub(crate) enum Code {
     /// A player's `settings.toml` that is not UTF-8 text or does not parse as the settings
     /// schema; the file is ignored and the folder's models still compile.
     SettingsTomlInvalid,
+    /// A player's `ingame_face.toml` that is not UTF-8 text or does not parse as the in-game
+    /// face file; its keys are ignored, the file still marking the in-game face at the game's
+    /// default face.
+    IngameFaceTomlInvalid,
     /// A player's `settings.toml` sets `boots_id` or `gloves_id` for a category whose ID the
     /// compiler assigns, from the folder's standalone models or a link file: the
     /// compiler-assigned ID wins and the key is ignored.
     SettingsModelIdConflict,
-    /// A player's `settings.toml` value inside its key's widest range but outside the compile
+    /// A player's `settings.toml` or `ingame_face.toml` value inside its key's widest range but outside the compile
     /// target's (`PlayerSettings::narrow_to`): the key's default is written in its place (a face
     /// type 0, a motion the template's value, a custom skin 7 as 1).
     SettingsValueOutOfRange,
@@ -560,7 +564,7 @@ impl Code {
     /// Every code, for the catalog test: a variant missing here would make its first message
     /// panic in `severity`, so a new variant is added to this list too.
     #[cfg(test)]
-    const ALL: [Code; 162] = [
+    const ALL: [Code; 163] = [
         Code::ExportExtractFailed,
         Code::NoExportsFound,
         Code::ExportDisabled,
@@ -595,6 +599,7 @@ impl Code {
         Code::PortraitConflict,
         Code::LinkCombined,
         Code::SettingsTomlInvalid,
+        Code::IngameFaceTomlInvalid,
         Code::SettingsModelIdConflict,
         Code::SettingsValueOutOfRange,
         Code::SettingsTomlNameShared,
@@ -762,6 +767,7 @@ impl Code {
             Code::PortraitConflict => "portrait_conflict",
             Code::LinkCombined => "link_combined",
             Code::SettingsTomlInvalid => "settings_toml_invalid",
+            Code::IngameFaceTomlInvalid => "ingame_face_toml_invalid",
             Code::SettingsModelIdConflict => "settings_model_id_conflict",
             Code::SettingsValueOutOfRange => "settings_value_out_of_range",
             Code::SettingsTomlNameShared => "settings_toml_name_shared",

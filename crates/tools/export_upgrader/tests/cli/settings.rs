@@ -7,7 +7,7 @@ use std::fs;
 
 use pes_savefile::EditFile;
 use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
-use pes_savefile::settings_toml::{NameSetting, PlayerSettings};
+use pes_savefile::settings_toml::{IngameFaceSettings, NameSetting, PlayerSettings};
 use pes_version::PesVersion;
 
 use crate::carried::mtl;
@@ -36,9 +36,9 @@ fn settings(sandbox: &Sandbox, path: &str) -> PlayerSettings {
     PlayerSettings::parse(&text).unwrap_or_else(|error| panic!("{path}: {error}"))
 }
 
-// EU-SET-01
+// EU-SET-10
 #[test]
-fn a_face_folder_gets_a_settings_toml_of_his_record() {
+fn a_face_folder_gets_a_settings_toml_of_his_record_but_the_face_keys() {
     let sandbox = Sandbox::new("set_record");
     // The /co/ fixture's slot 05 is named "PLACEHOLDER".
     face(&sandbox, "co Spring/Faces/XXX05 - PLACEHOLDER");
@@ -50,14 +50,19 @@ fn a_face_folder_gets_a_settings_toml_of_his_record() {
     let parsed = settings(&sandbox, path);
     let save = EditFile::load(&sandbox.path("EDIT")).unwrap();
     let record = save.player(71405).unwrap();
+    let mut expected = PlayerSettings::from_player(record).expect("from_player");
+    expected.set_ingame_face(IngameFaceSettings::default());
     assert_eq!(
-        parsed.appearance,
-        PlayerSettings::from_player(record)
-            .expect("from_player")
-            .appearance,
-        "every appearance key his record's value"
+        parsed.appearance, expected.appearance,
+        "every appearance key his record's value but the face, hair and iris"
     );
     assert_eq!(parsed.shirt_name, Some(record.shirt_name.clone()));
+    // He keeps his own face: no `ingame_face.toml`.
+    assert!(
+        !sandbox
+            .path("co Full Spring/Players/05 - PLACEHOLDER/ingame_face.toml")
+            .exists()
+    );
     let text = fs::read_to_string(sandbox.path(path)).unwrap();
     for line in text.lines() {
         let line = line.trim_start_matches('#').trim_start();
@@ -173,24 +178,28 @@ fn the_name_is_true_explicit_or_the_coded_save_name() {
     );
 }
 
-// EU-SET-05
+// EU-SET-11
 #[test]
 fn a_value_past_the_assumed_cap_is_written_as_stored() {
     let sandbox = Sandbox::new("set_past_top");
     // /an/ player 70504, the PES 18 fixture save's slot-4 "Paul Levesque":
     // found by walking the fixture's players for a `cheek_type` past the
     // assumed cap (his 5, inside the field's bits the unmeasured cap is),
-    // 2026-10-18.
-    face(&sandbox, "an Spring/Faces/XXX04 - Paul Levesque");
-    sandbox.save_edited("EDIT18", PesVersion::Pes18, |_| {});
+    // 2026-10-18. No face folder and custom boots: his folder marks the
+    // in-game face, so the key lands in `ingame_face.toml`.
+    boots(&sandbox, "an Spring/Boots/k0430 - Crocs");
+    sandbox.save_edited("EDIT18", PesVersion::Pes18, |file| {
+        wears(file, 70504, 430, 0);
+    });
 
     let run = upgrade(&sandbox, "an Spring", "EDIT18");
     assert_eq!(run.exit_code(), 0, "{}", run.stdout());
-    let parsed = settings(
-        &sandbox,
-        "an Full Spring/Players/04 - Paul Levesque/settings.toml",
-    );
-    assert_eq!(parsed.appearance.face.cheek_type, Some(5));
+    let face = IngameFaceSettings::parse(
+        &fs::read_to_string(sandbox.path("an Full Spring/Players/04 - Crocs/ingame_face.toml"))
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(face.face.cheek_type, Some(5));
     let named = run
         .stdout()
         .lines()
@@ -199,7 +208,8 @@ fn a_value_past_the_assumed_cap_is_written_as_stored() {
     assert_eq!(named, 0, "nothing is reported about him: {}", run.stdout());
     // The compile keeps what the upgrade wrote: PES 18's unmeasured cap is
     // the field's bits, so the narrowing does not reset his 5.
-    let mut compiled = parsed;
+    let mut compiled = PlayerSettings::default();
+    compiled.set_ingame_face(face);
     assert_eq!(compiled.narrow_to(PesVersion::Pes18), []);
     assert_eq!(compiled.appearance.face.cheek_type, Some(5));
 }

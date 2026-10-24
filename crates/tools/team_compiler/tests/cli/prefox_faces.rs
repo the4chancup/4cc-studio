@@ -1015,7 +1015,7 @@ fn each_of_twenty_one_wearer_boots_folders_takes_its_wearer_s_own_id() {
         let player = format!("exports/{export}/Players/{slot:02} - P{slot:02}");
         sandbox.write(&format!("{player}/B{slot:02}.boots"), b"");
         if slot <= 15 {
-            sandbox.write(&format!("{player}/ingame_face"), b"");
+            sandbox.write(&format!("{player}/ingame_face.toml"), b"");
         } else {
             sandbox.write(&format!("{player}/face_high.model"), &card_model());
             sandbox.write(

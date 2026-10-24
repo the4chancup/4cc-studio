@@ -463,7 +463,7 @@ mod tests {
             ["Crocs", "Mud"]
         );
         // Under it his boots model is a part of his own boots, which Crocs's model joins.
-        let marked = [files.as_slice(), &["Players/03 - A/ingame_face"]].concat();
+        let marked = [files.as_slice(), &["Players/03 - A/ingame_face.toml"]].concat();
         assert_eq!(
             taking(&marked, None, Engine::PreFox, SharedKind::Boots),
             ["Mud"]

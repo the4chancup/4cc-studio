@@ -54,7 +54,7 @@ names the texture, the kit and the copied file, and fires only when the set has 
 Per-kit models (`pants_kit1.fmdl` beside
 `pants_kit2.fmdl`, or `.model` files, or a mix of the two) need a `face.xml` to name them. On
 PES 2018 to 2021, and on PES 2015 to 2017 in a shared boots or gloves folder and in a folder
-holding `ingame_face`, the set's fallback is used (a model in the other game's format
+holding `ingame_face.toml`, the set's fallback is used (a model in the other game's format
 converted, a `.model` with its `.mtl`), and the warning `kit_variant_model_left_out` says so.
 On PES 2015 to 2017 a face's set is listed once in the
 `face.xml`, as `pants_kitN`, every variant is packed and the game loads the one for the kit
@@ -206,20 +206,23 @@ name is not a face, boots or gloves name goes into `fcl_hair.fmdl` and is report
 pairs with the model beside it in the same subfolder, textures from any subfolder go to the
 player's common folder, and parts in a subfolder are merged with the folder's own models and
 with a linked shared folder of the same kind. Only the files directly in the player's folder
-count as `ingame_face`, `fpc_on` or `fpc_off`, `settings.toml` or a link file: one of those
+count as `ingame_face.toml`, `fpc_on` or `fpc_off`, `settings.toml` or a link file: one of those
 inside a subfolder is reported as `file_type_disallowed`. A `.txt` note (`notes.txt`) in a
 player or shared folder, or in `Common`, is allowed: nothing reads it, so it is reported as the
 warning `file_not_used`. A player folder with no face model
 still gets a face folder, an empty one, so the game shows no head for that player: the usual case for a
-body model that brings its own head. An empty file named `ingame_face` in the player's folder
-keeps the head made in the game's face editor instead: no face folder is built, and a model
+body model that brings its own head. A file named `ingame_face.toml` in the player's folder
+gives him the in-game face instead, the head the game builds from his face, hair and iris,
+which the file sets (`iris_color`, `[face]`, `[hair]`, the keys `settings.toml` held before;
+an empty file is the game's default face): no face folder is built, and a model
 that would have gone into the face (`torso.fmdl`, `fcl_hair.fmdl`) becomes part of the
 player's boots, with its skeleton file, and is not reported as
-`fmdl_fcl_hair_fallback`. A `face_high`, `hair_high` or `oral` model or a `Faces` link beside
-the marker is the error `ingame_face_explicit_face_model`, and the player's folder is left out.
+`fmdl_fcl_hair_fallback`. The marker's old names, `ingame_face` and `ingame_face.txt`, are
+the error `ingame_face_marker_renamed`: the file is ignored. A `face_high`, `hair_high` or `oral` model or a `Faces` link beside
+the file is the error `ingame_face_explicit_face_model`, and the player's folder is left out.
 A `face_diff.bin`, `face_diff.xml` or `fcl_hair_sim.fclo` in a folder with no face model is not
 used, and both commands report it as `face_file_not_used`. For PES 2015 to 2017 every `.model`
-of a player folder without `ingame_face`, boots and gloves included, goes into the player's
+of a player folder without `ingame_face.toml`, boots and gloves included, goes into the player's
 face, listed in a `face.xml` that `compile` writes with each model's type read from its name.
 A player folder may hold its own `face.xml` instead (anywhere in the folder), and both
 commands check its content. What is known not to work leaves the folder
@@ -252,7 +255,7 @@ model's place, and the hands of `body.model` become `body_glove_l.model` and
 A model named as boots or gloves, or one a `.common` link brings in, is never cut, nor is any
 model of a face with a `face.xml`, its own or its linked shared face's, which lists what the
 face loads.
-With `ingame_face`, every `.model` but a glove (`shirt.model` and `torso.model` included)
+With `ingame_face.toml`, every `.model` but a glove (`shirt.model` and `torso.model` included)
 becomes part of the player's own boots, written as one `boots.model` with one `boots.mtl` in
 his own boots folder; several are merged into one, reported as `model_merged`, and a linked
 `Boots` folder beside them is merged in too, reported as `link_combined`. Parts that define
@@ -262,7 +265,7 @@ the player's boots out, the error telling which. His gloves (`glove_l`, `glove_r
 `handR`) go to his own gloves folder, each written as a linked `Gloves` folder's are (below),
 none merged; a linked `Gloves` folder beside them adds its models, reported as
 `link_combined`, the player's own model or `.mtl` replacing the linked folder's file of the
-same name. With `ingame_face`, a `.common` link to a model (`kit_boots.model.common`,
+same name. With `ingame_face.toml`, a `.common` link to a model (`kit_boots.model.common`,
 `glove_l.model.common`) makes the Common model one more part of his boots or gloves, copied
 into his own folder with the `.mtl` it uses (found as for any link, below), a Common `.fmdl`
 (`legs.fmdl.common`) converted into the part as his own are, and a link to a
@@ -314,7 +317,7 @@ their `.mtl` files, textures and face diff, its `.common` links to a `.model`, a
 `.mtl` or a texture, the linked shared `Faces`, `Boots` and `Gloves` folders, the `.model`,
 `.mtl`, `.fmdl` (converted, with its `.skl`) and texture files of the `Common` folder, the
 kits, its `.model` and `.fmdl` collars, and the
-portraits and the logo, and a player's `.fmdl` models (with `ingame_face`, the `.fmdl` parts
+portraits and the logo, and a player's `.fmdl` models (with `ingame_face.toml`, the `.fmdl` parts
 of his own boots and gloves), and a linked shared `Faces`, `Boots` or `Gloves` folder's,
 converted to `.model` files with their materials. A file in a model folder that no package
 reads (a model in `gloves/` naming no hand, a skeleton pairing no model, a link to a file of
@@ -503,10 +506,14 @@ on. So is a file that cannot be read as a model or a material file at all, repor
 `model_broken` or `mtl_broken`. A player linking a shared folder or `Common` model left out this
 way is left out too, with the line `link_target_dropped`.
 
-Both commands also read each player's `settings.toml`. One that cannot be read (not UTF-8
-text, a key it does not know, a value of the wrong type or out of range) is reported as
-`settings_toml_invalid`, naming the error: the file is ignored, even with `pass_through` on,
-and the player's models are still built.
+Both commands also read each player's `settings.toml`, and his `ingame_face.toml` when he
+has one. One that cannot be read (not UTF-8 text, a key it does not know, a value of the
+wrong type or out of range) is reported as `settings_toml_invalid` or
+`ingame_face_toml_invalid`, naming the error: the file is ignored, even with `pass_through`
+on (a bad `ingame_face.toml` still marks the in-game face, at the game's default face), and
+the player's models are still built. The in-game face's keys (`iris_color`, `[face]` and
+`[hair]`) are `ingame_face.toml`'s: one left in `settings.toml` under its old name
+(`[appearance.face]`, `[appearance.hair]`) is an unknown key there.
 
 The socks are laid out differently on a kit's main texture in PES 2015 to 2017 and in PES 2018
 to 2021, so a kit drawn for one shows its sock design shifted around the leg in the other. An

@@ -55,8 +55,10 @@ pub enum ModelFormat {
 /// A marker file's kind: the directive or fact it declares.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Marker {
-    /// `ingame_face`: remove custom face parts, keep the rest.
-    IngameFace,
+    /// The in-game face marker's old names, `ingame_face` and its tolerated
+    /// `ingame_face.txt`, recognized only to be reported
+    /// (`ingame_face_marker_renamed`): the in-game face is `ingame_face.toml`.
+    OldIngameFace,
     /// `fpc_on`, or a bare `fpc`: apply the FPC preset.
     FpcOn,
     /// `fpc_off`: un-apply the FPC preset.
@@ -91,6 +93,9 @@ pub enum MetadataFile {
     ConfigToml,
     /// `settings.toml`: savefile settings for a player.
     SettingsToml,
+    /// `ingame_face.toml`: the in-game face's settings; its presence marks
+    /// the folder as wearing the in-game face.
+    IngameFaceToml,
     /// `readme.txt`: free text for humans.
     Readme,
 }
@@ -117,7 +122,7 @@ const SHARED_LINKS: [(&str, SharedKind); 3] = [
 /// they read as a pair. A bare `fpc` reads as `fpc_on` (presence means on).
 /// The icon marker carries a number and is matched by `icon_digits`.
 const MARKERS: [(&str, Marker); 7] = [
-    ("ingame_face", Marker::IngameFace),
+    ("ingame_face", Marker::OldIngameFace),
     ("fpc_on", Marker::FpcOn),
     ("fpc_off", Marker::FpcOff),
     ("fpc", Marker::FpcOn),
@@ -127,7 +132,7 @@ const MARKERS: [(&str, Marker); 7] = [
 ];
 
 /// Known metadata names, whole-name case-insensitive.
-const METADATA: [(&str, MetadataFile); 8] = [
+const METADATA: [(&str, MetadataFile); 9] = [
     ("players.txt", MetadataFile::PlayersTxt),
     ("refs.txt", MetadataFile::RefsTxt),
     ("ref_lists.txt", MetadataFile::RefLists),
@@ -135,6 +140,7 @@ const METADATA: [(&str, MetadataFile); 8] = [
     ("colors.txt", MetadataFile::ColorsTxt),
     ("config.toml", MetadataFile::ConfigToml),
     ("settings.toml", MetadataFile::SettingsToml),
+    ("ingame_face.toml", MetadataFile::IngameFaceToml),
     ("readme.txt", MetadataFile::Readme),
 ];
 
@@ -346,7 +352,7 @@ mod tests {
 
     #[test]
     fn classify_covers_the_convention_table() {
-        let cases: [(&str, FileKind); 59] = [
+        let cases: [(&str, FileKind); 61] = [
             ("Crocs.boots", FileKind::SharedLink(SharedKind::Boots)),
             ("Crocs.BOOTS.txt", FileKind::SharedLink(SharedKind::Boots)),
             ("Longhair.face", FileKind::SharedLink(SharedKind::Face)),
@@ -361,8 +367,8 @@ mod tests {
             ("ボ.common.txt", FileKind::CommonLink),
             (".common", FileKind::Other),
             (".common.txt", FileKind::Other),
-            ("ingame_face", FileKind::Marker(Marker::IngameFace)),
-            ("INGAME_FACE.txt", FileKind::Marker(Marker::IngameFace)),
+            ("ingame_face", FileKind::Marker(Marker::OldIngameFace)),
+            ("INGAME_FACE.txt", FileKind::Marker(Marker::OldIngameFace)),
             ("fpc_on", FileKind::Marker(Marker::FpcOn)),
             ("fpc_off.txt", FileKind::Marker(Marker::FpcOff)),
             ("pre-fox", FileKind::Marker(Marker::PreFox)),
@@ -379,6 +385,11 @@ mod tests {
                 "settings.toml",
                 FileKind::Metadata(MetadataFile::SettingsToml),
             ),
+            (
+                "ingame_face.toml",
+                FileKind::Metadata(MetadataFile::IngameFaceToml),
+            ),
+            ("ingame_face.toml.txt", FileKind::Other),
             ("materials.toml", FileKind::MaterialsToml),
             ("Materials.toml", FileKind::MaterialsToml),
             ("body.materials.toml", FileKind::MaterialsToml),

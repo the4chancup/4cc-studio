@@ -1017,9 +1017,10 @@ pub(crate) struct ExportToPlan {
     /// (`deep::ContentPass::metal_models`): a model folder one of whose pre-Fox packages
     /// converts one of them gets the template environment map (`ModelFolder::environment_map`).
     pub(crate) metal_models: BTreeSet<ScopePath>,
-    /// Each player folder's parsed `settings.toml`, by folder path, as the deep pass found
-    /// them (`deep::ContentPass::settings`): the compiled players' table rows resolve from
-    /// them (`export_rows`).
+    /// Each player folder's settings, its `settings.toml` joined with its
+    /// `ingame_face.toml`'s keys, by folder path, as the deep pass found them
+    /// (`deep::ContentPass::settings`): the compiled players' table rows resolve from them
+    /// (`export_rows`).
     pub(crate) settings: BTreeMap<ScopePath, PlayerSettings>,
 }
 
@@ -1354,7 +1355,7 @@ pub(crate) fn plan_run(
                     &folder.path,
                     &folder.files,
                     None,
-                    folder.ingame_face,
+                    folder.ingame_face.is_some(),
                     &combined,
                     &export.common,
                     version.engine(),
@@ -1366,7 +1367,7 @@ pub(crate) fn plan_run(
                 refkit_body,
                 path: folder.path,
                 files: folder.files,
-                ingame_face: folder.ingame_face,
+                ingame_face: folder.ingame_face.is_some(),
                 engine: version.engine(),
                 combined,
             };
@@ -1832,8 +1833,12 @@ fn drop_gltf_folders(
         if !mapped.contains(&index) {
             continue;
         }
-        let models =
-            FolderModels::of_player_files(&folder.path, &folder.files, folder.ingame_face, engine);
+        let models = FolderModels::of_player_files(
+            &folder.path,
+            &folder.files,
+            folder.ingame_face.is_some(),
+            engine,
+        );
         // Named below the folder, as `xml_ignored_fox` names its file: two glTFs of one name
         // in different subfolders are two findings a member can tell apart.
         let mut files: Vec<String> = folder
@@ -2048,7 +2053,7 @@ fn kit_variant_model_messages(
 ) {
     let mut folders: Vec<(&ScopePath, Vec<Vec<&FileDescriptor>>)> = Vec::new();
     for player in mapped_players(export) {
-        if !leaves_out_kit_variants(engine, player.ingame_face, None) {
+        if !leaves_out_kit_variants(engine, player.ingame_face.is_some(), None) {
             continue;
         }
         let combined = combined_folders(export, player, engine, hand_weighted)
@@ -2714,7 +2719,7 @@ mod tests {
         // Under `ingame_face` his boots hold parts, and a shared boots folder is one
         // `boots.model`: neither has a `face.xml` to name the set.
         let report = plan(&[
-            ("Players/05 - A/ingame_face", 0),
+            ("Players/05 - A/ingame_face.toml", 0),
             ("Players/05 - A/boots_kit1.model", 8),
             ("Players/05 - A/boots_kit2.model", 8),
             ("Players/07 - B/Studs.boots", 0),
@@ -3262,7 +3267,7 @@ mod tests {
         // (`PreFoxPart`): a Common glTF of its stem beats the linked model, so the link
         // would load the glTF and the linker is dropped naming it.
         let files = [
-            ("Players/05 - A/ingame_face", 0),
+            ("Players/05 - A/ingame_face.toml", 0),
             ("Players/05 - A/kit_boots.fmdl", 16),
             ("Players/05 - A/body.fmdl.common", 0),
             ("Common/body.fmdl", 8),
@@ -3932,7 +3937,7 @@ mod tests {
         let export = resolved(
             "co Midcup Faces",
             &[
-                ("Players/05 - A/ingame_face", 0),
+                ("Players/05 - A/ingame_face.toml", 0),
                 ("Players/05 - A/torso.fmdl", 8),
                 ("Players/05 - A/glove_l.fmdl", 4),
                 ("Players/07 - B/boots.fmdl", 16),
@@ -3985,7 +3990,7 @@ mod tests {
 
         // The rerouted model is a boots part, so the link combines and Crocs takes no id.
         let report = plan(&[
-            ("Players/05 - A/ingame_face", 0),
+            ("Players/05 - A/ingame_face.toml", 0),
             ("Players/05 - A/torso.fmdl", 8),
             ("Players/05 - A/Crocs.boots", 0),
             shared,
@@ -4002,7 +4007,7 @@ mod tests {
         // The link alone loads Crocs as it is, under slot 05's exclusive id, he being its
         // one wearer; the player has no task.
         let report = plan(&[
-            ("Players/05 - A/ingame_face", 0),
+            ("Players/05 - A/ingame_face.toml", 0),
             ("Players/05 - A/Crocs.boots", 0),
             shared,
         ]);
@@ -4553,9 +4558,9 @@ mod tests {
             let team = resolved(
                 "co Midcup Faces",
                 &[
-                    ("Players/05 - A/ingame_face", 0),
+                    ("Players/05 - A/ingame_face.toml", 0),
                     ("Players/05 - A/skin.dds", 5),
-                    ("Players/07 - B/ingame_face", 0),
+                    ("Players/07 - B/ingame_face.toml", 0),
                     ("Players/07 - B/boots.fmdl", 16),
                     ("Players/07 - B/skin.dds", 5),
                 ],
@@ -4899,12 +4904,12 @@ mod tests {
         let export = resolved(
             "co Midcup Marked",
             &[
-                ("Players/05 - A/ingame_face", 0),
+                ("Players/05 - A/ingame_face.toml", 0),
                 ("Players/05 - A/kit_boots.model", 4),
                 ("Players/05 - A/x_gloveL.model", 2),
                 ("Players/05 - A/materials.mtl", 1),
                 ("Players/05 - A/Keeper.gloves", 0),
-                ("Players/07 - B/ingame_face", 0),
+                ("Players/07 - B/ingame_face.toml", 0),
                 ("Players/07 - B/x_gloveR.model", 2),
                 ("Players/07 - B/x_gloveR.mtl", 1),
                 ("Players/07 - B/Crocs.boots", 0),
@@ -4971,7 +4976,7 @@ mod tests {
         let export = resolved(
             "co Midcup Convert",
             &[
-                ("Players/05 - A/ingame_face", 0),
+                ("Players/05 - A/ingame_face.toml", 0),
                 ("Players/05 - A/boots.fmdl", 4),
                 ("Players/05 - A/boots.skl", 1),
                 ("Players/05 - A/x_gloveL.fmdl", 2),
@@ -5075,7 +5080,7 @@ mod tests {
         let export = resolved(
             "co Midcup Common",
             &[
-                ("Players/05 - A/ingame_face", 0),
+                ("Players/05 - A/ingame_face.toml", 0),
                 // Two spellings of one link: one part, its files read once.
                 ("Players/05 - A/kit_boots.model.common", 0),
                 ("Players/05 - A/kit_boots.model.common.txt", 0),
@@ -5299,7 +5304,7 @@ mod tests {
     /// slot 06 `legs.fmdl.common`. `metal_models` are the deep pass's metal models.
     fn common_fmdl_plan(extra: &[(&str, u64)], metal_models: &[&str]) -> PlanReport {
         let files = [
-            ("Players/05 - A/ingame_face", 0),
+            ("Players/05 - A/ingame_face.toml", 0),
             ("Players/05 - A/legs.fmdl.common", 0),
             ("Players/05 - A/hat.fmdl.common", 0),
             ("Players/06 - B/legs.fmdl.common", 0),
@@ -5950,7 +5955,7 @@ mod tests {
                 ("Common/legs.model", 7),
                 ("Common/legs.mtl", 1),
                 // Under `ingame_face` no model is face content.
-                ("Players/07 - C/ingame_face", 0),
+                ("Players/07 - C/ingame_face.toml", 0),
                 ("Players/07 - C/torso.model", 9),
                 ("Players/07 - C/torso.mtl", 1),
                 // Models named as gloves or boots, packed in his face beside nothing else.

@@ -379,9 +379,8 @@ TC-STR-08  GIVEN a shared folder no link file names, and one linked only by a pl
 TC-STR-09  GIVEN a player folder holding a file outside the allowlist
            WHEN it is checked with strict_file_type_check on, then off
            THEN file_type_disallowed is an Error dropping the folder, then an Info keeping it
-TC-STR-10  GIVEN two player folders marked with ingame_face and with ingame_face.txt
-           WHEN they are checked
-           THEN both markers are recognized alike and neither is reported as a disallowed file
+TC-STR-10  withdrawn: restated as TC-STR-20 (`plans/aesthetics_export/player_folders.md`), the
+           marker ingame_face.toml since step 0.0.1h and its old spellings reported
 TC-STR-11  GIVEN an ingame_face player folder that also holds face_high.fmdl, or a .face link
            WHEN it is checked
            THEN ingame_face_explicit_face_model is reported and that player folder is dropped
@@ -2498,16 +2497,8 @@ TC-BIN-30  GIVEN a Full /co/ export whose slot 05 carries fpc_on, and whose sett
                 value for the key and the inners, undershorts and taping as authored; the
                 Full one reports fpc_gloves_checkbox_winter_gloves for slot 05 (a face link
                 is no gloves ID), and the Midcup one reports no gloves finding
-TC-BIN-31  GIVEN a /co/ export whose slot 05 settings.toml holds facial_hair_type = 20 (PES 18
-                unmeasured: the field's 0 to 31; PES 21: 0 to 19), hunching_dribbling = 5
-                (PES 18: 1 to 3) and dribbling = 2 (PES 20 and 21 only), and in-game hair
-                (style = 4, color_red = 40)
-           WHEN it is compiled for PES 18, and for PES 21
-           THEN the PES 18 run reports settings_value_out_of_range for hunching_dribbling
-                alone, 71405's row has facial hair type 20, its patch holds
-                hunching_dribbling 1 and no dribbling key, no finding names dribbling; the
-                PES 21 run reports it for facial_hair_type alone and its row has facial hair
-                type 0; both runs' rows carry that hair; both exit 0
+TC-BIN-31  withdrawn: restated as TC-BIN-49 (`plans/aesthetics_export/player_folders.md`), the
+           face and hair keys read from ingame_face.toml since step 0.0.1h
 TC-BIN-32  GIVEN an installed pair (71405, 7), and a /co/ export whose slot 05 holds a
            boots.fmdl whose task fails and a settings.toml setting an appearance key and a
            motion key, and whose slot 06 holds a face model that compiles
@@ -2526,11 +2517,8 @@ TC-BIN-37  GIVEN multi-CPK mode, an installed 4cc_08_bins.cpk (the bins CPK) hol
            WHEN it is compiled for PES 21
            THEN the output bins CPK keeps 71423's row and pair as installed, and holds 71405's
                 rows from the export
-TC-BIN-38  GIVEN a Midcup /co/ export whose only player folder, slot 05, holds ingame_face and
-                a settings.toml setting boots_id = 12 and a facial hair type, and no model
-           WHEN it is compiled for PES 21
-           THEN the output CPK is written and holds the three player tables, with (71405, 12)
-                in BootsList.bin and 71405's appearance row from his settings.toml
+TC-BIN-38  withdrawn: restated as TC-BIN-48 (`plans/aesthetics_export/player_folders.md`), the
+           facial hair type read from ingame_face.toml since step 0.0.1h
 ```
 
 **Aesthetics patch and savefile**

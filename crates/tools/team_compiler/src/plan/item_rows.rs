@@ -1,6 +1,6 @@
 //! The compiled players' rows of the three Fox player tables (`team_compiler/pipeline.md`
 //! "Bins accumulation"), decided at planning: `PlayerAppearance.bin` from each folder's
-//! `settings.toml` (the template's when it has none), `BootsList.bin` and `GloveList.bin`
+//! `settings.toml` and `ingame_face.toml` (the template's for a file it has not), `BootsList.bin` and `GloveList.bin`
 //! by the resolution of `aesthetics_export/settings_toml.md`: the folder's own models or a
 //! link file take the ID a `Models` task emits them under once it commits, an authored
 //! stock ID is written as is, and else the marker or the coverage decides the default.
@@ -40,7 +40,7 @@ pub(crate) struct ItemRow {
 
 /// One compiled player's `PlayerAppearance.bin` row, as planning decides it: the writer
 /// builds it from `settings` (`PlayerSettings::appearance_row`), the folder's
-/// `settings.toml` or the template's when it has none; nothing of the installed row
+/// `settings.toml` and `ingame_face.toml` joined, the template's for a file it has not; nothing of the installed row
 /// survives. It is written whatever his tasks' outcomes.
 #[derive(Debug, PartialEq)]
 pub(crate) struct AppearanceRow {
@@ -73,8 +73,8 @@ pub(super) struct RowPlayer {
     pub(super) fpc: Option<FpcDirective>,
     /// The folder's name part, which a `write_names` export's `name = true` resolves to.
     pub(super) player_name: String,
-    /// The folder's parsed `settings.toml`; `None` when it has none (the row is the
-    /// template's).
+    /// The folder's settings, its `settings.toml` joined with its `ingame_face.toml`'s keys;
+    /// `None` when it holds neither file (the row is the template's).
     pub(super) settings: Option<PlayerSettings>,
 }
 

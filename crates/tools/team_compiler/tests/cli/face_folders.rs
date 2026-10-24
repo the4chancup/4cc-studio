@@ -37,12 +37,66 @@ pub(crate) fn assert_blank_face(entries: &BTreeMap<String, Vec<u8>>, path: &str)
     assert!(entries.contains_key(&fpkd), "{fpkd}");
 }
 
+// TC-STR-20
+#[test]
+fn the_marker_s_old_spellings_are_an_error_and_the_folder_compiles_as_without_it() {
+    let sandbox = Sandbox::new("face_marker_renamed");
+    let export = "exports/co Midcup Renamed";
+    for (slot, marker) in [
+        ("05 - A", "ingame_face.toml"),
+        ("06 - B", "ingame_face"),
+        ("07 - C", "ingame_face.txt"),
+    ] {
+        sandbox.write(&format!("{export}/Players/{slot}/{marker}"), b"");
+    }
+
+    // `check` and `compile` report alike: each old spelling on its file alone, no disallowed
+    // file, nothing on slot 05's `ingame_face.toml`.
+    for args in [&["check"][..], &["compile", "--no-deploy"][..]] {
+        let run = sandbox.run(&pes21_settings(&sandbox), args);
+        let lines = run.messages();
+        assert_eq!(run.exit_code(), 1, "{args:?}: {lines:#?}");
+        assert!(
+            lines.iter().any(|line| line
+                == "co Midcup Renamed: Error ingame_face_marker_renamed [DropFile] at \
+                    Players/06 - B/ingame_face ()"),
+            "{args:?}: {lines:#?}"
+        );
+        assert!(
+            lines.iter().any(|line| line
+                == "co Midcup Renamed: Error ingame_face_marker_renamed [DropFile] at \
+                    Players/07 - C/ingame_face.txt ()"),
+            "{args:?}: {lines:#?}"
+        );
+        for line in &lines {
+            assert!(
+                !line.contains("file_type_disallowed") && !line.contains("05 - A"),
+                "{args:?}: {lines:#?}"
+            );
+        }
+    }
+    let entries = cpk_entries(&sandbox.root.join("output/4cc_99_test.cpk"));
+    let paths: Vec<&str> = entries.keys().map(String::as_str).collect();
+    assert!(
+        paths.iter().all(|path| !path.contains("/face/real/71405/")),
+        "{paths:#?}"
+    );
+    assert_blank_face(
+        &entries,
+        "Asset/model/character/face/real/71406/#Win/face.fpk",
+    );
+    assert_blank_face(
+        &entries,
+        "Asset/model/character/face/real/71407/#Win/face.fpk",
+    );
+}
+
 // TC-MOD-16
 #[test]
 fn under_ingame_face_no_face_is_built_and_a_model_the_face_would_take_is_the_boots() {
     let sandbox = Sandbox::new("face_ingame_reroute");
     let player = "exports/co Midcup Ingame/Players/05 - A";
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(
         &format!("{player}/torso.fmdl"),
         &tracer_player_file("boots.fmdl"),
@@ -96,7 +150,7 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_combines_and_a_plain_one_
  {
     let sandbox = Sandbox::new("face_ingame_link");
     let export = "exports/co Midcup Linked";
-    sandbox.write(&format!("{export}/Players/05 - A/ingame_face"), b"");
+    sandbox.write(&format!("{export}/Players/05 - A/ingame_face.toml"), b"");
     sandbox.write(
         &format!("{export}/Players/05 - A/kit_boots.fmdl"),
         &tracer_player_file("boots.fmdl"),
@@ -153,7 +207,7 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_combines_and_a_plain_one_
 fn under_ingame_face_an_empty_face_subfolder_is_ignored() {
     let sandbox = Sandbox::new("face_ingame_empty_face");
     let player = "exports/co Midcup Empty/Players/05 - A";
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(
         &format!("{player}/boots.fmdl"),
         &tracer_player_file("boots.fmdl"),
@@ -258,7 +312,7 @@ fn a_face_file_in_a_folder_with_no_face_model_is_not_used_and_reported() {
         );
         sandbox.write(&format!("{export}/{player}/face_diff.bin"), &own);
     }
-    sandbox.write(&format!("{export}/Players/07 - B/ingame_face"), b"");
+    sandbox.write(&format!("{export}/Players/07 - B/ingame_face.toml"), b"");
     let validated = [
         "Info fmdl_weights_not_normalized [Keep] at Players/05 - A (file=boots.fmdl, count=1662)",
         "Info fmdl_weights_not_normalized [Keep] at Players/07 - B (file=boots.fmdl, count=1662)",

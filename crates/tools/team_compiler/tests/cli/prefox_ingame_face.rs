@@ -71,7 +71,7 @@ fn under_ingame_face_a_boots_link_beside_a_boots_model_merges_into_the_player_s_
     let sandbox = Sandbox::new("prefox_ingame_link");
     let export = "co Midcup Linked";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(&format!("{player}/kit_boots.model"), &card_model());
     sandbox.write(&format!("{player}/kit_boots.mtl"), &card_materials());
     sandbox.write(&format!("{player}/skin.dds"), &small_dds());
@@ -122,7 +122,7 @@ fn under_ingame_face_a_texture_only_the_combined_boots_folder_holds_supplies_his
     let sandbox = Sandbox::new("prefox_ingame_link_texture");
     let export = "co Midcup Linked";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(&format!("{player}/boots.model"), &card_model());
     // His own `.mtl` names `studs.dds`, which only the boots folder his link combines holds.
     sandbox.write(&format!("{player}/boots.mtl"), &materials("card", "studs"));
@@ -160,7 +160,7 @@ fn under_ingame_face_a_subfolder_part_s_texture_comes_before_the_combined_boots_
     let sandbox = Sandbox::new("prefox_ingame_subfolder_texture");
     let export = "co Midcup Linked";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(&format!("{player}/parts/boots.model"), &card_model());
     sandbox.write(&format!("{player}/parts/boots.mtl"), &card_materials());
     sandbox.write(&format!("{player}/parts/skin.dds"), &small_dds());
@@ -208,7 +208,7 @@ fn under_ingame_face_a_subfolder_s_texture_link_comes_before_the_root_s_texture_
     let sandbox = Sandbox::new("prefox_ingame_nested_texture_link");
     let export = "co Midcup Linked";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(
         &format!("{player}/jessie/boots.fmdl"),
         &tracer_model_renaming("boots.fmdl", &[("shirt.dds", "skin.dds")]),
@@ -277,7 +277,7 @@ fn under_ingame_face_boots_parts_defining_one_material_differently_leave_the_boo
     let sandbox = Sandbox::new("prefox_ingame_material");
     let export = "co Midcup Skin";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     for part in ["shirt", "socks"] {
         sandbox.write(&format!("{player}/{part}.model"), &card_naming("skin"));
         sandbox.write(&format!("{player}/{part}.mtl"), &materials("skin", part));
@@ -298,7 +298,7 @@ fn under_ingame_face_boots_parts_naming_one_bone_with_different_transforms_leave
     let sandbox = Sandbox::new("prefox_ingame_bone");
     let export = "co Midcup Bones";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     let mut moved = card();
     moved.bones[0].matrix[3] += 1.0;
     sandbox.write(&format!("{player}/shirt.model"), &card_model());
@@ -362,7 +362,7 @@ fn a_shared_boots_folder_holding_two_boots_models_is_written_as_one_merged_boots
 /// model, a `.mtl` of its stem and the texture.
 fn write_marked_slot_05(sandbox: &Sandbox, export: &str, gloves: &[(&str, &str)]) {
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     let parts = [("kit_boots", "boots")]
         .into_iter()
         .chain(gloves.iter().copied());
@@ -535,7 +535,7 @@ fn under_ingame_face_a_common_model_link_is_one_more_part_of_the_player_s_boots(
     let sandbox = Sandbox::new("prefox_ingame_common_boots");
     let export = "co Midcup Studs";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     let socks_model = card_naming("socks");
     sandbox.write(&format!("{player}/socks.model"), &socks_model);
     sandbox.write(&format!("{player}/socks.mtl"), &materials("socks", "skin"));
@@ -594,7 +594,7 @@ fn under_ingame_face_only_a_copied_common_mtl_names_a_common_texture_it_has_no_l
     let sandbox = Sandbox::new("prefox_ingame_common_unlinked");
     let export = "co Midcup Studs";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(&format!("{player}/socks.model"), &card_naming("socks"));
     // His own `.mtl` names `studs.dds`, which only `Common/` holds, through no texture link.
     sandbox.write(&format!("{player}/socks.mtl"), &materials("socks", "studs"));
@@ -624,7 +624,7 @@ fn under_ingame_face_a_copied_common_mtl_names_no_subfolder_texture() {
     let sandbox = Sandbox::new("prefox_ingame_common_subfolder_texture");
     let export = "co Midcup Studs";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(&format!("{player}/kit_boots.model.common"), b"");
     let common = format!("exports/{export}/Common");
     sandbox.write(&format!("{common}/kit_boots.model"), &card_naming("studs"));
@@ -650,7 +650,7 @@ fn under_ingame_face_a_copied_common_mtl_s_texture_resolves_in_its_own_directory
     let sandbox = Sandbox::new("prefox_ingame_common_mtl_nested");
     let export = "co Midcup Studs";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     // His own `studs.dds`, of other bytes than the Common one, shadows nothing: the copied
     // Common `.mtl` resolves where it is, never in his folder.
     sandbox.write(&format!("{player}/studs.dds"), &small_dds());
@@ -688,7 +688,7 @@ fn under_ingame_face_a_copied_root_common_mtl_s_texture_resolves_in_common() {
     let sandbox = Sandbox::new("prefox_ingame_common_mtl_root");
     let export = "co Midcup Studs";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     // His own `studs.dds`, of other bytes than the Common one, shadows nothing.
     sandbox.write(&format!("{player}/studs.dds"), &small_dds());
     sandbox.write(&format!("{player}/kit_boots.model.common"), b"");
@@ -720,7 +720,7 @@ fn under_ingame_face_common_links_are_copied_into_the_player_s_own_gloves_folder
     let sandbox = Sandbox::new("prefox_ingame_common_gloves");
     let export = "co Midcup Hands";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(&format!("{player}/glove_l.model.common"), b"");
     let right_model = card_naming("right");
     sandbox.write(&format!("{player}/glove_r.model"), &right_model);
@@ -818,7 +818,7 @@ fn under_ingame_face_fmdl_parts_are_converted_into_the_player_s_own_boots_and_gl
     let sandbox = Sandbox::new("prefox_ingame_fmdl");
     let export = "co Midcup Converted";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     // The tracer's hair as his boots, with its skeleton, the conversion's bind pose (the
     // tracer's boots have none), its right glove and the texture both name.
     sandbox.write(
@@ -907,7 +907,7 @@ fn under_ingame_face_a_common_fmdl_link_is_converted_into_the_player_s_own_boots
     let sandbox = Sandbox::new("prefox_ingame_common_fmdl");
     let export = "co Midcup Studs";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     // His own boots part, the tracer's right glove (`clean_model`), converted too: the card
     // head, bound to `sk_head` as the hair is but with another transform, would not merge with
     // the hair (`skl_merge_conflict`), nor would a second copy of the hair, whose `shirt`
@@ -972,7 +972,7 @@ fn under_ingame_face_a_left_out_boots_variant_that_does_not_parse_is_not_read() 
     let sandbox = Sandbox::new("prefox_ingame_variant_broken");
     let export = "co Midcup Variant Boots";
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(&format!("{player}/boots_kit1.model"), &card_model());
     sandbox.write(&format!("{player}/boots.mtl"), &card_materials());
     sandbox.write(&format!("{player}/skin.dds"), &small_dds());
@@ -1000,7 +1000,7 @@ fn under_ingame_face_a_left_out_boots_variant_that_does_not_parse_is_not_read() 
 /// `boots.model` and `boots.mtl` when `own_boots`.
 fn write_per_kit_common_link(sandbox: &Sandbox, export: &str, own_boots: bool) {
     let player = format!("exports/{export}/Players/05 - A");
-    sandbox.write(&format!("{player}/ingame_face"), b"");
+    sandbox.write(&format!("{player}/ingame_face.toml"), b"");
     sandbox.write(&format!("{player}/skin.dds"), &small_dds());
     if own_boots {
         sandbox.write(&format!("{player}/boots.model"), &card_model());

@@ -53,7 +53,7 @@
 //! folder and shared face folder (`face_diff_invalid`, `xml_dif_conflict`), but on PES 2015
 //! to 2017 not a `face_diff.bin` beside a member's `face.xml` holding a `<dif>`, which
 //! replaces it; each kit's `config.toml` (`kit_config_invalid`), each player's `settings.toml`
-//! (`settings_toml_invalid`), and each kit's and a team export's root `colors.txt`, one
+//! (`settings_toml_invalid`) and `ingame_face.toml` (`ingame_face_toml_invalid`), and each kit's and a team export's root `colors.txt`, one
 //! `color_entry_invalid` per line the file refuses (a referee export's is read by nothing).
 //!
 //! The model folders and `Common/`'s files are checked in parallel on the caller's rayon
@@ -99,7 +99,9 @@ use crate::user_face_xml::{
     self, Child, FaceFiles, UserFaceXml, XmlError, XmlFinding, names_file, reference, resolve,
 };
 use collar::collar_findings;
-use documents::{colors_findings, face_diff_findings, kit_config_findings, player_settings};
+use documents::{
+    colors_findings, face_diff_findings, kit_config_findings, player_ingame_face, player_settings,
+};
 use materials::{TextureSources, held_common, held_textures, texture_findings};
 use model::{MaterialRead, ModelKind, fired};
 use pairings::{material_finding, pairings, searched_common_mtls, used_names};
@@ -134,9 +136,11 @@ pub(crate) struct ContentPass {
     /// is hidden (`model_hidden_dropped`), which a `.common` link naming one is dropped with
     /// (`hidden_link_findings`).
     hidden_models: BTreeSet<ScopePath>,
-    /// Each player folder's parsed `settings.toml`, by folder path, which planning resolves
-    /// the compiled players' table rows from. A folder with no such file, or one that does
-    /// not parse (`settings_toml_invalid`, the file dropped), is not among them.
+    /// Each player folder's parsed `settings.toml` joined with its `ingame_face.toml`'s
+    /// keys, by folder path, which planning resolves the compiled players' table rows from.
+    /// A folder holding neither file is not among them; a file that does not parse
+    /// (`settings_toml_invalid`, the file dropped; `ingame_face_toml_invalid`, kept but
+    /// ignored) contributes nothing of its own.
     pub(crate) settings: BTreeMap<ScopePath, PlayerSettings>,
 }
 
@@ -208,7 +212,8 @@ impl KeptCommon {
 /// `version`, with the models among its files that carry hand weights and the FMDLs among
 /// them holding a metal material (`ContentPass`). The
 /// findings come in file order: each player folder's models, material sets and textures, then
-/// its face diff, its portrait and its `settings.toml`; then each shared folder's (faces with
+/// its face diff, its portrait, its `settings.toml` and its `ingame_face.toml`; then each
+/// shared folder's (faces with
 /// their face diff, boots, gloves), then `Common/`'s, then each collar's (a file directly in
 /// `Collars/`), then each `Portraits/` file with its slot's `portrait_conflict`, then each
 /// kit's `config.toml`, `colors.txt` and textures, then the logo's, then the root
@@ -274,7 +279,7 @@ pub(crate) fn content_findings(
                 &player.path,
                 &player.files,
                 None,
-                player.ingame_face,
+                player.ingame_face.is_some(),
                 &combined,
                 engine,
             );
@@ -448,30 +453,38 @@ pub(crate) fn content_findings(
                     engine,
                 ));
             }
-            match player_settings(content, player) {
-                Ok(settings) => {
-                    if let Some(mut settings) = settings {
-                        // The parser bounds a value to the key's widest range; the compile
-                        // target's own is narrower. Each value past it resets to the key's
-                        // default here, one finding apiece, so `check` and `compile` report
-                        // alike and planning sees the row's values (`settings_toml.md`).
-                        for reset in settings.narrow_to(version) {
-                            findings.push(ContentFinding {
-                                code: Code::SettingsValueOutOfRange.as_str(),
-                                scope: IssueScope::Folder(player.path.clone()),
-                                context: vec![
-                                    ("key", reset.key),
-                                    ("value", reset.value.to_string()),
-                                    ("range", reset.range),
-                                ],
-                                disposition: Disposition::Keep,
-                                pass_through_eligible: false,
-                            });
-                        }
-                        pass.settings.insert(player.path.clone(), settings);
-                    }
+            // The player's settings are his `settings.toml`'s joined with his
+            // `ingame_face.toml`'s keys: one file refused leaves the other applied.
+            let mut settings = match player_settings(content, player) {
+                Ok(settings) => settings.unwrap_or_default(),
+                Err(finding) => {
+                    findings.push(finding);
+                    PlayerSettings::default()
                 }
+            };
+            match player_ingame_face(content, player) {
+                Ok(face) => settings.set_ingame_face(face.unwrap_or_default()),
                 Err(finding) => findings.push(finding),
+            }
+            if player.settings.is_some() || player.ingame_face.is_some() {
+                // The parser bounds a value to the key's widest range; the compile
+                // target's own is narrower. Each value past it resets to the key's
+                // default here, one finding apiece, so `check` and `compile` report
+                // alike and planning sees the row's values (`settings_toml.md`).
+                for reset in settings.narrow_to(version) {
+                    findings.push(ContentFinding {
+                        code: Code::SettingsValueOutOfRange.as_str(),
+                        scope: IssueScope::Folder(player.path.clone()),
+                        context: vec![
+                            ("key", reset.key),
+                            ("value", reset.value.to_string()),
+                            ("range", reset.range),
+                        ],
+                        disposition: Disposition::Keep,
+                        pass_through_eligible: false,
+                    });
+                }
+                pass.settings.insert(player.path.clone(), settings);
             }
             pass
         })
@@ -850,7 +863,7 @@ impl<'a> FaceUse<'a> {
         player: &PlayerFolder,
         combined: &[(SharedKind, &'a SharedModelFolder)],
     ) -> FaceUse<'a> {
-        if player.ingame_face {
+        if player.ingame_face.is_some() {
             return FaceUse::Unused;
         }
         let linked_face = combined
@@ -1704,7 +1717,7 @@ mod tests {
     }
 
     /// `findings_for`'s whole pass, the weighted FMDLs with the findings.
-    fn pass_for(
+    pub(super) fn pass_for(
         version: PesVersion,
         root: &Path,
         files: &[(&str, Vec<u8>)],
@@ -2554,7 +2567,7 @@ mod tests {
         assert_eq!(
             slot_05_findings(
                 "deep_xml_marked",
-                &[("ingame_face", Vec::new()), ("face.xml", xml.clone())]
+                &[("ingame_face.toml", Vec::new()), ("face.xml", xml.clone())]
             ),
             []
         );

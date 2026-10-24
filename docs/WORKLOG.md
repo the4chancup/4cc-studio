@@ -21,8 +21,8 @@ coverage table and draft, the DBC7 ruleset).
 pitch as the game's, 8.9g and 8.9i; next its slice 4, the AATF panel with the rules file's
 choice, Validate rules and Save a copy, then the comparator and transplant; 8.9f's slice 4 and
 8.9h wait on the maintainer's v2 ruling), `libs/aatf`'s hardening (the repetition rework done and
-reviewed; an audit step next), `ingame_face.toml` (0.0.1h: planned and reviewed, slice 1
-done, slice 2 the switch next), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+reviewed; an audit step next), `ingame_face.toml` (0.0.1h: slices 1 and 2 done, the compiler
+and the upgrader on the new file, their review next, then slice 3, the Save editor), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
@@ -1657,13 +1657,30 @@ briefs, review loops, gates and mutation runs as for any step.
     `AppearanceDocument`, the template pinned by the lead's fixture; lead fix: the variants
     renamed rather than a clippy opt-out (`settings_toml/{document,keys,mod}.rs`, its tests,
     `team_toml/player/mod.rs`). Its review (checkpoint b) rides with slice 2's
-  - [ ] slice 2, the switch, one commit, since a `settings.toml` without the keys and an
+  - [x] slice 2, the switch, one commit, since a `settings.toml` without the keys and an
     upgrader still writing them (or a compiler refusing what the upgrader writes) is a broken
     main: `settings.toml` loses the keys, `aesthetics_export` takes the file as
     `PlayerFolder.ingame_face` and reports the old spellings, the compiler's two codes and its
     Fox rows from both files, the Export upgrader writing the file where the marker was,
     filled at step 8 (TC-STR-18 to 20, TC-BIN-47 to 49, EU-PLY-21 and 22, EU-SET-10 and 11,
-    the marker scenarios renamed)
+    the marker scenarios renamed). Two SWE-2 passes in one session (2a 38 min, 2b 13 min),
+    one commit: `settings.toml`'s walks skip the moved keys and name them by their new file's
+    path; `MetadataFile::IngameFaceToml`, `Marker::OldIngameFace` reported at a folder's
+    direct position (`ingame_face_marker_renamed`, structure code, the file dropped); the deep
+    pass joins both files before narrowing (`ingame_face_toml_invalid` keeps the file, ignores
+    its keys); step 8 fills the file, which supersedes the empty marker at the same path. The
+    replaced scenarios withdrawn in the spec. Lead: the `settings.toml` template fixture, two
+    comments (`pes_savefile` `settings_toml/`, `aesthetics_export` `conventions/file_types.rs`,
+    `validate/`, `team_compiler` `deep/`, `messages/`, `help/01_command_line.md`,
+    `export_upgrader` `players.rs`, `settings.rs`, `upgrade.rs`, their tests)
+  - [x] review of slices 1 and 2 (checkpoint b: a new `pub` interface over four crates): a
+    SWE-2 loop, then Astra, then SWE-2. Mutants: slice 1 23 of 23 caught, slice 2 36 caught,
+    5 unviable. S1 (two halves): 2 accepted (doc comments stating the one-file settings, the
+    help on the old names). Astra A1: 2 accepted (a unit test citing TC-STR-20,
+    `settings_toml_invalid` saying the defaults replace the in-game face). S2 (two halves): 2
+    accepted (five more one-file doc comments; the upgrader's old-spelling test written three
+    times, now `classify`'s `Marker::OldIngameFace`); every fix the lead's, amended into slice
+    2's commit; the loop ends (rulings `.tmp/0_0_1h/rulings.md`)
   - [ ] slice 3, the Save editor: the generation split, its "Generate in-game face" action
     landing with the view's generation (SE-GUI-19's slice; SE-GUI-33, 34)
   - [ ] the spec moved for what landed (the plan section's closing paragraph names the

@@ -9,7 +9,7 @@
 //! - one of the four names again inside one of them (`face/face/`) is the
 //!   refused layout once more: reported, the folder left as it was;
 //! - either `ingame_face` spelling that lands at the root becomes the one
-//!   bare marker, as for a team's player folder (step 9);
+//!   `ingame_face.toml`, as for a team's player folder (step 9);
 //! - a `common/` model no `face.xml` of the folder names is reported and left
 //!   out (decision (4));
 //! - one name in two locations is copied once when the bytes agree and is a
@@ -20,7 +20,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use aesthetics_export::{FileKind, classify};
+use aesthetics_export::{FileKind, Marker, classify};
 use studio_core::{Disposition, Message, Scope};
 
 use crate::carried::under;
@@ -229,7 +229,9 @@ fn flatten(
     let mut groups: BTreeMap<String, Vec<&Placed>> = BTreeMap::new();
     for file in &placed {
         let folded = vtree::fold_name(file.target);
-        if !file.target.contains('/') && (folded == "ingame_face" || folded == "ingame_face.txt") {
+        if !file.target.contains('/')
+            && classify(file.target) == FileKind::Marker(Marker::OldIngameFace)
+        {
             marker = true;
         } else if vtree::fold_name(file.origin) == "common"
             && matches!(classify(file.file_name()), FileKind::Model(_))
@@ -266,7 +268,8 @@ fn flatten(
         copies.sort();
         plan.copies.extend(copies);
         if marker {
-            plan.markers.push(format!("Players/{name}/ingame_face"));
+            plan.markers
+                .push(format!("Players/{name}/ingame_face.toml"));
         }
         plan.findings.extend(unnamed_models);
         return;
@@ -645,7 +648,7 @@ mod tests {
             ],
             &[],
         );
-        assert_eq!(plan.markers, ["Players/a/ingame_face"]);
+        assert_eq!(plan.markers, ["Players/a/ingame_face.toml"]);
         assert_eq!(
             plan.copies,
             pairs(&[("Players/a/boots/boots.fmdl", "Players/a/boots.fmdl")])

@@ -1,5 +1,6 @@
 //! `PlayerSettings`: the model behind the export format's `settings.toml`
-//! files — every authorable aesthetic setting of a player, as stored values
+//! and `ingame_face.toml` files — every authorable aesthetic setting of a
+//! player, as stored values
 //! (`Option` throughout: `apply` writes a `None` key's default,
 //! `apply_appearance` leaves the savefile field untouched), `keys`'s table
 //! behind every setting, and `document`'s parse, emit and in-place update
@@ -442,8 +443,10 @@ pub struct IngameFaceSettings {
 /// `settings_value_out_of_range` reports.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct NarrowedValue {
-    /// The key's dotted TOML path (`appearance.face.facial_hair_type`; a
-    /// top-level key is just its name).
+    /// The key's dotted TOML path in the file that holds it
+    /// (`appearance.motion.dribbling` in `settings.toml`,
+    /// `face.facial_hair_type` in `ingame_face.toml`; a top-level key is just
+    /// its name).
     pub key: String,
     /// The value as the file wrote it: the TOML number (a one-based
     /// motion's stored 4 reports its shown 5).
@@ -902,7 +905,7 @@ impl PlayerSettings {
         let spec = key.spec();
         if !spec.kind.accepts_stored(value) {
             return Err(SettingsError::OutOfRange {
-                key: dotted(&spec),
+                key: dotted(key),
                 value: i64::from(value),
                 range: range_text(spec.kind),
             });
@@ -983,7 +986,7 @@ impl PlayerSettings {
                 let spec = key.spec();
                 if !spec.kind.accepts_stored(value) {
                     return Err(SettingsError::OutOfRange {
-                        key: dotted(&spec),
+                        key: dotted(key),
                         value: i64::from(value),
                         range: range_text(spec.kind),
                     });
@@ -1072,7 +1075,7 @@ impl PlayerSettings {
                 continue;
             }
             narrowed.push(NarrowedValue {
-                key: dotted(&spec),
+                key: dotted(key),
                 value: toml_form(key, stored, false)
                     .expect("inside the widest range, checked above")
                     .as_integer()
@@ -1100,13 +1103,13 @@ impl PlayerSettings {
         match appearance.skin_color {
             fpc::SkinColor::Preset => {
                 if self.appearance.skin_color == Some(7) {
-                    overridden.push(dotted(&SettingKey::SkinColor.spec()));
+                    overridden.push(dotted(SettingKey::SkinColor));
                     self.appearance.skin_color = Some(1);
                 }
             }
             fpc::SkinColor::Custom => {
                 if self.appearance.skin_color.is_some_and(|set| set != 7) {
-                    overridden.push(dotted(&SettingKey::SkinColor.spec()));
+                    overridden.push(dotted(SettingKey::SkinColor));
                 }
                 self.appearance.skin_color = Some(7);
             }
@@ -1126,7 +1129,7 @@ impl PlayerSettings {
             ),
         ] {
             if self.get(key).is_some_and(|set| set != value) {
-                overridden.push(dotted(&key.spec()));
+                overridden.push(dotted(key));
             }
             set_appearance(&mut self.appearance, key, Some(value));
         }

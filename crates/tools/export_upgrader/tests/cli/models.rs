@@ -179,14 +179,16 @@ fn each_input_folder_is_migrated_and_its_destination_reported() {
             .exists()
     );
     assert_eq!(
-        fs::read(sandbox.path("new models upgraded/Snuffy/ingame_face")).unwrap(),
+        fs::read(sandbox.path("new models upgraded/Snuffy/ingame_face.toml")).unwrap(),
         b""
     );
-    assert!(
-        !sandbox
-            .path("new models upgraded/Snuffy/ingame_face.txt")
-            .exists()
-    );
+    for name in ["ingame_face", "ingame_face.txt"] {
+        assert!(
+            !sandbox
+                .path(&format!("new models upgraded/Snuffy/{name}"))
+                .exists()
+        );
+    }
     // The member `face.xml`'s own-model `path` gets the kit magic too, and
     // its renamed model and the untouched one are both written.
     let xml = fs::read_to_string(sandbox.path("new models upgraded/Snuffy/face.xml")).unwrap();

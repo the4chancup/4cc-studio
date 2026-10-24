@@ -236,6 +236,7 @@ pub const ISSUE_CODES: &[&str] = &[
     "link_target_dropped",
     "shared_folder_orphaned",
     "fpc_conflict",
+    "ingame_face_marker_renamed",
     "ingame_face_explicit_face_model",
     "texture_stem_conflict",
     "fmdl_name_invalid",

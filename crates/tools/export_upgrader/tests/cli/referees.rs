@@ -335,9 +335,9 @@ fn a_referee_s_references_name_his_flattened_files_and_a_common_one_is_linked() 
     assert_eq!(run.exit_code(), 0, "{}", run.stdout());
 }
 
-// EU-PLY-04
+// EU-PLY-22
 #[test]
-fn either_ingame_face_spelling_in_a_referee_folder_becomes_one_bare_marker() {
+fn either_ingame_face_spelling_in_a_referee_folder_becomes_ingame_face_toml() {
     let sandbox = Sandbox::new("ref_ingame");
     referee_export(&sandbox);
     sandbox.write(
@@ -351,20 +351,19 @@ fn either_ingame_face_spelling_in_a_referee_folder_becomes_one_bare_marker() {
     let run = upgrade(&sandbox, "refs Spring");
     for referee in ["Players/arbiter", "Players/eiki"] {
         let folder = format!("refs Spring upgraded/{referee}");
+        // A referee export has no record to fill it with: the file is empty.
         assert_eq!(
-            fs::read(sandbox.path(&format!("{folder}/ingame_face"))).unwrap(),
+            fs::read(sandbox.path(&format!("{folder}/ingame_face.toml"))).unwrap(),
             b"",
             "{referee}: {}",
             run.stdout()
         );
-        assert!(
-            !sandbox.path(&format!("{folder}/ingame_face.txt")).exists(),
-            "{referee}"
-        );
-        assert!(
-            !sandbox.path(&format!("{folder}/face")).exists(),
-            "{referee}"
-        );
+        for name in ["ingame_face", "ingame_face.txt", "face"] {
+            assert!(
+                !sandbox.path(&format!("{folder}/{name}")).exists(),
+                "{referee}/{name}"
+            );
+        }
     }
 }
 

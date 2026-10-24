@@ -6,18 +6,24 @@
 use super::*;
 use crate::schema::limits::face_type_cap;
 
+/// A settings whose in-game face is `text`'s, as `ingame_face.toml` holds it.
+fn with_face(text: &str) -> PlayerSettings {
+    let mut settings = PlayerSettings::default();
+    settings.set_ingame_face(IngameFaceSettings::parse(text).expect("parses"));
+    settings
+}
+
 /// PES 16's measured facial-hair cap is 12; a parsed 15 (inside the widest
-/// 31) narrows to the face type's default 0 and reports the dotted key, the
-/// written 15 and the target's "0 to 12".
+/// 31) narrows to the face type's default 0 and reports the
+/// `ingame_face.toml` key, the written 15 and the target's "0 to 12".
 #[test]
 fn a_face_type_over_the_target_s_cap_resets_to_0_and_reports() {
-    let mut settings = PlayerSettings::parse("[appearance.face]\nfacial_hair_type = 15\n")
-        .expect("inside the widest range");
+    let mut settings = with_face("[face]\nfacial_hair_type = 15\n");
     let narrowed = settings.narrow_to(PesVersion::Pes16);
     assert_eq!(
         narrowed,
         [NarrowedValue {
-            key: "appearance.face.facial_hair_type".to_string(),
+            key: "face.facial_hair_type".to_string(),
             value: 15,
             range: "0 to 12".to_string(),
         }]
@@ -35,13 +41,12 @@ fn an_unmeasured_cap_is_the_fields_bits() {
         (PesVersion::Pes19, false),
         (PesVersion::Pes16, true),
     ] {
-        let mut settings = PlayerSettings::parse("[appearance.face]\ncheek_type = 5\n")
-            .expect("inside the widest range");
+        let mut settings = with_face("[face]\ncheek_type = 5\n");
         if narrowed {
             assert_eq!(
                 settings.narrow_to(version),
                 [NarrowedValue {
-                    key: "appearance.face.cheek_type".to_string(),
+                    key: "face.cheek_type".to_string(),
                     value: 5,
                     range: "0 to 3".to_string(),
                 }],
@@ -121,9 +126,7 @@ fn a_custom_skin_resets_only_where_the_target_lacks_one() {
 fn a_value_inside_the_target_s_range_is_untouched() {
     for version in [PesVersion::Pes18, PesVersion::Pes21] {
         let cap = face_type_cap(version, IngameFaceField::FacialHairType).expect("a face type");
-        let mut settings =
-            PlayerSettings::parse(&format!("[appearance.face]\nfacial_hair_type = {cap}\n"))
-                .expect("inside the widest range");
+        let mut settings = with_face(&format!("[face]\nfacial_hair_type = {cap}\n"));
         assert_eq!(settings.narrow_to(version), [], "{version:?}");
         assert_eq!(settings.get(SettingKey::FacialHairType), Some(cap));
     }
