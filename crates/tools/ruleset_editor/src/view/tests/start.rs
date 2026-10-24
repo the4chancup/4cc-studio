@@ -309,13 +309,10 @@ fn the_start_modal_scrolls_when_it_outgrows_the_screen() {
     let frame = window.draw(&mut view, &ctx);
     let close = node(&frame.nodes, "Close");
     let over_x = centre(close).x;
-    let last_recent = node(&frame.nodes, "recent_9.rhai");
     assert!(
-        close.bounds().expect("drawn").y1 > 500.0
-            || last_recent.bounds().expect("drawn").y1 > 500.0,
-        "premise: the modal is taller than the screen (Close {:?}, last recent file {:?})",
-        close.bounds(),
-        last_recent.bounds()
+        close.bounds().expect("drawn").y1 > 500.0,
+        "premise: the modal is taller than the screen (Close {:?})",
+        close.bounds()
     );
 
     // A vertical wheel scroll over the modal brings Close inside the

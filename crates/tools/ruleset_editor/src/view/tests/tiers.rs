@@ -20,6 +20,28 @@ fn template(name: &str) -> Ruleset {
         .ruleset
 }
 
+/// A fresh context, headless window and view with `ruleset` opened on
+/// the Tiers section, `wide` for a 1600 by 900 window: wide enough
+/// that the last column's ✕ (and the cells' controls) is inside the
+/// visible area.
+fn tiers_view(
+    ruleset: Ruleset,
+    wide: bool,
+) -> (
+    ToolContext,
+    Receiver<PipelineEventEnvelope>,
+    Headless,
+    RulesetView,
+) {
+    let (ctx, events, mut window, mut view) = fresh();
+    if wide {
+        window = Headless::sized(1600.0, 900.0);
+    }
+    open_document(&mut view, ruleset);
+    view.section = Section::Tiers;
+    (ctx, events, window, view)
+}
+
 /// The document's ruleset.
 fn ruleset(view: &RulesetView) -> &Ruleset {
     &view.document.as_ref().expect("a document").ruleset
@@ -101,12 +123,8 @@ fn type_chars(window: &mut Headless, view: &mut RulesetView, ctx: &ToolContext, 
 /// through its SpinButton: the ruleset equals the official ruleset
 /// with `edit` alone applied.
 fn edit_spin(index: usize, text: &str, edit: impl Fn(&mut aatf::Tier), name: &str) {
-    let (ctx, _events, _window, mut view) = fresh();
-    // The window is wide enough that every numeric cell is inside the
-    // visible area (a click off it reaches nothing).
-    let mut window = Headless::sized(1600.0, 900.0);
-    open_document(&mut view, aatf::Rules::official().ruleset().clone());
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(aatf::Rules::official().ruleset().clone(), true);
     let frame = settled(&mut window, &mut view, &ctx);
     let spins = spins_on_row(&frame.nodes, "gold");
     assert_eq!(spins.len(), 10, "the gold row's ten numeric cells");
@@ -386,9 +404,7 @@ fn a_shared_tier_id_marks_the_rail_and_blocks_save() {
 // RE-GUI-06
 #[test]
 fn the_medal_checkbox_moves_a_tier_into_and_out_of_the_systems() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, template("DBC7"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
     let dbc7_systems = ruleset(&view).medal_systems.clone();
 
     let frame = settled(&mut window, &mut view, &ctx);
@@ -530,9 +546,7 @@ fn deleting_a_tier_the_custom_checks_read_blocks_save() {
 /// (the scenarios never rename a counted tier's id).
 #[test]
 fn the_id_edit_carries_the_tiers_medal_keys() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, template("DBC7"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
 
     click_role(&mut window, &mut view, &ctx, Role::TextInput, "gold");
     type_replacing(&mut window, &mut view, &ctx, "royal");
@@ -563,9 +577,7 @@ fn the_id_edit_carries_the_tiers_medal_keys() {
 /// keystroke after it, to `gold2`).
 #[test]
 fn the_id_commits_once_and_carries_the_medal_keys() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, template("DBC7"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
 
     // Silver's id selected and `gold2` typed one character per frame;
     // Enter commits it.
@@ -609,9 +621,7 @@ fn the_id_commits_once_and_carries_the_medal_keys() {
 /// committed as `royal` moves none either (another tier carries `gold`).
 #[test]
 fn an_ambiguous_id_commit_renames_the_tier_alone() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, template("DBC7"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
     let dbc7_systems = ruleset(&view).medal_systems.clone();
 
     // Silver's id committed as `gold`: two tiers share it, the rail
@@ -665,9 +675,7 @@ fn an_ambiguous_id_commit_renames_the_tier_alone() {
 /// Alt+Tab).
 #[test]
 fn an_id_edit_survives_the_window_losing_focus() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, template("DBC7"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
 
     // Silver's id selected and `royal` typed, not committed.
     click_role(&mut window, &mut view, &ctx, Role::TextInput, "silver");
@@ -694,12 +702,7 @@ fn an_id_edit_survives_the_window_losing_focus() {
 /// one's to take.
 #[test]
 fn removing_a_tier_under_a_shared_id_keeps_the_counts() {
-    let (ctx, _events, _window, mut view) = fresh();
-    // The window is wide enough that the last column's ✕ is inside
-    // the visible area.
-    let mut window = Headless::sized(1600.0, 900.0);
-    open_document(&mut view, template("DBC7"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), true);
     let dbc7_systems = ruleset(&view).medal_systems.clone();
 
     // "+ Add tier", its id committed as `gold` (a duplicate).
@@ -730,12 +733,7 @@ fn removing_a_tier_under_a_shared_id_keeps_the_counts() {
 /// A tier's ✕ drops its key from every medal system's counts.
 #[test]
 fn removing_a_tier_drops_its_medal_keys() {
-    let (ctx, _events, _window, mut view) = fresh();
-    // The window is wide enough that the last column's ✕ is inside the
-    // visible area.
-    let mut window = Headless::sized(1600.0, 900.0);
-    open_document(&mut view, template("DBC7"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), true);
 
     // The first row's ✕ (the tiers' ✕s sit above the systems' own).
     let frame = settled(&mut window, &mut view, &ctx);
@@ -752,8 +750,7 @@ fn removing_a_tier_drops_its_medal_keys() {
 /// (`DECISIONS.md` 2026-10-24).
 #[test]
 fn a_per_stat_checkbox_adds_and_removes_the_stats_entry() {
-    let (ctx, _events, mut window, mut view) = fresh_blank();
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(crate::document::blank(), false);
 
     // Blank's one tier's expander, opened; "Dribbling" ticked, then
     // unticked.
@@ -788,9 +785,8 @@ fn a_per_stat_checkbox_adds_and_removes_the_stats_entry() {
 /// (`DECISIONS.md` 2026-10-24).
 #[test]
 fn a_free_count_of_zero_removes_the_groups_entry() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, aatf::Rules::official().ruleset().clone());
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(aatf::Rules::official().ruleset().clone(), false);
 
     // The regular tier's expander (the last "Stat targets…" header):
     // its free Tricks count set to 0 removes the entry.
@@ -821,15 +817,11 @@ fn a_free_count_of_zero_removes_the_groups_entry() {
 /// last two digits; the draft's `colour`).
 #[test]
 fn a_name_colour_pick_keeps_the_alpha() {
-    let (ctx, _events, _window, mut view) = fresh();
-    // The window is wide enough that the name-colour field is inside
-    // the visible area.
-    let mut window = Headless::sized(1600.0, 900.0);
-    open_document(&mut view, aatf::Rules::official().ruleset().clone());
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(aatf::Rules::official().ruleset().clone(), true);
     edit_ruleset(&mut view, |ruleset| {
         ruleset.tiers[0].name_color = Some("cc990080".to_string())
     });
-    view.section = Section::Tiers;
 
     // The picker's hex field takes "#112233": the written code keeps
     // the old alpha.
@@ -865,10 +857,7 @@ fn a_name_colour_pick_keeps_the_alpha() {
 /// scroll over a table that fits the window moves nothing.
 #[test]
 fn an_open_expander_adds_no_scroll_space() {
-    let (ctx, _events, _window, mut view) = fresh();
-    let mut window = Headless::sized(1600.0, 900.0);
-    open_document(&mut view, template("VTL11"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("VTL11"), true);
 
     // The first tier's expander opened and settled.
     let frame = settled(&mut window, &mut view, &ctx);
@@ -906,10 +895,7 @@ fn an_open_expander_adds_no_scroll_space() {
 /// own: a window the table just fits gets no scroll space from it.
 #[test]
 fn the_open_expanders_stat_grid_spans_the_table() {
-    let (ctx, _events, _window, mut view) = fresh();
-    let mut window = Headless::sized(1600.0, 900.0);
-    open_document(&mut view, template("VTL11"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("VTL11"), true);
 
     let frame = settled(&mut window, &mut view, &ctx);
     click_labeled(
@@ -959,10 +945,7 @@ fn the_open_expanders_stat_grid_spans_the_table() {
 /// table's left edge, the draft's colspan indent).
 #[test]
 fn the_expander_opens_indented_one_cell_minimum() {
-    let (ctx, _events, _window, mut view) = fresh();
-    let mut window = Headless::sized(1600.0, 900.0);
-    open_document(&mut view, template("VTL11"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("VTL11"), true);
 
     let frame = settled(&mut window, &mut view, &ctx);
     click_labeled(
@@ -988,9 +971,7 @@ fn the_expander_opens_indented_one_cell_minimum() {
 /// the fourth's on the first's row.
 #[test]
 fn the_stat_grid_lays_out_five_columns() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, template("VTL11"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("VTL11"), false);
 
     let frame = settled(&mut window, &mut view, &ctx);
     click_labeled(
@@ -1024,9 +1005,8 @@ fn the_stat_grid_lays_out_five_columns() {
 /// "Tier <N>", count 1, rate 80.
 #[test]
 fn add_tier_appends_the_drafts_new_tier() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, aatf::Rules::official().ruleset().clone());
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(aatf::Rules::official().ruleset().clone(), false);
     assert_eq!(
         ruleset(&view).tiers.len(),
         5,
@@ -1048,12 +1028,7 @@ fn add_tier_appends_the_drafts_new_tier() {
 /// tiers draw five.
 #[test]
 fn the_remove_button_sits_on_every_row_but_a_last_one() {
-    let (ctx, _events, _window, mut view) = fresh();
-    // The window is wide enough that the last column's ✕ is inside
-    // the visible area.
-    let mut window = Headless::sized(1600.0, 900.0);
-    open_document(&mut view, crate::document::blank());
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(crate::document::blank(), true);
     let frame = settled(&mut window, &mut view, &ctx);
     assert_count(&frame, Role::Button, "✕", 0);
 
@@ -1068,9 +1043,8 @@ fn the_remove_button_sits_on_every_row_but_a_last_one() {
 /// its own; a pick writes the id and clears the tier's `count`.
 #[test]
 fn the_counts_as_combo_picks_one_of_the_other_tiers() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, aatf::Rules::official().ruleset().clone());
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(aatf::Rules::official().ruleset().clone(), false);
 
     // The goalkeeper row's combo shows its `counts_as` tier's label.
     let frame = settled(&mut window, &mut view, &ctx);
@@ -1117,9 +1091,7 @@ fn the_counts_as_combo_picks_one_of_the_other_tiers() {
 /// `s.counts[t.id] = v`): DBC7's "GGSS" silver count keeps its key.
 #[test]
 fn a_medal_count_of_zero_keeps_the_tier_counted() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, template("DBC7"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
     assert_eq!(
         ruleset(&view).medal_systems[1].counts["silver"],
         2,
@@ -1146,9 +1118,8 @@ fn a_medal_count_of_zero_keeps_the_tier_counted() {
 /// zero case removes it — `map_number`'s two arms).
 #[test]
 fn a_free_count_writes_the_groups_entry() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, aatf::Rules::official().ruleset().clone());
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(aatf::Rules::official().ruleset().clone(), false);
 
     // The regular tier's expander (the last "Stat targets…" header):
     // its free Tricks count set to 3 writes the entry.
@@ -1176,9 +1147,7 @@ fn a_free_count_writes_the_groups_entry() {
 /// nothing yet.
 #[test]
 fn a_medal_system_is_removed_and_added() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, template("DBC7"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
 
     let frame = settled(&mut window, &mut view, &ctx);
     click_labeled(
@@ -1219,9 +1188,7 @@ fn a_medal_system_is_removed_and_added() {
 /// ticked again, the rest of the squad (`count: null`).
 #[test]
 fn the_rest_checkbox_writes_the_count() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, template("DBC7"));
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
     assert_eq!(
         ruleset(&view).tiers[2].count,
         None,
@@ -1238,12 +1205,8 @@ fn the_rest_checkbox_writes_the_count() {
 /// without a colour sets `cc9900ff`; unticked clears it.
 #[test]
 fn the_name_colour_checkbox_writes_the_default_code() {
-    let (ctx, _events, _window, mut view) = fresh();
-    // The window is wide enough that the name-colour cell is inside
-    // the visible area.
-    let mut window = Headless::sized(1600.0, 900.0);
-    open_document(&mut view, aatf::Rules::official().ruleset().clone());
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(aatf::Rules::official().ruleset().clone(), true);
     assert_eq!(
         ruleset(&view).tiers[0].name_color,
         None,
@@ -1279,9 +1242,8 @@ fn the_name_colour_checkbox_writes_the_default_code() {
 /// (the draft's `reorderable` makes the whole row a target).
 #[test]
 fn a_drop_on_the_label_field_reorders_the_tiers() {
-    let (ctx, _events, mut window, mut view) = fresh();
-    open_document(&mut view, aatf::Rules::official().ruleset().clone());
-    view.section = Section::Tiers;
+    let (ctx, _events, mut window, mut view) =
+        tiers_view(aatf::Rules::official().ruleset().clone(), false);
 
     let frame = settled(&mut window, &mut view, &ctx);
     let handles: Vec<&accesskit::Node> = nodes_labeled(&frame.nodes, "⠇")
@@ -1395,12 +1357,8 @@ fn each_tier_field_writes_to_its_own_binding() {
 
     // The stat-total checkbox on gold's row (the topmost of the five).
     {
-        let (ctx, _events, _window, mut view) = fresh();
-        // The window is wide enough that the cell is inside the
-        // visible area.
-        let mut window = Headless::sized(1600.0, 900.0);
-        open_document(&mut view, aatf::Rules::official().ruleset().clone());
-        view.section = Section::Tiers;
+        let (ctx, _events, mut window, mut view) =
+            tiers_view(aatf::Rules::official().ruleset().clone(), true);
         let frame = settled(&mut window, &mut view, &ctx);
         click(
             &mut window,
@@ -1420,9 +1378,8 @@ fn each_tier_field_writes_to_its_own_binding() {
     // A per-stat target's number (gold's "Attacking Prowess" own-target
     // checkbox ticked first).
     {
-        let (ctx, _events, mut window, mut view) = fresh();
-        open_document(&mut view, aatf::Rules::official().ruleset().clone());
-        view.section = Section::Tiers;
+        let (ctx, _events, mut window, mut view) =
+            tiers_view(aatf::Rules::official().ruleset().clone(), false);
         let frame = settled(&mut window, &mut view, &ctx);
         click_labeled(
             &mut window,
@@ -1460,12 +1417,8 @@ fn each_tier_field_writes_to_its_own_binding() {
     // The name colour's code text (gold's colour checkbox ticked
     // first, giving it the default).
     {
-        let (ctx, _events, _window, mut view) = fresh();
-        // The window is wide enough that the name-colour cell is
-        // inside the visible area.
-        let mut window = Headless::sized(1600.0, 900.0);
-        open_document(&mut view, aatf::Rules::official().ruleset().clone());
-        view.section = Section::Tiers;
+        let (ctx, _events, mut window, mut view) =
+            tiers_view(aatf::Rules::official().ruleset().clone(), true);
         let frame = settled(&mut window, &mut view, &ctx);
         let checkboxes = nodes_labeled(&frame.nodes, "This tier's names carry a colour code")
             .into_iter()
@@ -1482,9 +1435,7 @@ fn each_tier_field_writes_to_its_own_binding() {
 
     // A medal system's label field on DBC7.
     {
-        let (ctx, _events, mut window, mut view) = fresh();
-        open_document(&mut view, template("DBC7"));
-        view.section = Section::Tiers;
+        let (ctx, _events, mut window, mut view) = tiers_view(template("DBC7"), false);
         click_role(&mut window, &mut view, &ctx, Role::TextInput, "GGG");
         type_replacing(&mut window, &mut view, &ctx, "Podium");
         let mut expected = template("DBC7");

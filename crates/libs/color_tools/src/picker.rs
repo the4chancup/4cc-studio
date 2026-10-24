@@ -563,18 +563,23 @@ fn popup_body(
     let mut channel_changed = false;
     let mut channel_focused = false;
     let mut channel_lost_focus = false;
-    let mut text_rect = hex_response.has_focus().then_some(hex_response.rect);
+    // Focus reads egui's memory, not `Response::has_focus`, which is also false
+    // while the window is unfocused: an Alt+Tab mid-edit would drop `text_rect`
+    // and `rgb_focused`, and with them the settle that commits the typed text.
+    let mut text_rect = ui
+        .memory(|memory| memory.has_focus(hex_id))
+        .then_some(hex_response.rect);
     ui.horizontal(|ui| {
         for (index, prefix) in ["R ", "G ", "B "].iter().enumerate() {
             let mut channel = channels[index];
             let response = ui.add(DragValue::new(&mut channel).speed(0.5).prefix(*prefix));
             channels[index] = channel;
             channel_changed |= response.changed();
-            channel_focused |= response.has_focus();
+            channel_focused |= ui.memory(|memory| memory.has_focus(response.id));
             channel_lost_focus |= response.lost_focus();
             // A field in text-editing mode is not a gesture control: clicks and
             // drag-selects inside it move the caret, not the color.
-            if response.has_focus() {
+            if ui.memory(|memory| memory.has_focus(response.id)) {
                 text_rect = Some(response.rect);
             } else {
                 down |= response.is_pointer_button_down_on();

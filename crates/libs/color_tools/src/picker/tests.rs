@@ -28,12 +28,34 @@ impl Headless {
         events: Vec<egui::Event>,
         contents: impl FnMut(&mut egui::Ui),
     ) -> Vec<accesskit::Node> {
+        self.run(events, true, contents)
+    }
+
+    /// One frame with the window unfocused (`focused` off in `RawInput`): an
+    /// Alt+Tab mid-edit.
+    fn unfocused_frame(
+        &mut self,
+        events: Vec<egui::Event>,
+        contents: impl FnMut(&mut egui::Ui),
+    ) -> Vec<accesskit::Node> {
+        self.run(events, false, contents)
+    }
+
+    /// Runs one frame with `events` as its input and `focused` as the window's
+    /// focus; returns the frame's AccessKit nodes.
+    fn run(
+        &mut self,
+        events: Vec<egui::Event>,
+        focused: bool,
+        contents: impl FnMut(&mut egui::Ui),
+    ) -> Vec<accesskit::Node> {
         let input = egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,
                 egui::vec2(800.0, 600.0),
             )),
             events,
+            focused,
             ..Default::default()
         };
         let mut output = self.ctx.run_ui(input, contents);
@@ -1482,21 +1504,74 @@ fn a_drag_after_a_typed_hex_commits_the_text_then_the_drag() {
     window.field(&mut color, &[], type_text("#00FF00"));
     assert_eq!(color, [255, 128, 0], "still uncommitted");
 
-    let rect = entry(&nodes, "saturation and value")
+    press_and_drag_on_the_square(&mut window, &mut color, &nodes, [0, 255, 0]);
+}
+
+/// Presses on the square drawn in `nodes`, drags and releases: the press
+/// commits the pending `typed` color, the release the dragged one.
+fn press_and_drag_on_the_square(
+    window: &mut Headless,
+    color: &mut [u8; 3],
+    nodes: &[accesskit::Node],
+    typed: [u8; 3],
+) {
+    let rect = entry(nodes, "saturation and value")
         .bounds()
         .expect("the square is drawn");
     let point = |x: f64, y: f64| egui::pos2((rect.x0 + x) as f32, (rect.y0 + y) as f32);
-    let (_, out) = window.field(&mut color, &[], pointer_at(point(30.0, 30.0), true));
-    assert!(out.changed, "the press commits the typed text");
-    assert_eq!(color, [0, 255, 0], "the typed color landed");
+    let (_, out) = window.field(color, &[], pointer_at(point(30.0, 30.0), true));
+    assert!(out.changed, "the press commits the typed color");
+    assert_eq!(*color, typed, "the typed color landed");
     window.field(
-        &mut color,
+        color,
         &[],
         vec![egui::Event::PointerMoved(point(80.0, 70.0))],
     );
-    let (_, out) = window.field(&mut color, &[], pointer_at(point(80.0, 70.0), false));
+    let (_, out) = window.field(color, &[], pointer_at(point(80.0, 70.0), false));
     assert!(out.changed, "the release commits again");
-    assert_ne!(color, [0, 255, 0], "the dragged color won");
+    assert_ne!(*color, typed, "the dragged color won");
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the window losing
+// focus mid-edit (an Alt+Tab) is not the field's focus loss: the press still
+// settles the typed text, then the drag runs — the same outputs as the sequence
+// with no unfocused frame.
+#[test]
+fn a_drag_after_a_typed_hex_through_a_window_focus_loss() {
+    let mut window = Headless::new();
+    let mut color = [255, 128, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+    window.field(&mut color, &[], type_text("#00FF00"));
+    assert_eq!(color, [255, 128, 0], "still uncommitted");
+
+    window.unfocused_frame(Vec::new(), |ui| {
+        color_field(ui, "field", &mut color, &[]);
+    });
+
+    press_and_drag_on_the_square(&mut window, &mut color, &nodes, [0, 255, 0]);
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": the same for a
+// typed channel value through the window's focus loss.
+#[test]
+fn a_drag_after_a_typed_channel_through_a_window_focus_loss() {
+    let mut window = Headless::new();
+    let mut color = [0, 0, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(spin_field(&nodes, "R ")), &mut color, &[]);
+    window.field(&mut color, &[], type_text("10"));
+    assert_eq!(color, [0, 0, 0], "the typed value is still pending");
+
+    window.unfocused_frame(Vec::new(), |ui| {
+        color_field(ui, "field", &mut color, &[]);
+    });
+
+    press_and_drag_on_the_square(&mut window, &mut color, &nodes, [10, 0, 0]);
 }
 
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the working hue
