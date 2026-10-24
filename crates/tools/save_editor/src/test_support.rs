@@ -58,6 +58,32 @@ pub(crate) fn tool_context(
     (ctx, events_rx, requests_rx)
 }
 
+/// The salt the written saves encrypt with (the CLI tests' own).
+pub(crate) const TEST_SALT: [u8; 320] = [7; 320];
+
+/// `save-editor <args>`'s stdout run in-process over `dir`: the run's
+/// events as `EventLines` writes them, newline-separated. The context is
+/// `tool_context`'s, so nothing reaches the developer's files.
+pub(crate) fn cli_stdout(dir: &Path, args: &[&str]) -> String {
+    let mut settings = studio_core::Settings::default();
+    settings.merge_defaults(crate::messages::TOOL_ID, &crate::settings::default_table());
+    let (ctx, events_rx, _requests_rx) = tool_context(dir, settings);
+    let matches = crate::cli::command()
+        .try_get_matches_from(std::iter::once("save-editor").chain(args.iter().copied()))
+        .expect("the arguments parse");
+    crate::cli::run(&matches, &ctx).expect("the command runs");
+    drop(ctx);
+    let mut lines = studio_core::EventLines::new();
+    let mut out = String::new();
+    for envelope in events_rx.iter() {
+        if let Some(line) = lines.line(&envelope.event) {
+            out.push_str(&line);
+            out.push('\n');
+        }
+    }
+    out
+}
+
 /// A `DpFileList.bin` listing `names` in load order: a 16-byte header whose second word is the
 /// count, then one 48-byte NUL-padded record per CPK.
 pub(crate) fn dp_file_list(names: &[&str]) -> Vec<u8> {

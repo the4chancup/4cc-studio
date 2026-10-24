@@ -1,7 +1,8 @@
 //! The comparator panel's tests (SE-GUI-13; `plans/save_editor.md`
 //! "Comparator (gameplay + aesthetics)"): the pick and its refusals, the
-//! rows in the tabs' terms, the scope toggles, the only-in heads, the
-//! click's selection and the `Comparing…` mark.
+//! rows in the tabs' terms, the scope toggles and the team filter, the
+//! only-in heads, the click's selection, the `Comparing…` mark and
+//! Export.
 
 use std::path::PathBuf;
 
@@ -9,9 +10,7 @@ use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 
 use super::*;
 
-/// The salt the picked saves the tests write encrypt with (the CLI tests'
-/// own).
-const TEST_SALT: [u8; 320] = [7; 320];
+use crate::test_support::{TEST_SALT, cli_stdout};
 
 /// The PES 17 fixture with `edit` applied, written under `dir` as `name`:
 /// the picked save the dialog stub returns.
@@ -22,6 +21,17 @@ fn picked_save(dir: &Path, name: &str, edit: impl FnOnce(&mut EditFile)) -> Path
     let path = dir.join(name);
     std::fs::write(&path, file.to_bytes(&TEST_SALT).expect("the save writes")).unwrap();
     path
+}
+
+/// The test's scratch folder: the one the open save was written to.
+fn scratch_of(view: &SaveView) -> PathBuf {
+    view.session
+        .as_ref()
+        .expect("an open save")
+        .path()
+        .parent()
+        .expect("the scratch dir")
+        .to_path_buf()
 }
 
 /// The comparator opened from the toolbar's Panels menu: the
@@ -51,6 +61,33 @@ fn pick(window: &mut Headless, view: &mut SaveView, path: PathBuf) {
         node_labeled(&nodes, Role::Button, "Pick\u{2026}"),
         view,
     );
+}
+
+/// `name` picked in the comparator's Team combo: the combo clicked, its
+/// popup's `name` item picked through the AccessKit action — a popup
+/// item's bounds sit outside the window, where a pointer click lands on
+/// nothing.
+fn pick_comparator_team(window: &mut Headless, view: &mut SaveView, name: &str) {
+    // A pick's popup can still be open on the next call's first frame
+    // (its close lands a frame after the item's action): click the combo
+    // only until `name`'s item is drawn — clicking while it is open
+    // closes it. Bounded, so a missing item fails rather than hangs.
+    for _ in 0..10 {
+        let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        if let Some((item, _)) = pairs
+            .iter()
+            .find(|(_, node)| node.role() == Role::Button && node.label() == Some(name))
+        {
+            action_click(window, view, *item);
+            return;
+        }
+        let combo = comparator_nodes(&pairs)
+            .into_iter()
+            .find(|node| node.role() == Role::ComboBox)
+            .expect("the Team combo");
+        click(window, combo, view);
+    }
+    panic!("the Team combo never showed {name:?}")
 }
 
 /// Frames until the comparison lands: `pending` empty and the result keyed
@@ -127,14 +164,7 @@ fn compared_73401(
     Vec<(accesskit::NodeId, accesskit::Node)>,
 ) {
     let (mut view, mut window) = open_734_with(test, &[73401], 183);
-    let dir = view
-        .session
-        .as_ref()
-        .unwrap()
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
+    let dir = scratch_of(&view);
     let picked = picked_save(&dir, "picked", |_| {});
     view.comparator.open = true;
     pick(&mut window, &mut view, picked);
@@ -194,14 +224,7 @@ fn scroll_to(
 #[test]
 fn the_panel_lists_the_differences_per_team_and_a_rows_click_selects() {
     let (mut view, mut window) = open_734_with("comparator_rows", &[73401], 183);
-    let dir = view
-        .session
-        .as_ref()
-        .unwrap()
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
+    let dir = scratch_of(&view);
     let picked = picked_save(&dir, "picked", |_| {});
     let pairs = open_comparator(&mut window, &mut view);
     assert!(
@@ -241,14 +264,7 @@ fn the_panel_lists_the_differences_per_team_and_a_rows_click_selects() {
 #[test]
 fn a_motion_row_reads_as_the_tab_shows_it() {
     let (mut view, mut window) = open_734_with("comparator_motion", &[], 183);
-    let dir = view
-        .session
-        .as_ref()
-        .unwrap()
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
+    let dir = scratch_of(&view);
     // The open save's 73401 free-kick motion stored 14 (the picked's
     // stored 0): the tab shows one above the stored.
     let mut entry = player_entry(&view, 73401);
@@ -270,14 +286,7 @@ fn a_motion_row_reads_as_the_tab_shows_it() {
 #[test]
 fn the_scope_toggles_narrow_the_rows() {
     let (mut view, mut window) = open_734_with("comparator_scopes", &[73401], 183);
-    let dir = view
-        .session
-        .as_ref()
-        .unwrap()
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
+    let dir = scratch_of(&view);
     // A gameplay row (height, through `open_734_with`) and an aesthetics
     // one (73401's boots id, 0 in the fixture).
     let mut entry = player_entry(&view, 73401);
@@ -405,14 +414,7 @@ fn an_edit_marks_the_held_list_comparing() {
 #[test]
 fn a_save_of_another_version_is_refused_naming_both() {
     let (mut view, mut window) = open_734_with("comparator_version", &[], 183);
-    let dir = view
-        .session
-        .as_ref()
-        .unwrap()
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
+    let dir = scratch_of(&view);
     let picked = picked_pes21(&dir);
     view.comparator.open = true;
     pick(&mut window, &mut view, picked);
@@ -442,14 +444,7 @@ fn a_save_of_another_version_is_refused_naming_both() {
 #[test]
 fn the_players_only_in_one_save_list_under_their_headings() {
     let (mut view, mut window) = open_734_with("comparator_only_in", &[], 183);
-    let dir = view
-        .session
-        .as_ref()
-        .unwrap()
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
+    let dir = scratch_of(&view);
     // As `tests/cli/diff.rs`'s `diff_pair`: one id renumbered out, so
     // 9_999_999 is in the picked save alone and 73410 in the open alone.
     let picked = picked_save(&dir, "picked", |file| {
@@ -667,14 +662,7 @@ fn a_stripped_players_mark_reads_beside_his_head() {
 #[test]
 fn a_refused_pick_clears_the_held_result() {
     let (mut view, mut window, _) = compared_73401("comparator_refusal_clears");
-    let dir = view
-        .session
-        .as_ref()
-        .unwrap()
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
+    let dir = scratch_of(&view);
     let picked = picked_pes21(&dir);
     pick(&mut window, &mut view, picked);
     let lines = window_lines(&mut window, &mut view, None, "Comparator");
@@ -697,14 +685,7 @@ fn a_refused_pick_clears_the_held_result() {
 #[test]
 fn a_repick_of_the_same_path_recompares() {
     let (mut view, mut window, _) = compared_73401("comparator_repick");
-    let dir = view
-        .session
-        .as_ref()
-        .unwrap()
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
+    let dir = scratch_of(&view);
     // The picked file rewritten on disk under the same path (the member
     // changed the reference in the game): a second edit lands.
     let picked = picked_save(&dir, "picked", |file| {
@@ -724,14 +705,7 @@ fn a_repick_of_the_same_path_recompares() {
 #[test]
 fn another_save_keeps_the_pick_and_recompares() {
     let (mut view, mut window, _) = compared_73401("comparator_reopen");
-    let dir = view
-        .session
-        .as_ref()
-        .unwrap()
-        .path()
-        .parent()
-        .expect("the scratch dir")
-        .to_path_buf();
+    let dir = scratch_of(&view);
     // A second save of the same version, carrying another edit: the pick
     // stays and the result is the new save's (a member compares several
     // saves against one reference).
@@ -777,5 +751,406 @@ fn another_save_keeps_the_pick_and_recompares() {
             .iter()
             .any(|line| line.starts_with("Player ") || line.starts_with("Team ")),
         "no rows: {lines:?}"
+    );
+}
+
+// SE-GUI-13
+#[test]
+fn the_team_filter_narrows_the_list_without_recomparing() {
+    let (mut view, mut window) = open_734_with("comparator_filter", &[73401], 183);
+    let dir = scratch_of(&view);
+    // A second team's edit: 74301's height (189 in the fixture) to 183.
+    let mut entry = player_entry(&view, 74301);
+    assert_eq!(entry.basic.height, 189, "premise: 74301's height");
+    entry.basic.height = 183;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_players(vec![entry]);
+    let picked = picked_save(&dir, "picked", |_| {});
+    view.comparator.open = true;
+    pick(&mut window, &mut view, picked);
+    compared(&mut window, &mut view);
+    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    assert!(
+        lines.iter().any(|line| line == "Team 734 /lit/"),
+        "premise: 734's heading under All: {lines:?}"
+    );
+    assert!(
+        lines.iter().any(|line| line == "Team 743 /pol/"),
+        "premise: 743's heading under All: {lines:?}"
+    );
+    let key = view
+        .comparator
+        .comparison
+        .result
+        .as_ref()
+        .expect("the comparison landed")
+        .0
+        .clone();
+
+    pick_comparator_team(&mut window, &mut view, "/lit/");
+    assert_eq!(
+        view.comparator.filter_team,
+        TeamChoice::Team(734),
+        "734 picked"
+    );
+    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    assert!(
+        lines.iter().any(|line| line == "Team 734 /lit/"),
+        "734's heading kept: {lines:?}"
+    );
+    assert!(
+        lines.iter().any(|line| line == "Height 185 \u{2192} 183"),
+        "73401's row kept: {lines:?}"
+    );
+    assert!(
+        !lines.iter().any(|line| line == "Team 743 /pol/"),
+        "743's heading narrowed out: {lines:?}"
+    );
+    assert!(
+        !lines.iter().any(|line| line == "Height 189 \u{2192} 183"),
+        "74301's row narrowed out: {lines:?}"
+    );
+    assert!(
+        view.comparator.comparison.pending.is_none(),
+        "the filter started no comparison"
+    );
+    assert_eq!(
+        view.comparator.comparison.result.as_ref().unwrap().0,
+        key,
+        "the held result's key is the one before the filter"
+    );
+
+    pick_comparator_team(&mut window, &mut view, "ALL");
+    assert_eq!(view.comparator.filter_team, TeamChoice::All, "ALL again");
+    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    assert!(
+        lines.iter().any(|line| line == "Team 734 /lit/")
+            && lines.iter().any(|line| line == "Team 743 /pol/"),
+        "both headings under All again: {lines:?}"
+    );
+    assert!(
+        view.comparator.comparison.pending.is_none(),
+        "still no comparison run"
+    );
+}
+
+// SE-GUI-13
+#[test]
+fn the_team_filter_keeps_an_only_in_section_by_its_roster() {
+    let (mut view, mut window) = open_734_with("comparator_only_in_filter", &[], 183);
+    let dir = scratch_of(&view);
+    // `the_players_only_in_one_save_list_under_their_headings`' pair:
+    // 73410 renumbered out of the picked save — 9_999_999 (on no picked
+    // roster) is picked-only, 73410 (on 734's open roster) open-only. And
+    // 74302 renumbered with his place on 743's picked roster: 9_999_998
+    // is picked-only on the picked save's 743, 74302 open-only on the open
+    // save's.
+    let picked = picked_save(&dir, "picked", |file| {
+        file.player_mut(73410).expect("73410 is a player").id = 9_999_999;
+        file.player_mut(74302).expect("74302 is a player").id = 9_999_998;
+        file.team_mut(743)
+            .expect("team 743")
+            .roster
+            .iter_mut()
+            .find(|entry| entry.player_id == 74302)
+            .expect("74302 on 743's roster")
+            .player_id = 9_999_998;
+    });
+    view.comparator.open = true;
+    pick(&mut window, &mut view, picked);
+    compared(&mut window, &mut view);
+    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    assert!(
+        lines.iter().any(|line| line == "Only in the picked save")
+            && lines.iter().any(|line| line == "Only in the open save"),
+        "premise: both sections under All: {lines:?}"
+    );
+
+    pick_comparator_team(&mut window, &mut view, "/lit/");
+    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    assert!(
+        lines.iter().any(|line| line == "Only in the open save"),
+        "73410's section keeps its heading: {lines:?}"
+    );
+    assert!(
+        lines.iter().any(|line| line == "Player 73410  46 DFW"),
+        "73410's head kept: {lines:?}"
+    );
+    assert!(
+        !lines.iter().any(|line| line == "Only in the picked save"),
+        "the picked-only section's heading is gone: {lines:?}"
+    );
+
+    // On 743, each section keeps its 743 player: the picked-only one by
+    // the picked save's roster, the open-only one by the open save's.
+    pick_comparator_team(&mut window, &mut view, "/pol/");
+    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    // The combo's popup can still be open, its team names among the lines:
+    // the sections' headings and heads alone are compared.
+    assert_eq!(
+        lines
+            .iter()
+            .map(String::as_str)
+            .filter(|line| line.starts_with("Only in ") || line.starts_with("Player "))
+            .collect::<Vec<_>>(),
+        [
+            "Only in the picked save",
+            "Player 9999998  50 STOP WATCHING PORN",
+            "Only in the open save",
+            "Player 74302  50 STOP WATCHING PORN",
+        ],
+        "743's only-in players under their headings: {lines:?}"
+    );
+
+    // A team no line holds.
+    pick_comparator_team(&mut window, &mut view, "/pw/");
+    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    assert!(
+        !lines.iter().any(|line| line == "Only in the open save")
+            && !lines.iter().any(|line| line == "Only in the picked save"),
+        "no section holds a 744 player: {lines:?}"
+    );
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == "No differences in this team."),
+        "the empty-team read: {lines:?}"
+    );
+}
+
+// SE-GUI-13
+#[test]
+fn export_writes_the_commands_text_whatever_the_team_filter() {
+    let dir = crate::test_support::scratch("comparator_export_scope");
+    // The open save written to disk with its edits: 73401's height and
+    // 74301's (a gameplay row in each team) and 74301's boots id (an
+    // aesthetics row, 0 in the fixture).
+    let open_path = picked_save(&dir, "open", |file| {
+        for id in [73401u32, 74301] {
+            file.player_mut(id).expect("a player").basic.height = 183;
+        }
+        file.player_mut(74301).expect("74301").appearance.boots_id = 3601;
+    });
+    let picked = picked_save(&dir, "picked", |_| {});
+    let mut view = SaveView::new();
+    view.open(&open_path);
+    view.comparator.open = true;
+    let mut window = Headless::sized(1100.0, 800.0);
+    pick(&mut window, &mut view, picked.clone());
+    compared(&mut window, &mut view);
+
+    // The scope Gameplay, the team filter on 734: the export still holds
+    // the whole save's report (74301's height row included).
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Gameplay"),
+        &mut view,
+    );
+    compared(&mut window, &mut view);
+    pick_comparator_team(&mut window, &mut view, "/lit/");
+    let target = dir.join("diff.txt");
+    view.export_dialog = Box::new({
+        let target = target.clone();
+        move |name| {
+            assert_eq!(name, "diff.txt", "the suggested name");
+            Some(target.clone())
+        }
+    });
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Export\u{2026}"),
+        &mut view,
+    );
+    let first = picked.to_str().unwrap().to_owned();
+    let second = open_path.to_str().unwrap().to_owned();
+    assert_eq!(
+        std::fs::read_to_string(&target).expect("the export written"),
+        cli_stdout(&dir, &["diff", &first, &second, "--gameplay"]),
+        "the file is `diff --gameplay`'s stdout, the team filter notwithstanding"
+    );
+
+    // All: the command's stdout with no flag.
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "All"),
+        &mut view,
+    );
+    compared(&mut window, &mut view);
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Export\u{2026}"),
+        &mut view,
+    );
+    assert_eq!(
+        std::fs::read_to_string(&target).expect("the export rewritten"),
+        cli_stdout(&dir, &["diff", &first, &second]),
+        "the file is `diff`'s stdout with no flag"
+    );
+}
+
+// SE-GUI-13
+#[test]
+fn an_empty_scopes_export_is_the_commands_empty_text() {
+    // 73401's height the one difference (gameplay): the Aesthetics scope
+    // holds no row, and the command prints nothing for it.
+    let (mut view, mut window, _) = compared_73401("comparator_export_empty");
+    let dir = scratch_of(&view);
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Aesthetics"),
+        &mut view,
+    );
+    compared(&mut window, &mut view);
+    let target = dir.join("diff.txt");
+    view.export_dialog = Box::new({
+        let target = target.clone();
+        move |_| Some(target.clone())
+    });
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Export\u{2026}"),
+        &mut view,
+    );
+    let open = view
+        .session
+        .as_ref()
+        .unwrap()
+        .path()
+        .to_str()
+        .unwrap()
+        .to_owned();
+    let picked = dir.join("picked").to_str().unwrap().to_owned();
+    let stdout = cli_stdout(&dir, &["diff", &picked, &open, "--aesthetics"]);
+    assert_eq!(stdout, "", "premise: the command prints nothing");
+    assert_eq!(
+        std::fs::read_to_string(&target).expect("the export written"),
+        stdout,
+        "an empty report exports an empty file"
+    );
+}
+
+// SE-GUI-13
+#[test]
+fn export_carries_the_unsaved_edits() {
+    // 73401's height to 183 in the session, no save written: the export
+    // still holds the command's line for it.
+    let (mut view, mut window) = open_734_with("comparator_export_unsaved", &[73401], 183);
+    let dir = scratch_of(&view);
+    let picked = picked_save(&dir, "picked", |_| {});
+    view.comparator.open = true;
+    pick(&mut window, &mut view, picked);
+    compared(&mut window, &mut view);
+    let target = dir.join("diff.txt");
+    view.export_dialog = Box::new({
+        let target = target.clone();
+        move |_| Some(target.clone())
+    });
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Export\u{2026}"),
+        &mut view,
+    );
+    let text = std::fs::read_to_string(&target).expect("the export written");
+    assert!(
+        text.contains("- Info player_diff (player=73401, field=Height, old=185, new=183)\n"),
+        "the unsaved edit's line is in the export: {text}"
+    );
+}
+
+// SE-GUI-13
+#[test]
+fn export_reports_the_written_path_and_refuses_a_folder_that_is_not() {
+    let (mut view, mut window, _) = compared_73401("comparator_export_wrote");
+    let dir = scratch_of(&view);
+    let target = dir.join("diff.txt");
+    view.export_dialog = Box::new({
+        let target = target.clone();
+        move |_| Some(target.clone())
+    });
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Export\u{2026}"),
+        &mut view,
+    );
+    let lines = window_lines(&mut window, &mut view, None, "Comparator");
+    assert!(
+        lines
+            .iter()
+            .any(|line| line == &format!("Wrote {}", target.display())),
+        "the Wrote line: {lines:?}"
+    );
+
+    // A folder that does not exist: the refusal dialog names the path.
+    let missing = dir.join("none").join("diff.txt");
+    view.export_dialog = Box::new({
+        let missing = missing.clone();
+        move |_| Some(missing.clone())
+    });
+    let nodes = draw(&mut window, &mut view, None);
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Export\u{2026}"),
+        &mut view,
+    );
+    // The refusal lands inside `comparator::show`, after `refusal_dialog`
+    // ran that frame, so the modal's first drawn frame is its sizing
+    // pass; the second holds the nodes.
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Cannot export the differences")),
+        "the refusal's title"
+    );
+    assert!(
+        nodes.iter().any(|node| {
+            node.value()
+                .is_some_and(|value| value.contains(&missing.display().to_string()))
+        }),
+        "the refusal names the path"
+    );
+}
+
+// SE-GUI-13
+#[test]
+fn another_save_resets_the_team_filter() {
+    let (mut view, mut window, _) = compared_73401("comparator_filter_reset");
+    let dir = scratch_of(&view);
+    pick_comparator_team(&mut window, &mut view, "/lit/");
+    assert_eq!(
+        view.comparator.filter_team,
+        TeamChoice::Team(734),
+        "premise: 734 picked"
+    );
+
+    // Another save opened (the fixture again through `SaveView::open`):
+    // its teams are not the old one's, so the filter reads ALL.
+    let second = picked_save(&dir, "second", |_| {});
+    view.open(&second);
+    assert_eq!(
+        view.comparator.filter_team,
+        TeamChoice::All,
+        "the filter reset"
+    );
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        comparator_nodes(&pairs)
+            .iter()
+            .find(|node| node.role() == Role::ComboBox)
+            .and_then(|combo| combo.value()),
+        Some("ALL"),
+        "the combo reads ALL"
     );
 }

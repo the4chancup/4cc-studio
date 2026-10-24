@@ -31,15 +31,16 @@ pub(crate) enum AatfMode {
     Select,
 }
 
-/// The Save a copy dialog: the suggested file name to the picked path
+/// A Save-file dialog: the suggested file name to the picked path
 /// (`rfd` in the window, a stub in the tests — a native dialog cannot be
-/// driven headless; the Ruleset editor's `SaveDialog` pattern).
-pub(crate) type SaveCopyDialog = Box<dyn FnMut(&str) -> Option<PathBuf>>;
+/// driven headless; the Ruleset editor's `SaveDialog` pattern). The
+/// panel's Save a copy and the comparator's Export share the type.
+pub(crate) type SaveFileDialog = Box<dyn FnMut(&str) -> Option<PathBuf>>;
 
 /// The `rfd` Save dialog (the Ruleset editor's `default_save_dialog`
 /// pattern): the suggested name comes from the caller.
 #[cfg(not(test))]
-pub(crate) fn default_copy_dialog() -> SaveCopyDialog {
+pub(crate) fn default_copy_dialog() -> SaveFileDialog {
     Box::new(|name| {
         rfd::FileDialog::new()
             .add_filter("AATF rules", &["rhai"])
@@ -51,7 +52,7 @@ pub(crate) fn default_copy_dialog() -> SaveCopyDialog {
 /// `default_copy_dialog` under `cargo test`: a test reaching a real file
 /// dialog panics; tests stub `view.aatf_copy_dialog`.
 #[cfg(test)]
-pub(crate) fn default_copy_dialog() -> SaveCopyDialog {
+pub(crate) fn default_copy_dialog() -> SaveFileDialog {
     Box::new(|_| panic!("a test reached a real file dialog: stub aatf_copy_dialog"))
 }
 
@@ -235,7 +236,7 @@ fn rows(
     ui: &mut egui::Ui,
     aatf: &mut AatfPanel,
     active: &ActiveRules,
-    copy_dialog: &mut SaveCopyDialog,
+    copy_dialog: &mut SaveFileDialog,
     refusal: &mut Option<Refusal>,
     file: &EditFile,
 ) {

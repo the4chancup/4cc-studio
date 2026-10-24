@@ -33,6 +33,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         live_aatf: _,
         live: _,
         aatf_copy_dialog: _,
+        export_dialog: _,
         cards: _,
         portraits: _,
         generation: _,
@@ -51,7 +52,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         return;
     };
     let file = session.file();
-    team_selector(ui, team, file);
+    team_selector(ui, team, file, "save_editor_team");
     ui.add(egui::TextEdit::singleline(filter).hint_text("Filter all teams (name, shirt, id)"));
     // A filter in use lists every team, so each row names its team — as it
     // does under `ALL` (the draft's `tshort`).
@@ -72,9 +73,17 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 }
 
 /// The team selector: `ALL`, then each team by name in the save's order.
-fn team_selector(ui: &mut egui::Ui, choice: &mut TeamChoice, file: &EditFile) {
+/// `id_salt` is the combo's: two combos with one salt share their popup
+/// state, so the comparator's filter passes its own (the player list's
+/// stays `save_editor_team`).
+pub(super) fn team_selector(
+    ui: &mut egui::Ui,
+    choice: &mut TeamChoice,
+    file: &EditFile,
+    id_salt: &str,
+) {
     let mut chosen = *choice;
-    egui::ComboBox::from_id_salt("save_editor_team")
+    egui::ComboBox::from_id_salt(id_salt)
         .selected_text(match chosen {
             TeamChoice::All => "ALL".to_owned(),
             TeamChoice::Team(id) => file

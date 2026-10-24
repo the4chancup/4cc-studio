@@ -8,11 +8,15 @@
 //! save's revision, the picked save's and the scope — moves on and the edit
 //! has settled (`edit_settled`, the same condition the undo stack's seal
 //! uses); until the reply lands the last result stays, marked `Comparing…`,
-//! and a frame draws only the rows in view (`ScrollArea::show_rows`).
+//! and a frame draws only the rows in view (`ScrollArea::show_rows`). The
+//! team filter narrows the held list on the frame, so it starts no run;
+//! Export writes the scope's `diff::report_lines` over the whole save, the
+//! filter notwithstanding — the text `save-editor diff` prints.
 
 use std::collections::HashMap;
 use std::path::PathBuf;
 
+use anyhow::Context;
 use pes_savefile::EditFile;
 use pes_savefile::model::names::display_name;
 use pes_savefile::ops::compare::{CompareError, DiffScope};
@@ -22,11 +26,12 @@ use team_widgets::violations::{SelectedPlayer, player_head, row_paint};
 use crate::diff::{self, DiffReport, PlayerReport};
 use crate::messages::{Side, version_mismatch_sentence};
 use crate::session::Session;
+use crate::session::selection::TeamChoice;
 use crate::view::worker::{Pending, WorkerResult};
-use crate::view::{SaveView, aatf_check, edit_settled, terms};
+use crate::view::{Refusal, SaveView, aatf_check, aatf_panel, edit_settled, player_list, terms};
 
 /// The pick's Open dialog (`rfd` in the window, a stub in the tests — a
-/// native dialog cannot be driven headless; `aatf_panel::SaveCopyDialog`'s
+/// native dialog cannot be driven headless; `aatf_panel::SaveFileDialog`'s
 /// pattern).
 pub(crate) type OpenSaveDialog = Box<dyn FnMut() -> Option<PathBuf>>;
 
@@ -43,9 +48,29 @@ pub(crate) fn default_open_dialog() -> OpenSaveDialog {
     Box::new(|| panic!("a test reached a real file dialog: stub open_save_dialog"))
 }
 
+/// The `rfd` Save dialog for the Export (`aatf_panel`'s
+/// `default_copy_dialog` pattern): the suggested name comes from the
+/// caller.
+#[cfg(not(test))]
+pub(crate) fn default_export_dialog() -> aatf_panel::SaveFileDialog {
+    Box::new(|name| {
+        rfd::FileDialog::new()
+            .add_filter("Text", &["txt"])
+            .set_file_name(name)
+            .save_file()
+    })
+}
+
+/// `default_export_dialog` under `cargo test`: a test reaching a real
+/// file dialog panics; tests stub `view.export_dialog`.
+#[cfg(test)]
+pub(crate) fn default_export_dialog() -> aatf_panel::SaveFileDialog {
+    Box::new(|_| panic!("a test reached a real file dialog: stub export_dialog"))
+}
+
 /// The panel's state on `SaveView` (`view.comparator`): open or not, the
-/// picked save, the last pick's refusal, the scope and the comparison's
-/// worker state.
+/// picked save, the last pick's refusal, the scope, the team filter, the
+/// last export's path and the comparison's worker state.
 pub(super) struct Comparator {
     /// Whether the window is drawn (the Panels menu's `Comparator…` item).
     pub(super) open: bool,
@@ -58,6 +83,12 @@ pub(super) struct Comparator {
     refused: Option<String>,
     /// The Show row's scope (`None`: All).
     pub(super) scope: Option<DiffScope>,
+    /// The Team combo's pick (`All`: every line). Narrows the drawn list
+    /// alone: the comparison's key does not hold it, so a change starts
+    /// no run.
+    pub(super) filter_team: TeamChoice,
+    /// The Export's written path, for the `Wrote <path>` line.
+    pub(super) exported: Option<PathBuf>,
     /// The comparison: the last result with the key it ran for and the run
     /// in flight (`WorkerResult`'s cycle, the AATF checks' own).
     pub(super) comparison: WorkerResult<CompareKey, Result<Vec<Line>, CompareError>>,
@@ -65,7 +96,7 @@ pub(super) struct Comparator {
 
 /// What a comparison ran for: a change of the open save (`Session::
 /// revision`), a new pick or a new scope recomputes it.
-#[derive(Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub(super) struct CompareKey {
     /// `Session::revision` of the open save when the run was due.
     pub(super) revision: u64,
@@ -84,6 +115,8 @@ impl Comparator {
             picked: None,
             refused: None,
             scope: None,
+            filter_team: TeamChoice::All,
+            exported: None,
             comparison: WorkerResult::new(),
         }
     }
@@ -91,16 +124,20 @@ impl Comparator {
     /// Another save opened (`SaveView::open`): the pick stays — a member
     /// compares several saves against one reference — unless the new save
     /// is of another version, refused as any pick is; the result and the
-    /// comparison in flight go either way.
+    /// comparison in flight go either way, and the team filter back to
+    /// All (another save's teams are not this one's) with the export's
+    /// line.
     pub(super) fn reset(&mut self, open_version: PesVersion) {
         self.comparison.reset();
         self.refused = None;
+        self.filter_team = TeamChoice::All;
+        self.exported = None;
         let picked_version = self.picked.as_ref().map(|(_, picked)| picked.version());
         if let Some(picked) = picked_version
             && picked != open_version
         {
             self.picked = None;
-            self.refused = Some(refusal(picked, open_version));
+            self.refused = Some(mismatch_refusal(picked, open_version));
         }
     }
 }
@@ -120,6 +157,9 @@ pub(super) enum Line {
         text: String,
         /// The player a click selects.
         select: Option<SelectedPlayer>,
+        /// His roster team in the save the head is read from (the team
+        /// filter keeps the line for it; `None`: no roster holds him).
+        team: Option<u32>,
     },
     /// A field's row in the tabs' terms: `<label> <old> → <new>`; `None`
     /// select on a player no open roster holds (SE-GUI-13: listed and not
@@ -129,6 +169,8 @@ pub(super) enum Line {
         text: String,
         /// The player a click selects.
         select: Option<SelectedPlayer>,
+        /// His open-save roster team, as the head's.
+        team: Option<u32>,
     },
 }
 
@@ -144,7 +186,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         team,
         filter,
         selected,
+        refusal,
         open_save_dialog,
+        export_dialog,
         focused,
         ..
     } = view;
@@ -200,6 +244,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     .clicked()
                     && let Some(path) = open_save_dialog()
                 {
+                    comparator.exported = None;
                     match Session::open(&path) {
                         Ok(picked) if picked.version() == file.version() => {
                             comparator.picked = Some((path, picked));
@@ -208,12 +253,48 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         Ok(picked) => {
                             comparator.picked = None;
                             comparator.comparison.reset();
-                            comparator.refused = Some(refusal(picked.version(), file.version()));
+                            comparator.refused =
+                                Some(mismatch_refusal(picked.version(), file.version()));
                         }
                         Err(error) => {
                             comparator.picked = None;
                             comparator.comparison.reset();
                             comparator.refused = Some(format!("{error:#}"));
+                        }
+                    }
+                }
+                if let Some((_, picked)) = &comparator.picked
+                    && ui
+                        .button("Export\u{2026}")
+                        .on_hover_text(
+                            "Write the differences of the shown scope as text, \
+                             every team included",
+                        )
+                        .clicked()
+                    && let Some(path) = export_dialog("diff.txt")
+                {
+                    // As `write_rosters_tsv` writes its file: the error
+                    // names the path. The scope's report over the whole
+                    // save, the team filter narrowing the screen alone.
+                    // Each line ends in its own `\n`, as the console writes
+                    // them: an empty report is an empty file, not "\n".
+                    match diff::report_lines(picked.file(), file, comparator.scope)
+                        .map(|lines| {
+                            lines
+                                .iter()
+                                .map(|line| format!("{line}\n"))
+                                .collect::<String>()
+                        })
+                        .map_err(anyhow::Error::from)
+                        .and_then(|text| {
+                            std::fs::write(&path, text).with_context(|| path.display().to_string())
+                        }) {
+                        Ok(()) => comparator.exported = Some(path),
+                        Err(error) => {
+                            *refusal = Some(Refusal {
+                                title: "Cannot export the differences",
+                                message: format!("{error:#}"),
+                            });
                         }
                     }
                 }
@@ -235,7 +316,17 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         Some(DiffScope::Aesthetics),
                         "Aesthetics",
                     );
+                    ui.weak(" Team ");
+                    player_list::team_selector(
+                        ui,
+                        &mut comparator.filter_team,
+                        file,
+                        "save_editor_comparator_team",
+                    );
                 });
+            }
+            if let Some(path) = &comparator.exported {
+                ui.weak(format!("Wrote {}", path.display()));
             }
             // Above the list, so a member scrolled deep in the rows still
             // sees that they are the previous result's.
@@ -247,26 +338,31 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     ui.weak("No differences.");
                 }
                 Some((_, Ok(lines))) => {
-                    let clicked = egui::ScrollArea::vertical()
-                        .id_salt("save_editor_comparator_rows")
-                        .auto_shrink([false, false])
-                        .show_rows(
-                            ui,
-                            ui.text_style_height(&egui::TextStyle::Body),
-                            lines.len(),
-                            |ui, range| {
-                                let mut clicked = None;
-                                for i in range {
-                                    if let Some(player) = line(ui, &lines[i]) {
-                                        clicked = Some(player);
+                    let shown = shown(lines, comparator.filter_team);
+                    if shown.is_empty() {
+                        ui.weak("No differences in this team.");
+                    } else {
+                        let clicked = egui::ScrollArea::vertical()
+                            .id_salt("save_editor_comparator_rows")
+                            .auto_shrink([false, false])
+                            .show_rows(
+                                ui,
+                                ui.text_style_height(&egui::TextStyle::Body),
+                                shown.len(),
+                                |ui, range| {
+                                    let mut clicked = None;
+                                    for i in range {
+                                        if let Some(player) = line(ui, shown[i]) {
+                                            clicked = Some(player);
+                                        }
                                     }
-                                }
-                                clicked
-                            },
-                        )
-                        .inner;
-                    if let Some(player) = clicked {
-                        aatf_check::select_player(player, selected, team, filter);
+                                    clicked
+                                },
+                            )
+                            .inner;
+                        if let Some(player) = clicked {
+                            aatf_check::select_player(player, selected, team, filter);
+                        }
                     }
                 }
                 Some((_, Err(error))) => {
@@ -287,7 +383,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 
 /// The pick's refusal for a save of another version (the CLI's
 /// `version_mismatch_sentence`, the picked first as the report has it).
-fn refusal(picked: PesVersion, open: PesVersion) -> String {
+fn mismatch_refusal(picked: PesVersion, open: PesVersion) -> String {
     version_mismatch_sentence("The picked save", picked, "the open save", open)
 }
 
@@ -400,12 +496,14 @@ fn lines(report: &DiffReport, picked: &EditFile, open: &EditFile) -> Vec<Line> {
         lines.push(Line::Head {
             text: head(open, place, player.id, player.stripped),
             select: place.map(Place::select),
+            team,
         });
         for row in &player.rows {
             let term = terms::row_term(version, &row.diff);
             lines.push(Line::Row {
                 text: format!("{} {} \u{2192} {}", term.label, term.old, term.new),
                 select: place.map(Place::select),
+                team,
             });
         }
     }
@@ -434,6 +532,7 @@ fn lines(report: &DiffReport, picked: &EditFile, open: &EditFile) -> Vec<Line> {
             lines.push(Line::Head {
                 text: head(file, place, entry.id, entry.stripped),
                 select: place.filter(|_| clickable).map(Place::select),
+                team: place.map(|place| place.team_id),
             });
         }
     }
@@ -459,6 +558,34 @@ fn head(file: &EditFile, place: Option<Place>, id: u32, stripped: Option<Side>) 
     head
 }
 
+/// `lines` narrowed to `team` (All: every line): the heads and rows whose
+/// roster team is the picked one kept, a heading pushed before its first
+/// kept line — a group with nothing kept (the `No team` one, an only-in
+/// section with no player of the team's roster) loses its heading too.
+/// Runs on the frame, on the held result: a filter change starts no
+/// comparison.
+fn shown(lines: &[Line], team: TeamChoice) -> Vec<&Line> {
+    let TeamChoice::Team(team) = team else {
+        return lines.iter().collect();
+    };
+    let mut shown = Vec::new();
+    let mut heading = None;
+    for line in lines {
+        match line {
+            Line::Heading(_) => heading = Some(line),
+            Line::Head { team: kept, .. } | Line::Row { team: kept, .. } => {
+                if *kept == Some(team) {
+                    if let Some(heading) = heading.take() {
+                        shown.push(heading);
+                    }
+                    shown.push(line);
+                }
+            }
+        }
+    }
+    shown
+}
+
 /// The stripped mark for `side` (the report's `first` is the picked save,
 /// `second` the open one).
 fn mark(side: Side) -> &'static str {
@@ -477,8 +604,8 @@ fn line(ui: &mut egui::Ui, line: &Line) -> Option<SelectedPlayer> {
     let visuals = ui.visuals();
     let (text, color, select) = match line {
         Line::Heading(text) => (text, visuals.strong_text_color(), None),
-        Line::Head { text, select } => (text, visuals.weak_text_color(), *select),
-        Line::Row { text, select } => (text, visuals.text_color(), *select),
+        Line::Head { text, select, .. } => (text, visuals.weak_text_color(), *select),
+        Line::Row { text, select, .. } => (text, visuals.text_color(), *select),
     };
     let font = egui::TextStyle::Body.resolve(ui.style());
     let galley = ui.painter().layout_no_wrap(text.clone(), font, color);

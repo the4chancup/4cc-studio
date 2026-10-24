@@ -97,7 +97,10 @@ pub(crate) struct SaveView {
     live: live_aatf::LiveAatf,
     /// The panel's Save a copy dialog (`rfd`, stubbed in tests — the
     /// Ruleset editor's picker pattern).
-    aatf_copy_dialog: aatf_panel::SaveCopyDialog,
+    aatf_copy_dialog: aatf_panel::SaveFileDialog,
+    /// The comparator's Export dialog (`rfd`, stubbed in tests — the same
+    /// dialog type as the AATF panel's).
+    export_dialog: aatf_panel::SaveFileDialog,
     /// The "Cards left" badges as last computed and the `BadgeKey` they
     /// were computed for: `card_limits` runs again only when the key
     /// differs, not on every frame.
@@ -226,6 +229,7 @@ impl SaveView {
             live_aatf: false,
             live: live_aatf::LiveAatf::new(),
             aatf_copy_dialog: aatf_panel::default_copy_dialog(),
+            export_dialog: comparator::default_export_dialog(),
             cards: None,
             portraits: portraits::Portraits::new(),
             generation: 0,

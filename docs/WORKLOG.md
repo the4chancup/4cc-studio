@@ -19,7 +19,7 @@ coverage table and draft, the DBC7 ruleset).
 "Divegrass Before Christmas"), a working Save editor with a rock-solid AATF check comes first
 (the maintainer, 2026-10-24): the Save editor's view (8.9: slices 1-3 done, with the Tactics
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
-(8.9j1-j3), the comparator next (8.9j4a done, the panel 8.9j4b), then the transplant (8.9j5); 8.9f's slice 4: v2 is
+(8.9j1-j3), the comparator done (8.9j4), then the transplant (8.9j5); 8.9f's slice 4: v2 is
 the base, ported after the comparator; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; an audit step next), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
 the compiler and the upgrader on the new file; slice 3, the Save editor's, rides with SE-GUI-19), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
@@ -1307,7 +1307,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           click's filter clearing, title, team group and empty pick unstated; the dock's stale rows
           unasserted), plan and test edits by the lead; the review is done (rulings
           `.tmp/8_9j/duck_rulings_j3.md`)
-      - [ ] 8.9j4 the comparator (SE-GUI-13); the direction, Export's scope and the tabs' terms
+      - [x] 8.9j4 the comparator (SE-GUI-13); the direction, Export's scope and the tabs' terms
         ruled first (DECISIONS 2026-10-24 "The comparator's direction…"; code map
         `.tmp/8_9j/j4_map.md`)
         - [x] 8.9j4a the tabs' terms as data the tabs and the panel both read (a diff row's label
@@ -1325,7 +1325,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
             click on players no roster holds), S2 2 of 6 (the group bullet's scope, a misattributed
             grid order); mutants 46 caught, 7 missed (3 tested in their own crates, the palette's
             restored, 2 equivalent), the fixes' 7 caught; rulings `.tmp/8_9j/duck_rulings_j4.md`
-        - [ ] 8.9j4b the panel (DECISIONS 2026-10-24 "The comparator's groups, its worker and a
+        - [x] 8.9j4b the panel (DECISIONS 2026-10-24 "The comparator's groups, its worker and a
           kept pick")
           - [x] 8.9j4b1 the pick and its version refusal, the worker's comparison, the rows per
             team in the tabs' terms, the scope toggles, a click selecting the player. Done
@@ -1346,7 +1346,18 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
               team` group untested), Astra A1 1 (the kept pick untested), S2 0; mutants 59
               caught, 2 missed (`reset`, killed by the kept-pick test), the fixes' 4 caught
               (rework 2); rulings `.tmp/8_9j/duck_rulings_j4.md`
-          - [ ] 8.9j4b2 the team filter and Export
+          - [x] 8.9j4b2 the team filter and Export. Done 2026-10-24 (SWE-2, 36 min): the Team combo
+            is the player list's `team_selector` (its own salt), narrowing the held lines on the
+            frame (`shown`; a 10k-line result's frame 11.6 ms filtered or not, debug) with no
+            comparison run; `Export…` writes `diff::report_lines` of the scope over the whole
+            save, the command's stdout byte for byte (647 ms on that result, on the click), with
+            a `Wrote` line or a `Cannot export the differences` refusal; one `SaveFileDialog`
+            type for both save dialogs; `cli_stdout` shared in `test_support`. Files:
+            `save_editor/src/{diff.rs,test_support.rs,view/{mod.rs,comparator.rs,aatf_panel.rs,
+            player_list.rs,tests/comparator.rs}}`
+            - [x] review: SWE-2 S1 on `a3422f4a..` (crate-internal: no new `pub`, no Astra
+              round): 2 accepted (an empty report exported a lone newline; a picked-only
+              player's roster team untested), fixed by the lead; mutants 8 caught, 0 missed
       - [ ] 8.9j5 the transplant (SE-GUI-14)
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
       (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's

@@ -79,14 +79,10 @@ pub(crate) fn report(
 }
 
 /// The report as text: the finding lines `save-editor diff <first> <second>` prints for
-/// `scope`, in the command's order, formed as the console forms them. The comparator
-/// panel's Export writes them (`plans/save_editor.md` "Comparator (gameplay +
+/// `scope`, in the command's order, formed as the console forms them. `comparator`'s
+/// Export writes them (`plans/save_editor.md` "Comparator (gameplay +
 /// aesthetics)", the Export bullet); the `findings` walk is `report`'s, so the two
 /// cannot drift.
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "the comparator panel's Export writes it")
-)]
 pub(crate) fn report_lines(
     first: &EditFile,
     second: &EditFile,
@@ -239,40 +235,11 @@ fn stripped_side(first: &EditFile, second: &EditFile, id: u32) -> Option<Side> {
 
 #[cfg(test)]
 mod tests {
-    use std::path::Path;
-
     use pes_savefile::fixture_save;
     use pes_version::PesVersion;
-    use studio_core::{EventLines, Settings};
 
     use super::*;
-
-    /// The salt the written saves encrypt with (the CLI tests' own).
-    const TEST_SALT: [u8; 320] = [7; 320];
-
-    /// `diff <args>`'s stdout run in-process over `dir`: the run's events
-    /// as `EventLines` writes them, newline-separated. The context is
-    /// `test_support::tool_context`'s, so nothing reaches the developer's
-    /// files.
-    fn cli_stdout(dir: &Path, args: &[&str]) -> String {
-        let mut settings = Settings::default();
-        settings.merge_defaults(crate::messages::TOOL_ID, &crate::settings::default_table());
-        let (ctx, events_rx, _requests_rx) = crate::test_support::tool_context(dir, settings);
-        let matches = crate::cli::command()
-            .try_get_matches_from(std::iter::once("save-editor").chain(args.iter().copied()))
-            .expect("the diff arguments parse");
-        crate::cli::run(&matches, &ctx).expect("the diff command runs");
-        drop(ctx);
-        let mut lines = EventLines::new();
-        let mut out = String::new();
-        for envelope in events_rx.iter() {
-            if let Some(line) = lines.line(&envelope.event) {
-                out.push_str(&line);
-                out.push('\n');
-            }
-        }
-        out
-    }
+    use crate::test_support::{TEST_SALT, cli_stdout};
 
     /// `report_lines` is the CLI's report text for each scope: All,
     /// `--gameplay`, `--aesthetics`.
