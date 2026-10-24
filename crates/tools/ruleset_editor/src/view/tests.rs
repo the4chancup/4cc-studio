@@ -60,9 +60,31 @@ impl Headless {
 
     /// Runs one frame of `contents`; returns what it drew.
     fn frame(&mut self, events: Vec<egui::Event>, contents: impl FnMut(&mut egui::Ui)) -> Frame {
+        self.run(events, true, contents)
+    }
+
+    /// One frame of `contents` with the window unfocused (`focused`
+    /// off in `RawInput`): an Alt+Tab mid-edit.
+    fn unfocused_frame(
+        &mut self,
+        events: Vec<egui::Event>,
+        contents: impl FnMut(&mut egui::Ui),
+    ) -> Frame {
+        self.run(events, false, contents)
+    }
+
+    /// Runs one frame of `contents` with `focused` as the window's
+    /// focus; returns what it drew.
+    fn run(
+        &mut self,
+        events: Vec<egui::Event>,
+        focused: bool,
+        contents: impl FnMut(&mut egui::Ui),
+    ) -> Frame {
         let input = egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(egui::Pos2::ZERO, self.screen)),
             events,
+            focused,
             ..Default::default()
         };
         let mut output = self.ctx.run_ui(input, contents);

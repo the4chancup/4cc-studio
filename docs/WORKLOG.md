@@ -2064,7 +2064,11 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
           keystroke through `gold`, it moved Gold's counts); RE-FILE-04 and RE-GUI-03's tests
           observe the label and the preview line; each Tiers field changed alone through its
           control (decision 2026-10-24). S2: 1 of 6 accepted, lead fix: General's squad size
-          drawn as stored too, with four nits. Astra A2 next, then SWE-2
+          drawn as stored too, with four nits. Astra A2: 3 of 5 accepted, Astra's loop ends;
+          rework 4 (SWE-2, 8 min): a half-typed id or settings path survives the window
+          losing focus (the buffer follows the stored value only while egui's memory holds no
+          focus on the field), a tier's ✕ keeps the medal counts while another tier carries
+          its id, RE-GUI-03's test reads the drawn unsaved marker. SWE-2 S3 next
       - [ ] 20.6a2b Cards, Universal rules with the team settings, Suggestions (RE-GUI-08)
   - 20.6b the condition editor, the effects editor, Heights and Specials (RE-GUI-07, 09 to 12,
     and RE-GUI-04's height-systems half, whose test joins the tiers half's)

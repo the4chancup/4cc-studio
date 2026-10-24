@@ -886,6 +886,67 @@ mod tests {
         fs::remove_dir_all(&dir).unwrap();
     }
 
+    // A half-typed path survives the window losing focus mid-edit: the buffer resets
+    // only on the edit's own focus loss, not on an Alt+Tab.
+    #[test]
+    fn a_path_row_edit_survives_the_window_losing_focus() {
+        let dir = test_dir("studio_core_settings_focus_loss");
+        let data = dir.join("data");
+        fs::create_dir_all(&data).unwrap();
+        let (a, calls_a) = stub("a", "A", None);
+        let Shell { mut app, ctx, .. } = shell_with(
+            test_settings(&dir),
+            vec![a],
+            &[],
+            Some(data.clone()),
+            vec![calls_a],
+        );
+        let egui_ctx = egui::Context::default();
+        egui_ctx.enable_accesskit();
+
+        let pes_folder = dir.join("pes19").display().to_string();
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
+        let nodes = idle(&egui_ctx, &mut app, 10).nodes;
+        click(
+            &egui_ctx,
+            &mut app,
+            widget_on_row(&nodes, "PES folder", Role::TextInput),
+        );
+        frame(
+            &egui_ctx,
+            &mut app,
+            vec![
+                egui::Event::Key {
+                    key: egui::Key::A,
+                    physical_key: None,
+                    pressed: true,
+                    repeat: false,
+                    modifiers: egui::Modifiers::COMMAND,
+                },
+                egui::Event::Text(pes_folder.clone()),
+            ],
+            true,
+        );
+
+        // The window loses and regains focus mid-edit.
+        frame(&egui_ctx, &mut app, Vec::new(), false);
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        assert_eq!(
+            widget_on_row(&nodes, "PES folder", Role::TextInput).value(),
+            Some(pes_folder.as_str()),
+            "the field still shows the typed text"
+        );
+
+        frame(&egui_ctx, &mut app, vec![key(egui::Key::Enter, true)], true);
+        assert_eq!(
+            ctx.common().pes_folder_path,
+            pes_folder,
+            "Enter commits the edit"
+        );
+        fs::remove_dir_all(&dir).unwrap();
+    }
+
     // A path row draws its Browse button right of the edit (gui.md "Settings
     // menu", the path rows' bullet). The picker itself is `rfd`'s native
     // dialog, so the test sees the button, never a click.

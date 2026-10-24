@@ -73,7 +73,11 @@ pub fn path_row(
         *current = buffer.clone();
         return true;
     }
-    if !response.has_focus() {
+    // The buffer follows `current` only while the edit lacks focus in
+    // egui's memory: `Response::has_focus` is also false while the
+    // window is unfocused, so resetting on it would drop a half-typed
+    // path on an Alt+Tab.
+    if !ui.ctx().memory(|memory| memory.has_focus(response.id)) {
         *buffer = current.clone();
     }
     false

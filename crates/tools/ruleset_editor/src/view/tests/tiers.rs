@@ -235,6 +235,9 @@ fn a_rate_edit_shows_in_the_preview_and_marks_the_document_unsaved() {
         92,
         "premise: Silver's rate is 92"
     );
+    // The toolbar's name label carries no unsaved marker yet.
+    assert_count(&frame, Role::Label, "Autumn 26", 1);
+    assert_count(&frame, Role::Label, "Autumn 26 •", 0);
     click(&mut window, spin(&frame.nodes, "92"), &mut view, &ctx);
     type_replacing(&mut window, &mut view, &ctx, "90");
     // Enter ends the DragValue's keyboard gesture, sealing the edit.
@@ -248,10 +251,12 @@ fn a_rate_edit_shows_in_the_preview_and_marks_the_document_unsaved() {
         "the document is marked unsaved"
     );
 
-    // The settled frame after the edit: the preview's node holding the
+    // The settled frame after the edit: the toolbar's name label
+    // carries the unsaved marker, the preview's node holding the
     // silver line reads rate 90, not 92, and that line alone is
     // highlighted.
     let frame = settled(&mut window, &mut view, &ctx);
+    assert_count(&frame, Role::Label, "Autumn 26 •", 1);
     let silver = find(&frame.nodes, "the preview's silver line", |node| {
         node.label()
             .or(node.value())
@@ -652,6 +657,73 @@ fn an_ambiguous_id_commit_renames_the_tier_alone() {
         ruleset(&view).medal_systems[0].counts["gold"],
         3,
         "GGG's gold: 3 intact"
+    );
+}
+
+/// A half-typed id survives the window losing focus mid-edit (the
+/// buffer resets only on the edit's own focus loss, not on an
+/// Alt+Tab).
+#[test]
+fn an_id_edit_survives_the_window_losing_focus() {
+    let (ctx, _events, mut window, mut view) = fresh();
+    open_document(&mut view, template("DBC7"));
+    view.section = Section::Tiers;
+
+    // Silver's id selected and `royal` typed, not committed.
+    click_role(&mut window, &mut view, &ctx, Role::TextInput, "silver");
+    type_replacing(&mut window, &mut view, &ctx, "royal");
+
+    // The window loses and regains focus.
+    window.unfocused_frame(Vec::new(), |ui| show(ui, &mut view, &ctx));
+    let frame = window.draw(&mut view, &ctx);
+    assert!(
+        drawn(&frame.nodes, "royal"),
+        "the field still shows the typed text"
+    );
+
+    // Enter commits it.
+    window.frame(vec![key(egui::Key::Enter, egui::Modifiers::NONE)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
+    assert_eq!(ruleset(&view).tiers[1].id, "royal", "the edit committed");
+}
+
+/// A removal under a shared id keeps the keys: a tier added and
+/// committed as `gold`, its ✕ takes it out, and every system's counts
+/// stay the opened ones — the surviving Gold's are not the removed
+/// one's to take.
+#[test]
+fn removing_a_tier_under_a_shared_id_keeps_the_counts() {
+    let (ctx, _events, _window, mut view) = fresh();
+    // The window is wide enough that the last column's ✕ is inside
+    // the visible area.
+    let mut window = Headless::sized(1600.0, 900.0);
+    open_document(&mut view, template("DBC7"));
+    view.section = Section::Tiers;
+    let dbc7_systems = ruleset(&view).medal_systems.clone();
+
+    // "+ Add tier", its id committed as `gold` (a duplicate).
+    let frame = settled(&mut window, &mut view, &ctx);
+    click_labeled(&mut window, &frame.nodes, "+ Add tier", &mut view, &ctx);
+    click_role(&mut window, &mut view, &ctx, Role::TextInput, "tier4");
+    type_replacing(&mut window, &mut view, &ctx, "gold");
+    window.frame(vec![key(egui::Key::Enter, egui::Modifiers::NONE)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
+    assert_eq!(
+        ruleset(&view).tiers[3].id,
+        "gold",
+        "the added tier committed"
+    );
+
+    // The added row's ✕: every system's counts equal the opened ones.
+    let frame = settled(&mut window, &mut view, &ctx);
+    click_nth(&mut window, &frame.nodes, "✕", 3, &mut view, &ctx);
+    assert_eq!(tier_ids(&view), ["gold", "silver", "regular"]);
+    assert_eq!(
+        ruleset(&view).medal_systems,
+        dbc7_systems,
+        "every system's counts as opened"
     );
 }
 

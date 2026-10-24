@@ -155,7 +155,11 @@ fn tier_row(
     if response.lost_focus() && id != ruleset.tiers[index].id {
         rename_tier_id(ruleset, index, id.clone());
     }
-    if !response.has_focus() {
+    // The buffer follows the tier's id only while the field lacks
+    // focus in egui's memory: `Response::has_focus` is also false
+    // while the window is unfocused, so resetting on it would drop a
+    // half-typed id on an Alt+Tab.
+    if !ui.ctx().memory(|memory| memory.has_focus(response.id)) {
         id = ruleset.tiers[index].id.clone();
     }
     ui.data_mut(|data| data.insert_temp(buffer_id, id));
@@ -394,12 +398,15 @@ fn rename_tier_id(ruleset: &mut Ruleset, index: usize, id: TierId) {
     }
 }
 
-/// `index`'s tier removed, its id dropped from every medal system's
-/// counts (the draft's row ✕).
+/// `index`'s tier removed; its id drops out of every medal system's
+/// counts only while no remaining tier carries it (the counts of a
+/// surviving tier are not the removed one's to take).
 fn drop_tier(ruleset: &mut Ruleset, index: usize) {
     let id = ruleset.tiers.remove(index).id;
-    for system in &mut ruleset.medal_systems {
-        system.counts.remove(&id);
+    if !ruleset.tiers.iter().any(|tier| tier.id == id) {
+        for system in &mut ruleset.medal_systems {
+            system.counts.remove(&id);
+        }
     }
 }
 

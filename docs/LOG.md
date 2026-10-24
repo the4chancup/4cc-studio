@@ -2397,3 +2397,5 @@ worklog passed 7,000 lines.
   test (17 mutation survivors), and M5-1 settled: the modal's height cap binds once the window shrinks under it.
 - **2026-10-24** — 20.6a2a rework 3 (Astra A1): opening DBC7's Tiers no longer rewrites its 48 paid cards to 20, and
   a tier's id commits on Enter so a rename typed through another tier's id cannot move that tier's medal counts.
+- **2026-10-24** — 20.6a2a rework 4 (Astra A2, 3 of 5): a half-typed tier id or settings path survives an Alt+Tab,
+  and removing a tier that shares another's id keeps that tier's medal counts.
