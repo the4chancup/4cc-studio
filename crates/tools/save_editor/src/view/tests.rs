@@ -376,13 +376,30 @@ fn right_of_label<'a>(
     found
 }
 
-/// The `C` `B` `A` buttons of `position`'s cell, in row order.
+/// The `C` `B` `A` buttons of `position`'s cell, in x order: the three
+/// buttons on the ratings row under the cell's label (the label sits
+/// above its ratings in the positions grid).
 fn rating_buttons<'a>(nodes: &'a [accesskit::Node], position: &str) -> Vec<&'a accesskit::Node> {
-    let ratings: Vec<&accesskit::Node> = right_of_label(nodes, position, Role::Button)
-        .into_iter()
-        .filter(|node| matches!(node.label(), Some("C" | "B" | "A")))
-        .take(3)
+    let label = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some(position))
+        .unwrap_or_else(|| panic!("no label {position:?}"));
+    let bounds = label.bounds().expect("the label's bounds");
+    let mut ratings: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && matches!(node.label(), Some("C" | "B" | "A"))
+                && node.bounds().is_some_and(|b| {
+                    b.y0 >= bounds.y1 - 1.0 && b.y0 <= bounds.y1 + 40.0 && b.x0 >= bounds.x0 - 1.0
+                })
+        })
         .collect();
+    ratings.sort_by(|a, b| {
+        let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
+        x(a).partial_cmp(&x(b)).expect("ordered bounds")
+    });
+    ratings.truncate(3);
     assert_eq!(ratings.len(), 3, "{position}'s three ratings");
     ratings
 }
@@ -468,6 +485,13 @@ fn team_entry(view: &SaveView, team_id: u32) -> TeamEntry {
         .team(team_id)
         .unwrap()
         .clone()
+}
+
+/// Whether the nodes draw a Label with `value` as its text.
+fn label_value(nodes: &[accesskit::Node], value: &str) -> bool {
+    nodes
+        .iter()
+        .any(|node| node.role() == Role::Label && node.value() == Some(value))
 }
 
 /// The node of `role` labeled `label`.

@@ -151,7 +151,7 @@ impl StudioTool for Tool {
                 },
                 HelpTopic {
                     slug: "team",
-                    title: "The Team tab and the Team menu",
+                    title: "The team bar, Team settings and the Team menu",
                     body: include_str!("../help/05_team.md"),
                 },
                 HelpTopic {

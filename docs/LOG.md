@@ -2425,3 +2425,6 @@ worklog passed 7,000 lines.
 - **2026-10-24** — 8.9f4a: the Save editor's frame in the second draft's arrangement: the team bar above every tab,
   the Player and Team tab groups, the player header on the two player tabs at the draft's field widths (the
   smallest default window's pane is the yardstick), the quick actions a column atop Abilities.
+- **2026-10-24** — 8.9f4b: the Abilities tab's top row (Profile, the collaborator's positions grid, the quick actions)
+  and stats filled column by column; star and attitude in Appearance's Cutscenes group, outside the lock; the
+  team bar's pairs kept whole; 4a's review closed. Two measured-wrap designs failed before the width constants.

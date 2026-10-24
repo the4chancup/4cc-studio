@@ -39,7 +39,8 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
     let (mut view, mut window, nodes) = locked_tab(PesVersion::Pes21, "appearance_lock_fox");
 
     // Locked: the Fox ownership line, every control of the groups disabled,
-    // the switch the one control that is not.
+    // the switch and the Cutscenes group's two controls the ones that are
+    // not (star and playing attitude sit outside the lock).
     assert!(
         label_drawn(
             &nodes,
@@ -47,6 +48,16 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
         ),
         "the Fox ownership line"
     );
+    for label in ["Star", "Playing attitude"] {
+        let control = right_of_label(&nodes, label, Role::SpinButton)
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| panic!("the {label} control"));
+        assert!(
+            !control.is_disabled(),
+            "{label} stays editable while locked"
+        );
+    }
     // The self-labeled controls (checkboxes, the switch, a swatch, the
     // button) and the label/pair ones (a Label node beside its control).
     for (label, role) in [
@@ -213,6 +224,115 @@ fn the_tab_is_locked_on_a_pre_fox_save_with_the_patch_step() {
     assert!(!base_copy.is_disabled(), "PES 17 holds the flag");
 }
 
+// SE-GUI-06
+#[test]
+fn the_gated_star_and_attitude_draw_disabled_in_place_on_pes17() {
+    // The Cutscenes group's half of the scenario (the stronger hand's is
+    // the Abilities test): star and playing attitude draw on the
+    // Appearance tab, disabled `-` with the `PES NN+` tooltip on PES 17,
+    // enabled in the same rects on PES 21.
+    let bounds_of = |version: PesVersion, test: &str| {
+        let path = fixture(version, test);
+        let mut view = SaveView::new();
+        view.open(&path);
+        view.tab = Tab::Appearance;
+        let mut window = Headless::sized(1100.0, 700.0);
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let star = control_right_of(&nodes, "Star").bounds().expect("bounds");
+        let attitude = control_right_of(&nodes, "Playing attitude")
+            .bounds()
+            .expect("bounds");
+        (view, window, nodes, (star, attitude))
+    };
+    let (mut view17, mut window17, nodes17, (star17, attitude17)) =
+        bounds_of(PesVersion::Pes17, "gated_cutscenes_17");
+    let (_view21, _window21, nodes21, (star21, attitude21)) =
+        bounds_of(PesVersion::Pes21, "gated_cutscenes_21");
+
+    for (control, tooltip) in [("Star", "PES 19+"), ("Playing attitude", "PES 20+")] {
+        let button = disabled_dash(&nodes17, control);
+        assert_eq!(
+            tooltip_after_hover(&mut window17, &mut view17, centre(button)),
+            Some(tooltip.to_string()),
+            "{control}'s tooltip"
+        );
+    }
+    for label in ["Star", "Playing attitude"] {
+        assert!(
+            !control_right_of(&nodes21, label).is_disabled(),
+            "{label} is enabled on PES 21"
+        );
+    }
+    assert_eq!(star17, star21, "the Star control's rect");
+    assert_eq!(
+        attitude17, attitude21,
+        "the Playing attitude control's rect"
+    );
+}
+
+// SE-GUI-07
+#[test]
+fn the_cutscenes_group_stays_editable_above_the_ownership_line() {
+    // Locked PES 21: the group's two controls draw above the ownership
+    // line, enabled, while the groups below it stay disabled; a Star edit
+    // lands as one undoable edit.
+    let (mut view, mut window, nodes) = locked_tab(PesVersion::Pes21, "cutscenes_editable");
+    let ownership_y = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Label
+                && node
+                    .value()
+                    .is_some_and(|v| v.starts_with("Owned by the team's export"))
+        })
+        .and_then(accesskit::Node::bounds)
+        .map(|bounds| bounds.y0)
+        .expect("the ownership line");
+    for label in ["Star", "Playing attitude"] {
+        let control = right_of_label(&nodes, label, Role::SpinButton)
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| panic!("the {label} control"));
+        assert!(!control.is_disabled(), "{label} is editable while locked");
+        assert!(
+            control.bounds().expect("bounds").y0 < ownership_y,
+            "{label} sits above the ownership line"
+        );
+    }
+    assert!(
+        right_of_label(&nodes, "Chest", Role::SpinButton)[0].is_disabled(),
+        "the groups below the line stay locked"
+    );
+
+    let star_of = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .stats
+            .star
+    };
+    assert_eq!(star_of(&view), Some(0), "premise: star 0");
+    let star = right_of_label(&nodes, "Star", Role::SpinButton)
+        .first()
+        .copied()
+        .expect("the Star control");
+    click(&mut window, star, &mut view);
+    window.frame(vec![egui::Event::Text("5".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert_eq!(star_of(&view), Some(5), "the typed star stores");
+    assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
+    assert_eq!(star_of(&view), Some(0), "the undo restores it");
+}
+
 // SE-GUI-07 (its THEN's last clause)
 #[test]
 fn a_stripped_players_tab_says_the_look_is_the_tables_and_the_motions_are_read() {
@@ -274,13 +394,17 @@ fn randomize_draws_within_pes21s_measured_tops_one_undo_entry() {
     assert_eq!(before.dribbling, Some(0), "premise: the dribbling motion");
     assert_ne!(before.goal_celebration_1, 162, "premise: gc1 starts else");
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let button = nodes
+    // The button sits below the fold under the player header: the click
+    // goes through its AccessKit action (a pointer click lands only
+    // inside the scroll's clip).
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (button, node) = nodes
         .iter()
-        .find(|node| node.role() == Role::Button && node.label() == Some("Randomize"))
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Randomize"))
         .expect("the Randomize button");
-    assert!(!button.is_disabled(), "unlocked the button is enabled");
-    click(&mut window, button, &mut view);
+    assert!(!node.is_disabled(), "unlocked the button is enabled");
+    action_click(&mut window, &mut view, *button);
 
     // The pinned draw returns the shown top, so every motion lands at its
     // measured stored top; the dribbling motion is untouched.
@@ -335,11 +459,14 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
         Some("PES 20+".to_string()),
         "the dribbling motion's tooltip"
     );
-    let button = nodes
+    // Below the fold: the click goes through the AccessKit action.
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (button, _) = nodes
         .iter()
-        .find(|node| node.role() == Role::Button && node.label() == Some("Randomize"))
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Randomize"))
         .expect("the Randomize button");
-    click(&mut window, button, &mut view);
+    action_click(&mut window, &mut view, *button);
 
     let motion = motion_of(&view);
     assert_eq!(motion.hunching_dribbling, 2);
@@ -536,12 +663,14 @@ fn randomize_low_end_stores_zero_for_one_based_and_one_for_celebrations() {
             .clone()
     };
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let button = nodes
+    // Below the fold: the click goes through the AccessKit action.
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (button, _) = nodes
         .iter()
-        .find(|node| node.role() == Role::Button && node.label() == Some("Randomize"))
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Randomize"))
         .expect("the Randomize button");
-    click(&mut window, button, &mut view);
+    action_click(&mut window, &mut view, *button);
 
     let motion = motion_of(&view);
     for (label, value) in [
@@ -628,13 +757,16 @@ fn a_swatch_click_stores_its_index() {
     };
     assert_eq!(skin_of(&view), 1, "premise: skin is light (1)");
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let swatch = nodes
+    // The swatch sits below the fold under the player header: the click
+    // goes through its AccessKit action (a pointer click lands only
+    // inside the scroll's clip).
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (swatch, _) = nodes
         .iter()
-        .find(|node| node.role() == Role::ColorWell && node.label() == Some("Skin Brown"))
+        .find(|(_, node)| node.role() == Role::ColorWell && node.label() == Some("Skin Brown"))
         .expect("the brown swatch");
-    assert!(!swatch.is_disabled(), "unlocked the swatch is enabled");
-    click(&mut window, swatch, &mut view);
+    action_click(&mut window, &mut view, *swatch);
 
     assert_eq!(skin_of(&view), 5, "brown stores 5");
     assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");

@@ -1,4 +1,3 @@
-use pes_savefile::model::TeamEntry;
 use pes_savefile::schema::fields::TeamText;
 use pes_savefile::schema::schema_for;
 
@@ -44,17 +43,6 @@ fn type_text(window: &mut Headless, view: &mut SaveView, text: &str) {
         vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
         |ui| show(ui, view, &|| Vec::new(), None),
     );
-}
-
-/// The team's entry as the session holds it.
-fn team_entry(view: &SaveView, team_id: u32) -> TeamEntry {
-    view.session
-        .as_ref()
-        .unwrap()
-        .file()
-        .team(team_id)
-        .unwrap()
-        .clone()
 }
 
 /// The rostered `(slot, player_id)` pairs of `team_id`, in slot order.
@@ -358,6 +346,63 @@ fn the_team_name_field_gets_its_full_width_on_the_first_frame() {
     );
 }
 
+// plans/save_editor.md "Editing UI", the team bar bullet (the pairs wrap
+// whole, never inside one): on the pane the shell's smallest default
+// window leaves, the bar is two rows — the names then the colours — a
+// colour's label, swatch and hex staying on one row; on a wide pane it
+// is one row.
+#[test]
+fn the_bar_wraps_between_its_pairs_never_inside_one() {
+    let (mut view, _window) = open_734_with("team_bar_wrap", &[], 183);
+    let mut window = Headless::sized(877.0, 624.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    // The bar's "Team" label is the topmost one (the tab strip's own weak
+    // scope label sits lower).
+    let team_label = |nodes: &[accesskit::Node]| {
+        nodes
+            .iter()
+            .filter(|node| node.role() == Role::Label && node.value() == Some("Team"))
+            .min_by(|a, b| {
+                let y = |node: &&accesskit::Node| node.bounds().map(|b| b.y0).unwrap_or(f64::MAX);
+                y(a).partial_cmp(&y(b)).expect("ordered bounds")
+            })
+            .expect("the bar's Team label")
+            .bounds()
+            .expect("bounds")
+            .y0
+    };
+    let hex_on_row = |nodes: &[accesskit::Node], colour: &str| {
+        right_of_label(nodes, colour, Role::Label)
+            .into_iter()
+            .any(|node| node.value().is_some_and(|value| value.starts_with('#')))
+    };
+    let colour_y = |nodes: &[accesskit::Node], colour: &str| {
+        nodes
+            .iter()
+            .find(|node| node.role() == Role::Label && node.value() == Some(colour))
+            .unwrap_or_else(|| panic!("the {colour} label"))
+            .bounds()
+            .expect("bounds")
+            .y0
+    };
+    for colour in ["Colour 1", "Colour 2"] {
+        assert!(hex_on_row(&nodes, colour), "{colour}'s hex sits on its row");
+    }
+    assert!(
+        colour_y(&nodes, "Colour 1") > team_label(&nodes) + 5.0,
+        "the colours wrapped whole to the second row"
+    );
+
+    let (mut view, _window) = open_734_with("team_bar_wrap_wide", &[], 183);
+    let mut window = Headless::sized(1440.0, 900.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        (colour_y(&nodes, "Colour 2") - team_label(&nodes)).abs() < 1.0,
+        "the one-row bar: Colour 2 shares the Team label's line"
+    );
+}
+
 // `names_row`'s `changed() && team_text_fits` guard is what keeps drawing
 // from being an edit: frames of the tab with no input leave the flag and
 // the session as they were.
@@ -548,13 +593,6 @@ fn on_pes16_the_colours_ids_and_kit_slots_draw_disabled_with_their_versions() {
         label_value(&nodes, "(no kit slot records on this version)"),
         "the no-records line"
     );
-}
-
-/// Whether the nodes draw a Label with `value` as its text.
-fn label_value(nodes: &[accesskit::Node], value: &str) -> bool {
-    nodes
-        .iter()
-        .any(|node| node.role() == Role::Label && node.value() == Some(value))
 }
 
 #[test]

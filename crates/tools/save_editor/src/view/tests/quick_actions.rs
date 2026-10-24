@@ -39,9 +39,28 @@ fn quick_action_labels(nodes: &[accesskit::Node]) -> Vec<String> {
         .collect()
 }
 
-/// The column's buttons are `expected` and no others, top to bottom.
+/// The column's buttons are `expected` and no others, top to bottom —
+/// each on its own line, left edges aligned (the plan's column, not a
+/// row of buttons).
 fn assert_quick_actions(nodes: &[accesskit::Node], expected: &[&str]) {
     assert_eq!(quick_action_labels(nodes), expected);
+    let heading_x = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some("Quick actions"))
+        .and_then(accesskit::Node::bounds)
+        .map(|bounds| bounds.x0)
+        .expect("the Quick actions heading");
+    let mut last_y = f64::MIN;
+    for button in expected {
+        let node = node_labeled(nodes, Role::Button, button);
+        let bounds = node.bounds().expect("bounds");
+        assert!(bounds.y0 > last_y, "{button} on its own line");
+        assert!(
+            (bounds.x0 - heading_x).abs() < 1.0,
+            "{button}'s left edge at the column's ({bounds:?})"
+        );
+        last_y = bounds.y0;
+    }
 }
 
 /// Label nodes in the Quick actions column above the Set stats row: the

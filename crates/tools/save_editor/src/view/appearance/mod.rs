@@ -1,8 +1,10 @@
 //! The Appearance tab (`plans/save_editor.md` "Editing UI", the Appearance
 //! bullet and "Read-only aesthetics"; the draft's `appearanceTab` and
-//! `paletteRow`): the ownership line and the "Edit aesthetics anyway"
-//! switch over the five groups — Edit flags, Physique, Strip style,
-//! Motion, Colours. Locked at every start of the tool (`SaveView`'s
+//! `paletteRow`): the Cutscenes group first (star and playing attitude,
+//! which change only cutscenes and so sit outside the lock), then the
+//! ownership line and the "Edit aesthetics anyway" switch over the locked
+//! groups — Edit flags, Physique, Strip style, Motion, Colours. Locked at
+//! every start of the tool (`SaveView`'s
 //! `edit_aesthetics`), every control of the groups disabled under the
 //! ownership line as hover; the switch re-enables them for the rest of the
 //! run. A stripped player gets the draft's stripped line whatever the
@@ -13,7 +15,9 @@
 
 pub(super) mod fields;
 
-use pes_savefile::model::{PlayerAppearance, PlayerEditFlags, PlayerEntry, PlayerMotion};
+use pes_savefile::model::{
+    PlayerAppearance, PlayerEditFlags, PlayerEntry, PlayerMotion, PlayerStats,
+};
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::schema::ingame_face::IngameFaceField;
 use pes_savefile::schema::limits::motion_top;
@@ -22,7 +26,7 @@ use pes_savefile::settings_toml::{Kind, SettingKey};
 use pes_version::{Engine, PesVersion};
 
 use crate::session::{Session, is_stripped};
-use crate::view::abilities::{gating_tooltip, maybe_end_row, number, pairs_per_row};
+use crate::view::abilities::{gating_tooltip, maybe_end_row, number, pairs_per_row, small_stat};
 use crate::view::appearance::fields::{
     MOTIONS, MotionField, PHYSIQUE, Palette, STRIP_ENUMS, combo_options, number_range, option_name,
     palette,
@@ -87,6 +91,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // Every widget id under the tab is the player's within this open, as on
     // the Abilities tab.
     ui.push_id((generation, player_id), |ui| {
+        cutscenes(ui, session, player_id, &player.stats);
         ownership_line(ui, version);
         ui.checkbox(edit_aesthetics, "Edit aesthetics anyway");
         if *edit_aesthetics {
@@ -156,6 +161,21 @@ fn groups(
     ui.separator();
     ui.strong("Full Player Customization");
     fpc_group(ui, session, player_id, player, hide_ids);
+}
+
+/// The Cutscenes group (the draft's `#cutscenes`), first on the tab and
+/// outside the lock: star and playing attitude change only cutscenes, so
+/// they are no aesthetic the export owns — editable while the groups
+/// below stay locked, gated per version like the other fields.
+fn cutscenes(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats: &PlayerStats) {
+    ui.strong("Cutscenes");
+    ui.weak("These only change how the player appears in cutscenes.");
+    egui::Grid::new("appearance cutscenes").show(ui, |ui| {
+        for small in &fields::CUTSCENE_STATS {
+            small_stat(ui, session, player_id, stats, small);
+        }
+        ui.end_row();
+    });
 }
 
 /// The ownership row: the sentence itself (pre-Fox carries the patch step

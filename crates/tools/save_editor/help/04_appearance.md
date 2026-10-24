@@ -1,6 +1,10 @@
 The **Appearance** tab holds the player's look: the game's own edit flags, his
 physique, his strip style, his motions, and his skin and iris colours.
 
+The **Cutscenes** group comes first and stays editable while the rest is locked:
+star and playing attitude only change how the player appears in cutscenes, so
+they are not part of the look the team's export owns.
+
 **It is locked on purpose.** A player's look belongs to his team's export: the
 export's `settings.toml` and models decide it, and the Team compiler writes it
 into the save (through the aesthetics patch on older games, through the database

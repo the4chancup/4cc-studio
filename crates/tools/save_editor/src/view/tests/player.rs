@@ -4,21 +4,10 @@
 //! FPC items, and the PES 15/16 appearance record's round-trip).
 
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
+use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::names::display_name;
-use pes_savefile::model::{PlayerEntry, TeamEntry};
 
 use super::*;
-
-/// The team's entry as the session holds it.
-fn team_entry(view: &SaveView, team_id: u32) -> TeamEntry {
-    view.session
-        .as_ref()
-        .unwrap()
-        .file()
-        .team(team_id)
-        .unwrap()
-        .clone()
-}
 
 /// The rostered `(slot, player_id)` pairs of `team_id`, in slot order.
 fn rostered(view: &SaveView, team_id: u32) -> Vec<(usize, u32)> {

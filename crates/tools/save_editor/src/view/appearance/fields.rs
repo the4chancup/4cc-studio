@@ -12,6 +12,8 @@ use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::settings_toml::{Kind, SettingKey};
 use pes_version::{Engine, PesVersion};
 
+use crate::view::abilities::SmallStat;
+
 /// One `PlayerAppearance` field's row: `(label, key, get, set)` — `label` is
 /// the control's, `key` its `settings.toml` key (the scale and labels come
 /// from it), `get`/`set` the stored accessors.
@@ -21,6 +23,32 @@ pub(crate) type AppearanceField = (
     fn(&PlayerAppearance) -> u8,
     fn(&mut PlayerAppearance, u8),
 );
+
+/// The Cutscenes group's two stored fields: star 0-7 (PES 19+) and
+/// playing attitude 0-3 (PES 20+), stored as shown. They change only
+/// cutscenes, so they sit outside the export's ownership, above the
+/// tab's lock — `abilities`' `SmallStat` because the pair shares the
+/// Profile fields' shape.
+pub(crate) const CUTSCENE_STATS: [SmallStat; 2] = [
+    SmallStat {
+        label: "Star",
+        field: PlayerField::Star,
+        min: 0,
+        max: 7,
+        shift: 0,
+        get: |stats| stats.star,
+        set: |stats, value| stats.star = Some(value),
+    },
+    SmallStat {
+        label: "Playing attitude",
+        field: PlayerField::PlayingAttitude,
+        min: 0,
+        max: 3,
+        shift: 0,
+        get: |stats| stats.playing_attitude,
+        set: |stats, value| stats.playing_attitude = Some(value),
+    },
+];
 
 /// The 14 physique fields, the draft's order (`Kind::Signed` keys).
 pub(crate) const PHYSIQUE: [AppearanceField; 14] = [

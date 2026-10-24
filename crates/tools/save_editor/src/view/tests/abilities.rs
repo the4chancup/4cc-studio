@@ -146,9 +146,10 @@ fn an_ability_edit_marks_the_row_until_ctrl_s_writes_the_save() {
 // SE-GUI-06
 #[test]
 fn version_gated_controls_are_disabled_in_place_with_their_first_version() {
-    // The same player on PES 17 (nothing gated stored) and PES 21 (all
-    // stored): the three controls draw in the same rects, disabled with the
-    // `PES NN+` tooltip on 17 and enabled on 21.
+    // The stronger hand (the Profile block's gated control; the Cutscenes
+    // pair's half of the scenario lives on the Appearance tab's test):
+    // the same player on PES 17 (no hand stored) and PES 21 (stored), the
+    // combo in the same rect, disabled with the `PES NN+` tooltip on 17.
     let bounds_of = |version: PesVersion, test: &str| {
         let path = fixture(version, test);
         let mut view = SaveView::new();
@@ -156,29 +157,14 @@ fn version_gated_controls_are_disabled_in_place_with_their_first_version() {
         let mut window = Headless::sized(1100.0, 700.0);
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-        let star = control_right_of(&nodes, "Star").bounds().expect("bounds");
-        let attitude = control_right_of(&nodes, "Playing attitude")
-            .bounds()
-            .expect("bounds");
         let hand = control_right_of(&nodes, "Stronger hand")
             .bounds()
             .expect("bounds");
-        (view, window, nodes, (star, attitude, hand))
+        (view, window, nodes, hand)
     };
-    let (mut view17, mut window17, nodes17, (star17, attitude17, hand17)) =
-        bounds_of(PesVersion::Pes17, "gated_17");
-    let (_view21, _window21, nodes21, (star21, attitude21, hand21)) =
-        bounds_of(PesVersion::Pes21, "gated_21");
+    let (mut view17, mut window17, nodes17, hand17) = bounds_of(PesVersion::Pes17, "gated_17");
+    let (_view21, _window21, nodes21, hand21) = bounds_of(PesVersion::Pes21, "gated_21");
 
-    // Disabled on PES 17, each naming the first version that stores it.
-    for (control, tooltip) in [("Star", "PES 19+"), ("Playing attitude", "PES 20+")] {
-        let button = disabled_dash(&nodes17, control);
-        assert_eq!(
-            tooltip_after_hover(&mut window17, &mut view17, centre(button)),
-            Some(tooltip.to_string()),
-            "{control}'s tooltip"
-        );
-    }
     let hand_node = right_of_label(&nodes17, "Stronger hand", Role::ComboBox)
         .into_iter()
         .find(|node| node.is_disabled())
@@ -194,17 +180,10 @@ fn version_gated_controls_are_disabled_in_place_with_their_first_version() {
         "the hand's tooltip"
     );
 
-    // Enabled on PES 21, each control in the same rect as its PES 17 stand-in.
-    for label in ["Star", "Playing attitude", "Stronger hand"] {
-        assert!(
-            !control_right_of(&nodes21, label).is_disabled(),
-            "{label} is enabled on PES 21"
-        );
-    }
-    assert_eq!(star17, star21, "the Star control's rect");
-    assert_eq!(
-        attitude17, attitude21,
-        "the Playing attitude control's rect"
+    // Enabled on PES 21, the control in the same rect as its PES 17 stand-in.
+    assert!(
+        !control_right_of(&nodes21, "Stronger hand").is_disabled(),
+        "Stronger hand is enabled on PES 21"
     );
     assert_eq!(hand17, hand21, "the Stronger hand control's rect");
 }
@@ -269,41 +248,84 @@ fn the_tab_fits_the_pane_the_shell_leaves() {
     }
 }
 
-// The same layout rule, pinned at a known width: an ~880-point pane takes
-// five label/control pairs of the small stats (170 each) and of the
-// ability stats (160 each) a row — the first five sit on the first row's
-// y, the sixth wraps.
+// plans/save_editor.md "Editing UI", the Abilities & Skills bullet (the
+// stats in aligned columns filled column by column in the game's order,
+// fewer columns when the pane cannot hold four): at 1100 the four columns
+// are headed by Attacking Prowess, Swerve, Body Control and Coverage, the
+// first column running the game's first seven stats top to bottom; at the
+// pane the shell's smallest default window leaves the columns shrink to
+// three, the first holding the first nine.
 #[test]
-fn the_stats_rows_wrap_at_the_panes_width() {
-    let path = fixture(PesVersion::Pes21, "stats_reflow");
+fn the_stats_fill_aligned_columns_column_by_column() {
+    /// The y of a label's label node and the x of its left edge.
+    fn label_at<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
+        nodes
+            .iter()
+            .find(|node| node.role() == Role::Label && node.value() == Some(label))
+            .unwrap_or_else(|| panic!("no label {label:?}"))
+    }
+    let first_column = |nodes: &[accesskit::Node], expected: &[&str]| {
+        let x0 = label_at(nodes, expected[0]).bounds().expect("bounds").x0;
+        let mut top = f64::MIN;
+        for &label in expected {
+            let bounds = label_at(nodes, label).bounds().expect("bounds");
+            assert_eq!(bounds.x0, x0, "{label} shares the column's x0");
+            assert!(bounds.y0 > top, "{label} sits below the stat above");
+            top = bounds.y0;
+        }
+    };
+
+    let path = fixture(PesVersion::Pes21, "stats_columns");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::sized(1100.0, 800.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let y = |label: &str| control_right_of(&nodes, label).bounds().expect("bounds").y0;
-    let row_one = y("Attacking Prowess");
-    for label in ["Ball Control", "Dribbling", "Low Pass", "Lofted Pass"] {
+    let head_y = label_at(&nodes, "Attacking Prowess")
+        .bounds()
+        .expect("bounds")
+        .y0;
+    let mut last_x = 0.0;
+    for label in ["Attacking Prowess", "Swerve", "Body Control", "Coverage"] {
+        let bounds = label_at(&nodes, label).bounds().expect("bounds");
         assert!(
-            (y(label) - row_one).abs() < 1.0,
-            "{label} sits on the first row"
+            (bounds.y0 - head_y).abs() < 1.0,
+            "{label} heads a column on the first row"
         );
+        assert!(bounds.x0 > last_x, "{label} heads a column to the right");
+        last_x = bounds.x0;
     }
-    assert!(y("Finishing") > row_one + 5.0, "the sixth ability wraps");
-    let row_one = y("Form");
-    for label in [
-        "Injury resistance",
-        "Weak foot usage",
-        "Weak foot accuracy",
-        "Star",
-    ] {
-        assert!(
-            (y(label) - row_one).abs() < 1.0,
-            "{label} sits on the first row"
-        );
-    }
-    assert!(
-        y("Playing attitude") > row_one + 5.0,
-        "the sixth small stat wraps"
+    first_column(
+        &nodes,
+        &[
+            "Attacking Prowess",
+            "Ball Control",
+            "Dribbling",
+            "Low Pass",
+            "Lofted Pass",
+            "Finishing",
+            "Place Kicking",
+        ],
+    );
+
+    // The same tab on the 877 x 624 pane: three columns of nine.
+    let path = fixture(PesVersion::Pes21, "stats_columns_narrow");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(877.0, 624.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    first_column(
+        &nodes,
+        &[
+            "Attacking Prowess",
+            "Ball Control",
+            "Dribbling",
+            "Low Pass",
+            "Lofted Pass",
+            "Finishing",
+            "Place Kicking",
+            "Swerve",
+            "Heading",
+        ],
     );
 }
 
@@ -446,6 +468,248 @@ fn a_playable_positions_rating_writes_its_own_slot_and_undoes() {
     assert_eq!(playable(&view)[2], 0, "the one undo restores it");
 }
 
+// plans/save_editor.md "Editing UI", the Abilities & Skills bullet (the
+// Profile block): the eight label/field pairs in the draft's order, two
+// pairs per row, each column's four labels sharing an x0.
+#[test]
+fn the_profile_block_holds_its_pairs_in_two_aligned_columns() {
+    let path = fixture(PesVersion::Pes21, "profile_block");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 800.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let at = |label: &str| {
+        nodes
+            .iter()
+            .find(|node| node.role() == Role::Label && node.value() == Some(label))
+            .unwrap_or_else(|| panic!("no label {label:?}"))
+            .bounds()
+            .expect("bounds")
+    };
+    for (left, right) in [
+        ("Registered position", "Playing style"),
+        ("Stronger foot", "Stronger hand"),
+        ("Form", "Injury resistance"),
+        ("Weak foot usage", "Weak foot accuracy"),
+    ] {
+        assert!(
+            (at(left).y0 - at(right).y0).abs() < 1.0,
+            "{left} and {right} share a row"
+        );
+    }
+    for column in [
+        [
+            "Registered position",
+            "Stronger foot",
+            "Form",
+            "Weak foot usage",
+        ],
+        [
+            "Playing style",
+            "Stronger hand",
+            "Injury resistance",
+            "Weak foot accuracy",
+        ],
+    ] {
+        let x0 = at(column[0]).x0;
+        for label in &column[1..] {
+            assert!(
+                (at(label).x0 - x0).abs() < 1.0,
+                "{label} shares the column's x0"
+            );
+        }
+    }
+}
+
+// plans/save_editor.md "Editing UI", the top row's three blocks: on a wide
+// pane Profile, Playable positions and Quick actions share the first
+// line; on the pane the shell's smallest default window leaves the row
+// wraps between the blocks — Playable positions lands below Profile
+// whole, never split across two lines.
+#[test]
+fn the_top_row_wraps_between_its_blocks_never_inside_one() {
+    let path = fixture(PesVersion::Pes21, "top_row_wide");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1440.0, 900.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let y = |label: &str| {
+        nodes
+            .iter()
+            .find(|node| node.role() == Role::Label && node.value() == Some(label))
+            .unwrap_or_else(|| panic!("no heading {label:?}"))
+            .bounds()
+            .expect("bounds")
+            .y0
+    };
+    let row_y = y("Profile");
+    for heading in ["Playable positions", "Quick actions"] {
+        assert!(
+            (y(heading) - row_y).abs() < 1.0,
+            "{heading} shares the top row"
+        );
+    }
+
+    let path = fixture(PesVersion::Pes21, "top_row_narrow");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(877.0, 624.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let second = y_of(&nodes, "Playable positions");
+    assert!(
+        second > y_of(&nodes, "Profile") + 5.0,
+        "the block wrapped whole below Profile"
+    );
+    assert!(
+        (y_of(&nodes, "Quick actions") - second).abs() < 1.0,
+        "Quick actions shares Playable positions' line"
+    );
+}
+
+/// `label`'s label-node top, a shorthand for the narrow-pane checks above.
+fn y_of(nodes: &[accesskit::Node], label: &str) -> f64 {
+    nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some(label))
+        .unwrap_or_else(|| panic!("no label {label:?}"))
+        .bounds()
+        .expect("bounds")
+        .y0
+}
+
+// plans/save_editor.md "Editing UI", the positions grid (the draft's
+// `POS_ROWS`): the 13 playable positions in the collaborator's rows,
+// CF SS LWF RWF / AMF LMF RMF CMF DMF / CB LB RB GK, each cell the
+// position's label above its C B A ratings, the registered position's
+// cell outlined.
+#[test]
+fn the_positions_grid_draws_the_collaborators_rows_with_the_registered_outlined() {
+    /// The outline strokes a frame painted in the selection colour (the
+    /// registered position's cell mark, the draft's `td.reg`).
+    fn outlines(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::Rect> {
+        let selection = egui::Visuals::dark().selection.stroke.color;
+        shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Rect(shape)
+                    if shape.fill == egui::Color32::TRANSPARENT
+                        && shape.stroke.color == selection =>
+                {
+                    Some(shape.rect)
+                }
+                _ => None,
+            })
+            .collect()
+    }
+    /// The rect holding `position`'s cell widgets (its label and its C
+    /// rating, enough to name the cell).
+    fn cell_rect(nodes: &[accesskit::Node], position: &str) -> egui::Rect {
+        let label = nodes
+            .iter()
+            .find(|node| node.role() == Role::Label && node.value() == Some(position))
+            .unwrap_or_else(|| panic!("no label {position:?}"));
+        let c = rating_buttons(nodes, position)[0];
+        egui::Rect::from_min_max(
+            egui::pos2(
+                label.bounds().expect("bounds").x0 as f32,
+                label.bounds().expect("bounds").y0 as f32,
+            ),
+            egui::pos2(
+                c.bounds().expect("bounds").x1 as f32,
+                c.bounds().expect("bounds").y1 as f32,
+            ),
+        )
+    }
+
+    let path = fixture(PesVersion::Pes21, "positions_grid");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 800.0);
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    // The three rows in the collaborator's order, one y0 each, x order as
+    // listed.
+    for row in [
+        ["CF", "SS", "LWF", "RWF"].as_slice(),
+        ["AMF", "LMF", "RMF", "CMF", "DMF"].as_slice(),
+        ["CB", "LB", "RB", "GK"].as_slice(),
+    ] {
+        let row_y = y_of(&nodes, row[0]);
+        let mut last_x = f64::MIN;
+        for position in row {
+            let bounds = nodes
+                .iter()
+                .find(|node| node.role() == Role::Label && node.value() == Some(*position))
+                .unwrap_or_else(|| panic!("no label {position:?}"))
+                .bounds()
+                .expect("bounds");
+            assert!(
+                (bounds.y0 - row_y).abs() < 1.0,
+                "{position} sits on its row"
+            );
+            assert!(bounds.x0 > last_x, "{position} follows the one before");
+            last_x = bounds.x0;
+        }
+    }
+    // Each label sits above its own ratings.
+    for position in [
+        "CF", "SS", "LWF", "RWF", "AMF", "LMF", "RMF", "CMF", "DMF", "CB", "LB", "RB", "GK",
+    ] {
+        let label = nodes
+            .iter()
+            .find(|node| node.role() == Role::Label && node.value() == Some(position))
+            .unwrap_or_else(|| panic!("no label {position:?}"))
+            .bounds()
+            .expect("bounds");
+        let c = rating_buttons(&nodes, position)[0]
+            .bounds()
+            .expect("bounds");
+        assert!(
+            label.y1 <= c.y0 + 1.0,
+            "{position}'s label sits above its C"
+        );
+        assert!(
+            (label.x0 - c.x0).abs() < 4.0,
+            "{position}'s label and C start at the cell's left edge"
+        );
+    }
+
+    // The registered position's cell is the one outlined cell; the pick
+    // moves the outline with it (70101 is registered CB, picked CF).
+    let strokes = outlines(&shapes);
+    assert_eq!(strokes.len(), 1, "exactly one outlined cell");
+    let cell = cell_rect(&nodes, "CB");
+    assert!(
+        strokes[0].contains_rect(cell),
+        "the outline is around the CB cell, got {:?} for {cell:?}",
+        strokes[0]
+    );
+
+    let combo = right_of_label(&nodes, "Registered position", Role::ComboBox)
+        .first()
+        .copied()
+        .expect("the registered combo");
+    click(&mut window, combo, &mut view);
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (item, _) = nodes
+        .iter()
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("CF"))
+        .expect("the CF item");
+    action_click(&mut window, &mut view, *item);
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let strokes = outlines(&shapes);
+    assert_eq!(strokes.len(), 1, "still exactly one outlined cell");
+    let cell = cell_rect(&nodes, "CF");
+    assert!(
+        strokes[0].contains_rect(cell),
+        "the outline moved to the CF cell, got {:?} for {cell:?}",
+        strokes[0]
+    );
+}
+
 // plans/save_editor.md "Editing UI", the Undo/redo bullet (one entry per
 // gesture, the merge key the widget's): the cards' and pickers' merge keys
 // are the player's own — while a gesture stays open (a widget keeps the
@@ -526,15 +790,16 @@ fn a_card_tick_on_another_player_is_its_own_undo_entry() {
 // plans/save_editor.md "Editing UI", the Abilities & Skills bullet (the
 // fields shown one above their stored value — star and playing attitude
 // stored as shown): a stored 3 shows 4; typing 8 stores 7. The other
-// fields of the same player are untouched by each edit.
+// fields of the same player are untouched by each edit. The Profile
+// block's four sit on this tab, the Cutscenes group's two on Appearance.
 #[test]
 fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
     let path = fixture(PesVersion::Pes21, "shifted_fields");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(1100.0, 700.0);
-    // The six fields the row holds: form, injury resistance, weak foot
-    // usage and accuracy, star, playing attitude.
+    // The six fields the two groups hold: form, injury resistance, weak
+    // foot usage and accuracy, star, playing attitude.
     let six = |view: &SaveView| {
         let stats = &view
             .session
@@ -581,25 +846,47 @@ fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
 
     // The same round trip for the other five fields: each shows the
     // stored value plus its shift (star and playing attitude shift by
-    // zero), a typed value stores one less, and the row's other fields
-    // keep their stored values.
-    for (label, shown, typed, expected) in [
+    // zero), a typed value stores one less, and the groups' other fields
+    // keep their stored values. Star and playing attitude sit in
+    // Appearance's Cutscenes group, editable while the tab is locked.
+    for (tab, label, shown, typed, expected) in [
         (
+            Tab::Abilities,
             "Injury resistance",
             "1",
             "3",
             (7, 2, 1, 1, Some(0), Some(0)),
         ),
-        ("Weak foot usage", "2", "4", (7, 2, 3, 1, Some(0), Some(0))),
         (
+            Tab::Abilities,
+            "Weak foot usage",
+            "2",
+            "4",
+            (7, 2, 3, 1, Some(0), Some(0)),
+        ),
+        (
+            Tab::Abilities,
             "Weak foot accuracy",
             "2",
             "4",
             (7, 2, 3, 3, Some(0), Some(0)),
         ),
-        ("Star", "0", "7", (7, 2, 3, 3, Some(7), Some(0))),
-        ("Playing attitude", "0", "3", (7, 2, 3, 3, Some(7), Some(3))),
+        (
+            Tab::Appearance,
+            "Star",
+            "0",
+            "7",
+            (7, 2, 3, 3, Some(7), Some(0)),
+        ),
+        (
+            Tab::Appearance,
+            "Playing attitude",
+            "0",
+            "3",
+            (7, 2, 3, 3, Some(7), Some(3)),
+        ),
     ] {
+        view.tab = tab;
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         let control = right_of_label(&nodes, label, Role::SpinButton)

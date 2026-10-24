@@ -182,7 +182,9 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   codes, as measured").
 - **The team bar** above every tab: the selected player's team's name, short name and colours
   1-2, the Team settings tab's former first rows. Not on a tab, because invitational members
-  edit the name and the abbreviation often (a collaborator's remark on the first draft).
+  edit the name and the abbreviation often (a collaborator's remark on the first draft). On a
+  pane too narrow for one row it takes two, the names then the colours, never splitting a pair
+  (a label with its field, a colour's label, swatch and hex).
 - **The tab strip** in two groups, each after its weak scope label: `Player` (Abilities &
   Skills, Appearance), then `Team` (Tactics, Team settings).
 - **The player header** on the Player tabs only: the selected player's name drawn with its
@@ -220,9 +222,11 @@ mirroring 4ccEditor's structure without its dialog sprawl:
     cells), the 13 playable positions with A/B/C ratings in the collaborator's grid (CF SS
     LWF RWF / AMF LMF RMF CMF DMF / CB LB RB GK, the order a member reads a formation in,
     each position's label above its ratings, the registered one outlined), and the quick
-    actions as a column; then ~25 ability stats with spinners in four aligned columns,
-    filled column by column in the game's order (a row-by-row fill misaligns them as the
-    pane narrows); 7 COM styles, up to 41 skill checkboxes (version-gated).
+    actions as a column, on one line where the pane holds the three, else Profile above the
+    other two (the smallest default window's pane), never a block split across lines; then
+    ~25 ability stats with spinners in four aligned columns (fewer when the pane cannot hold
+    four, so none clips), filled column by column in the game's order (a row-by-row fill
+    misaligns them as the pane narrows); 7 COM styles, up to 41 skill checkboxes (version-gated).
     Its numbers are the game's, in 4ccEditor's ranges: abilities 40 to 99, form 1 to 8,
     injury resistance 1 to 3, weak foot usage and accuracy 1 to 4 (these four stored one
     lower), and the Cutscenes group's star 0 to 7 and playing attitude 0 to 3, each inside the field's bit width on every
@@ -810,7 +814,8 @@ SE-GUI-01  GIVEN the save
            WHEN it is opened from the view (Open, or its entry in the discovered-saves list)
            THEN the team selector lists its teams and ALL, the player list shows each player's
                 number, position and name with the name's color codes rendered as colors, and
-                the player header shows the selected player's name and general fields
+                on the two Player tabs the player header shows the selected player's name, its
+                color codes rendered as colors, and general fields
 SE-GUI-02  GIVEN the PES 17 save open on team 701
            WHEN a name, shirt name or id of a player of another team is typed in the filter box
            THEN the list shows the matching players across all teams, matched on the
@@ -1025,7 +1030,8 @@ SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (glo
 SE-GUI-32  GIVEN the settings menu open on the Save editor's section and the save open
            WHEN a VTL11 rules file's path is typed in the AATF rules file row and Enter pressed
            THEN the `aatf_rules` setting holds the path, the tool's other keys unchanged, and
-                the next frame's quick actions are VTL11's (SE-GUI-09); WHEN the row is
+                the next frame's quick actions (on the Abilities & Skills tab) are VTL11's
+                (SE-GUI-09); WHEN the row is
                 emptied THEN they are the official ruleset's again; GIVEN a file that does not
                 load THEN the quick actions hold Set stats and the load error, and no
                 tier button

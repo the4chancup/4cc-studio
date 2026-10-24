@@ -1000,27 +1000,74 @@ fn title_painted(shapes: &[egui::epaint::ClippedShape], text: &str, heading: f32
         })
 }
 
+/// The painted `TextShape` whose galley text is `text` (the name's runs
+/// merged into one).
+fn title_shape<'a>(
+    shapes: &'a [egui::epaint::ClippedShape],
+    text: &str,
+) -> &'a egui::epaint::TextShape {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) if shape.galley.job.text == text => Some(shape),
+            _ => None,
+        })
+        .next()
+        .unwrap_or_else(|| panic!("no painted text {text:?}"))
+}
+
 // plans "Editing UI", the player header bullet: the
 // selected player's name as the tab's title over the strip's nine labels —
-// on the two player tabs alone, the Team tabs editing no player.
+// on the two player tabs alone, the Team tabs editing no player. The name's
+// colour codes paint as the player list draws them: a coded run in the
+// code's colour, the rest the widget's text colour.
 // SE-GUI-01
 #[test]
 fn the_player_header_tops_the_player_tabs_alone() {
     let (mut view, mut window) = open_734_with("player_header_tabs", &[], 0);
-    // The title's text is the name as `append_name` writes it (its colour
-    // codes' bytes are not text).
-    let title = name_spans(&player_entry(&view, 73401).name)
-        .into_iter()
-        .map(|(_, text)| text)
-        .collect::<String>();
+    // A name with a colour code and a reset (the `\x11c` + 8 hex digits the
+    // player list renders, the `append_name` test's name): the title's runs
+    // read the code's colour then the default one.
+    let mut entry = player_entry(&view, 73401);
+    entry.name = "WHEN THE \x11cb7bec5ffWORK RESULT\x11d WAS GOOD".to_owned();
+    view.session.as_mut().unwrap().edit_players(vec![entry]);
+    let title = "WHEN THE WORK RESULT WAS GOOD";
+    let normal = egui::Color32::PLACEHOLDER;
+    let expected: Vec<(egui::Color32, &str)> = vec![
+        (normal, "WHEN THE "),
+        (egui::Color32::from_rgb(0xb7, 0xbe, 0xc5), "WORK RESULT"),
+        (normal, " WAS GOOD"),
+    ];
     let heading =
         window.ctx.style_of(window.ctx.theme()).text_styles[&egui::TextStyle::Heading].size;
     for tab in [Tab::Abilities, Tab::Appearance] {
         view.tab = tab;
         let (_, nodes, shapes) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let shape = title_shape(&shapes, title);
+        let painted: Vec<(egui::Color32, String)> = shape
+            .galley
+            .job
+            .sections
+            .iter()
+            .map(|section| {
+                (
+                    section.format.color,
+                    shape.galley.job.text[section.byte_range.start.0..section.byte_range.end.0]
+                        .to_owned(),
+                )
+            })
+            .collect();
+        assert_eq!(
+            painted,
+            expected
+                .iter()
+                .map(|(color, text)| (*color, text.to_string()))
+                .collect::<Vec<_>>(),
+            "the name's painted runs on {tab:?}"
+        );
         assert!(
-            title_painted(&shapes, &title, heading),
+            title_painted(&shapes, title, heading),
             "the name as the {tab:?} title"
         );
         for label in [
@@ -1034,7 +1081,7 @@ fn the_player_header_tops_the_player_tabs_alone() {
         let (_, nodes, shapes) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         assert!(
-            !title_painted(&shapes, &title, heading),
+            !title_painted(&shapes, title, heading),
             "no title on {tab:?}"
         );
         for label in [

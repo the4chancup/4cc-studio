@@ -22,10 +22,19 @@ use pes_version::PesVersion;
 use crate::session::Session;
 use crate::view::{SaveView, edit_team, selected_team};
 
+/// The width the bar's four pairs take on one line, measured once in a
+/// headless frame with the default font at 1440 x 900 (the drawn rect of
+/// each pair, summed with the three item gaps: name pair ~280, short pair
+/// ~100, each colour ~158, so ~718 points). A wrong estimate wraps a bit
+/// early or late; it never splits a pair, since the fallback is whole
+/// pairs on two rows.
+const TEAM_BAR_ONE_ROW: f32 = 720.0;
+
 /// The bar over the tab strip, on every tab: the selected player's team's
-/// name, short name and colours, in a row that wraps on a narrow pane.
-/// Nothing when the selection names no rostered player (the tab draws
-/// nothing then either).
+/// name, short name and colours — one row where the pane holds
+/// `TEAM_BAR_ONE_ROW`, else the names on the first row and the colours on
+/// the second, so a pair always stays whole. Nothing when the selection
+/// names no rostered player (the tab draws nothing then either).
 pub(crate) fn bar(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, version, team)) = selected_team(view) else {
         return;
@@ -38,10 +47,23 @@ pub(crate) fn bar(ui: &mut egui::Ui, view: &mut SaveView) {
     // the team's within this open, so a text field's undo history and the
     // pickers' state never cross teams — nor saves (the `generation` half).
     ui.push_id((generation, team_id), |ui| {
-        ui.horizontal_wrapped(|ui| {
-            names_row(ui, session, team_id, version, &team);
-            colours_row(ui, session, team_id, &team);
-        });
+        if ui.available_width() >= TEAM_BAR_ONE_ROW {
+            ui.horizontal(|ui| {
+                name_pair(ui, session, team_id, version, &team);
+                short_pair(ui, session, team_id, version, &team);
+                colour_unit(ui, session, team_id, &team, 0);
+                colour_unit(ui, session, team_id, &team, 1);
+            });
+        } else {
+            ui.horizontal(|ui| {
+                name_pair(ui, session, team_id, version, &team);
+                short_pair(ui, session, team_id, version, &team);
+            });
+            ui.horizontal(|ui| {
+                colour_unit(ui, session, team_id, &team, 0);
+                colour_unit(ui, session, team_id, &team, 1);
+            });
+        }
     });
 }
 
@@ -70,15 +92,11 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     });
 }
 
-/// The name and short-name fields (the draft's `teamBar` pair). A keystroke
+/// The name field's unit (the draft's `teamBar` pair). A keystroke
 /// `team_text_fits` refuses is not taken — the field shows the stored text
-/// again next frame, the info strip's Name field's rule; the short name is
-/// upper-cased as typed and holds at most three letters (the cap the
-/// draft's short-name field enforced; the codec's four-byte field is
-/// unterminated and would take a fourth). A changed name sets the name
-/// flag, a changed short name sets it and, on PES 15, the short-name flag
-/// too.
-fn names_row(
+/// again next frame, the info strip's Name field's rule. A changed name
+/// sets the name flag.
+fn name_pair(
     ui: &mut egui::Ui,
     session: &mut Session,
     team_id: u32,
@@ -99,6 +117,19 @@ fn names_row(
             team.edit_flags.name = true;
         });
     }
+}
+
+/// The short-name field's unit: upper-cased as typed and holding at most
+/// three letters (the cap the draft's short-name field enforced; the
+/// codec's four-byte field is unterminated and would take a fourth). A
+/// change sets the name flag and, on PES 15, the short-name flag too.
+fn short_pair(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    team_id: u32,
+    version: PesVersion,
+    team: &TeamEntry,
+) {
     ui.weak("Short");
     let mut short = team.short_name.clone();
     // The same `add_sized` allocation as the name field's above.
@@ -120,60 +151,58 @@ fn names_row(
     }
 }
 
-/// The two team colours (PES 17+): `color_tools`' picker with no
+/// One team colour's unit (PES 17+): `color_tools`' picker with no
 /// suggestions, the stored 6-bit channels shown as 8 bits and back by the
 /// `view/` bullet's rule (`channel_to_show`/`channel_to_store`), the shown
-/// colour's upper-case hex beside each. On PES 15/16 both draw disabled
+/// colour's upper-case hex beside it. On PES 15/16 the pair draws disabled
 /// with the `PES NN+` tooltip, in the same place.
-fn colours_row(ui: &mut egui::Ui, session: &mut Session, team_id: u32, team: &TeamEntry) {
-    for (index, label) in ["Colour 1", "Colour 2"].iter().enumerate() {
-        ui.label(*label);
-        match &team.colors {
-            Some(colors) => {
-                let mut shown = [
-                    channel_to_show(colors[index].red),
-                    channel_to_show(colors[index].green),
-                    channel_to_show(colors[index].blue),
-                ];
-                let out =
-                    color_tools::picker::color_field(ui, ("team colour", index), &mut shown, &[]);
-                if out.changed {
-                    let stored = TeamColor {
-                        red: channel_to_store(shown[0]),
-                        green: channel_to_store(shown[1]),
-                        blue: channel_to_store(shown[2]),
-                    };
-                    edit_team(session, team_id, out.response.id.value(), |team| {
-                        team.colors
-                            .as_mut()
-                            .expect("the field is drawn only on a version that stores it")[index] =
-                            stored;
-                    });
-                }
-                // The shown colour is the nearest the save holds, so the hex
-                // reads the rounded-back stored value, not the pick itself.
-                let display = [
-                    channel_to_show(channel_to_store(shown[0])),
-                    channel_to_show(channel_to_store(shown[1])),
-                    channel_to_show(channel_to_store(shown[2])),
-                ];
-                ui.monospace(format_hex(display));
+fn colour_unit(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    team_id: u32,
+    team: &TeamEntry,
+    index: usize,
+) {
+    ui.label(["Colour 1", "Colour 2"][index]);
+    match &team.colors {
+        Some(colors) => {
+            let mut shown = [
+                channel_to_show(colors[index].red),
+                channel_to_show(colors[index].green),
+                channel_to_show(colors[index].blue),
+            ];
+            let out = color_tools::picker::color_field(ui, ("team colour", index), &mut shown, &[]);
+            if out.changed {
+                let stored = TeamColor {
+                    red: channel_to_store(shown[0]),
+                    green: channel_to_store(shown[1]),
+                    blue: channel_to_store(shown[2]),
+                };
+                edit_team(session, team_id, out.response.id.value(), |team| {
+                    team.colors
+                        .as_mut()
+                        .expect("the field is drawn only on a version that stores it")[index] =
+                        stored;
+                });
             }
-            None => {
-                ui.add_enabled_ui(false, |ui| {
-                    color_tools::picker::color_field(
-                        ui,
-                        ("team colour", index),
-                        &mut [0, 0, 0],
-                        &[],
-                    );
-                })
-                .response
-                .on_disabled_hover_text(gating_tooltip(
-                    [TeamField::Color1Red, TeamField::Color2Red][index],
-                ));
-                ui.weak(format_hex([0, 0, 0]));
-            }
+            // The shown colour is the nearest the save holds, so the hex
+            // reads the rounded-back stored value, not the pick itself.
+            let display = [
+                channel_to_show(channel_to_store(shown[0])),
+                channel_to_show(channel_to_store(shown[1])),
+                channel_to_show(channel_to_store(shown[2])),
+            ];
+            ui.monospace(format_hex(display));
+        }
+        None => {
+            ui.add_enabled_ui(false, |ui| {
+                color_tools::picker::color_field(ui, ("team colour", index), &mut [0, 0, 0], &[]);
+            })
+            .response
+            .on_disabled_hover_text(gating_tooltip(
+                [TeamField::Color1Red, TeamField::Color2Red][index],
+            ));
+            ui.weak(format_hex([0, 0, 0]));
         }
     }
 }

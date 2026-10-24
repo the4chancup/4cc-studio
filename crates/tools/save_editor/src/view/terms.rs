@@ -60,15 +60,17 @@ fn report_term(diff: &PlayerDiff) -> Term {
 }
 
 /// A `Field` row's term: the tabs' own tables first (`SMALL_STATS`,
-/// `MOTIONS`, `PHYSIQUE`, `STRIP_ENUMS`, the ability stats), then the
-/// fields the tabs draw one-off, then the report's terms for a field no
-/// tab draws — the `_` arm IS the rule for those, not an oversight.
+/// `CUTSCENE_STATS`, `MOTIONS`, `PHYSIQUE`, `STRIP_ENUMS`, the ability
+/// stats), then the fields the tabs draw one-off, then the report's terms
+/// for a field no tab draws — the `_` arm IS the rule for those, not an
+/// oversight.
 fn player_field_term(version: PesVersion, diff: &PlayerDiff) -> Term {
     let PlayerDiff::Field { field, old, new } = *diff else {
         unreachable!("player_field_term gets a Field row")
     };
     if let Some(small) = abilities::SMALL_STATS
         .iter()
+        .chain(fields::CUTSCENE_STATS.iter())
         .find(|stat| stat.field == field)
     {
         let shift = u32::from(small.shift);
@@ -873,7 +875,10 @@ mod tests {
     #[test]
     fn every_table_driven_field_has_a_term() {
         let version = PesVersion::Pes17;
-        for stat in abilities::SMALL_STATS {
+        for stat in abilities::SMALL_STATS
+            .iter()
+            .chain(fields::CUTSCENE_STATS.iter())
+        {
             let term = row_term(version, &field(stat.field, 0, 0));
             assert_eq!(term.label, stat.label, "{:?}", stat.field);
         }

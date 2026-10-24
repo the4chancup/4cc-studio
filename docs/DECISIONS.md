@@ -10795,3 +10795,23 @@ row 2's ID column and Height and Weight are cut off; at 240 and 140, row 1 alone
 Captain now beside Name and Shirt) widens the tab's content past that pane (measured in 8.9f
 slice 4a: a checkbox below it ended at 908).
 Plan: `plans/save_editor.md` "Editing UI", the player header bullet.
+
+## 2026-10-24 — save_editor — Rows picked by width, and stats columns that shrink before they clip
+Decision: the team bar and the Abilities tab's top row pick their arrangement from the pane's
+width against a constant (the one-row width, measured once with the default font): the bar one
+row, else the names row over the colours row; the top row's three blocks (Profile, Playable
+positions, Quick actions) on one line, else Profile over the other two. A pair or a block is
+never split. The ability stats take four columns, fewer when the pane cannot hold four, filled
+column by column.
+Why: egui's wrapped row breaks between single widgets, so it split Colour 2's hex from its
+swatch at 1037 x 648, and a nested horizontal or vertical claims the line's whole rest and
+never wraps (tried at 8.9f4a: the bar stopped wrapping and widened the tab past the 877-point
+pane). Wrapping units by their measured widths failed twice in 8.9f4b: a unit boxed at its
+remembered width re-fits its grids to the box and needed more egui passes than the default, set
+globally from a Save editor helper; lines grouped by the previous frame's widths settled over
+several passes and drove the scroll area's offset negative, hiding the tab's labels. A width
+constant needs no measurement and no extra pass, as `pairs_per_row` already does in this crate;
+a wrong estimate wraps a little early or late, never splits a unit. Four fixed columns of stats
+would clip on the smallest default window's pane if the labels outgrow it, where the old row
+fill wrapped.
+Plan: `plans/save_editor.md` "Editing UI", the team bar bullet and the Abilities & Skills bullet.

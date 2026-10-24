@@ -2,30 +2,12 @@ use pes_savefile::model::KitSlot;
 
 use super::*;
 
-/// The team's entry as the session holds it.
-fn team_entry(view: &SaveView, team_id: u32) -> TeamEntry {
-    view.session
-        .as_ref()
-        .unwrap()
-        .file()
-        .team(team_id)
-        .unwrap()
-        .clone()
-}
-
 /// The node of `role` with `label`, or panic naming both.
 fn labeled<'a>(nodes: &'a [accesskit::Node], role: Role, label: &str) -> &'a accesskit::Node {
     nodes
         .iter()
         .find(|node| node.role() == role && node.label() == Some(label))
         .unwrap_or_else(|| panic!("no {role:?} {label:?}"))
-}
-
-/// Whether the nodes draw a Label with `value` as its text.
-fn label_value(nodes: &[accesskit::Node], value: &str) -> bool {
-    nodes
-        .iter()
-        .any(|node| node.role() == Role::Label && node.value() == Some(value))
 }
 
 /// The Savefile menu's popup open for one frame: a click on the Savefile

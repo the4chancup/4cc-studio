@@ -1,10 +1,10 @@
 The **Abilities & Skills** tab holds the player's gameplay card: registered position,
 playing style, stronger foot and hand, form, injury resistance, weak foot usage and
-accuracy, star, playing attitude, the playable positions with their C/B/A ratings,
-the ability stats, and his skills and COM playing styles.
+accuracy, the playable positions with their C/B/A ratings, the ability stats, and
+his skills and COM playing styles.
 
 The numbers are the game's own, the same ones the game's Edit mode shows: abilities
-run 40 to 99, form 1 to 8, weak foot 1 to 4, star 0 to 7. A value the save holds
+run 40 to 99, form 1 to 8, weak foot 1 to 4. A value the save holds
 outside a range shows as stored; it changes only when you edit it.
 
 A greyed control is one the save's PES version does not have: hover it and the

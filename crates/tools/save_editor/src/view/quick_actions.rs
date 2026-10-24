@@ -1,17 +1,17 @@
 //! The quick actions column (`plans/save_editor.md` "Configurable AATF rules",
-//! the Quick actions bullet; the draft's `quickActions`): at the Abilities &
-//! Skills tab's top, one "Make <tier>" button per tier of the active ruleset
-//! in its order, each a `Session::apply_tier` as one undoable edit, then the
-//! Set stats row with its number — the Player menu's Set all stats in one
-//! click, 40 to 99 — and `AATF…`. A rules file that does not load leaves Set
-//! stats alone in the column, the load error in the tier buttons' place as
-//! the badges show it; a failed `apply_tier` leaves the player as he was and
-//! shows the error in the refusal dialog.
+//! the Quick actions bullet; the draft's `quickActions`): the third block of
+//! the Abilities & Skills tab's top row, one "Make <tier>" button per tier
+//! of the active ruleset in its order, each a `Session::apply_tier` as one
+//! undoable edit, then the Set stats row with its number — the Player menu's
+//! Set all stats in one click, 40 to 99 — and `AATF…`. A rules file that
+//! does not load leaves Set stats alone in the column, the load error in
+//! the tier buttons' place as the badges show it; a failed `apply_tier`
+//! leaves the player as he was and shows the error in the refusal dialog.
 
 use crate::view::{Refusal, SaveView, aatf_panel, rules_load_error, selected_player};
 
-/// The column at the tab's top; nothing when the selection names no rostered
-/// player (the header draws nothing then either).
+/// The column in the tab's top row; nothing when the selection names no
+/// rostered player (the header draws nothing then either).
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, slot, player_id)) = selected_player(view) else {
         return;
@@ -39,7 +39,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 }
             }
             Err(error) => {
-                ui.weak(rules_load_error(error));
+                // Wrapped: the column is narrow and the error names a path.
+                ui.add(
+                    egui::Label::new(egui::RichText::new(rules_load_error(error)).weak()).wrap(),
+                );
             }
         }
     }
