@@ -11230,3 +11230,32 @@ folder the portable choice promised not to; a panic on another thread may be rec
 GPU encoder's falls back to the CPU encoder), and the hook cannot tell, so a dialog there could
 ask for a report of a run that went fine. 101 is the code an unguarded panic exits with.
 Plan: `plans/core/architecture.md` "Diagnostic logging"; ST-RUN-07, ST-RUN-08.
+
+## 2026-10-26 — studio — Every Windows build is GUI-subsystem; the window mode's startup failures show in a dialog
+Decision: debug builds take `windows_subsystem = "windows"` as releases do; and the window
+mode's two printed failures (the settings file that does not load, the window that cannot
+open) show in a message dialog with the same text and exit code.
+Why: with the subsystem on releases only, no gate would run a GUI-subsystem binary, and a
+redirected command losing its output would first show in the bundle; the gates' CLI tests run
+the debug binary with piped output, so they test what ships. A double-clicked window has no
+console to attach to, so a printed failure would reach nobody. Development loses the console
+beside the window, which `studio.log` replaces.
+Plan: `plans/core/architecture.md` "Windows subsystem", its second paragraph.
+
+## 2026-10-26 — studio — The log's backtrace is offsets; the release's symbols stay out of the bundle
+Decision: the panic hook writes each backtrace frame as its module base and offset (the
+`backtrace` crate, a new dependency), the release recipe keeps the exe and its `.pdb` beside
+the archive as `-symbols.7z` and never in the bundle, the release profile builds with
+`debug = "line-tables-only"`, and `scripts/symbolize_log.py` names a posted log's frames
+through `llvm-symbolizer`.
+Why: a release exe names its frames only with its `.pdb` beside it (measured on a probe crate:
+every frame `<unknown>` without it), shipping it costs every member's download 3.8 MB for a
+file only the maintainer reads, and appending it to the exe also has the crash write 17 MB and
+point the backtrace at it at run time. Offsets plus the kept `.pdb` name function, file and
+line (the probe's offsets, run without its `.pdb`, symbolized to
+`bt_probe::main::closure$0 at src\main.rs:12`), and line tables grew the probe's `.pdb` alone.
+No crate does better at this size: `human-panic` and `crashlog` print resolved names, which the
+missing `.pdb` blanks; Embark's minidump crates cover native crashes too, at the cost of a
+monitor process (PROPOSALS P38). The maintainer chose this among the three options.
+Plan: `plans/core/architecture.md` "Diagnostic logging"; `plans/core/distribution.md`, the
+release recipe's paragraph.

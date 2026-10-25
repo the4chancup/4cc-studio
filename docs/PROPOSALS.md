@@ -189,3 +189,17 @@ first start, the toggle still there and remembered, so a member who wants the ro
 off once. **Costs**: a default flipped in `settings.rs` and its test; the panel takes the
 view's bottom rows from the start, and each edit runs one team's check (about 56 ms, off the
 frame).
+
+## P38. A minidump for the crashes the panic hook never sees
+
+From the crash log's design (worklog 0.0.1k): the panic hook writes a Rust panic to
+`studio.log`, but three ways the window can die skip it: a stack overflow (the runtime prints
+one line to stderr, which the GUI-subsystem exe does not have, and aborts), a failed allocation
+(same), and an access violation in native code (a GPU driver under the GPU encoder or the
+window's renderer, a shell extension under a file dialog). Each leaves a log that simply stops.
+**Adds**, for the maintainer reading a member's report: a `.dmp` file beside the log holding
+every thread's stack at the crash, which `minidump-stackwalk` names against the release's kept
+`.pdb` (the same symbols as the log's backtrace). **Costs**: three dependencies (Embark's
+`crash-handler` and `minidumper`, `minidump-writer`); a monitor process, the same exe started
+again with a hidden argument, since a crashed process cannot reliably write its own dump; dumps
+of a few MB a member must post; and `minidump-stackwalk` on the maintainer's side.

@@ -37,7 +37,12 @@ and a readme whose first line names another version, and it ends by listing the 
 comparing the listing with the staged files, so a 7-Zip that skipped the empty folders fails
 the recipe. It takes the executable's name from the built exe's own `--help` usage line and
 checks that both launchers call it, so the codename lives in the code's constant and the
-recipe cannot drift from it.
+recipe cannot drift from it. Beside the archive it keeps the release's symbols, never in the
+bundle: the built exe and its `.pdb`, packed as `UnlimitedToolWorks-<version>-symbols.7z`,
+which `scripts/symbolize_log.py` reads to name a posted `studio.log`'s backtrace
+(`architecture.md` "Diagnostic logging"). The release profile builds with
+`debug = "line-tables-only"`, so the kept `.pdb` names each frame's file and line as well as
+its function; the line tables live in the `.pdb`, leaving the exe's size as it was.
 
 The user extracts the archive anywhere and runs the binary — or, for the common case, drops an
 export into `exports/` (shipped empty beside the binary) and double-clicks

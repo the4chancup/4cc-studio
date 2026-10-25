@@ -3,6 +3,7 @@
 //! the GUI phase.
 
 mod console;
+mod gui_log;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -20,6 +21,7 @@ use studio_core::{
 };
 
 use crate::console::{spawn_notice_printer, spawn_printer};
+use crate::gui_log::{guard_gui, install_gui_logger, install_panic_hook, show_crash_dialog};
 
 /// The suite's whole registry as data, in sidebar order (core plan, "Tool plugin
 /// interface"): the shell lists after the registered tools every entry whose id no
@@ -115,9 +117,9 @@ fn tools() -> Vec<Box<dyn StudioTool>> {
     ]
 }
 
-/// The diagnostic sink of both modes (core plan, "Diagnostic logging"): `-v` sets the level,
-/// `RUST_LOG` overrides it. The GUI mode gets its own file sink in the GUI phase; until then it
-/// logs to the console window that opens beside it.
+/// The CLI modes' diagnostic sink (core plan, "Diagnostic logging"): `-v` sets the level,
+/// `RUST_LOG` overrides it. The GUI mode gets its own sink, `studio.log`
+/// (`gui_log::install_gui_logger`), installed once the data location resolves.
 fn install_cli_logger(verbosity: u8) {
     env_logger::Builder::new()
         .filter_level(log_level(verbosity))
@@ -254,13 +256,17 @@ fn run_help_mode(
 }
 
 /// Opens the shell on the registered tools and returns when the window closes: 0, the startup
-/// failure's code, or 3 when the window could not be opened.
+/// failure's code, 3 when the window could not be opened, or 101 when a panic ended it.
 #[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
 fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
     let (settings, paths) = match startup(&tools) {
         Ok(loaded) => loaded,
         Err(code) => return code,
     };
+    // The log and the hook go in before the window: the log needs the data location the
+    // startup resolved, and the hook needs the log so a panic's line lands in it.
+    let log_path = install_gui_logger(paths.data_dir.as_deref());
+    install_panic_hook();
     // The receiver is dropped at once (the `_` pattern): a tool's run has its own sink
     // (`ToolContext::with_events`), and the notices the tools publish reach the status bar
     // through the requests channel — the shell consumes no run events of its own.
@@ -272,20 +278,24 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
         events_tx,
         requests_tx,
     );
-    match run_gui(StudioApp::new(
-        tools,
-        &PLANNED,
-        &CLI_ONLY,
-        ctx,
-        requests_rx,
-        user_config_dir(),
-    )) {
-        Ok(()) => ExitCode::SUCCESS,
-        Err(error) => {
-            eprintln!("error: {error:#}");
-            ExitCode::from(3)
-        }
-    }
+    guard_gui(
+        move || match run_gui(StudioApp::new(
+            tools,
+            &PLANNED,
+            &CLI_ONLY,
+            ctx,
+            requests_rx,
+            user_config_dir(),
+        )) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("error: {error:#}");
+                ExitCode::from(3)
+            }
+        },
+        log_path.as_deref(),
+        show_crash_dialog,
+    )
 }
 
 #[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
@@ -295,7 +305,11 @@ fn main() -> ExitCode {
         Ok(launch) => launch,
         Err(error) => error.exit(),
     };
-    install_cli_logger(launch.verbosity);
+    // The GUI mode installs its own sink (`gui_log`) after the startup resolves the data
+    // location; the console window's `env_logger` is the CLI, `--gui` and help modes'.
+    if !matches!(launch.mode, LaunchMode::Gui) {
+        install_cli_logger(launch.verbosity);
+    }
     match launch.mode {
         LaunchMode::Gui => run_gui_mode(tools),
         LaunchMode::GuiAutorun { .. } => {

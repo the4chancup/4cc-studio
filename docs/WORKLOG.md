@@ -2450,14 +2450,27 @@ briefs, review loops, gates and mutation runs as for any step.
   that closes with the process, so the member loses it. Measured 2026-10-26 (a probe crate,
   toolchain 1.98.1): a release exe's backtrace names its frames only with its `.pdb` beside it
   (17 MB for `4cc-studio.exe`'s); without it every frame reads `<unknown>`, while the panic's
-  message and `file:line:col` are there either way. Whether the bundle ships the `.pdb` is
-  the maintainer's (`QUESTIONS.md` "Small confirmations"); the step does not wait on it
-  → verify: ST-RUN-07; ST-RUN-08 (manual, asked before it runs)
+  message and `file:line:col` are there either way; so the log writes offsets and the
+  release keeps its symbols (DECISIONS 2026-10-26, the maintainer's choice)
+  - [x] k1 the sink, the hook and the dialog: `crates/studio/src/gui_log.rs`, `main.rs`
+    (`run_gui_mode` installs the log and the hook, `guard_gui` around the window);
+    `studio_core` exports `version_label`. ST-RUN-07 proven
+  - [ ] k2 the backtrace as module base and offset (`backtrace` crate) in place of std's
+    resolved `Backtrace`; `scripts/symbolize_log.py <log> <symbols folder>` over MSVC's
+    `llvm-symbolizer`; the release profile's `debug = "line-tables-only"` and the recipe's
+    `-symbols.7z` (`plans/core/distribution.md`, the release recipe's paragraph) → verify: a
+    test that the hook's lines parse as base+offset; the script names a frame of a release
+    build run without its `.pdb`; the release exe's size before and after the profile line
+    (the probe's did not change; if ours grows, report it)
+  - [ ] k3 ST-RUN-08 in the built window (manual, asked before it runs; with 0.0.1l's
+    ST-RUN-04)
 - [ ] 0.0.1l no console window in the preview (`plans/core/architecture.md` "Windows
   subsystem", DECISIONS 2026-10-25, `AttachConsole` approved): `#![windows_subsystem =
-  "windows"]` on release Windows builds, `AttachConsole(ATTACH_PARENT_PROCESS)` behind one
-  safe function when command arguments are present, after 0.0.1k (a panic needs the log first)
-  → verify: ST-RUN-04 in the bundle (manual: a double-click opens no console; `team-compiler
+  "windows"]` on every Windows build (the plan's paragraph after it says why debug too),
+  `AttachConsole(ATTACH_PARENT_PROCESS)` behind one safe function when command arguments are
+  present, the window mode's startup failures in a message dialog, after 0.0.1k (a panic
+  needs the log first) → verify: the gates' piped CLI tests (`help_cli`, `launchers`,
+  `team_compiler_cli`) on the GUI-subsystem binary; ST-RUN-04 in the bundle (manual: a double-click opens no console; `team-compiler
   check` from a terminal prints there; both launchers print and their `pause` waits), asked
   before it runs
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
@@ -2924,6 +2937,12 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open — `plans/core/distribution.md` "Changelog and version display" was never moved to the
+  spec although the version label it specifies is built (status bar, About, `--version`, the
+  log's first line): `version_label`'s doc comment pointed at the spec heading that does not
+  exist, across a line break the pointer check did not read; 0.0.1k's rewrap exposed it and
+  the pointer went (2026-10-26). The built part moves to `spec/core/distribution.md` under
+  the same heading, the changelog's unbuilt rest staying in the plan
 - open — a save whose one player name is not UTF-8 is refused whole (0.0.1i's census,
   2026-10-25): `pes_savefile`'s player codec errs (`codec/player.rs`, "player name is not
   UTF-8"), so `check-aatf` and every other command refuse

@@ -122,6 +122,12 @@ confuse the members who only double-click, and the command line is second-class 
 So no command reads the keyboard; a command that would need an answer takes it as a flag
 (`--yes`, `--edit-mode-closed`). Linux has no subsystem split.
 
+Debug builds are GUI-subsystem too, not only releases: the gates' CLI tests then run the
+binary's piped commands with the subsystem the bundle ships, so a redirected run losing its
+output fails a test. Running the window with no arguments attaches to no console, so what the
+window mode would print (a settings file that does not load, a window that cannot open) shows
+in a message dialog instead, with the same text and exit code: printed, nobody would see it.
+
 ### Tool plugin interface
 
 What exists of this is in `spec/core/architecture.md` "Tool plugin interface".
@@ -262,6 +268,15 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   replacing the older one, so a crash followed by a relaunch keeps the crash's log; writes the
   Studio version as the log's first line; and writes the user's home directory as `~` in every
   line, because findings carry absolute paths and the file is posted on the cup's server.
+- The backtrace is written as each frame's module base and offset (`0x7ff6a1230000+0x59c4`,
+  through the `backtrace` crate), not as names: a release exe names its frames only with its
+  `.pdb` beside it, and the bundle does not ship the `.pdb` (`distribution.md`, the release
+  recipe). `scripts/symbolize_log.py <studio.log> <symbols folder>` turns a posted log's frames
+  of the exe's module into function, file and line through `llvm-symbolizer` (MSVC's toolset
+  ships it), against the release's kept exe and `.pdb`; frames of other modules (the system's
+  DLLs) stay as offsets. We do not ship the `.pdb`, deflated beside or inside the exe, because
+  either costs every member's download about 3.8 MB for a file only the maintainer reads,
+  and the inside variant also has the crash write 17 MB and point the backtrace at it.
 - The level is `info`, with no `-v` or `RUST_LOG` (a double-click passes neither). Each line is
   flushed as it is written, so a crash keeps everything before it.
 - A first run writes no log: the file lives in the data location, which does not exist until

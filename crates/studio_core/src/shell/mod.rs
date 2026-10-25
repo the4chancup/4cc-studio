@@ -65,12 +65,11 @@ pub const EXE_NAME: &str = exe_name!();
 /// use the macro, so the constant serves the shell alone).
 pub(crate) const APP_NAME: &str = app_name!();
 
-/// The version line the shell shows in the three places the plan names — the status bar's
-/// left slot, the About block's first line and `4cc-studio --version`: `v{version}`, the
-/// release stage while there is one (`pre-alpha` for 0.0.x, `alpha` for 0.y.z, nothing
-/// from 1.0.0), then ` (debug)` for a debug build (`spec/core/distribution.md`
-/// "Changelog and version display").
-pub(crate) fn version_label() -> String {
+/// The version line the shell shows in the four places the plan names — the status bar's
+/// left slot, the About block's first line, `4cc-studio --version` and the window's log's
+/// first line: `v{version}`, the release stage while there is one (`pre-alpha` for 0.0.x,
+/// `alpha` for 0.y.z, nothing from 1.0.0), then ` (debug)` for a debug build.
+pub fn version_label() -> String {
     version_label_of(env!("CARGO_PKG_VERSION"), cfg!(debug_assertions))
 }
 

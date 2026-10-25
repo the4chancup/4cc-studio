@@ -2514,3 +2514,5 @@ worklog passed 7,000 lines.
 - **2026-10-26** — 0.0.1 will open no console window and will keep a diagnostic log; temporary folders moved under
   `4cc-studio-temp`.
 - **2026-10-26** — The settings menu stops drawing the update check's two rows until the updater that reads them.
+- **2026-10-26** — The window keeps `studio.log`, the previous run's as `studio.old.log`; a panic is written there and a crash
+  that ends the window says which file to post. The log's backtrace will be offsets, named from symbols kept per release.
