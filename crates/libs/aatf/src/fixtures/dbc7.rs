@@ -282,6 +282,21 @@ fn the_manlet_bonus_raises_the_175_targets() {
     );
 }
 
+/// `player_tier` under the Manlet system: a 175 silver taking part of
+/// the bonus (92, under the bonused 93 but over the unbuffed 88 the
+/// recognition sees) reads `silver`, the regular at the bonused 82
+/// `regular` (`the_manlet_bonus_raises_the_175_targets`).
+#[test]
+fn a_manlet_silver_taking_part_of_the_bonus_is_read_as_a_silver() {
+    let rules = rules();
+    let mut team = legal_team(&MANLET_BONUS, GGSS);
+    set_tier(player_mut(&mut team, 9), 92, 8, 3);
+    set_tier(player_mut(&mut team, 3), 82, 8, 3);
+    for (slot, expected) in [(9, "silver"), (3, "regular"), (2, "gold"), (10, "gold")] {
+        assert_eq!(tier_of(&rules, &team, slot), Some(expected), "slot {slot}");
+    }
+}
+
 /// One centimetre over the pool: the two-210 variant draws exactly 50; a
 /// mid at 181 draws 51 — one `ExtraHeight` and nothing else (every
 /// bracket still fills).

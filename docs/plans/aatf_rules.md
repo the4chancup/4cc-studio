@@ -208,6 +208,20 @@ What exists of this is in `spec/aatf_rules.md` "The interpreter".
 Every surface that shows results (the Save editor's AATF panel, the Team creator's) has a "Show
 suggestions" toggle, off by default, and lists them apart from errors and warnings, uncounted.
 
+**The player's own tier.** The logic implements a fourth function the host calls,
+`player_tier(player, team) -> tier id or ()`: the tier `check_team` reads the player as (step
+1's height system for the team, then step 2's recognition), `()` when no tier's `when` holds
+(`check_team`'s `NoTier`). The host's `Rules::player_tier(team, player)` returns the ruleset's
+`Tier`, or none. It is behind the Save editor's one cards badge (`plans/save_editor.md`, the
+Cards left bullet: "the tier his stats, registered position and height match under that
+ruleset, as `check-aatf` recognizes it"), which then asks `card_limits` for that tier. It sits
+in the file's logic, beside `check_team`'s own reading, for the reason `card_limits` does: a
+widget that recognized tiers in Rust would be a second recognition that drifts from the
+checks (recognition before choices, a height system told apart by its quotas, a special that
+moves a threshold), and from a file whose logic is not the build's. Loading step 1 requires it
+with its two parameters, like the other three. It lands before the 0.0.1 cut freezes logic
+version 1, so no released file lacks it.
+
 ## The host
 
 What exists of this is in `spec/aatf_rules.md` "The host".

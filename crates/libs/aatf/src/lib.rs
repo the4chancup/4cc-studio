@@ -7,8 +7,9 @@
 //! runs its `check_team` on a `TeamView`, which a save or a Team TOML
 //! document builds; a file knows its `logic()` identity. The shipped
 //! logic (`logic/logic.rhai`) is the generic interpreter: `check_team`,
-//! `tier_values` (behind `apply_tier`, the one writing operation) and
-//! `card_limits`.
+//! `tier_values` (behind `apply_tier`, the one writing operation),
+//! `card_limits` and `player_tier` (the tier a player is recognized
+//! as).
 //!
 //! The host reads a team as a `TeamView` of `PlayerView`s on the game's
 //! own scale, and every script runs on the one engine of `engine.rs`.

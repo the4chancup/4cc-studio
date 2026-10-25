@@ -2151,8 +2151,20 @@ briefs, review loops, gates and mutation runs as for any step.
     `trim_end()`, a no-op (the last piece's space is popped) now removed. Done 2026-10-25
     (SWE-2; the brief's comma-less expected line was wrong, the sidekick's contradiction
     accepted). Files: `aatf/src/writer/{mod,tests}.rs`
-  - [ ] c 8.9f4d's library half: `Rules::player_tier` and the logic's `player_tier`
-    (`plans/aatf_rules.md` "The player's own tier", DECISIONS 2026-10-25), checkpoint (b)
+  - [x] c 8.9f4d's library half: `Rules::player_tier` and the logic's `player_tier`
+    (`plans/aatf_rules.md` "The player's own tier", DECISIONS 2026-10-25), checkpoint (b).
+    Done 2026-10-25 (SWE-2, one rework: the script call one `Rules::call`, the tests' tier
+    lookup one `tier_of`): the logic's fourth function over `height_system` and
+    `read_player`, `Rules::load` requiring it, logic 1's hash moved (`29cb6048…`; frozen at
+    the cut); the Green silver giant read under the team's system (`bronze` without it, the
+    red run), DBC7's Manlet silver at 92, VTL11's no-tier silver, and `None` exactly on
+    `check_team`'s `NoTier` slots over the nine blocks on three versions (135 `None`, 486
+    `Some`). `mutants-diff adb35edc` 4 caught, 4 unviable. Files: `aatf/{logic/logic.rhai,
+    src/{rules,file,lib}.rs,src/fixtures/{mod,official,dbc7,vtl11}.rs}`
+    - [ ] review: SWE-2 S1 over `e14a64da..5020b2ff` accepted 2 of 6 (the doc comments of
+      `Rules::player_tier`, which left out step 2's fallback, and `CheckError::Values`; the
+      lead's fixes, amended), ending the SWE-2 loop (`.tmp/0_0_1i/rulings.md`); Astra
+      (checkpoint b, `Rules::player_tier` and the logic's `player_tier`) is the top lead's
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.rhai`, assembled with the frozen logic version 1, and the bundled settings naming

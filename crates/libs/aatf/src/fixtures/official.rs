@@ -1006,6 +1006,34 @@ fn green_silver_giants_rate_three_below() {
     );
 }
 
+/// `player_tier` reads under the team's height system: the Green silver
+/// giant (slot 5) rates 89 — under no system his target would be 92 and
+/// he would read as bronze — and reads `silver`
+/// (`green_silver_giants_rate_three_below`); the goalkeepers' tier is
+/// theirs.
+#[test]
+fn the_player_tier_is_read_under_the_teams_height_system() {
+    let rules = Rules::official();
+    let team = legal_team();
+    // Premise: slot 5's highest rating stat is 89.
+    let giant = player(&team, 5);
+    let best = rules
+        .ruleset()
+        .stats
+        .rating
+        .iter()
+        .filter_map(|stat| giant.abilities[usize::from(stat.0)])
+        .max();
+    assert_eq!(best, Some(89));
+    for (slot, expected) in [(5, "silver"), (2, "gold"), (9, "bronze")] {
+        assert_eq!(tier_of(&rules, &team, slot), Some(expected), "slot {slot}");
+    }
+    // A registered goalkeeper reads `goalkeeper`.
+    let keeper = player(&team, 0);
+    assert_eq!(keeper.position, Some(position("GK")));
+    assert_eq!(tier_of(&rules, &team, 0), Some("goalkeeper"));
+}
+
 /// The medals' trades: each free COM style a medal may hold is instead a
 /// free extra A position. Slot 9 (a bronze: marseille_turn and
 /// cut_behind_and_turn the two free tricks, four paid skills, the COM

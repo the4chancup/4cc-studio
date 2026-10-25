@@ -7,7 +7,7 @@
 //! ruleset it was built for); each ruleset's module makes it legal under
 //! its own rules first.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 use pes_savefile::interchange::team_toml::TeamToml;
 use pes_savefile::interchange::team_toml::labels::PLAYABLE_POSITIONS;
@@ -121,6 +121,15 @@ fn player(team: &TeamView, slot: u8) -> &PlayerView {
         .iter()
         .find(|player| player.slot == slot)
         .unwrap_or_else(|| panic!("roster slot {slot} is filled"))
+}
+
+/// The id of the tier `rules` recognizes roster `slot`'s player as
+/// (`Rules::player_tier`), `None` for no tier.
+fn tier_of<'r>(rules: &'r Rules, team: &TeamView, slot: u8) -> Option<&'r str> {
+    rules
+        .player_tier(team, player(team, slot))
+        .expect("the call runs")
+        .map(|tier| tier.id.as_str())
 }
 
 /// The player at roster `slot`, to edit.
@@ -268,4 +277,51 @@ fn assert_economy(rules: &Rules, team: &TeamView, rows: &[Economy]) {
             "{tier} (slot {slot})"
         );
     }
+}
+
+/// `player_tier` answers `None` on exactly the slots `check_team`
+/// reports `NoTier` for: every embedded data block, the sample team on
+/// three versions, every slot.
+#[test]
+fn player_tier_is_none_exactly_where_check_team_reports_no_tier() {
+    let (mut none, mut some) = (0usize, 0usize);
+    for (name, block) in [
+        ("autumn26", include_str!("../../rulesets/autumn26.rhai")),
+        ("autumn25", include_str!("../../rulesets/autumn25.rhai")),
+        ("spring26", include_str!("../../rulesets/spring26.rhai")),
+        ("vgl25", include_str!("../../rulesets/vgl25.rhai")),
+        ("vgl26", include_str!("../../rulesets/vgl26.rhai")),
+        ("vgl27", include_str!("../../rulesets/vgl27.rhai")),
+        ("vtl10", include_str!("../../rulesets/vtl10.rhai")),
+        ("vtl11", include_str!("../../rulesets/vtl11.rhai")),
+        ("dbc7", include_str!("../../rulesets/dbc7.rhai")),
+    ] {
+        let rules = Rules::from_data_block(block).unwrap_or_else(|e| panic!("{name}: {e}"));
+        for version in [PesVersion::Pes15, PesVersion::Pes17, PesVersion::Pes21] {
+            let team = Records::sample_on(version).view();
+            let reported: BTreeSet<u8> = rules
+                .check_team(&team)
+                .unwrap_or_else(|e| panic!("{name} {version:?}: {e}"))
+                .iter()
+                .filter_map(|v| {
+                    if matches!(v.kind, ViolationKind::NoTier) {
+                        v.slot
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+            let mut unanswered = BTreeSet::new();
+            for p in &team.players {
+                if tier_of(&rules, &team, p.slot).is_some() {
+                    some += 1;
+                } else {
+                    none += 1;
+                    unanswered.insert(p.slot);
+                }
+            }
+            assert_eq!(reported, unanswered, "{name} {version:?}");
+        }
+    }
+    assert!(none > 0 && some > 0, "{none} `None`, {some} `Some`");
 }

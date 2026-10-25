@@ -263,6 +263,20 @@ fn silver_and_gold_at_195_differ_only_in_swerve() {
     );
 }
 
+/// The 195 cm silver (slot 5) at swerve 90 fits no tier's `when` (where
+/// `check_team` reports `NoTier`,
+/// `silver_and_gold_at_195_differ_only_in_swerve`) and has no tier; at
+/// 99 he reads `gold`.
+#[test]
+fn a_player_no_tier_takes_has_no_tier() {
+    let rules = rules();
+    let swerve = usize::from(stat("swerve").0);
+    let team = edited(5, |p| p.abilities[swerve] = Some(90));
+    assert_eq!(tier_of(&rules, &team, 5), None);
+    let team = edited(5, |p| p.abilities[swerve] = Some(99));
+    assert_eq!(tier_of(&rules, &team, 5), Some("gold"));
+}
+
 /// The gold's playing-style bonuses: slot 9's creative_playmaker moves
 /// his stamina target to 99 and defensive prowess to 60, what
 /// `apply_tier` wrote — met is legal, short of it the `Stat` violation,

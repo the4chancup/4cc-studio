@@ -11026,3 +11026,18 @@ save-to-save copy, a team with no export, is served by generating the export fro
 slots, not shirt numbers or ids, because the slot names the player's folder and shirt numbers are
 free text. Out of 0.0.1 and 0.1.0 because neither cup needs it.
 Plan: `plans/save_editor.md` "Aesthetics transplant", "Read-only aesthetics", SE-GUI-14.
+
+## 2026-10-25 — aatf — The player's own tier is a fourth logic function
+Decision: the logic gains `player_tier(player, team)`, returning the id of the tier
+`check_team` reads the player as (the team's height system, then recognition) or `()`, and
+`Rules::player_tier(&TeamView, &PlayerView) -> Result<Option<&Tier>, CheckError>` calls it;
+`Rules::load` requires it with two parameters. Behind the Save editor's one cards badge
+(8.9f4d).
+Why: the badge must read the tier "as `check-aatf` recognizes it", and only the file's logic
+does that: a recognition in Rust would copy `read_player` (recognition before choices, the
+height system by quotas, a special moving a threshold) and drift from it, and would ignore a
+file's own logic. `check_team`'s violations carry no tier, so the host cannot read one from
+them. Required rather than optional, because a file without it would leave the badge with
+nothing to show; added now, since logic version 1 freezes at the 0.0.1 cut and no released
+file exists yet.
+Plan: `plans/aatf_rules.md` "The interpreter", "The player's own tier".

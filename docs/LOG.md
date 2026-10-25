@@ -2458,3 +2458,5 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 0.0.1i: `libs/aatf`'s audit: no requirement missing; a census of 424 saves under DBC7, no
   check failure, 2 refused by the save reader; `just mutants aatf` none missed once its timeouts were rerun;
   `Rules::tier_values` crate-private (a), tests for the extra kinds' 3 survivors in the writer (b).
+- **2026-10-25** — 0.0.1i c (8.9f4d's library half): `Rules::player_tier`, the tier a player is recognized as,
+  read by the rules file's own logic (a fourth required function), for the Save editor's one cards badge.

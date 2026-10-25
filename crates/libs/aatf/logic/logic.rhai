@@ -67,7 +67,7 @@ fn normalized(rules) {
     rules
 }
 
-// ---- The three functions the host calls
+// ---- The four functions the host calls
 
 fn check_team(team) {
     let rules = normalized(global::RULESET);
@@ -124,6 +124,14 @@ fn card_limits(player, tier, team) {
         required_cards: required_cards, a_positions: cards.a_allowance,
         max_a_positions: p.max_a_positions,
     }
+}
+
+// The tier `player` is read as by `check_team`: the team's height system, then recognition
+// (`read_player`); its id, or `()` when no tier's `when` holds (`check_team`'s `NoTier`).
+fn player_tier(player, team) {
+    let rules = normalized(global::RULESET);
+    let r = rules.read_player(team, rules.height_system(team), player);
+    if r.tier == () { () } else { r.tier.id }
 }
 
 // ---- Conditions

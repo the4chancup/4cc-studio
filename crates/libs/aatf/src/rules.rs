@@ -1,12 +1,13 @@
 //! `Rules`: a loaded rules file — its ruleset, its compiled script and
 //! the engine it runs on — and the host API over a `TeamView`:
-//! `check_team`, `tier_values`, `card_limits` and `apply_tier`.
+//! `check_team`, `tier_values`, `card_limits`, `player_tier` and
+//! `apply_tier`.
 
 use pes_savefile::model::player::PlayerEntry;
 use serde::de::DeserializeOwned;
 
 use crate::file::{LogicIdentity, assemble, identity};
-use crate::ruleset::{LoadError, Ruleset, Severity, ruleset_from_scope, run_top_level};
+use crate::ruleset::{LoadError, Ruleset, Severity, Tier, ruleset_from_scope, run_top_level};
 use crate::team::{PlayerView, TeamView};
 use crate::values::{CardLimits, TierValues};
 use crate::violation::{CheckError, Violation, ViolationKind, violations};
@@ -34,7 +35,7 @@ pub struct Rules {
     /// The ruleset the file's `RULESET` deserialized into.
     ruleset: Ruleset,
     /// The compiled script (`check_team`, `tier_values`, `card_limits`,
-    /// `custom_checks` live in it).
+    /// `player_tier`, `custom_checks` live in it).
     ast: rhai::AST,
     /// The engine the script runs on (`engine.rs` — same one as every
     /// other path).
@@ -44,14 +45,19 @@ pub struct Rules {
 }
 
 /// The functions the file must define, and their arities.
-const REQUIRED: [(&str, usize); 3] = [("check_team", 1), ("tier_values", 3), ("card_limits", 3)];
+const REQUIRED: [(&str, usize); 4] = [
+    ("check_team", 1),
+    ("tier_values", 3),
+    ("card_limits", 3),
+    ("player_tier", 2),
+];
 
 impl Rules {
     /// Loads a rules file through steps 1 to 3 of `spec/aatf_rules.md`
     /// "Loading and validation"; the first failure is returned.
     pub fn load(text: &str) -> Result<Rules, LoadError> {
         let (engine, ast, scope) = run_top_level(text)?;
-        // Step 1: the three functions with their arities, and every
+        // Step 1: the four functions with their arities, and every
         // `custom_checks` with one.
         for (name, arity) in REQUIRED {
             if !ast
@@ -128,17 +134,7 @@ impl Rules {
                 kind: ViolationKind::RosterOrder { player },
             })
             .collect();
-        let list = self
-            .engine
-            .call_fn::<rhai::Dynamic>(
-                &mut rhai::Scope::new(),
-                &self.ast,
-                "check_team",
-                (team.clone(),),
-            )
-            .map_err(|e| CheckError::Script {
-                message: e.to_string(),
-            })?;
+        let list = self.call("check_team", (team.clone(),))?;
         out.extend(violations(list)?);
         // A stable sort keeps each slot's own order: the break first.
         out.sort_by_key(|violation| (violation.slot.is_none(), violation.slot));
@@ -165,6 +161,41 @@ impl Rules {
         tier: &str,
     ) -> Result<CardLimits, CheckError> {
         self.values("card_limits", team, player, tier)
+    }
+
+    /// The tier `player` (of `team`) is recognized as, as `check_team`
+    /// reads him: the team's height system, then the first tier in list
+    /// order whose condition holds and whose expected rating he reaches,
+    /// else the last whose condition holds (`spec/aatf_rules.md` "How a
+    /// player is read", steps 1 and 2): the file's `player_tier`. A player
+    /// rated under every such tier still has one; `None` only when no
+    /// tier's condition holds, where `check_team` reports `NoTier`. Behind
+    /// the Save editor's cards badge, which then asks `card_limits` for
+    /// this tier.
+    pub fn player_tier(
+        &self,
+        team: &TeamView,
+        player: &PlayerView,
+    ) -> Result<Option<&Tier>, CheckError> {
+        let result = self.call("player_tier", (player.clone(), team.clone()))?;
+        if result.is_unit() {
+            return Ok(None);
+        }
+        let id = result
+            .into_immutable_string()
+            .map_err(|type_name| CheckError::Values {
+                function: "player_tier",
+                message: format!("{type_name} is no tier id"),
+            })?;
+        self.ruleset
+            .tiers
+            .iter()
+            .find(|tier| tier.id == id.as_str())
+            .map(Some)
+            .ok_or_else(|| CheckError::Values {
+                function: "player_tier",
+                message: format!("\"{id}\" names no tier"),
+            })
     }
 
     /// Writes tier `tier`'s targets into `entry`, the record `player`
@@ -219,6 +250,17 @@ impl Rules {
         })
     }
 
+    /// `function` of the file called with `args` on a fresh scope; a
+    /// script failure (a runtime error or a limit reached) is
+    /// `CheckError::Script` with rhai's text.
+    fn call(&self, function: &str, args: impl rhai::FuncArgs) -> Result<rhai::Dynamic, CheckError> {
+        self.engine
+            .call_fn::<rhai::Dynamic>(&mut rhai::Scope::new(), &self.ast, function, args)
+            .map_err(|e| CheckError::Script {
+                message: e.to_string(),
+            })
+    }
+
     /// `function` (`tier_values` or `card_limits`) called on `player` as
     /// `tier`, its map converted; an id no tier has is refused here, not
     /// by the script.
@@ -234,17 +276,7 @@ impl Rules {
                 tier: tier.to_string(),
             });
         }
-        let map = self
-            .engine
-            .call_fn::<rhai::Dynamic>(
-                &mut rhai::Scope::new(),
-                &self.ast,
-                function,
-                (player.clone(), tier.to_string(), team.clone()),
-            )
-            .map_err(|e| CheckError::Script {
-                message: e.to_string(),
-            })?;
+        let map = self.call(function, (player.clone(), tier.to_string(), team.clone()))?;
         rhai::serde::from_dynamic(&map).map_err(|e| CheckError::Values {
             function,
             message: e.to_string(),
@@ -265,10 +297,10 @@ mod tests {
         TeamView::new(&file, 701).expect("team 701 views")
     }
 
-    /// The smallest file that loads: the three functions and a
+    /// The smallest file that loads: the four functions and a
     /// one-tier `RULESET`.
     fn minimal_file() -> String {
-        "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }] };\nfn check_team(team) { [] }\nfn tier_values(player, tier, team) { #{} }\nfn card_limits(player, tier, team) { #{} }".to_string()
+        "const RULESET = #{ schema: 1, name: \"x\", squad_size: 23, universal: #{ max_skill_cards: 10 }, tiers: [#{ id: \"regular\", label: \"Regular\", rate: 77 }] };\nfn check_team(team) { [] }\nfn tier_values(player, tier, team) { #{} }\nfn card_limits(player, tier, team) { #{} }\nfn player_tier(player, team) { () }".to_string()
     }
 
     /// Two threads check on one loaded file and agree: the whole-save
@@ -590,6 +622,51 @@ mod tests {
         }
     }
 
+    /// `player_tier`'s `()` is `None`; an id no tier has, or another
+    /// type, is `Values` naming the function; a tier's id is that tier.
+    #[test]
+    fn player_tier_reads_unit_as_none_and_refuses_an_id_no_tier_has() {
+        let team = fixture_team(PesVersion::Pes15);
+        let player = team.player(0).expect("slot 0");
+        let with_body = |body: &str| {
+            Rules::load(&minimal_file().replacen(
+                "fn player_tier(player, team) { () }",
+                &format!("fn player_tier(player, team) {{ {body} }}"),
+                1,
+            ))
+            .expect("the file loads")
+        };
+        assert_eq!(
+            with_body("()")
+                .player_tier(&team, player)
+                .expect("the call runs"),
+            None
+        );
+        let err = with_body("\"bronze\"")
+            .player_tier(&team, player)
+            .expect_err("an id no tier has");
+        match err {
+            CheckError::Values { function, message } => {
+                assert_eq!(function, "player_tier");
+                assert!(message.contains("bronze"), "{message}");
+            }
+            other => panic!("expected Values, got {other:?}"),
+        }
+        let err = with_body("42")
+            .player_tier(&team, player)
+            .expect_err("not a string");
+        match err {
+            CheckError::Values { function, .. } => assert_eq!(function, "player_tier"),
+            other => panic!("expected Values, got {other:?}"),
+        }
+        let rules = with_body("\"regular\"");
+        let tier = rules
+            .player_tier(&team, player)
+            .expect("the call runs")
+            .expect("a tier");
+        assert_eq!(tier.id, "regular");
+    }
+
     /// A script that loops forever stops at the operation limit with a
     /// `Script` error, not a hang: a `loop {}` on PES 21 only, so the
     /// sample team's PES 15 load passes.
@@ -679,6 +756,7 @@ mod tests {
                 "card_limits",
                 3,
             ),
+            ("fn player_tier(player, team) { () }", "player_tier", 2),
         ] {
             let text = minimal_file().replacen(remove, "", 1);
             assert!(!text.contains(remove));

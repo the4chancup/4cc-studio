@@ -480,8 +480,9 @@ pub enum CheckError {
         /// What did not convert.
         message: String,
     },
-    /// `tier_values` or `card_limits` (`function`) returned a map that
-    /// does not convert into its values.
+    /// A function's result does not convert (`function` names it): a
+    /// `tier_values` or `card_limits` map that is not its values, or a
+    /// `player_tier` answer that is neither `()` nor a tier's id.
     #[error("{function} did not return its values: {message}")]
     Values {
         /// The script function.
