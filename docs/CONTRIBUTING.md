@@ -145,6 +145,14 @@ exist yet (every Phase 2 crate), the plan's data-shape rules stand in for one.
   `docs/`, no internal field or type names, no legacy tool names; a file, folder or setting the
   member handles is named as they see it. A member who cannot follow a message asks in the cup's
   chat instead of fixing the export, which is the cost the rule exists to avoid.
+- **That text flows naturally**, as a person would say it: whole sentences in ordinary word order,
+  a cause joined to its effect with *because*, *so* or *although* rather than facts stacked behind
+  semicolons and colons, and no shorthand from the code ("gating", "widgets", "targets"). Correct
+  but dry: "This save is PES 17; the selector targets PES 2019. The save keeps its own version:
+  its widgets and gating stay PES 17's." Natural: "Although the sidebar is set to PES 2019, this
+  save is from PES 2017, so the editor keeps treating it as a PES 2017 save." A member reads the
+  dry version twice and still wonders what to do; the review of a change that adds such text
+  reads each new line aloud.
 - **No em dashes in text a user reads**: the README, the help chapters, message catalog text,
   UI strings, the comments injected into `settings.toml`/`config.toml`/`materials.toml`, the Team
   creator's `README.txt`. Use a comma, a colon, parentheses or a new sentence. The character has

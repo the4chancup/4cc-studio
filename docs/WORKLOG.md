@@ -1994,6 +1994,21 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `save_editor/src/{lib,settings}.rs`, `view/{mod,menus,player_list}.rs`,
     `view/appearance/mod.rs`, `view/tests/{appearance,player,team,savefile}.rs`,
     `help/0{4,5,6,7}_*.md`, `docs/prototypes/tools/save_editor.js`
+  - [ ] 8.29 the text pass: every line a member reads reread against CONTRIBUTING's "That text
+    flows naturally" (the maintainer, 2026-10-25; DECISIONS "Text a member reads flows
+    naturally, and every existing line is swept once"), rewritten where it reads dry, its meaning
+    kept; the tests that pin a string follow it. One slice per surface, the 0.0.1 tools first;
+    each slice's diff read line by line by the lead before it lands (a rewrite that changes what
+    a line says is a finding) → verify: the gates; every rewritten line read in its place (the
+    draft or a headless frame)
+    - [ ] a the Save editor: `view/` strings, tooltips and notices, `messages.rs`, `help/`, the
+      CLI's output, and its draft `docs/prototypes/tools/save_editor.js` (the version banner
+      rewritten 2026-10-25 as the rule's example)
+    - [ ] b the shell (`studio_core`: sidebar, status bar, settings menu, help window, the
+      launch and title texts) and the drafts host `docs/prototypes/index.html`
+    - [ ] c the Team compiler and the Export upgrader: their message catalogs, help chapters,
+      CLI output and the comments injected into `settings.toml`/`config.toml`/`materials.toml`
+    - [ ] d `libs/aatf`'s violation texts and the other tools' catalogs and help
   - [ ] 8.21 the app's font in the drafts (`core/gui.md` "The host's other review aids"; after
     8.9f4e picks the bundled font): `@font-face` rules at egui's sizes → verify: one width
     constant's row (`TOP_ROW_ONE_LINE`) measured in the draft and in the built window agree

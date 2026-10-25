@@ -11130,6 +11130,20 @@ off by default (their "studio mode", named for what it does since member-facing 
 machine, now applies inside the setting: on stays locked at every start.
 Plan: `plans/save_editor.md` "Read-only aesthetics"; SE-GUI-07, 11, 22, 23, 35.
 
+## 2026-10-25 — all tools — Text a member reads flows naturally, and every existing line is swept once
+Decision: CONTRIBUTING's rule for text a member reads gains a second bullet: the text flows as a
+person would say it (whole sentences in ordinary word order, causes joined with because, so or
+although, no code shorthand such as "gating" or "targets"), with the maintainer's example pair.
+Every member-facing line already written (the view strings, tooltips and notices, the message
+catalogs, the help chapters, the injected TOML comments, the CLI's output, and the drafts) is
+reread against it once, in one slice per tool (worklog step 8.29).
+Why: the maintainer, reading the Save editor's draft, found lines that are correct but dry
+("This save is PES 17; the selector targets PES 2019. ..."); a member rereads such a line and
+still asks in the cup's chat, the cost the layman rule already names. A rule for new text alone
+would leave the hundreds of lines written before it.
+Plan: no plan edit needed: the rule is CONTRIBUTING's ("Code style", the bullets on text a member
+reads), and the sweep is a worklog step.
+
 ## 2026-10-25 — save_editor — A failed tier check shows its error in the Cards left badge's place
 Decision: when the active rules file loads but `player_tier` or `card_limits` fails on the
 selected player (or his team cannot be read), the Abilities tab's Cards left row draws "The AATF

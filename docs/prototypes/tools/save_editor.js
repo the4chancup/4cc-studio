@@ -2770,8 +2770,8 @@ function onKey(e) {
 function versionBanner() {
   if (!S.save || D.selectorVersion === "20" + version()) return null;
   return h("div", { class: "vbanner warn", id: "version-warning", "data-panel": "version-banner" },
-    "This save is PES " + version() + "; the selector targets PES " + D.selectorVersion +
-    ". The save keeps its own version: its widgets and gating stay PES " + version() + "'s.");
+    "Although the sidebar is set to PES " + D.selectorVersion + ", this save is from PES 20" +
+    version() + ", so the editor keeps treating it as a PES 20" + version() + " save.");
 }
 
 // ---- Full Player Customization (spec/libs/fpc.md; SE-GUI-11) ----
