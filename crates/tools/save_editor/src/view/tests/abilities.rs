@@ -21,6 +21,39 @@ fn cards_left_error(nodes: &[accesskit::Node]) -> Option<&accesskit::Node> {
     })
 }
 
+/// The badge texts a frame's Cards left row drew (`"Regular: 3 of 7
+/// cards"` or the weak `"No tier matches"`), in left-to-right order: the
+/// Labels at the heading's height or below it of the badge's shapes
+/// (labels of another shape must not pass).
+fn cards_left_badges(nodes: &[accesskit::Node]) -> Vec<String> {
+    let heading_y = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some("Cards left"))
+        .and_then(accesskit::Node::bounds)
+        .map(|bounds| bounds.y0)
+        .expect("the Cards left heading");
+    let mut badges: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Label
+                && node
+                    .bounds()
+                    .is_some_and(|bounds| bounds.y0 >= heading_y - 1.0)
+                && node
+                    .value()
+                    .is_some_and(|value| value.ends_with(" cards") || value == "No tier matches")
+        })
+        .collect();
+    badges.sort_by(|a, b| {
+        let x = |node: &&accesskit::Node| node.bounds().map(|b| b.x0).unwrap_or(0.0);
+        x(a).partial_cmp(&x(b)).expect("ordered bounds")
+    });
+    badges
+        .iter()
+        .filter_map(|node| node.value().map(str::to_owned))
+        .collect()
+}
+
 // The same rule for a number control's in-progress edit: typing into one
 // player's Speed and selecting another player commits nothing to him.
 #[test]
@@ -943,69 +976,56 @@ fn an_out_of_range_value_draws_as_stored_without_marking_the_player() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Cards left bullet: one badge per
-// tier of the active ruleset, `limit - paid`; a ticked skill that no free
-// group covers lowers every badge by one; the `aatf_rules` file's tiers are
-// the badges'; a file that does not load shows its error instead.
+// plans/save_editor.md "Editing UI", the Cards left bullet: one badge, the
+// player's own tier under the active ruleset (`label: left of limit
+// cards`, `limit - paid`); a ticked skill that no free group covers lowers
+// it by one; the `aatf_rules` file's reading is the badge's; a file that
+// does not load shows its error instead.
 #[test]
-fn the_cards_left_badges_read_the_active_ruleset() {
-    /// The badge texts a frame drew (`"Gold 6"`), in left-to-right order:
-    /// at the "Cards left" heading's height or below it (the team bar's
-    /// "Colour 1"/"Colour 2" labels match the shape and must not pass).
-    fn badges(nodes: &[accesskit::Node]) -> Vec<String> {
-        let heading_y = nodes
-            .iter()
-            .find(|node| node.role() == Role::Label && node.value() == Some("Cards left"))
-            .and_then(accesskit::Node::bounds)
-            .map(|bounds| bounds.y0)
-            .expect("the Cards left heading");
-        let mut badges: Vec<&accesskit::Node> = nodes
-            .iter()
-            .filter(|node| {
-                node.role() == Role::Label
-                    && node
-                        .bounds()
-                        .is_some_and(|bounds| bounds.y0 >= heading_y - 1.0)
-                    && node.value().is_some_and(|value| {
-                        value
-                            .split_once(' ')
-                            .is_some_and(|(_, rest)| rest.parse::<i32>().is_ok())
-                    })
-            })
-            .collect();
-        badges.sort_by(|a, b| {
-            let x = |node: &&accesskit::Node| node.bounds().map(|b| b.x0).unwrap_or(0.0);
-            x(a).partial_cmp(&x(b)).expect("ordered bounds")
-        });
-        badges
-            .iter()
-            .filter_map(|node| node.value().map(str::to_owned))
-            .collect()
-    }
-    /// Each tier's `limit - paid` as `Rules::card_limits` gives it on the
-    /// session's file, team 701, roster `slot`.
-    fn expected(view: &SaveView, rules: &aatf::Rules, slot: u8) -> Vec<String> {
+fn the_cards_left_badge_reads_the_players_own_tier() {
+    /// The badge text `rules` reads for team 701's roster `slot` on the
+    /// session's file: his own tier's label over his card economy under
+    /// it. The checked player must read as a tier that is not the
+    /// ruleset's first — the badge then proves his own tier was read,
+    /// not the list's head.
+    fn expected(view: &SaveView, rules: &aatf::Rules, slot: u8) -> String {
         let session = view.session.as_ref().unwrap();
         let team = aatf::TeamView::new(session.file(), 701).unwrap();
         let player = team.player(slot).unwrap();
-        rules
-            .ruleset()
-            .tiers
-            .iter()
-            .map(|tier| {
-                let limits = rules.card_limits(&team, player, &tier.id).unwrap();
-                format!(
-                    "{} {}",
-                    tier.label,
-                    i32::from(limits.limit) - i32::from(limits.paid)
-                )
-            })
-            .collect()
+        let tier = rules
+            .player_tier(&team, player)
+            .unwrap()
+            .expect("the checked player matches a tier");
+        assert_ne!(
+            tier.id,
+            rules.ruleset().tiers[0].id,
+            "premise: slot {slot}'s own tier is not the ruleset's first"
+        );
+        let limits = rules.card_limits(&team, player, &tier.id).unwrap();
+        format!(
+            "{}: {} of {} cards",
+            tier.label,
+            i32::from(limits.limit) - i32::from(limits.paid),
+            limits.limit
+        )
+    }
+    /// The `left` an `expected` badge text carries (`"Regular: 3 of 7
+    /// cards"` reads 3).
+    fn left_of(view: &SaveView, rules: &aatf::Rules, slot: u8) -> i32 {
+        expected(view, rules, slot)
+            .split(": ")
+            .nth(1)
+            .expect("a badge text")
+            .split(' ')
+            .next()
+            .unwrap()
+            .parse()
+            .expect("the left count")
     }
 
     let path = fixture(PesVersion::Pes21, "cards_left");
     // Slot 1's player holds Heading (skill 6), a paid card on every tier:
-    // his badges are one lower than slot 0's unticked player's.
+    // his badge is one lower than slot 0's unticked player's.
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
     let second = file.team(701).unwrap().roster[1].player_id;
     file.player_mut(second).unwrap().skills.skills[6] = true;
@@ -1017,21 +1037,14 @@ fn the_cards_left_badges_read_the_active_ruleset() {
     let rules = aatf::Rules::official();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
-        badges(&nodes),
-        expected(&view, &rules, 0),
-        "the tiers' badges"
+        cards_left_badges(&nodes),
+        [expected(&view, &rules, 0)],
+        "the one badge, his own tier's"
     );
 
     // "Heading" (skill 6) is unticked and counts paid on every tier: the
-    // tick lowers each badge by one.
-    let left_of = |view: &SaveView, slot: u8| -> Vec<i32> {
-        expected(view, &rules, slot)
-            .iter()
-            .map(|badge| badge.rsplit(' ').next().unwrap().parse().unwrap())
-            .collect()
-    };
-    let before = left_of(&view, 0);
-    assert_eq!(before, [6, 5, 4, 2, 3], "the unticked player's badges");
+    // tick lowers the badge by one.
+    let before = left_of(&view, &rules, 0);
     // The checkbox sits below the fold under the player header: the tick
     // goes through its AccessKit action (a pointer click lands only
     // inside the scroll's clip).
@@ -1043,33 +1056,36 @@ fn the_cards_left_badges_read_the_active_ruleset() {
         .expect("the Heading checkbox");
     action_click(&mut window, &mut view, *heading);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert_eq!(badges(&nodes), expected(&view, &rules, 0), "after the tick");
     assert_eq!(
-        left_of(&view, 0),
-        before.iter().map(|left| left - 1).collect::<Vec<i32>>(),
-        "every badge one lower"
+        cards_left_badges(&nodes),
+        [expected(&view, &rules, 0)],
+        "after the tick"
     );
+    assert_eq!(left_of(&view, &rules, 0), before - 1, "one card left fewer");
 
-    // Ctrl+Z unticks it: the badges are recomputed, back to the old counts.
+    // Ctrl+Z unticks it: the badge is recomputed, back to the old count.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert_eq!(badges(&nodes), expected(&view, &rules, 0), "after the undo");
-    assert_eq!(left_of(&view, 0), before, "every badge restored");
+    assert_eq!(
+        cards_left_badges(&nodes),
+        [expected(&view, &rules, 0)],
+        "after the undo"
+    );
+    assert_eq!(left_of(&view, &rules, 0), before, "the badge restored");
 
-    // The selection recomputes them: slot 1's player, his Heading held,
-    // shows his own one-lower counts — not slot 0's.
+    // The selection recomputes it: slot 1's player, his Heading held,
+    // shows his own one-lower count — not slot 0's.
     view.selected = Some((701, 1));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert_eq!(left_of(&view, 1), [5, 4, 3, 1, 2], "his paid counts");
     assert_eq!(
-        badges(&nodes),
-        expected(&view, &rules, 1),
-        "his badges, not slot 0's"
+        cards_left_badges(&nodes),
+        [expected(&view, &rules, 1)],
+        "his badge, not slot 0's"
     );
 
-    // A rules file's tiers are the badges': the same view now given the
+    // A rules file's reading is the badge's: the same view now given the
     // DBC7 file reloads on the changed path (no fresh window).
     let aatf = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/aatf");
     let data = std::fs::read_to_string(aatf.join("rulesets/dbc7.rhai")).unwrap();
@@ -1089,13 +1105,209 @@ fn the_cards_left_badges_read_the_active_ruleset() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
     });
-    assert_eq!(badges(&nodes), expected(&view, &dbc7, 1), "DBC7's tiers");
-    assert!(
-        badges(&nodes)
+    assert_eq!(
+        cards_left_badges(&nodes),
+        [expected(&view, &dbc7, 1)],
+        "the badge under DBC7"
+    );
+}
+
+// The same bullet, painted: overdrawn past the tier's limit the badge is
+// the error colour (slot 0's player made to hold paid cards past his own
+// tier's limit by ticking skills in the fixture copy, as the Heading tick
+// above does). A colour is no AccessKit property, so it is read back from
+// the frame's painted shapes.
+#[test]
+fn an_overdrawn_badge_paints_in_the_error_colour() {
+    /// The color the text `text` was painted in this frame: a section's
+    /// own color when one was set, else the shape's fallback.
+    fn painted_color(shapes: &[egui::epaint::ClippedShape], text: &str) -> egui::Color32 {
+        let shape = shapes
             .iter()
-            .all(|badge| !badge.starts_with("Bronze")),
-        "no Bronze: {:?}",
-        badges(&nodes)
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(shape) if shape.galley.job.text == text => Some(shape),
+                _ => None,
+            })
+            .next()
+            .unwrap_or_else(|| panic!("no painted text {text:?}"));
+        if let Some(color) = shape.override_text_color {
+            return color;
+        }
+        shape
+            .galley
+            .job
+            .sections
+            .iter()
+            .map(|section| section.format.color)
+            .find(|&color| color != egui::Color32::PLACEHOLDER)
+            .unwrap_or(shape.fallback_color)
+    }
+
+    let path = fixture(PesVersion::Pes21, "cards_left_overdrawn");
+    // The first dozen skills ticked: enough paid cards that his own
+    // tier's limit is passed.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    let id = file.team(701).unwrap().roster[0].player_id;
+    for skill in 0..12 {
+        file.player_mut(id).unwrap().skills.skills[skill] = true;
+    }
+    file.save(&path).unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1100.0, 700.0);
+    let rules = aatf::Rules::official();
+    let badge = {
+        let session = view.session.as_ref().unwrap();
+        let team = aatf::TeamView::new(session.file(), 701).unwrap();
+        let player = team.player(0).unwrap();
+        let tier = rules
+            .player_tier(&team, player)
+            .unwrap()
+            .expect("the player matches a tier");
+        let limits = rules.card_limits(&team, player, &tier.id).unwrap();
+        assert!(
+            i32::from(limits.limit) - i32::from(limits.paid) < 0,
+            "premise: overdrawn (paid {} of {})",
+            limits.paid,
+            limits.limit
+        );
+        format!(
+            "{}: {} of {} cards",
+            tier.label,
+            i32::from(limits.limit) - i32::from(limits.paid),
+            limits.limit
+        )
+    };
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let error_color = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .error_fg_color;
+    assert_eq!(painted_color(&shapes, &badge), error_color);
+}
+
+// The same bullet: a player no tier's `when` holds for (`check_team`'s
+// `NoTier`) gets the weak stand-in. VTL11's tiers each gate on an exact
+// height (gold 195, silver 195, regular 180, buffed 188), so most real
+// players match none — PES 21 fixture team 781 slot 0, player 78101.
+#[test]
+fn a_player_no_tier_matches_gets_the_stand_in() {
+    let path = fixture(PesVersion::Pes21, "cards_left_no_tier");
+    // VTL11's whole rules file: its data block, the current logic and the
+    // block's own CUSTOM CHECKS section.
+    let data = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../../libs/aatf/rulesets/vtl11.rhai"),
+    )
+    .unwrap();
+    let ruleset = aatf::Ruleset::from_data_block(&data).unwrap();
+    let rules_path = path.with_file_name("vtl11.rhai");
+    std::fs::write(
+        &rules_path,
+        aatf::assemble_file(
+            &ruleset,
+            None,
+            aatf::file_sections(&data).custom_checks.as_deref(),
+        ),
+    )
+    .unwrap();
+
+    let rules = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap()).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some((781, 0));
+    {
+        let session = view.session.as_ref().unwrap();
+        let team = aatf::TeamView::new(session.file(), 781).unwrap();
+        let player = team.player(0).unwrap();
+        assert_eq!(
+            rules.player_tier(&team, player).unwrap().map(|t| &t.id),
+            None,
+            "premise: 78101 matches no VTL11 tier"
+        );
+    }
+    let mut window = Headless::sized(1100.0, 700.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
+    });
+    assert_eq!(
+        cards_left_badges(&nodes),
+        ["No tier matches"],
+        "the weak stand-in, the one badge"
+    );
+}
+
+// The same bullet: a rules file that loads but whose `player_tier` fails on
+// the selected player (a member's own logic edit) shows the error in the
+// badge's place — not `No tier matches`, which would tell him the opposite,
+// and not nothing, since the AATF check never runs `player_tier` and would
+// not report it — and the failure is kept under its key like a badge, so the
+// failing script does not run again on every frame.
+#[test]
+fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
+    let path = fixture(PesVersion::Pes21, "cards_left_failing_check");
+    let logic = std::fs::read_to_string(
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/aatf/logic/logic.rhai"),
+    )
+    .unwrap();
+    let head = "fn player_tier(player, team) {\n";
+    assert_eq!(logic.matches(head).count(), 1, "premise: one player_tier");
+    let failing = logic.replacen(
+        head,
+        &format!("{head}    throw \"the tier check fails\";\n"),
+        1,
+    );
+    let rules_path = path.with_file_name("failing.rhai");
+    std::fs::write(
+        &rules_path,
+        aatf::assemble_file(aatf::Rules::official().ruleset(), Some(&failing), None),
+    )
+    .unwrap();
+
+    let rules = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap())
+        .expect("premise: the file loads");
+    let mut view = SaveView::new();
+    view.open(&path);
+    {
+        let session = view.session.as_ref().unwrap();
+        let team = aatf::TeamView::new(session.file(), 701).unwrap();
+        assert!(
+            rules.player_tier(&team, team.player(0).unwrap()).is_err(),
+            "premise: the check fails on the selected player"
+        );
+    }
+    let mut window = Headless::sized(1100.0, 700.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
+    });
+    // The row's texts: its heading, the badge's or the error's.
+    let row: Vec<&str> = nodes
+        .iter()
+        .filter_map(|node| node.value())
+        .filter(|value| {
+            *value == "Cards left"
+                || *value == "No tier matches"
+                || value.ends_with(" cards")
+                || value.starts_with("The AATF rules")
+        })
+        .collect();
+    assert!(
+        row.iter().any(|value| {
+            value.starts_with("The AATF rules could not read this player: ")
+                && value.contains("the tier check fails")
+        }),
+        "the check's error in the badge's place, the row drew {row:?}"
+    );
+    assert!(
+        !row.iter()
+            .any(|value| *value == "No tier matches" || value.ends_with(" cards")),
+        "no badge beside it, the row drew {row:?}"
+    );
+    assert!(
+        matches!(view.cards, Some((_, crate::view::OwnBadge::Failed(_)))),
+        "the failure is kept under its key"
     );
 }
 
@@ -1131,7 +1343,7 @@ fn a_rules_files_load_error_wraps_inside_the_pane() {
 }
 
 // plans/save_editor.md "Editing UI", the Cards left bullet: a file that
-// does not load shows its error in the badges' place, and the rest of the
+// does not load shows its error in the badge's place, and the rest of the
 // tab draws.
 #[test]
 fn a_rules_file_that_does_not_load_shows_its_error() {

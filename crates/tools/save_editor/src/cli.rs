@@ -453,7 +453,7 @@ fn check_aatf(
 /// The rules file `check-aatf` reads: `--rules`, else the `aatf_rules` setting when it names
 /// one, else `None` (the embedded official ruleset). `--rules`, a command-line path, is used
 /// as given; the setting's file resolves as `session::rules::rules_file` resolves it (the
-/// window's badges use the same resolution).
+/// window's Cards left badge uses the same resolution).
 fn rules_path(args: &CheckAatfArgs, ctx: &ToolContext) -> Result<Option<PathBuf>, CliError> {
     if let Some(path) = &args.rules {
         return Ok(Some(path.clone()));

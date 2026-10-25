@@ -1,4 +1,4 @@
-//! The AATF ruleset `check-aatf` and the window's badges share
+//! The AATF ruleset `check-aatf` and the window's Cards left badge share
 //! (`plans/save_editor.md` "Editing UI", the Cards left bullet): the
 //! `aatf_rules` setting's file, resolved and loaded one way for both, else
 //! the embedded official ruleset. `team_views`/`check_teams` are the

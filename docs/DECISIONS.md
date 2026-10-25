@@ -11129,3 +11129,13 @@ off by default (their "studio mode", named for what it does since member-facing 
 "Studio"). The earlier reason for a session-only switch, that a setting could quietly unlock a
 machine, now applies inside the setting: on stays locked at every start.
 Plan: `plans/save_editor.md` "Read-only aesthetics"; SE-GUI-07, 11, 22, 23, 35.
+
+## 2026-10-25 — save_editor — A failed tier check shows its error in the Cards left badge's place
+Decision: when the active rules file loads but `player_tier` or `card_limits` fails on the
+selected player (or his team cannot be read), the Abilities tab's Cards left row draws "The AATF
+rules could not read this player: <error>" where the badge stands, as it already does a file that
+does not load; the failure is cached under the badge's key like a badge.
+Why: drawing nothing assumed the AATF panel reports check errors, but `check_team` never calls
+those two functions, so a member's logic edit that breaks only them would show nowhere; drawing
+"No tier matches" would say the opposite of the truth.
+Plan: `plans/save_editor.md` "Editing UI", the Cards left sentence.

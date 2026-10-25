@@ -5,7 +5,7 @@
 //! playable positions' C/B/A ratings in the collaborator's grid, and the
 //! quick actions column — then the 25 ability stats in their columns and
 //! the skills and COM playing styles with the active ruleset's Cards left
-//! badges. Star and playing attitude, which change only cutscenes, sit in
+//! badge. Star and playing attitude, which change only cutscenes, sit in
 //! the Appearance tab's Cutscenes group (`appearance::CUTSCENE_STATS`).
 //! Every control edits a copy of the player's entry and, when it changes,
 //! pushes it with `Session::edit_player` under the control's `egui::Id`
@@ -15,19 +15,20 @@
 
 use std::ops::RangeInclusive;
 
-use aatf::{CardLimits, TeamView};
+use aatf::TeamView;
+use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::labels::{
     ABILITY_STATS, FOOT, PLAYABLE_POSITIONS, POSITIONS, title_case,
 };
 use pes_savefile::model::{PlayerEntry, PlayerPositions, PlayerSkills, PlayerStats};
 use pes_savefile::schema::fields::{ABILITY_FIELDS, PlayerField};
 use pes_savefile::schema::first_version_with;
-use team_widgets::cards::{self, TierCards};
+use team_widgets::cards::{self, CardsBadge, TierCards};
 
 use crate::session::Session;
 use crate::view::{
-    ActiveRules, BadgeKey, SaveView, edit_player, quick_actions, rules_load_error, scoped,
-    selected_player,
+    ActiveRules, BadgeKey, OwnBadge, SaveView, edit_player, quick_actions, rules_load_error,
+    scoped, selected_player,
 };
 
 /// The Profile grid's registered-position combo.
@@ -499,16 +500,17 @@ fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats
     });
 }
 
-/// `card_pickers` over the player's skills, with one `TierCards` per tier
-/// of the loaded ruleset in its order; the load error stands in for the
-/// badges. The tiers' `card_limits` results live in `cards` under the
-/// `BadgeKey` they were computed for — a `Session::revision` bump, a
-/// selection change or another rules file recomputes them, and any other
-/// frame draws the kept ones.
+/// `card_pickers` over the player's skills, the Cards left badge the
+/// player's own tier's — the tier `Rules::player_tier` reads him as, then
+/// that tier's `card_limits`; no tier matching draws the stand-in, and a
+/// load error or a failed check stands in for the badge. The computed badge lives in `cards`
+/// under the `BadgeKey` it was computed for — a `Session::revision` bump,
+/// a selection change or another rules file recomputes it, and any other
+/// frame draws the kept one.
 fn cards_row(
     ui: &mut egui::Ui,
     rules: Option<&ActiveRules>,
-    cards: &mut Option<(BadgeKey, Vec<(String, CardLimits)>)>,
+    cards: &mut Option<(BadgeKey, OwnBadge)>,
     session: &mut Session,
     (team_id, slot, player_id): (u32, u8, u32),
     version: pes_version::PesVersion,
@@ -525,42 +527,39 @@ fn cards_row(
                     rules_file: active.file.clone(),
                 };
                 if cards.as_ref().is_none_or(|(held, _)| *held != key) {
-                    // A tier whose `card_limits` fails is left out of the
-                    // row (the AATF panel reports check errors).
-                    let file = session.file();
-                    let mut list = Vec::new();
-                    if let Ok(team_view) = TeamView::new(file, team_id)
-                        && let Some(player_view) = team_view.player(slot)
-                    {
-                        for tier in &rules.ruleset().tiers {
-                            if let Ok(limits) = rules.card_limits(&team_view, player_view, &tier.id)
-                            {
-                                list.push((tier.label.clone(), limits));
-                            }
-                        }
-                    }
-                    *cards = Some((key, list));
+                    *cards = Some((key, own_badge(rules, session.file(), team_id, slot)));
                 }
             }
-            // The error stands in for the badges: stale ones go too.
+            // The error stands in for the badge: a stale one goes too.
             Err(error) => {
                 load_error = Some(error.as_str());
                 *cards = None;
             }
         }
     }
-    let card_list = cards.as_ref().map_or(&[][..], |(_, list)| list.as_slice());
-    if let Some(error) = load_error {
+    // A file that does not load, or a check that fails on him, shows its
+    // error in the badge's place.
+    let error_text = match (load_error, cards.as_ref()) {
+        (Some(error), _) => Some(rules_load_error(error)),
+        (None, Some((_, OwnBadge::Failed(error)))) => Some(format!(
+            "The AATF rules could not read this player: {error}"
+        )),
+        _ => None,
+    };
+    if let Some(text) = error_text {
         ui.horizontal_wrapped(|ui| {
             ui.weak("Cards left");
-            ui.weak(rules_load_error(error));
+            ui.weak(text);
         });
     }
-    let tiers: Vec<TierCards> = card_list
-        .iter()
-        .map(|(label, limits)| TierCards { label, limits })
-        .collect();
-    if cards::card_pickers(ui, "abilities cards", version, skills, &tiers) {
+    let badge = match cards.as_ref() {
+        Some((_, OwnBadge::Tier { label, limits })) => {
+            Some(CardsBadge::Tier(TierCards { label, limits }))
+        }
+        Some((_, OwnBadge::NoTier)) => Some(CardsBadge::NoTier),
+        Some((_, OwnBadge::Failed(_))) | None => None,
+    };
+    if cards::card_pickers(ui, "abilities cards", version, skills, badge) {
         let skills = skills.clone();
         edit_player(
             session,
@@ -570,6 +569,30 @@ fn cards_row(
                 player.skills = skills;
             },
         );
+    }
+}
+
+/// What `rules` read team `team_id`'s roster `slot` as on `file`: his own
+/// tier with its card economy, no tier, or a check that failed with its
+/// error (a team the view cannot build, or an empty slot, fails too).
+fn own_badge(rules: &aatf::Rules, file: &EditFile, team_id: u32, slot: u8) -> OwnBadge {
+    let team = match TeamView::new(file, team_id) {
+        Ok(team) => team,
+        Err(error) => return OwnBadge::Failed(error.to_string()),
+    };
+    let Some(player) = team.player(slot) else {
+        return OwnBadge::Failed(format!("roster slot {slot} holds no player"));
+    };
+    match rules.player_tier(&team, player) {
+        Ok(Some(tier)) => match rules.card_limits(&team, player, &tier.id) {
+            Ok(limits) => OwnBadge::Tier {
+                label: tier.label.clone(),
+                limits,
+            },
+            Err(error) => OwnBadge::Failed(error.to_string()),
+        },
+        Ok(None) => OwnBadge::NoTier,
+        Err(error) => OwnBadge::Failed(error.to_string()),
     }
 }
 

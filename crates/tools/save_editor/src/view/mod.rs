@@ -78,7 +78,7 @@ pub(crate) struct SaveView {
     focused: Option<egui::Id>,
     /// A refusal to show until dismissed (an open the save refused).
     refusal: Option<Refusal>,
-    /// The ruleset the badges use, loaded on the first frame and again only
+    /// The ruleset the Cards left badge uses, loaded on the first frame and again only
     /// when the file named differs.
     rules: Option<ActiveRules>,
     /// The AATF panel's state (`plans/save_editor.md` "Configurable AATF
@@ -112,10 +112,11 @@ pub(crate) struct SaveView {
     /// The comparator's Export dialog (`rfd`, stubbed in tests — the same
     /// dialog type as the AATF panel's).
     export_dialog: aatf_panel::SaveFileDialog,
-    /// The "Cards left" badges as last computed and the `BadgeKey` they
-    /// were computed for: `card_limits` runs again only when the key
-    /// differs, not on every frame.
-    cards: Option<(BadgeKey, Vec<(String, aatf::CardLimits)>)>,
+    /// The "Cards left" badge as last computed and the `BadgeKey` it was
+    /// computed for: `player_tier` then `card_limits` run again only when
+    /// the key differs, not on every frame. `None` while the rules file
+    /// does not load (the row draws the load error itself).
+    cards: Option<(BadgeKey, OwnBadge)>,
     /// The Tactics pitch's portraits, read from the selected game's
     /// `download/` CPKs off the UI thread (`select_portraits` points it at
     /// the PES folder each frame).
@@ -172,21 +173,22 @@ pub(crate) struct SaveView {
     randomize_draw: Box<dyn FnMut(u8) -> u8>,
 }
 
-/// The ruleset the Abilities tab's badges use (`plans/save_editor.md`
+/// The ruleset the Abilities tab's Cards left badge uses (`plans/save_editor.md`
 /// "Editing UI", the Cards left bullet): the file it was loaded from and
-/// the outcome as the badges' row draws it.
+/// the outcome as the badge's row draws it.
 pub(crate) struct ActiveRules {
     /// The file `rules` was loaded from (`None`: the embedded official ruleset).
     file: Option<PathBuf>,
     /// The loaded rules or the load error's text (drawn instead of the
-    /// badges). The `Arc` lets the AATF panel's worker check teams on the
-    /// same loaded file the badges read.
+    /// badge). The `Arc` lets the AATF panel's worker check teams on the
+    /// same loaded file the badge reads.
     rules: Result<Arc<aatf::Rules>, String>,
 }
 
-/// What the Abilities tab's badges were computed for: a change of the open
-/// save (`Session::revision`), of the selection or of the rules file
-/// recomputes them; anything else keeps a frame's `card_limits` cost off.
+/// What the Abilities tab's Cards left badge was computed for: a change of
+/// the open save (`Session::revision`), of the selection or of the rules
+/// file recomputes it; anything else keeps a frame's `player_tier` and
+/// `card_limits` cost off.
 #[derive(PartialEq)]
 pub(crate) struct BadgeKey {
     /// `Session::revision` when computed.
@@ -195,9 +197,29 @@ pub(crate) struct BadgeKey {
     team: u32,
     /// The selected roster slot (0-based).
     slot: u8,
-    /// The rules file the badges' ruleset came from (`None`: the official
+    /// The rules file the badge's ruleset came from (`None`: the official
     /// ruleset).
     rules_file: Option<PathBuf>,
+}
+
+/// The badge `cards` holds for a `BadgeKey`, owned: what the rules read the
+/// selected player as.
+pub(crate) enum OwnBadge {
+    /// The tier `Rules::player_tier` reads him as: its display label and
+    /// his card economy under it.
+    Tier {
+        label: String,
+        limits: aatf::CardLimits,
+    },
+    /// No tier's condition holds for him (`check_team`'s `NoTier`).
+    NoTier,
+    /// `player_tier` or `card_limits` failed (or the team could not be
+    /// read), with the error's text: the row draws it in the badge's place,
+    /// as it does a file that does not load. The AATF check never calls
+    /// these two functions, so a member's logic edit that breaks only them
+    /// would otherwise show nowhere. Kept under its key like the others, so
+    /// the failing script does not run again on every frame.
+    Failed(String),
 }
 
 /// A refusal shown as a dialog: a title, the message and OK.
@@ -653,7 +675,7 @@ pub(crate) fn edit_team(
 }
 
 /// The line drawn where the ruleset's controls would stand when the active
-/// rules file did not load: the Cards left badges' row and the quick actions
+/// rules file did not load: the Cards left row and the quick actions
 /// share the one wording.
 pub(crate) fn rules_load_error(error: &str) -> String {
     format!("The AATF rules file does not load: {error}")

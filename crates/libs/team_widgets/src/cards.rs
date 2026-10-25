@@ -3,7 +3,7 @@
 //! skills grid and COM styles row, `cardBadges`, the playing-style combo).
 //! A player's skills and COM playing styles are his *cards*; the ruleset's
 //! tiers each say how many paid ones he may hold, so the pickers show what
-//! each tier leaves him.
+//! the tier he is read as leaves him.
 
 use pes_savefile::interchange::team_toml::labels::{self, title_case};
 use pes_savefile::model::playstyle::PlayStyle;
@@ -17,8 +17,9 @@ const SKILL_COLUMNS: usize = 5;
 /// ~675px, so a narrower pane takes fewer columns rather than clip.
 const SKILL_COLUMN_WIDTH: f32 = 135.0;
 
-/// One badge: a tier's label and the player's card economy under it (the host's
-/// `aatf::Rules::card_limits` result).
+/// The badge's tier: its label and the player's card economy under it
+/// (the host's `aatf::Rules::card_limits` result).
+#[derive(Clone, Copy)]
 pub struct TierCards<'a> {
     /// The tier's display label ("Gold", "Regular", ...).
     pub label: &'a str,
@@ -26,26 +27,40 @@ pub struct TierCards<'a> {
     pub limits: &'a aatf::CardLimits,
 }
 
-/// The skills grid and the COM playing styles of `skills`, with one badge per
-/// tier: the cards it leaves, in the error color when overdrawn. Every card is
-/// drawn on every version; one the version cannot store stays in its cell,
-/// disabled with a `PES NN+` tooltip. Returns whether a card was ticked or
-/// unticked this frame.
+/// The Cards left row's one badge: the player's own tier under the active ruleset.
+#[derive(Clone, Copy)]
+pub enum CardsBadge<'a> {
+    /// The tier he is read as, with his card economy under it.
+    Tier(TierCards<'a>),
+    /// No tier's condition holds for him (`check_team`'s `NoTier`).
+    NoTier,
+}
+
+/// The skills grid and the COM playing styles of `skills`, with the Cards
+/// left row's one badge: `label: left of limit cards`, in the error color
+/// when overdrawn, `No tier matches` weak when no tier's condition holds
+/// for him (`None` draws no row — the caller draws a load error itself).
+/// Every card is drawn on every version; one the version cannot store
+/// stays in its cell, disabled with a `PES NN+` tooltip. Returns whether a
+/// card was ticked or unticked this frame.
 pub fn card_pickers(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
     version: pes_version::PesVersion,
     skills: &mut pes_savefile::model::PlayerSkills,
-    tiers: &[TierCards<'_>],
+    badge: Option<CardsBadge<'_>>,
 ) -> bool {
     ui.push_id(id_salt, |ui| {
         let mut changed = false;
-        if !tiers.is_empty() {
-            ui.horizontal_wrapped(|ui| {
-                ui.weak("Cards left");
-                for tier in tiers {
+        match badge {
+            Some(CardsBadge::Tier(tier)) => {
+                ui.horizontal_wrapped(|ui| {
+                    ui.weak("Cards left");
                     let left = i32::from(tier.limits.limit) - i32::from(tier.limits.paid);
-                    let mut text = egui::RichText::new(format!("{} {}", tier.label, left));
+                    let mut text = egui::RichText::new(format!(
+                        "{}: {} of {} cards",
+                        tier.label, left, tier.limits.limit
+                    ));
                     if left < 0 {
                         text = text.color(ui.visuals().error_fg_color);
                     }
@@ -53,8 +68,15 @@ pub fn card_pickers(
                         "{}: {} paid of {}",
                         tier.label, tier.limits.paid, tier.limits.limit
                     ));
-                }
-            });
+                });
+            }
+            Some(CardsBadge::NoTier) => {
+                ui.horizontal_wrapped(|ui| {
+                    ui.weak("Cards left");
+                    ui.weak("No tier matches");
+                });
+            }
+            None => {}
         }
         let fields = schema_for(version).player_field_set();
         // The draft's five to a row at ~675px; a pane that holds fewer
@@ -192,16 +214,16 @@ mod tests {
     }
 
     impl Headless {
-        /// One frame of `card_pickers` over `skills` and `tiers`, returning the
+        /// One frame of `card_pickers` over `skills` and `badge`, returning the
         /// nodes, the painted shapes and whether the frame changed a card.
         fn pickers(
             &mut self,
             version: PesVersion,
             skills: &mut PlayerSkills,
-            tiers: &[TierCards],
+            badge: Option<CardsBadge>,
             events: Vec<egui::Event>,
         ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>, bool) {
-            self.pickers_at(None, version, skills, tiers, events)
+            self.pickers_at(None, version, skills, badge, events)
         }
 
         /// `pickers` with `time` as the frame's timestamp (for tooltips).
@@ -210,12 +232,12 @@ mod tests {
             time: Option<f64>,
             version: PesVersion,
             skills: &mut PlayerSkills,
-            tiers: &[TierCards],
+            badge: Option<CardsBadge>,
             events: Vec<egui::Event>,
         ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>, bool) {
             let mut changed = None;
             let (nodes, shapes) = self.frame_at(time, events, |ui| {
-                changed = Some(card_pickers(ui, "pickers", version, skills, tiers));
+                changed = Some(card_pickers(ui, "pickers", version, skills, badge));
             });
             (nodes, shapes, changed.expect("the pickers ran"))
         }
@@ -227,10 +249,10 @@ mod tests {
             pos: egui::Pos2,
             version: PesVersion,
             skills: &mut PlayerSkills,
-            tiers: &[TierCards],
+            badge: Option<CardsBadge>,
         ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>, bool) {
-            self.pickers(version, skills, tiers, pointer_at(pos, true));
-            self.pickers(version, skills, tiers, pointer_at(pos, false))
+            self.pickers(version, skills, badge, pointer_at(pos, true));
+            self.pickers(version, skills, badge, pointer_at(pos, false))
         }
 
         /// One frame of `playing_style_picker` over `style`, returning the
@@ -370,7 +392,7 @@ mod tests {
         // skills and 7 COM styles (schema/pes15.rs: `malicia` at index 21 is
         // one the version does not store, so its cell is disabled).
         let mut skills = fixture_skills(PesVersion::Pes15, 71802);
-        let (nodes, _, _) = window.pickers(PesVersion::Pes15, &mut skills, &[], vec![]);
+        let (nodes, _, _) = window.pickers(PesVersion::Pes15, &mut skills, None, vec![]);
         let (drawn_skills, drawn_coms) = drawn_cards(&nodes);
         assert_eq!((drawn_skills.len(), drawn_coms.len()), (41, 7));
         let off = disabled(&nodes);
@@ -385,7 +407,7 @@ mod tests {
         // Player 70203 of the PES 17 fixture save; PES 17 stores the first 28
         // canonical skills.
         let mut skills = fixture_skills(PesVersion::Pes17, 70203);
-        let (nodes, _, changed) = window.pickers(PesVersion::Pes17, &mut skills, &[], vec![]);
+        let (nodes, _, changed) = window.pickers(PesVersion::Pes17, &mut skills, None, vec![]);
         assert!(!changed);
         let (drawn_skills, drawn_coms) = drawn_cards(&nodes);
         assert_eq!((drawn_skills.len(), drawn_coms.len()), (41, 7));
@@ -397,7 +419,7 @@ mod tests {
 
         // Player 78102 of the PES 21 fixture save; PES 21 stores all 41.
         let mut skills = fixture_skills(PesVersion::Pes21, 78102);
-        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, &[], vec![]);
+        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, None, vec![]);
         let (drawn_skills, drawn_coms) = drawn_cards(&nodes);
         assert_eq!((drawn_skills.len(), drawn_coms.len()), (41, 7));
         assert!(disabled(&nodes).is_empty(), "PES 21 stores every card");
@@ -416,18 +438,18 @@ mod tests {
             .find(|&i| fields.contains(&PlayerField::Skill(i as u8)) && !skills.skills[i])
             .expect("an unticked PES 17 skill");
         let label = title_case(labels::SKILLS[index]);
-        let (nodes, _, _) = window.pickers(PesVersion::Pes17, &mut skills, &[], vec![]);
+        let (nodes, _, _) = window.pickers(PesVersion::Pes17, &mut skills, None, vec![]);
         let checkbox = entry(&nodes, Role::CheckBox, &label);
 
         let (_, _, changed) =
-            window.click_pickers(centre(checkbox), PesVersion::Pes17, &mut skills, &[]);
+            window.click_pickers(centre(checkbox), PesVersion::Pes17, &mut skills, None);
         assert!(changed, "the tick is a change");
         assert!(skills.skills[index], "the flag is set");
-        let (_, _, changed) = window.pickers(PesVersion::Pes17, &mut skills, &[], vec![]);
+        let (_, _, changed) = window.pickers(PesVersion::Pes17, &mut skills, None, vec![]);
         assert!(!changed, "the next frame reports nothing new");
 
         let (_, _, changed) =
-            window.click_pickers(centre(checkbox), PesVersion::Pes17, &mut skills, &[]);
+            window.click_pickers(centre(checkbox), PesVersion::Pes17, &mut skills, None);
         assert!(changed, "the untick is a change");
         assert!(!skills.skills[index], "the flag is cleared");
     }
@@ -439,7 +461,7 @@ mod tests {
         let mut window = Headless::new();
         // Player 78102 of the PES 21 fixture save.
         let mut skills = fixture_skills(PesVersion::Pes21, 78102);
-        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, &[], vec![]);
+        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, None, vec![]);
         // The skill checkboxes in draw order, left to right, top to bottom.
         let mut cells: Vec<&accesskit::Node> = nodes
             .iter()
@@ -473,12 +495,12 @@ mod tests {
         // Player 78102 of the PES 21 fixture save.
         let mut skills = fixture_skills(PesVersion::Pes21, 78102);
         let lim = limits(0, 8);
-        let tiers = [TierCards {
+        let badge = Some(CardsBadge::Tier(TierCards {
             label: "Gold",
             limits: &lim,
-        }];
-        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, &tiers, vec![]);
-        // The badges' row draws under its label.
+        }));
+        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, badge, vec![]);
+        // The badge's row draws under its label.
         text_entry(&nodes, "Cards left");
         let mut cells: Vec<&accesskit::Node> = nodes
             .iter()
@@ -520,8 +542,8 @@ mod tests {
         // "Through Passing" is the last skill (index 40), PES 20 and 21 only.
         let mut skills15 = fixture_skills(PesVersion::Pes15, 71802);
         let mut skills21 = fixture_skills(PesVersion::Pes21, 78102);
-        let (nodes15, _, _) = window.pickers(PesVersion::Pes15, &mut skills15, &[], vec![]);
-        let (nodes21, _, _) = window.pickers(PesVersion::Pes21, &mut skills21, &[], vec![]);
+        let (nodes15, _, _) = window.pickers(PesVersion::Pes15, &mut skills15, None, vec![]);
+        let (nodes21, _, _) = window.pickers(PesVersion::Pes21, &mut skills21, None, vec![]);
         let at = |nodes: &[accesskit::Node], label: &str| {
             let bounds = entry(nodes, Role::CheckBox, label)
                 .bounds()
@@ -546,7 +568,7 @@ mod tests {
         // A click on the disabled cell changes nothing and reports no change.
         let held = skills15.skills[40];
         let (_, _, changed) =
-            window.click_pickers(centre(cell), PesVersion::Pes15, &mut skills15, &[]);
+            window.click_pickers(centre(cell), PesVersion::Pes15, &mut skills15, None);
         assert!(!changed);
         assert_eq!(skills15.skills[40], held);
     }
@@ -559,7 +581,7 @@ mod tests {
         // Player 71802 of the PES 15 fixture save; `malicia` first stores in
         // PES 16.
         let mut skills = fixture_skills(PesVersion::Pes15, 71802);
-        let (nodes, _, _) = window.pickers(PesVersion::Pes15, &mut skills, &[], vec![]);
+        let (nodes, _, _) = window.pickers(PesVersion::Pes15, &mut skills, None, vec![]);
         let cell = entry(&nodes, Role::CheckBox, "Malicia");
         let pos = centre(cell);
         // The pointer rests on the cell while the clock passes the tooltip's
@@ -568,7 +590,7 @@ mod tests {
             Some(0.0),
             PesVersion::Pes15,
             &mut skills,
-            &[],
+            None,
             vec![egui::Event::PointerMoved(pos)],
         );
         let mut shown = false;
@@ -577,7 +599,7 @@ mod tests {
                 Some(f64::from(frame) * 0.5),
                 PesVersion::Pes15,
                 &mut skills,
-                &[],
+                None,
                 vec![],
             );
             if nodes
@@ -600,64 +622,94 @@ mod tests {
         // no COM style.
         let mut skills = fixture_skills(PesVersion::Pes21, 78102);
         assert!(!skills.com_styles[0], "premise: no Trickster");
-        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, &[], vec![]);
+        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, None, vec![]);
         let checkbox = entry(&nodes, Role::CheckBox, "Trickster");
 
         let (_, _, changed) =
-            window.click_pickers(centre(checkbox), PesVersion::Pes21, &mut skills, &[]);
+            window.click_pickers(centre(checkbox), PesVersion::Pes21, &mut skills, None);
         assert!(changed, "the tick is a change");
         assert!(skills.com_styles[0], "the flag is set");
-        let (_, _, changed) = window.pickers(PesVersion::Pes21, &mut skills, &[], vec![]);
+        let (_, _, changed) = window.pickers(PesVersion::Pes21, &mut skills, None, vec![]);
         assert!(!changed, "the next frame reports nothing new");
 
         let (_, _, changed) =
-            window.click_pickers(centre(checkbox), PesVersion::Pes21, &mut skills, &[]);
+            window.click_pickers(centre(checkbox), PesVersion::Pes21, &mut skills, None);
         assert!(changed, "the untick is a change");
         assert!(!skills.com_styles[0], "the flag is cleared");
     }
 
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: "Cards
-    // left" then one badge per tier, `limit - paid`, the error colour when
-    // overdrawn. A colour is no AccessKit property, so it is read back from
-    // the frame's painted shapes: the badge's `TextShape` carries the
+    // left" then the one badge, the player's own tier's `label: left of
+    // limit cards`, the error colour when overdrawn; `NoTier` draws the
+    // weak stand-in. A colour is no AccessKit property, so it is read back
+    // from the frame's painted shapes: the badge's `TextShape` carries the
     // `RichText` colour in its galley's sections.
     #[test]
-    fn the_badges_read_limit_minus_paid_coloured_when_overdrawn() {
+    fn the_badge_reads_the_own_tiers_economy_coloured_when_overdrawn() {
         let mut window = Headless::new();
+        // Player 70203 of the PES 17 fixture save; the badge only displays the
+        // `CardLimits` values.
+        let mut skills = fixture_skills(PesVersion::Pes17, 70203);
         let under = limits(3, 5);
         let over = limits(7, 4);
         let spent = limits(4, 4);
-        let tiers = [
-            TierCards {
+        let (nodes, shapes, _) = window.pickers(
+            PesVersion::Pes17,
+            &mut skills,
+            Some(CardsBadge::Tier(TierCards {
                 label: "Gold",
                 limits: &under,
-            },
-            TierCards {
-                label: "Silver",
-                limits: &over,
-            },
-            TierCards {
-                label: "Bronze",
-                limits: &spent,
-            },
-        ];
-        // Player 70203 of the PES 17 fixture save; the badges only display the
-        // `CardLimits` values.
-        let mut skills = fixture_skills(PesVersion::Pes17, 70203);
-        let (nodes, shapes, _) = window.pickers(PesVersion::Pes17, &mut skills, &tiers, vec![]);
+            })),
+            vec![],
+        );
         text_entry(&nodes, "Cards left");
-        text_entry(&nodes, "Gold 2");
-        text_entry(&nodes, "Silver -3");
+        text_entry(&nodes, "Gold: 2 of 5 cards");
         let text_color = window.ctx.style_of(window.ctx.theme()).visuals.text_color();
         let error_color = window
             .ctx
             .style_of(window.ctx.theme())
             .visuals
             .error_fg_color;
-        assert_eq!(painted_text_color(&shapes, "Gold 2"), text_color);
-        assert_eq!(painted_text_color(&shapes, "Silver -3"), error_color);
+        assert_eq!(
+            painted_text_color(&shapes, "Gold: 2 of 5 cards"),
+            text_color
+        );
+        // Overdrawn paints the error colour.
+        let (_, shapes, _) = window.pickers(
+            PesVersion::Pes17,
+            &mut skills,
+            Some(CardsBadge::Tier(TierCards {
+                label: "Silver",
+                limits: &over,
+            })),
+            vec![],
+        );
+        assert_eq!(
+            painted_text_color(&shapes, "Silver: -3 of 4 cards"),
+            error_color
+        );
         // No card left is not overdrawn.
-        assert_eq!(painted_text_color(&shapes, "Bronze 0"), text_color);
+        let (_, shapes, _) = window.pickers(
+            PesVersion::Pes17,
+            &mut skills,
+            Some(CardsBadge::Tier(TierCards {
+                label: "Bronze",
+                limits: &spent,
+            })),
+            vec![],
+        );
+        assert_eq!(
+            painted_text_color(&shapes, "Bronze: 0 of 4 cards"),
+            text_color
+        );
+        // No tier matching draws the weak stand-in.
+        let (nodes, _, _) = window.pickers(
+            PesVersion::Pes17,
+            &mut skills,
+            Some(CardsBadge::NoTier),
+            vec![],
+        );
+        text_entry(&nodes, "No tier matches");
     }
 
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: the

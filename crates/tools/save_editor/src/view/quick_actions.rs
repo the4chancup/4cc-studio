@@ -5,7 +5,7 @@
 //! undoable edit, then the Set stats row with its number — the Player menu's
 //! Set all stats in one click, 40 to 99 — and `AATF…`. A rules file that
 //! does not load leaves Set stats alone in the column, the load error in
-//! the tier buttons' place as the badges show it; a failed `apply_tier`
+//! the tier buttons' place as the Cards left row shows it; a failed `apply_tier`
 //! leaves the player as he was and shows the error in the refusal dialog.
 
 use crate::view::{Refusal, SaveView, aatf_panel, rules_load_error, selected_player};

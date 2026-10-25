@@ -21,7 +21,7 @@ coverage table and draft, the DBC7 ruleset).
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
 (8.9j1-j3), the comparator done (8.9j4), the save-writing transplant removed (8.9j5c; the
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
-the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d next, its library half `Rules::player_tier` done in 0.0.1i; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
+the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done, its review next; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
 the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; the in-game SE-GUI-34 left, waiting: in-game tests are paused until the maintainer
 resumes them), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
@@ -1314,8 +1314,29 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
             default-pane test's bottom bound and one-line bar; the cap test's narrow half on
             the target combo), fixed in r6 with three nits; the 4c review loop ends
             (`.tmp/8_9f/duck_rulings_4c.md`)
-        - [ ] 4d the one cards badge, the player's own tier, through a tier recognition
-          `libs/aatf` exposes (checkpoint (b))
+        - [x] 4d the one cards badge, the player's own tier, through a tier recognition
+          `libs/aatf` exposes (checkpoint (b)). Done 2026-10-25 (SWE-2, 31 min; brief
+          `.tmp/8_9f4d/brief_8_9f4d.md`): `card_pickers` takes `Option<CardsBadge>` (`Tier`
+          drawn `Gold: 6 of 8 cards`, hover `Gold: 2 paid of 8`, red when overdrawn; `NoTier`
+          the weak `No tier matches`), the Save editor asks `Rules::player_tier` then
+          `card_limits` on the `BadgeKey` cache. Every team 701 slot reads `regular` under every
+          bundled ruleset, never the first tier; VTL11 matches no tier for 78101 (team 781).
+          Lead: the cache holds `OwnBadge::{Tier, NoTier, Failed}`, so a failing check is not
+          rerun each frame; one `own_badge` function; the VTL11 test file through
+          `aatf::assemble_file`. Red by hand: the first tier read ("Gold: 6 of 6 cards" against
+          "Regular: 3 of 3 cards"), `NoTier` drawn as nothing, the error colour dropped
+          (#8C8C8C against #FF0000). The remote below its disk floor mid-run: the clone's
+          build cache removed (`scripts/remote_clean_target.sh`, 28 GB; 47 GB free). Files:
+          `team_widgets/src/cards.rs`, `save_editor/src/view/{abilities,mod}.rs`,
+          `view/tests/abilities.rs`, `help/03_abilities.md`. `mutants-diff feeccd42`: 6 caught,
+          1 unviable. Review (`.tmp/8_9f4d/rulings.md`): SWE-2 S1 accepted 2 of 4 (a failing
+          tier check untested, now tested red first: "drew No tier matches"; the docs'
+          leftover "badges"), Astra A1 (Devin brother) 1 of 2 (`plans/save_editor.md`'s `cards`
+          bullet and `plans/team_creator.md` "4." still per tier); both loops end
+        - [x] 4d's post-Astra SWE-2 round S2: 2 of 3 accepted, the loop ends. `check_team` never
+          calls `player_tier` or `card_limits`, so a failed check now shows its error in the
+          badge's place (DECISIONS "A failed tier check shows its error in the Cards left
+          badge's place"; red: the error left undrawn); the last "badges" comments singular
         - [x] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file);
           re-measure the width constants taken with the light font (`team.rs`
           `TEAM_BAR_ONE_ROW`, `abilities.rs` `TOP_ROW_ONE_LINE`). Every view test harness
@@ -1968,7 +1989,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     the next `Tool::view` frame (red: "no ownership line under the default"; the setting
     ignored by hand: "the tab's controls are enabled"); the locked and unlocked tests set the
     setting on. The import dialog SE-GUI-22 and 35 name is not built in the window yet: the
-    step that builds it tests its aesthetics section under both scenarios. Files:
+    step that builds it tests its aesthetics section under both scenarios. `mutants-diff
+    9c300b90`: 19 caught, 2 unviable, none missed. Files:
     `save_editor/src/{lib,settings}.rs`, `view/{mod,menus,player_list}.rs`,
     `view/appearance/mod.rs`, `view/tests/{appearance,player,team,savefile}.rs`,
     `help/0{4,5,6,7}_*.md`, `docs/prototypes/tools/save_editor.js`

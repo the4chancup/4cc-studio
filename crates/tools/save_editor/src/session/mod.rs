@@ -29,7 +29,7 @@ use studio_core::RunningPes;
 use crate::session::undo::{Change, UndoStack};
 
 /// The ticks `Session::revision` draws from, one per open and per change:
-/// a revision never repeats, so a cache keyed on it (the view's badges) is
+/// a revision never repeats, so a cache keyed on it (the view's Cards left badge) is
 /// never stale across saves.
 static NEXT_REVISION: AtomicU64 = AtomicU64::new(1);
 
@@ -129,7 +129,7 @@ impl Session {
     }
 
     /// The tick of the last change to the open file (`plans/save_editor.md`
-    /// "Editing UI", the Cards left badges' cache): a fresh number every
+    /// "Editing UI", the Cards left badge's cache): a fresh number every
     /// change — an edit pushed, an undo, a redo, an import, a patch, a
     /// strip, a successful open — and never twice the same.
     pub(crate) fn revision(&self) -> u64 {

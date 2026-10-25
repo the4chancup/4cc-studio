@@ -238,7 +238,9 @@ mirroring 4ccEditor's structure without its dialog sprawl:
     alone (`Gold: 6 of 8 cards`; `No tier matches` when none does): the tier his stats,
     registered position and height match under that ruleset, as `check-aatf` recognizes it,
     not one badge per tier, which a member had to match to the player by eye; a file that
-    does not load shows its error in the badge's place.
+    does not load, or whose tier check fails on the player, shows its error in the badge's
+    place (the AATF check never runs the two functions the badge asks, so a member's edit
+    that breaks only them would otherwise show nowhere).
   - **Appearance** — first a **Cutscenes** group, star (19+) and playing attitude (20+),
     outside the aesthetics lock: they change only cutscenes, so they are no aesthetic the
     export owns. Then the ownership line, the switch and the locked groups, each group's
@@ -463,8 +465,10 @@ Contents:
   popover, lineup and bench lists with swap-by-drag.
 - `tactics` — preset selector, sliders, style toggles, advanced instructions (with target-player
   pick), set-piece role palette, auto flags, click-to-assign modes.
-- `cards` — skill, COM-style and playstyle pickers, version-gated, with remaining-count badges per
-  tier from the AATF rules file (`card_limits`). The playing styles are listed in the order the
+- `cards` — skill, COM-style and playstyle pickers, version-gated, with one remaining-count badge:
+  the player's own tier as the host's AATF rules file reads him (`player_tier`, then that tier's
+  `card_limits`), or `No tier matches`; the host computes both and passes the one badge, so the
+  widget never recognizes a tier itself. The playing styles are listed in the order the
   version stores them, which is the game's own Edit-mode list, not the canonical order the
   Team TOML names them in: a member compares the combo against the game's list.
 - `violations` — the AATF results list grouped per player, emitting a "selected player" event for

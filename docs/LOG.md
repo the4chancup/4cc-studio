@@ -2491,3 +2491,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.28: the Save editor edits aesthetics as 4ccEditor did, with no lock or switch drawn, unless the
   new setting "Aesthetics from exports" (off by default) is on; DBC7 keeps its looks in the save. One guard,
   `aesthetics_locked()`, at every lock site; SE-GUI-35 drives the settings row into the next frame.
+- **2026-10-25** — 8.9f4d: the Abilities tab's Cards left row is one badge, the player's own tier as the AATF check reads
+  him (`Gold: 6 of 8 cards`, or `No tier matches`), through `Rules::player_tier`; no more one badge per tier to match
+  by eye. VTL11 matches no tier for most real players (its tiers gate on exact heights).
