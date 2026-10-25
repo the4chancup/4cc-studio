@@ -493,16 +493,43 @@ impl Session {
 
     /// Copies the donor's appearance block (its id aside) and the face, hair, physique and
     /// strip edit flags onto each pair's target, all or nothing: the version pair and every
-    /// id are checked before the first write. The marks are the pairs' players at -1, in
-    /// pair order, target before donor.
+    /// id are checked before the first write. The write goes through `edit_players`, so the
+    /// whole transplant is one sealed undo entry (the panel's Apply); the marks are the
+    /// pairs' players at -1, in pair order, target before donor.
     pub(crate) fn transplant(
         &mut self,
         donor: &Session,
         pairs: &[(u32, u32)],
     ) -> Result<Vec<Stripped>, TransplantError> {
+        // The targets' entries before the write, one per id (a pair can name a
+        // target twice): after the lib's check-and-copy they go back, and
+        // `edit_players` replays the write as one undoable edit.
+        let mut targets: Vec<u32> = Vec::new();
+        for &(target, _) in pairs {
+            if !targets.contains(&target) {
+                targets.push(target);
+            }
+        }
+        let before: Vec<PlayerEntry> = targets
+            .iter()
+            .filter_map(|id| self.file.player(*id))
+            .cloned()
+            .collect();
         transplant(&mut self.file, &donor.file, pairs)?;
-        self.touch();
-        self.dirty = self.compute_dirty();
+        let after: Vec<PlayerEntry> = targets
+            .iter()
+            .map(|id| {
+                self.file
+                    .player(*id)
+                    .expect("transplant checked every target")
+            })
+            .cloned()
+            .collect();
+        for entry in before {
+            let id = entry.id;
+            *self.file.player_mut(id).expect("a player just read") = entry;
+        }
+        self.edit_players(after);
         let mut marks = Vec::new();
         for &(target, source) in pairs {
             if is_stripped(&self.file, target) {
@@ -1174,6 +1201,71 @@ mod tests {
         session.undo();
         assert_eq!(session.file().player(70101).unwrap().basic.height, before);
         assert!(!session.can_undo(), "each push was its own entry");
+    }
+
+    // plans/save_editor.md "Aesthetics transplant": the panel's Apply is one
+    // undoable edit, so `transplant` goes through `edit_players`: one Undo
+    // restores every pair's target exactly, one Redo re-applies them.
+    #[test]
+    fn a_transplant_is_one_sealed_undo_entry() {
+        let mut session = open(PesVersion::Pes17, "transplant_undo");
+        let donor = open(PesVersion::Pes17, "transplant_undo_donor");
+        // Two pairs, the looks swapped between the two players (the fixture's
+        // 70103 and 70205 differ in appearance).
+        let pairs = [(70103, 70205), (70205, 70103)];
+        for &(target, source) in &pairs {
+            assert_ne!(
+                session.file().player(target).unwrap().appearance,
+                donor.file().player(source).unwrap().appearance,
+                "premise: {target} and {source} differ"
+            );
+        }
+        let before: Vec<PlayerEntry> = [70103u32, 70205]
+            .iter()
+            .map(|id| session.file().player(*id).unwrap().clone())
+            .collect();
+
+        session.transplant(&donor, &pairs).unwrap();
+        assert!(session.is_dirty());
+        for &(target, source) in &pairs {
+            assert_eq!(
+                session.file().player(target).unwrap().appearance,
+                donor.file().player(source).unwrap().appearance,
+                "{target} took {source}'s look"
+            );
+        }
+
+        // One undo restores both targets exactly; nothing else was pushed.
+        assert!(session.undo());
+        for (id, entry) in [70103u32, 70205].iter().zip(&before) {
+            assert_eq!(session.file().player(*id).unwrap(), entry);
+        }
+        assert!(!session.can_undo(), "the whole transplant is one entry");
+        assert!(session.redo());
+        for &(target, source) in &pairs {
+            assert_eq!(
+                session.file().player(target).unwrap().appearance,
+                donor.file().player(source).unwrap().appearance,
+                "{target} took {source}'s look again"
+            );
+        }
+    }
+
+    // A refused transplant (a missing target here) writes nothing and records
+    // no undo entry.
+    #[test]
+    fn a_refused_transplant_records_nothing() {
+        let mut session = open(PesVersion::Pes17, "transplant_refused");
+        let donor = open(PesVersion::Pes17, "transplant_refused_donor");
+        assert!(!session.can_undo());
+        assert!(!session.is_dirty());
+
+        let error = session
+            .transplant(&donor, &[(9_999_999, 70103)])
+            .unwrap_err();
+        assert_eq!(error, TransplantError::TargetMissing(9_999_999));
+        assert!(!session.can_undo(), "nothing recorded");
+        assert!(!session.is_dirty(), "nothing written");
     }
 
     // plans/save_editor.md "Stripped save" (the GUI parts): `strip` writes

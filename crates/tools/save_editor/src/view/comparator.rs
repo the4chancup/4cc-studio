@@ -28,7 +28,9 @@ use crate::messages::{Side, version_mismatch_sentence};
 use crate::session::Session;
 use crate::session::selection::TeamChoice;
 use crate::view::worker::{Pending, WorkerResult};
-use crate::view::{Refusal, SaveView, aatf_check, aatf_panel, edit_settled, player_list, terms};
+use crate::view::{
+    Refusal, SaveView, aatf_check, aatf_panel, edit_settled, player_list, surrender_focus, terms,
+};
 
 /// The pick's Open dialog (`rfd` in the window, a stub in the tests — a
 /// native dialog cannot be driven headless; `aatf_panel::SaveFileDialog`'s
@@ -223,81 +225,90 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         .resizable(true)
         .open(&mut open)
         .show(ui.ctx(), |ui| {
-            ui.horizontal_wrapped(|ui| {
+            // One line: the label, the path truncated to the room the
+            // buttons leave, the buttons at the row's right — a real
+            // save's path once wrapped the buttons onto a line of their
+            // own.
+            ui.horizontal_top(|ui| {
                 ui.weak("Second save ");
-                match &comparator.picked {
-                    Some((path, _)) => {
-                        ui.add(
-                            egui::Label::new(
-                                egui::RichText::new(path.display().to_string()).monospace(),
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Min), |ui| {
+                    if let Some((_, picked)) = &comparator.picked
+                        && ui
+                            .button("Export\u{2026}")
+                            .on_hover_text(
+                                "Write the differences of the shown scope as text, \
+                                 every team included",
                             )
-                            .truncate(),
-                        );
-                    }
-                    None => {
-                        ui.weak("(none)");
-                    }
-                }
-                if ui
-                    .button("Pick\u{2026}")
-                    .on_hover_text("The other save the open one is compared against")
-                    .clicked()
-                    && let Some(path) = open_save_dialog()
-                {
-                    comparator.exported = None;
-                    match Session::open(&path) {
-                        Ok(picked) if picked.version() == file.version() => {
-                            comparator.picked = Some((path, picked));
-                            comparator.refused = None;
-                        }
-                        Ok(picked) => {
-                            comparator.picked = None;
-                            comparator.comparison.reset();
-                            comparator.refused =
-                                Some(mismatch_refusal(picked.version(), file.version()));
-                        }
-                        Err(error) => {
-                            comparator.picked = None;
-                            comparator.comparison.reset();
-                            comparator.refused = Some(format!("{error:#}"));
+                            .clicked()
+                        && let Some(path) = export_dialog("diff.txt")
+                    {
+                        // As `write_rosters_tsv` writes its file: the error
+                        // names the path. The scope's report over the whole
+                        // save, the team filter narrowing the screen alone.
+                        // Each line ends in its own `\n`, as the console writes
+                        // them: an empty report is an empty file, not "\n".
+                        match diff::report_lines(picked.file(), file, comparator.scope)
+                            .map(|lines| {
+                                lines
+                                    .iter()
+                                    .map(|line| format!("{line}\n"))
+                                    .collect::<String>()
+                            })
+                            .map_err(anyhow::Error::from)
+                            .and_then(|text| {
+                                std::fs::write(&path, text)
+                                    .with_context(|| path.display().to_string())
+                            }) {
+                            Ok(()) => comparator.exported = Some(path),
+                            Err(error) => {
+                                *refusal = Some(Refusal {
+                                    title: "Cannot export the differences",
+                                    message: format!("{error:#}"),
+                                });
+                            }
                         }
                     }
-                }
-                if let Some((_, picked)) = &comparator.picked
-                    && ui
-                        .button("Export\u{2026}")
-                        .on_hover_text(
-                            "Write the differences of the shown scope as text, \
-                             every team included",
-                        )
+                    if ui
+                        .button("Pick\u{2026}")
+                        .on_hover_text("The other save the open one is compared against")
                         .clicked()
-                    && let Some(path) = export_dialog("diff.txt")
-                {
-                    // As `write_rosters_tsv` writes its file: the error
-                    // names the path. The scope's report over the whole
-                    // save, the team filter narrowing the screen alone.
-                    // Each line ends in its own `\n`, as the console writes
-                    // them: an empty report is an empty file, not "\n".
-                    match diff::report_lines(picked.file(), file, comparator.scope)
-                        .map(|lines| {
-                            lines
-                                .iter()
-                                .map(|line| format!("{line}\n"))
-                                .collect::<String>()
-                        })
-                        .map_err(anyhow::Error::from)
-                        .and_then(|text| {
-                            std::fs::write(&path, text).with_context(|| path.display().to_string())
-                        }) {
-                        Ok(()) => comparator.exported = Some(path),
-                        Err(error) => {
-                            *refusal = Some(Refusal {
-                                title: "Cannot export the differences",
-                                message: format!("{error:#}"),
-                            });
+                    {
+                        surrender_focus(ui);
+                        if let Some(path) = open_save_dialog() {
+                            comparator.exported = None;
+                            match Session::open(&path) {
+                                Ok(picked) if picked.version() == file.version() => {
+                                    comparator.picked = Some((path, picked));
+                                    comparator.refused = None;
+                                }
+                                Ok(picked) => {
+                                    comparator.picked = None;
+                                    comparator.comparison.reset();
+                                    comparator.refused =
+                                        Some(mismatch_refusal(picked.version(), file.version()));
+                                }
+                                Err(error) => {
+                                    comparator.picked = None;
+                                    comparator.comparison.reset();
+                                    comparator.refused = Some(format!("{error:#}"));
+                                }
+                            }
                         }
                     }
-                }
+                    match &comparator.picked {
+                        Some((path, _)) => {
+                            ui.add(
+                                egui::Label::new(
+                                    egui::RichText::new(path.display().to_string()).monospace(),
+                                )
+                                .truncate(),
+                            );
+                        }
+                        None => {
+                            ui.weak("(none)");
+                        }
+                    }
+                });
             });
             if let Some(refused) = &comparator.refused {
                 ui.colored_label(ui.visuals().error_fg_color, refused.as_str());
@@ -466,8 +477,9 @@ fn roster_of(file: &EditFile) -> HashMap<u32, Place> {
 /// `report`'s flat line list: one group per team in the open save's team
 /// order — a player's team is the first open-save roster holding him, his
 /// group's players in `report`'s order — `No team` after the teams, then
-/// the players only in one save under their headings.
-fn lines(report: &DiffReport, picked: &EditFile, open: &EditFile) -> Vec<Line> {
+/// the players only in one save under their headings. `pub(super)` for the
+/// transplant panel, whose preview is the same rows of a two-save diff.
+pub(super) fn lines(report: &DiffReport, picked: &EditFile, open: &EditFile) -> Vec<Line> {
     let open_roster = roster_of(open);
     let picked_roster = roster_of(picked);
     let version = open.version();
@@ -599,8 +611,9 @@ fn mark(side: Side) -> &'static str {
 /// One line of the list, one text row high (the `violations` list's row
 /// pattern, its `row_paint` tail shared): a heading in the strong color,
 /// a head in the weak, a row in the plain; a row or a head with `select`
-/// is a click target reporting the player.
-fn line(ui: &mut egui::Ui, line: &Line) -> Option<SelectedPlayer> {
+/// is a click target reporting the player. `pub(super)` for the transplant
+/// panel's preview list.
+pub(super) fn line(ui: &mut egui::Ui, line: &Line) -> Option<SelectedPlayer> {
     let visuals = ui.visuals();
     let (text, color, select) = match line {
         Line::Heading(text) => (text, visuals.strong_text_color(), None),

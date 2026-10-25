@@ -1494,7 +1494,36 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
             - [x] review: SWE-2 S1 on `a3422f4a..` (crate-internal: no new `pub`, no Astra
               round): 2 accepted (an empty report exported a lone newline; a picked-only
               player's roster team untested), fixed by the lead; mutants 8 caught, 0 missed
-      - [ ] 8.9j5 the transplant (SE-GUI-14)
+      - [ ] 8.9j5 the transplant (SE-GUI-14), two slices, each its own commit and review:
+        - [x] 8.9j5a the panel: the donor pick (another version refused with the CLI's
+          sentence), the selection text, the preview (the comparator's aesthetics rows between
+          the save and a copy with the transplant applied, on its worker), Apply as one undoable
+          edit behind the lock (`Session::transplant` records the undo entry); briefed to SWE-2
+          as `.tmp/8_9j5/brief_8_9j5a.md`. Done 2026-10-25 (SWE-2, 24 min, plus two lead
+          fixes, red first: the heads no longer carry the comparator's stripped marks, which
+          name one of two saves, and a stripped-only player has no head; the draft's `N
+          changed field(s)` line): `Session::transplant` restores the targets after the lib's
+          check-and-copy and replays them through `edit_players` (one sealed entry; the CLI's
+          output unchanged); `view/transplant.rs` (the window, the Panels menu item, the worker
+          keyed on both revisions and the text; about 1 s on the PES 17 fixture pair in a debug
+          build); the help topic's paragraph. Files: `save_editor/src/{session/mod.rs,
+          view/{transplant.rs,mod.rs,menus.rs,comparator.rs,player_list.rs,tests.rs,
+          tests/transplant.rs}}`, `save_editor/help/02_window.md`. Mutants-diff a5a2fa6f: 2
+          missed, both `Transplant::reset` (untested). SWE-2 S1: 7 accepted (the applied line
+          outliving an Undo or a Save; the selection edit's withdrawal, `Previewing…`, `reset`
+          and a re-pick untested; the stripped-mark test unable to fail; the refusal test
+          missing SE-GUI-14's GIVEN; the two stripped warnings' text carrying the CLI's
+          command prefix in the window, reworded in the catalog and the spec's table), fixed
+          in r1 (`.tmp/8_9j5/duck_rulings_j5.md`). Mutants-diff a5a2fa6f over r1: 22 caught,
+          1 missed (the applied line's `&&`, S2-1's gap). SWE-2 S2: 2 accepted (that line after a
+          Save; Apply's disabled state after Apply), the loop ends. The lead's look at the built
+          window found two more, fixed in r2 with the S2 pair, red first: a Preview, Apply or
+          Pick activated without a pointer press (Tab and Space, a screen reader) kept the
+          keyboard focus and the run never started (the comparator's Pick too; the button now
+          gives the focus up), and with a real save's path the pick row wrapped its buttons onto
+          a line of their own (both panels; now one line, the path truncated)
+        - [ ] 8.9j5b the two-pane browser: the open save's players and the donor's, a click on
+          a target arming it and a click on a donor appending the pair to the selection
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
       (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's
       `ScrollArea::vertical` the content's width grows to fit its widest row (measured at a

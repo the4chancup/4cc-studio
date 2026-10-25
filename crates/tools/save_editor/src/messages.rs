@@ -49,11 +49,12 @@ pub(crate) enum Code {
     PatchTeamNotInSave,
     /// `apply-patch`: the save has no player with this id (`player`).
     PatchPlayerNotInSave,
-    /// `transplant`: the target's appearance id is -1, so the game does not read the record
-    /// the donor's fields went into; the tables decide his look (`player`).
+    /// `transplant`: a transplant's target has appearance id -1, so the game does not read
+    /// the record the donor's fields went into; the seeded tables decide his look
+    /// (`player`).
     TransplantTargetStripped,
-    /// `transplant`: the donor's appearance id is -1, so the fields copied are his record's,
-    /// not the look the game shows for him (`player`).
+    /// `transplant`: a transplant's donor has appearance id -1, so the fields copied are his
+    /// record's, not the look the game shows for him (`player`).
     TransplantDonorStripped,
     /// `diff`: one field of a player in both saves, old to new (`player`, `field`, `old`,
     /// `new`).
@@ -315,12 +316,12 @@ const CATALOG: &[(Code, &str, &str)] = &[
     ),
     (
         Code::TransplantTargetStripped,
-        r#"`transplant`: the target's appearance id is -1, so the game does not read the record the donor's fields went into; the seeded tables decide his look."#,
+        r#"A transplant's target has appearance id -1, so the game does not read the record the donor's fields went into; the seeded tables decide his look."#,
         r#"The write stands; check him in the game."#,
     ),
     (
         Code::TransplantDonorStripped,
-        r#"`transplant`: the donor's appearance id is -1, so the fields copied are his record's, not the look the game shows for him."#,
+        r#"A transplant's donor has appearance id -1, so the fields copied are his record's, not the look the game shows for him."#,
         r#"The write stands; the targets get the record, not the look."#,
     ),
     (

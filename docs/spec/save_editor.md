@@ -349,8 +349,8 @@ finding that drops something says so with its own code.
 | `patch_team_applied` | Info | `apply-patch`: the save holds the team and at least one of its patch players was written (`team`); a team whose players the save all lacks is not listed | informational; goes on |
 | `patch_team_not_in_save` | Error | `apply-patch`: the save has no team with this id; its players were not looked at (`team`) | the rest is written; exit 1 |
 | `patch_player_not_in_save` | Error | `apply-patch`: the save has no player with this id (`player`) | the rest is written; exit 1 |
-| `transplant_target_stripped` | Warning | `transplant`: the target's appearance id is -1, so the game does not read the record the donor's fields went into; the tables decide his look (`player`) | warns; the write stands |
-| `transplant_donor_stripped` | Warning | `transplant`: the donor's appearance id is -1, so the fields copied are his record's, not the look the game shows for him (`player`) | warns; the write stands |
+| `transplant_target_stripped` | Warning | A transplant's target has appearance id -1, so the game does not read the record the donor's fields went into; the seeded tables decide his look (`player`) | warns; the write stands |
+| `transplant_donor_stripped` | Warning | A transplant's donor has appearance id -1, so the fields copied are his record's, not the look the game shows for him (`player`) | warns; the write stands |
 | `player_diff` | Info | `diff`: one field of a player in both saves, old to new (`player`, `field`, `old`, `new`) | the report's rows; differences are the output, exit 0 |
 | `player_only_in` | Info | `diff`: a player in one save alone (`player`, `save`: `first` or `second`) | informational; goes on |
 | `player_stripped` | Info | `diff`: the player's appearance id is -1 in `save` (`first`, `second` or `both`); his record is compared, not the look the game shows (`player`, `save`) | marks the player beside his rows; exit 0 |

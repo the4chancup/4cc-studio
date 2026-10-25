@@ -1154,3 +1154,79 @@ fn another_save_resets_the_team_filter() {
         "the combo reads ALL"
     );
 }
+
+/// An invoked Pick… (Tab + Space, or AccessKit's Click — which leaves the
+/// keyboard focus where it was) starts the comparison: the button's hold
+/// on the keyboard is given up, so `edit_settled` reports settled.
+#[test]
+fn an_invoked_pick_starts_the_comparison() {
+    let (mut view, mut window) = open_734_with("comparator_invoke", &[73401], 183);
+    let dir = scratch_of(&view);
+    let picked = picked_save(&dir, "picked", |_| {});
+    view.comparator.open = true;
+    view.open_save_dialog = Box::new(move || Some(picked.clone()));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (pick, _) = nodes_in_window(&pairs, "Comparator")
+        .into_iter()
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Pick\u{2026}"))
+        .expect("the Pick button");
+    action_focus(&mut window, &mut view, pick);
+    action_click(&mut window, &mut view, pick);
+    compared(&mut window, &mut view);
+}
+
+/// The pick row stays one line however long the picked save's path is:
+/// the label, the truncated path and the buttons share a top, every
+/// button inside the window.
+#[test]
+fn the_pick_row_keeps_the_buttons_on_one_line_with_a_long_path() {
+    let (mut view, mut window) = open_734_with("comparator_row", &[73401], 183);
+    let dir = scratch_of(&view);
+    let picked = picked_save(&dir, &"picked".repeat(40), |_| {});
+    view.comparator.open = true;
+    pick(&mut window, &mut view, picked);
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, window_node) = pairs
+        .iter()
+        .find(|(_, node)| {
+            node.label()
+                .is_some_and(|label| label.starts_with("Comparator"))
+        })
+        .expect("the window");
+    let window_rect = window_node.bounds().expect("the window's bounds");
+    let nodes = comparator_nodes(&pairs);
+    let top = |keep: &dyn Fn(&accesskit::Node) -> bool| -> f64 {
+        nodes
+            .iter()
+            .find(|node| keep(node))
+            .and_then(|node| node.bounds())
+            .expect("a drawn node's bounds")
+            .y0
+    };
+    let tops = [
+        top(&|node| node.role() == Role::Label && node.value() == Some("Second save ")),
+        top(&|node| {
+            node.role() == Role::Label
+                && node
+                    .value()
+                    .is_some_and(|value| value.contains("pickedpicked"))
+        }),
+        top(&|node| node.role() == Role::Button && node.label() == Some("Pick\u{2026}")),
+        top(&|node| node.role() == Role::Button && node.label() == Some("Export\u{2026}")),
+    ];
+    for (a, b) in tops.iter().zip(tops.iter().skip(1)) {
+        assert!((a - b).abs() < 0.5, "the row's tops: {tops:?}");
+    }
+    for label in ["Pick\u{2026}", "Export\u{2026}"] {
+        let bounds = comparator_button(&pairs, label)
+            .1
+            .bounds()
+            .expect("the button's bounds");
+        assert!(
+            bounds.x1 <= window_rect.x1,
+            "{label} ends inside the window: {bounds:?} vs {window_rect:?}"
+        );
+    }
+}

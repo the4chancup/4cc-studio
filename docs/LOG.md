@@ -2449,3 +2449,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.9f4e: the body text is Ubuntu Regular, bundled, in place of egui's light weight, and every
   view test draws with the window's fonts, so a lone crate run measures the widths the workspace run does (it
   drew 9-point boxes); the Save editor's two one-row widths re-measured, no layout stopped fitting.
+- **2026-10-25** — 8.9j5a: the Save editor's aesthetics transplant panel (SE-GUI-14): a donor save of the
+  same version, the CLI's selection text, a preview of every affected player's appearance changes, and Apply
+  as one undoable edit behind the read-only lock, written only on Save.

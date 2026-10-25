@@ -220,9 +220,10 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
 
 /// The Panels menu button (after Savefile, the draft's panel items): the
 /// floating AATF violations panel (`plans/save_editor.md` "Configurable
-/// AATF rules", the AATF panel bullet) and the comparator (`plans/
-/// save_editor.md` "Comparator (gameplay + aesthetics)"). Disabled with no
-/// save open.
+/// AATF rules", the AATF panel bullet), the comparator (`plans/
+/// save_editor.md` "Comparator (gameplay + aesthetics)") and the
+/// aesthetics transplant ("Aesthetics transplant"). Disabled with no save
+/// open.
 pub(crate) fn panels_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     ui.add_enabled_ui(view.session.is_some(), |ui| {
         ui.menu_button("Panels", |ui| {
@@ -232,6 +233,10 @@ pub(crate) fn panels_menu(ui: &mut egui::Ui, view: &mut SaveView) {
             }
             if ui.button("Comparator\u{2026}").clicked() {
                 view.comparator.open = true;
+                ui.close();
+            }
+            if ui.button("Aesthetics transplant\u{2026}").clicked() {
+                view.transplant.open = true;
                 ui.close();
             }
         });

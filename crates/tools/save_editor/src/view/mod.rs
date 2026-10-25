@@ -24,6 +24,7 @@ mod team;
 mod terms;
 #[cfg(test)]
 mod tests;
+mod transplant;
 mod worker;
 
 use std::path::{Path, PathBuf};
@@ -86,8 +87,11 @@ pub(crate) struct SaveView {
     /// The comparator panel's state (`plans/save_editor.md` "Comparator
     /// (gameplay + aesthetics)"); closed at start.
     comparator: comparator::Comparator,
-    /// The comparator's Pick dialog (`rfd`, stubbed in tests — the AATF
-    /// panel's copy dialog pattern).
+    /// The transplant panel's state (`plans/save_editor.md` "Aesthetics
+    /// transplant"); closed at start.
+    transplant: transplant::Transplant,
+    /// The comparator's and transplant panel's Pick dialog (`rfd`, stubbed
+    /// in tests — the AATF panel's copy dialog pattern).
     open_save_dialog: comparator::OpenSaveDialog,
     /// The Live AATF toolbar toggle's state: `Tool::view` refreshes it
     /// from the `live_aatf` setting and writes the setting back when the
@@ -226,6 +230,7 @@ impl SaveView {
             rules: None,
             aatf: aatf_panel::AatfPanel::new(),
             comparator: comparator::Comparator::new(),
+            transplant: transplant::Transplant::new(),
             open_save_dialog: comparator::default_open_dialog(),
             live_aatf: false,
             live: live_aatf::LiveAatf::new(),
@@ -293,6 +298,7 @@ impl SaveView {
                     Engine::PreFox => None,
                 };
                 self.comparator.reset(session.version());
+                self.transplant.reset(session.version());
                 self.session = Some(session);
                 self.generation += 1;
                 self.tactics = team_widgets::tactics::TacticsView::default();
@@ -374,6 +380,7 @@ pub(crate) fn show(
     menus::fix_database_dialog(ui, view);
     aatf_panel::show(ui, view);
     comparator::show(ui, view);
+    transplant::show(ui, view);
     // One undo entry per gesture: seal when the pointer is up and no
     // widget holds the keyboard, and when the widget that held it ends
     // the frame without it — a gesture ends when its widget loses the
@@ -394,6 +401,17 @@ fn edit_settled(ui: &egui::Ui, last_focused: Option<egui::Id>) -> (Option<egui::
     let settled = (!ui.input(|input| input.pointer.any_down()) && focused.is_none())
         || (last_focused.is_some() && last_focused != focused);
     (focused, settled)
+}
+
+/// Whatever holds the keyboard gives it up. A run's start waits for
+/// `edit_settled`, which a focus kept by the field or the button would
+/// hold off, and a button activated without a pointer press (Tab + Space,
+/// or AccessKit's Click — a `FAKE_PRIMARY_CLICKED` that moves no focus)
+/// leaves the keyboard focus where it was.
+pub(super) fn surrender_focus(ui: &egui::Ui) {
+    if let Some(id) = ui.ctx().memory(|memory| memory.focused()) {
+        ui.ctx().memory_mut(|memory| memory.surrender_focus(id));
+    }
 }
 
 /// The editor's focus mode: a press on another widget ends the focused

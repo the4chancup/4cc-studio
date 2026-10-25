@@ -29,6 +29,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         rules: _,
         aatf: _,
         comparator: _,
+        transplant: _,
         open_save_dialog: _,
         live_aatf: _,
         live: _,
