@@ -100,7 +100,7 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                                         .expect("a held result checked a team"),
                                 );
                                 ui.strong(format!(
-                                    "No issues: {name} passes {}",
+                                    "{name} passes {} with no issues.",
                                     rules.ruleset().name
                                 ));
                             } else {
@@ -131,7 +131,7 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 .show(ui, |ui| {
                     let mut clicked = None;
                     if team_id.is_none() {
-                        ui.weak("No team open.");
+                        ui.weak("No team is open.");
                     } else if let Some(error) = &load_error {
                         ui.weak(rules_load_error(error));
                     } else if let Some((result_key, checks)) = &live.check.result {

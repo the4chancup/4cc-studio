@@ -40,7 +40,7 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
     assert!(
         label_value(
             &nodes,
-            "Owned by the team's export: edit its settings.toml and recompile."
+            "The team's export owns the aesthetics, so edit its settings.toml and recompile."
         ),
         "the Fox ownership line"
     );
@@ -99,7 +99,7 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
     assert!(
         label_value(
             &nodes,
-            "On a stripped save the game still reads the motions; the look comes from the database tables."
+            "On a stripped save the game still reads the motions, but the look comes from the database tables."
         ),
         "the Fox note under the switch"
     );
@@ -178,7 +178,7 @@ fn the_tab_is_locked_on_a_pre_fox_save_with_the_patch_step() {
     assert!(
         label_value(
             &nodes,
-            "Owned by the team's export: edit its settings.toml and recompile, then apply the patch."
+            "The team's export owns the aesthetics, so edit its settings.toml and recompile, then apply the patch."
         ),
         "the pre-Fox ownership line"
     );
@@ -194,9 +194,9 @@ fn the_tab_is_locked_on_a_pre_fox_save_with_the_patch_step() {
     );
     let ownership_hover = right_of_label(&nodes, "Chest", Role::SpinButton)[0];
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(ownership_hover), "Owned by"),
+        tooltip_containing(&mut window, &mut view, centre(ownership_hover), "The team's export"),
         Some(
-            "Owned by the team's export: edit its settings.toml and recompile, then apply the patch."
+            "The team's export owns the aesthetics, so edit its settings.toml and recompile, then apply the patch."
                 .to_string()
         ),
         "the disabled controls' hover is the ownership line"
@@ -284,7 +284,7 @@ fn the_cutscenes_group_stays_editable_above_the_ownership_line() {
             node.role() == Role::Label
                 && node
                     .value()
-                    .is_some_and(|v| v.starts_with("Owned by the team's export"))
+                    .is_some_and(|v| v.starts_with("The team's export owns"))
         })
         .and_then(accesskit::Node::bounds)
         .map(|bounds| bounds.y0)
@@ -340,8 +340,8 @@ fn a_stripped_players_tab_says_the_look_is_the_tables_and_the_motions_are_read()
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
     file.player_mut(70101).unwrap().appearance_id = Some(STRIPPED_APPEARANCE_ID);
     file.save(&path).unwrap();
-    const LINE: &str =
-        "Stripped: the game takes his look from the database tables; the motions are still read.";
+    const LINE: &str = "This player is stripped, so the game takes his look from the database \
+                        tables, but it still reads the motions.";
 
     let mut view = SaveView::new();
     view.open(&path);
@@ -600,7 +600,7 @@ fn a_fox_save_with_some_ids_set_lists_them_with_strip_again() {
     assert!(
         label_value(
             &nodes,
-            "3 player(s) have an appearance id set while the rest are stripped:"
+            "3 players have an appearance id set while the rest are stripped:"
         ),
         "the window's count line"
     );
@@ -1464,7 +1464,7 @@ fn the_setting_off_draws_no_lock_and_the_setting_on_locks_the_paths() {
     assert!(
         !nodes.iter().any(|node| {
             node.value()
-                .is_some_and(|value| value.starts_with("Owned by the team's export"))
+                .is_some_and(|value| value.starts_with("The team's export owns"))
         }),
         "no ownership line under the default"
     );

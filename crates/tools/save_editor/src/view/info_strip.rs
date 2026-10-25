@@ -120,7 +120,7 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
         // PES 15 to 19 would make: a warning, never a block on Save.
         let response = if overlong {
             response.on_hover_text(format!(
-                "In PES 2019 and older this name will be cut to: «{}»",
+                "In PES 2019 and older the game cuts this name to «{}»",
                 shown_name(&crop_player_text(
                     PesVersion::Pes19,
                     PlayerText::Name,
@@ -129,8 +129,8 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
             ))
         } else {
             response.on_hover_text(format!(
-                "Up to {} bytes: a plain letter takes one, an accented letter two or more, a \
-                 colour code ten",
+                "Up to {} bytes. A plain letter takes one byte, an accented letter takes two \
+                 or more, and a colour code takes ten.",
                 text_len(schema, PlayerText::Name)
             ))
         };
@@ -156,15 +156,16 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
         // The same `add_sized` allocation as the Name field's above.
         let response = ui.add_sized([110.0, ui.spacing().interact_size.y], shirt_edit);
         let response = if shirt_overlong {
-            response
-                .on_hover_text("PES 2019 and older show 18 letters of a shirt name (PES 2016: 16)")
+            response.on_hover_text(
+                "PES 2019 and older show 18 letters of a shirt name (PES 2016 shows 16)",
+            )
         } else {
             // The limit the field enforces, not the field's whole capacity:
             // the portable 18 binds on PES 20/21, its own 16 on PES 16, and
             // the charset is single-byte (é passes, ł does not).
             response.on_hover_text(format!(
-                "Up to {} letters; Western European accents (é, ü, ñ) are fine, other letters \
-                 and symbols are not",
+                "Up to {} letters. Western European accents (é, ü, ñ) are fine, but other \
+                 letters and symbols are not.",
                 portable_text_max(PlayerText::ShirtName)
                     .min(text_len(schema, PlayerText::ShirtName))
             ))

@@ -386,7 +386,7 @@ pub(crate) fn show(
     }
     toolbar(ui, view, running);
     if view.session.is_none() {
-        ui.weak("No save open.");
+        ui.weak("No save is open.");
     } else {
         // Before the left panel, so the dock spans the view's width under
         // the player list and the tabs (egui lays a panel out against the
@@ -550,7 +550,8 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         menus::panels_menu(ui, view);
         ui.toggle_value(&mut view.live_aatf, "Live AATF")
             .on_hover_text(
-                "Check the open team after every edit, in a panel at the bottom (remembered)",
+                "Check the open team after every edit, in a panel at the bottom (the setting is \
+                 remembered)",
             );
         if let Some(session) = view.session.as_ref() {
             let path = session.path().display().to_string();
@@ -678,7 +679,7 @@ pub(crate) fn edit_team(
 /// rules file did not load: the Cards left row and the quick actions
 /// share the one wording.
 pub(crate) fn rules_load_error(error: &str) -> String {
-    format!("The AATF rules file does not load: {error}")
+    format!("The AATF rules file could not be loaded: {error}")
 }
 
 /// The selected player's `(team_id, roster slot, player_id)`; `None` when
@@ -732,8 +733,13 @@ fn strip_again_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
         egui::Modal::new(egui::Id::unique("save_editor_strip_again")).show(ui.ctx(), |ui| {
             ui.heading("Appearance ids set on a stripped save");
             ui.label(format!(
-                "{} player(s) have an appearance id set while the rest are stripped:",
-                rows.len()
+                "{} {} an appearance id set while the rest are stripped:",
+                rows.len(),
+                if rows.len() == 1 {
+                    "player has"
+                } else {
+                    "players have"
+                }
             ));
             egui::ScrollArea::vertical()
                 .max_height(200.0)

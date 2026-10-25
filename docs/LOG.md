@@ -2497,3 +2497,5 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.9h: the window cannot be resized below 960 × 600 points, under every default it opens at; the Save
   editor's tabs fit from 900 wide (measured on PES 17 and 21), and below that rows with fixed parts clipped. A test
   holds every tab inside the pane at the minimum.
+- **2026-10-25** — 8.29a1: the Save editor window's dry lines rewritten as sentences that flow (34 of them: notices,
+  tooltips, the FPC reading, the Live AATF header), the meaning kept; the plan's quotes and scenario THENs follow.

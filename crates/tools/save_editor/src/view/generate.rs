@@ -166,8 +166,8 @@ pub(crate) fn dialog(ui: &mut egui::Ui, view: &mut SaveView) {
             ui.heading(generate.file.title());
             if is_stripped(file, generate.player_id) {
                 ui.label(format!(
-                    "{name} is stripped: the game reads the tables, not his record. \
-                     Generation skips him."
+                    "{name} is stripped, so the game reads the database tables rather \
+                     than his save data, and nothing is generated for him."
                 ));
                 if ui.button("OK").clicked() {
                     close = true;

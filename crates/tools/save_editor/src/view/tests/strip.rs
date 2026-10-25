@@ -332,7 +332,7 @@ fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
     );
     assert_eq!(
         tooltip,
-        Some("PES 2019 and older show 18 letters of a shirt name (PES 2016: 16)".to_string()),
+        Some("PES 2019 and older show 18 letters of a shirt name (PES 2016 shows 16)".to_string()),
         "the shirt hover"
     );
 
@@ -480,8 +480,8 @@ fn the_shirt_hover_names_the_limit_the_field_enforces() {
     assert_eq!(
         tooltip,
         Some(
-            "Up to 18 letters; Western European accents (é, ü, ñ) are fine, other letters and \
-                 symbols are not"
+            "Up to 18 letters. Western European accents (é, ü, ñ) are fine, but other letters \
+                 and symbols are not."
                 .to_string()
         ),
         "PES 21's shirt field is 61 wide but the editor holds 18"
@@ -502,8 +502,8 @@ fn the_pes16_shirt_hover_names_its_own_field() {
     assert_eq!(
         tooltip,
         Some(
-            "Up to 16 letters; Western European accents (é, ü, ñ) are fine, other letters and \
-                 symbols are not"
+            "Up to 16 letters. Western European accents (é, ü, ñ) are fine, but other letters \
+                 and symbols are not."
                 .to_string()
         ),
         "PES 16's own 16-letter field binds under the portable 18"
@@ -847,7 +847,7 @@ fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
     assert_eq!(
         tooltip,
         Some(format!(
-            "In PES 2019 and older this name will be cut to: «{}{}»",
+            "In PES 2019 and older the game cuts this name to «{}{}»",
             "PLACEHOLDER",
             "Z".repeat(35)
         )),

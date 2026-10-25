@@ -138,13 +138,13 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         AatfMode::Current => match aatf_check::current_team(*team, *selected) {
             Some(id) => vec![id],
             None => {
-                no_teams = Some("No team open.");
+                no_teams = Some("No team is open.");
                 Vec::new()
             }
         },
         AatfMode::Select => {
             if aatf.picked.is_empty() {
-                no_teams = Some("No team picked.");
+                no_teams = Some("No teams are picked.");
             }
             aatf.picked.iter().copied().collect()
         }
@@ -269,7 +269,9 @@ fn rows(
     });
     if ui
         .button("Validate rules")
-        .on_hover_text("Check the rules file in use for errors, each with its line or setting")
+        .on_hover_text(
+            "Check the rules file in use for errors, each reported with its line or setting",
+        )
         .clicked()
     {
         let name = active
@@ -281,7 +283,7 @@ fn rows(
     }
     if let Some((name, findings)) = &aatf.validation {
         if findings.is_empty() {
-            ui.weak(format!("{name}: no findings"));
+            ui.weak(format!("There are no findings in {name}."));
         } else {
             ui.weak(format!("{name}:"));
             for line in findings {

@@ -585,7 +585,7 @@ fn on_pes16_the_colours_ids_and_kit_slots_draw_disabled_with_their_versions() {
     }
     // The kit slots' no-records line names PES 17.
     assert!(
-        label_value(&nodes, "(no kit slot records on this version)"),
+        label_value(&nodes, "(this version does not store kit slots)"),
         "the no-records line"
     );
 }
@@ -951,8 +951,11 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
             .unwrap_or_else(|| panic!("no menu item {label:?}"));
         assert!(item.is_disabled(), "{label} is disabled under the lock");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(item), "Owned by"),
-            Some("Owned by the team's export: edit its settings.toml and recompile.".to_string()),
+            tooltip_containing(&mut window, &mut view, centre(item), "The team's export"),
+            Some(
+                "The team's export owns the aesthetics, so edit its settings.toml and recompile."
+                    .to_string(),
+            ),
             "{label}'s hover is the ownership line"
         );
     }

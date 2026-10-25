@@ -237,7 +237,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                             .button("Export\u{2026}")
                             .on_hover_text(
                                 "Write the differences of the shown scope as text, \
-                                 every team included",
+                                 covering every team",
                             )
                             .clicked()
                         && let Some(path) = export_dialog("diff.txt")
@@ -270,7 +270,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     }
                     if ui
                         .button("Pick\u{2026}")
-                        .on_hover_text("The other save the open one is compared against")
+                        .on_hover_text("The save the open one is compared against")
                         .clicked()
                     {
                         surrender_focus(ui);

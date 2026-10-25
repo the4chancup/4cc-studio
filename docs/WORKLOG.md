@@ -21,7 +21,8 @@ coverage table and draft, the DBC7 ruleset).
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
 (8.9j1-j3), the comparator done (8.9j4), the save-writing transplant removed (8.9j5c; the
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
-the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum), `libs/aatf`'s hardening (the repetition rework done and
+the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a1, the
+window's strings, done), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
 the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; the in-game SE-GUI-34 left, waiting: in-game tests are paused until the maintainer
 resumes them), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
@@ -1584,7 +1585,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       (SWE-2): `window_size::MIN_SIZE` 960 × 600 in `native_options` (red: `min_inner_size`
       None), `every_tab_fits_the_pane_the_minimum_window_leaves` over four tabs on PES 21 and 17
       (red at an 804 pane: "Make Regular" ends at 798 past 796). Files:
-      `studio_core/src/shell/window_size.rs`, `save_editor/src/view/tests/tactics.rs`
+      `studio_core/src/shell/window_size.rs`, `save_editor/src/view/tests/tactics.rs`.
+      `mutants-diff 6fe6b3ab`: 2 of 2 caught
     - [x] 8.9i a starter whose portrait the pitch cannot show, for any reason (none in the
       CPKs, a portrait that does not decode, a `download/` folder that cannot be read), draws
       the game's own placeholder portrait instead of none (the maintainer's request of
@@ -2010,9 +2012,19 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     each slice's diff read line by line by the lead before it lands (a rewrite that changes what
     a line says is a finding) → verify: the gates; every rewritten line read in its place (the
     draft or a headless frame)
-    - [ ] a the Save editor: `view/` strings, tooltips and notices, `messages.rs`, `help/`, the
-      CLI's output, and its draft `docs/prototypes/tools/save_editor.js` (the version banner
-      rewritten 2026-10-25 as the rule's example)
+    - [ ] a the Save editor, in three slices:
+      - [x] a1 the window's strings, tooltips and notices under `view/`: 34 lines rewritten
+        (the lead retouched six: the FPC presets' tooltips, which said Ctrl+I applies the
+        hide preset where it toggles, two tooltips back to the imperative, the stripped
+        player's Generate line without "record"), the tests pinning them following; the plan's
+        quotes of them (SE-GUI-11, 15, 30, 31 among them) brought along. `mutants-diff
+        56da050d`: 21 caught, 3 unviable, none missed. Files: 12 `view/`
+        modules, 13 `view/tests/` files, `docs/plans/save_editor.md`
+      - [ ] a2 the message catalog (`messages.rs`) and the CLI's output and `--help` text
+        (`cli.rs`), with the spec's Messages table
+      - [ ] a3 the help chapters and the draft `docs/prototypes/tools/save_editor.js`, which
+        takes a1's and a2's rewrites word for word (the version banner rewritten 2026-10-25 as
+        the rule's example)
     - [ ] b the shell (`studio_core`: sidebar, status bar, settings menu, help window, the
       launch and title texts) and the drafts host `docs/prototypes/index.html`
     - [ ] c the Team compiler and the Export upgrader: their message catalogs, help chapters,

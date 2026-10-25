@@ -294,7 +294,7 @@ fn kit_slots(
     team: &TeamEntry,
 ) {
     let Some(slots) = &team.kit_slots else {
-        ui.weak("(no kit slot records on this version)")
+        ui.weak("(this version does not store kit slots)")
             .on_hover_text("PES 17 only");
         return;
     };

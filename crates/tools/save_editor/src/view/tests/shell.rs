@@ -369,7 +369,7 @@ fn the_tool_view_draws_the_window() {
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("No save open.")),
+            .any(|node| node.value() == Some("No save is open.")),
         "the window drew"
     );
 }

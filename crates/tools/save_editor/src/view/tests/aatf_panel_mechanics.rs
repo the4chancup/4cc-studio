@@ -170,7 +170,7 @@ fn the_picker_scroll_reaches_the_last_team() {
         .bounds()
         .expect("the first checkbox's bounds")
         .y0;
-    let results_top = named("No team picked.")
+    let results_top = named("No teams are picked.")
         .bounds()
         .expect("the picked line's bounds")
         .y0;
@@ -277,7 +277,7 @@ fn another_save_starts_the_panel_afresh() {
     );
     let lines = panel_lines(&mut window, &mut view, None);
     assert!(
-        lines.iter().any(|line| line == "No team picked."),
+        lines.iter().any(|line| line == "No teams are picked."),
         "nothing picked on the new save: {lines:?}"
     );
     assert!(

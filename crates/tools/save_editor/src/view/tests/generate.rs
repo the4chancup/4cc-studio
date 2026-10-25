@@ -227,8 +227,8 @@ fn a_stripped_players_dialog_skips_him() {
         label_value(
             &nodes,
             &format!(
-                "{name} is stripped: the game reads the tables, not his record. \
-                 Generation skips him."
+                "{name} is stripped, so the game reads the database tables rather \
+                 than his save data, and nothing is generated for him."
             )
         ),
         "the skip text"

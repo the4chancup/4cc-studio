@@ -166,7 +166,7 @@ pub(super) fn results(
             Err(error) => {
                 ui.colored_label(
                     ui.visuals().error_fg_color,
-                    format!("Team {id} {name}: the AATF check failed: {error}"),
+                    format!("The AATF check failed for team {id} {name}: {error}"),
                 );
             }
             Ok(violations) => teams.push(TeamViolations {

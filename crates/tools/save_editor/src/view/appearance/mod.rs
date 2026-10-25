@@ -104,8 +104,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 ui.weak(match version.engine() {
                     Engine::PreFox => "A later patch overwrites whatever is edited by hand.",
                     Engine::Fox => {
-                        "On a stripped save the game still reads the motions; \
-                         the look comes from the database tables."
+                        "On a stripped save the game still reads the motions, \
+                         but the look comes from the database tables."
                     }
                 });
             }
@@ -113,8 +113,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         if stripped {
             ui.colored_label(
                 ui.visuals().warn_fg_color,
-                "Stripped: the game takes his look from the database tables; \
-                 the motions are still read.",
+                "This player is stripped, so the game takes his look from the database \
+                 tables, but it still reads the motions.",
             );
         }
         ui.add_enabled_ui(!locked, |ui| {
@@ -207,10 +207,12 @@ fn ownership_line(ui: &mut egui::Ui, version: PesVersion) {
 pub(crate) fn ownership_tip(version: PesVersion) -> &'static str {
     match version.engine() {
         Engine::PreFox => {
-            "Owned by the team's export: edit its settings.toml and recompile, \
-             then apply the patch."
+            "The team's export owns the aesthetics, so edit its settings.toml and \
+             recompile, then apply the patch."
         }
-        Engine::Fox => "Owned by the team's export: edit its settings.toml and recompile.",
+        Engine::Fox => {
+            "The team's export owns the aesthetics, so edit its settings.toml and recompile."
+        }
     }
 }
 
@@ -249,17 +251,18 @@ fn fpc_group(
         .expect("a loaded player's face run holds the skin field");
     ui.horizontal_wrapped(|ui| {
         ui.label(if hidden {
-            "FPC: hidden body"
+            "FPC: the body is hidden"
         } else {
-            "FPC: body shown"
+            "FPC: the body is shown"
         });
         if ui
             .button("Hide body")
             .on_hover_text(
-                "The hide preset: long sleeves, tucked, short socks; \
-                 the hide IDs from Settings where the IDs are 0 \
-                 (a model's own IDs are kept); a Custom skin (PES 2015 to 2017) \
-                 becomes Light. Ctrl+I; the whole team: Team menu",
+                "Apply the hide preset: long sleeves, a tucked shirt and short socks. \
+                 A boots or gloves ID of 0 takes the hide ID from Settings (a model's \
+                 own ID is kept), and a Custom skin (PES 2015 to 2017) becomes Light. \
+                 Ctrl+I switches this player between hidden and shown, and the Team \
+                 menu hides or shows the whole team.",
             )
             .clicked()
         {
@@ -268,9 +271,9 @@ fn fpc_group(
         if ui
             .button("Show body")
             .on_hover_text(
-                "The show preset: short sleeves, untucked, standard socks; \
-                 boots and gloves 0 where they are the hide IDs; a Custom skin \
-                 (PES 2015 to 2017) becomes Light",
+                "Apply the show preset: short sleeves, an untucked shirt and standard \
+                 socks. A boots or gloves ID that holds the hide ID goes back to 0, and \
+                 a Custom skin (PES 2015 to 2017) becomes Light.",
             )
             .clicked()
         {
@@ -281,7 +284,7 @@ fn fpc_group(
         .expect("a loaded player's face run holds the strip fields");
     let findings = fpc::check(&style, hidden);
     if findings.is_empty() {
-        ui.weak("No interference findings.");
+        ui.weak("No interference found.");
     } else {
         for finding in &findings {
             let message = crate::messages::fpc_finding(finding);
@@ -467,7 +470,7 @@ fn strip_rows(
                 player.appearance.gloves_id = shown;
             },
         )
-        .on_hover_text("Any player's; 0 = normal hands");
+        .on_hover_text("Any player's gloves ID works; 0 means normal hands.");
         maybe_end_row(ui, 2, per_row);
         for (index, (label, key, get, set)) in STRIP_ENUMS.iter().enumerate() {
             combo(
@@ -664,7 +667,7 @@ fn motion_grid(
     // top, one undoable edit (DECISIONS.md 2026-10-22's ruling).
     if ui
         .button("Randomize")
-        .on_hover_text("Random motion values (the dribbling motion is left as it is)")
+        .on_hover_text("Set every motion to a random value, except the dribbling motion")
         .clicked()
     {
         randomize(session, player_id, version, draw);

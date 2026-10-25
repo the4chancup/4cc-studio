@@ -43,12 +43,12 @@ fn run_stat_dialog(
 
 /// The line `stat_num` draws for `name`, as the dialog's field anchors on it.
 fn set_line(name: &str) -> String {
-    format!("Every ability stat of {name} to the value")
+    format!("Set all of {name}'s ability stats to")
 }
 
 /// The Bump dialog's line for `name`.
 fn bump_line(name: &str) -> String {
-    format!("Add to every ability stat of {name}, clamped to 40 to 99")
+    format!("Add to all of {name}'s ability stats, clamped to 40 to 99")
 }
 
 /// Every ability of `player` is `value` (the ones the version has).
@@ -684,8 +684,8 @@ fn strip_of(view: &SaveView, id: u32) -> (u8, bool, u8, u32, u32) {
     )
 }
 
-// Hide body gives the hide preset and the tab reads "FPC:
-// hidden body"; Ctrl+I gives the show preset and "FPC: body shown". A
+// Hide body gives the hide preset and the tab reads "FPC: the body is
+// hidden"; Ctrl+I gives the show preset and "FPC: the body is shown". A
 // model's own boots ID is kept and reads as shown. Set FPC invisibility
 // hides every filled slot of the team in one undo step, and a strip
 // setting that breaks hiding lists its finding on the tab — reported,
@@ -727,7 +727,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     // the inners left on as the finding reports rather than clears.
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: body shown"),
+        label_value(&nodes, "FPC: the body is shown"),
         "dressed reads shown"
     );
     click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
@@ -739,7 +739,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     assert_eq!(player_entry(&view, 70101).appearance.inners, 1, "kept");
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: hidden body"),
+        label_value(&nodes, "FPC: the body is hidden"),
         "hidden reads hidden"
     );
     assert!(
@@ -750,7 +750,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
         "the inners finding's text on the tab"
     );
 
-    // Ctrl+I on a hidden player shows him: the show preset, "FPC: body shown".
+    // Ctrl+I on a hidden player shows him: the show preset, "FPC: the body is shown".
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
@@ -760,7 +760,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
         "the show preset"
     );
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_value(&nodes, "FPC: body shown"));
+    assert!(label_value(&nodes, "FPC: the body is shown"));
 
     // Two operations, two undo entries, the player restored.
     assert_eq!(undo_entries(&mut window, &mut view), 2, "one entry each");
@@ -777,7 +777,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     );
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: body shown"),
+        label_value(&nodes, "FPC: the body is shown"),
         "a model's own boots ID reads as shown"
     );
     click(&mut window, fpc_button(&nodes, "Show body"), &mut view);
@@ -892,14 +892,20 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_value(&nodes, "FPC: body shown"), "premise: shown");
+    assert!(
+        label_value(&nodes, "FPC: the body is shown"),
+        "premise: shown"
+    );
 
     // Ctrl+I on a shown player hides him: the hide preset lands.
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_value(&nodes, "FPC: hidden body"), "Ctrl+I hid him");
+    assert!(
+        label_value(&nodes, "FPC: the body is hidden"),
+        "Ctrl+I hid him"
+    );
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
 
     // Ctrl+I again shows him: the show preset lands.
@@ -907,7 +913,10 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
         show(ui, &mut view, &|| Vec::new(), None)
     });
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_value(&nodes, "FPC: body shown"), "Ctrl+I showed him");
+    assert!(
+        label_value(&nodes, "FPC: the body is shown"),
+        "Ctrl+I showed him"
+    );
     assert_eq!(strip_of(&view, 70101), (1, true, 0, 0, 0));
 
     // The Player menu's Toggle FPC settings, enabled under the unlock,
@@ -921,7 +930,7 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
     click(&mut window, item, &mut view);
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: hidden body"),
+        label_value(&nodes, "FPC: the body is hidden"),
         "the menu toggle hid him"
     );
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
@@ -950,7 +959,7 @@ fn hide_body_round_trips_on_pes16() {
     click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_value(&nodes, "FPC: hidden body"));
+    assert!(label_value(&nodes, "FPC: the body is hidden"));
 
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
@@ -997,8 +1006,11 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
         let button = fpc_button(&nodes, label);
         assert!(button.is_disabled(), "{label} is disabled under the lock");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(button), "Owned by"),
-            Some("Owned by the team's export: edit its settings.toml and recompile.".to_string()),
+            tooltip_containing(&mut window, &mut view, centre(button), "The team's export"),
+            Some(
+                "The team's export owns the aesthetics, so edit its settings.toml and recompile."
+                    .to_string(),
+            ),
             "{label}'s hover is the ownership line"
         );
     }
@@ -1012,8 +1024,11 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
         "the toggle is disabled under the lock"
     );
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(toggle), "Owned by"),
-        Some("Owned by the team's export: edit its settings.toml and recompile.".to_string()),
+        tooltip_containing(&mut window, &mut view, centre(toggle), "The team's export"),
+        Some(
+            "The team's export owns the aesthetics, so edit its settings.toml and recompile."
+                .to_string(),
+        ),
         "the toggle's hover is the ownership line"
     );
     for label in [
@@ -1034,8 +1049,11 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
         let item = menu_item(&nodes, label);
         assert!(item.is_disabled(), "{label} is disabled under the lock");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(item), "Owned by"),
-            Some("Owned by the team's export: edit its settings.toml and recompile.".to_string()),
+            tooltip_containing(&mut window, &mut view, centre(item), "The team's export"),
+            Some(
+                "The team's export owns the aesthetics, so edit its settings.toml and recompile."
+                    .to_string(),
+            ),
             "{label}'s hover is the ownership line"
         );
     }
@@ -1050,7 +1068,7 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
 
 // The hide IDs are the common settings' (`view.hide_ids`): with IDs 60
 // and 12, Hide body writes them and the classifier reads them back; a
-// player still on the convention's 55 reads "FPC: body shown", the save
+// player still on the convention's 55 reads "FPC: the body is shown", the save
 // itself never rewritten by the change.
 // SE-GUI-31
 #[test]
@@ -1077,24 +1095,27 @@ fn the_hide_ids_come_from_the_settings() {
     view.hide_ids = fpc::HideIds::new(60, 12);
     let mut window = Headless::sized(1100.0, 900.0);
 
-    // Hide body on 70101 (IDs 0): boots 60 and gloves 12, "FPC: hidden body".
+    // Hide body on 70101 (IDs 0): boots 60 and gloves 12, "FPC: the body is hidden".
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_value(&nodes, "FPC: body shown"), "premise: shown");
+    assert!(
+        label_value(&nodes, "FPC: the body is shown"),
+        "premise: shown"
+    );
     click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 60, 12));
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_value(&nodes, "FPC: hidden body"));
+    assert!(label_value(&nodes, "FPC: the body is hidden"));
 
     // Show body: both 0 again (the record holds the hide IDs).
     click(&mut window, fpc_button(&nodes, "Show body"), &mut view);
     assert_eq!(strip_of(&view, 70101), (1, true, 0, 0, 0));
 
-    // 70102 still on the convention's boots 55 reads "FPC: body shown":
+    // 70102 still on the convention's boots 55 reads "FPC: the body is shown":
     // the new hide ID is 60, and the save was never rewritten.
     view.selected = Some((701, 1));
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: body shown"),
+        label_value(&nodes, "FPC: the body is shown"),
         "the old convention's ID is no longer the hide ID"
     );
 }
@@ -1167,7 +1188,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
         "the FPC line is the error's text"
     );
     assert!(
-        !label_value(&nodes, "FPC: body shown"),
+        !label_value(&nodes, "FPC: the body is shown"),
         "the reading is not drawn"
     );
     for label in ["Hide body", "Show body"] {

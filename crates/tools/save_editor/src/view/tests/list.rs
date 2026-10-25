@@ -176,7 +176,7 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
         .iter()
         .find(|node| {
             node.role() == Role::TextInput
-                && node.placeholder() == Some("Filter all teams (name, shirt, id)")
+                && node.placeholder() == Some("Filter every team (name, shirt name or id)")
         })
         .expect("the filter box");
     click(&mut window, filter_box, &mut view);

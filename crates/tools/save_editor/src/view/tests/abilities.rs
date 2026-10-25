@@ -16,7 +16,7 @@ fn cards_left_error(nodes: &[accesskit::Node]) -> Option<&accesskit::Node> {
         node.role() == Role::Label
             && node
                 .value()
-                .is_some_and(|value| value.starts_with("The AATF rules file does not load:"))
+                .is_some_and(|value| value.starts_with("The AATF rules file could not be loaded:"))
             && node.bounds().is_some_and(|b| b.y0 >= heading - 1.0)
     })
 }
@@ -785,7 +785,7 @@ fn a_card_tick_on_another_player_is_its_own_undo_entry() {
         .iter()
         .find(|(_, node)| {
             node.role() == Role::TextInput
-                && node.placeholder() == Some("Filter all teams (name, shirt, id)")
+                && node.placeholder() == Some("Filter every team (name, shirt name or id)")
         })
         .expect("the filter box");
     let (card_a, _) = nodes

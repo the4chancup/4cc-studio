@@ -57,7 +57,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     };
     let file = session.file();
     team_selector(ui, team, file, "save_editor_team");
-    ui.add(egui::TextEdit::singleline(filter).hint_text("Filter all teams (name, shirt, id)"));
+    ui.add(
+        egui::TextEdit::singleline(filter).hint_text("Filter every team (name, shirt name or id)"),
+    );
     // A filter in use lists every team, so each row names its team — as it
     // does under `ALL` (the draft's `tshort`).
     let show_team = !filter.trim().is_empty() || *team == TeamChoice::All;

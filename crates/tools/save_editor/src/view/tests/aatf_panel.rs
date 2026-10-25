@@ -206,7 +206,7 @@ fn select_teams_lists_the_picked_teams_and_a_failed_ones_line() {
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("No team picked.")),
+            .any(|node| node.value() == Some("No teams are picked.")),
         "nothing ticked"
     );
     tick(&mut window, &mut view, rules, &format!("743 {name_743}"));
@@ -215,7 +215,7 @@ fn select_teams_lists_the_picked_teams_and_a_failed_ones_line() {
     let failure = nodes
         .iter()
         .filter_map(|node| node.value())
-        .find(|value| value.starts_with(&format!("Team 743 {name_743}: the AATF check failed:")))
+        .find(|value| value.starts_with(&format!("The AATF check failed for team 743 {name_743}:")))
         .unwrap_or_else(|| panic!("743's failure line: {nodes:?}"));
     assert!(failure.contains("boom"), "{failure}");
     assert!(
@@ -312,7 +312,7 @@ fn validate_rules_reports_the_files_findings() {
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("the official ruleset: no findings")),
+            .any(|node| node.value() == Some("There are no findings in the official ruleset.")),
         "the official file loads"
     );
 
@@ -389,7 +389,7 @@ fn a_rules_file_that_does_not_load_shows_the_error_in_the_lists_place() {
     assert!(
         nodes.iter().any(|node| {
             node.value()
-                .is_some_and(|value| value.starts_with("The AATF rules file does not load:"))
+                .is_some_and(|value| value.starts_with("The AATF rules file could not be loaded:"))
         }),
         "the load error's line"
     );
@@ -467,7 +467,7 @@ fn a_rules_file_change_replaces_the_result() {
     assert!(
         nodes.iter().any(|node| {
             node.value()
-                .is_some_and(|value| value.starts_with("The AATF rules file does not load:"))
+                .is_some_and(|value| value.starts_with("The AATF rules file could not be loaded:"))
         }),
         "the load error's line"
     );
@@ -584,7 +584,7 @@ fn no_violations_needs_every_check_to_succeed() {
     let has_failure_line = |nodes: &[accesskit::Node]| {
         nodes.iter().any(|node| {
             node.value().is_some_and(|value| {
-                value.starts_with(&format!("Team 743 {name_743}: the AATF check failed:"))
+                value.starts_with(&format!("The AATF check failed for team 743 {name_743}:"))
             })
         })
     };

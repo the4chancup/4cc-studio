@@ -49,7 +49,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     ui.horizontal(|ui| {
         if ui
             .button("Set stats")
-            .on_hover_text("Every ability stat to the value")
+            .on_hover_text("Set every ability stat to the value next to this button")
             .clicked()
             && let Some(session) = view.session.as_mut()
         {

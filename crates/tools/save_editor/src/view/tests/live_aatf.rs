@@ -122,8 +122,9 @@ fn the_list_shrinks_as_edits_fix_violations_and_grows_back_on_undo() {
     );
 }
 
-/// A team that passes reads `No issues: <team> passes <ruleset>` and draws
-/// no violation row; a player's height edit then reads the check's count.
+/// A team that passes reads `<team> passes <ruleset> with no issues.` and
+/// draws no violation row; a player's height edit then reads the check's
+/// count.
 // SE-GUI-30
 #[test]
 fn a_clean_team_reads_no_issues_and_a_broken_rule_the_count() {
@@ -139,7 +140,7 @@ fn a_clean_team_reads_no_issues_and_a_broken_rule_the_count() {
         .expect("team 714")
         .name
         .clone();
-    let header = format!("No issues: {name} passes Autumn 26");
+    let header = format!("{name} passes Autumn 26 with no issues.");
     assert!(
         nodes
             .iter()
@@ -381,7 +382,7 @@ fn the_dock_follows_the_open_team_and_the_rules_file() {
 }
 
 /// At ALL the dock checks the selected player's team; with no player
-/// selected it reads `No team open.` and starts no check.
+/// selected it reads `No team is open.` and starts no check.
 // SE-GUI-30
 #[test]
 fn at_all_the_dock_checks_the_selected_players_team() {
@@ -402,7 +403,7 @@ fn at_all_the_dock_checks_the_selected_players_team() {
     assert!(
         nodes
             .iter()
-            .any(|node| node.value() == Some("No team open.")),
+            .any(|node| node.value() == Some("No team is open.")),
         "the empty selection's line"
     );
     assert!(view.live.check.pending.is_none(), "no check started");

@@ -552,7 +552,7 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
     assert!(
         quick_action_row_labels(&nodes).iter().any(|node| {
             node.value()
-                .is_some_and(|value| value.starts_with("The AATF rules file does not load:"))
+                .is_some_and(|value| value.starts_with("The AATF rules file could not be loaded:"))
         }),
         "the load error on the quick actions row"
     );

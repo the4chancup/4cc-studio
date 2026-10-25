@@ -522,7 +522,7 @@ impl StatNum {
             op: StatNumOp::Set,
             player_id,
             line: format!(
-                "Every ability stat of {} to the value",
+                "Set all of {}'s ability stats to",
                 display_name(&player.name)
             ),
             value: i32::from(player.stats.attacking_prowess),
@@ -540,7 +540,7 @@ impl StatNum {
             op: StatNumOp::Bump,
             player_id,
             line: format!(
-                "Add to every ability stat of {}, clamped to 40 to 99",
+                "Add to all of {}'s ability stats, clamped to 40 to 99",
                 display_name(&player.name)
             ),
             value: last,

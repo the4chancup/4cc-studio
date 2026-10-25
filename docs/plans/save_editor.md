@@ -201,12 +201,12 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   Shirt fields follow `pes_savefile`'s portable limits ("Team TOML" in its operations plan):
   - **Name**: the open save's own field (61 bytes on PES 20/21, 46 before). A name past 46
     bytes, which only a PES 20/21 save holds, draws its field with an amber tint and a hover
-    "In PES 2019 and older this name will be cut to: «…»", the name as `crop_player_text`
+    "In PES 2019 and older the game cuts this name to «…»", the name as `crop_player_text`
     would cut it. A tint of the theme's warning colour, not a pale yellow fill: the theme is
     dark and its text light, which a pale fill would wash out.
   - **Shirt**: 18 letters on every version but PES 16 (its field holds 16). A shirt name the
     save already holds past 18 (PES 20/21 allow more) is kept, drawn with the same tint and a
-    hover "PES 2019 and older show 18 letters of a shirt name (PES 2016: 16)"; an edit may shorten it but not lengthen
+    hover "PES 2019 and older show 18 letters of a shirt name (PES 2016 shows 16)"; an edit may shorten it but not lengthen
     it, so it can be fixed a keystroke at a time.
   - Nothing more: a warning, never a block on Save, so editing a save stays frictionless.
   - What 4ccEditor's fields do besides storing, kept: a name or shirt name edit sets the
@@ -506,12 +506,12 @@ files, so the editor's toggle and the compiler's markers cannot drift apart.
   FPC invisibility and the classifier (`is_fpc_player`) read the setting, and so do the
   compiler's `fpc_on` marker and its default-ID rule. One setting, not one per tool: a
   compiler writing 60 for a marker and an editor reading only 55 as hidden would show every
-  compiled FPC player as "body shown". A hide ID is valid in the stock band only, boots 1 to
+  compiled FPC player as "the body is shown". A hide ID is valid in the stock band only, boots 1 to
   100 and gloves 11 to 100: above 100 the compiler allocates its per-team blocks (an ID there
   would be another player's real model), and gloves 1 to 10 are the goalkeepers' real gloves.
   Whether an ID in the band exists in a given game is the member's knowledge, as it is for
   55 today. Changing the setting does not rewrite a save: a player hidden with the old ID
-  reads "body shown" afterwards, and Show body leaves his ID alone (it is no longer the hide
+  reads "the body is shown" afterwards, and Show body leaves his ID alone (it is no longer the hide
   ID); the help says so.
 
 - **A model's own IDs are kept.** The wiki's hide list reads "Boots 55 (or any other
@@ -527,8 +527,8 @@ files, so the editor's toggle and the compiler's markers cannot drift apart.
 - **Hide and Show, not a checkbox.** A player hidden by his model's own boots ID reads as not
   hidden to `is_fpc_player`, which sees only the save (the hide ID or a custom skin),
   so a checkbox drawn from it would stay unticked after a click and could never show him
-  again. The Appearance tab draws the classifier's reading ("FPC: hidden body" or "FPC: body
-  shown") with two actions, Hide body and Show body; Ctrl+I shows a player the classifier
+  again. The Appearance tab draws the classifier's reading ("FPC: the body is hidden" or "FPC: the
+  body is shown") with two actions, Hide body and Show body; Ctrl+I shows a player the classifier
   reads as hidden and hides any other, and the Team menu's Set and Remove FPC invisibility are
   the same two actions over the team.
 - **The findings are catalog codes.** `fpc::check`'s five codes are rows of the tool's message
@@ -556,10 +556,9 @@ editor's section, **"Aesthetics from exports"** (`aesthetics_from_exports`), **o
 default**: off, every aesthetics path below edits as 4ccEditor's did, with no ownership line
 and no switch drawn; on, the editor **does not edit aesthetics** but through the switch:
 
-- The Appearance tab renders its values below the Cutscenes group disabled, with one line of explanation ("Owned by the
-  team's export — edit its `settings.toml` (the face, hair and iris: its `ingame_face.toml`)
-  and recompile", plus on pre-Fox "then apply the
-  patch" and a link to the apply action).
+- The Appearance tab renders its values below the Cutscenes group disabled, with one line of explanation ("The team's
+  export owns the aesthetics, so edit its `settings.toml` (the face, hair and iris: its
+  `ingame_face.toml`) and recompile", plus on pre-Fox ", then apply the patch" and a link to the apply action).
 - The same lock covers every other aesthetics write path: the team operations that write
   appearance fields (set boots/gloves IDs for everyone, set/remove FPC for the team, clear visual
   flags, the FPC toggle), Fix database (it clears the same flags), and the aesthetics section of Team TOML and
@@ -767,8 +766,8 @@ What this editor adds on top of the lib:
   (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
   docked at the bottom of the view lists the open team's violations (with ALL picked, the
   selected player's team: the one the strip and tabs are editing), errors first, grouped per
-  player as the AATF panel does, under the header `N issues · <ruleset>`, or `No issues:
-  <team> passes <ruleset>` once the list is empty; clicking a row selects that player. The
+  player as the AATF panel does, under the header `N issues · <ruleset>`, or `<team> passes
+  <ruleset> with no issues.` once the list is empty; clicking a row selects that player. The
   team is re-checked after every edit to it, undo and redo included, and when another team is
   opened, so the list shrinks as the member fixes it. One team's check takes about 56 ms in a
   release build, nearly all of it the script's own work (`spec/aatf_rules.md` "The host"),
@@ -783,7 +782,7 @@ What this editor adds on top of the lib:
   s on one).
 - **Validate rules.** A button in the AATF panel running the lib's load-time validation on
   the active rules file (the `aatf_rules` setting's, or the embedded one when it is empty), its
-  findings listed one per line with their line and column or key path, or "no findings". The
+  findings listed one per line with their line and column or key path, or "There are no findings in <file>.". The
   draft's own file combo stands for the settings row's Browse: a second file choice in the
   panel would let it validate one file and check with another.
 - A **"save a copy"** action in the AATF panel writes the embedded official file
@@ -962,7 +961,7 @@ SE-GUI-15  GIVEN the PES 17 save and a ruleset with violations in the open team
                 list's filter so his row shows (the team selector moving to his team unless at
                 ALL, which stays), Show suggestions is off and reveals the unused allowances
                 when on, Validate rules lists a broken rules file's findings under the file's
-                path, each with its line or key path (a file that loads: "no findings"), and
+                path, each with its line or key path (a file that loads: "There are no findings in <file>."), and
                 Save a copy, its dialog suggesting autumn26.rhai, writes the embedded official
                 ruleset out byte for byte and names the path it wrote; WHEN an edit changes
                 the team THEN the previous list stays, marked as checking, until the new one
@@ -970,8 +969,8 @@ SE-GUI-15  GIVEN the PES 17 save and a ruleset with violations in the open team
                 chosen THEN its result replaces the previous ruleset's, and a rules file that
                 does not load leaves its load error in the list's place; GIVEN the PES 15 save
                 with a team with neither errors nor warnings THEN the panel reads "No
-                violations."; GIVEN Select teams with no team ticked THEN it reads `No team
-                picked.`, and with two ticked, one whose check fails, THEN that team is a line
+                violations."; GIVEN Select teams with no team ticked THEN it reads `No teams
+                are picked.`, and with two ticked, one whose check fails, THEN that team is a line
                 naming it and the error, the other's violations are listed, and no "No
                 violations." is drawn
 SE-GUI-16  GIVEN the save open on a team
@@ -1069,17 +1068,17 @@ SE-GUI-30  GIVEN the PES 17 save open on a team with violations under the active
                 marked `checking…`, until the check returns, its row then gone and N one less,
                 and an undo brings it back; WHEN another team is opened, or another rules file
                 chosen, THEN the list and N are that team's, or that ruleset's; with ALL picked
-                the panel checks the selected player's team (none selected: `No team open.`);
-                GIVEN the PES 15 save with a team that passes THEN the header reads `No issues:
-                <team> passes <ruleset>`, and WHEN an edit breaks a rule and the last one is
+                the panel checks the selected player's team (none selected: `No team is open.`);
+                GIVEN the PES 15 save with a team that passes THEN the header reads `<team>
+                passes <ruleset> with no issues.`, and WHEN an edit breaks a rule and the last one is
                 fixed THEN it reads so again; WHEN the tool is reopened THEN Live AATF is
                 still on
 SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (gloves), and "Edit
                 aesthetics anyway" switched on
            WHEN Hide body is used on a player whose boots and gloves IDs are 0
-           THEN his record holds boots 60 and gloves 12 and the tab reads "FPC: hidden body";
+           THEN his record holds boots 60 and gloves 12 and the tab reads "FPC: the body is hidden";
                 WHEN Show body is used THEN both are 0 again; GIVEN a player whose boots ID is
-                55 THEN the tab reads "FPC: body shown"; WHEN Ctrl+I, the Player menu's Toggle
+                55 THEN the tab reads "FPC: the body is shown"; WHEN Ctrl+I, the Player menu's Toggle
                 FPC settings or the Team menu's Set and Remove FPC invisibility run THEN they
                 write and clear 60 and 12 the same, and a player holding 55 and 11 keeps them
 SE-GUI-32  GIVEN the settings menu open on the Save editor's section and the save open
