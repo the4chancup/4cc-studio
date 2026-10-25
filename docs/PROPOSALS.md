@@ -176,3 +176,16 @@ manager reading what an upgrade left out: one collapsed row per folder with its 
 - THIS BEAVER IS CONTAMINATED: 18 files left out`), opened to its files, so the list reads as
 the 25 folders it is about rather than the 120 files. A folder holding one entry stays one row.
 **Costs**: a grouping by the path's folder, a collapsing header per group, one draft change.
+
+## P37. Live AATF on by default
+
+From the default-settings audit before 0.0.1 (worklog 0.0.1j): `plans/save_editor.md`
+"Editing UI" has the Live AATF toggle off by default, for a member who has built the team and
+is now making it legal. 0.0.1's window testers are DBC's managers, and making a team pass the
+AATF check is the main thing the preview is for (`plans/core/development_plan.md` "Divegrass
+Before Christmas"); with the toggle off, a manager who never notices it edits blind until the
+organizers' check refuses the team. **Adds**, for those managers: the docked panel open on
+first start, the toggle still there and remembered, so a member who wants the room turns it
+off once. **Costs**: a default flipped in `settings.rs` and its test; the panel takes the
+view's bottom rows from the start, and each edit runs one team's check (about 56 ms, off the
+frame).

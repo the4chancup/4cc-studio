@@ -258,7 +258,9 @@ managers keep, so from the cut on a changed logic is version 2, in the banner an
 file saved with the preview into a *modified* one at the next logic edit: the editor would no
 longer offer to update it, and would keep its old logic on every save. The hash is frozen only
 on the maintainer's final confirmation, given once the UI is polished, never earlier: until
-then a logic edit is still version 1.
+then a logic edit is still version 1. The rewrite of `read_player` that copies less (worklog
+step 8.9m) lands before the freeze: after it, the same speedup would
+be version 2, and the bundle would carry two logic copies that differ only in speed.
 
 ## Crate layout
 

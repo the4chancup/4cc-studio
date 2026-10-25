@@ -11165,3 +11165,41 @@ window opens at is 1037 × 648 or larger, which the plan already names as the si
 out for; wrapping each fixed-part row would rework four layouts for sizes no default reaches,
 while the minimum costs one builder call and still fits the smallest default with room.
 Plan: `plans/core/gui.md` "Shell layout", the paragraph "The window's size."; ST-WIN-01.
+
+## 2026-10-25 — aatf — `read_player`'s speed rewrite lands before logic version 1 freezes
+Decision: the rewrite of `logic.rhai`'s `read_player` that copies less (one card summary per
+choice, the specials' conditions read once per player) is done before the 0.0.1 cut freezes
+logic version 1's hash, not after it.
+Why: the maintainer's ruling, on the lead's recommendation. After the freeze the same
+speedup changes the hash, so it would be logic version 2, and the bundle would keep two logic
+copies that differ only in speed; before it, the change is still version 1 and costs only the
+fixtures' violations staying identical, which the rewrite must prove anyway.
+Plan: `plans/aatf_rules.md` "Loading and validation", its last paragraph.
+
+## 2026-10-25 — studio_core — The update check's settings rows wait for the updater
+Decision: the settings menu does not draw "Check for updates" and "Check interval (hours)"
+until the release whose updater reads them (Release 0.2.0, `core/distribution.md` step 1); the
+two keys stay in the settings file with their defaults.
+Why: found by the default-settings audit before 0.0.1 (worklog 0.0.1j): no code reads either
+key, and 0.0.1 and 0.1.0 ship no updater, so a member who switches the check off, or on,
+changes nothing while the row says it does. Dropping the keys instead would lose them from the
+file and re-add them at 0.2.0 for no gain.
+Plan: `plans/core/gui.md` "Settings menu", the Common settings bullet.
+
+## 2026-10-25 — save_editor, team_compiler — A save is written while its game runs once Edit mode is closed
+Decision: the Save editor's Save no longer refuses while the save's own PES runs: it asks the
+member to make sure the game's Edit mode is closed, then writes; Edit mode's Load reads the
+file in. The CLI's writing commands, which cannot ask, write only with `--edit-mode-closed`
+and otherwise refuse naming the flag; the Team compiler's savefile step takes the same flag and
+otherwise skips as before, its warning naming the flag.
+Why: the maintainer's ruling for the window: the refusal rested on the belief that the game
+writes its save back on exit, but PES writes it when the member leaves Edit mode, and Edit
+mode's Load reloads an edited save
+without a restart, so refusing made a member close the game for every edit. The CLI and the
+compiler follow the one rule (two tools guarding the same file keep one rule); a flag rather
+than a warning after the write, because a write made while Edit mode is open would be lost
+without a word. The flag is the lead's choice for the two commands, open to the maintainer's
+reversal.
+Plan: `plans/save_editor.md` "Writing a save while its game runs", SE-GUI-21, SE-CLI-03;
+`plans/team_compiler/pipeline.md` "6. Post-processing", the bullet "Savefile step while the
+game runs"; TC-SAV-17.

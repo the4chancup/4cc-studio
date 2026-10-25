@@ -290,12 +290,42 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   The table is computed when the prompt opens, not per frame; players through
   `pes_savefile`'s `compare_players`, teams through a team twin of it over the team, roster
   and tactics schemas.
-- Save is refused while the save's own PES runs, as the CLI's writing commands are (the game
-  writes its save back when it closes, over the one just written); another version's game does
-  not block it.
+- Save with the save's own PES running asks first ("Writing a save while its game runs",
+  below); another version's game asks nothing.
 
 Improvements policy: each of the above exists to remove a real friction point
 (finding players, reordering, fear of misclicks). No animations-for-the-sake-of-it.
+
+---
+
+## Writing a save while its game runs
+
+This changes what `spec/save_editor.md` "CLI" says under "Writing a save" (the refusal, and
+SE-CLI-02, which SE-CLI-03 replaces once built).
+
+A save can be written while its own version's PES runs, as long as the game's Edit mode is
+closed: PES writes the save it holds over the file when the member leaves Edit mode, so a
+write made while Edit mode is open is lost then, while a write made with it closed stands, and
+Edit mode's **Load** option reads it in without restarting the game.
+So the tool asks the member to make sure Edit mode is closed rather than refusing. We do not
+refuse, as the first rule did on the belief that the game writes its save back when it exits:
+that made a member close the whole game for every edit, which Load makes unnecessary. A PES of
+another version asks nothing, since a game only writes its own version's save.
+
+- **The window.** Save, Save as and the unsaved-changes prompt's Save, with the save's own PES
+  running, first show a dialog naming the game: it asks the member to make sure the game's
+  Edit mode is closed, closing it if it is open, and says that Edit mode's Load reads the saved
+  file in. Its buttons are Save, which writes, and Cancel, which writes nothing (and, under the
+  unsaved-changes prompt, keeps that prompt open).
+- **The command line**, which cannot ask: a writing command (`import-toml`, `apply-patch`,
+  `strip-and-seed`, `check-stripped --strip-again`) with the save's own PES running writes
+  only when given `--edit-mode-closed`, the member's answer to the window's question. Without
+  it, the command writes nothing and exits 2, its message naming the game and the flag. Not a
+  warning followed by the write: a write made while Edit mode is open is lost without a word,
+  and the warning would come after it.
+- The Team compiler's savefile step follows the same rule (`team_compiler/pipeline.md`
+  "Savefile step while the game runs").
+- Scenarios: SE-GUI-21 and SE-CLI-03 (the Acceptance section).
 
 ---
 
@@ -924,8 +954,8 @@ SE-GUI-10  GIVEN the save open on a team
 SE-GUI-11  GIVEN a player without FPC and the aesthetics editable (the setting off, or on
                 with "Edit aesthetics anyway" switched on)
            WHEN Ctrl+I, or Hide body, is used
-           THEN his record carries the hide preset's values and the tab reads "FPC: hidden
-                body"; Ctrl+I again, or Show body, gives him the show preset's; GIVEN a player
+           THEN his record carries the hide preset's values and the tab reads "FPC: the
+                body is hidden"; Ctrl+I again, or Show body, gives him the show preset's; GIVEN a player
                 whose boots ID is 627 THEN hiding keeps 627; Set FPC invisibility applies the
                 hide preset to every player of the team; a strip setting that breaks hiding is
                 listed on the Appearance tab as an interference finding
@@ -1014,8 +1044,16 @@ SE-GUI-20  GIVEN a Fox save where some players' appearance ids are set and the r
                 ids to -1 as one undoable edit
 SE-GUI-21  manual  GIVEN the save's game running
                    WHEN Save is clicked
-                   THEN it is refused naming the game, as the CLI's writing commands are
-                        (SE-CLI-02), and the file is unchanged
+                   THEN a dialog naming the game asks to make sure its Edit mode is closed;
+                        Cancel leaves the file unchanged; Save writes it, and Edit mode's Load
+                        then shows the edit in game without a restart
+SE-CLI-03  GIVEN a running PES of the save's version (the tests' running-PES probe)
+           WHEN import-toml, apply-patch, strip-and-seed or check-stripped --strip-again is
+                run on that save
+           THEN without --edit-mode-closed nothing is written, the exit code is 2 and the
+                message names the game and the flag; with it, --out is written as with no
+                game running; with only a PES of another version running, the command writes
+                without the flag
 SE-GUI-22  GIVEN the save open with "Aesthetics from exports" on and "Edit aesthetics
                 anyway" off (every start of the tool)
            WHEN the Appearance tab, the team operations menu, the Savefile menu and the

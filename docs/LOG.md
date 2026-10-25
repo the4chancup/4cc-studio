@@ -2505,3 +2505,7 @@ worklog passed 7,000 lines.
   look after the save's record was changed to another and stripped. Tests and gates run locally again; OBS is back.
 - **2026-10-25** — 0.0.1h closed: SE-GUI-33 and 34 moved beside SE-GUI-19 in the Save editor's plan, and the
   player-folders plan's `ingame_face.toml` section removed, its content built or held by the consumers' own plans.
+- **2026-10-25** — The Save editor's help chapters reread as whole sentences, and its draft brought to the window's
+  rewritten texts (93 lines). The default-settings audit hides the update check's rows until the updater exists.
+- **2026-10-25** — A save may now be written while its game runs once Edit mode is closed (Edit mode's Load reads it
+  in): the window will ask, the commands take `--edit-mode-closed`. `read_player`'s speed rewrite lands before the v1 freeze.

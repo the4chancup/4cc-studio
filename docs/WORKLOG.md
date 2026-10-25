@@ -21,8 +21,10 @@ coverage table and draft, the DBC7 ruleset).
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
 (8.9j1-j3), the comparator done (8.9j4), the save-writing transplant removed (8.9j5c; the
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
-the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a1 and a2,
-the window's strings and the catalog and CLI, done), `libs/aatf`'s hardening (the repetition rework done and
+the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
+window, catalog, CLI, help and draft) done; 8.9l, the open and save scenarios, briefed in
+slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
+rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h, done 2026-10-25: the compiler,
 the upgrader and the Save editor's generation on the new file, SE-GUI-34 checked in game), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
@@ -1694,13 +1696,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       `check-aatf` checks its teams in parallel (PES 2017 save, 220 teams: 13.2 s to 2.0 s,
       output identical; DECISIONS 2026-10-22). Files: `Cargo.toml`, `aatf/src/rules.rs`,
       `save_editor/{Cargo.toml,src/cli.rs}`, `spec/aatf_rules.md`, `plans/save_editor.md`
-    - [ ] the script's own work: `logic.rhai`'s `read_player` profiles every tier for each
+    - [ ] 8.9m the script's own work: `logic.rhai`'s `read_player` profiles every tier for each
       player, 2.2 ms a player, because rhai copies every map argument per call (measured
       without each part: choices' `option_used` 22 ms of the 56, the two walks over the
       specials 38 ms with the choices they feed). A rewrite that copies less (one card summary
       per choice rather than per option, the specials' conditions read once per player)
-      updates `LOGIC_VERSIONS`' hash and must leave every fixture's violations unchanged; not
-      before slice 4, since the check already runs off the frame
+      updates `LOGIC_VERSIONS`' hash and must leave every fixture's violations unchanged;
+      before logic version 1 is frozen at the 0.0.1 cut (the maintainer, 2026-10-25;
+      `plans/aatf_rules.md` "Loading and validation")
     - [ ] 8.9k slice 5, the interchange dialogs (`plans/save_editor.md` "Build order and
       verification" item 5): Team TOML export and import with its sections (SE-GUI-16), the
       import dialog for `.4ccs`, `.4cct` and Texport (SE-GUI-17, with SE-GUI-22's and 35's
@@ -1713,7 +1716,23 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       opening another save (SE-GUI-05; only the toolbar's marker exists, so closing loses
       edits silently), the Open menu's discovered saves (SE-GUI-26), the version-mismatch
       warning (SE-GUI-28; the draft has it), and SE-GUI-21's check in the built window with the
-      game running (its logic is tested); before the 0.0.1 cut
+      game running (its logic is tested); before the 0.0.1 cut. Slices:
+      - [ ] l1 the table's rows: `pes_savefile`'s `compare_teams` (the twin of
+        `compare_players`), `team_widgets`' `tactics_term` and `save_editor`'s
+        `team_row_terms`, a colour's three channels one row
+      - [ ] l2 the prompt (SE-GUI-05): `hold_close`, the toolbar's Open, Save / Discard /
+        Cancel as the Ruleset editor's prompt answers them
+      - [ ] l3 the Open menu with discovery and the session's recent files, Save as (SE-GUI-26),
+        the version warning (SE-GUI-28)
+      - [ ] l4 SE-GUI-21 in the built window with the game running (lead, manual), after l2.
+        The refusal it first checked (2026-10-25, `f3d1f135`, `.tmp/se21/`: refused naming
+        PES 2021, the file unchanged, the live save equal to its backup after) is replaced by
+        the Edit mode question ("Writing a save while its game runs", DECISIONS 2026-10-25):
+        the check is redone on l2's build, Edit mode's Load included
+      - [ ] l5 the same rule for the command line and the compiler: the Save editor's writing
+        commands take `--edit-mode-closed` (SE-CLI-03, replacing SE-CLI-02 in the spec once
+        built), the Team compiler's `compile` the same flag for its savefile step (TC-SAV-17,
+        replacing TC-SAV-10), `savefile_skipped_pes_running`'s text naming it
   - [ ] 8.10 after 0.0.1: the progress grid (with the log panel's cross-link: a warning or
     error line's click highlights its grid cell, `plans/core/gui.md` "Log panel", which 8.6d3 leaves for
     the grid), the run strip, the exports folder watcher and check cache, cancellation, the launcher (`quick_compile.bat` to its `--gui` form, `quick_upgrade.bat` dropped once the upgrader's view lands), the Team
@@ -2038,9 +2057,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         the developers' table, carrying each code's context fields, not text a member reads.
         `mutants-diff 484625bd`: 19 caught, 6 unviable, none missed.
         Files: `save_editor/src/{messages,cli}.rs`, `view/tests/comparator.rs`
-      - [ ] a3 the help chapters and the draft `docs/prototypes/tools/save_editor.js`, which
+      - [x] a3 the help chapters and the draft `docs/prototypes/tools/save_editor.js`, which
         takes a1's and a2's rewrites word for word (the version banner rewritten 2026-10-25 as
-        the rule's example)
+        the rule's example): 93 lines (43 in the eight chapters, 50 in the draft; the lead
+        retouched one), the draft's interference rows now the window's finding texts; the
+        draft's review-aid prose, `team_widgets`' own texts and the generated templates left
+        as they are. The help's running-game sentences follow 8.9l2 and l5. Table
+        `.tmp/8_29/a3_table.md`. Files: `save_editor/help/0{1..8}_*.md`,
+        `docs/prototypes/tools/save_editor.js`, `docs/plans/save_editor.md` (SE-GUI-11)
     - [ ] b the shell (`studio_core`: sidebar, status bar, settings menu, help window, the
       launch and title texts) and the drafts host `docs/prototypes/index.html`
     - [ ] c the Team compiler and the Export upgrader: their message catalogs, help chapters,
@@ -2400,7 +2424,23 @@ briefs, review loops, gates and mutation runs as for any step.
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
-  `aatf_rules` naming `rules/dbc7.rhai`), each finding fixed or recorded
+  `aatf_rules` naming `rules/dbc7.rhai`), each finding fixed or recorded. Read 2026-10-25
+  (lead), the common settings, the Save editor's and the Team compiler's; findings:
+  - [ ] j1 the settings menu draws "Check for updates" and its interval, which no code reads
+    before Release 0.2.0's updater: the two rows go until then (DECISIONS 2026-10-25,
+    `plans/core/gui.md` "Settings menu"); `shell/settings_menu.rs`, whose test
+    `the_interval_row_follows_check_for_updates` becomes one that the rows are absent. The
+    drafts host keeps the rows and its Updates help topic: it draws the design, the 0.2.0
+    rows included
+  - [ ] j2 `pes_version` defaults to PES 2019 (VGL's game); DBC's window testers are on
+    PES 2017, so their first open shows SE-GUI-28's version warning until they pick 2017 in
+    the sidebar. Not a bundle default, since VGL's organizer compiles from the same bundle on
+    PES 2019: the readme says to pick the version first (0.0.1f's readme)
+  - [x] j3 Live AATF off by default (the plan's choice): P37 proposes it on for DBC's managers
+  - the rest read right for a first start: the Team compiler's names and `multicpk_mode` off
+    (VGL's are the readme's, 0.0.1f), `savefile_path` auto, "Aesthetics from exports" off
+    (SE-GUI-35), the hide IDs 55/11, the theme dark, the exports and output folders beside the
+    exe
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.rhai`, assembled with the frozen logic version 1, and the bundled settings naming

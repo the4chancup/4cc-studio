@@ -71,6 +71,18 @@ runtime exists, the GUI disables the mode.
 
 What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
 
+- **Savefile step while the game runs.** This changes the spec's paragraph starting "**The
+  savefile is never written while the compile target's PES is running**". Its premise, that
+  the game writes its save back when it exits, is wrong: PES writes the save it holds when the
+  member leaves Edit mode, so with Edit mode closed a write stands and Edit mode's **Load** reads it
+  in without a restart (`save_editor.md` "Writing a save while its game runs", the same rule).
+  So the step writes the savefile while the target's PES runs when `compile` is given
+  `--edit-mode-closed`, the member's word that Edit mode is closed; without it, it still skips
+  with `savefile_skipped_pes_running`, whose text now names the game, asks the member to close
+  Edit mode and compile again with the flag, and says Edit mode's Load then reads the save in.
+  The view (Phase 8) asks the Save editor's question instead of taking the flag. A PES of
+  another version still does not count. TC-SAV-17.
+
 - **Degraded run: promotion to `output/`** — the GUI offers
   **Retry** (for the locked case — the user closes PES and retries the deployment alone, no
   recompile) and **Open output folder** (a status-bar notice action after the run, and a

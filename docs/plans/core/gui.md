@@ -192,7 +192,10 @@ The settings menu is assembled from injected sections:
 - **Common settings** (defined by `studio_core`): PES version, PES folder path, exports folder path,
   thread count, memory cap, theme, the update check and its interval, and the FPC hide boots and
   gloves IDs (`plans/save_editor.md` "Full Player Customization (FPC)": number rows bounded to
-  the stock band, boots 1 to 100 and gloves 11 to 100). The state the shell writes
+  the stock band, boots 1 to 100 and gloves 11 to 100). The update check's two rows are drawn
+  from the release whose updater reads them (`core/distribution.md`, step 1, Release 0.2.0),
+  not before: until then a row a member switches off changes nothing, and reads as a check
+  the build never runs. The two keys stay in the file meanwhile. The state the shell writes
   itself (`last_tool`, `last_update_check`, `skipped_version`) has no row. The PES version row
   is the sidebar selector's twin: the same blocker, and a pick spends the running-PES
   auto-switch as the selector's does.
