@@ -1626,6 +1626,16 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     panel and re-checks `TOP_ROW_ONE_LINE`, `TEAM_BAR_ONE_ROW` and the Tactics columns there
     → verify: ST-SIDE-02's test rewritten red-first (the view's x0 and width equal with the
     sidebar open and closed); the built window at 1280 x 800 by hand
+    - [x] the code half (2026-10-25, SWE-2 58 min and an 8-minute rework): the panel at
+      `RAIL_WIDTH` 56, the widgets drawn once a frame, in the rail or in a `Foreground`
+      `egui::Area` over the view, under one `scope_id` so a focus or the open version popup
+      survives the move; opens after 0.15 s of rest, held by the pointer, the version popup
+      (pinned above the overlay with `set_sublayer`), About or a keyboard focus (a click
+      focuses nothing in egui 0.37), as wide as the widest label measured each frame; rows
+      drawn alike in both places (icon cell, 24-point icons, the frame only when in use).
+      Rework: no clippy opt-out (`SidebarFrame`), one `drawn_planned`, no gray inactive rows.
+      Files: `studio_core/src/shell/{mod.rs,sidebar/{mod.rs,tests.rs},test_harness.rs}`,
+      `studio_core/src/tool.rs`. Open: the drafts' host (side-lead A), the built window
   - [ ] 8.22 after 0.0.1: the accepted usability items outside the grid (2026-10-25, P1, P2,
     P6, P10-P14; DECISIONS "Usability proposals P1-P14 accepted"), each its own commit:
     - [ ] 8.22a the finding line's disposition phrase (`plans/core/architecture.md` "Every

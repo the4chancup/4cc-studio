@@ -1,8 +1,11 @@
-//! The sidebar, top to bottom (core plan, "Sidebar"; draft `docs/prototypes/shell.html`):
-//! the logo doubling as the About click target, the PES version selector with its live exe
-//! check, its blocker and the once-per-life auto-switch to a running PES, the tool list
-//! with the planned tools grayed, the collapse button switching the sidebar between
-//! labels and an icon rail, and the help `?` with the settings gear pinned at the bottom.
+//! The sidebar, a 56-point rail that opens the full sidebar over the tool's left
+//! edge when the pointer rests on it (core plan, "Sidebar" item 4; draft
+//! `docs/prototypes/shell.html`): the logo doubling as the About click target, the
+//! PES version selector with its live exe check, its blocker and the once-per-life
+//! auto-switch to a running PES, the tool list with the planned tools grayed, and
+//! the help `?` with the settings gear pinned at the bottom. There is no collapse
+//! button and no expanded state to persist: the widgets are drawn once per frame,
+//! in the rail while the overlay is closed, in the overlay while it is open.
 
 use std::path::{Path, PathBuf};
 use std::time::Duration;
@@ -20,13 +23,41 @@ mod tests;
 
 use super::about;
 
-/// The sidebar's two widths (draft: 160 px expanded, 56 px as the icon rail).
-const EXPANDED_WIDTH: f32 = 160.0;
-const COLLAPSED_WIDTH: f32 = 56.0;
+/// The rail's width: the shell's `Panel::left` exact size (gui.md "Sidebar"
+/// item 4: "always an icon-only rail (~56 px)").
+pub(super) const RAIL_WIDTH: f32 = 56.0;
+/// The tool icons', the help's and the gear's point size (gui.md "Sidebar"
+/// item 3: about twice the body text, so the rail alone tells the tools apart).
+const ICON_SIZE: f32 = 24.0;
+/// One entry row: the 24-point icon and its padding; with the default 4-point
+/// item spacing, fourteen rows take 476 points, the plan's "about 470" (item 3).
+const ENTRY_HEIGHT: f32 = 30.0;
+/// Seconds the pointer rests on the rail before the overlay opens (gui.md
+/// "Sidebar" item 4: "a short delay, ~150 ms").
+const HOVER_DELAY: f64 = 0.15;
 /// The accent bar on the active entry's left edge (draft: 3 px).
 const ACTIVE_BAR_WIDTH: f32 = 3.0;
 /// Seconds between running-PES polls of the auto-switch (gui.md "Sidebar" item 2).
 const PES_POLL_SECONDS: f64 = 5.0;
+
+/// What one frame of the sidebar draws from: the registered tools in sidebar
+/// order, the active one's index, the planned entries, the CLI-only ids and the
+/// tools' context.
+struct SidebarFrame<'a> {
+    tools: &'a [Box<dyn StudioTool>],
+    active: usize,
+    planned: &'a [PlannedTool],
+    cli_only: &'a [&'static str],
+    ctx: &'a ToolContext,
+}
+
+/// The overlay's geometry for one frame: the outer rect the `Area` takes, the
+/// `egui::Frame` it draws with, and the content size inside it.
+struct OverlayGeom {
+    outer: egui::Rect,
+    frame: egui::Frame,
+    inner: egui::Vec2,
+}
 
 /// What a click in the sidebar asks the shell to do.
 pub(super) enum SidebarClick {
@@ -39,12 +70,26 @@ pub(super) enum SidebarClick {
     OpenHelp(HelpTarget),
 }
 
-/// The sidebar's state across frames: the collapse, the exe check's last verdict, the
-/// window's last focus (the check re-runs when focus returns), the logo's About popup and
-/// the once-per-life auto-switch to a running PES.
+/// The sidebar's state across frames: whether the overlay is open, when the
+/// pointer started resting on the rail, the sidebar widget last holding focus,
+/// the version combo's popup id, the exe check's last verdict, the window's
+/// last focus (the check re-runs when focus returns), the logo's About popup
+/// and the once-per-life auto-switch to a running PES.
 pub(super) struct Sidebar {
-    /// Collapsed: the rail shows icons only and carries the labels as tooltips.
-    pub(super) collapsed: bool,
+    /// The overlay is drawn while set.
+    open: bool,
+    /// egui time the pointer started resting on the rail's rect; `None` while it
+    /// is elsewhere (leaving restarts the wait).
+    hover_since: Option<f64>,
+    /// The label of the sidebar widget that held keyboard focus at the end of
+    /// the last drawn frame, `None` while none did: the keyboard rule keeps the
+    /// overlay open while one holds the focus a Tab gave it — a pointer click
+    /// gives a widget no focus, so a click never keeps it open.
+    focus_label: Option<&'static str>,
+    /// The version combo's popup id (the same in the rail and the overlay): its
+    /// open state holds the overlay open, and its layer is pinned above the
+    /// overlay's each frame.
+    combo_popup_id: Option<egui::Id>,
     /// What the last exe check ran against and found: the version, the resolved PES folder
     /// and the verdict. `None` until the first listing.
     pub(super) exe_check: Option<(PesVersion, PathBuf, ExeCheck)>,
@@ -68,7 +113,10 @@ pub(super) struct Sidebar {
 impl Default for Sidebar {
     fn default() -> Self {
         Sidebar {
-            collapsed: false,
+            open: false,
+            hover_since: None,
+            focus_label: None,
+            combo_popup_id: None,
             exe_check: None,
             exe_listings: 0,
             was_focused: false,
@@ -95,15 +143,6 @@ pub(super) enum ExeCheck {
 }
 
 impl Sidebar {
-    /// The panel width the current collapse asks for.
-    pub(super) fn width(&self) -> f32 {
-        if self.collapsed {
-            COLLAPSED_WIDTH
-        } else {
-            EXPANDED_WIDTH
-        }
-    }
-
     /// Draws the sidebar and returns the click's ask, if any. `tools` are in sidebar
     /// order, `active` the index of the one on screen, `cli_only` the registered tools'
     /// ids drawn as planned entries (gui.md "Sidebar" item 3).
@@ -116,13 +155,84 @@ impl Sidebar {
         cli_only: &[&'static str],
         ctx: &ToolContext,
     ) -> Option<SidebarClick> {
-        let clicked = if self.collapsed {
-            // The rail centers its icons (draft: `.sidebar.collapsed`).
-            ui.vertical_centered(|ui| self.contents(ui, tools, active, planned, cli_only, ctx))
-                .inner
-        } else {
-            self.contents(ui, tools, active, planned, cli_only, ctx)
+        let args = SidebarFrame {
+            tools,
+            active,
+            planned,
+            cli_only,
+            ctx,
         };
+        let egui_ctx = ui.ctx().clone();
+        // `max_rect` is the panel's content rect; the clip is the panel's visible
+        // outer rect, shrunk onto it by `egui::Panel`.
+        let rail_content = ui.max_rect();
+        let rail_outer = ui.clip_rect();
+        // The icon cell is as wide as the rail's inner width, in both places, so
+        // an icon sits at the same position in the rail and in the overlay.
+        let cell = rail_content.width();
+        let inner_width = cell + ui.spacing().item_spacing.x + widest_label(ui, &args);
+        // Framed like the panel, with a popup's shadow: the same inner margin puts
+        // the content at the same point, and the shadow marks it as the layer it is.
+        let frame = egui::Frame::side_top_panel(ui.style()).shadow(ui.visuals().popup_shadow);
+        let geom = OverlayGeom {
+            outer: egui::Rect::from_min_size(
+                rail_outer.min,
+                egui::vec2(
+                    inner_width + frame.total_margin().sum().x,
+                    rail_outer.height(),
+                ),
+            ),
+            frame,
+            inner: egui::vec2(inner_width, rail_content.height()),
+        };
+
+        // Open and close (gui.md "Sidebar" item 4): the pointer resting on the
+        // rail for HOVER_DELAY opens it (a pointer that leaves restarts the wait);
+        // it stays open while the pointer is inside the overlay's rect, while a
+        // popup it opened is open, or under the keyboard rule — and closes on the
+        // first frame none of those holds.
+        let now = egui_ctx.input(|input| input.time);
+        let pointer = egui_ctx.input(|input| input.pointer.latest_pos());
+        let on_rail = pointer.is_some_and(|pos| rail_outer.contains(pos));
+        let on_overlay = pointer.is_some_and(|pos| geom.outer.contains(pos));
+        let mut rested = false;
+        if on_rail {
+            let since = *self.hover_since.get_or_insert(now);
+            let left = HOVER_DELAY - (now - since);
+            if left <= 0.0 {
+                rested = true;
+            } else {
+                // Open without further input: repaint when the delay runs out.
+                egui_ctx.request_repaint_after(Duration::from_secs_f64(left));
+            }
+        } else {
+            self.hover_since = None;
+        }
+        // `focus_label` is refreshed during the draw: last frame's value decides here.
+        self.open = self.focus_label.is_some()
+            || self.about_open
+            || self
+                .combo_popup_id
+                .is_some_and(|id| egui::Popup::is_id_open(&egui_ctx, id))
+            || rested
+            || (self.open && on_overlay);
+
+        let clicked = if self.open {
+            // The rail panel draws only its own frame: the widgets move into the
+            // overlay, so the panel and the view keep their rects.
+            self.show_overlay(&egui_ctx, geom, cell, &args)
+        } else {
+            self.contents(ui, cell, true, &args)
+        };
+        if let Some(popup_id) = self.combo_popup_id {
+            // `move_to_top` sends the overlay to the front of the Foreground order
+            // on a re-open or a click on it, which would drop it over the combo's
+            // popup: `set_sublayer` splices the popup directly above it each frame.
+            egui_ctx.set_sublayer(
+                egui::LayerId::new(egui::Order::Foreground, overlay_id()),
+                egui::LayerId::new(egui::Order::Foreground, popup_id),
+            );
+        }
         if self.about_open {
             let help = about::show(
                 ui.ctx(),
@@ -141,124 +251,234 @@ impl Sidebar {
         clicked
     }
 
-    /// The items, top to bottom as the draft lays them out.
+    /// The overlay: the full sidebar as a floating layer over the view, at the
+    /// rail's top-left and as tall as it (gui.md "Sidebar" item 4). `Order::Foreground`
+    /// puts it above the `Middle` help and settings windows: the open sidebar is
+    /// where the pointer is.
+    fn show_overlay(
+        &mut self,
+        egui_ctx: &egui::Context,
+        geom: OverlayGeom,
+        cell: f32,
+        args: &SidebarFrame,
+    ) -> Option<SidebarClick> {
+        let OverlayGeom {
+            outer,
+            frame,
+            inner,
+        } = geom;
+        let layer = egui::LayerId::new(egui::Order::Foreground, overlay_id());
+        if egui_ctx.memory(|m| m.area_rect(overlay_id())).is_none() {
+            // An `egui::Area`'s first `show` is an invisible sizing pass; seeding
+            // its state draws the overlay already on the opening frame — the rail
+            // must never flash empty for one frame.
+            egui_ctx.memory_mut(|m| {
+                m.areas_mut().set_state(
+                    layer,
+                    egui::AreaState {
+                        pivot_pos: Some(outer.min),
+                        pivot: egui::Align2::LEFT_TOP,
+                        size: Some(outer.size()),
+                        interactable: true,
+                        last_became_visible_at: None,
+                    },
+                );
+            });
+        }
+        egui::Area::new(overlay_id())
+            .order(egui::Order::Foreground)
+            .fixed_pos(outer.min)
+            .show(egui_ctx, |ui| {
+                frame
+                    .show(ui, |ui| {
+                        ui.set_min_size(inner);
+                        self.contents(ui, cell, false, args)
+                    })
+                    .inner
+            })
+            .inner
+    }
+
+    /// The items, top to bottom as the draft lays them out, drawn once per frame:
+    /// in the rail's panel while the overlay is closed (`rail`: the icons alone,
+    /// no labels) or in the overlay while it is open (the labels join the icons).
+    /// The `scope_id` gives the contents one id root in both places
+    /// (`UiBuilder::scope_id` makes the scope's id independent of the parent's),
+    /// so a widget keeps its egui id across the move: a keyboard focus or an open
+    /// version popup survives the overlay opening and closing. `cell` is the icon
+    /// cell's width — the rail's inner width — in both places (item 3: "nothing
+    /// moves when it opens").
     fn contents(
         &mut self,
         ui: &mut egui::Ui,
-        tools: &[Box<dyn StudioTool>],
-        active: usize,
-        planned: &[PlannedTool],
-        cli_only: &[&'static str],
-        ctx: &ToolContext,
+        cell: f32,
+        rail: bool,
+        args: &SidebarFrame,
     ) -> Option<SidebarClick> {
-        if ui
-            .add(
-                egui::Button::new(
+        let SidebarFrame {
+            tools,
+            active,
+            cli_only,
+            ..
+        } = args;
+        self.focus_label = None;
+        ui.scope_builder(
+            egui::UiBuilder::new().scope_id(egui::Id::unique("sidebar-contents")),
+            |ui| {
+                // The row width is measured before any widget's min size can
+                // stretch the layout region (the combo's atom minimum is wider
+                // than the rail's content): every row takes the same width — the
+                // icon cell's in the rail, the overlay's inner width when open.
+                let row_width = ui.available_width();
+                // The logo doubles as the About click target, centered in the icon
+                // cell in both places: it gets no label, so the hover opens nothing
+                // that comes and goes (item 1).
+                let logo = entry_row(
+                    ui,
+                    row_width,
+                    cell,
                     egui::RichText::new("4cc")
                         .color(ui.visuals().selection.stroke.color)
                         .size(15.0),
-                )
-                .frame(false),
-            )
-            .on_hover_text(format!("About {}", crate::APP_NAME))
-            .clicked()
-        {
-            self.about_open = true;
-        }
-        self.version_selector(ui, tools, ctx);
-        ui.separator();
-
-        let mut clicked = None;
-        for (index, tool) in tools.iter().enumerate() {
-            // A registered tool marked CLI-only is no tool entry: it is drawn with
-            // the planned entries below (ST-SIDE-08).
-            if cli_only.contains(&tool.id()) {
-                continue;
-            }
-            if self
-                .tool_entry(ui, tool.icon(), tool.label(), index == active)
-                .clicked()
-            {
-                clicked = Some(SidebarClick::SwitchTool(index));
-            }
-        }
-        for entry in planned {
-            // In the registry's order: a window tool's own entry is drawn above; a
-            // CLI-only tool's is here, its tooltip saying it runs from the command
-            // line in this version (ST-SIDE-08).
-            if tools
-                .iter()
-                .any(|tool| tool.id() == entry.id && !cli_only.contains(&tool.id()))
-            {
-                continue;
-            }
-            let tooltip = if cli_only.contains(&entry.id) {
-                format!(
-                    "{} has no window in this version: it runs from the command line.",
-                    entry.label
-                )
-            } else {
-                format!("{} is not in this build", entry.label)
-            };
-            self.planned_entry(ui, entry, &tooltip);
-        }
-
-        let (glyph, tip) = if self.collapsed {
-            ("»", "Expand the sidebar")
-        } else {
-            ("«", "Collapse the sidebar")
-        };
-        if ui
-            .add(egui::Button::new(glyph).frame(false))
-            .on_hover_text(tip)
-            .clicked()
-        {
-            self.collapsed = !self.collapsed;
-        }
-
-        // The bottom row, pinned to the sidebar's foot (the draft centers the rail's
-        // tail): the help `?`, then the settings gear.
-        let align = if self.collapsed {
-            egui::Align::Center
-        } else {
-            egui::Align::Min
-        };
-        ui.with_layout(egui::Layout::bottom_up(align), |ui| {
-            ui.horizontal(|ui| {
-                let help = ui.add(egui::Button::new(crate::icons::QUESTION).frame(false));
-                help.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "Help"));
-                if help.on_hover_text("Help").clicked()
-                    && let Some(tool) = tools.get(active)
+                    None,
+                    false,
+                    true,
+                );
+                logo.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Button, true, "4cc"));
+                if logo.has_focus() {
+                    self.focus_label = Some("4cc");
+                }
+                if logo
+                    .on_hover_text(format!("About {}", crate::APP_NAME))
+                    .clicked()
                 {
-                    clicked = Some(SidebarClick::OpenHelp(HelpTarget {
-                        tool: tool.id().to_owned(),
-                        topic: None,
-                        anchor: None,
-                    }));
+                    self.about_open = true;
                 }
-                let gear = ui.add(egui::Button::new(crate::icons::GEAR).frame(false));
-                gear.widget_info(|| {
-                    egui::WidgetInfo::labeled(egui::Role::Button, true, "Settings")
+                self.version_selector(ui, args, rail);
+                ui.separator();
+
+                let mut clicked = None;
+                for (index, tool) in tools.iter().enumerate() {
+                    // A registered tool marked CLI-only is no tool entry: it is drawn
+                    // with the planned entries below (ST-SIDE-08).
+                    if cli_only.contains(&tool.id()) {
+                        continue;
+                    }
+                    let active_tool = index == *active;
+                    let response = entry_row(
+                        ui,
+                        row_width,
+                        cell,
+                        egui::RichText::new(tool.icon()).size(ICON_SIZE),
+                        (!rail).then_some(tool.label()),
+                        active_tool,
+                        true,
+                    );
+                    if response.has_focus() {
+                        self.focus_label = Some(tool.label());
+                    }
+                    response.widget_info(|| {
+                        egui::WidgetInfo::selected(
+                            egui::Role::Button,
+                            ui.is_enabled(),
+                            active_tool,
+                            tool.label(),
+                        )
+                    });
+                    if response.clicked() {
+                        clicked = Some(SidebarClick::SwitchTool(index));
+                    }
+                }
+                for entry in drawn_planned(args) {
+                    // In the registry's order: a CLI-only tool's entry is here,
+                    // its tooltip saying it runs from the command line in this
+                    // version (ST-SIDE-08).
+                    let tooltip = if cli_only.contains(&entry.id) {
+                        format!(
+                            "{} has no window in this version: it runs from the command line.",
+                            entry.label
+                        )
+                    } else {
+                        format!("{} is not in this build", entry.label)
+                    };
+                    let response = ui
+                        .add_enabled_ui(false, |ui| {
+                            entry_row(
+                                ui,
+                                row_width,
+                                cell,
+                                egui::RichText::new(entry.icon).size(ICON_SIZE),
+                                (!rail).then_some(entry.label),
+                                false,
+                                false,
+                            )
+                        })
+                        .inner;
+                    response.widget_info(|| {
+                        egui::WidgetInfo::labeled(egui::Role::Label, false, entry.label)
+                    });
+                    response.on_disabled_hover_text(tooltip);
+                }
+
+                // The bottom rows, pinned to the sidebar's foot: the help `?` above
+                // the settings gear (the first bottom-up child is the lowest).
+                ui.with_layout(egui::Layout::bottom_up(egui::Align::Min), |ui| {
+                    let gear = entry_row(
+                        ui,
+                        row_width,
+                        cell,
+                        egui::RichText::new(crate::icons::GEAR).size(ICON_SIZE),
+                        (!rail).then_some("Settings"),
+                        false,
+                        true,
+                    );
+                    gear.widget_info(|| {
+                        egui::WidgetInfo::labeled(egui::Role::Button, true, "Settings")
+                    });
+                    if gear.has_focus() {
+                        self.focus_label = Some("Settings");
+                    }
+                    if gear.clicked() {
+                        clicked = Some(SidebarClick::OpenSettings);
+                    }
+                    let help = entry_row(
+                        ui,
+                        row_width,
+                        cell,
+                        egui::RichText::new(crate::icons::QUESTION).size(ICON_SIZE),
+                        (!rail).then_some("Help"),
+                        false,
+                        true,
+                    );
+                    help.widget_info(|| {
+                        egui::WidgetInfo::labeled(egui::Role::Button, true, "Help")
+                    });
+                    if help.has_focus() {
+                        self.focus_label = Some("Help");
+                    }
+                    if help.clicked()
+                        && let Some(tool) = tools.get(*active)
+                    {
+                        clicked = Some(SidebarClick::OpenHelp(HelpTarget {
+                            tool: tool.id().to_owned(),
+                            topic: None,
+                            anchor: None,
+                        }));
+                    }
                 });
-                if gear.on_hover_text("Settings").clicked() {
-                    clicked = Some(SidebarClick::OpenSettings);
-                }
-            });
-        });
-        clicked
+                clicked
+            },
+        )
+        .inner
     }
 
     /// The PES version selector: a compact combo bound to the common `pes_version`, disabled
     /// with the blocking tool's reason while a `version_change_blocker` reports one, colored
     /// by the live exe check. A change writes the common setting and asks the shell to save.
-    fn version_selector(
-        &mut self,
-        ui: &mut egui::Ui,
-        tools: &[Box<dyn StudioTool>],
-        ctx: &ToolContext,
-    ) {
-        let common = ctx.common();
-        let blocker = version_blocker(tools);
+    /// `rail` picks the short labels (item 4: `21` in the rail, `PES 2021` in the overlay).
+    fn version_selector(&mut self, ui: &mut egui::Ui, args: &SidebarFrame, rail: bool) {
+        let common = args.ctx.common();
+        let blocker = version_blocker(args.tools);
         let folder = common.pes_folder();
         let check = self.exe_check(&common, ui.input(|input| input.focused));
         let tooltip = exe_tooltip(check, &folder);
@@ -270,23 +490,32 @@ impl Sidebar {
                     ui.visuals_mut().override_text_color = selector_color(check, ui.visuals());
                     // The combo spans the sidebar's width: the default `combo_width` (~100)
                     // overflows the rail and widens the layout region past its edge.
-                    egui::ComboBox::from_id_salt("pes-version")
+                    let response = egui::ComboBox::from_id_salt("pes-version")
                         .width(ui.available_width())
-                        .selected_text(version_label(picked, self.collapsed))
+                        // Extend, not wrap: the rail's narrow button would lay the
+                        // dropdown arrow on a second row, and the selector row's
+                        // height must be the same open and closed (item 3).
+                        .wrap_mode(egui::TextWrapMode::Extend)
+                        .selected_text(version_label(picked, rail))
                         .show_ui(ui, |ui| {
                             for version in PesVersion::ALL {
                                 ui.selectable_value(
                                     &mut picked,
                                     version,
-                                    version_label(version, self.collapsed),
+                                    version_label(version, rail),
                                 );
                             }
                         })
-                        .response
+                        .response;
+                    if response.has_focus() {
+                        self.focus_label = Some("pes-version");
+                    }
+                    response
                 })
                 .inner
             })
             .inner;
+        self.combo_popup_id = Some(combo_response.id.with("popup"));
         // A disabled widget keeps no hover response of its own: the reason goes on the
         // selector's own response, which still reports the pointer over its rect (ST-SIDE-04).
         match blocker {
@@ -298,7 +527,7 @@ impl Sidebar {
             }
         }
 
-        self.pick_version(picked, ctx);
+        self.pick_version(picked, args.ctx);
     }
 
     /// A manual pick of the PES version, shared by the sidebar's selector and the settings
@@ -377,60 +606,6 @@ impl Sidebar {
         });
     }
 
-    /// One registered tool's entry: icon and label, the active one with the accent left bar
-    /// and the filled background; collapsed, the icon alone with the label as the tooltip.
-    fn tool_entry(
-        &self,
-        ui: &mut egui::Ui,
-        icon: &str,
-        label: &str,
-        active: bool,
-    ) -> egui::Response {
-        let response = if self.collapsed {
-            ui.add(egui::Button::selectable(active, icon))
-        } else {
-            let width = ui.available_width();
-            ui.add_sized(
-                [width, ui.spacing().interact_size.y],
-                egui::Button::selectable(active, format!("{icon}  {label}")),
-            )
-        };
-        // The rail draws the glyph alone; the entry's name stays the full label so tests and
-        // screen readers find it unchanged in both modes.
-        response.widget_info(|| {
-            egui::WidgetInfo::selected(egui::Role::Button, ui.is_enabled(), active, label)
-        });
-        if active {
-            ui.painter().rect_filled(
-                egui::Rect::from_min_size(
-                    response.rect.min,
-                    egui::vec2(ACTIVE_BAR_WIDTH, response.rect.height()),
-                ),
-                0.0,
-                ui.visuals().selection.stroke.color,
-            );
-        }
-        if self.collapsed {
-            response.on_hover_text(label)
-        } else {
-            response
-        }
-    }
-
-    /// A tool the sidebar lists grayed and never clickable: one the build does not
-    /// register (ST-SIDE-07) or a registered one marked CLI-only (ST-SIDE-08);
-    /// `tooltip` says which.
-    fn planned_entry(&self, ui: &mut egui::Ui, entry: &PlannedTool, tooltip: &str) {
-        let text = if self.collapsed {
-            entry.icon.to_owned()
-        } else {
-            format!("{}  {}", entry.icon, entry.label)
-        };
-        let response = ui.add_enabled(false, egui::Label::new(text).sense(egui::Sense::hover()));
-        response.widget_info(|| egui::WidgetInfo::labeled(egui::Role::Label, false, entry.label));
-        response.on_disabled_hover_text(tooltip);
-    }
-
     /// The exe check's verdict, listing the resolved PES folder once per change of the
     /// version or the path and once per return of the window's focus, never per frame
     /// (ST-SIDE-03: "a cheap single directory listing"). The settings menu's version row
@@ -452,6 +627,130 @@ impl Sidebar {
         }
         self.exe_check.as_ref().expect("a check ran above").2
     }
+}
+
+/// The overlay `egui::Area`'s id (gui.md "Sidebar" item 4).
+fn overlay_id() -> egui::Id {
+    egui::Id::unique("sidebar-overlay")
+}
+
+/// The planned entries the sidebar draws, in registry order: every entry whose
+/// id no registered window tool has (a window tool's own entry is drawn above;
+/// a CLI-only tool's is a planned entry, ST-SIDE-08).
+fn drawn_planned<'a>(args: &'a SidebarFrame<'a>) -> impl Iterator<Item = &'a PlannedTool> {
+    args.planned.iter().filter(|entry| {
+        !args
+            .tools
+            .iter()
+            .any(|tool| tool.id() == entry.id && !args.cli_only.contains(&tool.id()))
+    })
+}
+
+/// The widest body-text galley among the labels the open sidebar shows (gui.md
+/// "Sidebar" item 4: the overlay is "as wide as the longest label needs on one
+/// line"): the registered tools', the planned entries' as `contents` draws them,
+/// `Help` and `Settings` — measured each frame with the fonts; no constant.
+fn widest_label(ui: &egui::Ui, args: &SidebarFrame) -> f32 {
+    let font = egui::TextStyle::Body.resolve(ui.style());
+    let mut widest: f32 = 0.0;
+    let mut measure = |label: &str| {
+        widest = widest.max(
+            ui.painter()
+                .layout_no_wrap(label.to_owned(), font.clone(), egui::Color32::WHITE)
+                .size()
+                .x,
+        );
+    };
+    for tool in args.tools {
+        if !args.cli_only.contains(&tool.id()) {
+            measure(tool.label());
+        }
+    }
+    for entry in drawn_planned(args) {
+        measure(entry.label);
+    }
+    measure("Help");
+    measure("Settings");
+    widest
+}
+
+/// One sidebar row `width` wide, the same in the rail and in the overlay (item 3:
+/// "nothing moves when it opens"): `icon` centered in an icon cell `cell` wide at
+/// the row's left, then `label` in body text after the cell and one
+/// `item_spacing.x` gap, vertically centered and never wrapped (`None` in the
+/// rail, which shows the icons alone and needs no tooltip: the overlay shows the
+/// label). `active` gets the filled selection background plus the accent left
+/// bar; `clickable` selects `Sense::click` over `Sense::hover`.
+fn entry_row(
+    ui: &mut egui::Ui,
+    width: f32,
+    cell: f32,
+    icon: impl Into<egui::WidgetText>,
+    label: Option<&str>,
+    active: bool,
+    clickable: bool,
+) -> egui::Response {
+    let sense = if clickable {
+        egui::Sense::click()
+    } else {
+        egui::Sense::hover()
+    };
+    let (rect, response) = ui.allocate_exact_size(egui::vec2(width, ENTRY_HEIGHT), sense);
+    let enabled = ui.is_enabled();
+    let visuals = ui.style().interact_selectable(&response, active);
+    let text_color = if enabled {
+        visuals.fg_stroke.color
+    } else {
+        ui.visuals().weak_text_color()
+    };
+    // A row paints its button frame only when it is in use — active, hovered,
+    // pressed or focused — as the `Button::selectable` it replaced did
+    // (`frame_when_inactive`): an inactive, unhovered row is a plain row.
+    let in_use = active
+        || response.hovered()
+        || response.is_pointer_button_down_on()
+        || response.has_focus();
+    if enabled && in_use {
+        ui.painter().rect(
+            rect.expand(visuals.expansion),
+            visuals.corner_radius,
+            visuals.weak_bg_fill,
+            visuals.bg_stroke,
+            egui::StrokeKind::Inside,
+        );
+    }
+    if active && enabled {
+        ui.painter().rect_filled(
+            egui::Rect::from_min_size(rect.min, egui::vec2(ACTIVE_BAR_WIDTH, rect.height())),
+            0.0,
+            ui.visuals().selection.stroke.color,
+        );
+    }
+    let galley = icon.into().into_galley(
+        ui,
+        Some(egui::TextWrapMode::Extend),
+        f32::INFINITY,
+        egui::TextStyle::Body,
+    );
+    let cell_rect = egui::Rect::from_min_size(rect.min, egui::vec2(cell, rect.height()));
+    ui.painter()
+        .galley(cell_rect.center() - galley.size() / 2.0, galley, text_color);
+    if let Some(label) = label {
+        let galley = ui.painter().layout_no_wrap(
+            label.to_owned(),
+            egui::TextStyle::Body.resolve(ui.style()),
+            text_color,
+        );
+        ui.painter().galley(
+            egui::pos2(
+                cell_rect.max.x + ui.spacing().item_spacing.x,
+                rect.center().y - galley.size().y / 2.0,
+            ),
+            galley,
+            text_color,
+        );
+    }
+    response
 }
 
 /// The first `version_change_blocker` any registered tool reports, as the blocking tool's
@@ -480,9 +779,10 @@ pub(super) fn exe_tooltip(check: ExeCheck, folder: &Path) -> String {
     }
 }
 
-/// The combo's item label: `PES 2021` expanded, `21` on the rail (draft).
-pub(super) fn version_label(version: PesVersion, collapsed: bool) -> String {
-    if collapsed {
+/// The combo's item label: `PES 2021` in the open sidebar and the settings menu,
+/// `21` on the rail (draft, gui.md "Sidebar" item 4).
+pub(super) fn version_label(version: PesVersion, rail: bool) -> String {
+    if rail {
         version.number().to_string()
     } else {
         version.to_string()

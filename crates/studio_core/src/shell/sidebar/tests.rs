@@ -5,13 +5,43 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use egui::accesskit::{self, Role, Toggled};
 use pes_version::PesVersion;
 
-use super::{ExeCheck, selector_color};
+use super::{ExeCheck, RAIL_WIDTH, selector_color};
 use crate::help::{HelpSection, HelpTarget, HelpTopic};
 use crate::pes_process::RunningPes;
 use crate::settings::Settings;
 use crate::shell::test_harness::*;
 use crate::shell::{StudioApp, about, run_cli};
 use crate::tool::{AppPaths, PlannedTool};
+
+/// The overlay's inner width from the same formula the sidebar uses (gui.md
+/// "Sidebar" item 4): the icon cell, one `item_spacing.x` and the widest
+/// body-text galley over `labels`, measured with the context's fonts.
+fn overlay_inner_width(egui_ctx: &egui::Context, cell: f64, labels: &[&str]) -> f64 {
+    let font = egui::TextStyle::Body.resolve(&egui_ctx.global_style());
+    let widest = labels
+        .iter()
+        .map(|label| {
+            egui_ctx
+                .fonts_mut(|fonts| {
+                    fonts.layout_no_wrap(label.to_string(), font.clone(), egui::Color32::WHITE)
+                })
+                .size()
+                .x
+        })
+        .fold(0.0, f32::max);
+    cell + f64::from(egui_ctx.global_style().spacing.item_spacing.x) + f64::from(widest)
+}
+
+/// A key pressed event, as `hover`/`pointer` build pointer events.
+fn key(key: egui::Key) -> Vec<egui::Event> {
+    vec![egui::Event::Key {
+        key,
+        physical_key: None,
+        pressed: true,
+        repeat: false,
+        modifiers: egui::Modifiers::NONE,
+    }]
+}
 
 // TC-GUI-03
 #[test]
@@ -85,11 +115,25 @@ fn the_gui_opens_on_the_tool_last_tool_names_and_lists_all_tools() {
     let top = |label: &str| entry(&nodes, label).bounds().unwrap().y0;
     assert!(top("A") < top("B") && top("B") < top("C"), "registry order");
     assert_eq!(entry(&nodes, "B").toggled(), Some(Toggled::True));
+
+    // The opened sidebar shows their full labels: the rail's entries are the
+    // icon cell wide; resting the pointer on it opens the overlay, whose entries
+    // span its inner width.
+    let cell = entry(&nodes, "A").bounds().unwrap().width();
+    let nodes = open_sidebar(&egui_ctx, &mut app, entry(&nodes, "A"), 1.0).nodes;
+    let inner = overlay_inner_width(&egui_ctx, cell, &["A", "B", "C", "Help", "Settings"]);
+    for label in ["A", "B", "C"] {
+        let width = entry(&nodes, label).bounds().unwrap().width();
+        assert!(
+            (width - inner).abs() < 0.5,
+            "the opened sidebar's {label} spans its inner width ({width} vs {inner}, cell {cell})"
+        );
+    }
 }
 
 // ST-SIDE-02
 #[test]
-fn the_collapse_button_turns_the_sidebar_into_a_working_icon_rail() {
+fn the_rail_opens_the_sidebar_over_the_view_on_hover_and_closes_on_leave() {
     let Shell {
         mut app,
         calls,
@@ -98,45 +142,387 @@ fn the_collapse_button_turns_the_sidebar_into_a_working_icon_rail() {
     } = shell();
     let egui_ctx = egui::Context::default();
     egui_ctx.enable_accesskit();
-    egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
 
-    // Expanded: the entries are full-width rows.
-    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
-    let expanded_width = entry(&nodes, "A").bounds().unwrap().width();
-    assert!(expanded_width > 60.0, "expanded entries span the sidebar");
-
-    click(&egui_ctx, &mut app, entry(&nodes, "«"));
-    idle(&egui_ctx, &mut app, 10);
-    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
-    let rail_width = entry(&nodes, "A").bounds().unwrap().width();
+    // Closed: each entry is the icon cell wide — the rail shows the icons alone.
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9)).nodes;
+    let cell = entry(&nodes, "A").bounds().unwrap().width();
     assert!(
-        rail_width < expanded_width / 2.0,
-        "collapsed entries shrink to the icon ({rail_width} < {})",
-        expanded_width / 2.0
+        cell < f64::from(RAIL_WIDTH),
+        "the rail's entries are icon cells"
     );
 
-    // The rail entry's tooltip is its label.
-    frame(&egui_ctx, &mut app, hover(entry(&nodes, "B")), true);
-    // `is_still` takes about 0.1 s of frames with no pointer movement.
-    let nodes = idle(&egui_ctx, &mut app, 8).nodes;
-    assert!(
-        has_text(&nodes, "B"),
-        "the rail entry's tooltip carries the label"
+    // The pointer at a rail entry at t = 1.00 and still there at 1.10: closed.
+    let rail_pos = centre(entry(&nodes, "A"));
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        vec![egui::Event::PointerMoved(rail_pos)],
+        true,
+        Some(1.00),
+    );
+    let closed = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(1.10)).nodes;
+    let view_closed = calls[0].view_rect().unwrap();
+    assert_eq!(
+        entry(&closed, "A").bounds().unwrap().width(),
+        cell,
+        "a rest shorter than the delay keeps the rail"
     );
 
-    // A click on a rail entry still switches the tool.
-    click(&egui_ctx, &mut app, entry(&nodes, "B"));
-    assert_eq!(app.active, 1);
-    assert!(calls[1].views() >= 1, "B's view runs");
+    // At 1.16, past the delay: open, every entry the overlay's inner width.
+    let opened = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(1.16)).nodes;
+    let inner = overlay_inner_width(&egui_ctx, cell, &["A", "B", "Help", "Settings"]);
+    for label in ["A", "B", "Help", "Settings"] {
+        let width = entry(&opened, label).bounds().unwrap().width();
+        assert!(
+            (width - inner).abs() < 0.5,
+            "the open {label} spans the overlay's inner width ({width} vs {inner})"
+        );
+    }
 
-    // A second click on the collapse button restores the labels.
-    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
-    click(&egui_ctx, &mut app, entry(&nodes, "»"));
-    let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+    // The tool's view never moved: the same rect open and closed, its left edge
+    // within the rail's width plus the central panel's margin.
+    let view_open = calls[0].view_rect().unwrap();
+    assert_eq!(view_closed, view_open, "the view kept its rect");
+    assert!(
+        view_open.min.x >= RAIL_WIDTH && view_open.min.x <= RAIL_WIDTH + 9.0,
+        "the view starts at the rail's edge: {view_open:?}"
+    );
+
+    // Nothing moved when it opened: the logo's, each entry's, the help's and the
+    // gear's top-left is the same open and closed (the widths differ).
+    for label in ["4cc", "A", "B", "Help", "Settings"] {
+        let before = entry(&closed, label).bounds().unwrap();
+        let after = entry(&opened, label).bounds().unwrap();
+        assert!(
+            (before.x0 - after.x0).abs() < 0.5 && (before.y0 - after.y0).abs() < 0.5,
+            "{label} moved on open: {before:?} -> {after:?}"
+        );
+    }
+
+    // The pointer moved to the view's middle: closed on the next frame.
+    let middle = view_open.center();
+    let nodes = frame_at(
+        &egui_ctx,
+        &mut app,
+        vec![egui::Event::PointerMoved(middle)],
+        true,
+        Some(1.20),
+    )
+    .nodes;
     assert_eq!(
         entry(&nodes, "A").bounds().unwrap().width(),
-        expanded_width,
-        "the labels are back"
+        cell,
+        "closed once the pointer left"
+    );
+
+    // A pointer that crosses the rail restarts the wait: on at 2.00, off at
+    // 2.05, on again at 2.12 — still closed at 2.20, open at 2.28.
+    for (pos, t) in [(rail_pos, 2.00), (middle, 2.05), (rail_pos, 2.12)] {
+        frame_at(
+            &egui_ctx,
+            &mut app,
+            vec![egui::Event::PointerMoved(pos)],
+            true,
+            Some(t),
+        );
+    }
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(2.20)).nodes;
+    assert_eq!(
+        entry(&nodes, "A").bounds().unwrap().width(),
+        cell,
+        "still closed at 0.08 s of rest"
+    );
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(2.28)).nodes;
+    assert!(
+        entry(&nodes, "A").bounds().unwrap().width() > cell,
+        "open at 0.16 s of rest"
+    );
+
+    // A press and release on rail entry B within 0.05 s switches at once, and
+    // the overlay stays closed.
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        vec![egui::Event::PointerMoved(middle)],
+        true,
+        Some(2.35),
+    );
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(2.40)).nodes;
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        pointer(entry(&nodes, "B"), true),
+        true,
+        Some(2.45),
+    );
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        pointer(entry(&nodes, "B"), false),
+        true,
+        Some(2.50),
+    );
+    assert_eq!(app.active, 1, "the click switched without the hover");
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(2.55)).nodes;
+    assert_eq!(
+        entry(&nodes, "A").bounds().unwrap().width(),
+        cell,
+        "the quick click did not open the overlay"
+    );
+}
+
+// ST-SIDE-02's popup rule (gui.md "Sidebar" item 4): the overlay stays open
+// while a popup it opened is open, and the popup survives the move.
+#[test]
+fn the_version_popup_survives_the_overlay_opening_and_holds_it_open() {
+    let Shell {
+        mut app,
+        calls,
+        _dir,
+        ..
+    } = shell();
+    let egui_ctx = egui::Context::default();
+    egui_ctx.enable_accesskit();
+
+    // The version combo clicked on the rail: the popup opens with the rail's
+    // short labels.
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9)).nodes;
+    let cell = entry(&nodes, "A").bounds().unwrap().width();
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        pointer(combo(&nodes), true),
+        true,
+        Some(1.00),
+    );
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        pointer(combo(&nodes), false),
+        true,
+        Some(1.05),
+    );
+
+    // The pointer resting at the selector, past the delay: the overlay is open
+    // and the popup is still open — now with the full labels.
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(1.20)).nodes;
+    entry(&nodes, "PES 2021");
+    assert!(
+        entry(&nodes, "A").bounds().unwrap().width() > f64::from(RAIL_WIDTH),
+        "the overlay is open"
+    );
+
+    // With the popup open and the pointer moved to the view's middle, the
+    // overlay stays open.
+    let middle = calls[0].view_rect().unwrap().center();
+    let nodes = frame_at(
+        &egui_ctx,
+        &mut app,
+        vec![egui::Event::PointerMoved(middle)],
+        true,
+        Some(1.25),
+    )
+    .nodes;
+    entry(&nodes, "PES 2021");
+    assert!(
+        entry(&nodes, "A").bounds().unwrap().width() > cell,
+        "the open popup holds the overlay open"
+    );
+
+    // The popup closed (Escape): the overlay closes on the next frame.
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        key(egui::Key::Escape),
+        true,
+        Some(1.30),
+    );
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(1.35)).nodes;
+    assert_eq!(
+        entry(&nodes, "A").bounds().unwrap().width(),
+        cell,
+        "the overlay closed with the popup"
+    );
+    assert!(!has_label(&nodes, "PES 2021"), "the popup is closed");
+}
+
+// ST-SIDE-02's keyboard rule (gui.md "Sidebar" item 4): while a sidebar widget
+// holds a focus the keyboard gave it, the overlay is open; a pointer click on
+// an entry gives no focus and keeps nothing open.
+#[test]
+fn the_overlay_opens_on_keyboard_focus_and_a_click_gives_none() {
+    let Shell {
+        mut app,
+        calls,
+        _dir,
+        ..
+    } = shell();
+    let egui_ctx = egui::Context::default();
+    egui_ctx.enable_accesskit();
+
+    // Closed, so the icon cell is measured.
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9)).nodes;
+    let cell = entry(&nodes, "A").bounds().unwrap().width();
+
+    // Tab until a rail entry has focus.
+    let mut t = 1.0;
+    let mut tabbed = None;
+    for _ in 0..20 {
+        frame_at(&egui_ctx, &mut app, key(egui::Key::Tab), true, Some(t));
+        if matches!(app.sidebar.focus_label, Some("A" | "B")) {
+            tabbed = Some(egui_ctx.memory(|m| m.focused()));
+            break;
+        }
+        t += 0.05;
+    }
+    let focused = tabbed
+        .expect("a rail entry received focus within 20 tabs")
+        .expect("the entry's widget is the focused one");
+
+    // The next frame opens the overlay and the same entry still has the focus.
+    t += 0.05;
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(t)).nodes;
+    assert_eq!(
+        egui_ctx.memory(|m| m.focused()),
+        Some(focused),
+        "the focus survived the move to the overlay"
+    );
+    assert!(
+        entry(&nodes, "A").bounds().unwrap().width() > cell,
+        "the overlay opened"
+    );
+
+    // Escape clears the keyboard focus: the overlay closes.
+    t += 0.05;
+    frame_at(&egui_ctx, &mut app, key(egui::Key::Escape), true, Some(t));
+    t += 0.05;
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(t)).nodes;
+    assert_eq!(
+        entry(&nodes, "A").bounds().unwrap().width(),
+        cell,
+        "the overlay closed with the focus"
+    );
+
+    // A pointer click on an entry followed by the pointer leaving: the click
+    // gives the entry no focus, so nothing keeps the overlay open.
+    let middle = calls[0].view_rect().unwrap().center();
+    t += 0.05;
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        pointer(entry(&nodes, "B"), true),
+        true,
+        Some(t),
+    );
+    t += 0.05;
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        pointer(entry(&nodes, "B"), false),
+        true,
+        Some(t),
+    );
+    assert_eq!(app.active, 1, "the click switched the tool");
+    assert_eq!(
+        egui_ctx.memory(|m| m.focused()),
+        None,
+        "a pointer click gives a widget no focus (egui focuses buttons on Tab only)"
+    );
+    t += 0.05;
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        vec![egui::Event::PointerMoved(middle)],
+        true,
+        Some(t),
+    );
+    t += 0.05;
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(t)).nodes;
+    assert_eq!(
+        entry(&nodes, "A").bounds().unwrap().width(),
+        cell,
+        "closed within two frames of the pointer leaving"
+    );
+}
+
+// gui.md "Sidebar" item 4: the overlay is "as wide as the longest label needs
+// on one line".
+#[test]
+fn the_overlay_is_as_wide_as_the_longest_label_on_one_line() {
+    let (a, calls_a) = stub("a", "A", None);
+    let (b, calls_b) = stub("b", "Player aesthetics editor", None);
+    let dir = TestDir::new("studio_core_sidebar_width");
+    let Shell { mut app, .. } = shell_with(
+        test_settings(dir.path()),
+        vec![a, b],
+        &[],
+        Some(dir.path().to_path_buf()),
+        vec![calls_a, calls_b],
+    );
+    let egui_ctx = egui::Context::default();
+    egui_ctx.enable_accesskit();
+
+    let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9)).nodes;
+    let cell = entry(&nodes, "A").bounds().unwrap().width();
+    let nodes = open_sidebar(&egui_ctx, &mut app, entry(&nodes, "A"), 1.0).nodes;
+    let width = entry(&nodes, "Player aesthetics editor")
+        .bounds()
+        .unwrap()
+        .width();
+    let inner = overlay_inner_width(
+        &egui_ctx,
+        cell,
+        &["A", "Player aesthetics editor", "Help", "Settings"],
+    );
+    assert!(
+        (width - inner).abs() < 0.5,
+        "the longest label's row spans the overlay's inner width ({width} vs {inner})"
+    );
+}
+
+// gui.md "Sidebar" item 3: a row is a plain row until it is hovered, pressed,
+// focused or active — an inactive, unhovered entry paints no button frame.
+#[test]
+fn an_inactive_row_paints_no_background_until_it_is_touched() {
+    let Shell { mut app, _dir, .. } = shell();
+    let egui_ctx = egui::Context::default();
+    egui_ctx.enable_accesskit();
+
+    let filled_at = |out: &FrameOutput, bounds: accesskit::Rect| {
+        out.shapes.iter().any(|clipped| {
+            matches!(&clipped.shape, egui::Shape::Rect(shape)
+                if shape.fill != egui::Color32::TRANSPARENT
+                    && (f64::from(shape.rect.min.x) - bounds.x0).abs() <= 2.0
+                    && (f64::from(shape.rect.min.y) - bounds.y0).abs() <= 2.0
+                    && (f64::from(shape.rect.max.x) - bounds.x1).abs() <= 2.0
+                    && (f64::from(shape.rect.max.y) - bounds.y1).abs() <= 2.0)
+        })
+    };
+
+    let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9));
+    let active = entry(&out.nodes, "A").bounds().unwrap();
+    let inactive = entry(&out.nodes, "B").bounds().unwrap();
+    assert!(
+        filled_at(&out, active),
+        "the active entry paints its selection background"
+    );
+    assert!(
+        !filled_at(&out, inactive),
+        "an inactive, unhovered entry paints no button frame"
+    );
+
+    // The pointer resting on the inactive entry, before the hover delay runs
+    // out: the row is hovered, so it paints — while the sidebar is still a rail.
+    let out = frame_at(
+        &egui_ctx,
+        &mut app,
+        hover(entry(&out.nodes, "B")),
+        true,
+        Some(1.0),
+    );
+    assert!(
+        filled_at(&out, entry(&out.nodes, "B").bounds().unwrap()),
+        "the hovered row paints its background"
     );
 }
 

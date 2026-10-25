@@ -2440,3 +2440,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — Gates: the test gate runs the workspace's test binaries four at once (`scripts/run_tests.py`):
   the full gates took 208 s against about 7 minutes; nextest measured slower on Windows. `just gates-changed`
   tests only the changed packages and their dependents; every commit still runs the full gates.
+- **2026-10-25** — 8.25's code half: the sidebar is a 56-point rail whose full version opens over the
+  view after 0.15 s of rest (or on a keyboard focus), its icons at 24 points, no collapse button; the
+  view never moves (ST-SIDE-02 rewritten red-first). The Save editor's tab area grows by 104 points.

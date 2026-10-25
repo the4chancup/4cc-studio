@@ -24,7 +24,8 @@ pub trait StudioTool {
     /// Sidebar label (`Team compiler`).
     fn label(&self) -> &'static str;
 
-    /// The tool's icon glyph (`crate::icons`), shown in the collapsed sidebar rail.
+    /// The tool's icon glyph (`crate::icons`), drawn at 24 points in the
+    /// sidebar's rail and its opened overlay.
     fn icon(&self) -> &'static str;
 
     /// The tool's main view, rendered in the panel right of the tool selector.

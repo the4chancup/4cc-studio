@@ -63,6 +63,9 @@ pub(super) struct Calls {
     pub(super) close_at_run_end: Mutex<bool>,
     /// How often the shell asked `hold_close`: the asks stop at the first tool that holds.
     pub(super) holds: AtomicUsize,
+    /// The `Ui::max_rect` the last `view` ran against: where the tool's view sits
+    /// and how wide it is (the sidebar's overlay must never move it).
+    pub(super) view_rect: Mutex<Option<egui::Rect>>,
 }
 
 impl Calls {
@@ -92,6 +95,10 @@ impl Calls {
     pub(super) fn holds(&self) -> usize {
         self.holds.load(Ordering::SeqCst)
     }
+    /// The rect the last `view` was given.
+    pub(super) fn view_rect(&self) -> Option<egui::Rect> {
+        *self.view_rect.lock().unwrap()
+    }
 }
 
 pub(super) struct StubTool {
@@ -119,6 +126,7 @@ impl StudioTool for StubTool {
     }
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
         self.calls.views.fetch_add(1, Ordering::SeqCst);
+        *self.calls.view_rect.lock().unwrap() = Some(ui.max_rect());
         // Bound first: a `match` scrutinee's guard would live through the arms, which
         // lock the same mutex to answer.
         let prompt = *self.calls.close_prompt.lock().unwrap();
@@ -428,13 +436,15 @@ pub(super) fn envelope() -> PipelineEventEnvelope {
 }
 
 /// What one headless frame produced: the frame's AccessKit nodes, its platform output
-/// (clipboard, opened links), the root viewport's commands (the window title) and the
-/// repaint delay it asked for (`Duration::MAX` when nothing did).
+/// (clipboard, opened links), the root viewport's commands (the window title), the
+/// repaint delay it asked for (`Duration::MAX` when nothing did) and the shapes it
+/// painted, clip rect included (for checks on what was drawn where).
 pub(super) struct FrameOutput {
     pub(super) nodes: Vec<accesskit::Node>,
     pub(super) platform: egui::PlatformOutput,
     pub(super) commands: Vec<egui::ViewportCommand>,
     pub(super) repaint_delay: Duration,
+    pub(super) shapes: Vec<egui::epaint::ClippedShape>,
 }
 
 /// One headless frame of the shell on an 800 by 600 screen with `events` as its input
@@ -532,6 +542,7 @@ pub(super) fn run_frame(
         .expect("every frame produces the root viewport");
     let commands = viewport.commands.clone();
     let repaint_delay = viewport.repaint_delay;
+    let shapes = std::mem::take(&mut output.shapes);
     // Nothing renders here, so the frame's texture deltas are dropped on purpose.
     output.drop_without_applying_deltas();
     FrameOutput {
@@ -539,6 +550,7 @@ pub(super) fn run_frame(
         platform,
         commands,
         repaint_delay,
+        shapes,
     }
 }
 
@@ -552,6 +564,19 @@ pub(super) fn titles(output: &FrameOutput) -> Vec<String> {
             _ => None,
         })
         .collect()
+}
+
+/// Rests the pointer on `node` (a rail widget) until the sidebar's overlay has
+/// had time to open, as a member's hover does (gui.md "Sidebar" item 4): the
+/// pointer arrives at `time` and stays `0.2 s` past it. Returns the last frame.
+pub(super) fn open_sidebar(
+    ctx: &egui::Context,
+    app: &mut StudioApp,
+    node: &accesskit::Node,
+    time: f64,
+) -> FrameOutput {
+    frame_at(ctx, app, hover(node), true, Some(time));
+    frame_at(ctx, app, Vec::new(), true, Some(time + 0.2))
 }
 
 /// The widget labeled `label`.

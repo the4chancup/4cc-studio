@@ -384,7 +384,7 @@ impl eframe::App for StudioApp {
             self.apply_notice_effect(effect);
         }
         let clicked = egui::Panel::left("sidebar")
-            .exact_size(self.sidebar.width())
+            .exact_size(sidebar::RAIL_WIDTH)
             .show(ui, |ui| {
                 self.sidebar.show(
                     ui,
@@ -722,7 +722,17 @@ mod tests {
             "the settings menu is gone once the close is held"
         );
 
-        // A's prompt answers: Discard sends the close on.
+        // A's prompt answers: Discard sends the close on. The pointer rested on
+        // the rail while the menu closed, so the sidebar's overlay is open over
+        // the view's left edge: it leaves first, as a member's would.
+        let middle = calls[0].view_rect().unwrap().center();
+        frame(
+            &egui_ctx,
+            &mut app,
+            vec![egui::Event::PointerMoved(middle)],
+            true,
+        );
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Discard"));
         let out = frame(&egui_ctx, &mut app, Vec::new(), true);
         assert!(
