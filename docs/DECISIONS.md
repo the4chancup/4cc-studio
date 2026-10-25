@@ -10967,3 +10967,17 @@ Why: the maintainer asked to shorten the gates as tools are added. Measured in a
 `cargo test` right after (eight at once 180 s: the cores are full). Building with `--workspace`
 before selecting keeps every binary's features the gates' (a `-p` build lacks egui's fonts).
 Plan: `CONTRIBUTING.md` "Testing and verification".
+
+## 2026-10-25 — save_editor — The Tactics tab's three columns at 1280 × 800 come with the sidebar's rail
+Decision: the Tactics columns keep their widths (the pitch 320, the lists 200, the settings
+360); the three columns stand side by side at the default window once the sidebar is its
+56-point rail (worklog 8.25), whose tab area is about 992 points. Until then the default window
+draws the settings column below the pitch and the lists. 8.25's code lands before rework r4,
+which makes the Save editor's view tests draw inside the shell's central panel.
+Why: the entry "Studio opens at 1280 × 800 points" fitted the columns to a 904-point tab area
+that the Save editor's test harness measured without the shell's `CentralPanel` and its
+8-point margins; the built window drew the tab stacked, and the harness inside the panel
+measured 888 (2026-10-25), 8 short of the columns' 896. Narrowing a column by 8 now would be
+undone when the rail frees 104 points before the 0.0.1 cut.
+Plan: `plans/save_editor.md` "Tactics editor" (the "pitch is the editor" bullet); worklog
+8.9f4c r4, 8.25.

@@ -1293,19 +1293,22 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
             removed (a grid's last `end_row` only moves its cursor). Files:
             `team_widgets/src/tactics/{instructions.rs,tests/mod.rs}`,
             `save_editor/src/view/appearance/mod.rs`
-          - [ ] rework r4, from the built window at 1280 x 800 (2026-10-25,
-            `.tmp/8_9f/look4c3_tactics_fhd.png`): the Tactics tab draws **stacked** where the
-            headless default-pane test sees three columns. The real tab area measured 896
-            (x 696 to 1592 on screen), the threshold exactly; the Save editor's `Headless`
-            calls `show` on the bare root ui, without the shell's `CentralPanel` and its
-            8-point margins (`shell/mod.rs`), so its tests see 8 more (cause to confirm). The
-            harness draws the view as the shell does, so every pane test stands for the real
-            pane; `TAB_AREA_OFFSET` re-measured; the three columns fitted to the real tab area
-            (or left to 8.25's rail, which widens it by about 104). Also: the instruction
-            column's combo is capped at the "Instruction" header's width (about 100), not
-            the draft's 120: a grid column takes the last frame's widest cell, and the combo
-            caps itself at the column's width → verify: the default-pane test red on the
-            real pane before the fix; the built window in three columns
+          - [ ] rework r4, after 8.25's code (DECISIONS "The Tactics tab's three columns at
+            1280 × 800 come with the sidebar's rail"): the built window at 1280 x 800
+            (2026-10-25, `.tmp/8_9f/look4c3_tactics_fhd.png`) draws the Tactics tab
+            **stacked** where the headless default-pane test sees three columns. Cause,
+            confirmed in a worktree: the Save editor's `Headless` calls `show` on the bare
+            root ui, without the shell's `CentralPanel` (`shell/mod.rs`) and its margins;
+            inside one the tab's `available_width` at the 1120-point pane is 888, not 904.
+            The harness draws the view inside a `CentralPanel` as the shell does, so every
+            pane test stands for the real pane; `TAB_AREA_OFFSET` re-measured (232 at that
+            reading); the default-pane tests at the pane the rail leaves (1224 x 776); the
+            settings column's overflow re-measured for the plan; `tactics.rs`' `LISTS_WIDTH`
+            comment. Also: the instruction column's combo is capped at the "Instruction"
+            header's width (about 100), not the draft's 120: a grid column takes the last
+            frame's widest cell, and the combo caps itself at the column's width → verify:
+            the default-pane test red with the panel at 1120 (it is: measured), green at
+            1224; the built window in three columns
         - [ ] 4d the one cards badge, the player's own tier, through a tier recognition
           `libs/aatf` exposes (checkpoint (b))
         - [ ] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file);
@@ -1618,9 +1621,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     focus, kept open while its popups are, as wide as its longest label; the tool icons, the
     help and the gear at 24 points (item 3, DECISIONS "The rail's icons are drawn at 24
     points"); the drafts' host (`docs/prototypes/index.html`,
-    8.16's) the same; the Save editor's tests that stand for the default window's pane and
-    `TAB_AREA_OFFSET` re-measured for the narrower rail (the pane grows by about 104 points;
-    re-check `TOP_ROW_ONE_LINE`, `TEAM_BAR_ONE_ROW`, the Tactics columns at the new tab area)
+    8.16's) the same. The code half goes next (2026-10-25), before 8.9f4c's rework r4, which
+    moves the Save editor's tests to the pane the rail leaves (1224 x 776) inside the shell's
+    panel and re-checks `TOP_ROW_ONE_LINE`, `TEAM_BAR_ONE_ROW` and the Tactics columns there
     → verify: ST-SIDE-02's test rewritten red-first (the view's x0 and width equal with the
     sidebar open and closed); the built window at 1280 x 800 by hand
   - [ ] 8.22 after 0.0.1: the accepted usability items outside the grid (2026-10-25, P1, P2,
