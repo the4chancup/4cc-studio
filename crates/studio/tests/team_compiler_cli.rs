@@ -25,7 +25,11 @@ impl Sandbox {
         fs::create_dir_all(root.join("data")).unwrap();
         let built = Path::new(env!("CARGO_BIN_EXE_4cc-studio"));
         let exe = root.join(built.file_name().unwrap());
-        fs::copy(built, &exe).unwrap();
+        // A hard link, not a copy: a copy holds the file open for writing, and on Linux a
+        // child another test thread forks in that instant inherits the handle, so running
+        // the copy fails with "Text file busy" (ETXTBSY, seen on the remote gates).
+        // `CARGO_TARGET_TMPDIR` is inside `target/`, the binary's own volume.
+        fs::hard_link(built, &exe).unwrap();
         fs::write(root.join("data/settings.toml"), settings).unwrap();
         Sandbox { root, exe }
     }

@@ -15,6 +15,10 @@ gates: fmt-check clippy test wasm-check acceptance doc-pointers
 gates-remote:
     {{python}} scripts/remote_gates.py
 
+# One cargo or just command on the mutants host against the working tree (`just remote cargo test -p save_editor`)
+remote +command:
+    {{python}} scripts/remote_gates.py {{command}}
+
 # Gate 1: formatting
 fmt-check:
     cargo fmt --all --check

@@ -75,7 +75,9 @@ and cargo-mutants files the mutant as unviable (273 of 274 in 23 s at 4.y-conv's
 **When the maintainer's PC is suspect, the heavy runs go to the VPS.** Four
 `MEMORY_MANAGEMENT` bugchecks there (2026-10-07 to 10-10, the last during a run, all four in
 `rustc.exe` at one kernel site) led the maintainer to move them until third-party drivers
-were removed (2026-10-11), when the split came back; the switch stays for the next time.
+were removed (2026-10-11), when the split came back; the switch stays for the next time. The
+maintainer moved every mutation run to the VPS again on 2026-10-25, until further notice (the
+switch on), and the lead's gates with them (`just gates-remote`).
 `REMOTE_ONLY = True` in `scripts/mutants.py` makes
 `just mutants` and `just mutants-diff` run every mutant on the VPS as one whole run (no
 local half, no split threshold; the last local `mutants.out` set aside as
@@ -84,8 +86,11 @@ the working tree (`scripts/remote_gates.py`: the same transfer and clone, so it 
 while a mutants half is running or uncollected; the transient service `studio-gates`,
 memory-capped and CPU-idle, run synchronously). The VPS's `just` is installed in
 `~/.cargo/bin` at this machine's version, as cargo-mutants is. The lead uses
-`just gates-remote` for its review gates while the switch is on; a sidekick's own
-`cargo test -p` stays local. Measured on 4.y-sub (b3b4a): gates 4 min 11 s cold (peak
+`just gates-remote` for its review gates while the switch is on, and since 2026-10-25 (the
+maintainer: "move all the tests that can be moved") a sidekick's test and clippy runs go
+there too, one command at a time, `just remote cargo test -p <crate>` (`cargo` or `just`
+only; a brief says so, and that the run refuses while a mutation half or other gates use the
+clone, to wait and retry); only `cargo fmt` and `cargo check` stay local. Measured on 4.y-sub (b3b4a): gates 4 min 11 s cold (peak
 8.7 GiB), 1 min 23 s incremental; a 15-mutant diff 330 s wall. The switch is a constant,
 not an environment variable as it first was: a shell started while the variable was set
 kept it after it was deleted, and would have kept running every mutant remotely.

@@ -2452,3 +2452,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.9j5a: the Save editor's aesthetics transplant panel (SE-GUI-14): a donor save of the
   same version, the CLI's selection text, a preview of every affected player's appearance changes, and Apply
   as one undoable edit behind the read-only lock, written only on Save.
+- **2026-10-25** — Every test run that can leave the maintainer's PC goes to the VPS until further notice (the
+  maintainer): mutation runs remote-only, the gates through `just gates-remote`, a sidekick's test and clippy
+  runs through the new `just remote <cargo or just command>`; a Linux-only "Text file busy" race fixed.

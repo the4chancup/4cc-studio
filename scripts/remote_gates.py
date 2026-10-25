@@ -20,8 +20,15 @@ The host runs the justfile's own `gates` recipe, with `just` installed in
 `~/.cargo/bin` at this machine's version (`cargo install --locked just@<version>`,
 as cargo-mutants is), so the two never parse the justfile differently; a run
 refuses when the versions differ.
+
+`just remote <command>` runs one `cargo` or `just` command there instead of the
+whole gates, the same way (`just remote cargo test -p save_editor`): the
+sidekick's crate-scoped test and clippy runs while this machine should not
+carry them (2026-10-25). Only those two programs: the clone is a build tree, and
+anything else is a typo or belongs on this machine.
 """
 
+import shlex
 import subprocess
 import sys
 
@@ -30,7 +37,12 @@ import mutants
 GATES_JOB = f"{mutants.REMOTE_BASE}/gates.sh"
 
 
-def main() -> int:
+def main(command: list[str]) -> int:
+    if command and command[0] not in ("cargo", "just"):
+        print(f"runs a cargo or just command, not {command[0]!r}")
+        return 1
+    # Quoted for the host's bash: a test filter or `-- --nocapture` passes through as typed.
+    run_line = shlex.join(command) if command else "just gates"
     host = mutants.remote_host()
     if host is None:
         print("STUDIO_MUTANTS_REMOTE is not set")
@@ -65,7 +77,7 @@ def main() -> int:
         # On disk, not the tmpfs `/tmp`, which counts against the unit's memory
         # (`mutants.REMOTE_TMPDIR`); the CLI tests write a sandbox export each.
         f'export TMPDIR="{mutants.REMOTE_TMPDIR}" && mkdir -p "$TMPDIR"\n'
-        "nice -n 19 ionice -c3 just gates\n"
+        f"nice -n 19 ionice -c3 {run_line}\n"
     )
     # A file, not bash's stdin, which a test reading stdin would eat lines of.
     mutants.ssh(
@@ -76,7 +88,7 @@ def main() -> int:
         check=True,
     )
     memory_max = mutants.remote_memory_max(host)
-    print(f"running the gates on {host}", flush=True)
+    print(f"running `{run_line}` on {host}", flush=True)
     run = mutants.ssh(
         host,
         f"sudo -n systemd-run --unit={mutants.GATES_UNIT} --uid=debian --wait --pipe "
@@ -84,9 +96,9 @@ def main() -> int:
         f'--working-directory="$HOME/studio-mutants/tree" /bin/bash {GATES_JOB} '
         "< /dev/null",
     )
-    print(f"gates on {host}: exit {run.returncode}")
+    print(f"`{run_line}` on {host}: exit {run.returncode}")
     return run.returncode
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(main(sys.argv[1:]))
