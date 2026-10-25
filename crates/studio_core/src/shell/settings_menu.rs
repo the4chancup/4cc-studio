@@ -252,44 +252,9 @@ impl SettingsMenu {
                 }
                 ui.end_row();
 
-                let updates = row_label(
-                    ui,
-                    "Check for updates",
-                    "check_for_updates",
-                    "Whether the shell looks for new releases.",
-                );
-                let mut check = common.check_for_updates;
-                if ui
-                    .add(egui::Checkbox::without_text(&mut check))
-                    .labelled_by(updates.id)
-                    .changed()
-                {
-                    common.check_for_updates = check;
-                    changed = true;
-                }
-                ui.end_row();
-
-                let interval = row_label(
-                    ui,
-                    "Check interval (hours)",
-                    "check_interval_hours",
-                    "Hours between release checks.",
-                );
-                let mut hours = common.check_interval_hours;
-                if ui
-                    .add_enabled(
-                        common.check_for_updates,
-                        egui::DragValue::new(&mut hours)
-                            .range(1..=u32::MAX)
-                            .clamp_existing_to_range(false),
-                    )
-                    .labelled_by(interval.id)
-                    .changed()
-                {
-                    common.check_interval_hours = hours;
-                    changed = true;
-                }
-                ui.end_row();
+                // The update check's two rows wait for the updater that reads the
+                // keys (Release 0.2.0; DECISIONS.md 2026-10-25): drawn
+                // now, a checkbox a member switches off would change nothing.
             });
         if changed {
             ctx.settings().lock().unwrap().common = common;
@@ -681,16 +646,14 @@ mod tests {
         assert_eq!(ctx.common().fpc_hide_boots_id, 60, "the boots write stands");
     }
 
-    // The `Check interval (hours)` row is disabled while `check_for_updates` is off
-    // and enabled while it is on.
+    // The update check's two rows are not drawn while nothing reads the keys:
+    // they wait for the updater (DECISIONS.md 2026-10-25).
     #[test]
-    fn the_interval_row_follows_check_for_updates() {
-        let dir = TestDir::new("studio_core_settings_interval");
+    fn the_update_check_rows_are_not_drawn_yet() {
+        let dir = TestDir::new("studio_core_settings_no_update_rows");
         let (a, calls_a) = stub("a", "A", None);
-        let mut settings = test_settings(dir.path());
-        settings.common.check_for_updates = false;
         let Shell { mut app, .. } = shell_with(
-            settings,
+            test_settings(dir.path()),
             vec![a],
             &[],
             Some(dir.path().to_path_buf()),
@@ -701,21 +664,14 @@ mod tests {
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
         let nodes = idle(&egui_ctx, &mut app, 10).nodes;
-        let interval = widget_on_row(&nodes, "Check interval (hours)", Role::SpinButton);
+        assert!(has_text(&nodes, "Theme"), "the menu is open");
         assert!(
-            interval.is_disabled(),
-            "the interval is disabled while checks are off"
+            !has_text(&nodes, "Check for updates"),
+            "the check row waits for the updater"
         );
-
-        click(
-            &egui_ctx,
-            &mut app,
-            widget_on_row(&nodes, "Check for updates", Role::CheckBox),
-        );
-        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         assert!(
-            !widget_on_row(&nodes, "Check interval (hours)", Role::SpinButton).is_disabled(),
-            "the interval is enabled once checks are on"
+            !has_text(&nodes, "Check interval (hours)"),
+            "the interval row waits with it"
         );
     }
 

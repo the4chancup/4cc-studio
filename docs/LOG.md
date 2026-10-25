@@ -2513,3 +2513,4 @@ worklog passed 7,000 lines.
   of its time. The Save editor asks before closing or opening over unsaved edits, and before saving while its game runs.
 - **2026-10-26** — 0.0.1 will open no console window and will keep a diagnostic log; temporary folders moved under
   `4cc-studio-temp`.
+- **2026-10-26** — The settings menu stops drawing the update check's two rows until the updater that reads them.
