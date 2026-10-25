@@ -2482,3 +2482,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.9j5c: the save-writing aesthetics transplant removed (its panel, the CLI command and codes,
   `ops::transplant`), SE-TRN-01 to 03 withdrawn; the scripts' slice stays test-only as `copy_appearance`, the
   comparator's yardstick. The transplant returns after 0.1.0 writing the team's export (SE-GUI-14).
+- **2026-10-25** — 0.0.1h slice 3: the Save editor's Player menu generates a player folder's `settings.toml`
+  (no face keys; an existing file updated in place) and `ingame_face.toml` (whole), into a picked folder, a
+  stripped player skipped (SE-GUI-19, 33); the draft first, its old transplant panel gone; a Comparator help topic.

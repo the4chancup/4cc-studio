@@ -13,6 +13,7 @@ mod aatf_panel;
 mod abilities;
 mod appearance;
 mod comparator;
+mod generate;
 mod info_strip;
 mod live_aatf;
 mod menus;
@@ -31,7 +32,7 @@ use std::sync::Arc;
 
 use pes_savefile::model::{PlayerEntry, TeamEntry};
 use pes_version::{Engine, PesVersion};
-use studio_core::RunningPes;
+use studio_core::{Notice, RunningPes};
 use team_widgets::names::append_name;
 
 use crate::session::Session;
@@ -89,6 +90,15 @@ pub(crate) struct SaveView {
     /// The comparator's Pick dialog (`rfd`, stubbed in tests — the AATF
     /// panel's copy dialog pattern).
     open_save_dialog: comparator::OpenSaveDialog,
+    /// The Generate dialog's state while it is open (the Player menu's
+    /// `settings.toml` and in-game face items); `None` while it is closed.
+    generate: Option<generate::Generate>,
+    /// The Generate dialog's Pick-a-folder dialog (`rfd`, stubbed in
+    /// tests — the same pattern as `open_save_dialog`).
+    pick_folder_dialog: generate::PickFolderDialog,
+    /// The status-bar notice the last action raised; `Tool::view` forwards
+    /// it to the shell's `notify` after the frame.
+    pub(crate) notice: Option<Notice>,
     /// The Live AATF toolbar toggle's state: `Tool::view` refreshes it
     /// from the `live_aatf` setting and writes the setting back when the
     /// toggle changes it; off in the tests' view-only frames.
@@ -227,6 +237,9 @@ impl SaveView {
             aatf: aatf_panel::AatfPanel::new(),
             comparator: comparator::Comparator::new(),
             open_save_dialog: comparator::default_open_dialog(),
+            generate: None,
+            pick_folder_dialog: generate::default_pick_folder(),
+            notice: None,
             live_aatf: false,
             live: live_aatf::LiveAatf::new(),
             aatf_copy_dialog: aatf_panel::default_copy_dialog(),
@@ -300,6 +313,7 @@ impl SaveView {
                 self.boglo = None;
                 self.stat_num = None;
                 self.copy_swap = None;
+                self.generate = None;
                 self.fix_database = false;
                 self.aatf.reset();
                 self.live.check.reset();
@@ -372,6 +386,7 @@ pub(crate) fn show(
     menus::stat_num_dialog(ui, view);
     menus::copy_swap_dialog(ui, view);
     menus::fix_database_dialog(ui, view);
+    generate::dialog(ui, view);
     aatf_panel::show(ui, view);
     comparator::show(ui, view);
     // One undo entry per gesture: seal when the pointer is up and no

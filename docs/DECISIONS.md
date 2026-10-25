@@ -11089,3 +11089,17 @@ The Save editor's first draft (`save_editor.html`) was already superseded by the
 the host carries.
 Plan: `plans/core/gui.md` "Prototypes before implementation", the host paragraph, "Links",
 "Longest values".
+
+## 2026-10-25 — save_editor — Generate settings.toml and Generate in-game face: a picked folder, an update in place, a whole face file
+Decision: the two Player-menu actions each open a dialog on the selected player: the player
+folder typed or picked (never prefilled), the file's text as Write will put it down, Write
+enabled only for an existing folder. An existing `settings.toml` is updated in place through
+`update_toml` (its comments and layout kept) and one that does not parse is shown as the error
+with Write disabled; `ingame_face.toml` is written whole. The success line is the shell's notice
+(the tool's first; `SaveView.notice`, forwarded by `Tool::view`).
+Why: the plan was silent (0.0.1h slice 3). A prefilled path would be a guess: the save knows no
+export or folder name. Updating keeps what a member wrote into a file the project documents with
+comments; a file that does not parse may be the member's half-done edit, so it is shown, not
+overwritten. The face file holds only values the record supplies and the template's comments, so
+replacing it loses nothing of the member's.
+Plan: `plans/save_editor.md` "Interchange formats in the UI", the `settings.toml` generation bullet.

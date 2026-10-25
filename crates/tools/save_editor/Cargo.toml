@@ -28,6 +28,7 @@ studio_core.workspace = true
 team_widgets.workspace = true
 teams_list.workspace = true
 toml.workspace = true
+toml_edit.workspace = true
 
 [dev-dependencies]
 pes_savefile = { workspace = true, features = ["test-support"] }

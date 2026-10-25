@@ -20,63 +20,6 @@ fn rostered(view: &SaveView, team_id: u32) -> Vec<(usize, u32)> {
         .collect()
 }
 
-/// The Button whose label starts with `label` (a menu item's label carries
-/// its shortcut text after the name).
-fn menu_item<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
-    nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Button && node.label().is_some_and(|item| item.starts_with(label))
-        })
-        .unwrap_or_else(|| panic!("no menu item {label:?}"))
-}
-
-/// The toolbar menu button with `label` (the topmost button with it).
-fn menu_button<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
-    nodes
-        .iter()
-        .filter(|node| node.role() == Role::Button && node.label() == Some(label))
-        .min_by(|a, b| {
-            let y = |node: &&accesskit::Node| node.bounds().map(|r| r.y0).unwrap_or(f64::MAX);
-            y(a).partial_cmp(&y(b)).expect("ordered bounds")
-        })
-        .unwrap_or_else(|| panic!("the {label:?} menu button"))
-}
-
-/// `menu`'s popup open for one frame: a click on its button (skipped when
-/// a previous call left `item` visible), then the frame's nodes.
-fn open_menu(
-    window: &mut Headless,
-    view: &mut SaveView,
-    menu: &str,
-    item: &str,
-) -> Vec<accesskit::Node> {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
-    if nodes.iter().any(|node| {
-        node.role() == Role::Button && node.label().is_some_and(|l| l.starts_with(item))
-    }) {
-        return nodes;
-    }
-    click(window, menu_button(&nodes, menu), view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
-    nodes
-}
-
-/// Replaces the focused text control's contents with `text`: End moves the
-/// caret past the text, the backspaces clear it, then the characters land.
-fn type_text(window: &mut Headless, view: &mut SaveView, text: &str) {
-    let mut events = vec![key(egui::Key::End, egui::Modifiers::NONE, true)];
-    for _ in 0..16 {
-        events.push(key(egui::Key::Backspace, egui::Modifiers::NONE, true));
-    }
-    events.push(egui::Event::Text(text.to_owned()));
-    window.frame(events, |ui| show(ui, view, &|| Vec::new(), None));
-    window.frame(
-        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
-        |ui| show(ui, view, &|| Vec::new(), None),
-    );
-}
-
 /// Opens the number dialog of `item` and types `value` into it, then OK.
 fn run_stat_dialog(
     window: &mut Headless,

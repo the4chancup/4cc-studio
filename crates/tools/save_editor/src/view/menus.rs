@@ -17,6 +17,7 @@ use crate::session::Session;
 use crate::session::database;
 use crate::session::team_ops::{BootsMode, GlovesMode};
 use crate::view::appearance::ownership_tip;
+use crate::view::generate;
 use crate::view::{Refusal, SaveView, selected_player};
 
 /// The Team menu button (the draft's `teamMenu`): Set edited flag, the
@@ -100,12 +101,13 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     });
 }
 
-/// The Player menu button (the draft's `playerMenu`, the Generate
-/// settings.toml item a later slice's): the Set all stats and Bump all
-/// stats dialogs, Toggle FPC settings (its Ctrl+I drawn beside) and the
-/// Copy and Swap stats dialogs. Every item acts on the selected player;
-/// the menu is disabled with no save open, and the FPC item carries the
-/// ownership line as its disabled hover (SE-GUI-22).
+/// The Player menu button (the draft's `playerMenu`): the Set all stats and
+/// Bump all stats dialogs, Toggle FPC settings (its Ctrl+I drawn beside), the
+/// Copy and Swap stats dialogs, and the two Generate items opening
+/// `generate::Generate` (settings.toml and the in-game face: file writes, so
+/// the aesthetics lock does not gate them). Every item acts on the selected
+/// player; the menu is disabled with no save open, and the FPC item carries
+/// the ownership line as its disabled hover (SE-GUI-22).
 pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, _, player_id)) = selected_player(view) else {
         ui.add_enabled_ui(false, |ui| {
@@ -168,6 +170,21 @@ pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
                 player_id,
                 team_id,
                 CopySwapMode::Swap,
+            ));
+            ui.close();
+        }
+        ui.separator();
+        if ui.button("Generate settings.toml\u{2026}").clicked() {
+            view.generate = Some(generate::Generate::new(
+                player_id,
+                generate::GenFile::Settings,
+            ));
+            ui.close();
+        }
+        if ui.button("Generate in-game face\u{2026}").clicked() {
+            view.generate = Some(generate::Generate::new(
+                player_id,
+                generate::GenFile::IngameFace,
             ));
             ui.close();
         }

@@ -2,7 +2,7 @@
 // draft of the Save editor's GUI (docs/plans/save_editor.md "Editing UI"), all
 // five slices of the build order (open/save, the player list, the info strip
 // and quick actions, the Abilities & Skills, Appearance, Team and Tactics tabs,
-// the Comparator / transplant / AATF / aesthetics-patch panels, and the
+// the Comparator / AATF / aesthetics-patch panels, and the
 // interchange dialogs with settings.toml generation), drawn only with what
 // egui can draw (docs/plans/core/gui.md "Prototypes before implementation").
 // Its behaviour is faked with sample data transcribed from real saves and real
@@ -35,8 +35,7 @@
 // The panels: .panel = egui::Window (non-modal, closed by its button or a
 // panel switch); .drow = a diff/violation row (a selectable label); the
 // comparator's scope toggles and team filter = selectable labels and a
-// ComboBox; the transplant's two panes = two scroll areas of selectable
-// rows; the AATF team multi-select = a scroll area of CheckBoxes; Export,
+// ComboBox; the AATF team multi-select = a scroll area of CheckBoxes; Export,
 // Apply, Validate rules and Save a copy = buttons; radio labels = RadioButton.
 // Live AATF: the toolbar toggle = a SelectableLabel; .live-panel = the log
 // panel widget's frame docked at the bottom of the view (its chevron and
@@ -191,13 +190,6 @@ td.ilabel:first-child { padding-left: 0; }
 .live-body .grp { color: var(--strong); margin: 4px 0 1px; }
 .panel .tlist { background: var(--extreme); border: 1px solid var(--stroke);
   max-height: 180px; overflow: auto; }
-.panel .panes { display: flex; gap: 10px; }
-.panel .pane { flex: 1; min-width: 0; }
-.panel .pane .prow { display: flex; gap: 5px; padding: 1px 4px; white-space: nowrap; }
-.panel .pane .prow:hover { background: var(--hover); }
-.panel .pane .prow.on { background: var(--sel-bg); }
-.panel .plist-mini { background: var(--extreme); border: 1px solid var(--stroke);
-  max-height: 220px; overflow: auto; }
 `;
 
 
@@ -2014,42 +2006,6 @@ const DIFF17 = [
   [71823, "Skill(27)", "0", "1", "g"],
   [71823, "HairVariation", "1", "0", "a"],
 ];
-// The aesthetics diff of transplanting the donor onto the PES 17
-// sample for --select 718,70201:70201: [player, field, old, new].
-const TRANSPLANT17 = [
-  [70201, "BootsId", "126", "0"],
-  [70201, "GlovesId", "1", "0"],
-  [70201, "Chest", "2", "7"],
-  [70201, "Waist", "5", "7"],
-  [70201, "Sleeves", "2", "1"],
-  [70201, "Socks", "2", "0"],
-  [70201, "Untucked", "0", "1"],
-  [70201, "HairVariation", "0", "1"],
-  [71801, "HairVariation", "0", "1"],
-  [71802, "HairVariation", "0", "1"],
-  [71803, "HairVariation", "0", "1"],
-  [71804, "HairVariation", "0", "1"],
-  [71805, "HairVariation", "0", "1"],
-  [71806, "HairVariation", "0", "1"],
-  [71807, "HairVariation", "0", "1"],
-  [71808, "HairVariation", "0", "1"],
-  [71809, "HairVariation", "0", "1"],
-  [71810, "HairVariation", "0", "1"],
-  [71811, "HairVariation", "0", "1"],
-  [71812, "HairVariation", "0", "1"],
-  [71813, "HairVariation", "0", "1"],
-  [71814, "HairVariation", "0", "1"],
-  [71815, "HairVariation", "0", "1"],
-  [71816, "HairVariation", "0", "1"],
-  [71817, "HairVariation", "0", "1"],
-  [71818, "HairVariation", "0", "1"],
-  [71819, "HairVariation", "0", "1"],
-  [71820, "HairVariation", "0", "1"],
-  [71821, "HairVariation", "0", "1"],
-  [71822, "HairVariation", "0", "1"],
-  [71823, "HairVariation", "0", "1"],
-];
-const DONOR17 = { path: "C:\\Data\\4cc\\Cups\\Autumn24Q\\EDIT00000000", version: 17, teams: {"702": [[1, 70201, "PLACEHOLDER"], [2, 70202, "PLACEHOLDER"], [3, 70203, "PLACEHOLDER"], [4, 70204, "PLACEHOLDER"], [5, 70205, "PLACEHOLDER"], [6, 70206, "PLACEHOLDER"], [7, 70207, "PLACEHOLDER"], [8, 70208, "PLACEHOLDER"], [9, 70209, "PLACEHOLDER"], [10, 70210, "PLACEHOLDER"], [11, 70211, "PLACEHOLDER"], [12, 70212, "PLACEHOLDER"], [13, 70213, "PLACEHOLDER"], [14, 70214, "PLACEHOLDER"], [15, 70215, "PLACEHOLDER"], [16, 70216, "PLACEHOLDER"], [17, 70217, "PLACEHOLDER"], [18, 70218, "PLACEHOLDER"], [19, 70219, "PLACEHOLDER"], [20, 70220, "PLACEHOLDER"], [21, 70221, "PLACEHOLDER"], [22, 70222, "PLACEHOLDER"], [23, 70223, "PLACEHOLDER"]], "718": [[1, 71801, "\u0011cffd28cffROAD\u0011cf389adffTRIP"], [2, 71802, "\u0011cbadbb2ffGARDEVOIR\u0011cd56671ff PAIZURI"], [3, 71803, "\u0011cc9002bffPEP\u0011cffffffffSI \u0011c004b93ffMAN"], [4, 71804, "\u0011cc68642ffVAN \u0011c000000ffDARK\u0011cc68642ffHOLME"], [5, 71805, "\u0011c226699ff\u2642BILLY HERRINGTON\u2642"], [6, 71806, "\u0011cffcf30ffWRRRRRRRRRRRRRRRRRRY"], [7, 71807, "\u0011ce5de00ffXIAO MEI MEI"], [8, 71808, "\u0011cff0000ffPA\u0011c1663beffRTY \u0011cffe800ffHARD"], [9, 71809, "\u0011c00ca00ffDAILY \u0011c840084ffDOSE"], [10, 71810, "\u0011c000000ffDA HO\u0011cff0000ffO\u0011c000000ffD"], [11, 71811, "\u0011c892219ffLOLI\u0011cc98d73ffCAT\u0011cde2c22ffGIRLS"], [12, 71812, "\u0011ca51818ffRESIZE\u0011cdddf3bffTHE\u0011ca51818ffFLASH!"], [13, 71813, "\u0011c918786ffTAKEO \u0011c55443cffISCHI"], [14, 71814, "\u0011c736fbcffHAAAAAAA\u0011cb62652ffAAAAAAAN~"], [15, 71815, "\u0011c2487baffRAPE\u0011ccbe713ffMAN"], [16, 71816, "\u0011cfe0002ffMONDAY \u0011c0001fcffAPPROACHES"], [17, 71817, "\u0011c59396affZONE"], [18, 71818, "\u0011cf697a0ffOSA\u0011ca86074ffKA"], [19, 71819, "\u0011c4a3c33ffED\u0011c69a046ffDIE!"], [20, 71820, "\u0011c2c45acffBOURBONHOUSE"], [21, 71821, "\u0011cf8a75affHIGHTENSIONJAPANESEGOBURIN"], [22, 71822, "\u0011cff55ffffDONTSHITYOUR\u0011c7b3500ffPANTS"], [23, 71823, "\u0011cf7698cffSHII"]]} };
 // check-aatf's findings per ruleset: [severity, team, player,
 // rule, the rule's fields as k=v pairs]. Only the teams the
 // draft carries detail rows for (702, 718, 708, 701, 734, 772;
@@ -2077,7 +2033,11 @@ const LEGACY_4CCS = {"2HU": {"file": "C:\\Data\\4cc\\Teams_Main\\98HU\\2HU.4ccs"
 const CCT19 = {"file": "C:\\Data\\4cc\\Tools_Mine\\4cc-studio\\crates\\libs\\pes_savefile\\tests\\fixtures\\pes19_tactics.4cct", "version": 19, "team": 713, "tactics": {"starting_eleven": [0, 3, 2, 4, 1, 5, 6, 7, 8, 9, 10], "bench_order": [11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31], "players_to_join_attack": [255, 255, 255], "set_pieces": {"free_kick_long": 7, "free_kick_short": 8, "free_kick_second": 9, "corner_left": 1, "corner_right": 4, "penalty": 10}, "auto": {"substitution": 0, "offside_trap": false, "preset_change": false, "attack_defence_levels": false}, "presets": [{"man_marking": null, "style": {"attacking_style": "counter_attack", "buildup": "short_pass", "attacking_zone": "wide", "positioning": "maintain", "defensive_style": "frontline_pressure", "containment_area": "middle", "pressure": "aggressive", "fluid": false}, "sliders": {"support_range": 4, "numbers_in_attack": 2, "defensive_line": 4, "compactness": 7, "numbers_in_defence": 2}, "formations": [{"players": [{"position": "GK", "y": 3, "x": 52}, {"position": "CB", "y": 11, "x": 64}, {"position": "CB", "y": 11, "x": 40}, {"position": "RB", "y": 13, "x": 88}, {"position": "LB", "y": 13, "x": 16}, {"position": "DMF", "y": 19, "x": 52}, {"position": "CMF", "y": 24, "x": 74}, {"position": "CMF", "y": 24, "x": 29}, {"position": "AMF", "y": 31, "x": 52}, {"position": "CF", "y": 42, "x": 69}, {"position": "CF", "y": 42, "x": 35}]}, {"players": [{"position": "GK", "y": 3, "x": 52}, {"position": "CB", "y": 11, "x": 64}, {"position": "CB", "y": 11, "x": 40}, {"position": "RB", "y": 13, "x": 88}, {"position": "LB", "y": 13, "x": 16}, {"position": "DMF", "y": 19, "x": 52}, {"position": "CMF", "y": 24, "x": 74}, {"position": "CMF", "y": 24, "x": 29}, {"position": "AMF", "y": 31, "x": 52}, {"position": "CF", "y": 42, "x": 69}, {"position": "CF", "y": 42, "x": 35}]}, {"players": [{"position": "GK", "y": 3, "x": 52}, {"position": "CB", "y": 11, "x": 64}, {"position": "CB", "y": 11, "x": 40}, {"position": "RB", "y": 13, "x": 88}, {"position": "LB", "y": 13, "x": 16}, {"position": "DMF", "y": 19, "x": 52}, {"position": "CMF", "y": 24, "x": 74}, {"position": "CMF", "y": 24, "x": 29}, {"position": "AMF", "y": 31, "x": 52}, {"position": "CF", "y": 42, "x": 69}, {"position": "CF", "y": 42, "x": 35}]}], "instructions": {"attack": [{"instruction": "off", "player": 0}, {"instruction": "off", "player": 0}], "defence": [{"instruction": "off", "player": 0}, {"instruction": "off", "player": 0}]}}, {"man_marking": null, "style": {"attacking_style": "counter_attack", "buildup": "short_pass", "attacking_zone": "wide", "positioning": "flexible", "defensive_style": "frontline_pressure", "containment_area": "middle", "pressure": "aggressive", "fluid": false}, "sliders": {"support_range": 4, "numbers_in_attack": 2, "defensive_line": 4, "compactness": 7, "numbers_in_defence": 2}, "formations": [{"players": [{"position": "GK", "y": 3, "x": 52}, {"position": "CB", "y": 11, "x": 64}, {"position": "CB", "y": 11, "x": 40}, {"position": "RB", "y": 13, "x": 88}, {"position": "LB", "y": 13, "x": 16}, {"position": "DMF", "y": 19, "x": 52}, {"position": "CMF", "y": 24, "x": 75}, {"position": "AMF", "y": 31, "x": 51}, {"position": "CMF", "y": 24, "x": 29}, {"position": "CF", "y": 42, "x": 68}, {"position": "CF", "y": 42, "x": 35}]}, {"players": [{"position": "GK", "y": 3, "x": 52}, {"position": "CB", "y": 11, "x": 64}, {"position": "CB", "y": 11, "x": 40}, {"position": "RB", "y": 13, "x": 88}, {"position": "LB", "y": 13, "x": 16}, {"position": "DMF", "y": 19, "x": 52}, {"position": "CMF", "y": 24, "x": 75}, {"position": "AMF", "y": 31, "x": 51}, {"position": "CMF", "y": 24, "x": 29}, {"position": "CF", "y": 42, "x": 68}, {"position": "CF", "y": 42, "x": 35}]}, {"players": [{"position": "GK", "y": 3, "x": 52}, {"position": "CB", "y": 11, "x": 64}, {"position": "CB", "y": 11, "x": 40}, {"position": "RB", "y": 13, "x": 88}, {"position": "LB", "y": 13, "x": 16}, {"position": "DMF", "y": 19, "x": 52}, {"position": "CMF", "y": 24, "x": 75}, {"position": "AMF", "y": 31, "x": 51}, {"position": "CMF", "y": 24, "x": 29}, {"position": "CF", "y": 42, "x": 68}, {"position": "CF", "y": 42, "x": 35}]}], "instructions": {"attack": [{"instruction": "off", "player": 0}, {"instruction": "off", "player": 0}], "defence": [{"instruction": "swarm_the_box", "player": 0}, {"instruction": "off", "player": 0}]}}, {"man_marking": null, "style": {"attacking_style": "counter_attack", "buildup": "long_pass", "attacking_zone": "wide", "positioning": "maintain", "defensive_style": "frontline_pressure", "containment_area": "middle", "pressure": "aggressive", "fluid": false}, "sliders": {"support_range": 3, "numbers_in_attack": 2, "defensive_line": 6, "compactness": 8, "numbers_in_defence": 2}, "formations": [{"players": [{"position": "GK", "y": 3, "x": 52}, {"position": "CB", "y": 11, "x": 64}, {"position": "CB", "y": 11, "x": 40}, {"position": "RB", "y": 13, "x": 88}, {"position": "LB", "y": 13, "x": 16}, {"position": "DMF", "y": 19, "x": 52}, {"position": "CMF", "y": 24, "x": 74}, {"position": "CMF", "y": 24, "x": 29}, {"position": "AMF", "y": 31, "x": 52}, {"position": "CF", "y": 42, "x": 69}, {"position": "CF", "y": 42, "x": 35}]}, {"players": [{"position": "GK", "y": 3, "x": 52}, {"position": "CB", "y": 11, "x": 64}, {"position": "CB", "y": 11, "x": 40}, {"position": "RB", "y": 13, "x": 88}, {"position": "LB", "y": 13, "x": 16}, {"position": "DMF", "y": 19, "x": 52}, {"position": "CMF", "y": 24, "x": 74}, {"position": "CMF", "y": 24, "x": 29}, {"position": "AMF", "y": 31, "x": 52}, {"position": "CF", "y": 42, "x": 69}, {"position": "CF", "y": 42, "x": 35}]}, {"players": [{"position": "GK", "y": 3, "x": 52}, {"position": "CB", "y": 11, "x": 64}, {"position": "CB", "y": 11, "x": 40}, {"position": "RB", "y": 13, "x": 88}, {"position": "LB", "y": 13, "x": 16}, {"position": "DMF", "y": 19, "x": 52}, {"position": "CMF", "y": 24, "x": 74}, {"position": "CMF", "y": 24, "x": 29}, {"position": "AMF", "y": 31, "x": 52}, {"position": "CF", "y": 42, "x": 69}, {"position": "CF", "y": 42, "x": 35}]}], "instructions": {"attack": [{"instruction": "off", "player": 0}, {"instruction": "off", "player": 0}], "defence": [{"instruction": "swarm_the_box", "player": 0}, {"instruction": "gegenpress", "player": 0}]}}]}};
 // The settings.toml template (the spec's own block): the
 // generation fills every key the player's record holds.
-const SETTINGS_TEMPLATE = "# settings.toml, inside a player folder. Every key is optional: an absent key takes the\n# value shown here (name and shirt_name: not written). A commented key shows what can be\n# set and its range. The file never references the export's models: what a player wears\n# is decided by the folder contents (models present, link files pointing at shared\n# folders); boots_id/gloves_id only name the game's stock models.\n\n# true = derive from the folder name (\"15 - Snuffy\" gives \"Snuffy\"; the whole folder\n# name for players.txt-mapped folders); \"text\" = write as is; absent = not written.\n# name and shirt_name are used only when the export's root holds the `write_names` marker;\n# otherwise they are ignored and the names in the save stand.\nname = \"Snuffy\"\nshirt_name = \"SNUFFY\"           # \"text\" = write as is; absent = not written\nboots_id = \"\"                   # \"\" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)\ngloves_id = \"\"                  # \"\" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder's gloves models or a gloves link get an ID (pre-Fox face-XML gloves do not)\n\n[appearance]\nskin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)\niris_color = 0                  # 0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet\n\n[appearance.physique]\nneck_length = 0                 # -7 to 7\nneck_size = 0                   # -7 to 7\nshoulder_height = 0             # -7 to 7\nshoulder_width = 0              # -7 to 7\nchest = 0                       # -7 to 7\nwaist = 0                       # -7 to 7\narm_size = 0                    # -7 to 7\narm_length = 0                  # -7 to 7\nthigh = 0                       # -7 to 7\ncalf = 0                        # -7 to 7\nleg_length = 0                  # -7 to 7\nhead_length = 0                 # -7 to 7\nhead_width = 0                  # -7 to 7\nhead_depth = 0                  # -7 to 7\n\n[appearance.strip]\nsleeves = \"short\"               # \"seasonal\", \"short\", \"long\"\ninners = \"off\"                  # \"off\", \"normal\", \"turtleneck\"\nsocks = \"standard\"              # \"standard\", \"long\", \"short\"\nundershorts = \"off\"             # \"off\", \"short\", \"winter_long\" (none in summer, long in winter), \"short_winter_long\" (short in summer, long in winter)\nuntucked = true                 # true, false\nankle_taping = false            # true, false\nwrist_taping = \"off\"            # \"off\", \"right\", \"left\", \"both\"\nwrist_tape_color_left = 0       # 0 to 7\nwrist_tape_color_right = 0      # 0 to 7\nspectacles = 0                  # 0 none, 1 rectangle rimless, 2 rectangle half frame, 3 rectangle full frame, 4 oval rimless, 5 oval half frame, 6 oval full frame, 7 round full frame\nspectacles_color = 0            # 0 white, 1 black, 2 red, 3 blue, 4 yellow, 5 green, 6 pink, 7 turquoise\ngloves = false                  # true, false (outfield player gloves)\ngloves_color = 0                # 0 to 7\n\n[appearance.motion]             # on Fox written by the aesthetics patch: the tables do not hold motions\nhunching_dribbling = 1          # 1 to 3 (PES 20 and 21: 1 to 5)\nhunching_running = 1            # 1 to 3 (PES 20 and 21: 1 to 5)\narm_movement_dribbling = 1      # 1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)\narm_movement_running = 1        # 1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)\ncorner_kick = 1                 # 1 to 6 (PES 20 and 21: 1 to 10)\nfree_kick = 1                   # 1 to 16 (PES 20 and 21: 1 to 20)\npenalty_kick = 1                # 1 to 4 (PES 20 and 21: 1 to 7)\ndribbling = 0                   # 0 to 3, PES 20 and 21 only\ngoal_celebration_1 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162\ngoal_celebration_2 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162\n\n[appearance.face]\njawline = 0                     # -7 to 7\njaw_height = 0                  # -7 to 7\ncheekbones = 0                  # -7 to 7\ncheekbone_height = 0            # -7 to 7 (PES 16 to 21: no editor slider)\nchin_width = 0                  # -7 to 7\nchin_height = 0                 # -7 to 7\nchin_depth = 0                  # -7 to 7\nface_size = 0                   # -7 to 7\nface_height = 0                 # -7 to 7\nbrow_width = 0                  # -7 to 7\ninner_eyebrow_height = 0        # -7 to 7\neyebrow_depth = 0               # -7 to 7\ntemple_width = 0                # -7 to 7\nouter_eyebrow_height = 0        # -7 to 7\npupil_size = 0                  # -7 to 7\neye_depth = 0                   # -7 to 7\ninner_eye_position = 0          # -7 to 7\ninner_eye_height = 0            # -7 to 7\nouter_eye_position = 0          # -7 to 7\neye_corner_height = 0           # -7 to 7\nupper_eyelid_width_inner = 0    # -7 to 7\nupper_eyelid_height_inner = 0   # -7 to 7\nupper_eyelid_width_outer = 0    # -7 to 7\nupper_eyelid_height_outer = 0   # -7 to 7\nbottom_eyelid_height = 0        # -7 to 7\nhorizontal_eye_position = 0     # -7 to 7\neye_height = 0                  # -7 to 7\nnose_height = 0                 # -7 to 7\nnose_tip_depth = 0              # -7 to 7\nnostril_width = 0               # -7 to 7\nnose_depth = 0                  # -7 to 7\nnose_width = 0                  # -7 to 7\nmouth_height = 0                # -7 to 7\nmouth_depth = 0                 # -7 to 7\nlip_size = 0                    # -7 to 7\nmouth_corner_height = 0         # -7 to 7\nlip_width = 0                   # -7 to 7\near_length = 0                  # -7 to 7\near_width = 0                   # -7 to 7\near_angle = 0                   # -7 to 7\npes15_jaw_depth = 0             # -7 to 7, drawn by PES 15 only\npes15_cheekbone_depth = 0       # -7 to 7, drawn by PES 15 only\npes15_mouth_edge_position = 0   # -7 to 7, drawn by PES 15 only\npes15_eyebrow_depth = 0         # -7 to 7, drawn by PES 15 only\npes15_bottom_eyelid_position = 0 # -7 to 7, drawn by PES 15 only\npes15_nasal_bridge_position = 0 # -7 to 7, drawn by PES 15 only\npes15_nasal_root_height = 0     # -7 to 7, drawn by PES 15 only\ncheek_type = 0                  # 0 to 3 (PES 15: 0 to 14; PES 19: 0 to 5)\nforehead_type = 0               # 0 to 5 (PES 15 and 19: 0 to 6)\nfacial_hair_type = 0            # 0 to 12 (PES 15: 0 to 29; PES 20 and 21: 0 to 19)\nlaughter_lines_type = 0         # 0 to 4 (PES 15: 0 to 6)\nupper_eyelid_type = 0           # 0 to 6 (PES 15: 0 to 14; PES 20 and 21: 0 to 7)\nlower_eyelid_type = 0           # 0 to 2 (PES 15: 0 to 14; PES 20 and 21: 0 to 6)\neyebrow_type = 0                # 0 to 5 (PES 15: 0 to 17; PES 20 and 21: 0 to 7)\nneck_line_type = 0              # 0 to 2 (PES 15: 0 to 5; PES 20 and 21: 0 to 3)\nnose_type = 0                   # 0 to 6 (PES 15: 0 to 11; PES 20 and 21: 0 to 7)\npes15_nose_angle = 0            # -1 to 1; PES 15 only\nupper_lip_type = 0              # 0 to 3 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)\nlower_lip_type = 0              # 0 to 2 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)\neyebrow_color_red = 14          # 0 to 63\neyebrow_color_green = 10        # 0 to 63\neyebrow_color_blue = 7          # 0 to 63\neyebrow_style = 0               # 0 normal, 1 thick, 2 thin\neyebrow_density = 3             # 0 to 3\neyebrow_thickness = 1           # 0 to 3\nfacial_hair_color_red = 14      # 0 to 63\nfacial_hair_color_green = 10    # 0 to 63\nfacial_hair_color_blue = 7      # 0 to 63\nfacial_hair_thickness = 3       # 0 to 3\npes15_eye_white = 0             # 0 to 3, brighter eye whites, drawn by PES 15 only\n\n[appearance.hair]\ncolor_red = 14                  # 0 to 63\ncolor_green = 10                # 0 to 63\ncolor_blue = 7                  # 0 to 63\ncolor_preset = 0                # 0 custom (the colour above), 1 to 8 the editor's presets\naccessory = false               # true, false (PES 15: the game sets it with the variation)\naccessory_color = 0             # 0 white, 1 dark grey, 2 red, 3 blue, 4 yellow, 5 green, 6 magenta, 7 cyan\nstyle = 1                       # 1 normal, 2 dry, 3 mohican, 4 afro, 5 dreadlocks, 6 braided, 7 special, 0 in some saves; PES 16 to 21\ncropped_style = 1               # 1 to 6, 0 in some saves; PES 16 to 21\nlength = 2                      # 1 shaven, 2 very short, 3 short, 4 medium, 5 long, 0 in some saves; PES 16 to 21\nwave_level = 0                  # 0 to 6, -1 in some saves; PES 16 to 21\nvariation = 0                   # 0 to 29; PES 16 to 21\nfront_style = 1                 # 1 up, 2 down, 3 combed back, 0 in some saves; PES 16 to 21\nparted = 1                      # 1 off, 2 left 2, 3 left 1, 4 centre, 5 right 1, 6 right 2, 0 in some saves; PES 16 to 21\nside_back_style = 4             # 1 normal, 2 reduce body, 3 shorter sides, 4 cropped, 0 in some saves; PES 16 to 21\nhairline = 1                    # 1 to 3, 0 in some saves; PES 16 to 21\nforehead_width = 2              # 1 narrow, 2 normal, 3 wide, 0 in some saves; PES 16 to 21\npes15_length = 2                # 1 skinhead, 2 very short, 3 short, 4 medium, 5 long, 6 special; PES 15 only\npes15_type = 1                  # 0 none (skinhead, special), 1 straight, 2 wavy, 3 permed, 4 dreadlocks; PES 15 only\npes15_variation = 1             # 1 to 82, the editor's grid position (each length and type has its own grid); PES 15 only\n";
+const SETTINGS_TEMPLATE = "# settings.toml, inside a player folder. Every key is optional: an absent key takes the\n# value shown here (name and shirt_name: not written). A commented key shows what can be\n# set and its range. The file never references the export's models: what a player wears\n# is decided by the folder contents (models present, link files pointing at shared\n# folders); boots_id/gloves_id only name the game's stock models.\n# The in-game face's keys (iris, face, hair) are in ingame_face.toml.\n\n# true = derive from the folder name (\"15 - Snuffy\" gives \"Snuffy\"; the whole folder\n# name for players.txt-mapped folders); \"text\" = write as is; absent = not written.\n# name and shirt_name are used only when the export's root holds the `write_names` marker;\n# otherwise they are ignored and the names in the save stand.\nname = \"Snuffy\"\nshirt_name = \"SNUFFY\"           # \"text\" = write as is; absent = not written\nboots_id = \"\"                   # \"\" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock boots model; ignored when the folder's boots models or a boots link get an ID (pre-Fox face-XML boots do not)\ngloves_id = \"\"                  # \"\" = default (fpc_on: hidden, fpc_off 0, no marker 0 or in a Midcup export the installed ID); 0 to 100, a stock gloves model (0 = normal hands); ignored when the folder's gloves models or a gloves link get an ID (pre-Fox face-XML gloves do not)\n\n[appearance]\nskin_color = 1                  # 0 white, 1 light, 2 fair, 3 medium, 4 olive, 5 brown, 6 black, 7 custom (invisible body, PES 15 to 17 only)\n\n[appearance.physique]\nneck_length = 0                 # -7 to 7\nneck_size = 0                   # -7 to 7\nshoulder_height = 0             # -7 to 7\nshoulder_width = 0              # -7 to 7\nchest = 0                       # -7 to 7\nwaist = 0                       # -7 to 7\narm_size = 0                    # -7 to 7\narm_length = 0                  # -7 to 7\nthigh = 0                       # -7 to 7\ncalf = 0                        # -7 to 7\nleg_length = 0                  # -7 to 7\nhead_length = 0                 # -7 to 7\nhead_width = 0                  # -7 to 7\nhead_depth = 0                  # -7 to 7\n\n[appearance.strip]\nsleeves = \"short\"               # \"seasonal\", \"short\", \"long\"\ninners = \"off\"                  # \"off\", \"normal\", \"turtleneck\"\nsocks = \"standard\"              # \"standard\", \"long\", \"short\"\nundershorts = \"off\"             # \"off\", \"short\", \"winter_long\" (none in summer, long in winter), \"short_winter_long\" (short in summer, long in winter)\nuntucked = true                 # true, false\nankle_taping = false            # true, false\nwrist_taping = \"off\"            # \"off\", \"right\", \"left\", \"both\"\nwrist_tape_color_left = 0       # 0 to 7\nwrist_tape_color_right = 0      # 0 to 7\nspectacles = 0                  # 0 none, 1 rectangle rimless, 2 rectangle half frame, 3 rectangle full frame, 4 oval rimless, 5 oval half frame, 6 oval full frame, 7 round full frame\nspectacles_color = 0            # 0 white, 1 black, 2 red, 3 blue, 4 yellow, 5 green, 6 pink, 7 turquoise\ngloves = false                  # true, false (outfield player gloves)\ngloves_color = 0                # 0 to 7\n\n[appearance.motion]             # on Fox written by the aesthetics patch: the tables do not hold motions\nhunching_dribbling = 1          # 1 to 3 (PES 20 and 21: 1 to 5)\nhunching_running = 1            # 1 to 3 (PES 20 and 21: 1 to 5)\narm_movement_dribbling = 1      # 1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)\narm_movement_running = 1        # 1 to 8 (PES 15: 1 to 5; PES 20 and 21: 1 to 10)\ncorner_kick = 1                 # 1 to 6 (PES 20 and 21: 1 to 10)\nfree_kick = 1                   # 1 to 16 (PES 20 and 21: 1 to 20)\npenalty_kick = 1                # 1 to 4 (PES 20 and 21: 1 to 7)\ndribbling = 0                   # 0 to 3, PES 20 and 21 only\ngoal_celebration_1 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162\ngoal_celebration_2 = 0          # 0 none, then PES 15: 1 to 112, 16 and 17: 1 to 122, 18: 1 to 127, 19: 1 to 140, 20: 1 to 152, 21: 1 to 162\n";
+// The ingame_face.toml template (the spec's own block): iris_color at the
+// top, then [face] and [hair] - the settings template's face run with the
+// [appearance] root dropped.
+const INGAME_FACE_TEMPLATE = "# ingame_face.toml, inside a player folder: the in-game face, which the game draws when\n# the folder holds no face model and no face link. The file marks the folder as wearing\n# it. Every key is optional: an absent key takes the value shown here, and an empty file\n# is the game's default face. A commented key shows what can be set and its range.\n\niris_color = 0                  # 0 black, 1 dark brown, 2 brown, 3 sable, 4 navy blue, 5 charcoal, 6 gray, 7 blue, 8 sienna, 9 green, 10 violet\n\n[face]\njawline = 0                     # -7 to 7\njaw_height = 0                  # -7 to 7\ncheekbones = 0                  # -7 to 7\ncheekbone_height = 0            # -7 to 7 (PES 16 to 21: no editor slider)\nchin_width = 0                  # -7 to 7\nchin_height = 0                 # -7 to 7\nchin_depth = 0                  # -7 to 7\nface_size = 0                   # -7 to 7\nface_height = 0                 # -7 to 7\nbrow_width = 0                  # -7 to 7\ninner_eyebrow_height = 0        # -7 to 7\neyebrow_depth = 0               # -7 to 7\ntemple_width = 0                # -7 to 7\nouter_eyebrow_height = 0        # -7 to 7\npupil_size = 0                  # -7 to 7\neye_depth = 0                   # -7 to 7\ninner_eye_position = 0          # -7 to 7\ninner_eye_height = 0            # -7 to 7\nouter_eye_position = 0          # -7 to 7\neye_corner_height = 0           # -7 to 7\nupper_eyelid_width_inner = 0    # -7 to 7\nupper_eyelid_height_inner = 0   # -7 to 7\nupper_eyelid_width_outer = 0    # -7 to 7\nupper_eyelid_height_outer = 0   # -7 to 7\nbottom_eyelid_height = 0        # -7 to 7\nhorizontal_eye_position = 0     # -7 to 7\neye_height = 0                  # -7 to 7\nnose_height = 0                 # -7 to 7\nnose_tip_depth = 0              # -7 to 7\nnostril_width = 0               # -7 to 7\nnose_depth = 0                  # -7 to 7\nnose_width = 0                  # -7 to 7\nmouth_height = 0                # -7 to 7\nmouth_depth = 0                 # -7 to 7\nlip_size = 0                    # -7 to 7\nmouth_corner_height = 0         # -7 to 7\nlip_width = 0                   # -7 to 7\near_length = 0                  # -7 to 7\near_width = 0                   # -7 to 7\near_angle = 0                   # -7 to 7\npes15_jaw_depth = 0             # -7 to 7, drawn by PES 15 only\npes15_cheekbone_depth = 0       # -7 to 7, drawn by PES 15 only\npes15_mouth_edge_position = 0   # -7 to 7, drawn by PES 15 only\npes15_eyebrow_depth = 0         # -7 to 7, drawn by PES 15 only\npes15_bottom_eyelid_position = 0 # -7 to 7, drawn by PES 15 only\npes15_nasal_bridge_position = 0 # -7 to 7, drawn by PES 15 only\npes15_nasal_root_height = 0     # -7 to 7, drawn by PES 15 only\ncheek_type = 0                  # 0 to 3 (PES 15: 0 to 14; PES 19: 0 to 5)\nforehead_type = 0               # 0 to 5 (PES 15 and 19: 0 to 6)\nfacial_hair_type = 0            # 0 to 12 (PES 15: 0 to 29; PES 20 and 21: 0 to 19)\nlaughter_lines_type = 0         # 0 to 4 (PES 15: 0 to 6)\nupper_eyelid_type = 0           # 0 to 6 (PES 15: 0 to 14; PES 20 and 21: 0 to 7)\nlower_eyelid_type = 0           # 0 to 2 (PES 15: 0 to 14; PES 20 and 21: 0 to 6)\neyebrow_type = 0                # 0 to 5 (PES 15: 0 to 17; PES 20 and 21: 0 to 7)\nneck_line_type = 0              # 0 to 2 (PES 15: 0 to 5; PES 20 and 21: 0 to 3)\nnose_type = 0                   # 0 to 6 (PES 15: 0 to 11; PES 20 and 21: 0 to 7)\npes15_nose_angle = 0            # -1 to 1; PES 15 only\nupper_lip_type = 0              # 0 to 3 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)\nlower_lip_type = 0              # 0 to 2 (PES 15: 0 to 7; PES 20 and 21: 0 to 4)\neyebrow_color_red = 14          # 0 to 63\neyebrow_color_green = 10        # 0 to 63\neyebrow_color_blue = 7          # 0 to 63\neyebrow_style = 0               # 0 normal, 1 thick, 2 thin\neyebrow_density = 3             # 0 to 3\neyebrow_thickness = 1           # 0 to 3\nfacial_hair_color_red = 14      # 0 to 63\nfacial_hair_color_green = 10    # 0 to 63\nfacial_hair_color_blue = 7      # 0 to 63\nfacial_hair_thickness = 3       # 0 to 3\npes15_eye_white = 0             # 0 to 3, brighter eye whites, drawn by PES 15 only\n\n[hair]\ncolor_red = 14                  # 0 to 63\ncolor_green = 10                # 0 to 63\ncolor_blue = 7                  # 0 to 63\ncolor_preset = 0                # 0 custom (the colour above), 1 to 8 the editor's presets\naccessory = false               # true, false (PES 15: the game sets it with the variation)\naccessory_color = 0             # 0 white, 1 dark grey, 2 red, 3 blue, 4 yellow, 5 green, 6 magenta, 7 cyan\nstyle = 1                       # 1 normal, 2 dry, 3 mohican, 4 afro, 5 dreadlocks, 6 braided, 7 special, 0 in some saves; PES 16 to 21\ncropped_style = 1               # 1 to 6, 0 in some saves; PES 16 to 21\nlength = 2                      # 1 shaven, 2 very short, 3 short, 4 medium, 5 long, 0 in some saves; PES 16 to 21\nwave_level = 0                  # 0 to 6, -1 in some saves; PES 16 to 21\nvariation = 0                   # 0 to 29; PES 16 to 21\nfront_style = 1                 # 1 up, 2 down, 3 combed back, 0 in some saves; PES 16 to 21\nparted = 1                      # 1 off, 2 left 2, 3 left 1, 4 centre, 5 right 1, 6 right 2, 0 in some saves; PES 16 to 21\nside_back_style = 4             # 1 normal, 2 reduce body, 3 shorter sides, 4 cropped, 0 in some saves; PES 16 to 21\nhairline = 1                    # 1 to 3, 0 in some saves; PES 16 to 21\nforehead_width = 2              # 1 narrow, 2 normal, 3 wide, 0 in some saves; PES 16 to 21\npes15_length = 2                # 1 skinhead, 2 very short, 3 short, 4 medium, 5 long, 6 special; PES 15 only\npes15_type = 1                  # 0 none (skinhead, special), 1 straight, 2 wavy, 3 permed, 4 dreadlocks; PES 15 only\npes15_variation = 1             # 1 to 82, the editor's grid position (each length and type has its own grid); PES 15 only\n";
 //__INTERCHANGE_DATA_END__
 
 // ---- Closed sets: pes_savefile's label tables (team_toml/labels.rs) ----
@@ -2432,7 +2392,6 @@ function openSave(key, path) {
   S.picker = null;
   S.panel = null;
   S.cmp = { second: null, refused: null, scope: "all", team: "all" };
-  S.trn = { donor: null, refused: null, sel: "718,70201:70201", armed: null, preview: null, applied: false };
   S.aatf = { mode: "current", teams: {}, sugg: false, validate: null, savedCopy: null };
   S.pat = { loaded: false, refused: null, applied: false };
   // The interchange panel: the picked file, the section choices, the last
@@ -2732,13 +2691,13 @@ const WALK = [
   ["SE-GUI-26", "the Open menu: the discovered saves with version (and account folder from 19), the session's recents, then the picker; Save as keeps the replaced file as .bak"],
   ["SE-GUI-28", "PES selector at 2019 with the PES 21 sample open: the warning names both; the save keeps its version"],
   ["SE-GUI-13", "Panels, Comparator: pick the PES 21 sample (refused), then Autumn24Q; the toggles and the team filter narrow the rows, Export writes their report lines, a row click selects the player"],
-  ["SE-GUI-14", "Panels, Aesthetics transplant: the PES 21 donor is refused; pick Autumn24Q, keep the --select text, Preview then Apply (the lock must be on); a pair also builds by clicking a target then a donor in the two panes"],
   ["SE-GUI-15", "the AATF button (on the Abilities tab) or Panels menu: violations grouped per player, a click selects him; Show suggestions (official), Validate rules on the broken files, Save a copy; Select teams ticks e.g. 708 for its Height, BracketQuota and ExtraHeight"],
   ["SE-GUI-30", "PES 17 sample, team 718, the DBC7 ruleset: switch Live AATF on in the toolbar; the bottom panel lists the team's issues, errors first, under 'N issues · DBC7'. Lower a stat over its maximum (a Stat row) to its target: the list dims, marked checking, then the row is gone and N is one less; Undo brings it back. Under the official ruleset on 718, untick the team-rows control and set each Height row's player to 180: 'No issues: ... passes ...'. Reload the page: Live AATF is still on"],
   ["SE-GUI-18", "Panels, Apply aesthetics patch: on the PES 21 sample the preview lists the changed players, Apply is one edit; on the PES 17 sample the same patch is refused"],
   ["SE-GUI-16", "Panels, Team file interchange: Team TOML export writes the team's file; pick 701.toml (PES 21) for the warning list, a 718 or 722 one for the refusals; Apply is one undoable edit"],
   ["SE-GUI-17", "same panel: the .4ccs files pair records with the rostered players; the .4cct imports tactics; on PES 21 Texport export writes a .ted the picker then reads back; on PES 17 it is disabled"],
   ["SE-GUI-19", "Player menu, Generate settings.toml on a /f/ player: the file's name line is the explicit coded string"],
+  ["SE-GUI-33", "Player menu, Generate settings.toml then Generate in-game face on one player: the settings.toml holds no face, hair or iris key; the ingame_face.toml holds his iris_color, [hair] length and every other face and hair key"],
 ];
 
 
@@ -2890,6 +2849,7 @@ function playerMenu() {
     ["Swap stats with\u2026", () => dlgCopySwap(p, "swap")],
     "-",
     ["Generate settings.toml\u2026", dlgSettings],
+    ["Generate in-game face\u2026", dlgIngameFace],
   ]);
 }
 function teamMenu() {
@@ -4451,11 +4411,9 @@ function fieldTerm(field) {
     show: s => RATING_OF[Number(s)] };
   return { label: field, show: s => s };
 }
-// The stored-value read/write of every field a transplant or patch carries:
-// get(p) reads the save's stored value as the report prints it, put(p, s)
-// writes one (transplant's old->new direction, the patch's). A field the
-// model does not carry writes into a draft-only bag instead, so the Apply
-// still lands as one undoable edit.
+// The stored-value write of every field a patch carries: FIELD_STORE maps a
+// field's report name to its writer. A field the model does not carry writes
+// into a draft-only bag instead, so the Apply still lands as one undoable edit.
 const PHYS_KEYS = { NeckLength: "neck_length", NeckSize: "neck_size",
   ShoulderHeight: "shoulder_height", ShoulderWidth: "shoulder_width",
   Chest: "chest", Waist: "waist", ArmSize: "arm_size", ArmLength: "arm_length",
@@ -4482,36 +4440,29 @@ const FLAG_STORE = { EditedFace: "face", EditedHair: "hair",
   EditedPhysique: "physique", EditedStrip: "strip", EditedMotion: "motion",
   BaseCopy: "base_copy" };
 const FIELD_STORE = {
-  BootsId: { g: p => String(p.boots_id), s: (p, v) => p.boots_id = Number(v) },
-  GlovesId: { g: p => String(p.gloves_id), s: (p, v) => p.gloves_id = Number(v) },
-  BaseCopyId: { g: p => String(p.base_copy_id), s: (p, v) => p.base_copy_id = Number(v) },
-  SkinColor: { g: p => String(p.appearance.skin_color), s: (p, v) => p.appearance.skin_color = Number(v) },
-  IrisColor: { g: p => String(p.appearance.iris_color), s: (p, v) => p.appearance.iris_color = Number(v) },
+  BootsId: (p, v) => p.boots_id = Number(v),
+  GlovesId: (p, v) => p.gloves_id = Number(v),
+  BaseCopyId: (p, v) => p.base_copy_id = Number(v),
+  SkinColor: (p, v) => p.appearance.skin_color = Number(v),
+  IrisColor: (p, v) => p.appearance.iris_color = Number(v),
 };
-for (const [f, k] of Object.entries(PHYS_KEYS)) FIELD_STORE[f] = {
-  g: p => String(p.appearance.physique[k] + 7),
-  s: (p, v) => p.appearance.physique[k] = Number(v) - 7 };
-for (const [f, [k, table]] of Object.entries(STRIP_ENUM)) FIELD_STORE[f] = {
-  g: p => String(table.indexOf(p.appearance.strip[k])),
-  s: (p, v) => p.appearance.strip[k] = table[Number(v)] };
-for (const [f, k] of Object.entries(STRIP_NUM)) FIELD_STORE[f] = {
-  g: p => String(p.appearance.strip[k] ?? 0),
-  s: (p, v) => p.appearance.strip[k] = Number(v) };
-for (const [f, k] of Object.entries(STRIP_BOOL)) FIELD_STORE[f] = {
-  g: p => p.appearance.strip[k] ? "1" : "0",
-  s: (p, v) => p.appearance.strip[k] = v === "1" };
-for (const [f, k] of Object.entries(MOTION_1BASED)) FIELD_STORE[f] = {
-  g: p => String((p.appearance.motion[k] ?? 0) - 1),
-  s: (p, v) => p.appearance.motion[k] = Number(v) + 1 };
-for (const [f, k] of Object.entries(MOTION_0BASED)) FIELD_STORE[f] = {
-  g: p => String(p.appearance.motion[k] ?? 0),
-  s: (p, v) => p.appearance.motion[k] = Number(v) };
-for (const [f, k] of Object.entries(FLAG_STORE)) FIELD_STORE[f] = {
-  g: p => p.edit_flags[k] ? "1" : "0",
-  s: (p, v) => p.edit_flags[k] = v === "1" };
+for (const [f, k] of Object.entries(PHYS_KEYS)) FIELD_STORE[f] =
+  (p, v) => p.appearance.physique[k] = Number(v) - 7;
+for (const [f, [k, table]] of Object.entries(STRIP_ENUM)) FIELD_STORE[f] =
+  (p, v) => p.appearance.strip[k] = table[Number(v)];
+for (const [f, k] of Object.entries(STRIP_NUM)) FIELD_STORE[f] =
+  (p, v) => p.appearance.strip[k] = Number(v);
+for (const [f, k] of Object.entries(STRIP_BOOL)) FIELD_STORE[f] =
+  (p, v) => p.appearance.strip[k] = v === "1";
+for (const [f, k] of Object.entries(MOTION_1BASED)) FIELD_STORE[f] =
+  (p, v) => p.appearance.motion[k] = Number(v) + 1;
+for (const [f, k] of Object.entries(MOTION_0BASED)) FIELD_STORE[f] =
+  (p, v) => p.appearance.motion[k] = Number(v);
+for (const [f, k] of Object.entries(FLAG_STORE)) FIELD_STORE[f] =
+  (p, v) => p.edit_flags[k] = v === "1";
 function putStored(p, field, v) {
   const w = FIELD_STORE[field];
-  if (w) w.s(p, v);
+  if (w) w(p, v);
   else { p.aes_extra = p.aes_extra || {}; p.aes_extra[field] = v; }
 }
 // One diff row drawn in the tabs' terms: label, shown old, shown new.
@@ -4526,7 +4477,7 @@ function jumpToPlayer(teamId, slot) {
 }
 // A panel row's player header: the id plus, as the player list draws them,
 // his shirt number and colour-coded name. A player the page holds no record
-// for (a donor save's) keeps the bare id.
+// for (the picked save's) keeps the bare id.
 function playerHead(pid) {
   const p = curSave().teams.flatMap(t => t.players).find(q => q.id === pid);
   if (!p) return h("div", { class: "grp weak" }, "Player " + pid);
@@ -4537,15 +4488,12 @@ function playerHead(pid) {
 
 // Panel state: one floating window at a time.
 // S.cmp: the comparator (second save picked, scope toggle, team filter).
-// S.trn: the transplant (donor, selection text, the browser's armed target,
-//   the computed preview).
 // S.aatf: the violations panel (team mode + picked teams, suggestions, the
 //   last validation, the saved copy's text).
 // S.pat: the aesthetics patch (loaded, previewed, refused).
 // (Initialized in openSave: a panel's state is per-save.)
 S.panel = null;
-// The sample saves a second-save or donor pick can name (the PES 17 save for
-// the comparator, transplant and AATF; the PES 21 save for the patch).
+// The sample saves the comparator's second-save pick can name.
 const SECOND_SAVES = [
   { key: "autumn24q", label: "Autumn24Q EDIT00000000", version: 17 },
   { key: "pes17", label: "the PES 2017 sample save", version: 17 },
@@ -4564,7 +4512,6 @@ function panelsMenu() {
   return menu("Panels", [
     ["AATF violations\u2026", () => { S.panel = "aatf"; render(); }],
     ["Comparator\u2026", () => { S.panel = "comparator"; render(); }],
-    ["Aesthetics transplant\u2026", () => { S.panel = "transplant"; render(); }],
     "-",
     ["Apply aesthetics patch\u2026", () => { S.panel = "patch"; render(); }],
     "-",
@@ -4656,193 +4603,6 @@ function comparatorPanel() {
     list.append(row);
   }
   c.append(list);
-  return c;
-}
-
-// ---- Aesthetics transplant (SE-GUI-14) ----
-// The selection grammar is the CLI's `--select`: player ids, target:donor
-// pairs, whole teams, team ranges. The two-pane browser appends pairs to it.
-// The preview is the aesthetics diff of the result: for every selected target
-// the fields the donor's values would change, in the report's row order.
-// sample wording: the refusal's sentence (the CLI's own), the controls.
-function trnPick(key) {
-  const d = SECOND_SAVES.find(x => x.key === key);
-  if (!d) return;
-  S.trn.preview = null; S.trn.applied = false;
-  if (d.version !== version()) {
-    S.trn.donor = null;
-    S.trn.refused = "The base save is a PES 20" + version()
-      + " save and the donor a PES 20" + d.version
-      + " one: both must be of one version";
-    return;
-  }
-  S.trn.refused = null;
-  S.trn.donor = key;
-}
-// The aesthetics rows indexed for the donor lookup: field -> pid -> old (the
-// donor's stored value), and their report order.
-const AES_ORDER = [], AES_OLD = {}, AES_NEW = {};
-for (const r of DIFF17)
-  if (r[4] === "a") {
-    if (!AES_ORDER.includes(r[1])) AES_ORDER.push(r[1]);
-    (AES_OLD[r[1]] = AES_OLD[r[1]] || {})[r[0]] = r[2];
-    (AES_NEW[r[1]] = AES_NEW[r[1]] || {})[r[0]] = r[3];
-  }
-// The donor's stored value of `field` for player `pid`: for the Autumn24Q
-// donor the diff's `old` where a row exists, else the open save's own (a
-// field without a row is one the two saves share); for the open save as its
-// own donor, the model's value alone. Null where the draft knows neither.
-function donorValue(field, pid) {
-  if (S.trn.donor === "autumn24q" && AES_OLD[field] && AES_OLD[field][pid] !== undefined)
-    return AES_OLD[field][pid];
-  const p = curSave().teams.flatMap(t => t.players).find(q => q.id === pid);
-  const w = p && FIELD_STORE[field];
-  return w ? w.g(p) : null;
-}
-// The selection text -> [{t, d}] (target id -> donor id), expanding teams and
-// ranges over the open save's roster. A team the page does not carry notes
-// itself in `notes`.
-function parseSelection(text) {
-  const pairs = [], notes = [];
-  const add = (t, d) => pairs.push({ t, d });
-  for (let item of text.split(",")) {
-    item = item.trim();
-    if (!item) continue;
-    let m = item.match(/^(\d+):(\d+)$/);
-    if (m) { add(Number(m[1]), Number(m[2])); continue; }
-    m = item.match(/^(\d+)-(\d+)$/);
-    if (m) {
-      for (let tid = Number(m[1]); tid <= Number(m[2]); tid++) expandTeam(tid, add, notes);
-      continue;
-    }
-    m = item.match(/^(\d+)$/);
-    if (m) {
-      const n = Number(m[1]);
-      if (n >= 10000) add(n, n);
-      else expandTeam(n, add, notes);
-      continue;
-    }
-    notes.push("skipped " + item + ": not an id, pair, team or range");
-  }
-  return { pairs, notes };
-}
-function expandTeam(tid, add, notes) {
-  const t = curSave().teams.find(t => t.id === tid);
-  if (!t) { notes.push("team " + tid + ": no sample data in the draft"); return; }
-  for (const p of t.players) add(p.id, p.id);
-}
-// The preview's rows: [target id, field, old (target's stored), new (donor's)]
-// in the report's row order, the pair itself where a same-id row exists.
-function trnPreviewRows() {
-  const { pairs, notes } = parseSelection(S.trn.sel);
-  const allPlayers = () => curSave().teams.flatMap(x => x.players);
-  const byTarget = new Map();
-  for (const { t, d } of pairs) {
-    const rows = byTarget.get(t) || byTarget.set(t, []).get(t);
-    const target = allPlayers().find(q => q.id === t);
-    for (const field of AES_ORDER) {
-      // The target's stored value: the model's where a field maps, the
-      // diff's `new` (the open save's value) for one the model lacks.
-      const curS = target && FIELD_STORE[field] ? FIELD_STORE[field].g(target)
-        : (AES_NEW[field] || {})[t] ?? null;
-      const dv = donorValue(field, d);
-      if (curS !== null && dv !== null && curS !== dv && !rows.some(r => r[1] === field))
-        rows.push([t, field, curS, dv]);
-    }
-  }
-  const rows = [...byTarget.entries()].sort((a, b) => a[0] - b[0])
-    .flatMap(([, rs]) => rs);
-  return { rows, notes };
-}
-function trnApply() {
-  const targets = {};
-  for (const t of curSave().teams) for (const p of t.players) targets[p.id] = p;
-  edit("Aesthetics transplant", () => {
-    for (const [pid, field, , dv] of S.trn.preview.rows) {
-      const p = targets[pid];
-      if (p) putStored(p, field, dv);
-    }
-  });
-  S.trn.applied = true;
-}
-function transplantPanel() {
-  const c = h("div", {},
-    h("div", { class: "row" },
-      weak("Donor save "),
-      combo([[null, "(pick a save)"]].concat(SECOND_SAVES.map(d => [d.key, d.label + " (PES " + d.version + ")"])),
-        S.trn.donor, v => v && trnPick(v), { title: "The save the looks are copied from" }),
-      S.trn.donor ? h("span", { title: S.editAnyway ? "" : ownershipTip() },
-        button("Apply", () => { trnApply(); render(); },
-          { disabled: !S.editAnyway || !S.trn.preview || S.trn.preview.rows.length === 0 || S.trn.applied,
-            title: S.editAnyway ? "Write the donor's appearance onto the selection, one undoable edit" : ownershipTip() })) : null),
-    S.trn.refused ? h("div", { class: "row err", id: "trn-refused" }, S.trn.refused) : null);
-  if (!S.trn.donor) {
-    if (!S.trn.refused) c.append(weak("Pick a donor save of the same version."));
-    return c;
-  }
-  const selIn = h("input", { type: "text", id: "trn-sel", style: "width:340px",
-    value: S.trn.sel,
-    onchange: e => { S.trn.sel = e.target.value; S.trn.preview = null; render(); } });
-  c.append(h("div", { class: "row" },
-      weak("Selection "), selIn,
-      button("Preview", () => { S.trn.preview = trnPreviewRows(); S.trn.applied = false; render(); },
-        { title: "The aesthetics diff of the result" })),
-    h("div", { class: "row weak small" },
-      "Player ids, target:donor pairs, teams, team ranges; the browser below appends pairs."));
-  // The two-pane browser: the open save's players left, the donor's right.
-  // Click a target to arm it, a donor to append the pair.
-  const pane = (side, teams, playersOf) => {
-    const sel = combo(teams.map(t => [String(t.id), t.label]),
-      String(S.trn[side] || teams[0].id), v => { S.trn[side] = Number(v); });
-    const tid = Number(S.trn[side] || teams[0].id);
-    const list = h("div", { class: "plist-mini" },
-      playersOf(tid).map(([slot, pid, name]) =>
-        h("div", { class: "prow" + (S.trn.armed === pid ? " on" : ""),
-          onclick: () => {
-            if (side === "tt") { S.trn.armed = S.trn.armed === pid ? null : pid; }
-            else {
-              const t = S.trn.armed ?? pid;
-              S.trn.sel = (S.trn.sel ? S.trn.sel + "," : "") + t + ":" + pid;
-              S.trn.armed = null; S.trn.preview = null;
-            }
-            render();
-          }, title: side === "tt" ? "Pick as the target" : "Pair with the armed target (or itself)" },
-          h("span", { class: "num weak" }, String(slot).padStart(2, "0")),
-          h("span", { class: "mono weak" }, String(pid)), " ", h("span", {}, name))));
-    return h("div", { class: "pane" },
-      h("div", { class: "row" }, weak(side === "tt" ? "Target (this save) " : "Donor "), sel), list);
-  };
-  if (S.trn.donor === "autumn24q") {
-    const tTeams = curSave().teams.map(t => ({ id: t.id, label: t.id + " " + t.name }));
-    const dTeams = Object.keys(DONOR17.teams).map(id => ({ id: Number(id), label: id }));
-    c.append(h("div", { class: "panes" },
-      pane("tt", tTeams, tid => {
-        const t = curSave().teams.find(t => t.id === tid);
-        return t ? t.players.map(p => [p.slot, p.id, displayName(p.name)]) : [];
-      }),
-      pane("dd", dTeams, tid => (DONOR17.teams[tid] || [])
-        .map(([slot, pid, name]) => [slot, pid, displayName(name)]))));
-  }
-  if (S.trn.preview) {
-    const { rows, notes } = S.trn.preview;
-    for (const n of notes) c.append(h("div", { class: "row warn" }, n));
-    if (!rows.length && !notes.length)
-      c.append(h("div", { class: "row weak" }, "No player of the selection changes."));
-    let lastPid = null;
-    const list = h("div", { id: "trn-rows" });
-    for (const r of rows) {
-      const [pid, field, o, n] = r;
-      if (pid !== lastPid) { list.append(playerHead(pid)); lastPid = pid; }
-      const d = diffRowDraw(field, o, n);
-      list.append(h("div", { class: "drow sel",
-        onclick: () => { const t = Math.floor(pid / 100); if (curSave().teams.some(t => t.id === t)) { jumpToPlayer(t, pid % 100); render(); } },
-        title: "Select this player" },
-        h("span", { class: "f" }, d.label),
-        h("span", { class: "v" }, d.oldV + " \u2192 " + d.newV)));
-    }
-    c.append(h("div", { class: "row weak" }, rows.length + " changed field(s)"), list);
-  }
-  if (S.trn.applied) c.append(h("div", { class: "row" }, weak("Applied; unsaved until Save.")));
   return c;
 }
 
@@ -5749,13 +5509,16 @@ function interchangePanel() {
   return c;
 }
 
-// ---- settings.toml generation (SE-GUI-19) ----
-// A Player-menu action (the file is per player folder): the template's
+// ---- settings.toml and ingame_face.toml generation (SE-GUI-19, SE-GUI-33) ----
+// Two Player-menu actions (each file is per player folder): the template's
 // layout with the player's values filled; a key the version's record does
 // not hold stays a commented line. name and shirt_name are the save's
 // strings, colour codes escaped - never `name = true`, which is the
 // upgrader's folder-name rule. boots_id/gloves_id are emitted only when
-// they name a stock model (1 to 100), else "" (the folder decides).
+// they name a stock model (1 to 100), else "" (the folder decides). The
+// face, hair and iris keys are not in settings.toml: the save cannot say
+// which players wear the in-game face, so Generate in-game face writes
+// them into ingame_face.toml for the member who knows.
 function tomlStr(s) {
   return '"' + s.replace(/\\/g, "\\\\").replace(/"/g, '\\"')
     .replace(/[\x00-\x1f]/g, c => "\\u" + c.codePointAt(0).toString(16).padStart(4, "0"))
@@ -5766,58 +5529,76 @@ function tomlVal(v) {
   if (typeof v === "boolean") return v ? "true" : "false";
   return String(v);
 }
-function settingsToml(p) {
+// Fill `template`'s key lines from `lookup(section, key)`: a value fills
+// its line, an undefined one leaves it commented.
+function fillToml(template, lookup) {
   let section = "";
-  return SETTINGS_TEMPLATE.split("\n").map(line => {
+  return template.split("\n").map(line => {
     const sec = line.match(/^\[(.+)\]/);
     if (sec) { section = sec[1]; return line; }
     const m = line.match(/^([a-z0-9_]+) = (.+?)(\s+#.*)?$/i);
     if (!m) return line;
     const [, key, , comment] = m;
-    let val;
-    if (section === "") {
-      if (key === "name") val = p.name;
-      else if (key === "shirt_name") val = p.shirt_name;
-      else if (key === "boots_id") val = p.boots_id >= 1 && p.boots_id <= 100 ? p.boots_id : "";
-      else if (key === "gloves_id") val = p.gloves_id >= 1 && p.gloves_id <= 100 ? p.gloves_id : "";
-    } else {
-      const path = section.replace(/^appearance\.?/, "");
-      val = path ? (p.appearance[path] || {})[key] : p.appearance[key];
-    }
+    const val = lookup(section, key);
     return val === undefined ? "# " + line
       : key + " = " + tomlVal(val) + (comment || "");
   }).join("\n");
 }
-function dlgSettings() {
-  const p = curPlayer(), t = teamOf(p);
+function settingsToml(p) {
+  return fillToml(SETTINGS_TEMPLATE, (section, key) => {
+    if (section === "") {
+      if (key === "name") return p.name;
+      if (key === "shirt_name") return p.shirt_name;
+      if (key === "boots_id") return p.boots_id >= 1 && p.boots_id <= 100 ? p.boots_id : "";
+      if (key === "gloves_id") return p.gloves_id >= 1 && p.gloves_id <= 100 ? p.gloves_id : "";
+      return undefined;
+    }
+    const path = section.replace(/^appearance\.?/, "");
+    return path ? (p.appearance[path] || {})[key] : p.appearance[key];
+  });
+}
+function ingameFaceToml(p) {
+  return fillToml(INGAME_FACE_TEMPLATE, (section, key) =>
+    section === "" ? p.appearance[key] : (p.appearance[section] || {})[key]);
+}
+// The one dialog both Generate actions open, over `file`'s text: a
+// stripped player gets the skip text and OK only; otherwise the folder
+// field (the native picker opens in the real view), the file's preview,
+// Write and Cancel.
+function dlgGenerate(name, title, file, toml) {
+  const p = curPlayer();
   if (isStripped(p)) {
-    dlg("settings", "Generate settings.toml", h("div", {},
+    dlg(name, title, h("div", {},
       h("p", {}, displayName(p.name) + " is stripped: the game reads the tables, not his record. Generation skips him.")),
       [button("OK", closeWindow)]);
     return;
   }
-  const input = h("input", { type: "text", style: "width:420px",
-    value: "C:\\Data\\4cc\\Exports\\" + (t.short_name || t.id)
-      + "\\Players\\" + String(p.slot).padStart(2, "0") + " - " + displayName(p.name) });
-  dlg("settings", "Generate settings.toml", h("div", {},
+  // Empty, as in the view: the save knows no export or folder name, so the
+  // folder is typed or picked, never guessed.
+  const input = h("input", { type: "text", style: "width:420px" });
+  dlg(name, title, h("div", {},
     h("p", {}, weak("The native folder picker (rfd) opens here; the draft edits the player folder inline.")),
     input,
-    h("div", { class: "grp weak" }, "settings.toml"),
+    h("div", { class: "grp weak" }, file),
     h("pre", { class: "mono small", style: "max-height:300px; overflow:auto; border:1px solid var(--stroke); padding:4px" },
-      settingsToml(p))),
+      toml(p))),
     [button("Write", () => {
-      S.lastSettings = settingsToml(p);
-      publishNotice("Wrote settings.toml for " + displayName(p.name)
+      publishNotice("Wrote " + file + " for " + displayName(p.name)
         + " into " + input.value, null);
       closeWindow(); render();
     }), button("Cancel", closeWindow)]);
+}
+function dlgSettings() {
+  dlgGenerate("settings", "Generate settings.toml", "settings.toml", settingsToml);
+}
+function dlgIngameFace() {
+  dlgGenerate("ingame-face", "Generate in-game face", "ingame_face.toml", ingameFaceToml);
 }
 
 function renderPanel() {
   if (!S.panel || !S.save) return null;
   const [id, title, body] =
     S.panel === "comparator" ? ["panel-comparator", "Comparator", comparatorPanel()]
-    : S.panel === "transplant" ? ["panel-transplant", "Aesthetics transplant", transplantPanel()]
     : S.panel === "aatf" ? ["panel-aatf", "AATF violations (" + RULESETS[D.ruleset].label + ")", aatfPanel()]
     : S.panel === "interchange" ? ["panel-interchange", "Team file interchange", interchangePanel()]
     : ["panel-patch", "Apply aesthetics patch", patchPanel()];
@@ -5859,7 +5640,7 @@ function linkKeys() {
 const DLGS = { "set-stats": dlgSetStats, "bump-stats": dlgBumpStats,
   "copy-stats": () => dlgCopySwap(curPlayer(), "copy"),
   "swap-stats": () => dlgCopySwap(curPlayer(), "swap"),
-  settings: dlgSettings, boglo: dlgBoglo, tsv: dlgTsv, fixdb: dlgFixDb,
+  settings: dlgSettings, "ingame-face": dlgIngameFace, boglo: dlgBoglo, tsv: dlgTsv, fixdb: dlgFixDb,
   "choose-file": dlgChooseFile, "save-refused": dlgSaveRefused,
   "save-as": saveAs, "export-toml": ixExportToml, "export-ted": ixExportTed,
   "open-save": () => dlgOpenSave(openStub
@@ -5907,7 +5688,7 @@ function linkOpen(scr, keys) {
     else linkWarn("player=" + keys.player);
   }
   if (keys.panel !== undefined) {
-    if (["aatf", "comparator", "transplant", "patch", "interchange"].includes(keys.panel)) S.panel = keys.panel;
+    if (["aatf", "comparator", "patch", "interchange"].includes(keys.panel)) S.panel = keys.panel;
     else linkWarn("panel=" + keys.panel);
   }
   // `open` names the discovered save the open-save stub stands for.

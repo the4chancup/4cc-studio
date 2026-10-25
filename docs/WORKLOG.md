@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d next, its library half `Rules::player_tier` done in 0.0.1i; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
-the compiler and the upgrader on the new file; slice 3, the Save editor's, rides with SE-GUI-19), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; the in-game SE-GUI-34 left), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
@@ -2142,8 +2142,23 @@ briefs, review loops, gates and mutation runs as for any step.
     accepted (five more one-file doc comments; the upgrader's old-spelling test written three
     times, now `classify`'s `Marker::OldIngameFace`); every fix the lead's, amended into slice
     2's commit; the loop ends (rulings `.tmp/0_0_1h/rulings.md`)
-  - [ ] slice 3, the Save editor: the generation split, its "Generate in-game face" action
-    landing with the view's generation (SE-GUI-19's slice; SE-GUI-33, 34)
+  - [x] slice 3, the Save editor: the generation split, its "Generate in-game face" action
+    landing with the view's generation (SE-GUI-19's slice; SE-GUI-33, 34). Done 2026-10-25
+    (SWE-2, one run; brief `.tmp/0_0_1h/brief_slice3.md`): the draft first (the split
+    templates, `dlgIngameFace`, and the old save-to-save transplant panel removed, 8.9j5c's
+    S1-2); `view/generate.rs`, two Player-menu items, one Modal (stripped: skip text and OK;
+    folder field and Pick, the text as written, Write on an existing folder), the tool's first
+    shell notice; DECISIONS "Generate settings.toml and Generate in-game face: a picked folder,
+    an update in place, a whole face file"; help `06_player.md` (the Player menu's chapter, the
+    sidekick's contradiction, accepted) and the Comparator paragraph in `02_window.md` (8.9j5c's
+    edge). Six view tests, red first (SE-GUI-19 on the PES 21 fixture's colour-coded rostered
+    player, SE-GUI-33, comments kept, a file that does not parse, the stripped skip, Write's
+    gate), and two from `mutants-diff 845d7d1f`'s three survivors (the dialog's heading; a
+    `settings.toml` that cannot be read is the error, never replaced), red against each mutant
+    by hand. SWE-2 S1: 1 of 7 accepted (the draft's folder no longer prefilled; loop ended).
+    Files: `save_editor/{Cargo.toml,help/0{2,6}_*.md,src/lib.rs,src/view/{generate,mod,
+    menus,player_list,tests}.rs,src/view/tests/{generate,player}.rs}`,
+    `docs/prototypes/tools/save_editor.js`
   - [x] the spec moved for slices 1 and 2. Done 2026-10-24 (SWE-2, 32 min): the marker
     paragraph, the two templates (byte-equal to the goldens, checked by script), the object
     model, the two codes, the upgrader's steps and the ten scenarios in `docs/spec/`; the plan

@@ -75,6 +75,9 @@ impl StudioTool for Tool {
             &studio_core::running_pes,
             file.as_deref(),
         );
+        if let Some(notice) = self.view.notice.take() {
+            ctx.notify(notice);
+        }
         // The toolbar's toggle is a setting: the table as read with only
         // `live_aatf` replaced, so any other key survives (as
         // `settings_view` writes `aatf_rules`).

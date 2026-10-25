@@ -701,7 +701,14 @@ the editor exposes them as:
   action, **Generate in-game face**, writes them into the folder's `ingame_face.toml`, since
   the save cannot say which players wear the in-game face ("`ingame_face.toml`" in the
   [Player folders plan](aesthetics_export/player_folders.md), whose SE-GUI-33 and 34 are this
-  view's).
+  view's). Both are Player-menu items on the selected player, each a dialog with the folder
+  (typed or picked, never guessed: the save does not know which export or folder name a
+  player has), the file's text as it will be written, and Write. A `settings.toml` already in
+  the folder is updated in place (`update_toml`: its comments and layout kept, the values the
+  record's), since user-facing TOML is edited, never regenerated; `ingame_face.toml` is
+  written whole, its values all the record's and its comments the template's, so there is
+  nothing of the member's to keep. A `settings.toml` there that does not parse is shown as
+  the error and nothing is written, rather than replaced by the template.
 
 ---
 

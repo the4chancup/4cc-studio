@@ -36,6 +36,17 @@ each player could still use within the rules. **Validate rules** checks the rule
 file itself and lists everything it finds wrong with it; **Save a copy** writes the
 built-in official ruleset out to a file.
 
+**Comparator.** **Panels** in the toolbar, **Comparator…**, opens a floating
+window comparing the open save, edits included, against a second save:
+**Pick…** chooses it and refuses one of another version, naming both. The
+**Show** row narrows the list to All, Gameplay or Aesthetics, and the team
+dropdown to one team. Rows group per team and per player: a field's name and
+its value in the picked save and in the open save, and a mark beside a player
+stripped in one save or both. Clicking a row selects that player in the
+editor. A comparison takes a moment on a big save; the window says so until
+the rows land. **Export…** writes the picked scope's differences over the
+whole save as a text file.
+
 **Live AATF.** The toolbar's **Live AATF** toggle checks the open team after every
 edit, in a panel docked at the bottom of the window: the violations left, grouped
 per player as the floating window lists them, under `N issues · <ruleset>`, or

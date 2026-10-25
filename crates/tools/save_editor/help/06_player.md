@@ -24,3 +24,15 @@ Every operation is one undoable step. Set all stats and Bump all stats
 write the same fields the Abilities & Skills tab edits, so they set no
 edit flag; Copy and Swap stats move the gameplay edit flags with the
 stats.
+
+**Generate settings.toml…** and **Generate in-game face…** write the
+selected player's look to a player folder of your choice, the files a team
+moving to compile-time aesthetics is built from. `settings.toml` holds
+everything but the in-game face: the names, the stock boots and gloves IDs,
+skin colour, physique, strip and motions. `ingame_face.toml` holds the
+in-game face itself: iris colour, face and hair. The save cannot say which
+players wear the in-game face, so the action is yours to choose per player,
+and neither writes the save. A stripped player is skipped: the game reads
+the tables, not his record. When the folder already holds a
+`settings.toml`, its comments stay while the values become the record's;
+`ingame_face.toml` is written whole.
