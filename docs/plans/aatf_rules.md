@@ -242,7 +242,9 @@ update.
 managers keep, so from the cut on a changed logic is version 2, in the banner and in
 `LOGIC_VERSIONS` beside version 1's frozen hash. Waiting for 0.1.0 instead would turn every
 file saved with the preview into a *modified* one at the next logic edit: the editor would no
-longer offer to update it, and would keep its old logic on every save.
+longer offer to update it, and would keep its old logic on every save. The hash is frozen only
+on the maintainer's final confirmation, given once the UI is polished, never earlier: until
+then a logic edit is still version 1.
 
 ## Crate layout
 

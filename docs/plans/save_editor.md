@@ -552,7 +552,7 @@ hand edit silently diverges from the DLC — so the editor **does not edit aesth
   patch" and a link to the apply action).
 - The same lock covers every other aesthetics write path: the team operations that write
   appearance fields (set boots/gloves IDs for everyone, set/remove FPC for the team, clear visual
-  flags, the FPC toggle), Fix database (it clears the same flags), the aesthetics transplant, and the aesthetics section of Team TOML and
+  flags, the FPC toggle), Fix database (it clears the same flags), and the aesthetics section of Team TOML and
   legacy squad imports (the section checkbox is disabled, gameplay and tactics import as before).
 - **Apply aesthetics patch** is the one aesthetics write open by default: open a patch; the
   version must match the save and the allocation scheme the suite's (refused otherwise, save
@@ -635,17 +635,30 @@ The panel over the spec's `diff` report:
 
 ## Aesthetics transplant
 
-Midcupping's transplant as a guided panel:
+Built after Release 0.1.0 (0.2.0 or later); 0.0.1 and 0.1.0 ship without it.
 
-- Pick a donor save (validated to be the same PES version).
-- Build the selection the same four ways the scripts support: player IDs,
-  `target:donor` pairs, whole teams, team ranges — plus by clicking players in
-  a two-pane team browser.
-- **Preview before applying**: the affected players are listed with their
-  aesthetics diff (reusing the comparator's fingerprint), so a wrong team ID is
-  visible before it does damage.
-- Applies through the normal edit pipeline: undoable, and saved only when the
-  user saves.
+A team's looks copied from a save into the team's export, the files the Team compiler compiles
+from, never into a save: aesthetics live in the exports, and a look written into a save is one the
+next compile overwrites or a stripped Fox save does not read. Midcupping's save-to-save transplant
+is not kept, in the window or on the command line: its one remaining use, a team with no export,
+is served by generating the export from the save ("Interchange formats in the UI",
+`settings.toml` generation) and editing it there.
+
+- Pick a donor save, then one of its teams by name (a combo that also takes typing).
+- The team's roster as checkboxes, one per filled slot, `NN name` (the slot, 01-23, and the
+  display name): the roster slot is what identifies a player, as it names his folder in the
+  export (`NN - Name` or a root `players.txt`); shirt numbers are free text and identify nobody.
+- The target is that team's own export in the exports folder, found the way the Team compiler
+  finds a team's export; each checked slot's player folder in it. Cross-team copies are out of
+  scope (a member copies the TOML files by hand). A missing export or a checked slot with no
+  folder refuses the whole run before anything is written, naming what is missing.
+- Each target folder's `settings.toml` and `ingame_face.toml` are updated in place through
+  `toml_edit` (only the keys the donor's look carries are written; comments and every other key
+  stay), created when the folder has none; the keys and values are the ones `settings.toml`
+  generation writes for the same player.
+- **Preview before writing**: every file listed with the keys it changes, old → new, so a wrong
+  team or slot is visible before it does damage.
+- Not under "Read-only aesthetics": writing the export is where a look is meant to change.
 
 ---
 
@@ -910,13 +923,13 @@ SE-GUI-13  GIVEN the save open and a second save of the same version picked in t
                 save rosters selects that player (one only in the picked save, or on no
                 roster, is listed and not clickable);
            GIVEN a save of another version picked THEN it is refused naming both versions
-SE-GUI-14  GIVEN "Edit aesthetics anyway" switched on and the transplant panel with a donor
-                 save of another version
-           WHEN it is picked
-           THEN it is refused naming both versions; GIVEN one of the same version and a
-                selection built in the panel THEN the preview lists the affected players with
-                their aesthetics diff before Apply, and Apply is one undoable edit written only
-                on Save
+SE-GUI-14  GIVEN (after Release 0.1.0) the transplant panel, a donor save, one of its teams and
+                that team's export in the exports folder, slots 03 and 07 checked
+           WHEN Preview, then Apply
+           THEN the preview lists the two folders' settings.toml and ingame_face.toml with each
+                changing key old → new, and Apply writes exactly those keys, the files' other
+                keys and comments untouched; GIVEN a checked slot with no folder in the export
+                THEN the run is refused naming the slot, and nothing is written
 SE-GUI-15  GIVEN the PES 17 save and a ruleset with violations in the open team
            WHEN the AATF panel is drawn
            THEN the window's title names the ruleset (`AATF violations (<ruleset>)`), the

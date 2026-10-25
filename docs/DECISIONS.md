@@ -11012,3 +11012,17 @@ lone `cargo test -p team_widgets` (and its mutation runs) has no fonts at all, s
 cycle (`studio_core` depends on no widget lib) and builds nothing the workspace does not build
 already.
 Plan: `plans/core/gui.md` "Other UI components" (the Dark/light theme row).
+
+## 2026-10-25 — save_editor — The aesthetics transplant writes the team's export, after 0.1.0; the save-to-save transplant goes
+Decision: the transplant copies a donor save's team's looks into that team's own export (each
+checked roster slot's player folder, `settings.toml` and `ingame_face.toml` updated in place,
+created if missing, a preview first, the whole run refused when the export or a slot's folder is
+missing), picked by team name and roster-slot checkboxes, never ids; cross-team copies are out of
+scope; it is built after Release 0.1.0. The save-writing transplant (the panel committed as
+8.9j5a, the CLI `transplant` command, `pes_savefile`'s operation) is removed.
+Why: the maintainer's ruling: aesthetics live in the exports now, so a look written into a save is
+overwritten by the next compile or not read at all on a stripped Fox save; the one use left for a
+save-to-save copy, a team with no export, is served by generating the export from the save. Roster
+slots, not shirt numbers or ids, because the slot names the player's folder and shirt numbers are
+free text. Out of 0.0.1 and 0.1.0 because neither cup needs it.
+Plan: `plans/save_editor.md` "Aesthetics transplant", "Read-only aesthetics", SE-GUI-14.

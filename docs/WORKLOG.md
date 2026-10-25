@@ -1494,7 +1494,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
             - [x] review: SWE-2 S1 on `a3422f4a..` (crate-internal: no new `pub`, no Astra
               round): 2 accepted (an empty report exported a lone newline; a picked-only
               player's roster team untested), fixed by the lead; mutants 8 caught, 0 missed
-      - [ ] 8.9j5 the transplant (SE-GUI-14), two slices, each its own commit and review:
+      - [ ] 8.9j5 the transplant (SE-GUI-14), redirected 2026-10-25 (the maintainer; DECISIONS
+        "The aesthetics transplant writes the team's export, after 0.1.0; the save-to-save
+        transplant goes"): the export-writing panel is built after 0.1.0 (its plan section);
+        8.9j5c next removes the save-writing transplant (8.9j5a's panel, the CLI command,
+        `pes_savefile`'s operation, their codes, help, spec), keeping the comparator's r2 fixes
+        (the one-line pick row, the focus given up); 8.9j5b is dropped:
         - [x] 8.9j5a the panel: the donor pick (another version refused with the CLI's
           sentence), the selection text, the preview (the comparator's aesthetics rows between
           the save and a copy with the transplant applied, on its worker), Apply as one undoable
@@ -1522,8 +1527,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           keyboard focus and the run never started (the comparator's Pick too; the button now
           gives the focus up), and with a real save's path the pick row wrapped its buttons onto
           a line of their own (both panels; now one line, the path truncated)
-        - [ ] 8.9j5b the two-pane browser: the open save's players and the donor's, a click on
-          a target arming it and a click on a donor appending the pair to the selection
+        - [-] 8.9j5b the two-pane browser: dropped with the save-to-save transplant
+        - [ ] 8.9j5c remove the save-writing transplant (above); `spec/save_editor.md`'s and
+          `spec/pes_savefile/`'s transplant text out, the Midcupping row saying why
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
       (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's
       `ScrollArea::vertical` the content's width grows to fit its widest row (measured at a
@@ -2116,7 +2122,8 @@ briefs, review loops, gates and mutation runs as for any step.
   the readme's steps for VGL's organizer (`plans/core/development_plan.md` "The /vg/ League 27
   (VGL)": `upgrade-dpfl` once for an install with another list, `multicpk_mode` in the
   settings file), logic version 1's hash
-  frozen in `LOGIC_VERSIONS` (`plans/aatf_rules.md` "Loading and validation": a later logic
+  frozen in `LOGIC_VERSIONS` only after the maintainer's final confirmation, given once the UI
+  is polished (the maintainer, 2026-10-25: never before it) (`plans/aatf_rules.md` "Loading and validation": a later logic
   change is version 2), `just release 0.0.1`, handed to DBC's testers and VGL's organizer
 
 ### Phase 10 — Music tools
