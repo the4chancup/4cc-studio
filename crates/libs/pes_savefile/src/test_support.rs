@@ -67,6 +67,19 @@ pub(crate) fn find_player(payload: &[u8], schema: &VersionSchema, id: u32) -> Pl
     panic!("player {id} not in the save");
 }
 
+/// `target` takes `donor`'s appearance block (`appearance`, ingame-face run
+/// included, and the face/hair/physique/strip edit flags); everything else,
+/// the id and the appearance id included, stays the target's own. The
+/// reference scripts' slice (`ops/appearance_golden.rs` pins it), and the
+/// yardstick the comparator's aesthetics scope is tested against.
+pub(crate) fn copy_appearance(target: &mut PlayerEntry, donor: &PlayerEntry) {
+    target.appearance = donor.appearance.clone();
+    target.edit_flags.face = donor.edit_flags.face;
+    target.edit_flags.hair = donor.edit_flags.hair;
+    target.edit_flags.physique = donor.edit_flags.physique;
+    target.edit_flags.strip = donor.edit_flags.strip;
+}
+
 /// A fixture as an `EditFile`, plus the container bytes it decoded from.
 pub(crate) fn open(version: PesVersion) -> (crate::file::EditFile, Vec<u8>) {
     let container = fixture_container(version);

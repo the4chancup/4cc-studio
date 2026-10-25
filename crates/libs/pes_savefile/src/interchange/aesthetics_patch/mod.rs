@@ -298,11 +298,11 @@ impl AestheticsPatch {
     /// Applies the patch to `save`: each listed player's motions and, for
     /// a `write_names` export, his names — nothing of his appearance block, so
     /// a stripped player (appearance id -1) stays stripped. Every refusal
-    /// runs before any write, as `transplant` checks before it writes: a
-    /// pre-Fox `pes_version` (a hand-built patch can hold one), a version
-    /// or allocation-scheme mismatch, and in pass 1 each player's names
-    /// against the version's text fields, each `Some` motion key against
-    /// its range and the field's width; an `Err` leaves the save untouched.
+    /// runs before any write: a pre-Fox `pes_version` (a hand-built patch
+    /// can hold one), a version or allocation-scheme mismatch, and in pass
+    /// 1 each player's names against the version's text fields, each `Some`
+    /// motion key against its range and the field's width; an `Err` leaves
+    /// the save untouched.
     /// Only a team or player the save lacks is skipped, per item, and
     /// reported in the summary.
     pub fn apply(&self, save: &mut EditFile) -> Result<PatchSummary, PatchError> {

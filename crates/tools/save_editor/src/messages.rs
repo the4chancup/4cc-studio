@@ -17,8 +17,6 @@ use pes_savefile::ops::compare::PlayerDiff;
 use pes_version::PesVersion;
 use studio_core::{CatalogRow, Disposition, Message, MessageCode, Scope, Severity};
 
-use crate::session::Stripped;
-
 /// The tool's id: its CLI subcommand, its settings section and the owner of its message codes.
 pub(crate) const TOOL_ID: &str = "save-editor";
 
@@ -49,13 +47,6 @@ pub(crate) enum Code {
     PatchTeamNotInSave,
     /// `apply-patch`: the save has no player with this id (`player`).
     PatchPlayerNotInSave,
-    /// `transplant`: a transplant's target has appearance id -1, so the game does not read
-    /// the record the donor's fields went into; the seeded tables decide his look
-    /// (`player`).
-    TransplantTargetStripped,
-    /// `transplant`: a transplant's donor has appearance id -1, so the fields copied are his
-    /// record's, not the look the game shows for him (`player`).
-    TransplantDonorStripped,
     /// `diff`: one field of a player in both saves, old to new (`player`, `field`, `old`,
     /// `new`).
     PlayerDiff,
@@ -155,8 +146,6 @@ impl Code {
             Code::PatchTeamApplied => "patch_team_applied",
             Code::PatchTeamNotInSave => "patch_team_not_in_save",
             Code::PatchPlayerNotInSave => "patch_player_not_in_save",
-            Code::TransplantTargetStripped => "transplant_target_stripped",
-            Code::TransplantDonorStripped => "transplant_donor_stripped",
             Code::PlayerDiff => "player_diff",
             Code::PlayerOnlyIn => "player_only_in",
             Code::PlayerStripped => "player_stripped",
@@ -203,8 +192,6 @@ impl Code {
             | Code::ImportValueCapped
             | Code::ImportSlotEmpty
             | Code::ImportTextCropped
-            | Code::TransplantTargetStripped
-            | Code::TransplantDonorStripped
             | Code::StripBaseCopiedFace
             | Code::FpcGlovesCheckboxWinterGloves
             | Code::FpcCustomSkinOnNonFpc => Severity::Warning,
@@ -241,8 +228,6 @@ impl Code {
         Code::PatchTeamApplied,
         Code::PatchTeamNotInSave,
         Code::PatchPlayerNotInSave,
-        Code::TransplantTargetStripped,
-        Code::TransplantDonorStripped,
         Code::PlayerDiff,
         Code::PlayerOnlyIn,
         Code::PlayerStripped,
@@ -313,16 +298,6 @@ const CATALOG: &[(Code, &str, &str)] = &[
         Code::PatchPlayerNotInSave,
         r#"`apply-patch`: the save has no player with this id."#,
         r#"The rest is written; exit 1."#,
-    ),
-    (
-        Code::TransplantTargetStripped,
-        r#"A transplant's target has appearance id -1, so the game does not read the record the donor's fields went into; the seeded tables decide his look."#,
-        r#"The write stands; check him in the game."#,
-    ),
-    (
-        Code::TransplantDonorStripped,
-        r#"A transplant's donor has appearance id -1, so the fields copied are his record's, not the look the game shows for him."#,
-        r#"The write stands; the targets get the record, not the look."#,
     ),
     (
         Code::PlayerDiff,
@@ -477,15 +452,6 @@ pub(crate) fn import_note(note: &ImportNote) -> Message {
             vec![("path", path.clone()), ("cropped", display_name(cropped))],
         ),
     }
-}
-
-/// The message for one transplant pair's player at -1.
-pub(crate) fn stripped_mark(mark: Stripped) -> Message {
-    let (code, player) = match mark {
-        Stripped::Target(player) => (Code::TransplantTargetStripped, player),
-        Stripped::Donor(player) => (Code::TransplantDonorStripped, player),
-    };
-    message(code, vec![("player", player.to_string())])
 }
 
 /// The refusal's sentence for two saves of different versions, each named as a
@@ -787,18 +753,6 @@ mod tests {
                 new: FaceHash([0; 4])
             }),
             "Info player_diff (player=70105, field=face_run, old=0001abff, new=00000000)"
-        );
-    }
-
-    #[test]
-    fn each_transplant_mark_is_a_warning_naming_the_player() {
-        assert_eq!(
-            line(&stripped_mark(Stripped::Target(70105))),
-            "Warning transplant_target_stripped (player=70105)"
-        );
-        assert_eq!(
-            line(&stripped_mark(Stripped::Donor(70205))),
-            "Warning transplant_donor_stripped (player=70205)"
         );
     }
 

@@ -16,7 +16,7 @@ that is both a GUI and a CLI.
   with the community's current compiler on its library of real exports.
 - **Phase 5**, the savefile side: the settings an export carries written into a save, the AATF
   rules checked on a save's teams (the official rulesets and the invitationals' own), and the
-  save editor's command line (team exports and imports, comparisons, transplants).
+  save editor's command line (team exports and imports, comparisons).
 - **Phase 6**, the Export upgrader: an export in the old layout migrated once to the new one.
 
 Phase 8, the window, is under way: the shell (sidebar, help, log panel), the color picker, the

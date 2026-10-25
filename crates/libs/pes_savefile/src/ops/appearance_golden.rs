@@ -1,4 +1,4 @@
-//! Parity of `ops::transplant` and `ops::fingerprint` with the reference
+//! Parity of the appearance block and the fingerprint with the reference
 //! scripts' byte rules, transcribed here as literal offsets into the
 //! appearance block (bytes relative to the block's first byte, the id), over
 //! every player of every fixture. The rules are the whole semantic content of
@@ -12,10 +12,9 @@ use sha2::{Digest, Sha256};
 use crate::codec::{read_player, write_player};
 use crate::model::player::PlayerEntry;
 use crate::ops::fingerprint::face_hash;
-use crate::ops::transplant::transplant_player;
 use crate::schema::ingame_face::IngameFaceField;
 use crate::schema::{VersionSchema, schema_for};
-use crate::test_support::{FIXTURES, appearance_for, count, payload, record};
+use crate::test_support::{FIXTURES, appearance_for, copy_appearance, count, payload, record};
 
 /// The script's slice: bytes 4..68 of the block are the donor's.
 const SLICE: std::ops::Range<usize> = 4..68;
@@ -62,7 +61,7 @@ fn players(payload: &[u8], schema: &VersionSchema) -> Vec<(usize, PlayerEntry)> 
 }
 
 #[test]
-fn transplant_matches_the_scripts_slice_rule_on_every_fixture_player() {
+fn the_appearance_copy_matches_the_scripts_slice_rule_on_every_fixture_player() {
     for version in FIXTURES {
         let payload = payload(version);
         let schema = schema_for(version);
@@ -83,7 +82,7 @@ fn transplant_matches_the_scripts_slice_rule_on_every_fixture_player() {
             }
             // Ours: the model copy, written back into the same record.
             let mut moved = target.clone();
-            transplant_player(&mut moved, donor);
+            copy_appearance(&mut moved, donor);
             assert_eq!(moved.id, target.id, "{version:?}: the target keeps its id");
             let mut actual = target_rec.clone();
             match &schema.appearance {

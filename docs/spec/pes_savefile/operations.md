@@ -196,14 +196,13 @@ know the version, and only conversion and the interchange formats need the canon
 
 ## Save-to-save operations
 
-Ported from Midcupping's scripts and the reference editor's comparator, exposed in the
-[save editor](../save_editor.md):
+Ported from Midcupping's compare script and the reference editor's comparator, exposed in
+the [save editor](../save_editor.md). Midcupping's other script, the aesthetics transplant
+(`transplant-aesthetics-*.py`, a donor save's appearance blocks copied into a target save), is
+not ported: aesthetics live in the exports, so a look copied into a save is overwritten by the
+next compile (`spec/save_editor.md` "Background: Midcupping"). Its byte rule still defines the
+appearance block the comparator's aesthetics scope is checked against (below).
 
-- **Aesthetics transplant** (`transplant-aesthetics-*.py`): copy the appearance
-  data of selected players from a donor save into a target save of the same
-  version. Selection patterns from the scripts, kept as-is: single player ID,
-  `target:donor` ID pairs, whole team (`team_id` → its 23 player slots), and
-  team ranges. In-place or to a new file.
 - **Aesthetics fingerprint** (`compare-saves-*.py`): a hash of the ingame-face block
   **normalized** by masking the player-gloves and skin-color bits (they overlap fields the
   script lists separately): the first four bytes of SHA-256, printed as eight hex characters
@@ -212,10 +211,10 @@ Ported from Midcupping's scripts and the reference editor's comparator, exposed 
 - **Comparator** (the reference editor's `comparator.cpp` plus `compare-saves-*.py`): every
   stored field of two same-version players, old → new, each row tagged gameplay or aesthetics.
 
-All three are thin operations over the model: they live here so the save editor and any batch
-CLI use identical logic. Per-entry functions do the work; the save-level entry points resolve
-ids and check the version pair, and take `EditFile`s (the decoded save; `ops/` still never
-touches bytes).
+Both are thin operations over the model: they live here so the save editor and any batch
+CLI use identical logic. Per-entry functions do the work; the save-level entry point pairs
+players by id and checks the version pair, and takes `EditFile`s (the decoded save; `ops/`
+still never touches bytes).
 
 ### What the reference scripts do
 
@@ -228,8 +227,9 @@ and the first 46 bytes of the ingame-face run. It does *not* copy the id, and on
 the run's last four bytes (a PES 15 slice never adjusted). Measured: those four bytes are zero on
 every one of the 24 656 players of the 16/17/18/19/21 fixtures, so copying the whole block is
 byte-identical to the script on real saves and one rule instead of two (decision entry, 2.17g).
-The donor's base-copy id is copied as it stands (the donor's own id when it has its own face):
-that is the script's behavior and the game's meaning of a face transplant.
+The donor's base-copy id is copied as it stands (the donor's own id when it has its own face).
+The tests keep this rule as `test_support::copy_appearance` (the whole block but the id), the
+yardstick of the comparator's aesthetics scope.
 
 The compare script decodes, per player, boots/gloves/face IDs (face = base-copy id, or 0 when it
 equals the player's own id), the two wrist tapings, spectacles style, sleeves, inners, socks,
@@ -239,40 +239,6 @@ height, weight, every ability, style, registered position, stronger foot, form, 
 foot, playable positions, COM styles and skills. Neither compares motion, edit flags, nationality
 or the physique measures; ours compares every stored field, so the two references are each a
 subset of the rows.
-
-```rust
-/// `ops/transplant.rs`. The per-entry operation: `target` takes `donor`'s appearance block
-/// (`appearance`, ingame-face run included, and the face/hair/physique/strip edit flags);
-/// everything else, the id included, is the target's own.
-pub fn transplant_player(target: &mut PlayerEntry, donor: &PlayerEntry);
-
-/// The save-level operation over `(target_id, donor_id)` pairs; all-or-nothing: the version
-/// pair and every id are checked before the first write.
-pub fn transplant(
-    target: &mut EditFile, donor: &EditFile, pairs: &[(u32, u32)],
-) -> Result<(), TransplantError>;
-
-pub enum TransplantError {
-    VersionMismatch { target: PesVersion, donor: PesVersion },
-    /// A pair names a player the target save lacks.
-    TargetMissing(u32),
-    /// A pair names a player the donor save lacks.
-    DonorMissing(u32),
-}
-
-/// One selection argument in the scripts' four forms, expanded to `(target, donor)` pairs:
-/// `70103` (one player, onto itself), `70103:70205` (target:donor), `701` (a team: its
-/// slots 1–23, `team * 100 + 1..=23`, onto themselves), `701-720` (a team range, likewise).
-/// A number below 1000 is a team, as in the scripts.
-pub fn parse_selection(arg: &str) -> Result<Vec<(u32, u32)>, SelectionError>;
-
-pub enum SelectionError {
-    /// Not a number, or a pair/range with more than one separator.
-    Malformed(String),
-    /// A range whose ends are not teams (≥ 1000) or run backwards.
-    BadRange(String),
-}
-```
 
 ```rust
 /// `ops/fingerprint.rs`. The first four bytes of SHA-256 over `IngameFace::normalized()`;
@@ -304,7 +270,7 @@ pub enum PlayerDiff {
 }
 
 impl PlayerDiff {
-    /// Aesthetics is what `transplant_player` moves: the appearance-block fields (the four
+    /// Aesthetics is the appearance block (the scripts' slice above): its fields (the four
     /// appearance edit flags, boots/gloves/base-copy IDs, physique, strip), every `Face` and
     /// `FaceRun` row. Everything else (motion and the other edit flags included) is gameplay.
     pub fn scope(&self) -> DiffScope;
@@ -333,12 +299,13 @@ hash it carries still masks only gloves and skin (`normalized()`, unchanged), so
 script's printed fingerprint. Team and tactics comparison is the save editor's later concern
 (`save_editor.md` "Comparator") and not part of this module.
 
-Parity: the transplant is checked against the script's slice rule on every player of every
-fixture (target record after `transplant_player` + `write_player` equals the record with bytes
-4..68 replaced from the donor record, the id kept); the fingerprint and each Midcupping field
+Parity: the appearance block is checked against the transplant script's slice rule on every
+player of every fixture (target record after `copy_appearance` + `write_player` equals the
+record with bytes 4..68 replaced from the donor record, the id kept), and each field is
+aesthetics exactly when that copy moves it; the fingerprint and each Midcupping field
 against the script's bit reads, transcribed as literal offsets in the golden test, over every
 fixture player; the comparator against itself (a player compared with its own copy has no rows,
-a transplant leaves no aesthetics row and the gameplay rows unchanged).
+a twin carrying the next player's appearance block differs from him in aesthetics rows only).
 
 ---
 

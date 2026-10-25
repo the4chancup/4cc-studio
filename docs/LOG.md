@@ -2479,3 +2479,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — Side-leads A and B merged (cherry-picked): 0.0.1i closed by Astra A1 (no concerns); the drafts'
   four old pages removed for the host and its tool scripts, the code's and plans' pointers moved; links name the
   tool script, the longest values are a script (DECISIONS); 8.19b, 8.19c and 8.20 briefed, 8.26 the text drift.
+- **2026-10-25** — 8.9j5c: the save-writing aesthetics transplant removed (its panel, the CLI command and codes,
+  `ops::transplant`), SE-TRN-01 to 03 withdrawn; the scripts' slice stays test-only as `copy_appearance`, the
+  comparator's yardstick. The transplant returns after 0.1.0 writing the team's export (SE-GUI-14).

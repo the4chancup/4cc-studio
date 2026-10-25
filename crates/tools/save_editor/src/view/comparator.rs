@@ -477,9 +477,8 @@ fn roster_of(file: &EditFile) -> HashMap<u32, Place> {
 /// `report`'s flat line list: one group per team in the open save's team
 /// order — a player's team is the first open-save roster holding him, his
 /// group's players in `report`'s order — `No team` after the teams, then
-/// the players only in one save under their headings. `pub(super)` for the
-/// transplant panel, whose preview is the same rows of a two-save diff.
-pub(super) fn lines(report: &DiffReport, picked: &EditFile, open: &EditFile) -> Vec<Line> {
+/// the players only in one save under their headings.
+fn lines(report: &DiffReport, picked: &EditFile, open: &EditFile) -> Vec<Line> {
     let open_roster = roster_of(open);
     let picked_roster = roster_of(picked);
     let version = open.version();
@@ -611,9 +610,8 @@ fn mark(side: Side) -> &'static str {
 /// One line of the list, one text row high (the `violations` list's row
 /// pattern, its `row_paint` tail shared): a heading in the strong color,
 /// a head in the weak, a row in the plain; a row or a head with `select`
-/// is a click target reporting the player. `pub(super)` for the transplant
-/// panel's preview list.
-pub(super) fn line(ui: &mut egui::Ui, line: &Line) -> Option<SelectedPlayer> {
+/// is a click target reporting the player.
+fn line(ui: &mut egui::Ui, line: &Line) -> Option<SelectedPlayer> {
     let visuals = ui.visuals();
     let (text, color, select) = match line {
         Line::Heading(text) => (text, visuals.strong_text_color(), None),

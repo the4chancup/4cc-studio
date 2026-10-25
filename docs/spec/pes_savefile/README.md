@@ -2,7 +2,7 @@
 
 Covers the `pes_savefile` lib crate: the EDIT00000000 file codec (container crypto,
 schema-driven payload codec, player/team/tactics model), the cross-version player
-data conversion, the save-to-save operations (aesthetics transplant, aesthetics
+data conversion, the save-to-save operations (the comparator, aesthetics
 fingerprinting), and the interchange formats (Team TOML, legacy `.4ccs`/`.4cct`
 readers, Texport, the aesthetics patch). Shared by the [Save editor](../save_editor.md), the
 [Team compiler](../team_compiler/README.md), the integrated
@@ -100,11 +100,10 @@ crates/libs/pes_savefile/src/
 ├── player_tables.rs    # the three Fox player tables (PlayerAppearance/BootsList/GloveList.bin), one PlayerTable<VALUE>
 ├── ops/                # save-to-save operations
 │   ├── mod.rs          #   the module wiring
-│   ├── transplant.rs   #   aesthetics transplant (Midcupping)
 │   ├── fingerprint.rs  #   aesthetics fingerprinting / diff
 │   ├── compare.rs      #   comparator (gameplay + aesthetics)
 │   ├── fpc.rs          #   maps libs/fpc player presets onto PlayerEntry; interference check
-│   └── *_golden.rs     #   parity goldens (transplant, compare)
+│   └── *_golden.rs     #   parity goldens (appearance block, compare)
 └── interchange/        # team interchange formats (Team TOML is the one import path)
     ├── mod.rs
     ├── team_toml/      #   Team TOML read/write (full fidelity): document, key tables, apply

@@ -137,8 +137,8 @@ may appear anywhere in the name, several times, to colour segments differently
 They are used freely — medal players are the common case, but not the only one.
 Verified against ~30 decorated names across real PES 19 and 21 cup saves (see
 Verification). No tool in the 4cc toolset writes them; they are hand-edited by
-cup organizers and must be **preserved byte-for-byte** by every copy-through,
-transplant and roundtrip path. This crate exposes the raw name and a
+cup organizers and must be **preserved byte-for-byte** by every copy-through
+and roundtrip path. This crate exposes the raw name and a
 `display_name()` helper that strips the codes (fixed-length match: the colour is exactly the 8
 bytes after `\x11c`, hex or not, so a name letter `a`–`f` following a code is never eaten; the
 2-byte reset `\x11d` is stripped too; see `codec.md` "Whole-file API" for the measurement); the

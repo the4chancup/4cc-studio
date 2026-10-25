@@ -159,8 +159,9 @@ wiring:
 - `settings.toml` (`PlayerSettings`) parsing and savefile merging; FPC presets via `fpc::player`
 - Cross-version player conversion (`convertPlayerSaveData` bitfield surgery + playstyle/skill maps)
 - Interchange formats: Team TOML (read/write), legacy `.4ccs`/`.4cct` readers, Texport read/write
-- Save-to-save operations: aesthetics transplant + aesthetics fingerprinting (Midcupping), the
-  comparator (merged gameplay + aesthetics diff), FPC invisibility
+- Save-to-save operations: aesthetics fingerprinting (Midcupping), the comparator (merged
+  gameplay + aesthetics diff), FPC invisibility; the aesthetics transplant built here was
+  removed at step 8.9j5c (aesthetics live in the exports)
 
 **`python_bindings`** — PyO3 shim over `fmdl` and `pes_model`, built via `maturin`; proves
 guardrail 4 with a real `cdylib` build and a smoke test from Blender's Python. Its Phase 2 surface
@@ -205,7 +206,7 @@ plan: format round-trips on real fixtures (byte-identical on the layout the game
 template (managers' `colors.txt` proved no usable ground truth, `spec/libs/README.md` "Testing: format parser unit tests");
 `model_convert` IR round-trips, with the
 19to16 converter's own output as a reference fixture; `pes_savefile` round-trips on decrypted
-sections (fixed test RNG), per-version field round-trips, and transplant, fingerprint and compare
+sections (fixed test RNG), per-version field round-trips, and appearance-block, fingerprint and compare
 parity with the Midcupping scripts' byte rules held as literal offsets, and field values equal to
 4ccEditor's own `.4ccs` export of one team per version (15–21) taken from the saves the payload
 fixtures hold ([Savefile verification](../pes_savefile/verification.md)); `python_bindings` import
@@ -381,7 +382,7 @@ aside), which needs Phase 5's savefile and ID integration and Phase 6's Export u
   "Development phase and verification").
 - The Save editor tool crate's non-GUI substance that a command drives: settings, the CLI, and
   the `session/` operations its commands run over `pes_savefile` (Team TOML export and import,
-  the aesthetics patch, AATF checks, comparator, transplant, strip and seed with the
+  the aesthetics patch, AATF checks, comparator, strip and seed with the
   restored-id check, the teams list export; [Save editor](../save_editor.md), "CLI"). The
   wiring only the view drives (editing with its undo stack, selection, recent files, tactics,
   the FPC toggle, AATF quick actions) is Phase 8's, each piece in the slice of the view that

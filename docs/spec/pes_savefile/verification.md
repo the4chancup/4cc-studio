@@ -39,7 +39,8 @@ Part of the [Savefile plan](README.md). Section headings are unchanged from the 
   from the save each payload fixture holds (`tests/fixtures/pesNN_parity.4ccs`): read against
   that team, every player equals the codec's read of it, `ingame_face` and the face-type keys
   excepted (the record does not carry them). Aesthetics fingerprints must match
-  `compare-saves-*.py` output; transplant output must byte-match `transplant-aesthetics-*.py`.
+  `compare-saves-*.py` output; the appearance block must be the slice
+  `transplant-aesthetics-*.py` rewrites.
 - **Cross-version conversion**: compare against the converters' verified behavior on real team
   data, excluding their documented stale PES20/21 offsets. Assert corrected name and appearance
   fields independently against the target schema; reproducing the known converter corruption is

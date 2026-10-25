@@ -36,17 +36,6 @@ each player could still use within the rules. **Validate rules** checks the rule
 file itself and lists everything it finds wrong with it; **Save a copy** writes the
 built-in official ruleset out to a file.
 
-**Aesthetics transplant.** **Panels** → **Aesthetics transplant…** copies players'
-looks from another save (the donor) onto players in the open save. Pick a donor of
-the same PES version (a different version is refused, naming both), type a selection
-in the same forms as the `transplant` command (player ids, `target:donor` pairs,
-team ids and team ranges), and press **Preview**. The preview lists each affected
-player with the fields that would change, current value to donor value, so a wrong
-selection shows up before anything is written. **Apply** writes the donor's look as
-one undoable edit that stays unsaved until Save; it stays disabled until a preview
-lists changes, and while "Edit aesthetics anyway" is off its hover shows the
-ownership line.
-
 **Live AATF.** The toolbar's **Live AATF** toggle checks the open team after every
 edit, in a panel docked at the bottom of the window: the violations left, grouped
 per player as the floating window lists them, under `N issues · <ruleset>`, or

@@ -37,9 +37,12 @@ is too heavy:
   shirttail, winter gloves, skin color, plus a normalized hash of the ingame-face
   block, and prints what changed.
 
-Both are absorbed into the save editor — as the `transplant` and `diff` commands for now, the
-first-class panels arriving with the view (the underlying operations live in `pes_savefile` —
-see "Save-to-save operations" in the [Savefile plan](pes_savefile/operations.md)).
+The second is absorbed into the save editor as the `diff` command and the comparator panel (the
+operation lives in `pes_savefile`, "Save-to-save operations" in the [Savefile
+plan](pes_savefile/operations.md)). The first is not: aesthetics live in the exports now, so a
+look copied into a save is overwritten by the next compile, and on a stripped Fox save never
+read at all. Its successor copies a donor save's looks into the team's export instead (after
+Release 0.1.0, "Aesthetics transplant" in the [Save editor plan](../plans/save_editor.md)).
 
 ---
 
@@ -67,7 +70,7 @@ implementation is measured against.
 
 | Feature | Notes |
 |---------|-------|
-| Aesthetics transplant | Donor save → current save; see "Aesthetics transplant" in the [Save editor plan](../plans/save_editor.md) |
+| Aesthetics transplant | Not carried over as a save-to-save copy; its successor writes the team's export, after Release 0.1.0 ("Aesthetics transplant" in the [Save editor plan](../plans/save_editor.md)) |
 | Aesthetics diff | Part of the merged comparator |
 
 ### New (from the Team compiler)
@@ -153,11 +156,9 @@ afterwards.
   maintainer's machine (2026-10-14, `.tmp/5_4/base_copy_census.txt`) found such an id on 0 to
   26 players of each real PES 21 cup save, up to 117 on PES 19 and 988 on PES 18.
 - **Nothing in the editor sets an id back.** Imports (Team TOML) and
-  name writes, the aesthetics patch included, leave the appearance block's id as it is; the
-  aesthetics transplant writes the record's fields but not its id, and on a
-  stripped save it says that the game does not read it.
+  name writes, the aesthetics patch included, leave the appearance block's id as it is.
 - **A record at -1 is not the player's look.** Everything that reads a record's appearance
-  (the comparator and `diff`, a transplant's donor or target, a Team TOML export) marks a
+  (the comparator and `diff`, a Team TOML export) marks a
   player at -1 as stripped beside what it shows or writes.
 - **The game's own Edit mode does.** Test 1 found that any change to a stripped player in Edit
   mode restores his id: a rename brings back his pre-strip look, a look edit freezes the database
@@ -222,7 +223,6 @@ Python scripts precisely because GUIs can't be looped:
 4cc-studio save-editor export-toml ./EDIT00000000 --all-teams --out-dir ./teams
 4cc-studio save-editor import-toml ./aaa.toml --base ./EDIT00000000 --out ./EDIT_new   # patch the base save
 4cc-studio save-editor apply-patch ./aesthetics_patch.toml --base ./EDIT00000000 --out ./EDIT_new   # the compiler's patch
-4cc-studio save-editor transplant ./donor_save --base ./EDIT00000000 --out ./EDIT_new --select 70105,70107:70207,703-705
 4cc-studio save-editor diff ./a_save ./b_save [--aesthetics | --gameplay] [--json]
 4cc-studio save-editor check-aatf ./EDIT00000000 [--teams 701,705-710] [--rules ./vgl27.rhai]
 4cc-studio save-editor strip-and-seed --base ./EDIT00000000 --bins ./4cc_08_bins.cpk --out ./EDIT_new --bins-out ./4cc_08_bins_new.cpk
@@ -248,7 +248,7 @@ Rules every command shares:
   danger (`team_compiler/pipeline.md`, `savefile_skipped_pes_running`).
 - **A stripped player is marked.** On a Fox save, `diff` marks a player at -1 as stripped
   ("Stripped save") beside his rows, `export-toml` with `stripped = true` in his table
-  (informational; import ignores it), and `transplant` for a stripped donor or target.
+  (informational; import ignores it).
 
 The commands:
 
@@ -270,18 +270,12 @@ The commands:
   least one of its players was written: a team the save holds whose patch players it all lacks
   prints only their skips. A skipped team or player is an error (exit
   1) and the rest is written. Like every command that writes a save (`import-toml`'s notes,
-  `transplant`'s marks, `check-stripped --strip-again`'s fixed players), its lines are printed
+  `check-stripped --strip-again`'s fixed players), its lines are printed
   once `--out` is written: a write that fails prints only its failure (exit 3), never a line
   saying what was written. A pre-Fox patch is refused until the compiler writes one (deferred
-  with pre-Fox's other gaps). The read-only lock is a GUI guard; the CLI commands that write aesthetics
-  (`transplant`, an `import-toml` whose file holds aesthetics) are explicit by nature and are not
+  with pre-Fox's other gaps). The read-only lock is a GUI guard; a CLI command that writes
+  aesthetics (an `import-toml` whose file holds aesthetics) is explicit by nature and is not
   gated.
-- `transplant` copies the donor's appearance onto `--base`'s players in the scripts' selection
-  forms (`--select`, required, a comma-separated list of player IDs, `target:donor` pairs, teams
-  and team ranges; "Save-to-save
-  operations" in the Savefile plan), the whole appearance block but its id, as the scripts do, so
-  there is no field selection. The saves must be the same version, every target in the base and
-  every donor in the donor save, or nothing is written.
 - `diff` prints the comparator's report to stdout, players paired by id, each changed field as
   old → new (the appearance id is no row: a stripped player is marked instead), then the
   players only in one save (human-readable by default, `--json` for
@@ -349,8 +343,6 @@ finding that drops something says so with its own code.
 | `patch_team_applied` | Info | `apply-patch`: the save holds the team and at least one of its patch players was written (`team`); a team whose players the save all lacks is not listed | informational; goes on |
 | `patch_team_not_in_save` | Error | `apply-patch`: the save has no team with this id; its players were not looked at (`team`) | the rest is written; exit 1 |
 | `patch_player_not_in_save` | Error | `apply-patch`: the save has no player with this id (`player`) | the rest is written; exit 1 |
-| `transplant_target_stripped` | Warning | A transplant's target has appearance id -1, so the game does not read the record the donor's fields went into; the seeded tables decide his look (`player`) | warns; the write stands |
-| `transplant_donor_stripped` | Warning | A transplant's donor has appearance id -1, so the fields copied are his record's, not the look the game shows for him (`player`) | warns; the write stands |
 | `player_diff` | Info | `diff`: one field of a player in both saves, old to new (`player`, `field`, `old`, `new`) | the report's rows; differences are the output, exit 0 |
 | `player_only_in` | Info | `diff`: a player in one save alone (`player`, `save`: `first` or `second`) | informational; goes on |
 | `player_stripped` | Info | `diff`: the player's appearance id is -1 in `save` (`first`, `second` or `both`); his record is compared, not the look the game shows (`player`, `save`) | marks the player beside his rows; exit 0 |
@@ -395,7 +387,7 @@ SE-CLI-01  GIVEN the PES 21 fixture save, a Team TOML of one of its teams, and a
            WHEN import-toml writes --out, then again with --out equal to --base
            THEN each time <out>.bak holds the file the write replaced, and the exit code is 0
 SE-CLI-02  manual  GIVEN a running PES of the save's version
-                   WHEN import-toml, apply-patch, transplant, strip-and-seed or check-stripped
+                   WHEN import-toml, apply-patch, strip-and-seed or check-stripped
                         --strip-again is run on that save
                    THEN it is refused naming the running game, with exit code 2, and nothing is
                         written; with only a PES of another version running, the same command
@@ -484,22 +476,10 @@ SE-PAT-06  GIVEN SE-PAT-01's save and patch, and an --out that cannot be written
 **Transplant**
 
 ```
-SE-TRN-01  GIVEN two PES 21 saves differing in their teams' appearances
-           WHEN transplant --select is run with a player, a target:donor pair, a team and a team
-                range
-           THEN each selected target's appearance fields (the appearance id aside) and face,
-                hair, physique and strip edit flags equal its donor's, and every other byte of
-                the payload, the appearance ids included, is unchanged
-SE-TRN-02  GIVEN a PES 21 base and a PES 19 donor, and a PES 21 base and donor with selections
-                naming a donor player the donor save lacks and a target the base lacks
-           WHEN transplant is run with each
-           THEN each is refused naming the version pair or the player, with exit code 2, and
-                --out is not written
-SE-TRN-03  GIVEN a stripped PES 21 base, and a stripped PES 21 donor
-           WHEN a player is transplanted onto the first, and from the second
-           THEN onto the stripped base his appearance fields are the donor's, his appearance id
-                is still -1, and the output says the game does not read his record; from the
-                stripped donor the output marks the donor stripped
+SE-TRN-01  withdrawn: the save-writing transplant is removed (8.9j5c); its successor writes
+           the team's export, SE-GUI-14 (`plans/save_editor.md`)
+SE-TRN-02  withdrawn: the save-writing transplant is removed (8.9j5c)
+SE-TRN-03  withdrawn: the save-writing transplant is removed (8.9j5c)
 ```
 
 **Diff**

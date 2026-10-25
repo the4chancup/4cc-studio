@@ -5,7 +5,7 @@
 The save editor (`crates/tools/save_editor`) is the successor to **4ccEditor**
 and absorbs the **Midcupping** scripts: it edits PES save files (player stats,
 appearance, teams, tactics), enforces AATF rules, diffs saves (gameplay and
-aesthetics), transplants aesthetics between saves, handles team import/export
+aesthetics), handles team import/export
 (new Team TOML format, legacy `.4ccs`/`.4cct` import, Texport read/write) and
 FPC invisibility. It can also **generate `settings.toml` files from an existing
 savefile** (via `pes_savefile`'s `PlayerSettings` model), giving teams a migration path
@@ -772,7 +772,7 @@ What this editor adds on top of the lib:
 
 ## Build order and verification
 
-`pes_savefile` (codec, model, conversions, transplant/fingerprint ops, interchange
+`pes_savefile` (codec, model, conversions, fingerprint ops, interchange
 formats, comparator, FPC invisibility) is built in Phase 2 as a standalone lib; the
 editor's non-UI substance a command drives — the tool crate's settings, CLI and the `session/`
 operations its commands run, plus the `aatf` rules engine — lands in Phase 5; the view lands
@@ -793,7 +793,7 @@ the view builds up as:
    first `team_widgets` content
 2. Team tab + batch operations + FPC
 3. Tactics editor in `team_widgets` (pitch canvas last — everything else works without it)
-4. Comparator, transplant, AATF panels
+4. Comparator and AATF panels (the transplant after Release 0.1.0)
 5. Interchange format dialogs (Team TOML, legacy import, Texport, settings.toml)
 
 Verification:
@@ -805,7 +805,8 @@ Verification:
   same input save (byte-diff of the decrypted payload).
 - AATF: the official ruleset's parity with `aatf.cpp` and the rest of the AATF rules plan's
   "Development phase and verification".
-- Comparator/transplant output parity against the Midcupping scripts.
+- Comparator output parity against the Midcupping scripts, its aesthetics scope against
+  the transplant script's byte slice.
 - Texport export verified by importing into the game (manual, per version).
 
 ---
@@ -826,7 +827,7 @@ what needs a display, a native dialog or a running game. "The save" is the fixtu
 the version named, PES 21 unless the scenario says otherwise, copied under the test's own
 folder; save discovery is pointed at a Documents folder under that folder, never the
 developer's. An operation's outcome in the file is its own specification's where one exists
-(a transplant's, `SE-TRN`; a patch's, `SE-PAT`; a tier's values, `spec/aatf_rules.md`
+(a patch's, `SE-PAT`; a tier's values, `spec/aatf_rules.md`
 `apply_tier`; a Team TOML's, the CLI's export); these scenarios observe that the view reaches
 the same operation and shows its result. The operations with no command, which the spec's
 Phase 5 scope left to the view (the quick actions, the player and team operations, the
@@ -980,11 +981,10 @@ SE-GUI-21  manual  GIVEN the save's game running
                    THEN it is refused naming the game, as the CLI's writing commands are
                         (SE-CLI-02), and the file is unchanged
 SE-GUI-22  GIVEN the save open with "Edit aesthetics anyway" off (every start of the tool)
-           WHEN the Appearance tab, the team operations menu, the Savefile menu, the
-                transplant panel and the import dialog are drawn
+           WHEN the Appearance tab, the team operations menu, the Savefile menu and the
+                import dialog are drawn
            THEN the FPC toggle and the team-wide FPC switch, the boots and gloves assignment,
-                Clear visual flags, Fix database, the transplant's Apply and the imports'
-                aesthetics section
+                Clear visual flags, Fix database and the imports' aesthetics section
                 are disabled, each with the ownership line as its tooltip, while Apply
                 aesthetics patch is enabled
 SE-GUI-23  GIVEN the save open on a team and "Edit aesthetics anyway" on

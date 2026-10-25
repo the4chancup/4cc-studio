@@ -607,8 +607,8 @@ to moving, flattening, or removing files describe that draft, not destructive ed
    him in the report (I, `settings_from_stripped_record`, the slot and the name): strip-and-seed seeded his rows from those bytes, and the compiler,
    which does not read the AET layout, has compiled nothing of his team since, so the record
    still is his look. That holds until the team's first Studio compile, which the upgrader
-   cannot see: from then on his look is the compiled export's `settings.toml` (a save
-   transplant can change his record without changing it, `spec/save_editor.md`), so the
+   cannot see: from then on his look is the compiled export's `settings.toml` (an edit of
+   his record in the save does not change it, `spec/save_editor.md`), so the
    report's line says the file is generated from a stripped record and that a team compiled
    by Studio since keeps its own file instead. No `fpc_on` marker is written from the record
    (step 3's modelless item folder writes one from the folder): an FPC player's record holds the hide strip

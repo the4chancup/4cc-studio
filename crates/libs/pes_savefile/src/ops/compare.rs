@@ -63,15 +63,16 @@ pub enum PlayerDiff {
 pub enum DiffScope {
     /// A gameplay field.
     Gameplay,
-    /// An aesthetics field: what `transplant_player` moves.
+    /// An aesthetics field: the appearance block.
     Aesthetics,
 }
 
 impl PlayerDiff {
-    /// Aesthetics is what `transplant_player` moves: the appearance-block
-    /// fields (the four appearance edit flags, boots/gloves/base-copy IDs,
-    /// physique, strip), every `Face` and `FaceRun` row. Everything else
-    /// (motion and the other edit flags included) is gameplay.
+    /// Aesthetics is the appearance block: its fields (the four appearance
+    /// edit flags, boots/gloves/base-copy IDs, physique, strip), every `Face`
+    /// and `FaceRun` row — the slice `test_support::copy_appearance` moves,
+    /// which the tests check this list against. Everything else (motion and
+    /// the other edit flags included) is gameplay.
     pub fn scope(&self) -> DiffScope {
         use PlayerField as F;
         let field = match self {
@@ -497,7 +498,7 @@ mod tests {
     }
 
     #[test]
-    fn a_field_is_aesthetics_exactly_when_transplant_moves_it() {
+    fn a_field_is_aesthetics_exactly_when_the_appearance_copy_moves_it() {
         let schema = schema_for(PesVersion::Pes21);
         let a = player(PesVersion::Pes21, 70101);
         for (field, _, width) in crate::codec::runs(schema.player) {
@@ -516,7 +517,7 @@ mod tests {
             };
             assert_eq!(diffs, expected, "{field:?}");
             let mut c = a.clone();
-            crate::ops::transplant::transplant_player(&mut c, &b);
+            crate::test_support::copy_appearance(&mut c, &b);
             let moved = c.get(field).expect("covered") == new;
             assert_eq!(
                 diffs

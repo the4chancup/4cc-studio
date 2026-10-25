@@ -1,19 +1,18 @@
 //! Parity of `ops::compare` with the compare script's diff outcome: for every
-//! fixture player `a` and its transplanted twin `a'` (the next player's
-//! appearance block, same id, so the script's `face == playerID → 0` rule
-//! reads the same on both sides), each key the script prints differs exactly
-//! when our corresponding row exists, with the script's numbers.
+//! fixture player `a` and its twin `a'` carrying the next player's appearance
+//! block (same id, so the script's `face == playerID → 0` rule reads the same
+//! on both sides), each key the script prints differs exactly when our
+//! corresponding row exists, with the script's numbers.
 
 use sha2::{Digest, Sha256};
 
 use crate::codec::{read_player, write_player};
 use crate::model::player::PlayerEntry;
 use crate::ops::compare::{DiffScope, PlayerDiff, compare_players};
-use crate::ops::transplant::transplant_player;
 use crate::schema::fields::PlayerField;
 use crate::schema::ingame_face::IngameFaceField;
 use crate::schema::{VersionSchema, schema_for};
-use crate::test_support::{FIXTURES, appearance_for, count, payload, record};
+use crate::test_support::{FIXTURES, appearance_for, copy_appearance, count, payload, record};
 
 /// The appearance block of `p`, as the record bytes our writer produces.
 fn block(p: &PlayerEntry, schema: &VersionSchema) -> Vec<u8> {
@@ -137,7 +136,7 @@ fn the_comparators_aesthetics_rows_match_the_compare_scripts_diff_on_every_fixtu
                 a.id
             );
             let mut twin = a.clone();
-            transplant_player(&mut twin, &all[(k + 1) % all.len()]);
+            copy_appearance(&mut twin, &all[(k + 1) % all.len()]);
             let diffs = compare_players(a, &twin, schema).expect("compare");
             if !diffs.is_empty() {
                 pairs_with_rows += 1;

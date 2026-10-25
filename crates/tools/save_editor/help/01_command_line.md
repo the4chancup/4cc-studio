@@ -7,7 +7,6 @@ UnlimitedToolWorks save-editor export-toml <save> --team <id> --out <file>
 UnlimitedToolWorks save-editor export-toml <save> --all-teams --out-dir <folder>
 UnlimitedToolWorks save-editor import-toml <team.toml> --base <save> --out <save>
 UnlimitedToolWorks save-editor apply-patch <aesthetics_patch.toml> --base <save> --out <save>
-UnlimitedToolWorks save-editor transplant <donor save> --base <save> --out <save> --select <list>
 UnlimitedToolWorks save-editor diff <first save> <second save> [--aesthetics | --gameplay] [--json]
 UnlimitedToolWorks save-editor check-aatf <save> [--teams <list>] [--rules <file>]
 UnlimitedToolWorks save-editor strip-and-seed --base <save> --bins <cpk> --out <save> --bins-out <cpk>
@@ -55,18 +54,6 @@ line `patch_team_not_in_save` or
 `patch_player_not_in_save`, the rest of the patch is applied and written, and the exit code
 is 1. Like every command that writes a save, its lines come once `--out` is written, so a
 write that fails prints only its failure.
-
-`transplant` copies players' looks from a donor save of the same PES version onto the
-`--base` save: the whole look (boots, gloves, base copy, physique, strip settings, the
-in-game face) and the face, hair, physique and strip edit flags, nothing else. `--select`
-says who takes whose look, comma-separated: a player id alone (`70105`) takes his own look
-from the donor, `70107:70207` gives 70107 the look of the donor's 70207, a team id (`703`)
-does that for its 23 slots, a range (`704-705`) for every team in it. The saves must be of
-one version, every target in the base and every donor in the donor save, or the command is
-refused and nothing is written. On a stripped save a player's record is not the look the
-game shows, so a target at -1 gets the warning line `transplant_target_stripped` (the game
-does not read what was written into his record) and a donor at -1
-`transplant_donor_stripped` (his record was copied, not the look the game shows for him).
 
 `diff` lists what differs between two saves of one version, player by player, paired by
 player id: one line per changed field, `player_diff`, with the field, the first save's

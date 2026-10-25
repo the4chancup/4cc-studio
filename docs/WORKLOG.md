@@ -19,7 +19,8 @@ coverage table and draft, the DBC7 ruleset).
 "Divegrass Before Christmas"), a working Save editor with a rock-solid AATF check comes first
 (the maintainer, 2026-10-24): the Save editor's view (8.9: slices 1-3 done, with the Tactics
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
-(8.9j1-j3), the comparator done (8.9j4), then the transplant (8.9j5); 8.9f's slice 4: v2 is
+(8.9j1-j3), the comparator done (8.9j4), the save-writing transplant removed (8.9j5c; the
+export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d next, its library half `Rules::player_tier` done in 0.0.1i; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
 the compiler and the upgrader on the new file; slice 3, the Save editor's, rides with SE-GUI-19), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
@@ -84,7 +85,7 @@ being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain no
   DirectX rounds; `dds_convert::dds::fix_interpolated_channels` re-derives those channels. Drop
   it if a later release rounds (the exact-match test will say).
 - While a PES game (or any process named `PES2015.exe` to `PES2021.exe`) runs on the machine,
-  `save_editor`'s tests of `import-toml`, `apply-patch` and `transplant` on that version's
+  `save_editor`'s tests of `import-toml` and `apply-patch` on that version's
   fixture save fail with "PES 20xx is running": the commands refuse then (SE-CLI-02). Close the game before `just gates` or a
   mutation run that touches `save_editor`; a failed unmutated baseline is the symptom.
 - `studio_core`'s `pes_process.rs` is split by `cfg` per OS, so a mutation run reports the other
@@ -1344,7 +1345,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           compiler's view harnesses, `resources/fonts/`. manual: checked 2026-10-25 on the
           release build at 1280 x 800 (`.tmp/8_9f4e/look_{tactics,abilities}.png`): the
           regular weight throughout, Tactics in three columns with every control in view,
-          Abilities' top row on two lines as before. Mutants-diff e704be83: 2 mutants, 2 caught.
+          Abilities' top row on two lines as before; the maintainer looked at the regular
+          weight in the window the same day: fine. Mutants-diff e704be83: 2 mutants, 2 caught.
           SWE-2 round S1: 2 accepted (`color_tools`' harness; one uniform rule, every test
           context that runs a frame installs the fonts, through `shell::test_harness::
           test_context` for the shell's 78), fixed in r1, which the regular weight made find two
@@ -1498,7 +1500,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       - [ ] 8.9j5 the transplant (SE-GUI-14), redirected 2026-10-25 (the maintainer; DECISIONS
         "The aesthetics transplant writes the team's export, after 0.1.0; the save-to-save
         transplant goes"): the export-writing panel is built after 0.1.0 (its plan section);
-        8.9j5c next removes the save-writing transplant (8.9j5a's panel, the CLI command,
+        8.9j5c removed the save-writing transplant (8.9j5a's panel, the CLI command,
         `pes_savefile`'s operation, their codes, help, spec), keeping the comparator's r2 fixes
         (the one-line pick row, the focus given up); 8.9j5b is dropped:
         - [x] 8.9j5a the panel: the donor pick (another version refused with the CLI's
@@ -1529,8 +1531,21 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           gives the focus up), and with a real save's path the pick row wrapped its buttons onto
           a line of their own (both panels; now one line, the path truncated)
         - [-] 8.9j5b the two-pane browser: dropped with the save-to-save transplant
-        - [ ] 8.9j5c remove the save-writing transplant (above); `spec/save_editor.md`'s and
-          `spec/pes_savefile/`'s transplant text out, the Midcupping row saying why
+        - [x] 8.9j5c remove the save-writing transplant (above); `spec/save_editor.md`'s and
+          `spec/pes_savefile/`'s transplant text out, the Midcupping row saying why. Done
+          2026-10-25 (SWE-2 in two runs, the five file deletions the lead's: the run denies
+          deletes): the panel, `Session::transplant`, the CLI command and its two codes,
+          `ops::transplant`, the help paragraphs; the scripts' slice kept as the test-only
+          `test_support::copy_appearance` (the comparator's aesthetics scope and
+          `ops/appearance_golden.rs` check against it; red run: the strip flag left uncopied
+          fails `a_field_is_aesthetics_exactly_when_the_appearance_copy_moves_it` on
+          `EditedStrip`); SE-TRN-01 to 03 withdrawn; the spec text by the lead. Files:
+          `save_editor/{help/0{1,2}_*.md,src/{cli,lib,messages}.rs,src/session/mod.rs,
+          src/view/{mod,menus,player_list,comparator,tests}.rs,tests/cli/main.rs}`,
+          `pes_savefile/src/{test_support.rs,ops/{mod,compare,compare_golden,appearance_golden}.rs,
+          interchange/aesthetics_patch/mod.rs}`, `docs/spec/{save_editor.md,pes_savefile/*,
+          core/development_plan.md,README.md,export_upgrader.md}`, `plans/core/README.md`,
+          `GLOSSARY.md`, `README.md`
     - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
       (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's
       `ScrollArea::vertical` the content's width grows to fit its widest row (measured at a

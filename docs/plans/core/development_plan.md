@@ -160,7 +160,7 @@ this phase completes it. Its scenarios are written: the shell's under `gui.md` "
   rendering (the grid's kit-cell miniatures, pattern-only mode) and the color-picker popup (the
   Save editor's team color fields; the Kit config editor and the Team creator later)
 - Implement each tool's `view()`: Team compiler grid (live validation), save editor
-  (player/team/tactics editing, AATF checks, comparator, transplant — build order in the [Save
+  (player/team/tactics editing, AATF checks, comparator — build order in the [Save
   editor plan](../save_editor.md); the `session/` wiring only the view drives, undo,
   selection, recent files, the FPC toggle and AATF quick actions, lands with it; the tactics editor, card pickers and violations list are built as
   `libs/team_widgets`, which the Team creator later reuses), export upgrader

@@ -1,6 +1,6 @@
 //! The suite's color field: a color button opening the picker popup of
 //! `plans/libs/color_tools.md` "Color-picker widget (Phase 8)", drafted in
-//! `docs/prototypes/tools/save_editor.js` (the `PICKER` section). The button shows the color
+//! `docs/prototypes/tools/save_editor.js` ("The colour picker" section). The button shows the color
 //! (or the live candidate while a swatch is hovered or a drag runs); the popup edits it
 //! through a saturation-value square and a hue strip, a hex field, R/G/B fields, the
 //! host's suggestion swatches and the session's recent colors. `color` moves only on a
