@@ -5,7 +5,7 @@
 The music player (`crates/tools/music_player`) is the successor to **Rigdio**, the
 match-day goalhorn/anthem/chant player used by streamers during cup events. The
 community name stays in the user-facing labels: the sidebar shows
-**"Music player (Rigdio)"** (the collapsed rail shows the tool icon — the existing
+**"Music player (Rigdio)"** (the icon rail shows the tool icon — the existing
 `rigdio.ico` artwork can be reused); the crate (`music_player`) and tool id
 (`music-player`) use the suite's descriptive naming.
 
@@ -1032,7 +1032,7 @@ Parsing/validation CLI lives with the [Music export editor](music_export_editor.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Naming | `music_player` crate; label "Music player (Rigdio)"; existing Rigdio icon in the collapsed rail | Suite naming convention for the crate/id; the community name and icon stay user-visible |
+| Naming | `music_player` crate; label "Music player (Rigdio)"; existing Rigdio icon in the icon rail | Suite naming convention for the crate/id; the community name and icon stay user-visible |
 | `.4ccm` | Canonical, read + write, unchanged | Interop with legacy Rigdio during transition; no format migration for managers |
 | Format + model crate | `libs/music_export` | Shared with the editor; one parser/serializer/evaluator |
 | Audio backend | Pure Rust: `kira` + `symphonia` + Opus decoder crate + `ebur128` | Single binary, no Win7-pinned DLLs, in-process loudness, WASM-compatible |

@@ -64,6 +64,19 @@ config-dir choice, which EGG renames to `.bak`, cannot happen here: the dialog s
 neither file exists, and the program offers no later move of the data location (moving the
 folder is the move).
 
+**The first run also finds the PES version and folder.** Below the location choice, the dialog
+offers the versions found on the machine: those whose save folder exists
+(`Documents\KONAMI\Pro Evolution Soccer 20xx`, the folders the save discovery already walks)
+and those whose `PES20xx.exe` sits in the default install path
+(`C:\Program Files (x86)\Pro Evolution Soccer 20xx`), the newest preselected for
+`pes_version`, and for `pes_folder_path` the default `**` path when the exe is found there.
+The member confirms or changes the pick; with nothing found, the defaults stand (PES 19, the
+default path), as they do today. Without it a new member's first compile goes to PES 19 and a
+folder that may not exist, and only "Fix PES path" from a running PES corrects it. Steam's
+library folders are not probed: a Steam install is not the cup's (its launch is incompatible
+with the mods, `plans/team_compiler/gui.md` "Toolbar"), so a found one would be the wrong
+default.
+
 One more thing is not data-dir cargo:
 
 - The `old/` rollback binary is tied to the program folder, not the data.
@@ -178,6 +191,6 @@ appears:
 - **Not the title bar**: the title is what the taskbar and alt-tab show — the surface for what
   the Studio is *doing* while the window is not in front (see `gui.md` "Window title"), and it is outside
   every screenshot a user crops to the window content. **Not beside the logo**: duplicate of the
-  status bar, and homeless when the sidebar collapses to the icon rail.
+  status bar, and homeless on the icon rail, which is all of the sidebar most of the time.
 
 ---

@@ -521,17 +521,20 @@ fn the_profile_block_holds_its_pairs_in_two_aligned_columns() {
     }
 }
 
-// plans/save_editor.md "Editing UI", the top row's three blocks: on a wide
-// pane Profile, Playable positions and Quick actions share the first
-// line; on the pane the shell's smallest default window leaves the row
-// wraps between the blocks — Playable positions lands below Profile
-// whole, never split across two lines.
+// plans/save_editor.md "Editing UI", the top row's three blocks: past
+// `TOP_ROW_ONE_LINE` (1333 here — the constant plus `TAB_AREA_OFFSET`) Profile, Playable positions and Quick actions share the
+// first line; on the pane the shell's smallest default window leaves
+// the row wraps between the blocks — Playable positions lands below
+// Profile whole, never split across two lines.
 #[test]
 fn the_top_row_wraps_between_its_blocks_never_inside_one() {
     let path = fixture(PesVersion::Pes21, "top_row_wide");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1440.0, 900.0);
+    let mut window = Headless::sized(
+        crate::view::abilities::TOP_ROW_ONE_LINE + TAB_AREA_OFFSET,
+        900.0,
+    );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let y = |label: &str| {
         nodes
@@ -1331,7 +1334,12 @@ fn widget_ids_hold_across_the_width_thresholds() {
         "the stat's field across the column count"
     );
 
-    let mut wide = Headless::sized(1440.0, 900.0);
+    // Wide enough for both thresholds at once: `TOP_ROW_ONE_LINE` +
+    // `TAB_AREA_OFFSET`, which is past `TEAM_BAR_ONE_ROW`'s too.
+    let mut wide = Headless::sized(
+        crate::view::abilities::TOP_ROW_ONE_LINE + TAB_AREA_OFFSET,
+        900.0,
+    );
     let playing_style = id_at(&mut wide, &mut view, "Playing style", Role::ComboBox);
     assert_eq!(
         id_at(&mut narrow, &mut view, "Playing style", Role::ComboBox),

@@ -386,8 +386,10 @@ fn the_bar_wraps_between_its_pairs_never_inside_one() {
         "the colours wrapped whole to the second row"
     );
 
+    // A pane at the constant's edge, not the window's default: past
+    // `TAB_AREA_OFFSET` the bar sees exactly `TEAM_BAR_ONE_ROW`.
     let (mut view, _window) = open_734_with("team_bar_wrap_wide", &[], 183);
-    let mut window = Headless::sized(1440.0, 900.0);
+    let mut window = Headless::sized(crate::view::team::TEAM_BAR_ONE_ROW + TAB_AREA_OFFSET, 900.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
         (colour_y(&nodes, "Colour 2") - team_label(&nodes)).abs() < 1.0,

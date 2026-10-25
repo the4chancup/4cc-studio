@@ -48,7 +48,7 @@ These planned crates extend the spec's workspace tree:
 ```
 
 **`studio_core`** also contains:
-- The app shell: sidebar (logo, PES version selector, tool list, collapse, help and settings
+- The app shell: sidebar (logo, PES version selector, tool list, an icon rail opening on hover, help and settings
   buttons) and the status bar (see `gui.md` "Status bar" under GUI Design)
 - The help framework: the help window, its search, and the core chapters (see `gui.md` "Help window")
 - Common widgets: the progress grid, the log panel, the run strip
@@ -163,7 +163,7 @@ That is the full registry; the three tools registered today are the first, secon
 The sidebar lists the planned tools a build does not register (`gui.md` "Sidebar", item 3), so
 `studio` also keeps the full registry as data: one `PlannedTool { id, label, icon }` per tool
 above, in that order, handed to the shell with the registered tools; the shell lists, after the
-registered ones, every entry whose `id` no registered tool has. A tool's icon for the collapsed
+registered ones, every entry whose `id` no registered tool has. A tool's icon on the sidebar's
 rail is a trait method, `fn icon(&self) -> &'static str`, one glyph of the shell's icon font
 (`README.md` "GUI framework choice: egui"), and the
 planned entry repeats it. Not a second `Vec<Box<dyn StudioTool>>` of disabled tools, because a
@@ -218,6 +218,17 @@ four small crates and about 145 KiB to a release binary (measured 2026-10-16, 0.
 progress grid has no terminal version: its value is the GUI's per-folder colours and click-through
 to the findings, a cup's grid is wider than a terminal, and a terminal grid would need a TUI
 library; the finding lines already name each failing folder, and the summary gives the counts.
+
+**Every finding line says what was lost.** `EventLines`' finding line
+(`<export>: <Severity> <code> at <path> (<context>)`) ends with a fixed phrase per effective
+disposition: `folder left out`, `file left out`, `slot skipped`, `export skipped`, `run stopped`,
+and `kept anyway` for a finding passed through; a finding whose disposition drops nothing
+(an Info, a kept Warning) gets none. The same phrase ends the finding in a grid cell's tooltip.
+Severity alone does not say it: two Warnings drop a whole folder (`player_unlisted`,
+`shared_folder_orphaned`), so a manager reading only the Errors, or skimming the yellow lines,
+never learns the folder is gone. One disposition-to-phrase mapping in `studio_core`, never a
+phrase in each catalog text, so a text cannot contradict the disposition the run applied; the
+CLI tests that pin whole lines change with it.
 
 These notes extend the spec's `PipelineEvent` enum, the first at `Progress`, the second at `Complete`:
 

@@ -1198,7 +1198,7 @@ fn a_long_name_is_cut_at_the_lists_width() {
     let slot = usize::from(tactics.starting_eleven[2]);
     rows[slot].1 = "3DSMAX HAS STOPPED WORKING".to_owned();
     let roster = roster_rows(&rows);
-    let mut window = Headless::sized(240.0, 900.0);
+    let mut window = Headless::sized(200.0, 900.0);
     let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
 
     let row = &lineup_rows(&nodes)[2];
@@ -1210,7 +1210,7 @@ fn a_long_name_is_cut_at_the_lists_width() {
     );
     let bounds = name.bounds().expect("name bounds");
     assert!(
-        bounds.x1 <= 240.0,
+        bounds.x1 <= 200.0,
         "the name ends inside the list's width ({bounds:?})"
     );
 }

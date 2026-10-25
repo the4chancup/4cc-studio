@@ -10856,3 +10856,101 @@ and changed in each. Not an HTML page per tool fetched by the host (a page opene
 cannot fetch another file), and not an iframe (it would hold a tool's menus and dialogs inside
 the tool area, where egui's span the window).
 Plan: `plans/core/gui.md` "Prototypes before implementation".
+
+## 2026-10-25 — gui — The drafts' host gets a layout edit toggle
+Decision: the host page's draft controls carry a "Layout edit" toggle: every panel a tool
+script names with `data-panel` can be moved (an offset that pushes nothing) and resized (its
+neighbours reflow), and "Copy layout" copies one line per changed panel, with the tool, screen,
+window size, zoom and each panel's rectangle before and after, for the maintainer to paste to
+the lead; the tweaks persist across reloads until "Reset". Built once in the host, so every
+tool's draft has it.
+Why: the maintainer's request: tuning an arrangement by hand and pasting the result is faster
+and less ambiguous than describing it in words. The string is evidence, not a layout file
+the views load, because the views lay out by width rules rather than coordinates: the lead
+turns a tweak into constants and rules, and reports one no rule expresses instead of placing
+panels by coordinates.
+Plan: `plans/core/gui.md` "Prototypes before implementation" ("Layout edit").
+
+## 2026-10-25 — gui — The drafts' host gets remarks, links, longest values, the app's font, an overlay and draft shots
+Decision: the six review aids of `plans/core/gui.md` "Prototypes before implementation" ("The
+host's other review aids"), proposed as P26-P31 and accepted by the maintainer: remarks pinned
+to an element with "Copy remarks"; the tool, screen and draft state in the URL's fragment;
+a "Longest values" control fed by `assets/longest.json`; the app's bundled fonts by
+`@font-face`; an overlay of the built window's capture; `scripts/draft_shots.py` listing the
+screens a host edit changed. Each lives in the host, so every tool's draft gets it once.
+Why: remarks in prose and screens reached by described clicks cost the lead guesses and
+repeated work; short sample names and the browser's font hide clipping the app then shows
+(the Tactics combos at the default window); two captures compared by eye miss small shifts;
+a shared host changes every draft at once, and only the tool being worked on is looked at.
+Plan: `plans/core/gui.md` "Prototypes before implementation"; worklog 8.19, 8.20, 8.21.
+
+## 2026-10-25 — team_compiler, core — Usability proposals P1-P14 accepted
+Decision: the maintainer accepted P1-P14 of `PROPOSALS.md`, with three changes: P6 probes no
+Steam library (a Steam install is not the cup's); P8 adds a compile column, a checkbox at the
+start of each row, ticked by default, hidden by default and toggled from the Compile dropdown,
+which is this run's selection only and writes nothing (the maintainer picked it over a column
+writing the `NO_USE` marker); P10 is a gap rather than a proposal, the deep check owing every
+check whose inputs exist before a compile. Plan homes: `plans/core/architecture.md` (P1),
+`plans/team_compiler/messages.md` (P2, P11 as `model_name_type_misplaced`, P13 as
+`kits_folder_missing`), `plans/team_compiler/gui.md` "Row actions" (P3-P5, P7-P9) and "Deep
+check" (P10), `plans/core/distribution.md` (P6), `plans/aesthetics_export/settings_toml.md`
+(P12), `plans/team_compiler/pipeline.md` (P14). P12 carries an invalid file's player's
+installed row read where a `Midcup` export reads its defaulted categories' (the lead's
+reading of "keeps his installed row").
+Why: each spares members a step or a lost folder the proposals name (`PROPOSALS.md` as of
+2026-10-25, now removed from it); a checkbox that renamed or marked files on one click meant for
+one run would surprise.
+Plan: the files above; worklog 8.10 (the grid's row actions), 8.22a-g.
+
+## 2026-10-25 — save_editor — The Tactics settings column scrolls with the tab at 1280 × 800
+Decision: at the default window the Tactics tab keeps its three columns, and the settings
+column, which ends 14 points past the 776-point pane (Automatic settings' last control; 60
+points with an assignment note armed), scrolls with the tab; no spacing is squeezed to fit.
+Why: measured in 8.9f4c's rework by a headless test at 1120 x 776 after Astra's A1-2 doubted
+the plan's "every control in view at 1280 x 800". A row's overflow is reached by the wheel
+the tab already has; fitting it would mean a narrower note, tighter group spacing or a
+two-pair formation grid the 368-point column cannot hold, each a change of the draft's
+layout for one row. The maintainer can tune it by hand once the drafts' layout edit lands
+(worklog 8.18).
+Plan: `plans/save_editor.md` "Tactics editor" (the "pitch is the editor" bullet).
+
+## 2026-10-25 — aesthetics_export, team_compiler — Edits made in PES come back to the export
+Decision: PES stays the previewer for the motions and the in-game face; Studio finds the edits
+a member made in Edit mode by comparing the save with a compile record the compiler leaves
+beside its aesthetics patch (each compiled player's resolved keys and the save's fingerprint),
+at start, when the tools' views open, before every compile and on the save's change, so edits
+made while Studio was not running are found too; it brings them into `settings.toml` and
+`ingame_face.toml` on one click, and writes the save (the re-strip of restored ids, a pending
+patch) only once PES is closed. Replaces P15's Part B (a skipped save step applied when PES
+closes), which it contains; P15's Part A (two findings opening the Save editor at their fix)
+is accepted as proposed.
+Why: the maintainer's ruling, with "Studio picks up the changes even if it was not running"
+first. A previewer outside PES (the motions, the face) is a research project whose result
+would still be judged against the game; the round trip costs a record, a comparison and a
+notice. Watching for the write alone would miss edits made with Studio closed, and PES writes
+the save only on leaving Edit mode, from its memory, so a write by Studio while it runs is lost.
+Plan: `plans/aesthetics_export/settings_toml.md` ("Edits made in PES come back to the export");
+worklog 8.23.
+
+## 2026-10-25 — gui — The sidebar is a rail that opens over the view on hover
+Decision: the sidebar is always its ~56-point icon rail beside the tool's view; a pointer
+resting on it (~150 ms) or keyboard focus opens the full ~160-point sidebar as a floating
+layer over the view's left edge, which closes when the pointer leaves it unless one of its
+popups is open. The collapse button and its state go.
+Why: the maintainer's request, to gain space: the labels and the version dropdown are needed
+only for a moment, and reserving their width cost every tool about 104 points all the time
+(a tab's area at the default window grows from 904 to about 1008). The view is never pushed
+or resized by the overlay, so nothing under the pointer moves while it opens.
+Plan: `plans/core/gui.md` "Sidebar" (item 4), ST-SIDE-02; worklog 8.25.
+
+## 2026-10-25 — gui — The rail's icons are drawn at 24 points
+Decision: the tool icons, the help `?` and the settings gear are drawn at 24 points, on the
+rail and in the opened sidebar alike, where they were drawn at the body text's 12.5; the
+opened sidebar is as wide as its longest label needs on one line.
+Why: the maintainer asked for larger icons once the rail became what the sidebar shows most
+of the time: the icons alone must tell the tools apart. 24 is the largest size at which the
+fourteen entries (about 470 points) still leave the 56-point rail's other rows their room at
+the default window; 32 would take about 600 with 12-point side margins. One size in both
+states keeps the icons in place when the sidebar opens. The icon draft page shows the
+candidates at 24, 36 and 48 px (100/150/200% scaling).
+Plan: `plans/core/gui.md` "Sidebar" (items 3 to 5); worklog 8.25, 8.14.

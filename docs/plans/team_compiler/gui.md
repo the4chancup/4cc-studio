@@ -70,6 +70,65 @@ it, one cell per player at a fixed position by number, plus one cell per kit:
 - One row per team bounds the row count (~50), so no virtualization is needed; direct egui rendering
   suffices.
 
+### Row actions
+
+What a member does about a row, from the row itself. Every action that writes into the
+exports folder is a rename, a marker or a copy the member asks for by a click; nothing is
+changed on its own.
+
+- **Open folder.** The detail panel and a log line's context menu carry **Open folder**,
+  opening the scope's folder in the file manager, a file's folder with the file selected
+  (`explorer /select,` on Windows, `xdg-open` on the folder elsewhere); for an archive export,
+  the archive's folder with the archive selected. The fix for a finding is nearly always a
+  rename, a link or a removal in the file manager, so the click saves finding the folder by
+  hand.
+- **One-click fixes for the mechanical cases.** A finding with one obvious fix gets a button
+  in the detail panel that applies it, the member still choosing: a known file with a hidden
+  `.txt` (`settings.toml.txt` → `settings.toml`; kept disallowed, so the mistake is named), an
+  old `Portraits/player_05.dds` (→ the player folder's portrait name), a player folder
+  `15 Snuffy` or `15_Snuffy` (→ `15 - Snuffy`). Each is a rename refused when the target name
+  exists (the refusal says so), and the row revalidates as after any rename. A folder export
+  only: inside an archive nothing is renamed, so an archive's finding has no button. It widens
+  the untagged row's **Full**/**Midcup** buttons, the precedent of the GUI renaming in an
+  export.
+- **An old export offers its upgrade.** A row red with `export_layout_old` or
+  `player_layout_proto` carries an **Upgrade** button: the shell switches to the Export
+  upgrader with the export as its input (a tool switch with an argument, as the Refs arranger's
+  handoff). After a clean upgrade, the upgrader asks once whether to move the old export into a
+  sibling `old exports/` folder, so its red row goes; declined, the old export stays where it
+  is. The upgrader's "Move to exports and compile" (`plans/export_upgrader.md` "GUI") is the
+  handoff back.
+- **The empty grid.** An exports folder with no export (`no_exports_found`) shows, in the
+  grid's place, the folder's path, an **Open exports folder** button and a line saying an
+  export can be dropped here. A folder, `.zip` or `.7z` dropped anywhere on the grid is copied
+  into the exports folder (refused, naming it, when that name exists) and checked like any new
+  export; the drop works on a filled grid too.
+- **Compile one export, or a chosen few.** A row's context menu has **Compile only this
+  export**, the CLI's `--export` from the grid, in the current output mode. A **compile
+  column** of checkboxes at the start of each row, ticked by default, picks the exports the
+  next Compile takes: it is this run's selection only, written nowhere, every row ticked again
+  on the next start, and an unticked row is greyed and skipped as if absent. The column is
+  hidden by default, shown and hidden by a toggle in the Compile button's dropdown; hidden, every
+  row is compiled. Not the `NO_USE` marker: a checkbox that wrote into the export would change
+  files on a click meant for one run.
+- **Save findings open the Save editor at their fix.** `savefile_missing` (the patch written,
+  no save to write it into) carries **Apply in Save editor**: the shell switches to the Save
+  editor with that patch loaded and its apply action ready, the member picking the save.
+  `savefile_player_not_stripped` carries **Fix in Save editor**: the Save editor opens on that
+  save with the strip operation its case needs (`strip-and-seed` for a save never stripped,
+  `check-stripped --strip-again` otherwise) and the named players listed. Both are the tool
+  switch with an argument the Upgrade button uses; the save is written by the Save editor's own
+  apply and strip, the one save-writing path. `savefile_skipped_pes_running` gets no button: the
+  pending patch is applied when PES closes (`plans/aesthetics_export/settings_toml.md` "Edits
+  made in PES come back to the export", "Into the save only when PES is closed").
+- **Disabled exports stay visible.** An export with its `NO_USE` marker is a greyed row with
+  **Enable** (removing the marker) rather than left out of the grid, so what was disabled can
+  be seen and undone. Where two exports clash (`duplicate_aesthetics_export`,
+  `multiple_ref_exports`, which skip every export involved), each clashing folder export's row
+  offers **Disable** (writing its `NO_USE` marker), and an archive offers a move into
+  `old exports/` instead, since no marker can be written inside it; disabling one clears the
+  clash and the other compiles.
+
 ---
 
 ## Live validation (no Check or Refresh buttons)
@@ -91,7 +150,16 @@ the cache below are `libs/pipeline`'s, shared with the Balls compiler's list vie
   older than the row's current revision, so a stale check can never overwrite newer state.
 - **Deep check (plain-folder exports)**: full parse + validation of every file. Rust makes this
   near-instant for folders. When compiling a full DLC, users normally submit plain folders, so the
-  main workflow gets full validation automatically.
+  main workflow gets full validation automatically. **Deep means every check whose inputs exist
+  before a compile**: the export's own files, the teams list, the settings and the installed
+  CPKs the compile would read. A finding the compile reports from those same inputs is a gap
+  in the deep check, not a compile-time finding: a cell that looks fully checked and turns red
+  only at Compile tells the member nothing until minutes later. `fmdl_texture_not_found` is
+  the first such case: the deep check runs the same texture lookup for each source model's own
+  texture names (one function both callers use, never a copy, with a test pair keeping them in
+  agreement). Only a finding about something the compile itself produces (a merged model's
+  combined texture list, a retargeted model, a converted model over its limit) stays with the
+  compile, and its catalog row says why.
 - **Shallow check (packed archives)**: archive extraction (LZMA) is the real bottleneck, not CPU —
   so `.zip`/`.7z` exports get a shallow check only: the archive's directory listing is read (file
   names, sizes, structure) without extraction, catching naming/nesting/file-type issues in

@@ -318,8 +318,11 @@ Win32 original hurt the most):
   name cut at its edge with the full name on hover), then
   the preset bar, the note and the settings groups taking the rest and wrapping inside it,
   the formation settings an aligned grid of up to two pairs per row (one where the column
-  cannot hold two, as the ability stats' columns): every control in view at 1280 x 800, not
-  settings rows below the pitch past the window's bottom. A pane too narrow for a settings
+  cannot hold two, as the ability stats' columns): at 1280 x 800 the three columns stand side
+  by side, not settings rows below the pitch past the window's bottom, and the settings
+  column, the tallest, runs past the pane by about a row (14 points; 60 with an assignment
+  note armed, measured 2026-10-25) and scrolls with the tab, so its last group is reached by
+  the wheel rather than squeezed in. A pane too narrow for a settings
   column of the draft's 360 points beside the other two (the smallest default window's) takes
   the settings column whole below the pitch and the lists, never a group split between
   columns. Not columns of half the pane each: a column narrower than the canvas widens the

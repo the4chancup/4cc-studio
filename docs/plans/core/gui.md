@@ -67,8 +67,8 @@ impl eframe::App for StudioApp {
         egui::Panel::bottom("status_bar").exact_size(24.0)
             .show(ui, |ui| self.render_status_bar(ui));
 
-        // Left sidebar (collapsible width)
-        egui::Panel::left("sidebar").exact_size(self.sidebar_width())
+        // Left sidebar: the icon rail; the full sidebar opens over the view on hover
+        egui::Panel::left("sidebar").exact_size(RAIL_WIDTH)
             .show(ui, |ui| self.render_sidebar(ui));
 
         // Central panel: the active tool's view, which lays itself out inside it
@@ -108,8 +108,8 @@ Top to bottom:
    `cfg!(debug_assertions)`), target triple, data location, selected PES version — with a
    **Copy** button that puts exactly that block on the clipboard for a bug report, and links to
    the release page, the repository and the help. No version is shown beside the logo itself: the
-   status bar already shows it 300 px away, and the collapsed icon rail has no room for it, so it
-   would be the one element that came and went with the collapse.
+   status bar already shows it 300 px away, and the icon rail has no room for it, so it would be
+   the one element that came and went with the hover.
 2. **PES version selector** — a *global* setting, not per-tool: the Team compiler targets it, the
    save editor uses it as a selection/default hint (an open save keeps its detected schema), and
    integrated conversion uses it as the destination format. Compact dropdown. Changing it is blocked with a tooltip while any tool reports a
@@ -139,8 +139,15 @@ Top to bottom:
      the running version, so the fix keeps working across versions). The action is offered only
      when the exe's folder is a folder on this system: under Wine or Proton the probe reports the
      game's Windows path, which a Linux setting cannot use.
-3. **Tool list** — vertical nav with **full text labels** (small text, sidebar wide enough to fit),
-   populated from the registered `StudioTool` list. The active tool is highlighted with an
+3. **Tool list** — vertical nav, one entry per tool: its icon at **24 points**, its label in the
+   body text beside it once the sidebar opens (item 4), populated from the registered
+   `StudioTool` list. The rail shows the icons alone, so they are drawn at about twice the body
+   text (12.5) for the rail by itself to tell the tools apart, and at the same size and place in
+   the opened sidebar, so nothing moves when it opens. 24 rather than larger because the rail
+   is 56 points wide and every entry is in it: at 24 the fourteen entries take about 470 points
+   of the 776-point rail at the default window, leaving the logo, the version dropdown, the help
+   and the gear their room; at 32 they would take about 600 with 12-point side margins, and a
+   rail that overflows scrolls its entries out of sight. The active tool is highlighted with an
    accent-colored left border bar plus a filled background. The suite's planned tools not in
    this build (the registry's, `architecture.md` "Tool plugin interface") are listed after the
    registered ones, grayed and not clickable, each tooltip saying the tool is not in this build:
@@ -153,10 +160,22 @@ Top to bottom:
    and its settings section, which the command line reads. The mark is the registry's, in
    `studio`, not a `StudioTool` method: which tools a build shows is the build's choice, and
    the preview's list goes when the views land.
-4. **Collapse button** — collapses the sidebar into an icon-only rail (tooltips carry the labels).
-   Width toggles between ~160px and ~56px.
-5. **Help `?` and settings gear** pinned at the bottom — open the help window and the settings
-   menu. F1 opens the help too.
+4. **A rail that opens on hover** — the sidebar is always an icon-only rail (~56 px) beside the
+   tool's view, which takes the rest of the window. The pointer resting on the rail (a short
+   delay, ~150 ms, so a pointer crossing it on its way elsewhere opens nothing) opens the full
+   sidebar (the labels, the version dropdown; as wide as the longest label needs on one line,
+   "Player aesthetics editor", since its width costs the view nothing) **over** the tool's left
+   edge, as a
+   floating layer with a shadow, never pushing or resizing the view under it; it closes when
+   the pointer leaves it, except while a popup it opened (the version dropdown, the About
+   block) is open. A click on a rail entry switches tools without waiting for the hover, so the
+   rail alone is enough to work with, and keyboard users get the same overlay on focus. There
+   is no collapse button and no expanded state to persist. We overlay rather than reserve the
+   expanded width, because the expanded sidebar is needed only to read a label or pick a
+   version, and reserving ~104 more points cost every tool that width all the time (at the
+   default window a tab's area grows from 904 to about 1008 points).
+5. **Help `?` and settings gear** pinned at the bottom, at the tool icons' 24 points — open the
+   help window and the settings menu. F1 opens the help too.
 
 ### Settings menu
 
@@ -506,6 +525,58 @@ describes with sample data, before the first slice of the view is coded; a slice
 what the draft shows changes the draft first, so the draft stays the specification the view
 is checked against.
 
+**Layout edit.** The host's draft controls carry a "Layout edit" toggle, so the maintainer
+tunes an arrangement by hand instead of describing it. While it is on, every panel a tool
+script names (`data-panel="<name>"`: group boxes, columns, sidebars, bars; never a single
+control) shows an outline, a handle that moves it and a corner that resizes it, and the
+panels' own controls take no input. A move is an offset from where the panel's layout puts it
+and pushes nothing; a resize sets its width and height and the panels around it reflow, as
+they do in the window. "Copy layout" puts one line per changed panel on the clipboard (the
+tool, its screen or tab, the simulated window's size and the browser zoom, and each panel's
+name with its rectangle in window points before and after); the tweaks survive a reload, and
+"Reset" clears them. The string is evidence for the lead, not a layout file: the views lay out
+by width rules (rows picked by width, caps, the settings column below a narrow pane), so the
+lead turns a tweak into width constants and rules in the plan and the code, and reports one no
+rule expresses (an overlap, a panel placed freely) rather than placing it by coordinates.
+Panel names are the readable, stable half of the string: a draft renames a panel only with
+its plan section.
+
+**The host's other review aids**, each built once in the host for every tool's draft:
+
+- **Remarks.** A "Remark" toggle beside "Layout edit": a click on a panel or a control opens a
+  note field, and "Copy remarks" copies one line per note, `tool/screen › panel › control:
+  text`, with its link (below). Remarks pinned to an element, not prose ("the box under the
+  pitch"), which the lead maps to an element and sometimes wrongly. Notes persist like the
+  layout tweaks, until "Reset".
+- **Links.** The host keeps the current tool, screen and draft state (the tab, an open dialog,
+  the team picked, the draft controls) in the URL's fragment
+  (`index.html#save_editor/tactics?team=3&dialog=preset`), read and written through one host
+  helper each tool script calls for its few keys; opening a link draws that state. Every
+  remark and layout line carries its link, so the lead opens the exact state in Playwright
+  rather than repeating clicks from a description.
+- **Longest values.** A draft control that fills every text from the longest real values
+  (player and team names from the fixture saves and `teams_list.txt`, the longest option of
+  each list, the widest numbers), extracted once by a script into `assets/longest.json`; each
+  tool script draws its texts through a host helper that picks the sample or the longest
+  value. Short sample names hide clipping: a real 26-character name ("3DSMAX HAS STOPPED
+  WORKING") overflowed the Tactics instruction combos at the default window in the built view,
+  where the draft had shown no overflow.
+- **The app's font.** The host loads the font files the app bundles by `@font-face`, at egui's
+  sizes, so a text's width in the draft predicts the app's to within hinting; with the
+  browser's own font a row that fits in the draft wraps in the app, and a width constant
+  cannot be settled from the draft.
+- **Overlay.** A draft control that lays a capture of the built window over the draft at half
+  opacity, or beside it: captures taken at the simulated window's size by the lead's
+  PrintWindow script into `assets/captures/<tool>_<screen>.png`, refreshed when a view's slice
+  lands, each dated in its corner so a stale one shows. A shifted panel or a different gap
+  shows at once, to the maintainer as to the lead, where two separate captures compared by eye
+  miss it.
+- **Draft shots.** `scripts/draft_shots.py` captures every screen of every tool (the list from
+  the tool scripts' registrations, reached through their links) at the default and the
+  smallest default size with Playwright, and lists those whose pixels changed since its last
+  run (a gitignored baseline folder). One edit to the host changes every tool's draft at once;
+  the list shows the side effects on the tools nobody was looking at before the edit lands.
+
 ### Cancellation
 
 What exists of this is in `spec/core/gui.md` "Cancellation".
@@ -652,13 +723,15 @@ ST-WIN-01   GIVEN a monitor of 1920 × 1080 points and the window created at 128
 ```
 ST-SIDE-01  GIVEN three registered tools and a settings file whose last_tool names the second
             WHEN the GUI opens
-            THEN the sidebar lists the three with their full labels in registration order, the
-                 second is active and its view is the one drawn
-ST-SIDE-02  GIVEN the sidebar expanded
-            WHEN the collapse button is clicked
-            THEN the sidebar is an icon rail whose entries carry their labels as tooltips, a
-                 click on an entry still switches to that tool, and a second click on the
-                 collapse button restores the labels
+            THEN the sidebar's rail lists the three in registration order, the second is
+                 active and its view is the one drawn, and the opened sidebar shows their full
+                 labels
+ST-SIDE-02  GIVEN the GUI open on a tool
+            WHEN the pointer rests on the sidebar's rail, then leaves it
+            THEN the full sidebar with its labels is drawn over the tool's left edge while the
+                 pointer is on it, the tool's view keeping its position and width, and only the
+                 rail is drawn once the pointer has left; a click on a rail entry switches to
+                 that tool without the hover
 ST-SIDE-03  GIVEN the selector at PES 21 and pes_folder_path resolving to a folder holding
                  PES2019.exe
             WHEN the sidebar is drawn

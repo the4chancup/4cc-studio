@@ -273,4 +273,18 @@ exclude_re = [
     # worker to the `None` they were and clears maps only a worker's replies fill, which are
     # empty without one. The other arms' change detection stays measured.
     "save_editor/src/view/portraits\\.rs:\\d+:\\d+: delete match arm \\(None, None\\) in Portraits::select",
+    # team_widgets (mutants-diff e14a64da, worklog 8.9f4c): `two_pairs_width`'s toggle column
+    # `(SLIDERS.len() + index) % 2` -> `*` swaps the toggles between the two columns (five
+    # sliders: `5 * i` and `5 + i` have opposite parities), and the swap leaves the sum
+    # unchanged: every slider's control has one width, so `max(slider, A) + max(slider, B)`
+    # is the same with the toggle sets A and B exchanged, and both columns' widest labels are
+    # sliders' ("Numbers in defence", "Numbers in attack"), which stay put. Measured 868 both
+    # ways at the 900-point test window.
+    # Pinned by line and column: the function's other `+` stay measured.
+    "team_widgets/src/tactics/mod\\.rs:305:28: replace \\+ with \\* in two_pairs_width",
+    # `capped_combo`'s hover guard `text_width > cap - chrome` -> `>=` is equivalent in what
+    # is drawn: at exactly equal width the selection fits unelided, and `>=` only adds a
+    # tooltip repeating the text the button shows whole. Pinned to its site: `>` -> `<` and
+    # `==` stay measured (`instructions.rs`' hover tests).
+    "team_widgets/src/tactics/instructions\\.rs:\\d+:\\d+: replace > with >= in capped_combo",
 ]

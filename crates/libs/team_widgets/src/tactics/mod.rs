@@ -317,7 +317,7 @@ fn sub_cell_width(ui: &egui::Ui) -> f32 {
 }
 
 /// `text`'s galley width in the body font.
-fn text_width(ui: &egui::Ui, text: &str) -> f32 {
+pub(crate) fn text_width(ui: &egui::Ui, text: &str) -> f32 {
     ui.painter()
         .layout_no_wrap(
             text.to_owned(),

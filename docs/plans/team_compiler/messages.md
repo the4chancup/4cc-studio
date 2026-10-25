@@ -13,6 +13,15 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   stay complete.
 - **No blocking console prompts**: unknown team ID becomes the grid's inline-editable ID cell
   (including its reassignment confirmation — see the GUI section).
+- **A failed name lookup names the nearest existing name**: `link_target_missing`,
+  `players_txt_target_missing`, `common_link_missing`, `kit_folder_invalid`, and
+  `file_type_disallowed` on a misspelled marker (`fpc-on`, `ingameface`), carry a `closest`
+  context field: the nearest name of the right kind (a shared folder for a link, a kit name for
+  a kit folder, a marker for a marker), by edit distance over case-folded names, under a small
+  threshold, absent when none is near. The text can then say "no shared boots folder `Crocs`;
+  `crocs new` exists". Nothing is resolved by the guess: the finding and its drop stay, since a
+  wrong guess compiled silently would be worse than the miss. One distance function in
+  `aesthetics_export`, never one per code.
 
 ### Catalog
 
@@ -23,9 +32,10 @@ What exists of this is in `spec/team_compiler/messages.md` "Catalog".
 | ID | Sev | Condition | Consequence |
 |---|---|---|---|
 | `teams_list_read_only` | W | a teams-list write (ID cell, updater merge) failed because the data directory is not writable | write dropped; the in-memory list is unchanged (no elevation — see `pipeline.md` "Resolved decisions", "Teams list") |
-| `export_disabled` | I | as the spec's row | omitted from the grid |
+| `export_disabled` | I | as the spec's row | GUI: a greyed row with **Enable** (`gui.md` "Row actions") |
 | `export_tag_missing` | E | as the spec's row | GUI: the row offers the two tags as buttons |
 | `team_name_unknown` | E | as the spec's row | GUI: ID cell becomes editable for inline assignment |
+| `kits_folder_missing` | W | a `Full` team export with no `Kits/` folder at all, which compiles to placeholder `p1` and `g1` kits and so resets the team's kits in game (`spec/aesthetics_export/object_model.md` "Coverage tag"); not a full-body team, which writes `Kits/p1/` itself. The text names the two ways out: add the kits, or rename the export `Midcup` | kept: the placeholders are written as today (`kit_placeholder`) |
 
 **Player folders and shared model folders**
 
@@ -44,6 +54,7 @@ What exists of this is in `spec/team_compiler/messages.md` "Catalog".
 | `material_link_layered` | I | a `.common` material link and a local material file share a stem; the Common file layers below the local one | none |
 | `gltf_embedded_image_ignored` | I | a glTF embeds texture bytes (stock Blender's default); textures are only ever read from the folder's files | embedded images ignored (once per model) |
 | `gltf_bone_unknown` | E | a glTF skin joint has neither `PES_bone` metadata nor a name in the template skeleton | folder discarded |
+| `model_name_type_misplaced` | W | a model name with no recognized suffix (routed as face content, `spec/aesthetics_export/player_folders.md` "Model names"; on Fox merged into `fcl_hair.fmdl`) whose name holds a type word of the suffix table elsewhere than at its end (`boots2.fmdl`, `boots - Copy.fmdl`, `glove_l (1).fmdl`): the game shows such a model skinned as hair. Context: the file and the intended rename (`boots2.fmdl` → `new_boots.fmdl`, a name the suffix table routes) | kept: the routing is unchanged (`fmdl_fcl_hair_fallback` still reports it) |
 | `model_source_ambiguous` | E | duplicate model sources within the selected representation (target-native > glTF > convertible opposite); its input is two glTF files of one stem (`boots.glb` beside `boots.gltf`), so it is first reachable in Phase 7 | folder discarded (`DropFolder`) |
 
 **XML/MTL content checks** (pre-Fox, plus `face_diff.xml` in Fox)

@@ -839,9 +839,9 @@ mod tests {
                 egui::vec2(933.0, 583.0),
             ),
             (
-                egui::vec2(1440.0, 900.0),
-                egui::pos2(72.0, 45.0),
-                egui::vec2(1296.0, 810.0),
+                egui::vec2(1280.0, 800.0),
+                egui::pos2(64.0, 40.0),
+                egui::vec2(1152.0, 720.0),
             ),
         ] {
             // One context per screen: a kept area rect is per-Context, and each

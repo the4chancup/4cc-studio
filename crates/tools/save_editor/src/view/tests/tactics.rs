@@ -1,3 +1,5 @@
+use pes_savefile::model::instruction::Instruction;
+
 use super::*;
 
 /// The open menu's items (labels starting "Copy " or "Swap "), in draw
@@ -518,9 +520,9 @@ fn the_formation_settings_wrap_inside_a_narrow_window() {
 }
 
 // plans/save_editor.md "Tactics editor" (the "pitch is the editor"
-// bullet's three columns): at the default pane (1280 x 876) the settings
+// bullet's three columns): at the default pane (1120 x 776) the settings
 // column sits beside the lists — the Formation settings heading right of
-// the lists column's 240, its top beside the canvas — and the formation
+// the lists column's 200, its top beside the canvas — and the formation
 // grid's labels and controls each share one x0 (the column holds one
 // pair a row), every control inside the pane.
 #[test]
@@ -530,15 +532,15 @@ fn the_tactics_tab_is_three_columns_at_the_default_pane() {
     view.open(&path);
     view.tab = Tab::Tactics;
     view.selected = Some((701, 0));
-    let mut window = Headless::sized(1280.0, 876.0);
+    let mut window = Headless::sized(1120.0, 776.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let settings = label_bounds(&nodes, "Formation settings");
     let bench = label_bounds(&nodes, "Bench");
     let canvas = canvas_of(&nodes);
     assert!(
-        settings.x0 > bench.x0 + 240.0,
-        "the settings column right of the lists' 240 (settings {settings:?}, bench {bench:?})"
+        settings.x0 > bench.x0 + 200.0,
+        "the settings column right of the lists' 200 (settings {settings:?}, bench {bench:?})"
     );
     assert!(
         settings.y0 < canvas.y1,
@@ -575,19 +577,101 @@ fn the_tactics_tab_is_three_columns_at_the_default_pane() {
     }
 
     // The tab's controls (right of the player list's edge: the list's
-    // own scrolled-off rows are no tab's business) end inside the pane.
+    // own scrolled-off rows are no tab's business) end inside the pane
+    // horizontally; the settings column is taller than the pane and
+    // scrolls to reach the last controls (the deepest ends past it).
     for role in [Role::Slider, Role::Button, Role::ComboBox, Role::CheckBox] {
         for node in nodes.iter().filter(|node| node.role() == role) {
             let bounds = node
                 .bounds()
                 .unwrap_or_else(|| panic!("{role:?} has no bounds"));
             assert!(
-                bounds.x0 < canvas.x0 - 1.0 || (bounds.x1 <= 1280.0 && bounds.y1 <= 876.0),
-                "{role:?} {} ends outside the pane ({bounds:?})",
+                bounds.x0 < canvas.x0 - 1.0 || bounds.x1 <= 1120.0,
+                "{role:?} {} ends outside the pane's right edge ({bounds:?})",
                 node.label().or(node.value()).unwrap_or("?")
             );
         }
     }
+}
+
+// plans/save_editor.md "Tactics editor" ("wrapping inside it"): at the
+// default pane's settings column (~368 points here) the preset bar wraps
+// to a second line rather than clipping — every preset-bar widget ends
+// inside the column's right edge (the pane's right, 1120 - 8).
+#[test]
+fn the_preset_bar_wraps_inside_the_settings_column() {
+    let path = fixture(PesVersion::Pes21, "preset_bar_wrap");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(1120.0, 776.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let settings_left = label_bounds(&nodes, "Formation settings").x0;
+    let preset = label_bounds(&nodes, "Preset").x0;
+    assert!(
+        (preset - settings_left).abs() < 1.0,
+        "the bar starts the settings column"
+    );
+    for label in ["1", "2", "3", "Copy/swap preset", "Copy/swap formation"] {
+        let button = node_labeled(&nodes, Role::Button, label);
+        assert!(
+            button.bounds().expect("bounds").x1 <= 1112.0,
+            "{label} ends inside the settings column's right edge ({:?})",
+            button.bounds()
+        );
+    }
+}
+
+// The draft's `#instr-table select` cap: the target combo is bounded
+// and truncates, so a real player's long name cannot push the row past
+// the settings column (the draft's 120-point cap or the column's edge,
+// whichever the row leaves); the full name still shows in the popup and
+// on the closed combo's hover.
+#[test]
+fn the_target_combo_stays_inside_the_settings_column() {
+    let path = fixture(PesVersion::Pes21, "target_combo_long_name");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    let slot = file.team(701).unwrap().tactics.starting_eleven[2];
+    let player_id = file.team(701).unwrap().roster[usize::from(slot)].player_id;
+    file.player_mut(player_id).unwrap().name = "3DSMAX HAS STOPPED WORKING".to_owned();
+    {
+        let defence = file.team_mut(701).unwrap().tactics.presets[0]
+            .defence_instructions
+            .as_mut()
+            .expect("PES 21 stores instructions");
+        defence[0].instruction = pes_savefile::schema::instruction::encode(
+            PesVersion::Pes21,
+            Instruction::CounterTarget,
+        )
+        .expect("PES 21 stores Counter Target");
+        defence[0].player = slot;
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(1120.0, 776.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    // The named player's target combo shows the full text truncated —
+    // `value()` keeps the whole string.
+    let target = right_of_label(&nodes, "Defence 1", Role::ComboBox)
+        .into_iter()
+        .nth(1)
+        .expect("the Defence 1 target combo");
+    assert_eq!(
+        target.value(),
+        Some("3 3DSMAX HAS STOPPED WORKING"),
+        "premise: the target names the player"
+    );
+    assert!(
+        target.bounds().expect("bounds").x1 <= 1112.0,
+        "the capped combo ends inside the settings column ({:?})",
+        target.bounds()
+    );
 }
 
 // Below the three-column width (the smallest pane, 877 wide — taller
@@ -603,6 +687,10 @@ fn the_tactics_tab_stacks_the_settings_below_at_the_smallest_pane() {
     view.tab = Tab::Tactics;
     view.selected = Some((701, 0));
     let mut window = Headless::sized(877.0, 1600.0);
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    // A second frame: the scroll area's claimed region lands a frame late
+    // — an over-wide claim would widen the content's own rect on this
+    // one, giving the columns the three-column width back.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let settings = label_bounds(&nodes, "Formation settings");
@@ -775,7 +863,7 @@ fn the_settings_widgets_keep_their_ids_across_three_columns() {
     view.tab = Tab::Tactics;
     view.selected = Some((701, 0));
 
-    let mut wide = Headless::sized(1280.0, 876.0);
+    let mut wide = Headless::sized(1120.0, 776.0);
     let (_, ids, _) = wide.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let support_range = node_id_right_of(&ids, "Support range", Role::Slider);
 
@@ -785,5 +873,132 @@ fn the_settings_widgets_keep_their_ids_across_three_columns() {
         node_id_right_of(&ids, "Support range", Role::Slider),
         support_range,
         "the slider's id across the three-column break"
+    );
+}
+
+// `three_columns`' edge: the pane whose tab area is exactly
+// `PITCH.x + LISTS_WIDTH + SETTINGS_MIN + 2 gaps` (896 = the constant
+// plus `TAB_AREA_OFFSET`: 1112) is three columns, and one
+// point narrower stacks the settings below.
+#[test]
+fn the_tactics_tab_switches_arrangement_at_three_columns() {
+    for (width, three) in [(1112.0f32, true), (1111.0, false)] {
+        let path = fixture(PesVersion::Pes21, "three_columns_edge");
+        let mut view = SaveView::new();
+        view.open(&path);
+        view.tab = Tab::Tactics;
+        view.selected = Some((701, 0));
+        let mut window = Headless::sized(width, 1400.0);
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let settings = label_bounds(&nodes, "Formation settings");
+        let canvas = canvas_of(&nodes);
+        if three {
+            assert!(
+                settings.y0 < canvas.y1,
+                "width {width}: the settings beside the canvas ({settings:?} vs {canvas:?})"
+            );
+        } else {
+            assert!(
+                settings.y0 > canvas.y1,
+                "width {width}: the settings below the canvas ({settings:?} vs {canvas:?})"
+            );
+        }
+    }
+}
+
+// The lists column's left edge is the canvas' right edge plus one
+// `item_spacing.x` — the tab draws the lists hard at 200 wide past it.
+#[test]
+fn the_lists_start_one_gap_right_of_the_canvas() {
+    let path = fixture(PesVersion::Pes21, "lists_left_edge");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(1120.0, 776.0);
+    let (gap, nodes, _) = window.frame(Vec::new(), |ui| {
+        let gap = ui.spacing().item_spacing.x;
+        show(ui, &mut view, &|| Vec::new(), None);
+        gap
+    });
+    let canvas = canvas_of(&nodes);
+    assert_eq!(
+        label_bounds(&nodes, "Starting eleven").x0 - canvas.x1,
+        f64::from(gap),
+        "the lists' left edge is the canvas' right edge plus one item gap"
+    );
+}
+
+// Below the columns' width the settings' first widget starts one
+// `item_spacing.y` below the pitch-and-lists block's bottom — the bench
+// list's frame ends it (the scroll's track bottom plus its group
+// frame's margin).
+#[test]
+fn the_stacked_settings_start_one_gap_below_the_columns() {
+    let path = fixture(PesVersion::Pes21, "stacked_top_gap");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(877.0, 624.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let canvas = canvas_of(&nodes);
+    // The bench list's scroll bar (the lists' inner scroll — the tab's
+    // own bar would sit at the pane's right edge, past the column).
+    let bench_bottom = nodes
+        .iter()
+        .filter(|node| node.role() == Role::ScrollBar)
+        .filter_map(|node| node.bounds())
+        .filter(|bounds| bounds.x0 > canvas.x1 && bounds.x0 < canvas.x1 + 260.0)
+        .map(|bounds| bounds.y1)
+        .fold(0.0, f64::max);
+    assert!(bench_bottom > 0.0, "the bench list scrolls (premise)");
+    let preset = label_bounds(&nodes, "Preset");
+    // The frame's inner margin under the viewport's bottom (~7 here) and
+    // the one item gap the settings sit below the block's bottom.
+    assert!(
+        preset.y0 >= bench_bottom + 8.0,
+        "the settings' top is below the lists' bottom plus its gap \
+         (Preset {preset:?}, bench viewport bottom {bench_bottom})"
+    );
+}
+
+// The scroll's content size is the advance rect the tab claims: at the
+// smallest pane the tab still scrolls to the deepest settings control
+// (its bottom inside the viewport) — the settings column's claimed
+// height and width both feed the scroll extent.
+#[test]
+fn the_stacked_tab_scrolls_to_its_last_control() {
+    let path = fixture(PesVersion::Pes21, "stacked_scroll_bottom");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.tab = Tab::Tactics;
+    view.selected = Some((701, 0));
+    let mut window = Headless::sized(877.0, 624.0);
+
+    let at = egui::pos2(300.0, 350.0);
+    for _ in 0..40 {
+        window.frame(
+            vec![
+                egui::Event::PointerMoved(at),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, -120.0),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Wheel,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            |ui| show(ui, &mut view, &|| Vec::new(), None),
+        );
+    }
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let last = node_labeled(&nodes, Role::CheckBox, "Attack/defence levels");
+    assert!(
+        last.bounds().expect("bounds").y1 <= 620.0,
+        "the deepest settings control reached the viewport ({:?})",
+        last.bounds()
     );
 }

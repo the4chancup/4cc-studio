@@ -10,10 +10,52 @@ use pes_savefile::schema::fields::{InstructionPart, InstructionSide, TacticsFiel
 use pes_savefile::schema::instruction;
 use pes_version::PesVersion;
 
-use super::{RosterRow, gate_tip, name_at};
+use super::{RosterRow, gate_tip, name_at, text_width};
 
 /// The stored "no player" value of an instruction's target.
 const NO_TARGET: u8 = 0xFF;
+
+/// A closed combo's width cap, the draft's `#instr-table select`
+/// `max-width: 120px`: a selected text too long for it truncates, so a
+/// real player's long name cannot widen the row past the settings
+/// column.
+const COMBO_CAP: f32 = 120.0;
+
+/// One instruction row's closed combo (the draft's `select`): drawn
+/// inside a `cap`-wide cell — `cap` is `COMBO_CAP` or the row's
+/// remaining width when that is less — so its button truncates the
+/// selected text at it, the full text showing in the popup's rows and
+/// on the button's hover when it is elided.
+fn capped_combo(
+    ui: &mut egui::Ui,
+    id_salt: impl egui::AsIdSalt,
+    selected: &str,
+    add_contents: impl FnOnce(&mut egui::Ui),
+) -> egui::Response {
+    let cap = COMBO_CAP.min(ui.available_width());
+    ui.allocate_ui_with_layout(
+        egui::vec2(cap, ui.spacing().interact_size.y),
+        egui::Layout::left_to_right(egui::Align::Center),
+        |ui| {
+            let mut response = egui::ComboBox::from_id_salt(id_salt)
+                .selected_text(selected)
+                .truncate()
+                .show_ui(ui, add_contents)
+                .response;
+            // The text the button's chrome leaves it: the icon, its gap
+            // and the button padding. Longer, the galley elided — show
+            // the full text on hover, as a `Label::truncate` would.
+            let chrome = ui.spacing().icon_width
+                + ui.spacing().icon_spacing
+                + 2.0 * ui.spacing().button_padding.x;
+            if text_width(ui, selected) > cap - chrome {
+                response = response.on_hover_text(selected);
+            }
+            response
+        },
+    )
+    .inner
+}
 
 /// The "Advanced instructions" group (PES 17+): the four rows Attack 1,
 /// Attack 2, Defence 1, Defence 2, each its instruction and its target.
@@ -141,17 +183,15 @@ fn instruction_row(
         None => format!("Unknown (0x{:02X})", entry.instruction),
     };
     let mut pick = current;
-    egui::ComboBox::from_id_salt((id, "instruction"))
-        .selected_text(selected)
-        .show_ui(ui, |ui| {
-            for inst in instruction::instructions(version)
-                .iter()
-                .copied()
-                .filter(|inst| *inst != Instruction::TightMarking)
-            {
-                ui.selectable_value(&mut pick, Some(inst), instruction_label(inst));
-            }
-        });
+    capped_combo(ui, (id, "instruction"), &selected, |ui| {
+        for inst in instruction::instructions(version)
+            .iter()
+            .copied()
+            .filter(|inst| *inst != Instruction::TightMarking)
+        {
+            ui.selectable_value(&mut pick, Some(inst), instruction_label(inst));
+        }
+    });
     if pick != current
         && let Some(inst) = pick
     {
@@ -175,18 +215,16 @@ fn instruction_row(
         },
     };
     ui.add_enabled_ui(current.is_some_and(|inst| inst.takes_player()), |ui| {
-        egui::ComboBox::from_id_salt((id, "target"))
-            .selected_text(selected)
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut target, NO_TARGET, "Unassigned");
-                for (index, slot) in starting_eleven.iter().enumerate() {
-                    ui.selectable_value(
-                        &mut target,
-                        *slot,
-                        format!("{} {}", index + 1, name_at(roster, *slot)),
-                    );
-                }
-            });
+        capped_combo(ui, (id, "target"), &selected, |ui| {
+            ui.selectable_value(&mut target, NO_TARGET, "Unassigned");
+            for (index, slot) in starting_eleven.iter().enumerate() {
+                ui.selectable_value(
+                    &mut target,
+                    *slot,
+                    format!("{} {}", index + 1, name_at(roster, *slot)),
+                );
+            }
+        });
     });
     entry.player = target;
 }

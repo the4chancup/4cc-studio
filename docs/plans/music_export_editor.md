@@ -6,7 +6,7 @@ The music export editor (`crates/tools/music_export_editor`) is the successor to
 **RigDJ**, the GUI editor for `.4ccm` music exports. It is named for what it edits —
 music *exports*, not music files (plain "music editor" would wrongly suggest audio
 editing). The community name stays in the user-facing labels: the sidebar shows
-**"Music export editor (RigDJ)"** (the collapsed rail shows the tool icon — the
+**"Music export editor (RigDJ)"** (the icon rail shows the tool icon — the
 existing `rigdj.ico` artwork can be reused); the crate (`music_export_editor`) and
 tool id (`music-export-editor`) use the descriptive name.
 
@@ -168,7 +168,7 @@ and `config.yml` handling all disappear into the platform.
 
 | Decision | Choice | Rationale |
 |----------|--------|-----------|
-| Naming | `music_export_editor` crate; label "Music export editor (RigDJ)"; existing RigDJ icon in the collapsed rail | "Music editor" would wrongly suggest audio editing; the RigDJ name and icon stay user-visible |
+| Naming | `music_export_editor` crate; label "Music export editor (RigDJ)"; existing RigDJ icon in the icon rail | "Music editor" would wrongly suggest audio editing; the RigDJ name and icon stay user-visible |
 | Substance location | Model + serializer in `music_export`, playback in `audio_engine` | The editor is UI over shared libs; no editor-only format logic |
 | Editing | Direct model editing, serialize on save/preview | Kills the string-round-trip bracket hack class of bugs |
 | Preview | Always the real serializer output | What you see is what is saved |

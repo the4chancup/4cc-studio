@@ -26,7 +26,8 @@ the compiler and the upgrader on the new file; slice 3, the Save editor's, rides
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
-(the usability pass; `PROPOSALS.md` P1-P22 wait for the maintainer's rulings), 8.5 (the Save
+(the usability pass; P1-P14 accepted 2026-10-25, planned as 8.10's row actions and 8.22;
+`PROPOSALS.md` P15-P22 wait for the maintainer's rulings), 8.5 (the Save
 editor's draft), the shell (8.6a-e), the color picker (8.7a-b), `team_widgets` (8.8), egui 0.37
 and the release stage (8.11, 8.13). The face_diff model comparison (Issues, "a face diff is
 engine-specific") follows the editor. The shell's draft (`docs/prototypes/shell.html`, step
@@ -1271,8 +1272,20 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           team.rs,tactics.rs,appearance/mod.rs,tests.rs,tests/*}`, `help/08_tactics.md`,
           `team_widgets/src/{tactics/{mod.rs,assignments.rs,tests/mod.rs},pitch/{lineup.rs,
           tests/paint.rs}}`
-          - [ ] review: SWE-2 S1 (also 4b's post-Astra round), Astra (checkpoint (b): two
-            crates), mutants-diff 8699f4e6
+          - [x] review: SWE-2 S1 (2 accepted: the preset bar's wrap, the strip rows' shell),
+            Astra A1 (2 accepted: the instruction combos' cap, the default window's height
+            measured), mutants-diff 8699f4e6 (12 missed); rulings `.tmp/8_9f/duck_rulings_4c.md`
+          - [ ] rework r2 with 8.15 (2026-10-25, SWE-2 55 min, ended on its output limit before
+            its report; the lead finished it: a perturbation it left undone, the red runs, the
+            offsets): the window at 1280 x 800 (ST-WIN-01, ST-HELP-05), the lists at 200, the
+            default-pane tests at 1120 x 776, the preset bar wrapped, the instruction combos
+            capped at the draft's 120 with the full text on hover, `strip_row`, the survivors'
+            tests for `three_columns`, the lists' gap and the stacked top; the settings column
+            14 points past the pane at the default (DECISIONS "The Tactics settings column
+            scrolls with the tab at 1280 × 800"; the default-pane test checks the right edge
+            only). Open: `two_pairs_width`'s three survivors (no test yet), the advance rect's
+            193/196 (`the_stacked_tab_scrolls_to_its_last_control`, unproven), mutants-diff
+            e14a64da, the post-Astra SWE-2 round, the built window at 1280 x 800
         - [ ] 4d the one cards badge, the player's own tier, through a tier recognition
           `libs/aatf` exposes (checkpoint (b))
         - [ ] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file);
@@ -1548,7 +1561,69 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     a dismiss; eframe's `open_url` opens a browser even for a local path, so not through it),
     and the Team compiler's view stops requesting repaints itself (`ToolContext::emit` wakes
     the GUI since 8.6b); the first tool that publishes a notice during a CLI command gets a
-    binary test of ST-CLI-01's notice half (8.6b proves it through the printer's loop only)
+    binary test of ST-CLI-01's notice half (8.6b proves it through the printer's loop only);
+    the grid's row actions (`plans/team_compiler/gui.md` "Row actions": Open folder, one-click
+    fixes, Upgrade on an old export, the empty grid's drop, Compile only this export and the
+    hidden compile column, disabled exports greyed with Enable and Disable on a clash, the save
+    findings opening the Save editor; accepted 2026-10-25 as P3-P5, P7-P9, P15's Part A)
+  - [ ] 8.23 after 0.0.1: edits made in PES come back to the export
+    (`plans/aesthetics_export/settings_toml.md` "Edits made in PES come back to the export";
+    DECISIONS of 2026-10-25; the maintainer's "even if Studio was not running" first):
+    - [ ] 8.23a the in-game check first (PES 21, a stripped save, a backup before): a motion
+      and a face edit in Edit mode, which keys the frozen record holds, that the player stays
+      frozen until PES restarts and returns compiled after a re-strip → verify: `manual:`
+      lines with captures; the plan's key list corrected to what it found
+    - [ ] 8.23b the compile record beside the patch (its format, written by every compile with
+      a save step, run or skipped) → verify: a compile test reading it back
+    - [ ] 8.23c the comparison and the notice (at start, on the views opening, before a
+      compile, on the save's change), Bring into the exports, the conflict choice, the
+      compile's Warning over an unbrought edit → verify: tests over a fixture save edited as
+      PES would (a motion on any player, a face on a restored one), with Studio "not running"
+      between the compile and the edit (a fresh shell over the record)
+    - [ ] 8.23d Apply to the save once PES is closed (the re-strip, a pending patch) → verify:
+      the running-PES probe faked; nothing written while it reports PES running
+  - [ ] 8.24 after 8.23, research: previewers outside PES for the in-game face and the motions
+    (the maintainer wants it looked into, 2026-10-25), in Blender or in Studio's planned
+    `libs/model_viewport` (`plans/core/README.md`'s "Player aesthetics viewing" row): first
+    what the game's files and Marco's RE notes give (the base head and the sliders' shape
+    rules; the motion archives and what selects a clip), then a plan section, not code
+  - [ ] 8.25 before the 0.0.1 cut: the sidebar as a rail that opens on hover over the view
+    (the maintainer, 2026-10-25; `core/gui.md` "Sidebar" item 4, ST-SIDE-02; DECISIONS "The
+    sidebar is a rail that opens over the view on hover"): the collapse button and the
+    `collapsed` state removed, the full sidebar a floating layer opened by a rested pointer or
+    focus, kept open while its popups are, as wide as its longest label; the tool icons, the
+    help and the gear at 24 points (item 3, DECISIONS "The rail's icons are drawn at 24
+    points"); the drafts' host (`docs/prototypes/index.html`,
+    8.16's) the same; the Save editor's tests that stand for the default window's pane and
+    `TAB_AREA_OFFSET` re-measured for the narrower rail (the pane grows by about 104 points;
+    re-check `TOP_ROW_ONE_LINE`, `TEAM_BAR_ONE_ROW`, the Tactics columns at the new tab area)
+    → verify: ST-SIDE-02's test rewritten red-first (the view's x0 and width equal with the
+    sidebar open and closed); the built window at 1280 x 800 by hand
+  - [ ] 8.22 after 0.0.1: the accepted usability items outside the grid (2026-10-25, P1, P2,
+    P6, P10-P14; DECISIONS "Usability proposals P1-P14 accepted"), each its own commit:
+    - [ ] 8.22a the finding line's disposition phrase (`plans/core/architecture.md` "Every
+      finding line says what was lost") → verify: a CLI test per phrase, the pinned lines
+      updated
+    - [ ] 8.22b the `closest` context field on five codes (`plans/team_compiler/messages.md`
+      "A failed name lookup names the nearest existing name") → verify: a test per code with a
+      real misspelling (`fpc-on`, a shared folder one letter off), and one with nothing near
+    - [ ] 8.22c the deep check runs every check whose inputs exist before a compile
+      (`plans/team_compiler/gui.md` "Deep check": a gap, not a proposal): first an audit of
+      every code the catalog marks "reported by `compile`", each kept with its reason or
+      moved; then `fmdl_texture_not_found`'s lookup shared by both callers → verify: the
+      audit's list; a deep check reporting a missing texture with no compile, a test pair
+      keeping the two callers in agreement
+    - [ ] 8.22d `model_name_type_misplaced` and `kits_folder_missing`
+      (`plans/team_compiler/messages.md`) → verify: a test each, and the full-body team not
+      warned
+    - [ ] 8.22e an invalid `settings.toml` keeps the installed look
+      (`plans/aesthetics_export/settings_toml.md`) → verify: a Fox compile over an installed
+      row keeps it; the defaults with none installed; the pre-Fox patch holds no entry
+    - [ ] 8.22f the savefile in the preflight (`plans/team_compiler/pipeline.md` "6.
+      Post-processing") → verify: another version's save reported before any export is read
+    - [ ] 8.22g the first run finds the PES version and folder (`plans/core/distribution.md`
+      "Data location") → verify: a dialog test over a fake Documents and install tree (no real
+      install reached); nothing found keeps the defaults
   - [x] 8.11 egui 0.36.2 to 0.37 (`spec/core/gui.md` "egui version discipline"; agreed
     2026-10-21; the maintainer asked on 2026-10-23 to migrate as soon as possible, so fewer
     GUI tests are written twice). No `egui-phosphor` release for 0.37 yet (0.14.0,
@@ -1624,12 +1699,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `resources/fonts/` from the picked SVGs, replacing 8.11's `phosphor-subset.ttf`, and
     `studio_core`'s glyph constants → verify: the script rebuilds the committed TTF byte for
     byte; every `icon()` glyph exists in the font (a unit test over the registry); the rail
-    seen in the built window, expanded and collapsed, dark and light
+    seen in the built window, the rail and opened, dark and light
     The draft page done 2026-10-23 (SWE-2, one rework): three candidates for each of the 14
-    tools at 12.5, 19, 25 and 64 px in both themes, a mock rail drawing the picks, all in
-    Phosphor regular's grid and stroke (`.tmp/8_14/check_icons.py`); waiting for the
-    maintainer's picks (QUESTIONS "Which icon does each tool get")
-  - [ ] 8.15 the window's default to 1280 × 800 (the maintainer, 2026-10-25; `core/gui.md`
+    tools in both themes, a mock rail drawing the picks, all in Phosphor regular's grid and
+    stroke (`.tmp/8_14/check_icons.py`); regenerated 2026-10-25 at the rail's 24-point icons
+    (24, 36, 48 px for 100/150/200% scaling, 96 for judging; the mock rail without the
+    collapse button, 8.25); waiting for the maintainer's picks (QUESTIONS "Which icon does each
+    tool get")
+  - [ ] 8.15 (code done 2026-10-25 with 8.9f4c's rework r2; the built window's check open) the window's default to 1280 × 800 (the maintainer, 2026-10-25; `core/gui.md`
     "The window's size", ST-WIN-01, ST-HELP-05; DECISIONS "Studio opens at 1280 × 800
     points"): `studio_core`'s `DEFAULT_SIZE` and its tests, the help window's; the Save
     editor's Tactics lists at 200 points, and its tests named for 1440 × 900 → verify: the
@@ -1646,6 +1723,30 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `core/gui.md` "Prototypes before implementation"; side-lead track A, after 8.16): every
     screen the plan describes, with sample data; the lead's usability review first, ideas to
     `PROPOSALS.md`; then the maintainer's remarks
+  - [ ] 8.18 the host's layout edit toggle (the maintainer, 2026-10-25; `core/gui.md`
+    "Prototypes before implementation", "Layout edit"; DECISIONS "The drafts' host gets a
+    layout edit toggle"; after 8.16, track A's next step or the top lead's after the merge):
+    the toggle, move and resize handles, "Copy layout" and "Reset" in `index.html`, the
+    `data-panel` names in every tool script → verify: Playwright drives a move and a resize on
+    two tools' panels, the copied string names both with their rectangles before and after,
+    the neighbours reflow on a resize, a reload keeps the tweaks and Reset clears them
+  - [ ] 8.19 the host's remarks, links and longest values (`core/gui.md` "The host's other
+    review aids"; DECISIONS "The drafts' host gets remarks, links, …"; after 8.18, with it on
+    track A or the top lead's): the URL fragment helper and every tool script's state keys,
+    the Remark toggle and "Copy remarks", the extraction script and `assets/longest.json`
+    (real values only) → verify: Playwright opens a link to a dialog's state and the capture
+    shows it; a remark's copied line names its panel and control and carries a link that
+    reopens the state; with Longest values on, each tool's longest text is drawn (a capture per
+    tool, looked at)
+  - [ ] 8.20 the host's overlay and draft shots (`core/gui.md` "The host's other review aids";
+    after 8.19, whose links it walks): the Overlay control and the capture naming, the
+    Save editor's first captures from the built window; `scripts/draft_shots.py` → verify: the
+    overlay of the built Tactics tab on its draft at 1280 × 800, looked at; a one-line host
+    stylesheet edit lists every tool's changed screens, reverted by hand, then lists none
+  - [ ] 8.21 the app's font in the drafts (`core/gui.md` "The host's other review aids"; after
+    8.9f4e picks the bundled font): `@font-face` rules at egui's sizes → verify: one width
+    constant's row (`TOP_ROW_ONE_LINE`) measured in the draft and in the built window agree
+    within a few points
 - [x] 8.2 the shell's draft, `docs/prototypes/shell.html` (`core/gui.md` "Prototypes before
   implementation"; 2026-10-19, side-lead E, branch `side/8-shell-draft`, SWE-2 in seven
   slices): one self-contained page over the Ruleset editor draft's stylesheet and helpers,

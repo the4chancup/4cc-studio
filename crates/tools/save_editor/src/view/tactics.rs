@@ -23,7 +23,11 @@ use crate::view::{SaveView, edit_team, selected_team};
 
 /// The lists column's width (the draft's `#tac-lists`): the Starting
 /// eleven and Bench lists' fixed narrow column in both arrangements.
-const LISTS_WIDTH: f32 = 240.0;
+/// 200, not the draft's 240: at the default window's 904-point tab area
+/// the three columns are the pitch's 320, this, the settings column's
+/// 360 and two gaps — 896 (`DECISIONS.md` 2026-10-25, the window's
+/// size); at 240 the column needs 936 and the settings drop below.
+const LISTS_WIDTH: f32 = 200.0;
 /// The settings column's break width (the draft's `#tac-settings` flex
 /// base): beside the pitch and the lists on a wide pane, under them at
 /// the pane's width on a narrow one.
@@ -240,7 +244,7 @@ fn settings_column(
     edited: &mut TeamTactics,
     roster: &[RosterRow<'_>],
 ) -> bool {
-    ui.horizontal(|ui| {
+    ui.horizontal_wrapped(|ui| {
         tactics::preset_selector(ui, view);
         copy_swap_preset_menu(ui, session, team_id);
         copy_swap_formation_menu(ui, session, team_id, view.preset);

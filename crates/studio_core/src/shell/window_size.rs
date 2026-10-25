@@ -4,9 +4,9 @@
 //! centers it once, a member's own resize or move holding after that.
 
 /// The size the window is created at and opens at on any monitor that holds it:
-/// 1440 × 900 points (16:10), where "holds" means within 90% of the monitor's
+/// 1280 × 800 points (16:10), where "holds" means within 90% of the monitor's
 /// logical width and height, leaving room for the taskbar and the title bar.
-pub(super) const DEFAULT_SIZE: egui::Vec2 = egui::vec2(1440.0, 900.0);
+pub(super) const DEFAULT_SIZE: egui::Vec2 = egui::vec2(1280.0, 800.0);
 
 /// The size the first frame fits the window to: `DEFAULT_SIZE` while it is
 /// within 90% of `monitor`'s width and height, else the largest 16:10 size
@@ -103,10 +103,13 @@ mod tests {
             fitted_size(egui::vec2(1366.0, 768.0)),
             egui::vec2(1106.0, 691.0)
         );
-        // Width-limited: 90% of 1500 is the width, the height follows 16:10.
+        // A square monitor holds the default too. Width-limited: a
+        // tall-narrow one — 90% of 1400 is the width, the height follows
+        // 16:10.
+        assert_eq!(fitted_size(egui::vec2(1500.0, 1500.0)), DEFAULT_SIZE);
         assert_eq!(
-            fitted_size(egui::vec2(1500.0, 1500.0)),
-            egui::vec2(1350.0, 844.0)
+            fitted_size(egui::vec2(1400.0, 2000.0)),
+            egui::vec2(1260.0, 788.0)
         );
     }
 
@@ -126,8 +129,8 @@ mod tests {
         for (monitor, size, pos) in [
             (
                 egui::vec2(1920.0, 1080.0),
-                egui::vec2(1440.0, 900.0),
-                egui::pos2(232.0, 70.5),
+                egui::vec2(1280.0, 800.0),
+                egui::pos2(312.0, 120.5),
             ),
             (
                 egui::vec2(1280.0, 720.0),
@@ -167,8 +170,8 @@ mod tests {
         assert_eq!(
             fitting(&out),
             [
-                ViewportCommand::InnerSize(egui::vec2(1440.0, 900.0)),
-                ViewportCommand::OuterPosition(egui::pos2(232.0, 70.5)),
+                ViewportCommand::InnerSize(egui::vec2(1280.0, 800.0)),
+                ViewportCommand::OuterPosition(egui::pos2(312.0, 120.5)),
             ],
             "the fit waited for a frame reporting the monitor"
         );

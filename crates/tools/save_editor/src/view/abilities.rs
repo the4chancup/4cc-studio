@@ -596,7 +596,7 @@ pub(crate) fn number<T: egui::emath::Numeric>(
 /// (`ability_stats` wraps the field cell in the stat's `scoped` scope, so
 /// the label keeps its own cell while the field keeps a stable id across
 /// column counts).
-pub(crate) fn number_field<T: egui::emath::Numeric>(
+fn number_field<T: egui::emath::Numeric>(
     ui: &mut egui::Ui,
     session: &mut Session,
     player_id: u32,

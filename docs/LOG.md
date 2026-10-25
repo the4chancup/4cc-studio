@@ -2431,3 +2431,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.9f4c: Appearance's groups as aligned grids with the draft's pairs a row as caps; the
   Tactics tab in three columns (settings below on a narrow pane), the formation settings one grid; widget ids
   held across width thresholds by explicit scope ids; 4b's review closed.
+- **2026-10-25** — 8.9f4c r2 + 8.15: the window opens at 1280 x 800, the Tactics lists at 200; slice 4c's review
+  fixes (the preset bar wraps, the instruction combos capped, `strip_row`) and survivors' tests; the settings column
+  runs a row past the default pane and scrolls. The sidekick hit its output limit; the lead finished the slice.

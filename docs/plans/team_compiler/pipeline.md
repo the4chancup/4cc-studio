@@ -10,7 +10,8 @@ What exists of this is in `spec/team_compiler/pipeline.md` "1. Reader".
 
 In **Discovery** (step 1): In the GUI this scan is
 continuous (folder watcher, see `plans/team_compiler/gui.md` "Live validation"); in the CLI it runs once.
-A disabled export is omitted from the grid.
+A disabled export is a greyed row of the grid with **Enable**, never compiled
+(`plans/team_compiler/gui.md` "Row actions").
 
 Also in **Discovery**: a folder whose name ends in `.upgrading` (any letter case) is skipped
 with a Warning, `export_upgrade_unfinished`, naming it: it is the Export upgrader's staging
@@ -98,6 +99,12 @@ What exists of this is in `spec/team_compiler/pipeline.md` "6. Post-processing".
   lib). The button stays enabled — the user may close PES during the compile — except for the
   elevation case, where compiling first would waste the run (relaunching loses it), so the click
   prompts for elevation up front.
+- **The savefile in the preflight** — the save's header is read with the destination preflight
+  (live in the GUI, before any export is read in the CLI), so a save of another version or a
+  damaged one (`savefile_invalid`) is reported before minutes of compiling rather than rolling
+  the deployment back at the end. The end-of-run read stays as it is, since the file can change
+  between the two; with `savefile_path = auto` the preflight rarely finds anything, which costs
+  one header read.
 - **Aesthetics patch** — on **pre-Fox** it holds everything (names only from a `write_names`
   export): settings.toml settings with
   `name = true` and FPC markers resolved to concrete values, the authored stock boots/gloves IDs

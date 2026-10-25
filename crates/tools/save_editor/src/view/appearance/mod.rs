@@ -488,7 +488,7 @@ fn strip_rows(
                 p.appearance.untucked = v;
             },
         );
-        maybe_end_row(ui, 7, per_row);
+        maybe_end_row(ui, 3 + STRIP_ENUMS.len(), per_row);
         bare_checkbox(
             ui,
             session,
@@ -499,11 +499,10 @@ fn strip_rows(
                 p.appearance.ankle_taping = v;
             },
         );
-        maybe_end_row(ui, 8, per_row);
+        maybe_end_row(ui, 3 + STRIP_ENUMS.len() + 1, per_row);
     });
     egui::Grid::new("appearance strip rows").show(ui, |ui| {
-        ui.label(WRIST_TAPING_LABEL);
-        ui.horizontal(|ui| {
+        strip_row(ui, WRIST_TAPING_LABEL, |ui| {
             combo_box(
                 ui,
                 session,
@@ -538,9 +537,7 @@ fn strip_rows(
                 },
             );
         });
-        ui.end_row();
-        ui.label(SPECTACLES_LABEL);
-        ui.horizontal(|ui| {
+        strip_row(ui, SPECTACLES_LABEL, |ui| {
             combo_box(
                 ui,
                 session,
@@ -563,9 +560,7 @@ fn strip_rows(
                 },
             );
         });
-        ui.end_row();
-        ui.label(PLAYER_GLOVES_LABEL);
-        ui.horizontal(|ui| {
+        strip_row(ui, PLAYER_GLOVES_LABEL, |ui| {
             let gloves = face(appearance, IngameFaceField::PlayerGloves);
             checkbox(ui, session, player_id, "", gloves != 0, |p, v| {
                 p.appearance
@@ -589,8 +584,16 @@ fn strip_rows(
                 },
             );
         });
-        ui.end_row();
     });
+}
+
+/// One strip row of the second grid: `label`'s cell, then `add`'s
+/// controls in one `ui.horizontal`, `end_row` (the draft's colspan
+/// rows' shape).
+fn strip_row(ui: &mut egui::Ui, label: &'static str, add: impl FnOnce(&mut egui::Ui)) {
+    ui.label(label);
+    ui.horizontal(add);
+    ui.end_row();
 }
 
 /// The draft's Motion group: the nine measured motions in the draft's
