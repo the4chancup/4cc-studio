@@ -1701,6 +1701,19 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       per choice rather than per option, the specials' conditions read once per player)
       updates `LOGIC_VERSIONS`' hash and must leave every fixture's violations unchanged; not
       before slice 4, since the check already runs off the frame
+    - [ ] 8.9k slice 5, the interchange dialogs (`plans/save_editor.md` "Build order and
+      verification" item 5): Team TOML export and import with its sections (SE-GUI-16), the
+      import dialog for `.4ccs`, `.4cct` and Texport (SE-GUI-17, with SE-GUI-22's and 35's
+      aesthetics section under both settings), Apply aesthetics patch with its preview
+      (SE-GUI-18), the Texport export checked in game per version (SE-GUI-29, manual); before
+      the 0.0.1 cut, which waits on the whole view (`plans/core/development_plan.md`
+      "Divegrass Before Christmas"). Not itemized until 2026-10-25, found while listing what
+      0.0.1 lacks
+    - [ ] 8.9l the open/save scenarios no slice built: the unsaved-changes prompt on closing or
+      opening another save (SE-GUI-05; only the toolbar's marker exists, so closing loses
+      edits silently), the Open menu's discovered saves (SE-GUI-26), the version-mismatch
+      warning (SE-GUI-28; the draft has it), and SE-GUI-21's check in the built window with the
+      game running (its logic is tested); before the 0.0.1 cut
   - [ ] 8.10 after 0.0.1: the progress grid (with the log panel's cross-link: a warning or
     error line's click highlights its grid cell, `plans/core/gui.md` "Log panel", which 8.6d3 leaves for
     the grid), the run strip, the exports folder watcher and check cache, cancellation, the launcher (`quick_compile.bat` to its `--gui` form, `quick_upgrade.bat` dropped once the upgrader's view lands), the Team
@@ -1735,7 +1748,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `libs/model_viewport` (`plans/core/README.md`'s "Player aesthetics viewing" row): first
     what the game's files and Marco's RE notes give (the base head and the sliders' shape
     rules; the motion archives and what selects a clip), then a plan section, not code
-  - [ ] 8.25 before the 0.0.1 cut: the sidebar as a rail that opens on hover over the view
+  - [x] 8.25 before the 0.0.1 cut: the sidebar as a rail that opens on hover over the view
     (the maintainer, 2026-10-25; `core/gui.md` "Sidebar" item 4, ST-SIDE-02; DECISIONS "The
     sidebar is a rail that opens over the view on hover"): the collapse button and the
     `collapsed` state removed, the full sidebar a floating layer opened by a rested pointer or
@@ -1768,8 +1781,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       `studio_core/src/tool.rs`. manual: checked 2026-10-25 on the release build at 1280 x
       800 (`.tmp/8_25/look_{closed,open,left}.png`): the rail's 24-point icons, the overlay
       on a rested pointer with the labels beside unmoved icons and `PES 2021`, as wide as
-      "Player aesthetics editor", the view unmoved, closed once the pointer left. Open: the
-      drafts' host (side-lead A)
+      "Player aesthetics editor", the view unmoved, closed once the pointer left
   - [ ] 8.22 after 0.0.1: the accepted usability items outside the grid (2026-10-25, P1, P2,
     P6, P10-P14; DECISIONS "Usability proposals P1-P14 accepted"), each its own commit:
     - [ ] 8.22a the finding line's disposition phrase (`plans/core/architecture.md` "Every
@@ -2024,6 +2036,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         written" where nothing contrasts, `check-aatf`'s failure row naming the ruleset's
         check again, two fragments). The spec's Messages table keeps its own wording: it is
         the developers' table, carrying each code's context fields, not text a member reads.
+        `mutants-diff 484625bd`: 19 caught, 6 unviable, none missed.
         Files: `save_editor/src/{messages,cli}.rs`, `view/tests/comparator.rs`
       - [ ] a3 the help chapters and the draft `docs/prototypes/tools/save_editor.js`, which
         takes a1's and a2's rewrites word for word (the version banner rewritten 2026-10-25 as
@@ -2384,6 +2397,10 @@ briefs, review loops, gates and mutation runs as for any step.
     limit, the endless-loop test loops), the other 18 rerun alone at 600 s with their
     siblings (`rerun_timeouts_2/`, 23 mutants): 22 caught, 1 unviable; the extra kinds 13 of
     13 caught. The timeouts are the shared machine: both runs' reruns caught every one
+- [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
+  bundle read against what a member running the preview for the first time needs (the
+  bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
+  `aatf_rules` naming `rules/dbc7.rhai`), each finding fixed or recorded
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.rhai`, assembled with the frozen logic version 1, and the bundled settings naming
