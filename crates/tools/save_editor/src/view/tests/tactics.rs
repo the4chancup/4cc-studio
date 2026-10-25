@@ -1066,3 +1066,75 @@ fn the_stacked_tab_scrolls_to_its_last_control() {
         last.bounds()
     );
 }
+
+// plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
+// layout" (the window's 960 × 600 minimum, ST-WIN-01's last clause): the
+// pane the minimum window leaves — (960 - 56) wide, the sidebar's rail
+// off, and (600 - 24) high, the status bar's — holds every tab whole:
+// every widget and label ends inside the pane's right edge, no row
+// clipping in place of a wrap.
+#[test]
+fn every_tab_fits_the_pane_the_minimum_window_leaves() {
+    /// The widget and label roles, plus `Unknown` (the pitch canvas'
+    /// role).
+    const NODE_ROLES: [Role; 12] = [
+        Role::Button,
+        Role::CheckBox,
+        Role::ComboBox,
+        Role::RadioButton,
+        Role::SpinButton,
+        Role::Slider,
+        Role::TextInput,
+        Role::ColorWell,
+        Role::ScrollBar,
+        Role::Link,
+        Role::Label,
+        Role::Unknown,
+    ];
+    const TABS: [(Tab, &str); 4] = [
+        (Tab::Abilities, "Abilities"),
+        (Tab::Appearance, "Appearance"),
+        (Tab::Tactics, "Tactics"),
+        (Tab::TeamSettings, "Team settings"),
+    ];
+    // The pane the minimum window leaves.
+    let pane = egui::vec2(960.0 - 56.0, 600.0 - 24.0);
+    let edge = f64::from(pane.x - PANEL_MARGIN);
+    for version in [PesVersion::Pes21, PesVersion::Pes17] {
+        let path = fixture(version, "min_pane_fit");
+        for (tab, name) in TABS {
+            let mut view = SaveView::new();
+            view.open(&path);
+            view.tab = tab;
+            // A Fox save with some players stripped and some restored opens
+            // the Strip again window (SE-GUI-20); closed, the tab's own
+            // nodes are the only ones measured.
+            view.strip_again = None;
+            let mut window = Headless::sized(pane.x, pane.y);
+            // Three frames: the scroll's claimed content size lands a
+            // frame late.
+            let mut nodes = Vec::new();
+            for _ in 0..3 {
+                let (_, n, _) =
+                    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+                nodes = n;
+            }
+            for node in nodes
+                .iter()
+                .filter(|node| NODE_ROLES.contains(&node.role()))
+            {
+                let bounds = node
+                    .bounds()
+                    .unwrap_or_else(|| panic!("{:?} has no bounds", node.role()));
+                assert!(
+                    bounds.x1 <= edge,
+                    "{version:?} {name}: {:?} {:?} ends at {:.0}, past the pane's right edge \
+                     {edge:.0} ({bounds:?})",
+                    node.role(),
+                    node.label().or(node.value()).unwrap_or(""),
+                    bounds.x1
+                );
+            }
+        }
+    }
+}

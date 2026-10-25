@@ -21,7 +21,7 @@ coverage table and draft, the DBC7 ruleset).
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
 (8.9j1-j3), the comparator done (8.9j4), the save-writing transplant removed (8.9j5c; the
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
-the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done, its review next; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
+the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
 the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; the in-game SE-GUI-34 left, waiting: in-game tests are paused until the maintainer
 resumes them), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
@@ -1336,7 +1336,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         - [x] 4d's post-Astra SWE-2 round S2: 2 of 3 accepted, the loop ends. `check_team` never
           calls `player_tier` or `card_limits`, so a failed check now shows its error in the
           badge's place (DECISIONS "A failed tier check shows its error in the Cards left
-          badge's place"; red: the error left undrawn); the last "badges" comments singular
+          badge's place"; red: the error left undrawn); the last "badges" comments singular.
+          `mutants-diff 2c6ad5ad`: 3 caught, 1 unviable
         - [x] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file);
           re-measure the width constants taken with the light font (`team.rs`
           `TEAM_BAR_ONE_ROW`, `abilities.rs` `TOP_ROW_ONE_LINE`). Every view test harness
@@ -1568,14 +1569,22 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           interchange/aesthetics_patch/mod.rs}`, `docs/spec/{save_editor.md,pes_savefile/*,
           core/development_plan.md,README.md,export_upgrader.md}`, `plans/core/README.md`,
           `GLOSSARY.md`, `README.md`
-    - [ ] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
+    - [x] 8.9h the editor's tabs wrap inside a narrow window, as they do in a widget's own pane
       (found by 8.9e rework 7, 2026-10-23): the window has no minimum size, and in the editor's
       `ScrollArea::vertical` the content's width grows to fit its widest row (measured at a
       580 px window: the Tactics note's row reached 790 px), so a wrapping row overflows to
       the right, clipped, instead of wrapping; the wraps are tested only in `team_widgets`'
       pane → verify: the Tactics and Abilities tabs at a 580 px window, every control inside
       the window, by a test in `save_editor`'s view tests; folded into slice 4's layout if v2
-      changes the host
+      changes the host. Measured 2026-10-25 (SWE-2, `.tmp/8_9h/brief_8_9h_measure_r1.report.md`):
+      every tab fits from 900 points (Abilities, Appearance; Tactics 780; the tab strip clips
+      below 738), PES 17 and 21 alike. Ruled (DECISIONS "The window has a 960 × 600 minimum"):
+      the window's minimum instead of wrapping rows → verify, replacing the 580 one: ST-WIN-01's
+      minimum; every Save editor tab inside the pane at the minimum window. Done 2026-10-25
+      (SWE-2): `window_size::MIN_SIZE` 960 × 600 in `native_options` (red: `min_inner_size`
+      None), `every_tab_fits_the_pane_the_minimum_window_leaves` over four tabs on PES 21 and 17
+      (red at an 804 pane: "Make Regular" ends at 798 past 796). Files:
+      `studio_core/src/shell/window_size.rs`, `save_editor/src/view/tests/tactics.rs`
     - [x] 8.9i a starter whose portrait the pitch cannot show, for any reason (none in the
       CPKs, a portrait that does not decode, a `download/` folder that cannot be read), draws
       the game's own placeholder portrait instead of none (the maintainer's request of

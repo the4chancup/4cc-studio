@@ -11153,3 +11153,15 @@ Why: drawing nothing assumed the AATF panel reports check errors, but `check_tea
 those two functions, so a member's logic edit that breaks only them would show nowhere; drawing
 "No tier matches" would say the opposite of the truth.
 Plan: `plans/save_editor.md` "Editing UI", the Cards left sentence.
+
+## 2026-10-25 — studio_core — The window has a 960 × 600 minimum, not rows that wrap at any width
+Decision: the native window gets a minimum inner size of 960 × 600 points; worklog step 8.9h
+(the Save editor's rows clipping in a 580-point window) is closed by that minimum and a test that
+every Save editor tab fits at it, not by making each row wrap.
+Why: measured 2026-10-25 (8.9h's measurement slice): every tab fits from 900 points wide (the
+Abilities top row's second line, the Appearance wrist-taping swatch row) and 780 (Tactics' fixed
+320-point pitch beside its 200-point lists); the tab strip clips below 738. Every default the
+window opens at is 1037 × 648 or larger, which the plan already names as the size views are laid
+out for; wrapping each fixed-part row would rework four layouts for sizes no default reaches,
+while the minimum costs one builder call and still fits the smallest default with room.
+Plan: `plans/core/gui.md` "Shell layout", the paragraph "The window's size."; ST-WIN-01.

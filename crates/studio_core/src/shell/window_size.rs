@@ -8,6 +8,13 @@
 /// logical width and height, leaving room for the taskbar and the title bar.
 pub(super) const DEFAULT_SIZE: egui::Vec2 = egui::vec2(1280.0, 800.0);
 
+/// The smallest window a member's resize can reach: 960 × 600 points, under
+/// the smallest default the fit produces (1037 × 648) so the fit never meets
+/// it. The views are laid out for the defaults; below about 900 points wide,
+/// rows with fixed parts (the Tactics pitch, a swatch row, the tab strip)
+/// clip at the right edge instead of wrapping (measured 2026-10-25).
+pub(super) const MIN_SIZE: egui::Vec2 = egui::vec2(960.0, 600.0);
+
 /// The size the first frame fits the window to: `DEFAULT_SIZE` while it is
 /// within 90% of `monitor`'s width and height, else the largest 16:10 size
 /// within 90% of both, each side rounded to whole points.
@@ -27,7 +34,9 @@ pub(super) fn fitted_size(monitor: egui::Vec2) -> egui::Vec2 {
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn native_options() -> eframe::NativeOptions {
     eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default().with_inner_size(DEFAULT_SIZE),
+        viewport: egui::ViewportBuilder::default()
+            .with_inner_size(DEFAULT_SIZE)
+            .with_min_inner_size(MIN_SIZE),
         centered: true,
         ..Default::default()
     }
@@ -118,6 +127,19 @@ mod tests {
         let options = native_options();
         assert_eq!(options.viewport.inner_size, Some(DEFAULT_SIZE));
         assert!(options.centered, "created centered on the monitor");
+    }
+
+    // ST-WIN-01 (its last clause): the options carry a minimum inner size,
+    // under the smallest default the fit produces so the fit never meets it.
+    #[test]
+    fn the_options_stop_a_members_resize_at_the_minimum() {
+        let options = native_options();
+        assert_eq!(options.viewport.min_inner_size, Some(MIN_SIZE));
+        let smallest = fitted_size(egui::vec2(1280.0, 720.0));
+        assert!(
+            MIN_SIZE.x <= smallest.x && MIN_SIZE.y <= smallest.y,
+            "the minimum {MIN_SIZE:?} fits inside the smallest default {smallest:?}"
+        );
     }
 
     // ST-WIN-01

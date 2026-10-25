@@ -54,7 +54,13 @@ the shell fits and centers it on the first frame that reports the monitor's size
 (`ViewportCommand::InnerSize`, then `OuterPosition` centering the outer rectangle, title bar
 included), and never again, so a member's own resize or move holds. eframe's own clamp at
 creation is not enough: it clamps to the whole monitor, under the taskbar, and drops the 16:10
-shape. Where no frame reports the monitor's size, the window stays as created.
+shape. Where no frame reports the monitor's size, the window stays as created. A member's
+resize stops at **960 × 600 points**, under the smallest default so the fit never meets it:
+the views are laid out for the defaults, and below about 900 points wide rows with fixed parts
+(the Tactics pitch, a row of colour swatches, the tab strip) clip at the right edge instead of
+wrapping (measured on the Save editor, 2026-10-25). A minimum keeps every view whole for the
+cost of one line; making every such row wrap would rework each layout for sizes no default
+opens at.
 
 The shell draws only what is its own. Panels claim space in call order, so the status bar is
 added first to span the full width, the sidebar next, and the central panel, whatever is left,
@@ -734,7 +740,7 @@ ST-WIN-01   GIVEN a monitor of 1920 × 1080 points and the window created at 128
                  THEN 1037 × 648 at (113.5, 16.5); GIVEN 1366 × 768 THEN 1106 × 691 at
                  (122, 19); and no later frame sends either; GIVEN the first frame reporting
                  no monitor size THEN neither command, and the first frame that reports one
-                 sends both
+                 sends both; the native window's options carry a 960 × 600 minimum inner size
 ```
 
 **Sidebar**

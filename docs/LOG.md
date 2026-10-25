@@ -2494,3 +2494,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.9f4d: the Abilities tab's Cards left row is one badge, the player's own tier as the AATF check reads
   him (`Gold: 6 of 8 cards`, or `No tier matches`), through `Rules::player_tier`; no more one badge per tier to match
   by eye. VTL11 matches no tier for most real players (its tiers gate on exact heights).
+- **2026-10-25** — 8.9h: the window cannot be resized below 960 × 600 points, under every default it opens at; the Save
+  editor's tabs fit from 900 wide (measured on PES 17 and 21), and below that rows with fixed parts clipped. A test
+  holds every tab inside the pane at the minimum.
