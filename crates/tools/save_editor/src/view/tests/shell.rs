@@ -203,12 +203,12 @@ fn a_second_gesture_on_the_same_control_is_its_own_entry() {
 
 // SE-GUI-21 (the scenario is manual; this is its logic)
 #[test]
-fn save_is_refused_while_the_saves_own_pes_runs() {
-    let path = fixture(PesVersion::Pes21, "save_refused");
+fn save_asks_the_edit_mode_question_while_the_saves_own_pes_runs() {
+    let path = fixture(PesVersion::Pes21, "save_question");
     let original = std::fs::read(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    // An edit, so the refusal leaves something behind.
+    // An edit, so the question leaves something behind.
     let mut edited = view
         .session
         .as_ref()
@@ -219,53 +219,72 @@ fn save_is_refused_while_the_saves_own_pes_runs() {
         .clone();
     edited.basic.height = 170;
     view.session.as_mut().unwrap().edit_player(1, edited);
-    let running_own = [RunningPes {
-        version: PesVersion::Pes21,
-        exe: None,
-    }];
-    save(&mut view, &|| running_own.to_vec());
+    let running_own = || {
+        vec![RunningPes {
+            version: PesVersion::Pes21,
+            exe: None,
+        }]
+    };
     let mut window = Headless::new();
+
+    // The window's Save opens the question; its Cancel writes nothing.
+    assert!(!save(&mut view, &running_own), "not written yet");
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
         nodes.iter().any(|node| {
             node.value()
                 .is_some_and(|value| value.contains("PES 2021 is running"))
         }),
-        "the modal names the game"
+        "the question names the game"
+    );
+    click(
+        &mut window,
+        prompt::modal_button(&nodes, "PES 2021 is running", "Cancel"),
+        &mut view,
     );
     assert_eq!(
         std::fs::read(&path).unwrap(),
         original,
-        "the file is unchanged"
+        "Cancel writes nothing"
     );
     assert!(
         view.session.as_ref().unwrap().is_dirty(),
-        "the refused save did not write"
+        "the cancelled save did not write"
     );
-    // OK dismisses it.
+    assert!(
+        view.edit_mode_question.is_none(),
+        "Cancel closes the question"
+    );
+
+    // Its Save writes with the member's answer.
+    assert!(!save(&mut view, &running_own));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
-        nodes
-            .iter()
-            .find(|node| node.role() == Role::Button && node.label() == Some("OK"))
-            .expect("the modal's OK"),
+        prompt::modal_button(&nodes, "PES 2021 is running", "Save"),
         &mut view,
     );
-    assert!(view.refusal.is_none(), "OK closes the refusal");
-    // A game of another version does not block it; a write that succeeds
-    // clears the refusal an earlier one left too.
-    let running_other = [RunningPes {
-        version: PesVersion::Pes19,
-        exe: None,
-    }];
-    save(&mut view, &|| running_own.to_vec());
-    assert!(view.refusal.is_some());
-    save(&mut view, &|| running_other.to_vec());
-    assert!(
-        view.refusal.is_none(),
-        "a successful save clears the refusal"
-    );
+    assert!(view.edit_mode_question.is_none());
     assert!(!view.session.as_ref().unwrap().is_dirty(), "the save wrote");
+    let reopened = Session::open(&path).unwrap();
+    assert_eq!(
+        reopened.file().player(70101).unwrap().basic.height,
+        170,
+        "the reopened file holds the edit"
+    );
+
+    // A game of another version writes with no question.
+    let mut edited = player_entry(&view, 70101);
+    edited.basic.age = 33;
+    view.session.as_mut().unwrap().edit_player(5, edited);
+    let running_other = || {
+        vec![RunningPes {
+            version: PesVersion::Pes19,
+            exe: None,
+        }]
+    };
+    assert!(save(&mut view, &running_other), "the write went through");
+    assert!(view.edit_mode_question.is_none(), "no question asked");
 }
 
 // plans/save_editor.md "Editing UI", the Unsaved changes bullet: undoing back

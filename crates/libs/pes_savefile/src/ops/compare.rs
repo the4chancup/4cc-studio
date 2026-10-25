@@ -12,8 +12,11 @@ use crate::model::ingame_face::in_layout;
 use crate::model::player::PlayerEntry;
 #[cfg(test)]
 use crate::model::player::STRIPPED_APPEARANCE_ID;
+use crate::model::team::TeamEntry;
 use crate::ops::fingerprint::{FaceHash, face_hash};
-use crate::schema::fields::{PlayerField, PlayerText};
+use crate::schema::fields::{
+    PlayerField, PlayerText, RosterField, TacticsField, TeamField, TeamText,
+};
 use crate::schema::ingame_face::{INGAME_FACE_FIELDS, IngameFaceField};
 use crate::schema::{RecordSchema, VersionSchema};
 
@@ -273,6 +276,92 @@ pub fn compare_players(
     Ok(diffs)
 }
 
+/// Every difference between two teams of the same version.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TeamDiff {
+    /// A bit-run field of the team record.
+    Field {
+        /// The schema field that differs.
+        field: TeamField,
+        /// `a`'s stored value.
+        old: u32,
+        /// `b`'s stored value.
+        new: u32,
+    },
+    /// The team name or short name.
+    Text {
+        /// The text field that differs.
+        text: TeamText,
+        /// `a`'s text.
+        old: String,
+        /// `b`'s text.
+        new: String,
+    },
+    /// A field of the roster record.
+    Roster {
+        /// The schema field that differs.
+        field: RosterField,
+        /// `a`'s stored value.
+        old: u32,
+        /// `b`'s stored value.
+        new: u32,
+    },
+    /// A field of the tactics record.
+    Tactics {
+        /// The schema field that differs.
+        field: TacticsField,
+        /// `a`'s stored value.
+        old: u32,
+        /// `b`'s stored value.
+        new: u32,
+    },
+}
+
+/// Every difference between two teams of the same version, for the Save
+/// editor's unsaved-changes prompt: the schema's stored fields through
+/// the model — the team record's runs in schema order, the two texts
+/// (name, then short name), the roster record's runs, then the tactics
+/// record's runs. `Err` only when a gated field the schema stores is
+/// `None` on either side (an entry not read from a save of this version).
+pub fn compare_teams(
+    a: &TeamEntry,
+    b: &TeamEntry,
+    schema: &VersionSchema,
+) -> Result<Vec<TeamDiff>, CodecError> {
+    let mut diffs = Vec::new();
+    for (field, _, _) in codec::runs(schema.team) {
+        let (old, new) = (a.get(field)?, b.get(field)?);
+        if old != new {
+            diffs.push(TeamDiff::Field { field, old, new });
+        }
+    }
+    for (text, old, new) in [
+        (TeamText::Name, &a.name, &b.name),
+        (TeamText::ShortName, &a.short_name, &b.short_name),
+    ] {
+        if old != new {
+            diffs.push(TeamDiff::Text {
+                text,
+                old: old.clone(),
+                new: new.clone(),
+            });
+        }
+    }
+    for (field, _, _) in codec::runs(schema.roster) {
+        let (old, new) = (a.roster_get(field)?, b.roster_get(field)?);
+        if old != new {
+            diffs.push(TeamDiff::Roster { field, old, new });
+        }
+    }
+    for (field, _, _) in codec::tactics_runs(schema.tactic) {
+        let (old, new) = (a.tactics_get(field)?, b.tactics_get(field)?);
+        if old != new {
+            diffs.push(TeamDiff::Tactics { field, old, new });
+        }
+    }
+    Ok(diffs)
+}
+
 /// The player-level diff of two saves, players paired by id — roster-slot
 /// pairing would report a reshuffle as edits.
 #[derive(Debug, Default)]
@@ -346,11 +435,17 @@ mod tests {
 
     use super::*;
     use crate::model::ingame_face::IngameFace;
+    use crate::schema::fields::PresetField;
     use crate::schema::schema_for;
     use crate::test_support::{FIXTURES, find_player, open, payload};
 
     fn player(version: PesVersion, id: u32) -> PlayerEntry {
         find_player(&payload(version), schema_for(version), id)
+    }
+
+    /// The joined `TeamEntry` for `id` of `version`'s fixture save.
+    fn team(version: PesVersion, id: u32) -> TeamEntry {
+        open(version).0.team(id).expect("in the fixture").clone()
     }
 
     /// `(byte, bit)` of the run covered by no field: a measured-unused bit.
@@ -684,6 +779,137 @@ mod tests {
         assert!(matches!(
             compare_players(&PlayerEntry::default(), &PlayerEntry::default(), schema),
             Err(CodecError::NoIngameFaceRun { .. })
+        ));
+    }
+
+    /// `compare_teams` over a fixture team: an unchanged copy gives no
+    /// rows, one changed field of each record gives exactly its row.
+    #[test]
+    fn each_single_edit_is_one_row() {
+        let a = team(PesVersion::Pes21, 701);
+        let schema = schema_for(PesVersion::Pes21);
+        assert_eq!(a.manager_id, Some(701), "premise");
+        assert!(
+            compare_teams(&a, &a.clone(), schema)
+                .expect("compares")
+                .is_empty()
+        );
+
+        let mut b = a.clone();
+        b.manager_id = Some(0);
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Field {
+                field: TeamField::ManagerId,
+                old: 701,
+                new: 0,
+            }]
+        );
+
+        assert_ne!(a.short_name, "XXX", "premise");
+        let mut b = a.clone();
+        b.short_name = "XXX".to_owned();
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Text {
+                text: TeamText::ShortName,
+                old: a.short_name.clone(),
+                new: "XXX".to_owned(),
+            }]
+        );
+
+        let mut b = a.clone();
+        b.roster[2].number = 99;
+        assert_ne!(a.roster[2].number, 99, "premise");
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Roster {
+                field: RosterField::Number(2),
+                old: u32::from(a.roster[2].number),
+                new: 99,
+            }]
+        );
+
+        let mut b = a.clone();
+        b.tactics.presets[1].sliders.support_range = 1;
+        assert_ne!(a.tactics.presets[1].sliders.support_range, 1, "premise");
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Tactics {
+                field: TacticsField::Preset {
+                    preset: 1,
+                    field: PresetField::SupportRange,
+                },
+                old: u32::from(a.tactics.presets[1].sliders.support_range),
+                new: 1,
+            }]
+        );
+    }
+
+    /// The rows' order is the records': the team record's runs, the
+    /// texts, the roster's runs, the tactics' runs.
+    #[test]
+    fn the_rows_follow_the_records_order() {
+        let a = team(PesVersion::Pes21, 701);
+        let schema = schema_for(PesVersion::Pes21);
+        let mut b = a.clone();
+        b.id = 999;
+        b.name.push('X');
+        b.roster[2].number = 99;
+        b.tactics.presets[0].sliders.support_range = 1;
+        // The id is read back in each record: the roster's and the
+        // tactics' `TeamId` runs diff with the team record's `Id`.
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [
+                TeamDiff::Field {
+                    field: TeamField::Id,
+                    old: 701,
+                    new: 999,
+                },
+                TeamDiff::Text {
+                    text: TeamText::Name,
+                    old: a.name.clone(),
+                    new: b.name.clone(),
+                },
+                TeamDiff::Roster {
+                    field: RosterField::TeamId,
+                    old: 701,
+                    new: 999,
+                },
+                TeamDiff::Roster {
+                    field: RosterField::Number(2),
+                    old: u32::from(a.roster[2].number),
+                    new: 99,
+                },
+                TeamDiff::Tactics {
+                    field: TacticsField::TeamId,
+                    old: 701,
+                    new: 999,
+                },
+                TeamDiff::Tactics {
+                    field: TacticsField::Preset {
+                        preset: 0,
+                        field: PresetField::SupportRange,
+                    },
+                    old: u32::from(a.tactics.presets[0].sliders.support_range),
+                    new: 1,
+                },
+            ]
+        );
+    }
+
+    /// A gated field `None` on one side (an entry not read from a save of
+    /// this version) is `Err`, as `compare_players` documents.
+    #[test]
+    fn a_gated_field_none_on_one_side_is_an_error() {
+        let schema = schema_for(PesVersion::Pes21);
+        let mut a = team(PesVersion::Pes21, 701);
+        a.manager_id = None;
+        let b = team(PesVersion::Pes21, 701);
+        assert!(matches!(
+            compare_teams(&a, &b, schema),
+            Err(CodecError::Missing { .. })
         ));
     }
 }

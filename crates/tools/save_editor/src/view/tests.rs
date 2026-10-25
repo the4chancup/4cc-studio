@@ -1062,6 +1062,7 @@ mod generate;
 mod list;
 mod live_aatf;
 mod player;
+mod prompt;
 mod quick_actions;
 mod savefile;
 mod shell;

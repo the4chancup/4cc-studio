@@ -19,6 +19,7 @@ mod live_aatf;
 mod menus;
 mod player_list;
 mod portraits;
+pub(crate) mod prompt;
 mod quick_actions;
 mod tactics;
 mod team;
@@ -76,6 +77,18 @@ pub(crate) struct SaveView {
     /// its gesture starts (a DragValue's click), and that gesture stays
     /// one step.
     focused: Option<egui::Id>,
+    /// The unsaved-changes prompt's state while it is open (SE-GUI-05):
+    /// the pending action and the table's rows, computed once at open.
+    pub(crate) prompt: Option<prompt::Prompt>,
+    /// The running-game question a Save first asks while the save's own
+    /// PES runs: the version of the game found (SE-GUI-21's window rule).
+    edit_mode_question: Option<PesVersion>,
+    /// The Discard-on-close answer's ask to close again, drained by
+    /// `Tool::view` into `ctx.request_close()` (the shell owns the send).
+    pub(crate) request_close: bool,
+    /// The toolbar's Open dialog (`rfd`, stubbed in tests — the
+    /// `open_save_dialog` pattern).
+    open_dialog: comparator::OpenSaveDialog,
     /// A refusal to show until dismissed (an open the save refused).
     refusal: Option<Refusal>,
     /// The ruleset the Cards left badge uses, loaded on the first frame and again only
@@ -259,6 +272,10 @@ impl SaveView {
             tab: Tab::Abilities,
             tactics: team_widgets::tactics::TacticsView::default(),
             focused: None,
+            prompt: None,
+            edit_mode_question: None,
+            request_close: false,
+            open_dialog: comparator::default_open_dialog(),
             refusal: None,
             rules: None,
             aatf: aatf_panel::AatfPanel::new(),
@@ -307,6 +324,14 @@ impl SaveView {
         self.aesthetics_from_exports && !self.edit_aesthetics
     }
 
+    /// Whether the open session holds unsaved changes (`Tool::hold_close`'s
+    /// ask; `false` with none open).
+    pub(crate) fn is_dirty(&self) -> bool {
+        self.session
+            .as_ref()
+            .is_some_and(|session| session.is_dirty())
+    }
+
     /// Opens the save at `path`: on success the selector reads `ALL`, the
     /// filter is empty and the first listed player is selected; a file the
     /// save refuses is shown as a refusal and the open session is untouched.
@@ -345,6 +370,8 @@ impl SaveView {
                 self.session = Some(session);
                 self.generation += 1;
                 self.tactics = team_widgets::tactics::TacticsView::default();
+                self.prompt = None;
+                self.edit_mode_question = None;
                 self.refusal = None;
                 self.boglo = None;
                 self.stat_num = None;
@@ -425,6 +452,8 @@ pub(crate) fn show(
     generate::dialog(ui, view);
     aatf_panel::show(ui, view);
     comparator::show(ui, view);
+    prompt::show(ui, view, running);
+    prompt::edit_mode_dialog(ui, view, running);
     // One undo entry per gesture: seal when the pointer is up and no
     // widget holds the keyboard, and when the widget that held it ends
     // the frame without it — a gesture ends when its widget loses the
@@ -486,10 +515,14 @@ pub(super) fn scoped(ui: &mut egui::Ui, id: egui::Id, add: impl FnOnce(&mut egui
 /// The toolbar: Open, Save, Undo, Redo and the open save's path with its
 /// unsaved-changes marker (the draft's toolbar row).
 fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
+    // The unsaved prompt and the running-game question hold every
+    // shortcut dead while up (the prompt's own buttons are the way out).
+    let modal_up = view.prompt.is_some() || view.edit_mode_question.is_some();
     // Ctrl+S saves even while a widget holds the keyboard; the other
     // shortcuts do nothing then (a text field's own undo is egui's).
-    let save_key = ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::S));
-    let typing = ui.ctx().egui_wants_keyboard_input();
+    let save_key =
+        !modal_up && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::S));
+    let typing = ui.ctx().egui_wants_keyboard_input() || modal_up;
     // Ctrl+Shift+Z first: `consume_key(Ctrl, Z)` matches it too, so the more
     // specific shortcut has to be tested before the plainer one.
     let redo_key = !typing
@@ -511,10 +544,14 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
     let bump_key =
         !typing && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::B));
     ui.horizontal(|ui| {
-        if ui.button("Open…").clicked()
-            && let Some(path) = rfd::FileDialog::new().pick_file()
-        {
-            view.open(&path);
+        if ui.button("Open…").clicked() {
+            // A dirty session prompts first (SE-GUI-05): the picker waits
+            // for the answer.
+            if view.is_dirty() {
+                prompt::open(view, prompt::Pending::OpenPicker);
+            } else if let Some(path) = (view.open_dialog)() {
+                view.open(&path);
+            }
         }
         let (can_undo, can_redo) = view
             .session
@@ -593,17 +630,44 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
     }
 }
 
-/// `session.save` and the modal its refusal takes (the draft's `saveFile`).
-fn save(view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
-    if let Some(session) = view.session.as_mut() {
-        match session.save(&running()) {
-            Ok(()) => view.refusal = None,
-            Err(error) => {
-                view.refusal = Some(Refusal {
-                    title: "Save refused",
-                    message: format!("{error:#}"),
-                });
-            }
+/// The window's Save (the toolbar's, Ctrl+S's and the prompt's): the
+/// running-game question first while the save's own PES runs, then the
+/// write. Answers whether the file was written — `false` while the
+/// question waits or a write failed, so a prompt stays up.
+pub(super) fn save(view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) -> bool {
+    let Some(version) = view.session.as_ref().map(|session| session.version()) else {
+        return false;
+    };
+    if running().iter().any(|game| game.version == version) {
+        view.edit_mode_question = Some(version);
+        return false;
+    }
+    write_now(view, running, false)
+}
+
+/// `session.save` and the refusal its error takes (the draft's
+/// `saveFile`). `edit_mode_closed` is the member's answer the caller
+/// holds: the toolbar's Save has none (the own-game check ran just
+/// above), the question's Save has the confirmed `true`.
+pub(super) fn write_now(
+    view: &mut SaveView,
+    running: &dyn Fn() -> Vec<RunningPes>,
+    edit_mode_closed: bool,
+) -> bool {
+    let Some(session) = view.session.as_mut() else {
+        return false;
+    };
+    match session.save(&running(), edit_mode_closed) {
+        Ok(()) => {
+            view.refusal = None;
+            true
+        }
+        Err(error) => {
+            view.refusal = Some(Refusal {
+                title: "Save refused",
+                message: format!("{error:#}"),
+            });
+            false
         }
     }
 }

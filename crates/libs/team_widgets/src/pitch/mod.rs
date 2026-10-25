@@ -686,7 +686,7 @@ fn paint_marker(
 
 /// The position byte's label (`POSITIONS`), "?" past the table as the
 /// player list reads it.
-fn position_label(position: u8) -> &'static str {
+pub(crate) fn position_label(position: u8) -> &'static str {
     POSITIONS.get(usize::from(position)).copied().unwrap_or("?")
 }
 

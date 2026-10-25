@@ -908,3 +908,336 @@ fn the_automatic_settings_and_the_note_wrap_at_a_narrow_pane() {
     );
     assert!(done_bounds.x1 <= 360.0, "Done ends inside the pane");
 }
+
+/// A roster of named slots for `tactics_term`: the fixture's own names
+/// are all "PLACEHOLDER".
+fn named_roster() -> Vec<(String, String, Option<u8>)> {
+    (0..32)
+        .map(|i| (format!("Player {:02}", i + 1), String::new(), None))
+        .collect()
+}
+
+/// `tactics_term` words the preset fields with the tab's labels: the
+/// sliders' numbers, the style pairs' texts, the fluid switch's
+/// "off"/"on".
+#[test]
+fn the_preset_fields_terms() {
+    let version = PesVersion::Pes21;
+    let tactics = fixture_tactics(version);
+    let rows = named_roster();
+    let roster = roster_rows(&rows);
+    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    assert_eq!(
+        term(
+            TacticsField::Preset {
+                preset: 0,
+                field: PresetField::SupportRange,
+            },
+            5,
+            7
+        ),
+        (
+            "Preset 1 · Support range".to_owned(),
+            "5".to_owned(),
+            "7".to_owned()
+        )
+    );
+    assert_eq!(
+        term(
+            TacticsField::Preset {
+                preset: 0,
+                field: PresetField::AttackingStyle,
+            },
+            0,
+            1
+        ),
+        (
+            "Preset 1 · Attacking style".to_owned(),
+            "Counter Attack".to_owned(),
+            "Possession".to_owned()
+        )
+    );
+    assert_eq!(
+        term(
+            TacticsField::Preset {
+                preset: 2,
+                field: PresetField::DefensiveStyle,
+            },
+            1,
+            0
+        ),
+        (
+            "Preset 3 · Defensive style".to_owned(),
+            "All Out Defence".to_owned(),
+            "Frontline Pressure".to_owned()
+        )
+    );
+    assert_eq!(
+        term(
+            TacticsField::Preset {
+                preset: 1,
+                field: PresetField::FluidFormation,
+            },
+            0,
+            1
+        ),
+        (
+            "Preset 2 · Fluid formation".to_owned(),
+            "off".to_owned(),
+            "on".to_owned()
+        )
+    );
+}
+
+/// The set-piece takers' and the captain's terms: the chips' labels and
+/// the holder's name, "Unassigned" for 255.
+#[test]
+fn the_set_pieces_terms() {
+    let version = PesVersion::Pes21;
+    let tactics = fixture_tactics(version);
+    let rows = named_roster();
+    let roster = roster_rows(&rows);
+    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    assert_eq!(
+        term(TacticsField::FreeKickTakerLong, 3, 9),
+        (
+            "Long free kick".to_owned(),
+            "Player 04".to_owned(),
+            "Player 10".to_owned()
+        )
+    );
+    assert_eq!(
+        term(TacticsField::Captain, 0, 5),
+        (
+            "Captain".to_owned(),
+            "Player 01".to_owned(),
+            "Player 06".to_owned()
+        )
+    );
+    assert_eq!(
+        term(TacticsField::PenaltyTaker, 255, 2),
+        (
+            "Penalty kick".to_owned(),
+            "Unassigned".to_owned(),
+            "Player 03".to_owned()
+        )
+    );
+}
+
+/// A formation slot's terms name the formation and the starter playing
+/// it — through `starting_eleven`, not the slot's index — and the part:
+/// the position's label, the coordinates' numbers.
+#[test]
+fn the_formation_slots_terms() {
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    // A non-identity eleven: wording slot 4's player as roster slot 4
+    // would pass here too if `starting_eleven` were not read.
+    tactics.starting_eleven[4] = 7;
+    let rows = named_roster();
+    let roster = roster_rows(&rows);
+    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    assert_eq!(
+        term(
+            TacticsField::Formation {
+                preset: 0,
+                formation: 0,
+                slot: 4,
+                part: FormationPart::Position,
+            },
+            9,
+            10
+        ),
+        (
+            "Preset 1 · Kick-off · Player 08 · Position".to_owned(),
+            "LWF".to_owned(),
+            "RWF".to_owned()
+        )
+    );
+    assert_eq!(
+        term(
+            TacticsField::Formation {
+                preset: 1,
+                formation: 2,
+                slot: 4,
+                part: FormationPart::X,
+            },
+            30,
+            40
+        ),
+        (
+            "Preset 2 · Out-of-possession · Player 08 · X".to_owned(),
+            "30".to_owned(),
+            "40".to_owned()
+        )
+    );
+    assert_eq!(
+        term(
+            TacticsField::Formation {
+                preset: 0,
+                formation: 1,
+                slot: 4,
+                part: FormationPart::Y,
+            },
+            20,
+            44
+        ),
+        (
+            "Preset 1 · In-possession · Player 08 · Y".to_owned(),
+            "20".to_owned(),
+            "44".to_owned()
+        )
+    );
+}
+
+/// A man-marking row names its own slot's starter and shows the marked
+/// opponent's slot, "None" for 255.
+#[test]
+fn the_man_marking_terms() {
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    tactics.starting_eleven[5] = 2;
+    let rows = named_roster();
+    let roster = roster_rows(&rows);
+    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    assert_eq!(
+        term(TacticsField::ManMarking { preset: 0, slot: 5 }, 255, 3),
+        (
+            "Preset 1 · Man marking · Player 03".to_owned(),
+            "None".to_owned(),
+            "3".to_owned()
+        )
+    );
+}
+
+/// The instruction rows: the row label (`Attack 1` to `Defence 2`), the
+/// instruction's text as the version's table decodes it (its hex past
+/// the table), the target's combo text.
+#[test]
+fn the_instructions_terms() {
+    let version = PesVersion::Pes21;
+    let tactics = fixture_tactics(version);
+    let rows = named_roster();
+    let roster = roster_rows(&rows);
+    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    assert_eq!(
+        term(
+            TacticsField::Instruction {
+                preset: 0,
+                side: InstructionSide::Attack,
+                index: 0,
+                part: InstructionPart::Instruction,
+            },
+            6,
+            12
+        ),
+        (
+            "Preset 1 · Attack 1".to_owned(),
+            "Tiki-Taka".to_owned(),
+            "Deep Defensive Line".to_owned()
+        )
+    );
+    assert_eq!(
+        term(
+            TacticsField::Instruction {
+                preset: 0,
+                side: InstructionSide::Defence,
+                index: 1,
+                part: InstructionPart::Instruction,
+            },
+            6,
+            0xAB
+        ),
+        (
+            "Preset 1 · Defence 2".to_owned(),
+            "Tiki-Taka".to_owned(),
+            "Unknown (0xAB)".to_owned()
+        )
+    );
+    assert_eq!(
+        term(
+            TacticsField::Instruction {
+                preset: 0,
+                side: InstructionSide::Attack,
+                index: 0,
+                part: InstructionPart::PlayerId,
+            },
+            5,
+            255
+        ),
+        (
+            "Preset 1 · Attack 1 · Target".to_owned(),
+            "6 Player 06".to_owned(),
+            "Unassigned".to_owned()
+        )
+    );
+    // A target that is no starter names the roster slot alone.
+    assert_eq!(
+        term(
+            TacticsField::Instruction {
+                preset: 0,
+                side: InstructionSide::Defence,
+                index: 0,
+                part: InstructionPart::PlayerId,
+            },
+            20,
+            5
+        ),
+        (
+            "Preset 1 · Defence 1 · Target".to_owned(),
+            "Player 21".to_owned(),
+            "6 Player 06".to_owned()
+        )
+    );
+}
+
+/// The remaining terms: the automatic settings, the lists and the join
+/// pick, the tactics record's team id.
+#[test]
+fn the_rest_of_the_terms() {
+    let version = PesVersion::Pes21;
+    let tactics = fixture_tactics(version);
+    let rows = named_roster();
+    let roster = roster_rows(&rows);
+    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    assert_eq!(
+        term(TacticsField::AutoSubstitution, 0, 3),
+        ("Substitution".to_owned(), "0".to_owned(), "3".to_owned())
+    );
+    assert_eq!(
+        term(TacticsField::AutoAttackDefenceLevels, 0, 1),
+        (
+            "Attack/defence levels".to_owned(),
+            "off".to_owned(),
+            "on".to_owned()
+        )
+    );
+    assert_eq!(
+        term(TacticsField::Starting(4), 4, 7),
+        (
+            "Starting eleven · 5".to_owned(),
+            "Player 05".to_owned(),
+            "Player 08".to_owned()
+        )
+    );
+    assert_eq!(
+        term(TacticsField::Bench(0), 11, 20),
+        (
+            "Bench · 1".to_owned(),
+            "Player 12".to_owned(),
+            "Player 21".to_owned()
+        )
+    );
+    assert_eq!(
+        term(TacticsField::PlayerToJoinAttack(0), 3, 255),
+        (
+            "Join attack · 1".to_owned(),
+            "Player".to_owned(),
+            "none".to_owned()
+        )
+    );
+    assert_eq!(
+        term(TacticsField::TeamId, 701, 702),
+        ("Team ID".to_owned(), "701".to_owned(), "702".to_owned())
+    );
+}

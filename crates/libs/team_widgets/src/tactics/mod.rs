@@ -10,9 +10,13 @@
 use pes_savefile::model::tactics::{
     TacticSliders, TacticStyle, TacticsPreset, TeamAutoFlags, TeamTactics,
 };
-use pes_savefile::schema::fields::{PresetField, TacticsField};
-use pes_savefile::schema::schema_for;
+use pes_savefile::schema::fields::{
+    FormationPart, InstructionPart, InstructionSide, PresetField, TacticsField,
+};
+use pes_savefile::schema::{instruction, schema_for};
 use pes_version::PesVersion;
+
+use crate::pitch::{FORMATIONS, position_label};
 
 /// The role palette's armed modes, chips and note.
 mod assignments;
@@ -66,6 +70,9 @@ pub struct RosterRow<'a> {
 struct SliderSpec {
     /// The cell's label.
     label: &'static str,
+    /// The preset field the slider writes (`tactics_term`'s key into the
+    /// table, so a row's label is never a second copy).
+    field: PresetField,
     /// The range's top (1 is always the bottom).
     max: u8,
     /// The stored value.
@@ -78,30 +85,35 @@ struct SliderSpec {
 const SLIDERS: [SliderSpec; 5] = [
     SliderSpec {
         label: "Support range",
+        field: PresetField::SupportRange,
         max: 10,
         get: |sliders| sliders.support_range,
         set: |sliders, value| sliders.support_range = value,
     },
     SliderSpec {
         label: "Defensive line",
+        field: PresetField::DefensiveLine,
         max: 10,
         get: |sliders| sliders.defensive_line,
         set: |sliders, value| sliders.defensive_line = value,
     },
     SliderSpec {
         label: "Compactness",
+        field: PresetField::Compactness,
         max: 10,
         get: |sliders| sliders.compactness,
         set: |sliders, value| sliders.compactness = value,
     },
     SliderSpec {
         label: "Numbers in attack",
+        field: PresetField::NumbersInAttack,
         max: 3,
         get: |sliders| sliders.numbers_in_attack,
         set: |sliders, value| sliders.numbers_in_attack = value,
     },
     SliderSpec {
         label: "Numbers in defence",
+        field: PresetField::NumbersInDefence,
         max: 3,
         get: |sliders| sliders.numbers_in_defence,
         set: |sliders, value| sliders.numbers_in_defence = value,
@@ -114,6 +126,9 @@ const SLIDERS: [SliderSpec; 5] = [
 struct StyleToggle {
     /// The cell's label.
     label: &'static str,
+    /// The preset field the pair writes (`tactics_term`'s key into the
+    /// table, so a row's label and texts are never a second copy).
+    field: PresetField,
     /// The stored 0's text.
     off: &'static str,
     /// The stored 1's text.
@@ -128,6 +143,7 @@ struct StyleToggle {
 const STYLE_TOGGLES: [StyleToggle; 7] = [
     StyleToggle {
         label: "Attacking style",
+        field: PresetField::AttackingStyle,
         off: "Counter Attack",
         on: "Possession",
         get: |style| style.attacking_style,
@@ -135,6 +151,7 @@ const STYLE_TOGGLES: [StyleToggle; 7] = [
     },
     StyleToggle {
         label: "Attacking zone",
+        field: PresetField::AttackingZone,
         off: "Centre",
         on: "Wide",
         get: |style| style.attacking_zone,
@@ -142,6 +159,7 @@ const STYLE_TOGGLES: [StyleToggle; 7] = [
     },
     StyleToggle {
         label: "Buildup",
+        field: PresetField::Buildup,
         off: "Long Pass",
         on: "Short Pass",
         get: |style| style.buildup,
@@ -149,6 +167,7 @@ const STYLE_TOGGLES: [StyleToggle; 7] = [
     },
     StyleToggle {
         label: "Positioning",
+        field: PresetField::Positioning,
         off: "Maintain",
         on: "Flexible",
         get: |style| style.positioning,
@@ -156,6 +175,7 @@ const STYLE_TOGGLES: [StyleToggle; 7] = [
     },
     StyleToggle {
         label: "Defensive style",
+        field: PresetField::DefensiveStyle,
         off: "Frontline Pressure",
         on: "All Out Defence",
         get: |style| style.defensive_style,
@@ -163,6 +183,7 @@ const STYLE_TOGGLES: [StyleToggle; 7] = [
     },
     StyleToggle {
         label: "Containment area",
+        field: PresetField::ContainmentArea,
         off: "Middle",
         on: "Wide",
         get: |style| style.containment_area,
@@ -170,12 +191,25 @@ const STYLE_TOGGLES: [StyleToggle; 7] = [
     },
     StyleToggle {
         label: "Pressure",
+        field: PresetField::Pressure,
         off: "Aggressive",
         on: "Conservative",
         get: |style| style.pressure,
         set: |style, value| style.pressure = value,
     },
 ];
+
+/// The fluid switch's label (the checkbox's and `tactics_term`'s row's
+/// one copy).
+const FLUID_LABEL: &str = "Fluid formation";
+/// The substitution field's label.
+const SUBSTITUTION_LABEL: &str = "Substitution";
+/// The offside-trap checkbox's label.
+const OFFSIDE_TRAP_LABEL: &str = "Offside trap";
+/// The preset-change checkbox's label.
+const PRESET_CHANGE_LABEL: &str = "Preset change";
+/// The attack/defence-levels checkbox's label.
+const ATTACK_DEFENCE_LABEL: &str = "Attack/defence levels";
 
 /// The preset selector (the draft's `presetSel`, in the tab's `tacbar`
 /// beside the menus that act on the shown preset): "Preset" then 1, 2
@@ -233,11 +267,11 @@ fn formation_settings(ui: &mut egui::Ui, preset: &mut TacticsPreset) {
     ui.strong("Formation settings");
     match &mut preset.style.fluid {
         Some(fluid) => {
-            ui.checkbox(fluid, "Fluid formation");
+            ui.checkbox(fluid, FLUID_LABEL);
         }
         None => {
             let mut off = false;
-            ui.add_enabled(false, egui::Checkbox::new(&mut off, "Fluid formation"))
+            ui.add_enabled(false, egui::Checkbox::new(&mut off, FLUID_LABEL))
                 .on_disabled_hover_text(gate_tip(TacticsField::Preset {
                     preset: 0,
                     field: PresetField::FluidFormation,
@@ -313,7 +347,7 @@ fn two_pairs_width(ui: &egui::Ui) -> f32 {
 /// The Substitution pair's drawn width: the label and the DragValue
 /// field (`interact_size.x`), plus the gap.
 fn sub_cell_width(ui: &egui::Ui) -> f32 {
-    text_width(ui, "Substitution") + ui.spacing().interact_size.x + ui.spacing().item_spacing.x
+    text_width(ui, SUBSTITUTION_LABEL) + ui.spacing().interact_size.x + ui.spacing().item_spacing.x
 }
 
 /// `text`'s galley width in the body font.
@@ -363,7 +397,7 @@ fn automatic_settings(ui: &mut egui::Ui, auto: &mut TeamAutoFlags) {
     ui.strong("Automatic settings");
     ui.horizontal_wrapped(|ui| {
         cell(ui, sub_cell_width(ui), |ui| {
-            ui.label("Substitution");
+            ui.label(SUBSTITUTION_LABEL);
             match &mut auto.substitution {
                 Some(substitution) => {
                     ui.add(egui::DragValue::new(substitution).range(0..=u8::MAX))
@@ -383,19 +417,19 @@ fn automatic_settings(ui: &mut egui::Ui, auto: &mut TeamAutoFlags) {
         });
         auto_flag(
             ui,
-            "Offside trap",
+            OFFSIDE_TRAP_LABEL,
             &mut auto.offside_trap,
             TacticsField::AutoOffsideTrap,
         );
         auto_flag(
             ui,
-            "Preset change",
+            PRESET_CHANGE_LABEL,
             &mut auto.preset_change,
             TacticsField::AutoPresetChange,
         );
         auto_flag(
             ui,
-            "Attack/defence levels",
+            ATTACK_DEFENCE_LABEL,
             &mut auto.attack_defence_levels,
             TacticsField::AutoAttackDefenceLevels,
         );
@@ -451,6 +485,235 @@ pub(crate) fn raw_name_at<'a>(roster: &[RosterRow<'a>], slot: u8) -> &'a str {
         .map(|row| row.raw_name)
         .filter(|name| !name.is_empty())
         .unwrap_or("(empty)")
+}
+
+/// A tactics field's row as the Tactics tab words it, for the Save
+/// editor's unsaved-changes prompt: the field's label, prefixed by its
+/// preset ("Preset 1 · Support range"), and the two stored values as the
+/// tab shows them (a style pair's texts, a taker's or the captain's
+/// player name, a slider's number). `version` decodes the stored
+/// instruction bytes; `tactics` names the formation slots' players (the
+/// starting eleven's roster slots).
+pub fn tactics_term(
+    version: PesVersion,
+    field: TacticsField,
+    old: u32,
+    new: u32,
+    tactics: &TeamTactics,
+    roster: &[RosterRow<'_>],
+) -> (String, String, String) {
+    let byte = |stored: u32| u8::try_from(stored).expect("a tactics field is a byte");
+    match field {
+        TacticsField::TeamId => ("Team ID".to_owned(), old.to_string(), new.to_string()),
+        TacticsField::Preset { preset, field: pf } => (
+            format!("Preset {} · {}", preset + 1, preset_label(pf)),
+            preset_value(pf, old),
+            preset_value(pf, new),
+        ),
+        TacticsField::Formation {
+            preset,
+            formation,
+            slot,
+            part,
+        } => {
+            let starter = tactics.starting_eleven[usize::from(slot)];
+            let label = format!(
+                "Preset {} · {} · {} · {}",
+                preset + 1,
+                FORMATIONS[usize::from(formation)],
+                name_at(roster, starter),
+                match part {
+                    FormationPart::Position => "Position",
+                    FormationPart::X => "X",
+                    FormationPart::Y => "Y",
+                }
+            );
+            let value = |stored: u32| match part {
+                FormationPart::Position => position_label(byte(stored)).to_owned(),
+                FormationPart::X | FormationPart::Y => stored.to_string(),
+            };
+            (label, value(old), value(new))
+        }
+        TacticsField::Instruction {
+            preset,
+            side,
+            index,
+            part,
+        } => {
+            let row = format!(
+                "Preset {} · {} {}",
+                preset + 1,
+                match side {
+                    InstructionSide::Attack => "Attack",
+                    InstructionSide::Defence => "Defence",
+                },
+                index + 1
+            );
+            match part {
+                InstructionPart::Instruction => {
+                    let value = |stored: u32| {
+                        let stored = byte(stored);
+                        instruction::decode(version, stored)
+                            .ok()
+                            .flatten()
+                            .map_or_else(
+                                || format!("Unknown (0x{stored:02X})"),
+                                |inst| instructions::instruction_label(inst).to_owned(),
+                            )
+                    };
+                    (row, value(old), value(new))
+                }
+                InstructionPart::PlayerId => (
+                    format!("{row} · Target"),
+                    instruction_target(tactics, roster, byte(old)),
+                    instruction_target(tactics, roster, byte(new)),
+                ),
+            }
+        }
+        TacticsField::ManMarking { preset, slot } => {
+            let starter = tactics.starting_eleven[usize::from(slot)];
+            let value = |stored: u32| {
+                if stored == u32::from(u8::MAX) {
+                    "None".to_owned()
+                } else {
+                    stored.to_string()
+                }
+            };
+            (
+                format!(
+                    "Preset {} · Man marking · {}",
+                    preset + 1,
+                    name_at(roster, starter)
+                ),
+                value(old),
+                value(new),
+            )
+        }
+        TacticsField::FreeKickTakerLong
+        | TacticsField::FreeKickTakerShort
+        | TacticsField::FreeKickTakerSecond
+        | TacticsField::CornerTakerLeft
+        | TacticsField::CornerTakerRight
+        | TacticsField::PenaltyTaker
+        | TacticsField::Captain => (
+            assignments::role_label(field)
+                .expect("the roles are the chips' own table")
+                .to_owned(),
+            role_holder(roster, byte(old)),
+            role_holder(roster, byte(new)),
+        ),
+        TacticsField::AutoSubstitution => (
+            SUBSTITUTION_LABEL.to_owned(),
+            old.to_string(),
+            new.to_string(),
+        ),
+        TacticsField::AutoOffsideTrap => (
+            OFFSIDE_TRAP_LABEL.to_owned(),
+            on_off(old).to_owned(),
+            on_off(new).to_owned(),
+        ),
+        TacticsField::AutoPresetChange => (
+            PRESET_CHANGE_LABEL.to_owned(),
+            on_off(old).to_owned(),
+            on_off(new).to_owned(),
+        ),
+        TacticsField::AutoAttackDefenceLevels => (
+            ATTACK_DEFENCE_LABEL.to_owned(),
+            on_off(old).to_owned(),
+            on_off(new).to_owned(),
+        ),
+        TacticsField::Starting(index) => (
+            format!("Starting eleven · {}", index + 1),
+            name_at(roster, byte(old)).to_owned(),
+            name_at(roster, byte(new)).to_owned(),
+        ),
+        TacticsField::Bench(index) => (
+            format!("Bench · {}", index + 1),
+            name_at(roster, byte(old)).to_owned(),
+            name_at(roster, byte(new)).to_owned(),
+        ),
+        TacticsField::PlayerToJoinAttack(index) => (
+            format!("Join attack · {}", index + 1),
+            join_text(roster, byte(old)),
+            join_text(roster, byte(new)),
+        ),
+    }
+}
+
+/// A preset field's label on the tab (`SLIDERS`, `STYLE_TOGGLES` or the
+/// fluid switch): `tactics_term` reads the tab's own tables, never a
+/// second copy.
+fn preset_label(field: PresetField) -> &'static str {
+    if field == PresetField::FluidFormation {
+        return FLUID_LABEL;
+    }
+    SLIDERS
+        .iter()
+        .find(|spec| spec.field == field)
+        .map(|spec| spec.label)
+        .or_else(|| {
+            STYLE_TOGGLES
+                .iter()
+                .find(|toggle| toggle.field == field)
+                .map(|toggle| toggle.label)
+        })
+        .expect("a preset field is a slider, a style pair or the fluid switch")
+}
+
+/// `stored` as the preset field's control shows it: a style pair's text,
+/// "off"/"on" for the fluid switch, the number else.
+fn preset_value(field: PresetField, stored: u32) -> String {
+    if let Some(toggle) = STYLE_TOGGLES.iter().find(|toggle| toggle.field == field) {
+        return if stored == 0 { toggle.off } else { toggle.on }.to_owned();
+    }
+    if field == PresetField::FluidFormation {
+        return on_off(stored).to_owned();
+    }
+    stored.to_string()
+}
+
+/// The instruction target's text as the combo shows it: "Unassigned" for
+/// the none byte, "<eleven index> <name>" for a starter, the roster
+/// slot's name else.
+fn instruction_target(tactics: &TeamTactics, roster: &[RosterRow<'_>], target: u8) -> String {
+    if target == instructions::NO_TARGET {
+        return "Unassigned".to_owned();
+    }
+    match tactics
+        .starting_eleven
+        .iter()
+        .position(|slot| *slot == target)
+    {
+        Some(index) => format!("{} {}", index + 1, name_at(roster, target)),
+        None => name_at(roster, target).to_owned(),
+    }
+}
+
+/// A role chip's holder text: "Unassigned" for the none byte, the roster
+/// slot's name else (the chips' own wording).
+fn role_holder(roster: &[RosterRow<'_>], holder: u8) -> String {
+    if holder == u8::MAX {
+        return "Unassigned".to_owned();
+    }
+    name_at(roster, holder).to_owned()
+}
+
+/// A join-attack member's text as the chip lists it: the first name,
+/// "none" for the none byte.
+fn join_text(roster: &[RosterRow<'_>], slot: u8) -> String {
+    if slot == u8::MAX {
+        return "none".to_owned();
+    }
+    name_at(roster, slot)
+        .split_whitespace()
+        .next()
+        .unwrap_or("(empty)")
+        .to_owned()
+}
+
+/// A flag byte's text: a set bit reads "on".
+fn on_off(stored: u32) -> &'static str {
+    if stored == 0 { "off" } else { "on" }
 }
 
 #[cfg(test)]

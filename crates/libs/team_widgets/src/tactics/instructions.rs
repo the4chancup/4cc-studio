@@ -13,7 +13,7 @@ use pes_version::PesVersion;
 use super::{RosterRow, gate_tip, name_at, text_width};
 
 /// The stored "no player" value of an instruction's target.
-const NO_TARGET: u8 = 0xFF;
+pub(super) const NO_TARGET: u8 = 0xFF;
 
 /// A closed combo's width cap, the draft's `#instr-table select`
 /// `max-width: 120px`: a selected text too long for it truncates, so a
@@ -239,7 +239,7 @@ fn instruction_row(
 
 /// The instruction's text in the combo and its rows (the draft's
 /// `INSTRUCTION_LABEL`; `Off` reads "Unassigned").
-fn instruction_label(instruction: Instruction) -> &'static str {
+pub(super) fn instruction_label(instruction: Instruction) -> &'static str {
     match instruction {
         Instruction::Off => "Unassigned",
         Instruction::HugTheTouchline => "Hug the Touchline",

@@ -27,6 +27,8 @@ pub(super) const WEIGHT_LABEL: &str = "Weight";
 pub(super) const AGE_LABEL: &str = "Age";
 /// The strip's Nation field.
 pub(super) const NATION_LABEL: &str = "Nation";
+/// The strip's Number field.
+pub(super) const NUMBER_LABEL: &str = "Number";
 
 /// A player name as the strip draws it: its `\x11` spelled as the four
 /// characters `\\x11` (the draft's `escName`); the field turns it back on
@@ -182,7 +184,7 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
                 });
             }
         }
-        ui.label("Number");
+        ui.label(NUMBER_LABEL);
         let response =
             ui.add(egui::DragValue::new(&mut shirt_number).range(0..=roster_number_max(schema)));
         if response.changed() {

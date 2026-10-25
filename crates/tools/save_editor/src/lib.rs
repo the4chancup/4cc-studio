@@ -63,6 +63,20 @@ impl StudioTool for Tool {
         studio_core::icons::NOTE_PENCIL
     }
 
+    /// The unsaved-changes prompt guards the window's close (SE-GUI-05):
+    /// a dirty session holds it and opens the prompt (its Discard re-asks
+    /// through `request_close`, answered once the session is dropped).
+    fn hold_close(&mut self) -> bool {
+        if self.view.is_dirty() {
+            if self.view.prompt.is_none() {
+                view::prompt::open(&mut self.view, view::prompt::Pending::Close);
+            }
+            true
+        } else {
+            false
+        }
+    }
+
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
         // A settings error counts as an empty setting (the embedded
         // official ruleset, Live AATF off, the aesthetics lock off).
@@ -82,6 +96,9 @@ impl StudioTool for Tool {
             &studio_core::running_pes,
             file.as_deref(),
         );
+        if std::mem::take(&mut self.view.request_close) {
+            ctx.request_close();
+        }
         if let Some(notice) = self.view.notice.take() {
             ctx.notify(notice);
         }

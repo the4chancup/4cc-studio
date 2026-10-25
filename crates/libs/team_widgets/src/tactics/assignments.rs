@@ -5,6 +5,7 @@
 //! a host draws while one is armed.
 
 use pes_savefile::model::tactics::{SetPieceTakers, TeamTactics};
+use pes_savefile::schema::fields::TacticsField;
 
 use super::{RosterRow, TacticsView, name_at};
 
@@ -73,6 +74,9 @@ pub(crate) struct OpenSlot {
 struct RoleSpec {
     /// The chip's label.
     label: &'static str,
+    /// The tactics field the chip writes (`tactics_term`'s key into the
+    /// table, so a row's label is never a second copy).
+    field: TacticsField,
     /// The stored holder (a roster slot, 255 none).
     get: fn(&SetPieceTakers) -> u8,
     /// The stored write.
@@ -83,40 +87,56 @@ struct RoleSpec {
 const SET_PIECES: [RoleSpec; 7] = [
     RoleSpec {
         label: "Long free kick",
+        field: TacticsField::FreeKickTakerLong,
         get: |pieces| pieces.free_kick_long,
         set: |pieces, slot| pieces.free_kick_long = slot,
     },
     RoleSpec {
         label: "Short free kick",
+        field: TacticsField::FreeKickTakerShort,
         get: |pieces| pieces.free_kick_short,
         set: |pieces, slot| pieces.free_kick_short = slot,
     },
     RoleSpec {
         label: "Second free kick",
+        field: TacticsField::FreeKickTakerSecond,
         get: |pieces| pieces.free_kick_second,
         set: |pieces, slot| pieces.free_kick_second = slot,
     },
     RoleSpec {
         label: "Left corner",
+        field: TacticsField::CornerTakerLeft,
         get: |pieces| pieces.corner_left,
         set: |pieces, slot| pieces.corner_left = slot,
     },
     RoleSpec {
         label: "Right corner",
+        field: TacticsField::CornerTakerRight,
         get: |pieces| pieces.corner_right,
         set: |pieces, slot| pieces.corner_right = slot,
     },
     RoleSpec {
         label: "Penalty kick",
+        field: TacticsField::PenaltyTaker,
         get: |pieces| pieces.penalty,
         set: |pieces, slot| pieces.penalty = slot,
     },
     RoleSpec {
         label: "Captain",
+        field: TacticsField::Captain,
         get: |pieces| pieces.captain,
         set: |pieces, slot| pieces.captain = slot,
     },
 ];
+
+/// The role chip's label for `field`, `None` for a field that is no role:
+/// `tactics_term` reads the chips' own table, never a second copy of it.
+pub(super) fn role_label(field: TacticsField) -> Option<&'static str> {
+    SET_PIECES
+        .iter()
+        .find(|role| role.field == field)
+        .map(|role| role.label)
+}
 
 /// The "Player assignments" group (the draft's role palette): one chip
 /// per role — "<label>: <holder's name or Unassigned>" — and the

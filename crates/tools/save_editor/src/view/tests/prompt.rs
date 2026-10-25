@@ -1,0 +1,492 @@
+//! The unsaved-changes prompt (SE-GUI-05): a dirty session's close or open
+//! meets "Unsaved changes" over the table of what would be written or lost,
+//! and each of its three answers does what it says. The Edit-mode question
+//! the window's Save asks first while the save's own PES runs (SE-GUI-21's
+//! window rule) is covered here too.
+
+use studio_core::{ShellRequest, StudioTool, ToolContext};
+
+use super::*;
+use crate::view::prompt::{self, Pending};
+
+/// A context and its request receiver, `tool`'s `hold_close` legs driven
+/// through `Tool::view` as the shell does.
+fn tool_ctx(test: &str) -> (ToolContext, crossbeam_channel::Receiver<ShellRequest>) {
+    let dir = crate::test_support::scratch(test);
+    let (ctx, _events, requests) = tool_context(&dir, studio_core::Settings::default());
+    (ctx, requests)
+}
+
+/// A `Tool` with `path` open and one edit on player 70101's height.
+fn dirty_tool(path: &Path) -> crate::Tool {
+    let mut tool = crate::Tool::new();
+    tool.view.open(path);
+    let mut edited = player_entry(&tool.view, 70101);
+    edited.basic.height = 170;
+    tool.view
+        .session
+        .as_mut()
+        .expect("the save opened")
+        .edit_player(1, edited);
+    assert!(tool.view.is_dirty(), "premise: unsaved changes");
+    tool
+}
+
+/// A `SaveView` with `path` open and one edit on 70101's height.
+fn dirty_view(path: &Path) -> SaveView {
+    let mut view = SaveView::new();
+    view.open(path);
+    let mut edited = player_entry(&view, 70101);
+    edited.basic.height = 170;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_player(1, edited);
+    assert!(view.is_dirty(), "premise: unsaved changes");
+    view
+}
+
+/// A click on the node `nodes` holds labeled `label`, on `tool`'s view.
+fn click_labeled_tool(
+    window: &mut Headless,
+    nodes: &[accesskit::Node],
+    label: &str,
+    tool: &mut crate::Tool,
+    ctx: &ToolContext,
+) {
+    let at = centre(node_labeled(nodes, Role::Button, label));
+    window.frame(pointer_at(at, true), |ui| tool.view(ui, ctx));
+    window.frame(pointer_at(at, false), |ui| tool.view(ui, ctx));
+}
+
+/// A click on the view's `label` button (the prompt's and the question's).
+fn click_label(window: &mut Headless, view: &mut SaveView, label: &str) {
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let button = node_labeled(&nodes, Role::Button, label);
+    click(window, button, view);
+}
+
+/// The nodes of the `Role::Dialog` subtree holding `heading` (an
+/// `egui::Modal`'s content, as `frame_ids` reports it): the prompt's own
+/// cells, the tab's behind-the-backdrop nodes left out.
+fn dialog_nodes<'a>(
+    pairs: &'a [(accesskit::NodeId, accesskit::Node)],
+    heading: &str,
+) -> Vec<&'a accesskit::Node> {
+    let parent: HashMap<accesskit::NodeId, accesskit::NodeId> = pairs
+        .iter()
+        .flat_map(|(id, node)| node.children().iter().map(move |child| (*child, *id)))
+        .collect();
+    let by_id: HashMap<accesskit::NodeId, &accesskit::Node> =
+        pairs.iter().map(|(id, node)| (*id, node)).collect();
+    let mut at = pairs
+        .iter()
+        .find(|(_, node)| node.value() == Some(heading))
+        .map(|(id, _)| *id)
+        .unwrap_or_else(|| panic!("no heading {heading:?}"));
+    let root = loop {
+        let node = by_id[&at];
+        if node.role() == Role::Dialog {
+            break at;
+        }
+        at = *parent
+            .get(&at)
+            .unwrap_or_else(|| panic!("no Dialog ancestor of {heading:?}"));
+    };
+    let mut nodes = Vec::new();
+    let mut stack = vec![root];
+    while let Some(id) = stack.pop() {
+        let node = by_id[&id];
+        stack.extend(node.children());
+        nodes.push(node);
+    }
+    nodes
+}
+
+/// The prompt's rows as `(item, old, new)`: each Item cell (a `Label`
+/// holding " · " — the `TextRun` twin of every drawn text is skipped)
+/// with its row's two value cells in x order.
+fn prompt_rows(
+    pairs: &[(accesskit::NodeId, accesskit::Node)],
+    heading: &str,
+) -> Vec<(String, String, String)> {
+    let nodes = dialog_nodes(pairs, heading);
+    let mut items: Vec<(accesskit::Rect, String)> = nodes
+        .iter()
+        .filter_map(|node| {
+            if node.role() != Role::Label {
+                return None;
+            }
+            let bounds = node.bounds()?;
+            let value = node.value()?;
+            value.contains(" · ").then(|| (bounds, value.to_owned()))
+        })
+        .collect();
+    items.sort_by(|a, b| {
+        (a.0.y0, a.0.x0)
+            .partial_cmp(&(b.0.y0, b.0.x0))
+            .expect("ordered bounds")
+    });
+    items
+        .iter()
+        .map(|(bounds, item)| {
+            let mut cells: Vec<(f64, String)> = nodes
+                .iter()
+                .filter(|node| {
+                    node.role() == Role::Label
+                        && node.bounds().is_some_and(|b| {
+                            (b.y0 - bounds.y0).abs() < 4.0 && b.x0 >= bounds.x0 - 1.0
+                        })
+                })
+                .filter_map(|node| Some((node.bounds()?.x0, node.value()?.to_owned())))
+                .collect();
+            cells.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("ordered bounds"));
+            assert_eq!(
+                cells.len(),
+                3,
+                "the row's Item, Old and New cells: {cells:?}"
+            );
+            (item.clone(), cells[1].1.clone(), cells[2].1.clone())
+        })
+        .collect()
+}
+
+/// Whether the prompt ("Unsaved changes") is up.
+fn prompt_drawn(nodes: &[accesskit::Node]) -> bool {
+    label_value(nodes, "Unsaved changes") && label_value(nodes, "Item")
+}
+
+/// The Edit-mode question's nodes asserted up, `running` the probe.
+fn question_nodes_with(
+    window: &mut Headless,
+    view: &mut SaveView,
+    running: &dyn Fn() -> Vec<RunningPes>,
+) -> Vec<accesskit::Node> {
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, running, None));
+    assert!(
+        label_value(&nodes, "PES 2021 is running"),
+        "the Edit-mode question is up"
+    );
+    nodes
+}
+
+// SE-GUI-05
+#[test]
+fn the_prompt_lists_each_changed_field_in_the_tabs_terms() {
+    let path = fixture(PesVersion::Pes21, "prompt_table");
+    let mut view = SaveView::new();
+    view.open(&path);
+    // Height and Speed edited, a third field edited then undone: the
+    // table holds the two rows, each under the tab's own label.
+    let before = player_entry(&view, 70101);
+    assert_eq!(before.name, "PLACEHOLDER", "premise: the fixture name");
+    let (height, speed) = (before.basic.height, before.stats.speed);
+    assert_ne!((height, speed), (170, 90), "premise: real changes");
+    let mut edited = before.clone();
+    edited.basic.height = 170;
+    view.session.as_mut().unwrap().edit_player(1, edited);
+    let mut edited = player_entry(&view, 70101);
+    edited.stats.speed = 90;
+    view.session.as_mut().unwrap().edit_player(2, edited);
+    let mut edited = player_entry(&view, 70101);
+    edited.basic.age = 33;
+    view.session.as_mut().unwrap().edit_player(3, edited);
+    assert!(view.session.as_mut().unwrap().undo(), "the third is undone");
+    assert!(view.is_dirty(), "premise: two changes stand");
+
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(prompt_drawn(&nodes), "the prompt is up");
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        prompt_rows(&pairs, "Unsaved changes"),
+        [
+            (
+                "PLACEHOLDER · Height".to_owned(),
+                "180".to_owned(),
+                "170".to_owned()
+            ),
+            (
+                "PLACEHOLDER · Speed".to_owned(),
+                speed.to_string(),
+                "90".to_owned()
+            ),
+        ],
+        "exactly the two rows, each naming him and the field"
+    );
+}
+
+// SE-GUI-05
+#[test]
+fn a_teams_row_comes_after_the_players() {
+    let path = fixture(PesVersion::Pes21, "prompt_team_row");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut edited = player_entry(&view, 70101);
+    edited.basic.height = 170;
+    view.session.as_mut().unwrap().edit_player(1, edited);
+    let mut team = team_entry(&view, 701);
+    assert_ne!(
+        (
+            team.tactics.presets[0].sliders.support_range,
+            team.roster[0].number
+        ),
+        (9, 99),
+        "premise: real changes"
+    );
+    let (old_slider, old_number) = (
+        team.tactics.presets[0].sliders.support_range,
+        team.roster[0].number,
+    );
+    team.tactics.presets[0].sliders.support_range = 9;
+    team.roster[0].number = 99;
+    view.session.as_mut().unwrap().edit_team(4, team);
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        prompt_rows(&pairs, "Unsaved changes"),
+        [
+            (
+                "PLACEHOLDER · Height".to_owned(),
+                "180".to_owned(),
+                "170".to_owned()
+            ),
+            (
+                // The slot's shirt number under its player, after his
+                // own rows (his dot covers it).
+                "PLACEHOLDER · Number".to_owned(),
+                old_number.to_string(),
+                "99".to_owned()
+            ),
+            (
+                "/3/ · Preset 1 · Support range".to_owned(),
+                old_slider.to_string(),
+                "9".to_owned()
+            ),
+        ],
+        "the shirt number under its player, the team's own row last"
+    );
+}
+
+// SE-GUI-05's last clause (the Save editor becomes the active view on
+// the held close) is the shell's own:
+// `a_close_is_held_by_the_first_tool_with_unsaved_work_then_the_next`
+// (`studio_core::shell`'s tests).
+// SE-GUI-05
+#[test]
+fn a_window_close_prompts_and_each_answer_does_what_it_says() {
+    let path = fixture(PesVersion::Pes21, "prompt_close");
+    let original = std::fs::read(&path).unwrap();
+    let (ctx, requests) = tool_ctx("prompt_close_ctx");
+    let mut window = Headless::new();
+
+    // Cancel keeps everything: the session as it was, no close asked.
+    let mut tool = dirty_tool(&path);
+    assert!(
+        StudioTool::hold_close(&mut tool),
+        "a dirty session holds the close"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    assert!(prompt_drawn(&nodes), "the prompt is up");
+    click_labeled_tool(&mut window, &nodes, "Cancel", &mut tool, &ctx);
+    assert!(tool.view.prompt.is_none(), "Cancel closes it");
+    assert!(tool.view.is_dirty(), "the session is as it was");
+    assert!(
+        requests.try_recv().is_err(),
+        "no close is asked after Cancel"
+    );
+
+    // Discard drops the session and re-asks: the shell gets the close,
+    // and the re-asked hold_close lets it through.
+    assert!(
+        StudioTool::hold_close(&mut tool),
+        "a later close asks again"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    click_labeled_tool(&mut window, &nodes, "Discard", &mut tool, &ctx);
+    assert_eq!(
+        requests.try_recv().expect("the close request"),
+        ShellRequest::Close
+    );
+    assert!(
+        !StudioTool::hold_close(&mut tool),
+        "the re-asked close is not held"
+    );
+
+    // Save writes it first, then goes on: the file holds the edit and the
+    // close follows.
+    let mut tool = dirty_tool(&path);
+    assert!(StudioTool::hold_close(&mut tool));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    click_labeled_tool(&mut window, &nodes, "Save", &mut tool, &ctx);
+    assert_eq!(
+        requests.try_recv().expect("the close request"),
+        ShellRequest::Close
+    );
+    let reopened = Session::open(&path).unwrap();
+    assert_eq!(
+        reopened.file().player(70101).unwrap().basic.height,
+        170,
+        "the reopened file holds the edit"
+    );
+    assert_ne!(std::fs::read(&path).unwrap(), original, "the save wrote");
+}
+
+// SE-GUI-05
+#[test]
+fn opening_another_save_prompts_and_each_answer_does_what_it_says() {
+    let first = fixture(PesVersion::Pes21, "prompt_open_first");
+    let original = std::fs::read(&first).unwrap();
+    let other = fixture(PesVersion::Pes21, "prompt_open_second");
+    let mut window = Headless::new();
+
+    // A dirty session's Open… shows the prompt, not the picker (the
+    // test-build default dialog panics if it is reached).
+    let mut view = dirty_view(&first);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Open…"),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(prompt_drawn(&nodes), "the prompt is up");
+
+    // Cancel keeps the first save open and dirty.
+    click_label(&mut window, &mut view, "Cancel");
+    assert!(view.prompt.is_none(), "Cancel closes it");
+    assert_eq!(view.session.as_ref().unwrap().path(), first.as_path());
+    assert!(view.is_dirty(), "the first save stays dirty");
+
+    // Discard goes on: the picker follows and the picked save opens; the
+    // first file is unchanged on disk.
+    let picked = other.clone();
+    view.open_dialog = Box::new(move || Some(picked.clone()));
+    // The AccessKit click, not a pointer one: for one frame after the
+    // prompt closes, egui's previous-frame modal layer still gates the
+    // toolbar's interactive rects (egui's own hysteresis, and a real
+    // member's click at 60fps spans past it), so the second pointer
+    // click's press would land dead.
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (open_id, _) = pairs
+        .iter()
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Open…"))
+        .expect("the Open button");
+    action_click(&mut window, &mut view, *open_id);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(prompt_drawn(&nodes), "Discard's prompt is up");
+    click_label(&mut window, &mut view, "Discard");
+    assert_eq!(
+        view.session.as_ref().unwrap().path(),
+        other.as_path(),
+        "the picked save opened"
+    );
+    assert!(!view.is_dirty(), "a fresh open has no unsaved changes");
+    assert_eq!(
+        std::fs::read(&first).unwrap(),
+        original,
+        "the first file is unchanged"
+    );
+}
+
+/// A click on `node` with `running` as the running-PES probe (the
+/// question legs, which an empty probe would never reach).
+fn click_with(
+    window: &mut Headless,
+    view: &mut SaveView,
+    running: &dyn Fn() -> Vec<RunningPes>,
+    node: &accesskit::Node,
+) {
+    press_release(window, centre(node), |ui| show(ui, view, running, None));
+}
+
+/// The `label` button of the modal headed `heading`: the nearest one
+/// below the heading's bounds (the toolbar's same-labeled "Save" is
+/// above it, the prompt's Save under the question's while both are up).
+pub(super) fn modal_button<'a>(
+    nodes: &'a [accesskit::Node],
+    heading: &str,
+    label: &str,
+) -> &'a accesskit::Node {
+    let anchor = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some(heading))
+        .and_then(|node| node.bounds())
+        .unwrap_or_else(|| panic!("no heading {heading:?}"));
+    nodes
+        .iter()
+        .filter(|node| node.role() == Role::Button && node.label() == Some(label))
+        .filter_map(|node| node.bounds().map(|bounds| (bounds, node)))
+        .filter(|(bounds, _)| bounds.y0 >= anchor.y0)
+        .min_by(|a, b| a.0.y0.partial_cmp(&b.0.y0).expect("ordered bounds"))
+        .map(|(_, node)| node)
+        .unwrap_or_else(|| panic!("no {label:?} in the {heading:?} modal"))
+}
+
+// SE-GUI-05
+#[test]
+fn the_prompts_save_runs_the_window_save_first() {
+    let path = fixture(PesVersion::Pes21, "prompt_save_question");
+    let original = std::fs::read(&path).unwrap();
+    let mut view = dirty_view(&path);
+    prompt::open(&mut view, Pending::Close);
+    let running_own = || {
+        vec![RunningPes {
+            version: PesVersion::Pes21,
+            exe: None,
+        }]
+    };
+    let mut window = Headless::new();
+
+    // Save opens the question over the prompt; its Cancel keeps the
+    // prompt and asks nothing of the shell.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    click_with(
+        &mut window,
+        &mut view,
+        &running_own,
+        modal_button(&nodes, "Unsaved changes", "Save"),
+    );
+    let nodes = question_nodes_with(&mut window, &mut view, &running_own);
+    click_with(
+        &mut window,
+        &mut view,
+        &running_own,
+        modal_button(&nodes, "PES 2021 is running", "Cancel"),
+    );
+    assert!(view.prompt.is_some(), "the prompt stays up");
+    assert!(view.edit_mode_question.is_none());
+    assert!(!view.request_close, "no close is asked");
+    assert_eq!(std::fs::read(&path).unwrap(), original);
+
+    // Its Save writes and goes on: the file holds the edit and the close
+    // follows.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    click_with(
+        &mut window,
+        &mut view,
+        &running_own,
+        modal_button(&nodes, "Unsaved changes", "Save"),
+    );
+    let nodes = question_nodes_with(&mut window, &mut view, &running_own);
+    click_with(
+        &mut window,
+        &mut view,
+        &running_own,
+        modal_button(&nodes, "PES 2021 is running", "Save"),
+    );
+    let reopened = Session::open(&path).unwrap();
+    assert_eq!(
+        reopened.file().player(70101).unwrap().basic.height,
+        170,
+        "the file holds the edit"
+    );
+    assert!(view.prompt.is_none(), "the prompt is done");
+    assert!(view.session.is_none(), "the session dropped");
+    assert!(view.request_close, "the close is asked");
+}

@@ -21,7 +21,9 @@ use pes_savefile::interchange::aesthetics_patch::{AestheticsPatch, PatchError, P
 use pes_savefile::interchange::team_toml::{ImportNote, TeamToml};
 use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 use pes_savefile::model::{PlayerEntry, TeamEntry};
+use pes_savefile::ops::compare::{PlayerDiff, TeamDiff, compare_players, compare_teams};
 use pes_savefile::schema::ingame_face::IngameFaceField;
+use pes_savefile::schema::schema_for;
 use pes_savefile::{EditFile, SaveError};
 use pes_version::PesVersion;
 use studio_core::RunningPes;
@@ -50,6 +52,16 @@ const EXPORT_FACE_FIELDS: [IngameFaceField; 4] = [
     IngameFaceField::SkinColor,
     IngameFaceField::IrisColor,
 ];
+
+/// The differences from the baselines `is_dirty` compares against, as plain
+/// data for the unsaved-changes prompt (`Session::unsaved_changes`): every
+/// player and team whose entry differs, with the diffs the compares list.
+pub(crate) struct UnsavedChanges {
+    /// `(player id, his diffs)`, in record order.
+    pub(crate) players: Vec<(u32, Vec<PlayerDiff>)>,
+    /// `(team id, the team's diffs)`, in record order.
+    pub(crate) teams: Vec<(u32, Vec<TeamDiff>)>,
+}
 
 /// The open save: the file, the path it came from, the undo stack and the
 /// baseline the unsaved-changes marks compare against (the file's players
@@ -413,12 +425,54 @@ impl Session {
             .is_some_and(|player| self.baseline_players.get(&player.id) != Some(player))
     }
 
+    /// The differences from the baselines `is_dirty` compares against (the
+    /// unsaved-changes table's rows): every player whose entry differs,
+    /// `compare_players` on baseline and current; every team that differs,
+    /// `compare_teams`. A codec error is named by the player or team it hit
+    /// (a gated field `None` on an entry never read from this save).
+    pub(crate) fn unsaved_changes(&self) -> anyhow::Result<UnsavedChanges> {
+        let schema = schema_for(self.version());
+        let mut players = Vec::new();
+        for player in self.file.players() {
+            let Some(baseline) = self.baseline_players.get(&player.id) else {
+                continue;
+            };
+            if baseline == player {
+                continue;
+            }
+            let diffs = compare_players(baseline, player, schema)
+                .with_context(|| format!("player {}", player.id))?;
+            players.push((player.id, diffs));
+        }
+        let mut teams = Vec::new();
+        for team in self.file.teams() {
+            let Some(baseline) = self.baseline_teams.get(&team.id) else {
+                continue;
+            };
+            if baseline == team {
+                continue;
+            }
+            let diffs = compare_teams(baseline, team, schema)
+                .with_context(|| format!("team {}", team.id))?;
+            teams.push((team.id, diffs));
+        }
+        Ok(UnsavedChanges { players, teams })
+    }
+
     /// Writes the save back to the path it was opened from, then makes the
-    /// current model the baseline. Refused while the save's own PES runs (the
-    /// game writes its save back when it closes, over ours); a game of
-    /// another version does not block it.
-    pub(crate) fn save(&mut self, running: &[RunningPes]) -> anyhow::Result<()> {
-        refuse_while_running(running, self.version())?;
+    /// current model the baseline. `edit_mode_closed` is the member's answer
+    /// to the running-game question: refused only when the save's own PES
+    /// runs and the answer is `false` (the game writes its save back when
+    /// Edit mode closes, over ours); a game of another version does not
+    /// block it.
+    pub(crate) fn save(
+        &mut self,
+        running: &[RunningPes],
+        edit_mode_closed: bool,
+    ) -> anyhow::Result<()> {
+        if !edit_mode_closed {
+            refuse_while_running(running, self.version())?;
+        }
         self.write(&self.path)?;
         (self.baseline_players, self.baseline_teams) = baselines(&self.file);
         self.dirty = false;
@@ -663,7 +717,7 @@ mod tests {
         session.file.player_mut(70101).unwrap().name = "FIRST".to_owned();
         session.file.player_mut(70102).unwrap().stats.speed = 71;
         session.file.player_mut(70103).unwrap().appearance.boots_id = 13;
-        session.save(&[]).unwrap();
+        session.save(&[], false).unwrap();
         let before: Vec<PlayerEntry> = [70101, 70102, 70103]
             .iter()
             .map(|id| session.file().player(*id).unwrap().clone())
@@ -918,7 +972,7 @@ mod tests {
 
         // Saved and reopened: the moved fields and the slots' faces are what
         // the file holds (SE-GUI-08's THEN after Save).
-        session.save(&[]).unwrap();
+        session.save(&[], false).unwrap();
         let reopened = Session::open(session.path()).unwrap();
         assert_face_move(&reopened, &marks);
     }
@@ -989,7 +1043,7 @@ mod tests {
         assert!(!session.player_dirty(701, 1));
 
         // Save makes the current model the baseline: clean again.
-        session.save(&[]).unwrap();
+        session.save(&[], false).unwrap();
         assert!(!session.is_dirty());
         assert!(!session.player_dirty(701, 0));
     }
@@ -1017,7 +1071,7 @@ mod tests {
 
         assert!(session.redo());
         assert!(session.is_dirty(), "redo marks it again");
-        session.save(&[]).unwrap();
+        session.save(&[], false).unwrap();
         assert!(!session.is_dirty(), "a save clears it");
     }
 

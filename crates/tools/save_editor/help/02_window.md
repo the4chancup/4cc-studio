@@ -55,7 +55,12 @@ selects that player. The toggle is remembered, so it is still on the next time
 the editor is opened.
 
 **Saving.** **Save** or Ctrl+S writes the edits to the file the save was opened from (a
-file it replaces is kept once as a `.bak` copy). Saving is refused while the save's own
-PES version is running, because the game writes its save back when it closes, over the
-one just written, so close the game first. Saving is not refused for a PES of another
-version.
+file it replaces is kept once as a `.bak` copy). While the save's own PES version is
+running, saving first asks you to close the game's Edit mode if it is open. The game
+writes its own copy of the save when you leave Edit mode, so a save written while it is
+open would be lost. After saving, use the Load option in Edit mode to see the changes in
+game. A PES of another version asks nothing.
+
+**Unsaved changes.** Closing the window or opening another save with unsaved edits asks
+first, over a table of each changed field with its value in the file and in the editor.
+Save writes the edits, Discard loses them, and Cancel keeps everything as it was.

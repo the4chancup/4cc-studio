@@ -3,21 +3,26 @@
 //! under the tab's own label, its old and new values as that tab shows
 //! them, so a label or scale changed in a tab changes the row with it. A
 //! field no tab draws keeps the report's name and values
-//! (`messages::diff_fields`).
+//! (`messages::diff_fields`). The same terms word the unsaved-changes
+//! table's team rows (`team_row_terms`).
 
 use pes_savefile::interchange::team_toml::labels::{
     ABILITY_STATS, COM_STYLES, PLAYABLE_POSITIONS, POSITIONS, SKILLS, title_case,
 };
-use pes_savefile::ops::compare::PlayerDiff;
-use pes_savefile::schema::fields::{ABILITY_FIELDS, PlayerField, PlayerText};
+use pes_savefile::model::TeamEntry;
+use pes_savefile::ops::compare::{PlayerDiff, TeamDiff};
+use pes_savefile::schema::fields::{
+    ABILITY_FIELDS, PlayerField, PlayerText, RosterField, TeamField, TeamText,
+};
 use pes_savefile::schema::ingame_face::IngameFaceField;
 use pes_savefile::settings_toml::{Kind, SettingKey};
 use pes_version::PesVersion;
 use team_widgets::cards;
+use team_widgets::tactics::RosterRow;
 
 use crate::messages::diff_fields;
 use crate::view::appearance::{self, fields};
-use crate::view::{abilities, info_strip};
+use crate::view::{abilities, info_strip, team};
 
 /// A `diff` row's terms: the field's label and its two values as the tab
 /// that owns the field shows them.
@@ -57,6 +62,175 @@ pub(super) fn row_term(version: PesVersion, diff: &PlayerDiff) -> Term {
 fn report_term(diff: &PlayerDiff) -> Term {
     let (label, old, new) = diff_fields(diff);
     Term { label, old, new }
+}
+
+/// `diffs`' rows in the tabs' terms, for the unsaved-changes prompt: one
+/// `Term` per row in `diffs`' order — a team colour's three channel diffs
+/// merge into the swatch's one row, at the first channel's place. `team`
+/// is the open save's entry (its tactics' eleven and roster name the
+/// slots); `roster` is the roster rows the Tactics tab builds.
+pub(super) fn team_row_terms(
+    version: PesVersion,
+    team: &TeamEntry,
+    roster: &[RosterRow<'_>],
+    diffs: &[TeamDiff],
+) -> Vec<Term> {
+    let mut terms = Vec::with_capacity(diffs.len());
+    let mut colours_done = [false; 2];
+    for diff in diffs {
+        match colour_index(diff) {
+            Some(colour) if !colours_done[colour] => {
+                colours_done[colour] = true;
+                terms.push(colour_term(team, diffs, colour));
+            }
+            // A later channel of an already merged colour is no row.
+            Some(_) => {}
+            None => terms.push(team_row_term(version, team, roster, diff)),
+        }
+    }
+    terms
+}
+
+/// A `TeamDiff`'s row in the tabs' terms, the team twin of `row_term`.
+fn team_row_term(
+    version: PesVersion,
+    team: &TeamEntry,
+    roster: &[RosterRow<'_>],
+    diff: &TeamDiff,
+) -> Term {
+    match diff {
+        TeamDiff::Text { text, old, new } => match text {
+            TeamText::Name => term(team::TEAM_LABEL, old.clone(), new.clone()),
+            TeamText::ShortName => term(team::SHORT_LABEL, old.clone(), new.clone()),
+        },
+        TeamDiff::Field { field, old, new } => match field {
+            TeamField::ManagerId => numbers(team::MANAGER_LABEL, *old, *new),
+            TeamField::StadiumId => numbers(team::STADIUM_LABEL, *old, *new),
+            TeamField::KitSlotNumber(index) => numbers(
+                format!("Slot {} · {}", index + 1, team::KIT_NUMBER_LABEL),
+                *old,
+                *new,
+            ),
+            // The tab shows the bound team, `binding / 64`.
+            TeamField::KitSlotTeam(index) => numbers(
+                format!("Slot {} · {}", index + 1, team::BOUND_TEAM_LABEL),
+                *old / 64,
+                *new / 64,
+            ),
+            // The flags the tab sets as a side effect, the id, and a
+            // colour channel alone (a merge `team_row_terms` already
+            // handled): the report's terms, as players' undrawn fields
+            // get.
+            TeamField::Id
+            | TeamField::EditedName
+            | TeamField::EditedShortName
+            | TeamField::EditedStadium
+            | TeamField::EditedStrip
+            | TeamField::Color1Red
+            | TeamField::Color1Green
+            | TeamField::Color1Blue
+            | TeamField::Color2Red
+            | TeamField::Color2Green
+            | TeamField::Color2Blue => team_report_term(diff),
+        },
+        TeamDiff::Roster { field, old, new } => match field {
+            RosterField::Number(_) => numbers(info_strip::NUMBER_LABEL, *old, *new),
+            RosterField::TeamId | RosterField::Player(_) => team_report_term(diff),
+        },
+        TeamDiff::Tactics { field, old, new } => {
+            let (label, old, new) = team_widgets::tactics::tactics_term(
+                version,
+                *field,
+                *old,
+                *new,
+                &team.tactics,
+                roster,
+            );
+            Term { label, old, new }
+        }
+    }
+}
+
+/// The colour (0 or 1) a `Field` diff is a channel of, `None` for every
+/// other diff.
+fn colour_index(diff: &TeamDiff) -> Option<usize> {
+    match diff {
+        TeamDiff::Field {
+            field: TeamField::Color1Red | TeamField::Color1Green | TeamField::Color1Blue,
+            ..
+        } => Some(0),
+        TeamDiff::Field {
+            field: TeamField::Color2Red | TeamField::Color2Green | TeamField::Color2Blue,
+            ..
+        } => Some(1),
+        _ => None,
+    }
+}
+
+/// The tab's one row for a team colour: the swatch's label and the
+/// channels' hex (`colour_unit`'s `format_hex` over `channel_to_show`),
+/// the channels no diff names read from `team`.
+fn colour_term(team: &TeamEntry, diffs: &[TeamDiff], colour: usize) -> Term {
+    let fields = [
+        [
+            TeamField::Color1Red,
+            TeamField::Color1Green,
+            TeamField::Color1Blue,
+        ],
+        [
+            TeamField::Color2Red,
+            TeamField::Color2Green,
+            TeamField::Color2Blue,
+        ],
+    ][colour];
+    let mut old = [0u8; 3];
+    let mut new = [0u8; 3];
+    for (index, field) in fields.into_iter().enumerate() {
+        let stored = team
+            .colors
+            .map(|colors| {
+                [
+                    colors[colour].red,
+                    colors[colour].green,
+                    colors[colour].blue,
+                ][index]
+            })
+            .expect("a colour diff is emitted only where the version stores colours");
+        let (o, n) = diffs
+            .iter()
+            .find_map(|diff| match diff {
+                TeamDiff::Field { field: f, old, new } if *f == field => Some((*old, *new)),
+                _ => None,
+            })
+            .unwrap_or((u32::from(stored), u32::from(stored)));
+        old[index] = u8::try_from(o).expect("a colour channel is 6 bits");
+        new[index] = u8::try_from(n).expect("a colour channel is 6 bits");
+    }
+    Term {
+        label: team::COLOUR_LABELS[colour].to_owned(),
+        old: team::format_hex(old.map(team::channel_to_show)),
+        new: team::format_hex(new.map(team::channel_to_show)),
+    }
+}
+
+/// The report's own terms for a team diff, `report_term`'s twin: the
+/// field's schema name and its stored values — the row for a field no
+/// tab draws.
+fn team_report_term(diff: &TeamDiff) -> Term {
+    let (label, old, new) = match diff {
+        TeamDiff::Field { field, old, new } => report_fields(field, *old, *new),
+        TeamDiff::Roster { field, old, new } => report_fields(field, *old, *new),
+        TeamDiff::Tactics { field, old, new } => report_fields(field, *old, *new),
+        TeamDiff::Text { text, old, new } => (format!("{text:?}"), old.clone(), new.clone()),
+    };
+
+    Term { label, old, new }
+}
+
+/// A report row's three strings for a named field: the schema name and
+/// the two stored values.
+fn report_fields(field: impl std::fmt::Debug, old: u32, new: u32) -> (String, String, String) {
+    (format!("{field:?}"), old.to_string(), new.to_string())
 }
 
 /// A `Field` row's term: the tabs' own tables first (`SMALL_STATS`,
@@ -273,6 +447,7 @@ fn key_writing(writes: impl Fn(SettingKey) -> bool) -> Option<SettingKey> {
 #[cfg(test)]
 mod tests {
     use pes_savefile::ops::fingerprint::FaceHash;
+    use pes_savefile::schema::fields::{PresetField, TacticsField};
     use pes_savefile::{EditFile, fixture_save};
 
     use super::*;
@@ -898,5 +1073,207 @@ mod tests {
             let term = row_term(version, &self::field(field, 0, 0));
             assert_eq!(term.label, label, "{field:?}");
         }
+    }
+
+    /// Team 701 of the PES 17 fixture (colours and kit slots live on 17),
+    /// for `team_row_terms`.
+    fn team_701() -> TeamEntry {
+        EditFile::from_bytes(&fixture_save(PesVersion::Pes17))
+            .expect("the fixture loads")
+            .team(701)
+            .expect("team 701")
+            .clone()
+    }
+
+    /// A roster of named slots (the fixture's own names are all
+    /// "PLACEHOLDER").
+    fn named_rows() -> Vec<(String, String, Option<u8>)> {
+        (0..32)
+            .map(|i| (format!("Player {:02}", i + 1), String::new(), None))
+            .collect()
+    }
+
+    /// `rows` as the `&[RosterRow]` the Tactics tab takes.
+    fn roster_rows<'a>(rows: &'a [(String, String, Option<u8>)]) -> Vec<RosterRow<'a>> {
+        rows.iter()
+            .map(|(name, raw_name, position)| RosterRow {
+                name: name.as_str(),
+                raw_name: raw_name.as_str(),
+                registered_position: *position,
+                portrait: None,
+            })
+            .collect()
+    }
+
+    /// A team colour's three channel diffs merge into the swatch's one
+    /// row: `Colour 1`, the stored channels' hex as the tab draws it; a
+    /// channel no diff names keeps the team's stored one.
+    #[test]
+    fn a_colour_edit_is_one_hex_row() {
+        let version = PesVersion::Pes17;
+        let team = team_701();
+        let rows = named_rows();
+        let roster = roster_rows(&rows);
+        let terms = team_row_terms(
+            version,
+            &team,
+            &roster,
+            &[
+                TeamDiff::Field {
+                    field: TeamField::Color1Red,
+                    old: 0,
+                    new: 16,
+                },
+                TeamDiff::Field {
+                    field: TeamField::Color1Green,
+                    old: 0,
+                    new: 32,
+                },
+                TeamDiff::Field {
+                    field: TeamField::Color1Blue,
+                    old: 0,
+                    new: 48,
+                },
+            ],
+        );
+        assert_eq!(terms.len(), 1, "the three channels merge");
+        assert_term(&terms[0], "Colour 1", "#000000", "#4182C2");
+
+        // Only red changed: green and blue read the team's stored ones
+        // ((63, 42, 16) on the fixture).
+        assert_eq!(
+            team.colors.map(|colors| colors[0].green),
+            Some(42),
+            "premise"
+        );
+        let terms = team_row_terms(
+            version,
+            &team,
+            &roster,
+            &[TeamDiff::Field {
+                field: TeamField::Color1Red,
+                old: 63,
+                new: 0,
+            }],
+        );
+        assert_eq!(terms.len(), 1);
+        assert_term(&terms[0], "Colour 1", "#FFAA41", "#00AA41");
+    }
+
+    /// A name edit's two diffs in `compare_teams`' order: the side-effect
+    /// flag as the report row, the `Team` row.
+    #[test]
+    fn a_name_edit_is_a_team_row_plus_the_flags_report_row() {
+        let version = PesVersion::Pes17;
+        let team = team_701();
+        let rows = named_rows();
+        let roster = roster_rows(&rows);
+        let terms = team_row_terms(
+            version,
+            &team,
+            &roster,
+            &[
+                TeamDiff::Field {
+                    field: TeamField::EditedName,
+                    old: 0,
+                    new: 1,
+                },
+                TeamDiff::Text {
+                    text: TeamText::Name,
+                    old: "/3/".to_owned(),
+                    new: "/3/X".to_owned(),
+                },
+            ],
+        );
+        assert_eq!(terms.len(), 2);
+        assert_term(&terms[0], "EditedName", "0", "1");
+        assert_term(&terms[1], "Team", "/3/", "/3/X");
+    }
+
+    /// The team fields', the kit slots' and the roster's rows: the tab's
+    /// labels and the bound team shown as `binding / 64`, the shirt
+    /// number under the strip's label, `Player(n)` in report terms.
+    #[test]
+    fn the_team_field_and_roster_rows() {
+        let version = PesVersion::Pes17;
+        let team = team_701();
+        let rows = named_rows();
+        let roster = roster_rows(&rows);
+        let terms = team_row_terms(
+            version,
+            &team,
+            &roster,
+            &[
+                TeamDiff::Field {
+                    field: TeamField::ManagerId,
+                    old: 701,
+                    new: 0,
+                },
+                TeamDiff::Field {
+                    field: TeamField::StadiumId,
+                    old: 29,
+                    new: 0,
+                },
+                TeamDiff::Field {
+                    field: TeamField::KitSlotNumber(0),
+                    old: 0,
+                    new: 128,
+                },
+                TeamDiff::Field {
+                    field: TeamField::KitSlotTeam(0),
+                    old: 701 * 64,
+                    new: 702 * 64,
+                },
+                TeamDiff::Roster {
+                    field: RosterField::Number(2),
+                    old: 3,
+                    new: 9,
+                },
+                TeamDiff::Roster {
+                    field: RosterField::Player(2),
+                    old: 70103,
+                    new: 0,
+                },
+            ],
+        );
+        assert_eq!(terms.len(), 6);
+        assert_term(&terms[0], "Manager ID", "701", "0");
+        assert_term(&terms[1], "Stadium ID", "29", "0");
+        assert_term(&terms[2], "Slot 1 · Number", "0", "128");
+        assert_term(&terms[3], "Slot 1 · Bound team ID", "701", "702");
+        assert_term(&terms[4], "Number", "3", "9");
+        assert_term(&terms[5], "Player(2)", "70103", "0");
+    }
+
+    /// A tactics row goes through the Tactics tab's terms.
+    #[test]
+    fn a_tactics_row_uses_the_tactics_terms() {
+        let version = PesVersion::Pes17;
+        let team = team_701();
+        let rows = named_rows();
+        let roster = roster_rows(&rows);
+        let terms = team_row_terms(
+            version,
+            &team,
+            &roster,
+            &[
+                TeamDiff::Tactics {
+                    field: TacticsField::Captain,
+                    old: 0,
+                    new: 5,
+                },
+                TeamDiff::Tactics {
+                    field: TacticsField::Preset {
+                        preset: 0,
+                        field: PresetField::SupportRange,
+                    },
+                    old: 5,
+                    new: 7,
+                },
+            ],
+        );
+        assert_eq!(terms.len(), 2);
+        assert_term(&terms[0], "Captain", "Player 01", "Player 06");
+        assert_term(&terms[1], "Preset 1 · Support range", "5", "7");
     }
 }

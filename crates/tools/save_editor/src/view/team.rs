@@ -28,6 +28,20 @@ use crate::view::{SaveView, edit_team, scoped, selected_team};
 /// nothing). A wrong estimate wraps a bit early or late; it never splits
 /// a pair, since the fallback is whole pairs on two rows.
 pub(super) const TEAM_BAR_ONE_ROW: f32 = 725.0;
+/// The bar's Team field.
+pub(super) const TEAM_LABEL: &str = "Team";
+/// The bar's Short field.
+pub(super) const SHORT_LABEL: &str = "Short";
+/// The two colours' labels.
+pub(super) const COLOUR_LABELS: [&str; 2] = ["Colour 1", "Colour 2"];
+/// The tab's Manager ID field.
+pub(super) const MANAGER_LABEL: &str = "Manager ID";
+/// The tab's Stadium ID field.
+pub(super) const STADIUM_LABEL: &str = "Stadium ID";
+/// A kit slot's Number field.
+pub(super) const KIT_NUMBER_LABEL: &str = "Number";
+/// A kit slot's bound team field.
+pub(super) const BOUND_TEAM_LABEL: &str = "Bound team ID";
 
 /// The bar over the tab strip, on every tab: the selected player's team's
 /// name, short name and colours — one row where the pane holds
@@ -120,7 +134,7 @@ fn name_pair(
     version: PesVersion,
     team: &TeamEntry,
 ) {
-    ui.weak("Team");
+    ui.weak(TEAM_LABEL);
     let mut name = team.name.clone();
     // `add_sized` allocates the width itself: the field keeps its own 240
     // whatever the wrapped row offers it.
@@ -147,7 +161,7 @@ fn short_pair(
     version: PesVersion,
     team: &TeamEntry,
 ) {
-    ui.weak("Short");
+    ui.weak(SHORT_LABEL);
     let mut short = team.short_name.clone();
     // The same `add_sized` allocation as the name field's above.
     let response = ui.add_sized(
@@ -180,7 +194,7 @@ fn colour_unit(
     team: &TeamEntry,
     index: usize,
 ) {
-    ui.label(["Colour 1", "Colour 2"][index]);
+    ui.label(COLOUR_LABELS[index]);
     match &team.colors {
         Some(colors) => {
             let mut shown = [
@@ -241,7 +255,7 @@ fn ids_row(
                 ui,
                 session,
                 team_id,
-                "Manager ID",
+                MANAGER_LABEL,
                 stored,
                 0..=u32::try_from(field_max(schema, TeamField::ManagerId))
                     .expect("the manager id's bound fits u32"),
@@ -251,7 +265,7 @@ fn ids_row(
             );
         }
         None => {
-            ui.label("Manager ID");
+            ui.label(MANAGER_LABEL);
             gated_number(ui, TeamField::ManagerId);
         }
     }
@@ -261,7 +275,7 @@ fn ids_row(
                 ui,
                 session,
                 team_id,
-                "Stadium ID",
+                STADIUM_LABEL,
                 stored,
                 0..=u16::try_from(field_max(schema, TeamField::StadiumId))
                     .expect("the stadium id's bound fits u16"),
@@ -274,7 +288,7 @@ fn ids_row(
             );
         }
         None => {
-            ui.label("Stadium ID");
+            ui.label(STADIUM_LABEL);
             gated_number(ui, TeamField::StadiumId);
         }
     }
@@ -313,7 +327,7 @@ fn kit_slots(
                 ui,
                 session,
                 team_id,
-                "Number",
+                KIT_NUMBER_LABEL,
                 kit.number,
                 0..=u8::MAX,
                 move |team, shown| {
@@ -331,7 +345,7 @@ fn kit_slots(
                 ui,
                 session,
                 team_id,
-                "Bound team ID",
+                BOUND_TEAM_LABEL,
                 kit.binding / 64,
                 0..=u32::try_from(bound_max).expect("the binding's bound fits u32"),
                 move |team, shown| {
@@ -361,7 +375,7 @@ fn field_max(schema: &VersionSchema, field: TeamField) -> u64 {
 
 /// The shown 8-bit channel for a stored 6-bit one (`v * 255 / 63` rounded,
 /// `plans/save_editor.md` "Crate layout" `view/`).
-fn channel_to_show(v: u8) -> u8 {
+pub(super) fn channel_to_show(v: u8) -> u8 {
     u8::try_from((u16::from(v) * 255 + 31) / 63).expect("63 maps to 255")
 }
 
@@ -372,7 +386,7 @@ fn channel_to_store(c: u8) -> u8 {
 }
 
 /// `rgb` as `#RRGGBB` upper-case (the picker control's own hex form).
-fn format_hex(rgb: [u8; 3]) -> String {
+pub(super) fn format_hex(rgb: [u8; 3]) -> String {
     format!("#{:02X}{:02X}{:02X}", rgb[0], rgb[1], rgb[2])
 }
 

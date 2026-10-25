@@ -10,6 +10,7 @@ mod player;
 mod team;
 
 pub use player::{read_player, read_player_into, write_player};
+pub(crate) use team::tactics_runs;
 pub use team::{
     read_roster_into, read_tactics_into, read_team, write_roster, write_tactics, write_team,
 };
