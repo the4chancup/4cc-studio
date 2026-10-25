@@ -165,8 +165,7 @@ mod tests {
         let settings = test_settings(dir);
         let Shell { mut app, calls, .. } =
             first_run_shell(settings.clone(), dir.join("exe"), Some(config.clone()));
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // The centered modal settles into place a frame after it first draws (its
         // first frame is a sizing pass; egui 0.37 hides invisible widgets from the
@@ -217,8 +216,7 @@ mod tests {
         fs::create_dir_all(&exe).unwrap();
         let Shell { mut app, calls, .. } =
             first_run_shell(test_settings(dir), exe.clone(), Some(dir.join("config")));
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = idle(&egui_ctx, &mut app, 2).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Next to the program"));
@@ -254,8 +252,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         assert!(!has_text(&nodes, TITLE), "no dialog: the location exists");
@@ -269,8 +266,7 @@ mod tests {
         let dir = TestDir::new("studio_core_first_run_noconfig");
         let Shell { mut app, .. } =
             first_run_shell(test_settings(dir.path()), dir.path().join("exe"), None);
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // The modal's first frame is a sizing pass; its contents join the
         // AccessKit tree from the next frame on.
@@ -295,8 +291,7 @@ mod tests {
         let config = dir.join("config");
         let Shell { mut app, calls, .. } =
             first_run_shell(test_settings(dir), exe.clone(), Some(config.clone()));
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = idle(&egui_ctx, &mut app, 2).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Next to the program"));

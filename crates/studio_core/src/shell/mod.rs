@@ -548,8 +548,7 @@ mod tests {
     fn the_gui_reopens_on_the_tool_active_when_it_closed_on() {
         let dir = test_dir("studio_core_sidebar_last_tool");
         fs::create_dir_all(&dir).unwrap();
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         {
             let (a, calls_a) = stub("a", "A", None);
@@ -608,8 +607,7 @@ mod tests {
     #[test]
     fn a_close_is_held_by_the_first_tool_with_unsaved_work_then_the_next() {
         let dir = TestDir::new("studio_core_close_unsaved");
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         let Shell { mut app, calls, .. } = close_shell(dir.path());
         *calls[0].unsaved.lock().unwrap() = true;
         *calls[1].unsaved.lock().unwrap() = true;
@@ -659,8 +657,7 @@ mod tests {
     #[test]
     fn a_cancelled_prompt_keeps_the_window_and_asks_no_other_tool() {
         let dir = TestDir::new("studio_core_close_cancel");
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         let Shell { mut app, calls, .. } = close_shell(dir.path());
         *calls[0].unsaved.lock().unwrap() = true;
         *calls[1].unsaved.lock().unwrap() = true;
@@ -691,8 +688,7 @@ mod tests {
     #[test]
     fn a_held_close_closes_the_settings_menu_over_the_prompt() {
         let dir = TestDir::new("studio_core_close_menu");
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         let (a, calls_a) = stub("a", "A", None);
         let (b, calls_b) = stub("b", "B", None);
         let Shell { mut app, calls, .. } = shell_with(
@@ -745,8 +741,7 @@ mod tests {
     #[test]
     fn a_held_close_closes_the_about_popup_over_the_prompt() {
         let dir = TestDir::new("studio_core_close_about");
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         let (a, calls_a) = stub("a", "A", None);
         let (b, calls_b) = stub("b", "B", None);
         let Shell { mut app, calls, .. } = shell_with(
@@ -784,8 +779,7 @@ mod tests {
     #[test]
     fn a_run_in_flight_holds_the_close_until_the_run_ends() {
         let dir = TestDir::new("studio_core_close_run");
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         let (a, calls_a) = stub("a", "A", None);
         let (b, calls_b) = stub("b", "B", None);
         calls_a.set_activity("A", Some((12, 48)), Duration::from_secs(72));
@@ -840,8 +834,7 @@ mod tests {
     #[test]
     fn keeping_the_window_lets_the_run_go_on() {
         let dir = TestDir::new("studio_core_close_keep");
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         let (a, calls_a) = stub("a", "A", None);
         let (b, calls_b) = stub("b", "B", None);
         calls_a.set_activity("A", Some((12, 48)), Duration::from_secs(72));
@@ -873,8 +866,7 @@ mod tests {
 
     #[test]
     fn a_close_no_tool_holds_goes_through() {
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         let Shell {
             mut app,
             calls,

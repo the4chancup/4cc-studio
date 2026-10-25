@@ -140,6 +140,9 @@ impl StatusBar {
                     ui.add(
                         egui::Label::new(condition.text())
                             .truncate()
+                            // The elided label's own "full text" tooltip would
+                            // mask the entry's, which explains the condition.
+                            .show_tooltip_when_elided(false)
                             .selectable(false),
                     );
                 })
@@ -176,8 +179,7 @@ mod tests {
     #[test]
     fn an_empty_bar_shows_the_version_and_nothing_else() {
         let Shell { mut app, _dir, .. } = shell();
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         let version = crate::shell::version_label();
         assert_eq!(
@@ -197,8 +199,7 @@ mod tests {
             _dir,
             ..
         } = shell();
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         calls[1].set_activity("B", Some((12, 48)), Duration::from_secs(72));
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
@@ -231,8 +232,7 @@ mod tests {
         // notice's; spending the once-per-life auto-switch leaves the expiry the only
         // requester the delay assertion sees.
         app.sidebar.auto_switch_used = true;
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // A no-action notice is drawn at t = 1 s and gone at t = 6.1 s.
         ctx.notify(Notice {
@@ -317,8 +317,7 @@ mod tests {
     // ST-SET-03
     #[test]
     fn a_failed_settings_save_raises_the_read_only_condition_and_a_save_drops_it() {
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
 
         // A `data_dir` that is a regular file fails the save on every platform.

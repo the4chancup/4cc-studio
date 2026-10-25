@@ -119,8 +119,7 @@ mod tests {
             _dir,
             ..
         } = shell();
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         calls[0].set_activity("Team compiler", Some((12, 48)), Duration::from_secs(72));
         let mut sent = Vec::new();
@@ -147,8 +146,7 @@ mod tests {
         let Shell {
             mut app, ctx, _dir, ..
         } = shell();
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // An idle unfocused start sends nothing.
         let out = frame(&egui_ctx, &mut app, Vec::new(), false);
@@ -191,8 +189,7 @@ mod tests {
             _dir,
             ..
         } = shell();
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // The second stub's view is active; the first runs on a thread of its own, with its
         // own event sink the tool drains in `tick`.

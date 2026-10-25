@@ -447,6 +447,16 @@ pub(super) struct FrameOutput {
     pub(super) shapes: Vec<egui::epaint::ClippedShape>,
 }
 
+/// A context with AccessKit on and the window's fonts
+/// (`crate::theme::install_fonts`), so every shell test draws what a member
+/// sees.
+pub(super) fn test_context() -> egui::Context {
+    let ctx = egui::Context::default();
+    ctx.enable_accesskit();
+    crate::theme::install_fonts(&ctx);
+    ctx
+}
+
 /// One headless frame of the shell on an 800 by 600 screen with `events` as its input
 /// and `focused` as the window's focus: `logic` first, then `ui`, as eframe calls them
 /// inside one pass, so both see this frame's input. The context must have AccessKit

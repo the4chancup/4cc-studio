@@ -818,40 +818,34 @@ mod tests {
         assert_eq!(drawn[1..], starters[..]);
     }
 
-    /// A `Headless` with no fonts, so `text_width` always measures the
-    /// tofu fallback (9 points a glyph): which fonts the build unifies
-    /// (egui's `default_fonts` arrives through eframe when the workspace
-    /// tests together) would otherwise change the measured widths between
-    /// a lone `cargo test -p team_widgets` and the gates' run.
-    fn fontless(width: f32, height: f32) -> Headless {
-        let window = Headless::sized(width, height);
-        window.ctx.set_fonts(egui::FontDefinitions::empty());
-        window
-    }
-
     // `capped_combo`'s chrome check: a selected text too wide for the
     // button's `cap - chrome` text area elides, and the closed combo's
     // hover shows it whole. The target cell is the grid's last column,
     // so its `cap` is `COMBO_CAP` at this pane; `chrome` measures 34
-    // here, the text area 86.
+    // here, the text area 86. The fixture's starters share the display
+    // name "PLACEHOLDER", so the ninth's "9 PLACEHOLDER" (~100 points) is
+    // a real pick too wide for it.
     #[test]
     fn an_elided_target_shows_the_whole_text_on_hover() {
         let version = PesVersion::Pes21;
         let mut tactics = fixture_tactics(version);
-        // Counter Target takes a player; with none picked the target
-        // combo shows "Unassigned" — 90 points of text against the 86
-        // the chrome leaves, so it elides.
+        // Counter Target takes a player; the ninth starter's "9
+        // PLACEHOLDER" (~100 points) is wider than the 86 the chrome
+        // leaves, so it elides.
+        let ninth = tactics.starting_eleven[8];
         let attack = &mut tactics.presets[0]
             .attack_instructions
             .as_mut()
             .expect("PES 21 has instructions")[0];
         attack.instruction =
             instruction::encode(version, Instruction::CounterTarget).expect("stored");
-        attack.player = NO_TARGET;
+        attack.player = ninth;
         let mut view = TacticsView::default();
         let rows = fixture_rows(version);
         let roster = roster_rows(&rows);
-        let mut window = fontless(800.0, 900.0);
+        let selected = format!("9 {}", name_at(&roster, ninth));
+        assert_eq!(selected, "9 PLACEHOLDER", "premise: the fixture's names");
+        let mut window = Headless::sized(800.0, 900.0);
         window
             .ctx
             .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
@@ -859,7 +853,7 @@ mod tests {
         let mut measured = (0.0f32, 0.0f32);
         window.frame(vec![], |ui| {
             measured = (
-                text_width(ui, "Unassigned"),
+                text_width(ui, &selected),
                 ui.spacing().icon_width
                     + ui.spacing().icon_spacing
                     + 2.0 * ui.spacing().button_padding.x,
@@ -869,7 +863,7 @@ mod tests {
         });
         assert!(
             measured.0 > COMBO_CAP - measured.1,
-            "premise: \"Unassigned\" elides at the cap ({} > 120 - {})",
+            "premise: {selected:?} elides at the cap ({} > 120 - {})",
             measured.0,
             measured.1
         );
@@ -877,17 +871,17 @@ mod tests {
         let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let target = controls_right_of(&nodes, "Attack 1", Role::ComboBox)[1];
         assert!(!target.is_disabled(), "Counter Target enables the target");
-        assert_eq!(target.value(), Some("Unassigned"), "the combo's text");
+        assert_eq!(target.value(), Some(selected.as_str()), "the combo's text");
         assert_eq!(
             window.tactics_tooltip(
                 centre(target),
-                "Unassigned",
+                &selected,
                 version,
                 &mut tactics,
                 &mut view,
                 &roster,
             ),
-            Some("Unassigned".to_string()),
+            Some(selected.clone()),
             "the pointer resting on the closed combo shows the whole text"
         );
     }
@@ -895,7 +889,7 @@ mod tests {
     // The check's other side: a selection that fits the text area shows
     // no tooltip on hover (there is nothing to complete). The fixture's
     // empty roster slot sits in the eleven so the target's "1 (empty)"
-    // — 81 points against the 86 — is the fitting text.
+    // — ~57 points against the 86 — is the fitting text.
     #[test]
     fn a_fitting_target_shows_no_tooltip_on_hover() {
         let version = PesVersion::Pes21;
@@ -913,7 +907,7 @@ mod tests {
         let roster = roster_rows(&rows);
         // Premise: the fixture leaves roster slot 30 without a player.
         assert_eq!(name_at(&roster, 30), "(empty)");
-        let mut window = fontless(800.0, 900.0);
+        let mut window = Headless::sized(800.0, 900.0);
         window
             .ctx
             .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
@@ -969,8 +963,27 @@ mod tests {
         let roster = roster_rows(&rows);
 
         // A pane with room: the instruction and the target combo show
-        // the same text, so the same cap draws them the same width.
+        // the same text, so the same cap draws them the same width; and
+        // Defence 2's "Deep Defensive Line", wider than the cap's text
+        // area, draws at the cap, never past it.
+        tactics.presets[0]
+            .defence_instructions
+            .as_mut()
+            .expect("PES 21 has instructions")[1]
+            .instruction =
+            instruction::encode(version, Instruction::DeepDefensiveLine).expect("stored");
         let mut window = Headless::sized(900.0, 900.0);
+        let mut fills_the_cap = false;
+        window.frame(vec![], |ui| {
+            let chrome = ui.spacing().icon_width
+                + ui.spacing().icon_spacing
+                + 2.0 * ui.spacing().button_padding.x;
+            fills_the_cap = text_width(ui, "Deep Defensive Line") > COMBO_CAP - chrome;
+        });
+        assert!(
+            fills_the_cap,
+            "premise: \"Deep Defensive Line\" fills the cap"
+        );
         window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let combos = controls_right_of(&nodes, "Attack 1", Role::ComboBox);
@@ -982,9 +995,13 @@ mod tests {
             bounds.x1 - bounds.x0
         };
         let (instruction_width, target_width) = (width(instruction), width(target));
+        let deep = controls_right_of(&nodes, "Defence 2", Role::ComboBox)[0];
+        assert_eq!(deep.value(), Some("Deep Defensive Line"), "premise");
+        let deep_width = width(deep);
         assert!(
-            instruction_width <= f64::from(COMBO_CAP),
-            "the combo never outgrows the cap ({instruction_width})"
+            deep_width <= f64::from(COMBO_CAP) && deep_width > instruction_width,
+            "a text wider than the cap draws the combo at the cap, never past it \
+             ({deep_width}; \"Unassigned\" {instruction_width})"
         );
         assert!(
             (instruction_width - target_width).abs() < 0.5,
@@ -994,17 +1011,43 @@ mod tests {
 
         // Without room the row's remaining width binds the cap: at a
         // pane where the target cell's remaining is under `COMBO_CAP`
-        // but over the combo's own floor (108 of 120 here — `fontless`
-        // pinning the glyphs' 9 points, the instruction cell's 115 and
-        // the label column's 81 being font-measured) the target combo
-        // ends inside the row's right edge, the pane's.
-        let mut narrow = fontless(320.0, 900.0);
+        // but over the combo's own floor (108 of 120 here — the label
+        // column's ~56 and the instruction cell's 120 being font-measured
+        // leave the target cell to start at ~192) the target combo
+        // ends inside the row's right edge, the pane's. The target shows
+        // the ninth starter, "9 PLACEHOLDER", whose text alone fills the
+        // whole cap's text area, so a combo capped at `COMBO_CAP` would end
+        // past the pane: "Unassigned" (~102 with its chrome) fits the 108
+        // with no remaining-width bound at all.
+        let ninth = tactics.starting_eleven[8];
+        let attack = &mut tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("PES 21 has instructions")[0];
+        attack.instruction =
+            instruction::encode(version, Instruction::CounterTarget).expect("stored");
+        attack.player = ninth;
+        let selected = format!("9 {}", name_at(&roster, ninth));
+        let mut narrow = Headless::sized(300.0, 900.0);
+        let mut fills_the_cap = false;
+        narrow.frame(vec![], |ui| {
+            let chrome = ui.spacing().icon_width
+                + ui.spacing().icon_spacing
+                + 2.0 * ui.spacing().button_padding.x;
+            fills_the_cap = text_width(ui, &selected) > COMBO_CAP - chrome;
+        });
+        assert!(fills_the_cap, "premise: {selected:?} fills the cap");
         narrow.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let (nodes, _) = narrow.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         let target = controls_right_of(&nodes, "Attack 1", Role::ComboBox)[1];
+        assert_eq!(target.value(), Some(selected.as_str()), "premise");
         let bounds = target.bounds().expect("the target combo's bounds");
         assert!(
-            bounds.x1 <= 320.0,
+            bounds.x0 + f64::from(COMBO_CAP) > 300.0,
+            "premise: a combo at the full cap would end past the pane ({bounds:?})"
+        );
+        assert!(
+            bounds.x1 <= 300.0,
             "without room the target combo ends inside the row ({bounds:?})"
         );
     }

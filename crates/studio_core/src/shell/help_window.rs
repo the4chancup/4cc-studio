@@ -481,16 +481,19 @@ fn messages(
         .size()
         .x
     };
+    // A column is as wide as its widest cell, the header's included: "Severity"
+    // is wider than "Info" or "Error", and a column measured from its rows alone
+    // pushed the grid past the pane.
     let code_width = section
         .messages
         .iter()
         .map(|row| measure(row.code, egui::TextStyle::Monospace))
-        .fold(0.0, f32::max);
+        .fold(measure("Code", egui::TextStyle::Body), f32::max);
     let severity_width = section
         .messages
         .iter()
         .map(|row| measure(row.severity, egui::TextStyle::Body))
-        .fold(0.0, f32::max);
+        .fold(measure("Severity", egui::TextStyle::Body), f32::max);
     let text_width = text_column_width(
         ui.available_width(),
         code_width,
@@ -846,8 +849,7 @@ mod tests {
         ] {
             // One context per screen: a kept area rect is per-Context, and each
             // iteration stands for a program run at that window size.
-            let egui_ctx = egui::Context::default();
-            egui_ctx.enable_accesskit();
+            let egui_ctx = test_context();
             let Shell { mut app, .. } = help_shell(dir.path());
             let input = |events: Vec<egui::Event>| {
                 let mut input = raw_input(events, true, None, None);
@@ -880,8 +882,7 @@ mod tests {
     fn f1_or_the_question_mark_opens_the_help_on_the_active_tools_chapter() {
         let dir = TestDir::new("studio_core_help_open");
         let Shell { mut app, .. } = help_shell(dir.path());
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = idle(&egui_ctx, &mut app, 2).nodes;
         assert_eq!(app.active, 1, "beta is the active tool");
@@ -969,8 +970,7 @@ mod tests {
     fn the_search_lists_row_and_paragraph_hits_and_jumps_to_them() {
         let dir = TestDir::new("studio_core_help_search");
         let Shell { mut app, .. } = help_shell(dir.path());
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
         let nodes = idle(&egui_ctx, &mut app, 10).nodes;
@@ -1054,8 +1054,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a, calls_b],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // Alpha's chapter opens on `alpha-start`, whose second paragraph holds the link.
         frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
@@ -1096,8 +1095,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // egui reports a `ui.link` as a `Link` node carrying its text in `label`
         // (egui 0.37's `Role`, replacing `WidgetType`).
@@ -1125,8 +1123,7 @@ mod tests {
     fn an_openhelp_notice_opens_the_window_at_the_target_closing_a_modal() {
         let dir = TestDir::new("studio_core_help_notice");
         let Shell { mut app, ctx, .. } = help_shell(dir.path());
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // A notice whose action is OpenHelp opens the window at the target, the
         // anchor highlighted.
@@ -1181,8 +1178,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
         let nodes = idle(&egui_ctx, &mut app, 15).nodes;
@@ -1268,8 +1264,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
         let nodes = idle(&egui_ctx, &mut app, 15).nodes;
@@ -1327,8 +1322,7 @@ mod tests {
         // No data directory: the first-run dialog is up and nothing else is drawn.
         let Shell { mut app, .. } =
             shell_with(test_settings(dir.path()), vec![a], &[], None, vec![calls_a]);
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true).nodes;
         assert!(
@@ -1342,8 +1336,7 @@ mod tests {
     fn the_tree_marks_the_current_topic_entry_selected() {
         let dir = TestDir::new("studio_core_help_sel");
         let Shell { mut app, .. } = help_shell(dir.path());
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
         let nodes = idle(&egui_ctx, &mut app, 15).nodes;
@@ -1435,8 +1428,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
         let nodes = idle(&egui_ctx, &mut app, 15).nodes;
@@ -1495,8 +1487,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
         let nodes = idle(&egui_ctx, &mut app, 15).nodes;
@@ -1562,8 +1553,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_b],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         ctx.notify(Notice {
             text: "open the help".to_owned(),
@@ -1621,8 +1611,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_b],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         ctx.notify(Notice {
             text: "open the help".to_owned(),
@@ -1687,8 +1676,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a, calls_b],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // Alpha's chapter opens on `alpha-start`; click its Messages entry, then the
         // link in the first row's When cell.
@@ -1711,8 +1699,7 @@ mod tests {
     fn a_tree_click_during_search_shows_the_topic() {
         let dir = TestDir::new("studio_core_help_treeselect");
         let Shell { mut app, .. } = help_shell(dir.path());
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
         let nodes = idle(&egui_ctx, &mut app, 15).nodes;
@@ -1776,7 +1763,7 @@ mod tests {
             row.effect = long;
         }
         let mut cache = CommonMarkCache::default();
-        let egui_ctx = egui::Context::default();
+        let egui_ctx = test_context();
         let input = || egui::RawInput {
             screen_rect: Some(egui::Rect::from_min_size(
                 egui::Pos2::ZERO,
@@ -1812,8 +1799,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
         let nodes = idle(&egui_ctx, &mut app, 15).nodes;
@@ -1841,8 +1827,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
         let nodes = idle(&egui_ctx, &mut app, 15).nodes;

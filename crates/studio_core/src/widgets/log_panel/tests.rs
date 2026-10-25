@@ -16,6 +16,9 @@ impl Headless {
     fn new() -> Headless {
         let ctx = egui::Context::default();
         ctx.enable_accesskit();
+        // The window draws with these fonts; the test measures what a
+        // member sees, whichever crates the build unifies.
+        crate::theme::install_fonts(&ctx);
         Headless { ctx }
     }
 

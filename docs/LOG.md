@@ -2446,3 +2446,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.9f4c r4: the Save editor's view tests draw inside the shell's panel at the 1224 x 776
   pane the rail leaves (the stacked Tactics tab reproduced red first); the built window shows the tab's
   three columns whole at 1280 x 800, and the instruction combos match the target column's width.
+- **2026-10-25** — 8.9f4e: the body text is Ubuntu Regular, bundled, in place of egui's light weight, and every
+  view test draws with the window's fonts, so a lone crate run measures the widths the workspace run does (it
+  drew 9-point boxes); the Save editor's two one-row widths re-measured, no layout stopped fitting.

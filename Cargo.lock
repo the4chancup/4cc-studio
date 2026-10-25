@@ -829,6 +829,7 @@ name = "color_tools"
 version = "0.0.1"
 dependencies = [
  "egui",
+ "studio_core",
 ]
 
 [[package]]
@@ -4188,6 +4189,7 @@ dependencies = [
  "egui",
  "pes_savefile",
  "pes_version",
+ "studio_core",
 ]
 
 [[package]]

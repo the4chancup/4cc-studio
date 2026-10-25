@@ -102,11 +102,11 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 /// option (the playing style's Defensive Goalkeeper; the registered
 /// position, foot and hand combos stay at their minimum `combo_width`
 /// whatever they show): the drawn `min_rect` of each
-/// `ui.vertical` block summed with the two item gaps is Profile ~510,
-/// Playable positions ~474, Quick actions ~116, so ~1117 points. A wrong
+/// `ui.vertical` block summed with the two item gaps is Profile ~518,
+/// Playable positions ~477, Quick actions ~115, so ~1126 points. A wrong
 /// estimate wraps a block a bit early or late; it never splits one,
 /// since the fallback is whole blocks on two lines.
-pub(super) const TOP_ROW_ONE_LINE: f32 = 1117.0;
+pub(super) const TOP_ROW_ONE_LINE: f32 = 1127.0;
 
 /// The top row (the draft's `topblocks`): the Profile grid, the positions
 /// grid and the quick actions column, top-aligned, on one line where the

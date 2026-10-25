@@ -428,8 +428,7 @@ mod tests {
             vec![calls_a, calls_b, calls_c],
         );
         ctx.switch_to_tool("b");
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         assert_eq!(app.active, 1);
@@ -527,8 +526,7 @@ mod tests {
             Some(data.clone()),
             vec![calls_a, calls_b],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         assert_ne!(
             ctx.common().thread_count,
             1,
@@ -593,8 +591,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
@@ -637,8 +634,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
@@ -700,8 +696,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
@@ -740,8 +735,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
@@ -763,8 +757,7 @@ mod tests {
         settings.common.theme = Theme::Dark;
         let Shell { mut app, ctx, .. } =
             shell_with(settings, vec![a], &[], Some(data.clone()), vec![calls_a]);
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // A light desktop does not lift the dark default.
         frame_theme(
@@ -837,8 +830,7 @@ mod tests {
             vec![calls_a],
         );
         let before = ctx.common().pes_folder_path;
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         // The committed path is under the test's own folder: the next frame's exe
         // check lists it, so it must not reach a developer path.
@@ -901,8 +893,7 @@ mod tests {
             Some(data.clone()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let pes_folder = dir.join("pes19").display().to_string();
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
@@ -961,8 +952,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
@@ -997,8 +987,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         click(&egui_ctx, &mut app, entry(&nodes, "Settings"));
@@ -1037,8 +1026,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a, calls_b],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
@@ -1079,8 +1067,7 @@ mod tests {
                 effect: ActionEffect::OpenSettings,
             }),
         });
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
         assert_eq!(app.active, 1);
@@ -1106,8 +1093,7 @@ mod tests {
             Some(dir.path().to_path_buf()),
             vec![calls_a],
         );
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
         egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
 
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;

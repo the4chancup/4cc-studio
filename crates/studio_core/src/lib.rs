@@ -13,7 +13,7 @@ pub mod pes_process;
 pub mod settings;
 pub mod shell;
 pub mod status;
-mod theme;
+pub mod theme;
 pub mod tool;
 pub mod widgets;
 pub use events::{

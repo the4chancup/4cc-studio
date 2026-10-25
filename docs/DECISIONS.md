@@ -10996,3 +10996,19 @@ plan's aim the scroll entry had to give up; 240 would narrow the settings column
 measured, for about five more characters of a long name the hover shows whole anyway. The drafts'
 layout edit (8.18) is where the maintainer would move it.
 Plan: `plans/save_editor.md` "Tactics editor" (the "pitch is the editor" bullet).
+
+## 2026-10-25 — gui — The body font is Ubuntu Regular, bundled; every view test draws with the app's fonts
+Decision: the suite's body text is the Ubuntu family's regular weight, 0.83, bundled as
+`resources/fonts/Ubuntu-Regular.ttf` (the Google Fonts copy, Ubuntu Font Licence 1.0 beside it)
+and first in the proportional family, replacing egui's built-in `Ubuntu-Light`; the icon font
+stays second. `theme::install_fonts` becomes public and is the one font set the window and
+every view test's context install, `team_widgets` reaching it through a dev-dependency on
+`studio_core`.
+Why: the second Save editor draft, the GUI's base, is drawn at weight 400, and egui ships only
+the light weight. A test context left on egui's defaults measured different text per build: a
+lone `cargo test -p team_widgets` (and its mutation runs) has no fonts at all, since egui's
+`default_fonts` arrives only through eframe, so every glyph was a 9-point box. A copy of
+`install_fonts` in `team_widgets` would drift from the window's; the dev-dependency adds no
+cycle (`studio_core` depends on no widget lib) and builds nothing the workspace does not build
+already.
+Plan: `plans/core/gui.md` "Other UI components" (the Dark/light theme row).

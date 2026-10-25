@@ -103,8 +103,7 @@ fn the_sidebar_marks_the_active_tool_and_a_click_on_an_entry_switches_to_it() {
         _dir,
         ..
     } = shell();
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
     assert_eq!(
@@ -152,8 +151,7 @@ fn the_gui_opens_on_the_tool_last_tool_names_and_lists_all_tools() {
         Some(dir.path().to_path_buf()),
         vec![calls_a, calls_b, calls_c],
     );
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
     assert_eq!(app.active, 1, "last_tool names the second tool");
@@ -191,8 +189,7 @@ fn the_rail_opens_the_sidebar_over_the_view_on_hover_and_closes_on_leave() {
         _dir,
         ..
     } = shell();
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     // Closed: each entry is the icon cell wide — the rail shows the icons alone.
     let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9)).nodes;
@@ -332,8 +329,7 @@ fn the_version_popup_survives_the_overlay_opening_and_holds_it_open() {
         _dir,
         ..
     } = shell();
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     // The version combo clicked on the rail: the popup opens with the rail's
     // short labels.
@@ -408,8 +404,7 @@ fn the_overlay_opens_on_keyboard_focus_and_a_click_gives_none() {
         _dir,
         ..
     } = shell();
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     // Closed, so the icon cell is measured.
     let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9)).nodes;
@@ -510,8 +505,7 @@ fn the_overlay_is_as_wide_as_the_longest_label_on_one_line() {
         Some(dir.path().to_path_buf()),
         vec![calls_a, calls_b],
     );
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9)).nodes;
     let cell = entry(&nodes, "A").bounds().unwrap().width();
@@ -536,8 +530,7 @@ fn the_overlay_is_as_wide_as_the_longest_label_on_one_line() {
 #[test]
 fn an_inactive_row_paints_no_background_until_it_is_touched() {
     let Shell { mut app, _dir, .. } = shell();
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9));
     let active = entry(&out.nodes, "A").bounds().unwrap();
@@ -586,8 +579,7 @@ fn the_labels_are_painted_in_the_overlay_and_never_on_the_rail() {
         Some(dir.path().to_path_buf()),
         vec![calls_a, calls_b],
     );
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     let rail = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9));
     assert_eq!(
@@ -619,8 +611,7 @@ fn the_labels_are_painted_in_the_overlay_and_never_on_the_rail() {
 #[test]
 fn a_row_paints_its_icon_centred_in_the_cell_and_its_label_after_it() {
     let Shell { mut app, _dir, .. } = shell();
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9));
     let cell = entry(&out.nodes, "A").bounds().unwrap().width() as f32;
@@ -664,8 +655,7 @@ fn a_row_paints_its_icon_centred_in_the_cell_and_its_label_after_it() {
 #[test]
 fn the_accent_bar_marks_only_the_active_row() {
     let Shell { mut app, _dir, .. } = shell();
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9));
     let color = egui_ctx.global_style().visuals.selection.stroke.color;
@@ -687,8 +677,7 @@ fn the_accent_bar_marks_only_the_active_row() {
 #[test]
 fn the_overlay_holds_while_the_pointer_is_anywhere_on_it() {
     let Shell { mut app, _dir, .. } = shell();
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     let closed = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9)).nodes;
     let cell = entry(&closed, "A").bounds().unwrap().width();
@@ -755,8 +744,7 @@ fn the_overlay_holds_while_the_pointer_is_anywhere_on_it() {
 #[test]
 fn a_focused_row_paints_its_background_untouched_by_the_pointer() {
     let Shell { mut app, _dir, .. } = shell();
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     // No pointer events at all: Tab until the inactive entry B holds the
     // keyboard focus; the rail stays open or closed on whatever it was.
@@ -783,8 +771,7 @@ fn a_focused_row_paints_its_background_untouched_by_the_pointer() {
 // ST-SIDE-03
 #[test]
 fn the_selector_is_colored_by_the_exe_found_in_the_pes_folder() {
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
     egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
 
     // A shell at PES 21 with `data_dir` in the given folder; `pes_folder_path` is the
@@ -900,8 +887,7 @@ fn the_selector_is_colored_by_the_exe_found_in_the_pes_folder() {
 
 #[test]
 fn the_exe_check_relists_on_a_change_or_on_focus_never_per_frame() {
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
     let dir = test_dir("studio_core_sidebar_recheck");
     fs::create_dir_all(&dir).unwrap();
     fs::write(dir.join("PES2021.exe"), b"").unwrap();
@@ -933,8 +919,7 @@ fn the_exe_check_relists_on_a_change_or_on_focus_never_per_frame() {
 // ST-SIDE-04
 #[test]
 fn a_version_change_blocker_disables_the_selector_and_a_pick_saves_the_version() {
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
     egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
 
     // While a tool blocks, the selector is disabled and its tooltip is the reason.
@@ -1033,8 +1018,7 @@ fn the_planned_tools_follow_the_registered_ones_grayed_and_inert() {
         Some(dir.path().to_path_buf()),
         vec![calls_a, calls_b],
     );
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
     egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
 
     let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
@@ -1139,8 +1123,7 @@ fn a_cli_only_tool_is_a_planned_entry_never_active_and_still_registered() {
         None,
         vec![calls_c, calls_a, calls_b],
     );
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
     egui_ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
 
     // `last_tool` names the CLI-only tool: the first window tool is active instead.
@@ -1249,8 +1232,7 @@ fn the_logo_opens_about_and_copy_puts_the_version_block_on_the_clipboard() {
     settings.common.pes_version = PesVersion::Pes21;
     let Shell { mut app, .. } =
         shell_with(settings, vec![a], &[], Some(dir.clone()), vec![calls_a]);
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
     click(&egui_ctx, &mut app, entry(&nodes, "4cc"));
@@ -1385,8 +1367,7 @@ fn the_poll_switches_to_the_running_version_once_and_offers_fix_pes_path() {
         vec![calls_a],
     );
     app.sidebar.probe = probe;
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
     assert_ne!(
         running_exe.parent(),
         Some(ctx.common().pes_folder().as_path()),
@@ -1487,8 +1468,7 @@ fn a_version_change_blocker_defers_the_auto_switch_without_spending_it() {
         vec![calls_a],
     );
     app.sidebar.probe = probe;
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.0));
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(5.0));
@@ -1516,8 +1496,7 @@ fn the_switch_notice_offers_fix_pes_path_only_when_the_exe_sits_elsewhere() {
     // `test_dir`, not `TestDir`: the probes are `fn` items that recompute the path by
     // name, which a `TestDir`'s counter suffix would break.
     let dir = test_dir("studio_core_autoswitch_notice");
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     // The probe found no exe path: the notice has no action.
     fn no_exe() -> Vec<RunningPes> {
@@ -1661,8 +1640,7 @@ fn the_fix_pes_path_click_rewrites_the_year_the_notice_was_raised_for() {
         vec![calls_a],
     );
     app.sidebar.probe = probe;
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.0));
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(5.0));
@@ -1715,8 +1693,7 @@ fn the_poll_takes_the_first_detected_game_and_stays_put_when_it_is_the_selection
         vec![calls_a],
     );
     app.sidebar.probe = probe;
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.0));
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(5.0));
@@ -1754,8 +1731,7 @@ fn the_poll_calls_the_probe_every_five_seconds_and_schedules_its_repaint() {
         vec![calls_a],
     );
     app.sidebar.probe = probe;
-    let egui_ctx = egui::Context::default();
-    egui_ctx.enable_accesskit();
+    let egui_ctx = test_context();
 
     // The t = 0 frame arms the first poll for t = 5 s.
     frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.0));

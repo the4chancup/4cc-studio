@@ -123,8 +123,7 @@ mod tests {
     // ST-WIN-01
     #[test]
     fn the_first_frame_with_a_monitor_size_fits_and_centers_the_window_once() {
-        let egui_ctx = egui::Context::default();
-        egui_ctx.enable_accesskit();
+        let egui_ctx = test_context();
 
         for (monitor, size, pos) in [
             (

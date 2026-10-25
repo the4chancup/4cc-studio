@@ -36,6 +36,9 @@ impl Headless {
     fn sized(width: f32, height: f32) -> Headless {
         let ctx = egui::Context::default();
         ctx.enable_accesskit();
+        // The window draws with these fonts; the test measures what a
+        // member sees, whichever crates the build unifies.
+        studio_core::theme::install_fonts(&ctx);
         ctx.global_style_mut(|style| style.animation_time = 0.0);
         ctx.all_styles_mut(|style| style.interaction.tooltip_delay = 0.0);
         Headless {

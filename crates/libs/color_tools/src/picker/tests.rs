@@ -15,6 +15,9 @@ impl Headless {
     fn new() -> Headless {
         let ctx = egui::Context::default();
         ctx.enable_accesskit();
+        // The window draws with these fonts; the test measures what a
+        // member sees, whichever crates the build unifies.
+        studio_core::theme::install_fonts(&ctx);
         Headless {
             ctx,
             shapes: Vec::new(),

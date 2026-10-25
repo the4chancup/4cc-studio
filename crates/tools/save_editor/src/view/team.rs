@@ -23,11 +23,11 @@ use crate::session::Session;
 use crate::view::{SaveView, edit_team, scoped, selected_team};
 
 /// The width the bar's four pairs take on one line, measured once in a
-/// headless frame at 1600 x 1400 (the drawn row's `min_rect`: ~722.4
+/// headless frame at 1600 x 1400 (the drawn row's `min_rect`: ~724.8
 /// points — the pairs' widths are fixed, a longer team name changes
 /// nothing). A wrong estimate wraps a bit early or late; it never splits
 /// a pair, since the fallback is whole pairs on two rows.
-pub(super) const TEAM_BAR_ONE_ROW: f32 = 723.0;
+pub(super) const TEAM_BAR_ONE_ROW: f32 = 725.0;
 
 /// The bar over the tab strip, on every tab: the selected player's team's
 /// name, short name and colours — one row where the pane holds

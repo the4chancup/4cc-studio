@@ -1314,13 +1314,48 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
             (`.tmp/8_9f/duck_rulings_4c.md`)
         - [ ] 4d the one cards badge, the player's own tier, through a tier recognition
           `libs/aatf` exposes (checkpoint (b))
-        - [ ] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file);
+        - [x] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file);
           re-measure the width constants taken with the light font (`team.rs`
           `TEAM_BAR_ONE_ROW`, `abilities.rs` `TOP_ROW_ONE_LINE`). Every view test harness
           installs the app's fonts itself: a lone `cargo test -p team_widgets` (and each
           crate's mutation run) builds egui without `default_fonts`, every glyph a 9-point
           tofu box, while the workspace's run gets the real fonts through `eframe` (found at
-          4c r3), so a width test measures different text per invocation
+          4c r3), so a width test measures different text per invocation. The font is
+          `resources/fonts/Ubuntu-Regular.ttf` (lead, 2026-10-25; DECISIONS "The body font is
+          Ubuntu Regular, bundled; every view test draws with the app's fonts"); briefed to
+          SWE-2 as `.tmp/8_9f4e/brief_8_9f4e.md`. After side-lead A's merge, `shell.html`'s
+          body weight goes from 300 to 400 to match (A owns the drafts until then). Done
+          2026-10-25 (SWE-2, 27 min): `theme::install_fonts`, now public, swaps the regular
+          weight in for `Ubuntu-Light` in every family (monospace's fallback too: a family
+          naming a missing font panics) and is called by every view harness (`team_widgets`
+          through a dev-dependency on `studio_core`) and the help window's two wrap tests;
+          `fontless` is gone, its three tests re-derived on real text ("9 PLACEHOLDER", 100
+          points, elides; a 300-wide pane leaves the target combo 108). "Unassigned" measures
+          67.97 in a lone `-p team_widgets` run and in the workspace run alike. Re-measured:
+          `TEAM_BAR_ONE_ROW` 723 → 725, `TOP_ROW_ONE_LINE` 1117 → 1127 (Profile 518, positions
+          477, quick actions 115); no layout stopped fitting (the Tactics column still ends at
+          729, the preset bar one line at `DEFAULT_PANE`). Putting the light weight back first
+          fails only `theme.rs`'s test: the regular weight is at most a few percent wider, under
+          every other test's margin. Files: `studio_core/src/{lib.rs,theme.rs,
+          shell/help_window.rs,shell/sidebar/tests.rs,widgets/log_panel/tests.rs}`,
+          `team_widgets/{Cargo.toml,src/test_support.rs,src/tactics/instructions.rs}`,
+          `save_editor/src/view/{tests.rs,team.rs,abilities.rs}`, the Ruleset editor's and Team
+          compiler's view harnesses, `resources/fonts/`. manual: checked 2026-10-25 on the
+          release build at 1280 x 800 (`.tmp/8_9f4e/look_{tactics,abilities}.png`): the
+          regular weight throughout, Tactics in three columns with every control in view,
+          Abilities' top row on two lines as before. Mutants-diff e704be83: 2 mutants, 2 caught.
+          SWE-2 round S1: 2 accepted (`color_tools`' harness; one uniform rule, every test
+          context that runs a frame installs the fonts, through `shell::test_harness::
+          test_context` for the shell's 78), fixed in r1, which the regular weight made find two
+          real defects: the status bar's read-only notice, once elided, showed its own text on
+          hover instead of the entry's explanation (`show_tooltip_when_elided(false)`), and the
+          help window's Messages grid measured its Severity column from the rows alone, the
+          wider header pushing the grid 5.9 points past a 500-point pane (the headers now count)
+          (`.tmp/8_9f4e/duck_rulings_4e.md`). Mutants-diff 7781f77b: 7 caught. Astra A1 (Codex):
+          1 accepted, the cap test's narrow half could not fail (its "Unassigned" fit without
+          the bound; now the ninth starter's name, which fills the cap); post-Astra SWE-2 S2: 1
+          accepted, the same class in its wide half (now "Deep Defensive Line" at the cap); both
+          fixed by the lead, red first; the 4e review loop ends
     - [ ] 8.9j slice 4 (`plans/save_editor.md` "Configurable AATF rules", "Comparator",
       "Aesthetics transplant"), the AATF parts first (the maintainer's direction of 2026-10-24),
       each part its own commit and review:

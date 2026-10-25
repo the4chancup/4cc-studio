@@ -1,5 +1,11 @@
 # Fonts
 
+`Ubuntu-Regular.ttf` is the suite's body font, the Ubuntu font family's regular weight, version
+0.83, as Google Fonts publishes it (`github.com/google/fonts`, `ufl/ubuntu/Ubuntu-Regular.ttf`,
+351,884 bytes, SHA-256 `3128df86…`). egui bundles only the light weight (`Ubuntu-Light`), which
+the drafts are not drawn in. Licence: the Ubuntu Font Licence 1.0, `UFL.txt` beside it (the same
+text egui's own copy of the family carries).
+
 `phosphor-subset.ttf` is the shell's icon font until the suite's own replaces it (worklog 8.14):
 the 19 glyphs the suite draws, cut from the regular weight of Phosphor Icons, as the
 `egui-phosphor` 0.14.0 crate ships it (`res/Phosphor.ttf`, SHA-256 `06b91e02…`). The cut
