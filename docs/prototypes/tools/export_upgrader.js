@@ -11,7 +11,7 @@
 // Names this script uses without declaring them (render, h, row, weak, strong,
 // button, combo, cb, collapsing, window_, closeWindow, publishNotice,
 // shellPesVersion, switchToTool, toolActivity, folderOf, mmss,
-// EXE_FOLDER, appendLog, logPanel, openOutputStub, registerTool) are the
+// EXE_FOLDER, appendLog, logPanel, openOutputStub, named, registerTool) are the
 // host's, index.html.
 (() => {
 "use strict";
@@ -528,7 +528,8 @@ const tip = (why, el) => h("span", { title: why }, el);
 function dropTarget(target) {
   const i = input();
   const holds = i && i.target === target;
-  return h("div", { class: "group eu-target" + (holds ? " filled" : "") },
+  return h("div", { class: "group eu-target" + (holds ? " filled" : ""),
+      "data-panel": target === "export" ? "target-export" : "target-models" },
     strong(target === "export" ? "Upgrade an export" : "Upgrade model folders"),
     holds ? [h("div", {}, strong(i.name)),
       h("div", { class: "weak mono" }, i.path)]
@@ -545,7 +546,7 @@ function argsGrid() {
   const dis = argsDisabled(), why = argsDisabledWhy();
   const saveDis = dis || S.loose;
   const saveWhy = dis ? why : "Loose mode takes no savefile";
-  return h("table", { class: "grid eu-args" },
+  return h("table", { class: "grid eu-args", "data-panel": "arguments" },
     h("tr", {},
       h("td", {}, "Savefile"),
       h("td", { class: "fld" }, saveDis ? tip(saveWhy,
@@ -569,7 +570,8 @@ function argsGrid() {
 // Output into (-o) serves both targets, so its row sits under both columns;
 // the field fills its cell.
 function outputRow() {
-  return row(h("span", { style: "white-space:nowrap" }, "Output into"),
+  return h("div", { class: "row", "data-panel": "output" },
+    h("span", { style: "white-space:nowrap" }, "Output into"),
     h("div", { class: "eu-out" },
       h("input", { type: "text", class: "mono", value: outputInto(),
         style: "width:100%",
@@ -582,7 +584,7 @@ function runRow() {
   // A disabled button gets no browser tooltip; its reason goes on a wrapper.
   const btn = button("Upgrade", startRun, { disabled: !args || !!S.run,
     title: args || null });
-  return row(
+  return h("div", { class: "row", "data-panel": "run" },
     args ? btn : tip(S.input
       ? "A team export takes a savefile or the loose switch"
       : "Drop an input on a target first", btn),
@@ -594,7 +596,7 @@ function doneLine() {
   if (!S.result) return null;
   const i = input();
   if (S.moved)
-    return h("div", { class: "eu-done" },
+    return h("div", { class: "eu-done", "data-panel": "done" },
       h("span", {}, `Moved to ${EXE_FOLDER}\\exports\\${i.output}.`));
   const out = S.result.output + (i.target === "export" ? "\\" + i.output : "");
   const text = S.result.exit === 0 ? `Clean: written to ${out}.`
@@ -602,7 +604,7 @@ function doneLine() {
       + (i.target === "models" ? "input folder" : "old export") + ", then upgrade it again."
     : S.result.exit === 2 ? "Refused: nothing was written."
     : "Aborted: nothing was written.";
-  return h("div", { class: "eu-done" }, h("span", {}, text),
+  return h("div", { class: "eu-done", "data-panel": "done" }, h("span", {}, text),
     " ",
     S.result.exit === 0 && i.target === "export"
       ? button("Move to exports and compile", moveAndCompile) : null);
@@ -618,7 +620,7 @@ function leftBehind() {
   if (!rows.length) return null;
   const toFix = rows.filter(l => l.code === "unmigrated_content").length;
   const hasContext = rows.some(l => l.context);
-  return h("div", {},
+  return h("div", { "data-panel": "left-behind" },
     h("div", {}, strong(`Left behind: ${rows.length}`), " ",
       weak(`${toFix} to fix in the input · ${rows.length - toFix} left out of the output`)),
     h("div", { class: "eu-left" },
@@ -643,7 +645,7 @@ function drawView(center) {
       runRow(),
       doneLine(),
       leftBehind()),
-    logPanel(L, { tool: "export-upgrader" })));
+    named(logPanel(L, { tool: "export-upgrader" }), "log")));
   const lb = center.querySelector(".log-body");
   if (lb) lb.scrollTop = L.logStick ? lb.scrollHeight : S.logScroll;
 }
@@ -686,6 +688,9 @@ const WALK = [
   ["EU-GUI-07", "the run at about 20 s, a different tool's view active, the shell draft controls' Request the window's close: this view comes forward with the prompt; Close when it ends shows the close stub at the run's end, Keep the window open lets it end plain"],
 ];
 
+// The view's one screen (the host's layout edit keys its tweaks by it).
+const screen = () => "main";
+
 registerTool({ id: "export-upgrader", css: EXPORT_UPGRADER_CSS, draw: drawView,
-  controls: draftControls, closeRequest });
+  controls: draftControls, closeRequest, screen });
 })();

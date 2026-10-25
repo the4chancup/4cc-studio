@@ -104,10 +104,10 @@
   .sep { border-top: 1px solid var(--stroke); margin: 8px 0; }
   .handle { cursor: grab; color: #6e6e6e; padding: 0 4px; user-select: none; }
   .dragover { outline: 1px solid var(--sel-fg); }
-  .menu { position: fixed; background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px; padding: 4px; z-index: 20; box-shadow: 0 4px 16px #000a; display: flex; flex-direction: column; min-width: 160px; }
+  .menu { position: fixed; background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px; padding: 4px; z-index: 130; box-shadow: 0 4px 16px #000a; display: flex; flex-direction: column; min-width: 160px; }
   .menu button { text-align: left; background: transparent; padding: 2px 8px; }
   .menu button:hover:not(:disabled) { background: var(--hover); }
-  .modal-bg { position: fixed; inset: 0; background: #0008; display: flex; align-items: center; justify-content: center; z-index: 10; }
+  .modal-bg { position: fixed; inset: 0; background: #0008; display: flex; align-items: center; justify-content: center; z-index: 120; }
   .window { background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px; padding: 8px 12px; box-shadow: 0 8px 24px #000c; min-width: 360px; max-width: 640px; }
   .window .title { color: var(--strong); font-size: 14px; margin-bottom: 8px; }
   .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 2px; border: 1px solid #000; vertical-align: middle; }
@@ -145,7 +145,7 @@
   .settings-body td:first-child { white-space: nowrap; }
   .settings-body input[type=text] { width: 220px; }
   .settings-body input[type=number] { width: 90px; }
-  .help-win { position: fixed; z-index: 5; display: flex; flex-direction: column;
+  .help-win { position: fixed; z-index: 100; display: flex; flex-direction: column;
     max-width: none; min-width: 420px; min-height: 200px; padding: 0; resize: both; overflow: hidden; }
   .help-win .title-row { display: flex; align-items: center; padding: 6px 12px 0; cursor: grab; user-select: none; }
   .help-win .title-row .title { flex: 1; margin-bottom: 0; }
@@ -180,6 +180,17 @@
   .draft-controls .dcgroup { margin-left: 6px; }
   input:disabled, select:disabled { color: #5a5a5a; opacity: .55; }
   .cb:has(input:disabled) { color: #5a5a5a; }
+  /* Layout edit: the overlay over a data-panel element while the toggle is on
+     (the element is outlined by inline style) carries the name, the move
+     handle and the resize grip; .layout-editing stops the panel's own
+     controls. */
+  .layout-editing [data-panel] * { pointer-events: none; }
+  .layout-editing [data-panel] .le-ov, .layout-editing [data-panel] .le-ov * { pointer-events: auto; }
+  .le-ov { position: absolute; inset: 0; pointer-events: auto; }
+  .le-tag { position: absolute; top: 0; left: 0; display: flex; align-items: center; gap: 4px; }
+  .le-name { font-size: 9px; line-height: 11px; background: var(--sel-fg); color: #1a1a1a; padding: 0 3px; }
+  .le-handle { font-size: 10px; line-height: 11px; color: var(--sel-fg); background: rgba(0,0,0,.6); padding: 0 2px; cursor: move; }
+  .le-grip { position: absolute; right: 0; bottom: 0; font-size: 9px; line-height: 9px; color: var(--sel-fg); background: rgba(0,0,0,.6); padding: 0 1px 1px 0; cursor: nwse-resize; }
 </style>
 </head>
 <body>
@@ -290,6 +301,9 @@ function h(tag, props, ...kids) {
   return e;
 }
 const row = (...kids) => h("div", { class: "row" }, ...kids);
+// A panel's name for the layout edit's data-panel (a tool's region, not a
+// single control).
+function named(el, name) { el.dataset.panel = name; return el; }
 const weak = text => h("span", { class: "weak" }, text);
 const strong = text => h("span", { class: "strong" }, text);
 function button(text, onclick, opts = {}) {
@@ -364,6 +378,9 @@ const S = { activeTool: "team-compiler", sidebarCollapsed: false, pesVersion: "2
   // draft's extras), its geometry remembered across closes, and the panes'
   // scroll positions kept across render() rebuilds.
   help: null, helpWindow: null, helpScroll: { tree: 0, topic: 0 },
+  // Layout edit (gui.md "Prototypes before implementation"): the draft
+  // controls' toggle; the tweaks themselves live in localStorage.
+  layoutEdit: false,
   // Log panel (gui.md "Log panel"): the Team compiler's lines { severity, code,
   // scope, text }; its height, collapse and filter; the auto-scroll's stick, the
   // count of lines arrived while paused, the body's scrollTop kept across
@@ -455,6 +472,8 @@ const VIEWS = {};
 //               widgets too)
 //   closeRequest() the window's close asked of the view: returns true when it
 //               holds the close, after switching to itself and drawing its prompt
+//   screen()    the view's current screen's short id (a tab, a section); a
+//               view without it lays out under "main"
 // A document-level listener a tool script adds itself checks the view's own
 // state before acting: it fires while another tool is active.
 function registerTool(view) {
@@ -1557,6 +1576,7 @@ function render() {
   if (S.settingsFile === "none") drawFirstRun();
   else if (windowDrawer) windowDrawer();
   drawHelp();
+  layoutApply();
 }
 
 function cb(label, checked, set) {
@@ -1673,6 +1693,12 @@ function renderDraftControls() {
       ({ severity: "Info", code: null, scope: "bulk",
         text: "Info - bulk - filler line " + (S.log.length + i + 1) })))),
     button("Fatal line", () => appendLog([mkLine("source_changed_during_run", "run")])),
+    grp("Layout"),
+    cb("Layout edit", S.layoutEdit, v => S.layoutEdit = v),
+    button("Copy layout", copyLayout,
+      { title: "Copy each tweaked panel's rectangle, for pasting to the lead" }),
+    button("Reset", () => { localStorage.removeItem(LAYOUT_KEY); render(); },
+      { title: "Clear every layout tweak" }),
     grp("Launch"),
     button("Request the window's close", requestWindowClose,
       { title: "As the window's close button would: a tool holding unsaved work or a run asks first" }),
@@ -1764,16 +1790,16 @@ function renderCenter() {
     // The pipeline tool's claim order (gui.md "Shell layout"): the grid in what
     // remains, the run strip, the log panel at the bottom.
     center.append(h("div", { class: "pipe" },
-      h("div", { class: "pipe-grid" },
+      named(h("div", { class: "pipe-grid" },
         h("table", { class: "grid" },
           [["/3/", "701"], ["/a/", "702"], ["/co/", "714"]].map(([name, id]) =>
             h("tr", { class: "sel" + (S.gridHighlight === name ? " highlight" : ""), "data-scope": name },
               h("td", { class: "mono" }, name), h("td", { class: "mono" }, id)))),
         // The common settings reach every tool at its next frame (ST-SET-02).
-        weak("Threads: " + S.settings.common.thread_count)),
-      row(compileBtn,
-        a ? h("span", { class: "mono", id: "compile-progress" }, `${a.done}/${a.total} · ${mmss(a.elapsed)}`) : null),
-      logPanel()));
+        weak("Threads: " + S.settings.common.thread_count)), "compile-grid"),
+      named(row(compileBtn,
+        a ? h("span", { class: "mono", id: "compile-progress" }, `${a.done}/${a.total} · ${mmss(a.elapsed)}`) : null), "run"),
+      named(logPanel(), "log")));
     const lb = center.querySelector(".log-body");
     if (lb) lb.scrollTop = S.logStick ? lb.scrollHeight : S.logScroll;
   }
@@ -1982,6 +2008,171 @@ function logPanel(st = S, opts = LOG_COMPILER) {
     h("span", { class: "weak log-count" }, count));
   if (st.logCollapsed) return h("div", { class: "log-panel" }, header);
   return h("div", { class: "log-panel" }, logDivider(st), header, logBody(st, drawn, opts));
+}
+
+// ---- Layout edit (gui.md "Prototypes before implementation") ----
+// The maintainer tunes an arrangement by hand and pastes the result to the
+// lead; the tweaks are evidence, never a layout the views load. A move is a
+// translate offset (pushes nothing), a resize a fixed width and height (the
+// neighbours reflow). One localStorage object, applied after every render
+// whether the toggle is on or off.
+const LAYOUT_KEY = "drafts.layout";
+const loadLayout = () => JSON.parse(localStorage.getItem(LAYOUT_KEY) || "{}");
+const saveLayout = t => localStorage.setItem(LAYOUT_KEY, JSON.stringify(t));
+// The active view's screen (its hook, or "main").
+const viewScreen = () => {
+  const v = VIEWS[S.activeTool];
+  return v && v.screen ? v.screen() : "main";
+};
+// The key a panel's tweak is stored under: <tool>/<screen>/<name>; a floating
+// panel window's is <tool>/window/<name>, whatever the tab it was opened on.
+const layoutKey = el => S.activeTool + "/" +
+  (el.classList.contains("panel") ? "window" : viewScreen()) + "/" + el.dataset.panel;
+// The inline styles a tweak or the edit overlay set, kept so an untouched
+// panel returns to the page's own values.
+const layoutOriginals = new WeakMap();
+const captureOriginals = el => {
+  if (!layoutOriginals.has(el)) layoutOriginals.set(el,
+    { transform: el.style.transform, width: el.style.width,
+      height: el.style.height, position: el.style.position,
+      outline: el.style.outline });
+};
+function untweak(el) {
+  const o = layoutOriginals.get(el);
+  if (!o) return;
+  el.style.transform = o.transform; el.style.width = o.width;
+  el.style.height = o.height; el.style.position = o.position;
+  el.style.outline = o.outline;
+  layoutOriginals.delete(el);
+}
+function applyTweak(el, t) {
+  captureOriginals(el);
+  if (t.dx || t.dy) el.style.transform = `translate(${t.dx || 0}px, ${t.dy || 0}px)`;
+  if (t.w != null) el.style.width = t.w + "px";
+  if (t.h != null) el.style.height = t.h + "px";
+}
+// After every render(): the stored tweaks on the active tool's panels, plus
+// the edit overlays while the toggle is on.
+function layoutApply() {
+  const center = document.getElementById("center");
+  center.classList.toggle("layout-editing", S.layoutEdit);
+  center.querySelectorAll(".le-ov").forEach(e => e.remove());
+  const store = loadLayout();
+  const scr = viewScreen();
+  center.querySelectorAll("[data-panel]").forEach(el => {
+    const key = layoutKey(el);
+    if (store[key]) applyTweak(el, store[key]);
+    if (!S.layoutEdit) {
+      // The tweaks stay (toggle on or off); only the overlay's own marks go.
+      const o = layoutOriginals.get(el);
+      if (o) { el.style.outline = o.outline; el.style.position = o.position; }
+      if (!store[key]) untweak(el);
+      return;
+    }
+    // An untweaked panel returns to the page's own values (Reset run with the
+    // toggle on, or a tweak dropped from another screen).
+    if (!store[key]) untweak(el);
+    let depth = 0, p = el.parentElement;
+    while (p) { if (p.dataset && p.dataset.panel) depth++; p = p.parentElement; }
+    captureOriginals(el);
+    if (getComputedStyle(el).position === "static") el.style.position = "relative";
+    el.style.outline = "1px dashed var(--sel-fg)";
+    el.append(h("div", { class: "le-ov", style: "z-index:" + Math.min(60 + depth, 99) },
+      h("span", { class: "le-tag" },
+        h("span", { class: "le-name" }, el.dataset.panel),
+        h("span", { class: "le-handle", title: "Drag to move",
+          onmousedown: e => layoutDrag(e, el, key, "move") }, "↕")),
+      h("span", { class: "le-grip", title: "Drag to resize",
+        onmousedown: e => layoutDrag(e, el, key, "resize") }, "◢")));
+  });
+}
+// The handle's drag: an offset from where the panel's layout puts it, or a
+// width and height (40 px minimum) the neighbours reflow around.
+function layoutDrag(e, el, key, kind) {
+  if (e.button !== 0) return;
+  e.preventDefault(); e.stopPropagation();
+  const startX = e.clientX, startY = e.clientY;
+  const t0 = loadLayout()[key] || {};
+  const base = kind === "move" ? { dx: t0.dx || 0, dy: t0.dy || 0 }
+    : { w: el.offsetWidth, h: el.offsetHeight };
+  let pending = null;
+  const move = ev => {
+    const ddx = ev.clientX - startX, ddy = ev.clientY - startY;
+    pending = kind === "move" ? { dx: base.dx + ddx, dy: base.dy + ddy }
+      : { w: Math.max(40, base.w + ddx), h: Math.max(40, base.h + ddy) };
+    if (kind === "move") el.style.transform = `translate(${pending.dx}px, ${pending.dy}px)`;
+    else { el.style.width = pending.w + "px"; el.style.height = pending.h + "px"; }
+  };
+  const up = () => {
+    document.removeEventListener("mousemove", move);
+    document.removeEventListener("mouseup", up);
+    // A resize stores the size the layout actually gave, not the one asked
+    // for. A render mid-drag may have detached the element, so the size is
+    // read on the same-named panel now drawn, or the asked one when there is
+    // none; a drag that changed nothing stores nothing.
+    if (kind === "resize") {
+      const live = el.isConnected ? el
+        : document.getElementById("center").querySelector(`[data-panel="${el.dataset.panel}"]`);
+      if (live) pending = { w: live.offsetWidth, h: live.offsetHeight };
+    }
+    const same = pending && (kind === "move"
+      ? pending.dx === base.dx && pending.dy === base.dy
+      : pending.w === base.w && pending.h === base.h);
+    if (pending && !same) {
+      const s = loadLayout(); s[key] = { ...s[key], ...pending }; saveLayout(s);
+    }
+    render();
+  };
+  document.addEventListener("mousemove", move);
+  document.addEventListener("mouseup", up);
+}
+// One line per tweaked panel of the active tool, in the window's points;
+// the window_'s field shows it too (a page from disk may refuse the
+// clipboard).
+function copyLayout() {
+  const store = loadLayout();
+  const center = document.getElementById("center");
+  // Rectangles in the window's content area (under #titlebar, inside #win's
+  // border), which .main's top left is.
+  const wr = document.querySelector("#win .main").getBoundingClientRect();
+  const winBox = document.getElementById("win").getBoundingClientRect();
+  const wh = Math.round(winBox.width) + "x" + Math.round(winBox.height);
+  const zoom = Math.round(devicePixelRatio * 100) + "%";
+  const scr = viewScreen();
+  const fmt = r => Math.round(r.left - wr.left) + "," + Math.round(r.top - wr.top)
+    + " " + Math.round(r.width) + "x" + Math.round(r.height);
+  const lines = ["The drafts' layout tweaks, rectangles in window points before -> after:"];
+  for (const [key, t] of Object.entries(store)) {
+    const parts = key.split("/");
+    const tool = parts[0], screen = parts.slice(1, -1).join("/"), panel = parts[parts.length - 1];
+    if (tool !== S.activeTool) continue;
+    const head = `${tool}/${screen} window ${wh} zoom ${zoom}`;
+    const el = screen === scr || screen === "window"
+      ? center.querySelector(`[data-panel="${panel}"]`) : null;
+    const sz = `offset ${t.dx || 0},${t.dy || 0} size ${t.w == null ? "unchanged" : t.w + "x" + t.h}`;
+    if (!el) {
+      lines.push(`${head} ${panel}: ${screen === scr || screen === "window"
+        ? "not drawn now (a closed window or an empty panel)" : "not on this screen"}, ${sz}`);
+      continue;
+    }
+    if (el.offsetParent === null) {
+      lines.push(`${head} ${panel}: hidden now, ${sz}`);
+      continue;
+    }
+    // "Before" is the panel with the page's own inline values, not with none.
+    const saved = { transform: el.style.transform, width: el.style.width, height: el.style.height };
+    const own = layoutOriginals.get(el) || { transform: "", width: "", height: "" };
+    el.style.transform = own.transform; el.style.width = own.width; el.style.height = own.height;
+    const before = fmt(el.getBoundingClientRect());
+    applyTweak(el, t);
+    const after = fmt(el.getBoundingClientRect());
+    el.style.transform = saved.transform; el.style.width = saved.width; el.style.height = saved.height;
+    lines.push(`${head} ${panel}: ${before} -> ${after}`);
+  }
+  const text = lines.join("\n");
+  if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+  window_("Copy layout", h("textarea", { class: "mono", readonly: true,
+    style: "width:620px; height:220px" }, text), [button("OK", closeWindow)]);
 }
 
 </script>

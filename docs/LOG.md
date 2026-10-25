@@ -2466,3 +2466,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.17 (side-lead A): the Export upgrader's draft, `tools/export_upgrader.js`, every EU-GUI screen
   drawn over real CLI runs of real old exports; the host's log panel takes its state and asks views for the window's
   close; five gaps decided in the plan, five usability ideas to `PROPOSALS.md` (P32-P36).
+- **2026-10-25** — 8.18 (side-lead A): the drafts host's Layout edit toggle: every tool script names its panels
+  (`data-panel`), a move or a resize per panel per screen kept in the browser until Reset, and Copy layout's lines of
+  rectangles before and after in window points, for the maintainer to paste to the lead.

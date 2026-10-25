@@ -10,7 +10,7 @@
 // the provenance script that reads the summary's blocks finds them at column 0.
 // Names this script uses without declaring them (render, structural, h, row, weak, strong,
 // button, combo, selectable, collapsing, menu, closeMenus, window_, closeWindow,
-// registerTool) are the host's, index.html.
+// named, registerTool) are the host's, index.html.
 (() => {
 "use strict";
 
@@ -1293,16 +1293,16 @@ function drawView(center) {
   if (!document.getElementById("rs-content")) {
     center.innerHTML = "";
     center.append(
-      h("div", { class: "top", id: "top" }),
+      h("div", { class: "top", id: "top", "data-panel": "top-bar" }),
       h("div", { class: "main" },
-        h("div", { class: "rail", id: "rail" }),
-        h("div", { class: "center", id: "rs-content" }),
-        h("div", { class: "data hidden", id: "data" },
+        h("div", { class: "rail", id: "rail", "data-panel": "rail" }),
+        h("div", { class: "center", id: "rs-content", "data-panel": "content" }),
+        h("div", { class: "data hidden", id: "data", "data-panel": "data-preview" },
           h("div", { class: "row", style: "padding:4px 8px; margin:0" },
             h("span", { class: "strong" }, "Rules file: data block"),
             h("span", { class: "weak", title: "The editor writes this block; you can also edit it by hand. Changed lines are highlighted." }, "(read-only)")),
           h("pre", { id: "block" }))),
-      h("div", { class: "bottom", id: "rs-bottom" }));
+      h("div", { class: "bottom", id: "rs-bottom", "data-panel": "bottom-bar" }));
   }
   const top = document.getElementById("top");
   top.innerHTML = "";
@@ -1396,15 +1396,15 @@ function startPage() {
 const VIEWS = {
   general() {
     const d = h("div", {}, h("h2", {}, "General"));
-    d.append(h("table", { class: "grid" },
+    d.append(named(h("table", { class: "grid" },
       h("tr", {}, h("td", {}, "Name"), h("td", {}, text(R.name, v => R.name = v, { width: 220 }))),
-      h("tr", {}, h("td", {}, "Squad size"), h("td", {}, drag(R.squad_size, v => R.squad_size = v ?? 0, { min: 1, max: 32 })))));
+      h("tr", {}, h("td", {}, "Squad size"), h("td", {}, drag(R.squad_size, v => R.squad_size = v ?? 0, { min: 1, max: 32 })))), "general-fields"));
     d.append(h("div", { class: "sep" }), strong("Rating stats"),
       h("div", { class: "weak" }, "A player's rating is the highest of these; it picks his tier. What a stat may sit at is the target, the warning band and the stat total, not the rating."),
-      statGrid(STATS, R.stats.rating, v => R.stats.rating = v));
+      named(statGrid(STATS, R.stats.rating, v => R.stats.rating = v), "rating-stats"));
     d.append(h("div", { class: "sep" }), strong("May sit below the target"),
       h("div", { class: "weak" }, "Every other stat must equal its target exactly."),
-      statGrid(STATS.concat(AT_MOST_EXTRA), R.stats.at_most, v => R.stats.at_most = v));
+      named(statGrid(STATS.concat(AT_MOST_EXTRA), R.stats.at_most, v => R.stats.at_most = v), "at-most-stats"));
     return d;
   },
   tiers() {
@@ -1412,7 +1412,7 @@ const VIEWS = {
       "Highest first: a player gets the first tier whose conditions he meets and whose rating he reaches. The Save editor's tier buttons follow this order."));
     const ids = R.tiers.map(t => [t.id, t.label]);
     const medalTiers = new Set(R.medal_systems.flatMap(s => Object.keys(s.counts)));
-    const g = h("table", { class: "grid" }, h("tr", {}, ["", "Label", "Id", "Count", "Counts as", "Rate", "Form", "Injury res.", "Weak foot", "Paid cards", "Min. cards", "A positions", "Name colour", "Warn band", "Stats ≤ targets", ""].map(x => h("th", {}, x))));
+    const g = named(h("table", { class: "grid" }, h("tr", {}, ["", "Label", "Id", "Count", "Counts as", "Rate", "Form", "Injury res.", "Weak foot", "Paid cards", "Min. cards", "A positions", "Name colour", "Warn band", "Stats ≤ targets", ""].map(x => h("th", {}, x)))), "tiers-table");
     R.tiers.forEach((t, i) => {
       g.append(reorderable(h("tr", {},
         h("td", {}, handle(i)),
@@ -1454,13 +1454,13 @@ const VIEWS = {
     d.append(h("div", { class: "sep" }), strong("Medal systems"), h("div", { class: "weak" },
       "Alternative medal counts: the team's counts of the ticked tiers must equal one system's. Unticked tiers keep their own count, one of them the rest of the squad."));
     const ms = R.medal_systems;
-    const mg = h("table", { class: "grid" }, h("tr", {}, h("th", {}), R.tiers.map(t => h("th", {},
+    const mg = named(h("table", { class: "grid" }, h("tr", {}, h("th", {}), R.tiers.map(t => h("th", {},
       h("label", { class: "cb", title: ms.length ? "The medal systems count this tier" : "Add a medal system first" },
         h("input", { type: "checkbox", checked: medalTiers.has(t.id), disabled: !ms.length, onchange: e => {
           if (e.target.checked) { ms.forEach(s => { if (!(t.id in s.counts)) s.counts[t.id] = 0; }); t.count = null; }
           else ms.forEach(s => { delete s.counts[t.id]; });
           structural();
-        } }), t.label)))));
+        } }), t.label))))), "medal-systems");
     ms.forEach((s, i) => mg.append(h("tr", {},
       h("td", {}, h("span", { class: "row", style: "margin:0" }, text(s.label, v => s.label = v, { width: 90 }), remove(ms, i))),
       R.tiers.map(t => h("td", {}, medalTiers.has(t.id)
@@ -1478,7 +1478,7 @@ const VIEWS = {
     })));
     if (!on) { d.append(h("div", { class: "weak" }, "Off: heights are left to tier conditions and special rules.")); return d; }
     d.append(strong("Brackets"), h("div", { class: "weak" }, "Ascending: a player's bracket is the first that takes his height (less any height allowance)."));
-    const g = h("table", { class: "grid" }, h("tr", {}, ["", "Label", "Id", "Heights", "", ""].map(x => h("th", {}, x))));
+    const g = named(h("table", { class: "grid" }, h("tr", {}, ["", "Label", "Id", "Heights", "", ""].map(x => h("th", {}, x)))), "brackets");
     R.heights.brackets.forEach((b, i) => g.append(reorderable(h("tr", {},
       h("td", {}, handle(i)),
       h("td", {}, text(b.label, v => b.label = v, { width: 90 })),
@@ -1490,6 +1490,7 @@ const VIEWS = {
       h("td", {}, remove(R.heights.brackets, i))), R.heights.brackets, i)));
     d.append(g, row(button("+ Add bracket", () => { const top = R.heights.brackets.reduce((m, b) => Math.max(m, b.up_to ?? Math.max(...b.exactly)), 170); R.heights.brackets.push({ id: "b" + (top + 5), label: "Up to " + (top + 5), up_to: top + 5 }); structural(); })));
     d.append(h("div", { class: "sep" }), strong("Height systems"), h("div", { class: "weak" }, "The first whose condition some player meets sets the quotas; the last applies otherwise."));
+    const systems = h("div", { "data-panel": "height-systems" });
     R.heights.systems.forEach((s, i) => {
       const last = i === R.heights.systems.length - 1;
       const box = reorderable(h("div", { class: "group" },
@@ -1509,16 +1510,18 @@ const VIEWS = {
             checkbox("", b.id in s.quotas, v => { if (v) s.quotas[b.id] = 0; else delete s.quotas[b.id]; }, "Constrained (unticked: any number)"),
             b.id in s.quotas ? drag(s.quotas[b.id], v => s.quotas[b.id] = v ?? 0, { max: 23, width: 40 }) : weak("any"))))))),
         R.heights.systems, i);
-      d.append(box);
+      systems.append(box);
     });
+    d.append(systems);
     d.append(row(button("+ Add system", () => { R.heights.systems.push({ id: "system" + (R.heights.systems.length + 1), label: "System " + (R.heights.systems.length + 1), any_player: null, quotas: {} }); structural(); })));
     return d;
   },
   cards() {
     const d = h("div", {}, h("h2", {}, "Cards"), h("div", { class: "weak" },
       "Named card sets a tier or a special rule can make free. Every COM style is also in the built-in group \"COM styles\"."));
+    const groups = h("div", { "data-panel": "card-groups" });
     Object.keys(R.card_groups).forEach(gid => {
-      d.append(h("div", { class: "group" }, row(strong("Group"), text(gid, v => {
+      groups.append(h("div", { class: "group" }, row(strong("Group"), text(gid, v => {
         if (!v || v === gid || v in R.card_groups) return;
         const cards = R.card_groups[gid];
         const groups = {};
@@ -1531,13 +1534,14 @@ const VIEWS = {
         h("span", { style: "flex:1" }), button("✕", () => { delete R.card_groups[gid]; structural(); }, { frame0: true })),
         cardGrid(R.card_groups[gid], v => R.card_groups[gid] = v)));
     });
+    d.append(groups);
     d.append(row(button("+ Add group", () => { let n = 1; while ("group" + n in R.card_groups) n++; R.card_groups["group" + n] = []; structural(); })));
     return d;
   },
   universal() {
     const u = R.universal;
     const d = h("div", {}, h("h2", {}, "Universal rules"));
-    d.append(h("div", { class: "col" },
+    d.append(h("div", { class: "col", "data-panel": "universal-rules" },
       checkbox("Every player is rated A at his registered position", u.registered_position_a, v => u.registered_position_a = v),
       row(weak("Starters play only where rated A, in preset:"), [1, 2, 3].map(p => checkbox(String(p), u.fielded_at_a.includes(p),
         v => u.fielded_at_a = v ? u.fielded_at_a.concat([p]).sort() : u.fielded_at_a.filter(x => x !== p)))),
@@ -1554,7 +1558,8 @@ const VIEWS = {
     d.append(h("div", { class: "sep" }), strong("Team settings"), h("div", { class: "weak" }, "Tactics settings a team must have, on the versions listed (every version when none is ticked)."));
     const tri = (t, k, label) => row(h("span", { style: "width:220px" }, label), combo([[null, "any"], ["true", "must be on"], ["false", "must be off"]],
       t[k] === null || t[k] === undefined ? null : String(t[k]), v => t[k] = v === null ? null : v === "true"));
-    R.team_settings.forEach((t, i) => d.append(h("div", { class: "group" },
+    const settings = h("div", { "data-panel": "team-settings" });
+    R.team_settings.forEach((t, i) => settings.append(h("div", { class: "group" },
       row(text(t.label, v => t.label = v, { width: 200 }), h("span", { style: "flex:1" }), remove(R.team_settings, i)),
       row(weak("PES"), VERSIONS.map(v => checkbox(String(v), t.versions.includes(v), on => t.versions = on ? t.versions.concat([v]).sort() : t.versions.filter(x => x !== v)))),
       tri(t, "man_marking", "Man marking set up"), tri(t, "auto_substitution", "Automatic substitution"),
@@ -1563,6 +1568,7 @@ const VIEWS = {
       row(weak("Banned formation shapes:"), t.forbidden_shapes.map((s, j) => h("span", { class: "chip mono" }, s.join("-"), button("✕", () => { t.forbidden_shapes.splice(j, 1); structural(); }, { frame0: true }))),
         text("", v => t._shape = v, { width: 60, placeholder: "3-4-3", mono: true }),
         button("Add", () => { const s = (t._shape || "").split("-").map(Number); if (s.length === 3 && s.every(n => n >= 0)) { t.forbidden_shapes.push(s); delete t._shape; structural(); } })))));
+    d.append(settings);
     d.append(row(button("+ Add team settings", () => { R.team_settings.push({ label: "Team settings " + (R.team_settings.length + 1), versions: [], man_marking: null,
       auto_substitution: null, auto_offside_trap: null, auto_preset_change: null, auto_attack_defence_levels: null, forbidden_shapes: [] }); structural(); })));
     return d;
@@ -1570,15 +1576,17 @@ const VIEWS = {
   specials() {
     const d = h("div", {}, h("h2", {}, "Special rules"), h("div", { class: "weak" },
       "Applied in order: numbers add up, settings take the last value. Drag to reorder."));
+    const rules = h("div", { "data-panel": "special-rules" });
     R.specials.forEach((s, i) => {
       const severityShown = s.then.forbid != null || (s.then.require_cards || []).length;
-      d.append(reorderable(h("div", { class: "group" },
+      rules.append(reorderable(h("div", { class: "group" },
         row(handle(i), text(s.label, v => s.label = v, { width: 330 }),
           severityShown ? combo([["error", "Error"], ["warning", "Warning"], ["suggestion", "Suggestion"]], s.severity, v => s.severity = v, { title: "How a violation of this rule is reported" }) : "",
           h("span", { style: "flex:1" }), remove(R.specials, i)),
         h("div", { class: "row", style: "align-items:flex-start" }, h("span", { class: "strong", style: "width:40px" }, "When"), condEditor(s.when, `sp:${i}:when`, {})),
         h("div", { class: "row", style: "align-items:flex-start" }, h("span", { class: "strong", style: "width:40px" }, "Then"), effectsEditor(s.then, `sp:${i}:then`, false))), R.specials, i));
     });
+    d.append(rules);
     d.append(row(button("+ Add special rule", () => { R.specials.push(special("New rule", {}, {})); structural(); })));
     return d;
   },
@@ -1588,19 +1596,19 @@ const VIEWS = {
     const all = [["cards", "Paid cards"], ["a_positions", "A positions"], ["weak_foot", "Weak foot"], ["injury_resistance", "Injury resistance"],
       ["height", "Height"], ["free_cards", "Free cards"], ["choices", "Choices not taken"], ["com", "Free COM styles"]]
       .concat(Object.keys(R.card_groups).map(g => [g, "Free " + human(g).toLowerCase()]));
-    d.append(h("div", { class: "col" }, all.map(([id, label]) => checkbox(label, R.suggestions.includes(id),
+    d.append(h("div", { class: "col", "data-panel": "suggestions-list" }, all.map(([id, label]) => checkbox(label, R.suggestions.includes(id),
       v => R.suggestions = v ? R.suggestions.concat([id]) : R.suggestions.filter(x => x !== id)))));
     return d;
   },
   custom() {
     return h("div", {}, h("h2", {}, "Custom checks"), h("div", { class: "weak" },
       "Hand-written Rhai, run after the ruleset's own checks; the editor keeps it as it is."),
-      h("pre", { class: "mono", style: "background:var(--extreme); padding:6px; color:#b4b4b4" }, R.custom_checks));
+      h("pre", { class: "mono", style: "background:var(--extreme); padding:6px; color:#b4b4b4", "data-panel": "custom-checks" }, R.custom_checks));
   },
   summary() {
     return h("div", {}, h("h2", {}, "Summary"), row(button("Copy", () => navigator.clipboard && navigator.clipboard.writeText(summary(R)), { title: "Copies the rules as Markdown, for posting them" }),
       weak("The ruleset as rules text, written from the data.")),
-      h("pre", { id: "summary-text", class: "mono", style: "white-space:pre-wrap; background:var(--extreme); padding:8px; color:#c8c8c8; max-width:900px" }, summary(R)));
+      h("pre", { id: "summary-text", class: "mono", style: "white-space:pre-wrap; background:var(--extreme); padding:8px; color:#c8c8c8; max-width:900px", "data-panel": "summary-text" }, summary(R)));
   },
 };
 
@@ -1795,5 +1803,8 @@ function effectsEditor(e, path, inChoice) {
 }
 
 function firstShow() { load(AUTUMN26); startPage(); }
-registerTool({ id: "ruleset-editor", css: RULESET_CSS, draw: drawView, firstShow, onKey, commit });
+// The view's screen is the open section (the host's layout edit keys its
+// tweaks by it).
+const screen = () => section;
+registerTool({ id: "ruleset-editor", css: RULESET_CSS, draw: drawView, firstShow, onKey, commit, screen });
 })();

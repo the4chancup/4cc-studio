@@ -61,7 +61,7 @@
 // left unindented, as in tools/ruleset_editor.js.
 // Names this script uses without declaring them (render, h, row, weak, strong, button,
 // combo, selectable, collapsing, menu, window_, closeWindow, cb, publishNotice,
-// shellPesVersion, setPesVersion, PES_VERSIONS, folderOf, registerTool) are the host's,
+// shellPesVersion, setPesVersion, PES_VERSIONS, folderOf, named, registerTool) are the host's,
 // index.html.
 (() => {
 "use strict";
@@ -162,7 +162,7 @@ td.ilabel:first-child { padding-left: 0; }
 /* the panels (egui::Window over the central panel) */
 .panel { position: fixed; right: 16px; top: 90px; width: 620px; max-height: 82%;
   background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px;
-  padding: 8px 12px; box-shadow: 0 8px 24px #000c; z-index: 8;
+  padding: 8px 12px; box-shadow: 0 8px 24px #000c; z-index: 110;
   display: flex; flex-direction: column; }
 .panel .title { color: var(--strong); font-size: 14px; margin-bottom: 6px;
   display: flex; justify-content: space-between; align-items: center; }
@@ -2778,7 +2778,7 @@ function renderToolbar() {
   redoBtn.id = "redo-btn";
   const saveBtn = button("Save", () => { saveFile(); render(); }, { title: "Ctrl+S" });
   saveBtn.id = "save-btn";
-  return h("div", { class: "toolbar" },
+  return h("div", { class: "toolbar", "data-panel": "toolbar" },
     openMenu(), saveBtn, button("Save as", saveAs), playerMenu(), teamMenu(), databaseMenu(),
     panelsMenu(), undoBtn, redoBtn,
     selectable("Live AATF", LIVE.on, () => setLive(!LIVE.on),
@@ -2801,7 +2801,7 @@ function onKey(e) {
 // sample wording: the banner's text.
 function versionBanner() {
   if (!S.save || D.selectorVersion === "20" + version()) return null;
-  return h("div", { class: "vbanner warn", id: "version-warning" },
+  return h("div", { class: "vbanner warn", id: "version-warning", "data-panel": "version-banner" },
     "This save is PES " + version() + "; the selector targets PES " + D.selectorVersion +
     ". The save keeps its own version: its widgets and gating stay PES " + version() + "'s.");
 }
@@ -3108,7 +3108,7 @@ function filteredPlayers() {
     t.players.filter(p => matches(p, S.filter)).map(p => ({ team: t, p })));
 }
 function renderMaster() {
-  const box = h("div", { class: "plist" });
+  const box = h("div", { class: "plist", "data-panel": "player-list" });
   const sel = combo([["all", "ALL"]].concat(curSave().teams.map(t => [String(t.id), t.name])),
     S.teamSel, v => { S.teamSel = v; });
   sel.id = "team-sel";
@@ -3210,7 +3210,7 @@ function quickActions(p) {
   const tiers = RULESETS[D.ruleset].tiers;
   const input = h("input", { type: "number", id: "set-stats", value: 77, min: 0, max: 99 });
   // A column in the tab's top row (v2): the tier buttons one per line.
-  return h("div", { class: "col", id: "quick-actions" },
+  return h("div", { class: "col", id: "quick-actions", "data-panel": "quick-actions" },
     strong("Quick actions"),
     tiers.map(t => button("Make " + t.label, () => { applyTier(p, t); render(); },
       { title: "The " + t.label + " tier's values (the active ruleset)" })),
@@ -3234,7 +3234,7 @@ function renderDetail() {
   const p = curPlayer(), team = teamOf(p);
   const d = h("div", { class: "detail" });
   d.append(teamBar(team));
-  const strip = h("div", { class: "tabrow" });
+  const strip = h("div", { class: "tabrow", "data-panel": "tab-bar" });
   let scope = null;
   for (const [id, label, sc] of TABS) {
     if (sc !== scope) strip.append(h("span", { class: "weak tscope" }, (scope = sc)));
@@ -3358,14 +3358,14 @@ function abilitiesTab(p) {
   // stats, skills and COM styles.
   return h("div", {},
     h("div", { class: "topblocks" },
-      h("div", { class: "col" }, strong("Profile"), profile),
-      h("div", { class: "col" }, strong("Playable positions"), posTable),
+      h("div", { class: "col", "data-panel": "profile" }, strong("Profile"), profile),
+      h("div", { class: "col", "data-panel": "positions" }, strong("Playable positions"), posTable),
       quickActions(p)),
     h("div", { class: "sep" }),
-    strong("Ability stats"), stats,
+    strong("Ability stats"), named(stats, "ability-stats"),
     h("div", { class: "sep" }),
-    strong("Skills"), " ", cardBadges(p, teamOf(p)), skills,
-    strong("COM playing styles"), coms);
+    strong("Skills"), " ", cardBadges(p, teamOf(p)), named(skills, "skills"),
+    strong("COM playing styles"), named(coms, "com-styles"));
 }
 
 // ---- Appearance (SE-GUI-07, 20) ----
@@ -3405,7 +3405,7 @@ function appearanceTab(p) {
   const attIn = h("input", { type: "number", id: "f-attitude", value: p.stats.playing_attitude ?? 0, min: 0, max: 3,
     onchange: e => { const v = parseInt(e.target.value, 10);
       if (!Number.isNaN(v)) { set(p, x => x.stats.playing_attitude, (x, v2) => x.stats.playing_attitude = v2, v, "playing attitude"); render(); } } });
-  const cutscenes = h("div", { class: "group", id: "cutscenes" }, strong("Cutscenes"),
+  const cutscenes = h("div", { class: "group", id: "cutscenes", "data-panel": "cutscenes" }, strong("Cutscenes"),
     h("div", { class: "row" }, weak("These only change how the player appears in cutscenes.")),
     h("table", { class: "grid" },
       h("tr", {}, lbl("Star"), fld(starIn, 19), lbl("Playing attitude"), fld(attIn, 20))));
@@ -3419,7 +3419,7 @@ function appearanceTab(p) {
     h("input", { type: "checkbox", checked: p.edit_flags[key],
       onchange: e => { set(p, x => x.edit_flags[key], (x, v) => x.edit_flags[key] = v, e.target.checked, label); render(); } }),
     " " + label);
-  const flags = h("div", { class: "group" }, strong("Edit flags"),
+  const flags = h("div", { class: "group", "data-panel": "edit-flags" }, strong("Edit flags"),
     h("div", { class: "row" },
       ef("face", "Face"), ef("hair", "Hair"), ef("physique", "Physique"),
       ef("strip", "Strip"), ef("motion", "Motion"), ef("base_copy", "Base copy"),
@@ -3444,7 +3444,7 @@ function appearanceTab(p) {
             set(p, x => x.appearance.physique[k], (x, v2) => x.appearance.physique[k] = v2, v, label); render(); } }),
         " ", h("span", { class: "mono weak" }, String(p.appearance.physique[k])))])));
   const st = p.appearance.strip;
-  const stripRow = h("div", { class: "group" }, strong("Strip style"),
+  const stripRow = h("div", { class: "group", "data-panel": "strip-style" }, strong("Strip style"),
     h("table", { class: "grid" },
       h("tr", {},
         lbl("Boots ID"), h("td", {}, h("input", { type: "number", value: p.boots_id,
@@ -3492,7 +3492,7 @@ function appearanceTab(p) {
   const dribbleIn = h("input", { type: "number", min: 0, max: 3, value: mo.dribbling ?? 0,
     onchange: e => { const v = parseInt(e.target.value, 10);
       if (!Number.isNaN(v)) { set(p, x => x.appearance.motion.dribbling, (x, v2) => x.appearance.motion.dribbling = v2, v, "dribbling motion"); render(); } } });
-  const motion = h("div", { class: "group" }, strong("Motion"),
+  const motion = h("div", { class: "group", "data-panel": "motion" }, strong("Motion"),
     h("table", { class: "grid" },
       h("tr", {}, mv("Hunching (dribbling)", "hunching_dribbling", 1, top("hunching_dribbling")),
         mv("Hunching (running)", "hunching_running", 1, top("hunching_running")),
@@ -3514,7 +3514,7 @@ function appearanceTab(p) {
           for (const key of Object.keys(MOTION_TOP)) mo[key] = rnd(top(key));
         }); render();
       }, { title: "Random motion values (the dribbling motion is left as it is)" })));
-  const colors = h("div", { class: "group" }, strong("Colours"),
+  const colors = h("div", { class: "group", "data-panel": "colours" }, strong("Colours"),
     h("div", { class: "row" }, "Skin ",
       paletteRow("skin", p.appearance.skin_color, (x, v) => x.appearance.skin_color = v, p, "skin colour")),
     h("div", { class: "row" }, "Iris ",
@@ -3524,7 +3524,7 @@ function appearanceTab(p) {
   // player hidden by his model's own boots ID reads as shown. Disabled with
   // the rest of the tab under the lock.
   const findings = fpcFindings(p);
-  const fpcGroup = h("div", { class: "group", title: en ? null : ownershipTip() },
+  const fpcGroup = h("div", { class: "group", "data-panel": "fpc", title: en ? null : ownershipTip() },
     strong("Full Player Customization"),
     h("div", { class: "row" },
       h("span", { id: "fpc-state" }, isFpc(p) ? "FPC: hidden body" : "FPC: body shown"), " ",
@@ -3735,7 +3735,7 @@ function teamBar(t) {
       "Stored " + t[key].join(", ") + ", shown " + shown.toUpperCase());
     return h("span", {}, label + " ", fld, " ", h("span", { class: "mono weak" }, shown.toUpperCase()));
   };
-  return h("div", { class: "row", id: "team-bar" },
+  return h("div", { class: "row", id: "team-bar", "data-panel": "team-bar" },
     weak("Team"), nameIn, weak("Short"), shortIn,
     colour("color_1", "Colour 1"), colour("color_2", "Colour 2"));
 }
@@ -3745,18 +3745,18 @@ function teamTab(t) {
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v)) { edit(label, () => { t[key] = v; }); render(); } } })), minV));
   const kits = t.kit_slots
-    ? h("table", { class: "grid" }, t.kit_slots.map((ks, i) =>
+    ? named(h("table", { class: "grid" }, t.kit_slots.map((ks, i) =>
         h("tr", {}, h("td", { class: "weak" }, "Slot " + (i + 1)),
           h("td", {}, "Number ", h("input", { type: "number", value: ks.number,
             onchange: e => { const v = parseInt(e.target.value, 10);
               if (!Number.isNaN(v)) { edit("kit slot number", () => { ks.number = v; }); render(); } } })),
           h("td", {}, "Bound team id ", h("input", { type: "number", style: "width:96px", value: ks.binding,
             onchange: e => { const v = parseInt(e.target.value, 10);
-              if (!Number.isNaN(v)) { edit("kit slot binding", () => { ks.binding = v; }); render(); } } })))))
+              if (!Number.isNaN(v)) { edit("kit slot binding", () => { ks.binding = v; }); render(); } } }))))), "kit-slots")
     : null;
   return h("div", {},
-    h("table", { class: "grid info-grid" },
-      h("tr", {}, num("Manager ID", "manager_id", 19), num("Stadium ID", "stadium_id", 19))),
+    named(h("table", { class: "grid info-grid" },
+      h("tr", {}, num("Manager ID", "manager_id", 19), num("Stadium ID", "stadium_id", 19))), "team-info"),
     h("div", { class: "sep" }),
     strong("Kit slot assignments"),
     kits ? kits
@@ -4295,11 +4295,11 @@ function tacticsTab(t) {
   // the settings column headed by the preset selector and the copy/swap menus.
   const frame = h("div", {},
     h("div", { class: "taccols" },
-      h("div", {}, formationSel, pitchWrap),
-      h("div", { class: "lcol", id: "tac-lists" },
+      h("div", { "data-panel": "tactics-pitch" }, formationSel, pitchWrap),
+      h("div", { class: "lcol", id: "tac-lists", "data-panel": "tactics-lists" },
         strong("Starting eleven"), lineupList(t),
         strong("Bench"), benchList(t)),
-      h("div", { class: "lcol", id: "tac-settings" },
+      h("div", { class: "lcol", id: "tac-settings", "data-panel": "tactics-settings" },
         h("div", { class: "tacbar" }, presetSel, presetMenu, formationMenu),
         note,
         h("div", { class: "group" }, strong("Formation settings"),
@@ -4523,7 +4523,7 @@ const SECOND_SAVES = [
   { key: "pes21", label: "the PES 2021 sample save", version: 21 },
 ];
 function panelWindow(id, title, body) {
-  const p = h("div", { class: "panel", id },
+  const p = h("div", { class: "panel", id, "data-panel": S.panel + "-window" },
     h("div", { class: "title" }, title,
       button("✕", () => { S.panel = null; render(); }, { frame0: true, title: "Close" })),
     h("div", { class: "pbody" }, body));
@@ -5169,7 +5169,7 @@ function livePanel() {
     : strong("No issues: " + res.team.name + " passes " + rs.label);
   const header = h("div", { class: "live-header", id: "live-header" }, chevron, strong("Live AATF"), head,
     res && LIVE.checking ? h("span", { class: "weak", id: "live-checking" }, "↻ checking…") : null);
-  if (LIVE.collapsed) return h("div", { class: "live-panel" }, header);
+  if (LIVE.collapsed) return h("div", { class: "live-panel", "data-panel": "live-aatf" }, header);
   const body = h("div", { class: "live-body" + (LIVE.checking ? " checking" : ""), id: "live-rows",
     style: `height:${LIVE.height}px` });
   let lastPid = null;
@@ -5183,7 +5183,7 @@ function livePanel() {
       title: pid ? "Select this player" : "A team-level violation" },
       h("span", { class: "f" }, rule), h("span", { class: "v" }, violationSentence(rule, kvOf(fields), sev))));
   }
-  return h("div", { class: "live-panel" }, liveDivider(), header, body);
+  return h("div", { class: "live-panel", "data-panel": "live-aatf" }, liveDivider(), header, body);
 }
 
 // ---- Apply aesthetics patch (SE-GUI-18) ----
@@ -5796,5 +5796,8 @@ function renderPanel() {
 }
 
 function firstShow() { openSave(D.sample); } // the draft control's open save
-registerTool({ id: "save-editor", css: SAVE_EDITOR_CSS, draw: renderView, firstShow, controls: draftControls, onKey });
+// The view's screen: the open tab (the host's layout edit keys its tweaks by
+// it; a floating panel window is its own named panel instead).
+const screen = () => S.tab;
+registerTool({ id: "save-editor", css: SAVE_EDITOR_CSS, draw: renderView, firstShow, controls: draftControls, onKey, screen });
 })();
