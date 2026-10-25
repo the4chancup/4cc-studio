@@ -1856,6 +1856,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `core/gui.md` "Prototypes before implementation"; side-lead track A, after 8.16): every
     screen the plan describes, with sample data; the lead's usability review first, ideas to
     `PROPOSALS.md`; then the maintainer's remarks
+    Drawn 2026-10-25 (side-lead A, SWE-2 in two slices and a rework): the two targets, the
+    arguments grid, the run with its activity, the log panel, the left-behind list, the done
+    line, the notice, Move to exports and compile, the stand-in pickers, the close prompt
+    (a shell draft control asking each view's new `closeRequest` hook); the samples are real
+    CLI runs (`.tmp/8_17/runs.py`: Lab's EGG and @ exports, the `co Spring` fixture, the
+    `refs Tracer` fixture, model folders copied from EGG). The host's log panel takes its
+    state, so a view has its own. Plan gaps decided (DECISIONS "The view's arguments and
+    report, where the plan was silent"); the usability review's ideas are `PROPOSALS.md`
+    P32-P36. SWE-2 rounds: 8 of 17 accepted, then 3 of 7 (`.tmp/8_17/rulings.md`), each
+    reworked. Waits for the maintainer's remarks. Files: `docs/prototypes/{index.html,
+    tools/export_upgrader.js}`, `plans/export_upgrader.md` "GUI", `PROPOSALS.md`
   - [ ] 8.18 the host's layout edit toggle (the maintainer, 2026-10-25; `core/gui.md`
     "Prototypes before implementation", "Layout edit"; DECISIONS "The drafts' host gets a
     layout edit toggle"; after 8.16, track A's next step or the top lead's after the merge):

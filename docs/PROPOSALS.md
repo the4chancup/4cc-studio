@@ -125,3 +125,54 @@ reports it. **Adds**, for a member with several versions installed side by side:
 whose name ends in the selected version's year is stored with `**` in its place, so the version
 selector keeps switching folders as it does for the default. **Costs**: one rule in the row's
 pick (PES folder row only), its test, and a sentence in the row's tooltip.
+
+## P32. A left-behind row opens the old export at that file
+
+P3's Open folder (accepted for the Team compiler's findings), for the upgrader. From the Export
+upgrader's draft (`docs/prototypes/tools/export_upgrader.js`) and
+`plans/export_upgrader.md` "GUI": after a run that is not clean, the left-behind list names
+each entry to fix by its path inside the old export, and nothing in the view goes there.
+**Adds**, for a manager whose upgrade is not clean (the one outcome where the input must be
+edited): a click on a row opens the file browser at that entry (the folder, the file selected
+where the platform can), so the fix starts from the list instead of a walk through the
+folders. For an archive input it opens the archive's folder. **Costs**: one row action
+through the platform's file browser (the shell already opens the output folder), a tooltip,
+one draft line.
+
+## P33. The savefile field says which team the save must hold
+
+From `spec/export_upgrader.md` "CLI" (a savefile that does not hold the resolved team is
+refused, exit 2) and the draft's savefile field: the member learns the save is the wrong one
+only after Upgrade. **Adds**, for a manager whose save comes from another cup or version: when
+an export is dropped its team is resolved (the Note's `Team:` line, else the name), the field
+shows `needs /egg/ (792)` beside it, and a picked save that lacks the team turns the field red
+with the refusal's sentence as its tooltip, before Upgrade. **Costs**: the team resolution and
+a save read moved to the drop and the pick (both are steps the run does anyway), one line of
+state, one more GUI scenario.
+
+## P34. An existing output folder can be opened from the abort
+
+From `spec/export_upgrader.md` "CLI": an output folder that already exists aborts the run (exit
+3), naming it, so edits made since an earlier upgrade are never lost. The member is left to
+find that folder by its path. **Adds**, for a manager re-running an upgrade (after fixing the
+input, or by mistake): the aborted done line carries an **Open the existing folder** button,
+so they can see what they made last time and rename or remove it. **Costs**: one button on one
+outcome, the path the abort already holds.
+
+## P35. Copy the report
+
+From the draft's report (the log panel and the left-behind list): a manager asking for help
+in the cup's thread retypes or screenshots the lines. **Adds**, for managers and the
+organizers who answer them: a **Copy report** button beside the done line, putting the
+console's lines (the ones the CLI prints, so they read the same in both) on the clipboard.
+**Costs**: one button, egui's clipboard output; nothing new to learn.
+
+## P36. The left-behind list groups a folder's rows
+
+From the draft's EGG sample (`docs/prototypes/tools/export_upgrader.js`, a real export's
+upgrade with its save): 120 `leftover_dropped` rows, 18 of them one boots folder's files
+(`Boots/k2177 - THIS BEAVER IS CONTAMINATED/...`), in a list 160 points tall. **Adds**, for a
+manager reading what an upgrade left out: one collapsed row per folder with its count (`Boots/k2177
+- THIS BEAVER IS CONTAMINATED: 18 files left out`), opened to its files, so the list reads as
+the 25 folders it is about rather than the 120 files. A folder holding one entry stays one row.
+**Costs**: a grouping by the path's folder, a collapsing header per group, one draft change.

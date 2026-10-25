@@ -60,7 +60,10 @@ refined with the maintainer before `view/` is written:
 - **The run's arguments**, under the first target, the CLI's and nothing more: the savefile
   field, prefilled with the newest save `pes_savefile::discovery` finds for the selected PES version
   (empty when it finds none; a Browse button beside it), and the **loose** switch (step 11).
-  Exactly one of the two is taken, so Upgrade is enabled once either is set; both are disabled
+  Exactly one of the two is taken, so Upgrade is enabled once either is set; loose switched on
+  disables the savefile field, its value kept for when loose goes off and not passed, rather than
+  clearing it, since a member trying both ways would pick the save again. The field follows the
+  selected PES version's discovered save until the member edits or picks one. Both are disabled
   for a referee export (its name's first word `refs`), which takes neither, so for it Upgrade is
   enabled as soon as the target is filled, and likewise while the second target holds the input. An **Output into**
   field holds the directory the output folder is written inside (`-o`): the input's parent by
@@ -86,8 +89,11 @@ refined with the maintainer before `view/` is written:
   and the Team compiler made active (`ctx.switch_to_tool`, as the Refs arranger hands off),
   the watcher then checking it like any dropped export. It is a button rather than the
   notice's action because a notice carries at most one (`spec/core/gui.md` "Status bar"), and
-  Open output folder stays useful to a member who compiles elsewhere. Any other run publishes
-  no notice, having nothing to open.
+  Open output folder stays useful to a member who compiles elsewhere. Once clicked, the done
+  line says where the output moved to and the button goes. A clean `upgrade-models` run gets
+  the notice and no Move button: its output is folders to drop into an export, not an export.
+  Any other run publishes no notice, having nothing to open. A new input clears the previous
+  run's report, the log and the list included: the report is about the input it ran on.
 - No settings section: the tool has no settings (step 6: the teams list path is the compiler's).
 
 ## Dependencies

@@ -453,6 +453,8 @@ const VIEWS = {};
 //   commit()    run by structural() before render() (an undo snapshot); does
 //               nothing when nothing changed (structural() runs it for shell
 //               widgets too)
+//   closeRequest() the window's close asked of the view: returns true when it
+//               holds the close, after switching to itself and drawing its prompt
 // A document-level listener a tool script adds itself checks the view's own
 // state before acting: it fires while another tool is active.
 function registerTool(view) {
@@ -533,6 +535,10 @@ function setPesVersion(v) {
 }
 // A tool script's own S shadows the shell's, so it reads the selector through this.
 function shellPesVersion() { return S.pesVersion; }
+// A tool script switches the active tool through this (S is the shell's again).
+function switchToTool(id) { S.activeTool = id; render(); }
+// A tool script reports its status-bar activity through this (S.activities).
+function toolActivity(id, activity) { if (activity) S.activities[id] = activity; else delete S.activities[id]; }
 // The once-per-life auto-switch to the running game (ST-SIDE-05): a blocker
 // defers it without consuming it, a manual change consumes it.
 function pollRunningPes() {
@@ -1269,8 +1275,11 @@ const CATALOG = {
     { code: "unmigrated_content", severity: "Error", condition: "an input file no step migrates (step 10), entry by entry; a Note entry whose colors do not read is one, its line in the context, and so is a kit config that does not decode (step 5), its error in the context", consequence: "`line` (a Note entry), `error` (a kit config)" },
     { code: "migration_clean", severity: "Info", condition: "last line: no Error finding, and no finding drops anything (\"Verification\"'s clean migrated export); exit 0", consequence: "-" },
     { code: "migration_not_clean", severity: "Info", condition: "last line otherwise: the output is a draft for manual repair (\"Verification\"); exit 1, a Warning that drops a folder included, since the compile would lose it", consequence: "-" },
+    { code: "leftover_dropped", severity: "Warning", condition: "Content that never reached a player in game, outside the old format's layout or inside it (a refused portrait, a stray file, a second goalkeeper kit, a file directly in `Faces/`, `Boots/` or `Gloves/`); a Note entry's dropped part names its line.", consequence: "`line` (a Note entry)" },
+    { code: "mtl_stray_text_dropped", severity: "Info", condition: "An old `.mtl` held text between its elements, which the compiler's reader refuses.", consequence: "-" },
     { code: "roster_slot_empty", severity: "Warning", condition: "A face folder whose slot the save's roster leaves empty: it still becomes its player folder, with no `settings.toml` (`slot`).", consequence: "-" },
     { code: "merge_kept_shared", severity: "Info", condition: "A path a player folder and a merging item folder share with different bytes: the item folder is kept shared with a link instead (`path`, the first clashing path relative to the player folder).", consequence: "-" },
+    { code: "wearer_assumed", severity: "Info", condition: "`--loose` paired an item folder with the player its ID's position in the team's old block of 25 gives (the line names the folder's four-digit ID and the slot).", consequence: "`id`, `slot`" },
     { code: "kit_without_config", severity: "Warning", condition: "A kit slot a Note kit entry gives and no `Kit Configs` config does: the kit still forms, a placeholder the compiler fills (`slot`).", consequence: "-" },
     { code: "config_without_kit_entry", severity: "Warning", condition: "A kit slot a `Kit Configs` config gives and no Note kit entry does: its `config.toml` is written all the same, the kit offered as the old export never offered it (`slot`).", consequence: "-" },
     { code: "kit_texture_copied", severity: "Info", condition: "A kit's config field named another texture: the named texture was copied into the kit under the field's generic name (`kit`, `stem` the field's, `from` the source's slot and stem).", consequence: "-" },
@@ -1284,6 +1293,7 @@ const CATALOG = {
     { code: "settings_value_refused", severity: "Warning", condition: "A stored value no `settings.toml` key can hold, left out of the player's file (`slot`, `name`, `key` the dotted key, `value` the stored value).", consequence: "-" },
     { code: "settings_from_stripped_record", severity: "Info", condition: "A `settings.toml` generated from a stripped record: the record still is his look until the team's first Studio compile, which keeps its own file instead (`slot`, `name`).", consequence: "-" },
     { code: "settings_not_generated", severity: "Error", condition: "A player's `settings.toml` could not be generated at all (`slot`, `name`, `error` the failure's text).", consequence: "-" },
+    { code: "model_folder_destination", severity: "Info", condition: "`upgrade-models`: where an output folder goes once dropped into an export (`Players`, `Boots`, `Gloves`, or the export root for `Common/`).", consequence: "`into`" },
     { code: "nested_folders_fixed", severity: "Warning", condition: "content found nested one level down (exactly one usable root)", consequence: "-" },
     { code: "nested_root_ambiguous", severity: "Error", condition: "several nested child folders are usable export roots", consequence: "-" },
     { code: "nested_root_conflict", severity: "Error", condition: "loose root file collides with a flattened nested file at the same virtual path", consequence: "-" },
@@ -1587,6 +1597,18 @@ const WALK = [
   ["ST-CLI-01", "not drawn: CLI, conditions and notices print as stderr lines"],
   ["ST-CLI-02", "not drawn: manual CLI, the progress line redraws on a terminal's stderr"],
 ];
+// The draft controls' close request (EU-GUI-07's GIVEN): each registered
+// view's closeRequest hook in TOOLS order; the first returning true holds the
+// close (it made itself the active tool and drew its prompt). None holding
+// it, the window goes at once.
+function requestWindowClose() {
+  for (const t of TOOLS) {
+    const v = VIEWS[t.id];
+    if (v && v.closeRequest && v.closeRequest()) return;
+  }
+  window_("Close", weak("The window closes here."), [button("OK", closeWindow)]);
+}
+
 // The strip visibly outside Studio: every control writes S and redraws. The
 // weak labels group the controls by the surface they exercise.
 function renderDraftControls() {
@@ -1652,6 +1674,8 @@ function renderDraftControls() {
         text: "Info - bulk - filler line " + (S.log.length + i + 1) })))),
     button("Fatal line", () => appendLog([mkLine("source_changed_during_run", "run")])),
     grp("Launch"),
+    button("Request the window's close", requestWindowClose,
+      { title: "As the window's close button would: a tool holding unsaved work or a run asks first" }),
     h("label", { class: "cb" }, "Settings file",
       combo([["portable", "data\\settings.toml beside the exe"], ["config", "in the user folder"],
         ["none", "none: first run"]], S.settingsFile,
@@ -1861,11 +1885,15 @@ function mkLine(code, scope) {
   return { severity: r.severity, code, scope,
     text: `${r.severity} - ${scope} - ${code}: ${r.condition.replaceAll("`", "")}` };
 }
+// The Team compiler's stub's options: the code links open its catalog, a line
+// click highlights the scope's grid row.
+const LOG_COMPILER = { tool: "team-compiler", onLine: gotoScope };
 // The widget's single append point: while the view is not stuck to the bottom,
-// arrivals are counted for the jump indicator instead of moving it.
-function appendLog(lines) {
-  S.log.push(...lines);
-  if (!S.logStick) S.logNew += lines.length;
+// arrivals are counted for the jump indicator instead of moving it. st is the
+// panel state (the shell's S, or a view's own copy of its six log* fields).
+function appendLog(lines, st = S) {
+  st.log.push(...lines);
+  if (!st.logStick) st.logNew += lines.length;
   render();
 }
 const LOG_FILTERS = {
@@ -1873,7 +1901,7 @@ const LOG_FILTERS = {
   warnings: l => l.severity !== "Info",
   errors: l => l.severity === "Error" || l.severity === "Fatal",
 };
-const filteredLog = () => S.log.filter(LOG_FILTERS[S.logFilter]);
+const filteredLog = st => st.log.filter(LOG_FILTERS[st.logFilter]);
 // A finding line's scope is a grid row's team name; the click highlights it
 // (one at a time) and scrolls it into view. A scope with no row highlights
 // nothing.
@@ -1887,27 +1915,28 @@ function gotoScope(scope) {
 // row in the help (ST-HELP-03); the rest of a Warning, Error or Fatal line
 // cross-links to the grid (gui.md "Log panel", "Cross-linking").
 // sample wording: the link's tooltip.
-function logLine(l) {
+function logLine(l, opts) {
   const cls = l.severity === "Warning" ? " warn" : l.severity === "Info" ? "" : " err";
   const kids = [l.text];
-  if (l.code) {
-    const i = l.text.indexOf(l.code + ":");
-    if (i >= 0) kids.splice(0, 1, l.text.slice(0, i),
+  if (l.code && (CATALOG[opts.tool] || []).some(r => r.code === l.code)) {
+    // " <code>": the console's "<Severity> <code> at", the stub's "<scope> - <code>:".
+    const i = l.text.indexOf(" " + l.code) + 1;
+    if (i > 0) kids.splice(0, 1, l.text.slice(0, i),
       h("span", { class: "msg-link", title: "Open the help at this message",
         onclick: e => { e.stopPropagation();
-          openHelp({ tool: "team-compiler", topic: "messages", anchor: l.code }); } }, l.code),
+          openHelp({ tool: opts.tool, topic: "messages", anchor: l.code }); } }, l.code),
       l.text.slice(i + l.code.length));
   }
   return h("div", { class: "line" + cls,
-    onclick: l.severity === "Info" ? null : () => gotoScope(l.scope) }, kids);
+    onclick: l.severity === "Info" ? null : opts.onLine ? () => opts.onLine(l.scope) : null }, kids);
 }
 // The 4px handle above the header: a drag rewrites S.logHeight (min 60), the
 // body follows at the next render.
-function logDivider() {
+function logDivider(st) {
   return h("div", { class: "log-divider", onmousedown: e => {
     if (e.button !== 0) return;
-    const startY = e.clientY, startH = S.logHeight;
-    const move = ev => { S.logHeight = Math.max(60, startH + startY - ev.clientY); };
+    const startY = e.clientY, startH = st.logHeight;
+    const move = ev => { st.logHeight = Math.max(60, startH + startY - ev.clientY); };
     const up = () => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
@@ -1923,41 +1952,42 @@ function logDivider() {
 // clicking it) resumes. The rebuild restores the paused scrollTop, so arriving
 // lines never move the view. sample wording: the jump button's tooltip, the
 // chevrons' tooltips and the header's count line.
-function logBody(lines) {
-  const body = h("div", { class: "log-body", style: `height:${S.logHeight}px`,
+function logBody(st, lines, opts) {
+  const body = h("div", { class: "log-body", style: `height:${st.logHeight}px`,
     onscroll: e => {
       const b = e.currentTarget;
       if (b.scrollTop + b.clientHeight >= b.scrollHeight - 2) {
-        if (!S.logStick || S.logNew) { S.logStick = true; S.logNew = 0; render(); }
-      } else if (S.logStick) { S.logStick = false; render(); }
-    } }, lines.map(logLine));
+        if (!st.logStick || st.logNew) { st.logStick = true; st.logNew = 0; render(); }
+      } else if (st.logStick) { st.logStick = false; render(); }
+    } }, lines.map(l => logLine(l, opts)));
   return h("div", { class: "log-wrap" }, body,
-    !S.logStick && S.logNew > 0
+    !st.logStick && st.logNew > 0
       ? h("button", { class: "jump", title: "Jump to the newest line",
-          onclick: () => { S.logStick = true; S.logNew = 0; render(); } }, `↓ ${S.logNew} new`)
+          onclick: () => { st.logStick = true; st.logNew = 0; render(); } }, `↓ ${st.logNew} new`)
       : null);
 }
-function logPanel() {
-  const chevron = button(S.logCollapsed ? "▸" : "▾",
-    () => { S.logCollapsed = !S.logCollapsed; render(); },
-    { frame0: true, title: S.logCollapsed ? "Expand the log" : "Collapse the log" });
+function logPanel(st = S, opts = LOG_COMPILER) {
+  const chevron = button(st.logCollapsed ? "▸" : "▾",
+    () => { st.logCollapsed = !st.logCollapsed; render(); },
+    { frame0: true, title: st.logCollapsed ? "Expand the log" : "Collapse the log" });
   chevron.id = "log-chevron";
   const chips = [["all", "All"], ["warnings", "Warnings"], ["errors", "Errors"]].map(([v, label]) =>
-    selectable(label, S.logFilter === v, () => S.logFilter = v));
-  const shown = filteredLog();
+    selectable(label, st.logFilter === v, () => st.logFilter = v));
+  const shown = filteredLog(st);
   const drawn = shown.slice(-LOG_CAP);
   const count = shown.length > LOG_CAP ? `last ${LOG_CAP} of ${shown.length}`
-    : shown.length < S.log.length ? `${shown.length} of ${S.log.length} lines`
+    : shown.length < st.log.length ? `${shown.length} of ${st.log.length} lines`
     : `${shown.length} lines`;
   const header = h("div", { class: "log-header" }, chevron, strong("Log"), chips,
     h("span", { class: "weak log-count" }, count));
-  if (S.logCollapsed) return h("div", { class: "log-panel" }, header);
-  return h("div", { class: "log-panel" }, logDivider(), header, logBody(drawn));
+  if (st.logCollapsed) return h("div", { class: "log-panel" }, header);
+  return h("div", { class: "log-panel" }, logDivider(st), header, logBody(st, drawn, opts));
 }
 
 </script>
 <script src="tools/ruleset_editor.js"></script>
 <script src="tools/save_editor.js"></script>
+<script src="tools/export_upgrader.js"></script>
 <script>
 // Last, after the tool scripts: they must have registered their views with
 // registerTool first. The hash picks the first tool (index.html#ruleset-editor

@@ -11060,3 +11060,17 @@ selector were the page's own; in the host the shell is live, and a view that kep
 line of its own would draw a status bar the built shell does not have. The address picks the
 tool so a plan or a message can point at one draft with one link.
 Plan: `plans/core/gui.md` "Prototypes before implementation", the paragraph on the host page.
+
+## 2026-10-25 — export_upgrader — The view's arguments and report, where the plan was silent
+Decision: in the Export upgrader's view, the loose switch on disables the savefile field and
+keeps its value (not passed while loose is on); the field follows the selected version's
+discovered save until the member edits or picks one; after Move to exports and compile the
+done line names where the output went and the button goes; a clean `upgrade-models` run gets
+the notice but no Move button; a new input clears the previous run's report.
+Why: drawing the draft (8.17) met each case with no plan text. Clearing the field on loose
+would make a member trying both ways pick the save again; a field fixed at the first discovery
+would keep a PES 19 save after the selector moved to 21; a Move button left after the move
+would move nothing; model folders are dropped into an export by hand, so moving them into the
+exports folder would put loose folders there; a report kept across inputs would list another
+export's paths under the new one's name.
+Plan: `plans/export_upgrader.md` "GUI", the arguments and report bullets.

@@ -2463,3 +2463,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.16 (side-lead A): the drafts as one host page, `docs/prototypes/index.html`, with the Ruleset
   editor's and the Save editor's drafts as scripts under `tools/` and the portraits under `assets/`; side-by-side
   captures of all three old pages match but for the live shell; `scripts/bundle_drafts.py` makes the attachment.
+- **2026-10-25** — 8.17 (side-lead A): the Export upgrader's draft, `tools/export_upgrader.js`, every EU-GUI screen
+  drawn over real CLI runs of real old exports; the host's log panel takes its state and asks views for the window's
+  close; five gaps decided in the plan, five usability ideas to `PROPOSALS.md` (P32-P36).
