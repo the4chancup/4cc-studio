@@ -514,7 +514,7 @@ to the table first (a new dependency, asked for first):
   layout": 1280 × 800, fitted to 90% of the browser's `screen` size as Studio fits the
   monitor; CSS pixels are logical pixels, as egui's points are), centered on a
   desktop-colored page, with a size choice (the default, the smallest default of 1037 × 648,
-  the whole monitor) and the draft controls outside it. Like Studio Web's window ("Browser deployment: Studio Web") it resizes
+  the minimum of 960 × 600, the whole monitor) and the draft controls outside it. Like Studio Web's window ("Browser deployment: Studio Web") it resizes
   from its bottom-right corner and maximizes to the page from its title bar (a button, or a
   double-click on the bar), and the bar above it reads its size live, in pixels and as a
   share of the monitor, which is how the default size is tuned. A full-page draft in a maximized browser shows room the real window

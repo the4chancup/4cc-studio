@@ -263,10 +263,12 @@
 // 90% of the monitor's logical size. `screen` is in CSS pixels, which are logical pixels as
 // egui's points are (browser zoom at 100%), so the draft fits its window as Studio does. The
 // size choice also tries the smallest default a member meets (a 1080p monitor at 150%
-// scaling, 1280 × 720 logical) and the whole monitor.
+// scaling, 1280 × 720 logical), the minimum a member's resize can reach (960 × 600,
+// `window_size::MIN_SIZE`) and the whole monitor.
 const WIN_SIZES = [
   ["default", "Studio's default"],
   ["smallest", "the smallest default (1037 × 648)"],
+  ["minimum", "the minimum (960 × 600)"],
   ["monitor", "the whole monitor"],
 ];
 function fitted(monitorW, monitorH) {
@@ -278,7 +280,8 @@ function sizeWindow(which) {
   win.classList.remove("max");
   win.style.width = ""; win.style.height = "";
   const [w, hgt] = which === "monitor" ? [screen.width, screen.height]
-    : which === "smallest" ? fitted(1280, 720) : fitted(screen.width, screen.height);
+    : which === "smallest" ? fitted(1280, 720)
+    : which === "minimum" ? [960, 600] : fitted(screen.width, screen.height);
   win.style.setProperty("--win-w", w + "px");
   win.style.setProperty("--win-h", hgt + "px");
   const bar = document.getElementById("win-size");
