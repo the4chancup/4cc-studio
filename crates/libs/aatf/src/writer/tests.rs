@@ -74,6 +74,21 @@ fn wrap_item_wraps_the_field_over_the_width() {
     );
 }
 
+/// `wrap_item`'s first field stays on the head line however long (a
+/// field is never split): an overlong one leaves the `#{` line past
+/// `WIDTH` and the next field wraps under it.
+#[test]
+fn wrap_item_keeps_an_overlong_first_field_on_the_head_line() {
+    let lines = wrap_item("        ", vec!["x".repeat(120), "b: 2".to_string()]);
+    assert_eq!(
+        lines,
+        vec![
+            format!("        #{{ {},", "x".repeat(120)),
+            "           b: 2 },".to_string(),
+        ]
+    );
+}
+
 /// `wrap_list`'s continuation is aligned under the first item
 /// (`head`'s `[` and one more), and the first item never wraps: an
 /// overlong one stays on the head's line.
@@ -157,6 +172,40 @@ fn universal_wraps_onto_same_indent_lines() {
                 "    },".to_string(),
             ]
         );
+}
+
+/// `universal`'s first field stays on the header's next line however
+/// long: an overlong `fielded_at_a` sits alone (no blank line under
+/// `universal: #{`), `max_skill_cards` wrapping onto the next.
+#[test]
+fn universal_keeps_an_overlong_first_field_on_its_line() {
+    let universal = Universal {
+        registered_position_a: false,
+        fielded_at_a: vec![1; 40],
+        no_b_ratings: false,
+        b_uses_a_allowance: false,
+        gk_not_second_a: false,
+        age: None,
+        weight: None,
+        captain_required: false,
+        min_goalkeepers: 0,
+        max_skill_cards: 10,
+        max_com_styles: None,
+    };
+    let lines = universal_section(&universal);
+    assert!(
+        lines.iter().all(|line| !line.trim().is_empty()),
+        "{lines:?}"
+    );
+    assert_eq!(
+        lines,
+        vec![
+            "    universal: #{".to_string(),
+            format!("        fielded_at_a: [{}],", vec!["1"; 40].join(", ")),
+            "        max_skill_cards: 10,".to_string(),
+            "    },".to_string(),
+        ]
+    );
 }
 
 /// The sections' presence: `stats` writes only the list it holds

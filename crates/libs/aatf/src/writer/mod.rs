@@ -649,7 +649,7 @@ fn universal_section(universal: &Universal) -> Vec<String> {
         }
         line.push_str(piece);
     }
-    lines.push(line.trim_end().to_string());
+    lines.push(line);
     lines.push(format!("{INDENT}}},"));
     lines
 }
