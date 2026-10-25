@@ -11116,3 +11116,16 @@ immediate action, a bright colour if it is just a notice, the colour depending o
 type", and the activity moves right. Info is the link blue and warning the existing warning
 orange (the PES selector's), so no new colour but the success green.
 Plan: `plans/core/gui.md` "Status bar", the rule "A notice is seen, not found"; ST-BAR-02 to 04.
+
+## 2026-10-25 — save_editor — The aesthetics lock is a setting, "Aesthetics from exports", off by default
+Decision: the Save editor edits a player's aesthetics as 4ccEditor did, with no ownership line and
+no "Edit aesthetics anyway" switch, unless the new setting `aesthetics_from_exports` (its section,
+a checkbox) is on; on, the lock and the session switch behave as before. The stripped-player mark
+shows either way.
+Why: the maintainer, 2026-10-25: DBC7 is played on PES 17 with the old compiler, whose looks live
+in the save, so the editor must keep 4ccEditor's aesthetics editing without asking for a toggle,
+and not even show it; the lock stays available for cups compiled from exports, behind a setting
+off by default (their "studio mode", named for what it does since member-facing text never says
+"Studio"). The earlier reason for a session-only switch, that a setting could quietly unlock a
+machine, now applies inside the setting: on stays locked at every start.
+Plan: `plans/save_editor.md` "Read-only aesthetics"; SE-GUI-07, 11, 22, 23, 35.

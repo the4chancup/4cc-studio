@@ -23,6 +23,12 @@ use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};
 
 use crate::messages::TOOL_ID;
 
+/// The "Aesthetics from exports" row's hover text (`plans/save_editor.md`
+/// "Read-only aesthetics", the Unlock bullet's last sentence).
+const AESTHETICS_FROM_EXPORTS_TIP: &str = "On when the cup's looks are compiled from exports: \
+     the save's aesthetics are then read-only, behind Edit aesthetics anyway on the Appearance \
+     tab.";
+
 /// The Save editor, as registered with the `studio` binary. `view` is the window's
 /// state (`plans/save_editor.md` "Editing UI").
 #[derive(Default)]
@@ -59,12 +65,13 @@ impl StudioTool for Tool {
 
     fn view(&mut self, ui: &mut egui::Ui, ctx: &ToolContext) {
         // A settings error counts as an empty setting (the embedded
-        // official ruleset, Live AATF off).
+        // official ruleset, Live AATF off, the aesthetics lock off).
         let table = ctx.tool_settings(TOOL_ID);
         let tool_settings = settings::from_table(&table).unwrap_or_default();
         let file =
             session::rules::rules_file(&tool_settings.aatf_rules, ctx.paths().data_dir.as_deref());
         self.view.live_aatf = tool_settings.live_aatf;
+        self.view.aesthetics_from_exports = tool_settings.aesthetics_from_exports;
         let common = ctx.common();
         self.view.hide_ids = common.fpc_hide_ids();
         self.view
@@ -98,7 +105,12 @@ impl StudioTool for Tool {
             .and_then(toml::Value::as_str)
             .unwrap_or_default()
             .to_owned();
+        let mut aesthetics = table
+            .get("aesthetics_from_exports")
+            .and_then(toml::Value::as_bool)
+            .unwrap_or_default();
         let mut committed = false;
+        let mut committed_aesthetics = false;
         egui::Grid::new("save_editor_settings")
             .num_columns(2)
             .show(ui, |ui| {
@@ -115,11 +127,30 @@ impl StudioTool for Tool {
                         extensions: &["rhai"],
                     },
                 );
+                // The common grid's row shape: the label cell's tooltip
+                // leads with the key, the widget's is the plan's sentence.
+                let label = ui.label("Aesthetics from exports").on_hover_text(format!(
+                    "aesthetics_from_exports: {AESTHETICS_FROM_EXPORTS_TIP}"
+                ));
+                committed_aesthetics = ui
+                    .add(egui::Checkbox::without_text(&mut aesthetics))
+                    .labelled_by(label.id)
+                    .on_hover_text(AESTHETICS_FROM_EXPORTS_TIP)
+                    .changed();
+                ui.end_row();
             });
-        // The table as read with only `aatf_rules` replaced, so any other key
-        // survives.
+        // The table as read with only the changed keys replaced, so any
+        // other key survives.
         if committed {
             table.insert("aatf_rules".to_owned(), toml::Value::String(current));
+        }
+        if committed_aesthetics {
+            table.insert(
+                "aesthetics_from_exports".to_owned(),
+                toml::Value::Boolean(aesthetics),
+            );
+        }
+        if committed || committed_aesthetics {
             ctx.set_tool_settings(TOOL_ID, table);
         }
     }

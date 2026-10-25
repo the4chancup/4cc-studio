@@ -23,7 +23,8 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d next, its library half `Rules::player_tier` done in 0.0.1i; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
-the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; the in-game SE-GUI-34 left), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; the in-game SE-GUI-34 left, waiting: in-game tests are paused until the maintainer
+resumes them), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
@@ -1950,6 +1951,27 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     settings_menu,help_window,launch,title}.rs`, `studio/src/console.rs`,
     `save_editor/src/view/generate.rs`, `docs/prototypes/{index.html,tools/{save_editor,
     export_upgrader}.js}`
+  - [x] 8.28 the aesthetics lock behind the "Aesthetics from exports" setting, off by default
+    (the maintainer, 2026-10-25: DBC7 is on PES 17 with the old compiler, so the editor keeps
+    4ccEditor's aesthetics editing with no switch shown; `plans/save_editor.md` "Read-only
+    aesthetics"; DECISIONS "The aesthetics lock is a setting, …"): the draft first (the
+    Appearance tab's ownership line and switch only with the setting on; the settings menu's
+    checkbox), then `SaveEditorSettings.aesthetics_from_exports`, its checkbox and tooltip in
+    the settings menu's Save editor section, the window reading it each frame as `live_aatf`;
+    every lock site (`edit_aesthetics`) gated on the setting → verify: SE-GUI-35 red first,
+    SE-GUI-07, 11, 22, 23 with their new GIVENs, the default table's new key
+    Done 2026-10-25 (SWE-2, one run; brief `.tmp/8_28/brief_8_28.md`): the draft's
+    `aesFromExports` control and `aesUnlocked()` at every lock site; the setting, its settings
+    row with the plan's tooltip; `SaveView::aesthetics_locked()` the one guard (Appearance
+    groups, the Team, Player and Savefile menus, Ctrl+F, Ctrl+I); the ownership line and switch
+    drawn only under the setting; help 04-07 reworded. SE-GUI-35 drives the settings row into
+    the next `Tool::view` frame (red: "no ownership line under the default"; the setting
+    ignored by hand: "the tab's controls are enabled"); the locked and unlocked tests set the
+    setting on. The import dialog SE-GUI-22 and 35 name is not built in the window yet: the
+    step that builds it tests its aesthetics section under both scenarios. Files:
+    `save_editor/src/{lib,settings}.rs`, `view/{mod,menus,player_list}.rs`,
+    `view/appearance/mod.rs`, `view/tests/{appearance,player,team,savefile}.rs`,
+    `help/0{4,5,6,7}_*.md`, `docs/prototypes/tools/save_editor.js`
   - [ ] 8.21 the app's font in the drafts (`core/gui.md` "The host's other review aids"; after
     8.9f4e picks the bundled font): `@font-face` rules at egui's sizes → verify: one width
     constant's row (`TOP_ROW_ONE_LINE`) measured in the draft and in the built window agree

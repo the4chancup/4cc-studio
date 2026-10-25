@@ -37,7 +37,7 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
         let Some(session) = view.session.as_ref() else {
             return;
         };
-        (view.edit_aesthetics, session.version(), view.hide_ids)
+        (!view.aesthetics_locked(), session.version(), view.hide_ids)
     };
     // An out-of-band hide ID disables the FPC items behind the error's
     // text; the lock's ownership line covers the rest (SE-GUI-22).
@@ -119,7 +119,7 @@ pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
         let Some(session) = view.session.as_ref() else {
             return;
         };
-        (view.edit_aesthetics, session.version(), view.hide_ids)
+        (!view.aesthetics_locked(), session.version(), view.hide_ids)
     };
     // As on the Team menu: an out-of-band hide ID disables the toggle
     // behind the error's text.
@@ -205,7 +205,7 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
             });
             return;
         };
-        (view.edit_aesthetics, session.version())
+        (!view.aesthetics_locked(), session.version())
     };
     ui.menu_button("Savefile", |ui| {
         let Some(session) = view.session.as_mut() else {

@@ -1,6 +1,7 @@
 use pes_savefile::model::PlayerMotion;
 use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 use pes_savefile::schema::ingame_face::IngameFaceField;
+use studio_core::StudioTool;
 
 use super::*;
 
@@ -14,12 +15,14 @@ fn edit_anyway(nodes: &[accesskit::Node]) -> &accesskit::Node {
         .expect("the Edit aesthetics anyway switch")
 }
 
-/// The locked tab drawn on `version`: a fresh `SaveView` on the Appearance
-/// tab of `version`'s fixture, one frame's nodes in, window and view back.
+/// The locked tab drawn on `version` under "Aesthetics from exports": a
+/// fresh `SaveView` on the Appearance tab of `version`'s fixture, one
+/// frame's nodes in, window and view back.
 fn locked_tab(version: PesVersion, test: &str) -> (SaveView, Headless, Vec<accesskit::Node>) {
     let path = fixture(version, test);
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.tab = Tab::Appearance;
     let mut window = Headless::sized(1100.0, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -147,6 +150,7 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
     let path = fixture(PesVersion::Pes21, "appearance_lock_fox_fresh");
     let mut fresh = SaveView::new();
     fresh.open(&path);
+    fresh.aesthetics_from_exports = true;
     fresh.tab = Tab::Appearance;
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut fresh, &|| Vec::new(), None));
     assert!(
@@ -341,6 +345,7 @@ fn a_stripped_players_tab_says_the_look_is_the_tables_and_the_motions_are_read()
 
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.tab = Tab::Appearance;
     let mut window = Headless::sized(1100.0, 700.0);
     // 70101 is the selected player; every other player's id is set while
@@ -373,6 +378,7 @@ fn randomize_draws_within_pes21s_measured_tops_one_undo_entry() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.randomize_draw = Box::new(|top| top);
     let mut window = Headless::sized(1100.0, 700.0);
@@ -428,6 +434,7 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.randomize_draw = Box::new(|top| top);
     // The dribbling stand-in sits below the 700-point fold since the
@@ -496,6 +503,7 @@ fn a_stored_celebration_past_its_top_draws_as_stored_without_marking_the_player(
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     for _ in 0..5 {
@@ -648,6 +656,7 @@ fn randomize_low_end_stores_zero_for_one_based_and_one_for_celebrations() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.randomize_draw = Box::new(|_| 1);
     let mut window = Headless::sized(1100.0, 700.0);
@@ -701,6 +710,7 @@ fn a_physique_field_shows_stored_minus_limit_and_stores_shown_plus_it() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let neck_length = |view: &SaveView| {
         view.session
@@ -740,6 +750,7 @@ fn a_swatch_click_stores_its_index() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     let skin_of = |view: &SaveView| {
@@ -781,6 +792,7 @@ fn a_one_based_motion_shows_one_above_stored_within_the_measured_top() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     // Taller than 700 so the motion rows stay inside the scroll viewport
     // for the click and typing below (the physique cap lengthened the
@@ -852,6 +864,7 @@ fn a_combo_pick_stores_the_options_index_as_one_undo_entry() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let sleeves = |view: &SaveView| {
         view.session
@@ -902,6 +915,7 @@ fn the_player_gloves_checkbox_draws_the_runs_flag() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     // The box is bare: the label sits in the cell before it.
@@ -981,6 +995,7 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
 
@@ -1039,6 +1054,7 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
     let mut view17 = SaveView::new();
     view17.open(&path17);
     view17.tab = Tab::Appearance;
+    view17.aesthetics_from_exports = true;
     view17.edit_aesthetics = true;
     let mut window17 = Headless::sized(1100.0, 700.0);
     let (_, nodes, _) =
@@ -1061,6 +1077,7 @@ fn the_strip_and_motion_grids_wrap_after_the_fitted_pairs() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -1092,6 +1109,7 @@ fn the_boots_id_control_takes_the_records_bound() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -1145,6 +1163,7 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
     let mut view = SaveView::new();
     view.open(&path);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.selected = Some((701, 0));
     let mut window = Headless::sized(1100.0, 700.0);
@@ -1225,6 +1244,7 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
 fn the_physique_grid_holds_two_pairs_a_row() {
     let (mut view, _) = open_734_with("physique_two_pairs", &[], 0);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -1264,6 +1284,7 @@ fn the_physique_grid_holds_two_pairs_a_row() {
 fn the_strip_groups_hold_the_drafts_rows() {
     let (mut view, _) = open_734_with("strip_grid_rows", &[], 0);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let untucked = |view: &SaveView| player_entry(view, 73401).appearance.untucked;
     assert!(untucked(&view), "premise: the shirt is out (untucked)");
@@ -1325,6 +1346,7 @@ fn the_strip_groups_hold_the_drafts_rows() {
 fn the_motion_grid_holds_four_pairs_a_row() {
     let (mut view, _) = open_734_with("motion_four_pairs", &[], 0);
     view.tab = Tab::Appearance;
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -1370,6 +1392,7 @@ fn the_appearance_tab_fits_the_pane_the_shell_leaves() {
         let mut view = SaveView::new();
         view.open(&path);
         view.tab = Tab::Appearance;
+        view.aesthetics_from_exports = true;
         view.edit_aesthetics = true;
         if version == PesVersion::Pes17 {
             view.team = TeamChoice::Team(734);
@@ -1389,4 +1412,187 @@ fn the_appearance_tab_fits_the_pane_the_shell_leaves() {
             }
         }
     }
+}
+
+/// One `tool.view` frame's nodes (the settings-menu path's tests draw the
+/// real `Tool`, which refreshes the view's settings each frame).
+fn tool_frame(
+    window: &mut Headless,
+    tool: &mut crate::Tool,
+    ctx: &studio_core::ToolContext,
+) -> Vec<accesskit::Node> {
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, ctx));
+    nodes
+}
+
+/// `open_menu` for `tool.view` frames: the toolbar menu `menu`'s popup open
+/// (skipped when a previous call left `item` drawn), then the frame's nodes.
+fn open_tool_menu(
+    window: &mut Headless,
+    tool: &mut crate::Tool,
+    ctx: &studio_core::ToolContext,
+    menu: &str,
+    item: &str,
+) -> Vec<accesskit::Node> {
+    let nodes = tool_frame(window, tool, ctx);
+    if nodes.iter().any(|node| {
+        node.role() == Role::Button && node.label().is_some_and(|l| l.starts_with(item))
+    }) {
+        return nodes;
+    }
+    press_release(window, centre(menu_button(&nodes, menu)), |ui| {
+        tool.view(ui, ctx)
+    });
+    tool_frame(window, tool, ctx)
+}
+
+// SE-GUI-35
+#[test]
+fn the_setting_off_draws_no_lock_and_the_setting_on_locks_the_paths() {
+    // The default, a cup whose looks live in the save: no ownership line
+    // and no switch, every path SE-GUI-22 names enabled, and an
+    // Appearance edit landing like an Abilities one.
+    let path = fixture(PesVersion::Pes21, "aesthetics_setting_default");
+    let (ctx, _events_rx, _requests_rx) =
+        tool_context(path.parent().unwrap(), studio_core::Settings::default());
+    let mut tool = crate::Tool::new();
+    tool.view.open(&path);
+    tool.view.tab = Tab::Appearance;
+    let mut window = Headless::sized(1100.0, 1000.0);
+
+    let nodes = tool_frame(&mut window, &mut tool, &ctx);
+    assert!(
+        !nodes.iter().any(|node| {
+            node.value()
+                .is_some_and(|value| value.starts_with("Owned by the team's export"))
+        }),
+        "no ownership line under the default"
+    );
+    assert!(
+        !nodes.iter().any(|node| {
+            node.role() == Role::CheckBox && node.label() == Some("Edit aesthetics anyway")
+        }),
+        "no switch under the default"
+    );
+    let chest = right_of_label(&nodes, "Chest", Role::SpinButton)
+        .first()
+        .copied()
+        .expect("the Chest control");
+    assert!(!chest.is_disabled(), "the tab's controls are enabled");
+
+    let nodes = open_tool_menu(&mut window, &mut tool, &ctx, "Player", "Set all stats");
+    assert!(
+        !menu_item(&nodes, "Toggle FPC settings").is_disabled(),
+        "the FPC toggle is enabled"
+    );
+    let nodes = open_tool_menu(&mut window, &mut tool, &ctx, "Team", "Set edited flag");
+    for label in [
+        "Set boots and gloves IDs for everyone",
+        "Clear visual flags",
+        "Set FPC invisibility",
+        "Remove FPC invisibility",
+    ] {
+        assert!(
+            !menu_item(&nodes, label).is_disabled(),
+            "{label} is enabled"
+        );
+    }
+    let nodes = open_tool_menu(&mut window, &mut tool, &ctx, "Savefile", "Fix database");
+    assert!(
+        !menu_item(&nodes, "Fix database").is_disabled(),
+        "Fix database is enabled"
+    );
+
+    // The edit lands: premise Chest stores 7 (shown 0), typed 5 stores 12.
+    assert_eq!(
+        tool.view
+            .session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .appearance
+            .chest,
+        7,
+        "premise: Chest stores 7 (shown 0)"
+    );
+    press_release(&mut window, centre(chest), |ui| tool.view(ui, &ctx));
+    window.frame(vec![egui::Event::Text("5".to_owned())], |ui| {
+        tool.view(ui, &ctx)
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| tool.view(ui, &ctx),
+    );
+    assert_eq!(
+        tool.view
+            .session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .appearance
+            .chest,
+        12,
+        "typed 5 stores 12"
+    );
+
+    // The setting switched on in the settings menu: the next frame draws
+    // the switch, off, and the paths disabled.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.settings_view(ui, &ctx));
+    let checkbox = right_of_label(&nodes, "Aesthetics from exports", Role::CheckBox)
+        .first()
+        .copied()
+        .expect("the setting's checkbox");
+    assert_eq!(
+        checkbox.toggled(),
+        Some(accesskit::Toggled::False),
+        "off by default"
+    );
+    // The checkbox's hover text is the plan's sentence.
+    let at = centre(checkbox);
+    window.frame(vec![egui::Event::PointerMoved(egui::Pos2::ZERO)], |ui| {
+        tool.settings_view(ui, &ctx)
+    });
+    window.frame(vec![egui::Event::PointerMoved(at)], |ui| {
+        tool.settings_view(ui, &ctx)
+    });
+    let mut tooltip = None;
+    for _ in 0..90 {
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.settings_view(ui, &ctx));
+        if let Some(value) = nodes
+            .iter()
+            .filter_map(|node| node.value())
+            .find(|value| value.contains("the cup's looks are compiled from exports"))
+        {
+            tooltip = Some(value.to_owned());
+            break;
+        }
+    }
+    assert_eq!(
+        tooltip.as_deref(),
+        Some(
+            "On when the cup's looks are compiled from exports: the save's aesthetics are \
+             then read-only, behind Edit aesthetics anyway on the Appearance tab."
+        ),
+        "the checkbox's hover text"
+    );
+    press_release(&mut window, at, |ui| tool.settings_view(ui, &ctx));
+    let nodes = tool_frame(&mut window, &mut tool, &ctx);
+    assert_eq!(
+        edit_anyway(&nodes).toggled(),
+        Some(accesskit::Toggled::False),
+        "the switch drawn, off"
+    );
+    assert!(
+        right_of_label(&nodes, "Chest", Role::SpinButton)[0].is_disabled(),
+        "locked once the setting is on"
+    );
+    let nodes = open_tool_menu(&mut window, &mut tool, &ctx, "Team", "Set edited flag");
+    assert!(
+        menu_item(&nodes, "Clear visual flags").is_disabled(),
+        "the lock's paths are disabled"
+    );
 }

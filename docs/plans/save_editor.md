@@ -248,7 +248,8 @@ mirroring 4ccEditor's structure without its dialog sprawl:
     style (boots ID, gloves ID — any player's, 0 = normal hands — taping, spectacles,
     sleeves, inners, socks, undershorts, shirttail, the player-gloves checkbox), motion (hunching, arm movement, kick
     motions, gc1/gc2, randomize; dribbling motion 20+), skin/iris color.
-    **Read-only by default** — see "Read-only aesthetics" below.
+    Editable, as in 4ccEditor, unless the "Aesthetics from exports" setting is on — see
+    "Read-only aesthetics" below.
     The motion fields' ranges are the version's measured ones (`pes_savefile`'s `motion_top`:
     a 1-based motion runs from 1 to its top plus one, a goal celebration from 0, OFF, to its
     top). **Randomize** sets every motion but the dribbling motion to a value drawn from 1 to
@@ -544,7 +545,12 @@ appearance records are stripped (see "Stripped save" below); on pre-Fox it resol
 [Savefile plan](pes_savefile/operations.md)), and the save editor
 applies the patch. Hand-editing the same fields here
 would create the two-sources problem — the next patch silently overwrites the hand edit, or the
-hand edit silently diverges from the DLC — so the editor **does not edit aesthetics by default**:
+hand edit silently diverges from the DLC. That holds for a cup whose looks this suite's Team
+compiler builds; a cup whose save is the looks' home (DBC7: PES 17, compiled with the old
+tooling) edits them in the save as 4ccEditor did. So the lock is a setting of the Save
+editor's section, **"Aesthetics from exports"** (`aesthetics_from_exports`), **off by
+default**: off, every aesthetics path below edits as 4ccEditor's did, with no ownership line
+and no switch drawn; on, the editor **does not edit aesthetics** but through the switch:
 
 - The Appearance tab renders its values below the Cutscenes group disabled, with one line of explanation ("Owned by the
   team's export — edit its `settings.toml` (the face, hair and iris: its `ingame_face.toml`)
@@ -560,14 +566,18 @@ hand edit silently diverges from the DLC — so the editor **does not edit aesth
   applied through the undo pipeline; saved only when the user saves. A team the save lacks is
   reported and skipped; the rest applies. Patches apply cleanly in sequence — a midcup patch
   carries only the teams it recompiled and only the fields their compile resolved.
-- **Unlock: "Edit aesthetics anyway"**, a switch on the Appearance tab, off at every start of the
-  tool. Turning it on re-enables all the paths above for the session, with the note that on
+- **Unlock: "Edit aesthetics anyway"**, a switch on the Appearance tab, drawn only while the
+  setting is on, off at every start of the tool. Turning it on re-enables all the paths above for the session, with the note that on
   pre-Fox a later patch overwrites whatever is edited by hand, and on a stripped Fox save the game
   takes the player's look from the database tables and reads only his motions (they sit before
   the appearance block). It exists for the cases the rule does not cover — a
   team with no export, a cup-night fix when recompiling is not an option — and it is a session
-  switch rather than a setting so that the default cannot quietly become "unlocked" on the
-  savefile builder's machine.
+  switch rather than a second setting so that a machine set to "Aesthetics from exports" cannot
+  quietly stay unlocked. The setting is off by default because the cup the suite serves first
+  (DBC7) keeps its looks in the save; a stripped player's mark shows in both states, so an
+  edit the game will not read is never silent. Its row in the settings menu carries the
+  tooltip "On when the cup's looks are compiled from exports: the save's aesthetics are then
+  read-only, behind Edit aesthetics anyway on the Appearance tab."
 
 Gameplay data (stats, skills, positions), team data and tactics are unaffected: they were never
 the compiler's, and the savefile builder edits them as before.
@@ -718,8 +728,9 @@ What exists of this is in `spec/save_editor.md` "Configurable AATF rules".
 
 What this editor adds on top of the lib:
 
-- **The rules file's row.** The settings menu's Save editor section is one path row, "AATF
-  rules file" (`aatf_rules`; `core/gui.md` "Settings menu"), its Browse picking a `.rhai` file;
+- **The rules file's row.** The settings menu's Save editor section holds a path row, "AATF
+  rules file" (`aatf_rules`; `core/gui.md` "Settings menu"), and the "Aesthetics from exports"
+  checkbox ("Read-only aesthetics"). The row's Browse picks a `.rhai` file;
   empty is the embedded official ruleset, and a relative path resolves in the data directory
   as `check-aatf` resolves it. The window reads the setting every frame, so a commit reaches
   the badges, the quick actions and the AATF panels on the next one.
@@ -876,7 +887,7 @@ SE-GUI-06  GIVEN a PES 17 save
                 controls (Appearance's Cutscenes group) are disabled with a tooltip naming the
                 first version that has them, in the same place as on a PES 21 save, where they
                 are enabled
-SE-GUI-07  GIVEN the save open
+SE-GUI-07  GIVEN the save open with "Aesthetics from exports" on
            WHEN the Appearance tab is drawn
            THEN its values below the Cutscenes group are disabled with the line saying the
                 team's export owns them, the Cutscenes group's editable (and
@@ -906,7 +917,8 @@ SE-GUI-10  GIVEN the save open on a team
                 settings tab, and saved
            THEN the reopened file holds the values; GIVEN #FF8000 picked as color 1 THEN the
                 reopened team's color 1 is (63, 32, 0) and the team bar shows it as #FF8200
-SE-GUI-11  GIVEN a player without FPC and "Edit aesthetics anyway" switched on
+SE-GUI-11  GIVEN a player without FPC and the aesthetics editable (the setting off, or on
+                with "Edit aesthetics anyway" switched on)
            WHEN Ctrl+I, or Hide body, is used
            THEN his record carries the hide preset's values and the tab reads "FPC: hidden
                 body"; Ctrl+I again, or Show body, gives him the show preset's; GIVEN a player
@@ -987,19 +999,28 @@ SE-GUI-21  manual  GIVEN the save's game running
                    WHEN Save is clicked
                    THEN it is refused naming the game, as the CLI's writing commands are
                         (SE-CLI-02), and the file is unchanged
-SE-GUI-22  GIVEN the save open with "Edit aesthetics anyway" off (every start of the tool)
+SE-GUI-22  GIVEN the save open with "Aesthetics from exports" on and "Edit aesthetics
+                anyway" off (every start of the tool)
            WHEN the Appearance tab, the team operations menu, the Savefile menu and the
                 import dialog are drawn
            THEN the FPC toggle and the team-wide FPC switch, the boots and gloves assignment,
                 Clear visual flags, Fix database and the imports' aesthetics section
                 are disabled, each with the ownership line as its tooltip, while Apply
                 aesthetics patch is enabled
-SE-GUI-23  GIVEN the save open on a team and "Edit aesthetics anyway" on
+SE-GUI-23  GIVEN the save open on a team and the aesthetics editable (the setting off, or on
+                with "Edit aesthetics anyway" switched on)
            WHEN a team operation runs from its menu (Set edited flag, Set boots and gloves for
                 everyone in incremental mode, Set player names to positions, Clear visual flags,
                 the last also by Ctrl+F)
            THEN every player of the team carries the operation's values, as one undoable edit,
                 and the saved file holds them
+SE-GUI-35  GIVEN the save open with "Aesthetics from exports" off (the default)
+           WHEN the Appearance tab, the team operations menu, the Savefile menu and the
+                import dialog are drawn
+           THEN no ownership line and no "Edit aesthetics anyway" switch are drawn, every
+                path SE-GUI-22 names is enabled, and an Appearance edit lands in the record
+                as on the Abilities tab; GIVEN the setting switched on in the settings menu
+                THEN the next frame draws the switch, off, and the paths disabled
 SE-GUI-24  GIVEN the save open on a player
            WHEN Set all stats to N, Bump all stats by N, Copy stats from another player or Swap
                 stats with him runs from the player operations

@@ -40,6 +40,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         cards: _,
         portraits: _,
         generation: _,
+        aesthetics_from_exports: _,
         edit_aesthetics: _,
         strip_again: _,
         boglo: _,

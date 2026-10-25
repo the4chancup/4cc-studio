@@ -2309,7 +2309,10 @@ const D = { sample: "pes17",
   set selectorVersion(v) { setPesVersion(v); },
   gameRunning: false,
   appearanceIds: "all_set", ruleset: "official", pickerSugg: false, liveTeamRows: true,
-  portraits: true };
+  portraits: true,
+  // "Aesthetics from exports", the settings menu's checkbox the draft has
+  // no menu for, so it sits among the draft controls (SE-GUI-35's GIVEN).
+  aesFromExports: false };
 const S = { save: null, baseline: null, teamSel: "all", filter: "", sel: null,
   tab: "abilities", editAnyway: false, undo: [], redo: [], recents: [],
   // The colour picker: the open popup (its field's key, the shown colour it
@@ -2336,6 +2339,10 @@ const version = () => curSave().version;
 // The Fox engine is PES 18 to 21 (pes_version's Engine), the stripping and
 // ownership rules' boundary.
 const isFox = () => version() >= 18;
+// The aesthetics lock's enable ("Read-only aesthetics"): with "Aesthetics
+// from exports" off every aesthetics path edits as on any other tab; with
+// it on, only through the session's "Edit aesthetics anyway" switch.
+const aesUnlocked = () => !D.aesFromExports || S.editAnyway;
 
 // ---- Name colour codes (spec/pes_savefile/model.md "Name colour codes") ----
 // \x11c + 8 hex digits (RRGGBBAA) colours the text after it; \x11d resets.
@@ -2653,6 +2660,8 @@ function draftControls() {
     h("label", { class: "cb", title: "SE-GUI-09" }, "AATF ruleset",
       combo(Object.entries(RULESETS).map(([k, r]) => [k, r.label]), D.ruleset,
         v => D.ruleset = v)),
+    h("span", { title: "SE-GUI-35: the settings menu's checkbox (the draft has no settings menu); on when the cup's looks are compiled from exports: the save's aesthetics are then read-only, behind Edit aesthetics anyway on the Appearance tab" },
+      cb("Aesthetics from exports", D.aesFromExports, v => { D.aesFromExports = v; render(); })),
     h("span", { title: "SE-GUI-30: the draft recomputes player rows only; off drops the team's rows so the empty state can be reached" },
       cb("Live AATF keeps the sample's team rows", D.liveTeamRows, v => D.liveTeamRows = v)),
     h("span", { title: "the picker's host-supplied swatches; the Save editor passes none" },
@@ -2683,6 +2692,7 @@ const WALK = [
   ["SE-GUI-08", "drag a list row onto another: the dragged player's name, stats and look land on the target slot, those between shift one along, while every slot keeps its id, shirt number and captain mark; the save is marked unsaved"],
   ["SE-GUI-09", "the quick actions on the Abilities tab follow the ruleset control: Gold/Silver/Bronze/Goalkeeper/Regular under official, VTL11 and DBC7 their own"],
   ["SE-GUI-11", "switch Edit aesthetics anyway on; the Appearance tab's FPC group: Hide body (or Ctrl+I) gives the hide preset and reads 'FPC: hidden body', Show body (or Ctrl+I again) the show preset; a player with his own boots ID keeps it"],
+  ["SE-GUI-35", "the 'Aesthetics from exports' draft control off (the default): the Appearance tab draws no ownership line and no switch and every path edits; on, the lock draws"],
   ["SE-GUI-12", "the Tactics tab: drag a pitch marker (it snaps to the stored grid, undoable), drop a bench row on a marker to swap, arm a set-piece chip and click a marker, arm Join attack and click two markers"],
   ["SE-GUI-25", "the tab's menus: Copy preset 1 to 2, then Swap Kick-off and In-possession; each is one undoable edit"],
   ["card badges", "the Abilities tab shows the player's own tier's cards left next to the pickers; under DBC7 the count stays positive (no card is capped), under the official ruleset ticking cards takes it to 0 then red"],
@@ -2749,8 +2759,8 @@ function renderToolbar() {
 function onKey(e) {
   if ((e.ctrlKey || e.metaKey) && S.save) {
     if (e.key === "s") { e.preventDefault(); saveFile(); render(); }
-    else if (e.key === "i" && S.editAnyway) { e.preventDefault(); fpcToggle(curPlayer()); render(); }
-    else if (e.key === "f" && S.editAnyway) { e.preventDefault(); clearVisualFlags(); }
+    else if (e.key === "i" && aesUnlocked()) { e.preventDefault(); fpcToggle(curPlayer()); render(); }
+    else if (e.key === "f" && aesUnlocked()) { e.preventDefault(); clearVisualFlags(); }
   }
   if (e.key === "Escape" && S.picker) { closePicker(); render(); }
 }
@@ -2843,7 +2853,7 @@ function playerMenu() {
   return menu("Player", [
     ["Set all stats\u2026", dlgSetStats],
     ["Bump all stats\u2026", dlgBumpStats],
-    ["Toggle FPC settings  Ctrl+I", () => { fpcToggle(p); render(); }, !S.editAnyway, ownershipTip()],
+    ["Toggle FPC settings  Ctrl+I", () => { fpcToggle(p); render(); }, !aesUnlocked(), ownershipTip()],
     "-",
     ["Copy stats from\u2026", () => dlgCopySwap(p, "copy")],
     ["Swap stats with\u2026", () => dlgCopySwap(p, "swap")],
@@ -2857,19 +2867,19 @@ function teamMenu() {
   return menu("Team", [
     ["Set edited flag", () => { edit("Set edited flag", () => {
       for (const p of t.players) p.edit_flags.player = true; }); render(); }],
-    ["Set boots and gloves IDs for everyone\u2026", dlgBoglo, !S.editAnyway, ownershipTip()],
+    ["Set boots and gloves IDs for everyone\u2026", dlgBoglo, !aesUnlocked(), ownershipTip()],
     ["Set player names to positions", () => { edit("Names to positions", () => {
       for (const p of t.players) p.name = POS_LONG[p.positions.registered]; }); render(); }],
     "-",
-    ["Clear visual flags  Ctrl+F", clearVisualFlags, !S.editAnyway, ownershipTip()],
-    ["Set FPC invisibility", () => teamFpc(true), !S.editAnyway, ownershipTip()],
-    ["Remove FPC invisibility", () => teamFpc(false), !S.editAnyway, ownershipTip()],
+    ["Clear visual flags  Ctrl+F", clearVisualFlags, !aesUnlocked(), ownershipTip()],
+    ["Set FPC invisibility", () => teamFpc(true), !aesUnlocked(), ownershipTip()],
+    ["Remove FPC invisibility", () => teamFpc(false), !aesUnlocked(), ownershipTip()],
   ]);
 }
 function databaseMenu() {
   return menu("Savefile", [
     ["Output rosters to TSV\u2026", dlgTsv],
-    ["Fix database\u2026", dlgFixDb, !S.editAnyway, ownershipTip()],
+    ["Fix database\u2026", dlgFixDb, !aesUnlocked(), ownershipTip()],
   ]);
 }
 const POS_LONG = { GK: "Goalkeeper", CB: "Center Back", LB: "Left Back", RB: "Right Back",
@@ -3357,23 +3367,24 @@ function abilitiesTab(p) {
     strong("COM playing styles"), named(coms, "com-styles"));
 }
 
-// ---- Appearance (SE-GUI-07, 20) ----
-// Disabled by default: the team's export owns these fields ("Read-only
-// aesthetics"). The palette indices draw as a choice of the palette's entries;
+// ---- Appearance (SE-GUI-07, 20, 35) ----
+// The team's export owns these fields while "Aesthetics from exports" is
+// on ("Read-only aesthetics"); off, every control edits. The palette
+// indices draw as a choice of the palette's entries;
 // the version-dependent motion ranges are the TOML comments'.
 function paletteRow(palette, value, put, p, label) {
   const entries = palette === "skin" && isFox() ? PALETTES.skin.slice(0, 7) : PALETTES[palette];
-  return h("span", { class: "palette" + (S.editAnyway ? "" : " off") },
+  return h("span", { class: "palette" + (aesUnlocked() ? "" : " off") },
     entries.map(([lbl, hex], i) => h("span", {
       class: "swatch" + (i === value ? " on" : ""), style: "background:" + hex,
       title: lbl,
-      onclick: () => { if (!S.editAnyway || i === value) return;
+      onclick: () => { if (!aesUnlocked() || i === value) return;
         edit(label, () => put(p, i)); render(); } })));
 }
 // sample wording: the ownership line, the switch's note and the stripped note;
 // "Edit aesthetics anyway" is the plan's own label.
 function appearanceTab(p) {
-  const en = S.editAnyway;
+  const en = aesUnlocked();
   const dis = w => { w.querySelectorAll("input, select, button").forEach(x => x.disabled = !en);
     if (w.disabled !== undefined) w.disabled = !en; return w; };
   const own = !isFox()
@@ -3398,8 +3409,10 @@ function appearanceTab(p) {
     h("div", { class: "row" }, weak("These only change how the player appears in cutscenes.")),
     h("table", { class: "grid" },
       h("tr", {}, lbl("Star"), fld(starIn, 19), lbl("Playing attitude"), fld(attIn, 20))));
-  const lines = [row(own), row(sw)];
-  if (en) lines.push(h("div", { class: "row" }, weak(!isFox()
+  // The ownership line and the switch draw only while the setting is on;
+  // off, the groups edit without either.
+  const lines = D.aesFromExports ? [row(own), row(sw)] : [];
+  if (D.aesFromExports && S.editAnyway) lines.push(h("div", { class: "row" }, weak(!isFox()
     ? "A later patch overwrites whatever is edited by hand."
     : "On a stripped save the game does not read these.")));
   if (isStripped(p)) lines.push(h("div", { class: "row warn", id: "stripped-note" },
@@ -5148,7 +5161,7 @@ function ixRefusal(d) {
   if (d.format === "4ccs" && d.legacy.players.length > t.players.length)
     return "error: the file holds " + d.legacy.players.length
       + " records for " + t.players.length + " rostered players";
-  if (!S.ix.sections.aesthetics || !S.editAnyway) return null;
+  if (!S.ix.sections.aesthetics || !aesUnlocked()) return null;
   for (const { slot, src, dst } of ixSlots(d, t)) {
     if (!dst) continue;
     const key = "players." + String(slot).padStart(2, "0");
@@ -5207,7 +5220,7 @@ function ixWarnings(d) {
     const key = pp(slot);
     if (!dst) { warn("import_slot_empty (slot=" + String(slot).padStart(2, "0") + ")"); continue; }
     if (!foreign) continue;
-    const s = { ...S.ix.sections, aesthetics: S.ix.sections.aesthetics && S.editAnyway };
+    const s = { ...S.ix.sections, aesthetics: S.ix.sections.aesthetics && aesUnlocked() };
     if (s.gameplay) {
       for (const k of TOML_STAT_ORDER)
         if (src.stats && src.stats[k] !== undefined
@@ -5249,7 +5262,7 @@ function ixApply(d) {
   const v = version(), t = curTeam();
   // The aesthetics choice is drawn off under the read-only lock whatever its
   // remembered state: the lock guards the write, not the checkbox.
-  const s = { ...S.ix.sections, aesthetics: S.ix.sections.aesthetics && S.editAnyway };
+  const s = { ...S.ix.sections, aesthetics: S.ix.sections.aesthetics && aesUnlocked() };
   edit("Import " + d.label, () => {
     if (s.tactics) {
       if (d.format === "toml" || d.format === "ted")
@@ -5479,7 +5492,7 @@ function interchangePanel() {
     c.append(h("div", { class: "row err", id: "ix-refused" }, refusal));
   else {
     const sec = (key, label) => {
-      const lockOut = key === "aesthetics" && !S.editAnyway;
+      const lockOut = key === "aesthetics" && !aesUnlocked();
       return h("span", { title: lockOut ? ownershipTip() : "" },
         h("label", { class: "cb" },
           h("input", { type: "checkbox", id: "ix-sec-" + key,
@@ -5500,7 +5513,7 @@ function interchangePanel() {
     }
     c.append(h("div", { class: "row" },
       button("Apply", () => { ixApply(d); S.ix.applied = d.label; render(); },
-        { disabled: !held.some(k => S.ix.sections[k] && (k !== "aesthetics" || S.editAnyway)),
+        { disabled: !held.some(k => S.ix.sections[k] && (k !== "aesthetics" || aesUnlocked())),
           title: "Write the chosen sections, one undoable edit" }),
       weak("one undoable edit; unsaved until Save.")));
     if (S.ix.applied)
@@ -5629,6 +5642,7 @@ function linkKeys() {
   if (D.appearanceIds !== "all_set") k.appids = D.appearanceIds;
   if (!D.liveTeamRows) k.liverows = "0";
   if (!D.portraits) k.portraits = "0";
+  if (D.aesFromExports) k.aesexp = "1";
   if (S.editAnyway) k.anyway = "1";
   if (S.filter) k.filter = S.filter;
   if (D.gameRunning) k.running = "1";
@@ -5669,6 +5683,10 @@ function linkOpen(scr, keys) {
   if (keys.save !== undefined) {
     if (SAVES[keys.save]) openSave(keys.save);
     else linkWarn("save=" + keys.save);
+  }
+  if (keys.aesexp !== undefined) {
+    if (keys.aesexp === "0" || keys.aesexp === "1") D.aesFromExports = keys.aesexp === "1";
+    else linkWarn("aesexp=" + keys.aesexp);
   }
   if (keys.anyway !== undefined) {
     if (keys.anyway === "0" || keys.anyway === "1") S.editAnyway = keys.anyway === "1";

@@ -2,13 +2,14 @@
 //! bullet and "Read-only aesthetics"; the draft's `appearanceTab` and
 //! `paletteRow`): the Cutscenes group first (star and playing attitude,
 //! which change only cutscenes and so sit outside the lock), then the
-//! ownership line and the "Edit aesthetics anyway" switch over the locked
-//! groups — Edit flags, Physique, Strip style, Motion, Colours. Locked at
-//! every start of the tool (`SaveView`'s
-//! `edit_aesthetics`), every control of the groups disabled under the
-//! ownership line as hover; the switch re-enables them for the rest of the
-//! run. A stripped player gets the draft's stripped line whatever the
-//! switch. Edits go through `Session::edit_player` under the widget's id,
+//! groups — Edit flags, Physique, Strip style, Motion, Colours. With the
+//! "Aesthetics from exports" setting off the tab edits as every other does;
+//! with it on, the ownership line and the "Edit aesthetics anyway" switch
+//! (`SaveView`'s `edit_aesthetics`, off at every start of the tool) draw
+//! over the groups, every control disabled under the ownership line as
+//! hover and the switch re-enabling them for the rest of the run. A
+//! stripped player gets the draft's stripped line either way. Edits go
+//! through `Session::edit_player` under the widget's id,
 //! one undo entry per gesture, as `abilities.rs` does; a stored value past
 //! a control's range draws as stored (`clamp_existing_to_range` off) and
 //! changes only when edited.
@@ -69,6 +70,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((_, _, player_id)) = selected_player(view) else {
         return;
     };
+    // The setting decides the lock's draw (`aesthetics_locked`): with it
+    // off there is no ownership line and no switch and the groups edit;
+    // with it on the ownership line and the session's switch.
+    let (setting, locked) = (view.aesthetics_from_exports, view.aesthetics_locked());
     let SaveView {
         session,
         edit_aesthetics,
@@ -92,16 +97,18 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // the Abilities tab.
     ui.push_id((generation, player_id), |ui| {
         cutscenes(ui, session, player_id, &player.stats);
-        ownership_line(ui, version);
-        ui.checkbox(edit_aesthetics, "Edit aesthetics anyway");
-        if *edit_aesthetics {
-            ui.weak(match version.engine() {
-                Engine::PreFox => "A later patch overwrites whatever is edited by hand.",
-                Engine::Fox => {
-                    "On a stripped save the game still reads the motions; \
-                     the look comes from the database tables."
-                }
-            });
+        if setting {
+            ownership_line(ui, version);
+            ui.checkbox(edit_aesthetics, "Edit aesthetics anyway");
+            if *edit_aesthetics {
+                ui.weak(match version.engine() {
+                    Engine::PreFox => "A later patch overwrites whatever is edited by hand.",
+                    Engine::Fox => {
+                        "On a stripped save the game still reads the motions; \
+                         the look comes from the database tables."
+                    }
+                });
+            }
         }
         if stripped {
             ui.colored_label(
@@ -110,7 +117,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                  the motions are still read.",
             );
         }
-        ui.add_enabled_ui(*edit_aesthetics, |ui| {
+        ui.add_enabled_ui(!locked, |ui| {
             groups(
                 ui,
                 session,

@@ -124,6 +124,11 @@ pub(crate) struct SaveView {
     /// state (a text field's undo history, a control's in-progress edit)
     /// never crosses into the next save's same player id.
     generation: u64,
+    /// "Aesthetics from exports" (`plans/save_editor.md` "Read-only
+    /// aesthetics"), refreshed from the setting each `Tool::view` frame as
+    /// `live_aatf` is; off in the tests' view-only frames, which set it by
+    /// hand as `edit_aesthetics`'s GIVEN.
+    pub(crate) aesthetics_from_exports: bool,
     /// "Edit aesthetics anyway" (`plans/save_editor.md` "Read-only
     /// aesthetics", the Unlock bullet): off at every start of the tool, and
     /// deliberately not reset when another save opens — a session switch,
@@ -247,6 +252,7 @@ impl SaveView {
             cards: None,
             portraits: portraits::Portraits::new(),
             generation: 0,
+            aesthetics_from_exports: false,
             edit_aesthetics: false,
             strip_again: None,
             boglo: None,
@@ -269,6 +275,14 @@ impl SaveView {
         version: PesVersion,
     ) {
         self.portraits.select(ctx, pes_folder, version);
+    }
+
+    /// The aesthetics lock (the section's lock bullet): on while the
+    /// "Aesthetics from exports" setting is and the session's "Edit
+    /// aesthetics anyway" switch is not. The one function the locked
+    /// paths' guards read, so no site can forget the setting.
+    pub(crate) fn aesthetics_locked(&self) -> bool {
+        self.aesthetics_from_exports && !self.edit_aesthetics
     }
 
     /// Opens the save at `path`: on success the selector reads `ALL`, the
@@ -534,14 +548,14 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         }
     });
     if clear_flags_key
-        && view.edit_aesthetics
+        && !view.aesthetics_locked()
         && let Some((team_id, _, _)) = selected_player(view)
         && let Some(session) = view.session.as_mut()
     {
         session.clear_visual_flags(team_id);
     }
     if fpc_key
-        && view.edit_aesthetics
+        && !view.aesthetics_locked()
         && let Ok(ids) = view.hide_ids
         && let Some((_, _, player_id)) = selected_player(view)
         && let Some(session) = view.session.as_mut()

@@ -32,7 +32,7 @@ roster slot in one undoable step:
   Custom skin into Light.
 
 The boots and gloves item, Clear visual flags and the FPC items stay
-disabled while the aesthetics lock is on (the Appearance tab's **Edit
-aesthetics anyway** switch): they write what the team's export owns, so a
+disabled while the aesthetics lock is on (see the Appearance tab): they
+write what the team's export owns, so a
 hand edit would be overwritten the next time the team is recompiled or
 patched. Ctrl+F does nothing while the lock is on.

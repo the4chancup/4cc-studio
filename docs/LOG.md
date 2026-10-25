@@ -2488,3 +2488,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.27: the status bar's notice in the middle, centred, in its kind's bright colour (success
   green, information blue, warning orange; a darker green on the light theme); another tool's activity on the
   right. The maintainer's ruling after trying the Generate dialogs; colours checked on a rendered page.
+- **2026-10-25** — 8.28: the Save editor edits aesthetics as 4ccEditor did, with no lock or switch drawn, unless the
+  new setting "Aesthetics from exports" (off by default) is on; DBC7 keeps its looks in the save. One guard,
+  `aesthetics_locked()`, at every lock site; SE-GUI-35 drives the settings row into the next frame.

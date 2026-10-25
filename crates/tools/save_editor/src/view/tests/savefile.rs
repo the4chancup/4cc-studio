@@ -64,6 +64,7 @@ fn fix_database_repairs_the_save_behind_a_confirmation_and_one_undo() {
 
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
 
@@ -243,6 +244,7 @@ fn the_fix_database_question_names_only_what_the_save_has() {
         let path = fixture(version, &format!("fix_db_question_{}", version.number()));
         let mut view = SaveView::new();
         view.open(&path);
+        view.aesthetics_from_exports = true;
         view.edit_aesthetics = true;
         let mut window = Headless::sized(1100.0, 700.0);
         let nodes = open_savefile_menu(&mut window, &mut view);
@@ -274,6 +276,7 @@ fn the_locked_savefile_menu_disables_fix_database_only() {
     let path = fixture(PesVersion::Pes21, "savefile_menu_locked");
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     let mut window = Headless::sized(1100.0, 700.0);
     let nodes = open_savefile_menu(&mut window, &mut view);
 

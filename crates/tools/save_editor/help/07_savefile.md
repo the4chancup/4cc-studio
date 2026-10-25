@@ -14,5 +14,5 @@ The **Savefile** menu works on the whole save:
   physique and strip edits on every player, and on PES 2017 clears every
   team's strip flag and resets the kit slots to their defaults. The
   whole repair is one undoable step. It stays disabled while the
-  aesthetics lock is on (the Appearance tab's **Edit aesthetics anyway**
-  switch), since it clears what the teams' exports own.
+  aesthetics lock is on (see the Appearance tab), since it clears what
+  the teams' exports own.

@@ -714,6 +714,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 900.0);
     assert_eq!(
@@ -887,6 +888,7 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     let nodes = appearance_frame(&mut window, &mut view);
@@ -940,6 +942,7 @@ fn hide_body_round_trips_on_pes16() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 900.0);
 
@@ -984,6 +987,7 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     let mut window = Headless::sized(1100.0, 700.0);
     let before = player_entry(&view, 70101);
 
@@ -1068,6 +1072,7 @@ fn the_hide_ids_come_from_the_settings() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.hide_ids = fpc::HideIds::new(60, 12);
     let mut window = Headless::sized(1100.0, 900.0);
@@ -1113,6 +1118,12 @@ fn the_tool_carries_the_common_hide_ids_into_the_view() {
     let mut settings = studio_core::Settings::default();
     settings.common.fpc_hide_boots_id = 60;
     settings.common.fpc_hide_gloves_id = 12;
+    // `Tool::view` refreshes the setting from the table each frame, so the
+    // unlock's GIVEN is the table's, never a field set by hand.
+    settings.set_tool(
+        "save-editor",
+        toml::from_str("aesthetics_from_exports = true").unwrap(),
+    );
     let (ctx, _events_rx, _requests_rx) = tool_context(path.parent().unwrap(), settings);
     let mut tool = crate::Tool::new();
     tool.view.open(&path);
@@ -1143,6 +1154,7 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.hide_ids = Err(fpc::HideIdsError::Boots(627));
     let error = fpc::HideIdsError::Boots(627).to_string();
@@ -1239,6 +1251,7 @@ fn every_fpc_path_writes_the_settings_hide_ids() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.hide_ids = fpc::HideIds::new(60, 12);
     let mut window = Headless::sized(1100.0, 900.0);

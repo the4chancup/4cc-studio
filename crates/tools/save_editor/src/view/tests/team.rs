@@ -489,6 +489,7 @@ fn the_boglo_dialogs_preview_names_the_last_filled_slots_id() {
     let path = fixture(PesVersion::Pes21, "boglo_preview");
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     // The last filled slot's index, read from the roster, never typed in.
@@ -758,6 +759,7 @@ fn the_team_menu_operations_edit_every_filled_slot_as_one_undoable_edit() {
 
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     // A rostered player of another team, to prove the operations stay on
@@ -930,6 +932,7 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     let mut window = Headless::sized(1100.0, 700.0);
     let nodes = open_team_menu(&mut window, &mut view);
 
@@ -1015,6 +1018,7 @@ fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
+    view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
     let cleared = |view: &SaveView, id: u32| {

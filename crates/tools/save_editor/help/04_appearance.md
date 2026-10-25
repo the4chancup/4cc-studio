@@ -1,22 +1,27 @@
 The **Appearance** tab holds the player's look: the game's own edit flags, his
 physique, his strip style, his motions, and his skin and iris colours.
 
-The **Cutscenes** group comes first and stays editable while the rest is locked:
-star and playing attitude only change how the player appears in cutscenes, so
-they are not part of the look the team's export owns.
+The **Cutscenes** group comes first and stays editable when the rest is
+locked: star and playing attitude only change how the player appears in
+cutscenes, so they are not part of the look the team's export owns.
 
-**It is locked on purpose.** A player's look belongs to his team's export: the
-export's `settings.toml` and models decide it, and the Team compiler writes it
-into the save (through the aesthetics patch on older games, through the database
-tables on PES 2018 and newer). A hand edit here would be silently overwritten the
-next time the team is recompiled or patched, so the tab opens read-only at every
-start of the tool.
+**When it is locked.** A player's look can belong to his team's export: the
+export's `settings.toml` and models decide it, and the Team compiler writes
+it into the save (through the aesthetics patch on older games, through the
+database tables on PES 2018 and newer). A hand edit here would be silently
+overwritten the next time the team is recompiled or patched. That is what
+**Aesthetics from exports** in the Save editor's Settings section is for:
+with it on, the tab and every other aesthetics write open read-only behind
+the ownership line, for a cup whose looks are compiled from exports. It is
+off by default, for the cups whose looks live in the save: every control
+then edits and no ownership line or switch is drawn.
 
-**Edit aesthetics anyway** unlocks the tab for the rest of the session, for the
-cases the rule does not cover: a team with no export, or a cup-night fix when
-recompiling is not an option. Opening another save keeps it unlocked; starting
-the tool again turns it back off. On a save of PES 2017 or older the note under
-the switch warns that a later patch overwrites whatever you edit by hand; on a
+**Edit aesthetics anyway** draws under the setting and unlocks the tab for
+the rest of the session, for the cases the rule does not cover: a team
+with no export, or a cup-night fix when recompiling is not an option.
+Opening another save keeps it unlocked; starting the tool again turns it
+back off. On a save of PES 2017 or older the note under the switch warns
+that a later patch overwrites whatever you edit by hand; on a
 stripped save (below) it warns that the game takes the look from the database
 tables while the motions are still read.
 

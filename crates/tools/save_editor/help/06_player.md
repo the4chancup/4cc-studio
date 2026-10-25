@@ -11,7 +11,7 @@ The **Player** menu works on the selected player:
   other, the same write as the tab's Show body and Hide body. A player
   hidden by his model's own boots ID reads "body shown", so for him the
   toggle hides again; use Show body. It stays disabled while the
-  aesthetics lock is on.
+  aesthetics lock is on (see the Appearance tab).
 - **Copy stats from…** copies another player's stats onto the selected
   one; **Swap stats with…** trades them. The other player is picked by
   team, then by roster slot. Height, weight, every ability, form, injury,
