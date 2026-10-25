@@ -616,7 +616,7 @@ mod tests {
     use crate::events::{MessageCode, Severity};
     use crate::help::{CatalogRow, HelpTopic};
     use crate::shell::test_harness::*;
-    use crate::status::{ActionEffect, Notice, NoticeAction};
+    use crate::status::{ActionEffect, Notice, NoticeAction, NoticeKind};
     use crate::widgets::LogLine;
 
     /// Two chapters with a topic and a catalog row each, as a tool's `help()` yields.
@@ -1129,6 +1129,7 @@ mod tests {
         // anchor highlighted.
         ctx.notify(Notice {
             text: "see the help".to_owned(),
+            kind: NoticeKind::Info,
             action: Some(NoticeAction {
                 label: "Read up".to_owned(),
                 effect: ActionEffect::OpenHelp(HelpTarget {
@@ -1557,6 +1558,7 @@ mod tests {
 
         ctx.notify(Notice {
             text: "open the help".to_owned(),
+            kind: NoticeKind::Info,
             action: Some(NoticeAction {
                 label: "Open help".to_owned(),
                 effect: ActionEffect::OpenHelp(HelpTarget {
@@ -1615,6 +1617,7 @@ mod tests {
 
         ctx.notify(Notice {
             text: "open the help".to_owned(),
+            kind: NoticeKind::Info,
             action: Some(NoticeAction {
                 label: "Open help".to_owned(),
                 effect: ActionEffect::OpenHelp(HelpTarget {

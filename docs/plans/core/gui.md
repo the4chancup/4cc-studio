@@ -117,7 +117,7 @@ Top to bottom:
    addresses).
    - **Live exe check**: the selector is colored against the exe actually present in the resolved
      `pes_folder_path` — **red** when the folder exists but holds a `PES20XX.exe` of a *different*
-     version (wrong selection or wrong path), **yellow** when the folder is missing or holds no PES
+     version (wrong selection or wrong path), **orange** when the folder is missing or holds no PES
      exe at all (likely invalid path); the tooltip names what was found. Re-checked on version/path
      changes and on window focus — a cheap single directory listing. This is the GUI rendering of
      the same condition the team compiler's `pes_version_mismatch` warning reports at compile time
@@ -132,7 +132,7 @@ Top to bottom:
      is deferred until it clears (not consumed). If several PES versions are running, the first
      detected wins. The switch writes the ordinary persisted setting — the selector always reflects
      the setting, no shadow session state. The poll also knows the running exe's *path*: when it
-     differs from the resolved `pes_folder_path` (e.g. the selector sits red/yellow while the real
+     differs from the resolved `pes_folder_path` (e.g. the selector sits red/orange while the real
      install runs from elsewhere), the same notice offers a **"Fix PES path"** action that rewrites
      `pes_folder_path` from the running process — strictly opt-in via the notice's button, never
      applied automatically (re-inserting the `**` version placeholder when the path segment matches
@@ -319,6 +319,17 @@ Each item kind stays in the bar for its lifetime:
 
 More rules that keep it worth the row:
 
+- **A notice is seen, not found.** The notice sits in the middle of the bar and the
+  `ToolActivity` of another tool on its right (the spec's table had them the other way round):
+  the eye goes to the centre of a row, and the activity is the rarer item, shown only while
+  another tool's view is up. Each notice carries a kind, `NoticeKind::{Success, Info,
+  Warning}`, set by its publisher, and is drawn in that kind's bright colour: success bright
+  green (`theme::SUCCESS_FG`, a file written, a compile done), information the link blue
+  (`Switched to PES 2021`, `Updated to v1.4.0`), a warning the theme's warning orange (`Teams
+  list is read-only`, a switch whose `Fix PES path` action points at a wrong exe). One plain
+  colour for every notice was how a member missed a "Wrote settings.toml" line at the bar's
+  edge; a single green for every notice would paint a warning as a success. What needs a
+  decision now is a dialog, never a notice (next rule).
 - **Never modal, never a question.** Anything needing a decision (updater consent, the teams-list
   merge review) is a dialog. The bar announces; it does not ask.
 - **Empty state is static, not blank**: `v1.2.0` in small text — the one always-visible version
@@ -744,7 +755,7 @@ ST-SIDE-03  GIVEN the selector at PES 21 and pes_folder_path resolving to a fold
                  PES2019.exe
             WHEN the sidebar is drawn
             THEN the selector is red and its tooltip names the exe found; GIVEN the folder
-                 holding no PES exe, or missing, THEN the selector is yellow and the tooltip
+                 holding no PES exe, or missing, THEN the selector is orange and the tooltip
                  says what was found; GIVEN it holding PES2021.exe THEN neither
 ST-SIDE-04  GIVEN a tool reporting a version_change_blocker
             WHEN the sidebar is drawn
@@ -802,13 +813,18 @@ ST-BAR-01   GIVEN no condition, no background activity and no notice
             THEN it shows the version number in small text and nothing else, at its fixed height
 ST-BAR-02   GIVEN the first tool active and the second reporting a ToolActivity
             WHEN the status bar is drawn
-            THEN its middle slot shows the second tool's activity; GIVEN the second tool made
+            THEN its right slot shows the second tool's activity; GIVEN the second tool made
                  active THEN the slot is empty (its own run strip shows it)
 ST-BAR-03   GIVEN a tool publishing a Notice with an action
             WHEN the status bar is drawn
-            THEN its right slot shows the text and the one action until the action is clicked
-                 or the notice dismissed; GIVEN a notice without an action THEN it leaves the
-                 slot by itself after a few seconds, and a later notice replaces an earlier one
+            THEN its middle slot shows the text, the one action and the dismiss X, centred on
+                 the bar as one group, until the action is clicked or the notice dismissed; GIVEN a notice without an
+                 action THEN it leaves the slot by itself after a few seconds, and a later
+                 notice replaces an earlier one
+ST-BAR-04   GIVEN three notices published in turn, one of each kind (Success, Info, Warning)
+            WHEN the status bar is drawn after each
+            THEN each notice's text is drawn in its kind's colour: SUCCESS_FG, the link blue,
+                 the warning orange
 ST-TTL-01   GIVEN a tool reporting a ToolActivity (label "Team compiler", 12 of 48 done, 72 s
                  elapsed)
             WHEN a frame is drawn

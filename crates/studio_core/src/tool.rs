@@ -324,6 +324,7 @@ mod tests {
 
     use super::*;
     use crate::events::{PipelineEvent, RunId};
+    use crate::status::NoticeKind;
 
     /// A context over fresh channels, with the receivers it sends to.
     fn context() -> (
@@ -454,6 +455,7 @@ mod tests {
         let (own_tx, _own_rx) = unbounded();
         ctx.with_events(own_tx).notify(Notice {
             text: "Compiled 48 teams".to_owned(),
+            kind: NoticeKind::Info,
             action: None,
         });
         assert_eq!(calls.load(Ordering::SeqCst), 1, "the notice woke the GUI");

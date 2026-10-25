@@ -477,7 +477,7 @@ function finishRun() {
   S.result = { exit: r.exit, output: r.output };
   if (r.exit === 0)
     publishNotice("Upgraded " + outputName(),
-      { label: "Open output folder", run: openOutputStub });
+      { label: "Open output folder", run: openOutputStub }, "success");
   else render();
   if (S.closeAtEnd) { S.closeAtEnd = false; closeStub(); }
 }

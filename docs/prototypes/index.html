@@ -52,7 +52,7 @@
     --panel: #1b1b1b; --extreme: #0a0a0a; --faint: #202020; --widget: #3c3c3c;
     --hover: #464646; --active: #373737; --stroke: #3c3c3c; --text: #8c8c8c;
     --strong: #dcdcdc; --sel-bg: #005c80; --sel-fg: #c0deff; --link: #5aaaff;
-    --warn: #ff8f00; --error: #ff0000; --changed: #2a3a1e;
+    --warn: #ff8f00; --error: #ff0000; --changed: #2a3a1e; --success: #4cd964;
   }
   * { box-sizing: border-box; }
   html, body { height: 100%; margin: 0; }
@@ -181,6 +181,9 @@
   #status-right { justify-content: flex-end; }
   .cond { display: inline-flex; align-items: center; gap: 3px; }
   .cond, .act, .notice-txt { overflow: hidden; text-overflow: ellipsis; }
+  .notice-txt.success { color: var(--success); }
+  .notice-txt.info { color: var(--link); }
+  .notice-txt.warning { color: var(--warn); }
   .small { font-size: 11px; }
   table.grid tr.sel:hover { background: var(--hover); }
   .window pre.mono { margin: 4px 0; }
@@ -425,7 +428,7 @@ const S = { activeTool: "team-compiler", sidebarOpen: false, pesVersion: "2019",
   blocker: null, runningPes: null, autoSwitchUsed: false,
   // Status-bar state (studio_core::status shapes): the active ShellCondition ids,
   // per-tool ToolActivity { done, total, elapsed } (elapsed in s), the current
-  // Notice { text, action } and the draft's no-action notice lifetime.
+  // Notice { text, action, kind } and the draft's no-action notice lifetime.
   conditions: [], activities: {}, notice: null, noticeTimeoutS: 5,
   // Window-title state: a Notice published while unfocused holds its text in the
   // title until focus returns (gui.md "Window title", the held-notice row).
@@ -569,7 +572,7 @@ const activityText = (id, a) => a.done == null
   ? `${toolLabel(id)} · ${mmss(a.elapsed)}`
   : `${toolLabel(id)} · ${a.done}/${a.total} · ${mmss(a.elapsed)}`;
 // The registered tools reporting an activity, the active tool first when
-// withActive (title order); false drops it (the middle slot hides the active
+// withActive (title order); false drops it (the right slot hides the active
 // tool's, its own run strip shows it).
 function activityIds(withActive) {
   const others = TOOLS.filter(t => t.registered && t.id !== S.activeTool).map(t => t.id);
@@ -631,8 +634,10 @@ function pollRunningPes() {
   saveSettings(); // the switch writes the pes_version setting
   const action = folderOf(rp.path) !== resolvedPesFolder()
     ? { label: "Fix PES path", run: fixPesPath } : null;
-  // sample wording: the notice text and its action's label.
-  publishNotice("Switched to PES " + rp.version, action);
+  // sample wording: the notice text and its action's label. A switch whose
+  // Fix PES path action points at another folder's exe warns, a plain one
+  // informs.
+  publishNotice("Switched to PES " + rp.version, action, action ? "warning" : "info");
 }
 // "Fix PES path" rewrites pes_folder_path from the running exe's folder,
 // putting ** back for the two digits of the version in the exe's own folder
@@ -1700,8 +1705,9 @@ const WALK = [
   ["ST-SET-02", "change Threads in the menu: it saves at once, the Team compiler stub's Threads line follows"],
   ["ST-SET-03", "Data folder unwritable plus a change: the value keeps for the session, the read-only warning shows in the bar"],
   ["ST-BAR-01", "nothing switched on: the bar shows v0.1.0 alone"],
-  ["ST-BAR-02", "Save editor busy: its progress sits in the middle slot, gone while the Save editor is the view"],
+  ["ST-BAR-02", "Save editor busy: its progress sits in the right slot, gone while the Save editor is the view"],
   ["ST-BAR-03", "the Notice buttons: one with an action stays until clicked or dismissed, one without fades, a later one replaces it"],
+  ["ST-BAR-04", "the Notice buttons in turn: the write's text is green, the update's link blue, the read-only's warning orange, all centred in the bar"],
   ["ST-TTL-01", "Save editor busy or Compile: the window title carries the progress, idle without it"],
   ["ST-TTL-02", "Window focused off, then a Notice button: the title holds the notice until focus returns"],
   ["ST-TTL-03", "not drawn: the repaint wake and the per-tool tick belong to the real shell's event wiring"],
@@ -1772,12 +1778,12 @@ function renderDraftControls() {
           else S.activities["save-editor"] =
             v === "counts" ? { done: 3, total: 10, elapsed: 45 } : { elapsed: 45 }; })),
     // sample wording: the notices' texts and the fake windows' text.
-    button("Notice without action", () => publishNotice("Teams list is read-only", null)),
+    button("Notice without action", () => publishNotice("Teams list is read-only", null, "warning")),
     button("Notice with action", () => publishNotice("Compiled 48 teams",
-      { label: "Open output", run: openOutputStub })),
+      { label: "Open output", run: openOutputStub }, "success")),
     // gui.md "Status bar", "After an update": the first start of a new version.
     button("First start after an update", () => publishNotice("Updated to v0.1.0",
-      { label: "What's new", run: () => openHelp({ tool: "whats-new" }) })),
+      { label: "What's new", run: () => openHelp({ tool: "whats-new" }) }, "info")),
     h("label", { class: "cb" }, "Notice timeout, s",
       h("input", { type: "number", id: "notice-timeout", value: S.noticeTimeoutS, min: 0, step: "any",
         onchange: e => { const v = parseFloat(e.target.value); if (v >= 0) S.noticeTimeoutS = v; } })),
@@ -2023,9 +2029,10 @@ function renderCenter() {
 }
 
 // Status bar (gui.md "Status bar"): left the version (always visible, the one
-// always-visible item) then one entry per ShellCondition; middle the other
-// tools' ToolActivitys; right the latest Notice. The row is a fixed 24px: long
-// texts are cut and carry the full text as their tooltip.
+// always-visible item) then one entry per ShellCondition; middle the latest
+// Notice, centred as a group in its kind's bright colour; right the other
+// tools' ToolActivitys. The row is a fixed 24px: long texts are cut and carry
+// the full text as their tooltip.
 function renderStatus() {
   const left = document.getElementById("status-left");
   left.innerHTML = "";
@@ -2037,36 +2044,38 @@ function renderStatus() {
         window_(c.action.label, weak(c.action.does), [button("OK", closeWindow)]))));
   const mid = document.getElementById("status-middle");
   mid.innerHTML = "";
-  activityIds(false).forEach((id, i) => {
-    const txt = activityText(id, S.activities[id]);
-    if (i) mid.append(h("span", { class: "weak" }, " · "));
-    mid.append(h("span", { class: "act", title: txt }, txt));
-  });
-  const right = document.getElementById("status-right");
-  right.innerHTML = "";
   const n = S.notice;
   if (n) {
-    right.append(h("span", { class: "notice-txt", title: n.text }, n.text));
+    mid.append(h("span", { class: "notice-txt " + n.kind, title: n.text }, n.text));
     if (n.action) {
       const actBtn = button(n.action.label, () => {
         const act = n.action; dismissNotice(); act.run();
       });
       actBtn.id = "notice-action";
-      right.append(actBtn);
+      mid.append(actBtn);
     }
     const x = button("×", dismissNotice, { frame0: true, title: "Dismiss" });
     x.id = "notice-dismiss";
-    right.append(x);
+    mid.append(x);
   }
+  const right = document.getElementById("status-right");
+  right.innerHTML = "";
+  activityIds(false).forEach((id, i) => {
+    const txt = activityText(id, S.activities[id]);
+    if (i) right.append(h("span", { class: "weak" }, " · "));
+    right.append(h("span", { class: "act", title: txt }, txt));
+  });
 }
 
-// The right slot's item kind. A new notice replaces the current one (older
+// The middle slot's item kind. A new notice replaces the current one (older
 // notices are not kept); one without an action leaves by itself after the
 // draft's timeout, one with an action stays until clicked or dismissed. A
 // notice published while the window is unfocused holds its text in the title.
 let noticeTimer = null;
-function publishNotice(text, action) {
-  const n = { text, action };
+// kind is the notice's NoticeKind ("success" / "info" / "warning"): it picks the
+// text's colour, so every publisher says one.
+function publishNotice(text, action, kind) {
+  const n = { text, action, kind };
   S.notice = n;
   clearTimeout(noticeTimer); noticeTimer = null;
   if (!action) noticeTimer = setTimeout(() => {
@@ -2082,7 +2091,7 @@ const openOutputStub = () => window_("Open output",
   weak("Opens the output folder in the file browser"), [button("OK", closeWindow)]);
 
 // The Team compiler stub's fake run: 48 teams, one every 250 ms, elapsed counted
-// from the start; its activity is what the middle slot and the title read while
+// from the start; its activity is what the right slot and the title read while
 // another tool is active. No cancel button: the tool's own draft owns that.
 let compileTimer = null;
 function startCompile() {
@@ -2105,7 +2114,7 @@ function startCompile() {
       clearInterval(compileTimer); compileTimer = null;
       delete S.activities["team-compiler"];
       appendLog([{ severity: "Info", code: null, scope: null, text: "Info - Compiled 48 teams" }]);
-      publishNotice("Compiled 48 teams", { label: "Open output", run: openOutputStub });
+      publishNotice("Compiled 48 teams", { label: "Open output", run: openOutputStub }, "success");
       return;
     }
   }, 250);

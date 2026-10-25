@@ -11103,3 +11103,16 @@ comments; a file that does not parse may be the member's half-done edit, so it i
 overwritten. The face file holds only values the record supplies and the template's comments, so
 replacing it loses nothing of the member's.
 Plan: `plans/save_editor.md` "Interchange formats in the UI", the `settings.toml` generation bullet.
+
+## 2026-10-25 — gui — A notice sits in the bar's middle, in its kind's bright colour
+Decision: the status bar's notice moves to the middle slot, centred, and the other tool's
+`ToolActivity` to the right; a `Notice` carries a `NoticeKind` (Success, Info, Warning) its
+publisher sets, drawn bright green (`theme::SUCCESS_FG`), the link blue or the warning orange.
+What needs immediate action stays a dialog.
+Why: the maintainer, trying 0.0.1h slice 3's Generate dialogs: the "Wrote settings.toml" notice
+was too subtle at the bar's edge in the plain text colour; asked whether every notice turns
+green, they ruled "successes only: everything must be shown visibly, a popup if it needs
+immediate action, a bright colour if it is just a notice, the colour depending on the message
+type", and the activity moves right. Info is the link blue and warning the existing warning
+orange (the PES selector's), so no new colour but the success green.
+Plan: `plans/core/gui.md` "Status bar", the rule "A notice is seen, not found"; ST-BAR-02 to 04.

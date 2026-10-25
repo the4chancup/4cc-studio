@@ -812,7 +812,7 @@ fn the_selector_is_colored_by_the_exe_found_in_the_pes_folder() {
     );
     fs::remove_dir_all(&dir).unwrap();
 
-    // No PES exe: yellow, the tooltip says none was found.
+    // No PES exe: orange, the tooltip says none was found.
     let dir = test_dir("studio_core_sidebar_noexe");
     fs::create_dir_all(&dir).unwrap();
     let Shell { mut app, .. } = with_pes_folder(&dir);
@@ -821,7 +821,7 @@ fn the_selector_is_colored_by_the_exe_found_in_the_pes_folder() {
         app.sidebar.exe_check.as_ref().map(|(_, _, check)| *check),
         Some(ExeCheck::NoExe)
     );
-    assert_eq!(color_of(&app), Some(visuals.warn_fg_color), "yellow");
+    assert_eq!(color_of(&app), Some(visuals.warn_fg_color), "orange");
     let nodes = hover_selector(&mut app);
     assert!(has_text(
         &nodes,
@@ -840,11 +840,11 @@ fn the_selector_is_colored_by_the_exe_found_in_the_pes_folder() {
         app.sidebar.exe_check.as_ref().map(|(_, _, check)| *check),
         Some(ExeCheck::NoExe)
     );
-    assert_eq!(color_of(&app), Some(visuals.warn_fg_color), "yellow");
+    assert_eq!(color_of(&app), Some(visuals.warn_fg_color), "orange");
     fs::remove_dir_all(&dir).unwrap();
 
     // A directory named like the exe is not an exe (the compiler's preflight
-    // counts files only): yellow like an empty folder.
+    // counts files only): orange like an empty folder.
     let dir = test_dir("studio_core_sidebar_dir_named_exe");
     fs::create_dir_all(dir.join("PES2021.exe")).unwrap();
     let Shell { mut app, .. } = with_pes_folder(&dir);
@@ -853,10 +853,10 @@ fn the_selector_is_colored_by_the_exe_found_in_the_pes_folder() {
         app.sidebar.exe_check.as_ref().map(|(_, _, check)| *check),
         Some(ExeCheck::NoExe)
     );
-    assert_eq!(color_of(&app), Some(visuals.warn_fg_color), "yellow");
+    assert_eq!(color_of(&app), Some(visuals.warn_fg_color), "orange");
     fs::remove_dir_all(&dir).unwrap();
 
-    // The folder missing: yellow too, the tooltip names it.
+    // The folder missing: orange too, the tooltip names it.
     let dir = test_dir("studio_core_sidebar_missing");
     let Shell { mut app, .. } = with_pes_folder(&dir);
     frame(&egui_ctx, &mut app, Vec::new(), true);
@@ -864,7 +864,7 @@ fn the_selector_is_colored_by_the_exe_found_in_the_pes_folder() {
         app.sidebar.exe_check.as_ref().map(|(_, _, check)| *check),
         Some(ExeCheck::NoFolder)
     );
-    assert_eq!(color_of(&app), Some(visuals.warn_fg_color), "yellow");
+    assert_eq!(color_of(&app), Some(visuals.warn_fg_color), "orange");
     let nodes = hover_selector(&mut app);
     assert!(has_text(
         &nodes,

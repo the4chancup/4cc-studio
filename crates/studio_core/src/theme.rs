@@ -5,6 +5,28 @@
 //! egui's own dark and light `Visuals` until the curated one lands.
 
 use crate::settings::Theme;
+use crate::status::NoticeKind;
+
+/// The success notices' bright green (the draft's `--success`). egui's `Visuals`
+/// has a warning colour and an error colour but no success one, so the suite
+/// carries its own.
+pub const SUCCESS_FG: egui::Color32 = egui::Color32::from_rgb(0x4c, 0xd9, 0x64);
+
+/// The success green on the light theme's panel: `SUCCESS_FG` there reads at a contrast of
+/// 1.7 against egui's light panel, where this darker green reads at 5.6 (the light theme's
+/// own link and warning colours are darker for the same reason).
+pub const SUCCESS_FG_LIGHT: egui::Color32 = egui::Color32::from_rgb(0x13, 0x73, 0x33);
+
+/// The colour a notice's text is drawn in: its kind's bright colour ("A notice
+/// is seen, not found", core plan "Status bar").
+pub fn notice_color(kind: NoticeKind, visuals: &egui::Visuals) -> egui::Color32 {
+    match kind {
+        NoticeKind::Success if visuals.dark_mode => SUCCESS_FG,
+        NoticeKind::Success => SUCCESS_FG_LIGHT,
+        NoticeKind::Info => visuals.hyperlink_color,
+        NoticeKind::Warning => visuals.warn_fg_color,
+    }
+}
 
 /// Applies the common `theme` setting to `ctx` through `Context::set_theme`: the setting,
 /// never the system's theme, decides, so a member on a light desktop still gets the dark
@@ -71,6 +93,24 @@ pub fn install_fonts(ctx: &egui::Context) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn each_notice_kind_gets_its_own_bright_colour() {
+        for (visuals, success) in [
+            (egui::Visuals::dark(), SUCCESS_FG),
+            (egui::Visuals::light(), SUCCESS_FG_LIGHT),
+        ] {
+            assert_eq!(notice_color(NoticeKind::Success, &visuals), success);
+            assert_eq!(
+                notice_color(NoticeKind::Info, &visuals),
+                visuals.hyperlink_color
+            );
+            assert_eq!(
+                notice_color(NoticeKind::Warning, &visuals),
+                visuals.warn_fg_color
+            );
+        }
+    }
 
     #[test]
     fn installing_fonts_puts_ubuntu_regular_first_and_the_icons_second() {

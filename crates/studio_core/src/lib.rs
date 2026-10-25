@@ -29,6 +29,6 @@ pub(crate) use shell::APP_NAME;
 #[cfg(not(target_arch = "wasm32"))]
 pub use shell::run_gui;
 pub use shell::{EXE_NAME, Launch, LaunchMode, StudioApp, parse_launch, run_cli};
-pub use status::{ActionEffect, Notice, NoticeAction, ShellCondition, ToolActivity};
+pub use status::{ActionEffect, Notice, NoticeAction, NoticeKind, ShellCondition, ToolActivity};
 pub use tool::{AppPaths, CliError, PlannedTool, ShellRequest, StudioTool, ToolContext};
 pub use widgets::{BottomDock, LogLine, LogPanel};

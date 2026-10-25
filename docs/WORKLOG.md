@@ -1926,6 +1926,30 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     where the help files say `UnlimitedToolWorks`; with the preview pane on at 1280, the
     Ruleset editor's form clips its stat grid (the Ruleset editor waits for 0.1.0: fix with
     20.6) → verify: a capture of each, looked at
+  - [x] 8.27 the notice in the bar's middle, in its kind's colour (the maintainer, 2026-10-25,
+    after trying slice 3's Generate dialogs; `core/gui.md` "Status bar", the rule "A notice is
+    seen, not found"; DECISIONS "A notice sits in the bar's middle, in its kind's bright
+    colour"): the draft host first (`index.html`'s status bar: the notice centred, the activity
+    right, the three colours), then `studio_core`: `NoticeKind`, `Notice.kind`,
+    `theme::SUCCESS_FG`, the bar's layout, every publisher's kind (the Save editor's Generate
+    notice Success, `Switched to PES …` Info or Warning with its Fix action) → verify:
+    ST-BAR-02 to 04 red first; the built window at 1280 x 800 with a Generate notice, looked at
+    Done 2026-10-25 (SWE-2, one run; brief `.tmp/8_27/brief_8_27.md`): the draft host first
+    (`--success`, `publishNotice(text, action, kind)` at every call), `NoticeKind`, `Notice.kind`,
+    `theme::{SUCCESS_FG, notice_color}`, the notice group centred by measuring its galleys (egui
+    centres one rect, not a row), the activity right; ST-BAR-02/03 updated red first, ST-BAR-04
+    observes the painted text's colour. Lead: the light theme's own green `SUCCESS_FG_LIGHT`
+    (the bright one reads at 1.7 on egui's light panel; red first), ST-BAR-03 worded as the
+    group (the sidekick's contradiction, accepted), the selector's warning state called orange,
+    not yellow, in its docs, tests and plan. The maintainer checked the three colours on a
+    rendered page (`.tmp/8_27/notice_colors.html`): fine; orange kept for warnings. Mutants
+    (`mutants-diff 5b4f72b7`): 21 caught, 7 missed, all the group's width sums, which a short
+    notice never strains; a long notice's test pins the group to the slot's edges (red on
+    the 2 px button-padding mutant, "X to 534" past 528). Files:
+    `studio_core/src/{status,theme,lib,tool}.rs`, `shell/{status_bar,mod,sidebar/{mod,tests},
+    settings_menu,help_window,launch,title}.rs`, `studio/src/console.rs`,
+    `save_editor/src/view/generate.rs`, `docs/prototypes/{index.html,tools/{save_editor,
+    export_upgrader}.js}`
   - [ ] 8.21 the app's font in the drafts (`core/gui.md` "The host's other review aids"; after
     8.9f4e picks the bundled font): `@font-face` rules at egui's sizes → verify: one width
     constant's row (`TOP_ROW_ONE_LINE`) measured in the draft and in the built window agree
@@ -2156,6 +2180,10 @@ briefs, review loops, gates and mutation runs as for any step.
     gate), and two from `mutants-diff 845d7d1f`'s three survivors (the dialog's heading; a
     `settings.toml` that cannot be read is the error, never replaced), red against each mutant
     by hand. SWE-2 S1: 1 of 7 accepted (the draft's folder no longer prefilled; loop ended).
+    manual: checked 2026-10-25 by the maintainer on the release build (`.tmp/0_0_1h/app`, the
+    PES 21 save, /co/'s /CO/LETTE): both files written as previewed, settings.toml without
+    the face keys, a hand-added comment kept on regeneration; the notice judged too subtle,
+    hence 8.27
     Files: `save_editor/{Cargo.toml,help/0{2,6}_*.md,src/lib.rs,src/view/{generate,mod,
     menus,player_list,tests}.rs,src/view/tests/{generate,player}.rs}`,
     `docs/prototypes/tools/save_editor.js`

@@ -15,7 +15,7 @@ use pes_version::PesVersion;
 use crate::help::HelpTarget;
 use crate::pes_process::RunningPes;
 use crate::settings::CommonSettings;
-use crate::status::{ActionEffect, Notice, NoticeAction};
+use crate::status::{ActionEffect, Notice, NoticeAction, NoticeKind};
 use crate::tool::{PlannedTool, ShellRequest, StudioTool, ToolContext};
 
 #[cfg(test)]
@@ -129,7 +129,7 @@ impl Default for Sidebar {
 }
 
 /// What the exe check's last directory listing found (ST-SIDE-03): the selector is red on
-/// `OtherVersion`, yellow on `NoExe` and `NoFolder`, uncolored on `Found`.
+/// `OtherVersion`, orange on `NoExe` and `NoFolder`, uncolored on `Found`.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(super) enum ExeCheck {
     /// The resolved PES folder holds the selected version's exe.
@@ -602,6 +602,13 @@ impl Sidebar {
             });
         ctx.notify(Notice {
             text: format!("Switched to PES {}", game.version.year()),
+            // The fix action is offered only for an exe in another folder's
+            // install, the switch worth a warning; a plain switch informs.
+            kind: if action.is_some() {
+                NoticeKind::Warning
+            } else {
+                NoticeKind::Info
+            },
             action,
         });
     }
@@ -790,7 +797,7 @@ pub(super) fn version_label(version: PesVersion, rail: bool) -> String {
 }
 
 /// The selector's colour for an exe-check verdict (ST-SIDE-03): red on a different
-/// version's exe, yellow on no exe or no folder, none when the selection is installed.
+/// version's exe, orange on no exe or no folder, none when the selection is installed.
 pub(super) fn selector_color(check: ExeCheck, visuals: &egui::Visuals) -> Option<egui::Color32> {
     match check {
         ExeCheck::OtherVersion(_) => Some(visuals.error_fg_color),

@@ -2485,3 +2485,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 0.0.1h slice 3: the Save editor's Player menu generates a player folder's `settings.toml`
   (no face keys; an existing file updated in place) and `ingame_face.toml` (whole), into a picked folder, a
   stripped player skipped (SE-GUI-19, 33); the draft first, its old transplant panel gone; a Comparator help topic.
+- **2026-10-25** — 8.27: the status bar's notice in the middle, centred, in its kind's bright colour (success
+  green, information blue, warning orange; a darker green on the light theme); another tool's activity on the
+  right. The maintainer's ruling after trying the Generate dialogs; colours checked on a rendered page.

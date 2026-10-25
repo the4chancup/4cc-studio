@@ -267,7 +267,7 @@ mod tests {
 
     use crossbeam_channel::unbounded;
     use studio_core::{
-        Disposition, ExportId, Message, MessageCode, Notice, RunId, Scope, Severity,
+        Disposition, ExportId, Message, MessageCode, Notice, NoticeKind, RunId, Scope, Severity,
     };
 
     use super::*;
@@ -444,6 +444,7 @@ mod tests {
         let (tx, rx) = unbounded();
         tx.send(ShellRequest::Notify(Notice {
             text: "Switched to PES 2019".to_owned(),
+            kind: NoticeKind::Info,
             action: None,
         }))
         .unwrap();
@@ -451,6 +452,7 @@ mod tests {
         tx.send(ShellRequest::Close).unwrap();
         tx.send(ShellRequest::Notify(Notice {
             text: "Compiled 48 teams".to_owned(),
+            kind: NoticeKind::Success,
             action: None,
         }))
         .unwrap();

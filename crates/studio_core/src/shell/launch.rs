@@ -184,7 +184,7 @@ mod tests {
     use super::*;
     use crate::help::HelpSection;
     use crate::settings::Settings;
-    use crate::status::Notice;
+    use crate::status::{Notice, NoticeKind};
     use crate::tool::{AppPaths, ShellRequest};
 
     struct StubTool;
@@ -222,6 +222,7 @@ mod tests {
                     let what: &String = ping.get_one("what").unwrap();
                     ctx.notify(Notice {
                         text: format!("pong {what}"),
+                        kind: NoticeKind::Info,
                         action: None,
                     });
                     Ok(0)
@@ -349,6 +350,7 @@ mod tests {
             requests_rx.try_recv().unwrap(),
             ShellRequest::Notify(Notice {
                 text: "pong there".to_owned(),
+                kind: NoticeKind::Info,
                 action: None
             })
         );

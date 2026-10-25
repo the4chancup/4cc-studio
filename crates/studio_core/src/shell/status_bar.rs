@@ -1,6 +1,6 @@
 //! The status bar (core plan, "Status bar"; draft `docs/prototypes/index.html`): one 24 px row
 //! under the sidebar and the tool view, drawn in every tool. Three slots: the version and the
-//! held `ShellCondition`s left, the other tools' `ToolActivity`s middle, the latest `Notice`
+//! held `ShellCondition`s left, the latest `Notice` middle, the other tools' `ToolActivity`s
 //! right. Tools cannot draw into the bar; they return an activity and publish notices
 //! (`crate::status`).
 
@@ -8,7 +8,7 @@ use std::time::Duration;
 
 use crate::status::{ActionEffect, Notice, ShellCondition};
 
-/// How long a notice without an action stays in the right slot (the draft's
+/// How long a notice without an action stays in the middle slot (the draft's
 /// `noticeTimeoutS`), measured on egui's clock from the frame it is first drawn. A notice
 /// with an action stays until the action or the dismiss is clicked.
 const NOTICE_SECONDS: f64 = 5.0;
@@ -87,35 +87,71 @@ impl StatusBar {
         let mut dismissed = false;
         ui.columns(3, |columns| {
             self.left_slot(&mut columns[0]);
-            // Middle: the other tools' activities, centered as the draft lays it out.
-            columns[1].with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+            // Middle: the notice — text in its kind's colour, its action, the
+            // dismiss X — centred on the bar as one group. egui centres an
+            // allocated rect, not a row of widgets, so the group's width is
+            // measured from the galleys and the buttons' padding and the row is
+            // padded to it.
+            if let Some(notice) = &self.notice {
+                columns[1].with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+                    ui.horizontal(|ui| {
+                        let color = crate::theme::notice_color(notice.kind, ui.visuals());
+                        let spacing = ui.spacing().item_spacing.x;
+                        let button = egui::TextStyle::Button.resolve(ui.style());
+                        let body = egui::TextStyle::Body.resolve(ui.style());
+                        let galley_width = |ui: &mut egui::Ui, text: &str, font: &egui::FontId| {
+                            ui.fonts_mut(|fonts| {
+                                fonts.layout_no_wrap(text.to_owned(), font.clone(), color)
+                            })
+                            .size()
+                            .x
+                        };
+                        let dismiss_width = galley_width(ui, crate::icons::X, &button);
+                        let action_width = notice.action.as_ref().map_or(0.0, |action| {
+                            galley_width(ui, &action.label, &button)
+                                + 2.0 * ui.spacing().button_padding.x
+                        });
+                        let gaps = if notice.action.is_some() {
+                            2.0 * spacing
+                        } else {
+                            spacing
+                        };
+                        let text_width = galley_width(ui, &notice.text, &body)
+                            .min(ui.available_width() - dismiss_width - action_width - gaps)
+                            .max(0.0);
+                        let group = text_width + action_width + dismiss_width + gaps;
+                        ui.add_space(((ui.available_width() - group) / 2.0).max(0.0));
+                        ui.add_sized(
+                            [text_width, ui.spacing().interact_size.y],
+                            egui::Label::new(egui::RichText::new(&notice.text).color(color))
+                                .truncate(),
+                        )
+                        .on_hover_text(&notice.text);
+                        if let Some(action) = &notice.action
+                            && ui.button(&action.label).clicked()
+                        {
+                            dismissed = true;
+                            effect = Some(action.effect.clone());
+                        }
+                        let x = ui.add(egui::Button::new(crate::icons::X).frame(false));
+                        x.widget_info(|| {
+                            egui::WidgetInfo::labeled(egui::Role::Button, true, "Dismiss")
+                        });
+                        if x.on_hover_text("Dismiss").clicked() {
+                            dismissed = true;
+                        }
+                    });
+                });
+            }
+            // Right: the other tools' activities, packed against the right edge
+            // and truncating to it.
+            columns[2].with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 let texts = activities.join(" · ");
                 if !texts.is_empty() {
                     ui.add(egui::Label::new(&texts).truncate())
                         .on_hover_text(&texts);
                 }
             });
-            // Right: notice text, its action, the dismiss X — packed against the right edge,
-            // the text taking what is left and truncating to it.
-            if let Some(notice) = &self.notice {
-                columns[2].with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                    let x = ui.add(egui::Button::new(crate::icons::X).frame(false));
-                    x.widget_info(|| {
-                        egui::WidgetInfo::labeled(egui::Role::Button, true, "Dismiss")
-                    });
-                    if x.on_hover_text("Dismiss").clicked() {
-                        dismissed = true;
-                    }
-                    if let Some(action) = &notice.action
-                        && ui.button(&action.label).clicked()
-                    {
-                        dismissed = true;
-                        effect = Some(action.effect.clone());
-                    }
-                    ui.add(egui::Label::new(&notice.text).truncate())
-                        .on_hover_text(&notice.text);
-                });
-            }
         });
         if effect.is_some() || dismissed {
             self.dismiss();
@@ -162,7 +198,7 @@ mod tests {
     use pes_version::PesVersion;
 
     use crate::shell::test_harness::*;
-    use crate::status::{ActionEffect, Notice, NoticeAction};
+    use crate::status::{ActionEffect, Notice, NoticeAction, NoticeKind};
 
     /// The `Label` nodes' texts drawn inside the bottom 24 px of the 800x600 screen (a
     /// `RichText` label also leaves a `TextRun` child, so `Label` alone is counted).
@@ -189,9 +225,21 @@ mod tests {
         );
     }
 
+    /// The frame's `Shape::Text` carrying exactly `text` painted inside the
+    /// bottom 24 px of the 800x600 screen (the status bar's row).
+    fn bar_text_shape<'a>(out: &'a FrameOutput, text: &str) -> Option<&'a egui::epaint::TextShape> {
+        out.shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Text(shape) => Some(shape),
+                _ => None,
+            })
+            .find(|shape| shape.galley.text() == text && shape.pos.y >= 576.0)
+    }
+
     // ST-BAR-02
     #[test]
-    fn the_middle_slot_shows_the_other_tools_activities_not_the_active_ones() {
+    fn the_right_slot_shows_the_other_tools_activities_not_the_active_ones() {
         let Shell {
             mut app,
             ctx,
@@ -209,8 +257,8 @@ mod tests {
             .expect("the second tool's activity is drawn");
         let bounds = activity.bounds().unwrap();
         assert!(
-            bounds.x0 >= 800.0 / 3.0 && bounds.x1 <= 1600.0 / 3.0,
-            "the activity sits in the middle slot: {bounds:?}"
+            bounds.x0 >= 1600.0 / 3.0,
+            "the activity sits in the right slot: {bounds:?}"
         );
 
         // With the second tool active its activity leaves the slot.
@@ -237,6 +285,7 @@ mod tests {
         // A no-action notice is drawn at t = 1 s and gone at t = 6.1 s.
         ctx.notify(Notice {
             text: "first".to_owned(),
+            kind: NoticeKind::Info,
             action: None,
         });
         let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(1.0)).nodes;
@@ -266,11 +315,13 @@ mod tests {
         // A later notice replaces the earlier one.
         ctx.notify(Notice {
             text: "second".to_owned(),
+            kind: NoticeKind::Info,
             action: None,
         });
         frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(7.0));
         ctx.notify(Notice {
             text: "third".to_owned(),
+            kind: NoticeKind::Info,
             action: None,
         });
         let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(8.0)).nodes;
@@ -281,14 +332,32 @@ mod tests {
         // empties the slot.
         ctx.notify(Notice {
             text: "ready".to_owned(),
+            kind: NoticeKind::Info,
             action: Some(NoticeAction {
                 label: "Go".to_owned(),
                 effect: ActionEffect::SwitchTool("b".to_owned()),
             }),
         });
-        let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(14.0)).nodes;
-        assert!(has_text(&nodes, "ready"));
-        entry(&nodes, "Go");
+        let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(14.0));
+        let nodes = &out.nodes;
+        assert!(has_text(nodes, "ready"));
+        entry(nodes, "Go");
+
+        // The middle slot shows the group — text, action, dismiss — centred on
+        // the bar: the text's left edge to the dismiss button's right edge
+        // straddle the 800 px screen's middle.
+        let text = bar_text_shape(&out, "ready").expect("the notice text is painted");
+        assert!(
+            text.pos.x >= 800.0 / 3.0 && text.pos.x + text.galley.rect.width() <= 1600.0 / 3.0,
+            "the notice text sits in the middle slot: {:?}",
+            text.pos
+        );
+        let dismiss = entry(nodes, "Dismiss").bounds().unwrap();
+        let centre = (f64::from(text.pos.x) + dismiss.x1) / 2.0;
+        assert!(
+            (centre - 400.0).abs() <= 4.0,
+            "the notice group centres on the bar, centre at {centre}"
+        );
         let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(20.0)).nodes;
         assert!(
             has_text(&nodes, "ready"),
@@ -302,6 +371,7 @@ mod tests {
         // The dismiss button empties the slot without applying anything.
         ctx.notify(Notice {
             text: "dismiss me".to_owned(),
+            kind: NoticeKind::Info,
             action: Some(NoticeAction {
                 label: "Go".to_owned(),
                 effect: ActionEffect::SwitchTool("a".to_owned()),
@@ -312,6 +382,84 @@ mod tests {
         assert_eq!(app.active, 1, "dismiss applies nothing");
         let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(23.0)).nodes;
         assert!(!has_text(&nodes, "dismiss me"), "dismissed");
+    }
+
+    // ST-BAR-03
+    #[test]
+    fn a_notice_too_long_for_the_middle_slot_truncates_its_text_and_the_group_fills_the_slot() {
+        let Shell {
+            mut app, ctx, _dir, ..
+        } = shell();
+        let egui_ctx = test_context();
+        ctx.notify(Notice {
+            text: "Wrote settings.toml for Snake into C:/Data/Documents/4cc/exports/DBC7/co/Snake"
+                .to_owned(),
+            kind: NoticeKind::Success,
+            action: Some(NoticeAction {
+                label: "Go".to_owned(),
+                effect: ActionEffect::SwitchTool("b".to_owned()),
+            }),
+        });
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+
+        // The middle of three columns across the bar's 784 px (800 less its 8 px side
+        // margins, `shell::mod`), the columns `item_spacing.x` apart.
+        let spacing = egui_ctx.global_style().spacing.item_spacing.x;
+        let column = (784.0 - 2.0 * spacing) / 3.0;
+        let slot_left = f64::from(8.0 + column + spacing);
+        let slot_right = slot_left + f64::from(column);
+        let text = nodes
+            .iter()
+            .find(|node| {
+                node.role() == Role::Label && node.value().is_some_and(|v| v.starts_with("Wrote"))
+            })
+            .expect("the notice's label")
+            .bounds()
+            .unwrap();
+        let dismiss = entry(&nodes, "Dismiss").bounds().unwrap();
+        // The text is cut to what the action and the X leave, so the group spans the slot
+        // edge to edge, neither overflowing it nor leaving it half empty.
+        assert!(
+            (text.x0 - slot_left).abs() <= 1.0 && (dismiss.x1 - slot_right).abs() <= 1.0,
+            "the group spans the slot {slot_left}..{slot_right}: text from {}, X to {}",
+            text.x0,
+            dismiss.x1
+        );
+    }
+
+    // ST-BAR-04
+    #[test]
+    fn each_notice_kind_paints_its_text_in_its_own_colour() {
+        let Shell {
+            mut app, ctx, _dir, ..
+        } = shell();
+        let egui_ctx = test_context();
+        let visuals = egui_ctx.global_style().visuals.clone();
+        let cases = [
+            (NoticeKind::Success, "did it", crate::theme::SUCCESS_FG),
+            (NoticeKind::Info, "heads up", visuals.hyperlink_color),
+            (NoticeKind::Warning, "careful", visuals.warn_fg_color),
+        ];
+        for (kind, text, expected) in cases {
+            ctx.notify(Notice {
+                text: text.to_owned(),
+                kind,
+                action: None,
+            });
+            let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+            let shape = bar_text_shape(&out, text).expect("the notice text is painted");
+            let color = shape
+                .galley
+                .job
+                .sections
+                .first()
+                .map(|section| section.format.color);
+            assert_eq!(
+                color,
+                Some(expected),
+                "{kind:?} paints its text in {expected:?}"
+            );
+        }
     }
 
     // ST-SET-03

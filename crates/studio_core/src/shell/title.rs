@@ -154,6 +154,7 @@ mod tests {
 
         ctx.notify(crate::status::Notice {
             text: "Compiled 48 teams".to_owned(),
+            kind: crate::status::NoticeKind::Info,
             action: None,
         });
         let out = frame(&egui_ctx, &mut app, Vec::new(), false);
@@ -170,6 +171,7 @@ mod tests {
 
         ctx.notify(crate::status::Notice {
             text: "Compiled 48 teams".to_owned(),
+            kind: crate::status::NoticeKind::Info,
             action: None,
         });
         let out = frame(&egui_ctx, &mut app, Vec::new(), true);

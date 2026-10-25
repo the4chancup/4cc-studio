@@ -254,7 +254,7 @@ impl StudioApp {
 
     /// The `activity()` texts of the registered tools in sidebar order; `include_active`
     /// puts the active tool's first (the window title counts it too — the status bar's
-    /// middle slot skips it because the tool's own run strip already shows it).
+    /// right slot skips it because the tool's own run strip already shows it).
     fn activities(&self, include_active: bool) -> Vec<String> {
         let mut texts = Vec::new();
         if include_active
@@ -469,7 +469,7 @@ mod tests {
     use super::test_harness::*;
     use super::*;
     use crate::settings::Settings;
-    use crate::status::Notice;
+    use crate::status::{Notice, NoticeKind};
 
     /// `apply_requests` outside a frame: a default egui context.
     fn apply_requests(app: &mut StudioApp) {
@@ -516,6 +516,7 @@ mod tests {
         } = shell();
         ctx.notify(Notice {
             text: "hello".to_owned(),
+            kind: NoticeKind::Info,
             action: None,
         });
         ctx.set_tool_settings("a", toml::Table::new());

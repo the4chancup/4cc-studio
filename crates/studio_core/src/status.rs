@@ -52,7 +52,7 @@ impl ShellCondition {
     }
 }
 
-/// What a tool is doing in the background (middle slot), shown while a different tool's view is
+/// What a tool is doing in the background (right slot), shown while a different tool's view is
 /// on screen, and in the window title for every tool.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ToolActivity {
@@ -67,7 +67,7 @@ pub struct ToolActivity {
 impl ToolActivity {
     /// `Team compiler · 12/48 · 01:12`, or `Team compiler · 01:12` with no progress; the
     /// elapsed minutes are not capped at 59 (the draft's `activityText`). The status bar's
-    /// middle slot and the window title share this line.
+    /// right slot and the window title share this line.
     pub(crate) fn text(&self) -> String {
         let elapsed = self.elapsed.as_secs();
         let clock = format!("{:02}:{:02}", elapsed / 60, elapsed % 60);
@@ -78,14 +78,33 @@ impl ToolActivity {
     }
 }
 
-/// A one-off event (right slot): text plus at most one action. Only the most recent is shown;
+/// A one-off event (middle slot): text plus at most one action. Only the most recent is shown;
 /// an event worth keeping is also a finding in a log.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Notice {
     /// What happened (`Compiled 48 teams`).
     pub text: String,
+    /// The notice's kind, set by its publisher: it picks the bright colour the
+    /// text is drawn in (`theme::notice_color`), so every publisher says one.
+    pub kind: NoticeKind,
     /// The one thing the user can do about it.
     pub action: Option<NoticeAction>,
+}
+
+/// How a notice's text is coloured (core plan, "Status bar": a notice is seen, not found).
+/// There is no `Default`: the publisher knows which reading fits its event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum NoticeKind {
+    /// Something asked for is done: a file written (`Wrote settings.toml`), a compile
+    /// finished (`Compiled 48 teams`). Drawn in `theme::SUCCESS_FG`, the draft's green.
+    Success,
+    /// A change of state to know about, neither finished nor broken: `Switched to PES
+    /// 2021`, `Updated to v1.4.0`. Drawn in the theme's link blue.
+    Info,
+    /// Something the member should look at: `Teams list is read-only`, a switch whose
+    /// `Fix PES path` action points at another folder's exe. Drawn in the theme's
+    /// warning orange.
+    Warning,
 }
 
 /// The clickable part of a notice.

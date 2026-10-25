@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use pes_savefile::EditFile;
 use pes_savefile::model::names::display_name;
 use pes_savefile::settings_toml::PlayerSettings;
-use studio_core::Notice;
+use studio_core::{Notice, NoticeKind};
 
 use crate::session::is_stripped;
 use crate::view::SaveView;
@@ -217,6 +217,7 @@ pub(crate) fn dialog(ui: &mut egui::Ui, view: &mut SaveView) {
                                     generate.file.file_name(),
                                     generate.folder
                                 ),
+                                kind: NoticeKind::Success,
                                 action: None,
                             });
                             close = true;

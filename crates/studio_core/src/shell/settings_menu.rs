@@ -361,7 +361,7 @@ mod tests {
     use crate::pes_process::RunningPes;
     use crate::settings::{Settings, Theme};
     use crate::shell::test_harness::*;
-    use crate::status::{ActionEffect, Notice, NoticeAction};
+    use crate::status::{ActionEffect, Notice, NoticeAction, NoticeKind};
 
     /// The node carrying `text` as a label-role node's `value`.
     fn text_node<'a>(nodes: &'a [accesskit::Node], text: &str) -> &'a accesskit::Node {
@@ -1062,6 +1062,7 @@ mod tests {
         ctx.switch_to_tool("b");
         ctx.notify(Notice {
             text: "choose".to_owned(),
+            kind: NoticeKind::Info,
             action: Some(NoticeAction {
                 label: "Open settings".to_owned(),
                 effect: ActionEffect::OpenSettings,

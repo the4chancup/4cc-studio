@@ -2477,7 +2477,7 @@ function writeSave(path) {
   S.basePlayers = {};
   for (const t of S.save.teams) for (const p of t.players)
     S.basePlayers[t.id + ":" + p.slot] = JSON.stringify(p);
-  publishNotice("Saved " + path.split("\\").pop() + " (the replaced file is kept once as " + path.split("\\").pop() + ".bak)", null);
+  publishNotice("Saved " + path.split("\\").pop() + " (the replaced file is kept once as " + path.split("\\").pop() + ".bak)", null, "success");
   pushRecent(path);
 }
 function saveAs() {
@@ -3020,7 +3020,7 @@ function dlgTsv() {
     input),
     [button("Save", () => {
       S.lastTsv = rosterTsv();
-      publishNotice("Wrote " + input.value.split("\\").pop() + ": one row per player of every team", null);
+      publishNotice("Wrote " + input.value.split("\\").pop() + ": one row per player of every team", null, "success");
       closeWindow(); render();
     }), button("Cancel", closeWindow)]);
 }
@@ -4559,7 +4559,7 @@ function comparatorPanel() {
         S.cmp.second, v => v && cmpPick(v), { title: "The other save the open one is compared against" }),
       S.cmp.second ? button("Export", () => {
         S.cmp.exportText = cmpExport();
-        publishNotice("Exported the diff: " + cmpRows().length + " rows, the report's lines for the rows shown", null);
+        publishNotice("Exported the diff: " + cmpRows().length + " rows, the report's lines for the rows shown", null, "success");
         render();
       }, { title: "Write the report's lines for the rows shown" }) : null),
     S.cmp.refused ? h("div", { class: "row err", id: "cmp-refused" }, S.cmp.refused) : null,
@@ -4755,7 +4755,7 @@ function aatfPanel() {
       cb("Show suggestions", S.aatf.sugg, v => S.aatf.sugg = v),
       button("Save a copy", () => {
         S.aatf.savedCopy = OFFICIAL_RHAI;
-        publishNotice("Wrote a copy of the embedded official ruleset (autumn26.rhai)", null);
+        publishNotice("Wrote a copy of the embedded official ruleset (autumn26.rhai)", null, "success");
         render();
       }, { title: "Write the embedded official ruleset out" })),
     h("div", { class: "row" },
@@ -5386,7 +5386,7 @@ function ixExportToml() {
     [button("Save", () => {
       S.ix.exportText = TEAM_TOML_TEXT[S.saveKey + "/" + t.id];
       publishNotice("Wrote " + input.value.split("\\").pop()
-        + ": the CLI's export-toml text for team " + t.id, null);
+        + ": the CLI's export-toml text for team " + t.id, null, "success");
       closeWindow(); render();
     }), button("Cancel", closeWindow)]);
 }
@@ -5405,7 +5405,7 @@ function ixExportTed() {
           + ", written this session)",
         model: clone(t) };
       publishNotice("Wrote " + input.value.split("\\").pop()
-        + ": team " + t.id + " as a PES " + version() + " Texport", null);
+        + ": team " + t.id + " as a PES " + version() + " Texport", null, "success");
       closeWindow(); render();
     }), button("Cancel", closeWindow)]);
 }
@@ -5584,7 +5584,7 @@ function dlgGenerate(name, title, file, toml) {
       toml(p))),
     [button("Write", () => {
       publishNotice("Wrote " + file + " for " + displayName(p.name)
-        + " into " + input.value, null);
+        + " into " + input.value, null, "success");
       closeWindow(); render();
     }), button("Cancel", closeWindow)]);
 }
