@@ -421,7 +421,7 @@ fn a_save_of_another_version_is_refused_naming_both() {
     let lines = window_lines(&mut window, &mut view, None, "Comparator");
     assert!(
         lines.iter().any(|line| line
-            == "The picked save is a PES 2021 save and the open save a PES 2017 one: both must be of one version"),
+            == "The picked save is a PES 2021 save and the open save a PES 2017 one, but both must be of the same version"),
         "the refusal's literal text: {lines:?}"
     );
     assert!(
@@ -668,7 +668,7 @@ fn a_refused_pick_clears_the_held_result() {
     let lines = window_lines(&mut window, &mut view, None, "Comparator");
     assert!(
         lines.iter().any(|line| line
-            == "The picked save is a PES 2021 save and the open save a PES 2017 one: both must be of one version"),
+            == "The picked save is a PES 2021 save and the open save a PES 2017 one, but both must be of the same version"),
         "the refusal's literal: {lines:?}"
     );
     assert!(
@@ -743,7 +743,7 @@ fn another_save_keeps_the_pick_and_recompares() {
     );
     assert!(
         lines.iter().any(|line| line
-            == "The picked save is a PES 2017 save and the open save a PES 2021 one: both must be of one version"),
+            == "The picked save is a PES 2017 save and the open save a PES 2021 one, but both must be of the same version"),
         "the refusal's literal: {lines:?}"
     );
     assert!(

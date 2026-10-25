@@ -2499,3 +2499,5 @@ worklog passed 7,000 lines.
   holds every tab inside the pane at the minimum.
 - **2026-10-25** — 8.29a1: the Save editor window's dry lines rewritten as sentences that flow (34 of them: notices,
   tooltips, the FPC reading, the Live AATF header), the meaning kept; the plan's quotes and scenario THENs follow.
+- **2026-10-25** — 8.29a2: the Save editor's message catalog (the help's Messages topic) and its command line's errors
+  and `--help` text rewritten as whole sentences (76 lines), the meaning kept.

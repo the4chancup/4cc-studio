@@ -43,12 +43,12 @@ const TOOL_VERSION: &str = concat!("4cc Studio ", env!("CARGO_PKG_VERSION"));
 enum SaveEditorCommand {
     /// Write one team of a save as a Team TOML file, or every team as one file each.
     ExportToml(ExportTomlArgs),
-    /// Patch a save's team from a Team TOML file: the team its [team] id names takes the
-    /// file's keys, the rest of the save is untouched.
+    /// Patch a save's team from a Team TOML file. The team its [team] id names takes the
+    /// file's keys, and the rest of the save is untouched.
     ImportToml(ApplyArgs),
     /// Apply the Team compiler's aesthetics patch (its players' motions and names) to a save.
     ApplyPatch(ApplyArgs),
-    /// List every field that differs between two saves of one version, player by player.
+    /// List everything that differs between two saves of the same version, player by player.
     Diff(DiffArgs),
     /// Check the save's cup teams against an AATF ruleset, one line per violation.
     CheckAatf(CheckAatfArgs),
@@ -63,16 +63,16 @@ enum SaveEditorCommand {
 /// `strip-and-seed --base <save> --bins <cpk> --out <save> --bins-out <cpk>`.
 #[derive(Debug, Args)]
 struct StripAndSeedArgs {
-    /// The save to strip (EDIT00000000); never written unless it is also --out.
+    /// The save to strip (EDIT00000000), which is never written unless it is also --out.
     #[arg(long, value_name = "SAVE")]
     base: PathBuf,
     /// The cup's 4cc_08_bins.cpk the player tables are seeded into.
     #[arg(long, value_name = "CPK")]
     bins: PathBuf,
-    /// Where the stripped save goes; an existing file there is kept as <out>.bak.
+    /// Where the stripped save goes. An existing file there is kept as <out>.bak.
     #[arg(long, value_name = "SAVE")]
     out: PathBuf,
-    /// Where the seeded CPK goes; an existing file there is kept as <bins-out>.bak.
+    /// Where the seeded CPK goes. An existing file there is kept as <bins-out>.bak.
     #[arg(long, value_name = "CPK")]
     bins_out: PathBuf,
 }
@@ -85,7 +85,7 @@ struct CheckStrippedArgs {
     /// Strip the listed players again and write --out.
     #[arg(long, requires = "out")]
     strip_again: bool,
-    /// Where the re-stripped save goes; an existing file there is kept as <out>.bak.
+    /// Where the re-stripped save goes. An existing file there is kept as <out>.bak.
     #[arg(long, value_name = "SAVE", requires = "strip_again")]
     out: Option<PathBuf>,
 }
@@ -95,12 +95,12 @@ struct CheckStrippedArgs {
 struct CheckAatfArgs {
     /// The save to read (EDIT00000000).
     save: PathBuf,
-    /// Only these teams, comma-separated ids and inclusive ranges (701,705-710); every team
-    /// of the save in the cup range (701 to 920) otherwise.
+    /// Only these teams, comma-separated ids and inclusive ranges (701,705-710). Without it,
+    /// every team of the save in the cup range (701 to 920) is checked.
     #[arg(long, value_name = "LIST")]
     teams: Option<String>,
-    /// The AATF rules file to check against; the aatf_rules setting's file otherwise, or the
-    /// official ruleset built in when that is empty.
+    /// The AATF rules file to check against. Without it, the aatf_rules setting's file is
+    /// used, or the built-in official ruleset when that is empty.
     #[arg(long, value_name = "FILE")]
     rules: Option<PathBuf>,
 }
@@ -141,10 +141,10 @@ struct DiffArgs {
 struct ApplyArgs {
     /// The Team TOML or aesthetics patch to apply.
     file: PathBuf,
-    /// The save to read (EDIT00000000); never written unless it is also --out.
+    /// The save to read (EDIT00000000), which is never written unless it is also --out.
     #[arg(long, value_name = "SAVE")]
     base: PathBuf,
-    /// Where the patched save goes; an existing file there is kept as <out>.bak.
+    /// Where the patched save goes. An existing file there is kept as <out>.bak.
     #[arg(long, value_name = "SAVE")]
     out: PathBuf,
 }
@@ -159,13 +159,14 @@ struct ExportTomlArgs {
     /// The one team to write, by id.
     #[arg(long, value_name = "ID", requires = "out")]
     team: Option<u32>,
-    /// The file the one team goes to; replaced when it exists.
+    /// The file the one team goes to. It is replaced when it exists.
     #[arg(short, long, value_name = "FILE", requires = "team")]
     out: Option<PathBuf>,
     /// Every team of the save, one <id>.toml each.
     #[arg(long, requires = "out_dir")]
     all_teams: bool,
-    /// The folder the <id>.toml files go in; created when missing, its files replaced.
+    /// The folder the <id>.toml files go in. It is created when missing, and files already
+    /// there are replaced.
     #[arg(long, value_name = "FOLDER", requires = "all_teams")]
     out_dir: Option<PathBuf>,
 }
@@ -222,8 +223,12 @@ fn open(path: &Path) -> Result<Session, CliError> {
 
 /// Reads the text file a command applies; an unreadable one is a refusal naming it.
 fn read_text(path: &Path) -> Result<String, CliError> {
-    fs::read_to_string(path)
-        .map_err(|error| invalid(anyhow!("{}: cannot read the file: {error}", path.display())))
+    fs::read_to_string(path).map_err(|error| {
+        invalid(anyhow!(
+            "{}: cannot read the file ({error})",
+            path.display()
+        ))
+    })
 }
 
 /// Writes `text` to `path`, replacing an existing file; a failure names the file.
@@ -231,7 +236,7 @@ fn write_text(path: &Path, text: &str) -> Result<(), CliError> {
     fs::write(path, text).map_err(|error| {
         CliError::new(
             WRITE_FAILED,
-            anyhow!("{}: cannot write the file: {error}", path.display()),
+            anyhow!("{}: cannot write the file ({error})", path.display()),
         )
     })
 }
@@ -313,7 +318,7 @@ fn export_toml(args: &ExportTomlArgs, report: &mut Report) -> Result<(), CliErro
                 && out_file == save
             {
                 return Err(invalid(anyhow!(
-                    "--out {}: that is the save being read; a Team TOML written over it would lose it",
+                    "--out {}: that is the save being read, and a Team TOML written over it would lose it",
                     out.display()
                 )));
             }
@@ -328,7 +333,7 @@ fn export_toml(args: &ExportTomlArgs, report: &mut Report) -> Result<(), CliErro
             fs::create_dir_all(out_dir).map_err(|error| {
                 CliError::new(
                     WRITE_FAILED,
-                    anyhow!("{}: cannot create the folder: {error}", out_dir.display()),
+                    anyhow!("{}: cannot create the folder ({error})", out_dir.display()),
                 )
             })?;
             files
@@ -461,7 +466,7 @@ fn rules_path(args: &CheckAatfArgs, ctx: &ToolContext) -> Result<Option<PathBuf>
     // A toml error's text ends with a newline, which would leave a blank line under `error: `.
     let settings = settings::from_table(&ctx.tool_settings(TOOL_ID)).map_err(|error| {
         invalid(anyhow!(
-            "settings [{TOOL_ID}]: {}",
+            "the [{TOOL_ID}] settings cannot be read: {}",
             error.to_string().trim_end()
         ))
     })?;
@@ -483,20 +488,20 @@ fn parse_teams(text: &str) -> Result<Vec<u32>, String> {
                 first
                     .trim()
                     .parse::<u32>()
-                    .map_err(|_| format!("{item:?}: not a team id or a range"))?,
+                    .map_err(|_| format!("{item:?} is not a team id or a range"))?,
                 last.trim()
                     .parse::<u32>()
-                    .map_err(|_| format!("{item:?}: not a team id or a range"))?,
+                    .map_err(|_| format!("{item:?} is not a team id or a range"))?,
             ),
             None => {
                 let id = item
                     .parse::<u32>()
-                    .map_err(|_| format!("{item:?}: not a team id or a range"))?;
+                    .map_err(|_| format!("{item:?} is not a team id or a range"))?;
                 (id, id)
             }
         };
         if start > end {
-            return Err(format!("{item:?}: the range's start is past its end"));
+            return Err(format!("{item:?} is a range whose start is past its end"));
         }
         ids.extend(start..=end);
     }
@@ -587,18 +592,22 @@ fn refuse_pre_fox(version: PesVersion) -> Result<(), CliError> {
     match version.engine() {
         Engine::Fox => Ok(()),
         Engine::PreFox => Err(invalid(anyhow!(
-            "{version}: stripping a pre-Fox save is not supported: the database route is \
-             untested there; the aesthetics patch is its route"
+            "{version}: stripping a pre-Fox save is not supported, because the database \
+             route is untested there. A pre-Fox save takes the aesthetics patch instead."
         ))),
     }
 }
 
 /// Opens the CPK at `path`; one that does not open or does not read as a CPK is a refusal.
 fn open_cpk(path: &Path) -> Result<CpkArchive<fs::File>, CliError> {
-    let file = fs::File::open(path)
-        .map_err(|error| invalid(anyhow!("{}: cannot read the file: {error}", path.display())))?;
+    let file = fs::File::open(path).map_err(|error| {
+        invalid(anyhow!(
+            "{}: cannot read the file ({error})",
+            path.display()
+        ))
+    })?;
     CpkArchive::open(file)
-        .map_err(|error| invalid(anyhow!("{}: cannot read the CPK: {error}", path.display())))
+        .map_err(|error| invalid(anyhow!("{}: cannot read the CPK ({error})", path.display())))
 }
 
 /// The CPK's copy of `file`'s table; a table the archive lacks starts empty, and a copy
@@ -618,7 +627,7 @@ fn read_table<const VALUE: usize>(
     };
     let bytes = archive
         .read(&entry)
-        .map_err(|error| invalid(anyhow!("{}: cannot read the entry: {error}", entry.path)))?;
+        .map_err(|error| invalid(anyhow!("{}: cannot read the entry ({error})", entry.path)))?;
     PlayerTable::read(file, &bytes).map_err(|error| invalid(error.into()))
 }
 
@@ -650,7 +659,7 @@ fn write_bins(
             Some((_, bytes)) => bytes.clone(),
             None => archive.read(&entry).map_err(|error| {
                 invalid(anyhow!(
-                    "{}: cannot read the entry {}: {error}",
+                    "{}: cannot read the entry {} ({error})",
                     bins.display(),
                     entry.path
                 ))
@@ -706,7 +715,7 @@ fn write_file(path: &Path, bytes: &[u8]) -> Result<(), CliError> {
         }
         CliError::new(
             WRITE_FAILED,
-            anyhow!("{}: cannot write the file: {error}", path.display()),
+            anyhow!("{}: cannot write the file ({error})", path.display()),
         )
     })
 }

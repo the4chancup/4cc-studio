@@ -21,11 +21,11 @@ coverage table and draft, the DBC7 ruleset).
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
 (8.9j1-j3), the comparator done (8.9j4), the save-writing transplant removed (8.9j5c; the
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
-the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a1, the
-window's strings, done), `libs/aatf`'s hardening (the repetition rework done and
+the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a1 and a2,
+the window's strings and the catalog and CLI, done), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
-the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; the in-game SE-GUI-34 left, waiting: in-game tests are paused until the maintainer
-resumes them), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; the in-game SE-GUI-34 left, next after 8.29a: in-game tests
+resumed the evening of 2026-10-25), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
@@ -2020,8 +2020,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         quotes of them (SE-GUI-11, 15, 30, 31 among them) brought along. `mutants-diff
         56da050d`: 21 caught, 3 unviable, none missed. Files: 12 `view/`
         modules, 13 `view/tests/` files, `docs/plans/save_editor.md`
-      - [ ] a2 the message catalog (`messages.rs`) and the CLI's output and `--help` text
-        (`cli.rs`), with the spec's Messages table
+      - [x] a2 the message catalog (`messages.rs`) and the CLI's output and `--help` text
+        (`cli.rs`): 76 lines rewritten (the lead retouched ten: "written, but the rest is
+        written" where nothing contrasts, `check-aatf`'s failure row naming the ruleset's
+        check again, two fragments). The spec's Messages table keeps its own wording: it is
+        the developers' table, carrying each code's context fields, not text a member reads.
+        Files: `save_editor/src/{messages,cli}.rs`, `view/tests/comparator.rs`
       - [ ] a3 the help chapters and the draft `docs/prototypes/tools/save_editor.js`, which
         takes a1's and a2's rewrites word for word (the version banner rewritten 2026-10-25 as
         the rule's example)

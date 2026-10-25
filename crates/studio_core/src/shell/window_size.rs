@@ -13,6 +13,7 @@ pub(super) const DEFAULT_SIZE: egui::Vec2 = egui::vec2(1280.0, 800.0);
 /// it. The views are laid out for the defaults; below about 900 points wide,
 /// rows with fixed parts (the Tactics pitch, a swatch row, the tab strip)
 /// clip at the right edge instead of wrapping (measured 2026-10-25).
+#[cfg(not(target_arch = "wasm32"))]
 pub(super) const MIN_SIZE: egui::Vec2 = egui::vec2(960.0, 600.0);
 
 /// The size the first frame fits the window to: `DEFAULT_SIZE` while it is
