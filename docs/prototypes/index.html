@@ -21,6 +21,31 @@
   .sidebar = Panel::left, .bottom = Panel::bottom, .center = CentralPanel,
   .titlebar = ViewportCommand::Title, .log-body = the log panel's ScrollArea.
 -->
+<!-- The licence of assets/fonts/phosphor-subset.ttf, the icon font
+     @font-face embeds below (assets/fonts/README.md "Licence", verbatim):
+     Phosphor Icons, MIT License:
+
+     MIT License
+
+     Copyright (c) 2020-2021 Phosphor Icons
+
+     Permission is hereby granted, free of charge, to any person obtaining a copy
+     of this software and associated documentation files (the "Software"), to deal
+     in the Software without restriction, including without limitation the rights
+     to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+     copies of the Software, and to permit persons to whom the Software is
+     furnished to do so, subject to the following conditions:
+
+     The above copyright notice and this permission notice shall be included in all
+     copies or substantial portions of the Software.
+
+     THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+     IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+     FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+     AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+     LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+     OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+     SOFTWARE. -->
 <style>
   :root {
     color-scheme: dark;
@@ -58,8 +83,12 @@
   .top, .bottom { background: var(--panel); padding: 3px 8px; display: flex; gap: 8px; align-items: center; }
   .top { border-bottom: 1px solid var(--stroke); }
   .bottom { border-top: 1px solid var(--stroke); min-height: 26px; }
-  .main { flex: 1; display: flex; min-height: 0; }
-  .rail { width: 150px; border-right: 1px solid var(--stroke); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+  .main { flex: 1; display: flex; min-height: 0; position: relative; }
+  .rail { border-right: 1px solid var(--stroke); padding: 6px; display: flex; flex-direction: column; gap: 2px; }
+  /* The icon font the rail draws its 24 px glyphs in (the subset in
+     assets/fonts/, egui-phosphor's codepoints; licence above). */
+  @font-face { font-family: "Phosphor"; src: url("assets/fonts/phosphor-subset.ttf"); }
+  .ph { font-family: "Phosphor"; font-size: 24px; line-height: 1; }
   .center { flex: 1; overflow: auto; padding: 8px 12px 40px; min-width: 0; }
   .data { width: 590px; border-left: 1px solid var(--stroke); display: flex; flex-direction: column; min-height: 0; }
   .data pre { flex: 1; margin: 0; overflow: auto; background: var(--extreme); padding: 6px; font: 12px "Hack", "Consolas", monospace; color: #b4b4b4; }
@@ -117,20 +146,35 @@
     display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
     position: relative; z-index: 15; /* not part of Studio: stays usable over a modal */ }
   .titlebar { background: var(--extreme); border-bottom: 1px solid var(--stroke); padding: 2px 8px; display: flex; gap: 6px; }
-  .sidebar { width: 160px; }
-  .sidebar.collapsed { width: 56px; align-items: center; }
-  .sidebar.collapsed .tlabel { display: none; }
-  .sidebar.collapsed select { width: 44px; }
-  .sidebar .tool { justify-content: flex-start; align-items: center; gap: 6px; border-left: 3px solid transparent; }
+  /* The sidebar is always the rail: 56 px wide, icon-only (plans/core/gui.md
+     "Sidebar" 4). The labels show in the opened layer only; the planned entries
+     alone carry a tooltip. */
+  .sidebar { width: 56px; align-items: center; }
+  .sidebar .tlabel { display: none; }
+  .sidebar select { width: 44px; }
+  .sidebar .tool { width: 44px; justify-content: center; align-items: center; gap: 6px; border-left: 3px solid transparent; }
   .sidebar .tool.on { border-left-color: var(--sel-fg); }
   .sidebar .tool.planned { color: #6e6e6e; }
   .sidebar .tool.planned:hover { background: none; color: #6e6e6e; }
+  /* The opened sidebar: a layer over the rail and the view's left edge, the
+     view under it unmoved. Above the view, below menus and modals. It carries
+     the rail's and the sidebar's classes so every item metric is the rail's;
+     the overrides show the labels, the full selector and the row layout. */
+  #sb-open { position: absolute; left: 0; top: 0; bottom: 0; z-index: 100;
+    width: auto; align-items: stretch;
+    background: var(--panel); box-shadow: 8px 0 16px #0006; }
+  #sb-open .tlabel { display: inline; }
+  #sb-open .logo { margin-left: 6px; }
+  #sb-open .sel-block, #sb-open select { width: 100%; box-sizing: border-box; }
+  #sb-open .tool { width: auto; justify-content: flex-start;
+    padding-left: 8px; white-space: nowrap; }
+  #sb-open .tail { flex-direction: column; align-items: stretch; }
   .icon { display: inline-block; width: 16px; text-align: center; flex: none; }
   .logo { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; color: var(--sel-fg); font-size: 15px; border-radius: 2px; user-select: none; }
   .logo:hover { background: var(--hover); }
   .sidebar .sep { align-self: stretch; margin: 4px 0; }
   .sidebar .tail { display: flex; gap: 2px; }
-  .sidebar.collapsed .tail { flex-direction: column; align-items: center; }
+  .sidebar .tail { flex-direction: column; align-items: center; }
   .bottom { height: 24px; min-height: 24px; padding-top: 0; padding-bottom: 0; overflow: hidden; }
   .bottom > span { display: flex; align-items: center; flex: 1; gap: 8px; white-space: nowrap; overflow: hidden; min-width: 0; }
   #status-middle { justify-content: center; }
@@ -352,15 +396,25 @@ let windowDrawer = null;
 // link reads a named window back by (linkKeys / linkOpen "dialog").
 function window_(title, body, buttons, name) {
   windowDrawer = null;
+  // A window opening cancels a still-armed sidebar timer; the layer then
+  // closes unless the new window is one that holds it (the About).
+  clearTimeout(sidebarTimer); sidebarTimer = null;
   const ov = document.getElementById("overlay");
   ov.innerHTML = "";
   ov.append(h("div", { class: "modal-bg" }, h("div", { class: "window", ...(name ? { "data-dlg": name } : {}) },
     h("div", { class: "title" }, title), body, h("div", { class: "row", style: "justify-content:flex-end; margin-top:10px" }, buttons))));
+  sidebarCloseCheck();
 }
-function closeWindow() { windowDrawer = null; document.getElementById("overlay").innerHTML = ""; }
+// A closing window can end what held the layer (the About's Close): the same
+// check decides.
+function closeWindow() {
+  windowDrawer = null;
+  document.getElementById("overlay").innerHTML = "";
+  sidebarCloseCheck();
+}
 
 // ---- State and registry ----
-const S = { activeTool: "team-compiler", sidebarCollapsed: false, pesVersion: "2019",
+const S = { activeTool: "team-compiler", sidebarOpen: false, pesVersion: "2019",
   // The selector's live check (gui.md "Sidebar" 2): pes_folder_path (** stands
   // for the version's two digits, studio_core's DEFAULT_PES_FOLDER), what the
   // last exe check found ("selected" / "other" / "none" / "no_folder", with
@@ -434,24 +488,24 @@ S.settings = {
 // Draft switch: the data folder cannot be written. saveSettings() raises
 // data_dir_read_only on the failed write, not this switch itself.
 S.dataDirUnwritable = false;
-// Registry order of plans/core/architecture.md "Tool plugin interface"; icon is one
-// Unicode glyph standing in for the egui-phosphor icon the comment names (no web
-// font: the file stays self-contained).
+// Registry order of plans/core/architecture.md "Tool plugin interface"; icon is
+// the egui-phosphor glyph the comment names (assets/fonts/phosphor-subset.ttf,
+// drawn through .ph at 24 px).
 const TOOLS = [
-  { id: "team-compiler", label: "Team compiler", icon: "⚽", registered: true }, // users-three
-  { id: "save-editor", label: "Save editor", icon: "✎", registered: true }, // note-pencil
-  { id: "stadium-compiler", label: "Stadium compiler", icon: "⌂", registered: false }, // buildings
-  { id: "export-upgrader", label: "Export upgrader", icon: "⇧", registered: true }, // arrow-fat-up
-  { id: "music-player", label: "Music player", icon: "♪", registered: false }, // music-note
-  { id: "music-export-editor", label: "Music export editor", icon: "♫", registered: false }, // music-notes
-  { id: "match-tracker", label: "Match tracker", icon: "◎", registered: false }, // crosshair
-  { id: "kit-config-editor", label: "Kit config editor", icon: "▦", registered: false }, // t-shirt
-  { id: "refs-arranger", label: "Refs arranger", icon: "⚑", registered: false }, // flag
-  { id: "balls-compiler", label: "Balls compiler", icon: "◉", registered: false }, // soccer-ball
-  { id: "player-aesthetics-editor", label: "Player aesthetics editor", icon: "☺", registered: false }, // smiley
-  { id: "team-creator", label: "Team creator", icon: "✚", registered: false }, // plus-circle
-  { id: "ruleset-editor", label: "Ruleset editor", icon: "§", registered: false }, // scroll
-  { id: "db-generator", label: "DB generator", icon: "▤", registered: false }, // database
+  { id: "team-compiler", label: "Team compiler", icon: "\uE68E", registered: true }, // users-three
+  { id: "save-editor", label: "Save editor", icon: "\uE34C", registered: true }, // note-pencil
+  { id: "stadium-compiler", label: "Stadium compiler", icon: "\uE102", registered: false }, // buildings
+  { id: "export-upgrader", label: "Export upgrader", icon: "\uE52E", registered: true }, // arrow-fat-up
+  { id: "music-player", label: "Music player", icon: "\uE33C", registered: false }, // music-note
+  { id: "music-export-editor", label: "Music export editor", icon: "\uE340", registered: false }, // music-notes
+  { id: "match-tracker", label: "Match tracker", icon: "\uE1D6", registered: false }, // crosshair
+  { id: "kit-config-editor", label: "Kit config editor", icon: "\uE670", registered: false }, // t-shirt
+  { id: "refs-arranger", label: "Refs arranger", icon: "\uE244", registered: false }, // flag
+  { id: "balls-compiler", label: "Balls compiler", icon: "\uE716", registered: false }, // soccer-ball
+  { id: "player-aesthetics-editor", label: "Player aesthetics editor", icon: "\uE436", registered: false }, // smiley
+  { id: "team-creator", label: "Team creator", icon: "\uE3D6", registered: false }, // plus-circle
+  { id: "ruleset-editor", label: "Ruleset editor", icon: "\uEB7A", registered: false }, // scroll
+  { id: "db-generator", label: "DB generator", icon: "\uE1DE", registered: false }, // database
 ];
 // The tools whose draft is a script under tools/, by id: each calls registerTool once, at
 // load (plans/core/gui.md "Prototypes before implementation").
@@ -844,7 +898,9 @@ function openAbout() {
   const link = (t, fn) => h("a", { href: "#", onclick: e => { e.preventDefault(); if (fn) fn(); } }, t);
   const ext = (name, what) => window_(name,
     weak("Opens " + what + " in the browser"),
-    [button("OK", () => { closeWindow(); openAbout(); })]);
+    // window_ redraws the overlay itself; skipping closeWindow keeps the
+    // layer held across the whole About chain.
+    [button("OK", () => openAbout())], "about");
   window_("About 4cc Studio",
     h("div", {}, h("pre", { class: "mono" }, aboutText()),
       row(link("Release page", () => ext("Release page", "the release page")),
@@ -1636,7 +1692,7 @@ function cb(label, checked, set) {
 // to flip and what to look at, or why the draft does not draw it.
 const WALK = [
   ["ST-SIDE-01", "the registered tools list in order under the selector; a click switches the center (the last_tool restore is launch logic, not drawn)"],
-  ["ST-SIDE-02", "Sidebar collapsed: the rail keeps icons only, labels move to the tooltips, clicks still switch"],
+  ["ST-SIDE-02", "rest the pointer on the rail: after a moment the full sidebar opens over the view without moving it, the labels beside the same icons; moving off closes it; a click on an icon switches without waiting"],
   ["ST-SIDE-03", "Exe in the PES folder: another version's exe turns the selector red, no exe or a missing folder yellow, its tooltip says what was found"],
   ["ST-SIDE-04", "Match tracker blocks version changes: the selector greys out, its tooltip gives the reason"],
   ["ST-SIDE-05", "not drawn: manual, it needs a real PES running; the Running game combo and Poll now fake the poll"],
@@ -1690,7 +1746,6 @@ function renderDraftControls() {
   const grp = label => h("span", { class: "weak dcgroup" }, label);
   dc.append(weak("Draft controls, not part of Studio"),
     grp("Sidebar"),
-    cb("Sidebar collapsed", S.sidebarCollapsed, v => S.sidebarCollapsed = v),
     h("label", { class: "cb" }, "Exe in the PES folder",
       combo([["selected", "the selected version's exe"], ["other", "another version's exe (PES 2017)"],
         ["none", "no exe"], ["no_folder", "folder missing"]],
@@ -1774,43 +1829,145 @@ function renderToolControls() {
 }
 
 // Sidebar, top to bottom as gui.md "Sidebar" 1-5.
+// A Phosphor glyph in a .ph span (the rail's icons are 24 px).
+const ph = glyph => h("span", { class: "ph" }, glyph);
+// The sidebar's items, drawn the same in the rail and in the opened layer so
+// the glyphs sit at the same x and y in both: `full` only swaps the two-digit
+// selector for the labelled one (the labels stay hidden in the rail).
+function sidebarItems(full) {
+  const items = [
+    h("div", { class: "logo", title: "About 4cc Studio", onclick: openAbout }, "4cc")];
+  const pesSel = combo(
+    PES_VERSIONS.map(v => [v, full ? "PES " + v : v.slice(2)]),
+    S.pesVersion, setPesVersion,
+    { title: pesSelectorTip(), cls: pesSelectorClass(), disabled: !!S.blocker });
+  // The rail's keeps the id the checks use; the layer's is a second select.
+  pesSel.id = full ? "pes-version-open" : "pes-version";
+  // A disabled control shows no tooltip in the browser (egui:
+  // on_disabled_hover_text), so a blocked selector's reason sits on a
+  // wrapper that still senses hover (ST-SIDE-04).
+  items.push(S.blocker ? h("span", { class: "sel-block", title: pesSelectorTip() }, pesSel) : pesSel);
+  items.push(h("div", { class: "sep" }));
+  // Registered entries take focus and switch on Enter or Space; the planned
+  // ones take no focus in either state. While the layer is open the rail's
+  // covered controls leave the Tab order.
+  const ti = (!full && S.sidebarOpen) ? "-1" : "0";
+  if (!full && S.sidebarOpen) pesSel.tabIndex = -1;
+  const pick = t => { if (t.registered) { S.activeTool = t.id; render(); } };
+  for (const t of TOOLS.filter(t => t.registered).concat(TOOLS.filter(t => !t.registered))) {
+    items.push(h("span", { class: "sel tool" + (S.activeTool === t.id ? " on" : "")
+        + (t.registered ? "" : " planned"), "data-id": t.id,
+      tabindex: t.registered ? ti : null,
+      title: t.registered ? null : t.label + " is not in this build",
+      onclick: () => pick(t),
+      onkeydown: e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); pick(t); } } },
+      ph(t.icon), h("span", { class: "tlabel" }, t.label)));
+  }
+  items.push(h("div", { class: "sep", style: "margin-top:auto" }));
+  // The tail's entries are tool rows (same metrics in both states); the
+  // rail's keeps the ids the checks use, the layer's are second controls.
+  const tailEntry = (glyph, label, fn, id) => h("button", {
+    class: "sel tool frame0", id: full ? id + "-open" : id, tabindex: ti,
+    onclick: fn },
+    ph(glyph), h("span", { class: "tlabel" }, label));
+  items.push(h("div", { class: "tail" },
+    tailEntry("\uE3E8", "Help", () => openHelp({ tool: S.activeTool }), "help-btn"),
+    tailEntry("\uE270", "Settings", openSettings, "settings-btn")));
+  return items;
+}
+// The opened layer stays while the pointer rests on it or focus is inside
+// it, or while a popup it opened is up: the PES selector's list (the select
+// focused, covered by the focus check) and the About window. No other window
+// holds it.
+function sidebarHeld() {
+  const ae = document.activeElement;
+  if (ae && (document.getElementById("sidebar").contains(ae)
+    || (document.getElementById("sb-open") || { contains: () => false }).contains(ae)))
+    return true;
+  return !!document.querySelector('#overlay .window[data-dlg="about"]');
+}
+// The close when everything that kept it open ended: pointer outside, no
+// focus inside, no holding popup. The pointer test is :hover: a modal drawn
+// over the layer leaves it unhovered while the pointer is really off it.
+function sidebarCloseCheck() {
+  const over = document.querySelector("#sidebar:hover, #sb-open:hover");
+  if (!over && !sidebarHeld()) { S.sidebarOpen = false; drawSidebarLayer(); }
+}
+let sidebarTimer = null;
+// A pointer resting on the rail for 150 ms opens the layer (a pointer
+// crossing it opens nothing); leaving closes it once nothing holds it. The
+// handlers toggle only the layer, never the rail under the pressed control:
+// a press inside the rail keeps the focus from opening it mid-press.
+let sidebarPress = false;
+function drawSidebarLayer() {
+  // While the layer is open the rail's covered controls leave the Tab order;
+  // a closed sidebar puts them back.
+  document.querySelectorAll("#sidebar select, #sidebar button, #sidebar .tool[tabindex]")
+    .forEach(c => c.tabIndex = S.sidebarOpen ? -1 : 0);
+  const old = document.getElementById("sb-open");
+  if (old) old.remove();
+  if (!S.sidebarOpen) return;
+  const layer = h("div", { id: "sb-open", class: "rail sidebar" });
+  layer.append(...sidebarItems(true));
+  // Moving between the rail and the layer is not leaving the sidebar.
+  layer.addEventListener("pointerleave", e => {
+    if (!document.getElementById("sidebar").contains(e.relatedTarget)) sidebarLeave();
+  });
+  layer.addEventListener("pointerdown", () => sidebarPress = true);
+  layer.addEventListener("pointerup", () => sidebarPress = false);
+  layer.addEventListener("focusout", () => {
+    setTimeout(sidebarCloseCheck);
+  });
+  // Right after the rail in the DOM: Tab runs rail -> layer -> center.
+  document.getElementById("sidebar").after(layer);
+}
+function sidebarEnter() {
+  clearTimeout(sidebarTimer);
+  sidebarTimer = setTimeout(() => { if (!S.sidebarOpen) { S.sidebarOpen = true; drawSidebarLayer(); } }, 150);
+}
+function sidebarLeave() {
+  clearTimeout(sidebarTimer); sidebarTimer = null;
+  sidebarCloseCheck();
+}
 function renderSidebar() {
   const sb = document.getElementById("sidebar");
   sb.innerHTML = "";
-  sb.classList.toggle("collapsed", S.sidebarCollapsed);
-  sb.append(h("div", { class: "logo", title: "About 4cc Studio", onclick: openAbout }, "4cc"));
-  const pesSel = combo(
-    PES_VERSIONS.map(v => [v, S.sidebarCollapsed ? v.slice(2) : "PES " + v]),
-    S.pesVersion, setPesVersion,
-    { title: pesSelectorTip(), cls: pesSelectorClass(), disabled: !!S.blocker });
-  pesSel.id = "pes-version";
-  // A disabled control shows no tooltip in the browser (egui: on_disabled_hover_text), so
-  // a blocked selector's reason sits on a wrapper that still senses hover (ST-SIDE-04).
-  sb.append(S.blocker ? h("span", { title: pesSelectorTip() }, pesSel) : pesSel);
-  sb.append(h("div", { class: "sep" }));
-  for (const t of TOOLS.filter(t => t.registered).concat(TOOLS.filter(t => !t.registered))) {
-    if (t.registered)
-      // Expanded, the label is right there; the rail keeps it as the tooltip.
-      sb.append(h("span", { class: "sel tool" + (S.activeTool === t.id ? " on" : ""), "data-id": t.id,
-        title: S.sidebarCollapsed ? t.label : null,
-        onclick: () => { S.activeTool = t.id; render(); } },
-        h("span", { class: "icon" }, t.icon), h("span", { class: "tlabel" }, t.label)));
-    else
-      sb.append(h("span", { class: "sel tool planned", "data-id": t.id, disabled: true,
-        title: t.label + " is not in this build" },
-        h("span", { class: "icon" }, t.icon), h("span", { class: "tlabel" }, t.label)));
-  }
-  const collapse = button(S.sidebarCollapsed ? "»" : "«",
-    () => { S.sidebarCollapsed = !S.sidebarCollapsed; render(); },
-    { frame0: true, title: S.sidebarCollapsed ? "Expand the sidebar" : "Collapse the sidebar" });
-  collapse.id = "collapse-btn";
-  sb.append(collapse);
-  const gear = button("⚙", openSettings, { frame0: true, title: "Settings" });
-  gear.id = "settings-btn";
-  sb.append(h("div", { class: "sep", style: "margin-top:auto" }));
-  sb.append(h("div", { class: "tail" },
-    button("?", () => openHelp({ tool: S.activeTool }), { frame0: true, title: "Help (F1)" }), gear));
+  sb.append(...sidebarItems(false));
+  // A pointer or focus outside everything that holds the layer closes it; a
+  // window opening or a control inside taking focus keeps it.
+  if (S.sidebarOpen) sidebarCloseCheck();
+  drawSidebarLayer();
 }
+// Listeners once on the rail itself: hover arms the 150 ms open, leaving or
+// moving to the layer decides; keyboard focus inside opens at once.
+document.getElementById("sidebar").addEventListener("pointerenter", sidebarEnter);
+document.getElementById("sidebar").addEventListener("pointerleave", e => {
+  if (!(document.getElementById("sb-open") || { contains: () => false }).contains(e.relatedTarget)) sidebarLeave();
+});
+document.getElementById("sidebar").addEventListener("pointerdown", () => sidebarPress = true);
+// A press on a rail control spends the rest timer (its focus must not open the
+// layer mid-press), so the release on the rail starts the rest again: the
+// pointer is still resting there.
+document.getElementById("sidebar").addEventListener("pointerup", () => {
+  sidebarPress = false;
+  if (!S.sidebarOpen) sidebarEnter();
+});
+document.getElementById("sidebar").addEventListener("focusin", e => {
+  clearTimeout(sidebarTimer); sidebarTimer = null;
+  if (sidebarPress) return;
+  if (!S.sidebarOpen) { S.sidebarOpen = true; drawSidebarLayer(); }
+  // The twin under the layer is covered: the layer's same control takes
+  // focus (tool entries by data-id, the rest by id + "-open").
+  const ae = e.target;
+  const sel = ae.dataset && ae.dataset.id ? `.tool[data-id="${ae.dataset.id}"]`
+    : ae.id ? "#" + ae.id + "-open" : null;
+  const same = sel && document.getElementById("sb-open")
+    && document.getElementById("sb-open").querySelector(sel);
+  if (same) same.focus();
+});
+document.getElementById("sidebar").addEventListener("focusout", () => {
+  setTimeout(sidebarCloseCheck);
+});
 
 // The central panel is the active tool's: each registered tool gets a stub until
 // its own draft exists (tools/<tool>.js).

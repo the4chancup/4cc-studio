@@ -41,6 +41,7 @@ MIME = {
     ".jpeg": "image/jpeg",
     ".gif": "image/gif",
     ".svg": "image/svg+xml",
+    ".ttf": "font/ttf",
 }
 
 

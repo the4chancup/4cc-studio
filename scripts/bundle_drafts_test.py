@@ -42,6 +42,15 @@ class Bundle(unittest.TestCase):
             self.assertIsNotNone(match, mime)
             self.assertEqual(base64.b64decode(match.group(1)), data)
 
+    def test_a_ttf_asset_inlines_as_font_ttf(self) -> None:
+        (self.drafts / "assets" / "sub").mkdir(parents=True, exist_ok=True)
+        (self.drafts / "assets" / "sub" / "f.ttf").write_bytes(b"fakefont")
+        (self.drafts / "tools" / "x.js").write_text('const f = "assets/sub/f.ttf";\n', encoding="utf-8")
+        text, _, _ = bundle(self.drafts)
+        match = re.search(r'"data:font/ttf;base64,([A-Za-z0-9+/=]+)"', text)
+        self.assertIsNotNone(match)
+        self.assertEqual(base64.b64decode(match.group(1)), b"fakefont")
+
     def test_a_single_quoted_asset_is_an_error(self) -> None:
         (self.drafts / "tools" / "x.js").write_text("const a = 'assets/a.png';\n", encoding="utf-8")
         with self.assertRaises(BundleError) as ctx:
@@ -102,8 +111,11 @@ class Bundle(unittest.TestCase):
         for src in [drafts / "index.html", *(drafts / "tools").glob("*.js")]:
             referenced |= set(re.findall(r'"(assets/[^"\n]+)"', src.read_text(encoding="utf-8")))
         referenced = {p[len("assets/"):] for p in referenced}
+        # README.md files are left out of the files side: the fonts' licence
+        # note is documentation beside the assets, not an asset a page draws.
         files = {f.relative_to(drafts / "assets").as_posix()
-                 for f in (drafts / "assets").rglob("*") if f.is_file()}
+                 for f in (drafts / "assets").rglob("*")
+                 if f.is_file() and f.name != "README.md"}
         self.assertEqual(referenced, files)
         self.assertGreaterEqual(images, len(files))
         self.assertGreater(len(files), 0)

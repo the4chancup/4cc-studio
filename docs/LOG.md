@@ -2472,3 +2472,7 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.19a (side-lead A): links: the drafts' state in the address (`#<tool>/<screen>?keys`, each tool's
   `linkKeys`/`linkOpen`, `run=done` replaying a finished run), so a link opened in a fresh page draws the same screen;
   12 states per Playwright pixel-equal. Remarks (8.19b) and longest values (8.19c) are briefed, not built.
+- **2026-10-25** — 8.25, the drafts' half (side-lead A): the host's sidebar is the 56-point rail of the app's icon
+  glyphs at 24 px, the full sidebar a layer over the view on a rested pointer or focus, as wide as its longest
+  label; the collapse button and its draft control gone. At 1280 x 800 the Save editor's Tactics tab draws in three
+  columns again.

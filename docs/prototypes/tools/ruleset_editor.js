@@ -19,6 +19,7 @@
 // host's 24px status-bar rule would shrink the view's bottom bar under it.
 const RULESET_CSS = `
 .center.bleed { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+#rail { width: 150px; }
 .data.hidden { display: none; }
 #rs-bottom { height: auto; min-height: 26px; padding: 3px 8px; overflow: visible; }
 #rs-bottom > span { display: inline; flex: 0 1 auto; gap: normal; white-space: normal; overflow: visible; min-width: auto; }
