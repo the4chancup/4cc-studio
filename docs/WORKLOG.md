@@ -23,8 +23,8 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a1 and a2,
 the window's strings and the catalog and CLI, done), `libs/aatf`'s hardening (the repetition rework done and
-reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
-the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; SE-GUI-34 checked in game 2026-10-25), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h, done 2026-10-25: the compiler,
+the upgrader and the Save editor's generation on the new file, SE-GUI-34 checked in game), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
@@ -2205,10 +2205,11 @@ briefs, review loops, gates and mutation runs as for any step.
     (it could never show its prompt); the sidebar draws it as its planned entry with the
     command-line tooltip. `studio`'s `CLI_ONLY` names the two (`shell/mod.rs`,
     `shell/sidebar/{mod,tests}.rs`, `shell/test_harness.rs`, `studio/src/main.rs`)
-- [ ] 0.0.1h `ingame_face.toml` (the maintainer's go of 2026-10-24: before 0.0.1, after the
+- [x] 0.0.1h `ingame_face.toml` (the maintainer's go of 2026-10-24: before 0.0.1, after the
   reviews in flight then): the marker becomes a file holding the in-game face, and
   `settings.toml` loses the face, hair and iris keys
-  (`plans/aesthetics_export/player_folders.md` "`ingame_face.toml` (new; step 0.0.1h)",
+  (`spec/aesthetics_export/player_folders.md` "`ingame_face` marker", the Save editor's half
+  in `plans/save_editor.md`'s generation paragraph,
   decision 2026-10-24, its
   acceptance TC-STR-18 to 20, TC-BIN-47 to 49, EU-PLY-21 and 22, EU-SET-10 and 11,
   SE-GUI-33 and 34). The two measurements done 2026-10-24 (below); the plan written. Open:
@@ -2289,9 +2290,14 @@ briefs, review loops, gates and mutation runs as for any step.
   (strip-and-seed), the tracer export compiled into the test slot: he draws the long red hair,
   and his irises measure (154, 180, 174) and (155, 180, 176), the blue iris of 0.0.1h's control
   (153, 178, 176), not green. Save and slot restored by hash (`.tmp/se34/`)
-  - [ ] the spec moved for slice 3: the plan section's Save editor bullet and SE-GUI-33, 34 go
-    to `docs/spec/aesthetics_export/player_folders.md`, the plan keeping nothing of the
-    section; then the step closes
+  - [x] the plan section closed for slice 3. Done 2026-10-25: SE-GUI-33 and 34 moved beside
+    SE-GUI-19 in `plans/save_editor.md` (the Save editor's view stays a plan until Phase 8
+    closes), SE-GUI-34's "changed in Edit mode" widened to any change of the record (the
+    check changed it through Team TOML); its generation paragraph already held the section's
+    Save editor bullet, now with the why and both actions skipping a stripped player; the
+    section removed from `plans/aesthetics_export/player_folders.md`, the other consumers'
+    changes being in their own plans. Files: `docs/plans/{save_editor,aesthetics_export/
+    player_folders}.md`
 
   manual: checked 2026-10-24, PES 21 Edit mode, /egg/ (792) slots 05-07 compiled by
   `00ef6231`'s release exe into the test slot over a stripped copy of the save (restored by
@@ -2848,10 +2854,6 @@ points there.
   when the undo left a shorter list (`sections/tiers.rs`, the `dnd_drag_source` payload). A
   two-handed gesture, rejected for 20.6a2a as an edge case; the fix to weigh then is the
   tier's id as the payload, resolved at release
-- planned — `ingame_face` as a file holding the in-game face (the maintainer's idea of
-  2026-10-24): measured and planned at step 0.0.1h,
-  `plans/aesthetics_export/player_folders.md` "`ingame_face.toml` (new; step 0.0.1h)"; this
-  entry leaves once it lands
 - open — tests built on the default settings may reach the real install (Astra A1 on 8.9j1,
   2026-10-24: a Save editor FPC test's `ToolContext` from `studio_core::Settings::default()`
   kept the default `pes_folder_path`, and `Tool::view` with a save open started the portrait

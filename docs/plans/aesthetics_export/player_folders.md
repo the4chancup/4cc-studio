@@ -20,43 +20,6 @@ At compile time, after the spec's steps 0 to 3, the pipeline:
    makes the player wear successfully emitted boots/gloves without pointing at failed content — the
    coordination currently done manually with 4ccEditor.
 
-### `ingame_face.toml` (new; step 0.0.1h)
-
-What exists of this is in `spec/aesthetics_export/player_folders.md` "`ingame_face` marker".
-
-- **The Save editor** generates the two files apart: its `settings.toml` generation writes no
-  face keys, and a second action, "Generate in-game face", writes `ingame_face.toml` from the
-  record. A save cannot say which file a player needs: the cup keeps every "modified face" flag
-  off, the game choosing the face folder whenever one exists for the id (spec "`ingame_face`
-  marker"), so the member who knows the folder picks. A stripped player is skipped by both, as
-  now.
-
-The other consumers change in their own plans, unbuilt: the Player aesthetics editor's forms
-and its in-game face workflow (`plans/player_aesthetics_editor.md`), the Team creator's
-In-game head starter (`plans/team_creator.md`), and the Save editor's Appearance lock text and
-generation (`plans/save_editor.md`).
-
-#### Acceptance (0.0.1h)
-
-Fixtures as their spec namesakes'; /co/ is team 714, /egg/ 792.
-
-```
-SE-GUI-33  GIVEN a player whose record has hair length 5 and iris 7
-           WHEN settings.toml generation, then Generate in-game face, run on his folder from
-                the view
-           THEN settings.toml holds no face, hair or iris key, and ingame_face.toml holds
-                iris_color = 7, [hair] length = 5 and every other key the save's version holds
-SE-GUI-34  manual  GIVEN a PES 21 player whose record has a non-default in-game face (long red
-                         hair, blue iris, a slider moved), his settings.toml and
-                         ingame_face.toml the view generated from it, then his record changed
-                         in Edit mode to another non-default look (short blond hair, green
-                         iris) and the save stripped (strip-and-seed), the folder compiled into
-                         the test slot
-                   WHEN he is opened in PES 21's Edit mode
-                   THEN he has the generated look (long red hair, blue iris), neither the
-                        changed record's nor the default face
-```
-
 ## Complete export (an aesthetics export with its tactical file and its music)
 
 A team's aesthetics export may carry its tactical half as a file at its root, `tactics.toml`:

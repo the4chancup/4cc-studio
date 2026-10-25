@@ -597,7 +597,7 @@ What exists of this is in `spec/save_editor.md` "Stripped save".
   are still read; every reader of a
   record's appearance in the GUI (the Appearance tab, the FPC classifier and its interference
   findings) marks a player at -1 as stripped beside what it shows; `settings.toml` generation
-  skips him ("Player settings in exports" in the
+  and Generate in-game face skip him ("Player settings in exports" in the
   [Aesthetics export plan](aesthetics_export/settings_toml.md)); opening a Fox save lists the
   players whose appearance id is set while others are stripped, with a one-click **Strip
   again** (their record is ignored from then on; the tables decide).
@@ -712,9 +712,10 @@ the editor exposes them as:
   name carrying colour codes is always emitted as the explicit string, so the
   next compile preserves the codes. The face, hair and iris keys are not in it: a second
   action, **Generate in-game face**, writes them into the folder's `ingame_face.toml`, since
-  the save cannot say which players wear the in-game face ("`ingame_face.toml`" in the
-  [Player folders plan](aesthetics_export/player_folders.md), whose SE-GUI-33 and 34 are this
-  view's). Both are Player-menu items on the selected player, each a dialog with the folder
+  the save cannot say which players wear the in-game face: the cup keeps every "modified
+  face" flag off, the game choosing the face folder whenever one exists for the id
+  (`spec/aesthetics_export/player_folders.md` "`ingame_face` marker"), so the member who
+  knows the folder picks (SE-GUI-33, 34). Both are Player-menu items on the selected player, each a dialog with the folder
   (typed or picked, never guessed: the save does not know which export or folder name a
   player has), the file's text as it will be written, and Write. A `settings.toml` already in
   the folder is updated in place (`update_toml`: its comments and layout kept, the values the
@@ -994,6 +995,19 @@ SE-GUI-19  GIVEN a player with name color codes
            WHEN settings.toml generation runs on his folder from the view
            THEN the file holds the explicit name string with its codes (never `name = true`,
                 the Export upgrader's folder-matching rule)
+SE-GUI-33  GIVEN a player whose record has hair length 5 and iris 7
+           WHEN settings.toml generation, then Generate in-game face, run on his folder from
+                the view
+           THEN settings.toml holds no face, hair or iris key, and ingame_face.toml holds
+                iris_color = 7, [hair] length = 5 and every other key the save's version holds
+SE-GUI-34  manual  GIVEN a PES 21 player whose record has a non-default in-game face (long red
+                         hair, blue iris, a slider moved), his settings.toml and
+                         ingame_face.toml the view generated from it, then his record changed
+                         to another non-default look (short blond hair, green iris) and the
+                         save stripped (strip-and-seed), the folder compiled into the test slot
+                   WHEN he is opened in PES 21's Edit mode
+                   THEN he has the generated look (long red hair, blue iris), neither the
+                        changed record's nor the default face
 SE-GUI-20  GIVEN a Fox save where some players' appearance ids are set and the rest are -1
            WHEN it is opened
            THEN the players with ids set are listed with a Strip again action, which sets their
