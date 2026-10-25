@@ -788,10 +788,19 @@ function blank() {
 
 // ---- State ----
 let R = null;               // the ruleset being edited
+// The loaded template's link key (R's name is editable, so it cannot name it).
+let loadedKey = "autumn26";
 let section = "general";
 let undo = [], redo = [], last = "";
 let saved = "";
 let previousLines = [];
+// The link's `ruleset` values, one per loadable template; each entry builds
+// the object to load (the blank and the custom-check sample are made on ask).
+const TEMPLATES = { autumn26: () => AUTUMN26, spring26: () => SPRING26,
+  vgl27: () => VGL27, vgl26: () => VGL26, vtl11: () => VTL11, vtl10: () => VTL10,
+  dbc7: () => DBC7, clouds: () => CLOUDS, blank: () => blank(),
+  "custom-check": () => Object.assign(clone(AUTUMN26),
+    { name: "Autumn 26 + custom check", custom_checks: CUSTOM_SAMPLE }) };
 
 function clone(v) { return JSON.parse(JSON.stringify(v)); }
 function human(id) {
@@ -856,7 +865,12 @@ function commit() {
   refresh();
 }
 function changed() { refresh(); }
-function load(ruleset) { R = clone(ruleset); R.medal_systems = R.medal_systems || []; undo = []; redo = []; last = JSON.stringify(R); saved = last; previousLines = []; render(); }
+function load(ruleset, key, noRender) {
+  R = clone(ruleset); R.medal_systems = R.medal_systems || []; loadedKey = key;
+  undo = []; redo = []; last = JSON.stringify(R); saved = last; previousLines = [];
+  if (!noRender) render();
+}
+function loadTemplate(key) { load(TEMPLATES[key](), key); closeWindow(); }
 function doUndo() { if (!undo.length) return; redo.push(last); last = undo.pop(); R = JSON.parse(last); render(); }
 function doRedo() { if (!redo.length) return; undo.push(last); last = redo.pop(); R = JSON.parse(last); render(); }
 function onKey(e) {
@@ -1309,7 +1323,7 @@ function drawView(center) {
   top.append(
     menu("File", [["New from template…", startPage], ["Open…", () => {}, true, "Not in this draft"],
       ["Save", save], ["Save as…", save], ["-"],
-      ["Open the sample with a custom check", () => load(Object.assign(clone(AUTUMN26), { name: "Autumn 26 + custom check", custom_checks: CUSTOM_SAMPLE }))]], { frame0: true }),
+      ["Open the sample with a custom check", () => load(TEMPLATES["custom-check"](), "custom-check")]], { frame0: true }),
     menu("Edit", [["Undo  (Ctrl+Z)", doUndo, !undo.length], ["Redo  (Ctrl+Y)", doRedo, !redo.length]], { frame0: true }),
     menu("Randomize", [["Sensible", () => {}, true, "The generator is not faked in this draft"],
       ["Weird", () => {}, true, "The generator is not faked in this draft"],
@@ -1366,30 +1380,33 @@ function save() {
   const probs = problems(R);
   if (probs.length) {
     window_("Not saved: the ruleset has problems", h("div", { class: "col" }, probs.map(p => h("span", { class: "err" }, "✖ " + p.text))),
-      [button("OK", closeWindow)]);
+      [button("OK", closeWindow)], "not-saved");
   } else {
     saved = JSON.stringify(R);
-    window_("Saved", h("div", {}, `In Studio this writes ${R.name.toLowerCase().replace(/\s+/g, "_")}.rhai: the data block, the current logic, and the custom checks unchanged. This draft writes nothing.`), [button("OK", () => { closeWindow(); render(); })]);
+    window_("Saved", h("div", {}, `In Studio this writes ${R.name.toLowerCase().replace(/\s+/g, "_")}.rhai: the data block, the current logic, and the custom checks unchanged. This draft writes nothing.`), [button("OK", () => { closeWindow(); render(); })], "saved");
   }
+  render(); // the link carries the open window's name
 }
 function startPage() {
+  // The `start` window's name is the link's mark for the start page open.
   window_("4cc Studio: Ruleset editor", h("div", { class: "col" },
     strong("New from template"),
-    button("Autumn 26 (the official rules)", () => { load(AUTUMN26); closeWindow(); }),
-    button("Spring 26", () => { load(SPRING26); closeWindow(); }),
-    button("VGL27", () => { load(VGL27); closeWindow(); }),
-    button("VGL26", () => { load(VGL26); closeWindow(); }),
-    button("VTL11", () => { load(VTL11); closeWindow(); }),
-    button("VTL10", () => { load(VTL10); closeWindow(); }),
-    button("DBC7 (Divegrass Before Christmas 7)", () => { load(DBC7); closeWindow(); }),
-    button("Clouds' proposal, every item (from VGL26)", () => { load(CLOUDS); closeWindow(); }),
-    button("Blank: one tier, no brackets, the universal rules on", () => { load(blank()); closeWindow(); }),
+    button("Autumn 26 (the official rules)", () => loadTemplate("autumn26")),
+    button("Spring 26", () => loadTemplate("spring26")),
+    button("VGL27", () => loadTemplate("vgl27")),
+    button("VGL26", () => loadTemplate("vgl26")),
+    button("VTL11", () => loadTemplate("vtl11")),
+    button("VTL10", () => loadTemplate("vtl10")),
+    button("DBC7 (Divegrass Before Christmas 7)", () => loadTemplate("dbc7")),
+    button("Clouds' proposal, every item (from VGL26)", () => loadTemplate("clouds")),
+    button("Blank: one tier, no brackets, the universal rules on", () => loadTemplate("blank")),
     h("div", { class: "sep" }),
     strong("Random"),
     row(["Sensible", "Weird", "Crazy"].map(p => button(p, () => {}, { disabled: true, title: "The generator is not faked in this draft" }))),
     h("div", { class: "sep" }),
     row(button("Open file…", () => {}, { disabled: true, title: "Not in this draft" }), weak("Recent: none"))),
-    R ? [button("Close", closeWindow)] : []);
+    R ? [button("Close", closeWindow)] : [], "start");
+  render(); // the link carries the start page's mark off its keys
 }
 
 // ---- Sections ----
@@ -1802,9 +1819,49 @@ function effectsEditor(e, path, inChoice) {
   return box;
 }
 
-function firstShow() { load(AUTUMN26); startPage(); }
+function firstShow() { load(AUTUMN26, "autumn26", true); startPage(); }
 // The view's screen is the open section (the host's layout edit keys its
 // tweaks by it).
 const screen = () => section;
-registerTool({ id: "ruleset-editor", css: RULESET_CSS, draw: drawView, firstShow, onKey, commit, screen });
+// The link's keys (plans/core/gui.md "Links"): the loaded template, the
+// preview pane, the start page open or not (the view's start has it open, so
+// a link that reached a section carries start=0).
+const startMarked = () => !!document.querySelector('#overlay .window[data-dlg="start"]');
+function linkKeys() {
+  const k = {};
+  if (loadedKey !== "autumn26") k.ruleset = loadedKey;
+  if (showPreview) k.preview = "1";
+  // Only a name of this view's own windows ("start" is the `start` key, and
+  // the host's named windows are the host's `win` key).
+  const w = document.querySelector("#overlay .window");
+  if (w && DLGS[w.dataset.dlg]) k.dialog = w.dataset.dlg;
+  if (!startMarked()) k.start = "0";
+  return k;
+}
+// A `dialog` value to its opener: save() picks Saved or Not saved by the
+// ruleset's problems, so both names open the same way.
+const DLGS = { saved: save, "not-saved": save };
+const linkWarn = what => console.warn("ruleset-editor link: " + what);
+function linkOpen(scr, keys) {
+  if (keys.ruleset !== undefined) {
+    if (TEMPLATES[keys.ruleset]) load(TEMPLATES[keys.ruleset](), keys.ruleset, true);
+    else linkWarn("ruleset=" + keys.ruleset);
+  }
+  if (keys.preview !== undefined) {
+    if (keys.preview === "0" || keys.preview === "1") showPreview = keys.preview === "1";
+    else linkWarn("preview=" + keys.preview);
+  }
+  if (SECTIONS.some(([id]) => id === scr)) section = scr;
+  else linkWarn("unknown screen " + scr);
+  if (keys.start !== undefined) {
+    if (keys.start === "0") closeWindow();
+    else if (keys.start === "1") { if (!startMarked()) startPage(); }
+    else linkWarn("start=" + keys.start);
+  }
+  if (keys.dialog !== undefined) {
+    if (DLGS[keys.dialog]) DLGS[keys.dialog]();
+    else linkWarn("dialog=" + keys.dialog);
+  }
+}
+registerTool({ id: "ruleset-editor", css: RULESET_CSS, draw: drawView, firstShow, onKey, commit, screen, linkKeys, linkOpen });
 })();

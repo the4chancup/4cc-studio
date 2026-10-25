@@ -348,11 +348,13 @@ document.addEventListener("click", closeMenus);
 // disabled input) then always show the frame's values. A plain window_ call
 // draws a static window; a drawer re-registers itself after calling it.
 let windowDrawer = null;
-function window_(title, body, buttons) {
+// The optional name marks the window (data-dlg): the one convention a view's
+// link reads a named window back by (linkKeys / linkOpen "dialog").
+function window_(title, body, buttons, name) {
   windowDrawer = null;
   const ov = document.getElementById("overlay");
   ov.innerHTML = "";
-  ov.append(h("div", { class: "modal-bg" }, h("div", { class: "window" },
+  ov.append(h("div", { class: "modal-bg" }, h("div", { class: "window", ...(name ? { "data-dlg": name } : {}) },
     h("div", { class: "title" }, title), body, h("div", { class: "row", style: "justify-content:flex-end; margin-top:10px" }, buttons))));
 }
 function closeWindow() { windowDrawer = null; document.getElementById("overlay").innerHTML = ""; }
@@ -474,6 +476,13 @@ const VIEWS = {};
 //               holds the close, after switching to itself and drawing its prompt
 //   screen()    the view's current screen's short id (a tab, a section); a
 //               view without it lays out under "main"
+//   linkKeys()  the view's state as a plain object of short keys to strings,
+//               only what differs from the view's start (a fresh view's link
+//               is just #<tool>/<screen>)
+//   linkOpen(screen, keys)  the view sets its state from a link's screen and
+//               keys, run once when the page opens on a link naming the tool,
+//               after firstShow and before the first draw; a key or value it
+//               does not know is ignored with a console.warn, never an error
 // A document-level listener a tool script adds itself checks the view's own
 // state before acting: it fires while another tool is active.
 function registerTool(view) {
@@ -844,7 +853,8 @@ function openAbout() {
     [button("Copy", () => {
       lastCopied = aboutText();
       navigator.clipboard?.writeText(lastCopied)?.catch(() => {});
-    }), button("Close", closeWindow)]);
+    }), button("Close", closeWindow)], "about");
+  render(); // the link carries the open window's name
 }
 
 // ---- Help window (gui.md "Help window") ----
@@ -1490,6 +1500,7 @@ function openSettings() {
   }
   open.add("settings/" + S.activeTool);
   drawSettings();
+  render(); // the link carries the open window (windowDrawer re-registers)
 }
 function drawSettings() {
   window_("Settings",
@@ -1565,6 +1576,43 @@ function setTitle() {
   tb.append(h("span", { class: "win-title" }, t), maxButton());
 }
 function structural() { const view = VIEWS[S.activeTool]; if (view && view.commit) view.commit(); render(); }
+// The drawn state in the address: #<tool>/<screen>?<key>=<value>&..., the
+// tool id's hyphens as underscores; a stub tool's is the bare #<tool>. The
+// shell's own key: pes=<version> while the selector is not the default.
+let lastLink = null;
+// The shell's own keys beside the view's, written only off their start value:
+// the selector, the exe check, the blocker, the conditions, the settings file,
+// the data folder, the open Settings or About window, the open help.
+function hostLinkKeys() {
+  const k = {};
+  if (S.pesVersion !== "2019") k.pes = S.pesVersion;
+  if (S.exeFound !== "selected") k.exe = S.exeFound;
+  if (S.blocker) k.blocker = "1";
+  if (S.conditions.length) k.cond = S.conditions.join(",");
+  if (S.settingsFile !== "portable") k.settings = S.settingsFile;
+  if (S.dataDirUnwritable) k.rodata = "1";
+  if (windowDrawer === drawSettings) k.win = "settings";
+  else if (document.querySelector('#overlay .window[data-dlg="about"]')) k.win = "about";
+  if (S.help) {
+    k.help = S.help.tool + "/" + S.help.topic;
+    if (S.help.anchor) k.anchor = S.help.anchor;
+  }
+  return k;
+}
+function updateLink() {
+  const view = VIEWS[S.activeTool];
+  let frag = "#" + S.activeTool.replaceAll("-", "_");
+  const keys = {};
+  if (view) {
+    frag += "/" + (view.screen ? view.screen() : "main");
+    Object.assign(keys, view.linkKeys ? view.linkKeys() : {});
+  }
+  Object.assign(keys, hostLinkKeys());
+  const q = Object.entries(keys)
+    .map(([k, v]) => k + "=" + encodeURIComponent(v)).join("&");
+  if (q) frag += "?" + q;
+  if (frag !== lastLink) { lastLink = frag; history.replaceState(null, "", frag); }
+}
 function render() {
   closeMenus();
   setTitle();
@@ -1577,6 +1625,7 @@ function render() {
   else if (windowDrawer) windowDrawer();
   drawHelp();
   layoutApply();
+  updateLink();
 }
 
 function cb(label, checked, set) {
@@ -1765,6 +1814,9 @@ function renderSidebar() {
 
 // The central panel is the active tool's: each registered tool gets a stub until
 // its own draft exists (tools/<tool>.js).
+// The link the page opened on (set by the last script): applied once, after
+// the named view's firstShow, before its first draw.
+let pendingLink = null, inFirstShow = false;
 function renderCenter() {
   const center = document.getElementById("center");
   const oldLog = center.querySelector(".log-body");
@@ -1776,7 +1828,17 @@ function renderCenter() {
   if (S.settingsFile === "none") { center.innerHTML = ""; return; }
   if (view) {
     // Once per page life; marked shown first, since firstShow may render().
-    if (view.firstShow && !view.shown) { view.shown = true; view.firstShow(); }
+    if (view.firstShow && !view.shown) {
+      view.shown = true; inFirstShow = true;
+      view.firstShow();
+      inFirstShow = false;
+    }
+    // A render firstShow triggered has drawn its own start; the link's state
+    // wins the draw below.
+    if (pendingLink && !inFirstShow) {
+      const pl = pendingLink; pendingLink = null;
+      if (view.linkOpen) view.linkOpen(pl.screen, pl.keys);
+    }
     view.draw(center); // the view owns the center's content (not cleared)
     return;
   }
@@ -2181,11 +2243,91 @@ function copyLayout() {
 <script src="tools/export_upgrader.js"></script>
 <script>
 // Last, after the tool scripts: they must have registered their views with
-// registerTool first. The hash picks the first tool (index.html#ruleset-editor
-// opens on the Ruleset editor); otherwise the shell's default stands.
-const hashTool = location.hash.slice(1);
-if (TOOLS.some(t => t.id === hashTool && t.registered)) S.activeTool = hashTool;
+// registerTool first. The hash picks the first tool and carries its state:
+// #<tool>/<screen>?<key>=<value>&... (the id's hyphens as underscores); the
+// bare #<tool-id> still opens the tool at its start.
+const hashText = location.hash.slice(1);
+const qAt = hashText.indexOf("?");
+const pathPart = qAt < 0 ? hashText : hashText.slice(0, qAt);
+const queryPart = qAt < 0 ? "" : hashText.slice(qAt + 1);
+const slashAt = pathPart.indexOf("/");
+const hashTool = (slashAt < 0 ? pathPart : pathPart.slice(0, slashAt)).replaceAll("_", "-");
+// The shell's windows apply after the first render: a firstShow or a
+// linkOpen window would replace them if they opened first.
+const afterLink = [];
+if (TOOLS.some(t => t.id === hashTool && t.registered)) {
+  S.activeTool = hashTool;
+  const keys = Object.fromEntries(new URLSearchParams(queryPart));
+  // The shell's own keys apply first; the view's pendingLink sees the rest.
+  const take = (name, apply) => {
+    if (keys[name] === undefined) return;
+    apply(keys[name]);
+    delete keys[name];
+  };
+  // pes is the shell's own key, set before the view's firstShow reads it.
+  take("pes", v => PES_VERSIONS.includes(v) ? setPesVersion(v)
+    : console.warn("link: pes=" + v));
+  take("exe", v => {
+    if (["selected", "other", "none", "no_folder"].includes(v)) {
+      S.exeFound = v;
+      if (v === "other") S.exeFoundVersion = "2017";
+    } else console.warn("link: exe=" + v);
+  });
+  take("blocker", v => {
+    if (v === "1") S.blocker = { tool: "Match tracker",
+      reason: "The match tracker holds live memory addresses" };
+    else if (v !== "0") console.warn("link: blocker=" + v);
+  });
+  take("cond", v => {
+    S.conditions = v.split(",").filter(id => {
+      if (CONDITION_DEFS.some(c => c.id === id)) return true;
+      console.warn("link: unknown condition " + id);
+      return false;
+    });
+  });
+  take("settings", v => {
+    if (["portable", "config", "none"].includes(v)) S.settingsFile = v;
+    else console.warn("link: settings=" + v);
+  });
+  take("rodata", v => {
+    if (v === "1") S.dataDirUnwritable = true;
+    else if (v !== "0") console.warn("link: rodata=" + v);
+  });
+  take("help", v => {
+    const [chId, topic] = v.split("/", 2);
+    const ch = HELP.find(c => c.id === chId);
+    // "messages" is a virtual topic off the tool's catalog, not in HELP.
+    const ok = ch && (ch.topics.some(t => t.slug === topic)
+      || (topic === "messages" && CATALOG[chId]));
+    if (ok) afterLink.push(() => openHelp({ tool: chId, topic }));
+    else console.warn("link: help=" + v);
+  });
+  take("anchor", v => {
+    afterLink.push(() => {
+      if (S.help) { S.help.anchor = v; S.help.scrollPending = true; }
+      else console.warn("link: anchor= without help " + v);
+    });
+  });
+  take("win", v => {
+    if (v === "settings") afterLink.push(() => openSettings());
+    else if (v === "about") afterLink.push(() => openAbout());
+    else console.warn("link: win=" + v);
+  });
+  try {
+    if (slashAt >= 0 && VIEWS[hashTool])
+      pendingLink = { screen: decodeURIComponent(pathPart.slice(slashAt + 1)), keys };
+  } catch (e) {
+    console.warn("link: malformed escape in " + pathPart);
+  }
+} else if (hashText) console.warn("link: unknown tool " + hashText);
 render();
+afterLink.forEach(fn => fn());
+// An afterLink state change that draws no window itself (the anchor's scroll)
+// needs one more pass.
+if (afterLink.length) render();
+// A link pasted into the open page's address fires hashchange; reopen the
+// page so the link parses as a fresh one (replaceState does not fire it).
+addEventListener("hashchange", () => location.reload());
 </script>
 </body>
 </html>

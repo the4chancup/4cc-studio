@@ -2469,3 +2469,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.18 (side-lead A): the drafts host's Layout edit toggle: every tool script names its panels
   (`data-panel`), a move or a resize per panel per screen kept in the browser until Reset, and Copy layout's lines of
   rectangles before and after in window points, for the maintainer to paste to the lead.
+- **2026-10-25** — 8.19a (side-lead A): links: the drafts' state in the address (`#<tool>/<screen>?keys`, each tool's
+  `linkKeys`/`linkOpen`, `run=done` replaying a finished run), so a link opened in a fresh page draws the same screen;
+  12 states per Playwright pixel-equal. Remarks (8.19b) and longest values (8.19c) are briefed, not built.

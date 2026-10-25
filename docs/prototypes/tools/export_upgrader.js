@@ -429,7 +429,7 @@ const outputName = () => input().target === "models"
 // The fake run: the sample's lines arrive into the log in batches over about
 // two seconds ("about 20 s" draws the same over twenty); the activity reads
 // the elapsed time only (no counts).
-function startRun() {
+function startRun(instant) {
   // A new run's report replaces the last one's (the refusal and the abort
   // included).
   L.log = []; L.logNew = 0; L.logStick = true;
@@ -441,6 +441,15 @@ function startRun() {
   if (D.outputExists) { instantResult(3, abortText()); return; }
   S.run = { lines: run.lines, exit: run.exit, next: 0, elapsed: 0,
     start: Date.now(), output: outputInto() };
+  // A link's run=done draws the whole report at once, no timer. The Upgrade
+  // button passes its click event as the argument, so this tests === true.
+  if (instant === true) {
+    S.run.timer = 0;
+    appendLog(S.run.lines.map(parseLogLine), L);
+    S.run.next = S.run.lines.length;
+    finishRun();
+    return;
+  }
   toolActivity("export-upgrader", { elapsed: 0 });
   render();
   const batch = Math.ceil(run.lines.length / 16);
@@ -482,22 +491,24 @@ function moveAndCompile() {
 
 // The Browse buttons' stand-in file dialogs (a window_ titled as the native
 // picker would be): one button per pickable sample path, Cancel closing it.
-function picker(title, options, pick) {
+// Each carries its link name, so the link's dialog key reopens it.
+function picker(name, title, options, pick) {
   window_(title, h("div", {},
     weak("The system's file picker opens here; the draft lists the samples it could pick."),
     options.map(([label, v]) =>
       h("div", {}, button(label, () => { pick(v); closeWindow(); render(); })))),
-    [button("Cancel", closeWindow)]);
+    [button("Cancel", closeWindow)], name);
+  render(); // the link carries the open picker's name
 }
 const targetSamples = target => Object.keys(INPUTS).filter(k => INPUTS[k].target === target);
-const exportPicker = () => picker("Upgrade an export",
+const exportPicker = () => picker("pick-export", "Upgrade an export",
   targetSamples("export").map(k => [INPUTS[k].path, k]), setInput);
-const modelsPicker = () => picker("Upgrade model folders",
+const modelsPicker = () => picker("pick-models", "Upgrade model folders",
   targetSamples("models").map(k => [INPUTS[k].path, k]), setInput);
-const savefilePicker = () => picker("Savefile",
+const savefilePicker = () => picker("pick-savefile", "Savefile",
   DISCOVERED.map(d => [d.path, d.path]),
   v => { S.savefile = v; S.savefileEdited = true; });
-const outputPicker = () => picker("Output into",
+const outputPicker = () => picker("pick-output", "Output into",
   [["C:\\Users\\you\\Downloads", "C:\\Users\\you\\Downloads"],
     ["C:\\4cc\\4cc-studio\\exports", "C:\\4cc\\4cc-studio\\exports"]],
   v => { S.outputInto = v; S.outputEdited = true; });
@@ -691,6 +702,52 @@ const WALK = [
 // The view's one screen (the host's layout edit keys its tweaks by it).
 const screen = () => "main";
 
+// The link's keys (plans/core/gui.md "Links"): the input dropped, loose, the
+// draft controls that change what is drawn, and run=done for a finished run.
+function linkKeys() {
+  const k = {};
+  if (S.input) k.input = S.input;
+  if (S.loose) k.loose = "1";
+  if (D.outputExists) k.exists = "1";
+  if (!D.discovered) k.nosave = "1";
+  if (D.runLength === "long") k.long = "1";
+  if (S.result) k.run = "done";
+  // Only a name of this view's own windows: the host's named windows (About)
+  // are the host's `win` key, not this view's dialog.
+  const w = document.querySelector("#overlay .window");
+  if (w && DLGS[w.dataset.dlg]) k.dialog = w.dataset.dlg;
+  return k;
+}
+// A `dialog` value to its opener: the four fake pickers.
+const DLGS = { "pick-export": exportPicker, "pick-models": modelsPicker,
+  "pick-savefile": savefilePicker, "pick-output": outputPicker };
+const linkWarn = what => console.warn("export-upgrader link: " + what);
+function linkOpen(scr, keys) {
+  if (scr !== "main") linkWarn("unknown screen " + scr);
+  for (const name of ["exists", "nosave", "long"]) {
+    const v = keys[name];
+    if (v === undefined) continue;
+    if (v !== "0" && v !== "1") { linkWarn(name + "=" + v); continue; }
+    if (name === "exists") D.outputExists = v === "1";
+    if (name === "nosave") D.discovered = v !== "1";
+    if (name === "long") D.runLength = v === "1" ? "long" : "short";
+  }
+  if (keys.input !== undefined) {
+    if (INPUTS[keys.input]) setInput(keys.input);
+    else linkWarn("input=" + keys.input);
+  }
+  if (keys.loose !== undefined) {
+    if (keys.loose === "1") S.loose = true;
+    else if (keys.loose !== "0") linkWarn("loose=" + keys.loose);
+  }
+  // run=done goes last: the run reads the arguments and controls set above.
+  if (keys.run === "done" && S.input) startRun(true);
+  else if (keys.run !== undefined && keys.run !== "done") linkWarn("run=" + keys.run);
+  if (keys.dialog !== undefined) {
+    if (DLGS[keys.dialog]) DLGS[keys.dialog]();
+    else linkWarn("dialog=" + keys.dialog);
+  }
+}
 registerTool({ id: "export-upgrader", css: EXPORT_UPGRADER_CSS, draw: drawView,
-  controls: draftControls, closeRequest, screen });
+  controls: draftControls, closeRequest, screen, linkKeys, linkOpen });
 })();

@@ -61,7 +61,8 @@
 // left unindented, as in tools/ruleset_editor.js.
 // Names this script uses without declaring them (render, h, row, weak, strong, button,
 // combo, selectable, collapsing, menu, window_, closeWindow, cb, publishNotice,
-// shellPesVersion, setPesVersion, PES_VERSIONS, folderOf, named, registerTool) are the host's,
+// shellPesVersion, setPesVersion, PES_VERSIONS, folderOf, named, updateLink,
+// registerTool) are the host's,
 // index.html.
 (() => {
 "use strict";
@@ -2501,12 +2502,14 @@ function teamOf(p) { return curSave().teams.find(t => t.players.includes(p)); }
 // Refused while the save's own game runs (the CLI's rule: the game writes its
 // save back on exit over ours); another version's game does not block it.
 // sample wording: the refusal's text and the status lines.
+function dlgSaveRefused() {
+  dlg("save-refused", "Save refused", h("div", {},
+    h("p", {}, "PES20" + version() + ".exe is running. The game writes its save back when it closes, over this one."),
+    h("p", {}, weak("Close the game, then save again."))),
+    [button("OK", closeWindow)]);
+}
 function saveFile() {
-  if (D.gameRunning)
-    return window_("Save refused", h("div", {},
-      h("p", {}, "PES20" + version() + ".exe is running. The game writes its save back when it closes, over this one."),
-      h("p", {}, weak("Close the game, then save again."))),
-      [button("OK", closeWindow)]);
+  if (D.gameRunning) return dlgSaveRefused();
   writeSave(S.path);
 }
 function writeSave(path) {
@@ -2520,7 +2523,7 @@ function writeSave(path) {
 }
 function saveAs() {
   const input = h("input", { type: "text", style: "width:420px", value: S.path });
-  window_("Save as", h("div", {},
+  dlg("save-as", "Save as", h("div", {},
     h("p", {}, weak("The native file picker (rfd) opens here; the draft edits the path inline.")),
     input),
     [button("Save", () => { closeWindow(); writeSave(input.value); render(); }),
@@ -2748,8 +2751,7 @@ function openMenu() {
     const label = "PES " + d.version + (d.account ? "  (" + d.account + ")" : "");
     const key = d.version === "2017" ? "pes17" : d.version === "2021" ? "pes21" : null;
     return [label, () => key ? requestOpen(key, d.path)
-      : window_("Open save", weak("Opens " + d.path + "; the draft carries sample data for the PES 17 and 21 saves only."),
-          [button("OK", closeWindow)]), false, d.path];
+      : dlgOpenSave(d), false, d.path];
   });
   items.push("-");
   for (const path of S.recents) {
@@ -2758,10 +2760,7 @@ function openMenu() {
       key ? requestOpen(key, path) : closeWindow(), false, path]);
   }
   items.push("-");
-  items.push(["Choose file\u2026", () => window_("Choose file",
-    weak("The native file picker (rfd) opens in the selected version's save folder when it exists: " +
-      (folderOf(DISCOVERED.find(d => d.version === D.selectorVersion)) || "(none found)")),
-    [button("OK", closeWindow)]), false,
+  items.push(["Choose file\u2026", dlgChooseFile, false,
     "Opens in the selected version's save folder when it exists"]);
   return menu("Open", items);
 }
@@ -2850,18 +2849,41 @@ function fpcFindings(p) {
 const ownershipTip = () => "Owned by the team's export: edit its settings.toml and recompile"
   + (isFox() ? "." : ", then apply the patch.");
 // sample wording: the menu labels.
+function dlgSetStats() {
+  const p = curPlayer();
+  dlgNum("set-stats", "Set all stats",
+    "Every ability stat of " + displayName(p.name) + " to the value", p.stats.speed,
+    n => setAllStats(p, n));
+}
+function dlgBumpStats() {
+  const p = curPlayer();
+  dlgNum("bump-stats", "Bump all stats",
+    "Add to every ability stat of " + displayName(p.name) + ", clamped to the editor's 40 to 99", 0, n => {
+      edit("Bump stats " + (n > 0 ? "+" : "") + n, () => {
+        for (const s of ABILITY_STATS) if (p.stats[s] !== undefined)
+          p.stats[s] = Math.min(99, Math.max(40, p.stats[s] + n));
+      }); });
+}
+// The open-save stub stands for a discovered save by its version; the link's
+// `open` key names which one it opens for.
+let openStub = null;
+function dlgOpenSave(d) {
+  openStub = d;
+  dlg("open-save", "Open save",
+    weak("Opens " + d.path + "; the draft carries sample data for the PES 17 and 21 saves only."),
+    [button("OK", closeWindow)]);
+}
+function dlgChooseFile() {
+  dlg("choose-file", "Choose file",
+    weak("The native file picker (rfd) opens in the selected version's save folder when it exists: " +
+      (folderOf(DISCOVERED.find(d => d.version === D.selectorVersion)) || "(none found)")),
+    [button("OK", closeWindow)]);
+}
 function playerMenu() {
   const p = curPlayer();
   return menu("Player", [
-    ["Set all stats\u2026", () => dlgNum("Set all stats",
-      "Every ability stat of " + displayName(p.name) + " to the value", p.stats.speed, n => {
-        setAllStats(p, n); })],
-    ["Bump all stats\u2026", () => dlgNum("Bump all stats",
-      "Add to every ability stat of " + displayName(p.name) + ", clamped to the editor's 40 to 99", 0, n => {
-        edit("Bump stats " + (n > 0 ? "+" : "") + n, () => {
-          for (const s of ABILITY_STATS) if (p.stats[s] !== undefined)
-            p.stats[s] = Math.min(99, Math.max(40, p.stats[s] + n));
-        }); })],
+    ["Set all stats\u2026", dlgSetStats],
+    ["Bump all stats\u2026", dlgBumpStats],
     ["Toggle FPC settings  Ctrl+I", () => { fpcToggle(p); render(); }, !S.editAnyway, ownershipTip()],
     "-",
     ["Copy stats from\u2026", () => dlgCopySwap(p, "copy")],
@@ -2911,9 +2933,15 @@ function teamFpc(on) {
 
 // ---- The dialogs (SE-GUI-24, 23, 27) ----
 // sample wording: the dialogs' texts and buttons.
-function dlgNum(title, line, start, apply) {
+// The link's `dialog` key marks the window it names, so linkKeys reads it
+// back; a window the tool did not name (the host's, a stub) carries no mark.
+function dlg(name, title, body, buttons) {
+  window_(title, body, buttons, name);
+  render(); // the link carries the open dialog's name
+}
+function dlgNum(name, title, line, start, apply) {
   const input = h("input", { type: "number", value: start });
-  window_(title, h("div", {}, h("p", {}, line), input),
+  dlg(name, title, h("div", {}, h("p", {}, line), input),
     [button("OK", () => { const n = parseInt(input.value, 10);
       if (!Number.isNaN(n)) { apply(n); closeWindow(); render(); } }),
      button("Cancel", closeWindow)]);
@@ -2925,7 +2953,7 @@ function dlgCopySwap(p, mode) {
     opts.push([t.id + ":" + q.slot, t.name + " " + String(q.slot).padStart(2, "0")
       + " " + displayName(q.name)]);
   const pick = combo(opts, null, () => {});
-  window_(mode === "copy" ? "Copy stats" : "Swap stats", h("div", {},
+  dlg(mode === "copy" ? "copy-stats" : "swap-stats", mode === "copy" ? "Copy stats" : "Swap stats", h("div", {},
     h("p", {}, (mode === "copy" ? "Copy the stats of " : "Swap the stats of ")
       + displayName(p.name) + " " + (mode === "copy" ? "onto this player" : "with:")),
     pick),
@@ -2961,7 +2989,7 @@ function dlgBoglo() {
       h("label", { class: "cb" }, h("input", { type: "radio", name: "boglo-g", onchange: () => gMode = "boots" }), " Same as the boot IDs"),
       h("label", { class: "cb" }, h("input", { type: "radio", name: "boglo-g", onchange: () => gMode = "same" }), " Same ID for all "),
       gId));
-  window_("Set boots and gloves IDs for everyone", body,
+  dlg("boglo", "Set boots and gloves IDs for everyone", body,
     [button("OK", () => {
       const start = parseInt(bStart.value, 10), bid = parseInt(bId.value, 10),
         gid = parseInt(gId.value, 10);
@@ -3027,7 +3055,7 @@ function rosterTsv() {
 function dlgTsv() {
   const input = h("input", { type: "text", style: "width:420px",
     value: "EDIT.tsv" });
-  window_("Output rosters to TSV", h("div", {},
+  dlg("tsv", "Output rosters to TSV", h("div", {},
     h("p", {}, weak("The native save dialog (rfd) opens here; the draft edits the path inline.")),
     input),
     [button("Save", () => {
@@ -3070,7 +3098,7 @@ function fixDatabase() {
 // sample wording: the confirmation's text on PES 2017; the editor names only the repairs the
 // open save's version has (PES 2021: "Clear every player's visual flags?").
 function dlgFixDb() {
-  window_("Fix database", h("div", {},
+  dlg("fixdb", "Fix database", h("div", {},
     h("p", {}, "Repair base copies, clear every player's visual flags and the teams' strip flag, and reset the kit slots to their defaults?")),
     [button("Fix database", () => { fixDatabase(); closeWindow(); render(); }),
      button("Cancel", closeWindow)]);
@@ -3115,7 +3143,8 @@ function renderMaster() {
   // sample wording: the filter's placeholder and the rows' tooltips.
   const filter = h("input", { type: "text", id: "filter-box",
     placeholder: "Filter all teams (name, shirt, id)", value: S.filter,
-    oninput: e => { S.filter = e.target.value; renderList(rows); } });
+    // No redraw: the box keeps its focus; the link still tracks the text.
+    oninput: e => { S.filter = e.target.value; renderList(rows); updateLink(); } });
   const rows = h("div", { class: "rows", id: "player-rows" });
   box.append(sel, filter, rows);
   renderList(rows);
@@ -5591,7 +5620,7 @@ function ixExportToml() {
   const t = curTeam();
   const input = h("input", { type: "text", style: "width:420px",
     value: folderOf(S.path) + "\\" + t.id + ".toml" });
-  window_("Export team as Team TOML", h("div", {},
+  dlg("export-toml", "Export team as Team TOML", h("div", {},
     h("p", {}, weak("The native save dialog (rfd) opens here; the draft edits the path inline.")),
     input),
     [button("Save", () => {
@@ -5607,7 +5636,7 @@ function ixExportTed() {
   const t = curTeam();
   const input = h("input", { type: "text", style: "width:420px",
     value: folderOf(S.path) + "\\" + (t.short_name || t.id) + ".ted" });
-  window_("Export team as Texport", h("div", {},
+  dlg("export-ted", "Export team as Texport", h("div", {},
     h("p", {}, weak("The native save dialog (rfd) opens here; the draft edits the path inline.")),
     input),
     [button("Save", () => {
@@ -5762,7 +5791,7 @@ function settingsToml(p) {
 function dlgSettings() {
   const p = curPlayer(), t = teamOf(p);
   if (isStripped(p)) {
-    window_("Generate settings.toml", h("div", {},
+    dlg("settings", "Generate settings.toml", h("div", {},
       h("p", {}, displayName(p.name) + " is stripped: the game reads the tables, not his record. Generation skips him.")),
       [button("OK", closeWindow)]);
     return;
@@ -5770,7 +5799,7 @@ function dlgSettings() {
   const input = h("input", { type: "text", style: "width:420px",
     value: "C:\\Data\\4cc\\Exports\\" + (t.short_name || t.id)
       + "\\Players\\" + String(p.slot).padStart(2, "0") + " - " + displayName(p.name) });
-  window_("Generate settings.toml", h("div", {},
+  dlg("settings", "Generate settings.toml", h("div", {},
     h("p", {}, weak("The native folder picker (rfd) opens here; the draft edits the player folder inline.")),
     input,
     h("div", { class: "grp weak" }, "settings.toml"),
@@ -5799,5 +5828,97 @@ function firstShow() { openSave(D.sample); } // the draft control's open save
 // The view's screen: the open tab (the host's layout edit keys its tweaks by
 // it; a floating panel window is its own named panel instead).
 const screen = () => S.tab;
-registerTool({ id: "save-editor", css: SAVE_EDITOR_CSS, draw: renderView, firstShow, controls: draftControls, onKey, screen });
+// The link's keys (plans/core/gui.md "Links"): the open save, the picked
+// team, the selected player (<team>.<slot>), the open panel, a named dialog
+// open from a menu, and the draft controls that change what is drawn.
+function linkKeys() {
+  const k = {};
+  if (S.saveKey && S.saveKey !== "pes17") k.save = S.saveKey;
+  if (S.teamSel !== (S.saveKey === "pes17" ? "718" : "all")) k.team = S.teamSel;
+  if (S.sel) k.player = S.sel.team + "." + S.sel.slot;
+  if (S.panel) k.panel = S.panel;
+  const w = document.querySelector("#overlay .window");
+  // Only a name of this view's own windows: the host's named windows (About)
+  // are the host's `win` key, not this view's dialog.
+  if (w && DLGS[w.dataset.dlg]) {
+    k.dialog = w.dataset.dlg;
+    if (w.dataset.dlg === "open-save" && openStub) k.open = openStub.version;
+  }
+  if (D.ruleset !== "official") k.ruleset = D.ruleset;
+  if (D.appearanceIds !== "all_set") k.appids = D.appearanceIds;
+  if (!D.liveTeamRows) k.liverows = "0";
+  if (!D.portraits) k.portraits = "0";
+  if (S.editAnyway) k.anyway = "1";
+  if (S.filter) k.filter = S.filter;
+  if (D.gameRunning) k.running = "1";
+  if (D.pickerSugg) k.sugg = "1";
+  return k;
+}
+// A `dialog` value to its opener: the dialogs a menu opens with no argument
+// beyond the current selection.
+const DLGS = { "set-stats": dlgSetStats, "bump-stats": dlgBumpStats,
+  "copy-stats": () => dlgCopySwap(curPlayer(), "copy"),
+  "swap-stats": () => dlgCopySwap(curPlayer(), "swap"),
+  settings: dlgSettings, boglo: dlgBoglo, tsv: dlgTsv, fixdb: dlgFixDb,
+  "choose-file": dlgChooseFile, "save-refused": dlgSaveRefused,
+  "save-as": saveAs, "export-toml": ixExportToml, "export-ted": ixExportTed,
+  "open-save": () => dlgOpenSave(openStub
+    || DISCOVERED.find(d => d.version === D.selectorVersion) || DISCOVERED[0]) };
+const linkWarn = what => console.warn("save-editor link: " + what);
+function linkOpen(scr, keys) {
+  // The draft controls go first: an open save's faking reads them.
+  if (keys.ruleset !== undefined) {
+    if (RULESETS[keys.ruleset]) D.ruleset = keys.ruleset;
+    else linkWarn("ruleset=" + keys.ruleset);
+  }
+  if (keys.appids !== undefined) {
+    if (["all_set", "mixed", "stripped"].includes(keys.appids)) D.appearanceIds = keys.appids;
+    else linkWarn("appids=" + keys.appids);
+  }
+  for (const name of ["liverows", "portraits"]) if (keys[name] !== undefined) {
+    if (keys[name] === "0" || keys[name] === "1")
+      D[name === "liverows" ? "liveTeamRows" : "portraits"] = keys[name] === "1";
+    else linkWarn(name + "=" + keys[name]);
+  }
+  for (const name of ["running", "sugg"]) if (keys[name] !== undefined) {
+    if (keys[name] === "0" || keys[name] === "1")
+      D[name === "running" ? "gameRunning" : "pickerSugg"] = keys[name] === "1";
+    else linkWarn(name + "=" + keys[name]);
+  }
+  if (keys.save !== undefined) {
+    if (SAVES[keys.save]) openSave(keys.save);
+    else linkWarn("save=" + keys.save);
+  }
+  if (keys.anyway !== undefined) {
+    if (keys.anyway === "0" || keys.anyway === "1") S.editAnyway = keys.anyway === "1";
+    else linkWarn("anyway=" + keys.anyway);
+  }
+  if (keys.filter !== undefined) S.filter = keys.filter;
+  if (TABS.some(([id]) => id === scr)) S.tab = scr;
+  else linkWarn("unknown screen " + scr);
+  if (keys.team !== undefined) {
+    if (keys.team === "all" || curSave().teams.some(t => String(t.id) === keys.team)) S.teamSel = keys.team;
+    else linkWarn("team=" + keys.team);
+  }
+  if (keys.player !== undefined) {
+    const m = keys.player.match(/^(\d+)\.(\d+)$/);
+    if (m && findPlayer(Number(m[1]), Number(m[2])))
+      S.sel = { team: Number(m[1]), slot: Number(m[2]) };
+    else linkWarn("player=" + keys.player);
+  }
+  if (keys.panel !== undefined) {
+    if (["aatf", "comparator", "transplant", "patch", "interchange"].includes(keys.panel)) S.panel = keys.panel;
+    else linkWarn("panel=" + keys.panel);
+  }
+  // `open` names the discovered save the open-save stub stands for.
+  if (keys.open !== undefined) {
+    const d = DISCOVERED.find(x => x.version === keys.open);
+    if (d) openStub = d; else linkWarn("open=" + keys.open);
+  }
+  if (keys.dialog !== undefined) {
+    if (DLGS[keys.dialog]) DLGS[keys.dialog]();
+    else linkWarn("dialog=" + keys.dialog);
+  }
+}
+registerTool({ id: "save-editor", css: SAVE_EDITOR_CSS, draw: renderView, firstShow, controls: draftControls, onKey, screen, linkKeys, linkOpen });
 })();
