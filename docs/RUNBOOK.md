@@ -140,7 +140,10 @@ every mutant). A brief that starts a whole-crate run says so.
 briefs, reports, diffs, logs and probes; `lead/` for the lead's live notes; `reference/` for
 cup material; `review_queue_S/` for the S1-S6 review rounds), sorted that way on 2026-10-08
 after a flat top level had reached about two thousand files: a new scratch file goes in its
-step's folder. **An archived run keeps its summary, not its logs.** A run kept aside (in
+step's folder. **A temporary folder outside the repository** (a git worktree for a review, a
+side-lead, a release or in-game build) goes under `../4cc-studio-temp/<name>`, never loose beside
+the repository: the maintainer browses that folder, and seventeen `4cc-studio-*` siblings had
+buried the repository by 2026-10-26, when they moved there. **An archived run keeps its summary, not its logs.** A run kept aside (in
 `.tmp/<subphase>/mutants_<step>_<what>/`, before
 the next run overwrites `mutants.out/`) copies only `*.txt` and `outcomes.json`, never the
 per-mutant `log/` or `remote/` trees: those are what reproduce a survivor, and a survivor is

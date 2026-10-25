@@ -1696,14 +1696,20 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       `check-aatf` checks its teams in parallel (PES 2017 save, 220 teams: 13.2 s to 2.0 s,
       output identical; DECISIONS 2026-10-22). Files: `Cargo.toml`, `aatf/src/rules.rs`,
       `save_editor/{Cargo.toml,src/cli.rs}`, `spec/aatf_rules.md`, `plans/save_editor.md`
-    - [ ] 8.9m the script's own work: `logic.rhai`'s `read_player` profiles every tier for each
+    - [x] 8.9m the script's own work: `logic.rhai`'s `read_player` profiles every tier for each
       player, 2.2 ms a player, because rhai copies every map argument per call (measured
       without each part: choices' `option_used` 22 ms of the 56, the two walks over the
       specials 38 ms with the choices they feed). A rewrite that copies less (one card summary
       per choice rather than per option, the specials' conditions read once per player)
       updates `LOGIC_VERSIONS`' hash and must leave every fixture's violations unchanged;
       before logic version 1 is frozen at the 0.0.1 cut (the maintainer, 2026-10-25;
-      `plans/aatf_rules.md` "Loading and validation")
+      DECISIONS 2026-10-25). Done 2026-10-25 (SWE-2, one rework: the marker read directly
+      rather than through a copying `flag` call, `if` expressions, no `profile` overload):
+      logic 1's hash `ea75b5fb…`; the 424-save census's output identical (2,775,487
+      finding lines, `.tmp/8_9m/census/`), `check-aatf` at 0.85 of its time on the 12
+      biggest saves, alternated (`paired_timing.txt`). A further cut, if one is wanted:
+      `apply_effects` copies the profile per applied special. Files:
+      `aatf/{logic/logic.rhai,src/file.rs}`, `docs/spec/aatf_rules.md`
     - [ ] 8.9k slice 5, the interchange dialogs (`plans/save_editor.md` "Build order and
       verification" item 5): Team TOML export and import with its sections (SE-GUI-16), the
       import dialog for `.4ccs`, `.4cct` and Texport (SE-GUI-17, with SE-GUI-22's and 35's
@@ -1717,11 +1723,25 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       edits silently), the Open menu's discovered saves (SE-GUI-26), the version-mismatch
       warning (SE-GUI-28; the draft has it), and SE-GUI-21's check in the built window with the
       game running (its logic is tested); before the 0.0.1 cut. Slices:
-      - [ ] l1 the table's rows: `pes_savefile`'s `compare_teams` (the twin of
+      - [x] l1 the table's rows: `pes_savefile`'s `compare_teams` (the twin of
         `compare_players`), `team_widgets`' `tactics_term` and `save_editor`'s
-        `team_row_terms`, a colour's three channels one row
-      - [ ] l2 the prompt (SE-GUI-05): `hold_close`, the toolbar's Open, Save / Discard /
-        Cancel as the Ruleset editor's prompt answers them
+        `team_row_terms`, a colour's three channels one row. Done 2026-10-26 (SWE-2;
+        `tactics_term` takes the version and the tactics too, which name a formation slot's
+        player and decode an instruction; the kit slot's team reads "Bound team ID" as the
+        tab does; the lead's review: five labels lifted into one const each, explicit
+        variants for the report rows). Landed with l2. Files: `pes_savefile/src/{codec/mod,
+        ops/compare}.rs`, `team_widgets/src/{pitch/mod,tactics/*}.rs`,
+        `save_editor/src/view/{terms,team,info_strip}.rs`
+      - [x] l2 the prompt (SE-GUI-05): `hold_close`, the toolbar's Open, Save / Discard /
+        Cancel as the Ruleset editor's prompt answers them. Done 2026-10-26 (SWE-2, with
+        l1's fixes): `Session::unsaved_changes`, `view/prompt.rs` (the table computed once at
+        open, a shirt number's row under its player), the window's Save asking the Edit mode
+        question while the save's own PES runs (`Session::save`'s `edit_mode_closed`), the
+        help's saving paragraph; the lead removed `Pending::OpenPath` and its suppression
+        (l3 adds it with the menu) and reworded the question. Not yet seen in a built
+        window: the plan's table "spans the prompt's width", which egui's grid may not do
+        (l4's check). Files: `save_editor/src/{lib,session/mod,view/{mod,prompt,
+        player_list},view/tests/{prompt,shell}}.rs`, `help/02_window.md`
       - [ ] l3 the Open menu with discovery and the session's recent files, Save as (SE-GUI-26),
         the version warning (SE-GUI-28)
       - [ ] l4 SE-GUI-21 in the built window with the game running (lead, manual), after l2.
@@ -2421,6 +2441,24 @@ briefs, review loops, gates and mutation runs as for any step.
     limit, the endless-loop test loops), the other 18 rerun alone at 600 s with their
     siblings (`rerun_timeouts_2/`, 23 mutants): 22 caught, 1 unviable; the extra kinds 13 of
     13 caught. The timeouts are the shared machine: both runs' reruns caught every one
+- [ ] 0.0.1k the window's diagnostic log before the cut (`plans/core/architecture.md`
+  "Diagnostic logging", both GUI bullets; the maintainer asked 2026-10-25 about a crash report
+  like Red's `crash.log`): `studio.log` in the data directory through a small `log::Log`, the
+  panic hook writing the message, its location and a backtrace there and telling the member in
+  a dialog to post the file, the previous run's log kept as `studio.old.log`, the version as the
+  first line, the home directory written as `~`. Today a GUI panic prints to the console window
+  that closes with the process, so the member loses it. Settle in the step: whether the release
+  profile emits line tables into a `.pdb` kept per release out of the bundle (`just release`),
+  so a posted backtrace names functions without growing the exe → verify: a test panic in a
+  headless run leaves the file holding message, location and version; the rename across two
+  starts; a path under the home directory reads `~`
+- [ ] 0.0.1l no console window in the preview (`plans/core/architecture.md` "Windows
+  subsystem", DECISIONS 2026-10-25, `AttachConsole` approved): `#![windows_subsystem =
+  "windows"]` on release Windows builds, `AttachConsole(ATTACH_PARENT_PROCESS)` behind one
+  safe function when command arguments are present, after 0.0.1k (a panic needs the log first)
+  → verify: ST-RUN-04 in the bundle (manual: a double-click opens no console; `team-compiler
+  check` from a terminal prints there; both launchers print and their `pause` waits), asked
+  before it runs
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

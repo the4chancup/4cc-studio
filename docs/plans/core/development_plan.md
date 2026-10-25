@@ -39,7 +39,10 @@ editor, whose views come later, greyed out on the sidebar as the planned tools a
 carries DBC7 as a rules file (`rules/dbc7.rhai`, assembled with the current logic), and its
 settings name it as the Save editor's `aatf_rules`: 0.0.1's window testers are DBC's managers,
 and no tool of the build writes a template out. It needs from Release 0.1.0's list the Windows
-bundle (`just release`, the `.7z` and its checksum), nothing else: no updater, since 0.1.0
+bundle (`just release`, the `.7z` and its checksum), and from Phase 8's the GUI-subsystem exe
+(`architecture.md` "Windows subsystem": no console window beside the window, ST-RUN-04) with
+the window's diagnostic log (`architecture.md` "Diagnostic logging"), since without a console
+a panic would leave nothing a member could post; nothing else: no updater, since 0.1.0
 replaces it by hand, and no `CHANGELOG.md`, which starts with 0.1.0 (0.0.1's few testers are
 told in person what it holds). We do not shorten the Save editor's phase to meet the date: a
 tool members learn on is one whose behavior they will keep relying on, and a rushed rule check

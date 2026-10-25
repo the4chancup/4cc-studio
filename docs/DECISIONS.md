@@ -11203,3 +11203,19 @@ reversal.
 Plan: `plans/save_editor.md` "Writing a save while its game runs", SE-GUI-21, SE-CLI-03;
 `plans/team_compiler/pipeline.md` "6. Post-processing", the bullet "Savefile step while the
 game runs"; TC-SAV-17.
+
+## 2026-10-25 — studio — 0.0.1 opens no console window, and keeps a diagnostic log
+Decision: the 0.0.1 preview's exe is built for the Windows GUI subsystem, calling
+`AttachConsole(ATTACH_PARENT_PROCESS)` (an `unsafe` Windows call, approved) when given command
+arguments so their output reaches the terminal or launcher that started it; and the window's
+`studio.log` with its panic hook lands in the same release. No console-subsystem shim is
+shipped, then or later: the bundle keeps one exe, and no command reads the keyboard (an answer
+is a flag).
+Why: the maintainer wants no console beside the window in the preview. Without a console a
+panic's message would go nowhere, so the log that catches it comes with the change. A second
+exe would confuse members who only double-click, and the command line is second-class to the
+window (the maintainer); the cost of going without is small, since the launchers are batch
+files, which wait for the exe and see its exit code, and a command typed at an interactive
+prompt only prints after the prompt returns.
+Plan: `plans/core/development_plan.md` "Divegrass Before Christmas", `plans/core/
+architecture.md` "Windows subsystem" and "Diagnostic logging"; ST-RUN-04.

@@ -116,9 +116,11 @@ It is built as a GUI-subsystem exe (`#![windows_subsystem = "windows"]`) so doub
 `AttachConsole(ATTACH_PARENT_PROCESS)` so console output reaches the terminal it was started from.
 Known caveat of this standard arrangement: an *interactive* `cmd.exe` prompt does not wait for
 GUI-subsystem processes, so output can interleave with the returned prompt (batch files,
-`start /wait`, and PowerShell pipelines are unaffected). If that proves to annoy CLI users, the
-escape hatch is a tiny console-subsystem `4cc-studio-cli.exe` shim that spawns the main exe and waits;
-deferred until the annoyance is real. Linux has no subsystem split.
+`start /wait`, and PowerShell pipelines are unaffected). The caveat is accepted rather than
+fixed with a console-subsystem shim exe beside the main one: a second exe in the bundle would
+confuse the members who only double-click, and the command line is second-class to the window.
+So no command reads the keyboard; a command that would need an answer takes it as a flag
+(`--yes`, `--edit-mode-closed`). Linux has no subsystem split.
 
 ### Tool plugin interface
 

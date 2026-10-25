@@ -2509,3 +2509,7 @@ worklog passed 7,000 lines.
   rewritten texts (93 lines). The default-settings audit hides the update check's rows until the updater exists.
 - **2026-10-25** — A save may now be written while its game runs once Edit mode is closed (Edit mode's Load reads it
   in): the window will ask, the commands take `--edit-mode-closed`. `read_player`'s speed rewrite lands before the v1 freeze.
+- **2026-10-26** — The AATF logic reads a player with fewer copies: identical output on 424 saves, `check-aatf` at 0.85
+  of its time. The Save editor asks before closing or opening over unsaved edits, and before saving while its game runs.
+- **2026-10-26** — 0.0.1 will open no console window and will keep a diagnostic log; temporary folders moved under
+  `4cc-studio-temp`.
