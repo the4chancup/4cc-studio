@@ -1283,14 +1283,38 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
             tests for `three_columns`, the lists' gap and the stacked top; the settings column
             14 points past the pane at the default (DECISIONS "The Tactics settings column
             scrolls with the tab at 1280 × 800"; the default-pane test checks the right edge
-            only). Open: `two_pairs_width`'s three survivors (no test yet), the advance rect's
-            193/196 (`the_stacked_tab_scrolls_to_its_last_control`, unproven), mutants-diff
-            e14a64da, the post-Astra SWE-2 round, the built window at 1280 x 800
+            only). Mutants-diff e14a64da: 13 missed, to r3; `two_pairs_width`'s survivor and
+            the advance rect's width are equivalent (`.cargo/mutants.toml`), its height killed
+            by the stacked test. Open: the post-Astra SWE-2 round over r2-r4
+          - [x] rework r3 (2026-10-25, SWE-2 41 min): the closed combo's hover tested both
+            ways (an elided selection shows its text, a fitting one shows none; drawn with no
+            fonts, 9-point tofu glyphs, so the widths hold whichever fonts the build unifies),
+            the tooltip helper counting only nodes the hover adds, `strip_rows`' last row end
+            removed (a grid's last `end_row` only moves its cursor). Files:
+            `team_widgets/src/tactics/{instructions.rs,tests/mod.rs}`,
+            `save_editor/src/view/appearance/mod.rs`
+          - [ ] rework r4, from the built window at 1280 x 800 (2026-10-25,
+            `.tmp/8_9f/look4c3_tactics_fhd.png`): the Tactics tab draws **stacked** where the
+            headless default-pane test sees three columns. The real tab area measured 896
+            (x 696 to 1592 on screen), the threshold exactly; the Save editor's `Headless`
+            calls `show` on the bare root ui, without the shell's `CentralPanel` and its
+            8-point margins (`shell/mod.rs`), so its tests see 8 more (cause to confirm). The
+            harness draws the view as the shell does, so every pane test stands for the real
+            pane; `TAB_AREA_OFFSET` re-measured; the three columns fitted to the real tab area
+            (or left to 8.25's rail, which widens it by about 104). Also: the instruction
+            column's combo is capped at the "Instruction" header's width (about 100), not
+            the draft's 120: a grid column takes the last frame's widest cell, and the combo
+            caps itself at the column's width → verify: the default-pane test red on the
+            real pane before the fix; the built window in three columns
         - [ ] 4d the one cards badge, the player's own tier, through a tier recognition
           `libs/aatf` exposes (checkpoint (b))
         - [ ] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file);
           re-measure the width constants taken with the light font (`team.rs`
-          `TEAM_BAR_ONE_ROW`, `abilities.rs` `TOP_ROW_ONE_LINE`)
+          `TEAM_BAR_ONE_ROW`, `abilities.rs` `TOP_ROW_ONE_LINE`). Every view test harness
+          installs the app's fonts itself: a lone `cargo test -p team_widgets` (and each
+          crate's mutation run) builds egui without `default_fonts`, every glyph a 9-point
+          tofu box, while the workspace's run gets the real fonts through `eframe` (found at
+          4c r3), so a width test measures different text per invocation
     - [ ] 8.9j slice 4 (`plans/save_editor.md` "Configurable AATF rules", "Comparator",
       "Aesthetics transplant"), the AATF parts first (the maintainer's direction of 2026-10-24),
       each part its own commit and review:

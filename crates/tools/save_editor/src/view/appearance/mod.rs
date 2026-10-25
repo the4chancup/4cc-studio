@@ -499,7 +499,6 @@ fn strip_rows(
                 p.appearance.ankle_taping = v;
             },
         );
-        maybe_end_row(ui, 3 + STRIP_ENUMS.len() + 1, per_row);
     });
     egui::Grid::new("appearance strip rows").show(ui, |ui| {
         strip_row(ui, WRIST_TAPING_LABEL, |ui| {

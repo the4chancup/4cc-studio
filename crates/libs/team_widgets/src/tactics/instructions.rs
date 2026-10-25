@@ -258,11 +258,11 @@ mod tests {
     use egui::accesskit::Role;
 
     use super::*;
-    use crate::tactics::TacticsView;
     use crate::tactics::tests::click;
+    use crate::tactics::{TacticsView, preset_selector, tactics_settings};
     use crate::test_support::{
-        Headless, button_labels, control_right_of, controls_right_of, entry_id, fixture_rows,
-        fixture_tactics, roster_rows,
+        Headless, button_labels, centre, control_right_of, controls_right_of, entry_id,
+        fixture_rows, fixture_tactics, roster_rows,
     };
 
     // plans/save_editor.md "Tactics editor", "What the controls write": the
@@ -808,5 +808,141 @@ mod tests {
         });
         assert_eq!(drawn.len(), 12, "Unassigned plus the eleven starters");
         assert_eq!(drawn[1..], starters[..]);
+    }
+
+    /// A `Headless` with no fonts, so `text_width` always measures the
+    /// tofu fallback (9 points a glyph): which fonts the build unifies
+    /// (egui's `default_fonts` arrives through eframe when the workspace
+    /// tests together) would otherwise change the measured widths between
+    /// a lone `cargo test -p team_widgets` and the gates' run.
+    fn fontless(width: f32, height: f32) -> Headless {
+        let window = Headless::sized(width, height);
+        window.ctx.set_fonts(egui::FontDefinitions::empty());
+        window
+    }
+
+    // `capped_combo`'s chrome check: a selected text too wide for the
+    // button's `cap - chrome` text area elides, and the closed combo's
+    // hover shows it whole. The target cell is the grid's last column,
+    // so its `cap` is `COMBO_CAP` (the instruction column's stays at the
+    // "Instruction" header's width); `chrome` measures 34 here, the text
+    // area 86.
+    #[test]
+    fn an_elided_target_shows_the_whole_text_on_hover() {
+        let version = PesVersion::Pes21;
+        let mut tactics = fixture_tactics(version);
+        // Counter Target takes a player; with none picked the target
+        // combo shows "Unassigned" — 90 points of text against the 86
+        // the chrome leaves, so it elides.
+        let attack = &mut tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("PES 21 has instructions")[0];
+        attack.instruction =
+            instruction::encode(version, Instruction::CounterTarget).expect("stored");
+        attack.player = NO_TARGET;
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(version);
+        let roster = roster_rows(&rows);
+        let mut window = fontless(800.0, 900.0);
+        window
+            .ctx
+            .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
+
+        let mut measured = (0.0f32, 0.0f32);
+        window.frame(vec![], |ui| {
+            measured = (
+                text_width(ui, "Unassigned"),
+                ui.spacing().icon_width
+                    + ui.spacing().icon_spacing
+                    + 2.0 * ui.spacing().button_padding.x,
+            );
+            preset_selector(ui, &mut view);
+            tactics_settings(ui, "tactics", version, &mut tactics, &mut view, &roster);
+        });
+        assert!(
+            measured.0 > COMBO_CAP - measured.1,
+            "premise: \"Unassigned\" elides at the cap ({} > 120 - {})",
+            measured.0,
+            measured.1
+        );
+
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let target = controls_right_of(&nodes, "Attack 1", Role::ComboBox)[1];
+        assert!(!target.is_disabled(), "Counter Target enables the target");
+        assert_eq!(target.value(), Some("Unassigned"), "the combo's text");
+        assert_eq!(
+            window.tactics_tooltip(
+                centre(target),
+                "Unassigned",
+                version,
+                &mut tactics,
+                &mut view,
+                &roster,
+            ),
+            Some("Unassigned".to_string()),
+            "the pointer resting on the closed combo shows the whole text"
+        );
+    }
+
+    // The check's other side: a selection that fits the text area shows
+    // no tooltip on hover (there is nothing to complete). The fixture's
+    // empty roster slot sits in the eleven so the target's "1 (empty)"
+    // — 81 points against the 86 — is the fitting text.
+    #[test]
+    fn a_fitting_target_shows_no_tooltip_on_hover() {
+        let version = PesVersion::Pes21;
+        let mut tactics = fixture_tactics(version);
+        let attack = &mut tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("PES 21 has instructions")[0];
+        attack.instruction =
+            instruction::encode(version, Instruction::CounterTarget).expect("stored");
+        attack.player = 30;
+        tactics.starting_eleven[0] = 30;
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(version);
+        let roster = roster_rows(&rows);
+        // Premise: the fixture leaves roster slot 30 without a player.
+        assert_eq!(name_at(&roster, 30), "(empty)");
+        let mut window = fontless(800.0, 900.0);
+        window
+            .ctx
+            .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
+
+        let mut measured = (0.0f32, 0.0f32);
+        window.frame(vec![], |ui| {
+            measured = (
+                text_width(ui, "1 (empty)"),
+                ui.spacing().icon_width
+                    + ui.spacing().icon_spacing
+                    + 2.0 * ui.spacing().button_padding.x,
+            );
+            preset_selector(ui, &mut view);
+            tactics_settings(ui, "tactics", version, &mut tactics, &mut view, &roster);
+        });
+        assert!(
+            measured.0 < COMBO_CAP - measured.1,
+            "premise: \"1 (empty)\" fits the cap's text area ({} < 120 - {})",
+            measured.0,
+            measured.1
+        );
+
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let target = controls_right_of(&nodes, "Attack 1", Role::ComboBox)[1];
+        assert_eq!(target.value(), Some("1 (empty)"), "the combo's text");
+        assert_eq!(
+            window.tactics_tooltip(
+                centre(target),
+                "1 (empty)",
+                version,
+                &mut tactics,
+                &mut view,
+                &roster,
+            ),
+            None,
+            "a selection that fits shows no tooltip"
+        );
     }
 }

@@ -111,8 +111,12 @@ impl Headless {
     /// The text of the tooltip drawn while the pointer rests at `pos`
     /// containing `needle` (bounded: a missing tooltip fails rather
     /// than hangs; needs the context's `tooltip_delay` at 0). The
-    /// pointer first moves away for a frame: egui refuses a tooltip
-    /// while the last click is more recent than the last movement.
+    /// hover must add a node holding `needle` to the frame the pointer
+    /// left from: a label the view always draws with the same text (a
+    /// closed combo's `value` is the selected text its tooltip repeats)
+    /// cannot pass for the tooltip. The pointer first moves away for a
+    /// frame: egui refuses a tooltip while the last click is more recent
+    /// than the last movement.
     pub(crate) fn tactics_tooltip(
         &mut self,
         pos: egui::Pos2,
@@ -122,13 +126,22 @@ impl Headless {
         view: &mut TacticsView,
         roster: &[RosterRow<'_>],
     ) -> Option<String> {
-        self.tactics(
+        let holding = |nodes: &[accesskit::Node]| -> Vec<String> {
+            nodes
+                .iter()
+                .filter_map(|node| node.value())
+                .filter(|value| value.contains(needle))
+                .map(str::to_owned)
+                .collect()
+        };
+        let (resting, _) = self.tactics(
             version,
             tactics,
             view,
             roster,
             vec![egui::Event::PointerMoved(egui::Pos2::ZERO)],
         );
+        let resting = holding(&resting);
         self.tactics(
             version,
             tactics,
@@ -136,14 +149,16 @@ impl Headless {
             roster,
             vec![egui::Event::PointerMoved(pos)],
         );
+        let count =
+            |values: &[String], value: &String| values.iter().filter(|v| *v == value).count();
         for _ in 0..90 {
             let (nodes, _) = self.tactics(version, tactics, view, roster, vec![]);
-            if let Some(value) = nodes.iter().find_map(|node| {
-                node.value()
-                    .filter(|value| value.contains(needle))
-                    .map(str::to_owned)
-            }) {
-                return Some(value);
+            let values = holding(&nodes);
+            if let Some(added) = values
+                .iter()
+                .find(|value| count(&values, value) > count(&resting, value))
+            {
+                return Some(added.clone());
             }
         }
         None

@@ -2434,3 +2434,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.9f4c r2 + 8.15: the window opens at 1280 x 800, the Tactics lists at 200; slice 4c's review
   fixes (the preset bar wraps, the instruction combos capped, `strip_row`) and survivors' tests; the settings column
   runs a row past the default pane and scrolls. The sidekick hit its output limit; the lead finished the slice.
+- **2026-10-25** — 8.9f4c r3: the combo hover's tests and a dead row end removed, from r2's mutation run (13
+  missed; three more ruled equivalent). The built window at 1280 x 800 shows the Tactics tab stacked where the
+  headless test sees three columns (the harness lacks the shell's panel margins): r4.

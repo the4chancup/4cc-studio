@@ -287,4 +287,11 @@ exclude_re = [
     # tooltip repeating the text the button shows whole. Pinned to its site: `>` -> `<` and
     # `==` stay measured (`instructions.rs`' hover tests).
     "team_widgets/src/tactics/instructions\\.rs:\\d+:\\d+: replace > with >= in capped_combo",
+    # save_editor (mutants-diff e14a64da, worklog 8.9f4c r3): the Tactics tab's advance rect
+    # width `right - top_left.x` -> `/` is equivalent: the tab is drawn in the editor's
+    # `ScrollArea::vertical()` with `auto_shrink` off, whose content is the viewport's width
+    # whatever the tab claims, and nothing follows the tab in it. The height's `-` stays
+    # measured (`the_stacked_tab_scrolls_to_its_last_control`): pinned by line and column,
+    # since both are `- with /` in `show`.
+    "save_editor/src/view/tactics\\.rs:200:30: replace - with / in show",
 ]
