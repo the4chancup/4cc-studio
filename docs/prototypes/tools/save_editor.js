@@ -2548,7 +2548,7 @@ function drawUnsavedPrompt(then) {
   window_("Unsaved changes", h("div", {},
     h("p", {}, "The open save has unsaved changes."),
     h("div", { style: "max-height:240px; overflow:auto" }, changes),
-    h("p", {}, weak("Save writes them to " + S.path + "; discard loses them."))),
+    h("p", {}, weak("Save writes them to " + S.path + ". Discard loses them."))),
     [button("Save", () => { closeWindow(); saveFile(); if (!D.gameRunning) { then(); } render(); }),
      button("Discard", () => { closeWindow(); then(); render(); }),
      button("Cancel", closeWindow)]);
@@ -2564,7 +2564,8 @@ function drawStripAgain(list) {
       h("span", {}, ...nameSpans(p.name)));
   });
   window_("Appearance ids set on a stripped save", h("div", {},
-    h("p", {}, list.length + " player(s) have an appearance id set while the rest are stripped:"),
+    h("p", {}, list.length + (list.length === 1 ? " player has" : " players have")
+      + " an appearance id set while the rest are stripped:"),
     h("div", { class: "mono", style: "max-height:200px; overflow:auto" }, rows)),
     [button("Strip again", () => {
       edit("Strip again", () => { for (const p of list) p.appearance_id = -1; });
@@ -2691,7 +2692,7 @@ const WALK = [
   ["SE-GUI-07", "the Appearance tab below the Cutscenes group is disabled under the ownership line; the switch unlocks it; the switch is off on every open"],
   ["SE-GUI-08", "drag a list row onto another: the dragged player's name, stats and look land on the target slot, those between shift one along, while every slot keeps its id, shirt number and captain mark; the save is marked unsaved"],
   ["SE-GUI-09", "the quick actions on the Abilities tab follow the ruleset control: Gold/Silver/Bronze/Goalkeeper/Regular under official, VTL11 and DBC7 their own"],
-  ["SE-GUI-11", "switch Edit aesthetics anyway on; the Appearance tab's FPC group: Hide body (or Ctrl+I) gives the hide preset and reads 'FPC: hidden body', Show body (or Ctrl+I again) the show preset; a player with his own boots ID keeps it"],
+  ["SE-GUI-11", "switch Edit aesthetics anyway on; the Appearance tab's FPC group: Hide body (or Ctrl+I) gives the hide preset and reads 'FPC: the body is hidden', Show body (or Ctrl+I again) the show preset; a player with his own boots ID keeps it"],
   ["SE-GUI-35", "the 'Aesthetics from exports' draft control off (the default): the Appearance tab draws no ownership line and no switch and every path edits; on, the lock draws"],
   ["SE-GUI-12", "the Tactics tab: drag a pitch marker (it snaps to the stored grid, undoable), drop a bench row on a marker to swap, arm a set-piece chip and click a marker, arm Join attack and click two markers"],
   ["SE-GUI-25", "the tab's menus: Copy preset 1 to 2, then Swap Kick-off and In-possession; each is one undoable edit"],
@@ -2702,7 +2703,7 @@ const WALK = [
   ["SE-GUI-28", "PES selector at 2019 with the PES 21 sample open: the warning names both; the save keeps its version"],
   ["SE-GUI-13", "Panels, Comparator: pick the PES 21 sample (refused), then Autumn24Q; the toggles and the team filter narrow the rows, Export writes their report lines, a row click selects the player"],
   ["SE-GUI-15", "the AATF button (on the Abilities tab) or Panels menu: violations grouped per player, a click selects him; Show suggestions (official), Validate rules on the broken files, Save a copy; Select teams ticks e.g. 708 for its Height, BracketQuota and ExtraHeight"],
-  ["SE-GUI-30", "PES 17 sample, team 718, the DBC7 ruleset: switch Live AATF on in the toolbar; the bottom panel lists the team's issues, errors first, under 'N issues · DBC7'. Lower a stat over its maximum (a Stat row) to its target: the list dims, marked checking, then the row is gone and N is one less; Undo brings it back. Under the official ruleset on 718, untick the team-rows control and set each Height row's player to 180: 'No issues: ... passes ...'. Reload the page: Live AATF is still on"],
+  ["SE-GUI-30", "PES 17 sample, team 718, the DBC7 ruleset: switch Live AATF on in the toolbar; the bottom panel lists the team's issues, errors first, under 'N issues · DBC7'. Lower a stat over its maximum (a Stat row) to its target: the list dims, marked checking, then the row is gone and N is one less; Undo brings it back. Under the official ruleset on 718, untick the team-rows control and set each Height row's player to 180: '... passes ... with no issues'. Reload the page: Live AATF is still on"],
   ["SE-GUI-18", "Panels, Apply aesthetics patch: on the PES 21 sample the preview lists the changed players, Apply is one edit; on the PES 17 sample the same patch is refused"],
   ["SE-GUI-16", "Panels, Team file interchange: Team TOML export writes the team's file; pick 701.toml (PES 21) for the warning list, a 718 or 722 one for the refusals; Apply is one undoable edit"],
   ["SE-GUI-17", "same panel: the .4ccs files pair records with the rostered players; the .4cct imports tactics; on PES 21 Texport export writes a .ted the picker then reads back; on PES 17 it is disabled"],
@@ -2750,7 +2751,7 @@ function renderToolbar() {
     openMenu(), saveBtn, button("Save as", saveAs), playerMenu(), teamMenu(), databaseMenu(),
     panelsMenu(), undoBtn, redoBtn,
     selectable("Live AATF", LIVE.on, () => setLive(!LIVE.on),
-      "Check the open team after every edit, in a panel at the bottom (remembered)"),
+      "Check the open team after every edit, in a panel at the bottom (the setting is remembered)"),
     h("span", { class: "weak mono", style: "overflow:hidden; text-overflow:ellipsis" },
       S.path + (dirty() ? "  • unsaved changes" : "")));
 }
@@ -2798,36 +2799,38 @@ function fpcHide(p, on) {
 }
 // Ctrl+I: shows a player the classifier reads as hidden, hides any other.
 function fpcToggle(p) { fpcHide(p, !isFpc(p)); }
-// The interference rules' findings for `p` (fpc::check's fixed order).
-// sample wording: the findings' texts.
+// The interference rules' findings for `p` (fpc::check's fixed order):
+// the catalog's own texts.
 function fpcFindings(p) {
   const st = p.appearance.strip, fpc = isFpc(p), out = [];
-  if (st.inners !== "off" && fpc) out.push(["err", "Inners break hiding"]);
-  if (st.undershorts !== "off" && fpc) out.push(["err", "Undershorts break hiding"]);
+  if (st.inners !== "off" && fpc)
+    out.push(["err", "The player wears inners under a hidden body, which breaks the hiding."]);
+  if (st.undershorts !== "off" && fpc)
+    out.push(["err", "The player wears undershorts under a hidden body, which breaks the hiding."]);
   if ((st.wrist_taping !== "off" || st.ankle_taping) && fpc)
-    out.push(["", "Taping shows pieces"]);
+    out.push(["", "The player wears wrist or ankle taping under a hidden body, so the taped pieces still show."]);
   if (st.gloves && p.gloves_id === 0)
-    out.push(["warn", "Player gloves with ID 0 wear winter gloves in winter"]);
+    out.push(["warn", "The gloves checkbox is on with gloves ID 0."]);
   if (p.appearance.skin_color === 7 && !fpc)
-    out.push(["warn", "Custom skin on a non-FPC player hides the body but not the jersey"]);
+    out.push(["warn", "A player wears a custom skin, but his body is not hidden by the FPC hide boots ID from Settings, so the skin hides his body but not his jersey."]);
   return out;
 }
 
 // ---- The menus: Player, Team, Savefile operations ----
 // The ownership line is the disabled items' tooltip (SE-GUI-22).
-const ownershipTip = () => "Owned by the team's export: edit its settings.toml and recompile"
+const ownershipTip = () => "The team's export owns the aesthetics, so edit its settings.toml and recompile"
   + (isFox() ? "." : ", then apply the patch.");
 // sample wording: the menu labels.
 function dlgSetStats() {
   const p = curPlayer();
   dlgNum("set-stats", "Set all stats",
-    "Every ability stat of " + displayName(p.name) + " to the value", p.stats.speed,
+    "Set all of " + displayName(p.name) + "'s ability stats to", p.stats.speed,
     n => setAllStats(p, n));
 }
 function dlgBumpStats() {
   const p = curPlayer();
   dlgNum("bump-stats", "Bump all stats",
-    "Add to every ability stat of " + displayName(p.name) + ", clamped to the editor's 40 to 99", 0, n => {
+    "Add to all of " + displayName(p.name) + "'s ability stats, clamped to 40 to 99", 0, n => {
       edit("Bump stats " + (n > 0 ? "+" : "") + n, () => {
         for (const s of ABILITY_STATS) if (p.stats[s] !== undefined)
           p.stats[s] = Math.min(99, Math.max(40, p.stats[s] + n));
@@ -2924,8 +2927,8 @@ function dlgCopySwap(p, mode) {
       + " " + displayName(q.name)]);
   const pick = combo(opts, null, () => {});
   dlg(mode === "copy" ? "copy-stats" : "swap-stats", mode === "copy" ? "Copy stats" : "Swap stats", h("div", {},
-    h("p", {}, (mode === "copy" ? "Copy the stats of " : "Swap the stats of ")
-      + displayName(p.name) + " " + (mode === "copy" ? "onto this player" : "with:")),
+    h("p", {}, (mode === "copy" ? "Copy the picked player's stats onto " : "Swap ")
+      + displayName(p.name) + (mode === "copy" ? "." : "'s stats with the picked player's.")),
     pick),
     [button("OK", () => {
       const [tid, slot] = pick.value.split(":").map(Number);
@@ -3030,7 +3033,7 @@ function dlgTsv() {
     input),
     [button("Save", () => {
       S.lastTsv = rosterTsv();
-      publishNotice("Wrote " + input.value.split("\\").pop() + ": one row per player of every team", null, "success");
+      publishNotice("Wrote " + input.value.split("\\").pop() + " (one row per player of every team)", null, "success");
       closeWindow(); render();
     }), button("Cancel", closeWindow)]);
 }
@@ -3076,7 +3079,7 @@ function dlgFixDb() {
 function renderView(center) {
   scheduleLiveCheck();
   center.innerHTML = "";
-  if (!S.save) { center.append(h("h2", {}, "Save editor"), weak("No save open.")); return; }
+  if (!S.save) { center.append(h("h2", {}, "Save editor"), weak("No save is open.")); return; }
   // Live AATF docks at the bottom (egui's Panel::bottom inside the view): the
   // view's content scrolls above it, the panel keeps its strip.
   const live = livePanel();
@@ -3112,7 +3115,7 @@ function renderMaster() {
   sel.id = "team-sel";
   // sample wording: the filter's placeholder and the rows' tooltips.
   const filter = h("input", { type: "text", id: "filter-box",
-    placeholder: "Filter all teams (name, shirt, id)", value: S.filter,
+    placeholder: "Filter every team (name, shirt name or id)", value: S.filter,
     // No redraw: the box keeps its focus; the link still tracks the text.
     oninput: e => { S.filter = e.target.value; renderList(rows); updateLink(); } });
   const rows = h("div", { class: "rows", id: "player-rows" });
@@ -3172,7 +3175,7 @@ function infoStrip(p, team) {
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v)) { set(p, get, put, v, label); render(); } } }))];
   const nameIn = h("input", { type: "text", value: escName(p.name),
-    title: "The raw name; \\x11c followed by 8 hex digits is a colour code",
+    title: "The raw name. \\x11c followed by 8 hex digits is a colour code",
     onchange: e => { set(p, x => x.name, (x, v) => x.name = v, unescName(e.target.value), "name"); render(); } });
   nameIn.id = "f-name";
   const shirtIn = h("input", { type: "text", class: "shirt", value: p.shirt_name,
@@ -3217,7 +3220,7 @@ function quickActions(p) {
       button("Set stats", () => {
         const n = parseInt(input.value, 10);
         if (!Number.isNaN(n)) { setAllStats(p, n); render(); }
-      }, { title: "Every ability stat to the value" }),
+      }, { title: "Set every ability stat to the value next to this button" }),
       input),
     // One click from a player to the violations panel (a member fixes one
     // player at a time).
@@ -3381,17 +3384,17 @@ function paletteRow(palette, value, put, p, label) {
       onclick: () => { if (!aesUnlocked() || i === value) return;
         edit(label, () => put(p, i)); render(); } })));
 }
-// sample wording: the ownership line, the switch's note and the stripped note;
-// "Edit aesthetics anyway" is the plan's own label.
+// The ownership line, the switch's note and the stripped note are the view's
+// own texts; "Edit aesthetics anyway" is the plan's own label.
 function appearanceTab(p) {
   const en = aesUnlocked();
   const dis = w => { w.querySelectorAll("input, select, button").forEach(x => x.disabled = !en);
     if (w.disabled !== undefined) w.disabled = !en; return w; };
   const own = !isFox()
-    ? h("span", {}, "Owned by the team's export: edit its settings.toml and recompile, then apply the patch. ",
+    ? h("span", {}, "The team's export owns the aesthetics, so edit its settings.toml and recompile, then apply the patch. ",
         h("a", { href: "#", onclick: e => { e.preventDefault();
           S.panel = "patch"; render(); } }, "Apply aesthetics patch"))
-    : h("span", {}, "Owned by the team's export: edit its settings.toml and recompile.");
+    : h("span", {}, "The team's export owns the aesthetics, so edit its settings.toml and recompile.");
   const sw = h("label", { class: "cb" },
     h("input", { type: "checkbox", id: "edit-anyway", checked: en,
       onchange: e => { S.editAnyway = e.target.checked; render(); } }),
@@ -3414,9 +3417,9 @@ function appearanceTab(p) {
   const lines = D.aesFromExports ? [row(own), row(sw)] : [];
   if (D.aesFromExports && S.editAnyway) lines.push(h("div", { class: "row" }, weak(!isFox()
     ? "A later patch overwrites whatever is edited by hand."
-    : "On a stripped save the game does not read these.")));
+    : "On a stripped save the game still reads the motions, but the look comes from the database tables.")));
   if (isStripped(p)) lines.push(h("div", { class: "row warn", id: "stripped-note" },
-    "Stripped: the game reads the database tables, not this record."));
+    "This player is stripped, so the game takes his look from the database tables, but it still reads the motions."));
   const ef = (key, label) => h("label", { class: "cb" },
     h("input", { type: "checkbox", checked: p.edit_flags[key],
       onchange: e => { set(p, x => x.edit_flags[key], (x, v) => x.edit_flags[key] = v, e.target.checked, label); render(); } }),
@@ -3452,7 +3455,7 @@ function appearanceTab(p) {
         lbl("Boots ID"), h("td", {}, h("input", { type: "number", value: p.boots_id,
           onchange: e => { const v = parseInt(e.target.value, 10);
             if (!Number.isNaN(v)) { set(p, x => x.boots_id, (x, v) => x.boots_id = v, v, "boots id"); render(); } } })),
-        lbl("Gloves ID"), h("td", {}, h("input", { type: "number", value: p.gloves_id, title: "Any player's; 0 = normal hands",
+        lbl("Gloves ID"), h("td", {}, h("input", { type: "number", value: p.gloves_id, title: "Any player's gloves ID works; 0 means normal hands.",
           onchange: e => { const v = parseInt(e.target.value, 10);
             if (!Number.isNaN(v)) { set(p, x => x.gloves_id, (x, v) => x.gloves_id = v, v, "gloves id"); render(); } } })),
         lbl("Sleeves"), h("td", {}, combo(SLEEVES.map(x => [x, titleCase(x)]), st.sleeves,
@@ -3515,7 +3518,7 @@ function appearanceTab(p) {
           const rnd = hi => 1 + Math.floor(Math.random() * hi);
           for (const key of Object.keys(MOTION_TOP)) mo[key] = rnd(top(key));
         }); render();
-      }, { title: "Random motion values (the dribbling motion is left as it is)" })));
+      }, { title: "Set every motion to a random value, except the dribbling motion" })));
   const colors = h("div", { class: "group", "data-panel": "colours" }, strong("Colours"),
     h("div", { class: "row" }, "Skin ",
       paletteRow("skin", p.appearance.skin_color, (x, v) => x.appearance.skin_color = v, p, "skin colour")),
@@ -3529,15 +3532,15 @@ function appearanceTab(p) {
   const fpcGroup = h("div", { class: "group", "data-panel": "fpc", title: en ? null : ownershipTip() },
     strong("Full Player Customization"),
     h("div", { class: "row" },
-      h("span", { id: "fpc-state" }, isFpc(p) ? "FPC: hidden body" : "FPC: body shown"), " ",
+      h("span", { id: "fpc-state" }, isFpc(p) ? "FPC: the body is hidden" : "FPC: the body is shown"), " ",
       button("Hide body", () => { fpcHide(p, true); render(); },
-        { title: "The hide preset: long sleeves, tucked, short socks; the hide IDs from Settings where the IDs are 0 (a model's own IDs are kept); a Custom skin (PES 2015 to 2017) becomes Light. Ctrl+I; the whole team: Team menu" }),
+        { title: "Apply the hide preset: long sleeves, a tucked shirt and short socks. A boots or gloves ID of 0 takes the hide ID from Settings (a model's own ID is kept), and a Custom skin (PES 2015 to 2017) becomes Light. Ctrl+I switches this player between hidden and shown, and the Team menu hides or shows the whole team." }),
       button("Show body", () => { fpcHide(p, false); render(); },
-        { title: "The show preset: short sleeves, untucked, standard socks; boots and gloves 0 where they are the hide IDs; a Custom skin (PES 2015 to 2017) becomes Light" })),
+        { title: "Apply the show preset: short sleeves, an untucked shirt and standard socks. A boots or gloves ID that holds the hide ID goes back to 0, and a Custom skin (PES 2015 to 2017) becomes Light." })),
     findings.length
       ? findings.map(([sev, text]) => h("div", { class: "row " + sev },
           (sev === "err" ? "Error: " : sev === "warn" ? "Warning: " : "Info: ") + text))
-      : weak("No interference findings."));
+      : weak("No interference found."));
   const body = h("div", { id: "appearance-body" }, flags, phys, stripRow, motion, colors, fpcGroup);
   if (!en) dis(body);
   return h("div", {}, cutscenes, ...lines, body);
@@ -3763,7 +3766,7 @@ function teamTab(t) {
     strong("Kit slot assignments"),
     kits ? kits
       : h("span", { class: "gate", title: "PES 17 only" },
-          h("div", { class: "row weak" }, "(no kit slot records on this version)")));
+          h("div", { class: "row weak" }, "(this version does not store kit slots)")));
 }
 
 // ---- Tactics (SE-GUI-12, 25) ----
@@ -4543,7 +4546,7 @@ function cmpPick(key) {
   if (d.version !== version()) {
     S.cmp.second = null;
     S.cmp.refused = "The open save is a PES 20" + version()
-      + " save and the picked one a PES 20" + d.version + " one: both must be of one version";
+      + " save and the picked one a PES 20" + d.version + " one, but both must be of the same version";
     return;
   }
   S.cmp.refused = null;
@@ -4569,12 +4572,12 @@ function comparatorPanel() {
     h("div", { class: "row" },
       weak("Second save "),
       combo([[null, "(pick a save)"]].concat(SECOND_SAVES.map(d => [d.key, d.label + " (PES " + d.version + ")"])),
-        S.cmp.second, v => v && cmpPick(v), { title: "The other save the open one is compared against" }),
+        S.cmp.second, v => v && cmpPick(v), { title: "The save the open one is compared against" }),
       S.cmp.second ? button("Export", () => {
         S.cmp.exportText = cmpExport();
-        publishNotice("Exported the diff: " + cmpRows().length + " rows, the report's lines for the rows shown", null, "success");
+        publishNotice("Exported the diff: the report's lines for the " + cmpRows().length + " rows shown", null, "success");
         render();
-      }, { title: "Write the report's lines for the rows shown" }) : null),
+      }, { title: "Write the differences of the rows shown as text" }) : null),
     S.cmp.refused ? h("div", { class: "row err", id: "cmp-refused" }, S.cmp.refused) : null,
     S.cmp.second ? h("div", { class: "row" },
       weak("Show "),
@@ -4768,9 +4771,9 @@ function aatfPanel() {
       cb("Show suggestions", S.aatf.sugg, v => S.aatf.sugg = v),
       button("Save a copy", () => {
         S.aatf.savedCopy = OFFICIAL_RHAI;
-        publishNotice("Wrote a copy of the embedded official ruleset (autumn26.rhai)", null, "success");
+        publishNotice("Wrote a copy of the built-in official ruleset (autumn26.rhai)", null, "success");
         render();
-      }, { title: "Write the embedded official ruleset out" })),
+      }, { title: "Write the built-in official ruleset to a file" })),
     h("div", { class: "row" },
       weak("Rules file "),
       combo([["dbc7_full.rhai", "dbc7_full.rhai"],
@@ -4781,12 +4784,12 @@ function aatfPanel() {
         const f = S.aatf.file || "dbc7_full.rhai";
         S.aatf.validate = { file: f, findings: VALIDATE17[f] ? [VALIDATE17[f]] : [] };
         render();
-      }, { title: "The lib's load-time validation on the chosen file" })));
+      }, { title: "Check the rules file in use for errors, each reported with its line or setting" })));
   if (S.aatf.validate) {
     const { file, findings } = S.aatf.validate;
-    c.append(h("div", { class: "row" }, weak(file + ": "),
-      findings.length ? findings.map(f => h("span", { class: "err mono" }, f))
-        : weak("no findings")));
+    c.append(h("div", { class: "row" },
+      findings.length ? [weak(file + ": "), findings.map(f => h("span", { class: "err mono" }, f))]
+        : weak("There are no findings in " + file + ".")));
   }
   if (S.aatf.mode === "select") {
     const list = h("div", { class: "tlist" },
@@ -4968,7 +4971,7 @@ function livePanel() {
   const head = !res ? strong("Checking " + liveTeam().name + "…")
     : res.rows === null ? weak("No sample run for " + res.team.name + " under " + rs.label + " in the draft.")
     : n ? strong(n + (n === 1 ? " issue" : " issues") + " · " + rs.label)
-    : strong("No issues: " + res.team.name + " passes " + rs.label);
+    : strong(res.team.name + " passes " + rs.label + " with no issues.");
   const header = h("div", { class: "live-header", id: "live-header" }, chevron, strong("Live AATF"), head,
     res && LIVE.checking ? h("span", { class: "weak", id: "live-checking" }, "↻ checking…") : null);
   if (LIVE.collapsed) return h("div", { class: "live-panel", "data-panel": "live-aatf" }, header);
@@ -5025,7 +5028,7 @@ function patchPanel() {
         : null,
       S.pat.loaded && !S.pat.refused
         ? button("Apply", () => { patApply(); render(); },
-            { disabled: S.pat.applied, title: "Write the patch into the save, one undoable edit" })
+            { disabled: S.pat.applied, title: "Write the patch into the save as one undoable edit" })
         : null));
   if (S.pat.refused)
     c.append(h("div", { class: "row err", id: "pat-refused" }, S.pat.refused));
@@ -5043,7 +5046,7 @@ function patchPanel() {
     }
     c.append(list);
   }
-  if (S.pat.applied) c.append(h("div", { class: "row" }, weak("Applied; unsaved until Save.")));
+  if (S.pat.applied) c.append(h("div", { class: "row" }, weak("Applied. The changes stay unsaved until Save.")));
   return c;
 }
 
@@ -5399,7 +5402,7 @@ function ixExportToml() {
     [button("Save", () => {
       S.ix.exportText = TEAM_TOML_TEXT[S.saveKey + "/" + t.id];
       publishNotice("Wrote " + input.value.split("\\").pop()
-        + ": the CLI's export-toml text for team " + t.id, null, "success");
+        + " (the CLI's export-toml text for team " + t.id + ")", null, "success");
       closeWindow(); render();
     }), button("Cancel", closeWindow)]);
 }
@@ -5418,7 +5421,7 @@ function ixExportTed() {
           + ", written this session)",
         model: clone(t) };
       publishNotice("Wrote " + input.value.split("\\").pop()
-        + ": team " + t.id + " as a PES " + version() + " Texport", null, "success");
+        + " (team " + t.id + " as a PES " + version() + " Texport)", null, "success");
       closeWindow(); render();
     }), button("Cancel", closeWindow)]);
 }
@@ -5462,7 +5465,7 @@ function interchangePanel() {
   const d = S.ix.file && ixFile(S.ix.file);
   if (!d) {
     c.append(h("div", { class: "row weak" },
-      "Team TOML, .4ccs, .4cct and Texport files open here; the file decides the format."
+      "Team TOML, .4ccs, .4cct and Texport files open here, and the file decides the format."
       + (version() < 18 ? "" : " A .ted you export this session is listed too.")));
     return c;
   }
@@ -5471,7 +5474,7 @@ function interchangePanel() {
     (d.format === "toml" ? "A Team TOML" : d.format === "4ccs" ? "A legacy squad file (.4ccs)"
       : d.format === "4cct" ? "A legacy tactics file (.4cct)" : "A Texport (.ted)")
     + " written from a PES " + d.version + " save"
-    + (foreign ? "; converted to PES " + version() + " where it can be." : ".")));
+    + (foreign ? ", converted to PES " + version() + " where it can be." : ".")));
   if (d.format === "4ccs") {
     // The pairing the member gets before Apply: record k lands on the k-th
     // rostered player of the target (spec "Legacy 4ccEditor formats").
@@ -5514,10 +5517,10 @@ function interchangePanel() {
     c.append(h("div", { class: "row" },
       button("Apply", () => { ixApply(d); S.ix.applied = d.label; render(); },
         { disabled: !held.some(k => S.ix.sections[k] && (k !== "aesthetics" || aesUnlocked())),
-          title: "Write the chosen sections, one undoable edit" }),
-      weak("one undoable edit; unsaved until Save.")));
+          title: "Write the chosen sections as one undoable edit" }),
+      weak("one undoable edit; the changes stay unsaved until Save.")));
     if (S.ix.applied)
-      c.append(h("div", { class: "row" }, weak("Applied " + S.ix.applied + "; unsaved until Save.")));
+      c.append(h("div", { class: "row" }, weak("Applied " + S.ix.applied + ". The changes stay unsaved until Save.")));
   }
   return c;
 }
@@ -5582,7 +5585,7 @@ function dlgGenerate(name, title, file, toml) {
   const p = curPlayer();
   if (isStripped(p)) {
     dlg(name, title, h("div", {},
-      h("p", {}, displayName(p.name) + " is stripped: the game reads the tables, not his record. Generation skips him.")),
+      h("p", {}, displayName(p.name) + " is stripped, so the game reads the database tables rather than his save data, and nothing is generated for him.")),
       [button("OK", closeWindow)]);
     return;
   }
