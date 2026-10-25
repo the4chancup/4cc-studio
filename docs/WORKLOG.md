@@ -24,8 +24,7 @@ export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a1 and a2,
 the window's strings and the catalog and CLI, done), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
-the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; the in-game SE-GUI-34 left, next after 8.29a: in-game tests
-resumed the evening of 2026-10-25), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+the compiler and the upgrader on the new file; slice 3, the Save editor's generation, done; SE-GUI-34 checked in game 2026-10-25), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
@@ -2279,9 +2278,20 @@ briefs, review loops, gates and mutation runs as for any step.
     team_compiler/{README,messages}.md,export_upgrader.md}`, `docs/plans/aesthetics_export/
     {player_folders,settings_toml,object_model}.md`, `docs/GLOSSARY.md`, comment lines in
     `pes_savefile/src/settings_toml/`
-  - [ ] in game, after slice 3: a generated file's face on PES 21 (SE-GUI-34). PES 17's save
+  - [x] in game, after slice 3: a generated file's face on PES 21 (SE-GUI-34). PES 17's save
     route waits for the aesthetics patch's pre-Fox half (`plans/pes_savefile/operations.md`
     "Aesthetics patch (new)"), so a pre-Fox compile is checked by its resolved settings alone
+
+  SE-GUI-34 manual: checked 2026-10-25, PES 21 Edit mode, release build of `f3d1f135`: VGL 22
+  (792) slot 06 (79206) set by Team TOML to long red hair, blue iris (7) and face size 5; the
+  window's Generate settings.toml and Generate in-game face wrote his folder from that record;
+  the record then changed to short blond hair and green iris (9) and the save stripped
+  (strip-and-seed), the tracer export compiled into the test slot: he draws the long red hair,
+  and his irises measure (154, 180, 174) and (155, 180, 176), the blue iris of 0.0.1h's control
+  (153, 178, 176), not green. Save and slot restored by hash (`.tmp/se34/`)
+  - [ ] the spec moved for slice 3: the plan section's Save editor bullet and SE-GUI-33, 34 go
+    to `docs/spec/aesthetics_export/player_folders.md`, the plan keeping nothing of the
+    section; then the step closes
 
   manual: checked 2026-10-24, PES 21 Edit mode, /egg/ (792) slots 05-07 compiled by
   `00ef6231`'s release exe into the test slot over a stripped copy of the save (restored by

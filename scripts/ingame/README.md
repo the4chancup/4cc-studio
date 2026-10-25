@@ -90,10 +90,12 @@ Run every command from the repository root. Screenshots go under `.tmp/` (gitign
      cursor on Kick Off, top left; `ls-right:3 wait:1 a wait:3` opens Settings (the wrench),
      whose first item is Edit; `a wait:4` opens it behind an "Image List Load Data Not Found"
      box that `a wait:3` dismisses onto the Edit Menu with the cursor on Players; `a wait:3`
-     (Players), `down wait:1 a wait:4` (Edit Player), `a wait:3` (4chan Cup Main), `down:39
-     wait:2 a wait:5` (/out/; the team list's first tap was lost on every run of 2026-10-15,
-     so a team N places down took `down:N+1`: check the name with an `obs-shot` before the
-     `a`), `down:N wait:1 a wait:4` (a row: the roster's order, not the Squad List's),
+     (Players), `down wait:1 a wait:4` (Edit Player), `a wait:6` (4chan Cup Main; the league
+     choice lists Invitational Teams, /vg/ League, whose VGL teams run in id order, and Other
+     below it), `down:38 wait:2 a wait:5` (/out/: the teams run by name; check the name with
+     an `obs-shot` before the `a`; the list loads after the league's `a`, and with `wait:3`
+     there its first tap was lost on every run of 2026-10-15; after `wait:6`, `down:21` in /vg/
+     League landed on VGL 22 exactly, 2026-10-25), `down:N wait:1 a wait:4` (a row: the roster's order, not the Squad List's),
      `down:5 wait:1 a wait:7` (Appearance). Never send a blind `ls-up` on the Edit Menu: it
      wraps to Load, whose `a` asks to erase the edit data (B declines). A sequence that
      drifts into a training drill is left with `start`, `down:5 a`, `right a` (Top Menu). A
