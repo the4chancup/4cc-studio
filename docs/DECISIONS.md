@@ -11041,3 +11041,22 @@ them. Required rather than optional, because a file without it would leave the b
 nothing to show; added now, since logic version 1 freezes at the 0.0.1 cut and no released
 file exists yet.
 Plan: `plans/aatf_rules.md` "The interpreter", "The player's own tier".
+
+## 2026-10-25 — gui — The drafts' shared stylesheet draws body text at weight 400
+Decision: the host page's stylesheet, the one every draft now shares, sets body text at weight
+400; the shell's and the Ruleset editor's drafts drew it at 300, the Save editor's v2 at 400.
+Why: one stylesheet must pick one, and v2 adopted a collaborator's "fonts too thin" remark on
+the first Save editor draft; 300 is egui's default Ubuntu Light, which is what read too thin.
+Plan: `plans/core/gui.md` "Prototypes before implementation", the Look bullet.
+
+## 2026-10-25 — gui — A tool's draft in the host uses the live shell
+Decision: in the host page a tool with a script is listed among the registered tools (the
+Ruleset editor joins the Team compiler, the Save editor and the Export upgrader); its view reads
+the sidebar's PES selector (the Save editor's draft control writes that one too) and reports
+through the shell's notice, which fades unless it carries an action; the page opens on the tool
+its address names (`index.html#save-editor`).
+Why: the old pages each drew a static copy of the shell, so the Save editor's status line and
+selector were the page's own; in the host the shell is live, and a view that kept a status
+line of its own would draw a status bar the built shell does not have. The address picks the
+tool so a plan or a message can point at one draft with one link.
+Plan: `plans/core/gui.md` "Prototypes before implementation", the paragraph on the host page.

@@ -2460,3 +2460,6 @@ worklog passed 7,000 lines.
   `Rules::tier_values` crate-private (a), tests for the extra kinds' 3 survivors in the writer (b).
 - **2026-10-25** — 0.0.1i c (8.9f4d's library half): `Rules::player_tier`, the tier a player is recognized as,
   read by the rules file's own logic (a fourth required function), for the Save editor's one cards badge.
+- **2026-10-25** — 8.16 (side-lead A): the drafts as one host page, `docs/prototypes/index.html`, with the Ruleset
+  editor's and the Save editor's drafts as scripts under `tools/` and the portraits under `assets/`; side-by-side
+  captures of all three old pages match but for the live shell; `scripts/bundle_drafts.py` makes the attachment.

@@ -32,6 +32,7 @@ test:
     {{python}} scripts/run_tests_test.py
     {{python}} scripts/run_tests.py
     {{python}} scripts/mutants_test.py
+    {{python}} scripts/bundle_drafts_test.py
 
 # The gates with gate 3 over the packages the working tree changes since `base` and the packages depending on them (CONTRIBUTING.md "Testing and verification")
 gates-changed base="HEAD": fmt-check clippy (test-changed base) wasm-check acceptance doc-pointers
@@ -41,6 +42,7 @@ test-changed base="HEAD":
     {{python}} scripts/run_tests_test.py
     {{python}} scripts/run_tests.py --changed {{base}}
     {{python}} scripts/mutants_test.py
+    {{python}} scripts/bundle_drafts_test.py
 
 # The GPU BC7 encoder's tests, ignored by `test` because they need a Vulkan or Metal device and
 # no CI runner has one: run by hand before landing a change to `dds_convert`'s `gpu` module.

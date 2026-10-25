@@ -779,15 +779,15 @@ operations its commands run, plus the `aatf` rules engine — lands in Phase 5; 
 in Phase 8 with the `session/` wiring only it drives (undo, selection, recent files, the FPC
 toggle, AATF quick actions), each built in the slice that uses it (see the
 [core plan](core/development_plan.md#development-plan)). Within Phase 8, the draft comes first:
-`docs/prototypes/save_editor_v2.html` (`core/gui.md` "Prototypes before implementation") shows
+`docs/prototypes/tools/save_editor.js` (`core/gui.md` "Prototypes before implementation") shows
 the master-detail layout, every tab and every panel of the five slices below with sample data,
 and is refined with the maintainer; a slice that changes what the draft shows changes the draft
-first. It is the second arrangement of the first draft, `docs/prototypes/save_editor.html`,
-whose arrangement the built tabs of slices 1-3 are ported from to the second's (8.9f slice
-4): the team bar above every tab, the Player / Team tab groups, the positions grid in the
-collaborator's order, the Cutscenes group, the one cards badge (`save_editor_v2.html`'s own
-notes say why each remark was adopted or not). The two drafts'
-panels and dialogs are the same, function for function. Then the view builds up as:
+first. It is the second arrangement of the first draft, whose arrangement the built tabs of
+slices 1-3 are ported from to the second's (8.9f slice 4): the team bar above every tab, the
+Player / Team tab groups, the positions grid in the collaborator's order, the Cutscenes group,
+the one cards badge (the draft's own notes, "Arrangement v2", say why each remark was adopted
+or not). The two arrangements' panels and dialogs are the same, function for function. Then
+the view builds up as:
 
 1. Open/save + player editing tabs (Abilities & Skills, Appearance) — the card pickers as the
    first `team_widgets` content

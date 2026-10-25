@@ -74,7 +74,7 @@ the last edit changed are highlighted.
   (`spec/aatf_rules.md` "The ruleset schema", `medal_systems`): one row per system, its label
   and a count per tier, a checkbox above each tier's column putting the tier in the systems; a
   tier in them shows "by medal system" as its count. The draft is
-  `docs/prototypes/ruleset_editor.html`.
+  `docs/prototypes/tools/ruleset_editor.js`.
 - **Heights**: a "use height brackets" switch. On: the brackets in ascending order, each "up to
   N cm" or "exactly N, M cm"; the height systems in order, reordered by dragging (the first
   that holds is the team's), each "when any player is …" (the

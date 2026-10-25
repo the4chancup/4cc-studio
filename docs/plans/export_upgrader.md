@@ -49,7 +49,7 @@ What exists of this is in `spec/export_upgrader.md` "CLI". Step 13 adds `--conve
 ## GUI
 
 The tool view is the two commands as two drop targets. It is drafted first
-(`docs/prototypes/export_upgrader.html`, `core/gui.md` "Prototypes before implementation") and
+(`docs/prototypes/tools/export_upgrader.js`, `core/gui.md` "Prototypes before implementation") and
 refined with the maintainer before `view/` is written:
 
 - **Two drop targets**, side by side: *Upgrade an export* (a folder, `.zip` or `.7z`) and

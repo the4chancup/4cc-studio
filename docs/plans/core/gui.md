@@ -456,7 +456,7 @@ stadiums and cells = components.
 | Common and per-tool settings forms | egui widgets (`TextEdit`, `CheckBox`, `ComboBox`), saved to TOML |
 | Export tree browser | `egui::CollapsingHeader` tree, shows object model |
 | File/folder pickers | `rfd` for native dialogs and supported web file picking; web directory access needs a separate File System Access API adapter (`rfd` has no WASM folder picker) |
-| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_theme`, no restart; the setting, never the system's theme, decides, so a member on a light desktop still gets the dark default); icon glyphs from the suite's own icon font (`README.md` "GUI framework choice: egui"); body text in Ubuntu's regular weight, bundled (`resources/fonts/`), not egui's built-in light weight, which is not the weight the second Save editor draft (`save_editor_v2.html`, 400) was reviewed in; every test context that draws a frame installs the same fonts as the window (`theme::install_fonts`), so a width a test measures is the width a member sees, whichever crates a build unifies. Until the preset is curated it is egui's own dark `Visuals`, the colors the drafts are drawn in (`shell.html`'s stylesheet), so a curation pass changes the drafts' stylesheet first |
+| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_theme`, no restart; the setting, never the system's theme, decides, so a member on a light desktop still gets the dark default); icon glyphs from the suite's own icon font (`README.md` "GUI framework choice: egui"); body text in Ubuntu's regular weight, bundled (`resources/fonts/`), not egui's built-in light weight, which is not the weight the second Save editor draft (`save_editor_v2.html`, 400) was reviewed in; every test context that draws a frame installs the same fonts as the window (`theme::install_fonts`), so a width a test measures is the width a member sees, whichever crates a build unifies. Until the preset is curated it is egui's own dark `Visuals`, the colors the drafts are drawn in (the host page's stylesheet, `docs/prototypes/index.html`), so a curation pass changes the drafts' stylesheet first |
 
 ### Prototypes before implementation
 
@@ -490,8 +490,9 @@ to the table first (a new dependency, asked for first):
   and `egui_extras`' `StripBuilder` cannot express), CSS effects beyond fill, stroke, rounding
   and shadow (gradients, blur, filters), and per-character text effects.
 - **Look:** one shared stylesheet in Studio's dark theme, so every draft looks like Studio and
-  the drafts look like one another. Drafts are not reviewed in the light theme, which is
-  second-class.
+  the drafts look like one another, its body text at regular weight (400), not the light weight
+  of egui's default font, which reads too thin. Drafts are not reviewed in the light theme,
+  which is second-class.
 - **Size:** the UI is drawn inside a simulated window of the window's default size ("Shell
   layout": 1280 × 800, fitted to 90% of the browser's `screen` size as Studio fits the
   monitor; CSS pixels are logical pixels, as egui's points are), centered on a
@@ -514,6 +515,11 @@ tool's page: `tools/<tool>.js` (`save_editor.js`, `ruleset_editor.js`, `team_com
 loaded by a `<script>` tag; its images are files under `assets/`. A script, not an HTML page
 the host fetches or frames: a page opened from disk cannot fetch another file, and an iframe
 would hold a tool's menus and dialogs inside the tool area, where egui's span the whole window.
+A tool with a script is listed among the registered tools, as it will be once built; the
+others keep their stub or their grayed name. The view uses the shell as the built one will: the
+sidebar's PES selector is the one it reads, and what it reports in the status bar is a notice,
+with a notice's lifetime. The host opens on the tool its address names (`index.html#save-editor`),
+so a pointer to one draft is one link.
 One host is what keeps the drafts easy to change: the window's size, the sidebar or the theme
 is edited once, not in every draft. Behavior is faked with sample data, never wired to the
 real libs. A draft that must travel as one attachment is bundled by `scripts/bundle_drafts.py`

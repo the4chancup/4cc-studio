@@ -27,7 +27,7 @@ Placement rules:
   watcher in this crate would be copied there, tool crates never depending on tool crates. The
   design of both is `gui.md` "Live validation", since the grid is what they exist for.
 - The view is drafted first (`core/gui.md` "Prototypes before implementation"):
-  `docs/prototypes/team_compiler.html` shows the grid with sample rows in every cell state, the
+  `docs/prototypes/tools/team_compiler.js` shows the grid with sample rows in every cell state, the
   toolbar with its split button, badge and run strip, and the log panel, and is refined with the
   maintainer before `view/grid.rs` is written.
 

@@ -138,8 +138,9 @@ this phase completes it. Its scenarios are written: the shell's under `gui.md` "
 (`ST`), each tool's view under its plan's "Acceptance" (`TC-GUI`, `SE-GUI`, `EU-GUI`).
 
 - Before any view or shell element is coded, its draft (`gui.md` "Prototypes before
-  implementation"): `docs/prototypes/shell.html` first, then one per tool as its view comes up
-  (`team_compiler.html`, `save_editor.html`, `export_upgrader.html`), each reviewed for
+  implementation"): the shell in the host page, `docs/prototypes/index.html`, first, then one
+  script per tool as its view comes up (`tools/team_compiler.js`, `tools/save_editor.js`,
+  `tools/export_upgrader.js`), each reviewed for
   usability by the lead first (ideas to `PROPOSALS.md`), then refined with the maintainer and
   kept as the view's specification; each tool plan says where its draft sits in that tool's
   build order

@@ -30,8 +30,8 @@ and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed
 `PROPOSALS.md` P15-P22 wait for the maintainer's rulings), 8.5 (the Save
 editor's draft), the shell (8.6a-e), the color picker (8.7a-b), `team_widgets` (8.8), egui 0.37
 and the release stage (8.11, 8.13). The face_diff model comparison (Issues, "a face diff is
-engine-specific") follows the editor. The shell's draft (`docs/prototypes/shell.html`, step
-8.2) and the icon picks (8.14, `docs/QUESTIONS.md`) wait for the maintainer.
+engine-specific") follows the editor. The shell's draft (`docs/prototypes/index.html`, steps
+8.2 and 8.16) and the icon picks (8.14, `docs/QUESTIONS.md`) wait for the maintainer.
 Side-leads are
 paused (single lead + SWE-2); the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
@@ -622,10 +622,10 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   neither `libs/team_widgets` nor `color_tools`' widgets exist. The steps run in DBC's order
   (`plans/core/development_plan.md` "Divegrass Before Christmas"): what the 0.0.1 preview needs
   first, the Team compiler's and the Export upgrader's views after it. Each step builds against
-  its draft (`shell.html`, `save_editor.html`) and its plan, and cites its scenarios in tests
+  its draft (the host page `docs/prototypes/index.html` and its `tools/*.js`) and its plan, and cites its scenarios in tests
   through the shell's headless harness (`shell/mod.rs`'s tests). The drafts wait for the
   maintainer's remarks, so the steps that draw least of what a remark would change come first
-  - [ ] 8.6 the shell (`plans/core/gui.md`, `spec/core/gui.md`; draft `shell.html`), sliced
+  - [ ] 8.6 the shell (`plans/core/gui.md`, `spec/core/gui.md`; draft `index.html`), sliced
     - [x] 8.6a the sidebar: the planned-tool registry and its greyed entries, which 0.0.1
       also uses for the Team compiler and the Export upgrader (DECISIONS 2026-10-20), the
       logo's About block, the PES selector with its exe check and blocker, the icon rail
@@ -1829,13 +1829,29 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     editor's Tactics lists at 200 points, and its tests named for 1440 × 900 → verify: the
     scenarios' tests; the built window at 1280 × 800 on the FHD monitor, the Tactics tab in
     three columns. Rides with 8.9f4c's review fixes (one slice)
-  - [ ] 8.16 the drafts as one host and a script per tool (the maintainer, 2026-10-25;
+  - [x] 8.16 the drafts as one host and a script per tool (the maintainer, 2026-10-25;
     `core/gui.md` "Prototypes before implementation"; DECISIONS "The drafts are one host page
     and a script per tool"; side-lead track A): `docs/prototypes/index.html` from
     `shell.html`, the Save editor's (v2) and the Ruleset editor's drafts ported to
     `tools/*.js` at the 1280 × 800 default, the plans' pointers moved, then
     `scripts/bundle_drafts.py` → verify: every screen the old pages drew draws the same in the
     host (side-by-side captures), the bundle opens alone from another folder
+    Done 2026-10-25 (side-lead A, SWE-2 in three slices): the host from `shell.html` with a
+    tool registry (`registerTool`: draw, firstShow, controls, onKey, commit), each tool script
+    one unindented wrapper, the 138 portraits as files; DECISIONS "The drafts' shared stylesheet
+    draws body text at weight 400", "A tool's draft in the host uses the live shell". Verified
+    by 73 side-by-side Playwright captures (`.tmp/8_16/captures.py`: shell 28, Ruleset editor
+    18, Save editor 27), the old pages drawn at 1280 × 800 and weight 400; every pair the same
+    but for the live shell (the sidebar's 160 points and the Ruleset editor listed, the
+    Ruleset editor's view beside the sidebar, the Save editor's status as a notice) and the
+    shared disabled-widget dimming; the bundle's captures pixel-identical to the host's. The
+    old pages stay for the top lead to compare and remove. The Save editor's Tactics lists
+    drawn at 200 points, names cut at the edge (DECISIONS "Studio opens at 1280 × 800
+    points"). SWE-2 rounds: 5 of 17 accepted, then 3 of 9 (`.tmp/8_16/rulings.md`), each reworked. Files: `docs/prototypes/{index.html,
+    tools/ruleset_editor.js,tools/save_editor.js,assets/save_editor/portraits/}`,
+    `scripts/bundle_drafts{,_test}.py`, `justfile` (the test in `test`), pointers in
+    `plans/{core/gui.md,core/development_plan.md,save_editor.md,ruleset_editor.md,
+    export_upgrader.md,team_compiler/README.md}`, `GLOSSARY.md`
   - [ ] 8.17 the Export upgrader's draft, `tools/export_upgrader.js` (`plans/export_upgrader.md`;
     `core/gui.md` "Prototypes before implementation"; side-lead track A, after 8.16): every
     screen the plan describes, with sample data; the lead's usability review first, ideas to
