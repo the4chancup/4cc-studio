@@ -11219,3 +11219,14 @@ files, which wait for the exe and see its exit code, and a command typed at an i
 prompt only prints after the prompt returns.
 Plan: `plans/core/development_plan.md` "Divegrass Before Christmas", `plans/core/
 architecture.md` "Windows subsystem" and "Diagnostic logging"; ST-RUN-04.
+
+## 2026-10-26 — studio — The window's log: no file on a first run, a dialog for the panic that ends the window
+Decision: `studio.log` logs at `info` with no level switch, flushing each line; a first run,
+which has no data location until its dialog's choice, writes no log; the panic hook logs every
+panic, and the dialog naming the file and repeating the panic's message shows only for the
+panic that ends the window, caught around the GUI run, after which the process exits with 101.
+Why: a double-click passes no `-v`; a log written outside the chosen location would leave a
+folder the portable choice promised not to; a panic on another thread may be recovered (the
+GPU encoder's falls back to the CPU encoder), and the hook cannot tell, so a dialog there could
+ask for a report of a run that went fine. 101 is the code an unguarded panic exits with.
+Plan: `plans/core/architecture.md` "Diagnostic logging"; ST-RUN-07, ST-RUN-08.

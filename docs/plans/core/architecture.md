@@ -262,3 +262,15 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   replacing the older one, so a crash followed by a relaunch keeps the crash's log; writes the
   Studio version as the log's first line; and writes the user's home directory as `~` in every
   line, because findings carry absolute paths and the file is posted on the cup's server.
+- The level is `info`, with no `-v` or `RUST_LOG` (a double-click passes neither). Each line is
+  flushed as it is written, so a crash keeps everything before it.
+- A first run writes no log: the file lives in the data location, which does not exist until
+  the first-run dialog's choice, and a log written anywhere else would leave a folder behind
+  that a portable choice promised not to. The next run logs.
+- The hook logs every panic, but the dialog shows only for the panic that ends the window, caught
+  around the GUI run in `main`; the process then exits with 101, the code an unguarded panic
+  exits with. A panic on another thread is logged without a dialog: the hook cannot tell a
+  panic that will be recovered (the GPU encoder's, which `dds_convert` turns into a fallback
+  to the CPU encoder) from one that will not, and a dialog over a recovered panic would ask a
+  member to report a run that went fine. The dialog repeats the panic's message, so a first
+  run's crash, which has no file, still leaves something to post.

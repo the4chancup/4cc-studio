@@ -936,6 +936,17 @@ ST-RUN-06   GIVEN a stub tool reporting a run in flight, another tool's view act
             THEN the window stays and the stub's view is active with its prompt; WHEN it
                  chooses to close THEN the window closes once the run has ended, not before;
                  WHEN it chooses to keep the window THEN the window stays and the run goes on
+ST-RUN-07   GIVEN a data location holding `studio.log` and `studio.old.log` from earlier runs
+            WHEN the GUI starts
+            THEN `studio.old.log` holds what `studio.log` held, the new `studio.log`'s first
+                 line names the version, and a line logged with the home folder in it reads
+                 `~` there; GIVEN no data location yet (a first run) THEN no log is written
+ST-RUN-08   manual  GIVEN a build whose window panics on a click (a test build, the panic
+                    added by hand and reverted after)
+                    WHEN the click is made
+                    THEN a dialog names `studio.log`'s path and repeats the panic's message,
+                         the process exits with 101 once it is closed, and the log ends with
+                         the panic's message, its location and a backtrace
 ST-CLI-01   GIVEN a data directory that cannot be written
             WHEN a CLI command runs
             THEN stderr starts with the data_dir_read_only condition as one line, and a notice a

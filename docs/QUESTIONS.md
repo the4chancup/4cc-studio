@@ -17,3 +17,7 @@ names where the question came from so the context can be read there.
 - **Which icon does each tool get?** (worklog 8.14.) Open `docs/prototypes/icons.html`,
   click one candidate per tool (the rail at the top shows the picks together), then copy the
   "Picks" box. The font build and the glyph constants wait on it.
+- **Does the preview's zip ship `4cc_studio.pdb` beside the exe?** (worklog 0.0.1k.) A crash
+  writes its panic's message and source line to `studio.log` either way. With the `.pdb`
+  (17 MB, 3.8 MB deflated, against the exe's 16.6 MB deflated) the backtrace under it names every function the crash
+  went through; without it each frame reads `<unknown>`. `just release` (0.0.1f) waits on it.

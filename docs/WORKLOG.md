@@ -2447,11 +2447,12 @@ briefs, review loops, gates and mutation runs as for any step.
   panic hook writing the message, its location and a backtrace there and telling the member in
   a dialog to post the file, the previous run's log kept as `studio.old.log`, the version as the
   first line, the home directory written as `~`. Today a GUI panic prints to the console window
-  that closes with the process, so the member loses it. Settle in the step: whether the release
-  profile emits line tables into a `.pdb` kept per release out of the bundle (`just release`),
-  so a posted backtrace names functions without growing the exe → verify: a test panic in a
-  headless run leaves the file holding message, location and version; the rename across two
-  starts; a path under the home directory reads `~`
+  that closes with the process, so the member loses it. Measured 2026-10-26 (a probe crate,
+  toolchain 1.98.1): a release exe's backtrace names its frames only with its `.pdb` beside it
+  (17 MB for `4cc-studio.exe`'s); without it every frame reads `<unknown>`, while the panic's
+  message and `file:line:col` are there either way. Whether the bundle ships the `.pdb` is
+  the maintainer's (`QUESTIONS.md` "Small confirmations"); the step does not wait on it
+  → verify: ST-RUN-07; ST-RUN-08 (manual, asked before it runs)
 - [ ] 0.0.1l no console window in the preview (`plans/core/architecture.md` "Windows
   subsystem", DECISIONS 2026-10-25, `AttachConsole` approved): `#![windows_subsystem =
   "windows"]` on release Windows builds, `AttachConsole(ATTACH_PARENT_PROCESS)` behind one
@@ -2464,12 +2465,12 @@ briefs, review loops, gates and mutation runs as for any step.
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
   `aatf_rules` naming `rules/dbc7.rhai`), each finding fixed or recorded. Read 2026-10-25
   (lead), the common settings, the Save editor's and the Team compiler's; findings:
-  - [ ] j1 the settings menu draws "Check for updates" and its interval, which no code reads
+  - [x] j1 the settings menu draws "Check for updates" and its interval, which no code reads
     before Release 0.2.0's updater: the two rows go until then (DECISIONS 2026-10-25,
-    `plans/core/gui.md` "Settings menu"); `shell/settings_menu.rs`, whose test
-    `the_interval_row_follows_check_for_updates` becomes one that the rows are absent. The
-    drafts host keeps the rows and its Updates help topic: it draws the design, the 0.2.0
-    rows included
+    `plans/core/gui.md` "Settings menu"). Done: the rows are gone, the keys and defaults stay,
+    `the_update_check_rows_are_not_drawn_yet` replaces the interval test
+    (`shell/settings_menu.rs`). The drafts host keeps the rows and its Updates help topic: it
+    draws the design, the 0.2.0 rows included
   - [ ] j2 `pes_version` defaults to PES 2019 (VGL's game); DBC's window testers are on
     PES 2017, so their first open shows SE-GUI-28's version warning until they pick 2017 in
     the sidebar. Not a bundle default, since VGL's organizer compiles from the same bundle on
