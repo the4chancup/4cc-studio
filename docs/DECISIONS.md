@@ -11074,3 +11074,18 @@ would move nothing; model folders are dropped into an export by hand, so moving 
 exports folder would put loose folders there; a report kept across inputs would list another
 export's paths under the new one's name.
 Plan: `plans/export_upgrader.md` "GUI", the arguments and report bullets.
+
+## 2026-10-25 — gui — The drafts' links name the tool script, the longest values are a script, the old pages go
+Decision: a draft link names the tool by its script's name (`index.html#save_editor`, as 8.19a
+built it), not the CLI's `save-editor` the host decision first wrote; the longest values are
+`assets/longest.js`, loaded with a `<script>` tag, not `assets/longest.json`; and the four pages
+the host replaces (`shell.html`, `ruleset_editor.html`, `save_editor.html`, `save_editor_v2.html`)
+are removed, their pointers in the code and the plans moved to `index.html` and `tools/*.js`.
+Why: side-lead A's report on 8.16-8.19a. One name per tool across the address and the files
+keeps a link writable from the file list; a page opened from disk cannot fetch a JSON file, so
+only a script reaches it; 8.16's 73 side-by-side captures matched every screen the old pages drew
+(but for the live shell), so they hold nothing the host lacks, and two copies of a draft drift.
+The Save editor's first draft (`save_editor.html`) was already superseded by the second, which
+the host carries.
+Plan: `plans/core/gui.md` "Prototypes before implementation", the host paragraph, "Links",
+"Longest values".

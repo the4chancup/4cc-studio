@@ -1,4 +1,4 @@
-//! The settings menu (core plan, "Settings menu"; draft `docs/prototypes/shell.html`):
+//! The settings menu (core plan, "Settings menu"; draft `docs/prototypes/index.html`):
 //! an `egui::Modal` the sidebar's gear opens, as does a notice's
 //! `ActionEffect::OpenSettings`. It holds the common grid every tool shares — one row
 //! per `CommonSettings` field a member edits, in the draft's order and wording — then

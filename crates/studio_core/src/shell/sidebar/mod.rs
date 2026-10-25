@@ -1,6 +1,6 @@
 //! The sidebar, a 56-point rail that opens the full sidebar over the tool's left
 //! edge when the pointer rests on it (core plan, "Sidebar" item 4; draft
-//! `docs/prototypes/shell.html`): the logo doubling as the About click target, the
+//! `docs/prototypes/index.html`): the logo doubling as the About click target, the
 //! PES version selector with its live exe check, its blocker and the once-per-life
 //! auto-switch to a running PES, the tool list with the planned tools grayed, and
 //! the help `?` with the settings gear pinned at the bottom. There is no collapse

@@ -1,4 +1,4 @@
-//! The log panel (core plan, "Log panel"; the draft `docs/prototypes/shell.html`'s
+//! The log panel (core plan, "Log panel"; the draft `docs/prototypes/index.html`'s
 //! `logPanel`): a `BottomDock` titled `Log` holding a run's lines — the newest
 //! `LOG_CAP` of them, colored by severity, filterable, stuck to the bottom until the
 //! member scrolls up — each finding's message code a link to its row in the help.

@@ -1,6 +1,6 @@
 """The Ruleset editor's summary goldens: the draft's own summary() run on each embedded ruleset.
 
-The draft (`docs/prototypes/ruleset_editor.html`) is where the summary's wording was agreed, so
+The draft (`docs/prototypes/tools/ruleset_editor.js`) is where the summary's wording was agreed, so
 its function is the independent source of the expected text; the Rust port must equal it. Each
 ruleset is fed to it as `libs/aatf`'s writer writes it (`ruleset_summary_dump.rs`), not as the
 hand-written file: the writer lists every map in the Rust type's order (a tier's stats in stat
@@ -17,11 +17,11 @@ import subprocess
 import sys
 
 ROOT = pathlib.Path(__file__).resolve().parents[3]
-HTML = ROOT / "docs" / "prototypes" / "ruleset_editor.html"
+DRAFT = ROOT / "docs" / "prototypes" / "tools" / "ruleset_editor.js"
 OUT = ROOT / "crates" / "tools" / "ruleset_editor" / "tests" / "fixtures" / "summary"
 NAMES = ["autumn25", "autumn26", "dbc7", "spring26", "vgl25", "vgl26", "vgl27", "vtl10", "vtl11"]
 
-lines = HTML.read_text(encoding="utf-8").splitlines()
+lines = DRAFT.read_text(encoding="utf-8").splitlines()
 
 
 def block(first: str, last: str) -> str:

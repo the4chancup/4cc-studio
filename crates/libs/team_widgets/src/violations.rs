@@ -1,5 +1,5 @@
 //! The AATF results list of `plans/save_editor.md` "`libs/team_widgets`"
-//! (`violations` bullet), drafted in `docs/prototypes/save_editor.html`
+//! (`violations` bullet), drafted in `docs/prototypes/tools/save_editor.js`
 //! (`aatfPanel`, `violationSentence`, `playerHead`): one team's check grouped
 //! per player, a row's click reporting the player to select. The AATF panel,
 //! the Live AATF dock and the Team creator all draw this list.

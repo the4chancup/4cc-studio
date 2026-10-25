@@ -456,7 +456,7 @@ stadiums and cells = components.
 | Common and per-tool settings forms | egui widgets (`TextEdit`, `CheckBox`, `ComboBox`), saved to TOML |
 | Export tree browser | `egui::CollapsingHeader` tree, shows object model |
 | File/folder pickers | `rfd` for native dialogs and supported web file picking; web directory access needs a separate File System Access API adapter (`rfd` has no WASM folder picker) |
-| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_theme`, no restart; the setting, never the system's theme, decides, so a member on a light desktop still gets the dark default); icon glyphs from the suite's own icon font (`README.md` "GUI framework choice: egui"); body text in Ubuntu's regular weight, bundled (`resources/fonts/`), not egui's built-in light weight, which is not the weight the second Save editor draft (`save_editor_v2.html`, 400) was reviewed in; every test context that draws a frame installs the same fonts as the window (`theme::install_fonts`), so a width a test measures is the width a member sees, whichever crates a build unifies. Until the preset is curated it is egui's own dark `Visuals`, the colors the drafts are drawn in (the host page's stylesheet, `docs/prototypes/index.html`), so a curation pass changes the drafts' stylesheet first |
+| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_theme`, no restart; the setting, never the system's theme, decides, so a member on a light desktop still gets the dark default); icon glyphs from the suite's own icon font (`README.md` "GUI framework choice: egui"); body text in Ubuntu's regular weight, bundled (`resources/fonts/`), not egui's built-in light weight, which is not the weight the second Save editor draft (now `tools/save_editor.js`, 400) was reviewed in; every test context that draws a frame installs the same fonts as the window (`theme::install_fonts`), so a width a test measures is the width a member sees, whichever crates a build unifies. Until the preset is curated it is egui's own dark `Visuals`, the colors the drafts are drawn in (the host page's stylesheet, `docs/prototypes/index.html`), so a curation pass changes the drafts' stylesheet first |
 
 ### Prototypes before implementation
 
@@ -518,7 +518,7 @@ would hold a tool's menus and dialogs inside the tool area, where egui's span th
 A tool with a script is listed among the registered tools, as it will be once built; the
 others keep their stub or their grayed name. The view uses the shell as the built one will: the
 sidebar's PES selector is the one it reads, and what it reports in the status bar is a notice,
-with a notice's lifetime. The host opens on the tool its address names (`index.html#save-editor`),
+with a notice's lifetime. The host opens on the tool its address names (`index.html#save_editor`, the tool script's name),
 so a pointer to one draft is one link.
 One host is what keeps the drafts easy to change: the window's size, the sidebar or the theme
 is edited once, not in every draft. Behavior is faked with sample data, never wired to the
@@ -562,7 +562,9 @@ its plan section.
   rather than repeating clicks from a description.
 - **Longest values.** A draft control that fills every text from the longest real values
   (player and team names from the fixture saves and `teams_list.txt`, the longest option of
-  each list, the widest numbers), extracted once by a script into `assets/longest.json`; each
+  each list, the widest numbers), extracted once by a script into `assets/longest.js` (a script
+  the host loads with a `<script>` tag, not a JSON file: a page opened from disk cannot fetch
+  one); each
   tool script draws its texts through a host helper that picks the sample or the longest
   value. Short sample names hide clipping: a real 26-character name ("3DSMAX HAS STOPPED
   WORKING") overflowed the Tactics instruction combos at the default window in the built view,

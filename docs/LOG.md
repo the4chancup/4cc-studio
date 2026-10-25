@@ -2476,3 +2476,6 @@ worklog passed 7,000 lines.
   glyphs at 24 px, the full sidebar a layer over the view on a rested pointer or focus, as wide as its longest
   label; the collapse button and its draft control gone. At 1280 x 800 the Save editor's Tactics tab draws in three
   columns again.
+- **2026-10-25** — Side-leads A and B merged (cherry-picked): 0.0.1i closed by Astra A1 (no concerns); the drafts'
+  four old pages removed for the host and its tool scripts, the code's and plans' pointers moved; links name the
+  tool script, the longest values are a script (DECISIONS); 8.19b, 8.19c and 8.20 briefed, 8.26 the text drift.

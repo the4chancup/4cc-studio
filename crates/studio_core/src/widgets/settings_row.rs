@@ -1,4 +1,4 @@
-//! A settings row (core plan, "Settings menu"; the draft `docs/prototypes/shell.html`'s
+//! A settings row (core plan, "Settings menu"; the draft `docs/prototypes/index.html`'s
 //! `sRow`): the label cell, its tooltip leading with the settings key, and the widget
 //! cell. `path_row` is the one row every section's path setting draws — the common
 //! folders' and a tool's file alike — so no tool's path commits differently from the

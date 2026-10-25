@@ -1,7 +1,7 @@
 //! `ruleset` as readable rules text (Markdown): the Summary section's
 //! text and `ruleset-editor summary`'s output
 //! (`plans/ruleset_editor.md` "The editor", the Summary bullet; the
-//! wording's source is `docs/prototypes/ruleset_editor.html` "Readable
+//! wording's source is `docs/prototypes/tools/ruleset_editor.js` "Readable
 //! rules").
 
 use std::collections::{BTreeMap, BTreeSet};

@@ -1,4 +1,4 @@
-//! The help window (core plan, "Help window"; the draft `docs/prototypes/shell.html`'s
+//! The help window (core plan, "Help window"; the draft `docs/prototypes/index.html`'s
 //! `drawHelp`): a non-modal, resizable `egui::Window` the sidebar's `?`, F1, the About
 //! popup's Help link and a notice's `ActionEffect::OpenHelp` open. It reads the chapters
 //! `help::chapters` assembles (the core chapters first, then one per registered tool),

@@ -21,7 +21,7 @@ coverage table and draft, the DBC7 ruleset).
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
 (8.9j1-j3), the comparator done (8.9j4), then the transplant (8.9j5); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d next, its library half `Rules::player_tier` done in 0.0.1i; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
-reviewed; the audit 0.0.1i done but its Astra round on `player_tier`), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
+reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
 the compiler and the upgrader on the new file; slice 3, the Save editor's, rides with SE-GUI-19), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
@@ -32,8 +32,8 @@ editor's draft), the shell (8.6a-e), the color picker (8.7a-b), `team_widgets` (
 and the release stage (8.11, 8.13). The face_diff model comparison (Issues, "a face diff is
 engine-specific") follows the editor. The shell's draft (`docs/prototypes/index.html`, steps
 8.2 and 8.16) and the icon picks (8.14, `docs/QUESTIONS.md`) wait for the maintainer.
-Side-leads are
-paused (single lead + SWE-2); the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
+No side-lead runs: tracks A (the drafts, 8.16-8.19a and 8.25's half) and B (0.0.1i) ran on
+2026-10-25 and are merged; the record is `.tmp/lead/tracks.md`. 2.5b (GPU BC7) is step 16.x, its `dds_convert` half built ahead of its
 phase (16.x a, unwired)
 (decision entries 2026-09-21 and 2026-09-28). Release target (2026-09-28): 0.1.0 after Phase
 8; phase order 1–6, 8, 0.1.0, 7, 9–16 (`plans/core/development_plan.md` "Releases");
@@ -1323,8 +1323,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           4c r3), so a width test measures different text per invocation. The font is
           `resources/fonts/Ubuntu-Regular.ttf` (lead, 2026-10-25; DECISIONS "The body font is
           Ubuntu Regular, bundled; every view test draws with the app's fonts"); briefed to
-          SWE-2 as `.tmp/8_9f4e/brief_8_9f4e.md`. After side-lead A's merge, `shell.html`'s
-          body weight goes from 300 to 400 to match (A owns the drafts until then). Done
+          SWE-2 as `.tmp/8_9f4e/brief_8_9f4e.md`. The drafts' host draws body text at 400 too
+          (side-lead A's 8.16, DECISIONS "The drafts' shared stylesheet draws body text at
+          weight 400"). Done
           2026-10-25 (SWE-2, 27 min): `theme::install_fonts`, now public, swaps the regular
           weight in for `Ubuntu-Light` in every family (monospace's fallback too: a family
           naming a missing font panics) and is called by every view harness (`team_widgets`
@@ -1699,6 +1700,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     panel and re-checks `TOP_ROW_ONE_LINE`, `TEAM_BAR_ONE_ROW` and the Tactics columns there
     → verify: ST-SIDE-02's test rewritten red-first (the view's x0 and width equal with the
     sidebar open and closed); the built window at 1280 x 800 by hand
+    - [x] the drafts' half (side-lead A, merged as `7b5ed0ef`): the host's sidebar a 56-point
+      rail of the app's Phosphor glyphs at 24 px (the font subset under
+      `docs/prototypes/assets/fonts/`, its MIT notice in the page), the full sidebar a layer
+      opened by hover or focus without moving the view, the collapse button and its control
+      gone; the Save editor's Tactics tab in three columns at the default window. SWE-2 rounds
+      9 of 15, 5 of 10, then 1 of 6 (`.tmp/8_25/rulings.md` in `../4cc-studio-wt-drafts`)
     - [x] the code half (2026-10-25, SWE-2 58 min and an 8-minute rework): the panel at
       `RAIL_WIDTH` 56, the widgets drawn once a frame, in the rail or in a `Foreground`
       `egui::Area` over the view, under one `scope_id` so a focus or the open version popup
@@ -1867,26 +1874,43 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     P32-P36. SWE-2 rounds: 8 of 17 accepted, then 3 of 7 (`.tmp/8_17/rulings.md`), each
     reworked. Waits for the maintainer's remarks. Files: `docs/prototypes/{index.html,
     tools/export_upgrader.js}`, `plans/export_upgrader.md` "GUI", `PROPOSALS.md`
-  - [ ] 8.18 the host's layout edit toggle (the maintainer, 2026-10-25; `core/gui.md`
+  - [x] 8.18 the host's layout edit toggle (the maintainer, 2026-10-25; `core/gui.md`
     "Prototypes before implementation", "Layout edit"; DECISIONS "The drafts' host gets a
     layout edit toggle"; after 8.16, track A's next step or the top lead's after the merge):
     the toggle, move and resize handles, "Copy layout" and "Reset" in `index.html`, the
     `data-panel` names in every tool script → verify: Playwright drives a move and a resize on
     two tools' panels, the copied string names both with their rectangles before and after,
     the neighbours reflow on a resize, a reload keeps the tweaks and Reset clears them
+    Done 2026-10-25 (side-lead A, merged as `139355d9`): every tool's panels named
+    (`data-panel`), moves and resizes kept per screen, Copy layout's rectangles before and
+    after, Reset. SWE-2 rounds 6 of 10, then 3 of 10 (`.tmp/8_18/rulings.md` in
+    `../4cc-studio-wt-drafts`)
   - [ ] 8.19 the host's remarks, links and longest values (`core/gui.md` "The host's other
     review aids"; DECISIONS "The drafts' host gets remarks, links, …"; after 8.18, with it on
     track A or the top lead's): the URL fragment helper and every tool script's state keys,
-    the Remark toggle and "Copy remarks", the extraction script and `assets/longest.json`
+    the Remark toggle and "Copy remarks", the extraction script and `assets/longest.js`
     (real values only) → verify: Playwright opens a link to a dialog's state and the capture
     shows it; a remark's copied line names its panel and control and carries a link that
     reopens the state; with Longest values on, each tool's longest text is drawn (a capture per
     tool, looked at)
+    - [x] 8.19a links (side-lead A, merged as `144fedf1`): the address names what is drawn
+      (`#<tool>/<screen>?keys`, host keys and named dialogs, `run=done` replaying a finished
+      run); 12 states pixel-equal from a fresh page. SWE-2 rounds 8 of 16, then 4 of 7
+      (`.tmp/8_19/rulings.md`)
+    - [ ] 8.19b remarks, briefed: `.tmp/8_19/brief_8_19b.md`
+    - [ ] 8.19c longest values, briefed: `.tmp/8_19/brief_8_19c.md`
   - [ ] 8.20 the host's overlay and draft shots (`core/gui.md` "The host's other review aids";
     after 8.19, whose links it walks): the Overlay control and the capture naming, the
     Save editor's first captures from the built window; `scripts/draft_shots.py` → verify: the
     overlay of the built Tactics tab on its draft at 1280 × 800, looked at; a one-line host
-    stylesheet edit lists every tool's changed screens, reverted by hand, then lists none
+    stylesheet edit lists every tool's changed screens, reverted by hand, then lists none.
+    Briefed: `.tmp/8_20/brief_8_20.md` (the overlay needs built-window captures, which take
+    the UI automation until `--gui` opens a save)
+  - [ ] 8.26 the drafts' text drift side-lead A found (2026-10-25): the drafts show `v0.1.0`
+    where the build shows `v0.0.1 pre-alpha`; the host's help chapters still say `4cc-studio`
+    where the help files say `UnlimitedToolWorks`; with the preview pane on at 1280, the
+    Ruleset editor's form clips its stat grid (the Ruleset editor waits for 0.1.0: fix with
+    20.6) → verify: a capture of each, looked at
   - [ ] 8.21 the app's font in the drafts (`core/gui.md` "The host's other review aids"; after
     8.9f4e picks the bundled font): `@font-face` rules at egui's sizes → verify: one width
     constant's row (`TOP_ROW_ONE_LINE`) measured in the draft and in the built window agree
@@ -2127,7 +2151,7 @@ briefs, review loops, gates and mutation runs as for any step.
   set through the Save editor's Team TOML (a pre-Fox compile writes no save yet) and the faces
   deployed into the test slot (save and slot restored by hash): a face model (livecpk 70102)
   draws no in-game hair and the same painted iris for 7 and 10; the marker's player draws both
-- [ ] 0.0.1i `libs/aatf`'s audit for 0.0.1 (the maintainer's "a rock-solid AATF check comes
+- [x] 0.0.1i `libs/aatf`'s audit for 0.0.1 (the maintainer's "a rock-solid AATF check comes
   first", 2026-10-24; side-lead track B, 2026-10-25): the converge audit and design-health
   pass of `AGENTS.md` "Closing a phase" over the crate alone (`plans/aatf_rules.md`,
   `spec/aatf_rules.md` and their acceptance IDs: every requirement present and tested; the
@@ -2191,10 +2215,11 @@ briefs, review loops, gates and mutation runs as for any step.
     `check_team`'s `NoTier` slots over the nine blocks on three versions (135 `None`, 486
     `Some`). `mutants-diff adb35edc` 4 caught, 4 unviable. Files: `aatf/{logic/logic.rhai,
     src/{rules,file,lib}.rs,src/fixtures/{mod,official,dbc7,vtl11}.rs}`
-    - [ ] review: SWE-2 S1 over `e14a64da..5020b2ff` accepted 2 of 6 (the doc comments of
+    - [x] review: SWE-2 S1 over `e14a64da..5020b2ff` accepted 2 of 6 (the doc comments of
       `Rules::player_tier`, which left out step 2's fallback, and `CheckError::Values`; the
-      lead's fixes, amended), ending the SWE-2 loop (`.tmp/0_0_1i/rulings.md`); Astra
-      (checkpoint b, `Rules::player_tier` and the logic's `player_tier`) is the top lead's
+      lead's fixes, amended), ending the SWE-2 loop (`.tmp/0_0_1i/rulings.md`); Astra A1
+      (checkpoint b, `Rules::player_tier` and the logic's `player_tier`; top lead, Codex,
+      2026-10-25, on main after the merge `04749488..450c1851`): no concerns, the loop ends
   - [x] the close run, after the SWE-2 loop (`just mutants aatf` at `28c0ce53`, local, 3 h
     40 min; summary `.tmp/0_0_1i/mutants_whole_2/`): 443 mutants, 387 caught, 37 unviable,
     none missed, 19 timeouts: the engine's explained as at the first run (no operation
@@ -2557,7 +2582,7 @@ request (2026-10-14), to show the members who offered to help shape the ruleset 
   `plans/core/development_plan.md` "Phase 20"): 20.6a2a, in flight then, is reviewed and
   landed, and the steps below wait until after 0.1.0.
 - [ ] 20.6 the view (`plans/ruleset_editor.md` "The editor", the draft
-  `docs/prototypes/ruleset_editor.html`), as slices:
+  `docs/prototypes/tools/ruleset_editor.js`), as slices:
   - 20.6a the window's frame and the plain forms, as subslices:
     - [x] 20.6a1 `settings.rs` (`last_folder`, the recent files), the templates (embedded in
       `libs/aatf`) and Blank, the document's dirty flag and undo snapshots, the start page,

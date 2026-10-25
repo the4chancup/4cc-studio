@@ -1,7 +1,7 @@
 # Summary goldens
 
 The summary of each embedded ruleset (`libs/aatf`'s `rulesets/`), as the draft's own `summary()`
-(`docs/prototypes/ruleset_editor.html`, "Readable rules") writes it: the text the Summary
+(`docs/prototypes/tools/ruleset_editor.js`, "Readable rules") writes it: the text the Summary
 section shows and `ruleset-editor summary` prints (`plans/ruleset_editor.md` "The editor",
 RE-SUM-01, RE-CLI-03). Lead-written: do not edit. A wording change is made in the draft first,
 then these are regenerated.

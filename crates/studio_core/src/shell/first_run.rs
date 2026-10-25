@@ -1,5 +1,5 @@
 //! The first-run dialog (core plan, `distribution.md` "Data location: asked on first
-//! run"; draft `docs/prototypes/shell.html`): a modal with no Cancel that asks where
+//! run"; draft `docs/prototypes/index.html`): a modal with no Cancel that asks where
 //! settings and data live, drawn instead of any other window while the app has no
 //! data directory — the choice is needed to start. The browser build never asks (it
 //! persists to browser storage), so there `FirstRun` is a stub that is never up.
