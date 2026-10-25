@@ -2111,6 +2111,48 @@ briefs, review loops, gates and mutation runs as for any step.
   commit; then 8.9f4d's library half, the player's own tier recognition, as a `pub` API
   (checkpoint (b)) → verify: the audit's list closed, the census re-run clean or each class
   ruled, mutation runs clean
+  - [x] the audit (lead, 2026-10-25, at `e14a64da`; notes and scripts `.tmp/0_0_1i/audit/`):
+    the spec's and plan's type blocks against `ruleset/mod.rs` and `violation.rs` field by
+    field (all present, DBC7's five fields and three kinds included); every `LoadRule` and
+    `LoadError` variant has a failing-file test; the accessor table against `engine.rs`; the
+    operation-limit margin and the endless-loop test; `apply_tier` then `check_team` for
+    every tier of every ruleset (DBC7's through its fixtures' `legalize`, every legal team
+    built by `apply_tier`); a suggestion fixture per allowance kind; DBC7's fixture list
+    (`plans/aatf_rules.md` "Development phase and verification") all present. Design sweep:
+    no suppression, no trait beyond `TryFrom`/`Display`, the `_ =>` arms on bytes. `pub`
+    items: each has an outside caller or is a type reachable through one, but
+    `Rules::tier_values` (sub-step a). Citation audit (1048 pairs, 27 flags): none on an AATF
+    scenario; the flags are the Team compiler's, the Ruleset editor's and the comparator's,
+    left to their crates' closes
+  - [x] the census, before (`.tmp/0_0_1i/census/`, `tally_before.txt`): every save the
+    Everything index finds (1112 `EDIT00000000*` paths and 40 cup archives opened, F: not
+    connected), 424 distinct files by SHA-256, each copied and run through `check-aatf`
+    under DBC7's assembled file (logic 1, `d09648ca…`) by `e14a64da`'s release build: 422
+    checked, about 84,000 teams of 701-920, no check failure; 2 refused by the save reader,
+    both outside `aatf` (a decrypted dump `EDIT00000000.dat`, not a save; a PES 17 test save
+    whose player name is not UTF-8: Issues). The small classes ruled against the DBC7 fork's
+    `aatf.cpp`: `InjuryResistance` 4 of 3 (a stored 3, which the fork errs on too, line
+    450), `APositions` on 189 cm keepers (the fork's line 292), `TierCount` on short or
+    empty squads in the cup range (the schema's rest-of-squad count; the fork counts no
+    squad size). The registered-position warning on 80-100% of some saves' players is their
+    placeholder teams (every rating C), absent from the cup teams
+  - [x] a `Rules::tier_values` and `TierValues` crate-private: no consumer calls them (every
+    one goes through `apply_tier`, `plans/team_creator.md`, `plans/save_editor.md`); the
+    spec's "Crate layout" lists it with the host API, corrected with the change. Done
+    2026-10-25 (SWE-2). Files: `aatf/src/{rules,values,lib}.rs`, `docs/spec/aatf_rules.md`
+  - [x] b the whole-crate mutation run's survivors (`just mutants aatf` at `e14a64da`, local,
+    4 h; summary `.tmp/0_0_1i/mutants_whole_1/`): 439 mutants, 387 caught, 36 unviable, none
+    missed, 16 timeouts, which a rerun alone at a 600 s timeout settled (`rerun_timeouts/`:
+    19 caught; `engine -> Default::default()` drops the operation limit, so the endless-loop
+    test loops: explained, caught); the run had been starved by the census beside it. Extra
+    kinds: 14, the 6 timeouts rerun; 3 survivors, each a missing test or dead code: `wrap_item`'s
+    and `universal_section`'s first-field guard (`.trim()` removed: an overlong first field
+    wrapped under a bare head line; a test each) and `universal_section`'s last
+    `trim_end()`, a no-op (the last piece's space is popped) now removed. Done 2026-10-25
+    (SWE-2; the brief's comma-less expected line was wrong, the sidekick's contradiction
+    accepted). Files: `aatf/src/writer/{mod,tests}.rs`
+  - [ ] c 8.9f4d's library half: `Rules::player_tier` and the logic's `player_tier`
+    (`plans/aatf_rules.md` "The player's own tier", DECISIONS 2026-10-25), checkpoint (b)
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.rhai`, assembled with the frozen logic version 1, and the bundled settings naming
@@ -2555,6 +2597,14 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open — a save whose one player name is not UTF-8 is refused whole (0.0.1i's census,
+  2026-10-25): `pes_savefile`'s player codec errs (`codec/player.rs`, "player name is not
+  UTF-8"), so `check-aatf` and every other command refuse
+  `Documents\KONAMI\Pro Evolution Soccer 2017\save_old\EDIT00000000 testteams` (a test save,
+  the census's copy `.tmp/0_0_1i/census/saves/5e3d82ea3c9469ee` on side-lead B's worktree).
+  Not diagnosed: which player and which bytes (a name cut inside a multi-byte character by an
+  editor is the guess, unverified). Whether the game itself writes such names decides between
+  a tolerant read and the refusal; one save of 424 holds one
 - open (the Ruleset editor's half fixed 2026-10-23, 20.6a1's rework 2; the Save editor's
   waits) — a test can open a real file dialog on the developer's desktop (the maintainer saw
   four "Save As" windows, `.rhai` suggested, on 2026-10-23): `mutants-diff 8aeb0193`'s mutant

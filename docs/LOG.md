@@ -2455,3 +2455,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — Every test run that can leave the maintainer's PC goes to the VPS until further notice (the
   maintainer): mutation runs remote-only, the gates through `just gates-remote`, a sidekick's test and clippy
   runs through the new `just remote <cargo or just command>`; a Linux-only "Text file busy" race fixed.
+- **2026-10-25** — 0.0.1i: `libs/aatf`'s audit: no requirement missing; a census of 424 saves under DBC7, no
+  check failure, 2 refused by the save reader; `just mutants aatf` none missed once its timeouts were rerun;
+  `Rules::tier_values` crate-private (a), tests for the extra kinds' 3 survivors in the writer (b).

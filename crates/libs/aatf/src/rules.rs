@@ -147,7 +147,7 @@ impl Rules {
 
     /// The targets `player` (of `team`) must carry as tier `tier`, the
     /// specials applied: the file's `tier_values`.
-    pub fn tier_values(
+    pub(crate) fn tier_values(
         &self,
         team: &TeamView,
         player: &PlayerView,

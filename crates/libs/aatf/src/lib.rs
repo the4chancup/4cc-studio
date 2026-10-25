@@ -66,7 +66,7 @@ pub use file::{FileSections, LogicIdentity, assemble_file, file_sections};
 pub use rules::{OFFICIAL_FILE_NAME, Rules, official_file};
 pub use team::{PlayerView, TeamView, TeamViewError};
 pub use templates::{Template, templates};
-pub use values::{CardLimits, TierValues};
+pub use values::CardLimits;
 pub use violation::{CheckError, Violation, ViolationKind};
 
 pub use ruleset::{

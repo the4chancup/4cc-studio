@@ -960,7 +960,8 @@ crates/libs/aatf/
 ├── src/
 │   ├── lib.rs          # the crate doc (the script API) and the re-exports
 │   ├── rules.rs        # Rules (a loaded file): load steps 1-3, the official file, the host
-│   │                   #   API: check_team, tier_values, card_limits, apply_tier
+│   │                   #   API: check_team, card_limits, apply_tier (over the file's
+│   │                   #   tier_values, which the host keeps crate-private)
 │   ├── violation.rs    # Violation, ViolationKind, CheckError; the conversion from the map
 │   ├── values.rs       # TierValues and CardLimits from the script's maps, and the write of
 │   │                   #   the tier values into a player record

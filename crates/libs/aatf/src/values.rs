@@ -16,16 +16,16 @@ use crate::ruleset::{Card, GroupId, Stat, WeakFoot};
 /// game's scale.
 #[derive(Debug, Clone, PartialEq, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct TierValues {
+pub(crate) struct TierValues {
     /// The target of every ability stat (the write skips those the
     /// version lacks).
-    pub stats: BTreeMap<Stat, u8>,
+    pub(crate) stats: BTreeMap<Stat, u8>,
     /// The target form (1 to 8).
-    pub form: u8,
+    pub(crate) form: u8,
     /// The target injury resistance (1 to 3).
-    pub injury_resistance: u8,
+    pub(crate) injury_resistance: u8,
     /// The weak-foot limits (1 to 4 each).
-    pub weak_foot: WeakFoot,
+    pub(crate) weak_foot: WeakFoot,
 }
 
 /// The card economy of a player as one tier.
