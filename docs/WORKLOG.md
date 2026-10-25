@@ -20,8 +20,8 @@ coverage table and draft, the DBC7 ruleset).
 (the maintainer, 2026-10-24): the Save editor's view (8.9: slices 1-3 done, with the Tactics
 pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Live AATF done
 (8.9j1-j3), the comparator done (8.9j4), then the transplant (8.9j5); 8.9f's slice 4: v2 is
-the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d next; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
-reviewed; an audit step next), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
+the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d next, its library half `Rules::player_tier` done in 0.0.1i; 8.9h follows), `libs/aatf`'s hardening (the repetition rework done and
+reviewed; the audit 0.0.1i done but its Astra round on `player_tier`), `ingame_face.toml` (0.0.1h: slices 1 and 2 done and reviewed,
 the compiler and the upgrader on the new file; slice 3, the Save editor's, rides with SE-GUI-19), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
@@ -2136,6 +2136,9 @@ briefs, review loops, gates and mutation runs as for any step.
     empty squads in the cup range (the schema's rest-of-squad count; the fork counts no
     squad size). The registered-position warning on 80-100% of some saves' players is their
     placeholder teams (every rating C), absent from the cup teams
+  - [x] the census, after (`tally_after.txt`), at `5020b2ff`'s release build (sub-steps a to
+    c, DBC7 re-assembled with the new logic, `29cb6048…`): the same 424 files, the same
+    outcomes and counts; the regression check finds 0 files whose outcome or findings differ
   - [x] a `Rules::tier_values` and `TierValues` crate-private: no consumer calls them (every
     one goes through `apply_tier`, `plans/team_creator.md`, `plans/save_editor.md`); the
     spec's "Crate layout" lists it with the host API, corrected with the change. Done
@@ -2165,6 +2168,12 @@ briefs, review loops, gates and mutation runs as for any step.
       `Rules::player_tier`, which left out step 2's fallback, and `CheckError::Values`; the
       lead's fixes, amended), ending the SWE-2 loop (`.tmp/0_0_1i/rulings.md`); Astra
       (checkpoint b, `Rules::player_tier` and the logic's `player_tier`) is the top lead's
+  - [x] the close run, after the SWE-2 loop (`just mutants aatf` at `28c0ce53`, local, 3 h
+    40 min; summary `.tmp/0_0_1i/mutants_whole_2/`): 443 mutants, 387 caught, 37 unviable,
+    none missed, 19 timeouts: the engine's explained as at the first run (no operation
+    limit, the endless-loop test loops), the other 18 rerun alone at 600 s with their
+    siblings (`rerun_timeouts_2/`, 23 mutants): 22 caught, 1 unviable; the extra kinds 13 of
+    13 caught. The timeouts are the shared machine: both runs' reruns caught every one
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
   `rules/dbc7.rhai`, assembled with the frozen logic version 1, and the bundled settings naming
