@@ -216,10 +216,11 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
 
 // plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
 // layout": the pane the shell leaves in its smallest default window
-// (1037 × 648, less the expanded sidebar's 160 and the status bar's 24:
-// 877 × 624); the player list takes its default width, and the
-// tab's field/control pairs wrap below one another rather than clip —
-// every control's rect lies inside the central panel.
+// (1037 × 648, less the sidebar's 56-point rail and the status bar's 24:
+// 981 × 624 — the test draws the tighter 877 × 624); the player list
+// takes its default width, and the tab's field/control pairs wrap below
+// one another rather than clip — every control's rect lies inside the
+// central panel.
 #[test]
 fn the_tab_fits_the_pane_the_shell_leaves() {
     let path = fixture(PesVersion::Pes21, "shell_pane");
@@ -522,7 +523,7 @@ fn the_profile_block_holds_its_pairs_in_two_aligned_columns() {
 }
 
 // plans/save_editor.md "Editing UI", the top row's three blocks: past
-// `TOP_ROW_ONE_LINE` (1333 here — the constant plus `TAB_AREA_OFFSET`) Profile, Playable positions and Quick actions share the
+// `TOP_ROW_ONE_LINE` (1349 here — the constant plus `TAB_AREA_OFFSET`) Profile, Playable positions and Quick actions share the
 // first line; on the pane the shell's smallest default window leaves
 // the row wraps between the blocks — Playable positions lands below
 // Profile whole, never split across two lines.

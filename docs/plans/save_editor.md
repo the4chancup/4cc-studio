@@ -321,10 +321,10 @@ Win32 original hurt the most):
   cannot hold two, as the ability stats' columns): at 1280 x 800, whose tab area is about 992
   points once the sidebar is its rail (`core/gui.md` "Sidebar"; 888 beside the 160-point
   sidebar, 8 short), the three columns stand side by side, not settings rows below the pitch
-  past the window's bottom, and the settings column, the tallest, runs past the pane by about
-  a row (measured without the shell's panel margins at 14 points, 60 with an assignment note
-  armed; to re-measure in them) and scrolls with the tab, so its last group is reached by
-  the wheel rather than squeezed in. A pane too narrow for a settings
+  past the window's bottom, and the settings column, 456 points wide there, holds the preset
+  bar on one line and ends inside the pane (measured inside the shell's panel: 47 points above
+  its bottom, 24 with an assignment note armed); a shorter window scrolls the tab to reach
+  its last group rather than squeezing it in. A pane too narrow for a settings
   column of the draft's 360 points beside the other two (the smallest default window's) takes
   the settings column whole below the pitch and the lists, never a group split between
   columns. Not columns of half the pane each: a column narrower than the canvas widens the

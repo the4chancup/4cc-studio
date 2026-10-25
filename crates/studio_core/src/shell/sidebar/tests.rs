@@ -5,7 +5,7 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use egui::accesskit::{self, Role, Toggled};
 use pes_version::PesVersion;
 
-use super::{ExeCheck, RAIL_WIDTH, selector_color};
+use super::{ACTIVE_BAR_WIDTH, ExeCheck, RAIL_WIDTH, overlay_id, selector_color};
 use crate::help::{HelpSection, HelpTarget, HelpTopic};
 use crate::pes_process::RunningPes;
 use crate::settings::Settings;
@@ -41,6 +41,57 @@ fn key(key: egui::Key) -> Vec<egui::Event> {
         repeat: false,
         modifiers: egui::Modifiers::NONE,
     }]
+}
+
+/// Whether the frame paints a non-transparent `Shape::Rect` exactly over
+/// `bounds` (within 2 points, for the visuals' expansion).
+fn filled_at(out: &FrameOutput, bounds: accesskit::Rect) -> bool {
+    out.shapes.iter().any(|clipped| {
+        matches!(&clipped.shape, egui::Shape::Rect(shape)
+            if shape.fill != egui::Color32::TRANSPARENT
+                && (f64::from(shape.rect.min.x) - bounds.x0).abs() <= 2.0
+                && (f64::from(shape.rect.min.y) - bounds.y0).abs() <= 2.0
+                && (f64::from(shape.rect.max.x) - bounds.x1).abs() <= 2.0
+                && (f64::from(shape.rect.max.y) - bounds.y1).abs() <= 2.0)
+    })
+}
+
+/// Whether the frame paints a `color` fill `ACTIVE_BAR_WIDTH` wide over the
+/// full height at `bounds`' left edge: the active entry's accent bar.
+fn accent_bar_at(out: &FrameOutput, bounds: accesskit::Rect, color: egui::Color32) -> bool {
+    out.shapes.iter().any(|clipped| {
+        matches!(&clipped.shape, egui::Shape::Rect(shape)
+            if shape.fill == color
+                && (f64::from(shape.rect.min.x) - bounds.x0).abs() <= 0.5
+                && (f64::from(shape.rect.min.y) - bounds.y0).abs() <= 0.5
+                && (f64::from(shape.rect.width()) - f64::from(ACTIVE_BAR_WIDTH)).abs() <= 0.5
+                && (f64::from(shape.rect.height()) - (bounds.y1 - bounds.y0)).abs() <= 0.5)
+    })
+}
+
+/// How many of the frame's `Shape::Text` carry exactly `text`.
+fn painted_text_count(out: &FrameOutput, text: &str) -> usize {
+    out.shapes
+        .iter()
+        .filter(|clipped| {
+            matches!(&clipped.shape, egui::Shape::Text(shape) if shape.galley.text() == text)
+        })
+        .count()
+}
+
+/// The `Shape::Text` carrying exactly `text` whose origin sits inside `rect`.
+fn text_shape_in<'a>(
+    out: &'a FrameOutput,
+    text: &str,
+    rect: egui::Rect,
+) -> Option<&'a egui::epaint::TextShape> {
+    out.shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape) => Some(shape),
+            _ => None,
+        })
+        .find(|shape| shape.galley.text() == text && rect.contains(shape.pos))
 }
 
 // TC-GUI-03
@@ -488,17 +539,6 @@ fn an_inactive_row_paints_no_background_until_it_is_touched() {
     let egui_ctx = egui::Context::default();
     egui_ctx.enable_accesskit();
 
-    let filled_at = |out: &FrameOutput, bounds: accesskit::Rect| {
-        out.shapes.iter().any(|clipped| {
-            matches!(&clipped.shape, egui::Shape::Rect(shape)
-                if shape.fill != egui::Color32::TRANSPARENT
-                    && (f64::from(shape.rect.min.x) - bounds.x0).abs() <= 2.0
-                    && (f64::from(shape.rect.min.y) - bounds.y0).abs() <= 2.0
-                    && (f64::from(shape.rect.max.x) - bounds.x1).abs() <= 2.0
-                    && (f64::from(shape.rect.max.y) - bounds.y1).abs() <= 2.0)
-        })
-    };
-
     let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9));
     let active = entry(&out.nodes, "A").bounds().unwrap();
     let inactive = entry(&out.nodes, "B").bounds().unwrap();
@@ -523,6 +563,220 @@ fn an_inactive_row_paints_no_background_until_it_is_touched() {
     assert!(
         filled_at(&out, entry(&out.nodes, "B").bounds().unwrap()),
         "the hovered row paints its background"
+    );
+}
+
+// ST-SIDE-01's "the opened sidebar shows their full labels" and item 3's "the
+// rail shows the icons alone": a label's text is painted in the overlay, never
+// on the rail.
+#[test]
+fn the_labels_are_painted_in_the_overlay_and_never_on_the_rail() {
+    const PLANNED: &[PlannedTool] = &[PlannedTool {
+        id: "music-player",
+        label: "Music player",
+        icon: "m",
+    }];
+    let (a, calls_a) = stub("a", "A", None);
+    let (b, calls_b) = stub("b", "B", None);
+    let dir = TestDir::new("studio_core_sidebar_painted_labels");
+    let Shell { mut app, .. } = shell_with(
+        test_settings(dir.path()),
+        vec![a, b],
+        PLANNED,
+        Some(dir.path().to_path_buf()),
+        vec![calls_a, calls_b],
+    );
+    let egui_ctx = egui::Context::default();
+    egui_ctx.enable_accesskit();
+
+    let rail = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9));
+    assert_eq!(
+        painted_text_count(&rail, "4cc"),
+        1,
+        "the rail paints its logo (the frame's shapes are collected)"
+    );
+    for label in ["A", "B", "Music player", "Help", "Settings"] {
+        assert_eq!(
+            painted_text_count(&rail, label),
+            0,
+            "the rail paints no {label:?} label"
+        );
+    }
+
+    let open = open_sidebar(&egui_ctx, &mut app, entry(&rail.nodes, "A"), 1.0);
+    for label in ["A", "B", "Music player", "Help", "Settings"] {
+        assert_eq!(
+            painted_text_count(&open, label),
+            1,
+            "the overlay paints one {label:?} label"
+        );
+    }
+}
+
+// gui.md "Sidebar" item 3's row: the icon centred in the icon cell, the label
+// starting one item-spacing past the cell's right edge, vertically centred on
+// the row.
+#[test]
+fn a_row_paints_its_icon_centred_in_the_cell_and_its_label_after_it() {
+    let Shell { mut app, _dir, .. } = shell();
+    let egui_ctx = egui::Context::default();
+    egui_ctx.enable_accesskit();
+
+    let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9));
+    let cell = entry(&out.nodes, "A").bounds().unwrap().width() as f32;
+    let out = open_sidebar(&egui_ctx, &mut app, entry(&out.nodes, "A"), 1.0);
+    let bounds = entry(&out.nodes, "A").bounds().unwrap();
+    let row = egui::Rect::from_min_max(
+        egui::pos2(bounds.x0 as f32, bounds.y0 as f32),
+        egui::pos2(bounds.x1 as f32, bounds.y1 as f32),
+    );
+    let icon_cell = egui::Rect::from_min_size(row.min, egui::vec2(cell, row.height()));
+
+    // The stub tools' icon is "i"; the same glyph sits on B's row, so the
+    // cell's bounds pick A's.
+    let icon = text_shape_in(&out, "i", icon_cell).expect("A's icon is painted");
+    let icon_rect = egui::Rect::from_min_size(icon.pos, icon.galley.size());
+    let centre = icon_cell.center();
+    assert!(
+        (icon_rect.center().x - centre.x).abs() <= 0.5
+            && (icon_rect.center().y - centre.y).abs() <= 0.5,
+        "the icon is centred in the icon cell ({icon_rect:?} in {icon_cell:?})"
+    );
+
+    let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(800.0, 600.0));
+    let label = text_shape_in(&out, "A", screen).expect("A's label is painted");
+    let expected_x = icon_cell.max.x + egui_ctx.global_style().spacing.item_spacing.x;
+    assert!(
+        (label.pos.x - expected_x).abs() <= 0.5,
+        "the label starts one item-spacing past the cell's right edge ({} vs {expected_x})",
+        label.pos.x
+    );
+    let label_centre_y = label.pos.y + label.galley.size().y / 2.0;
+    assert!(
+        (label_centre_y - row.center().y).abs() <= 0.5,
+        "the label is vertically centred on the row ({label_centre_y} vs {})",
+        row.center().y
+    );
+}
+
+// gui.md "Sidebar" item 3 (the draft's 3 px accent bar): the active entry
+// alone gets the accent-colored bar at its left edge.
+#[test]
+fn the_accent_bar_marks_only_the_active_row() {
+    let Shell { mut app, _dir, .. } = shell();
+    let egui_ctx = egui::Context::default();
+    egui_ctx.enable_accesskit();
+
+    let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9));
+    let color = egui_ctx.global_style().visuals.selection.stroke.color;
+    assert!(
+        accent_bar_at(&out, entry(&out.nodes, "A").bounds().unwrap(), color),
+        "the active row carries the accent bar"
+    );
+    for label in ["B", "Help", "Settings"] {
+        assert!(
+            !accent_bar_at(&out, entry(&out.nodes, label).bounds().unwrap(), color),
+            "the {label} row carries no accent bar"
+        );
+    }
+}
+
+// ST-SIDE-02's "while the pointer is on it": the overlay's rect reaches past
+// the drawn content by the frame's margins, and the overlay holds while the
+// pointer is anywhere on it.
+#[test]
+fn the_overlay_holds_while_the_pointer_is_anywhere_on_it() {
+    let Shell { mut app, _dir, .. } = shell();
+    let egui_ctx = egui::Context::default();
+    egui_ctx.enable_accesskit();
+
+    let closed = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9)).nodes;
+    let cell = entry(&closed, "A").bounds().unwrap().width();
+    let out = open_sidebar(&egui_ctx, &mut app, entry(&closed, "A"), 1.0);
+    let row_y = centre(entry(&out.nodes, "A")).y;
+
+    // The overlay's right edge, as `show` computes it: its left edge plus the
+    // inner width (cell, one item-spacing, the widest label) plus the frame's
+    // margins.
+    let outer_left = egui_ctx
+        .memory(|m| m.area_rect(overlay_id()))
+        .expect("the open overlay has a rect")
+        .min
+        .x;
+    let style = egui_ctx.global_style();
+    let margins = egui::Frame::side_top_panel(&style)
+        .shadow(style.visuals.popup_shadow)
+        .total_margin()
+        .sum()
+        .x;
+    let inner = overlay_inner_width(&egui_ctx, cell, &["A", "B", "Help", "Settings"]);
+    let right = f64::from(outer_left) + inner + f64::from(margins);
+
+    // On the margin band, right of the drawn content but inside the outer
+    // rect: the overlay holds.
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        vec![egui::Event::PointerMoved(egui::pos2(
+            (right - 2.0) as f32,
+            row_y,
+        ))],
+        true,
+        Some(1.3),
+    );
+    let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(1.35));
+    assert!(
+        entry(&out.nodes, "A").bounds().unwrap().width() > cell,
+        "the overlay holds with the pointer on its margin band"
+    );
+
+    // Two points past the edge: closed.
+    frame_at(
+        &egui_ctx,
+        &mut app,
+        vec![egui::Event::PointerMoved(egui::pos2(
+            (right + 2.0) as f32,
+            row_y,
+        ))],
+        true,
+        Some(1.4),
+    );
+    let out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(1.45));
+    assert_eq!(
+        entry(&out.nodes, "A").bounds().unwrap().width(),
+        cell,
+        "the overlay closes once the pointer leaves it"
+    );
+}
+
+// gui.md "Sidebar" item 3: a row paints its button frame while it is in use,
+// which a keyboard focus alone already makes it; the pointer needn't be
+// anywhere near.
+#[test]
+fn a_focused_row_paints_its_background_untouched_by_the_pointer() {
+    let Shell { mut app, _dir, .. } = shell();
+    let egui_ctx = egui::Context::default();
+    egui_ctx.enable_accesskit();
+
+    // No pointer events at all: Tab until the inactive entry B holds the
+    // keyboard focus; the rail stays open or closed on whatever it was.
+    let mut out = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(0.9));
+    let mut t = 0.95;
+    for _ in 0..20 {
+        out = frame_at(&egui_ctx, &mut app, key(egui::Key::Tab), true, Some(t));
+        if app.sidebar.focus_label == Some("B") {
+            break;
+        }
+        t += 0.05;
+    }
+    assert_eq!(
+        app.sidebar.focus_label,
+        Some("B"),
+        "B's row took the focus within 20 tabs"
+    );
+    assert!(
+        filled_at(&out, entry(&out.nodes, "B").bounds().unwrap()),
+        "the focused row paints its background"
     );
 }
 

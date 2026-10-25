@@ -1293,22 +1293,25 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
             removed (a grid's last `end_row` only moves its cursor). Files:
             `team_widgets/src/tactics/{instructions.rs,tests/mod.rs}`,
             `save_editor/src/view/appearance/mod.rs`
-          - [ ] rework r4, after 8.25's code (DECISIONS "The Tactics tab's three columns at
-            1280 × 800 come with the sidebar's rail"): the built window at 1280 x 800
-            (2026-10-25, `.tmp/8_9f/look4c3_tactics_fhd.png`) draws the Tactics tab
-            **stacked** where the headless default-pane test sees three columns. Cause,
-            confirmed in a worktree: the Save editor's `Headless` calls `show` on the bare
-            root ui, without the shell's `CentralPanel` (`shell/mod.rs`) and its margins;
-            inside one the tab's `available_width` at the 1120-point pane is 888, not 904.
-            The harness draws the view inside a `CentralPanel` as the shell does, so every
-            pane test stands for the real pane; `TAB_AREA_OFFSET` re-measured (232 at that
-            reading); the default-pane tests at the pane the rail leaves (1224 x 776); the
-            settings column's overflow re-measured for the plan; `tactics.rs`' `LISTS_WIDTH`
-            comment. Also: the instruction column's combo is capped at the "Instruction"
-            header's width (about 100), not the draft's 120: a grid column takes the last
-            frame's widest cell, and the combo caps itself at the column's width → verify:
-            the default-pane test red with the panel at 1120 (it is: measured), green at
-            1224; the built window in three columns
+          - [x] rework r4 (2026-10-25, SWE-2 64 min and a short r5): the Save editor's
+            `Headless` draws every view inside a `CentralPanel` as the shell does (red first:
+            the default-pane test at the old 1120 pane drew the settings stacked, the
+            real-window defect); `TAB_AREA_OFFSET` 232, measured at four widths; the default-pane
+            tests at `DEFAULT_PANE` 1224 x 776, every edge computed from the constants; the
+            instruction combos capped at the row's remaining width (clip edge), so they match
+            the target column's, not the "Instruction" header's 100; the preset bar's wrap
+            tested at the narrowest three-column pane (360-point column). Measured at the
+            default: tab area 992, settings column 456, one formation pair a row (two need
+            639), the column 47 points inside the pane's bottom (24 with a note armed;
+            DECISIONS "The Tactics settings column fits the pane at 1280 × 800, the lists stay
+            at 200"). manual: checked 2026-10-25 on 8.25's release build at 1280 x 800
+            (`.tmp/8_25/look_tactics.png`): three columns, every control in view. Files:
+            `save_editor/src/view/{tactics.rs,tests.rs,tests/{tactics,appearance,abilities}.rs}`,
+            `team_widgets/src/tactics/instructions.rs`. Mutants-diff 4158a3ee: 3 mutants, 2
+            caught, 1 unviable. Post-Astra SWE-2 round S2 over r2-r4: 2 accepted (the
+            default-pane test's bottom bound and one-line bar; the cap test's narrow half on
+            the target combo), fixed in r6 with three nits; the 4c review loop ends
+            (`.tmp/8_9f/duck_rulings_4c.md`)
         - [ ] 4d the one cards badge, the player's own tier, through a tier recognition
           `libs/aatf` exposes (checkpoint (b))
         - [ ] 4e the regular-weight body font (`core/gui.md`'s theme; a bundled font file);
@@ -1634,8 +1637,15 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       focuses nothing in egui 0.37), as wide as the widest label measured each frame; rows
       drawn alike in both places (icon cell, 24-point icons, the frame only when in use).
       Rework: no clippy opt-out (`SidebarFrame`), one `drawn_planned`, no gray inactive rows.
+      Mutants-diff 9c632437: 15 missed, killed by five tests (the labels painted only in the
+      overlay, the icon's and the label's place in a row, the accent bar on the active row
+      alone, the overlay's margin band, a row focused and nothing else).
       Files: `studio_core/src/shell/{mod.rs,sidebar/{mod.rs,tests.rs},test_harness.rs}`,
-      `studio_core/src/tool.rs`. Open: the drafts' host (side-lead A), the built window
+      `studio_core/src/tool.rs`. manual: checked 2026-10-25 on the release build at 1280 x
+      800 (`.tmp/8_25/look_{closed,open,left}.png`): the rail's 24-point icons, the overlay
+      on a rested pointer with the labels beside unmoved icons and `PES 2021`, as wide as
+      "Player aesthetics editor", the view unmoved, closed once the pointer left. Open: the
+      drafts' host (side-lead A)
   - [ ] 8.22 after 0.0.1: the accepted usability items outside the grid (2026-10-25, P1, P2,
     P6, P10-P14; DECISIONS "Usability proposals P1-P14 accepted"), each its own commit:
     - [ ] 8.22a the finding line's disposition phrase (`plans/core/architecture.md` "Every

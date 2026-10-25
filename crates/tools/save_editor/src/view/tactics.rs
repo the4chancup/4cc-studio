@@ -23,15 +23,16 @@ use crate::view::{SaveView, edit_team, selected_team};
 
 /// The lists column's width (the draft's `#tac-lists`): the Starting
 /// eleven and Bench lists' fixed narrow column in both arrangements.
-/// 200, not the draft's 240: at the default window's 904-point tab area
-/// the three columns are the pitch's 320, this, the settings column's
-/// 360 and two gaps — 896 (`DECISIONS.md` 2026-10-25, the window's
-/// size); at 240 the column needs 936 and the settings drop below.
-const LISTS_WIDTH: f32 = 200.0;
+/// 200, not the draft's 240: at the default window's 992-point tab area
+/// the settings column then gets 456 points, where the preset bar holds
+/// one line and the whole column fits the pane; a long name is cut with
+/// the full name on hover (`DECISIONS.md` 2026-10-25, "The Tactics
+/// settings column fits the pane at 1280 × 800, the lists stay at 200").
+pub(super) const LISTS_WIDTH: f32 = 200.0;
 /// The settings column's break width (the draft's `#tac-settings` flex
 /// base): beside the pitch and the lists on a wide pane, under them at
 /// the pane's width on a narrow one.
-const SETTINGS_MIN: f32 = 360.0;
+pub(super) const SETTINGS_MIN: f32 = 360.0;
 
 /// The tab for the selected player's team, in the strip's `Team` group.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {

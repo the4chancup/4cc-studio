@@ -10981,3 +10981,18 @@ measured 888 (2026-10-25), 8 short of the columns' 896. Narrowing a column by 8 
 undone when the rail frees 104 points before the 0.0.1 cut.
 Plan: `plans/save_editor.md` "Tactics editor" (the "pitch is the editor" bullet); worklog
 8.9f4c r4, 8.25.
+
+## 2026-10-25 — save_editor — The Tactics settings column fits the pane at 1280 × 800, the lists stay at 200
+Decision: with the sidebar's rail, the default window's tab area is 992 points and the Tactics
+settings column 456: the preset bar holds one line and the whole column ends inside the
+776-point pane (47 points above its bottom, 24 with an assignment note armed), so the entry
+"The Tactics settings column scrolls with the tab at 1280 × 800" no longer describes the
+default window; the tab still scrolls in a shorter one. The lists stay at 200 points rather
+than going back to the draft's 240, which would now fit (936 of 992).
+Why: measured in rework r4 by the Save editor's view tests drawn inside the shell's
+`CentralPanel` at the 1224 × 776 pane the rail leaves (the tab reads exactly the window less
+232 at every width tried). At 200 every Tactics control is in view at the default window, the
+plan's aim the scroll entry had to give up; 240 would narrow the settings column to 416, not
+measured, for about five more characters of a long name the hover shows whole anyway. The drafts'
+layout edit (8.18) is where the maintainer would move it.
+Plan: `plans/save_editor.md` "Tactics editor" (the "pitch is the editor" bullet).

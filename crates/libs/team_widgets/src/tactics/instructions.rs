@@ -32,7 +32,15 @@ fn capped_combo(
     selected: &str,
     add_contents: impl FnOnce(&mut egui::Ui),
 ) -> egui::Response {
-    let cap = COMBO_CAP.min(ui.available_width());
+    // The row's right edge as laid out: `available_width` inside a `Grid`
+    // cell is the column's width from the previous frame (the
+    // "Instruction" header's here, which the cap would hold the column
+    // at), and `region.max_rect` grows as widgets claim room, so the
+    // clip — the column's or pane's edge, which only narrows — is the
+    // remaining width's bound.
+    let cap = COMBO_CAP
+        .min(ui.clip_rect().right() - ui.cursor().min.x)
+        .max(0.0);
     ui.allocate_ui_with_layout(
         egui::vec2(cap, ui.spacing().interact_size.y),
         egui::Layout::left_to_right(egui::Align::Center),
@@ -824,9 +832,8 @@ mod tests {
     // `capped_combo`'s chrome check: a selected text too wide for the
     // button's `cap - chrome` text area elides, and the closed combo's
     // hover shows it whole. The target cell is the grid's last column,
-    // so its `cap` is `COMBO_CAP` (the instruction column's stays at the
-    // "Instruction" header's width); `chrome` measures 34 here, the text
-    // area 86.
+    // so its `cap` is `COMBO_CAP` at this pane; `chrome` measures 34
+    // here, the text area 86.
     #[test]
     fn an_elided_target_shows_the_whole_text_on_hover() {
         let version = PesVersion::Pes21;
@@ -943,6 +950,62 @@ mod tests {
             ),
             None,
             "a selection that fits shows no tooltip"
+        );
+    }
+
+    // `capped_combo`'s cap is the row's remaining width up to
+    // `COMBO_CAP`, not the column's last width (inside a `Grid` cell
+    // `available_width` is the previous frame's column width, the
+    // "Instruction" header's here): with room the instruction combo
+    // draws as wide as the row's last column lets a combo under the
+    // same cap (never past `COMBO_CAP`), without room it ends inside
+    // the row.
+    #[test]
+    fn the_instruction_combo_caps_at_the_rows_width_not_the_columns() {
+        let version = PesVersion::Pes21;
+        let mut tactics = fixture_tactics(version);
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(version);
+        let roster = roster_rows(&rows);
+
+        // A pane with room: the instruction and the target combo show
+        // the same text, so the same cap draws them the same width.
+        let mut window = Headless::sized(900.0, 900.0);
+        window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let combos = controls_right_of(&nodes, "Attack 1", Role::ComboBox);
+        let (instruction, target) = (combos[0], combos[1]);
+        assert_eq!(instruction.value(), Some("Unassigned"), "premise");
+        assert_eq!(target.value(), Some("Unassigned"), "premise");
+        let width = |node: &egui::accesskit::Node| {
+            let bounds = node.bounds().expect("combo bounds");
+            bounds.x1 - bounds.x0
+        };
+        let (instruction_width, target_width) = (width(instruction), width(target));
+        assert!(
+            instruction_width <= f64::from(COMBO_CAP),
+            "the combo never outgrows the cap ({instruction_width})"
+        );
+        assert!(
+            (instruction_width - target_width).abs() < 0.5,
+            "the same cap draws the combos the same width \
+             ({instruction_width} vs {target_width})"
+        );
+
+        // Without room the row's remaining width binds the cap: at a
+        // pane where the target cell's remaining is under `COMBO_CAP`
+        // but over the combo's own floor (108 of 120 here — `fontless`
+        // pinning the glyphs' 9 points, the instruction cell's 115 and
+        // the label column's 81 being font-measured) the target combo
+        // ends inside the row's right edge, the pane's.
+        let mut narrow = fontless(320.0, 900.0);
+        narrow.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let (nodes, _) = narrow.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let target = controls_right_of(&nodes, "Attack 1", Role::ComboBox)[1];
+        let bounds = target.bounds().expect("the target combo's bounds");
+        assert!(
+            bounds.x1 <= 320.0,
+            "without room the target combo ends inside the row ({bounds:?})"
         );
     }
 }

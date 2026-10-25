@@ -520,11 +520,12 @@ fn the_formation_settings_wrap_inside_a_narrow_window() {
 }
 
 // plans/save_editor.md "Tactics editor" (the "pitch is the editor"
-// bullet's three columns): at the default pane (1120 x 776) the settings
+// bullet's three columns): at the default pane (1224 x 776) the settings
 // column sits beside the lists — the Formation settings heading right of
-// the lists column's 200, its top beside the canvas — and the formation
-// grid's labels and controls each share one x0 (the column holds one
-// pair a row), every control inside the pane.
+// the lists column's 200, its top beside the canvas — the 456-point
+// column holds the preset bar on one line and the formation grid one
+// pair a row (labels and controls each sharing one x0), every control
+// inside the pane.
 #[test]
 fn the_tactics_tab_is_three_columns_at_the_default_pane() {
     let path = fixture(PesVersion::Pes21, "tactics_three_columns");
@@ -532,7 +533,7 @@ fn the_tactics_tab_is_three_columns_at_the_default_pane() {
     view.open(&path);
     view.tab = Tab::Tactics;
     view.selected = Some((701, 0));
-    let mut window = Headless::sized(1120.0, 776.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let settings = label_bounds(&nodes, "Formation settings");
@@ -576,18 +577,46 @@ fn the_tactics_tab_is_three_columns_at_the_default_pane() {
         );
     }
 
+    // The preset bar on one line at this pane (it wraps only at the
+    // narrowest three-column pane, the sibling test's): the six bar
+    // widgets share one row's top.
+    let bar_y = label_bounds(&nodes, "Preset").y0;
+    for label in ["1", "2", "3", "Copy/swap preset", "Copy/swap formation"] {
+        let button = node_labeled(&nodes, Role::Button, label);
+        assert!(
+            (button.bounds().expect("bounds").y0 - bar_y).abs() < 0.5,
+            "{label} shares the bar's one line ({:?})",
+            button.bounds()
+        );
+    }
+
     // The tab's controls (right of the player list's edge: the list's
-    // own scrolled-off rows are no tab's business) end inside the pane
-    // horizontally; the settings column is taller than the pane and
-    // scrolls to reach the last controls (the deepest ends past it).
+    // own scrolled-off rows are no tab's business) end inside the pane's
+    // content on both axes — its right and its bottom, each less the two
+    // `CentralPanel` margins: the 456-point settings column fits, the
+    // deepest control inside. The deepest is named, so the check is the
+    // column's own bottom (the Automatic settings' last checkbox).
+    let deepest = node_labeled(&nodes, Role::CheckBox, "Attack/defence levels");
+    assert!(
+        deepest.bounds().expect("bounds").y1 <= f64::from(DEFAULT_PANE.y - 2.0 * PANEL_MARGIN),
+        "the deepest settings control inside the pane's bottom content edge ({:?})",
+        deepest.bounds()
+    );
     for role in [Role::Slider, Role::Button, Role::ComboBox, Role::CheckBox] {
         for node in nodes.iter().filter(|node| node.role() == role) {
             let bounds = node
                 .bounds()
                 .unwrap_or_else(|| panic!("{role:?} has no bounds"));
             assert!(
-                bounds.x0 < canvas.x0 - 1.0 || bounds.x1 <= 1120.0,
-                "{role:?} {} ends outside the pane's right edge ({bounds:?})",
+                bounds.x0 < canvas.x0 - 1.0
+                    || bounds.x1 <= f64::from(DEFAULT_PANE.x - 2.0 * PANEL_MARGIN),
+                "{role:?} {} ends outside the pane's right content edge ({bounds:?})",
+                node.label().or(node.value()).unwrap_or("?")
+            );
+            assert!(
+                bounds.x0 < canvas.x0 - 1.0
+                    || bounds.y1 <= f64::from(DEFAULT_PANE.y - 2.0 * PANEL_MARGIN),
+                "{role:?} {} ends outside the pane's bottom content edge ({bounds:?})",
                 node.label().or(node.value()).unwrap_or("?")
             );
         }
@@ -595,9 +624,11 @@ fn the_tactics_tab_is_three_columns_at_the_default_pane() {
 }
 
 // plans/save_editor.md "Tactics editor" ("wrapping inside it"): at the
-// default pane's settings column (~368 points here) the preset bar wraps
-// to a second line rather than clipping — every preset-bar widget ends
-// inside the column's right edge (the pane's right, 1120 - 8).
+// narrowest three-column pane the 360-point settings column wraps the
+// preset bar to a second line rather than clipping it — the last menu
+// button opens the second line, and every bar widget ends inside the
+// column's right edge (the pane's right less the two `CentralPanel`
+// margins).
 #[test]
 fn the_preset_bar_wraps_inside_the_settings_column() {
     let path = fixture(PesVersion::Pes21, "preset_bar_wrap");
@@ -605,19 +636,28 @@ fn the_preset_bar_wraps_inside_the_settings_column() {
     view.open(&path);
     view.tab = Tab::Tactics;
     view.selected = Some((701, 0));
-    let mut window = Headless::sized(1120.0, 776.0);
+    let pane = three_columns_width() + TAB_AREA_OFFSET;
+    let mut window = Headless::sized(pane, DEFAULT_PANE.y);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let settings_left = label_bounds(&nodes, "Formation settings").x0;
-    let preset = label_bounds(&nodes, "Preset").x0;
+    let preset = label_bounds(&nodes, "Preset");
     assert!(
-        (preset - settings_left).abs() < 1.0,
+        (preset.x0 - settings_left).abs() < 1.0,
         "the bar starts the settings column"
+    );
+    // The wrap: the "Copy/swap formation" menu opens the second line,
+    // below the "Preset" label's.
+    let formation_menu = node_labeled(&nodes, Role::Button, "Copy/swap formation");
+    assert!(
+        formation_menu.bounds().expect("bounds").y0 > preset.y1 - 1.0,
+        "the bar wraps to a second line ({:?} vs {preset:?})",
+        formation_menu.bounds()
     );
     for label in ["1", "2", "3", "Copy/swap preset", "Copy/swap formation"] {
         let button = node_labeled(&nodes, Role::Button, label);
         assert!(
-            button.bounds().expect("bounds").x1 <= 1112.0,
+            button.bounds().expect("bounds").x1 <= f64::from(pane - 2.0 * PANEL_MARGIN),
             "{label} ends inside the settings column's right edge ({:?})",
             button.bounds()
         );
@@ -653,7 +693,7 @@ fn the_target_combo_stays_inside_the_settings_column() {
     view.open(&path);
     view.tab = Tab::Tactics;
     view.selected = Some((701, 0));
-    let mut window = Headless::sized(1120.0, 776.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     // The named player's target combo shows the full text truncated —
@@ -668,17 +708,17 @@ fn the_target_combo_stays_inside_the_settings_column() {
         "premise: the target names the player"
     );
     assert!(
-        target.bounds().expect("bounds").x1 <= 1112.0,
+        target.bounds().expect("bounds").x1 <= f64::from(DEFAULT_PANE.x - 2.0 * PANEL_MARGIN),
         "the capped combo ends inside the settings column ({:?})",
         target.bounds()
     );
 }
 
-// Below the three-column width (the smallest pane, 877 wide — taller
-// here so the settings' nodes below the fold are still drawn): the
-// settings column draws under the pitch and the lists, its heading below
-// the canvas' bottom and the last bench row, every control inside the
-// pane's width.
+// Below the three-column width (a pane tighter than the smallest
+// default's 981 x 624, 877 wide — taller here so the settings' nodes
+// below the fold are still drawn): the settings column draws under the
+// pitch and the lists, its heading below the canvas' bottom and the
+// last bench row, every control inside the pane's width.
 #[test]
 fn the_tactics_tab_stacks_the_settings_below_at_the_smallest_pane() {
     let path = fixture(PesVersion::Pes21, "tactics_stacked");
@@ -863,7 +903,7 @@ fn the_settings_widgets_keep_their_ids_across_three_columns() {
     view.tab = Tab::Tactics;
     view.selected = Some((701, 0));
 
-    let mut wide = Headless::sized(1120.0, 776.0);
+    let mut wide = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, ids, _) = wide.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let support_range = node_id_right_of(&ids, "Support range", Role::Slider);
 
@@ -876,13 +916,30 @@ fn the_settings_widgets_keep_their_ids_across_three_columns() {
     );
 }
 
+/// The Tactics tab's three-column break width: `PITCH.x` plus
+/// `LISTS_WIDTH` plus `SETTINGS_MIN` plus two item gaps — `tactics.rs`
+/// computes the same from the same constants; the gap is read off a
+/// `Headless` frame.
+fn three_columns_width() -> f32 {
+    let mut gap = 0.0;
+    Headless::new().frame(Vec::new(), |ui| gap = ui.spacing().item_spacing.x);
+    team_widgets::pitch::PITCH.x
+        + crate::view::tactics::LISTS_WIDTH
+        + crate::view::tactics::SETTINGS_MIN
+        + 2.0 * gap
+}
+
 // `three_columns`' edge: the pane whose tab area is exactly
-// `PITCH.x + LISTS_WIDTH + SETTINGS_MIN + 2 gaps` (896 = the constant
-// plus `TAB_AREA_OFFSET`: 1112) is three columns, and one
-// point narrower stacks the settings below.
+// `PITCH.x + LISTS_WIDTH + SETTINGS_MIN + 2 gaps` (the constant plus
+// `TAB_AREA_OFFSET`) is three columns, and one point narrower stacks
+// the settings below.
 #[test]
 fn the_tactics_tab_switches_arrangement_at_three_columns() {
-    for (width, three) in [(1112.0f32, true), (1111.0, false)] {
+    let three_columns = three_columns_width();
+    for (width, three) in [
+        (three_columns + TAB_AREA_OFFSET, true),
+        (three_columns + TAB_AREA_OFFSET - 1.0, false),
+    ] {
         let path = fixture(PesVersion::Pes21, "three_columns_edge");
         let mut view = SaveView::new();
         view.open(&path);
@@ -916,7 +973,7 @@ fn the_lists_start_one_gap_right_of_the_canvas() {
     view.open(&path);
     view.tab = Tab::Tactics;
     view.selected = Some((701, 0));
-    let mut window = Headless::sized(1120.0, 776.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (gap, nodes, _) = window.frame(Vec::new(), |ui| {
         let gap = ui.spacing().item_spacing.x;
         show(ui, &mut view, &|| Vec::new(), None);
@@ -942,7 +999,12 @@ fn the_stacked_settings_start_one_gap_below_the_columns() {
     view.tab = Tab::Tactics;
     view.selected = Some((701, 0));
     let mut window = Headless::sized(877.0, 624.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let ((margin, spacing_y), nodes, _) = window.frame(Vec::new(), |ui| {
+        let margin = egui::Frame::group(ui.style()).total_margin().bottom;
+        let spacing_y = ui.spacing().item_spacing.y;
+        show(ui, &mut view, &|| Vec::new(), None);
+        (margin, spacing_y)
+    });
 
     let canvas = canvas_of(&nodes);
     // The bench list's scroll bar (the lists' inner scroll — the tab's
@@ -956,12 +1018,14 @@ fn the_stacked_settings_start_one_gap_below_the_columns() {
         .fold(0.0, f64::max);
     assert!(bench_bottom > 0.0, "the bench list scrolls (premise)");
     let preset = label_bounds(&nodes, "Preset");
-    // The frame's inner margin under the viewport's bottom (~7 here) and
-    // the one item gap the settings sit below the block's bottom.
+    // The group frame's bottom total margin (its inner margin plus
+    // stroke) under the viewport's bottom and the one item gap the
+    // settings sit below the block's bottom, measured 10 at this pane.
+    let gap = f64::from(margin) + f64::from(spacing_y);
     assert!(
-        preset.y0 >= bench_bottom + 8.0,
-        "the settings' top is below the lists' bottom plus its gap \
-         (Preset {preset:?}, bench viewport bottom {bench_bottom})"
+        (preset.y0 - bench_bottom - gap).abs() < 0.5,
+        "the settings' top is one frame margin and one item gap below the lists' \
+         (Preset {preset:?}, bench viewport bottom {bench_bottom}, margin {margin}, gap {spacing_y})"
     );
 }
 

@@ -2443,3 +2443,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.25's code half: the sidebar is a 56-point rail whose full version opens over the
   view after 0.15 s of rest (or on a keyboard focus), its icons at 24 points, no collapse button; the
   view never moves (ST-SIDE-02 rewritten red-first). The Save editor's tab area grows by 104 points.
+- **2026-10-25** — 8.9f4c r4: the Save editor's view tests draw inside the shell's panel at the 1224 x 776
+  pane the rail leaves (the stacked Tactics tab reproduced red first); the built window shows the tab's
+  three columns whole at 1280 x 800, and the instruction combos match the target column's width.

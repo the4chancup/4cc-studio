@@ -1218,7 +1218,7 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
 }
 
 // plans/save_editor.md "Editing UI", the Appearance bullet: the draft's
-// two physique pairs a row at the default pane (1120 x 776) — Neck
+// two physique pairs a row at the default pane (1224 x 776) — Neck
 // length and Neck size share a row's top, Shoulder height opens the
 // next, and the seven left-column labels share one x0.
 #[test]
@@ -1226,7 +1226,7 @@ fn the_physique_grid_holds_two_pairs_a_row() {
     let (mut view, _) = open_734_with("physique_two_pairs", &[], 0);
     view.tab = Tab::Appearance;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1120.0, 776.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let first = label_bounds(&nodes, "Neck length").y0;
@@ -1254,7 +1254,7 @@ fn the_physique_grid_holds_two_pairs_a_row() {
     }
 }
 
-// The draft's strip table at the default pane (1120 x 776): four pairs
+// The draft's strip table at the default pane (1224 x 776): four pairs
 // a row — Boots ID, Gloves ID, Sleeves, Inners on one row, Socks,
 // Undershorts and the two checkboxes on the next, the checkboxes a label
 // cell and a bare box (the header's Captain shape); the wrist-taping,
@@ -1267,7 +1267,7 @@ fn the_strip_groups_hold_the_drafts_rows() {
     view.edit_aesthetics = true;
     let untucked = |view: &SaveView| player_entry(view, 73401).appearance.untucked;
     assert!(untucked(&view), "premise: the shirt is out (untucked)");
-    let mut window = Headless::sized(1120.0, 776.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let first = label_bounds(&nodes, "Boots ID").y0;
@@ -1318,7 +1318,7 @@ fn the_strip_groups_hold_the_drafts_rows() {
     assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
 }
 
-// The draft's motion rows at the default pane (1120 x 776, four pairs a
+// The draft's motion rows at the default pane (1224 x 776, four pairs a
 // row): the hunching and arm pairs share the first, the three kicks and
 // the dribbling motion the second, the two celebrations the third.
 #[test]
@@ -1326,7 +1326,7 @@ fn the_motion_grid_holds_four_pairs_a_row() {
     let (mut view, _) = open_734_with("motion_four_pairs", &[], 0);
     view.tab = Tab::Appearance;
     view.edit_aesthetics = true;
-    let mut window = Headless::sized(1120.0, 776.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let first = label_bounds(&nodes, "Hunching (dribbling)").y0;

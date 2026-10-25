@@ -76,7 +76,13 @@ impl Headless {
             ..Default::default()
         };
         let mut result = None;
-        let mut output = self.ctx.run_ui(input, |ui| result = Some(contents(ui)));
+        // The shell's `fn ui` draws every tool's view inside the window's
+        // `CentralPanel`, whose margins the pane loses: a `Headless` window
+        // stands for that panel's rect, so the tests see the widths the real
+        // window leaves.
+        let mut output = self.ctx.run_ui(input, |ui| {
+            egui::CentralPanel::default().show(ui, |ui| result = Some(contents(ui)));
+        });
         let update = output
             .platform_output
             .accesskit_update
@@ -494,11 +500,24 @@ fn label_value(nodes: &[accesskit::Node], value: &str) -> bool {
         .any(|node| node.role() == Role::Label && node.value() == Some(value))
 }
 
+/// The pane the shell leaves a tool's view at the 1280 x 800 default
+/// window (`plans/core/gui.md`, the paragraph starting "The window's
+/// size."): the sidebar's 56-point rail and the 24-point status bar
+/// taken off.
+const DEFAULT_PANE: egui::Vec2 = egui::vec2(1224.0, 776.0);
+
+/// A `CentralPanel`'s inner margin on each side (egui's
+/// `Frame::central_panel`, `inner_margin(8)`): the shell's panel and the
+/// view's own each take one off the pane's edge.
+const PANEL_MARGIN: f32 = 8.0;
+
 /// What the editor's pane takes before a tab's content: a `Headless`
 /// window `w` wide gives the tab `w - TAB_AREA_OFFSET` of
-/// `available_width` (the 200-wide player list, its separator and the
-/// frame margins; measured once at 1440, where a tab sees 1224).
-const TAB_AREA_OFFSET: f32 = 216.0;
+/// `available_width` (the two `CentralPanel`s' margins, the 200-wide
+/// player list, its separator and its frame margins; measured 2026-10-25
+/// at every drawn width — the tab reads exactly `w - 232` at 877, 1120,
+/// 1224 and 1440 inside the panel wrap).
+const TAB_AREA_OFFSET: f32 = 232.0;
 
 /// The bounds of the Label node showing `value` (a grid's label cell).
 fn label_bounds(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
