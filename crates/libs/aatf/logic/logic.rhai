@@ -64,6 +64,16 @@ fn normalized(rules) {
     stats.rating = list(stats, "rating");
     stats.at_most = list(stats, "at_most");
     rules.stats = stats;
+    // A special whose `when` names no tier and no bracket is `tier_free`: its
+    // answer is the same under every tier and bracket, so `read_player` asks it
+    // once per player where `profile` used to ask per tier per walk, each ask a
+    // call copying `system`, `player` and the `when`.
+    let specials = [];
+    for special in rules.specials {
+        special.tier_free_when = !names_tier_or_bracket(special.when);
+        specials.push(special);
+    }
+    rules.specials = specials;
     rules
 }
 
@@ -96,7 +106,8 @@ fn tier_values(player, tier, team) {
     let rules = normalized(global::RULESET);
     let t = rules.tier(tier);
     if t == () { throw "unknown tier " + tier; }
-    let p = rules.profile(team, rules.height_system(team), player, tier);
+    let system = rules.height_system(team);
+    let p = rules.profile(team, system, player, tier, rules.tier_free_whens(team, system, player));
     let weak_foot = weak_foot_of(t, p);
     #{
         stats: targets(t, p),
@@ -112,7 +123,8 @@ fn card_limits(player, tier, team) {
     let rules = normalized(global::RULESET);
     let t = rules.tier(tier);
     if t == () { throw "unknown tier " + tier; }
-    let p = rules.profile(team, rules.height_system(team), player, tier);
+    let system = rules.height_system(team);
+    let p = rules.profile(team, system, player, tier, rules.tier_free_whens(team, system, player));
     let cards = rules.card_summary(t, p, player);
     let free_cards = [];
     for card in p.free_cards { if !(card in free_cards) { free_cards.push(card); } }
@@ -204,6 +216,21 @@ fn condition_holds(system, player, tier_id, bracket_id, cond) {
     true
 }
 
+// Whether `cond` names the tier or the bracket anywhere `condition_holds` would
+// read them: a `tiers` or `brackets` key of its own, or one in a nested `any` or
+// `not` entry (the only keys it recurses into). `()` names neither.
+fn names_tier_or_bracket(cond) {
+    if cond == () { return false; }
+    if "tiers" in cond || "brackets" in cond { return true; }
+    if "any" in cond {
+        for entry in cond.any {
+            if names_tier_or_bracket(entry) { return true; }
+        }
+    }
+    if "not" in cond && names_tier_or_bracket(cond["not"]) { return true; }
+    false
+}
+
 // `player`'s `PlayerValue` `key`: an ability stat through `player.stat` (`()`
 // where the version lacks it, failing the range), the accessor of the same
 // name for the six other names.
@@ -264,25 +291,50 @@ fn bracket_of(height) {
     ()
 }
 
+// Each `tier_free` special's `when` answer for `player` under `system`, index-aligned
+// with `specials`: a marked `when` reads neither `tier_id` nor `bracket_id`, so this
+// one answer is what `profile`'s two walks get for every tier; `this` is the ruleset.
+fn tier_free_whens(team, system, player) {
+    let answers = [];
+    for special in this.specials {
+        answers.push(special.tier_free_when
+            && team.condition_holds(system, player, (), (), special.when));
+    }
+    answers
+}
+
 // How `player` reads as `tier_id`: height allowances first, then the bracket, then every
 // other effect of the specials whose condition holds, then the choices; `this` is the ruleset.
-fn profile(team, system, player, tier_id) {
+// `tier_free_whens` is that function's list, so a `tier_free` `when` reads its stored
+// answer and only the rest ask `condition_holds` (the `height_allowance` gate still
+// skips the ask first).
+fn profile(team, system, player, tier_id, tier_free_whens) {
     let p = #{
         allowance: 0, bracket: (), bonus: #{}, targets: #{}, cards: 0, free: #{},
         free_cards: [], require_cards: [], a_positions: 0, max_a_positions: (), weak_foot: (),
         form: 0, injury_resistance: 0, forbids: [], choices: [], taken: [], recognized_at: 0,
         stat_warning: (),
     };
-    for special in this.specials {
+    for (special, i) in this.specials {
         let then = table(special, "then");
-        if "height_allowance" in then
-            && team.condition_holds(system, player, tier_id, (), special.when) {
+        if !("height_allowance" in then) { continue; }
+        let holds = if special.tier_free_when {
+            tier_free_whens[i]
+        } else {
+            team.condition_holds(system, player, tier_id, (), special.when)
+        };
+        if holds {
             p.allowance += then.height_allowance;
         }
     }
     p.bracket = this.bracket_of(player.height - p.allowance);
     for (special, i) in this.specials {
-        if team.condition_holds(system, player, tier_id, p.bracket, special.when) {
+        let holds = if special.tier_free_when {
+            tier_free_whens[i]
+        } else {
+            team.condition_holds(system, player, tier_id, p.bracket, special.when)
+        };
+        if holds {
             p = apply_effects(p, tier_id, special.label, severity_of(special), table(special, "then"), i);
         }
     }
@@ -368,8 +420,14 @@ fn apply_effects(p, tier_id, label, severity, then, from) {
 fn resolve_choices(tier_id, p, player) {
     let tier = this.tier(tier_id);
     for choice in p.choices {
+        // `p` stays put through a choice's options (the first used option applies
+        // and ends the loop), so the reads it alone settles are done once here;
+        // each used to be a per-option call copying the tier and `p` for its maps.
+        let cards = this.card_summary(tier, p, player);
+        let before = targets(tier, p);
+        let limits = weak_foot_of(tier, p);
         for option in choice.options {
-            if this.option_used(tier, p, player, option, choice) {
+            if this.option_used(tier, p, player, option, choice, cards, before, limits) {
                 p = apply_effects(p, tier_id, choice.label, choice.severity, option, choice.from);
                 p.taken.push(choice.label);
                 break;
@@ -380,16 +438,16 @@ fn resolve_choices(tier_id, p, player) {
 }
 
 // Whether `player`, read as `tier` under `p`, exceeds a limit `option` raises once applied
-// as `choice`'s pick; `this` is the ruleset. `applied` is the copy `apply_effects` returns:
+// as `choice`'s pick; `this` is the ruleset. `cards`, `before` and `limits` are the card
+// summary, the stat targets and the weak-foot limits under `p`, which `resolve_choices`
+// computes once per choice. `applied` is the copy `apply_effects` returns:
 // a per-tier value for another tier changes nothing on it, and neither does a replacement
 // a later special sets (the `from` gate drops it), so each limit asks for both an excess
 // under `p` and a raise under `applied`.
-fn option_used(tier, p, player, option, choice) {
+fn option_used(tier, p, player, option, choice, cards, before, limits) {
     let applied = apply_effects(p, tier.id, choice.label, choice.severity, option, choice.from);
-    let cards = this.card_summary(tier, p, player);
     let applied_cards = this.card_summary(tier, applied, player);
     if "stat_bonus" in option {
-        let before = targets(tier, p);
         let raised = targets(tier, applied);
         for stat in ability_stats() {
             let value = player.stat(stat);
@@ -422,7 +480,6 @@ fn option_used(tier, p, player, option, choice) {
         return true;
     }
     if "weak_foot" in option {
-        let limits = weak_foot_of(tier, p);
         let raised = weak_foot_of(tier, applied);
         if player.weak_foot_usage > num(limits, "usage")
             && num(raised, "usage") > num(limits, "usage") {
@@ -515,8 +572,12 @@ fn name_colors() {
 fn read_player(team, system, player) {
     let rating = this.player_rating(player);
     let last = #{ player: player, tier: (), profile: () };
+    // Once per player rather than per tier per `profile` walk: the `tier_free`
+    // `when`s read neither `tier_id` nor `bracket_id`, so their answers are the
+    // same for them all.
+    let tier_free_whens = this.tier_free_whens(team, system, player);
     for tier in this.tiers {
-        let p = this.profile(team, system, player, tier.id);
+        let p = this.profile(team, system, player, tier.id, tier_free_whens);
         if !team.condition_holds(system, player, tier.id, p.bracket, table(tier, "when")) {
             continue;
         }

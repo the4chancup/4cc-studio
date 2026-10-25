@@ -851,7 +851,14 @@ window loaded rather than loading its own. Measured 2026-10-22 (release, the off
 on a PES 2017 save's 220 cup teams): one team's check takes about 56 ms, of which building the
 team's view, copying it and calling into the script take under 1%; the rest is the script's
 own work, `read_player`'s profile of each tier the most of it. `sync` costs about 3% per team;
-the parallel check takes 1.8 s on 16 threads where one thread took 12.8 s.
+the parallel check takes 1.8 s on 16 threads where one thread took 12.8 s. Since Rhai copies
+every map a call passes, the logic computes once what does not change between the calls that
+would repeat it: a choice's card summary, targets and weak-foot limits once per choice rather
+than per option, and a special's `when` that names no tier and no bracket once per player
+rather than per tier (`normalized` marks it `tier_free_when`). Measured 2026-10-25 (release,
+DBC7 on the 12 census saves with the most findings, the two builds alternated): `check-aatf`
+takes 0.85 of its earlier time, process start and the save's load included, and its output on
+all 424 census saves is identical.
 
 The script API, which `libs/aatf`'s crate doc lists too:
 
