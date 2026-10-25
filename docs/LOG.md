@@ -2437,3 +2437,6 @@ worklog passed 7,000 lines.
 - **2026-10-25** — 8.9f4c r3: the combo hover's tests and a dead row end removed, from r2's mutation run (13
   missed; three more ruled equivalent). The built window at 1280 x 800 shows the Tactics tab stacked where the
   headless test sees three columns (the harness lacks the shell's panel margins): r4.
+- **2026-10-25** — Gates: the test gate runs the workspace's test binaries four at once (`scripts/run_tests.py`):
+  the full gates took 208 s against about 7 minutes; nextest measured slower on Windows. `just gates-changed`
+  tests only the changed packages and their dependents; every commit still runs the full gates.

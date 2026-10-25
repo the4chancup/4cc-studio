@@ -10954,3 +10954,16 @@ the default window; 32 would take about 600 with 12-point side margins. One size
 states keeps the icons in place when the sidebar opens. The icon draft page shows the
 candidates at 24, 36 and 48 px (100/150/200% scaling).
 Plan: `plans/core/gui.md` "Sidebar" (items 3 to 5); worklog 8.25, 8.14.
+
+## 2026-10-25 — tooling — The test gate runs four test binaries at once, and a changed-packages mode exists
+Decision: `just test` builds the workspace's tests once (`cargo test --workspace --no-run`) and
+runs the test binaries four at once, each whole, through the same per-process memory-cap wrapper
+`cargo test` uses on Windows, then the doc-tests (`scripts/run_tests.py`). `just gates-changed
+[base]` runs the gates with the test gate over the packages changed since `base` and their
+dependents; every commit still runs the full `just gates`.
+Why: the maintainer asked to shorten the gates as tools are added. Measured in a worktree at
+8e67928d under the side-leads' load: `cargo test --workspace` 371-373 s, `cargo nextest` 391-500 s
+(a process and a Python wrapper per test), the binaries four at once 176 s against 277 s for
+`cargo test` right after (eight at once 180 s: the cores are full). Building with `--workspace`
+before selecting keeps every binary's features the gates' (a `-p` build lacks egui's fonts).
+Plan: `CONTRIBUTING.md` "Testing and verification".

@@ -161,13 +161,22 @@ just gates
 ```
 
 The root `justfile` is the one definition of the gates (`cargo fmt --all --check`, `cargo clippy
---workspace --all-targets -- -D warnings`, `cargo test --workspace`, `cargo check --target
+--workspace --all-targets -- -D warnings`, the tests `cargo test --workspace` builds, run four
+binaries at once by `scripts/run_tests.py` and then the doc-tests, `cargo check --target
 wasm32-unknown-unknown` for `studio_core` and every lib crate, and `just acceptance`, the
 acceptance-ID scanner in its `report` mode, and `just doc-pointers`, which fails on a
 pointer to a document's section, its path and then the quoted title, whose file or section is
 gone), and CI runs the same recipe, so
 the list cannot drift between this document, the local run and CI (it had, before the justfile
-existed: two spellings of the fmt gate in two documents). The other recipes are the project's
+existed: two spellings of the fmt gate in two documents). The test gate runs each binary whole,
+its tests on libtest's threads, several binaries at once: `cargo test` alone runs them one after
+another, leaving cores idle behind each binary's slowest test (277 s against 176 s, 2026-10-25),
+and `cargo nextest`'s process per test was slower still on Windows, where every test binary
+starts through the memory-cap wrapper. `just gates-changed [base]` runs the same gates with the
+test gate over the packages the working tree changes since `base` (default `HEAD`) and every
+package depending on them; a changed file outside every package, `docs/` and the root's `*.md`
+runs every package's tests, since the toolchain, `Cargo.lock`, `.cargo/` and `resources/` reach
+them all. Every commit still runs the full `just gates`. The other recipes are the project's
 repeatable sequences, each of which the plan names somewhere: `just deps-check` (guardrail 4,
 the `fmdl`/`pes_model` denylist, plus the `cargo deny` license allowlist; see "License" in the
 core plan; run it right after any change that adds a package to `Cargo.lock`, a transitive one

@@ -23,9 +23,19 @@ fmt-check:
 clippy:
     cargo clippy --workspace --all-targets -- -D warnings
 
-# Gate 3: tests
+# Gate 3: tests, the workspace's test binaries four at once (scripts/run_tests.py says why)
 test:
-    cargo test --workspace
+    {{python}} scripts/run_tests_test.py
+    {{python}} scripts/run_tests.py
+    {{python}} scripts/mutants_test.py
+
+# The gates with gate 3 over the packages the working tree changes since `base` and the packages depending on them (CONTRIBUTING.md "Testing and verification")
+gates-changed base="HEAD": fmt-check clippy (test-changed base) wasm-check acceptance doc-pointers
+
+# Gate 3 over the packages the working tree changes since `base` and the packages depending on them
+test-changed base="HEAD":
+    {{python}} scripts/run_tests_test.py
+    {{python}} scripts/run_tests.py --changed {{base}}
     {{python}} scripts/mutants_test.py
 
 # The GPU BC7 encoder's tests, ignored by `test` because they need a Vulkan or Metal device and
