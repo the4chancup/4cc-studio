@@ -1076,7 +1076,7 @@ fn height_row_below<'a>(nodes: &'a [accesskit::Node], header: &str) -> &'a acces
         .iter()
         .filter(|node| {
             node.role() == Role::Button
-                && node.label() == Some("Height height 183 takes no bracket")
+                && node.label() == Some("Height: height 183 takes no bracket")
         })
         .filter(|node| node.bounds().is_some_and(|b| b.y0 > top))
         .min_by(|a, b| {
@@ -1092,7 +1092,7 @@ fn height_rows(nodes: &[accesskit::Node]) -> usize {
         .iter()
         .filter(|node| {
             node.role() == Role::Button
-                && node.label() == Some("Height height 183 takes no bracket")
+                && node.label() == Some("Height: height 183 takes no bracket")
         })
         .count()
 }
@@ -1141,6 +1141,16 @@ fn open_legal_714(test: &str, window: Headless) -> (SaveView, Headless) {
     view.team = TeamChoice::Team(714);
     view.selected = Some(Selection::Player(714, 0));
     (view, window)
+}
+
+/// `checked` on the dock's Live AATF check.
+fn live_checked(
+    window: &mut Headless,
+    view: &mut SaveView,
+    rules: Option<&Path>,
+    ids: &[u32],
+) -> Vec<accesskit::Node> {
+    checked(window, view, rules, |view| &view.live.check, ids)
 }
 
 /// `checked` on the floating AATF panel's check.
@@ -1279,6 +1289,7 @@ mod comparator;
 mod generate;
 mod list;
 mod live_aatf;
+mod live_marks;
 mod player;
 mod prompt;
 mod quick_actions;

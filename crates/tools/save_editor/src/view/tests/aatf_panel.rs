@@ -65,7 +65,7 @@ fn the_panel_lists_the_current_teams_violations_per_player() {
         .iter()
         .filter(|node| {
             node.role() == Role::Button
-                && node.label() == Some("Height height 183 takes no bracket")
+                && node.label() == Some("Height: height 183 takes no bracket")
         })
         .collect();
     assert_eq!(heights.len(), 2, "the two players' Height rows");
@@ -167,7 +167,7 @@ fn show_suggestions_reveals_the_unused_allowances() {
     assert!(
         lines
             .iter()
-            .any(|line| line == "Unused only 1 of 2 tricks used"),
+            .any(|line| line == "Unused: only 1 of 2 tricks used"),
         "the first Unused row: {lines:?}"
     );
 }
@@ -427,7 +427,7 @@ fn a_rules_file_change_replaces_the_result() {
     assert_eq!(height_rows(&nodes), 2, "the official file's Height rows");
     assert!(
         nodes.iter().any(|node| {
-            node.value() == Some("BracketQuota 8 players in bracket tall of red, quota 10")
+            node.value() == Some("BracketQuota: 8 players in bracket tall of red, quota 10")
         }),
         "the official file's quota row"
     );

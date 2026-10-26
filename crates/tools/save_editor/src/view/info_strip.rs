@@ -24,6 +24,7 @@ use crate::view::abilities::{
     PLAYING_STYLE_LABEL, REGISTERED_POSITION_LABEL, SMALL_STATS, STRONGER_FOOT_LABEL,
     STRONGER_HAND_LABEL, SmallStat, foot_label, gating_tooltip, position_label,
 };
+use crate::view::live_marks::{self, MarkedField, Marks};
 use crate::view::{SaveView, edit_player, edit_team, selected_player};
 
 /// The General info panel's Name field.
@@ -99,13 +100,16 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 }
 
 /// The General info panel's content (`generalPanel`): the Name and Shirt
-/// counted fields, the pair rows, then the combos.
+/// counted fields, the pair rows, then the combos. `violations` is the
+/// held check's, while Live AATF holds this team's: the marked fields'
+/// crosses then sit as the plan bullet maps them (a field keeps its x).
 pub(super) fn general(
     ui: &mut egui::Ui,
     session: &mut Session,
     team_id: u32,
     slot: u8,
     player_id: u32,
+    violations: Option<&[aatf::Violation]>,
 ) {
     let (
         mut name,
@@ -142,6 +146,11 @@ pub(super) fn general(
     };
     let captain = stored_captain == slot;
     let (height, weight, age) = basics;
+    let marks = violations.map(|violations| Marks {
+        violations,
+        slot,
+        team_id,
+    });
 
     // The rows' layout, measured once (the draft's `.combos` `width`):
     // the label column, its 12-point gap, the fields to the flush edge —
@@ -189,16 +198,21 @@ pub(super) fn general(
                 text_len(schema, PlayerText::Name)
             )
         };
-        counted_label(
+        let (name_count, name_mark) = counted_label(
             ui,
             name_label_id,
             name_label,
             NAME_LABEL,
-            name.replace("\\x11", "\x11").len(),
-            text_len(schema, PlayerText::Name),
+            (
+                name.replace("\\x11", "\x11").len(),
+                text_len(schema, PlayerText::Name),
+            ),
             overlong,
-        )
-        .on_hover_text(&tip);
+            marks.map(|marks| (marks, MarkedField::Name)),
+        );
+        if name_mark.is_none_or(|mark| !mark.hovered()) {
+            name_count.on_hover_text(&tip);
+        }
         let response = response.on_hover_text(&tip);
         if response.changed() {
             let raw = name.replace("\\x11", "\x11");
@@ -239,16 +253,20 @@ pub(super) fn general(
                     .min(text_len(schema, PlayerText::ShirtName))
             )
         };
-        counted_label(
+        let (shirt_count, _) = counted_label(
             ui,
             shirt_label_id,
             shirt_label,
             SHIRT_LABEL,
-            shirt.chars().count(),
-            portable_text_max(PlayerText::ShirtName).min(text_len(schema, PlayerText::ShirtName)),
+            (
+                shirt.chars().count(),
+                portable_text_max(PlayerText::ShirtName)
+                    .min(text_len(schema, PlayerText::ShirtName)),
+            ),
             shirt_overlong,
-        )
-        .on_hover_text(&tip);
+            None,
+        );
+        shirt_count.on_hover_text(&tip);
         let response = response.on_hover_text(&tip);
         if response.changed() {
             // Upper-cased as typed, then the fit check (the portable limit
@@ -268,17 +286,23 @@ pub(super) fn general(
     // its 54-wide box on the first half's right edge, after the label
     // column on the second.
     pair_row(ui, |ui| {
-        pair_half(ui, Half::First, HEIGHT_LABEL, |ui| {
-            number_box(
-                ui,
-                session,
-                player_id,
-                height,
-                max(schema, PlayerField::Height),
-                |player, shown| player.basic.height = shown,
-            );
-        });
-        pair_half(ui, Half::Second, NUMBER_LABEL, |ui| {
+        pair_half(
+            ui,
+            Half::First,
+            HEIGHT_LABEL,
+            marks.map(|marks| (marks, MarkedField::Height)),
+            |ui| {
+                number_box(
+                    ui,
+                    session,
+                    player_id,
+                    height,
+                    max(schema, PlayerField::Height),
+                    |player, shown| player.basic.height = shown,
+                );
+            },
+        );
+        pair_half(ui, Half::Second, NUMBER_LABEL, None, |ui| {
             let response = ui.add_sized(
                 [BOX_WIDTH, ui.spacing().interact_size.y],
                 egui::DragValue::new(&mut shirt_number).range(0..=roster_number_max(schema)),
@@ -291,17 +315,23 @@ pub(super) fn general(
         });
     });
     pair_row(ui, |ui| {
-        pair_half(ui, Half::First, WEIGHT_LABEL, |ui| {
-            number_box(
-                ui,
-                session,
-                player_id,
-                weight,
-                max(schema, PlayerField::Weight),
-                |player, shown| player.basic.weight = shown,
-            );
-        });
-        pair_half(ui, Half::Second, NATION_LABEL, |ui| {
+        pair_half(
+            ui,
+            Half::First,
+            WEIGHT_LABEL,
+            marks.map(|marks| (marks, MarkedField::Weight)),
+            |ui| {
+                number_box(
+                    ui,
+                    session,
+                    player_id,
+                    weight,
+                    max(schema, PlayerField::Weight),
+                    |player, shown| player.basic.weight = shown,
+                );
+            },
+        );
+        pair_half(ui, Half::Second, NATION_LABEL, None, |ui| {
             number_box(
                 ui,
                 session,
@@ -313,17 +343,23 @@ pub(super) fn general(
         });
     });
     pair_row(ui, |ui| {
-        pair_half(ui, Half::First, AGE_LABEL, |ui| {
-            number_box(
-                ui,
-                session,
-                player_id,
-                age,
-                max(schema, PlayerField::Age),
-                |player, shown| player.basic.age = shown,
-            );
-        });
-        pair_half(ui, Half::Second, "Captain", |ui| {
+        pair_half(
+            ui,
+            Half::First,
+            AGE_LABEL,
+            marks.map(|marks| (marks, MarkedField::Age)),
+            |ui| {
+                number_box(
+                    ui,
+                    session,
+                    player_id,
+                    age,
+                    max(schema, PlayerField::Age),
+                    |player, shown| player.basic.age = shown,
+                );
+            },
+        );
+        pair_half(ui, Half::Second, "Captain", None, |ui| {
             // The team's `captain` is this roster slot, 0-based as stored: a
             // radio the second click cannot untick (the captain belongs to
             // the slot) — at the left edge of its half's box.
@@ -348,6 +384,7 @@ pub(super) fn general(
         &positions,
         schema.version,
         field_width,
+        marks,
     );
 }
 
@@ -373,27 +410,67 @@ enum Half {
 /// left; on `Half::First` `add_box`'s 54-wide box on the half's right
 /// edge, on `Half::Second` just after the `label_width(NUMBER_LABEL)` label
 /// column and its gap, so both panels' second-half boxes share one x.
-fn pair_half(ui: &mut egui::Ui, half: Half, label: &str, add_box: impl FnOnce(&mut egui::Ui)) {
+/// `mark` is the field Live AATF's cross is about on this half, painted
+/// where the plan bullet puts it — just left of the box on a first half,
+/// at the label column's right end on a second — so the box keeps its x.
+fn pair_half(
+    ui: &mut egui::Ui,
+    half: Half,
+    label: &str,
+    mark: Option<(Marks<'_>, MarkedField)>,
+    add_box: impl FnOnce(&mut egui::Ui),
+) {
     ui.allocate_ui(
         egui::vec2(half_width(ui, half), ui.spacing().interact_size.y),
         |ui| {
-            ui.horizontal(|ui| match half {
-                Half::First => {
-                    ui.label(label);
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), add_box);
-                }
-                Half::Second => {
-                    ui.spacing_mut().item_spacing.x = 0.0;
-                    let response = ui.label(label);
-                    // The draft's `.pair:nth-child(even)` grid: the box after a
-                    // label column `label_width(NUMBER_LABEL)` wide and its gap, so
-                    // both panels' second-half boxes share one x. `add_space`
-                    // advances the cursor outright, no item spacing.
-                    ui.add_space(
-                        (label_width(ui, NUMBER_LABEL) + SECOND_LABEL_GAP - response.rect.width())
-                            .max(0.0),
-                    );
-                    add_box(ui);
+            ui.horizontal(|ui| {
+                match half {
+                    Half::First => {
+                        ui.label(label);
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), add_box);
+                        if let Some((marks, field)) = mark {
+                            let cross = live_marks::cross_width(ui);
+                            marks.paint(
+                                ui,
+                                egui::Rect::from_min_size(
+                                    egui::pos2(
+                                        ui.max_rect().max.x
+                                            - BOX_WIDTH
+                                            - live_marks::MARK_GAP
+                                            - cross,
+                                        ui.max_rect().min.y,
+                                    ),
+                                    egui::vec2(cross, ui.max_rect().height()),
+                                ),
+                                field,
+                            );
+                        }
+                    }
+                    Half::Second => {
+                        ui.spacing_mut().item_spacing.x = 0.0;
+                        let response = ui.label(label);
+                        let column = label_width(ui, NUMBER_LABEL);
+                        // The draft's `.pair:nth-child(even)` grid: the box after a
+                        // label column `label_width(NUMBER_LABEL)` wide and its gap, so
+                        // both panels' second-half boxes share one x. `add_space`
+                        // advances the cursor outright, no item spacing.
+                        ui.add_space((column + SECOND_LABEL_GAP - response.rect.width()).max(0.0));
+                        if let Some((marks, field)) = mark {
+                            let cross = live_marks::cross_width(ui);
+                            marks.paint(
+                                ui,
+                                egui::Rect::from_min_size(
+                                    egui::pos2(
+                                        response.rect.min.x + column - cross,
+                                        ui.max_rect().min.y,
+                                    ),
+                                    egui::vec2(cross, ui.max_rect().height()),
+                                ),
+                                field,
+                            );
+                        }
+                        add_box(ui);
+                    }
                 }
             });
         },
@@ -464,25 +541,45 @@ fn number_box<N: egui::emath::Numeric + TryFrom<u64>>(
 /// The Other stats panel's content (`otherStatsPanel`): the four shifted
 /// stored fields on General info's halves, so every box of both panels
 /// lines up — Injury resistance with Form, then "Weak foot: Usage" and
-/// "Accuracy" (the two sharing one label).
+/// "Accuracy" (the two sharing one label). `marks` is Live AATF's held
+/// check's, while it is the selected player's team's.
 pub(super) fn other_stats(
     ui: &mut egui::Ui,
     session: &mut Session,
     player_id: u32,
     stats: &PlayerStats,
+    marks: Option<Marks<'_>>,
 ) {
     let pairs = [
-        [&SMALL_STATS[1], &SMALL_STATS[0]],
-        [&SMALL_STATS[2], &SMALL_STATS[3]],
+        [
+            (&SMALL_STATS[1], MarkedField::InjuryResistance),
+            (&SMALL_STATS[0], MarkedField::Form),
+        ],
+        [
+            (&SMALL_STATS[2], MarkedField::WeakFootUsage),
+            (&SMALL_STATS[3], MarkedField::WeakFootAccuracy),
+        ],
     ];
-    for [left, right] in pairs {
+    for [(left, left_field), (right, right_field)] in pairs {
         pair_row(ui, |ui| {
-            pair_half(ui, Half::First, left.shown, |ui| {
-                small_box(ui, session, player_id, stats, left);
-            });
-            pair_half(ui, Half::Second, right.shown, |ui| {
-                small_box(ui, session, player_id, stats, right);
-            });
+            pair_half(
+                ui,
+                Half::First,
+                left.shown,
+                marks.map(|marks| (marks, left_field)),
+                |ui| {
+                    small_box(ui, session, player_id, stats, left);
+                },
+            );
+            pair_half(
+                ui,
+                Half::Second,
+                right.shown,
+                marks.map(|marks| (marks, right_field)),
+                |ui| {
+                    small_box(ui, session, player_id, stats, right);
+                },
+            );
         });
     }
 }
@@ -526,7 +623,9 @@ fn small_box(
 /// The four combos, label-left rows on the same label column as Name's
 /// and Shirt's (`generalPanel`'s `.combos` `107px` grid: its widest label
 /// is the column's "Registered position"), each `field_width` wide so it
-/// ends at the flush edge with the second half's boxes.
+/// ends at the flush edge with the second half's boxes. `marks` is Live
+/// AATF's held check's: the marked combos' crosses sit after their
+/// labels (the plan bullet), painted so the combo keeps its x.
 fn combos(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -534,6 +633,7 @@ fn combos(
     positions: &PlayerPositions,
     version: PesVersion,
     field_width: f32,
+    marks: Option<Marks<'_>>,
 ) {
     let spacing_y = ui.spacing().item_spacing.y;
     egui::Grid::new("general combos")
@@ -598,7 +698,15 @@ fn combos(
                 }
             }
             ui.end_row();
-            ui.label(REGISTERED_POSITION_LABEL);
+            let registered_label = ui.label(REGISTERED_POSITION_LABEL);
+            if let Some(marks) = marks {
+                cross_after_label(
+                    ui,
+                    registered_label.rect,
+                    marks,
+                    MarkedField::RegisteredPosition,
+                );
+            }
             let mut registered = positions.registered;
             let combo = egui::ComboBox::from_id_salt("abilities registered position")
                 .selected_text(position_label(registered))
@@ -614,7 +722,10 @@ fn combos(
                 });
             }
             ui.end_row();
-            ui.label(PLAYING_STYLE_LABEL);
+            let style_label = ui.label(PLAYING_STYLE_LABEL);
+            if let Some(marks) = marks {
+                cross_after_label(ui, style_label.rect, marks, MarkedField::PlayingStyle);
+            }
             ui.scope(|ui| {
                 ui.spacing_mut().combo_width = field_width;
                 let mut style = positions.playing_style;
@@ -633,20 +744,41 @@ fn combos(
         });
 }
 
+/// Live AATF's cross after `label`'s text (the plan bullet's "after the
+/// label of a field drawn beside its label"): inside the label column's
+/// room or the gap before the field, never over either — the gap before
+/// the combos is wider than the glyph, so even the column's widest
+/// label keeps its text clear. Painted, so the field keeps its x.
+fn cross_after_label(ui: &mut egui::Ui, label: egui::Rect, marks: Marks<'_>, field: MarkedField) {
+    let cross = live_marks::cross_width(ui);
+    marks.paint(
+        ui,
+        egui::Rect::from_min_size(
+            egui::pos2(label.max.x + live_marks::MARK_GAP, label.min.y),
+            egui::vec2(cross, label.height()),
+        ),
+        field,
+    );
+}
+
 /// The `label (n/max)` line painted at `rect` under `id` (allocated before
 /// the field was drawn, so the count follows the field's text as typed
-/// this frame): `label` in the normal text colour, `(n/max)` the same — or
-/// the warning colour when `warn` (the count past the portable limit).
-/// Its AccessKit node returned for the hover it shares with the field.
+/// this frame): `label` in the normal text colour, `count`'s `(n/max)`
+/// the same — or the warning colour when `warn` (the count past the
+/// portable limit), then `cross`'s field mark after the count while Live
+/// AATF holds one. Returns the label's response (the AccessKit node for
+/// the hover it shares with the field) and the cross's, the caller
+/// suppressing the label's tooltip over the cross's own.
 fn counted_label(
     ui: &mut egui::Ui,
     id: egui::Id,
     rect: egui::Rect,
     label: &str,
-    n: usize,
-    max: usize,
+    count: (usize, usize),
     warn: bool,
-) -> egui::Response {
+    cross: Option<(Marks<'_>, MarkedField)>,
+) -> (egui::Response, Option<egui::Response>) {
+    let (n, max) = count;
     let text_color = ui.visuals().text_color();
     let body = egui::TextStyle::Body.resolve(ui.style());
     let mut job = egui::text::LayoutJob::default();
@@ -678,8 +810,20 @@ fn counted_label(
             format!("{label} ({n}/{max})"),
         )
     });
+    let galley_end = rect.min.x + galley.size().x;
     ui.painter().galley(rect.min, galley, text_color);
-    response
+    let mark = cross.and_then(|(marks, field)| {
+        let cross = live_marks::cross_width(ui);
+        marks.paint(
+            ui,
+            egui::Rect::from_min_size(
+                egui::pos2(galley_end + live_marks::MARK_GAP, rect.min.y),
+                egui::vec2(cross, rect.height()),
+            ),
+            field,
+        )
+    });
+    (response, mark)
 }
 
 /// The tint of a field whose text a version would crop: its usual

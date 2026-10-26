@@ -2554,3 +2554,5 @@ worklog passed 7,000 lines.
   the midfield splits into two position rows, and the player view centres between the list and the edge (0.0.1s3j).
 - **2026-10-26** — A rules file a member handles ends in `.4ccrules` (every picker, both suggested names, the help); its
   first line says it is a Rhai script, and the repository's sources keep `.rhai` (0.0.1t).
+- **2026-10-26** — Live AATF marks the editor itself: a cross or check mark on each checked row of the list, a cross
+  beside the field a selected player's violation is about, and the toggle a framed button (0.0.1o2a).

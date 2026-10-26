@@ -130,6 +130,15 @@ pub fn player_head(id: u32, number: u16, name: &str) -> String {
     )
 }
 
+/// A violation's whole line, the rule's name, a colon, a space, then
+/// `sentence` (`Height: height 185 takes no bracket`): the row's
+/// accessible label, and the line a Live AATF cross's tooltip shows so
+/// both read the same.
+pub fn violation_line(violation: &aatf::Violation, team_id: u32) -> String {
+    let (rule, _) = violation.kind.rule();
+    format!("{rule}: {}", sentence(violation, team_id))
+}
+
 /// One group's header: `Player {id}  {number} {name}` for a rostered player,
 /// `Slot {slot}` for one the host lists no player for, `the team` for the
 /// team's own rows.
@@ -206,7 +215,7 @@ fn row(ui: &mut egui::Ui, team_id: u32, violation: &aatf::Violation) -> Option<S
             egui::Sense::hover()
         },
     );
-    let label = format!("{rule} {text}");
+    let label = violation_line(violation, team_id);
     let select = violation.slot.map(|slot| SelectedPlayer { team_id, slot });
     row_paint(
         ui,
@@ -570,14 +579,14 @@ mod tests {
             [
                 "Team 734 /lit/",
                 "Player 73401  49 Muh Spooks",
-                "Height height 183 takes no bracket",
+                "Height: height 183 takes no bracket",
                 "Player 73404  45 Yuki-kun ^~^",
-                "Height height 183 takes no bracket",
+                "Height: height 183 takes no bracket",
                 "the team",
-                "TierCount 2 gold players, expected 1",
-                "TierCount 0 bronze players, expected 2",
-                "TierCount 19 regular players, expected 18",
-                "BracketQuota 8 players in bracket tall of red, quota 10",
+                "TierCount: 2 gold players, expected 1",
+                "TierCount: 0 bronze players, expected 2",
+                "TierCount: 19 regular players, expected 18",
+                "BracketQuota: 8 players in bracket tall of red, quota 10",
             ]
         );
     }
@@ -630,9 +639,9 @@ mod tests {
             .style_of(window.ctx.theme())
             .visuals
             .warn_fg_color;
-        let stat_total = "StatTotal stats added up 1772, over the limit 1771";
-        let height = "Height height 185 takes no bracket";
-        let stat = "Stat speed 80 over the target 92, inside the warning band";
+        let stat_total = "StatTotal: stats added up 1772, over the limit 1771";
+        let height = "Height: height 185 takes no bracket";
+        let stat = "Stat: speed 80 over the target 92, inside the warning band";
         assert_eq!(
             drawn_lines(&nodes),
             ["Team 1 T", "Player 1  9 X", stat_total, height, stat]
@@ -689,7 +698,7 @@ mod tests {
             .iter()
             .find(|node| {
                 node.role() == Role::Button
-                    && node.label() == Some("Height height 185 takes no bracket")
+                    && node.label() == Some("Height: height 185 takes no bracket")
             })
             .expect("the player's row");
         let (_, _, selected) = window.click_list(centre(player_row), &teams, false);
@@ -705,7 +714,7 @@ mod tests {
 
         let team_row = nodes
             .iter()
-            .find(|node| node.role() == Role::Label && node.value() == Some("Captain no captain"))
+            .find(|node| node.role() == Role::Label && node.value() == Some("Captain: no captain"))
             .expect("the team's row");
         let (_, _, selected) = window.click_list(centre(team_row), &teams, false);
         assert_eq!(selected, None, "a team row is not clickable");
@@ -747,17 +756,17 @@ mod tests {
             [
                 "Suggestions",
                 "Player 73410  46 DFW",
-                "Unused only 4 of 5 cards used",
-                "Unused only 2 of 4 weak_foot used",
+                "Unused: only 4 of 5 cards used",
+                "Unused: only 2 of 4 weak_foot used",
                 "Player 73411  1 Start With the Greeks",
-                "Unused only 5 of 6 cards used",
-                "Unused only 2 of 4 weak_foot used",
+                "Unused: only 5 of 6 cards used",
+                "Unused: only 2 of 4 weak_foot used",
                 "Player 73415  87 A.M. Pinecone",
-                "Unused only 4 of 5 cards used",
-                "Unused only 2 of 4 weak_foot used",
+                "Unused: only 4 of 5 cards used",
+                "Unused: only 2 of 4 weak_foot used",
                 "Player 73423  2 my diary desu",
-                "Unused only 4 of 5 cards used",
-                "Unused only 2 of 4 weak_foot used",
+                "Unused: only 4 of 5 cards used",
+                "Unused: only 2 of 4 weak_foot used",
             ]
         );
         assert_eq!(
@@ -942,7 +951,7 @@ mod tests {
             [
                 "Team 702 /a/",
                 "Player 70202  2 GUILTY",
-                "Height height 185 takes no bracket",
+                "Height: height 185 takes no bracket",
             ],
             "the empty team's header is not drawn"
         );
@@ -981,7 +990,7 @@ mod tests {
             [
                 "Team 718 /f/",
                 "Player 71801  50 ROADTRIP",
-                "Height height 185 takes no bracket",
+                "Height: height 185 takes no bracket",
             ]
         );
         assert!(
@@ -1046,8 +1055,8 @@ mod tests {
             let bounds = bounds_of(text);
             bounds.y1 - bounds.y0
         };
-        let one_line = height_of("Height height 185 takes no bracket");
-        let longest_label = "MedalSystem the tier counts match no medal system [ggss regulars, ggs regulars, gggs regulars, gssss regulars, ggss giants, ggs giants, gggs giants, gssss giants, ggss manlets, ggs manlets, gggs manlets, gssss manlets]";
+        let one_line = height_of("Height: height 185 takes no bracket");
+        let longest_label = "MedalSystem: the tier counts match no medal system [ggss regulars, ggs regulars, gggs regulars, gssss regulars, ggss giants, ggs giants, gggs giants, gssss giants, ggss manlets, ggs manlets, gggs manlets, gssss manlets]";
         let longest = height_of(longest_label);
         assert!(
             longest >= 2.0 * one_line,

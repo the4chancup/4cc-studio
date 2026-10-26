@@ -28,7 +28,8 @@ use team_widgets::cards;
 
 use crate::session::Session;
 use crate::view::{
-    ActiveRules, BadgeKey, OwnBadge, Refusal, SaveView, edit_player, info_strip, selected_player,
+    ActiveRules, BadgeKey, OwnBadge, Refusal, SaveView, edit_player, info_strip, live_marks,
+    selected_player,
 };
 
 /// The Profile grid's registered-position combo.
@@ -81,6 +82,16 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, slot, player_id)) = selected_player(view) else {
         return;
     };
+    // Live AATF's held check while it is the selected player's team's:
+    // the field crosses below read it (the `live` borrow is disjoint
+    // from the session's `&mut` taken next).
+    let marks = live_marks::held_violations(view.live_aatf, &view.live.check, view.rules.as_ref())
+        .filter(|(id, _)| *id == team_id)
+        .map(|(id, violations)| live_marks::Marks {
+            violations,
+            slot,
+            team_id: id,
+        });
     let (version, positions, stats, mut skills) = {
         let Some(session) = view.session.as_ref() else {
             return;
@@ -140,15 +151,28 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
-                        panel(ui, spacing, "General info", |ui| {
-                            info_strip::general(ui, session, team_id, slot, player_id);
+                        panel(ui, spacing, "General info", None, |ui| {
+                            info_strip::general(
+                                ui,
+                                session,
+                                team_id,
+                                slot,
+                                player_id,
+                                marks.map(|marks| marks.violations),
+                            );
                         });
-                        panel(ui, spacing, "Other stats", |ui| {
-                            info_strip::other_stats(ui, session, player_id, &stats);
+                        panel(ui, spacing, "Other stats", None, |ui| {
+                            info_strip::other_stats(ui, session, player_id, &stats, marks);
                         });
-                        panel(ui, spacing, PLAYABLE_POSITIONS_LABEL, |ui| {
-                            playable_positions(ui, session, player_id, &positions);
-                        });
+                        panel(
+                            ui,
+                            spacing,
+                            PLAYABLE_POSITIONS_LABEL,
+                            marks.map(|marks| (marks, live_marks::MarkedField::PlayablePositions)),
+                            |ui| {
+                                playable_positions(ui, session, player_id, &positions);
+                            },
+                        );
                     },
                 );
                 // Column 2: Skills (the Cards left badge in its header
@@ -167,20 +191,26 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                                 rules.as_ref(),
                                 badge,
                                 session,
-                                (team_id, slot),
+                                (team_id, slot, marks),
                                 &mut skills,
                                 refusal,
                             );
                         });
-                        panel(ui, spacing, "COM playing styles", |ui| {
-                            skills_changed |= cards::card_columns(
-                                ui,
-                                version,
-                                &mut skills.com_styles,
-                                &labels::COM_STYLES,
-                                PlayerField::ComStyle,
-                            );
-                        });
+                        panel(
+                            ui,
+                            spacing,
+                            "COM playing styles",
+                            marks.map(|marks| (marks, live_marks::MarkedField::ComStyles)),
+                            |ui| {
+                                skills_changed |= cards::card_columns(
+                                    ui,
+                                    version,
+                                    &mut skills.com_styles,
+                                    &labels::COM_STYLES,
+                                    PlayerField::ComStyle,
+                                );
+                            },
+                        );
                     },
                 );
                 // Column 3: the ability stats, one pair a row.
@@ -189,8 +219,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
-                        panel(ui, spacing, "Ability stats", |ui| {
-                            ability_stats(ui, session, player_id, &stats);
+                        panel(ui, spacing, "Ability stats", None, |ui| {
+                            ability_stats(ui, session, player_id, &stats, marks);
                         });
                     },
                 );
@@ -219,11 +249,23 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 
 /// One panel of a column: the `ui.strong` title over `add`, one item of
 /// the column's vertical — the column's `PANEL_GAP` sits between panels,
-/// `spacing` (the pane's own) restored inside.
-fn panel(ui: &mut egui::Ui, spacing: egui::Vec2, title: &str, add: impl FnOnce(&mut egui::Ui)) {
+/// `spacing` (the pane's own) restored inside. `mark` is Live AATF's
+/// held check's with the panel's field: its cross sits after the header.
+fn panel(
+    ui: &mut egui::Ui,
+    spacing: egui::Vec2,
+    title: &str,
+    mark: Option<(live_marks::Marks<'_>, live_marks::MarkedField)>,
+    add: impl FnOnce(&mut egui::Ui),
+) {
     ui.vertical(|ui| {
         ui.spacing_mut().item_spacing = spacing;
-        ui.strong(title);
+        ui.horizontal(|ui| {
+            ui.strong(title);
+            if let Some((marks, field)) = mark {
+                marks.cross(ui, field);
+            }
+        });
         add(ui);
     });
 }
@@ -492,8 +534,17 @@ fn playable_positions(
 
 /// The 25 stats of `ABILITY_STATS` in one column in the game's order (the
 /// view's third column), each label beside its `DragValue` 40-99; a stat
-/// the version lacks shows `-`, disabled.
-fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats: &PlayerStats) {
+/// the version lacks shows `-`, disabled. `marks` is Live AATF's held
+/// check's: a stat a violation is about carries its cross just left of
+/// the box, in one column with the other stats' (the draft's `.ilabel`
+/// is right-aligned for it).
+fn ability_stats(
+    ui: &mut egui::Ui,
+    session: &mut Session,
+    player_id: u32,
+    stats: &PlayerStats,
+    marks: Option<live_marks::Marks<'_>>,
+) {
     let abilities = stats.abilities();
     let spacing_y = ui.spacing().item_spacing.y;
     egui::Grid::new("abilities stats")
@@ -504,7 +555,7 @@ fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats
                 ui.label(title_case(label));
                 match abilities[index] {
                     Some(value) => {
-                        number_field(
+                        let response = number_field(
                             ui,
                             session,
                             player_id,
@@ -512,6 +563,26 @@ fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats
                             40..=99,
                             move |player, shown| player.stats.set_ability(index, shown),
                         );
+                        if let Some(marks) = marks {
+                            let stat = aatf::Stat::try_from(label.to_owned())
+                                .expect("ABILITY_STATS are stat names");
+                            let cross = live_marks::cross_width(ui);
+                            // Just left of the box, painted into the
+                            // row's gap: the box keeps its x either way
+                            // (the Live AATF bullet's "the field keeps
+                            // its x").
+                            marks.paint(
+                                ui,
+                                egui::Rect::from_min_size(
+                                    egui::pos2(
+                                        response.rect.min.x - live_marks::MARK_GAP - cross,
+                                        response.rect.min.y,
+                                    ),
+                                    egui::vec2(cross, response.rect.height()),
+                                ),
+                                live_marks::MarkedField::Stat(stat),
+                            );
+                        }
                     }
                     // The gated control keeps its cell too.
                     None => {
@@ -533,13 +604,14 @@ fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats
 /// lives in `cards` under the `BadgeKey`
 /// it was computed for — a `Session::revision` bump, a selection change
 /// or another rules file recomputes it, and any other frame draws the
-/// kept one.
+/// kept one. `marks` is Live AATF's held check's: the header's crosses
+/// sit after the title and after the badge.
 fn skills_panel(
     ui: &mut egui::Ui,
     rules: Option<&ActiveRules>,
     badge: &mut Option<(BadgeKey, OwnBadge)>,
     session: &mut Session,
-    (team_id, slot): (u32, u8),
+    (team_id, slot, marks): (u32, u8, Option<live_marks::Marks<'_>>),
     skills: &mut PlayerSkills,
     refusal: &mut Option<Refusal>,
 ) -> bool {
@@ -576,6 +648,9 @@ fn skills_panel(
     };
     ui.horizontal_wrapped(|ui| {
         ui.strong("Skills");
+        if let Some(marks) = marks {
+            marks.cross(ui, live_marks::MarkedField::Skills);
+        }
         if let Some(error) = &tier_error {
             ui.weak("Cards left");
             let response = ui
@@ -604,6 +679,9 @@ fn skills_panel(
                     ui.weak("Cards left");
                 }
             }
+        }
+        if let Some(marks) = marks {
+            marks.cross(ui, live_marks::MarkedField::CardsLeft);
         }
     });
     cards::card_columns(

@@ -19,6 +19,7 @@ mod comparator;
 mod generate;
 mod info_strip;
 mod live_aatf;
+mod live_marks;
 mod menus;
 mod player_list;
 mod portraits;
@@ -626,11 +627,19 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         menus::team_menu(ui, view);
         menus::savefile_menu(ui, view);
         menus::panels_menu(ui, view);
-        ui.toggle_value(&mut view.live_aatf, "Live AATF")
+        // The Live AATF toggle as a framed button (the plan's Live AATF
+        // bullet): the check's `✔` then the name, the selection fill
+        // while on — a selectable label read as a label beside the menus.
+        if ui
+            .add(egui::Button::new("\u{2714} Live AATF").selected(view.live_aatf))
             .on_hover_text(
                 "Check the open team after every edit, in a panel at the bottom (the setting is \
                  remembered)",
-            );
+            )
+            .clicked()
+        {
+            view.live_aatf = !view.live_aatf;
+        }
         if let Some(session) = view.session.as_ref() {
             let path = session.path().display().to_string();
             let marker = if session.is_dirty() {

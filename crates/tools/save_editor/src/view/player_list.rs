@@ -14,7 +14,7 @@ use team_widgets::names::{append_name, plain_format};
 use crate::session::Session;
 use crate::session::selection::{self, ListRow, Row, TeamChoice};
 use crate::view::team::channel_to_show;
-use crate::view::{SaveView, Selection, quick_actions};
+use crate::view::{SaveView, Selection, live_marks, quick_actions};
 
 /// A swatch square's side (the draft's 10px).
 const SWATCH: f32 = 10.0;
@@ -48,6 +48,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // row; drag is off while a filter is typed, where neighbouring rows are
     // not one team's neighbouring slots.
     let draggable = view.filter.trim().is_empty();
+    // Live AATF's held check: the rows of the team it is for carry its
+    // marks, the other teams' none.
+    let held = live_marks::held_violations(view.live_aatf, &view.live.check, view.rules.as_ref());
     let session = view.session.as_mut().expect("checked above");
     let rows = selection::list(session.file(), &view.team, &view.filter);
     // Only the visible rows are laid out: `show_rows` draws the range the
@@ -58,7 +61,15 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         for row in &rows[range] {
             match row {
                 ListRow::Team(team_id) => {
-                    team_row(ui, &mut view.selected, session, *team_id, row_height);
+                    team_row(
+                        ui,
+                        &mut view.selected,
+                        session,
+                        *team_id,
+                        row_height,
+                        held.filter(|(id, _)| *id == *team_id)
+                            .map(|(_, violations)| live_marks::row_mark(violations, None)),
+                    );
                 }
                 ListRow::Player(row) => {
                     player_row(
@@ -68,7 +79,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         row,
                         show_team,
                         draggable,
-                        row_height,
+                        held.filter(|(id, _)| *id == row.team_id)
+                            .map(|(_, violations)| {
+                                live_marks::row_mark(violations, Some(row.slot))
+                            }),
                     );
                 }
             }
@@ -104,11 +118,35 @@ pub(super) fn team_selector(
     *choice = chosen;
 }
 
+/// The selectable's frame both rows paint: `interact_selectable`'s
+/// visuals, the fill drawn while the row is selected, hovered or
+/// focused; the visuals returned for the row's text colour.
+fn paint_row_frame(
+    ui: &mut egui::Ui,
+    rect: egui::Rect,
+    response: &egui::Response,
+    is_selected: bool,
+) -> egui::style::WidgetVisuals {
+    let visuals = ui.style().interact_selectable(response, is_selected);
+    if is_selected || response.hovered() || response.has_focus() {
+        ui.painter().rect(
+            rect.expand(visuals.expansion),
+            visuals.corner_radius,
+            visuals.bg_fill,
+            visuals.bg_stroke,
+            egui::StrokeKind::Inside,
+        );
+    }
+    visuals
+}
+
 /// A team's own row (the draft's `trow`): one click target the row's width
 /// — the team's id in the weak colour, its colours 1 and 2 as small filled
 /// squares (the shown colour, `channel_to_show`), the name with its colour
 /// codes in the strong text colour, and a `●` while the team's own entry
-/// has unsaved changes (`Session::team_dirty`). A click selects the team
+/// has unsaved changes (`Session::team_dirty`). `mark`, while Live AATF
+/// holds this team's check, is the team's own violations' glyph at the
+/// row's right end. A click selects the team
 /// (the detail shows the team view); it is never a drag source nor a drop
 /// target.
 fn team_row(
@@ -117,6 +155,7 @@ fn team_row(
     session: &Session,
     team_id: u32,
     row_height: f32,
+    mark: Option<live_marks::RowMark>,
 ) {
     let Some(team) = session.file().team(team_id) else {
         return;
@@ -135,17 +174,9 @@ fn team_row(
             format!("{team_id} {}", display_name(&team.name)),
         )
     });
-    if ui.is_rect_visible(rect) {
-        let visuals = ui.style().interact_selectable(&response, is_selected);
-        if is_selected || response.hovered() || response.has_focus() {
-            ui.painter().rect(
-                rect.expand(visuals.expansion),
-                visuals.corner_radius,
-                visuals.bg_fill,
-                visuals.bg_stroke,
-                egui::StrokeKind::Inside,
-            );
-        } else {
+    let mark_response = if ui.is_rect_visible(rect) {
+        let visuals = paint_row_frame(ui, rect, &response, is_selected);
+        if !(is_selected || response.hovered() || response.has_focus()) {
             // The faint fill sets the row apart from a player row (the
             // plan's Player list bullet, the draft's `.trow` backdrop).
             ui.painter()
@@ -189,7 +220,14 @@ fn team_row(
         if dirty {
             job.append(" \u{25cf}", 0.0, plain_format());
         }
-        job.wrap = egui::text::TextWrapping::truncate_at_width((rect.max.x - x - padding).max(0.0));
+        // The mark's room at the right end comes off the truncation
+        // width, so a long name never runs under it.
+        let mark_room = mark
+            .as_ref()
+            .map_or(0.0, |mark| mark.width(ui) + ui.spacing().item_spacing.x);
+        job.wrap = egui::text::TextWrapping::truncate_at_width(
+            (rect.max.x - x - padding - mark_room).max(0.0),
+        );
         let name_galley = ui.painter().layout_job(job);
         // The name's plain runs take the strong text colour, or the
         // selection's while the row is selected.
@@ -203,9 +241,17 @@ fn team_row(
             name_galley,
             text,
         );
-    }
+        mark.as_ref().map(|mark| {
+            live_marks::paint_row_mark(ui, rect.shrink2(egui::vec2(padding, 0.0)), mark, team_id)
+        })
+    } else {
+        None
+    };
+    let mark_hovered = mark_response.is_some_and(|mark| mark.hovered());
     let hover = display_name(&team.name);
-    let response = if dirty {
+    let response = if mark_hovered {
+        response
+    } else if dirty {
         response.on_hover_text(format!("{hover}\nUnsaved changes"))
     } else {
         response.on_hover_text(hover)
@@ -229,32 +275,75 @@ fn player_row(
     row: &Row,
     show_team: bool,
     draggable: bool,
-    row_height: f32,
+    mark: Option<live_marks::RowMark>,
 ) {
     let file = session.file();
     let team = file.team(row.team_id);
     let player = file.player(row.player_id);
     let dirty = session.player_dirty(row.team_id, row.slot);
     let is_selected = *selected == Some(Selection::Player(row.team_id, row.slot));
+    let row_height = ui.spacing().interact_size.y;
     let mut job = row_text(team, player, row, show_team);
     if dirty {
         job.append(" \u{25cf}", 0.0, plain_format());
     }
+    let label = job.text.clone();
     // One line, truncated when the name is too long for the panel: the full
     // display name rides the hover, a dirty row's with the dot's text.
+    // `mark`, while Live AATF holds this team's check, is his violations'
+    // glyph at the row's right end, after the dot when it shows.
     let hover = player.map_or_else(|| "?".to_owned(), |player| display_name(&player.name));
     let sense = if draggable {
         egui::Sense::click_and_drag()
     } else {
         egui::Sense::click()
     };
-    let response = ui.add(
-        egui::Button::selectable(is_selected, job)
-            .truncate()
-            .sense(sense)
-            .min_size(egui::vec2(ui.available_width(), row_height)),
-    );
-    let response = if dirty {
+    let (rect, response) =
+        ui.allocate_exact_size(egui::vec2(ui.available_width(), row_height), sense);
+    response.widget_info(|| {
+        egui::WidgetInfo::selected(
+            egui::Role::Button,
+            ui.is_enabled(),
+            is_selected,
+            label.clone(),
+        )
+    });
+    let mark_response = if ui.is_rect_visible(rect) {
+        // What `egui::Button::selectable` painted: the selectable's
+        // visuals and the text row, drawn by hand so the mark can sit
+        // at the right end with the text truncated before it.
+        let visuals = paint_row_frame(ui, rect, &response, is_selected);
+        let padding = ui.spacing().button_padding.x;
+        let mark_room = mark
+            .as_ref()
+            .map_or(0.0, |mark| mark.width(ui) + ui.spacing().item_spacing.x);
+        job.wrap = egui::text::TextWrapping::truncate_at_width(
+            (rect.max.x - rect.min.x - 2.0 * padding - mark_room).max(0.0),
+        );
+        let galley = ui.painter().layout_job(job);
+        ui.painter().galley(
+            egui::pos2(
+                rect.min.x + padding,
+                rect.center().y - galley.size().y / 2.0,
+            ),
+            galley,
+            visuals.fg_stroke.color,
+        );
+        mark.as_ref().map(|mark| {
+            live_marks::paint_row_mark(
+                ui,
+                rect.shrink2(egui::vec2(padding, 0.0)),
+                mark,
+                (row.team_id, row.slot),
+            )
+        })
+    } else {
+        None
+    };
+    let mark_hovered = mark_response.is_some_and(|mark| mark.hovered());
+    let response = if mark_hovered {
+        response
+    } else if dirty {
         response.on_hover_text(format!("{hover}\nUnsaved changes"))
     } else {
         response.on_hover_text(hover)

@@ -4,21 +4,9 @@
 //! header, the remembered toggle, the checking mark, ALL's team and a
 //! row's click.
 
-use std::path::Path;
-
 use pes_savefile::model::names::display_name;
 
 use super::*;
-
-/// `checked` on the dock's check.
-fn live_checked(
-    window: &mut Headless,
-    view: &mut SaveView,
-    rules: Option<&Path>,
-    ids: &[u32],
-) -> Vec<accesskit::Node> {
-    super::checked(window, view, rules, |view| &view.live.check, ids)
-}
 
 /// A click on `node` through `tool.view` (press on one frame, release on
 /// the next): the `live_aatf` write lives in `Tool::view`, not `show`.
@@ -214,7 +202,7 @@ fn the_toggle_is_remembered_in_the_settings() {
         &mut window,
         &mut tool,
         &ctx,
-        node_labeled(&nodes, Role::Button, "Live AATF"),
+        node_labeled(&nodes, Role::Button, "\u{2714} Live AATF"),
     );
     let table = ctx.tool_settings("save-editor");
     assert_eq!(
@@ -243,7 +231,7 @@ fn the_toggle_is_remembered_in_the_settings() {
         &mut window,
         &mut tool2,
         &ctx,
-        node_labeled(&nodes, Role::Button, "Live AATF"),
+        node_labeled(&nodes, Role::Button, "\u{2714} Live AATF"),
     );
     assert_eq!(
         ctx.tool_settings("save-editor")["live_aatf"].as_bool(),

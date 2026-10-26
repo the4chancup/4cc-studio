@@ -2611,7 +2611,20 @@ briefs, review loops, gates and mutation runs as for any step.
     The maintainer's look is open; the code (o2) follows s3's close without waiting on it,
     the plan having ruled the marks. Files: `docs/prototypes/tools/save_editor.js`,
     `plans/save_editor.md`
-  - [ ] o2 the code, after s3 closes
+  - [ ] o2 the code
+    - [x] o2a the toolbar's framed toggle, the list's marks (player and team rows, their own
+      hover, the text truncated before them), the field crosses beside every field the plan
+      maps (`live_marks.rs`: `held_violations`, `marked_field` with no `_ =>` arm,
+      `row_mark`, `field_cross`/`paint_field_cross`, one `MARK_GAP`), `violation_line` shared
+      by the dock's rows and the crosses' tooltips. Tests: SE-GUI-36, one per field group, a
+      click on a mark selects its row, no cross over text and no field moved. `FieldedNotA`
+      maps to the pitch, which draws nothing yet. Files: `save_editor/src/view/{live_marks,
+      info_strip,abilities,player_list,mod}.rs`, `view/tests/live_marks.rs`,
+      `team_widgets/src/violations.rs`
+    - [ ] o2b the pitch's cross for `FieldedNotA` and the dock row selecting his team's row
+      on the named preset's first formation; after the Tactics tab's new layout (the
+      maintainer's request of 2026-10-26, drafted first)
+    - [ ] the built-window look at the marks (their clearance at the real font)
 - [x] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
   "Usability proposals P17-P24 and P32-P38 accepted"; built: `spec/export_upgrader.md` step
   10, "CLI", "Message catalog"), one commit each:
