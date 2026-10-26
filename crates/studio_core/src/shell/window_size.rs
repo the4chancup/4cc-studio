@@ -165,6 +165,12 @@ mod tests {
             fitted_size(egui::vec2(1366.0, 768.0), DECORATIONS),
             egui::vec2(1280.0, 691.0)
         );
+        // A 1080p monitor at 125% scaling: 864 points tall, so 800 is within
+        // the monitor yet past 90% of it.
+        assert_eq!(
+            fitted_size(egui::vec2(1536.0, 864.0), DECORATIONS),
+            egui::vec2(1280.0, 778.0)
+        );
         assert_eq!(
             fitted_size(egui::vec2(1280.0, 720.0), DECORATIONS),
             egui::vec2(1264.0, 648.0)
