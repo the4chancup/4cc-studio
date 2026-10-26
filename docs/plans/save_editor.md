@@ -344,7 +344,9 @@ all side by side.
   status bar naming both (SE-GUI-28); the save keeps its own version. The warning lives from
   the save's opening until the member has seen it: its action, **Switch to PES 20xx** (the
   save's version), which makes the same change the sidebar's selector makes, its blockers
-  included; its dismiss; or another notice taking the bar. While it lives it follows the
+  included (a switch a blocker refuses, such as a running compile, leaves the warning up, as
+  the selector stays mismatched); its dismiss; or another notice taking the bar. While it
+  lives it follows the
   selector: shown whenever the selector names another version than the save's, its text
   naming the selector's (a save opened under its own version too, once the selector moves
   away), gone while the two match, back when they part again. Once it has ended, nothing
@@ -851,7 +853,8 @@ What this editor adds on top of the lib:
   (the list must show the row it selects); team selection matches 4ccEditor (current team or a
   multi-select list of the selector's teams). Current team is the selected row's team (a
   player's or a team row's own; the filter lists other teams' rows than the selector's),
-  else the selector's team, as Live AATF reads it, not the first team the draft falls
+  else the selector's team (with ALL picked and nothing selected, `No team is open.`), as Live
+  AATF reads it, not the first team the draft falls
   back to: the panel checks the team the view is editing. A **Show suggestions**
   toggle, off by default, lists unused allowances apart from errors and warnings (see
   "Suggestions" in the AATF rules plan). The panel is `team_widgets`' violations list, under
@@ -1228,7 +1231,9 @@ SE-GUI-28  GIVEN the selector at PES 19
                 clicked THEN the notice is gone and the setting unchanged, and no selector
                 change brings it back until another save is opened; GIVEN the selector at
                 PES 21 WHEN the PES 21 save is opened and the selector then set to PES 19 THEN
-                the notice shows
+                the notice shows; GIVEN a stub tool reporting a version-change blocker WHEN
+                "Switch to PES 2021" is clicked THEN the setting stays PES 19 and the notice
+                stays
 SE-GUI-29  manual  GIVEN a Texport written by SE-GUI-17's export from a PES 18, 19, 20 and 21
            save
            WHEN it is imported through the game's own team import, in that version
