@@ -296,9 +296,10 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   shows a dialog before the window opens: "The last session did not close normally. If it
   crashed, please post this file where you report problems: <path>", naming the home folder's
   `~`. This catches what the panic hook cannot see (a stack overflow, a failed allocation, a
-  crash in native code), and the crash dump below adds its stacks; a dump newer than the old
-  log's file (its modification time, since the log's lines carry none) is named in the same
-  dialog. The wording is neutral because the dialog also follows a session Windows
+  crash in native code), and the crash dump below adds its stacks; when the old log's last
+  line is the monitor's, naming a dump, and that file is still there, the same dialog names
+  it. We read the monitor's line rather than compare times: the monitor writes the dump
+  before it appends that line, so the log is always the newer file. The wording is neutral because the dialog also follows a session Windows
   ended: winit 0.30 handles neither `WM_QUERYENDSESSION` nor `WM_ENDSESSION`, so a shutdown
   with the window open ends the process with no closing line, as a kill from Task Manager
   or a power cut does. We do not tell the two apart through the boot time: a crash followed

@@ -24,9 +24,10 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   `aesthetics_export`, never one per code.
 - **A finding carries the context its text needs.** The texts Phase 8 writes must say the fix,
   and some codes' context leaves the member unable to act. Each gains what its text names:
-  `players_txt_invalid` and `notes_encoding_invalid` the cause, and the first bad line where
-  one is at fault (a roster-wide cause, two folder names colliding or a referee roster with no
-  valid line, has none; the encoding text then says how to re-save as UTF-8 in Notepad); `player_folder_number_invalid`
+  `players_txt_invalid` the cause, of two, both roster-wide and so with no line (the file is
+  not UTF-8; a referee roster has no valid line), while `notes_encoding_invalid`, whose one
+  cause is the file's encoding, gains nothing (both encoding texts say how to re-save as
+  UTF-8 in Notepad); `player_folder_number_invalid`
   the expected form (`NN - Name`, or a `players.txt`); `player_number_duplicate` the other
   folder claiming the slot; `kit_folder_invalid` the allowed names (`p1`-`p9`, `g1`, `all`);
   `file_type_disallowed` which case it is (an unknown extension, a hidden `.txt`, a known file
@@ -38,8 +39,11 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   `settings_not_generated` gain no field, their text alone naming the ways to a clean upgrade,
   and `check-aatf`'s `aatf_violation`
   (`spec/save_editor.md`'s catalog) the player's name and shirt number beside his id in its
-  `player` context field; the rule's own fields stay as the rules file spells them
-  (`RosterOrder`'s `player` and `expected` are the ids the rule compares).
+  `player` context field; the rule's own fields stay as the rules file spells them.
+  `RosterOrder`, whose rule field is itself named `player` and holds the same id, prints it
+  once, as that context field with the name and number (today the context field is skipped
+  for it as the duplicate), and its `expected` gains the expected player's name and number
+  the same way: it is the one violation whose fix is finding two players.
 
 ### Catalog
 

@@ -11365,3 +11365,29 @@ them would surprise more than a refusal naming it. A staging folder that will no
 open, most likely by a second upgrade of the same export running at that moment, and only
 that run can lose by the abort.
 Plan: `plans/export_upgrader.md` "CLI", the first and third additions.
+
+## 2026-10-26 — studio_core — the zoom factor is the shell's alone: egui's keyboard zoom off
+Decision: with the width scaling (0.0.1m), egui's keyboard zoom (Ctrl with plus, minus or 0)
+is turned off; the shell sets the zoom from the window's width and nothing else does.
+Why: the plan was silent on the keyboard zoom egui enables by default. The width rule sets the
+zoom every frame, so a keyboard zoom would last one frame; folding it into the rule (a member's
+factor times the width's) adds a setting nobody asked for, and the system's display scaling
+already gives a member larger text, which points follow.
+Plan: `plans/core/gui.md` "Shell layout", the paragraph "Scaling with the width".
+
+## 2026-10-26 — core — correction: Fix PES path writes an override row whenever any exists
+Decision: "A folder per PES version" (above) said Fix PES path writes the running version's
+row "when it has one"; the rule is whenever any override exists, the running version's row
+then gaining the folder, else the main row as before.
+Why: a member keeping folders per version would otherwise see the main row rewritten, moving
+every version that falls back to it; the plan text was refined in review and the entry not.
+Plan: `plans/core/gui.md` "Settings menu", the "PES folder" bullet; ST-SET-04.
+
+## 2026-10-26 — save_editor — `aatf_violation` names `RosterOrder`'s two players
+Decision: the `player` context field (id, name and shirt number) is printed for `RosterOrder`
+too, in place of the rule's own `player` field holding the same id, and `expected` gains the
+expected player's name and number.
+Why: the code skips the context field for `RosterOrder` because the rule's field repeats the
+id; with the name and number added it no longer repeats, and `RosterOrder` is the violation
+whose fix needs both players found, so two bare ids would be its worst line.
+Plan: `plans/team_compiler/messages.md` "A finding carries the context its text needs".

@@ -825,8 +825,8 @@ What this editor adds on top of the lib:
   - **The player list** marks each listed player of the checked team: a cross, in the error
     colour, on a player with an Error-severity violation, a check mark otherwise (warnings and
     suggestions are not failures, as `check-aatf`'s exit code counts them); its tooltip the
-    player's errors and warnings as the dock counts them (`2 errors, 1 warning`, or `No
-    errors`). Players of other teams, with ALL picked, carry none: they are not checked. The
+    player's errors and warnings as the dock counts them, a zero count left out (`2
+    errors, 1 warning`, `1 warning`), and `No errors` when there are neither. Players of other teams, with ALL picked, carry none: they are not checked. The
     team's own violations (no slot) mark the team's row the same way, once the list has one
     (step 0.0.1s); until then the dock alone lists them.
   - **The field a violation is about** gets a cross beside it when its player is selected:

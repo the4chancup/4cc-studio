@@ -64,7 +64,10 @@ nothing clips or rewraps; at or above the design width, and at any height, the z
 the views reflow: wider rows spread, a shorter window scrolls or stacks as each view's height
 rules say. We scale on the width alone because the views' fixed-width rows (the Tactics pitch,
 a row of colour swatches, the tab strip) are what clips below about 900 points (measured on the
-Save editor, 2026-10-25), while height only ever needs a scroll. A member's resize stops at
+Save editor, 2026-10-25), while height only ever needs a scroll. The zoom factor is the shell's alone: egui's keyboard
+zoom (Ctrl with plus, minus or 0) is turned off, because the width rule sets the zoom every
+frame and would undo a keyboard zoom one frame later; a member who wants larger text has the
+system's display scaling, which points follow. A member's resize stops at
 **960 × 600 points**: below 960 the scaled text drops under 75% of its size, past legible on a
 100% display.
 

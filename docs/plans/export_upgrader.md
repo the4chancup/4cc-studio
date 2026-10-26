@@ -91,14 +91,15 @@ refined with the maintainer before `view/` is written:
   one (the CLI refuses the other there). The view passes `--coverage` only when the pair
   differs from the name's guess, so the report's `source` is the name's whenever the member
   left the pair alone.
-- **The savefile field names the team it needs.** Once an export is dropped, its team is
+- **The savefile field names the team it needs.** Once a team export is dropped (a referee
+  export's field is disabled and shows nothing beside it: it takes no save), its team is
   resolved (the Note's `Team:` line, else the name, step 6) and the field shows
   `needs /egg/ (792)` beside it; a save picked or discovered that lacks the team turns the
   field red, the refusal's sentence as its tooltip, and Upgrade stays disabled, so a manager
   whose save comes from another cup or version learns it before the run rather than from its
   exit 2. A team that resolves to no row of the list shows `team unknown: <name>` instead and
   leaves Upgrade enabled, the run then reporting `team_name_unknown` as the CLI does; a picked
-  file that does not read as a save turns the field red with the read error as its tooltip,
+  or discovered file that does not read as a save turns the field red with the read error as its tooltip,
   Upgrade disabled. An export whose Note or archive does not read at the drop leaves the field
   plain: the run reports it (`source_read_failed`, `export_extract_failed`) as the CLI does.
   The resolution and the save read are the run's own steps, moved to the drop
@@ -127,8 +128,8 @@ refined with the maintainer before `view/` is written:
   Note line, a kit config's error), so the author sees in one place what to fix in the input
   (an unmigrated entry, which kept anything from being written) or what the output left out (a
   leftover). Entries are grouped by their parent folder: a parent holding two or more is one
-  collapsing row with the count (`Boots/k2177 - THIS BEAVER IS CONTAMINATED: 18 files left
-  out`), its chevron opening it to its entries, and a parent holding one stays that one row;
+  collapsing row with the count (`Boots/k2177 - THIS BEAVER IS CONTAMINATED: 18 left out`:
+  the count is of entries, files or folders alike), its chevron opening it to its entries, and a parent holding one stays that one row;
   an entry that is itself a folder (a second face folder) groups under its parent like a
   file. A real export's upgrade (Lab's EGG, in the draft) left 120 rows, 18 of them one boots
   folder's, which then read as the 25 folders they are about. A click on a group's row opens
