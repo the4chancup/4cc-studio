@@ -1,7 +1,8 @@
 //! The common settings: what every tool shares (core plan, "Settings menu"; Team compiler plan,
 //! "Common settings").
 
-use std::path::PathBuf;
+use std::collections::BTreeMap;
+use std::path::{Path, PathBuf};
 
 use pes_version::PesVersion;
 use serde::{Deserialize, Serialize};
@@ -23,6 +24,17 @@ pub struct CommonSettings {
     pub pes_version: PesVersion,
     /// The PES installation folder, with `**` standing for the two-digit version (`20**`).
     pub pes_folder_path: String,
+    /// Per-version PES folders, `[common.pes_folders]` keyed by the version's number
+    /// (`21 = '…'`): a filled entry is that version's folder taken as written, overriding
+    /// `pes_folder_path`. An entry is never empty: the menu removes an emptied row, and
+    /// loading drops a hand-written `19 = ''`, so "any entry" means a filled one
+    /// wherever it is asked (the resolution, the menu's toggle, Fix PES path).
+    #[serde(
+        skip_serializing_if = "BTreeMap::is_empty",
+        serialize_with = "folders_by_number",
+        deserialize_with = "folders_from_number_keys"
+    )]
+    pub pes_folders: BTreeMap<PesVersion, String>,
     /// Where exports are picked up. A relative path resolves beside the executable in both
     /// data-location modes, so it sits next to `quick_compile.bat`.
     pub exports_folder_path: PathBuf,
@@ -58,6 +70,7 @@ impl Default for CommonSettings {
         CommonSettings {
             pes_version: PesVersion::Pes19,
             pes_folder_path: DEFAULT_PES_FOLDER.to_owned(),
+            pes_folders: BTreeMap::new(),
             exports_folder_path: PathBuf::from("exports"),
             thread_count: 0,
             memory_cap_percent: 80.0,
@@ -75,11 +88,28 @@ impl Default for CommonSettings {
 }
 
 impl CommonSettings {
-    /// The PES installation folder: `pes_folder_path` with every `**` replaced by the two-digit
-    /// number of `pes_version` (`21` for PES 2021).
+    /// The PES installation folder: `pes_version`'s `pes_folders` entry taken as written
+    /// (no `**` expansion) when it has one; otherwise `pes_folder_path` with every `**`
+    /// replaced by the two-digit number of `pes_version` (`21` for PES 2021).
     pub fn pes_folder(&self) -> PathBuf {
+        if let Some(folder) = self.pes_folders.get(&self.pes_version) {
+            return PathBuf::from(folder);
+        }
         let version = self.pes_version.number().to_string();
         PathBuf::from(self.pes_folder_path.replace("**", &version))
+    }
+
+    /// Points the settings at the folder a running PES of `version` runs from (the
+    /// running-PES notice's Fix PES path): `version`'s own entry, the folder as it is,
+    /// whenever any version has one, since a rewritten main row would move every version
+    /// that falls back to it; otherwise the main row, through `pes_folder_pattern`.
+    pub(crate) fn fix_pes_folder(&mut self, folder: &Path, version: PesVersion) {
+        if self.pes_folders.is_empty() {
+            self.pes_folder_path = pes_folder_pattern(folder, version);
+        } else {
+            self.pes_folders
+                .insert(version, folder.display().to_string());
+        }
     }
 
     /// The FPC hide preset's boots and gloves IDs the settings give, or the
@@ -88,6 +118,53 @@ impl CommonSettings {
     /// enters), so an out-of-band pair is an error the consumers surface.
     pub fn fpc_hide_ids(&self) -> Result<fpc::HideIds, fpc::HideIdsError> {
         fpc::HideIds::new(self.fpc_hide_boots_id, self.fpc_hide_gloves_id)
+    }
+}
+
+/// `pes_folders`' serializer. TOML keys are strings, and `toml::Value::try_from`, which
+/// `Settings::save` builds the file from, refuses an integer key (`KeyNotString`).
+fn folders_by_number<S: serde::Serializer>(
+    folders: &BTreeMap<PesVersion, String>,
+    serializer: S,
+) -> Result<S::Ok, S::Error> {
+    serializer.collect_map(
+        folders
+            .iter()
+            .map(|(version, folder)| (version.number().to_string(), folder)),
+    )
+}
+
+/// `pes_folders`' deserializer, the reverse: `Settings::parse` reads `[common]` from a
+/// `toml::Value`, whose table hands the key over as the string `"21"`, which
+/// `PesVersion`'s `u16` deserializer refuses. The key is read as `pes_version`'s value
+/// is, a number (`21` or `2021`), not through `PesVersion::from_str`, which also takes
+/// `PES 2021`: one rule for both keys a member may write by hand. An empty folder is
+/// dropped here, so no reader of the map has to tell an empty entry from none.
+fn folders_from_number_keys<'de, D: serde::Deserializer<'de>>(
+    deserializer: D,
+) -> Result<BTreeMap<PesVersion, String>, D::Error> {
+    BTreeMap::<String, String>::deserialize(deserializer)?
+        .into_iter()
+        .filter(|(_, folder)| !folder.is_empty())
+        .map(|(key, folder)| {
+            let number = key.parse::<u16>().map_err(serde::de::Error::custom)?;
+            let version = PesVersion::try_from(number).map_err(serde::de::Error::custom)?;
+            Ok((version, folder))
+        })
+        .collect()
+}
+
+/// The main row's text for a folder picked or found for `version`: the folder with
+/// `version`'s year in its own name (the last path segment) written `20**`, so the
+/// version selector keeps switching folders; any other folder unchanged.
+pub(crate) fn pes_folder_pattern(folder: &Path, version: PesVersion) -> String {
+    let year = version.year().to_string();
+    match folder.file_name().and_then(|name| name.to_str()) {
+        Some(name) => folder
+            .with_file_name(name.replace(&year, "20**"))
+            .display()
+            .to_string(),
+        None => folder.display().to_string(),
     }
 }
 
@@ -187,6 +264,275 @@ mod tests {
         );
     }
 
+    // A filled per-version row is that version's folder taken as written: no `**`
+    // expansion, and a version without one falls back to the main row's resolution.
+    #[test]
+    fn a_per_version_folder_overrides_the_main_row_as_written() {
+        let mut at_21 = settings(PesVersion::Pes21, "/games/Pro Evolution Soccer 20**");
+        at_21
+            .pes_folders
+            .insert(PesVersion::Pes21, "/a/b/PES2021".to_owned());
+        assert_eq!(at_21.pes_folder(), PathBuf::from("/a/b/PES2021"));
+
+        let mut at_19 = at_21.clone();
+        at_19.pes_version = PesVersion::Pes19;
+        assert_eq!(
+            at_19.pes_folder(),
+            PathBuf::from("/games/Pro Evolution Soccer 2019"),
+            "no row of its own: the main row's resolution"
+        );
+
+        at_21
+            .pes_folders
+            .insert(PesVersion::Pes21, "/a/b/PES20**".to_owned());
+        assert_eq!(
+            at_21.pes_folder(),
+            PathBuf::from("/a/b/PES20**"),
+            "an override holding ** is not expanded"
+        );
+    }
+
+    // A hand-written empty entry (`19 = ''`) is dropped on load, so it is no override
+    // for the resolution, the menu's toggle or Fix PES path alike.
+    #[test]
+    fn an_empty_per_version_folder_falls_back_to_the_main_row() {
+        let settings = crate::settings::Settings::parse(
+            "[common]
+pes_version = 19
+pes_folder_path = '/games/Pro Evolution Soccer 20**'
+\n             [common.pes_folders]
+19 = ''
+21 = '/games/PES 21'
+",
+        )
+        .expect("parses")
+        .common;
+        assert_eq!(
+            settings.pes_folders.keys().copied().collect::<Vec<_>>(),
+            vec![PesVersion::Pes21],
+            "the empty entry is dropped, the filled one kept"
+        );
+        assert_eq!(
+            settings.pes_folder(),
+            PathBuf::from("/games/Pro Evolution Soccer 2019")
+        );
+    }
+
+    // The pick's rule: the year anywhere in the folder's own name (the last path
+    // segment) is written `20**`; nothing else moves a folder.
+    #[cfg(windows)]
+    #[test]
+    fn pes_folder_pattern_rewrites_only_the_folders_own_year() {
+        assert_eq!(
+            pes_folder_pattern(
+                Path::new(r"D:\Games\Pro Evolution Soccer 2019"),
+                PesVersion::Pes19,
+            ),
+            r"D:\Games\Pro Evolution Soccer 20**"
+        );
+        assert_eq!(
+            pes_folder_pattern(Path::new(r"D:\Games\PES2019 copy"), PesVersion::Pes19),
+            r"D:\Games\PES20** copy",
+            "the year in the middle of the name"
+        );
+        assert_eq!(
+            pes_folder_pattern(Path::new(r"E:\PES"), PesVersion::Pes19),
+            r"E:\PES",
+            "a folder without the year is unchanged"
+        );
+        assert_eq!(
+            pes_folder_pattern(Path::new(r"D:\2019\PES"), PesVersion::Pes19),
+            r"D:\2019\PES",
+            "the year only in a parent segment is unchanged"
+        );
+        assert_eq!(
+            pes_folder_pattern(
+                Path::new(r"D:\Games\Pro Evolution Soccer 2021"),
+                PesVersion::Pes19,
+            ),
+            r"D:\Games\Pro Evolution Soccer 2021",
+            "another version's year is unchanged"
+        );
+    }
+
+    // The `/`-separated twin of the Windows case above.
+    #[cfg(not(windows))]
+    #[test]
+    fn pes_folder_pattern_rewrites_only_the_folders_own_year() {
+        assert_eq!(
+            pes_folder_pattern(
+                Path::new("/games/Pro Evolution Soccer 2019"),
+                PesVersion::Pes19,
+            ),
+            "/games/Pro Evolution Soccer 20**"
+        );
+        assert_eq!(
+            pes_folder_pattern(Path::new("/games/PES2019 copy"), PesVersion::Pes19),
+            "/games/PES20** copy",
+            "the year in the middle of the name"
+        );
+        assert_eq!(
+            pes_folder_pattern(Path::new("/e/PES"), PesVersion::Pes19),
+            "/e/PES",
+            "a folder without the year is unchanged"
+        );
+        assert_eq!(
+            pes_folder_pattern(Path::new("/2019/PES"), PesVersion::Pes19),
+            "/2019/PES",
+            "the year only in a parent segment is unchanged"
+        );
+        assert_eq!(
+            pes_folder_pattern(
+                Path::new("/games/Pro Evolution Soccer 2021"),
+                PesVersion::Pes19,
+            ),
+            "/games/Pro Evolution Soccer 2021",
+            "another version's year is unchanged"
+        );
+    }
+
+    // Fix PES path: with no per-version rows the main row takes the pattern; once any
+    // version has one the running version's own row takes the folder as it is, since a
+    // rewritten main row would move every version that falls back to it.
+    #[test]
+    fn fix_pes_folder_writes_the_main_row_until_an_override_exists() {
+        let mut bare = settings(PesVersion::Pes19, "/member/set/folder");
+        bare.fix_pes_folder(
+            Path::new("/running/Pro Evolution Soccer 2019"),
+            PesVersion::Pes19,
+        );
+        assert_eq!(
+            PathBuf::from(&bare.pes_folder_path),
+            Path::new("/running/Pro Evolution Soccer 2019")
+                .with_file_name("Pro Evolution Soccer 20**"),
+            "no entries: the main row takes the pattern"
+        );
+        assert!(bare.pes_folders.is_empty(), "no entry appeared");
+
+        let mut with_override = settings(PesVersion::Pes19, "/member/set/folder");
+        with_override
+            .pes_folders
+            .insert(PesVersion::Pes21, "/elsewhere/PES2021".to_owned());
+        let folder = Path::new("/running/Pro Evolution Soccer 2019");
+        assert_ne!(
+            with_override.pes_folder_path,
+            pes_folder_pattern(folder, PesVersion::Pes19),
+            "a wrong branch writes the pattern to the main row and still passes"
+        );
+        with_override.fix_pes_folder(folder, PesVersion::Pes19);
+        assert_eq!(
+            with_override.pes_folders.get(&PesVersion::Pes19),
+            Some(&folder.display().to_string()),
+            "the folder as given, its year kept"
+        );
+        assert_eq!(
+            with_override.pes_folders.get(&PesVersion::Pes21),
+            Some(&"/elsewhere/PES2021".to_owned()),
+            "the other entry kept"
+        );
+        assert_eq!(
+            with_override.pes_folder_path, "/member/set/folder",
+            "the main row unchanged"
+        );
+    }
+
+    // A settings file without `pes_folders` saves byte for byte: the
+    // `skip_serializing_if` keeps an empty map from appearing as a table.
+    #[test]
+    fn a_file_without_per_version_folders_saves_unchanged() {
+        let dir = std::env::temp_dir().join(format!(
+            "studio_core_common_no_folders_{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        crate::settings::Settings::default().save(&path).unwrap();
+        let original = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            !original.contains("pes_folders"),
+            "no empty table appears: {original}"
+        );
+
+        let loaded = crate::settings::Settings::load(&path).unwrap();
+        assert!(loaded.common.pes_folders.is_empty());
+        loaded.save(&path).unwrap();
+        assert_eq!(
+            std::fs::read_to_string(&path).unwrap(),
+            original,
+            "nothing changed: the file is byte-identical"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // A filled row's table is keyed by the version's number (`21 = '…'`), loads back
+    // as the same map, and is gone from the file once emptied.
+    #[test]
+    fn per_version_folders_round_trip_and_disappear_when_emptied() {
+        let dir =
+            std::env::temp_dir().join(format!("studio_core_common_folders_{}", std::process::id()));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        let mut settings = crate::settings::Settings::default();
+        settings
+            .common
+            .pes_folders
+            .insert(PesVersion::Pes21, "/games/PES 21".to_owned());
+        settings.save(&path).unwrap();
+
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(text.contains("[common.pes_folders]"), "the table: {text}");
+        let file: toml::Table = toml::from_str(&text).unwrap();
+        let folders = file["common"]["pes_folders"].as_table().unwrap();
+        assert_eq!(folders.len(), 1, "keyed by the version's number");
+        assert_eq!(folders["21"].as_str(), Some("/games/PES 21"));
+        let loaded = crate::settings::Settings::load(&path).unwrap();
+        assert_eq!(
+            loaded.common.pes_folders, settings.common.pes_folders,
+            "load returns the same map"
+        );
+
+        let mut emptied = loaded;
+        emptied.common.pes_folders.clear();
+        emptied.save(&path).unwrap();
+        let text = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            !text.contains("pes_folders"),
+            "the emptied table leaves the file: {text}"
+        );
+        std::fs::remove_dir_all(&dir).unwrap();
+    }
+
+    // A per-version key reads as `pes_version`'s value does: the number or the year
+    // (`21`, `2021`), never another word (`PES 2021`), and a version the suite does
+    // not know refuses the file as `pes_version = 22` does.
+    #[test]
+    fn a_per_version_key_reads_as_pes_version_does() {
+        for key in ["21", "2021"] {
+            let settings = crate::settings::Settings::parse(&format!(
+                "[common.pes_folders]\n{key} = '/games/PES 21'\n"
+            ))
+            .expect("parses");
+            assert_eq!(
+                settings.common.pes_folders.get(&PesVersion::Pes21),
+                Some(&"/games/PES 21".to_owned()),
+                "key {key}"
+            );
+        }
+        assert!(
+            crate::settings::Settings::parse("[common.pes_folders]\n'PES 2021' = '/games'\n")
+                .is_err(),
+            "a word is not a key, as for pes_version"
+        );
+        assert!(
+            crate::settings::Settings::parse("[common]\npes_version = 'PES 2021'\n").is_err(),
+            "pes_version refuses the word too"
+        );
+        assert!(
+            crate::settings::Settings::parse("[common.pes_folders]\n22 = '/games'\n").is_err(),
+            "an unknown version refuses the file"
+        );
+    }
+
     // The defaults the spec pins: `spec/team_compiler/settings.md`'s "Common
     // settings (studio_core)" table (version 19, the `20**` folder, `exports/`,
     // 0 auto threads, 80.0, the update check) and `spec/core/distribution.md`'s
@@ -208,6 +554,7 @@ mod tests {
             CommonSettings {
                 pes_version: PesVersion::Pes19,
                 pes_folder_path: pes_folder_path.to_owned(),
+                pes_folders: BTreeMap::new(),
                 exports_folder_path: PathBuf::from("exports"),
                 thread_count: 0,
                 memory_cap_percent: 80.0,

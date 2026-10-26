@@ -127,9 +127,10 @@ pub enum ActionEffect {
     OpenHelp(HelpTarget),
     /// Make another tool the active view.
     SwitchTool(String),
-    /// Rewrite `pes_folder_path` from the folder a running PES exe lives in (the shell's own
-    /// action — no tool has a reason to publish it): the sidebar's auto-switch notice offers
-    /// it when the running game sits outside the configured folder.
+    /// Point the PES folder at the folder a running PES exe lives in, the main row or the
+    /// version's own entry once any exists (the shell's own action — no tool has a reason
+    /// to publish it): the sidebar's auto-switch notice offers it when the running game
+    /// sits outside the configured folder.
     FixPesPath {
         /// The running exe's folder.
         folder: PathBuf,

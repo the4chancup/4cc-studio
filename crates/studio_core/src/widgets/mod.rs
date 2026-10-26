@@ -10,5 +10,5 @@ mod settings_row;
 
 pub use dock::BottomDock;
 pub use log_panel::{LogLine, LogPanel};
-pub(crate) use settings_row::row_label;
+pub(crate) use settings_row::{PathCommit, path_row_commit, row_label};
 pub use settings_row::{PathKind, path_row};

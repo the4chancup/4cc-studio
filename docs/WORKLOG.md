@@ -2710,12 +2710,30 @@ briefs, review loops, gates and mutation runs as for any step.
     size a member reaches (2200 x 1400 pixels; 550 x 350 points sat under the minimum); the
     plan says eframe's creation clamp is kept. Done 2026-10-26 (SWE-2). Open: the post-Astra
     SWE-2 round. Files: `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`
-- [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
+- [x] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version
   toggle and its rows, `pes_folder` resolving an override first, Fix PES path writing the
   running version's row → verify: ST-SET-04; `pes_folder`'s unit tests (override, empty
-  fallback, the pattern); the bundled `settings.toml` reading unchanged
+  fallback, the pattern); the bundled `settings.toml` reading unchanged (no such file ships:
+  read as a settings file without overrides saving byte for byte). Done
+  (`.tmp/0_0_1r/brief_r1.md`): `CommonSettings::pes_folders` (`[common.pes_folders]`, written
+  with string keys since `toml::Value` refuses integer ones, read as `pes_version` is),
+  `pes_folder` resolving a filled entry first, `pes_folder_pattern` (the one rule of Browse
+  and Fix PES path), `fix_pes_folder`, `path_row_commit` telling a pick from a typed commit,
+  the toggle and seven rows (emptying the last row leaves the toggle on, DECISIONS
+  2026-10-26); `shell/settings_menu.rs` split into `settings_menu/{mod,tests}.rs` (past a
+  thousand lines). Three ST-SET-04 tests, seven unit tests. SWE-2 round S1: 2 accepted of 8
+  (`.tmp/0_0_1r/rulings.md`: a hand-written empty entry dropped at load, so the toggle and
+  Fix PES path count overrides as the resolution does; the typed-commit test's folder
+  holding the year). Open for the top lead, on the
+  merged code: Browse on the PES folder row with a folder named `… 2019` at PES 2019 (stores
+  `20**`) and with `E:\PES` (stored as picked), the native picker being manual. Not in my
+  locks: `spec/team_compiler/settings.md`'s `pes_folder_path` row and
+  `team_compiler/src/view/mod.rs` (prints `pes_folder_path` raw) do not know the overrides.
+  Files: `studio_core/src/settings/{common,mod}.rs`, `studio_core/src/shell/{mod.rs,
+  settings_menu/}`, `studio_core/src/{status.rs,widgets/{mod,settings_row}.rs}`,
+  `plans/core/gui.md`, `DECISIONS.md`
 - [ ] 0.0.1s the Save editor's main panel after 4ccEditor's layout, no tabs (the maintainer,
   2026-10-26; prototyped first): General info with the playable positions under it, skills
   in two columns with the COM styles and the four non-ability values stacked under them, one

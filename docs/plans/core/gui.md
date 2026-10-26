@@ -299,7 +299,9 @@ The settings menu is assembled from injected sections:
   `CommonSettings::pes_folder`, which every reader calls, resolves the selected version's
   override first. The toggle is the view's alone, not a setting: it is on while any override
   exists and cannot be switched off until the rows are emptied, since a hidden override would
-  still apply and hide why a folder is used. Fix PES path ("Sidebar") writes the running
+  still apply and hide why a folder is used. Emptying the last row leaves the toggle on, now
+  free to switch off, rather than switching it off with the rows: the rows would vanish under
+  the edit that emptied them. Fix PES path ("Sidebar") writes the running
   version's own row whenever any override exists (a member who keeps folders per version,
   whose other versions a rewritten main row would move), the folder as it is, else the main
   row as before.

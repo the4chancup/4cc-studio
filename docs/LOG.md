@@ -2569,3 +2569,6 @@ worklog passed 7,000 lines.
   title bar is checked at each monitor's own scale (0.0.1q-q3, Astra A1).
 - **2026-10-26** — The maintainer approved the Tactics grid and the player view's last look in the draft; the plan,
   the decisions and the worklog's slices s4, s5 and step 0.0.1u (the theme keeps egui 0.36's spacing) follow them.
+- **2026-10-26** — A folder per PES version: the PES folder's Browse stores a folder named after the selected year as
+  `20**`, and A folder per version gives each version a row of its own (`[common.pes_folders]`), which the folder
+  resolution and Fix PES path use first (0.0.1r).

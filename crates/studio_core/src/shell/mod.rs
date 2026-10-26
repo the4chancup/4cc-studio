@@ -312,9 +312,8 @@ impl StudioApp {
     }
 
     /// Applies a clicked notice action (the notice is already dismissed). `SwitchTool` goes
-    /// through the shell's own switch; `FixPesPath` rewrites `pes_folder_path` from the
-    /// running exe's folder, the year of the version the notice was raised for in its last
-    /// segment becoming `20**` again (a segment without the year is kept), then saves as any
+    /// through the shell's own switch; `FixPesPath` points the settings at the running exe's
+    /// folder, the main row or the version's own entry once any exists, then saves as any
     /// change; `OpenSettings` opens the settings menu on the active tool's section;
     /// `OpenHelp` opens the help window at the target. `OpenFolder` has no target yet (the
     /// compile's "Open output" is a later GUI-phase step): it only dismisses.
@@ -322,13 +321,12 @@ impl StudioApp {
         match effect {
             ActionEffect::SwitchTool(id) => self.switch_to(&id),
             ActionEffect::FixPesPath { folder, version } => {
-                let year = version.year().to_string();
-                let path = match folder.file_name().and_then(|name| name.to_str()) {
-                    Some(name) => folder.with_file_name(name.replace(&year, "20**")),
-                    None => folder,
-                };
-                self.ctx.settings().lock().unwrap().common.pes_folder_path =
-                    path.display().to_string();
+                self.ctx
+                    .settings()
+                    .lock()
+                    .unwrap()
+                    .common
+                    .fix_pes_folder(&folder, version);
                 self.ctx.request(ShellRequest::SettingsChanged);
             }
             ActionEffect::OpenSettings => self.settings_menu.open(self.active, &self.ctx),

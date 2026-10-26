@@ -11665,3 +11665,12 @@ Why: the maintainer's ruling: the drafts were reviewed at 0.36's spacing and rad
 built UI follows the drafts, not a library's new defaults (0.37 doubled the button padding and
 the radii); pinning also keeps the next upgrade from moving the look.
 Plan: `plans/core/gui.md` "Other UI components", the "Dark/light theme" row.
+
+## 2026-10-26 — studio_core — Emptying the last per-version folder leaves A folder per version on
+Decision: the settings menu's A folder per version toggle, once shown on (switched on, or held
+on by a filled row), stays on when the member empties the last filled row; it is then free to
+switch off. Each opening of the menu starts it off, a saved override switching it on.
+Why: the plan was silent on the frame after the last row empties. Deriving the toggle from the
+overrides alone switched it off there, so the seven rows vanished under the edit that emptied
+the last one, and a member who meant to type another folder had to find the toggle again.
+Plan: `plans/core/gui.md` "Settings menu", the "PES folder" bullet.

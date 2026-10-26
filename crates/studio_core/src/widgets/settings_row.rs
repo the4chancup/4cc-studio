@@ -43,8 +43,33 @@ pub fn path_row(
     tip: &str,
     buffer: &mut String,
     current: &mut String,
-    _kind: PathKind,
+    kind: PathKind,
 ) -> bool {
+    path_row_commit(ui, label, key, tip, buffer, current, kind).is_some()
+}
+
+/// How a path row's setting changed this frame: typed into the edit, or picked with
+/// Browse.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum PathCommit {
+    /// The edit committed on Enter or focus loss, its text stored as typed.
+    Typed,
+    /// Browse's picker returned a folder or file, stored as `Path::display` writes it.
+    Picked,
+}
+
+/// `path_row`, saying which way the setting changed: the PES folder row stores a
+/// picked folder through its own rule (the selected version's year written `20**`),
+/// a typed one as typed.
+pub(crate) fn path_row_commit(
+    ui: &mut egui::Ui,
+    label: &str,
+    key: &str,
+    tip: &str,
+    buffer: &mut String,
+    current: &mut String,
+    _kind: PathKind,
+) -> Option<PathCommit> {
     let label = row_label(ui, label, key, tip);
     let (response, picked) = ui
         .horizontal(|ui| {
@@ -64,14 +89,14 @@ pub fn path_row(
     if let Some(path) = picked {
         *buffer = path.display().to_string();
         *current = buffer.clone();
-        return true;
+        return Some(PathCommit::Picked);
     }
     if response.lost_focus() {
         if buffer == current {
-            return false;
+            return None;
         }
         *current = buffer.clone();
-        return true;
+        return Some(PathCommit::Typed);
     }
     // The buffer follows `current` only while the edit lacks focus in
     // egui's memory: `Response::has_focus` is also false while the
@@ -80,7 +105,7 @@ pub fn path_row(
     if !ui.ctx().memory(|memory| memory.has_focus(response.id)) {
         *buffer = current.clone();
     }
-    false
+    None
 }
 
 /// The Browse button and the native picker it opens, `kind`'s: `rfd`'s blocking
