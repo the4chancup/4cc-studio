@@ -1,8 +1,9 @@
 //! The status bar (core plan, "Status bar"; draft `docs/prototypes/index.html`): one 24 px row
 //! under the sidebar and the tool view, drawn in every tool. Three slots: the version and the
-//! held `ShellCondition`s left, the latest `Notice` middle, the other tools' `ToolActivity`s
-//! right. Tools cannot draw into the bar; they return an activity and publish notices
-//! (`crate::status`).
+//! held `ShellCondition`s left at their content's width, the other tools' `ToolActivity`s
+//! right at their text's width capped at a third of the bar, and the latest `Notice` middle
+//! in the space they leave. Tools cannot draw into the bar; they return an activity and
+//! publish notices (`crate::status`).
 
 use std::time::Duration;
 
@@ -73,7 +74,9 @@ impl StatusBar {
         }
     }
 
-    /// Draws the row's three slots. `activities` are the not-active tools' activity texts in
+    /// Draws the row's slots, the middle taking what the sides leave: the left and right
+    /// slots are as wide as what they hold and the notice's slot is the rest.
+    /// `activities` are the not-active tools' activity texts in
     /// sidebar order (the active tool's run strip already shows its own). Returns the notice
     /// action the user clicked, for the shell to apply; clicking it also dismisses the
     /// notice.
@@ -85,74 +88,119 @@ impl StatusBar {
         self.expire(ui);
         let mut effect = None;
         let mut dismissed = false;
-        ui.columns(3, |columns| {
-            self.left_slot(&mut columns[0]);
-            // Middle: the notice — text in its kind's colour, its action, the
-            // dismiss X — centred on the bar as one group. egui centres an
-            // allocated rect, not a row of widgets, so the group's width is
-            // measured from the galleys and the buttons' padding and the row is
-            // padded to it.
-            if let Some(notice) = &self.notice {
-                columns[1].with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
-                    ui.horizontal(|ui| {
-                        let color = crate::theme::notice_color(notice.kind, ui.visuals());
-                        let spacing = ui.spacing().item_spacing.x;
-                        let button = egui::TextStyle::Button.resolve(ui.style());
-                        let body = egui::TextStyle::Body.resolve(ui.style());
-                        let galley_width = |ui: &mut egui::Ui, text: &str, font: &egui::FontId| {
-                            ui.fonts_mut(|fonts| {
-                                fonts.layout_no_wrap(text.to_owned(), font.clone(), color)
-                            })
-                            .size()
-                            .x
-                        };
-                        let dismiss_width = galley_width(ui, crate::icons::X, &button);
-                        let action_width = notice.action.as_ref().map_or(0.0, |action| {
-                            galley_width(ui, &action.label, &button)
-                                + 2.0 * ui.spacing().button_padding.x
-                        });
-                        let gaps = if notice.action.is_some() {
-                            2.0 * spacing
-                        } else {
-                            spacing
-                        };
-                        let text_width = galley_width(ui, &notice.text, &body)
-                            .min(ui.available_width() - dismiss_width - action_width - gaps)
-                            .max(0.0);
-                        let group = text_width + action_width + dismiss_width + gaps;
-                        ui.add_space(((ui.available_width() - group) / 2.0).max(0.0));
-                        ui.add_sized(
-                            [text_width, ui.spacing().interact_size.y],
-                            egui::Label::new(egui::RichText::new(&notice.text).color(color))
-                                .truncate(),
-                        )
-                        .on_hover_text(&notice.text);
-                        if let Some(action) = &notice.action
-                            && ui.button(&action.label).clicked()
-                        {
-                            dismissed = true;
-                            effect = Some(action.effect.clone());
-                        }
-                        let x = ui.add(egui::Button::new(crate::icons::X).frame(false));
-                        x.widget_info(|| {
-                            egui::WidgetInfo::labeled(egui::Role::Button, true, "Dismiss")
-                        });
-                        if x.on_hover_text("Dismiss").clicked() {
-                            dismissed = true;
-                        }
-                    });
-                });
-            }
-            // Right: the other tools' activities, packed against the right edge
-            // and truncating to it.
-            columns[2].with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                let texts = activities.join(" · ");
-                if !texts.is_empty() {
+        let bar = ui.max_rect();
+        let spacing = ui.spacing().item_spacing.x;
+        let left_right = self.left_slot(ui);
+        // Right: the other tools' activities, at their text's width capped at a third
+        // of the bar (an activity line is short; the cap keeps a long one from taking
+        // the notice's room), packed against the right edge and truncating past the
+        // cap. No activity, no width.
+        let texts = activities.join(" · ");
+        let right_width = if texts.is_empty() {
+            0.0
+        } else {
+            ui.fonts_mut(|fonts| {
+                fonts.layout_no_wrap(
+                    texts.clone(),
+                    egui::TextStyle::Body.resolve(ui.style()),
+                    ui.visuals().text_color(),
+                )
+            })
+            .size()
+            .x
+            .min(bar.width() / 3.0)
+        };
+        if right_width > 0.0 {
+            ui.scope_builder(
+                egui::UiBuilder::new()
+                    .max_rect(egui::Rect::from_min_max(
+                        egui::pos2(bar.right() - right_width, bar.top()),
+                        bar.right_bottom(),
+                    ))
+                    .layout(egui::Layout::right_to_left(egui::Align::Center)),
+                |ui| {
                     ui.add(egui::Label::new(&texts).truncate())
                         .on_hover_text(&texts);
+                },
+            );
+        }
+        // Middle: the notice — text in its kind's colour, its action, the
+        // dismiss X — centred in the space the sides leave as one group. egui
+        // centres an allocated rect, not a row of widgets, so the group's width
+        // is measured from the galleys and the buttons' padding and the row is
+        // padded to it.
+        let middle_left = left_right + spacing;
+        let middle_right = if right_width > 0.0 {
+            bar.right() - right_width - spacing
+        } else {
+            bar.right()
+        }
+        .max(middle_left);
+        // The scope's id is pinned: the right slot's scope exists only while an
+        // activity is up, and a salted id would change the notice's widget ids
+        // the frame one appears.
+        ui.scope_builder(
+            egui::UiBuilder::new()
+                .scope_id(ui.make_persistent_id("notice"))
+                .max_rect(egui::Rect::from_min_max(
+                    egui::pos2(middle_left, bar.top()),
+                    egui::pos2(middle_right, bar.bottom()),
+                )),
+            |ui| {
+                if let Some(notice) = &self.notice {
+                    ui.with_layout(egui::Layout::top_down(egui::Align::Center), |ui| {
+                        ui.horizontal(|ui| {
+                            let color = crate::theme::notice_color(notice.kind, ui.visuals());
+                            let spacing = ui.spacing().item_spacing.x;
+                            let button = egui::TextStyle::Button.resolve(ui.style());
+                            let body = egui::TextStyle::Body.resolve(ui.style());
+                            let galley_width =
+                                |ui: &mut egui::Ui, text: &str, font: &egui::FontId| {
+                                    ui.fonts_mut(|fonts| {
+                                        fonts.layout_no_wrap(text.to_owned(), font.clone(), color)
+                                    })
+                                    .size()
+                                    .x
+                                };
+                            let dismiss_width = galley_width(ui, crate::icons::X, &button);
+                            let action_width = notice.action.as_ref().map_or(0.0, |action| {
+                                galley_width(ui, &action.label, &button)
+                                    + 2.0 * ui.spacing().button_padding.x
+                            });
+                            let gaps = if notice.action.is_some() {
+                                2.0 * spacing
+                            } else {
+                                spacing
+                            };
+                            let text_width = galley_width(ui, &notice.text, &body)
+                                .min(ui.available_width() - dismiss_width - action_width - gaps)
+                                .max(0.0);
+                            let group = text_width + action_width + dismiss_width + gaps;
+                            ui.add_space(((ui.available_width() - group) / 2.0).max(0.0));
+                            ui.add_sized(
+                                [text_width, ui.spacing().interact_size.y],
+                                egui::Label::new(egui::RichText::new(&notice.text).color(color))
+                                    .truncate(),
+                            )
+                            .on_hover_text(&notice.text);
+                            if let Some(action) = &notice.action
+                                && ui.button(&action.label).clicked()
+                            {
+                                dismissed = true;
+                                effect = Some(action.effect.clone());
+                            }
+                            let x = ui.add(egui::Button::new(crate::icons::X).frame(false));
+                            x.widget_info(|| {
+                                egui::WidgetInfo::labeled(egui::Role::Button, true, "Dismiss")
+                            });
+                            if x.on_hover_text("Dismiss").clicked() {
+                                dismissed = true;
+                            }
+                        });
+                    });
                 }
-            });
-        });
+            },
+        );
         if effect.is_some() || dismissed {
             self.dismiss();
         }
@@ -160,8 +208,9 @@ impl StatusBar {
     }
 
     /// The left slot: the version, always, then one icon-and-text entry per held condition,
-    /// each carrying its tooltip.
-    fn left_slot(&self, ui: &mut egui::Ui) {
+    /// each carrying its tooltip. Returns the content's right edge, the middle slot's
+    /// left bound.
+    fn left_slot(&self, ui: &mut egui::Ui) -> f32 {
         ui.horizontal(|ui| {
             ui.label(
                 egui::RichText::new(crate::shell::version_label())
@@ -185,7 +234,9 @@ impl StatusBar {
                 .response
                 .on_hover_text(condition.tooltip());
             }
-        });
+            ui.min_rect().right()
+        })
+        .inner
     }
 }
 
@@ -209,6 +260,19 @@ mod tests {
             .filter(|node| node.bounds().is_some_and(|bounds| bounds.y0 >= 576.0))
             .filter_map(|node| node.value())
             .collect()
+    }
+
+    /// The left slot's right edge: the version label's right side (no condition is
+    /// raised in these tests, so the version is the slot's last entry).
+    fn left_slot_right(nodes: &[egui::accesskit::Node]) -> f64 {
+        let version = crate::shell::version_label();
+        nodes
+            .iter()
+            .find(|node| node.value() == Some(version.as_str()))
+            .expect("the version label is drawn")
+            .bounds()
+            .unwrap()
+            .x1
     }
 
     // ST-BAR-01
@@ -343,20 +407,18 @@ mod tests {
         assert!(has_text(nodes, "ready"));
         entry(nodes, "Go");
 
-        // The middle slot shows the group — text, action, dismiss — centred on
-        // the bar: the text's left edge to the dismiss button's right edge
-        // straddle the 800 px screen's middle.
+        // The middle slot shows the group — text, action, dismiss — centred in
+        // the space the sides leave: the left slot's right edge plus item
+        // spacing to the bar's right margin, with no activity up.
         let text = bar_text_shape(&out, "ready").expect("the notice text is painted");
-        assert!(
-            text.pos.x >= 800.0 / 3.0 && text.pos.x + text.galley.rect.width() <= 1600.0 / 3.0,
-            "the notice text sits in the middle slot: {:?}",
-            text.pos
-        );
+        let spacing = f64::from(egui_ctx.global_style().spacing.item_spacing.x);
+        let slot_left = left_slot_right(nodes) + spacing;
+        let slot_right = 800.0 - 8.0;
         let dismiss = entry(nodes, "Dismiss").bounds().unwrap();
         let centre = (f64::from(text.pos.x) + dismiss.x1) / 2.0;
         assert!(
-            (centre - 400.0).abs() <= 4.0,
-            "the notice group centres on the bar, centre at {centre}"
+            (centre - (slot_left + slot_right) / 2.0).abs() <= 4.0,
+            "the notice group centres in the space the sides leave {slot_left}..{slot_right}, centre at {centre}"
         );
         let nodes = frame_at(&egui_ctx, &mut app, Vec::new(), true, Some(20.0)).nodes;
         assert!(
@@ -392,9 +454,9 @@ mod tests {
         } = shell();
         let egui_ctx = test_context();
         ctx.notify(Notice {
-            text: "Wrote settings.toml for Snake into C:/Data/Documents/4cc/exports/DBC7/co/Snake"
+            text: "Although the sidebar is set to PES 2019, this save is from PES 2021, so the editor keeps treating it as a PES 2021 save."
                 .to_owned(),
-            kind: NoticeKind::Success,
+            kind: NoticeKind::Warning,
             action: Some(NoticeAction {
                 label: "Go".to_owned(),
                 effect: ActionEffect::SwitchTool("b".to_owned()),
@@ -402,16 +464,17 @@ mod tests {
         });
         let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
 
-        // The middle of three columns across the bar's 784 px (800 less its 8 px side
-        // margins, `shell::mod`), the columns `item_spacing.x` apart.
-        let spacing = egui_ctx.global_style().spacing.item_spacing.x;
-        let column = (784.0 - 2.0 * spacing) / 3.0;
-        let slot_left = f64::from(8.0 + column + spacing);
-        let slot_right = slot_left + f64::from(column);
+        // The middle slot is what the sides leave: the left slot's right edge
+        // plus item spacing to the bar's right margin (800 less its 8 px side
+        // margin, `shell::mod`), with no activity up.
+        let spacing = f64::from(egui_ctx.global_style().spacing.item_spacing.x);
+        let slot_left = left_slot_right(&nodes) + spacing;
+        let slot_right = 800.0 - 8.0;
         let text = nodes
             .iter()
             .find(|node| {
-                node.role() == Role::Label && node.value().is_some_and(|v| v.starts_with("Wrote"))
+                node.role() == Role::Label
+                    && node.value().is_some_and(|v| v.starts_with("Although"))
             })
             .expect("the notice's label")
             .bounds()
@@ -424,6 +487,81 @@ mod tests {
             "the group spans the slot {slot_left}..{slot_right}: text from {}, X to {}",
             text.x0,
             dismiss.x1
+        );
+    }
+
+    // ST-BAR-03
+    #[test]
+    fn a_hundred_character_notice_is_drawn_whole_on_a_1280_point_window() {
+        let Shell {
+            mut app, ctx, _dir, ..
+        } = shell();
+        let egui_ctx = test_context();
+        const NOTICE_TEXT: &str = "Although the sidebar is set to PES 2019, this save is from PES 2021, so the editor keeps treating it as a PES 2021 save.";
+        ctx.notify(Notice {
+            text: NOTICE_TEXT.to_owned(),
+            kind: NoticeKind::Warning,
+            action: Some(NoticeAction {
+                label: "Switch to PES 2021".to_owned(),
+                effect: ActionEffect::SwitchTool("b".to_owned()),
+            }),
+        });
+        let mut input = raw_input(Vec::new(), true, None, None);
+        input.screen_rect = Some(egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(1280.0, 800.0),
+        ));
+        let out = run_frame(&egui_ctx, &mut app, input);
+
+        assert!(
+            out.nodes
+                .iter()
+                .any(|node| { node.role() == Role::Label && node.value() == Some(NOTICE_TEXT) }),
+            "the notice's label carries the whole text"
+        );
+        let shape = bar_text_shape(&out, NOTICE_TEXT).expect("the notice text is painted");
+        assert!(
+            !shape.galley.elided,
+            "the painted galley is the notice's whole text, no ellipsis"
+        );
+    }
+
+    // ST-BAR-03
+    #[test]
+    fn the_activity_ends_at_the_right_margin_and_the_notice_stops_before_it() {
+        let Shell {
+            mut app,
+            ctx,
+            calls,
+            _dir,
+            ..
+        } = shell();
+        let egui_ctx = test_context();
+        calls[1].set_activity("B", Some((12, 48)), Duration::from_secs(72));
+        ctx.notify(Notice {
+            text: "Although the sidebar is set to PES 2019, this save is from PES 2021, so the editor keeps treating it as a PES 2021 save.".to_owned(),
+            kind: NoticeKind::Warning,
+            action: Some(NoticeAction {
+                label: "Switch to PES 2021".to_owned(),
+                effect: ActionEffect::SwitchTool("b".to_owned()),
+            }),
+        });
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+
+        let activity = nodes
+            .iter()
+            .find(|node| node.value() == Some("B · 12/48 · 01:12"))
+            .expect("the second tool's activity is drawn")
+            .bounds()
+            .unwrap();
+        assert!(
+            (activity.x1 - (800.0 - 8.0)).abs() <= 1.0,
+            "the activity's text ends at the bar's right margin: {activity:?}"
+        );
+        let dismiss = entry(&nodes, "Dismiss").bounds().unwrap();
+        assert!(
+            dismiss.x1 <= activity.x0,
+            "the notice group stops before the activity {activity:?}: {dismiss:?}"
         );
     }
 

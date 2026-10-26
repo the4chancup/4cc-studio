@@ -2,9 +2,10 @@
 //! is behind others — the taskbar button, alt-tab. While a tool reports an activity the title
 //! carries it (`Team compiler · 12/48 · 01:12 - Unlimited Tool Works`, `APP_NAME` last; the
 //! active tool's first, then sidebar order); idle with a notice that arrived unfocused it holds
-//! the notice's text until focus returns; otherwise it is `APP_NAME`. The shell sends `ViewportCommand::Title` only
+//! the notice's text until focus returns; idle it names the active tool
+//! (`Save editor - Unlimited Tool Works`). The shell sends `ViewportCommand::Title` only
 //! when the string changes, once per frame at most — the window opens titled `APP_NAME`, so
-//! an idle start sends nothing.
+//! the first frame sends the idle title.
 
 /// What the title reads from: the last string sent and the notice text held while unfocused.
 pub(super) struct WindowTitle {
@@ -15,13 +16,10 @@ pub(super) struct WindowTitle {
     held_notice: Option<String>,
 }
 
-/// The idle title — also the title `run_gui` opens the window with.
-const IDLE_TITLE: &str = crate::APP_NAME;
-
 impl Default for WindowTitle {
     fn default() -> Self {
         WindowTitle {
-            last_sent: IDLE_TITLE.to_owned(),
+            last_sent: crate::APP_NAME.to_owned(),
             held_notice: None,
         }
     }
@@ -37,8 +35,14 @@ impl WindowTitle {
     }
 
     /// The title this frame should carry, `Some` only when it differs from the last sent.
-    /// `activities` are the activity texts, the active tool's first then sidebar order.
-    pub(super) fn frame(&mut self, activities: &[String], focused: bool) -> Option<String> {
+    /// `activities` are the activity texts, the active tool's first then sidebar order;
+    /// `active_label` is the active tool's label, the idle title's first half.
+    pub(super) fn frame(
+        &mut self,
+        activities: &[String],
+        focused: bool,
+        active_label: &str,
+    ) -> Option<String> {
         if focused {
             self.held_notice = None;
         }
@@ -48,7 +52,7 @@ impl WindowTitle {
         } else if let Some(text) = &self.held_notice {
             format!("{text} - {}", crate::APP_NAME)
         } else {
-            IDLE_TITLE.to_owned()
+            format!("{active_label} - {}", crate::APP_NAME)
         };
         if title == self.last_sent {
             return None;
@@ -76,8 +80,10 @@ mod tests {
     #[test]
     fn the_title_changes_only_when_the_string_changes() {
         let mut title = WindowTitle::default();
-        // The window opens titled `APP_NAME`: an idle start sends nothing.
-        assert_eq!(title.frame(&texts(&[]), true), None);
+        let idle = || format!("A - {}", crate::APP_NAME);
+        // The window opens titled `APP_NAME`: the first frame sends the idle title.
+        assert_eq!(title.frame(&texts(&[]), true, "A"), Some(idle()));
+        assert_eq!(title.frame(&texts(&[]), true, "A"), None);
 
         let busy = texts(&["Team compiler · 12/48 · 01:12", "B · 00:03"]);
         let busy_title = || {
@@ -86,28 +92,50 @@ mod tests {
                 crate::APP_NAME
             )
         };
-        assert_eq!(title.frame(&busy, true), Some(busy_title()));
-        assert_eq!(title.frame(&busy, true), None, "unchanged sends nothing");
-        assert_eq!(title.frame(&texts(&[]), true), Some(IDLE_TITLE.to_owned()));
+        assert_eq!(title.frame(&busy, true, "A"), Some(busy_title()));
+        assert_eq!(
+            title.frame(&busy, true, "A"),
+            None,
+            "unchanged sends nothing"
+        );
+        assert_eq!(title.frame(&texts(&[]), true, "A"), Some(idle()));
 
         // An activity outranks a held notice.
         title.notice("Compiled 48 teams", false);
-        assert_eq!(title.frame(&busy, false), Some(busy_title()));
+        assert_eq!(title.frame(&busy, false, "A"), Some(busy_title()));
         assert_eq!(
-            title.frame(&texts(&[]), false),
+            title.frame(&texts(&[]), false, "A"),
             Some(format!("Compiled 48 teams - {}", crate::APP_NAME))
         );
-        assert_eq!(title.frame(&texts(&[]), true), Some(IDLE_TITLE.to_owned()));
-        assert_eq!(title.frame(&texts(&[]), true), None);
+        assert_eq!(title.frame(&texts(&[]), true, "A"), Some(idle()));
+        assert_eq!(title.frame(&texts(&[]), true, "A"), None);
+    }
+
+    #[test]
+    fn switching_the_active_tool_while_idle_sends_the_new_tools_title_once() {
+        let mut title = WindowTitle::default();
+        assert_eq!(
+            title.frame(&texts(&[]), true, "A"),
+            Some(format!("A - {}", crate::APP_NAME))
+        );
+        assert_eq!(
+            title.frame(&texts(&[]), true, "B"),
+            Some(format!("B - {}", crate::APP_NAME)),
+            "the switch sends the new tool's idle title"
+        );
+        assert_eq!(title.frame(&texts(&[]), true, "B"), None, "sent once");
     }
 
     #[test]
     fn a_notice_while_focused_is_never_held_in_the_title() {
         let mut title = WindowTitle::default();
         title.notice("Compiled 48 teams", true);
-        assert_eq!(title.frame(&texts(&[]), true), None);
+        assert_eq!(
+            title.frame(&texts(&[]), true, "A"),
+            Some(format!("A - {}", crate::APP_NAME))
+        );
         // And the notice does not surface later, when focus leaves.
-        assert_eq!(title.frame(&texts(&[]), false), None);
+        assert_eq!(title.frame(&texts(&[]), false, "A"), None);
     }
 
     // ST-TTL-01
@@ -137,7 +165,11 @@ mod tests {
 
         calls[0].clear_activity();
         let out = frame(&egui_ctx, &mut app, Vec::new(), true);
-        assert_eq!(titles(&out), [IDLE_TITLE], "idle again");
+        assert_eq!(
+            titles(&out),
+            [format!("A - {}", crate::APP_NAME)],
+            "the active tool's idle title"
+        );
     }
 
     // ST-TTL-02
@@ -148,9 +180,13 @@ mod tests {
         } = shell();
         let egui_ctx = test_context();
 
-        // An idle unfocused start sends nothing.
+        // An idle unfocused start sends the active tool's idle title.
         let out = frame(&egui_ctx, &mut app, Vec::new(), false);
-        assert!(titles(&out).is_empty(), "the idle start sends nothing");
+        assert_eq!(
+            titles(&out),
+            [format!("A - {}", crate::APP_NAME)],
+            "the first frame sends the idle title"
+        );
 
         ctx.notify(crate::status::Notice {
             text: "Compiled 48 teams".to_owned(),
@@ -167,7 +203,11 @@ mod tests {
         assert!(titles(&out).is_empty(), "held, sent once");
 
         let out = frame(&egui_ctx, &mut app, Vec::new(), true);
-        assert_eq!(titles(&out), [IDLE_TITLE], "focus returns to idle");
+        assert_eq!(
+            titles(&out),
+            [format!("A - {}", crate::APP_NAME)],
+            "focus returns to the active tool's idle title"
+        );
 
         ctx.notify(crate::status::Notice {
             text: "Compiled 48 teams".to_owned(),
@@ -226,7 +266,11 @@ mod tests {
         // title went idle — all while the first stub's view was never drawn.
         let out = frame(&egui_ctx, &mut app, Vec::new(), true);
         assert!(calls[0].activity.lock().unwrap().is_none());
-        assert_eq!(titles(&out), [IDLE_TITLE]);
+        assert_eq!(
+            titles(&out),
+            [format!("B - {}", crate::APP_NAME)],
+            "the second tool's idle title"
+        );
         assert_eq!(calls[0].views(), 0, "the first stub's view was not drawn");
     }
 }

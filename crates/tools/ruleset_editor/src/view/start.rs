@@ -27,10 +27,7 @@ pub(crate) fn page(
 ) {
     egui::ScrollArea::vertical()
         .auto_shrink(false)
-        .show(ui, |ui| {
-            ui.heading("Ruleset editor");
-            body(ui, view, ctx, settings);
-        });
+        .show(ui, |ui| body(ui, view, ctx, settings));
 }
 
 /// The start page over the document (File's "New from template…"), with

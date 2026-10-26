@@ -386,7 +386,9 @@ impl eframe::App for StudioApp {
             self.sidebar.about_open = false;
         }
         let focused = egui_ctx.input(|input| input.focused);
-        if let Some(title) = self.title.frame(&self.activities(true), focused) {
+        let activities = self.activities(true);
+        let active_label = self.tools.get(self.active).map_or("", |tool| tool.label());
+        if let Some(title) = self.title.frame(&activities, focused, active_label) {
             egui_ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
         }
     }

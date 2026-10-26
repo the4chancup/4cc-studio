@@ -2673,6 +2673,15 @@ briefs, review loops, gates and mutation runs as for any step.
     and ST-TTL-01 to 03; four DECISIONS entries. Review: a SWE-2 loop, then Astra
   - [ ] s3 the code, in slices (the view's frame and the team row; the player view's
     columns; the team view), before 0.0.1o, whose marks then land on the final layout
+    - [x] s3a the shell (SWE-2): the status bar's left and right slots at their content's
+      width, the right capped at a third, the notice centred in what they leave
+      (`shell/status_bar.rs`, ST-BAR-03); the idle title `<tool> - <app>` (`shell/title.rs`,
+      ST-TTL-01 to 03); the Ruleset editor's start page draws no heading of its name
+    - [ ] s3b no tabs: the selection a team or a player, the team row, the team view (Kit
+      slots… a dialog), the quick actions under the list, drag under ALL within a team, the
+      bench players only (`.tmp/0_0_1s/brief_0_0_1s3b.md`)
+    - [ ] s3c the player view's three columns, the `<id> <name>` line, the counts; the team
+      view's tactics measured again at 1280 x 800
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
