@@ -2672,7 +2672,8 @@ briefs, review loops, gates and mutation runs as for any step.
     other section's tab wording, SE-GUI-01/03/06/07/10/11/12/13/22/25/28/31/32/35 reworded,
     SE-GUI-37 (the team row) and 38 (the counts) added; `core/gui.md` "Status bar" (the middle
     takes what the sides leave) and "Window title" (the idle title names the tool), ST-BAR-03
-    and ST-TTL-01 to 03; four DECISIONS entries. Review: a SWE-2 loop, then Astra
+    and ST-TTL-01 to 03; four DECISIONS entries. Review: SWE-2 S1-S4 and Astra A1-A2, 32
+    concerns accepted, the loops ended (`.tmp/lead/s2_rulings.md`)
   - [ ] s3 the code, in slices (the view's frame and the team row; the player view's
     columns; the team view), before 0.0.1o, whose marks then land on the final layout
     - [x] s3a the shell (SWE-2): the status bar's left and right slots at their content's

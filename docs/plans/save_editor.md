@@ -345,10 +345,10 @@ all side by side.
   the save's opening until the member has seen it: its action, **Switch to PES 20xx** (the
   save's version), which makes the same change the sidebar's selector makes, its blockers
   included (a switch a blocker refuses, such as a running compile, leaves the warning up, as
-  the selector stays mismatched); its dismiss; or another notice taking the bar. While it
-  lives it follows the
-  selector: shown whenever the selector names another version than the save's, its text
-  naming the selector's (a save opened under its own version too, once the selector moves
+  the selector stays mismatched); its dismiss; or another notice taking the bar from it while
+  it is shown (a notice arriving while the versions match, such as a save's, ends nothing:
+  no warning was there to see). While it lives it follows the selector: shown whenever the
+  selector names another version than the save's, its text naming the selector's (a save opened under its own version too, once the selector moves
   away), gone while the two match, back when they part again. Once it has ended, nothing
   shows until another save is opened. A notice, not a banner under the
   toolbar: the status bar is where the shell's environment warnings already sit, and a banner
@@ -1230,8 +1230,8 @@ SE-GUI-28  GIVEN the selector at PES 19
                 gone, and set back to PES 19 it shows again; WHEN instead its dismiss is
                 clicked THEN the notice is gone and the setting unchanged, and no selector
                 change brings it back until another save is opened; GIVEN the selector at
-                PES 21 WHEN the PES 21 save is opened and the selector then set to PES 19 THEN
-                the notice shows; GIVEN a stub tool reporting a version-change blocker WHEN
+                PES 21 WHEN the PES 21 save is opened, saved (its save notice taking the bar)
+                and the selector then set to PES 19 THEN the warning shows; GIVEN a stub tool reporting a version-change blocker WHEN
                 "Switch to PES 2021" is clicked THEN the setting stays PES 19 and the notice
                 stays
 SE-GUI-29  manual  GIVEN a Texport written by SE-GUI-17's export from a PES 18, 19, 20 and 21
