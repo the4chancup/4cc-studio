@@ -2545,7 +2545,7 @@ briefs, review loops, gates and mutation runs as for any step.
   match) → verify: SE-GUI-36; a test per field group of the match (one kind each, real
   violations of the PES 17 fixture's team where it has them); the draft (`tools/save_editor.js`)
   the same first, for the maintainer's look
-- [ ] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
+- [x] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
   "Usability proposals P17-P24 and P32-P38 accepted"; built: `spec/export_upgrader.md` step
   10, "CLI", "Message catalog"), one commit each:
   - [x] p1 `unmigrated_content`'s `reason` and `other`: first the list of emission sites, each
@@ -2573,7 +2573,9 @@ briefs, review loops, gates and mutation runs as for any step.
     Windows-only test holds a file open). The built additions moved to
     `spec/export_upgrader.md` "CLI", "Message catalog" and step 10 (the plan keeps "Several
     exports at once" and the GUI). p1's missed `stem_clashes` mutant has its test
-    (`referees.rs`). Open: `just mutants-diff 57ae9811`. Files:
+    (`referees.rs`). `mutants-diff 57ae9811`: 15 caught, 3 missed (the refusal not pinning
+    `Coverage::as_str`'s value; no name holding both `midcup` and `additions`), their
+    assertions added (rework r2), all three red against the mutant by hand. Files:
     `export_upgrader/src/{cli,naming,staging,upgrade,model_folders,messages,referees}.rs`,
     `tests/cli/cli.rs`, `tests/upgraded_golden.rs`, `help/01_command_line.md`,
     `spec/export_upgrader.md`, `plans/export_upgrader.md`

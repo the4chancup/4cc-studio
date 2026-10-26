@@ -276,6 +276,11 @@ mod tests {
             ("co Day 8 Additions", ("Midcup", TagSource::Additions)),
             ("co midcup Day 5", ("Midcup", TagSource::Name)),
             ("co Day 5 midcup", ("Midcup", TagSource::Midcup)),
+            ("co Day 5 midcup additions", ("Midcup", TagSource::Midcup)),
+            (
+                "co Day 8 additions midcup",
+                ("Midcup", TagSource::Additions),
+            ),
             ("co Full Spring", ("Full", TagSource::Name)),
         ] {
             let choice = named(export_name, None)

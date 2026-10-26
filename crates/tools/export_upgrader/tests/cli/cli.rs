@@ -139,7 +139,7 @@ fn coverage_flag_sets_the_tag_and_a_conflict_with_the_names_own_is_refused() {
         "co Full Spring",
         &["--savefile", &save, "--coverage", "midcup"],
     )
-    .assert_refused(2, &["--coverage", "Full"]);
+    .assert_refused(2, &["--coverage midcup", "Full"]);
     assert_eq!(sandbox.listing(""), before, "nothing is written");
 
     // The flag naming the tag the name already carries is accepted, source
