@@ -76,8 +76,9 @@ and cargo-mutants files the mutant as unviable (273 of 274 in 23 s at 4.y-conv's
 `MEMORY_MANAGEMENT` bugchecks there (2026-10-07 to 10-10, the last during a run, all four in
 `rustc.exe` at one kernel site) led the maintainer to move them until third-party drivers
 were removed (2026-10-11), when the split came back; the switch stays for the next time. The
-maintainer moved every mutation run to the VPS again on 2026-10-25, until further notice (the
-switch on), and the lead's gates with them (`just gates-remote`).
+maintainer moved every mutation run to the VPS again on 2026-10-25 (the switch on), and the
+lead's gates with them (`just gates-remote`); tests and gates came back the same evening, and
+mutation runs split again from 2026-10-26 (the switch off).
 `REMOTE_ONLY = True` in `scripts/mutants.py` makes
 `just mutants` and `just mutants-diff` run every mutant on the VPS as one whole run (no
 local half, no split threshold; the last local `mutants.out` set aside as
