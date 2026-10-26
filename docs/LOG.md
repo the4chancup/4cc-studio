@@ -2554,3 +2554,6 @@ worklog passed 7,000 lines.
   the midfield splits into two position rows, and the player view centres between the list and the edge (0.0.1s3j).
 - **2026-10-26** — A rules file a member handles ends in `.4ccrules` (every picker, both suggested names, the help); its
   first line says it is a Rhai script, and the repository's sources keep `.rhai` (0.0.1t).
+- **2026-10-26** — 8.29c1: the Team compiler's catalog, its first 80 rows (the help's Messages topic), rewritten as
+  sentences that flow (89 texts, three SWE-2 rounds), the meaning kept; the injected TOML comments (c6) live in lib
+  crates outside track U.

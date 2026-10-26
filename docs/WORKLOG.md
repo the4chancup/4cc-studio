@@ -22,7 +22,8 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 (8.9j1-j3), the comparator done (8.9j4), the save-writing transplant removed (8.9j5c; the
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
-window, catalog, CLI, help and draft) done; 8.9l, the open and save scenarios, briefed in
+window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
+on side-lead U's branch, c1 done; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2152,6 +2153,31 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       launch and title texts) and the drafts host `docs/prototypes/index.html`
     - [ ] c the Team compiler and the Export upgrader: their message catalogs, help chapters,
       CLI output and the comments injected into `settings.toml`/`config.toml`/`materials.toml`
+      (side-lead U, branch `side/text`), in six slices, the last outside its locks:
+      - [x] c1 the Team compiler's catalog, its first 80 rows (`export_extract_failed` to
+        `xml_ignored_fox`): 89 texts rewritten (the lead retouched ten: four the sidekick had
+        left, six where the rewrite kept a hard-to-parse clause or lost a "so"), the version
+        or case put in front with a colon now a clause ("In PES 2018 to 2021, ..."), the
+        semicolons now *but*, *so* or a new sentence. `export_extract_failed` stays as it was
+        (`studio`'s `help_cli` pins it, and it reads naturally); the spec's Catalog table keeps
+        its own wording (a2's ruling). SWE-2 round S1: 24 concerns, 16 accepted (among them
+        `kit_config_option_ignored` now saying the FPC values make the shirt model 176, and
+        three texts whose clause could bind to the wrong noun), 7 nits, 1 rejected; S2: 7, 6
+        accepted (five more clauses or pronouns with a second, wrong reading); S3: 8, 3
+        accepted, 4 nits, the loop's end. Table
+        `.tmp/8_29/c1_table.md`, rulings `.tmp/8_29/rulings.md` (side/text worktree).
+        Files: `team_compiler/src/messages/catalog.rs`
+      - [ ] c2 the catalog's rows 81-161 (`xml_ignored_shared` to `source_changed_during_run`)
+      - [ ] c3 the catalog's format-check and structure-pass rows (162-237); the upgrader's
+        structure-pass rows take each rewritten `when` word for word (its catalog test pins it)
+      - [ ] c4 the Team compiler's CLI output and `--help` (`cli.rs`), `help/01_command_line.md`
+        and the window's strings (`view/mod.rs`, `gui_run.rs`)
+      - [ ] c5 the Export upgrader's catalog (its own `effect`s and rows), `cli.rs` and
+        `help/01_command_line.md`
+      - [ ] c6 the injected comments: they live in `pes_savefile` (`settings_toml/`, the
+        `settings.toml` and `ingame_face.toml` headers and key comments) and `kit_config`
+        (`toml_form.rs`, `config.toml`), outside side-lead U's locks: for whoever holds those
+        crates (no code writes comments into `materials.toml` today)
     - [ ] d `libs/aatf`'s violation texts and the other tools' catalogs and help
   - [ ] 8.21 the app's font in the drafts (`core/gui.md` "The host's other review aids"; after
     8.9f4e picks the bundled font): `@font-face` rules at egui's sizes → verify: one width
