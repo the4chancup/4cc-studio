@@ -226,7 +226,7 @@ fn another_save_starts_the_panel_afresh() {
     view.aatf.open = true;
     view.aatf.mode = AatfMode::Select;
     view.aatf.show_suggestions = true;
-    let copy = dir.join("copy.rhai");
+    let copy = dir.join("copy.4ccrules");
     view.aatf_copy_dialog = Box::new(move |_| Some(copy.clone()));
     let rules = Some(rules_path.as_path());
     let mut window = Headless::sized(1100.0, 800.0);

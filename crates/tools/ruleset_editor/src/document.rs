@@ -360,10 +360,10 @@ mod tests {
         CUSTOM_CHECKS_STUB, modified_logic_file, scratch, valid_file, write_file,
     };
 
-    /// `valid_file()` as `test`'s `rules.rhai`, opened.
+    /// `valid_file()` as `test`'s `rules.4ccrules`, opened.
     fn open_official(test: &str) -> (PathBuf, Document) {
         let dir = scratch(test);
-        let path = write_file(&dir, "rules.rhai", &valid_file());
+        let path = write_file(&dir, "rules.4ccrules", &valid_file());
         let document = Document::open(&path).expect("opens");
         (path, document)
     }
@@ -390,7 +390,7 @@ mod tests {
         let dir = scratch("open_modified");
         let text = modified_logic_file();
         let expected = file_sections(&text).logic.unwrap();
-        let path = write_file(&dir, "rules.rhai", &text);
+        let path = write_file(&dir, "rules.4ccrules", &text);
         let doc = Document::open(&path).expect("opens");
         match &doc.logic {
             Logic::Modified { section } => {
@@ -405,14 +405,14 @@ mod tests {
     #[test]
     fn a_file_that_fails_to_load_is_not_opened() {
         let dir = scratch("open_broken");
-        let path = write_file(&dir, "rules.rhai", "const RULESET = #{ name: \"x\",\n");
+        let path = write_file(&dir, "rules.4ccrules", "const RULESET = #{ name: \"x\",\n");
         match Document::open(&path) {
             Err(OpenError::Invalid(aatf::LoadError::Parse { line, .. })) => {
                 assert!(line >= 1)
             }
             other => panic!("expected Invalid(Parse), got {other:?}"),
         }
-        let missing = dir.join("missing.rhai");
+        let missing = dir.join("missing.4ccrules");
         assert!(matches!(
             Document::open(&missing),
             Err(OpenError::Read { .. })
@@ -431,7 +431,7 @@ mod tests {
             1,
         );
         assert!(!text.contains("// ==== LOGIC"), "premise: no banner");
-        let path = write_file(&dir, "rules.rhai", &text);
+        let path = write_file(&dir, "rules.4ccrules", &text);
         let mut doc = Document::open(&path).expect("opens");
         match &doc.logic {
             Logic::Modified { section } => assert!(section.is_empty()),
@@ -452,7 +452,7 @@ mod tests {
         let (path, mut doc) = open_official("save_round_trip");
         let dir = path.parent().expect("the scratch folder").to_path_buf();
         doc.ruleset.tiers[0].rate = 98;
-        let out = dir.join("edited.rhai");
+        let out = dir.join("edited.4ccrules");
         doc.save(&out).expect("saves");
         let reopened = Document::open(&out).expect("reopens");
         assert_eq!(reopened.ruleset, doc.ruleset);
@@ -479,7 +479,7 @@ mod tests {
         let dir = scratch("save_keeps_sections");
         let path = write_file(
             &dir,
-            "rules.rhai",
+            "rules.4ccrules",
             &assemble_file(&ruleset, Some(&modified), Some(&checks)),
         );
         let mut doc = Document::open(&path).expect("opens");
@@ -523,7 +523,7 @@ mod tests {
     }
     found
 }";
-        let path = write_file(&dir, "rules.rhai", &text.replacen(stub, check, 1));
+        let path = write_file(&dir, "rules.4ccrules", &text.replacen(stub, check, 1));
         let mut doc = Document::open(&path).expect("opens");
         assert!(
             matches!(doc.logic, Logic::Modified { .. }),

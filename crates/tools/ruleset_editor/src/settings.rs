@@ -60,20 +60,20 @@ mod tests {
     #[test]
     fn remember_puts_the_path_first_and_sets_the_last_folder() {
         let mut settings = RulesetEditorSettings::default();
-        settings.remember(Path::new("cups/invitational/rules.rhai"));
-        assert_eq!(settings.recent_files, ["cups/invitational/rules.rhai"]);
+        settings.remember(Path::new("cups/invitational/rules.4ccrules"));
+        assert_eq!(settings.recent_files, ["cups/invitational/rules.4ccrules"]);
         assert_eq!(settings.last_folder, "cups/invitational");
         // A second file heads the list, the first following.
-        settings.remember(Path::new("other/season.rhai"));
+        settings.remember(Path::new("other/season.4ccrules"));
         assert_eq!(
             settings.recent_files,
-            ["other/season.rhai", "cups/invitational/rules.rhai"]
+            ["other/season.4ccrules", "cups/invitational/rules.4ccrules"]
         );
         // A file already listed moves to the front without duplicating.
-        settings.remember(Path::new("cups/invitational/rules.rhai"));
+        settings.remember(Path::new("cups/invitational/rules.4ccrules"));
         assert_eq!(
             settings.recent_files,
-            ["cups/invitational/rules.rhai", "other/season.rhai"]
+            ["cups/invitational/rules.4ccrules", "other/season.4ccrules"]
         );
     }
 
@@ -81,17 +81,17 @@ mod tests {
     fn a_full_list_is_cut_to_ten() {
         let mut settings = RulesetEditorSettings::default();
         for index in 0..15 {
-            settings.remember(Path::new(&format!("f/{index}.rhai")));
+            settings.remember(Path::new(&format!("f/{index}.4ccrules")));
         }
         assert_eq!(settings.recent_files.len(), 10);
-        assert_eq!(settings.recent_files[0], "f/14.rhai");
-        assert_eq!(settings.recent_files[9], "f/5.rhai");
+        assert_eq!(settings.recent_files[0], "f/14.4ccrules");
+        assert_eq!(settings.recent_files[9], "f/5.4ccrules");
     }
 
     #[test]
     fn the_table_round_trip_carries_both_keys() {
         let mut settings = RulesetEditorSettings::default();
-        settings.remember(Path::new("f/rules.rhai"));
+        settings.remember(Path::new("f/rules.4ccrules"));
         let table = settings.to_table();
         assert_eq!(from_table(&table).unwrap(), settings);
         // The defaults merge for keys the file lacks; an unknown key reads back as the defaults.

@@ -8,7 +8,7 @@ use crate::{duplicate_id_file, parse_error_file, schema_error_file, valid_file, 
 #[test]
 fn a_valid_file_prints_no_finding_and_exits_0() {
     let sandbox = Sandbox::new("validate_ok");
-    let file = write(&sandbox, "rules.rhai", &valid_file());
+    let file = write(&sandbox, "rules.4ccrules", &valid_file());
     let run = sandbox.run(&["validate", &file]);
     assert_eq!(run.exit_code(), 0, "{:?}", run.messages());
     assert!(run.messages().is_empty(), "{:?}", run.messages());
@@ -19,7 +19,7 @@ fn a_valid_file_prints_no_finding_and_exits_0() {
 fn a_parse_error_prints_its_line_and_column_and_exits_1() {
     let sandbox = Sandbox::new("validate_parse");
     // The RE-FILE-03 file: a parse error at line 12.
-    let file = write(&sandbox, "rules.rhai", &parse_error_file());
+    let file = write(&sandbox, "rules.4ccrules", &parse_error_file());
     let run = sandbox.run(&["validate", &file]);
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
     assert!(
@@ -36,7 +36,7 @@ fn a_parse_error_prints_its_line_and_column_and_exits_1() {
 fn a_schema_error_prints_its_key_path_and_exits_1() {
     let sandbox = Sandbox::new("validate_schema");
     // The RE-FILE-03 file: `tiers[2].free.tricks` is the string "two".
-    let file = write(&sandbox, "rules.rhai", &schema_error_file());
+    let file = write(&sandbox, "rules.4ccrules", &schema_error_file());
     let run = sandbox.run(&["validate", &file]);
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
     assert!(
@@ -53,7 +53,7 @@ fn a_schema_error_prints_its_key_path_and_exits_1() {
 fn a_duplicate_tier_id_prints_its_key_path_and_exits_1() {
     let sandbox = Sandbox::new("validate_duplicate");
     // The RE-FILE-03 file: the second tier carries the first tier's id.
-    let file = write(&sandbox, "rules.rhai", &duplicate_id_file());
+    let file = write(&sandbox, "rules.4ccrules", &duplicate_id_file());
     let run = sandbox.run(&["validate", &file]);
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
     assert!(

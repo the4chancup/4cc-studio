@@ -474,8 +474,8 @@ fn opened_view(ctx: &ToolContext, path: &Path) -> RulesetView {
     view
 }
 
-/// `test`'s scratch `rules.rhai` opened in a fresh view: context, file,
-/// view.
+/// `test`'s scratch `rules.4ccrules` opened in a fresh view: context,
+/// file, view.
 fn official_opened(
     test: &str,
 ) -> (
@@ -484,7 +484,7 @@ fn official_opened(
     PathBuf,
     RulesetView,
 ) {
-    let (_dir, path) = scratch_file(test, "rules.rhai");
+    let (_dir, path) = scratch_file(test, "rules.4ccrules");
     let (ctx, events) = crate::test_support::context();
     let view = opened_view(&ctx, &path);
     (ctx, events, path, view)

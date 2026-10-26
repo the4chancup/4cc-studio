@@ -18,7 +18,7 @@ pub enum PathKind {
     File {
         /// The filter's name as the dialog shows it.
         filter: &'static str,
-        /// The file endings the picker accepts, without the dot (`rhai`).
+        /// The file endings the picker accepts, without the dot (`4ccrules`).
         extensions: &'static [&'static str],
     },
 }

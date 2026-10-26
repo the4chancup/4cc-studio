@@ -216,7 +216,7 @@ mod tests {
 
     #[test]
     fn a_message_carries_its_code_severity_and_context_run_wide() {
-        let message = logic_updated(Path::new("rules.rhai"), 1);
+        let message = logic_updated(Path::new("rules.4ccrules"), 1);
         assert_eq!(message.code.tool_id, "ruleset-editor");
         assert_eq!(message.code.code, "logic_updated");
         assert_eq!(message.severity, Severity::Info);
@@ -225,7 +225,7 @@ mod tests {
         assert_eq!(
             message.context,
             vec![
-                ("path".to_owned(), "rules.rhai".to_owned()),
+                ("path".to_owned(), "rules.4ccrules".to_owned()),
                 ("from".to_owned(), "1".to_owned())
             ]
         );

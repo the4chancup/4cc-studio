@@ -29,6 +29,13 @@ const AESTHETICS_FROM_EXPORTS_TIP: &str = "On when the cup's looks are compiled 
      the save's aesthetics are then read-only, behind Edit aesthetics anyway on the Appearance \
      section.";
 
+/// The AATF rules file row's picker (the settings row's `PathKind`):
+/// the one ending a member's rules file carries.
+const AATF_RULES_PICKER: PathKind = PathKind::File {
+    filter: "AATF rules",
+    extensions: &[aatf::RULES_FILE_EXTENSION],
+};
+
 /// The Save editor, as registered with the `studio` binary. `view` is the window's
 /// state (`plans/save_editor.md` "Editing UI").
 pub struct Tool {
@@ -159,10 +166,7 @@ impl StudioTool for Tool {
                      official ruleset, built in.",
                     &mut self.aatf_rules,
                     &mut current,
-                    PathKind::File {
-                        filter: "AATF rules",
-                        extensions: &["rhai"],
-                    },
+                    AATF_RULES_PICKER,
                 );
                 // The common grid's row shape: the label cell's tooltip
                 // leads with the key, the widget's is the plan's sentence.
@@ -265,5 +269,16 @@ mod tests {
         assert_eq!(tool.label(), "Save editor");
         assert_eq!(tool.default_settings()["aatf_rules"].as_str(), Some(""));
         assert_eq!(tool.help().topics.len(), 8);
+    }
+
+    /// The AATF rules file row's picker offers `.4ccrules` alone: the
+    /// ending every rules file a member handles carries
+    /// (`spec/aatf_rules.md` "The rules file").
+    #[test]
+    fn the_rules_file_row_picks_4ccrules_alone() {
+        let PathKind::File { extensions, .. } = AATF_RULES_PICKER else {
+            panic!("the rules file row is a file picker")
+        };
+        assert_eq!(extensions, &["4ccrules"]);
     }
 }

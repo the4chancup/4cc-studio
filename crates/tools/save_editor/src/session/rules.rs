@@ -92,7 +92,7 @@ mod tests {
     // file: <error>`.
     #[test]
     fn an_unreadable_file_validates_to_one_line() {
-        let missing = crate::test_support::scratch("validate_unreadable").join("none.rhai");
+        let missing = crate::test_support::scratch("validate_unreadable").join("none.4ccrules");
         let lines = validate(Some(&missing));
         assert_eq!(lines.len(), 1, "{lines:?}");
         assert!(lines[0].starts_with("cannot read the file: "), "{lines:?}");
@@ -110,7 +110,7 @@ mod tests {
         let text = aatf::official_file()
             .replacen("squad_size: 23", "squad_size: 4", 1)
             .replacen("suggestions: [\"cards\"", "suggestions: [\"bogus\"", 1);
-        let path = crate::test_support::scratch("validate_two_errors").join("two.rhai");
+        let path = crate::test_support::scratch("validate_two_errors").join("two.4ccrules");
         std::fs::write(&path, text).unwrap();
         assert_eq!(
             validate(Some(&path)),
@@ -119,5 +119,18 @@ mod tests {
                 "suggestions[0]: unknown suggestion \"bogus\"",
             ]
         );
+    }
+
+    /// The loader reads the content, never the ending (`spec/aatf_rules.md`
+    /// "The rules file"): a valid file loads whatever its name ends in.
+    #[test]
+    fn the_rules_file_loads_whatever_it_ends_in() {
+        let dir = crate::test_support::scratch("rules_extension_ignored");
+        for name in ["rules.4ccrules", "rules.txt"] {
+            let path = dir.join(name);
+            std::fs::write(&path, aatf::official_file()).unwrap();
+            let rules = load_rules(Some(&path)).unwrap_or_else(|error| panic!("{name}: {error}"));
+            assert_eq!(rules.ruleset().name, "Autumn 26");
+        }
     }
 }

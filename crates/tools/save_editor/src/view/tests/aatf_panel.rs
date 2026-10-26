@@ -322,7 +322,7 @@ fn validate_rules_reports_the_files_findings() {
 
     // The official file with two values broken: the tier counts over the
     // squad size and an unknown suggestion word.
-    let two = dir.join("two.rhai");
+    let two = dir.join("two.4ccrules");
     std::fs::write(
         &two,
         aatf::official_file()
@@ -355,7 +355,7 @@ fn validate_rules_reports_the_files_findings() {
     }
 
     // A file that does not parse: one line with its position.
-    let broken = dir.join("broken.rhai");
+    let broken = dir.join("broken.4ccrules");
     std::fs::write(&broken, "let x = ;").unwrap();
     let nodes = draw(&mut window, &mut view, Some(broken.as_path()));
     click_rules(
@@ -381,7 +381,7 @@ fn validate_rules_reports_the_files_findings() {
 fn a_rules_file_that_does_not_load_shows_the_error_in_the_lists_place() {
     let save = fixture(PesVersion::Pes17, "aatf_broken_rules");
     let dir = save.parent().expect("the scratch dir").to_path_buf();
-    let broken = dir.join("broken.rhai");
+    let broken = dir.join("broken.4ccrules");
     std::fs::write(&broken, "let x = ;").unwrap();
     let mut view = SaveView::new();
     view.open(&save);
@@ -435,7 +435,7 @@ fn a_rules_file_change_replaces_the_result() {
     // A file that loads with a different result: the official one's
     // Tall bracket also taking 183, so the two rows are gone and the
     // two new talls fill the red bracket's quota.
-    let taller = dir.join("taller.rhai");
+    let taller = dir.join("taller.4ccrules");
     std::fs::write(
         &taller,
         aatf::official_file().replacen("exactly: [185]", "exactly: [183, 185]", 1),
@@ -463,7 +463,7 @@ fn a_rules_file_change_replaces_the_result() {
 
     // A file that does not load: its error in the list's place, and no
     // row of either result.
-    let broken = dir.join("broken.rhai");
+    let broken = dir.join("broken.4ccrules");
     std::fs::write(&broken, "let x = ;").unwrap();
     let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(broken.as_path()))
@@ -498,13 +498,13 @@ fn a_rules_file_change_replaces_the_result() {
 fn save_a_copy_writes_the_embedded_official_file() {
     let save = fixture(PesVersion::Pes17, "aatf_save_copy");
     let dir = save.parent().expect("the scratch dir").to_path_buf();
-    let target = dir.join("copy.rhai");
+    let target = dir.join("copy.4ccrules");
     let mut view = SaveView::new();
     view.open(&save);
     view.aatf.open = true;
     let for_dialog = target.clone();
     view.aatf_copy_dialog = Box::new(move |name| {
-        assert_eq!(name, aatf::OFFICIAL_FILE_NAME, "the suggested name");
+        assert_eq!(name, "autumn26.4ccrules", "the suggested name");
         Some(for_dialog.clone())
     });
     let mut window = Headless::sized(1100.0, 800.0);

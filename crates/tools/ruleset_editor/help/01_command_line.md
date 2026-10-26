@@ -1,5 +1,5 @@
 The Ruleset editor's commands run from a terminal opened in the folder that holds
-`UnlimitedToolWorks.exe`. A rules file (a `.rhai` file) is what a cup's teams are checked
+`UnlimitedToolWorks.exe`. A rules file (a `.4ccrules` file) is what a cup's teams are checked
 against: tiers, stat targets, heights, cards and special rules, plus the code that runs
 the check.
 

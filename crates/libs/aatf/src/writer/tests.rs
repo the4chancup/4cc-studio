@@ -874,7 +874,7 @@ fn small_ruleset() -> Ruleset {
 #[test]
 fn the_layout_is_pinned() {
     let ruleset = small_ruleset();
-    const EXPECTED: &str = r##"// AATF ruleset. Open it in the Ruleset editor to change it.
+    const EXPECTED: &str = r##"// AATF ruleset, a Rhai script. Open it in the Ruleset editor to change it.
 const RULESET = #{
     schema: 1,
     name: "Small",

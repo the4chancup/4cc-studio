@@ -83,10 +83,10 @@ rulesets are its fixtures ("Development phase and verification").
 
 ## The rules file
 
-One self-contained `.rhai` file is one ruleset, in three sections:
+One self-contained `.4ccrules` file is one ruleset, in three sections:
 
 ```rhai
-// AATF ruleset. Open it in the Ruleset editor to change it.
+// AATF ruleset, a Rhai script. Open it in the Ruleset editor to change it.
 const RULESET = #{ ... };
 
 // ==== LOGIC (ruleset-logic 1): the Ruleset editor replaces this section ====
@@ -108,6 +108,17 @@ fn custom_checks(team) { [] }
 - **Custom checks** are the escape hatch: a rule the schema cannot express yet, written in Rhai by
   someone who can, without a Studio release. `check_team` calls `custom_checks(team)` when the file
   defines it and appends what it returns.
+
+A rules file a member or an organizer handles is named `<name>.4ccrules`, not `.rhai`: the
+one ending every picker offers (the Save editor's settings row and AATF panel, the Ruleset
+editor's Open and Save), the name Save a copy suggests, the CLI's examples. A member only loads the file, and `.rhai` tells them nothing; `.4ccrules` says
+it is the cup's rules and sits beside the suite's `.4ccm`. The content stays plain Rhai text,
+so an organizer still edits it in a text editor (the CUSTOM CHECKS section is hand-written by
+design): the file's first line says it is a Rhai script, for whoever wants their editor's Rhai
+highlighting on it. The loader reads the content, never the ending, so a path typed into the
+settings row loads whatever it ends in. The repository's own sources keep `.rhai`
+(`libs/aatf/logic/logic.rhai`, `rulesets/*.rhai`): they are code, edited with that highlighting,
+and never handed to a member.
 
 Rhai is a small scripting language written in pure Rust for embedding: scripts reach only what the
 host registers, cannot touch the filesystem or network, and run under operation and call-depth

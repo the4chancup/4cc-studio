@@ -47,8 +47,8 @@ mod tests {
 
     #[test]
     fn aatf_rules_names_a_rules_file() {
-        let table: toml::Table = toml::from_str("aatf_rules = \"vgl27.rhai\"").unwrap();
-        assert_eq!(from_table(&table).unwrap().aatf_rules, "vgl27.rhai");
+        let table: toml::Table = toml::from_str("aatf_rules = \"vgl27.4ccrules\"").unwrap();
+        assert_eq!(from_table(&table).unwrap().aatf_rules, "vgl27.4ccrules");
     }
 
     // SE-GUI-35's GIVEN (the setting off is the default).

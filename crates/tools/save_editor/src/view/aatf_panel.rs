@@ -43,7 +43,7 @@ pub(crate) type SaveFileDialog = Box<dyn FnMut(&str) -> Option<PathBuf>>;
 pub(crate) fn default_copy_dialog() -> SaveFileDialog {
     Box::new(|name| {
         rfd::FileDialog::new()
-            .add_filter("AATF rules", &["rhai"])
+            .add_filter("AATF rules", &[aatf::RULES_FILE_EXTENSION])
             .set_file_name(name)
             .save_file()
     })

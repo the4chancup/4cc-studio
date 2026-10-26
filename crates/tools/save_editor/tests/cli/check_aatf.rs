@@ -77,7 +77,7 @@ fn a_warning_only_team_exits_0_and_a_clean_team_prints_nothing() {
     // errors since the cup's 2026-10-22 answers: the warning leg runs a
     // rules file that is the official one with the severity restored.
     fs::write(
-        sandbox.path("warning.rhai"),
+        sandbox.path("warning.4ccrules"),
         rules_file("autumn26").replacen(
             "#{ label: \"Goalkeepers below giant\",",
             "#{ label: \"Goalkeepers below giant\", severity: \"warning\",",
@@ -85,7 +85,7 @@ fn a_warning_only_team_exits_0_and_a_clean_team_prints_nothing() {
         ),
     )
     .unwrap();
-    let warning_rules = sandbox.arg("warning.rhai");
+    let warning_rules = sandbox.arg("warning.4ccrules");
     for (file, extra, expected) in [
         (
             "official_warning.toml",
@@ -175,7 +175,7 @@ fn a_rules_file_that_fails_to_load_is_refused_with_its_position() {
     let sandbox = Sandbox::new("aatf_broken_rules");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
     fs::write(
-        sandbox.path("broken.rhai"),
+        sandbox.path("broken.4ccrules"),
         "const RULESET = #{ name: \"x\",\n",
     )
     .unwrap();
@@ -183,16 +183,16 @@ fn a_rules_file_that_fails_to_load_is_refused_with_its_position() {
     let run = check(
         &sandbox,
         "EDIT",
-        &["--teams", "701", "--rules", &sandbox.arg("broken.rhai")],
+        &["--teams", "701", "--rules", &sandbox.arg("broken.4ccrules")],
     );
-    run.assert_refused(2, &["broken.rhai"]);
+    run.assert_refused(2, &["broken.4ccrules"]);
     let error = match &run.result {
         Err(error) => error.to_string(),
         Ok(code) => panic!("not refused: exit code {code}"),
     };
     // `LoadError::Parse` displays `{line}:{column}: <message>` after the file's name.
     let mut position = error
-        .split("broken.rhai: ")
+        .split("broken.4ccrules: ")
         .nth(1)
         .unwrap_or_else(|| panic!("no position after the file's name: {error}"))
         .split(':');
@@ -207,7 +207,7 @@ fn a_rules_file_that_fails_to_load_is_refused_with_its_position() {
 fn rules_and_the_aatf_rules_setting_pick_the_rules_file() {
     let sandbox = Sandbox::new("aatf_vgl27");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
-    let rules = sandbox.path("vgl27.rhai");
+    let rules = sandbox.path("vgl27.4ccrules");
     fs::write(&rules, rules_file("vgl27")).unwrap();
 
     let arg = rules.to_str().unwrap().to_owned();
@@ -327,7 +327,7 @@ fn a_check_that_fails_on_one_team_does_not_stop_the_rest() {
     assert_eq!(file.team(743).unwrap().tactics.set_pieces.captain, 19);
     assert_eq!(file.team(744).unwrap().tactics.set_pieces.captain, 22);
     fs::write(
-        sandbox.path("throw19.rhai"),
+        sandbox.path("throw19.4ccrules"),
         rules_file("autumn26").replacen(
             "fn custom_checks(team) { [] }",
             "fn custom_checks(team) { if team.captain == 19 { throw \"boom\" } [] }",
@@ -343,7 +343,7 @@ fn a_check_that_fails_on_one_team_does_not_stop_the_rest() {
             "--teams",
             "743,744",
             "--rules",
-            &sandbox.arg("throw19.rhai"),
+            &sandbox.arg("throw19.4ccrules"),
         ],
     );
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());
@@ -372,13 +372,13 @@ fn a_check_that_fails_on_one_team_does_not_stop_the_rest() {
 fn rules_wins_over_the_aatf_rules_setting() {
     let sandbox = Sandbox::new("aatf_rules_flag_wins");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
-    fs::write(sandbox.path("vgl27.rhai"), rules_file("vgl27")).unwrap();
-    fs::write(sandbox.path("official.rhai"), rules_file("autumn26")).unwrap();
+    fs::write(sandbox.path("vgl27.4ccrules"), rules_file("vgl27")).unwrap();
+    fs::write(sandbox.path("official.4ccrules"), rules_file("autumn26")).unwrap();
 
     // The setting names VGL27; --rules names the official file and is the one checked.
     let settings = format!(
         "[save-editor]\naatf_rules = '{}'\n",
-        sandbox.path("vgl27.rhai").display()
+        sandbox.path("vgl27.4ccrules").display()
     );
     let run = sandbox.run_with_settings(
         &settings,
@@ -388,7 +388,7 @@ fn rules_wins_over_the_aatf_rules_setting() {
             "--teams",
             "701",
             "--rules",
-            &sandbox.arg("official.rhai"),
+            &sandbox.arg("official.4ccrules"),
         ],
     );
     // A run that checked (0 or 1), not a refused one: a refusal prints no rule line either.
@@ -454,13 +454,13 @@ fn a_roster_order_break_reports_the_held_and_expected_ids() {
 fn a_relative_aatf_rules_resolves_in_the_data_directory() {
     let sandbox = Sandbox::new("aatf_rules_relative");
     sandbox.fixture(PesVersion::Pes21, "EDIT");
-    fs::write(sandbox.path("data/vgl27.rhai"), rules_file("vgl27")).unwrap();
+    fs::write(sandbox.path("data/vgl27.4ccrules"), rules_file("vgl27")).unwrap();
 
     // The sandbox runs the command in-process, so its current directory is the test
-    // process's, which holds no vgl27.rhai: the file is found only under the data
+    // process's, which holds no vgl27.4ccrules: the file is found only under the data
     // directory's resolution.
     let run = sandbox.run_with_settings(
-        "[save-editor]\naatf_rules = 'vgl27.rhai'\n",
+        "[save-editor]\naatf_rules = 'vgl27.4ccrules'\n",
         &["check-aatf", &sandbox.arg("EDIT"), "--teams", "701"],
     );
     assert_eq!(run.exit_code(), 1, "{:?}", run.messages());

@@ -469,7 +469,7 @@ fn a_label_edit_saves_vtl11s_file_byte_for_byte() {
     let vtl11 = aatf::Ruleset::from_data_block(&block).expect("VTL11 reads");
     let path = write_file(
         &dir,
-        "vtl11.rhai",
+        "vtl11.4ccrules",
         &aatf::assemble_file(&vtl11, None, Some(&checks)),
     );
 
@@ -513,7 +513,7 @@ fn deleting_a_tier_the_custom_checks_read_blocks_save() {
     let dir = crate::test_support::scratch("file_06_tier5");
     let path = write_file(
         &dir,
-        "rules.rhai",
+        "rules.4ccrules",
         &aatf::assemble_file(&spring26, None, Some(checks)),
     );
 
@@ -1277,7 +1277,7 @@ fn drawing_every_section_leaves_the_ruleset_untouched() {
         let dir = crate::test_support::scratch("sections_read_only");
         let path = write_file(
             &dir,
-            "rules.rhai",
+            "rules.4ccrules",
             &aatf::assemble_file(&template.ruleset, None, template.custom_checks.as_deref()),
         );
         let (ctx, _events, mut window, mut view) = fresh();
@@ -1311,7 +1311,7 @@ fn a_squad_size_past_its_range_is_drawn_as_stored() {
     let dir = crate::test_support::scratch("squad_size_read_only");
     let path = write_file(
         &dir,
-        "rules.rhai",
+        "rules.4ccrules",
         &aatf::assemble_file(&stored, None, None),
     );
     let (ctx, _events, mut window, mut view) = fresh();

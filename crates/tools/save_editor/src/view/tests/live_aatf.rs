@@ -368,7 +368,7 @@ fn the_dock_follows_the_open_team_and_the_rules_file() {
         .parent()
         .expect("the scratch dir")
         .to_path_buf();
-    let taller = dir.join("taller.rhai");
+    let taller = dir.join("taller.4ccrules");
     std::fs::write(
         &taller,
         aatf::official_file().replacen("exactly: [185]", "exactly: [183, 185]", 1),

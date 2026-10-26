@@ -2552,3 +2552,5 @@ worklog passed 7,000 lines.
   "Shirt number", and the positions run in four centred rows with GK alone (0.0.1s3i).
 - **2026-10-26** — Name and Shirt became label-left rows, every General info field ends flush with the pairs' boxes,
   the midfield splits into two position rows, and the player view centres between the list and the edge (0.0.1s3j).
+- **2026-10-26** — A rules file a member handles ends in `.4ccrules` (every picker, both suggested names, the help); its
+  first line says it is a Rhai script, and the repository's sources keep `.rhai` (0.0.1t).

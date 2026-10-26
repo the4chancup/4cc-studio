@@ -326,7 +326,7 @@ fn rules_file_under(dir: &Path, name: &str) -> PathBuf {
         .into_iter()
         .find(|template| template.ruleset.name == name)
         .unwrap_or_else(|| panic!("no {name} template"));
-    let path = dir.join(format!("{}.rhai", name.to_lowercase()));
+    let path = dir.join(format!("{}.4ccrules", name.to_lowercase()));
     std::fs::write(
         &path,
         aatf::assemble_file(&template.ruleset, None, template.custom_checks.as_deref()),
@@ -609,7 +609,7 @@ fn set_stats_writes_every_ability_to_the_number() {
 #[test]
 fn a_failed_make_shows_the_refusal_and_changes_nothing() {
     let (path, mut view, mut window) = open_701("quick_make_fails");
-    let rules_path = path.with_file_name("broken_tier.rhai");
+    let rules_path = path.with_file_name("broken_tier.4ccrules");
     // The smallest file whose `tier_values` throws for one tier: the official
     // file assembled, with a `throw` added at the function's head for "silver"
     // alone.
@@ -765,7 +765,7 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
 
     // A file that does not load: Set stats and the red line on the row,
     // no tier button.
-    let bad = dir.join("broken.rhai");
+    let bad = dir.join("broken.4ccrules");
     std::fs::write(&bad, "let x = ;").unwrap();
     let mut table = ctx.tool_settings("save-editor");
     table.insert(
@@ -801,7 +801,7 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
 
     let path = fixture(PesVersion::Pes21, "quick_error_cell");
     let dir = path.parent().unwrap().to_path_buf();
-    let bad = dir.join("bad.rhai");
+    let bad = dir.join("bad.4ccrules");
     std::fs::write(&bad, "this is no ruleset").unwrap();
     let mut view = SaveView::new();
     view.open(&path);

@@ -30,7 +30,7 @@ fn a_valid_file_prints_the_rules_text_byte_for_byte() {
         ("vgl26", embedded_file("vgl26")),
     ] {
         let sandbox = Sandbox::new(&format!("summary_stdout_{name}"));
-        let file = write(&sandbox, "rules.rhai", &text);
+        let file = write(&sandbox, "rules.4ccrules", &text);
         let run = sandbox.run(&["summary", &file]);
         assert_eq!(run.exit_code(), 0, "{name}: {:?}", run.messages());
         assert_eq!(
@@ -45,7 +45,7 @@ fn a_valid_file_prints_the_rules_text_byte_for_byte() {
 #[test]
 fn summary_o_writes_the_text_and_keeps_a_replaced_file_as_bak() {
     let sandbox = Sandbox::new("summary_out");
-    let file = write(&sandbox, "rules.rhai", &valid_file());
+    let file = write(&sandbox, "rules.4ccrules", &valid_file());
     fs::write(sandbox.path("rules.md"), "old").unwrap();
     let out = sandbox.arg("rules.md");
     let run = sandbox.run(&["summary", &file, "-o", &out]);
@@ -74,18 +74,18 @@ fn summary_o_writes_the_text_and_keeps_a_replaced_file_as_bak() {
 #[test]
 fn summary_o_onto_the_rules_file_itself_is_refused() {
     let sandbox = Sandbox::new("summary_out_self");
-    let file = write(&sandbox, "rules.rhai", &valid_file());
-    let before = fs::read(sandbox.path("rules.rhai")).unwrap();
+    let file = write(&sandbox, "rules.4ccrules", &valid_file());
+    let before = fs::read(sandbox.path("rules.4ccrules")).unwrap();
     let out = file.clone();
     let run = sandbox.run(&["summary", &file, "-o", &out]);
-    run.assert_refused(2, &["rules.rhai", "rules file"]);
+    run.assert_refused(2, &["rules.4ccrules", "rules file"]);
     assert_eq!(
-        fs::read(sandbox.path("rules.rhai")).unwrap(),
+        fs::read(sandbox.path("rules.4ccrules")).unwrap(),
         before,
         "the file is unchanged"
     );
     assert!(
-        !sandbox.path("rules.rhai.bak").exists(),
+        !sandbox.path("rules.4ccrules.bak").exists(),
         "no .bak is written"
     );
 }
@@ -94,7 +94,7 @@ fn summary_o_onto_the_rules_file_itself_is_refused() {
 #[test]
 fn summary_o_to_a_new_path_writes_no_bak() {
     let sandbox = Sandbox::new("summary_out_new");
-    let file = write(&sandbox, "rules.rhai", &valid_file());
+    let file = write(&sandbox, "rules.4ccrules", &valid_file());
     let out = sandbox.arg("rules.md");
     let run = sandbox.run(&["summary", &file, "-o", &out]);
     assert_eq!(run.exit_code(), 0, "{:?}", run.messages());
@@ -114,9 +114,9 @@ fn summary_o_to_a_new_path_writes_no_bak() {
 fn a_file_that_does_not_open_is_refused_writing_nothing() {
     let sandbox = Sandbox::new("summary_refused");
     for (name, text) in [
-        ("parse.rhai", parse_error_file()),
-        ("schema.rhai", schema_error_file()),
-        ("duplicate.rhai", duplicate_id_file()),
+        ("parse.4ccrules", parse_error_file()),
+        ("schema.4ccrules", schema_error_file()),
+        ("duplicate.4ccrules", duplicate_id_file()),
     ] {
         let file = write(&sandbox, name, &text);
         let out = sandbox.arg(&format!("{name}.md"));
@@ -137,7 +137,7 @@ fn a_file_that_does_not_open_is_refused_writing_nothing() {
 #[test]
 fn two_rulesets_differing_in_one_rate_differ_in_one_line() {
     let sandbox = Sandbox::new("summary_diff");
-    let file = write(&sandbox, "rules.rhai", &valid_file());
+    let file = write(&sandbox, "rules.4ccrules", &valid_file());
     let first = sandbox.run(&["summary", &file]);
     assert_eq!(first.exit_code(), 0, "{:?}", first.messages());
 
@@ -153,7 +153,7 @@ fn two_rulesets_differing_in_one_rate_differ_in_one_line() {
     ruleset.tiers[1].rate = 90;
     let edited = write(
         &sandbox,
-        "edited.rhai",
+        "edited.4ccrules",
         &aatf::assemble_file(&ruleset, None, None),
     );
     let second = sandbox.run(&["summary", &edited]);

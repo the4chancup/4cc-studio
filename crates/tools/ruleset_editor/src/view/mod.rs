@@ -73,8 +73,8 @@ pub(crate) struct RulesetView {
     generation: u64,
 }
 
-/// A file-dialog call: the `.rhai` dialog's start folder to the picked
-/// path (`rfd`, or a test's stub).
+/// A file-dialog call: the `.4ccrules` dialog's start folder to the
+/// picked path (`rfd`, or a test's stub).
 type FilePicker = Box<dyn FnMut(&Path) -> Option<PathBuf>>;
 
 /// `FilePicker` for Save as: the suggested file name comes second.
@@ -149,11 +149,11 @@ impl RulesetView {
     }
 }
 
-/// The `.rhai` file dialog, started in `start` when it names a folder
-/// (only the real dialogs call it; tests stub the pickers).
+/// The `.4ccrules` file dialog, started in `start` when it names a
+/// folder (only the real dialogs call it; tests stub the pickers).
 #[cfg(not(test))]
 fn ruleset_dialog(start: &Path) -> rfd::FileDialog {
-    let dialog = rfd::FileDialog::new().add_filter("Rules file", &["rhai"]);
+    let dialog = rfd::FileDialog::new().add_filter("Rules file", &[aatf::RULES_FILE_EXTENSION]);
     if start.as_os_str().is_empty() {
         dialog
     } else {
@@ -193,14 +193,15 @@ fn default_save_dialog() -> SaveDialog {
 }
 
 /// `name` as the suggested file name (the draft's `save()` slug:
-/// lowercase, each whitespace run as `_`), then `.rhai`.
+/// lowercase, each whitespace run as `_`), then `.4ccrules`.
 fn suggested_name(name: &str) -> String {
     format!(
-        "{}.rhai",
+        "{}.{}",
         name.to_lowercase()
             .split_whitespace()
             .collect::<Vec<_>>()
-            .join("_")
+            .join("_"),
+        aatf::RULES_FILE_EXTENSION
     )
 }
 
@@ -360,8 +361,8 @@ pub(crate) fn save_now(
     }
 }
 
-/// Save as…: the `.rhai` dialog starting in `last_folder`, suggesting
-/// the ruleset's name slugged, then the same path as Save.
+/// Save as…: the `.4ccrules` dialog starting in `last_folder`,
+/// suggesting the ruleset's name slugged, then the same path as Save.
 fn save_as(view: &mut RulesetView, ctx: &ToolContext, settings: &RulesetEditorSettings) -> bool {
     let start = PathBuf::from(&settings.last_folder);
     let suggested = view

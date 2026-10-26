@@ -17,9 +17,16 @@ use crate::violation::{CheckError, Violation, ViolationKind, violations};
 /// Ruleset editor's start page) and by their fixtures.
 pub(crate) const AUTUMN26: &str = include_str!("../rulesets/autumn26.rhai");
 
-/// The embedded official rules file's name, `rulesets/<name>` under the
-/// crate: changed with the `include_str!` above.
-pub const OFFICIAL_FILE_NAME: &str = "autumn26.rhai";
+/// The ending every rules file a member or an organizer handles
+/// carries (`spec/aatf_rules.md` "The rules file"): the one the pickers
+/// offer and the suggested names end in. The content stays plain Rhai;
+/// the loader reads the content, never the ending.
+pub const RULES_FILE_EXTENSION: &str = "4ccrules";
+
+/// The name Save a copy suggests for the embedded official rules file:
+/// the `rulesets/` source's stem (`AUTUMN26`'s `include_str!` above)
+/// under `RULES_FILE_EXTENSION`.
+pub const OFFICIAL_FILE_NAME: &str = "autumn26.4ccrules";
 
 /// The embedded official rules file, the one `Rules::official` loads:
 /// `AUTUMN26` assembled with the current logic.

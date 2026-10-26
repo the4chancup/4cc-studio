@@ -8,19 +8,6 @@ What exists of this is in `spec/aatf_rules.md` "4cc Studio — AATF rules plan".
 
 What exists of this is in `spec/aatf_rules.md` "The rules file".
 
-A rules file a member or an organizer handles is named `<name>.4ccrules`, not `.rhai`: the
-bundle's `rules/dbc7.4ccrules`, the one ending every picker offers (the Save editor's settings
-row and AATF panel, the Ruleset editor's Open and Save), the name Save a copy suggests, the
-CLI's examples. A member only loads the file, and `.rhai` tells them nothing; `.4ccrules` says
-it is the cup's rules and sits beside the suite's `.4ccm`. The content stays plain Rhai text,
-so an organizer still edits it in a text editor (the CUSTOM CHECKS section is hand-written by
-design): the file's first line says it is a Rhai script (`// AATF ruleset, a Rhai script.
-Open it in the Ruleset editor to change it.`), for whoever wants their editor's Rhai
-highlighting on it. The loader reads the content, never the ending, so a path typed into the
-settings row loads whatever it ends in. The repository's own sources keep `.rhai`
-(`libs/aatf/logic/logic.rhai`, `rulesets/*.rhai`): they are code, edited with that
-highlighting, and never handed to a member.
-
 ## The ruleset schema
 
 What exists of this is in `spec/aatf_rules.md` "The ruleset schema".

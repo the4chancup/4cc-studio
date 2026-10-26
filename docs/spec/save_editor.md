@@ -224,7 +224,7 @@ Python scripts precisely because GUIs can't be looped:
 4cc-studio save-editor import-toml ./aaa.toml --base ./EDIT00000000 --out ./EDIT_new   # patch the base save
 4cc-studio save-editor apply-patch ./aesthetics_patch.toml --base ./EDIT00000000 --out ./EDIT_new   # the compiler's patch
 4cc-studio save-editor diff ./a_save ./b_save [--aesthetics | --gameplay] [--json]
-4cc-studio save-editor check-aatf ./EDIT00000000 [--teams 701,705-710] [--rules ./vgl27.rhai]
+4cc-studio save-editor check-aatf ./EDIT00000000 [--teams 701,705-710] [--rules ./vgl27.4ccrules]
 4cc-studio save-editor strip-and-seed --base ./EDIT00000000 --bins ./4cc_08_bins.cpk --out ./EDIT_new --bins-out ./4cc_08_bins_new.cpk
 4cc-studio save-editor check-stripped ./EDIT00000000 [--strip-again --out ./EDIT_new]
 4cc-studio save-editor export-teams-list ./EDIT00000000 [--yes]     # merge the save's team names/IDs into data/teams_list.txt

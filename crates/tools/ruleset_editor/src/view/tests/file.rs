@@ -41,7 +41,7 @@ fn a_modified_logic_file_shows_the_banner_and_save_keeps_its_code() {
     let dir = crate::test_support::scratch("file_02");
     let text = crate::test_support::modified_logic_file();
     let kept = aatf::file_sections(&text).logic.expect("the section");
-    let path = write_file(&dir, "rules.rhai", &text);
+    let path = write_file(&dir, "rules.4ccrules", &text);
     let (ctx, _events, mut window, mut view) = fresh();
     open_path(&mut view, &ctx, &path);
     let frame = window.draw(&mut view, &ctx);
@@ -97,7 +97,7 @@ fn a_save_with_no_edit_writes_the_same_values_and_no_comments() {
     let stub = crate::test_support::CUSTOM_CHECKS_STUB;
     let text = format!("{}\n\n{}\n\n{}\n", block.trim_end(), logic.trim_end(), stub);
     let dir = crate::test_support::scratch("file_05");
-    let path = write_file(&dir, "dbc7.rhai", &text);
+    let path = write_file(&dir, "dbc7.4ccrules", &text);
 
     let (ctx, _events, mut window, mut view) = fresh();
     open_path(&mut view, &ctx, &path);
@@ -122,14 +122,14 @@ fn a_save_with_no_edit_writes_the_same_values_and_no_comments() {
 #[test]
 fn save_as_writes_a_copy_and_later_saves_follow_it() {
     let dir = crate::test_support::scratch("file_save_as");
-    let a = write_file(&dir, "a.rhai", &valid_file());
+    let a = write_file(&dir, "a.4ccrules", &valid_file());
     let (ctx, _events, mut window, mut view) = fresh();
     open_path(&mut view, &ctx, &a);
     let a_before = std::fs::read(&a).unwrap();
 
     // One checkbox edit (the at-most list's "Attacking Prowess"), then
-    // File > Save as… to b.rhai: a.rhai untouched, b.rhai holding the
-    // edit and the document's path moved to it.
+    // File > Save as… to b.4ccrules: a.4ccrules untouched, b.4ccrules
+    // holding the edit and the document's path moved to it.
     let frame = window.draw(&mut view, &ctx);
     click_nth(
         &mut window,
@@ -143,36 +143,36 @@ fn save_as_writes_a_copy_and_later_saves_follow_it() {
         view.document.as_ref().expect("the document").is_dirty(),
         "premise: the click edited the ruleset"
     );
-    let b = dir.join("b.rhai");
+    let b = dir.join("b.4ccrules");
     save_as_via_menu(&mut window, &mut view, &ctx, &b);
     assert_file_unchanged(&a, &a_before);
-    let rules = aatf::Rules::load(&std::fs::read_to_string(&b).expect("b.rhai was written"))
-        .expect("b.rhai loads");
+    let rules = aatf::Rules::load(&std::fs::read_to_string(&b).expect("b.4ccrules was written"))
+        .expect("b.4ccrules loads");
     assert_eq!(
         rules.ruleset(),
         &view.document.as_ref().expect("the document").ruleset,
-        "b.rhai holds the edit"
+        "b.4ccrules holds the edit"
     );
     assert_eq!(
         view.document.as_ref().unwrap().path.as_deref(),
         Some(b.as_path()),
-        "the document's path is b.rhai"
+        "the document's path is b.4ccrules"
     );
 
     // Another edit, then File > Save (the menu's own "Save", the
-    // topmost: the bottom bar's shares the label) writes b.rhai and
-    // leaves a.rhai alone.
+    // topmost: the bottom bar's shares the label) writes b.4ccrules and
+    // leaves a.4ccrules alone.
     click_drawn_nth(&mut window, &mut view, &ctx, "Defensive Prowess", 1);
     let frame = window.draw(&mut view, &ctx);
     click_labeled(&mut window, &frame.nodes, "File", &mut view, &ctx);
     let frame = window.draw(&mut view, &ctx);
     click_nth(&mut window, &frame.nodes, "Save", 0, &mut view, &ctx);
     let rules =
-        aatf::Rules::load(&std::fs::read_to_string(&b).unwrap()).expect("b.rhai still loads");
+        aatf::Rules::load(&std::fs::read_to_string(&b).unwrap()).expect("b.4ccrules still loads");
     assert_eq!(
         rules.ruleset(),
         &view.document.as_ref().unwrap().ruleset,
-        "Save wrote b.rhai"
+        "Save wrote b.4ccrules"
     );
     assert_file_unchanged(&a, &a_before);
 }
@@ -185,7 +185,11 @@ fn save_leaves_no_sibling_and_reports_a_read_only_file() {
     assert!(save_to(&mut view, &ctx, &path));
     let dir = path.parent().expect("the scratch folder").to_path_buf();
     let inside: Vec<String> = folder_contents(&dir);
-    assert_eq!(inside, ["rules.rhai"], "no other file is left beside it");
+    assert_eq!(
+        inside,
+        ["rules.4ccrules"],
+        "no other file is left beside it"
+    );
 
     // The read-only leg: the write is refused, the file is byte for
     // byte as it was, nothing is left beside it, the document stays
@@ -209,7 +213,7 @@ fn save_leaves_no_sibling_and_reports_a_read_only_file() {
     assert_file_unchanged(&path, &before);
     assert_eq!(
         folder_contents(&dir),
-        ["rules.rhai"],
+        ["rules.4ccrules"],
         "no other file beside it"
     );
     assert!(
@@ -221,7 +225,7 @@ fn save_leaves_no_sibling_and_reports_a_read_only_file() {
     assert!(
         labels(&frame.nodes)
             .iter()
-            .any(|label| label.contains("rules.rhai") && label.contains("read-only")),
+            .any(|label| label.contains("rules.4ccrules") && label.contains("read-only")),
         "the window names the file and the error"
     );
 }
@@ -239,11 +243,18 @@ fn a_test_reaching_the_default_dialog_panics() {
 }
 
 // The suggested Save as name is the ruleset's name slugged
-// (the draft's `save()`).
+// (the draft's `save()`), the `.4ccrules` ending a member's file carries.
 #[test]
 fn save_as_suggests_the_rulesets_name_slugged() {
-    assert_eq!(crate::view::suggested_name("Autumn 26"), "autumn_26.rhai");
-    assert_eq!(crate::view::suggested_name("DBC7"), "dbc7.rhai");
+    assert_eq!(
+        crate::view::suggested_name("Autumn 26"),
+        "autumn_26.4ccrules"
+    );
+    assert_eq!(crate::view::suggested_name("DBC7"), "dbc7.4ccrules");
+    assert_eq!(
+        crate::view::suggested_name("Spring Cup"),
+        "spring_cup.4ccrules"
+    );
 }
 
 // A second document gets a fresh widget-state salt (egui state never
@@ -261,7 +272,7 @@ fn a_second_document_gets_a_fresh_widget_salt() {
 // not written over (its recent files stay as they were, not emptied).
 #[test]
 fn a_broken_settings_table_is_not_written_over() {
-    let (_dir, path) = scratch_file("settings_broken", "rules.rhai");
+    let (_dir, path) = scratch_file("settings_broken", "rules.4ccrules");
     let (ctx, _events) = crate::test_support::context();
     let mut broken = toml::Table::new();
     broken.insert("recent_files".to_string(), toml::Value::Integer(3));
@@ -282,7 +293,7 @@ fn a_broken_settings_table_is_not_written_over() {
 // file loses nothing when this one writes.
 #[test]
 fn an_unknown_settings_key_survives_an_open() {
-    let (_dir, path) = scratch_file("settings_future", "rules.rhai");
+    let (_dir, path) = scratch_file("settings_future", "rules.4ccrules");
     let (ctx, _events) = crate::test_support::context();
     let mut table = toml::Table::new();
     table.insert(

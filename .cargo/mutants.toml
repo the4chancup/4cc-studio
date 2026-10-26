@@ -54,6 +54,10 @@ exclude_re = [
     # being set, so `^` clears it.
     "(color_tools/src/kit|cpk/src/(crilayla|read|utf)|fmdl/src/ops/antiblur|ftex/src/dds|kit_config/src/binary|pes_savefile/src/(codec/bits|container/mt19937|schema/texport))\\.rs:\\d+:\\d+: replace \\| with \\^",
     "fmdl/src/format/f16\\.rs:(19:36|19:50|24:36|26:25|26:52|39:21|43:21|55:44|66:21|69:53|76:10): replace \\| with \\^",
+    # The Ruleset editor's native file dialog: `ruleset_dialog` is `#[cfg(not(test))]` (a test
+    # would open a real window; the tests stub the pickers), so no test compiles it, let alone
+    # sees the filter or start folder it sets. Matched by name, which does not drift.
+    "ruleset_editor/src/view/mod\\.rs:\\d+:\\d+: replace ruleset_dialog -> rfd::FileDialog with",
     # `relaunch_elevated`'s Windows arm can only be exercised through the UAC consent prompt,
     # which no test can click: the `-> Ok(())` replacements of the body (`windows.rs`) and of
     # its wrapper (`lib.rs:51`), and the ERROR_CANCELLED arm. The plan (libs/elevation.md) makes

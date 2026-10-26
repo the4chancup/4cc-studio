@@ -1,5 +1,5 @@
 The Ruleset editor's window builds an AATF ruleset through forms and saves it as a
-`.rhai` rules file the Save editor and the Team creator can check against, like the
+`.4ccrules` rules file the Save editor and the Team creator can check against, like the
 official one.
 
 **Start page.** With no ruleset open the window offers to start one: *New from

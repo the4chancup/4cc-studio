@@ -905,7 +905,7 @@ fn the_cards_left_badge_reads_the_players_own_tier() {
     let aatf = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../libs/aatf");
     let data = std::fs::read_to_string(aatf.join("rulesets/dbc7.rhai")).unwrap();
     let logic = std::fs::read_to_string(aatf.join("logic/logic.rhai")).unwrap();
-    let rules_path = path.with_file_name("dbc7.rhai");
+    let rules_path = path.with_file_name("dbc7.4ccrules");
     std::fs::write(
         &rules_path,
         format!(
@@ -1008,7 +1008,7 @@ fn a_player_no_tier_matches_gets_the_stand_in() {
     )
     .unwrap();
     let ruleset = aatf::Ruleset::from_data_block(&data).unwrap();
-    let rules_path = path.with_file_name("vtl11.rhai");
+    let rules_path = path.with_file_name("vtl11.4ccrules");
     std::fs::write(
         &rules_path,
         aatf::assemble_file(
@@ -1064,7 +1064,7 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
         &format!("{head}    throw \"the tier check fails\";\n"),
         1,
     );
-    let rules_path = path.with_file_name("failing.rhai");
+    let rules_path = path.with_file_name("failing.4ccrules");
     std::fs::write(
         &rules_path,
         aatf::assemble_file(aatf::Rules::official().ruleset(), Some(&failing), None),
@@ -1153,7 +1153,7 @@ fn a_load_error_draws_nothing_in_the_skills_column_at_a_narrow_pane() {
         "rules_load_error_at_a_path_long_enough_to_need_the_wrap",
     );
     let dir = path.parent().unwrap().to_path_buf();
-    let bad = dir.join("this_is_not_a_rules_file.rhai");
+    let bad = dir.join("this_is_not_a_rules_file.4ccrules");
     assert!(
         bad.to_str().unwrap().len() >= 80,
         "premise: the path is long: {bad:?}"
@@ -1184,7 +1184,7 @@ fn a_load_error_draws_nothing_in_the_skills_column_at_a_narrow_pane() {
 fn a_rules_file_that_does_not_load_draws_no_badge() {
     let path = fixture(PesVersion::Pes21, "rules_load_error");
     let dir = path.parent().unwrap().to_path_buf();
-    let bad = dir.join("bad.rhai");
+    let bad = dir.join("bad.4ccrules");
     std::fs::write(&bad, "this is no ruleset").unwrap();
 
     let mut view = SaveView::new();

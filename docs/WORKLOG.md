@@ -2810,7 +2810,7 @@ briefs, review loops, gates and mutation runs as for any step.
       with `get_temp` as the workspace does, not `get_persisted`. The centring balances against
       the pane's frame, 8 points inside the window's edge: the built-window check decides
       which edge the eye reads. Files: `view/{info_strip,abilities,mod}.rs`, the tests
-- [ ] 0.0.1t a rules file a member handles ends in `.4ccrules` (the maintainer, 2026-10-26;
+- [x] 0.0.1t a rules file a member handles ends in `.4ccrules` (the maintainer, 2026-10-26;
   DECISIONS "A rules file a member handles ends in `.4ccrules`"; `plans/aatf_rules.md` "The
   rules file"): the Save editor's settings row and AATF panel and the Ruleset editor's pickers
   offering `.4ccrules` alone, Save a copy suggesting `autumn26.4ccrules`, the written file's
@@ -2819,6 +2819,16 @@ briefs, review loops, gates and mutation runs as for any step.
   `rules/dbc7.4ccrules` rides with 0.0.1f → verify: the pickers' extension lists pinned by
   unit test; SE-GUI-15's suggested name; the writer's header test; `grep -rn "\.rhai"` over
   the help, the messages and the spec finding only the repository's own sources
+  Done 2026-10-26 (SWE-2): `aatf::RULES_FILE_EXTENSION` the one spelling, the three pickers
+  and both suggested names on it (`OFFICIAL_FILE_NAME` = `autumn26.4ccrules`); the header and
+  the nine sources' first lines name Rhai, the logic hash untouched; a file loads whatever it
+  ends in (no meaningful red). Lead: GLOSSARY's row; the spec's bundle clause left to 0.0.1f.
+  Files: `aatf/src/{rules,lib,writer/*}.rs`, `aatf/rulesets/*.rhai`,
+  `save_editor/src/{lib,view/aatf_panel,session/rules}.rs`,
+  `ruleset_editor/src/{view/mod,cli}.rs`, `ruleset_editor/help/*`, the tests,
+  `spec/{aatf_rules,save_editor}.md`. `mutants-diff e04c318d`: 3 caught, 1 unviable, 1 missed:
+  `ruleset_dialog` to `Default`, a `#[cfg(not(test))]` native dialog no test compiles, excluded
+  by name in `.cargo/mutants.toml`
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

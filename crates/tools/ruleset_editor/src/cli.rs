@@ -38,14 +38,14 @@ enum RulesetCommand {
 /// `<file>`: the rules file the command works on.
 #[derive(Debug, Args)]
 struct FileArgs {
-    /// The rules file (.rhai).
+    /// The rules file (.4ccrules).
     file: PathBuf,
 }
 
 /// `summary <file> [-o <out>]`.
 #[derive(Debug, Args)]
 struct SummaryArgs {
-    /// The rules file (.rhai).
+    /// The rules file (.4ccrules).
     file: PathBuf,
     /// Write the text here instead of printing it; a file it replaces is
     /// kept as <out>.bak.
@@ -221,7 +221,7 @@ mod tests {
     fn an_older_logic_is_replaced_with_the_old_file_kept_as_bak() {
         let dir = scratch("update_logic_older");
         let original = valid_file();
-        let path = write_file(&dir, "rules.rhai", &original);
+        let path = write_file(&dir, "rules.4ccrules", &original);
         let mut document = Document::open(&path).expect("opens");
         document.logic = Logic::Older {
             version: 1,
@@ -232,7 +232,7 @@ mod tests {
         update_document(&mut document, &path, &mut report).expect("updated");
         assert!(matches!(document.logic, Logic::Current));
         assert_eq!(
-            fs::read_to_string(dir.join("rules.rhai.bak")).expect("the .bak"),
+            fs::read_to_string(dir.join("rules.4ccrules.bak")).expect("the .bak"),
             original,
             "the .bak holds the replaced file"
         );
@@ -269,7 +269,7 @@ mod tests {
     fn a_save_that_fails_validation_is_a_refusal() {
         let dir = scratch("update_logic_invalid_save");
         let original = valid_file();
-        let path = write_file(&dir, "rules.rhai", &original);
+        let path = write_file(&dir, "rules.4ccrules", &original);
         let mut document = Document::open(&path).expect("opens");
         document.ruleset.tiers[1].id = document.ruleset.tiers[0].id.clone();
         document.logic = Logic::Older {
@@ -289,7 +289,7 @@ mod tests {
             "the file is unchanged"
         );
         assert_eq!(
-            fs::read(dir.join("rules.rhai.bak")).unwrap(),
+            fs::read(dir.join("rules.4ccrules.bak")).unwrap(),
             original.as_bytes(),
             "the .bak written before the save holds the same bytes"
         );

@@ -1235,11 +1235,11 @@ fn window_lines(
     lines.into_iter().map(|(_, _, text)| text).collect()
 }
 
-/// `dir`'s `throw19.rhai` written and its path returned: the official
-/// file with the CLI's custom check that throws on captain 19 (team
-/// 743's; `a_check_that_fails_on_one_team_does_not_stop_the_rest`).
+/// `dir`'s `throw19.4ccrules` written and its path returned: the
+/// official file with the CLI's custom check that throws on captain 19
+/// (team 743's; `a_check_that_fails_on_one_team_does_not_stop_the_rest`).
 fn throw19_file(dir: &Path) -> PathBuf {
-    let path = dir.join("throw19.rhai");
+    let path = dir.join("throw19.4ccrules");
     std::fs::write(
         &path,
         aatf::official_file().replacen(

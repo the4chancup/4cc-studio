@@ -49,9 +49,9 @@ fn the_start_page_offers_its_entries_in_order() {
 #[test]
 fn the_recent_files_list_the_later_open_first_and_skip_a_deleted_file() {
     let dir = crate::test_support::scratch("recent_files");
-    let first = write_file(&dir, "first.rhai", &valid_file());
-    let second = write_file(&dir, "second.rhai", &valid_file());
-    let saved = dir.join("saved.rhai");
+    let first = write_file(&dir, "first.4ccrules", &valid_file());
+    let second = write_file(&dir, "second.4ccrules", &valid_file());
+    let saved = dir.join("saved.4ccrules");
     let (ctx, _events) = crate::test_support::context();
 
     // Two files opened in turn, then the tool restarted: the later
@@ -61,23 +61,26 @@ fn the_recent_files_list_the_later_open_first_and_skip_a_deleted_file() {
     let mut restarted = RulesetView::new();
     let mut window = Headless::new();
     let frame = window.draw(&mut restarted, &ctx);
-    assert_order(&labels(&frame.nodes), &["second.rhai", "first.rhai"]);
+    assert_order(
+        &labels(&frame.nodes),
+        &["second.4ccrules", "first.4ccrules"],
+    );
 
     // One opened and one saved, restarted: the saved heads it.
     let mut view = opened_view(&ctx, &first);
     assert!(save_to(&mut view, &ctx, &saved));
     let mut restarted = RulesetView::new();
     let frame = window.draw(&mut restarted, &ctx);
-    assert_order(&labels(&frame.nodes), &["saved.rhai", "first.rhai"]);
+    assert_order(&labels(&frame.nodes), &["saved.4ccrules", "first.4ccrules"]);
 
     // A listed file deleted is no longer listed.
     std::fs::remove_file(&saved).unwrap();
     let frame = window.draw(&mut restarted, &ctx);
     assert!(
-        !drawn(&frame.nodes, "saved.rhai"),
+        !drawn(&frame.nodes, "saved.4ccrules"),
         "the deleted file is filtered"
     );
-    assert!(drawn(&frame.nodes, "first.rhai"));
+    assert!(drawn(&frame.nodes, "first.4ccrules"));
 }
 
 /// The rail's labels in the plan's order, `Custom checks` when the
@@ -136,7 +139,7 @@ fn template_opens_clean(index: usize, test: &str) {
     let frame = window.draw(&mut view, &ctx);
     assert_clean_rail(&frame.nodes, template.custom_checks.is_some());
 
-    let path = dir.join("saved.rhai");
+    let path = dir.join("saved.4ccrules");
     save_as_via_menu(&mut window, &mut view, &ctx, &path);
     assert!(path.is_file(), "Save as… wrote the file");
     let text = std::fs::read_to_string(&path).unwrap();
@@ -172,7 +175,7 @@ fn blank_opens_as_new_ruleset_and_saves_back_equal() {
     let frame = window.draw(&mut view, &ctx);
     assert_clean_rail(&frame.nodes, false);
 
-    let path = dir.join("saved.rhai");
+    let path = dir.join("saved.4ccrules");
     save_as_via_menu(&mut window, &mut view, &ctx, &path);
     assert!(path.is_file(), "Save as… wrote the file");
     let text = std::fs::read_to_string(&path).unwrap();
@@ -180,12 +183,12 @@ fn blank_opens_as_new_ruleset_and_saves_back_equal() {
     assert_eq!(rules.ruleset(), &crate::document::blank());
 }
 
-/// `text` opened as `rules.rhai` under a fresh scratch folder: it is not
+/// `text` opened as `rules.4ccrules` under a fresh scratch folder: it is not
 /// opened, and the start page's labels as drawn (the file's name, then
 /// one line per finding).
 fn refused_open_labels(test: &str, text: &str) -> Vec<String> {
     let dir = crate::test_support::scratch(test);
-    let file = write_file(&dir, "rules.rhai", text);
+    let file = write_file(&dir, "rules.4ccrules", text);
     let (ctx, _events, mut window, mut view) = fresh();
     open_path(&mut view, &ctx, &file);
     assert!(view.document.is_none(), "not opened in the forms");
@@ -206,7 +209,7 @@ fn assert_finding(labels: &[String], predicate: impl Fn(&str) -> bool) {
 #[test]
 fn a_parse_error_is_refused_with_its_line_and_column() {
     let labels = refused_open_labels("open_parse", &crate::test_support::parse_error_file());
-    assert_finding(&labels, |label| label == "Could not open rules.rhai:");
+    assert_finding(&labels, |label| label == "Could not open rules.4ccrules:");
     assert_finding(&labels, |label| label.starts_with("line=12, column="));
 }
 
@@ -233,7 +236,7 @@ fn a_broken_file_is_refused_over_an_open_document() {
     let dir = path.parent().expect("the scratch folder").to_path_buf();
     let broken = write_file(
         &dir,
-        "broken.rhai",
+        "broken.4ccrules",
         &crate::test_support::parse_error_file(),
     );
     open_path(&mut view, &ctx, &broken);
@@ -247,7 +250,10 @@ fn a_broken_file_is_refused_over_an_open_document() {
     let mut window = Headless::new();
     window.draw(&mut view, &ctx);
     let frame = window.draw(&mut view, &ctx);
-    assert!(contains_label(&frame.nodes, "Could not open broken.rhai:"));
+    assert!(contains_label(
+        &frame.nodes,
+        "Could not open broken.4ccrules:"
+    ));
     assert!(contains_label(&frame.nodes, "line=12"));
     click_labeled(&mut window, &frame.nodes, "OK", &mut view, &ctx);
     assert!(view.dialog.is_none(), "OK closes the refusal");
@@ -260,13 +266,16 @@ fn a_template_pick_clears_the_refused_open_lines() {
     let dir = crate::test_support::scratch("stale_refusal");
     let broken = write_file(
         &dir,
-        "broken.rhai",
+        "broken.4ccrules",
         &crate::test_support::parse_error_file(),
     );
     let (ctx, _events, mut window, mut view) = fresh();
     open_path(&mut view, &ctx, &broken);
     let frame = window.draw(&mut view, &ctx);
-    assert!(contains_label(&frame.nodes, "Could not open broken.rhai:"));
+    assert!(contains_label(
+        &frame.nodes,
+        "Could not open broken.4ccrules:"
+    ));
 
     // Pick a template, then File > New from template…: no "Could not
     // open" line on the page's return.
@@ -292,7 +301,7 @@ fn the_start_modal_scrolls_when_it_outgrows_the_screen() {
     // Ten existing recent files: only those that exist are listed.
     let recent: Vec<String> = (0..10)
         .map(|index| {
-            write_file(&dir, &format!("recent_{index}.rhai"), &valid_file())
+            write_file(&dir, &format!("recent_{index}.4ccrules"), &valid_file())
                 .to_string_lossy()
                 .into_owned()
         })
@@ -343,7 +352,7 @@ fn the_start_modal_stays_on_a_shrunk_screen() {
     let dir = crate::test_support::scratch("start_modal_shrink");
     let recent: Vec<String> = (0..10)
         .map(|index| {
-            write_file(&dir, &format!("recent_{index}.rhai"), &valid_file())
+            write_file(&dir, &format!("recent_{index}.4ccrules"), &valid_file())
                 .to_string_lossy()
                 .into_owned()
         })

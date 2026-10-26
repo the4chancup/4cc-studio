@@ -11,7 +11,7 @@ use crate::ruleset::{
 };
 
 /// The first line of every rules file, as `rulesets/` carries it.
-const HEADER: &str = "// AATF ruleset. Open it in the Ruleset editor to change it.";
+const HEADER: &str = "// AATF ruleset, a Rhai script. Open it in the Ruleset editor to change it.";
 
 /// The indent unit, four spaces.
 const INDENT: &str = "    ";

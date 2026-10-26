@@ -123,7 +123,7 @@ terms next to each other rather than in alphabetical order; adjacency is what ma
 | Term | Meaning | Owner |
 |---|---|---|
 | **AATF rules** | The 4cc rule set constraining player stats and medals, the Auto ATF's (see "ATF"); checked and applied by `libs/aatf` from a rules file. | `spec/aatf_rules.md` |
-| **Ruleset / rules file** | One AATF ruleset as a `.rhai` file: the data (`RULESET`: tiers, heights, card economy, specials), the generic interpreter Studio writes into every file, and optional custom checks. The official one is embedded; invitationals make their own in the Ruleset editor. | `spec/aatf_rules.md` "The rules file" |
+| **Ruleset / rules file** | One AATF ruleset as a `.4ccrules` file (plain Rhai): the data (`RULESET`: tiers, heights, card economy, specials), the generic interpreter Studio writes into every file, and optional custom checks. The official one is embedded; invitationals make their own in the Ruleset editor. | `spec/aatf_rules.md` "The rules file" |
 | **Tier** | A class of player in a ruleset (gold, silver, bronze, regular, …) with its own stat targets, form, limits and per-team count; a player's tier is recognized from their rating. "Medal" is the community's word for the non-regular tiers. | `spec/aatf_rules.md` "The ruleset schema" |
 | **Special** | A conditional rule of a ruleset: *players matching these conditions get these effects* (a stat bonus, extra or free cards, a height allowance, a forbid…). | `spec/aatf_rules.md` "The ruleset schema" |
 | **Suggestion** | An AATF finding of an allowance a player does not use up (fewer cards than allowed, weak foot below the maximum…); listed apart from errors, uncounted, shown on request. | `plans/aatf_rules.md` "The interpreter" |
