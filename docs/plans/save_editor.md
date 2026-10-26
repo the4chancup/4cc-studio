@@ -292,6 +292,13 @@ mirroring 4ccEditor's structure without its dialog sprawl:
   and tactics schemas.
 - Save with the save's own PES running asks first ("Writing a save while its game runs",
   below); another version's game asks nothing.
+- A save of another version than the sidebar's selector opens with a warning under the
+  toolbar naming both (SE-GUI-28); the save keeps its own version. The warning's **Switch to
+  PES 20xx** button (the save's version) makes the same change the sidebar's selector makes,
+  its blockers included, after which there is nothing to warn about; its close button hides
+  the warning until another save is opened. Not a switch on open: the selector also sets what
+  the other tools target (the Team compiler's game), and a member opening an old save to look
+  at it must not retarget them.
 
 Improvements policy: each of the above exists to remove a real friction point
 (finding players, reordering, fear of misclicks). No animations-for-the-sake-of-it.
@@ -1107,7 +1114,10 @@ SE-GUI-27  GIVEN the save open
 SE-GUI-28  GIVEN the selector at PES 19
            WHEN a PES 21 save is opened
            THEN the view warns, naming both versions, the save keeps its own version (its codec
-                and its widgets' gating are PES 21's), and the selector's setting is unchanged
+                and its widgets' gating are PES 21's), and the selector's setting is unchanged;
+                WHEN the warning's "Switch to PES 2021" is clicked THEN the selector's setting is
+                PES 21 and the warning is gone; WHEN instead its close button is clicked THEN the
+                warning is gone and the setting unchanged, until another save is opened
 SE-GUI-29  manual  GIVEN a Texport written by SE-GUI-17's export from a PES 18, 19, 20 and 21
            save
            WHEN it is imported through the game's own team import, in that version

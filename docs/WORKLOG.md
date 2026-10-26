@@ -2483,6 +2483,21 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] l2 ST-RUN-04 in the bundle (manual: a double-click opens no console; `team-compiler
     check` from a terminal prints there; both launchers print and their `pause` waits),
     asked before it runs; with k3
+- [ ] 0.0.1m the window's fit and its scaling with the width (the maintainer's UI review,
+  2026-10-26; `plans/core/gui.md` "Shell layout", the paragraphs "The window's size" and
+  "Scaling with the width"): the first frame fits the height alone, keeping 1280 wide where
+  the window fits; under the design width the shell sets the zoom factor from the native
+  pixel width, at or above it 1 → verify: ST-WIN-01 (its new numbers), ST-WIN-02. Then an
+  audit of the views' narrow-pane fallbacks the scaling makes unreachable (the Save editor's
+  header rows, Profile above the quick actions, fewer stat columns, the Tactics settings
+  column below the pitch: `plans/save_editor.md` "Editing UI"), each kept or removed with its
+  plan text. The size classes (ST-WIN-03, `StudioTool::window_size`) land with the Music
+  player's view (Phase 10), their first special tool: a trait method no tool implements
+  before then would be an item without a consumer
+- [ ] 0.0.1n the drafts' Layout edit and scaling (the same review; `plans/core/gui.md`
+  "Layout edit", the "Size:" bullet): a moved panel pinned where dropped, a columned panel
+  narrowed into fewer columns, the simulated window scaled under the design width
+  (`.tmp/drafts/brief_drafts_layout.md`)
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

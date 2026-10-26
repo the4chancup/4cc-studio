@@ -179,6 +179,13 @@ rail is a trait method, `fn icon(&self) -> &'static str`, one glyph of the shell
 planned entry repeats it. Not a second `Vec<Box<dyn StudioTool>>` of disabled tools, because a
 planned tool has no crate to construct; not the labels alone, because the rail draws icons.
 
+A tool whose use calls for its own window size declares it with a provided trait method,
+`fn window_size(&self) -> Option<egui::Vec2> { None }`: `None` puts the tool in the main
+tools' class, which shares one size; `Some` makes it a special tool with that design size
+(`gui.md` "Shell layout", "Window size classes"; today only the Music player). A method, not a
+flag in the registry, because the size belongs to the tool's view, which the tool's crate
+owns.
+
 These commands extend the spec's CLI examples:
 
 ```

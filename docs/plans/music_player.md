@@ -856,8 +856,11 @@ uses of mpv:
 
 ## GUI view
 
-The tool view is not a pipeline tool — no progress grid or log panel. It reproduces
-Rigdio's proven three-column soundboard inside the suite shell:
+The tool view is not a pipeline tool — no progress grid or log panel. It is the suite's one
+special-size tool (`core/gui.md` "Shell layout", "Window size classes"): a streamer places it
+beside the PES window, so it declares a compact window size of its own, which switching to it
+restores and switching away gives back to the main tools' size; the size itself is set with
+the view's draft. It reproduces Rigdio's proven three-column soundboard inside the suite shell:
 
 ```
 ┌───────────────────────────┬─────────────────────┬───────────────────────────┐

@@ -11271,3 +11271,38 @@ miss a crash followed by a restart: winit 0.30.13 and eframe 0.37 handle neither
 `WM_QUERYENDSESSION` nor `WM_ENDSESSION` (their sources hold neither), so a Windows shutdown
 with the window open also ends without the line.
 Plan: `plans/core/architecture.md` "Diagnostic logging"; ST-RUN-09.
+
+## 2026-10-26 — studio_core — The window keeps 1280 wide, scales down under it, and special tools keep their own size
+Decision: the first frame fits only the window's height (to 90% of the monitor's), keeping
+1280 points wide wherever the window fits; under a tool's design width (1280 for the main
+tools) the shell scales the whole UI down with the width, and at or above it, and at any
+height, the views reflow at scale 1. The main tools share one window size; a special tool
+(today only the Music player) declares its own, and switching between the two classes
+restores each class's last size and position for the session.
+Why: the maintainer's UI review: 1280 × 720 screens are rare now, so the 16:10 fit that
+shrank the width too is dropped; a horizontal shrink should keep the elements' arrangement and
+shrink them, a vertical one or any growth keep their size and reflow; the music player must be
+compact beside the PES window while streaming, while the other tools need room. Scaling on the
+width alone because the views' fixed-width rows are what clips, while height only needs a
+scroll. The size classes wait for the Music player's view, their first special tool.
+Plan: `plans/core/gui.md` "Shell layout" ("The window's size", "Scaling with the width",
+"Window size classes"), ST-WIN-01 to 03; `plans/core/architecture.md` "Tool plugin interface";
+`plans/music_player.md` "GUI view".
+
+## 2026-10-26 — save_editor — The version warning offers the switch and a close
+Decision: the warning shown when a save's version differs from the sidebar's selector carries
+"Switch to PES 20xx" (the selector's own change, blockers included) and a close button that
+hides it until another save opens.
+Why: the maintainer's UI review asked for either action on the warning. The switch is never
+made on open, since the selector also sets what the other tools target.
+Plan: `plans/save_editor.md` "Editing UI", the bullet starting "A save of another version";
+SE-GUI-28.
+
+## 2026-10-26 — drafts — Layout edit pins a moved panel; a columned panel narrows into fewer columns
+Decision: a moved panel is pinned at its dropped position in window points, its slot kept, so
+no neighbour's resize moves it; a panel laid out in columns can be narrowed past its columns
+and reflows into fewer; the simulated window scales under the design width as Studio does.
+Why: the maintainer's review: resizing `profile` moved the quick-actions panel after it had
+been moved elsewhere (the move was an offset from the layout's position), and a columned
+panel stopped at its widest row.
+Plan: `plans/core/gui.md` "Layout edit", the "Size:" bullet.

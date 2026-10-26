@@ -38,29 +38,44 @@ The sidebar lists the registered tools in registry order (today the Team compile
 editor, the Export upgrader), then the planned ones in parentheses here, grayed in the window
 ("Sidebar").
 
-**The window's size.** Studio opens at 1280 × 800 points (16:10), centered, not maximized.
+**The window's size.** Studio opens at 1280 × 800 points, centered, not maximized.
 Points are egui's logical units, so the system's display scaling applies: at 150% the window
 covers 1920 × 1200 pixels and looks the same size it does at 100%. A fixed size, not a share of
 the monitor, because a share makes the window as wide as an ultrawide monitor is. On a monitor
-whose logical size cannot hold it with room for the taskbar and the title bar (1280 × 800 is
-over 90% of its logical width or height: a 1366 × 768 laptop, a 1080p monitor at 150%,
-1280 × 720 logical), it opens at the largest 16:10 size within 90% of the monitor's logical
-width and height, rounded to whole points: 1037 × 648 at 1280 × 720, the smallest default a
-member meets. Every view is laid out to work at that smallest default, which is why the
-drafts draw their UI in a window of Studio's default size and offer the smallest one
-("Prototypes before implementation"). The monitor's size is known only once the window
-exists (`ViewportInfo::monitor_size`, in points), so the window is created at 1280 × 800 and
-the shell fits and centers it on the first frame that reports the monitor's size
+whose logical height cannot hold it with room for the taskbar and the title bar (800 points is
+over 90% of its logical height: a 1366 × 768 laptop), only the height is fitted, to 90% of the
+monitor's logical height rounded to whole points (1280 × 691 at 1366 × 768); the width stays
+1280 wherever the window, its borders included, fits the monitor's width. A monitor narrower
+than that (1280 × 720 logical: a 1080p one at 150%, rare today) gets the width that fits, and
+the views draw scaled down (below). The monitor's size is known only once the window exists
+(`ViewportInfo::monitor_size`, in points), so the window is created at 1280 × 800 and the shell
+fits and centers it on the first frame that reports the monitor's size
 (`ViewportCommand::InnerSize`, then `OuterPosition` centering the outer rectangle, title bar
 included), and never again, so a member's own resize or move holds. eframe's own clamp at
-creation is not enough: it clamps to the whole monitor, under the taskbar, and drops the 16:10
-shape. Where no frame reports the monitor's size, the window stays as created. A member's
-resize stops at **960 × 600 points**, under the smallest default so the fit never meets it:
-the views are laid out for the defaults, and below about 900 points wide rows with fixed parts
-(the Tactics pitch, a row of colour swatches, the tab strip) clip at the right edge instead of
-wrapping (measured on the Save editor, 2026-10-25). A minimum keeps every view whole for the
-cost of one line; making every such row wrap would rework each layout for sizes no default
-opens at.
+creation is not enough: it clamps to the whole monitor, under the taskbar. Where no frame
+reports the monitor's size, the window stays as created.
+
+**Scaling with the width.** A view is laid out for its window's design width: 1280 points for
+the main tools. Narrower than that, the shell scales the whole UI down with the width (egui's
+zoom factor set to the window's width over the design width, read from the native pixel width
+so the zoom does not feed back into it), so every row keeps the arrangement it has at 1280 and
+nothing clips or rewraps; at or above the design width, and at any height, the zoom is 1 and
+the views reflow: wider rows spread, a shorter window scrolls or stacks as each view's height
+rules say. We scale on the width alone because the views' fixed-width rows (the Tactics pitch,
+a row of colour swatches, the tab strip) are what clips below about 900 points (measured on the
+Save editor, 2026-10-25), while height only ever needs a scroll. A member's resize stops at
+**960 × 600 points**: below 960 the scaled text drops under 75% of its size, past legible on a
+100% display.
+
+**Window size classes.** The main tools share one window size: switching between them never
+resizes the window. A special tool, one whose use calls for another size, declares its own
+(`StudioTool::window_size`, `None` for the main tools): today only the Music player, compact so
+a streamer places it beside the PES window, its design size set with its view's draft. The
+shell remembers each class's last size and position for the session; switching from a tool of
+one class to a tool of the other restores the other's (its declared size, centered, the first
+time), so a streamer's compact window comes back where they left it. A special tool's design
+width is its declared width, and its minimum its own. The window opens in the class of the
+tool it opens on (the last active one, ST-RUN-02).
 
 The shell draws only what is its own. Panels claim space in call order, so the status bar is
 added first to span the full width, the sidebar next, and the central panel, whatever is left,
@@ -516,8 +531,11 @@ to the table first (a new dependency, asked for first):
 - **Size:** the UI is drawn inside a simulated window of the window's default size ("Shell
   layout": 1280 × 800, fitted to 90% of the browser's `screen` size as Studio fits the
   monitor; CSS pixels are logical pixels, as egui's points are), centered on a
-  desktop-colored page, with a size choice (the default, the smallest default of 1037 × 648,
-  the minimum of 960 × 600, the whole monitor) and the draft controls outside it. Like Studio Web's window ("Browser deployment: Studio Web") it resizes
+  desktop-colored page, with a size choice (the default, the smallest default of 1264 × 648,
+  the minimum of 960 × 600, the whole monitor) and the draft controls outside it. Narrower
+  than the tool's design width the simulated window scales its content down with the width,
+  as Studio does ("Shell layout", "Scaling with the width"), so a narrow size shows what a
+  member sees rather than a layout Studio never draws. Like Studio Web's window ("Browser deployment: Studio Web") it resizes
   from its bottom-right corner and maximizes to the page from its title bar (a button, or a
   double-click on the bar), and the bar above it reads its size live, in pixels and as a
   share of the monitor, which is how the default size is tuned. A full-page draft in a maximized browser shows room the real window
@@ -555,9 +573,15 @@ is checked against.
 tunes an arrangement by hand instead of describing it. While it is on, every panel a tool
 script names (`data-panel="<name>"`: group boxes, columns, sidebars, bars; never a single
 control) shows an outline, a handle that moves it and a corner that resizes it, and the
-panels' own controls take no input. A move is an offset from where the panel's layout puts it
-and pushes nothing; a resize sets its width and height and the panels around it reflow, as
-they do in the window. "Copy layout" puts one line per changed panel on the clipboard (the
+panels' own controls take no input. Each panel is tuned on its own. A moved panel is pinned
+where it was dropped, in window points: no later resize of another panel moves it, and its
+own slot in the layout stays as it was, so the move pushes nothing either. (Not an offset
+from where the layout puts it: a neighbour's resize then dragged the moved panel along,
+2026-10-26.) A resize sets the panel's width and height, and the panels around it that are not
+pinned reflow, as they do in the window; a panel laid out in columns (the stats, the
+positions, a grid of fields) can be narrowed past its columns' width, and then reflows into
+fewer columns, as the view does when its pane narrows, rather than stopping at its widest
+row. "Copy layout" puts one line per changed panel on the clipboard (the
 tool, its screen or tab, the simulated window's size and the browser zoom, and each panel's
 name with its rectangle in window points before and after); the tweaks survive a reload, and
 "Reset" clears them. The string is evidence for the lead, not a layout file: the views lay out
@@ -739,11 +763,23 @@ ST-WIN-01   GIVEN a monitor of 1920 × 1080 points and the window created at 128
                  outer rectangle 16 points wider and 39 taller (its borders and title bar)
             WHEN the GUI's first frame runs
             THEN it asks for a 1280 × 800 inner size and moves the window to (312, 120.5), its
-                 outer rectangle centered on the monitor; GIVEN a monitor of 1280 × 720 points
-                 THEN 1037 × 648 at (113.5, 16.5); GIVEN 1366 × 768 THEN 1106 × 691 at
-                 (122, 19); and no later frame sends either; GIVEN the first frame reporting
-                 no monitor size THEN neither command, and the first frame that reports one
-                 sends both; the native window's options carry a 960 × 600 minimum inner size
+                 outer rectangle centered on the monitor; GIVEN 1366 × 768 THEN 1280 × 691 at
+                 (35, 19); GIVEN a monitor of 1280 × 720 points THEN 1264 × 648 at (0, 16.5);
+                 and no later frame sends either; GIVEN the first frame reporting no monitor
+                 size THEN neither command, and the first frame that reports one sends both;
+                 the native window's options carry a 960 × 600 minimum inner size
+ST-WIN-02   GIVEN a main tool's view and a window 960 points wide (native pixels at 100%)
+            WHEN a frame runs
+            THEN the zoom factor is 0.75 and the view lays out 1280 points wide; GIVEN 1280 or
+                 1600 wide THEN the zoom is 1 and the view lays out at the window's width;
+                 GIVEN the height changed alone THEN the zoom is as before
+ST-WIN-03   GIVEN two main stub tools and a special stub tool declaring a 480 × 640 size
+            WHEN the active tool goes from the first main tool to the second
+            THEN no size or position command is sent; WHEN it goes to the special tool THEN the
+                 window is asked for 480 × 640, centered; WHEN the member resizes it and moves it,
+                 and the active tool goes back to a main tool THEN the main class's last size and
+                 position are restored; WHEN it goes to the special tool again THEN its own last
+                 size and position
 ```
 
 **Sidebar**
