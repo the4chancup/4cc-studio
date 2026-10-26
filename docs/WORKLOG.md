@@ -2777,6 +2777,11 @@ briefs, review loops, gates and mutation runs as for any step.
       centred over its B (`plans/save_editor.md` "Editing UI", the player view and Name and
       Shirt bullets; DECISIONS "The player view's labels, counts and positions after the
       maintainer's look")
+    - [ ] s3j the maintainer's second look (2026-10-26, drafted first,
+      `.tmp/0_0_1s/draft_look4_player.png`): Name and Shirt as label-left rows sharing the
+      combos' label column (as wide as "Registered position"), those six fields ending flush
+      with the second half's boxes; Playable positions' midfield in two rows, LMF AMF RMF /
+      CMF DMF (`plans/save_editor.md` "Editing UI", the player view bullet's item 1)
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

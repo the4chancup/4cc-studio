@@ -227,17 +227,20 @@ all side by side.
   panels of one column 14 points apart:
   1. **General info**, 350 points wide (the draft's: room for the longest pair label,
      "Injury resistance", beside its box on each half), laid out as 4ccEditor's General Info:
-     Name, then Shirt, each label over a field the panel's width; then label-left pairs on two
-     halves, Height and Shirt number, Weight and Nation, Age and Captain, each box 54 points
-     wide: on the first half at the half's right edge, on the second just after a label column
-     as wide as that half's longest label ("Shirt number"), so a short label (Nation, Form)
-     keeps its box close; then Stronger foot, Stronger hand (20+), Registered position and
-     Playing style, their labels in one column, every combo starting at one x and ending on the
-     panel's right edge. Under it **Other stats**: Injury resistance and Form, then "Weak foot:
+     Name, then Shirt, each a row with its label on the left and its field on the right; then
+     label-left pairs on two halves, Height and Shirt number, Weight and Nation, Age and
+     Captain, each box 54 points wide: on the first half at the half's right edge, on the
+     second just after a label column as wide as that half's longest label ("Shirt number"),
+     so a short label (Nation, Form) keeps its box close; then Stronger foot, Stronger hand
+     (20+), Registered position and Playing style. Name, Shirt and the four combos share one
+     label column, as wide as their longest label ("Registered position"), so every one of
+     those fields starts at one x, and each ends flush with the second half's boxes, not on
+     the panel's right edge. Under it **Other stats**: Injury resistance and Form, then "Weak foot:
      Usage" and "Accuracy" (the two sharing one label), on General info's halves so every box of
      both panels lines up. Under that **Playable positions**: the 13 positions with C/B/A
-     ratings in four rows by line of the pitch, each left wing to right wing (LWF CF SS RWF /
-     LMF AMF CMF DMF RMF / LB CB RB / GK, GK alone below the others), each row centred in the
+     ratings in five rows by line of the pitch, each left wing to right wing (LWF CF SS RWF /
+     LMF AMF RMF / CMF DMF / LB CB RB / GK, the midfield in two, GK alone below the others),
+     each row centred in the
      panel, each position's label centred over its ratings (over the B), the registered one
      outlined; the chosen rating filled: A green, B the selection's blue, C a grey square, so
      the three tell apart at a glance and an unrated position still shows its C.
