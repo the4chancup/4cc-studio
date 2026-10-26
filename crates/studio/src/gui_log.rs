@@ -620,6 +620,19 @@ mod tests {
         assert!(text.contains("C:\\data\\studio.old.log"), "{text}");
     }
 
+    // ST-RUN-09: the dialog names the file `open_log` renamed the previous log to.
+    #[test]
+    fn old_path_is_the_old_log_beside_the_log() {
+        let installed = InstalledLog {
+            path: Path::new("C:\\data").join(LOG_FILE_NAME),
+            previous_unclean: true,
+        };
+        assert_eq!(
+            installed.old_path(),
+            Path::new("C:\\data").join(OLD_LOG_FILE_NAME)
+        );
+    }
+
     // A process sets one global logger ever, and `main`'s verbosity test installs the
     // CLI's env_logger, so whichever of the two tests ran second in this process would
     // lose. This one drives `install_gui_logger` in a fresh child of the test binary,
