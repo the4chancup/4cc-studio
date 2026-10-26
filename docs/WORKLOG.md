@@ -2888,6 +2888,21 @@ briefs, review loops, gates and mutation runs as for any step.
       `.tmp/0_0_1s/s3_rulings.md`. The post-Astra SWE-2 round S7: 0 of 2 accepted, the
       review loops end. Open: the step's mutation run (grouped with o2a's; its local half's
       baseline timed out under load and is rerun), then s3's close
+  - [ ] s4 the player view's last look (the maintainer, 2026-10-26; drafted and approved,
+    `.tmp/0_0_1s/player_view_request.md`; plan "Editing UI", "Full Player Customization
+    (FPC)", DECISIONS "The player view's last look"): Stronger foot and hand Left | Right
+    toggles in the positions' grey, Registered position's full names, `Cards left for`, Motion
+    in two columns, the FPC wording (help topics 04 and 06 and `view/tests/player.rs` quote
+    the old text), the quick actions' columns and 20-point height, Captain centred, the view
+    filling its pane; and the window title's path (`core/gui.md` "Window title",
+    `StudioTool::title_detail`) → verify: SE-GUI-11, SE-GUI-31, the layout tests' new numbers;
+    after o2a's rework r3
+  - [ ] s5 the Tactics editor's grid (the maintainer, 2026-10-26; drafted and approved,
+    `.tmp/0_0_1s/tactics_layout_request.md`; plan "Tactics editor", DECISIONS "The Tactics
+    editor is one grid"): the three-row grid, Formation settings in pairs of equal rows, the
+    numbers' three-choice toggles, Join the attack's three rows, Advanced instructions' grid,
+    Automatic settings' grid and Substitution combo, Copy/swap on the selection, the medal
+    initials on the badges → verify: SE-GUI-12, SE-GUI-25; then o2b on it
 - [x] 0.0.1t a rules file a member handles ends in `.4ccrules` (the maintainer, 2026-10-26;
   DECISIONS "A rules file a member handles ends in `.4ccrules`"; `plans/aatf_rules.md` "The
   rules file"): the Save editor's settings row and AATF panel and the Ruleset editor's pickers
@@ -2907,6 +2922,13 @@ briefs, review loops, gates and mutation runs as for any step.
   `spec/{aatf_rules,save_editor}.md`. `mutants-diff e04c318d`: 3 caught, 1 unviable, 1 missed:
   `ruleset_dialog` to `Default`, a `#[cfg(not(test))]` native dialog no test compiles, excluded
   by name in `.cargo/mutants.toml`
+- [ ] 0.0.1u the theme pins egui 0.36's spacing and corner radii (the maintainer, 2026-10-26;
+  `plans/core/gui.md` "Other UI components", the "Dark/light theme" row; DECISIONS "The theme
+  pins egui 0.36's spacing and corner radii"): `button_padding` and the widgets' corner radii
+  set in `theme.rs` from 0.36's defaults; first the drafts' control heights measured against
+  `interact_size` (the quick actions 20, the list rows 18) and `interact_size` settled → verify:
+  a test reading the installed style's values; every view's layout tests rerun, their moved
+  numbers checked against the drafts
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

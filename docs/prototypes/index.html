@@ -510,6 +510,9 @@ S.settings = {
     set pes_version(v) { S.pesVersion = v; },
     get pes_folder_path() { return S.pesFolder; },
     set pes_folder_path(v) { S.pesFolder = v; },
+    // [common.pes_folders]: a version's own folder, keyed by its two digits,
+    // taken as written; an emptied row leaves the table.
+    pes_folders: {},
     exports_folder_path: "exports",
     thread_count: 0,
     memory_cap_percent: 80,
@@ -583,6 +586,8 @@ const VIEWS = {};
 //               is just #<tool>/<screen>)
 //   pesVersionChanged(v) the sidebar's PES version became v (by hand, the
 //               settings menu or the auto-switch)
+//   titleDetail() what the idle window title shows after the tool's name (the
+//               Save editor's open save, its path in square brackets), or null
 //   linkOpen(screen, keys)  the view sets its state from a link's screen and
 //               keys, run once when the page opens on a link naming the tool,
 //               after firstShow and before the first draw; a key or value it
@@ -628,18 +633,20 @@ function activityIds(withActive) {
 }
 
 // ---- Sidebar items 1 and 2 (gui.md "Sidebar") ----
-// The resolved folder: pes_folder_path with ** replaced by the selection's two
-// digits (studio_core's CommonSettings::pes_folder). In the real shell the exe
-// check is one directory listing of this folder; here its result is the
-// S.exeFound sample state, so "re-running the check" is redrawing with the new
-// folder name.
-const resolvedPesFolder = () => S.pesFolder.replaceAll("**", S.pesVersion.slice(2));
+// The resolved folder: the version's own pes_folders entry as written, else
+// pes_folder_path with ** replaced by the selection's two digits (studio_core's
+// CommonSettings::pes_folder). In the real shell the exe check is one directory
+// listing of this folder; here its result is the S.exeFound sample state, so
+// "re-running the check" is redrawing with the new folder name. A link-restored
+// settings object from before the per-version rows has no pes_folders.
+const pesFolders = () => S.settings.common.pes_folders || (S.settings.common.pes_folders = {});
+const pesFolderFor = year => pesFolders()[year.slice(2)] || S.pesFolder.replaceAll("**", year.slice(2));
+const resolvedPesFolder = () => pesFolderFor(S.pesVersion);
 const folderOf = p => p.slice(0, p.lastIndexOf("\\"));
 // The "Running game" draft combo's current value: "resolved" when the running
-// exe's folder equals the folder pes_folder_path resolves under its version.
+// exe's folder equals the folder its version resolves to.
 const runningPesKey = () => !S.runningPes ? "none"
-  : folderOf(S.runningPes.path) === S.pesFolder.replaceAll("**", S.runningPes.version.slice(2))
-    ? "resolved" : "other";
+  : folderOf(S.runningPes.path) === pesFolderFor(S.runningPes.version) ? "resolved" : "other";
 // The selector's colour: red when the folder holds a different version's exe,
 // yellow when it holds no PES exe or does not exist (ST-SIDE-03; the two yellow
 // cases differ in the tooltip only). Under a blocker the tooltip is the
@@ -697,14 +704,20 @@ function pollRunningPes() {
 // putting ** back for the two digits of the version in the exe's own folder
 // segment only (D:\Games\PES2021 -> D:\Games\PES20**; a segment without the
 // version's year keeps it and the path writes unchanged); opt-in, never
-// automatic.
+// automatic. Once any version has a folder of its own, it writes the running
+// version's row instead, the folder as it is: a rewritten main row would move
+// every version that falls back to it.
 function fixPesPath() {
   const rp = S.runningPes;
   if (!rp) return;
-  const segs = folderOf(rp.path).split("\\");
-  segs[segs.length - 1] = segs[segs.length - 1].replaceAll(rp.version, "20**");
-  S.pesFolder = segs.join("\\");
-  saveSettings(); // pes_folder_path is a common setting
+  if (Object.keys(pesFolders()).length) {
+    pesFolders()[rp.version.slice(2)] = folderOf(rp.path);
+  } else {
+    const segs = folderOf(rp.path).split("\\");
+    segs[segs.length - 1] = segs[segs.length - 1].replaceAll(rp.version, "20**");
+    S.pesFolder = segs.join("\\");
+  }
+  saveSettings(); // both are common settings
   render();
 }
 
@@ -1544,6 +1557,39 @@ const browse = kind => button("Browse", () => window_("Native " + kind + " dialo
   weak("The native " + kind + " picker (rfd) opens here"),
   [button("OK", () => { closeWindow(); drawSettings(); })]));
 
+// Under the PES folder row, the "A folder per version" toggle (the view's alone,
+// never a setting) and, while it is on, one path row per version: a filled row is
+// that version's folder as written, an empty one falls back to the main row. Any
+// filled row turns the toggle on and locks it there, since a hidden row would
+// still be used; once seen on it stays on, so emptying the last row does not take
+// the rows away under the member's edit.
+function perVersionRows() {
+  const folders = pesFolders();
+  const filled = Object.keys(folders).length > 0;
+  S.perVersionFolders = S.perVersionFolders || filled;
+  const toggle = h("label", {
+      class: "cb",
+      title: filled
+        ? "Empty every version's folder to switch this off, because a filled one is still used while it is hidden."
+        : "Gives each PES version a folder of its own, for installs whose folders do not follow one pattern." },
+    h("input", { type: "checkbox", checked: S.perVersionFolders, disabled: filled,
+      onchange: e => { S.perVersionFolders = e.target.checked; drawSettings(); } }),
+    " A folder per version");
+  const rows = [h("tr", {}, h("td", {}), h("td", {}, toggle))];
+  if (!S.perVersionFolders) return rows;
+  for (const year of PES_VERSIONS) {
+    const key = year.slice(2);
+    const edit = h("input", { type: "text", value: folders[key] || "",
+      onchange: e => {
+        if (e.target.value) folders[key] = e.target.value; else delete folders[key];
+        settingChanged(); drawSettings(); } });
+    rows.push(sRow("PES " + year + " folder", "pes_folders." + key,
+      "PES " + year + "'s own folder. When it is filled, it is used as written instead of the PES folder above; when it is empty, the PES folder above is used.",
+      [edit, browse("folder")]));
+  }
+  return rows;
+}
+
 // The common grid, always open (no header): one row per CommonSettings field a
 // member edits, its doc comment the tooltip's source.
 function commonSettingsRows() {
@@ -1562,8 +1608,9 @@ function commonSettingsRows() {
       h("span", { title: S.blocker ? pesSelectorTip() : null },
         combo(PES_VERSIONS.map(v => [v, "PES " + v]), c.pes_version, setPesVersion,
           { disabled: !!S.blocker, title: pesSelectorTip() }))),
-    sRow("PES folder", "pes_folder_path", "The PES installation folder, with ** standing for the two-digit version (20**).",
+    sRow("PES folder", "pes_folder_path", "The folder PES is installed in, where ** stands for the version's two digits (20** becomes 2019 for PES 2019). When the folder you browse to has the selected version's year in its name, the year is stored as 20** so that switching versions switches folders too. Any other folder is stored as you picked it.",
       [text("pes_folder_path"), browse("folder")]),
+    ...perVersionRows(),
     sRow("Exports folder", "exports_folder_path", "Where exports are picked up.",
       [text("exports_folder_path"), browse("folder")]),
     sRow("Threads", "thread_count", "Worker threads for pipelines; 0 means automatic (logical cores minus one).",
@@ -1612,6 +1659,7 @@ function openSettings() {
     open.delete("settings/" + t.id); open.delete("closed:settings/" + t.id);
   }
   open.add("settings/" + S.activeTool);
+  S.perVersionFolders = false; // the first draw turns it on over a filled row
   drawSettings();
   render(); // the link carries the open window (windowDrawer re-registers)
 }
@@ -1673,7 +1721,8 @@ function windowTitle() {
   if (acts.length)
     return acts.map(id => activityText(id, S.activities[id])).join(" · ") + " - 4cc Studio";
   if (S.heldTitleNotice) return S.heldTitleNotice + " - 4cc Studio";
-  return toolLabel(S.activeTool) + " - 4cc Studio";
+  const view = VIEWS[S.activeTool], detail = view && view.titleDetail && view.titleDetail();
+  return toolLabel(S.activeTool) + (detail ? " " + detail : "") + " - 4cc Studio";
 }
 // The title is set only when the string changes: the real shell sends
 // ViewportCommand::Title once per change, not once per frame. titleSetCount is

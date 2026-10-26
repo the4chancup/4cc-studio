@@ -10,6 +10,13 @@ names where the question came from so the context can be read there.
 
 ## In-game checks
 
+- **Which automatic-substitution choices do PES 2017 to 2020 offer?** (`plans/save_editor.md`
+  "Tactics editor", the Automatic settings row.) Measured: PES 2015, 2016 and 2021 store Off 0,
+  Very late 1 and Flexible 2, and PES 2021 also Very early 3. The editor offers 2017 to 2020
+  the first three until a look at each game's Game Plan, Automatic settings, Substitution says
+  whether Very early is there (and under which stored value). A save's stored value outside
+  the offered ones still shows, as its number.
+
 ## Cup practice
 
 ## Small confirmations

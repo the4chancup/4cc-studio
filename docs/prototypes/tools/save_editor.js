@@ -83,7 +83,10 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
 .master { display: flex; gap: 12px; align-items: flex-start; }
 .plist { width: 240px; flex: none; display: flex; flex-direction: column; gap: 4px; }
-.plist .rows { background: var(--extreme); border: 1px solid var(--stroke); min-height: 200px; max-height: 460px; overflow: auto; }
+.plist .rows { background: var(--extreme); border: 1px solid var(--stroke); min-height: 200px;
+  flex: 1; overflow-y: auto; overflow-x: hidden; }
+/* A name too long for the row truncates, its dot and mark kept after it. */
+.plist .pname { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .plist .rows .prow { display: flex; gap: 5px; align-items: center; padding: 1px 4px; white-space: nowrap; }
 .plist .rows .prow:hover { background: var(--hover); }
 .plist .rows .prow.on { background: var(--sel-bg); }
@@ -96,6 +99,11 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .plist .rows .trow { background: var(--faint); font-weight: bold; color: var(--strong); }
 .plist .rows .trow .swatch { width: 10px; height: 10px; flex: none; }
 .plist .qagrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; }
+/* Every quick action one height, egui 0.37's interact_size.y. */
+.plist #quick-actions button, .plist #quick-actions input { height: 20px; box-sizing: border-box; }
+.plist #quick-actions .row { flex-wrap: nowrap; margin: 0; }
+.plist .qacol { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.plist #quick-actions .row button { flex: 1; }
 /* The rules file's load error: a wrapped label in the error colour across
    the list (two lines at 240 points), a click opening the whole error
    (egui: a Label with Sense::click and the pointing-hand cursor). */
@@ -115,6 +123,9 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
    column width for both panels (and the values' pairs under them). */
 .skcols { display: flex; gap: 14px; align-items: flex-start; }
 .skcols > .col { width: 158px; flex: none; }
+/* A disabled card's wrapper as tall as its checkbox: inline-block, its line
+   box added 2 points a cell, and the two columns' rows drifted apart. */
+.skcols .gate { display: flex; }
 /* General info and Other stats, laid out as 4ccEditor's: blocks whose
    label sits above the field, label-left pairs on two halves (each label at
    its half's left, its fixed box on the half's right edge, so every box of
@@ -156,9 +167,18 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .gen .combos { display: grid; grid-template-columns: 107px 1fr; column-gap: 12px;
   row-gap: 4px; align-items: center; width: calc(107px + 12px + 54px + 28px + 72px + 9px + 54px); }
 .gen .combos > span:not(.gl), .gen .combos .gate > span { display: block; }
+.gen .combos .rate.lr { display: grid; grid-template-columns: 1fr 1fr; }
+.gen .combos .rate.lr .sel { text-align: center; }
+/* The chosen side in the quiet grey of the positions grid's C, not the
+   accent: a foot or hand is rarely what a member looks for. */
+.gen .combos .rate.lr .sel.on { background: #5a5a5a; color: var(--text); }
+/* The Captain checkbox centred in its box's width, under the box above it. */
+.gen .pair > .box { display: flex; justify-content: center; }
 .info-grid td { padding: 1px 6px 1px 0; }
 .info-grid input[type=text] { width: 190px; }
 .info-grid input.shirt { width: 110px; }
+#team-fields #team-name { width: 140px; }
+#team-fields #team-short { width: 40px; }
 .info-grid input[type=number] { width: 46px; }
 td.ilabel { text-align: right; padding-left: 10px; }
 td.ilabel:first-child { padding-left: 0; }
@@ -212,11 +232,60 @@ table.grid.stats-grid td { padding: 2px 6px; }
 .pkrow .swatch { cursor: default; }
 /* tactics */
 .tacbar { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
-.taccols { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
-#tac-lists { width: 200px; min-width: 0; flex: none; }
-#tac-settings { flex: 1 1 360px; min-width: 0; }
-#tac-settings input[type=range] { width: 60px; }
-#instr-table select { max-width: 120px; }
+/* One grid, three columns (the settings, the pitch, the assignments) and three
+   rows: the preset bar level with the formation bar; Formation settings, the
+   pitch and Player assignments, the panels stretched to the pitch's height;
+   Advanced instructions over Automatic settings, beside the two lists, which
+   take the middle and right columns. The settings column is as narrow as the
+   widest toggle choice allows ("Frontline Press.", 93 points with its
+   padding): two such choices a half. */
+.tacgrid { display: grid; grid-template-columns: 414px 320px minmax(0, 1fr);
+  column-gap: 10px; row-gap: 6px; }
+.tacgrid .group { margin: 0; min-width: 0; }
+.tacgrid .tacbar { margin: 0; white-space: nowrap; }
+/* The formations and their Copy/swap need more than the pitch's width. */
+#tac-formbar { grid-column: 2 / 4; }
+#tac-side .tachalf { gap: 3px; }
+/* Formation settings row by row: each offensive setting beside its
+   defensive pair, every row the same height, the panel's free height
+   shared among them. */
+#tac-settings { display: flex; flex-direction: column; }
+.tacrows { flex: 1; display: grid; grid-auto-rows: 1fr; column-gap: 16px;
+  align-items: start; padding-top: 6px; }
+/* Advanced instructions: the Attack and Defence headers over their
+   columns, each instruction's number beside its row, its target under it. */
+.tacinstr { display: grid; grid-template-columns: auto 1fr 1fr; column-gap: 8px;
+  row-gap: 3px; align-items: center; }
+/* Automatic settings: two columns of equal rows, so a combo row and a
+   checkbox row line up; the panel grows to the lists' bottom. */
+#tac-auto { flex: 1; display: flex; flex-direction: column; }
+.tacauto { flex: 1; display: grid; grid-template-columns: 1fr 1fr;
+  grid-auto-rows: 24px; column-gap: 16px; align-items: center; align-content: center; }
+.tacauto .row { flex-wrap: nowrap; }
+.tacauto .row select { flex: 1; width: auto; min-width: 0; }
+.tacstack { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.tacgrid .rolechip { text-align: left; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap; }
+.rolechip:disabled { color: #5a5a5a; background: none; }
+#tac-lists { grid-column: 2 / 4; display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+/* Twelve 18-point rows, padded top and bottom: the starting eleven whole
+   with a row to spare, which the bench uses for its twelfth player. The
+   lists fill the last row, so their bottom is the settings column's. */
+#tac-lists .llist { height: auto; min-height: 216px; max-height: none; padding: 4px 0; }
+.tachalf { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.tset { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.tacgrid input[type=range] { flex: 1; width: auto; min-width: 0; }
+/* A two-value toggle spans its half, the two choices equal. */
+.tset .rate { display: grid; grid-template-columns: 1fr 1fr; white-space: nowrap; }
+.tset .rate .sel { text-align: center; overflow: hidden; text-overflow: ellipsis; }
+.tset .rate.tri { grid-template-columns: 1fr 1fr 1fr; }
+/* Every Formation settings control in a box of one height under its label:
+   a label sits as far from a toggle as from a slider, and the labels and the
+   controls of a row each share a line. */
+.tacrows .tset > .rate, .tacrows .tset > .row { height: 24px; align-items: center; margin: 0; }
+.tacrows .tset .rate .sel { line-height: 20px; }
+.tacrows input[type=range] { margin: 0; }
+.tacgrid select { width: 100%; }
 .pitch { background: #2d571d; border: 1px solid var(--stroke); display: block;
   touch-action: none; }
 .lcol { display: flex; flex-direction: column; gap: 6px; min-width: 210px; }
@@ -228,7 +297,8 @@ table.grid.stats-grid td { padding: 2px 6px; }
 .lrow .fpos { width: 30px; flex: none; color: #b4b4b4; }
 #tac-lists .lrow { overflow: hidden; }
 #tac-lists .lname { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
-.tpopover { position: absolute; background: var(--panel);
+.tpopover { position: absolute; transform: translateX(-100%); width: max-content;
+  background: var(--panel);
   border: 1px solid var(--stroke); border-radius: 6px; padding: 6px 8px;
   z-index: 30; box-shadow: 0 4px 16px #000a; }
 .rolechip { border-radius: 2px; padding: 1px 6px; cursor: default; }
@@ -237,8 +307,6 @@ table.grid.stats-grid td { padding: 2px 6px; }
 .badge { display: inline-block; background: var(--widget); border-radius: 2px;
   padding: 0 4px; margin-right: 2px; }
 .badge.over { color: var(--error); }
-.assignnote { border: 1px solid var(--sel-fg); border-radius: 2px;
-  padding: 3px 8px; margin: 4px 0; }
 /* the panels (egui::Window over the central panel) */
 .panel { position: fixed; right: 16px; top: 90px; width: 620px; max-height: 82%;
   background: var(--panel); border: 1px solid var(--stroke); border-radius: 6px;
@@ -254,9 +322,18 @@ table.grid.stats-grid td { padding: 2px 6px; }
 .panel .drow .f { width: 190px; flex: none; overflow: hidden; text-overflow: ellipsis; }
 .panel .drow .v { color: var(--strong); }
 .panel .grp { color: var(--strong); margin: 6px 0 2px; }
-/* Live AATF: the log panel widget's frame (the host's), docked under the view */
-.center.docked { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 6px; }
-.center.docked .view-scroll { flex: 1; min-height: 0; overflow: auto; }
+/* The view fills its pane (egui's side panel beside the central one): the
+   list and its quick actions take the whole height, the detail scrolls on
+   its own, and Live AATF's panel (the log panel widget's frame, the host's)
+   docks under them. */
+.center.filled { display: flex; flex-direction: column; overflow: hidden; padding-bottom: 6px; }
+.center.filled .view-body { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.center.filled .master { flex: 1; min-height: 0; align-items: stretch; }
+/* The scroll bar's strip is kept while nothing scrolls, so opening
+   Appearance does not shift the view. This stands for egui's floating
+   scroll bar, which takes no space: the built view reserves nothing (the
+   maintainer, 2026-10-26: its margin is room enough). */
+.center.filled .detail { overflow: auto; min-height: 0; scrollbar-gutter: stable; }
 .live-panel { flex: none; margin-top: 6px; }
 .live-divider { height: 4px; cursor: ns-resize; }
 .live-divider:hover { background: var(--hover); }
@@ -2213,6 +2290,9 @@ const INSTRUCTION_LABEL = { off: "Unassigned", hug_the_touchline: "Hug the Touch
   counter_target: "Counter Target", defensive: "Defensive",
   false_winger: "False Winger", wing_back: "Wing-Back", anchoring: "Anchoring" };
 // The seven style switches + fluid (16+): [key, label, off-text, on-text].
+// Two choices shown shortened, so a toggle fits its half of the settings
+// panel (the maintainer, 2026-10-26); the hover gives the full name.
+const STYLE_SHORT = { frontline_pressure: "Frontline Press.", all_out_defence: "All Out Def." };
 const STYLE_TOGGLES = [
   ["attacking_style", "Attacking style", "counter_attack", "possession"],
   ["attacking_zone", "Attacking zone", "centre", "wide"],
@@ -2221,10 +2301,19 @@ const STYLE_TOGGLES = [
   ["defensive_style", "Defensive style", "frontline_pressure", "all_out_defence"],
   ["containment_area", "Containment area", "middle", "wide"],
   ["pressure", "Pressure", "aggressive", "conservative"]];
+// The Formation settings' two halves, as the original arranges them: the
+// offensive settings left, the defensive ones right.
+const TAC_OFFENSIVE = ["attacking_style", "buildup", "attacking_zone", "positioning",
+  "support_range", "numbers_in_attack"];
+const TAC_DEFENSIVE = ["defensive_style", "containment_area", "pressure",
+  "defensive_line", "compactness", "numbers_in_defence"];
 const SLIDERS = [["support_range", "Support range", 10],
-  ["defensive_line", "Defensive line", 10], ["compactness", "Compactness", 10],
-  ["numbers_in_attack", "Numbers in attack", 3],
-  ["numbers_in_defence", "Numbers in defence", 3]];
+  ["defensive_line", "Defensive line", 10], ["compactness", "Compactness", 10]];
+// The two numbers as three-choice toggles (the maintainer, 2026-10-26): their
+// stored 1-3 named Few, Medium and Many.
+const TRI_SETTINGS = [["numbers_in_attack", "Numbers in attack"],
+  ["numbers_in_defence", "Numbers in defence"]];
+const TRI_CHOICES = ["Few", "Medium", "Many"];
 const FORMATIONS = ["Kick-off", "In-possession", "Out-of-possession"];
 // The six set-piece takers + captain (its own key on the team, as in the
 // model): [key, label]. Takers point at starting-eleven members.
@@ -2240,6 +2329,10 @@ const SET_PIECES = [["free_kick_long", "Long free kick"],
 // screen's keeper spot, not through the mapping.
 const PITCH = { w: 320, h: 384, xu: 104, yu: 48,
   x0: 12.8, xs: 2.827, y0: 363.8, ys: 6.793, keeperY: 358.5 };
+// A pointer's position on the pitch, in its drawing's units (through the
+// canvas's shown width, so the window's scale is accounted for).
+const pitchPoint = (cv, e) => { const r = cv.getBoundingClientRect(), k = cv.width / r.width;
+  return [(e.clientX - r.left) * k, (e.clientY - r.top) * k]; };
 const pitchX = x => PITCH.x0 + x * PITCH.xs;
 const pitchY = y => PITCH.y0 - y * PITCH.ys;
 const snapXY = (px, py) => [
@@ -2369,7 +2462,9 @@ function cardBadges(p, t) {
   const tier = recognizedTier(p, RULESETS[D.ruleset]);
   return h("span", { class: "row", id: "card-badges",
       title: "Cards left under the player's own tier of the active ruleset (paid cards vs its limit)" },
-    weak("Cards left"),
+    // "Cards left for Regular: 0 of 3 cards"; a player no tier matches
+    // reads "Cards left:" then why.
+    weak(tier ? "Cards left for" : "Cards left:"),
     tier ? (() => { const c = cardLimits(p, t, tier);
       return h("span", { class: "badge" + (c.left < 0 ? " over" : ""),
         title: tier.label + ": " + c.paid + " paid of " + c.limit },
@@ -2840,7 +2935,7 @@ const WALK = [
   ["SE-GUI-07", "the Appearance section below the Cutscenes group is disabled under the ownership line; the switch unlocks it; the switch is off on every open"],
   ["SE-GUI-08", "drag a list row onto another: the dragged player's name, stats and look land on the target slot, those between shift one along, while every slot keeps its id, shirt number and captain mark; the save is marked unsaved"],
   ["SE-GUI-09", "the quick actions under the player list follow the ruleset control: Gold/Silver/Bronze/Goalkeeper/Regular under official, VTL11 and DBC7 their own"],
-  ["SE-GUI-11", "switch Edit aesthetics anyway on; the Appearance section's FPC group: Hide body (or Ctrl+I) gives the hide preset and reads 'FPC: the body is hidden', Show body (or Ctrl+I again) the show preset; a player with his own boots ID keeps it"],
+  ["SE-GUI-11", "switch Edit aesthetics anyway on; the Appearance section's FPC group: Hide default body (or Ctrl+I) gives the hide preset and reads 'The default body is currently hidden', Show default body (or Ctrl+I again) the show preset; a player with his own boots ID keeps it"],
   ["SE-GUI-35", "the 'Aesthetics from exports' draft control off (the default): the Appearance section draws no ownership line and no switch and every path edits; on, the lock draws"],
   ["SE-GUI-12", "a team row's view, the tactics: drag a pitch marker (it snaps to the stored grid, undoable), drop a bench row on a marker to swap, arm a set-piece chip and click a marker, arm Join attack and click two markers"],
   ["SE-GUI-25", "the tactics' menus: Copy preset 1 to 2, then Swap Kick-off and In-possession; each is one undoable edit"],
@@ -2899,8 +2994,9 @@ function renderToolbar() {
     openMenu(), saveBtn, button("Save as", saveAs), playerMenu(), teamMenu(), databaseMenu(),
     panelsMenu(), undoBtn, redoBtn,
     liveButton(),
-    h("span", { class: "weak mono", style: "overflow:hidden; text-overflow:ellipsis" },
-      S.path + (dirty() ? "  • unsaved changes" : "")));
+    // The save's path is in the window title (`titleDetail`): beside the
+    // unsaved mark it could wrap the toolbar onto a second row.
+    dirty() ? h("span", { class: "weak" }, "• unsaved changes") : null);
 }
 // The kept shortcuts (Ctrl+S, Ctrl+F, Ctrl+I); the draft binds them on the
 // document. Ctrl+F/Ctrl+I are aesthetics writes: no-ops under the lock.
@@ -2932,7 +3028,7 @@ function applyPreset(p, pre) {
   if (p.appearance.skin_color === 7) p.appearance.skin_color = 1;
 }
 function fpcHide(p, on) {
-  edit(on ? "Hide body" : "Show body", () => applyPreset(p, on ? FPC_HIDE : FPC_UNHIDE));
+  edit(on ? "Hide default body" : "Show default body", () => applyPreset(p, on ? FPC_HIDE : FPC_UNHIDE));
 }
 // Ctrl+I: shows a player the classifier reads as hidden, hides any other.
 function fpcToggle(p) { fpcHide(p, !isFpc(p)); }
@@ -3024,6 +3120,13 @@ function databaseMenu() {
     ["Fix database\u2026", dlgFixDb, !aesUnlocked(), ownershipTip()],
   ]);
 }
+// The registered position's combo names each position in full, one
+// spelling throughout. Not POS_LONG: that is the roster TSV's table, whose
+// mixed "Center Back" and "Centre Forward" are the parity output's.
+const POS_FULL = { GK: "Goalkeeper", CB: "Centre Back", LB: "Left Back", RB: "Right Back",
+  DMF: "Defensive Midfielder", CMF: "Centre Midfielder", LMF: "Left Midfielder",
+  RMF: "Right Midfielder", AMF: "Attacking Midfielder", LWF: "Left Wing Forward",
+  RWF: "Right Wing Forward", SS: "Second Striker", CF: "Centre Forward" };
 const POS_LONG = { GK: "Goalkeeper", CB: "Center Back", LB: "Left Back", RB: "Right Back",
   DMF: "Defensive Midfielder", CMF: "Center Midfielder", LMF: "Left Midfielder",
   RMF: "Right Midfielder", AMF: "Attacking Midfielder", LWF: "Left Wing Forward",
@@ -3219,12 +3322,13 @@ function renderView(center) {
   scheduleLiveCheck();
   center.innerHTML = "";
   if (!S.save) { center.append(weak("No save is open.")); return; }
-  // Live AATF docks at the bottom (egui's Panel::bottom inside the view): the
-  // view's content scrolls above it, the panel keeps its strip.
+  // The view fills the pane; Live AATF docks at the bottom (egui's
+  // Panel::bottom inside the view), the view above it.
   const live = livePanel();
-  center.classList.toggle("docked", !!live);
-  const host = live ? h("div", { class: "view-scroll" }) : center;
-  if (live) center.append(host, live);
+  center.classList.add("filled");
+  const host = h("div", { class: "view-body" });
+  center.append(host);
+  if (live) center.append(live);
   host.append(renderToolbar());
   host.append(h("div", { class: "master" }, renderMaster(), renderDetail()));
   const panel = renderPanel();
@@ -3287,7 +3391,7 @@ function teamRow(team) {
     h("span", { class: "mono weak" }, String(team.id)),
     h("span", { class: "swatch", style: "background:" + shownHex(team.color_1) }),
     h("span", { class: "swatch", style: "background:" + shownHex(team.color_2) }),
-    h("span", {}, ...nameSpans(team.name)),
+    h("span", { class: "pname" }, ...nameSpans(team.name)),
     dirtyTeam(team) ? h("span", { class: "dot", title: "Unsaved changes" }, "●") : null,
     teamMark(team));
 }
@@ -3299,7 +3403,7 @@ function playerRow(team, p) {
     h("span", { class: "num" }, String(p.number)),
     h("span", { class: "pos" }, p.positions.registered),
     S.filter.trim() || S.teamSel === "all" ? h("span", { class: "tshort" }, team.name) : null,
-    h("span", {}, ...nameSpans(p.name)),
+    h("span", { class: "pname" }, ...nameSpans(p.name)),
     dirtyPlayer(p) ? h("span", { class: "dot", title: "Unsaved changes" }, "●") : null,
     playerMark(team, p));
   // Sense::drag: the row moves onto the drop target's slot.
@@ -3332,8 +3436,8 @@ const fld = (el, minV) => h("td", {}, gated(h("span", {}, el), minV || 15));
 const COL_PANELS = {
   "positions": [5, 66], "skills": [2, 165], "com-styles": [2, 165],
   "team-info": [2, 120], "cutscenes": [2, 120, 14],
-  "strip-style": [4, 170, 14], "motion": [4, 194, 14],
-  "tactics-settings": [2, 209, 14],
+  "strip-style": [4, 170, 14], "motion": [2, 194, 14],
+  "tactics-settings": [2, 192, 30],
 };
 const colCount = name => {
   const [max, w, inset] = COL_PANELS[name], pw = layoutPanelW(name);
@@ -3408,15 +3512,20 @@ function generalPanel(p, team) {
     onchange: () => { const t = team;
       edit("captain", () => { t.captain = p.slot - 1; }); render(); } });
   captain.id = "f-captain";
-  const reg = combo(POSITIONS.map(x => [x, x]), p.positions.registered,
+  const reg = combo(POSITIONS.map(x => [x, x + " - " + POS_FULL[x]]), p.positions.registered,
     v => { set(p, x => x.positions.registered, (x, v2) => x.positions.registered = v2, v, "registered position"); });
   reg.id = "f-regpos";
   const style = combo(PLAY_STYLES.map(x => [x, titleCase(x)]), p.positions.playing_style,
     v => { set(p, x => x.positions.playing_style, (x, v2) => x.positions.playing_style = v2, v, "playing style"); });
-  const foot = combo(FOOT.map(x => [x, titleCase(x)]), p.positions.stronger_foot,
-    v => { set(p, x => x.positions.stronger_foot, (x, v2) => x.positions.stronger_foot = v2, v, "stronger foot"); });
-  const hand = combo(FOOT.map(x => [x, titleCase(x)]), p.positions.stronger_hand ?? "right",
-    v => { set(p, x => x.positions.stronger_hand, (x, v2) => x.positions.stronger_hand = v2, v, "stronger hand"); });
+  // Stronger foot and hand: two-choice toggles, Left | Right, the choices
+  // halving the field's width (the maintainer, 2026-10-26).
+  const sides = (cur, setTo) => h("span", { class: "rate lr" }, ["left", "right"].map(v =>
+    h("span", { class: "sel" + (cur === v ? " on" : ""),
+      onclick: () => { if (cur !== v) setTo(v); } }, titleCase(v))));
+  const foot = sides(p.positions.stronger_foot,
+    v => { set(p, x => x.positions.stronger_foot, (x, v2) => x.positions.stronger_foot = v2, v, "stronger foot"); render(); });
+  const hand = sides(p.positions.stronger_hand ?? "right",
+    v => { set(p, x => x.positions.stronger_hand, (x, v2) => x.positions.stronger_hand = v2, v, "stronger hand"); render(); });
   hand.id = "f-hand";
   return named(h("div", { class: "col" }, strong("General info"),
     h("div", { class: "gen" },
@@ -3429,7 +3538,7 @@ function generalPanel(p, team) {
         num("Weight", p2 => p2.weight, (x, v) => x.weight = v, "weight"),
         num("Nation", p2 => p2.nationality, (x, v) => x.nationality = v),
         num("Age", p2 => p2.age, (x, v) => x.age = v, "age"),
-        // The checkbox at the boxes' left edge.
+        // The checkbox centred under the box above it.
         h("div", { class: "pair" }, gl("Captain"), h("span", { class: "box" }, captain))),
       h("div", { class: "combos" },
         gl("Stronger foot"), foot,
@@ -3476,16 +3585,21 @@ function quickActions() {
   const tip = off ? "The make buttons act on a player: pick a player row" : null;
   const input = h("input", { type: "number", id: "set-stats", value: 77, min: 0, max: 99,
     disabled: off, title: tip });
-  const cells = RULESETS[D.ruleset].tiers.map(t =>
-    button("Make " + t.label, () => { applyTier(p, t); render(); },
-      { disabled: off, title: tip || "The " + t.label + " tier's values (the active ruleset)" }));
-  cells.push(h("div", { class: "row" },
+  const make = t => button("Make " + t.label, () => { applyTier(p, t); render(); },
+    { disabled: off, title: tip || "The " + t.label + " tier's values (the active ruleset)" });
+  // The medal tiers in the left column, in the ruleset's order; the others,
+  // then Set stats, in the right (the maintainer, 2026-10-26: Gold, Silver,
+  // Bronze left, Goalkeeper and Regular right, under the official file).
+  const tiers = RULESETS[D.ruleset].tiers;
+  const setStats = h("div", { class: "row" },
     button("Set stats", () => {
       const n = parseInt(input.value, 10);
       if (!Number.isNaN(n)) { setAllStats(p, n); render(); }
     }, { disabled: off, title: tip || "Set every ability stat to the value next to this button" }),
-    input));
-  return h("div", { class: "qagrid", id: "quick-actions", "data-panel": "quick-actions" }, cells);
+    input);
+  return h("div", { class: "qagrid", id: "quick-actions", "data-panel": "quick-actions" },
+    h("div", { class: "qacol" }, tiers.filter(t => MEDAL_MARK[t.id]).map(make)),
+    h("div", { class: "qacol" }, tiers.filter(t => !MEDAL_MARK[t.id]).map(make), setStats));
 }
 // The detail view: a player row shows the player view (the fixed columns,
 // then the Appearance section), a team row the team view. No tabs.
@@ -3519,8 +3633,10 @@ function teamView(t) {
         if (!Number.isNaN(v)) { edit(label, () => { t[key] = v; }); render(); } } })), minV));
   return h("div", { id: "team-view" },
     h("div", { class: "strong", style: "margin-bottom:4px" }, ...nameSpans(t.name)),
-    teamFields(t),
+    // The ids and the Kit slots button on the fields' row (the maintainer,
+    // 2026-10-26: the Tactics below need the height).
     h("div", { class: "row" },
+      teamFields(t),
       namedCols(h("table", { class: "grid info-grid" },
         chunk([num("Manager ID", "manager_id", 19), num("Stadium ID", "stadium_id", 19)],
           colCount("team-info")).map(r => h("tr", {}, r))), "team-info"),
@@ -3546,7 +3662,8 @@ function teamFields(t) {
         if (b) b.style.background = cand ? rgbToHex(cand) : shownHex(t[key]); },
       D.pickerSugg ? PICKER_SAMPLE_SUGGESTIONS : [],
       "Stored " + t[key].join(", ") + ", shown " + shown.toUpperCase());
-    return h("span", {}, label + " ", fld, " ", h("span", { class: "mono weak" }, shown.toUpperCase()));
+    return h("span", {}, label.replace("Colour", "Col."), " ", fld, " ",
+      h("span", { class: "mono weak" }, shown.toUpperCase()));
   };
   return named(h("div", { class: "row", id: "team-fields" },
     "Team", nameIn, "Short", shortIn,
@@ -3821,7 +3938,8 @@ function appearanceTab(p) {
   const dribbleIn = h("input", { type: "number", min: 0, max: 3, value: mo.dribbling ?? 0,
     onchange: e => { const v = parseInt(e.target.value, 10);
       if (!Number.isNaN(v)) { set(p, x => x.appearance.motion.dribbling, (x, v2) => x.appearance.motion.dribbling = v2, v, "dribbling motion"); render(); } } });
-  // Four label/field pairs a row, fewer in a narrower panel.
+  // Two label/field pairs a row (the maintainer, 2026-10-26), one in a
+  // narrower panel.
   const motion = namedCols(h("div", { class: "group" }, strong("Motion"),
     h("table", { class: "grid" },
       chunk([mv("Hunching (dribbling)", "hunching_dribbling", 1, top("hunching_dribbling")),
@@ -3849,7 +3967,7 @@ function appearanceTab(p) {
       paletteRow("skin", p.appearance.skin_color, (x, v) => x.appearance.skin_color = v, p, "skin colour")),
     h("div", { class: "row" }, "Iris ",
       paletteRow("iris", p.appearance.iris_color, (x, v) => x.appearance.iris_color = v, p, "iris colour")));
-  // The classifier's reading, Hide body and Show body (Ctrl+I picks one), and
+  // The classifier's reading, Hide and Show default body (Ctrl+I picks one), and
   // the interference findings of fpc::check, fixed order. Not a checkbox: a
   // player hidden by his model's own boots ID reads as shown. Disabled with
   // the rest of the section under the lock.
@@ -3857,10 +3975,10 @@ function appearanceTab(p) {
   const fpcGroup = h("div", { class: "group", "data-panel": "fpc", title: en ? null : ownershipTip() },
     strong("Full Player Customization"),
     h("div", { class: "row" },
-      h("span", { id: "fpc-state" }, isFpc(p) ? "FPC: the body is hidden" : "FPC: the body is shown"), " ",
-      button("Hide body", () => { fpcHide(p, true); render(); },
+      h("span", { id: "fpc-state" }, isFpc(p) ? "The default body is currently hidden" : "The default body is currently shown"), " ",
+      button("Hide default body", () => { fpcHide(p, true); render(); },
         { title: "Apply the hide preset: long sleeves, a tucked shirt and short socks. A boots or gloves ID of 0 takes the hide ID from Settings (a model's own ID is kept), and a Custom skin (PES 2015 to 2017) becomes Light. Ctrl+I switches this player between hidden and shown, and the Team menu hides or shows the whole team." }),
-      button("Show body", () => { fpcHide(p, false); render(); },
+      button("Show default body", () => { fpcHide(p, false); render(); },
         { title: "Apply the show preset: short sleeves, an untucked shirt and standard socks. A boots or gloves ID that holds the hide ID goes back to 0, and a Custom skin (PES 2015 to 2017) becomes Light." })),
     findings.length
       ? findings.map(([sev, text]) => h("div", { class: "row " + sev },
@@ -4139,6 +4257,13 @@ function assignClick(t, fieldIdx) {
     render();
     return true;
   }
+  if (a.kind === "target") {
+    const e = tacPreset(t).instructions[a.side][a.i];
+    if (e.player !== roster) edit("Assign " + a.label, () => { e.player = roster; });
+    S.assign = null;
+    render();
+    return true;
+  }
   const cur = a.kind === "captain" ? t.captain : tac.set_pieces[a.key];
   if (cur !== roster) edit("Assign " + a.label, () => {
     if (a.kind === "captain") t.captain = roster;
@@ -4156,6 +4281,10 @@ function assignClick(t, fieldIdx) {
 // portrait, the position badge, his name - centred on the badge. The drag
 // state lives in S.pitchDrag; marker hit tests are ui.interact rects.
 const MARKER = { badgeW: 50, badgeH: 14, portrait: 50, gap: 0, nameDy: 13 };
+// The medal tiers' initials on a pitch badge, by tier id (the rulesets share
+// the ids gold, silver and bronze): gold in the game's gold name code, the
+// colour a gold player's name carries; silver and bronze their metals'.
+const MEDAL_MARK = { gold: ["G", "#cc9900"], silver: ["S", "#c0c0c0"], bronze: ["B", "#cd7f32"] };
 // The badge's position text colour by the position's group, as the game's.
 const POS_COLOUR = pos => pos === "GK" ? "#ffde00"
   : ["CB", "LB", "RB"].includes(pos) ? "#00d2ff"
@@ -4293,6 +4422,14 @@ function drawPitch(t) {
     g.textBaseline = "middle"; g.textAlign = "left";
     g.fillStyle = POS_COLOUR(s.position); g.font = "bold 12px sans-serif";
     g.fillText(s.position, bl + 3, y + 1);
+    // His tier under the active ruleset, a medal's initial in the medal's
+    // colour at the badge's right end; a tier that is no medal draws none.
+    const medal = p && !D.rulesBroken && MEDAL_MARK[(recognizedTier(p, RULESETS[D.ruleset]) || {}).id];
+    if (medal) {
+      g.fillStyle = medal[1]; g.textAlign = "right";
+      g.fillText(medal[0], bl + MARKER.badgeW - 3, y + 1);
+      g.textAlign = "left";
+    }
     g.save();
     g.beginPath(); g.rect(bl, y + 3, MARKER.badgeW, 20); g.clip();
     g.font = "12px sans-serif"; g.textAlign = "left";
@@ -4328,8 +4465,7 @@ function pitchCanvas(t) {
   const cv = h("canvas", { class: "pitch", id: "pitch",
     width: PITCH.w, height: PITCH.h });
   cv.addEventListener("pointerdown", e => {
-    const r = cv.getBoundingClientRect(), s = winScale();
-    const px = (e.clientX - r.left) / s, py = (e.clientY - r.top) / s;
+    const [px, py] = pitchPoint(cv, e);
     const i = hitMarker(t, px, py);
     if (i < 0) return;
     e.preventDefault();
@@ -4345,8 +4481,7 @@ function pitchCanvas(t) {
     e.preventDefault();
     const m = e.dataTransfer.getData("text/plain").match(/^(bench|xi):(\d+)$/);
     if (!m) return;
-    const r = cv.getBoundingClientRect(), s = winScale();
-    const i = hitMarker(t, (e.clientX - r.left) / s, (e.clientY - r.top) / s);
+    const i = hitMarker(t, ...pitchPoint(cv, e));
     if (i < 0) return;
     if (m[1] === "bench") swapLineup(t, i, Number(m[2]));
     else swapStarters(t, Number(m[2]), i);
@@ -4361,17 +4496,25 @@ function pitchCanvas(t) {
 document.addEventListener("pointermove", e => {
   const d = S.pitchDrag; if (!d) return;
   const cv = document.getElementById("pitch"); if (!cv) return;
-  const r = cv.getBoundingClientRect(), s = winScale();
-  d.px = (e.clientX - r.left) / s; d.py = (e.clientY - r.top) / s;
+  [d.px, d.py] = pitchPoint(cv, e);
   if (!d.gk && Math.abs(d.px - d.x0) + Math.abs(d.py - d.y0) > 4) d.moved = true;
   drawPitch(selTeam());
+});
+// A press anywhere but inside the player's box closes it (a press on another
+// marker then opens that one's).
+document.addEventListener("pointerdown", e => {
+  if (S.slotPop && !e.target.closest(".tpopover")) { S.slotPop = null; render(); }
 });
 document.addEventListener("pointerup", e => {
   const d = S.pitchDrag; if (!d) return;
   S.pitchDrag = null;
   const t = selTeam();
   if (!d.moved) {
-    if (!assignClick(t, d.i)) { S.slotPop = { i: d.i }; render(); }
+    if (!assignClick(t, d.i)) {
+      const r = markerRect(t, d.i);
+      S.slotPop = { i: d.i, x: r.x, y: r.y + r.h };
+      render();
+    }
     return;
   }
   const el = document.elementFromPoint(e.clientX, e.clientY);
@@ -4384,8 +4527,8 @@ document.addEventListener("pointerup", e => {
   }
   // Dropped on another marker: the two starters exchange (as the game's
   // formation screen does); released off the pitch: he stays.
-  const cv = document.getElementById("pitch"), r = cv.getBoundingClientRect(), s = winScale();
-  const lx = (e.clientX - r.left) / s, ly = (e.clientY - r.top) / s;
+  const cv = document.getElementById("pitch");
+  const [lx, ly] = pitchPoint(cv, e);
   if (lx < 0 || ly < 0 || lx > cv.width || ly > cv.height) { render(); return; }
   const onto = hitMarker(t, lx, ly);
   if (onto >= 0 && onto !== d.i) { swapStarters(t, d.i, onto); render(); return; }
@@ -4452,13 +4595,14 @@ function benchList(t) {
 
 // The slot detail popover (the original's Player Controls group): position
 // dropdown (the twelve outfield positions; GK only by "Make GK", which swaps
-// the slots' players), the coordinate fields and Close. Positioned next to
-// the marker inside the pitch's frame.
+// the slots' players), the coordinate fields and Close. Its top-right corner
+// sits on the marker's bottom-left corner as it was when opened, and it stays
+// there while the player moves, so the X and Y arrows stay under the pointer;
+// a press outside it closes it.
 function slotPopover(t) {
   const pop = S.slotPop; if (!pop) return null;
   const i = pop.i, s = tacFormation(t).players[i];
   const roster = t.tactics.starting_eleven[i], p = rosterPlayer(t, roster);
-  const r = markerRect(t, i);
   // The keeper's slot is fixed: Edit mode does not move him.
   const num = (label, get, put, max) => h("span", {}, label + " ",
     h("input", { type: "number", min: 0, max, value: get(), disabled: s.position === "GK",
@@ -4466,9 +4610,9 @@ function slotPopover(t) {
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v) && v >= 0 && v <= max) { edit("formation " + label, () => put(v)); render(); } } }));
   return h("div", { class: "tpopover",
-      style: "left:" + Math.min(PITCH.w - 240, r.x + r.w + 6) + "px; top:" + Math.max(0, r.y - 4) + "px" },
+      style: "left:" + pop.x + "px; top:" + pop.y + "px" },
     h("div", { class: "strong" }, ...(p ? nameSpans(p.name) : ["(empty roster slot)"]),
-      " ", weak("roster " + (roster + 1))),
+      " ", weak("player " + (roster + 1))),
     h("div", { class: "row" }, "Position ",
       s.position === "GK"
         ? combo([["GK", "GK"]], "GK", () => {}, { disabled: true })
@@ -4493,25 +4637,16 @@ function tacticsTab(t) {
       title: "The game uses formations 2 and 3 only while the preset's fluid formation is on" },
     FORMATIONS.map((f, i) =>
       selectable(f, S.tac.formation === i, () => S.tac.formation = i)));
-  const presetMenu = menu("Copy/swap preset",
-    [0, 1, 2].flatMap(a => [0, 1, 2].filter(b => b !== a).map(b =>
-      ["Copy preset " + (a + 1) + " to " + (b + 1), () => { copyPreset(t, a, b); render(); }])).concat(
-    [[0, 1], [0, 2], [1, 2]].map(([a, b]) =>
-      ["Swap presets " + (a + 1) + " and " + (b + 1), () => { swapPreset(t, a, b); render(); }])));
-  const formationMenu = menu("Copy/swap formation",
-    [0, 1, 2].flatMap(a => [0, 1, 2].filter(b => b !== a).map(b =>
-      ["Copy " + FORMATIONS[a] + " to " + FORMATIONS[b],
-        () => { copyFormation(t, a, b); render(); }])).concat(
-    [[0, 1], [0, 2], [1, 2]].map(([a, b]) =>
-      ["Swap " + FORMATIONS[a] + " and " + FORMATIONS[b],
-        () => { swapFormation(t, a, b); render(); }])));
-  // An armed assignment mode draws its note; the join mode's Done exits it.
-  const note = S.assign ? h("div", { class: "assignnote" },
-    S.assign.kind === "join"
-      ? "Click pitch players to join or leave the attack (up to three). "
-      : "Click the pitch player for " + S.assign.label.toLowerCase() + ". ",
-    button(S.assign.kind === "join" ? "Done" : "Cancel",
-      () => { S.assign = null; render(); })) : null;
+  // Each Copy/swap menu acts on the selected preset or formation: a copy to,
+  // then a swap with, each of the other two (the bar it sits in names what).
+  const others = sel => [0, 1, 2].filter(b => b !== sel);
+  const pa = S.tac.preset, fa = S.tac.formation;
+  const presetMenu = menu("Copy/swap",
+    others(pa).map(b => ["Copy to " + (b + 1), () => { copyPreset(t, pa, b); render(); }]).concat(
+    others(pa).map(b => ["Swap with " + (b + 1), () => { swapPreset(t, pa, b); render(); }])));
+  const formationMenu = menu("Copy/swap",
+    others(fa).map(b => ["Copy to " + FORMATIONS[b], () => { copyFormation(t, fa, b); render(); }]).concat(
+    others(fa).map(b => ["Swap with " + FORMATIONS[b], () => { swapFormation(t, fa, b); render(); }])));
   // The role palette: one chip per taker, the captain and the join-attack
   // pick. The armed chip is highlighted.
   const holderOf = key => key === "captain" ? t.captain : tac.set_pieces[key];
@@ -4523,48 +4658,82 @@ function tacticsTab(t) {
       onclick: () => {
         S.assign = armed ? null : { kind: key === "captain" ? "captain" : "setpiece", key, label };
         S.slotPop = null; render(); } },
-      label + ": " + (idx === 255 ? "Unassigned" : playerName(rosterPlayer(t, idx))));
+      idx === 255 ? "Unassigned" : playerName(rosterPlayer(t, idx)));
   };
-  const joinChip = h("button", { class: "rolechip" + (S.assign && S.assign.kind === "join" ? " armed" : ""),
-      id: "role-join", title: "Click, then up to three pitch players",
-      onclick: () => { S.assign = S.assign && S.assign.kind === "join" ? null
-        : { kind: "join", label: "the attack" }; S.slotPop = null; render(); } },
-    "Join attack: " + (tac.players_to_join_attack.filter(idx => idx !== 255)
-      .map(idx => playerName(rosterPlayer(t, idx)).split(" ")[0]).join(", ") || "none"));
-  const slider = (key, label, max) => [lbl(label), h("td", {},
-    h("input", { type: "range", min: 1, max, value: pre.sliders[key],
-      onchange: e => { const v = parseInt(e.target.value, 10);
-        edit(label, () => { pre.sliders[key] = v; }); render(); } }),
-    " ", h("span", { class: "mono weak" }, String(pre.sliders[key])))];
-  const toggle = (key, label, off, on) => [lbl(label), h("td", {},
+  // Join the attack: a row per joining player, three rows, but one picker:
+  // any row arms the join mode, in which pitch clicks add and remove up to
+  // three, all three rows highlighted.
+  const joined = tac.players_to_join_attack.filter(idx => idx !== 255);
+  const joinArmed = S.assign && S.assign.kind === "join";
+  const joinChips = [0, 1, 2].map(k => h("button", { class: "rolechip" + (joinArmed ? " armed" : ""),
+      id: "role-join-" + k, title: "Click, then up to three pitch players",
+      onclick: () => { S.assign = joinArmed ? null : { kind: "join", label: "the attack" };
+        S.slotPop = null; render(); } },
+    k < joined.length ? playerName(rosterPlayer(t, joined[k])) : "Unassigned"));
+  // Each setting is its label over its control: the halves are too narrow
+  // for a two-value toggle beside its label.
+  const slider = (key, label, max) => h("div", { class: "tset" }, h("div", {}, label),
+    h("div", { class: "row" },
+      h("input", { type: "range", min: 1, max, value: pre.sliders[key],
+        onchange: e => { const v = parseInt(e.target.value, 10);
+          edit(label, () => { pre.sliders[key] = v; }); render(); } }),
+      h("span", { class: "mono weak" }, String(pre.sliders[key]))));
+  const toggle = (key, label, off, on) => h("div", { class: "tset" }, h("div", {}, label),
     h("span", { class: "rate" }, [off, on].map(v =>
       h("span", { class: "sel" + (pre.style[key] === v ? " on" : ""),
         onclick: () => { if (pre.style[key] !== v) { edit(label, () => { pre.style[key] = v; }); render(); } },
-        title: v }, titleCase(v)))))];
+        title: titleCase(v) }, STYLE_SHORT[v] || titleCase(v)))));
+  const tri = (key, label) => h("div", { class: "tset" }, h("div", {}, label),
+    h("span", { class: "rate tri" }, TRI_CHOICES.map((name, i) =>
+      h("span", { class: "sel" + (pre.sliders[key] === i + 1 ? " on" : ""),
+        onclick: () => { if (pre.sliders[key] !== i + 1) {
+          edit(label, () => { pre.sliders[key] = i + 1; }); render(); } } }, name))));
+  const setting = key => {
+    const three = TRI_SETTINGS.find(([k]) => k === key);
+    if (three) return tri(...three);
+    const range = SLIDERS.find(([k]) => k === key);
+    return range ? slider(...range) : toggle(...STYLE_TOGGLES.find(([k]) => k === key));
+  };
   const ins = instructionsFor(version());
-  const instrRow = (label, entries, i) => {
-    const e = entries[i];
+  const instrSet = (label, side, i) => {
+    const e = pre.instructions[side][i];
     const targetable = takesTarget(e.instruction);
-    const pick = combo([["255", "Unassigned"]].concat(
-        tac.starting_eleven.map((idx, si) => [String(idx), (si + 1) + " " + playerName(rosterPlayer(t, idx))])),
-      e.player === 255 ? "255" : String(e.player), v => {
-        edit(label + " target", () => { e.player = Number(v); }); render(); });
-    if (!targetable) pick.disabled = true;
-    return h("tr", {}, h("td", {}, label),
-      h("td", {}, combo((ins.includes(e.instruction) ? ins : ins.concat([e.instruction]))
+    // The target is picked as the assignments are: the chip armed, then a
+    // pitch player clicked (an instruction that takes none greys it out).
+    const armed = S.assign && S.assign.kind === "target" && S.assign.side === side && S.assign.i === i;
+    const pick = h("button", { class: "rolechip" + (armed ? " armed" : ""),
+        disabled: !targetable, id: "target-" + side + "-" + i,
+        title: targetable ? "The instruction's target: click, then a pitch player"
+          : "This instruction takes no target",
+        onclick: () => { S.assign = armed ? null
+          : { kind: "target", side, i, label: label + "'s target" }; S.slotPop = null; render(); } },
+      !targetable ? "No target" : e.player === 255 ? "Unassigned" : playerName(rosterPlayer(t, e.player)));
+    // The instruction's combo, then its target under it.
+    return [combo((ins.includes(e.instruction) ? ins : ins.concat([e.instruction]))
         .map(x => [x, INSTRUCTION_LABEL[x] || titleCase(x)]),
         e.instruction, v => { edit(label, () => {
-          e.instruction = v; if (!takesTarget(v)) e.player = 255; }); render(); })),
-      h("td", {}, pick));
+          e.instruction = v; if (!takesTarget(v)) e.player = 255; }); render(); }),
+      pick];
   };
-  const instrTable = version() >= 17
-    ? h("table", { class: "grid", id: "instr-table" },
-        h("tr", {}, h("th", {}, ""), h("th", {}, "Instruction"), h("th", {}, "Target")),
-        instrRow("Attack 1", pre.instructions.attack, 0),
-        instrRow("Attack 2", pre.instructions.attack, 1),
-        instrRow("Defence 1", pre.instructions.defence, 0),
-        instrRow("Defence 2", pre.instructions.defence, 1))
+  // One grid: the Attack and Defence headers, then per instruction its
+  // number beside its combos and nothing beside its targets.
+  const instrRow = i => {
+    const [ac, at] = instrSet("Attack " + (i + 1), "attack", i);
+    const [dc, dt] = instrSet("Defence " + (i + 1), "defence", i);
+    return [h("span", { class: "weak" }, String(i + 1)), ac, dc, h("span"), at, dt];
+  };
+  const instrGrid = version() >= 17
+    ? h("div", { class: "tacinstr" }, h("span"), h("div", {}, "Attack"), h("div", {}, "Defence"),
+        instrRow(0), instrRow(1))
     : null;
+  // Formation settings row by row, each offensive setting beside its
+  // defensive pair (the original's arrangement); one column, the offensive
+  // ones first, once the layout edit narrows the panel past two.
+  const setCols = colCount("tactics-settings");
+  const offensive = TAC_OFFENSIVE.map(setting), defensive = TAC_DEFENSIVE.map(setting);
+  const formRows = h("div", { class: "tacrows",
+      style: "grid-template-columns: repeat(" + setCols + ", 1fr)" },
+    setCols === 2 ? offensive.flatMap((o, i) => [o, defensive[i]]) : offensive.concat(defensive));
   const auto = tac.auto;
   const autoCb = (key, label, minV) => {
     const w = h("label", { class: "cb" },
@@ -4578,40 +4747,44 @@ function tacticsTab(t) {
       onchange: e => { edit("Fluid formation", () => { pre.style.fluid = e.target.checked; }); render(); } }),
     " Fluid formation"), 16);
   const pitchWrap = h("div", { style: "position:relative" }, pitchCanvas(t), slotPopover(t));
-  // Three columns at the default window (v2): the pitch, the two lists, and
-  // the settings column headed by the preset selector and the copy/swap menus.
+  // Auto substitution as the game names its choices (measured in-game: Off 0,
+  // Very late 1, Flexible 2 on PES 15, 16 and 21, Very early 3 on PES 21; 17
+  // to 20 unmeasured, so offered the three); a stored value outside them is
+  // offered as its number, so the combo never misreports it.
+  const subs = [["0", "Off"], ["1", "Very late"], ["2", "Flexible"]]
+    .concat(version() >= 21 ? [["3", "Very early"]] : []);
+  const subNow = String(auto.substitution ?? 0);
+  const substitution = h("span", { class: "row" }, "Substitution",
+    combo(subs.some(([v]) => v === subNow) ? subs : subs.concat([[subNow, subNow]]), subNow,
+      v => { edit("Auto substitution", () => { auto.substitution = parseInt(v, 10); }); render(); }));
+  // One grid at the default window (the maintainer's layout, 2026-10-26):
+  // the preset bar (Preset, Fluid formation, its Copy/swap) level with the
+  // formation bar (the three formations, theirs, over the pitch and on past
+  // it); Formation settings (offensive half, defensive half, the
+  // original's arrangement), the pitch and Player assignments, the panels as
+  // tall as the pitch; Advanced instructions and Automatic settings (two
+  // columns), beside the starting eleven and the bench, which take the
+  // middle and right columns, the two sides' bottoms level.
   const frame = h("div", {},
-    h("div", { class: "taccols" },
-      h("div", { "data-panel": "tactics-pitch" }, formationSel, pitchWrap),
-      h("div", { class: "lcol", id: "tac-lists", "data-panel": "tactics-lists" },
-        strong("Starting eleven"), lineupList(t),
-        strong("Bench"), benchList(t)),
-      namedCols(h("div", { class: "lcol", id: "tac-settings" },
-        h("div", { class: "tacbar" }, presetSel, presetMenu, formationMenu),
-        note,
-        h("div", { class: "group" }, strong("Formation settings"),
-          h("div", { class: "row" }, fluid),
-          // An aligned grid of up to two pairs per row (one where the column
-          // cannot hold two, as the ability stats' columns).
-          (() => { const pairs = SLIDERS.map(([k, l, m]) => slider(k, l, m))
-              .concat(STYLE_TOGGLES.map(([k, l, o, n]) => toggle(k, l, o, n)));
-            return h("table", { class: "grid" },
-              chunk(pairs, colCount("tactics-settings")).map(row =>
-                h("tr", {}, row.flat()))); })()),
+    h("div", { class: "tacgrid" },
+      h("div", { class: "tacbar" }, presetSel, fluid, presetMenu),
+      h("div", { class: "tacbar", id: "tac-formbar" }, formationSel, formationMenu),
+      namedCols(h("div", { class: "group", id: "tac-settings" }, strong("Formation settings"),
+        formRows), "tactics-settings"),
+      h("div", { "data-panel": "tactics-pitch" }, pitchWrap),
+      named(h("div", { class: "group", id: "tac-side" }, strong("Player assignments"),
+        h("div", { class: "tachalf" },
+          SET_PIECES.map(([k, l]) => h("div", { class: "tset" }, h("div", {}, l), roleChip(k, l))),
+          h("div", { class: "tset" }, h("div", {}, "Join the attack"), joinChips))), "tactics-side"),
+      h("div", { class: "tacstack" },
         h("div", { class: "group" }, strong("Advanced instructions"),
-          gated(instrTable || weak("(none on this version)"), 17)),
-        h("div", { class: "group" }, strong("Player assignments"),
-          h("div", { class: "row" }, SET_PIECES.map(([k, l]) => roleChip(k, l)), joinChip)),
-        h("div", { class: "group" }, strong("Automatic settings"),
-          h("div", { class: "row" },
-            h("span", {}, "Substitution ",
-              h("input", { type: "number", min: 0, max: 255, value: auto.substitution ?? 0,
-                title: "The automatic substitution setting as the save stores it: 0 is off; on PES 2021, 1 is very late, 2 flexible and 3 very early",
-                onchange: e => { const v = parseInt(e.target.value, 10);
-                  if (!Number.isNaN(v)) { edit("Auto substitution", () => { auto.substitution = v; }); render(); } } })),
+          gated(instrGrid || weak("(none on this version)"), 17)),
+        h("div", { class: "group", id: "tac-auto" }, strong("Automatic settings"),
+          h("div", { class: "tacauto" },
+            substitution, autoCb("preset_change", "Preset change"),
             autoCb("offside_trap", "Offside trap"),
-            autoCb("preset_change", "Preset change"),
-            autoCb("attack_defence_levels", "Attack/defence levels", 17)))), "tactics-settings")));
+            autoCb("attack_defence_levels", "Attack/defence levels", 17)))),
+      named(h("div", { id: "tac-lists" }, lineupList(t), benchList(t)), "tactics-lists")));
   // The canvas paints after insertion (its element must be in the DOM);
   // the team is looked up then, an undo in between would paint stale data.
   setTimeout(() => drawPitch(selTeam()), 0);
@@ -5167,12 +5340,12 @@ function setLive(on) {
   LIVE.on = on; LIVE.sig = null; LIVE.result = null;
   localStorage.setItem("save_editor.live_aatf", String(on));
 }
-// The toolbar's toggle: a framed button, the list's check mark then the name,
-// filled when on. egui's toggle value is a selectable label, which off reads
+// The toolbar's toggle: a framed button, the play arrow then the name, filled
+// when on (the fill alone says so: the maintainer, 2026-10-26). egui's toggle value is a selectable label, which off reads
 // as a label beside the menus, and this toggle is how a manager finds the
 // check at all. sample wording: the tooltip.
 function liveButton() {
-  const b = button("✔ Live AATF", () => { setLive(!LIVE.on); render(); },
+  const b = button("▶ Live AATF", () => { setLive(!LIVE.on); render(); },
     { title: "Check the open team after every edit, in a panel at the bottom (the setting is remembered)" });
   b.className = "livebtn" + (LIVE.on ? " on" : "");
   b.id = "live-toggle";
@@ -6100,5 +6273,5 @@ function linkOpen(scr, keys) {
   }
 }
 registerTool({ id: "save-editor", css: SAVE_EDITOR_CSS, draw: renderView, firstShow, controls: draftControls, onKey, screen, linkKeys, linkOpen,
-  pesVersionChanged: versionNoticeFollow });
+  pesVersionChanged: versionNoticeFollow, titleDetail: () => S.path ? "[" + S.path + "]" : null });
 })();

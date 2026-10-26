@@ -11604,3 +11604,64 @@ the two ways around that (eframe's persistence, a probe event loop) each break s
 shell needs, and the route after it costs one frame the member does not see on a desk of one
 scale.
 Plan: `plans/core/gui.md` "Window size classes", ST-WIN-04.
+
+## 2026-10-26 — save_editor — The Tactics editor is one grid, its panels as tall as the pitch
+Decision: the team view's Tactics is one grid of three columns (settings 414 points, the
+pitch 320, the assignments the rest) and three rows: the preset bar level with the formation
+bar; Formation settings, the pitch and Player assignments, as tall as the pitch; Advanced
+instructions over Automatic settings beside the starting eleven and bench lists. Formation
+settings pairs each offensive setting with its defensive one row by row, every control in a
+24-point box under its label; Numbers in attack and in defence are three-choice toggles, Few |
+Medium | Many (stored 1 to 3); Join the attack is three rows and one picker; Advanced
+instructions is one grid under Attack and Defence headers; Automatic settings two columns of
+equal rows, Substitution a combo of the game's named choices; Copy/swap acts on the selected
+preset or formation (four entries); a starter's badge carries a G, S or B in the medal's
+colour; the armed-assignment note is dropped. No narrow fallback: the window's width zoom
+scales the grid instead.
+Why: the maintainer's layout (four looks of the draft, approved 2026-10-26): the old three
+columns each wrapped on its own, so the settings, the pitch and the lists never lined up, and
+the number choices and the substitution value needed a hover to read.
+Plan: `plans/save_editor.md` "Tactics editor" (the opening list, the layout bullet,
+"Click-to-assign roles", Copy/swap, the medal badge), SE-GUI-25.
+
+## 2026-10-26 — save_editor — The player view's last look
+Decision: Stronger foot and Stronger hand are Left | Right toggles whose chosen side is the
+positions' quiet grey; Registered position's entries name the position in full
+(`AMF - Attacking Midfielder`, British spelling; the TSV and Set player names keep 4ccEditor's);
+the Cards left badge reads `Cards left for <tier>: n of m cards` or `Cards left: No tier
+matches`; Motion lays out in two columns; the FPC state reads "The default body is currently
+hidden/shown" and its buttons Hide default body and Show default body; the quick actions put
+the medal tiers left and the others with Set stats right, every control 20 points tall;
+Captain's checkbox is centred under the Nation box; the card columns' rows share one y; the
+view fills its pane, and the pane's scroll bar floats over the margin with no strip reserved.
+Why: the maintainer's review of the draft (2026-10-26, approved): the toggles' accent drew
+the eye to fields rarely looked at, an abbreviation needed knowing, "body" alone did not say
+which body FPC hides, and egui 0.37's floating scroll bar takes no room, so a reserved strip
+would only narrow the view.
+Plan: `plans/save_editor.md` "Editing UI" (the quick actions, General info, Skills,
+Appearance and the view's height), "Full Player Customization (FPC)", SE-GUI-11 and SE-GUI-31's
+wording.
+
+## 2026-10-26 — save_editor — Live AATF's toggle reads `▶ Live AATF`
+Decision: the toolbar toggle's label is a play sign then `Live AATF`, on or off, its fill
+saying on.
+Why: the maintainer's ruling: the check mark beside the label read as on while the check was
+off; the fill alone already says on.
+Plan: `plans/save_editor.md` "Configurable AATF rules", the "Live AATF" bullet; SE-GUI-36.
+
+## 2026-10-26 — core — The open file's path rides the idle window title
+Decision: `StudioTool::title_detail(&self) -> Option<String>` (default `None`); the shell's
+idle title is `<tool> [<detail>] - <app>`, and the Save editor returns its save's path. The
+toolbar keeps `• unsaved changes` alone.
+Why: the maintainer's request: the path beside the unsaved marker took a second row once both
+were long, moving the whole view down; the title bar has the room and is where a window says
+what it shows.
+Plan: `plans/core/gui.md` "Window title"; `plans/save_editor.md` "Editing UI".
+
+## 2026-10-26 — core — The theme pins egui 0.36's spacing and corner radii
+Decision: `theme.rs` sets 0.36's `button_padding` and widget corner radii instead of taking
+0.37's defaults; `interact_size` is settled against the drafts' measured control heights.
+Why: the maintainer's ruling: the drafts were reviewed at 0.36's spacing and radii, and the
+built UI follows the drafts, not a library's new defaults (0.37 doubled the button padding and
+the radii); pinning also keeps the next upgrade from moving the look.
+Plan: `plans/core/gui.md` "Other UI components", the "Dark/light theme" row.

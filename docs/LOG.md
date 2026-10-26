@@ -2567,3 +2567,5 @@ worklog passed 7,000 lines.
   window's own monitor list, which eframe gives once the window exists, so no `unsafe` reader is needed (0.0.1q-q2).
 - **2026-10-26** — A window remembered half on a 200% monitor that is since unplugged no longer reopens off-screen: the
   title bar is checked at each monitor's own scale (0.0.1q-q3, Astra A1).
+- **2026-10-26** — The maintainer approved the Tactics grid and the player view's last look in the draft; the plan,
+  the decisions and the worklog's slices s4, s5 and step 0.0.1u (the theme keeps egui 0.36's spacing) follow them.

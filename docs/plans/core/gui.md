@@ -469,6 +469,7 @@ uses, so it costs no new API:
 | State | Title |
 |---|---|
 | Idle | `Save editor - <app>` (the active tool's name) |
+| Idle, the active tool names its open file | `Save editor [C:\…\EDIT00000000] - <app>` |
 | A tool reports a `ToolActivity` | `Team compiler · 12/48 · 01:12 - <app>` |
 | Idle, window unfocused, a `Notice` arrived since focus was lost | `Compiled 48 teams - <app>` |
 
@@ -478,6 +479,12 @@ Rules:
   the tool's name took a row from every view and told the member what the highlighted sidebar
   icon already did; the title bar is where a window says what it shows. A view still titles
   what it shows inside it (the Save editor's selected player or team).
+- **The open file's path rides the idle title, in square brackets after the tool's name.** A
+  tool that edits one file says which through `StudioTool::title_detail(&self) ->
+  Option<String>` (default `None`); the Save editor returns its save's path while one is open.
+  Not a line in the view: the path beside the toolbar's `• unsaved changes` took a second row
+  once both were long, which moved the whole view down. The busy and notice titles keep their
+  own text: a path there would push the progress past the taskbar's cut.
 
 - **A plain hyphen before the name.** The title is a UI string, so it carries no em dash
   (`CONTRIBUTING.md` "Code style"); ` - ` is also what most desktop apps put before their name.
@@ -580,7 +587,7 @@ stadiums and cells = components.
 | Common and per-tool settings forms | egui widgets (`TextEdit`, `CheckBox`, `ComboBox`), saved to TOML |
 | Export tree browser | `egui::CollapsingHeader` tree, shows object model |
 | File/folder pickers | `rfd` for native dialogs and supported web file picking; web directory access needs a separate File System Access API adapter (`rfd` has no WASM folder picker) |
-| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_theme`, no restart; the setting, never the system's theme, decides, so a member on a light desktop still gets the dark default); icon glyphs from the suite's own icon font (`README.md` "GUI framework choice: egui"); body text in Ubuntu's regular weight, bundled (`resources/fonts/`), not egui's built-in light weight, which is not the weight the second Save editor draft (now `tools/save_editor.js`, 400) was reviewed in; every test context that draws a frame installs the same fonts as the window (`theme::install_fonts`), so a width a test measures is the width a member sees, whichever crates a build unifies. Until the preset is curated it is egui's own dark `Visuals`, the colors the drafts are drawn in (the host page's stylesheet, `docs/prototypes/index.html`), so a curation pass changes the drafts' stylesheet first |
+| Dark/light theme | `studio_core`'s `theme.rs`: the curated dark `Visuals` preset, the default; light, second-class, egui's light `Visuals` with the same accent, rounding and status colors; chosen by the common `theme` setting and applied live (`Context::set_theme`, no restart; the setting, never the system's theme, decides, so a member on a light desktop still gets the dark default); icon glyphs from the suite's own icon font (`README.md` "GUI framework choice: egui"); body text in Ubuntu's regular weight, bundled (`resources/fonts/`), not egui's built-in light weight, which is not the weight the second Save editor draft (now `tools/save_editor.js`, 400) was reviewed in; every test context that draws a frame installs the same fonts as the window (`theme::install_fonts`), so a width a test measures is the width a member sees, whichever crates a build unifies. Until the preset is curated it is egui's own dark `Visuals`, the colors the drafts are drawn in (the host page's stylesheet, `docs/prototypes/index.html`), so a curation pass changes the drafts' stylesheet first. The spacing and corner radii are the drafts', which were reviewed at egui 0.36's: `theme.rs` pins 0.36's `button_padding` (4 × 1, where 0.37 has 8 × 2) and the widgets' corner radii (2 to 3 points, where 0.37 has 4 to 6), so an egui upgrade does not move the approved look; `interact_size` is settled by the same step against the drafts' measured control heights (the quick actions use 0.37's 20; the drafts' list rows are 18) |
 
 ### Prototypes before implementation
 

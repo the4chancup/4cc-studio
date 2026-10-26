@@ -208,15 +208,22 @@ all side by side.
   the RGB hex; its alpha is not drawn, and a code whose six are not hex leaves the text the
   normal color (the game does not check them: `spec/pes_savefile/codec.md` "Name colour
   codes, as measured").
-- **The quick actions** under the list, in two columns: one Make button per tier of the active
-  ruleset, then Set stats with its number beside it ("Configurable AATF rules" below says what
-  they do). The grid spans the list's width; each column is as wide as its widest cell when
+- **The quick actions** under the list, in two columns: on the left the medal tiers' Make
+  buttons (the tiers whose ids are `gold`, `silver` and `bronze`, in the ruleset's order: Make
+  Gold, Make Silver, Make Bronze under the official one), on the right the other tiers' (Make
+  Goalkeeper, Make Regular), then Set stats with its number beside it ("Configurable AATF
+  rules" below says what they do). Every button and the number's box are 20 points tall
+  (egui 0.37's `interact_size.y`), the Set stats row in line with the buttons above it. The
+  grid spans the list's width; each column is as wide as its widest cell when
   the two fit, else half the list, a longer label then elided (its tooltip names the tier).
   Not halves always, as the draft's `1fr 1fr`: egui's button text is wider than the draft's,
   and a half cuts "Make Goalkeeper" at the default 240-point list. They act on the selected player, so a team row leaves them disabled, their tooltip
   "The make buttons act on a player: pick a player row"; the Player menu's entries are
   disabled too, their tooltip "The Player menu acts on a player: pick a player row".
-- **No view draws the tool's name** (`core/gui.md` "Window title": the title bar carries it).
+- **No view draws the tool's name** (`core/gui.md` "Window title": the title bar carries it),
+  **nor the open save's path**: the tool's `title_detail` gives it to the idle window title,
+  in square brackets, and the toolbar keeps `• unsaved changes` alone, which never takes a
+  second row.
   Each view's first line titles what it shows: the player view `<id> <name>` (`70101 QUADS
   ONLY`), the id in the weak colour, as the list draws ids, and the name with its colours; the
   team view the team's name with its colours.
@@ -235,11 +242,18 @@ all side by side.
      fields start at), Height and Shirt number, Weight and Nation, Age and
      Captain, each box 54 points wide: on the first half at the half's right edge, on the
      second just after a label column as wide as that half's longest label ("Shirt number"),
-     so a short label (Nation, Form) keeps its box close; then Stronger foot, Stronger hand
-     (20+), Registered position and Playing style. Name, Shirt and the four combos share one
-     label column, as wide as their longest label ("Registered position"), so every one of
-     those fields starts at one x, and each ends flush with the second half's boxes, not on
-     the panel's right edge. Under it **Other stats**: Injury resistance and Form, then "Weak foot:
+     so a short label (Nation, Form) keeps its box close; Captain's checkbox centred in its
+     box's width, under the Nation box above it. Then Stronger foot and Stronger hand (20+),
+     each a two-choice toggle, Left | Right, its chosen side filled in the quiet grey of the
+     positions' C (`#5a5a5a`), not the selection's blue: a foot or a hand is rarely what a
+     member looks for, and the accent would pull the eye to it; then Registered position, a
+     combo whose entries name each position in full after its abbreviation (`AMF - Attacking
+     Midfielder`, British spelling: Centre Back; the TSV output and Set player names to
+     positions keep 4ccEditor's names, Center Back, as their parity requires), and Playing
+     style. Name, Shirt and these
+     four rows share one label column, as wide as their longest label ("Registered
+     position"), so every one of those fields starts at one x, and each ends flush with the
+     second half's boxes, not on the panel's right edge. Under it **Other stats**: Injury resistance and Form, then "Weak foot:
      Usage" and "Accuracy" (the two sharing one label), on General info's halves so every box of
      both panels lines up. Under that **Playable positions**: the 13 positions with C/B/A
      ratings in five rows by line of the pitch, each left wing to right wing (LWF CF SS RWF /
@@ -255,10 +269,19 @@ all side by side.
      rows and Ability stats; the room this takes comes off the margins either side of the centred view.
   2. **Skills**, the Cards left badge in its header, up to 41 checkboxes (version-gated) in two
      columns filled column by column; under it **COM playing styles**, the 7 in two columns
-     whose second starts at the skills' second's x.
+     whose second starts at the skills' second's x. Every cell is one line of one height, a
+     version-gated card's disabled one as tall as an enabled one, so each row of the two
+     columns shares one y (the draft's disabled cells were 2 points taller, and its second
+     column ended 24 points lower).
   3. **Ability stats**, ~25 in one column in the game's order, each label beside its number.
   Then **Appearance**, a collapsing section closed by default, below the columns (its contents
-  below).
+  below). Opening it makes the view taller than the pane, and the pane's scroll bar then
+  floats over the view's right margin (egui 0.37's default `ScrollStyle::floating`, which
+  takes no room), so nothing shifts when it appears and the view reserves no strip for it:
+  the margin the centring leaves is room enough.
+- **The view fills its pane**: the list and the quick actions under it take the pane's whole
+  height, and the detail ends at the pane's bottom, with no margin below that would give the
+  pane a scroll bar of its own.
 - **Name and Shirt.** Each label carries a count in brackets, `Name (28/46)`, that follows the
   field as typed: the name's bytes against the open save's field, the shirt name's letters
   against the 18 every version shows (PES 16's 16), so a longer name a PES 20/21 save holds
@@ -299,7 +322,8 @@ all side by side.
     sight).
   - **The skills' Cards left badge** is the active ruleset's, the one `check-aatf` runs (the
     `aatf_rules` setting's file, else the official one), and reads the player's own tier
-    alone (`Gold: 6 of 8 cards`; `No tier matches` when none does): the tier his stats,
+    alone (`Cards left for Gold: 6 of 8 cards`; `Cards left: No tier matches` when none
+    does, the reason after the colon): the tier his stats,
     registered position and height match under that ruleset, as `check-aatf` recognizes it,
     not one badge per tier, which a member had to match to the player by eye. A file that
     does not load draws no badge: the quick actions under the list say so, and the error's
@@ -312,7 +336,7 @@ all side by side.
     outside the aesthetics lock: they change only cutscenes, so they are no aesthetic the
     export owns. Then the ownership line, the switch and the locked groups, each group's
     labels in their own aligned cells, the draft's pairs per row a cap a narrow pane lowers
-    (physique two, the strip's ids, enums and checkboxes four, motion four): edit flags (face,
+    (physique two, the strip's ids, enums and checkboxes four, motion two): edit flags (face,
     hair, physique, strip, motion, base copy + copy-from ID), physique sliders (14 values),
     strip style (boots ID, gloves ID — any player's, 0 = normal hands — taping, spectacles,
     sleeves, inners, socks, undershorts, shirttail, the player-gloves checkbox with its
@@ -423,8 +447,10 @@ another version asks nothing, since a game only writes its own version's save.
 
 Full parity with 4ccEditor's Tactics tab, drawn in the team view under the team's fields:
 preset selector (1/2/3) with fluid
-checkbox and the five sliders (support range, defensive line, compactness,
-numbers in attack/defense), formation settings toggles (attacking style, zone,
+checkbox, the three sliders (support range, defensive line, compactness) and the two
+numbers in attack and defence (stored 1 to 3, `spec/pes_savefile/operations.md`, each a
+three-choice toggle, Few | Medium | Many, rather than a three-step slider whose number a
+member had to hover to read), formation settings toggles (attacking style, zone,
 buildup, positioning, defensive style, containment, pressure), advanced
 instructions (2 attack + 2 defense, with target player where applicable),
 set-piece takers (FK long/short/2, CK L/R, PK), captain, auto flags (substitution,
@@ -437,24 +463,41 @@ Win32 original hurt the most):
 - **The pitch is the editor**: an egui painter canvas draws the formation;
   players are **dragged** to reposition (x/y), with position labels and snapping.
   4ccEditor's per-slot dropdown + coordinate fields remain as a detail popover on
-  click, not the primary interface. The editor is three columns: the formation selector over the
-  canvas at its fixed width, the starting eleven and bench lists at a fixed narrow width (200 points, a long
-  name cut at its edge with the full name on hover), then
-  the preset bar, the note and the settings groups taking the rest and wrapping inside it,
-  the formation settings an aligned grid of up to two pairs per row (one where the column
-  cannot hold two, as the ability stats' columns): at 1280 x 800, whose detail pane is about 992
-  points once the sidebar is its rail (`core/gui.md` "Sidebar"; 888 beside the 160-point
-  sidebar, 8 short), the three columns stand side by side, not settings rows below the pitch
-  past the window's bottom, and the settings column, 456 points wide there, holds the preset
-  bar on one line and ends inside the pane (measured on the tabbed layout, 47 points above its
-  bottom, 24 with an assignment note armed; the team view draws three rows above the tactics
-  where the tabs drew two, so step 0.0.1s3 measures it again); a shorter window scrolls the
-  team view to reach
-  its last group rather than squeezing it in. A pane too narrow for a settings
-  column of the draft's 360 points beside the other two (the smallest default window's) takes
-  the settings column whole below the pitch and the lists, never a group split between
-  columns. Not columns of half the pane each: a column narrower than the canvas widens the
-  pane's layout bound, and the rows then wrap past the window's edge.
+  click, not the primary interface. The editor is **one grid** of three columns (the
+  settings, 414 points; the pitch, 320; the assignments, the rest) and three rows, so every
+  panel lines up with its neighbours rather than wrapping on its own:
+  1. The **preset bar** (Preset 1/2/3, Fluid formation, then its Copy/swap menu) level with
+     the **formation bar** (Kick-off / In-possession / Out-of-possession and theirs), which
+     spans the pitch's column and the next: the formations and their menu need more than the
+     pitch's width.
+  2. **Formation settings**, the pitch and **Player assignments**, the two panels exactly as
+     tall as the pitch (386 points with its border) and level with it. Formation settings
+     runs row by row, each offensive setting beside its defensive pair (Attacking style beside
+     Defensive style, Buildup beside Containment area, Attacking zone beside Pressure,
+     Positioning beside Defensive line, Support range beside Compactness, Numbers in attack
+     beside Numbers in defence: the original's arrangement), every row the same height, the
+     panel's free height shared among them; each label over its control, every control in a
+     box 24 points tall, so a toggle's centre is level with a slider's and every label stands
+     the same distance above its control. The settings column is as narrow as the widest
+     toggle choice allows ("Frontline Press.", two such choices a half). Player assignments
+     lists the set-piece takers, the captain and **Join the attack** as three rows, one per
+     joining player, all three one picker (below).
+  3. **Advanced instructions** over **Automatic settings** in the settings column, beside the
+     **starting eleven and bench** lists, which span the other two columns, each list half of
+     them (twelve 18-point rows, padded 4 points top and bottom: the eleven with a row to spare,
+     which the bench uses for its twelfth player), the two sides' bottoms level. Advanced
+     instructions is one grid: the headers Attack and Defence over their columns, each
+     instruction's number (1, 2) beside its two combos, each target under its combo.
+     Automatic settings is one grid of two columns of 24-point rows (Substitution beside
+     Preset change, Offside trap beside Attack/defence levels), its panel grown to the lists'
+     bottom. Substitution is a combo naming the game's choices (measured in game: Off 0, Very
+     late 1, Flexible 2 on PES 15, 16 and 21, Very early 3 on PES 21; PES 17 to 20 offer the
+     three until measured, `QUESTIONS.md`), a stored value outside them shown as its number,
+     so the combo never misreports the save.
+  The grid is laid out at the design width; a narrower window scales the whole UI with its
+  width (`core/gui.md` "Scaling with the width") rather than rearranging it, so the grid has
+  no narrow fallback. A shorter window scrolls the team view to reach its last row rather
+  than squeezing it in.
 - **The pitch looks like PES 2021's own formation screen** (Edit, Teams, a team, Game Plan,
   Team Sheet/Edit Position), each starter shown as the game shows him, by his portrait, read
   from the selected game's `download/` CPKs when that folder is found and holds one. Every
@@ -524,10 +567,20 @@ Win32 original hurt the most):
   The arrow-button ordering UI is gone.
 - **Click-to-assign roles**: "players to join attack" (and other
   pick-N-players settings) are set by clicking players on the pitch in an
-  assignment mode — the three dropdowns are gone. Set-piece takers get the same
-  treatment with a role palette.
-- Copy/swap preset and copy/swap formation become two small menus on the
-  Tactics editor's preset bar (parity with the 4ccEditor menu tree, minus the 18-item menu).
+  assignment mode — the three dropdowns are gone. Join the attack shows its three players as
+  three rows (`Unassigned` where fewer join), and any row arms the one join mode, all three
+  highlighted, in which pitch clicks add and remove up to three. Set-piece takers get the
+  same treatment with a role palette. No note explains the armed mode: the highlighted chip
+  and the candidates' corner brackets on the pitch say it.
+- Copy/swap preset and copy/swap formation are two small menus, on the preset bar and the
+  formation bar, each acting on the selected preset or formation: a copy to, then a swap
+  with, each of the other two ("Copy to 2", "Copy to 3", "Swap with 2", "Swap with 3" from
+  preset 1; "Copy to In-possession" and so on for a formation), four entries rather than the
+  nine pairs of 4ccEditor's menu tree (its 18-item menu is not kept).
+- **A starter's badge names his medal tier**: at the badge's right, where the game draws the
+  overall rating, a gold `G` (`#cc9900`, the tier's name colour), a silver `S` (`#c0c0c0`)
+  or a bronze `B` (`#cd7f32`) for a player the active ruleset recognizes as that tier (the
+  tier ids `gold`, `silver`, `bronze` every ruleset shares); nothing for any other.
 - Formation edits participate in undo/redo like everything else.
 
 What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc`) could differ:
@@ -626,16 +679,16 @@ files, so the editor's toggle and the compiler's markers cannot drift apart.
   hides the body; 55 and 11 are the 4cc convention, not a game fact. So the two IDs are
   common settings (`fpc_hide_boots_id`, `fpc_hide_gloves_id`, defaults 55 and 11; core plan
   "Settings menu"), and `libs/fpc`'s hide preset takes them as an `fpc::HideIds` value rather
-  than reading constants: the editor's Hide body, Show body, Ctrl+I, the team's Set and Remove
+  than reading constants: the editor's Hide default body, Show default body, Ctrl+I, the team's Set and Remove
   FPC invisibility and the classifier (`is_fpc_player`) read the setting, and so do the
   compiler's `fpc_on` marker and its default-ID rule. One setting, not one per tool: a
   compiler writing 60 for a marker and an editor reading only 55 as hidden would show every
-  compiled FPC player as "the body is shown". A hide ID is valid in the stock band only, boots 1 to
+  compiled FPC player as "The default body is currently shown". A hide ID is valid in the stock band only, boots 1 to
   100 and gloves 11 to 100: above 100 the compiler allocates its per-team blocks (an ID there
   would be another player's real model), and gloves 1 to 10 are the goalkeepers' real gloves.
   Whether an ID in the band exists in a given game is the member's knowledge, as it is for
   55 today. Changing the setting does not rewrite a save: a player hidden with the old ID
-  reads "the body is shown" afterwards, and Show body leaves his ID alone (it is no longer the hide
+  reads "The default body is currently shown" afterwards, and Show default body leaves his ID alone (it is no longer the hide
   ID); the help says so.
 
 - **A model's own IDs are kept.** The wiki's hide list reads "Boots 55 (or any other
@@ -645,14 +698,14 @@ files, so the editor's toggle and the compiler's markers cannot drift apart.
   any other: hiding turns 0 into 55 and keeps 627, showing turns 55 into 0 and keeps 627
   (55 standing for the configured hide ID, above).
   4ccEditor's `enable_fpc_invis_for_player` and `disable_fpc_invis_for_player` do the same.
-  On PES 15 to 17 they also set the Custom skin when hiding; Hide body does not, since the
+  On PES 15 to 17 they also set the Custom skin when hiding; Hide default body does not, since the
   wiki's full hide sets no skin and the Custom skin is its partial hide's setting (both tools'
-  Show body give such a player the Light skin back, so the two converge).
+  Show default body give such a player the Light skin back, so the two converge).
 - **Hide and Show, not a checkbox.** A player hidden by his model's own boots ID reads as not
   hidden to `is_fpc_player`, which sees only the save (the hide ID or a custom skin),
   so a checkbox drawn from it would stay unticked after a click and could never show him
-  again. The Appearance section draws the classifier's reading ("FPC: the body is hidden" or "FPC: the
-  body is shown") with two actions, Hide body and Show body; Ctrl+I shows a player the classifier
+  again. The Appearance section draws the classifier's reading ("The default body is currently hidden" or
+  "The default body is currently shown") with two actions, Hide default body and Show default body; Ctrl+I shows a player the classifier
   reads as hidden and hides any other, and the Team menu's Set and Remove FPC invisibility are
   the same two actions over the team.
 - **The findings are catalog codes.** `fpc::check`'s five codes are rows of the tool's message
@@ -865,8 +918,9 @@ What this editor adds on top of the lib:
   the badges, the quick actions and the AATF panels on the next one.
 - **Quick actions.** Under the player list, in two columns (the draft's `quickActions`):
   one button per
-  tier of the active ruleset, in its order (Make Gold / Silver / Bronze / Goalkeeper / Regular
-  under the official one), each `aatf::apply_tier` on the selected player as one undoable edit;
+  tier of the active ruleset, the medal tiers on the left and the others on the right, each in
+  its order ("Editing UI": Make Gold / Silver / Bronze, then Goalkeeper / Regular under the
+  official one), each `aatf::apply_tier` on the selected player as one undoable edit;
   then Set stats with its number, the Player menu's Set all stats in one click (40 to 99). A
   rules file that does not load leaves Set stats alone under the list, and in the tier buttons'
   place `The AATF rules file could not be loaded, click here for more information.` in the
@@ -919,8 +973,10 @@ What this editor adds on top of the lib:
   log already sits. The floating AATF panel stays for several teams at once, suggestions,
   Validate rules and Save a copy; its whole-save check runs on a worker too, its teams in
   parallel as `check-aatf` runs them (220 teams of a PES 2017 save in 2.0 s on 16 threads, 13.2
-  s on one). The toggle is drawn as a button, framed, its label the list's check mark (`✔`,
-  U+2714) then `Live AATF` whether on or off, filled in the accent colour when on: egui's toggle value is a selectable label, which
+  s on one). The toggle is drawn as a button, framed, its label a play sign (`▶`, U+25B6,
+  from the bundled emoji fonts the marks' glyphs come from) then `Live AATF` whether on or
+  off, filled in the accent colour when on: the fill says on, and a check mark beside the
+  label read as on even while it was off. egui's toggle value is a selectable label, which
   off reads as a label beside the menus, and the toggle is how a manager finds the check at
   all. While it is on, its result also marks the editor itself, so a manager sees what to fix
   where they fix it:
@@ -1106,9 +1162,9 @@ SE-GUI-10  GIVEN the save open and a team's row clicked
                 its row's swatch that color
 SE-GUI-11  GIVEN a player without FPC, his Appearance section open, and the aesthetics
                 editable (the setting off, or on with "Edit aesthetics anyway" switched on)
-           WHEN Ctrl+I, or Hide body, is used
+           WHEN Ctrl+I, or Hide default body, is used
            THEN his record carries the hide preset's values and the Appearance section reads
-                "FPC: the body is hidden"; Ctrl+I again, or Show body, gives him the show preset's; GIVEN a player
+                "The default body is currently hidden"; Ctrl+I again, or Show default body, gives him the show preset's; GIVEN a player
                 whose boots ID is 627 THEN hiding keeps 627; Set FPC invisibility applies the
                 hide preset to every player of the team; a strip setting that breaks hiding is
                 listed in the Appearance section as an interference finding
@@ -1239,8 +1295,9 @@ SE-GUI-24  GIVEN the save open on a player
                 and the saved file holds them; WHEN Bump all stats is opened again THEN its
                 field holds the last N used
 SE-GUI-25  GIVEN the team view's Tactics on preset 1
-           WHEN Copy preset to 2, then Swap formation kick-off with in-possession, run from the
-                preset bar's menus
+           WHEN the preset bar's Copy/swap, which lists Copy to 2, Copy to 3, Swap with 2 and
+                Swap with 3, runs Copy to 2, then the formation bar's, on Kick-off, runs Swap
+                with In-possession
            THEN preset 2 equals preset 1 before the swap, the two formations are exchanged, each
                 as one undoable edit
 SE-GUI-26  GIVEN two PES 21 saves and one PES 19 save under the test's Documents folder, the
@@ -1296,7 +1353,7 @@ SE-GUI-30  GIVEN the PES 17 save open on a team with violations under the active
 SE-GUI-36  GIVEN SE-GUI-30's save and team, Live AATF on and its first check returned, one
                  player of the team breaking the Height rule alone and another breaking none
            WHEN the view is drawn
-           THEN the toolbar's Live AATF is a button whose label holds the check's icon, the list
+           THEN the toolbar's Live AATF is a button whose label holds the play sign, the list
                 shows a cross beside the first player and a check mark beside the second; WHEN
                 the first is selected THEN a cross stands beside the Height box, its tooltip
                 the AATF panel's line for that violation, and no other field carries one; WHEN an edit fixes the
@@ -1327,10 +1384,10 @@ SE-GUI-38  GIVEN the save, player 70101's name set to the colour code `\x11cff00
                 limit is 16 and its Name label's 46
 SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (gloves), "Edit
                 aesthetics anyway" switched on, and the player's Appearance section open
-           WHEN Hide body is used on a player whose boots and gloves IDs are 0
-           THEN his record holds boots 60 and gloves 12 and Appearance reads "FPC: the body is hidden";
-                WHEN Show body is used THEN both are 0 again; GIVEN a player whose boots ID is
-                55 THEN Appearance reads "FPC: the body is shown"; WHEN Ctrl+I, the Player menu's Toggle
+           WHEN Hide default body is used on a player whose boots and gloves IDs are 0
+           THEN his record holds boots 60 and gloves 12 and Appearance reads "The default body is currently hidden";
+                WHEN Show default body is used THEN both are 0 again; GIVEN a player whose boots ID is
+                55 THEN Appearance reads "The default body is currently shown"; WHEN Ctrl+I, the Player menu's Toggle
                 FPC settings or the Team menu's Set and Remove FPC invisibility run THEN they
                 write and clear 60 and 12 the same, and a player holding 55 and 11 keeps them
 SE-GUI-32  GIVEN the settings menu open on the Save editor's section and the save open
