@@ -16,4 +16,5 @@ names where the question came from so the context can be read there.
 
 - **Which icon does each tool get?** (worklog 8.14.) Open `docs/prototypes/icons.html`,
   click one candidate per tool (the rail at the top shows the picks together), then copy the
-  "Picks" box. The font build and the glyph constants wait on it.
+  "Picks" box. The font build and the glyph constants wait on it. The Team compiler's is
+  picked, (g); the other thirteen tools are open.

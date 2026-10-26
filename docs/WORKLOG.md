@@ -1976,7 +1976,14 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     stroke (`.tmp/8_14/check_icons.py`); regenerated 2026-10-25 at the rail's 24-point icons
     (24, 36, 48 px for 100/150/200% scaling, 96 for judging; the mock rail without the
     collapse button, 8.25); waiting for the maintainer's picks (QUESTIONS "Which icon does each
-    tool get")
+    tool get"). 2026-10-26: the Team compiler gains (e) to (h), the maintainer's running
+    stickman over a box, traced from their `Stickman.png` with potrace (within 1 px of its
+    outline at 1024 px; scripts in `.tmp/icons/`): (e) on (a)'s 3D tray, (f) into an open box
+    seen from the front, (g) the same with its flaps open, (h) on a closed parcel. No arrow:
+    it does not show at 24 px (the maintainer). The stickman is a filled outline with
+    `stroke="none"`: the font build takes it as it is, where the other glyphs' strokes are
+    expanded to outlines. The maintainer picked (g) (DECISIONS "The Team compiler's icon is
+    the stickman dropping into an open box"); the other tools' picks still wait
   - [ ] 8.15 (code done 2026-10-25 with 8.9f4c's rework r2; the built window's check open) the window's default to 1280 × 800 (the maintainer, 2026-10-25; `core/gui.md`
     "The window's size", ST-WIN-01, ST-HELP-05; DECISIONS "Studio opens at 1280 × 800
     points"): `studio_core`'s `DEFAULT_SIZE` and its tests, the help window's; the Save

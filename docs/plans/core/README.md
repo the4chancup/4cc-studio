@@ -85,7 +85,11 @@ Trade-offs accepted:
   per-view cost (the Team compiler's grid derives its label contrast from the cell for the same
   reason). Icon glyphs for sidebar/toolbar/status icons from the suite's own single-colour
   icon font, registered through `FontDefinitions` like any font: one SVG per icon, each tool's
-  drawn to say what the tool does, built into `resources/fonts/` by a fontTools script, the
+  drawn to say what the tool does (the Team compiler's: the maintainer's running stickman
+  dropping into an open box drawn from the front, flaps out, `docs/prototypes/icons.html`
+  candidate (g); a box in perspective reads as a pedestal at 24 px, and an arrow does not show
+  there; the stickman is a filled outline traced from the maintainer's drawing, which the build
+  takes as it is rather than expanding a stroke), built into `resources/fonts/` by a fontTools script, the
   general ones (help, settings, dismiss, warning, download) copied from Phosphor (MIT). A glyph
   takes the text colour, so hover and selection need no code of their own; multi-colour icons
   (SVG drawn at run time, `egui_extras`' `svg` feature) wait until after 1.0.0. Not the

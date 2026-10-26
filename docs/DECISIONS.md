@@ -11522,3 +11522,14 @@ Why: one colour per role reads cleaner (a field's label is not secondary text); 
 column keeps the boxes aligned across rows and panels where each box straight after its own
 label would draw a ragged column.
 Plan: `plans/save_editor.md` "Editing UI", the player view and Name and Shirt bullets.
+
+## 2026-10-26 — studio_core — The Team compiler's icon is the stickman dropping into an open box
+Decision: the maintainer picked candidate (g) of `docs/prototypes/icons.html`: their running
+stickman (traced with potrace from their drawing, within 1 px of its outline at 1024 px) over
+an open box drawn from the front, its flaps folded out. The figure is a filled outline
+(`stroke="none"`), the box the font's usual 16-unit stroke.
+Why: a box in perspective (candidate (e)) reads as a pedestal at the rail's 24 px, a closed
+parcel (h) as a podium, and (a)'s arrow does not show at that size; a front view is straight
+lines, and the flaps tell a box from a bin, which the bare open box (f) does not. The figure
+keeps its traced outline rather than a stroke so the drawing stays the maintainer's.
+Plan: `plans/core/README.md` "GUI framework choice: egui", the icon font's sentence.
