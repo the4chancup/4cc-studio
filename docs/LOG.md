@@ -2558,3 +2558,5 @@ worklog passed 7,000 lines.
   beside the field a selected player's violation is about, and the toggle a framed button (0.0.1o2a).
 - **2026-10-26** — The player view's last review findings: four tests that passed on a wrong layout or a stale
   error now assert what they claim, and a pair row's unused second width is gone (0.0.1s3k).
+- **2026-10-26** — Live AATF's marks after their first review: a cross keeps one gap from what it follows, and a
+  row's unsaved dot stays visible when a long name is cut short (0.0.1o2a, rework r2).

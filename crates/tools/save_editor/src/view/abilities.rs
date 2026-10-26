@@ -152,14 +152,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     |ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
                         panel(ui, spacing, "General info", None, |ui| {
-                            info_strip::general(
-                                ui,
-                                session,
-                                team_id,
-                                slot,
-                                player_id,
-                                marks.map(|marks| marks.violations),
-                            );
+                            info_strip::general(ui, session, team_id, slot, player_id, marks);
                         });
                         panel(ui, spacing, "Other stats", None, |ui| {
                             info_strip::other_stats(ui, session, player_id, &stats, marks);

@@ -364,15 +364,18 @@ fn the_marks_follow_the_held_check() {
             .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains(name)))
             .unwrap_or_else(|| panic!("{name}'s row"));
         let bounds = row.bounds().expect("the row's bounds");
-        let mark = mark_shapes(&shapes, glyph)
+        let marks: Vec<_> = mark_shapes(&shapes, glyph)
             .into_iter()
-            .find(|shape| {
+            .filter(|shape| {
                 f64::from(shape.pos.y) >= bounds.y0
                     && f64::from(shape.pos.y) <= bounds.y1
                     && f64::from(shape.pos.x) >= bounds.x1 - 30.0
                     && f64::from(shape.pos.x) <= bounds.x1
             })
-            .unwrap_or_else(|| panic!("no {glyph} on {name}'s row"));
+            .collect();
+        let [mark] = marks.as_slice() else {
+            panic!("expected one {glyph} on {name}'s row, got {}", marks.len())
+        };
         assert_eq!(galley_color(mark), color, "{name}'s mark's colour");
         let tip_at = egui::pos2(mark.pos.x + 2.0, mark.pos.y + 2.0);
         assert_eq!(
@@ -400,8 +403,11 @@ fn the_marks_follow_the_held_check() {
         )
     };
     assert!(
-        f64::from(cross.pos.x + cross.galley.rect.width()) <= height_box.x0 + 0.5,
-        "the cross stands just left of the Height box"
+        ((f64::from(cross.pos.x + cross.galley.rect.width()) + f64::from(live_marks::MARK_GAP))
+            - height_box.x0)
+            .abs()
+            < 0.5,
+        "the cross stands MARK_GAP left of the Height box"
     );
     assert!(
         f64::from(cross.pos.x) < skills.x0,
@@ -460,14 +466,15 @@ fn the_marks_follow_the_held_check() {
             .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains(name)))
             .unwrap_or_else(|| panic!("{name}'s row"));
         let bounds = row.bounds().expect("the row's bounds");
-        assert!(
-            mark_shapes(&shapes, "\u{2714}").into_iter().any(|shape| {
+        let marks: Vec<_> = mark_shapes(&shapes, "\u{2714}")
+            .into_iter()
+            .filter(|shape| {
                 f64::from(shape.pos.y) >= bounds.y0
                     && f64::from(shape.pos.y) <= bounds.y1
                     && f64::from(shape.pos.x) >= bounds.x1 - 30.0
-            }),
-            "a `✔` on {name}'s row"
-        );
+            })
+            .collect();
+        assert_eq!(marks.len(), 1, "one `✔` on {name}'s row");
     }
 }
 
@@ -535,19 +542,36 @@ fn a_positions_violation_marks_the_grid_header() {
     let nodes = live_checked(&mut window, &mut view, None, &[734]);
     let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let header = label_bounds(&nodes, "Playable positions");
-    assert!(
-        mark_shapes(&shapes, "\u{2716}").into_iter().any(|shape| {
+    mark_shapes(&shapes, "\u{2716}")
+        .into_iter()
+        .find(|shape| {
             f64::from(shape.pos.x) >= header.x1
                 && f64::from(shape.pos.x) <= header.x1 + 30.0
                 && f64::from(shape.pos.y) >= header.y0 - 4.0
                 && f64::from(shape.pos.y) <= header.y1 + 4.0
-        }),
-        "a cross after the Playable positions header"
+        })
+        .expect("a cross after the Playable positions header");
+    let cross_node = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Label
+                && node.value() == Some("\u{2716}")
+                && node
+                    .bounds()
+                    .is_some_and(|b| (b.x0 - header.x1) <= 30.0 && (b.y0 - header.y0).abs() < 4.0)
+        })
+        .expect("the cross's node");
+    let gap = cross_node.bounds().expect("the cross's bounds").x0 - header.x1;
+    assert!(
+        (gap - f64::from(live_marks::MARK_GAP)).abs() < 0.5,
+        "the cross stands MARK_GAP after the header ({gap})"
     );
 }
 
-/// A `SkillCardCap` violation's cross stands after the Skills header
-/// (the skills for `SkillCardCap` and a required skill card).
+/// Eleven skills break the tier's cap and its card budget alike, so the
+/// header holds two crosses: one `✖` right of "Skills" and left of the
+/// Cards left badge, one right of the badge (a `SkillCardCap` and a
+/// `Cards` violation, one cross each).
 #[test]
 fn a_skills_violation_marks_the_header() {
     let (mut view, mut window) = open_734("live_marks_skills");
@@ -564,19 +588,44 @@ fn a_skills_violation_marks_the_header() {
         .expect("the save opened")
         .edit_players(vec![entry]);
     let nodes = live_checked(&mut window, &mut view, None, &[734]);
-    // The header cross is the `✖` label node right of the "Skills" one
-    // (a wrapped row's painted positions read as its origin, so the node
-    // locates it).
+    // The premise: the check holds both kinds on him.
+    let violations = &view.live.check.result.as_ref().unwrap().1[0]
+        .as_ref()
+        .unwrap();
+    for name in ["SkillCardCap", "Cards"] {
+        assert!(
+            violations
+                .iter()
+                .any(|violation| violation.kind.rule().0 == name),
+            "premise: a {name} violation"
+        );
+    }
+    // A `✖` node right of "Skills" and left of the "Cards left" badge,
+    // and one right of the badge.
     let header = nodes
         .iter()
         .find(|node| node.role() == Role::Label && node.value() == Some("Skills"))
         .expect("the Skills header");
+    let skills_cross = first_right_of(&nodes, header, |node| {
+        node.role() == Role::Label && node.value() == Some("\u{2716}")
+    })
+    .expect("a cross after the Skills header");
+    let badge = label_bounds(&nodes, "Cards left");
     assert!(
-        first_right_of(&nodes, header, |node| {
-            node.role() == Role::Label && node.value() == Some("\u{2716}")
-        })
-        .is_some(),
-        "a cross after the Skills header"
+        skills_cross
+            .bounds()
+            .is_some_and(|bounds| bounds.x1 <= badge.x0 + 0.5),
+        "the Skills cross stands before the badge"
+    );
+    assert!(
+        nodes.iter().any(|node| {
+            node.role() == Role::Label
+                && node.value() == Some("\u{2716}")
+                && node
+                    .bounds()
+                    .is_some_and(|bounds| bounds.x0 >= badge.x1 - 0.5)
+        }),
+        "a cross after the Cards left badge"
     );
 }
 
@@ -994,4 +1043,365 @@ fn a_failed_check_marks_nothing() {
     });
     assert!(mark_shapes(&shapes, "\u{2716}").is_empty(), "no cross");
     assert!(mark_shapes(&shapes, "\u{2714}").is_empty(), "no check mark");
+}
+
+/// A field several violations are about carries one cross, in the
+/// highest severity's colour, its tooltip every violation's line in
+/// the check's order — an Error's first; a suggestion alone draws
+/// nothing (the Live AATF bullet's field mark).
+#[test]
+fn a_fields_cross_is_one_with_every_violations_line() {
+    use aatf::Severity::{Error, Suggestion, Warning};
+    use aatf::ViolationKind as K;
+    let rect = egui::Rect::from_min_size(egui::pos2(100.0, 100.0), egui::vec2(20.0, 20.0));
+
+    /// `Marks::paint` over `violations` on one frame (the pointer left
+    /// where `events` put it): what `paint` returned and the shapes.
+    fn paint_in(
+        window: &mut Headless,
+        violations: &[aatf::Violation],
+        rect: egui::Rect,
+        events: Vec<egui::Event>,
+    ) -> (Option<egui::Response>, Vec<egui::epaint::ClippedShape>) {
+        let marks = live_marks::Marks {
+            violations,
+            slot: 0,
+            team_id: 734,
+        };
+        let mut painted = None;
+        let (_, _, shapes) = window.frame(events, |ui| {
+            painted = marks.paint(ui, rect, live_marks::MarkedField::RegisteredPosition);
+        });
+        (painted, shapes)
+    }
+
+    /// The tooltip after `frames` idle frames over the painted cross
+    /// (bounded, so a missing one fails rather than hangs).
+    fn tooltip_of(
+        window: &mut Headless,
+        violations: &[aatf::Violation],
+        rect: egui::Rect,
+        frames: usize,
+    ) -> Option<String> {
+        for _ in 0..frames {
+            let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+                live_marks::Marks {
+                    violations,
+                    slot: 0,
+                    team_id: 734,
+                }
+                .paint(ui, rect, live_marks::MarkedField::RegisteredPosition);
+            });
+            if let Some(value) = nodes.iter().find_map(|node| node.value())
+                && (value.contains("RegisteredNotA") || value.contains("PositionRange"))
+            {
+                return Some(value.to_owned());
+            }
+        }
+        None
+    }
+
+    let mut window = Headless::new();
+    let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
+
+    // A Warning then an Error: one cross, `error_fg_color`, the two
+    // lines in the check's order.
+    let violations = [
+        violation(Some(0), Warning, K::PositionRange),
+        violation(Some(0), Error, K::RegisteredNotA),
+    ];
+    let (painted, shapes) = paint_in(
+        &mut window,
+        &violations,
+        rect,
+        vec![egui::Event::PointerMoved(egui::pos2(
+            rect.min.x + 3.0,
+            rect.center().y,
+        ))],
+    );
+    assert!(painted.is_some(), "a cross is painted");
+    let cross = mark_shapes(&shapes, "\u{2716}")
+        .into_iter()
+        .next()
+        .expect("a painted `✖`");
+    assert_eq!(
+        galley_color(cross),
+        visuals.error_fg_color,
+        "the highest severity's colour"
+    );
+    let expected = format!(
+        "{}\n{}",
+        team_widgets::violations::violation_line(&violations[0], 734),
+        team_widgets::violations::violation_line(&violations[1], 734),
+    );
+    assert_eq!(
+        tooltip_of(&mut window, &violations, rect, 30).as_deref(),
+        Some(expected.as_str()),
+        "every violation's line in the check's order"
+    );
+
+    // Two Warnings: the warning colour.
+    let violations = [
+        violation(Some(0), Warning, K::RegisteredNotA),
+        violation(Some(0), Warning, K::PositionRange),
+    ];
+    let (_, shapes) = paint_in(
+        &mut window,
+        &violations,
+        rect,
+        vec![egui::Event::PointerMoved(rect.center())],
+    );
+    let cross = mark_shapes(&shapes, "\u{2716}")
+        .into_iter()
+        .next()
+        .expect("a painted `✖`");
+    assert_eq!(
+        galley_color(cross),
+        visuals.warn_fg_color,
+        "a warning's colour"
+    );
+
+    // A suggestion alone draws nothing: `paint` returns `None` and no
+    // `✖` is painted.
+    let violations = [violation(
+        Some(0),
+        Suggestion,
+        K::Unused {
+            allowance: "cards".to_owned(),
+            used: 1,
+            allowed: 2,
+        },
+    )];
+    let (painted, shapes) = paint_in(&mut window, &violations, rect, vec![]);
+    assert!(painted.is_none(), "a suggestion alone paints nothing");
+    assert!(
+        mark_shapes(&shapes, "\u{2716}").is_empty(),
+        "no `✖` for a suggestion alone"
+    );
+}
+
+/// A dirty row keeps its `●` through truncation (the dot paints after
+/// the text, so a name that overflows loses neither it nor the mark).
+#[test]
+fn a_dirty_rows_dot_survives_truncation() {
+    let path = fixture(PesVersion::Pes21, "live_marks_dirty_dot");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.player_mut(70101).unwrap().name = "W".repeat(40);
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    view.selected = Some(Selection::Player(701, 0));
+    view.live_aatf = true;
+    // An edit makes him dirty; the held result injected so every row
+    // carries its mark.
+    let mut entry = player_entry(&view, 70101);
+    entry.basic.height = u8::MAX;
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_players(vec![entry]);
+    assert!(
+        view.session
+            .as_ref()
+            .expect("the save opened")
+            .player_dirty(701, 0),
+        "premise: the player is dirty"
+    );
+    let revision = view.session.as_ref().expect("the save opened").revision();
+    view.live.check.result = Some((
+        aatf_check::CheckKey {
+            revision,
+            ids: vec![701],
+            rules_file: None,
+        },
+        vec![Ok(Vec::new())],
+    ));
+    let mut window = Headless::new();
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let row = nodes
+        .iter()
+        .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains("WWWW")))
+        .expect("his row");
+    let bounds = row.bounds().expect("the row's bounds");
+    let mark = mark_shapes(&shapes, "\u{2714}")
+        .into_iter()
+        .find(|shape| {
+            f64::from(shape.pos.y) >= bounds.y0
+                && f64::from(shape.pos.y) <= bounds.y1
+                && f64::from(shape.pos.x) >= bounds.x1 - 30.0
+        })
+        .expect("the mark on his row");
+    let dot = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(text)
+                if text.galley.job.text == "\u{25cf}"
+                    && f64::from(text.pos.y) >= bounds.y0
+                    && f64::from(text.pos.y) <= bounds.y1 =>
+            {
+                Some(text)
+            }
+            _ => None,
+        })
+        .next()
+        .expect("a `●` painted on the dirty row");
+    assert!(
+        f64::from(dot.pos.x + dot.galley.rect.width()) <= f64::from(mark.pos.x) + 0.5,
+        "the dot's right edge stays left of the mark"
+    );
+    assert!(mark_shapes(&shapes, "\u{25cf}").len() == 1, "one dot");
+
+    // A team row whose name truncates: its dirty dot too, if the
+    // fixture lets it.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.team_mut(701).unwrap().name = "T".repeat(52);
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    view.selected = Some(Selection::Player(701, 0));
+    view.live_aatf = true;
+    let mut team = team_entry(&view, 701);
+    team.name = "U".repeat(52);
+    view.session
+        .as_mut()
+        .expect("the save opened")
+        .edit_entries(vec![], vec![team]);
+    assert!(
+        view.session
+            .as_ref()
+            .expect("the save opened")
+            .team_dirty(701),
+        "premise: the team is dirty"
+    );
+    let revision = view.session.as_ref().expect("the save opened").revision();
+    view.live.check.result = Some((
+        aatf_check::CheckKey {
+            revision,
+            ids: vec![701],
+            rules_file: None,
+        },
+        vec![Ok(Vec::new())],
+    ));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let row = team_row(&nodes, &view, 701);
+    let bounds = row.bounds().expect("the team row's bounds");
+    let mark = mark_shapes(&shapes, "\u{2714}")
+        .into_iter()
+        .find(|shape| {
+            f64::from(shape.pos.y) >= bounds.y0
+                && f64::from(shape.pos.y) <= bounds.y1
+                && f64::from(shape.pos.x) >= bounds.x1 - 30.0
+        })
+        .expect("the mark on the team row");
+    let dot = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(text)
+                if text.galley.job.text == "\u{25cf}"
+                    && f64::from(text.pos.y) >= bounds.y0
+                    && f64::from(text.pos.y) <= bounds.y1 =>
+            {
+                Some(text)
+            }
+            _ => None,
+        })
+        .next()
+        .expect("a `●` painted on the dirty team row");
+    assert!(
+        f64::from(dot.pos.x + dot.galley.rect.width()) <= f64::from(mark.pos.x) + 0.5,
+        "the team row's dot stays left of the mark"
+    );
+}
+
+/// Only the checked team's rows are marked: with ALL picked another
+/// team's rows draw neither `✖` nor `✔`, and the checked team's keep
+/// theirs (the Live AATF bullet: players of other teams carry none).
+#[test]
+fn only_the_checked_teams_rows_are_marked() {
+    let (mut view, mut window) = open_734_with("live_marks_other_teams", &[73401], 183);
+    view.live_aatf = true;
+    let _nodes = live_checked(&mut window, &mut view, None, &[734]);
+    view.team = TeamChoice::All;
+    let team_name = team_entry(&view, 734).name;
+    // Under ALL his row sits below the fold: the wheel scrolls the list
+    // until it shows (bounded, so an unreachable one fails rather than
+    // hangs).
+    let mut found = false;
+    let at = egui::pos2(120.0, 300.0);
+    for _ in 0..64 {
+        let (_, nodes, shapes) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let his_row = nodes.iter().find(|node| {
+            player_row(node)
+                && node
+                    .label()
+                    .is_some_and(|label| label.contains("Muh Spooks"))
+        });
+        if let Some(his_row) = his_row {
+            let bounds = his_row.bounds().expect("the row's bounds");
+            assert!(
+                mark_shapes(&shapes, "\u{2716}").into_iter().any(|shape| {
+                    f64::from(shape.pos.y) >= bounds.y0
+                        && f64::from(shape.pos.y) <= bounds.y1
+                        && f64::from(shape.pos.x) >= bounds.x0
+                        && f64::from(shape.pos.x) <= bounds.x1
+                }),
+                "the broken player's `✖` stands"
+            );
+            // Every mark drawn in the list sits inside a row of his
+            // team (its own or the team row's) — the other teams' rows
+            // carry none.
+            let team_bounds = team_row(&nodes, &view, 734)
+                .bounds()
+                .expect("the team row's bounds");
+            let of_team = format!(" {team_name} ");
+            let mut his_rows: Vec<accesskit::Rect> = nodes
+                .iter()
+                .filter_map(|node| {
+                    (player_row(node) && node.label().is_some_and(|label| label.contains(&of_team)))
+                        .then(|| node.bounds())
+                        .flatten()
+                })
+                .collect();
+            his_rows.push(team_bounds);
+            assert!(!his_rows.is_empty(), "his team's rows are on screen");
+            for glyph in ["\u{2716}", "\u{2714}"] {
+                for shape in mark_shapes(&shapes, glyph)
+                    .into_iter()
+                    .filter(|shape| shape.pos.x < 250.0)
+                {
+                    assert!(
+                        his_rows.iter().any(|bounds| {
+                            f64::from(shape.pos.y) >= bounds.y0
+                                && f64::from(shape.pos.y) <= bounds.y1
+                                && f64::from(shape.pos.x) >= bounds.x0
+                                && f64::from(shape.pos.x) <= bounds.x1
+                        }),
+                        "a {glyph} outside his team's rows at {:?}",
+                        shape.pos
+                    );
+                }
+            }
+            found = true;
+            break;
+        }
+        window.frame(
+            vec![
+                egui::Event::PointerMoved(at),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, -400.0),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Wheel,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            |ui| show(ui, &mut view, &|| Vec::new(), None),
+        );
+    }
+    assert!(found, "his row never scrolled into view");
 }

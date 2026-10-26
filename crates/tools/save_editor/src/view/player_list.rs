@@ -47,17 +47,21 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // list or under ALL where each team's rows run unbroken under its team
     // row; drag is off while a filter is typed, where neighbouring rows are
     // not one team's neighbouring slots.
-    let draggable = view.filter.trim().is_empty();
+    let layout = RowLayout {
+        // Only the visible rows are laid out: `show_rows` draws the range
+        // the viewport shows, each row's click target at the text row's
+        // height plus the button padding (`interact_size.y`, what a
+        // selectable occupies).
+        row_height: ui.spacing().interact_size.y,
+        draggable: view.filter.trim().is_empty(),
+        show_team,
+    };
     // Live AATF's held check: the rows of the team it is for carry its
     // marks, the other teams' none.
     let held = live_marks::held_violations(view.live_aatf, &view.live.check, view.rules.as_ref());
     let session = view.session.as_mut().expect("checked above");
     let rows = selection::list(session.file(), &view.team, &view.filter);
-    // Only the visible rows are laid out: `show_rows` draws the range the
-    // viewport shows, each row's click target at the text row's height plus
-    // the button padding (`interact_size.y`, what a selectable occupies).
-    let row_height = ui.spacing().interact_size.y;
-    egui::ScrollArea::vertical().show_rows(ui, row_height, rows.len(), |ui, range| {
+    egui::ScrollArea::vertical().show_rows(ui, layout.row_height, rows.len(), |ui, range| {
         for row in &rows[range] {
             match row {
                 ListRow::Team(team_id) => {
@@ -66,7 +70,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         &mut view.selected,
                         session,
                         *team_id,
-                        row_height,
+                        layout.row_height,
                         held.filter(|(id, _)| *id == *team_id)
                             .map(|(_, violations)| live_marks::row_mark(violations, None)),
                     );
@@ -77,8 +81,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         &mut view.selected,
                         session,
                         row,
-                        show_team,
-                        draggable,
+                        layout,
                         held.filter(|(id, _)| *id == row.team_id)
                             .map(|(_, violations)| {
                                 live_marks::row_mark(violations, Some(row.slot))
@@ -88,6 +91,19 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             }
         }
     });
+}
+
+/// How the list draws one row, computed once in `show`: the row's height,
+/// whether player rows drag (no filter typed) and whether the list
+/// crosses teams (`ALL` or a filter in use, the draft's `tshort`).
+#[derive(Clone, Copy)]
+struct RowLayout {
+    /// The row's height (`interact_size.y`, what a selectable occupies).
+    row_height: f32,
+    /// Player rows drag and take drops.
+    draggable: bool,
+    /// Player rows name their team.
+    show_team: bool,
 }
 
 /// The team selector: `ALL`, then each team by name in the save's order.
@@ -217,30 +233,45 @@ fn team_row(
         x += ui.spacing().item_spacing.x;
         let mut job = egui::text::LayoutJob::default();
         append_name(&mut job, &team.name);
-        if dirty {
-            job.append(" \u{25cf}", 0.0, plain_format());
-        }
-        // The mark's room at the right end comes off the truncation
-        // width, so a long name never runs under it.
+        // The mark's room and the dot's come off the truncation
+        // width, so a long name never runs under either (the dot
+        // paints after the text, as the player row's does).
         let mark_room = mark
             .as_ref()
             .map_or(0.0, |mark| mark.width(ui) + ui.spacing().item_spacing.x);
-        job.wrap = egui::text::TextWrapping::truncate_at_width(
-            (rect.max.x - x - padding - mark_room).max(0.0),
-        );
-        let name_galley = ui.painter().layout_job(job);
-        // The name's plain runs take the strong text colour, or the
-        // selection's while the row is selected.
         let text = if is_selected {
             visuals.fg_stroke.color
         } else {
             ui.visuals().strong_text_color()
         };
+        let dot_galley = dirty.then(|| {
+            ui.painter()
+                .layout_no_wrap("\u{25cf}".to_owned(), egui::FontId::default(), text)
+        });
+        let dot_room = dot_galley
+            .as_ref()
+            .map_or(0.0, |dot| dot.size().x + ui.spacing().item_spacing.x);
+        job.wrap = egui::text::TextWrapping::truncate_at_width(
+            (rect.max.x - x - padding - mark_room - dot_room).max(0.0),
+        );
+        let name_galley = ui.painter().layout_job(job);
+        // The name's plain runs take the strong text colour, or the
+        // selection's while the row is selected.
         ui.painter().galley(
             egui::pos2(x, centre - name_galley.size().y / 2.0),
-            name_galley,
+            name_galley.clone(),
             text,
         );
+        if let Some(dot) = dot_galley {
+            ui.painter().galley(
+                egui::pos2(
+                    x + name_galley.size().x + ui.spacing().item_spacing.x,
+                    centre - dot.size().y / 2.0,
+                ),
+                dot,
+                text,
+            );
+        }
         mark.as_ref().map(|mark| {
             live_marks::paint_row_mark(ui, rect.shrink2(egui::vec2(padding, 0.0)), mark, team_id)
         })
@@ -273,8 +304,7 @@ fn player_row(
     selected: &mut Option<Selection>,
     session: &mut Session,
     row: &Row,
-    show_team: bool,
-    draggable: bool,
+    layout: RowLayout,
     mark: Option<live_marks::RowMark>,
 ) {
     let file = session.file();
@@ -282,18 +312,20 @@ fn player_row(
     let player = file.player(row.player_id);
     let dirty = session.player_dirty(row.team_id, row.slot);
     let is_selected = *selected == Some(Selection::Player(row.team_id, row.slot));
-    let row_height = ui.spacing().interact_size.y;
-    let mut job = row_text(team, player, row, show_team);
+    let row_height = layout.row_height;
+    let mut job = row_text(team, player, row, layout.show_team);
+    // The unsaved dot paints after the text, never inside it: a row the
+    // name overflows keeps it. The label and the hover keep its text.
+    let mut label = job.text.clone();
     if dirty {
-        job.append(" \u{25cf}", 0.0, plain_format());
+        label.push_str(" \u{25cf}");
     }
-    let label = job.text.clone();
     // One line, truncated when the name is too long for the panel: the full
     // display name rides the hover, a dirty row's with the dot's text.
     // `mark`, while Live AATF holds this team's check, is his violations'
     // glyph at the row's right end, after the dot when it shows.
     let hover = player.map_or_else(|| "?".to_owned(), |player| display_name(&player.name));
-    let sense = if draggable {
+    let sense = if layout.draggable {
         egui::Sense::click_and_drag()
     } else {
         egui::Sense::click()
@@ -317,8 +349,20 @@ fn player_row(
         let mark_room = mark
             .as_ref()
             .map_or(0.0, |mark| mark.width(ui) + ui.spacing().item_spacing.x);
+        // The dot's room comes off the truncation width with the mark's,
+        // so a long name keeps both (the dot paints after the text).
+        let dot_galley = dirty.then(|| {
+            ui.painter().layout_no_wrap(
+                "\u{25cf}".to_owned(),
+                egui::FontId::default(),
+                visuals.fg_stroke.color,
+            )
+        });
+        let dot_room = dot_galley
+            .as_ref()
+            .map_or(0.0, |dot| dot.size().x + ui.spacing().item_spacing.x);
         job.wrap = egui::text::TextWrapping::truncate_at_width(
-            (rect.max.x - rect.min.x - 2.0 * padding - mark_room).max(0.0),
+            (rect.max.x - rect.min.x - 2.0 * padding - mark_room - dot_room).max(0.0),
         );
         let galley = ui.painter().layout_job(job);
         ui.painter().galley(
@@ -326,9 +370,19 @@ fn player_row(
                 rect.min.x + padding,
                 rect.center().y - galley.size().y / 2.0,
             ),
-            galley,
+            galley.clone(),
             visuals.fg_stroke.color,
         );
+        if let Some(dot) = dot_galley {
+            ui.painter().galley(
+                egui::pos2(
+                    rect.min.x + padding + galley.size().x + ui.spacing().item_spacing.x,
+                    rect.center().y - dot.size().y / 2.0,
+                ),
+                dot,
+                visuals.fg_stroke.color,
+            );
+        }
         mark.as_ref().map(|mark| {
             live_marks::paint_row_mark(
                 ui,
@@ -351,7 +405,7 @@ fn player_row(
     if response.clicked() {
         *selected = Some(Selection::Player(row.team_id, row.slot));
     }
-    if draggable {
+    if layout.draggable {
         response.dnd_set_drag_payload(*row);
         if let Some(dropped) = response.dnd_release_payload::<Row>()
             && dropped.team_id == row.team_id

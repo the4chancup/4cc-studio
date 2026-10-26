@@ -100,16 +100,17 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 }
 
 /// The General info panel's content (`generalPanel`): the Name and Shirt
-/// counted fields, the pair rows, then the combos. `violations` is the
-/// held check's, while Live AATF holds this team's: the marked fields'
-/// crosses then sit as the plan bullet maps them (a field keeps its x).
+/// counted fields, the pair rows, then the combos. `marks` is Live
+/// AATF's held check's, while it is the selected player's team's: the
+/// marked fields' crosses then sit as the plan bullet maps them (a
+/// field keeps its x).
 pub(super) fn general(
     ui: &mut egui::Ui,
     session: &mut Session,
     team_id: u32,
     slot: u8,
     player_id: u32,
-    violations: Option<&[aatf::Violation]>,
+    marks: Option<Marks<'_>>,
 ) {
     let (
         mut name,
@@ -146,11 +147,6 @@ pub(super) fn general(
     };
     let captain = stored_captain == slot;
     let (height, weight, age) = basics;
-    let marks = violations.map(|violations| Marks {
-        violations,
-        slot,
-        team_id,
-    });
 
     // The rows' layout, measured once (the draft's `.combos` `width`):
     // the label column, its 12-point gap, the fields to the flush edge —

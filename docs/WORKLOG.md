@@ -2620,7 +2620,12 @@ briefs, review loops, gates and mutation runs as for any step.
       click on a mark selects its row, no cross over text and no field moved. `FieldedNotA`
       maps to the pitch, which draws nothing yet. Files: `save_editor/src/view/{live_marks,
       info_strip,abilities,player_list,mod}.rs`, `view/tests/live_marks.rs`,
-      `team_widgets/src/violations.rs`
+      `team_widgets/src/violations.rs`. SWE-2 round S1: 8 of 11 accepted
+      (`.tmp/0_0_1o/o2a_rulings.md`); its rework r2 done 2026-10-26 (SWE-2): the laid-out
+      crosses keep `MARK_GAP`, a row's unsaved dot paints after its truncated text, the tests
+      tell the Skills header's two crosses apart, pin one mark per row, a field's several
+      violations (one cross, the highest severity's colour, every line) and other teams' rows
+      unmarked. Open: round S2, the mutation run's survivors
     - [ ] o2b the pitch's cross for `FieldedNotA` and the dock row selecting his team's row
       on the named preset's first formation; after the Tactics tab's new layout (the
       maintainer's request of 2026-10-26, drafted first)
@@ -2840,8 +2845,9 @@ briefs, review loops, gates and mutation runs as for any step.
       asserted, a stale tier error after the rules file stops loading untested, the counted
       labels' hover untested), and `half_width`'s dead second arm removed (the second half
       lays out at its content's width). Done 2026-10-26 (SWE-2); rulings
-      `.tmp/0_0_1s/s3_rulings.md`. Open: the post-Astra SWE-2 round over s3k, the step's
-      mutation run (grouped with o2a's), s3's close
+      `.tmp/0_0_1s/s3_rulings.md`. The post-Astra SWE-2 round S7: 0 of 2 accepted, the
+      review loops end. Open: the step's mutation run (grouped with o2a's; its local half's
+      baseline timed out under load and is rerun), then s3's close
 - [x] 0.0.1t a rules file a member handles ends in `.4ccrules` (the maintainer, 2026-10-26;
   DECISIONS "A rules file a member handles ends in `.4ccrules`"; `plans/aatf_rules.md` "The
   rules file"): the Save editor's settings row and AATF panel and the Ruleset editor's pickers

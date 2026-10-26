@@ -909,14 +909,18 @@ fn the_team_rows_dot_paints_after_a_short_name_edit() {
 
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let name = text_in_rect(
-        &shapes,
-        "/3/",
-        team_row(&nodes, &view, 701).bounds().expect("bounds"),
-    );
+    let bounds = team_row(&nodes, &view, 701).bounds().expect("bounds");
+    let name = text_in_rect(&shapes, "/3/", bounds);
     assert!(
-        name.galley.job.text.ends_with('\u{25cf}'),
-        "the painted name ends with the dot"
+        shapes.iter().any(|clipped| {
+            matches!(&clipped.shape, egui::Shape::Text(dot)
+                if dot.galley.job.text == "\u{25cf}"
+                    && f64::from(dot.pos.y) >= bounds.y0
+                    && f64::from(dot.pos.y) <= bounds.y1
+                    && f64::from(dot.pos.x)
+                        >= f64::from(name.pos.x + name.galley.rect.width()))
+        }),
+        "the dot paints right after the painted name"
     );
     assert!(
         row_labels(&nodes)

@@ -221,13 +221,14 @@ fn field_mark(
 }
 
 /// The `✖` beside a field a violation is about, added to the layout (the
-/// header rows, whose next item is nothing the cross could push): one
-/// label, `error_fg_color` when one of them is an Error else
+/// panel titles, whose next item is nothing the cross pushes, and the
+/// Skills header, where the Cards left badge follows and moves with it):
+/// one label, `error_fg_color` when one of them is an Error else
 /// `warn_fg_color`, its tooltip their `violation_line`s, one per line.
 /// Draws nothing when no Error or Warning violation on `slot` maps to
 /// `field`. The sites laying the cross into the space between a label
 /// and its field use `paint_field_cross` instead.
-pub(super) fn field_cross(
+fn field_cross(
     ui: &mut egui::Ui,
     violations: &[aatf::Violation],
     slot: u8,
@@ -237,6 +238,10 @@ pub(super) fn field_cross(
     let Some(mark) = field_mark(violations, slot, team_id, field) else {
         return;
     };
+    // The cross stands MARK_GAP after the item before it: `add_space`
+    // moves the cursor back by the negative amount (a row's spacing is
+    // wider), and the item after keeps the row's spacing.
+    ui.add_space(MARK_GAP - ui.spacing().item_spacing.x);
     ui.add(egui::Label::new(
         egui::RichText::new(CROSS.to_string()).color(mark.color(ui.visuals())),
     ))
@@ -249,7 +254,7 @@ pub(super) fn field_cross(
 /// control's x moves. The glyph's own hover rect shows the tooltip;
 /// its response returned for a caller suppressing an overlap's own
 /// hover (the counted label's).
-pub(super) fn paint_field_cross(
+fn paint_field_cross(
     ui: &mut egui::Ui,
     rect: egui::Rect,
     violations: &[aatf::Violation],
