@@ -1763,7 +1763,13 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         pinned; `compare_teams` tested on every version. Files: `save_editor/src/{lib,
         session/mod,view/{mod,prompt,terms,comparator},view/tests/{prompt,shell}}.rs`,
         `team_widgets/src/tactics/{mod,instructions,assignments,tests/mod}.rs`,
-        `pes_savefile/src/ops/compare.rs`
+        `pes_savefile/src/ops/compare.rs`. Rework r2 2026-10-26 (SWE-2, SWE-2 round S2's eight
+        accepted concerns, `.tmp/8_9l/rulings.md`): the Item column reads the display name;
+        the refused-write test puts a directory in the save's place, refused on every OS (a
+        read-only file is replaced on Linux, which failed the mutation run's remote
+        baseline); backdrop clicks tested as each modal's Cancel; the prompt's Save found as
+        the modal's own; `roster_names` and `roster_for` pinned. Files:
+        `save_editor/src/view/{prompt,tests/prompt}.rs`
       - [ ] l3 the Open menu with discovery and the session's recent files, Save as (SE-GUI-26),
         the version warning (SE-GUI-28)
       - [ ] l4 SE-GUI-21 in the built window with the game running (lead, manual), after l2.

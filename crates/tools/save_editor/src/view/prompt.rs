@@ -18,7 +18,7 @@ use team_widgets::tactics::RosterRow;
 
 use crate::session::Session;
 use crate::session::selection::{self, TeamChoice};
-use crate::view::{Refusal, SaveView, info_strip, save, terms, write_now};
+use crate::view::{Refusal, SaveView, save, terms, write_now};
 
 /// What the prompt does once answered.
 #[derive(Debug)]
@@ -84,10 +84,12 @@ pub(crate) fn open(view: &mut SaveView, pending: Pending) {
 
 /// The table's rows (the draft's `unsavedChanges`): the changed players
 /// in the ALL list's order (a changed one the list does not show last by
-/// id), a roster slot's `Number` row under its player after his own (the
-/// dot's rule: his dot covers his roster slot's number), then each
-/// changed team's other rows in the open save's team order. The item is
-/// the player's display name (`info_strip::shown_name`) or the team's.
+/// id), a `Stripped` row after his field rows when his appearance id
+/// changed (the field `compare_players` emits no row for), a roster
+/// slot's `Number` row under its player after his own (the dot's rule:
+/// his dot covers his roster slot's number), then each changed team's
+/// other rows in the open save's team order. The item is the player's
+/// display name (`display_name`, colour codes dropped) or the team's.
 fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String)>> {
     let file = session.file();
     let version = session.version();
@@ -103,7 +105,7 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
         .collect();
     let name_of = |id: u32| {
         file.player(id)
-            .map(|player| info_strip::shown_name(&player.name))
+            .map(|player| display_name(&player.name))
             .unwrap_or_else(|| id.to_string())
     };
     let mut rows = Vec::new();
@@ -196,7 +198,7 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
 
 /// `team`'s roster slots' display names for `roster_for` (the two steps
 /// split so the `RosterRow`s can borrow them).
-fn roster_names(file: &EditFile, team: &TeamEntry) -> Vec<String> {
+pub(super) fn roster_names(file: &EditFile, team: &TeamEntry) -> Vec<String> {
     team.roster
         .iter()
         .map(|slot| {
@@ -209,7 +211,7 @@ fn roster_names(file: &EditFile, team: &TeamEntry) -> Vec<String> {
 /// `team`'s roster as the Tactics tab's `RosterRow`s: the display names
 /// borrowed from `names` (`roster_names`' output), the raw names the
 /// records' own, colour codes kept.
-fn roster_for<'a>(
+pub(super) fn roster_for<'a>(
     file: &'a EditFile,
     team: &'a TeamEntry,
     names: &'a [String],

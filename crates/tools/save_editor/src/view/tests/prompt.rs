@@ -323,7 +323,11 @@ fn a_window_close_prompts_and_each_answer_does_what_it_says() {
     let mut tool = dirty_tool(&path);
     assert!(StudioTool::hold_close(&mut tool));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
-    click_labeled_tool(&mut window, &nodes, "Save", &mut tool, &ctx);
+    press_release(
+        &mut window,
+        centre(modal_button(&nodes, "Unsaved changes", "Save")),
+        |ui| tool.view(ui, &ctx),
+    );
     assert_eq!(
         requests.try_recv().expect("the close request"),
         ShellRequest::Close
@@ -350,7 +354,11 @@ fn a_window_close_prompts_and_each_answer_does_what_it_says() {
     };
     assert!(StudioTool::hold_close(&mut tool));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
-    click_labeled_tool(&mut window, &nodes, "Save", &mut tool, &ctx);
+    press_release(
+        &mut window,
+        centre(modal_button(&nodes, "Unsaved changes", "Save")),
+        |ui| tool.view(ui, &ctx),
+    );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     assert!(
         nodes.iter().any(|node| node
@@ -560,33 +568,6 @@ fn a_close_asked_while_the_open_prompt_waits_takes_the_answer() {
     );
 }
 
-/// `path` made read-only until this guard drops: the file a failed write
-/// leaves writable again whatever the test did, so the scratch folder
-/// stays deletable on Windows.
-struct Readonly<'a> {
-    path: &'a Path,
-    /// The permissions as found, put back on drop.
-    permissions: std::fs::Permissions,
-}
-
-impl<'a> Readonly<'a> {
-    /// Makes `path` read-only.
-    fn set(path: &'a Path) -> Readonly<'a> {
-        let permissions = std::fs::metadata(path).unwrap().permissions();
-        let mut readonly = permissions.clone();
-        readonly.set_readonly(true);
-        std::fs::set_permissions(path, readonly).unwrap();
-        Readonly { path, permissions }
-    }
-}
-
-impl Drop for Readonly<'_> {
-    fn drop(&mut self) {
-        std::fs::set_permissions(self.path, self.permissions.clone())
-            .expect("the file's permissions restore");
-    }
-}
-
 // SE-GUI-05: a Save the write refuses leaves the prompt up and shows
 // the refusal on top of it (the modals' top layer), its OK clickable.
 #[test]
@@ -596,8 +577,11 @@ fn a_refused_write_under_the_prompt_shows_the_refusal_on_top() {
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
 
-    // The open file read-only: the write refuses, the prompt keeps up.
-    let _readonly = Readonly::set(&path);
+    // A directory in the save's place: `EditFile::save`'s copy to `.bak`
+    // then fails on every OS, so the write refuses and the prompt keeps
+    // up.
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
@@ -696,6 +680,15 @@ fn a_player_on_two_rosters_gets_his_rows_once() {
     let mut edited = player_entry(&view, 70101);
     edited.basic.height = 170;
     view.session.as_mut().unwrap().edit_player(2, edited);
+    let file = view.session.as_ref().unwrap().file();
+    assert_eq!(
+        selection::rows(file, &TeamChoice::All, "")
+            .iter()
+            .filter(|row| row.player_id == 70101)
+            .count(),
+        2,
+        "premise: 70101 is listed twice"
+    );
 
     prompt::open(&mut view, Pending::Close);
     let mut window = Headless::new();
@@ -751,9 +744,13 @@ fn an_unlisted_players_rows_come_after_the_listed() {
         .iter()
         .position(|(item, _, _)| item == "PLACEHOLDER · Weight")
         .expect("the listed player's row");
+    let team_row = rows
+        .iter()
+        .position(|(item, _, _)| item.starts_with("/3/ ·"))
+        .expect("the team's row");
     assert!(
-        height > weight,
-        "his row comes after the listed players' rows: {rows:?}"
+        height > weight && height < team_row,
+        "his row after the listed players' and before the teams' rows: {rows:?}"
     );
 }
 
@@ -777,7 +774,11 @@ fn opening_anothers_save_writes_the_first_then_opens_the_picked() {
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(prompt_drawn(&nodes), "the prompt is up");
-    click_label(&mut window, &mut view, "Save");
+    click(
+        &mut window,
+        modal_button(&nodes, "Unsaved changes", "Save"),
+        &mut view,
+    );
     assert_eq!(
         view.session.as_ref().unwrap().path(),
         other.as_path(),
@@ -850,6 +851,7 @@ fn escape_on_the_prompt_closes_it_and_changes_nothing() {
     let mut window = Headless::new();
     // One frame for the modal to register as the top one, then Escape.
     window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(view.prompt.is_some(), "premise: the prompt is up");
     window.frame(
         vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
         |ui| show(ui, &mut view, &|| Vec::new(), None),
@@ -976,5 +978,110 @@ fn a_tactics_row_names_the_player_as_the_roster_shows_him() {
         rows.iter()
             .any(|(item, _, new)| item == "/3/ · Captain" && new == &name),
         "the Captain row names him ({name}): {rows:?}"
+    );
+}
+
+// SE-GUI-05: the Item column reads the display name (the colour codes
+// dropped), as `plans/save_editor.md`'s unsaved-changes bullet words it.
+#[test]
+fn the_item_column_is_the_display_name() {
+    let path = fixture(PesVersion::Pes21, "prompt_display_name");
+    // A colour-coded name, as cup saves carry: `\x11c` plus eight hex.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.player_mut(70101).unwrap().name = "\x11cffb50effLORD".to_owned();
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut edited = player_entry(&view, 70101);
+    edited.basic.height = 170;
+    view.session.as_mut().unwrap().edit_player(1, edited);
+
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    // One frame so the modal's area has registered (its first frame is
+    // egui's invisible sizing pass).
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        prompt_rows(&pairs, "Unsaved changes"),
+        [(
+            "LORD · Height".to_owned(),
+            "180".to_owned(),
+            "170".to_owned()
+        )],
+        "the item carries no \\x11"
+    );
+}
+
+// SE-GUI-05: a click on the backdrop is the prompt's Cancel too — it
+// closes, the session untouched and still dirty.
+#[test]
+fn a_backdrop_click_on_the_prompt_closes_it_and_changes_nothing() {
+    let path = fixture(PesVersion::Pes21, "prompt_backdrop");
+    let original = std::fs::read(&path).unwrap();
+    let mut view = dirty_view(&path);
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    // One frame for the modal to register as the top one, then a click
+    // beside it, on the backdrop.
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(view.prompt.is_some(), "premise: the prompt is up");
+    click_at(&mut window, egui::pos2(5.0, 5.0), &mut view);
+    assert!(view.prompt.is_none(), "a backdrop click closes the prompt");
+    let session = view.session.as_ref().expect("the session kept");
+    assert!(session.is_dirty(), "still dirty");
+    assert_eq!(
+        session.file().player(70101).unwrap().basic.height,
+        170,
+        "the edit kept"
+    );
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        original,
+        "the file unchanged"
+    );
+    assert!(!view.request_close, "no close is asked");
+}
+
+// SE-GUI-21's window rule: a click on the backdrop is the question's
+// Cancel — it closes, the prompt behind stays, the file unchanged.
+#[test]
+fn a_backdrop_click_on_the_question_closes_it_and_keeps_the_prompt() {
+    let path = fixture(PesVersion::Pes21, "question_backdrop");
+    let original = std::fs::read(&path).unwrap();
+    let mut view = dirty_view(&path);
+    prompt::open(&mut view, Pending::Close);
+    view.edit_mode_question = Some(PesVersion::Pes21);
+    let mut window = Headless::new();
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        view.edit_mode_question.is_some(),
+        "premise: the question is up"
+    );
+    click_at(&mut window, egui::pos2(5.0, 5.0), &mut view);
+    assert!(
+        view.edit_mode_question.is_none(),
+        "a backdrop click closes the question"
+    );
+    assert!(view.prompt.is_some(), "the prompt stays up");
+    assert!(view.is_dirty(), "still dirty");
+    assert_eq!(std::fs::read(&path).unwrap(), original, "nothing wrote");
+}
+
+// `roster_names` and `roster_for` carry the display name and the
+// record's own name, colour codes kept (the coloured runs' source).
+#[test]
+fn roster_for_holds_the_raw_name_and_the_display_name() {
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    let team = file.team(701).unwrap().clone();
+    let id = team.roster[0].player_id;
+    file.player_mut(id).unwrap().name = "\x11cffb50effLORD".to_owned();
+    let names = prompt::roster_names(&file, &team);
+    let rows = prompt::roster_for(&file, &team, &names);
+    assert_eq!(rows[0].name, "LORD", "the display name, codes dropped");
+    assert_eq!(
+        rows[0].raw_name, "\x11cffb50effLORD",
+        "the raw name, codes kept"
     );
 }
