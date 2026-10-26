@@ -162,13 +162,14 @@ fn question_nodes_with(
     window: &mut Headless,
     view: &mut SaveView,
     running: &dyn Fn() -> Vec<RunningPes>,
-) -> Vec<accesskit::Node> {
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, running, None));
+) -> Vec<(accesskit::NodeId, accesskit::Node)> {
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, running, None));
+    let nodes: Vec<accesskit::Node> = pairs.iter().map(|(_, node)| node.clone()).collect();
     assert!(
         label_value(&nodes, "PES 2021 is running"),
         "the Edit-mode question is up"
     );
-    nodes
+    pairs
 }
 
 // SE-GUI-05
@@ -322,10 +323,10 @@ fn a_window_close_prompts_and_each_answer_does_what_it_says() {
     // close follows.
     let mut tool = dirty_tool(&path);
     assert!(StudioTool::hold_close(&mut tool));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| tool.view(ui, &ctx));
     press_release(
         &mut window,
-        centre(modal_button(&nodes, "Unsaved changes", "Save")),
+        centre(modal_button(&pairs, "Unsaved changes", "Save")),
         |ui| tool.view(ui, &ctx),
     );
     assert_eq!(
@@ -353,10 +354,10 @@ fn a_window_close_prompts_and_each_answer_does_what_it_says() {
         }]
     };
     assert!(StudioTool::hold_close(&mut tool));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| tool.view(ui, &ctx));
     press_release(
         &mut window,
-        centre(modal_button(&nodes, "Unsaved changes", "Save")),
+        centre(modal_button(&pairs, "Unsaved changes", "Save")),
         |ui| tool.view(ui, &ctx),
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
@@ -447,26 +448,20 @@ fn click_with(
     press_release(window, centre(node), |ui| show(ui, view, running, None));
 }
 
-/// The `label` button of the modal headed `heading`: the nearest one
-/// below the heading's bounds (the toolbar's same-labeled "Save" is
-/// above it, the prompt's Save under the question's while both are up).
+/// The `label` button of the modal headed `heading`, found in that
+/// modal's own `Role::Dialog` subtree (`dialog_nodes`): the toolbar's
+/// same-labeled "Save" and the other modal's buttons sit outside it, so a
+/// button of the prompt under the question never stands in for the
+/// question's own (a nearest-by-position pick did, its click then landing
+/// on the question's backdrop, which cancels it too).
 pub(super) fn modal_button<'a>(
-    nodes: &'a [accesskit::Node],
+    pairs: &'a [(accesskit::NodeId, accesskit::Node)],
     heading: &str,
     label: &str,
 ) -> &'a accesskit::Node {
-    let anchor = nodes
-        .iter()
-        .find(|node| node.role() == Role::Label && node.value() == Some(heading))
-        .and_then(|node| node.bounds())
-        .unwrap_or_else(|| panic!("no heading {heading:?}"));
-    nodes
-        .iter()
-        .filter(|node| node.role() == Role::Button && node.label() == Some(label))
-        .filter_map(|node| node.bounds().map(|bounds| (bounds, node)))
-        .filter(|(bounds, _)| bounds.y0 >= anchor.y0)
-        .min_by(|a, b| a.0.y0.partial_cmp(&b.0.y0).expect("ordered bounds"))
-        .map(|(_, node)| node)
+    dialog_nodes(pairs, heading)
+        .into_iter()
+        .find(|node| node.role() == Role::Button && node.label() == Some(label))
         .unwrap_or_else(|| panic!("no {label:?} in the {heading:?} modal"))
 }
 
@@ -487,19 +482,19 @@ fn the_prompts_save_runs_the_window_save_first() {
 
     // Save opens the question over the prompt; its Cancel keeps the
     // prompt and asks nothing of the shell.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
     click_with(
         &mut window,
         &mut view,
         &running_own,
-        modal_button(&nodes, "Unsaved changes", "Save"),
+        modal_button(&pairs, "Unsaved changes", "Save"),
     );
-    let nodes = question_nodes_with(&mut window, &mut view, &running_own);
+    let pairs = question_nodes_with(&mut window, &mut view, &running_own);
     click_with(
         &mut window,
         &mut view,
         &running_own,
-        modal_button(&nodes, "PES 2021 is running", "Cancel"),
+        modal_button(&pairs, "PES 2021 is running", "Cancel"),
     );
     assert!(view.prompt.is_some(), "the prompt stays up");
     assert!(view.edit_mode_question.is_none());
@@ -508,19 +503,19 @@ fn the_prompts_save_runs_the_window_save_first() {
 
     // Its Save writes and goes on: the file holds the edit and the close
     // follows.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
     click_with(
         &mut window,
         &mut view,
         &running_own,
-        modal_button(&nodes, "Unsaved changes", "Save"),
+        modal_button(&pairs, "Unsaved changes", "Save"),
     );
-    let nodes = question_nodes_with(&mut window, &mut view, &running_own);
+    let pairs = question_nodes_with(&mut window, &mut view, &running_own);
     click_with(
         &mut window,
         &mut view,
         &running_own,
-        modal_button(&nodes, "PES 2021 is running", "Save"),
+        modal_button(&pairs, "PES 2021 is running", "Save"),
     );
     let reopened = Session::open(&path).unwrap();
     assert_eq!(
@@ -582,10 +577,11 @@ fn a_refused_write_under_the_prompt_shows_the_refusal_on_top() {
     // up.
     std::fs::remove_file(&path).unwrap();
     std::fs::create_dir(&path).unwrap();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
-        modal_button(&nodes, "Unsaved changes", "Save"),
+        modal_button(&pairs, "Unsaved changes", "Save"),
         &mut view,
     );
     let (_, pairs, _) =
@@ -623,7 +619,7 @@ fn a_strip_again_is_a_stripped_row_under_the_player() {
         .find(|&id| id != 0)
         .expect("team 702 rosters someone");
     file.player_mut(id).unwrap().appearance_id = Some(id);
-    let name = crate::view::info_strip::shown_name(&file.player(id).unwrap().name);
+    let name = pes_savefile::model::names::display_name(&file.player(id).unwrap().name);
     file.save(&path).unwrap();
 
     let mut view = SaveView::new();
@@ -772,11 +768,13 @@ fn opening_anothers_save_writes_the_first_then_opens_the_picked() {
         node_labeled(&nodes, Role::Button, "Open…"),
         &mut view,
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes: Vec<accesskit::Node> = pairs.iter().map(|(_, node)| node.clone()).collect();
     assert!(prompt_drawn(&nodes), "the prompt is up");
     click(
         &mut window,
-        modal_button(&nodes, "Unsaved changes", "Save"),
+        modal_button(&pairs, "Unsaved changes", "Save"),
         &mut view,
     );
     assert_eq!(
@@ -813,19 +811,19 @@ fn opening_anothers_save_writes_the_first_then_opens_the_picked() {
         &running_own,
         node_labeled(&nodes, Role::Button, "Open…"),
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
     click_with(
         &mut window,
         &mut view,
         &running_own,
-        modal_button(&nodes, "Unsaved changes", "Save"),
+        modal_button(&pairs, "Unsaved changes", "Save"),
     );
-    let nodes = question_nodes_with(&mut window, &mut view, &running_own);
+    let pairs = question_nodes_with(&mut window, &mut view, &running_own);
     click_with(
         &mut window,
         &mut view,
         &running_own,
-        modal_button(&nodes, "PES 2021 is running", "Save"),
+        modal_button(&pairs, "PES 2021 is running", "Save"),
     );
     assert_eq!(
         view.session.as_ref().unwrap().path(),
@@ -883,6 +881,10 @@ fn escape_on_the_question_closes_it_and_keeps_the_prompt() {
     view.edit_mode_question = Some(PesVersion::Pes21);
     let mut window = Headless::new();
     window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        view.edit_mode_question.is_some(),
+        "premise: the question is up"
+    );
     window.frame(
         vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
         |ui| show(ui, &mut view, &|| Vec::new(), None),
@@ -978,6 +980,44 @@ fn a_tactics_row_names_the_player_as_the_roster_shows_him() {
         rows.iter()
             .any(|(item, _, new)| item == "/3/ · Captain" && new == &name),
         "the Captain row names him ({name}): {rows:?}"
+    );
+}
+
+// SE-GUI-05: a team's own row names the team by its display name too.
+#[test]
+fn a_team_rows_item_is_the_teams_display_name() {
+    let path = fixture(PesVersion::Pes21, "prompt_team_display_name");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.team_mut(701).unwrap().name = "\x11cff0000ff/3/".to_owned();
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut team = view
+        .session
+        .as_ref()
+        .unwrap()
+        .file()
+        .team(701)
+        .unwrap()
+        .clone();
+    let old = team.tactics.presets[0].sliders.support_range;
+    team.tactics.presets[0].sliders.support_range = if old == 9 { 8 } else { 9 };
+    let new = team.tactics.presets[0].sliders.support_range;
+    view.session.as_mut().unwrap().edit_team(1, team);
+
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        prompt_rows(&pairs, "Unsaved changes"),
+        [(
+            "/3/ · Preset 1 · Support range".to_owned(),
+            old.to_string(),
+            new.to_string()
+        )],
+        "the item carries no \\x11"
     );
 }
 

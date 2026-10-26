@@ -229,9 +229,10 @@ fn save_asks_the_edit_mode_question_while_the_saves_own_pes_runs() {
 
     // The window's Save opens the question; its Cancel writes nothing.
     assert!(!save(&mut view, &running_own), "not written yet");
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        nodes.iter().any(|node| {
+        pairs.iter().any(|(_, node)| {
             node.value()
                 .is_some_and(|value| value.contains("PES 2021 is running"))
         }),
@@ -239,7 +240,7 @@ fn save_asks_the_edit_mode_question_while_the_saves_own_pes_runs() {
     );
     click(
         &mut window,
-        prompt::modal_button(&nodes, "PES 2021 is running", "Cancel"),
+        prompt::modal_button(&pairs, "PES 2021 is running", "Cancel"),
         &mut view,
     );
     assert_eq!(
@@ -258,10 +259,11 @@ fn save_asks_the_edit_mode_question_while_the_saves_own_pes_runs() {
 
     // Its Save writes with the member's answer.
     assert!(!save(&mut view, &running_own));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
-        prompt::modal_button(&nodes, "PES 2021 is running", "Save"),
+        prompt::modal_button(&pairs, "PES 2021 is running", "Save"),
         &mut view,
     );
     assert!(view.edit_mode_question.is_none());

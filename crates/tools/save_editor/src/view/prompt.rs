@@ -190,7 +190,7 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
         let names = roster_names(file, team);
         let roster = roster_for(file, team, &names);
         for term in terms::team_row_terms(version, team, baseline_team, &roster, &remaining) {
-            rows.push((team.name.clone(), term.label, term.old, term.new));
+            rows.push((display_name(&team.name), term.label, term.old, term.new));
         }
     }
     Ok(rows)
