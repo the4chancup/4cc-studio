@@ -11549,3 +11549,16 @@ tiers and the card limits as well as the check, and the prefix ties it to the su
 Plan: `plans/aatf_rules.md` "The rules file" (new); `plans/save_editor.md` the rules file's
 row and SE-GUI-15; `plans/ruleset_editor.md` "CLI", RE-FILE-05, RE-CLI-04;
 `plans/core/development_plan.md` "Divegrass Before Christmas".
+
+## 2026-10-26 — music_player — a button owns every sound it starts; hand-offs run in `tick()`
+Decision: each soundboard button holds one playback state (stopped, playing, fading out) and
+every sound it starts; a warcry's hand-off, song end and `advance` are transitions of that
+state taken in `tick()`, and a warcry hands off only while its button is still playing it.
+Why: a streamer reported that in Rigdio, turning a goalhorn button off at the moment its
+warcry ends leaves the goalhorn playing for good: its end-checker thread starts the horn
+while the GUI thread's pause clears the button's only reference to it. The plan's frame-driven
+engine removes the threads, but an end check reading the sound's state rather than the
+button's would still start the horn after the press (a warcry ending during the press's
+fade-out), so the rule is the button's state, not the threading.
+Plan: `plans/music_player.md` "Playback behavior" (the "A button owns what it plays" bullet)
+and "Testing" (the button-state line).

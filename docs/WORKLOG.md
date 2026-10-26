@@ -2576,7 +2576,9 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] m2 the narrow-fallback audit, after 0.0.1s2 rewrites the Save editor's layout (the
     maintainer, 2026-10-26: the player list is not resizable, DECISIONS "The player list keeps
     its 240 points"; with the zoom that leaves no narrower view, so the audit's candidates
-    include the three columns' wrap, s3g's one-column cards and the quick actions' halves); the
+    include the three columns' wrap, s3g's one-column cards and the quick actions' halves; if
+    the one-column cards stay, Astra A2a-1 found that their cached width keeps one column
+    after the pane widens again in the same context, `.tmp/0_0_1s/s3_rulings.md`); the
     built window text and ST-WIN-01/02 move to `spec/core/gui.md` with it
 - [x] 0.0.1n the drafts' Layout edit and scaling (the same review; `plans/core/gui.md`
   "Layout edit", the "Size:" bullet): a moved panel pinned where dropped, a columned panel

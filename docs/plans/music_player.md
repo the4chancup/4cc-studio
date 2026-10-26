@@ -513,6 +513,17 @@ What the soundboard must do, distilled from Rigdio's behavior:
 
 - Goalhorns and anthems **loop by default**; victory anthems and chants do not.
   `start` makes the loop return to the start offset.
+- **A button owns what it plays.** Each button holds one playback state (stopped, playing
+  a sound, fading one out), and every sound it starts is held in that state: starting
+  another stops the one held, so no sound is ever left playing that its button cannot
+  reach. Song end, a warcry's hand-off to the next entry and `advance` are transitions of
+  that state taken in the tool's `tick()`, never callbacks of the sound: a warcry hands off
+  only while its button is still *playing* it, so a press that turns the button off in
+  the same frame the warcry ends, or a warcry that reaches its end during the press's
+  fade-out, starts nothing. Rigdio ran the hand-off on its end-checker thread while the
+  press paused on the GUI thread; a press landing as the warcry ended left the goalhorn
+  playing with no button holding it, and nothing could stop it short of a restart (a
+  streamer's report, 2026-10-26).
 - **Fade-out on pause** (per-type configurable: anthem/goalhorn/victory/chant, default
   2s, skipped if the song already ended).
 - **Sync**: goalhorn playback positions are cached per absolute file path and restored
@@ -1022,6 +1033,10 @@ Parsing/validation CLI lives with the [Music export editor](music_export_editor.
   overlapping tracks as well as single tracks.
 - **Engine smoke tests**: decode every supported format (including Opus), loop with
   start offset, fade-out, rate change, EOF detection.
+- **Button state**: a warcry's end and a press turning its button off in the same frame,
+  in both orders, and a warcry ending during the press's fade-out: nothing plays after,
+  and the engine holds no sound the button does not (the "A button owns what it plays"
+  rule; driven through the state machine with a fake engine, no audio needed).
 - **Autopilot**: scripted `match_feed` event sequences (goals, own goals, cards,
   unknown scorers, a scorer matched fuzzily at 90 and missed at 89, two slots tied, a
   3-character name contained in a slot left unmatched and a 4-character one matched, feed
