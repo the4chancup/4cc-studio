@@ -2680,9 +2680,13 @@ briefs, review loops, gates and mutation runs as for any step.
       width, the right capped at a third, the notice centred in what they leave
       (`shell/status_bar.rs`, ST-BAR-03); the idle title `<tool> - <app>` (`shell/title.rs`,
       ST-TTL-01 to 03); the Ruleset editor's start page draws no heading of its name
-    - [ ] s3b no tabs: the selection a team or a player, the team row, the team view (Kit
+    - [x] s3b no tabs: the selection a team or a player, the team row, the team view (Kit
       slots… a dialog), the quick actions under the list, drag under ALL within a team, the
-      bench players only (`.tmp/0_0_1s/brief_0_0_1s3b.md`)
+      bench players only (`.tmp/0_0_1s/brief_0_0_1s3b.md`; SWE-2, the lead fixed four tests:
+      `scroll_into_view` waits for egui's spread wheel delta to settle). `session/{mod,
+      selection}.rs`, `view/{mod,player_list,quick_actions,team,menus,info_strip,abilities,
+      aatf_check}.rs`, `view/appearance/mod.rs`, the tests, `help/02-08`;
+      `team_widgets/src/pitch/lineup.rs`
     - [ ] s3c the player view's three columns, the `<id> <name>` line, the counts; the team
       view's tactics measured again at 1280 x 800; the review's code follow-ups: both AATF
       surfaces check the selected row's team, else the selector's (`aatf_check::current_team`,

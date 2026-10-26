@@ -105,20 +105,24 @@ fn a_rows_click_selects_the_player_and_moves_the_selector() {
         height_row_below(&nodes, "Player 73404  45 Yuki-kun ^~^"),
         &mut view,
     );
-    assert_eq!(view.selected, Some((734, 3)), "73404's team and slot");
+    assert_eq!(
+        view.selected,
+        Some(Selection::Player(734, 3)),
+        "73404's team and slot"
+    );
     assert_eq!(view.team, TeamChoice::Team(734), "the selector moved");
 
     // At ALL it stays. Another of 734's players selected first, or a
     // click that did nothing would satisfy both assertions.
     view.team = TeamChoice::All;
-    view.selected = Some((734, 0));
+    view.selected = Some(Selection::Player(734, 0));
     let nodes = draw(&mut window, &mut view, None);
     click(
         &mut window,
         height_row_below(&nodes, "Player 73404  45 Yuki-kun ^~^"),
         &mut view,
     );
-    assert_eq!(view.selected, Some((734, 3)));
+    assert_eq!(view.selected, Some(Selection::Player(734, 3)));
     assert_eq!(view.team, TeamChoice::All, "ALL is kept");
 }
 
@@ -363,6 +367,7 @@ fn validate_rules_reports_the_files_findings() {
     let nodes = draw(&mut window, &mut view, Some(broken.as_path()));
     let line = nodes
         .iter()
+        .filter(|node| node.role() == Role::Label)
         .filter_map(|node| node.value())
         .find(|value| value.starts_with("1:"))
         .unwrap_or_else(|| panic!("the parse error's line: {nodes:?}"));

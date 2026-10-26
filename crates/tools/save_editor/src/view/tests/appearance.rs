@@ -23,8 +23,8 @@ fn locked_tab(version: PesVersion, test: &str) -> (SaveView, Headless, Vec<acces
     let mut view = SaveView::new();
     view.open(&path);
     view.aesthetics_from_exports = true;
-    view.tab = Tab::Appearance;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     (view, window, nodes)
 }
@@ -94,8 +94,20 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
 
     // On: the note says a stripped player's look comes from the tables
     // while his motions are still read, and the controls draw enabled.
-    click(&mut window, edit_anyway(&nodes), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    // The switch sits below the fold: its click goes through the
+    // AccessKit action.
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (anyway, _) = pairs
+        .iter()
+        .find(|(_, node)| {
+            node.role() == Role::CheckBox && node.label() == Some("Edit aesthetics anyway")
+        })
+        .expect("the Edit aesthetics anyway switch");
+    action_click(&mut window, &mut view, *anyway);
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::Label && node.value() == Some("Chest")
+    });
     assert!(
         label_value(
             &nodes,
@@ -151,7 +163,7 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
     let mut fresh = SaveView::new();
     fresh.open(&path);
     fresh.aesthetics_from_exports = true;
-    fresh.tab = Tab::Appearance;
+    open_appearance(&mut window, &mut fresh);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut fresh, &|| Vec::new(), None));
     assert!(
         right_of_label(&nodes, "Chest", Role::SpinButton)[0].is_disabled(),
@@ -192,6 +204,9 @@ fn the_tab_is_locked_on_a_pre_fox_save_with_the_patch_step() {
         right_of_label(&nodes, "Chest", Role::SpinButton)[0].is_disabled(),
         "locked on PES 17 too"
     );
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::Label && node.value() == Some("Chest")
+    });
     let ownership_hover = right_of_label(&nodes, "Chest", Role::SpinButton)[0];
     assert_eq!(
         tooltip_containing(&mut window, &mut view, centre(ownership_hover), "The team's export"),
@@ -202,8 +217,18 @@ fn the_tab_is_locked_on_a_pre_fox_save_with_the_patch_step() {
         "the disabled controls' hover is the ownership line"
     );
 
-    // On: the note warns a later patch overwrites hand edits.
-    click(&mut window, edit_anyway(&nodes), &mut view);
+    // On: the note warns a later patch overwrites hand edits. The switch
+    // sits above the fold again after the scroll: its click goes through
+    // the AccessKit action.
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (anyway, _) = pairs
+        .iter()
+        .find(|(_, node)| {
+            node.role() == Role::CheckBox && node.label() == Some("Edit aesthetics anyway")
+        })
+        .expect("the Edit aesthetics anyway switch");
+    action_click(&mut window, &mut view, *anyway);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
         label_value(
@@ -228,30 +253,38 @@ fn the_tab_is_locked_on_a_pre_fox_save_with_the_patch_step() {
 #[test]
 fn the_gated_star_and_attitude_draw_disabled_in_place_on_pes17() {
     // The Cutscenes group's half of the scenario (the stronger hand's is
-    // the Abilities test): star and playing attitude draw on the
-    // Appearance tab, disabled `-` with the `PES NN+` tooltip on PES 17,
+    // the Abilities test): star and playing attitude draw in the
+    // Appearance section, disabled `-` with the `PES NN+` tooltip on PES 17,
     // enabled in the same rects on PES 21.
     let bounds_of = |version: PesVersion, test: &str| {
         let path = fixture(version, test);
         let mut view = SaveView::new();
         view.open(&path);
-        view.tab = Tab::Appearance;
         let mut window = Headless::sized(1100.0, 700.0);
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        open_appearance(&mut window, &mut view);
+        // The group's controls sit below the fold: the hovers need them
+        // inside the scroll's clip (the attitude's row is the lower one).
+        let nodes = scroll_into_view(&mut window, &mut view, |node| {
+            node.role() == Role::Label && node.value() == Some("Playing attitude")
+        });
         let star = control_right_of(&nodes, "Star").bounds().expect("bounds");
         let attitude = control_right_of(&nodes, "Playing attitude")
             .bounds()
             .expect("bounds");
         (view, window, nodes, (star, attitude))
     };
-    let (mut view17, mut window17, nodes17, (star17, attitude17)) =
+    let (mut view17, mut window17, _nodes17, (star17, attitude17)) =
         bounds_of(PesVersion::Pes17, "gated_cutscenes_17");
     let (_view21, _window21, nodes21, (star21, attitude21)) =
         bounds_of(PesVersion::Pes21, "gated_cutscenes_21");
 
     for (control, tooltip) in [("Star", "PES 19+"), ("Playing attitude", "PES 20+")] {
-        let button = disabled_dash(&nodes17, control);
+        // Each hover needs its own dash inside the clip: scrolling for one
+        // can push the other out.
+        let nodes = scroll_into_view(&mut window17, &mut view17, |node| {
+            node.role() == Role::Label && node.value() == Some(control)
+        });
+        let button = disabled_dash(&nodes, control);
         assert_eq!(
             tooltip_after_hover(&mut window17, &mut view17, centre(button)),
             Some(tooltip.to_string()),
@@ -316,6 +349,9 @@ fn the_cutscenes_group_stays_editable_above_the_ownership_line() {
             .star
     };
     assert_eq!(star_of(&view), Some(0), "premise: star 0");
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::Label && node.value() == Some("Playing attitude")
+    });
     let star = right_of_label(&nodes, "Star", Role::SpinButton)
         .first()
         .copied()
@@ -346,8 +382,8 @@ fn a_stripped_players_tab_says_the_look_is_the_tables_and_the_motions_are_read()
     let mut view = SaveView::new();
     view.open(&path);
     view.aesthetics_from_exports = true;
-    view.tab = Tab::Appearance;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
     // 70101 is the selected player; every other player's id is set while
     // his is -1, so the Strip again window opened too: close it first.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -360,7 +396,7 @@ fn a_stripped_players_tab_says_the_look_is_the_tables_and_the_motions_are_read()
     assert!(label_value(&nodes, LINE), "70101's tab marks him stripped");
 
     // Another player's tab does not draw the line.
-    view.selected = Some((701, 1));
+    view.selected = Some(Selection::Player(701, 1));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
         !label_value(&nodes, LINE),
@@ -377,11 +413,11 @@ fn randomize_draws_within_pes21s_measured_tops_one_undo_entry() {
     let path = fixture(PesVersion::Pes21, "appearance_random_21");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.randomize_draw = Box::new(|top| top);
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
     let motion_of = |view: &SaveView| -> PlayerMotion {
         view.session
             .as_ref()
@@ -433,7 +469,6 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
     let path = fixture(PesVersion::Pes15, "appearance_random_15");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.randomize_draw = Box::new(|top| top);
@@ -441,6 +476,7 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
     // physique grid's cap lengthened the tab; the hover needs it inside
     // the scroll viewport, so the window is taller.
     let mut window = Headless::sized(1100.0, 1000.0);
+    open_appearance(&mut window, &mut view);
     let motion_of = |view: &SaveView| -> PlayerMotion {
         view.session
             .as_ref()
@@ -454,8 +490,11 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
     let before = motion_of(&view);
     assert_eq!(before.dribbling, None, "PES 15 has no dribbling motion");
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    // Its stand-in control is disabled with the version tooltip.
+    // Its stand-in control is disabled with the version tooltip — the
+    // hover needs it inside the scroll's clip.
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::Label && node.value() == Some("Dribbling motion")
+    });
     let dribbling = right_of_label(&nodes, "Dribbling motion", Role::SpinButton)
         .into_iter()
         .find(|node| node.is_disabled())
@@ -502,10 +541,10 @@ fn a_stored_celebration_past_its_top_draws_as_stored_without_marking_the_player(
 
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
     for _ in 0..5 {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     }
@@ -655,11 +694,11 @@ fn randomize_low_end_stores_zero_for_one_based_and_one_for_celebrations() {
     let path = fixture(PesVersion::Pes21, "appearance_random_low");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     view.randomize_draw = Box::new(|_| 1);
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
     let motion_of = |view: &SaveView| -> PlayerMotion {
         view.session
             .as_ref()
@@ -709,7 +748,6 @@ fn a_physique_field_shows_stored_minus_limit_and_stores_shown_plus_it() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let neck_length = |view: &SaveView| {
@@ -724,8 +762,11 @@ fn a_physique_field_shows_stored_minus_limit_and_stores_shown_plus_it() {
     };
     assert_eq!(neck_length(&view), 12, "premise: stored 12");
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::Label && node.value() == Some("Neck length")
+    });
     let neck = right_of_label(&nodes, "Neck length", Role::SpinButton)
         .first()
         .copied()
@@ -749,10 +790,10 @@ fn a_swatch_click_stores_its_index() {
     let path = fixture(PesVersion::Pes21, "appearance_swatch");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
     let skin_of = |view: &SaveView| {
         view.session
             .as_ref()
@@ -791,13 +832,13 @@ fn a_one_based_motion_shows_one_above_stored_within_the_measured_top() {
     let path = fixture(PesVersion::Pes21, "motion_one_based");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     // Taller than 700 so the motion rows stay inside the scroll viewport
     // for the click and typing below (the physique cap lengthened the
     // tab).
     let mut window = Headless::sized(1100.0, 1000.0);
+    open_appearance(&mut window, &mut view);
     let motion_of = |view: &SaveView| {
         view.session
             .as_ref()
@@ -832,6 +873,13 @@ fn a_one_based_motion_shows_one_above_stored_within_the_measured_top() {
 
     // Typing 7 stores 6; typing past the shown top clamps to it (PES 21's
     // free-kick top 19, shown 20) and stores 19.
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::Label && node.value() == Some("Free kick")
+    });
+    let free = right_of_label(&nodes, "Free kick", Role::SpinButton)
+        .first()
+        .copied()
+        .expect("the Free kick control");
     click(&mut window, free, &mut view);
     window.frame(vec![egui::Event::Text("7".to_owned())], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
@@ -863,7 +911,6 @@ fn a_combo_pick_stores_the_options_index_as_one_undo_entry() {
     let path = fixture(PesVersion::Pes21, "combo_sleeves");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let sleeves = |view: &SaveView| {
@@ -878,8 +925,11 @@ fn a_combo_pick_stores_the_options_index_as_one_undo_entry() {
     };
     assert_ne!(sleeves(&view), 2, "premise: not Long");
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::Label && node.value() == Some("Sleeves")
+    });
     let combo = right_of_label(&nodes, "Sleeves", Role::ComboBox)
         .first()
         .copied()
@@ -914,10 +964,10 @@ fn the_player_gloves_checkbox_draws_the_runs_flag() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
     // The box is bare: the label sits in the cell before it.
     fn gloves_box(nodes: &[accesskit::Node]) -> &accesskit::Node {
         right_of_label(nodes, "Player gloves", Role::CheckBox)
@@ -932,7 +982,7 @@ fn the_player_gloves_checkbox_draws_the_runs_flag() {
         Some(accesskit::Toggled::True),
         "70101's run flag 1 ticks it"
     );
-    view.selected = Some((701, 1));
+    view.selected = Some(Selection::Player(701, 1));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
         gloves_box(&nodes).toggled(),
@@ -994,10 +1044,10 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let swatches = skin_swatches(&nodes);
@@ -1053,10 +1103,10 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
     let path17 = fixture(PesVersion::Pes17, "palette_skin_17");
     let mut view17 = SaveView::new();
     view17.open(&path17);
-    view17.tab = Tab::Appearance;
     view17.aesthetics_from_exports = true;
     view17.edit_aesthetics = true;
     let mut window17 = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window17, &mut view17);
     let (_, nodes, _) =
         window17.frame(Vec::new(), |ui| show(ui, &mut view17, &|| Vec::new(), None));
     let swatches = skin_swatches(&nodes);
@@ -1076,10 +1126,10 @@ fn the_strip_and_motion_grids_wrap_after_the_fitted_pairs() {
     let path = fixture(PesVersion::Pes21, "grid_wraps");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let y = |label: &str| control_right_of(&nodes, label).bounds().expect("bounds").y0;
 
@@ -1108,11 +1158,13 @@ fn the_boots_id_control_takes_the_records_bound() {
     let path = fixture(PesVersion::Pes21, "boots_id_627");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(1100.0, 700.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    open_appearance(&mut window, &mut view);
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::Label && node.value() == Some("Boots ID")
+    });
     let boots = right_of_label(&nodes, "Boots ID", Role::SpinButton)
         .first()
         .copied()
@@ -1162,11 +1214,11 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
-    view.selected = Some((701, 0));
+    view.selected = Some(Selection::Player(701, 0));
     let mut window = Headless::sized(1100.0, 700.0);
+    open_appearance(&mut window, &mut view);
     let flags_of = |view: &SaveView| {
         view.session
             .as_ref()
@@ -1202,7 +1254,9 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
             && flags.playing_style
     };
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::CheckBox && node.label() == Some("Base copy")
+    });
     let checkbox = nodes
         .iter()
         .find(|node| node.role() == Role::CheckBox && node.label() == Some("Base copy"))
@@ -1243,10 +1297,10 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
 #[test]
 fn the_physique_grid_holds_two_pairs_a_row() {
     let (mut view, _) = open_734_with("physique_two_pairs", &[], 0);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_appearance(&mut window, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let first = label_bounds(&nodes, "Neck length").y0;
@@ -1283,12 +1337,12 @@ fn the_physique_grid_holds_two_pairs_a_row() {
 #[test]
 fn the_strip_groups_hold_the_drafts_rows() {
     let (mut view, _) = open_734_with("strip_grid_rows", &[], 0);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let untucked = |view: &SaveView| player_entry(view, 73401).appearance.untucked;
     assert!(untucked(&view), "premise: the shirt is out (untucked)");
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_appearance(&mut window, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let first = label_bounds(&nodes, "Boots ID").y0;
@@ -1329,7 +1383,12 @@ fn the_strip_groups_hold_the_drafts_rows() {
     }
 
     // Shirttail out's control is the bare checkbox right of its label
-    // cell; a click writes `untucked` as one undoable edit.
+    // cell; a click writes `untucked` as one undoable edit. The row sits
+    // below the fold: scroll until the clip covers it (its label's row: the
+    // bare checkbox carries no label of its own).
+    let nodes = scroll_into_view(&mut window, &mut view, |node| {
+        node.role() == Role::Label && node.value() == Some("Shirttail out")
+    });
     let shirttail = right_of_label(&nodes, "Shirttail out", Role::CheckBox)
         .first()
         .copied()
@@ -1345,10 +1404,10 @@ fn the_strip_groups_hold_the_drafts_rows() {
 #[test]
 fn the_motion_grid_holds_four_pairs_a_row() {
     let (mut view, _) = open_734_with("motion_four_pairs", &[], 0);
-    view.tab = Tab::Appearance;
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_appearance(&mut window, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let first = label_bounds(&nodes, "Hunching (dribbling)").y0;
@@ -1391,14 +1450,14 @@ fn the_appearance_tab_fits_the_pane_the_shell_leaves() {
         let path = fixture(version, test);
         let mut view = SaveView::new();
         view.open(&path);
-        view.tab = Tab::Appearance;
         view.aesthetics_from_exports = true;
         view.edit_aesthetics = true;
         if version == PesVersion::Pes17 {
             view.team = TeamChoice::Team(734);
-            view.selected = Some((734, 0));
+            view.selected = Some(Selection::Player(734, 0));
         }
         let mut window = Headless::sized(877.0, 624.0);
+        open_appearance(&mut window, &mut view);
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         for node in &nodes {
@@ -1457,8 +1516,8 @@ fn the_setting_off_draws_no_lock_and_the_setting_on_locks_the_paths() {
         tool_context(path.parent().unwrap(), studio_core::Settings::default());
     let mut tool = crate::Tool::new();
     tool.view.open(&path);
-    tool.view.tab = Tab::Appearance;
     let mut window = Headless::sized(1100.0, 1000.0);
+    open_appearance(&mut window, &mut tool.view);
 
     let nodes = tool_frame(&mut window, &mut tool, &ctx);
     assert!(
@@ -1504,6 +1563,7 @@ fn the_setting_off_draws_no_lock_and_the_setting_on_locks_the_paths() {
     );
 
     // The edit lands: premise Chest stores 7 (shown 0), typed 5 stores 12.
+    // The row sits below the fold: scroll until the clip covers it.
     assert_eq!(
         tool.view
             .session
@@ -1517,6 +1577,13 @@ fn the_setting_off_draws_no_lock_and_the_setting_on_locks_the_paths() {
         7,
         "premise: Chest stores 7 (shown 0)"
     );
+    let nodes = scroll_into_view(&mut window, &mut tool.view, |node| {
+        node.role() == Role::Label && node.value() == Some("Chest")
+    });
+    let chest = right_of_label(&nodes, "Chest", Role::SpinButton)
+        .first()
+        .copied()
+        .expect("the Chest control");
     press_release(&mut window, centre(chest), |ui| tool.view(ui, &ctx));
     window.frame(vec![egui::Event::Text("5".to_owned())], |ui| {
         tool.view(ui, &ctx)

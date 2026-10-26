@@ -48,8 +48,8 @@ fn rostered(view: &SaveView, team_id: u32) -> Vec<(usize, u32)> {
         .collect()
 }
 
-/// The team bar's name field: the TextInput right of the topmost "Team"
-/// label (the tab strip's own weak "Team" scope label sits lower).
+/// The team view's name field: the TextInput right of the topmost "Team"
+/// label.
 fn bar_name_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
     let label = nodes
         .iter()
@@ -58,7 +58,7 @@ fn bar_name_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
             let y = |node: &&accesskit::Node| node.bounds().map(|b| b.y0).unwrap_or(f64::MAX);
             y(a).partial_cmp(&y(b)).expect("ordered bounds")
         })
-        .expect("the bar's Team label");
+        .expect("the view's Team label");
     right_of(nodes, label, Role::TextInput)
 }
 
@@ -96,8 +96,8 @@ fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() 
     let path = fixture(PesVersion::Pes21, "team_tab_edit");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::TeamSettings;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_team_view(&mut window, &mut view, 701);
     assert_eq!(
         team_entry(&view, 701).name,
         "/3/",
@@ -213,8 +213,22 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
 
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::TeamSettings;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_team_view(&mut window, &mut view, 701);
+    // The Kit slots… button opens the dialog over the view; a second frame
+    // before reading nodes: the modal re-centres once its content's size
+    // is known, so the first frame's bounds are not the steady ones.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Kit slots\u{2026}"),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        label_value(&nodes, "Kit slot assignments"),
+        "the dialog's title"
+    );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     // Slot 1's row: the weak "Slot 1" label's row holds Number and Bound
@@ -324,8 +338,8 @@ fn the_team_name_field_gets_its_full_width_on_the_first_frame() {
     let path = fixture(PesVersion::Pes21, "team_name_width");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::TeamSettings;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let name = nodes
         .iter()
@@ -338,19 +352,18 @@ fn the_team_name_field_gets_its_full_width_on_the_first_frame() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the team bar bullet (the pairs wrap
+// plans/save_editor.md "Editing UI", "The team view" bullet (the pairs wrap
 // whole, never inside one): on the pane the shell's smallest default
-// window leaves, the bar is two rows — the names then the colours — a
-// colour's label, swatch and hex staying on one row; on a wide pane it
-// is one row.
+// window leaves, the fields are two rows — the names then the colours — a
+// colour's label, swatch and hex staying on one row; on a wide pane they
+// are one row.
 #[test]
-fn the_bar_wraps_between_its_pairs_never_inside_one() {
-    let (mut view, _window) = open_734_with("team_bar_wrap", &[], 183);
+fn the_fields_wrap_between_their_pairs_never_inside_one() {
+    let (mut view, _window) = open_734_with("team_fields_wrap", &[], 183);
     let mut window = Headless::sized(877.0, 624.0);
+    open_team_view(&mut window, &mut view, 734);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    // The bar's "Team" label is the topmost one (the tab strip's own weak
-    // scope label sits lower).
     let team_label = |nodes: &[accesskit::Node]| {
         nodes
             .iter()
@@ -359,7 +372,7 @@ fn the_bar_wraps_between_its_pairs_never_inside_one() {
                 let y = |node: &&accesskit::Node| node.bounds().map(|b| b.y0).unwrap_or(f64::MAX);
                 y(a).partial_cmp(&y(b)).expect("ordered bounds")
             })
-            .expect("the bar's Team label")
+            .expect("the view's Team label")
             .bounds()
             .expect("bounds")
             .y0
@@ -387,30 +400,34 @@ fn the_bar_wraps_between_its_pairs_never_inside_one() {
     );
 
     // A pane at the constant's edge, not the window's default: past
-    // `TAB_AREA_OFFSET` the bar sees exactly `TEAM_BAR_ONE_ROW`.
-    let (mut view, _window) = open_734_with("team_bar_wrap_wide", &[], 183);
-    let mut window = Headless::sized(crate::view::team::TEAM_BAR_ONE_ROW + TAB_AREA_OFFSET, 900.0);
+    // `VIEW_AREA_OFFSET` the fields see exactly `TEAM_FIELDS_ONE_ROW`.
+    let (mut view, _window) = open_734_with("team_fields_wrap_wide", &[], 183);
+    let mut window = Headless::sized(
+        crate::view::team::TEAM_FIELDS_ONE_ROW + VIEW_AREA_OFFSET,
+        900.0,
+    );
+    open_team_view(&mut window, &mut view, 734);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
         (colour_y(&nodes, "Colour 2") - team_label(&nodes)).abs() < 1.0,
-        "the one-row bar: Colour 2 shares the Team label's line"
+        "the one-row fields: Colour 2 shares the Team label's line"
     );
 }
 
 // `names_row`'s `changed() && team_text_fits` guard is what keeps drawing
-// from being an edit: frames of the tab with no input leave the flag and
+// from being an edit: frames of the view with no input leave the flag and
 // the session as they were.
 #[test]
-fn drawing_the_team_tab_edits_nothing() {
+fn drawing_the_team_view_edits_nothing() {
     let path = fixture(PesVersion::Pes21, "team_tab_no_input");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::TeamSettings;
     assert!(
         !team_entry(&view, 701).edit_flags.name,
         "premise: the name flag is clear"
     );
     let mut window = Headless::sized(1100.0, 700.0);
+    open_team_view(&mut window, &mut view, 701);
     for _ in 0..3 {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     }
@@ -431,8 +448,8 @@ fn a_team_name_keystroke_past_the_fields_limit_is_not_taken() {
     let path = fixture(PesVersion::Pes21, "team_name_overlong");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::TeamSettings;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_team_view(&mut window, &mut view, 701);
     // The version's own field length in bytes, read from the schema —
     // never a typed constant.
     let limit = usize::try_from(
@@ -544,8 +561,8 @@ fn on_pes16_the_colours_ids_and_kit_slots_draw_disabled_with_their_versions() {
     let path = fixture(PesVersion::Pes16, "team_tab_gated");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::TeamSettings;
     let mut window = Headless::sized(1100.0, 700.0);
+    open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     // The two colour fields, disabled with "PES 17+".
@@ -583,7 +600,13 @@ fn on_pes16_the_colours_ids_and_kit_slots_draw_disabled_with_their_versions() {
             "{label}'s tooltip"
         );
     }
-    // The kit slots' no-records line names PES 17.
+    // The kit slots' no-records line names PES 17, inside the dialog.
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Kit slots\u{2026}"),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
         label_value(&nodes, "(this version does not store kit slots)"),
         "the no-records line"
@@ -599,13 +622,13 @@ fn the_short_name_upper_cases_caps_at_three_and_sets_the_flags() {
         let path = fixture(version, test);
         let mut view = SaveView::new();
         view.open(&path);
-        view.tab = Tab::TeamSettings;
         assert_eq!(
             team_entry(&view, 701).short_name,
             "3",
             "premise: team 701's short name"
         );
         let mut window = Headless::sized(1100.0, 700.0);
+        open_team_view(&mut window, &mut view, 701);
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         let field = nodes
@@ -636,38 +659,40 @@ fn the_short_name_upper_cases_caps_at_three_and_sets_the_flags() {
     }
 }
 
-// The selected player's team's name, short name and colours in
-// a bar above the tab strip, drawn whichever tab is open.
+// The team view's fields (plans "Editing UI", "The team view" bullet):
+// the team's name as the title, its name, short name and colours, the
+// manager and stadium IDs, the `Kit slots…` button, then the Tactics.
 // SE-GUI-10
 #[test]
-fn the_team_bar_draws_on_every_tab() {
-    let (mut view, mut window) = open_734_with("team_bar_tabs", &[], 0);
-    for tab in [
-        Tab::Abilities,
-        Tab::Appearance,
-        Tab::Tactics,
-        Tab::TeamSettings,
-    ] {
-        view.tab = tab;
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-        assert_eq!(
-            bar_name_field(&nodes).value(),
-            Some("/lit/"),
-            "the bar's name field on {tab:?}"
-        );
-    }
+fn the_team_view_draws_its_fields_and_edits_them_undoable() {
+    let (mut view, mut window) = open_734_with("team_view_fields", &[], 0);
+    open_team_view(&mut window, &mut view, 734);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    // A short-name edit from another tab lands in the team's entry as one
-    // undoable edit.
+    // The title, the fields, the ids and the button; the kit slot rows are
+    // behind the dialog, not in the view.
+    assert!(label_value(&nodes, "/lit/"), "the title is the team's name");
+    assert_eq!(
+        bar_name_field(&nodes).value(),
+        Some("/lit/"),
+        "the name field"
+    );
+    control_right_of(&nodes, "Manager ID");
+    control_right_of(&nodes, "Stadium ID");
+    node_labeled(&nodes, Role::Button, "Kit slots\u{2026}");
+    assert!(
+        !label_value(&nodes, "Slot 1"),
+        "the kit slot rows stay behind the dialog"
+    );
+    node_labeled(&nodes, Role::Button, "Copy/swap preset");
+
+    // A short-name edit lands in the team's entry as one undoable edit.
     let before = team_entry(&view, 734).short_name;
     assert_ne!(before, "LTZ", "premise: a real change");
-    view.tab = Tab::Tactics;
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let short = right_of_label(&nodes, "Short", Role::TextInput)
         .first()
         .copied()
-        .expect("the bar's Short field");
+        .expect("the view's Short field");
     click(&mut window, short, &mut view);
     type_text(&mut window, &mut view, "ltz");
     assert_eq!(
@@ -678,56 +703,59 @@ fn the_team_bar_draws_on_every_tab() {
     assert_eq!(undo_entries(&mut window, &mut view), 1, "one undoable edit");
 }
 
-// The Team settings tab's contents (plans "Editing UI", the Team settings
-// line): the manager and stadium IDs and the kit slot assignments; the
-// name and colour fields are the bar's, which is not the tab's.
+// The Kit slot assignments dialog (the team view's `Kit slots…` button):
+// it opens, a slot's Number edit is one undoable edit, OK closes it.
 #[test]
-fn the_team_settings_tab_holds_the_ids_and_kit_slots_alone() {
-    let (mut view, mut window) = open_734_with("team_settings_contents", &[], 0);
-    view.tab = Tab::TeamSettings;
+fn the_kit_slots_dialog_opens_edits_and_closes() {
+    let (mut view, mut window) = open_734_with("kit_slots_dialog", &[], 0);
+    open_team_view(&mut window, &mut view, 734);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    control_right_of(&nodes, "Manager ID");
-    control_right_of(&nodes, "Stadium ID");
-    assert!(label_value(&nodes, "Slot 1"), "the kit slot rows (PES 17)");
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Kit slots\u{2026}"),
+        &mut view,
+    );
 
-    // Below the tab strip is the tab's content: no name field, no colour
-    // field — the only ones drawn are the bar's, above it.
-    let strip_y = nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Button
-                && node.label() == Some("Abilities & Skills")
-                && node.toggled().is_some()
-        })
-        .and_then(accesskit::Node::bounds)
-        .map(|bounds| bounds.y0)
-        .expect("the tab strip");
-    let below = |node: &&accesskit::Node| {
-        node.bounds()
-            .is_some_and(|bounds| bounds.y0 > strip_y + 1.0)
-    };
-    // Premises: the bar's fields draw — the name field holding /lit/ and
-    // the two colour wells, all above the strip.
-    let names: Vec<&accesskit::Node> = nodes
-        .iter()
-        .filter(|node| node.role() == Role::TextInput && node.value() == Some("/lit/"))
-        .collect();
-    let bar_name = names
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        label_value(&nodes, "Kit slot assignments"),
+        "the dialog's title"
+    );
+    let before = team_entry(&view, 734).kit_slots.expect("PES 17 kit slots")[0].number;
+    // Slot 1's row: Number and Bound team ID, in x order.
+    let number = right_of_label(&nodes, "Slot 1", Role::SpinButton)
         .first()
         .copied()
-        .expect("premise: the bar's name field is drawn");
-    assert!(!below(&bar_name), "premise: the name field is the bar's");
-    for node in names {
-        assert!(!below(&node), "the team name field stays in the bar");
-    }
-    let colours: Vec<&accesskit::Node> = nodes
-        .iter()
-        .filter(|node| node.role() == Role::ColorWell)
-        .collect();
-    assert!(colours.len() >= 2, "premise: the bar's two colours draw");
+        .expect("slot 1's Number");
+    click(&mut window, number, &mut view);
+    window.frame(vec![egui::Event::Text("9".to_owned())], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(
+        vec![key(egui::Key::Enter, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert_eq!(
+        team_entry(&view, 734).kit_slots.expect("kit slots")[0].number,
+        9
+    );
+    assert_ne!(before, 9, "premise: a real change");
+    // A frame first, so the field has given up the keyboard and Ctrl+Z is
+    // the session's undo, not the text's own.
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(undo_entries(&mut window, &mut view), 1, "one undoable edit");
+
+    // OK closes the dialog (its title gone, the button back in reach).
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "OK"),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        colours.iter().all(|node| !below(node)),
-        "the colour fields stay in the bar"
+        !label_value(&nodes, "Kit slot assignments"),
+        "the dialog closed"
     );
 }
 
@@ -1076,29 +1104,31 @@ fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
     }
 }
 
-// `TEAM_BAR_ONE_ROW`'s edge: the pane width whose tab area is the
-// constant (`TAB_AREA_OFFSET` more). The bar's pairs are all
+// `TEAM_FIELDS_ONE_ROW`'s edge: the pane width whose view area is the
+// constant (`VIEW_AREA_OFFSET` more). The view's pairs are all
 // fixed-width, so the content never varies with the team: at the edge
 // the four pairs still take one row and its last widget ends inside the
 // pane.
 #[test]
-fn the_team_bar_holds_one_row_at_its_edge() {
-    let path = fixture(PesVersion::Pes21, "team_bar_edge");
+fn the_team_view_fields_hold_one_row_at_the_edge() {
+    let path = fixture(PesVersion::Pes21, "team_view_edge");
     let mut view = SaveView::new();
     view.open(&path);
-    view.selected = Some((701, 0));
-    let mut window = Headless::sized(crate::view::team::TEAM_BAR_ONE_ROW + TAB_AREA_OFFSET, 900.0);
+    let mut window = Headless::sized(
+        crate::view::team::TEAM_FIELDS_ONE_ROW + VIEW_AREA_OFFSET,
+        900.0,
+    );
+    open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let row_y = label_bounds(&nodes, "Short").y0;
     for label in ["Colour 1", "Colour 2"] {
         assert!(
             (label_bounds(&nodes, label).y0 - row_y).abs() < 1.0,
-            "{label} shares the bar's one row"
+            "{label} shares the fields' one row"
         );
     }
-    // The bar's "Team" weak label on that row (the tab strip draws a
-    // "Team" scope label of its own below).
+    // The view's "Team" weak label on that row.
     let team = nodes
         .iter()
         .find(|node| {
@@ -1106,7 +1136,7 @@ fn the_team_bar_holds_one_row_at_its_edge() {
                 && node.value() == Some("Team")
                 && node.bounds().is_some_and(|b| (b.y0 - row_y).abs() < 1.0)
         })
-        .expect("the bar's Team label shares the row")
+        .expect("the view's Team label shares the row")
         .bounds()
         .expect("bounds");
     let left = team.x0;
@@ -1122,8 +1152,8 @@ fn the_team_bar_holds_one_row_at_its_edge() {
         .map(|b| b.x1)
         .fold(0.0, f64::max);
     assert!(
-        right <= left + f64::from(crate::view::team::TEAM_BAR_ONE_ROW),
+        right <= left + f64::from(crate::view::team::TEAM_FIELDS_ONE_ROW),
         "the row ends inside its constant ({right} vs {})",
-        left + f64::from(crate::view::team::TEAM_BAR_ONE_ROW)
+        left + f64::from(crate::view::team::TEAM_FIELDS_ONE_ROW)
     );
 }

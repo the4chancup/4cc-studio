@@ -1,4 +1,6 @@
-The **Abilities & Skills** tab holds the player's gameplay card: registered position,
+A player's row opens the player view: his name, general info, abilities and skills
+in one page, with the collapsed **Appearance** section underneath. The abilities
+and skills part holds his gameplay card: registered position,
 playing style, stronger foot and hand, form, injury resistance, weak foot usage and
 accuracy, the playable positions with their C/B/A ratings, the ability stats, and
 his skills and COM playing styles.
@@ -9,7 +11,7 @@ outside a range is shown as stored, and it changes only when you edit it.
 
 A greyed control is one the save's PES version does not have: hover it and the
 tooltip names the first version that does (for example PES 19+). The same fields
-stay in the same places on every version, so the tab never rearranges.
+stay in the same places on every version, so the page never rearranges.
 
 **Cards left** counts the paid cards the player has left under his own tier of
 the AATF rules in use (the rules file chosen in the settings menu's Save editor

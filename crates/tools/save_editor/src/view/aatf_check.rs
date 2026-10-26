@@ -19,6 +19,7 @@ use team_widgets::violations::{ListedPlayer, SelectedPlayer, TeamViolations, vio
 
 use crate::session::rules::{self, TeamCheck};
 use crate::session::selection::TeamChoice;
+use crate::view::Selection;
 use crate::view::worker::{Pending, WorkerResult};
 
 /// What a check ran for: a change of the open save, of the ids or of the
@@ -74,12 +75,14 @@ pub(super) fn update_check(
 }
 
 /// The team the Current-team callers check: the selector's, or with ALL
-/// the selected player's (the team the strip and tabs are editing); `None`
-/// when ALL reads no selected player.
-pub(super) fn current_team(team: TeamChoice, selected: Option<(u32, u8)>) -> Option<u32> {
+/// the selected row's (a player row's team or a team row's own — the team
+/// the view is editing); `None` when ALL reads no selection.
+pub(super) fn current_team(team: TeamChoice, selected: Option<Selection>) -> Option<u32> {
     match team {
         TeamChoice::Team(id) => Some(id),
-        TeamChoice::All => selected.map(|(team_id, _)| team_id),
+        TeamChoice::All => match selected? {
+            Selection::Team(id) | Selection::Player(id, _) => Some(id),
+        },
     }
 }
 
@@ -87,11 +90,11 @@ pub(super) fn current_team(team: TeamChoice, selected: Option<(u32, u8)>) -> Opt
 /// his team unless it reads ALL (the list must show the row it selects).
 pub(super) fn select_player(
     player: SelectedPlayer,
-    selected: &mut Option<(u32, u8)>,
+    selected: &mut Option<Selection>,
     team: &mut TeamChoice,
     filter: &mut String,
 ) {
-    *selected = Some((player.team_id, player.slot));
+    *selected = Some(Selection::Player(player.team_id, player.slot));
     if *team != TeamChoice::All {
         *team = TeamChoice::Team(player.team_id);
     }

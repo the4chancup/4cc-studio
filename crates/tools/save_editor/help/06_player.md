@@ -6,12 +6,12 @@ The **Player** menu works on the selected player:
 - **Bump all stats…** (Ctrl+B) adds the same amount, -10 to +10, to every
   ability stat, clamped to 40 to 99. The dialog remembers the last amount
   used in this window.
-- **Toggle FPC settings** (Ctrl+I) follows the Appearance tab's FPC
+- **Toggle FPC settings** (Ctrl+I) follows the Appearance section's FPC
   reading: it shows a player who reads "FPC: the body is hidden" and hides
-  any other, the same write as the tab's Show body and Hide body. A player
+  any other, the same write as the section's Show body and Hide body. A player
   hidden by his model's own boots ID reads "the body is shown", so for him
-  the toggle hides him again. Use the tab's Show body on him. It stays disabled
-  while the aesthetics lock is on (see the Appearance tab).
+  the toggle hides him again. Use the section's Show body on him. It stays disabled
+  while the aesthetics lock is on (see the Appearance section).
 - **Copy stats from…** copies another player's stats onto the selected
   one; **Swap stats with…** trades them. The other player is picked by
   team, then by roster slot. Height, weight, every ability, form, injury,
@@ -21,7 +21,7 @@ The **Player** menu works on the selected player:
   other motions and every appearance field stay as they are.
 
 Every operation is one undoable step. Set all stats and Bump all stats
-write the same fields the Abilities & Skills tab edits, so they set no
+write the same fields the player view's abilities and skills part edits, so they set no
 edit flag. Copy and Swap stats move the gameplay edit flags with the
 stats.
 

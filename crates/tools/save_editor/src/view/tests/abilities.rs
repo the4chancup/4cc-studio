@@ -77,7 +77,7 @@ fn a_speed_edit_does_not_reach_the_next_players_control() {
     let file = EditFile::load(&path).unwrap();
     let a_id = file.team(702).unwrap().roster[0].player_id;
     let b_id = file.team(702).unwrap().roster[1].player_id;
-    view.selected = Some((702, 0));
+    view.selected = Some(Selection::Player(702, 0));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let speed = right_of_label(&nodes, "Speed", Role::SpinButton)
         .first()
@@ -92,7 +92,7 @@ fn a_speed_edit_does_not_reach_the_next_players_control() {
     // Select 70202 (roster slot 1) in the same sequence and draw his tab:
     // his speed is untouched — and a keystroke reaches no control of his
     // (the in-progress edit stays 70201's own).
-    view.selected = Some((702, 1));
+    view.selected = Some(Selection::Player(702, 1));
     window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     window.frame(vec![egui::Event::Text("9".to_owned())], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
@@ -363,103 +363,6 @@ fn the_stats_fill_aligned_columns_column_by_column() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the tab strip bullet: the tabs in two
-// groups, each after its weak scope label — `Player` (Abilities & Skills,
-// Appearance) then `Team` (Tactics, Team settings) — Abilities & Skills
-// selected and the other three pickable.
-#[test]
-fn the_tab_strip_groups_the_tabs_under_weak_scope_labels() {
-    let path = fixture(PesVersion::Pes21, "tab_strip");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    fn tab<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
-        // `toggled` marks the selectable tabs: the toolbar's "Team" menu
-        // button shares the group label but is not selectable.
-        nodes
-            .iter()
-            .find(|node| {
-                node.role() == Role::Button
-                    && node.label() == Some(label)
-                    && node.toggled().is_some()
-            })
-            .unwrap_or_else(|| panic!("no tab {label:?}"))
-    }
-    // The strip's row in x order: the weak scope labels (Label nodes) and
-    // the selectable tabs, on the selected tab's row.
-    let strip_y = tab(&nodes, "Abilities & Skills")
-        .bounds()
-        .expect("bounds")
-        .y0;
-    let mut row: Vec<&accesskit::Node> = nodes
-        .iter()
-        .filter(|node| {
-            let wanted = match node.role() {
-                Role::Button => {
-                    node.toggled().is_some()
-                        && matches!(
-                            node.label(),
-                            Some("Abilities & Skills" | "Appearance" | "Tactics" | "Team settings")
-                        )
-                }
-                Role::Label => matches!(node.value(), Some("Player" | "Team")),
-                _ => false,
-            };
-            wanted && node.bounds().is_some_and(|b| (b.y0 - strip_y).abs() < 4.0)
-        })
-        .collect();
-    row.sort_by(|a, b| {
-        let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
-        x(a).partial_cmp(&x(b)).expect("ordered bounds")
-    });
-    let texts: Vec<&str> = row
-        .iter()
-        .map(|node| match node.role() {
-            Role::Label => node.value().expect("a label's text"),
-            _ => node.label().expect("a tab's label"),
-        })
-        .collect();
-    assert_eq!(
-        texts,
-        [
-            "Player",
-            "Abilities & Skills",
-            "Appearance",
-            "Team",
-            "Tactics",
-            "Team settings"
-        ],
-        "the strip's labels in order"
-    );
-
-    let selected = tab(&nodes, "Abilities & Skills");
-    assert_eq!(
-        selected.toggled(),
-        Some(accesskit::Toggled::True),
-        "Abilities & Skills is the drawn tab"
-    );
-    assert!(!selected.is_disabled());
-    for label in ["Appearance", "Tactics", "Team settings"] {
-        let tab = tab(&nodes, label);
-        assert!(!tab.is_disabled(), "{label} picks");
-        assert_eq!(tab.toggled(), Some(accesskit::Toggled::False));
-    }
-
-    // A click switches the drawn tab.
-    click(&mut window, tab(&nodes, "Appearance"), &mut view);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert_eq!(
-        tab(&nodes, "Appearance").toggled(),
-        Some(accesskit::Toggled::True),
-        "Appearance is the drawn tab"
-    );
-    assert_eq!(
-        tab(&nodes, "Abilities & Skills").toggled(),
-        Some(accesskit::Toggled::False)
-    );
-}
-
 // plans/save_editor.md "Editing UI", the Abilities & Skills bullet (the
 // playable positions' C/B/A ratings): a click stores its rating in the
 // position's own `playable` slot, as one undoable edit.
@@ -555,51 +458,36 @@ fn the_profile_block_holds_its_pairs_in_two_aligned_columns() {
     }
 }
 
-// plans/save_editor.md "Editing UI", the top row's three blocks: past
-// `TOP_ROW_ONE_LINE` (1349 here — the constant plus `TAB_AREA_OFFSET`) Profile, Playable positions and Quick actions share the
-// first line; on the pane the shell's smallest default window leaves
-// the row wraps between the blocks — Playable positions lands below
-// Profile whole, never split across two lines.
+// plans/save_editor.md "Editing UI", the top row's two blocks: past
+// `TOP_ROW_ONE_LINE` (the constant plus `VIEW_AREA_OFFSET`) Profile and
+// Playable positions share the first line; on the pane the shell's
+// smallest default window leaves the row wraps between the blocks —
+// Playable positions lands below Profile whole, never split across two
+// lines.
 #[test]
 fn the_top_row_wraps_between_its_blocks_never_inside_one() {
     let path = fixture(PesVersion::Pes21, "top_row_wide");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(
-        crate::view::abilities::TOP_ROW_ONE_LINE + TAB_AREA_OFFSET,
+        crate::view::abilities::TOP_ROW_ONE_LINE + VIEW_AREA_OFFSET,
         900.0,
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let y = |label: &str| {
-        nodes
-            .iter()
-            .find(|node| node.role() == Role::Label && node.value() == Some(label))
-            .unwrap_or_else(|| panic!("no heading {label:?}"))
-            .bounds()
-            .expect("bounds")
-            .y0
-    };
-    let row_y = y("Profile");
-    for heading in ["Playable positions", "Quick actions"] {
-        assert!(
-            (y(heading) - row_y).abs() < 1.0,
-            "{heading} shares the top row"
-        );
-    }
+    let row_y = y_of(&nodes, "Profile");
+    assert!(
+        (y_of(&nodes, "Playable positions") - row_y).abs() < 1.0,
+        "the positions block shares the top row"
+    );
 
     let path = fixture(PesVersion::Pes21, "top_row_narrow");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(877.0, 624.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let second = y_of(&nodes, "Playable positions");
     assert!(
-        second > y_of(&nodes, "Profile") + 5.0,
+        y_of(&nodes, "Playable positions") > y_of(&nodes, "Profile") + 5.0,
         "the block wrapped whole below Profile"
-    );
-    assert!(
-        (y_of(&nodes, "Quick actions") - second).abs() < 1.0,
-        "Quick actions shares Playable positions' line"
     );
 }
 
@@ -758,7 +646,7 @@ fn a_card_tick_on_another_player_is_its_own_undo_entry() {
     let mut view = SaveView::new();
     view.open(&path);
     view.team = TeamChoice::Team(702);
-    view.selected = Some((702, 0));
+    view.selected = Some(Selection::Player(702, 0));
     let mut window = Headless::sized(1100.0, 700.0);
     let file = EditFile::load(&path).unwrap();
     let a_id = file.team(702).unwrap().roster[0].player_id;
@@ -799,7 +687,7 @@ fn a_card_tick_on_another_player_is_its_own_undo_entry() {
     // Select the next player while the gesture stays open (the filter
     // still has the keyboard), and tick the same card there: his own
     // entry, not a merge.
-    view.selected = Some((702, 1));
+    view.selected = Some(Selection::Player(702, 1));
     let (_, nodes, _) =
         window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let (card_b, _) = nodes
@@ -884,48 +772,51 @@ fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
     // The same round trip for the other five fields: each shows the
     // stored value plus its shift (star and playing attitude shift by
     // zero), a typed value stores one less, and the groups' other fields
-    // keep their stored values. Star and playing attitude sit in
-    // Appearance's Cutscenes group, editable while the tab is locked.
-    for (tab, label, shown, typed, expected) in [
+    // keep their stored values. Star and playing attitude sit in the
+    // Appearance section's Cutscenes group, editable while it is locked.
+    for (appearance, label, shown, typed, expected) in [
         (
-            Tab::Abilities,
+            false,
             "Injury resistance",
             "1",
             "3",
             (7, 2, 1, 1, Some(0), Some(0)),
         ),
         (
-            Tab::Abilities,
+            false,
             "Weak foot usage",
             "2",
             "4",
             (7, 2, 3, 1, Some(0), Some(0)),
         ),
         (
-            Tab::Abilities,
+            false,
             "Weak foot accuracy",
             "2",
             "4",
             (7, 2, 3, 3, Some(0), Some(0)),
         ),
+        (true, "Star", "0", "7", (7, 2, 3, 3, Some(7), Some(0))),
         (
-            Tab::Appearance,
-            "Star",
-            "0",
-            "7",
-            (7, 2, 3, 3, Some(7), Some(0)),
-        ),
-        (
-            Tab::Appearance,
+            true,
             "Playing attitude",
             "0",
             "3",
             (7, 2, 3, 3, Some(7), Some(3)),
         ),
     ] {
-        view.tab = tab;
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let nodes = if appearance {
+            open_appearance(&mut window, &mut view);
+            // The Cutscenes group sits below the fold: the click needs
+            // the control inside the scroll's clip.
+            scroll_into_view(&mut window, &mut view, |node| {
+                node.role() == Role::Label && node.value() == Some(label)
+            })
+        } else {
+            let (_, nodes, _) =
+                window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+            nodes
+        };
         let control = right_of_label(&nodes, label, Role::SpinButton)
             .first()
             .copied()
@@ -1077,7 +968,7 @@ fn the_cards_left_badge_reads_the_players_own_tier() {
 
     // The selection recomputes it: slot 1's player, his Heading held,
     // shows his own one-lower count — not slot 0's.
-    view.selected = Some((701, 1));
+    view.selected = Some(Selection::Player(701, 1));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(
         cards_left_badges(&nodes),
@@ -1217,7 +1108,7 @@ fn a_player_no_tier_matches_gets_the_stand_in() {
     let rules = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap()).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.selected = Some((781, 0));
+    view.selected = Some(Selection::Player(781, 0));
     {
         let session = view.session.as_ref().unwrap();
         let team = aatf::TeamView::new(session.file(), 781).unwrap();
@@ -1522,11 +1413,11 @@ fn the_stronger_hand_combo_stores_the_pick_as_one_edit() {
 
 // The width thresholds never re-key a widget: an egui id follows call
 // order inside a scope, so crossing one would hand a DragValue's
-// in-progress edit to another control (the `top_row` blocks, `team::bar`'s
-// pairs and the stats cells each sit under a fixed salt). A field's
+// in-progress edit to another control (the `top_row` blocks, the team
+// view's pairs and the stats cells each sit under a fixed salt). A field's
 // AccessKit id is the egui `Id`: the Ball Control stat's field at four
 // columns and at three, the Profile's Playing style combo at one line
-// and at two, and the team bar's Short field at one row and at two all
+// and at two, and the team view's Short field at one row and at two all
 // keep the same id.
 #[test]
 fn widget_ids_hold_across_the_width_thresholds() {
@@ -1548,9 +1439,9 @@ fn widget_ids_hold_across_the_width_thresholds() {
     );
 
     // Wide enough for both thresholds at once: `TOP_ROW_ONE_LINE` +
-    // `TAB_AREA_OFFSET`, which is past `TEAM_BAR_ONE_ROW`'s too.
+    // `VIEW_AREA_OFFSET`, which is past `TEAM_FIELDS_ONE_ROW`'s too.
     let mut wide = Headless::sized(
-        crate::view::abilities::TOP_ROW_ONE_LINE + TAB_AREA_OFFSET,
+        crate::view::abilities::TOP_ROW_ONE_LINE + VIEW_AREA_OFFSET,
         900.0,
     );
     let playing_style = id_at(&mut wide, &mut view, "Playing style", Role::ComboBox);
@@ -1560,18 +1451,21 @@ fn widget_ids_hold_across_the_width_thresholds() {
         "the profile combo across the top row's arrangement"
     );
 
-    let short = id_at(&mut wide, &mut view, "Short", Role::TextInput);
+    // The team view's Short field across the fields' row break.
+    open_team_view(&mut narrow, &mut view, 701);
+    let short = id_at(&mut narrow, &mut view, "Short", Role::TextInput);
+    open_team_view(&mut wide, &mut view, 701);
     assert_eq!(
-        id_at(&mut narrow, &mut view, "Short", Role::TextInput),
+        id_at(&mut wide, &mut view, "Short", Role::TextInput),
         short,
-        "the bar's field across the row break"
+        "the view's field across the row break"
     );
 }
 
-// `TOP_ROW_ONE_LINE`'s edge: the pane width whose tab area is the
-// constant (`TAB_AREA_OFFSET` more). With the Profile combos at their
+// `TOP_ROW_ONE_LINE`'s edge: the pane width whose view area is the
+// constant (`VIEW_AREA_OFFSET` more). With the Profile combos at their
 // widest (the playing style's Defensive Goalkeeper; the other three stay
-// at their minimum width whatever they show) the three blocks
+// at their minimum width whatever they show) the two blocks
 // still take one line there and the row's last widget ends inside the
 // pane.
 #[test]
@@ -1594,18 +1488,16 @@ fn the_top_row_holds_one_line_at_its_edge() {
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(
-        crate::view::abilities::TOP_ROW_ONE_LINE + TAB_AREA_OFFSET,
+        crate::view::abilities::TOP_ROW_ONE_LINE + VIEW_AREA_OFFSET,
         1400.0,
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let row_y = label_bounds(&nodes, "Profile").y0;
-    for heading in ["Playable positions", "Quick actions"] {
-        assert!(
-            (label_bounds(&nodes, heading).y0 - row_y).abs() < 1.0,
-            "{heading} shares the top row"
-        );
-    }
+    assert!(
+        (label_bounds(&nodes, "Playable positions").y0 - row_y).abs() < 1.0,
+        "the positions block shares the top row"
+    );
     // The row's last widget ends inside the constant (the pane's right
     // edge is the row's left edge plus `available_width`): the rightmost
     // control inside the top row's band (everything above the stats).

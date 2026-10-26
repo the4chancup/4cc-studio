@@ -2534,3 +2534,5 @@ worklog passed 7,000 lines.
   32 caught, 3 missed: a 125%-scaled 1080p monitor's fit now tested, `show_dialog` a native dialog, `baseline_team` to 8.9l r3.
 - **2026-10-26** — The tabless Save editor's plan text passed review: SWE-2 rounds S1-S4 and Astra's A1-A2, 32 concerns
   accepted, the loops ended (`.tmp/lead/s2_rulings.md`); the AATF checks follow the selected row, the titles the codename.
+- **2026-10-26** — The Save editor has no tabs: a team row heads each team's players and opens the team view (its fields,
+  Kit slots… in a dialog, the Tactics), the quick actions sit under the list, a drag works under ALL within one team.

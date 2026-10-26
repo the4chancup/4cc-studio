@@ -173,7 +173,7 @@ fn set_and_bump_stats_write_every_ability_as_one_undoable_edit() {
 
     // N is read whole: a -10 on 70102's 60 gives 50, not the 59 a
     // two-character read would leave.
-    view.selected = Some((701, 1));
+    view.selected = Some(Selection::Player(701, 1));
     let second_line = bump_line(&display_name(&player_entry(&view, 70102).name));
     run_stat_dialog(
         &mut window,
@@ -630,46 +630,16 @@ fn fpc_button<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::N
     node_labeled(nodes, Role::Button, label)
 }
 
-/// The Appearance tab unlocked, scrolled to the FPC group and drawn for
-/// one frame's nodes. The group is the tab's last: under the player
+/// The Appearance section unlocked, scrolled to the FPC group and drawn for
+/// one frame's nodes. The group is the section's last: under the player
 /// header it sits below the fold, and a pointer click or hover lands
 /// only inside the scroll's clip (bounded: a group that never shows
 /// fails rather than hangs).
 fn appearance_frame(window: &mut Headless, view: &mut SaveView) -> Vec<accesskit::Node> {
-    view.tab = Tab::Appearance;
-    let at = egui::pos2(600.0, 400.0);
-    let bottom = f64::from(window.screen.y) - 12.0;
-    let in_view = |nodes: &[accesskit::Node]| {
-        nodes.iter().any(|node| {
-            node.role() == Role::Button
-                && node.label() == Some("Hide body")
-                && node.bounds().is_some_and(|b| b.y1 <= bottom)
-        })
-    };
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
-    if in_view(&nodes) {
-        return nodes;
-    }
-    for _ in 0..24 {
-        window.frame(
-            vec![
-                egui::Event::PointerMoved(at),
-                egui::Event::MouseWheel {
-                    unit: egui::MouseWheelUnit::Point,
-                    delta: egui::vec2(0.0, -400.0),
-                    phase: egui::TouchPhase::Move,
-                    source: egui::MouseWheelSource::Wheel,
-                    modifiers: egui::Modifiers::NONE,
-                },
-            ],
-            |ui| show(ui, view, &|| Vec::new(), None),
-        );
-        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
-        if in_view(&nodes) {
-            return nodes;
-        }
-    }
-    panic!("the FPC group never scrolled into view")
+    open_appearance(window, view);
+    scroll_into_view(window, view, |node| {
+        node.role() == Role::Button && node.label() == Some("Hide body")
+    })
 }
 
 /// 70101's strip fields the presets write, as the session holds him.
@@ -767,7 +737,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
 
     // 70102's own boots ID 627: Hide keeps it, and he reads "FPC: body
     // shown" — his model hides him, the save cannot tell.
-    view.selected = Some((701, 1));
+    view.selected = Some(Selection::Player(701, 1));
     let nodes = appearance_frame(&mut window, &mut view);
     click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
     assert_eq!(
@@ -1112,7 +1082,7 @@ fn the_hide_ids_come_from_the_settings() {
 
     // 70102 still on the convention's boots 55 reads "FPC: the body is shown":
     // the new hide ID is 60, and the save was never rewritten.
-    view.selected = Some((701, 1));
+    view.selected = Some(Selection::Player(701, 1));
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
         label_value(&nodes, "FPC: the body is shown"),
@@ -1149,15 +1119,24 @@ fn the_tool_carries_the_common_hide_ids_into_the_view() {
     let mut tool = crate::Tool::new();
     tool.view.open(&path);
     tool.view.edit_aesthetics = true;
-    tool.view.tab = Tab::Appearance;
     let mut window = Headless::sized(1100.0, 900.0);
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    open_appearance(&mut window, &mut tool.view);
+    scroll_into_view(&mut window, &mut tool.view, |node| {
+        node.role() == Role::Button && node.label() == Some("Hide body")
+    });
+    window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     assert_eq!(
         tool.view.hide_ids,
         fpc::HideIds::new(60, 12),
         "the frame set the view's hide IDs from the settings"
     );
 
+    // `click` draws through `show`, which lays the view out without what
+    // `Tool::view` draws above it: the button is found on a `show` frame,
+    // where the click lands (the hide IDs stay on the view).
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut tool.view, &|| Vec::new(), None)
+    });
     click(&mut window, fpc_button(&nodes, "Hide body"), &mut tool.view);
     assert_eq!(strip_of(&tool.view, 70101).3, 60, "Hide body wrote 60");
     assert_eq!(strip_of(&tool.view, 70101).4, 12, "Hide body wrote 12");

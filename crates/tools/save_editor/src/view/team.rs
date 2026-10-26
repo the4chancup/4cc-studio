@@ -1,15 +1,16 @@
-//! The team bar and the Team settings tab (`plans/save_editor.md` "Editing
-//! UI", the team bar and the Tabs bullets; the draft's `teamBar` and
-//! `teamTab`): the bar holds the selected player's team's name, short name
-//! and colours 1-2 over the tab strip on every tab; the tab holds the
-//! manager and stadium IDs and the kit slot assignments. Every control
-//! edits a copy of the team's entry and, when it changes, pushes it with
-//! `Session::edit_team` under the control's `egui::Id` (the undo stack's
-//! merge key, as `info_strip.rs` does). A field the version does not store
-//! is drawn disabled in its place, its tooltip naming the first version
-//! that has it (the kit slots PES 17 alone has); a value the save holds
-//! outside a control's range shows as stored and changes only when edited
-//! (the Abilities rule: drawing never edits).
+//! The team view (`plans/save_editor.md` "Editing UI", the team view
+//! bullet; the draft's `teamView`): the selected team's name with its
+//! colours as the title, its name, short name and colours 1-2 fields (the
+//! former team bar's pairs), a row of the manager and stadium IDs with a
+//! `Kit slots…` button opening the kit slot assignments in a dialog, then
+//! the Tactics editor. Every control edits a copy of the team's entry and,
+//! when it changes, pushes it with `Session::edit_team` under the control's
+//! `egui::Id` (the undo stack's merge key, as `info_strip.rs` does). A
+//! field the version does not store is drawn disabled in its place, its
+//! tooltip naming the first version that has it (the kit slots PES 17
+//! alone has); a value the save holds outside a control's range shows as
+//! stored and changes only when edited (the Abilities rule: drawing never
+//! edits).
 
 use std::ops::RangeInclusive;
 
@@ -18,53 +19,67 @@ use pes_savefile::model::{TeamColor, TeamEntry};
 use pes_savefile::schema::fields::{TeamField, TeamText};
 use pes_savefile::schema::{VersionSchema, first_version_with_team, schema_for};
 use pes_version::PesVersion;
+use team_widgets::names::append_name;
 
 use crate::session::Session;
-use crate::view::{SaveView, edit_team, scoped, selected_team};
+use crate::view::{SaveView, edit_team, scoped, selected_team, tactics};
 
-/// The width the bar's four pairs take on one line, measured once in a
-/// headless frame at 1600 x 1400 (the drawn row's `min_rect`: ~724.8
+/// The width the view's four field pairs take on one line, measured once
+/// in a headless frame at 1600 x 1400 (the drawn row's `min_rect`: ~724.8
 /// points — the pairs' widths are fixed, a longer team name changes
 /// nothing). A wrong estimate wraps a bit early or late; it never splits
 /// a pair, since the fallback is whole pairs on two rows.
-pub(super) const TEAM_BAR_ONE_ROW: f32 = 725.0;
-/// The bar's Team field.
+pub(super) const TEAM_FIELDS_ONE_ROW: f32 = 725.0;
+/// The view's Team field.
 pub(super) const TEAM_LABEL: &str = "Team";
-/// The bar's Short field.
+/// The view's Short field.
 pub(super) const SHORT_LABEL: &str = "Short";
 /// The two colours' labels.
 pub(super) const COLOUR_LABELS: [&str; 2] = ["Colour 1", "Colour 2"];
-/// The tab's Manager ID field.
+/// The view's Manager ID field.
 pub(super) const MANAGER_LABEL: &str = "Manager ID";
-/// The tab's Stadium ID field.
+/// The view's Stadium ID field.
 pub(super) const STADIUM_LABEL: &str = "Stadium ID";
+/// The `Kit slots…` button.
+pub(super) const KIT_SLOTS_LABEL: &str = "Kit slots\u{2026}";
 /// A kit slot's Number field.
 pub(super) const KIT_NUMBER_LABEL: &str = "Number";
 /// A kit slot's bound team field.
 pub(super) const BOUND_TEAM_LABEL: &str = "Bound team ID";
 
-/// The bar over the tab strip, on every tab: the selected player's team's
-/// name, short name and colours — one row where the pane holds
-/// `TEAM_BAR_ONE_ROW`, else the names on the first row and the colours on
-/// the second, so a pair always stays whole. Nothing when the selection
-/// names no rostered player (the tab draws nothing then either).
-pub(crate) fn bar(ui: &mut egui::Ui, view: &mut SaveView) {
+/// The team view for the selected team: the name as the title, the name,
+/// short name and colour pairs — one row where the pane holds
+/// `TEAM_FIELDS_ONE_ROW`, else the names on the first row and the colours
+/// on the second, so a pair always stays whole — the manager and stadium
+/// IDs with the `Kit slots…` button, then the Tactics editor. Nothing when
+/// the selection names no team of the save.
+pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, version, team)) = selected_team(view) else {
         return;
     };
     let generation = view.generation;
-    let Some(session) = view.session.as_mut() else {
-        return;
-    };
-    // The tab's `push_id` scoping, kept: every widget id under the bar is
-    // the team's within this open, so a text field's undo history and the
-    // pickers' state never cross teams — nor saves (the `generation`
-    // half). Each pair under `scoped`'s fixed `scope_id` in both
-    // arrangements too: an id follows call order inside a scope, so
-    // crossing `TEAM_BAR_ONE_ROW` would re-key the fields.
+    let schema = schema_for(version);
+    // Every widget id under the view is the team's within this open: a
+    // text field's undo history, a DragValue's in-progress edit, a combo's
+    // popup and the pickers' state never cross teams — nor saves (the
+    // `generation` half). Each pair under `scoped`'s fixed `scope_id` in
+    // both arrangements too: an id follows call order inside a scope, so
+    // crossing `TEAM_FIELDS_ONE_ROW` would re-key the fields. The session
+    // is re-taken per block so the Tactics editor can borrow the whole
+    // view.
     ui.push_id((generation, team_id), |ui| {
+        // The view's title: the team's name, its colour codes drawn as the
+        // list paints them (`append_name`), at the heading text style — as
+        // `info_strip` draws the player's name.
+        let mut title = egui::text::LayoutJob::default();
+        append_name(&mut title, &team.name);
+        let heading = egui::TextStyle::Heading.resolve(ui.style());
+        for section in &mut title.sections {
+            section.format.font_id = heading.clone();
+        }
+        ui.label(title);
         let ids = ["name", "short", "colour 1", "colour 2"].map(|salt| ui.make_persistent_id(salt));
-        let rows: &[&[usize]] = if ui.available_width() >= TEAM_BAR_ONE_ROW {
+        let rows: &[&[usize]] = if ui.available_width() >= TEAM_FIELDS_ONE_ROW {
             &[&[0, 1, 2, 3]]
         } else {
             &[&[0, 1], &[2, 3]]
@@ -73,17 +88,38 @@ pub(crate) fn bar(ui: &mut egui::Ui, view: &mut SaveView) {
             ui.horizontal(|ui| {
                 for &unit in *row {
                     scoped(ui, ids[unit], |ui| {
-                        bar_unit(ui, session, team_id, version, &team, unit);
+                        if let Some(session) = view.session.as_mut() {
+                            field_unit(ui, session, team_id, version, &team, unit);
+                        }
                     });
                 }
             });
         }
+        ui.horizontal(|ui| {
+            egui::Grid::new("team fields").show(ui, |ui| {
+                if let Some(session) = view.session.as_mut() {
+                    ids_row(ui, session, team_id, schema, &team);
+                }
+                ui.end_row();
+            });
+            if ui
+                .button(KIT_SLOTS_LABEL)
+                .on_hover_text("The kit slot assignments, rarely edited")
+                .clicked()
+            {
+                view.kit_slots = Some(team_id);
+            }
+        });
+        // Half the item spacing: the default separator's whole gap would
+        // push the Tactics' last control under the pane's fold.
+        ui.add(egui::Separator::default().spacing(ui.spacing().item_spacing.y / 2.0));
+        tactics::show(ui, view);
     });
 }
 
-/// The bar's `unit`, in its order: the name pair, the short pair, then
-/// the two colours.
-fn bar_unit(
+/// The field pairs' `unit`, in their order: the name pair, the short pair,
+/// then the two colours.
+fn field_unit(
     ui: &mut egui::Ui,
     session: &mut Session,
     team_id: u32,
@@ -98,32 +134,41 @@ fn bar_unit(
     }
 }
 
-/// The Team settings tab for the selected player's team: the manager and
-/// stadium IDs and the kit slot assignments.
-pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
-    let Some((team_id, version, team)) = selected_team(view) else {
+/// The Kit slot assignments dialog while `view.kit_slots` names its team
+/// (the draft's `dlgKitSlots`): the assignments' rows in a modal, or the
+/// sentence a version without them gets; OK or Escape closes.
+pub(crate) fn kit_slots_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
+    let Some(team_id) = view.kit_slots else {
         return;
     };
-    let generation = view.generation;
     let Some(session) = view.session.as_mut() else {
         return;
     };
+    let (version, team) = match session.file().team(team_id) {
+        Some(team) => (session.file().version(), team.clone()),
+        None => return,
+    };
     let schema = schema_for(version);
-    // Every widget id under the tab is the team's within this open: a
-    // DragValue's in-progress edit never crosses teams — nor saves (the
-    // `generation` half).
-    ui.push_id((generation, team_id), |ui| {
-        egui::Grid::new("team fields").show(ui, |ui| {
-            ids_row(ui, session, team_id, schema, &team);
-            ui.end_row();
+    let mut close = false;
+    // The rows' widget ids are the team's within this open, as the view's
+    // are.
+    let generation = view.generation;
+    let response =
+        egui::Modal::new(egui::Id::unique("save_editor_kit_slots")).show(ui.ctx(), |ui| {
+            ui.heading("Kit slot assignments");
+            ui.push_id((generation, team_id), |ui| {
+                kit_slots(ui, session, team_id, schema, &team);
+            });
+            if ui.button("OK").clicked() {
+                close = true;
+            }
         });
-        ui.separator();
-        ui.strong("Kit slot assignments");
-        kit_slots(ui, session, team_id, schema, &team);
-    });
+    if close || response.should_close() {
+        view.kit_slots = None;
+    }
 }
 
-/// The name field's unit (the draft's `teamBar` pair). A keystroke
+/// The name field's unit (the draft's `teamFields` pair). A keystroke
 /// `team_text_fits` refuses is not taken — the field shows the stored text
 /// again next frame, the info strip's Name field's rule. A changed name
 /// sets the name flag.
@@ -364,7 +409,7 @@ fn kit_slots(
 }
 
 /// The biggest value `schema`'s team record stores in `field`
-/// (`2^width - 1`, the codec's `ValueTooWide` bound): the range the tab's
+/// (`2^width - 1`, the codec's `ValueTooWide` bound): the range the view's
 /// number controls take; called only where the entry holds `Some`.
 fn field_max(schema: &VersionSchema, field: TeamField) -> u64 {
     schema

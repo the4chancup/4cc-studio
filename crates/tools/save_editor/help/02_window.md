@@ -3,33 +3,34 @@ The Save editor's window opens a save (`EDIT00000000`, or a copy of it) and edit
 `• unsaved changes` while edits wait unsaved.
 
 **Teams and players.** The dropdown picks a team, or ALL for every team of the save. The
-list below it holds one row per player: shirt number, position, the team when the list
-crosses teams, and the name shown as the game draws it, colors included. A `●` on a row
-marks a player with unsaved changes. The filter box above the list finds a player of any
-team by part of his name, shirt name or id, so you can find him without picking his team
-first. With one team picked and the filter empty, drag a row to move the player to a new
-place in the list. The shirt number and the in-game face and hairstyle belong to the
-place, so they stay where they were.
+list below it holds a row per team and, under it, one per player: the team's row shows
+its id, its two colours and its name, a player's row his shirt number, position, the team
+when the list crosses teams, and the name as the game draws it, colors included. A `●` on
+a row marks a player or the team itself with unsaved changes. The filter box above the
+list finds a team, or a player of any team, by part of a name, shirt name or id, so you
+can find someone without knowing their team first. With the filter empty, drag a player
+row onto another row of his team to move him to that place; a drop on another team's row
+does nothing. The shirt number and the in-game face and
+hairstyle belong to the place, so they stay where they were.
 
-**Editing.** Click a row to select the player. The bar over the tabs edits his
-team's name, short name and two colours on any tab. The tabs group as
-**Player** (Abilities & Skills, Appearance) and **Team** (Tactics, Team
-settings). The two player tabs open on his name and general info: shirt name,
-height, weight, age, nationality, shirt number and captain. A `\x11c` plus 8
-hex digits inside a name is a color code, and the field keeps it as typed.
+**Editing.** Click a player's row to select him: the right side shows his name, general
+info, abilities and skills, and the collapsed **Appearance** section underneath. Click a
+team's row to select the team: the right side shows the team's fields and its tactics.
+A `\x11c` plus 8 hex digits inside a name is a color code, and the field keeps it as typed.
 Every edit is undoable, and **Undo** and **Redo** step through them (Ctrl+Z, Ctrl+Y or
 Ctrl+Shift+Z); a drag or a run of typing on one field is one undo step.
 
-**Quick actions.** At the top of the Abilities & Skills tab, one **Make \<tier\>**
-button per tier of the AATF rules in use gives the player that tier's values
-(stats, form, injury resistance, weak foot, name color) as one undoable edit.
-**Set stats** sets every ability stat to the number beside it (40 to 99). When
-the rules file does not load, its error shows in place of the Make buttons.
+**Quick actions.** Under the list, one **Make \<tier\>** button per tier of the AATF
+rules in use gives the player that tier's values (stats, form, injury resistance, weak
+foot, name color) as one undoable edit. **Set stats** sets every ability stat to the
+number beside it (40 to 99). They act on the selected player, so a team row leaves them
+greyed out. When the rules file does not load, its error shows in place of the Make
+buttons.
 
-**AATF violations.** **AATF…** at the bottom of the quick actions, or **Panels** in the
-toolbar, opens a floating window listing a team's violations against the AATF rules
+**AATF violations.** **Panels** in the toolbar opens a floating window listing a
+team's violations against the AATF rules
 in use, grouped per player. **Current team** checks the team the selector names (with
-ALL, the selected player's team). **Select teams** lists every team of the save to
+ALL, the selected row's team). **Select teams** lists every team of the save to
 check several at once, which takes a moment while the results come in. Clicking a
 player's violation selects him. **Show suggestions** adds, below the violations, what
 each player could still use within the rules. **Validate rules** checks the rules

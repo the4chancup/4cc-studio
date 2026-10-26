@@ -106,12 +106,32 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
 /// Copy and Swap stats dialogs, and the two Generate items opening
 /// `generate::Generate` (settings.toml and the in-game face: file writes, so
 /// the aesthetics lock does not gate them). Every item acts on the selected
-/// player; the menu is disabled with no save open, and the FPC item carries
-/// the ownership line as its disabled hover (SE-GUI-22).
+/// player; the menu is disabled with no save open, its entries are disabled
+/// on a team selection (they act on a player), and the FPC item carries the
+/// ownership line as its disabled hover (SE-GUI-22).
 pub(crate) fn player_menu(ui: &mut egui::Ui, view: &mut SaveView) {
-    let Some((team_id, _, player_id)) = selected_player(view) else {
+    if view.session.is_none() {
         ui.add_enabled_ui(false, |ui| {
             ui.menu_button("Player", |_| ());
+        });
+        return;
+    }
+    let Some((team_id, _, player_id)) = selected_player(view) else {
+        // A team row selected: every item acts on a player, so all are
+        // disabled with the reason on hover.
+        ui.menu_button("Player", |ui| {
+            for label in [
+                "Set all stats\u{2026}",
+                "Bump all stats\u{2026}",
+                "Toggle FPC settings",
+                "Copy stats from\u{2026}",
+                "Swap stats with\u{2026}",
+                "Generate settings.toml\u{2026}",
+                "Generate in-game face\u{2026}",
+            ] {
+                ui.add_enabled(false, egui::Button::new(label))
+                    .on_disabled_hover_text("The Player menu acts on a player: pick a player row");
+            }
         });
         return;
     };

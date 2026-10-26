@@ -1,8 +1,10 @@
 //! The Save editor's window (`plans/save_editor.md` "Editing UI"): a toolbar over a
-//! master-detail layout, the player list left (`player_list`) and, right, the
-//! team bar (`team::bar`) over the tab strip and the drawn tab; the player
-//! header (`info_strip`) tops the two tabs that edit him (`abilities`,
-//! `appearance`). Render-only over the session's state: it opens a
+//! master-detail layout, the player list left (`player_list`, its team and
+//! player rows, the quick actions under it) and, right, the view the selected
+//! row names: the team view (`team`) on a team row, the player view — the
+//! header (`info_strip`), the Abilities & Skills content (`abilities`) and
+//! the Appearance section (`appearance`) — on a player row. Render-only over
+//! the session's state: it opens a
 //! save, filters and selects players, reorders a team's list by drag
 //! (`Session::move_player`), edits the strip's fields through
 //! `Session::edit_player`/`edit_team` (one undo entry per gesture), saves, and
@@ -39,18 +41,15 @@ use team_widgets::names::append_name;
 use crate::session::Session;
 use crate::session::selection::{self, TeamChoice};
 
-/// The detail pane's drawn tabs (`plans/save_editor.md` "Editing UI", the
-/// Tabs bullet), the Player tabs then the Team ones.
+/// The list row the selection names (`plans/save_editor.md` "Editing UI",
+/// the Player list bullet): a team by id, or a player by team and roster
+/// slot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) enum Tab {
-    /// Abilities & Skills.
-    Abilities,
-    /// Appearance (`appearance`).
-    Appearance,
-    /// The team's tactics (`tactics`).
-    Tactics,
-    /// The team's settings (`team`); the bar holds its names and colours.
-    TeamSettings,
+pub(crate) enum Selection {
+    /// A team's own row (the detail shows the team view).
+    Team(u32),
+    /// A player row: the team he is rostered on and his roster slot.
+    Player(u32, u8),
 }
 
 /// The window's state: the open save and what the master-detail shows of it.
@@ -61,11 +60,9 @@ pub(crate) struct SaveView {
     team: TeamChoice,
     /// The filter box's text.
     filter: String,
-    /// The selected player, by team and roster slot.
-    selected: Option<(u32, u8)>,
-    /// The drawn tab.
-    tab: Tab,
-    /// The Tactics tab's on-screen state (`team_widgets`' `TacticsView`:
+    /// The selected row.
+    selected: Option<Selection>,
+    /// The team view's Tactics state (`team_widgets`' `TacticsView`:
     /// the preset its groups edit and the formation its lists show); back
     /// to preset 1 and kick-off on every open.
     tactics: team_widgets::tactics::TacticsView,
@@ -173,6 +170,9 @@ pub(crate) struct SaveView {
     /// The Fix database confirmation is open (the Savefile menu's item);
     /// `false` while it is closed.
     fix_database: bool,
+    /// The Kit slot assignments dialog's team while it is open (the team
+    /// view's `Kit slots…` button); `None` while it is closed.
+    kit_slots: Option<u32>,
     /// The hide IDs the common settings give (`fpc_hide_boots_id` and
     /// `fpc_hide_gloves_id`), refreshed from `ctx.common()` each `Tool::view`
     /// frame: every FPC path (Hide/Show body, Ctrl+I, the classifier's
@@ -269,7 +269,6 @@ impl SaveView {
             team: TeamChoice::All,
             filter: String::new(),
             selected: None,
-            tab: Tab::Abilities,
             tactics: team_widgets::tactics::TacticsView::default(),
             focused: None,
             prompt: None,
@@ -300,6 +299,7 @@ impl SaveView {
             set_stats: 77,
             copy_swap: None,
             fix_database: false,
+            kit_slots: None,
             hide_ids: Ok(fpc::HideIds::CONVENTION),
             randomize_draw: Box::new(appearance::seeded_draw()),
         }
@@ -333,7 +333,8 @@ impl SaveView {
     }
 
     /// Opens the save at `path`: on success the selector reads `ALL`, the
-    /// filter is empty and the first listed player is selected; a file the
+    /// filter is empty and the first player row is selected (a team's own
+    /// row is not a player); a file the
     /// save refuses is shown as a refusal and the open session is untouched.
     /// A Fox save with some appearance ids stripped and some set opens the
     /// Strip again window over the ones still set (SE-GUI-20); the
@@ -343,9 +344,14 @@ impl SaveView {
             Ok(session) => {
                 self.team = TeamChoice::All;
                 self.filter.clear();
-                self.selected = selection::rows(session.file(), &self.team, "")
-                    .first()
-                    .map(|row| (row.team_id, row.slot));
+                self.selected = selection::list(session.file(), &self.team, "")
+                    .into_iter()
+                    .find_map(|row| match row {
+                        selection::ListRow::Player(row) => {
+                            Some(Selection::Player(row.team_id, row.slot))
+                        }
+                        selection::ListRow::Team(_) => None,
+                    });
                 self.strip_again = match session.version().engine() {
                     Engine::Fox => {
                         let rows: Vec<StripRow> = session
@@ -378,6 +384,7 @@ impl SaveView {
                 self.copy_swap = None;
                 self.generate = None;
                 self.fix_database = false;
+                self.kit_slots = None;
                 self.aatf.reset();
                 self.live.check.reset();
             }
@@ -423,27 +430,33 @@ pub(crate) fn show(
         }
         egui::Panel::left("save_editor_players")
             .resizable(true)
+            // The draft's `.plist` width: the quick actions' two columns
+            // under the list fit inside it.
+            .default_size(240.0)
             .show(ui, |ui| player_list::show(ui, view));
         egui::CentralPanel::default().show(ui, |ui| {
-            team::bar(ui, view);
-            tab_strip(ui, &mut view.tab);
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    // The player header tops the two tabs that edit him.
-                    if matches!(view.tab, Tab::Abilities | Tab::Appearance) {
+                .show(ui, |ui| match view.selected {
+                    Some(Selection::Team(_)) => team::show(ui, view),
+                    Some(Selection::Player(..)) | None => {
+                        // The player view: the header, the Abilities &
+                        // Skills content, then the Appearance section,
+                        // closed by default.
                         info_strip::show(ui, view);
-                    }
-                    match view.tab {
-                        Tab::Abilities => abilities::show(ui, view),
-                        Tab::Appearance => appearance::show(ui, view),
-                        Tab::Tactics => tactics::show(ui, view),
-                        Tab::TeamSettings => team::show(ui, view),
+                        abilities::show(ui, view);
+                        egui::CollapsingHeader::new("Appearance")
+                            .id_salt("appearance")
+                            // The section's content keeps the view's full
+                            // width (the grids are sized for the pane, the
+                            // body's indent would push them past it).
+                            .show_unindented(ui, |ui| appearance::show(ui, view));
                     }
                 });
         });
     }
     strip_again_dialog(ui, view);
+    team::kit_slots_dialog(ui, view);
     menus::boglo_dialog(ui, view);
     menus::stat_num_dialog(ui, view);
     menus::copy_swap_dialog(ui, view);
@@ -674,42 +687,6 @@ pub(super) fn write_now(
     }
 }
 
-/// The detail pane's tabs (`plans/save_editor.md` "Editing UI", the tab
-/// strip bullet): `Player` (Abilities & Skills, Appearance) then `Team`
-/// (Tactics, Team settings), each group after its weak scope label.
-fn tab_strip(ui: &mut egui::Ui, tab: &mut Tab) {
-    ui.horizontal(|ui| {
-        for (scope, tabs) in [
-            (
-                "Player",
-                [
-                    (Tab::Abilities, "Abilities & Skills"),
-                    (Tab::Appearance, "Appearance"),
-                ]
-                .as_slice(),
-            ),
-            (
-                "Team",
-                [
-                    (Tab::Tactics, "Tactics"),
-                    (Tab::TeamSettings, "Team settings"),
-                ]
-                .as_slice(),
-            ),
-        ] {
-            ui.weak(scope);
-            for &(which, label) in tabs {
-                if ui
-                    .add(egui::Button::selectable(*tab == which, label))
-                    .clicked()
-                {
-                    *tab = which;
-                }
-            }
-        }
-    });
-}
-
 /// Clones the player's entry, applies `edit` and pushes it under `key` (the
 /// widget's `egui::Id` value, the undo stack's merge key).
 pub(crate) fn edit_player(
@@ -728,8 +705,7 @@ pub(crate) fn edit_player(
 }
 
 /// `edit_player` for the team's entry (the header's Number and Captain,
-/// the team bar's and Team settings tab's fields, the Tactics tab's
-/// edited clone).
+/// the team view's fields, the Tactics' edited clone).
 pub(crate) fn edit_team(
     session: &mut Session,
     id: u32,
@@ -749,19 +725,24 @@ pub(crate) fn rules_load_error(error: &str) -> String {
 }
 
 /// The selected player's `(team_id, roster slot, player_id)`; `None` when
-/// the selection names no rostered player (a stale slot, an empty save's
-/// list).
+/// the selection names no rostered player (a team row, a stale slot, an
+/// empty save's list).
 pub(crate) fn selected_player(view: &SaveView) -> Option<(u32, u8, u32)> {
-    let (team_id, slot) = view.selected?;
+    let Selection::Player(team_id, slot) = view.selected? else {
+        return None;
+    };
     let player_id = view.session.as_ref()?.slot_player(team_id, slot)?;
     Some((team_id, slot, player_id))
 }
 
-/// The selected player's `(team_id, save's version, team's entry cloned)`;
-/// `None` when the selection names no rostered player or the entry is
-/// missing (the team widgets' shared head).
+/// The selected row's `(team_id, save's version, team's entry cloned)`:
+/// the team the row names — a player row's team or a team row's own;
+/// `None` when the selection names no team or the entry is missing (the
+/// team widgets' shared head).
 pub(crate) fn selected_team(view: &SaveView) -> Option<(u32, PesVersion, TeamEntry)> {
-    let (team_id, _, _) = selected_player(view)?;
+    let team_id = match view.selected? {
+        Selection::Team(team_id) | Selection::Player(team_id, _) => team_id,
+    };
     let file = view.session.as_ref()?.file();
     let team = file.team(team_id)?.clone();
     Some((team_id, file.version(), team))

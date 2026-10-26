@@ -1,12 +1,13 @@
-//! The Abilities & Skills tab (`plans/save_editor.md` "Editing UI", the
-//! Abilities & Skills bullet; the draft's `abilitiesTab`): a top row of
-//! three blocks — the Profile grid (registered position, playing style,
-//! stronger foot and hand, the four shifted stored fields), the 13
-//! playable positions' C/B/A ratings in the collaborator's grid, and the
-//! quick actions column — then the 25 ability stats in their columns and
+//! The player view's Abilities & Skills content (`plans/save_editor.md`
+//! "Editing UI", the Abilities & Skills bullet; the draft's
+//! `abilitiesTab`): a top row of two blocks — the Profile grid (registered
+//! position, playing style, stronger foot and hand, the four shifted
+//! stored fields) and the 13 playable positions' C/B/A ratings in the
+//! collaborator's grid — then the 25 ability stats in their columns and
 //! the skills and COM playing styles with the active ruleset's Cards left
 //! badge. Star and playing attitude, which change only cutscenes, sit in
-//! the Appearance tab's Cutscenes group (`appearance::CUTSCENE_STATS`).
+//! the Appearance section's Cutscenes group (`appearance::CUTSCENE_STATS`);
+//! the quick actions sit under the player list (`quick_actions`).
 //! Every control edits a copy of the player's entry and, when it changes,
 //! pushes it with `Session::edit_player` under the control's `egui::Id`
 //! value, as `info_strip.rs` does; edit flags are not touched. A field
@@ -27,8 +28,8 @@ use team_widgets::cards::{self, CardsBadge, TierCards};
 
 use crate::session::Session;
 use crate::view::{
-    ActiveRules, BadgeKey, OwnBadge, SaveView, edit_player, quick_actions, rules_load_error,
-    scoped, selected_player,
+    ActiveRules, BadgeKey, OwnBadge, SaveView, edit_player, rules_load_error, scoped,
+    selected_player,
 };
 
 /// The Profile grid's registered-position combo.
@@ -48,10 +49,10 @@ pub(super) const RATING_LABELS: [(&str, u8); 3] = [("C", 0), ("B", 1), ("A", 2)]
 /// from it (`terms::row_term`).
 pub(super) const PLAYABLE_POSITIONS_LABEL: &str = "Playable positions";
 
-/// The tab for the selected player, under `info_strip`'s header: the top
-/// row of three blocks (Profile, the playable positions' grid, the quick
-/// actions column), each wrapping whole on a narrow pane, then the stats
-/// in their columns and the skills.
+/// The content for the selected player, under `info_strip`'s header: the
+/// top row of two blocks (Profile, the playable positions' grid), each
+/// wrapping whole on a narrow pane, then the stats in their columns and
+/// the skills.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, slot, player_id)) = selected_player(view) else {
         return;
@@ -69,7 +70,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             player.skills.clone(),
         )
     };
-    // Every widget id under the tab is the player's within this open: a
+    // Every widget id under the content is the player's within this open: a
     // DragValue's in-progress edit, a combo's popup and the pickers' state
     // never cross players — nor saves, since egui keys a TextEdit's undo
     // history by widget id and the same player id of the save opened next
@@ -98,23 +99,20 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     });
 }
 
-/// The width the three blocks take on one line, measured once in a
-/// headless frame at 1600 x 1400 with each Profile combo at its widest
-/// option (the playing style's Defensive Goalkeeper; the registered
-/// position, foot and hand combos stay at their minimum `combo_width`
-/// whatever they show): the drawn `min_rect` of each
-/// `ui.vertical` block summed with the two item gaps is Profile ~518,
-/// Playable positions ~477, Quick actions ~115, so ~1126 points. A wrong
-/// estimate wraps a block a bit early or late; it never splits one,
-/// since the fallback is whole blocks on two lines.
-pub(super) const TOP_ROW_ONE_LINE: f32 = 1127.0;
+/// The width the two blocks take on one line, measured once in a headless
+/// frame at 1600 x 1400 with each Profile combo at its widest option (the
+/// playing style's Defensive Goalkeeper; the registered position, foot and
+/// hand combos stay at their minimum `combo_width` whatever they show):
+/// the drawn `min_rect` of each `ui.vertical` block summed with the item
+/// gap is Profile ~518, Playable positions ~477, so ~1003 points. A wrong
+/// estimate wraps a block a bit early or late; it never splits one, since
+/// the fallback is whole blocks on two lines.
+pub(super) const TOP_ROW_ONE_LINE: f32 = 1004.0;
 
-/// The top row (the draft's `topblocks`): the Profile grid, the positions
-/// grid and the quick actions column, top-aligned, on one line where the
-/// pane holds `TOP_ROW_ONE_LINE`; else Profile alone on the first line
-/// and the positions grid with the quick actions on the second — a block
-/// moves whole, never split. The session is re-taken per block so the
-/// quick actions can borrow the whole view.
+/// The top row (the draft's `topblocks`): the Profile grid and the
+/// positions grid, top-aligned, on one line where the pane holds
+/// `TOP_ROW_ONE_LINE`; else each on its own line — a block moves whole,
+/// never split.
 fn top_row(
     ui: &mut egui::Ui,
     view: &mut SaveView,
@@ -131,7 +129,6 @@ fn top_row(
     // the `horizontal_top` child would put them under its own scope.
     let profile_id = ui.make_persistent_id("profile");
     let positions_id = ui.make_persistent_id("positions");
-    let actions_id = ui.make_persistent_id("actions");
     let profile_block = |ui: &mut egui::Ui, view: &mut SaveView| {
         scoped(ui, profile_id, |ui| {
             ui.vertical(|ui| {
@@ -152,25 +149,14 @@ fn top_row(
             });
         });
     };
-    let actions_block = |ui: &mut egui::Ui, view: &mut SaveView| {
-        scoped(ui, actions_id, |ui| {
-            ui.vertical(|ui| {
-                quick_actions::show(ui, view);
-            });
-        });
-    };
     if ui.available_width() >= TOP_ROW_ONE_LINE {
         ui.horizontal_top(|ui| {
             profile_block(ui, view);
             positions_block(ui, view);
-            actions_block(ui, view);
         });
     } else {
         profile_block(ui, view);
-        ui.horizontal_top(|ui| {
-            positions_block(ui, view);
-            actions_block(ui, view);
-        });
+        positions_block(ui, view);
     }
 }
 

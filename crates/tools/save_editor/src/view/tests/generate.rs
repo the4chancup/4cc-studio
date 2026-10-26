@@ -18,7 +18,7 @@ fn open_on(version: PesVersion, test: &str, team_id: u32, slot: u8) -> (SaveView
     let mut view = SaveView::new();
     view.open(&path);
     view.team = TeamChoice::Team(team_id);
-    view.selected = Some((team_id, slot));
+    view.selected = Some(Selection::Player(team_id, slot));
     (view, Headless::new())
 }
 
@@ -77,7 +77,7 @@ fn generated_settings_writes_the_explicit_colour_coded_name() {
             .expect("the fixture holds a colour-coded rostered player")
     };
     view.team = TeamChoice::Team(team_id);
-    view.selected = Some((team_id, slot));
+    view.selected = Some(Selection::Player(team_id, slot));
     let mut window = Headless::new();
     let dir = crate::test_support::scratch("generate_coded_name");
     player_menu_item(&mut window, &mut view, "Generate settings.toml");

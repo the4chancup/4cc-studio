@@ -25,7 +25,7 @@ fn a_name_edit_does_not_reach_the_next_players_field() {
     let file = EditFile::load(&path).unwrap();
     let a_id = file.team(702).unwrap().roster[0].player_id;
     let b_id = file.team(702).unwrap().roster[1].player_id;
-    view.selected = Some((702, 0));
+    view.selected = Some(Selection::Player(702, 0));
     let a_before = name_of(&view, a_id);
     let b_before = name_of(&view, b_id);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -45,7 +45,7 @@ fn a_name_edit_does_not_reach_the_next_players_field() {
 
     // Select 70202 (roster slot 1), focus his Name field, Ctrl+Z: his
     // field has only his own edit history — never 70201's text.
-    view.selected = Some((702, 1));
+    view.selected = Some(Selection::Player(702, 1));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let name_field = nodes
         .iter()
@@ -632,12 +632,12 @@ fn the_captain_box_ticks_on_the_captains_slot() {
             .map(|node| node.toggled())
     };
     // Select the captain's slot: the radio is on.
-    view.selected = Some((701, captain));
+    view.selected = Some(Selection::Player(701, captain));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(toggled(&nodes), Some(Some(accesskit::Toggled::True)));
     // Another slot: off.
     let other = if captain == 0 { 1 } else { 0 };
-    view.selected = Some((701, other));
+    view.selected = Some(Selection::Player(701, other));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_eq!(toggled(&nodes), Some(Some(accesskit::Toggled::False)));
 }
@@ -653,7 +653,7 @@ fn the_captains_radio_cannot_be_unticked() {
     let mut view = SaveView::new();
     view.open(&path);
     view.team = TeamChoice::Team(701);
-    view.selected = Some((701, captain));
+    view.selected = Some(Selection::Player(701, captain));
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let radio = nodes
@@ -750,17 +750,12 @@ fn a_typed_number_clamps_to_the_fields_stored_width() {
 // to 61 bytes, a name past 46 tinted with the cut the older versions make).
 #[test]
 fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
-    /// The Name field's `TextInput` node (the enabled text edit left of the
-    /// panel's middle).
+    /// The Name field's `TextInput` node (the enabled text edit right of
+    /// the "Name" label's cell).
     fn name_field(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
-        nodes
-            .iter()
-            .find(|node| {
-                node.role() == Role::TextInput
-                    && !node.is_disabled()
-                    && node.value() == Some(value)
-                    && node.bounds().is_some_and(|bounds| bounds.x0 < 300.0)
-            })
+        right_of_label(nodes, "Name", Role::TextInput)
+            .into_iter()
+            .find(|node| !node.is_disabled() && node.value() == Some(value))
             .unwrap_or_else(|| panic!("no Name field {value:?}"))
             .bounds()
             .expect("bounds")
@@ -922,7 +917,7 @@ fn a_pes17_strip_refuses_a_name_past_its_own_field() {
     let path = fixture(PesVersion::Pes17, "overlong_name_17");
     let mut view = SaveView::new();
     view.open(&path);
-    view.selected = Some((701, 0));
+    view.selected = Some(Selection::Player(701, 0));
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let file = EditFile::load(&path).unwrap();
@@ -1009,14 +1004,15 @@ fn title_shape<'a>(
         .unwrap_or_else(|| panic!("no painted text {text:?}"))
 }
 
-// plans "Editing UI", the player header bullet: the
-// selected player's name as the tab's title over the strip's nine labels —
-// on the two player tabs alone, the Team tabs editing no player. The name's
-// colour codes paint as the player list draws them: a coded run in the
-// code's colour, the rest the widget's text colour.
+// plans "Editing UI", the player header bullet and the "No view draws the
+// tool's name" bullet: `<id> <name>` as the player view's title over the
+// strip's nine labels — on the player view alone, the team view editing no
+// player. The name's colour codes paint as the player list draws them: a
+// coded run in the code's colour, the rest the widget's text colour, the id
+// the weak one.
 // SE-GUI-01
 #[test]
-fn the_player_header_tops_the_player_tabs_alone() {
+fn the_player_header_tops_the_player_view_alone() {
     let (mut view, mut window) = open_734_with("player_header_tabs", &[], 0);
     // A name with a colour code and a reset (the `\x11c` + 8 hex digits the
     // player list renders, the `append_name` test's name): the title's runs
@@ -1024,17 +1020,27 @@ fn the_player_header_tops_the_player_tabs_alone() {
     let mut entry = player_entry(&view, 73401);
     entry.name = "WHEN THE \x11cb7bec5ffWORK RESULT\x11d WAS GOOD".to_owned();
     view.session.as_mut().unwrap().edit_players(vec![entry]);
-    let title = "WHEN THE WORK RESULT WAS GOOD";
+    let title = "73401 WHEN THE WORK RESULT WAS GOOD";
     let normal = egui::Color32::PLACEHOLDER;
+    let weak = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .weak_text_color();
     let expected: Vec<(egui::Color32, &str)> = vec![
+        (weak, "73401 "),
         (normal, "WHEN THE "),
         (egui::Color32::from_rgb(0xb7, 0xbe, 0xc5), "WORK RESULT"),
         (normal, " WAS GOOD"),
     ];
     let heading =
         window.ctx.style_of(window.ctx.theme()).text_styles[&egui::TextStyle::Heading].size;
-    for tab in [Tab::Abilities, Tab::Appearance] {
-        view.tab = tab;
+    // The player view, with the Appearance section closed then open: the
+    // header tops both arrangements.
+    for appearance_open in [false, true] {
+        if appearance_open {
+            open_appearance(&mut window, &mut view);
+        }
         let (_, nodes, shapes) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         let shape = title_shape(&shapes, title);
@@ -1057,30 +1063,29 @@ fn the_player_header_tops_the_player_tabs_alone() {
                 .iter()
                 .map(|(color, text)| (*color, text.to_string()))
                 .collect::<Vec<_>>(),
-            "the name's painted runs on {tab:?}"
+            "the title's painted runs (appearance open: {appearance_open})"
         );
         assert!(
             title_painted(&shapes, title, heading),
-            "the name as the {tab:?} title"
+            "the name at the heading size"
         );
         for label in [
             "Name", "Shirt", "Number", "Captain", "ID", "Nation", "Age", "Height", "Weight",
         ] {
-            assert!(label_value(&nodes, label), "{label} on {tab:?}");
+            assert!(label_value(&nodes, label), "{label} drawn");
         }
     }
-    for tab in [Tab::Tactics, Tab::TeamSettings] {
-        view.tab = tab;
-        let (_, nodes, shapes) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-        assert!(
-            !title_painted(&shapes, title, heading),
-            "no title on {tab:?}"
-        );
-        for label in [
-            "Shirt", "Captain", "ID", "Nation", "Age", "Height", "Weight",
-        ] {
-            assert!(!label_value(&nodes, label), "{label} not on {tab:?}");
-        }
+    // The team view draws neither the title nor the player's fields.
+    open_team_view(&mut window, &mut view, 734);
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        !title_painted(&shapes, title, heading),
+        "no title on the team view"
+    );
+    for label in [
+        "Shirt", "Captain", "ID", "Nation", "Age", "Height", "Weight",
+    ] {
+        assert!(!label_value(&nodes, label), "{label} not on the team view");
     }
 }

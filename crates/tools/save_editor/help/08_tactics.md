@@ -1,9 +1,9 @@
-The **Tactics** tab edits the selected player's team's game plan: which of the
+The bottom of the team view is the **Tactics** part, the team's game plan: which of the
 three presets is on screen, its formation settings, the advanced instructions
 and the team's automatic settings. A field the save's version does not hold
 stays in its place, disabled, with a note naming the first version that has it.
 
-The tab is three columns: the pitch, the two lists, then the settings column
+The part is three columns: the pitch, the two lists, then the settings column
 with the preset bar and the groups. On a window too narrow for all three the
 settings column moves below the pitch and the lists instead.
 
@@ -25,8 +25,8 @@ the pitch pick which of the preset's three formations it shows (the game
 uses the second and third only while the preset's fluid formation is on).
 Switching formations changes nothing by itself.
 
-The **Starting eleven** and **Bench** lists set who plays and in which order:
-drag a row onto another to move or swap it. A starter dropped on
+The **Starting eleven** and **Bench** lists set who plays and in which order;
+the bench lists the players alone, never an empty slot. Drag a row onto another to move or swap it. A starter dropped on
 another starter trades their places. A bench player dropped on a starter takes
 his place and every job he held (set pieces, joining the attack, instruction
 targets). The captain stays who he was.

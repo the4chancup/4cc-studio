@@ -15,11 +15,12 @@ use crate::tactics::{RosterRow, TacticsView, raw_name_at};
 /// "Bench" lists, each row a drag handle, a position and a name (the
 /// positions are `view.formation`'s; the selector heads `pitch`, as the
 /// draft heads the pitch with it). Drops: a starter on a starter
-/// exchanges the two, a bench row on a starter (or a starter on a filled
-/// bench row) swaps them in `swap_in`'s sense, a bench row on a bench row
+/// exchanges the two, a bench row on a starter (or a starter on a bench
+/// row) swaps them in `swap_in`'s sense, a bench row on a bench row
 /// moves the dragged entry to the dropped row's place. `roster` gives each
-/// roster slot's row, indexed by slot; an empty bench slot is no drag
-/// source and takes no starter, so the eleven never gains an empty slot.
+/// roster slot's row, indexed by slot; a `bench_order` entry whose roster
+/// slot holds no player draws no row, so the eleven never gains an empty
+/// slot either (no row takes a starter).
 /// `version` is the open save's (`swap_in`'s instruction decode).
 /// Answers `true` only when `tactics` changed this frame
 /// (`tactics_settings`' contract).
@@ -54,7 +55,13 @@ pub fn lineup(
                 .id_salt("bench")
                 .max_height(300.0)
                 .show(ui, |ui| {
+                    // The players only: a `bench_order` entry whose roster
+                    // slot holds no player draws no row (a 4cc team's 21
+                    // entries show its 12 players).
                     for index in 0..tactics.bench_order.len() {
+                        if bench_is_empty(tactics, roster, index) {
+                            continue;
+                        }
                         bench_row(ui, version, tactics, roster, index);
                     }
                 });
@@ -84,7 +91,6 @@ fn starter_row(
         Some(LineupDrag::Starter(index)),
         position_label(position),
         raw_name_at(roster, slot),
-        false,
     );
     if let Some(dropped) = response.dnd_release_payload::<LineupDrag>() {
         match *dropped {
@@ -96,11 +102,19 @@ fn starter_row(
     }
 }
 
+/// Whether `bench_order[index]`'s roster slot holds no player: past the
+/// roster or its `registered_position` unset (the host's empty-slot row,
+/// `("", "", None)`).
+fn bench_is_empty(tactics: &TeamTactics, roster: &[RosterRow<'_>], index: usize) -> bool {
+    roster
+        .get(usize::from(tactics.bench_order[index]))
+        .is_none_or(|row| row.registered_position.is_none())
+}
+
 /// One bench row (the draft's bench `lrow`): the player's registered
-/// position and name, "--" and "(empty)" on an empty slot, dimmed. An
-/// empty row is no drag source and a starter dropped on it does nothing
-/// (the eleven never gets an empty slot); a bench row dropped on any
-/// bench row moves the dragged entry to the dropped row's place, the rows
+/// position and name, always a drag source and a drop target. A starter
+/// dropped on it swaps in (`swap_in`); a bench row dropped on it moves the
+/// dragged entry to the dropped row's `bench_order` place, the entries
 /// between shifting by one (the draft's `moveBench`, a move, not an
 /// exchange).
 fn bench_row(
@@ -111,25 +125,21 @@ fn bench_row(
     index: usize,
 ) {
     let slot = tactics.bench_order[index];
-    let row = roster.get(usize::from(slot));
-    let empty = row.is_none_or(|row| row.registered_position.is_none());
-    let position = row
+    let position = roster
+        .get(usize::from(slot))
         .and_then(|row| row.registered_position)
         .map_or("--", position_label);
     let response = lineup_row(
         ui,
         ("bench", index),
-        (!empty).then_some(LineupDrag::Bench(index)),
+        Some(LineupDrag::Bench(index)),
         position,
         raw_name_at(roster, slot),
-        empty,
     );
     if let Some(dropped) = response.dnd_release_payload::<LineupDrag>() {
         match *dropped {
             LineupDrag::Starter(starter) | LineupDrag::Marker(starter) => {
-                if !empty {
-                    swap_in(version, tactics, starter, index);
-                }
+                swap_in(version, tactics, starter, index);
             }
             LineupDrag::Bench(from) => {
                 if from < index {
@@ -144,14 +154,13 @@ fn bench_row(
 
 /// One lineup row, the draft's `.lrow`: the ≡ handle, the position
 /// column and the raw name drawn with its colour codes; a drag source
-/// when `payload` is some, a drop target always. `empty` dims the row.
+/// when `payload` is some, a drop target always.
 fn lineup_row(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
     payload: Option<LineupDrag>,
     position: &str,
     raw_name: &str,
-    empty: bool,
 ) -> egui::Response {
     let contents = |ui: &mut egui::Ui| {
         ui.horizontal(|ui| {
@@ -160,16 +169,12 @@ fn lineup_row(
                 egui::vec2(30.0, ui.spacing().interact_size.y),
                 egui::Label::new(egui::RichText::new(position).weak()),
             );
-            if empty {
-                ui.weak(raw_name);
-            } else {
-                let mut job = egui::text::LayoutJob::default();
-                append_name(&mut job, raw_name);
-                // Cut at the row's end (the full name on hover): the
-                // host gives the lists a fixed width, and a long name
-                // would otherwise draw over the column at their right.
-                ui.add(egui::Label::new(job).truncate());
-            }
+            let mut job = egui::text::LayoutJob::default();
+            append_name(&mut job, raw_name);
+            // Cut at the row's end (the full name on hover): the
+            // host gives the lists a fixed width, and a long name
+            // would otherwise draw over the column at their right.
+            ui.add(egui::Label::new(job).truncate());
         });
     };
     match payload {
@@ -253,7 +258,7 @@ pub(super) fn swap_in(
 
 #[cfg(test)]
 mod tests {
-    use egui::accesskit::{self, Role};
+    use egui::accesskit::Role;
     use pes_savefile::model::instruction::Instruction;
     use pes_version::PesVersion;
 
@@ -512,64 +517,41 @@ mod tests {
         assert_eq!(tactics.bench_order, expect, "row 1 landed at 4");
     }
 
-    // An empty bench slot is no drag source and a starter dropped on it
-    // does nothing: the eleven never gets an empty slot (the fixture's
-    // bench rows 12 to 20 hold roster slots 23 to 31, past team 701's 23
-    // players).
+    // plans/save_editor.md "Editing UI", "The team view" bullet: the bench
+    // list shows the players only — a `bench_order` entry whose roster
+    // slot holds no player draws no row (the fixture team's 21 entries
+    // show its 12 bench players: rows 12 to 20 hold roster slots 23 to 31,
+    // past team 701's 23 players).
     #[test]
-    fn the_empty_bench_rows_neither_drag_nor_take_a_starter() {
+    fn the_bench_list_draws_the_filled_entries_only() {
         let mut window = Headless::sized(900.0, 1100.0);
         let mut tactics = fixture_tactics(PesVersion::Pes21);
         let mut view = TacticsView::default();
         let rows = fixture_rows(PesVersion::Pes21);
         let roster = roster_rows(&rows);
-        assert!(
-            tactics.bench_order.iter().any(|slot| {
+        let filled = tactics
+            .bench_order
+            .iter()
+            .filter(|slot| {
                 roster
-                    .get(usize::from(*slot))
-                    .is_none_or(|row| row.registered_position.is_none())
-            }),
-            "premise: the fixture's bench has an empty row"
-        );
-        let before = tactics.clone();
-        // The first bench row naming nobody, inside the list's viewport.
-        let empty_row = |nodes: &[accesskit::Node]| {
-            lineup_rows(nodes)
-                .iter()
-                .enumerate()
-                .skip(11)
-                .find(|(_, row)| row.get(2).and_then(|node| node.value()) == Some("(empty)"))
-                .map(|(index, _)| index)
-                .expect("an empty bench row is drawn")
-        };
-        let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-        let empty = empty_row(&nodes);
+                    .get(usize::from(**slot))
+                    .is_some_and(|row| row.registered_position.is_some())
+            })
+            .count();
+        assert_eq!(filled, 12, "premise: team 701's bench holds 12 players");
 
-        // Dragging an empty row onto a starter changes nothing.
-        let changed = window.drag_lineup(
-            row_centre(&nodes, empty),
-            row_centre(&nodes, 5),
-            PesVersion::Pes21,
-            &mut tactics,
-            &mut view,
-            &roster,
-        );
-        assert!(!changed, "an empty row is no drag source");
-        assert_eq!(tactics, before, "and nothing moved");
-
-        // A starter dropped on an empty row changes nothing.
         let (nodes, _) = window.lineup(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
-        let empty = empty_row(&nodes);
-        let changed = window.drag_lineup(
-            row_centre(&nodes, 5),
-            row_centre(&nodes, empty),
-            PesVersion::Pes21,
-            &mut tactics,
-            &mut view,
-            &roster,
+        let rows = lineup_rows(&nodes);
+        assert_eq!(
+            rows.len(),
+            11 + filled,
+            "the bench list's rows are the filled entries alone"
         );
-        assert!(!changed, "an empty row takes no starter");
-        assert_eq!(tactics, before, "the eleven keeps its player");
+        assert!(
+            rows.iter()
+                .all(|row| row.get(2).and_then(|node| node.value()) != Some("(empty)")),
+            "no (empty) row is drawn"
+        );
     }
 
     // The XI rows' position labels read the preset's formation on screen:

@@ -222,7 +222,7 @@ impl StudioTool for Tool {
                 },
                 HelpTopic {
                     slug: "team",
-                    title: "The team bar, Team settings and the Team menu",
+                    title: "The team view and the Team menu",
                     body: include_str!("../help/05_team.md"),
                 },
                 HelpTopic {
@@ -237,7 +237,7 @@ impl StudioTool for Tool {
                 },
                 HelpTopic {
                     slug: "tactics",
-                    title: "The Tactics tab",
+                    title: "The Tactics editor",
                     body: include_str!("../help/08_tactics.md"),
                 },
             ],

@@ -1,68 +1,91 @@
-//! The quick actions column (`plans/save_editor.md` "Configurable AATF rules",
-//! the Quick actions bullet; the draft's `quickActions`): the third block of
-//! the Abilities & Skills tab's top row, one "Make <tier>" button per tier
-//! of the active ruleset in its order, each a `Session::apply_tier` as one
-//! undoable edit, then the Set stats row with its number — the Player menu's
-//! Set all stats in one click, 40 to 99 — and `AATF…`. A rules file that
-//! does not load leaves Set stats alone in the column, the load error in
-//! the tier buttons' place as the Cards left row shows it; a failed `apply_tier`
-//! leaves the player as he was and shows the error in the refusal dialog.
+//! The quick actions (`plans/save_editor.md` "Configurable AATF rules", the
+//! Quick actions bullet; the draft's `qagrid`): a two-column grid under the
+//! player list, one "Make <tier>" button per tier of the active ruleset in
+//! its order, each a `Session::apply_tier` as one undoable edit, then the
+//! Set stats cell — the Player menu's Set all stats in one click, 40 to 99.
+//! They act on the selected player, so a team row leaves them disabled with
+//! the reason on hover. A rules file that does not load leaves Set stats
+//! alone in the grid, the load error in the tier buttons' place as the
+//! Cards left row shows it; a failed `apply_tier` leaves the player as he
+//! was and shows the error in the refusal dialog. The floating AATF panel
+//! opens from the toolbar's Panels menu.
 
-use crate::view::{Refusal, SaveView, aatf_panel, rules_load_error, selected_player};
+use crate::view::{Refusal, SaveView, rules_load_error, selected_player};
 
-/// The column in the tab's top row; nothing when the selection names no
-/// rostered player (the header draws nothing then either).
+/// The disabled controls' tooltip on a team selection.
+const TEAM_TIP: &str = "The make buttons act on a player: pick a player row";
+
+/// The grid under the list; its controls disabled while the selection names
+/// no rostered player (a team row).
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
-    let Some((team_id, slot, player_id)) = selected_player(view) else {
-        return;
-    };
-    ui.strong("Quick actions");
-    if let Some(active) = view.rules.as_ref() {
-        match &active.rules {
-            Ok(rules) => {
-                for tier in &rules.ruleset().tiers {
-                    if ui
-                        .button(format!("Make {}", tier.label))
-                        .on_hover_text(format!(
-                            "The {} tier's values (the active ruleset)",
-                            tier.label
-                        ))
-                        .clicked()
-                        && let Some(session) = view.session.as_mut()
-                        && let Err(error) = session.apply_tier(rules, team_id, slot, &tier.id)
-                    {
-                        view.refusal = Some(Refusal {
-                            title: "Cannot apply the tier",
-                            message: format!("{error:#}"),
-                        });
+    let player = selected_player(view);
+    let enabled = player.is_some();
+    egui::Grid::new("save_editor_quick_actions")
+        .num_columns(2)
+        .show(ui, |ui| {
+            if let Some(active) = view.rules.as_ref() {
+                match &active.rules {
+                    Ok(rules) => {
+                        for (index, tier) in rules.ruleset().tiers.iter().enumerate() {
+                            let button = ui.add_enabled(
+                                enabled,
+                                egui::Button::new(format!("Make {}", tier.label)),
+                            );
+                            let response = if enabled {
+                                button.on_hover_text(format!(
+                                    "The {} tier's values (the active ruleset)",
+                                    tier.label
+                                ))
+                            } else {
+                                button.on_disabled_hover_text(TEAM_TIP)
+                            };
+                            if response.clicked()
+                                && let Some((team_id, slot, _)) = player
+                                && let Some(session) = view.session.as_mut()
+                                && let Err(error) =
+                                    session.apply_tier(rules, team_id, slot, &tier.id)
+                            {
+                                view.refusal = Some(Refusal {
+                                    title: "Cannot apply the tier",
+                                    message: format!("{error:#}"),
+                                });
+                            }
+                            if index % 2 == 1 {
+                                ui.end_row();
+                            }
+                        }
+                    }
+                    Err(error) => {
+                        // Wrapped: the panel is narrow and the error names a path.
+                        ui.add(
+                            egui::Label::new(egui::RichText::new(rules_load_error(error)).weak())
+                                .wrap(),
+                        );
                     }
                 }
             }
-            Err(error) => {
-                // Wrapped: the column is narrow and the error names a path.
-                ui.add(
-                    egui::Label::new(egui::RichText::new(rules_load_error(error)).weak()).wrap(),
+            // Set stats with its number, in one cell.
+            ui.horizontal(|ui| {
+                let button = ui.add_enabled(enabled, egui::Button::new("Set stats"));
+                let response = if enabled {
+                    button.on_hover_text("Set every ability stat to the value next to this button")
+                } else {
+                    button.on_disabled_hover_text(TEAM_TIP)
+                };
+                if response.clicked()
+                    && let Some((_, _, player_id)) = player
+                    && let Some(session) = view.session.as_mut()
+                {
+                    session.set_all_stats(player_id, view.set_stats);
+                }
+                let field = ui.add_enabled(
+                    enabled,
+                    egui::DragValue::new(&mut view.set_stats).range(40..=99),
                 );
-            }
-        }
-    }
-    ui.horizontal(|ui| {
-        if ui
-            .button("Set stats")
-            .on_hover_text("Set every ability stat to the value next to this button")
-            .clicked()
-            && let Some(session) = view.session.as_mut()
-        {
-            session.set_all_stats(player_id, view.set_stats);
-        }
-        ui.add(egui::DragValue::new(&mut view.set_stats).range(40..=99));
-    });
-    if ui
-        .button("AATF\u{2026}")
-        .on_hover_text("The active ruleset's violations for this team")
-        .clicked()
-    {
-        view.aatf.open = true;
-        view.aatf.mode = aatf_panel::AatfMode::Current;
-    }
+                if !enabled {
+                    field.on_disabled_hover_text(TEAM_TIP);
+                }
+            });
+            ui.end_row();
+        });
 }

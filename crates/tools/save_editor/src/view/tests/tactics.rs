@@ -45,9 +45,8 @@ fn the_tactics_menus_copy_presets_and_swap_formations_as_undoable_edits() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1100.0, 900.0);
+    open_team_view(&mut window, &mut view, 701);
     let preset1_before = team_entry(&view, 701).tactics.presets[0].clone();
     let formations_before = team_entry(&view, 701).tactics.presets[0].formations.clone();
     let preset2_before = team_entry(&view, 701).tactics.presets[1].clone();
@@ -170,9 +169,8 @@ fn the_preset_selector_writes_nothing() {
     let path = fixture(PesVersion::Pes21, "tactics_preset_select");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1100.0, 900.0);
+    open_team_view(&mut window, &mut view, 701);
     assert_eq!(view.tactics.preset, 0, "preset 1 is on screen first");
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -214,9 +212,8 @@ fn the_copy_swap_menus_items_and_the_formation_copy() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1100.0, 900.0);
+    open_team_view(&mut window, &mut view, 701);
     let formations_before = team_entry(&view, 701).tactics.presets[0].formations.clone();
     assert_ne!(
         formations_before[0], formations_before[2],
@@ -328,9 +325,8 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_tab() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1600.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
     let index = 4;
     let before = team_entry(&view, 701).tactics;
     let slot_before = before.presets[0].formations[0].players[index];
@@ -466,9 +462,8 @@ fn the_formation_settings_wrap_inside_a_narrow_window() {
     let path = fixture(PesVersion::Pes21, "tactics_wrap");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(800.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let sliders: Vec<&accesskit::Node> = nodes
@@ -531,9 +526,8 @@ fn the_tactics_tab_is_three_columns_at_the_default_pane() {
     let path = fixture(PesVersion::Pes21, "tactics_three_columns");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let settings = label_bounds(&nodes, "Formation settings");
@@ -634,10 +628,9 @@ fn the_preset_bar_wraps_inside_the_settings_column() {
     let path = fixture(PesVersion::Pes21, "preset_bar_wrap");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
-    let pane = three_columns_width() + TAB_AREA_OFFSET;
+    let pane = three_columns_width() + VIEW_AREA_OFFSET;
     let mut window = Headless::sized(pane, DEFAULT_PANE.y);
+    open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let settings_left = label_bounds(&nodes, "Formation settings").x0;
@@ -691,9 +684,8 @@ fn the_target_combo_stays_inside_the_settings_column() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     // The named player's target combo shows the full text truncated —
@@ -724,9 +716,8 @@ fn the_tactics_tab_stacks_the_settings_below_at_the_smallest_pane() {
     let path = fixture(PesVersion::Pes21, "tactics_stacked");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(877.0, 1600.0);
+    open_team_view(&mut window, &mut view, 701);
     window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     // A second frame: the scroll area's claimed region lands a frame late
     // — an over-wide claim would widen the content's own rect on this
@@ -739,19 +730,14 @@ fn the_tactics_tab_stacks_the_settings_below_at_the_smallest_pane() {
         settings.y0 > canvas.y1,
         "the settings column below the canvas (settings {settings:?}, canvas {canvas:?})"
     );
-    // And below the bench list's bottom edge as drawn: the bench scroll's
-    // bar (the lists' right side — the starting eleven's 11 rows never
-    // scroll, the tab's own bar would sit at the pane's right edge). The
-    // rows' nodes run to the scrolled-off end of the list, so the bar's
-    // track bottom is the measure, not the last row's node.
-    let bench_bottom = nodes
+    // And below the bench list's bottom edge as drawn: its last row's
+    // bottom (the bench shows the players only, so it never scrolls).
+    let bench_bottom = lineup_names(&nodes)[11..]
         .iter()
-        .filter(|node| node.role() == Role::ScrollBar)
         .filter_map(|node| node.bounds())
-        .filter(|bounds| bounds.x0 > canvas.x1 && bounds.x0 < canvas.x1 + 260.0)
         .map(|bounds| bounds.y1)
         .fold(0.0, f64::max);
-    assert!(bench_bottom > 0.0, "the bench list scrolls (premise)");
+    assert!(bench_bottom > 0.0, "the bench rows are drawn (premise)");
     assert!(
         settings.y0 > bench_bottom,
         "and below the last bench row in view (settings {settings:?}, bench list bottom {bench_bottom})"
@@ -782,8 +768,6 @@ fn the_pitch_draws_a_starter_s_portrait_from_the_selected_game() {
     std::fs::write(&path, fixture_save(PesVersion::Pes21)).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     // A portrait for the starter of position index 4, at his player id's
     // CPK path, in the one listed CPK.
     let starter = usize::from(team_entry(&view, 701).tactics.starting_eleven[4]);
@@ -795,6 +779,7 @@ fn the_pitch_draws_a_starter_s_portrait_from_the_selected_game() {
         &[("4cc_40_faces.cpk", &[(entry.as_str(), bytes)])],
     );
     let mut window = Headless::sized(1100.0, 900.0);
+    open_team_view(&mut window, &mut view, 701);
     view.select_portraits(&window.ctx, &folder, PesVersion::Pes21);
 
     // Bounded: the worker answers off the UI thread, so frames poll with a
@@ -863,9 +848,8 @@ fn the_automatic_settings_and_the_note_wrap_inside_a_narrow_window() {
     let path = fixture(PesVersion::Pes21, "tactics_wrap2");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(800.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let substitution = control_right_of(&nodes, "Substitution");
@@ -900,10 +884,9 @@ fn the_settings_widgets_keep_their_ids_across_three_columns() {
     let path = fixture(PesVersion::Pes21, "settings_ids");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
 
     let mut wide = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_team_view(&mut wide, &mut view, 701);
     let (_, ids, _) = wide.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let support_range = node_id_right_of(&ids, "Support range", Role::Slider);
 
@@ -931,21 +914,20 @@ fn three_columns_width() -> f32 {
 
 // `three_columns`' edge: the pane whose tab area is exactly
 // `PITCH.x + LISTS_WIDTH + SETTINGS_MIN + 2 gaps` (the constant plus
-// `TAB_AREA_OFFSET`) is three columns, and one point narrower stacks
+// `VIEW_AREA_OFFSET`) is three columns, and one point narrower stacks
 // the settings below.
 #[test]
 fn the_tactics_tab_switches_arrangement_at_three_columns() {
     let three_columns = three_columns_width();
     for (width, three) in [
-        (three_columns + TAB_AREA_OFFSET, true),
-        (three_columns + TAB_AREA_OFFSET - 1.0, false),
+        (three_columns + VIEW_AREA_OFFSET, true),
+        (three_columns + VIEW_AREA_OFFSET - 1.0, false),
     ] {
         let path = fixture(PesVersion::Pes21, "three_columns_edge");
         let mut view = SaveView::new();
         view.open(&path);
-        view.tab = Tab::Tactics;
-        view.selected = Some((701, 0));
         let mut window = Headless::sized(width, 1400.0);
+        open_team_view(&mut window, &mut view, 701);
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
         let settings = label_bounds(&nodes, "Formation settings");
@@ -971,9 +953,8 @@ fn the_lists_start_one_gap_right_of_the_canvas() {
     let path = fixture(PesVersion::Pes21, "lists_left_edge");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_team_view(&mut window, &mut view, 701);
     let (gap, nodes, _) = window.frame(Vec::new(), |ui| {
         let gap = ui.spacing().item_spacing.x;
         show(ui, &mut view, &|| Vec::new(), None);
@@ -996,9 +977,8 @@ fn the_stacked_settings_start_one_gap_below_the_columns() {
     let path = fixture(PesVersion::Pes21, "stacked_top_gap");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(877.0, 624.0);
+    open_team_view(&mut window, &mut view, 701);
     let ((margin, spacing_y), nodes, _) = window.frame(Vec::new(), |ui| {
         let margin = egui::Frame::group(ui.style()).total_margin().bottom;
         let spacing_y = ui.spacing().item_spacing.y;
@@ -1038,9 +1018,8 @@ fn the_stacked_tab_scrolls_to_its_last_control() {
     let path = fixture(PesVersion::Pes21, "stacked_scroll_bottom");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(877.0, 624.0);
+    open_team_view(&mut window, &mut view, 701);
 
     let at = egui::pos2(300.0, 350.0);
     for _ in 0..40 {
@@ -1070,11 +1049,11 @@ fn the_stacked_tab_scrolls_to_its_last_control() {
 // plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
 // layout" (the window's 960 × 600 minimum, ST-WIN-01's last clause): the
 // pane the minimum window leaves — (960 - 56) wide, the sidebar's rail
-// off, and (600 - 24) high, the status bar's — holds every tab whole:
+// off, and (600 - 24) high, the status bar's — holds every view whole:
 // every widget and label ends inside the pane's right edge, no row
 // clipping in place of a wrap.
 #[test]
-fn every_tab_fits_the_pane_the_minimum_window_leaves() {
+fn every_view_fits_the_pane_the_minimum_window_leaves() {
     /// The widget and label roles, plus `Unknown` (the pitch canvas'
     /// role).
     const NODE_ROLES: [Role; 12] = [
@@ -1091,26 +1070,26 @@ fn every_tab_fits_the_pane_the_minimum_window_leaves() {
         Role::Label,
         Role::Unknown,
     ];
-    const TABS: [(Tab, &str); 4] = [
-        (Tab::Abilities, "Abilities"),
-        (Tab::Appearance, "Appearance"),
-        (Tab::Tactics, "Tactics"),
-        (Tab::TeamSettings, "Team settings"),
-    ];
     // The pane the minimum window leaves.
     let pane = egui::vec2(960.0 - 56.0, 600.0 - 24.0);
     let edge = f64::from(pane.x - PANEL_MARGIN);
+    // Each selection kind: the player view (the Appearance section closed
+    // as it opens, then open) and the team view.
     for version in [PesVersion::Pes21, PesVersion::Pes17] {
         let path = fixture(version, "min_pane_fit");
-        for (tab, name) in TABS {
+        for name in ["player", "appearance", "team"] {
             let mut view = SaveView::new();
             view.open(&path);
-            view.tab = tab;
             // A Fox save with some players stripped and some restored opens
-            // the Strip again window (SE-GUI-20); closed, the tab's own
+            // the Strip again window (SE-GUI-20); closed, the view's own
             // nodes are the only ones measured.
             view.strip_again = None;
             let mut window = Headless::sized(pane.x, pane.y);
+            match name {
+                "appearance" => open_appearance(&mut window, &mut view),
+                "team" => open_team_view(&mut window, &mut view, 701),
+                _ => {}
+            }
             // Three frames: the scroll's claimed content size lands a
             // frame late.
             let mut nodes = Vec::new();

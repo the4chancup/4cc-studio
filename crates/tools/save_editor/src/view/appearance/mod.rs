@@ -1,9 +1,9 @@
-//! The Appearance tab (`plans/save_editor.md` "Editing UI", the Appearance
+//! The Appearance section (`plans/save_editor.md` "Editing UI", the Appearance
 //! bullet and "Read-only aesthetics"; the draft's `appearanceTab` and
 //! `paletteRow`): the Cutscenes group first (star and playing attitude,
 //! which change only cutscenes and so sit outside the lock), then the
 //! groups — Edit flags, Physique, Strip style, Motion, Colours. With the
-//! "Aesthetics from exports" setting off the tab edits as every other does;
+//! "Aesthetics from exports" setting off the section edits as every other does;
 //! with it on, the ownership line and the "Edit aesthetics anyway" switch
 //! (`SaveView`'s `edit_aesthetics`, off at every start of the tool) draw
 //! over the groups, every control disabled under the ownership line as
@@ -65,7 +65,8 @@ pub(super) const PLAYER_GLOVES_LABEL: &str = "Player gloves";
 /// The dribbling motion's number.
 pub(super) const DRIBBLING_MOTION_LABEL: &str = "Dribbling motion";
 
-/// The tab for the selected player, under `info_strip`'s header.
+/// The Appearance section's content for the selected player, inside the
+/// player view's collapsing section.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((_, _, player_id)) = selected_player(view) else {
         return;
@@ -93,9 +94,12 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         };
         (file.version(), is_stripped(file, player_id), player.clone())
     };
-    // Every widget id under the tab is the player's within this open, as on
-    // the Abilities tab.
-    ui.push_id((generation, player_id), |ui| {
+    // Every widget id under the section is the player's within this open,
+    // its own salt since it draws beside the Abilities & Skills content
+    // (whose `push_id` salts the same pair): two scopes with one salt would
+    // hand two widgets one id — an in-progress edit and its undo key would
+    // cross between the sections.
+    ui.push_id(("appearance", generation, player_id), |ui| {
         cutscenes(ui, session, player_id, &player.stats);
         if setting {
             ownership_line(ui, version);

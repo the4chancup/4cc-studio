@@ -1,8 +1,9 @@
-The team bar above the tabs edits the selected player's team's name,
-three-letter short name and two colours. The **Team settings** tab holds the
-manager and stadium IDs and the kit slot assignments (PES 2017 only). A field
-the save's version does not hold stays in its place, disabled, with a note
-naming the first version that has it.
+Clicking a team's row in the list opens the team view: the team's name,
+three-letter short name and two colours on the first lines, then the manager and
+stadium IDs with the **Kit slots…** button, and the Tactics below. **Kit
+slots…** opens the kit slot assignments in a dialog (PES 2017 only) and closes
+on OK. A field the save's version does not hold stays in its place, disabled,
+with a note naming the first version that has it.
 
 The name and short name fields keep only what the save can hold: the name up
 to the save's byte limit (an accented letter counts more than one), the short
@@ -27,12 +28,12 @@ roster slot in one undoable step:
 - **Set FPC invisibility** writes the hide preset on every player of the
   team: long sleeves, a tucked shirt and short socks, and a boots or gloves
   ID of 0 takes the hide ID from Settings (55 and 11 unless changed, while a
-  model's own ID is kept, as on the Appearance tab). **Remove FPC
+  model's own ID is kept, as in the Appearance section). **Remove FPC
   invisibility** writes the show preset on them all. On PES 2015 to 2017
   both also turn a Custom skin into Light.
 
 The boots and gloves item, Clear visual flags and the FPC items stay
-disabled while the aesthetics lock is on (see the Appearance tab), because
+disabled while the aesthetics lock is on (see the Appearance section), because
 they write what the team's export owns and a hand edit would be overwritten
 the next time the team is recompiled or patched. Ctrl+F does nothing while
 the lock is on.

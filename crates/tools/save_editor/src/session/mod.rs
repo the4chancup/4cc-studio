@@ -425,6 +425,24 @@ impl Session {
             .is_some_and(|player| self.baseline_players.get(&player.id) != Some(player))
     }
 
+    /// Whether the team `team_id`'s own entry differs from the baseline:
+    /// its fields, tactics and kit slots, but not the roster slots' shirt
+    /// numbers — a slot's number stays the player's dot (`plans/
+    /// save_editor.md` "Editing UI", the Player list and Unsaved changes
+    /// bullets).
+    pub(crate) fn team_dirty(&self, team_id: u32) -> bool {
+        let (Some(team), Some(baseline)) =
+            (self.file.team(team_id), self.baseline_teams.get(&team_id))
+        else {
+            return false;
+        };
+        let mut masked = team.clone();
+        for (slot, baseline_slot) in masked.roster.iter_mut().zip(&baseline.roster) {
+            slot.number = baseline_slot.number;
+        }
+        masked != *baseline
+    }
+
     /// The baseline entry of the player `id` (the file as opened or last
     /// saved), `None` when the baseline holds none: the unsaved-changes
     /// rows' old side where `compare_players` emits none (the appearance
@@ -916,6 +934,40 @@ mod tests {
             .ingame_face
             .get(field)
             .unwrap()
+    }
+
+    // plans/save_editor.md "Editing UI", the Player list and Unsaved
+    // changes bullets: the team row's dot covers the team's own entry —
+    // a player's edit does not set it, and an edit undone back to the
+    // saved state clears it.
+    #[test]
+    fn team_dirty_covers_the_teams_own_fields_alone() {
+        let mut session = open(PesVersion::Pes17, "team_dirty");
+        assert!(!session.team_dirty(701), "a fresh save is clean");
+
+        // A short-name edit marks the team; one undo clears it again.
+        let mut edited = session.file().team(701).unwrap().clone();
+        edited.short_name = "XYZ".to_owned();
+        session.edit_team(0, edited);
+        assert!(session.team_dirty(701), "the short-name edit marks it");
+        assert!(session.undo());
+        assert!(!session.team_dirty(701), "undone back clears it");
+
+        // A roster slot's shirt number stays the player's dot: the team's
+        // is not set.
+        let mut numbered = session.file().team(701).unwrap().clone();
+        numbered.roster[0].number += 1;
+        session.edit_team(0, numbered);
+        assert!(!session.team_dirty(701), "a shirt number is not the team's");
+        assert!(session.player_dirty(701, 0), "it is the player's");
+        assert!(session.undo());
+
+        // A player's edit does not mark his team.
+        let mut player = session.file().player(70101).unwrap().clone();
+        player.name = "RENAMED".to_owned();
+        session.edit_player(0, player);
+        assert!(session.player_dirty(701, 0), "the edit is the player's");
+        assert!(!session.team_dirty(701), "the team's stays clear");
     }
 
     // plans/save_editor.md "Editing UI", the Player list bullet: the move

@@ -8,9 +8,10 @@ use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 use egui::accesskit::{self, Role};
+use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::TeamEntry;
 use pes_savefile::model::ingame_face::IngameFace;
-use pes_savefile::model::names::name_spans;
+use pes_savefile::model::names::{display_name, name_spans};
 use pes_savefile::model::tactics::FormationSlot;
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::{EditFile, fixture_save};
@@ -316,13 +317,137 @@ fn row<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
 }
 
 /// Whether `node` is a player row of the list (`{number} {position} …`): a
-/// Button whose label starts with the shirt number's digit.
+/// Button whose label's second word is a position. A team row's label
+/// (`{id} {name}`) starts with a digit too, but its second word is the
+/// team's name.
 fn player_row(node: &accesskit::Node) -> bool {
     node.role() == Role::Button
         && node
             .label()
-            .and_then(|label| label.chars().next())
-            .is_some_and(|c| c.is_ascii_digit())
+            .and_then(|label| label.split_whitespace().nth(1))
+            .is_some_and(|word| word == "?" || POSITIONS.contains(&word))
+}
+
+/// The team row's node (`{id} {display name}`): `team_id`'s own row in the
+/// list.
+fn team_row<'a>(
+    nodes: &'a [accesskit::Node],
+    view: &SaveView,
+    team_id: u32,
+) -> &'a accesskit::Node {
+    let name = view
+        .session
+        .as_ref()
+        .and_then(|session| session.file().team(team_id))
+        .map(|team| display_name(&team.name))
+        .unwrap_or_else(|| panic!("no team {team_id}"));
+    let label = format!("{team_id} {name}");
+    nodes
+        .iter()
+        .find(|node| node.role() == Role::Button && node.label() == Some(label.as_str()))
+        .unwrap_or_else(|| panic!("no team row {label:?}"))
+}
+
+/// A click on `team_id`'s row in the list: the team view's selection.
+fn open_team_view(window: &mut Headless, view: &mut SaveView, team_id: u32) {
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    click(window, team_row(&nodes, view, team_id), view);
+    assert_eq!(
+        view.selected,
+        Some(Selection::Team(team_id)),
+        "the click selected team {team_id}'s row"
+    );
+}
+
+/// The Appearance section opened by its header's click (already open: no
+/// click, which would close it). The click goes through the AccessKit
+/// action: the header sits below the fold on small panes, where a pointer
+/// click cannot reach it.
+fn open_appearance(window: &mut Headless, view: &mut SaveView) {
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    let (id, expanded) = pairs
+        .iter()
+        .find(|(_, node)| {
+            node.role() == Role::DisclosureTriangle && node.label() == Some("Appearance")
+        })
+        .map(|(id, node)| (*id, node.is_expanded()))
+        .expect("the Appearance section's header");
+    if expanded != Some(true) {
+        action_click(window, view, id);
+    }
+}
+
+/// Frames scrolling the detail pane until `target`'s node is drawn inside
+/// the scroll's clip, bounded: a control below or above the fold takes
+/// pointer clicks and hovers only once the clip covers it. `target` names
+/// the node the caller then clicks, hovers or types into (its `bounds`
+/// change as the pane scrolls, so it is found again on the returned frame).
+fn scroll_into_view(
+    window: &mut Headless,
+    view: &mut SaveView,
+    target: impl Fn(&accesskit::Node) -> bool,
+) -> Vec<accesskit::Node> {
+    // The pointer rests inside the scroll's clip: the MouseWheel scrolls
+    // the pane under it, never the list's.
+    let at = egui::pos2(600.0, 400.0);
+    // egui spreads a wheel delta of 8 points or more over the next frames
+    // (`WheelState::after_events`, not configurable), so the target found
+    // inside the clip may still be moving: it is returned only once its
+    // bounds held for a frame, else a hover or click lands where it was.
+    let mut last = None;
+    for _ in 0..48 {
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        // The clip the detail's ScrollArea leaves the rows: the rightmost
+        // bar's span when it exists, the window's own otherwise.
+        let clip = nodes
+            .iter()
+            .filter(|node| node.role() == Role::ScrollBar)
+            .filter_map(|node| node.bounds())
+            .max_by(|a, b| a.x0.partial_cmp(&b.x0).expect("ordered bounds"))
+            .map(|bounds| (bounds.y0, bounds.y1))
+            .unwrap_or((0.0, f64::from(window.screen.y)));
+        let found = nodes.iter().find_map(|node| {
+            if target(node) {
+                node.bounds().map(|bounds| (node, bounds))
+            } else {
+                None
+            }
+        });
+        // The widget's centre inside the clip is what a click, a hover or
+        // a typed edit needs — the half above may clip and it still lands.
+        let settled = found.is_some_and(|(_, bounds)| last == Some(bounds));
+        last = found.map(|(_, bounds)| bounds);
+        if let Some((_, bounds)) = found
+            && (bounds.y0 + bounds.y1) / 2.0 >= clip.0
+            && bounds.y1 <= clip.1
+        {
+            if settled {
+                return nodes;
+            }
+            // Inside but still moving: a plain frame lets the wheel's rest
+            // apply before the target is looked at again.
+            continue;
+        }
+        // Below the fold: scroll down; above it (scrolled past): back up.
+        let delta = match found {
+            Some((_, bounds)) if (bounds.y0 + bounds.y1) / 2.0 < clip.0 => 400.0,
+            _ => -400.0,
+        };
+        window.frame(
+            vec![
+                egui::Event::PointerMoved(at),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, delta),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Wheel,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            |ui| show(ui, view, &|| Vec::new(), None),
+        );
+    }
+    panic!("the target never scrolled into view")
 }
 
 /// The painted text shape whose galley text starts with `starts_with`.
@@ -571,13 +696,13 @@ const DEFAULT_PANE: egui::Vec2 = egui::vec2(1224.0, 776.0);
 /// view's own each take one off the pane's edge.
 const PANEL_MARGIN: f32 = 8.0;
 
-/// What the editor's pane takes before a tab's content: a `Headless`
-/// window `w` wide gives the tab `w - TAB_AREA_OFFSET` of
-/// `available_width` (the two `CentralPanel`s' margins, the 200-wide
-/// player list, its separator and its frame margins; measured 2026-10-25
-/// at every drawn width — the tab reads exactly `w - 232` at 877, 1120,
-/// 1224 and 1440 inside the panel wrap).
-const TAB_AREA_OFFSET: f32 = 232.0;
+/// What the editor's pane takes before a view's content: a `Headless`
+/// window `w` wide gives the view `w - VIEW_AREA_OFFSET` of
+/// `available_width` (the two `CentralPanel`s' margins, the 240-wide
+/// player list, its separator and its frame margins; the 200 list's
+/// measured 232 was exact at 877, 1120, 1224 and 1440 — the draft's 240
+/// list adds its 40).
+const VIEW_AREA_OFFSET: f32 = 272.0;
 
 /// The bounds of the Label node showing `value` (a grid's label cell).
 fn label_bounds(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
@@ -887,7 +1012,7 @@ fn open_734_with(test: &str, ids: &[u32], height: u8) -> (SaveView, Headless) {
     let mut view = SaveView::new();
     view.open(&path);
     view.team = TeamChoice::Team(734);
-    view.selected = Some((734, 0));
+    view.selected = Some(Selection::Player(734, 0));
     let mut edits = Vec::new();
     for &id in ids {
         let mut entry = player_entry(&view, id);
@@ -921,7 +1046,7 @@ fn open_legal_714(test: &str, window: Headless) -> (SaveView, Headless) {
         .import_team(&document)
         .expect("the legal team imports");
     view.team = TeamChoice::Team(714);
-    view.selected = Some((714, 0));
+    view.selected = Some(Selection::Player(714, 0));
     (view, window)
 }
 

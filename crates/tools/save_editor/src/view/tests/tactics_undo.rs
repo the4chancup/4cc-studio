@@ -12,9 +12,8 @@ fn a_slider_drag_on_the_tab_is_one_undo_entry_and_marks_the_team() {
     let path = fixture(PesVersion::Pes21, "tactics_slider_drag");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1100.0, 900.0);
+    open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics.presets[0].sliders.clone();
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -55,13 +54,12 @@ fn a_bench_player_dragged_onto_a_starter_swaps_them_as_one_undo_entry() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1100.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let names = lineup_names(&nodes);
-    assert_eq!(names.len(), 32, "the eleven and the bench rows");
+    assert_eq!(names.len(), 23, "the eleven and the bench's 12 players");
     drag(&mut window, centre(names[11]), centre(names[8]), &mut view);
 
     let tactics = &team_entry(&view, 701).tactics;
@@ -116,9 +114,8 @@ fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
     let path = fixture(PesVersion::Pes21, "tactics_undo_keys");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1600.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics;
     let players = before.presets[0].formations[0].players;
     assert!(
@@ -220,9 +217,8 @@ fn a_typed_popover_edit_then_make_gk_undo_as_two_entries() {
     let path = fixture(PesVersion::Pes21, "tactics_undo_focus");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1600.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics;
     let players = before.presets[0].formations[0].players;
     let keeper = players
@@ -384,9 +380,8 @@ fn a_typed_x_then_a_slider_drag_undo_as_two_entries() {
     let path = fixture(PesVersion::Pes21, "tactics_undo_focus_drag");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1600.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics;
     let (index, _, _) = open_popover_and_focus_x(&mut window, &mut view);
     let slot_before = before.presets[0].formations[0].players[index];
@@ -481,9 +476,8 @@ fn a_typed_x_then_typing_into_y_undo_as_two_entries() {
     let path = fixture(PesVersion::Pes21, "tactics_undo_focus_move");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1600.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics;
     let (index, _x_id, y_id) = open_popover_and_focus_x(&mut window, &mut view);
     let slot_before = before.presets[0].formations[0].players[index];
@@ -565,9 +559,8 @@ fn a_value_typed_over_several_frames_is_one_undo_entry() {
     let path = fixture(PesVersion::Pes21, "tactics_undo_typing");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1600.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics;
     let (index, _x_id, _y_id) = open_popover_and_focus_x(&mut window, &mut view);
     let slot_before = before.presets[0].formations[0].players[index];
@@ -607,9 +600,8 @@ fn a_typed_substitution_then_a_slider_drag_undo_as_two_entries() {
     let path = fixture(PesVersion::Pes21, "tactics_undo_focus_drag2");
     let mut view = SaveView::new();
     view.open(&path);
-    view.tab = Tab::Tactics;
-    view.selected = Some((701, 0));
     let mut window = Headless::sized(1600.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics;
     let stored = before.auto.substitution.expect("PES 21 stores it");
 

@@ -98,9 +98,16 @@ fn strip(ui: &mut egui::Ui, session: &mut Session, team_id: u32, slot: u8, playe
     };
     let captain = stored_captain == slot;
     let (height, weight, age) = basics;
-    // The name as the tab's title, its colour codes drawn as the player
-    // list draws them (`append_name`), at the heading text style.
+    // `<id> <name>` as the view's title (the plan's "No view draws the
+    // tool's name" bullet): the id in the weak colour, the name's colour
+    // codes drawn as the player list draws them (`append_name`), all at
+    // the heading text style.
     let mut title = egui::text::LayoutJob::default();
+    title.append(
+        &format!("{player_id} "),
+        0.0,
+        egui::TextFormat::simple(egui::FontId::default(), ui.visuals().weak_text_color()),
+    );
     append_name(&mut title, &stored_name);
     let heading = egui::TextStyle::Heading.resolve(ui.style());
     for section in &mut title.sections {

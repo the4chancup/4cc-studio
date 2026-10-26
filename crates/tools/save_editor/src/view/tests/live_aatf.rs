@@ -337,7 +337,7 @@ fn the_dock_follows_the_open_team_and_the_rules_file() {
 
     // Another team picked, as the selector does: the dock re-checks it.
     view.team = TeamChoice::Team(714);
-    view.selected = Some((714, 0));
+    view.selected = Some(Selection::Player(714, 0));
     let nodes = live_checked(&mut window, &mut view, None, &[714]);
     assert!(
         nodes
@@ -356,7 +356,7 @@ fn the_dock_follows_the_open_team_and_the_rules_file() {
     // bracket also takes 183, so the two Height rows go and the red
     // quota is met.
     view.team = TeamChoice::Team(734);
-    view.selected = Some((734, 0));
+    view.selected = Some(Selection::Player(734, 0));
     let dir = view
         .session
         .as_ref()
@@ -389,7 +389,7 @@ fn at_all_the_dock_checks_the_selected_players_team() {
     let (mut view, mut window) = open_734_with("live_aatf_all", &[73401], 183);
     view.live_aatf = true;
     view.team = TeamChoice::All;
-    view.selected = Some((734, 0));
+    view.selected = Some(Selection::Player(734, 0));
     let nodes = live_checked(&mut window, &mut view, None, &[734]);
     assert!(
         nodes
@@ -425,11 +425,15 @@ fn a_rows_click_selects_the_player() {
     let nodes = live_checked(&mut window, &mut view, None, &[734]);
     // Another of 734's players selected first: a click that did nothing
     // would satisfy the assertion anyway.
-    view.selected = Some((734, 0));
+    view.selected = Some(Selection::Player(734, 0));
     click(
         &mut window,
         height_row_below(&nodes, "Player 73404  45 Yuki-kun ^~^"),
         &mut view,
     );
-    assert_eq!(view.selected, Some((734, 3)), "73404's team and slot");
+    assert_eq!(
+        view.selected,
+        Some(Selection::Player(734, 3)),
+        "73404's team and slot"
+    );
 }

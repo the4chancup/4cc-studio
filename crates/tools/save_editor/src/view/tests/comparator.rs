@@ -254,9 +254,13 @@ fn the_panel_lists_the_differences_per_team_and_a_rows_click_selects() {
     // The selector on another team: the click selects the player and
     // moves the selector to his, as the AATF panel's click does.
     view.team = TeamChoice::Team(718);
-    view.selected = Some((718, 0));
+    view.selected = Some(Selection::Player(718, 0));
     click(&mut window, row, &mut view);
-    assert_eq!(view.selected, Some((734, 0)), "73401's team and slot");
+    assert_eq!(
+        view.selected,
+        Some(Selection::Player(734, 0)),
+        "73401's team and slot"
+    );
     assert_eq!(view.team, TeamChoice::Team(734), "the selector moved");
 }
 
@@ -490,13 +494,17 @@ fn the_players_only_in_one_save_list_under_their_headings() {
     // The open-only head clicks as a row does (an AccessKit Click: the
     // scroll's animation keeps its bounds moving past the found frame, so
     // a pointer position can already be stale).
-    view.selected = Some((734, 0));
+    view.selected = Some(Selection::Player(734, 0));
     action_click(
         &mut window,
         &mut view,
         comparator_button(&pairs, "Player 73410  46 DFW").0,
     );
-    assert_eq!(view.selected, Some((734, slot)), "73410 selected");
+    assert_eq!(
+        view.selected,
+        Some(Selection::Player(734, slot)),
+        "73410 selected"
+    );
 }
 
 // SE-GUI-13
@@ -585,14 +593,18 @@ fn the_rows_group_per_team_in_the_open_saves_order() {
         "73410's row is not clickable"
     );
     view.team = TeamChoice::Team(718);
-    view.selected = Some((718, 0));
+    view.selected = Some(Selection::Player(718, 0));
     // 74301 alone stands at 189 in the fixture: his row's label is his.
     action_click(
         &mut window,
         &mut view,
         comparator_button(&pairs, "Height 189 \u{2192} 183").0,
     );
-    assert_eq!(view.selected, Some((734, 9)), "74301 on 734's slot");
+    assert_eq!(
+        view.selected,
+        Some(Selection::Player(734, 9)),
+        "74301 on 734's slot"
+    );
     assert_eq!(view.team, TeamChoice::Team(734), "the selector moved");
 }
 
@@ -646,13 +658,17 @@ fn a_stripped_players_mark_reads_beside_his_head() {
             // An AccessKit Click: the scroll's animation can keep a row's
             // bounds moving past the frame it was found on.
             view.team = TeamChoice::Team(718);
-            view.selected = Some((718, 0));
+            view.selected = Some(Selection::Player(718, 0));
             action_click(
                 &mut window,
                 &mut view,
                 comparator_button(&pairs, &expected).0,
             );
-            assert_eq!(view.selected, Some((701, 0)), "70101's team and slot");
+            assert_eq!(
+                view.selected,
+                Some(Selection::Player(701, 0)),
+                "70101's team and slot"
+            );
             assert_eq!(view.team, TeamChoice::Team(701), "the selector moved");
         }
     }

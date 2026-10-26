@@ -2,28 +2,17 @@ use super::*;
 
 use std::path::Path;
 
-/// The Quick actions column's buttons, top to bottom: every button between
-/// the "Quick actions" heading and its last button, `AATF…`, in (y, x)
-/// order — the Make buttons one per line, then Set stats, then `AATF…`.
-/// Left-aligned at the column's edge: a player row in the list shares the
-/// band and must not pass.
+/// The quick actions' buttons under the list, in (y, x) order: the Make
+/// buttons then Set stats, two columns (the draft's `qagrid`). A player
+/// row in the list above must not pass.
 fn quick_action_labels(nodes: &[accesskit::Node]) -> Vec<String> {
-    let heading = nodes
-        .iter()
-        .find(|node| node.role() == Role::Label && node.value() == Some("Quick actions"))
-        .and_then(accesskit::Node::bounds)
-        .expect("the Quick actions heading");
-    let bottom = node_labeled(nodes, Role::Button, "AATF\u{2026}")
-        .bounds()
-        .expect("bounds")
-        .y0;
     let mut buttons: Vec<&accesskit::Node> = nodes
         .iter()
         .filter(|node| {
             node.role() == Role::Button
-                && node.bounds().is_some_and(|b| {
-                    b.y0 >= heading.y0 - 1.0 && b.y0 <= bottom + 1.0 && b.x0 >= heading.x0 - 1.0
-                })
+                && node
+                    .label()
+                    .is_some_and(|label| label.starts_with("Make ") || label == "Set stats")
         })
         .collect();
     buttons.sort_by(|a, b| {
@@ -39,52 +28,35 @@ fn quick_action_labels(nodes: &[accesskit::Node]) -> Vec<String> {
         .collect()
 }
 
-/// The column's buttons are `expected` and no others, top to bottom —
-/// each on its own line, left edges aligned (the plan's column, not a
-/// row of buttons).
+/// The grid's buttons are `expected` and no others, in (y, x) order, two
+/// per row (the two-column grid).
 fn assert_quick_actions(nodes: &[accesskit::Node], expected: &[&str]) {
     assert_eq!(quick_action_labels(nodes), expected);
-    let heading_x = nodes
-        .iter()
-        .find(|node| node.role() == Role::Label && node.value() == Some("Quick actions"))
-        .and_then(accesskit::Node::bounds)
-        .map(|bounds| bounds.x0)
-        .expect("the Quick actions heading");
-    let mut last_y = f64::MIN;
-    for button in expected {
-        let node = node_labeled(nodes, Role::Button, button);
-        let bounds = node.bounds().expect("bounds");
-        assert!(bounds.y0 > last_y, "{button} on its own line");
-        assert!(
-            (bounds.x0 - heading_x).abs() < 1.0,
-            "{button}'s left edge at the column's ({bounds:?})"
-        );
-        last_y = bounds.y0;
+    for pair in expected.chunks(2) {
+        let row_y = node_labeled(nodes, Role::Button, pair[0])
+            .bounds()
+            .expect("bounds")
+            .y0;
+        for button in pair {
+            let bounds = node_labeled(nodes, Role::Button, button)
+                .bounds()
+                .expect("bounds");
+            assert!(
+                (bounds.y0 - row_y).abs() < 4.0,
+                "{button} shares {0}'s row ({bounds:?})",
+                pair[0]
+            );
+        }
     }
 }
 
-/// Label nodes in the Quick actions column above the Set stats row: the
-/// heading and, where the rules file fails, the load error standing in
-/// for the Make buttons.
+/// Label nodes inside the side panel (left of the detail pane's edge):
+/// the quick actions' band's load error standing in for the Make buttons.
+/// The detail view's own labels sit at its x and never pass.
 fn quick_action_row_labels(nodes: &[accesskit::Node]) -> Vec<&accesskit::Node> {
-    let row_y = nodes
-        .iter()
-        .find(|node| node.role() == Role::Label && node.value() == Some("Quick actions"))
-        .and_then(accesskit::Node::bounds)
-        .map(|bounds| bounds.y0)
-        .expect("the Quick actions heading");
-    let set_y = node_labeled(nodes, Role::Button, "Set stats")
-        .bounds()
-        .expect("bounds")
-        .y0;
     nodes
         .iter()
-        .filter(|node| {
-            node.role() == Role::Label
-                && node
-                    .bounds()
-                    .is_some_and(|b| b.y0 >= row_y - 1.0 && b.y0 < set_y - 1.0)
-        })
+        .filter(|node| node.role() == Role::Label && node.bounds().is_some_and(|b| b.x0 < 200.0))
         .collect()
 }
 
@@ -148,7 +120,7 @@ fn open_701(test: &str) -> (PathBuf, SaveView, Headless) {
     let path = fixture(PesVersion::Pes21, test);
     let mut view = SaveView::new();
     view.open(&path);
-    view.selected = Some((701, 0));
+    view.selected = Some(Selection::Player(701, 0));
     (path, view, Headless::sized(1100.0, 700.0))
 }
 
@@ -168,40 +140,76 @@ fn rules_file_under(dir: &Path, name: &str) -> PathBuf {
     path
 }
 
-// The quick actions on the Abilities & Skills tab alone: the column's
-// heading and its buttons there, neither on the other tabs.
+// The quick actions under the list on either selection (plans "Editing
+// UI", the Quick actions bullet): on a player row they act on him; on a
+// team row every control draws disabled with the reason on hover, and the
+// Player menu's entries the same. There is no "Quick actions" heading and
+// no `AATF…` button (the Panels menu opens the panel).
+// SE-GUI-37
 #[test]
-fn the_quick_actions_draw_on_the_abilities_tab_alone() {
-    let (_path, mut view, mut window) = open_701("quick_on_abilities");
-    for tab in [
-        Tab::Abilities,
-        Tab::Appearance,
-        Tab::Tactics,
-        Tab::TeamSettings,
+fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
+    let (_path, mut view, mut window) = open_701("quick_on_team_row");
+
+    // A player row: the controls are enabled.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        !nodes
+            .iter()
+            .any(|node| { node.role() == Role::Label && node.value() == Some("Quick actions") }),
+        "no heading"
+    );
+    for label in ["Make Gold", "Set stats"] {
+        assert!(
+            !node_labeled(&nodes, Role::Button, label).is_disabled(),
+            "{label} enabled on a player row"
+        );
+    }
+    assert!(
+        nodes
+            .iter()
+            .all(|node| node.label() != Some("AATF\u{2026}")),
+        "no AATF button"
+    );
+
+    // The team row: every control disabled with the tooltip, and the
+    // Player menu's entries the same.
+    open_team_view(&mut window, &mut view, 701);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let tip = "The make buttons act on a player: pick a player row";
+    for label in ["Make Gold", "Make Regular", "Set stats"] {
+        let button = node_labeled(&nodes, Role::Button, label);
+        assert!(button.is_disabled(), "{label} disabled on a team row");
+        assert_eq!(
+            tooltip_containing(&mut window, &mut view, centre(button), "make buttons"),
+            Some(tip.to_string()),
+            "{label}'s tooltip"
+        );
+    }
+    let field = set_stats_field(&nodes);
+    assert!(field.is_disabled(), "the number disabled too");
+    assert_eq!(
+        tooltip_containing(&mut window, &mut view, centre(field), "make buttons"),
+        Some(tip.to_string()),
+        "the number's tooltip"
+    );
+
+    let nodes = open_menu(&mut window, &mut view, "Player", "Set all stats");
+    for label in [
+        "Set all stats",
+        "Bump all stats",
+        "Toggle FPC settings",
+        "Copy stats from",
+        "Swap stats with",
+        "Generate settings.toml",
+        "Generate in-game face",
     ] {
-        view.tab = tab;
-        let (_, nodes, _) =
-            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-        if tab == Tab::Abilities {
-            assert!(
-                nodes.iter().any(|node| {
-                    node.role() == Role::Label && node.value() == Some("Quick actions")
-                }),
-                "the column's heading"
-            );
-            node_labeled(&nodes, Role::Button, "Make Gold");
-        } else {
-            assert!(
-                nodes.iter().all(|node| node.label() != Some("Make Gold")),
-                "no Make button on {tab:?}"
-            );
-            assert!(
-                !nodes.iter().any(|node| {
-                    node.role() == Role::Label && node.value() == Some("Quick actions")
-                }),
-                "no heading on {tab:?}"
-            );
-        }
+        let item = menu_item(&nodes, label);
+        assert!(item.is_disabled(), "{label} disabled on a team row");
+        assert_eq!(
+            tooltip_containing(&mut window, &mut view, centre(item), "acts on a player"),
+            Some("The Player menu acts on a player: pick a player row".to_string()),
+            "{label}'s tooltip"
+        );
     }
 }
 
@@ -221,7 +229,6 @@ fn the_quick_actions_apply_a_tier_as_one_undoable_edit() {
             "Make Goalkeeper",
             "Make Regular",
             "Set stats",
-            "AATF\u{2026}",
         ],
     );
 
@@ -290,7 +297,6 @@ fn the_quick_actions_follow_the_rules_files_tiers() {
             "Make Regular",
             "Make Buffed",
             "Set stats",
-            "AATF\u{2026}",
         ],
     );
 
@@ -323,7 +329,7 @@ fn set_stats_writes_every_ability_to_the_number() {
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
-    view.selected = Some((701, 0));
+    view.selected = Some(Selection::Player(701, 0));
     let mut window = Headless::sized(1100.0, 700.0);
     let before = player_entry(&view, 70101);
     assert_eq!(before.stats.speed, 60, "premise: the moved stat");
@@ -493,7 +499,6 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
             "Make Regular",
             "Make Buffed",
             "Set stats",
-            "AATF\u{2026}",
         ],
     );
 
@@ -534,7 +539,6 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
             "Make Goalkeeper",
             "Make Regular",
             "Set stats",
-            "AATF\u{2026}",
         ],
     );
 

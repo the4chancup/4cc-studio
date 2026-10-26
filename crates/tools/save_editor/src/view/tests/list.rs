@@ -17,7 +17,9 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
         .sum();
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::new();
+    // Tall enough for a team's row plus all of 701's 23 player rows (the
+    // team row eats one row's height).
+    let mut window = Headless::sized(800.0, 1100.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     // The team selector is the left panel's combo (the tab holds combos of
@@ -56,8 +58,8 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
         .collect();
     assert_eq!(items, expected, "the selector's entries");
 
-    // Click 701's entry: the list holds only its players (their rows name
-    // the team "/3/").
+    // Click 701's entry: the list holds only its players, headed by its
+    // own row (their rows name the team "/3/").
     let (_, nodes, _) =
         window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let (item, _) = nodes
@@ -406,7 +408,11 @@ fn a_row_dragged_above_another_trades_their_records_between_the_ids() {
     // Select another row first, so the selection following the dragged
     // record is not vacuous.
     click(&mut window, row(&nodes, "3 CB PLACEHOLDER"), &mut view);
-    assert_eq!(view.selected, Some((701, 2)), "premise: row 03 selected");
+    assert_eq!(
+        view.selected,
+        Some(Selection::Player(701, 2)),
+        "premise: row 03 selected"
+    );
 
     // Drag player 02's row above player 01's.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -421,7 +427,7 @@ fn a_row_dragged_above_another_trades_their_records_between_the_ids() {
     assert_eq!(&labels[..2], ["1 CB SECOND ●", "2 CB FIRST ●"]);
     assert_eq!(
         view.selected,
-        Some((701, 0)),
+        Some(Selection::Player(701, 0)),
         "the selection sits on the dropped record's slot"
     );
 
@@ -460,10 +466,12 @@ fn a_row_dragged_above_another_trades_their_records_between_the_ids() {
     );
 }
 
-// SE-GUI-08: drag reorder is a one-team list's control; under ALL the same
-// drag changes nothing (neighbouring rows are not one team's slots).
+// SE-GUI-08 (the plan's Player list bullet: under ALL each team's rows run
+// unbroken under its team row): a drop on a row of the dragged player's own
+// team moves him as in one team's list; a drop on another team's row or on
+// a team row does nothing.
 #[test]
-fn under_all_a_row_drag_changes_nothing() {
+fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     let path = fixture(PesVersion::Pes21, "drag_reorder_all");
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
     file.player_mut(70101).unwrap().name = "FIRST".to_owned();
@@ -473,17 +481,45 @@ fn under_all_a_row_drag_changes_nothing() {
     let mut view = SaveView::new();
     view.open(&path);
     assert_eq!(view.team, TeamChoice::All, "open selects ALL");
-    let mut window = Headless::new();
+    // Tall enough for team 702's block to be drawn under team 701's.
+    let mut window = Headless::sized(800.0, 1100.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let before = row_labels(&nodes);
 
+    // A drag onto another team's row: nothing moves.
+    let before = row_labels(&nodes);
+    let from = centre(row(&nodes, "2 CB /3/ SECOND"));
+    let other = centre(row(&nodes, "1 CB /a/ PLACEHOLDER"));
+    drag(&mut window, from, other, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        row_labels(&nodes),
+        before,
+        "a drop on another team's row moved nothing"
+    );
+    assert!(!view.session.as_ref().unwrap().is_dirty());
+
+    // A drag onto the team row: nothing moves.
+    let from = centre(row(&nodes, "2 CB /3/ SECOND"));
+    let onto = centre(team_row(&nodes, &view, 701));
+    drag(&mut window, from, onto, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        row_labels(&nodes),
+        before,
+        "a drop on the team row moved nothing"
+    );
+    assert!(!view.session.as_ref().unwrap().is_dirty());
+    assert!(!view.session.as_ref().unwrap().can_undo());
+
+    // A drag onto the player's own team's row: the records trade, as in
+    // one team's list.
     let from = centre(row(&nodes, "2 CB /3/ SECOND"));
     let onto = centre(row(&nodes, "1 CB /3/ FIRST"));
     drag(&mut window, from, onto, &mut view);
-
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert_eq!(row_labels(&nodes), before, "the list is unchanged");
-    let session = view.session.as_ref().expect("the save is open");
-    assert!(!session.is_dirty());
-    assert!(!session.can_undo());
+    assert_eq!(
+        &row_labels(&nodes)[..2],
+        ["1 CB /3/ SECOND ●", "2 CB /3/ FIRST ●"],
+        "the drop on his own team moved him"
+    );
 }
