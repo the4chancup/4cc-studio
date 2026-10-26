@@ -187,7 +187,10 @@ fn named_paths(exports: &[PathBuf]) -> anyhow::Result<Vec<(PathBuf, SourceKind)>
         .iter()
         .map(|path| match source_kind(path) {
             Some(kind) => Ok((path.clone(), kind)),
-            None => anyhow::bail!("--export {}: not a folder, .zip or .7z", path.display()),
+            None => anyhow::bail!(
+                "--export {} is not a folder, a .zip or a .7z file",
+                path.display()
+            ),
         })
         .collect()
 }
@@ -464,7 +467,7 @@ mod tests {
         assert_eq!(
             error.to_string(),
             format!(
-                "--export {}: not a folder, .zip or .7z",
+                "--export {} is not a folder, a .zip or a .7z file",
                 root.join("gone.txt").display()
             )
         );

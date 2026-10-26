@@ -39,10 +39,10 @@ fn an_export_path_that_is_missing_or_no_archive_is_an_invalid_invocation() {
     for command in ["check", "compile"] {
         let missing = sandbox.arg("no_such_export");
         let run = sandbox.run("", &[command, "--export", &missing]);
-        run.assert_refused(2, &[&missing, "no such folder or file"]);
+        run.assert_refused(2, &[&missing, "does not exist"]);
         let not_archive = sandbox.arg("notes.txt");
         let run = sandbox.run("", &[command, "--export", &not_archive]);
-        run.assert_refused(2, &[&not_archive, "not a folder, .zip or .7z"]);
+        run.assert_refused(2, &[&not_archive, "is not a folder, a .zip or a .7z file"]);
     }
 }
 
@@ -53,7 +53,7 @@ fn an_absolute_exports_folder_setting_naming_a_missing_folder_is_refused_in_plai
     let missing = sandbox.root.join("elsewhere").join("exports");
     let settings = format!("[common]\nexports_folder_path = '{}'\n", missing.display());
     let sentence = format!(
-        "the exports folder {} does not exist: create it and put your exports inside, or set \
+        "the exports folder {} does not exist. Create it and put your exports inside, or set \
          exports_folder_path in {} to the folder that holds them",
         missing.display(),
         sandbox.root.join("data").join("settings.toml").display()
@@ -100,7 +100,10 @@ fn a_setting_of_the_wrong_type_is_a_configuration_error_naming_it() {
         "[team-compiler]\nstrict_file_type_check = \"yes\"\n",
         &["check"],
     );
-    run.assert_refused(2, &["settings [team-compiler]", "strict_file_type_check"]);
+    run.assert_refused(
+        2,
+        &["the [team-compiler] settings", "strict_file_type_check"],
+    );
     let Err(error) = &run.result else {
         unreachable!("assert_refused checked the refusal")
     };

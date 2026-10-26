@@ -2561,3 +2561,5 @@ worklog passed 7,000 lines.
   rewritten as sentences that flow (115 texts, five SWE-2 rounds), the meaning kept.
 - **2026-10-26** — 8.29c3: the Team compiler's format-check and structure-pass rows rewritten as sentences that flow
   (58 texts), the Export upgrader's 13 copies of the structure-pass conditions following word for word.
+- **2026-10-26** — 8.29c4a: the Team compiler's command-line refusals, `--help` and window status lines rewritten as
+  sentences that flow (20 texts); the window's settings note now points at the settings menu, which had shipped.

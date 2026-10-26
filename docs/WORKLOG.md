@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 to c3 done; 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 to c3 and c4a done; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2187,8 +2187,26 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         loop's end.
         Table `.tmp/8_29/c3_table.md`. Files: `team_compiler/src/messages{,/catalog}.rs`,
         `export_upgrader/src/messages.rs`
-      - [ ] c4 the Team compiler's CLI output and `--help` (`cli.rs`), `help/01_command_line.md`
-        and the window's strings (`view/mod.rs`, `gui_run.rs`)
+      - [ ] c4 the Team compiler's CLI output, `--help`, window strings and help chapter, in three
+        slices (the chapter alone is 862 lines):
+        - [x] c4a the CLI's refusals and `--help` (`cli.rs`), the window's strings (`view/mod.rs`,
+          `gui_run.rs`): 20 texts rewritten, the tests pinning them following; the lead's three
+          follow-ups: the settings note, which said the settings menu "comes later" (it
+          shipped at 8.6c1), `reader/mod.rs`'s copy of the `--export` refusal, and the spec's
+          quote of the missing exports folder's refusal. Table `.tmp/8_29/c4a_table.md`.
+          Files: `team_compiler/src/{cli,gui_run,reader/mod,view/mod}.rs`, two `tests/cli/`
+          files, `docs/spec/team_compiler/messages.md`. SWE-2 round S1: 10 concerns, 3 accepted
+          (among them the download-folder refusal, which sent a member with the right PES
+          folder to change it), the loop's end; `libs/fpc`'s hide-ID refusals keep a
+          "key = value: must be" shape, for whoever holds that crate
+        - [ ] c4b `help/01_command_line.md`, its first half (to a paragraph boundary near line 430)
+        - [ ] c4c `help/01_command_line.md`, its second half; the catalog slices' notes on its
+          prose (lines 177, 217, 513, 563, 589, 602, 707, 727, 740, 855: wording the catalog
+          now says differently) are in side-lead U's notes file
+        - [ ] c4d the crate's other texts a member reads on the terminal: the `with_context` and
+          `bail!` texts of `upgrade.rs`, `compile.rs` and the like, printed as `error: ...`
+          beside the refusals c4a rewrote (`{}: cannot rename {from} to it: the file already
+          exists`; review S1c4a-9)
       - [ ] c5 the Export upgrader's catalog (its own `effect`s and rows), `cli.rs` and
         `help/01_command_line.md`
       - [ ] c6 the injected comments: they live in `pes_savefile` (`settings_toml/`, the

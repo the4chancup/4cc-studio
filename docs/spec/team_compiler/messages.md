@@ -645,7 +645,7 @@ exports folder) are surfaced by the settings UI and CLI argument validation befo
 not as pipeline messages. Their text is a sentence written for the user, naming the path and what
 to do, never a bare OS error (`The system cannot find the path specified. (os error 3)` is what a
 missing exports folder printed in Phase 3's shell slice). A missing exports folder reads
-`the exports folder <path> does not exist: create it and put your exports inside, or set
+`the exports folder <path> does not exist. Create it and put your exports inside, or set
 exports_folder_path in <settings file> to the folder that holds them`; when the path came from the
 command line, `the exports folder <path> given on the command line does not exist`. It is a
 configuration error (exit code 2). The relative default is created instead (`settings.md` "Path

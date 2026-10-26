@@ -47,10 +47,11 @@ enum TeamCompilerCommand {
 /// Which exports a run reads.
 #[derive(Debug, Args)]
 struct SourceArgs {
-    /// The folder holding the exports, for this run only; default: the exports_folder_path
-    /// setting.
+    /// The folder holding the exports, for this run only. Without it, the
+    /// exports_folder_path setting's folder is used.
     exports_root: Option<PathBuf>,
-    /// Only this export: a folder, .zip or .7z, anywhere on disk. Repeatable.
+    /// Only this export: a folder, a .zip or a .7z file, anywhere on disk. Repeat it to
+    /// name several exports.
     #[arg(long = "export", value_name = "PATH")]
     exports: Vec<PathBuf>,
 }
@@ -176,8 +177,9 @@ fn download_folder(common: &CommonSettings) -> Result<PathBuf, CliError> {
         return Ok(download);
     };
     Err(invalid(anyhow!(
-        "upgrade-dpfl works in the game's download folder, and {} is not a folder: set \
-         pes_folder_path to the folder PES is installed in",
+        "upgrade-dpfl works in the game's download folder, and {} is not a folder. Set \
+         pes_folder_path to the folder PES is installed in. If it already is, create the \
+         download folder in it",
         not_a_folder.display()
     )))
 }
@@ -214,7 +216,7 @@ fn output_mode(
 ) -> Result<OutputMode, CliError> {
     if no_deploy && mode != Mode::Normal {
         return Err(invalid(anyhow!(
-            "--no-deploy and --mode {} are incompatible: only a normal compile deploys",
+            "--no-deploy and --mode {} are incompatible, because only a normal compile deploys",
             mode_name(mode)
         )));
     }
@@ -232,7 +234,8 @@ fn sideload_mode(common: &CommonSettings) -> Result<OutputMode, CliError> {
     match common.pes_version {
         PesVersion::Pes15 | PesVersion::Pes16 => {
             return Err(invalid(anyhow!(
-                "--mode sideload is not available for {}: no sideloading runtime exists for it",
+                "--mode sideload is not available for {}, because no sideloading runtime \
+                 exists for it",
                 common.pes_version
             )));
         }
@@ -245,7 +248,7 @@ fn sideload_mode(common: &CommonSettings) -> Result<OutputMode, CliError> {
     let pes_folder = common.pes_folder();
     if !pes_folder.is_dir() {
         return Err(invalid(anyhow!(
-            "--mode sideload writes into the PES folder, and {} is not a folder: set \
+            "--mode sideload writes into the PES folder, and {} is not a folder. Set \
              pes_folder_path to the folder PES is installed in",
             pes_folder.display()
         )));
@@ -270,13 +273,13 @@ fn check_export_paths(paths: &[PathBuf]) -> Result<(), CliError> {
         }
         if !path.exists() {
             return Err(invalid(anyhow!(
-                "--export {}: no such folder or file",
+                "--export {} does not exist",
                 path.display()
             )));
         }
         if !is_archive(path) {
             return Err(invalid(anyhow!(
-                "--export {}: not a folder, .zip or .7z",
+                "--export {} is not a folder, a .zip or a .7z file",
                 path.display()
             )));
         }
@@ -293,7 +296,7 @@ fn read_settings(
     // A toml error's text ends with a newline, which would leave a blank line under `error: `.
     let settings = from_table(table).map_err(|error| {
         invalid(anyhow!(
-            "settings [{TOOL_ID}]: {}",
+            "the [{TOOL_ID}] settings cannot be read: {}",
             error.to_string().trim_end()
         ))
     })?;
@@ -309,7 +312,7 @@ fn check_memory_cap(percent: f32) -> Result<(), CliError> {
         return Ok(());
     }
     Err(invalid(anyhow!(
-        "memory_cap_percent = {percent}: must be above 0 and at most 100"
+        "memory_cap_percent = {percent} must be above 0 and at most 100"
     )))
 }
 
@@ -342,7 +345,7 @@ fn compile_settings(
     let refs = cpk_stem("refs_cpk_name", &settings.refs_cpk_name)?;
     if let Some(shared) = shared_with_team_side(&refs, &layout) {
         return Err(invalid(anyhow!(
-            "refs_cpk_name = \"{}\" names {shared}: the referees need a CPK of their own",
+            "refs_cpk_name = \"{}\" names {shared}, but the referees need a CPK of their own",
             refs.as_str()
         )));
     }
@@ -359,7 +362,7 @@ fn parts_layout(settings: &TeamCompilerSettings, cap: u64) -> Result<CpkLayout, 
     let bins_stem = upgrade::number_and_stem(&bins_file).map(|(_, stem)| stem);
     if bins_stem == Some(settings.teams_cpk_name.as_str()) {
         return Err(invalid(anyhow!(
-            "teams_cpk_name = \"{}\" names the slots of the bins CPK, {}: the teams parts need \
+            "teams_cpk_name = \"{}\" is the stem of the bins CPK, {}, but the teams parts need \
              a stem of their own",
             settings.teams_cpk_name,
             bins.as_str()
@@ -400,7 +403,7 @@ fn shared_with_team_side(refs: &CpkStem, layout: &CpkLayout) -> Option<String> {
 fn cpk_stem(key: &str, value: &str) -> Result<CpkStem, CliError> {
     CpkStem::new(value).map_err(|error| {
         invalid(anyhow!(
-            "{key} = \"{value}\" is not a valid CPK name: {error}"
+            "{key} = \"{value}\" is not a valid CPK name ({error})"
         ))
     })
 }
@@ -443,14 +446,14 @@ fn load_teams_list(setting: &Path, data_dir: Option<&Path>) -> Result<TeamsList,
         Err(error) => {
             return Err(CliError::new(
                 ABORTED,
-                anyhow!("{}: cannot read the teams list: {error}", path.display()),
+                anyhow!("{}: cannot read the teams list ({error})", path.display()),
             ));
         }
     };
     TeamsList::parse(&text).map_err(|error| {
         CliError::new(
             ABORTED,
-            anyhow!("{}: not a valid teams list: {error}", path.display()),
+            anyhow!("{} is not a valid teams list ({error})", path.display()),
         )
     })
 }
@@ -508,7 +511,7 @@ fn prepare_exports_root(
     }
     if source.exports_root.is_some() {
         return Err(invalid(anyhow!(
-            "the exports folder {} given on the command line does not exist: check the path, \
+            "the exports folder {} given on the command line does not exist. Check the path, \
              or leave it out to use exports_folder_path",
             root.display()
         )));
@@ -521,7 +524,7 @@ fn prepare_exports_root(
             None => "the settings file".to_owned(),
         };
         return Err(invalid(anyhow!(
-            "the exports folder {} does not exist: create it and put your exports inside, or \
+            "the exports folder {} does not exist. Create it and put your exports inside, or \
              set exports_folder_path in {settings_file} to the folder that holds them",
             root.display()
         )));
@@ -530,7 +533,7 @@ fn prepare_exports_root(
         CliError::new(
             ABORTED,
             anyhow!(
-                "{}: cannot create the exports folder: {error}",
+                "{}: cannot create the exports folder ({error})",
                 root.display()
             ),
         )
@@ -637,8 +640,8 @@ mod tests {
             assert_eq!(
                 error.to_string(),
                 format!(
-                    "--mode sideload is not available for {version}: no sideloading runtime \
-                     exists for it"
+                    "--mode sideload is not available for {version}, because no sideloading \
+                     runtime exists for it"
                 )
             );
         }
@@ -659,7 +662,7 @@ mod tests {
             assert_eq!(
                 error.to_string(),
                 format!(
-                    "--mode sideload writes into the PES folder, and {} is not a folder: set \
+                    "--mode sideload writes into the PES folder, and {} is not a folder. Set \
                      pes_folder_path to the folder PES is installed in",
                     refused.display()
                 )
@@ -773,8 +776,8 @@ mod tests {
         settings.refs_cpk_name = "4cc_99_TEST".to_owned();
         assert_eq!(
             refused(&settings),
-            "refs_cpk_name = \"4cc_99_TEST\" names the CPK of cpk_name = \"4cc_99_test\": the \
-             referees need a CPK of their own"
+            "refs_cpk_name = \"4cc_99_TEST\" names the CPK of cpk_name = \"4cc_99_test\", but \
+             the referees need a CPK of their own"
         );
         // Not written in test mode, and not a CPK of a multi-CPK run.
         assert!(compile_settings(&settings, &OutputMode::Test).is_ok());
@@ -784,14 +787,14 @@ mod tests {
         settings.refs_cpk_name = "4cc_08_Bins".to_owned();
         assert_eq!(
             refused(&settings),
-            "refs_cpk_name = \"4cc_08_Bins\" names the CPK of bins_cpk_name = \"4cc_08_bins\": \
-             the referees need a CPK of their own"
+            "refs_cpk_name = \"4cc_08_Bins\" names the CPK of bins_cpk_name = \"4cc_08_bins\", \
+             but the referees need a CPK of their own"
         );
         settings.refs_cpk_name = "4cc_46_TEAMS".to_owned();
         assert_eq!(
             refused(&settings),
-            "refs_cpk_name = \"4cc_46_TEAMS\" names a slot of teams_cpk_name = \"teams\": the \
-             referees need a CPK of their own"
+            "refs_cpk_name = \"4cc_46_TEAMS\" names a slot of teams_cpk_name = \"teams\", but \
+             the referees need a CPK of their own"
         );
         // A stem that only starts like the teams stem names no slot of it.
         settings.refs_cpk_name = "4cc_46_teams2".to_owned();
@@ -836,7 +839,7 @@ mod tests {
         assert_eq!(error.exit_code, INVALID);
         assert_eq!(
             error.to_string(),
-            "teams_cpk_name = \"bins\" names the slots of the bins CPK, 4cc_08_bins: the teams \
+            "teams_cpk_name = \"bins\" is the stem of the bins CPK, 4cc_08_bins, but the teams \
              parts need a stem of their own"
         );
     }
@@ -973,7 +976,7 @@ mod tests {
         assert_eq!(
             error.to_string(),
             format!(
-                "the exports folder {} given on the command line does not exist: check the \
+                "the exports folder {} given on the command line does not exist. Check the \
                  path, or leave it out to use exports_folder_path",
                 given.display()
             )
@@ -1016,7 +1019,7 @@ mod tests {
         assert_eq!(
             error.to_string(),
             format!(
-                "the exports folder {} does not exist: create it and put your exports inside, \
+                "the exports folder {} does not exist. Create it and put your exports inside, \
                  or set exports_folder_path in {} to the folder that holds them",
                 missing.display(),
                 data_dir.join("settings.toml").display()
@@ -1059,7 +1062,7 @@ mod tests {
         let text = error.to_string();
         assert!(
             text.starts_with(&format!(
-                "{}: cannot create the exports folder: ",
+                "{}: cannot create the exports folder (",
                 blocker.join("exports").display()
             )),
             "{text}"

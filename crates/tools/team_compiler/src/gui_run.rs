@@ -59,19 +59,22 @@ impl RunLog {
         let outcome = run.thread.join();
         self.append(&run.events);
         let (severity, last) = match outcome {
-            Ok(Ok(code)) => (Severity::Info, format!("Run finished: exit code {code}")),
+            Ok(Ok(code)) => (
+                Severity::Info,
+                format!("Run finished with exit code {code}"),
+            ),
             Ok(Err(error)) => {
                 // As the binary prints a refusal, then the code it exits with.
                 self.lines
                     .push(LogLine::plain(Severity::Error, format!("error: {error}")));
                 (
                     Severity::Info,
-                    format!("Run finished: exit code {}", error.exit_code),
+                    format!("Run ended with exit code {}", error.exit_code),
                 )
             }
             Err(_) => (
                 Severity::Error,
-                "Run stopped: the compile thread panicked".to_owned(),
+                "Run stopped because the compile crashed".to_owned(),
             ),
         };
         self.lines.push(LogLine::plain(severity, last));
@@ -170,7 +173,7 @@ mod tests {
                     root.join("save").join("EDIT00000000").display(),
                     crate::output::savefile::APPLY_COMMAND
                 ),
-                "Run finished: exit code 0".to_owned(),
+                "Run finished with exit code 0".to_owned(),
             ])
             .collect()
     }
@@ -217,7 +220,7 @@ mod tests {
             log.poll();
             log.is_running()
         });
-        assert_eq!(log.texts(), ["Run finished: exit code 0"]);
+        assert_eq!(log.texts(), ["Run finished with exit code 0"]);
     }
 
     #[test]
@@ -251,7 +254,7 @@ mod tests {
             Severity::Error,
             "the refusal is an error"
         );
-        assert_eq!(lines[1].text, "Run finished: exit code 2");
+        assert_eq!(lines[1].text, "Run ended with exit code 2");
         assert_eq!(lines[1].severity, Severity::Info, "the exit line is info");
     }
 }
