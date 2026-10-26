@@ -11507,3 +11507,18 @@ quick actions already report the file. The tier check's failure is the same kind
 the same header, so it takes the same shape: shown nowhere else, it cannot simply go.
 Plan: `plans/save_editor.md` "Editing UI", the quick actions bullet and the Cards left badge
 bullet; the rules-file scenario's THEN.
+
+## 2026-10-26 — save_editor — The player view's labels, counts and positions after the maintainer's look
+Decision: the maintainer asked for the field labels in the checkboxes' lighter grey, the counts
+in brackets, "Shirt number" for "Number", the second half's boxes closer to their labels, and
+Playable positions in four centred rows with GK alone below. Where the request left a choice:
+the labels take egui's normal text colour (the checkboxes' own) in General info, Other stats,
+Ability stats and the team view's Team and Short; the brackets are round, `Name (28/46)`, as
+in the request; the second half's boxes sit just after a label column as wide as its longest
+label, "Shirt number" (72 points in the draft), so the two panels' second-half boxes still line
+up, Live AATF's cross at that column's right end (the longest label is about no violation, so
+the cross never meets text).
+Why: one colour per role reads cleaner (a field's label is not secondary text); a fixed label
+column keeps the boxes aligned across rows and panels where each box straight after its own
+label would draw a ragged column.
+Plan: `plans/save_editor.md` "Editing UI", the player view and Name and Shirt bullets.

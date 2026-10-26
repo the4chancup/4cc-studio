@@ -131,6 +131,18 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .gen input[type=text], .gen select { width: 100%; box-sizing: border-box; }
 .gen .pair { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .gen .pair input[type=number], .gen .pair .box { width: 54px; box-sizing: border-box; flex: none; }
+/* The second half's pairs: the box just after a label column as wide as
+   the half's longest label, "Shirt number", rather than on the half's right
+   edge, so its short labels (Nation, Form) keep their boxes close. Live
+   AATF's cross sits at the label column's right end (the longest label,
+   Shirt number, is about no violation, so it never meets the cross). */
+.gen .pairs > .pair:nth-child(even) { display: grid; grid-template-columns: 72px 54px;
+  column-gap: 6px; justify-content: start; }
+.gen .pairs > .pair:nth-child(even) .boxed { display: contents; }
+.gen .pairs > .pair:nth-child(even) > .gl { grid-column: 1; grid-row: 1; }
+.gen .pairs > .pair:nth-child(even) .xmark { grid-column: 1; grid-row: 1; justify-self: end; }
+.gen .pairs > .pair:nth-child(even) input[type=number],
+.gen .pairs > .pair:nth-child(even) > .box { grid-column: 2; grid-row: 1; }
 .gen .combos { display: grid; grid-template-columns: max-content 1fr; column-gap: 8px;
   row-gap: 4px; align-items: center; }
 .gen .combos > span:not(.gl), .gen .combos .gate > span { display: block; }
@@ -142,10 +154,15 @@ td.ilabel { text-align: right; padding-left: 10px; }
 td.ilabel:first-child { padding-left: 0; }
 .stats-grid td { padding: 1px 8px 1px 0; }
 .stats-grid input[type=number] { width: 40px; }
-#pos-grid { border-spacing: 0 4px; border-collapse: separate; }
-#pos-grid td.poscell { width: 62px; vertical-align: top; padding: 2px 3px 3px; }
-#pos-grid td.reg { outline: 1px solid var(--sel-fg); }
-#pos-grid .plabel { margin-bottom: 2px; }
+/* The positions in four rows by line of the pitch, left wing to right wing,
+   GK alone in the last; each row centred in the panel, each label centred
+   over its C B A group (so over the B). */
+#pos-grid { display: flex; flex-direction: column; gap: 4px; }
+#pos-grid .posrow { display: flex; justify-content: center; gap: 4px; }
+#pos-grid .poscell { width: 62px; padding: 2px 3px 3px; box-sizing: border-box;
+  display: flex; flex-direction: column; align-items: center; }
+#pos-grid .poscell.reg { outline: 1px solid var(--sel-fg); }
+#pos-grid .plabel { margin-bottom: 2px; text-align: center; }
 .rate { display: inline-flex; gap: 1px; }
 .rate .sel { padding: 0 5px; }
 /* In the positions grid each grade is a square of its own, so the chosen
@@ -3293,7 +3310,7 @@ function playerRow(team, p) {
 // A label cell of a label/field grid (the General info column, the small
 // fields under the skills, the stats grid): weak, right-aligned, in its own
 // cell so the next cell's field shares a column with the other rows'.
-const lbl = t => h("td", { class: "weak ilabel" }, t);
+const lbl = t => h("td", { class: "ilabel" }, t);
 // A field cell of a label/field grid, its widget version-gated.
 const fld = (el, minV) => h("td", {}, gated(h("span", {}, el), minV || 15));
 // The panels laid out in columns (gui.md "Prototypes", "Layout edit": a
@@ -3345,18 +3362,18 @@ const textCount = (kind, raw) => {
 // codes shown as \x11c sequences); Captain marks him in the team's set
 // pieces. The id is the view's title's prefix (playerHeader).
 function generalPanel(p, team) {
-  const gl = (t, above) => h("span", { class: "weak gl" + (above ? " above" : "") }, t);
+  const gl = (t, above) => h("span", { class: "gl" + (above ? " above" : "") }, t);
   const above = (label, el) => h("div", {}, gl(label, true), el);
-  // A label with its count "nn/NN", which follows the field as typed; Live
+  // A label with its count "(nn/NN)", which follows the field as typed; Live
   // AATF's cross for the name after it.
   const counted = (label, kind, raw, el, toRaw, mark) => {
     const cnt = h("span", { class: "count" });
     const show = r => { const c = textCount(kind, r);
-      cnt.textContent = c.n + "/" + c.max; cnt.title = c.tip;
+      cnt.textContent = "(" + c.n + "/" + c.max + ")"; cnt.title = c.tip;
       cnt.classList.toggle("warn", c.over); el.classList.toggle("overlong", c.over); };
     el.addEventListener("input", () => show(toRaw(el.value)));
     show(raw);
-    return h("div", {}, h("span", { class: "weak gl above" }, label + " ", cnt, mark), el);
+    return h("div", {}, h("span", { class: "gl above" }, label + " ", cnt, mark), el);
   };
   // `field` names the box for Live AATF's cross, drawn just left of the box.
   const num = (label, get, put, field) => h("div", { class: "pair" }, gl(label),
@@ -3365,7 +3382,7 @@ function generalPanel(p, team) {
         onchange: e => { const v = parseInt(e.target.value, 10);
           if (!Number.isNaN(v)) { set(p, get, put, v, label); render(); } } })));
   // A combo's label, Live AATF's cross after it.
-  const marked = (label, field) => h("span", { class: "weak gl" }, label, fieldMark(p, field));
+  const marked = (label, field) => h("span", { class: "gl" }, label, fieldMark(p, field));
   const nameIn = h("input", { type: "text", size: "1", value: escName(p.name),
     title: "The raw name. \\x11c followed by 8 hex digits is a colour code",
     onchange: e => { set(p, x => x.name, (x, v) => x.name = v, unescName(e.target.value), "name"); render(); } });
@@ -3395,7 +3412,7 @@ function generalPanel(p, team) {
       counted("Shirt", "shirt", p.shirt_name, shirtIn, t => t),
       h("div", { class: "pairs" },
         num("Height", p2 => p2.height, (x, v) => x.height = v, "height"),
-        num("Number", p2 => p2.number, (x, v) => x.number = v),
+        num("Shirt number", p2 => p2.number, (x, v) => x.number = v),
         num("Weight", p2 => p2.weight, (x, v) => x.weight = v, "weight"),
         num("Nation", p2 => p2.nationality, (x, v) => x.nationality = v),
         num("Age", p2 => p2.age, (x, v) => x.age = v, "age"),
@@ -3519,7 +3536,7 @@ function teamFields(t) {
     return h("span", {}, label + " ", fld, " ", h("span", { class: "mono weak" }, shown.toUpperCase()));
   };
   return named(h("div", { class: "row", id: "team-fields" },
-    weak("Team"), nameIn, weak("Short"), shortIn,
+    "Team", nameIn, "Short", shortIn,
     colour("color_1", "Colour 1"), colour("color_2", "Colour 2")), "team-fields");
 }
 // The kit slot assignments, behind the team view's Kit slots button.
@@ -3563,7 +3580,7 @@ function abilityPanel(p) {
         if (!Number.isNaN(v)) { set(p, x => x.stats[s], (x, v2) => x.stats[s] = v2, v, s); render(); } } });
     // The label cell is right-aligned, so Live AATF's cross after the label
     // stands just left of the box.
-    stats.append(h("tr", {}, h("td", { class: "weak ilabel" }, STAT_LABEL[s], fieldMark(p, "stat:" + s)),
+    stats.append(h("tr", {}, h("td", { class: "ilabel" }, STAT_LABEL[s], fieldMark(p, "stat:" + s)),
       h("td", {}, gated(h("span", {}, inp), minV))));
   }
   return named(h("div", { class: "col" }, strong("Ability stats"), stats), "ability-stats");
@@ -3578,15 +3595,16 @@ function positionsPanel(p) {
       h("span", { class: "sel r" + r.toLowerCase() + (cur === r ? " on" : ""),
         onclick: () => { set(p, x => x.positions.playable[pos], (x, v) => x.positions.playable[pos] = v, r, "rating"); render(); } }, r)));
   };
-  // One row per line of the pitch, the collaborator's order; each cell the
-  // position's label over its C B A choice.
-  const POS_ROWS = [["CF", "SS", "LWF", "RWF"], ["AMF", "LMF", "RMF", "CMF", "DMF"],
-    ["CB", "LB", "RB", "GK"]];
+  // One row per line of the pitch as a member reads it, left wing to right
+  // wing, GK alone below; each row centred, each cell the position's label
+  // centred over its C B A choice.
+  const POS_ROWS = [["LWF", "CF", "SS", "RWF"], ["LMF", "AMF", "CMF", "DMF", "RMF"],
+    ["LB", "CB", "RB"], ["GK"]];
   const posCols = colCount("positions");
   const posRows = posCols >= 5 ? POS_ROWS : chunk(POS_ROWS.flat(), posCols);
-  const posTable = h("table", { class: "grid", id: "pos-grid" },
-    posRows.map(row => h("tr", {}, row.map(pos =>
-      h("td", { class: "poscell" + (pos === p.positions.registered ? " reg" : "") },
+  const posTable = h("div", { id: "pos-grid" },
+    posRows.map(row => h("div", { class: "posrow" }, row.map(pos =>
+      h("div", { class: "poscell" + (pos === p.positions.registered ? " reg" : "") },
         h("div", { class: "plabel" }, pos), rating(pos))))));
   return namedCols(h("div", { class: "col" },
     h("div", { class: "row" }, strong("Playable positions"), fieldMark(p, "positions")), posTable), "positions");
@@ -3640,7 +3658,7 @@ function otherStatsPanel(p) {
   // `shown` is the label drawn, `label` the edit's name in the undo list.
   // `field` names the box for Live AATF's cross, as General info's pairs.
   const small = (shown, label, get, put, max, field) => h("div", { class: "pair" },
-    h("span", { class: "weak gl" }, shown),
+    h("span", { class: "gl" }, shown),
     h("span", { class: "boxed" }, fieldMark(p, field),
       h("input", { type: "number", value: get(p) + 1, min: 1, max,
         onchange: e => { const v = parseInt(e.target.value, 10) - 1;

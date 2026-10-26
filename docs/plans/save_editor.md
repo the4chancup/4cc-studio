@@ -159,9 +159,9 @@ all side by side.
 ┌──────────────────────┬────────────────────────────────────────────────────────────────┐
 │ [team selector ▾]    │ 70101 QUADS ONLY                                               │
 │ [filter 🔍]          │ General info         Skills  Gold: 6 of 8   Ability stats      │
-│ 701 ■■ /3/           │ Name 10/61           ☐ Scissors… ☐ Malicia  Attacking Prowess 77│
+│ 701 ■■ /3/           │ Name (10/61)         ☐ Scissors… ☐ Malicia  Attacking Prowess 77│
 │  ≡ 1 GK /3/ QUADS ON…│ [QUADS ONLY       ]  ☐ Flip Flap ☐ …        Ball Control     77│
-│  ≡ 2 CB /3/ UNCANN… ●│ Shirt 11/18          ⋮                      ⋮                  │
+│  ≡ 2 CB /3/ UNCANN… ●│ Shirt (11/18)        ⋮                      ⋮                  │
 │  ⋮ (drag to reorder) │ [PLACEHOLDER      ]  COM playing styles                        │
 │ 718 ■■ /f/           │ Height [189] Number [1]   ☐ Trickster ☐ Long Ball Expert       │
 │  ⋮                   │ ⋮  Other stats, Playable positions                             │
@@ -228,38 +228,44 @@ all side by side.
   1. **General info**, 350 points wide (the draft's: room for the longest pair label,
      "Injury resistance", beside its box on each half), laid out as 4ccEditor's General Info:
      Name, then Shirt, each label over a field the panel's width; then label-left pairs on two
-     halves, Height and Number, Weight and Nation, Age and Captain, each box 54 points wide on
-     its half's right edge; then Stronger foot, Stronger hand (20+), Registered position and
+     halves, Height and Shirt number, Weight and Nation, Age and Captain, each box 54 points
+     wide: on the first half at the half's right edge, on the second just after a label column
+     as wide as that half's longest label ("Shirt number"), so a short label (Nation, Form)
+     keeps its box close; then Stronger foot, Stronger hand (20+), Registered position and
      Playing style, their labels in one column, every combo starting at one x and ending on the
      panel's right edge. Under it **Other stats**: Injury resistance and Form, then "Weak foot:
      Usage" and "Accuracy" (the two sharing one label), on General info's halves so every box of
      both panels lines up. Under that **Playable positions**: the 13 positions with C/B/A
-     ratings in the collaborator's grid (CF SS LWF RWF / AMF LMF RMF CMF DMF / CB LB RB GK, the
-     order a member reads a formation in, each position's label above its ratings, the
-     registered one outlined), the chosen rating filled: A green, B the selection's blue, C a
-     grey square, so the three tell apart at a glance and an unrated position still shows its C.
+     ratings in four rows by line of the pitch, each left wing to right wing (LWF CF SS RWF /
+     LMF AMF CMF DMF RMF / LB CB RB / GK, GK alone below the others), each row centred in the
+     panel, each position's label centred over its ratings (over the B), the registered one
+     outlined; the chosen rating filled: A green, B the selection's blue, C a grey square, so
+     the three tell apart at a glance and an unrated position still shows its C.
+     A field's label in these panels and in Ability stats is drawn in the normal text colour,
+     as the checkboxes' labels are, not the weak one: the weak grey read too dark beside them.
   2. **Skills**, the Cards left badge in its header, up to 41 checkboxes (version-gated) in two
      columns filled column by column; under it **COM playing styles**, the 7 in two columns
      whose second starts at the skills' second's x.
   3. **Ability stats**, ~25 in one column in the game's order, each label beside its number.
   Then **Appearance**, a collapsing section closed by default, below the columns (its contents
   below).
-- **Name and Shirt.** Each label carries a count, `nn/NN`, that follows the field as typed: the
-  name's bytes against the open save's field, the shirt name's letters against the 18 every
-  version shows (PES 16's 16), so a longer name a PES 20/21 save holds reads `20/18`. The
+- **Name and Shirt.** Each label carries a count in brackets, `Name (28/46)`, that follows the
+  field as typed: the name's bytes against the open save's field, the shirt name's letters
+  against the 18 every version shows (PES 16's 16), so a longer name a PES 20/21 save holds
+  reads `(20/18)`. The
   field and its count carry one hover: past the portable limit below, its warning; else
   what counts (on PES 21 "Up to 61 bytes. A plain letter takes one byte, an accented letter two or
   more, and a colour code ten. A colour code is typed as \x11c and eight hex digits.", "Up to 18 letters. Western European accents (é, ü, ñ)
   are fine, but other letters and symbols are not."). The save is where
   a member writes the names a tactical export carries to a cup of any version, so its Name and
   Shirt fields follow `pes_savefile`'s portable limits ("Team TOML" in its operations plan):
-  - **Name**: the open save's own field (61 bytes on PES 20/21, 46 before), so `10/61` on a PES
+  - **Name**: the open save's own field (61 bytes on PES 20/21, 46 before), so `(10/61)` on a PES
     21 save (a colour code counts ten, an accented letter two or more). A name past 46
     bytes, which only a PES 20/21 save holds, draws its field and its count with an amber tint
     and the hover "In PES 2019 and older the game cuts this name to «…»", the name as
     `crop_player_text` would cut it. A tint of the theme's warning colour, not a pale yellow
     fill: the theme is dark and its text light, which a pale fill would wash out.
-  - **Shirt**: 18 letters on every version but PES 16 (its field holds 16), so `11/18`. A
+  - **Shirt**: 18 letters on every version but PES 16 (its field holds 16), so `(11/18)`. A
     shirt name the save already holds past 18 (PES 20/21 allow more) is kept, drawn with the
     same tint and the hover "PES 2019 and older show 18 letters of a shirt name (PES 2016 shows
     16)"; an edit may shorten it but not lengthen it, so it can be fixed a keystroke at a time.
@@ -1301,11 +1307,11 @@ SE-GUI-37  GIVEN the PES 17 save open on team 701
 SE-GUI-38  GIVEN the save, player 70101's name set to the colour code `\x11cff0000ff` then `AB`,
                 and his shirt name to 20 letters, before it is opened
            WHEN he is selected
-           THEN the Name label reads "Name 12/61" and the Shirt label "Shirt 20/18", the shirt
+           THEN the Name label reads "Name (12/61)" and the Shirt label "Shirt (20/18)", the shirt
                 field and its count tinted with the warning colour and its hover the "PES 2019
                 and older show 18 letters" sentence; WHEN a letter is deleted from the shirt
-                name THEN it reads "Shirt 19/18", still tinted, and a letter typed after it is
-                refused; WHEN 47 bytes are typed as his name THEN "Name 47/61", tinted, its hover
+                name THEN it reads "Shirt (19/18)", still tinted, and a letter typed after it is
+                refused; WHEN 47 bytes are typed as his name THEN "Name (47/61)", tinted, its hover
                 the cut PES 2019 makes; GIVEN the PES 16 save THEN a player's Shirt label's
                 limit is 16 and its Name label's 46
 SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (gloves), "Edit

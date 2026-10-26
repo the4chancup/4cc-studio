@@ -2108,6 +2108,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     `save_editor/src/{lib,settings}.rs`, `view/{mod,menus,player_list}.rs`,
     `view/appearance/mod.rs`, `view/tests/{appearance,player,team,savefile}.rs`,
     `help/0{4,5,6,7}_*.md`, `docs/prototypes/tools/save_editor.js`
+  - [ ] 8.30 after 0.0.1 (the maintainer, 2026-10-26, not a priority): the Save editor's
+    Nation field shows the nation's name beside its number, from a map of the game's nation
+    ids to names (which versions share the ids, and where the names come from, first)
   - [ ] 8.29 the text pass: every line a member reads reread against CONTRIBUTING's "That text
     flows naturally" (the maintainer, 2026-10-25; DECISIONS "Text a member reads flows
     naturally, and every existing line is swept once"), rewritten where it reads dry, its meaning
@@ -2756,7 +2759,20 @@ briefs, review loops, gates and mutation runs as for any step.
     - [ ] s3h a rules error is a red line whose click opens the error (the maintainer's look at
       the draft, 2026-10-26; DECISIONS "A rules load error is a red line whose click opens the
       error"): the quick actions' line and its dialog, no Cards left badge on a load error, the
-      tier check's failure in the same shape (`.tmp/0_0_1s/brief_0_0_1s3h.md`)
+      tier check's failure in the same shape (`.tmp/0_0_1s/brief_0_0_1s3h.md`). Owed from
+      s3g's `mutants-diff 7e3bc047` (2 missed, both `cards::TWO_COLUMN_WIDTH`'s arithmetic:
+      the narrow-pane test sizes its window from the constant, so it moves with it): a test
+      pinning the width at the draft's 330 (two 158-point columns 14 apart, `.skcols`), with
+      S4's rework unless m2 removes the one-column fallback first
+    - [ ] s3i the maintainer's look at the player view (2026-10-26; drafted first,
+      `.tmp/0_0_1s/draft_look3_player.png`): field labels in the normal text colour, not the
+      weak one (General info, Other stats, Ability stats, the team view's Team and Short); the
+      counts in brackets (`Name (28/46)`); "Number" relabelled "Shirt number"; the second
+      half's boxes just after a label column as wide as "Shirt number"; Playable positions in
+      four centred rows, LWF CF SS RWF / LMF AMF CMF DMF RMF / LB CB RB / GK, each label
+      centred over its B (`plans/save_editor.md` "Editing UI", the player view and Name and
+      Shirt bullets; DECISIONS "The player view's labels, counts and positions after the
+      maintainer's look")
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
