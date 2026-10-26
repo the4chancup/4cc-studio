@@ -78,33 +78,16 @@ pub(crate) fn list(file: &EditFile, team: &TeamChoice, filter: &str) -> Vec<List
     rows
 }
 
-/// The player rows the list shows: a non-empty `filter` matches across all
-/// teams (whatever the choice) on the display name, the shirt name or the
-/// id, case-insensitive, in team then slot order; otherwise the chosen
-/// team's roster, or every team's for `All`. Empty slots (player id 0) are
-/// never listed. `list`'s player rows, alone, for the unsaved-changes
-/// table's player order (`view::prompt`).
+/// `list`'s player rows, alone, for the unsaved-changes table's player
+/// order (`view::prompt`).
 pub(crate) fn rows(file: &EditFile, team: &TeamChoice, filter: &str) -> Vec<Row> {
-    let query = filter.trim().to_lowercase();
-    let filtering = !query.is_empty();
-    // Player ids are stable inside an open file: one map serves the whole
-    // scan instead of a `file.player()` linear scan per slot.
-    let players: HashMap<u32, &PlayerEntry> = file
-        .players()
-        .iter()
-        .map(|player| (player.id, player))
-        .collect();
-    let mut rows = Vec::new();
-    for team_entry in file.teams() {
-        if !filtering
-            && let TeamChoice::Team(id) = team
-            && *id != team_entry.id
-        {
-            continue;
-        }
-        rows.extend(team_rows(team_entry, &players, &query));
-    }
-    rows
+    list(file, team, filter)
+        .into_iter()
+        .filter_map(|row| match row {
+            ListRow::Player(row) => Some(row),
+            ListRow::Team(_) => None,
+        })
+        .collect()
 }
 
 /// The rostered slots of `team`, in slot order; with `query` non-empty only

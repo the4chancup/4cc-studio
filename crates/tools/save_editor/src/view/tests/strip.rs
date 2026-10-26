@@ -93,14 +93,12 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
             .name
             .clone()
     };
-    /// The Name field's node: the enabled text edit right of its label's
-    /// cell, holding `value` (the Shirt field carries the same text on
+    /// The Name field's node: the enabled text edit under the "Name n/N"
+    /// label, holding `value` (the Shirt field carries the same text on
     /// this fixture, so position, not value alone, names it).
     fn name_field<'a>(nodes: &'a [accesskit::Node], value: &str) -> &'a accesskit::Node {
-        let field = right_of_label(nodes, "Name", Role::TextInput)
-            .into_iter()
-            .find(|node| !node.is_disabled())
-            .unwrap_or_else(|| panic!("no Name field {value:?}"));
+        let field = field_below_label(nodes, "Name ", Role::TextInput);
+        assert!(!field.is_disabled(), "the Name field is enabled");
         assert_eq!(field.value(), Some(value), "the Name field holds {value:?}");
         field
     }
@@ -159,12 +157,10 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
     );
 }
 
-// The strip's Name field draws 190 wide and the Shirt field 110 (the
-// draft's): a fresh grid gives a non-last column only `min_cell_size` (40)
-// on its sizing pass, and a TextEdit caps its width at what the cell
-// offers, so the fields' sizes are allocated rather than left to the cell.
+// The Name and Shirt fields each draw the General info column's width
+// (the draft's `.gen input` 100%): their right edges share the one x.
 #[test]
-fn the_name_and_shirt_fields_draw_at_their_set_widths() {
+fn the_name_and_shirt_fields_draw_the_columns_width() {
     let path = fixture(PesVersion::Pes21, "field_widths");
     let mut view = SaveView::new();
     view.open(&path);
@@ -174,20 +170,15 @@ fn the_name_and_shirt_fields_draw_at_their_set_widths() {
     }
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    let name = right_of_label(&nodes, "Name", Role::TextInput)
-        .first()
-        .copied()
-        .expect("the Name field")
+    let name = field_below_label(&nodes, "Name ", Role::TextInput)
         .bounds()
         .expect("bounds");
-    assert!(
-        name.x1 - name.x0 >= 190.0,
-        "the Name field draws 190 wide, drew {name:?}"
-    );
     let shirt = shirt_field(&nodes).bounds().expect("bounds");
+    assert_eq!(name.x0, shirt.x0, "the two fields start at one x");
+    assert_eq!(name.x1, shirt.x1, "the two fields end on one x");
     assert!(
-        shirt.x1 - shirt.x0 >= 110.0,
-        "the Shirt field draws 110 wide, drew {shirt:?}"
+        name.x1 - name.x0 >= crate::view::info_strip::GENERAL_WIDTH as f64 - 1.0,
+        "the Name field draws the column's width, drew {name:?}"
     );
 }
 
@@ -510,6 +501,164 @@ fn the_pes16_shirt_hover_names_its_own_field() {
     );
 }
 
+// SE-GUI-38
+#[test]
+fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
+    /// The count's painted colour for `text` (`"Name n/N"`/`"Shirt n/N"`):
+    /// the label's last run is the `n/N` half.
+    fn count_color(shapes: &[egui::epaint::ClippedShape], text: &str) -> egui::Color32 {
+        title_shape(shapes, text)
+            .galley
+            .job
+            .sections
+            .last()
+            .expect("the count's run")
+            .format
+            .color
+    }
+
+    // 70101: name a colour code then "AB" (10 + 2 = 12 bytes), shirt 20
+    // letters — past the portable 18.
+    let path = fixture(PesVersion::Pes21, "text_counts");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    {
+        let player = file.player_mut(70101).unwrap();
+        player.name = "\x11cff0000ffAB".to_owned();
+        player.shirt_name = "S".repeat(20);
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::sized(1100.0, 700.0);
+    let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
+    let tint = visuals
+        .extreme_bg_color
+        .lerp_to_gamma(visuals.warn_fg_color, 0.25);
+    let shirt_name = |view: &SaveView| {
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .shirt_name
+            .clone()
+    };
+
+    // The labels read the counts, the colour code counting its ten bytes.
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(label_value(&nodes, "Name 12/61"), "the name's count");
+    assert!(label_value(&nodes, "Shirt 20/18"), "the shirt's count");
+    let shirt = field_below_label(&nodes, "Shirt ", Role::TextInput);
+    assert_eq!(
+        fill_at(&shapes, shirt.bounds().expect("bounds")),
+        Some(tint),
+        "the shirt field is tinted"
+    );
+    assert_eq!(
+        count_color(&shapes, "Shirt 20/18"),
+        visuals.warn_fg_color,
+        "the shirt count is drawn in the warning colour"
+    );
+    // The field's hover names the portable limit.
+    let tooltip = tooltip_after_hover(&mut window, &mut view, centre(shirt));
+    assert_eq!(
+        tooltip,
+        Some("PES 2019 and older show 18 letters of a shirt name (PES 2016 shows 16)".to_owned()),
+        "the shirt hover"
+    );
+
+    // A letter deleted: the count follows the field, still tinted.
+    click(&mut window, shirt, &mut view);
+    window.frame(
+        vec![
+            key(egui::Key::Backspace, egui::Modifiers::NONE, true),
+            key(egui::Key::Backspace, egui::Modifiers::NONE, false),
+        ],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        label_value(&nodes, "Shirt 19/18"),
+        "the count follows the deleted letter"
+    );
+    assert_eq!(
+        count_color(&shapes, "Shirt 19/18"),
+        visuals.warn_fg_color,
+        "still tinted"
+    );
+
+    // A letter typed after it is refused: the stored name keeps 19.
+    let shirt = field_below_label(&nodes, "Shirt ", Role::TextInput);
+    click(&mut window, shirt, &mut view);
+    window.frame(
+        vec![
+            key(egui::Key::End, egui::Modifiers::NONE, true),
+            key(egui::Key::End, egui::Modifiers::NONE, false),
+            egui::Event::Text("S".to_owned()),
+        ],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        shirt_name(&view).len(),
+        19,
+        "the refused letter was not pushed"
+    );
+
+    // 47 bytes as the name: "Name 47/61", tinted, the crop hover.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let name_field = field_below_label(&nodes, "Name ", Role::TextInput);
+    click(&mut window, name_field, &mut view);
+    type_text(&mut window, &mut view, &"Z".repeat(47));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(label_value(&nodes, "Name 47/61"), "the name's new count");
+    let name_field = field_below_label(&nodes, "Name ", Role::TextInput);
+    assert_eq!(
+        fill_at(&shapes, name_field.bounds().expect("bounds")),
+        Some(tint),
+        "the name field is tinted"
+    );
+    assert_eq!(
+        count_color(&shapes, "Name 47/61"),
+        visuals.warn_fg_color,
+        "the name count is drawn in the warning colour"
+    );
+    let tooltip = tooltip_after_hover(&mut window, &mut view, centre(name_field));
+    assert_eq!(
+        tooltip,
+        Some(format!(
+            "In PES 2019 and older the game cuts this name to «{}»",
+            "Z".repeat(46)
+        )),
+        "the name's crop hover"
+    );
+
+    // PES 16: the limits are its own field's, 46 bytes and 16 letters.
+    let path = fixture(PesVersion::Pes16, "text_counts_16");
+    let file16 = EditFile::load(&path).unwrap();
+    let first = file16.team(701).unwrap().roster[0].player_id;
+    let player16 = file16.player(first).unwrap();
+    let (name_n, shirt_n) = (player16.name.len(), player16.shirt_name.chars().count());
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::sized(1100.0, 700.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        label_value(&nodes, &format!("Name {name_n}/46")),
+        "PES 16's name limit is 46"
+    );
+    assert!(
+        label_value(&nodes, &format!("Shirt {shirt_n}/16")),
+        "PES 16's shirt limit is 16"
+    );
+}
+
 // The boundary the hover names: the field's charset is one byte per
 // letter, so é (U+00E9, inside) lands and ł (U+0142, past it) is refused.
 #[test]
@@ -750,15 +899,15 @@ fn a_typed_number_clamps_to_the_fields_stored_width() {
 // to 61 bytes, a name past 46 tinted with the cut the older versions make).
 #[test]
 fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
-    /// The Name field's `TextInput` node (the enabled text edit right of
-    /// the "Name" label's cell).
+    /// The Name field's `TextInput` node (the enabled text edit under the
+    /// "Name n/N" label).
     fn name_field(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
-        right_of_label(nodes, "Name", Role::TextInput)
-            .into_iter()
-            .find(|node| !node.is_disabled() && node.value() == Some(value))
-            .unwrap_or_else(|| panic!("no Name field {value:?}"))
-            .bounds()
-            .expect("bounds")
+        let field = field_below_label(nodes, "Name ", Role::TextInput);
+        assert!(
+            !field.is_disabled() && field.value() == Some(value),
+            "the Name field {value:?}"
+        );
+        field.bounds().expect("bounds")
     }
 
     let path = fixture(PesVersion::Pes21, "long_name_taken");
@@ -1069,11 +1218,43 @@ fn the_player_header_tops_the_player_view_alone() {
             title_painted(&shapes, title, heading),
             "the name at the heading size"
         );
+        // The panels' titles and the player fields' labels — the counted
+        // labels carry their counts, matched by prefix.
         for label in [
-            "Name", "Shirt", "Number", "Captain", "ID", "Nation", "Age", "Height", "Weight",
+            "General info",
+            "Other stats",
+            "Playable positions",
+            "Skills",
+            "COM playing styles",
+            "Ability stats",
+            "Number",
+            "Captain",
+            "Nation",
+            "Age",
+            "Height",
+            "Weight",
+            "Stronger foot",
+            "Stronger hand",
+            "Registered position",
+            "Playing style",
+            "Injury resistance",
+            "Form",
         ] {
             assert!(label_value(&nodes, label), "{label} drawn");
         }
+        for prefix in ["Name ", "Shirt "] {
+            assert!(
+                nodes.iter().any(|node| {
+                    node.role() == Role::Label
+                        && node.value().is_some_and(|v| v.starts_with(prefix))
+                }),
+                "the {prefix}counted label drawn"
+            );
+        }
+        assert!(
+            !label_value(&nodes, "ID"),
+            "the id is the title's, not a field's"
+        );
     }
     // The team view draws neither the title nor the player's fields.
     open_team_view(&mut window, &mut view, 734);
@@ -1083,9 +1264,7 @@ fn the_player_header_tops_the_player_view_alone() {
         !title_painted(&shapes, title, heading),
         "no title on the team view"
     );
-    for label in [
-        "Shirt", "Captain", "ID", "Nation", "Age", "Height", "Weight",
-    ] {
+    for label in ["Captain", "Nation", "Age", "Height", "Weight"] {
         assert!(!label_value(&nodes, label), "{label} not on the team view");
     }
 }

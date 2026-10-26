@@ -2696,11 +2696,20 @@ briefs, review loops, gates and mutation runs as for any step.
       selection}.rs`, `view/{mod,player_list,quick_actions,team,menus,info_strip,abilities,
       aatf_check}.rs`, `view/appearance/mod.rs`, the tests, `help/02-08`;
       `team_widgets/src/pitch/lineup.rs`
-    - [ ] s3c the player view's three columns, the `<id> <name>` line, the counts; the team
-      view's tactics measured again at 1280 x 800; the review's code follow-ups: both AATF
-      surfaces check the selected row's team, else the selector's (`aatf_check::current_team`,
-      the filter lists other teams' rows), and the Team menu and Ctrl+F act on a team row's
-      team too
+    - [x] s3c the player view's three columns, the `<id> <name>` line, the counts; the
+      review's code follow-ups: both AATF surfaces check the selected row's team, else the
+      selector's (`aatf_check::current_team`, the filter lists other teams' rows), and the
+      Team menu and Ctrl+F act on a team row's team too (Set boots and gloves prefills from
+      the team's first filled slot); `selection::rows` is `list`'s player rows. Done
+      2026-10-26 (SWE-2, `.tmp/0_0_1s/brief_0_0_1s3c.md`): `view/{info_strip,abilities,mod,
+      menus,aatf_check,aatf_panel,live_aatf}.rs`, `view/appearance/fields.rs`,
+      `session/selection.rs`, the tests, `help/02_window.md`, `help/03_abilities.md`. Open:
+      `team_widgets::cards::card_pickers` lost its one consumer (the tabbed layout's draw)
+    - [ ] s3d the review's tests and the built window: the mutation run's survivors
+      (`mutants-diff ab097280`, `.tmp/0_0_1s/missed_s3ab.txt`): the team row's painted layout
+      and the status bar's right slot cap and middle bounds; `card_pickers` removed or given
+      a consumer; then the built window at 1280 x 800 against the draft, the team view's
+      tactics bottom measured again
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

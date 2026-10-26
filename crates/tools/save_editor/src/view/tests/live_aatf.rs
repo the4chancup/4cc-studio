@@ -415,6 +415,65 @@ fn at_all_the_dock_checks_the_selected_players_team() {
     );
 }
 
+/// SE-GUI-30's current-team rule: the checks follow the selected row's
+/// team, another team's too when the filter lists its rows — the selector
+/// at team 701 with `QUALITY` typed lists 70202 of team 702 (`list.rs`'
+/// filter test), and his row clicked makes both checks his team's.
+// SE-GUI-30
+#[test]
+fn the_checks_follow_the_selected_rows_team_under_a_filter() {
+    // Team 702's players made tall enough to take no bracket, so the check
+    // lists violations; 70202 named as `list.rs`' filter test's (the PES 21
+    // fixture's players are all PLACEHOLDER).
+    let path = fixture(PesVersion::Pes21, "live_aatf_filtered_team");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    for id in [70201u32, 70202] {
+        file.player_mut(id).unwrap().basic.height = 183;
+    }
+    file.player_mut(70202).unwrap().name = "QUALITY".to_owned();
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    view.live_aatf = true;
+    view.aatf.open = true;
+    view.aatf.mode = crate::view::aatf_panel::AatfMode::Current;
+    let mut window = Headless::sized(1100.0, 800.0);
+
+    // The filter lists 70202 of team 702 across teams; clicking his row
+    // selects him.
+    view.filter = "quality".to_owned();
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (target, _) = nodes
+        .iter()
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("2 CB /a/ QUALITY"))
+        .expect("the filtered row");
+    action_click(&mut window, &mut view, *target);
+    assert!(
+        matches!(view.selected, Some(Selection::Player(702, _))),
+        "70202's row selected: {:?}",
+        view.selected
+    );
+
+    // The dock and the panel's current-team mode each check team 702 (the
+    // keyed results land only for the team each caller picked).
+    let nodes = live_checked(&mut window, &mut view, None, &[702]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Team 702 /a/")),
+        "the dock's rows are team 702's"
+    );
+    let nodes = panel_checked(&mut window, &mut view, None, &[702]);
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("Team 702 /a/")),
+        "the panel's rows are team 702's"
+    );
+}
+
 /// A violation row's click selects the player: `view.selected` is his
 /// (team, slot).
 // SE-GUI-30

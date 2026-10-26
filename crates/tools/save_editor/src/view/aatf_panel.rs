@@ -25,7 +25,7 @@ use crate::view::{ActiveRules, Refusal, SaveView, edit_settled, rules_load_error
 /// Which teams the panel checks.
 #[derive(Clone, Copy, PartialEq, Eq)]
 pub(crate) enum AatfMode {
-    /// The selector's team (with ALL, the selected player's).
+    /// The selected row's team, else the selector's.
     Current,
     /// The teams ticked in the panel's list.
     Select,
@@ -130,9 +130,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     };
     let file = session.file();
     let (_, settled) = edit_settled(ui, *focused);
-    // The teams to check: the selector's, or with ALL the selected
-    // player's (the team the strip and tabs are editing); in Select mode
-    // the ticked ids, already in id order.
+    // The teams to check: the selected row's team, else the selector's;
+    // in Select mode the ticked ids, already in id order.
     let mut no_teams = None;
     let ids: Vec<u32> = match aatf.mode {
         AatfMode::Current => match aatf_check::current_team(*team, *selected) {

@@ -2538,3 +2538,5 @@ worklog passed 7,000 lines.
   Kit slots… in a dialog, the Tactics), the quick actions sit under the list, a drag works under ALL within one team.
 - **2026-10-26** — The unsaved-changes prompt (8.9l1-l2) passed review: SWE-2 S1-S4 and Astra's A1-A2, the last round
   with no concerns (`.tmp/8_9l/rulings.md`); its old side names the saved file's players after a drag.
+- **2026-10-26** — The Save editor's player view shows every gameplay field at once in three columns under `<id> <name>`,
+  Name and Shirt counting against their limits; the AATF checks and the Team menu follow the selected row's team.

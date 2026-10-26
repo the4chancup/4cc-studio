@@ -32,6 +32,7 @@ pub(crate) type AppearanceField = (
 pub(crate) const CUTSCENE_STATS: [SmallStat; 2] = [
     SmallStat {
         label: "Star",
+        shown: "Star",
         field: PlayerField::Star,
         min: 0,
         max: 7,
@@ -41,6 +42,7 @@ pub(crate) const CUTSCENE_STATS: [SmallStat; 2] = [
     },
     SmallStat {
         label: "Playing attitude",
+        shown: "Playing attitude",
         field: PlayerField::PlayingAttitude,
         min: 0,
         max: 3,

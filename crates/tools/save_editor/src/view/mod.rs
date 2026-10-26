@@ -2,8 +2,9 @@
 //! master-detail layout, the player list left (`player_list`, its team and
 //! player rows, the quick actions under it) and, right, the view the selected
 //! row names: the team view (`team`) on a team row, the player view — the
-//! header (`info_strip`), the Abilities & Skills content (`abilities`) and
-//! the Appearance section (`appearance`) — on a player row. Render-only over
+//! title (`info_strip`), the three columns (`abilities` with `info_strip`'s
+//! General info and Other stats) and the Appearance section (`appearance`)
+//! — on a player row. Render-only over
 //! the session's state: it opens a
 //! save, filters and selects players, reorders a team's list by drag
 //! (`Session::move_player`), edits the strip's fields through
@@ -440,9 +441,8 @@ pub(crate) fn show(
                 .show(ui, |ui| match view.selected {
                     Some(Selection::Team(_)) => team::show(ui, view),
                     Some(Selection::Player(..)) | None => {
-                        // The player view: the header, the Abilities &
-                        // Skills content, then the Appearance section,
-                        // closed by default.
+                        // The player view: the title, the three columns,
+                        // then the Appearance section, closed by default.
                         info_strip::show(ui, view);
                         abilities::show(ui, view);
                         egui::CollapsingHeader::new("Appearance")
@@ -548,8 +548,9 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
     let undo_key = !typing
         && !redo_key
         && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::Z));
-    // Ctrl+F is Clear visual flags: an aesthetics write, so a no-op under
-    // the lock, and a no-op while a widget holds the keyboard (`typing`).
+    // Ctrl+F is Clear visual flags on the selected row's team (a player's
+    // or a team row's own): an aesthetics write, so a no-op under the
+    // lock, and a no-op while a widget holds the keyboard (`typing`).
     let clear_flags_key =
         !typing && ui.input_mut(|input| input.consume_key(egui::Modifiers::CTRL, egui::Key::F));
     // Ctrl+I is Toggle FPC settings, the same lock as Ctrl+F; Ctrl+B
@@ -624,7 +625,7 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
     });
     if clear_flags_key
         && !view.aesthetics_locked()
-        && let Some((team_id, _, _)) = selected_player(view)
+        && let Some(team_id) = selected_team_id(view)
         && let Some(session) = view.session.as_mut()
     {
         session.clear_visual_flags(team_id);
@@ -722,6 +723,14 @@ pub(crate) fn edit_team(
 /// share the one wording.
 pub(crate) fn rules_load_error(error: &str) -> String {
     format!("The AATF rules file could not be loaded: {error}")
+}
+
+/// The selected row's team id — a player row's team or a team row's own;
+/// `None` with no row selected.
+pub(crate) fn selected_team_id(view: &SaveView) -> Option<u32> {
+    match view.selected? {
+        Selection::Team(id) | Selection::Player(id, _) => Some(id),
+    }
 }
 
 /// The selected player's `(team_id, roster slot, player_id)`; `None` when

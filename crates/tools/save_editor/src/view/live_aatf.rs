@@ -58,8 +58,8 @@ pub(super) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     };
     let file = session.file();
     let (_, settled) = edit_settled(ui, *focused);
-    // The open team: the selector's, or with ALL the selected player's
-    // (the team the strip and tabs are editing).
+    // The open team: the selected row's team (a player's or a team row's
+    // own — the team the view is editing), else the selector's.
     let team_id = aatf_check::current_team(*team, *selected);
     let (loaded, load_error) = match &active.rules {
         Ok(rules) => (Some(Arc::clone(rules)), None),

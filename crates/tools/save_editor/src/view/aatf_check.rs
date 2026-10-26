@@ -74,14 +74,16 @@ pub(super) fn update_check(
     )
 }
 
-/// The team the Current-team callers check: the selector's, or with ALL
-/// the selected row's (a player row's team or a team row's own — the team
-/// the view is editing); `None` when ALL reads no selection.
+/// The team the Current-team callers check: the selected row's (a player
+/// row's team or a team row's own — the team the view is editing, another
+/// team's too when the filter lists its rows), else the selector's;
+/// `None` with no row selected under ALL.
 pub(super) fn current_team(team: TeamChoice, selected: Option<Selection>) -> Option<u32> {
-    match team {
-        TeamChoice::Team(id) => Some(id),
-        TeamChoice::All => match selected? {
-            Selection::Team(id) | Selection::Player(id, _) => Some(id),
+    match selected {
+        Some(Selection::Team(id)) | Some(Selection::Player(id, _)) => Some(id),
+        None => match team {
+            TeamChoice::Team(id) => Some(id),
+            TeamChoice::All => None,
         },
     }
 }

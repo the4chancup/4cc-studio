@@ -1,13 +1,13 @@
-//! The player view's Abilities & Skills content (`plans/save_editor.md`
-//! "Editing UI", the Abilities & Skills bullet; the draft's
-//! `abilitiesTab`): a top row of two blocks — the Profile grid (registered
-//! position, playing style, stronger foot and hand, the four shifted
-//! stored fields) and the 13 playable positions' C/B/A ratings in the
-//! collaborator's grid — then the 25 ability stats in their columns and
-//! the skills and COM playing styles with the active ruleset's Cards left
-//! badge. Star and playing attitude, which change only cutscenes, sit in
-//! the Appearance section's Cutscenes group (`appearance::CUTSCENE_STATS`);
-//! the quick actions sit under the player list (`quick_actions`).
+//! The player view's three columns (`plans/save_editor.md` "Editing UI",
+//! the player view bullet; the draft's `playerView`/`.pcols`): General
+//! info (`info_strip::general`), Other stats and Playable positions in
+//! the first, 350 wide; Skills with the Cards left badge in its header
+//! row and COM playing styles in the second; the 25 ability stats in the
+//! third — 36 points apart, tops aligned, wrapping to the next line where
+//! the pane cannot hold the next column. Star and playing attitude, which
+//! change only cutscenes, sit in the Appearance section's Cutscenes group
+//! (`appearance::CUTSCENE_STATS`); the quick actions sit under the player
+//! list (`quick_actions`).
 //! Every control edits a copy of the player's entry and, when it changes,
 //! pushes it with `Session::edit_player` under the control's `egui::Id`
 //! value, as `info_strip.rs` does; edit flags are not touched. A field
@@ -19,16 +19,15 @@ use std::ops::RangeInclusive;
 use aatf::TeamView;
 use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::labels::{
-    ABILITY_STATS, FOOT, PLAYABLE_POSITIONS, POSITIONS, title_case,
+    self, ABILITY_STATS, FOOT, PLAYABLE_POSITIONS, POSITIONS, title_case,
 };
 use pes_savefile::model::{PlayerEntry, PlayerPositions, PlayerSkills, PlayerStats};
 use pes_savefile::schema::fields::{ABILITY_FIELDS, PlayerField};
 use pes_savefile::schema::first_version_with;
-use team_widgets::cards::{self, CardsBadge, TierCards};
 
 use crate::session::Session;
 use crate::view::{
-    ActiveRules, BadgeKey, OwnBadge, SaveView, edit_player, rules_load_error, scoped,
+    ActiveRules, BadgeKey, OwnBadge, SaveView, edit_player, info_strip, rules_load_error,
     selected_player,
 };
 
@@ -49,10 +48,15 @@ pub(super) const RATING_LABELS: [(&str, u8); 3] = [("C", 0), ("B", 1), ("A", 2)]
 /// from it (`terms::row_term`).
 pub(super) const PLAYABLE_POSITIONS_LABEL: &str = "Playable positions";
 
-/// The content for the selected player, under `info_strip`'s header: the
-/// top row of two blocks (Profile, the playable positions' grid), each
-/// wrapping whole on a narrow pane, then the stats in their columns and
-/// the skills.
+/// The gap between two columns, and between a column's panels (the
+/// draft's `.pcols`/`.pcol` `gap`s).
+const COLUMN_GAP: f32 = 36.0;
+/// The gap between the panels of one column.
+const PANEL_GAP: f32 = 14.0;
+
+/// The columns for the selected player, under `info_strip`'s title: the
+/// three fixed columns side by side, each a `ui.vertical` of panels 14
+/// points apart, the row wrapping whole columns on a narrow pane.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, slot, player_id)) = selected_player(view) else {
         return;
@@ -76,88 +80,110 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // history by widget id and the same player id of the save opened next
     // would otherwise inherit the last save's (and the undo merge keys
     // differ per player, which is right).
-    let generation = view.generation;
+    let SaveView {
+        session,
+        rules,
+        cards,
+        generation,
+        ..
+    } = view;
+    let Some(session) = session.as_mut() else {
+        return;
+    };
+    let generation = *generation;
+    let mut skills_changed = false;
     ui.push_id((generation, player_id), |ui| {
-        top_row(ui, view, player_id, version, &positions, &stats);
-        ui.separator();
-        ui.strong("Ability stats");
-        let Some(session) = view.session.as_mut() else {
-            return;
-        };
-        ability_stats(ui, session, player_id, &stats);
-        ui.separator();
-        ui.strong("Skills");
-        cards_row(
-            ui,
-            view.rules.as_ref(),
-            &mut view.cards,
-            session,
-            (team_id, slot, player_id),
-            version,
-            &mut skills,
+        // A wrapped row with tops aligned: `horizontal_wrapped` centers on
+        // the cross axis, the columns want their tops level.
+        let spacing = ui.spacing().item_spacing;
+        ui.scope_builder(
+            egui::UiBuilder::new()
+                .layout(egui::Layout::left_to_right(egui::Align::Min).with_main_wrap(true)),
+            |ui| {
+                ui.spacing_mut().item_spacing = egui::vec2(COLUMN_GAP, COLUMN_GAP);
+                // Column 1: General info, Other stats, Playable positions —
+                // `GENERAL_WIDTH` wide, its panels `PANEL_GAP` apart.
+                ui.allocate_ui_with_layout(
+                    egui::vec2(info_strip::GENERAL_WIDTH, ui.available_height()),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
+                        panel(ui, spacing, "General info", |ui| {
+                            info_strip::general(ui, session, team_id, slot, player_id);
+                        });
+                        panel(ui, spacing, "Other stats", |ui| {
+                            info_strip::other_stats(ui, session, player_id, &stats);
+                        });
+                        panel(ui, spacing, PLAYABLE_POSITIONS_LABEL, |ui| {
+                            playable_positions(ui, session, player_id, &positions);
+                        });
+                    },
+                );
+                // Column 2: Skills (the Cards left badge in its header
+                // row) over COM playing styles, their columns 158 wide.
+                ui.allocate_ui_with_layout(
+                    egui::vec2(2.0 * CARD_COLUMN_WIDTH + PANEL_GAP, ui.available_height()),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
+                        ui.vertical(|ui| {
+                            ui.spacing_mut().item_spacing = spacing;
+                            skills_changed |= skills_panel(
+                                ui,
+                                rules.as_ref(),
+                                cards,
+                                session,
+                                (team_id, slot),
+                                version,
+                                &mut skills,
+                            );
+                        });
+                        panel(ui, spacing, "COM playing styles", |ui| {
+                            skills_changed |= card_columns(
+                                ui,
+                                version,
+                                &mut skills.com_styles,
+                                &labels::COM_STYLES,
+                                PlayerField::ComStyle,
+                            );
+                        });
+                    },
+                );
+                // Column 3: the ability stats, one pair a row.
+                ui.allocate_ui_with_layout(
+                    egui::vec2(170.0, ui.available_height()),
+                    egui::Layout::top_down(egui::Align::Min),
+                    |ui| {
+                        ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
+                        panel(ui, spacing, "Ability stats", |ui| {
+                            ability_stats(ui, session, player_id, &stats);
+                        });
+                    },
+                );
+            },
         );
     });
+    if skills_changed {
+        edit_player(
+            session,
+            player_id,
+            egui::Id::unique(("abilities cards", player_id)).value(),
+            move |player| {
+                player.skills = skills;
+            },
+        );
+    }
 }
 
-/// The width the two blocks take on one line, measured once in a headless
-/// frame at 1600 x 1400 with each Profile combo at its widest option (the
-/// playing style's Defensive Goalkeeper; the registered position, foot and
-/// hand combos stay at their minimum `combo_width` whatever they show):
-/// the drawn `min_rect` of each `ui.vertical` block summed with the item
-/// gap is Profile ~518, Playable positions ~477, so ~1003 points. A wrong
-/// estimate wraps a block a bit early or late; it never splits one, since
-/// the fallback is whole blocks on two lines.
-pub(super) const TOP_ROW_ONE_LINE: f32 = 1004.0;
-
-/// The top row (the draft's `topblocks`): the Profile grid and the
-/// positions grid, top-aligned, on one line where the pane holds
-/// `TOP_ROW_ONE_LINE`; else each on its own line — a block moves whole,
-/// never split.
-fn top_row(
-    ui: &mut egui::Ui,
-    view: &mut SaveView,
-    player_id: u32,
-    version: pes_version::PesVersion,
-    positions: &PlayerPositions,
-    stats: &PlayerStats,
-) {
-    // Each block under `scoped`'s fixed `scope_id` in both arrangements:
-    // an egui id follows call order inside a scope, so crossing
-    // `TOP_ROW_ONE_LINE` would re-key the widgets — a DragValue being
-    // typed into while the window is resized would hand its in-progress
-    // edit to another control. The ids are taken on `ui` here, before
-    // the `horizontal_top` child would put them under its own scope.
-    let profile_id = ui.make_persistent_id("profile");
-    let positions_id = ui.make_persistent_id("positions");
-    let profile_block = |ui: &mut egui::Ui, view: &mut SaveView| {
-        scoped(ui, profile_id, |ui| {
-            ui.vertical(|ui| {
-                ui.strong("Profile");
-                if let Some(session) = view.session.as_mut() {
-                    profile(ui, session, player_id, version, positions, stats);
-                }
-            });
-        });
-    };
-    let positions_block = |ui: &mut egui::Ui, view: &mut SaveView| {
-        scoped(ui, positions_id, |ui| {
-            ui.vertical(|ui| {
-                ui.strong(PLAYABLE_POSITIONS_LABEL);
-                if let Some(session) = view.session.as_mut() {
-                    playable_positions(ui, session, player_id, positions);
-                }
-            });
-        });
-    };
-    if ui.available_width() >= TOP_ROW_ONE_LINE {
-        ui.horizontal_top(|ui| {
-            profile_block(ui, view);
-            positions_block(ui, view);
-        });
-    } else {
-        profile_block(ui, view);
-        positions_block(ui, view);
-    }
+/// One panel of a column: the `ui.strong` title over `add`, one item of
+/// the column's vertical — the column's `PANEL_GAP` sits between panels,
+/// `spacing` (the pane's own) restored inside.
+fn panel(ui: &mut egui::Ui, spacing: egui::Vec2, title: &str, add: impl FnOnce(&mut egui::Ui)) {
+    ui.vertical(|ui| {
+        ui.spacing_mut().item_spacing = spacing;
+        ui.strong(title);
+        add(ui);
+    });
 }
 
 /// The count of label/field pairs that fit `ui.available_width()` at
@@ -176,118 +202,23 @@ pub(crate) fn maybe_end_row(ui: &mut egui::Ui, index: usize, per_row: usize) {
     }
 }
 
-/// The Profile block's grid (the draft's `#profile-grid`): two
-/// label/field pairs a row, the labels in their own cells — registered
-/// position with playing style, stronger foot with stronger hand (a
-/// missing hand stays a disabled combo at Right), then `SMALL_STATS`' four
-/// pairs.
-fn profile(
-    ui: &mut egui::Ui,
-    session: &mut Session,
-    player_id: u32,
-    version: pes_version::PesVersion,
-    positions: &PlayerPositions,
-    stats: &PlayerStats,
-) {
-    egui::Grid::new("abilities profile").show(ui, |ui| {
-        ui.label(REGISTERED_POSITION_LABEL);
-        let mut registered = positions.registered;
-        let combo = egui::ComboBox::from_id_salt("abilities registered position")
-            .selected_text(position_label(registered))
-            .show_ui(ui, |ui| {
-                for (index, label) in POSITIONS.iter().enumerate() {
-                    ui.selectable_value(&mut registered, index as u8, *label);
-                }
-            });
-        if registered != positions.registered {
-            edit_player(session, player_id, combo.response.id.value(), |player| {
-                player.positions.registered = registered;
-            });
-        }
-        ui.label(PLAYING_STYLE_LABEL);
-        let mut style = positions.playing_style;
-        if cards::playing_style_picker(ui, "abilities playing style", version, &mut style) {
-            edit_player(
-                session,
-                player_id,
-                egui::Id::unique(("abilities playing style", player_id)).value(),
-                |player| {
-                    player.positions.playing_style = style;
-                },
-            );
-        }
-        ui.end_row();
-        ui.label(STRONGER_FOOT_LABEL);
-        let mut foot = positions.stronger_foot;
-        let foot_combo = egui::ComboBox::from_id_salt("abilities stronger foot")
-            .selected_text(foot_label(foot))
-            .show_ui(ui, |ui| {
-                for (index, label) in FOOT.iter().enumerate() {
-                    ui.selectable_value(&mut foot, index as u8, title_case(label));
-                }
-            });
-        if foot != positions.stronger_foot {
-            edit_player(
-                session,
-                player_id,
-                foot_combo.response.id.value(),
-                |player| {
-                    player.positions.stronger_foot = foot;
-                },
-            );
-        }
-        ui.label(STRONGER_HAND_LABEL);
-        match positions.stronger_hand {
-            Some(stored) => {
-                let mut hand = stored;
-                let hand_combo = egui::ComboBox::from_id_salt("abilities stronger hand")
-                    .selected_text(foot_label(hand))
-                    .show_ui(ui, |ui| {
-                        for (index, label) in FOOT.iter().enumerate() {
-                            ui.selectable_value(&mut hand, index as u8, title_case(label));
-                        }
-                    });
-                if hand != stored {
-                    edit_player(
-                        session,
-                        player_id,
-                        hand_combo.response.id.value(),
-                        |player| {
-                            player.positions.stronger_hand = Some(hand);
-                        },
-                    );
-                }
-            }
-            None => {
-                // The version has no stronger hand: the combo stays, at
-                // Right, disabled with the `PES NN+` tooltip (SE-GUI-06).
-                ui.add_enabled_ui(false, |ui| {
-                    egui::ComboBox::from_id_salt("abilities stronger hand")
-                        .selected_text(foot_label(0))
-                        .show_ui(ui, |_ui| ());
-                })
-                .response
-                .on_disabled_hover_text(gating_tooltip(PlayerField::StrongerHand));
-            }
-        }
-        ui.end_row();
-        for pair in SMALL_STATS.chunks(2) {
-            for small in pair {
-                small_stat(ui, session, player_id, stats, small);
-            }
-            ui.end_row();
-        }
-    });
-}
+/// A skills or COM styles column's width (the draft's `.skcols` 158px):
+/// the two panels' second columns share the one x.
+const CARD_COLUMN_WIDTH: f32 = 158.0;
 
-/// One small stored field of the Profile block or the Appearance tab's
-/// Cutscenes group: label, its schema field, the shown range and the
-/// shift between shown and stored (the shifted fields are stored one
-/// below the game's numbers, the draft's `+ 1`/`v - 1`).
+/// One small stored field of the Other stats panel or the Appearance
+/// tab's Cutscenes group: the term's name, the drawn label, its schema
+/// field, the shown range and the shift between shown and stored (the
+/// shifted fields are stored one below the game's numbers, the draft's
+/// `+ 1`/`v - 1`).
 #[derive(Clone, Copy)]
 pub(super) struct SmallStat {
-    /// The control's label.
+    /// The diff row's name for the field (`terms::row_term`); the control
+    /// draws `shown`.
     pub(super) label: &'static str,
+    /// The control's drawn label (the weak foot's two share one's:
+    /// "Weak foot: Usage", then "Accuracy").
+    pub(super) shown: &'static str,
     /// The schema field gating it.
     pub(super) field: PlayerField,
     /// The shown range.
@@ -302,13 +233,14 @@ pub(super) struct SmallStat {
     pub(super) set: fn(&mut PlayerStats, u8),
 }
 
-/// The Profile block's four stored fields, in the draft's order: form 1-8,
-/// injury resistance 1-3, weak foot usage and accuracy 1-4 (each stored
-/// one lower). Star and playing attitude, which change only cutscenes,
-/// sit in the Appearance tab's `CUTSCENE_STATS`.
+/// The Other stats panel's four stored fields, in the draft's order: form
+/// 1-8, injury resistance 1-3, weak foot usage and accuracy 1-4 (each
+/// stored one lower). Star and playing attitude, which change only
+/// cutscenes, sit in the Appearance tab's `CUTSCENE_STATS`.
 pub(super) const SMALL_STATS: [SmallStat; 4] = [
     SmallStat {
         label: "Form",
+        shown: "Form",
         field: PlayerField::Form,
         min: 1,
         max: 8,
@@ -318,6 +250,7 @@ pub(super) const SMALL_STATS: [SmallStat; 4] = [
     },
     SmallStat {
         label: "Injury resistance",
+        shown: "Injury resistance",
         field: PlayerField::InjuryResistance,
         min: 1,
         max: 3,
@@ -327,6 +260,7 @@ pub(super) const SMALL_STATS: [SmallStat; 4] = [
     },
     SmallStat {
         label: "Weak foot usage",
+        shown: "Weak foot: Usage",
         field: PlayerField::WeakFootUsage,
         min: 1,
         max: 4,
@@ -336,6 +270,7 @@ pub(super) const SMALL_STATS: [SmallStat; 4] = [
     },
     SmallStat {
         label: "Weak foot accuracy",
+        shown: "Accuracy",
         field: PlayerField::WeakFootAccuracy,
         min: 1,
         max: 4,
@@ -347,8 +282,8 @@ pub(super) const SMALL_STATS: [SmallStat; 4] = [
 
 /// One `SmallStat`'s label/control pair: `number` for a stored field, the
 /// `-` stand-in for a gated one (the label stays too: the gated control
-/// keeps its cell). The Profile grid and the Appearance tab's Cutscenes
-/// group share it.
+/// keeps its cell). The Appearance tab's Cutscenes group uses it; the
+/// Other stats panel's `small` pairs draw the halves apart.
 pub(super) fn small_stat(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -362,7 +297,7 @@ pub(super) fn small_stat(
                 ui,
                 session,
                 player_id,
-                small.label,
+                small.shown,
                 stored + small.shift,
                 small.min..=small.max,
                 move |player, shown| {
@@ -371,7 +306,7 @@ pub(super) fn small_stat(
             );
         }
         None => {
-            ui.label(small.label);
+            ui.label(small.shown);
             gated_number(ui, small.field);
         }
     }
@@ -384,6 +319,23 @@ const POS_ROWS: [&[&str]; 3] = [
     &["AMF", "LMF", "RMF", "CMF", "DMF"],
     &["CB", "LB", "RB", "GK"],
 ];
+
+/// The chosen rating's fill and text colours (the draft's `.sel.on`
+/// variants): A the success green with dark text, B the selection colour
+/// with its foreground, C a grey square with the normal text.
+fn rating_colors(ui: &egui::Ui, rating: u8) -> (egui::Color32, Option<egui::Color32>) {
+    match rating {
+        2 => (
+            studio_core::theme::SUCCESS_FG,
+            Some(egui::Color32::from_gray(0x1a)),
+        ),
+        1 => (
+            ui.visuals().selection.bg_fill,
+            Some(ui.visuals().selection.stroke.color),
+        ),
+        _ => (egui::Color32::from_rgb(0x5a, 0x5a, 0x5a), None),
+    }
+}
 
 /// The 13 positions in `POS_ROWS`, each cell the position's label above
 /// the three `C` `B` `A` ratings (stored 0, 1, 2; a stored 3 selects
@@ -410,11 +362,36 @@ fn playable_positions(
                     .position(|&position| position == index)
                     .expect("PLAYABLE_POSITIONS is a permutation of 0..13");
                 let cell = ui.vertical(|ui| {
+                    // The draft's `td.poscell` 62px and `.rate`'s 17px
+                    // squares 2 apart: `Button::selectable` is what
+                    // `selectable_value` draws.
+                    ui.set_width(62.0);
                     ui.label(*name);
                     ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = 2.0;
+                        ui.spacing_mut().button_padding = egui::vec2(0.0, 0.0);
                         for (label, rating) in RATING_LABELS {
-                            let response = ui.selectable_value(&mut playable[at], rating, label);
-                            if response.changed() {
+                            let response = if playable[at] == rating {
+                                // The chosen rating filled (the draft's
+                                // `.sel.on.*`).
+                                let (fill, text) = rating_colors(ui, rating);
+                                let mut label = egui::RichText::new(label);
+                                if let Some(text) = text {
+                                    label = label.color(text);
+                                }
+                                ui.add(
+                                    egui::Button::selectable(true, label)
+                                        .min_size(egui::vec2(17.0, 17.0))
+                                        .fill(fill),
+                                )
+                            } else {
+                                ui.add(
+                                    egui::Button::selectable(false, label)
+                                        .min_size(egui::vec2(17.0, 17.0)),
+                                )
+                            };
+                            if response.clicked() && playable[at] != rating {
+                                playable[at] = rating;
                                 edit_player(session, player_id, response.id.value(), |player| {
                                     player.positions.playable = playable;
                                 });
@@ -436,72 +413,55 @@ fn playable_positions(
     });
 }
 
-/// The 25 stats of `ABILITY_STATS` in aligned columns filled column by
-/// column in the game's order (a row-by-row fill misaligns them as the
-/// pane narrows): four columns where the pane holds them, fewer when it
-/// cannot, an empty pair where the last column runs out of stats. Each
-/// pair is a title-cased label and a `DragValue` 40-99; a stat the
-/// version lacks shows `-`, disabled.
+/// The 25 stats of `ABILITY_STATS` in one column in the game's order (the
+/// view's third column), each label beside its `DragValue` 40-99; a stat
+/// the version lacks shows `-`, disabled.
 fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats: &PlayerStats) {
     let abilities = stats.abilities();
-    let cols = pairs_per_row(ui, 170.0).min(4);
-    let rows = ABILITY_STATS.len().div_ceil(cols);
-    egui::Grid::new("abilities stats").show(ui, |ui| {
-        for r in 0..rows {
-            for c in 0..cols {
-                let index = c * rows + r;
-                if index >= ABILITY_STATS.len() {
-                    // The draft's empty pair: the last column runs out.
-                    ui.label("");
-                    ui.label("");
-                    continue;
-                }
-                ui.label(title_case(ABILITY_STATS[index]));
-                // Each stat's field under `scoped`'s scope id: an id
-                // follows call order inside a scope, so a change of
-                // column count would re-key it (the label keeps its own
-                // cell; the scope wraps the field cell only, so the grid
-                // still sees two cells).
-                scoped(ui, ui.make_persistent_id(index), |ui| {
-                    match abilities[index] {
-                        Some(value) => {
-                            number_field(
-                                ui,
-                                session,
-                                player_id,
-                                value,
-                                40..=99,
-                                move |player, shown| player.stats.set_ability(index, shown),
-                            );
-                        }
-                        // The gated control keeps its cell too.
-                        None => {
-                            gated_number(ui, ABILITY_FIELDS[index]);
-                        }
+    egui::Grid::new("abilities stats")
+        .num_columns(2)
+        .show(ui, |ui| {
+            for (index, &label) in ABILITY_STATS.iter().enumerate() {
+                ui.label(title_case(label));
+                match abilities[index] {
+                    Some(value) => {
+                        number_field(
+                            ui,
+                            session,
+                            player_id,
+                            value,
+                            40..=99,
+                            move |player, shown| player.stats.set_ability(index, shown),
+                        );
                     }
-                });
+                    // The gated control keeps its cell too.
+                    None => {
+                        gated_number(ui, ABILITY_FIELDS[index]);
+                    }
+                }
+                ui.end_row();
             }
-            ui.end_row();
-        }
-    });
+        });
 }
 
-/// `card_pickers` over the player's skills, the Cards left badge the
-/// player's own tier's — the tier `Rules::player_tier` reads him as, then
+/// The Skills panel's content: the header row's Cards left badge — the
+/// player's own tier's, the tier `Rules::player_tier` reads him as, then
 /// that tier's `card_limits`; no tier matching draws the stand-in, and a
-/// load error or a failed check stands in for the badge. The computed badge lives in `cards`
-/// under the `BadgeKey` it was computed for — a `Session::revision` bump,
-/// a selection change or another rules file recomputes it, and any other
-/// frame draws the kept one.
-fn cards_row(
+/// load error or a failed check stands in for the badge — then the
+/// checkboxes in their two columns. Returns whether a card was ticked
+/// this frame. The computed badge lives in `cards` under the `BadgeKey`
+/// it was computed for — a `Session::revision` bump, a selection change
+/// or another rules file recomputes it, and any other frame draws the
+/// kept one.
+fn skills_panel(
     ui: &mut egui::Ui,
     rules: Option<&ActiveRules>,
     cards: &mut Option<(BadgeKey, OwnBadge)>,
     session: &mut Session,
-    (team_id, slot, player_id): (u32, u8, u32),
+    (team_id, slot): (u32, u8),
     version: pes_version::PesVersion,
     skills: &mut PlayerSkills,
-) {
+) -> bool {
     let mut load_error = None;
     if let Some(active) = rules {
         match &active.rules {
@@ -532,30 +492,85 @@ fn cards_row(
         )),
         _ => None,
     };
-    if let Some(text) = error_text {
-        ui.horizontal_wrapped(|ui| {
-            ui.weak("Cards left");
+    ui.horizontal_wrapped(|ui| {
+        ui.strong("Skills");
+        ui.weak("Cards left");
+        if let Some(text) = &error_text {
             ui.weak(text);
-        });
-    }
-    let badge = match cards.as_ref() {
-        Some((_, OwnBadge::Tier { label, limits })) => {
-            Some(CardsBadge::Tier(TierCards { label, limits }))
+        } else {
+            match cards.as_ref() {
+                Some((_, OwnBadge::Tier { label, limits })) => {
+                    let left = i32::from(limits.limit) - i32::from(limits.paid);
+                    let mut text =
+                        egui::RichText::new(format!("{label}: {left} of {} cards", limits.limit));
+                    if left < 0 {
+                        text = text.color(ui.visuals().error_fg_color);
+                    }
+                    ui.label(text).on_hover_text(format!(
+                        "{label}: {} paid of {}",
+                        limits.paid, limits.limit
+                    ));
+                }
+                Some((_, OwnBadge::NoTier)) => {
+                    ui.weak("No tier matches");
+                }
+                Some((_, OwnBadge::Failed(_))) | None => {}
+            }
         }
-        Some((_, OwnBadge::NoTier)) => Some(CardsBadge::NoTier),
-        Some((_, OwnBadge::Failed(_))) | None => None,
-    };
-    if cards::card_pickers(ui, "abilities cards", version, skills, badge) {
-        let skills = skills.clone();
-        edit_player(
-            session,
-            player_id,
-            egui::Id::unique(("abilities cards", player_id)).value(),
-            |player| {
-                player.skills = skills;
-            },
-        );
-    }
+    });
+    card_columns(
+        ui,
+        version,
+        &mut skills.skills,
+        &labels::SKILLS,
+        PlayerField::Skill,
+    )
+}
+
+/// One card kind's checkboxes in two columns `CARD_COLUMN_WIDTH` wide, 14
+/// apart, filled column by column (the draft's `.skcols`): every card is
+/// drawn on every version; one the version cannot store stays in its
+/// cell, disabled with a `PES NN+` tooltip. Returns whether a card was
+/// ticked or unticked this frame.
+fn card_columns(
+    ui: &mut egui::Ui,
+    version: pes_version::PesVersion,
+    cards: &mut [bool],
+    names: &[&'static str],
+    field: impl Fn(u8) -> PlayerField,
+) -> bool {
+    let fields = pes_savefile::schema::schema_for(version).player_field_set();
+    let mut changed = false;
+    let per_column = names.len().div_ceil(2);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = PANEL_GAP;
+        for (column, chunk) in names.chunks(per_column).enumerate() {
+            ui.vertical(|ui| {
+                ui.set_width(CARD_COLUMN_WIDTH);
+                for (index, &name) in chunk.iter().enumerate() {
+                    let index = column * per_column + index;
+                    let field = field(index as u8);
+                    if fields.contains(&field) {
+                        changed |= ui.checkbox(&mut cards[index], title_case(name)).changed();
+                    } else {
+                        // A card the version cannot store stays, disabled,
+                        // its tooltip naming the first version that has it.
+                        ui.add_enabled(
+                            false,
+                            egui::Checkbox::new(&mut cards[index], title_case(name)),
+                        )
+                        .on_disabled_hover_text(format!(
+                            "PES {}+",
+                            first_version_with(field)
+                                .expect("every card is stored by some version")
+                                .number()
+                        ));
+                    }
+                }
+            });
+        }
+    });
+    changed
 }
 
 /// What `rules` read team `team_id`'s roster `slot` as on `file`: his own

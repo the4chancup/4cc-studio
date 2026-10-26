@@ -1,9 +1,20 @@
-A player's row opens the player view: his name, general info, abilities and skills
-in one page, with the collapsed **Appearance** section underneath. The abilities
-and skills part holds his gameplay card: registered position,
-playing style, stronger foot and hand, form, injury resistance, weak foot usage and
-accuracy, the playable positions with their C/B/A ratings, the ability stats, and
-his skills and COM playing styles.
+A player's row opens the player view: his id and name on top, then three
+columns side by side, with the collapsed **Appearance** section underneath.
+
+The first column is his **General info**: name and shirt name, height, weight,
+age, nationality, shirt number and captaincy, stronger foot and hand, registered
+position and playing style. Under it are **Other stats** (form, injury
+resistance, weak foot usage and accuracy) and his **Playable positions** with
+their C/B/A ratings: the chosen rating is filled, green for A, blue for B, grey
+for C, and his registered position's cell is outlined. The second column is his
+**Skills** and **COM playing styles**. The third is his **Ability stats**.
+
+**Counts.** The Name and Shirt labels count what the field holds, as typed:
+`12/61` reads as 12 bytes used of the 61 the field holds (a colour code counts
+as the ten bytes it stores). The shirt name counts letters, 18 on most versions
+and 16 on PES 2016. When a name or shirt name is longer than every version can
+hold, the field and its count turn amber, and hovering them says what an older
+game would do with it.
 
 The numbers are the game's own, the same ones the game's Edit mode shows: abilities
 run 40 to 99, form 1 to 8, weak foot 1 to 4. A value the save holds

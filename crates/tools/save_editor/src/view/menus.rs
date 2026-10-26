@@ -18,21 +18,30 @@ use crate::session::database;
 use crate::session::team_ops::{BootsMode, GlovesMode};
 use crate::view::appearance::ownership_tip;
 use crate::view::generate;
-use crate::view::{Refusal, SaveView, selected_player};
+use crate::view::{Refusal, SaveView, selected_player, selected_team_id};
 
 /// The Team menu button (the draft's `teamMenu`): Set edited flag, the
 /// boots/gloves dialog, Set player names to positions, Clear visual flags
 /// (its Ctrl+F drawn beside) and the two FPC items. Every item acts on the
-/// selected player's team (`DECISIONS.md` 2026-10-22); the menu is
-/// disabled with no save open, and the aesthetics items carry the
-/// ownership line as their disabled hover (SE-GUI-22).
+/// selected row's team — a player's or a team row's own — so the menu is
+/// disabled only with no row selected; the boots/gloves dialog prefills
+/// from the selected player, on a team row from the team's first filled
+/// roster slot; the aesthetics items carry the ownership line as their
+/// disabled hover (SE-GUI-22).
 pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
-    let Some((team_id, _, player_id)) = selected_player(view) else {
+    let Some(team_id) = selected_team_id(view) else {
         ui.add_enabled_ui(false, |ui| {
             ui.menu_button("Team", |_| ());
         });
         return;
     };
+    // The dialog's prefill player: the selected player's, else the first
+    // filled roster slot's of the selected row's team.
+    let prefill = selected_player(view).map(|(_, _, id)| id).or_else(|| {
+        view.session
+            .as_ref()
+            .and_then(|session| first_filled(session.file(), team_id))
+    });
     let (unlocked, version, hide_ids) = {
         let Some(session) = view.session.as_ref() else {
             return;
@@ -60,6 +69,7 @@ pub(crate) fn team_menu(ui: &mut egui::Ui, view: &mut SaveView) {
             )
             .on_disabled_hover_text(ownership_tip(version))
             .clicked()
+            && let Some(player_id) = prefill
         {
             view.boglo = Some(Boglo::new(session, player_id));
             ui.close();
@@ -353,7 +363,8 @@ pub(crate) fn fix_database_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
 
 /// The Set boots and gloves IDs for everyone dialog's state (`view.boglo`
 /// while it is open): the mode radios and the three ID fields, prefilled
-/// from the selected player's own IDs with Unchanged picked on both sides
+/// from the selected player's own IDs — on a team row the team's first
+/// filled roster slot's — with Unchanged picked on both sides
 /// (the draft's defaults); `error` holds the refusal OK last got, shown
 /// under the buttons while the dialog stays open.
 pub(crate) struct Boglo {
@@ -438,7 +449,7 @@ pub(crate) fn boglo_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     if view.boglo.is_none() {
         return;
     }
-    let Some((team_id, _, _)) = selected_player(view) else {
+    let Some(team_id) = selected_team_id(view) else {
         return;
     };
     let Some(session) = view.session.as_mut() else {

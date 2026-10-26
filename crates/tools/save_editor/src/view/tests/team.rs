@@ -1104,6 +1104,86 @@ fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
     }
 }
 
+// plans/save_editor.md "Feature inventory", the Team operations bullet:
+// each operation acts on the selected row's team, a team row's included —
+// Clear visual flags by the menu item and by Ctrl+F, each in turn from the
+// same state; the menu is disabled only with no row selected.
+#[test]
+fn the_team_menu_and_ctrl_f_act_on_the_selected_rows_team() {
+    let path = fixture(PesVersion::Pes21, "team_menu_on_team_row");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    let filled: Vec<u32> = file
+        .team(701)
+        .unwrap()
+        .roster
+        .iter()
+        .map(|slot| slot.player_id)
+        .filter(|&id| id != 0)
+        .collect();
+    for &id in &filled {
+        let flags = &mut file.player_mut(id).unwrap().edit_flags;
+        flags.face = true;
+        flags.hair = true;
+        flags.physique = true;
+        flags.strip = true;
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.aesthetics_from_exports = true;
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1100.0, 700.0);
+    let cleared = |view: &SaveView, id: u32| {
+        let flags = &player_entry(view, id).edit_flags;
+        !(flags.face || flags.hair || flags.physique || flags.strip)
+    };
+    let all_set = |view: &SaveView, id: u32| {
+        let flags = &player_entry(view, id).edit_flags;
+        flags.face && flags.hair && flags.physique && flags.strip
+    };
+
+    // The team row selected: the menu item is enabled and clears.
+    open_team_view(&mut window, &mut view, 701);
+    let nodes = open_team_menu(&mut window, &mut view);
+    let item = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Button
+                && node
+                    .label()
+                    .is_some_and(|label| label.starts_with("Clear visual flags"))
+        })
+        .expect("the Clear visual flags item");
+    assert!(!item.is_disabled(), "the item is enabled on a team row");
+    click(&mut window, item, &mut view);
+    for &(_, id) in &rostered(&view, 701) {
+        assert!(cleared(&view, id), "{id}'s visual flags cleared");
+    }
+
+    // Ctrl+Z restores them; from the same state Ctrl+F clears the team's
+    // flags as it does from a player row.
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    for &id in &filled {
+        assert!(all_set(&view, id), "{id}'s flags restored");
+    }
+    window.frame(vec![key(egui::Key::F, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    for &(_, id) in &rostered(&view, 701) {
+        assert!(cleared(&view, id), "{id}'s visual flags cleared by Ctrl+F");
+    }
+
+    // With no row selected the menu is disabled.
+    view.selected = None;
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        menu_button(&nodes, "Team").is_disabled(),
+        "the Team menu is disabled with no row selected"
+    );
+}
+
 // `TEAM_FIELDS_ONE_ROW`'s edge: the pane width whose view area is the
 // constant (`VIEW_AREA_OFFSET` more). The view's pairs are all
 // fixed-width, so the content never varies with the team: at the edge

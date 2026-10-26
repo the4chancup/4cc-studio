@@ -490,13 +490,11 @@ fn fill_at(
         .map(|(fill, _)| fill)
 }
 
-/// The Shirt field's `TextInput` node (the text edit right of the
-/// "Shirt" label's cell — the team bar's own text fields draw elsewhere).
+/// The Shirt field's `TextInput` node (the text edit under the "Shirt
+/// n/N" label — the counted fields' layout puts the field below its
+/// label).
 fn shirt_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
-    right_of_label(nodes, "Shirt", Role::TextInput)
-        .first()
-        .copied()
-        .expect("the Shirt field")
+    field_below_label(nodes, "Shirt ", Role::TextInput)
 }
 
 /// The undo stack's depth, counted by Ctrl+Z until it is empty (bounded, so
@@ -543,6 +541,38 @@ fn right_of<'a>(
     role: Role,
 ) -> &'a accesskit::Node {
     first_right_of(nodes, anchor, |node| node.role() == role).expect("a node right of the anchor")
+}
+
+/// The `role` node directly under the label whose value starts with
+/// `prefix` — the layout the counted fields use puts the field below its
+/// `Name n/N`/`Shirt n/N` label. The topmost `role` node at the label's
+/// left edge below it.
+fn field_below_label<'a>(
+    nodes: &'a [accesskit::Node],
+    prefix: &str,
+    role: Role,
+) -> &'a accesskit::Node {
+    let label = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Label
+                && node.value().is_some_and(|value| value.starts_with(prefix))
+        })
+        .unwrap_or_else(|| panic!("no label starting {prefix:?}"));
+    let bounds = label.bounds().expect("the label's bounds");
+    nodes
+        .iter()
+        .filter(|node| {
+            node.role() == role
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.y0 >= bounds.y1 - 1.0 && (b.x0 - bounds.x0).abs() < 4.0)
+        })
+        .min_by(|a, b| {
+            let y = |node: &&accesskit::Node| node.bounds().expect("bounds").y0;
+            y(a).partial_cmp(&y(b)).expect("ordered bounds")
+        })
+        .unwrap_or_else(|| panic!("no {role:?} below a {prefix:?} label"))
 }
 
 /// The widget nodes of `role` on `label`'s row to its right, in x order.

@@ -392,10 +392,7 @@ fn ctrl_z_while_a_text_field_holds_the_keyboard_undoes_nothing() {
 
     // Focus the Name field, then Ctrl+Z.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let field = right_of_label(&nodes, "Name", Role::TextInput)
-        .first()
-        .copied()
-        .expect("the Name field");
+    let field = field_below_label(&nodes, "Name ", Role::TextInput);
     click(&mut window, field, &mut view);
     let mut wants = false;
     window.frame(Vec::new(), |ui| {

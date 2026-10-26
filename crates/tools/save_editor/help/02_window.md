@@ -13,8 +13,10 @@ row onto another row of his team to move him to that place; a drop on another te
 does nothing. The shirt number and the in-game face and
 hairstyle belong to the place, so they stay where they were.
 
-**Editing.** Click a player's row to select him: the right side shows his name, general
-info, abilities and skills, and the collapsed **Appearance** section underneath. Click a
+**Editing.** Click a player's row to select him: the right side shows his id and
+name, then three columns of his fields, and the collapsed **Appearance** section
+underneath. His Name and Shirt labels count what the field holds (`12/61` reads
+as 12 used of 61) and turn amber when it is longer than every version can hold. Click a
 team's row to select the team: the right side shows the team's fields and its tactics.
 A `\x11c` plus 8 hex digits inside a name is a color code, and the field keeps it as typed.
 Every edit is undoable, and **Undo** and **Redo** step through them (Ctrl+Z, Ctrl+Y or

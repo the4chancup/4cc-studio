@@ -100,10 +100,13 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
     );
 
     // The info strip shows the first row's general fields as the file holds
-    // them: id 70101, height 180, weight 80.
+    // them: id 70101 (the title's first text), height 180, weight 80.
     assert!(
-        nodes.iter().any(|node| node.value() == Some("70101")),
-        "the strip's ID"
+        nodes.iter().any(|node| {
+            node.role() == Role::Label
+                && node.value().is_some_and(|value| value.starts_with("70101"))
+        }),
+        "the title's id"
     );
     for value in ["180", "80"] {
         assert!(
@@ -194,8 +197,11 @@ fn the_filter_finds_a_player_of_another_team_and_selecting_shows_him() {
     click(&mut window, row, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        nodes.iter().any(|node| node.value() == Some("70202")),
-        "the info strip shows his ID"
+        nodes.iter().any(|node| {
+            node.role() == Role::Label
+                && node.value().is_some_and(|value| value.starts_with("70202"))
+        }),
+        "the title's id"
     );
 
     // His id and his shirt name find him too: "anime" is in his shirt name
@@ -374,8 +380,10 @@ fn scrolling_to_the_end_of_all_selects_the_last_player() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let id = roster_slot.player_id.to_string();
     assert!(
-        nodes.iter().any(|node| node.value() == Some(id.as_str())),
-        "the info strip shows the last player's ID"
+        nodes.iter().any(|node| {
+            node.role() == Role::Label && node.value().is_some_and(|value| value.starts_with(&id))
+        }),
+        "the title's id"
     );
 }
 
