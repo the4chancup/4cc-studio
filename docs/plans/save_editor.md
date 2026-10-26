@@ -221,14 +221,17 @@ all side by side.
   ONLY`), the id in the weak colour, as the list draws ids, and the name with its colours; the
   team view the team's name with its colours.
 - **The player view**: three columns side by side, 36 points apart, then the Appearance
-  section. At the 1280 × 800 window it fits the pane with no scrolling (the draft's check);
+  section, the whole centred between the player list and the window's right edge, so the gap
+  after the list equals the margin after Ability stats (the room the fixed columns leave, split
+  evenly rather than all at the right). At the 1280 × 800 window it fits the pane with no scrolling (the draft's check);
   narrower, the columns wrap and a columned panel narrows into fewer columns (`core/gui.md`
   "Prototypes", Layout edit). Column by column, each panel's title over its content and the
   panels of one column 14 points apart:
   1. **General info**, 350 points wide (the draft's: room for the longest pair label,
      "Injury resistance", beside its box on each half), laid out as 4ccEditor's General Info:
      Name, then Shirt, each a row with its label on the left and its field on the right; then
-     label-left pairs on two halves, Height and Shirt number, Weight and Nation, Age and
+     label-left pairs on two halves 28 points apart (the first 168 points wide, half of the
+     panel less 14), Height and Shirt number, Weight and Nation, Age and
      Captain, each box 54 points wide: on the first half at the half's right edge, on the
      second just after a label column as wide as that half's longest label ("Shirt number"),
      so a short label (Nation, Form) keeps its box close; then Stronger foot, Stronger hand

@@ -2781,7 +2781,9 @@ briefs, review loops, gates and mutation runs as for any step.
       `.tmp/0_0_1s/draft_look4_player.png`): Name and Shirt as label-left rows sharing the
       combos' label column (as wide as "Registered position"), those six fields ending flush
       with the second half's boxes; Playable positions' midfield in two rows, LMF AMF RMF /
-      CMF DMF (`plans/save_editor.md` "Editing UI", the player view bullet's item 1)
+      CMF DMF; and the third look: the pairs' halves 28 apart, the first keeping 168 points;
+      the player view centred between the list and the window's right edge (32 points each
+      side in the draft) (`plans/save_editor.md` "Editing UI", the player view bullet)
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

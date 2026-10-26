@@ -104,9 +104,11 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 /* The player view's fixed columns: General info over Playable positions,
    the skills in two with the COM styles and the non-ability values under
    them, the ability stats in one, then the Appearance section. Fixed widths
-   and even gaps: the columns fill a 1280-point window's view, and a wider
-   window leaves its extra room at the right rather than between them. */
+   and even gaps; the whole view centred between the player list and the
+   window's right edge, so the room the columns leave falls evenly on both
+   sides (the gap after the list equals the margin after Ability stats). */
 .pcols { display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }
+#player-view { width: fit-content; margin: 0 auto; }
 .pcol { gap: 14px; }
 .pcol.first { width: 350px; }
 /* The skills' and COM styles' second columns start at the same x: one
@@ -122,7 +124,9 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
    beside its box. */
 .gen { display: flex; flex-direction: column; gap: 6px; }
 .gen .gl.above { display: block; margin-bottom: 1px; }
-.gen .pairs { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 4px; }
+/* The first half keeps its 168 points (the half of 350 less 14: room for
+   "Injury resistance" beside its box); the halves are 28 apart. */
+.gen .pairs { display: grid; grid-template-columns: calc((100% - 14px) / 2) 1fr; column-gap: 28px; row-gap: 4px; }
 /* The count reads as part of its label, and keeps one width as it changes. */
 .gen .count { font-variant-numeric: tabular-nums; }
 /* The theme's warning colour mixed into the field's own, as the app draws
@@ -146,10 +150,10 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 /* The label-left rows (Name and Shirt above the pairs, Stronger foot and the
    combos below them): one label column as wide as the longest of their labels,
    "Registered position", so every field starts at one x, and every field ending
-   flush with the second half's boxes (the half, the 14-point gap, its 72-point
+   flush with the second half's boxes (the half, the 28-point gap, its 72-point
    label column, 6, the 54-point box), not on the panel's right edge. */
 .gen .combos { display: grid; grid-template-columns: 107px 1fr; column-gap: 8px;
-  row-gap: 4px; align-items: center; width: calc((100% - 14px) / 2 + 14px + 72px + 6px + 54px); }
+  row-gap: 4px; align-items: center; width: calc((100% - 14px) / 2 + 28px + 72px + 6px + 54px); }
 .gen .combos > span:not(.gl), .gen .combos .gate > span { display: block; }
 .info-grid td { padding: 1px 6px 1px 0; }
 .info-grid input[type=text] { width: 190px; }
