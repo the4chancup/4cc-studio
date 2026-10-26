@@ -3,7 +3,7 @@
 With `STUDIO_MUTANTS_REMOTE` set to an ssh host (e.g. `bonfire`) the run is
 split with it: a whole-crate run hands each half a complementary set of the
 crate's source files, sized by the two halves' measured per-mutant costs
-(`target/mutants-cost.json`), through `examine_globs` in the local config and
+(`COST_CACHE`), through `examine_globs` in the local config and
 `exclude_globs` in the remote's; a diff run, a crate with no measurement on a
 side, and a file split that fails its exactness check keep the even
 `--shard 0/2` / `1/2` round-robin. The remote half's results merge into
@@ -155,8 +155,12 @@ LOCAL_TMPDIR = Path(tempfile.gettempdir()) / "studio-mutants"
 REMOTE_RUN = f"{REMOTE_BASE}/run"
 # What a run costs on this machine, measured per crate from the local half of
 # every run: the mean seconds of one mutant and the unmutated baseline's
-# seconds. `target/` is gitignored and survives the `mutants.out` wipes.
-COST_CACHE = ROOT / "target" / "mutants-cost.json"
+# seconds. Kept per user, not in a tree's `target/`: the numbers are this
+# machine's, so the main tree and the mutants worktree share one table instead
+# of drifting apart, and deleting a `target/` to free disk loses none of it.
+COST_CACHE = (
+    Path(os.environ.get("LOCALAPPDATA") or Path.home() / ".cache") / "4cc-studio" / "mutants-cost.json"
+)
 # The baseline (a cold build and test of the mutated packages in a fresh copy
 # of the tree) of a crate no local run has measured yet: the 3.z run's
 # 56 s + 8 s for team_compiler, studio_core and studio, rounded.
@@ -1069,7 +1073,7 @@ def mutant_crate(file: str) -> str:
 
 
 def load_cost_cache() -> dict[str, dict[str, float]]:
-    """`target/mutants-cost.json`: `mutant` (crate -> mean seconds per mutant
+    """`COST_CACHE`: `mutant` (crate -> mean seconds per mutant
     on this machine), `remote_mutant` (the same on the VPS half) and
     `baseline` (crate -> the baseline seconds of the last local run that
     mutated it); empty tables when no run has written them yet, as an older

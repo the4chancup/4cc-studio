@@ -16,7 +16,7 @@ sent as a git bundle, the remote half runs at low priority, its results land in
 run hands each side a complementary set of the crate's source files rather than `--shard`
 halves: the local config's `examine_globs` name this machine's files and the remote's
 `exclude_globs` add them, the local share being `remote / (local + remote)` of the two sides'
-measured mean seconds per mutant (`target/mutants-cost.json`; the remote side's means fold into
+measured mean seconds per mutant (the cost table, below; the remote side's means fold into
 its `remote_mutant` table at each fetch), so a slower side tests less. A diff run, a crate one
 side has not measured yet, a file assignment landing further from the target than halves, and per-side
 listings that do not recombine to the whole listing exactly all keep the even `--shard 0/2` /
@@ -41,7 +41,9 @@ results move to `mutants.diff/<crate>/` and their survivors are listed together 
 `just mutants-collect`, and the crates after it did not run. Each crate's run splits the same
 way only when its estimated local time is at least 4 minutes (`SPLIT_THRESHOLD_SECONDS`): the estimate is the
 unmutated baseline plus each mutant's crate's measured mean seconds per mutant over the two
-jobs (`target/mutants-cost.json`, refreshed by every local run; a never-run crate falls back to
+jobs (the cost table, `%LOCALAPPDATA%/4cc-studio/mutants-cost.json`, `~/.cache/4cc-studio/` off
+Windows, refreshed by every local run; one per user rather than per tree, so the main tree and
+the mutants worktree share it and deleting a `target/` loses none of it; a never-run crate falls back to
 its size, a never-measured baseline to 60 s), because cost follows a crate's test suite, not
 the mutant count (0.7-1.4 s for most crates, 33-37 s for `pes_savefile`). The baseline is a
 cold build in a fresh copy of the tree, about a minute, and the mean counts each job's cold
@@ -159,8 +161,9 @@ carried all of `.tmp/`, and two 3.7 runs died of a full disk. The logs alone are
 `pes_savefile` whole-crate run leaves about 20 GiB in `mutants.out/` (5.6b: 8.9 GiB local,
 11 GiB fetched from the remote half), which the next run moves to `mutants.out.old`; a chain
 script that copied `remote/` whole into its archive filled C: and stopped the two runs queued behind it.
-When C: fills, clear `target/debug/incremental` first (64 GiB then), which cargo rebuilds, never
-the whole `target/`: it also holds `mutants-cost.json` and the runs' generated configs.
+When C: fills, a finished tree's `target/` can go whole, and the main tree's `target/debug`
+once nothing builds there (254 GiB on 2026-10-26, mostly stale `deps`): cargo rebuilds them,
+each run rewrites its generated config, and the cost table lives outside every `target/`.
 
 **On the VPS the project may hold about 40 GB** (the maintainer's figure), on a disk the host's
 production services share. Every run that uses the host passes a guard first (`remote_refusal`):
