@@ -1651,8 +1651,7 @@ EU-REP-05  GIVEN EU-PLY-10's export: face folders "XXX23 - Bahsaka" and "XXX23 -
            THEN each unmigrated_content line carries its reason: the second face folder
                 slot_taken with `other` naming "Faces/XXX23 - Bahsaka", the second boots folder
                 id_taken with `other` "Boots/k0430 - A", the two misnamed slot_invalid and
-                id_invalid with no `other`; every reason value the crate emits is reached by
-                a test
+                id_invalid with no `other`
 EU-REP-03  GIVEN an old export whose migration needs no manual attention
            WHEN it is upgraded
            THEN the report holds no finding above Info and says the migration is clean, and the

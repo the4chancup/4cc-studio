@@ -2630,9 +2630,17 @@ briefs, review loops, gates and mutation runs as for any step.
     4cc team), not the 21 `bench_order` entries with 9 `(empty)` (team_widgets
     `pitch/lineup.rs` draws them all too, once approved). Draft done 2026-10-26 (SWE-2, one
     rework; `.tmp/drafts/main_panel_check.py` 38 checks pass at 1280 x 800, no scroll):
-    waiting on the maintainer's look. Open for s2: the notice is published when a save
-    opens (SE-GUI-28's "until another save is opened"), so a selector changed by hand
-    afterwards neither raises nor clears it
+    The maintainer's look (2026-10-26): C drawn chosen in a grey square; General info laid
+    out as 4ccEditor's (Name above full width, ID | Shirt halves, label-left pairs, combos
+    to the right edge), filling its column; the skills' and COM styles' second columns
+    aligned; wider gaps, the columns spread over the view; the status bar's notice shown
+    whole when it fits (its middle part takes what the left and right leave, not a third:
+    `core/gui.md` "Status bar" and `shell/status_bar.rs` change with s2/s3); the version
+    notice follows the selector while shown (gone on the save's version, its text updated on
+    another, not back once dismissed). Rework r2 (`brief_drafts_main_panel_r2.md`). 4ccEditor's
+    per-player "Edited/created player" checkbox is not kept (the maintainer, 2026-10-26: a
+    name or shirt name edit sets the flag, and the Team menu's Set edited flag covers a
+    team): s2 says so in the plan's 1:1 list, with its DECISIONS entry
   - [ ] s2 `plans/save_editor.md` "Editing UI" rewritten from the approved draft, DECISIONS,
     the SE-GUI scenarios naming tabs rewritten
   - [ ] s3 the code, in slices (the view's frame and the team row; the player view's

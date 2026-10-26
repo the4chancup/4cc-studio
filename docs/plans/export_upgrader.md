@@ -55,9 +55,11 @@ built: `spec/export_upgrader.md` "CLI"):
   one-export run prints as today), every output inside `-o` or beside
   its input, and the exit code is the highest any export's run gave. An argument error that
   is the same for all (a flag, a savefile that does not read as a save) refuses the whole run
-  before any export is read; a missing export path, a save lacking one export's team, or a
+  before any export is read; a missing export path, a save lacking one export's team, a
   flag that export's kind refuses (`--savefile`, `--loose` or `--coverage` given with a
-  referee export among team exports) refuses that export alone, its block saying so. For an organizer moving a cup's library
+  referee export among team exports), or one it requires and lacks (neither `--savefile`
+  nor `--loose` with a team export among referee exports) refuses that export alone, its
+  block saying so. For an organizer moving a cup's library
   (about 50 teams) to Studio once per cup; the launcher keeps calling one export at a time,
   since its summary line counts them. `upgrade-models` stays one folder.
 
@@ -129,7 +131,8 @@ refined with the maintainer before `view/` is written:
   (an unmigrated entry, which kept anything from being written) or what the output left out (a
   leftover). Entries are grouped by their parent folder: a parent holding two or more is one
   collapsing row with the count (`Boots/k2177 - THIS BEAVER IS CONTAMINATED: 18 left out`:
-  the count is of entries, files or folders alike), its chevron opening it to its entries, and a parent holding one stays that one row;
+  the count is of entries, files or folders alike), its chevron opening it to its entries, and a parent holding one stays that one row; the
+  export's own root, as a parent, is named by the input's name (`co Spring: 2 left out`);
   an entry that is itself a folder (a second face folder) groups under its parent like a
   file. A real export's upgrade (Lab's EGG, in the draft) left 120 rows, 18 of them one boots
   folder's, which then read as the 25 folders they are about. A click on a group's row opens

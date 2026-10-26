@@ -29,7 +29,8 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   cause is the file's encoding, gains nothing (both encoding texts say how to re-save as
   UTF-8 in Notepad); `player_folder_number_invalid`
   the expected form (`NN - Name`, or a `players.txt`); `player_number_duplicate` the other
-  folder claiming the slot; `kit_folder_invalid` the allowed names (`p1`-`p9`, `g1`, `all`);
+  folder claiming the slot; `kit_folder_invalid` gains no field, its text naming the allowed
+  names (`p1`-`p9`, `g1`, `all`), which never vary;
   `file_type_disallowed` which case it is (an unknown extension, a hidden `.txt`, a known file
   in the wrong place); `skl_merge_conflict`, `merge_material_conflict` and
   `model_merge_flags_conflict` the two parts that disagree; `model_conversion_failed` that the
