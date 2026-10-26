@@ -2718,8 +2718,11 @@ briefs, review loops, gates and mutation runs as for any step.
     recorded on a 200% monitor straddling a 100% primary passed the check once the 200%
     monitor was unplugged, then opened off every monitor), and ST-WIN-04's 200% clause at a
     size a member reaches (2200 x 1400 pixels; 550 x 350 points sat under the minimum); the
-    plan says eframe's creation clamp is kept. Done 2026-10-26 (SWE-2). Open: the post-Astra
-    SWE-2 round. Files: `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`
+    plan says eframe's creation clamp is kept. Done 2026-10-26 (SWE-2). The post-Astra SWE-2
+    round S3: 2 of 3 accepted (the clamp's sentence overstated, the bar's height scaling
+    unpinned; fixed by the lead), the review loops end. Open: the built-window checks (the
+    reopen at a place, the off-monitor case), asked first. Files:
+    `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`
 - [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version

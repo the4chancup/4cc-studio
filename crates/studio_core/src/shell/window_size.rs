@@ -516,6 +516,17 @@ mod tests {
             &straddler,
             &[at_scale(primary, 1.0), at_scale(left_200, 2.0)]
         ));
+        // The monitor's scale sizes the bar's height too: at 200% it is 64
+        // pixels, so from y = -40 it reaches 24 pixels in (32 would end at
+        // -8, off the monitor), and from y = -70 it still ends above it.
+        assert!(on_a_monitor(
+            &place(100.0, -40.0),
+            &[at_scale(primary, 2.0)]
+        ));
+        assert!(!on_a_monitor(
+            &place(100.0, -70.0),
+            &[at_scale(primary, 2.0)]
+        ));
         assert!(
             on_a_monitor(&place(2500.0, 50.0), &[]),
             "an empty list trusts the place"

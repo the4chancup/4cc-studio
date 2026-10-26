@@ -82,7 +82,8 @@ it, and the window opens in the class of the tool it opens on (the last active o
 ST-RUN-02) at that class's remembered place. A remembered size larger than every monitor
 reopens at the largest monitor's size: eframe's creation clamp
 (`clamp_size_to_monitor_size`, on by default) is kept, so a window stretched over two
-monitors never reopens past a lone monitor's edge once one is unplugged. A class never used
+monitors reopens no wider than the largest monitor once one is unplugged (it may still stand
+partly past that monitor's edge; the title-bar check below keeps it within reach). A class never used
 opens at its design size
 (1280 × 800 for the main class, a special tool's declared size), fitted and centered as
 above. A remembered place whose title bar lies on no monitor now (a second monitor
