@@ -2644,7 +2644,13 @@ briefs, review loops, gates and mutation runs as for any step.
     the host's `pesVersionChanged` view hook and `noticeShown` for the notice. 4ccEditor's
     per-player "Edited/created player" checkbox is not kept (the maintainer, 2026-10-26: a
     name or shirt name edit sets the flag, and the Team menu's Set edited flag covers a
-    team): s2 says so in the plan's 1:1 list, with its DECISIONS entry
+    team): s2 says so in the plan's 1:1 list, with its DECISIONS entry. The maintainer's last
+    look (2026-10-26): the ID box goes, the id becoming the title's weak prefix ("70101 QUADS
+    ONLY"), Shirt then the panel's width; Name and Shirt labels carry an "nn/NN" count (the
+    name's bytes against the save's field, the shirt name's letters against 18, PES 16's 16),
+    following the field as typed and tinted past what every version holds, as the field is
+    (lead, 63 checks pass). The maintainer then had s2 and s3 go ahead, a few small tweaks still
+    to come
   - [ ] s2 `plans/save_editor.md` "Editing UI" rewritten from the approved draft, DECISIONS,
     the SE-GUI scenarios naming tabs rewritten
   - [ ] s3 the code, in slices (the view's frame and the team row; the player view's

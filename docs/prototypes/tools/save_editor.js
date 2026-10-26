@@ -116,8 +116,12 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
    beside its box. */
 .gen { display: flex; flex-direction: column; gap: 6px; }
 .gen .gl.above { display: block; margin-bottom: 1px; }
-.gen .halves, .gen .pairs { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
-.gen .pairs { row-gap: 4px; }
+.gen .pairs { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; row-gap: 4px; }
+/* The count reads as part of its label, and keeps one width as it changes. */
+.gen .count { font-variant-numeric: tabular-nums; }
+/* The theme's warning colour mixed into the field's own, as the app draws
+   it: a pale fill would wash the light text out. */
+.gen input.overlong { background: color-mix(in srgb, var(--extreme), var(--warn) 25%); }
 .gen input[type=text], .gen select { width: 100%; box-sizing: border-box; }
 .gen .pair { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
 .gen .pair input[type=number], .gen .pair .box { width: 54px; box-sizing: border-box; flex: none; }
@@ -3290,17 +3294,44 @@ const namedCols = (el, name) => {
 // n items per row.
 const chunk = (arr, n) =>
   Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
+// The text fields' counts (save_editor.md "Editing UI"). A name counts
+// bytes against the save's own field, since a colour code takes ten and an
+// accented letter two; a shirt name counts letters against the 18 every
+// version shows (PES 16's field holds 16), however much PES 20/21 store.
+// Past what every version holds (a 46-byte name, an 18-letter shirt name,
+// which only a PES 20/21 save carries) the count and the field are tinted:
+// a warning, never a block on Save.
+const PORTABLE_NAME = 46, PORTABLE_SHIRT = 18;
+const textCount = (kind, raw) => {
+  const v = version();
+  return kind === "name"
+    ? { n: utf8Len(raw), max: NAME_MAX(v), over: utf8Len(raw) > PORTABLE_NAME,
+        tip: "Up to " + NAME_MAX(v) + " bytes. A plain letter takes one byte, an accented"
+          + " letter two or more, and a colour code ten" }
+    : { n: [...raw].length, max: v === 16 ? 16 : PORTABLE_SHIRT, over: [...raw].length > PORTABLE_SHIRT,
+        tip: "PES 2019 and older show 18 letters of a shirt name (PES 2016 shows 16)" };
+};
 // The General info column, laid out as 4ccEditor's General Info
-// (save_editor.md "Editing UI"): the name's label above a field the
-// panel's width, ID and Shirt as two label-above halves, the numbers as
+// (save_editor.md "Editing UI"): the name's and the shirt name's labels,
+// each with its count, above fields the panel's width, the numbers as
 // label-left pairs in fixed boxes, then the combos sharing one label
 // column. Every field ends on the panel's right edge or its half's. Every
 // field is an undoable edit. The name field keeps the raw string (colour
 // codes shown as \x11c sequences); Captain marks him in the team's set
-// pieces.
+// pieces. The id is the view's title's prefix (playerHeader).
 function generalPanel(p, team) {
   const gl = (t, above) => h("span", { class: "weak gl" + (above ? " above" : "") }, t);
   const above = (label, el) => h("div", {}, gl(label, true), el);
+  // A label with its count "nn/NN", which follows the field as typed.
+  const counted = (label, kind, raw, el, toRaw) => {
+    const cnt = h("span", { class: "count" });
+    const show = r => { const c = textCount(kind, r);
+      cnt.textContent = c.n + "/" + c.max; cnt.title = c.tip;
+      cnt.classList.toggle("warn", c.over); el.classList.toggle("overlong", c.over); };
+    el.addEventListener("input", () => show(toRaw(el.value)));
+    show(raw);
+    return h("div", {}, h("span", { class: "weak gl above" }, label + " ", cnt), el);
+  };
   const num = (label, get, put) => h("div", { class: "pair" }, gl(label),
     h("input", { type: "number", value: get(p),
       onchange: e => { const v = parseInt(e.target.value, 10);
@@ -3327,13 +3358,10 @@ function generalPanel(p, team) {
   const hand = combo(FOOT.map(x => [x, titleCase(x)]), p.positions.stronger_hand ?? "right",
     v => { set(p, x => x.positions.stronger_hand, (x, v2) => x.positions.stronger_hand = v2, v, "stronger hand"); });
   hand.id = "f-hand";
-  // The ID is read-only: a disabled box keeps the row's look and height.
-  const idBox = h("input", { type: "text", size: "1", value: String(p.id), disabled: true });
-  idBox.id = "f-id";
   return named(h("div", { class: "col" }, strong("General info"),
     h("div", { class: "gen" },
-      above("Name", nameIn),
-      h("div", { class: "halves" }, above("ID", idBox), above("Shirt", shirtIn)),
+      counted("Name", "name", p.name, nameIn, unescName),
+      counted("Shirt", "shirt", p.shirt_name, shirtIn, t => t),
       h("div", { class: "pairs" },
         num("Height", p2 => p2.height, (x, v) => x.height = v),
         num("Number", p2 => p2.number, (x, v) => x.number = v),
@@ -3348,9 +3376,11 @@ function generalPanel(p, team) {
         gl("Registered position"), reg,
         gl("Playing style"), style))), "general");
 }
-// The player's name drawn with its colour codes, the view's title.
+// The view's title: the player's id, weak as the list rows draw ids, then
+// his name drawn with its colour codes.
 function playerHeader(p) {
-  return h("div", { class: "pheader strong", style: "margin-bottom:4px" }, ...nameSpans(p.name));
+  return h("div", { class: "pheader strong", style: "margin-bottom:4px" },
+    h("span", { class: "weak" }, String(p.id)), " ", ...nameSpans(p.name));
 }
 // One "Make X" per tier of the active ruleset in its order, plus Set stats
 // (SE-GUI-09), in two columns under the player list. They act on the selected
