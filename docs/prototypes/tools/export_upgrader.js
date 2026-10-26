@@ -648,7 +648,6 @@ function drawView(center) {
   center.innerHTML = "";
   center.append(h("div", { class: "pipe" },
     h("div", { class: "pipe-grid" },
-      h("h2", {}, "Export upgrader"),
       h("div", { class: "eu-cols" },
         h("div", { class: "eu-col" }, dropTarget("export"), argsGrid()),
         h("div", { class: "eu-col" }, dropTarget("models"))),

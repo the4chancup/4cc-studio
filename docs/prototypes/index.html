@@ -1656,13 +1656,13 @@ function chooseDataLocation(loc) {
 // ---- Render: one state object, one pass (gui.md "Shell layout") ----
 // gui.md "Window title": progress first, name last, a plain hyphen before the
 // name. An activity outranks a held notice: the held-notice row of the table is
-// the idle one.
+// the idle one; idle, the title is the active tool's name and the app's.
 function windowTitle() {
   const acts = activityIds(true);
   if (acts.length)
     return acts.map(id => activityText(id, S.activities[id])).join(" · ") + " - 4cc Studio";
   if (S.heldTitleNotice) return S.heldTitleNotice + " - 4cc Studio";
-  return "4cc Studio";
+  return toolLabel(S.activeTool) + " - 4cc Studio";
 }
 // The title is set only when the string changes: the real shell sends
 // ViewportCommand::Title once per change, not once per frame. titleSetCount is

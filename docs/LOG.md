@@ -2524,3 +2524,5 @@ worklog passed 7,000 lines.
   and the simulated window opens as Studio's and scales under 1280 points as Studio will.
 - **2026-10-26** — The upgrader reports the coverage tag it chose and why, takes `--coverage full|midcup`, and clears an earlier
   run's staging folder instead of refusing; the built additions moved from the plan to the spec.
+- **2026-10-26** — The Save editor's draft drops its tabs for 4ccEditor's layout made denser: a team row per team, stacked
+  skills panels, coloured position ratings, the version warning as a status notice, no view titles; awaiting the maintainer's look.

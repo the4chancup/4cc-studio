@@ -2591,7 +2591,7 @@ briefs, review loops, gates and mutation runs as for any step.
   fallback, the pattern); the bundled `settings.toml` reading unchanged
 - [ ] 0.0.1s the Save editor's main panel after 4ccEditor's layout, no tabs (the maintainer,
   2026-10-26; prototyped first): General info with the playable positions under it, skills
-  in two columns with COM styles, injury resistance and form in the second's tail, one
+  in two columns with the COM styles and the four non-ability values stacked under them, one
   ability column, Appearance a collapsed section below, the Make buttons in two columns under
   the list (AATF to the Panels menu), a team row before each team's players showing the
   team's fields and Tactics, kit slots behind a button
@@ -2607,7 +2607,11 @@ briefs, review loops, gates and mutation runs as for any step.
     its own title, the window's idle title becoming `<tool> - <app>` (`core/gui.md` "Window
     title", `shell/title.rs`, once approved); the bench list showing players only (12 for a
     4cc team), not the 21 `bench_order` entries with 9 `(empty)` (team_widgets
-    `pitch/lineup.rs` draws them all too, once approved)
+    `pitch/lineup.rs` draws them all too, once approved). Draft done 2026-10-26 (SWE-2, one
+    rework; `.tmp/drafts/main_panel_check.py` 38 checks pass at 1280 x 800, no scroll):
+    waiting on the maintainer's look. Open for s2: the notice is published when a save
+    opens (SE-GUI-28's "until another save is opened"), so a selector changed by hand
+    afterwards neither raises nor clears it
   - [ ] s2 `plans/save_editor.md` "Editing UI" rewritten from the approved draft, DECISIONS,
     the SE-GUI scenarios naming tabs rewritten
   - [ ] s3 the code, in slices (the view's frame and the team row; the player view's

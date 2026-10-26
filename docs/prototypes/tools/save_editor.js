@@ -1,31 +1,34 @@
-// The Save editor's draft (v2), a view of the drafts' host page, index.html: a
+// The Save editor's draft (v3), a view of the drafts' host page, index.html: a
 // draft of the Save editor's GUI (docs/plans/save_editor.md "Editing UI"), all
-// five slices of the build order (open/save, the player list, the info strip
-// and quick actions, the Abilities & Skills, Appearance, Team and Tactics tabs,
+// five slices of the build order (open/save, the player list with its team
+// rows and the quick actions under it, the player's fixed columns - General
+// info over Playable positions, the skills in two with the COM styles and
+// the non-ability values stacked under them, the ability stats - with the
+// Appearance as a collapsing section below, the team view with the Tactics,
 // the Comparator / AATF / aesthetics-patch panels, and the
 // interchange dialogs with settings.toml generation), drawn only with what
 // egui can draw (docs/plans/core/gui.md "Prototypes before implementation").
 // Its behaviour is faked with sample data transcribed from real saves and real
 // CLI runs; nothing is written, nothing reads the real libs. The PES selector
 // is the shell's, in the sidebar; a draft control also writes it.
+// There are no tabs: a player row shows the player's whole page at once, as
+// 4ccEditor lays it out, and a team row shows the team's fields and tactics.
 // The four panels live as floating windows (.panel = egui::Window over the
 // central panel, non-modal, so a member fixes players while the results stay
-// open), opened from the toolbar's Panels menu; the AATF panel is also one
-// click from a player through the quick-actions row, since a member fixes one
-// player at a time. The tabs stay 1:1 with 4ccEditor's, so the panels could
-// not be tabs; the plan's view/panels/ are windows, not modal dialogs.
+// open), opened from the toolbar's Panels menu; the plan's view/panels/ are
+// windows, not modal dialogs.
 // Widget mapping: <select> = ComboBox, <input type=text> = TextEdit,
 // <input type=number> = DragValue, <input type=checkbox> = CheckBox,
 // <input type=range> = Slider, .sel = SelectableLabel, .menu = menu_button,
 // details = CollapsingHeader, table.grid = Grid, .window in .modal-bg =
-// egui's Modal, .tabrow .sel = the tab bar (selectable labels), a .swatch row =
+// egui's Modal, a .swatch row =
 // a palette-index choice (framed widgets, never a colour picker), title="" =
 // on_hover_text (on_disabled_hover_text on the span around a disabled
 // control), row drag = Sense::drag, .sidebar = Panel::left, .bottom =
 // Panel::bottom, .center = CentralPanel, .pkpop = color_tools' color_field
 // (an egui Popup from a colour button; the saturation-value square and the
 // hue strip are drawn by its painter, a <canvas> here).
-// The Tactics tab's pitch: the <canvas> is the egui Painter (the frame and
+// The Tactics pitch: the <canvas> is the egui Painter (the frame and
 // every marker are drawn there; marker hit tests are ui.interact on each
 // marker's rect, drag Sense::drag); .tpopover = egui::popup (area below the
 // marker); the .lrow lists = the starting-eleven and bench lists (Sense::drag
@@ -86,28 +89,35 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .plist .pos { width: 28px; flex: none; color: #b4b4b4; }
 .plist .tshort { color: #6e6e6e; flex: none; }
 .plist .dot { color: var(--warn); margin-left: auto; }
+/* A team row in the player list: bold, the two colours as swatches, a
+   backdrop so it reads apart from a player row. */
+.plist .rows .trow { background: var(--faint); font-weight: bold; color: var(--strong); }
+.plist .rows .trow .swatch { width: 10px; height: 10px; flex: none; }
+.plist .qagrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; }
 .detail { flex: 1; min-width: 0; }
+/* The player view's fixed columns: General info over Playable positions,
+   Skills in two, the ability stats in one, then the Appearance section. */
+.pcols { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
+.skcols { display: flex; gap: 12px; align-items: flex-start; }
 .info-grid td { padding: 1px 6px 1px 0; }
 .info-grid input[type=text] { width: 190px; }
 .info-grid input.shirt { width: 110px; }
 .info-grid input[type=number] { width: 46px; }
 td.ilabel { text-align: right; padding-left: 10px; }
 td.ilabel:first-child { padding-left: 0; }
-.tabrow { display: flex; gap: 2px; border-bottom: 1px solid var(--stroke); margin: 8px 0 6px; }
-.tabrow .sel { border-radius: 2px 2px 0 0; padding: 2px 10px; }
-.tabrow .tscope { align-self: center; margin: 0 6px 0 16px; }
-.tabrow .tscope:first-child { margin-left: 2px; }
 .stats-grid td { padding: 1px 8px 1px 0; }
 .stats-grid input[type=number] { width: 40px; }
-.topblocks { display: flex; gap: 18px; align-items: flex-start; flex-wrap: wrap; }
 #pos-grid td.poscell { width: 56px; vertical-align: top; }
 #pos-grid td.reg { outline: 1px solid var(--sel-fg); }
 .rate { display: inline-flex; gap: 1px; }
 .rate .sel { padding: 0 5px; }
 .rate .sel.on { background: var(--sel-bg); }
+/* The chosen rating's colour: A the success green, B the selection accent,
+   C the quiet default (it is most cells and recedes). */
+.rate .sel.on.ra { background: var(--success); color: #1a1a1a; }
+.rate .sel.on.rc { background: none; color: var(--text); }
 .rate.off .sel { color: #5a5a5a; }
 .rate.off .sel:hover { background: none; color: #5a5a5a; }
-.skillgrid td { padding: 0 12px 0 0; }
 .palette { display: inline-flex; gap: 2px; align-items: center; }
 .palette .swatch.on { outline: 1px solid var(--sel-fg); }
 .palette.off .swatch { opacity: .45; }
@@ -128,8 +138,7 @@ td.ilabel:first-child { padding-left: 0; }
 .pkpop input[type=text] { width: 74px; }
 .pkrow { display: flex; gap: 5px; align-items: center; }
 .pkrow .swatch { cursor: default; }
-.vbanner { border: 1px solid var(--warn); border-radius: 2px; padding: 3px 8px; margin: 4px 0; }
-/* tactics tab */
+/* tactics */
 .tacbar { display: flex; gap: 8px; align-items: center; margin: 4px 0; }
 .taccols { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
 #tac-lists { width: 200px; min-width: 0; flex: none; }
@@ -145,7 +154,6 @@ td.ilabel:first-child { padding-left: 0; }
   white-space: nowrap; }
 .lrow:hover { background: var(--hover); }
 .lrow .fpos { width: 30px; flex: none; color: #b4b4b4; }
-.lrow.empty { color: #4e4e4e; }
 #tac-lists .lrow { overflow: hidden; }
 #tac-lists .lname { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .tpopover { position: absolute; background: var(--panel);
@@ -2104,7 +2112,7 @@ const STORED_18 = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 8, 9, 10, 11, 12, 15]
   .map(i => INSTRUCTIONS[i]);
 const STORED_20 = [0, 1, 2, 3, 4, 5, 6, 7, 13, 14, 16, 8, 9, 10, 11, 12, 15]
   .map(i => INSTRUCTIONS[i]);
-// Tight Marking is left out of what the tab offers: it marks an opponent, set in
+// Tight Marking is left out of what the editor offers: it marks an opponent, set in
 // a match; Edit mode does not offer it. A record holding it still shows it.
 const instructionsFor = v => (v < 17 ? [] : v === 17 ? INSTRUCTIONS.slice(0, 13)
   : v >= 20 ? STORED_20 : STORED_18).filter(x => x !== "tight_marking");
@@ -2313,12 +2321,15 @@ const D = { sample: "pes17",
   // "Aesthetics from exports", the settings menu's checkbox the draft has
   // no menu for, so it sits among the draft controls (SE-GUI-35's GIVEN).
   aesFromExports: false };
-const S = { save: null, baseline: null, teamSel: "all", filter: "", sel: null,
-  tab: "abilities", editAnyway: false, undo: [], redo: [], recents: [],
+const S = { save: null, baseline: null, teamSel: "all", filter: "",
+  // The selection: { team, slot } for a player row, { team } for a team row,
+  // null for none (the view then shows the selector's first player).
+  sel: null,
+  editAnyway: false, undo: [], redo: [], recents: [],
   // The colour picker: the open popup (its field's key, the shown colour it
   // opened on and the current one) and the session's recent colours.
   picker: null, recentColors: [],
-  // Tactics tab view state: the drawn preset and formation, the open slot
+  // Tactics view state: the drawn preset and formation, the open slot
   // popover (a formation index), the armed assignment mode and a live drag.
   tac: { preset: 0, formation: 0 }, slotPop: null, assign: null, pitchDrag: null };
 const clone = x => JSON.parse(JSON.stringify(x));
@@ -2332,15 +2343,21 @@ function findPlayer(teamId, slot) {
   return t && t.players.find(p => p.slot === slot);
 }
 function curPlayer() {
-  if (!S.sel) return curTeam().players[0];
-  return findPlayer(S.sel.team, S.sel.slot) || curTeam().players[0];
+  return (S.sel && findPlayer(S.sel.team, S.sel.slot)) || selTeam().players[0];
 }
+// The team the detail view shows: the selected row's own (a team row's team
+// or the player's), else the selector's.
+function selTeam() {
+  return (S.sel && curSave().teams.find(t => String(t.id) === String(S.sel.team))) || curTeam();
+}
+// A team row is the selection: S.sel holds the team and no slot.
+const isTeamSel = () => !!(S.sel && S.sel.slot === undefined);
 const version = () => curSave().version;
 // The Fox engine is PES 18 to 21 (pes_version's Engine), the stripping and
 // ownership rules' boundary.
 const isFox = () => version() >= 18;
 // The aesthetics lock's enable ("Read-only aesthetics"): with "Aesthetics
-// from exports" off every aesthetics path edits as on any other tab; with
+// from exports" off every aesthetics path edits without the lock; with
 // it on, only through the session's "Edit aesthetics anyway" switch.
 const aesUnlocked = () => !D.aesFromExports || S.editAnyway;
 
@@ -2389,8 +2406,11 @@ function openSave(key, path) {
   S.path = path || SAMPLE_PATH[key];
   S.baseline = JSON.stringify(data.teams);
   S.basePlayers = {};
-  for (const t of data.teams) for (const p of t.players)
-    S.basePlayers[t.id + ":" + p.slot] = JSON.stringify(p);
+  S.baseTeams = {};
+  for (const t of data.teams) {
+    for (const p of t.players) S.basePlayers[t.id + ":" + p.slot] = JSON.stringify(p);
+    S.baseTeams[t.id] = JSON.stringify({ ...t, players: undefined });
+  }
   // The PES 17 sample opens on /f/ (its colour-coded team), PES 21 on ALL.
   S.teamSel = key === "pes17" ? "718" : "all"; S.filter = ""; S.sel = null;
   // "Edit aesthetics anyway" is the tool run's, off only at its start: an open keeps it.
@@ -2408,6 +2428,15 @@ function openSave(key, path) {
     applied: null, exportText: null };
   S.tedFile = null;
   pushRecent(S.path);
+  // SE-GUI-28: the save's version governs its codec and widgets; a selector
+  // mismatch warns in the status bar, never reinterprets, and the setting is
+  // unchanged until the action makes the same change the selector would.
+  if (D.selectorVersion !== "20" + version())
+    publishNotice("Although the sidebar is set to PES " + D.selectorVersion
+      + ", this save is from PES 20" + version()
+      + ", so the editor keeps treating it as a PES 20" + version() + " save.",
+      { label: "Switch to PES 20" + version(),
+        run: () => { D.selectorVersion = "20" + version(); render(); } }, "warning");
   const restored = restoredIds();
   if (restored.length) drawStripAgain(restored);
 }
@@ -2462,6 +2491,11 @@ const dirty = () => JSON.stringify(S.save.teams) !== S.baseline;
 function dirtyPlayer(p) {
   return S.basePlayers[teamOf(p).id + ":" + p.slot] !== JSON.stringify(p);
 }
+// The team's own fields (never its players) differ from the opened or last
+// saved state: the team row's dot.
+function dirtyTeam(t) {
+  return S.baseTeams[t.id] !== JSON.stringify({ ...t, players: undefined });
+}
 function teamOf(p) { return curSave().teams.find(t => t.players.includes(p)); }
 
 // ---- Save and Save as (SE-GUI-03, 21, 26) ----
@@ -2482,8 +2516,11 @@ function writeSave(path) {
   S.path = path;
   S.baseline = JSON.stringify(S.save.teams);
   S.basePlayers = {};
-  for (const t of S.save.teams) for (const p of t.players)
-    S.basePlayers[t.id + ":" + p.slot] = JSON.stringify(p);
+  S.baseTeams = {};
+  for (const t of S.save.teams) {
+    for (const p of t.players) S.basePlayers[t.id + ":" + p.slot] = JSON.stringify(p);
+    S.baseTeams[t.id] = JSON.stringify({ ...t, players: undefined });
+  }
   publishNotice("Saved " + path.split("\\").pop() + " (the replaced file is kept once as " + path.split("\\").pop() + ".bak)", null, "success");
   pushRecent(path);
 }
@@ -2500,7 +2537,7 @@ function saveAs() {
 // SE-GUI-05: save, discard or cancel before another save opens, over the list
 // of what would be saved or lost: one row per changed field against the file as
 // opened or last saved (the dots' baseline), players then teams' own fields.
-// The real view words a row in the tabs' terms (the Comparator panel's rule);
+// The real view words a row in the fields' terms (the Comparator panel's rule);
 // the draft's labels are the model's keys title-cased and its values stored.
 // sample wording: the prompt's text and the column heads.
 function flatDiff(a, b, path, out) {
@@ -2661,7 +2698,7 @@ function draftControls() {
     h("label", { class: "cb", title: "SE-GUI-09" }, "AATF ruleset",
       combo(Object.entries(RULESETS).map(([k, r]) => [k, r.label]), D.ruleset,
         v => D.ruleset = v)),
-    h("span", { title: "SE-GUI-35: the settings menu's checkbox (the draft has no settings menu); on when the cup's looks are compiled from exports: the save's aesthetics are then read-only, behind Edit aesthetics anyway on the Appearance tab" },
+    h("span", { title: "SE-GUI-35: the settings menu's checkbox (the draft has no settings menu); on when the cup's looks are compiled from exports: the save's aesthetics are then read-only, behind Edit aesthetics anyway in the Appearance section" },
       cb("Aesthetics from exports", D.aesFromExports, v => { D.aesFromExports = v; render(); })),
     h("span", { title: "SE-GUI-30: the draft recomputes player rows only; off drops the team's rows so the empty state can be reached" },
       cb("Live AATF keeps the sample's team rows", D.liveTeamRows, v => D.liveTeamRows = v)),
@@ -2675,7 +2712,7 @@ function draftControls() {
 }
 // One line per remark and what v2 does with it.
 const V2_REMARKS = [
-  "Team information on a tab: adopted. The team bar above every tab holds the name, the short name and the colours; invitational members edit the name and abbreviation often.",
+  "Team information on a tab: adopted. The team row's view holds the name, the short name and the colours; invitational members edit the name and abbreviation often.",
   "Fonts too thin: adopted. Body text is regular weight (400); the built app draws egui's default Ubuntu Light, so its theme changes too.",
   "Star rating and playing attitude toward Appearance: adopted, in a Cutscenes group outside the aesthetics lock: they only change cutscenes, but the export does not own them.",
   "Card amount: adopted. The badge shows the player's own tier only, which follows from his stats, registered position and height under the active ruleset.",
@@ -2688,21 +2725,21 @@ const WALK = [
   ["SE-GUI-03", "edit an ability: the dot appears on his row and the save's state stays unwritten until Save (Ctrl+S or the button) clears it"],
   ["SE-GUI-04", "make two edits, then Undo and Redo in the toolbar"],
   ["SE-GUI-05", "edit, then open the other sample save from the draft control: the prompt offers save, discard, cancel"],
-  ["SE-GUI-06", "PES 17 sample: star and playing attitude in the Appearance tab's Cutscenes group and stronger hand on the Abilities tab sit disabled in place, tooltips naming PES 19+/20+; PES 21: enabled"],
-  ["SE-GUI-07", "the Appearance tab below the Cutscenes group is disabled under the ownership line; the switch unlocks it; the switch is off on every open"],
+  ["SE-GUI-06", "PES 17 sample: star and playing attitude in the Appearance section's Cutscenes group and stronger hand in General info sit disabled in place, tooltips naming PES 19+/20+; PES 21: enabled"],
+  ["SE-GUI-07", "the Appearance section below the Cutscenes group is disabled under the ownership line; the switch unlocks it; the switch is off on every open"],
   ["SE-GUI-08", "drag a list row onto another: the dragged player's name, stats and look land on the target slot, those between shift one along, while every slot keeps its id, shirt number and captain mark; the save is marked unsaved"],
-  ["SE-GUI-09", "the quick actions on the Abilities tab follow the ruleset control: Gold/Silver/Bronze/Goalkeeper/Regular under official, VTL11 and DBC7 their own"],
-  ["SE-GUI-11", "switch Edit aesthetics anyway on; the Appearance tab's FPC group: Hide body (or Ctrl+I) gives the hide preset and reads 'FPC: the body is hidden', Show body (or Ctrl+I again) the show preset; a player with his own boots ID keeps it"],
-  ["SE-GUI-35", "the 'Aesthetics from exports' draft control off (the default): the Appearance tab draws no ownership line and no switch and every path edits; on, the lock draws"],
-  ["SE-GUI-12", "the Tactics tab: drag a pitch marker (it snaps to the stored grid, undoable), drop a bench row on a marker to swap, arm a set-piece chip and click a marker, arm Join attack and click two markers"],
-  ["SE-GUI-25", "the tab's menus: Copy preset 1 to 2, then Swap Kick-off and In-possession; each is one undoable edit"],
-  ["card badges", "the Abilities tab shows the player's own tier's cards left next to the pickers; under DBC7 the count stays positive (no card is capped), under the official ruleset ticking cards takes it to 0 then red"],
+  ["SE-GUI-09", "the quick actions under the player list follow the ruleset control: Gold/Silver/Bronze/Goalkeeper/Regular under official, VTL11 and DBC7 their own"],
+  ["SE-GUI-11", "switch Edit aesthetics anyway on; the Appearance section's FPC group: Hide body (or Ctrl+I) gives the hide preset and reads 'FPC: the body is hidden', Show body (or Ctrl+I again) the show preset; a player with his own boots ID keeps it"],
+  ["SE-GUI-35", "the 'Aesthetics from exports' draft control off (the default): the Appearance section draws no ownership line and no switch and every path edits; on, the lock draws"],
+  ["SE-GUI-12", "a team row's view, the tactics: drag a pitch marker (it snaps to the stored grid, undoable), drop a bench row on a marker to swap, arm a set-piece chip and click a marker, arm Join attack and click two markers"],
+  ["SE-GUI-25", "the tactics' menus: Copy preset 1 to 2, then Swap Kick-off and In-possession; each is one undoable edit"],
+  ["card badges", "the Skills column's header shows the player's own tier's cards left next to the pickers; under DBC7 the count stays positive (no card is capped), under the official ruleset ticking cards takes it to 0 then red"],
   ["SE-GUI-20", "Appearance ids = 'stripped, three restored', then reopen the PES 21 save: the set ones are listed with Strip again"],
   ["SE-GUI-21", "the save's game running + Save: refused naming the exe (drawn; the scenario itself is manual)"],
   ["SE-GUI-26", "the Open menu: the discovered saves with version (and account folder from 19), the session's recents, then the picker; Save as keeps the replaced file as .bak"],
   ["SE-GUI-28", "PES selector at 2019 with the PES 21 sample open: the warning names both; the save keeps its version"],
   ["SE-GUI-13", "Panels, Comparator: pick the PES 21 sample (refused), then Autumn24Q; the toggles and the team filter narrow the rows, Export writes their report lines, a row click selects the player"],
-  ["SE-GUI-15", "the AATF button (on the Abilities tab) or Panels menu: violations grouped per player, a click selects him; Show suggestions (official), Validate rules on the broken files, Save a copy; Select teams ticks e.g. 708 for its Height, BracketQuota and ExtraHeight"],
+  ["SE-GUI-15", "the Panels menu's AATF violations: violations grouped per player, a click selects him; Show suggestions (official), Validate rules on the broken files, Save a copy; Select teams ticks e.g. 708 for its Height, BracketQuota and ExtraHeight"],
   ["SE-GUI-30", "PES 17 sample, team 718, the DBC7 ruleset: switch Live AATF on in the toolbar; the bottom panel lists the team's issues, errors first, under 'N issues · DBC7'. Lower a stat over its maximum (a Stat row) to its target: the list dims, marked checking, then the row is gone and N is one less; Undo brings it back. Under the official ruleset on 718, untick the team-rows control and set each Height row's player to 180: '... passes ... with no issues'. Reload the page: Live AATF is still on"],
   ["SE-GUI-18", "Panels, Apply aesthetics patch: on the PES 21 sample the preview lists the changed players, Apply is one edit; on the PES 17 sample the same patch is refused"],
   ["SE-GUI-16", "Panels, Team file interchange: Team TOML export writes the team's file; pick 701.toml (PES 21) for the warning list, a 718 or 722 one for the refusals; Apply is one undoable edit"],
@@ -2765,16 +2802,6 @@ function onKey(e) {
   }
   if (e.key === "Escape" && S.picker) { closePicker(); render(); }
 }
-// SE-GUI-28: the save's version governs its codec and widgets; a selector
-// mismatch warns, never reinterprets, and the setting is unchanged.
-// sample wording: the banner's text.
-function versionBanner() {
-  if (!S.save || D.selectorVersion === "20" + version()) return null;
-  return h("div", { class: "vbanner warn", id: "version-warning", "data-panel": "version-banner" },
-    "Although the sidebar is set to PES " + D.selectorVersion + ", this save is from PES 20" +
-    version() + ", so the editor keeps treating it as a PES 20" + version() + " save.");
-}
-
 // ---- Full Player Customization (spec/libs/fpc.md; SE-GUI-11) ----
 // The hide/unhide presets' fields (fpc::preset): the nonexistent ids are the
 // suite-common setting's 4cc convention (55/11). SkinColor::Preset resets a
@@ -2852,21 +2879,23 @@ function dlgChooseFile() {
     [button("OK", closeWindow)]);
 }
 function playerMenu() {
-  const p = curPlayer();
+  const p = curPlayer(), off = isTeamSel();
+  const tip = off ? "The Player menu acts on a player: pick a player row" : null;
   return menu("Player", [
-    ["Set all stats\u2026", dlgSetStats],
-    ["Bump all stats\u2026", dlgBumpStats],
-    ["Toggle FPC settings  Ctrl+I", () => { fpcToggle(p); render(); }, !aesUnlocked(), ownershipTip()],
+    ["Set all stats\u2026", dlgSetStats, off, tip],
+    ["Bump all stats\u2026", dlgBumpStats, off, tip],
+    ["Toggle FPC settings  Ctrl+I", () => { fpcToggle(p); render(); },
+      off || !aesUnlocked(), tip || ownershipTip()],
     "-",
-    ["Copy stats from\u2026", () => dlgCopySwap(p, "copy")],
-    ["Swap stats with\u2026", () => dlgCopySwap(p, "swap")],
+    ["Copy stats from\u2026", () => dlgCopySwap(p, "copy"), off, tip],
+    ["Swap stats with\u2026", () => dlgCopySwap(p, "swap"), off, tip],
     "-",
-    ["Generate settings.toml\u2026", dlgSettings],
-    ["Generate in-game face\u2026", dlgIngameFace],
+    ["Generate settings.toml\u2026", dlgSettings, off, tip],
+    ["Generate in-game face\u2026", dlgIngameFace, off, tip],
   ]);
 }
 function teamMenu() {
-  const t = curTeam();
+  const t = selTeam();
   return menu("Team", [
     ["Set edited flag", () => { edit("Set edited flag", () => {
       for (const p of t.players) p.edit_flags.player = true; }); render(); }],
@@ -2890,7 +2919,7 @@ const POS_LONG = { GK: "Goalkeeper", CB: "Center Back", LB: "Left Back", RB: "Ri
   RMF: "Right Midfielder", AMF: "Attacking Midfielder", LWF: "Left Wing Forward",
   RWF: "Right Wing Forward", SS: "Second Striker", CF: "Centre Forward" };
 function clearVisualFlags() {
-  const t = curTeam();
+  const t = selTeam();
   edit("Clear visual flags", () => {
     for (const p of t.players)
       for (const k of ["face", "hair", "physique", "strip"]) p.edit_flags[k] = false;
@@ -2898,7 +2927,7 @@ function clearVisualFlags() {
   render();
 }
 function teamFpc(on) {
-  const t = curTeam();
+  const t = selTeam();
   edit("Team FPC " + (on ? "on" : "off"), () => {
     for (const p of t.players) applyPreset(p, on ? FPC_HIDE : FPC_UNHIDE); });
   render();
@@ -2945,7 +2974,7 @@ function dlgCopySwap(p, mode) {
 // (boots: incremental from a start, or one id for all; gloves as the boot ids
 // or one id for all). One undoable edit over the team (SE-GUI-23).
 function dlgBoglo() {
-  const t = curTeam(), p = curPlayer();
+  const t = selTeam(), p = curPlayer();
   const bStart = h("input", { type: "number", value: p.boots_id });
   const bId = h("input", { type: "number", value: p.boots_id });
   const gId = h("input", { type: "number", value: p.gloves_id });
@@ -3079,16 +3108,14 @@ function dlgFixDb() {
 function renderView(center) {
   scheduleLiveCheck();
   center.innerHTML = "";
-  if (!S.save) { center.append(h("h2", {}, "Save editor"), weak("No save is open.")); return; }
+  if (!S.save) { center.append(weak("No save is open.")); return; }
   // Live AATF docks at the bottom (egui's Panel::bottom inside the view): the
   // view's content scrolls above it, the panel keeps its strip.
   const live = livePanel();
   center.classList.toggle("docked", !!live);
   const host = live ? h("div", { class: "view-scroll" }) : center;
   if (live) center.append(host, live);
-  host.append(h("h2", {}, "Save editor"), renderToolbar());
-  const banner = versionBanner();
-  if (banner) host.append(banner);
+  host.append(renderToolbar());
   host.append(h("div", { class: "master" }, renderMaster(), renderDetail()));
   const panel = renderPanel();
   if (panel) center.append(panel);
@@ -3104,10 +3131,6 @@ function matches(p, q) {
       || p.shirt_name.toLowerCase().includes(q)
       || String(p.id).includes(q);
 }
-function filteredPlayers() {
-  return curSave().teams.flatMap(t =>
-    t.players.filter(p => matches(p, S.filter)).map(p => ({ team: t, p })));
-}
 function renderMaster() {
   const box = h("div", { class: "plist", "data-panel": "player-list" });
   const sel = combo([["all", "ALL"]].concat(curSave().teams.map(t => [String(t.id), t.name])),
@@ -3119,18 +3142,43 @@ function renderMaster() {
     // No redraw: the box keeps its focus; the link still tracks the text.
     oninput: e => { S.filter = e.target.value; renderList(rows); updateLink(); } });
   const rows = h("div", { class: "rows", id: "player-rows" });
-  box.append(sel, filter, rows);
+  box.append(sel, filter, rows, quickActions());
   renderList(rows);
   return box;
 }
-// One pass over the row container, so typing keeps the input's focus.
+// One pass over the row container, so typing keeps the input's focus. A team
+// row heads each team's players; under the filter it stays while its own
+// name matches or any of its players does.
 function renderList(rows) {
   rows.innerHTML = "";
-  const entries = S.filter.trim()
-    ? filteredPlayers()
-    : (S.teamSel === "all" ? curSave().teams.flatMap(t => t.players.map(p => ({ team: t, p })))
-                           : curTeam().players.map(p => ({ team: curTeam(), p })));
-  for (const { team, p } of entries) rows.append(playerRow(team, p));
+  const q = S.filter.trim().toLowerCase();
+  if (q) {
+    for (const t of curSave().teams) {
+      const hit = t.players.filter(p => matches(p, S.filter));
+      if (hit.length || t.name.toLowerCase().includes(q)) {
+        rows.append(teamRow(t));
+        for (const p of hit) rows.append(playerRow(t, p));
+      }
+    }
+    return;
+  }
+  for (const t of (S.teamSel === "all" ? curSave().teams : [curTeam()])) {
+    rows.append(teamRow(t));
+    for (const p of t.players) rows.append(playerRow(t, p));
+  }
+}
+// The team row: bold, the team's id and its two colours as swatches, its
+// dirty dot covering the team's own fields. It never drags and is no drop
+// target; a click selects the team (the view shows it).
+function teamRow(team) {
+  return h("div", { class: "prow trow" + (isTeamSel() && S.sel.team === team.id ? " on" : ""),
+      "data-team": team.id,
+      onclick: () => { S.sel = { team: team.id }; render(); } },
+    h("span", { class: "mono weak" }, String(team.id)),
+    h("span", { class: "swatch", style: "background:" + shownHex(team.color_1) }),
+    h("span", { class: "swatch", style: "background:" + shownHex(team.color_2) }),
+    h("span", {}, ...nameSpans(team.name)),
+    dirtyTeam(team) ? h("span", { class: "dot", title: "Unsaved changes" }, "●") : null);
 }
 function playerRow(team, p) {
   const r = h("div", { class: "prow" + (S.sel && S.sel.team === team.id && S.sel.slot === p.slot ? " on" : ""),
@@ -3157,13 +3205,10 @@ function playerRow(team, p) {
   return r;
 }
 
-// ---- Detail: the info strip, the quick actions, the tabs ----
-// The sketch's general fields (save_editor.md "Editing UI"); every field is an
-// undoable edit. The name field keeps the raw string (colour codes shown as
-// \x11c sequences); Captain marks him in the team's set pieces.
-// A label cell of a label/field grid (infoStrip, the Profile block, the
-// stats grid): weak, right-aligned, in its own cell so the next cell's field
-// shares a column with the other rows'.
+// ---- Detail: the player and team views ----
+// A label cell of a label/field grid (the General info column, the small
+// fields under the skills, the stats grid): weak, right-aligned, in its own
+// cell so the next cell's field shares a column with the other rows'.
 const lbl = t => h("td", { class: "weak ilabel" }, t);
 // A field cell of a label/field grid, its widget version-gated.
 const fld = (el, minV) => h("td", {}, gated(h("span", {}, el), minV || 15));
@@ -3173,8 +3218,9 @@ const fld = (el, minV) => h("td", {}, gated(h("span", {}, el), minV || 15));
 // chrome]. The count is read from the panel's own stored resize (the host's
 // layoutPanelW), never from the pane's and never past the layout's own.
 const COL_PANELS = {
-  "ability-stats": [4, 151], "positions": [5, 63], "skills": [5, 131],
-  "profile": [2, 218], "team-info": [2, 120], "cutscenes": [2, 120, 14],
+  "positions": [5, 63], "skills": [2, 140], "com-styles": [2, 110],
+  "profile-values": [2, 160],
+  "team-info": [2, 120], "cutscenes": [2, 120, 14],
   "strip-style": [4, 170, 14], "motion": [4, 194, 14],
   "tactics-settings": [2, 209, 14],
 };
@@ -3190,11 +3236,14 @@ const namedCols = (el, name) => {
 // n items per row.
 const chunk = (arr, n) =>
   Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
-function infoStrip(p, team) {
-  // Labels in their own weak right-aligned cells, fields in the next cell, so
-  // both rows' fields share the grid's columns; row 1's last pair stays empty.
-  const num = (label, get, put, w) => [lbl(label), h("td", {},
-    h("input", { type: "number", style: w ? "width:" + w + "px" : "", value: get(p),
+// The General info column (save_editor.md "Editing UI"; 4ccEditor's General
+// Info): the identity fields, one label/field pair per row so the column
+// stays narrow. Every field is an undoable edit. The name field keeps the
+// raw string (colour codes shown as \x11c sequences); Captain marks him in
+// the team's set pieces.
+function generalPanel(p, team) {
+  const num = (label, get, put) => [lbl(label), h("td", {},
+    h("input", { type: "number", value: get(p),
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v)) { set(p, get, put, v, label); render(); } } }))];
   const nameIn = h("input", { type: "text", value: escName(p.name),
@@ -3209,73 +3258,135 @@ function infoStrip(p, team) {
     onchange: e => { const t = team;
       edit("captain", () => { t.captain = e.target.checked ? p.slot - 1 : 255; }); render(); } });
   captain.id = "f-captain";
-  return h("table", { class: "grid info-grid" },
-    h("tr", {},
-      lbl("Name"), h("td", {}, nameIn),
-      lbl("Shirt"), h("td", {}, shirtIn),
-      num("Number", p2 => p2.number, (x, v) => x.number = v),
-      lbl("Captain"), h("td", {}, captain), h("td"), h("td")),
-    h("tr", {},
-      lbl("ID"), h("td", {}, h("span", { class: "mono" }, String(p.id))),
-      num("Nation", p2 => p2.nationality, (x, v) => x.nationality = v),
-      num("Age", p2 => p2.age, (x, v) => x.age = v),
-      num("Height", p2 => p2.height, (x, v) => x.height = v),
-      num("Weight", p2 => p2.weight, (x, v) => x.weight = v)));
+  const reg = combo(POSITIONS.map(x => [x, x]), p.positions.registered,
+    v => { set(p, x => x.positions.registered, (x, v2) => x.positions.registered = v2, v, "registered position"); });
+  reg.id = "f-regpos";
+  const style = combo(PLAY_STYLES.map(x => [x, titleCase(x)]), p.positions.playing_style,
+    v => { set(p, x => x.positions.playing_style, (x, v2) => x.positions.playing_style = v2, v, "playing style"); });
+  const foot = combo(FOOT.map(x => [x, titleCase(x)]), p.positions.stronger_foot,
+    v => { set(p, x => x.positions.stronger_foot, (x, v2) => x.positions.stronger_foot = v2, v, "stronger foot"); });
+  const hand = combo(FOOT.map(x => [x, titleCase(x)]), p.positions.stronger_hand ?? "right",
+    v => { set(p, x => x.positions.stronger_hand, (x, v2) => x.positions.stronger_hand = v2, v, "stronger hand"); });
+  hand.id = "f-hand";
+  const row = (label, el) => h("tr", {}, lbl(label), h("td", {}, el));
+  return named(h("div", { class: "col" }, strong("General info"),
+    h("table", { class: "grid info-grid" },
+      row("Name", nameIn), row("Shirt", shirtIn),
+      row("ID", h("span", { class: "mono" }, String(p.id))),
+      h("tr", {}, ...num("Number", p2 => p2.number, (x, v) => x.number = v)),
+      row("Captain", captain),
+      h("tr", {}, ...num("Nation", p2 => p2.nationality, (x, v) => x.nationality = v)),
+      h("tr", {}, ...num("Age", p2 => p2.age, (x, v) => x.age = v)),
+      h("tr", {}, ...num("Height", p2 => p2.height, (x, v) => x.height = v)),
+      h("tr", {}, ...num("Weight", p2 => p2.weight, (x, v) => x.weight = v)),
+      h("tr", {}, lbl("Stronger foot"), fld(foot)),
+      h("tr", {}, lbl("Stronger hand"), fld(hand, 20)),
+      h("tr", {}, lbl("Registered position"), fld(reg)),
+      h("tr", {}, lbl("Playing style"), fld(style)))), "general");
 }
-// The player header drawn inside the two player tabs' content: the coloured
-// name as the title, then the identity fields' grid.
-function playerHeader(p, team) {
-  return h("div", { class: "pheader" },
-    h("div", { class: "strong", style: "margin-bottom:4px" }, ...nameSpans(p.name)),
-    infoStrip(p, team));
+// The player's name drawn with its colour codes, the view's title.
+function playerHeader(p) {
+  return h("div", { class: "pheader strong", style: "margin-bottom:4px" }, ...nameSpans(p.name));
 }
 // One "Make X" per tier of the active ruleset in its order, plus Set stats
-// (SE-GUI-09).
-function quickActions(p) {
-  const tiers = RULESETS[D.ruleset].tiers;
-  const input = h("input", { type: "number", id: "set-stats", value: 77, min: 0, max: 99 });
-  // A column in the tab's top row (v2): the tier buttons one per line.
-  return h("div", { class: "col", id: "quick-actions", "data-panel": "quick-actions" },
-    strong("Quick actions"),
-    tiers.map(t => button("Make " + t.label, () => { applyTier(p, t); render(); },
-      { title: "The " + t.label + " tier's values (the active ruleset)" })),
-    h("div", { class: "row" },
-      button("Set stats", () => {
-        const n = parseInt(input.value, 10);
-        if (!Number.isNaN(n)) { setAllStats(p, n); render(); }
-      }, { title: "Set every ability stat to the value next to this button" }),
-      input),
-    // One click from a player to the violations panel (a member fixes one
-    // player at a time).
-    (() => { const b = button("AATF\u2026", () => { S.panel = "aatf"; S.aatf.mode = "current"; render(); },
-      { title: "The active ruleset's violations for this team" });
-      b.id = "aatf-btn"; return b; })());
+// (SE-GUI-09), in two columns under the player list. They act on the selected
+// player, so a team row leaves them disabled with the reason on hover.
+function quickActions() {
+  const p = curPlayer(), off = isTeamSel();
+  const tip = off ? "The make buttons act on a player: pick a player row" : null;
+  const input = h("input", { type: "number", id: "set-stats", value: 77, min: 0, max: 99,
+    disabled: off, title: tip });
+  const cells = RULESETS[D.ruleset].tiers.map(t =>
+    button("Make " + t.label, () => { applyTier(p, t); render(); },
+      { disabled: off, title: tip || "The " + t.label + " tier's values (the active ruleset)" }));
+  cells.push(h("div", { class: "row" },
+    button("Set stats", () => {
+      const n = parseInt(input.value, 10);
+      if (!Number.isNaN(n)) { setAllStats(p, n); render(); }
+    }, { disabled: off, title: tip || "Set every ability stat to the value next to this button" }),
+    input));
+  return h("div", { class: "qagrid", id: "quick-actions", "data-panel": "quick-actions" }, cells);
 }
-// One flat list, each entry's scope drawing a weak label before the group's
-// first tab (v2: Player tabs first, then the Team ones).
-const TABS = [["abilities", "Abilities & Skills", "Player"], ["appearance", "Appearance", "Player"],
-  ["tactics", "Tactics", "Team"], ["team", "Team settings", "Team"]];
+// The detail view: a player row shows the player view (the fixed columns,
+// then the Appearance section), a team row the team view. No tabs.
 function renderDetail() {
-  const p = curPlayer(), team = teamOf(p);
   const d = h("div", { class: "detail" });
-  d.append(teamBar(team));
-  const strip = h("div", { class: "tabrow", "data-panel": "tab-bar" });
-  let scope = null;
-  for (const [id, label, sc] of TABS) {
-    if (sc !== scope) strip.append(h("span", { class: "weak tscope" }, (scope = sc)));
-    strip.append(selectable(label, S.tab === id, () => S.tab = id));
-  }
-  d.append(strip);
-  const playerTab = S.tab === "abilities" || S.tab === "appearance";
-  d.append(h("div", { id: "tab-" + S.tab },
-    playerTab ? playerHeader(p, team) : null,
-    S.tab === "abilities" ? abilitiesTab(p)
-    : S.tab === "appearance" ? appearanceTab(p)
-    : S.tab === "team" ? teamTab(team)
-    // sample wording: the section headers, the "Quick actions" label, the
-    // stub dialogs' text, the flag labels.
-    : tacticsTab(team)));
+  if (isTeamSel()) d.append(teamView(selTeam()));
+  else { const p = curPlayer(); d.append(playerView(p, teamOf(p))); }
   return d;
+}
+// The player view (v3, after 4ccEditor's layout): the coloured name as the
+// title, the fixed columns - General info over Playable positions, the
+// Skills in two, the ability stats in one - then the collapsing Appearance
+// section, closed by default.
+function playerView(p, team) {
+  return h("div", { id: "player-view" },
+    playerHeader(p),
+    h("div", { class: "pcols" },
+      h("div", { class: "col" }, generalPanel(p, team), positionsPanel(p)),
+      h("div", { class: "col" }, skillsPanel(p, team), comStylesPanel(p), valuesPanel(p)),
+      abilityPanel(p)),
+    named(collapsing("se-appearance", "Appearance", () => appearanceTab(p)), "appearance"));
+}
+// The team view: the team's name as the title, the name/short-name/colour
+// fields the team bar carried, the gated ids, the kit slots behind a button
+// (rarely edited), then the Tactics.
+function teamView(t) {
+  const num = (label, key, minV) => h("td", {}, gated(h("span", {}, label + " ",
+    h("input", { type: "number", id: "team-" + key, value: t[key] ?? 0,
+      onchange: e => { const v = parseInt(e.target.value, 10);
+        if (!Number.isNaN(v)) { edit(label, () => { t[key] = v; }); render(); } } })), minV));
+  return h("div", { id: "team-view" },
+    h("div", { class: "strong", style: "margin-bottom:4px" }, ...nameSpans(t.name)),
+    teamFields(t),
+    h("div", { class: "row" },
+      namedCols(h("table", { class: "grid info-grid" },
+        chunk([num("Manager ID", "manager_id", 19), num("Stadium ID", "stadium_id", 19)],
+          colCount("team-info")).map(r => h("tr", {}, r))), "team-info"),
+      button("Kit slots\u2026", dlgKitSlots,
+        { title: "The kit slot assignments, rarely edited" })),
+    h("div", { class: "sep" }),
+    tacticsTab(t));
+}
+// The team's name, short name and colours 1-2, the former team bar's fields
+// (SE-GUI-10): members edit the name and the abbreviation often.
+function teamFields(t) {
+  const nameIn = h("input", { type: "text", id: "team-name", value: t.name,
+    onchange: e => { edit("team name", () => { t.name = e.target.value; }); render(); } });
+  const shortIn = h("input", { type: "text", id: "team-short", class: "shirt", value: t.short_name,
+    onchange: e => { edit("team short name", () => { t.short_name = e.target.value; }); render(); } });
+  const colour = (key, label) => {
+    const shown = shownHex(t[key]);
+    // The Save editor has no kit to extract colours from, so it passes no
+    // suggestions (the draft control fakes a kit editor's three).
+    const fld = colorPicker(key, "team-" + key, t[key].map(chanToShow),
+      rgb => { edit(label, () => { t[key] = rgb.map(chanToSave); }); render(); },
+      cand => { const b = document.getElementById("team-" + key);
+        if (b) b.style.background = cand ? rgbToHex(cand) : shownHex(t[key]); },
+      D.pickerSugg ? PICKER_SAMPLE_SUGGESTIONS : [],
+      "Stored " + t[key].join(", ") + ", shown " + shown.toUpperCase());
+    return h("span", {}, label + " ", fld, " ", h("span", { class: "mono weak" }, shown.toUpperCase()));
+  };
+  return named(h("div", { class: "row", id: "team-fields" },
+    weak("Team"), nameIn, weak("Short"), shortIn,
+    colour("color_1", "Colour 1"), colour("color_2", "Colour 2")), "team-fields");
+}
+// The kit slot assignments, behind the team view's Kit slots button.
+function kitSlotsTable(t) {
+  return t.kit_slots
+    ? named(h("table", { class: "grid" }, t.kit_slots.map((ks, i) =>
+        h("tr", {}, h("td", { class: "weak" }, "Slot " + (i + 1)),
+          h("td", {}, "Number ", h("input", { type: "number", value: ks.number,
+            onchange: e => { const v = parseInt(e.target.value, 10);
+              if (!Number.isNaN(v)) { edit("kit slot number", () => { ks.number = v; }); render(); } } })),
+          h("td", {}, "Bound team id ", h("input", { type: "number", style: "width:96px", value: ks.binding,
+            onchange: e => { const v = parseInt(e.target.value, 10);
+              if (!Number.isNaN(v)) { edit("kit slot binding", () => { ks.binding = v; }); render(); } } }))))), "kit-slots")
+    : h("span", { class: "gate", title: "PES 17 only" },
+        h("div", { class: "row weak" }, "(this version does not store kit slots)"));
+}
+function dlgKitSlots() {
+  dlg("kit-slots", "Kit slot assignments", kitSlotsTable(selTeam()), [button("OK", closeWindow)]);
 }
 
 // ---- Abilities & Skills (SE-GUI-03, 06) ----
@@ -3290,37 +3401,31 @@ function gated(widget, minV) {
   });
   return h("span", { class: "gate", title: "PES " + minV + "+" }, widget);
 }
-function abilitiesTab(p) {
-  // Four label/field column groups, filled column by column in the game's
-  // order (fewer when the panel cannot hold four, so none clips); a
-  // version-gated stat sits disabled in its value cell.
+// The ability stats in one column, the game's order; a version-gated stat
+// sits disabled in its value cell.
+function abilityPanel(p) {
   const stats = h("table", { class: "grid stats-grid" });
-  const statCols = colCount("ability-stats"), statRows = Math.ceil(ABILITY_STATS.length / statCols);
-  for (let r = 0; r < statRows; r++) {
-    const tr = h("tr", {});
-    for (let g = 0; g < statCols; g++) {
-      const s = ABILITY_STATS[g * statRows + r];
-      if (s === undefined) { tr.append(h("td"), h("td")); continue; }
-      const minV = STAT_MIN_VERSION[s] || 15;
-      const inp = h("input", { type: "number", "data-stat": s, value: p.stats[s] ?? "", min: 40, max: 99,
-        onchange: e => { const v = parseInt(e.target.value, 10);
-          if (!Number.isNaN(v)) { set(p, x => x.stats[s], (x, v2) => x.stats[s] = v2, v, s); render(); } } });
-      tr.append(lbl(STAT_LABEL[s]), h("td", {}, gated(h("span", {}, inp), minV)));
-    }
-    stats.append(tr);
+  for (const s of ABILITY_STATS) {
+    const minV = STAT_MIN_VERSION[s] || 15;
+    const inp = h("input", { type: "number", "data-stat": s, value: p.stats[s] ?? "", min: 40, max: 99,
+      onchange: e => { const v = parseInt(e.target.value, 10);
+        if (!Number.isNaN(v)) { set(p, x => x.stats[s], (x, v2) => x.stats[s] = v2, v, s); render(); } } });
+    stats.append(h("tr", {}, lbl(STAT_LABEL[s]), h("td", {}, gated(h("span", {}, inp), minV))));
   }
-  // Positions: the registered one plus a C/B/A rating per playable position.
+  return named(h("div", { class: "col" }, strong("Ability stats"), stats), "ability-stats");
+}
+// The registered position's cell marked, a C/B/A rating per playable
+// position in the formation order. Narrowed past the five columns' width
+// the cells reflow into fewer columns, in the same order.
+function positionsPanel(p) {
   const rating = (pos) => {
     const cur = p.positions.playable[pos];
-    const wrap = h("span", { class: "rate" }, ["C", "B", "A"].map(r =>
-      h("span", { class: "sel" + (cur === r ? " on" : ""),
+    return h("span", { class: "rate" }, ["C", "B", "A"].map(r =>
+      h("span", { class: "sel r" + r.toLowerCase() + (cur === r ? " on" : ""),
         onclick: () => { set(p, x => x.positions.playable[pos], (x, v) => x.positions.playable[pos] = v, r, "rating"); render(); } }, r)));
-    return wrap;
   };
   // One row per line of the pitch, the collaborator's order; each cell the
-  // position's label over its C B A choice, the registered one's cell marked.
-  // Narrowed past the five columns' width the cells reflow into fewer
-  // columns, in the same order.
+  // position's label over its C B A choice.
   const POS_ROWS = [["CF", "SS", "LWF", "RWF"], ["AMF", "LMF", "RMF", "CMF", "DMF"],
     ["CB", "LB", "RB", "GK"]];
   const posCols = colCount("positions");
@@ -3329,76 +3434,67 @@ function abilitiesTab(p) {
     posRows.map(row => h("tr", {}, row.map(pos =>
       h("td", { class: "poscell" + (pos === p.positions.registered ? " reg" : "") },
         h("div", { class: "plabel" }, pos), rating(pos))))));
-  const reg = combo(POSITIONS.map(x => [x, x]), p.positions.registered,
-    v => { set(p, x => x.positions.registered, (x, v2) => x.positions.registered = v2, v, "registered position"); });
-  reg.id = "f-regpos";
-  const style = combo(PLAY_STYLES.map(x => [x, titleCase(x)]), p.positions.playing_style,
-    v => { set(p, x => x.positions.playing_style, (x, v2) => x.positions.playing_style = v2, v, "playing style"); });
-  const foot = combo(FOOT.map(x => [x, titleCase(x)]), p.positions.stronger_foot,
-    v => { set(p, x => x.positions.stronger_foot, (x, v2) => x.positions.stronger_foot = v2, v, "stronger foot"); });
-  const hand = combo(FOOT.map(x => [x, titleCase(x)]), p.positions.stronger_hand ?? "right",
-    v => { set(p, x => x.positions.stronger_hand, (x, v2) => x.positions.stronger_hand = v2, v, "stronger hand"); });
-  hand.id = "f-hand";
-  // The small stored fields, drawn at the game's numbers (stored one lower).
+  return namedCols(h("div", { class: "col" }, strong("Playable positions"), posTable), "positions");
+}
+// The skills in two columns filled column by column (one where the panel
+// cannot hold two), the Cards left badge in the header; the COM styles and
+// the non-ability values are their own panels stacked under it.
+function skillsPanel(p, team) {
+  const skillCb = k => gated(h("label", { class: "cb" },
+    h("input", { type: "checkbox", checked: p.skills.includes(k), "data-skill": k,
+      onchange: e => {
+        set(p, x => x.skills.join(","), (x, v) => {
+          const arr = x.skills.filter(s => s !== k);
+          if (e.target.checked) arr.push(k);
+          x.skills = arr;
+        }, e.target.checked, "skill");
+        render(); } }), " ", titleCase(k)), skillMinVersion(SKILLS.indexOf(k)));
+  const cols = colCount("skills"), per = Math.ceil(SKILLS.length / cols);
+  const skcols = [];
+  for (let c = 0; c < cols; c++)
+    skcols.push(h("div", { class: "col" }, SKILLS.slice(c * per, (c + 1) * per).map(skillCb)));
+  return namedCols(h("div", { class: "col" },
+    h("div", { class: "row" }, strong("Skills"), cardBadges(p, team)),
+    h("div", { class: "skcols" }, skcols)), "skills");
+}
+// The COM playing styles, two columns of checkboxes as wide as the skills
+// panel above them (one column where it is narrowed).
+function comStylesPanel(p) {
+  const comCb = k => h("label", { class: "cb" },
+    h("input", { type: "checkbox", checked: p.com_styles.includes(k), "data-com": k,
+      onchange: e => {
+        set(p, x => x.com_styles.join(","), (x, v) => {
+          const arr = x.com_styles.filter(s => s !== k);
+          if (e.target.checked) arr.push(k);
+          x.com_styles = arr;
+        }, e.target.checked, "COM style");
+        render(); } }), " ", titleCase(k));
+  const cols = colCount("com-styles"), per = Math.ceil(COM_STYLES.length / cols);
+  return namedCols(h("div", { class: "col" }, strong("COM playing styles"),
+    h("div", { class: "skcols" },
+      Array.from({ length: cols }, (_, c) =>
+        h("div", { class: "col" }, COM_STYLES.slice(c * per, (c + 1) * per).map(comCb))))),
+    "com-styles");
+}
+// The four non-ability values, drawn at the game's numbers (stored one
+// lower): two label/field pairs per row, the labels in aligned cells.
+function valuesPanel(p) {
   const small = (label, get, put, max) =>
     h("input", { type: "number", value: get(p) + 1, min: 1, max,
       onchange: e => { const v = parseInt(e.target.value, 10) - 1;
         if (v >= 0) { set(p, get, (x, v2) => put(x, v2), v, label); render(); } } });
-  // Two label/field pairs per row (one where the panel cannot hold two, as
-  // the ability stats' columns).
-  const profilePairs = [
-    [lbl("Registered position"), fld(reg)], [lbl("Playing style"), fld(style)],
-    [lbl("Stronger foot"), fld(foot)], [lbl("Stronger hand"), fld(hand, 20)],
-    [lbl("Form"), fld(small("Form", x => x.stats.form, (x, v) => x.stats.form = v, 8))],
+  const pairs = [
     [lbl("Injury resistance"), fld(small("Injury resistance",
       x => x.stats.injury_resistance, (x, v) => x.stats.injury_resistance = v, 3))],
+    [lbl("Form"), fld(small("Form", x => x.stats.form, (x, v) => x.stats.form = v, 8))],
     [lbl("Weak foot usage"), fld(small("Weak foot usage",
       x => x.stats.weak_foot_usage, (x, v) => x.stats.weak_foot_usage = v, 4))],
     [lbl("Weak foot accuracy"), fld(small("Weak foot accuracy",
       x => x.stats.weak_foot_accuracy, (x, v) => x.stats.weak_foot_accuracy = v, 4))]];
-  const profile = h("table", { class: "grid info-grid", id: "profile-grid" },
-    chunk(profilePairs, colCount("profile")).map(row => h("tr", {}, row.flat())));
-  const skills = h("table", { class: "grid skillgrid" });
-  const skillCols = colCount("skills");
-  for (let i = 0; i < SKILLS.length; i += skillCols) {
-    const tr = h("tr", {});
-    for (const k of SKILLS.slice(i, i + skillCols)) {
-      const idx = SKILLS.indexOf(k);
-      const has = p.skills.includes(k);
-      tr.append(h("td", {}, gated(h("label", { class: "cb" },
-        h("input", { type: "checkbox", checked: has, "data-skill": k,
-          onchange: e => {
-            set(p, x => x.skills.join(","), (x, v) => {
-              const arr = x.skills.filter(s => s !== k);
-              if (e.target.checked) arr.push(k);
-              x.skills = arr;
-            }, e.target.checked, "skill");
-            render(); } }), " ", titleCase(k)), skillMinVersion(idx))));
-    }
-    skills.append(tr);
-  }
-  const coms = h("div", { class: "row" },
-    COM_STYLES.map(k => h("label", { class: "cb" },
-      h("input", { type: "checkbox", checked: p.com_styles.includes(k), "data-com": k,
-        onchange: e => {
-          set(p, x => x.com_styles.join(","), (x, v) => {
-            const arr = x.com_styles.filter(s => s !== k);
-            if (e.target.checked) arr.push(k);
-            x.com_styles = arr;
-          }, e.target.checked, "COM style");
-          render(); } }), " ", titleCase(k))));
-  // Three blocks across the top, wrapped when the pane is narrow, then the
-  // stats, skills and COM styles.
-  return h("div", {},
-    h("div", { class: "topblocks" },
-      namedCols(h("div", { class: "col" }, strong("Profile"), profile), "profile"),
-      namedCols(h("div", { class: "col" }, strong("Playable positions"), posTable), "positions"),
-      quickActions(p)),
-    h("div", { class: "sep" }),
-    strong("Ability stats"), namedCols(stats, "ability-stats"),
-    h("div", { class: "sep" }),
-    strong("Skills"), " ", cardBadges(p, teamOf(p)), namedCols(skills, "skills"),
-    strong("COM playing styles"), named(coms, "com-styles"));
+  return namedCols(h("div", {},
+    h("table", { class: "grid info-grid" },
+      chunk(pairs, colCount("profile-values")).map(row => h("tr", {}, row.flat())))),
+    "profile-values");
 }
 
 // ---- Appearance (SE-GUI-07, 20, 35) ----
@@ -3563,7 +3659,7 @@ function appearanceTab(p) {
   // The classifier's reading, Hide body and Show body (Ctrl+I picks one), and
   // the interference findings of fpc::check, fixed order. Not a checkbox: a
   // player hidden by his model's own boots ID reads as shown. Disabled with
-  // the rest of the tab under the lock.
+  // the rest of the section under the lock.
   const findings = fpcFindings(p);
   const fpcGroup = h("div", { class: "group", "data-panel": "fpc", title: en ? null : ownershipTip() },
     strong("Full Player Customization"),
@@ -3759,57 +3855,9 @@ const PICKER_SAMPLE_SUGGESTIONS = ["#C8102E", "#FFFFFF", "#1D428A"];
 const chanToSave = c => Math.round(c * 63 / 255);
 const chanToShow = v => Math.round(v * 255 / 63);
 const shownHex = rgb => "#" + rgb.map(v => chanToShow(v).toString(16).padStart(2, "0")).join("");
-// The bar above every tab (v2): the team's name, short name and colours,
-// editable there; the team is the selected player's own.
-function teamBar(t) {
-  const nameIn = h("input", { type: "text", id: "team-name", value: t.name,
-    onchange: e => { edit("team name", () => { t.name = e.target.value; }); render(); } });
-  const shortIn = h("input", { type: "text", id: "team-short", class: "shirt", value: t.short_name,
-    onchange: e => { edit("team short name", () => { t.short_name = e.target.value; }); render(); } });
-  const colour = (key, label) => {
-    const shown = shownHex(t[key]);
-    // The Save editor has no kit to extract colours from, so it passes no
-    // suggestions (the draft control fakes a kit editor's three).
-    const fld = colorPicker(key, "team-" + key, t[key].map(chanToShow),
-      rgb => { edit(label, () => { t[key] = rgb.map(chanToSave); }); render(); },
-      cand => { const b = document.getElementById("team-" + key);
-        if (b) b.style.background = cand ? rgbToHex(cand) : shownHex(t[key]); },
-      D.pickerSugg ? PICKER_SAMPLE_SUGGESTIONS : [],
-      "Stored " + t[key].join(", ") + ", shown " + shown.toUpperCase());
-    return h("span", {}, label + " ", fld, " ", h("span", { class: "mono weak" }, shown.toUpperCase()));
-  };
-  return h("div", { class: "row", id: "team-bar", "data-panel": "team-bar" },
-    weak("Team"), nameIn, weak("Short"), shortIn,
-    colour("color_1", "Colour 1"), colour("color_2", "Colour 2"));
-}
-function teamTab(t) {
-  const num = (label, key, minV) => h("td", {}, gated(h("span", {}, label + " ",
-    h("input", { type: "number", id: "team-" + key, value: t[key] ?? 0,
-      onchange: e => { const v = parseInt(e.target.value, 10);
-        if (!Number.isNaN(v)) { edit(label, () => { t[key] = v; }); render(); } } })), minV));
-  const kits = t.kit_slots
-    ? named(h("table", { class: "grid" }, t.kit_slots.map((ks, i) =>
-        h("tr", {}, h("td", { class: "weak" }, "Slot " + (i + 1)),
-          h("td", {}, "Number ", h("input", { type: "number", value: ks.number,
-            onchange: e => { const v = parseInt(e.target.value, 10);
-              if (!Number.isNaN(v)) { edit("kit slot number", () => { ks.number = v; }); render(); } } })),
-          h("td", {}, "Bound team id ", h("input", { type: "number", style: "width:96px", value: ks.binding,
-            onchange: e => { const v = parseInt(e.target.value, 10);
-              if (!Number.isNaN(v)) { edit("kit slot binding", () => { ks.binding = v; }); render(); } } }))))), "kit-slots")
-    : null;
-  return h("div", {},
-    namedCols(h("table", { class: "grid info-grid" },
-      chunk([num("Manager ID", "manager_id", 19), num("Stadium ID", "stadium_id", 19)],
-        colCount("team-info")).map(row => h("tr", {}, row))), "team-info"),
-    h("div", { class: "sep" }),
-    strong("Kit slot assignments"),
-    kits ? kits
-      : h("span", { class: "gate", title: "PES 17 only" },
-          h("div", { class: "row weak" }, "(this version does not store kit slots)")));
-}
 
 // ---- Tactics (SE-GUI-12, 25) ----
-// The tab of "Tactics editor" in save_editor.md: the pitch is the editor
+// The tactics of "Tactics editor" in save_editor.md: the pitch is the editor
 // (drag a marker to move it, click for the slot's detail popover), the XI
 // and the bench are drag lists, roles are assigned by clicking pitch players,
 // and the two small menus carry the preset/formation copies and swaps.
@@ -4001,7 +4049,7 @@ function portraitOf(p) {
   if (!uri) return null;
   if (!portraitImages[uri]) {
     const img = new Image();
-    img.onload = () => drawPitch(teamOf(curPlayer()));
+    img.onload = () => drawPitch(selTeam());
     img.src = uri;
     portraitImages[uri] = img;
   }
@@ -4023,7 +4071,7 @@ function pitchTick() {
   if (!document.getElementById("pitch")) S.pitchSince = null;
   else {
     if (S.pitchSince == null) S.pitchSince = performance.now();
-    drawPitch(teamOf(curPlayer()));
+    drawPitch(selTeam());
   }
   requestAnimationFrame(pitchTick);
 }
@@ -4123,12 +4171,12 @@ document.addEventListener("pointermove", e => {
   const r = cv.getBoundingClientRect(), s = winScale();
   d.px = (e.clientX - r.left) / s; d.py = (e.clientY - r.top) / s;
   if (!d.gk && Math.abs(d.px - d.x0) + Math.abs(d.py - d.y0) > 4) d.moved = true;
-  drawPitch(teamOf(curPlayer()));
+  drawPitch(selTeam());
 });
 document.addEventListener("pointerup", e => {
   const d = S.pitchDrag; if (!d) return;
   S.pitchDrag = null;
-  const t = teamOf(curPlayer());
+  const t = selTeam();
   if (!d.moved) {
     if (!assignClick(t, d.i)) { S.slotPop = { i: d.i }; render(); }
     return;
@@ -4193,13 +4241,15 @@ function lineupList(t) {
 function benchList(t) {
   const tac = t.tactics;
   const box = h("div", { class: "llist", id: "bench-list" });
+  // Only the bench slots that hold a player draw; the empty entries stay in
+  // bench_order as they are, and a row keeps its array index for the drops.
   tac.bench_order.forEach((idx, i) => {
     const p = rosterPlayer(t, idx);
-    const r = h("div", { class: "lrow" + (p ? "" : " empty"), "data-bidx": i },
+    if (!p) return;
+    const r = h("div", { class: "lrow", "data-bidx": i },
       h("span", { class: "handle" }, "≡"),
-      h("span", { class: "fpos" }, p ? p.positions.registered : "--"),
-      h("span", { class: "lname", title: p ? displayName(p.name) : null },
-        ...(p ? nameSpans(p.name) : ["(empty)"])));
+      h("span", { class: "fpos" }, p.positions.registered),
+      h("span", { class: "lname", title: displayName(p.name) }, ...nameSpans(p.name)));
     listRowDrag(r, "bench:" + i);
     rowDrop(r, (kind, j) => kind === "xi" ? swapLineup(t, j, i) : moveBench(t, j, i));
     box.append(r);
@@ -4239,7 +4289,7 @@ function slotPopover(t) {
       " ", button("Close", () => { S.slotPop = null; render(); })));
 }
 
-// sample wording: the tab's labels, the menus' entries, the assignment
+// sample wording: the tactics' labels, the menus' entries, the assignment
 // note's text, the auto flags' labels.
 function tacticsTab(t) {
   const tac = t.tactics, pre = tacPreset(t);
@@ -4371,14 +4421,14 @@ function tacticsTab(t) {
             autoCb("attack_defence_levels", "Attack/defence levels", 17)))), "tactics-settings")));
   // The canvas paints after insertion (its element must be in the DOM);
   // the team is looked up then, an undo in between would paint stale data.
-  setTimeout(() => drawPitch(teamOf(curPlayer())), 0);
+  setTimeout(() => drawPitch(selTeam()), 0);
   return frame;
 }
 
 // ---- Slice 4: the cross-save panels (SE-GUI-13, 14, 15, 18) ----
-// The diff row in the tabs' terms (plan "Comparator", last bullet). The
-// report's values are stored; the row shows each field under its tab's label
-// and as that tab shows it. The offsets below are measured, not guessed
+// The diff row in the fields' terms (plan "Comparator", last bullet). The
+// report's values are stored; the row shows each field under its view label
+// and as that field shows it. The offsets below are measured, not guessed
 // (.tmp/8_5/measure_diff_offsets.py: 107 fields, no disagreement): 0 on
 // stats/basics, +1 on the 1-based motions (stored one lower), -7 on physique,
 // and the enum tables are the schema's (PES 17's own playing-style list, the
@@ -4447,15 +4497,15 @@ const FIELD_TERMS = {
 };
 const pascal = s => s.replace(/(^|_)\w/g, m => m.slice(-1).toUpperCase());
 for (const s of ABILITY_STATS) FIELD_TERMS[pascal(s)] = T_num(STAT_LABEL[s], 0);
-// The physique sliders: stored 0-14, shown -7 to +7, labelled like the tab.
+// The physique sliders: stored 0-14, shown -7 to +7, labelled like the field.
 const physLabel = f => f.replace(/(?!^)[A-Z]/g, m => " " + m.toLowerCase());
 for (const f of ["NeckLength", "NeckSize", "ShoulderHeight", "ShoulderWidth",
   "Chest", "Waist", "ArmSize", "ArmLength", "Thigh", "Calf", "LegLength",
   "HeadLength", "HeadWidth", "HeadDepth"])
   FIELD_TERMS[f] = T_num(physLabel(f), -7);
-// The indexed fields and every field no tab shows keep the report's own
+// The indexed fields and every field no view shows keep the report's own
 // shape where the plan leaves it (the skill/COM names and position letters
-// are the tabs' terms for the bitfields).
+// are the view's terms for the bitfields).
 function fieldTerm(field) {
   const t = FIELD_TERMS[field];
   if (t) return t;
@@ -4522,7 +4572,7 @@ function putStored(p, field, v) {
   if (w) w(p, v);
   else { p.aes_extra = p.aes_extra || {}; p.aes_extra[field] = v; }
 }
-// One diff row drawn in the tabs' terms: label, shown old, shown new.
+// One diff row drawn in the fields' terms: label, shown old, shown new.
 function diffRowDraw(field, o, n) {
   const t = fieldTerm(field);
   return { label: t.label, oldV: t.show(o), newV: t.show(n) };
@@ -4531,6 +4581,10 @@ function diffRowDraw(field, o, n) {
 // the selection follow.
 function jumpToPlayer(teamId, slot) {
   S.teamSel = String(teamId); S.sel = { team: teamId, slot };
+}
+// The team half of a row click's jump: the team row's selection.
+function jumpToTeam(teamId) {
+  S.teamSel = String(teamId); S.sel = { team: teamId };
 }
 // A panel row's player header: the id plus, as the player list draws them,
 // his shirt number and colour-coded name. A player the page holds no record
@@ -4790,7 +4844,7 @@ function suggestionsFor(p, t) {
 const aatfCovered = () => new Set((AATF_ROWS[D.ruleset] || []).map(r => r[1]));
 function aatfRows() {
   const rows = S.saveKey === "pes17" ? (AATF_ROWS[D.ruleset] || []) : [];
-  const ids = S.aatf.mode === "current" ? [curTeam().id]
+  const ids = S.aatf.mode === "current" ? [selTeam().id]
     : Object.keys(S.aatf.teams).filter(k => S.aatf.teams[k]).map(Number);
   return rows.filter(r => ids.includes(r[1]));
 }
@@ -4868,15 +4922,17 @@ function aatfPanel() {
     const kv = kvOf(fields);
     const row = h("div", { class: "drow sel " + (sev === "Error" ? "err" : sev === "Warning" ? "warn" : ""),
       onclick: () => {
-        if (pid && curSave().teams.some(t => t.id === team)) { jumpToPlayer(team, pid % 100); render(); }
-      }, title: pid ? "Select this player" : "A team-level violation" },
+        if (!curSave().teams.some(t => t.id === team)) return;
+        if (pid) jumpToPlayer(team, pid % 100); else jumpToTeam(team);
+        render();
+      }, title: pid ? "Select this player" : "Select the team" },
       h("span", { class: "f" }, rule), h("span", { class: "v" }, violationSentence(rule, kv, sev)));
     list.append(row);
   }
   // The suggestions, apart from errors and warnings (the toggle's whole
   // point), derived from the sample values.
   if (S.aatf.sugg) {
-    const ids = S.aatf.mode === "current" ? [curTeam().id]
+    const ids = S.aatf.mode === "current" ? [selTeam().id]
       : Object.keys(S.aatf.teams).filter(k => S.aatf.teams[k]).map(Number);
     let any = false, lastSuggPid = null;
     for (const tid of ids) {
@@ -4918,7 +4974,7 @@ function setLive(on) {
   LIVE.on = on; LIVE.sig = null; LIVE.result = null;
   localStorage.setItem("save_editor.live_aatf", String(on));
 }
-const liveTeam = () => S.teamSel === "all" ? teamOf(curPlayer()) : curTeam();
+const liveTeam = () => selTeam();
 // What the check reads: a change (an edit, an undo or redo, another team or
 // ruleset) starts a check.
 const liveSig = () => {
@@ -5025,8 +5081,8 @@ function livePanel() {
       lastPid = pid;
     }
     body.append(h("div", { class: "drow sel " + (sev === "Error" ? "err" : "warn"),
-      onclick: () => { if (pid) { jumpToPlayer(team, pid % 100); render(); } },
-      title: pid ? "Select this player" : "A team-level violation" },
+      onclick: () => { if (pid) jumpToPlayer(team, pid % 100); else jumpToTeam(team); render(); },
+      title: pid ? "Select this player" : "Select the team" },
       h("span", { class: "f" }, rule), h("span", { class: "v" }, violationSentence(rule, kvOf(fields), sev))));
   }
   return h("div", { class: "live-panel", "data-panel": "live-aatf" }, liveDivider(), header, body);
@@ -5035,7 +5091,7 @@ function livePanel() {
 // ---- Apply aesthetics patch (SE-GUI-18) ----
 // The one aesthetics write open by default. The version check refuses before
 // anything is touched (the CLI's wording); the preview lists every player the
-// patch changes with old -> new in the tabs' terms; Apply is one undoable
+// patch changes with old -> new in the fields' terms; Apply is one undoable
 // edit, saved only on Save.
 // sample wording: the panel's own labels.
 function patOpen() {
@@ -5200,7 +5256,7 @@ function ixSlots(d, t) {
 // a shirt number past the field's bits, or a .4ccs with more records than
 // the roster.
 function ixRefusal(d) {
-  const v = version(), t = curTeam();
+  const v = version(), t = selTeam();
   if (d.format === "4cct" || d.format === "ted") return null;
   if (d.format === "4ccs" && d.legacy.players.length > t.players.length)
     return "error: the file holds " + d.legacy.players.length
@@ -5229,7 +5285,7 @@ function ixRefusal(d) {
 // import_slot_empty skip. Only a foreign file emits version notes; the
 // empty-slot note fires on any pair.
 function ixWarnings(d) {
-  const v = version(), fv = d.version, foreign = fv !== v, t = curTeam();
+  const v = version(), fv = d.version, foreign = fv !== v, t = selTeam();
   const out = [], warn = line => out.push("- Warning " + line);
   const pp = slot => "players." + String(slot).padStart(2, "0");
   const tacSrc = d.format === "4cct" ? d.cct.tactics
@@ -5303,7 +5359,7 @@ function ixWarnings(d) {
 // One undoable edit over the selected team: the picked file's sections as
 // chosen, converted to the save's version.
 function ixApply(d) {
-  const v = version(), t = curTeam();
+  const v = version(), t = selTeam();
   // The aesthetics choice is drawn off under the read-only lock whatever its
   // remembered state: the lock guards the write, not the checkbox.
   const s = { ...S.ix.sections, aesthetics: S.ix.sections.aesthetics && aesUnlocked() };
@@ -5396,7 +5452,7 @@ function ixWriteGameplay(src, dst, fv) {
 // The aesthetics section: names, number, the ids, appearance and its edit
 // flags; the shirt numbers of a .4ccs come from its trailing table.
 function ixWriteAesthetics(src, dst, d) {
-  const v = version(), t = curTeam();
+  const v = version();
   dst.name = src.name; dst.shirt_name = src.shirt_name;
   dst.nationality = src.nationality; dst.age = src.age;
   dst.number = d.format === "4ccs" ? d.legacy.numbers[dst.slot - 1] : src.number;
@@ -5434,7 +5490,7 @@ function ixWriteAesthetics(src, dst, d) {
 // from the model's field subset; only the scenario's own file is held).
 const ixTomlHeld = t => TEAM_TOML_TEXT[S.saveKey + "/" + t.id] !== undefined;
 function ixExportToml() {
-  const t = curTeam();
+  const t = selTeam();
   const input = h("input", { type: "text", style: "width:420px",
     value: folderOf(S.path) + "\\" + t.id + ".toml" });
   dlg("export-toml", "Export team as Team TOML", h("div", {},
@@ -5450,7 +5506,7 @@ function ixExportToml() {
 // SE-GUI-17's Texport export: the file is the team's records; the draft
 // keeps the team snapshot the import dialog then reads back.
 function ixExportTed() {
-  const t = curTeam();
+  const t = selTeam();
   const input = h("input", { type: "text", style: "width:420px",
     value: folderOf(S.path) + "\\" + (t.short_name || t.id) + ".ted" });
   dlg("export-ted", "Export team as Texport", h("div", {},
@@ -5481,7 +5537,7 @@ function ixWarningGroups(lines) {
   return groups;
 }
 function interchangePanel() {
-  const t = curTeam();
+  const t = selTeam();
   const files = IX_FILES.map(f => [f.key, f.label]);
   if (S.tedFile) files.push(["ted", S.tedFile.label]);
   const c = h("div", {},
@@ -5663,17 +5719,19 @@ function renderPanel() {
 }
 
 function firstShow() { openSave(D.sample); } // the draft control's open save
-// The view's screen: the open tab (the host's layout edit keys its tweaks by
-// it; a floating panel window is its own named panel instead).
-const screen = () => S.tab;
+// The view's screen: the selection's kind (the host's layout edit keys its
+// tweaks by it; a floating panel window is its own named panel instead).
+const screen = () => isTeamSel() ? "team" : "player";
 // The link's keys (plans/core/gui.md "Links"): the open save, the picked
-// team, the selected player (<team>.<slot>), the open panel, a named dialog
-// open from a menu, and the draft controls that change what is drawn.
+// team, the selection (a player as <team>.<slot>, a team row as `selteam`),
+// the open panel, a named dialog open from a menu, and the draft controls
+// that change what is drawn.
 function linkKeys() {
   const k = {};
   if (S.saveKey && S.saveKey !== "pes17") k.save = S.saveKey;
   if (S.teamSel !== (S.saveKey === "pes17" ? "718" : "all")) k.team = S.teamSel;
-  if (S.sel) k.player = S.sel.team + "." + S.sel.slot;
+  if (S.sel && S.sel.slot !== undefined) k.player = S.sel.team + "." + S.sel.slot;
+  else if (S.sel) k.selteam = String(S.sel.team);
   if (S.panel) k.panel = S.panel;
   const w = document.querySelector("#overlay .window");
   // Only a name of this view's own windows: the host's named windows (About)
@@ -5699,6 +5757,7 @@ const DLGS = { "set-stats": dlgSetStats, "bump-stats": dlgBumpStats,
   "copy-stats": () => dlgCopySwap(curPlayer(), "copy"),
   "swap-stats": () => dlgCopySwap(curPlayer(), "swap"),
   settings: dlgSettings, "ingame-face": dlgIngameFace, boglo: dlgBoglo, tsv: dlgTsv, fixdb: dlgFixDb,
+  "kit-slots": dlgKitSlots,
   "choose-file": dlgChooseFile, "save-refused": dlgSaveRefused,
   "save-as": saveAs, "export-toml": ixExportToml, "export-ted": ixExportTed,
   "open-save": () => dlgOpenSave(openStub
@@ -5737,8 +5796,9 @@ function linkOpen(scr, keys) {
     else linkWarn("anyway=" + keys.anyway);
   }
   if (keys.filter !== undefined) S.filter = keys.filter;
-  if (TABS.some(([id]) => id === scr)) S.tab = scr;
-  else linkWarn("unknown screen " + scr);
+  // The screen names the selection's kind only; a link from the tabbed draft
+  // names a tab here, warned on and ignored.
+  if (scr !== "player" && scr !== "team") linkWarn("unknown screen " + scr);
   if (keys.team !== undefined) {
     if (keys.team === "all" || curSave().teams.some(t => String(t.id) === keys.team)) S.teamSel = keys.team;
     else linkWarn("team=" + keys.team);
@@ -5748,6 +5808,10 @@ function linkOpen(scr, keys) {
     if (m && findPlayer(Number(m[1]), Number(m[2])))
       S.sel = { team: Number(m[1]), slot: Number(m[2]) };
     else linkWarn("player=" + keys.player);
+  } else if (keys.selteam !== undefined) {
+    if (curSave().teams.some(t => String(t.id) === keys.selteam))
+      S.sel = { team: Number(keys.selteam) };
+    else linkWarn("selteam=" + keys.selteam);
   }
   if (keys.panel !== undefined) {
     if (["aatf", "comparator", "patch", "interchange"].includes(keys.panel)) S.panel = keys.panel;
