@@ -2520,3 +2520,5 @@ worklog passed 7,000 lines.
   from, and the window shows its startup failures in a dialog. The next start will report a session that did not close.
 - **2026-10-26** — The maintainer ruled P16-P38: P16 vetoed, P37 vetoed with Live AATF's visibility asked instead, the rest
   accepted into their plans (the upgrader's reports and view, the picker, the window's remembered place, crash dumps under 10 MB).
+- **2026-10-26** — The drafts' Layout edit pins a moved panel where it is dropped, columned panels narrow into fewer columns,
+  and the simulated window opens as Studio's and scales under 1280 points as Studio will.

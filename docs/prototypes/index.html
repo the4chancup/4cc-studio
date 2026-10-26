@@ -80,6 +80,11 @@
   .titlebar .win-max { padding: 0 6px; line-height: 1; }
   .win-size, .draft-controls { align-self: stretch; }
   .win-size { padding: 4px 8px 0; display: flex; gap: 8px; align-items: center; }
+  /* Everything under the title bar, scaled down together by transform when
+     the window is under the design width (the applyScale comment). Always
+     transformed (scale(1) at full width), so the fixed-position panels
+     inside are contained by it at every size, in window points. */
+  .win-body { flex: none; display: flex; flex-direction: column; transform-origin: 0 0; }
   .top, .bottom { background: var(--panel); padding: 3px 8px; display: flex; gap: 8px; align-items: center; }
   .top { border-bottom: 1px solid var(--stroke); }
   .bottom { border-top: 1px solid var(--stroke); min-height: 26px; }
@@ -238,6 +243,9 @@
   .le-name { font-size: 9px; line-height: 11px; background: var(--sel-fg); color: #1a1a1a; padding: 0 3px; }
   .le-handle { font-size: 10px; line-height: 11px; color: var(--sel-fg); background: rgba(0,0,0,.6); padding: 0 2px; cursor: move; }
   .le-grip { position: absolute; right: 0; bottom: 0; font-size: 9px; line-height: 9px; color: var(--sel-fg); background: rgba(0,0,0,.6); padding: 0 1px 1px 0; cursor: nwse-resize; }
+  /* The flow slot a pinned panel leaves behind (applyTweak), so the move
+     pushes nothing: invisible, marked while the toggle is on. */
+  .layout-editing .le-slot { outline: 1px dotted #464646; }
 </style>
 </head>
 <body>
@@ -246,11 +254,13 @@
 <div class="draft-controls" id="tool-controls"></div>
 <div class="win" id="win">
 <div class="titlebar" id="titlebar"></div>
+<div class="win-body" id="win-body">
 <div class="main">
   <div class="rail sidebar" id="sidebar"></div>
   <div class="center" id="center"></div>
 </div>
 <div class="bottom" id="bottom"><span id="status-left"></span><span id="status-middle"></span><span id="status-right"></span></div>
+</div>
 <div id="help-layer"></div>
 <div id="overlay"></div>
 </div>
@@ -259,28 +269,54 @@
 
 // ---- The simulated window (the harness, not the UI) ----
 // Studio's window opens at 1280 × 800 points, centered (plans/core/gui.md "Shell layout",
-// "The window's size"), shrunk on a monitor too small for it to the largest 16:10 size within
-// 90% of the monitor's logical size. `screen` is in CSS pixels, which are logical pixels as
+// "The window's size"), its height alone fitted on a monitor too short for it, to 90% of the
+// monitor's logical height, and its width only on one too narrow for 1280 points and the
+// frame's borders (16 points, ST-WIN-01's). `screen` is in CSS pixels, which are logical pixels as
 // egui's points are (browser zoom at 100%), so the draft fits its window as Studio does. The
-// size choice also tries the smallest default a member meets (a 1080p monitor at 150%
-// scaling, 1280 × 720 logical), the minimum a member's resize can reach (960 × 600,
-// `window_size::MIN_SIZE`) and the whole monitor.
+// size choice also tries the smallest default a member meets (1264 × 648), the minimum a
+// member's resize can reach (960 × 600, `window_size::MIN_SIZE`, drawn scaled down) and the
+// whole monitor.
 const WIN_SIZES = [
   ["default", "Studio's default"],
-  ["smallest", "the smallest default (1037 × 648)"],
+  ["smallest", "the smallest default (1264 × 648)"],
   ["minimum", "the minimum (960 × 600)"],
   ["monitor", "the whole monitor"],
 ];
 function fitted(monitorW, monitorH) {
-  const w = Math.min(1280, 0.9 * monitorW, 0.9 * monitorH * 1.6);
-  return [Math.round(w), Math.round(w / 1.6)];
+  const BORDERS = 16;
+  return [Math.min(1280, monitorW - BORDERS), Math.min(800, Math.round(0.9 * monitorH))];
+}
+// A view is laid out for its window's design width, 1280 points for every
+// draft today (the main tools; gui.md "Scaling with the width"): narrower
+// than that the content draws scaled by width/1280 with the layout computed
+// at the design width, at or above it the layout reflows. transform: scale()
+// on #win-body, not zoom: under transform the layout stays in points
+// (offsetWidth reads the point size, getBoundingClientRect the drawn one,
+// and the fixed-position panels inside are contained by the transformed box
+// in points), while the menus and dialogs outside #win-body keep their own
+// coordinates. The scale reads the window's own width, the size bar's (its
+// 1px border the OS frame's stand-in), so the plan's sizes scale exactly: 1
+// at 1280, 0.75 at 960; under the design width the layout is exactly 1280
+// and its drawn right edge runs the border's 2px under the frame.
+const DESIGN_W = 1280;
+const winScale = () =>
+  Math.min(1, document.getElementById("win").offsetWidth / DESIGN_W);
+// The drawn scale's layout box: the design width and the window's height in
+// points (the height never scales: a shorter window just shows fewer points).
+function applyScale() {
+  const win = document.getElementById("win"), body = document.getElementById("win-body");
+  const s = winScale();
+  body.style.width = (s < 1 ? DESIGN_W : win.clientWidth) + "px";
+  body.style.height =
+    (win.clientHeight - document.getElementById("titlebar").offsetHeight) / s + "px";
+  body.style.transform = "scale(" + s + ")";
 }
 function sizeWindow(which) {
   const win = document.getElementById("win");
   win.classList.remove("max");
   win.style.width = ""; win.style.height = "";
   const [w, hgt] = which === "monitor" ? [screen.width, screen.height]
-    : which === "smallest" ? fitted(1280, 720)
+    : which === "smallest" ? [1264, 648]
     : which === "minimum" ? [960, 600] : fitted(screen.width, screen.height);
   win.style.setProperty("--win-w", w + "px");
   win.style.setProperty("--win-h", hgt + "px");
@@ -304,12 +340,16 @@ function sizeWindow(which) {
 function sizeLabel() {
   const win = document.getElementById("win"), label = document.getElementById("win-size-label");
   if (!label) return;
-  const w = win.offsetWidth, hgt = win.offsetHeight;
+  const w = win.offsetWidth, hgt = win.offsetHeight, s = winScale();
   label.textContent = "Window " + w + " × " + hgt + ", " + Math.round(100 * w / screen.width) + "% × "
     + Math.round(100 * hgt / screen.height) + "% of the monitor (" + screen.width + " × " + screen.height + ")"
+    + (s < 1 ? ", scale " + Math.round(s * 100) + "%" : "")
     + (win.classList.contains("max") ? ", maximized" : "; drag its bottom-right corner to resize");
 }
-new ResizeObserver(sizeLabel).observe(document.getElementById("win"));
+const winSizer = new ResizeObserver(() => { applyScale(); sizeLabel(); });
+winSizer.observe(document.getElementById("win"));
+winSizer.observe(document.getElementById("titlebar"));
+applyScale();
 // The title bar's maximize button, the window's own chrome rather than a Studio widget: it
 // fills the page, and pressed again restores the size the window had.
 function toggleMax() {
@@ -2190,8 +2230,8 @@ function logLine(l, opts) {
 function logDivider(st) {
   return h("div", { class: "log-divider", onmousedown: e => {
     if (e.button !== 0) return;
-    const startY = e.clientY, startH = st.logHeight;
-    const move = ev => { st.logHeight = Math.max(60, startH + startY - ev.clientY); };
+    const startY = e.clientY, startH = st.logHeight, scl = winScale();
+    const move = ev => { st.logHeight = Math.max(60, startH + (startY - ev.clientY) / scl); };
     const up = () => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);
@@ -2241,10 +2281,11 @@ function logPanel(st = S, opts = LOG_COMPILER) {
 
 // ---- Layout edit (gui.md "Prototypes before implementation") ----
 // The maintainer tunes an arrangement by hand and pastes the result to the
-// lead; the tweaks are evidence, never a layout the views load. A move is a
-// translate offset (pushes nothing), a resize a fixed width and height (the
-// neighbours reflow). One localStorage object, applied after every render
-// whether the toggle is on or off.
+// lead; the tweaks are evidence, never a layout the views load. A move pins
+// the panel where it was dropped (window points; the slot keeps its place so
+// the move pushes nothing, and no other panel's resize moves it), a resize a
+// fixed width and height (the neighbours reflow). One localStorage object,
+// applied after every render whether the toggle is on or off.
 const LAYOUT_KEY = "drafts.layout";
 const loadLayout = () => JSON.parse(localStorage.getItem(LAYOUT_KEY) || "{}");
 const saveLayout = t => localStorage.setItem(LAYOUT_KEY, JSON.stringify(t));
@@ -2264,6 +2305,7 @@ const captureOriginals = el => {
   if (!layoutOriginals.has(el)) layoutOriginals.set(el,
     { transform: el.style.transform, width: el.style.width,
       height: el.style.height, position: el.style.position,
+      left: el.style.left, top: el.style.top, right: el.style.right,
       outline: el.style.outline });
 };
 function untweak(el) {
@@ -2271,30 +2313,76 @@ function untweak(el) {
   if (!o) return;
   el.style.transform = o.transform; el.style.width = o.width;
   el.style.height = o.height; el.style.position = o.position;
+  el.style.left = o.left; el.style.top = o.top; el.style.right = o.right;
   el.style.outline = o.outline;
   layoutOriginals.delete(el);
 }
-function applyTweak(el, t) {
+// Window points: the layout coordinates inside #win-body (the scale's own
+// unit), origin at .main's top left, the frame copyLayout already uses.
+// getBoundingClientRect is drawn pixels, so a rect read divides by the scale;
+// offset* and inline styles are already points.
+const mainRect = () => document.querySelector("#win .main").getBoundingClientRect();
+const rectPoints = r => {
+  const s = winScale(), m = mainRect();
+  return { x: (r.left - m.left) / s, y: (r.top - m.top) / s,
+    w: r.width / s, h: r.height / s };
+};
+// The stored resize of a panel of the active screen, or 0 when it is not
+// resized: a tool's columned panel reads it at draw to pick its column count.
+const layoutPanelW = name => {
+  const t = loadLayout()[S.activeTool + "/" + viewScreen() + "/" + name];
+  return t && t.w != null ? t.w : 0;
+};
+function applyTweak(el, t, store) {
   captureOriginals(el);
-  if (t.dx || t.dy) el.style.transform = `translate(${t.dx || 0}px, ${t.dy || 0}px)`;
+  // A move's old form (a dx/dy offset from the layout spot) is read once as
+  // the position it had put the panel at, then stored as a pin: saved
+  // layouts survive the change of shape.
+  if (t.x == null && (t.dx != null || t.dy != null)) {
+    const p = rectPoints(el.getBoundingClientRect());
+    t.x = Math.round(p.x + (t.dx || 0)); t.y = Math.round(p.y + (t.dy || 0));
+    delete t.dx; delete t.dy;
+    if (store) saveLayout(store);
+  }
   if (t.w != null) el.style.width = t.w + "px";
   if (t.h != null) el.style.height = t.h + "px";
+  if (t.x != null) {
+    // Pinned where it was dropped: the slot keeps the panel's place and
+    // current size in the flow (a resize still reflows the others), and the
+    // panel draws at the point, whatever the layout around it does. Fixed,
+    // so the transformed #win-body is the containing block at every scale. A
+    // .panel window was never in the flow, so it leaves no slot.
+    if (!el.classList.contains("panel")) {
+      // Measured before the slot lands: the slot itself could squeeze the
+      // panel in a flex row. Its drawn size holds, like its slot's: fixed
+      // and left at the containing block's edge or past it, the panel would
+      // shrink to fit the space that remains.
+      const w0 = el.offsetWidth, h0 = el.offsetHeight;
+      el.before(h("div", { class: "le-slot",
+        style: `width:${w0}px; height:${h0}px; flex:none` }));
+      el.style.width = w0 + "px"; el.style.height = h0 + "px";
+    }
+    el.style.position = "fixed";
+    el.style.left = t.x + "px"; el.style.top = t.y + "px"; el.style.right = "auto";
+  }
 }
 // After every render(): the stored tweaks on the active tool's panels, plus
 // the edit overlays while the toggle is on.
 function layoutApply() {
   const center = document.getElementById("center");
   center.classList.toggle("layout-editing", S.layoutEdit);
-  center.querySelectorAll(".le-ov").forEach(e => e.remove());
+  center.querySelectorAll(".le-ov, .le-slot").forEach(e => e.remove());
   const store = loadLayout();
   const scr = viewScreen();
   center.querySelectorAll("[data-panel]").forEach(el => {
     const key = layoutKey(el);
-    if (store[key]) applyTweak(el, store[key]);
+    if (store[key]) applyTweak(el, store[key], store);
     if (!S.layoutEdit) {
       // The tweaks stay (toggle on or off); only the overlay's own marks go.
+      // A pinned panel keeps the position the pin set.
       const o = layoutOriginals.get(el);
-      if (o) { el.style.outline = o.outline; el.style.position = o.position; }
+      if (o) { el.style.outline = o.outline;
+        if (!(store[key] && store[key].x != null)) el.style.position = o.position; }
       if (!store[key]) untweak(el);
       return;
     }
@@ -2315,21 +2403,24 @@ function layoutApply() {
         onmousedown: e => layoutDrag(e, el, key, "resize") }, "◢")));
   });
 }
-// The handle's drag: an offset from where the panel's layout puts it, or a
-// width and height (40 px minimum) the neighbours reflow around.
+// The handle's drag, in window points (a pointer delta reads drawn pixels,
+// so it divides by the scale): a move pins the panel where it lands, a
+// resize gives a width and height (40 px minimum) the neighbours reflow
+// around.
 function layoutDrag(e, el, key, kind) {
   if (e.button !== 0) return;
   e.preventDefault(); e.stopPropagation();
-  const startX = e.clientX, startY = e.clientY;
-  const t0 = loadLayout()[key] || {};
-  const base = kind === "move" ? { dx: t0.dx || 0, dy: t0.dy || 0 }
+  const startX = e.clientX, startY = e.clientY, scl = winScale();
+  const base = kind === "move" ? rectPoints(el.getBoundingClientRect())
     : { w: el.offsetWidth, h: el.offsetHeight };
   let pending = null;
   const move = ev => {
-    const ddx = ev.clientX - startX, ddy = ev.clientY - startY;
-    pending = kind === "move" ? { dx: base.dx + ddx, dy: base.dy + ddy }
+    const ddx = (ev.clientX - startX) / scl, ddy = (ev.clientY - startY) / scl;
+    pending = kind === "move" ? { x: Math.round(base.x + ddx), y: Math.round(base.y + ddy) }
       : { w: Math.max(40, base.w + ddx), h: Math.max(40, base.h + ddy) };
-    if (kind === "move") el.style.transform = `translate(${pending.dx}px, ${pending.dy}px)`;
+    // The drag's preview is the plain translate, applied on top of whatever
+    // the panel's tweak already draws.
+    if (kind === "move") el.style.transform = `translate(${ddx}px, ${ddy}px)`;
     else { el.style.width = pending.w + "px"; el.style.height = pending.h + "px"; }
   };
   const up = () => {
@@ -2338,17 +2429,21 @@ function layoutDrag(e, el, key, kind) {
     // A resize stores the size the layout actually gave, not the one asked
     // for. A render mid-drag may have detached the element, so the size is
     // read on the same-named panel now drawn, or the asked one when there is
-    // none; a drag that changed nothing stores nothing.
-    if (kind === "resize") {
+    // none; a drag that changed nothing stores nothing. A columned panel
+    // (data-colw) stores the asked size instead: what the layout gave is the
+    // un-reflowed size, the reflow itself following the asked one.
+    if (kind === "resize" && el.dataset.colw === undefined) {
       const live = el.isConnected ? el
         : document.getElementById("center").querySelector(`[data-panel="${el.dataset.panel}"]`);
       if (live) pending = { w: live.offsetWidth, h: live.offsetHeight };
     }
     const same = pending && (kind === "move"
-      ? pending.dx === base.dx && pending.dy === base.dy
+      ? pending.x === Math.round(base.x) && pending.y === Math.round(base.y)
       : pending.w === base.w && pending.h === base.h);
     if (pending && !same) {
-      const s = loadLayout(); s[key] = { ...s[key], ...pending }; saveLayout(s);
+      const s = loadLayout(), cur = s[key] || {};
+      if (kind === "move") { delete cur.dx; delete cur.dy; }
+      s[key] = { ...cur, ...pending }; saveLayout(s);
     }
     render();
   };
@@ -2363,13 +2458,12 @@ function copyLayout() {
   const center = document.getElementById("center");
   // Rectangles in the window's content area (under #titlebar, inside #win's
   // border), which .main's top left is.
-  const wr = document.querySelector("#win .main").getBoundingClientRect();
   const winBox = document.getElementById("win").getBoundingClientRect();
   const wh = Math.round(winBox.width) + "x" + Math.round(winBox.height);
   const zoom = Math.round(devicePixelRatio * 100) + "%";
   const scr = viewScreen();
-  const fmt = r => Math.round(r.left - wr.left) + "," + Math.round(r.top - wr.top)
-    + " " + Math.round(r.width) + "x" + Math.round(r.height);
+  const fmt = r => { const p = rectPoints(r);
+    return Math.round(p.x) + "," + Math.round(p.y) + " " + Math.round(p.w) + "x" + Math.round(p.h); };
   const lines = ["The drafts' layout tweaks, rectangles in window points before -> after:"];
   for (const [key, t] of Object.entries(store)) {
     const parts = key.split("/");
@@ -2378,24 +2472,41 @@ function copyLayout() {
     const head = `${tool}/${screen} window ${wh} zoom ${zoom}`;
     const el = screen === scr || screen === "window"
       ? center.querySelector(`[data-panel="${panel}"]`) : null;
-    const sz = `offset ${t.dx || 0},${t.dy || 0} size ${t.w == null ? "unchanged" : t.w + "x" + t.h}`;
+    const sz = `${t.x != null ? "pinned at " + Math.round(t.x) + "," + Math.round(t.y) : "not pinned"} size ${t.w == null ? "unchanged" : t.w + "x" + t.h}`;
     if (!el) {
       lines.push(`${head} ${panel}: ${screen === scr || screen === "window"
         ? "not drawn now (a closed window or an empty panel)" : "not on this screen"}, ${sz}`);
       continue;
     }
-    if (el.offsetParent === null) {
+    if (el.getClientRects().length === 0) {
       lines.push(`${head} ${panel}: hidden now, ${sz}`);
       continue;
     }
-    // "Before" is the panel with the page's own inline values, not with none.
-    const saved = { transform: el.style.transform, width: el.style.width, height: el.style.height };
-    const own = layoutOriginals.get(el) || { transform: "", width: "", height: "" };
+    // "Before" is the panel with the page's own inline values, not with
+    // none: its slot, hidden while it is measured, is where a pinned one
+    // would sit.
+    const saved = { transform: el.style.transform, width: el.style.width, height: el.style.height,
+      position: el.style.position, left: el.style.left, top: el.style.top, right: el.style.right };
+    const own = layoutOriginals.get(el) || { transform: "", width: "", height: "",
+      position: "", left: "", top: "", right: "" };
+    const slot = el.previousElementSibling && el.previousElementSibling.classList.contains("le-slot")
+      ? el.previousElementSibling : null;
     el.style.transform = own.transform; el.style.width = own.width; el.style.height = own.height;
+    el.style.position = own.position; el.style.left = own.left; el.style.top = own.top;
+    el.style.right = own.right;
+    if (slot) slot.style.display = "none";
     const before = fmt(el.getBoundingClientRect());
     applyTweak(el, t);
     const after = fmt(el.getBoundingClientRect());
+    // The re-apply left its own slot beside the kept one: it goes, and the
+    // styles back to the drawn ones.
+    const reSlot = el.previousElementSibling !== slot && el.previousElementSibling
+      && el.previousElementSibling.classList.contains("le-slot") ? el.previousElementSibling : null;
     el.style.transform = saved.transform; el.style.width = saved.width; el.style.height = saved.height;
+    el.style.position = saved.position; el.style.left = saved.left; el.style.top = saved.top;
+    el.style.right = saved.right;
+    if (reSlot) reSlot.remove();
+    if (slot) slot.style.display = "";
     lines.push(`${head} ${panel}: ${before} -> ${after}`);
   }
   const text = lines.join("\n");

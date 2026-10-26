@@ -61,7 +61,7 @@
 // Names this script uses without declaring them (render, h, row, weak, strong, button,
 // combo, selectable, collapsing, menu, window_, closeWindow, cb, publishNotice,
 // shellPesVersion, setPesVersion, PES_VERSIONS, folderOf, named, updateLink,
-// registerTool) are the host's,
+// layoutPanelW, winScale, registerTool) are the host's,
 // index.html.
 (() => {
 "use strict";
@@ -3167,6 +3167,29 @@ function playerRow(team, p) {
 const lbl = t => h("td", { class: "weak ilabel" }, t);
 // A field cell of a label/field grid, its widget version-gated.
 const fld = (el, minV) => h("td", {}, gated(h("span", {}, el), minV || 15));
+// The panels laid out in columns (gui.md "Prototypes", "Layout edit": a
+// panel narrowed past its columns reflows into fewer): [the layout's own
+// column count, one column's width in points, the panel's horizontal
+// chrome]. The count is read from the panel's own stored resize (the host's
+// layoutPanelW), never from the pane's and never past the layout's own.
+const COL_PANELS = {
+  "ability-stats": [4, 151], "positions": [5, 63], "skills": [5, 131],
+  "profile": [2, 218], "team-info": [2, 120], "cutscenes": [2, 120, 14],
+  "strip-style": [4, 170, 14], "motion": [4, 194, 14],
+  "tactics-settings": [2, 209, 14],
+};
+const colCount = name => {
+  const [max, w, inset] = COL_PANELS[name], pw = layoutPanelW(name);
+  return pw ? Math.max(1, Math.min(max, Math.floor((pw - (inset || 0)) / w))) : max;
+};
+// data-colw marks the panel for the host's resize drag, which keeps the
+// asked size: the measured one would still be the un-reflowed columns'.
+const namedCols = (el, name) => {
+  named(el, name); el.dataset.colw = COL_PANELS[name][1]; return el;
+};
+// n items per row.
+const chunk = (arr, n) =>
+  Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
 function infoStrip(p, team) {
   // Labels in their own weak right-aligned cells, fields in the next cell, so
   // both rows' fields share the grid's columns; row 1's last pair stays empty.
@@ -3269,9 +3292,10 @@ function gated(widget, minV) {
 }
 function abilitiesTab(p) {
   // Four label/field column groups, filled column by column in the game's
-  // order; a version-gated stat sits disabled in its value cell.
+  // order (fewer when the panel cannot hold four, so none clips); a
+  // version-gated stat sits disabled in its value cell.
   const stats = h("table", { class: "grid stats-grid" });
-  const statCols = 4, statRows = Math.ceil(ABILITY_STATS.length / statCols);
+  const statCols = colCount("ability-stats"), statRows = Math.ceil(ABILITY_STATS.length / statCols);
   for (let r = 0; r < statRows; r++) {
     const tr = h("tr", {});
     for (let g = 0; g < statCols; g++) {
@@ -3295,10 +3319,14 @@ function abilitiesTab(p) {
   };
   // One row per line of the pitch, the collaborator's order; each cell the
   // position's label over its C B A choice, the registered one's cell marked.
+  // Narrowed past the five columns' width the cells reflow into fewer
+  // columns, in the same order.
   const POS_ROWS = [["CF", "SS", "LWF", "RWF"], ["AMF", "LMF", "RMF", "CMF", "DMF"],
     ["CB", "LB", "RB", "GK"]];
+  const posCols = colCount("positions");
+  const posRows = posCols >= 5 ? POS_ROWS : chunk(POS_ROWS.flat(), posCols);
   const posTable = h("table", { class: "grid", id: "pos-grid" },
-    POS_ROWS.map(row => h("tr", {}, row.map(pos =>
+    posRows.map(row => h("tr", {}, row.map(pos =>
       h("td", { class: "poscell" + (pos === p.positions.registered ? " reg" : "") },
         h("div", { class: "plabel" }, pos), rating(pos))))));
   const reg = combo(POSITIONS.map(x => [x, x]), p.positions.registered,
@@ -3316,22 +3344,25 @@ function abilitiesTab(p) {
     h("input", { type: "number", value: get(p) + 1, min: 1, max,
       onchange: e => { const v = parseInt(e.target.value, 10) - 1;
         if (v >= 0) { set(p, get, (x, v2) => put(x, v2), v, label); render(); } } });
+  // Two label/field pairs per row (one where the panel cannot hold two, as
+  // the ability stats' columns).
+  const profilePairs = [
+    [lbl("Registered position"), fld(reg)], [lbl("Playing style"), fld(style)],
+    [lbl("Stronger foot"), fld(foot)], [lbl("Stronger hand"), fld(hand, 20)],
+    [lbl("Form"), fld(small("Form", x => x.stats.form, (x, v) => x.stats.form = v, 8))],
+    [lbl("Injury resistance"), fld(small("Injury resistance",
+      x => x.stats.injury_resistance, (x, v) => x.stats.injury_resistance = v, 3))],
+    [lbl("Weak foot usage"), fld(small("Weak foot usage",
+      x => x.stats.weak_foot_usage, (x, v) => x.stats.weak_foot_usage = v, 4))],
+    [lbl("Weak foot accuracy"), fld(small("Weak foot accuracy",
+      x => x.stats.weak_foot_accuracy, (x, v) => x.stats.weak_foot_accuracy = v, 4))]];
   const profile = h("table", { class: "grid info-grid", id: "profile-grid" },
-    h("tr", {}, lbl("Registered position"), fld(reg), lbl("Playing style"), fld(style)),
-    h("tr", {}, lbl("Stronger foot"), fld(foot), lbl("Stronger hand"), fld(hand, 20)),
-    h("tr", {},
-      lbl("Form"), fld(small("Form", x => x.stats.form, (x, v) => x.stats.form = v, 8)),
-      lbl("Injury resistance"), fld(small("Injury resistance",
-        x => x.stats.injury_resistance, (x, v) => x.stats.injury_resistance = v, 3))),
-    h("tr", {},
-      lbl("Weak foot usage"), fld(small("Weak foot usage",
-        x => x.stats.weak_foot_usage, (x, v) => x.stats.weak_foot_usage = v, 4)),
-      lbl("Weak foot accuracy"), fld(small("Weak foot accuracy",
-        x => x.stats.weak_foot_accuracy, (x, v) => x.stats.weak_foot_accuracy = v, 4))));
+    chunk(profilePairs, colCount("profile")).map(row => h("tr", {}, row.flat())));
   const skills = h("table", { class: "grid skillgrid" });
-  for (let i = 0; i < SKILLS.length; i += 5) {
+  const skillCols = colCount("skills");
+  for (let i = 0; i < SKILLS.length; i += skillCols) {
     const tr = h("tr", {});
-    for (const k of SKILLS.slice(i, i + 5)) {
+    for (const k of SKILLS.slice(i, i + skillCols)) {
       const idx = SKILLS.indexOf(k);
       const has = p.skills.includes(k);
       tr.append(h("td", {}, gated(h("label", { class: "cb" },
@@ -3360,13 +3391,13 @@ function abilitiesTab(p) {
   // stats, skills and COM styles.
   return h("div", {},
     h("div", { class: "topblocks" },
-      h("div", { class: "col", "data-panel": "profile" }, strong("Profile"), profile),
-      h("div", { class: "col", "data-panel": "positions" }, strong("Playable positions"), posTable),
+      namedCols(h("div", { class: "col" }, strong("Profile"), profile), "profile"),
+      namedCols(h("div", { class: "col" }, strong("Playable positions"), posTable), "positions"),
       quickActions(p)),
     h("div", { class: "sep" }),
-    strong("Ability stats"), named(stats, "ability-stats"),
+    strong("Ability stats"), namedCols(stats, "ability-stats"),
     h("div", { class: "sep" }),
-    strong("Skills"), " ", cardBadges(p, teamOf(p)), named(skills, "skills"),
+    strong("Skills"), " ", cardBadges(p, teamOf(p)), namedCols(skills, "skills"),
     strong("COM playing styles"), named(coms, "com-styles"));
 }
 
@@ -3408,10 +3439,11 @@ function appearanceTab(p) {
   const attIn = h("input", { type: "number", id: "f-attitude", value: p.stats.playing_attitude ?? 0, min: 0, max: 3,
     onchange: e => { const v = parseInt(e.target.value, 10);
       if (!Number.isNaN(v)) { set(p, x => x.stats.playing_attitude, (x, v2) => x.stats.playing_attitude = v2, v, "playing attitude"); render(); } } });
-  const cutscenes = h("div", { class: "group", id: "cutscenes", "data-panel": "cutscenes" }, strong("Cutscenes"),
+  const cutscenes = namedCols(h("div", { class: "group", id: "cutscenes" }, strong("Cutscenes"),
     h("div", { class: "row" }, weak("These only change how the player appears in cutscenes.")),
     h("table", { class: "grid" },
-      h("tr", {}, lbl("Star"), fld(starIn, 19), lbl("Playing attitude"), fld(attIn, 20))));
+      chunk([[lbl("Star"), fld(starIn, 19)], [lbl("Playing attitude"), fld(attIn, 20)]],
+        colCount("cutscenes")).map(row => h("tr", {}, row.flat())))), "cutscenes");
   // The ownership line and the switch draw only while the setting is on;
   // off, the groups edit without either.
   const lines = D.aesFromExports ? [row(own), row(sw)] : [];
@@ -3449,44 +3481,47 @@ function appearanceTab(p) {
             set(p, x => x.appearance.physique[k], (x, v2) => x.appearance.physique[k] = v2, v, label); render(); } }),
         " ", h("span", { class: "mono weak" }, String(p.appearance.physique[k])))])));
   const st = p.appearance.strip;
-  const stripRow = h("div", { class: "group", "data-panel": "strip-style" }, strong("Strip style"),
+  const stripCols = colCount("strip-style"), stripSpan = 2 * stripCols - 1;
+  const stripPairs = [
+    [lbl("Boots ID"), h("td", {}, h("input", { type: "number", value: p.boots_id,
+      onchange: e => { const v = parseInt(e.target.value, 10);
+        if (!Number.isNaN(v)) { set(p, x => x.boots_id, (x, v) => x.boots_id = v, v, "boots id"); render(); } } }))],
+    [lbl("Gloves ID"), h("td", {}, h("input", { type: "number", value: p.gloves_id, title: "Any player's gloves ID works; 0 means normal hands.",
+      onchange: e => { const v = parseInt(e.target.value, 10);
+        if (!Number.isNaN(v)) { set(p, x => x.gloves_id, (x, v) => x.gloves_id = v, v, "gloves id"); render(); } } }))],
+    [lbl("Sleeves"), h("td", {}, combo(SLEEVES.map(x => [x, titleCase(x)]), st.sleeves,
+      v => { set(p, x => x.appearance.strip.sleeves, (x, v2) => x.appearance.strip.sleeves = v2, v, "sleeves"); render(); }))],
+    [lbl("Inners"), h("td", {}, combo(INNERS.map(x => [x, titleCase(x)]), st.inners,
+      v => { set(p, x => x.appearance.strip.inners, (x, v2) => x.appearance.strip.inners = v2, v, "inners"); render(); }))],
+    [lbl("Socks"), h("td", {}, combo(SOCKS.map(x => [x, titleCase(x)]), st.socks,
+      v => { set(p, x => x.appearance.strip.socks, (x, v2) => x.appearance.strip.socks = v2, v, "socks"); render(); }))],
+    [lbl("Undershorts"), h("td", {}, combo(UNDERSHORTS.map(x => [x, titleCase(x)]), st.undershorts,
+      v => { set(p, x => x.appearance.strip.undershorts, (x, v2) => x.appearance.strip.undershorts = v2, v, "undershorts"); render(); }))],
+    [lbl("Shirttail out"), h("td", {}, h("input", { type: "checkbox", checked: st.untucked,
+      onchange: e => { set(p, x => x.appearance.strip.untucked, (x, v) => x.appearance.strip.untucked = v, e.target.checked, "shirttail"); render(); } }))],
+    [lbl("Ankle taping"), h("td", {}, h("input", { type: "checkbox", checked: st.ankle_taping,
+      onchange: e => { set(p, x => x.appearance.strip.ankle_taping, (x, v) => x.appearance.strip.ankle_taping = v, e.target.checked, "ankle taping"); render(); } }))]];
+  // The ids, enums and checkboxes four pairs a row, fewer in a narrower
+  // panel; the palette rows below span the row whatever the count.
+  const stripRow = namedCols(h("div", { class: "group" }, strong("Strip style"),
     h("table", { class: "grid" },
+      chunk(stripPairs, stripCols).map(row => h("tr", {}, row.flat())),
       h("tr", {},
-        lbl("Boots ID"), h("td", {}, h("input", { type: "number", value: p.boots_id,
-          onchange: e => { const v = parseInt(e.target.value, 10);
-            if (!Number.isNaN(v)) { set(p, x => x.boots_id, (x, v) => x.boots_id = v, v, "boots id"); render(); } } })),
-        lbl("Gloves ID"), h("td", {}, h("input", { type: "number", value: p.gloves_id, title: "Any player's gloves ID works; 0 means normal hands.",
-          onchange: e => { const v = parseInt(e.target.value, 10);
-            if (!Number.isNaN(v)) { set(p, x => x.gloves_id, (x, v) => x.gloves_id = v, v, "gloves id"); render(); } } })),
-        lbl("Sleeves"), h("td", {}, combo(SLEEVES.map(x => [x, titleCase(x)]), st.sleeves,
-          v => { set(p, x => x.appearance.strip.sleeves, (x, v2) => x.appearance.strip.sleeves = v2, v, "sleeves"); render(); })),
-        lbl("Inners"), h("td", {}, combo(INNERS.map(x => [x, titleCase(x)]), st.inners,
-          v => { set(p, x => x.appearance.strip.inners, (x, v2) => x.appearance.strip.inners = v2, v, "inners"); render(); }))),
-      h("tr", {},
-        lbl("Socks"), h("td", {}, combo(SOCKS.map(x => [x, titleCase(x)]), st.socks,
-          v => { set(p, x => x.appearance.strip.socks, (x, v2) => x.appearance.strip.socks = v2, v, "socks"); render(); })),
-        lbl("Undershorts"), h("td", {}, combo(UNDERSHORTS.map(x => [x, titleCase(x)]), st.undershorts,
-          v => { set(p, x => x.appearance.strip.undershorts, (x, v2) => x.appearance.strip.undershorts = v2, v, "undershorts"); render(); })),
-        lbl("Shirttail out"), h("td", {}, h("input", { type: "checkbox", checked: st.untucked,
-          onchange: e => { set(p, x => x.appearance.strip.untucked, (x, v) => x.appearance.strip.untucked = v, e.target.checked, "shirttail"); render(); } })),
-        lbl("Ankle taping"), h("td", {}, h("input", { type: "checkbox", checked: st.ankle_taping,
-          onchange: e => { set(p, x => x.appearance.strip.ankle_taping, (x, v) => x.appearance.strip.ankle_taping = v, e.target.checked, "ankle taping"); render(); } }))),
-      h("tr", {},
-        lbl("Wrist taping"), h("td", { colspan: 7 },
+        lbl("Wrist taping"), h("td", { colspan: stripSpan },
           combo(WRIST_TAPING.map(x => [x, titleCase(x)]), st.wrist_taping,
             v => { set(p, x => x.appearance.strip.wrist_taping, (x, v2) => x.appearance.strip.wrist_taping = v2, v, "wrist taping"); render(); }),
           " Left ", paletteRow("wrist", st.wrist_tape_color_left, (x, v) => x.appearance.strip.wrist_tape_color_left = v, p, "wrist tape left"),
           " Right ", paletteRow("wrist", st.wrist_tape_color_right, (x, v) => x.appearance.strip.wrist_tape_color_right = v, p, "wrist tape right"))),
       h("tr", {},
-        lbl("Spectacles"), h("td", { colspan: 7 },
+        lbl("Spectacles"), h("td", { colspan: stripSpan },
           combo(SPECTACLES.map((x, i) => [String(i), x]), String(st.spectacles),
             v => { set(p, x => x.appearance.strip.spectacles, (x, v2) => x.appearance.strip.spectacles = Number(v2), Number(v), "spectacles"); render(); }),
           " ", paletteRow("spectacles", st.spectacles_color, (x, v) => x.appearance.strip.spectacles_color = v, p, "spectacles colour"))),
       h("tr", {},
-        lbl("Player gloves"), h("td", { colspan: 7 },
+        lbl("Player gloves"), h("td", { colspan: stripSpan },
           h("input", { type: "checkbox", checked: st.gloves,
             onchange: e => { set(p, x => x.appearance.strip.gloves, (x, v) => x.appearance.strip.gloves = v, e.target.checked, "player gloves"); render(); } }),
-          " ", paletteRow("gloves", st.gloves_color, (x, v) => x.appearance.strip.gloves_color = v, p, "gloves colour")))));
+          " ", paletteRow("gloves", st.gloves_color, (x, v) => x.appearance.strip.gloves_color = v, p, "gloves colour"))))), "strip-style");
   const mo = p.appearance.motion;
   const mv = (label, key, lo, hiV) => [lbl(label), h("td", {},
     h("input", { type: "number", min: lo, max: hiV, value: mo[key] ?? "",
@@ -3497,19 +3532,20 @@ function appearanceTab(p) {
   const dribbleIn = h("input", { type: "number", min: 0, max: 3, value: mo.dribbling ?? 0,
     onchange: e => { const v = parseInt(e.target.value, 10);
       if (!Number.isNaN(v)) { set(p, x => x.appearance.motion.dribbling, (x, v2) => x.appearance.motion.dribbling = v2, v, "dribbling motion"); render(); } } });
-  const motion = h("div", { class: "group", "data-panel": "motion" }, strong("Motion"),
+  // Four label/field pairs a row, fewer in a narrower panel.
+  const motion = namedCols(h("div", { class: "group" }, strong("Motion"),
     h("table", { class: "grid" },
-      h("tr", {}, mv("Hunching (dribbling)", "hunching_dribbling", 1, top("hunching_dribbling")),
+      chunk([mv("Hunching (dribbling)", "hunching_dribbling", 1, top("hunching_dribbling")),
         mv("Hunching (running)", "hunching_running", 1, top("hunching_running")),
         mv("Arm movement (dribbling)", "arm_movement_dribbling", 1, top("arm_movement_dribbling")),
-        mv("Arm movement (running)", "arm_movement_running", 1, top("arm_movement_running"))),
-      h("tr", {}, mv("Corner kick", "corner_kick", 1, top("corner_kick")),
+        mv("Arm movement (running)", "arm_movement_running", 1, top("arm_movement_running")),
+        mv("Corner kick", "corner_kick", 1, top("corner_kick")),
         mv("Free kick", "free_kick", 1, top("free_kick")),
         mv("Penalty kick", "penalty_kick", 1, top("penalty_kick")),
-        lbl("Dribbling motion"), fld(dribbleIn, 20)),
-      h("tr", {}, mv("Goal celebration 1", "goal_celebration_1", 0, top("goal_celebration_1")),
-        mv("Goal celebration 2", "goal_celebration_2", 0, top("goal_celebration_2")),
-        h("td"), h("td"), h("td"), h("td"))),
+        [lbl("Dribbling motion"), fld(dribbleIn, 20)],
+        mv("Goal celebration 1", "goal_celebration_1", 0, top("goal_celebration_1")),
+        mv("Goal celebration 2", "goal_celebration_2", 0, top("goal_celebration_2"))],
+        colCount("motion")).map(row => h("tr", {}, row.flat()))),
     h("div", { class: "row" },
       // Every motion but the dribbling motion, from 1 (a celebration never OFF)
       // to the version's top, as 4ccEditor's button but within the measured ranges.
@@ -3518,7 +3554,7 @@ function appearanceTab(p) {
           const rnd = hi => 1 + Math.floor(Math.random() * hi);
           for (const key of Object.keys(MOTION_TOP)) mo[key] = rnd(top(key));
         }); render();
-      }, { title: "Set every motion to a random value, except the dribbling motion" })));
+      }, { title: "Set every motion to a random value, except the dribbling motion" }))), "motion");
   const colors = h("div", { class: "group", "data-panel": "colours" }, strong("Colours"),
     h("div", { class: "row" }, "Skin ",
       paletteRow("skin", p.appearance.skin_color, (x, v) => x.appearance.skin_color = v, p, "skin colour")),
@@ -3607,12 +3643,12 @@ function pickerSyncFields(rgb) {
 // move previews through the candidate callback, the release commits once.
 let pickerDrag = null;
 function pickerDragAt(e) {
-  const d = pickerDrag, r = d.canvas.getBoundingClientRect();
-  const x = Math.min(Math.max(e.clientX - r.left, 0), PK_W);
+  const d = pickerDrag, r = d.canvas.getBoundingClientRect(), s = winScale();
+  const x = Math.min(Math.max((e.clientX - r.left) / s, 0), PK_W);
   let [hue, sat, val] = d.hsv;
   if (d.part === "hue") hue = x / PK_W * 360;
   else { sat = x / PK_W;
-    val = 1 - Math.min(Math.max(e.clientY - r.top, 0), PK_SV) / PK_SV; }
+    val = 1 - Math.min(Math.max((e.clientY - r.top) / s, 0), PK_SV) / PK_SV; }
   d.hsv = [hue, sat, val];
   const rgb = hsvToRgb(hue, sat, val);
   drawPickerCanvas(d.canvas, d.hsv); pickerSyncFields(rgb);
@@ -3673,7 +3709,7 @@ function pickerPopup(shown, commit, candidate, suggestions) {
   cv.addEventListener("mousedown", e => {
     const r = cv.getBoundingClientRect();
     pickerDrag = { canvas: cv, commit, candidate,
-      part: e.clientY - r.top >= PK_SV + PK_GAP ? "hue" : "sv",
+      part: (e.clientY - r.top) / winScale() >= PK_SV + PK_GAP ? "hue" : "sv",
       hsv: rgbToHsv(shown), start: rgbToHex(shown) };
     pickerDragAt(e);
   });
@@ -3760,8 +3796,9 @@ function teamTab(t) {
               if (!Number.isNaN(v)) { edit("kit slot binding", () => { ks.binding = v; }); render(); } } }))))), "kit-slots")
     : null;
   return h("div", {},
-    named(h("table", { class: "grid info-grid" },
-      h("tr", {}, num("Manager ID", "manager_id", 19), num("Stadium ID", "stadium_id", 19))), "team-info"),
+    namedCols(h("table", { class: "grid info-grid" },
+      chunk([num("Manager ID", "manager_id", 19), num("Stadium ID", "stadium_id", 19)],
+        colCount("team-info")).map(row => h("tr", {}, row))), "team-info"),
     h("div", { class: "sep" }),
     strong("Kit slot assignments"),
     kits ? kits
@@ -4048,8 +4085,8 @@ function pitchCanvas(t) {
   const cv = h("canvas", { class: "pitch", id: "pitch",
     width: PITCH.w, height: PITCH.h });
   cv.addEventListener("pointerdown", e => {
-    const r = cv.getBoundingClientRect();
-    const px = e.clientX - r.left, py = e.clientY - r.top;
+    const r = cv.getBoundingClientRect(), s = winScale();
+    const px = (e.clientX - r.left) / s, py = (e.clientY - r.top) / s;
     const i = hitMarker(t, px, py);
     if (i < 0) return;
     e.preventDefault();
@@ -4065,8 +4102,8 @@ function pitchCanvas(t) {
     e.preventDefault();
     const m = e.dataTransfer.getData("text/plain").match(/^(bench|xi):(\d+)$/);
     if (!m) return;
-    const r = cv.getBoundingClientRect();
-    const i = hitMarker(t, e.clientX - r.left, e.clientY - r.top);
+    const r = cv.getBoundingClientRect(), s = winScale();
+    const i = hitMarker(t, (e.clientX - r.left) / s, (e.clientY - r.top) / s);
     if (i < 0) return;
     if (m[1] === "bench") swapLineup(t, i, Number(m[2]));
     else swapStarters(t, Number(m[2]), i);
@@ -4081,8 +4118,8 @@ function pitchCanvas(t) {
 document.addEventListener("pointermove", e => {
   const d = S.pitchDrag; if (!d) return;
   const cv = document.getElementById("pitch"); if (!cv) return;
-  const r = cv.getBoundingClientRect();
-  d.px = e.clientX - r.left; d.py = e.clientY - r.top;
+  const r = cv.getBoundingClientRect(), s = winScale();
+  d.px = (e.clientX - r.left) / s; d.py = (e.clientY - r.top) / s;
   if (!d.gk && Math.abs(d.px - d.x0) + Math.abs(d.py - d.y0) > 4) d.moved = true;
   drawPitch(teamOf(curPlayer()));
 });
@@ -4104,9 +4141,9 @@ document.addEventListener("pointerup", e => {
   }
   // Dropped on another marker: the two starters exchange (as the game's
   // formation screen does); released off the pitch: he stays.
-  const cv = document.getElementById("pitch"), r = cv.getBoundingClientRect();
-  const lx = e.clientX - r.left, ly = e.clientY - r.top;
-  if (lx < 0 || ly < 0 || lx > r.width || ly > r.height) { render(); return; }
+  const cv = document.getElementById("pitch"), r = cv.getBoundingClientRect(), s = winScale();
+  const lx = (e.clientX - r.left) / s, ly = (e.clientY - r.top) / s;
+  if (lx < 0 || ly < 0 || lx > cv.width || ly > cv.height) { render(); return; }
   const onto = hitMarker(t, lx, ly);
   if (onto >= 0 && onto !== d.i) { swapStarters(t, d.i, onto); render(); return; }
   const [x, y] = snapXY(lx, ly);
@@ -4304,16 +4341,18 @@ function tacticsTab(t) {
       h("div", { class: "lcol", id: "tac-lists", "data-panel": "tactics-lists" },
         strong("Starting eleven"), lineupList(t),
         strong("Bench"), benchList(t)),
-      h("div", { class: "lcol", id: "tac-settings", "data-panel": "tactics-settings" },
+      namedCols(h("div", { class: "lcol", id: "tac-settings" },
         h("div", { class: "tacbar" }, presetSel, presetMenu, formationMenu),
         note,
         h("div", { class: "group" }, strong("Formation settings"),
           h("div", { class: "row" }, fluid),
+          // An aligned grid of up to two pairs per row (one where the column
+          // cannot hold two, as the ability stats' columns).
           (() => { const pairs = SLIDERS.map(([k, l, m]) => slider(k, l, m))
               .concat(STYLE_TOGGLES.map(([k, l, o, n]) => toggle(k, l, o, n)));
             return h("table", { class: "grid" },
-              Array.from({ length: Math.ceil(pairs.length / 2) }, (_, i) =>
-                h("tr", {}, pairs.slice(i * 2, i * 2 + 2).flat()))); })()),
+              chunk(pairs, colCount("tactics-settings")).map(row =>
+                h("tr", {}, row.flat()))); })()),
         h("div", { class: "group" }, strong("Advanced instructions"),
           gated(instrTable || weak("(none on this version)"), 17)),
         h("div", { class: "group" }, strong("Player assignments"),
@@ -4327,7 +4366,7 @@ function tacticsTab(t) {
                   if (!Number.isNaN(v)) { edit("Auto substitution", () => { auto.substitution = v; }); render(); } } })),
             autoCb("offside_trap", "Offside trap"),
             autoCb("preset_change", "Preset change"),
-            autoCb("attack_defence_levels", "Attack/defence levels", 17))))));
+            autoCb("attack_defence_levels", "Attack/defence levels", 17)))), "tactics-settings")));
   // The canvas paints after insertion (its element must be in the DOM);
   // the team is looked up then, an undo in between would paint stale data.
   setTimeout(() => drawPitch(teamOf(curPlayer())), 0);
@@ -4946,8 +4985,8 @@ function liveRows(t) {
 function liveDivider() {
   return h("div", { class: "live-divider", onmousedown: e => {
     if (e.button !== 0) return;
-    const startY = e.clientY, startH = LIVE.height;
-    const move = ev => { LIVE.height = Math.max(60, startH + startY - ev.clientY); };
+    const startY = e.clientY, startH = LIVE.height, scl = winScale();
+    const move = ev => { LIVE.height = Math.max(60, startH + (startY - ev.clientY) / scl); };
     const up = () => {
       document.removeEventListener("mousemove", move);
       document.removeEventListener("mouseup", up);

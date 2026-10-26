@@ -2519,10 +2519,20 @@ briefs, review loops, gates and mutation runs as for any step.
   plan text. The size classes (ST-WIN-03, `StudioTool::window_size`) land with the Music
   player's view (Phase 10), their first special tool: a trait method no tool implements
   before then would be an item without a consumer
-- [ ] 0.0.1n the drafts' Layout edit and scaling (the same review; `plans/core/gui.md`
+- [x] 0.0.1n the drafts' Layout edit and scaling (the same review; `plans/core/gui.md`
   "Layout edit", the "Size:" bullet): a moved panel pinned where dropped, a columned panel
   narrowed into fewer columns, the simulated window scaled under the design width
-  (`.tmp/drafts/brief_drafts_layout.md`)
+  (`.tmp/drafts/brief_drafts_layout.md`). Done 2026-10-26 (SWE-2): a move stores window
+  points and draws the panel fixed inside the always-transformed `#win-body`, a slot of its
+  size left in the flow; old `dx`/`dy` tweaks migrated once; nine columned panels take their
+  count from their own stored width (`COL_PANELS`, widths measured in the browser), a
+  columned panel's resize storing the asked size; `#win-body` scaled by `transform`, not
+  `zoom`, so the host's menus and dialogs outside it keep their placement (they draw unscaled);
+  pointer maths divided by the scale. Lead fixes: the host's default fit the plan's (height
+  alone, 1280 × 691 on 1366 × 768, was 16:10), the scale read from the window's own width so
+  1280 draws at 1 and 960 at exactly 0.75 over a 1280-point layout. Headless check
+  (`.tmp/drafts_layout_check.py`, Firefox): 12 of 12. Files: `docs/prototypes/{index.html,
+  tools/save_editor.js}`
 - [ ] 0.0.1o Live AATF seen where the fix is (the maintainer's ruling on P37, 2026-10-26;
   DECISIONS "Live AATF stays off by default"; `plans/save_editor.md` "Editing UI", the "Live
   AATF" bullet): the toggle a framed button, the player list's cross or check mark per checked
