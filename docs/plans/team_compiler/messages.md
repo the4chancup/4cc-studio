@@ -35,7 +35,8 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   converted model hits the limit, not the member's file; `texture_type_mismatch` the format the
   bytes are; `export_tag_missing` the two exact names to rename to. The same holds for the
   other tools' catalogs: the Export upgrader's `custom_model_missing` and
-  `settings_not_generated` the ways to a clean upgrade, and `check-aatf`'s `aatf_violation`
+  `settings_not_generated` gain no field, their text alone naming the ways to a clean upgrade,
+  and `check-aatf`'s `aatf_violation`
   (`spec/save_editor.md`'s catalog) the player's name and shirt number beside his id in its
   `player` context field; the rule's own fields stay as the rules file spells them
   (`RosterOrder`'s `player` and `expected` are the ids the rule compares).

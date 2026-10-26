@@ -838,15 +838,15 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       `mutants-diff 12ffa8c3` (reworks 4 to 6) caught every `color_tools` mutant. Files:
       `color_tools/{Cargo.toml,src/lib.rs,src/picker.rs}`, `scripts/doc_pointers.py`
       (`plans/libs/color_tools.md` listed as the open phase's)
-    - [ ] 8.7c before the 0.0.1 cut: a click on a suggestion or recent swatch commits and
+    - [x] 8.7c before the 0.0.1 cut: a click on a suggestion or recent swatch commits and
       closes the popup (P23, accepted 2026-10-26; `plans/libs/color_tools.md` "Color-picker
       widget") → verify: a headless test (a recent swatch's click: the color committed once,
       the popup closed, the color in the recents); the square and the fields still keep it
       open; the draft's `colorPicker` the same. Code done 2026-10-26 (SWE-2): `swatch_row`
       closes through egui's `Popup::close_id`, so the ordinary close (the pending text's
       settle, the recents) runs; three headless tests red first (recent, suggestion, a
-      pending hex text), the square's test extended to stay open; the draft the same. Open:
-      `mutants-diff` over it once the running mutation run ends. Files:
+      pending hex text), the square's test extended to stay open; the draft the same.
+      `mutants-diff 6ff37870`: every `color_tools` mutant caught. Files:
       `color_tools/src/{picker.rs,picker/tests.rs}`, `docs/prototypes/tools/save_editor.js`
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
     pickers and the violations list first, the tactics editor and its pitch with the view's
@@ -2548,7 +2548,7 @@ briefs, review loops, gates and mutation runs as for any step.
 - [ ] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
   "Usability proposals P17-P24 and P32-P38 accepted"; `plans/export_upgrader.md` "What it does"'s
   last paragraph, "CLI", "Message catalog"), one commit each:
-  - [ ] p1 `unmigrated_content`'s `reason` and `other`: first the list of emission sites, each
+  - [x] p1 `unmigrated_content`'s `reason` and `other`: first the list of emission sites, each
     given its value → verify: EU-REP-05; every reason reached by a test (the existing
     fixtures' refusals first), `other` on the two-candidate ones. Code done 2026-10-26
     (SWE-2): `UnmigratedReason`, 28 values over 32 sites, every site through one
@@ -2556,8 +2556,9 @@ briefs, review loops, gates and mutation runs as for any step.
     the `Kit Configs`, `Kit Textures`, `Portraits/` and `Logo/` refusals the fallback used to
     report now emitted where the cause is known (same files, same severity); `other` on every
     two-candidate cause (nine). Lead: every value's test checked by a script; EU-REP-05 on
-    EU-PLY-10's real-named folders. The spec's catalog row and the help say it. Open:
-    `mutants-diff`. Files: `export_upgrader/src/{messages,players,kits,carried,materials,
+    EU-PLY-10's real-named folders. The spec's catalog row and the help say it.
+    `mutants-diff 6ff37870`: one missed (`stem_clashes`' choice of `other`), its test in p2/p3's
+    brief. Files: `export_upgrader/src/{messages,players,kits,carried,materials,
     referees,model_folders,kit_magic,upgrade}.rs`, `tests/cli/*.rs`, `help/01_command_line.md`,
     `spec/export_upgrader.md`
   - [ ] p2 `coverage_tag_chosen` and `--coverage full|midcup` → verify: EU-CLI-09
@@ -2575,6 +2576,17 @@ briefs, review loops, gates and mutation runs as for any step.
   toggle and its rows, `pes_folder` resolving an override first, Fix PES path writing the
   running version's row → verify: ST-SET-04; `pes_folder`'s unit tests (override, empty
   fallback, the pattern); the bundled `settings.toml` reading unchanged
+- [ ] 0.0.1s the Save editor's main panel after 4ccEditor's layout, no tabs (the maintainer,
+  2026-10-26; prototyped first): General info with the playable positions under it, skills
+  in two columns with COM styles, injury resistance and form in the second's tail, one
+  ability column, Appearance a collapsed section below, the Make buttons in two columns under
+  the list (AATF to the Panels menu), a team row before each team's players showing the
+  team's fields and Tactics, kit slots behind a button
+  - [ ] s1 the draft (`.tmp/drafts/brief_drafts_main_panel.md`), then the maintainer's look
+  - [ ] s2 `plans/save_editor.md` "Editing UI" rewritten from the approved draft, DECISIONS,
+    the SE-GUI scenarios naming tabs rewritten
+  - [ ] s3 the code, in slices (the view's frame and the team row; the player view's
+    columns; the team view), before 0.0.1o, whose marks then land on the final layout
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

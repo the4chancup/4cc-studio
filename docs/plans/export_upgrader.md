@@ -41,11 +41,13 @@ One addition to step 10, the built report: **`unmigrated_content` names its caus
 covers about fifteen causes (a second face folder for a slot, a second item folder for an ID,
 two kit textures landing on one name, a face folder without a valid slot, a texture that does
 not decode, a folder loose mode cannot place, ...), and a refused entry is reported with no
-cause (its context holds at most a Note `line` or a kit config's `error`), so a manager whose upgrade is not clean, the one outcome where the input must be
-edited, cannot act on the line without this document. Its context gains `reason`, a closed set
-with one value per cause, each named from its emission site, and, where two candidates claim
-one place, `other`, the other candidate's input path. A closed set rather than free text,
-because the view's left-behind list and the message text (Phase 8) both branch on it.
+cause (its context holds at most a Note `line` or a decode's `error`), so a manager whose
+upgrade is not clean, the one outcome where the input must be edited, cannot act on the line
+without this document. Its context gains `reason`, a closed set with one value per cause, each
+named from its emission site, and, where two candidates claim one place, `other`, the other
+candidate's input path. A closed set rather than free text, because the message text (Phase 8)
+branches on it, a sentence per cause; the view's left-behind list shows it as the console
+prints it.
 
 ## CLI
 
@@ -59,13 +61,15 @@ What exists of this is in `spec/export_upgrader.md` "CLI". Step 13 adds `--conve
 Three additions to the built commands:
 
 - **The coverage tag is reported, and can be set.** Every `upgrade` of a team export reports
-  the tag it used, an Info `coverage_tag_chosen` with the `tag` and its `source` (`flag`;
-  `midcup` or `additions`, the text the name was found to hold, a substring as the built rule
-  matches it, the first in the name if both; `name` for a tag word the name already has,
-  below; or `default` when it holds neither), and `--coverage full|midcup` sets it in place of the name's guess, which stays
-  the default. A manager upgrading an old mid-cup export named neither way ("co day 5 fix")
-  gets `Full`, and its first compile replaces the team's kits with placeholders; the Info says
-  so before that compile. A referee export takes no tag and refuses the flag (exit 2). An old
+  the tag it used, an Info `coverage_tag_chosen` with the `tag` and its `source`, the first of
+  these that holds: `name` when the old name's second word is already `Full` or `Midcup` in
+  any letter case (below); `flag`; `midcup` or `additions`, the text the name was found to
+  hold, a substring as the built rule matches it, the first in the name if both; `default`
+  when it holds neither. `--coverage full|midcup` sets the tag in place of the name's guess,
+  which stays the default. A manager upgrading an old mid-cup export named neither way ("co
+  day 5 fix") gets `Full`, and its first compile rebuilds the team from the export alone,
+  everything it does not carry becoming the default or a placeholder; the Info says so before
+  that compile. A referee export takes no tag and refuses the flag (exit 2). An old
   name whose second word is already `Full` or `Midcup` keeps it (source `name`), and a flag
   naming the other tag is refused (exit 2): the member wrote that word, and renaming it under
   them would surprise more than the refusal.
@@ -75,8 +79,9 @@ Three additions to the built commands:
   one-export run prints as today), every output inside `-o` or beside
   its input, and the exit code is the highest any export's run gave. An argument error that
   is the same for all (a flag, a savefile that does not read as a save) refuses the whole run
-  before any export is read; a missing export path, or a save lacking one export's team,
-  refuses that export alone, its block saying so. For an organizer moving a cup's library
+  before any export is read; a missing export path, a save lacking one export's team, or a
+  flag that export's kind refuses (`--savefile`, `--loose` or `--coverage` given with a
+  referee export among team exports) refuses that export alone, its block saying so. For an organizer moving a cup's library
   (about 50 teams) to Studio once per cup; the launcher keeps calling one export at a time,
   since its summary line counts them. `upgrade-models` stays one folder.
 - **A leftover staging folder is cleared.** A `<output>.upgrading` folder left by an earlier
@@ -114,7 +119,10 @@ refined with the maintainer before `view/` is written:
   into its `-o`), `<input> upgraded` beside the input by default, as the CLI's. A **Full /
   Midcup** pair (`--coverage`) is prefilled with the name's guess once a team export is
   dropped, its tooltip naming what decided it (the `source` above); disabled for a referee
-  export and for the second target.
+  export and for the second target, and held on the name's tag when the name already carries
+  one (the CLI refuses the other there). The view passes `--coverage` only when the pair
+  differs from the name's guess, so the report's `source` is the name's whenever the member
+  left the pair alone.
 - **The savefile field names the team it needs.** Once an export is dropped, its team is
   resolved (the Note's `Team:` line, else the name, step 6) and the field shows
   `needs /egg/ (792)` beside it; a save picked or discovered that lacks the team turns the
@@ -123,7 +131,9 @@ refined with the maintainer before `view/` is written:
   exit 2. A team that resolves to no row of the list shows `team unknown: <name>` instead and
   leaves Upgrade enabled, the run then reporting `team_name_unknown` as the CLI does; a picked
   file that does not read as a save turns the field red with the read error as its tooltip,
-  Upgrade disabled. The resolution and the save read are the run's own steps, moved to the drop
+  Upgrade disabled. An export whose Note or archive does not read at the drop leaves the field
+  plain: the run reports it (`source_read_failed`, `export_extract_failed`) as the CLI does.
+  The resolution and the save read are the run's own steps, moved to the drop
   and the pick; the run still checks both.
 - **Upgrading without the save asks first.** With loose on, Upgrade opens a dialog before the
   run: the save is where the players' looks live (the appearance step 8 reads into
@@ -139,9 +149,10 @@ refined with the maintainer before `view/` is written:
   slice), so the view cannot upgrade anything the command line would refuse; a refusal (a
   savefile without the team, exit 2) and an abort (an output folder that already exists, exit
   3) show as the CLI prints them. The existing-output abort's done line carries **Open the
-  existing folder**, the path the abort already holds (an abort over a file that could not be
-  written carries none: its folder is the incomplete staging one), so a manager re-running an upgrade sees what the earlier
-  run made and can rename or remove it.
+  existing folder**, so a manager re-running an upgrade sees what the earlier run made and can
+  rename or remove it; the command returns the folder's path with that abort (a field of the
+  error, not parsed back from its text, which a Windows path's `:` would break). An abort over
+  a file that could not be written carries none: its folder is the incomplete staging one.
 - **The report** is the view's product: step 10's findings as the console prints them, in the
   log panel, and above it the **left-behind** list, one row per `unmigrated_content` or
   `leftover_dropped` entry with its input path, the finding's code and the entry's context (a
@@ -154,7 +165,8 @@ refined with the maintainer before `view/` is written:
   file. A real export's upgrade (Lab's EGG, in the draft) left 120 rows, 18 of them one boots
   folder's, which then read as the 25 folders they are about. A click on an entry's row (not
   the group's chevron) opens the system file browser at that entry (the folder, the file
-  selected where the platform can; an archive input's archive folder), its tooltip saying so,
+  selected where the platform can; for an archive input, the folder the archive sits in, the
+  archive selected), its tooltip saying so,
   so the fix starts from the list rather than a walk through the folders. For `upgrade-models` the per-folder "where it
   goes" lines are the log's, as the CLI prints them, and the list holds the folders it left
   out. A **Copy report** button beside the done line puts the console's lines on the clipboard,
@@ -211,21 +223,22 @@ EU-REP-05  GIVEN EU-PLY-10's export: face folders "XXX23 - Bahsaka" and "XXX23 -
                 id_taken with `other` "Boots/k0430 - A", the two misnamed slot_invalid and
                 id_invalid with no `other`; every reason value the crate emits is reached by
                 a test
-EU-CLI-09  GIVEN EU-CLI-01's exports
+EU-CLI-09  GIVEN EU-CLI-01's exports and EU-REF-01's referee export
            WHEN each is upgraded
            THEN each team export's report holds coverage_tag_chosen with its tag and source
                 (`co - Spring`: Full, default; `co Day 8 Additions`: Midcup, additions; `co
-                midcup Day 5`: Midcup, midcup) and the referee export's none; WHEN `co - Spring`
-                is upgraded with --coverage midcup THEN the output is `co Midcup - Spring`,
-                source flag; GIVEN a name whose second word is Full and --coverage midcup THEN
-                exit 2 and nothing written; GIVEN a referee export and --coverage, or an
-                unknown value, THEN exit 2
+                midcup Day 5`: Midcup, name; `co Full Spring`: Full, name) and the referee
+                export's none; WHEN `co - Spring` is upgraded with --coverage midcup THEN the
+                output is `co Midcup - Spring`, source flag; WHEN `co Full Spring` is upgraded
+                with --coverage midcup THEN exit 2 and nothing written; GIVEN the referee
+                export and --coverage, or an unknown value, THEN exit 2
 EU-CLI-10  GIVEN `co - Spring` and its output's staging folder `co Full - Spring.upgrading`
                  holding a file, left by an earlier run
            WHEN it is upgraded
            THEN the staging folder is removed, staging_folder_removed names it, and the run is
-                clean with its output written; GIVEN a file of the staging folder held open
-                THEN exit 3 naming the folder, nothing written
+                clean with its output written; GIVEN (Windows, where an open file blocks its
+                removal) a file of the staging folder held open THEN exit 3 naming the
+                folder, nothing written
 EU-CLI-11  GIVEN two of EU-CLI-01's /co/ exports, a third export of another team, and a save
                  holding /co/ but not that team
            WHEN `upgrade` names all three with that save

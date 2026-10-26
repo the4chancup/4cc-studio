@@ -76,8 +76,9 @@ shell remembers each class's last size and position, across runs as most desktop
 switching from a tool of one class to a tool of the other restores the other's (its declared
 size, centered, the first time), so a streamer's compact window comes back where they left
 it, and the window opens in the class of the tool it opens on (the last active one,
-ST-RUN-02) at that class's remembered place. The first start, and a class never used, take the
-fit above. A remembered place whose title bar lies on no monitor now (a second monitor
+ST-RUN-02) at that class's remembered place. A class never used opens at its design size
+(1280 × 800 for the main class, a special tool's declared size), fitted and centered as
+above. A remembered place whose title bar lies on no monitor now (a second monitor
 unplugged) is dropped for the fit, so the window is never opened out of reach. Both places are
 shell state in the settings file (`window_main`, `window_special`: the outer position and the
 inner size, in points), written when the class is left and when the window closes, rather
@@ -164,9 +165,12 @@ Top to bottom:
      the setting, no shadow session state. The poll also knows the running exe's *path*: when it
      differs from the resolved `pes_folder_path` (e.g. the selector sits red/orange while the real
      install runs from elsewhere), the same notice offers a **"Fix PES path"** action that rewrites
-     `pes_folder_path` from the running process — strictly opt-in via the notice's button, never
-     applied automatically (re-inserting the `**` version placeholder when the path segment matches
-     the running version, so the fix keeps working across versions). The action is offered only
+     the PES folder from the running process — strictly opt-in via the notice's button, never
+     applied automatically: the main row, `pes_folder_path`, with the `**` placeholder put back
+     where the folder's own name holds the running version's year (Browse's rule, so the fix
+     keeps working across versions), or, once any version has a folder of its own, the running
+     version's own row, the folder stored as it is (an override row is taken as written;
+     "Settings menu"). The action is offered only
      when the exe's folder is a folder on this system: under Wine or Proton the probe reports the
      game's Windows path, which a Linux setting cannot use.
 3. **Tool list** — vertical nav, one entry per tool: its icon at **24 points**, its label in the
@@ -255,7 +259,8 @@ The settings menu is assembled from injected sections:
   exists and cannot be switched off until the rows are emptied, since a hidden override would
   still apply and hide why a folder is used. Fix PES path ("Sidebar") writes the running
   version's own row whenever any override exists (a member who keeps folders per version,
-  whose other versions a rewritten main row would move), else the main row as before.
+  whose other versions a rewritten main row would move), the folder as it is, else the main
+  row as before.
 - Saving is **best-effort**: if the write fails (typically a portable install unpacked somewhere
   unwritable), the in-memory settings keep working for the session and the shell raises the
   `data_dir_read_only` condition in the status bar — one condition covering settings and the
@@ -847,9 +852,10 @@ ST-SIDE-05  manual  GIVEN the selector at PES 21 and PES2019.exe running from a 
                     WHEN the poll next runs
                     THEN the selector switches to PES 19 once, the status bar shows the notice
                          naming the switch with a "Fix PES path" action, the action rewrites
-                         pes_folder_path from the running process (the ** placeholder kept where
-                         the path segment matches the version), and a later manual change back
-                         to PES 21 is not switched again while the program lives
+                         pes_folder_path from the running process (the ** placeholder put back
+                         where the folder's own name holds the version's year), and a later
+                         manual change back to PES 21 is not switched again while the program
+                         lives
 ST-SIDE-06  GIVEN the GUI open
             WHEN the logo is clicked
             THEN the About popup shows the version block (version, build kind, target triple,
@@ -1037,14 +1043,15 @@ ST-RUN-09   GIVEN a data location whose `studio.log` ends without the closing li
                  normally and names `studio.old.log`'s path; GIVEN it ends with the closing
                  line of a normal close or of a crash already reported THEN no dialog; GIVEN
                  no earlier log THEN no dialog
-ST-RUN-10   GIVEN the built exe started as the window over a test data location, with the
-                 test's trigger to overflow its stack
-            WHEN the trigger fires
+ST-RUN-10   GIVEN the built exe started over a test data location with `--crash-test stack`
+                 (handled once the monitor runs, before any window: no display needed)
+            WHEN the trigger overflows the stack
             THEN `studio.dmp` is written beside `studio.log`, reads as a minidump holding a
                  thread list and the exception stream of a stack overflow (read in the test
-                 by the `minidump` crate, a dev dependency), the monitor process has exited,
-                 and the next start's dialog (ST-RUN-09) names the dump's path beside the
-                 log's; GIVEN the monitor failing to start THEN the window opens and the log
+                 by the `minidump` crate, a dev dependency), and the monitor process has
+                 exited; the next start's dialog text (ST-RUN-09's, built from the old log and
+                 the dump) names the dump's path beside the log's; GIVEN the monitor's start
+                 given a program that is not an exe THEN it returns the failure and the log
                  holds the warning
 ST-RUN-11   manual  GIVEN ST-RUN-10's dump from a release build
                     WHEN `minidump-stackwalk` reads it against that build's kept `.pdb`

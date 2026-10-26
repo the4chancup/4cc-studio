@@ -40,7 +40,10 @@ gesture too, however short. Any close but Escape commits a parseable typed text,
 A click on a suggestion or recent swatch commits its color and closes the popup: reusing a
 color (a team's two colors matched to an earlier pick) is the swatch rows' common case, and one
 click beats a click and an Escape. The square, the slider and the hex and R/G/B fields keep it
-open, being the fine-tuning path.
+open, being the fine-tuning path. A typed text still pending when a swatch is pressed is
+settled by the press, as by any press outside the field, then the swatch's color commits on
+the release: two changes, two undo steps, the swatch's color the one kept and joining the
+recents.
 The square and the slider work in HSV over sRGB values (the formula applied to the sRGB
 fractions, as the draft's `hsvToRgb` does), not over linear ones, egui's `Hsva`, nor egui's
 `HsvaGamma`, which re-encodes only the value: a renderer blends vertex colors as sRGB, so only

@@ -830,7 +830,8 @@ What this editor adds on top of the lib:
     the Height box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields
     for theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
     `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and
-    `APositions`, the player's spot on the Tactics pitch for `FieldedNotA`, the playing style
+    `APositions`, the player's spot on the named preset's Tactics pitch for `FieldedNotA`
+    (drawn when that preset is the one shown), the playing style
     for `PlayingStyleRange`, the skill cards for `Cards`, `MinCards`, `SkillCardCap` and
     `RequiredCard`, the COM styles for `ComStyleCap`. A field several violations are about
     carries one cross, in the colour of the highest severity among them (a suggestion alone
@@ -839,7 +840,9 @@ What this editor adds on top of the lib:
     compile past it); the kinds about no single field (`NoTier`, `StatTotal`, `Special`,
     `Custom`, `RosterOrder`, the suggestions, and every team-level one) mark the list alone.
     A field the view does not show (a tab not open) carries its cross when shown.
-  - While a check is in flight the marks keep the previous result, as the list does.
+  - While a check is in flight the marks keep the previous result, as the list does. A check
+    that fails (a script error in the rules file) clears every mark: the dock shows the
+    failure, and a mark from an older result would claim a check that no longer ran.
 - **Validate rules.** A button in the AATF panel running the lib's load-time validation on
   the active rules file (the `aatf_rules` setting's, or the embedded one when it is empty), its
   findings listed one per line with their line and column or key path, or "There are no findings in <file>.". The
