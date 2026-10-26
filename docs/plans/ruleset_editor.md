@@ -196,10 +196,10 @@ this tool does not write other tools' settings.
 ## CLI
 
 ```
-4cc-studio ruleset-editor validate rules.rhai          # load-time validation; findings to stdout, exit 1 if any
-4cc-studio ruleset-editor update-logic rules.rhai      # migrate RULESET and replace an older official logic
-4cc-studio ruleset-editor summary rules.rhai [-o rules.md]
-4cc-studio ruleset-editor random --preset sensible|weird|crazy [--seed N] -o rules.rhai
+4cc-studio ruleset-editor validate rules.4ccrules      # load-time validation; findings to stdout, exit 1 if any
+4cc-studio ruleset-editor update-logic rules.4ccrules  # migrate RULESET and replace an older official logic
+4cc-studio ruleset-editor summary rules.4ccrules [-o rules.md]
+4cc-studio ruleset-editor random --preset sensible|weird|crazy [--seed N] -o rules.4ccrules
 ```
 
 `update-logic` refuses a file whose logic is modified (it would discard someone's code) and leaves
@@ -399,7 +399,7 @@ RE-FILE-04  GIVEN VTL11 assembled as a file, with its custom checks
                  current logic, and the custom-checks section, that section byte for byte as it
                  was read (its trailing whitespace, which is layout, aside); VTL11's fixture
                  teams pass and fail as under the original file
-RE-FILE-05  GIVEN dbc7.rhai assembled as a file, with the comments inside its RULESET
+RE-FILE-05  GIVEN dbc7.4ccrules assembled as a file, with the comments inside its RULESET
             WHEN it is opened and saved with no edit (Save is available on an unedited
                  document)
             THEN the saved RULESET holds the same values (the ruleset reads back equal) and none
@@ -497,11 +497,11 @@ RE-CLI-03  GIVEN Autumn 26 as a file
                 file replaced; GIVEN an RE-FILE-03 file THEN it is refused with a nonzero exit
                 code, writing no file; GIVEN -o naming the rules file itself THEN it is refused
                 with a nonzero exit code, the rules file unchanged and no .bak written
-RE-CLI-04  GIVEN `ruleset-editor random --preset weird --seed 48213 -o a.rhai`, and the same
+RE-CLI-04  GIVEN `ruleset-editor random --preset weird --seed 48213 -o a.4ccrules`, and the same
            without --seed
            WHEN each is run twice
            THEN each prints the seed it used; the seeded runs write identical bytes that
-                validate, the second leaving a.rhai.bak holding the first; rerunning the
+                validate, the second leaving a.4ccrules.bak holding the first; rerunning the
                 unseeded one with its printed seed reproduces its file
 ```
 

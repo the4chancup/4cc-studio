@@ -2810,6 +2810,15 @@ briefs, review loops, gates and mutation runs as for any step.
       with `get_temp` as the workspace does, not `get_persisted`. The centring balances against
       the pane's frame, 8 points inside the window's edge: the built-window check decides
       which edge the eye reads. Files: `view/{info_strip,abilities,mod}.rs`, the tests
+- [ ] 0.0.1t a rules file a member handles ends in `.4ccrules` (the maintainer, 2026-10-26;
+  DECISIONS "A rules file a member handles ends in `.4ccrules`"; `plans/aatf_rules.md` "The
+  rules file"): the Save editor's settings row and AATF panel and the Ruleset editor's pickers
+  offering `.4ccrules` alone, Save a copy suggesting `autumn26.4ccrules`, the written file's
+  first line naming Rhai (`libs/aatf`'s writer header and the nine sources' first lines), the
+  help, the spec's examples and `spec/aatf_rules.md` "The rules file" when built; the bundle's
+  `rules/dbc7.4ccrules` rides with 0.0.1f → verify: the pickers' extension lists pinned by
+  unit test; SE-GUI-15's suggested name; the writer's header test; `grep -rn "\.rhai"` over
+  the help, the messages and the spec finding only the repository's own sources
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
@@ -2833,7 +2842,7 @@ briefs, review loops, gates and mutation runs as for any step.
     exe
 - [ ] 0.0.1f the cut, once the Save editor's view is done (the Ruleset editor left 0.0.1 on
   2026-10-24, `plans/core/development_plan.md` "Divegrass Before Christmas"): the bundle's
-  `rules/dbc7.rhai`, assembled with the frozen logic version 1, and the bundled settings naming
+  `rules/dbc7.4ccrules`, assembled with the frozen logic version 1, and the bundled settings naming
   it as the Save editor's `aatf_rules` (how the recipe writes the file is this step's to settle,
   a command the build already has preferred); the clean-machine check (`plans/core/development_plan.md`
   "Release 0.1.0"'s verification, both launchers included), the exe's size measured crate by

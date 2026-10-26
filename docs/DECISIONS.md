@@ -11533,3 +11533,19 @@ parcel (h) as a podium, and (a)'s arrow does not show at that size; a front view
 lines, and the flaps tell a box from a bin, which the bare open box (f) does not. The figure
 keeps its traced outline rather than a stroke so the drawing stays the maintainer's.
 Plan: `plans/core/README.md` "GUI framework choice: egui", the icon font's sentence.
+
+## 2026-10-26 — aatf — A rules file a member handles ends in `.4ccrules`
+Decision (the maintainer's proposal, with the lead's scope): the rules file a member or an
+organizer handles is `<name>.4ccrules`: the bundle's `rules/dbc7.4ccrules`, the only ending
+every picker offers, the name Save a copy suggests, the CLI's examples. The content stays
+plain Rhai, its first line saying so; the loader ignores the ending; the repository's sources
+in `libs/aatf` keep `.rhai`.
+Why: a member only loads the file, and `.rhai` tells them nothing, where `.4ccrules` names it
+and sits beside the suite's `.4ccm`; the pickers offer no `.rhai` beside it since no Studio
+has shipped and no such file exists outside the repository. The sources stay `.rhai` because
+they are code, edited with an editor's Rhai highlighting, which the first line also points an
+organizer's editor at. `.4ccrules` rather than `.aatf`: the file drives the quick actions'
+tiers and the card limits as well as the check, and the prefix ties it to the suite.
+Plan: `plans/aatf_rules.md` "The rules file" (new); `plans/save_editor.md` the rules file's
+row and SE-GUI-15; `plans/ruleset_editor.md` "CLI", RE-FILE-05, RE-CLI-04;
+`plans/core/development_plan.md` "Divegrass Before Christmas".

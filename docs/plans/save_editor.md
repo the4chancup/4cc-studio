@@ -859,7 +859,7 @@ What this editor adds on top of the lib:
 
 - **The rules file's row.** The settings menu's Save editor section holds a path row, "AATF
   rules file" (`aatf_rules`; `core/gui.md` "Settings menu"), and the "Aesthetics from exports"
-  checkbox ("Read-only aesthetics"). The row's Browse picks a `.rhai` file;
+  checkbox ("Read-only aesthetics"). The row's Browse picks a `.4ccrules` file;
   empty is the embedded official ruleset, and a relative path resolves in the data directory
   as `check-aatf` resolves it. The window reads the setting every frame, so a commit reaches
   the badges, the quick actions and the AATF panels on the next one.
@@ -1147,7 +1147,7 @@ SE-GUI-15  GIVEN the PES 17 save and a ruleset with violations in the open team
                 ALL, which stays), Show suggestions is off and reveals the unused allowances
                 when on, Validate rules lists a broken rules file's findings under the file's
                 path, each with its line or key path (a file that loads: "There are no findings in <file>."), and
-                Save a copy, its dialog suggesting autumn26.rhai, writes the embedded official
+                Save a copy, its dialog suggesting autumn26.4ccrules, writes the embedded official
                 ruleset out byte for byte and names the path it wrote; WHEN an edit changes
                 the team THEN the previous list stays, marked as checking, until the new one
                 replaces it, and an undo brings the old one back; WHEN another rules file is
