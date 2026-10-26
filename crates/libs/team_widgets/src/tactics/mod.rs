@@ -494,7 +494,12 @@ pub(crate) fn raw_name_at<'a>(roster: &[RosterRow<'a>], slot: u8) -> &'a str {
 /// player name, a slider's number). `version` decodes the stored
 /// instruction bytes; `new_tactics` names the formation slots' players
 /// (the starting eleven's roster slots) and `old_tactics`/`new_tactics`
-/// carry the instruction each side's target byte is worded under.
+/// carry the instruction each side's target byte is worded under. A
+/// stored slot names its player through the roster of its own side —
+/// `rosters` holds the file-as-opened's first, the current's second: a
+/// drag moves records between the roster's ids while the byte still
+/// names the slot, so one roster would word a side under the wrong
+/// player.
 pub fn tactics_term(
     version: PesVersion,
     field: TacticsField,
@@ -502,8 +507,9 @@ pub fn tactics_term(
     new: u32,
     old_tactics: &TeamTactics,
     new_tactics: &TeamTactics,
-    roster: &[RosterRow<'_>],
+    rosters: (&[RosterRow<'_>], &[RosterRow<'_>]),
 ) -> (String, String, String) {
+    let (old_roster, new_roster) = rosters;
     let byte = |stored: u32| u8::try_from(stored).expect("a tactics field is a byte");
     match field {
         TacticsField::TeamId => ("Team ID".to_owned(), old.to_string(), new.to_string()),
@@ -523,7 +529,7 @@ pub fn tactics_term(
                 "Preset {} · {} · {} · {}",
                 preset + 1,
                 FORMATIONS[usize::from(formation)],
-                name_at(roster, starter),
+                name_at(new_roster, starter),
                 match part {
                     FormationPart::Position => "Position",
                     FormationPart::X => "X",
@@ -571,13 +577,13 @@ pub fn tactics_term(
                         instructions::instruction_at(version, old_tactics, preset, side, index),
                         byte(old),
                         &old_tactics.starting_eleven,
-                        roster,
+                        old_roster,
                     ),
                     instructions::target_text(
                         instructions::instruction_at(version, new_tactics, preset, side, index),
                         byte(new),
                         &new_tactics.starting_eleven,
-                        roster,
+                        new_roster,
                     ),
                 ),
             }
@@ -595,7 +601,7 @@ pub fn tactics_term(
                 format!(
                     "Preset {} · Man marking · {}",
                     preset + 1,
-                    name_at(roster, starter)
+                    name_at(new_roster, starter)
                 ),
                 value(old),
                 value(new),
@@ -611,8 +617,8 @@ pub fn tactics_term(
             assignments::role_label(field)
                 .expect("the roles are the chips' own table")
                 .to_owned(),
-            role_holder(roster, byte(old)),
-            role_holder(roster, byte(new)),
+            role_holder(old_roster, byte(old)),
+            role_holder(new_roster, byte(new)),
         ),
         TacticsField::AutoSubstitution => (
             SUBSTITUTION_LABEL.to_owned(),
@@ -636,18 +642,18 @@ pub fn tactics_term(
         ),
         TacticsField::Starting(index) => (
             format!("Starting eleven · {}", index + 1),
-            name_at(roster, byte(old)).to_owned(),
-            name_at(roster, byte(new)).to_owned(),
+            name_at(old_roster, byte(old)).to_owned(),
+            name_at(new_roster, byte(new)).to_owned(),
         ),
         TacticsField::Bench(index) => (
             format!("Bench · {}", index + 1),
-            name_at(roster, byte(old)).to_owned(),
-            name_at(roster, byte(new)).to_owned(),
+            name_at(old_roster, byte(old)).to_owned(),
+            name_at(new_roster, byte(new)).to_owned(),
         ),
         TacticsField::PlayerToJoinAttack(index) => (
             format!("Join attack · {}", index + 1),
-            join_text(roster, byte(old)),
-            join_text(roster, byte(new)),
+            join_text(old_roster, byte(old)),
+            join_text(new_roster, byte(new)),
         ),
     }
 }

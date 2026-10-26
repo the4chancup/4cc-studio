@@ -7,7 +7,7 @@
 
 use std::collections::{HashMap, HashSet};
 
-use pes_savefile::EditFile;
+use pes_savefile::model::PlayerEntry;
 use pes_savefile::model::TeamEntry;
 use pes_savefile::model::names::display_name;
 use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
@@ -90,12 +90,24 @@ pub(crate) fn open(view: &mut SaveView, pending: Pending) {
 /// his dot covers his roster slot's number), then each changed team's
 /// other rows in the open save's team order. The item is the player's
 /// display name (`display_name`, colour codes dropped) or the team's.
+/// A team row's slot-valued texts name the baseline's roster and records
+/// on the old side, the current's on the new: a drag moves records
+/// between the roster's ids while the stored byte still names the slot.
 fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String)>> {
     let file = session.file();
     let version = session.version();
     let changes = session.unsaved_changes()?;
     let player_diffs: HashMap<u32, Vec<PlayerDiff>> = changes.players.into_iter().collect();
     let team_diffs: HashMap<u32, Vec<TeamDiff>> = changes.teams.into_iter().collect();
+    // The ALL list runs to the thousands on a cup save: the id lookups
+    // go through indexes built once, never `EditFile`'s linear scans
+    // (`session`'s baseline lookups are already its own maps').
+    let players: HashMap<u32, &PlayerEntry> = file
+        .players()
+        .iter()
+        .map(|player| (player.id, player))
+        .collect();
+    let teams: HashMap<u32, &TeamEntry> = file.teams().iter().map(|team| (team.id, team)).collect();
     // The roster slots the ALL list shows (its order is the players'): a
     // `Number` row of one goes under its player.
     let listed_rows = selection::rows(file, &TeamChoice::All, "");
@@ -104,14 +116,18 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
         .map(|row| (row.team_id, row.slot))
         .collect();
     let name_of = |id: u32| {
-        file.player(id)
+        players
+            .get(&id)
             .map(|player| display_name(&player.name))
             .unwrap_or_else(|| id.to_string())
     };
     let mut rows = Vec::new();
     let mut shown: HashSet<u32> = HashSet::new();
     for entry in &listed_rows {
-        let item = name_of(entry.player_id);
+        // The item's text is looked up when a row names him, not per
+        // listed row.
+        let mut item = None;
+        let mut named = || item.get_or_insert_with(|| name_of(entry.player_id)).clone();
         // A player rostered on two teams is listed per roster: his own
         // rows go under his first listing only, his `Number` rows stay
         // per slot.
@@ -119,14 +135,17 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
             if let Some(diffs) = player_diffs.get(&entry.player_id) {
                 for diff in diffs {
                     let term = terms::row_term(version, diff);
-                    rows.push((item.clone(), term.label, term.old, term.new));
+                    rows.push((named(), term.label, term.old, term.new));
                 }
             }
-            if let Some((label, old, new)) = stripped_term(session, file, entry.player_id) {
-                rows.push((item.clone(), label, old, new));
+            if let Some((label, old, new)) = stripped_term(
+                session.baseline_player(entry.player_id),
+                players.get(&entry.player_id).copied(),
+            ) {
+                rows.push((named(), label, old, new));
             }
         }
-        let Some(team) = file.team(entry.team_id) else {
+        let Some(team) = teams.get(&entry.team_id).copied() else {
             continue;
         };
         let Some(diffs) = team_diffs.get(&entry.team_id) else {
@@ -145,10 +164,20 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
             let baseline_team = session
                 .baseline_team(entry.team_id)
                 .expect("a team diff implies a baseline");
-            let names = roster_names(file, team);
-            let roster = roster_for(file, team, &names);
-            for term in terms::team_row_terms(version, team, baseline_team, &roster, &numbers) {
-                rows.push((item.clone(), term.label, term.old, term.new));
+            let old_names = roster_names(baseline_team, |id| session.baseline_player(id));
+            let old_roster =
+                roster_for(baseline_team, &old_names, |id| session.baseline_player(id));
+            let new_names = roster_names(team, |id| players.get(&id).copied());
+            let new_roster = roster_for(team, &new_names, |id| players.get(&id).copied());
+            for term in terms::team_row_terms(
+                version,
+                team,
+                baseline_team,
+                &old_roster,
+                &new_roster,
+                &numbers,
+            ) {
+                rows.push((named(), term.label, term.old, term.new));
             }
         }
     }
@@ -159,12 +188,15 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
         .collect();
     unlisted.sort_unstable();
     for id in unlisted {
+        let item = name_of(id);
         for diff in &player_diffs[&id] {
             let term = terms::row_term(version, diff);
-            rows.push((name_of(id), term.label, term.old, term.new));
+            rows.push((item.clone(), term.label, term.old, term.new));
         }
-        if let Some((label, old, new)) = stripped_term(session, file, id) {
-            rows.push((name_of(id), label, old, new));
+        if let Some((label, old, new)) =
+            stripped_term(session.baseline_player(id), players.get(&id).copied())
+        {
+            rows.push((item, label, old, new));
         }
     }
     for team in file.teams() {
@@ -187,9 +219,18 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
         let baseline_team = session
             .baseline_team(team.id)
             .expect("a team diff implies a baseline");
-        let names = roster_names(file, team);
-        let roster = roster_for(file, team, &names);
-        for term in terms::team_row_terms(version, team, baseline_team, &roster, &remaining) {
+        let old_names = roster_names(baseline_team, |id| session.baseline_player(id));
+        let old_roster = roster_for(baseline_team, &old_names, |id| session.baseline_player(id));
+        let new_names = roster_names(team, |id| players.get(&id).copied());
+        let new_roster = roster_for(team, &new_names, |id| players.get(&id).copied());
+        for term in terms::team_row_terms(
+            version,
+            team,
+            baseline_team,
+            &old_roster,
+            &new_roster,
+            &remaining,
+        ) {
             rows.push((display_name(&team.name), term.label, term.old, term.new));
         }
     }
@@ -197,30 +238,34 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
 }
 
 /// `team`'s roster slots' display names for `roster_for` (the two steps
-/// split so the `RosterRow`s can borrow them).
-pub(super) fn roster_names(file: &EditFile, team: &TeamEntry) -> Vec<String> {
+/// split so the `RosterRow`s can borrow them): `lookup` finds a rostered
+/// id's record — the current file's index or `Session::baseline_player`.
+pub(super) fn roster_names<'a>(
+    team: &TeamEntry,
+    lookup: impl Fn(u32) -> Option<&'a PlayerEntry>,
+) -> Vec<String> {
     team.roster
         .iter()
         .map(|slot| {
-            file.player(slot.player_id)
-                .map_or_else(String::new, |player| display_name(&player.name))
+            lookup(slot.player_id).map_or_else(String::new, |player| display_name(&player.name))
         })
         .collect()
 }
 
 /// `team`'s roster as the Tactics tab's `RosterRow`s: the display names
 /// borrowed from `names` (`roster_names`' output), the raw names the
-/// records' own, colour codes kept.
+/// records' own, colour codes kept. `lookup` is the same one
+/// `roster_names` ran under.
 pub(super) fn roster_for<'a>(
-    file: &'a EditFile,
     team: &'a TeamEntry,
     names: &'a [String],
+    lookup: impl Fn(u32) -> Option<&'a PlayerEntry>,
 ) -> Vec<RosterRow<'a>> {
     team.roster
         .iter()
         .enumerate()
         .map(|(index, slot)| {
-            let player = file.player(slot.player_id);
+            let player = lookup(slot.player_id);
             RosterRow {
                 name: names[index].as_str(),
                 raw_name: player.map_or("", |player| player.name.as_str()),
@@ -235,8 +280,11 @@ pub(super) fn roster_for<'a>(
 /// baseline's — `compare_players` emits no row for it, the Strip again
 /// change (SE-GUI-20) being otherwise invisible in the table. "No" while
 /// his id was set, "Yes" once at -1.
-fn stripped_term(session: &Session, file: &EditFile, id: u32) -> Option<(String, String, String)> {
-    let (baseline, player) = (session.baseline_player(id)?, file.player(id)?);
+fn stripped_term(
+    baseline: Option<&PlayerEntry>,
+    player: Option<&PlayerEntry>,
+) -> Option<(String, String, String)> {
+    let (baseline, player) = (baseline?, player?);
     (player.appearance_id != baseline.appearance_id).then(|| {
         let yes_no = |stripped: bool| if stripped { "Yes" } else { "No" }.to_owned();
         (

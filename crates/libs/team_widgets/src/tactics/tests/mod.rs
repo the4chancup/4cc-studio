@@ -928,8 +928,17 @@ fn the_preset_fields_terms() {
     let tactics = fixture_tactics(version);
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term =
-        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
+    let term = |field, old, new| {
+        tactics_term(
+            version,
+            field,
+            old,
+            new,
+            &tactics,
+            &tactics,
+            (&roster, &roster),
+        )
+    };
     assert_eq!(
         term(
             TacticsField::Preset {
@@ -1000,8 +1009,17 @@ fn the_set_pieces_terms() {
     let tactics = fixture_tactics(version);
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term =
-        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
+    let term = |field, old, new| {
+        tactics_term(
+            version,
+            field,
+            old,
+            new,
+            &tactics,
+            &tactics,
+            (&roster, &roster),
+        )
+    };
     assert_eq!(
         term(TacticsField::FreeKickTakerLong, 3, 9),
         (
@@ -1040,8 +1058,17 @@ fn the_formation_slots_terms() {
     tactics.starting_eleven[4] = 7;
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term =
-        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
+    let term = |field, old, new| {
+        tactics_term(
+            version,
+            field,
+            old,
+            new,
+            &tactics,
+            &tactics,
+            (&roster, &roster),
+        )
+    };
     assert_eq!(
         term(
             TacticsField::Formation {
@@ -1104,8 +1131,17 @@ fn the_man_marking_terms() {
     tactics.starting_eleven[5] = 2;
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term =
-        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
+    let term = |field, old, new| {
+        tactics_term(
+            version,
+            field,
+            old,
+            new,
+            &tactics,
+            &tactics,
+            (&roster, &roster),
+        )
+    };
     assert_eq!(
         term(TacticsField::ManMarking { preset: 0, slot: 5 }, 255, 3),
         (
@@ -1139,8 +1175,17 @@ fn the_instructions_terms() {
         .instruction = encode(Instruction::Defensive);
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term =
-        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
+    let term = |field, old, new| {
+        tactics_term(
+            version,
+            field,
+            old,
+            new,
+            &tactics,
+            &tactics,
+            (&roster, &roster),
+        )
+    };
     assert_eq!(
         term(
             TacticsField::Instruction {
@@ -1220,8 +1265,17 @@ fn the_rest_of_the_terms() {
     let tactics = fixture_tactics(version);
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term =
-        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
+    let term = |field, old, new| {
+        tactics_term(
+            version,
+            field,
+            old,
+            new,
+            &tactics,
+            &tactics,
+            (&roster, &roster),
+        )
+    };
     assert_eq!(
         term(TacticsField::AutoSubstitution, 0, 3),
         ("Substitution".to_owned(), "0".to_owned(), "3".to_owned())
@@ -1264,40 +1318,72 @@ fn the_rest_of_the_terms() {
     );
 }
 
-/// Every `field:` key names the row its own entry labels: a `SliderSpec`,
-/// `StyleToggle` or `RoleSpec` whose key drifted draws its row under
-/// another entry's label.
+/// Every `field:` key names the row its own entry's label, written out
+/// as literals: a `SliderSpec`, `StyleToggle` or `RoleSpec` whose key
+/// drifted — two keys swapped included — draws its row under another
+/// entry's label, which an expected label read from the same table
+/// cannot catch.
 #[test]
 fn every_table_entry_keys_its_own_label() {
     let version = PesVersion::Pes21;
     let tactics = fixture_tactics(version);
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let label = |field| tactics_term(version, field, 0, 0, &tactics, &tactics, &roster).0;
-    for spec in &SLIDERS {
-        assert_eq!(
-            label(TacticsField::Preset {
-                preset: 0,
-                field: spec.field,
-            }),
-            format!("Preset 1 · {}", spec.label),
-            "{:?}",
-            spec.field
-        );
-    }
-    for toggle in &STYLE_TOGGLES {
-        assert_eq!(
-            label(TacticsField::Preset {
-                preset: 0,
-                field: toggle.field,
-            }),
-            format!("Preset 1 · {}", toggle.label),
-            "{:?}",
-            toggle.field
-        );
-    }
-    for role in &assignments::SET_PIECES {
-        assert_eq!(label(role.field), role.label, "{:?}", role.field);
+    let label =
+        |field| tactics_term(version, field, 0, 0, &tactics, &tactics, (&roster, &roster)).0;
+    let preset = |field| TacticsField::Preset { preset: 0, field };
+    let cases: &[(TacticsField, &str)] = &[
+        (
+            preset(PresetField::SupportRange),
+            "Preset 1 · Support range",
+        ),
+        (
+            preset(PresetField::DefensiveLine),
+            "Preset 1 · Defensive line",
+        ),
+        (preset(PresetField::Compactness), "Preset 1 · Compactness"),
+        (
+            preset(PresetField::NumbersInAttack),
+            "Preset 1 · Numbers in attack",
+        ),
+        (
+            preset(PresetField::NumbersInDefence),
+            "Preset 1 · Numbers in defence",
+        ),
+        (
+            preset(PresetField::AttackingStyle),
+            "Preset 1 · Attacking style",
+        ),
+        (
+            preset(PresetField::AttackingZone),
+            "Preset 1 · Attacking zone",
+        ),
+        (preset(PresetField::Buildup), "Preset 1 · Buildup"),
+        (preset(PresetField::Positioning), "Preset 1 · Positioning"),
+        (
+            preset(PresetField::DefensiveStyle),
+            "Preset 1 · Defensive style",
+        ),
+        (
+            preset(PresetField::ContainmentArea),
+            "Preset 1 · Containment area",
+        ),
+        (preset(PresetField::Pressure), "Preset 1 · Pressure"),
+        (TacticsField::FreeKickTakerLong, "Long free kick"),
+        (TacticsField::FreeKickTakerShort, "Short free kick"),
+        (TacticsField::FreeKickTakerSecond, "Second free kick"),
+        (TacticsField::CornerTakerLeft, "Left corner"),
+        (TacticsField::CornerTakerRight, "Right corner"),
+        (TacticsField::PenaltyTaker, "Penalty kick"),
+        (TacticsField::Captain, "Captain"),
+    ];
+    assert_eq!(
+        cases.len(),
+        SLIDERS.len() + STYLE_TOGGLES.len() + assignments::SET_PIECES.len(),
+        "a literal pair per table entry"
+    );
+    for (field, expected) in cases {
+        assert_eq!(label(*field), *expected, "{field:?}");
     }
 }
 
@@ -1362,7 +1448,7 @@ fn the_target_terms_read_the_instruction_in_force_on_each_side() {
             new,
             &tactics,
             &tactics,
-            &roster,
+            (&roster, &roster),
         )
     };
     assert_eq!(
@@ -1408,13 +1494,101 @@ fn the_target_terms_read_the_instruction_in_force_on_each_side() {
         4,
         &baseline,
         &current,
-        &roster,
+        (&roster, &roster),
     );
     assert_eq!(
         (old.as_str(), new.as_str()),
         ("An opponent", "Unassigned"),
         "each side under its own instruction"
     );
+}
+
+// Every slot-valued term words its old side through the first roster
+// and its new side and its label through the second: after a drag the
+// two rosters name one slot differently, and a side read through the
+// other roster names the wrong player.
+#[test]
+fn each_side_names_its_slots_through_its_own_roster() {
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    tactics.presets[0]
+        .defence_instructions
+        .as_mut()
+        .expect("PES 21 has instructions")[0]
+        .instruction =
+        instruction::encode(version, Instruction::CounterTarget).expect("PES 21 stores it");
+    let old_rows: Vec<(String, String, Option<u8>)> = (0..32)
+        .map(|i| (format!("Old {:02}", i + 1), String::new(), None))
+        .collect();
+    let new_rows: Vec<(String, String, Option<u8>)> = (0..32)
+        .map(|i| (format!("New {:02}", i + 1), String::new(), None))
+        .collect();
+    let (old_roster, new_roster) = (roster_rows(&old_rows), roster_rows(&new_rows));
+    let term = |field, old, new| {
+        tactics_term(
+            version,
+            field,
+            old,
+            new,
+            &tactics,
+            &tactics,
+            (&old_roster, &new_roster),
+        )
+    };
+    let sides = |field, old, new| {
+        let (_, old, new) = term(field, old, new);
+        (old, new)
+    };
+    let pair = |old: &str, new: &str| (old.to_owned(), new.to_owned());
+    assert_eq!(
+        sides(TacticsField::Starting(0), 2, 3),
+        pair("Old 03", "New 04")
+    );
+    assert_eq!(
+        sides(TacticsField::Bench(0), 12, 13),
+        pair("Old 13", "New 14")
+    );
+    assert_eq!(
+        sides(TacticsField::PlayerToJoinAttack(0), 4, 5),
+        pair("Old", "New")
+    );
+    assert_eq!(sides(TacticsField::Captain, 0, 1), pair("Old 01", "New 02"));
+    assert_eq!(
+        sides(TacticsField::PenaltyTaker, 6, 6),
+        pair("Old 07", "New 07")
+    );
+    let starter = tactics.starting_eleven[5];
+    assert_eq!(
+        sides(
+            TacticsField::Instruction {
+                preset: 0,
+                side: InstructionSide::Defence,
+                index: 0,
+                part: InstructionPart::PlayerId,
+            },
+            u32::from(starter),
+            u32::from(starter),
+        ),
+        (
+            format!("6 {}", old_rows[usize::from(starter)].0),
+            format!("6 {}", new_rows[usize::from(starter)].0)
+        )
+    );
+    // The labels name the slot's starter as the tab shows him now.
+    let starter_new = new_rows[usize::from(tactics.starting_eleven[4])].0.clone();
+    let (label, _, _) = term(
+        TacticsField::Formation {
+            preset: 0,
+            formation: 0,
+            slot: 4,
+            part: FormationPart::X,
+        },
+        1,
+        2,
+    );
+    assert_eq!(label, format!("Preset 1 · Kick-off · {starter_new} · X"));
+    let (label, _, _) = term(TacticsField::ManMarking { preset: 0, slot: 4 }, 255, 3);
+    assert_eq!(label, format!("Preset 1 · Man marking · {starter_new}"));
 }
 
 // The Substitution pair's cell is as wide as its label, the DragValue

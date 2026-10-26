@@ -600,6 +600,57 @@ fn a_refused_write_under_the_prompt_shows_the_refusal_on_top() {
     assert!(view.prompt.is_some(), "the prompt stays up behind it");
 }
 
+// SE-GUI-05, SE-GUI-21's window rule: a write refused when asked through
+// the running-game question keeps the prompt, the session and the close
+// unanswered — a failed write is no Discard — and shows the refusal on
+// top.
+#[test]
+fn a_refused_write_under_the_question_keeps_the_prompt_and_shows_the_refusal() {
+    let path = fixture(PesVersion::Pes21, "prompt_question_refusal");
+    let mut view = dirty_view(&path);
+    prompt::open(&mut view, Pending::Close);
+    let running_own = || {
+        vec![RunningPes {
+            version: PesVersion::Pes21,
+            exe: None,
+        }]
+    };
+    let mut window = Headless::new();
+
+    // A directory in the save's place: `EditFile::save`'s copy to `.bak`
+    // fails on every OS, so the write refuses.
+    std::fs::remove_file(&path).unwrap();
+    std::fs::create_dir(&path).unwrap();
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    click_with(
+        &mut window,
+        &mut view,
+        &running_own,
+        modal_button(&pairs, "Unsaved changes", "Save"),
+    );
+    let pairs = question_nodes_with(&mut window, &mut view, &running_own);
+    click_with(
+        &mut window,
+        &mut view,
+        &running_own,
+        modal_button(&pairs, "PES 2021 is running", "Save"),
+    );
+
+    assert!(
+        view.refusal.is_some(),
+        "the refused write shows its refusal"
+    );
+    assert!(view.prompt.is_some(), "the prompt stays up");
+    assert!(view.session.is_some(), "the session stays open");
+    assert!(view.is_dirty(), "and dirty");
+    assert!(!view.request_close, "no close is asked");
+    let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    dialog_nodes(&pairs, "Save refused")
+        .into_iter()
+        .find(|node| node.role() == Role::Button && node.label() == Some("OK"))
+        .expect("the refusal's OK in the top dialog's subtree");
+}
+
 // SE-GUI-05, SE-GUI-20: Strip again's change is a `Stripped` row under
 // the player's own (the appearance id is no `compare_players` row).
 #[test]
@@ -983,6 +1034,56 @@ fn a_tactics_row_names_the_player_as_the_roster_shows_him() {
     );
 }
 
+// SE-GUI-05: a tactics row's old side names the player the saved file
+// holds in the slot — a drag moves records between the roster's ids, so
+// the current roster would name the wrong one (the new side reads the
+// current roster, the old the baseline's).
+#[test]
+fn a_tactics_rows_old_side_names_the_baseline_records() {
+    let path = fixture(PesVersion::Pes21, "prompt_captain_baseline");
+    // A (ALPHA, player 70101) captains slot 1 (stored 0); B is 70102.
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    assert_eq!(
+        file.team(701).unwrap().roster[0].player_id,
+        70101,
+        "premise: 70101 rosters slot 1"
+    );
+    file.player_mut(70101).unwrap().name = "ALPHA".to_owned();
+    file.player_mut(70102).unwrap().name = "BETA".to_owned();
+    file.team_mut(701).unwrap().tactics.set_pieces.captain = 0;
+    file.save(&path).unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    // Drag B's row onto slot 1: the roster's ids and numbers stay, the
+    // two records trade places (slot 1 now shows BETA, slot 2 ALPHA).
+    view.session.as_mut().unwrap().move_player(701, 1, 0);
+    let file = view.session.as_ref().unwrap().file();
+    assert_eq!(file.player(70101).unwrap().name, "BETA", "premise");
+    assert_eq!(file.player(70102).unwrap().name, "ALPHA", "premise");
+    // Make slot 2 (roster index 1) the captain: A stays the captain,
+    // only his slot changed (0 to 1).
+    let mut team = team_entry(&view, 701);
+    team.tactics.set_pieces.captain = 1;
+    view.session.as_mut().unwrap().edit_team(2, team);
+
+    prompt::open(&mut view, Pending::Close);
+    assert!(view.prompt.is_some(), "the prompt opened");
+    let mut window = Headless::new();
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let rows = prompt_rows(&pairs, "Unsaved changes");
+    let captain = rows
+        .iter()
+        .find(|(item, _, _)| item == "/3/ · Captain")
+        .expect("the Captain row");
+    assert_eq!(
+        (captain.1.as_str(), captain.2.as_str()),
+        ("ALPHA", "ALPHA"),
+        "A captained then and captains still — both sides name him: {rows:?}"
+    );
+}
+
 // SE-GUI-05: a team's own row names the team by its display name too.
 #[test]
 fn a_team_rows_item_is_the_teams_display_name() {
@@ -1117,8 +1218,8 @@ fn roster_for_holds_the_raw_name_and_the_display_name() {
     let team = file.team(701).unwrap().clone();
     let id = team.roster[0].player_id;
     file.player_mut(id).unwrap().name = "\x11cffb50effLORD".to_owned();
-    let names = prompt::roster_names(&file, &team);
-    let rows = prompt::roster_for(&file, &team, &names);
+    let names = prompt::roster_names(&team, |id| file.player(id));
+    let rows = prompt::roster_for(&team, &names, |id| file.player(id));
     assert_eq!(rows[0].name, "LORD", "the display name, codes dropped");
     assert_eq!(
         rows[0].raw_name, "\x11cffb50effLORD",

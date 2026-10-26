@@ -1769,7 +1769,16 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         read-only file is replaced on Linux, which failed the mutation run's remote
         baseline); backdrop clicks tested as each modal's Cancel; the prompt's Save found as
         the modal's own; `roster_names` and `roster_for` pinned. Files:
-        `save_editor/src/view/{prompt,tests/prompt}.rs`
+        `save_editor/src/view/{prompt,tests/prompt}.rs`. Rework r3 2026-10-26 (SWE-2, Astra
+        A1's five accepted concerns): a team row's old side names the baseline's roster and
+        records, the new side the current ones (`tactics_term` takes both rosters); the id
+        lookups go through maps built once, an item's name only when a row names it;
+        `colour_term` reads the two entries; the refusal under the Edit mode question tested;
+        the tactics labels pinned as literals. The colour tests were rebuilt on real entry
+        pairs (their old diffs named states `compare_teams` cannot produce). Files:
+        `save_editor/src/view/{prompt,terms,tests/prompt}.rs`,
+        `team_widgets/src/tactics/{mod,tests/mod}.rs`. Review closed: SWE-2 S1-S4, Astra
+        A1-A2, A2 with no concerns (`.tmp/8_9l/rulings.md`)
       - [ ] l3 the Open menu with discovery and the session's recent files, Save as (SE-GUI-26),
         the version warning (SE-GUI-28), a status-bar notice since 0.0.1s2: `studio_core::status`
         has no action that switches the version and no way for a tool to withdraw or reword

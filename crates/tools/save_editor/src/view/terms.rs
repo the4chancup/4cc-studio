@@ -67,15 +67,20 @@ fn report_term(diff: &PlayerDiff) -> Term {
 /// `diffs`' rows in the tabs' terms, for the unsaved-changes prompt: one
 /// `Term` per row in `diffs`' order — a team colour's three channel diffs
 /// merge into the swatch's one row, at the first channel's place. `team`
-/// is the open save's entry (its tactics' eleven and roster name the
-/// slots); `baseline_team` is the file-as-opened's, whose tactics an
-/// instruction-target row's old side is worded under; `roster` is the
-/// roster rows the Tactics tab builds.
+/// is the open save's entry (its tactics' eleven name the slots);
+/// `baseline_team` is the file-as-opened's, whose tactics an
+/// instruction-target row's old side is worded under and whose colour a
+/// colour row's old side reads. `old_roster`/`new_roster` are the
+/// Tactics tab's roster rows of each side: a drag moves records between
+/// the roster's ids while a stored byte still names the slot, so the old
+/// side's names come from the baseline's roster, the new side's from the
+/// current's.
 pub(super) fn team_row_terms(
     version: PesVersion,
     team: &TeamEntry,
     baseline_team: &TeamEntry,
-    roster: &[RosterRow<'_>],
+    old_roster: &[RosterRow<'_>],
+    new_roster: &[RosterRow<'_>],
     diffs: &[TeamDiff],
 ) -> Vec<Term> {
     let mut terms = Vec::with_capacity(diffs.len());
@@ -84,11 +89,18 @@ pub(super) fn team_row_terms(
         match colour_index(diff) {
             Some(colour) if !colours_done[colour] => {
                 colours_done[colour] = true;
-                terms.push(colour_term(team, diffs, colour));
+                terms.push(colour_term(baseline_team, team, colour));
             }
             // A later channel of an already merged colour is no row.
             Some(_) => {}
-            None => terms.push(team_row_term(version, team, baseline_team, roster, diff)),
+            None => terms.push(team_row_term(
+                version,
+                team,
+                baseline_team,
+                old_roster,
+                new_roster,
+                diff,
+            )),
         }
     }
     terms
@@ -99,7 +111,8 @@ fn team_row_term(
     version: PesVersion,
     team: &TeamEntry,
     baseline_team: &TeamEntry,
-    roster: &[RosterRow<'_>],
+    old_roster: &[RosterRow<'_>],
+    new_roster: &[RosterRow<'_>],
     diff: &TeamDiff,
 ) -> Term {
     match diff {
@@ -149,7 +162,7 @@ fn team_row_term(
                 *new,
                 &baseline_team.tactics,
                 &team.tactics,
-                roster,
+                (old_roster, new_roster),
             );
             Term { label, old, new }
         }
@@ -172,49 +185,25 @@ fn colour_index(diff: &TeamDiff) -> Option<usize> {
     }
 }
 
-/// The tab's one row for a team colour: the swatch's label and the
-/// channels' hex (`colour_unit`'s `format_hex` over `channel_to_show`),
-/// the channels no diff names read from `team`.
-fn colour_term(team: &TeamEntry, diffs: &[TeamDiff], colour: usize) -> Term {
-    let fields = [
-        [
-            TeamField::Color1Red,
-            TeamField::Color1Green,
-            TeamField::Color1Blue,
-        ],
-        [
-            TeamField::Color2Red,
-            TeamField::Color2Green,
-            TeamField::Color2Blue,
-        ],
-    ][colour];
-    let mut old = [0u8; 3];
-    let mut new = [0u8; 3];
-    for (index, field) in fields.into_iter().enumerate() {
-        let stored = team
+/// The tab's one row for a team colour: the swatch's label and the two
+/// sides' hex (`colour_unit`'s `format_hex` over `channel_to_show`), read
+/// from `baseline`'s and `team`'s stored channels — the diffs the row
+/// merges only say the colour changed.
+fn colour_term(baseline: &TeamEntry, team: &TeamEntry, colour: usize) -> Term {
+    let stored = |entry: &TeamEntry| {
+        let colors = entry
             .colors
-            .map(|colors| {
-                [
-                    colors[colour].red,
-                    colors[colour].green,
-                    colors[colour].blue,
-                ][index]
-            })
             .expect("a colour diff is emitted only where the version stores colours");
-        let (o, n) = diffs
-            .iter()
-            .find_map(|diff| match diff {
-                TeamDiff::Field { field: f, old, new } if *f == field => Some((*old, *new)),
-                _ => None,
-            })
-            .unwrap_or((u32::from(stored), u32::from(stored)));
-        old[index] = u8::try_from(o).expect("a colour channel is 6 bits");
-        new[index] = u8::try_from(n).expect("a colour channel is 6 bits");
-    }
+        [
+            colors[colour].red,
+            colors[colour].green,
+            colors[colour].blue,
+        ]
+    };
     Term {
         label: team::COLOUR_LABELS[colour].to_owned(),
-        old: team::format_hex(old.map(team::channel_to_show)),
-        new: team::format_hex(new.map(team::channel_to_show)),
+        old: team::format_hex(stored(baseline).map(team::channel_to_show)),
+        new: team::format_hex(stored(team).map(team::channel_to_show)),
     }
 }
 
@@ -1111,51 +1100,63 @@ mod tests {
     }
 
     /// A team colour's three channel diffs merge into the swatch's one
-    /// row: `Colour 1`, the stored channels' hex as the tab draws it; a
-    /// channel no diff names keeps the team's stored one.
+    /// row: `Colour 1`, the baseline's and the current's stored channels'
+    /// hex as the tab draws them.
     #[test]
     fn a_colour_edit_is_one_hex_row() {
         let version = PesVersion::Pes17;
-        let team = team_701();
+        let baseline = team_701();
+        assert_eq!(
+            baseline
+                .colors
+                .map(|colors| [colors[0].red, colors[0].green, colors[0].blue]),
+            Some([63, 42, 16]),
+            "premise: the fixture's Colour 1 (63, 42, 16)"
+        );
         let rows = named_rows();
         let roster = roster_rows(&rows);
+        let mut team = baseline.clone();
+        {
+            let colors = team.colors.as_mut().expect("PES 17 stores colours");
+            colors[0].red = 16;
+            colors[0].green = 32;
+            colors[0].blue = 48;
+        }
         let terms = team_row_terms(
             version,
             &team,
-            &team,
+            &baseline,
+            &roster,
             &roster,
             &[
                 TeamDiff::Field {
                     field: TeamField::Color1Red,
-                    old: 0,
+                    old: 63,
                     new: 16,
                 },
                 TeamDiff::Field {
                     field: TeamField::Color1Green,
-                    old: 0,
+                    old: 42,
                     new: 32,
                 },
                 TeamDiff::Field {
                     field: TeamField::Color1Blue,
-                    old: 0,
+                    old: 16,
                     new: 48,
                 },
             ],
         );
         assert_eq!(terms.len(), 1, "the three channels merge");
-        assert_term(&terms[0], "Colour 1", "#000000", "#4182C2");
+        assert_term(&terms[0], "Colour 1", "#FFAA41", "#4182C2");
 
-        // Only red changed: green and blue read the team's stored ones
-        // ((63, 42, 16) on the fixture).
-        assert_eq!(
-            team.colors.map(|colors| colors[0].green),
-            Some(42),
-            "premise"
-        );
+        // Only red changed: green and blue keep the stored ones.
+        let mut team = baseline.clone();
+        team.colors.as_mut().expect("PES 17 stores colours")[0].red = 0;
         let terms = team_row_terms(
             version,
             &team,
-            &team,
+            &baseline,
+            &roster,
             &roster,
             &[TeamDiff::Field {
                 field: TeamField::Color1Red,
@@ -1172,28 +1173,41 @@ mod tests {
     #[test]
     fn colour_2s_channels_merge_into_one_hex_row() {
         let version = PesVersion::Pes17;
-        let team = team_701();
+        let baseline = team_701();
+        let stored = baseline
+            .colors
+            .map(|colors| [colors[1].red, colors[1].green, colors[1].blue])
+            .expect("PES 17 stores colours");
+        assert_eq!(stored, [0, 0, 0], "premise: the fixture's Colour 2");
         let rows = named_rows();
         let roster = roster_rows(&rows);
+        let mut team = baseline.clone();
+        {
+            let colors = team.colors.as_mut().expect("PES 17 stores colours");
+            colors[1].red = 16;
+            colors[1].green = 32;
+            colors[1].blue = 48;
+        }
         let terms = team_row_terms(
             version,
             &team,
-            &team,
+            &baseline,
+            &roster,
             &roster,
             &[
                 TeamDiff::Field {
                     field: TeamField::Color2Red,
-                    old: 0,
+                    old: u32::from(stored[0]),
                     new: 16,
                 },
                 TeamDiff::Field {
                     field: TeamField::Color2Green,
-                    old: 0,
+                    old: u32::from(stored[1]),
                     new: 32,
                 },
                 TeamDiff::Field {
                     field: TeamField::Color2Blue,
-                    old: 0,
+                    old: u32::from(stored[2]),
                     new: 48,
                 },
             ],
@@ -1214,6 +1228,7 @@ mod tests {
             version,
             &team,
             &team,
+            &roster,
             &roster,
             &[
                 TeamDiff::Field {
@@ -1246,6 +1261,7 @@ mod tests {
             version,
             &team,
             &team,
+            &roster,
             &roster,
             &[
                 TeamDiff::Field {
@@ -1300,6 +1316,7 @@ mod tests {
             version,
             &team,
             &team,
+            &roster,
             &roster,
             &[
                 TeamDiff::Tactics {

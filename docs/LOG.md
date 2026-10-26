@@ -2536,3 +2536,5 @@ worklog passed 7,000 lines.
   accepted, the loops ended (`.tmp/lead/s2_rulings.md`); the AATF checks follow the selected row, the titles the codename.
 - **2026-10-26** — The Save editor has no tabs: a team row heads each team's players and opens the team view (its fields,
   Kit slots… in a dialog, the Tactics), the quick actions sit under the list, a drag works under ALL within one team.
+- **2026-10-26** — The unsaved-changes prompt (8.9l1-l2) passed review: SWE-2 S1-S4 and Astra's A1-A2, the last round
+  with no concerns (`.tmp/8_9l/rulings.md`); its old side names the saved file's players after a drag.
