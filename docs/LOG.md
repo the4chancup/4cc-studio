@@ -2544,3 +2544,5 @@ worklog passed 7,000 lines.
   colour, and the quick actions fit the side panel; the card columns live in `team_widgets` (0.0.1s3d).
 - **2026-10-26** — The built Save editor at 1280 x 800 matches the draft once two defects the headless tests missed
   were fixed: the quick actions now fit the list without cutting a label, and a player row selects across its width.
+- **2026-10-26** — The Live AATF marks are drafted. In the Save editor, the skill cards narrow to one column on a
+  narrow pane, a rules file that does not load shows one line under the list, and the help follows the selected row (0.0.1s3g).

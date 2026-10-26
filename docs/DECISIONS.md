@@ -11473,3 +11473,13 @@ boxes still line up whether marked or not (the draft for step 0.0.1o showed 23 s
 forming one column against the boxes). The icon font subset holds neither glyph and the suite's
 own icon font is 8.14's, so the bundled fonts serve until then.
 Plan: `plans/save_editor.md` "Configurable AATF rules", the "Live AATF" bullet.
+
+## 2026-10-26 — save_editor — The quick actions' load error is one elided line, its text on hover
+Decision: a rules file that does not load leaves its error in the tier buttons' place as one
+line across the list's width, elided, the whole text on hover, where the plan had it shown "as
+the badges show it" (wrapped).
+Why: the error names the file's whole path, about 160 characters; wrapped in a half of the
+240-point list it took ten lines (175 points, measured in review A1's fix) of the list's room,
+and the list is what the member works in. The Cards left badge and the AATF panels still show
+it whole, so nothing is hidden that is not one hover or one glance away.
+Plan: `plans/save_editor.md` "Editing UI", the quick actions bullet.

@@ -13,8 +13,8 @@ nearest one the save can hold, and the hex beside the field shows what the
 save actually stores. A bound kit slot is shown as the team id it points at,
 and the extra data the game keeps alongside is left as it was.
 
-**The Team menu** works on the selected player's team and writes every filled
-roster slot in one undoable step:
+**The Team menu** works on the selected row's team, a player row's own or a
+team row's, and writes every filled roster slot in one undoable step:
 
 - **Set edited flag** marks every player of the team as edited.
 - **Set boots and gloves IDs for everyone…** opens a small dialog: the boots

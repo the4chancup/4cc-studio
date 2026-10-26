@@ -1,10 +1,11 @@
 use super::*;
 
-/// The load error the Cards left row draws: the error label at the pane's
-/// "Cards left" heading's height or below it (the error wraps to the lines
-/// under the heading when the pane is narrow). The quick actions column
-/// draws the same text at the player view's top, and its copy must not pass for
-/// the row's.
+/// The load error the Cards left row draws: the error label inside the
+/// Skills column (its x at the "Skills" heading's or right of it), at the
+/// "Cards left" heading's height or below it (the error wraps to the
+/// lines under the heading when the pane is narrow). The quick actions
+/// draw the same text at the list's bottom, and their copy must not pass
+/// for the row's.
 fn cards_left_error(nodes: &[accesskit::Node]) -> Option<&accesskit::Node> {
     let heading = nodes
         .iter()
@@ -12,12 +13,20 @@ fn cards_left_error(nodes: &[accesskit::Node]) -> Option<&accesskit::Node> {
         .and_then(accesskit::Node::bounds)
         .map(|bounds| bounds.y0)
         .expect("the Cards left heading");
+    let column_x0 = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some("Skills"))
+        .and_then(accesskit::Node::bounds)
+        .map(|bounds| bounds.x0)
+        .expect("the Skills heading");
     nodes.iter().find(|node| {
         node.role() == Role::Label
             && node
                 .value()
                 .is_some_and(|value| value.starts_with("The AATF rules file could not be loaded:"))
-            && node.bounds().is_some_and(|b| b.y0 >= heading - 1.0)
+            && node
+                .bounds()
+                .is_some_and(|b| b.y0 >= heading - 1.0 && b.x0 >= column_x0 - 1.0)
     })
 }
 
@@ -1298,9 +1307,9 @@ fn widget_ids_hold_across_the_width_thresholds() {
         node_id_right_of(&ids, label, role)
     };
 
-    // The wide window is the layout test's 1280: the three columns on one
-    // line; the narrow one wraps the third.
-    let mut wide = Headless::sized(1280.0, 800.0);
+    // The wide window is the layout test's `DEFAULT_PANE`: the three
+    // columns on one line; the narrow one wraps the third.
+    let mut wide = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let ball_control = id_at(&mut wide, &mut view, "Ball Control", Role::SpinButton);
     let mut narrow = Headless::sized(877.0, 624.0);
     assert_eq!(
@@ -1329,8 +1338,9 @@ fn widget_ids_hold_across_the_width_thresholds() {
 
 // SE-GUI-37's player-view clause (plans/save_editor.md "Editing UI", the
 // player view bullet): General info, Skills and Ability stats side by side
-// left to right at the 1280 x 800 window, their tops level, Appearance
-// closed below them, every box on its half's right edge, every combo on the
+// left to right on the pane the shell leaves at the 1280 x 800 window
+// (`DEFAULT_PANE`), their tops level, Appearance closed below them inside
+// the pane's height, every box on its half's right edge, every combo on the
 // column's, and nothing past the pane's right edge.
 // SE-GUI-37
 #[test]
@@ -1338,7 +1348,7 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     let path = fixture(PesVersion::Pes21, "player_columns");
     let mut view = SaveView::new();
     view.open(&path);
-    let mut window = Headless::sized(1280.0, 800.0);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     // The combos' label column is measured on the first frames: let it settle.
     for _ in 0..3 {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -1396,6 +1406,15 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     assert!(
         appearance.bounds().expect("bounds").y0 >= deepest,
         "Appearance below the deepest panel's bottom ({deepest})"
+    );
+    // The plan's "fits the pane with no scrolling": the header's bottom
+    // inside the pane's height (its content edges less the two
+    // `CentralPanel` margins, as `tactics.rs` bounds its deepest node).
+    assert!(
+        appearance.bounds().expect("bounds").y1 <= f64::from(DEFAULT_PANE.y - 2.0 * PANEL_MARGIN),
+        "Appearance's bottom inside the pane ({:?} vs {})",
+        appearance.bounds(),
+        DEFAULT_PANE.y - 2.0 * PANEL_MARGIN
     );
 
     // General info's Name and Shirt fields end on the column's right
@@ -1515,9 +1534,9 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         titles[2]
     );
 
-    // Nothing drawn past the pane's right edge — the window's right less
+    // Nothing drawn past the pane's right edge, the pane's right less
     // the two CentralPanel margins (`PANEL_MARGIN` each side).
-    let pane_right = 1280.0 - 2.0 * f64::from(PANEL_MARGIN);
+    let pane_right = f64::from(DEFAULT_PANE.x - 2.0 * PANEL_MARGIN);
     for role in [
         Role::Button,
         Role::CheckBox,
@@ -1536,6 +1555,42 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
                 node.label().unwrap_or("?")
             );
         }
+    }
+}
+
+// plans/save_editor.md "Editing UI", the player view bullet ("a columned
+// panel narrows into fewer columns"): on a pane too narrow for the two
+// card columns and their gap (the 560-point window leaves the view under
+// 300, under the 330 the two need) the Skills column draws one column, no
+// checkbox past the pane's right edge.
+#[test]
+fn the_skills_column_narrows_to_one_column_on_a_narrow_pane() {
+    let path = fixture(PesVersion::Pes21, "skills_one_column");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(560.0, 700.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let skills_top = label_bounds(&nodes, "Skills").y0;
+    let com_top = label_bounds(&nodes, "COM playing styles").y0;
+    let mut xs: Vec<f64> = nodes
+        .iter()
+        .filter(|node| node.role() == Role::CheckBox)
+        .filter_map(|node| node.bounds())
+        .filter(|b| b.y0 >= skills_top && b.y0 < com_top)
+        .map(|b| b.x0)
+        .collect();
+    xs.sort_by(f64::total_cmp);
+    xs.dedup();
+    assert_eq!(xs.len(), 1, "the skills draw in one column ({xs:?})");
+    let pane_right = 560.0 - 2.0 * f64::from(PANEL_MARGIN);
+    for node in nodes.iter().filter(|node| node.role() == Role::CheckBox) {
+        let bounds = node.bounds().expect("bounds");
+        assert!(
+            bounds.x1 <= pane_right + 0.5,
+            "{:?} inside the pane's right edge ({bounds:?} vs {pane_right})",
+            node.label()
+        );
     }
 }
 

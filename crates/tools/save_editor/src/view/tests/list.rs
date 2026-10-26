@@ -547,6 +547,54 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     );
 }
 
+// plans/save_editor.md "Editing UI", the Player list bullet ("drag is off
+// while a filter is typed, where neighbouring rows are not one team's
+// neighbouring slots"): under a filter listing two non-adjacent players of
+// one team, a drag of one onto the other moves nothing, since a drop there
+// would move the hidden records between them too.
+#[test]
+fn under_a_filter_a_drag_moves_nothing() {
+    let path = fixture(PesVersion::Pes21, "drag_filtered");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    // Two non-adjacent players of team 701 the filter matches (slot 1
+    // stays hidden).
+    file.player_mut(70101).unwrap().name = "QQ FIRST".to_owned();
+    file.player_mut(70103).unwrap().name = "QQ THIRD".to_owned();
+    file.save(&path).unwrap();
+    let roster_before = file.team(701).unwrap().roster.clone();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    view.filter = "qq".to_owned();
+    let mut window = Headless::new();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let labels_before = row_labels(&nodes);
+    assert_eq!(
+        labels_before,
+        ["1 CB /3/ QQ FIRST", "3 CB /3/ QQ THIRD"],
+        "premise: the filter lists the two"
+    );
+
+    let from = centre(row(&nodes, "1 CB /3/ QQ FIRST"));
+    let onto = centre(row(&nodes, "3 CB /3/ QQ THIRD"));
+    drag(&mut window, from, onto, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        row_labels(&nodes),
+        labels_before,
+        "the filtered rows did not move"
+    );
+    let session = view.session.as_ref().unwrap();
+    assert_eq!(
+        session.file().team(701).unwrap().roster,
+        roster_before,
+        "the roster is unchanged"
+    );
+    assert!(!session.is_dirty(), "nothing is marked unsaved");
+    assert!(!session.can_undo(), "no undo entry");
+}
+
 /// The `TextShape` whose galley text starts with `starts_with`, drawn
 /// inside `rect`.
 fn text_in_rect<'a>(

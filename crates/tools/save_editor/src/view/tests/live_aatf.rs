@@ -6,6 +6,8 @@
 
 use std::path::Path;
 
+use pes_savefile::model::names::display_name;
+
 use super::*;
 
 /// `checked` on the dock's check.
@@ -424,13 +426,16 @@ fn at_all_the_dock_checks_the_selected_players_team() {
 fn the_checks_follow_the_selected_rows_team_under_a_filter() {
     // Team 702's players made tall enough to take no bracket, so the check
     // lists violations; 70202 named as `list.rs`' filter test's (the PES 21
-    // fixture's players are all PLACEHOLDER).
+    // fixture's players are all PLACEHOLDER). 78101 named to match too, so
+    // the filter lists a second team's row, and broken the same way so 781
+    // has a violation row to show.
     let path = fixture(PesVersion::Pes21, "live_aatf_filtered_team");
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
-    for id in [70201u32, 70202] {
+    for id in [70201u32, 70202, 78101] {
         file.player_mut(id).unwrap().basic.height = 183;
     }
     file.player_mut(70202).unwrap().name = "QUALITY".to_owned();
+    file.player_mut(78101).unwrap().name = "QUALITY2".to_owned();
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
@@ -488,6 +493,62 @@ fn the_checks_follow_the_selected_rows_team_under_a_filter() {
                 && node.bounds().is_some_and(|b| b.y0 >= dock_top - 1.0)
         }),
         "the dock's rows are team 702's"
+    );
+
+    // A team row's own team (SE-GUI-30's other clause): the filter lists
+    // team 781's row too (78101 renamed QUALITY2), and clicking it makes
+    // both checks 781's, not the selector's 701 nor the player's 702.
+    // The open AATF panel overlays the list, so the click goes through the
+    // row's AccessKit action.
+    let name_781 = view
+        .session
+        .as_ref()
+        .unwrap()
+        .file()
+        .team(781)
+        .unwrap()
+        .name
+        .clone();
+    let (_, nodes, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let label_781 = format!("781 {}", display_name(&name_781));
+    let (target, _) = nodes
+        .iter()
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some(label_781.as_str()))
+        .expect("team 781's row");
+    action_click(&mut window, &mut view, *target);
+    assert_eq!(
+        view.selected,
+        Some(Selection::Team(781)),
+        "team 781's row selected"
+    );
+    let header_781 = format!("Team 781 {name_781}");
+    live_checked(&mut window, &mut view, None, &[781]);
+    panel_checked(&mut window, &mut view, None, &[781]);
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let panel = nodes_in_window(&pairs, "AATF violations");
+    assert!(
+        panel
+            .iter()
+            .any(|(_, node)| node.value() == Some(header_781.as_str())),
+        "the panel's rows are team 781's"
+    );
+    let dock_top = pairs
+        .iter()
+        .find(|(_, node)| node.role() == Role::Label && node.value() == Some("Live AATF"))
+        .and_then(|(_, node)| node.bounds())
+        .expect("the dock's header row")
+        .y0;
+    let panel_ids: std::collections::HashSet<accesskit::NodeId> =
+        panel.iter().map(|(id, _)| *id).collect();
+    assert!(
+        pairs.iter().any(|(id, node)| {
+            !panel_ids.contains(id)
+                && node.value() == Some(header_781.as_str())
+                && node.bounds().is_some_and(|b| b.y0 >= dock_top - 1.0)
+        }),
+        "the dock's rows are team 781's"
     );
 }
 

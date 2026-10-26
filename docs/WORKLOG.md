@@ -2739,7 +2739,17 @@ briefs, review loops, gates and mutation runs as for any step.
       elided tier button's tooltip tested; the quick actions' gap one const, no sentinel
       width; the test names still saying "tab" renamed. Done 2026-10-26 (SWE-2,
       `.tmp/0_0_1s/brief_0_0_1s3f.md`): `view/quick_actions.rs`, the tests
-    - [ ] s3g Astra round A1's accepted findings (`.tmp/0_0_1s/s3_rulings.md`, round A1)
+    - [x] s3g Astra round A1's accepted findings (`.tmp/0_0_1s/s3_rulings.md`, round A1).
+      Done 2026-10-26 (SWE-2, one rework): the card panels narrow to one column on a pane
+      under `cards::TWO_COLUMN_WIDTH` (the Skills column sized from the same constant); the
+      quick actions' load error one elided line across the list, its text on hover (the
+      sidekick's contradiction: a ~160-character error wrapped at the half still took 175
+      points; DECISIONS); the help's Current team and Team menu follow the selected row; the
+      seven test findings and the `column_widths` survivor's unit test. Lead fix: the hover
+      test counted the Cards left badge's copy of the error as the tooltip (passed with the
+      tooltip off); it now counts against the resting frame. Files: `team_widgets/src/cards.rs`,
+      `save_editor/src/view/{abilities,quick_actions}.rs`, `help/{02_window,05_team}.md`, the
+      tests
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

@@ -791,6 +791,129 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
     node_labeled(&nodes, Role::Button, "Set stats");
 }
 
+// The same bullet, the load error's shape: one elided line across the
+// list's width in the tier buttons' place, its whole text on hover,
+// Set stats alone in the grid under it.
+#[test]
+fn the_load_error_is_one_elided_line_with_its_text_on_hover() {
+    let path = fixture(PesVersion::Pes21, "quick_error_cell");
+    let dir = path.parent().unwrap().to_path_buf();
+    let bad = dir.join("bad.rhai");
+    std::fs::write(&bad, "this is no ruleset").unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::new();
+
+    // The grid's first frame is the invisible sizing pass: a settle
+    // frame so the cells' measured widths land before asserting.
+    window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
+    });
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
+    });
+
+    // The error label in the side panel is one line high, elided at the
+    // list's width.
+    let error = quick_action_row_labels(&nodes)
+        .into_iter()
+        .find(|node| {
+            node.value()
+                .is_some_and(|value| value.starts_with("The AATF rules file could not be loaded:"))
+        })
+        .expect("the load error's label");
+    let bounds = error.bounds().expect("bounds");
+    let row = nodes
+        .iter()
+        .find(|node| player_row(node))
+        .and_then(accesskit::Node::bounds)
+        .expect("a player row in the list");
+    let style = window.ctx.style_of(window.ctx.theme());
+    let body_row = window
+        .ctx
+        .fonts_mut(|fonts| fonts.row_height(&egui::TextStyle::Body.resolve(&style)));
+    assert!(
+        bounds.y1 - bounds.y0 <= f64::from(body_row) + 1.0,
+        "the error is one line high ({bounds:?} vs {body_row})"
+    );
+    assert!(
+        (bounds.x0 - row.x0).abs() <= 1.0 && bounds.x1 <= row.x1 + 1.0,
+        "the error sits inside the list's x range ({bounds:?} vs {row:?})"
+    );
+    // Its galley is elided: the message ran past the list's width and
+    // was cut there (the whole text rides the hover below).
+    let text = error.value().expect("the label's text");
+    let shape = painted_label(&shapes, text, bounds);
+    assert!(
+        shape.galley.elided,
+        "the error is elided at the list's width"
+    );
+
+    // The panel holds the error line, the item-spacing gap and the one
+    // Set stats row between the bottom panel's two vertical margins
+    // (player_list.rs's `Margin::symmetric(0, 2)`).
+    let spacing = window.ctx.style_of(window.ctx.theme()).spacing.clone();
+    let clip_bottom = nodes
+        .iter()
+        .filter(|node| node.role() == Role::ScrollBar)
+        .filter_map(|node| node.bounds())
+        .min_by(|a, b| a.x0.partial_cmp(&b.x0).expect("ordered bounds"))
+        .map(|bounds| bounds.y1)
+        .expect("the list's scroll bar marks its clip's bottom");
+    let set_stats = set_stats_field(&nodes).bounds().expect("bounds");
+    let body_line = f64::from(body_row);
+    let row_gap = f64::from(spacing.item_spacing.y);
+    let button_row = f64::from(spacing.interact_size.y);
+    let panel_margins = 2.0 * 2.0;
+    let limit = body_line + row_gap + button_row + panel_margins;
+    assert!(
+        set_stats.y1 - clip_bottom <= limit,
+        "the panel is the error line plus the Set stats row ({:.1} vs {limit})",
+        set_stats.y1 - clip_bottom
+    );
+
+    // The elided label's hover shows its whole text (egui's own tooltip).
+    let expected = rules_load_error(
+        view.rules
+            .as_ref()
+            .expect("a ruleset was attempted")
+            .rules
+            .as_ref()
+            .expect_err("the file does not load"),
+    );
+    let at = centre(error);
+    let holding = |nodes: &[accesskit::Node]| {
+        nodes
+            .iter()
+            .filter(|node| node.value() == Some(expected.as_str()))
+            .count()
+    };
+    // The label's own node and the Cards left badge's already carry the
+    // whole text: the tooltip is one node more than the resting frame's.
+    let (_, resting, _) = window.frame(vec![egui::Event::PointerMoved(egui::Pos2::ZERO)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
+    });
+    let resting = holding(&resting);
+    window.frame(vec![egui::Event::PointerMoved(at)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
+    });
+    let mut shown = false;
+    for _ in 0..20 {
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+            show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
+        });
+        if holding(&nodes) > resting {
+            shown = true;
+            break;
+        }
+    }
+    assert!(
+        shown,
+        "the hover's tooltip is the whole message: {expected:?}"
+    );
+}
+
 // The grid is docked under the list (the bottom panel takes its height
 // off the list's scroll): scrolling the list to its last row leaves the
 // buttons where they were.

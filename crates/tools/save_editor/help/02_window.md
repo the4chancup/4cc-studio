@@ -31,8 +31,10 @@ buttons.
 
 **AATF violations.** **Panels** in the toolbar opens a floating window listing a
 team's violations against the AATF rules
-in use, grouped per player. **Current team** checks the team the selector names (with
-ALL, the selected row's team). **Select teams** lists every team of the save to
+in use, grouped per player. **Current team** checks the team of the selected row,
+a player's own or a team row's; with nothing selected it checks the team the
+selector names (with ALL picked and nothing selected, no team is open).
+**Select teams** lists every team of the save to
 check several at once, which takes a moment while the results come in. Clicking a
 player's violation selects him. **Show suggestions** adds, below the violations, what
 each player could still use within the rules. **Validate rules** checks the rules

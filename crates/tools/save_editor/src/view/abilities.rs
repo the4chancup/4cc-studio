@@ -102,6 +102,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 .layout(egui::Layout::left_to_right(egui::Align::Min).with_main_wrap(true)),
             |ui| {
                 ui.spacing_mut().item_spacing = egui::vec2(COLUMN_GAP, COLUMN_GAP);
+                // The row's width, read before the columns draw: `max_rect`
+                // is a soft bound, so a column wider than the pane grows it.
+                let pane_width = ui.available_width();
                 // Column 1: General info, Other stats, Playable positions —
                 // `GENERAL_WIDTH` wide, its panels `PANEL_GAP` apart.
                 ui.allocate_ui_with_layout(
@@ -121,10 +124,12 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     },
                 );
                 // Column 2: Skills (the Cards left badge in its header
-                // row) over COM playing styles, their columns 158 wide.
+                // row) over COM playing styles, their columns 158 wide:
+                // the two-column width, or the pane's when that cannot
+                // hold them (the card columns narrow to one).
                 ui.allocate_ui_with_layout(
                     egui::vec2(
-                        2.0 * cards::CARD_COLUMN_WIDTH + PANEL_GAP,
+                        cards::TWO_COLUMN_WIDTH.min(pane_width),
                         ui.available_height(),
                     ),
                     egui::Layout::top_down(egui::Align::Min),

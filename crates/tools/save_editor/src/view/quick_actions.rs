@@ -5,10 +5,11 @@
 //! Set stats cell — the Player menu's Set all stats in one click, 40 to 99.
 //! They act on the selected player, so a team row leaves them disabled with
 //! the reason on hover. A rules file that does not load leaves Set stats
-//! alone in the grid, the load error in the tier buttons' place as the
-//! Cards left row shows it; a failed `apply_tier` leaves the player as he
-//! was and shows the error in the refusal dialog. The floating AATF panel
-//! opens from the toolbar's Panels menu.
+//! alone in the grid, the load error one line above it across the list's
+//! width, elided, its whole text on hover (the Cards left row shows it
+//! whole); a failed `apply_tier` leaves the player as he was and shows the
+//! error in the refusal dialog. The floating AATF panel opens from the
+//! toolbar's Panels menu.
 
 use crate::view::{Refusal, SaveView, rules_load_error, selected_player};
 
@@ -47,65 +48,57 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     set_stats,
                 )
             }
-            // The load error is one cell (the wrapped label) before Set
-            // stats, the two columns halves outright.
-            Some(Err(_)) => {
-                let (_, set_stats) = cell_widths(ui, &[]);
-                (halves(ui.available_width()), 1, set_stats)
-            }
-            None => {
+            // No tiers to lay out (no ruleset yet, or the file's load
+            // error): Set stats alone, at index 0.
+            Some(Err(_)) | None => {
                 let (widths, set_stats) = cell_widths(ui, &[]);
                 (column_widths(&widths, ui.available_width()), 0, set_stats)
             }
         };
+    // The load error is one line across the list's width, elided, its
+    // whole text on hover (egui's own elided-label tooltip).
+    if let Some(Err(error)) = view.rules.as_ref().map(|active| &active.rules) {
+        ui.add(egui::Label::new(egui::RichText::new(rules_load_error(error)).weak()).truncate());
+    }
     let height = ui.spacing().interact_size.y;
     egui::Grid::new("save_editor_quick_actions")
         .num_columns(2)
         .spacing(egui::vec2(COLUMN_GAP, ROW_GAP))
         .show(ui, |ui| {
             if let Some(active) = view.rules.as_ref() {
-                match &active.rules {
-                    Ok(rules) => {
-                        for (index, tier) in rules.ruleset().tiers.iter().enumerate() {
-                            let button = ui
-                                .add_enabled_ui(enabled, |ui| {
-                                    ui.add_sized(
-                                        [columns[index % 2], height],
-                                        egui::Button::new(format!("Make {}", tier.label))
-                                            .truncate(),
-                                    )
-                                })
-                                .inner;
-                            let response = if enabled {
-                                button.on_hover_text(format!(
-                                    "The {} tier's values (the active ruleset)",
-                                    tier.label
-                                ))
-                            } else {
-                                button.on_disabled_hover_text(TEAM_TIP)
-                            };
-                            if response.clicked()
-                                && let Some((team_id, slot, _)) = player
-                                && let Some(session) = view.session.as_mut()
-                                && let Err(error) =
-                                    session.apply_tier(rules, team_id, slot, &tier.id)
-                            {
-                                view.refusal = Some(Refusal {
-                                    title: "Cannot apply the tier",
-                                    message: format!("{error:#}"),
-                                });
-                            }
-                            if index % 2 == 1 {
-                                ui.end_row();
-                            }
+                // The load error stands above the grid; on it Set stats
+                // is this row's only cell.
+                if let Ok(rules) = &active.rules {
+                    for (index, tier) in rules.ruleset().tiers.iter().enumerate() {
+                        let button = ui
+                            .add_enabled_ui(enabled, |ui| {
+                                ui.add_sized(
+                                    [columns[index % 2], height],
+                                    egui::Button::new(format!("Make {}", tier.label)).truncate(),
+                                )
+                            })
+                            .inner;
+                        let response = if enabled {
+                            button.on_hover_text(format!(
+                                "The {} tier's values (the active ruleset)",
+                                tier.label
+                            ))
+                        } else {
+                            button.on_disabled_hover_text(TEAM_TIP)
+                        };
+                        if response.clicked()
+                            && let Some((team_id, slot, _)) = player
+                            && let Some(session) = view.session.as_mut()
+                            && let Err(error) = session.apply_tier(rules, team_id, slot, &tier.id)
+                        {
+                            view.refusal = Some(Refusal {
+                                title: "Cannot apply the tier",
+                                message: format!("{error:#}"),
+                            });
                         }
-                    }
-                    Err(error) => {
-                        // Wrapped: the panel is narrow and the error names a path.
-                        ui.add(
-                            egui::Label::new(egui::RichText::new(rules_load_error(error)).weak())
-                                .wrap(),
-                        );
+                        if index % 2 == 1 {
+                            ui.end_row();
+                        }
                     }
                 }
             }
@@ -226,4 +219,20 @@ fn column_widths(cells: &[f32], list_width: f32) -> [f32; 2] {
 fn halves(list_width: f32) -> [f32; 2] {
     let half = (list_width - COLUMN_GAP) / 2.0;
     [half, half]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // plans/save_editor.md "Editing UI", the quick actions bullet: each
+    // column is as wide as its widest cell when the two fit, else half
+    // the list, the gap counted in the fit.
+    #[test]
+    fn the_columns_take_their_widest_cells_or_the_halves() {
+        // 95 + 6 + 118.5 = 219.5: the cells fit exactly.
+        assert_eq!(column_widths(&[95.0, 118.5, 90.0], 219.5), [95.0, 118.5]);
+        // Half a point narrower: the halves fallback.
+        assert_eq!(column_widths(&[95.0, 118.5, 90.0], 219.0), [106.5, 106.5]);
+    }
 }

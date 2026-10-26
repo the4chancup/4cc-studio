@@ -332,15 +332,23 @@ fn the_bound_team_id_shows_binding_over_64_and_an_edit_keeps_the_low_bits() {
 }
 
 // The bar's name field gets its 240 points from `add_sized`: the field
-// keeps its own width rather than the wrapped row's offer.
+// keeps its own width rather than the wrapped row's offer, measured on
+// the frame the team view first draws (the click's release frame), not
+// a later one where a collapsed first frame would already be past.
 #[test]
 fn the_team_name_field_gets_its_full_width_on_the_first_frame() {
     let path = fixture(PesVersion::Pes21, "team_name_width");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(1100.0, 700.0);
-    open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    // The release frame is the first one that draws the team view.
+    let nodes = click_at(&mut window, centre(team_row(&nodes, &view, 701)), &mut view);
+    assert_eq!(
+        view.selected,
+        Some(Selection::Team(701)),
+        "the click selected team 701's row"
+    );
     let name = nodes
         .iter()
         .find(|node| node.role() == Role::TextInput && node.value() == Some("/3/"))
@@ -348,7 +356,7 @@ fn the_team_name_field_gets_its_full_width_on_the_first_frame() {
     let bounds = name.bounds().expect("bounds");
     assert!(
         bounds.x1 - bounds.x0 >= 230.0,
-        "the Name field draws near 240 wide, got {bounds:?}"
+        "the Name field draws near 240 wide on the first frame, got {bounds:?}"
     );
 }
 

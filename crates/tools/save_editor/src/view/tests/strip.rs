@@ -638,6 +638,30 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         "the name's crop hover"
     );
 
+    // An accented letter counts its units: É is two UTF-8 bytes in the
+    // Name's byte count and one letter in the Shirt's letter count.
+    let path = fixture(PesVersion::Pes21, "text_counts_accent");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    {
+        let player = file.player_mut(70101).unwrap();
+        player.name = "ABÉ".to_owned();
+        player.shirt_name = "SÉ".to_owned();
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::sized(1100.0, 700.0);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        label_value(&nodes, "Name 4/61"),
+        "É is two bytes in the name's count"
+    );
+    assert!(
+        label_value(&nodes, "Shirt 2/18"),
+        "É is one letter in the shirt's count"
+    );
+
     // PES 16: the limits are its own field's, 46 bytes and 16 letters.
     let path = fixture(PesVersion::Pes16, "text_counts_16");
     let file16 = EditFile::load(&path).unwrap();

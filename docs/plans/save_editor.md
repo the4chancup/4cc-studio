@@ -847,7 +847,9 @@ What this editor adds on top of the lib:
   under the official one), each `aatf::apply_tier` on the selected player as one undoable edit;
   then Set stats with its number, the Player menu's Set all stats in one click (40 to 99). A
   rules file that does not load leaves Set stats alone under the list, the load error in the tier
-  buttons' place as the badges show it; an `apply_tier` that fails (`CheckError`) leaves the
+  buttons' place: one line across the list's width, elided, its whole text on hover (the error
+  names the file's path, about 160 characters, which wrapped in the panel's width would take ten
+  lines of the list's room; the Cards left badge and the AATF panels show it whole); an `apply_tier` that fails (`CheckError`) leaves the
   player as he was and shows the error in the refusal dialog.
 - **The AATF panel.** A floating window, "AATF violations (<ruleset>)", opened from the
   toolbar's Panels menu ("AATF violations…"), as the draft shows (not also from a quick

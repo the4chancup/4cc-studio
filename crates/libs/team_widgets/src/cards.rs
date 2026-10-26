@@ -18,6 +18,11 @@ pub const CARD_COLUMN_WIDTH: f32 = 158.0;
 /// the same 14 between one another).
 const CARD_COLUMN_GAP: f32 = 14.0;
 
+/// The width `card_columns` needs for its two columns: the host sizes
+/// the column that holds them from it (narrower, the cards draw one
+/// column).
+pub const TWO_COLUMN_WIDTH: f32 = 2.0 * CARD_COLUMN_WIDTH + CARD_COLUMN_GAP;
+
 /// The badge's tier: its label and the player's card economy under it
 /// (the host's `aatf::Rules::card_limits` result).
 #[derive(Clone, Copy)]
@@ -39,11 +44,12 @@ pub enum CardsBadge<'a> {
 
 /// One card kind's checkboxes in two columns `CARD_COLUMN_WIDTH` wide,
 /// `CARD_COLUMN_GAP` apart, filled column by column (the draft's
-/// `.skcols`): every card is drawn on every version; one the version
-/// cannot store stays in its cell, disabled with a `PES NN+` tooltip
-/// naming the first version that has it (`plans/save_editor.md`
-/// "Editing UI"). Returns whether a card was ticked or unticked this
-/// frame.
+/// `.skcols`), narrowing to one column when the width the ui leaves
+/// cannot hold two (`plans/save_editor.md` "Editing UI": "a columned
+/// panel narrows into fewer columns"): every card is drawn on every
+/// version; one the version cannot store stays in its cell, disabled
+/// with a `PES NN+` tooltip naming the first version that has it.
+/// Returns whether a card was ticked or unticked this frame.
 pub fn card_columns(
     ui: &mut egui::Ui,
     version: pes_version::PesVersion,
@@ -53,7 +59,12 @@ pub fn card_columns(
 ) -> bool {
     let fields = schema_for(version).player_field_set();
     let mut changed = false;
-    let per_column = names.len().div_ceil(2);
+    let columns = if ui.available_width() >= TWO_COLUMN_WIDTH {
+        2
+    } else {
+        1
+    };
+    let per_column = names.len().div_ceil(columns);
     ui.horizontal(|ui| {
         ui.spacing_mut().item_spacing.x = CARD_COLUMN_GAP;
         for (column, chunk) in names.chunks(per_column).enumerate() {
@@ -469,6 +480,61 @@ mod tests {
         );
     }
 
+    // plans/save_editor.md "Editing UI", the player view bullet ("a
+    // columned panel narrows into fewer columns"): a pane too narrow for
+    // the two `CARD_COLUMN_WIDTH` columns and their gap draws one
+    // column, every card in its order.
+    #[test]
+    fn the_columns_narrow_to_one_past_the_two_column_width() {
+        // One point under the two-column fit.
+        let mut window = Headless::sized(TWO_COLUMN_WIDTH - 1.0, 1400.0);
+        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
+        let (nodes, _) = window.columns(PesVersion::Pes21, &mut skills, vec![]);
+        let mut cells: Vec<(f64, f64, String)> = nodes
+            .iter()
+            .filter(|node| node.role() == Role::CheckBox)
+            .filter_map(|node| {
+                node.bounds()
+                    .map(|bounds| (bounds.x0, bounds.y0, node.label().unwrap().to_owned()))
+            })
+            .collect();
+        cells.sort_by(|a, b| {
+            a.1.partial_cmp(&b.1)
+                .expect("ordered bounds")
+                .then(a.0.partial_cmp(&b.0).expect("ordered bounds"))
+        });
+        let mut xs: Vec<f64> = cells.iter().map(|(x0, _, _)| *x0).collect();
+        xs.sort_by(f64::total_cmp);
+        xs.dedup();
+        assert_eq!(xs.len(), 1, "one column: every checkbox at one x");
+        let (drawn_skills, drawn_coms) = (
+            &cells[..labels::SKILLS.len()],
+            &cells[labels::SKILLS.len()..],
+        );
+        let order = |names: &[&'static str]| {
+            names
+                .iter()
+                .map(|name| title_case(name))
+                .collect::<Vec<_>>()
+        };
+        assert_eq!(
+            drawn_skills
+                .iter()
+                .map(|(_, _, label)| label.as_str())
+                .collect::<Vec<_>>(),
+            order(&labels::SKILLS),
+            "the skills in their order, top to bottom"
+        );
+        assert_eq!(
+            drawn_coms
+                .iter()
+                .map(|(_, _, label)| label.as_str())
+                .collect::<Vec<_>>(),
+            order(&labels::COM_STYLES),
+            "the COM styles in their order, top to bottom"
+        );
+    }
+
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: a checkbox
     // click is one change (the host's undo takes one step per click).
     #[test]
@@ -594,6 +660,59 @@ mod tests {
         let (_, changed) = window.click_columns(centre(checkbox), PesVersion::Pes21, &mut skills);
         assert!(changed, "the untick is a change");
         assert!(!skills.com_styles[0], "the flag is cleared");
+    }
+
+    // The same bullet: a card in the second column writes its own flag
+    // (a wrong index in the second column's cells edits a first-column
+    // card instead).
+    #[test]
+    fn a_second_column_tick_writes_its_own_flag() {
+        let mut window = Headless::new();
+        // Player 78102 of the PES 21 fixture save; PES 21 stores every
+        // card, so each second-column cell is enabled. The skills split
+        // 21-and-20 (the second column is indexes 21 to 40), the COM
+        // styles 4-and-3 (indexes 4 to 6).
+        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
+        let skill = (21..labels::SKILLS.len())
+            .find(|&i| !skills.skills[i])
+            .expect("a skill past index 20 he lacks");
+        let com = (4..labels::COM_STYLES.len())
+            .find(|&i| !skills.com_styles[i])
+            .expect("a COM style he lacks");
+
+        let (nodes, _) = window.columns(PesVersion::Pes21, &mut skills, vec![]);
+        // Premise: each clicked cell really sits in the second column;
+        // "Scissors Feint" and "Trickster" head the first ones.
+        for (index, names, first) in [
+            (skill, &labels::SKILLS[..], "Scissors Feint"),
+            (com, &labels::COM_STYLES[..], "Trickster"),
+        ] {
+            let label = title_case(names[index]);
+            let cell = entry(&nodes, Role::CheckBox, &label)
+                .bounds()
+                .expect("bounds");
+            let first_x = entry(&nodes, Role::CheckBox, first)
+                .bounds()
+                .expect("bounds")
+                .x0;
+            assert!(cell.x0 > first_x + 1.0, "{label} is a second-column cell");
+        }
+
+        let before = skills.skills;
+        let cell = entry(&nodes, Role::CheckBox, &title_case(labels::SKILLS[skill]));
+        let (_, changed) = window.click_columns(centre(cell), PesVersion::Pes21, &mut skills);
+        assert!(changed, "the tick is a change");
+        let mut expected = before;
+        expected[skill] = true;
+        assert_eq!(skills.skills, expected, "exactly that one flag changed");
+
+        let before = skills.com_styles;
+        let cell = entry(&nodes, Role::CheckBox, &title_case(labels::COM_STYLES[com]));
+        let (_, changed) = window.click_columns(centre(cell), PesVersion::Pes21, &mut skills);
+        assert!(changed, "the tick is a change");
+        let mut expected = before;
+        expected[com] = true;
+        assert_eq!(skills.com_styles, expected, "exactly that one flag changed");
     }
 
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: "Cards
