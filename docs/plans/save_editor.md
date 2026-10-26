@@ -837,8 +837,9 @@ What this editor adds on top of the lib:
     (drawn when that preset is the one shown), the playing style
     for `PlayingStyleRange`, the skills for `SkillCardCap`, the COM styles for
     `ComStyleCap`, the skills or the COM styles for `RequiredCard` by its card's kind, and the
-    Skills header's Cards left badge for `Cards` and `MinCards`, whose budget counts every
-    card kind (an extra A position spends one), so no one field is at fault. A field several violations are about
+    Skills header's Cards left badge for `Cards` and `MinCards`, which no one field causes:
+    `Cards`' budget counts every card kind and the extra A positions, `MinCards`' count the
+    paid skills and the extra A positions. A field several violations are about
     carries one cross, in the colour of the highest severity among them (a suggestion alone
     draws none), its tooltip their lines as the AATF panel shows them, one per line. One
     function maps a kind to its field, a match with an arm per kind (a new kind does not

@@ -296,7 +296,8 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   shows a dialog before the window opens: "The last session did not close normally. If it
   crashed, please post this file where you report problems: <path>", naming the home folder's
   `~`. This catches what the panic hook cannot see (a stack overflow, a failed allocation, a
-  crash in native code), and the crash dump below adds its stacks; when the old log's last
+  crash in native code), and the crash dump below, where one was written, adds its stacks;
+  when the old log's last
   line is the monitor's, naming a dump, and that file is still there, the same dialog names
   it. We read the monitor's line rather than compare times: the monitor writes the dump
   before it appends that line, so the log is always the newer file. The wording is neutral because the dialog also follows a session Windows
@@ -319,10 +320,12 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
 - **A crash dump for what the hook never sees**: a stack overflow (the runtime prints one line
   to a stderr the GUI exe does not have) and an access violation in native code (a GPU driver
   under the encoder or the renderer, a shell extension under a file dialog) each leave a log
-  that simply stops. A failed allocation stops the log too, but gets no dump: the runtime's
-  abort is `__fastfail` on Windows, which ends the process without any exception handler of
-  its own seeing it, so the dump below cannot catch it; the next start's dialog still reports
-  the session, and a dump for it waits for a capture route proven by a test. The window's process is watched by
+  that simply stops. A failed allocation stops the log too, and on Windows gets no dump: the
+  runtime's abort is `__fastfail` there, which ends the process without any exception handler
+  of its own seeing it, so the dump below cannot catch it; the next start's dialog still
+  reports the session, and a dump for it waits for a capture route proven by a test. On Linux
+  the abort raises `SIGABRT`, which the handler does see, so a dump is written and named as
+  any other. The window's process is watched by
   a monitor, the same exe started again with a hidden argument (no second exe in the bundle),
   because a crashed process cannot reliably write its own dump; on a crash the monitor writes
   `studio.dmp` beside the log (every thread's stack, a few MB), replacing the previous one,
