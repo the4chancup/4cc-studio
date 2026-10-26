@@ -40,10 +40,12 @@
 // comparator's scope toggles and team filter = selectable labels and a
 // ComboBox; the AATF team multi-select = a scroll area of CheckBoxes; Export,
 // Apply, Validate rules and Save a copy = buttons; radio labels = RadioButton.
-// Live AATF: the toolbar toggle = a SelectableLabel; .live-panel = the log
-// panel widget's frame docked at the bottom of the view (its chevron and
-// divider as the host's log panel); the dimmed list = the previous result
-// while the worker checks.
+// Live AATF: the toolbar toggle = a framed Button (egui's selected fill when
+// on); .live-panel = the log panel widget's frame docked at the bottom of the
+// view (its chevron and divider as the host's log panel); the dimmed list =
+// the previous result while the worker checks; .mark (a list row's cross or
+// check) and .xmark (the cross beside a field) = labels in the error, warning
+// or success colour, their tooltips on_hover_text.
 // The interchange panel: the file picker = a ComboBox (the rfd dialog in
 // the real view; its entries are the draft's samples); the section choices
 // = CheckBoxes drawn only for the sections the file holds, the aesthetics
@@ -233,6 +235,17 @@ td.ilabel:first-child { padding-left: 0; }
 .live-body .drow .f { width: 190px; flex: none; overflow: hidden; text-overflow: ellipsis; }
 .live-body .drow .v { color: var(--strong); }
 .live-body .grp { color: var(--strong); margin: 4px 0 1px; }
+/* The toolbar's toggle: framed whether on or off, so it reads as a control
+   beside the menus; on, filled as a selected label is. */
+button.livebtn.on { background: var(--sel-bg); color: var(--sel-fg); }
+/* A checked row's mark at the row's right end, after the unsaved dot. */
+.plist .mark { flex: none; margin-left: auto; }
+.plist .dot + .mark { margin-left: 4px; }
+.mark.pass { color: var(--success); }
+/* The cross beside a field: between the label and the field, so the field's
+   own box keeps its x. */
+.xmark { flex: none; margin: 0 4px; }
+.gen .pair .boxed { display: flex; align-items: center; flex: none; }
 .panel .tlist { background: var(--extreme); border: 1px solid var(--stroke);
   max-height: 180px; overflow: auto; }
 `;
@@ -2846,8 +2859,7 @@ function renderToolbar() {
   return h("div", { class: "toolbar", "data-panel": "toolbar" },
     openMenu(), saveBtn, button("Save as", saveAs), playerMenu(), teamMenu(), databaseMenu(),
     panelsMenu(), undoBtn, redoBtn,
-    selectable("Live AATF", LIVE.on, () => setLive(!LIVE.on),
-      "Check the open team after every edit, in a panel at the bottom (the setting is remembered)"),
+    liveButton(),
     h("span", { class: "weak mono", style: "overflow:hidden; text-overflow:ellipsis" },
       S.path + (dirty() ? "  • unsaved changes" : "")));
 }
@@ -3237,7 +3249,8 @@ function teamRow(team) {
     h("span", { class: "swatch", style: "background:" + shownHex(team.color_1) }),
     h("span", { class: "swatch", style: "background:" + shownHex(team.color_2) }),
     h("span", {}, ...nameSpans(team.name)),
-    dirtyTeam(team) ? h("span", { class: "dot", title: "Unsaved changes" }, "●") : null);
+    dirtyTeam(team) ? h("span", { class: "dot", title: "Unsaved changes" }, "●") : null,
+    teamMark(team));
 }
 function playerRow(team, p) {
   const r = h("div", { class: "prow" + (S.sel && S.sel.team === team.id && S.sel.slot === p.slot ? " on" : ""),
@@ -3248,7 +3261,8 @@ function playerRow(team, p) {
     h("span", { class: "pos" }, p.positions.registered),
     S.filter.trim() || S.teamSel === "all" ? h("span", { class: "tshort" }, team.name) : null,
     h("span", {}, ...nameSpans(p.name)),
-    dirtyPlayer(p) ? h("span", { class: "dot", title: "Unsaved changes" }, "●") : null);
+    dirtyPlayer(p) ? h("span", { class: "dot", title: "Unsaved changes" }, "●") : null,
+    playerMark(team, p));
   // Sense::drag: the row moves onto the drop target's slot.
   r.addEventListener("dragstart", e => {
     e.dataTransfer.setData("text/plain", team.id + ":" + p.slot);
@@ -3322,20 +3336,25 @@ const textCount = (kind, raw) => {
 function generalPanel(p, team) {
   const gl = (t, above) => h("span", { class: "weak gl" + (above ? " above" : "") }, t);
   const above = (label, el) => h("div", {}, gl(label, true), el);
-  // A label with its count "nn/NN", which follows the field as typed.
-  const counted = (label, kind, raw, el, toRaw) => {
+  // A label with its count "nn/NN", which follows the field as typed; Live
+  // AATF's cross for the name after it.
+  const counted = (label, kind, raw, el, toRaw, mark) => {
     const cnt = h("span", { class: "count" });
     const show = r => { const c = textCount(kind, r);
       cnt.textContent = c.n + "/" + c.max; cnt.title = c.tip;
       cnt.classList.toggle("warn", c.over); el.classList.toggle("overlong", c.over); };
     el.addEventListener("input", () => show(toRaw(el.value)));
     show(raw);
-    return h("div", {}, h("span", { class: "weak gl above" }, label + " ", cnt), el);
+    return h("div", {}, h("span", { class: "weak gl above" }, label + " ", cnt, mark), el);
   };
-  const num = (label, get, put) => h("div", { class: "pair" }, gl(label),
-    h("input", { type: "number", value: get(p),
-      onchange: e => { const v = parseInt(e.target.value, 10);
-        if (!Number.isNaN(v)) { set(p, get, put, v, label); render(); } } }));
+  // `field` names the box for Live AATF's cross, drawn just left of the box.
+  const num = (label, get, put, field) => h("div", { class: "pair" }, gl(label),
+    h("span", { class: "boxed" }, field ? fieldMark(p, field) : null,
+      h("input", { type: "number", value: get(p),
+        onchange: e => { const v = parseInt(e.target.value, 10);
+          if (!Number.isNaN(v)) { set(p, get, put, v, label); render(); } } })));
+  // A combo's label, Live AATF's cross after it.
+  const marked = (label, field) => h("span", { class: "weak gl" }, label, fieldMark(p, field));
   const nameIn = h("input", { type: "text", size: "1", value: escName(p.name),
     title: "The raw name. \\x11c followed by 8 hex digits is a colour code",
     onchange: e => { set(p, x => x.name, (x, v) => x.name = v, unescName(e.target.value), "name"); render(); } });
@@ -3361,21 +3380,21 @@ function generalPanel(p, team) {
   hand.id = "f-hand";
   return named(h("div", { class: "col" }, strong("General info"),
     h("div", { class: "gen" },
-      counted("Name", "name", p.name, nameIn, unescName),
+      counted("Name", "name", p.name, nameIn, unescName, fieldMark(p, "name")),
       counted("Shirt", "shirt", p.shirt_name, shirtIn, t => t),
       h("div", { class: "pairs" },
-        num("Height", p2 => p2.height, (x, v) => x.height = v),
+        num("Height", p2 => p2.height, (x, v) => x.height = v, "height"),
         num("Number", p2 => p2.number, (x, v) => x.number = v),
-        num("Weight", p2 => p2.weight, (x, v) => x.weight = v),
+        num("Weight", p2 => p2.weight, (x, v) => x.weight = v, "weight"),
         num("Nation", p2 => p2.nationality, (x, v) => x.nationality = v),
-        num("Age", p2 => p2.age, (x, v) => x.age = v),
+        num("Age", p2 => p2.age, (x, v) => x.age = v, "age"),
         // The checkbox at the boxes' left edge.
         h("div", { class: "pair" }, gl("Captain"), h("span", { class: "box" }, captain))),
       h("div", { class: "combos" },
         gl("Stronger foot"), foot,
         gl("Stronger hand"), gated(h("span", {}, hand), 20),
-        gl("Registered position"), reg,
-        gl("Playing style"), style))), "general");
+        marked("Registered position", "registered"), reg,
+        marked("Playing style", "playing_style"), style))), "general");
 }
 // The view's title: the player's id, weak as the list rows draw ids, then
 // his name drawn with its colour codes.
@@ -3506,7 +3525,10 @@ function abilityPanel(p) {
     const inp = h("input", { type: "number", "data-stat": s, value: p.stats[s] ?? "", min: 40, max: 99,
       onchange: e => { const v = parseInt(e.target.value, 10);
         if (!Number.isNaN(v)) { set(p, x => x.stats[s], (x, v2) => x.stats[s] = v2, v, s); render(); } } });
-    stats.append(h("tr", {}, lbl(STAT_LABEL[s]), h("td", {}, gated(h("span", {}, inp), minV))));
+    // The label cell is right-aligned, so Live AATF's cross after the label
+    // stands just left of the box.
+    stats.append(h("tr", {}, h("td", { class: "weak ilabel" }, STAT_LABEL[s], fieldMark(p, "stat:" + s)),
+      h("td", {}, gated(h("span", {}, inp), minV))));
   }
   return named(h("div", { class: "col" }, strong("Ability stats"), stats), "ability-stats");
 }
@@ -3530,7 +3552,8 @@ function positionsPanel(p) {
     posRows.map(row => h("tr", {}, row.map(pos =>
       h("td", { class: "poscell" + (pos === p.positions.registered ? " reg" : "") },
         h("div", { class: "plabel" }, pos), rating(pos))))));
-  return namedCols(h("div", { class: "col" }, strong("Playable positions"), posTable), "positions");
+  return namedCols(h("div", { class: "col" },
+    h("div", { class: "row" }, strong("Playable positions"), fieldMark(p, "positions")), posTable), "positions");
 }
 // The skills in two columns filled column by column (one where the panel
 // cannot hold two), the Cards left badge in the header; the COM styles and
@@ -3550,7 +3573,8 @@ function skillsPanel(p, team) {
   for (let c = 0; c < cols; c++)
     skcols.push(h("div", { class: "col" }, SKILLS.slice(c * per, (c + 1) * per).map(skillCb)));
   return namedCols(h("div", { class: "col" },
-    h("div", { class: "row" }, strong("Skills"), cardBadges(p, team)),
+    h("div", { class: "row" }, strong("Skills"), fieldMark(p, "skills"), cardBadges(p, team),
+      fieldMark(p, "cards")),
     h("div", { class: "skcols" }, skcols)), "skills");
 }
 // The COM playing styles, two columns of checkboxes as wide as the skills
@@ -3566,7 +3590,8 @@ function comStylesPanel(p) {
         }, e.target.checked, "COM style");
         render(); } }), " ", titleCase(k));
   const cols = colCount("com-styles"), per = Math.ceil(COM_STYLES.length / cols);
-  return namedCols(h("div", { class: "col" }, strong("COM playing styles"),
+  return namedCols(h("div", { class: "col" },
+    h("div", { class: "row" }, strong("COM playing styles"), fieldMark(p, "com_styles")),
     h("div", { class: "skcols" },
       Array.from({ length: cols }, (_, c) =>
         h("div", { class: "col" }, COM_STYLES.slice(c * per, (c + 1) * per).map(comCb))))),
@@ -3577,21 +3602,23 @@ function comStylesPanel(p) {
 // General info's grid, so their boxes line up with Height's and Number's.
 function otherStatsPanel(p) {
   // `shown` is the label drawn, `label` the edit's name in the undo list.
-  const small = (shown, label, get, put, max) => h("div", { class: "pair" },
+  // `field` names the box for Live AATF's cross, as General info's pairs.
+  const small = (shown, label, get, put, max, field) => h("div", { class: "pair" },
     h("span", { class: "weak gl" }, shown),
-    h("input", { type: "number", value: get(p) + 1, min: 1, max,
-      onchange: e => { const v = parseInt(e.target.value, 10) - 1;
-        if (v >= 0) { set(p, get, (x, v2) => put(x, v2), v, label); render(); } } }));
+    h("span", { class: "boxed" }, fieldMark(p, field),
+      h("input", { type: "number", value: get(p) + 1, min: 1, max,
+        onchange: e => { const v = parseInt(e.target.value, 10) - 1;
+          if (v >= 0) { set(p, get, (x, v2) => put(x, v2), v, label); render(); } } })));
   // The weak foot's two share one label: "Weak foot: Usage", then "Accuracy".
   return named(h("div", { class: "col" }, strong("Other stats"),
     h("div", { class: "gen" }, h("div", { class: "pairs" },
       small("Injury resistance", "Injury resistance",
-        x => x.stats.injury_resistance, (x, v) => x.stats.injury_resistance = v, 3),
-      small("Form", "Form", x => x.stats.form, (x, v) => x.stats.form = v, 8),
+        x => x.stats.injury_resistance, (x, v) => x.stats.injury_resistance = v, 3, "injury_resistance"),
+      small("Form", "Form", x => x.stats.form, (x, v) => x.stats.form = v, 8, "form"),
       small("Weak foot: Usage", "Weak foot usage",
-        x => x.stats.weak_foot_usage, (x, v) => x.stats.weak_foot_usage = v, 4),
+        x => x.stats.weak_foot_usage, (x, v) => x.stats.weak_foot_usage = v, 4, "weak_foot_usage"),
       small("Accuracy", "Weak foot accuracy",
-        x => x.stats.weak_foot_accuracy, (x, v) => x.stats.weak_foot_accuracy = v, 4)))),
+        x => x.stats.weak_foot_accuracy, (x, v) => x.stats.weak_foot_accuracy = v, 4, "weak_foot_accuracy")))),
     "other-stats");
 }
 
@@ -5061,8 +5088,8 @@ function aatfPanel() {
 
 // ---- Live AATF (SE-GUI-30) ----
 // A toolbar toggle; on, a panel docked at the bottom of the view lists the
-// open team's violations (the selector's team; under ALL, the selected
-// player's). `live_aatf` is a tool setting, so it outlives an open and a
+// violations of the team the view is editing (the selected row's team, else
+// the selector's). `live_aatf` is a tool setting, so it outlives an open and a
 // reload (localStorage stands for the settings file here). The panel is the
 // log panel widget's frame (index.html): the chevron collapses it to the
 // header, the divider above it drags its height.
@@ -5071,6 +5098,85 @@ const LIVE = { on: localStorage.getItem("save_editor.live_aatf") === "true",
 function setLive(on) {
   LIVE.on = on; LIVE.sig = null; LIVE.result = null;
   localStorage.setItem("save_editor.live_aatf", String(on));
+}
+// The toolbar's toggle: a framed button, the list's check mark then the name,
+// filled when on. egui's toggle value is a selectable label, which off reads
+// as a label beside the menus, and this toggle is how a manager finds the
+// check at all. sample wording: the tooltip.
+function liveButton() {
+  const b = button("✔ Live AATF", () => { setLive(!LIVE.on); render(); },
+    { title: "Check the open team after every edit, in a panel at the bottom (the setting is remembered)" });
+  b.className = "livebtn" + (LIVE.on ? " on" : "");
+  b.id = "live-toggle";
+  return b;
+}
+// While Live AATF is on, its result marks the editor itself, so a manager sees
+// what to fix where they fix it. The rows of the last result when it is that
+// team's, else null: another team is not checked, and before the first result
+// nothing is marked.
+function liveRowsOf(teamId) {
+  const res = LIVE.on && LIVE.result;
+  return res && res.rows && res.team.id === teamId ? res.rows : null;
+}
+// A checked row's mark: a cross in the error colour when one of its rows is an
+// Error, else a check mark (warnings and suggestions are not failures, as
+// check-aatf's exit code counts them); its tooltip the counts the dock shows,
+// a zero count left out. sample wording: the tooltip.
+function rowMark(rows) {
+  const count = sev => rows.filter(r => r[0] === sev).length;
+  const errors = count("Error"), warnings = count("Warning");
+  const plural = (n, w) => n + " " + w + (n === 1 ? "" : "s");
+  const tip = [errors && plural(errors, "error"), warnings && plural(warnings, "warning")]
+    .filter(Boolean).join(", ") || "No errors";
+  return h("span", { class: "mark " + (errors ? "err" : "pass"), title: tip }, errors ? "✖" : "✔");
+}
+// A player row's mark counts his rows; a team row's, the team's own (no slot).
+function playerMark(team, p) {
+  const rows = liveRowsOf(team.id);
+  return rows && rowMark(rows.filter(r => r[2] === p.id));
+}
+function teamMark(team) {
+  const rows = liveRowsOf(team.id);
+  return rows && rowMark(rows.filter(r => !r[2]));
+}
+// The field a violation is about, one arm per kind (the code's is a match a
+// new kind does not compile past); null for a kind about no single field
+// (NoTier, StatTotal, Special, Custom, the suggestions), which marks the
+// player's row alone, and for the team's own kinds, which mark the team's.
+// The draft's sample run reaches Height, Stat, StatTotal and Special;
+// FieldedNotA's cross on the Tactics pitch has no sample row to show.
+function violationField(rule, kv) {
+  switch (rule) {
+    case "Height": return "height";
+    case "Age": return "age";
+    case "Weight": return "weight";
+    case "Form": return "form";
+    case "InjuryResistance": return "injury_resistance";
+    case "WeakFootUsage": return "weak_foot_usage";
+    case "WeakFootAccuracy": return "weak_foot_accuracy";
+    case "Stat": return "stat:" + kv.stat;
+    case "NameColor": return "name";
+    case "RegisteredNotA": case "PositionRange": return "registered";
+    case "BRating": case "GkSecondA": case "APositions": return "positions";
+    case "FieldedNotA": return "pitch";
+    case "PlayingStyleRange": return "playing_style";
+    case "SkillCardCap": return "skills";
+    case "ComStyleCap": return "com_styles";
+    case "RequiredCard": return SKILLS.includes(kv.card) ? "skills" : "com_styles";
+    case "Cards": case "MinCards": return "cards";
+  }
+  return null;
+}
+// The cross beside a field of the selected player: one for every row about
+// it, in the colour of the highest severity (a suggestion alone draws none),
+// its tooltip their lines as the AATF panel shows them, one per line.
+function fieldMark(p, field) {
+  const rows = (liveRowsOf(teamOf(p).id) || []).filter(r => r[2] === p.id && r[0] !== "Suggestion"
+    && violationField(r[3], kvOf(r[4])) === field);
+  if (!rows.length) return null;
+  return h("span", { class: "xmark " + (rows.some(r => r[0] === "Error") ? "err" : "warn"),
+    "data-mark": field, title: rows.map(r => r[3] + ": " + violationSentence(r[3], kvOf(r[4]), r[0])).join("\n") },
+    "✖");
 }
 const liveTeam = () => selTeam();
 // What the check reads: a change (an edit, an undo or redo, another team or

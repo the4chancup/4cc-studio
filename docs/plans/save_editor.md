@@ -890,20 +890,25 @@ What this editor adds on top of the lib:
   log already sits. The floating AATF panel stays for several teams at once, suggestions,
   Validate rules and Save a copy; its whole-save check runs on a worker too, its teams in
   parallel as `check-aatf` runs them (220 teams of a PES 2017 save in 2.0 s on 16 threads, 13.2
-  s on one). The toggle is drawn as a button, framed, its label the list's check-mark glyph
-  then `Live AATF` whether on or off, filled in the accent colour when on: egui's toggle value is a selectable label, which
+  s on one). The toggle is drawn as a button, framed, its label the list's check mark (`✔`,
+  U+2714) then `Live AATF` whether on or off, filled in the accent colour when on: egui's toggle value is a selectable label, which
   off reads as a label beside the menus, and the toggle is how a manager finds the check at
   all. While it is on, its result also marks the editor itself, so a manager sees what to fix
   where they fix it:
-  - **The player list** marks each listed player of the checked team: a cross, in the error
-    colour, on a player with an Error-severity violation, a check mark otherwise (warnings and
-    suggestions are not failures, as `check-aatf`'s exit code counts them); its tooltip the
+  - **The player list** marks each listed player of the checked team, at the row's right end
+    after its unsaved-changes dot: a cross (`✖`, U+2716) in the error colour on a player with
+    an Error-severity violation, a check mark in the success colour otherwise (warnings and
+    suggestions are not failures, as `check-aatf`'s exit code counts them); both glyphs are in
+    egui's bundled emoji fonts, which the theme keeps after its own in the fallback chain. Its tooltip the
     player's errors and warnings as the dock counts them, a zero count left out (`2
     errors, 1 warning`, `1 warning`), and `No errors` when there are neither. Players of other teams, with ALL picked, carry none: they are not checked. The
-    team's own violations (no slot) mark the team's row the same way, once the list has one
-    (step 0.0.1s); until then the dock alone lists them.
+    team's own violations (no slot) mark the team's row the same way.
   - **The field a violation is about** gets a cross beside it when its player is selected
-    (the pitch's, when his team's row is: the pitch is the team view's):
+    (the pitch's, when his team's row is: the pitch is the team view's), drawn between the
+    field's label and the field so the field keeps its x: just left of a box whose label
+    sits at the row's left (the Height box, a stat's), after the label of a field drawn
+    under or beside its label (the name, a combo), after the header of a panel (the
+    positions grid, the skills, the COM styles), and after the Cards left badge for the badge:
     the Height box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields
     for theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
     `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and

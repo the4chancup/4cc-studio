@@ -11460,3 +11460,16 @@ Why: egui's 14-point button text with its padding is wider than the draft's; at 
 widths (about 95 and 118.5) fit the 223 the list leaves. Equal halves would elide the official
 ruleset's Goalkeeper tier on every save; content widths alone would run past a narrowed list.
 Plan: `plans/save_editor.md` "Editing UI", the quick actions bullet.
+
+## 2026-10-26 — save_editor — Live AATF's marks: where they sit and their glyphs
+Decision: a list row's mark sits at the row's right end after its unsaved-changes dot, a cross
+`✖` (U+2716) in the error colour or a check mark `✔` (U+2714) in the success colour; a field's
+cross sits between its label and the field (just left of a box, after a label above or beside
+its field, after a panel's header, after the Cards left badge). Both glyphs come from egui's
+bundled emoji fonts, which the theme keeps in its fallback chain.
+Why: the plan named the marks but not their place or the check's colour. The row's right end
+is where the row's other state (the unsaved dot) already sits; a field's own x is kept, so the
+boxes still line up whether marked or not (the draft for step 0.0.1o showed 23 stat crosses
+forming one column against the boxes). The icon font subset holds neither glyph and the suite's
+own icon font is 8.14's, so the bundled fonts serve until then.
+Plan: `plans/save_editor.md` "Configurable AATF rules", the "Live AATF" bullet.

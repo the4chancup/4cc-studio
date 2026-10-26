@@ -2580,14 +2580,23 @@ briefs, review loops, gates and mutation runs as for any step.
   (`.tmp/drafts_layout_check.py`, Firefox): 12 of 12. Files: `docs/prototypes/{index.html,
   tools/save_editor.js}`
 - [ ] 0.0.1o Live AATF seen where the fix is (the maintainer's ruling on P37, 2026-10-26;
-  DECISIONS "Live AATF stays off by default"; `plans/save_editor.md` "Editing UI", the "Live
-  AATF" bullet): the toggle a framed button, the player list's cross or check mark per checked
+  DECISIONS "Live AATF stays off by default"; `plans/save_editor.md` "Configurable AATF
+  rules", the "Live AATF" bullet): the toggle a framed button, the player list's cross or check mark per checked
   player, the cross beside the field a selected player's violation is about (one kind-to-field
   match), a `FieldedNotA` row of the dock or the AATF panel selecting his team's row on the
   named preset's first formation carrying the cross (0.0.1s2: the pitch is the team view's), the
   `violations` widget's event naming the violation → verify: SE-GUI-36; a test per field group of the match (one kind each, real
   violations of the PES 17 fixture's team where it has them); the draft (`tools/save_editor.js`)
   the same first, for the maintainer's look
+  - [x] o1 the draft (lead, 2026-10-26): the framed toggle, the list's marks (team row
+    included), the field crosses for every kind the sample run reaches (Height, Stat; StatTotal
+    and Special mark the row alone); FieldedNotA has no sample row, so its pitch cross is the
+    code's alone. Where the marks sit and their glyphs: DECISIONS "Live AATF's marks: where
+    they sit and their glyphs". Headless check `.tmp/0_0_1s/draft_live_marks.py`: 17 of 17.
+    The maintainer's look is open; the code (o2) follows s3's close without waiting on it,
+    the plan having ruled the marks. Files: `docs/prototypes/tools/save_editor.js`,
+    `plans/save_editor.md`
+  - [ ] o2 the code, after s3 closes
 - [x] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
   "Usability proposals P17-P24 and P32-P38 accepted"; built: `spec/export_upgrader.md` step
   10, "CLI", "Message catalog"), one commit each:
