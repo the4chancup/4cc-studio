@@ -28,10 +28,11 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   not UTF-8; a referee roster has no valid line), while `notes_encoding_invalid`, whose one
   cause is the file's encoding, gains nothing (both encoding texts say how to re-save as
   UTF-8 in Notepad); `player_folder_number_invalid` gains no field, its text naming the
-  rule, which never varies: the folder's name starts with a slot from 01 to 23, optionally
-  followed by ` - ` and a name, or the team uses a `players.txt` (a form alone such as
-  `NN - Name` would not do: `24 - Alice` has it and is refused); `player_number_duplicate` the other
-  folder claiming the slot; `kit_folder_invalid` gains no field, its text naming the allowed
+  rule, which never varies: the folder's name starts with a number from 1 to 23 (`05` and `5`
+  alike), then optionally a `-` and a name (`05 - Bob`, `05-Bob`), or the team uses a
+  `players.txt` (a form alone such as `NN - Name` would not do: `24 - Alice` has it and is
+  refused); `player_number_duplicate` the other folders claiming the slot (one, unless three
+  or more claim it); `kit_folder_invalid` gains no field, its text naming the allowed
   names (`p1`-`p9`, `g1`, `all`), which never vary;
   `file_type_disallowed` which case it is (an unknown extension, a hidden `.txt`, a known file
   in the wrong place); `skl_merge_conflict`, `merge_material_conflict` and

@@ -100,8 +100,9 @@ refined with the maintainer before `view/` is written:
   field red, the refusal's sentence as its tooltip, and Upgrade stays disabled, so a manager
   whose save comes from another cup or version learns it before the run rather than from its
   exit 2. A team that resolves to no row of the list shows `team unknown: <name>` instead and
-  disables nothing of its own (Upgrade still needs a save or loose, EU-GUI-01), the run then
-  reporting `team_name_unknown` as the CLI does; a picked
+  disables nothing of its own (Upgrade still needs a save or loose, EU-GUI-01): the save is
+  then not checked for the team, which has no id to look for, and the run reports
+  `team_name_unknown` before any check of the save for the team, as the CLI does; a picked
   or discovered file that does not read as a save turns the field red with the read error as its tooltip,
   Upgrade disabled. An export whose Note or archive does not read at the drop leaves the field
   plain: the run reports it (`source_read_failed`, `export_extract_failed`) as the CLI does.

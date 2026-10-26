@@ -2528,3 +2528,5 @@ worklog passed 7,000 lines.
   skills panels, coloured position ratings, the version warning as a status notice, no view titles; awaiting the maintainer's look.
 - **2026-10-26** — A crash's log lists its frames as module offsets that `scripts/symbolize_log.py` names against the
   release's kept symbols, and the next start says when the last session did not close normally.
+- **2026-10-26** — The plan text of the maintainer's proposal rulings passed review: SWE-2 rounds S1-S7 and Astra's A1-A2,
+  82 concerns accepted in all, the loops ended (`.tmp/lead/rulings_rulings.md`).
