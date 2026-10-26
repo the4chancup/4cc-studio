@@ -1,9 +1,16 @@
 //! The 4cc Studio binary: registers the tools, then launches the GUI or dispatches the CLI.
 //! With no arguments it opens the shell on the registered tools; `--gui` autorun arrives with
-//! the GUI phase.
+//! the GUI phase. On Windows the exe is a GUI-subsystem application on every build, so a
+//! double-click opens no console window beside it (core plan, "Windows subsystem").
+// Not on the unit tests' harness, built from this file too: a GUI-subsystem test binary's
+// output never reaches the test runner, so a failing assertion would print nothing. The
+// exe the integration tests run keeps the attribute.
+#![cfg_attr(not(test), windows_subsystem = "windows")]
 
 mod console;
 mod gui_log;
+#[cfg(test)]
+mod test_dir;
 
 use std::path::PathBuf;
 use std::process::ExitCode;
@@ -21,7 +28,7 @@ use studio_core::{
 };
 
 use crate::console::{spawn_notice_printer, spawn_printer};
-use crate::gui_log::{guard_gui, install_gui_logger, install_panic_hook, show_crash_dialog};
+use crate::gui_log::{guard_gui, install_gui_logger, install_panic_hook, show_error_dialog};
 
 /// The suite's whole registry as data, in sidebar order (core plan, "Tool plugin
 /// interface"): the shell lists after the registered tools every entry whose id no
@@ -167,23 +174,25 @@ fn load_settings(
     Ok((settings, AppPaths { exe_dir, data_dir }))
 }
 
-/// What both modes start from: the settings and the base folders. A failure is printed and
-/// becomes the exit code: 3 when the executable's folder cannot be found (an environment
-/// failure), 2 when the settings file cannot be loaded (a configuration error: nothing ran;
-/// `core/architecture.md`, the binary's own codes).
-#[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
-fn startup(tools: &[Box<dyn StudioTool>]) -> Result<(Settings, AppPaths), ExitCode> {
-    let exe_dir = match exe_dir() {
-        Ok(dir) => dir,
-        Err(error) => {
-            eprintln!("error: {error:#}");
-            return Err(ExitCode::from(3));
-        }
-    };
-    load_settings(tools, exe_dir).map_err(|error| {
-        eprintln!("error: {error:#}");
-        ExitCode::from(2)
-    })
+/// What both modes start from: the settings and the base folders. A failure returns the
+/// exit code and its text, which each mode reports its own way (the CLI prints it, the
+/// window shows it in a dialog): 3 when the executable's folder cannot be found (an
+/// environment failure), 2 when the settings file cannot be loaded (a configuration
+/// error: nothing ran; `core/architecture.md`, the binary's own codes).
+fn startup(tools: &[Box<dyn StudioTool>]) -> Result<(Settings, AppPaths), (ExitCode, String)> {
+    match exe_dir() {
+        Ok(exe_dir) => startup_in(tools, exe_dir),
+        Err(error) => Err((ExitCode::from(3), format!("error: {error:#}"))),
+    }
+}
+
+/// `startup` once the executable's folder is found; the split lets a test point the
+/// settings load at a folder of its own.
+fn startup_in(
+    tools: &[Box<dyn StudioTool>],
+    exe_dir: PathBuf,
+) -> Result<(Settings, AppPaths), (ExitCode, String)> {
+    load_settings(tools, exe_dir).map_err(|error| (ExitCode::from(2), format!("error: {error:#}")))
 }
 
 /// Runs one tool subcommand headless and returns the process exit code: the tool's own, the
@@ -192,7 +201,10 @@ fn startup(tools: &[Box<dyn StudioTool>]) -> Result<(Settings, AppPaths), ExitCo
 fn run_cli_mode(tools: &[Box<dyn StudioTool>], tool: &str, matches: &ArgMatches) -> ExitCode {
     let (settings, paths) = match startup(tools) {
         Ok(loaded) => loaded,
-        Err(code) => return code,
+        Err((code, text)) => {
+            eprintln!("{text}");
+            return code;
+        }
     };
     // The CLI never writes settings, so the read-only data directory is probed rather than
     // learned from a failed save; the condition prints once, as stderr's first line
@@ -256,12 +268,16 @@ fn run_help_mode(
 }
 
 /// Opens the shell on the registered tools and returns when the window closes: 0, the startup
-/// failure's code, 3 when the window could not be opened, or 101 when a panic ended it.
-#[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
+/// failure's code, 3 when the window could not be opened, or 101 when a panic ended it. A
+/// failure shows its text in a dialog: a window started by a double-click has no console to
+/// print it to.
 fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
     let (settings, paths) = match startup(&tools) {
         Ok(loaded) => loaded,
-        Err(code) => return code,
+        Err((code, text)) => {
+            show_error_dialog(&text);
+            return code;
+        }
     };
     // The log and the hook go in before the window: the log needs the data location the
     // startup resolved, and the hook needs the log so a panic's line lands in it.
@@ -289,17 +305,42 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
         )) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
-                eprintln!("error: {error:#}");
+                show_error_dialog(&format!("error: {error:#}"));
                 ExitCode::from(3)
             }
         },
         log_path.as_deref(),
-        show_crash_dialog,
+        show_error_dialog,
     )
 }
 
+/// Binds this process to the console of the terminal that started it, so a command's
+/// output prints where it was run (core plan, "Windows subsystem"): a GUI-subsystem exe
+/// owns no console of its own.
+#[cfg(windows)]
+fn attach_parent_console() {
+    use windows::Win32::System::Console::{ATTACH_PARENT_PROCESS, AttachConsole};
+    // SAFETY: `AttachConsole` takes a process id and no pointer of ours and binds no
+    // memory; it only attaches this process to its parent's console.
+    let attached = unsafe { AttachConsole(ATTACH_PARENT_PROCESS) };
+    // The `Result` is dropped: the call fails when the parent has no console (a launch
+    // from Explorer with arguments), and output then goes where the inherited handles
+    // point, which is all a GUI-subsystem exe can do.
+    drop(attached);
+}
+
+/// No subsystem split off Windows: nothing to attach to.
+#[cfg(not(windows))]
+fn attach_parent_console() {}
+
 #[expect(clippy::print_stderr, reason = "CLI result output is the binary's job")]
 fn main() -> ExitCode {
+    // More than the program name in the arguments means a CLI run, a `--help` or a clap
+    // error, all of which print; the window mode attaches to no console, which a
+    // double-click does not have.
+    if std::env::args_os().nth(1).is_some() {
+        attach_parent_console();
+    }
     let tools = tools();
     let launch = match parse_launch(&tools, std::env::args_os()) {
         Ok(launch) => launch,
@@ -329,7 +370,10 @@ fn main() -> ExitCode {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::*;
+    use crate::test_dir::TestDir;
 
     // The registry repeats the tools' own labels and icons: a registered tool's rail glyph is
     // its `icon()`, never a second spelling that could drift.
@@ -415,5 +459,24 @@ mod tests {
             }
         }
         assert!(hits.is_empty(), "{}", hits.join("\n"));
+    }
+
+    // A settings file that does not parse fails startup with code 2 (nothing ran) and
+    // the `error: ` text the mode reports; the test's `data/` makes the location
+    // portable, so the real config folder is never read.
+    #[test]
+    fn a_settings_file_that_does_not_parse_fails_startup_with_code_2() {
+        let dir = TestDir::new("bad_settings");
+        fs::create_dir_all(dir.path().join("data")).unwrap();
+        fs::write(
+            dir.path().join("data").join(SETTINGS_FILE_NAME),
+            "not = [toml",
+        )
+        .unwrap();
+        let Err((code, text)) = startup_in(&tools(), dir.path().to_path_buf()) else {
+            panic!("a settings file that does not parse is a startup failure")
+        };
+        assert_eq!(format!("{code:?}"), format!("{:?}", ExitCode::from(2)));
+        assert!(text.starts_with("error: "), "{text}");
     }
 }

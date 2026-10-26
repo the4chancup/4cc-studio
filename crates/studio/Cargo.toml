@@ -30,5 +30,8 @@ team_compiler.workspace = true
 pes_savefile = { workspace = true, features = ["test-support"] }
 pes_version.workspace = true
 
+[target.'cfg(windows)'.dependencies]
+windows.workspace = true
+
 [lints]
 workspace = true

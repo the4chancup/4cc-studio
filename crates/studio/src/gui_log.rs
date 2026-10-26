@@ -196,9 +196,10 @@ pub(crate) fn guard_gui(
     }
 }
 
-/// The blocking dialog a panic that ended the window raises: titled with the suite's
-/// name, level Error, one OK button.
-pub(crate) fn show_crash_dialog(text: &str) {
+/// The blocking dialog raised for a failure a double-clicked window cannot print: a
+/// startup error, a window that could not open, or the panic that ended it. Titled with
+/// the suite's name, level Error, one OK button.
+pub(crate) fn show_error_dialog(text: &str) {
     rfd::MessageDialog::new()
         .set_level(rfd::MessageLevel::Error)
         .set_title(studio_core::app_name!())
@@ -210,43 +211,12 @@ pub(crate) fn show_crash_dialog(text: &str) {
 #[cfg(test)]
 mod tests {
     use std::cell::RefCell;
-    use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+    use std::sync::atomic::{AtomicBool, Ordering};
 
     use log::Log;
 
     use super::*;
-
-    /// A temp folder the test owns: `<temp>/studio_gui_log_<name>_<pid>_<n>` (`n` from a
-    /// process counter, so no two calls share a folder), created in `new` and removed in
-    /// `Drop` — a test that panics still leaves the temp folder clean.
-    struct TestDir(PathBuf);
-
-    impl TestDir {
-        fn new(name: &str) -> TestDir {
-            static SEQUENCE: AtomicUsize = AtomicUsize::new(0);
-            let dir = std::env::temp_dir().join(format!(
-                "studio_gui_log_{name}_{}_{}",
-                std::process::id(),
-                SEQUENCE.fetch_add(1, Ordering::SeqCst)
-            ));
-            fs::create_dir_all(&dir).unwrap();
-            TestDir(dir)
-        }
-
-        fn path(&self) -> &Path {
-            &self.0
-        }
-    }
-
-    impl Drop for TestDir {
-        fn drop(&mut self) {
-            // A drop cannot fail the test, and a leftover folder in the temp folder
-            // harms nothing: the failure is logged, not raised.
-            if let Err(error) = fs::remove_dir_all(&self.0) {
-                log::debug!("test folder {} not removed: {error}", self.0.display());
-            }
-        }
-    }
+    use crate::test_dir::TestDir;
 
     // ST-RUN-07
     #[test]

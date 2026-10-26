@@ -947,6 +947,13 @@ ST-RUN-08   manual  GIVEN a build whose window panics on a click (a test build, 
                     THEN a dialog names `studio.log`'s path and repeats the panic's message,
                          the process exits with 101 once it is closed, and the log ends with
                          the panic's message, its location and a backtrace
+ST-RUN-09   GIVEN a data location whose `studio.log` ends without the closing line (a session
+                  that crashed or was ended)
+            WHEN the GUI starts
+            THEN before the window opens a dialog says the last session did not close
+                 normally and names `studio.old.log`'s path; GIVEN it ends with the closing
+                 line of a normal close or of a crash already reported THEN no dialog; GIVEN
+                 no earlier log THEN no dialog
 ST-CLI-01   GIVEN a data directory that cannot be written
             WHEN a CLI command runs
             THEN stderr starts with the data_dir_read_only condition as one line, and a notice a

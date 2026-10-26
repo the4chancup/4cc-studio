@@ -4074,6 +4074,7 @@ dependencies = [
  "save_editor",
  "studio_core",
  "team_compiler",
+ "windows",
 ]
 
 [[package]]

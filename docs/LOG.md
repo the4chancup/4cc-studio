@@ -2516,3 +2516,5 @@ worklog passed 7,000 lines.
 - **2026-10-26** — The settings menu stops drawing the update check's two rows until the updater that reads them.
 - **2026-10-26** — The window keeps `studio.log`, the previous run's as `studio.old.log`; a panic is written there and a crash
   that ends the window says which file to post. The log's backtrace will be offsets, named from symbols kept per release.
+- **2026-10-26** — The exe opens no console window beside the window; a command still prints in the terminal it was run
+  from, and the window shows its startup failures in a dialog. The next start will report a session that did not close.

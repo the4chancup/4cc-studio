@@ -124,7 +124,9 @@ So no command reads the keyboard; a command that would need an answer takes it a
 
 Debug builds are GUI-subsystem too, not only releases: the gates' CLI tests then run the
 binary's piped commands with the subsystem the bundle ships, so a redirected run losing its
-output fails a test. Running the window with no arguments attaches to no console, so what the
+output fails a test. The binary's unit-test harness, built from the same `main.rs`, keeps the
+console subsystem (`cfg_attr(not(test), …)`): a GUI-subsystem test binary's output never
+reaches the test runner, so its failing assertions would print nothing. Running the window with no arguments attaches to no console, so what the
 window mode would print (a settings file that does not load, a window that cannot open) shows
 in a message dialog instead, with the same text and exit code: printed, nobody would see it.
 
@@ -274,9 +276,24 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   recipe). `scripts/symbolize_log.py <studio.log> <symbols folder>` turns a posted log's frames
   of the exe's module into function, file and line through `llvm-symbolizer` (MSVC's toolset
   ships it), against the release's kept exe and `.pdb`; frames of other modules (the system's
-  DLLs) stay as offsets. We do not ship the `.pdb`, deflated beside or inside the exe, because
+  DLLs) stay as offsets. Off Windows the `backtrace` crate reports no module base (its
+  `libunwind` backend's `module_base_address` is `None`), so a frame is an absolute address,
+  which a position-independent exe loaded at a random base leaves unnamed; before the Linux
+  bundle (1.0.0) the hook also writes one known function's address, from which the script
+  finds the exe's load base. We do not ship the `.pdb`, deflated beside or inside the exe, because
   either costs every member's download about 3.8 MB for a file only the maintainer reads,
   and the inside variant also has the crash write 17 MB and point the backtrace at it.
+- A session that ends without a word is reported at the next start. The window's normal
+  close writes a closing line as the log's last, and so does a crash after its dialog; at
+  start, a previous log (`studio.old.log` once renamed) that does not end with one of the two
+  shows a dialog before the window opens: "The last session did not close normally. If it
+  crashed, please post this file where you report problems: <path>", naming the home folder's
+  `~`. This catches what the panic hook cannot see (a stack overflow, a failed allocation, a
+  crash in native code) without a monitor process. The wording is neutral because the dialog also follows a session Windows
+  ended: winit 0.30 handles neither `WM_QUERYENDSESSION` nor `WM_ENDSESSION`, so a shutdown
+  with the window open ends the process with no closing line, as a kill from Task Manager
+  or a power cut does. We do not tell the two apart through the boot time: a crash followed
+  by a restart before the next start would then go unreported.
 - The level is `info`, with no `-v` or `RUST_LOG` (a double-click passes neither). Each line is
   flushed as it is written, so a crash keeps everything before it.
 - A first run writes no log: the file lives in the data location, which does not exist until

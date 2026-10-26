@@ -2458,21 +2458,31 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] k2 the backtrace as module base and offset (`backtrace` crate) in place of std's
     resolved `Backtrace`; `scripts/symbolize_log.py <log> <symbols folder>` over MSVC's
     `llvm-symbolizer`; the release profile's `debug = "line-tables-only"` and the recipe's
-    `-symbols.7z` (`plans/core/distribution.md`, the release recipe's paragraph) → verify: a
-    test that the hook's lines parse as base+offset; the script names a frame of a release
-    build run without its `.pdb`; the release exe's size before and after the profile line
-    (the probe's did not change; if ours grows, report it)
+    `-symbols.7z` (`plans/core/distribution.md`, the release recipe's paragraph); the next
+    start's report of a session that did not close normally (the maintainer asked
+    2026-10-26 for a popup when or after a crash; DECISIONS 2026-10-26) → verify: ST-RUN-09; a
+    test that the hook's lines read as base+offset; the script's tests; the release exe's
+    size before and after the profile line (the probe's did not change; if ours grows,
+    report it)
   - [ ] k3 ST-RUN-08 in the built window (manual, asked before it runs; with 0.0.1l's
-    ST-RUN-04)
+    ST-RUN-04), on a release build with a panic added by hand: the dialog, exit 101, and the
+    log's frames named by `symbolize_log.py` against that build's kept exe and `.pdb`; the
+    next start shows no second dialog for it, while one after a kill from Task Manager does
+    (ST-RUN-09)
 - [ ] 0.0.1l no console window in the preview (`plans/core/architecture.md` "Windows
   subsystem", DECISIONS 2026-10-25, `AttachConsole` approved): `#![windows_subsystem =
   "windows"]` on every Windows build (the plan's paragraph after it says why debug too),
   `AttachConsole(ATTACH_PARENT_PROCESS)` behind one safe function when command arguments are
   present, the window mode's startup failures in a message dialog, after 0.0.1k (a panic
   needs the log first) → verify: the gates' piped CLI tests (`help_cli`, `launchers`,
-  `team_compiler_cli`) on the GUI-subsystem binary; ST-RUN-04 in the bundle (manual: a double-click opens no console; `team-compiler
-  check` from a terminal prints there; both launchers print and their `pause` waits), asked
-  before it runs
+  `team_compiler_cli`) on the GUI-subsystem binary; ST-RUN-04
+  - [x] l1 the subsystem on the exe (not on the unit tests' harness, whose output the
+    runner would lose), the attach in `main` when arguments are present, `startup` returning
+    its failure's text for the CLI to print and the window to show (`show_error_dialog`);
+    `tests/subsystem.rs` reads the PE header's subsystem (2); the piped CLI tests pass on it
+  - [ ] l2 ST-RUN-04 in the bundle (manual: a double-click opens no console; `team-compiler
+    check` from a terminal prints there; both launchers print and their `pause` waits),
+    asked before it runs; with k3
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

@@ -11259,3 +11259,15 @@ missing `.pdb` blanks; Embark's minidump crates cover native crashes too, at the
 monitor process (PROPOSALS P38). The maintainer chose this among the three options.
 Plan: `plans/core/architecture.md` "Diagnostic logging"; `plans/core/distribution.md`, the
 release recipe's paragraph.
+
+## 2026-10-26 — studio — The next start reports a session that did not close normally
+Decision: the window's log ends with a closing line on a normal close and after a crash's
+dialog; at the next start a previous log without one shows a dialog, before the window,
+naming `studio.old.log` and asking for it if the session crashed, in neutral words.
+Why: the maintainer asked for a popup when or after a crash; the panic hook's dialog misses
+a stack overflow, a failed allocation and a native crash, which a closing line catches with no
+monitor process. Neutral words, chosen by the maintainer over a boot-time check that would
+miss a crash followed by a restart: winit 0.30.13 and eframe 0.37 handle neither
+`WM_QUERYENDSESSION` nor `WM_ENDSESSION` (their sources hold neither), so a Windows shutdown
+with the window open also ends without the line.
+Plan: `plans/core/architecture.md` "Diagnostic logging"; ST-RUN-09.
