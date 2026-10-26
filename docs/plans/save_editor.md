@@ -341,13 +341,14 @@ all side by side.
 - Save with the save's own PES running asks first ("Writing a save while its game runs",
   below); another version's game asks nothing.
 - A save of another version than the sidebar's selector opens with a Warning notice in the
-  status bar naming both (SE-GUI-28); the save keeps its own version. The notice's action,
-  **Switch to PES 20xx** (the save's version), makes the same change the sidebar's selector
-  makes, its blockers included, after which there is nothing to warn about; its dismiss, or
-  another notice taking the bar (the member has seen it), hides it until another save is
-  opened. While shown it follows the selector: switched to the save's
-  version, by the action or by hand, it goes; switched to a third version, its text names that
-  one. A notice, not a banner under the
+  status bar naming both (SE-GUI-28); the save keeps its own version. The warning lives from
+  the save's opening until the member has seen it: its action, **Switch to PES 20xx** (the
+  save's version), which makes the same change the sidebar's selector makes, its blockers
+  included; its dismiss; or another notice taking the bar. While it lives it follows the
+  selector: shown whenever the selector names another version than the save's, its text
+  naming the selector's (a save opened under its own version too, once the selector moves
+  away), gone while the two match, back when they part again. Once it has ended, nothing
+  shows until another save is opened. A notice, not a banner under the
   toolbar: the status bar is where the shell's environment warnings already sit, and a banner
   pushed every view down a row. Not a switch on open: the selector also sets what the other
   tools target (the Team compiler's game), and a member opening an old save to look at it must
@@ -848,8 +849,9 @@ What this editor adds on top of the lib:
   violation selects the player (a `FieldedNotA` one his team's row, as Live AATF's does),
   switching the team selector to his team unless it is at ALL
   (the list must show the row it selects); team selection matches 4ccEditor (current team or a
-  multi-select list of the selector's teams). Current team is the selector's team, or with ALL
-  picked the selected row's team (a player's or a team row's own), as Live AATF reads it, not the first team the draft falls
+  multi-select list of the selector's teams). Current team is the selected row's team (a
+  player's or a team row's own; the filter lists other teams' rows than the selector's),
+  else the selector's team, as Live AATF reads it, not the first team the draft falls
   back to: the panel checks the team the view is editing. A **Show suggestions**
   toggle, off by default, lists unused allowances apart from errors and warnings (see
   "Suggestions" in the AATF rules plan). The panel is `team_widgets`' violations list, under
@@ -862,8 +864,8 @@ What this editor adds on top of the lib:
   file that does not load leaves the load error in the list's place, as the badges show it.
 - **Live AATF.** A toolbar toggle, off by default and remembered in the tool's settings
   (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
-  docked at the bottom of the view lists the open team's violations (with ALL picked, the
-  selected row's team: the one the view is editing), errors first, grouped per
+  docked at the bottom of the view lists the violations of the team the view is editing (the
+  selected row's team, else the selector's), errors first, grouped per
   player as the AATF panel does, under the header `N issues · <ruleset>`, or `<team> passes
   <ruleset> with no issues.` once the list is empty; clicking a row selects that player (a
   `FieldedNotA` row selects his team's row instead, the named preset shown on the first of
@@ -1041,7 +1043,9 @@ SE-GUI-08  GIVEN the save open on a team
            THEN the list shows the new order, and after Save slot 01 still holds player
                 `team id × 100 + 01`, whose record (name, stats, appearance but the face and
                 hair) is the one player 02 had, and the other way round; the roster's ids and shirt numbers are as they
-                were, and the AATF check reports no `RosterOrder` error for the team
+                were, and the AATF check reports no `RosterOrder` error for the team; GIVEN
+                ALL picked THEN the same drag has the same outcome, and WHEN player 02 is
+                dropped on a row of the next team instead THEN nothing moves
 SE-GUI-09  GIVEN the official ruleset active
            WHEN Make Gold is clicked on a player
            THEN his fields hold the Gold tier's values as `aatf::apply_tier` sets them
@@ -1217,10 +1221,14 @@ SE-GUI-28  GIVEN the selector at PES 19
            THEN the status bar shows a Warning notice naming both versions, the save keeps its
                 own version (its codec and its widgets' gating are PES 21's), and the selector's
                 setting is unchanged; WHEN the notice's "Switch to PES 2021" is clicked THEN the
-                selector's setting is PES 21 and the notice is gone; WHEN instead the selector is
-                set to PES 17 by hand THEN the notice names PES 2017 and PES 2021, and set to
-                PES 21 by hand it is gone; WHEN instead its dismiss is clicked THEN the notice
-                is gone and the setting unchanged, until another save is opened
+                selector's setting is PES 21 and the notice is gone, and the selector set back
+                to PES 19 by hand shows nothing; WHEN instead the selector is set to PES 17 by
+                hand THEN the notice names PES 2017 and PES 2021, set to PES 21 by hand it is
+                gone, and set back to PES 19 it shows again; WHEN instead its dismiss is
+                clicked THEN the notice is gone and the setting unchanged, and no selector
+                change brings it back until another save is opened; GIVEN the selector at
+                PES 21 WHEN the PES 21 save is opened and the selector then set to PES 19 THEN
+                the notice shows
 SE-GUI-29  manual  GIVEN a Texport written by SE-GUI-17's export from a PES 18, 19, 20 and 21
            save
            WHEN it is imported through the game's own team import, in that version
@@ -1233,9 +1241,10 @@ SE-GUI-30  GIVEN the PES 17 save open on a team with violations under the active
                 shown on a formation carrying the cross); WHEN an edit fixes one of them THEN the list stays,
                 marked `checking…`, until the check returns, its row then gone and N one less,
                 and an undo brings it back; WHEN another team is opened, or another rules file
-                chosen, THEN the list and N are that team's, or that ruleset's; with ALL picked
-                the panel checks the selected row's team (a player's or a team row's own;
-                nothing selected: `No team is open.`);
+                chosen, THEN the list and N are that team's, or that ruleset's; the panel checks
+                the selected row's team (a player's or a team row's own, another team's
+                when the filter lists it), else the selector's (with ALL picked and nothing
+                selected: `No team is open.`);
                 GIVEN the PES 15 save with a team that passes THEN the header reads `<team>
                 passes <ruleset> with no issues.`, and WHEN an edit breaks a rule and the last one is
                 fixed THEN it reads so again; WHEN the tool is reopened THEN Live AATF is
@@ -1259,7 +1268,9 @@ SE-GUI-37  GIVEN the PES 17 save open on team 701
                 WHEN the team's short name is edited THEN the team row carries the unsaved dot
                 and none of its players does; WHEN the team row is dragged onto a player row
                 THEN nothing moves; WHEN a player row is clicked THEN the player view shows,
-                its first line his id then his name, and no view draws "Save editor"
+                its first line his id then his name, under it General info, Skills and
+                Ability stats side by side left to right at the 1280 × 800 window, their tops
+                level, and Appearance closed below them; and no view draws "Save editor"
 SE-GUI-38  GIVEN the save, player 70101's name set to the colour code `\x11cff0000ff` then `AB`,
                 and his shirt name to 20 letters, before it is opened
            WHEN he is selected

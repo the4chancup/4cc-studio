@@ -141,7 +141,7 @@ is each tool's.
 Top to bottom:
 
 1. **4cc logo** — doubles as the About click target. About is a small popup holding the
-   *detailed* version block — `4cc Studio v1.4.0`, build kind (release, or `debug` from
+   *detailed* version block — `<app> v1.4.0` (the display name, "Window title"), build kind (release, or `debug` from
    `cfg!(debug_assertions)`), target triple, data location, selected PES version — with a
    **Copy** button that puts exactly that block on the clipboard for a bug report, and links to
    the release page, the repository and the help. No version is shown beside the logo itself: the
@@ -427,11 +427,14 @@ still working, and what it just finished. Red did this with the console title (`
 `Done - …`); the Studio does the same with more detail, from the same typed items the status bar
 uses, so it costs no new API:
 
+`<app>` is the suite's display name, Unlimited Tool Works in every release before 1.0.0
+(`development_plan.md` "The preview's codename"), the same here and in ST-TTL:
+
 | State | Title |
 |---|---|
-| Idle | `Save editor - 4cc Studio` (the active tool's name) |
-| A tool reports a `ToolActivity` | `Team compiler · 12/48 · 01:12 - 4cc Studio` |
-| Idle, window unfocused, a `Notice` arrived since focus was lost | `Compiled 48 teams - 4cc Studio` |
+| Idle | `Save editor - <app>` (the active tool's name) |
+| A tool reports a `ToolActivity` | `Team compiler · 12/48 · 01:12 - <app>` |
+| Idle, window unfocused, a `Notice` arrived since focus was lost | `Compiled 48 teams - <app>` |
 
 Rules:
 
@@ -735,7 +738,7 @@ Differences from the desktop build:
 - **A window on the page, not the page.** The browser is usually maximized, and the views are
   laid out for the desktop window's size ("Shell layout"), so stretched over the whole page
   they turn sparse. Studio Web draws the same shell (sidebar, tool view, status bar) inside one
-  `egui::Window` titled "4cc Studio" over a plain backdrop, at the desktop window's default
+  `egui::Window` titled with the display name (`<app>`, "Window title") over a plain backdrop, at the desktop window's default
   size, centered, movable and resizable, with a maximize button in its title bar that pins it
   to the whole page (`fixed_rect`) and restores the earlier rectangle. One shell function draws
   into either host: the desktop's root `Ui`, or this window's (`Panel::show` takes any `Ui`
@@ -946,13 +949,13 @@ ST-BAR-04   GIVEN three notices published in turn, one of each kind (Success, In
 ST-TTL-01   GIVEN a tool reporting a ToolActivity (label "Team compiler", 12 of 48 done, 72 s
                  elapsed)
             WHEN a frame is drawn
-            THEN the viewport title command reads "Team compiler · 12/48 · 01:12 - 4cc Studio",
+            THEN the viewport title command reads "Team compiler · 12/48 · 01:12 - <app>",
                  sent once and not again while the string is unchanged; GIVEN no activity and
-                 a stub tool "Stub A" active THEN "Stub A - 4cc Studio"
+                 a stub tool "Stub A" active THEN "Stub A - <app>"
 ST-TTL-02   GIVEN the window unfocused and no tool reporting an activity
             WHEN a notice "Compiled 48 teams" arrives
-            THEN the title reads "Compiled 48 teams - 4cc Studio" until the window gains focus,
-                 then the active tool's idle title ("<tool> - 4cc Studio"); GIVEN the window
+            THEN the title reads "Compiled 48 teams - <app>" until the window gains focus,
+                 then the active tool's idle title ("<tool> - <app>"); GIVEN the window
                  focused when it arrives THEN the title stays the idle one
 ST-TTL-03   GIVEN the window focused, two stub tools, the second's view active, and the first's
                  run on a thread of its own

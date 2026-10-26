@@ -2683,7 +2683,10 @@ briefs, review loops, gates and mutation runs as for any step.
       slots… a dialog), the quick actions under the list, drag under ALL within a team, the
       bench players only (`.tmp/0_0_1s/brief_0_0_1s3b.md`)
     - [ ] s3c the player view's three columns, the `<id> <name>` line, the counts; the team
-      view's tactics measured again at 1280 x 800
+      view's tactics measured again at 1280 x 800; the review's code follow-ups: both AATF
+      surfaces check the selected row's team, else the selector's (`aatf_check::current_team`,
+      the filter lists other teams' rows), and the Team menu and Ctrl+F act on a team row's
+      team too
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
