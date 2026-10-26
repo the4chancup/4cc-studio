@@ -8,7 +8,9 @@ empty `exports/` and `old_exports/` — under a temporary folder in cargo's targ
 (asked of `cargo metadata`, since a developer may have moved it), packs it as
 `<target>/dist/<name>-<version>-windows.7z` with a `sha256sum`-format `.sha256` beside it,
 then lists the archive and refuses unless the listing equals the staged set exactly, the empty
-folders included.
+folders included. Beside it it packs `<name>-<version>-symbols.7z` (the exe and its `.pdb`,
+the symbols `symbolize_log.py` names a posted `studio.log`'s backtrace with), never in the
+bundle.
 
 Every refusal prints one `error: <what>` line on stderr and exits 1: a platform that is not
 Windows, a version that is not the workspace's, a readme whose first line names another
@@ -32,6 +34,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 SEVEN_Z = Path(r"C:\Program Files\7-Zip\7z.exe")
+# The exe records this name for its symbols and `llvm-symbolizer` finds the .pdb beside
+# the exe by it, so the symbols archive keeps the build's name, not the bundle exe's.
+PDB_NAME = "4cc_studio.pdb"
 
 
 class Refusal(Exception):
@@ -55,6 +60,17 @@ def readme_names_version(readme: str, version: str) -> bool:
 
 def launcher_calls(bat: str, name: str) -> bool:
     return f'"%~dp0{name}.exe"' in bat
+
+
+def existing_glob(version: str) -> str:
+    # The bundle's `<name>-<version>-windows.7z`, its `.sha256` and the symbols'
+    # `<name>-<version>-symbols.7z`: a release is never overwritten, whatever its name.
+    return f"*-{version}-*.7z*"
+
+
+def symbols_entries(name: str) -> set[str]:
+    # Flat, so an "Extract here" gives `symbolize_log.py` the exe and its .pdb side by side.
+    return {f"{name}.exe", PDB_NAME}
 
 
 def expected_entries(name: str, version: str) -> set[str]:
@@ -120,8 +136,8 @@ def release(version: str) -> None:
         )
     target = target_dir()
     dist = target / "dist"
-    # Any name: the exe's, which names the archive, is known only once it is built.
-    existing = sorted(dist.glob(f"*-{version}-windows.7z*"))
+    # Any name: the exe's, which names the archives, is known only once it is built.
+    existing = sorted(dist.glob(existing_glob(version)))
     if existing:
         raise Refusal(
             f"{existing[0]} already exists; a release is never overwritten: remove it first"
@@ -191,6 +207,39 @@ def release(version: str) -> None:
         print(archive)
         print(checksum)
         print(f"{archive.stat().st_size} bytes")
+        # The symbols archive: the exe and its .pdb, kept out of the bundle for
+        # `symbolize_log.py` to name a posted log's frames against (the plan's
+        # distribution section). The .pdb keeps its build name, the one the exe records.
+        pdb = target / "release" / PDB_NAME
+        if not pdb.exists():
+            raise Refusal(f"{pdb} does not exist; the release's symbols cannot be packed")
+        symbols_stage = staging / "symbols"
+        symbols_stage.mkdir()
+        shutil.copyfile(top / f"{name}.exe", symbols_stage / f"{name}.exe")
+        shutil.copyfile(pdb, symbols_stage / PDB_NAME)
+        symbols = dist / f"{name}-{version}-symbols.7z"
+        pack = subprocess.run(
+            [seven_z, "a", "-t7z", "-mx=9", str(symbols), f"{name}.exe", PDB_NAME],
+            cwd=symbols_stage,
+        )
+        if pack.returncode != 0:
+            raise Refusal("7z a failed (symbols)")
+        listing = subprocess.run(
+            [seven_z, "l", "-slt", str(symbols)],
+            cwd=symbols_stage,
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        found = listing_paths(listing.stdout)
+        expected = symbols_entries(name)
+        if found != expected:
+            raise Refusal(
+                f"the symbols archive's listing differs "
+                f"(missing {sorted(expected - found)}, extra {sorted(found - expected)}); "
+                f"{symbols} is left for inspection"
+            )
+        print(symbols)
     finally:
         shutil.rmtree(staging)
 

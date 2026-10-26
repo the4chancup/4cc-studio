@@ -14,6 +14,7 @@ rust-version = "1.98"
 # "External Dependencies" table may be added (CONTRIBUTING.md "Dependencies").
 [workspace.dependencies]
 anyhow = "1.0.104"
+backtrace = "0.3.76"
 base64 = { version = "0.23.1", default-features = false, features = ["std"] }
 binrw = "0.15.2"
 block_compression = { version = "0.10.0", default-features = false, features = ["bc15", "bc7"] }
@@ -112,6 +113,12 @@ dbg_macro = "warn"
 print_stdout = "warn"
 print_stderr = "warn"
 todo = "warn"
+
+# The line tables land in the `.pdb` the release's symbols archive keeps, so
+# `symbolize_log.py` names a logged frame's file and line; they live in the `.pdb`
+# alone, leaving the exe's size as it was (core plan, "Distribution").
+[profile.release]
+debug = "line-tables-only"
 
 # Dependencies build without debug info; workspace crates keep theirs
 # (core plan, "Phase 1"; DECISIONS.md 2026-09-12 "dependencies build without debug info").

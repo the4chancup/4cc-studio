@@ -7,6 +7,7 @@ import unittest
 from pathlib import Path
 
 from release import (
+    existing_glob,
     expected_entries,
     exe_name,
     find_7z,
@@ -14,6 +15,7 @@ from release import (
     listing_paths,
     readme_names_version,
     sha256_line,
+    symbols_entries,
     workspace_version,
 )
 
@@ -76,6 +78,38 @@ class Pure(unittest.TestCase):
     def test_sha256_line(self) -> None:
         self.assertEqual(sha256_line("ab12cd", "a.7z"), "ab12cd  a.7z\n")
 
+    def test_symbols_entries(self) -> None:
+        self.assertEqual(
+            symbols_entries("UnlimitedToolWorks"),
+            {"UnlimitedToolWorks.exe", "4cc_studio.pdb"},
+        )
+
+    def test_existing_glob_covers_the_bundle_and_the_symbols(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            dist = Path(tmp)
+            for file in (
+                "Tiny-0.0.1-windows.7z",
+                "Tiny-0.0.1-windows.7z.sha256",
+                "Tiny-0.0.1-symbols.7z",
+            ):
+                (dist / file).write_bytes(b"x")
+            (dist / "Tiny-0.0.2-windows.7z").write_bytes(b"x")
+            self.assertEqual(
+                sorted(dist.glob(existing_glob("0.0.1"))),
+                sorted(
+                    dist / file
+                    for file in (
+                        "Tiny-0.0.1-windows.7z",
+                        "Tiny-0.0.1-windows.7z.sha256",
+                        "Tiny-0.0.1-symbols.7z",
+                    )
+                ),
+            )
+            self.assertEqual(
+                list(dist.glob(existing_glob("0.0.2"))),
+                [dist / "Tiny-0.0.2-windows.7z"],
+            )
+
 
 class Listing(unittest.TestCase):
     def test_a_packed_bundle_lists_the_staged_set(self) -> None:
@@ -114,6 +148,32 @@ class Listing(unittest.TestCase):
             expected = expected_entries("Tiny", "9.9.9")
             self.assertEqual(found, expected)
             self.assertNotEqual(found, expected - {"Tiny-9.9.9/README.txt"})
+
+    def test_a_packed_symbols_archive_lists_its_two_entries(self) -> None:
+        # The same argv `release.py` packs the symbols with: two bare names under the
+        # staging folder, so the archive's entries are flat.
+        seven_z = find_7z()
+        if seven_z is None:
+            self.fail("7-Zip not found: neither `7z` on PATH nor C:\\Program Files\\7-Zip\\7z.exe")
+        with tempfile.TemporaryDirectory() as tmp:
+            stage = Path(tmp)
+            (stage / "Tiny.exe").write_bytes(b"x")
+            (stage / "4cc_studio.pdb").write_bytes(b"y")
+            archive = stage / "tiny-symbols.7z"
+            subprocess.run(
+                [seven_z, "a", "-t7z", "-mx=9", str(archive), "Tiny.exe", "4cc_studio.pdb"],
+                cwd=stage,
+                check=True,
+                capture_output=True,
+            )
+            listing = subprocess.run(
+                [seven_z, "l", "-slt", str(archive)],
+                cwd=stage,
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            self.assertEqual(listing_paths(listing.stdout), symbols_entries("Tiny"))
 
 
 if __name__ == "__main__":

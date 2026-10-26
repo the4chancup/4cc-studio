@@ -2490,7 +2490,7 @@ briefs, review loops, gates and mutation runs as for any step.
   - [x] k1 the sink, the hook and the dialog: `crates/studio/src/gui_log.rs`, `main.rs`
     (`run_gui_mode` installs the log and the hook, `guard_gui` around the window);
     `studio_core` exports `version_label`. ST-RUN-07 proven
-  - [ ] k2 the backtrace as module base and offset (`backtrace` crate) in place of std's
+  - [x] k2 the backtrace as module base and offset (`backtrace` crate) in place of std's
     resolved `Backtrace`; `scripts/symbolize_log.py <log> <symbols folder>` over MSVC's
     `llvm-symbolizer`; the release profile's `debug = "line-tables-only"` and the recipe's
     `-symbols.7z` (`plans/core/distribution.md`, the release recipe's paragraph); the next
@@ -2498,7 +2498,11 @@ briefs, review loops, gates and mutation runs as for any step.
     2026-10-26 for a popup when or after a crash; DECISIONS 2026-10-26) → verify: ST-RUN-09; a
     test that the hook's lines read as base+offset; the script's tests; the release exe's
     size before and after the profile line (the probe's did not change; if ours grows,
-    report it)
+    report it). Done (SWE-2, one rework): `gui_log.rs` (`frame_line`, `backtrace_lines`,
+    the `session` closing lines, `InstalledLog`, `unclean_text`, `show_dialog` with the
+    unclean notice at `Info`), `main.rs`, `scripts/symbolize_log.py` and its test (run by
+    `doc-pointers`), `scripts/release.py`'s `-symbols.7z`; the release exe 39,195,648 B before,
+    39,195,136 after, the `.pdb` 17 MB to 117 MB (`plans/core/architecture.md`)
   - [ ] k3 ST-RUN-08 in the built window (manual, asked before it runs; with 0.0.1l's
     ST-RUN-04), on a release build with a panic added by hand: the dialog, exit 101, and the
     log's frames named by `symbolize_log.py` against that build's kept exe and `.pdb`; the

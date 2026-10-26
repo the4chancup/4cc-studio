@@ -67,6 +67,7 @@ citation-audit:
 # Gate 6: the section-pointer check's own tests, then the check (every `file.md` "Section" pointer resolves)
 doc-pointers:
     {{python}} scripts/doc_pointers_test.py
+    {{python}} scripts/symbolize_log_test.py
     {{python}} scripts/doc_pointers.py
 
 # Mutation run over one crate (converge); survivors are test gaps, equivalents or dead code; split with STUDIO_MUTANTS_REMOTE when set
@@ -110,7 +111,8 @@ deps-check:
     {{python}} scripts/deps_check.py
     cargo deny check licenses
 
-# The portable release bundle, target/dist/UnlimitedToolWorks-<version>-windows.7z and its .sha256; Windows only
+# The portable release bundle, target/dist/UnlimitedToolWorks-<version>-windows.7z, its .sha256
+# and the kept symbols' -symbols.7z beside it; Windows only
 release version:
     {{python}} scripts/release_test.py
     {{python}} scripts/release.py {{version}}

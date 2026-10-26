@@ -20,6 +20,7 @@ use anyhow::Context;
 use clap::ArgMatches;
 use crossbeam_channel::unbounded;
 use log::LevelFilter;
+use rfd::MessageLevel;
 use studio_core::icons;
 use studio_core::{
     AppPaths, EXE_NAME, LaunchMode, PlannedTool, SETTINGS_FILE_NAME, Settings, ShellCondition,
@@ -28,7 +29,9 @@ use studio_core::{
 };
 
 use crate::console::{spawn_notice_printer, spawn_printer};
-use crate::gui_log::{guard_gui, install_gui_logger, install_panic_hook, show_error_dialog};
+use crate::gui_log::{
+    guard_gui, install_gui_logger, install_panic_hook, show_dialog, unclean_text,
+};
 
 /// The suite's whole registry as data, in sidebar order (core plan, "Tool plugin
 /// interface"): the shell lists after the registered tools every entry whose id no
@@ -275,14 +278,22 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
     let (settings, paths) = match startup(&tools) {
         Ok(loaded) => loaded,
         Err((code, text)) => {
-            show_error_dialog(&text);
+            show_dialog(MessageLevel::Error, &text);
             return code;
         }
     };
     // The log and the hook go in before the window: the log needs the data location the
     // startup resolved, and the hook needs the log so a panic's line lands in it.
-    let log_path = install_gui_logger(paths.data_dir.as_deref());
+    let installed_log = install_gui_logger(paths.data_dir.as_deref());
     install_panic_hook();
+    // A previous session's log without a closing line means a crash the hook could not
+    // see, or a session Windows ended (ST-RUN-09): say so before the window opens,
+    // naming the old log.
+    if let Some(installed) = &installed_log
+        && installed.previous_unclean
+    {
+        show_dialog(MessageLevel::Info, &unclean_text(&installed.old_path()));
+    }
     // The receiver is dropped at once (the `_` pattern): a tool's run has its own sink
     // (`ToolContext::with_events`), and the notices the tools publish reach the status bar
     // through the requests channel — the shell consumes no run events of its own.
@@ -305,12 +316,15 @@ fn run_gui_mode(tools: Vec<Box<dyn StudioTool>>) -> ExitCode {
         )) {
             Ok(()) => ExitCode::SUCCESS,
             Err(error) => {
-                show_error_dialog(&format!("error: {error:#}"));
+                show_dialog(MessageLevel::Error, &format!("error: {error:#}"));
                 ExitCode::from(3)
             }
         },
-        log_path.as_deref(),
-        show_error_dialog,
+        installed_log
+            .as_ref()
+            .map(|installed| installed.path.as_path()),
+        |text| show_dialog(MessageLevel::Error, text),
+        log::logger(),
     )
 }
 

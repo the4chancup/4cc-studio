@@ -288,8 +288,10 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   which a position-independent exe loaded at a random base leaves unnamed; before the Linux
   bundle (1.0.0) the hook also writes one known function's address, from which the script
   finds the exe's load base. We do not ship the `.pdb`, deflated beside or inside the exe, because
-  either costs every member's download about 3.8 MB for a file only the maintainer reads,
-  and the inside variant also has the crash write 17 MB and point the backtrace at it.
+  either costs every member's download for a file only the maintainer reads: about 3.8 MB
+  deflated for the 17 MB `.pdb` without line tables, and the release's own, with them, is
+  117 MB (measured at 0.0.1k2); the inside variant also has the crash write it out and point
+  the backtrace at it.
 - A session that ends without a word is reported at the next start. The window's normal
   close writes a closing line as the log's last, and so does a crash after its dialog; at
   start, a previous log (`studio.old.log` once renamed) that does not end with one of the two
