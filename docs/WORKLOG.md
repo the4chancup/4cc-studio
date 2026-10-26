@@ -2783,7 +2783,9 @@ briefs, review loops, gates and mutation runs as for any step.
       with the second half's boxes; Playable positions' midfield in two rows, LMF AMF RMF /
       CMF DMF; and the third look: the pairs' halves 28 apart, the first keeping 168 points;
       the player view centred between the list and the window's right edge (32 points each
-      side in the draft) (`plans/save_editor.md` "Editing UI", the player view bullet)
+      side in the draft); and the fourth: a label and its field at least 9 points apart on a
+      pair, 12 on a label-left row and in Ability stats (26 points either side then)
+      (`plans/save_editor.md` "Editing UI", the player view bullet)
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

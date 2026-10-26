@@ -230,8 +230,9 @@ all side by side.
   1. **General info**, 350 points wide (the draft's: room for the longest pair label,
      "Injury resistance", beside its box on each half), laid out as 4ccEditor's General Info:
      Name, then Shirt, each a row with its label on the left and its field on the right; then
-     label-left pairs on two halves 28 points apart (the first 168 points wide, half of the
-     panel less 14), Height and Shirt number, Weight and Nation, Age and
+     label-left pairs on two halves 28 points apart (the first as wide as the label-left
+     rows' label column, their 12-point gap and a box, so its boxes start at the x those rows'
+     fields start at), Height and Shirt number, Weight and Nation, Age and
      Captain, each box 54 points wide: on the first half at the half's right edge, on the
      second just after a label column as wide as that half's longest label ("Shirt number"),
      so a short label (Nation, Form) keeps its box close; then Stronger foot, Stronger hand
@@ -245,10 +246,13 @@ all side by side.
      LMF AMF RMF / CMF DMF / LB CB RB / GK, the midfield in two, GK alone below the others),
      each row centred in the
      panel, each position's label centred over its ratings (over the B), the registered one
-     outlined; the chosen rating filled: A green, B the selection's blue, C a grey square, so
+     outlined, its corners rounded as the widgets' are (every frame and field in the view is
+     rounded; the theme's own radius, not a second one); the chosen rating filled: A green, B the selection's blue, C a grey square, so
      the three tell apart at a glance and an unrated position still shows its C.
      A field's label in these panels and in Ability stats is drawn in the normal text colour,
      as the checkboxes' labels are, not the weak one: the weak grey read too dark beside them.
+     A label and its field are never closer than 9 points on a pair and 12 in the label-left
+     rows and Ability stats; the room this takes comes off the margins either side of the centred view.
   2. **Skills**, the Cards left badge in its header, up to 41 checkboxes (version-gated) in two
      columns filled column by column; under it **COM playing styles**, the 7 in two columns
      whose second starts at the skills' second's x.

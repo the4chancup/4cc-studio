@@ -124,16 +124,17 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
    beside its box. */
 .gen { display: flex; flex-direction: column; gap: 6px; }
 .gen .gl.above { display: block; margin-bottom: 1px; }
-/* The first half keeps its 168 points (the half of 350 less 14: room for
-   "Injury resistance" beside its box); the halves are 28 apart. */
-.gen .pairs { display: grid; grid-template-columns: calc((100% - 14px) / 2) 1fr; column-gap: 28px; row-gap: 4px; }
+/* The first half as wide as the label-left rows' label column, their 12-point
+   gap and a box, so its boxes start at the x those rows' fields start at; the
+   halves are 28 apart. */
+.gen .pairs { display: grid; grid-template-columns: calc(107px + 12px + 54px) 1fr; column-gap: 28px; row-gap: 4px; }
 /* The count reads as part of its label, and keeps one width as it changes. */
 .gen .count { font-variant-numeric: tabular-nums; }
 /* The theme's warning colour mixed into the field's own, as the app draws
    it: a pale fill would wash the light text out. */
 .gen input.overlong { background: color-mix(in srgb, var(--extreme), var(--warn) 25%); }
 .gen input[type=text], .gen select { width: 100%; box-sizing: border-box; }
-.gen .pair { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.gen .pair { display: flex; align-items: center; justify-content: space-between; gap: 9px; }
 .gen .pair input[type=number], .gen .pair .box { width: 54px; box-sizing: border-box; flex: none; }
 /* The second half's pairs: the box just after a label column as wide as
    the half's longest label, "Shirt number", rather than on the half's right
@@ -141,7 +142,7 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
    AATF's cross sits at the label column's right end (the longest label,
    Shirt number, is about no violation, so it never meets the cross). */
 .gen .pairs > .pair:nth-child(even) { display: grid; grid-template-columns: 72px 54px;
-  column-gap: 6px; justify-content: start; }
+  column-gap: 9px; justify-content: start; }
 .gen .pairs > .pair:nth-child(even) .boxed { display: contents; }
 .gen .pairs > .pair:nth-child(even) > .gl { grid-column: 1; grid-row: 1; }
 .gen .pairs > .pair:nth-child(even) .xmark { grid-column: 1; grid-row: 1; justify-self: end; }
@@ -150,10 +151,10 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 /* The label-left rows (Name and Shirt above the pairs, Stronger foot and the
    combos below them): one label column as wide as the longest of their labels,
    "Registered position", so every field starts at one x, and every field ending
-   flush with the second half's boxes (the half, the 28-point gap, its 72-point
-   label column, 6, the 54-point box), not on the panel's right edge. */
-.gen .combos { display: grid; grid-template-columns: 107px 1fr; column-gap: 8px;
-  row-gap: 4px; align-items: center; width: calc((100% - 14px) / 2 + 28px + 72px + 6px + 54px); }
+   flush with the second half's boxes (the first half, the 28-point gap, its
+   72-point label column, 9, the 54-point box), not on the panel's right edge. */
+.gen .combos { display: grid; grid-template-columns: 107px 1fr; column-gap: 12px;
+  row-gap: 4px; align-items: center; width: calc(107px + 12px + 54px + 28px + 72px + 9px + 54px); }
 .gen .combos > span:not(.gl), .gen .combos .gate > span { display: block; }
 .info-grid td { padding: 1px 6px 1px 0; }
 .info-grid input[type=text] { width: 190px; }
@@ -161,7 +162,9 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .info-grid input[type=number] { width: 46px; }
 td.ilabel { text-align: right; padding-left: 10px; }
 td.ilabel:first-child { padding-left: 0; }
-.stats-grid td { padding: 1px 8px 1px 0; }
+/* Each cell 6 a side, so a label and its box are at least 12 apart (the host's
+   table.grid td rule, 4 a side, would win over a plainer selector). */
+table.grid.stats-grid td { padding: 2px 6px; }
 .stats-grid input[type=number] { width: 40px; }
 /* The positions in four rows by line of the pitch, left wing to right wing,
    GK alone in the last; each row centred in the panel, each label centred
@@ -170,7 +173,7 @@ td.ilabel:first-child { padding-left: 0; }
 #pos-grid .posrow { display: flex; justify-content: center; gap: 4px; }
 #pos-grid .poscell { width: 62px; padding: 2px 3px 3px; box-sizing: border-box;
   display: flex; flex-direction: column; align-items: center; }
-#pos-grid .poscell.reg { outline: 1px solid var(--sel-fg); }
+#pos-grid .poscell.reg { outline: 1px solid var(--sel-fg); border-radius: 3px; }
 #pos-grid .plabel { margin-bottom: 2px; text-align: center; }
 .rate { display: inline-flex; gap: 1px; }
 .rate .sel { padding: 0 5px; }
