@@ -2556,3 +2556,5 @@ worklog passed 7,000 lines.
   first line says it is a Rhai script, and the repository's sources keep `.rhai` (0.0.1t).
 - **2026-10-26** — Live AATF marks the editor itself: a cross or check mark on each checked row of the list, a cross
   beside the field a selected player's violation is about, and the toggle a framed button (0.0.1o2a).
+- **2026-10-26** — The player view's last review findings: four tests that passed on a wrong layout or a stale
+  error now assert what they claim, and a pair row's unused second width is gone (0.0.1s3k).

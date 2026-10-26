@@ -1166,6 +1166,23 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
         label_value(&nodes, &expected),
         "the dialog's body is the check's error"
     );
+
+    // The rules file then fails to load (a member's edit, a moved
+    // file): neither the badge nor the error line stays drawn — the
+    // quick actions' red line carries the load error.
+    let bad = path.with_file_name("bad.4ccrules");
+    std::fs::write(&bad, "this is no ruleset").unwrap();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
+    });
+    assert!(
+        !in_skills_column(&nodes, "Cards left"),
+        "no stale badge under the load error"
+    );
+    assert!(
+        !in_skills_column(&nodes, LINE),
+        "no stale tier-error line under the load error"
+    );
 }
 
 // The same bullet: the Skills header stays clean at the pane the shell

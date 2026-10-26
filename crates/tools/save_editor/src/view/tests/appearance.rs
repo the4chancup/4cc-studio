@@ -209,7 +209,7 @@ fn the_section_is_locked_on_a_pre_fox_save_with_the_patch_step() {
     });
     let ownership_hover = right_of_label(&nodes, "Chest", Role::SpinButton)[0];
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(ownership_hover), "The team's export"),
+        tooltip_containing(&mut window, &mut view, centre(ownership_hover), "The team's export", None),
         Some(
             "The team's export owns the aesthetics, so edit its settings.toml and recompile, then apply the patch."
                 .to_string()

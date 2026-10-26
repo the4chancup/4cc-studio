@@ -286,7 +286,13 @@ fn the_locked_savefile_menu_disables_fix_database_only() {
         "Fix database is disabled under the lock"
     );
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(item), "The team's export"),
+        tooltip_containing(
+            &mut window,
+            &mut view,
+            centre(item),
+            "The team's export",
+            None
+        ),
         Some(
             "The team's export owns the aesthetics, so edit its settings.toml and recompile."
                 .to_string(),

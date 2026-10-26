@@ -470,7 +470,7 @@ fn the_shirt_hover_names_the_limit_the_field_enforces() {
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let shirt = shirt_field(&nodes);
-    let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to");
+    let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to", None);
     assert_eq!(
         tooltip,
         Some(
@@ -492,7 +492,7 @@ fn the_pes16_shirt_hover_names_its_own_field() {
     let mut window = Headless::new();
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let shirt = shirt_field(&nodes);
-    let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to");
+    let tooltip = tooltip_containing(&mut window, &mut view, centre(shirt), "Up to", None);
     assert_eq!(
         tooltip,
         Some(
@@ -582,13 +582,25 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         visuals.warn_fg_color,
         "the shirt count is drawn in the warning colour"
     );
-    // The field's hover names the portable limit.
+    // The field's hover names the portable limit; the counted label
+    // carries the same one (the plan's "the field and its count carry
+    // one hover").
     let tooltip = tooltip_after_hover(&mut window, &mut view, centre(shirt));
     assert_eq!(
         tooltip,
         Some("PES 2019 and older show 18 letters of a shirt name (PES 2016 shows 16)".to_owned()),
         "the shirt hover"
     );
+    let count = label_bounds(&nodes, "Shirt (20/18)");
+    let label_tip = tooltip_after_hover(
+        &mut window,
+        &mut view,
+        egui::pos2(
+            ((count.x0 + count.x1) / 2.0) as f32,
+            ((count.y0 + count.y1) / 2.0) as f32,
+        ),
+    );
+    assert_eq!(label_tip, tooltip, "the count's hover is the field's");
 
     // A letter deleted: the count follows the field, still tinted.
     click(&mut window, shirt, &mut view);
@@ -667,6 +679,17 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         )),
         "the name's crop hover"
     );
+    // The counted label carries the same hover.
+    let count = label_bounds(&nodes, "Name (47/61)");
+    let label_tip = tooltip_after_hover(
+        &mut window,
+        &mut view,
+        egui::pos2(
+            ((count.x0 + count.x1) / 2.0) as f32,
+            ((count.y0 + count.y1) / 2.0) as f32,
+        ),
+    );
+    assert_eq!(label_tip, tooltip, "the count's hover is the field's");
 
     // An accented letter counts its units: É is two UTF-8 bytes in the
     // Name's byte count and one letter in the Shirt's letter count.

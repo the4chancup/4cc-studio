@@ -389,7 +389,7 @@ fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
         let button = node_labeled(&nodes, Role::Button, label);
         assert!(button.is_disabled(), "{label} disabled on a team row");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(button), "make buttons"),
+            tooltip_containing(&mut window, &mut view, centre(button), "make buttons", None),
             Some(tip.to_string()),
             "{label}'s tooltip"
         );
@@ -397,7 +397,7 @@ fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
     let field = set_stats_field(&nodes);
     assert!(field.is_disabled(), "the number disabled too");
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(field), "make buttons"),
+        tooltip_containing(&mut window, &mut view, centre(field), "make buttons", None),
         Some(tip.to_string()),
         "the number's tooltip"
     );
@@ -415,7 +415,13 @@ fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
         let item = menu_item(&nodes, label);
         assert!(item.is_disabled(), "{label} disabled on a team row");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(item), "acts on a player"),
+            tooltip_containing(
+                &mut window,
+                &mut view,
+                centre(item),
+                "acts on a player",
+                None
+            ),
             Some("The Player menu acts on a player: pick a player row".to_string()),
             "{label}'s tooltip"
         );
@@ -1078,11 +1084,18 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
         "the long label elides in its half ({bounds:?})"
     );
     // The elided label's tooltip names the tier (the plan's "its
-    // tooltip names the tier" — the tier's own name, "Gold", not the
-    // button's text).
+    // tooltip names the tier").
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(wide_button), "tier's values"),
-        Some("The Gold tier's values (the active ruleset)".to_string()),
+        tooltip_containing(
+            &mut window,
+            &mut view,
+            centre(wide_button),
+            "tier's values",
+            Some(wide.as_path())
+        ),
+        Some(format!(
+            "The {WIDE_TIER} tier's values (the active ruleset)"
+        )),
         "the elided button's tooltip"
     );
 }

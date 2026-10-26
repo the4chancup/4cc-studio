@@ -1098,7 +1098,13 @@ fn the_locked_team_menu_disables_the_aesthetics_items_with_the_ownership_line() 
             .unwrap_or_else(|| panic!("no menu item {label:?}"));
         assert!(item.is_disabled(), "{label} is disabled under the lock");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(item), "The team's export"),
+            tooltip_containing(
+                &mut window,
+                &mut view,
+                centre(item),
+                "The team's export",
+                None
+            ),
             Some(
                 "The team's export owns the aesthetics, so edit its settings.toml and recompile."
                     .to_string(),

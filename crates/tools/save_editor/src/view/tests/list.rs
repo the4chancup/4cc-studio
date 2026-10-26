@@ -937,6 +937,14 @@ fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
     let mut window = Headless::new();
     let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let (before, _) = pane_frame(&shapes, window.screen);
+    // The list is the plan's fixed 240 wide: the pane's left edge — the
+    // list's right edge, measured from the window's left edge — sits at
+    // the window panel's margin plus the 240.
+    let list_edge = f64::from(PANEL_MARGIN) + 240.0;
+    assert!(
+        (before - list_edge).abs() <= 1.0,
+        "the list is 240 wide ({before} vs {list_edge})"
+    );
 
     // A drag from the list's right edge 80 points to the right.
     let from = egui::pos2(before as f32, 400.0);
@@ -945,7 +953,7 @@ fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
     let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let (after, _) = pane_frame(&shapes, window.screen);
     assert!(
-        (after - before).abs() < 1.0,
-        "the drag left the list at its width ({before} vs {after})"
+        (after - list_edge).abs() <= 1.0,
+        "the drag left the list at 240 ({after} vs {list_edge})"
     );
 }

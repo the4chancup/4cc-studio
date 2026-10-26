@@ -2835,6 +2835,13 @@ briefs, review loops, gates and mutation runs as for any step.
         caught, 4 missed, all `half_width`'s second-half arm, never observed (its removal
         queued with round S6's rework). Built window rechecked at 1280 x 800
         (`.tmp/0_0_1s/s3j_r1_open.png`): 31 px after the list, 31 after Ability stats
+    - [x] s3k the last findings: SWE-2 round S6 (1 of 1 accepted: the halved-columns test's
+      tooltip read the official ruleset's button) and Astra A2 (3 of 5: the list's 240 never
+      asserted, a stale tier error after the rules file stops loading untested, the counted
+      labels' hover untested), and `half_width`'s dead second arm removed (the second half
+      lays out at its content's width). Done 2026-10-26 (SWE-2); rulings
+      `.tmp/0_0_1s/s3_rulings.md`. Open: the post-Astra SWE-2 round over s3k, the step's
+      mutation run (grouped with o2a's), s3's close
 - [x] 0.0.1t a rules file a member handles ends in `.4ccrules` (the maintainer, 2026-10-26;
   DECISIONS "A rules file a member handles ends in `.4ccrules`"; `plans/aatf_rules.md` "The
   rules file"): the Save editor's settings row and AATF panel and the Ruleset editor's pickers

@@ -396,8 +396,10 @@ fn pair_row(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
     });
 }
 
-/// Which of a pair row's two halves a pair sits on: the first puts its
-/// box on the half's right edge, the second just after the label column.
+/// Which of a pair row's two halves a pair sits on: the first takes the
+/// half's own width and puts its box on its right edge, the second — the
+/// row's last item — takes only what its content draws, just after its
+/// label column.
 #[derive(Clone, Copy)]
 enum Half {
     /// The row's left half (the draft's `.pair` flex row).
@@ -406,9 +408,11 @@ enum Half {
     Second,
 }
 
-/// One `label`-left pair on a `half_width` half: the label at the half's
-/// left; on `Half::First` `add_box`'s 54-wide box on the half's right
-/// edge, on `Half::Second` just after the `label_width(NUMBER_LABEL)` label
+/// One `label`-left pair of a `pair_row`: the label at the half's left;
+/// on `Half::First` `add_box`'s 54-wide box on the half's right edge (the
+/// half is the label-left rows' label column, their 12 and a box wide,
+/// so its boxes start at the x those rows' fields start at), on
+/// `Half::Second` just after the `label_width(NUMBER_LABEL)` label
 /// column and its gap, so both panels' second-half boxes share one x.
 /// `mark` is the field Live AATF's cross is about on this half, painted
 /// where the plan bullet puts it — just left of the box on a first half,
@@ -420,61 +424,55 @@ fn pair_half(
     mark: Option<(Marks<'_>, MarkedField)>,
     add_box: impl FnOnce(&mut egui::Ui),
 ) {
-    ui.allocate_ui(
-        egui::vec2(half_width(ui, half), ui.spacing().interact_size.y),
-        |ui| {
-            ui.horizontal(|ui| {
-                match half {
-                    Half::First => {
-                        ui.label(label);
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), add_box);
-                        if let Some((marks, field)) = mark {
-                            let cross = live_marks::cross_width(ui);
-                            marks.paint(
-                                ui,
-                                egui::Rect::from_min_size(
-                                    egui::pos2(
-                                        ui.max_rect().max.x
-                                            - BOX_WIDTH
-                                            - live_marks::MARK_GAP
-                                            - cross,
-                                        ui.max_rect().min.y,
-                                    ),
-                                    egui::vec2(cross, ui.max_rect().height()),
+    match half {
+        Half::First => {
+            let width = label_width(ui, REGISTERED_POSITION_LABEL) + FIELD_ROW_GAP + BOX_WIDTH;
+            ui.allocate_ui(egui::vec2(width, ui.spacing().interact_size.y), |ui| {
+                ui.horizontal(|ui| {
+                    ui.label(label);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), add_box);
+                    if let Some((marks, field)) = mark {
+                        let cross = live_marks::cross_width(ui);
+                        marks.paint(
+                            ui,
+                            egui::Rect::from_min_size(
+                                egui::pos2(
+                                    ui.max_rect().max.x - BOX_WIDTH - live_marks::MARK_GAP - cross,
+                                    ui.max_rect().min.y,
                                 ),
-                                field,
-                            );
-                        }
+                                egui::vec2(cross, ui.max_rect().height()),
+                            ),
+                            field,
+                        );
                     }
-                    Half::Second => {
-                        ui.spacing_mut().item_spacing.x = 0.0;
-                        let response = ui.label(label);
-                        let column = label_width(ui, NUMBER_LABEL);
-                        // The draft's `.pair:nth-child(even)` grid: the box after a
-                        // label column `label_width(NUMBER_LABEL)` wide and its gap, so
-                        // both panels' second-half boxes share one x. `add_space`
-                        // advances the cursor outright, no item spacing.
-                        ui.add_space((column + SECOND_LABEL_GAP - response.rect.width()).max(0.0));
-                        if let Some((marks, field)) = mark {
-                            let cross = live_marks::cross_width(ui);
-                            marks.paint(
-                                ui,
-                                egui::Rect::from_min_size(
-                                    egui::pos2(
-                                        response.rect.min.x + column - cross,
-                                        ui.max_rect().min.y,
-                                    ),
-                                    egui::vec2(cross, ui.max_rect().height()),
-                                ),
-                                field,
-                            );
-                        }
-                        add_box(ui);
-                    }
-                }
+                });
             });
-        },
-    );
+        }
+        Half::Second => {
+            ui.horizontal(|ui| {
+                ui.spacing_mut().item_spacing.x = 0.0;
+                let response = ui.label(label);
+                let column = label_width(ui, NUMBER_LABEL);
+                // The draft's `.pair:nth-child(even)` grid: the box after a
+                // label column `label_width(NUMBER_LABEL)` wide and its gap, so
+                // both panels' second-half boxes share one x. `add_space`
+                // advances the cursor outright, no item spacing.
+                ui.add_space((column + SECOND_LABEL_GAP - response.rect.width()).max(0.0));
+                if let Some((marks, field)) = mark {
+                    let cross = live_marks::cross_width(ui);
+                    marks.paint(
+                        ui,
+                        egui::Rect::from_min_size(
+                            egui::pos2(response.rect.min.x + column - cross, ui.max_rect().min.y),
+                            egui::vec2(cross, ui.max_rect().height()),
+                        ),
+                        field,
+                    );
+                }
+                add_box(ui);
+            });
+        }
+    }
 }
 
 /// `label`'s galley width at the body font (the panels' label columns
@@ -503,16 +501,6 @@ pub(super) fn general_content_width(ui: &egui::Ui) -> f32 {
         + 2.0 * BOX_WIDTH
         + PAIR_HALF_GAP
         + SECOND_LABEL_GAP
-}
-
-/// A pair half's width: the first is the label-left rows' label column,
-/// their 12 and a box (so its boxes start at the x those rows' fields
-/// start at), the second its label column, the 9 and a box.
-fn half_width(ui: &egui::Ui, half: Half) -> f32 {
-    match half {
-        Half::First => label_width(ui, REGISTERED_POSITION_LABEL) + FIELD_ROW_GAP + BOX_WIDTH,
-        Half::Second => label_width(ui, NUMBER_LABEL) + SECOND_LABEL_GAP + BOX_WIDTH,
-    }
 }
 
 /// One pair's 54-wide `DragValue` over `shown` capped at `max`; a change

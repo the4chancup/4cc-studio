@@ -376,7 +376,7 @@ fn the_marks_follow_the_held_check() {
         assert_eq!(galley_color(mark), color, "{name}'s mark's colour");
         let tip_at = egui::pos2(mark.pos.x + 2.0, mark.pos.y + 2.0);
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, tip_at, tip).as_deref(),
+            tooltip_containing(&mut window, &mut view, tip_at, tip, None).as_deref(),
             Some(tip),
             "{name}'s mark's tooltip"
         );
@@ -409,7 +409,7 @@ fn the_marks_follow_the_held_check() {
     );
     let tip_at = egui::pos2(cross.pos.x + 2.0, cross.pos.y + 2.0);
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, tip_at, "takes no bracket").as_deref(),
+        tooltip_containing(&mut window, &mut view, tip_at, "takes no bracket", None).as_deref(),
         Some("Height: height 183 takes no bracket"),
         "the cross's tooltip is the violation's line"
     );
@@ -708,7 +708,7 @@ fn the_teams_own_violations_mark_the_team_row() {
         .expect("a `✖` on the team row");
     let tip_at = egui::pos2(mark.pos.x + 2.0, mark.pos.y + 2.0);
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, tip_at, "3 errors").as_deref(),
+        tooltip_containing(&mut window, &mut view, tip_at, "3 errors", None).as_deref(),
         Some("3 errors"),
         "the team's own count: the three tier counts"
     );

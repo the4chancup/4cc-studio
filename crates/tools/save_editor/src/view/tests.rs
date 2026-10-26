@@ -717,10 +717,11 @@ fn tooltip_after_hover(
     view: &mut SaveView,
     pos: egui::Pos2,
 ) -> Option<String> {
-    tooltip_containing(window, view, pos, "PES ")
+    tooltip_containing(window, view, pos, "PES ", None)
 }
 
-/// `tooltip_after_hover` filtered to the tooltip node holding `needle`.
+/// `tooltip_after_hover` filtered to the tooltip node holding `needle`,
+/// drawn under `rules` (`None`: the embedded official ruleset).
 /// The hover must add a node holding `needle` to the frame the pointer
 /// left from: a label the view always draws with the same text (the
 /// ownership line, an error line) is counted there already, so it cannot
@@ -730,6 +731,7 @@ fn tooltip_containing(
     view: &mut SaveView,
     pos: egui::Pos2,
     needle: &str,
+    rules: Option<&Path>,
 ) -> Option<String> {
     let holding = |nodes: &[accesskit::Node]| -> Vec<String> {
         nodes
@@ -740,15 +742,15 @@ fn tooltip_containing(
             .collect()
     };
     let (_, resting, _) = window.frame(vec![egui::Event::PointerMoved(egui::Pos2::ZERO)], |ui| {
-        show(ui, view, &|| Vec::new(), None)
+        show(ui, view, &|| Vec::new(), rules)
     });
     let resting = holding(&resting);
     window.frame(vec![egui::Event::PointerMoved(pos)], |ui| {
-        show(ui, view, &|| Vec::new(), None)
+        show(ui, view, &|| Vec::new(), rules)
     });
     let count = |values: &[String], value: &String| values.iter().filter(|v| *v == value).count();
     for _ in 0..90 {
-        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
         let values = holding(&nodes);
         if let Some(added) = values
             .iter()

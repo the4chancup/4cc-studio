@@ -976,7 +976,13 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
         let button = fpc_button(&nodes, label);
         assert!(button.is_disabled(), "{label} is disabled under the lock");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(button), "The team's export"),
+            tooltip_containing(
+                &mut window,
+                &mut view,
+                centre(button),
+                "The team's export",
+                None
+            ),
             Some(
                 "The team's export owns the aesthetics, so edit its settings.toml and recompile."
                     .to_string(),
@@ -994,7 +1000,13 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
         "the toggle is disabled under the lock"
     );
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(toggle), "The team's export"),
+        tooltip_containing(
+            &mut window,
+            &mut view,
+            centre(toggle),
+            "The team's export",
+            None
+        ),
         Some(
             "The team's export owns the aesthetics, so edit its settings.toml and recompile."
                 .to_string(),
@@ -1019,7 +1031,13 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
         let item = menu_item(&nodes, label);
         assert!(item.is_disabled(), "{label} is disabled under the lock");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(item), "The team's export"),
+            tooltip_containing(
+                &mut window,
+                &mut view,
+                centre(item),
+                "The team's export",
+                None
+            ),
             Some(
                 "The team's export owns the aesthetics, so edit its settings.toml and recompile."
                     .to_string(),
@@ -1174,7 +1192,13 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
         let button = fpc_button(&nodes, label);
         assert!(button.is_disabled(), "{label} is disabled");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(button), "fpc_hide_boots_id"),
+            tooltip_containing(
+                &mut window,
+                &mut view,
+                centre(button),
+                "fpc_hide_boots_id",
+                None
+            ),
             Some(error.clone()),
             "{label}'s hover adds a tooltip holding the error's text"
         );
@@ -1186,7 +1210,13 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
     let toggle = menu_item(&nodes, "Toggle FPC settings");
     assert!(toggle.is_disabled());
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(toggle), "fpc_hide_boots_id"),
+        tooltip_containing(
+            &mut window,
+            &mut view,
+            centre(toggle),
+            "fpc_hide_boots_id",
+            None
+        ),
         Some(error.clone()),
         "the toggle's hover adds a tooltip holding the error's text"
     );
@@ -1201,7 +1231,13 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
         let item = menu_item(&nodes, label);
         assert!(item.is_disabled(), "{label} is disabled");
         assert_eq!(
-            tooltip_containing(&mut window, &mut view, centre(item), "fpc_hide_boots_id"),
+            tooltip_containing(
+                &mut window,
+                &mut view,
+                centre(item),
+                "fpc_hide_boots_id",
+                None
+            ),
             Some(error.clone()),
             "{label}'s hover adds a tooltip holding the error's text"
         );
