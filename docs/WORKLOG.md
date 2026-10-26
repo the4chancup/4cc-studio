@@ -2753,6 +2753,10 @@ briefs, review loops, gates and mutation runs as for any step.
       tooltip off); it now counts against the resting frame. Files: `team_widgets/src/cards.rs`,
       `save_editor/src/view/{abilities,quick_actions}.rs`, `help/{02_window,05_team}.md`, the
       tests
+    - [ ] s3h a rules error is a red line whose click opens the error (the maintainer's look at
+      the draft, 2026-10-26; DECISIONS "A rules load error is a red line whose click opens the
+      error"): the quick actions' line and its dialog, no Cards left badge on a load error, the
+      tier check's failure in the same shape (`.tmp/0_0_1s/brief_0_0_1s3h.md`)
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

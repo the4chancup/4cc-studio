@@ -96,9 +96,10 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .plist .rows .trow { background: var(--faint); font-weight: bold; color: var(--strong); }
 .plist .rows .trow .swatch { width: 10px; height: 10px; flex: none; }
 .plist .qagrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; }
-/* The rules file's load error: one line across the list, elided (egui's
-   Label::truncate), its whole text on hover. */
-.plist .qaerr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
+/* The rules file's load error: a wrapped label in the error colour across
+   the list (two lines at 240 points), a click opening the whole error
+   (egui: a Label with Sense::click and the pointing-hand cursor). */
+.plist .qaerr { color: var(--error); cursor: pointer; margin-bottom: 4px; }
 .detail { flex: 1; min-width: 0; }
 /* The player view's fixed columns: General info over Playable positions,
    the skills in two with the COM styles and the non-ability values under
@@ -2334,7 +2335,9 @@ function cardLimits(p, t, tier) {
 // error colour when overdrawn. sample wording: the tooltip.
 function cardBadges(p, t) {
   // A rules file that does not load: its whole error in the badge's place.
-  if (D.rulesBroken) return h("span", { class: "weak", id: "card-badges" }, RULES_LOAD_ERROR);
+  // A rules file that does not load: no badge (the quick actions under the
+  // list say so, and the error's text would push the header's row apart).
+  if (D.rulesBroken) return null;
   const tier = recognizedTier(p, RULESETS[D.ruleset]);
   return h("span", { class: "row", id: "card-badges",
       title: "Cards left under the player's own tier of the active ruleset (paid cards vs its limit)" },
@@ -3410,24 +3413,30 @@ function playerHeader(p) {
   return h("div", { class: "pheader strong", style: "margin-bottom:4px" },
     h("span", { class: "weak" }, String(p.id)), " ", ...nameSpans(p.name));
 }
+// A rules file's load error as the lib reports it, the file's path first: the
+// dialog behind the quick actions' error line shows it whole. sample wording:
+// the folder in the path.
+const RULES_LOAD_ERROR = "C:\\Games\\4cc Studio\\rules\\dbc7.rhai: 1:1: 'this' can only be used"
+  + " in functions (line 1, position 1)";
+function dlgRulesError() {
+  dlg("rules-error", "The AATF rules file could not be loaded",
+    h("p", { class: "mono" }, RULES_LOAD_ERROR), [button("OK", closeWindow)]);
+}
 // One "Make X" per tier of the active ruleset in its order, plus Set stats
 // (SE-GUI-09), in two columns under the player list. They act on the selected
 // player, so a team row leaves them disabled with the reason on hover.
-// The view's wording for a rules file that does not load (mod.rs's
-// rules_load_error), then the lib's error as a script error reads. sample
-// wording: the folder in the path.
-const RULES_LOAD_ERROR = "The AATF rules file could not be loaded: "
-  + "C:\\Games\\4cc Studio\\rules\\dbc7.rhai: 1:1: 'this' can only be used in functions (line 1, position 1)";
 function quickActions() {
   const p = curPlayer(), off = isTeamSel();
-  // A rules file that does not load: no tier buttons, Set stats alone, the
-  // error one line across the list above it, elided, its whole text on
-  // hover (about 160 characters: wrapped, it took ten lines of the list).
+  // A rules file that does not load: no tier buttons, Set stats alone, and
+  // above it a line in the error colour, wrapped across the list, whose
+  // click opens the whole error (about 160 characters, the file's path
+  // first: wrapped in the list it took ten lines).
   if (D.rulesBroken) {
     const input = h("input", { type: "number", id: "set-stats", value: 77, min: 0, max: 99,
       disabled: off, title: off ? "The make buttons act on a player: pick a player row" : null });
     return h("div", { id: "quick-actions", "data-panel": "quick-actions" },
-      h("div", { class: "weak qaerr", title: RULES_LOAD_ERROR }, RULES_LOAD_ERROR),
+      h("div", { class: "qaerr", onclick: dlgRulesError },
+        "The AATF rules file could not be loaded, click here for more information."),
       h("div", { class: "qagrid" }, h("div", { class: "row" },
         button("Set stats", () => {
           const n = parseInt(input.value, 10);

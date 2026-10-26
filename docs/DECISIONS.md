@@ -11492,3 +11492,18 @@ only way left to narrow the view, and nothing a member does needs a wider list (
 maintainer, 2026-10-26). The fallbacks a narrower view needed (the three columns' wrap, the
 card panels' one column) become unreachable; step 0.0.1m2's audit keeps or removes each.
 Plan: `plans/save_editor.md` "Editing UI", the Player list bullet.
+
+## 2026-10-26 — save_editor — A rules load error is a red line whose click opens the error
+Decision: replaces "The quick actions' load error is one elided line, its text on hover". A
+rules file that does not load leaves, above Set stats, `The AATF rules file could not be
+loaded, click here for more information.` in the error colour, wrapped across the list (two
+lines), its click opening a dialog with the error; the Cards left badge draws nothing then. A
+tier check that fails on the player keeps its place in the badge in the same shape: `Tier check
+failed, click for more information.` in red, a dialog with the error.
+Why: the elided line was weak text, read as a note, and nothing in it said the rest was a hover
+away; an error is red and says where its detail is (the maintainer's look at the draft,
+2026-10-26). The error's text beside the Skills title pushed the column's header apart, and the
+quick actions already report the file. The tier check's failure is the same kind of message in
+the same header, so it takes the same shape: shown nowhere else, it cannot simply go.
+Plan: `plans/save_editor.md` "Editing UI", the quick actions bullet and the Cards left badge
+bullet; the rules-file scenario's THEN.

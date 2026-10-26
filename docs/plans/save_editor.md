@@ -285,10 +285,13 @@ all side by side.
     `aatf_rules` setting's file, else the official one), and reads the player's own tier
     alone (`Gold: 6 of 8 cards`; `No tier matches` when none does): the tier his stats,
     registered position and height match under that ruleset, as `check-aatf` recognizes it,
-    not one badge per tier, which a member had to match to the player by eye; a file that
-    does not load, or whose tier check fails on the player, shows its error in the badge's
-    place (the AATF check never runs the two functions the badge asks, so a member's edit
-    that breaks only them would otherwise show nowhere).
+    not one badge per tier, which a member had to match to the player by eye. A file that
+    does not load draws no badge: the quick actions under the list say so, and the error's
+    text beside the Skills title pushed the column's header apart. A tier check that fails on
+    the player shows `Tier check failed, click for more information.` in the error colour in
+    the badge's place, its click opening a dialog titled `The tier check failed` with the
+    error (the AATF check never runs the two functions the badge asks, so a member's edit that
+    breaks only them would otherwise show nowhere).
   - **Appearance** — first a **Cutscenes** group, star (19+) and playing attitude (20+),
     outside the aesthetics lock: they change only cutscenes, so they are no aesthetic the
     export owns. Then the ownership line, the switch and the locked groups, each group's
@@ -849,11 +852,14 @@ What this editor adds on top of the lib:
   tier of the active ruleset, in its order (Make Gold / Silver / Bronze / Goalkeeper / Regular
   under the official one), each `aatf::apply_tier` on the selected player as one undoable edit;
   then Set stats with its number, the Player menu's Set all stats in one click (40 to 99). A
-  rules file that does not load leaves Set stats alone under the list, the load error in the tier
-  buttons' place: one line across the list's width, elided, its whole text on hover (the error
-  names the file's path, about 160 characters, which wrapped in the panel's width would take ten
-  lines of the list's room; the Cards left badge and the AATF panels show it whole); an `apply_tier` that fails (`CheckError`) leaves the
-  player as he was and shows the error in the refusal dialog.
+  rules file that does not load leaves Set stats alone under the list, and in the tier buttons'
+  place `The AATF rules file could not be loaded, click here for more information.` in the
+  error colour, wrapped across the list (two lines at 240 points), its click opening a dialog
+  titled `The AATF rules file could not be loaded` with the lib's error, the file's path first.
+  Not the error itself in the list: about 160 characters, it took ten lines of the list's room
+  wrapped, and elided to one line its weak text read as a note, the failure a hover away. The
+  AATF panel and the Live AATF dock show the error whole in their lists; an `apply_tier` that
+  fails (`CheckError`) leaves the player as he was and shows the error in the refusal dialog.
 - **The AATF panel.** A floating window, "AATF violations (<ruleset>)", opened from the
   toolbar's Panels menu ("AATF violations…"), as the draft shows (not also from a quick
   action: the actions under the list are the edits a member repeats, and Live AATF is the
@@ -874,7 +880,8 @@ What this editor adds on top of the lib:
   does; until the new result arrives the previous one stays, marked as checking. A team whose
   check fails (a script error) is a line naming the team and the error, the others still
   listed, as `check-aatf` reports it. The check runs on the ruleset the window loaded; a rules
-  file that does not load leaves the load error in the list's place, as the badges show it.
+  file that does not load leaves the load error in the list's place, whole: the panel has the
+  room the quick actions do not.
 - **Live AATF.** A toolbar toggle, off by default and remembered in the tool's settings
   (`live_aatf`), for a member who has built the team and is now making it legal. On, a panel
   docked at the bottom of the view lists the violations of the team the view is editing (the
@@ -1315,7 +1322,9 @@ SE-GUI-32  GIVEN the settings menu open on the Save editor's section and the sav
                 the next frame's quick actions (under the player list) are VTL11's
                 (SE-GUI-09); WHEN the row is
                 emptied THEN they are the official ruleset's again; GIVEN a file that does not
-                load THEN the quick actions hold Set stats and the load error, and no
-                tier button
+                load THEN the quick actions hold Set stats and `The AATF rules file could not
+                be loaded, click here for more information.` in the error colour, and no tier
+                button, and the Skills header no Cards left badge; WHEN that line is clicked
+                THEN a dialog shows the load error
 ```
 
