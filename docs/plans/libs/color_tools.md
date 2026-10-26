@@ -37,6 +37,10 @@ the hue slider or an R/G/B field is a candidate while it lasts and one change wh
 as a click on a swatch or a committed hex text is one change: the host's undo then takes one
 step per gesture, not one per frame of a drag. A click on the square or the slider is a
 gesture too, however short. Any close but Escape commits a parseable typed text, hex or R/G/B.
+A click on a suggestion or recent swatch commits its color and closes the popup: reusing a
+color (a team's two colors matched to an earlier pick) is the swatch rows' common case, and one
+click beats a click and an Escape. The square, the slider and the hex and R/G/B fields keep it
+open, being the fine-tuning path.
 The square and the slider work in HSV over sRGB values (the formula applied to the sRGB
 fractions, as the draft's `hsvToRgb` does), not over linear ones, egui's `Hsva`, nor egui's
 `HsvaGamma`, which re-encodes only the value: a renderer blends vertex colors as sRGB, so only

@@ -51,7 +51,8 @@ the views draw scaled down (below). The monitor's size is known only once the wi
 (`ViewportInfo::monitor_size`, in points), so the window is created at 1280 × 800 and the shell
 fits and centers it on the first frame that reports the monitor's size
 (`ViewportCommand::InnerSize`, then `OuterPosition` centering the outer rectangle, title bar
-included), and never again, so a member's own resize or move holds. eframe's own clamp at
+included), and never again, so a member's own resize or move holds. A window reopening at a
+remembered place ("Window size classes") is not fitted. eframe's own clamp at
 creation is not enough: it clamps to the whole monitor, under the taskbar. Where no frame
 reports the monitor's size, the window stays as created.
 
@@ -71,11 +72,19 @@ Save editor, 2026-10-25), while height only ever needs a scroll. A member's resi
 resizes the window. A special tool, one whose use calls for another size, declares its own
 (`StudioTool::window_size`, `None` for the main tools): today only the Music player, compact so
 a streamer places it beside the PES window, its design size set with its view's draft. The
-shell remembers each class's last size and position for the session; switching from a tool of
-one class to a tool of the other restores the other's (its declared size, centered, the first
-time), so a streamer's compact window comes back where they left it. A special tool's design
-width is its declared width, and its minimum its own. The window opens in the class of the
-tool it opens on (the last active one, ST-RUN-02).
+shell remembers each class's last size and position, across runs as most desktop programs do:
+switching from a tool of one class to a tool of the other restores the other's (its declared
+size, centered, the first time), so a streamer's compact window comes back where they left
+it, and the window opens in the class of the tool it opens on (the last active one,
+ST-RUN-02) at that class's remembered place. The first start, and a class never used, take the
+fit above. A remembered place whose title bar lies on no monitor now (a second monitor
+unplugged) is dropped for the fit, so the window is never opened out of reach. Both places are
+shell state in the settings file (`window_main`, `window_special`: the outer position and the
+inner size, in points), written when the class is left and when the window closes, rather
+than eframe's own window persistence, whose `persistence` feature writes a file of its own
+outside the data location (a portable install keeps everything beside the exe) and knows one
+window size, not two. A special tool's design width is its declared width, and its minimum its
+own.
 
 The shell draws only what is its own. Panels claim space in call order, so the status bar is
 added first to span the full width, the sidebar next, and the central panel, whatever is left,
@@ -227,6 +236,22 @@ The settings menu is assembled from injected sections:
   folders, a tool's file) is that text edit and a Browse button opening `rfd`'s native picker
   of its kind (a folder, or a file filtered to the type the tool reads), a pick committing at
   once; `studio_core` owns the row, so every section's path rows commit the same way.
+- **The PES folder** is one main row for every version, `pes_folder_path`, whose `**` stands
+  for the selected version's two digits (the default `…\Pro Evolution Soccer 20**`). Its
+  Browse stores a picked folder whose name ends in the selected version's year with `**` in
+  the year's last two digits (`D:\Games\Pro Evolution Soccer 2019` becomes `D:\Games\Pro
+  Evolution Soccer 20**`), so the selector keeps switching folders as it does for the
+  default; any other folder is stored as picked, and the row's tooltip says which. Under it,
+  a **A folder per version** toggle shows one path row per version (PES 2015 to 2021), for a
+  member whose installs do not share a pattern: a filled row is that version's folder,
+  overriding the main row, and an empty one falls back to it. The overrides are a
+  `[common.pes_folders]` table keyed by the version's setting value (`pes19 = '…'`), an entry
+  only for a filled row; `CommonSettings::pes_folder`, which every reader calls, resolves the
+  selected version's override first. The toggle is the view's alone, not a setting: it is on
+  while any override exists and cannot be switched off until the rows are emptied, since a
+  hidden override would still apply and hide why a folder is used. The running-PES notice's **Fix PES
+  path** ("Sidebar") writes the running version's own row when it has one, else the main row
+  as before.
 - Saving is **best-effort**: if the write fails (typically a portable install unpacked somewhere
   unwritable), the in-memory settings keep working for the session and the shell raises the
   `data_dir_read_only` condition in the status bar — one condition covering settings and the
@@ -780,6 +805,12 @@ ST-WIN-03   GIVEN two main stub tools and a special stub tool declaring a 480 ×
                  and the active tool goes back to a main tool THEN the main class's last size and
                  position are restored; WHEN it goes to the special tool again THEN its own last
                  size and position
+ST-WIN-04   GIVEN a main tool active and the window moved to (100, 50) and resized to 1100 × 700
+            WHEN the window closes and the GUI starts again
+            THEN the settings file holds window_main at (100, 50) and 1100 × 700, the window
+                 opens there and the first frame's fit sends nothing; GIVEN a remembered place
+                 whose title bar lies on no monitor THEN the window opens fitted as ST-WIN-01's;
+                 GIVEN a last tool of the special class THEN it opens at window_special's place
 ```
 
 **Sidebar**
@@ -848,6 +879,15 @@ ST-SET-03   GIVEN a data directory that cannot be written
             WHEN a setting is changed
             THEN the change applies for the session, the status bar's left slot shows the
                  data_dir_read_only condition, and no dialog or prompt opens
+ST-SET-04   GIVEN the selector at PES 2019 and the menu open
+            WHEN `D:\Games\Pro Evolution Soccer 2019` is picked on the PES folder row
+            THEN pes_folder_path holds `D:\Games\Pro Evolution Soccer 20**`, and with the
+                 selector at PES 2021 the resolved folder is `…Soccer 2021`; GIVEN `E:\PES`
+                 picked THEN it is stored as picked; WHEN A folder per version is switched on
+                 and PES 2021's row filled with `F:\PES2021` THEN [common.pes_folders] holds
+                 pes21 alone, PES 2021 resolves there and PES 2019 to the main row's, and the
+                 toggle cannot be switched off; WHEN the row is emptied THEN the entry is gone
+                 and the toggle can be switched off
 ```
 
 **Status bar and window title**
@@ -990,6 +1030,13 @@ ST-RUN-09   GIVEN a data location whose `studio.log` ends without the closing li
                  normally and names `studio.old.log`'s path; GIVEN it ends with the closing
                  line of a normal close or of a crash already reported THEN no dialog; GIVEN
                  no earlier log THEN no dialog
+ST-RUN-10   GIVEN the window running over a data location
+            WHEN its process overflows its stack (the test's trigger)
+            THEN `studio.dmp` is written beside `studio.log`, `minidump-stackwalk` reads it
+                 with the trigger's function in the crashed thread's stack, the monitor process
+                 has exited, and the next start's dialog (ST-RUN-09) names the dump's path
+                 beside the log's; GIVEN the monitor failing to start THEN the window opens and
+                 the log holds the warning
 ST-CLI-01   GIVEN a data directory that cannot be written
             WHEN a CLI command runs
             THEN stderr starts with the data_dir_read_only condition as one line, and a notice a

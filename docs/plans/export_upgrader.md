@@ -37,14 +37,48 @@ step:
     structural migration lossless and parity-testable: the test suite validates the structural step against Red's reference output,
     and the glTF conversion has its own roundtrip tests in `model_convert`.
 
+One addition to step 10, the built report: **`unmigrated_content` names its cause.** The code
+covers about fifteen causes (a second face folder for a slot, a second item folder for an ID,
+two kit textures landing on one name, a face folder without a valid slot, a texture that does
+not decode, a folder loose mode cannot place, ...), and a refused entry is reported with no
+context, so a manager whose upgrade is not clean, the one outcome where the input must be
+edited, cannot act on the line without this document. Its context gains `reason`, a closed set
+with one value per cause, each named from its emission site, and, where two candidates claim
+one place, `other`, the other candidate's input path. A closed set rather than free text,
+because the view's left-behind list and the message text (Phase 8) both branch on it.
+
 ## CLI
 
 What exists of this is in `spec/export_upgrader.md` "CLI". Step 13 adds `--convert-to-gltf` to
 `upgrade` (off by default):
 
 ```text
-4cc-studio export-upgrader upgrade <export> [--savefile <EDIT>] [--loose] [--convert-to-gltf] [-o <dir>]
+4cc-studio export-upgrader upgrade <export>... [--savefile <EDIT>] [--loose] [--coverage full|midcup] [--convert-to-gltf] [-o <dir>]
 ```
+
+Three additions to the built commands:
+
+- **The coverage tag is reported, and can be set.** Every `upgrade` of a team export reports
+  the tag it used, an Info `coverage_tag_chosen` with the `tag` and its `source` (`flag`, the
+  name's word that decided it, or `default` when the name holds neither `midcup` nor
+  `additions`), and `--coverage full|midcup` sets it in place of the name's guess, which stays
+  the default. A manager upgrading an old mid-cup export named neither way ("co day 5 fix")
+  gets `Full`, and its first compile replaces the team's kits with placeholders; the Info says
+  so before that compile. A referee export takes no tag and refuses the flag (exit 2).
+- **Several exports at once.** `upgrade` takes one or more exports, with one `--savefile` or
+  `--loose` for all of them: each is upgraded as if run alone (its report block under a line
+  naming it, its own verdict, its output written or not), every output inside `-o` or beside
+  its input, and the exit code is the highest any export's run gave. An argument error that
+  is the same for all (a flag, a savefile that does not read as a save) refuses the whole run
+  before any export is read; a missing export path, or a save lacking one export's team,
+  refuses that export alone, its block saying so. For an organizer moving a cup's library
+  (about 50 teams) to Studio once per cup; the launcher keeps calling one export at a time,
+  since its summary line counts them. `upgrade-models` stays one folder.
+- **A leftover staging folder is cleared.** A `<output>.upgrading` folder left by an earlier
+  run whose write failed is removed by the next run of the same output, reported as an Info
+  `staging_folder_removed` naming it, instead of aborting the run (exit 3): a staging folder is
+  never a finished output, and the member who meets it never made it. A finished output folder
+  is still never replaced.
 
 ## GUI
 
@@ -69,20 +103,48 @@ refined with the maintainer before `view/` is written:
   field holds the directory the output folder is written inside (`-o`): the input's parent by
   default, so the output lands beside the input, as the CLI's default. For the second target
   the same field is the output directory itself (`upgrade-models` writes its folders straight
-  into its `-o`), `<input> upgraded` beside the input by default, as the CLI's.
+  into its `-o`), `<input> upgraded` beside the input by default, as the CLI's. A **Full /
+  Midcup** pair (`--coverage`) is prefilled with the name's guess once a team export is
+  dropped, its tooltip naming the word that decided it; disabled for a referee export and for
+  the second target.
+- **The savefile field names the team it needs.** Once an export is dropped, its team is
+  resolved (the Note's `Team:` line, else the name, step 6) and the field shows
+  `needs /egg/ (792)` beside it; a save picked or discovered that lacks the team turns the
+  field red, the refusal's sentence as its tooltip, and Upgrade stays disabled, so a manager
+  whose save comes from another cup or version learns it before the run rather than from its
+  exit 2. The resolution and the save read are the run's own steps, moved to the drop and the
+  pick; the run still checks both.
+- **Upgrading without the save asks first.** With loose on, Upgrade opens a dialog before the
+  run: the save is where the players' looks live (the appearance step 8 reads into
+  `settings.toml`, and the in-game faces), the old export holds none of it, so an upgrade
+  without the save carries none, and a `Full` compile of the output then gives every player
+  the default look. The dialog says that and the remedy (cancel, and pick the save the team
+  was made in), and its Upgrade button stays disabled until the member ticks `I understand
+  the players' looks will be lost`; Cancel returns to the view, loose still on. Asked on every
+  loose run rather than once, since each export's loss is its own. The CLI asks nothing:
+  `--loose` is already the opt-in step 11 requires, and a prompt would stall a script.
 - **The Upgrade button** runs the command on a thread of its own through the CLI's own parser,
   as the Team compiler's Compile does (`spec/core/development_plan.md` "Phase 3", the shell
   slice), so the view cannot upgrade anything the command line would refuse; a refusal (a
   savefile without the team, exit 2) and an abort (an output folder that already exists, exit
-  3) show as the CLI prints them.
+  3) show as the CLI prints them. The abort's done line carries **Open the existing folder**,
+  the path the abort already holds, so a manager re-running an upgrade sees what the earlier
+  run made and can rename or remove it.
 - **The report** is the view's product: step 10's findings as the console prints them, in the
   log panel, and above it the **left-behind** list, one row per `unmigrated_content` or
   `leftover_dropped` entry with its input path, the finding's code and the entry's context (a
   Note line, a kit config's error), so the author sees in one place what to fix in the input
   (an unmigrated entry, which kept anything from being written) or what the output left out (a
-  leftover). For `upgrade-models` the per-folder "where it
+  leftover). Rows under one folder are one collapsed row with their count (`Boots/k2177 - THIS
+  BEAVER IS CONTAMINATED: 18 files left out`), opened to its files, a folder holding one entry
+  staying one row: a real export's upgrade (Lab's EGG, in the draft) left 120 rows, 18 of them
+  one boots folder's, which read as the 25 folders they are about. A click on a row opens the
+  system file browser at that entry (the folder, the file selected where the platform can; an
+  archive input's archive folder), its tooltip saying so, so the fix starts from the list
+  rather than a walk through the folders. For `upgrade-models` the per-folder "where it
   goes" lines are the log's, as the CLI prints them, and the list holds the folders it left
-  out. The run ends with the exit code's meaning in words (clean; not clean, nothing written,
+  out. A **Copy report** button beside the done line puts the console's lines on the clipboard,
+  as the CLI prints them, for a manager asking for help in the cup's thread. The run ends with the exit code's meaning in words (clean; not clean, nothing written,
   see the list; refused; aborted). A clean run, the only one that writes output, also gets the
   notice `Upgraded <name> · [Open output folder]` in the status bar and, in the view's done
   line, a **Move to exports and compile** button: the output is moved into the exports folder
@@ -95,6 +157,19 @@ refined with the maintainer before `view/` is written:
   Any other run publishes no notice, having nothing to open. A new input clears the previous
   run's report, the log and the list included: the report is about the input it ran on.
 - No settings section: the tool has no settings (step 6: the teams list path is the compiler's).
+
+## Message catalog
+
+What exists of this is in `spec/export_upgrader.md` "Message catalog". The additions above
+bring two codes and two context fields:
+
+| Code | Sev | When | Context |
+|---|---|---|---|
+| `coverage_tag_chosen` | I | `upgrade` of a team export: the coverage tag the output's name took ("CLI") | `tag`, `source` |
+| `staging_folder_removed` | I | an earlier run's staging folder for this output removed before the write ("CLI") | `path` |
+
+`unmigrated_content` gains `reason` on every entry and `other` where two candidates claim one
+place ("What it does").
 
 ## Dependencies
 

@@ -22,6 +22,20 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   `crocs new` exists". Nothing is resolved by the guess: the finding and its drop stay, since a
   wrong guess compiled silently would be worse than the miss. One distance function in
   `aesthetics_export`, never one per code.
+- **A finding carries the context its text needs.** The texts Phase 8 writes must say the fix,
+  and some codes' context leaves the member unable to act. Each gains what its text names:
+  `players_txt_invalid` and `notes_encoding_invalid` the cause and the first bad line (the
+  encoding text then says how to re-save as UTF-8 in Notepad); `player_folder_number_invalid`
+  the expected form (`NN - Name`, or a `players.txt`); `player_number_duplicate` the other
+  folder claiming the slot; `kit_folder_invalid` the allowed names (`p1`-`p9`, `g1`, `all`);
+  `file_type_disallowed` which case it is (an unknown extension, a hidden `.txt`, a known file
+  in the wrong place); `skl_merge_conflict`, `merge_material_conflict` and
+  `model_merge_flags_conflict` the two parts that disagree; `model_conversion_failed` that the
+  converted model hits the limit, not the member's file; `texture_type_mismatch` the format the
+  bytes are; `export_tag_missing` the two exact names to rename to. The same holds for the
+  other tools' catalogs: the Export upgrader's `custom_model_missing` and
+  `settings_not_generated` the ways to a clean upgrade, and `check-aatf`'s `aatf_violation`
+  (`spec/save_editor.md`'s catalog) the player's name and number rather than his id.
 
 ### Catalog
 

@@ -11306,3 +11306,51 @@ Why: the maintainer's review: resizing `profile` moved the quick-actions panel a
 been moved elsewhere (the move was an offset from the layout's position), and a columned
 panel stopped at its widest row.
 Plan: `plans/core/gui.md` "Layout edit", the "Size:" bullet.
+
+## 2026-10-26 — export_upgrader, team_compiler, color_tools, core, save_editor — Usability proposals P17-P24 and P32-P38 accepted
+Decision: the maintainer accepted P17-P24 and P32-P36 of `PROPOSALS.md` as proposed, with
+these changes. P19's Warning becomes a dialog before a loose upgrade, saying the save is where
+the players' looks live and holding its Upgrade button until the member ticks that they
+understand the loss; the CLI asks nothing, `--loose` being the opt-in already. P24 remembers
+both window size classes' places across runs, in two settings the shell writes (not eframe's
+`persistence`, which writes its own file outside the data location and knows one size), a
+place on no monitor dropped for the fit. P38 is accepted on a measured condition: its three
+crates go in only while the release exe grows by at most 10 MB with them. P20's several
+exports refuse one export alone for its own missing path or a save lacking its team, the
+whole run for an argument shared by all.
+Why: each spares a member a step or a lost team the proposals name (`PROPOSALS.md` as of
+2026-10-26, now removed from it); a loose upgrade loses every player's look silently, which a
+tooltip and a kept Warning would not stop; a window brought back onto an unplugged monitor
+would open out of reach.
+Plan: `plans/export_upgrader.md` "What it does" (P17), "CLI" (P18, P20, P21), "GUI" (P18's
+pair, P19, P32-P36), "Message catalog"; `plans/team_compiler/messages.md` "Message structure"
+(P22); `plans/libs/color_tools.md` "Color-picker widget" (P23); `plans/core/gui.md` "Window size
+classes", ST-WIN-04 (P24); `plans/core/architecture.md` "Diagnostic logging", `plans/core/gui.md`
+ST-RUN-10 (P38).
+
+## 2026-10-26 — team_compiler — Red's settings are not imported on first run (P16 vetoed)
+Decision: no first-run import of Red's `settings.ini`. Why: only the PES folder would be worth
+carrying, and picking it again is easier than picking Red's folder. Plan: no plan edit needed.
+
+## 2026-10-26 — save_editor — Live AATF stays off by default (P37 vetoed); its toggle and marks become visible
+Decision: Live AATF stays off by default. Its toolbar toggle is drawn as a framed button with
+the check's icon; while it is on, the player list marks each checked player with a cross (an
+Error-severity violation) or a check mark, and the field a selected player's violation is about
+gets a cross whose tooltip is the AATF panel's line for it (one kind-to-field match, the kinds
+about no single field marking the list alone).
+Why: the maintainer's ruling: the docked panel takes room, and the editor is also used to build
+teams before making them legal; but the toggle read as a label, and a manager should see what
+to fix where they fix it. A warning or suggestion alone is not a failure, as `check-aatf`'s exit
+code counts them.
+Plan: `plans/save_editor.md` "Editing UI", the "Live AATF" bullet; SE-GUI-36.
+
+## 2026-10-26 — core — A folder per PES version (P25 accepted, with an override per version)
+Decision: the PES folder stays one main row whose Browse stores a picked folder ending in the
+selected version's year with `**` in its place; a view-only toggle, A folder per version,
+shows one row per version, a filled row overriding the main row for that version
+(`[common.pes_folders]`), an empty one falling back to it; the toggle stays on while any
+override exists. Fix PES path writes the running version's own row when it has one.
+Why: the maintainer's ruling, choosing both over the lead's one-row-per-selected-version
+alternative: the `**` rule serves installs sharing a pattern in one pick, the overrides those
+that do not; a toggle a member could switch off over a filled row would hide the folder in use.
+Plan: `plans/core/gui.md` "Settings menu", the "PES folder" bullet; ST-SET-04.

@@ -24,7 +24,8 @@ export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
-rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open), `libs/aatf`'s hardening (the repetition rework done and
+rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
+proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h, done 2026-10-25: the compiler,
 the upgrader and the Save editor's generation on the new file, SE-GUI-34 checked in game), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
@@ -808,7 +809,7 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       `colorPicker`, the host's commit and candidate callbacks, session recents, a draft
       control for a kit editor's suggestions; `T("PICKER")` in `.tmp/8_5/harness_tail.js`
       (nine checks, red before the page edit). Plan: `plans/libs/color_tools.md`'s picker
-      paragraph; P23 (a swatch click closes the popup) awaits a ruling. Files:
+      paragraph; P23 (a swatch click closes the popup) accepted 2026-10-26, 8.7c. Files:
       `docs/prototypes/save_editor.html`
     - [x] 8.7b `color_tools`' picker widget against the draft, tested headless; the Team tab
       hosts it with its view slice (8.9). Done 2026-10-21 (SWE-2): `picker::color_field`
@@ -837,6 +838,11 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       `mutants-diff 12ffa8c3` (reworks 4 to 6) caught every `color_tools` mutant. Files:
       `color_tools/{Cargo.toml,src/lib.rs,src/picker.rs}`, `scripts/doc_pointers.py`
       (`plans/libs/color_tools.md` listed as the open phase's)
+    - [ ] 8.7c before the 0.0.1 cut: a click on a suggestion or recent swatch commits and
+      closes the popup (P23, accepted 2026-10-26; `plans/libs/color_tools.md` "Color-picker
+      widget") → verify: a headless test (a recent swatch's click: the color committed once,
+      the popup closed, the color in the recents); the square and the fields still keep it
+      open; the draft's `colorPicker` the same
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
     pickers and the violations list first, the tactics editor and its pitch with the view's
     slice 3
@@ -1822,7 +1828,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       on a rested pointer with the labels beside unmoved icons and `PES 2021`, as wide as
       "Player aesthetics editor", the view unmoved, closed once the pointer left
   - [ ] 8.22 after 0.0.1: the accepted usability items outside the grid (2026-10-25, P1, P2,
-    P6, P10-P14; DECISIONS "Usability proposals P1-P14 accepted"), each its own commit:
+    P6, P10-P14; DECISIONS "Usability proposals P1-P14 accepted"; 2026-10-26, P18-P20, P22,
+    P32-P36, h to j), each its own commit:
     - [ ] 8.22a the finding line's disposition phrase (`plans/core/architecture.md` "Every
       finding line says what was lost") → verify: a CLI test per phrase, the pinned lines
       updated
@@ -1846,6 +1853,15 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     - [ ] 8.22g the first run finds the PES version and folder (`plans/core/distribution.md`
       "Data location") → verify: a dialog test over a fake Documents and install tree (no real
       install reached); nothing found keeps the defaults
+    - [ ] 8.22h the context the findings' texts need (P22, accepted 2026-10-26;
+      `plans/team_compiler/messages.md` "A finding carries the context its text needs"),
+      before the texts that read it → verify: a test per code reading the new field
+    - [ ] 8.22i `upgrade <export>...` (P20; `plans/export_upgrader.md` "CLI") → verify: three
+      exports in one run, one with a save lacking its team: two written, that one refused in
+      its block, exit 2; a flag error refusing all before any is read
+    - [ ] 8.22j the upgrader's view items (P18's pair, P19's dialog, P32-P36;
+      `plans/export_upgrader.md` "GUI"), with the view (8.10), drafted first (8.17b) → verify:
+      EU-GUI scenarios for each, written with the view's Acceptance before it is built
   - [x] 8.11 egui 0.36.2 to 0.37 (`spec/core/gui.md` "egui version discipline"; agreed
     2026-10-21; the maintainer asked on 2026-10-23 to migrate as soon as possible, so fewer
     GUI tests are written twice). No `egui-phosphor` release for 0.37 yet (0.14.0,
@@ -1972,6 +1988,10 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     P32-P36. SWE-2 rounds: 8 of 17 accepted, then 3 of 7 (`.tmp/8_17/rulings.md`), each
     reworked. Waits for the maintainer's remarks. Files: `docs/prototypes/{index.html,
     tools/export_upgrader.js}`, `plans/export_upgrader.md` "GUI", `PROPOSALS.md`
+    - [ ] 8.17b the accepted items drawn (P18's Full/Midcup pair, P19's dialog, P32-P36; ruled
+      2026-10-26, `plans/export_upgrader.md` "GUI"), the samples' rows grouped and the
+      `needs <team>` hint from the real runs → verify: the bundled drafts build; each item
+      reached in the draft
   - [x] 8.18 the host's layout edit toggle (the maintainer, 2026-10-25; `core/gui.md`
     "Prototypes before implementation", "Layout edit"; DECISIONS "The drafts' host gets a
     layout edit toggle"; after 8.16, track A's next step or the top lead's after the merge):
@@ -2469,6 +2489,11 @@ briefs, review loops, gates and mutation runs as for any step.
     log's frames named by `symbolize_log.py` against that build's kept exe and `.pdb`; the
     next start shows no second dialog for it, while one after a kill from Task Manager does
     (ST-RUN-09)
+  - [ ] k4 the crash dump (P38, accepted on a measured condition; `plans/core/architecture.md`
+    "Diagnostic logging", the "crash dump" bullet; ST-RUN-10), after k2: first the release exe
+    built with and without `crash-handler`, `minidumper` and `minidump-writer` wired in a
+    probe; over 10 MB of growth, stop and report → verify: the measurement; ST-RUN-10; the
+    window opening when the monitor cannot start
 - [ ] 0.0.1l no console window in the preview (`plans/core/architecture.md` "Windows
   subsystem", DECISIONS 2026-10-25, `AttachConsole` approved): `#![windows_subsystem =
   "windows"]` on every Windows build (the plan's paragraph after it says why debug too),
@@ -2498,6 +2523,36 @@ briefs, review loops, gates and mutation runs as for any step.
   "Layout edit", the "Size:" bullet): a moved panel pinned where dropped, a columned panel
   narrowed into fewer columns, the simulated window scaled under the design width
   (`.tmp/drafts/brief_drafts_layout.md`)
+- [ ] 0.0.1o Live AATF seen where the fix is (the maintainer's ruling on P37, 2026-10-26;
+  DECISIONS "Live AATF stays off by default"; `plans/save_editor.md` "Editing UI", the "Live
+  AATF" bullet): the toggle a framed button, the player list's cross or check mark per checked
+  player, the cross beside the field a selected player's violation is about (one kind-to-field
+  match) → verify: SE-GUI-36; a test per field group of the match (one kind each, real
+  violations of the PES 17 fixture's team where it has them); the draft (`tools/save_editor.js`)
+  the same first, for the maintainer's look
+- [ ] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
+  "Usability proposals P17-P24 and P32-P38 accepted"; `plans/export_upgrader.md` "What it does"'s
+  last paragraph, "CLI", "Message catalog"), one commit each:
+  - [ ] p1 `unmigrated_content`'s `reason` and `other`: first the list of emission sites, each
+    given its value → verify: every reason reached by a test (the existing fixtures' refusals
+    first), `other` on the two-candidate ones
+  - [ ] p2 `coverage_tag_chosen` and `--coverage full|midcup` → verify: EU-CLI-01's names with
+    the Info's `source`; the flag over a name's guess both ways; a referee export refusing it
+  - [ ] p3 a leftover staging folder removed with `staging_folder_removed` → verify: the
+    EU-CLI case that leaves one (a write failed) upgraded clean on the next run; a finished
+    output still refused
+- [ ] 0.0.1q the window reopens where it was closed (P24; `plans/core/gui.md` "Window size
+  classes", ST-WIN-04; after 0.0.1m, the same code): the main class's `window_main` now, the
+  special class's with the Music player's view. First how eframe 0.37 lets the shell learn the
+  monitors at start (eframe's own persistence clamps through winit's monitor list), the finding
+  a DECISIONS entry → verify: ST-WIN-04 headless where the harness reaches; the off-monitor
+  case by hand (ASK FIRST)
+- [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
+  DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
+  bullet): the main row's `**` on a pick ending in the selected year, the A folder per version
+  toggle and its rows, `pes_folder` resolving an override first, Fix PES path writing the
+  running version's row → verify: ST-SET-04; `pes_folder`'s unit tests (override, empty
+  fallback, the pattern); the bundled `settings.toml` reading unchanged
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
@@ -2513,7 +2568,8 @@ briefs, review loops, gates and mutation runs as for any step.
     PES 2017, so their first open shows SE-GUI-28's version warning until they pick 2017 in
     the sidebar. Not a bundle default, since VGL's organizer compiles from the same bundle on
     PES 2019: the readme says to pick the version first (0.0.1f's readme)
-  - [x] j3 Live AATF off by default (the plan's choice): P37 proposes it on for DBC's managers
+  - [x] j3 Live AATF off by default (the plan's choice): P37 proposed it on; vetoed
+    2026-10-26, its visibility asked for instead (0.0.1o)
   - the rest read right for a first start: the Team compiler's names and `multicpk_mode` off
     (VGL's are the readme's, 0.0.1f), `savefile_path` auto, "Aesthetics from exports" off
     (SE-GUI-35), the hide IDs 55/11, the theme dark, the exports and output folders beside the

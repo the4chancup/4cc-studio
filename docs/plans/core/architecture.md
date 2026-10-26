@@ -296,7 +296,8 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   shows a dialog before the window opens: "The last session did not close normally. If it
   crashed, please post this file where you report problems: <path>", naming the home folder's
   `~`. This catches what the panic hook cannot see (a stack overflow, a failed allocation, a
-  crash in native code) without a monitor process. The wording is neutral because the dialog also follows a session Windows
+  crash in native code), and the crash dump below adds its stacks; a dump written since the
+  log's last line is named in the same dialog. The wording is neutral because the dialog also follows a session Windows
   ended: winit 0.30 handles neither `WM_QUERYENDSESSION` nor `WM_ENDSESSION`, so a shutdown
   with the window open ends the process with no closing line, as a kill from Task Manager
   or a power cut does. We do not tell the two apart through the boot time: a crash followed
@@ -313,3 +314,19 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   to the CPU encoder) from one that will not, and a dialog over a recovered panic would ask a
   member to report a run that went fine. The dialog repeats the panic's message, so a first
   run's crash, which has no file, still leaves something to post.
+- **A crash dump for what the hook never sees**: a stack overflow and a failed allocation (the
+  runtime prints one line to a stderr the GUI exe does not have, and aborts) and an access
+  violation in native code (a GPU driver under the encoder or the renderer, a shell extension
+  under a file dialog) each leave a log that simply stops. The window's process is watched by
+  a monitor, the same exe started again with a hidden argument (no second exe in the bundle),
+  because a crashed process cannot reliably write its own dump; on a crash the monitor writes
+  `studio.dmp` beside the log (every thread's stack, a few MB), replacing the previous one,
+  and exits with the window's process. Through Embark's `crash-handler` (the hook in the
+  window's process), `minidumper` (the link to the monitor) and `minidump-writer`; the
+  maintainer reads a dump with `minidump-stackwalk` against the release's kept `.pdb`, the
+  log's symbols. The three crates go in only while the release exe grows by at most 10 MB
+  with them, measured on release builds with and without before any code lands; past that the
+  step stops and reports. A monitor that does not start leaves the window running with the
+  log alone, a warning logged: the dump is a diagnostic, never a reason the window does not
+  open. A CLI command installs none: its crash prints to the console it runs in, and a script
+  calling it in a loop would start a monitor per call.
