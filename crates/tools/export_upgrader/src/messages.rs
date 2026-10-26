@@ -556,7 +556,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "players_txt_invalid",
         Severity::Error,
-        r#"`players.txt` cannot be read as a roster (an encoding failure or a roster-wide ambiguity), or a referee roster keeps no valid assignment."#,
+        r#"`players.txt` cannot be read as a roster (an encoding failure or a roster-wide ambiguity), or a referee roster is left with no valid assignment."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
@@ -604,7 +604,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "players_txt_line_invalid",
         Severity::Error,
-        r#"A nonblank line of `players.txt` is not a decimal slot plus a folder name."#,
+        r#"A nonblank line of `players.txt` does not give a slot number and a folder name."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
@@ -646,7 +646,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "file_type_disallowed",
         Severity::Error,
-        r#"A file sits where its kind is not allowed, in a player or shared folder's tree, in a kit folder, or in `Collars/`: a disallowed extension, or a marker, `settings.toml` or a per-player file below a subfolder."#,
+        r#"A file sits where its kind is not allowed, anywhere in a player or shared folder, in a kit folder, or in `Collars/`: its extension is disallowed, or, below a subfolder, it is a marker, a `settings.toml` or a per-player file."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
@@ -664,7 +664,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "shared_link_duplicate",
         Severity::Error,
-        r#"A player folder has more than one shared link for a part (face, boots or gloves), counted over its whole tree (two links naming one folder count once)."#,
+        r#"A player folder has more than one shared link for a part (face, boots or gloves), counted over the whole folder, subfolders included. Two links naming one folder count once."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
@@ -676,7 +676,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "common_link_missing",
         Severity::Error,
-        r#"A `.common` link names a file missing from `Common/` (a `kitN` name or directory stands for its set); on PES 2018 to 2021 a texture link is satisfied when a CPK listed earlier holds it at the team's Common path."#,
+        r#"A `.common` link names a file missing from `Common/` (a `kitN` name or folder stands for its set). In PES 2018 to 2021, a texture link is satisfied when a CPK listed before this run's own holds it at the team's Common path."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
@@ -700,37 +700,37 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "ingame_face_marker_renamed",
         Severity::Error,
-        r#"A player folder holds `ingame_face` or `ingame_face.txt`, the in-game face marker's old name: it is now `ingame_face.toml`, which also holds the in-game face's keys."#,
+        r#"A player folder holds `ingame_face` or `ingame_face.txt`, the in-game face marker's old name. The marker is now `ingame_face.toml`, which also holds the in-game face's keys."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
         "ingame_face_explicit_face_model",
         Severity::Error,
-        r#"A player folder holds `ingame_face.toml` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, which need the face folder the marker suppresses."#,
+        r#"A player folder holds `ingame_face.toml` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, and either one needs the face folder the marker suppresses."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
         "texture_stem_conflict",
         Severity::Error,
-        r#"Two image files share one stem in the same place, whatever their extensions (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`; `hair.dds` beside `jessie/hair.dds` is no conflict): in a model folder, a kit folder, `Kits/all/`, a directory of `Common/`, or `Portraits/` (two files of one slot)."#,
+        r#"Two image files share one stem in the same place, whatever their extensions (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`; `hair.dds` beside `jessie/hair.dds` is no conflict). The place is a model folder, a kit folder, `Kits/all/`, a folder of `Common/`, or `Portraits/` (two files of one slot)."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
         "fmdl_name_invalid",
         Severity::Error,
-        r#"PES 2018 to 2021: an `.fmdl` in a shared `Boots/` or `Gloves/` folder whose name does not resolve to that category's names."#,
+        r#"In PES 2018 to 2021, an `.fmdl` in a shared `Boots/` or `Gloves/` folder has a name that does not resolve to that category's allowed names."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
         "model_name_invalid",
         Severity::Error,
-        r#"PES 2015 to 2017: a `.model` in a shared `Boots/` or `Gloves/` folder without that category's suffix."#,
+        r#"In PES 2015 to 2017, a `.model` in a shared `Boots/` or `Gloves/` folder lacks that category's suffix."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
         "edithair_unsupported",
         Severity::Error,
-        r#"PES 2015 to 2017: a `face_edithair.xml` or `hair.xml` sits anywhere in a player or shared folder."#,
+        r#"In PES 2015 to 2017, a `face_edithair.xml` or `hair.xml` sits anywhere in a player or shared folder."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
@@ -784,13 +784,13 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "portrait_name_invalid",
         Severity::Error,
-        r#"A `Portraits/` file is not a texture named `NN` with NN in 01-23 (alone, or followed by ` - ` and any text)."#,
+        r#"A `Portraits/` file is not a texture named `NN` with NN in 01-23 (the `NN` alone, or followed by ` - ` and any text)."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
         "logo_file_invalid",
         Severity::Error,
-        r#"A root `logo*` file has an unknown tag in its name, a format the compiler does not read, or does not decode."#,
+        r#"A root `logo*` file has an unknown tag in its name, is in a format the compiler does not read, or does not decode."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
@@ -808,7 +808,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "root_file_unexpected",
         Severity::Warning,
-        r#"An unknown file or folder sits at the export's root (a stale `wrapper/` beside a usable root included), or a file sits directly inside `Players/`, `Kits/`, `Faces/`, `Boots/` or `Gloves/`, which hold only folders."#,
+        r#"An unknown file or folder sits at the export's root (a stale `wrapper/` beside a usable root included), or a file sits directly inside `Players/`, `Kits/`, `Faces/`, `Boots/` or `Gloves/`, all of which hold only folders."#,
         r#"Reported on the upgraded export, which is still written unless the finding drops part of it."#,
     ),
     (
@@ -1196,7 +1196,7 @@ mod tests {
             .unwrap();
         assert_eq!(
             row.2,
-            "A file sits where its kind is not allowed, in a player or shared folder's tree, in a kit folder, or in `Collars/`: a disallowed extension, or a marker, `settings.toml` or a per-player file below a subfolder."
+            "A file sits where its kind is not allowed, anywhere in a player or shared folder, in a kit folder, or in `Collars/`: its extension is disallowed, or, below a subfolder, it is a marker, a `settings.toml` or a per-player file."
         );
         assert_eq!(row.3, "The run is not clean, so nothing is written.");
     }

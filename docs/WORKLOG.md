@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 and c2 done; 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 to c3 done; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2178,8 +2178,15 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         naming only the first missing texture, said wrongly before); S4: 9, 5 accepted; S5: 7, 2,
         the loop's end (115 texts in all, and c1's `mtl_texture_not_found` "listed before this
         run's own"). Table `.tmp/8_29/c2_table.md`. Files: `team_compiler/src/messages/catalog.rs`
-      - [ ] c3 the catalog's format-check and structure-pass rows (162-237); the upgrader's
-        structure-pass rows take each rewritten `when` word for word (its catalog test pins it)
+      - [x] c3 the catalog's format-check and structure-pass rows (162-237): 58 texts
+        rewritten (the lead retouched one, whose "and sits below a subfolder" reached the
+        disallowed-extension case too), the upgrader's 13 structure-pass copies following word
+        for word (`.tmp/8_29/shared_whens.py` compares all 46 shared `when`s, side/text
+        worktree); `notes_encoding_invalid` keeps its effect (`studio`'s `help_cli` pins it).
+        SWE-2 round S1: 8 concerns, 4 accepted (the retouch's own scope again), 3 nits, the
+        loop's end.
+        Table `.tmp/8_29/c3_table.md`. Files: `team_compiler/src/messages{,/catalog}.rs`,
+        `export_upgrader/src/messages.rs`
       - [ ] c4 the Team compiler's CLI output and `--help` (`cli.rs`), `help/01_command_line.md`
         and the window's strings (`view/mod.rs`, `gui_run.rs`)
       - [ ] c5 the Export upgrader's catalog (its own `effect`s and rows), `cli.rs` and

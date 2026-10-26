@@ -2559,3 +2559,5 @@ worklog passed 7,000 lines.
   crates outside track U.
 - **2026-10-26** — 8.29c2: the Team compiler's catalog rows 81-161 (textures, model conversion, deployment, the save)
   rewritten as sentences that flow (115 texts, five SWE-2 rounds), the meaning kept.
+- **2026-10-26** — 8.29c3: the Team compiler's format-check and structure-pass rows rewritten as sentences that flow
+  (58 texts), the Export upgrader's 13 copies of the structure-pass conditions following word for word.

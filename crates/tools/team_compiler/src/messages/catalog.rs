@@ -1008,127 +1008,127 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "fmdl_mesh_over_bone_limit",
         CatalogSeverity::Error,
-        r#"PES 2018 to 2021: a mesh of an `.fmdl` is over a hard bone limit of the format; the game cannot load it."#,
-        r#"The folder is left out (a `Common/` file alone); `Keep folders with errors` packs it as it is."#,
+        r#"In PES 2018 to 2021, a mesh of an `.fmdl` is over a hard bone limit of the format, so the game cannot load it."#,
+        r#"The folder is left out (a `Common/` file is left out alone), but `Keep folders with errors` packs it as it is."#,
     ),
     (
         "fmdl_mesh_over_vertex_limit",
         CatalogSeverity::Error,
-        r#"PES 2018 to 2021: a mesh of an `.fmdl` is over a hard vertex limit of the format; the game cannot load it."#,
-        r#"The folder is left out (a `Common/` file alone); `Keep folders with errors` packs it as it is."#,
+        r#"In PES 2018 to 2021, a mesh of an `.fmdl` is over a hard vertex limit of the format, so the game cannot load it."#,
+        r#"The folder is left out (a `Common/` file is left out alone), but `Keep folders with errors` packs it as it is."#,
     ),
     (
         "fmdl_mesh_over_face_limit",
         CatalogSeverity::Error,
-        r#"PES 2018 to 2021: a mesh of an `.fmdl` is over a hard face limit of the format; the game cannot load it."#,
-        r#"The folder is left out (a `Common/` file alone); `Keep folders with errors` packs it as it is."#,
+        r#"In PES 2018 to 2021, a mesh of an `.fmdl` is over a hard face limit of the format, so the game cannot load it."#,
+        r#"The folder is left out (a `Common/` file is left out alone), but `Keep folders with errors` packs it as it is."#,
     ),
     (
         "fmdl_face_index_out_of_range",
         CatalogSeverity::Error,
-        r#"PES 2018 to 2021: a face of an `.fmdl` names a vertex that does not exist."#,
-        r#"The folder is left out (a `Common/` file alone); `Keep folders with errors` packs it as it is."#,
+        r#"In PES 2018 to 2021, a face of an `.fmdl` names a vertex that does not exist."#,
+        r#"The folder is left out (a `Common/` file is left out alone), but `Keep folders with errors` packs it as it is."#,
     ),
     (
         "fmdl_mesh_unassigned",
         CatalogSeverity::Error,
-        r#"PES 2018 to 2021: no mesh group of an `.fmdl` lists one of its meshes, so the file would not contain it."#,
-        r#"The folder is left out (a `Common/` file alone); `Keep folders with errors` packs it as it is."#,
+        r#"In PES 2018 to 2021, no mesh group of an `.fmdl` lists one of its meshes, so the file would not contain it."#,
+        r#"The folder is left out (a `Common/` file is left out alone), but `Keep folders with errors` packs it as it is."#,
     ),
     (
         "fmdl_bone_slot_out_of_range",
         CatalogSeverity::Warning,
-        r#"PES 2018 to 2021: a vertex weights a bone slot past the mesh's bone group; the game ignores that weight (the game's own models do this)."#,
+        r#"In PES 2018 to 2021, a vertex is weighted to a bone slot past the mesh's bone group, so the game ignores that weight (the game's own models do this)."#,
         r#"Nothing to do."#,
     ),
     (
         "fmdl_mesh_empty",
         CatalogSeverity::Warning,
-        r#"PES 2018 to 2021: a mesh of an `.fmdl` has no faces."#,
+        r#"In PES 2018 to 2021, a mesh of an `.fmdl` has no faces."#,
         r#"Nothing to do."#,
     ),
     (
         "fmdl_duplicate_bone_name",
         CatalogSeverity::Warning,
-        r#"PES 2018 to 2021: an `.fmdl` has two bones of one name, which makes merges and `.skl` matching ambiguous."#,
+        r#"In PES 2018 to 2021, an `.fmdl` has two bones of one name, which makes merges and `.skl` matching ambiguous."#,
         r#"Nothing to do."#,
     ),
     (
         "fmdl_weights_not_normalized",
         CatalogSeverity::Info,
-        r#"PES 2018 to 2021: a vertex's weights sum to neither 255 nor 0."#,
+        r#"In PES 2018 to 2021, a vertex's weights sum to neither 255 nor 0."#,
         r#"Nothing to do."#,
     ),
     (
         "fmdl_material_unused",
         CatalogSeverity::Info,
-        r#"PES 2018 to 2021: an `.fmdl` has a material no mesh uses."#,
+        r#"In PES 2018 to 2021, an `.fmdl` has a material that no mesh uses."#,
         r#"Nothing to do."#,
     ),
     (
         "model_mesh_over_bone_limit",
         CatalogSeverity::Error,
-        r#"PES 2015 to 2017: a mesh of a `.model` is over a hard bone limit of the format; the game cannot load it."#,
-        r#"The folder is left out (a `Common/` file alone); `Keep folders with errors` packs it as it is."#,
+        r#"In PES 2015 to 2017, a mesh of a `.model` is over a hard bone limit of the format, so the game cannot load it."#,
+        r#"The folder is left out (a `Common/` file is left out alone), but `Keep folders with errors` packs it as it is."#,
     ),
     (
         "model_mesh_over_vertex_limit",
         CatalogSeverity::Error,
-        r#"PES 2015 to 2017: a mesh of a `.model` is over a hard vertex limit of the format; the game cannot load it."#,
-        r#"The folder is left out (a `Common/` file alone); `Keep folders with errors` packs it as it is."#,
+        r#"In PES 2015 to 2017, a mesh of a `.model` is over a hard vertex limit of the format, so the game cannot load it."#,
+        r#"The folder is left out (a `Common/` file is left out alone), but `Keep folders with errors` packs it as it is."#,
     ),
     (
         "model_mesh_over_face_limit",
         CatalogSeverity::Error,
-        r#"PES 2015 to 2017: a mesh of a `.model` is over a hard face limit of the format; the game cannot load it."#,
-        r#"The folder is left out (a `Common/` file alone); `Keep folders with errors` packs it as it is."#,
+        r#"In PES 2015 to 2017, a mesh of a `.model` is over a hard face limit of the format, so the game cannot load it."#,
+        r#"The folder is left out (a `Common/` file is left out alone), but `Keep folders with errors` packs it as it is."#,
     ),
     (
         "model_face_index_out_of_range",
         CatalogSeverity::Error,
-        r#"PES 2015 to 2017: a face of a `.model`, at any detail level, names a vertex that does not exist."#,
-        r#"The folder is left out (a `Common/` file alone); `Keep folders with errors` packs it as it is."#,
+        r#"In PES 2015 to 2017, a face of a `.model`, at any detail level, names a vertex that does not exist."#,
+        r#"The folder is left out (a `Common/` file is left out alone), but `Keep folders with errors` packs it as it is."#,
     ),
     (
         "model_bone_slot_out_of_range",
         CatalogSeverity::Warning,
-        r#"PES 2015 to 2017: a vertex weights a bone slot past the mesh's bone group."#,
+        r#"In PES 2015 to 2017, a vertex is weighted to a bone slot past the mesh's bone group."#,
         r#"Nothing to do."#,
     ),
     (
         "model_mesh_empty",
         CatalogSeverity::Warning,
-        r#"PES 2015 to 2017: a mesh of a `.model` has no faces."#,
+        r#"In PES 2015 to 2017, a mesh of a `.model` has no faces."#,
         r#"Nothing to do."#,
     ),
     (
         "model_duplicate_bone_name",
         CatalogSeverity::Warning,
-        r#"PES 2015 to 2017: a `.model` has two bones of one name."#,
+        r#"In PES 2015 to 2017, a `.model` has two bones of one name."#,
         r#"Nothing to do."#,
     ),
     (
         "model_lod_record_mismatch",
         CatalogSeverity::Warning,
-        r#"PES 2015 to 2017: a `.model`'s level-of-detail record disagrees with its meshes' levels."#,
+        r#"In PES 2015 to 2017, a `.model`'s level-of-detail record disagrees with its meshes' levels."#,
         r#"Nothing to do."#,
     ),
     (
         "model_weights_not_normalized",
         CatalogSeverity::Info,
-        r#"PES 2015 to 2017: a vertex's weights do not sum to 1."#,
+        r#"In PES 2015 to 2017, a vertex's weights do not sum to 1."#,
         r#"Nothing to do."#,
     ),
     (
         "model_degenerate_face",
         CatalogSeverity::Info,
-        r#"PES 2015 to 2017: a face of a `.model` uses one vertex twice."#,
+        r#"In PES 2015 to 2017, a face of a `.model` uses one vertex twice."#,
         r#"Nothing to do."#,
     ),
     (
         "model_material_unused",
         CatalogSeverity::Info,
-        r#"PES 2015 to 2017: a `.model` has a material name no mesh uses."#,
+        r#"In PES 2015 to 2017, a `.model` has a material name that no mesh uses."#,
         r#"Nothing to do."#,
     ),
     (
@@ -1140,7 +1140,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "mtl_state_invalid",
         CatalogSeverity::Error,
-        r#"A `.mtl` state value is out of range (`ztest` other than 1, `blendmode` or `alphablend` other than 0 or 1)."#,
+        r#"A `.mtl` state value is out of range (a `ztest` other than 1, or a `blendmode` or `alphablend` other than 0 or 1)."#,
         r#"The folder is left out."#,
     ),
     (
@@ -1152,7 +1152,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "mtl_state_missing",
         CatalogSeverity::Info,
-        r#"A `.mtl` has no state names; the defaults are used."#,
+        r#"A `.mtl` has no state names, so the defaults are used."#,
         r#"Nothing to do."#,
     ),
     (
@@ -1164,21 +1164,21 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "mtl_state_unknown",
         CatalogSeverity::Info,
-        r#"A `.mtl` has a state name outside the seven the compiler knows (`shadowcaster`, which some of the game's own files carry)."#,
+        r#"A `.mtl` has a state name that is not one of the seven the compiler knows (`shadowcaster`, which some of the game's own files carry)."#,
         r#"Kept as written. Nothing to do."#,
     ),
     (
         "model_material_undefined",
         CatalogSeverity::Error,
         r#"A `.model` uses a material name its `.mtl` does not define (the mesh would render with the game's fallback), or no `.mtl` was found for it at all."#,
-        r#"The folder is left out; `Keep folders with errors` packs it as it is only when a `.mtl` was found."#,
+        r#"The folder is left out, but `Keep folders with errors` packs it as it is only when a `.mtl` was found."#,
     ),
     // The structure pass's codes, in `ISSUE_CODES` order.
     (
         "nested_folders_fixed",
         CatalogSeverity::Warning,
         r#"The export's content sits one level too deep, inside a single folder."#,
-        r#"Read as if the extra level were not there. Repack the export without it."#,
+        r#"The export is read as if the extra level were not there. Repack the export without it."#,
     ),
     (
         "nested_root_ambiguous",
@@ -1195,7 +1195,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "players_txt_invalid",
         CatalogSeverity::Error,
-        r#"`players.txt` cannot be read as a roster (an encoding failure or a roster-wide ambiguity), or a referee roster keeps no valid assignment."#,
+        r#"`players.txt` cannot be read as a roster (an encoding failure or a roster-wide ambiguity), or a referee roster is left with no valid assignment."#,
         r#"The export is not compiled. An empty team roster stays valid for a kit-only export."#,
     ),
     (
@@ -1208,7 +1208,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         "source_read_failed",
         CatalogSeverity::ErrorOrFatal,
         r#"A file of the export could not be read when it was needed."#,
-        r#"An optional root file is left out; a folder's file leaves out the folder; required metadata or an unusable source leaves out the export; a failure of the run's own output stops the compile."#,
+        r#"An optional root file that cannot be read is left out. When a folder's file cannot be read, the folder is left out, and when required metadata cannot be read or the source is unusable, the export is left out. A failure of the run's own output stops the compile."#,
     ),
     (
         "export_empty",
@@ -1219,7 +1219,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "team_name_unknown",
         CatalogSeverity::Error,
-        r#"The export's first word names no team of the teams list."#,
+        r#"The export's first word names no team in the `Teams list file`."#,
         r#"The export is not compiled. Check the name against the `Teams list file`, or add the team to it."#,
     ),
     (
@@ -1243,7 +1243,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "players_txt_line_invalid",
         CatalogSeverity::Error,
-        r#"A nonblank line of `players.txt` is not a decimal slot plus a folder name."#,
+        r#"A nonblank line of `players.txt` does not give a slot number and a folder name."#,
         r#"That line of `players.txt` is ignored."#,
     ),
     (
@@ -1285,14 +1285,14 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "file_type_disallowed",
         CatalogSeverity::ErrorOrInfo,
-        r#"A file sits where its kind is not allowed, in a player or shared folder's tree, in a kit folder, or in `Collars/`: a disallowed extension, or a marker, `settings.toml` or a per-player file below a subfolder."#,
-        r#"With `Strict file type check` on this is an Error and the folder is left out (in `Collars/`, the file alone); with it off it is an Info and nothing is left out."#,
+        r#"A file sits where its kind is not allowed, anywhere in a player or shared folder, in a kit folder, or in `Collars/`: its extension is disallowed, or, below a subfolder, it is a marker, a `settings.toml` or a per-player file."#,
+        r#"With `Strict file type check` on, this is an Error and the folder is left out (in `Collars/`, only the file is left out). With it off, it is an Info and nothing is left out."#,
     ),
     (
         "common_file_disallowed",
         CatalogSeverity::ErrorOrInfo,
         r#"A file sits in `Common/` that is not model content (a model, `.mtl`, `.skl`, `.fclo`, `.xml`, `.bin`, texture or `.txt` note would be)."#,
-        r#"With `Strict file type check` on this is an Error and the file is left out; with it off it is an Info and nothing is left out."#,
+        r#"With `Strict file type check` on, this is an Error and the file is left out. With it off, it is an Info and nothing is left out."#,
     ),
     (
         "player_layout_proto",
@@ -1303,7 +1303,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "shared_link_duplicate",
         CatalogSeverity::Error,
-        r#"A player folder has more than one shared link for a part (face, boots or gloves), counted over its whole tree (two links naming one folder count once)."#,
+        r#"A player folder has more than one shared link for a part (face, boots or gloves), counted over the whole folder, subfolders included. Two links naming one folder count once."#,
         r#"The folder is left out."#,
     ),
     (
@@ -1315,14 +1315,14 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "common_link_missing",
         CatalogSeverity::Error,
-        r#"A `.common` link names a file missing from `Common/` (a `kitN` name or directory stands for its set); on PES 2018 to 2021 a texture link is satisfied when a CPK listed earlier holds it at the team's Common path."#,
+        r#"A `.common` link names a file missing from `Common/` (a `kitN` name or folder stands for its set). In PES 2018 to 2021, a texture link is satisfied when a CPK listed before this run's own holds it at the team's Common path."#,
         r#"The folder is left out."#,
     ),
     (
         "link_target_dropped",
         CatalogSeverity::Error,
         r#"A shared-folder or `.common` link names a target that was left out for its own finding (the line names the link, the target and the finding)."#,
-        r#"The folder is left out; `Keep folders with errors` does not apply (it is not reported when the setting keeps the target)."#,
+        r#"The folder is left out, and `Keep folders with errors` does not apply (it is not reported when the setting keeps the target)."#,
     ),
     (
         "shared_folder_orphaned",
@@ -1339,37 +1339,37 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "ingame_face_marker_renamed",
         CatalogSeverity::Error,
-        r#"A player folder holds `ingame_face` or `ingame_face.txt`, the in-game face marker's old name: it is now `ingame_face.toml`, which also holds the in-game face's keys."#,
-        r#"The file is ignored and the folder compiles as one without it (a blank face package unless the folder gives a face). Renamed to `ingame_face.toml`, an empty file gives the game's default face."#,
+        r#"A player folder holds `ingame_face` or `ingame_face.txt`, the in-game face marker's old name. The marker is now `ingame_face.toml`, which also holds the in-game face's keys."#,
+        r#"The file is ignored, and the folder compiles as if the file were not there (a blank face package unless the folder gives a face). Renamed to `ingame_face.toml`, an empty file gives the game's default face."#,
     ),
     (
         "ingame_face_explicit_face_model",
         CatalogSeverity::Error,
-        r#"A player folder holds `ingame_face.toml` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, which need the face folder the marker suppresses."#,
+        r#"A player folder holds `ingame_face.toml` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, and either one needs the face folder the marker suppresses."#,
         r#"The player folder is left out."#,
     ),
     (
         "texture_stem_conflict",
         CatalogSeverity::Error,
-        r#"Two image files share one stem in the same place, whatever their extensions (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`; `hair.dds` beside `jessie/hair.dds` is no conflict): in a model folder, a kit folder, `Kits/all/`, a directory of `Common/`, or `Portraits/` (two files of one slot)."#,
-        r#"The folder is left out (the model folder or the kit; `all/` itself, so no kit inherits from it). In `Portraits/` and `Common/` the two files are left out."#,
+        r#"Two image files share one stem in the same place, whatever their extensions (`hair.dds` beside `hair.png`, or a texture link `hair.png.common`; `hair.dds` beside `jessie/hair.dds` is no conflict). The place is a model folder, a kit folder, `Kits/all/`, a folder of `Common/`, or `Portraits/` (two files of one slot)."#,
+        r#"The folder is left out (the model folder or the kit, or `all/` itself, so no kit inherits from it). In `Portraits/` and `Common/` the two files are left out."#,
     ),
     (
         "fmdl_name_invalid",
         CatalogSeverity::Error,
-        r#"PES 2018 to 2021: an `.fmdl` in a shared `Boots/` or `Gloves/` folder whose name does not resolve to that category's names."#,
+        r#"In PES 2018 to 2021, an `.fmdl` in a shared `Boots/` or `Gloves/` folder has a name that does not resolve to that category's allowed names."#,
         r#"The folder is left out."#,
     ),
     (
         "model_name_invalid",
         CatalogSeverity::Error,
-        r#"PES 2015 to 2017: a `.model` in a shared `Boots/` or `Gloves/` folder without that category's suffix."#,
+        r#"In PES 2015 to 2017, a `.model` in a shared `Boots/` or `Gloves/` folder lacks that category's suffix."#,
         r#"The folder is left out."#,
     ),
     (
         "edithair_unsupported",
         CatalogSeverity::Error,
-        r#"PES 2015 to 2017: a `face_edithair.xml` or `hair.xml` sits anywhere in a player or shared folder."#,
+        r#"In PES 2015 to 2017, a `face_edithair.xml` or `hair.xml` sits anywhere in a player or shared folder."#,
         r#"The folder is left out."#,
     ),
     (
@@ -1412,7 +1412,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         "kit_all_unused",
         CatalogSeverity::Warning,
         r#"`Kits/all/` is present but no kit folder inherits from it."#,
-        r#"Nothing to do; it is not used."#,
+        r#"Nothing to do. It is not used."#,
     ),
     (
         "kit_textures_inherited",
@@ -1423,14 +1423,14 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "portrait_name_invalid",
         CatalogSeverity::Error,
-        r#"A `Portraits/` file is not a texture named `NN` with NN in 01-23 (alone, or followed by ` - ` and any text)."#,
+        r#"A `Portraits/` file is not a texture named `NN` with NN in 01-23 (the `NN` alone, or followed by ` - ` and any text)."#,
         r#"The file is left out."#,
     ),
     (
         "logo_file_invalid",
         CatalogSeverity::Error,
-        r#"A root `logo*` file has an unknown tag in its name, a format the compiler does not read, or does not decode."#,
-        r#"No logo is built for the team: the two logo files are left out as one unit, the game needing all three sizes."#,
+        r#"A root `logo*` file has an unknown tag in its name, is in a format the compiler does not read, or does not decode."#,
+        r#"No logo is built for the team. The two logo files are left out as one unit, because the game needs all three sizes."#,
     ),
     (
         "logo_role_duplicate",
@@ -1442,12 +1442,12 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         "logo_small_without_main",
         CatalogSeverity::Error,
         r#"A `logo_small*` image is present with no main `logo*`."#,
-        r#"No logo is built; the small image is not a source for the large sizes."#,
+        r#"No logo is built, because the small image is not a source for the large sizes."#,
     ),
     (
         "root_file_unexpected",
         CatalogSeverity::Warning,
-        r#"An unknown file or folder sits at the export's root (a stale `wrapper/` beside a usable root included), or a file sits directly inside `Players/`, `Kits/`, `Faces/`, `Boots/` or `Gloves/`, which hold only folders."#,
+        r#"An unknown file or folder sits at the export's root (a stale `wrapper/` beside a usable root included), or a file sits directly inside `Players/`, `Kits/`, `Faces/`, `Boots/` or `Gloves/`, all of which hold only folders."#,
         r#"The file or folder is ignored."#,
     ),
     (

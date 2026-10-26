@@ -1474,11 +1474,11 @@ mod tests {
         );
         assert_eq!(
             row("file_type_disallowed").2,
-            "A file sits where its kind is not allowed, in a player or shared folder's tree, in a kit folder, or in `Collars/`: a disallowed extension, or a marker, `settings.toml` or a per-player file below a subfolder."
+            "A file sits where its kind is not allowed, anywhere in a player or shared folder, in a kit folder, or in `Collars/`: its extension is disallowed, or, below a subfolder, it is a marker, a `settings.toml` or a per-player file."
         );
         assert_eq!(
             row("file_type_disallowed").3,
-            "With `Strict file type check` on this is an Error and the folder is left out (in `Collars/`, the file alone); with it off it is an Info and nothing is left out."
+            "With `Strict file type check` on, this is an Error and the folder is left out (in `Collars/`, only the file is left out). With it off, it is an Info and nothing is left out."
         );
     }
 }
