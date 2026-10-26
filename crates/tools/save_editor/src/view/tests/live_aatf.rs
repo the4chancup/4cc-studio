@@ -457,20 +457,37 @@ fn the_checks_follow_the_selected_rows_team_under_a_filter() {
     );
 
     // The dock and the panel's current-team mode each check team 702 (the
-    // keyed results land only for the team each caller picked).
-    let nodes = live_checked(&mut window, &mut view, None, &[702]);
+    // keyed results land only for the team each caller picked), each read
+    // inside its own widget's nodes: the other draws the same header, so
+    // a frame-wide scan can be met by the wrong one's copy.
+    live_checked(&mut window, &mut view, None, &[702]);
+    panel_checked(&mut window, &mut view, None, &[702]);
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let panel = nodes_in_window(&pairs, "AATF violations");
     assert!(
-        nodes
+        panel
             .iter()
-            .any(|node| node.value() == Some("Team 702 /a/")),
-        "the dock's rows are team 702's"
-    );
-    let nodes = panel_checked(&mut window, &mut view, None, &[702]);
-    assert!(
-        nodes
-            .iter()
-            .any(|node| node.value() == Some("Team 702 /a/")),
+            .any(|(_, node)| node.value() == Some("Team 702 /a/")),
         "the panel's rows are team 702's"
+    );
+    // The dock's band is the panel's own nodes left out: below its
+    // header row and outside the floating window's subtree.
+    let dock_top = pairs
+        .iter()
+        .find(|(_, node)| node.role() == Role::Label && node.value() == Some("Live AATF"))
+        .and_then(|(_, node)| node.bounds())
+        .expect("the dock's header row")
+        .y0;
+    let panel_ids: std::collections::HashSet<accesskit::NodeId> =
+        panel.iter().map(|(id, _)| *id).collect();
+    assert!(
+        pairs.iter().any(|(id, node)| {
+            !panel_ids.contains(id)
+                && node.value() == Some("Team 702 /a/")
+                && node.bounds().is_some_and(|b| b.y0 >= dock_top - 1.0)
+        }),
+        "the dock's rows are team 702's"
     );
 }
 

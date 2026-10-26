@@ -29,9 +29,55 @@ fn quick_action_labels(nodes: &[accesskit::Node]) -> Vec<String> {
 }
 
 /// The grid's buttons are `expected` and no others, in (y, x) order, two
-/// per row (the two-column grid).
+/// per row (the two-column grid), inside the side panel's x range and
+/// below the list's drawn rows.
 fn assert_quick_actions(nodes: &[accesskit::Node], expected: &[&str]) {
     assert_eq!(quick_action_labels(nodes), expected);
+    // The filter box's bounds stand for the side panel's x range: the
+    // buttons sit inside it and below the list's last drawn row.
+    let panel = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::TextInput
+                && node.placeholder() == Some("Filter every team (name, shirt name or id)")
+        })
+        .and_then(accesskit::Node::bounds)
+        .expect("the filter box bounds the side panel");
+    let first_y0 = node_labeled(nodes, Role::Button, expected[0])
+        .bounds()
+        .expect("bounds")
+        .y0;
+    // The list's last drawn row's top: a row clipped at the bottom panel's
+    // edge keeps an unclipped bounds, so the tops are what order the two.
+    let last_row_y0 = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node.bounds().is_some_and(|b| {
+                    b.x0 >= panel.x0 - 1.0
+                        && b.x1 <= panel.x1 + 1.0
+                        && b.y0 > panel.y1
+                        && b.y0 < first_y0
+                })
+        })
+        .filter_map(|node| node.bounds().map(|b| b.y0))
+        .fold(0.0, f64::max);
+    assert!(
+        first_y0 > last_row_y0,
+        "the grid starts below the list's last row ({first_y0} vs {last_row_y0})"
+    );
+    let mut xs: Vec<f64> = expected
+        .iter()
+        .map(|button| {
+            node_labeled(nodes, Role::Button, button)
+                .bounds()
+                .expect("bounds")
+                .x0
+        })
+        .collect();
+    xs.sort_by(f64::total_cmp);
+    xs.dedup();
+    assert_eq!(xs.len(), 2, "the two columns take two x positions");
     for pair in expected.chunks(2) {
         let row_y = node_labeled(nodes, Role::Button, pair[0])
             .bounds()
@@ -45,6 +91,10 @@ fn assert_quick_actions(nodes: &[accesskit::Node], expected: &[&str]) {
                 (bounds.y0 - row_y).abs() < 4.0,
                 "{button} shares {0}'s row ({bounds:?})",
                 pair[0]
+            );
+            assert!(
+                bounds.x0 >= panel.x0 - 1.0 && bounds.x1 <= panel.x1 + 1.0,
+                "{button} inside the side panel's x range ({bounds:?} vs {panel:?})"
             );
         }
     }
@@ -150,6 +200,15 @@ fn rules_file_under(dir: &Path, name: &str) -> PathBuf {
 fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
     let (_path, mut view, mut window) = open_701("quick_on_team_row");
 
+    /// No node of the frame carries the tool's name (the "No view draws
+    /// the tool's name" bullet): the window's title bar carries it.
+    fn draws_tool_name(nodes: &[accesskit::Node]) -> bool {
+        nodes.iter().any(|node| {
+            node.label().is_some_and(|l| l.contains("Save editor"))
+                || node.value().is_some_and(|v| v.contains("Save editor"))
+        })
+    }
+
     // A player row: the controls are enabled.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
@@ -158,6 +217,7 @@ fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
             .any(|node| { node.role() == Role::Label && node.value() == Some("Quick actions") }),
         "no heading"
     );
+    assert!(!draws_tool_name(&nodes), "no view draws \"Save editor\"");
     for label in ["Make Gold", "Set stats"] {
         assert!(
             !node_labeled(&nodes, Role::Button, label).is_disabled(),
@@ -175,6 +235,10 @@ fn the_quick_actions_and_player_menu_disable_on_a_team_row() {
     // Player menu's entries the same.
     open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(
+        !draws_tool_name(&nodes),
+        "the team view draws no \"Save editor\" either"
+    );
     let tip = "The make buttons act on a player: pick a player row";
     for label in ["Make Gold", "Make Regular", "Set stats"] {
         let button = node_labeled(&nodes, Role::Button, label);

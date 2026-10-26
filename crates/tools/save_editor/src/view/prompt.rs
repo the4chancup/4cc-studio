@@ -252,7 +252,7 @@ pub(super) fn roster_names<'a>(
         .collect()
 }
 
-/// `team`'s roster as the Tactics tab's `RosterRow`s: the display names
+/// `team`'s roster as the Tactics editor's `RosterRow`s: the display names
 /// borrowed from `names` (`roster_names`' output), the raw names the
 /// records' own, colour codes kept. `lookup` is the same one
 /// `roster_names` ran under.

@@ -1,6 +1,6 @@
 //! Which players and team rows the master list shows: the team the selector
-//! names, or every team while the filter box is in use (`plans/save_editor.md`
-//! "Editing UI", the Player list bullet).
+//! names, or every team at ALL and while the filter box is in use
+//! (`plans/save_editor.md` "Editing UI", the Player list bullet).
 
 use std::collections::HashMap;
 

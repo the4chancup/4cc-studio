@@ -133,6 +133,11 @@ fn team_row(
                 visuals.bg_stroke,
                 egui::StrokeKind::Inside,
             );
+        } else {
+            // The faint fill sets the row apart from a player row (the
+            // plan's Player list bullet, the draft's `.trow` backdrop).
+            ui.painter()
+                .rect_filled(rect, egui::CornerRadius::ZERO, ui.visuals().faint_bg_color);
         }
         let padding = ui.spacing().button_padding.x;
         let centre = rect.center().y;

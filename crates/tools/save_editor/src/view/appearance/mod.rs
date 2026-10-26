@@ -174,7 +174,7 @@ fn groups(
     fpc_group(ui, session, player_id, player, hide_ids);
 }
 
-/// The Cutscenes group (the draft's `#cutscenes`), first on the tab and
+/// The Cutscenes group (the draft's `#cutscenes`), first in the section and
 /// outside the lock: star and playing attitude change only cutscenes, so
 /// they are no aesthetic the export owns — editable while the groups
 /// below stay locked, gated per version like the other fields.
@@ -220,7 +220,7 @@ pub(crate) fn ownership_tip(version: PesVersion) -> &'static str {
     }
 }
 
-/// The FPC group, last on the tab (the draft's `fpcGroup`): the
+/// The FPC group, last in the section (the draft's `fpcGroup`): the
 /// classifier's reading (`is_fpc_player` under `hide_ids`, the settings'
 /// hide IDs — a player hidden by his model's own boots ID reads as shown,
 /// so no checkbox), the Hide body and Show body buttons with the draft's
@@ -763,7 +763,7 @@ fn colour_rows(
                     .appearance
                     .ingame_face
                     .set(field, shown)
-                    .expect("a loaded player's face run holds the tab's colour fields");
+                    .expect("a loaded player's face run holds the section's colour fields");
             });
         });
     }
@@ -930,12 +930,12 @@ fn swatch(ui: &mut egui::Ui, rgb: [u8; 3], held: bool, label: &str) -> egui::Res
 
 /// `field`'s value inside `appearance`'s ingame-face run: the run a loaded
 /// save's players always carry, and a field `layout()` names for every
-/// version (the four the tab edits are `None`, both layouts).
+/// version (the four the section edits are `None`, both layouts).
 fn face(appearance: &PlayerAppearance, field: IngameFaceField) -> u8 {
     appearance
         .ingame_face
         .get(field)
-        .expect("a loaded player's face run holds the tab's colour fields")
+        .expect("a loaded player's face run holds the section's colour fields")
 }
 
 /// A xorshift64 (13, 7, 17) draw in `1..=top` from `seed` (the Randomize

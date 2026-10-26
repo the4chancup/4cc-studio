@@ -2540,3 +2540,5 @@ worklog passed 7,000 lines.
   with no concerns (`.tmp/8_9l/rulings.md`); its old side names the saved file's players after a drag.
 - **2026-10-26** — The Save editor's player view shows every gameplay field at once in three columns under `<id> <name>`,
   Name and Shirt counting against their limits; the AATF checks and the Team menu follow the selected row's team.
+- **2026-10-26** — The Save editor's team row stands apart on a faint fill, the chosen C rating reads in the normal text
+  colour, and the quick actions fit the side panel; the card columns live in `team_widgets` (0.0.1s3d).

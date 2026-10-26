@@ -24,6 +24,7 @@ use pes_savefile::interchange::team_toml::labels::{
 use pes_savefile::model::{PlayerEntry, PlayerPositions, PlayerSkills, PlayerStats};
 use pes_savefile::schema::fields::{ABILITY_FIELDS, PlayerField};
 use pes_savefile::schema::first_version_with;
+use team_widgets::cards;
 
 use crate::session::Session;
 use crate::view::{
@@ -48,10 +49,10 @@ pub(super) const RATING_LABELS: [(&str, u8); 3] = [("C", 0), ("B", 1), ("A", 2)]
 /// from it (`terms::row_term`).
 pub(super) const PLAYABLE_POSITIONS_LABEL: &str = "Playable positions";
 
-/// The gap between two columns, and between a column's panels (the
-/// draft's `.pcols`/`.pcol` `gap`s).
+/// The gap between two columns (the draft's `.pcols` `gap`).
 const COLUMN_GAP: f32 = 36.0;
-/// The gap between the panels of one column.
+/// The gap between the panels of one column (the draft's `.pcol` `gap`),
+/// and between Skills' two card columns (`cards` keeps the same 14).
 const PANEL_GAP: f32 = 14.0;
 
 /// The columns for the selected player, under `info_strip`'s title: the
@@ -83,7 +84,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let SaveView {
         session,
         rules,
-        cards,
+        cards: badge,
         generation,
         ..
     } = view;
@@ -92,7 +93,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     };
     let generation = *generation;
     let mut skills_changed = false;
-    ui.push_id((generation, player_id), |ui| {
+    ui.push_id(("player", generation, player_id), |ui| {
         // A wrapped row with tops aligned: `horizontal_wrapped` centers on
         // the cross axis, the columns want their tops level.
         let spacing = ui.spacing().item_spacing;
@@ -122,7 +123,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 // Column 2: Skills (the Cards left badge in its header
                 // row) over COM playing styles, their columns 158 wide.
                 ui.allocate_ui_with_layout(
-                    egui::vec2(2.0 * CARD_COLUMN_WIDTH + PANEL_GAP, ui.available_height()),
+                    egui::vec2(
+                        2.0 * cards::CARD_COLUMN_WIDTH + PANEL_GAP,
+                        ui.available_height(),
+                    ),
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
@@ -131,7 +135,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                             skills_changed |= skills_panel(
                                 ui,
                                 rules.as_ref(),
-                                cards,
+                                badge,
                                 session,
                                 (team_id, slot),
                                 version,
@@ -139,7 +143,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                             );
                         });
                         panel(ui, spacing, "COM playing styles", |ui| {
-                            skills_changed |= card_columns(
+                            skills_changed |= cards::card_columns(
                                 ui,
                                 version,
                                 &mut skills.com_styles,
@@ -202,12 +206,8 @@ pub(crate) fn maybe_end_row(ui: &mut egui::Ui, index: usize, per_row: usize) {
     }
 }
 
-/// A skills or COM styles column's width (the draft's `.skcols` 158px):
-/// the two panels' second columns share the one x.
-const CARD_COLUMN_WIDTH: f32 = 158.0;
-
 /// One small stored field of the Other stats panel or the Appearance
-/// tab's Cutscenes group: the term's name, the drawn label, its schema
+/// section's Cutscenes group: the term's name, the drawn label, its schema
 /// field, the shown range and the shift between shown and stored (the
 /// shifted fields are stored one below the game's numbers, the draft's
 /// `+ 1`/`v - 1`).
@@ -236,7 +236,7 @@ pub(super) struct SmallStat {
 /// The Other stats panel's four stored fields, in the draft's order: form
 /// 1-8, injury resistance 1-3, weak foot usage and accuracy 1-4 (each
 /// stored one lower). Star and playing attitude, which change only
-/// cutscenes, sit in the Appearance tab's `CUTSCENE_STATS`.
+/// cutscenes, sit in the Appearance section's `CUTSCENE_STATS`.
 pub(super) const SMALL_STATS: [SmallStat; 4] = [
     SmallStat {
         label: "Form",
@@ -282,7 +282,7 @@ pub(super) const SMALL_STATS: [SmallStat; 4] = [
 
 /// One `SmallStat`'s label/control pair: `number` for a stored field, the
 /// `-` stand-in for a gated one (the label stays too: the gated control
-/// keeps its cell). The Appearance tab's Cutscenes group uses it; the
+/// keeps its cell). The Appearance section's Cutscenes group uses it; the
 /// Other stats panel's `small` pairs draw the halves apart.
 pub(super) fn small_stat(
     ui: &mut egui::Ui,
@@ -322,18 +322,23 @@ const POS_ROWS: [&[&str]; 3] = [
 
 /// The chosen rating's fill and text colours (the draft's `.sel.on`
 /// variants): A the success green with dark text, B the selection colour
-/// with its foreground, C a grey square with the normal text.
-fn rating_colors(ui: &egui::Ui, rating: u8) -> (egui::Color32, Option<egui::Color32>) {
+/// with its foreground, C a grey square with the normal text — named
+/// outright, since a selected button's own text colour is the
+/// selection's foreground.
+fn rating_colors(ui: &egui::Ui, rating: u8) -> (egui::Color32, egui::Color32) {
     match rating {
         2 => (
             studio_core::theme::SUCCESS_FG,
-            Some(egui::Color32::from_gray(0x1a)),
+            egui::Color32::from_gray(0x1a),
         ),
         1 => (
             ui.visuals().selection.bg_fill,
-            Some(ui.visuals().selection.stroke.color),
+            ui.visuals().selection.stroke.color,
         ),
-        _ => (egui::Color32::from_rgb(0x5a, 0x5a, 0x5a), None),
+        _ => (
+            egui::Color32::from_rgb(0x5a, 0x5a, 0x5a),
+            ui.visuals().text_color(),
+        ),
     }
 }
 
@@ -375,14 +380,13 @@ fn playable_positions(
                                 // The chosen rating filled (the draft's
                                 // `.sel.on.*`).
                                 let (fill, text) = rating_colors(ui, rating);
-                                let mut label = egui::RichText::new(label);
-                                if let Some(text) = text {
-                                    label = label.color(text);
-                                }
                                 ui.add(
-                                    egui::Button::selectable(true, label)
-                                        .min_size(egui::vec2(17.0, 17.0))
-                                        .fill(fill),
+                                    egui::Button::selectable(
+                                        true,
+                                        egui::RichText::new(label).color(text),
+                                    )
+                                    .min_size(egui::vec2(17.0, 17.0))
+                                    .fill(fill),
                                 )
                             } else {
                                 ui.add(
@@ -456,7 +460,7 @@ fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats
 fn skills_panel(
     ui: &mut egui::Ui,
     rules: Option<&ActiveRules>,
-    cards: &mut Option<(BadgeKey, OwnBadge)>,
+    badge: &mut Option<(BadgeKey, OwnBadge)>,
     session: &mut Session,
     (team_id, slot): (u32, u8),
     version: pes_version::PesVersion,
@@ -472,20 +476,20 @@ fn skills_panel(
                     slot,
                     rules_file: active.file.clone(),
                 };
-                if cards.as_ref().is_none_or(|(held, _)| *held != key) {
-                    *cards = Some((key, own_badge(rules, session.file(), team_id, slot)));
+                if badge.as_ref().is_none_or(|(held, _)| *held != key) {
+                    *badge = Some((key, own_badge(rules, session.file(), team_id, slot)));
                 }
             }
             // The error stands in for the badge: a stale one goes too.
             Err(error) => {
                 load_error = Some(error.as_str());
-                *cards = None;
+                *badge = None;
             }
         }
     }
     // A file that does not load, or a check that fails on him, shows its
     // error in the badge's place.
-    let error_text = match (load_error, cards.as_ref()) {
+    let error_text = match (load_error, badge.as_ref()) {
         (Some(error), _) => Some(rules_load_error(error)),
         (None, Some((_, OwnBadge::Failed(error)))) => Some(format!(
             "The AATF rules could not read this player: {error}"
@@ -494,83 +498,29 @@ fn skills_panel(
     };
     ui.horizontal_wrapped(|ui| {
         ui.strong("Skills");
-        ui.weak("Cards left");
         if let Some(text) = &error_text {
+            ui.weak("Cards left");
             ui.weak(text);
         } else {
-            match cards.as_ref() {
-                Some((_, OwnBadge::Tier { label, limits })) => {
-                    let left = i32::from(limits.limit) - i32::from(limits.paid);
-                    let mut text =
-                        egui::RichText::new(format!("{label}: {left} of {} cards", limits.limit));
-                    if left < 0 {
-                        text = text.color(ui.visuals().error_fg_color);
-                    }
-                    ui.label(text).on_hover_text(format!(
-                        "{label}: {} paid of {}",
-                        limits.paid, limits.limit
-                    ));
+            match badge.as_ref() {
+                Some((_, OwnBadge::Tier { label, limits })) => cards::cards_left(
+                    ui,
+                    &cards::CardsBadge::Tier(cards::TierCards { label, limits }),
+                ),
+                Some((_, OwnBadge::NoTier)) => cards::cards_left(ui, &cards::CardsBadge::NoTier),
+                Some((_, OwnBadge::Failed(_))) | None => {
+                    ui.weak("Cards left");
                 }
-                Some((_, OwnBadge::NoTier)) => {
-                    ui.weak("No tier matches");
-                }
-                Some((_, OwnBadge::Failed(_))) | None => {}
             }
         }
     });
-    card_columns(
+    cards::card_columns(
         ui,
         version,
         &mut skills.skills,
         &labels::SKILLS,
         PlayerField::Skill,
     )
-}
-
-/// One card kind's checkboxes in two columns `CARD_COLUMN_WIDTH` wide, 14
-/// apart, filled column by column (the draft's `.skcols`): every card is
-/// drawn on every version; one the version cannot store stays in its
-/// cell, disabled with a `PES NN+` tooltip. Returns whether a card was
-/// ticked or unticked this frame.
-fn card_columns(
-    ui: &mut egui::Ui,
-    version: pes_version::PesVersion,
-    cards: &mut [bool],
-    names: &[&'static str],
-    field: impl Fn(u8) -> PlayerField,
-) -> bool {
-    let fields = pes_savefile::schema::schema_for(version).player_field_set();
-    let mut changed = false;
-    let per_column = names.len().div_ceil(2);
-    ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = PANEL_GAP;
-        for (column, chunk) in names.chunks(per_column).enumerate() {
-            ui.vertical(|ui| {
-                ui.set_width(CARD_COLUMN_WIDTH);
-                for (index, &name) in chunk.iter().enumerate() {
-                    let index = column * per_column + index;
-                    let field = field(index as u8);
-                    if fields.contains(&field) {
-                        changed |= ui.checkbox(&mut cards[index], title_case(name)).changed();
-                    } else {
-                        // A card the version cannot store stays, disabled,
-                        // its tooltip naming the first version that has it.
-                        ui.add_enabled(
-                            false,
-                            egui::Checkbox::new(&mut cards[index], title_case(name)),
-                        )
-                        .on_disabled_hover_text(format!(
-                            "PES {}+",
-                            first_version_with(field)
-                                .expect("every card is stored by some version")
-                                .number()
-                        ));
-                    }
-                }
-            });
-        }
-    });
-    changed
 }
 
 /// What `rules` read team `team_id`'s roster `slot` as on `file`: his own
@@ -722,8 +672,8 @@ mod tests {
     // plans/save_editor.md "Editing UI", the Abilities & Skills bullet
     // ("each inside the field's bit width on every version"): every range's
     // top fits the field's bit width on every version storing it (after
-    // the stored-one-lower shift). The Appearance tab's Cutscenes pair is
-    // a `SmallStat` too.
+    // the stored-one-lower shift). The Appearance section's Cutscenes
+    // pair is a `SmallStat` too.
     #[test]
     fn every_ranges_top_fits_the_fields_bit_width() {
         for (field, top, shift) in SMALL_STATS

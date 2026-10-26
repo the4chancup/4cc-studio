@@ -565,6 +565,87 @@ mod tests {
         );
     }
 
+    // ST-BAR-03's right-slot cap: an activity text wider than a third of
+    // the bar is drawn in a slot a third of the bar wide, its right edge
+    // on the bar's (the 800 window's margin holds the bar to 8..792).
+    #[test]
+    fn a_wide_activity_is_capped_at_a_third_of_the_bar() {
+        let Shell {
+            mut app,
+            calls,
+            _dir,
+            ..
+        } = shell();
+        let egui_ctx = test_context();
+        calls[1].set_activity(
+            "B and its much longer tool name for the slot cap",
+            Some((12, 48)),
+            Duration::from_secs(72),
+        );
+        let nodes = frame(&egui_ctx, &mut app, Vec::new(), true).nodes;
+        let bounds = nodes
+            .iter()
+            .find(|node| {
+                node.value()
+                    .is_some_and(|value| value.starts_with("B and its much longer"))
+            })
+            .expect("the activity label")
+            .bounds()
+            .unwrap();
+        assert!(
+            bounds.x1 - bounds.x0 <= 784.0 / 3.0 + 1.0,
+            "the slot is a third of the bar at most ({bounds:?})"
+        );
+        assert!(
+            (bounds.x1 - (800.0 - 8.0)).abs() <= 1.0,
+            "its right edge is the bar's right edge ({bounds:?})"
+        );
+    }
+
+    // ST-BAR-03's middle slot, beside an activity: the notice's group is
+    // centred in the space the left and right slots leave (the left
+    // slot's right edge plus spacing, the right slot's left edge minus
+    // it).
+    #[test]
+    fn the_notice_group_centres_between_the_slots() {
+        let Shell {
+            mut app,
+            ctx,
+            calls,
+            _dir,
+            ..
+        } = shell();
+        let egui_ctx = test_context();
+        calls[1].set_activity("B", Some((12, 48)), Duration::from_secs(72));
+        ctx.notify(Notice {
+            text: "ready".to_owned(),
+            kind: NoticeKind::Info,
+            action: Some(NoticeAction {
+                label: "Go".to_owned(),
+                effect: ActionEffect::SwitchTool("b".to_owned()),
+            }),
+        });
+        let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+        let nodes = &out.nodes;
+
+        let activity = nodes
+            .iter()
+            .find(|node| node.value() == Some("B · 12/48 · 01:12"))
+            .expect("the second tool's activity is drawn")
+            .bounds()
+            .unwrap();
+        let text = bar_text_shape(&out, "ready").expect("the notice text is painted");
+        let dismiss = entry(nodes, "Dismiss").bounds().unwrap();
+        let spacing = f64::from(egui_ctx.global_style().spacing.item_spacing.x);
+        let slot_left = left_slot_right(nodes) + spacing;
+        let slot_right = activity.x0 - spacing;
+        let centre = (f64::from(text.pos.x) + dismiss.x1) / 2.0;
+        assert!(
+            (centre - (slot_left + slot_right) / 2.0).abs() <= 1.0,
+            "the notice group centres in {slot_left}..{slot_right}, centre at {centre}"
+        );
+    }
+
     // ST-BAR-04
     #[test]
     fn each_notice_kind_paints_its_text_in_its_own_colour() {

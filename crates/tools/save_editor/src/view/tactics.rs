@@ -1,16 +1,16 @@
-//! The Tactics tab (`plans/save_editor.md` "Tactics editor"; the draft's
-//! `tacticsTab`): `team_widgets`' pitch, lineup lists and tactics settings
-//! over the selected player's team — the formation canvas with its markers
-//! and slot popover, the starting eleven and the bench with swap-by-drag,
-//! the preset selector, the Formation settings, Advanced instructions,
-//! Player assignments and Automatic settings groups — plus the tab's own
-//! Copy/swap preset and Copy/swap formation menus (the editor's alone,
-//! the plan's placement rules; `session::tactics_ops`). The widgets edit a
-//! clone of the team's tactics and report a change; the tab pushes the
-//! clone back with `Session::edit_team` under one key per widget call
-//! (pitch, lineup, settings), so a gesture's frames merge but different
-//! widgets' edits never do (`seal` runs when the pointer is up and no
-//! widget has focus).
+//! The team view's Tactics editor (`plans/save_editor.md` "Tactics editor";
+//! the draft's `tacticsTab`): `team_widgets`' pitch, lineup lists and
+//! tactics settings over the selected row's team — the formation canvas
+//! with its markers and slot popover, the starting eleven and the bench
+//! with swap-by-drag, the preset selector, the Formation settings,
+//! Advanced instructions, Player assignments and Automatic settings
+//! groups — plus the editor's own Copy/swap preset and Copy/swap
+//! formation menus (the editor's alone, the plan's placement rules;
+//! `session::tactics_ops`). The widgets edit a clone of the team's
+//! tactics and report a change; the view pushes the clone back with
+//! `Session::edit_team` under one key per widget call (pitch, lineup,
+//! settings), so a gesture's frames merge but different widgets' edits
+//! never do (`seal` runs when the pointer is up and no widget has focus).
 
 use pes_savefile::model::names::display_name;
 use pes_savefile::model::tactics::TeamTactics;
@@ -34,7 +34,8 @@ pub(super) const LISTS_WIDTH: f32 = 200.0;
 /// the pane's width on a narrow one.
 pub(super) const SETTINGS_MIN: f32 = 360.0;
 
-/// The tab for the selected player's team, in the strip's `Team` group.
+/// The editor for the selected row's team (a player row's or a team
+/// row's own), under the team view's fields.
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let Some((team_id, version, team)) = selected_team(view) else {
         return;
@@ -92,9 +93,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             portrait,
         })
         .collect();
-    // Every widget id under the tab is the team's within this open (the
-    // Team tab's rule): a combo's popup, a DragValue's in-progress edit
-    // and the widget's state never cross teams nor saves.
+    // Every widget id under the editor is the team's within this open
+    // (the view's own salt on top of the team scope's): a combo's popup,
+    // a DragValue's in-progress edit and the widget's state never cross
+    // teams nor saves.
     ui.push_id((*generation, team_id), |ui| {
         let mut edited = team.tactics.clone();
         let mut changed = [false; 3];

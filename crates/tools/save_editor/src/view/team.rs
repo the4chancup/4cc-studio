@@ -62,12 +62,14 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // Every widget id under the view is the team's within this open: a
     // text field's undo history, a DragValue's in-progress edit, a combo's
     // popup and the pickers' state never cross teams — nor saves (the
-    // `generation` half). Each pair under `scoped`'s fixed `scope_id` in
+    // `generation` half), nor the player view's, the kind in the salt (a
+    // save outside 4cc conventions can give a rostered player a team's
+    // id). Each pair under `scoped`'s fixed `scope_id` in
     // both arrangements too: an id follows call order inside a scope, so
     // crossing `TEAM_FIELDS_ONE_ROW` would re-key the fields. The session
     // is re-taken per block so the Tactics editor can borrow the whole
     // view.
-    ui.push_id((generation, team_id), |ui| {
+    ui.push_id(("team", generation, team_id), |ui| {
         // The view's title: the team's name, its colour codes drawn as the
         // list paints them (`append_name`), at the heading text style — as
         // `info_strip` draws the player's name.
@@ -156,7 +158,7 @@ pub(crate) fn kit_slots_dialog(ui: &mut egui::Ui, view: &mut SaveView) {
     let response =
         egui::Modal::new(egui::Id::unique("save_editor_kit_slots")).show(ui.ctx(), |ui| {
             ui.heading("Kit slot assignments");
-            ui.push_id((generation, team_id), |ui| {
+            ui.push_id(("team", generation, team_id), |ui| {
                 kit_slots(ui, session, team_id, schema, &team);
             });
             if ui.button("OK").clicked() {

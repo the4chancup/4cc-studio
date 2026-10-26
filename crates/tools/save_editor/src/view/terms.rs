@@ -1,8 +1,8 @@
-//! The tabs' terms for a `diff` row (`plans/save_editor.md` "Comparator
-//! (gameplay + aesthetics)", the row bullet): a field a tab draws reads
-//! under the tab's own label, its old and new values as that tab shows
-//! them, so a label or scale changed in a tab changes the row with it. A
-//! field no tab draws keeps the report's name and values
+//! The views' terms for a `diff` row (`plans/save_editor.md` "Comparator
+//! (gameplay + aesthetics)", the row bullet): a field a view draws reads
+//! under the view's own label, its old and new values as that view shows
+//! them, so a label or scale changed in a view changes the row with it. A
+//! field no view draws keeps the report's name and values
 //! (`messages::diff_fields`). The same terms word the unsaved-changes
 //! table's team rows (`team_row_terms`).
 
@@ -24,18 +24,18 @@ use crate::messages::diff_fields;
 use crate::view::appearance::{self, fields};
 use crate::view::{abilities, info_strip, team};
 
-/// A `diff` row's terms: the field's label and its two values as the tab
+/// A `diff` row's terms: the field's label and its two values as the view
 /// that owns the field shows them.
 pub(super) struct Term {
-    /// The field's label: the tab's own where a tab draws the field.
+    /// The field's label: the view's own where a view draws the field.
     pub(super) label: String,
-    /// `old` as the tab shows it.
+    /// `old` as the view shows it.
     pub(super) old: String,
     /// `new` the same way.
     pub(super) new: String,
 }
 
-/// `diff`'s row in the tabs' terms.
+/// `diff`'s row in the views' terms.
 pub(super) fn row_term(version: PesVersion, diff: &PlayerDiff) -> Term {
     match diff {
         PlayerDiff::Field { .. } => player_field_term(version, diff),
@@ -52,26 +52,26 @@ pub(super) fn row_term(version: PesVersion, diff: &PlayerDiff) -> Term {
                 new: new.clone(),
             },
         },
-        // The run's fingerprint row is drawn by no tab.
+        // The run's fingerprint row is drawn by no view.
         PlayerDiff::FaceRun { .. } => report_term(diff),
     }
 }
 
 /// The report's own terms for `diff`: the field's schema name and its
-/// stored values — the row for a field no tab draws.
+/// stored values — the row for a field no view draws.
 fn report_term(diff: &PlayerDiff) -> Term {
     let (label, old, new) = diff_fields(diff);
     Term { label, old, new }
 }
 
-/// `diffs`' rows in the tabs' terms, for the unsaved-changes prompt: one
+/// `diffs`' rows in the views' terms, for the unsaved-changes prompt: one
 /// `Term` per row in `diffs`' order — a team colour's three channel diffs
 /// merge into the swatch's one row, at the first channel's place. `team`
 /// is the open save's entry (its tactics' eleven name the slots);
 /// `baseline_team` is the file-as-opened's, whose tactics an
 /// instruction-target row's old side is worded under and whose colour a
 /// colour row's old side reads. `old_roster`/`new_roster` are the
-/// Tactics tab's roster rows of each side: a drag moves records between
+/// Tactics editor's roster rows of each side: a drag moves records between
 /// the roster's ids while a stored byte still names the slot, so the old
 /// side's names come from the baseline's roster, the new side's from the
 /// current's.
@@ -106,7 +106,7 @@ pub(super) fn team_row_terms(
     terms
 }
 
-/// A `TeamDiff`'s row in the tabs' terms, the team twin of `row_term`.
+/// A `TeamDiff`'s row in the views' terms, the team twin of `row_term`.
 fn team_row_term(
     version: PesVersion,
     team: &TeamEntry,
@@ -128,13 +128,13 @@ fn team_row_term(
                 *old,
                 *new,
             ),
-            // The tab shows the bound team, `binding / 64`.
+            // The view shows the bound team, `binding / 64`.
             TeamField::KitSlotTeam(index) => numbers(
                 format!("Slot {} · {}", index + 1, team::BOUND_TEAM_LABEL),
                 *old / 64,
                 *new / 64,
             ),
-            // The flags the tab sets as a side effect, the id, and a
+            // The flags the view sets as a side effect, the id, and a
             // colour channel alone (a merge `team_row_terms` already
             // handled): the report's terms, as players' undrawn fields
             // get.
@@ -185,7 +185,7 @@ fn colour_index(diff: &TeamDiff) -> Option<usize> {
     }
 }
 
-/// The tab's one row for a team colour: the swatch's label and the two
+/// The view's one row for a team colour: the swatch's label and the two
 /// sides' hex (`colour_unit`'s `format_hex` over `channel_to_show`), read
 /// from `baseline`'s and `team`'s stored channels — the diffs the row
 /// merges only say the colour changed.
@@ -209,7 +209,7 @@ fn colour_term(baseline: &TeamEntry, team: &TeamEntry, colour: usize) -> Term {
 
 /// The report's own terms for a team diff, `report_term`'s twin: the
 /// field's schema name and its stored values — the row for a field no
-/// tab draws.
+/// view draws.
 fn team_report_term(diff: &TeamDiff) -> Term {
     let (label, old, new) = match diff {
         TeamDiff::Field { field, old, new } => report_fields(field, *old, *new),
@@ -227,10 +227,10 @@ fn report_fields(field: impl std::fmt::Debug, old: u32, new: u32) -> (String, St
     (format!("{field:?}"), old.to_string(), new.to_string())
 }
 
-/// A `Field` row's term: the tabs' own tables first (`SMALL_STATS`,
+/// A `Field` row's term: the views' own tables first (`SMALL_STATS`,
 /// `CUTSCENE_STATS`, `MOTIONS`, `PHYSIQUE`, `STRIP_ENUMS`, the ability
-/// stats), then the fields the tabs draw one-off, then the report's terms
-/// for a field no tab draws — the `_` arm IS the rule for those, not an
+/// stats), then the fields the views draw one-off, then the report's terms
+/// for a field no view draws — the `_` arm IS the rule for those, not an
 /// oversight.
 fn player_field_term(version: PesVersion, diff: &PlayerDiff) -> Term {
     let PlayerDiff::Field { field, old, new } = *diff else {
@@ -347,7 +347,7 @@ fn player_field_term(version: PesVersion, diff: &PlayerDiff) -> Term {
                 new: palette.shown(stored_u8(new)),
             }
         }
-        // The rest is drawn by no tab (the ids and gameplay edit flags
+        // The rest is drawn by no view (the ids and gameplay edit flags
         // among them): the report's terms.
         _ => report_term(diff),
     }
@@ -464,7 +464,7 @@ mod tests {
         PlayerDiff::Face { field, old, new }
     }
 
-    /// `term` reads (label, old, new) — the literals the tab draws, never
+    /// `term` reads (label, old, new) — the literals the view draws, never
     /// the consts under test.
     fn assert_term(term: &Term, label: &str, old: &str, new: &str) {
         assert_eq!(
@@ -543,7 +543,7 @@ mod tests {
     }
 
     /// The first row's combos: the position and style names and the foot's
-    /// label as the tab shows them.
+    /// label as the view shows them.
     #[test]
     fn the_first_rows_fields() {
         let version = PesVersion::Pes17;
@@ -912,7 +912,7 @@ mod tests {
         );
     }
 
-    /// The edit flags' checkboxes read "on"/"off" under the tab's labels.
+    /// The edit flags' checkboxes read "on"/"off" under the view's labels.
     #[test]
     fn the_edit_flags_rows() {
         let version = PesVersion::Pes17;
@@ -938,7 +938,7 @@ mod tests {
         }
     }
 
-    /// The ingame-face fields the tab draws: the gloves checkbox and the
+    /// The ingame-face fields the view draws: the gloves checkbox and the
     /// colour palettes. The Custom skin is pre-Fox only — on Fox a stored
     /// 7 draws its number.
     #[test]
@@ -1007,10 +1007,10 @@ mod tests {
         );
     }
 
-    /// A field no tab draws (a face field, the gameplay edit flags, the
+    /// A field no view draws (a face field, the gameplay edit flags, the
     /// run's fingerprint) keeps the report's name and values.
     #[test]
-    fn fields_no_tab_draws_keep_the_reports_terms() {
+    fn fields_no_view_draws_keep_the_reports_terms() {
         let version = PesVersion::Pes17;
         assert_term(
             &row_term(version, &face_row(IngameFaceField::NoseHeight, 3, 5)),
@@ -1038,7 +1038,7 @@ mod tests {
         );
     }
 
-    /// Every table-driven tab row has a term: a field added to a tab
+    /// Every table-driven view row has a term: a field added to a view
     /// without one falls back to the report's schema name, which is not
     /// its label — a drift this test fails on.
     #[test]
@@ -1087,7 +1087,7 @@ mod tests {
             .collect()
     }
 
-    /// `rows` as the `&[RosterRow]` the Tactics tab takes.
+    /// `rows` as the `&[RosterRow]` the Tactics editor takes.
     fn roster_rows<'a>(rows: &'a [(String, String, Option<u8>)]) -> Vec<RosterRow<'a>> {
         rows.iter()
             .map(|(name, raw_name, position)| RosterRow {
@@ -1101,7 +1101,7 @@ mod tests {
 
     /// A team colour's three channel diffs merge into the swatch's one
     /// row: `Colour 1`, the baseline's and the current's stored channels'
-    /// hex as the tab draws them.
+    /// hex as the view draws them.
     #[test]
     fn a_colour_edit_is_one_hex_row() {
         let version = PesVersion::Pes17;
@@ -1248,7 +1248,7 @@ mod tests {
         assert_term(&terms[1], "Team", "/3/", "/3/X");
     }
 
-    /// The team fields', the kit slots' and the roster's rows: the tab's
+    /// The team fields', the kit slots' and the roster's rows: the view's
     /// labels and the bound team shown as `binding / 64`, the shirt
     /// number under the strip's label, `Player(n)` in report terms.
     #[test]
@@ -1305,7 +1305,7 @@ mod tests {
         assert_term(&terms[5], "Player(2)", "70103", "0");
     }
 
-    /// A tactics row goes through the Tactics tab's terms.
+    /// A tactics row goes through the Tactics editor's terms.
     #[test]
     fn a_tactics_row_uses_the_tactics_terms() {
         let version = PesVersion::Pes17;

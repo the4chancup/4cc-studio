@@ -1,7 +1,7 @@
 //! The comparator panel (`plans/save_editor.md` "Comparator (gameplay +
 //! aesthetics)"; the draft's `comparatorPanel`): an `egui::Window` comparing
 //! the open save, edits included, against a picked second save of the same
-//! version — each row picked → open in the tabs' terms (`terms::row_term`),
+//! version — each row picked → open in the views' terms (`terms::row_term`),
 //! the rows grouped per team, a row's click selecting the player. The
 //! comparison runs on a worker thread (two real PES 2021 saves differ in
 //! 34,379 rows, about half a second), started when its key — the open
@@ -164,7 +164,7 @@ pub(super) enum Line {
         /// filter keeps the line for it; `None`: no roster holds him).
         team: Option<u32>,
     },
-    /// A field's row in the tabs' terms: `<label> <old> → <new>`; `None`
+    /// A field's row in the views' terms: `<label> <old> → <new>`; `None`
     /// select on a player no open roster holds (SE-GUI-13: listed and not
     /// clickable).
     Row {

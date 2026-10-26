@@ -10,12 +10,13 @@ use pes_savefile::model::playstyle::PlayStyle;
 use pes_savefile::schema::fields::PlayerField;
 use pes_savefile::schema::{playstyle, schema_for};
 
-/// The skills grid's most columns, the draft's five to a row.
-const SKILL_COLUMNS: usize = 5;
+/// A skills or COM styles column's width (the draft's `.skcols` 158px):
+/// the host sizes the panels that hold the two columns from it.
+pub const CARD_COLUMN_WIDTH: f32 = 158.0;
 
-/// A skills-grid column's width in points: the five the draft lays in
-/// ~675px, so a narrower pane takes fewer columns rather than clip.
-const SKILL_COLUMN_WIDTH: f32 = 135.0;
+/// The gap between a card panel's two columns (the host's panels keep
+/// the same 14 between one another).
+const CARD_COLUMN_GAP: f32 = 14.0;
 
 /// The badge's tier: its label and the player's card economy under it
 /// (the host's `aatf::Rules::card_limits` result).
@@ -36,97 +37,74 @@ pub enum CardsBadge<'a> {
     NoTier,
 }
 
-/// The skills grid and the COM playing styles of `skills`, with the Cards
-/// left row's one badge: `label: left of limit cards`, in the error color
-/// when overdrawn, `No tier matches` weak when no tier's condition holds
-/// for him (`None` draws no row — the caller draws a load error itself).
-/// Every card is drawn on every version; one the version cannot store
-/// stays in its cell, disabled with a `PES NN+` tooltip. Returns whether a
-/// card was ticked or unticked this frame.
-pub fn card_pickers(
+/// One card kind's checkboxes in two columns `CARD_COLUMN_WIDTH` wide,
+/// `CARD_COLUMN_GAP` apart, filled column by column (the draft's
+/// `.skcols`): every card is drawn on every version; one the version
+/// cannot store stays in its cell, disabled with a `PES NN+` tooltip
+/// naming the first version that has it (`plans/save_editor.md`
+/// "Editing UI"). Returns whether a card was ticked or unticked this
+/// frame.
+pub fn card_columns(
     ui: &mut egui::Ui,
-    id_salt: impl egui::AsIdSalt,
     version: pes_version::PesVersion,
-    skills: &mut pes_savefile::model::PlayerSkills,
-    badge: Option<CardsBadge<'_>>,
+    cards: &mut [bool],
+    names: &[&'static str],
+    field: impl Fn(u8) -> PlayerField,
 ) -> bool {
-    ui.push_id(id_salt, |ui| {
-        let mut changed = false;
-        match badge {
-            Some(CardsBadge::Tier(tier)) => {
-                ui.horizontal_wrapped(|ui| {
-                    ui.weak("Cards left");
-                    let left = i32::from(tier.limits.limit) - i32::from(tier.limits.paid);
-                    let mut text = egui::RichText::new(format!(
-                        "{}: {} of {} cards",
-                        tier.label, left, tier.limits.limit
-                    ));
-                    if left < 0 {
-                        text = text.color(ui.visuals().error_fg_color);
-                    }
-                    ui.label(text).on_hover_text(format!(
-                        "{}: {} paid of {}",
-                        tier.label, tier.limits.paid, tier.limits.limit
-                    ));
-                });
-            }
-            Some(CardsBadge::NoTier) => {
-                ui.horizontal_wrapped(|ui| {
-                    ui.weak("Cards left");
-                    ui.weak("No tier matches");
-                });
-            }
-            None => {}
-        }
-        let fields = schema_for(version).player_field_set();
-        // The draft's five to a row at ~675px; a pane that holds fewer
-        // wraps instead of clipping the last columns.
-        let per_row = ((ui.available_width() / SKILL_COLUMN_WIDTH).floor().max(1.0) as usize)
-            .min(SKILL_COLUMNS);
-        egui::Grid::new("skills")
-            .num_columns(per_row)
-            .show(ui, |ui| {
-                for (index, name) in labels::SKILLS.iter().enumerate() {
-                    let field = PlayerField::Skill(index as u8);
+    let fields = schema_for(version).player_field_set();
+    let mut changed = false;
+    let per_column = names.len().div_ceil(2);
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = CARD_COLUMN_GAP;
+        for (column, chunk) in names.chunks(per_column).enumerate() {
+            ui.vertical(|ui| {
+                ui.set_width(CARD_COLUMN_WIDTH);
+                for (index, &name) in chunk.iter().enumerate() {
+                    let index = column * per_column + index;
+                    let field = field(index as u8);
                     if fields.contains(&field) {
-                        changed |= ui
-                            .checkbox(&mut skills.skills[index], title_case(name))
-                            .changed();
+                        changed |= ui.checkbox(&mut cards[index], title_case(name)).changed();
                     } else {
-                        // A card the version cannot store stays, disabled, its
-                        // tooltip naming the first version that has it
-                        // (plans/save_editor.md "Editing UI").
+                        // A card the version cannot store stays, disabled,
+                        // its tooltip naming the first version that has it.
                         ui.add_enabled(
                             false,
-                            egui::Checkbox::new(&mut skills.skills[index], title_case(name)),
+                            egui::Checkbox::new(&mut cards[index], title_case(name)),
                         )
                         .on_disabled_hover_text(format!("PES {}+", first_with(field).number()));
                     }
-                    if (index + 1) % per_row == 0 {
-                        ui.end_row();
-                    }
                 }
             });
-        ui.strong("COM playing styles");
-        ui.horizontal_wrapped(|ui| {
-            for (index, name) in labels::COM_STYLES.iter().enumerate() {
-                let field = PlayerField::ComStyle(index as u8);
-                if fields.contains(&field) {
-                    changed |= ui
-                        .checkbox(&mut skills.com_styles[index], title_case(name))
-                        .changed();
-                } else {
-                    ui.add_enabled(
-                        false,
-                        egui::Checkbox::new(&mut skills.com_styles[index], title_case(name)),
-                    )
-                    .on_disabled_hover_text(format!("PES {}+", first_with(field).number()));
-                }
+        }
+    });
+    changed
+}
+
+/// The Cards left label and `badge`'s text, drawn inline in the caller's
+/// row: the tier's `label: left of limit cards`, in the error color when
+/// overdrawn, `No tier matches` weak when no tier's condition holds for
+/// him.
+pub fn cards_left(ui: &mut egui::Ui, badge: &CardsBadge<'_>) {
+    ui.weak("Cards left");
+    match badge {
+        CardsBadge::Tier(tier) => {
+            let left = i32::from(tier.limits.limit) - i32::from(tier.limits.paid);
+            let mut text = egui::RichText::new(format!(
+                "{}: {} of {} cards",
+                tier.label, left, tier.limits.limit
+            ));
+            if left < 0 {
+                text = text.color(ui.visuals().error_fg_color);
             }
-        });
-        changed
-    })
-    .inner
+            ui.label(text).on_hover_text(format!(
+                "{}: {} paid of {}",
+                tier.label, tier.limits.paid, tier.limits.limit
+            ));
+        }
+        CardsBadge::NoTier => {
+            ui.weak("No tier matches");
+        }
+    }
 }
 
 /// The text the picker shows for a stored style index: the style's label
@@ -214,45 +192,69 @@ mod tests {
     }
 
     impl Headless {
-        /// One frame of `card_pickers` over `skills` and `badge`, returning the
-        /// nodes, the painted shapes and whether the frame changed a card.
-        fn pickers(
+        /// One frame of the card columns over `skills` — the skills' then
+        /// the COM styles', as the host draws them — returning the nodes
+        /// and whether the frame changed a card.
+        fn columns(
             &mut self,
             version: PesVersion,
             skills: &mut PlayerSkills,
-            badge: Option<CardsBadge>,
             events: Vec<egui::Event>,
-        ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>, bool) {
-            self.pickers_at(None, version, skills, badge, events)
+        ) -> (Vec<accesskit::Node>, bool) {
+            self.columns_at(None, version, skills, events)
         }
 
-        /// `pickers` with `time` as the frame's timestamp (for tooltips).
-        fn pickers_at(
+        /// `columns` with `time` as the frame's timestamp (for tooltips).
+        fn columns_at(
             &mut self,
             time: Option<f64>,
             version: PesVersion,
             skills: &mut PlayerSkills,
-            badge: Option<CardsBadge>,
             events: Vec<egui::Event>,
-        ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>, bool) {
+        ) -> (Vec<accesskit::Node>, bool) {
             let mut changed = None;
-            let (nodes, shapes) = self.frame_at(time, events, |ui| {
-                changed = Some(card_pickers(ui, "pickers", version, skills, badge));
+            let (nodes, _) = self.frame_at(time, events, |ui| {
+                changed = Some(
+                    card_columns(
+                        ui,
+                        version,
+                        &mut skills.skills,
+                        &labels::SKILLS,
+                        PlayerField::Skill,
+                    ) | card_columns(
+                        ui,
+                        version,
+                        &mut skills.com_styles,
+                        &labels::COM_STYLES,
+                        PlayerField::ComStyle,
+                    ),
+                );
             });
-            (nodes, shapes, changed.expect("the pickers ran"))
+            (nodes, changed.expect("the columns ran"))
         }
 
-        /// A click at `pos` over the pickers: the press frame, then the release
-        /// frame whose result is returned (`clicked()` lands on the release).
-        fn click_pickers(
+        /// A click at `pos` over the columns: the press frame, then the
+        /// release frame whose result is returned (`clicked()` lands on
+        /// the release).
+        fn click_columns(
             &mut self,
             pos: egui::Pos2,
             version: PesVersion,
             skills: &mut PlayerSkills,
-            badge: Option<CardsBadge>,
-        ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>, bool) {
-            self.pickers(version, skills, badge, pointer_at(pos, true));
-            self.pickers(version, skills, badge, pointer_at(pos, false))
+        ) -> (Vec<accesskit::Node>, bool) {
+            self.columns(version, skills, pointer_at(pos, true));
+            self.columns(version, skills, pointer_at(pos, false))
+        }
+
+        /// One frame of `cards_left` over `badge`, returning the nodes and
+        /// the painted shapes.
+        fn badge(
+            &mut self,
+            badge: CardsBadge,
+        ) -> (Vec<accesskit::Node>, Vec<egui::epaint::ClippedShape>) {
+            self.frame_at(None, Vec::new(), |ui| {
+                ui.horizontal(|ui| cards_left(ui, &badge));
+            })
         }
 
         /// One frame of `playing_style_picker` over `style`, returning the
@@ -377,7 +379,7 @@ mod tests {
     // disappearing): every card is drawn on every version, a card the save
     // cannot store disabled.
     #[test]
-    fn the_pickers_draw_the_versions_cards() {
+    fn the_columns_draw_the_versions_cards() {
         /// The labels of the disabled checkboxes.
         fn disabled(nodes: &[accesskit::Node]) -> Vec<&str> {
             nodes
@@ -392,7 +394,7 @@ mod tests {
         // skills and 7 COM styles (schema/pes15.rs: `malicia` at index 21 is
         // one the version does not store, so its cell is disabled).
         let mut skills = fixture_skills(PesVersion::Pes15, 71802);
-        let (nodes, _, _) = window.pickers(PesVersion::Pes15, &mut skills, None, vec![]);
+        let (nodes, _) = window.columns(PesVersion::Pes15, &mut skills, vec![]);
         let (drawn_skills, drawn_coms) = drawn_cards(&nodes);
         assert_eq!((drawn_skills.len(), drawn_coms.len()), (41, 7));
         let off = disabled(&nodes);
@@ -407,7 +409,7 @@ mod tests {
         // Player 70203 of the PES 17 fixture save; PES 17 stores the first 28
         // canonical skills.
         let mut skills = fixture_skills(PesVersion::Pes17, 70203);
-        let (nodes, _, changed) = window.pickers(PesVersion::Pes17, &mut skills, None, vec![]);
+        let (nodes, changed) = window.columns(PesVersion::Pes17, &mut skills, vec![]);
         assert!(!changed);
         let (drawn_skills, drawn_coms) = drawn_cards(&nodes);
         assert_eq!((drawn_skills.len(), drawn_coms.len()), (41, 7));
@@ -419,10 +421,52 @@ mod tests {
 
         // Player 78102 of the PES 21 fixture save; PES 21 stores all 41.
         let mut skills = fixture_skills(PesVersion::Pes21, 78102);
-        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, None, vec![]);
+        let (nodes, _) = window.columns(PesVersion::Pes21, &mut skills, vec![]);
         let (drawn_skills, drawn_coms) = drawn_cards(&nodes);
         assert_eq!((drawn_skills.len(), drawn_coms.len()), (41, 7));
         assert!(disabled(&nodes).is_empty(), "PES 21 stores every card");
+    }
+
+    // plans/save_editor.md "Editing UI", the Skills bullet: the checkboxes
+    // in two columns filled column by column — the first row's cells are
+    // the first card of each column, not the first two of the list.
+    #[test]
+    fn the_columns_fill_column_by_column() {
+        let mut window = Headless::new();
+        // Player 78102 of the PES 21 fixture save; the 41 skills split
+        // 21-and-20, so the second column starts at index 21 ("Malicia").
+        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
+        let (nodes, _) = window.columns(PesVersion::Pes21, &mut skills, vec![]);
+        let skills_labels: BTreeSet<String> =
+            labels::SKILLS.iter().map(|name| title_case(name)).collect();
+        let mut xs: Vec<f64> = nodes
+            .iter()
+            .filter(|node| {
+                node.role() == Role::CheckBox
+                    && node.label().is_some_and(|l| skills_labels.contains(l))
+            })
+            .filter_map(|node| node.bounds().map(|b| b.x0))
+            .collect();
+        xs.sort_by(f64::total_cmp);
+        xs.dedup();
+        assert_eq!(xs.len(), 2, "the two columns take two x positions");
+        let first = entry(&nodes, Role::CheckBox, "Scissors Feint")
+            .bounds()
+            .expect("bounds");
+        let malicia = entry(&nodes, Role::CheckBox, "Malicia")
+            .bounds()
+            .expect("bounds");
+        assert!(
+            (malicia.x0 - xs[1]).abs() < 1.0 && (malicia.y0 - first.y0).abs() < 1.0,
+            "the second column starts at index 21 beside the first cell"
+        );
+        let second = entry(&nodes, Role::CheckBox, "Flip Flap")
+            .bounds()
+            .expect("bounds");
+        assert!(
+            (second.x0 - xs[0]).abs() < 1.0 && second.y0 > first.y0,
+            "the second card fills the first column down"
+        );
     }
 
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: a checkbox
@@ -438,99 +482,18 @@ mod tests {
             .find(|&i| fields.contains(&PlayerField::Skill(i as u8)) && !skills.skills[i])
             .expect("an unticked PES 17 skill");
         let label = title_case(labels::SKILLS[index]);
-        let (nodes, _, _) = window.pickers(PesVersion::Pes17, &mut skills, None, vec![]);
+        let (nodes, _) = window.columns(PesVersion::Pes17, &mut skills, vec![]);
         let checkbox = entry(&nodes, Role::CheckBox, &label);
 
-        let (_, _, changed) =
-            window.click_pickers(centre(checkbox), PesVersion::Pes17, &mut skills, None);
+        let (_, changed) = window.click_columns(centre(checkbox), PesVersion::Pes17, &mut skills);
         assert!(changed, "the tick is a change");
         assert!(skills.skills[index], "the flag is set");
-        let (_, _, changed) = window.pickers(PesVersion::Pes17, &mut skills, None, vec![]);
+        let (_, changed) = window.columns(PesVersion::Pes17, &mut skills, vec![]);
         assert!(!changed, "the next frame reports nothing new");
 
-        let (_, _, changed) =
-            window.click_pickers(centre(checkbox), PesVersion::Pes17, &mut skills, None);
+        let (_, changed) = window.click_columns(centre(checkbox), PesVersion::Pes17, &mut skills);
         assert!(changed, "the untick is a change");
         assert!(!skills.skills[index], "the flag is cleared");
-    }
-
-    // plans/save_editor.md "libs/team_widgets", the `cards` bullet; the draft's
-    // `abilitiesTab` draws the skills five to a row.
-    #[test]
-    fn the_skills_grid_wraps_at_five() {
-        let mut window = Headless::new();
-        // Player 78102 of the PES 21 fixture save.
-        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
-        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, None, vec![]);
-        // The skill checkboxes in draw order, left to right, top to bottom.
-        let mut cells: Vec<&accesskit::Node> = nodes
-            .iter()
-            .filter(|node| node.role() == Role::CheckBox)
-            .collect();
-        cells.sort_by(|a, b| {
-            let key = |node: &&accesskit::Node| {
-                let bounds = node.bounds().expect("drawn bounds");
-                (bounds.y0, bounds.x0)
-            };
-            key(a).partial_cmp(&key(b)).expect("ordered bounds")
-        });
-        assert_eq!(cells[0].label(), Some("Scissors Feint"));
-        let y0 = |node: &accesskit::Node| node.bounds().expect("bounds").y0;
-        let x0 = |node: &accesskit::Node| node.bounds().expect("bounds").x0;
-        // Cells 0 to 4 sit on row one, cell 5 starts row two: written as five
-        // on purpose, so a wrong `SKILL_COLUMNS` fails here, not follows it.
-        for cell in &cells[1..5] {
-            assert_eq!(y0(cell), y0(cells[0]), "the first five sit on one row");
-        }
-        assert!(y0(cells[5]) > y0(cells[0]), "the sixth starts the next row");
-        assert_eq!(x0(cells[5]), x0(cells[0]), "the row starts at the same x");
-    }
-
-    // The same bullet, narrower: a pane that holds fewer than the draft's
-    // five columns wraps instead of clipping (~460 points, three columns);
-    // the COM styles get their own heading and wrap like the grid.
-    #[test]
-    fn the_pickers_wrap_at_the_panes_width() {
-        let mut window = Headless::sized(480.0, 700.0);
-        // Player 78102 of the PES 21 fixture save.
-        let mut skills = fixture_skills(PesVersion::Pes21, 78102);
-        let lim = limits(0, 8);
-        let badge = Some(CardsBadge::Tier(TierCards {
-            label: "Gold",
-            limits: &lim,
-        }));
-        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, badge, vec![]);
-        // The badge's row draws under its label.
-        text_entry(&nodes, "Cards left");
-        let mut cells: Vec<&accesskit::Node> = nodes
-            .iter()
-            .filter(|node| node.role() == Role::CheckBox)
-            .collect();
-        cells.sort_by(|a, b| {
-            let key = |node: &&accesskit::Node| {
-                let bounds = node.bounds().expect("drawn bounds");
-                (bounds.y0, bounds.x0)
-            };
-            key(a).partial_cmp(&key(b)).expect("ordered bounds")
-        });
-        let y0 = |node: &accesskit::Node| node.bounds().expect("bounds").y0;
-        // Three to a row here: the fourth sits below the first, the grid
-        // having wrapped rather than run off the pane.
-        for cell in &cells[1..3] {
-            assert!(
-                (y0(cell) - y0(cells[0])).abs() < 1.0,
-                "the first three sit on one row"
-            );
-        }
-        assert!(y0(cells[3]) > y0(cells[0]), "the fourth wraps");
-        // The COM row under its heading wraps too: the last style sits
-        // below the first.
-        text_entry(&nodes, "COM playing styles");
-        assert!(
-            y0(entry(&nodes, Role::CheckBox, "Long Ranger"))
-                > y0(entry(&nodes, Role::CheckBox, "Trickster")),
-            "the COM styles wrap"
-        );
     }
 
     // plans/save_editor.md "Editing UI": a card the version cannot store stays
@@ -542,8 +505,8 @@ mod tests {
         // "Through Passing" is the last skill (index 40), PES 20 and 21 only.
         let mut skills15 = fixture_skills(PesVersion::Pes15, 71802);
         let mut skills21 = fixture_skills(PesVersion::Pes21, 78102);
-        let (nodes15, _, _) = window.pickers(PesVersion::Pes15, &mut skills15, None, vec![]);
-        let (nodes21, _, _) = window.pickers(PesVersion::Pes21, &mut skills21, None, vec![]);
+        let (nodes15, _) = window.columns(PesVersion::Pes15, &mut skills15, vec![]);
+        let (nodes21, _) = window.columns(PesVersion::Pes21, &mut skills21, vec![]);
         let at = |nodes: &[accesskit::Node], label: &str| {
             let bounds = entry(nodes, Role::CheckBox, label)
                 .bounds()
@@ -567,8 +530,7 @@ mod tests {
 
         // A click on the disabled cell changes nothing and reports no change.
         let held = skills15.skills[40];
-        let (_, _, changed) =
-            window.click_pickers(centre(cell), PesVersion::Pes15, &mut skills15, None);
+        let (_, changed) = window.click_columns(centre(cell), PesVersion::Pes15, &mut skills15);
         assert!(!changed);
         assert_eq!(skills15.skills[40], held);
     }
@@ -581,25 +543,23 @@ mod tests {
         // Player 71802 of the PES 15 fixture save; `malicia` first stores in
         // PES 16.
         let mut skills = fixture_skills(PesVersion::Pes15, 71802);
-        let (nodes, _, _) = window.pickers(PesVersion::Pes15, &mut skills, None, vec![]);
+        let (nodes, _) = window.columns(PesVersion::Pes15, &mut skills, vec![]);
         let cell = entry(&nodes, Role::CheckBox, "Malicia");
         let pos = centre(cell);
         // The pointer rests on the cell while the clock passes the tooltip's
         // delay.
-        window.pickers_at(
+        window.columns_at(
             Some(0.0),
             PesVersion::Pes15,
             &mut skills,
-            None,
             vec![egui::Event::PointerMoved(pos)],
         );
         let mut shown = false;
         for frame in 1..20 {
-            let (nodes, _, _) = window.pickers_at(
+            let (nodes, _) = window.columns_at(
                 Some(f64::from(frame) * 0.5),
                 PesVersion::Pes15,
                 &mut skills,
-                None,
                 vec![],
             );
             if nodes
@@ -622,18 +582,16 @@ mod tests {
         // no COM style.
         let mut skills = fixture_skills(PesVersion::Pes21, 78102);
         assert!(!skills.com_styles[0], "premise: no Trickster");
-        let (nodes, _, _) = window.pickers(PesVersion::Pes21, &mut skills, None, vec![]);
+        let (nodes, _) = window.columns(PesVersion::Pes21, &mut skills, vec![]);
         let checkbox = entry(&nodes, Role::CheckBox, "Trickster");
 
-        let (_, _, changed) =
-            window.click_pickers(centre(checkbox), PesVersion::Pes21, &mut skills, None);
+        let (_, changed) = window.click_columns(centre(checkbox), PesVersion::Pes21, &mut skills);
         assert!(changed, "the tick is a change");
         assert!(skills.com_styles[0], "the flag is set");
-        let (_, _, changed) = window.pickers(PesVersion::Pes21, &mut skills, None, vec![]);
+        let (_, changed) = window.columns(PesVersion::Pes21, &mut skills, vec![]);
         assert!(!changed, "the next frame reports nothing new");
 
-        let (_, _, changed) =
-            window.click_pickers(centre(checkbox), PesVersion::Pes21, &mut skills, None);
+        let (_, changed) = window.click_columns(centre(checkbox), PesVersion::Pes21, &mut skills);
         assert!(changed, "the untick is a change");
         assert!(!skills.com_styles[0], "the flag is cleared");
     }
@@ -647,21 +605,13 @@ mod tests {
     #[test]
     fn the_badge_reads_the_own_tiers_economy_coloured_when_overdrawn() {
         let mut window = Headless::new();
-        // Player 70203 of the PES 17 fixture save; the badge only displays the
-        // `CardLimits` values.
-        let mut skills = fixture_skills(PesVersion::Pes17, 70203);
         let under = limits(3, 5);
         let over = limits(7, 4);
         let spent = limits(4, 4);
-        let (nodes, shapes, _) = window.pickers(
-            PesVersion::Pes17,
-            &mut skills,
-            Some(CardsBadge::Tier(TierCards {
-                label: "Gold",
-                limits: &under,
-            })),
-            vec![],
-        );
+        let (nodes, shapes) = window.badge(CardsBadge::Tier(TierCards {
+            label: "Gold",
+            limits: &under,
+        }));
         text_entry(&nodes, "Cards left");
         text_entry(&nodes, "Gold: 2 of 5 cards");
         let text_color = window.ctx.style_of(window.ctx.theme()).visuals.text_color();
@@ -675,40 +625,25 @@ mod tests {
             text_color
         );
         // Overdrawn paints the error colour.
-        let (_, shapes, _) = window.pickers(
-            PesVersion::Pes17,
-            &mut skills,
-            Some(CardsBadge::Tier(TierCards {
-                label: "Silver",
-                limits: &over,
-            })),
-            vec![],
-        );
+        let (_, shapes) = window.badge(CardsBadge::Tier(TierCards {
+            label: "Silver",
+            limits: &over,
+        }));
         assert_eq!(
             painted_text_color(&shapes, "Silver: -3 of 4 cards"),
             error_color
         );
         // No card left is not overdrawn.
-        let (_, shapes, _) = window.pickers(
-            PesVersion::Pes17,
-            &mut skills,
-            Some(CardsBadge::Tier(TierCards {
-                label: "Bronze",
-                limits: &spent,
-            })),
-            vec![],
-        );
+        let (_, shapes) = window.badge(CardsBadge::Tier(TierCards {
+            label: "Bronze",
+            limits: &spent,
+        }));
         assert_eq!(
             painted_text_color(&shapes, "Bronze: 0 of 4 cards"),
             text_color
         );
         // No tier matching draws the weak stand-in.
-        let (nodes, _, _) = window.pickers(
-            PesVersion::Pes17,
-            &mut skills,
-            Some(CardsBadge::NoTier),
-            vec![],
-        );
+        let (nodes, _) = window.badge(CardsBadge::NoTier);
         text_entry(&nodes, "No tier matches");
     }
 

@@ -23,14 +23,24 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     egui::Grid::new("save_editor_quick_actions")
         .num_columns(2)
         .show(ui, |ui| {
+            // The cells are the panel's halves (the draft's `1fr`): a
+            // wider tier label elides inside its cell rather than clip
+            // past the panel's edge.
+            let cell = (ui.available_width() - ui.spacing().item_spacing.x) / 2.0;
+            let height = ui.spacing().interact_size.y;
             if let Some(active) = view.rules.as_ref() {
                 match &active.rules {
                     Ok(rules) => {
                         for (index, tier) in rules.ruleset().tiers.iter().enumerate() {
-                            let button = ui.add_enabled(
-                                enabled,
-                                egui::Button::new(format!("Make {}", tier.label)),
-                            );
+                            let button = ui
+                                .add_enabled_ui(enabled, |ui| {
+                                    ui.add_sized(
+                                        [cell, height],
+                                        egui::Button::new(format!("Make {}", tier.label))
+                                            .truncate(),
+                                    )
+                                })
+                                .inner;
                             let response = if enabled {
                                 button.on_hover_text(format!(
                                     "The {} tier's values (the active ruleset)",
@@ -65,26 +75,30 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 }
             }
             // Set stats with its number, in one cell.
-            ui.horizontal(|ui| {
-                let button = ui.add_enabled(enabled, egui::Button::new("Set stats"));
-                let response = if enabled {
-                    button.on_hover_text("Set every ability stat to the value next to this button")
-                } else {
-                    button.on_disabled_hover_text(TEAM_TIP)
-                };
-                if response.clicked()
-                    && let Some((_, _, player_id)) = player
-                    && let Some(session) = view.session.as_mut()
-                {
-                    session.set_all_stats(player_id, view.set_stats);
-                }
-                let field = ui.add_enabled(
-                    enabled,
-                    egui::DragValue::new(&mut view.set_stats).range(40..=99),
-                );
-                if !enabled {
-                    field.on_disabled_hover_text(TEAM_TIP);
-                }
+            ui.allocate_ui(egui::vec2(cell, height), |ui| {
+                ui.horizontal(|ui| {
+                    let button = ui.add_enabled(enabled, egui::Button::new("Set stats"));
+                    let response = if enabled {
+                        button.on_hover_text(
+                            "Set every ability stat to the value next to this button",
+                        )
+                    } else {
+                        button.on_disabled_hover_text(TEAM_TIP)
+                    };
+                    if response.clicked()
+                        && let Some((_, _, player_id)) = player
+                        && let Some(session) = view.session.as_mut()
+                    {
+                        session.set_all_stats(player_id, view.set_stats);
+                    }
+                    let field = ui.add_enabled(
+                        enabled,
+                        egui::DragValue::new(&mut view.set_stats).range(40..=99),
+                    );
+                    if !enabled {
+                        field.on_disabled_hover_text(TEAM_TIP);
+                    }
+                });
             });
             ui.end_row();
         });

@@ -1308,7 +1308,9 @@ fn widget_ids_hold_across_the_width_thresholds() {
         node_id_right_of(&ids, label, role)
     };
 
-    let mut wide = Headless::sized(1100.0, 800.0);
+    // The wide window is the layout test's 1280: the three columns on one
+    // line; the narrow one wraps the third.
+    let mut wide = Headless::sized(1280.0, 800.0);
     let ball_control = id_at(&mut wide, &mut view, "Ball Control", Role::SpinButton);
     let mut narrow = Headless::sized(877.0, 624.0);
     assert_eq!(
@@ -1383,15 +1385,31 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         "the columns' tops level: {titles:?}"
     );
 
-    // Appearance sits closed below the columns.
+    // Appearance sits closed below the deepest panel's bottom: the last
+    // ability stat's row or the positions grid's last, whichever is lower.
+    let stat_bottom = right_of_label(&nodes, "Aggression", Role::SpinButton)[0]
+        .bounds()
+        .expect("bounds")
+        .y1
+        .max(label_bounds(&nodes, "Aggression").y1);
+    let grid_bottom = rating_buttons(&nodes, "GK")
+        .iter()
+        .map(|node| node.bounds().expect("bounds").y1)
+        .fold(0.0, f64::max);
+    let deepest = stat_bottom.max(grid_bottom);
     let appearance = node_labeled(&nodes, Role::DisclosureTriangle, "Appearance");
-    assert_ne!(appearance.is_expanded(), Some(true), "Appearance is closed");
+    assert_eq!(
+        appearance.is_expanded(),
+        Some(false),
+        "Appearance is closed"
+    );
     assert!(
-        appearance.bounds().expect("bounds").y0 > titles[0].y0 + 5.0,
-        "Appearance below the columns"
+        appearance.bounds().expect("bounds").y0 >= deepest,
+        "Appearance below the deepest panel's bottom ({deepest})"
     );
 
-    // General info's Name and Shirt fields end on the column's right edge.
+    // General info's Name and Shirt fields end on the column's right
+    // edge, the column its 350 points.
     let name = field_below_label(&nodes, "Name ", Role::TextInput)
         .bounds()
         .expect("bounds");
@@ -1399,6 +1417,10 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         .bounds()
         .expect("bounds");
     assert_eq!(name.x1, shirt.x1, "the two fields end on one x");
+    assert!(
+        (name.x1 - name.x0 - 350.0).abs() <= 1.0,
+        "the Name field draws the column's 350 points, drew {name:?}"
+    );
 
     // Every pair's box ends on its half's right edge: the left pairs' on
     // the left half's, the right pairs' on the field's own right x.
@@ -1488,7 +1510,24 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         "the second columns share an x ({skills_xs:?} vs {com_xs:?})"
     );
 
-    // Nothing drawn past the pane's right edge.
+    // The columns 36 points apart: each column's left minus the previous
+    // column's right edge (the General info fields' edge, the card
+    // columns' second one's own width out).
+    assert!(
+        (titles[1].x0 - name.x1 - 36.0).abs() <= 1.0,
+        "the Skills column 36 points after General info ({:?} vs {name:?})",
+        titles[1]
+    );
+    let cards_right = skills_xs[1] + f64::from(team_widgets::cards::CARD_COLUMN_WIDTH);
+    assert!(
+        (titles[2].x0 - cards_right - 36.0).abs() <= 1.0,
+        "the Ability stats column 36 points after the cards ({:?} vs {cards_right})",
+        titles[2]
+    );
+
+    // Nothing drawn past the pane's right edge — the window's right less
+    // the two CentralPanel margins (`PANEL_MARGIN` each side).
+    let pane_right = 1280.0 - 2.0 * f64::from(PANEL_MARGIN);
     for role in [
         Role::Button,
         Role::CheckBox,
@@ -1502,10 +1541,176 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
                 .bounds()
                 .unwrap_or_else(|| panic!("{role:?} has no bounds"));
             assert!(
-                bounds.x1 <= 1280.0,
-                "{role:?} {} clips the pane's right edge ({bounds:?})",
+                bounds.x1 <= pane_right + 0.5,
+                "{role:?} {} clips the pane's right edge ({bounds:?} vs {pane_right})",
                 node.label().unwrap_or("?")
             );
         }
+    }
+}
+
+/// `node_id_right_of`'s twin for a field drawn below its label (the
+/// counted Name and Shirt fields): the `role` node's AccessKit id.
+fn field_id_below_label(
+    ids: &[(accesskit::NodeId, accesskit::Node)],
+    prefix: &str,
+    role: Role,
+) -> accesskit::NodeId {
+    let bounds = ids
+        .iter()
+        .find(|(_, node)| {
+            node.role() == Role::Label && node.value().is_some_and(|v| v.starts_with(prefix))
+        })
+        .and_then(|(_, node)| node.bounds())
+        .unwrap_or_else(|| panic!("no label starting {prefix:?}"));
+    ids.iter()
+        .filter(|(_, node)| {
+            node.role() == role
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.y0 >= bounds.y1 - 1.0 && (b.x0 - bounds.x0).abs() < 4.0)
+        })
+        .min_by(|a, b| {
+            let y = |(_, node): &&(accesskit::NodeId, accesskit::Node)| {
+                node.bounds().expect("bounds").y0
+            };
+            y(a).partial_cmp(&y(b)).expect("ordered bounds")
+        })
+        .map(|(id, _)| *id)
+        .unwrap_or_else(|| panic!("no {role:?} below a {prefix:?} label"))
+}
+
+// On a save outside 4cc conventions a player id can equal a team id: the
+// player view's and the team view's fields then keep different widget
+// ids, each view's scope salted with its kind (a shared scope would
+// cross a TextEdit's undo history and fold the two views' edits into one
+// undo entry).
+#[test]
+fn the_views_widget_ids_differ_when_a_player_id_is_a_team_id() {
+    let path = fixture(PesVersion::Pes21, "kind_salted_ids");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.team_mut(702).unwrap().id = 70101;
+    file.save(&path).unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::new();
+    // The player view's Name field, the team view's Team field — the two
+    // views' same kind of control at the top of their fields.
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let player_name = field_id_below_label(&pairs, "Name ", Role::TextInput);
+
+    view.selected = Some(Selection::Team(70101));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let team_name = node_id_right_of(&pairs, "Team", Role::TextInput);
+    assert_ne!(
+        player_name, team_name,
+        "the two views' fields keep different widget ids"
+    );
+}
+
+/// The color the letter's galley painted inside `bounds`: a section's own
+/// color when one was set, else the shape's fallback (the widget's).
+fn letter_color(
+    shapes: &[egui::epaint::ClippedShape],
+    letter: &str,
+    bounds: accesskit::Rect,
+) -> egui::Color32 {
+    let shape = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape)
+                if shape.galley.job.text == letter
+                    && f64::from(shape.pos.y) >= bounds.y0
+                    && f64::from(shape.pos.y) <= bounds.y1
+                    && f64::from(shape.pos.x) >= bounds.x0
+                    && f64::from(shape.pos.x) <= bounds.x1 =>
+            {
+                Some(shape)
+            }
+            _ => None,
+        })
+        .next()
+        .unwrap_or_else(|| panic!("no painted {letter:?} inside {bounds:?}"));
+    if let Some(color) = shape.override_text_color {
+        return color;
+    }
+    shape
+        .galley
+        .job
+        .sections
+        .iter()
+        .map(|section| section.format.color)
+        .find(|&color| color != egui::Color32::PLACEHOLDER)
+        .unwrap_or(shape.fallback_color)
+}
+
+// The chosen rating's fill and letter (the draft's `.sel.on` variants):
+// A the success green with a dark letter, B the selection colour with
+// its foreground, C a grey square with the normal text, so the three
+// tell apart at a glance.
+#[test]
+fn the_chosen_ratings_paint_their_fills_and_letters() {
+    let path = fixture(PesVersion::Pes21, "rating_colors");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    let mut playable = file.player(70101).unwrap().positions.playable;
+    // CF at A (stored 2), SS at B (1), LWF at C (0), the first three
+    // `playable` entries standing for them.
+    assert_ne!(
+        [playable[0], playable[1], playable[2]],
+        [2, 1, 0],
+        "premise: the fixture does not already hold A, B, C"
+    );
+    playable[0] = 2;
+    playable[1] = 1;
+    playable[2] = 0;
+    file.player_mut(70101).unwrap().positions.playable = playable;
+    file.save(&path).unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::sized(1100.0, 800.0);
+    let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let cases = [
+        (
+            "CF",
+            2,
+            studio_core::theme::SUCCESS_FG,
+            egui::Color32::from_gray(0x1a),
+        ),
+        (
+            "SS",
+            1,
+            visuals.selection.bg_fill,
+            visuals.selection.stroke.color,
+        ),
+        (
+            "LWF",
+            0,
+            egui::Color32::from_rgb(0x5a, 0x5a, 0x5a),
+            visuals.text_color(),
+        ),
+    ];
+    for (position, rating, fill, text) in cases {
+        let letter = ["C", "B", "A"][rating];
+        let button = rating_buttons(&nodes, position)[rating];
+        let bounds = button.bounds().expect("bounds");
+        assert_eq!(
+            fill_at(&shapes, bounds),
+            Some(fill),
+            "{position}'s {letter} square fills {fill:?}"
+        );
+        assert_eq!(
+            letter_color(&shapes, letter, bounds),
+            text,
+            "{position}'s {letter} letter in {text:?}"
+        );
     }
 }

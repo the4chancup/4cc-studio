@@ -21,7 +21,7 @@ use super::*;
 
 /// A headless window: one egui context with AccessKit on and animations off,
 /// run a frame at a time over an 800 by 600 screen (wider when a test asks,
-/// the Abilities tab's rightmost controls sit past 800).
+/// the player view's rightmost controls sit past 800).
 struct Headless {
     ctx: egui::Context,
     /// The screen size each frame reports.
@@ -697,7 +697,7 @@ fn tooltip_containing(
     None
 }
 
-/// The team's entry as the session holds it (the Tactics tab's tests).
+/// The team's entry as the session holds it (the team view's tests).
 fn team_entry(view: &SaveView, team_id: u32) -> TeamEntry {
     view.session
         .as_ref()
@@ -1109,7 +1109,7 @@ fn tick(window: &mut Headless, view: &mut SaveView, rules: Option<&Path>, label:
     let (_, pairs, _) = window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));
     let (id, _) = pairs
         .iter()
-        .find(|(_, node)| node.label() == Some(label))
+        .find(|(_, node)| node.role() == Role::CheckBox && node.label() == Some(label))
         .unwrap_or_else(|| panic!("no checkbox {label:?}"));
     let id = *id;
     window.frame(

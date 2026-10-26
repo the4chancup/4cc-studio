@@ -553,6 +553,117 @@ fn the_boglo_dialogs_preview_names_the_last_filled_slots_id() {
     );
 }
 
+/// The boots and gloves ID fields the open dialog prefilled: the field
+/// right of Incremental from, then of the two "Same ID for all" radios
+/// (the boots one first).
+fn boglo_prefill(nodes: &[accesskit::Node]) -> [String; 3] {
+    let incremental = node_labeled(nodes, Role::RadioButton, "Incremental from");
+    let mut same: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| node.role() == Role::RadioButton && node.label() == Some("Same ID for all"))
+        .collect();
+    same.sort_by(|a, b| {
+        let y = |node: &&accesskit::Node| node.bounds().expect("bounds").y0;
+        y(a).partial_cmp(&y(b)).expect("ordered bounds")
+    });
+    assert_eq!(same.len(), 2, "the boots and gloves Same-ID radios");
+    [
+        right_of(nodes, incremental, Role::SpinButton)
+            .value()
+            .expect("the start field")
+            .to_owned(),
+        right_of(nodes, same[0], Role::SpinButton)
+            .value()
+            .expect("the boots field")
+            .to_owned(),
+        right_of(nodes, same[1], Role::SpinButton)
+            .value()
+            .expect("the gloves field")
+            .to_owned(),
+    ]
+}
+
+// The dialog opened from the team row prefills from the first filled
+// roster slot's player — Incremental's start and the Same-ID fields hold
+// his boots and gloves ids.
+#[test]
+fn the_boots_dialog_prefills_the_team_rows_first_filled_slot() {
+    let path = fixture(PesVersion::Pes21, "boglo_team_row");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.aesthetics_from_exports = true;
+    view.edit_aesthetics = true;
+    let (boots, gloves) = {
+        let first = rostered(&view, 701)[0].1;
+        let player = player_entry(&view, first);
+        (player.appearance.boots_id, player.appearance.gloves_id)
+    };
+    let mut window = Headless::sized(1100.0, 700.0);
+    open_team_view(&mut window, &mut view, 701);
+
+    let nodes = open_team_menu(&mut window, &mut view);
+    click(
+        &mut window,
+        node_labeled(
+            &nodes,
+            Role::Button,
+            "Set boots and gloves IDs for everyone\u{2026}",
+        ),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        boglo_prefill(&nodes),
+        [boots.to_string(), boots.to_string(), gloves.to_string()],
+        "Incremental's start and the Same-ID fields hold the first filled slot's ids"
+    );
+}
+
+// The same prefill skips a roster id no player record carries: the first
+// filled slot's id is dangling, so the dialog prefills from the second's
+// player instead of panicking on the dangling one.
+#[test]
+fn the_boots_dialog_prefills_past_a_dangling_roster_id() {
+    let path = fixture(PesVersion::Pes21, "boglo_dangling");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    // Team 701's slot 1 names an id no player record carries.
+    file.team_mut(701).unwrap().roster[0].player_id = 99999;
+    let second = file.team(701).unwrap().roster[1].player_id;
+    assert!(
+        file.player(99999).is_none() && file.player(second).is_some(),
+        "premise: slot 1 dangles, slot 2 resolves"
+    );
+    let (boots, gloves) = {
+        let player = file.player(second).unwrap();
+        (player.appearance.boots_id, player.appearance.gloves_id)
+    };
+    file.save(&path).unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.aesthetics_from_exports = true;
+    view.edit_aesthetics = true;
+    let mut window = Headless::sized(1100.0, 700.0);
+    open_team_view(&mut window, &mut view, 701);
+
+    let nodes = open_team_menu(&mut window, &mut view);
+    click(
+        &mut window,
+        node_labeled(
+            &nodes,
+            Role::Button,
+            "Set boots and gloves IDs for everyone\u{2026}",
+        ),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        boglo_prefill(&nodes),
+        [boots.to_string(), boots.to_string(), gloves.to_string()],
+        "the fields hold slot 2's player's ids, not the dangling slot 1's"
+    );
+}
+
 // plans/save_editor.md "Editing UI" (the version-gated bullet, on the Team
 // tab): fields the version does not store draw disabled in the same place
 // with the gate tooltip naming the first version that has them.

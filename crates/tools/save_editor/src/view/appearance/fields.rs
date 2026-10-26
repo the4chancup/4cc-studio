@@ -1,4 +1,4 @@
-//! The Appearance tab's field tables and the helpers that read them: the
+//! The Appearance section's field tables and the helpers that read them: the
 //! control rows (`PHYSIQUE`, `STRIP_ENUMS`, `MOTIONS`), the palette colour
 //! tables, and the readers of `settings_toml`'s key spec that give each
 //! control its scale and its labels (`number_range`, `combo_options`,

@@ -2703,13 +2703,19 @@ briefs, review loops, gates and mutation runs as for any step.
       the team's first filled slot); `selection::rows` is `list`'s player rows. Done
       2026-10-26 (SWE-2, `.tmp/0_0_1s/brief_0_0_1s3c.md`): `view/{info_strip,abilities,mod,
       menus,aatf_check,aatf_panel,live_aatf}.rs`, `view/appearance/fields.rs`,
-      `session/selection.rs`, the tests, `help/02_window.md`, `help/03_abilities.md`. Open:
-      `team_widgets::cards::card_pickers` lost its one consumer (the tabbed layout's draw)
-    - [ ] s3d the review's tests and the built window: the mutation run's survivors
-      (`mutants-diff ab097280`, `.tmp/0_0_1s/missed_s3ab.txt`): the team row's painted layout
-      and the status bar's right slot cap and middle bounds; `card_pickers` removed or given
-      a consumer; then the built window at 1280 x 800 against the draft, the team view's
-      tactics bottom measured again
+      `session/selection.rs`, the tests, `help/02_window.md`, `help/03_abilities.md`
+    - [x] s3d the review's tests and fixes: the mutation runs' survivors
+      (`.tmp/0_0_1s/missed_s3ab.txt`, `missed_s3c.txt`), the team row's painted layout and
+      faint fill, the status bar's right slot cap and middle bounds, the chosen ratings'
+      colours (C's letter now the normal text colour, not the selection's); the card columns
+      and the Cards left badge moved into `team_widgets::cards` (`card_pickers` gone); round
+      S1's accepted findings (`.tmp/0_0_1s/s3_rulings.md`); the quick actions' cells now the
+      panel's halves (the widest tier button clipped past the panel). Done 2026-10-26
+      (SWE-2, `.tmp/0_0_1s/brief_0_0_1s3d.md`): `view/{player_list,abilities,team,menus,
+      quick_actions,mod,tactics,terms}.rs`, comment fixes, the tests,
+      `team_widgets/src/cards.rs`, `studio_core/src/shell/status_bar.rs`
+    - [ ] s3e the built window at 1280 x 800 against the draft, the team view's tactics
+      bottom measured again
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

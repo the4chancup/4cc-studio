@@ -505,6 +505,21 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
         "a drop on another team's row moved nothing"
     );
     assert!(!view.session.as_ref().unwrap().is_dirty());
+    assert!(!view.session.as_ref().unwrap().can_undo());
+
+    // A drag of the team row itself onto a player row: nothing moves.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let from = centre(team_row(&nodes, &view, 701));
+    let onto = centre(row(&nodes, "1 CB /3/ FIRST"));
+    drag(&mut window, from, onto, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        row_labels(&nodes),
+        before,
+        "a drag of the team row moved nothing"
+    );
+    assert!(!view.session.as_ref().unwrap().is_dirty());
+    assert!(!view.session.as_ref().unwrap().can_undo());
 
     // A drag onto the team row: nothing moves.
     let from = centre(row(&nodes, "2 CB /3/ SECOND"));
@@ -529,5 +544,301 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
         &row_labels(&nodes)[..2],
         ["1 CB /3/ SECOND ●", "2 CB /3/ FIRST ●"],
         "the drop on his own team moved him"
+    );
+}
+
+/// The `TextShape` whose galley text is `text`, drawn inside `rect`.
+fn text_in_rect<'a>(
+    shapes: &'a [egui::epaint::ClippedShape],
+    text: &str,
+    rect: accesskit::Rect,
+) -> &'a egui::epaint::TextShape {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape)
+                if shape.galley.job.text == text
+                    && f64::from(shape.pos.y) >= rect.y0
+                    && f64::from(shape.pos.y) <= rect.y1 =>
+            {
+                Some(shape)
+            }
+            _ => None,
+        })
+        .next()
+        .unwrap_or_else(|| panic!("no painted text {text:?} inside {rect:?}"))
+}
+
+// plans/save_editor.md "Editing UI", the Player list bullet (the team
+// row's own paint, the draft's `trow`): the id in the weak colour at the
+// row's left padding, the colours 1-2 as swatches 3 apart, the name in
+// the strong colour after a further item spacing, each centred on the
+// row — over the faint fill that sets it apart from a player row, the
+// selection's or the hover's fill over that.
+#[test]
+fn the_team_row_paints_its_parts_over_its_fills() {
+    /// Whether a `Shape::Rect` of `fill` covers `rect`'s centre and spans
+    /// its width (the row's own fill, not a swatch's or the panel's).
+    fn covers_row(
+        shapes: &[egui::epaint::ClippedShape],
+        rect: accesskit::Rect,
+        fill: egui::Color32,
+    ) -> bool {
+        let centre = egui::pos2(
+            ((rect.x0 + rect.x1) / 2.0) as f32,
+            ((rect.y0 + rect.y1) / 2.0) as f32,
+        );
+        shapes.iter().any(|clipped| {
+            matches!(&clipped.shape, egui::Shape::Rect(shape) if shape.fill == fill
+                && shape.rect.contains(centre)
+                && f64::from(shape.rect.width()) >= rect.x1 - rect.x0 - 1.0)
+        })
+    }
+
+    let path = fixture(PesVersion::Pes21, "team_row_paint");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    // The stored colours the swatches show, read as a premise.
+    let colors = team_entry(&view, 701)
+        .colors
+        .expect("PES 21 stores team colours");
+    let mut window = Headless::new();
+    let (spacing, visuals) = {
+        let style = window.ctx.style_of(window.ctx.theme());
+        (style.spacing.clone(), style.visuals.clone())
+    };
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let row = team_row(&nodes, &view, 701)
+        .bounds()
+        .expect("the team row's bounds");
+    let centre_y = (row.y0 + row.y1) / 2.0;
+    let padding = f64::from(spacing.button_padding.x);
+    let item_spacing = f64::from(spacing.item_spacing.x);
+
+    // The id's galley: its left at the row's left plus the button padding,
+    // centred on the row, in the weak colour.
+    let id_shape = text_in_rect(&shapes, "701", row);
+    assert!(
+        (f64::from(id_shape.pos.x) - (row.x0 + padding)).abs() <= 0.5,
+        "the id starts at the row's left plus the padding: {row:?} vs {:?}",
+        id_shape.pos
+    );
+    assert!(
+        (f64::from(id_shape.pos.y) + f64::from(id_shape.galley.size().y) / 2.0 - centre_y).abs()
+            <= 0.5,
+        "the id centres on the row"
+    );
+    assert_eq!(
+        id_shape.galley.job.sections.first().map(|s| s.format.color),
+        Some(visuals.weak_text_color()),
+        "the id in the weak colour"
+    );
+
+    // The two swatches, each 10 x 10 centred on the row: the first an item
+    // spacing after the id, the second 3 after the first.
+    let mut swatches: Vec<(egui::Rect, egui::Color32)> = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape)
+                if (f64::from(shape.rect.width()) - 10.0).abs() < 0.5
+                    && (f64::from(shape.rect.height()) - 10.0).abs() < 0.5
+                    && (f64::from(shape.rect.center().y) - centre_y).abs() < 1.0
+                    && f64::from(shape.rect.min.x) >= row.x0
+                    && f64::from(shape.rect.max.x) <= row.x1 =>
+            {
+                Some((shape.rect, shape.fill))
+            }
+            _ => None,
+        })
+        .collect();
+    swatches.sort_by(|a, b| a.0.min.x.total_cmp(&b.0.min.x));
+    assert_eq!(swatches.len(), 2, "the two colour swatches");
+    let id_end = f64::from(id_shape.pos.x + id_shape.galley.size().x);
+    assert!(
+        (f64::from(swatches[0].0.min.x) - (id_end + item_spacing)).abs() <= 0.5,
+        "the first swatch an item spacing after the id"
+    );
+    assert!(
+        (f64::from(swatches[1].0.min.x) - (f64::from(swatches[0].0.max.x) + 3.0)).abs() <= 0.5,
+        "the second swatch 3 after the first"
+    );
+    for (index, (_rect, fill)) in swatches.iter().enumerate() {
+        let color = colors[index];
+        let expected = egui::Color32::from_rgb(
+            crate::view::team::channel_to_show(color.red),
+            crate::view::team::channel_to_show(color.green),
+            crate::view::team::channel_to_show(color.blue),
+        );
+        assert_eq!(*fill, expected, "colour {}'s swatch", index + 1);
+    }
+
+    // The name's galley an item spacing after the second swatch, centred
+    // on the row, the plain runs in the strong colour.
+    let name_shape = text_in_rect(&shapes, "/3/", row);
+    assert!(
+        (f64::from(name_shape.pos.x) - (f64::from(swatches[1].0.max.x) + 3.0 + item_spacing)).abs()
+            <= 0.5,
+        "the name follows the second swatch"
+    );
+    assert!(
+        (f64::from(name_shape.pos.y) + f64::from(name_shape.galley.size().y) / 2.0 - centre_y)
+            .abs()
+            <= 0.5,
+        "the name centres on the row"
+    );
+    assert_eq!(
+        name_shape.fallback_color,
+        visuals.strong_text_color(),
+        "the name in the strong colour"
+    );
+
+    // Unselected under no pointer the row paints the faint fill that sets
+    // it apart from a player row; hovered the hover's, selected the
+    // selection's.
+    assert!(
+        covers_row(&shapes, row, visuals.faint_bg_color),
+        "the faint fill under the unselected row"
+    );
+    let (_, _, shapes) = window.frame(
+        vec![egui::Event::PointerMoved(egui::pos2(
+            ((row.x0 + row.x1) / 2.0) as f32,
+            centre_y as f32,
+        ))],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert!(
+        covers_row(&shapes, row, visuals.widgets.hovered.bg_fill),
+        "the hover fill under the hovered row"
+    );
+    view.selected = Some(Selection::Team(701));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let row = team_row(&nodes, &view, 701)
+        .bounds()
+        .expect("the team row's bounds");
+    assert!(
+        covers_row(&shapes, row, visuals.selection.bg_fill),
+        "the selection fill under the selected row"
+    );
+}
+
+// The same row, the name too long for the side panel: its galley ends
+// inside the row's right minus the padding rather than past it.
+#[test]
+fn a_team_name_too_long_truncates_inside_the_row() {
+    let path = fixture(PesVersion::Pes21, "team_row_long_name");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    // The version's own field length in bytes, read from the schema —
+    // long enough that the name never fits the side panel.
+    let name = "A".repeat(
+        usize::try_from(
+            pes_savefile::schema::schema_for(PesVersion::Pes21)
+                .team
+                .texts
+                .iter()
+                .find(|spec| spec.text == pes_savefile::schema::fields::TeamText::Name)
+                .expect("every version stores the team name")
+                .len,
+        )
+        .expect("a text field's length fits usize"),
+    );
+    file.team_mut(701).unwrap().name = name.clone();
+    file.save(&path).unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    let mut window = Headless::new();
+    let padding = f64::from(
+        window
+            .ctx
+            .style_of(window.ctx.theme())
+            .spacing
+            .button_padding
+            .x,
+    );
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let row = team_row(&nodes, &view, 701)
+        .bounds()
+        .expect("the team row's bounds");
+    let name_shape = text_in_rect(&shapes, &name, row);
+    assert!(name_shape.galley.elided, "the galley is truncated");
+    let end = f64::from(name_shape.pos.x + name_shape.galley.size().x);
+    assert!(
+        end <= row.x1 - padding + 0.5 && end >= row.x1 - padding - 10.0,
+        "the name's galley ends on the row's right minus the padding ({end} vs {})",
+        row.x1 - padding
+    );
+}
+
+// plans/save_editor.md "Editing UI", the Player list bullet ("the whole
+// row is one click target", as the team row's is): a click past a short
+// row's text, at the row's right end, selects him.
+#[test]
+fn a_click_at_a_player_rows_right_end_selects_him() {
+    let path = fixture(PesVersion::Pes21, "row_right_click");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    // The click must move the selection: open selects the first row.
+    view.selected = Some(Selection::Player(701, 3));
+    let mut window = Headless::new();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let bounds = row(&nodes, "1 CB PLACEHOLDER")
+        .bounds()
+        .expect("row bounds");
+    // At the row's right end, past the short label's text (the list's
+    // scroll bar — the leftmost — covers the last points of it).
+    let bar = nodes
+        .iter()
+        .filter(|node| node.role() == Role::ScrollBar)
+        .filter_map(|node| node.bounds().map(|b| b.x0))
+        .fold(f64::MAX, f64::min);
+    let at = egui::pos2(
+        ((bounds.x1 - 4.0).min(bar - 2.0)) as f32,
+        ((bounds.y0 + bounds.y1) / 2.0) as f32,
+    );
+    click_at(&mut window, at, &mut view);
+    assert_eq!(
+        view.selected,
+        Some(Selection::Player(701, 0)),
+        "the click selected the row"
+    );
+}
+
+// SE-GUI-37's team-row dot: a team's own unsaved changes mark its row's
+// painted name — after a short-name edit the galley ends `●` — and no
+// player row's label carries one (the dot is no part of the row's
+// AccessKit label).
+#[test]
+fn the_team_rows_dot_paints_after_a_short_name_edit() {
+    let path = fixture(PesVersion::Pes21, "team_row_dot");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    let mut window = Headless::new();
+    let mut team = team_entry(&view, 701);
+    team.short_name = "ZED".to_owned();
+    view.session.as_mut().unwrap().edit_team(1, team);
+
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let name = text_in_rect(
+        &shapes,
+        "/3/ ●",
+        team_row(&nodes, &view, 701).bounds().expect("bounds"),
+    );
+    assert!(
+        name.galley.job.text.ends_with('\u{25cf}'),
+        "the painted name ends with the dot"
+    );
+    assert!(
+        row_labels(&nodes)
+            .iter()
+            .all(|label| !label.contains('\u{25cf}')),
+        "no player row's label carries one"
     );
 }

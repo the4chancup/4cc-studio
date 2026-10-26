@@ -1,11 +1,11 @@
 //! The toolbar's menu buttons (`plans/save_editor.md` "Feature
 //! inventory"): the Player menu's four stat operations and FPC toggle,
-//! the Team menu's operations over the selected player's team, each a
+//! the Team menu's operations over the selected row's team, each a
 //! sealed undo entry (`session/{player,team}_ops.rs`), the Savefile
-//! menu's roster sheet and Fix database (`session/database.rs`), and the
-//! dialogs they open (`Boglo`, `StatNum`, `CopySwap` and the Fix database
-//! confirmation; the draft's `dlgBoglo`, `dlgNum`, `dlgCopySwap` and
-//! `dlgFixDb`).
+//! menu's roster sheet and Fix database (`session/database.rs`), the
+//! Panels menu's floating panels, and the dialogs they open (`Boglo`,
+//! `StatNum`, `CopySwap` and the Fix database confirmation; the draft's
+//! `dlgBoglo`, `dlgNum`, `dlgCopySwap` and `dlgFixDb`).
 
 use std::ops::RangeInclusive;
 
@@ -709,14 +709,14 @@ impl CopySwap {
     }
 }
 
-/// The first filled roster slot's player id on `team_id` (`None` for an
-/// empty or missing team).
+/// The first filled roster slot's player id on `team_id`, skipping an id
+/// no player record carries (`None` for an empty or missing team).
 fn first_filled(file: &EditFile, team_id: u32) -> Option<u32> {
     file.team(team_id).and_then(|team| {
         team.roster
             .iter()
             .map(|slot| slot.player_id)
-            .find(|&id| id != 0)
+            .find(|&id| id != 0 && file.player(id).is_some())
     })
 }
 

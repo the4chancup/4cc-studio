@@ -180,14 +180,14 @@ pub(crate) struct SaveView {
     /// reading, the Team menu's Set/Remove) reads them, and an out-of-band
     /// pair disables those paths behind the error's text.
     pub(crate) hide_ids: Result<fpc::HideIds, fpc::HideIdsError>,
-    /// Where the Appearance tab's Randomize draws a motion value in
+    /// Where the Appearance section's Randomize draws a motion value in
     /// `1..=top` from: a field so the tests pin the draws; `new` seeds a
     /// xorshift from the wall clock (the picks need only be unpredictable
     /// to a member, not cryptographic).
     randomize_draw: Box<dyn FnMut(u8) -> u8>,
 }
 
-/// The ruleset the Abilities tab's Cards left badge uses (`plans/save_editor.md`
+/// The ruleset the Skills column's Cards left badge uses (`plans/save_editor.md`
 /// "Editing UI", the Cards left bullet): the file it was loaded from and
 /// the outcome as the badge's row draws it.
 pub(crate) struct ActiveRules {
@@ -199,7 +199,7 @@ pub(crate) struct ActiveRules {
     rules: Result<Arc<aatf::Rules>, String>,
 }
 
-/// What the Abilities tab's Cards left badge was computed for: a change of
+/// What the Skills column's Cards left badge was computed for: a change of
 /// the open save (`Session::revision`), of the selection or of the rules
 /// file recomputes it; anything else keeps a frame's `player_tier` and
 /// `card_limits` cost off.
@@ -424,8 +424,8 @@ pub(crate) fn show(
         ui.weak("No save is open.");
     } else {
         // Before the left panel, so the dock spans the view's width under
-        // the player list and the tabs (egui lays a panel out against the
-        // space the earlier panels left).
+        // the player list and the detail view (egui lays a panel out
+        // against the space the earlier panels left).
         if view.live_aatf {
             live_aatf::show(ui, view);
         }
@@ -705,8 +705,8 @@ pub(crate) fn edit_player(
     session.edit_player(key, edited);
 }
 
-/// `edit_player` for the team's entry (the header's Number and Captain,
-/// the team view's fields, the Tactics' edited clone).
+/// `edit_player` for the team's entry (General info's Number and Captain,
+/// the team view's fields, the Tactics editor's edited clone).
 pub(crate) fn edit_team(
     session: &mut Session,
     id: u32,
