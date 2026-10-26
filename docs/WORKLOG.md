@@ -2563,7 +2563,10 @@ briefs, review loops, gates and mutation runs as for any step.
     zoom lands (the sidekick's contradiction: `inner_rect` keeps the zoom the input was built
     with and fed back, 0.5625 for 0.75 at 960 points); egui's keyboard zoom off (DECISIONS).
     Files: `studio_core/src/shell/{window_size,mod}.rs`
-  - [ ] m2 the narrow-fallback audit, after 0.0.1s2 rewrites the Save editor's layout; the
+  - [ ] m2 the narrow-fallback audit, after 0.0.1s2 rewrites the Save editor's layout (the
+    maintainer, 2026-10-26: the player list is not resizable, DECISIONS "The player list keeps
+    its 240 points"; with the zoom that leaves no narrower view, so the audit's candidates
+    include the three columns' wrap, s3g's one-column cards and the quick actions' halves); the
     built window text and ST-WIN-01/02 move to `spec/core/gui.md` with it
 - [x] 0.0.1n the drafts' Layout edit and scaling (the same review; `plans/core/gui.md`
   "Layout edit", the "Size:" bullet): a moved panel pinned where dropped, a columned panel

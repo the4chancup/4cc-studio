@@ -11483,3 +11483,12 @@ Why: the error names the file's whole path, about 160 characters; wrapped in a h
 and the list is what the member works in. The Cards left badge and the AATF panels still show
 it whole, so nothing is hidden that is not one hover or one glance away.
 Plan: `plans/save_editor.md` "Editing UI", the quick actions bullet.
+
+## 2026-10-26 — save_editor — The player list keeps its 240 points
+Decision: the Save editor's player list is 240 points wide and not resizable (it was an egui
+side panel with a drag handle and no maximum).
+Why: under the design width the window scales rather than narrows, so the drag handle was the
+only way left to narrow the view, and nothing a member does needs a wider list (the
+maintainer, 2026-10-26). The fallbacks a narrower view needed (the three columns' wrap, the
+card panels' one column) become unreachable; step 0.0.1m2's audit keeps or removes each.
+Plan: `plans/save_editor.md` "Editing UI", the Player list bullet.

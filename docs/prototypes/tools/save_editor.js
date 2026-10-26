@@ -96,6 +96,9 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .plist .rows .trow { background: var(--faint); font-weight: bold; color: var(--strong); }
 .plist .rows .trow .swatch { width: 10px; height: 10px; flex: none; }
 .plist .qagrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; }
+/* The rules file's load error: one line across the list, elided (egui's
+   Label::truncate), its whole text on hover. */
+.plist .qaerr { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 4px; }
 .detail { flex: 1; min-width: 0; }
 /* The player view's fixed columns: General info over Playable positions,
    the skills in two with the COM styles and the non-ability values under
@@ -2330,6 +2333,8 @@ function cardLimits(p, t, tier) {
 // stats, registered position and height read as, per recognizedTier), the
 // error colour when overdrawn. sample wording: the tooltip.
 function cardBadges(p, t) {
+  // A rules file that does not load: its whole error in the badge's place.
+  if (D.rulesBroken) return h("span", { class: "weak", id: "card-badges" }, RULES_LOAD_ERROR);
   const tier = recognizedTier(p, RULESETS[D.ruleset]);
   return h("span", { class: "row", id: "card-badges",
       title: "Cards left under the player's own tier of the active ruleset (paid cards vs its limit)" },
@@ -2367,6 +2372,7 @@ const D = { sample: "pes17",
   set selectorVersion(v) { setPesVersion(v); },
   gameRunning: false,
   appearanceIds: "all_set", ruleset: "official", pickerSugg: false, liveTeamRows: true,
+  rulesBroken: false,
   portraits: true,
   // "Aesthetics from exports", the settings menu's checkbox the draft has
   // no menu for, so it sits among the draft controls (SE-GUI-35's GIVEN).
@@ -2770,6 +2776,8 @@ function draftControls() {
     h("label", { class: "cb", title: "SE-GUI-09" }, "AATF ruleset",
       combo(Object.entries(RULESETS).map(([k, r]) => [k, r.label]), D.ruleset,
         v => D.ruleset = v)),
+    h("span", { title: "SE-GUI-09's file that does not load: the quick actions hold Set stats and the error's one line, the Cards left badge the whole error" },
+      cb("The AATF rules file does not load", D.rulesBroken, v => { D.rulesBroken = v; render(); })),
     h("span", { title: "SE-GUI-35: the settings menu's checkbox (the draft has no settings menu); on when the cup's looks are compiled from exports: the save's aesthetics are then read-only, behind Edit aesthetics anyway in the Appearance section" },
       cb("Aesthetics from exports", D.aesFromExports, v => { D.aesFromExports = v; render(); })),
     h("span", { title: "SE-GUI-30: the draft recomputes player rows only; off drops the team's rows so the empty state can be reached" },
@@ -3405,8 +3413,27 @@ function playerHeader(p) {
 // One "Make X" per tier of the active ruleset in its order, plus Set stats
 // (SE-GUI-09), in two columns under the player list. They act on the selected
 // player, so a team row leaves them disabled with the reason on hover.
+// The view's wording for a rules file that does not load (mod.rs's
+// rules_load_error), then the lib's error as a script error reads. sample
+// wording: the folder in the path.
+const RULES_LOAD_ERROR = "The AATF rules file could not be loaded: "
+  + "C:\\Games\\4cc Studio\\rules\\dbc7.rhai: 1:1: 'this' can only be used in functions (line 1, position 1)";
 function quickActions() {
   const p = curPlayer(), off = isTeamSel();
+  // A rules file that does not load: no tier buttons, Set stats alone, the
+  // error one line across the list above it, elided, its whole text on
+  // hover (about 160 characters: wrapped, it took ten lines of the list).
+  if (D.rulesBroken) {
+    const input = h("input", { type: "number", id: "set-stats", value: 77, min: 0, max: 99,
+      disabled: off, title: off ? "The make buttons act on a player: pick a player row" : null });
+    return h("div", { id: "quick-actions", "data-panel": "quick-actions" },
+      h("div", { class: "weak qaerr", title: RULES_LOAD_ERROR }, RULES_LOAD_ERROR),
+      h("div", { class: "qagrid" }, h("div", { class: "row" },
+        button("Set stats", () => {
+          const n = parseInt(input.value, 10);
+          if (!Number.isNaN(n)) { setAllStats(p, n); render(); }
+        }, { disabled: off }), input)));
+  }
   const tip = off ? "The make buttons act on a player: pick a player row" : null;
   const input = h("input", { type: "number", id: "set-stats", value: 77, min: 0, max: 99,
     disabled: off, title: tip });

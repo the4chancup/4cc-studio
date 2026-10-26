@@ -175,7 +175,10 @@ all side by side.
   longer requires knowing their team first. Matching uses the colour-code-free
   `display_name()` (see the pes_savefile plan's "Name colour codes"), a team's own name
   included.
-- **Player list**: a **team row** heads each team's players, set apart from a player row by the
+- **Player list**, 240 points wide and not resizable: under the design width the window scales
+  instead of narrowing (`core/gui.md` "Shell layout", the paragraph "Scaling with the width"), so the view always has the
+  room the 1280-point layout gives it, and a list dragged wider would only take that room back.
+  A **team row** heads each team's players, set apart from a player row by the
   faint fill under it and its name in the strong text colour (the draft's bold: the app
   installs no bold face, and a second font file for one row costs more than it shows): the team's id, its colours
   1-2 as swatches and its name, a dot when the team's own fields (name, short name, colours,
