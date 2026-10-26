@@ -2560,3 +2560,6 @@ worklog passed 7,000 lines.
   error now assert what they claim, and a pair row's unused second width is gone (0.0.1s3k).
 - **2026-10-26** — Live AATF's marks after their first review: a cross keeps one gap from what it follows, and a
   row's unsaved dot stays visible when a long name is cut short (0.0.1o2a, rework r2).
+- **2026-10-26** — The window reopens where it was closed: `window_main` keeps its last normal place as pixels, points at
+  zoom 1 and the monitor's scale, written at exit; eframe 0.37 gives no monitor list, so the off-monitor guard waits on a
+  reader (`QUESTIONS.md`) (0.0.1q-q1).

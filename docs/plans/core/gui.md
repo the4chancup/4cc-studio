@@ -83,14 +83,36 @@ ST-RUN-02) at that class's remembered place. A class never used opens at its des
 (1280 × 800 for the main class, a special tool's declared size), fitted and centered as
 above. A remembered place whose title bar lies on no monitor now (a second monitor
 unplugged) is dropped for the fit, so the window is never opened out of reach. `monitor_size`
-names only the window's own monitor, so the check reads every monitor's rectangle (winit's
-list, as eframe reaches it at start: step 0.0.1q settles how) through one function the shell
-calls, which the test harness fakes as it fakes the monitor size. Both places are
-shell state in the settings file (`window_main`, `window_special`: the outer position and the
-inner size, in points), written when the class is left and when the window closes, rather
-than eframe's own window persistence, whose `persistence` feature writes a file of its own
-outside the data location (a portable install keeps everything beside the exe) and knows one
-window size, not two. A special tool's design width is its declared width, and its minimum its
+names only the window's own monitor, without its origin, and eframe 0.37 hands the shell no
+way to winit's list of monitors (`DECISIONS.md`, "eframe 0.37 gives the shell no monitor
+list"), so the check takes every monitor's rectangle, in the screen's pixels, from a reader of
+the shell's own: on Windows an OS call (`EnumDisplayMonitors`), the one desktop that leaves a
+window off every monitor where it was put (Linux window managers and macOS keep a title bar
+reachable). The check is one pure function the launch calls with the reader's list and the
+tests call with a list of their own: the title bar, the window's width over the top 32 pixels
+at 100% scaled by the record's scale, overlaps a monitor's rectangle; an empty list, the reader
+not there or a platform without one, trusts the place. Both places are shell state in the
+settings file, `window_main` and `window_special`, each a list of five numbers
+`[x, y, width, height, scale]`: the outer position in the screen's physical pixels, because a
+point is a different number of pixels on each monitor and the OS places windows in pixels; the
+inner size in points at zoom 1 (its pixels over the monitor's scale), the size a window keeps
+when the OS moves it to a monitor of another scale, never in the shell's zoomed points, which
+would reopen a window closed under the design width wider by the zoom; and the monitor's scale
+factor when the place was recorded. The shell reads the place every frame (the last normal
+one: not minimized, maximized or fullscreen, the rects known, and the rects in the pass's own
+points, since the frame where a queued zoom lands reports them at the zoom before it), writes
+it when the class is left and when the window closes (`App::on_exit`), and opens the window at
+it: created there (`with_position` with the pixels over the record's scale, `with_inner_size`,
+not centered), and the first frame sends the outer position again in its own points, the
+pixels over the frame's pixels per point, which is a no-op where the creation landed right and
+the correction on a mixed-scale desk, where winit converts the creation position with the
+primary monitor's scale. Not a move from a centered creation: eframe shows the window after
+the first frame's paint and applies that frame's viewport commands after the show, so the
+member would see the jump. Not eframe's own window persistence, whose `persistence` feature
+writes a file of its own outside the data location (a portable install keeps everything beside
+the exe), knows one window size, not two, and stores the size in zoomed points. A window
+closed maximized reopens at the normal place it had before (restoring the maximized state is
+`PROPOSALS.md` P39). A special tool's design width is its declared width, and its minimum its
 own.
 
 The shell draws only what is its own. Panels claim space in call order, so the status bar is
@@ -834,11 +856,18 @@ ST-WIN-03   GIVEN two main stub tools and a special stub tool declaring a 480 ×
                  position are restored; WHEN it goes to the special tool again THEN its own last
                  size and position
 ST-WIN-04   GIVEN a main tool active and the window moved to (100, 50) and resized to 1100 × 700
+                 on a 100% display
             WHEN the window closes and the GUI starts again
-            THEN the settings file holds window_main at (100, 50) and 1100 × 700, the window
-                 opens there and the first frame's fit sends nothing; GIVEN a remembered place
-                 whose title bar lies on no monitor THEN the window opens fitted as ST-WIN-01's;
-                 GIVEN a last tool of the special class THEN it opens at window_special's place
+            THEN the settings file holds window_main as [100, 50, 1100, 700, 1], the native
+                 window's options carry the position (100, 50) and the inner size 1100 × 700
+                 and are not centered, and the first frame sends the outer position (100, 50)
+                 and no size, not the fit's; GIVEN the same on a 200% display THEN window_main is
+                 [100, 50, 550, 350, 2], the options' position (50, 25) and the first frame's
+                 (50, 25); GIVEN the window maximized when it closes THEN window_main is the
+                 place it had before the maximize; GIVEN a remembered place whose title bar
+                 lies on no monitor of the list THEN the window opens fitted as ST-WIN-01's;
+                 GIVEN an empty list THEN it opens at the place; GIVEN a last tool of the
+                 special class THEN it opens at window_special's place
 ```
 
 **Sidebar**

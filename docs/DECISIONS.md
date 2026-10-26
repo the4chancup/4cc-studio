@@ -11562,3 +11562,37 @@ button's would still start the horn after the press (a warcry ending during the 
 fade-out), so the rule is the button's state, not the threading.
 Plan: `plans/music_player.md` "Playback behavior" (the "A button owns what it plays" bullet)
 and "Testing" (the button-state line).
+## 2026-10-26 — studio_core — eframe 0.37 gives the shell no monitor list
+Decision (the finding step 0.0.1q asked for): eframe 0.37 reaches winit's monitors only inside
+its own `viewport_builder` (`event_loop.available_monitors()`, which its persistence's
+`WindowSettings::clamp_position_to_monitors` uses), with the `ActiveEventLoop` no public hook
+hands out: the `event_loop_builder` hook sees the builder before it is built, the
+`window_builder` hook only the `ViewportBuilder`, `CreationContext` and `Frame` carry no
+handle, and `ViewportInfo` reports one `monitor_size`, the window's own monitor without its
+origin, and the nearest monitor's when the window is on none. winit 0.30 refuses a second
+event loop in a process (`EVENT_LOOP_CREATED`, `RecreationAttempt`), so a probe loop before
+eframe's would make eframe's creation fail. So the off-monitor check takes the monitors'
+rectangles (physical pixels) from a reader of the shell's own, an OS call on Windows
+(`EnumDisplayMonitors`, an `unsafe` block, asked in `QUESTIONS.md`), and trusts the
+remembered place while the list is empty (no reader yet, or a platform without one). Not
+eframe's persistence (`persist_window`), which would clamp through winit for us: its
+`WindowGeometry::from_window` stores the inner size in the shell's zoomed points and
+restores it at the zoom egui's memory holds (1 unless the whole egui memory is persisted
+too), so a window closed under the design width would reopen wider by the zoom; it also knows
+one window, not two classes, and writes a second file. The record itself is
+`[x, y, width, height, scale]`: the outer position in physical pixels, since a point is a
+different number of pixels on each monitor and the OS places windows in pixels (egui-winit
+converts `OuterPosition` with the window's current zoom times scale); the inner size in points
+at zoom 1, the size a window keeps when the OS moves it to a monitor of another scale, never in
+the shell's zoomed points; and the monitor's scale factor when recorded, because winit converts
+a creation position with the scale of the monitor it creates the window on (the primary), so
+the record's own scale turns the pixels into the number winit expects wherever the two scales
+agree, which is every single-scale desk. The window is created at the place, and the first
+frame sends the outer position again in its own points, a no-op where creation landed right
+and the fix on a mixed-scale desk (a window on a 100% monitor beside a 200% primary): not a
+move from a centered creation, because eframe shows the window after the first frame's paint
+and applies that frame's viewport commands after the show, so the member would see the jump.
+Why: the plan said winit's list "as eframe reaches it at start" and left the how to this step;
+reading eframe 0.37, egui-winit 0.37 and winit 0.30 shows no such route, and the two ways
+around it (eframe's persistence, a probe event loop) each break something the shell needs.
+Plan: `plans/core/gui.md` "Window size classes", ST-WIN-04.

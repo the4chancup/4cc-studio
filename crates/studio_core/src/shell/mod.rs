@@ -28,7 +28,7 @@ use log::warn;
 pub use launch::{Launch, LaunchMode, parse_launch, run_cli};
 
 use crate::help::{self, HelpTarget};
-use crate::settings::Theme;
+use crate::settings::{Theme, WindowPlace};
 use crate::status::ActionEffect;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::status::ShellCondition;
@@ -116,10 +116,13 @@ pub struct StudioApp {
     /// The common `theme` setting last applied to the context; `None` until the first
     /// frame, which applies it.
     applied_theme: Option<Theme>,
-    /// The window's fit to the monitor is pending until the first frame whose
-    /// `ViewportInfo` reports the monitor's size sends it; after it, a member's
-    /// own resize or move holds (gui.md "Shell layout", "The window's size").
-    window_fit_pending: bool,
+    /// What the first frame does to the window: `Some(Opening::Fit)` from `new` (the fit of
+    /// ST-WIN-01), `Some(Opening::Place(_))` once `opening` found a remembered place on a
+    /// monitor, `None` once sent (gui.md "Window size classes").
+    window_start: Option<window_size::Opening>,
+    /// The last normal place a frame reported (not maximized or fullscreen, its rects known
+    /// and in the pass's own points), written to `window_main` at exit.
+    window_place: Option<WindowPlace>,
     /// The first-run data-location dialog's state.
     first_run: FirstRun,
 }
@@ -166,9 +169,20 @@ impl StudioApp {
             help_window,
             title: WindowTitle::default(),
             applied_theme: None,
-            window_fit_pending: true,
+            window_start: Some(window_size::Opening::Fit),
+            window_place: None,
             first_run: FirstRun::new(config_dir),
         }
+    }
+
+    /// The native window's options for this start, and what the first frame then does:
+    /// the main class's remembered place when `monitors` (the screen's monitors, in physical
+    /// pixels; empty when no reader supplies them) holds its title bar, else the fit.
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(super) fn opening(&mut self, monitors: &[egui::Rect]) -> eframe::NativeOptions {
+        let opening = window_size::opening(self.ctx.common().window_main, monitors);
+        self.window_start = Some(opening);
+        window_size::native_options(&opening)
     }
 
     /// Makes `tools[index]` the active view and records it in `last_tool`, through the same
@@ -329,15 +343,45 @@ impl eframe::App for StudioApp {
             egui_ctx.options_mut(|options| options.zoom_with_keyboard = false);
             self.applied_theme = Some(theme);
         }
-        // The window is created at `DEFAULT_SIZE`; the first frame that reports
-        // the monitor fits and centers it, once.
-        if self.window_fit_pending
-            && let Some((size, top_left)) =
-                egui_ctx.input(|input| window_size::fit(input.viewport()))
-        {
-            egui_ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
-            egui_ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(top_left));
-            self.window_fit_pending = false;
+        // The window is created at `DEFAULT_SIZE` or at the remembered place
+        // `opening` found on a monitor; the first frame finishes the job.
+        let zoom = egui_ctx.zoom_factor();
+        let (viewport, screen_rect) = egui_ctx.input(|input| {
+            let viewport = input.viewport();
+            (
+                viewport.clone(),
+                viewport.inner_rect.and(input.raw.screen_rect),
+            )
+        });
+        match self.window_start {
+            // The window is created at `DEFAULT_SIZE`; the first frame that
+            // reports the monitor fits and centers it, once.
+            Some(window_size::Opening::Fit) => {
+                if let Some((size, top_left)) = window_size::fit(&viewport) {
+                    egui_ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
+                    egui_ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(top_left));
+                    self.window_start = None;
+                }
+            }
+            #[cfg(not(target_arch = "wasm32"))]
+            Some(window_size::Opening::Place(place)) => {
+                if let Some(native) = viewport.native_pixels_per_point {
+                    // The position again, in this frame's points: a no-op where
+                    // the creation landed right, the correction where winit
+                    // converted the creation position with another monitor's
+                    // scale. No size command: the creation set it, and a move to
+                    // a monitor of another scale rescales it by the OS.
+                    egui_ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(
+                        (place.position().to_vec2() / (native * zoom)).to_pos2(),
+                    ));
+                    self.window_start = None;
+                }
+            }
+            None => {}
+        }
+        // The window's last normal place is kept for `on_exit` to write.
+        if let Some(place) = window_size::place_of(&viewport, screen_rect, zoom) {
+            self.window_place = Some(place);
         }
         // Under the design width the whole UI scales down with the window's
         // width. The width is measured at zoom 1 so the zoom cannot feed back:
@@ -346,11 +390,6 @@ impl eframe::App for StudioApp {
         // current zoom gives the same width at every zoom — `inner_rect` keeps
         // the zoom the input was built with on that frame and would feed it
         // back. A viewport reporting no inner rect leaves the zoom alone.
-        let zoom = egui_ctx.zoom_factor();
-        let screen_rect = egui_ctx.input(|input| {
-            input.viewport().inner_rect?;
-            input.raw.screen_rect
-        });
         if let Some(rect) = screen_rect {
             let new_zoom = window_size::width_zoom(rect.width() * zoom);
             if new_zoom != zoom {
@@ -460,15 +499,27 @@ impl eframe::App for StudioApp {
             self.help_window.show(ui.ctx());
         }
     }
+
+    /// The window's last normal place goes into `window_main` as the window closes (gui.md
+    /// "Window size classes"): eframe calls this once, on every exit path.
+    fn on_exit(&mut self) {
+        if let Some(place) = self.window_place {
+            self.ctx.settings().lock().unwrap().common.window_main = Some(place);
+            self.save_settings();
+        }
+    }
 }
 
 /// Opens the window titled `APP_NAME` on `app` and runs it until it closes; an error is a
 /// window or graphics context that could not be set up.
 #[cfg(not(target_arch = "wasm32"))]
-pub fn run_gui(app: StudioApp) -> anyhow::Result<()> {
+pub fn run_gui(mut app: StudioApp) -> anyhow::Result<()> {
+    // No monitors reader yet: the Windows reader needs an `unsafe` OS call the
+    // maintainer has not ruled on (`docs/QUESTIONS.md`), so the place is trusted.
+    let options = app.opening(&[]);
     eframe::run_native(
         APP_NAME,
-        window_size::native_options(),
+        options,
         Box::new(|creation| {
             crate::theme::install_fonts(&creation.egui_ctx);
             // The context's clones share the wake slot, so a `with_events` sink made before

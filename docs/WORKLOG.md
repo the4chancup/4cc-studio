@@ -2669,7 +2669,25 @@ briefs, review loops, gates and mutation runs as for any step.
   special class's with the Music player's view. First how eframe 0.37 lets the shell learn the
   monitors at start (eframe's own persistence clamps through winit's monitor list), the finding
   a DECISIONS entry → verify: ST-WIN-04 headless where the harness reaches; the off-monitor
-  case by hand (ASK FIRST)
+  case by hand (ASK FIRST). The finding (side-lead S, 2026-10-26, DECISIONS "eframe 0.37
+  gives the shell no monitor list"): no public route to winit's list, so the check takes a
+  list a reader of the shell's own supplies, the Windows reader an `unsafe`
+  `EnumDisplayMonitors` block waiting on `QUESTIONS.md`; the launch passes an empty list
+  (the place trusted) until it lands
+  - [x] q1 the record, the opening and the guard (`.tmp/0_0_1q/brief_q1.md`): `window_main`
+    as `[x, y, width, height, scale]` (pixels, points at zoom 1, the monitor's scale), read
+    each normal frame and written at exit, the window created at it and the first frame
+    resending the position in its own points, `opening(place, monitors)` with the title-bar
+    check → verify: ST-WIN-04's headless clauses; the special class's clause waits for the
+    Music player. Done: `WindowPlace` and `window_main` in `[common]`, `place_of` (skips
+    maximized, fullscreen and the zoom-landing frame), `on_a_monitor`, `opening`,
+    `native_options(&Opening)`, `StudioApp::opening` and `on_exit` (eframe 0.37 on wgpu
+    declares `on_exit(&mut self)`, no `glow` argument); four ST-WIN-04 tests and three unit
+    tests. Built-window check for the top lead: move and resize, close, reopen (100% and the
+    4K monitor's 200%), and close maximized. Files: `studio_core/src/settings/{common,mod}.rs`,
+    `studio_core/src/shell/{mod,window_size}.rs`
+  - [ ] q2 the Windows monitors reader, once `QUESTIONS.md` answers; then the off-monitor
+    case by hand (the top lead, on the merged code)
 - [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version

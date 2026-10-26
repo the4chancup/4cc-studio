@@ -1,10 +1,13 @@
-//! The window's opening size, its one-time fit to the monitor and the zoom the
-//! views scale with under the design width (core plan, "Shell layout", "The
-//! window's size" and "Scaling with the width"): the window is created at
-//! `DEFAULT_SIZE`, the first frame that reports the monitor's size fits and
+//! The window's opening size, its one-time fit to the monitor, the place it
+//! reopens at and the zoom the views scale with under the design width (core
+//! plan, "Shell layout", "The window's size", "Scaling with the width" and
+//! "Window size classes"): the window is created at `DEFAULT_SIZE` or at the
+//! remembered place, the first frame that reports the monitor's size fits and
 //! centers it once, a member's own resize or move holding after that, and a
 //! window narrower than `DEFAULT_SIZE.x` draws the whole UI scaled down with
 //! the width.
+
+use crate::settings::WindowPlace;
 
 /// The size the window is created at and opens at on any monitor that holds it:
 /// 1280 × 800 points, where "holds" means the height within 90% of the
@@ -46,16 +49,110 @@ pub(super) fn width_zoom(window_width: f32) -> f32 {
     (window_width / DEFAULT_SIZE.x).min(1.0)
 }
 
-/// The native window's options: created at `DEFAULT_SIZE` and centered, the size the first
-/// frame's fit keeps on a monitor that holds it, so nothing jumps there.
+/// How the window opens: fitted and centered on the primary monitor (no remembered place, or
+/// one on no monitor), or created at the main class's remembered place.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub(super) enum Opening {
+    Fit,
+    /// The remembered place is a native concept: no place is ever remembered
+    /// or checked on the browser build.
+    #[cfg(not(target_arch = "wasm32"))]
+    Place(WindowPlace),
+}
+
+/// The height of a title bar at 100% scale, in pixels: what "the title bar lies on a
+/// monitor" measures (32 on Windows 10 and 11).
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn native_options() -> eframe::NativeOptions {
-    eframe::NativeOptions {
-        viewport: egui::ViewportBuilder::default()
-            .with_inner_size(DEFAULT_SIZE)
-            .with_min_inner_size(MIN_SIZE),
-        centered: true,
-        ..Default::default()
+const TITLE_BAR_PX: f32 = 32.0;
+
+/// The window's place a frame reports, in the record's units, or `None` on a frame that
+/// reports no normal place: maximized or fullscreen (a minimized window reports no rects at
+/// all), a rect or the native scale missing, or the viewport rects built at another zoom than
+/// the pass's: on the frame where a queued zoom lands, egui rescales `screen_rect` alone at
+/// `begin_pass`, so `inner_rect` and `screen_rect` differ in size there by a pixel or more
+/// and agree on every other frame to a rounding error. Pixels are the outer rect's points
+/// times the native scale times the zoom; points at zoom 1 are the screen rect's size times
+/// the zoom.
+pub(super) fn place_of(
+    viewport: &egui::ViewportInfo,
+    screen_rect: Option<egui::Rect>,
+    zoom: f32,
+) -> Option<WindowPlace> {
+    if viewport.maximized == Some(true) || viewport.fullscreen == Some(true) {
+        return None;
+    }
+    let outer = viewport.outer_rect?;
+    let inner = viewport.inner_rect?;
+    let native = viewport.native_pixels_per_point?;
+    let screen = screen_rect?;
+    // The two sizes come from different divisions (egui-winit divides the
+    // inner rect's corners, `screen_rect` its size), so on a consistent frame
+    // they agree to a rounding error, while on the landing frame they differ
+    // by the pixel or more whose change moved the zoom: compared in pixels,
+    // against half of one.
+    if ((inner.size() - screen.size()) * native * zoom)
+        .abs()
+        .max_elem()
+        >= 0.5
+    {
+        return None;
+    }
+    Some(WindowPlace {
+        x: (outer.min.x * native * zoom).round(),
+        y: (outer.min.y * native * zoom).round(),
+        width: screen.width() * zoom,
+        height: screen.height() * zoom,
+        scale: native,
+    })
+}
+
+/// Whether `place`'s title bar (the window's width over the top `TITLE_BAR_PX` pixels at
+/// 100%, both scaled by the record's scale) overlaps one of `monitors` (physical pixels) with
+/// a positive area; an empty list, no reader or a platform without one, trusts the place.
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn on_a_monitor(place: &WindowPlace, monitors: &[egui::Rect]) -> bool {
+    let bar = egui::Rect::from_min_size(
+        place.position(),
+        egui::vec2(place.width, TITLE_BAR_PX) * place.scale,
+    );
+    monitors.is_empty()
+        || monitors
+            .iter()
+            .any(|monitor| monitor.intersect(bar).is_positive())
+}
+
+/// How the window opens on `place`, the main class's record, given `monitors`.
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn opening(place: Option<WindowPlace>, monitors: &[egui::Rect]) -> Opening {
+    match place {
+        Some(place) if on_a_monitor(&place, monitors) => Opening::Place(place),
+        _ => Opening::Fit,
+    }
+}
+
+/// The native window's options for `opening`: `Fit` creates the window at `DEFAULT_SIZE` and
+/// centered, the size the first frame's fit keeps on a monitor that holds it, so nothing
+/// jumps there; `Place` creates it at the record's position (its pixels over its scale, the
+/// points winit converts with the scale of the monitor it creates the window on) and inner
+/// size, not centered. Both carry the `MIN_SIZE` minimum.
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn native_options(opening: &Opening) -> eframe::NativeOptions {
+    match opening {
+        Opening::Fit => eframe::NativeOptions {
+            viewport: egui::ViewportBuilder::default()
+                .with_inner_size(DEFAULT_SIZE)
+                .with_min_inner_size(MIN_SIZE),
+            centered: true,
+            ..Default::default()
+        },
+        Opening::Place(place) => eframe::NativeOptions {
+            viewport: egui::ViewportBuilder::default()
+                .with_position(place.position() / place.scale)
+                .with_inner_size(place.size())
+                .with_min_inner_size(MIN_SIZE),
+            centered: false,
+            ..Default::default()
+        },
     }
 }
 
@@ -74,9 +171,11 @@ pub(super) fn fit(viewport: &egui::ViewportInfo) -> Option<(egui::Vec2, egui::Po
 
 #[cfg(test)]
 mod tests {
+    use eframe::App;
     use egui::ViewportCommand;
 
     use super::*;
+    use crate::settings::{SETTINGS_FILE_NAME, Settings, WindowPlace};
     use crate::shell::StudioApp;
     use crate::shell::test_harness::*;
 
@@ -145,6 +244,210 @@ mod tests {
         run_frame(ctx, app, input)
     }
 
+    /// One harness frame for a window whose outer top-left sits at `outer_min`
+    /// native pixels, `size_px` native pixels big on a monitor at `native`,
+    /// `maximized` reported or not: the rects are pixel rects divided by the
+    /// pixels per point of the context's current zoom, as egui-winit builds
+    /// them, and `DECORATIONS` and the (8, 31) inset are pixels here.
+    fn placed_frame(
+        ctx: &egui::Context,
+        app: &mut StudioApp,
+        outer_min: egui::Pos2,
+        size_px: egui::Vec2,
+        native: f32,
+        maximized: bool,
+    ) -> FrameOutput {
+        let mut input = raw_input(Vec::new(), true, None, None);
+        let ppp = ctx.zoom_factor() * native;
+        input.screen_rect = Some(egui::Rect::from_min_size(egui::Pos2::ZERO, size_px / ppp));
+        let info = input
+            .viewports
+            .get_mut(&egui::ViewportId::ROOT)
+            .expect("`RawInput::default` carries the root viewport");
+        info.native_pixels_per_point = Some(native);
+        info.outer_rect = Some(egui::Rect::from_min_size(outer_min, size_px + DECORATIONS) / ppp);
+        info.inner_rect =
+            Some(egui::Rect::from_min_size(outer_min + egui::vec2(8.0, 31.0), size_px) / ppp);
+        info.maximized = Some(maximized);
+        run_frame(ctx, app, input)
+    }
+
+    #[test]
+    fn place_of_reads_pixels_points_and_scale_from_a_normal_frame() {
+        let mut viewport = egui::ViewportInfo {
+            outer_rect: Some(egui::Rect::from_min_size(
+                egui::pos2(100.0, 50.0),
+                egui::vec2(1116.0, 739.0),
+            )),
+            inner_rect: Some(egui::Rect::from_min_size(
+                egui::pos2(108.0, 81.0),
+                egui::vec2(1100.0, 700.0),
+            )),
+            native_pixels_per_point: Some(1.0),
+            ..Default::default()
+        };
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1100.0, 700.0));
+        assert_eq!(
+            <[f32; 5]>::from(place_of(&viewport, Some(screen), 1.0).unwrap()),
+            [100.0, 50.0, 1100.0, 700.0, 1.0],
+        );
+
+        // The screen's pixels are whole: a fractional position is rounded.
+        viewport.outer_rect = Some(egui::Rect::from_min_size(
+            egui::pos2(10.51, 5.34),
+            egui::vec2(1116.0, 739.0),
+        ));
+        viewport.inner_rect = Some(egui::Rect::from_min_size(
+            egui::pos2(18.51, 36.34),
+            egui::vec2(1100.0, 700.0),
+        ));
+        assert_eq!(
+            <[f32; 5]>::from(place_of(&viewport, Some(screen), 1.0).unwrap()),
+            [11.0, 5.0, 1100.0, 700.0, 1.0],
+        );
+
+        // The same window at zoom 0.5: the rects are in the zoomed points and
+        // the record comes out identical.
+        viewport.outer_rect = Some(egui::Rect::from_min_size(
+            egui::pos2(200.0, 100.0),
+            egui::vec2(2232.0, 1478.0),
+        ));
+        viewport.inner_rect = Some(egui::Rect::from_min_size(
+            egui::pos2(216.0, 162.0),
+            egui::vec2(2200.0, 1400.0),
+        ));
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(2200.0, 1400.0));
+        assert_eq!(
+            <[f32; 5]>::from(place_of(&viewport, Some(screen), 0.5).unwrap()),
+            [100.0, 50.0, 1100.0, 700.0, 1.0],
+        );
+
+        // A 200% display: the points are half the pixels, the scale is kept.
+        viewport.native_pixels_per_point = Some(2.0);
+        viewport.outer_rect = Some(egui::Rect::from_min_size(
+            egui::pos2(50.0, 25.0),
+            egui::vec2(566.0, 389.0),
+        ));
+        viewport.inner_rect = Some(egui::Rect::from_min_size(
+            egui::pos2(58.0, 56.0),
+            egui::vec2(550.0, 350.0),
+        ));
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(550.0, 350.0));
+        assert_eq!(
+            <[f32; 5]>::from(place_of(&viewport, Some(screen), 1.0).unwrap()),
+            [100.0, 50.0, 550.0, 350.0, 2.0],
+        );
+
+        // A 150% display, its rects built as egui-winit builds them, a pixel
+        // rect divided by the pixels per point: the inner size comes out an ULP
+        // away from the screen rect's, and the frame still records.
+        viewport.native_pixels_per_point = Some(1.5);
+        viewport.outer_rect = Some(
+            egui::Rect::from_min_size(egui::pos2(2992.0, 50.0), egui::vec2(1116.0, 739.0)) / 1.5,
+        );
+        let inner =
+            egui::Rect::from_min_size(egui::pos2(3000.0, 81.0), egui::vec2(1100.0, 700.0)) / 1.5;
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1100.0, 700.0) / 1.5);
+        viewport.inner_rect = Some(inner);
+        assert_ne!(inner.size(), screen.size(), "the premise: an ULP apart");
+        assert_eq!(
+            place_of(&viewport, Some(screen), 1.0).map(<[f32; 5]>::from),
+            Some([2992.0, 50.0, 1100.0 / 1.5, 700.0 / 1.5, 1.5]),
+        );
+
+        // The frames that report no normal place: maximized or fullscreen, and
+        // a rect, the scale or the screen rect missing.
+        viewport.native_pixels_per_point = Some(1.0);
+        viewport.outer_rect = Some(egui::Rect::from_min_size(
+            egui::pos2(100.0, 50.0),
+            egui::vec2(1116.0, 739.0),
+        ));
+        viewport.inner_rect = Some(egui::Rect::from_min_size(
+            egui::pos2(108.0, 81.0),
+            egui::vec2(1100.0, 700.0),
+        ));
+        let screen = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1100.0, 700.0));
+        viewport.maximized = Some(true);
+        assert_eq!(place_of(&viewport, Some(screen), 1.0), None);
+        viewport.maximized = None;
+        viewport.fullscreen = Some(true);
+        assert_eq!(place_of(&viewport, Some(screen), 1.0), None);
+        viewport.fullscreen = None;
+        viewport.outer_rect = None;
+        assert_eq!(place_of(&viewport, Some(screen), 1.0), None);
+        viewport.outer_rect = Some(egui::Rect::from_min_size(
+            egui::pos2(100.0, 50.0),
+            egui::vec2(1116.0, 739.0),
+        ));
+        viewport.inner_rect = None;
+        assert_eq!(place_of(&viewport, Some(screen), 1.0), None);
+        viewport.inner_rect = Some(egui::Rect::from_min_size(
+            egui::pos2(108.0, 81.0),
+            egui::vec2(1100.0, 700.0),
+        ));
+        viewport.native_pixels_per_point = None;
+        assert_eq!(place_of(&viewport, Some(screen), 1.0), None);
+        viewport.native_pixels_per_point = Some(1.0);
+        assert_eq!(place_of(&viewport, None, 1.0), None);
+
+        // The zoom-landing frame: egui rescales `screen_rect` alone at
+        // `begin_pass`, so the two rects differ in size there.
+        let landing = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1375.0, 875.0));
+        assert_eq!(place_of(&viewport, Some(landing), 1.0), None);
+    }
+
+    #[test]
+    fn the_title_bar_check_overlaps_a_monitor_with_a_positive_area() {
+        let monitor = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0));
+        let place = |x: f32, y: f32| WindowPlace {
+            x,
+            y,
+            width: 1100.0,
+            height: 700.0,
+            scale: 1.0,
+        };
+        assert!(on_a_monitor(&place(100.0, 50.0), &[monitor]));
+        assert!(!on_a_monitor(&place(2500.0, 50.0), &[monitor]));
+        let monitors = [
+            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(3840.0, 2160.0)),
+            egui::Rect::from_min_size(egui::pos2(-1920.0, 328.0), egui::vec2(1920.0, 1080.0)),
+        ];
+        assert!(on_a_monitor(&place(-1800.0, 400.0), &monitors));
+        // The bar's left 120 pixels over the bottom 10 still count.
+        assert!(on_a_monitor(&place(1800.0, 1070.0), &[monitor]));
+        // A bar starting on the monitor's right edge does not.
+        assert!(!on_a_monitor(&place(1920.0, 50.0), &[monitor]));
+        // The bar's lower 12 pixels reach into the monitor from above.
+        assert!(on_a_monitor(&place(100.0, -20.0), &[monitor]));
+        // The bar ends 8 pixels above the monitor, although the window below it
+        // reaches in.
+        assert!(!on_a_monitor(&place(100.0, -40.0), &[monitor]));
+        // At 200% the 1100-point bar is 2200 pixels: it reaches x = 100.
+        let scaled = WindowPlace {
+            x: -2100.0,
+            y: 50.0,
+            width: 1100.0,
+            height: 700.0,
+            scale: 2.0,
+        };
+        assert!(on_a_monitor(&scaled, &[monitor]));
+        assert!(
+            on_a_monitor(&place(2500.0, 50.0), &[]),
+            "an empty list trusts the place"
+        );
+
+        assert_eq!(
+            opening(Some(place(100.0, 50.0)), &[monitor]),
+            Opening::Place(place(100.0, 50.0)),
+        );
+        assert_eq!(opening(Some(place(2500.0, 50.0)), &[monitor]), Opening::Fit);
+        assert_eq!(opening(None, &[monitor]), Opening::Fit);
+        assert_eq!(
+            opening(Some(place(2500.0, 50.0)), &[]),
+            Opening::Place(place(2500.0, 50.0)),
+        );
+    }
+
     #[test]
     fn the_default_size_holds_a_monitor_that_fits_it_and_fits_each_side_on_a_smaller_one() {
         assert_eq!(
@@ -193,7 +496,7 @@ mod tests {
 
     #[test]
     fn the_window_is_created_at_the_default_size_and_centered() {
-        let options = native_options();
+        let options = native_options(&Opening::Fit);
         assert_eq!(options.viewport.inner_size, Some(DEFAULT_SIZE));
         assert!(options.centered, "created centered on the monitor");
     }
@@ -202,7 +505,16 @@ mod tests {
     // under the smallest default the fit produces so the fit never meets it.
     #[test]
     fn the_options_stop_a_members_resize_at_the_minimum() {
-        let options = native_options();
+        let options = native_options(&Opening::Fit);
+        assert_eq!(options.viewport.min_inner_size, Some(MIN_SIZE));
+        let place = WindowPlace {
+            x: 100.0,
+            y: 50.0,
+            width: 1100.0,
+            height: 700.0,
+            scale: 1.0,
+        };
+        let options = native_options(&Opening::Place(place));
         assert_eq!(options.viewport.min_inner_size, Some(MIN_SIZE));
         let smallest = fitted_size(egui::vec2(1280.0, 720.0), DECORATIONS);
         assert!(
@@ -264,6 +576,242 @@ mod tests {
                 ViewportCommand::OuterPosition(egui::pos2(312.0, 120.5)),
             ],
             "the fit waited for a frame reporting the monitor"
+        );
+    }
+
+    // ST-WIN-04
+    #[test]
+    fn the_place_is_written_at_exit_and_the_next_start_opens_there() {
+        let egui_ctx = test_context();
+        let Shell { mut app, _dir, .. } = shell();
+        let dir = _dir.as_ref().unwrap().path().to_path_buf();
+
+        // Three frames at the place: the second is the zoom-landing one (the
+        // window is narrower than the design width, so the first frame queues
+        // a zoom), the third records.
+        for _ in 0..3 {
+            placed_frame(
+                &egui_ctx,
+                &mut app,
+                egui::pos2(100.0, 50.0),
+                egui::vec2(1100.0, 700.0),
+                1.0,
+                false,
+            );
+        }
+        app.on_exit();
+
+        let loaded = Settings::load(&dir.join(SETTINGS_FILE_NAME)).unwrap();
+        assert_eq!(
+            loaded.common.window_main,
+            Some(WindowPlace {
+                x: 100.0,
+                y: 50.0,
+                width: 1100.0,
+                height: 700.0,
+                scale: 1.0,
+            }),
+        );
+
+        // The restart: a new shell over the loaded settings in the same folder,
+        // on a new context as a new run's.
+        let (a, calls_a) = stub("a", "A", None);
+        let (b, calls_b) = stub("b", "B", None);
+        let Shell { mut app, .. } = shell_with(
+            loaded,
+            vec![a, b],
+            &[],
+            Some(dir.clone()),
+            vec![calls_a, calls_b],
+        );
+        let options = app.opening(&[egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(1920.0, 1080.0),
+        )]);
+        assert_eq!(options.viewport.position, Some(egui::pos2(100.0, 50.0)));
+        assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
+        assert!(!options.centered, "created where it closed, not centered");
+        let restart_ctx = test_context();
+        let out = placed_frame(
+            &restart_ctx,
+            &mut app,
+            egui::pos2(100.0, 50.0),
+            egui::vec2(1100.0, 700.0),
+            1.0,
+            false,
+        );
+        assert_eq!(
+            fitting(&out),
+            [ViewportCommand::OuterPosition(egui::pos2(100.0, 50.0))],
+            "the position again in the frame's points, and no size"
+        );
+        let out = placed_frame(
+            &restart_ctx,
+            &mut app,
+            egui::pos2(100.0, 50.0),
+            egui::vec2(1100.0, 700.0),
+            1.0,
+            false,
+        );
+        assert!(
+            fitting(&out).is_empty(),
+            "the position is sent on the first frame only"
+        );
+    }
+
+    // ST-WIN-04
+    #[test]
+    fn a_place_on_no_monitor_opens_fitted_and_an_empty_list_trusts_it() {
+        let egui_ctx = test_context();
+        let dir = TestDir::new("studio_core_window_place_offscreen");
+        let mut settings = test_settings(dir.path());
+        settings.common.window_main = Some(WindowPlace {
+            x: 2500.0,
+            y: 50.0,
+            width: 1100.0,
+            height: 700.0,
+            scale: 1.0,
+        });
+        let (a, calls_a) = stub("a", "A", None);
+        let (b, calls_b) = stub("b", "B", None);
+        let Shell { mut app, .. } = shell_with(
+            settings,
+            vec![a, b],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a, calls_b],
+        );
+
+        // (2500, 50) puts the title bar past the 1920 monitor's right edge:
+        // the place is dropped for the fit of ST-WIN-01's first row.
+        let options = app.opening(&[egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(1920.0, 1080.0),
+        )]);
+        assert_eq!(options.viewport.inner_size, Some(DEFAULT_SIZE));
+        assert_eq!(options.viewport.position, None);
+        assert!(options.centered, "a place on no monitor falls to the fit");
+        let out = monitor_frame(&egui_ctx, &mut app, Some(egui::vec2(1920.0, 1080.0)));
+        assert_eq!(
+            fitting(&out),
+            [
+                ViewportCommand::InnerSize(egui::vec2(1280.0, 800.0)),
+                ViewportCommand::OuterPosition(egui::pos2(312.0, 120.5)),
+            ],
+        );
+
+        // No list at all, the reader's absence: the place is trusted.
+        let options = app.opening(&[]);
+        assert_eq!(options.viewport.position, Some(egui::pos2(2500.0, 50.0)));
+        assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
+        assert!(!options.centered);
+    }
+
+    // ST-WIN-04
+    #[test]
+    fn a_window_on_a_200_percent_display_records_its_points_and_reopens_in_them() {
+        let egui_ctx = test_context();
+        let Shell { mut app, _dir, .. } = shell();
+        let dir = _dir.as_ref().unwrap().path().to_path_buf();
+
+        // The same 1100 × 700 window at (100, 50) on a 200% display: the
+        // record holds the points and the scale.
+        for _ in 0..3 {
+            placed_frame(
+                &egui_ctx,
+                &mut app,
+                egui::pos2(100.0, 50.0),
+                egui::vec2(1100.0, 700.0),
+                2.0,
+                false,
+            );
+        }
+        app.on_exit();
+
+        let loaded = Settings::load(&dir.join(SETTINGS_FILE_NAME)).unwrap();
+        assert_eq!(
+            loaded.common.window_main,
+            Some(WindowPlace {
+                x: 100.0,
+                y: 50.0,
+                width: 550.0,
+                height: 350.0,
+                scale: 2.0,
+            }),
+        );
+
+        let (a, calls_a) = stub("a", "A", None);
+        let (b, calls_b) = stub("b", "B", None);
+        let Shell { mut app, .. } = shell_with(
+            loaded,
+            vec![a, b],
+            &[],
+            Some(dir.clone()),
+            vec![calls_a, calls_b],
+        );
+        let options = app.opening(&[egui::Rect::from_min_size(
+            egui::Pos2::ZERO,
+            egui::vec2(1920.0, 1080.0),
+        )]);
+        assert_eq!(options.viewport.position, Some(egui::pos2(50.0, 25.0)));
+        assert_eq!(options.viewport.inner_size, Some(egui::vec2(550.0, 350.0)));
+        assert!(!options.centered);
+        let restart_ctx = test_context();
+        let out = placed_frame(
+            &restart_ctx,
+            &mut app,
+            egui::pos2(100.0, 50.0),
+            egui::vec2(1100.0, 700.0),
+            2.0,
+            false,
+        );
+        assert_eq!(
+            fitting(&out),
+            [ViewportCommand::OuterPosition(egui::pos2(50.0, 25.0))],
+            "the position in the frame's own points"
+        );
+    }
+
+    // ST-WIN-04
+    #[test]
+    fn a_window_maximized_at_close_keeps_the_place_before_the_maximize() {
+        let egui_ctx = test_context();
+        let Shell { mut app, _dir, .. } = shell();
+        let dir = _dir.as_ref().unwrap().path().to_path_buf();
+
+        for _ in 0..3 {
+            placed_frame(
+                &egui_ctx,
+                &mut app,
+                egui::pos2(100.0, 50.0),
+                egui::vec2(1100.0, 700.0),
+                1.0,
+                false,
+            );
+        }
+        // A maximized window reports no normal place: the last one stands.
+        for _ in 0..2 {
+            placed_frame(
+                &egui_ctx,
+                &mut app,
+                egui::Pos2::ZERO,
+                egui::vec2(1920.0, 1041.0),
+                1.0,
+                true,
+            );
+        }
+        app.on_exit();
+
+        let loaded = Settings::load(&dir.join(SETTINGS_FILE_NAME)).unwrap();
+        assert_eq!(
+            loaded.common.window_main,
+            Some(WindowPlace {
+                x: 100.0,
+                y: 50.0,
+                width: 1100.0,
+                height: 700.0,
+                scale: 1.0,
+            }),
         );
     }
 

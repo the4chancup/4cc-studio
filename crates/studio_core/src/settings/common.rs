@@ -42,6 +42,10 @@ pub struct CommonSettings {
     pub skipped_version: Option<String>,
     /// The tool active when the GUI last closed; `studio` with no arguments reopens it.
     pub last_tool: Option<String>,
+    /// The main window class's last place (gui.md "Window size classes"), written when the
+    /// window closes; `None` until the first close, which opens the window fitted and
+    /// centered.
+    pub window_main: Option<WindowPlace>,
     /// The boots ID the FPC hide preset writes (the `fpc` crate's `HideIds`), an ID the
     /// game has no boots model for.
     pub fpc_hide_boots_id: u16,
@@ -63,6 +67,7 @@ impl Default for CommonSettings {
             last_update_check: None,
             skipped_version: None,
             last_tool: None,
+            window_main: None,
             fpc_hide_boots_id: fpc::HideIds::CONVENTION.boots(),
             fpc_hide_gloves_id: fpc::HideIds::CONVENTION.gloves(),
         }
@@ -83,6 +88,55 @@ impl CommonSettings {
     /// enters), so an out-of-band pair is an error the consumers surface.
     pub fn fpc_hide_ids(&self) -> Result<fpc::HideIds, fpc::HideIdsError> {
         fpc::HideIds::new(self.fpc_hide_boots_id, self.fpc_hide_gloves_id)
+    }
+}
+
+/// A window's remembered place: its outer position in the screen's physical pixels, its
+/// inner size in points at zoom 1 (the pixels over the monitor's scale), and the scale
+/// factor of the monitor it was on, written in the settings file as
+/// `[x, y, width, height, scale]` (gui.md "Window size classes" says why each unit).
+#[derive(Debug, Clone, Copy, PartialEq, Serialize, Deserialize)]
+#[serde(from = "[f32; 5]", into = "[f32; 5]")]
+pub struct WindowPlace {
+    /// The outer rectangle's left edge, in physical pixels.
+    pub x: f32,
+    /// The outer rectangle's top edge, in physical pixels.
+    pub y: f32,
+    /// The inner width in points at zoom 1.
+    pub width: f32,
+    /// The inner height in points at zoom 1.
+    pub height: f32,
+    /// The monitor's scale factor (native pixels per point) when the place was recorded.
+    pub scale: f32,
+}
+
+impl From<[f32; 5]> for WindowPlace {
+    fn from([x, y, width, height, scale]: [f32; 5]) -> WindowPlace {
+        WindowPlace {
+            x,
+            y,
+            width,
+            height,
+            scale,
+        }
+    }
+}
+
+impl From<WindowPlace> for [f32; 5] {
+    fn from(place: WindowPlace) -> [f32; 5] {
+        [place.x, place.y, place.width, place.height, place.scale]
+    }
+}
+
+impl WindowPlace {
+    /// The outer position, in physical pixels.
+    pub fn position(&self) -> egui::Pos2 {
+        egui::pos2(self.x, self.y)
+    }
+
+    /// The inner size, in points at zoom 1.
+    pub fn size(&self) -> egui::Vec2 {
+        egui::vec2(self.width, self.height)
     }
 }
 
@@ -139,8 +193,8 @@ mod tests {
     // "Update state" table (`check_for_updates` true, `check_interval_hours` 24,
     // `last_update_check` and `skipped_version` empty). `theme` is the dark
     // preset, the default the GUI phase plans, `last_tool` empty on a first
-    // run. The hide IDs are the FPC convention's 55 and 11
-    // (`fpc::HideIds::CONVENTION`).
+    // run, `window_main` empty until the first close. The hide IDs are the FPC
+    // convention's 55 and 11 (`fpc::HideIds::CONVENTION`).
     #[test]
     fn the_defaults_match_the_settings_tables() {
         // `pes_folder_path` is the shipped pattern on Windows and empty
@@ -163,6 +217,7 @@ mod tests {
                 last_update_check: None,
                 skipped_version: None,
                 last_tool: None,
+                window_main: None,
                 fpc_hide_boots_id: 55,
                 fpc_hide_gloves_id: 11,
             }
@@ -194,5 +249,43 @@ mod tests {
         assert_eq!(settings.fpc_hide_boots_id, 627, "as written, no clamp");
         assert_eq!(settings.fpc_hide_gloves_id, 12);
         assert_eq!(settings.fpc_hide_ids(), Err(fpc::HideIdsError::Boots(627)));
+    }
+
+    // The window's place reads as the five numbers a member might write and
+    // writes back the same way, its key inside `[common]`.
+    #[test]
+    fn a_window_place_loads_from_five_numbers_and_saves_as_five() {
+        let settings =
+            crate::settings::Settings::parse("[common]\nwindow_main = [100, 50, 1100, 700, 1]\n")
+                .expect("parses");
+        let place = WindowPlace {
+            x: 100.0,
+            y: 50.0,
+            width: 1100.0,
+            height: 700.0,
+            scale: 1.0,
+        };
+        assert_eq!(settings.common.window_main, Some(place));
+
+        let dir = std::env::temp_dir().join(format!(
+            "studio_core_common_window_place_{}",
+            std::process::id()
+        ));
+        std::fs::create_dir_all(&dir).unwrap();
+        let path = dir.join("settings.toml");
+        let mut settings = crate::settings::Settings::default();
+        settings.common.window_main = Some(place);
+        settings.save(&path).unwrap();
+        let loaded = crate::settings::Settings::load(&path).unwrap();
+        assert_eq!(loaded.common.window_main, Some(place));
+
+        let text = std::fs::read_to_string(&path).unwrap();
+        let common_at = text.find("[common]").expect("a [common] section");
+        let key_at = text.find("window_main").expect("the place is written");
+        assert!(key_at > common_at, "the key sits inside [common]");
+        if let Some(next) = text[common_at..].find("\n[").map(|i| common_at + i) {
+            assert!(key_at < next, "the key sits before the next section");
+        }
+        std::fs::remove_dir_all(&dir).unwrap();
     }
 }

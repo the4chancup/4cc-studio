@@ -16,7 +16,7 @@ use std::io;
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 
-pub use common::{CommonSettings, Theme};
+pub use common::{CommonSettings, Theme, WindowPlace};
 #[cfg(not(target_arch = "wasm32"))]
 pub use location::{SETTINGS_FILE_NAME, resolve_data_dir, settings_file_writable, user_config_dir};
 use log::debug;
