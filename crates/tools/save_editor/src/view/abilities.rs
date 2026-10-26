@@ -58,6 +58,22 @@ const COLUMN_GAP: f32 = 36.0;
 /// and between Skills' two card columns (`cards` keeps the same 14).
 const PANEL_GAP: f32 = 14.0;
 
+/// The egui memory id `show` writes each column's measured width to each
+/// frame (the view's centring pad and the columns' own widths use the
+/// previous frame's, a column's content never knowing it on the first).
+const COLUMN_WIDTHS_ID: &str = "save_editor player column widths";
+
+/// The columns' total measured width: `view::show`'s centring pad reads
+/// the previous frame's (the first frame falls back to the pane's,
+/// drawing left-aligned once — the room the fixed columns leave splits
+/// evenly from the second frame on).
+pub(crate) fn columns_width(ui: &egui::Ui) -> f32 {
+    ui.ctx()
+        .data(|data| data.get_temp::<[f32; 3]>(egui::Id::unique(COLUMN_WIDTHS_ID)))
+        .map(|widths| widths.iter().sum::<f32>() + 2.0 * COLUMN_GAP)
+        .unwrap_or_else(|| ui.available_width())
+}
+
 /// The columns for the selected player, under `info_strip`'s title: the
 /// three fixed columns side by side, each a `ui.vertical` of panels 14
 /// points apart, the row wrapping whole columns on a narrow pane.
@@ -101,6 +117,14 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         // A wrapped row with tops aligned: `horizontal_wrapped` centers on
         // the cross axis, the columns want their tops level.
         let spacing = ui.spacing().item_spacing;
+        // Each column's allocated width is its last frame's measured one
+        // (the wrap's fit check reads the desired width, the cursor's
+        // advance the used one: giving them different values wraps a
+        // column whose content runs under its constant).
+        let saved: [f32; 3] = ui
+            .ctx()
+            .data(|data| data.get_temp(egui::Id::unique(COLUMN_WIDTHS_ID)))
+            .unwrap_or([info_strip::GENERAL_WIDTH, cards::TWO_COLUMN_WIDTH, 170.0]);
         ui.scope_builder(
             egui::UiBuilder::new()
                 .layout(egui::Layout::left_to_right(egui::Align::Min).with_main_wrap(true)),
@@ -110,9 +134,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 // is a soft bound, so a column wider than the pane grows it.
                 let pane_width = ui.available_width();
                 // Column 1: General info, Other stats, Playable positions —
-                // `GENERAL_WIDTH` wide, its panels `PANEL_GAP` apart.
-                ui.allocate_ui_with_layout(
-                    egui::vec2(info_strip::GENERAL_WIDTH, ui.available_height()),
+                // its panels `PANEL_GAP` apart.
+                let col1 = ui.allocate_ui_with_layout(
+                    egui::vec2(saved[0], ui.available_height()),
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
@@ -131,11 +155,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 // row) over COM playing styles, their columns 158 wide:
                 // the two-column width, or the pane's when that cannot
                 // hold them (the card columns narrow to one).
-                ui.allocate_ui_with_layout(
-                    egui::vec2(
-                        cards::TWO_COLUMN_WIDTH.min(pane_width),
-                        ui.available_height(),
-                    ),
+                let col2 = ui.allocate_ui_with_layout(
+                    egui::vec2(saved[1].min(pane_width), ui.available_height()),
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
@@ -163,8 +184,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     },
                 );
                 // Column 3: the ability stats, one pair a row.
-                ui.allocate_ui_with_layout(
-                    egui::vec2(170.0, ui.available_height()),
+                let col3 = ui.allocate_ui_with_layout(
+                    egui::vec2(saved[2], ui.available_height()),
                     egui::Layout::top_down(egui::Align::Min),
                     |ui| {
                         ui.spacing_mut().item_spacing = egui::vec2(spacing.x, PANEL_GAP);
@@ -173,6 +194,14 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                         });
                     },
                 );
+                let widths = [
+                    col1.response.rect.width(),
+                    col2.response.rect.width(),
+                    col3.response.rect.width(),
+                ];
+                ui.ctx().data_mut(|data| {
+                    data.insert_temp(egui::Id::unique(COLUMN_WIDTHS_ID), widths);
+                });
             },
         );
     });
@@ -322,10 +351,12 @@ pub(super) fn small_stat(
 }
 
 /// The positions grid's rows (the draft's `POS_ROWS`): the order a member
-/// reads a formation in, left wing to right wing, GK alone below.
-const POS_ROWS: [&[&str]; 4] = [
+/// reads a formation in, left wing to right wing, the midfield in two
+/// rows, GK alone below.
+const POS_ROWS: [&[&str]; 5] = [
     &["LWF", "CF", "SS", "RWF"],
-    &["LMF", "AMF", "CMF", "DMF", "RMF"],
+    &["LMF", "AMF", "RMF"],
+    &["CMF", "DMF"],
     &["LB", "CB", "RB"],
     &["GK"],
 ];
@@ -378,7 +409,11 @@ fn playable_positions(
     let mut playable = positions.playable;
     let cell_gap = ui.spacing().item_spacing.x;
     let body = egui::TextStyle::Body.resolve(ui.style());
-    let column_width = info_strip::GENERAL_WIDTH.min(ui.available_width());
+    // The rows centre in the panel's content width: the nominal 350, or
+    // the flush edge's where egui's text runs past it.
+    let column_width = info_strip::GENERAL_WIDTH
+        .max(info_strip::general_content_width(ui))
+        .min(ui.available_width());
     for row in POS_ROWS {
         // `add_space` advances the cursor outright, no item spacing.
         let row_width = row.len() as f32 * POS_CELL_WIDTH + (row.len() - 1) as f32 * cell_gap;
@@ -445,7 +480,7 @@ fn playable_positions(
                 if index == usize::from(positions.registered) {
                     ui.painter().rect_stroke(
                         cell.response.rect.expand(2.0),
-                        egui::CornerRadius::ZERO,
+                        ui.visuals().widgets.inactive.corner_radius,
                         egui::Stroke::new(1.0, ui.visuals().selection.stroke.color),
                         egui::StrokeKind::Outside,
                     );
@@ -460,8 +495,10 @@ fn playable_positions(
 /// the version lacks shows `-`, disabled.
 fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats: &PlayerStats) {
     let abilities = stats.abilities();
+    let spacing_y = ui.spacing().item_spacing.y;
     egui::Grid::new("abilities stats")
         .num_columns(2)
+        .spacing(egui::vec2(info_strip::FIELD_ROW_GAP, spacing_y))
         .show(ui, |ui| {
             for (index, &label) in ABILITY_STATS.iter().enumerate() {
                 ui.label(title_case(label));

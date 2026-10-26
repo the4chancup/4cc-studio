@@ -2788,8 +2788,10 @@ briefs, review loops, gates and mutation runs as for any step.
       9 over the brief's 6, the draft having moved mid-run); the positions' rows centred by
       measured `add_space`; `TWO_COLUMN_WIDTH` pinned at a literal 330/329 (s3g's two
       survivors, checked dead by hand). Files: `view/{info_strip,abilities,team,terms}.rs`,
-      `help/{02_window,03_abilities}.md`, `team_widgets/src/cards.rs`, the tests
-    - [ ] s3j the maintainer's second look (2026-10-26, drafted first,
+      `help/{02_window,03_abilities}.md`, `team_widgets/src/cards.rs`, the tests.
+      `mutants-diff be235ad6`: 39 caught, 1 missed, 1 unviable; the miss
+      (`RATINGS_WIDTH`'s `2.0 * RATING_GAP` to `+`) is equivalent, the gap being 2
+    - [x] s3j the maintainer's second look (2026-10-26, drafted first,
       `.tmp/0_0_1s/draft_look4_player.png`): Name and Shirt as label-left rows sharing the
       combos' label column (as wide as "Registered position"), those six fields ending flush
       with the second half's boxes; Playable positions' midfield in two rows, LMF AMF RMF /
@@ -2797,7 +2799,17 @@ briefs, review loops, gates and mutation runs as for any step.
       the player view centred between the list and the window's right edge (32 points each
       side in the draft); and the fourth: a label and its field at least 9 points apart on a
       pair, 12 on a label-left row and in Ability stats (26 points either side then)
-      (`plans/save_editor.md` "Editing UI", the player view bullet)
+      (`plans/save_editor.md` "Editing UI", the player view bullet). Done 2026-10-26 (SWE-2):
+      the rows' label column measured from "Registered position", the flush edge computed once
+      (349.34 points at egui's fonts, inside the 350); the first half is that column, 12 and a
+      box, so its boxes start at the fields' x; the view centred by a pad from the columns'
+      last-frame widths in egui memory, each column also allocated at that width (the wrap's
+      fit check reads the asked width, the cursor the used one: unequal, Ability stats
+      wrapped); the registered outline at the widgets' radius. Lead: red runs for the five
+      rows, the centring and the radius (the sidekick ran two of the five red); the widths kept
+      with `get_temp` as the workspace does, not `get_persisted`. The centring balances against
+      the pane's frame, 8 points inside the window's edge: the built-window check decides
+      which edge the eye reads. Files: `view/{info_strip,abilities,mod}.rs`, the tests
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

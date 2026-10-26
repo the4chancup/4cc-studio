@@ -93,11 +93,11 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
             .name
             .clone()
     };
-    /// The Name field's node: the enabled text edit under the "Name n/N"
-    /// label, holding `value` (the Shirt field carries the same text on
-    /// this fixture, so position, not value alone, names it).
+    /// The Name field's node: the enabled text edit right of the "Name
+    /// (n/max)" label, holding `value` (the Shirt field carries the same
+    /// text on this fixture, so position, not value alone, names it).
     fn name_field<'a>(nodes: &'a [accesskit::Node], value: &str) -> &'a accesskit::Node {
-        let field = field_below_label(nodes, "Name ", Role::TextInput);
+        let field = field_right_of_label(nodes, "Name (", Role::TextInput);
         assert!(!field.is_disabled(), "the Name field is enabled");
         assert_eq!(field.value(), Some(value), "the Name field holds {value:?}");
         field
@@ -157,10 +157,12 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
     );
 }
 
-// The Name and Shirt fields each draw the General info column's width
-// (the draft's `.gen input` 100%): their right edges share the one x.
+// plans/save_editor.md "Editing UI", the player view bullet: the Name
+// and Shirt fields' left edges share the rows' label column and its gap,
+// their right edges flush with the second half's boxes (the draft's
+// `.combos` `1fr` field), not on the panel's right edge.
 #[test]
-fn the_name_and_shirt_fields_draw_the_columns_width() {
+fn the_name_and_shirt_fields_share_the_rows_edges() {
     let path = fixture(PesVersion::Pes21, "field_widths");
     let mut view = SaveView::new();
     view.open(&path);
@@ -170,15 +172,16 @@ fn the_name_and_shirt_fields_draw_the_columns_width() {
     }
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    let name = field_below_label(&nodes, "Name ", Role::TextInput)
-        .bounds()
-        .expect("bounds");
+    let name = name_field(&nodes).bounds().expect("bounds");
     let shirt = shirt_field(&nodes).bounds().expect("bounds");
     assert_eq!(name.x0, shirt.x0, "the two fields start at one x");
     assert_eq!(name.x1, shirt.x1, "the two fields end on one x");
+    let shirt_box = right_of_label(&nodes, "Shirt number", Role::SpinButton)[0]
+        .bounds()
+        .expect("bounds");
     assert!(
-        name.x1 - name.x0 >= crate::view::info_strip::GENERAL_WIDTH as f64 - 1.0,
-        "the Name field draws the column's width, drew {name:?}"
+        (name.x1 - shirt_box.x1).abs() < 0.5,
+        "the fields end flush with the second half's boxes ({name:?} vs {shirt_box:?})"
     );
 }
 
@@ -551,7 +554,7 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(label_value(&nodes, "Name (12/61)"), "the name's count");
     assert!(label_value(&nodes, "Shirt (20/18)"), "the shirt's count");
-    let shirt = field_below_label(&nodes, "Shirt (", Role::TextInput);
+    let shirt = shirt_field(&nodes);
     assert_eq!(
         fill_at(&shapes, shirt.bounds().expect("bounds")),
         Some(tint),
@@ -592,7 +595,7 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     );
 
     // A letter typed after it is refused: the stored name keeps 19.
-    let shirt = field_below_label(&nodes, "Shirt (", Role::TextInput);
+    let shirt = shirt_field(&nodes);
     click(&mut window, shirt, &mut view);
     window.frame(
         vec![
@@ -611,15 +614,15 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
 
     // 47 bytes as the name: "Name (47/61)", tinted, the crop hover.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let name_field = field_below_label(&nodes, "Name ", Role::TextInput);
-    click(&mut window, name_field, &mut view);
+    let field = name_field(&nodes);
+    click(&mut window, field, &mut view);
     type_text(&mut window, &mut view, &"Z".repeat(47));
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(label_value(&nodes, "Name (47/61)"), "the name's new count");
-    let name_field = field_below_label(&nodes, "Name ", Role::TextInput);
+    let field = name_field(&nodes);
     assert_eq!(
-        fill_at(&shapes, name_field.bounds().expect("bounds")),
+        fill_at(&shapes, field.bounds().expect("bounds")),
         Some(tint),
         "the name field is tinted"
     );
@@ -628,7 +631,7 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         visuals.warn_fg_color,
         "the name count is drawn in the warning colour"
     );
-    let tooltip = tooltip_after_hover(&mut window, &mut view, centre(name_field));
+    let tooltip = tooltip_after_hover(&mut window, &mut view, centre(field));
     assert_eq!(
         tooltip,
         Some(format!(
@@ -923,10 +926,10 @@ fn a_typed_number_clamps_to_the_fields_stored_width() {
 // to 61 bytes, a name past 46 tinted with the cut the older versions make).
 #[test]
 fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
-    /// The Name field's `TextInput` node (the enabled text edit under the
-    /// "Name n/N" label).
+    /// The Name field's `TextInput` node (the enabled text edit right of
+    /// the "Name (n/max)" label).
     fn name_field(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
-        let field = field_below_label(nodes, "Name ", Role::TextInput);
+        let field = field_right_of_label(nodes, "Name (", Role::TextInput);
         assert!(
             !field.is_disabled() && field.value() == Some(value),
             "the Name field {value:?}"

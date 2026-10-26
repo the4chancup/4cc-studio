@@ -2550,3 +2550,5 @@ worklog passed 7,000 lines.
   failing tier check does the same in the Skills header (0.0.1s3h).
 - **2026-10-26** — The player view's field labels read in the normal grey, the counts sit in brackets, "Number" is
   "Shirt number", and the positions run in four centred rows with GK alone (0.0.1s3i).
+- **2026-10-26** — Name and Shirt became label-left rows, every General info field ends flush with the pairs' boxes,
+  the midfield splits into two position rows, and the player view centres between the list and the edge (0.0.1s3j).

@@ -534,11 +534,10 @@ fn fill_at(
         .map(|(fill, _)| fill)
 }
 
-/// The Shirt field's `TextInput` node (the text edit under the "Shirt
-/// (n/max)" label — the counted fields' layout puts the field below its
-/// label).
+/// The Shirt field's `TextInput` node (the text edit right of the "Shirt
+/// (n/max)" label).
 fn shirt_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
-    field_below_label(nodes, "Shirt (", Role::TextInput)
+    field_right_of_label(nodes, "Shirt (", Role::TextInput)
 }
 
 /// The undo stack's depth, counted by Ctrl+Z until it is empty (bounded, so
@@ -587,11 +586,10 @@ fn right_of<'a>(
     first_right_of(nodes, anchor, |node| node.role() == role).expect("a node right of the anchor")
 }
 
-/// The `role` node directly under the label whose value starts with
-/// `prefix` — the layout the counted fields use puts the field below its
-/// `Name (n/max)`/`Shirt (n/max)` label. The topmost `role` node at the label's
-/// left edge below it.
-fn field_below_label<'a>(
+/// The `role` node on the row of the label whose value starts with
+/// `prefix`, to its right — the counted fields' label-left layout puts
+/// the field right of its `Name (n/max)`/`Shirt (n/max)` label.
+fn field_right_of_label<'a>(
     nodes: &'a [accesskit::Node],
     prefix: &str,
     role: Role,
@@ -603,20 +601,14 @@ fn field_below_label<'a>(
                 && node.value().is_some_and(|value| value.starts_with(prefix))
         })
         .unwrap_or_else(|| panic!("no label starting {prefix:?}"));
-    let bounds = label.bounds().expect("the label's bounds");
-    nodes
-        .iter()
-        .filter(|node| {
-            node.role() == role
-                && node
-                    .bounds()
-                    .is_some_and(|b| b.y0 >= bounds.y1 - 1.0 && (b.x0 - bounds.x0).abs() < 4.0)
-        })
-        .min_by(|a, b| {
-            let y = |node: &&accesskit::Node| node.bounds().expect("bounds").y0;
-            y(a).partial_cmp(&y(b)).expect("ordered bounds")
-        })
-        .unwrap_or_else(|| panic!("no {role:?} below a {prefix:?} label"))
+    first_right_of(nodes, label, |node| node.role() == role)
+        .unwrap_or_else(|| panic!("no {role:?} right of a {prefix:?} label"))
+}
+
+/// The Name field's `TextInput` node (the text edit right of the "Name
+/// (n/max)" label).
+fn name_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
+    field_right_of_label(nodes, "Name (", Role::TextInput)
 }
 
 /// The widget nodes of `role` on `label`'s row to its right, in x order.

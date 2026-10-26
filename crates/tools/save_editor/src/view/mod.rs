@@ -442,15 +442,30 @@ pub(crate) fn show(
                     Some(Selection::Team(_)) => team::show(ui, view),
                     Some(Selection::Player(..)) | None => {
                         // The player view: the title, the three columns,
-                        // then the Appearance section, closed by default.
-                        info_strip::show(ui, view);
-                        abilities::show(ui, view);
-                        egui::CollapsingHeader::new("Appearance")
-                            .id_salt("appearance")
-                            // The section's content keeps the view's full
-                            // width (the grids are sized for the pane, the
-                            // body's indent would push them past it).
-                            .show_unindented(ui, |ui| appearance::show(ui, view));
+                        // then the Appearance section, closed by default —
+                        // the whole centred between the player list and
+                        // the pane's right edge (`columns_width` is the
+                        // last frame's measured width; a first frame has
+                        // none and draws left-aligned once).
+                        let width = abilities::columns_width(ui);
+                        let pad = ((ui.available_width() - width) / 2.0).max(0.0);
+                        ui.horizontal(|ui| {
+                            ui.add_space(pad);
+                            ui.vertical(|ui| {
+                                // The stored total, or the pane's when it
+                                // is smaller (the columns wrap inside).
+                                ui.set_width(width.min(ui.available_width()));
+                                info_strip::show(ui, view);
+                                abilities::show(ui, view);
+                                egui::CollapsingHeader::new("Appearance")
+                                    .id_salt("appearance")
+                                    // The section's content keeps the
+                                    // view's width (the grids are sized
+                                    // for it, the body's indent would push
+                                    // them past it).
+                                    .show_unindented(ui, |ui| appearance::show(ui, view));
+                            });
+                        });
                     }
                 });
         });

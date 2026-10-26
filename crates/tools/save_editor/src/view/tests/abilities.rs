@@ -402,16 +402,16 @@ fn y_of(nodes: &[accesskit::Node], label: &str) -> f64 {
 }
 
 // plans/save_editor.md "Editing UI", the positions grid (the draft's
-// `POS_ROWS` and `#pos-grid`): the 13 playable positions in four rows by
+// `POS_ROWS` and `#pos-grid`): the 13 playable positions in five rows by
 // line of the pitch, left wing to right wing — LWF CF SS RWF / LMF AMF
-// CMF DMF RMF / LB CB RB / GK, GK alone on the last — each row centred in
-// the column, each cell's label centred over its ratings (over the B),
-// the registered position's cell outlined.
+// RMF / CMF DMF / LB CB RB / GK, GK alone on the last — each row centred
+// in the column, each cell's label centred over its ratings (over the B),
+// the registered position's cell outlined with the widgets' radius.
 #[test]
-fn the_positions_grid_draws_four_centered_rows_with_the_registered_outlined() {
-    /// The outline strokes a frame painted in the selection colour (the
-    /// registered position's cell mark, the draft's `td.reg`).
-    fn outlines(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::Rect> {
+fn the_positions_grid_draws_five_centered_rows_with_the_registered_outlined() {
+    /// The outline strokes' shapes, painted in the selection colour (the
+    /// registered position's cell mark, the draft's `.poscell.reg`).
+    fn outlines(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::epaint::RectShape> {
         let selection = egui::Visuals::dark().selection.stroke.color;
         shapes
             .iter()
@@ -420,7 +420,7 @@ fn the_positions_grid_draws_four_centered_rows_with_the_registered_outlined() {
                     if shape.fill == egui::Color32::TRANSPARENT
                         && shape.stroke.color == selection =>
                 {
-                    Some(shape.rect)
+                    Some(shape.clone())
                 }
                 _ => None,
             })
@@ -455,11 +455,12 @@ fn the_positions_grid_draws_four_centered_rows_with_the_registered_outlined() {
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    // The four rows in the pitch's order, each on its own y, x order as
+    // The five rows in the pitch's order, each on its own y, x order as
     // listed, GK alone on the last.
-    const EXPECTED: [&[&str]; 4] = [
+    const EXPECTED: [&[&str]; 5] = [
         &["LWF", "CF", "SS", "RWF"],
-        &["LMF", "AMF", "CMF", "DMF", "RMF"],
+        &["LMF", "AMF", "RMF"],
+        &["CMF", "DMF"],
         &["LB", "CB", "RB"],
         &["GK"],
     ];
@@ -487,10 +488,7 @@ fn the_positions_grid_draws_four_centered_rows_with_the_registered_outlined() {
     // column's centre (the 62-wide cells' edges sit 3.5 outside the
     // centred ratings row, so the outside ratings' bounds bound the
     // span).
-    let column_left = field_below_label(&nodes, "Name (", Role::TextInput)
-        .bounds()
-        .expect("bounds")
-        .x0;
+    let column_left = label_bounds(&nodes, "General info").x0;
     let column_centre = column_left + f64::from(crate::view::info_strip::GENERAL_WIDTH) / 2.0;
     for row in EXPECTED {
         let first_c = rating_buttons(&nodes, row[0])[0].bounds().expect("bounds");
@@ -520,15 +518,28 @@ fn the_positions_grid_draws_four_centered_rows_with_the_registered_outlined() {
         );
     }
 
-    // The registered position's cell is the one outlined cell; the pick
-    // moves the outline with it (70101 is registered CB, picked CF).
+    // The registered position's cell is the one outlined cell, stroked
+    // with the widgets' own corner radius (every frame and field in the
+    // view is rounded); the pick moves the outline with it (70101 is
+    // registered CB, picked CF).
     let strokes = outlines(&shapes);
     assert_eq!(strokes.len(), 1, "exactly one outlined cell");
+    let radius = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .widgets
+        .inactive
+        .corner_radius;
+    assert_eq!(
+        strokes[0].corner_radius, radius,
+        "the outline rounded as the widgets are"
+    );
     let cell = cell_rect(&nodes, "CB");
     assert!(
-        strokes[0].contains_rect(cell),
+        strokes[0].rect.contains_rect(cell),
         "the outline is around the CB cell, got {:?} for {cell:?}",
-        strokes[0]
+        strokes[0].rect
     );
 
     let combo = right_of_label(&nodes, "Registered position", Role::ComboBox)
@@ -549,9 +560,9 @@ fn the_positions_grid_draws_four_centered_rows_with_the_registered_outlined() {
     assert_eq!(strokes.len(), 1, "still exactly one outlined cell");
     let cell = cell_rect(&nodes, "CF");
     assert!(
-        strokes[0].contains_rect(cell),
+        strokes[0].rect.contains_rect(cell),
         "the outline moved to the CF cell, got {:?} for {cell:?}",
-        strokes[0]
+        strokes[0].rect
     );
 }
 
@@ -1478,38 +1489,91 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         DEFAULT_PANE.y - 2.0 * PANEL_MARGIN
     );
 
-    // General info's Name and Shirt fields end on the column's right
-    // edge, the column its 350 points.
-    let name = field_below_label(&nodes, "Name ", Role::TextInput)
+    // The six label-left rows (Name, Shirt and the four combos) share
+    // one label column: their fields start at one x and end flush with
+    // the second half's boxes, not on the panel's edge.
+    let name = name_field(&nodes).bounds().expect("bounds");
+    let shirt = shirt_field(&nodes).bounds().expect("bounds");
+    let shirt_label = label_bounds(&nodes, "Shirt number");
+    let shirt_box = right_of_label(&nodes, "Shirt number", Role::SpinButton)[0]
         .bounds()
         .expect("bounds");
-    let shirt = field_below_label(&nodes, "Shirt (", Role::TextInput)
-        .bounds()
-        .expect("bounds");
-    assert_eq!(name.x1, shirt.x1, "the two fields end on one x");
+    let flush = shirt_box.x1;
     assert!(
-        (name.x1 - name.x0 - 350.0).abs() <= 1.0,
-        "the Name field draws the column's 350 points, drew {name:?}"
+        (name.x1 - flush).abs() < 0.5 && (shirt.x1 - flush).abs() < 0.5,
+        "the counted fields end at the flush edge ({name:?}, {shirt:?} vs {flush})"
     );
-
-    // Every pair's box ends on its half's right edge: the left pairs' on
-    // the left half's, the right pairs' on the field's own right x.
-    let left_edge = name.x0;
-    let half_edge = left_edge + (name.x1 - name.x0 - 14.0) / 2.0;
-    for label in ["Height", "Weight", "Age"] {
-        let bounds = right_of_label(&nodes, label, Role::SpinButton)[0]
+    for label in [
+        "Stronger foot",
+        "Stronger hand",
+        "Registered position",
+        "Playing style",
+    ] {
+        let combo = right_of_label(&nodes, label, Role::ComboBox)[0]
             .bounds()
             .expect("bounds");
         assert!(
-            (bounds.x1 - half_edge).abs() < 1.0,
-            "{label}'s box ends on the left half's edge ({bounds:?} vs {half_edge})"
+            (combo.x0 - name.x0).abs() < 0.5,
+            "{label} starts at the rows' x ({combo:?} vs {name:?})"
+        );
+        assert!(
+            (combo.x1 - flush).abs() < 0.5,
+            "{label} ends at the flush edge ({combo:?} vs {flush})"
         );
     }
+    // The counted labels sit on their field's row (the label's vertical
+    // centre inside the field's bounds).
+    for prefix in ["Name (", "Shirt ("] {
+        let label = nodes
+            .iter()
+            .find(|node| {
+                node.role() == Role::Label
+                    && node.value().is_some_and(|value| value.starts_with(prefix))
+            })
+            .and_then(|node| node.bounds())
+            .unwrap_or_else(|| panic!("no counted label {prefix:?}"));
+        let field = if prefix.starts_with("Shirt") {
+            shirt
+        } else {
+            name
+        };
+        assert!(
+            (label.y0 + label.y1) / 2.0 >= field.y0 - 1.0
+                && (label.y0 + label.y1) / 2.0 <= field.y1 + 1.0,
+            "the {prefix}label on its field's row ({label:?} vs {field:?})"
+        );
+    }
+
+    // The pairs' halves 28 points apart: the first half's boxes start at
+    // the rows' fields' left edge (the first half is the rows' label
+    // column, their 12 and a box), the second half's left edge 28 after
+    // its box's right edge.
+    let height_box = right_of_label(&nodes, "Height", Role::SpinButton)[0]
+        .bounds()
+        .expect("bounds");
+    for (label, role) in [
+        ("Height", Role::SpinButton),
+        ("Weight", Role::SpinButton),
+        ("Age", Role::SpinButton),
+        ("Injury resistance", Role::SpinButton),
+        ("Weak foot: Usage", Role::SpinButton),
+    ] {
+        let bounds = right_of_label(&nodes, label, role)[0]
+            .bounds()
+            .expect("bounds");
+        assert!(
+            (bounds.x0 - name.x0).abs() < 0.5,
+            "{label}'s box starts at the rows' field x ({bounds:?} vs {name:?})"
+        );
+    }
+    assert!(
+        (shirt_label.x0 - height_box.x1 - 28.0).abs() < 0.5,
+        "the second half 28 after the first ({shirt_label:?} vs {height_box:?})"
+    );
     // The second half's boxes sit just after a label column as wide as
     // "Shirt number" and its 9-point gap (the draft's `72px 54px` grid,
     // the column's `column-gap`): one x across General info's and Other
     // stats' rows, so a short label (Nation, Form) keeps its box close.
-    let shirt_label = label_bounds(&nodes, "Shirt number");
     let box_x = shirt_label.x1 + 9.0;
     for (label, role) in [
         ("Shirt number", Role::SpinButton),
@@ -1526,6 +1590,87 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
             "{label}'s box just after the label column ({bounds:?} vs {box_x})"
         );
     }
+
+    // The label-to-field minimums (the plan's "never closer than"): 9 on
+    // every pair, 12 in the label-left rows and Ability stats, the
+    // narrowest of each at its minimum.
+    let mut pair_min = f64::MAX;
+    for (label, role) in [
+        ("Height", Role::SpinButton),
+        ("Weight", Role::SpinButton),
+        ("Age", Role::SpinButton),
+        ("Shirt number", Role::SpinButton),
+        ("Nation", Role::SpinButton),
+        ("Captain", Role::RadioButton),
+        ("Injury resistance", Role::SpinButton),
+        ("Weak foot: Usage", Role::SpinButton),
+        ("Form", Role::SpinButton),
+        ("Accuracy", Role::SpinButton),
+    ] {
+        let label_rect = label_bounds(&nodes, label);
+        let box_rect = right_of_label(&nodes, label, role)[0]
+            .bounds()
+            .expect("bounds");
+        let gap = box_rect.x0 - label_rect.x1;
+        assert!(gap >= 8.5, "{label}'s gap {gap} under 9");
+        pair_min = pair_min.min(gap);
+    }
+    assert!(
+        (pair_min - 9.0).abs() < 0.5,
+        "the narrowest pair gap at 9 ({pair_min})"
+    );
+    let mut row_min = f64::MAX;
+    for label in [
+        "Stronger foot",
+        "Stronger hand",
+        "Registered position",
+        "Playing style",
+    ] {
+        let label_rect = label_bounds(&nodes, label);
+        let field = right_of_label(&nodes, label, Role::ComboBox)[0]
+            .bounds()
+            .expect("bounds");
+        let gap = field.x0 - label_rect.x1;
+        assert!(gap >= 11.5, "{label}'s gap {gap} under 12");
+        row_min = row_min.min(gap);
+    }
+    for prefix in ["Name (", "Shirt ("] {
+        let label_rect = nodes
+            .iter()
+            .find(|node| {
+                node.role() == Role::Label
+                    && node.value().is_some_and(|value| value.starts_with(prefix))
+            })
+            .and_then(|node| node.bounds())
+            .expect("the counted label's bounds");
+        let field = field_right_of_label(&nodes, prefix, Role::TextInput)
+            .bounds()
+            .expect("bounds");
+        let gap = field.x0 - label_rect.x1;
+        assert!(gap >= 11.5, "{prefix}gap {gap} under 12");
+        row_min = row_min.min(gap);
+    }
+    assert!(
+        (row_min - 12.0).abs() < 0.5,
+        "the narrowest row gap at 12 ({row_min})"
+    );
+    let mut stat_min = f64::MAX;
+    for label in pes_savefile::interchange::team_toml::labels::ABILITY_STATS
+        .iter()
+        .map(|name| pes_savefile::interchange::team_toml::labels::title_case(name))
+    {
+        let label_rect = label_bounds(&nodes, &label);
+        let field = right_of_label(&nodes, &label, Role::SpinButton)[0]
+            .bounds()
+            .expect("bounds");
+        let gap = field.x0 - label_rect.x1;
+        assert!(gap >= 11.5, "{label}'s gap {gap} under 12");
+        stat_min = stat_min.min(gap);
+    }
+    assert!(
+        (stat_min - 12.0).abs() < 0.5,
+        "the narrowest stat gap at 12 ({stat_min})"
+    );
 
     // The four combos start at one x and end on the fields' right edge.
     let mut combo_x0 = f64::MAX;
@@ -1654,6 +1799,64 @@ fn the_skills_column_narrows_to_one_column_on_a_narrow_pane() {
             bounds.x1 <= pane_right + 0.5,
             "{:?} inside the pane's right edge ({bounds:?} vs {pane_right})",
             node.label()
+        );
+    }
+}
+
+// plans/save_editor.md "Editing UI", the player view bullet's first
+// sentence: the view centred between the player list and the pane's right
+// edge — the gap after the list equals the margin after Ability stats,
+// the room the fixed columns leave split evenly, on every pane width.
+// The centring pad reads the columns' width the previous frame measured
+// (egui memory), so three settle frames run before the read.
+#[test]
+fn the_player_view_centres_its_columns_in_the_pane() {
+    /// The detail pane's frame: the widest full-height rect past the
+    /// list's own (its left edge is the player list's right edge).
+    fn pane_frame(shapes: &[egui::epaint::ClippedShape], screen_h: f32) -> (f64, f64) {
+        shapes
+            .iter()
+            .filter_map(|clipped| match &clipped.shape {
+                egui::Shape::Rect(shape)
+                    if shape.rect.min.x > 200.0
+                        && shape.rect.width() > 600.0
+                        && shape.rect.height() > screen_h * 0.75 =>
+                {
+                    Some((f64::from(shape.rect.min.x), f64::from(shape.rect.max.x)))
+                }
+                _ => None,
+            })
+            .min_by(|a, b| a.0.partial_cmp(&b.0).expect("ordered bounds"))
+            .expect("the detail pane's frame rect")
+    }
+
+    let path = fixture(PesVersion::Pes21, "view_centered");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    for screen_w in [DEFAULT_PANE.x, DEFAULT_PANE.x + 300.0] {
+        let mut window = Headless::sized(screen_w, DEFAULT_PANE.y);
+        for _ in 0..3 {
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        }
+        let (_, nodes, shapes) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+        let gen_left = label_bounds(&nodes, "General info").x0;
+        let stats_left = label_bounds(&nodes, "Ability stats").x0;
+        let stats_right = nodes
+            .iter()
+            .filter(|node| node.role() == Role::SpinButton)
+            .filter_map(|node| node.bounds())
+            .filter(|bounds| bounds.x0 >= stats_left - 1.0)
+            .map(|bounds| bounds.x1)
+            .fold(0.0, f64::max);
+        let (list_right, pane_right) = pane_frame(&shapes, DEFAULT_PANE.y);
+        let left = gen_left - list_right;
+        let right = pane_right - stats_right;
+        assert!(
+            (left - right).abs() < 1.0,
+            "the gap after the list ({left}) equals the margin after Ability stats ({right}) at {screen_w}"
         );
     }
 }

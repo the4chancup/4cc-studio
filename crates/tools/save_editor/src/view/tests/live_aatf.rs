@@ -34,7 +34,8 @@ fn tool_click(
 
 /// Asserts no violation row is drawn under `header` (a row would be a
 /// Button below the header line; a gated control's `-` stand-in — drawn
-/// off the scroll's clip with real bounds — is never one).
+/// off the scroll's clip with real bounds — is never one, and nor is a
+/// positions cell's `C`/`B`/`A` rating).
 fn assert_no_violation_row(nodes: &[accesskit::Node], header: &str) {
     let header_bottom = nodes
         .iter()
@@ -45,7 +46,7 @@ fn assert_no_violation_row(nodes: &[accesskit::Node], header: &str) {
     assert!(
         !nodes.iter().any(|node| {
             node.role() == Role::Button
-                && node.label() != Some("-")
+                && !matches!(node.label(), Some("-") | Some("C") | Some("B") | Some("A"))
                 && node.bounds().is_some_and(|b| b.y0 >= header_bottom)
         }),
         "no violation row"

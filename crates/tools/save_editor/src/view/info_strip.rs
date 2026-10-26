@@ -45,13 +45,18 @@ pub(super) const NUMBER_LABEL: &str = "Shirt number";
 /// for the longest pair label, "Injury resistance", beside its box on
 /// each half).
 pub(super) const GENERAL_WIDTH: f32 = 350.0;
-/// A pair half's width: two halves 14 points apart inside the column.
-const HALF_WIDTH: f32 = (GENERAL_WIDTH - 14.0) / 2.0;
 /// A pair's box width (the draft's `.pair` fields).
 const BOX_WIDTH: f32 = 54.0;
 /// The gap between the second half's label column and its box (the
 /// draft's `.pair:nth-child(even)` `column-gap`, 9 points).
 const SECOND_LABEL_GAP: f32 = 9.0;
+/// The gap between a label-left row's label column and its field (the
+/// draft's `.combos` `column-gap`, 12 points; Ability stats' rows share
+/// it).
+pub(super) const FIELD_ROW_GAP: f32 = 12.0;
+/// The gap between a pair row's two halves (the draft's `.pairs`
+/// `column-gap`, 28 points).
+const PAIR_HALF_GAP: f32 = 28.0;
 
 /// A player name as the strip draws it: its `\x11` spelled as the four
 /// characters `\\x11` (the draft's `escName`); the field turns it back on
@@ -137,111 +142,127 @@ pub(super) fn general(
     };
     let captain = stored_captain == slot;
     let (height, weight, age) = basics;
-    let width = ui.available_width().min(GENERAL_WIDTH);
 
-    // The `label (n/max)` line over the field: the label's rect is taken
-    // first, the label itself painted after the field — the count follows
-    // the field's own text this frame (a TextEdit writes its buffer during
-    // `ui.add`), not the stored name. The field and its count carry one
-    // hover.
+    // The rows' layout, measured once (the draft's `.combos` `width`):
+    // the label column, its 12-point gap, the fields to the flush edge —
+    // the first half (label column, gap, box), the 28, the second half's
+    // label column, its 9 and a box. Past `GENERAL_WIDTH` the panel
+    // overflows rather than shrinking a gap.
+    let label_col = rows_label_width(ui);
+    let field_x = ui.max_rect().min.x + label_col + FIELD_ROW_GAP;
+    let flush_x = ui.max_rect().min.x + general_content_width(ui);
+    let field_width = flush_x - field_x;
+
+    // Each a label-left row: the `label (n/max)` label's rect taken at
+    // the row's left, the label itself painted after the field — the
+    // count follows the field's own text this frame (a TextEdit writes
+    // its buffer during `ui.add`), not the stored name. The field and
+    // its count carry one hover.
     let overlong = stored_name.len() > portable_text_max(PlayerText::Name);
-    let (name_label_id, name_label) = ui.allocate_space(egui::vec2(
-        width,
-        ui.text_style_height(&egui::TextStyle::Body),
-    ));
-    let mut name_edit = egui::TextEdit::singleline(&mut name);
-    if overlong {
-        name_edit = name_edit.background_color(warning_tint(ui.visuals()));
-    }
-    let response = ui.add_sized([width, ui.spacing().interact_size.y], name_edit);
-    // A name past what every version holds is drawn tinted with the cut
-    // PES 15 to 19 would make: a warning, never a block on Save.
-    let tip = if overlong {
-        format!(
-            "In PES 2019 and older the game cuts this name to «{}»",
-            shown_name(&crop_player_text(
-                PesVersion::Pes19,
-                PlayerText::Name,
-                &stored_name
-            ))
-        )
-    } else {
-        format!(
-            "Up to {} bytes. A plain letter takes one byte, an accented letter takes two or \
-             more, and a colour code takes ten. A colour code is typed as \\x11c and eight hex \
-             digits.",
-            text_len(schema, PlayerText::Name)
-        )
-    };
-    counted_label(
-        ui,
-        name_label_id,
-        name_label,
-        NAME_LABEL,
-        name.replace("\\x11", "\x11").len(),
-        text_len(schema, PlayerText::Name),
-        overlong,
-    )
-    .on_hover_text(&tip);
-    let response = response.on_hover_text(&tip);
-    if response.changed() {
-        let raw = name.replace("\\x11", "\x11");
-        // An edit the codec would refuse is not pushed (the save's own
-        // field is the bound): the field shows the stored text again
-        // next frame.
-        if name_fits(schema.version, &raw) {
-            edit_player(session, player_id, response.id.value(), |player| {
-                player.name = raw;
-                player.edit_flags.player = true;
-            });
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = FIELD_ROW_GAP;
+        let (name_label_id, name_label) = ui.allocate_space(egui::vec2(
+            label_col,
+            ui.text_style_height(&egui::TextStyle::Body),
+        ));
+        let mut name_edit = egui::TextEdit::singleline(&mut name);
+        if overlong {
+            name_edit = name_edit.background_color(warning_tint(ui.visuals()));
         }
-    }
+        let response = ui.add_sized([field_width, ui.spacing().interact_size.y], name_edit);
+        // A name past what every version holds is drawn tinted with the
+        // cut PES 15 to 19 would make: a warning, never a block on Save.
+        let tip = if overlong {
+            format!(
+                "In PES 2019 and older the game cuts this name to «{}»",
+                shown_name(&crop_player_text(
+                    PesVersion::Pes19,
+                    PlayerText::Name,
+                    &stored_name
+                ))
+            )
+        } else {
+            format!(
+                "Up to {} bytes. A plain letter takes one byte, an accented letter takes two or \
+                 more, and a colour code takes ten. A colour code is typed as \\x11c and eight \
+                 hex digits.",
+                text_len(schema, PlayerText::Name)
+            )
+        };
+        counted_label(
+            ui,
+            name_label_id,
+            name_label,
+            NAME_LABEL,
+            name.replace("\\x11", "\x11").len(),
+            text_len(schema, PlayerText::Name),
+            overlong,
+        )
+        .on_hover_text(&tip);
+        let response = response.on_hover_text(&tip);
+        if response.changed() {
+            let raw = name.replace("\\x11", "\x11");
+            // An edit the codec would refuse is not pushed (the save's own
+            // field is the bound): the field shows the stored text again
+            // next frame.
+            if name_fits(schema.version, &raw) {
+                edit_player(session, player_id, response.id.value(), |player| {
+                    player.name = raw;
+                    player.edit_flags.player = true;
+                });
+            }
+        }
+    });
 
     let shirt_overlong = stored_shirt.chars().count() > portable_text_max(PlayerText::ShirtName);
-    let (shirt_label_id, shirt_label) = ui.allocate_space(egui::vec2(
-        width,
-        ui.text_style_height(&egui::TextStyle::Body),
-    ));
-    let mut shirt_edit = egui::TextEdit::singleline(&mut shirt);
-    if shirt_overlong {
-        shirt_edit = shirt_edit.background_color(warning_tint(ui.visuals()));
-    }
-    let response = ui.add_sized([width, ui.spacing().interact_size.y], shirt_edit);
-    let tip = if shirt_overlong {
-        "PES 2019 and older show 18 letters of a shirt name (PES 2016 shows 16)".to_owned()
-    } else {
-        // The limit the field enforces, not the field's whole capacity:
-        // the portable 18 binds on PES 20/21, its own 16 on PES 16, and
-        // the charset is single-byte (é passes, ł does not).
-        format!(
-            "Up to {} letters. Western European accents (é, ü, ñ) are fine, but other letters \
-             and symbols are not.",
-            portable_text_max(PlayerText::ShirtName).min(text_len(schema, PlayerText::ShirtName))
-        )
-    };
-    counted_label(
-        ui,
-        shirt_label_id,
-        shirt_label,
-        SHIRT_LABEL,
-        shirt.chars().count(),
-        portable_text_max(PlayerText::ShirtName).min(text_len(schema, PlayerText::ShirtName)),
-        shirt_overlong,
-    )
-    .on_hover_text(&tip);
-    let response = response.on_hover_text(&tip);
-    if response.changed() {
-        // Upper-cased as typed, then the fit check (the portable limit
-        // or the version's own, whichever is shorter; a longer stored
-        // name shortens, never lengthens).
-        let upper = shirt.to_uppercase();
-        if shirt_name_edit_fits(schema.version, &stored_shirt, &upper) {
-            edit_player(session, player_id, response.id.value(), |player| {
-                player.shirt_name = upper;
-                player.edit_flags.player = true;
-            });
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = FIELD_ROW_GAP;
+        let (shirt_label_id, shirt_label) = ui.allocate_space(egui::vec2(
+            label_col,
+            ui.text_style_height(&egui::TextStyle::Body),
+        ));
+        let mut shirt_edit = egui::TextEdit::singleline(&mut shirt);
+        if shirt_overlong {
+            shirt_edit = shirt_edit.background_color(warning_tint(ui.visuals()));
         }
-    }
+        let response = ui.add_sized([field_width, ui.spacing().interact_size.y], shirt_edit);
+        let tip = if shirt_overlong {
+            "PES 2019 and older show 18 letters of a shirt name (PES 2016 shows 16)".to_owned()
+        } else {
+            // The limit the field enforces, not the field's whole capacity:
+            // the portable 18 binds on PES 20/21, its own 16 on PES 16, and
+            // the charset is single-byte (é passes, ł does not).
+            format!(
+                "Up to {} letters. Western European accents (é, ü, ñ) are fine, but other \
+                 letters and symbols are not.",
+                portable_text_max(PlayerText::ShirtName)
+                    .min(text_len(schema, PlayerText::ShirtName))
+            )
+        };
+        counted_label(
+            ui,
+            shirt_label_id,
+            shirt_label,
+            SHIRT_LABEL,
+            shirt.chars().count(),
+            portable_text_max(PlayerText::ShirtName).min(text_len(schema, PlayerText::ShirtName)),
+            shirt_overlong,
+        )
+        .on_hover_text(&tip);
+        let response = response.on_hover_text(&tip);
+        if response.changed() {
+            // Upper-cased as typed, then the fit check (the portable limit
+            // or the version's own, whichever is shorter; a longer stored
+            // name shortens, never lengthens).
+            let upper = shirt.to_uppercase();
+            if shirt_name_edit_fits(schema.version, &stored_shirt, &upper) {
+                edit_player(session, player_id, response.id.value(), |player| {
+                    player.shirt_name = upper;
+                    player.edit_flags.player = true;
+                });
+            }
+        }
+    });
 
     // The label-left pairs on two halves: each label at its half's left,
     // its 54-wide box on the first half's right edge, after the label
@@ -319,21 +340,28 @@ pub(super) fn general(
         });
     });
 
-    // The combos, their labels in one column, every combo starting at one
-    // x and ending on the column's right edge.
-    combos(ui, session, player_id, &positions, schema.version);
+    // The combos, on the same label-left rows as Name's and Shirt's.
+    combos(
+        ui,
+        session,
+        player_id,
+        &positions,
+        schema.version,
+        field_width,
+    );
 }
 
-/// One row of the pairs' two halves, 14 points apart.
+/// One row of the pairs' two halves, `PAIR_HALF_GAP` points apart.
 fn pair_row(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
     ui.horizontal(|ui| {
-        ui.spacing_mut().item_spacing.x = 14.0;
+        ui.spacing_mut().item_spacing.x = PAIR_HALF_GAP;
         add(ui);
     });
 }
 
 /// Which of a pair row's two halves a pair sits on: the first puts its
 /// box on the half's right edge, the second just after the label column.
+#[derive(Clone, Copy)]
 enum Half {
     /// The row's left half (the draft's `.pair` flex row).
     First,
@@ -341,31 +369,50 @@ enum Half {
     Second,
 }
 
-/// One `label`-left pair on a `HALF_WIDTH` half: the label at the half's
+/// One `label`-left pair on a `half_width` half: the label at the half's
 /// left; on `Half::First` `add_box`'s 54-wide box on the half's right
 /// edge, on `Half::Second` just after the `second_label_width` label
 /// column and its gap, so both panels' second-half boxes share one x.
 fn pair_half(ui: &mut egui::Ui, half: Half, label: &str, add_box: impl FnOnce(&mut egui::Ui)) {
-    ui.allocate_ui(egui::vec2(HALF_WIDTH, ui.spacing().interact_size.y), |ui| {
-        ui.horizontal(|ui| match half {
-            Half::First => {
-                ui.label(label);
-                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), add_box);
-            }
-            Half::Second => {
-                ui.spacing_mut().item_spacing.x = 0.0;
-                let response = ui.label(label);
-                // The draft's `.pair:nth-child(even)` grid: the box after a
-                // label column `second_label_width` wide and its gap, so
-                // both panels' second-half boxes share one x. `add_space`
-                // advances the cursor outright, no item spacing.
-                ui.add_space(
-                    (second_label_width(ui) + SECOND_LABEL_GAP - response.rect.width()).max(0.0),
-                );
-                add_box(ui);
-            }
-        });
-    });
+    ui.allocate_ui(
+        egui::vec2(half_width(ui, half), ui.spacing().interact_size.y),
+        |ui| {
+            ui.horizontal(|ui| match half {
+                Half::First => {
+                    ui.label(label);
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), add_box);
+                }
+                Half::Second => {
+                    ui.spacing_mut().item_spacing.x = 0.0;
+                    let response = ui.label(label);
+                    // The draft's `.pair:nth-child(even)` grid: the box after a
+                    // label column `second_label_width` wide and its gap, so
+                    // both panels' second-half boxes share one x. `add_space`
+                    // advances the cursor outright, no item spacing.
+                    ui.add_space(
+                        (second_label_width(ui) + SECOND_LABEL_GAP - response.rect.width())
+                            .max(0.0),
+                    );
+                    add_box(ui);
+                }
+            });
+        },
+    );
+}
+
+/// The label-left rows' label column's width: the longest of their six
+/// labels' galley, "Registered position", at the body font (the draft's
+/// `.combos` first column, its 107px measured rather than hard-coded).
+fn rows_label_width(ui: &egui::Ui) -> f32 {
+    let body = egui::TextStyle::Body.resolve(ui.style());
+    ui.painter()
+        .layout_no_wrap(
+            REGISTERED_POSITION_LABEL.to_owned(),
+            body,
+            egui::Color32::WHITE,
+        )
+        .size()
+        .x
 }
 
 /// The second half's label column's width: the half's longest label's
@@ -379,6 +426,31 @@ fn second_label_width(ui: &egui::Ui) -> f32 {
         .layout_no_wrap(NUMBER_LABEL.to_owned(), body, egui::Color32::WHITE)
         .size()
         .x
+}
+
+/// The General info column's content width: the flush edge the label-left
+/// rows' fields and the pairs' second-half boxes draw to — the rows'
+/// label column, the 12, a box, the 28, the second half's label column,
+/// the 9 and a box (the draft's `.combos` `width`). Wider than
+/// `GENERAL_WIDTH` if egui's text runs wide; the panel overflows its
+/// nominal 350 then rather than shrinking a gap.
+pub(super) fn general_content_width(ui: &egui::Ui) -> f32 {
+    rows_label_width(ui)
+        + second_label_width(ui)
+        + FIELD_ROW_GAP
+        + 2.0 * BOX_WIDTH
+        + PAIR_HALF_GAP
+        + SECOND_LABEL_GAP
+}
+
+/// A pair half's width: the first is the label-left rows' label column,
+/// their 12 and a box (so its boxes start at the x those rows' fields
+/// start at), the second its label column, the 9 and a box.
+fn half_width(ui: &egui::Ui, half: Half) -> f32 {
+    match half {
+        Half::First => rows_label_width(ui) + FIELD_ROW_GAP + BOX_WIDTH,
+        Half::Second => second_label_width(ui) + SECOND_LABEL_GAP + BOX_WIDTH,
+    }
 }
 
 /// One pair's 54-wide `DragValue` over `shown` capped at `max`; a change
@@ -466,41 +538,28 @@ fn small_box(
     }
 }
 
-/// The four combos, their labels in one column, every combo starting at
-/// one x and ending on the column's right edge (`generalPanel`'s
-/// `.combos`): the labels' widest measured width plus the gap leaves the
-/// rest of the column to the buttons.
+/// The four combos, label-left rows on the same label column as Name's
+/// and Shirt's (`generalPanel`'s `.combos` `107px` grid: its widest label
+/// is the column's "Registered position"), each `field_width` wide so it
+/// ends at the flush edge with the second half's boxes.
 fn combos(
     ui: &mut egui::Ui,
     session: &mut Session,
     player_id: u32,
     positions: &PlayerPositions,
     version: PesVersion,
+    field_width: f32,
 ) {
-    let body = egui::TextStyle::Body.resolve(ui.style());
-    let label_width = [
-        STRONGER_FOOT_LABEL,
-        STRONGER_HAND_LABEL,
-        REGISTERED_POSITION_LABEL,
-        PLAYING_STYLE_LABEL,
-    ]
-    .iter()
-    .map(|label| {
-        ui.painter()
-            .layout_no_wrap((*label).to_owned(), body.clone(), egui::Color32::WHITE)
-            .size()
-            .x
-    })
-    .fold(0.0, f32::max);
-    let combo_width = (ui.available_width() - label_width - ui.spacing().item_spacing.x).max(0.0);
+    let spacing_y = ui.spacing().item_spacing.y;
     egui::Grid::new("general combos")
         .num_columns(2)
+        .spacing(egui::vec2(FIELD_ROW_GAP, spacing_y))
         .show(ui, |ui| {
             ui.label(STRONGER_FOOT_LABEL);
             let mut foot = positions.stronger_foot;
             let foot_combo = egui::ComboBox::from_id_salt("abilities stronger foot")
                 .selected_text(foot_label(foot))
-                .width(combo_width)
+                .width(field_width)
                 .show_ui(ui, |ui| {
                     for (index, label) in FOOT.iter().enumerate() {
                         ui.selectable_value(&mut foot, index as u8, title_case(label));
@@ -523,7 +582,7 @@ fn combos(
                     let mut hand = stored;
                     let hand_combo = egui::ComboBox::from_id_salt("abilities stronger hand")
                         .selected_text(foot_label(hand))
-                        .width(combo_width)
+                        .width(field_width)
                         .show_ui(ui, |ui| {
                             for (index, label) in FOOT.iter().enumerate() {
                                 ui.selectable_value(&mut hand, index as u8, title_case(label));
@@ -546,7 +605,7 @@ fn combos(
                     ui.add_enabled_ui(false, |ui| {
                         egui::ComboBox::from_id_salt("abilities stronger hand")
                             .selected_text(foot_label(0))
-                            .width(combo_width)
+                            .width(field_width)
                             .show_ui(ui, |_ui| ());
                     })
                     .response
@@ -558,7 +617,7 @@ fn combos(
             let mut registered = positions.registered;
             let combo = egui::ComboBox::from_id_salt("abilities registered position")
                 .selected_text(position_label(registered))
-                .width(combo_width)
+                .width(field_width)
                 .show_ui(ui, |ui| {
                     for (index, label) in POSITIONS.iter().enumerate() {
                         ui.selectable_value(&mut registered, index as u8, *label);
@@ -572,7 +631,7 @@ fn combos(
             ui.end_row();
             ui.label(PLAYING_STYLE_LABEL);
             ui.scope(|ui| {
-                ui.spacing_mut().combo_width = combo_width;
+                ui.spacing_mut().combo_width = field_width;
                 let mut style = positions.playing_style;
                 if cards::playing_style_picker(ui, "abilities playing style", version, &mut style) {
                     edit_player(
