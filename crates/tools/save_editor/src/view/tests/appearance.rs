@@ -5,7 +5,7 @@ use studio_core::StudioTool;
 
 use super::*;
 
-/// The node of the Appearance tab's "Edit aesthetics anyway" switch.
+/// The node of the Appearance section's "Edit aesthetics anyway" switch.
 fn edit_anyway(nodes: &[accesskit::Node]) -> &accesskit::Node {
     nodes
         .iter()
@@ -15,8 +15,8 @@ fn edit_anyway(nodes: &[accesskit::Node]) -> &accesskit::Node {
         .expect("the Edit aesthetics anyway switch")
 }
 
-/// The locked tab drawn on `version` under "Aesthetics from exports": a
-/// fresh `SaveView` on the Appearance tab of `version`'s fixture, one
+/// The locked section drawn on `version` under "Aesthetics from exports": a
+/// fresh `SaveView` on the Appearance section of `version`'s fixture, one
 /// frame's nodes in, window and view back.
 fn locked_tab(version: PesVersion, test: &str) -> (SaveView, Headless, Vec<accesskit::Node>) {
     let path = fixture(version, test);
@@ -393,14 +393,17 @@ fn a_stripped_players_tab_says_the_look_is_the_tables_and_the_motions_are_read()
         .expect("the Strip again window's Close");
     click(&mut window, close, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert!(label_value(&nodes, LINE), "70101's tab marks him stripped");
+    assert!(
+        label_value(&nodes, LINE),
+        "70101's section marks him stripped"
+    );
 
-    // Another player's tab does not draw the line.
+    // Another player's section does not draw the line.
     view.selected = Some(Selection::Player(701, 1));
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
         !label_value(&nodes, LINE),
-        "70102's tab draws no stripped line"
+        "70102's section draws no stripped line"
     );
 }
 
@@ -473,7 +476,7 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
     view.edit_aesthetics = true;
     view.randomize_draw = Box::new(|top| top);
     // The dribbling stand-in sits below the 700-point fold since the
-    // physique grid's cap lengthened the tab; the hover needs it inside
+    // physique grid's cap lengthened the section; the hover needs it inside
     // the scroll viewport, so the window is taller.
     let mut window = Headless::sized(1100.0, 1000.0);
     open_appearance(&mut window, &mut view);
@@ -530,7 +533,7 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
 }
 
 // plans/save_editor.md "Editing UI", the Abilities rule applied to the
-// tab: a value the save holds outside its range draws as stored and
+// view: a value the save holds outside its range draws as stored and
 // changes only when edited (the egui clamping trap stays off).
 #[test]
 fn a_stored_celebration_past_its_top_draws_as_stored_without_marking_the_player() {
@@ -836,7 +839,7 @@ fn a_one_based_motion_shows_one_above_stored_within_the_measured_top() {
     view.edit_aesthetics = true;
     // Taller than 700 so the motion rows stay inside the scroll viewport
     // for the click and typing below (the physique cap lengthened the
-    // tab).
+    // section).
     let mut window = Headless::sized(1100.0, 1000.0);
     open_appearance(&mut window, &mut view);
     let motion_of = |view: &SaveView| {
@@ -1438,7 +1441,7 @@ fn the_motion_grid_holds_four_pairs_a_row() {
 }
 
 // plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
-// layout", the same pane rule as the Abilities tab's: on the pane the
+// layout", the same pane rule as the player view's: on the pane the
 // shell's smallest default window leaves (877 x 624) every drawn node
 // ends inside it — on PES 17 unlocked, and on PES 21 with the switch on.
 #[test]
@@ -1537,7 +1540,7 @@ fn the_setting_off_draws_no_lock_and_the_setting_on_locks_the_paths() {
         .first()
         .copied()
         .expect("the Chest control");
-    assert!(!chest.is_disabled(), "the tab's controls are enabled");
+    assert!(!chest.is_disabled(), "the section's controls are enabled");
 
     let nodes = open_tool_menu(&mut window, &mut tool, &ctx, "Player", "Set all stats");
     assert!(
@@ -1642,7 +1645,7 @@ fn the_setting_off_draws_no_lock_and_the_setting_on_locks_the_paths() {
         tooltip.as_deref(),
         Some(
             "On when the cup's looks are compiled from exports: the save's aesthetics are \
-             then read-only, behind Edit aesthetics anyway on the Appearance tab."
+             then read-only, behind Edit aesthetics anyway on the Appearance section."
         ),
         "the checkbox's hover text"
     );

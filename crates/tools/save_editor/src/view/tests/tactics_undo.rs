@@ -1,11 +1,11 @@
-//! The Tactics tab's undo-entries' tests: which frames merge into one
+//! The Tactics editor's undo-entries' tests: which frames merge into one
 //! entry and which split — `plans/save_editor.md` "Editing UI", the
 //! Undo/redo bullet.
 
 use super::*;
 
 // plans/save_editor.md "Editing UI", the Undo/redo bullet (one entry per
-// gesture) on this tab: a slider drag lands as one undoable edit and the
+// gesture) in this editor: a slider drag lands as one undoable edit and the
 // team is marked changed.
 #[test]
 fn a_slider_drag_on_the_tab_is_one_undo_entry_and_marks_the_team() {

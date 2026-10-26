@@ -43,7 +43,7 @@ impl Session {
     /// Every ability stat the version has becomes `value` (the dialog's
     /// Set all stats: `set_ability` over the 25, a `None` one stays
     /// `None`). Weak foot, form and injury are not ability stats and stay;
-    /// no edit flag is set, as the Abilities tab's own fields set none.
+    /// no edit flag is set, as the player view's own fields set none.
     pub(crate) fn set_all_stats(&mut self, player_id: u32, value: u8) {
         let Some(mut edited) = self.file.player(player_id).cloned() else {
             return;
@@ -105,7 +105,7 @@ impl Session {
         self.edit_players(vec![first_after, second_after]);
     }
 
-    /// Hide body or Show body on `player_id` (the Appearance tab's buttons
+    /// Hide body or Show body on `player_id` (the Appearance section's buttons
     /// and the Player menu's Toggle FPC settings): `kind`'s preset applied
     /// through `ops::fpc::apply` with the record's own IDs substituted in
     /// (`preset_for`), one sealed undo entry. `ids` is the settings' hide

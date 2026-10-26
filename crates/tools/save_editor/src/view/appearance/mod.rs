@@ -206,7 +206,7 @@ fn ownership_line(ui: &mut egui::Ui, version: PesVersion) {
 }
 
 /// The ownership sentence (the draft's `ownershipTip`): the line over the
-/// tab, the disabled groups' hover and the locked Team-menu items'
+/// section, the disabled groups' hover and the locked Team-menu items'
 /// (`menus.rs`).
 pub(crate) fn ownership_tip(version: PesVersion) -> &'static str {
     match version.engine() {
@@ -226,7 +226,7 @@ pub(crate) fn ownership_tip(version: PesVersion) -> &'static str {
 /// so no checkbox), the Hide body and Show body buttons with the draft's
 /// hover texts, then the interference findings of `fpc::check` in its
 /// order. Under the lock the whole group is disabled with the rest of the
-/// tab — the reading and the findings still draw, since they read and do
+/// section — the reading and the findings still draw, since they read and do
 /// not write. `hide_ids` an `Err` (a setting outside its band): the line
 /// reads the error's text instead of "FPC: …" and both buttons are
 /// disabled with it as their hover; the classifier has no IDs to read, so

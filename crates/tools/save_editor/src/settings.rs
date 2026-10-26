@@ -17,7 +17,7 @@ pub(crate) struct SaveEditorSettings {
     /// after every edit.
     pub(crate) live_aatf: bool,
     /// "Aesthetics from exports" (`plans/save_editor.md` "Read-only aesthetics"), off by
-    /// default: on, the save's aesthetics write only through the Appearance tab's "Edit
+    /// default: on, the save's aesthetics write only through the Appearance section's "Edit
     /// aesthetics anyway" switch; off, they edit as every other field does.
     pub(crate) aesthetics_from_exports: bool,
 }

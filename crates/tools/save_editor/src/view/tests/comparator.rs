@@ -1,6 +1,6 @@
 //! The comparator panel's tests (SE-GUI-13; `plans/save_editor.md`
 //! "Comparator (gameplay + aesthetics)"): the pick and its refusals, the
-//! rows in the tabs' terms, the scope toggles and the team filter, the
+//! rows in the views' terms, the scope toggles and the team filter, the
 //! only-in heads, the click's selection, the `Comparing…` mark and
 //! Export.
 
@@ -270,7 +270,7 @@ fn a_motion_row_reads_as_the_tab_shows_it() {
     let (mut view, mut window) = open_734_with("comparator_motion", &[], 183);
     let dir = scratch_of(&view);
     // The open save's 73401 free-kick motion stored 14 (the picked's
-    // stored 0): the tab shows one above the stored.
+    // stored 0): the view shows one above the stored.
     let mut entry = player_entry(&view, 73401);
     assert_eq!(entry.motion.free_kick, 0, "premise: stored 0");
     entry.motion.free_kick = 14;

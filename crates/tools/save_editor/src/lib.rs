@@ -27,7 +27,7 @@ use crate::messages::TOOL_ID;
 /// "Read-only aesthetics", the Unlock bullet's last sentence).
 const AESTHETICS_FROM_EXPORTS_TIP: &str = "On when the cup's looks are compiled from exports: \
      the save's aesthetics are then read-only, behind Edit aesthetics anyway on the Appearance \
-     tab.";
+     section.";
 
 /// The Save editor, as registered with the `studio` binary. `view` is the window's
 /// state (`plans/save_editor.md` "Editing UI").

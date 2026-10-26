@@ -196,7 +196,7 @@ impl Session {
 }
 
 /// `field`'s whole stored range on `version` (`0..=max_value`, the codec's
-/// `ValueTooWide` bound): the Appearance tab's Boots ID and Gloves ID
+/// `ValueTooWide` bound): the Appearance section's Boots ID and Gloves ID
 /// controls and this check read the same bound.
 fn id_range(version: pes_version::PesVersion, field: PlayerField) -> RangeInclusive<u32> {
     let max = player_max_value(version, field).expect("the id fields are stored");

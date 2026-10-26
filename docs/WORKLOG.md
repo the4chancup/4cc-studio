@@ -2713,9 +2713,19 @@ briefs, review loops, gates and mutation runs as for any step.
       panel's halves (the widest tier button clipped past the panel). Done 2026-10-26
       (SWE-2, `.tmp/0_0_1s/brief_0_0_1s3d.md`): `view/{player_list,abilities,team,menus,
       quick_actions,mod,tactics,terms}.rs`, comment fixes, the tests,
-      `team_widgets/src/cards.rs`, `studio_core/src/shell/status_bar.rs`
-    - [ ] s3e the built window at 1280 x 800 against the draft, the team view's tactics
-      bottom measured again
+      `team_widgets/src/cards.rs`, `studio_core/src/shell/status_bar.rs`. Rework r1-r3
+      (SWE-2 round S2's 5 accepted, `.tmp/0_0_1s/s3_rulings.md`, and the built window): a
+      player row's button spans the row (the harness's AccessKit bounds had hidden its
+      text-wide fill); the quick actions span the list's width, each column its widest cell's
+      when the two fit, else halves (DECISIONS 2026-10-26); "the Appearance tab" left the
+      member tooltip and the comments; `view/{player_list,quick_actions}.rs`, `lib.rs`, the
+      tests
+    - [x] s3e the built window at 1280 x 800 against the draft, the team view's tactics
+      bottom measured again. manual: checked 2026-10-26 (lead, the real PES 2021 save's copy,
+      `.tmp/0_0_1s/look_s3e_team.png`, `look_s3e2_start.png`): the player and team views as
+      the draft lays them out; the tactics settings end at about y 790, inside the pane; the
+      first run's two defects (quick actions elided, row fill text-wide) fixed in s3d's
+      rework and seen fixed
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

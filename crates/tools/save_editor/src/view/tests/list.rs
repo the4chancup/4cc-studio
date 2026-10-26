@@ -22,7 +22,7 @@ fn an_open_save_lists_every_rostered_player_and_shows_the_first() {
     let mut window = Headless::sized(800.0, 1100.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    // The team selector is the left panel's combo (the tab holds combos of
+    // The team selector is the left panel's combo (the detail holds combos of
     // its own now).
     let selector = nodes
         .iter()
@@ -352,7 +352,7 @@ fn scrolling_to_the_end_of_all_selects_the_last_player() {
     let mut window = Headless::new();
     // Drag the scroll bar's handle to the bottom: a pointer press inside the
     // bar, a move to its last pixels, release. The list's bar is the
-    // leftmost (the tab's content scrolls too).
+    // leftmost (the detail's content scrolls too).
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let bar = nodes
         .iter()
@@ -547,26 +547,29 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     );
 }
 
-/// The `TextShape` whose galley text is `text`, drawn inside `rect`.
+/// The `TextShape` whose galley text starts with `starts_with`, drawn
+/// inside `rect`.
 fn text_in_rect<'a>(
     shapes: &'a [egui::epaint::ClippedShape],
-    text: &str,
+    starts_with: &str,
     rect: accesskit::Rect,
 ) -> &'a egui::epaint::TextShape {
     shapes
         .iter()
         .filter_map(|clipped| match &clipped.shape {
             egui::Shape::Text(shape)
-                if shape.galley.job.text == text
+                if shape.galley.job.text.starts_with(starts_with)
                     && f64::from(shape.pos.y) >= rect.y0
-                    && f64::from(shape.pos.y) <= rect.y1 =>
+                    && f64::from(shape.pos.y) <= rect.y1
+                    && f64::from(shape.pos.x) >= rect.x0
+                    && f64::from(shape.pos.x) <= rect.x1 =>
             {
                 Some(shape)
             }
             _ => None,
         })
         .next()
-        .unwrap_or_else(|| panic!("no painted text {text:?} inside {rect:?}"))
+        .unwrap_or_else(|| panic!("no painted text {starts_with:?} inside {rect:?}"))
 }
 
 // plans/save_editor.md "Editing UI", the Player list bullet (the team
@@ -775,32 +778,64 @@ fn a_team_name_too_long_truncates_inside_the_row() {
 }
 
 // plans/save_editor.md "Editing UI", the Player list bullet ("the whole
-// row is one click target", as the team row's is): a click past a short
-// row's text, at the row's right end, selects him.
+// row is one click target", as the team row's is): every player row spans
+// the team row's width, the selected row's selection fill covers it, and
+// a click past a short label's text still selects him.
 #[test]
-fn a_click_at_a_player_rows_right_end_selects_him() {
+fn every_player_row_spans_the_team_rows_width_and_selects_at_its_end() {
     let path = fixture(PesVersion::Pes21, "row_right_click");
     let mut view = SaveView::new();
     view.open(&path);
     view.team = TeamChoice::Team(701);
-    // The click must move the selection: open selects the first row.
-    view.selected = Some(Selection::Player(701, 3));
+    view.selected = Some(Selection::Player(701, 0));
     let mut window = Headless::new();
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let bounds = row(&nodes, "1 CB PLACEHOLDER")
+    let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let team = team_row(&nodes, &view, 701)
         .bounds()
-        .expect("row bounds");
-    // At the row's right end, past the short label's text (the list's
-    // scroll bar — the leftmost — covers the last points of it).
+        .expect("team row bounds");
+
+    // Every player row's bounds span the team row's x range.
+    let rows: Vec<&accesskit::Node> = nodes.iter().filter(|node| player_row(node)).collect();
+    assert!(!rows.is_empty(), "player rows are drawn");
+    for row in &rows {
+        let bounds = row.bounds().expect("row bounds");
+        assert!(
+            (bounds.x0 - team.x0).abs() <= 1.0 && (bounds.x1 - team.x1).abs() <= 1.0,
+            "a player row spans the team row's x range ({bounds:?} vs {team:?})"
+        );
+    }
+
+    // The selected row's fill covers that width (a content-wide button
+    // leaves the row's right half unpainted).
+    let selected = rows
+        .iter()
+        .find(|node| node.toggled() == Some(accesskit::Toggled::True))
+        .expect("the selected row")
+        .bounds()
+        .expect("bounds");
+    let centre = egui::pos2(
+        ((selected.x0 + selected.x1) / 2.0) as f32,
+        ((selected.y0 + selected.y1) / 2.0) as f32,
+    );
+    assert!(
+        shapes.iter().any(|clipped| matches!(&clipped.shape,
+            egui::Shape::Rect(shape) if shape.fill == visuals.selection.bg_fill
+                && shape.rect.contains(centre)
+                && f64::from(shape.rect.width()) >= team.x1 - team.x0 - 1.0)),
+        "the selection fill covers the row's width"
+    );
+
+    // A click at the row's right end, past a short label's text, selects
+    // him (the list's scroll bar covers the last points of it).
+    view.selected = Some(Selection::Player(701, 3));
     let bar = nodes
         .iter()
         .filter(|node| node.role() == Role::ScrollBar)
         .filter_map(|node| node.bounds().map(|b| b.x0))
         .fold(f64::MAX, f64::min);
-    let at = egui::pos2(
-        ((bounds.x1 - 4.0).min(bar - 2.0)) as f32,
-        ((bounds.y0 + bounds.y1) / 2.0) as f32,
-    );
+    let at = egui::pos2(((team.x1 - 4.0).min(bar - 2.0)) as f32, centre.y);
     click_at(&mut window, at, &mut view);
     assert_eq!(
         view.selected,
@@ -828,7 +863,7 @@ fn the_team_rows_dot_paints_after_a_short_name_edit() {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let name = text_in_rect(
         &shapes,
-        "/3/ ●",
+        "/3/",
         team_row(&nodes, &view, 701).bounds().expect("bounds"),
     );
     assert!(

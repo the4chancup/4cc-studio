@@ -62,7 +62,7 @@ fn bar_name_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
     right_of(nodes, label, Role::TextInput)
 }
 
-/// The Team menu button (the toolbar's, not the tab strip's "Team" tab):
+/// The Team menu button (the toolbar's, not the view's "Team" label):
 /// the topmost button with the label.
 fn team_menu_button(nodes: &[accesskit::Node]) -> &accesskit::Node {
     nodes
@@ -665,7 +665,7 @@ fn the_boots_dialog_prefills_past_a_dangling_roster_id() {
 }
 
 // plans/save_editor.md "Editing UI" (the version-gated bullet, on the Team
-// tab): fields the version does not store draw disabled in the same place
+// view): fields the version does not store draw disabled in the same place
 // with the gate tooltip naming the first version that has them.
 #[test]
 fn on_pes16_the_colours_ids_and_kit_slots_draw_disabled_with_their_versions() {

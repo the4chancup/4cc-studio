@@ -3,7 +3,7 @@ use super::*;
 /// The load error the Cards left row draws: the error label at the pane's
 /// "Cards left" heading's height or below it (the error wraps to the lines
 /// under the heading when the pane is narrow). The quick actions column
-/// draws the same text at the tab's top, and its copy must not pass for
+/// draws the same text at the player view's top, and its copy must not pass for
 /// the row's.
 fn cards_left_error(nodes: &[accesskit::Node]) -> Option<&accesskit::Node> {
     let heading = nodes
@@ -93,7 +93,7 @@ fn a_speed_edit_does_not_reach_the_next_players_control() {
     });
     let before_b = speed_of(&view, b_id);
 
-    // Select 70202 (roster slot 1) in the same sequence and draw his tab:
+    // Select 70202 (roster slot 1) in the same sequence and draw his view:
     // his speed is untouched — and a keystroke reaches no control of his
     // (the in-progress edit stays 70201's own).
     view.selected = Some(Selection::Player(702, 1));
@@ -188,7 +188,7 @@ fn an_ability_edit_marks_the_row_until_ctrl_s_writes_the_save() {
 #[test]
 fn version_gated_controls_are_disabled_in_place_with_their_first_version() {
     // The stronger hand (the Profile block's gated control; the Cutscenes
-    // pair's half of the scenario lives on the Appearance tab's test):
+    // pair's half of the scenario lives on the Appearance section's test):
     // the same player on PES 17 (no hand stored) and PES 21 (stored), the
     // combo in the same rect, disabled with the `PES NN+` tooltip on 17.
     let bounds_of = |version: PesVersion, test: &str| {
@@ -266,7 +266,7 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
 // layout": the pane the shell leaves in its smallest default window
 // (1037 × 648, less the sidebar's 56-point rail and the status bar's 24:
 // 981 × 624 — the test draws the tighter 877 × 624); the player list
-// takes its default width, and the tab's field/control pairs wrap below
+// takes its default width, and the view's field/control pairs wrap below
 // one another rather than clip — every control's rect lies inside the
 // central panel.
 #[test]
@@ -604,7 +604,7 @@ fn a_card_tick_on_another_player_is_its_own_undo_entry() {
 // fields shown one above their stored value — star and playing attitude
 // stored as shown): a stored 3 shows 4; typing 8 stores 7. The other
 // fields of the same player are untouched by each edit. The Profile
-// block's four sit on this tab, the Cutscenes group's two on Appearance.
+// block's four sit in this view, the Cutscenes group's two on Appearance.
 #[test]
 fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
     let path = fixture(PesVersion::Pes21, "shifted_fields");
@@ -892,8 +892,8 @@ fn the_cards_left_badge_reads_the_players_own_tier() {
 // the frame's painted shapes.
 #[test]
 fn an_overdrawn_badge_paints_in_the_error_colour() {
-    /// The color the text `text` was painted in this frame: a section's
-    /// own color when one was set, else the shape's fallback.
+    /// The color the text `text` was painted in this frame (`galley_color`
+    /// on its shape).
     fn painted_color(shapes: &[egui::epaint::ClippedShape], text: &str) -> egui::Color32 {
         let shape = shapes
             .iter()
@@ -903,17 +903,7 @@ fn an_overdrawn_badge_paints_in_the_error_colour() {
             })
             .next()
             .unwrap_or_else(|| panic!("no painted text {text:?}"));
-        if let Some(color) = shape.override_text_color {
-            return color;
-        }
-        shape
-            .galley
-            .job
-            .sections
-            .iter()
-            .map(|section| section.format.color)
-            .find(|&color| color != egui::Color32::PLACEHOLDER)
-            .unwrap_or(shape.fallback_color)
+        galley_color(shape)
     }
 
     let path = fixture(PesVersion::Pes21, "cards_left_overdrawn");
@@ -1117,7 +1107,7 @@ fn a_rules_files_load_error_wraps_inside_the_pane() {
 
 // plans/save_editor.md "Editing UI", the Cards left bullet: a file that
 // does not load shows its error in the badge's place, and the rest of the
-// tab draws.
+// view draws.
 #[test]
 fn a_rules_file_that_does_not_load_shows_its_error() {
     let path = fixture(PesVersion::Pes21, "rules_load_error");
@@ -1135,7 +1125,7 @@ fn a_rules_file_that_does_not_load_shows_its_error() {
         cards_left_error(&nodes).is_some(),
         "the load error in the Cards left row"
     );
-    // The rest of the tab draws: a stat control and a skill checkbox.
+    // The rest of the view draws: a stat control and a skill checkbox.
     right_of_label(&nodes, "Speed", Role::SpinButton);
     assert!(
         nodes
@@ -1549,69 +1539,6 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     }
 }
 
-/// `node_id_right_of`'s twin for a field drawn below its label (the
-/// counted Name and Shirt fields): the `role` node's AccessKit id.
-fn field_id_below_label(
-    ids: &[(accesskit::NodeId, accesskit::Node)],
-    prefix: &str,
-    role: Role,
-) -> accesskit::NodeId {
-    let bounds = ids
-        .iter()
-        .find(|(_, node)| {
-            node.role() == Role::Label && node.value().is_some_and(|v| v.starts_with(prefix))
-        })
-        .and_then(|(_, node)| node.bounds())
-        .unwrap_or_else(|| panic!("no label starting {prefix:?}"));
-    ids.iter()
-        .filter(|(_, node)| {
-            node.role() == role
-                && node
-                    .bounds()
-                    .is_some_and(|b| b.y0 >= bounds.y1 - 1.0 && (b.x0 - bounds.x0).abs() < 4.0)
-        })
-        .min_by(|a, b| {
-            let y = |(_, node): &&(accesskit::NodeId, accesskit::Node)| {
-                node.bounds().expect("bounds").y0
-            };
-            y(a).partial_cmp(&y(b)).expect("ordered bounds")
-        })
-        .map(|(id, _)| *id)
-        .unwrap_or_else(|| panic!("no {role:?} below a {prefix:?} label"))
-}
-
-// On a save outside 4cc conventions a player id can equal a team id: the
-// player view's and the team view's fields then keep different widget
-// ids, each view's scope salted with its kind (a shared scope would
-// cross a TextEdit's undo history and fold the two views' edits into one
-// undo entry).
-#[test]
-fn the_views_widget_ids_differ_when_a_player_id_is_a_team_id() {
-    let path = fixture(PesVersion::Pes21, "kind_salted_ids");
-    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
-    file.team_mut(702).unwrap().id = 70101;
-    file.save(&path).unwrap();
-
-    let mut view = SaveView::new();
-    view.open(&path);
-    view.selected = Some(Selection::Player(701, 0));
-    let mut window = Headless::new();
-    // The player view's Name field, the team view's Team field — the two
-    // views' same kind of control at the top of their fields.
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let player_name = field_id_below_label(&pairs, "Name ", Role::TextInput);
-
-    view.selected = Some(Selection::Team(70101));
-    let (_, pairs, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let team_name = node_id_right_of(&pairs, "Team", Role::TextInput);
-    assert_ne!(
-        player_name, team_name,
-        "the two views' fields keep different widget ids"
-    );
-}
-
 /// The color the letter's galley painted inside `bounds`: a section's own
 /// color when one was set, else the shape's fallback (the widget's).
 fn letter_color(
@@ -1635,17 +1562,7 @@ fn letter_color(
         })
         .next()
         .unwrap_or_else(|| panic!("no painted {letter:?} inside {bounds:?}"));
-    if let Some(color) = shape.override_text_color {
-        return color;
-    }
-    shape
-        .galley
-        .job
-        .sections
-        .iter()
-        .map(|section| section.format.color)
-        .find(|&color| color != egui::Color32::PLACEHOLDER)
-        .unwrap_or(shape.fallback_color)
+    galley_color(shape)
 }
 
 // The chosen rating's fill and letter (the draft's `.sel.on` variants):

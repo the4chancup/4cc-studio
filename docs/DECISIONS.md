@@ -11450,3 +11450,13 @@ Why: the app installs one face (Ubuntu Regular) and egui has no synthetic bold; 
 file for one row's weight costs bundle size and a font-loading path, and the fill alone already
 tells the row apart from a player row, as the draft's own faint backdrop does (review S1a-5).
 Plan: `plans/save_editor.md` "Editing UI", the Player list bullet.
+
+## 2026-10-26 — save_editor — The quick actions' columns take their content's width when it fits
+Decision: the quick-actions grid spans the list's width, each column as wide as its widest cell
+when the two fit, else half the list with a longer label elided, where the approved draft
+splits the list into equal halves.
+Why: egui's 14-point button text with its padding is wider than the draft's; at the default
+240-point list a half is 108.5 points and "Make Goalkeeper" needs 118.5, while the content
+widths (about 95 and 118.5) fit the 223 the list leaves. Equal halves would elide the official
+ruleset's Goalkeeper tier on every save; content widths alone would run past a narrowed list.
+Plan: `plans/save_editor.md` "Editing UI", the quick actions bullet.

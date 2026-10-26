@@ -1,6 +1,6 @@
 //! The card pickers of `plans/save_editor.md` "`libs/team_widgets`" (`cards`
-//! bullet), drafted in `docs/prototypes/tools/save_editor.js` (`abilitiesTab`'s
-//! skills grid and COM styles row, `cardBadges`, the playing-style combo).
+//! bullet), drafted in `docs/prototypes/tools/save_editor.js` (`skillsPanel`,
+//! `comStylesPanel`, `cardBadges` and the playing-style combo).
 //! A player's skills and COM playing styles are his *cards*; the ruleset's
 //! tiers each say how many paid ones he may hold, so the pickers show what
 //! the tier he is read as leaves him.

@@ -55,7 +55,7 @@ fn the_tactics_menus_copy_presets_and_swap_formations_as_undoable_edits() {
         "premise: presets 1 and 2 differ"
     );
 
-    // Copy preset 1 to 2, from the tab's Copy/swap preset menu.
+    // Copy preset 1 to 2, from the editor's Copy/swap preset menu.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     click(
         &mut window,
@@ -584,8 +584,8 @@ fn the_tactics_tab_is_three_columns_at_the_default_pane() {
         );
     }
 
-    // The tab's controls (right of the player list's edge: the list's
-    // own scrolled-off rows are no tab's business) end inside the pane's
+    // The view's controls (right of the player list's edge: the list's
+    // own scrolled-off rows are no view's business) end inside the pane's
     // content on both axes — its right and its bottom, each less the two
     // `CentralPanel` margins: the 456-point settings column fits, the
     // deepest control inside. The deepest is named, so the check is the
@@ -899,7 +899,7 @@ fn the_settings_widgets_keep_their_ids_across_three_columns() {
     );
 }
 
-/// The Tactics tab's three-column break width: `PITCH.x` plus
+/// The Tactics editor's three-column break width: `PITCH.x` plus
 /// `LISTS_WIDTH` plus `SETTINGS_MIN` plus two item gaps — `tactics.rs`
 /// computes the same from the same constants; the gap is read off a
 /// `Headless` frame.
@@ -912,7 +912,7 @@ fn three_columns_width() -> f32 {
         + 2.0 * gap
 }
 
-// `three_columns`' edge: the pane whose tab area is exactly
+// `three_columns`' edge: the pane whose view area is exactly
 // `PITCH.x + LISTS_WIDTH + SETTINGS_MIN + 2 gaps` (the constant plus
 // `VIEW_AREA_OFFSET`) is three columns, and one point narrower stacks
 // the settings below.
@@ -947,7 +947,7 @@ fn the_tactics_tab_switches_arrangement_at_three_columns() {
 }
 
 // The lists column's left edge is the canvas' right edge plus one
-// `item_spacing.x` — the tab draws the lists hard at 200 wide past it.
+// `item_spacing.x` — the editor draws the lists hard at 200 wide past it.
 #[test]
 fn the_lists_start_one_gap_right_of_the_canvas() {
     let path = fixture(PesVersion::Pes21, "lists_left_edge");
@@ -987,7 +987,7 @@ fn the_stacked_settings_start_one_gap_below_the_columns() {
     });
 
     let canvas = canvas_of(&nodes);
-    // The bench list's scroll bar (the lists' inner scroll — the tab's
+    // The bench list's scroll bar (the lists' inner scroll — the view's
     // own bar would sit at the pane's right edge, past the column).
     let bench_bottom = nodes
         .iter()
@@ -1009,8 +1009,8 @@ fn the_stacked_settings_start_one_gap_below_the_columns() {
     );
 }
 
-// The scroll's content size is the advance rect the tab claims: at the
-// smallest pane the tab still scrolls to the deepest settings control
+// The scroll's content size is the advance rect the view claims: at the
+// smallest pane the view still scrolls to the deepest settings control
 // (its bottom inside the viewport) — the settings column's claimed
 // height and width both feed the scroll extent.
 #[test]

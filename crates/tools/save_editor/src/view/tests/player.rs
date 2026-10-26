@@ -345,8 +345,8 @@ fn slot_label(entry: &PlayerEntry, number: u16) -> String {
 }
 
 /// The `role` control named by `label` inside a dialog: `right_of_label`,
-/// except the label is picked among its copies (the team bar's "Team"
-/// and the tab strip's "Player" scope carry the same texts) by which
+/// except the label is picked among its copies (the team view's "Team"
+/// and the player view's "Player" scope carry the same texts) by which
 /// one's row holds a `role` node.
 fn dialog_control<'a>(
     nodes: &'a [accesskit::Node],
@@ -625,7 +625,7 @@ fn the_copy_swap_dialog_closes_on_ok_and_cancel() {
     }
 }
 
-/// The Button labeled `label` on the Appearance tab's FPC group.
+/// The Button labeled `label` on the Appearance section's FPC group.
 fn fpc_button<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
     node_labeled(nodes, Role::Button, label)
 }
@@ -654,11 +654,11 @@ fn strip_of(view: &SaveView, id: u32) -> (u8, bool, u8, u32, u32) {
     )
 }
 
-// Hide body gives the hide preset and the tab reads "FPC: the body is
+// Hide body gives the hide preset and the section reads "FPC: the body is
 // hidden"; Ctrl+I gives the show preset and "FPC: the body is shown". A
 // model's own boots ID is kept and reads as shown. Set FPC invisibility
 // hides every filled slot of the team in one undo step, and a strip
-// setting that breaks hiding lists its finding on the tab — reported,
+// setting that breaks hiding lists its finding on the section — reported,
 // never cleared.
 // SE-GUI-11
 #[test]
@@ -717,7 +717,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
             &nodes,
             "Error: The player wears inners under a hidden body, which breaks the hiding."
         ),
-        "the inners finding's text on the tab"
+        "the inners finding's text on the section"
     );
 
     // Ctrl+I on a hidden player shows him: the show preset, "FPC: the body is shown".
@@ -952,7 +952,7 @@ fn hide_body_round_trips_on_pes16() {
     );
 }
 
-// The FPC items' half of the lock: under it the tab's Hide/Show body,
+// The FPC items' half of the lock: under it the section's Hide/Show body,
 // the Player menu's Toggle FPC settings and the Team menu's FPC items are
 // disabled with the ownership line as hover; Ctrl+I is a no-op while Set
 // all stats and Copy stats stay enabled.
@@ -970,7 +970,7 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
     let mut window = Headless::sized(1100.0, 700.0);
     let before = player_entry(&view, 70101);
 
-    // The tab's two buttons disabled, each hover the ownership line.
+    // The section's two buttons disabled, each hover the ownership line.
     let nodes = appearance_frame(&mut window, &mut view);
     for label in ["Hide body", "Show body"] {
         let button = fpc_button(&nodes, label);
@@ -1143,7 +1143,7 @@ fn the_tool_carries_the_common_hide_ids_into_the_view() {
 }
 
 // `view.hide_ids` an `Err` (a setting outside its band): the FPC line
-// reads the error's text instead of "FPC: …", the tab's buttons and the
+// reads the error's text instead of "FPC: …", the section's buttons and the
 // menus' FPC items are disabled with it as their hover, and Ctrl+I does
 // nothing.
 #[test]

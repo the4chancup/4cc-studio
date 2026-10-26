@@ -69,7 +69,7 @@ fn click_label(window: &mut Headless, view: &mut SaveView, label: &str) {
 
 /// The nodes of the `Role::Dialog` subtree holding `heading` (an
 /// `egui::Modal`'s content, as `frame_ids` reports it): the prompt's own
-/// cells, the tab's behind-the-backdrop nodes left out.
+/// cells, the view's behind-the-backdrop nodes left out.
 fn dialog_nodes<'a>(
     pairs: &'a [(accesskit::NodeId, accesskit::Node)],
     heading: &str,
@@ -179,7 +179,7 @@ fn the_prompt_lists_each_changed_field_in_the_tabs_terms() {
     let mut view = SaveView::new();
     view.open(&path);
     // Height and Speed edited, a third field edited then undone: the
-    // table holds the two rows, each under the tab's own label.
+    // table holds the two rows, each under its view's own label.
     let before = player_entry(&view, 70101);
     assert_eq!(before.name, "PLACEHOLDER", "premise: the fixture name");
     let (height, speed) = (before.basic.height, before.stats.speed);

@@ -467,6 +467,22 @@ fn text_shape<'a>(
         .unwrap_or_else(|| panic!("no painted text starting {starts_with:?}"))
 }
 
+/// The colour `shape`'s text paints in: a section's own colour when one
+/// was set, else the shape's fallback (the widget's).
+fn galley_color(shape: &egui::epaint::TextShape) -> egui::Color32 {
+    if let Some(color) = shape.override_text_color {
+        return color;
+    }
+    shape
+        .galley
+        .job
+        .sections
+        .iter()
+        .map(|section| section.format.color)
+        .find(|&color| color != egui::Color32::PLACEHOLDER)
+        .unwrap_or(shape.fallback_color)
+}
+
 /// The fill under `bounds`' centre: the smallest `Shape::Rect` covering
 /// it (the field's own frame; the panel's background would win an
 /// `intersects` match instead).

@@ -2542,3 +2542,5 @@ worklog passed 7,000 lines.
   Name and Shirt counting against their limits; the AATF checks and the Team menu follow the selected row's team.
 - **2026-10-26** — The Save editor's team row stands apart on a faint fill, the chosen C rating reads in the normal text
   colour, and the quick actions fit the side panel; the card columns live in `team_widgets` (0.0.1s3d).
+- **2026-10-26** — The built Save editor at 1280 x 800 matches the draft once two defects the headless tests missed
+  were fixed: the quick actions now fit the list without cutting a label, and a player row selects across its width.

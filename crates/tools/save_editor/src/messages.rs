@@ -91,19 +91,19 @@ pub(crate) enum Code {
     /// rows cannot carry, so once stripped he shows the face his row describes; his export
     /// describing his face settles it (`player`, `name`, `copied`).
     StripBaseCopiedFace,
-    /// The Appearance tab's FPC group: the player wears inners under a hidden body, which
+    /// The Appearance section's FPC group: the player wears inners under a hidden body, which
     /// breaks the hiding.
     FpcInnersBreakHiding,
-    /// The Appearance tab's FPC group: the player wears undershorts under a hidden body,
+    /// The Appearance section's FPC group: the player wears undershorts under a hidden body,
     /// which breaks the hiding.
     FpcUndershortsBreakHiding,
-    /// The Appearance tab's FPC group: the player wears wrist or ankle taping under a
+    /// The Appearance section's FPC group: the player wears wrist or ankle taping under a
     /// hidden body, so the taped pieces still show.
     FpcTapingShowsPieces,
-    /// The Appearance tab's FPC group: the gloves checkbox is on with gloves ID 0, so the
+    /// The Appearance section's FPC group: the gloves checkbox is on with gloves ID 0, so the
     /// player wears winter gloves in winter conditions.
     FpcGlovesCheckboxWinterGloves,
-    /// The Appearance tab's FPC group: a custom skin on a player whose body is not hidden
+    /// The Appearance section's FPC group: a custom skin on a player whose body is not hidden
     /// hides the body but not the jersey.
     FpcCustomSkinOnNonFpc,
 }
@@ -582,7 +582,7 @@ pub(crate) fn strip_base_copied_face(player: &PlayerEntry, copied: u32) -> Messa
     )
 }
 
-/// The message for one `fpc::check` finding of the Appearance tab's FPC group: the code
+/// The message for one `fpc::check` finding of the Appearance section's FPC group: the code
 /// it maps to and the finding's own severity. A code `fpc::check` does not emit is a
 /// programming error and panics naming it.
 pub(crate) fn fpc_finding(finding: &fpc::Finding) -> Message {
@@ -604,7 +604,7 @@ pub(crate) fn fpc_finding(finding: &fpc::Finding) -> Message {
 }
 
 /// The `when` text `CATALOG` spells for `message`'s code: the sentence a view draws
-/// for the finding (the Appearance tab's FPC findings).
+/// for the finding (the Appearance section's FPC findings).
 pub(crate) fn when_text(message: &Message) -> &'static str {
     CATALOG
         .iter()

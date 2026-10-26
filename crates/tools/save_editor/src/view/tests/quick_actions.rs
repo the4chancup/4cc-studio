@@ -28,10 +28,91 @@ fn quick_action_labels(nodes: &[accesskit::Node]) -> Vec<String> {
         .collect()
 }
 
+/// The painted TextShape of `label` inside `bounds`' y range (a button's
+/// own galley, not another label's on the same line).
+fn painted_label<'a>(
+    shapes: &'a [egui::epaint::ClippedShape],
+    label: &str,
+    bounds: accesskit::Rect,
+) -> &'a egui::epaint::TextShape {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape)
+                if shape.galley.job.text == label
+                    && f64::from(shape.pos.y) >= bounds.y0
+                    && f64::from(shape.pos.y) <= bounds.y1 =>
+            {
+                Some(shape)
+            }
+            _ => None,
+        })
+        .next()
+        .unwrap_or_else(|| panic!("no painted {label:?} inside {bounds:?}"))
+}
+
+/// The two columns' widths the cells should be drawn at for `expected`'s
+/// labels in a list `list_width` wide: each column its widest cell's
+/// natural width while the pair fit, else half each (plans "Editing UI",
+/// the quick actions bullet). Computed here from the labels alone, never
+/// the code's own function, so a wrong rule in the code fails the tests.
+fn expected_columns(window: &Headless, expected: &[&str], list_width: f64) -> [f64; 2] {
+    let style = egui::Context::default().global_style();
+    let button = egui::TextStyle::Button.resolve(&style);
+    // The DragValue's text is `drag_value_text_style` (`TextStyle::Button`).
+    let field = egui::TextStyle::Button.resolve(&style);
+    let padding = 2.0 * f64::from(style.spacing.button_padding.x);
+    let natural = |text: &str, font: &egui::FontId| {
+        window.ctx.fonts_mut(|fonts| {
+            f64::from(
+                fonts
+                    .layout_no_wrap(text.to_owned(), font.clone(), egui::Color32::WHITE)
+                    .size()
+                    .x,
+            )
+        })
+    };
+    let cells: Vec<f64> = expected
+        .iter()
+        .map(|&label| {
+            if label == "Set stats" {
+                natural("Set stats", &button)
+                    + padding
+                    + f64::from(style.spacing.item_spacing.x)
+                    + natural("99", &field)
+                    + padding
+            } else {
+                natural(label, &button) + padding
+            }
+        })
+        .collect();
+    let widest = |start: usize| {
+        cells
+            .iter()
+            .skip(start)
+            .step_by(2)
+            .fold(0.0_f64, |a, &b| a.max(b))
+    };
+    let columns = [widest(0), widest(1)];
+    if columns[0] + 6.0 + columns[1] <= list_width {
+        columns
+    } else {
+        [(list_width - 6.0) / 2.0; 2]
+    }
+}
+
 /// The grid's buttons are `expected` and no others, in (y, x) order, two
 /// per row (the two-column grid), inside the side panel's x range and
-/// below the list's drawn rows.
-fn assert_quick_actions(nodes: &[accesskit::Node], expected: &[&str]) {
+/// below the list's drawn rows. `shapes` is the frame's painted shapes:
+/// every button is as wide as its label plus the button padding, the
+/// label unelided (a narrower cell truncates it, as the first Grid
+/// frame's `available_width` is no panel's).
+fn assert_quick_actions(
+    window: &Headless,
+    nodes: &[accesskit::Node],
+    shapes: &[egui::epaint::ClippedShape],
+    expected: &[&str],
+) {
     assert_eq!(quick_action_labels(nodes), expected);
     // The filter box's bounds stand for the side panel's x range: the
     // buttons sit inside it and below the list's last drawn row.
@@ -43,28 +124,74 @@ fn assert_quick_actions(nodes: &[accesskit::Node], expected: &[&str]) {
         })
         .and_then(accesskit::Node::bounds)
         .expect("the filter box bounds the side panel");
+    // Every button fills its column's width (its widest cell's natural
+    // width while the two columns fit the list, else half each), its
+    // label eliding only when it cannot fit.
+    let style = egui::Context::default().global_style();
+    let columns = expected_columns(window, expected, panel.x1 - panel.x0);
+    let ctx = &window.ctx;
+    for (index, label) in expected.iter().enumerate() {
+        let cell = columns[index % 2];
+        let bounds = node_labeled(nodes, Role::Button, label)
+            .bounds()
+            .expect("bounds");
+        // The Set stats cell holds the button at its own width then its
+        // field; its span is the cell's.
+        let span = if *label == "Set stats" {
+            let f = set_stats_field(nodes).bounds().expect("bounds");
+            f.x1 - bounds.x0
+        } else {
+            bounds.x1 - bounds.x0
+        };
+        assert!(
+            (span - cell).abs() <= 1.0,
+            "{label}'s cell fills its column ({bounds:?} vs cell {cell})"
+        );
+        let shape = painted_label(shapes, label, bounds);
+        let font = shape
+            .galley
+            .job
+            .sections
+            .first()
+            .map(|section| section.format.font_id.clone())
+            .expect("a painted label has a section");
+        let natural = ctx.fonts_mut(|fonts| {
+            fonts
+                .layout_no_wrap((*label).to_owned(), font, egui::Color32::WHITE)
+                .size()
+                .x
+        });
+        let elides =
+            f64::from(natural) + 2.0 * f64::from(style.spacing.button_padding.x) > cell + 0.5;
+        assert_eq!(
+            shape.galley.elided, elides,
+            "{label}'s galley elided={} ({bounds:?}, cell {cell})",
+            shape.galley.elided
+        );
+    }
+    // The Set stats number stays inside the panel with its button (it
+    // takes the cell's remaining width).
+    let field = set_stats_field(nodes).bounds().expect("bounds");
+    assert!(
+        field.x1 <= panel.x1 + 1.0,
+        "the Set stats field inside the side panel's x range ({field:?} vs {panel:?})"
+    );
     let first_y0 = node_labeled(nodes, Role::Button, expected[0])
         .bounds()
         .expect("bounds")
         .y0;
-    // The list's last drawn row's top: a row clipped at the bottom panel's
-    // edge keeps an unclipped bounds, so the tops are what order the two.
-    let last_row_y0 = nodes
+    // The list's scroll clip's bottom: the leftmost ScrollBar's y1 (the
+    // bottom panel takes the height off it).
+    let clip_bottom = nodes
         .iter()
-        .filter(|node| {
-            node.role() == Role::Button
-                && node.bounds().is_some_and(|b| {
-                    b.x0 >= panel.x0 - 1.0
-                        && b.x1 <= panel.x1 + 1.0
-                        && b.y0 > panel.y1
-                        && b.y0 < first_y0
-                })
-        })
-        .filter_map(|node| node.bounds().map(|b| b.y0))
-        .fold(0.0, f64::max);
+        .filter(|node| node.role() == Role::ScrollBar)
+        .filter_map(|node| node.bounds())
+        .min_by(|a, b| a.x0.partial_cmp(&b.x0).expect("ordered bounds"))
+        .map(|bounds| bounds.y1)
+        .expect("the list's scroll bar marks its clip's bottom");
     assert!(
-        first_y0 > last_row_y0,
-        "the grid starts below the list's last row ({first_y0} vs {last_row_y0})"
+        first_y0 >= clip_bottom - 1.0,
+        "the grid starts below the list's scroll clip ({first_y0} vs {clip_bottom})"
     );
     let mut xs: Vec<f64> = expected
         .iter()
@@ -283,9 +410,12 @@ fn the_quick_actions_apply_a_tier_as_one_undoable_edit() {
     let (_path, mut view, mut window) = open_701("quick_make_gold");
     let rules = aatf::Rules::official();
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert_quick_actions(
+        &window,
         &nodes,
+        &shapes,
         &[
             "Make Gold",
             "Make Silver",
@@ -350,11 +480,13 @@ fn the_quick_actions_follow_the_rules_files_tiers() {
     let rules_path = rules_file_under(path.parent().unwrap(), "VTL11");
     let rules = aatf::Rules::load(&std::fs::read_to_string(&rules_path).unwrap()).unwrap();
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| {
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
     });
     assert_quick_actions(
+        &window,
         &nodes,
+        &shapes,
         &[
             "Make Gold",
             "Make Silver",
@@ -554,9 +686,11 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
         Some(3),
         "the tool's other key is unchanged"
     );
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     assert_quick_actions(
+        &window,
         &nodes,
+        &shapes,
         &[
             "Make Gold",
             "Make Silver",
@@ -593,9 +727,14 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
         "the emptied row committed"
     );
     assert_eq!(table["unread_key"].as_integer(), Some(3));
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    // The grid's column widths are stored per frame — a rules change is
+    // one frame stale (the Grid repaints on the next): draw a settle frame.
+    window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     assert_quick_actions(
+        &window,
         &nodes,
+        &shapes,
         &[
             "Make Gold",
             "Make Silver",
@@ -632,4 +771,185 @@ fn the_rules_file_row_commits_the_setting_and_the_view_follows() {
         "no Make button"
     );
     node_labeled(&nodes, Role::Button, "Set stats");
+}
+
+// The grid is docked under the list (the bottom panel takes its height
+// off the list's scroll): scrolling the list to its last row leaves the
+// buttons where they were.
+#[test]
+fn the_buttons_stay_put_when_the_list_scrolls() {
+    let (_path, mut view, mut window) = open_701("quick_scrolled_list");
+    let make_gold = |window: &mut Headless, view: &mut SaveView| {
+        let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+        node_labeled(&nodes, Role::Button, "Make Gold")
+            .bounds()
+            .expect("bounds")
+            .y0
+    };
+    let top = make_gold(&mut window, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let rows_before = row_labels(&nodes);
+
+    // A wheel down inside the list's scroll (the pointer rests over the
+    // list, left of its bar).
+    for _ in 0..20 {
+        window.frame(
+            vec![
+                egui::Event::PointerMoved(egui::pos2(120.0, 400.0)),
+                egui::Event::MouseWheel {
+                    unit: egui::MouseWheelUnit::Point,
+                    delta: egui::vec2(0.0, -400.0),
+                    phase: egui::TouchPhase::Move,
+                    source: egui::MouseWheelSource::Wheel,
+                    modifiers: egui::Modifiers::NONE,
+                },
+            ],
+            |ui| show(ui, &mut view, &|| Vec::new(), None),
+        );
+    }
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_ne!(
+        row_labels(&nodes),
+        rows_before,
+        "premise: the list scrolled"
+    );
+    assert_eq!(
+        make_gold(&mut window, &mut view),
+        top,
+        "the buttons did not move"
+    );
+}
+
+// The draft's `.qagrid` inside the 240-wide `.plist` holds its labels
+// whole (plans "Editing UI", the Quick actions bullet): at the window's
+// default size no Make button's galley elides, and every control — the
+// Set stats field included — stays inside the list rows' x range.
+#[test]
+fn the_quick_actions_fit_the_lists_width() {
+    let path = fixture(PesVersion::Pes21, "quick_fit_width");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::new();
+
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    // A player row's AccessKit bounds stand for the list rows' x range.
+    let row = nodes
+        .iter()
+        .find(|node| player_row(node))
+        .and_then(accesskit::Node::bounds)
+        .expect("a player row in the list");
+    for label in [
+        "Make Gold",
+        "Make Silver",
+        "Make Bronze",
+        "Make Goalkeeper",
+        "Make Regular",
+        "Set stats",
+    ] {
+        let bounds = node_labeled(&nodes, Role::Button, label)
+            .bounds()
+            .expect("bounds");
+        assert!(
+            bounds.x0 >= row.x0 - 1.0 && bounds.x1 <= row.x1 + 1.0,
+            "{label} inside the list rows' x range ({bounds:?} vs {row:?})"
+        );
+        if label.starts_with("Make ") {
+            let shape = painted_label(&shapes, label, bounds);
+            assert!(!shape.galley.elided, "{label}'s galley whole ({bounds:?})");
+        }
+    }
+    let field = set_stats_field(&nodes).bounds().expect("bounds");
+    assert!(
+        field.x0 >= row.x0 - 1.0 && field.x1 <= row.x1 + 1.0,
+        "the Set stats field inside the rows' x range ({field:?} vs {row:?})"
+    );
+}
+
+// The columns' fallback (plans "Editing UI", the quick actions bullet): a
+// list too narrow for the cells' natural widths halves the columns, a
+// label too long for its half eliding (its tooltip names the tier). The
+// side panel keeps its 240 default under a narrow window, so the list is
+// narrowed by dragging the panel's resize edge instead.
+#[test]
+fn the_columns_halve_when_the_content_widths_do_not_fit() {
+    let path = fixture(PesVersion::Pes21, "quick_halved_columns");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::sized(1100.0, 700.0);
+
+    // The list as drawn at the panel's 240 default: the resize edge is the
+    // panel's right border (~248), dragged left past the columns' ~221.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let row_before = nodes
+        .iter()
+        .find(|node| player_row(node))
+        .and_then(accesskit::Node::bounds)
+        .expect("a player row in the list");
+    let edge = egui::pos2((row_before.x1 + 8.0) as f32, 400.0);
+    // Past the columns' ~221-point fit but wide enough that the Set stats
+    // pair (button ~30 + spacing + field ~30) still fits its half.
+    let to = egui::pos2(edge.x - 65.0, 400.0);
+    window.frame(pointer_at(edge, true), |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(vec![egui::Event::PointerMoved(to)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    window.frame(pointer_at(to, false), |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    // The grid's column widths are stored per frame: two settle frames so
+    // the resized panel's widths land before asserting.
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let row = nodes
+        .iter()
+        .find(|node| player_row(node))
+        .and_then(accesskit::Node::bounds)
+        .expect("a player row in the list");
+    assert!(
+        row.x1 - row.x0 < row_before.x1 - row_before.x0 - 60.0,
+        "premise: the panel resized narrower ({row_before:?} vs {row:?})"
+    );
+    let half = (row.x1 - row.x0 - 6.0) / 2.0;
+    for label in [
+        "Make Gold",
+        "Make Silver",
+        "Make Bronze",
+        "Make Goalkeeper",
+        "Make Regular",
+        "Set stats",
+    ] {
+        let bounds = node_labeled(&nodes, Role::Button, label)
+            .bounds()
+            .expect("bounds");
+        // The Set stats cell's span ends at its field's right edge.
+        let right = if label == "Set stats" {
+            set_stats_field(&nodes).bounds().expect("bounds").x1
+        } else {
+            bounds.x1
+        };
+        assert!(
+            bounds.x0 >= row.x0 - 1.0 && right <= row.x1 + 1.0,
+            "{label} inside the list rows' x range ({bounds:?} vs {row:?})"
+        );
+        assert!(
+            (right - bounds.x0 - half).abs() <= 1.0,
+            "{label}'s cell a half of the list ({bounds:?} vs {half})"
+        );
+    }
+    let bounds = node_labeled(&nodes, Role::Button, "Make Goalkeeper")
+        .bounds()
+        .expect("bounds");
+    assert!(
+        painted_label(&shapes, "Make Goalkeeper", bounds)
+            .galley
+            .elided,
+        "Make Goalkeeper elides in its half ({bounds:?})"
+    );
 }

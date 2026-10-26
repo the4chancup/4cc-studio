@@ -207,7 +207,10 @@ all side by side.
   codes, as measured").
 - **The quick actions** under the list, in two columns: one Make button per tier of the active
   ruleset, then Set stats with its number beside it ("Configurable AATF rules" below says what
-  they do). They act on the selected player, so a team row leaves them disabled, their tooltip
+  they do). The grid spans the list's width; each column is as wide as its widest cell when
+  the two fit, else half the list, a longer label then elided (its tooltip names the tier).
+  Not halves always, as the draft's `1fr 1fr`: egui's button text is wider than the draft's,
+  and a half cuts "Make Goalkeeper" at the default 240-point list. They act on the selected player, so a team row leaves them disabled, their tooltip
   "The make buttons act on a player: pick a player row"; the Player menu's entries are
   disabled too, their tooltip "The Player menu acts on a player: pick a player row".
 - **No view draws the tool's name** (`core/gui.md` "Window title": the title bar carries it).

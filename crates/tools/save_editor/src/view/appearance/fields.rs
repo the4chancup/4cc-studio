@@ -27,7 +27,7 @@ pub(crate) type AppearanceField = (
 /// The Cutscenes group's two stored fields: star 0-7 (PES 19+) and
 /// playing attitude 0-3 (PES 20+), stored as shown. They change only
 /// cutscenes, so they sit outside the export's ownership, above the
-/// tab's lock — `abilities`' `SmallStat` because the pair shares the
+/// section's lock — `abilities`' `SmallStat` because the pair shares the
 /// Profile fields' shape.
 pub(crate) const CUTSCENE_STATS: [SmallStat; 2] = [
     SmallStat {

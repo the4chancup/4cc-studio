@@ -1,4 +1,4 @@
-//! The Tactics tab's copy and swap menu operations (`plans/save_editor.md`
+//! The Tactics editor's copy and swap menu operations (`plans/save_editor.md`
 //! "Tactics editor", "What the controls write": a preset copy or swap moves
 //! the whole `TacticsPreset`, man marking included, since the game's own
 //! copy preset is how a match's man marking gets into a team; a formation
@@ -11,8 +11,8 @@
 use crate::session::Session;
 
 impl Session {
-    /// Copies preset `from` onto `to` of `team_id`'s tactics (the tab
-    /// menu's "Copy preset N to M").
+    /// Copies preset `from` onto `to` of `team_id`'s tactics (the editor's
+    /// "Copy preset N to M" menu).
     pub(crate) fn copy_preset(&mut self, team_id: u32, from: usize, to: usize) {
         let Some(mut team) = self.file.team(team_id).cloned() else {
             return;
@@ -21,8 +21,8 @@ impl Session {
         self.edit_entries(Vec::new(), vec![team]);
     }
 
-    /// Swaps presets `a` and `b` of `team_id`'s tactics (the tab menu's
-    /// "Swap presets N and M").
+    /// Swaps presets `a` and `b` of `team_id`'s tactics (the editor's
+    /// "Swap presets N and M" menu).
     pub(crate) fn swap_presets(&mut self, team_id: u32, a: usize, b: usize) {
         let Some(mut team) = self.file.team(team_id).cloned() else {
             return;
@@ -32,7 +32,7 @@ impl Session {
     }
 
     /// Copies formation `from` onto `to` inside `team_id`'s preset
-    /// `preset` (the tab menu's "Copy <formation> to <formation>").
+    /// `preset` (the editor's "Copy <formation> to <formation>" menu).
     pub(crate) fn copy_formation(&mut self, team_id: u32, preset: usize, from: usize, to: usize) {
         let Some(mut team) = self.file.team(team_id).cloned() else {
             return;
@@ -43,7 +43,7 @@ impl Session {
     }
 
     /// Swaps formations `a` and `b` inside `team_id`'s preset `preset`
-    /// (the tab menu's "Swap <formation> and <formation>").
+    /// (the editor's "Swap <formation> and <formation>" menu).
     pub(crate) fn swap_formations(&mut self, team_id: u32, preset: usize, a: usize, b: usize) {
         let Some(mut team) = self.file.team(team_id).cloned() else {
             return;

@@ -1,7 +1,7 @@
 use super::*;
 
 // plans/save_editor.md "Editing UI": every widget id under the strip and
-// the tab is the selected player's, so a text field's undo history and a
+// the view is the selected player's, so a text field's undo history and a
 // number control's in-progress edit never cross players.
 #[test]
 fn a_name_edit_does_not_reach_the_next_players_field() {
@@ -771,7 +771,7 @@ fn the_captain_box_ticks_on_the_captains_slot() {
     view.team = TeamChoice::Team(701);
     let mut window = Headless::new();
 
-    // The Captain radio is the strip's unlabeled radio; the tab's skill
+    // The Captain radio is the strip's unlabeled radio; the view's skill
     // boxes carry their names. egui 0.37 leaves an empty label unset in the
     // AccessKit tree rather than writing `""`, so the node carries `None`.
     let toggled = |nodes: &[accesskit::Node]| {
@@ -1119,7 +1119,7 @@ fn a_pes17_strip_refuses_a_name_past_its_own_field() {
 }
 
 /// Whether `shapes` paints `text` at the heading size (the header's
-/// title; the tabs' strong lines and the lists' rows are body-sized).
+/// title; the views' strong lines and the lists' rows are body-sized).
 fn title_painted(shapes: &[egui::epaint::ClippedShape], text: &str, heading: f32) -> bool {
     shapes
         .iter()

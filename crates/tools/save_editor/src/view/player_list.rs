@@ -33,9 +33,13 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     );
     // The quick actions sit at the panel's bottom, under the list (the
     // draft's `qagrid`): a bottom panel takes its height off the scroll's.
-    egui::Panel::bottom("save_editor_quick_actions").show(ui, |ui| {
-        quick_actions::show(ui, view);
-    });
+    // The panel's frame keeps its fill and its vertical margin but no
+    // horizontal one, so the grid spans the list rows' width.
+    egui::Panel::bottom("save_editor_quick_actions")
+        .frame(egui::Frame::side_top_panel(ui.style()).inner_margin(egui::Margin::symmetric(0, 2)))
+        .show(ui, |ui| {
+            quick_actions::show(ui, view);
+        });
     // A filter in use lists every team; the rows also name their team under
     // `ALL` (the draft's `tshort`).
     let show_team = !view.filter.trim().is_empty() || view.team == TeamChoice::All;
@@ -57,7 +61,15 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                     team_row(ui, &mut view.selected, session, *team_id, row_height);
                 }
                 ListRow::Player(row) => {
-                    player_row(ui, &mut view.selected, session, row, show_team, draggable);
+                    player_row(
+                        ui,
+                        &mut view.selected,
+                        session,
+                        row,
+                        show_team,
+                        draggable,
+                        row_height,
+                    );
                 }
             }
         }
@@ -217,6 +229,7 @@ fn player_row(
     row: &Row,
     show_team: bool,
     draggable: bool,
+    row_height: f32,
 ) {
     let file = session.file();
     let team = file.team(row.team_id);
@@ -238,7 +251,8 @@ fn player_row(
     let response = ui.add(
         egui::Button::selectable(is_selected, job)
             .truncate()
-            .sense(sense),
+            .sense(sense)
+            .min_size(egui::vec2(ui.available_width(), row_height)),
     );
     let response = if dirty {
         response.on_hover_text(format!("{hover}\nUnsaved changes"))
