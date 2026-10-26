@@ -304,7 +304,7 @@ fn chip<'a>(nodes: &'a [accesskit::Node], prefix: &str) -> &'a accesskit::Node {
 
 // SE-GUI-12
 #[test]
-fn the_pitch_moves_assigns_and_swaps_on_the_tactics_tab() {
+fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
     let path = fixture(PesVersion::Pes21, "tactics_pitch");
     // The join-attack list starts empty so the scenario's clicks alone
     // fill it, and the eleven is shuffled so a pick's roster slot never
@@ -522,7 +522,7 @@ fn the_formation_settings_wrap_inside_a_narrow_window() {
 // pair a row (labels and controls each sharing one x0), every control
 // inside the pane.
 #[test]
-fn the_tactics_tab_is_three_columns_at_the_default_pane() {
+fn the_tactics_editor_is_three_columns_at_the_default_pane() {
     let path = fixture(PesVersion::Pes21, "tactics_three_columns");
     let mut view = SaveView::new();
     view.open(&path);
@@ -712,7 +712,7 @@ fn the_target_combo_stays_inside_the_settings_column() {
 // pitch and the lists, its heading below the canvas' bottom and the
 // last bench row, every control inside the pane's width.
 #[test]
-fn the_tactics_tab_stacks_the_settings_below_at_the_smallest_pane() {
+fn the_tactics_editor_stacks_the_settings_below_at_the_smallest_pane() {
     let path = fixture(PesVersion::Pes21, "tactics_stacked");
     let mut view = SaveView::new();
     view.open(&path);
@@ -917,7 +917,7 @@ fn three_columns_width() -> f32 {
 // `VIEW_AREA_OFFSET`) is three columns, and one point narrower stacks
 // the settings below.
 #[test]
-fn the_tactics_tab_switches_arrangement_at_three_columns() {
+fn the_tactics_editor_switches_arrangement_at_three_columns() {
     let three_columns = three_columns_width();
     for (width, three) in [
         (three_columns + VIEW_AREA_OFFSET, true),
@@ -1014,7 +1014,7 @@ fn the_stacked_settings_start_one_gap_below_the_columns() {
 // (its bottom inside the viewport) — the settings column's claimed
 // height and width both feed the scroll extent.
 #[test]
-fn the_stacked_tab_scrolls_to_its_last_control() {
+fn the_stacked_view_scrolls_to_its_last_control() {
     let path = fixture(PesVersion::Pes21, "stacked_scroll_bottom");
     let mut view = SaveView::new();
     view.open(&path);

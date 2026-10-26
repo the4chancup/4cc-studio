@@ -2726,6 +2726,11 @@ briefs, review loops, gates and mutation runs as for any step.
       the draft lays them out; the tactics settings end at about y 790, inside the pane; the
       first run's two defects (quick actions elided, row fill text-wide) fixed in s3d's
       rework and seen fixed
+    - [x] s3f SWE-2 round S3's follow-ups (1 accepted, which ends the SWE-2 loop): the
+      elided tier button's tooltip tested; the quick actions' gap one const, no sentinel
+      width; the test names still saying "tab" renamed. Done 2026-10-26 (SWE-2,
+      `.tmp/0_0_1s/brief_0_0_1s3f.md`): `view/quick_actions.rs`, the tests
+    - [ ] s3g Astra round A1's accepted findings (`.tmp/0_0_1s/s3_rulings.md`, round A1)
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

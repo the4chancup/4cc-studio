@@ -266,7 +266,7 @@ fn the_panel_lists_the_differences_per_team_and_a_rows_click_selects() {
 
 // SE-GUI-13
 #[test]
-fn a_motion_row_reads_as_the_tab_shows_it() {
+fn a_motion_row_reads_as_the_view_shows_it() {
     let (mut view, mut window) = open_734_with("comparator_motion", &[], 183);
     let dir = scratch_of(&view);
     // The open save's 73401 free-kick motion stored 14 (the picked's

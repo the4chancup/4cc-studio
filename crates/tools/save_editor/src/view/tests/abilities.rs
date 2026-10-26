@@ -270,7 +270,7 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
 // one another rather than clip — every control's rect lies inside the
 // central panel.
 #[test]
-fn the_tab_fits_the_pane_the_shell_leaves() {
+fn the_view_fits_the_pane_the_shell_leaves() {
     let path = fixture(PesVersion::Pes21, "shell_pane");
     let mut view = SaveView::new();
     view.open(&path);
@@ -1076,7 +1076,7 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
 
 // The same bullet, read: the error names the file and its parse error, so
 // it wraps inside the pane rather than clip at its right edge (the pane
-// the shell leaves at its smallest default, as `the_tab_fits`'s).
+// the shell leaves at its smallest default, as `the_view_fits`'s).
 #[test]
 fn a_rules_files_load_error_wraps_inside_the_pane() {
     let path = fixture(

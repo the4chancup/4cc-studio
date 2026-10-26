@@ -15,6 +15,13 @@ use crate::view::{Refusal, SaveView, rules_load_error, selected_player};
 /// The disabled controls' tooltip on a team selection.
 const TEAM_TIP: &str = "The make buttons act on a player: pick a player row";
 
+/// The grid's column gap (the draft's `.qagrid` gap): `column_widths`
+/// subtracts it too, so the spacing and the widths share the constant.
+const COLUMN_GAP: f32 = 6.0;
+
+/// The grid's row gap.
+const ROW_GAP: f32 = 3.0;
+
 /// The grid under the list; its controls disabled while the selection names
 /// no rostered player (a team row).
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
@@ -24,34 +31,37 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     // the list, else half the list each (the draft's `1fr`), the widths
     // read from the panel's own width — inside the Grid a cell's
     // `available_width` is the column's, not the panel's.
-    let (cells, set_stats_index, set_stats) = match view.rules.as_ref().map(|active| &active.rules)
-    {
-        Some(Ok(rules)) => {
-            let labels: Vec<&str> = rules
-                .ruleset()
-                .tiers
-                .iter()
-                .map(|tier| tier.label.as_str())
-                .collect();
-            let (widths, set_stats) = cell_widths(ui, &labels);
-            (widths, labels.len(), set_stats)
-        }
-        // The load error is one cell (the wrapped label) before Set
-        // stats; a width past the list's keeps the two halves.
-        Some(Err(_)) => {
-            let (_, set_stats) = cell_widths(ui, &[]);
-            (vec![f32::MAX], 1, set_stats)
-        }
-        None => {
-            let (widths, set_stats) = cell_widths(ui, &[]);
-            (widths, 0, set_stats)
-        }
-    };
-    let columns = column_widths(&cells, ui.available_width());
+    let (columns, set_stats_index, set_stats) =
+        match view.rules.as_ref().map(|active| &active.rules) {
+            Some(Ok(rules)) => {
+                let labels: Vec<&str> = rules
+                    .ruleset()
+                    .tiers
+                    .iter()
+                    .map(|tier| tier.label.as_str())
+                    .collect();
+                let (widths, set_stats) = cell_widths(ui, &labels);
+                (
+                    column_widths(&widths, ui.available_width()),
+                    labels.len(),
+                    set_stats,
+                )
+            }
+            // The load error is one cell (the wrapped label) before Set
+            // stats, the two columns halves outright.
+            Some(Err(_)) => {
+                let (_, set_stats) = cell_widths(ui, &[]);
+                (halves(ui.available_width()), 1, set_stats)
+            }
+            None => {
+                let (widths, set_stats) = cell_widths(ui, &[]);
+                (column_widths(&widths, ui.available_width()), 0, set_stats)
+            }
+        };
     let height = ui.spacing().interact_size.y;
     egui::Grid::new("save_editor_quick_actions")
         .num_columns(2)
-        .spacing(egui::vec2(6.0, 3.0))
+        .spacing(egui::vec2(COLUMN_GAP, ROW_GAP))
         .show(ui, |ui| {
             if let Some(active) = view.rules.as_ref() {
                 match &active.rules {
@@ -204,10 +214,16 @@ fn column_widths(cells: &[f32], list_width: f32) -> [f32; 2] {
             .fold(0.0, f32::max)
     };
     let columns = [widest(0), widest(1)];
-    if columns[0] + 6.0 + columns[1] <= list_width {
+    if columns[0] + COLUMN_GAP + columns[1] <= list_width {
         columns
     } else {
-        let half = (list_width - 6.0) / 2.0;
-        [half, half]
+        halves(list_width)
     }
+}
+
+/// Half the list each (the draft's `1fr` fallback): where the columns
+/// land when the cells' natural widths do not fit it.
+fn halves(list_width: f32) -> [f32; 2] {
+    let half = (list_width - COLUMN_GAP) / 2.0;
+    [half, half]
 }

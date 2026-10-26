@@ -1162,7 +1162,7 @@ fn title_shape<'a>(
 // SE-GUI-01
 #[test]
 fn the_player_header_tops_the_player_view_alone() {
-    let (mut view, mut window) = open_734_with("player_header_tabs", &[], 0);
+    let (mut view, mut window) = open_734_with("player_header", &[], 0);
     // A name with a colour code and a reset (the `\x11c` + 8 hex digits the
     // player list renders, the `append_name` test's name): the title's runs
     // read the code's colour then the default one.

@@ -8,7 +8,7 @@ use super::*;
 // gesture) in this editor: a slider drag lands as one undoable edit and the
 // team is marked changed.
 #[test]
-fn a_slider_drag_on_the_tab_is_one_undo_entry_and_marks_the_team() {
+fn a_slider_drag_on_the_editor_is_one_undo_entry_and_marks_the_team() {
     let path = fixture(PesVersion::Pes21, "tactics_slider_drag");
     let mut view = SaveView::new();
     view.open(&path);

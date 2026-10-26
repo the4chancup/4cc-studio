@@ -18,7 +18,7 @@ fn edit_anyway(nodes: &[accesskit::Node]) -> &accesskit::Node {
 /// The locked section drawn on `version` under "Aesthetics from exports": a
 /// fresh `SaveView` on the Appearance section of `version`'s fixture, one
 /// frame's nodes in, window and view back.
-fn locked_tab(version: PesVersion, test: &str) -> (SaveView, Headless, Vec<accesskit::Node>) {
+fn locked_section(version: PesVersion, test: &str) -> (SaveView, Headless, Vec<accesskit::Node>) {
     let path = fixture(version, test);
     let mut view = SaveView::new();
     view.open(&path);
@@ -31,8 +31,8 @@ fn locked_tab(version: PesVersion, test: &str) -> (SaveView, Headless, Vec<acces
 
 // SE-GUI-07
 #[test]
-fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
-    let (mut view, mut window, nodes) = locked_tab(PesVersion::Pes21, "appearance_lock_fox");
+fn the_section_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
+    let (mut view, mut window, nodes) = locked_section(PesVersion::Pes21, "appearance_lock_fox");
 
     // Locked: the Fox ownership line, every control of the groups disabled,
     // the switch and the Cutscenes group's two controls the ones that are
@@ -181,8 +181,8 @@ fn the_tab_is_locked_on_a_fox_save_until_the_switch_unlocks_it() {
 
 // SE-GUI-07
 #[test]
-fn the_tab_is_locked_on_a_pre_fox_save_with_the_patch_step() {
-    let (mut view, mut window, nodes) = locked_tab(PesVersion::Pes17, "appearance_lock_prefox");
+fn the_section_is_locked_on_a_pre_fox_save_with_the_patch_step() {
+    let (mut view, mut window, nodes) = locked_section(PesVersion::Pes17, "appearance_lock_prefox");
 
     // Locked: the pre-Fox ownership line carries the patch step and the
     // Apply aesthetics patch link (disabled controls' hover is the same
@@ -310,7 +310,7 @@ fn the_cutscenes_group_stays_editable_above_the_ownership_line() {
     // Locked PES 21: the group's two controls draw above the ownership
     // line, enabled, while the groups below it stay disabled; a Star edit
     // lands as one undoable edit.
-    let (mut view, mut window, nodes) = locked_tab(PesVersion::Pes21, "cutscenes_editable");
+    let (mut view, mut window, nodes) = locked_section(PesVersion::Pes21, "cutscenes_editable");
     let ownership_y = nodes
         .iter()
         .find(|node| {
@@ -371,7 +371,7 @@ fn the_cutscenes_group_stays_editable_above_the_ownership_line() {
 
 // SE-GUI-07 (its THEN's last clause)
 #[test]
-fn a_stripped_players_tab_says_the_look_is_the_tables_and_the_motions_are_read() {
+fn a_stripped_players_section_says_the_look_is_the_tables_and_the_motions_are_read() {
     let path = fixture(PesVersion::Pes21, "appearance_stripped_line");
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
     file.player_mut(70101).unwrap().appearance_id = Some(STRIPPED_APPEARANCE_ID);
@@ -1445,7 +1445,7 @@ fn the_motion_grid_holds_four_pairs_a_row() {
 // shell's smallest default window leaves (877 x 624) every drawn node
 // ends inside it — on PES 17 unlocked, and on PES 21 with the switch on.
 #[test]
-fn the_appearance_tab_fits_the_pane_the_shell_leaves() {
+fn the_appearance_section_fits_the_pane_the_shell_leaves() {
     for (version, test) in [
         (PesVersion::Pes17, "appearance_pane_17"),
         (PesVersion::Pes21, "appearance_pane_21"),

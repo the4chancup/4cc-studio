@@ -174,7 +174,7 @@ fn question_nodes_with(
 
 // SE-GUI-05
 #[test]
-fn the_prompt_lists_each_changed_field_in_the_tabs_terms() {
+fn the_prompt_lists_each_changed_field_in_the_views_terms() {
     let path = fixture(PesVersion::Pes21, "prompt_table");
     let mut view = SaveView::new();
     view.open(&path);

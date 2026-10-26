@@ -102,7 +102,7 @@ fn expected_columns(window: &Headless, expected: &[&str], list_width: f64) -> [f
 }
 
 /// The grid's buttons are `expected` and no others, in (y, x) order, two
-/// per row (the two-column grid), inside the side panel's x range and
+/// per row (the two-column grid), inside the list rows' x range and
 /// below the list's drawn rows. `shapes` is the frame's painted shapes:
 /// every button is as wide as its label plus the button padding, the
 /// label unelided (a narrower cell truncates it, as the first Grid
@@ -114,21 +114,18 @@ fn assert_quick_actions(
     expected: &[&str],
 ) {
     assert_eq!(quick_action_labels(nodes), expected);
-    // The filter box's bounds stand for the side panel's x range: the
-    // buttons sit inside it and below the list's last drawn row.
-    let panel = nodes
+    // A player row's bounds stand for the list's x range: the buttons
+    // sit inside it and below the list's last drawn row.
+    let row = nodes
         .iter()
-        .find(|node| {
-            node.role() == Role::TextInput
-                && node.placeholder() == Some("Filter every team (name, shirt name or id)")
-        })
+        .find(|node| player_row(node))
         .and_then(accesskit::Node::bounds)
-        .expect("the filter box bounds the side panel");
+        .expect("a player row in the list");
     // Every button fills its column's width (its widest cell's natural
     // width while the two columns fit the list, else half each), its
     // label eliding only when it cannot fit.
     let style = egui::Context::default().global_style();
-    let columns = expected_columns(window, expected, panel.x1 - panel.x0);
+    let columns = expected_columns(window, expected, row.x1 - row.x0);
     let ctx = &window.ctx;
     for (index, label) in expected.iter().enumerate() {
         let cell = columns[index % 2];
@@ -161,20 +158,37 @@ fn assert_quick_actions(
                 .size()
                 .x
         });
+        // Set stats' button is drawn the cell less the item spacing and
+        // the field's two-digit width (the field takes the rest), not
+        // the whole cell as a Make button is.
+        let room = if *label == "Set stats" {
+            let field_font = egui::TextStyle::Button.resolve(&style);
+            let digits = ctx.fonts_mut(|fonts| {
+                fonts
+                    .layout_no_wrap("99".to_owned(), field_font, egui::Color32::WHITE)
+                    .size()
+                    .x
+            });
+            cell - f64::from(style.spacing.item_spacing.x)
+                - f64::from(digits)
+                - 2.0 * f64::from(style.spacing.button_padding.x)
+        } else {
+            cell
+        };
         let elides =
-            f64::from(natural) + 2.0 * f64::from(style.spacing.button_padding.x) > cell + 0.5;
+            f64::from(natural) + 2.0 * f64::from(style.spacing.button_padding.x) > room + 0.5;
         assert_eq!(
             shape.galley.elided, elides,
             "{label}'s galley elided={} ({bounds:?}, cell {cell})",
             shape.galley.elided
         );
     }
-    // The Set stats number stays inside the panel with its button (it
-    // takes the cell's remaining width).
+    // The Set stats number stays inside the list's width with its
+    // button (it takes the cell's remaining width).
     let field = set_stats_field(nodes).bounds().expect("bounds");
     assert!(
-        field.x1 <= panel.x1 + 1.0,
-        "the Set stats field inside the side panel's x range ({field:?} vs {panel:?})"
+        field.x1 <= row.x1 + 1.0,
+        "the Set stats field inside the list rows' x range ({field:?} vs {row:?})"
     );
     let first_y0 = node_labeled(nodes, Role::Button, expected[0])
         .bounds()
@@ -205,6 +219,10 @@ fn assert_quick_actions(
     xs.sort_by(f64::total_cmp);
     xs.dedup();
     assert_eq!(xs.len(), 2, "the two columns take two x positions");
+    assert!(
+        (xs[0] - row.x0).abs() <= 1.0,
+        "the first column starts at the rows' left edge ({xs:?} vs {row:?})"
+    );
     for pair in expected.chunks(2) {
         let row_y = node_labeled(nodes, Role::Button, pair[0])
             .bounds()
@@ -220,8 +238,8 @@ fn assert_quick_actions(
                 pair[0]
             );
             assert!(
-                bounds.x0 >= panel.x0 - 1.0 && bounds.x1 <= panel.x1 + 1.0,
-                "{button} inside the side panel's x range ({bounds:?} vs {panel:?})"
+                bounds.x0 >= row.x0 - 1.0 && bounds.x1 <= row.x1 + 1.0,
+                "{button} inside the list rows' x range ({bounds:?} vs {row:?})"
             );
         }
     }
@@ -943,13 +961,19 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
             "{label}'s cell a half of the list ({bounds:?} vs {half})"
         );
     }
-    let bounds = node_labeled(&nodes, Role::Button, "Make Goalkeeper")
-        .bounds()
-        .expect("bounds");
+    let goalkeeper = node_labeled(&nodes, Role::Button, "Make Goalkeeper");
+    let bounds = goalkeeper.bounds().expect("bounds");
     assert!(
         painted_label(&shapes, "Make Goalkeeper", bounds)
             .galley
             .elided,
         "Make Goalkeeper elides in its half ({bounds:?})"
+    );
+    // The elided label's tooltip names the tier (the plan's "its
+    // tooltip names the tier").
+    assert_eq!(
+        tooltip_containing(&mut window, &mut view, centre(goalkeeper), "tier's values"),
+        Some("The Goalkeeper tier's values (the active ruleset)".to_string()),
+        "the elided button's tooltip"
     );
 }

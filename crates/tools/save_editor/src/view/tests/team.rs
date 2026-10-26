@@ -93,7 +93,7 @@ fn open_team_menu(window: &mut Headless, view: &mut SaveView) -> Vec<accesskit::
 // SE-GUI-10
 #[test]
 fn the_team_fields_edit_and_save_and_the_colour_is_the_nearest_the_save_holds() {
-    let path = fixture(PesVersion::Pes21, "team_tab_edit");
+    let path = fixture(PesVersion::Pes21, "team_view_edit");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(1100.0, 700.0);
@@ -419,7 +419,7 @@ fn the_fields_wrap_between_their_pairs_never_inside_one() {
 // the session as they were.
 #[test]
 fn drawing_the_team_view_edits_nothing() {
-    let path = fixture(PesVersion::Pes21, "team_tab_no_input");
+    let path = fixture(PesVersion::Pes21, "team_view_no_input");
     let mut view = SaveView::new();
     view.open(&path);
     assert!(
@@ -669,7 +669,7 @@ fn the_boots_dialog_prefills_past_a_dangling_roster_id() {
 // with the gate tooltip naming the first version that has them.
 #[test]
 fn on_pes16_the_colours_ids_and_kit_slots_draw_disabled_with_their_versions() {
-    let path = fixture(PesVersion::Pes16, "team_tab_gated");
+    let path = fixture(PesVersion::Pes16, "team_view_gated");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(1100.0, 700.0);
