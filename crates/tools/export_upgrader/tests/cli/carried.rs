@@ -111,7 +111,7 @@ fn two_portraits_of_one_slot_keep_the_first_and_report_the_second() {
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
     let stdout = run.stdout();
     assert!(
-        stdout.contains("- co Kits: Error unmigrated_content at Portraits/player_XXX05.dds"),
+        stdout.contains("- co Kits: Error unmigrated_content at Portraits/player_XXX05.dds (reason=portrait_taken, other=Portraits/player_71405.dds)"),
         "{stdout}"
     );
     // The second file alone: the first keeps the slot.
@@ -785,7 +785,7 @@ fn an_mtl_that_does_not_parse_is_unmigrated_content() {
     let stdout = run.stdout();
     assert!(
         stdout.contains(
-            "- co Spring: Error unmigrated_content at Faces/72117 - Lisa/apc.mtl (error="
+            "- co Spring: Error unmigrated_content at Faces/72117 - Lisa/apc.mtl (reason=mtl_unparsable, error="
         ),
         "{stdout}"
     );

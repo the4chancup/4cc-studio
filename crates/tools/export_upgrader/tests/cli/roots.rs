@@ -173,7 +173,7 @@ fn a_team_entry_whose_colors_do_not_read_is_unmigrated_content() {
     assert_eq!(run.exit_code(), 1);
     assert!(
         run.stdout()
-            .contains("- co Spring: Error unmigrated_content at co Note.txt (line=- 2nd: blue)"),
+            .contains("- co Spring: Error unmigrated_content at co Note.txt (reason=colors_unreadable, line=- 2nd: blue)"),
         "{}",
         run.stdout()
     );
@@ -203,7 +203,7 @@ fn a_team_entry_with_nothing_after_its_colon_is_unmigrated_content() {
     assert_eq!(run.exit_code(), 1);
     assert!(
         run.stdout()
-            .contains("- co Spring: Error unmigrated_content at co Note.txt (line=- 2nd:)"),
+            .contains("- co Spring: Error unmigrated_content at co Note.txt (reason=colors_unreadable, line=- 2nd:)"),
         "{}",
         run.stdout()
     );

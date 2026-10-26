@@ -21,7 +21,7 @@ use kit_config::{KitConfig, KitSlot};
 use pes_version::PesVersion;
 use studio_core::{Disposition, Message, Scope};
 
-use crate::messages::{Code, INPUT, read_failed, tool_message};
+use crate::messages::{Code, INPUT, UnmigratedReason, read_failed, tool_message, unmigrated};
 use crate::note;
 use crate::players::{file_name, path_scope};
 use crate::source::SourceFailure;
@@ -236,17 +236,42 @@ pub(crate) fn kit_folders(
         }
         let Some(slot) = config_slot(name) else {
             // A config for a goalkeeper past the first is a leftover
-            // (step 10); every other name `config_slot` refuses is left
-            // for the fallback, as today.
+            // (step 10); every other name `config_slot` refuses is
+            // unmigrated content, reported here and consumed.
             if gk_config_beyond_first(name) {
                 folders.leftovers.insert(file.clone());
+            } else {
+                failures.entry(file.clone()).or_default().push(unmigrated(
+                    Scope::File {
+                        export_id: INPUT,
+                        path: path_scope(file),
+                    },
+                    Disposition::DropFile,
+                    UnmigratedReason::ConfigNameInvalid,
+                    None,
+                    vec![],
+                ));
+                folders.consumed.insert(file.clone());
             }
             continue;
         };
         match rest.matches('/').count() {
             0 => roots.push((file, slot)),
             1 => below.push((file, slot)),
-            _ => {}
+            // Deeper than the one subfolder the old layout flattened.
+            _ => {
+                failures.entry(file.clone()).or_default().push(unmigrated(
+                    Scope::File {
+                        export_id: INPUT,
+                        path: path_scope(file),
+                    },
+                    Disposition::DropFile,
+                    UnmigratedReason::ConfigTooDeep,
+                    None,
+                    vec![],
+                ));
+                folders.consumed.insert(file.clone());
+            }
         }
     }
 
@@ -268,7 +293,24 @@ pub(crate) fn kit_folders(
                 Some(kept) if kept.bytes == bytes => {
                     folders.consumed.insert((*file).clone());
                 }
-                Some(_) => {}
+                // A second config of the slot, its bytes different:
+                // unmigrated, `other` the config that became the kit's.
+                Some(kept) => {
+                    failures
+                        .entry((*file).clone())
+                        .or_default()
+                        .push(unmigrated(
+                            Scope::File {
+                                export_id: INPUT,
+                                path: path_scope(file),
+                            },
+                            Disposition::DropFile,
+                            UnmigratedReason::ConfigTaken,
+                            Some(kept.path.clone()),
+                            vec![],
+                        ));
+                    folders.consumed.insert((*file).clone());
+                }
                 None => match KitConfig::decode(&bytes, version) {
                     Ok(mut config) => {
                         let fields = config
@@ -293,13 +335,14 @@ pub(crate) fn kit_folders(
                         failures
                             .entry(file.as_str().to_owned())
                             .or_default()
-                            .push(tool_message(
-                                Code::UnmigratedContent,
+                            .push(unmigrated(
                                 Scope::File {
                                     export_id: INPUT,
                                     path: path_scope(file),
                                 },
                                 Disposition::DropFile,
+                                UnmigratedReason::ConfigUndecodable,
+                                None,
                                 vec![("error", error.to_string())],
                             ));
                         folders.consumed.insert((*file).clone());
@@ -332,16 +375,9 @@ pub(crate) fn kit_folders(
             KitSlot::P8,
             KitSlot::P9,
         ];
-        let entry_dropped = |code: Code, line: &str| {
-            tool_message(
-                code,
-                Scope::File {
-                    export_id: INPUT,
-                    path: path_scope(note_path),
-                },
-                Disposition::DropFile,
-                vec![("line", line.to_owned())],
-            )
+        let note_scope = || Scope::File {
+            export_id: INPUT,
+            path: path_scope(note_path),
         };
         for entry in note::color_entries(note_text).kits {
             let goalkeeper = entry.line.to_ascii_lowercase().contains("gk:");
@@ -360,14 +396,22 @@ pub(crate) fn kit_folders(
                 failures
                     .entry(note_path.to_owned())
                     .or_default()
-                    .push(entry_dropped(
-                        if goalkeeper {
-                            Code::LeftoverDropped
-                        } else {
-                            Code::UnmigratedContent
-                        },
-                        &entry.line,
-                    ));
+                    .push(if goalkeeper {
+                        tool_message(
+                            Code::LeftoverDropped,
+                            note_scope(),
+                            Disposition::DropFile,
+                            vec![("line", entry.line)],
+                        )
+                    } else {
+                        unmigrated(
+                            note_scope(),
+                            Disposition::DropFile,
+                            UnmigratedReason::KitEntryPastNinth,
+                            None,
+                            vec![("line", entry.line)],
+                        )
+                    });
                 continue;
             };
             entry_slots.push(slot);
@@ -388,7 +432,13 @@ pub(crate) fn kit_folders(
                     failures
                         .entry(note_path.to_owned())
                         .or_default()
-                        .push(entry_dropped(Code::UnmigratedContent, &entry.line));
+                        .push(unmigrated(
+                            note_scope(),
+                            Disposition::DropFile,
+                            UnmigratedReason::ColorsUnreadable,
+                            None,
+                            vec![("line", entry.line)],
+                        ));
                 }
             }
         }
@@ -458,10 +508,10 @@ pub(crate) fn kit_folders(
     // whatever the input order (step 5, `u0XXXp1.dds` before `u0XXXp1.ftex`,
     // the DDS kept); between two of one kind the first by input path wins.
     // The `.dds` pass runs first, so an `.ftex` finding its name taken
-    // loses and stays unconsumed for the fallback to report. An `.ftex`
-    // is converted to the DDS it holds, one that does not convert reported
-    // as a config that does not decode is.
-    let mut taken: BTreeSet<String> = BTreeSet::new();
+    // loses, reported with `other` the input path of the texture that took
+    // it. An `.ftex` is converted to the DDS it holds, one that does not
+    // convert reported as a config that does not decode is.
+    let mut taken: BTreeMap<String, String> = BTreeMap::new();
     for ftex_pass in [false, true] {
         for file in files {
             let Some((top, name)) = file.split_once('/') else {
@@ -477,25 +527,45 @@ pub(crate) fn kit_folders(
                 continue;
             }
             let output = format!("Kits/{}/kit{rest}", slot.as_str());
-            if !taken.insert(vtree::fold_name(&output)) {
+            if let Some(winner) = taken.get(&vtree::fold_name(&output)) {
+                let winner = winner.clone();
+                failures
+                    .entry(file.as_str().to_owned())
+                    .or_default()
+                    .push(unmigrated(
+                        Scope::File {
+                            export_id: INPUT,
+                            path: path_scope(file),
+                        },
+                        Disposition::DropFile,
+                        UnmigratedReason::TextureNameTaken,
+                        Some(winner),
+                        vec![],
+                    ));
+                folders.consumed.insert(file.clone());
                 continue;
             }
+            taken.insert(vtree::fold_name(&output), file.clone());
             if ftex {
                 match read(file) {
-                    Ok(bytes) => match ftex::ftex_to_dds(&bytes) {
-                        Ok(dds) => folders.written.push((output, dds)),
-                        Err(error) => failures.entry(file.as_str().to_owned()).or_default().push(
-                            tool_message(
-                                Code::UnmigratedContent,
-                                Scope::File {
-                                    export_id: INPUT,
-                                    path: path_scope(file),
-                                },
-                                Disposition::DropFile,
-                                vec![("error", error.to_string())],
-                            ),
-                        ),
-                    },
+                    Ok(bytes) => {
+                        match ftex::ftex_to_dds(&bytes) {
+                            Ok(dds) => folders.written.push((output, dds)),
+                            Err(error) => failures
+                                .entry(file.as_str().to_owned())
+                                .or_default()
+                                .push(unmigrated(
+                                    Scope::File {
+                                        export_id: INPUT,
+                                        path: path_scope(file),
+                                    },
+                                    Disposition::DropFile,
+                                    UnmigratedReason::TextureUndecodable,
+                                    None,
+                                    vec![("error", error.to_string())],
+                                )),
+                        }
+                    }
                     Err(failure) => failures
                         .entry(file.as_str().to_owned())
                         .or_default()
@@ -735,7 +805,8 @@ mod tests {
     #[test]
     fn a_classify_unknown_file_in_kit_configs_is_a_leftover() {
         // Step 10's stray rule wherever it sits: `notes.doc` is no `.txt`
-        // note, `notes.txt` stays for the fallback as unmigrated content.
+        // note, `notes.txt` is unmigrated content — its name is no config
+        // name.
         let plan = plan(
             &[
                 "kit configs/XXX_DEF_1st_realUni.bin",
@@ -746,8 +817,24 @@ mod tests {
         );
         assert!(plan.leftovers.contains("kit configs/notes.doc"));
         assert!(!plan.consumed.contains("kit configs/notes.doc"));
-        assert!(!plan.consumed.contains("kit configs/notes.txt"));
+        assert!(plan.consumed.contains("kit configs/notes.txt"));
         assert!(!plan.leftovers.contains("kit configs/notes.txt"));
+        let finding = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "unmigrated_content")
+            .expect("unmigrated_content expected");
+        assert_eq!(
+            finding.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("kit configs/notes.txt")
+            }
+        );
+        assert_eq!(
+            finding.context,
+            [("reason".to_owned(), "config_name_invalid".to_owned())]
+        );
     }
 
     #[test]
@@ -879,7 +966,7 @@ mod tests {
     }
 
     #[test]
-    fn a_second_config_of_a_slot_with_other_bytes_is_not_consumed() {
+    fn a_second_config_of_a_slot_with_other_bytes_is_unmigrated_content() {
         let plan = plan(
             &[
                 "Kit Configs/714/XXX_DEF_1st_realUni.bin",
@@ -890,19 +977,41 @@ mod tests {
                 ("Kit Configs/XXX_DEF_1st_realUni.bin", CONFIG_1ST),
             ],
         );
-        // The root's is the kit's whatever order the listing puts them in.
+        // The root's is the kit's whatever order the listing puts them in;
+        // the second is unmigrated, `other` naming the kept config.
         assert_eq!(
             plan.written,
             vec![("Kits/p1/config.toml".to_owned(), expected_toml(CONFIG_1ST))]
         );
         assert!(
-            !plan
-                .consumed
+            plan.consumed
                 .contains("Kit Configs/714/XXX_DEF_1st_realUni.bin")
         );
         assert!(
             plan.consumed
                 .contains("Kit Configs/XXX_DEF_1st_realUni.bin")
+        );
+        let finding = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "unmigrated_content")
+            .expect("unmigrated_content expected");
+        assert_eq!(
+            finding.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Kit Configs/714/XXX_DEF_1st_realUni.bin")
+            }
+        );
+        assert_eq!(
+            finding.context,
+            [
+                ("reason".to_owned(), "config_taken".to_owned()),
+                (
+                    "other".to_owned(),
+                    "Kit Configs/XXX_DEF_1st_realUni.bin".to_owned()
+                ),
+            ]
         );
     }
 
@@ -920,20 +1029,43 @@ mod tests {
         );
         assert_eq!(plan.written[0].1, expected_toml(CONFIG_1ST));
         assert!(
-            !plan
-                .consumed
+            plan.consumed
                 .contains("Kit Configs/XXX_DEF_1st_realUni.bin")
+        );
+        // The second of the slot is unmigrated, `other` the kept config.
+        let finding = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "unmigrated_content")
+            .expect("unmigrated_content expected");
+        assert_eq!(
+            finding.context,
+            [
+                ("reason".to_owned(), "config_taken".to_owned()),
+                (
+                    "other".to_owned(),
+                    "Kit Configs/714_DEF_1st_realUni.bin".to_owned()
+                ),
+            ]
         );
     }
 
     #[test]
-    fn a_config_deeper_than_one_subfolder_is_not_consumed() {
+    fn a_config_deeper_than_one_subfolder_is_unmigrated_content() {
         let plan = plan(
             &["Kit Configs/a/b/XXX_DEF_1st_realUni.bin"],
             &[("Kit Configs/a/b/XXX_DEF_1st_realUni.bin", CONFIG_1ST)],
         );
         assert!(plan.written.is_empty());
-        assert!(plan.consumed.is_empty());
+        assert!(
+            plan.consumed
+                .contains("Kit Configs/a/b/XXX_DEF_1st_realUni.bin")
+        );
+        assert_eq!(plan.findings.len(), 1, "{:?}", plan.findings);
+        assert_eq!(
+            plan.findings[0].context,
+            [("reason".to_owned(), "config_too_deep".to_owned())]
+        );
     }
 
     #[test]
@@ -947,10 +1079,13 @@ mod tests {
         assert_eq!(finding.code.code.as_ref(), "unmigrated_content");
         assert_eq!(
             finding.context,
-            vec![(
-                "error".to_owned(),
-                "kit config is 7 bytes, expected 120".to_owned()
-            )]
+            vec![
+                ("reason".to_owned(), "config_undecodable".to_owned()),
+                (
+                    "error".to_owned(),
+                    "kit config is 7 bytes, expected 120".to_owned()
+                ),
+            ]
         );
         assert_eq!(
             finding.scope,
@@ -999,6 +1134,10 @@ mod tests {
             "config_without_kit_entry"
         );
         assert_eq!(plan.findings[1].code.code.as_ref(), "unmigrated_content");
+        assert_eq!(
+            plan.findings[1].context[0],
+            ("reason".to_owned(), "config_undecodable".to_owned())
+        );
     }
 
     #[test]
@@ -1033,6 +1172,10 @@ mod tests {
                 export_id: INPUT,
                 path: path_scope("Kit Textures/u0XXXp1.ftex")
             }
+        );
+        assert_eq!(
+            finding.context[0],
+            ("reason".to_owned(), "texture_undecodable".to_owned())
         );
         let error = finding
             .context
@@ -1182,7 +1325,27 @@ mod tests {
             )]
         );
         assert!(plan.consumed.contains("Kit Textures/u0714p1.dds"));
-        assert!(!plan.consumed.contains("Kit Textures/u0XXXp1.dds"));
+        // The second is unmigrated, `other` the texture that took the name.
+        assert!(plan.consumed.contains("Kit Textures/u0XXXp1.dds"));
+        let finding = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "unmigrated_content")
+            .expect("unmigrated_content expected");
+        assert_eq!(
+            finding.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Kit Textures/u0XXXp1.dds")
+            }
+        );
+        assert_eq!(
+            finding.context,
+            [
+                ("reason".to_owned(), "texture_name_taken".to_owned()),
+                ("other".to_owned(), "Kit Textures/u0714p1.dds".to_owned()),
+            ]
+        );
     }
 
     #[test]

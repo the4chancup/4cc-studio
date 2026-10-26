@@ -299,7 +299,7 @@ fn a_byte_clash_keeps_the_folder_shared_and_their_own_file() {
     assert!(!sandbox.path("co Full Spring/Boots/k0431").exists());
 }
 
-// EU-PLY-10
+// EU-PLY-10, EU-REP-05
 #[test]
 fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
     let sandbox = Sandbox::new("ply_second");
@@ -319,14 +319,20 @@ fn second_folders_of_a_slot_and_of_an_id_are_unmigrated() {
     let run = upgrade(&sandbox, "co Spring", "EDIT");
     assert_eq!(run.exit_code(), 1);
     let stdout = run.stdout();
-    for folder in [
-        "Faces/XXX23 - Smug Redman",
-        "Boots/k0430 - B",
-        "Faces/XXX24 - Ann",
-        "Boots/K0431 - Rex",
+    for (folder, context) in [
+        (
+            "Faces/XXX23 - Smug Redman",
+            "(reason=slot_taken, other=Faces/XXX23 - Bahsaka)",
+        ),
+        (
+            "Boots/k0430 - B",
+            "(reason=id_taken, other=Boots/k0430 - A)",
+        ),
+        ("Faces/XXX24 - Ann", "(reason=slot_invalid)"),
+        ("Boots/K0431 - Rex", "(reason=id_invalid)"),
     ] {
         assert!(
-            stdout.contains(&format!("unmigrated_content at {folder}")),
+            stdout.contains(&format!("unmigrated_content at {folder} {context}")),
             "{folder}: {stdout}"
         );
     }
@@ -515,11 +521,15 @@ fn two_portrait_files_are_unmigrated_content() {
     assert_eq!(run.exit_code(), 1);
     let stdout = run.stdout();
     assert!(
-        stdout.contains("unmigrated_content at Faces/XXX16 - Rex/portrait.dds"),
+        stdout.contains(
+            "unmigrated_content at Faces/XXX16 - Rex/portrait.dds (reason=portrait_taken, other=Faces/XXX16 - Rex/rex_portrait.dds)"
+        ),
         "{stdout}"
     );
     assert!(
-        stdout.contains("unmigrated_content at Faces/XXX16 - Rex/rex_portrait.dds"),
+        stdout.contains(
+            "unmigrated_content at Faces/XXX16 - Rex/rex_portrait.dds (reason=portrait_taken, other=Faces/XXX16 - Rex/portrait.dds)"
+        ),
         "{stdout}"
     );
     assert_eq!(unmigrated_found(&run), 1);

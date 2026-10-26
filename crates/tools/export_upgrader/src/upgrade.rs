@@ -30,8 +30,8 @@ use crate::kit_magic::{drop_collisions, respell_outputs};
 use crate::kits::{KitFolders, kit_folders};
 use crate::materials::material_references;
 use crate::messages::{
-    Code, INPUT, OUTPUT, extract_failed, issue_message, read_failed, team_name_unknown,
-    tool_message,
+    Code, INPUT, OUTPUT, UnmigratedReason, extract_failed, issue_message, read_failed,
+    team_name_unknown, tool_message, unmigrated,
 };
 use crate::model_names::rename_models;
 use crate::naming::output_name;
@@ -461,10 +461,11 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
                 ));
             } else {
                 any_unmigrated = true;
-                events.message(tool_message(
-                    Code::UnmigratedContent,
+                events.message(unmigrated(
                     note_scope(),
                     Disposition::DropFile,
+                    UnmigratedReason::ColorsUnreadable,
+                    None,
                     vec![("line", entry.line)],
                 ));
             }
@@ -483,13 +484,14 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         Some((_, Some(text))) => write_output_file(&staging, "players.txt", text.as_bytes())?,
         Some((path, None)) => {
             any_unmigrated = true;
-            events.message(tool_message(
-                Code::UnmigratedContent,
+            events.message(unmigrated(
                 Scope::File {
                     export_id: INPUT,
                     path: path_scope(path),
                 },
                 Disposition::DropFile,
+                UnmigratedReason::RosterNotUtf8,
+                None,
                 vec![],
             ));
         }
@@ -707,24 +709,38 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
         {
             continue;
         }
-        let code = if is_leftover(file, invocation.referees, referees_at_root)
+        let scope = Scope::File {
+            export_id: INPUT,
+            path: ScopePath::new(file)
+                .expect("every listed path was checked when the source opened"),
+        };
+        if is_leftover(file, invocation.referees, referees_at_root)
             || plan.leftovers.contains(file)
             || kits.leftovers.contains(file)
             || carried.leftovers.contains(file)
         {
-            Code::LeftoverDropped
+            events.message(tool_message(
+                Code::LeftoverDropped,
+                scope,
+                Disposition::DropFile,
+                vec![],
+            ));
+            continue;
+        }
+        any_unmigrated = true;
+        // A second Note-named file is a candidate for the one Note the
+        // export's colors come from; `other` the kept Note's path. Anything
+        // else no step claimed (step 10).
+        let (reason, other) = if !invocation.referees && note::is_note_name(file) {
+            (UnmigratedReason::NoteTaken, note_path.clone())
         } else {
-            any_unmigrated = true;
-            Code::UnmigratedContent
+            (UnmigratedReason::Unclaimed, None)
         };
-        events.message(tool_message(
-            code,
-            Scope::File {
-                export_id: INPUT,
-                path: ScopePath::new(file)
-                    .expect("every listed path was checked when the source opened"),
-            },
+        events.message(unmigrated(
+            scope,
             Disposition::DropFile,
+            reason,
+            other,
             vec![],
         ));
     }
@@ -1034,10 +1050,11 @@ mod tests {
             vec![],
         ));
         assert_eq!(events.worst(), Some(Severity::Info));
-        events.message(tool_message(
-            Code::UnmigratedContent,
+        events.message(unmigrated(
             Scope::Run,
             Disposition::DropFile,
+            UnmigratedReason::Unclaimed,
+            None,
             vec![],
         ));
         assert_eq!(events.worst(), Some(Severity::Error));
@@ -1209,9 +1226,70 @@ mod tests {
                 .map(|m| m.code.code.as_ref().to_owned())
                 .collect::<Vec<_>>()
         );
+        assert_eq!(
+            unmigrated[0].context,
+            [("reason".to_owned(), "roster_not_utf8".to_owned())]
+        );
         // Not clean: nothing is written, the staging folder removed.
         assert!(!root.join("refs Spring upgraded").exists());
         assert!(!root.join("refs Spring upgraded.upgrading").exists());
+    }
+
+    #[test]
+    fn a_second_note_and_an_unclaimed_file_get_their_reasons() {
+        let root = scratch("unclaimed_reasons");
+        // `team note.txt` is a second Note-named file (`co Note.txt` keeps
+        // the place); `Players/` holds no folder a team export's steps read.
+        fs::create_dir_all(root.join("co Spring/Players/05 - A")).unwrap();
+        fs::write(root.join("co Spring/co Note.txt"), b"Team: /co/\r\n").unwrap();
+        fs::write(root.join("co Spring/team note.txt"), b"Team: /co/\r\n").unwrap();
+        fs::write(root.join("co Spring/Players/05 - A/face.fmdl"), b"face").unwrap();
+        let (ctx, events_rx) = test_ctx();
+        let args = UpgradeArgs {
+            export: root.join("co Spring"),
+            savefile: None,
+            loose: true,
+            output: None,
+        };
+
+        let exit = run(&args, &ctx).unwrap();
+        drop(ctx);
+        assert_eq!(exit, ERRORS);
+        let findings: Vec<(String, Vec<(String, String)>)> = events_rx
+            .iter()
+            .filter_map(|envelope| match envelope.event {
+                PipelineEvent::Message(message)
+                    if message.code.code.as_ref() == "unmigrated_content" =>
+                {
+                    let path = match &message.scope {
+                        Scope::File { path, .. } | Scope::Folder { path, .. } => {
+                            path.as_str().to_owned()
+                        }
+                        Scope::Run | Scope::Export { .. } | Scope::RosterEntry { .. } => {
+                            String::new()
+                        }
+                    };
+                    Some((path, message.context))
+                }
+                _ => None,
+            })
+            .collect();
+        assert_eq!(
+            findings,
+            [
+                (
+                    "Players/05 - A/face.fmdl".to_owned(),
+                    vec![("reason".to_owned(), "unclaimed".to_owned())]
+                ),
+                (
+                    "team note.txt".to_owned(),
+                    vec![
+                        ("reason".to_owned(), "note_taken".to_owned()),
+                        ("other".to_owned(), "co Note.txt".to_owned()),
+                    ]
+                ),
+            ]
+        );
     }
 
     #[test]

@@ -17,7 +17,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use aesthetics_export::kit_token_starts;
 use studio_core::{Disposition, Message, Scope};
 
-use crate::messages::{Code, INPUT, tool_message};
+use crate::messages::{Code, INPUT, UnmigratedReason, tool_message, unmigrated};
 use crate::players::path_scope;
 use crate::upgrade::Identity;
 
@@ -169,45 +169,65 @@ pub(crate) fn respell_outputs(
 /// in listing order, replacing the file under the new name, so the last
 /// renamed is what the game loaded — and reports each other input
 /// `leftover_dropped`. Any other group keeps its first in list order
-/// and reports each later one `unmigrated_content`. Every finding is
-/// `File`-scoped `DropFile` at the input path, empty context.
+/// and reports each later one `unmigrated_content`, `other` naming the
+/// kept input's path. Every finding is `File`-scoped `DropFile` at the
+/// input path.
 pub(crate) fn drop_collisions(
     copies: Vec<(String, String)>,
     path_id: Option<u16>,
 ) -> (Vec<(String, String)>, Vec<Message>) {
+    /// What becomes of a colliding copy.
+    #[derive(Clone)]
+    enum Dropped {
+        /// One file to the old compile's ID rename: a leftover.
+        Leftover,
+        /// Two candidates for the output path; `other` is the kept
+        /// input's path.
+        Unmigrated { other: String },
+    }
     let mut groups: BTreeMap<String, Vec<usize>> = BTreeMap::new();
     for (index, (_, to)) in copies.iter().enumerate() {
         groups.entry(vtree::fold_name(to)).or_default().push(index);
     }
-    let mut dropped: Vec<Option<Code>> = vec![None; copies.len()];
+    let mut dropped: Vec<Option<Dropped>> = vec![None; copies.len()];
     for group in groups.into_values() {
         match renamed_winner(&copies, &group, path_id) {
             Some(winner) => {
                 for &index in &group {
                     if index != winner {
-                        dropped[index] = Some(Code::LeftoverDropped);
+                        dropped[index] = Some(Dropped::Leftover);
                     }
                 }
             }
             None => {
                 for &index in &group[1..] {
-                    dropped[index] = Some(Code::UnmigratedContent);
+                    dropped[index] = Some(Dropped::Unmigrated {
+                        other: copies[group[0]].0.clone(),
+                    });
                 }
             }
         }
     }
     let mut out = Vec::with_capacity(copies.len());
     let mut findings = Vec::new();
-    for ((from, to), code) in copies.into_iter().zip(dropped) {
-        match code {
+    for ((from, to), dropped) in copies.into_iter().zip(dropped) {
+        let scope = Scope::File {
+            export_id: INPUT,
+            path: path_scope(&from),
+        };
+        match dropped {
             None => out.push((from, to)),
-            Some(code) => findings.push(tool_message(
-                code,
-                Scope::File {
-                    export_id: INPUT,
-                    path: path_scope(&from),
-                },
+            Some(Dropped::Leftover) => findings.push(tool_message(
+                Code::LeftoverDropped,
+                scope,
                 Disposition::DropFile,
+                vec![],
+            )),
+            Some(Dropped::Unmigrated { other }) => findings.push(unmigrated(
+                scope,
+                Disposition::DropFile,
+                UnmigratedReason::PathTaken,
+                Some(other),
                 vec![],
             )),
         }
@@ -442,6 +462,13 @@ mod tests {
             }
         );
         assert_eq!(findings[0].disposition, Disposition::DropFile);
+        assert_eq!(
+            findings[0].context,
+            [
+                ("reason".to_owned(), "path_taken".to_owned()),
+                ("other".to_owned(), "a".to_owned()),
+            ]
+        );
     }
 
     #[test]
@@ -557,6 +584,16 @@ mod tests {
                 path: path_scope("Boots/k0128 - Rex/u0XXXp1.dds")
             }
         );
+        assert_eq!(
+            findings[0].context,
+            [
+                ("reason".to_owned(), "path_taken".to_owned()),
+                (
+                    "other".to_owned(),
+                    "Faces/XXX07 - Ann/u0XXXp1.dds".to_owned()
+                ),
+            ]
+        );
     }
 
     #[test]
@@ -589,6 +626,16 @@ mod tests {
                 export_id: INPUT,
                 path: path_scope("Faces/XXX07 - Ann/u0XXXp2.dds")
             }
+        );
+        assert_eq!(
+            findings[0].context,
+            [
+                ("reason".to_owned(), "path_taken".to_owned()),
+                (
+                    "other".to_owned(),
+                    "Faces/XXX07 - Ann/u0714p2.dds".to_owned()
+                ),
+            ]
         );
     }
 

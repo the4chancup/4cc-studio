@@ -2550,7 +2550,16 @@ briefs, review loops, gates and mutation runs as for any step.
   last paragraph, "CLI", "Message catalog"), one commit each:
   - [ ] p1 `unmigrated_content`'s `reason` and `other`: first the list of emission sites, each
     given its value → verify: EU-REP-05; every reason reached by a test (the existing
-    fixtures' refusals first), `other` on the two-candidate ones
+    fixtures' refusals first), `other` on the two-candidate ones. Code done 2026-10-26
+    (SWE-2): `UnmigratedReason`, 28 values over 32 sites, every site through one
+    `messages::unmigrated` constructor (reason, then `other`, then the site's own fields);
+    the `Kit Configs`, `Kit Textures`, `Portraits/` and `Logo/` refusals the fallback used to
+    report now emitted where the cause is known (same files, same severity); `other` on every
+    two-candidate cause (nine). Lead: every value's test checked by a script; EU-REP-05 on
+    EU-PLY-10's real-named folders. The spec's catalog row and the help say it. Open:
+    `mutants-diff`. Files: `export_upgrader/src/{messages,players,kits,carried,materials,
+    referees,model_folders,kit_magic,upgrade}.rs`, `tests/cli/*.rs`, `help/01_command_line.md`,
+    `spec/export_upgrader.md`
   - [ ] p2 `coverage_tag_chosen` and `--coverage full|midcup` → verify: EU-CLI-09
   - [ ] p3 a leftover staging folder removed with `staging_folder_removed` → verify:
     EU-CLI-10 (EU-CLI-05's staging clause replaced); a finished output still refused

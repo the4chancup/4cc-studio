@@ -297,8 +297,8 @@ fn a_folder_holding_no_file_is_unmigrated_content() {
     let stdout = run.stdout();
     assert_eq!(run.exit_code(), 1, "{stdout}");
     for folder in [
-        "unmigrated_content at players",
-        "unmigrated_content at Thumbs",
+        "unmigrated_content at players (reason=no_direct_files)",
+        "unmigrated_content at Thumbs (reason=no_direct_files)",
     ] {
         assert!(stdout.contains(folder), "{folder}: {stdout}");
     }

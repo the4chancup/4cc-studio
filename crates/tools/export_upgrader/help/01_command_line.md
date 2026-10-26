@@ -60,7 +60,8 @@ written. The output is the folder `<folder> upgraded` beside the input, or
 the folder `-o` names, which must not exist yet.
 
 The original export is never modified. A file the migration cannot place yet
-is listed in the report as `unmigrated_content`; content that never reached a
+is listed in the report as `unmigrated_content`, the line naming the cause and,
+where another entry already took the place, that entry's path; content that never reached a
 player in game (a stray file, a folder nobody wore) is dropped and listed
 as `leftover_dropped`, a warning that does not stop the migration, and the
 upgraded folder is

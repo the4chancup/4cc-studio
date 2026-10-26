@@ -14,7 +14,7 @@ use aesthetics_export::{FileKind, PlayerSlot, classify};
 use dds_convert::{Decoded, SourceFormat};
 use studio_core::{Disposition, Message, Scope};
 
-use crate::messages::{Code, INPUT, read_failed, tool_message};
+use crate::messages::{Code, INPUT, UnmigratedReason, read_failed, tool_message, unmigrated};
 use crate::players::{file_name, path_scope};
 use crate::source::SourceFailure;
 
@@ -158,10 +158,10 @@ pub(crate) fn carried_files(
     // admitted becomes `Portraits/NN.<ext>` — the first of two giving one `NN`
     // by input path. A name the check refused, a subfolder's file included,
     // is a leftover (step 10); the second file of a slot stays unmigrated
-    // content, two candidates for one place. A slot whose face folder
-    // carries a different portrait is `portrait_conflict`: the compiler's
-    // deep pass would refuse the export.
-    let mut slots = BTreeSet::new();
+    // content, two candidates for one place, `other` the file that took it.
+    // A slot whose face folder carries a different portrait is
+    // `portrait_conflict`: the compiler's deep pass would refuse the export.
+    let mut slots: BTreeMap<String, &String> = BTreeMap::new();
     for file in files {
         let Some(rest) = under(file, "portraits") else {
             continue;
@@ -170,9 +170,22 @@ pub(crate) fn carried_files(
             carried.leftovers.insert(file.clone());
             continue;
         };
-        if !slots.insert(nn.to_owned()) {
+        if let Some(first) = slots.get(nn) {
+            let first = (*first).clone();
+            failures.entry(file.clone()).or_default().push(unmigrated(
+                Scope::File {
+                    export_id: INPUT,
+                    path: path_scope(file),
+                },
+                Disposition::DropFile,
+                UnmigratedReason::PortraitTaken,
+                Some(first),
+                vec![],
+            ));
+            carried.consumed.insert(file.clone());
             continue;
         }
+        slots.insert(nn.to_owned(), file);
         carried
             .copies
             .push((file.clone(), format!("Portraits/{nn}.{ext}")));
@@ -230,7 +243,8 @@ pub(crate) fn carried_files(
     // `_r_ll.png`, `_r_l.png` or `_r.png` in any case, the first of one role
     // by input path — consumed whatever it decodes as. A member is usable
     // when it decodes as a PNG; one that does not is unmigrated content,
-    // its error in the context.
+    // its error in the context. Any other file, and a second member of one
+    // role (`other` the kept member), are unmigrated content too (step 10).
     let mut members: [Option<(&String, Option<Decoded>)>; 3] = [None, None, None];
     for file in files {
         let Some(rest) = under(file, "logo") else {
@@ -240,14 +254,49 @@ pub(crate) fn carried_files(
             carried.leftovers.insert(file.clone());
             continue;
         }
+        let non_member = |carried: &mut CarriedFiles,
+                          failures: &mut BTreeMap<String, Vec<Message>>,
+                          reason: UnmigratedReason,
+                          other: Option<String>| {
+            failures.entry(file.clone()).or_default().push(unmigrated(
+                Scope::File {
+                    export_id: INPUT,
+                    path: path_scope(file),
+                },
+                Disposition::DropFile,
+                reason,
+                other,
+                vec![],
+            ));
+            carried.consumed.insert(file.clone());
+        };
         if rest.contains('/') {
+            non_member(
+                &mut carried,
+                &mut failures,
+                UnmigratedReason::LogoMemberInvalid,
+                None,
+            );
             continue;
         }
         let Some(role) = logo_role(rest) else {
+            non_member(
+                &mut carried,
+                &mut failures,
+                UnmigratedReason::LogoMemberInvalid,
+                None,
+            );
             continue;
         };
         let index = role as usize;
-        if members[index].is_some() {
+        if let Some((first, _)) = &members[index] {
+            let first = (*first).clone();
+            non_member(
+                &mut carried,
+                &mut failures,
+                UnmigratedReason::LogoRoleTaken,
+                Some(first),
+            );
             continue;
         }
         match read(file) {
@@ -265,13 +314,14 @@ pub(crate) fn carried_files(
                 match dds_convert::decode(&bytes, SourceFormat::Png) {
                     Ok(decoded) => members[index] = Some((file, Some(decoded))),
                     Err(error) => {
-                        failures.entry(file.clone()).or_default().push(tool_message(
-                            Code::UnmigratedContent,
+                        failures.entry(file.clone()).or_default().push(unmigrated(
                             Scope::File {
                                 export_id: INPUT,
                                 path: path_scope(file),
                             },
                             Disposition::DropFile,
+                            UnmigratedReason::TextureUndecodable,
+                            None,
                             vec![("error", error.to_string())],
                         ));
                         members[index] = Some((file, None));
@@ -589,13 +639,17 @@ mod tests {
     }
 
     #[test]
-    fn a_stray_file_of_the_logo_folder_is_not_consumed() {
+    fn a_logo_entry_that_is_no_member_is_unmigrated_content() {
+        // `foo.png` ends in no member role and `sub/foo.png` sits in a
+        // subfolder: neither is a member (step 7) and neither is a stray —
+        // unmigrated content (step 10), not a leftover.
         let plan = plan(
             &[
                 "Logo/emblem_0XXX_r.png",
                 "Logo/emblem_0XXX_r_l.png",
                 "Logo/emblem_0XXX_r_ll.png",
                 "Logo/foo.png",
+                "Logo/sub/foo.png",
             ],
             &[],
             &[
@@ -603,6 +657,7 @@ mod tests {
                 ("Logo/emblem_0XXX_r_l.png", PNG),
                 ("Logo/emblem_0XXX_r_ll.png", PNG),
                 ("Logo/foo.png", b"stray"),
+                ("Logo/sub/foo.png", b"stray"),
             ],
         );
         for member in [
@@ -612,7 +667,66 @@ mod tests {
         ] {
             assert!(plan.consumed.contains(member), "{member}");
         }
-        assert!(!plan.consumed.contains("Logo/foo.png"));
+        for file in ["Logo/foo.png", "Logo/sub/foo.png"] {
+            assert!(plan.consumed.contains(file), "{file}");
+            assert!(!plan.leftovers.contains(file), "{file}");
+            let finding = plan
+                .findings
+                .iter()
+                .find(|m| {
+                    m.scope
+                        == Scope::File {
+                            export_id: INPUT,
+                            path: path_scope(file),
+                        }
+                })
+                .expect("unmigrated_content expected");
+            assert_eq!(finding.code.code.as_ref(), "unmigrated_content");
+            assert_eq!(
+                finding.context,
+                [("reason".to_owned(), "logo_member_invalid".to_owned())],
+                "{file}"
+            );
+        }
+    }
+
+    #[test]
+    fn a_second_member_of_one_logo_role_is_unmigrated_content() {
+        // `emblem_0XXX_r.png` sorts before `team_r.png`: it keeps the
+        // small role and the second is unmigrated, `other` the kept file.
+        let plan = plan(
+            &[
+                "Logo/emblem_0XXX_r.png",
+                "Logo/emblem_0XXX_r_ll.png",
+                "Logo/team_r.png",
+            ],
+            &[],
+            &[
+                ("Logo/emblem_0XXX_r.png", PNG),
+                ("Logo/emblem_0XXX_r_ll.png", PNG),
+                ("Logo/team_r.png", PNG),
+            ],
+        );
+        assert!(plan.consumed.contains("Logo/team_r.png"));
+        let finding = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "unmigrated_content")
+            .expect("unmigrated_content expected");
+        assert_eq!(
+            finding.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Logo/team_r.png")
+            }
+        );
+        assert_eq!(
+            finding.context,
+            [
+                ("reason".to_owned(), "logo_role_taken".to_owned()),
+                ("other".to_owned(), "Logo/emblem_0XXX_r.png".to_owned()),
+            ]
+        );
     }
 
     #[test]
@@ -648,6 +762,10 @@ mod tests {
                 export_id: INPUT,
                 path: path_scope("Logo/emblem_0XXX_r_ll.png")
             }
+        );
+        assert_eq!(
+            unmigrated.context[0],
+            ("reason".to_owned(), "texture_undecodable".to_owned())
         );
         assert!(
             unmigrated.context.iter().any(|(key, _)| key == "error"),
@@ -710,6 +828,12 @@ mod tests {
                 }
             ]
         );
+        for finding in &unmigrated {
+            assert_eq!(
+                finding.context[0],
+                ("reason".to_owned(), "texture_undecodable".to_owned())
+            );
+        }
         let fallback = plan
             .findings
             .iter()
@@ -736,7 +860,8 @@ mod tests {
         );
         // `player_71405.dds` sorts before `player_XXX05.dds`: the first by
         // input path wins the slot. The second is unmigrated content — two
-        // candidates for one place, no leftover (step 10).
+        // candidates for one place, no leftover (step 10) — `other` the
+        // file that took it.
         assert_eq!(
             plan.copies,
             vec![(
@@ -745,8 +870,27 @@ mod tests {
             )]
         );
         assert!(plan.consumed.contains("Portraits/player_71405.dds"));
-        assert!(!plan.consumed.contains("Portraits/player_XXX05.dds"));
+        assert!(plan.consumed.contains("Portraits/player_XXX05.dds"));
         assert!(!plan.leftovers.contains("Portraits/player_XXX05.dds"));
+        let finding = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code.as_ref() == "unmigrated_content")
+            .expect("unmigrated_content expected");
+        assert_eq!(
+            finding.scope,
+            Scope::File {
+                export_id: INPUT,
+                path: path_scope("Portraits/player_XXX05.dds")
+            }
+        );
+        assert_eq!(
+            finding.context,
+            [
+                ("reason".to_owned(), "portrait_taken".to_owned()),
+                ("other".to_owned(), "Portraits/player_71405.dds".to_owned()),
+            ]
+        );
     }
 
     #[test]

@@ -364,7 +364,7 @@ fn a_second_gk_entry_is_a_leftover_and_a_tenth_player_entry_unmigrated() {
     let stdout = run.stdout();
     assert!(
         stdout.contains(
-            "unmigrated_content at co Note.txt (line=- 10th player: 100 100 100 - 101 101 101)"
+            "unmigrated_content at co Note.txt (reason=kit_entry_past_ninth, line=- 10th player: 100 100 100 - 101 101 101)"
         ),
         "{stdout}"
     );
@@ -476,8 +476,9 @@ fn an_entry_whose_colors_do_not_read_is_unmigrated_content() {
     let run = upgrade(&sandbox, "co Kits", "EDIT");
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
     assert!(
-        run.stdout()
-            .contains("unmigrated_content at co Note.txt (line=- 2nd player: #RRGGBB - #RRGGBB)"),
+        run.stdout().contains(
+            "unmigrated_content at co Note.txt (reason=colors_unreadable, line=- 2nd player: #RRGGBB - #RRGGBB)"
+        ),
         "{}",
         run.stdout()
     );
@@ -778,8 +779,9 @@ fn an_ftex_second_to_a_dds_of_its_stem_is_unmigrated_content() {
     let run = upgrade(&sandbox, "co Kits", "EDIT");
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
     assert!(
-        run.stdout()
-            .contains("unmigrated_content at Kit Textures/u0XXXp2.ftex"),
+        run.stdout().contains(
+            "unmigrated_content at Kit Textures/u0XXXp2.ftex (reason=texture_name_taken, other=Kit Textures/u0XXXp2.dds)"
+        ),
         "{}",
         run.stdout()
     );
@@ -804,8 +806,9 @@ fn a_dds_wins_its_name_over_an_ftex_whatever_the_input_order() {
     let run = upgrade(&sandbox, "co Kits", "EDIT");
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
     assert!(
-        run.stdout()
-            .contains("unmigrated_content at Kit Textures/u0XXXp1.FTEX"),
+        run.stdout().contains(
+            "unmigrated_content at Kit Textures/u0XXXp1.FTEX (reason=texture_name_taken, other=Kit Textures/u0XXXp1.dds)"
+        ),
         "{}",
         run.stdout()
     );

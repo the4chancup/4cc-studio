@@ -18,7 +18,7 @@ use pes_version::Engine;
 use studio_core::{Disposition, Message, Scope};
 use vtree::ScopePath;
 
-use crate::messages::{Code, INPUT, tool_message};
+use crate::messages::{Code, INPUT, UnmigratedReason, tool_message, unmigrated};
 use crate::roster::Roster;
 
 /// What steps 2-4 make of the export's face and item folders.
@@ -444,7 +444,9 @@ fn face_folders(
     players: &mut BTreeMap<u8, PlayerFolder>,
     plan: &mut PlayerFolders,
 ) {
-    let mut taken = BTreeSet::new();
+    // Each slot's kept folder's input path, for the `other` context of a
+    // second folder of the same slot.
+    let mut taken: BTreeMap<u8, String> = BTreeMap::new();
     for (folder, folder_files) in folders {
         let folder_name = folder.rsplit('/').next().unwrap_or(folder.as_str());
         // Strays first (step 10): nothing after — not the refusals, not the
@@ -454,30 +456,34 @@ fn face_folders(
             .partition(|file| is_stray(file_name(file), None));
         plan.leftovers
             .extend(strays.iter().map(|file| (*file).clone()));
-        let refused = |plan: &mut PlayerFolders| {
-            plan.findings.push(tool_message(
-                Code::UnmigratedContent,
-                Scope::Folder {
-                    export_id: INPUT,
-                    path: path_scope(&folder),
-                },
-                Disposition::DropFolder,
-                vec![],
-            ));
-            plan.consumed
-                .extend(folder_files.iter().map(|file| (*file).clone()));
-        };
+        let refused =
+            |plan: &mut PlayerFolders, reason: UnmigratedReason, other: Option<String>| {
+                plan.findings.push(unmigrated(
+                    Scope::Folder {
+                        export_id: INPUT,
+                        path: path_scope(&folder),
+                    },
+                    Disposition::DropFolder,
+                    reason,
+                    other,
+                    vec![],
+                ));
+                plan.consumed
+                    .extend(folder_files.iter().map(|file| (*file).clone()));
+            };
         // A slot that is not two digits making 01 to 23 is unmigrated content as
         // a whole folder, as is the second face folder of a slot (the first
         // by name is kept).
         let Some(nn) = slot_of(folder_name) else {
-            refused(&mut *plan);
+            refused(&mut *plan, UnmigratedReason::SlotInvalid, None);
             continue;
         };
-        if !taken.insert(nn) {
-            refused(&mut *plan);
+        if let Some(first) = taken.get(&nn) {
+            let first = first.clone();
+            refused(&mut *plan, UnmigratedReason::SlotTaken, Some(first));
             continue;
         }
+        taken.insert(nn, folder.clone());
         // The name part is what follows the five characters, its leading
         // spaces and hyphens trimmed.
         let name_part = folder_name
@@ -539,16 +545,18 @@ fn face_folders(
                 plan.portraits.insert(nn, (*file).clone());
             }
             many => {
-                // One too many: each is reported and left in the folder as
-                // named.
-                for &(file, relative) in many {
-                    plan.findings.push(tool_message(
-                        Code::UnmigratedContent,
+                // One too many: each is reported, `other` naming another
+                // candidate's input path, and left in the folder as named.
+                for (index, &(file, relative)) in many.iter().enumerate() {
+                    let other = many[if index == 0 { 1 } else { 0 }].0;
+                    plan.findings.push(unmigrated(
                         Scope::File {
                             export_id: INPUT,
                             path: path_scope(file),
                         },
                         Disposition::Keep,
+                        UnmigratedReason::PortraitTaken,
+                        Some(other.clone()),
                         vec![],
                     ));
                     player.files.insert(relative.to_owned(), (*file).clone());
@@ -611,7 +619,9 @@ fn item_folders(
                     .is_some_and(|first_input| same_bytes(first_input, input))
             })
     }
-    let mut taken = BTreeSet::new();
+    // Each ID's kept folder's input path, for the `other` context of a
+    // second folder of the same ID.
+    let mut taken: BTreeMap<u32, String> = BTreeMap::new();
     let mut shared: Vec<Shared> = Vec::new();
     // Loose mode's block is inferred from the kind's own lowest folder ID
     // (step 11): one kind's numbering cannot move the other's pairings.
@@ -632,31 +642,35 @@ fn item_folders(
             .partition(|file| is_stray(file_name(file), Some((kind, engine))));
         plan.leftovers
             .extend(strays.iter().map(|file| (*file).clone()));
-        let refused = |plan: &mut PlayerFolders| {
-            plan.findings.push(tool_message(
-                Code::UnmigratedContent,
-                Scope::Folder {
-                    export_id: INPUT,
-                    path: path_scope(&folder),
-                },
-                Disposition::DropFolder,
-                vec![],
-            ));
-            plan.consumed
-                .extend(folder_files.iter().map(|file| (*file).clone()));
-        };
+        let refused =
+            |plan: &mut PlayerFolders, reason: UnmigratedReason, other: Option<String>| {
+                plan.findings.push(unmigrated(
+                    Scope::Folder {
+                        export_id: INPUT,
+                        path: path_scope(&folder),
+                    },
+                    Disposition::DropFolder,
+                    reason,
+                    other,
+                    vec![],
+                ));
+                plan.consumed
+                    .extend(folder_files.iter().map(|file| (*file).clone()));
+            };
         // Any other spelling is unmigrated content as a whole folder, as is
         // the second folder of one kind with one ID (the first by name) and
         // a folder nobody wears — no rostered player's worn ID, and in loose
         // mode an ID on a spare position or past the block.
         let Some((id, name_part)) = parse_item_name(kind, folder_name) else {
-            refused(&mut *plan);
+            refused(&mut *plan, UnmigratedReason::IdInvalid, None);
             continue;
         };
-        if !taken.insert(id) {
-            refused(&mut *plan);
+        if let Some(first) = taken.get(&id) {
+            let first = first.clone();
+            refused(&mut *plan, UnmigratedReason::IdTaken, Some(first));
             continue;
         }
+        taken.insert(id, folder.clone());
         let wearers: Vec<u8> = match roster {
             Some(roster) => (1..=23)
                 .filter(|nn| {
@@ -678,7 +692,7 @@ fn item_folders(
                 Some(_) => plan
                     .leftovers
                     .extend(folder_files.iter().map(|file| (*file).clone())),
-                None => refused(&mut *plan),
+                None => refused(&mut *plan, UnmigratedReason::LooseUnplaceable, None),
             }
             continue;
         }
@@ -990,6 +1004,11 @@ mod tests {
                     },
                     "{name}"
                 );
+                assert_eq!(
+                    plan.findings[0].context,
+                    [("reason".to_owned(), "slot_invalid".to_owned())],
+                    "{name}"
+                );
             }
         }
     }
@@ -1012,6 +1031,14 @@ mod tests {
                 export_id: INPUT,
                 path: ScopePath::new("Faces/XXX15 - Beta").unwrap()
             }
+        );
+        // The second of one slot: `other` names the kept folder's input path.
+        assert_eq!(
+            refused[0].context,
+            [
+                ("reason".to_owned(), "slot_taken".to_owned()),
+                ("other".to_owned(), "Faces/XXX15 - Alpha".to_owned()),
+            ]
         );
         assert!(
             plan.copies
@@ -1117,6 +1144,27 @@ mod tests {
             .filter(|m| m.code.code == "unmigrated_content")
             .collect();
         assert_eq!(reported.len(), 2);
+        // Each names the other candidate's input path.
+        assert_eq!(
+            reported[0].context,
+            [
+                ("reason".to_owned(), "portrait_taken".to_owned()),
+                (
+                    "other".to_owned(),
+                    "Faces/XXX16 - A/alt_portrait.dds".to_owned()
+                ),
+            ]
+        );
+        assert_eq!(
+            reported[1].context,
+            [
+                ("reason".to_owned(), "portrait_taken".to_owned()),
+                (
+                    "other".to_owned(),
+                    "Faces/XXX16 - A/portrait.dds".to_owned()
+                ),
+            ]
+        );
         assert!(
             plan.copies
                 .iter()
@@ -1484,6 +1532,18 @@ mod tests {
             })
             .collect();
         assert_eq!(folders, ["Boots/k0430 - B".to_owned()]);
+        let second = plan
+            .findings
+            .iter()
+            .find(|m| m.code.code == "unmigrated_content")
+            .expect("the second folder of the ID is reported");
+        assert_eq!(
+            second.context,
+            [
+                ("reason".to_owned(), "id_taken".to_owned()),
+                ("other".to_owned(), "Boots/k0430 - A".to_owned()),
+            ]
+        );
         assert!(
             plan.leftovers.contains("Gloves/g0432 - Mitts/glove_l.fmdl"),
             "{:?}",
@@ -1887,6 +1947,10 @@ mod tests {
                     path: ScopePath::new(folder).unwrap()
                 }
             );
+            assert_eq!(
+                finding.context,
+                [("reason".to_owned(), "loose_unplaceable".to_owned())]
+            );
         }
         // Each assumed pairing is reported on its item folder.
         let assumed: Vec<&Message> = plan
@@ -1973,23 +2037,32 @@ mod tests {
                 plan.copies
             );
         }
-        let unmigrated: Vec<String> = plan
+        let unmigrated: Vec<&Message> = plan
             .findings
             .iter()
             .filter(|m| m.code.code == "unmigrated_content")
+            .collect();
+        let folders: Vec<String> = unmigrated
+            .iter()
             .filter_map(|m| match &m.scope {
                 Scope::Folder { path, .. } => Some(path.as_str().to_owned()),
                 _ => None,
             })
             .collect();
         assert_eq!(
-            unmigrated,
+            folders,
             [
                 "Boots/k0124".to_owned(),
                 "Boots/k0125".to_owned(),
                 "Boots/k0126".to_owned()
             ]
         );
+        for finding in unmigrated {
+            assert_eq!(
+                finding.context,
+                [("reason".to_owned(), "loose_unplaceable".to_owned())]
+            );
+        }
     }
 
     #[test]

@@ -25,7 +25,7 @@ use studio_core::{Disposition, Message, Scope};
 
 use crate::carried::under;
 use crate::face_xml::named_paths;
-use crate::messages::{Code, INPUT, tool_message};
+use crate::messages::{INPUT, UnmigratedReason, unmigrated};
 use crate::players::{PlayerFolders, is_stray, path_scope};
 use crate::source::{OLD_FOLDERS, SourceFailure};
 
@@ -172,15 +172,23 @@ impl<'a> Placed<'a> {
     }
 }
 
-/// An `unmigrated_content` finding on the input file `path`.
-fn file_finding(path: &str, disposition: Disposition) -> Message {
-    tool_message(
-        Code::UnmigratedContent,
+/// An `unmigrated_content` finding on the input file `path`, `reason` the
+/// cause and `other` the other candidate's input path when two candidates
+/// claim one place.
+fn file_finding(
+    path: &str,
+    disposition: Disposition,
+    reason: UnmigratedReason,
+    other: Option<String>,
+) -> Message {
+    unmigrated(
         Scope::File {
             export_id: INPUT,
             path: path_scope(path),
         },
         disposition,
+        reason,
+        other,
         vec![],
     )
 }
@@ -237,7 +245,12 @@ fn flatten(
             && matches!(classify(file.file_name()), FileKind::Model(_))
             && !named.contains(&vtree::fold_name(file.file_name()))
         {
-            unnamed_models.push(file_finding(file.input, Disposition::DropFile));
+            unnamed_models.push(file_finding(
+                file.input,
+                Disposition::DropFile,
+                UnmigratedReason::ModelUnreferenced,
+                None,
+            ));
         } else {
             groups.entry(folded).or_default().push(file);
         }
@@ -257,7 +270,21 @@ fn flatten(
             ));
         } else {
             for member in members {
-                refusals.push((member.input, file_finding(member.input, Disposition::Keep)));
+                // Two candidates for the one folded name: `other` is the
+                // other file's input path (the first different member).
+                let other = members
+                    .iter()
+                    .find(|other| other.input != member.input)
+                    .map(|other| other.input.to_owned());
+                refusals.push((
+                    member.input,
+                    file_finding(
+                        member.input,
+                        Disposition::Keep,
+                        UnmigratedReason::NameTaken,
+                        other,
+                    ),
+                ));
             }
         }
     }
@@ -308,13 +335,14 @@ fn nested_layouts<'a>(placed: &[Placed<'a>]) -> Vec<(&'a str, Message)> {
         if nested.insert(folder) {
             findings.push((
                 folder,
-                tool_message(
-                    Code::UnmigratedContent,
+                unmigrated(
                     Scope::Folder {
                         export_id: INPUT,
                         path: path_scope(folder),
                     },
                     Disposition::Keep,
+                    UnmigratedReason::NestedLayout,
+                    None,
                     vec![],
                 ),
             ));
@@ -360,7 +388,24 @@ fn stem_clashes<'a>(
         }
         for file in files {
             if !refusals.iter().any(|(input, _)| *input == file.input) {
-                refusals.push((file.input, file_finding(file.input, Disposition::Keep)));
+                // `other` names a file from the other location the stem
+                // clashes over.
+                let other = files
+                    .iter()
+                    .find(|other| {
+                        other.input != file.input
+                            && vtree::fold_name(other.origin) != vtree::fold_name(file.origin)
+                    })
+                    .map(|other| other.input.to_owned());
+                refusals.push((
+                    file.input,
+                    file_finding(
+                        file.input,
+                        Disposition::Keep,
+                        UnmigratedReason::StemTaken,
+                        other,
+                    ),
+                ));
             }
         }
     }
@@ -465,8 +510,8 @@ mod tests {
             .collect()
     }
 
-    /// Every finding as `<scope kind> <path> <disposition>`, each checked to
-    /// be `unmigrated_content`.
+    /// Every finding as `<scope kind> <path> <disposition> (<context>)`, each
+    /// checked to be `unmigrated_content`.
     fn findings(plan: &PlayerFolders) -> Vec<String> {
         plan.findings
             .iter()
@@ -477,7 +522,13 @@ mod tests {
                     Scope::Folder { path, .. } => ("folder", path.as_str()),
                     Scope::Run | Scope::Export { .. } | Scope::RosterEntry { .. } => ("other", ""),
                 };
-                format!("{kind} {path} {:?}", message.disposition)
+                let context = message
+                    .context
+                    .iter()
+                    .map(|(key, value)| format!("{key}={value}"))
+                    .collect::<Vec<_>>()
+                    .join(", ");
+                format!("{kind} {path} {:?} ({context})", message.disposition)
             })
             .collect()
     }
@@ -554,8 +605,8 @@ mod tests {
         assert_eq!(
             findings(&plan),
             [
-                "file Players/a/boots/arbiter.dds Keep",
-                "file Players/a/common/arbiter.dds Keep",
+                "file Players/a/boots/arbiter.dds Keep (reason=name_taken, other=Players/a/common/arbiter.dds)",
+                "file Players/a/common/arbiter.dds Keep (reason=name_taken, other=Players/a/boots/arbiter.dds)",
             ]
         );
         assert!(plan.copies.is_empty());
@@ -589,7 +640,10 @@ mod tests {
             "players/a/face/face/y.dds",
         ];
         let plan = plan(&files, &[]);
-        assert_eq!(findings(&plan), ["folder players/a/face/face Keep"]);
+        assert_eq!(
+            findings(&plan),
+            ["folder players/a/face/face Keep (reason=nested_layout)"]
+        );
         assert!(plan.copies.is_empty());
         assert_eq!(
             plan.untouched,
@@ -610,8 +664,8 @@ mod tests {
         assert_eq!(
             findings(&across),
             [
-                "file Players/a/common/skin.png Keep",
-                "file Players/a/face/skin.dds Keep",
+                "file Players/a/common/skin.png Keep (reason=stem_taken, other=Players/a/face/skin.dds)",
+                "file Players/a/face/skin.dds Keep (reason=stem_taken, other=Players/a/common/skin.png)",
             ]
         );
         assert!(across.copies.is_empty());
@@ -667,7 +721,7 @@ mod tests {
         );
         assert_eq!(
             findings(&unnamed),
-            ["file Players/a/common/parts_body.model DropFile"]
+            ["file Players/a/common/parts_body.model DropFile (reason=model_unreferenced)"]
         );
         assert_eq!(
             unnamed.copies,

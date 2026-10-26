@@ -34,7 +34,7 @@ use studio_core::{Disposition, Message, Scope};
 
 use crate::carried::under;
 use crate::kit_magic::{Spelling, respell};
-use crate::messages::{Code, INPUT, tool_message};
+use crate::messages::{Code, INPUT, UnmigratedReason, tool_message, unmigrated};
 use crate::players::path_scope;
 use crate::source::SourceFailure;
 use crate::upgrade::Identity;
@@ -641,18 +641,16 @@ pub(crate) fn material_references(
         let (mut set, stray_text) = match MaterialSet::read_dropping_stray_text(&bytes) {
             Ok(parsed) => parsed,
             Err(error) => {
-                failures
-                    .entry(input.clone())
-                    .or_default()
-                    .push(tool_message(
-                        Code::UnmigratedContent,
-                        Scope::File {
-                            export_id: INPUT,
-                            path: path_scope(input),
-                        },
-                        Disposition::Keep,
-                        vec![("error", error.to_string())],
-                    ));
+                failures.entry(input.clone()).or_default().push(unmigrated(
+                    Scope::File {
+                        export_id: INPUT,
+                        path: path_scope(input),
+                    },
+                    Disposition::Keep,
+                    UnmigratedReason::MtlUnparsable,
+                    None,
+                    vec![("error", error.to_string())],
+                ));
                 continue;
             }
         };
@@ -1810,6 +1808,10 @@ mod tests {
                 export_id: INPUT,
                 path: path_scope("Faces/XXX07 - A/bad.mtl"),
             }
+        );
+        assert_eq!(
+            finding.context[0],
+            ("reason".to_owned(), "mtl_unparsable".to_owned())
         );
         assert!(
             finding.context.iter().any(|(key, _)| key == "error"),

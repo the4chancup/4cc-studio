@@ -37,7 +37,9 @@ pub(crate) enum Code {
     ExportExtractFailed,
     /// An entry inside the old format's folders that no step migrates
     /// (step 10), entry by entry; a leftover outside them is
-    /// `leftover_dropped`.
+    /// `leftover_dropped`. Its context opens with `reason`, the cause
+    /// from `UnmigratedReason`'s closed set, then `other`, the other
+    /// candidate's input path, where two candidates claim one place.
     UnmigratedContent,
     /// The last line: nothing above Info, nothing dropped but a leftover.
     MigrationClean,
@@ -183,6 +185,170 @@ impl Code {
     ];
 }
 
+/// The cause an `unmigrated_content` finding names in its `reason`
+/// context (step 10, and `plans/export_upgrader.md` "One addition to step
+/// 10"): one variant per cause — two sites reporting the same cause
+/// share the variant. Where two candidates claim one place the finding
+/// also carries `other`, the other candidate's input path.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum UnmigratedReason {
+    /// A face folder's name gives no slot 01-23 (`XXX24`, `ab15x`): the
+    /// whole folder is refused.
+    SlotInvalid,
+    /// A second face folder claims a slot already taken (`other` the
+    /// first folder's input path).
+    SlotTaken,
+    /// Two portraits claim one player: a second `Portraits/` file of one
+    /// slot, or a second `*portrait.dds` inside one face folder (`other`
+    /// the other candidate's input path).
+    PortraitTaken,
+    /// An item folder's name is no `k`/`g` + four digits (`K0430`,
+    /// `k430`): the whole folder is refused.
+    IdInvalid,
+    /// A second boots or gloves folder carries one ID (`other` the first
+    /// folder's input path).
+    IdTaken,
+    /// Loose mode cannot place the folder's ID: it sits on a spare
+    /// position of its kind's inferred block, or past it (step 11).
+    LooseUnplaceable,
+    /// A `Kit Configs` file's name is no config name
+    /// (`???_DEF_<ordinal>_realUni.bin`).
+    ConfigNameInvalid,
+    /// A `Kit Configs` file sits deeper than the one subfolder the old
+    /// layout flattened.
+    ConfigTooDeep,
+    /// A second config of one kit slot, its bytes different (`other` the
+    /// kept config's input path).
+    ConfigTaken,
+    /// A kit config does not decode (`error` the failure).
+    ConfigUndecodable,
+    /// A Note player kit entry past the ninth has no Studio kit slot
+    /// (`line` the entry).
+    KitEntryPastNinth,
+    /// A Note color entry's colors do not read, a team-color entry's or
+    /// a kit entry's (`line` the entry).
+    ColorsUnreadable,
+    /// An image file does not decode: a kit `.ftex` that fails its
+    /// conversion or a `Logo/` member's PNG (`error` the failure).
+    TextureUndecodable,
+    /// A second kit texture lands on one output name (`other` the kept
+    /// texture's input path).
+    TextureNameTaken,
+    /// A `Logo/` entry that is no member: a file in a subfolder, or a
+    /// name ending in no `_r_ll`/`_r_l`/`_r` role.
+    LogoMemberInvalid,
+    /// A second `Logo/` member claims one role (`other` the kept
+    /// member's input path).
+    LogoRoleTaken,
+    /// An `.mtl` does not parse even dropping stray text (`error` the
+    /// reader's failure).
+    MtlUnparsable,
+    /// A referee folder's `common/` model no `face.xml` of the referee
+    /// names (step 12).
+    ModelUnreferenced,
+    /// Two locations' files land on one name in a flattened referee
+    /// folder, the bytes different (`other` the other file's input path).
+    NameTaken,
+    /// Two locations' texture files land on one stem in a flattened
+    /// referee folder (`other` the other file's input path).
+    StemTaken,
+    /// A referee folder nests the old layout inside itself
+    /// (`face/face/`): the fold would re-create the layout the compiler
+    /// refuses.
+    NestedLayout,
+    /// A referee export's `refs.txt` is not UTF-8: no `players.txt` can
+    /// be written.
+    RosterNotUtf8,
+    /// A second Note-named file sits at the export's root (`other` the
+    /// kept Note's path).
+    NoteTaken,
+    /// No step's folder claims the file: one directly in `Players/` or
+    /// below a top-level folder this export kind does not read, or one at
+    /// a model-folder input's top level.
+    Unclaimed,
+    /// Two inputs land on one output path once renamed or respelled
+    /// (`other` the kept input's path).
+    PathTaken,
+    /// Model-folder mode: a top-level folder's name cleans to nothing it
+    /// can be published under.
+    FolderNameInvalid,
+    /// Model-folder mode: a top-level folder holds no file directly in
+    /// it (empty, or the converters' two-level layout).
+    NoDirectFiles,
+    /// Model-folder mode: two top-level folders publish under one name
+    /// (`other` the kept folder's input name).
+    FolderNameTaken,
+}
+
+impl UnmigratedReason {
+    /// The `reason` context's value, as the console prints it.
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            UnmigratedReason::SlotInvalid => "slot_invalid",
+            UnmigratedReason::SlotTaken => "slot_taken",
+            UnmigratedReason::PortraitTaken => "portrait_taken",
+            UnmigratedReason::IdInvalid => "id_invalid",
+            UnmigratedReason::IdTaken => "id_taken",
+            UnmigratedReason::LooseUnplaceable => "loose_unplaceable",
+            UnmigratedReason::ConfigNameInvalid => "config_name_invalid",
+            UnmigratedReason::ConfigTooDeep => "config_too_deep",
+            UnmigratedReason::ConfigTaken => "config_taken",
+            UnmigratedReason::ConfigUndecodable => "config_undecodable",
+            UnmigratedReason::KitEntryPastNinth => "kit_entry_past_ninth",
+            UnmigratedReason::ColorsUnreadable => "colors_unreadable",
+            UnmigratedReason::TextureUndecodable => "texture_undecodable",
+            UnmigratedReason::TextureNameTaken => "texture_name_taken",
+            UnmigratedReason::LogoMemberInvalid => "logo_member_invalid",
+            UnmigratedReason::LogoRoleTaken => "logo_role_taken",
+            UnmigratedReason::MtlUnparsable => "mtl_unparsable",
+            UnmigratedReason::ModelUnreferenced => "model_unreferenced",
+            UnmigratedReason::NameTaken => "name_taken",
+            UnmigratedReason::StemTaken => "stem_taken",
+            UnmigratedReason::NestedLayout => "nested_layout",
+            UnmigratedReason::RosterNotUtf8 => "roster_not_utf8",
+            UnmigratedReason::NoteTaken => "note_taken",
+            UnmigratedReason::Unclaimed => "unclaimed",
+            UnmigratedReason::PathTaken => "path_taken",
+            UnmigratedReason::FolderNameInvalid => "folder_name_invalid",
+            UnmigratedReason::NoDirectFiles => "no_direct_files",
+            UnmigratedReason::FolderNameTaken => "folder_name_taken",
+        }
+    }
+
+    /// Every reason, for the uniqueness test.
+    #[cfg(test)]
+    const ALL: &'static [UnmigratedReason] = &[
+        UnmigratedReason::SlotInvalid,
+        UnmigratedReason::SlotTaken,
+        UnmigratedReason::PortraitTaken,
+        UnmigratedReason::IdInvalid,
+        UnmigratedReason::IdTaken,
+        UnmigratedReason::LooseUnplaceable,
+        UnmigratedReason::ConfigNameInvalid,
+        UnmigratedReason::ConfigTooDeep,
+        UnmigratedReason::ConfigTaken,
+        UnmigratedReason::ConfigUndecodable,
+        UnmigratedReason::KitEntryPastNinth,
+        UnmigratedReason::ColorsUnreadable,
+        UnmigratedReason::TextureUndecodable,
+        UnmigratedReason::TextureNameTaken,
+        UnmigratedReason::LogoMemberInvalid,
+        UnmigratedReason::LogoRoleTaken,
+        UnmigratedReason::MtlUnparsable,
+        UnmigratedReason::ModelUnreferenced,
+        UnmigratedReason::NameTaken,
+        UnmigratedReason::StemTaken,
+        UnmigratedReason::NestedLayout,
+        UnmigratedReason::RosterNotUtf8,
+        UnmigratedReason::NoteTaken,
+        UnmigratedReason::Unclaimed,
+        UnmigratedReason::PathTaken,
+        UnmigratedReason::FolderNameInvalid,
+        UnmigratedReason::NoDirectFiles,
+        UnmigratedReason::FolderNameTaken,
+    ];
+}
+
 /// Every code this tool emits, with its severity and its member-facing
 /// `when`/`effect`: the tool's own, then the structure pass's
 /// (`aesthetics_export::ISSUE_CODES`) in `ISSUE_CODES` order. A structure-pass
@@ -216,7 +382,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "unmigrated_content",
         Severity::Error,
-        r#"An entry inside the old format's folders that reached the game and that no migration covers: two candidates for one place (a second face folder of one slot, two portraits of one), a whole folder under a name the old format refuses, a Note entry whose colors do not read, a kit config that does not decode."#,
+        r#"An entry inside the old format's folders that reached the game and that no migration covers: two candidates for one place (a second face folder of one slot, two portraits of one), a whole folder under a name the old format refuses, a Note entry whose colors do not read, a kit config that does not decode. The line names the cause, and, where another entry took the place, that entry's path."#,
         r#"The entry is not migrated; the run is not clean, so nothing is written. Fix it in the old export and upgrade again."#,
     ),
     (
@@ -693,6 +859,25 @@ pub(crate) fn tool_message(
     message(code.as_str(), scope, disposition, context)
 }
 
+/// `unmigrated_content` on `scope` with `disposition` (step 10): `reason`
+/// names the cause first in the context; `other`, the other candidate's
+/// input path, follows where two candidates claim one place; the site's
+/// own context (`line`, `error`) last.
+pub(crate) fn unmigrated(
+    scope: Scope,
+    disposition: Disposition,
+    reason: UnmigratedReason,
+    other: Option<String>,
+    context: Vec<(&'static str, String)>,
+) -> Message {
+    let mut context = context;
+    if let Some(other) = other {
+        context.insert(0, ("other", other));
+    }
+    context.insert(0, ("reason", reason.as_str().to_owned()));
+    tool_message(Code::UnmigratedContent, scope, disposition, context)
+}
+
 /// `export_extract_failed` on `export_id` for `failure`: the archive does not
 /// open or its listing is refused, nothing is written (`path`, `error`).
 pub(crate) fn extract_failed(export_id: ExportId, failure: SourceFailure) -> Message {
@@ -860,18 +1045,75 @@ mod tests {
 
     #[test]
     fn a_message_carries_its_code_severity_scope_and_context() {
-        let message = tool_message(
-            Code::UnmigratedContent,
+        let message = unmigrated(
             Scope::File {
                 export_id: ExportId(1),
                 path: vtree::ScopePath::new("Other/readme.txt").unwrap(),
             },
             Disposition::DropFile,
+            UnmigratedReason::Unclaimed,
+            None,
             vec![],
         );
         assert_eq!(message.code.tool_id, "export-upgrader");
         assert_eq!(message.code.code, "unmigrated_content");
         assert_eq!(message.severity, Severity::Error);
+    }
+
+    #[test]
+    fn unmigrated_places_reason_then_other_then_the_sites_fields() {
+        let message = unmigrated(
+            Scope::File {
+                export_id: ExportId(1),
+                path: vtree::ScopePath::new("Kit Configs/714/XXX_DEF_1st_realUni.bin").unwrap(),
+            },
+            Disposition::DropFile,
+            UnmigratedReason::ConfigTaken,
+            Some("Kit Configs/XXX_DEF_1st_realUni.bin".to_owned()),
+            vec![("error", "denied".to_owned())],
+        );
+        assert_eq!(
+            message.context,
+            vec![
+                ("reason".to_owned(), "config_taken".to_owned()),
+                (
+                    "other".to_owned(),
+                    "Kit Configs/XXX_DEF_1st_realUni.bin".to_owned()
+                ),
+                ("error".to_owned(), "denied".to_owned()),
+            ]
+        );
+        // Without a second candidate `other` is absent, not empty.
+        let message = unmigrated(
+            Scope::Run,
+            Disposition::DropFile,
+            UnmigratedReason::ColorsUnreadable,
+            None,
+            vec![("line", "- 2nd: blue".to_owned())],
+        );
+        assert_eq!(
+            message.context,
+            vec![
+                ("reason".to_owned(), "colors_unreadable".to_owned()),
+                ("line".to_owned(), "- 2nd: blue".to_owned()),
+            ]
+        );
+    }
+
+    #[test]
+    fn every_reason_names_one_cause_in_snake_case() {
+        let mut seen = std::collections::BTreeSet::new();
+        for reason in UnmigratedReason::ALL {
+            let value = reason.as_str();
+            assert!(
+                !value.is_empty()
+                    && value
+                        .chars()
+                        .all(|c| c.is_ascii_lowercase() || c.is_ascii_digit() || c == '_'),
+                "{value} is not snake_case"
+            );
+            assert!(seen.insert(value), "duplicate reason value: {value}");
+        }
     }
 
     #[test]

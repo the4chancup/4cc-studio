@@ -202,13 +202,15 @@ follow. Step 13's scenarios are written with Phase 7.
 staging folder left by an earlier run, which aborted, is replaced by EU-CLI-10.
 
 ```
-EU-REP-05  GIVEN an old export holding two face folders of one slot ("XXX05 - Bob" and
-                 "XXX05 - Bob old"), and in turn one whose Kit Textures/ holds an FTEX that does
-                 not convert
-           WHEN it is upgraded
-           THEN each unmigrated_content line carries its reason, the face folders' also
-                `other` naming the other folder's input path, and the texture's its error;
-                every reason value the crate emits is reached by a test
+EU-REP-05  GIVEN EU-PLY-10's export: face folders "XXX23 - Bahsaka" and "XXX23 - Smug
+                 Redman", boots folders "k0430 - A" and "k0430 - B", and the misnamed
+                 "XXX24 - Ann" and "K0431 - Rex"
+           WHEN it is upgraded with its save
+           THEN each unmigrated_content line carries its reason: the second face folder
+                slot_taken with `other` naming "Faces/XXX23 - Bahsaka", the second boots folder
+                id_taken with `other` "Boots/k0430 - A", the two misnamed slot_invalid and
+                id_invalid with no `other`; every reason value the crate emits is reached by
+                a test
 EU-CLI-09  GIVEN EU-CLI-01's exports
            WHEN each is upgraded
            THEN each team export's report holds coverage_tag_chosen with its tag and source

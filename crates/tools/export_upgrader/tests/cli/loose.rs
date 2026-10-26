@@ -90,8 +90,8 @@ fn the_ids_naming_no_player_are_unmigrated_content() {
     assert_eq!(run.exit_code(), 1);
     let stdout = run.stdout();
     for line in [
-        "- a Spring: Error unmigrated_content at Boots/k0149\n",
-        "- a Spring: Error unmigrated_content at Boots/k0155\n",
+        "- a Spring: Error unmigrated_content at Boots/k0149 (reason=loose_unplaceable)\n",
+        "- a Spring: Error unmigrated_content at Boots/k0155 (reason=loose_unplaceable)\n",
     ] {
         assert!(stdout.contains(line), "{line:?} not in:\n{stdout}");
     }

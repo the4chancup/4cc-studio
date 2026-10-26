@@ -209,13 +209,20 @@ fn one_name_with_different_bytes_leaves_the_referee_folder_as_it_was() {
 
     let run = upgrade(&sandbox, "refs Spring");
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
-    for path in [
-        "Players/arbiter/boots/x.dds",
-        "Players/arbiter/gloves/x.dds",
+    for (path, other) in [
+        (
+            "Players/arbiter/boots/x.dds",
+            "Players/arbiter/gloves/x.dds",
+        ),
+        (
+            "Players/arbiter/gloves/x.dds",
+            "Players/arbiter/boots/x.dds",
+        ),
     ] {
         assert!(
-            run.stdout()
-                .contains(&format!("unmigrated_content at {path}")),
+            run.stdout().contains(&format!(
+                "unmigrated_content at {path} (reason=name_taken, other={other})"
+            )),
             "{path}: {}",
             run.stdout()
         );
@@ -259,7 +266,7 @@ fn a_nested_face_leaves_the_referee_folder_unmigrated() {
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
     assert!(
         run.stdout()
-            .contains("unmigrated_content at Players/eiki/face/face"),
+            .contains("unmigrated_content at Players/eiki/face/face (reason=nested_layout)"),
         "{}",
         run.stdout()
     );
@@ -282,8 +289,9 @@ fn a_common_model_no_face_xml_names_is_reported_and_left_out() {
     let run = upgrade(&sandbox, "refs Spring");
     assert_eq!(run.exit_code(), 1, "{}", run.stdout());
     assert!(
-        run.stdout()
-            .contains("unmigrated_content at Players/arbiter/common/parts_body.model"),
+        run.stdout().contains(
+            "unmigrated_content at Players/arbiter/common/parts_body.model (reason=model_unreferenced)"
+        ),
         "{}",
         run.stdout()
     );

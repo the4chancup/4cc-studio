@@ -6,7 +6,7 @@
 //! `Common/…`), the write alone taking the `Players`/`Boots`/`Gloves` level
 //! off.
 
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use aesthetics_export::{FileKind, IssueScope, Marker, ValidationIssue, classify};
 use anyhow::anyhow;
@@ -20,7 +20,8 @@ use crate::face_xml::{face_xml_rewrites, kept_common_files};
 use crate::kit_magic::{drop_collisions, respell_outputs};
 use crate::materials::material_references;
 use crate::messages::{
-    Code, INPUT, OUTPUT, extract_failed, issue_message, read_failed, tool_message,
+    Code, INPUT, OUTPUT, UnmigratedReason, extract_failed, issue_message, read_failed,
+    tool_message, unmigrated,
 };
 use crate::model_names::rename_models;
 use crate::players::{
@@ -131,13 +132,15 @@ pub(crate) fn model_folder_plan(files: &[String], folders: &[String]) -> ModelFo
     for file in files {
         match file.split_once('/') {
             Some((top, _)) => groups.entry(top.to_owned()).or_default().push(file),
-            None => plan.findings.push(tool_message(
-                Code::UnmigratedContent,
+            // A file at the input's top level is no model folder's.
+            None => plan.findings.push(unmigrated(
                 Scope::File {
                     export_id: INPUT,
                     path: path_scope(file),
                 },
                 Disposition::DropFile,
+                UnmigratedReason::Unclaimed,
+                None,
                 vec![],
             )),
         }
@@ -150,24 +153,35 @@ pub(crate) fn model_folder_plan(files: &[String], folders: &[String]) -> ModelFo
             groups.entry(folder.clone()).or_default();
         }
     }
-    // The published names taken so far, folded: they all sit at the output's
-    // top level whatever their destination, so a face folder `Crocs` clashes
-    // with `k0430 - Crocs` and `common` with `Common`.
-    let mut taken: BTreeSet<String> = BTreeSet::new();
+    // The published names taken so far, folded, each to the input folder's
+    // name: they all sit at the output's top level whatever their
+    // destination, so a face folder `Crocs` clashes with `k0430 - Crocs` and
+    // `common` with `Common`.
+    let mut taken: BTreeMap<String, String> = BTreeMap::new();
     for (name, group) in groups {
-        let refused = |plan: &mut ModelFolderPlan| {
-            plan.findings.push(tool_message(
-                Code::UnmigratedContent,
-                Scope::Folder {
-                    export_id: INPUT,
-                    path: path_scope(&name),
-                },
-                Disposition::DropFolder,
-                vec![],
-            ));
-        };
+        let refused =
+            |plan: &mut ModelFolderPlan, reason: UnmigratedReason, other: Option<String>| {
+                plan.findings.push(unmigrated(
+                    Scope::Folder {
+                        export_id: INPUT,
+                        path: path_scope(&name),
+                    },
+                    Disposition::DropFolder,
+                    reason,
+                    other,
+                    vec![],
+                ));
+            };
         let Some((destination, published_name)) = placed_folder(&name) else {
-            refused(&mut plan);
+            // `check_paths` keeps an un-scopable name from reaching here;
+            // the export carries the finding, `name` naming the folder.
+            plan.findings.push(unmigrated(
+                Scope::Export { export_id: INPUT },
+                Disposition::DropFolder,
+                UnmigratedReason::FolderNameInvalid,
+                None,
+                vec![("name", name.clone())],
+            ));
             continue;
         };
         // A folder holding no file directly in it is no model folder: one
@@ -178,13 +192,15 @@ pub(crate) fn model_folder_plan(files: &[String], folders: &[String]) -> ModelFo
             .iter()
             .any(|file| !file[name.len() + 1..].contains('/'));
         if !has_file {
-            refused(&mut plan);
+            refused(&mut plan, UnmigratedReason::NoDirectFiles, None);
             continue;
         }
-        if !taken.insert(vtree::fold_name(&published_name)) {
-            refused(&mut plan);
+        if let Some(first) = taken.get(&vtree::fold_name(&published_name)) {
+            let first = first.clone();
+            refused(&mut plan, UnmigratedReason::FolderNameTaken, Some(first));
             continue;
         }
+        taken.insert(vtree::fold_name(&published_name), name.clone());
         // Step 10's stray rule: a classify-unknown file no package read
         // is dropped as a leftover rather than staged into a folder the
         // strict output check would refuse. A Boots or Gloves destination
@@ -592,8 +608,8 @@ mod tests {
     }
 
     /// The refusal of a group: `unmigrated_content`, folder scope on `INPUT`,
-    /// `DropFolder`, no context.
-    fn assert_refused(message: &Message, folder: &str) {
+    /// `DropFolder`, `reason` and `other` in the context.
+    fn assert_refused(message: &Message, folder: &str, reason: &str, other: Option<&str>) {
         assert_eq!(message.code.code.as_ref(), "unmigrated_content");
         assert_eq!(
             message.scope,
@@ -603,7 +619,11 @@ mod tests {
             }
         );
         assert_eq!(message.disposition, Disposition::DropFolder);
-        assert!(message.context.is_empty());
+        let mut context = vec![("reason".to_owned(), reason.to_owned())];
+        if let Some(other) = other {
+            context.push(("other".to_owned(), other.to_owned()));
+        }
+        assert_eq!(message.context, context);
     }
 
     #[test]
@@ -618,9 +638,9 @@ mod tests {
             &folders,
         );
         assert_eq!(plan.findings.len(), 3, "{:?}", plan.findings);
-        assert_refused(&plan.findings[0], "Common");
-        assert_refused(&plan.findings[1], "Empty");
-        assert_refused(&plan.findings[2], "players");
+        assert_refused(&plan.findings[0], "Common", "no_direct_files", None);
+        assert_refused(&plan.findings[1], "Empty", "no_direct_files", None);
+        assert_refused(&plan.findings[2], "players", "no_direct_files", None);
         assert_eq!(plan.folders, [placed("Textures", Destination::Players)]);
         assert_eq!(
             plan.copies,
@@ -672,7 +692,12 @@ mod tests {
             )]
         );
         assert_eq!(plan.findings.len(), 1, "{:?}", plan.findings);
-        assert_refused(&plan.findings[0], "XXX15 - A");
+        assert_refused(
+            &plan.findings[0],
+            "XXX15 - A",
+            "folder_name_taken",
+            Some("71415 - A"),
+        );
 
         // A face folder `Crocs` and `k0430 - Crocs` both publish `Crocs`
         // beside each other at the output's top level.
@@ -689,7 +714,12 @@ mod tests {
             )]
         );
         assert_eq!(plan.findings.len(), 1, "{:?}", plan.findings);
-        assert_refused(&plan.findings[0], "k0430 - Crocs");
+        assert_refused(
+            &plan.findings[0],
+            "k0430 - Crocs",
+            "folder_name_taken",
+            Some("Crocs"),
+        );
 
         // Letter case aside: `k0430 - crocs` still publishes `Crocs`'s name.
         let plan = model_folder_plan(
@@ -698,7 +728,12 @@ mod tests {
         );
         assert_eq!(plan.folders, [placed("Crocs", Destination::Players)]);
         assert_eq!(plan.findings.len(), 1, "{:?}", plan.findings);
-        assert_refused(&plan.findings[0], "k0430 - crocs");
+        assert_refused(
+            &plan.findings[0],
+            "k0430 - crocs",
+            "folder_name_taken",
+            Some("Crocs"),
+        );
     }
 
     #[test]
@@ -715,7 +750,32 @@ mod tests {
             }
         );
         assert_eq!(message.disposition, Disposition::DropFile);
-        assert!(message.context.is_empty());
+        assert_eq!(
+            message.context,
+            [("reason".to_owned(), "unclaimed".to_owned())]
+        );
+        assert!(plan.folders.is_empty());
+        assert!(plan.copies.is_empty());
+    }
+
+    #[test]
+    fn a_folder_name_cleaning_to_nothing_is_refused() {
+        // `?` is no folder-name character: nothing publishable is left.
+        // The name cannot scope a folder, so the export carries the
+        // finding and `name` names it.
+        let plan = model_folder_plan(&files(&["???/face.fmdl"]), &[]);
+        assert_eq!(plan.findings.len(), 1, "{:?}", plan.findings);
+        let message = &plan.findings[0];
+        assert_eq!(message.code.code.as_ref(), "unmigrated_content");
+        assert_eq!(message.scope, Scope::Export { export_id: INPUT });
+        assert_eq!(message.disposition, Disposition::DropFolder);
+        assert_eq!(
+            message.context,
+            [
+                ("reason".to_owned(), "folder_name_invalid".to_owned()),
+                ("name".to_owned(), "???".to_owned()),
+            ]
+        );
         assert!(plan.folders.is_empty());
         assert!(plan.copies.is_empty());
     }
