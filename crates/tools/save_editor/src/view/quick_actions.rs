@@ -5,16 +5,20 @@
 //! Set stats cell — the Player menu's Set all stats in one click, 40 to 99.
 //! They act on the selected player, so a team row leaves them disabled with
 //! the reason on hover. A rules file that does not load leaves Set stats
-//! alone in the grid, the load error one line above it across the list's
-//! width, elided, its whole text on hover (the Cards left row shows it
-//! whole); a failed `apply_tier` leaves the player as he was and shows the
-//! error in the refusal dialog. The floating AATF panel opens from the
+//! alone in the grid, a red line above it whose click opens the error in
+//! the refusal dialog; a failed `apply_tier` leaves the player as he was
+//! and shows the error there too. The floating AATF panel opens from the
 //! toolbar's Panels menu.
 
-use crate::view::{Refusal, SaveView, rules_load_error, selected_player};
+use crate::view::{Refusal, SaveView, selected_player};
 
 /// The disabled controls' tooltip on a team selection.
 const TEAM_TIP: &str = "The make buttons act on a player: pick a player row";
+
+/// The line the load error draws in the tier buttons' place: it opens
+/// the error itself in the refusal dialog (the draft's `.qaerr`).
+const RULES_LOAD_ERROR_LINE: &str =
+    "The AATF rules file could not be loaded, click here for more information.";
 
 /// The grid's column gap (the draft's `.qagrid` gap): `column_widths`
 /// subtracts it too, so the spacing and the widths share the constant.
@@ -55,10 +59,27 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                 (column_widths(&widths, ui.available_width()), 0, set_stats)
             }
         };
-    // The load error is one line across the list's width, elided, its
-    // whole text on hover (egui's own elided-label tooltip).
+    // The load error is a red line wrapped across the list's width (three
+    // lines at the default 240), the pointing hand on hover, its click
+    // opening the error in the refusal dialog (the draft's `.qaerr`):
+    // about 160 characters, the text itself would take ten lines.
     if let Some(Err(error)) = view.rules.as_ref().map(|active| &active.rules) {
-        ui.add(egui::Label::new(egui::RichText::new(rules_load_error(error)).weak()).truncate());
+        let message = error.clone();
+        let response = ui
+            .add(
+                egui::Label::new(
+                    egui::RichText::new(RULES_LOAD_ERROR_LINE).color(ui.visuals().error_fg_color),
+                )
+                .wrap()
+                .sense(egui::Sense::click()),
+            )
+            .on_hover_cursor(egui::CursorIcon::PointingHand);
+        if response.clicked() {
+            view.refusal = Some(Refusal {
+                title: "The AATF rules file could not be loaded",
+                message,
+            });
+        }
     }
     let height = ui.spacing().interact_size.y;
     egui::Grid::new("save_editor_quick_actions")

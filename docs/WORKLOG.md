@@ -2756,10 +2756,14 @@ briefs, review loops, gates and mutation runs as for any step.
       tooltip off); it now counts against the resting frame. Files: `team_widgets/src/cards.rs`,
       `save_editor/src/view/{abilities,quick_actions}.rs`, `help/{02_window,05_team}.md`, the
       tests
-    - [ ] s3h a rules error is a red line whose click opens the error (the maintainer's look at
+    - [x] s3h a rules error is a red line whose click opens the error (the maintainer's look at
       the draft, 2026-10-26; DECISIONS "A rules load error is a red line whose click opens the
       error"): the quick actions' line and its dialog, no Cards left badge on a load error, the
-      tier check's failure in the same shape (`.tmp/0_0_1s/brief_0_0_1s3h.md`). Owed from
+      tier check's failure in the same shape (`.tmp/0_0_1s/brief_0_0_1s3h.md`). Done
+      2026-10-26 (SWE-2): both lines through the view's refusal dialog (`skills_panel` takes
+      `&mut Option<Refusal>`); the sidekick's contradiction: egui wraps the message to three
+      lines at 240 points (the draft two), plan and test follow the measure. Files:
+      `view/{quick_actions,abilities,mod}.rs`, the tests. Owed from
       s3g's `mutants-diff 7e3bc047` (2 missed, both `cards::TWO_COLUMN_WIDTH`'s arithmetic:
       the narrow-pane test sizes its window from the constant, so it moves with it): a test
       pinning the width at the draft's 330 (two 158-point columns 14 apart, `.skcols`), with

@@ -719,7 +719,7 @@ pub(crate) fn edit_team(
 }
 
 /// The line drawn where the ruleset's controls would stand when the active
-/// rules file did not load: the Cards left row and the quick actions
+/// rules file did not load: the AATF panel's list and the Live AATF dock
 /// share the one wording.
 pub(crate) fn rules_load_error(error: &str) -> String {
     format!("The AATF rules file could not be loaded: {error}")

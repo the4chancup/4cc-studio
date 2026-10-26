@@ -1,32 +1,34 @@
 use super::*;
 
-/// The load error the Cards left row draws: the error label inside the
-/// Skills column (its x at the "Skills" heading's or right of it), at the
-/// "Cards left" heading's height or below it (the error wraps to the
-/// lines under the heading when the pane is narrow). The quick actions
-/// draw the same text at the list's bottom, and their copy must not pass
-/// for the row's.
-fn cards_left_error(nodes: &[accesskit::Node]) -> Option<&accesskit::Node> {
-    let heading = nodes
-        .iter()
-        .find(|node| node.role() == Role::Label && node.value() == Some("Cards left"))
-        .and_then(accesskit::Node::bounds)
-        .map(|bounds| bounds.y0)
-        .expect("the Cards left heading");
-    let column_x0 = nodes
+/// The bounds of the Skills column's header (`ui.strong("Skills")`):
+/// what the Cards left row's tests scope to.
+fn skills_header(nodes: &[accesskit::Node]) -> accesskit::Rect {
+    nodes
         .iter()
         .find(|node| node.role() == Role::Label && node.value() == Some("Skills"))
         .and_then(accesskit::Node::bounds)
-        .map(|bounds| bounds.x0)
-        .expect("the Skills heading");
-    nodes.iter().find(|node| {
+        .expect("the Skills heading")
+}
+
+/// Whether the Skills column draws a Label with `value` (the column's x
+/// at the header's or right of it).
+fn in_skills_column(nodes: &[accesskit::Node], value: &str) -> bool {
+    let column_x0 = skills_header(nodes).x0;
+    nodes.iter().any(|node| {
         node.role() == Role::Label
-            && node
-                .value()
-                .is_some_and(|value| value.starts_with("The AATF rules file could not be loaded:"))
-            && node
-                .bounds()
-                .is_some_and(|b| b.y0 >= heading - 1.0 && b.x0 >= column_x0 - 1.0)
+            && node.value() == Some(value)
+            && node.bounds().is_some_and(|b| b.x0 >= column_x0 - 1.0)
+    })
+}
+
+/// Whether the Skills column draws a Label whose value starts with
+/// `prefix`.
+fn in_skills_column_prefixed(nodes: &[accesskit::Node], prefix: &str) -> bool {
+    let column_x0 = skills_header(nodes).x0;
+    nodes.iter().any(|node| {
+        node.role() == Role::Label
+            && node.value().is_some_and(|v| v.starts_with(prefix))
+            && node.bounds().is_some_and(|b| b.x0 >= column_x0 - 1.0)
     })
 }
 
@@ -761,8 +763,7 @@ fn an_out_of_range_value_draws_as_stored_without_marking_the_player() {
 // plans/save_editor.md "Editing UI", the Cards left bullet: one badge, the
 // player's own tier under the active ruleset (`label: left of limit
 // cards`, `limit - paid`); a ticked skill that no free group covers lowers
-// it by one; the `aatf_rules` file's reading is the badge's; a file that
-// does not load shows its error instead.
+// it by one; the `aatf_rules` file's reading is the badge's.
 #[test]
 fn the_cards_left_badge_reads_the_players_own_tier() {
     /// The badge text `rules` reads for team 701's roster `slot` on the
@@ -1012,11 +1013,11 @@ fn a_player_no_tier_matches_gets_the_stand_in() {
 }
 
 // The same bullet: a rules file that loads but whose `player_tier` fails on
-// the selected player (a member's own logic edit) shows the error in the
-// badge's place — not `No tier matches`, which would tell him the opposite,
-// and not nothing, since the AATF check never runs `player_tier` and would
-// not report it — and the failure is kept under its key like a badge, so the
-// failing script does not run again on every frame.
+// the selected player (a member's own logic edit) draws the red click line
+// in the badge's place, not `No tier matches` (which would tell him the
+// opposite), whose click opens the error; and the failure is kept under
+// its key like a badge, so the failing script does not run again on every
+// frame.
 #[test]
 fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
     let path = fixture(PesVersion::Pes21, "cards_left_failing_check");
@@ -1051,43 +1052,70 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
         );
     }
     let mut window = Headless::sized(1100.0, 700.0);
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
+    });
+    // `Cards left`, then the red click line in the badge's place.
+    const LINE: &str = "Tier check failed, click for more information.";
+    let error_node = {
+        let column_x0 = skills_header(&nodes).x0;
+        nodes
+            .iter()
+            .find(|node| {
+                node.role() == Role::Label
+                    && node.value() == Some(LINE)
+                    && node.bounds().is_some_and(|b| b.x0 >= column_x0 - 1.0)
+            })
+            .expect("the tier check's line in the badge's place")
+    };
+    let style = window.ctx.style_of(window.ctx.theme());
+    assert_eq!(
+        galley_color(text_shape(&shapes, LINE)),
+        style.visuals.error_fg_color,
+        "the line in the error colour"
+    );
+    assert!(
+        in_skills_column(&nodes, "Cards left"),
+        "Cards left heads it"
+    );
+    assert!(
+        !in_skills_column(&nodes, "No tier matches"),
+        "no stand-in beside it"
+    );
+    let expected = match view.cards.as_ref() {
+        Some((_, crate::view::OwnBadge::Failed(error))) => error.clone(),
+        _ => panic!("the failure is kept under its key"),
+    };
+    assert!(
+        expected.contains("the tier check fails"),
+        "premise: the check's error: {expected}"
+    );
+
+    // Its click opens the refusal dialog with the check's own error.
+    click_rules(
+        &mut window,
+        &mut view,
+        error_node,
+        Some(rules_path.as_path()),
+    );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
     });
-    // The row's texts: its heading, the badge's or the error's.
-    let row: Vec<&str> = nodes
-        .iter()
-        .filter_map(|node| node.value())
-        .filter(|value| {
-            *value == "Cards left"
-                || *value == "No tier matches"
-                || value.ends_with(" cards")
-                || value.starts_with("The AATF rules")
-        })
-        .collect();
     assert!(
-        row.iter().any(|value| {
-            value.starts_with("The AATF rules could not read this player: ")
-                && value.contains("the tier check fails")
-        }),
-        "the check's error in the badge's place, the row drew {row:?}"
+        label_value(&nodes, "The tier check failed"),
+        "the dialog's title"
     );
     assert!(
-        !row.iter()
-            .any(|value| *value == "No tier matches" || value.ends_with(" cards")),
-        "no badge beside it, the row drew {row:?}"
-    );
-    assert!(
-        matches!(view.cards, Some((_, crate::view::OwnBadge::Failed(_)))),
-        "the failure is kept under its key"
+        label_value(&nodes, &expected),
+        "the dialog's body is the check's error"
     );
 }
 
-// The same bullet, read: the error names the file and its parse error, so
-// it wraps inside the pane rather than clip at its right edge (the pane
-// the shell leaves at its smallest default, as `the_view_fits`'s).
+// The same bullet: the Skills header stays clean at the pane the shell
+// leaves at its smallest default too (as `the_view_fits`'s): `Skills`
+// alone, no badge and no error line.
 #[test]
-fn a_rules_files_load_error_wraps_inside_the_pane() {
+fn a_load_error_draws_nothing_in_the_skills_column_at_a_narrow_pane() {
     let path = fixture(
         PesVersion::Pes21,
         "rules_load_error_at_a_path_long_enough_to_need_the_wrap",
@@ -1106,19 +1134,22 @@ fn a_rules_files_load_error_wraps_inside_the_pane() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
     });
-    let error = cards_left_error(&nodes).expect("the load error's row");
-    let bounds = error.bounds().expect("bounds");
     assert!(
-        bounds.x1 <= 877.0,
-        "the load error ends inside the window, drew {bounds:?}"
+        !in_skills_column(&nodes, "Cards left"),
+        "no badge under the load error"
+    );
+    assert!(
+        !in_skills_column_prefixed(&nodes, "The AATF rules file could not be loaded"),
+        "no error line in the Skills column"
     );
 }
 
 // plans/save_editor.md "Editing UI", the Cards left bullet: a file that
-// does not load shows its error in the badge's place, and the rest of the
-// view draws.
+// does not load draws no badge; the quick actions under the list report
+// it, and the error's text would push the header's row apart. The rest
+// of the view draws.
 #[test]
-fn a_rules_file_that_does_not_load_shows_its_error() {
+fn a_rules_file_that_does_not_load_draws_no_badge() {
     let path = fixture(PesVersion::Pes21, "rules_load_error");
     let dir = path.parent().unwrap().to_path_buf();
     let bad = dir.join("bad.rhai");
@@ -1131,8 +1162,16 @@ fn a_rules_file_that_does_not_load_shows_its_error() {
         show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
     });
     assert!(
-        cards_left_error(&nodes).is_some(),
-        "the load error in the Cards left row"
+        in_skills_column(&nodes, "Skills"),
+        "the Skills header draws"
+    );
+    assert!(
+        !in_skills_column(&nodes, "Cards left"),
+        "no badge under the load error"
+    );
+    assert!(
+        !in_skills_column_prefixed(&nodes, "The AATF rules file could not be loaded"),
+        "no error line in the Skills column"
     );
     // The rest of the view draws: a stat control and a skill checkbox.
     right_of_label(&nodes, "Speed", Role::SpinButton);

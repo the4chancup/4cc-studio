@@ -2546,3 +2546,5 @@ worklog passed 7,000 lines.
   were fixed: the quick actions now fit the list without cutting a label, and a player row selects across its width.
 - **2026-10-26** — The Live AATF marks are drafted. In the Save editor, the skill cards narrow to one column on a
   narrow pane, a rules file that does not load shows one line under the list, and the help follows the selected row (0.0.1s3g).
+- **2026-10-26** — A rules file that does not load now says so in red under the list, a click showing the error; a
+  failing tier check does the same in the Skills header (0.0.1s3h).

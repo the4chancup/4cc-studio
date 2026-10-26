@@ -860,7 +860,8 @@ What this editor adds on top of the lib:
   then Set stats with its number, the Player menu's Set all stats in one click (40 to 99). A
   rules file that does not load leaves Set stats alone under the list, and in the tier buttons'
   place `The AATF rules file could not be loaded, click here for more information.` in the
-  error colour, wrapped across the list (two lines at 240 points), its click opening a dialog
+  error colour, wrapped across the list (three lines at 240 points: egui's text runs wider
+  than the draft's, which fits it in two), its click opening a dialog
   titled `The AATF rules file could not be loaded` with the lib's error, the file's path first.
   Not the error itself in the list: about 160 characters, it took ten lines of the list's room
   wrapped, and elided to one line its weak text read as a note, the failure a hover away. The

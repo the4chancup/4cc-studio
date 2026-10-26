@@ -28,8 +28,7 @@ use team_widgets::cards;
 
 use crate::session::Session;
 use crate::view::{
-    ActiveRules, BadgeKey, OwnBadge, SaveView, edit_player, info_strip, rules_load_error,
-    selected_player,
+    ActiveRules, BadgeKey, OwnBadge, Refusal, SaveView, edit_player, info_strip, selected_player,
 };
 
 /// The Profile grid's registered-position combo.
@@ -48,6 +47,10 @@ pub(super) const RATING_LABELS: [(&str, u8); 3] = [("C", 0), ("B", 1), ("A", 2)]
 /// The playable positions' group heading; a diff row's own label starts
 /// from it (`terms::row_term`).
 pub(super) const PLAYABLE_POSITIONS_LABEL: &str = "Playable positions";
+
+/// The line a tier check's failure draws in the badge's place: it opens
+/// the error in the refusal dialog (the quick actions' line's shape).
+const TIER_CHECK_FAILED_LINE: &str = "Tier check failed, click for more information.";
 
 /// The gap between two columns (the draft's `.pcols` `gap`).
 const COLUMN_GAP: f32 = 36.0;
@@ -86,6 +89,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         rules,
         cards: badge,
         generation,
+        refusal,
         ..
     } = view;
     let Some(session) = session.as_mut() else {
@@ -143,8 +147,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
                                 badge,
                                 session,
                                 (team_id, slot),
-                                version,
                                 &mut skills,
+                                refusal,
                             );
                         });
                         panel(ui, spacing, "COM playing styles", |ui| {
@@ -455,10 +459,12 @@ fn ability_stats(ui: &mut egui::Ui, session: &mut Session, player_id: u32, stats
 
 /// The Skills panel's content: the header row's Cards left badge — the
 /// player's own tier's, the tier `Rules::player_tier` reads him as, then
-/// that tier's `card_limits`; no tier matching draws the stand-in, and a
-/// load error or a failed check stands in for the badge — then the
-/// checkboxes in their two columns. Returns whether a card was ticked
-/// this frame. The computed badge lives in `cards` under the `BadgeKey`
+/// that tier's `card_limits`; no tier matching draws the stand-in, a
+/// file that does not load draws nothing (the quick actions report it),
+/// and a check that fails on him draws the red click line that opens the
+/// error in `refusal`, then the checkboxes in their two columns.
+/// Returns whether a card was ticked this frame. The computed badge
+/// lives in `cards` under the `BadgeKey`
 /// it was computed for — a `Session::revision` bump, a selection change
 /// or another rules file recomputes it, and any other frame draws the
 /// kept one.
@@ -468,10 +474,10 @@ fn skills_panel(
     badge: &mut Option<(BadgeKey, OwnBadge)>,
     session: &mut Session,
     (team_id, slot): (u32, u8),
-    version: pes_version::PesVersion,
     skills: &mut PlayerSkills,
+    refusal: &mut Option<Refusal>,
 ) -> bool {
-    let mut load_error = None;
+    let mut load_error = false;
     if let Some(active) = rules {
         match &active.rules {
             Ok(rules) => {
@@ -485,28 +491,43 @@ fn skills_panel(
                     *badge = Some((key, own_badge(rules, session.file(), team_id, slot)));
                 }
             }
-            // The error stands in for the badge: a stale one goes too.
-            Err(error) => {
-                load_error = Some(error.as_str());
+            // The load error draws nothing here (the quick actions under
+            // the list say so, and its text pushed the header's row
+            // apart): a stale badge goes too.
+            Err(_) => {
+                load_error = true;
                 *badge = None;
             }
         }
     }
-    // A file that does not load, or a check that fails on him, shows its
-    // error in the badge's place.
-    let error_text = match (load_error, badge.as_ref()) {
-        (Some(error), _) => Some(rules_load_error(error)),
-        (None, Some((_, OwnBadge::Failed(error)))) => Some(format!(
-            "The AATF rules could not read this player: {error}"
-        )),
+    // A tier check that fails on him draws `Cards left` then a red click
+    // line in the badge's place, opening its error in the refusal dialog
+    // (the AATF check never runs the two functions the badge asks, so a
+    // member's edit that breaks only them would otherwise show nowhere).
+    let tier_error = match badge.as_ref() {
+        Some((_, OwnBadge::Failed(error))) => Some(error.clone()),
         _ => None,
     };
     ui.horizontal_wrapped(|ui| {
         ui.strong("Skills");
-        if let Some(text) = &error_text {
+        if let Some(error) = &tier_error {
             ui.weak("Cards left");
-            ui.weak(text);
-        } else {
+            let response = ui
+                .add(
+                    egui::Label::new(
+                        egui::RichText::new(TIER_CHECK_FAILED_LINE)
+                            .color(ui.visuals().error_fg_color),
+                    )
+                    .sense(egui::Sense::click()),
+                )
+                .on_hover_cursor(egui::CursorIcon::PointingHand);
+            if response.clicked() {
+                *refusal = Some(Refusal {
+                    title: "The tier check failed",
+                    message: error.clone(),
+                });
+            }
+        } else if !load_error {
             match badge.as_ref() {
                 Some((_, OwnBadge::Tier { label, limits })) => cards::cards_left(
                     ui,
@@ -521,7 +542,7 @@ fn skills_panel(
     });
     cards::card_columns(
         ui,
-        version,
+        session.file().version(),
         &mut skills.skills,
         &labels::SKILLS,
         PlayerField::Skill,
