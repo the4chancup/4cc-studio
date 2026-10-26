@@ -83,7 +83,9 @@ fn field(ui: &mut Ui, color: &mut [u8; 3], suggestions: &[[u8; 3]]) -> ColorFiel
         .id(popup_id)
         .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
         .layout(Layout::top_down_justified(Align::Min))
-        .show(|ui| popup_body(ui, &mut state, color, &mut changed, suggestions));
+        .show(|ui| {
+            popup_body(ui, popup_id, &mut state, color, &mut changed, suggestions);
+        });
 
     let is_open = Popup::is_id_open(ui.ctx(), popup_id);
     if was_open && !is_open {
@@ -431,7 +433,7 @@ fn hue_strip(ui: &mut Ui, hsva: &mut Hsva) -> Response {
 }
 
 /// One swatch in a suggestion or recents row: a small square of `rgb` that previews on
-/// hover and commits on click; its label is its hex.
+/// hover; a click commits it and closes the popup. Its label is its hex.
 fn color_swatch(ui: &mut Ui, rgb: [u8; 3]) -> Response {
     let size = vec2(ui.spacing().interact_size.y, ui.spacing().interact_size.y);
     let (rect, response) = ui.allocate_at_least(size, Sense::click());
@@ -479,9 +481,12 @@ fn commit_working(state: &mut PickerState, color: &mut [u8; 3], changed: &mut bo
 }
 
 /// One row of swatches (suggestions or recents): each previews into `hovered` while the
-/// pointer is on it and commits its color on click.
+/// pointer is on it; a click commits its color and closes the popup with it (egui's own
+/// popup close, so the field's ordinary close rules apply), reusing a color being the
+/// rows' common case.
 fn swatch_row(
     ui: &mut Ui,
+    popup_id: egui::Id,
     swatches: &[[u8; 3]],
     hovered: &mut Option<[u8; 3]>,
     state: &mut PickerState,
@@ -495,6 +500,7 @@ fn swatch_row(
         }
         if response.clicked() {
             commit_color(state, color, changed, swatch);
+            Popup::close_id(ui.ctx(), popup_id);
         }
     }
 }
@@ -503,9 +509,12 @@ fn swatch_row(
 /// strip, the hex field, the R/G/B fields, the host's suggestions, the session's recents.
 /// The gesture rule (`plans/libs/color_tools.md` "Color-picker widget (Phase 8)"): a press
 /// on the square, the strip or an R/G/B field previews while held and commits once on
-/// release; a typed value, a committed hex text and a swatch click are one change each.
+/// release; a typed value, a committed hex text and a swatch click are one change each. A
+/// swatch click also closes the popup (`popup_id`); the square, the strip and the fields
+/// keep it open, being the fine-tuning path.
 fn popup_body(
     ui: &mut Ui,
+    popup_id: egui::Id,
     state: &mut PickerState,
     color: &mut [u8; 3],
     changed: &mut bool,
@@ -613,13 +622,21 @@ fn popup_body(
     let mut hovered = None;
     if !suggestions.is_empty() {
         ui.horizontal(|ui| {
-            swatch_row(ui, suggestions, &mut hovered, state, color, changed);
+            swatch_row(
+                ui,
+                popup_id,
+                suggestions,
+                &mut hovered,
+                state,
+                color,
+                changed,
+            );
         });
     }
     let recents = recent_colors(ui.ctx());
     if !recents.is_empty() {
         ui.horizontal(|ui| {
-            swatch_row(ui, &recents, &mut hovered, state, color, changed);
+            swatch_row(ui, popup_id, &recents, &mut hovered, state, color, changed);
         });
     }
 

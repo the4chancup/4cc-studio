@@ -626,6 +626,41 @@ fn a_swatch_click_after_typing_commits_the_text_then_the_swatch() {
     assert_eq!(color, [17, 34, 51], "the swatch's color won");
 }
 
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a swatch click while
+// the hex field holds a pending text settles the text first, then the swatch
+// commits and the popup closes with it.
+#[test]
+fn a_swatch_click_with_a_pending_hex_commits_the_swatch_and_closes() {
+    let mut window = Headless::new();
+    let mut color = [0, 0, 0];
+    let suggestions = [[68, 85, 102]];
+    let (nodes, _) = window.field(&mut color, &suggestions, Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &suggestions);
+    let (nodes, _) = window.field(&mut color, &suggestions, Vec::new());
+    window.click_at(centre(hex_field(&nodes)), &mut color, &suggestions);
+    window.field(&mut color, &suggestions, type_text("#00FF00"));
+    assert_eq!(color, [0, 0, 0], "the typed text is still pending");
+
+    let swatch = centre(entry(&nodes, "#445566"));
+    let (_, out) = window.field(&mut color, &suggestions, pointer_at(swatch, true));
+    assert!(out.changed, "the press settles the typed text");
+    assert_eq!(color, [0, 255, 0], "the typed color landed");
+    let (_, out) = window.field(&mut color, &suggestions, pointer_at(swatch, false));
+    assert!(out.changed, "the release commits the swatch");
+    assert_eq!(color, [68, 85, 102], "the swatch's color won");
+
+    let (nodes, _) = window.field(&mut color, &suggestions, Vec::new());
+    assert!(
+        !nodes.iter().any(|n| n.role() == Role::TextInput),
+        "the swatch click closed the popup"
+    );
+    assert_eq!(
+        recent_colors(&window.ctx),
+        vec![[68, 85, 102]],
+        "the close color joined the recents"
+    );
+}
+
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a drag on an R/G/B
 // field is a candidate while it lasts and one change when released.
 #[test]
@@ -954,6 +989,56 @@ fn a_commit_joins_the_recents_only_on_close() {
         vec!["#112233".to_owned(), "#556677".to_owned()],
         "on close the committed color fronts the recents"
     );
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on a recent
+// swatch commits its color and closes the popup, and the close joins the swatch's
+// color to the front of the recents.
+#[test]
+fn a_recent_swatch_click_commits_and_closes_the_popup() {
+    let mut window = Headless::new();
+    let mut color = [0, 0, 0];
+    // Two seeded recents, #445566 in front, so the clicked swatch's color
+    // reaching the front of the row is observable.
+    for hex in ["#112233", "#445566"] {
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+        let (nodes, _) = window.field(&mut color, &[], Vec::new());
+        window.click_at(centre(hex_field(&nodes)), &mut color, &[]);
+        let mut events = type_text(hex);
+        events.extend(key(egui::Key::Enter));
+        window.field(&mut color, &[], events);
+        window.field(&mut color, &[], key(egui::Key::Escape));
+    }
+
+    color = [0, 0, 0];
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    let (_, out) = window.click_at(centre(entry(&nodes, "#112233")), &mut color, &[]);
+    assert!(out.changed, "a swatch click is one change");
+    assert_eq!(color, [17, 34, 51], "the swatch's color committed");
+
+    let (nodes, out) = window.field(&mut color, &[], Vec::new());
+    assert!(!out.changed, "changed fires on the click frame only");
+    assert!(
+        !nodes.iter().any(|n| n.role() == Role::TextInput),
+        "the swatch click closed the popup"
+    );
+    assert_eq!(
+        recent_colors(&window.ctx),
+        vec![[17, 34, 51], [68, 85, 102]],
+        "the close fronted the recents with the swatch's color"
+    );
+
+    // The closed popup still opens again on the button.
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &[]);
+    let (nodes, _) = window.field(&mut color, &[], Vec::new());
+    assert!(
+        nodes.iter().any(|n| n.role() == Role::TextInput),
+        "the button reopened the popup"
+    );
+    window.field(&mut color, &[], key(egui::Key::Escape));
 }
 
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": the recents are the
@@ -1346,8 +1431,12 @@ fn a_one_frame_click_on_the_square_commits() {
         [0, 0, 0],
         "the click point's colour committed: {color:?}"
     );
-    let (_, out) = window.field(&mut color, &[], Vec::new());
+    let (nodes, out) = window.field(&mut color, &[], Vec::new());
     assert!(!out.changed, "no repeat on the idle frame");
+    assert!(
+        nodes.iter().any(|n| n.role() == Role::TextInput),
+        "a click on the square keeps the popup open"
+    );
 }
 
 // plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on the square
@@ -1770,6 +1859,33 @@ fn the_suggestion_row_shows_only_when_the_host_passes_some() {
         swatch_labels(&nodes).len(),
         3,
         "three suggestions draw three swatches"
+    );
+}
+
+// plans/libs/color_tools.md "Color-picker widget (Phase 8)": a click on a
+// suggestion swatch commits its color and closes the popup, like a recent.
+#[test]
+fn a_suggestion_swatch_click_commits_and_closes_the_popup() {
+    let mut window = Headless::new();
+    let mut color = [255, 128, 0];
+    let suggestions = [[200, 16, 46]];
+    let (nodes, _) = window.field(&mut color, &suggestions, Vec::new());
+    window.click_at(centre(field_button(&nodes, 0)), &mut color, &suggestions);
+    let (nodes, _) = window.field(&mut color, &suggestions, Vec::new());
+    let (_, out) = window.click_at(centre(entry(&nodes, "#C8102E")), &mut color, &suggestions);
+    assert!(out.changed, "a swatch click is one change");
+    assert_eq!(color, [200, 16, 46], "the suggestion's color committed");
+
+    let (nodes, out) = window.field(&mut color, &suggestions, Vec::new());
+    assert!(!out.changed, "changed fires on the click frame only");
+    assert!(
+        !nodes.iter().any(|n| n.role() == Role::TextInput),
+        "the swatch click closed the popup"
+    );
+    assert_eq!(
+        recent_colors(&window.ctx),
+        vec![[200, 16, 46]],
+        "the close color joined the recents"
     );
 }
 

@@ -842,7 +842,12 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
       closes the popup (P23, accepted 2026-10-26; `plans/libs/color_tools.md` "Color-picker
       widget") → verify: a headless test (a recent swatch's click: the color committed once,
       the popup closed, the color in the recents); the square and the fields still keep it
-      open; the draft's `colorPicker` the same
+      open; the draft's `colorPicker` the same. Code done 2026-10-26 (SWE-2): `swatch_row`
+      closes through egui's `Popup::close_id`, so the ordinary close (the pending text's
+      settle, the recents) runs; three headless tests red first (recent, suggestion, a
+      pending hex text), the square's test extended to stay open; the draft the same. Open:
+      `mutants-diff` over it once the running mutation run ends. Files:
+      `color_tools/src/{picker.rs,picker/tests.rs}`, `docs/prototypes/tools/save_editor.js`
   - [ ] 8.8 `libs/team_widgets` (`plans/save_editor.md` "`libs/team_widgets`"): the card
     pickers and the violations list first, the tactics editor and its pitch with the view's
     slice 3

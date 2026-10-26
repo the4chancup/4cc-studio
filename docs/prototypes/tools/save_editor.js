@@ -3736,7 +3736,9 @@ function pickerPopup(shown, commit, candidate, suggestions) {
         rgb[i] = Math.min(255, Math.max(0, v)); commit(rgb); } } });
   const swatch = hex => h("span", { class: "swatch",
     style: "background:" + hex, title: hex,
-    onclick: () => commit(hexToRgb(hex)),
+    // Commit first: the render inside it updates S.picker.current, which
+    // closePicker then joins to the recents as the close colour.
+    onclick: () => { commit(hexToRgb(hex)); closePicker(); render(); },
     onmouseenter: () => candidate(hexToRgb(hex)),
     onmouseleave: () => candidate(null) });
   return h("div", { class: "pkpop", id: "picker-" + S.picker.key }, cv,
