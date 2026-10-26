@@ -19,7 +19,7 @@ mod test_support;
 mod view;
 
 use studio_core::widgets::{PathKind, path_row};
-use studio_core::{CliError, HelpSection, HelpTopic, StudioTool, ToolContext};
+use studio_core::{CliError, HelpSection, HelpTopic, RunningPes, StudioTool, ToolContext};
 
 use crate::messages::TOOL_ID;
 
@@ -31,13 +31,18 @@ const AESTHETICS_FROM_EXPORTS_TIP: &str = "On when the cup's looks are compiled 
 
 /// The Save editor, as registered with the `studio` binary. `view` is the window's
 /// state (`plans/save_editor.md` "Editing UI").
-#[derive(Default)]
 pub struct Tool {
     view: view::SaveView,
     /// The AATF rules file row's edit buffer in the settings section (`path_row`
     /// commits it to the setting on Enter or focus loss, so a half-typed path
     /// never reaches it).
     aatf_rules: String,
+    /// The running-PES probe `Tool::view` hands `view::show`: the real
+    /// process list in production, a stub reporting no game under `cargo
+    /// test` — the file pickers' `#[cfg]` split
+    /// (`comparator::default_open_dialog`). A unit test sets it to drive
+    /// the running-game question.
+    running: fn() -> Vec<RunningPes>,
 }
 
 impl Tool {
@@ -46,8 +51,29 @@ impl Tool {
         Tool {
             view: view::SaveView::new(),
             aatf_rules: String::new(),
+            running: running_probe(),
         }
     }
+}
+
+impl Default for Tool {
+    fn default() -> Tool {
+        Tool::new()
+    }
+}
+
+/// The running-PES probe: the real process list (`studio_core::running_pes`).
+#[cfg(not(test))]
+fn running_probe() -> fn() -> Vec<RunningPes> {
+    studio_core::running_pes
+}
+
+/// `running_probe` under `cargo test`: no game at all — a test never reads
+/// the real process list, which would open the Edit-mode question on a
+/// machine with the fixture's PES running.
+#[cfg(test)]
+fn running_probe() -> fn() -> Vec<RunningPes> {
+    || Vec::new()
 }
 
 impl StudioTool for Tool {
@@ -64,13 +90,12 @@ impl StudioTool for Tool {
     }
 
     /// The unsaved-changes prompt guards the window's close (SE-GUI-05):
-    /// a dirty session holds it and opens the prompt (its Discard re-asks
-    /// through `request_close`, answered once the session is dropped).
+    /// a dirty session holds it and opens the prompt for `Close` (its
+    /// Discard re-asks through `request_close`, answered once the session
+    /// is dropped). A prompt already up retargets.
     fn hold_close(&mut self) -> bool {
         if self.view.is_dirty() {
-            if self.view.prompt.is_none() {
-                view::prompt::open(&mut self.view, view::prompt::Pending::Close);
-            }
+            view::prompt::open(&mut self.view, view::prompt::Pending::Close);
             true
         } else {
             false
@@ -90,12 +115,7 @@ impl StudioTool for Tool {
         self.view.hide_ids = common.fpc_hide_ids();
         self.view
             .select_portraits(ui.ctx(), &common.pes_folder(), common.pes_version);
-        view::show(
-            ui,
-            &mut self.view,
-            &studio_core::running_pes,
-            file.as_deref(),
-        );
+        view::show(ui, &mut self.view, &self.running, file.as_deref());
         if std::mem::take(&mut self.view.request_close) {
             ctx.request_close();
         }

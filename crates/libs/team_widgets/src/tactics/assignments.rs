@@ -71,12 +71,12 @@ pub(crate) struct OpenSlot {
 /// One chip of the "Player assignments" group (the draft's `SET_PIECES`):
 /// the role's label and the `SetPieceTakers` field it edits — the captain
 /// is `set_pieces.captain` in this model.
-struct RoleSpec {
+pub(super) struct RoleSpec {
     /// The chip's label.
-    label: &'static str,
+    pub(super) label: &'static str,
     /// The tactics field the chip writes (`tactics_term`'s key into the
     /// table, so a row's label is never a second copy).
-    field: TacticsField,
+    pub(super) field: TacticsField,
     /// The stored holder (a roster slot, 255 none).
     get: fn(&SetPieceTakers) -> u8,
     /// The stored write.
@@ -84,7 +84,7 @@ struct RoleSpec {
 }
 
 /// The six set-piece takers and the captain, in the draft's order.
-const SET_PIECES: [RoleSpec; 7] = [
+pub(super) const SET_PIECES: [RoleSpec; 7] = [
     RoleSpec {
         label: "Long free kick",
         field: TacticsField::FreeKickTakerLong,

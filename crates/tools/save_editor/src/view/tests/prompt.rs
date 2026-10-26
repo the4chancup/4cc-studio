@@ -4,6 +4,7 @@
 //! the window's Save asks first while the save's own PES runs (SE-GUI-21's
 //! window rule) is covered here too.
 
+use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 use studio_core::{ShellRequest, StudioTool, ToolContext};
 
 use super::*;
@@ -334,6 +335,39 @@ fn a_window_close_prompts_and_each_answer_does_what_it_says() {
         "the reopened file holds the edit"
     );
     assert_ne!(std::fs::read(&path).unwrap(), original, "the save wrote");
+
+    // With the probe reporting the save's own PES, Save opens the
+    // question instead of writing (the field `Tool::new` fills with a
+    // no-game stub under `cargo test`).
+    let path = fixture(PesVersion::Pes21, "prompt_close_question");
+    let original = std::fs::read(&path).unwrap();
+    let mut tool = dirty_tool(&path);
+    tool.running = || {
+        vec![RunningPes {
+            version: PesVersion::Pes21,
+            exe: None,
+        }]
+    };
+    assert!(StudioTool::hold_close(&mut tool));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    click_labeled_tool(&mut window, &nodes, "Save", &mut tool, &ctx);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    assert!(
+        nodes.iter().any(|node| node
+            .value()
+            .is_some_and(|value| value.contains("PES 2021 is running"))),
+        "the question opens instead of writing"
+    );
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        original,
+        "nothing wrote while the question waits"
+    );
+    assert!(tool.view.prompt.is_some(), "the prompt stays up behind it");
+    assert!(
+        requests.try_recv().is_err(),
+        "no close is asked while the question waits"
+    );
 }
 
 // SE-GUI-05
@@ -489,4 +523,458 @@ fn the_prompts_save_runs_the_window_save_first() {
     assert!(view.prompt.is_none(), "the prompt is done");
     assert!(view.session.is_none(), "the session dropped");
     assert!(view.request_close, "the close is asked");
+}
+
+// SE-GUI-05: a window close asked while the Open… prompt waits retargets
+// it — the answer goes toward the close, the picker never runs.
+#[test]
+fn a_close_asked_while_the_open_prompt_waits_takes_the_answer() {
+    let first = fixture(PesVersion::Pes21, "prompt_close_retarget");
+    let (ctx, requests) = tool_ctx("prompt_close_retarget_ctx");
+    let mut window = Headless::new();
+
+    let mut tool = dirty_tool(&first);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Open…"),
+        &mut tool.view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    assert!(prompt_drawn(&nodes), "the Open… prompt is up");
+
+    // The close retargets it: Discard drops the session and asks the
+    // shell to close — the picker (the test-build stub, a panic if
+    // reached) is never called.
+    assert!(StudioTool::hold_close(&mut tool), "the close is held");
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    click_labeled_tool(&mut window, &nodes, "Discard", &mut tool, &ctx);
+    assert_eq!(
+        requests.try_recv().expect("the close request"),
+        ShellRequest::Close
+    );
+    assert!(tool.view.session.is_none(), "the session dropped");
+    assert!(
+        !StudioTool::hold_close(&mut tool),
+        "the re-asked close is not held"
+    );
+}
+
+/// `path` made read-only until this guard drops: the file a failed write
+/// leaves writable again whatever the test did, so the scratch folder
+/// stays deletable on Windows.
+struct Readonly<'a> {
+    path: &'a Path,
+    /// The permissions as found, put back on drop.
+    permissions: std::fs::Permissions,
+}
+
+impl<'a> Readonly<'a> {
+    /// Makes `path` read-only.
+    fn set(path: &'a Path) -> Readonly<'a> {
+        let permissions = std::fs::metadata(path).unwrap().permissions();
+        let mut readonly = permissions.clone();
+        readonly.set_readonly(true);
+        std::fs::set_permissions(path, readonly).unwrap();
+        Readonly { path, permissions }
+    }
+}
+
+impl Drop for Readonly<'_> {
+    fn drop(&mut self) {
+        std::fs::set_permissions(self.path, self.permissions.clone())
+            .expect("the file's permissions restore");
+    }
+}
+
+// SE-GUI-05: a Save the write refuses leaves the prompt up and shows
+// the refusal on top of it (the modals' top layer), its OK clickable.
+#[test]
+fn a_refused_write_under_the_prompt_shows_the_refusal_on_top() {
+    let path = fixture(PesVersion::Pes21, "prompt_refusal_top");
+    let mut view = dirty_view(&path);
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+
+    // The open file read-only: the write refuses, the prompt keeps up.
+    let _readonly = Readonly::set(&path);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        modal_button(&nodes, "Unsaved changes", "Save"),
+        &mut view,
+    );
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(view.prompt.is_some(), "the failed write keeps the prompt");
+    assert!(view.is_dirty(), "and the session stays dirty");
+    let ok = dialog_nodes(&pairs, "Save refused")
+        .into_iter()
+        .find(|node| node.role() == Role::Button && node.label() == Some("OK"))
+        .expect("the refusal's OK in the top dialog's subtree");
+    click(&mut window, ok, &mut view);
+    assert!(
+        view.refusal.is_none(),
+        "the click reached the refusal's OK, not the backdrop"
+    );
+    assert!(view.prompt.is_some(), "the prompt stays up behind it");
+}
+
+// SE-GUI-05, SE-GUI-20: Strip again's change is a `Stripped` row under
+// the player's own (the appearance id is no `compare_players` row).
+#[test]
+fn a_strip_again_is_a_stripped_row_under_the_player() {
+    let path = fixture(PesVersion::Pes21, "prompt_strip_row");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    for player in file.players_mut() {
+        player.appearance_id = Some(STRIPPED_APPEARANCE_ID);
+    }
+    // One restored player on team 702 (the Strip again window's list).
+    let id = file
+        .team(702)
+        .unwrap()
+        .roster
+        .iter()
+        .map(|slot| slot.player_id)
+        .find(|&id| id != 0)
+        .expect("team 702 rosters someone");
+    file.player_mut(id).unwrap().appearance_id = Some(id);
+    let name = crate::view::info_strip::shown_name(&file.player(id).unwrap().name);
+    file.save(&path).unwrap();
+
+    let mut view = SaveView::new();
+    view.open(&path);
+    assert!(view.strip_again.is_some(), "the window lists him");
+    let mut window = Headless::new();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Strip again"),
+        &mut view,
+    );
+    assert_eq!(
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(id)
+            .unwrap()
+            .appearance_id,
+        Some(STRIPPED_APPEARANCE_ID),
+        "premise: stripped again"
+    );
+
+    prompt::open(&mut view, Pending::Close);
+    // One frame so the modal's area has registered (its first frame is
+    // egui's invisible sizing pass).
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        prompt_rows(&pairs, "Unsaved changes"),
+        [(
+            format!("{name} · Stripped"),
+            "No".to_owned(),
+            "Yes".to_owned()
+        )],
+        "the strip is his one row"
+    );
+}
+
+// SE-GUI-05: a player rostered on two teams gets his own rows under his
+// first listing only — the row a `Number` diff would take per slot stays
+// per slot, his field rows do not repeat.
+#[test]
+fn a_player_on_two_rosters_gets_his_rows_once() {
+    let path = fixture(PesVersion::Pes21, "prompt_two_rosters");
+    let mut view = SaveView::new();
+    view.open(&path);
+    // Team 702's first slot rostered to player 70101 (already on 701's).
+    let mut edited = team_entry(&view, 702);
+    edited.roster[0].player_id = 70101;
+    view.session.as_mut().unwrap().edit_team(1, edited);
+    let mut edited = player_entry(&view, 70101);
+    edited.basic.height = 170;
+    view.session.as_mut().unwrap().edit_player(2, edited);
+
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let rows = prompt_rows(&pairs, "Unsaved changes");
+    let heights: Vec<&(String, String, String)> = rows
+        .iter()
+        .filter(|(item, _, _)| item == "PLACEHOLDER · Height")
+        .collect();
+    assert_eq!(heights.len(), 1, "one Height row: {rows:?}");
+}
+
+// SE-GUI-05: a changed player no roster lists is shown after the listed
+// players' rows.
+#[test]
+fn an_unlisted_players_rows_come_after_the_listed() {
+    let path = fixture(PesVersion::Pes21, "prompt_unlisted");
+    let mut view = SaveView::new();
+    view.open(&path);
+    // A listed player's edit, so the order shows.
+    let mut edited = player_entry(&view, 70102);
+    edited.basic.weight = 90;
+    view.session.as_mut().unwrap().edit_player(1, edited);
+    // 70101's height changed, then his slot emptied: no roster lists him.
+    let mut edited = player_entry(&view, 70101);
+    edited.basic.height = 170;
+    view.session.as_mut().unwrap().edit_player(2, edited);
+    let mut team = team_entry(&view, 701);
+    team.roster[0].player_id = 0;
+    view.session.as_mut().unwrap().edit_team(3, team);
+    let file = view.session.as_ref().unwrap().file();
+    assert!(
+        !selection::rows(file, &TeamChoice::All, "")
+            .iter()
+            .any(|row| row.player_id == 70101),
+        "premise: no roster lists him"
+    );
+
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    // One frame so the modal's area has registered (its first frame is
+    // egui's invisible sizing pass).
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let rows = prompt_rows(&pairs, "Unsaved changes");
+    let height = rows
+        .iter()
+        .position(|(item, _, _)| item == "PLACEHOLDER · Height")
+        .expect("his row is there");
+    let weight = rows
+        .iter()
+        .position(|(item, _, _)| item == "PLACEHOLDER · Weight")
+        .expect("the listed player's row");
+    assert!(
+        height > weight,
+        "his row comes after the listed players' rows: {rows:?}"
+    );
+}
+
+// SE-GUI-05's Save under "another save opened": the open file is written
+// first, then the picked save opens.
+#[test]
+fn opening_anothers_save_writes_the_first_then_opens_the_picked() {
+    let first = fixture(PesVersion::Pes21, "prompt_open_save_first");
+    let original = std::fs::read(&first).unwrap();
+    let other = fixture(PesVersion::Pes21, "prompt_open_save_second");
+    let mut window = Headless::new();
+
+    let mut view = dirty_view(&first);
+    let picked = other.clone();
+    view.open_dialog = Box::new(move || Some(picked.clone()));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(
+        &mut window,
+        node_labeled(&nodes, Role::Button, "Open…"),
+        &mut view,
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert!(prompt_drawn(&nodes), "the prompt is up");
+    click_label(&mut window, &mut view, "Save");
+    assert_eq!(
+        view.session.as_ref().unwrap().path(),
+        other.as_path(),
+        "the picked save is open"
+    );
+    let reopened = Session::open(&first).unwrap();
+    assert_eq!(
+        reopened.file().player(70101).unwrap().basic.height,
+        170,
+        "the first file holds the edit"
+    );
+    assert_ne!(std::fs::read(&first).unwrap(), original, "the write ran");
+
+    // The same with the question between (the probe reporting the save's
+    // own PES): the prompt's Save asks it, its Save writes and opens the
+    // picked save.
+    let first = fixture(PesVersion::Pes21, "prompt_open_save_q_first");
+    let other = fixture(PesVersion::Pes21, "prompt_open_save_q_second");
+    let running_own = || {
+        vec![RunningPes {
+            version: PesVersion::Pes21,
+            exe: None,
+        }]
+    };
+    let mut view = dirty_view(&first);
+    let picked = other.clone();
+    view.open_dialog = Box::new(move || Some(picked.clone()));
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    click_with(
+        &mut window,
+        &mut view,
+        &running_own,
+        node_labeled(&nodes, Role::Button, "Open…"),
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &running_own, None));
+    click_with(
+        &mut window,
+        &mut view,
+        &running_own,
+        modal_button(&nodes, "Unsaved changes", "Save"),
+    );
+    let nodes = question_nodes_with(&mut window, &mut view, &running_own);
+    click_with(
+        &mut window,
+        &mut view,
+        &running_own,
+        modal_button(&nodes, "PES 2021 is running", "Save"),
+    );
+    assert_eq!(
+        view.session.as_ref().unwrap().path(),
+        other.as_path(),
+        "the second save is open"
+    );
+    let reopened = Session::open(&first).unwrap();
+    assert_eq!(
+        reopened.file().player(70101).unwrap().basic.height,
+        170,
+        "the first file holds the edit"
+    );
+}
+
+// SE-GUI-05: Esc on the prompt is its Cancel — it closes, the session
+// untouched and still dirty.
+#[test]
+fn escape_on_the_prompt_closes_it_and_changes_nothing() {
+    let path = fixture(PesVersion::Pes21, "prompt_escape");
+    let original = std::fs::read(&path).unwrap();
+    let mut view = dirty_view(&path);
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    // One frame for the modal to register as the top one, then Escape.
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(
+        vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert!(view.prompt.is_none(), "Escape closes the prompt");
+    let session = view.session.as_ref().expect("the session kept");
+    assert!(session.is_dirty(), "still dirty");
+    assert_eq!(
+        session.file().player(70101).unwrap().basic.height,
+        170,
+        "the edit kept"
+    );
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        original,
+        "the file unchanged"
+    );
+    assert!(!view.request_close, "no close is asked");
+}
+
+// SE-GUI-21's window rule: Esc on the running-game question closes it;
+// the prompt behind stays, the file unchanged.
+#[test]
+fn escape_on_the_question_closes_it_and_keeps_the_prompt() {
+    let path = fixture(PesVersion::Pes21, "question_escape");
+    let original = std::fs::read(&path).unwrap();
+    let mut view = dirty_view(&path);
+    prompt::open(&mut view, Pending::Close);
+    view.edit_mode_question = Some(PesVersion::Pes21);
+    let mut window = Headless::new();
+    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    window.frame(
+        vec![key(egui::Key::Escape, egui::Modifiers::NONE, true)],
+        |ui| show(ui, &mut view, &|| Vec::new(), None),
+    );
+    assert!(
+        view.edit_mode_question.is_none(),
+        "Escape closes the question"
+    );
+    assert!(view.prompt.is_some(), "the prompt stays up");
+    assert!(view.is_dirty(), "still dirty");
+    assert_eq!(std::fs::read(&path).unwrap(), original, "nothing wrote");
+}
+
+// The prompt alone holds every shortcut dead while up (the prompt's own
+// buttons are the way out): Ctrl+S saves nothing, Ctrl+Z undoes nothing.
+#[test]
+fn the_shortcuts_do_not_act_behind_the_unsaved_prompt_alone() {
+    let path = fixture(PesVersion::Pes21, "keys_prompt_alone");
+    let original = std::fs::read(&path).unwrap();
+    let mut view = dirty_view(&path);
+    prompt::open(&mut view, Pending::Close);
+    let revision = view.session.as_ref().unwrap().revision();
+    let mut window = Headless::new();
+    for key_event in [egui::Key::S, egui::Key::Z] {
+        window.frame(vec![key(key_event, egui::Modifiers::CTRL, true)], |ui| {
+            show(ui, &mut view, &|| Vec::new(), None)
+        });
+    }
+    assert!(view.prompt.is_some(), "the prompt stays up");
+    assert_eq!(
+        view.session.as_ref().unwrap().revision(),
+        revision,
+        "Ctrl+Z undid nothing"
+    );
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        original,
+        "Ctrl+S wrote nothing"
+    );
+    assert!(view.is_dirty(), "still dirty");
+}
+
+// The running-game question alone holds them dead too (the question's
+// buttons are the way out).
+#[test]
+fn the_shortcuts_do_not_act_behind_the_edit_mode_question_alone() {
+    let path = fixture(PesVersion::Pes21, "keys_question_alone");
+    let original = std::fs::read(&path).unwrap();
+    let mut view = dirty_view(&path);
+    view.edit_mode_question = Some(PesVersion::Pes21);
+    let revision = view.session.as_ref().unwrap().revision();
+    let mut window = Headless::new();
+    for key_event in [egui::Key::S, egui::Key::Z] {
+        window.frame(vec![key(key_event, egui::Modifiers::CTRL, true)], |ui| {
+            show(ui, &mut view, &|| Vec::new(), None)
+        });
+    }
+    assert!(view.edit_mode_question.is_some(), "the question stays up");
+    assert_eq!(
+        view.session.as_ref().unwrap().revision(),
+        revision,
+        "Ctrl+Z undid nothing"
+    );
+    assert_eq!(
+        std::fs::read(&path).unwrap(),
+        original,
+        "Ctrl+S wrote nothing"
+    );
+}
+
+// A tactics row naming a player words it with the roster's display name
+// (the prompt's `RosterRow`s, `roster_for`).
+#[test]
+fn a_tactics_row_names_the_player_as_the_roster_shows_him() {
+    let path = fixture(PesVersion::Pes21, "prompt_tactics_name");
+    let mut view = SaveView::new();
+    view.open(&path);
+    // Team 701's Captain set to the slot-3 player: the row names him.
+    let mut team = team_entry(&view, 701);
+    team.tactics.set_pieces.captain = 3;
+    let file = view.session.as_ref().unwrap().file();
+    let id = file.team(701).unwrap().roster[3].player_id;
+    let name = pes_savefile::model::names::display_name(&file.player(id).unwrap().name);
+    assert_ne!(name, "(empty)", "premise: the rostered player has a name");
+    view.session.as_mut().unwrap().edit_team(1, team);
+
+    prompt::open(&mut view, Pending::Close);
+    let mut window = Headless::new();
+    let (_, pairs, _) =
+        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let rows = prompt_rows(&pairs, "Unsaved changes");
+    assert!(
+        rows.iter()
+            .any(|(item, _, new)| item == "/3/ · Captain" && new == &name),
+        "the Captain row names him ({name}): {rows:?}"
+    );
 }

@@ -68,10 +68,13 @@ fn report_term(diff: &PlayerDiff) -> Term {
 /// `Term` per row in `diffs`' order — a team colour's three channel diffs
 /// merge into the swatch's one row, at the first channel's place. `team`
 /// is the open save's entry (its tactics' eleven and roster name the
-/// slots); `roster` is the roster rows the Tactics tab builds.
+/// slots); `baseline_team` is the file-as-opened's, whose tactics an
+/// instruction-target row's old side is worded under; `roster` is the
+/// roster rows the Tactics tab builds.
 pub(super) fn team_row_terms(
     version: PesVersion,
     team: &TeamEntry,
+    baseline_team: &TeamEntry,
     roster: &[RosterRow<'_>],
     diffs: &[TeamDiff],
 ) -> Vec<Term> {
@@ -85,7 +88,7 @@ pub(super) fn team_row_terms(
             }
             // A later channel of an already merged colour is no row.
             Some(_) => {}
-            None => terms.push(team_row_term(version, team, roster, diff)),
+            None => terms.push(team_row_term(version, team, baseline_team, roster, diff)),
         }
     }
     terms
@@ -95,6 +98,7 @@ pub(super) fn team_row_terms(
 fn team_row_term(
     version: PesVersion,
     team: &TeamEntry,
+    baseline_team: &TeamEntry,
     roster: &[RosterRow<'_>],
     diff: &TeamDiff,
 ) -> Term {
@@ -143,6 +147,7 @@ fn team_row_term(
                 *field,
                 *old,
                 *new,
+                &baseline_team.tactics,
                 &team.tactics,
                 roster,
             );
@@ -1117,6 +1122,7 @@ mod tests {
         let terms = team_row_terms(
             version,
             &team,
+            &team,
             &roster,
             &[
                 TeamDiff::Field {
@@ -1149,6 +1155,7 @@ mod tests {
         let terms = team_row_terms(
             version,
             &team,
+            &team,
             &roster,
             &[TeamDiff::Field {
                 field: TeamField::Color1Red,
@@ -1158,6 +1165,41 @@ mod tests {
         );
         assert_eq!(terms.len(), 1);
         assert_term(&terms[0], "Colour 1", "#FFAA41", "#00AA41");
+    }
+
+    /// Colour 2's three channels merge into its swatch's one row the same
+    /// way.
+    #[test]
+    fn colour_2s_channels_merge_into_one_hex_row() {
+        let version = PesVersion::Pes17;
+        let team = team_701();
+        let rows = named_rows();
+        let roster = roster_rows(&rows);
+        let terms = team_row_terms(
+            version,
+            &team,
+            &team,
+            &roster,
+            &[
+                TeamDiff::Field {
+                    field: TeamField::Color2Red,
+                    old: 0,
+                    new: 16,
+                },
+                TeamDiff::Field {
+                    field: TeamField::Color2Green,
+                    old: 0,
+                    new: 32,
+                },
+                TeamDiff::Field {
+                    field: TeamField::Color2Blue,
+                    old: 0,
+                    new: 48,
+                },
+            ],
+        );
+        assert_eq!(terms.len(), 1, "the three channels merge");
+        assert_term(&terms[0], "Colour 2", "#000000", "#4182C2");
     }
 
     /// A name edit's two diffs in `compare_teams`' order: the side-effect
@@ -1170,6 +1212,7 @@ mod tests {
         let roster = roster_rows(&rows);
         let terms = team_row_terms(
             version,
+            &team,
             &team,
             &roster,
             &[
@@ -1201,6 +1244,7 @@ mod tests {
         let roster = roster_rows(&rows);
         let terms = team_row_terms(
             version,
+            &team,
             &team,
             &roster,
             &[
@@ -1254,6 +1298,7 @@ mod tests {
         let roster = roster_rows(&rows);
         let terms = team_row_terms(
             version,
+            &team,
             &team,
             &roster,
             &[

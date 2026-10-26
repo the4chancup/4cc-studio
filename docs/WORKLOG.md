@@ -1752,7 +1752,18 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         (l3 adds it with the menu) and reworded the question. Not yet seen in a built
         window: the plan's table "spans the prompt's width", which egui's grid may not do
         (l4's check). Files: `save_editor/src/{lib,session/mod,view/{mod,prompt,
-        player_list},view/tests/{prompt,shell}}.rs`, `help/02_window.md`
+        player_list},view/tests/{prompt,shell}}.rs`, `help/02_window.md`. Rework r1
+        2026-10-26 (SWE-2, the lead's review and `mutants-diff 5459e8f6`'s survivors): the
+        tests no longer read the real process list (`Tool::running`, a no-game stub under
+        `cfg(test)`); a close asked under the Open… prompt retargets it; a failed Save's
+        refusal draws above the modals; Strip again's change is a `Stripped` row; a player
+        on two rosters gets his rows once; an instruction target row words each side under
+        that side's instruction through `instructions::target_text`, the tab's own; the
+        roster's raw names keep their colour codes; every preset and role entry's label
+        pinned; `compare_teams` tested on every version. Files: `save_editor/src/{lib,
+        session/mod,view/{mod,prompt,terms,comparator},view/tests/{prompt,shell}}.rs`,
+        `team_widgets/src/tactics/{mod,instructions,assignments,tests/mod}.rs`,
+        `pes_savefile/src/ops/compare.rs`
       - [ ] l3 the Open menu with discovery and the session's recent files, Save as (SE-GUI-26),
         the version warning (SE-GUI-28)
       - [ ] l4 SE-GUI-21 in the built window with the game running (lead, manual), after l2.

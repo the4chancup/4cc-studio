@@ -425,6 +425,20 @@ impl Session {
             .is_some_and(|player| self.baseline_players.get(&player.id) != Some(player))
     }
 
+    /// The baseline entry of the player `id` (the file as opened or last
+    /// saved), `None` when the baseline holds none: the unsaved-changes
+    /// rows' old side where `compare_players` emits none (the appearance
+    /// id is no row).
+    pub(crate) fn baseline_player(&self, id: u32) -> Option<&PlayerEntry> {
+        self.baseline_players.get(&id)
+    }
+
+    /// `baseline_player` for a team's entry: the old side's tactics an
+    /// instruction-target row words its target byte under.
+    pub(crate) fn baseline_team(&self, id: u32) -> Option<&TeamEntry> {
+        self.baseline_teams.get(&id)
+    }
+
     /// The differences from the baselines `is_dirty` compares against (the
     /// unsaved-changes table's rows): every player whose entry differs,
     /// `compare_players` on baseline and current; every team that differs,

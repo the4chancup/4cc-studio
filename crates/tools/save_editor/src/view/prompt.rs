@@ -10,6 +10,7 @@ use std::collections::{HashMap, HashSet};
 use pes_savefile::EditFile;
 use pes_savefile::model::TeamEntry;
 use pes_savefile::model::names::display_name;
+use pes_savefile::model::player::STRIPPED_APPEARANCE_ID;
 use pes_savefile::ops::compare::{PlayerDiff, TeamDiff};
 use pes_savefile::schema::fields::RosterField;
 use studio_core::RunningPes;
@@ -53,14 +54,21 @@ enum Answer {
     Cancel,
 }
 
-/// Opens the prompt for `pending` on a dirty session: the table's rows
-/// are computed now (`Session::unsaved_changes`), never per frame — a
-/// codec error, impossible on a save read whole, shows as a refusal
-/// rather than a silently empty table.
+/// Opens the prompt for `pending` on a dirty session, or retargets one
+/// already up (a window close asked while the Open… prompt waits takes
+/// its answer toward the close; the computed rows are the same either
+/// way). The table's rows are computed now
+/// (`Session::unsaved_changes`), never per frame — a codec error,
+/// impossible on a save read whole, shows as a refusal rather than a
+/// silently empty table.
 pub(crate) fn open(view: &mut SaveView, pending: Pending) {
     let Some(session) = view.session.as_ref() else {
         return;
     };
+    if let Some(prompt) = view.prompt.as_mut() {
+        prompt.pending = pending;
+        return;
+    }
     match rows(session) {
         Ok(rows) => {
             view.prompt = Some(Prompt { pending, rows });
@@ -101,12 +109,19 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
     let mut rows = Vec::new();
     let mut shown: HashSet<u32> = HashSet::new();
     for entry in &listed_rows {
-        shown.insert(entry.player_id);
         let item = name_of(entry.player_id);
-        if let Some(diffs) = player_diffs.get(&entry.player_id) {
-            for diff in diffs {
-                let term = terms::row_term(version, diff);
-                rows.push((item.clone(), term.label, term.old, term.new));
+        // A player rostered on two teams is listed per roster: his own
+        // rows go under his first listing only, his `Number` rows stay
+        // per slot.
+        if shown.insert(entry.player_id) {
+            if let Some(diffs) = player_diffs.get(&entry.player_id) {
+                for diff in diffs {
+                    let term = terms::row_term(version, diff);
+                    rows.push((item.clone(), term.label, term.old, term.new));
+                }
+            }
+            if let Some((label, old, new)) = stripped_term(session, file, entry.player_id) {
+                rows.push((item.clone(), label, old, new));
             }
         }
         let Some(team) = file.team(entry.team_id) else {
@@ -123,9 +138,14 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
             .cloned()
             .collect();
         if !numbers.is_empty() {
+            // A team the diff names has a baseline (`unsaved_changes`
+            // pairs them), so this cannot be `None`.
+            let baseline_team = session
+                .baseline_team(entry.team_id)
+                .expect("a team diff implies a baseline");
             let names = roster_names(file, team);
             let roster = roster_for(file, team, &names);
-            for term in terms::team_row_terms(version, team, &roster, &numbers) {
+            for term in terms::team_row_terms(version, team, baseline_team, &roster, &numbers) {
                 rows.push((item.clone(), term.label, term.old, term.new));
             }
         }
@@ -140,6 +160,9 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
         for diff in &player_diffs[&id] {
             let term = terms::row_term(version, diff);
             rows.push((name_of(id), term.label, term.old, term.new));
+        }
+        if let Some((label, old, new)) = stripped_term(session, file, id) {
+            rows.push((name_of(id), label, old, new));
         }
     }
     for team in file.teams() {
@@ -157,9 +180,14 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
         if remaining.is_empty() {
             continue;
         }
+        // A team the diff names has a baseline (`unsaved_changes` pairs
+        // them), so this cannot be `None`.
+        let baseline_team = session
+            .baseline_team(team.id)
+            .expect("a team diff implies a baseline");
         let names = roster_names(file, team);
         let roster = roster_for(file, team, &names);
-        for term in terms::team_row_terms(version, team, &roster, &remaining) {
+        for term in terms::team_row_terms(version, team, baseline_team, &roster, &remaining) {
             rows.push((team.name.clone(), term.label, term.old, term.new));
         }
     }
@@ -178,8 +206,9 @@ fn roster_names(file: &EditFile, team: &TeamEntry) -> Vec<String> {
         .collect()
 }
 
-/// `team`'s roster as the Tactics tab's `RosterRow`s, the display names
-/// borrowed from `names` (`roster_names`' output).
+/// `team`'s roster as the Tactics tab's `RosterRow`s: the display names
+/// borrowed from `names` (`roster_names`' output), the raw names the
+/// records' own, colour codes kept.
 fn roster_for<'a>(
     file: &'a EditFile,
     team: &'a TeamEntry,
@@ -188,15 +217,32 @@ fn roster_for<'a>(
     team.roster
         .iter()
         .enumerate()
-        .map(|(index, slot)| RosterRow {
-            name: names[index].as_str(),
-            raw_name: names[index].as_str(),
-            registered_position: file
-                .player(slot.player_id)
-                .map(|player| player.positions.registered),
-            portrait: None,
+        .map(|(index, slot)| {
+            let player = file.player(slot.player_id);
+            RosterRow {
+                name: names[index].as_str(),
+                raw_name: player.map_or("", |player| player.name.as_str()),
+                registered_position: player.map(|player| player.positions.registered),
+                portrait: None,
+            }
         })
         .collect()
+}
+
+/// The `Stripped` row for a player whose appearance id differs from the
+/// baseline's — `compare_players` emits no row for it, the Strip again
+/// change (SE-GUI-20) being otherwise invisible in the table. "No" while
+/// his id was set, "Yes" once at -1.
+fn stripped_term(session: &Session, file: &EditFile, id: u32) -> Option<(String, String, String)> {
+    let (baseline, player) = (session.baseline_player(id)?, file.player(id)?);
+    (player.appearance_id != baseline.appearance_id).then(|| {
+        let yes_no = |stripped: bool| if stripped { "Yes" } else { "No" }.to_owned();
+        (
+            "Stripped".to_owned(),
+            yes_no(baseline.appearance_id == Some(STRIPPED_APPEARANCE_ID)),
+            yes_no(player.appearance_id == Some(STRIPPED_APPEARANCE_ID)),
+        )
+    })
 }
 
 /// The prompt while `view.prompt` holds one: the table and the three

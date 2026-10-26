@@ -5,6 +5,8 @@
 
 use egui::accesskit::{self, Role};
 
+use pes_savefile::model::instruction::Instruction;
+
 use super::*;
 use crate::test_support::{
     Headless, centre, control_right_of, controls_right_of, entry, entry_id, fixture_rows,
@@ -926,7 +928,8 @@ fn the_preset_fields_terms() {
     let tactics = fixture_tactics(version);
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    let term =
+        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
     assert_eq!(
         term(
             TacticsField::Preset {
@@ -997,7 +1000,8 @@ fn the_set_pieces_terms() {
     let tactics = fixture_tactics(version);
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    let term =
+        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
     assert_eq!(
         term(TacticsField::FreeKickTakerLong, 3, 9),
         (
@@ -1036,7 +1040,8 @@ fn the_formation_slots_terms() {
     tactics.starting_eleven[4] = 7;
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    let term =
+        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
     assert_eq!(
         term(
             TacticsField::Formation {
@@ -1099,7 +1104,8 @@ fn the_man_marking_terms() {
     tactics.starting_eleven[5] = 2;
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    let term =
+        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
     assert_eq!(
         term(TacticsField::ManMarking { preset: 0, slot: 5 }, 255, 3),
         (
@@ -1116,10 +1122,25 @@ fn the_man_marking_terms() {
 #[test]
 fn the_instructions_terms() {
     let version = PesVersion::Pes21;
-    let tactics = fixture_tactics(version);
+    let mut tactics = fixture_tactics(version);
+    // The target bytes word under the instruction in force: a
+    // player-taking one (Counter Target, Defensive) names them, the
+    // fixture's Offs would read Unassigned.
+    let encode = |inst| instruction::encode(version, inst).expect("PES 21 stores it");
+    tactics.presets[0]
+        .attack_instructions
+        .as_mut()
+        .expect("PES 21 has instructions")[0]
+        .instruction = encode(Instruction::CounterTarget);
+    tactics.presets[0]
+        .defence_instructions
+        .as_mut()
+        .expect("PES 21 has instructions")[0]
+        .instruction = encode(Instruction::Defensive);
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    let term =
+        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
     assert_eq!(
         term(
             TacticsField::Instruction {
@@ -1199,7 +1220,8 @@ fn the_rest_of_the_terms() {
     let tactics = fixture_tactics(version);
     let rows = named_roster();
     let roster = roster_rows(&rows);
-    let term = |field, old, new| tactics_term(version, field, old, new, &tactics, &roster);
+    let term =
+        |field, old, new| tactics_term(version, field, old, new, &tactics, &tactics, &roster);
     assert_eq!(
         term(TacticsField::AutoSubstitution, 0, 3),
         ("Substitution".to_owned(), "0".to_owned(), "3".to_owned())
@@ -1239,5 +1261,191 @@ fn the_rest_of_the_terms() {
     assert_eq!(
         term(TacticsField::TeamId, 701, 702),
         ("Team ID".to_owned(), "701".to_owned(), "702".to_owned())
+    );
+}
+
+/// Every `field:` key names the row its own entry labels: a `SliderSpec`,
+/// `StyleToggle` or `RoleSpec` whose key drifted draws its row under
+/// another entry's label.
+#[test]
+fn every_table_entry_keys_its_own_label() {
+    let version = PesVersion::Pes21;
+    let tactics = fixture_tactics(version);
+    let rows = named_roster();
+    let roster = roster_rows(&rows);
+    let label = |field| tactics_term(version, field, 0, 0, &tactics, &tactics, &roster).0;
+    for spec in &SLIDERS {
+        assert_eq!(
+            label(TacticsField::Preset {
+                preset: 0,
+                field: spec.field,
+            }),
+            format!("Preset 1 · {}", spec.label),
+            "{:?}",
+            spec.field
+        );
+    }
+    for toggle in &STYLE_TOGGLES {
+        assert_eq!(
+            label(TacticsField::Preset {
+                preset: 0,
+                field: toggle.field,
+            }),
+            format!("Preset 1 · {}", toggle.label),
+            "{:?}",
+            toggle.field
+        );
+    }
+    for role in &assignments::SET_PIECES {
+        assert_eq!(label(role.field), role.label, "{:?}", role.field);
+    }
+}
+
+/// The `PlayerId` row words its target byte under the instruction in
+/// force on that side, as the tab's target combo does: "An opponent"
+/// under Tight Marking, "Unassigned" under a target-less one, a player
+/// under a player-taking one.
+#[test]
+fn the_target_terms_read_the_instruction_in_force_on_each_side() {
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    let encode = |inst| instruction::encode(version, inst).expect("PES 21 stores it");
+    {
+        let attack = tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("PES 21 has instructions");
+        attack[0].instruction = encode(Instruction::TightMarking);
+        attack[0].player = 4;
+        attack[1].instruction = encode(Instruction::TikiTaka);
+        attack[1].player = 0;
+        let defence = tactics.presets[0]
+            .defence_instructions
+            .as_mut()
+            .expect("PES 21 has instructions");
+        defence[0].instruction = encode(Instruction::CounterTarget);
+        defence[0].player = tactics.starting_eleven[5];
+    }
+    // The tab's own text for the same tactics, drawn.
+    let mut window = Headless::sized(800.0, 900.0);
+    let mut view = TacticsView::default();
+    let rows = named_roster();
+    let roster = roster_rows(&rows);
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let combo_text = |label: &str| {
+        controls_right_of(&nodes, label, Role::ComboBox)[1]
+            .value()
+            .expect("the target combo's text")
+            .to_owned()
+    };
+    assert_eq!(combo_text("Attack 1"), "An opponent", "the tab's own text");
+    assert_eq!(combo_text("Attack 2"), "Unassigned", "the tab's own text");
+    let starter_text = combo_text("Defence 1");
+    assert_eq!(
+        starter_text,
+        format!("6 {}", name_at(&roster, tactics.starting_eleven[5])),
+        "the tab's own text"
+    );
+
+    // The row's sides read the same words for the same instruction and
+    // byte.
+    let term = |side, index, old, new| {
+        tactics_term(
+            version,
+            TacticsField::Instruction {
+                preset: 0,
+                side,
+                index,
+                part: InstructionPart::PlayerId,
+            },
+            old,
+            new,
+            &tactics,
+            &tactics,
+            &roster,
+        )
+    };
+    assert_eq!(
+        term(InstructionSide::Attack, 0, 4, 255).1,
+        "An opponent",
+        "the row's Tight Marking side"
+    );
+    assert_eq!(
+        term(InstructionSide::Attack, 1, 0, 9).1,
+        "Unassigned",
+        "the row's target-less side"
+    );
+    assert_eq!(
+        term(
+            InstructionSide::Defence,
+            0,
+            u32::from(tactics.starting_eleven[5]),
+            20
+        )
+        .1,
+        starter_text,
+        "the row's player-taking side"
+    );
+
+    // Each side of the row reads its own instruction: the same byte under
+    // the baseline's Tight Marking and the current's target-less one.
+    let baseline = tactics.clone();
+    let mut current = tactics.clone();
+    current.presets[0]
+        .attack_instructions
+        .as_mut()
+        .expect("instructions")[0]
+        .instruction = encode(Instruction::TikiTaka);
+    let (_, old, new) = tactics_term(
+        version,
+        TacticsField::Instruction {
+            preset: 0,
+            side: InstructionSide::Attack,
+            index: 0,
+            part: InstructionPart::PlayerId,
+        },
+        4,
+        4,
+        &baseline,
+        &current,
+        &roster,
+    );
+    assert_eq!(
+        (old.as_str(), new.as_str()),
+        ("An opponent", "Unassigned"),
+        "each side under its own instruction"
+    );
+}
+
+// The Substitution pair's cell is as wide as its label, the DragValue
+// and the item gap (`sub_cell_width`): the drawn label's left edge to
+// the field's right edge measures it at the fixture's stored value.
+#[test]
+fn the_substitution_cell_is_as_wide_as_its_pair() {
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    assert!(
+        tactics.auto.substitution.is_some(),
+        "premise: PES 21 stores the byte"
+    );
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(version);
+    let roster = roster_rows(&rows);
+    let mut window = Headless::sized(800.0, 900.0);
+    let mut expected = 0.0f32;
+    window.frame(vec![], |ui| expected = sub_cell_width(ui));
+
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let label = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some("Substitution"))
+        .and_then(|node| node.bounds())
+        .expect("the Substitution label");
+    let field = control_right_of(&nodes, "Substitution", Role::SpinButton)
+        .bounds()
+        .expect("the Substitution field");
+    assert!(
+        (field.x1 - label.x0 - f64::from(expected)).abs() < 1.0,
+        "the cell is as wide as its pair (label {label:?}, field {field:?}, cell {expected})"
     );
 }

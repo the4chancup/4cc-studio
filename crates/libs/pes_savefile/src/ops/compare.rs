@@ -322,7 +322,8 @@ pub enum TeamDiff {
 /// the model — the team record's runs in schema order, the two texts
 /// (name, then short name), the roster record's runs, then the tactics
 /// record's runs. `Err` only when a gated field the schema stores is
-/// `None` on either side (an entry not read from a save of this version).
+/// `None` on either side (an entry not read from a save of this version),
+/// or with `Index` on a roster or tactics entry shorter than the schema.
 pub fn compare_teams(
     a: &TeamEntry,
     b: &TeamEntry,
@@ -780,6 +781,134 @@ mod tests {
             compare_players(&PlayerEntry::default(), &PlayerEntry::default(), schema),
             Err(CodecError::NoIngameFaceRun { .. })
         ));
+    }
+
+    /// `compare_teams` on a fixture team of every version: an unchanged
+    /// copy gives no rows.
+    #[test]
+    fn a_team_equals_its_own_copy_on_every_version() {
+        for version in FIXTURES {
+            let (file, _) = open(version);
+            let team = file.teams()[0].clone();
+            assert!(
+                compare_teams(&team, &team, schema_for(version))
+                    .expect("compares")
+                    .is_empty(),
+                "{version:?}"
+            );
+        }
+    }
+
+    /// One changed field per record kind gives each its row on PES 16
+    /// (whose team record holds no colours) and on PES 20 (the 40-slot
+    /// roster): the four kinds on versions `each_single_edit_is_one_row`
+    /// does not reach.
+    #[test]
+    fn each_record_kinds_row_on_pes16_and_pes20() {
+        // PES 16: the team record holds no colour fields; its row here is
+        // a flag's.
+        let a = team(PesVersion::Pes16, 701);
+        let schema = schema_for(PesVersion::Pes16);
+        assert!(a.colors.is_none(), "premise: PES 16 has no team colours");
+        let mut b = a.clone();
+        b.edit_flags.name = !a.edit_flags.name;
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Field {
+                field: TeamField::EditedName,
+                old: u32::from(a.edit_flags.name),
+                new: u32::from(b.edit_flags.name),
+            }]
+        );
+        assert_ne!(a.name, "/XX/", "premise");
+        let mut b = a.clone();
+        b.name = "/XX/".to_owned();
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Text {
+                text: TeamText::Name,
+                old: a.name.clone(),
+                new: "/XX/".to_owned(),
+            }]
+        );
+        let mut b = a.clone();
+        assert_ne!(a.roster[2].number, 99, "premise");
+        b.roster[2].number = 99;
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Roster {
+                field: RosterField::Number(2),
+                old: u32::from(a.roster[2].number),
+                new: 99,
+            }]
+        );
+        let mut b = a.clone();
+        assert_ne!(a.tactics.presets[0].sliders.compactness, 1, "premise");
+        b.tactics.presets[0].sliders.compactness = 1;
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Tactics {
+                field: TacticsField::Preset {
+                    preset: 0,
+                    field: PresetField::Compactness,
+                },
+                old: u32::from(a.tactics.presets[0].sliders.compactness),
+                new: 1,
+            }]
+        );
+
+        // PES 20: the roster runs forty slots.
+        let a = team(PesVersion::Pes20, 701);
+        let schema = schema_for(PesVersion::Pes20);
+        assert_eq!(a.roster.len(), 40, "premise: PES 20's roster size");
+        let mut b = a.clone();
+        b.manager_id = Some(0);
+        assert_ne!(a.manager_id, Some(0), "premise");
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Field {
+                field: TeamField::ManagerId,
+                old: a.manager_id.expect("PES 20 stores it"),
+                new: 0,
+            }]
+        );
+        assert_ne!(a.short_name, "XXX", "premise");
+        let mut b = a.clone();
+        b.short_name = "XXX".to_owned();
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Text {
+                text: TeamText::ShortName,
+                old: a.short_name.clone(),
+                new: "XXX".to_owned(),
+            }]
+        );
+        let last = a.roster.len() - 1;
+        assert_ne!(a.roster[last].number, 99, "premise");
+        let mut b = a.clone();
+        b.roster[last].number = 99;
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Roster {
+                field: RosterField::Number(u8::try_from(last).expect("a slot")),
+                old: u32::from(a.roster[last].number),
+                new: 99,
+            }]
+        );
+        let mut b = a.clone();
+        assert_ne!(a.tactics.presets[0].sliders.compactness, 1, "premise");
+        b.tactics.presets[0].sliders.compactness = 1;
+        assert_eq!(
+            compare_teams(&a, &b, schema).expect("compares"),
+            [TeamDiff::Tactics {
+                field: TacticsField::Preset {
+                    preset: 0,
+                    field: PresetField::Compactness,
+                },
+                old: u32::from(a.tactics.presets[0].sliders.compactness),
+                new: 1,
+            }]
+        );
     }
 
     /// `compare_teams` over a fixture team: an unchanged copy gives no

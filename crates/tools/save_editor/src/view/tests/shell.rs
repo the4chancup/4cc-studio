@@ -374,6 +374,54 @@ fn ctrl_shift_z_redoes_not_undoes() {
     assert_eq!(height(&view), 170, "Ctrl+Shift+Z redoes");
 }
 
+// plans/save_editor.md "Editing UI" (the Keyboard shortcuts bullet):
+// Ctrl+Z while a text field holds the keyboard undoes nothing — the
+// field's own undo is egui's.
+#[test]
+fn ctrl_z_while_a_text_field_holds_the_keyboard_undoes_nothing() {
+    let path = fixture(PesVersion::Pes21, "keys_typing");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut edited = player_entry(&view, 70101);
+    edited.basic.height = 170;
+    view.session.as_mut().unwrap().edit_player(1, edited);
+    let revision = view.session.as_ref().unwrap().revision();
+    let mut window = Headless::new();
+
+    // Focus the Name field, then Ctrl+Z.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let field = right_of_label(&nodes, "Name", Role::TextInput)
+        .first()
+        .copied()
+        .expect("the Name field");
+    click(&mut window, field, &mut view);
+    let mut wants = false;
+    window.frame(Vec::new(), |ui| {
+        wants = ui.ctx().egui_wants_keyboard_input();
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert!(wants, "premise: the field holds the keyboard");
+    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
+        show(ui, &mut view, &|| Vec::new(), None)
+    });
+    assert_eq!(
+        view.session.as_ref().unwrap().revision(),
+        revision,
+        "the last edit is not undone"
+    );
+    assert_eq!(
+        view.session
+            .as_ref()
+            .unwrap()
+            .file()
+            .player(70101)
+            .unwrap()
+            .basic
+            .height,
+        170
+    );
+}
+
 // `Tool::view` draws the window through the tool impl (a settings error
 // counts as an empty `aatf_rules` setting).
 #[test]

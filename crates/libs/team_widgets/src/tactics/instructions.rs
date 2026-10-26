@@ -5,7 +5,7 @@
 //! pick only for the instructions that take one of the team's own players.
 
 use pes_savefile::model::instruction::Instruction;
-use pes_savefile::model::tactics::{AdvancedInstruction, TacticsPreset};
+use pes_savefile::model::tactics::{AdvancedInstruction, TacticsPreset, TeamTactics};
 use pes_savefile::schema::fields::{InstructionPart, InstructionSide, TacticsField};
 use pes_savefile::schema::instruction;
 use pes_version::PesVersion;
@@ -210,18 +210,7 @@ fn instruction_row(
         }
     }
     let mut target = entry.player;
-    let selected = match current {
-        // A held Tight Marking's target byte is the opponent's slot, not
-        // one of ours; a target-less instruction's is never read — the
-        // disabled combo names no player for either.
-        Some(Instruction::TightMarking) => "An opponent".to_owned(),
-        Some(inst) if !inst.takes_player() => "Unassigned".to_owned(),
-        _ if target == NO_TARGET => "Unassigned".to_owned(),
-        _ => match starting_eleven.iter().position(|slot| *slot == target) {
-            Some(index) => format!("{} {}", index + 1, name_at(roster, target)),
-            None => name_at(roster, target).to_owned(),
-        },
-    };
+    let selected = target_text(current, target, starting_eleven, roster);
     ui.add_enabled_ui(current.is_some_and(|inst| inst.takes_player()), |ui| {
         capped_combo(ui, (id, "target"), &selected, |ui| {
             ui.selectable_value(&mut target, NO_TARGET, "Unassigned");
@@ -235,6 +224,51 @@ fn instruction_row(
         });
     });
     entry.player = target;
+}
+
+/// The instruction byte `tactics` stores on `side` at `index` of
+/// `preset`, decoded; `None` where the version or the entry holds none —
+/// `target_text` then reads the byte as a player's, as the tab's `None`
+/// arm does.
+pub(super) fn instruction_at(
+    version: PesVersion,
+    tactics: &TeamTactics,
+    preset: u8,
+    side: InstructionSide,
+    index: u8,
+) -> Option<Instruction> {
+    let preset = tactics.presets.get(usize::from(preset))?;
+    let entries = match side {
+        InstructionSide::Attack => &preset.attack_instructions,
+        InstructionSide::Defence => &preset.defence_instructions,
+    };
+    let entry = entries.as_ref()?.get(usize::from(index))?;
+    instruction::decode(version, entry.instruction)
+        .ok()
+        .flatten()
+}
+
+/// The target combo's text under the instruction in force: "An opponent"
+/// for a held Tight Marking (its byte is the opposing formation's slot,
+/// not one of ours), "Unassigned" under a target-less instruction or an
+/// unset byte, "<lineup index> <name>" for a starter and the roster
+/// slot's name alone else — `instruction_row`'s `selected` and the
+/// unsaved-changes row's one wording, so the two cannot drift.
+pub(crate) fn target_text(
+    instruction: Option<Instruction>,
+    target: u8,
+    starting_eleven: &[u8; 11],
+    roster: &[RosterRow<'_>],
+) -> String {
+    match instruction {
+        Some(Instruction::TightMarking) => "An opponent".to_owned(),
+        Some(inst) if !inst.takes_player() => "Unassigned".to_owned(),
+        _ if target == NO_TARGET => "Unassigned".to_owned(),
+        _ => match starting_eleven.iter().position(|slot| *slot == target) {
+            Some(index) => format!("{} {}", index + 1, name_at(roster, target)),
+            None => name_at(roster, target).to_owned(),
+        },
+    }
 }
 
 /// The instruction's text in the combo and its rows (the draft's

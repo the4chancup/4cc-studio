@@ -492,14 +492,16 @@ pub(crate) fn raw_name_at<'a>(roster: &[RosterRow<'a>], slot: u8) -> &'a str {
 /// preset ("Preset 1 · Support range"), and the two stored values as the
 /// tab shows them (a style pair's texts, a taker's or the captain's
 /// player name, a slider's number). `version` decodes the stored
-/// instruction bytes; `tactics` names the formation slots' players (the
-/// starting eleven's roster slots).
+/// instruction bytes; `new_tactics` names the formation slots' players
+/// (the starting eleven's roster slots) and `old_tactics`/`new_tactics`
+/// carry the instruction each side's target byte is worded under.
 pub fn tactics_term(
     version: PesVersion,
     field: TacticsField,
     old: u32,
     new: u32,
-    tactics: &TeamTactics,
+    old_tactics: &TeamTactics,
+    new_tactics: &TeamTactics,
     roster: &[RosterRow<'_>],
 ) -> (String, String, String) {
     let byte = |stored: u32| u8::try_from(stored).expect("a tactics field is a byte");
@@ -516,7 +518,7 @@ pub fn tactics_term(
             slot,
             part,
         } => {
-            let starter = tactics.starting_eleven[usize::from(slot)];
+            let starter = new_tactics.starting_eleven[usize::from(slot)];
             let label = format!(
                 "Preset {} · {} · {} · {}",
                 preset + 1,
@@ -565,13 +567,23 @@ pub fn tactics_term(
                 }
                 InstructionPart::PlayerId => (
                     format!("{row} · Target"),
-                    instruction_target(tactics, roster, byte(old)),
-                    instruction_target(tactics, roster, byte(new)),
+                    instructions::target_text(
+                        instructions::instruction_at(version, old_tactics, preset, side, index),
+                        byte(old),
+                        &old_tactics.starting_eleven,
+                        roster,
+                    ),
+                    instructions::target_text(
+                        instructions::instruction_at(version, new_tactics, preset, side, index),
+                        byte(new),
+                        &new_tactics.starting_eleven,
+                        roster,
+                    ),
                 ),
             }
         }
         TacticsField::ManMarking { preset, slot } => {
-            let starter = tactics.starting_eleven[usize::from(slot)];
+            let starter = new_tactics.starting_eleven[usize::from(slot)];
             let value = |stored: u32| {
                 if stored == u32::from(u8::MAX) {
                     "None".to_owned()
@@ -670,23 +682,6 @@ fn preset_value(field: PresetField, stored: u32) -> String {
         return on_off(stored).to_owned();
     }
     stored.to_string()
-}
-
-/// The instruction target's text as the combo shows it: "Unassigned" for
-/// the none byte, "<eleven index> <name>" for a starter, the roster
-/// slot's name else.
-fn instruction_target(tactics: &TeamTactics, roster: &[RosterRow<'_>], target: u8) -> String {
-    if target == instructions::NO_TARGET {
-        return "Unassigned".to_owned();
-    }
-    match tactics
-        .starting_eleven
-        .iter()
-        .position(|slot| *slot == target)
-    {
-        Some(index) => format!("{} {}", index + 1, name_at(roster, target)),
-        None => name_at(roster, target).to_owned(),
-    }
 }
 
 /// A role chip's holder text: "Unassigned" for the none byte, the roster

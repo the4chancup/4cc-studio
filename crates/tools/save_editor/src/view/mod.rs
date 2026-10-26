@@ -443,7 +443,6 @@ pub(crate) fn show(
                 });
         });
     }
-    refusal_dialog(ui, view);
     strip_again_dialog(ui, view);
     menus::boglo_dialog(ui, view);
     menus::stat_num_dialog(ui, view);
@@ -454,6 +453,9 @@ pub(crate) fn show(
     comparator::show(ui, view);
     prompt::show(ui, view, running);
     prompt::edit_mode_dialog(ui, view, running);
+    // Last so the newest refusal, raised by a modal's own Save, sits
+    // above the modal that stays up behind it.
+    refusal_dialog(ui, view);
     // One undo entry per gesture: seal when the pointer is up and no
     // widget holds the keyboard, and when the widget that held it ends
     // the frame without it — a gesture ends when its widget loses the

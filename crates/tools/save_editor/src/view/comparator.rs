@@ -44,10 +44,11 @@ pub(crate) fn default_open_dialog() -> OpenSaveDialog {
 }
 
 /// `default_open_dialog` under `cargo test`: a test reaching a real file
-/// dialog panics; tests stub `view.open_save_dialog`.
+/// dialog panics; tests stub `view.open_dialog` or `view.open_save_dialog`,
+/// whichever the path under test reaches.
 #[cfg(test)]
 pub(crate) fn default_open_dialog() -> OpenSaveDialog {
-    Box::new(|| panic!("a test reached a real file dialog: stub open_save_dialog"))
+    Box::new(|| panic!("a test reached a real file dialog: stub open_dialog or open_save_dialog"))
 }
 
 /// The `rfd` Save dialog for the Export (`aatf_panel`'s
