@@ -1861,9 +1861,8 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
     - [ ] 8.22h the context the findings' texts need (P22, accepted 2026-10-26;
       `plans/team_compiler/messages.md` "A finding carries the context its text needs"),
       before the texts that read it → verify: a test per code reading the new field
-    - [ ] 8.22i `upgrade <export>...` (P20; `plans/export_upgrader.md` "CLI") → verify: three
-      exports in one run, one with a save lacking its team: two written, that one refused in
-      its block, exit 2; a flag error refusing all before any is read
+    - [ ] 8.22i `upgrade <export>...` (P20; `plans/export_upgrader.md` "CLI") → verify:
+      EU-CLI-11
     - [ ] 8.22j the upgrader's view items (P18's pair, P19's dialog, P32-P36;
       `plans/export_upgrader.md` "GUI"), with the view (8.10), drafted first (8.17b) → verify:
       EU-GUI scenarios for each, written with the view's Acceptance before it is built
@@ -2497,7 +2496,8 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] k4 the crash dump (P38, accepted on a measured condition; `plans/core/architecture.md`
     "Diagnostic logging", the "crash dump" bullet; ST-RUN-10), after k2: first the release exe
     built with and without `crash-handler`, `minidumper` and `minidump-writer` wired in a
-    probe; over 10 MB of growth, stop and report → verify: the measurement; ST-RUN-10; the
+    probe; over 10 MB of growth, stop and report → verify: the measurement; ST-RUN-10, ST-RUN-11
+    (manual, asked first); the
     window opening when the monitor cannot start
 - [ ] 0.0.1l no console window in the preview (`plans/core/architecture.md` "Windows
   subsystem", DECISIONS 2026-10-25, `AttachConsole` approved): `#![windows_subsystem =
@@ -2549,13 +2549,11 @@ briefs, review loops, gates and mutation runs as for any step.
   "Usability proposals P17-P24 and P32-P38 accepted"; `plans/export_upgrader.md` "What it does"'s
   last paragraph, "CLI", "Message catalog"), one commit each:
   - [ ] p1 `unmigrated_content`'s `reason` and `other`: first the list of emission sites, each
-    given its value → verify: every reason reached by a test (the existing fixtures' refusals
-    first), `other` on the two-candidate ones
-  - [ ] p2 `coverage_tag_chosen` and `--coverage full|midcup` → verify: EU-CLI-01's names with
-    the Info's `source`; the flag over a name's guess both ways; a referee export refusing it
-  - [ ] p3 a leftover staging folder removed with `staging_folder_removed` → verify: the
-    EU-CLI case that leaves one (a write failed) upgraded clean on the next run; a finished
-    output still refused
+    given its value → verify: EU-REP-05; every reason reached by a test (the existing
+    fixtures' refusals first), `other` on the two-candidate ones
+  - [ ] p2 `coverage_tag_chosen` and `--coverage full|midcup` → verify: EU-CLI-09
+  - [ ] p3 a leftover staging folder removed with `staging_folder_removed` → verify:
+    EU-CLI-10 (EU-CLI-05's staging clause replaced); a finished output still refused
 - [ ] 0.0.1q the window reopens where it was closed (P24; `plans/core/gui.md` "Window size
   classes", ST-WIN-04; after 0.0.1m, the same code): the main class's `window_main` now, the
   special class's with the Music player's view. First how eframe 0.37 lets the shell learn the

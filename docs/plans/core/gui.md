@@ -238,20 +238,24 @@ The settings menu is assembled from injected sections:
   once; `studio_core` owns the row, so every section's path rows commit the same way.
 - **The PES folder** is one main row for every version, `pes_folder_path`, whose `**` stands
   for the selected version's two digits (the default `…\Pro Evolution Soccer 20**`). Its
-  Browse stores a picked folder whose name ends in the selected version's year with `**` in
-  the year's last two digits (`D:\Games\Pro Evolution Soccer 2019` becomes `D:\Games\Pro
-  Evolution Soccer 20**`), so the selector keeps switching folders as it does for the
-  default; any other folder is stored as picked, and the row's tooltip says which. Under it,
-  a **A folder per version** toggle shows one path row per version (PES 2015 to 2021), for a
-  member whose installs do not share a pattern: a filled row is that version's folder,
-  overriding the main row, and an empty one falls back to it. The overrides are a
-  `[common.pes_folders]` table keyed by the version's setting value (`pes19 = '…'`), an entry
-  only for a filled row; `CommonSettings::pes_folder`, which every reader calls, resolves the
-  selected version's override first. The toggle is the view's alone, not a setting: it is on
-  while any override exists and cannot be switched off until the rows are emptied, since a
-  hidden override would still apply and hide why a folder is used. The running-PES notice's **Fix PES
-  path** ("Sidebar") writes the running version's own row when it has one, else the main row
-  as before.
+  Browse stores a picked folder whose own name holds the selected version's year with that
+  year written `20**` (`D:\Games\Pro Evolution Soccer 2019` becomes `D:\Games\Pro Evolution
+  Soccer 20**`), so the selector keeps switching folders as it does for the default; any other
+  folder is stored as picked, and the row's tooltip says which. It is the rule the
+  running-PES notice's Fix PES path already applies (the year anywhere in the folder's own
+  name), one function both call, so the two ways to set the folder store the same text. The
+  rule is a pure function, tested alone: the native picker cannot be driven headlessly.
+  Under it, an **A folder per version** toggle shows one path row per version (PES 2015 to
+  2021), for a member whose installs do not share a pattern: a filled row is that version's
+  folder, taken as written, overriding the main row, and an empty one falls back to it. The
+  overrides are a `[common.pes_folders]` table keyed by the version's number as
+  `pes_version` stores it (`21 = '…'`), an entry only for a filled row;
+  `CommonSettings::pes_folder`, which every reader calls, resolves the selected version's
+  override first. The toggle is the view's alone, not a setting: it is on while any override
+  exists and cannot be switched off until the rows are emptied, since a hidden override would
+  still apply and hide why a folder is used. Fix PES path ("Sidebar") writes the running
+  version's own row whenever any override exists (a member who keeps folders per version,
+  whose other versions a rewritten main row would move), else the main row as before.
 - Saving is **best-effort**: if the write fails (typically a portable install unpacked somewhere
   unwritable), the in-memory settings keep working for the session and the shell raises the
   `data_dir_read_only` condition in the status bar — one condition covering settings and the
@@ -880,14 +884,17 @@ ST-SET-03   GIVEN a data directory that cannot be written
             THEN the change applies for the session, the status bar's left slot shows the
                  data_dir_read_only condition, and no dialog or prompt opens
 ST-SET-04   GIVEN the selector at PES 2019 and the menu open
-            WHEN `D:\Games\Pro Evolution Soccer 2019` is picked on the PES folder row
+            WHEN `D:\Games\Pro Evolution Soccer 2019` is stored as a pick on the PES folder
+                 row (the pick's rule called with that folder: the native picker is manual)
             THEN pes_folder_path holds `D:\Games\Pro Evolution Soccer 20**`, and with the
                  selector at PES 2021 the resolved folder is `…Soccer 2021`; GIVEN `E:\PES`
-                 picked THEN it is stored as picked; WHEN A folder per version is switched on
-                 and PES 2021's row filled with `F:\PES2021` THEN [common.pes_folders] holds
-                 pes21 alone, PES 2021 resolves there and PES 2019 to the main row's, and the
-                 toggle cannot be switched off; WHEN the row is emptied THEN the entry is gone
-                 and the toggle can be switched off
+                 THEN it is stored as given; WHEN A folder per version is switched on and PES
+                 2021's row typed `F:\PES2021` and committed THEN [common.pes_folders] holds
+                 21 alone, PES 2021 resolves there and PES 2019 to the main row's, and the
+                 toggle cannot be switched off; WHEN Fix PES path is applied for a running PES
+                 2019 at `G:\PES 2019` THEN [common.pes_folders] gains 19 and the main row is
+                 unchanged; WHEN both rows are emptied THEN the entries are gone and the toggle
+                 can be switched off
 ```
 
 **Status bar and window title**
@@ -1030,13 +1037,18 @@ ST-RUN-09   GIVEN a data location whose `studio.log` ends without the closing li
                  normally and names `studio.old.log`'s path; GIVEN it ends with the closing
                  line of a normal close or of a crash already reported THEN no dialog; GIVEN
                  no earlier log THEN no dialog
-ST-RUN-10   GIVEN the window running over a data location
-            WHEN its process overflows its stack (the test's trigger)
-            THEN `studio.dmp` is written beside `studio.log`, `minidump-stackwalk` reads it
-                 with the trigger's function in the crashed thread's stack, the monitor process
-                 has exited, and the next start's dialog (ST-RUN-09) names the dump's path
-                 beside the log's; GIVEN the monitor failing to start THEN the window opens and
-                 the log holds the warning
+ST-RUN-10   GIVEN the built exe started as the window over a test data location, with the
+                 test's trigger to overflow its stack
+            WHEN the trigger fires
+            THEN `studio.dmp` is written beside `studio.log`, reads as a minidump holding a
+                 thread list and the exception stream of a stack overflow (read in the test
+                 by the `minidump` crate, a dev dependency), the monitor process has exited,
+                 and the next start's dialog (ST-RUN-09) names the dump's path beside the
+                 log's; GIVEN the monitor failing to start THEN the window opens and the log
+                 holds the warning
+ST-RUN-11   manual  GIVEN ST-RUN-10's dump from a release build
+                    WHEN `minidump-stackwalk` reads it against that build's kept `.pdb`
+                    THEN the crashed thread's stack names the trigger's function
 ST-CLI-01   GIVEN a data directory that cannot be written
             WHEN a CLI command runs
             THEN stderr starts with the data_dir_read_only condition as one line, and a notice a

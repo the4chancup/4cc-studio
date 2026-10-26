@@ -11354,3 +11354,14 @@ Why: the maintainer's ruling, choosing both over the lead's one-row-per-selected
 alternative: the `**` rule serves installs sharing a pattern in one pick, the overrides those
 that do not; a toggle a member could switch off over a filled row would hide the folder in use.
 Plan: `plans/core/gui.md` "Settings menu", the "PES folder" bullet; ST-SET-04.
+
+## 2026-10-26 — export_upgrader — `--coverage` does not overrule a tag the old name already holds
+Decision: an old name whose second word is already `Full` or `Midcup` keeps it (the built
+naming rule), reported with source `name`; `--coverage` naming the other tag is refused
+(exit 2), the same tag accepted. A removal of a leftover staging folder that fails aborts as
+before (exit 3).
+Why: the plan was silent on a flag against a tag the member wrote; renaming that word under
+them would surprise more than a refusal naming it. A staging folder that will not go is held
+open, most likely by a second upgrade of the same export running at that moment, and only
+that run can lose by the abort.
+Plan: `plans/export_upgrader.md` "CLI", the first and third additions.

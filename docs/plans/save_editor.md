@@ -812,32 +812,34 @@ What this editor adds on top of the lib:
   more than a frame, so it runs on a worker, on the ruleset the window loaded, once the edit
   settles (a drag released, a field committed) and the list keeps the previous result, marked
   as checking, until the new one arrives. The panel is the log panel widget's frame (its chevron collapses it to the header,
-  its divider resizes it). The toggle is drawn as a button, framed and with the check's icon
-  whether on or off, filled in the accent colour when on: egui's toggle value is a selectable
-  label, which off reads as a label beside the menus, and the toggle is how a manager finds
-  the check at all. While it is on, its result also marks the editor itself, so a manager
-  sees what to fix where they fix it:
-  - **The player list** marks each listed player of the checked team: a cross, in the error
-    colour, on a player with an Error-severity violation, a check mark otherwise (warnings and
-    suggestions are not failures, as `check-aatf`'s exit code counts them); its tooltip the
-    count. Players of other teams, with ALL picked, carry none: they are not checked.
-  - **The field a violation is about** gets a cross beside it, in its severity's colour, when
-    its player is selected, its tooltip the line the AATF panel shows for it: the Height box
-    for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields for theirs,
-    the stat for `Stat`, the name for `NameColor`, the registered position for
-    `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and
-    `APositions`, the player's spot on the Tactics pitch for `FieldedNotA`, the playing style
-    for `PlayingStyleRange`, the skill cards and COM styles for the card rules.
-    One function maps a kind to its field, a match with an arm per kind (a new kind does not
-    compile past it); the kinds about no single field (`NoTier`, `StatTotal`, `Special`,
-    `Custom`, the suggestions, and every team-level one) mark the list alone. A field the
-    view does not show (a tab not open) carries its cross when shown.
-  - While a check is in flight the marks keep the previous result, as the list does. At the bottom, not at a side: the player list holds the left and the
+  its divider resizes it). At the bottom, not at a side: the player list holds the left and the
   tabs need their width (the Abilities grid), and a bottom strip is where the Team compiler's
   log already sits. The floating AATF panel stays for several teams at once, suggestions,
   Validate rules and Save a copy; its whole-save check runs on a worker too, its teams in
   parallel as `check-aatf` runs them (220 teams of a PES 2017 save in 2.0 s on 16 threads, 13.2
-  s on one).
+  s on one). The toggle is drawn as a button, framed and with the check's icon whether on or
+  off, filled in the accent colour when on: egui's toggle value is a selectable label, which
+  off reads as a label beside the menus, and the toggle is how a manager finds the check at
+  all. While it is on, its result also marks the editor itself, so a manager sees what to fix
+  where they fix it:
+  - **The player list** marks each listed player of the checked team: a cross, in the error
+    colour, on a player with an Error-severity violation, a check mark otherwise (warnings and
+    suggestions are not failures, as `check-aatf`'s exit code counts them); its tooltip the
+    count. Players of other teams, with ALL picked, carry none: they are not checked.
+  - **The field a violation is about** gets a cross beside it when its player is selected:
+    the Height box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields
+    for theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
+    `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and
+    `APositions`, the player's spot on the Tactics pitch for `FieldedNotA`, the playing style
+    for `PlayingStyleRange`, the skill cards for `Cards`, `MinCards`, `SkillCardCap` and
+    `RequiredCard`, the COM styles for `ComStyleCap`. A field several violations are about
+    carries one cross, in the colour of the highest severity among them (a suggestion alone
+    draws none), its tooltip their lines as the AATF panel shows them, one per line. One
+    function maps a kind to its field, a match with an arm per kind (a new kind does not
+    compile past it); the kinds about no single field (`NoTier`, `StatTotal`, `Special`,
+    `Custom`, `RosterOrder`, the suggestions, and every team-level one) mark the list alone.
+    A field the view does not show (a tab not open) carries its cross when shown.
+  - While a check is in flight the marks keep the previous result, as the list does.
 - **Validate rules.** A button in the AATF panel running the lib's load-time validation on
   the active rules file (the `aatf_rules` setting's, or the embedded one when it is empty), its
   findings listed one per line with their line and column or key path, or "There are no findings in <file>.". The
@@ -1158,10 +1160,11 @@ SE-GUI-30  GIVEN the PES 17 save open on a team with violations under the active
 SE-GUI-36  GIVEN SE-GUI-30's save and team, Live AATF on and its first check returned, one
                  player of the team breaking the Height rule alone and another breaking none
            WHEN the view is drawn
-           THEN the toolbar's Live AATF is a framed button, the list shows a cross beside the
-                first player and a check mark beside the second; WHEN the first is selected
-                THEN a cross stands beside the Height box, its tooltip the AATF panel's line
-                for that violation, and no other field carries one; WHEN an edit fixes the
+           THEN the toolbar's Live AATF is a button whose label holds the check's icon (its
+                frame and fill are checked by eye in the draft and the built window), the list
+                shows a cross beside the first player and a check mark beside the second; WHEN
+                the first is selected THEN a cross stands beside the Height box, its tooltip
+                the AATF panel's line for that violation, and no other field carries one; WHEN an edit fixes the
                 height and the check returns THEN both marks are a check mark and the cross
                 beside the box is gone; WHEN Live AATF is switched off THEN no mark is drawn
 SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (gloves), and "Edit

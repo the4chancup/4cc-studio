@@ -328,5 +328,6 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   with them, measured on release builds with and without before any code lands; past that the
   step stops and reports. A monitor that does not start leaves the window running with the
   log alone, a warning logged: the dump is a diagnostic, never a reason the window does not
-  open. A CLI command installs none: its crash prints to the console it runs in, and a script
+  open. The monitor starts once the data location exists, as the log does: a first run's
+  crash leaves neither, its dialog's message the one trace. A CLI command installs none: its crash prints to the console it runs in, and a script
   calling it in a loop would start a monitor per call.

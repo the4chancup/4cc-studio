@@ -24,8 +24,9 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   `aesthetics_export`, never one per code.
 - **A finding carries the context its text needs.** The texts Phase 8 writes must say the fix,
   and some codes' context leaves the member unable to act. Each gains what its text names:
-  `players_txt_invalid` and `notes_encoding_invalid` the cause and the first bad line (the
-  encoding text then says how to re-save as UTF-8 in Notepad); `player_folder_number_invalid`
+  `players_txt_invalid` and `notes_encoding_invalid` the cause, and the first bad line where
+  one is at fault (a roster-wide cause, two folder names colliding or a referee roster with no
+  valid line, has none; the encoding text then says how to re-save as UTF-8 in Notepad); `player_folder_number_invalid`
   the expected form (`NN - Name`, or a `players.txt`); `player_number_duplicate` the other
   folder claiming the slot; `kit_folder_invalid` the allowed names (`p1`-`p9`, `g1`, `all`);
   `file_type_disallowed` which case it is (an unknown extension, a hidden `.txt`, a known file
@@ -35,7 +36,9 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   bytes are; `export_tag_missing` the two exact names to rename to. The same holds for the
   other tools' catalogs: the Export upgrader's `custom_model_missing` and
   `settings_not_generated` the ways to a clean upgrade, and `check-aatf`'s `aatf_violation`
-  (`spec/save_editor.md`'s catalog) the player's name and number rather than his id.
+  (`spec/save_editor.md`'s catalog) the player's name and shirt number beside his id in its
+  `player` context field; the rule's own fields stay as the rules file spells them
+  (`RosterOrder`'s `player` and `expected` are the ids the rule compares).
 
 ### Catalog
 
