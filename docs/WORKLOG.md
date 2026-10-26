@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 done; 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 and c2 done; 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2167,7 +2167,17 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         accepted, 4 nits, the loop's end. Table
         `.tmp/8_29/c1_table.md`, rulings `.tmp/8_29/rulings.md` (side/text worktree).
         Files: `team_compiler/src/messages/catalog.rs`
-      - [ ] c2 the catalog's rows 81-161 (`xml_ignored_shared` to `source_changed_during_run`)
+      - [x] c2 the catalog's rows 81-161 (`xml_ignored_shared` to `source_changed_during_run`):
+        96 texts rewritten (the lead retouched ten: a lost main verb, a dangling "Found on
+        ...", two causes the sidekick's "so" invented or dropped, "promoted" and "rows" for a
+        bin's entries), the `upgrade-dpfl` and Cup DLC rows now sentences with the command or
+        mode as subject, `mtl_broken`'s position worded as c1's `xml_broken`. SWE-2 round S1:
+        14 concerns, 11 accepted, 2 nits, 1 rejected; S2: 10, 9 accepted (among them a
+        `.common` link that always conflicts with a file, and a missing listed CPK that makes the
+        game reject all of `download/`, which the texts hid); S3: 7, 7 accepted (an Error
+        naming only the first missing texture, said wrongly before); S4: 9, 5 accepted; S5: 7, 2,
+        the loop's end (115 texts in all, and c1's `mtl_texture_not_found` "listed before this
+        run's own"). Table `.tmp/8_29/c2_table.md`. Files: `team_compiler/src/messages/catalog.rs`
       - [ ] c3 the catalog's format-check and structure-pass rows (162-237); the upgrader's
         structure-pass rows take each rewritten `when` word for word (its catalog test pins it)
       - [ ] c4 the Team compiler's CLI output and `--help` (`cli.rs`), `help/01_command_line.md`

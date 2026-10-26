@@ -2557,3 +2557,5 @@ worklog passed 7,000 lines.
 - **2026-10-26** — 8.29c1: the Team compiler's catalog, its first 80 rows (the help's Messages topic), rewritten as
   sentences that flow (89 texts, three SWE-2 rounds), the meaning kept; the injected TOML comments (c6) live in lib
   crates outside track U.
+- **2026-10-26** — 8.29c2: the Team compiler's catalog rows 81-161 (textures, model conversion, deployment, the save)
+  rewritten as sentences that flow (115 texts, five SWE-2 rounds), the meaning kept.
