@@ -108,7 +108,7 @@ pub(super) fn place_of(
 
 /// Whether `place`'s title bar (the window's width over the top `TITLE_BAR_PX` pixels at
 /// 100%, both scaled by the record's scale) overlaps one of `monitors` (physical pixels) with
-/// a positive area; an empty list, no reader or a platform without one, trusts the place.
+/// a positive area; an empty list (a frame with no window to ask) trusts the place.
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn on_a_monitor(place: &WindowPlace, monitors: &[egui::Rect]) -> bool {
     let bar = egui::Rect::from_min_size(
@@ -121,13 +121,38 @@ pub(super) fn on_a_monitor(place: &WindowPlace, monitors: &[egui::Rect]) -> bool
             .any(|monitor| monitor.intersect(bar).is_positive())
 }
 
-/// How the window opens on `place`, the main class's record, given `monitors`.
+/// What the first frame does with the remembered `place` the window was created at:
+/// resend its position when its title bar lies on one of `monitors` (the window's monitors,
+/// in physical pixels), else fit and center the window as a first start does. An empty
+/// list, a frame with no window to ask, trusts the place.
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn opening(place: Option<WindowPlace>, monitors: &[egui::Rect]) -> Opening {
-    match place {
-        Some(place) if on_a_monitor(&place, monitors) => Opening::Place(place),
-        _ => Opening::Fit,
+pub(super) fn place_or_fit(place: WindowPlace, monitors: &[egui::Rect]) -> Opening {
+    if on_a_monitor(&place, monitors) {
+        Opening::Place(place)
+    } else {
+        Opening::Fit
     }
+}
+
+/// The monitors of `frame`'s window, each its rectangle in the screen's physical pixels;
+/// empty when the frame has no window (a test's frame).
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn monitors(frame: &eframe::Frame) -> Vec<egui::Rect> {
+    let Some(window) = frame.winit_window() else {
+        return Vec::new();
+    };
+    window
+        .available_monitors()
+        .map(|monitor| {
+            let position = monitor.position();
+            let size = monitor.size();
+            // Screen coordinates are far inside f32's exact integer range.
+            egui::Rect::from_min_size(
+                egui::pos2(position.x as f32, position.y as f32),
+                egui::vec2(size.width as f32, size.height as f32),
+            )
+        })
+        .collect()
 }
 
 /// The native window's options for `opening`: `Fit` creates the window at `DEFAULT_SIZE` and
@@ -437,13 +462,12 @@ mod tests {
         );
 
         assert_eq!(
-            opening(Some(place(100.0, 50.0)), &[monitor]),
+            place_or_fit(place(100.0, 50.0), &[monitor]),
             Opening::Place(place(100.0, 50.0)),
         );
-        assert_eq!(opening(Some(place(2500.0, 50.0)), &[monitor]), Opening::Fit);
-        assert_eq!(opening(None, &[monitor]), Opening::Fit);
+        assert_eq!(place_or_fit(place(2500.0, 50.0), &[monitor]), Opening::Fit);
         assert_eq!(
-            opening(Some(place(2500.0, 50.0)), &[]),
+            place_or_fit(place(2500.0, 50.0), &[]),
             Opening::Place(place(2500.0, 50.0)),
         );
     }
@@ -624,13 +648,16 @@ mod tests {
             Some(dir.clone()),
             vec![calls_a, calls_b],
         );
-        let options = app.opening(&[egui::Rect::from_min_size(
-            egui::Pos2::ZERO,
-            egui::vec2(1920.0, 1080.0),
-        )]);
+        let options = app.opening();
         assert_eq!(options.viewport.position, Some(egui::pos2(100.0, 50.0)));
         assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
         assert!(!options.centered, "created where it closed, not centered");
+        app.monitors = |_| {
+            vec![egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(1920.0, 1080.0),
+            )]
+        };
         let restart_ctx = test_context();
         let out = placed_frame(
             &restart_ctx,
@@ -675,22 +702,28 @@ mod tests {
         let (a, calls_a) = stub("a", "A", None);
         let (b, calls_b) = stub("b", "B", None);
         let Shell { mut app, .. } = shell_with(
-            settings,
+            settings.clone(),
             vec![a, b],
             &[],
             Some(dir.path().to_path_buf()),
             vec![calls_a, calls_b],
         );
 
+        // The window is created at the place, unchecked: the check needs the
+        // window's own monitor list, which exists only once the window does.
+        let options = app.opening();
+        assert_eq!(options.viewport.position, Some(egui::pos2(2500.0, 50.0)));
+        assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
+        assert!(!options.centered);
+
         // (2500, 50) puts the title bar past the 1920 monitor's right edge:
-        // the place is dropped for the fit of ST-WIN-01's first row.
-        let options = app.opening(&[egui::Rect::from_min_size(
-            egui::Pos2::ZERO,
-            egui::vec2(1920.0, 1080.0),
-        )]);
-        assert_eq!(options.viewport.inner_size, Some(DEFAULT_SIZE));
-        assert_eq!(options.viewport.position, None);
-        assert!(options.centered, "a place on no monitor falls to the fit");
+        // the first frame drops the place for the fit of ST-WIN-01's first row.
+        app.monitors = |_| {
+            vec![egui::Rect::from_min_size(
+                egui::Pos2::ZERO,
+                egui::vec2(1920.0, 1080.0),
+            )]
+        };
         let out = monitor_frame(&egui_ctx, &mut app, Some(egui::vec2(1920.0, 1080.0)));
         assert_eq!(
             fitting(&out),
@@ -700,11 +733,29 @@ mod tests {
             ],
         );
 
-        // No list at all, the reader's absence: the place is trusted.
-        let options = app.opening(&[]);
-        assert_eq!(options.viewport.position, Some(egui::pos2(2500.0, 50.0)));
-        assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
-        assert!(!options.centered);
+        // No list at all, a frame with no window to ask: the place is trusted.
+        let (a, calls_a) = stub("a", "A", None);
+        let (b, calls_b) = stub("b", "B", None);
+        let Shell { mut app, .. } = shell_with(
+            settings,
+            vec![a, b],
+            &[],
+            Some(dir.path().to_path_buf()),
+            vec![calls_a, calls_b],
+        );
+        app.opening();
+        let out = placed_frame(
+            &egui_ctx,
+            &mut app,
+            egui::pos2(2500.0, 50.0),
+            egui::vec2(1100.0, 700.0),
+            1.0,
+            false,
+        );
+        assert_eq!(
+            fitting(&out),
+            [ViewportCommand::OuterPosition(egui::pos2(2500.0, 50.0))],
+        );
     }
 
     // ST-WIN-04
@@ -749,10 +800,7 @@ mod tests {
             Some(dir.clone()),
             vec![calls_a, calls_b],
         );
-        let options = app.opening(&[egui::Rect::from_min_size(
-            egui::Pos2::ZERO,
-            egui::vec2(1920.0, 1080.0),
-        )]);
+        let options = app.opening();
         assert_eq!(options.viewport.position, Some(egui::pos2(50.0, 25.0)));
         assert_eq!(options.viewport.inner_size, Some(egui::vec2(550.0, 350.0)));
         assert!(!options.centered);

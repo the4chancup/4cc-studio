@@ -2664,16 +2664,18 @@ briefs, review loops, gates and mutation runs as for any step.
     `export_upgrader/src/{cli,naming,staging,upgrade,model_folders,messages,referees}.rs`,
     `tests/cli/cli.rs`, `tests/upgraded_golden.rs`, `help/01_command_line.md`,
     `spec/export_upgrader.md`, `plans/export_upgrader.md`
-- [ ] 0.0.1q the window reopens where it was closed (P24; `plans/core/gui.md` "Window size
+- [x] 0.0.1q the window reopens where it was closed (P24; `plans/core/gui.md` "Window size
   classes", ST-WIN-04; after 0.0.1m, the same code): the main class's `window_main` now, the
   special class's with the Music player's view. First how eframe 0.37 lets the shell learn the
   monitors at start (eframe's own persistence clamps through winit's monitor list), the finding
   a DECISIONS entry → verify: ST-WIN-04 headless where the harness reaches; the off-monitor
   case by hand (ASK FIRST). The finding (side-lead S, 2026-10-26, DECISIONS "eframe 0.37
-  gives the shell no monitor list"): no public route to winit's list, so the check takes a
-  list a reader of the shell's own supplies, the Windows reader an `unsafe`
-  `EnumDisplayMonitors` block waiting on `QUESTIONS.md`; the launch passes an empty list
-  (the place trusted) until it lands
+  gives the shell the monitor list only once the window exists"): no route before the window
+  exists, and after it the frame's window lists the monitors (`Frame::winit_window`,
+  `available_monitors`), so the window is created at the place and the first frame checks it.
+  Open for the top lead, on the merged code: the built-window checks (move and resize, close,
+  reopen at 100% and on the 4K monitor's 200%, close maximized) and the off-monitor case by
+  hand (a place on the FHD monitor, that monitor switched off, reopen: fitted on the main one)
   - [x] q1 the record, the opening and the guard (`.tmp/0_0_1q/brief_q1.md`): `window_main`
     as `[x, y, width, height, scale]` (pixels, points at zoom 1, the monitor's scale), read
     each normal frame and written at exit, the window created at it and the first frame
@@ -2685,9 +2687,22 @@ briefs, review loops, gates and mutation runs as for any step.
     declares `on_exit(&mut self)`, no `glow` argument); four ST-WIN-04 tests and three unit
     tests. Built-window check for the top lead: move and resize, close, reopen (100% and the
     4K monitor's 200%), and close maximized. Files: `studio_core/src/settings/{common,mod}.rs`,
-    `studio_core/src/shell/{mod,window_size}.rs`
-  - [ ] q2 the Windows monitors reader, once `QUESTIONS.md` answers; then the off-monitor
-    case by hand (the top lead, on the merged code)
+    `studio_core/src/shell/{mod,window_size}.rs`. SWE-2 round S1: 3 accepted of 12
+    (`.tmp/0_0_1q/rulings.md`), among them the zoom-landing guard compared in pixels with half
+    a pixel's tolerance (an exact compare skipped every frame at many positions on a 150%
+    display), reworked and amended
+  - [x] q2 the off-monitor check on the first frame (`.tmp/0_0_1q/brief_q2.md`; round S1's
+    S1a-2 found the window's own monitor list, so no `unsafe` reader): `place_or_fit` against
+    the window's monitors, a function pointer the tests replace → verify: ST-WIN-04's
+    off-monitor and no-list clauses; the off-monitor case by hand (the top lead, on the
+    merged code). Done: `window_size::monitors` (`Frame::winit_window`,
+    `available_monitors`), `place_or_fit`, the `monitors` field, `StudioApp::opening` with no
+    list, the check before the first frame's `match`; the off-monitor test rewritten, the
+    on-monitor restart through the check. The `QUESTIONS.md` entry on the `unsafe` reader is
+    withdrawn. SWE-2 round S2: 1 accepted of 4 (`.tmp/0_0_1q/rulings.md`: the unseen move
+    holds on a desk of one scale only; wording fixed). Files:
+    `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`, `DECISIONS.md`,
+    `QUESTIONS.md`
 - [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version

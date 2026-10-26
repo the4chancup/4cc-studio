@@ -117,12 +117,17 @@ pub struct StudioApp {
     /// frame, which applies it.
     applied_theme: Option<Theme>,
     /// What the first frame does to the window: `Some(Opening::Fit)` from `new` (the fit of
-    /// ST-WIN-01), `Some(Opening::Place(_))` once `opening` found a remembered place on a
-    /// monitor, `None` once sent (gui.md "Window size classes").
+    /// ST-WIN-01), `Some(Opening::Place(_))` once `opening` found a remembered place (the
+    /// first frame checks it against the monitors), `None` once sent (gui.md "Window size
+    /// classes").
     window_start: Option<window_size::Opening>,
     /// The last normal place a frame reported (not maximized or fullscreen, its rects known
     /// and in the pass's own points), written to `window_main` at exit.
     window_place: Option<WindowPlace>,
+    /// Reads the screen's monitors from the frame's window (`window_size::monitors`); a
+    /// test replaces it with a fixed list, since a test's frame has no window.
+    #[cfg(not(target_arch = "wasm32"))]
+    monitors: fn(&eframe::Frame) -> Vec<egui::Rect>,
     /// The first-run data-location dialog's state.
     first_run: FirstRun,
 }
@@ -171,16 +176,22 @@ impl StudioApp {
             applied_theme: None,
             window_start: Some(window_size::Opening::Fit),
             window_place: None,
+            #[cfg(not(target_arch = "wasm32"))]
+            monitors: window_size::monitors,
             first_run: FirstRun::new(config_dir),
         }
     }
 
     /// The native window's options for this start, and what the first frame then does:
-    /// the main class's remembered place when `monitors` (the screen's monitors, in physical
-    /// pixels; empty when no reader supplies them) holds its title bar, else the fit.
+    /// the main class's remembered place when there is one (the first frame checks it
+    /// against the monitors), else the fit.
     #[cfg(not(target_arch = "wasm32"))]
-    pub(super) fn opening(&mut self, monitors: &[egui::Rect]) -> eframe::NativeOptions {
-        let opening = window_size::opening(self.ctx.common().window_main, monitors);
+    pub(super) fn opening(&mut self) -> eframe::NativeOptions {
+        let opening = self
+            .ctx
+            .common()
+            .window_main
+            .map_or(window_size::Opening::Fit, window_size::Opening::Place);
         self.window_start = Some(opening);
         window_size::native_options(&opening)
     }
@@ -344,7 +355,7 @@ impl eframe::App for StudioApp {
             self.applied_theme = Some(theme);
         }
         // The window is created at `DEFAULT_SIZE` or at the remembered place
-        // `opening` found on a monitor; the first frame finishes the job.
+        // `opening` found; the first frame finishes the job.
         let zoom = egui_ctx.zoom_factor();
         let (viewport, screen_rect) = egui_ctx.input(|input| {
             let viewport = input.viewport();
@@ -353,6 +364,14 @@ impl eframe::App for StudioApp {
                 viewport.inner_rect.and(input.raw.screen_rect),
             )
         });
+        // The window exists now, so the remembered place it was created at is checked
+        // against its monitors: on none (a monitor unplugged since), the first frame fits it
+        // as a first start does. The window was created there, off every monitor, so the move
+        // goes unseen unless the desk's scales changed too (gui.md "Window size classes").
+        #[cfg(not(target_arch = "wasm32"))]
+        if let Some(window_size::Opening::Place(place)) = self.window_start {
+            self.window_start = Some(window_size::place_or_fit(place, &(self.monitors)(_frame)));
+        }
         match self.window_start {
             // The window is created at `DEFAULT_SIZE`; the first frame that
             // reports the monitor fits and centers it, once.
@@ -514,9 +533,7 @@ impl eframe::App for StudioApp {
 /// window or graphics context that could not be set up.
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run_gui(mut app: StudioApp) -> anyhow::Result<()> {
-    // No monitors reader yet: the Windows reader needs an `unsafe` OS call the
-    // maintainer has not ruled on (`docs/QUESTIONS.md`), so the place is trusted.
-    let options = app.opening(&[]);
+    let options = app.opening();
     eframe::run_native(
         APP_NAME,
         options,

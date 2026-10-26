@@ -2563,3 +2563,5 @@ worklog passed 7,000 lines.
 - **2026-10-26** — The window reopens where it was closed: `window_main` keeps its last normal place as pixels, points at
   zoom 1 and the monitor's scale, written at exit; eframe 0.37 gives no monitor list, so the off-monitor guard waits on a
   reader (`QUESTIONS.md`) (0.0.1q-q1).
+- **2026-10-26** — A remembered window place on no monitor now opens fitted: the first frame checks it against the
+  window's own monitor list, which eframe gives once the window exists, so no `unsafe` reader is needed (0.0.1q-q2).

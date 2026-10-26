@@ -83,36 +83,45 @@ ST-RUN-02) at that class's remembered place. A class never used opens at its des
 (1280 × 800 for the main class, a special tool's declared size), fitted and centered as
 above. A remembered place whose title bar lies on no monitor now (a second monitor
 unplugged) is dropped for the fit, so the window is never opened out of reach. `monitor_size`
-names only the window's own monitor, without its origin, and eframe 0.37 hands the shell no
-way to winit's list of monitors (`DECISIONS.md`, "eframe 0.37 gives the shell no monitor
-list"), so the check takes every monitor's rectangle, in the screen's pixels, from a reader of
-the shell's own: on Windows an OS call (`EnumDisplayMonitors`), the one desktop that leaves a
-window off every monitor where it was put (Linux window managers and macOS keep a title bar
-reachable). The check is one pure function the launch calls with the reader's list and the
-tests call with a list of their own: the title bar, the window's width over the top 32 pixels
-at 100% scaled by the record's scale, overlaps a monitor's rectangle; an empty list, the reader
-not there or a platform without one, trusts the place. Both places are shell state in the
+names only the window's own monitor, without its origin, and eframe 0.37 reaches winit's list
+of monitors only once the window exists (`DECISIONS.md`, "eframe 0.37 gives the shell the
+monitor list only once the window exists"), through the frame's window
+(`Frame::winit_window`, then `available_monitors`), so the check runs on the first frame: the
+window is created at the
+remembered place unchecked, and the first frame tests it against every monitor's rectangle, in
+the screen's pixels. A window created off every monitor is out of sight, so its move to the fit
+is not seen as a jump; the exception is a desk whose scales changed with the unplugging (a
+place on a 200% monitor, a 100% primary left), where winit's conversion of the creation
+position with the primary's scale lands the window on a monitor for that one frame, the same
+one-frame correction a mixed-scale desk sees below. The check is one pure function the first frame calls with the window's
+list and the tests call with a list of their own (a function pointer on the shell, the one seam,
+since a test's frame has no window): the title bar, the window's width over the top 32 pixels
+at 100% scaled by the record's scale, overlaps a monitor's rectangle; an empty list, a frame
+with no window to ask, trusts the place. Both places are shell state in the
 settings file, `window_main` and `window_special`, each a list of five numbers
 `[x, y, width, height, scale]`: the outer position in the screen's physical pixels, because a
-point is a different number of pixels on each monitor and the OS places windows in pixels; the
-inner size in points at zoom 1 (its pixels over the monitor's scale), the size a window keeps
-when the OS moves it to a monitor of another scale, never in the shell's zoomed points, which
-would reopen a window closed under the design width wider by the zoom; and the monitor's scale
-factor when the place was recorded. The shell reads the place every frame (the last normal
-one: not minimized, maximized or fullscreen, the rects known, and the rects in the pass's own
-points, since the frame where a queued zoom lands reports them at the zoom before it), writes
-it when the class is left and when the window closes (`App::on_exit`), and opens the window at
-it: created there (`with_position` with the pixels over the record's scale, `with_inner_size`,
-not centered), and the first frame sends the outer position again in its own points, the
-pixels over the frame's pixels per point, which is a no-op where the creation landed right and
-the correction on a mixed-scale desk, where winit converts the creation position with the
-primary monitor's scale. Not a move from a centered creation: eframe shows the window after
-the first frame's paint and applies that frame's viewport commands after the show, so the
-member would see the jump. Not eframe's own window persistence, whose `persistence` feature
-writes a file of its own outside the data location (a portable install keeps everything beside
-the exe), knows one window size, not two, and stores the size in zoomed points. A window
-closed maximized reopens at the normal place it had before (restoring the maximized state is
-`PROPOSALS.md` P39). A special tool's design width is its declared width, and its minimum its
+point is a different number of pixels on each monitor and Windows and X11 place windows in
+pixels; the inner size in points at zoom 1 (its pixels over the monitor's scale), the size a
+window keeps when the OS moves it to a monitor of another scale, never in the shell's zoomed
+points, which would reopen a window closed under the design width wider by the zoom; and the
+monitor's scale factor when the place was recorded. The shell reads the place every frame (the
+last normal one: not minimized, maximized or fullscreen, the rects known, and not the frame
+where a queued zoom lands, which reports its rects at the zoom before it: its inner rect and
+`screen_rect` differ there by a pixel or more, against a rounding error on every other frame),
+writes it when the class is left and when the window closes (`App::on_exit`), and opens the
+window at it: created there (`with_position` with the pixels over the record's scale,
+`with_inner_size`, not centered), and the first frame, the place on a monitor, sends the outer
+position again in its own points, the pixels over the frame's pixels per point, which is a
+no-op where the creation landed right and the correction on a mixed-scale desk, where winit
+converts the creation position with the primary monitor's scale. Not a move from a centered
+creation: eframe shows the window after the first frame's paint and applies that frame's
+viewport commands after the show, so the member would see the jump. Not eframe's own window
+persistence, whose `persistence` feature writes a file of its own outside the data location
+(a portable install keeps everything beside the exe), knows one window size, not two, and
+stores the size in zoomed points. A window closed maximized reopens at the normal place it had
+before (restoring the maximized state is `PROPOSALS.md` P39). On Wayland, where winit reports
+no window position and ignores a set one, nothing is recorded and the window always opens
+fitted. A special tool's design width is its declared width, and its minimum its
 own.
 
 The shell draws only what is its own. Panels claim space in call order, so the status bar is
@@ -865,9 +874,11 @@ ST-WIN-04   GIVEN a main tool active and the window moved to (100, 50) and resiz
                  [100, 50, 550, 350, 2], the options' position (50, 25) and the first frame's
                  (50, 25); GIVEN the window maximized when it closes THEN window_main is the
                  place it had before the maximize; GIVEN a remembered place whose title bar
-                 lies on no monitor of the list THEN the window opens fitted as ST-WIN-01's;
-                 GIVEN an empty list THEN it opens at the place; GIVEN a last tool of the
-                 special class THEN it opens at window_special's place
+                 lies on none of the window's monitors THEN the window is created at the place
+                 and its first frame sends ST-WIN-01's fit instead of the position; GIVEN no
+                 monitor list (a frame with no window) THEN the first frame sends the place's
+                 position; GIVEN a last tool of the special class THEN it opens at
+                 window_special's place
 ```
 
 **Sidebar**
