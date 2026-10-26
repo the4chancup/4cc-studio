@@ -11442,3 +11442,11 @@ while the bar had room for it; a heading repeating the tool's name took a row fr
 and said what the highlighted sidebar icon already did (the maintainer's look at the third
 draft, 2026-10-26).
 Plan: `plans/core/gui.md` "Status bar" and "Window title"; ST-BAR-03, ST-TTL-01 to 03.
+
+## 2026-10-26 — save_editor — The team row stands apart by a faint fill and the strong colour, not bold
+Decision: the list's team row is drawn over the theme's faint fill with its name in the strong
+text colour, where the approved draft sets it bold.
+Why: the app installs one face (Ubuntu Regular) and egui has no synthetic bold; a second font
+file for one row's weight costs bundle size and a font-loading path, and the fill alone already
+tells the row apart from a player row, as the draft's own faint backdrop does (review S1a-5).
+Plan: `plans/save_editor.md` "Editing UI", the Player list bullet.
