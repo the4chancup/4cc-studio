@@ -2582,7 +2582,17 @@ briefs, review loops, gates and mutation runs as for any step.
   ability column, Appearance a collapsed section below, the Make buttons in two columns under
   the list (AATF to the Panels menu), a team row before each team's players showing the
   team's fields and Tactics, kit slots behind a button
-  - [ ] s1 the draft (`.tmp/drafts/brief_drafts_main_panel.md`), then the maintainer's look
+  - [ ] s1 the draft (`.tmp/drafts/brief_drafts_main_panel.md`), then the maintainer's look.
+    The maintainer's answers (2026-10-26, for s2's plan text): before the 0.0.1 cut ("the
+    program needs to be as usable as possible before it's unveiled"; DBC7Editor stays the
+    managers' fallback); the team row one click away is fine; the positions grid kept, its
+    ratings coloured apart (A green, B the selection's current blue, C the quiet default); Set stats keeps its field
+    inline; Skills, then COM styles, then the four non-ability values stacked, each as wide
+    as the skills' two columns (rework r1, `brief_drafts_main_panel_r1.md`); the version
+    banner replaced by a Warning notice in the status bar, `Switch to PES 20xx` its action and
+    its dismiss the close (changes SE-GUI-28 and l3's item 3 once approved); no view draws
+    its own title, the window's idle title becoming `<tool> - <app>` (`core/gui.md` "Window
+    title", `shell/title.rs`, once approved)
   - [ ] s2 `plans/save_editor.md` "Editing UI" rewritten from the approved draft, DECISIONS,
     the SE-GUI scenarios naming tabs rewritten
   - [ ] s3 the code, in slices (the view's frame and the team row; the player view's

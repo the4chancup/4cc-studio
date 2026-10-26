@@ -38,7 +38,7 @@ step:
     and the glTF conversion has its own roundtrip tests in `model_convert`.
 
 One addition to step 10, the built report: **`unmigrated_content` names its cause.** The code
-covers about fifteen causes (a second face folder for a slot, a second item folder for an ID,
+covers about thirty causes (a second face folder for a slot, a second item folder for an ID,
 two kit textures landing on one name, a face folder without a valid slot, a texture that does
 not decode, a folder loose mode cannot place, ...), and a refused entry is reported with no
 cause (its context holds at most a Note `line` or a decode's `error`), so a manager whose
@@ -163,8 +163,9 @@ refined with the maintainer before `view/` is written:
   out`), its chevron opening it to its entries, and a parent holding one stays that one row;
   an entry that is itself a folder (a second face folder) groups under its parent like a
   file. A real export's upgrade (Lab's EGG, in the draft) left 120 rows, 18 of them one boots
-  folder's, which then read as the 25 folders they are about. A click on an entry's row (not
-  the group's chevron) opens the system file browser at that entry (the folder, the file
+  folder's, which then read as the 25 folders they are about. A click on a group's row opens
+  or closes it, as its chevron does; a click on an entry's row opens the system file browser
+  at that entry (the folder, the file
   selected where the platform can; for an archive input, the folder the archive sits in, the
   archive selected), its tooltip saying so,
   so the fix starts from the list rather than a walk through the folders. For `upgrade-models` the per-folder "where it
@@ -238,7 +239,9 @@ EU-CLI-10  GIVEN `co - Spring` and its output's staging folder `co Full - Spring
            THEN the staging folder is removed, staging_folder_removed names it, and the run is
                 clean with its output written; GIVEN (Windows, where an open file blocks its
                 removal) a file of the staging folder held open THEN exit 3 naming the
-                folder, nothing written
+                folder, nothing written; GIVEN EU-CLI-06's "new models" and its output's
+                staging folder `new models upgraded.upgrading` left by an earlier run, WHEN
+                `upgrade-models` runs, THEN it is removed and named the same way
 EU-CLI-11  GIVEN two of EU-CLI-01's /co/ exports, a third export of another team, and a save
                  holding /co/ but not that team
            WHEN `upgrade` names all three with that save

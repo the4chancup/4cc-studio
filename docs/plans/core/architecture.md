@@ -322,7 +322,9 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   a monitor, the same exe started again with a hidden argument (no second exe in the bundle),
   because a crashed process cannot reliably write its own dump; on a crash the monitor writes
   `studio.dmp` beside the log (every thread's stack, a few MB), replacing the previous one,
-  and exits with the window's process. Through Embark's `crash-handler` (the hook in the
+  appends a line naming it to the log (the window's process is gone by then, and a crashed
+  session's log has no closing line for it to follow), and exits with the window's process;
+  on a normal close it writes nothing, so the closing line stays the log's last. Through Embark's `crash-handler` (the hook in the
   window's process), `minidumper` (the link to the monitor) and `minidump-writer`; the
   maintainer reads a dump with `minidump-stackwalk` against the release's kept `.pdb`, the
   exe's symbols the log's offsets are named from too. The three crates go in only while the release exe grows by at most 10 MB

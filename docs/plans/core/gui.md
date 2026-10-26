@@ -79,7 +79,10 @@ it, and the window opens in the class of the tool it opens on (the last active o
 ST-RUN-02) at that class's remembered place. A class never used opens at its design size
 (1280 × 800 for the main class, a special tool's declared size), fitted and centered as
 above. A remembered place whose title bar lies on no monitor now (a second monitor
-unplugged) is dropped for the fit, so the window is never opened out of reach. Both places are
+unplugged) is dropped for the fit, so the window is never opened out of reach. `monitor_size`
+names only the window's own monitor, so the check reads every monitor's rectangle (winit's
+list, as eframe reaches it at start: step 0.0.1q settles how) through one function the shell
+calls, which the test harness fakes as it fakes the monitor size. Both places are
 shell state in the settings file (`window_main`, `window_special`: the outer position and the
 inner size, in points), written when the class is left and when the window closes, rather
 than eframe's own window persistence, whose `persistence` feature writes a file of its own
@@ -898,7 +901,8 @@ ST-SET-04   GIVEN the selector at PES 2019 and the menu open
                  2021's row typed `F:\PES2021` and committed THEN [common.pes_folders] holds
                  21 alone, PES 2021 resolves there and PES 2019 to the main row's, and the
                  toggle cannot be switched off; WHEN Fix PES path is applied for a running PES
-                 2019 at `G:\PES 2019` THEN [common.pes_folders] gains 19 and the main row is
+                 2019 at `G:\PES 2019` (the notice's action applied with that folder: the
+                 running process is manual) THEN [common.pes_folders] gains 19 and the main row is
                  unchanged; WHEN both rows are emptied THEN the entries are gone and the toggle
                  can be switched off
 ```
@@ -1048,8 +1052,8 @@ ST-RUN-10   GIVEN the built exe started over a test data location with `--crash-
             WHEN the trigger overflows the stack
             THEN `studio.dmp` is written beside `studio.log`, reads as a minidump holding a
                  thread list and the exception stream of a stack overflow (read in the test
-                 by the `minidump` crate, a dev dependency), and the monitor process has
-                 exited; the next start's dialog text (ST-RUN-09's, built from the old log and
+                 by the `minidump` crate, a dev dependency), and the log's last line is the
+                 monitor's naming the dump; the next start's dialog text (ST-RUN-09's, built from the old log and
                  the dump) names the dump's path beside the log's; GIVEN the monitor's start
                  given a program that is not an exe THEN it returns the failure and the log
                  holds the warning

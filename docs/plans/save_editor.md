@@ -817,15 +817,18 @@ What this editor adds on top of the lib:
   log already sits. The floating AATF panel stays for several teams at once, suggestions,
   Validate rules and Save a copy; its whole-save check runs on a worker too, its teams in
   parallel as `check-aatf` runs them (220 teams of a PES 2017 save in 2.0 s on 16 threads, 13.2
-  s on one). The toggle is drawn as a button, framed and with the check's icon whether on or
-  off, filled in the accent colour when on: egui's toggle value is a selectable label, which
+  s on one). The toggle is drawn as a button, framed, its label the list's check-mark glyph
+  then `Live AATF` whether on or off, filled in the accent colour when on: egui's toggle value is a selectable label, which
   off reads as a label beside the menus, and the toggle is how a manager finds the check at
   all. While it is on, its result also marks the editor itself, so a manager sees what to fix
   where they fix it:
   - **The player list** marks each listed player of the checked team: a cross, in the error
     colour, on a player with an Error-severity violation, a check mark otherwise (warnings and
     suggestions are not failures, as `check-aatf`'s exit code counts them); its tooltip the
-    count. Players of other teams, with ALL picked, carry none: they are not checked.
+    player's errors and warnings as the dock counts them (`2 errors, 1 warning`, or `No
+    errors`). Players of other teams, with ALL picked, carry none: they are not checked. The
+    team's own violations (no slot) mark the team's row the same way, once the list has one
+    (step 0.0.1s); until then the dock alone lists them.
   - **The field a violation is about** gets a cross beside it when its player is selected:
     the Height box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields
     for theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
@@ -838,7 +841,8 @@ What this editor adds on top of the lib:
     draws none), its tooltip their lines as the AATF panel shows them, one per line. One
     function maps a kind to its field, a match with an arm per kind (a new kind does not
     compile past it); the kinds about no single field (`NoTier`, `StatTotal`, `Special`,
-    `Custom`, `RosterOrder`, the suggestions, and every team-level one) mark the list alone.
+    `Custom`, `RosterOrder`, the suggestions) mark the player's row alone, and the
+    team-level ones the team's.
     A field the view does not show (a tab not open) carries its cross when shown.
   - While a check is in flight the marks keep the previous result, as the list does. A check
     that fails (a script error in the rules file) clears every mark: the dock shows the
