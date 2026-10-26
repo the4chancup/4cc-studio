@@ -27,8 +27,10 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   `players_txt_invalid` the cause, of two, both roster-wide and so with no line (the file is
   not UTF-8; a referee roster has no valid line), while `notes_encoding_invalid`, whose one
   cause is the file's encoding, gains nothing (both encoding texts say how to re-save as
-  UTF-8 in Notepad); `player_folder_number_invalid`
-  the expected form (`NN - Name`, or a `players.txt`); `player_number_duplicate` the other
+  UTF-8 in Notepad); `player_folder_number_invalid` gains no field, its text naming the
+  rule, which never varies: the folder's name starts with a slot from 01 to 23, optionally
+  followed by ` - ` and a name, or the team uses a `players.txt` (a form alone such as
+  `NN - Name` would not do: `24 - Alice` has it and is refused); `player_number_duplicate` the other
   folder claiming the slot; `kit_folder_invalid` gains no field, its text naming the allowed
   names (`p1`-`p9`, `g1`, `all`), which never vary;
   `file_type_disallowed` which case it is (an unknown extension, a hidden `.txt`, a known file

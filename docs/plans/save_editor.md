@@ -834,7 +834,9 @@ What this editor adds on top of the lib:
     for theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
     `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and
     `APositions`, the player's spot on the named preset's Tactics pitch for `FieldedNotA`
-    (drawn when that preset is the one shown), the playing style
+    (drawn when that preset is the one shown, on each of its formations that fields him at
+    the violation's `position`: a fluid preset's other formations may field him legally),
+    the playing style
     for `PlayingStyleRange`, the skills for `SkillCardCap`, the COM styles for
     `ComStyleCap`, the skills or the COM styles for `RequiredCard` by its card's kind, and the
     Skills header's Cards left badge for `Cards` and `MinCards`, which no one field causes:
