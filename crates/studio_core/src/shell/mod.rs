@@ -322,6 +322,11 @@ impl eframe::App for StudioApp {
         let theme = self.ctx.common().theme;
         if self.applied_theme != Some(theme) {
             crate::theme::apply(egui_ctx, theme);
+            // The zoom factor is the shell's alone (gui.md "Scaling with the
+            // width"): the width rule below sets it every frame and would undo
+            // a keyboard zoom one frame later; a member who wants larger text
+            // has the system's display scaling, which points follow.
+            egui_ctx.options_mut(|options| options.zoom_with_keyboard = false);
             self.applied_theme = Some(theme);
         }
         // The window is created at `DEFAULT_SIZE`; the first frame that reports
@@ -333,6 +338,24 @@ impl eframe::App for StudioApp {
             egui_ctx.send_viewport_cmd(egui::ViewportCommand::InnerSize(size));
             egui_ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(top_left));
             self.window_fit_pending = false;
+        }
+        // Under the design width the whole UI scales down with the window's
+        // width. The width is measured at zoom 1 so the zoom cannot feed back:
+        // `screen_rect` is the one window size egui rescales to the pass's own
+        // zoom at `begin_pass` when a queued change lands, so it times the
+        // current zoom gives the same width at every zoom — `inner_rect` keeps
+        // the zoom the input was built with on that frame and would feed it
+        // back. A viewport reporting no inner rect leaves the zoom alone.
+        let zoom = egui_ctx.zoom_factor();
+        let screen_rect = egui_ctx.input(|input| {
+            input.viewport().inner_rect?;
+            input.raw.screen_rect
+        });
+        if let Some(rect) = screen_rect {
+            let new_zoom = window_size::width_zoom(rect.width() * zoom);
+            if new_zoom != zoom {
+                egui_ctx.set_zoom_factor(new_zoom);
+            }
         }
         for tool in &mut self.tools {
             tool.tick(&self.ctx);

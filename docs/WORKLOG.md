@@ -2535,6 +2535,14 @@ briefs, review loops, gates and mutation runs as for any step.
   plan text. The size classes (ST-WIN-03, `StudioTool::window_size`) land with the Music
   player's view (Phase 10), their first special tool: a trait method no tool implements
   before then would be an item without a consumer
+  - [x] m1 the fit and the zoom. Done 2026-10-26 (SWE-2): `fitted_size(monitor,
+    decorations)` fits the height alone; `width_zoom` set each frame from
+    `RawInput::screen_rect` times the current zoom, the one size egui rescales when a queued
+    zoom lands (the sidekick's contradiction: `inner_rect` keeps the zoom the input was built
+    with and fed back, 0.5625 for 0.75 at 960 points); egui's keyboard zoom off (DECISIONS).
+    Files: `studio_core/src/shell/{window_size,mod}.rs`
+  - [ ] m2 the narrow-fallback audit, after 0.0.1s2 rewrites the Save editor's layout; the
+    built window text and ST-WIN-01/02 move to `spec/core/gui.md` with it
 - [x] 0.0.1n the drafts' Layout edit and scaling (the same review; `plans/core/gui.md`
   "Layout edit", the "Size:" bullet): a moved panel pinned where dropped, a columned panel
   narrowed into fewer columns, the simulated window scaled under the design width
