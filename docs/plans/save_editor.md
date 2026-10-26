@@ -68,7 +68,8 @@ What exists of this is in `spec/save_editor.md` "Team operations".
 
 Each operation below acts on the selected row's team, a player's or a team row's own (under
 ALL too, as 4ccEditor's do),
-on every filled roster slot, as one undoable edit. 4ccEditor's Set player names to positions
+on every filled roster slot, as one undoable edit (with no row selected the Team menu is
+disabled). 4ccEditor's Set player names to positions
 alone renames every row its list shows, which under ALL is every player of the save; that is
 not kept, so no team operation reaches past one team.
 
@@ -563,8 +564,9 @@ Contents:
   widget never recognizes a tier itself. The playing styles are listed in the order the
   version stores them, which is the game's own Edit-mode list, not the canonical order the
   Team TOML names them in: a member compares the combo against the game's list.
-- `violations` — the AATF results list grouped per player, emitting a "selected player" event for
-  the host's jump-to. The groups keep `check_team`'s order (the players by slot, then the team's
+- `violations` — the AATF results list grouped per player, emitting a "selected" event for the
+  host's jump-to that names the row's player and its violation (the host lands a
+  `FieldedNotA` one on the team row, its preset shown). The groups keep `check_team`'s order (the players by slot, then the team's
   own rows), each group's errors before its warnings; a team header heads each team's rows;
   suggestions are drawn only when the host asks, in their own group after the violations. A row
   is the rule's name as a rules file writes it and a sentence saying what is wrong; the
@@ -843,7 +845,8 @@ What this editor adds on top of the lib:
   toolbar's Panels menu ("AATF violations…"), as the draft shows (not also from a quick
   action: the actions under the list are the edits a member repeats, and Live AATF is the
   one-team check at hand). Results grouped per player; clicking a
-  violation selects the player, switching the team selector to his team unless it is at ALL
+  violation selects the player (a `FieldedNotA` one his team's row, as Live AATF's does),
+  switching the team selector to his team unless it is at ALL
   (the list must show the row it selects); team selection matches 4ccEditor (current team or a
   multi-select list of the selector's teams). Current team is the selector's team, or with ALL
   picked the selected row's team (a player's or a team row's own), as Live AATF reads it, not the first team the draft falls
@@ -863,8 +866,9 @@ What this editor adds on top of the lib:
   selected row's team: the one the view is editing), errors first, grouped per
   player as the AATF panel does, under the header `N issues · <ruleset>`, or `<team> passes
   <ruleset> with no issues.` once the list is empty; clicking a row selects that player (a
-  `FieldedNotA` row selects his team's row instead, the named preset shown, since the
-  pitch its mark is on is the team view's). The
+  `FieldedNotA` row selects his team's row instead, the named preset shown on the first of
+  its formations that carries the cross, since the pitch its mark is on is the team
+  view's). The
   team is re-checked after every edit to it, undo and redo included, and when another team is
   opened, so the list shrinks as the member fixes it. One team's check takes about 56 ms in a
   release build, nearly all of it the script's own work (`spec/aatf_rules.md` "The host"),
@@ -1091,7 +1095,8 @@ SE-GUI-15  GIVEN the PES 17 save and a ruleset with violations in the open team
            WHEN the AATF panel is drawn
            THEN the window's title names the ruleset (`AATF violations (<ruleset>)`), the
                 violations are grouped per player, a team-wide one under `the team`, which no
-                click follows, and clicking a player's one selects that player, clearing the
+                click follows, and clicking a player's one selects that player (a `FieldedNotA`
+                one his team's row, the named preset shown), clearing the
                 list's filter so his row shows (the team selector moving to his team unless at
                 ALL, which stays), Show suggestions is off and reveals the unused allowances
                 when on, Validate rules lists a broken rules file's findings under the file's
@@ -1224,7 +1229,8 @@ SE-GUI-30  GIVEN the PES 17 save open on a team with violations under the active
            WHEN Live AATF is switched on
            THEN the docked panel reads `Checking <team>…` until the first check returns, then
                 lists the team's violations under `N issues · <ruleset>`, and clicking a row
-                selects that player; WHEN an edit fixes one of them THEN the list stays,
+                selects that player (a `FieldedNotA` row his team's row, the named preset
+                shown on a formation carrying the cross); WHEN an edit fixes one of them THEN the list stays,
                 marked `checking…`, until the check returns, its row then gone and N one less,
                 and an undo brings it back; WHEN another team is opened, or another rules file
                 chosen, THEN the list and N are that team's, or that ruleset's; with ALL picked

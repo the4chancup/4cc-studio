@@ -2574,8 +2574,9 @@ briefs, review loops, gates and mutation runs as for any step.
   DECISIONS "Live AATF stays off by default"; `plans/save_editor.md` "Editing UI", the "Live
   AATF" bullet): the toggle a framed button, the player list's cross or check mark per checked
   player, the cross beside the field a selected player's violation is about (one kind-to-field
-  match), a `FieldedNotA` row of the dock selecting his team's row on the named preset (0.0.1s2:
-  the pitch is the team view's) → verify: SE-GUI-36; a test per field group of the match (one kind each, real
+  match), a `FieldedNotA` row of the dock or the AATF panel selecting his team's row on the
+  named preset's first formation carrying the cross (0.0.1s2: the pitch is the team view's), the
+  `violations` widget's event naming the violation → verify: SE-GUI-36; a test per field group of the match (one kind each, real
   violations of the PES 17 fixture's team where it has them); the draft (`tools/save_editor.js`)
   the same first, for the maintainer's look
 - [x] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
