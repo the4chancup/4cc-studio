@@ -504,8 +504,8 @@ fn the_pes16_shirt_hover_names_its_own_field() {
 // SE-GUI-38
 #[test]
 fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
-    /// The count's painted colour for `text` (`"Name n/N"`/`"Shirt n/N"`):
-    /// the label's last run is the `n/N` half.
+    /// The count's painted colour for `text` (`"Name (n/max)"`/`"Shirt (n/max)"`):
+    /// the label's last run is the `(n/max)` half.
     fn count_color(shapes: &[egui::epaint::ClippedShape], text: &str) -> egui::Color32 {
         title_shape(shapes, text)
             .galley
@@ -549,16 +549,16 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     // The labels read the counts, the colour code counting its ten bytes.
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert!(label_value(&nodes, "Name 12/61"), "the name's count");
-    assert!(label_value(&nodes, "Shirt 20/18"), "the shirt's count");
-    let shirt = field_below_label(&nodes, "Shirt ", Role::TextInput);
+    assert!(label_value(&nodes, "Name (12/61)"), "the name's count");
+    assert!(label_value(&nodes, "Shirt (20/18)"), "the shirt's count");
+    let shirt = field_below_label(&nodes, "Shirt (", Role::TextInput);
     assert_eq!(
         fill_at(&shapes, shirt.bounds().expect("bounds")),
         Some(tint),
         "the shirt field is tinted"
     );
     assert_eq!(
-        count_color(&shapes, "Shirt 20/18"),
+        count_color(&shapes, "Shirt (20/18)"),
         visuals.warn_fg_color,
         "the shirt count is drawn in the warning colour"
     );
@@ -582,17 +582,17 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        label_value(&nodes, "Shirt 19/18"),
+        label_value(&nodes, "Shirt (19/18)"),
         "the count follows the deleted letter"
     );
     assert_eq!(
-        count_color(&shapes, "Shirt 19/18"),
+        count_color(&shapes, "Shirt (19/18)"),
         visuals.warn_fg_color,
         "still tinted"
     );
 
     // A letter typed after it is refused: the stored name keeps 19.
-    let shirt = field_below_label(&nodes, "Shirt ", Role::TextInput);
+    let shirt = field_below_label(&nodes, "Shirt (", Role::TextInput);
     click(&mut window, shirt, &mut view);
     window.frame(
         vec![
@@ -609,14 +609,14 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         "the refused letter was not pushed"
     );
 
-    // 47 bytes as the name: "Name 47/61", tinted, the crop hover.
+    // 47 bytes as the name: "Name (47/61)", tinted, the crop hover.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let name_field = field_below_label(&nodes, "Name ", Role::TextInput);
     click(&mut window, name_field, &mut view);
     type_text(&mut window, &mut view, &"Z".repeat(47));
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert!(label_value(&nodes, "Name 47/61"), "the name's new count");
+    assert!(label_value(&nodes, "Name (47/61)"), "the name's new count");
     let name_field = field_below_label(&nodes, "Name ", Role::TextInput);
     assert_eq!(
         fill_at(&shapes, name_field.bounds().expect("bounds")),
@@ -624,7 +624,7 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         "the name field is tinted"
     );
     assert_eq!(
-        count_color(&shapes, "Name 47/61"),
+        count_color(&shapes, "Name (47/61)"),
         visuals.warn_fg_color,
         "the name count is drawn in the warning colour"
     );
@@ -654,11 +654,11 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     let mut window = Headless::sized(1100.0, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        label_value(&nodes, "Name 4/61"),
+        label_value(&nodes, "Name (4/61)"),
         "É is two bytes in the name's count"
     );
     assert!(
-        label_value(&nodes, "Shirt 2/18"),
+        label_value(&nodes, "Shirt (2/18)"),
         "É is one letter in the shirt's count"
     );
 
@@ -674,11 +674,11 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
     let mut window = Headless::sized(1100.0, 700.0);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     assert!(
-        label_value(&nodes, &format!("Name {name_n}/46")),
+        label_value(&nodes, &format!("Name ({name_n}/46)")),
         "PES 16's name limit is 46"
     );
     assert!(
-        label_value(&nodes, &format!("Shirt {shirt_n}/16")),
+        label_value(&nodes, &format!("Shirt ({shirt_n}/16)")),
         "PES 16's shirt limit is 16"
     );
 }
@@ -891,12 +891,12 @@ fn a_typed_number_clamps_to_the_fields_stored_width() {
         "99 clamps to the field's width"
     );
 
-    // Type 23 into Number (in range): it lands as typed.
+    // Type 23 into Shirt number (in range): it lands as typed.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let number = right_of_label(&nodes, "Number", Role::SpinButton)
+    let number = right_of_label(&nodes, "Shirt number", Role::SpinButton)
         .first()
         .copied()
-        .expect("the Number control");
+        .expect("the Shirt number control");
     click(&mut window, number, &mut view);
     window.frame(vec![egui::Event::Text("23".to_owned())], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
@@ -1251,7 +1251,7 @@ fn the_player_header_tops_the_player_view_alone() {
             "Skills",
             "COM playing styles",
             "Ability stats",
-            "Number",
+            "Shirt number",
             "Captain",
             "Nation",
             "Age",
@@ -1266,7 +1266,7 @@ fn the_player_header_tops_the_player_view_alone() {
         ] {
             assert!(label_value(&nodes, label), "{label} drawn");
         }
-        for prefix in ["Name ", "Shirt "] {
+        for prefix in ["Name (", "Shirt ("] {
             assert!(
                 nodes.iter().any(|node| {
                     node.role() == Role::Label
@@ -1291,4 +1291,58 @@ fn the_player_header_tops_the_player_view_alone() {
     for label in ["Captain", "Nation", "Age", "Height", "Weight"] {
         assert!(!label_value(&nodes, label), "{label} not on the team view");
     }
+}
+
+// plans/save_editor.md "Editing UI", the player view bullet ("A field's
+// label in these panels and in Ability stats is drawn in the normal text
+// colour"): the pairs' and combos' labels, the counted label and the
+// team view's field labels paint the normal colour, not the weak one.
+#[test]
+fn the_field_labels_paint_the_normal_text_colour() {
+    let path = fixture(PesVersion::Pes21, "label_color");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.selected = Some(Selection::Player(701, 0));
+    let mut window = Headless::sized(1100.0, 800.0);
+    let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
+    let text_color = visuals.text_color();
+    assert_ne!(
+        text_color,
+        visuals.weak_text_color(),
+        "premise: the two colours differ"
+    );
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    for label in ["Stronger foot", "Height", "Injury resistance"] {
+        assert_eq!(
+            painted_label_color(&nodes, &shapes, label),
+            text_color,
+            "{label} in the normal text colour"
+        );
+    }
+    // The counted label's first run (the "Name " part) too.
+    let name_value = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Label && node.value().is_some_and(|v| v.starts_with("Name ("))
+        })
+        .and_then(|node| node.value())
+        .expect("the Name label")
+        .to_owned();
+    assert_eq!(
+        painted_label_color(&nodes, &shapes, &name_value),
+        text_color,
+        "the counted label in the normal text colour"
+    );
+
+    // The team view's field labels.
+    open_team_view(&mut window, &mut view, 701);
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    assert_eq!(
+        painted_label_color(&nodes, &shapes, "Team"),
+        text_color,
+        "the team view's Team label in the normal text colour"
+    );
 }

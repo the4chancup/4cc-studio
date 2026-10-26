@@ -2,8 +2,9 @@
 //! save_editor.md` "Editing UI", the player view bullet; the draft's
 //! `playerHeader`, `generalPanel` and `otherStatsPanel`): `<id> <name>` at
 //! the heading size, then General info — the Name and Shirt fields each
-//! under a label carrying its `n/N` count, the label-left pairs on two
-//! halves (each box 54 wide on its half's right edge), then the combos
+//! under a label carrying its `(n/max)` count, the label-left pairs on
+//! two halves (each box 54 wide: on the first half's right edge, after
+//! the label column on the second), then the combos
 //! whose labels share one column — and Other stats under it on the same
 //! halves so every box lines up. Each control edits a copy of the entry
 //! and, when it changes, pushes it under its own `egui::Id` (the undo
@@ -37,8 +38,8 @@ pub(super) const WEIGHT_LABEL: &str = "Weight";
 pub(super) const AGE_LABEL: &str = "Age";
 /// The General info panel's Nation field.
 pub(super) const NATION_LABEL: &str = "Nation";
-/// The General info panel's Number field.
-pub(super) const NUMBER_LABEL: &str = "Number";
+/// The General info panel's Shirt number field.
+pub(super) const NUMBER_LABEL: &str = "Shirt number";
 
 /// The General info column's width (the draft's `.pcol.first` 350px: room
 /// for the longest pair label, "Injury resistance", beside its box on
@@ -48,6 +49,9 @@ pub(super) const GENERAL_WIDTH: f32 = 350.0;
 const HALF_WIDTH: f32 = (GENERAL_WIDTH - 14.0) / 2.0;
 /// A pair's box width (the draft's `.pair` fields).
 const BOX_WIDTH: f32 = 54.0;
+/// The gap between the second half's label column and its box (the
+/// draft's `.pair:nth-child(even)` `column-gap`, 9 points).
+const SECOND_LABEL_GAP: f32 = 9.0;
 
 /// A player name as the strip draws it: its `\x11` spelled as the four
 /// characters `\\x11` (the draft's `escName`); the field turns it back on
@@ -135,7 +139,7 @@ pub(super) fn general(
     let (height, weight, age) = basics;
     let width = ui.available_width().min(GENERAL_WIDTH);
 
-    // The `label n/max` line over the field: the label's rect is taken
+    // The `label (n/max)` line over the field: the label's rect is taken
     // first, the label itself painted after the field — the count follows
     // the field's own text this frame (a TextEdit writes its buffer during
     // `ui.add`), not the stored name. The field and its count carry one
@@ -240,9 +244,10 @@ pub(super) fn general(
     }
 
     // The label-left pairs on two halves: each label at its half's left,
-    // its 54-wide box on the half's right edge.
+    // its 54-wide box on the first half's right edge, after the label
+    // column on the second.
     pair_row(ui, |ui| {
-        pair_half(ui, HEIGHT_LABEL, |ui| {
+        pair_half(ui, Half::First, HEIGHT_LABEL, |ui| {
             number_box(
                 ui,
                 session,
@@ -252,7 +257,7 @@ pub(super) fn general(
                 |player, shown| player.basic.height = shown,
             );
         });
-        pair_half(ui, NUMBER_LABEL, |ui| {
+        pair_half(ui, Half::Second, NUMBER_LABEL, |ui| {
             let response = ui.add_sized(
                 [BOX_WIDTH, ui.spacing().interact_size.y],
                 egui::DragValue::new(&mut shirt_number).range(0..=roster_number_max(schema)),
@@ -265,7 +270,7 @@ pub(super) fn general(
         });
     });
     pair_row(ui, |ui| {
-        pair_half(ui, WEIGHT_LABEL, |ui| {
+        pair_half(ui, Half::First, WEIGHT_LABEL, |ui| {
             number_box(
                 ui,
                 session,
@@ -275,7 +280,7 @@ pub(super) fn general(
                 |player, shown| player.basic.weight = shown,
             );
         });
-        pair_half(ui, NATION_LABEL, |ui| {
+        pair_half(ui, Half::Second, NATION_LABEL, |ui| {
             number_box(
                 ui,
                 session,
@@ -287,7 +292,7 @@ pub(super) fn general(
         });
     });
     pair_row(ui, |ui| {
-        pair_half(ui, AGE_LABEL, |ui| {
+        pair_half(ui, Half::First, AGE_LABEL, |ui| {
             number_box(
                 ui,
                 session,
@@ -297,7 +302,7 @@ pub(super) fn general(
                 |player, shown| player.basic.age = shown,
             );
         });
-        pair_half(ui, "Captain", |ui| {
+        pair_half(ui, Half::Second, "Captain", |ui| {
             // The team's `captain` is this roster slot, 0-based as stored: a
             // radio the second click cannot untick (the captain belongs to
             // the slot) — at the left edge of its half's box.
@@ -327,16 +332,53 @@ fn pair_row(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
     });
 }
 
-/// One `label`-left/`box`-right pair on a `HALF_WIDTH` half (the draft's
-/// `.pair`): the label at the half's left, `add_box`'s 54-wide box on its
-/// right edge.
-fn pair_half(ui: &mut egui::Ui, label: &str, add_box: impl FnOnce(&mut egui::Ui)) {
+/// Which of a pair row's two halves a pair sits on: the first puts its
+/// box on the half's right edge, the second just after the label column.
+enum Half {
+    /// The row's left half (the draft's `.pair` flex row).
+    First,
+    /// The row's right half (the draft's `.pair:nth-child(even)` grid).
+    Second,
+}
+
+/// One `label`-left pair on a `HALF_WIDTH` half: the label at the half's
+/// left; on `Half::First` `add_box`'s 54-wide box on the half's right
+/// edge, on `Half::Second` just after the `second_label_width` label
+/// column and its gap, so both panels' second-half boxes share one x.
+fn pair_half(ui: &mut egui::Ui, half: Half, label: &str, add_box: impl FnOnce(&mut egui::Ui)) {
     ui.allocate_ui(egui::vec2(HALF_WIDTH, ui.spacing().interact_size.y), |ui| {
-        ui.horizontal(|ui| {
-            ui.weak(label);
-            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), add_box);
+        ui.horizontal(|ui| match half {
+            Half::First => {
+                ui.label(label);
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), add_box);
+            }
+            Half::Second => {
+                ui.spacing_mut().item_spacing.x = 0.0;
+                let response = ui.label(label);
+                // The draft's `.pair:nth-child(even)` grid: the box after a
+                // label column `second_label_width` wide and its gap, so
+                // both panels' second-half boxes share one x. `add_space`
+                // advances the cursor outright, no item spacing.
+                ui.add_space(
+                    (second_label_width(ui) + SECOND_LABEL_GAP - response.rect.width()).max(0.0),
+                );
+                add_box(ui);
+            }
         });
     });
+}
+
+/// The second half's label column's width: the half's longest label's
+/// galley at the body font (the draft's 72px, measured rather than
+/// hard-coded: egui's text is wider than the draft's). "Shirt number" is
+/// the longest of the column's five labels (Shirt number, Nation,
+/// Captain, Form, Accuracy).
+fn second_label_width(ui: &egui::Ui) -> f32 {
+    let body = egui::TextStyle::Body.resolve(ui.style());
+    ui.painter()
+        .layout_no_wrap(NUMBER_LABEL.to_owned(), body, egui::Color32::WHITE)
+        .size()
+        .x
 }
 
 /// One pair's 54-wide `DragValue` over `shown` capped at `max`; a change
@@ -378,10 +420,10 @@ pub(super) fn other_stats(
     ];
     for [left, right] in pairs {
         pair_row(ui, |ui| {
-            pair_half(ui, left.shown, |ui| {
+            pair_half(ui, Half::First, left.shown, |ui| {
                 small_box(ui, session, player_id, stats, left);
             });
-            pair_half(ui, right.shown, |ui| {
+            pair_half(ui, Half::Second, right.shown, |ui| {
                 small_box(ui, session, player_id, stats, right);
             });
         });
@@ -454,7 +496,7 @@ fn combos(
     egui::Grid::new("general combos")
         .num_columns(2)
         .show(ui, |ui| {
-            ui.weak(STRONGER_FOOT_LABEL);
+            ui.label(STRONGER_FOOT_LABEL);
             let mut foot = positions.stronger_foot;
             let foot_combo = egui::ComboBox::from_id_salt("abilities stronger foot")
                 .selected_text(foot_label(foot))
@@ -475,7 +517,7 @@ fn combos(
                 );
             }
             ui.end_row();
-            ui.weak(STRONGER_HAND_LABEL);
+            ui.label(STRONGER_HAND_LABEL);
             match positions.stronger_hand {
                 Some(stored) => {
                     let mut hand = stored;
@@ -512,7 +554,7 @@ fn combos(
                 }
             }
             ui.end_row();
-            ui.weak(REGISTERED_POSITION_LABEL);
+            ui.label(REGISTERED_POSITION_LABEL);
             let mut registered = positions.registered;
             let combo = egui::ComboBox::from_id_salt("abilities registered position")
                 .selected_text(position_label(registered))
@@ -528,7 +570,7 @@ fn combos(
                 });
             }
             ui.end_row();
-            ui.weak(PLAYING_STYLE_LABEL);
+            ui.label(PLAYING_STYLE_LABEL);
             ui.scope(|ui| {
                 ui.spacing_mut().combo_width = combo_width;
                 let mut style = positions.playing_style;
@@ -547,11 +589,11 @@ fn combos(
         });
 }
 
-/// The `label n/max` line painted at `rect` under `id` (allocated before
+/// The `label (n/max)` line painted at `rect` under `id` (allocated before
 /// the field was drawn, so the count follows the field's text as typed
-/// this frame): `label` in the weak colour, `n/max` the same — or the
-/// warning colour when `warn` (the count past the portable limit). Its
-/// AccessKit node returned for the hover it shares with the field.
+/// this frame): `label` in the normal text colour, `(n/max)` the same — or
+/// the warning colour when `warn` (the count past the portable limit).
+/// Its AccessKit node returned for the hover it shares with the field.
 fn counted_label(
     ui: &mut egui::Ui,
     id: egui::Id,
@@ -561,23 +603,23 @@ fn counted_label(
     max: usize,
     warn: bool,
 ) -> egui::Response {
-    let weak = ui.visuals().weak_text_color();
+    let text_color = ui.visuals().text_color();
     let body = egui::TextStyle::Body.resolve(ui.style());
     let mut job = egui::text::LayoutJob::default();
     job.append(
         &format!("{label} "),
         0.0,
-        egui::TextFormat::simple(body.clone(), weak),
+        egui::TextFormat::simple(body.clone(), text_color),
     );
     job.append(
-        &format!("{n}/{max}"),
+        &format!("({n}/{max})"),
         0.0,
         egui::TextFormat::simple(
             body,
             if warn {
                 ui.visuals().warn_fg_color
             } else {
-                weak
+                text_color
             },
         ),
     );
@@ -589,10 +631,10 @@ fn counted_label(
         egui::WidgetInfo::labeled(
             egui::accesskit::Role::Label,
             true,
-            format!("{label} {n}/{max}"),
+            format!("{label} ({n}/{max})"),
         )
     });
-    ui.painter().galley(rect.min, galley, weak);
+    ui.painter().galley(rect.min, galley, text_color);
     response
 }
 

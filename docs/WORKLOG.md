@@ -2768,7 +2768,7 @@ briefs, review loops, gates and mutation runs as for any step.
       the narrow-pane test sizes its window from the constant, so it moves with it): a test
       pinning the width at the draft's 330 (two 158-point columns 14 apart, `.skcols`), with
       S4's rework unless m2 removes the one-column fallback first
-    - [ ] s3i the maintainer's look at the player view (2026-10-26; drafted first,
+    - [x] s3i the maintainer's look at the player view (2026-10-26; drafted first,
       `.tmp/0_0_1s/draft_look3_player.png`): field labels in the normal text colour, not the
       weak one (General info, Other stats, Ability stats, the team view's Team and Short); the
       counts in brackets (`Name (28/46)`); "Number" relabelled "Shirt number"; the second
@@ -2776,7 +2776,12 @@ briefs, review loops, gates and mutation runs as for any step.
       four centred rows, LWF CF SS RWF / LMF AMF CMF DMF RMF / LB CB RB / GK, each label
       centred over its B (`plans/save_editor.md` "Editing UI", the player view and Name and
       Shirt bullets; DECISIONS "The player view's labels, counts and positions after the
-      maintainer's look")
+      maintainer's look"). Done 2026-10-26 (SWE-2): `pair_half` takes a `Half`, the second
+      half's box after the measured "Shirt number" column and 9 (the sidekick took the draft's
+      9 over the brief's 6, the draft having moved mid-run); the positions' rows centred by
+      measured `add_space`; `TWO_COLUMN_WIDTH` pinned at a literal 330/329 (s3g's two
+      survivors, checked dead by hand). Files: `view/{info_strip,abilities,team,terms}.rs`,
+      `help/{02_window,03_abilities}.md`, `team_widgets/src/cards.rs`, the tests
     - [ ] s3j the maintainer's second look (2026-10-26, drafted first,
       `.tmp/0_0_1s/draft_look4_player.png`): Name and Shirt as label-left rows sharing the
       combos' label column (as wide as "Registered position"), those six fields ending flush

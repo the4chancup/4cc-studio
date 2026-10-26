@@ -402,12 +402,13 @@ fn y_of(nodes: &[accesskit::Node], label: &str) -> f64 {
 }
 
 // plans/save_editor.md "Editing UI", the positions grid (the draft's
-// `POS_ROWS`): the 13 playable positions in the collaborator's rows,
-// CF SS LWF RWF / AMF LMF RMF CMF DMF / CB LB RB GK, each cell the
-// position's label above its C B A ratings, the registered position's
-// cell outlined.
+// `POS_ROWS` and `#pos-grid`): the 13 playable positions in four rows by
+// line of the pitch, left wing to right wing — LWF CF SS RWF / LMF AMF
+// CMF DMF RMF / LB CB RB / GK, GK alone on the last — each row centred in
+// the column, each cell's label centred over its ratings (over the B),
+// the registered position's cell outlined.
 #[test]
-fn the_positions_grid_draws_the_collaborators_rows_with_the_registered_outlined() {
+fn the_positions_grid_draws_four_centered_rows_with_the_registered_outlined() {
     /// The outline strokes a frame painted in the selection colour (the
     /// registered position's cell mark, the draft's `td.reg`).
     fn outlines(shapes: &[egui::epaint::ClippedShape]) -> Vec<egui::Rect> {
@@ -425,22 +426,24 @@ fn the_positions_grid_draws_the_collaborators_rows_with_the_registered_outlined(
             })
             .collect()
     }
-    /// The rect holding `position`'s cell widgets (its label and its C
-    /// rating, enough to name the cell).
+    /// The rect holding `position`'s cell widgets (its label over its C
+    /// to A ratings, the cell's own edges 3.5 out on each side).
     fn cell_rect(nodes: &[accesskit::Node], position: &str) -> egui::Rect {
         let label = nodes
             .iter()
             .find(|node| node.role() == Role::Label && node.value() == Some(position))
             .unwrap_or_else(|| panic!("no label {position:?}"));
-        let c = rating_buttons(nodes, position)[0];
+        let ratings = rating_buttons(nodes, position);
+        let (x0, x1, top) = (
+            label.bounds().expect("bounds").x0 as f32,
+            label.bounds().expect("bounds").x1 as f32,
+            label.bounds().expect("bounds").y0 as f32,
+        );
         egui::Rect::from_min_max(
+            egui::pos2(x0.min(ratings[0].bounds().expect("bounds").x0 as f32), top),
             egui::pos2(
-                label.bounds().expect("bounds").x0 as f32,
-                label.bounds().expect("bounds").y0 as f32,
-            ),
-            egui::pos2(
-                c.bounds().expect("bounds").x1 as f32,
-                c.bounds().expect("bounds").y1 as f32,
+                x1.max(ratings[2].bounds().expect("bounds").x1 as f32),
+                ratings[2].bounds().expect("bounds").y1 as f32,
             ),
         )
     }
@@ -452,22 +455,25 @@ fn the_positions_grid_draws_the_collaborators_rows_with_the_registered_outlined(
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    // The three rows in the collaborator's order, one y0 each, x order as
-    // listed.
-    for row in [
-        ["CF", "SS", "LWF", "RWF"].as_slice(),
-        ["AMF", "LMF", "RMF", "CMF", "DMF"].as_slice(),
-        ["CB", "LB", "RB", "GK"].as_slice(),
-    ] {
+    // The four rows in the pitch's order, each on its own y, x order as
+    // listed, GK alone on the last.
+    const EXPECTED: [&[&str]; 4] = [
+        &["LWF", "CF", "SS", "RWF"],
+        &["LMF", "AMF", "CMF", "DMF", "RMF"],
+        &["LB", "CB", "RB"],
+        &["GK"],
+    ];
+    let mut last_y = f64::MIN;
+    for row in EXPECTED {
         let row_y = y_of(&nodes, row[0]);
+        assert!(
+            row_y > last_y + 5.0,
+            "the {row:?} row runs below the one before"
+        );
+        last_y = row_y;
         let mut last_x = f64::MIN;
         for position in row {
-            let bounds = nodes
-                .iter()
-                .find(|node| node.role() == Role::Label && node.value() == Some(*position))
-                .unwrap_or_else(|| panic!("no label {position:?}"))
-                .bounds()
-                .expect("bounds");
+            let bounds = label_bounds(&nodes, position);
             assert!(
                 (bounds.y0 - row_y).abs() < 1.0,
                 "{position} sits on its row"
@@ -476,26 +482,41 @@ fn the_positions_grid_draws_the_collaborators_rows_with_the_registered_outlined(
             last_x = bounds.x0;
         }
     }
-    // Each label sits above its own ratings.
-    for position in [
-        "CF", "SS", "LWF", "RWF", "AMF", "LMF", "RMF", "CMF", "DMF", "CB", "LB", "RB", "GK",
-    ] {
-        let label = nodes
-            .iter()
-            .find(|node| node.role() == Role::Label && node.value() == Some(position))
-            .unwrap_or_else(|| panic!("no label {position:?}"))
+
+    // Each row centred in the column: the cells' span's centre at the
+    // column's centre (the 62-wide cells' edges sit 3.5 outside the
+    // centred ratings row, so the outside ratings' bounds bound the
+    // span).
+    let column_left = field_below_label(&nodes, "Name (", Role::TextInput)
+        .bounds()
+        .expect("bounds")
+        .x0;
+    let column_centre = column_left + f64::from(crate::view::info_strip::GENERAL_WIDTH) / 2.0;
+    for row in EXPECTED {
+        let first_c = rating_buttons(&nodes, row[0])[0].bounds().expect("bounds");
+        let last_a = rating_buttons(&nodes, row[row.len() - 1])[2]
             .bounds()
             .expect("bounds");
-        let c = rating_buttons(&nodes, position)[0]
-            .bounds()
-            .expect("bounds");
+        let centre = (first_c.x0 + last_a.x1) / 2.0;
         assert!(
-            label.y1 <= c.y0 + 1.0,
-            "{position}'s label sits above its C"
+            (centre - column_centre).abs() < 1.0,
+            "the {row:?} row centred in the column ({centre} vs {column_centre})"
+        );
+    }
+
+    // Each cell's label centred over its ratings, over the B.
+    for position in EXPECTED.into_iter().flatten() {
+        let label = label_bounds(&nodes, position);
+        let ratings = rating_buttons(&nodes, position);
+        let b = ratings[1].bounds().expect("bounds");
+        let centre = |rect: accesskit::Rect| (rect.x0 + rect.x1) / 2.0;
+        assert!(
+            (centre(label) - centre(b)).abs() < 1.0,
+            "{position}'s label centred over its B"
         );
         assert!(
-            (label.x0 - c.x0).abs() < 4.0,
-            "{position}'s label and C start at the cell's left edge"
+            label.y1 <= b.y0 + 1.0,
+            "{position}'s label sits above its ratings"
         );
     }
 
@@ -1379,7 +1400,8 @@ fn widget_ids_hold_across_the_width_thresholds() {
 // player view bullet): General info, Skills and Ability stats side by side
 // left to right on the pane the shell leaves at the 1280 x 800 window
 // (`DEFAULT_PANE`), their tops level, Appearance closed below them inside
-// the pane's height, every box on its half's right edge, every combo on the
+// the pane's height, every first-half box on its half's right edge and the
+// second half's on its label column, every combo on the
 // column's, and nothing past the pane's right edge.
 // SE-GUI-37
 #[test]
@@ -1461,7 +1483,7 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     let name = field_below_label(&nodes, "Name ", Role::TextInput)
         .bounds()
         .expect("bounds");
-    let shirt = field_below_label(&nodes, "Shirt ", Role::TextInput)
+    let shirt = field_below_label(&nodes, "Shirt (", Role::TextInput)
         .bounds()
         .expect("bounds");
     assert_eq!(name.x1, shirt.x1, "the two fields end on one x");
@@ -1483,24 +1505,27 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
             "{label}'s box ends on the left half's edge ({bounds:?} vs {half_edge})"
         );
     }
-    for label in ["Number", "Nation"] {
-        let bounds = right_of_label(&nodes, label, Role::SpinButton)[0]
+    // The second half's boxes sit just after a label column as wide as
+    // "Shirt number" and its 9-point gap (the draft's `72px 54px` grid,
+    // the column's `column-gap`): one x across General info's and Other
+    // stats' rows, so a short label (Nation, Form) keeps its box close.
+    let shirt_label = label_bounds(&nodes, "Shirt number");
+    let box_x = shirt_label.x1 + 9.0;
+    for (label, role) in [
+        ("Shirt number", Role::SpinButton),
+        ("Nation", Role::SpinButton),
+        ("Captain", Role::RadioButton),
+        ("Form", Role::SpinButton),
+        ("Accuracy", Role::SpinButton),
+    ] {
+        let bounds = right_of_label(&nodes, label, role)[0]
             .bounds()
             .expect("bounds");
         assert!(
-            (bounds.x1 - name.x1).abs() < 1.0,
-            "{label}'s box ends on the right half's edge ({bounds:?} vs {name:?})"
+            (bounds.x0 - box_x).abs() < 0.5,
+            "{label}'s box just after the label column ({bounds:?} vs {box_x})"
         );
     }
-    // Captain's radio sits inside its half's 54-wide box, which ends on
-    // the right edge.
-    let captain = right_of_label(&nodes, "Captain", Role::RadioButton)[0]
-        .bounds()
-        .expect("bounds");
-    assert!(
-        captain.x0 >= name.x1 - 54.0 - 1.0 && captain.x1 <= name.x1 + 1.0,
-        "the Captain box ends on the right edge ({captain:?} vs {name:?})"
-    );
 
     // The four combos start at one x and end on the fields' right edge.
     let mut combo_x0 = f64::MAX;

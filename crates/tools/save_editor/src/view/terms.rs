@@ -1301,7 +1301,7 @@ mod tests {
         assert_term(&terms[1], "Stadium ID", "29", "0");
         assert_term(&terms[2], "Slot 1 · Number", "0", "128");
         assert_term(&terms[3], "Slot 1 · Bound team ID", "701", "702");
-        assert_term(&terms[4], "Number", "3", "9");
+        assert_term(&terms[4], "Shirt number", "3", "9");
         assert_term(&terms[5], "Player(2)", "70103", "0");
     }
 

@@ -181,7 +181,7 @@ fn name_pair(
     version: PesVersion,
     team: &TeamEntry,
 ) {
-    ui.weak(TEAM_LABEL);
+    ui.label(TEAM_LABEL);
     let mut name = team.name.clone();
     // `add_sized` allocates the width itself: the field keeps its own 240
     // whatever the wrapped row offers it.
@@ -208,7 +208,7 @@ fn short_pair(
     version: PesVersion,
     team: &TeamEntry,
 ) {
-    ui.weak(SHORT_LABEL);
+    ui.label(SHORT_LABEL);
     let mut short = team.short_name.clone();
     // The same `add_sized` allocation as the name field's above.
     let response = ui.add_sized(

@@ -483,6 +483,34 @@ fn galley_color(shape: &egui::epaint::TextShape) -> egui::Color32 {
         .unwrap_or(shape.fallback_color)
 }
 
+/// The colour `value`'s label painted in: the `TextShape` with the
+/// label's own text inside the Label node's bounds (a Button's painted
+/// label can share the text, so the bounds pick the view's own).
+fn painted_label_color(
+    nodes: &[accesskit::Node],
+    shapes: &[egui::epaint::ClippedShape],
+    value: &str,
+) -> egui::Color32 {
+    let bounds = label_bounds(nodes, value);
+    let shape = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape)
+                if shape.galley.job.text == value
+                    && f64::from(shape.pos.x) >= bounds.x0 - 1.0
+                    && f64::from(shape.pos.x) <= bounds.x1 + 1.0
+                    && f64::from(shape.pos.y) >= bounds.y0 - 1.0
+                    && f64::from(shape.pos.y) <= bounds.y1 + 1.0 =>
+            {
+                Some(shape)
+            }
+            _ => None,
+        })
+        .next()
+        .unwrap_or_else(|| panic!("no painted {value:?} inside {bounds:?}"));
+    galley_color(shape)
+}
+
 /// The fill under `bounds`' centre: the smallest `Shape::Rect` covering
 /// it (the field's own frame; the panel's background would win an
 /// `intersects` match instead).
@@ -507,10 +535,10 @@ fn fill_at(
 }
 
 /// The Shirt field's `TextInput` node (the text edit under the "Shirt
-/// n/N" label — the counted fields' layout puts the field below its
+/// (n/max)" label — the counted fields' layout puts the field below its
 /// label).
 fn shirt_field(nodes: &[accesskit::Node]) -> &accesskit::Node {
-    field_below_label(nodes, "Shirt ", Role::TextInput)
+    field_below_label(nodes, "Shirt (", Role::TextInput)
 }
 
 /// The undo stack's depth, counted by Ctrl+Z until it is empty (bounded, so
@@ -561,7 +589,7 @@ fn right_of<'a>(
 
 /// The `role` node directly under the label whose value starts with
 /// `prefix` — the layout the counted fields use puts the field below its
-/// `Name n/N`/`Shirt n/N` label. The topmost `role` node at the label's
+/// `Name (n/max)`/`Shirt (n/max)` label. The topmost `role` node at the label's
 /// left edge below it.
 fn field_below_label<'a>(
     nodes: &'a [accesskit::Node],
@@ -614,29 +642,37 @@ fn right_of_label<'a>(
 }
 
 /// The `C` `B` `A` buttons of `position`'s cell, in x order: the three
-/// buttons on the ratings row under the cell's label (the label sits
-/// above its ratings in the positions grid).
+/// buttons on the ratings row under the cell's label, the closest to the
+/// label's centre (the label is centred over its ratings).
 fn rating_buttons<'a>(nodes: &'a [accesskit::Node], position: &str) -> Vec<&'a accesskit::Node> {
     let label = nodes
         .iter()
         .find(|node| node.role() == Role::Label && node.value() == Some(position))
         .unwrap_or_else(|| panic!("no label {position:?}"));
     let bounds = label.bounds().expect("the label's bounds");
+    let centre = (bounds.x0 + bounds.x1) / 2.0;
     let mut ratings: Vec<&accesskit::Node> = nodes
         .iter()
         .filter(|node| {
             node.role() == Role::Button
                 && matches!(node.label(), Some("C" | "B" | "A"))
-                && node.bounds().is_some_and(|b| {
-                    b.y0 >= bounds.y1 - 1.0 && b.y0 <= bounds.y1 + 40.0 && b.x0 >= bounds.x0 - 1.0
-                })
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.y0 >= bounds.y1 - 1.0 && b.y0 <= bounds.y1 + 40.0)
         })
         .collect();
+    ratings.sort_by(|a, b| {
+        let dist = |node: &&accesskit::Node| {
+            let b = node.bounds().expect("bounds");
+            ((b.x0 + b.x1) / 2.0 - centre).abs()
+        };
+        dist(a).partial_cmp(&dist(b)).expect("ordered bounds")
+    });
+    ratings.truncate(3);
     ratings.sort_by(|a, b| {
         let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
         x(a).partial_cmp(&x(b)).expect("ordered bounds")
     });
-    ratings.truncate(3);
     assert_eq!(ratings.len(), 3, "{position}'s three ratings");
     ratings
 }

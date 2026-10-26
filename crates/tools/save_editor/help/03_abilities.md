@@ -10,7 +10,7 @@ for C, and his registered position's cell is outlined. The second column is his
 **Skills** and **COM playing styles**. The third is his **Ability stats**.
 
 **Counts.** The Name and Shirt labels count what the field holds, as typed:
-`12/61` reads as 12 bytes used of the 61 the field holds (a colour code counts
+`(12/61)` reads as 12 bytes used of the 61 the field holds (a colour code counts
 as the ten bytes it stores). The shirt name counts letters, 18 on most versions
 and 16 on PES 2016. When a name or shirt name is longer than every version can
 hold, the field and its count turn amber, and hovering them says what an older

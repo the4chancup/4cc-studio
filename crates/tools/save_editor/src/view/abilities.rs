@@ -322,12 +322,22 @@ pub(super) fn small_stat(
 }
 
 /// The positions grid's rows (the draft's `POS_ROWS`): the order a member
-/// reads a formation in.
-const POS_ROWS: [&[&str]; 3] = [
-    &["CF", "SS", "LWF", "RWF"],
-    &["AMF", "LMF", "RMF", "CMF", "DMF"],
-    &["CB", "LB", "RB", "GK"],
+/// reads a formation in, left wing to right wing, GK alone below.
+const POS_ROWS: [&[&str]; 4] = [
+    &["LWF", "CF", "SS", "RWF"],
+    &["LMF", "AMF", "CMF", "DMF", "RMF"],
+    &["LB", "CB", "RB"],
+    &["GK"],
 ];
+
+/// A positions cell's width (the draft's `.poscell` 62px).
+const POS_CELL_WIDTH: f32 = 62.0;
+/// A rating square's side (the draft's `.rate .sel` 17px).
+const RATING_SIDE: f32 = 17.0;
+/// The gap between a cell's rating squares (the draft's `.rate` 2px).
+const RATING_GAP: f32 = 2.0;
+/// A cell's three rating squares' width.
+const RATINGS_WIDTH: f32 = 3.0 * RATING_SIDE + 2.0 * RATING_GAP;
 
 /// The chosen rating's fill and text colours (the draft's `.sel.on`
 /// variants): A the success green with dark text, B the selection colour
@@ -351,10 +361,12 @@ fn rating_colors(ui: &egui::Ui, rating: u8) -> (egui::Color32, egui::Color32) {
     }
 }
 
-/// The 13 positions in `POS_ROWS`, each cell the position's label above
-/// the three `C` `B` `A` ratings (stored 0, 1, 2; a stored 3 selects
-/// none), the registered position's cell outlined in the selection colour
-/// (the draft's `td.reg`). `playable[i]` is
+/// The 13 positions in `POS_ROWS`, each row centred in the column (the
+/// draft's `#pos-grid .posrow` `justify-content: center`), each cell the
+/// position's label above the three `C` `B` `A` ratings (stored 0, 1, 2;
+/// a stored 3 selects none), the cell's contents centred so the label
+/// sits over the B, the registered position's cell outlined in the
+/// selection colour (the draft's `.poscell.reg`). `playable[i]` is
 /// `POSITIONS[PLAYABLE_POSITIONS[i]]`'s rating: the label's index is not
 /// the array's.
 fn playable_positions(
@@ -364,8 +376,14 @@ fn playable_positions(
     positions: &PlayerPositions,
 ) {
     let mut playable = positions.playable;
-    egui::Grid::new("abilities playable").show(ui, |ui| {
-        for row in POS_ROWS {
+    let cell_gap = ui.spacing().item_spacing.x;
+    let body = egui::TextStyle::Body.resolve(ui.style());
+    let column_width = info_strip::GENERAL_WIDTH.min(ui.available_width());
+    for row in POS_ROWS {
+        // `add_space` advances the cursor outright, no item spacing.
+        let row_width = row.len() as f32 * POS_CELL_WIDTH + (row.len() - 1) as f32 * cell_gap;
+        ui.horizontal(|ui| {
+            ui.add_space(((column_width - row_width) / 2.0).max(0.0));
             for name in row {
                 let index = POSITIONS
                     .iter()
@@ -376,14 +394,26 @@ fn playable_positions(
                     .position(|&position| position == index)
                     .expect("PLAYABLE_POSITIONS is a permutation of 0..13");
                 let cell = ui.vertical(|ui| {
-                    // The draft's `td.poscell` 62px and `.rate`'s 17px
-                    // squares 2 apart: `Button::selectable` is what
+                    // The draft's `.poscell` 62px and `.rate`'s squares
+                    // 2 apart: `Button::selectable` is what
                     // `selectable_value` draws.
-                    ui.set_width(62.0);
-                    ui.label(*name);
+                    ui.set_width(POS_CELL_WIDTH);
+                    // The cell's contents centred (the draft's `align-items:
+                    // center`): the label padded to the cell's centre, so
+                    // over the B; the squares 3.5 in.
+                    let galley = ui.painter().layout_no_wrap(
+                        (*name).to_owned(),
+                        body.clone(),
+                        egui::Color32::WHITE,
+                    );
                     ui.horizontal(|ui| {
-                        ui.spacing_mut().item_spacing.x = 2.0;
+                        ui.add_space(((POS_CELL_WIDTH - galley.size().x) / 2.0).max(0.0));
+                        ui.label(*name);
+                    });
+                    ui.horizontal(|ui| {
+                        ui.spacing_mut().item_spacing.x = RATING_GAP;
                         ui.spacing_mut().button_padding = egui::vec2(0.0, 0.0);
+                        ui.add_space((POS_CELL_WIDTH - RATINGS_WIDTH) / 2.0);
                         for (label, rating) in RATING_LABELS {
                             let response = if playable[at] == rating {
                                 // The chosen rating filled (the draft's
@@ -394,13 +424,13 @@ fn playable_positions(
                                         true,
                                         egui::RichText::new(label).color(text),
                                     )
-                                    .min_size(egui::vec2(17.0, 17.0))
+                                    .min_size(egui::vec2(RATING_SIDE, RATING_SIDE))
                                     .fill(fill),
                                 )
                             } else {
                                 ui.add(
                                     egui::Button::selectable(false, label)
-                                        .min_size(egui::vec2(17.0, 17.0)),
+                                        .min_size(egui::vec2(RATING_SIDE, RATING_SIDE)),
                                 )
                             };
                             if response.clicked() && playable[at] != rating {
@@ -421,9 +451,8 @@ fn playable_positions(
                     );
                 }
             }
-            ui.end_row();
-        }
-    });
+        });
+    }
 }
 
 /// The 25 stats of `ABILITY_STATS` in one column in the game's order (the

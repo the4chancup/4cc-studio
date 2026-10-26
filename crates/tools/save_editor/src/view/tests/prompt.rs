@@ -260,7 +260,7 @@ fn a_teams_row_comes_after_the_players() {
             (
                 // The slot's shirt number under its player, after his
                 // own rows (his dot covers it).
-                "PLACEHOLDER · Number".to_owned(),
+                "PLACEHOLDER · Shirt number".to_owned(),
                 old_number.to_string(),
                 "99".to_owned()
             ),

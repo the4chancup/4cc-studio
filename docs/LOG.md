@@ -2548,3 +2548,5 @@ worklog passed 7,000 lines.
   narrow pane, a rules file that does not load shows one line under the list, and the help follows the selected row (0.0.1s3g).
 - **2026-10-26** — A rules file that does not load now says so in red under the list, a click showing the error; a
   failing tier check does the same in the Skills header (0.0.1s3h).
+- **2026-10-26** — The player view's field labels read in the normal grey, the counts sit in brackets, "Number" is
+  "Shirt number", and the positions run in four centred rows with GK alone (0.0.1s3i).
