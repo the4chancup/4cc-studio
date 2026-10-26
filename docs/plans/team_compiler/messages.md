@@ -33,8 +33,10 @@ What exists of this is in `spec/team_compiler/messages.md` "Message structure".
   names (`p1`-`p9`, `g1`, `all`), which never vary;
   `file_type_disallowed` which case it is (an unknown extension, a hidden `.txt`, a known file
   in the wrong place); `skl_merge_conflict`, `merge_material_conflict` and
-  `model_merge_flags_conflict` the two parts that disagree; `model_conversion_failed` that the
-  converted model hits the limit, not the member's file; `texture_type_mismatch` the format the
+  `model_merge_flags_conflict` the two parts that disagree; `model_conversion_failed` which stage
+  failed: the converted model breaking a check of its target form (the conversion's fault,
+  not the member's file), or the source failing to read or convert (its error chain, as
+  today); `texture_type_mismatch` the format the
   bytes are; `export_tag_missing` the two exact names to rename to. The same holds for the
   other tools' catalogs: the Export upgrader's `custom_model_missing` and
   `settings_not_generated` gain no field, their text alone naming the ways to a clean upgrade,

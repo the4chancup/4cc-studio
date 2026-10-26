@@ -835,8 +835,10 @@ What this editor adds on top of the lib:
     `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and
     `APositions`, the player's spot on the named preset's Tactics pitch for `FieldedNotA`
     (drawn when that preset is the one shown), the playing style
-    for `PlayingStyleRange`, the skill cards for `Cards`, `MinCards`, `SkillCardCap` and
-    `RequiredCard`, the COM styles for `ComStyleCap`. A field several violations are about
+    for `PlayingStyleRange`, the skills for `SkillCardCap`, the COM styles for
+    `ComStyleCap`, the skills or the COM styles for `RequiredCard` by its card's kind, and the
+    Skills header's Cards left badge for `Cards` and `MinCards`, whose budget counts every
+    card kind (an extra A position spends one), so no one field is at fault. A field several violations are about
     carries one cross, in the colour of the highest severity among them (a suggestion alone
     draws none), its tooltip their lines as the AATF panel shows them, one per line. One
     function maps a kind to its field, a match with an arm per kind (a new kind does not
@@ -1167,8 +1169,7 @@ SE-GUI-30  GIVEN the PES 17 save open on a team with violations under the active
 SE-GUI-36  GIVEN SE-GUI-30's save and team, Live AATF on and its first check returned, one
                  player of the team breaking the Height rule alone and another breaking none
            WHEN the view is drawn
-           THEN the toolbar's Live AATF is a button whose label holds the check's icon (its
-                frame and fill are checked by eye in the draft and the built window), the list
+           THEN the toolbar's Live AATF is a button whose label holds the check's icon, the list
                 shows a cross beside the first player and a check mark beside the second; WHEN
                 the first is selected THEN a cross stands beside the Height box, its tooltip
                 the AATF panel's line for that violation, and no other field carries one; WHEN an edit fixes the

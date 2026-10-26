@@ -104,6 +104,8 @@ refined with the maintainer before `view/` is written:
   or discovered file that does not read as a save turns the field red with the read error as its tooltip,
   Upgrade disabled. An export whose Note or archive does not read at the drop leaves the field
   plain: the run reports it (`source_read_failed`, `export_extract_failed`) as the CLI does.
+  A red field disables Upgrade only while loose is off: with loose on the field's value is not
+  passed (above), so loose stays the way out of a save that will not do.
   The resolution and the save read are the run's own steps, moved to the drop
   and the pick; the run still checks both.
 - **Upgrading without the save asks first.** With loose on, Upgrade opens a dialog before the
@@ -213,12 +215,13 @@ EU-GUI-02  GIVEN EU-GUI-01's export and save, the export's Other/ holding one fi
                 exports and compile; WHEN that is clicked THEN the output sits in the exports
                 folder and the Team compiler's view is active
 EU-GUI-03  GIVEN the first target filled as in EU-GUI-01, then a folder of old model folders,
-                 one of them holding no model file, dropped on the Upgrade-model-folders target
+                 one of them holding no file directly in it (EU-MF-03's), dropped on the
+                 Upgrade-model-folders target
            WHEN Upgrade is clicked
            THEN the first target was cleared by the drop and the savefile field and loose switch
                 disabled, the Output-into field read "<input> upgraded" beside the input, the run
                 is `upgrade-models`', the left-behind list holds one row for the folder without
-                models, with its path and unmigrated_content, nothing is written (EU-MF-03), no
+                files, with its path and unmigrated_content, nothing is written (EU-MF-03), no
                 notice is published and no Move to exports and compile is shown
 EU-GUI-04  GIVEN a referee export dropped on the first target
            WHEN the view is drawn

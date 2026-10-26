@@ -316,10 +316,13 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   to the CPU encoder) from one that will not, and a dialog over a recovered panic would ask a
   member to report a run that went fine. The dialog repeats the panic's message, so a first
   run's crash, which has no file, still leaves something to post.
-- **A crash dump for what the hook never sees**: a stack overflow and a failed allocation (the
-  runtime prints one line to a stderr the GUI exe does not have, and aborts) and an access
-  violation in native code (a GPU driver under the encoder or the renderer, a shell extension
-  under a file dialog) each leave a log that simply stops. The window's process is watched by
+- **A crash dump for what the hook never sees**: a stack overflow (the runtime prints one line
+  to a stderr the GUI exe does not have) and an access violation in native code (a GPU driver
+  under the encoder or the renderer, a shell extension under a file dialog) each leave a log
+  that simply stops. A failed allocation stops the log too, but gets no dump: the runtime's
+  abort is `__fastfail` on Windows, which ends the process without any exception handler of
+  its own seeing it, so the dump below cannot catch it; the next start's dialog still reports
+  the session, and a dump for it waits for a capture route proven by a test. The window's process is watched by
   a monitor, the same exe started again with a hidden argument (no second exe in the bundle),
   because a crashed process cannot reliably write its own dump; on a crash the monitor writes
   `studio.dmp` beside the log (every thread's stack, a few MB), replacing the previous one,
