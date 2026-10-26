@@ -181,11 +181,13 @@
   .sidebar .tail { display: flex; gap: 2px; }
   .sidebar .tail { flex-direction: column; align-items: center; }
   .bottom { height: 24px; min-height: 24px; padding-top: 0; padding-bottom: 0; overflow: hidden; }
-  .bottom > span { display: flex; align-items: center; flex: 1; gap: 8px; white-space: nowrap; overflow: hidden; min-width: 0; }
-  #status-middle { justify-content: center; }
+  /* The middle slot takes what the left and right leave; a text is cut with
+     an ellipsis only when that runs out (gui.md "Status bar"). */
+  .bottom > span { display: flex; align-items: center; flex: none; gap: 8px; white-space: nowrap; overflow: hidden; min-width: 0; }
+  #status-middle { justify-content: center; flex: 1; }
   #status-right { justify-content: flex-end; }
   .cond { display: inline-flex; align-items: center; gap: 3px; }
-  .cond, .act, .notice-txt { overflow: hidden; text-overflow: ellipsis; }
+  .cond, .act, .notice-txt { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
   .notice-txt.success { color: var(--success); }
   .notice-txt.info { color: var(--link); }
   .notice-txt.warning { color: var(--warn); }
@@ -579,6 +581,8 @@ const VIEWS = {};
 //   linkKeys()  the view's state as a plain object of short keys to strings,
 //               only what differs from the view's start (a fresh view's link
 //               is just #<tool>/<screen>)
+//   pesVersionChanged(v) the sidebar's PES version became v (by hand, the
+//               settings menu or the auto-switch)
 //   linkOpen(screen, keys)  the view sets its state from a link's screen and
 //               keys, run once when the page opens on a link naming the tool,
 //               after firstShow and before the first draw; a key or value it
@@ -660,6 +664,12 @@ function setPesVersion(v) {
   S.pesVersion = v;
   S.autoSwitchUsed = true;
   saveSettings();
+  pesVersionChanged();
+}
+// Every view's pesVersionChanged hook, after the selector changed by hand,
+// through the menu or by the auto-switch.
+function pesVersionChanged() {
+  for (const view of Object.values(VIEWS)) if (view.pesVersionChanged) view.pesVersionChanged(S.pesVersion);
 }
 // A tool script's own S shadows the shell's, so it reads the selector through this.
 function shellPesVersion() { return S.pesVersion; }
@@ -675,6 +685,7 @@ function pollRunningPes() {
   S.pesVersion = rp.version;
   S.autoSwitchUsed = true;
   saveSettings(); // the switch writes the pes_version setting
+  pesVersionChanged();
   const action = folderOf(rp.path) !== resolvedPesFolder()
     ? { label: "Fix PES path", run: fixPesPath } : null;
   // sample wording: the notice text and its action's label. A switch whose
@@ -2117,6 +2128,8 @@ function renderStatus() {
 let noticeTimer = null;
 // kind is the notice's NoticeKind ("success" / "info" / "warning"): it picks the
 // text's colour, so every publisher says one.
+// Returns the notice, which a tool script keeps to ask noticeShown(n) later
+// (its own S shadows the shell's).
 function publishNotice(text, action, kind) {
   const n = { text, action, kind };
   S.notice = n;
@@ -2126,8 +2139,12 @@ function publishNotice(text, action, kind) {
   }, S.noticeTimeoutS * 1000);
   if (!S.focused) S.heldTitleNotice = text;
   render();
+  return n;
 }
 function dismissNotice() { S.notice = null; clearTimeout(noticeTimer); noticeTimer = null; render(); }
+// Whether the notice n is still the one the status bar shows (not dismissed,
+// acted on or replaced by a newer one).
+function noticeShown(n) { return S.notice === n; }
 // The stub every "Open output" action runs (the compile's included).
 // sample wording: the fake window's text.
 const openOutputStub = () => window_("Open output",

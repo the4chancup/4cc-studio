@@ -96,9 +96,34 @@ input[type=range] { width: 110px; accent-color: var(--sel-bg); }
 .plist .qagrid { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 6px; }
 .detail { flex: 1; min-width: 0; }
 /* The player view's fixed columns: General info over Playable positions,
-   Skills in two, the ability stats in one, then the Appearance section. */
-.pcols { display: flex; gap: 14px; align-items: flex-start; flex-wrap: wrap; }
-.skcols { display: flex; gap: 12px; align-items: flex-start; }
+   the skills in two with the COM styles and the non-ability values under
+   them, the ability stats in one, then the Appearance section. Fixed widths
+   and even gaps: the columns fill a 1280-point window's view, and a wider
+   window leaves its extra room at the right rather than between them. */
+.pcols { display: flex; gap: 36px; align-items: flex-start; flex-wrap: wrap; }
+.pcol { gap: 14px; }
+.pcol.first { width: 350px; }
+/* The skills' and COM styles' second columns start at the same x: one
+   column width for both panels (and the values' pairs under them). */
+.skcols { display: flex; gap: 14px; align-items: flex-start; }
+.skcols > .col { width: 158px; flex: none; }
+/* General info and Other stats, laid out as 4ccEditor's: blocks whose
+   label sits above the field, label-left pairs on two halves (each label at
+   its half's left, its fixed box on the half's right edge, so every box of
+   both panels lines up whatever its label's length), then the combos,
+   their labels in one column so every combo starts at one x and ends on the
+   right edge. The halves hold the longest pair label, "Injury resistance",
+   beside its box. */
+.gen { display: flex; flex-direction: column; gap: 6px; }
+.gen .gl.above { display: block; margin-bottom: 1px; }
+.gen .halves, .gen .pairs { display: grid; grid-template-columns: 1fr 1fr; column-gap: 14px; }
+.gen .pairs { row-gap: 4px; }
+.gen input[type=text], .gen select { width: 100%; box-sizing: border-box; }
+.gen .pair { display: flex; align-items: center; justify-content: space-between; gap: 6px; }
+.gen .pair input[type=number], .gen .pair .box { width: 54px; box-sizing: border-box; flex: none; }
+.gen .combos { display: grid; grid-template-columns: max-content 1fr; column-gap: 8px;
+  row-gap: 4px; align-items: center; }
+.gen .combos > span:not(.gl), .gen .combos .gate > span { display: block; }
 .info-grid td { padding: 1px 6px 1px 0; }
 .info-grid input[type=text] { width: 190px; }
 .info-grid input.shirt { width: 110px; }
@@ -107,15 +132,23 @@ td.ilabel { text-align: right; padding-left: 10px; }
 td.ilabel:first-child { padding-left: 0; }
 .stats-grid td { padding: 1px 8px 1px 0; }
 .stats-grid input[type=number] { width: 40px; }
-#pos-grid td.poscell { width: 56px; vertical-align: top; }
+#pos-grid { border-spacing: 0 4px; border-collapse: separate; }
+#pos-grid td.poscell { width: 62px; vertical-align: top; padding: 2px 3px 3px; }
 #pos-grid td.reg { outline: 1px solid var(--sel-fg); }
+#pos-grid .plabel { margin-bottom: 2px; }
 .rate { display: inline-flex; gap: 1px; }
 .rate .sel { padding: 0 5px; }
+/* In the positions grid each grade is a square of its own, so the chosen
+   one's fill reads at a glance (the Tactics' style toggles share .rate and
+   keep their padded words). */
+#pos-grid .rate { gap: 2px; }
+#pos-grid .rate .sel { width: 17px; height: 17px; padding: 0; display: inline-flex;
+  align-items: center; justify-content: center; border-radius: 2px; }
 .rate .sel.on { background: var(--sel-bg); }
 /* The chosen rating's colour: A the success green, B the selection accent,
-   C the quiet default (it is most cells and recedes). */
+   C a quiet grey that still reads as chosen. */
 .rate .sel.on.ra { background: var(--success); color: #1a1a1a; }
-.rate .sel.on.rc { background: none; color: var(--text); }
+.rate .sel.on.rc { background: #5a5a5a; color: var(--text); }
 .rate.off .sel { color: #5a5a5a; }
 .rate.off .sel:hover { background: none; color: #5a5a5a; }
 .palette { display: inline-flex; gap: 2px; align-items: center; }
@@ -2431,14 +2464,36 @@ function openSave(key, path) {
   // SE-GUI-28: the save's version governs its codec and widgets; a selector
   // mismatch warns in the status bar, never reinterprets, and the setting is
   // unchanged until the action makes the same change the selector would.
-  if (D.selectorVersion !== "20" + version())
-    publishNotice("Although the sidebar is set to PES " + D.selectorVersion
-      + ", this save is from PES 20" + version()
-      + ", so the editor keeps treating it as a PES 20" + version() + " save.",
-      { label: "Switch to PES 20" + version(),
-        run: () => { D.selectorVersion = "20" + version(); render(); } }, "warning");
+  // A new save starts the warning's life over: the last save's, if still
+  // in the bar, goes first.
+  if (S.ver && S.ver.notice && noticeShown(S.ver.notice)) dismissNotice();
+  S.ver = { live: true, notice: null };
+  versionNoticeFollow(D.selectorVersion);
   const restored = restoredIds();
   if (restored.length) drawStripAgain(restored);
+}
+// The version warning follows the selector while it lives: shown on a
+// mismatch (its sentence naming the selector's version), gone while the
+// selector matches the save. Its life ends, until another save is opened,
+// when the member dismisses it or acts on it, or a newer notice replaces
+// it: either way they have seen it (SE-GUI-28).
+function versionNoticeFollow(sel) {
+  const ver = S.ver;
+  if (!S.save || !ver || !ver.live) return;
+  if (ver.notice && !noticeShown(ver.notice)) { ver.live = false; ver.notice = null; return; }
+  const save = "20" + version();
+  if (sel === save) {
+    if (ver.notice) { ver.notice = null; dismissNotice(); }
+    return;
+  }
+  if (ver.notice && ver.notice.sel === sel) return;
+  ver.notice = publishNotice("Although the sidebar is set to PES " + sel
+    + ", this save is from PES " + save
+    + ", so the editor keeps treating it as a PES " + save + " save.",
+    { label: "Switch to PES " + save,
+      run: () => { ver.live = false; ver.notice = null; D.selectorVersion = save; render(); } },
+    "warning");
+  ver.notice.sel = sel;
 }
 function pushRecent(path) {
   const i = S.recents.indexOf(path);
@@ -3218,8 +3273,7 @@ const fld = (el, minV) => h("td", {}, gated(h("span", {}, el), minV || 15));
 // chrome]. The count is read from the panel's own stored resize (the host's
 // layoutPanelW), never from the pane's and never past the layout's own.
 const COL_PANELS = {
-  "positions": [5, 63], "skills": [2, 140], "com-styles": [2, 110],
-  "profile-values": [2, 160],
+  "positions": [5, 66], "skills": [2, 165], "com-styles": [2, 165],
   "team-info": [2, 120], "cutscenes": [2, 120, 14],
   "strip-style": [4, 170, 14], "motion": [4, 194, 14],
   "tactics-settings": [2, 209, 14],
@@ -3236,21 +3290,26 @@ const namedCols = (el, name) => {
 // n items per row.
 const chunk = (arr, n) =>
   Array.from({ length: Math.ceil(arr.length / n) }, (_, i) => arr.slice(i * n, i * n + n));
-// The General info column (save_editor.md "Editing UI"; 4ccEditor's General
-// Info): the identity fields, one label/field pair per row so the column
-// stays narrow. Every field is an undoable edit. The name field keeps the
-// raw string (colour codes shown as \x11c sequences); Captain marks him in
-// the team's set pieces.
+// The General info column, laid out as 4ccEditor's General Info
+// (save_editor.md "Editing UI"): the name's label above a field the
+// panel's width, ID and Shirt as two label-above halves, the numbers as
+// label-left pairs in fixed boxes, then the combos sharing one label
+// column. Every field ends on the panel's right edge or its half's. Every
+// field is an undoable edit. The name field keeps the raw string (colour
+// codes shown as \x11c sequences); Captain marks him in the team's set
+// pieces.
 function generalPanel(p, team) {
-  const num = (label, get, put) => [lbl(label), h("td", {},
+  const gl = (t, above) => h("span", { class: "weak gl" + (above ? " above" : "") }, t);
+  const above = (label, el) => h("div", {}, gl(label, true), el);
+  const num = (label, get, put) => h("div", { class: "pair" }, gl(label),
     h("input", { type: "number", value: get(p),
       onchange: e => { const v = parseInt(e.target.value, 10);
-        if (!Number.isNaN(v)) { set(p, get, put, v, label); render(); } } }))];
-  const nameIn = h("input", { type: "text", value: escName(p.name),
+        if (!Number.isNaN(v)) { set(p, get, put, v, label); render(); } } }));
+  const nameIn = h("input", { type: "text", size: "1", value: escName(p.name),
     title: "The raw name. \\x11c followed by 8 hex digits is a colour code",
     onchange: e => { set(p, x => x.name, (x, v) => x.name = v, unescName(e.target.value), "name"); render(); } });
   nameIn.id = "f-name";
-  const shirtIn = h("input", { type: "text", class: "shirt", value: p.shirt_name,
+  const shirtIn = h("input", { type: "text", size: "1", value: p.shirt_name,
     onchange: e => { set(p, x => x.shirt_name, (x, v) => x.shirt_name = v, e.target.value, "shirt name"); render(); } });
   shirtIn.id = "f-shirt";
   // captain is the roster slot, 0-based as stored.
@@ -3268,21 +3327,26 @@ function generalPanel(p, team) {
   const hand = combo(FOOT.map(x => [x, titleCase(x)]), p.positions.stronger_hand ?? "right",
     v => { set(p, x => x.positions.stronger_hand, (x, v2) => x.positions.stronger_hand = v2, v, "stronger hand"); });
   hand.id = "f-hand";
-  const row = (label, el) => h("tr", {}, lbl(label), h("td", {}, el));
+  // The ID is read-only: a disabled box keeps the row's look and height.
+  const idBox = h("input", { type: "text", size: "1", value: String(p.id), disabled: true });
+  idBox.id = "f-id";
   return named(h("div", { class: "col" }, strong("General info"),
-    h("table", { class: "grid info-grid" },
-      row("Name", nameIn), row("Shirt", shirtIn),
-      row("ID", h("span", { class: "mono" }, String(p.id))),
-      h("tr", {}, ...num("Number", p2 => p2.number, (x, v) => x.number = v)),
-      row("Captain", captain),
-      h("tr", {}, ...num("Nation", p2 => p2.nationality, (x, v) => x.nationality = v)),
-      h("tr", {}, ...num("Age", p2 => p2.age, (x, v) => x.age = v)),
-      h("tr", {}, ...num("Height", p2 => p2.height, (x, v) => x.height = v)),
-      h("tr", {}, ...num("Weight", p2 => p2.weight, (x, v) => x.weight = v)),
-      h("tr", {}, lbl("Stronger foot"), fld(foot)),
-      h("tr", {}, lbl("Stronger hand"), fld(hand, 20)),
-      h("tr", {}, lbl("Registered position"), fld(reg)),
-      h("tr", {}, lbl("Playing style"), fld(style)))), "general");
+    h("div", { class: "gen" },
+      above("Name", nameIn),
+      h("div", { class: "halves" }, above("ID", idBox), above("Shirt", shirtIn)),
+      h("div", { class: "pairs" },
+        num("Height", p2 => p2.height, (x, v) => x.height = v),
+        num("Number", p2 => p2.number, (x, v) => x.number = v),
+        num("Weight", p2 => p2.weight, (x, v) => x.weight = v),
+        num("Nation", p2 => p2.nationality, (x, v) => x.nationality = v),
+        num("Age", p2 => p2.age, (x, v) => x.age = v),
+        // The checkbox at the boxes' left edge.
+        h("div", { class: "pair" }, gl("Captain"), h("span", { class: "box" }, captain))),
+      h("div", { class: "combos" },
+        gl("Stronger foot"), foot,
+        gl("Stronger hand"), gated(h("span", {}, hand), 20),
+        gl("Registered position"), reg,
+        gl("Playing style"), style))), "general");
 }
 // The player's name drawn with its colour codes, the view's title.
 function playerHeader(p) {
@@ -3323,8 +3387,9 @@ function playerView(p, team) {
   return h("div", { id: "player-view" },
     playerHeader(p),
     h("div", { class: "pcols" },
-      h("div", { class: "col" }, generalPanel(p, team), positionsPanel(p)),
-      h("div", { class: "col" }, skillsPanel(p, team), comStylesPanel(p), valuesPanel(p)),
+      h("div", { class: "col pcol first" }, generalPanel(p, team), otherStatsPanel(p),
+        positionsPanel(p)),
+      h("div", { class: "col pcol" }, skillsPanel(p, team), comStylesPanel(p)),
       abilityPanel(p)),
     named(collapsing("se-appearance", "Appearance", () => appearanceTab(p)), "appearance"));
 }
@@ -3476,25 +3541,27 @@ function comStylesPanel(p) {
         h("div", { class: "col" }, COM_STYLES.slice(c * per, (c + 1) * per).map(comCb))))),
     "com-styles");
 }
-// The four non-ability values, drawn at the game's numbers (stored one
-// lower): two label/field pairs per row, the labels in aligned cells.
-function valuesPanel(p) {
-  const small = (label, get, put, max) =>
+// Other stats: the four non-ability values under General info, drawn at
+// the game's numbers (stored one lower), as two label-left pairs per row on
+// General info's grid, so their boxes line up with Height's and Number's.
+function otherStatsPanel(p) {
+  // `shown` is the label drawn, `label` the edit's name in the undo list.
+  const small = (shown, label, get, put, max) => h("div", { class: "pair" },
+    h("span", { class: "weak gl" }, shown),
     h("input", { type: "number", value: get(p) + 1, min: 1, max,
       onchange: e => { const v = parseInt(e.target.value, 10) - 1;
-        if (v >= 0) { set(p, get, (x, v2) => put(x, v2), v, label); render(); } } });
-  const pairs = [
-    [lbl("Injury resistance"), fld(small("Injury resistance",
-      x => x.stats.injury_resistance, (x, v) => x.stats.injury_resistance = v, 3))],
-    [lbl("Form"), fld(small("Form", x => x.stats.form, (x, v) => x.stats.form = v, 8))],
-    [lbl("Weak foot usage"), fld(small("Weak foot usage",
-      x => x.stats.weak_foot_usage, (x, v) => x.stats.weak_foot_usage = v, 4))],
-    [lbl("Weak foot accuracy"), fld(small("Weak foot accuracy",
-      x => x.stats.weak_foot_accuracy, (x, v) => x.stats.weak_foot_accuracy = v, 4))]];
-  return namedCols(h("div", {},
-    h("table", { class: "grid info-grid" },
-      chunk(pairs, colCount("profile-values")).map(row => h("tr", {}, row.flat())))),
-    "profile-values");
+        if (v >= 0) { set(p, get, (x, v2) => put(x, v2), v, label); render(); } } }));
+  // The weak foot's two share one label: "Weak foot: Usage", then "Accuracy".
+  return named(h("div", { class: "col" }, strong("Other stats"),
+    h("div", { class: "gen" }, h("div", { class: "pairs" },
+      small("Injury resistance", "Injury resistance",
+        x => x.stats.injury_resistance, (x, v) => x.stats.injury_resistance = v, 3),
+      small("Form", "Form", x => x.stats.form, (x, v) => x.stats.form = v, 8),
+      small("Weak foot: Usage", "Weak foot usage",
+        x => x.stats.weak_foot_usage, (x, v) => x.stats.weak_foot_usage = v, 4),
+      small("Accuracy", "Weak foot accuracy",
+        x => x.stats.weak_foot_accuracy, (x, v) => x.stats.weak_foot_accuracy = v, 4)))),
+    "other-stats");
 }
 
 // ---- Appearance (SE-GUI-07, 20, 35) ----
@@ -5827,5 +5894,6 @@ function linkOpen(scr, keys) {
     else linkWarn("dialog=" + keys.dialog);
   }
 }
-registerTool({ id: "save-editor", css: SAVE_EDITOR_CSS, draw: renderView, firstShow, controls: draftControls, onKey, screen, linkKeys, linkOpen });
+registerTool({ id: "save-editor", css: SAVE_EDITOR_CSS, draw: renderView, firstShow, controls: draftControls, onKey, screen, linkKeys, linkOpen,
+  pesVersionChanged: versionNoticeFollow });
 })();

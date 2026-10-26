@@ -2637,7 +2637,11 @@ briefs, review loops, gates and mutation runs as for any step.
     whole when it fits (its middle part takes what the left and right leave, not a third:
     `core/gui.md` "Status bar" and `shell/status_bar.rs` change with s2/s3); the version
     notice follows the selector while shown (gone on the save's version, its text updated on
-    another, not back once dismissed). Rework r2 (`brief_drafts_main_panel_r2.md`). 4ccEditor's
+    another, not back once dismissed). Rework r2 by the lead (the maintainer, 2026-10-26: the
+    lead edits UI drafts itself; the sidekick's partial r2 was stopped): the four values as
+    an Other stats panel under General info ("Weak foot: Usage" and "Accuracy" sharing one
+    label), both panels' boxes on their halves' right edges, the columns 36 points apart,
+    the host's `pesVersionChanged` view hook and `noticeShown` for the notice. 4ccEditor's
     per-player "Edited/created player" checkbox is not kept (the maintainer, 2026-10-26: a
     name or shirt name edit sets the flag, and the Team menu's Set edited flag covers a
     team): s2 says so in the plan's 1:1 list, with its DECISIONS entry
