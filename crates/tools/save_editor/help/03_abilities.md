@@ -31,5 +31,7 @@ one the rules read him as, the way the AATF check does, from his stats,
 registered position and height, and the paid cards are the skills and COM
 playing styles that count against that tier's limit. When no tier's condition
 holds for him the badge says "No tier matches". The number goes red when he
-holds more than the limit. When the rules file does not load, or cannot read
-the player's tier, the error shows in the badge's place.
+holds more than the limit. When the rules file does not load there is no badge:
+the red line under the player list says so, and a click on it shows the error.
+When the rules cannot read the player's tier, the badge's place reads "Tier
+check failed, click for more information.", and a click shows why.

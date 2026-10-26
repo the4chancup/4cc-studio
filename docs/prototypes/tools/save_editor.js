@@ -166,7 +166,7 @@ td.ilabel:first-child { padding-left: 0; }
    table.grid td rule, 4 a side, would win over a plainer selector). */
 table.grid.stats-grid td { padding: 2px 6px; }
 .stats-grid input[type=number] { width: 40px; }
-/* The positions in four rows by line of the pitch, left wing to right wing,
+/* The positions in five rows by line of the pitch, left wing to right wing,
    GK alone in the last; each row centred in the panel, each label centred
    over its C B A group (so over the B). */
 #pos-grid { display: flex; flex-direction: column; gap: 4px; }
@@ -2363,7 +2363,6 @@ function cardLimits(p, t, tier) {
 // stats, registered position and height read as, per recognizedTier), the
 // error colour when overdrawn. sample wording: the tooltip.
 function cardBadges(p, t) {
-  // A rules file that does not load: its whole error in the badge's place.
   // A rules file that does not load: no badge (the quick actions under the
   // list say so, and the error's text would push the header's row apart).
   if (D.rulesBroken) return null;

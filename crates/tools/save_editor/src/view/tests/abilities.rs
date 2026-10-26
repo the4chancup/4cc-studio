@@ -390,6 +390,24 @@ fn a_playable_positions_rating_writes_its_own_slot_and_undoes() {
     assert_eq!(playable(&view)[2], 0, "the one undo restores it");
 }
 
+/// The narrowest label-to-field gap over `pairs` (`field.x0 − label.x1`
+/// per row).
+fn min_gap<S: AsRef<str>>(nodes: &[accesskit::Node], pairs: &[(S, Role)]) -> f64 {
+    pairs
+        .iter()
+        .map(|(label, role)| {
+            let label = label.as_ref();
+            let label_rect = label_bounds(nodes, label);
+            let field = right_of_label(nodes, label, *role)
+                .first()
+                .unwrap_or_else(|| panic!("a field right of {label:?}"))
+                .bounds()
+                .expect("bounds");
+            field.x0 - label_rect.x1
+        })
+        .fold(f64::MAX, f64::min)
+}
+
 /// `label`'s label-node top, a shorthand for the row checks below.
 fn y_of(nodes: &[accesskit::Node], label: &str) -> f64 {
     nodes
@@ -1123,6 +1141,13 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
         "premise: the check's error: {expected}"
     );
 
+    // The dialog is up only after the click.
+    assert!(
+        !label_value(&nodes, "The tier check failed"),
+        "no dialog title before the click"
+    );
+    assert!(view.refusal.is_none(), "no refusal before the click");
+
     // Its click opens the refusal dialog with the check's own error.
     click_rules(
         &mut window,
@@ -1594,46 +1619,34 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     // The label-to-field minimums (the plan's "never closer than"): 9 on
     // every pair, 12 in the label-left rows and Ability stats, the
     // narrowest of each at its minimum.
-    let mut pair_min = f64::MAX;
-    for (label, role) in [
-        ("Height", Role::SpinButton),
-        ("Weight", Role::SpinButton),
-        ("Age", Role::SpinButton),
-        ("Shirt number", Role::SpinButton),
-        ("Nation", Role::SpinButton),
-        ("Captain", Role::RadioButton),
-        ("Injury resistance", Role::SpinButton),
-        ("Weak foot: Usage", Role::SpinButton),
-        ("Form", Role::SpinButton),
-        ("Accuracy", Role::SpinButton),
-    ] {
-        let label_rect = label_bounds(&nodes, label);
-        let box_rect = right_of_label(&nodes, label, role)[0]
-            .bounds()
-            .expect("bounds");
-        let gap = box_rect.x0 - label_rect.x1;
-        assert!(gap >= 8.5, "{label}'s gap {gap} under 9");
-        pair_min = pair_min.min(gap);
-    }
+    let pair_min = min_gap(
+        &nodes,
+        &[
+            ("Height", Role::SpinButton),
+            ("Weight", Role::SpinButton),
+            ("Age", Role::SpinButton),
+            ("Shirt number", Role::SpinButton),
+            ("Nation", Role::SpinButton),
+            ("Captain", Role::RadioButton),
+            ("Injury resistance", Role::SpinButton),
+            ("Weak foot: Usage", Role::SpinButton),
+            ("Form", Role::SpinButton),
+            ("Accuracy", Role::SpinButton),
+        ],
+    );
     assert!(
         (pair_min - 9.0).abs() < 0.5,
         "the narrowest pair gap at 9 ({pair_min})"
     );
-    let mut row_min = f64::MAX;
-    for label in [
-        "Stronger foot",
-        "Stronger hand",
-        "Registered position",
-        "Playing style",
-    ] {
-        let label_rect = label_bounds(&nodes, label);
-        let field = right_of_label(&nodes, label, Role::ComboBox)[0]
-            .bounds()
-            .expect("bounds");
-        let gap = field.x0 - label_rect.x1;
-        assert!(gap >= 11.5, "{label}'s gap {gap} under 12");
-        row_min = row_min.min(gap);
-    }
+    let mut row_min = min_gap(
+        &nodes,
+        &[
+            ("Stronger foot", Role::ComboBox),
+            ("Stronger hand", Role::ComboBox),
+            ("Registered position", Role::ComboBox),
+            ("Playing style", Role::ComboBox),
+        ],
+    );
     for prefix in ["Name (", "Shirt ("] {
         let label_rect = nodes
             .iter()
@@ -1654,55 +1667,21 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         (row_min - 12.0).abs() < 0.5,
         "the narrowest row gap at 12 ({row_min})"
     );
-    let mut stat_min = f64::MAX;
-    for label in pes_savefile::interchange::team_toml::labels::ABILITY_STATS
-        .iter()
-        .map(|name| pes_savefile::interchange::team_toml::labels::title_case(name))
-    {
-        let label_rect = label_bounds(&nodes, &label);
-        let field = right_of_label(&nodes, &label, Role::SpinButton)[0]
-            .bounds()
-            .expect("bounds");
-        let gap = field.x0 - label_rect.x1;
-        assert!(gap >= 11.5, "{label}'s gap {gap} under 12");
-        stat_min = stat_min.min(gap);
-    }
+    let stat_pairs: Vec<(String, Role)> =
+        pes_savefile::interchange::team_toml::labels::ABILITY_STATS
+            .iter()
+            .map(|name| {
+                (
+                    pes_savefile::interchange::team_toml::labels::title_case(name),
+                    Role::SpinButton,
+                )
+            })
+            .collect();
+    let stat_min = min_gap(&nodes, &stat_pairs);
     assert!(
         (stat_min - 12.0).abs() < 0.5,
         "the narrowest stat gap at 12 ({stat_min})"
     );
-
-    // The four combos start at one x and end on the fields' right edge.
-    let mut combo_x0 = f64::MAX;
-    for label in [
-        "Stronger foot",
-        "Stronger hand",
-        "Registered position",
-        "Playing style",
-    ] {
-        let bounds = right_of_label(&nodes, label, Role::ComboBox)[0]
-            .bounds()
-            .expect("bounds");
-        combo_x0 = combo_x0.min(bounds.x0);
-        assert!(
-            (bounds.x1 - name.x1).abs() < 1.0,
-            "{label}'s combo ends on the column's edge ({bounds:?} vs {name:?})"
-        );
-    }
-    for label in [
-        "Stronger foot",
-        "Stronger hand",
-        "Registered position",
-        "Playing style",
-    ] {
-        let bounds = right_of_label(&nodes, label, Role::ComboBox)[0]
-            .bounds()
-            .expect("bounds");
-        assert!(
-            (bounds.x0 - combo_x0).abs() < 1.0,
-            "{label}'s combo starts at the one x"
-        );
-    }
 
     // The COM styles' second column starts at the skills' second column's x.
     let skills_top = titles[1].y0;
@@ -1804,32 +1783,14 @@ fn the_skills_column_narrows_to_one_column_on_a_narrow_pane() {
 }
 
 // plans/save_editor.md "Editing UI", the player view bullet's first
-// sentence: the view centred between the player list and the pane's right
-// edge — the gap after the list equals the margin after Ability stats,
-// the room the fixed columns leave split evenly, on every pane width.
+// sentence: the view centred between the player list and the window's
+// right edge — the gap after the list equals the margin after Ability
+// stats to the window's right, the room the fixed columns leave split
+// evenly, on every pane width.
 // The centring pad reads the columns' width the previous frame measured
 // (egui memory), so three settle frames run before the read.
 #[test]
 fn the_player_view_centres_its_columns_in_the_pane() {
-    /// The detail pane's frame: the widest full-height rect past the
-    /// list's own (its left edge is the player list's right edge).
-    fn pane_frame(shapes: &[egui::epaint::ClippedShape], screen_h: f32) -> (f64, f64) {
-        shapes
-            .iter()
-            .filter_map(|clipped| match &clipped.shape {
-                egui::Shape::Rect(shape)
-                    if shape.rect.min.x > 200.0
-                        && shape.rect.width() > 600.0
-                        && shape.rect.height() > screen_h * 0.75 =>
-                {
-                    Some((f64::from(shape.rect.min.x), f64::from(shape.rect.max.x)))
-                }
-                _ => None,
-            })
-            .min_by(|a, b| a.0.partial_cmp(&b.0).expect("ordered bounds"))
-            .expect("the detail pane's frame rect")
-    }
-
     let path = fixture(PesVersion::Pes21, "view_centered");
     let mut view = SaveView::new();
     view.open(&path);
@@ -1851,9 +1812,9 @@ fn the_player_view_centres_its_columns_in_the_pane() {
             .filter(|bounds| bounds.x0 >= stats_left - 1.0)
             .map(|bounds| bounds.x1)
             .fold(0.0, f64::max);
-        let (list_right, pane_right) = pane_frame(&shapes, DEFAULT_PANE.y);
+        let (list_right, _) = pane_frame(&shapes, window.screen);
         let left = gen_left - list_right;
-        let right = pane_right - stats_right;
+        let right = f64::from(screen_w) - stats_right;
         assert!(
             (left - right).abs() < 1.0,
             "the gap after the list ({left}) equals the margin after Ability stats ({right}) at {screen_w}"

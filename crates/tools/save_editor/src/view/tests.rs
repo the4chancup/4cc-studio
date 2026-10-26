@@ -554,6 +554,25 @@ fn undo_entries(window: &mut Headless, view: &mut SaveView) -> usize {
     panic!("Ctrl+Z did not empty the undo stack in 64 presses")
 }
 
+/// The detail pane's frame: the widest full-height rect past the list's
+/// own (its left edge is the player list's right edge).
+fn pane_frame(shapes: &[egui::epaint::ClippedShape], screen: egui::Vec2) -> (f64, f64) {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Rect(shape)
+                if shape.rect.min.x > 200.0
+                    && shape.rect.width() > screen.x * 0.5
+                    && shape.rect.height() > screen.y * 0.75 =>
+            {
+                Some((f64::from(shape.rect.min.x), f64::from(shape.rect.max.x)))
+            }
+            _ => None,
+        })
+        .min_by(|a, b| a.0.partial_cmp(&b.0).expect("ordered bounds"))
+        .expect("the detail pane's frame rect")
+}
+
 /// Whether `node` sits on `anchor`'s row (same top within 4 points) and
 /// right of it.
 fn on_row_right_of(anchor: accesskit::Rect, node: &accesskit::Node) -> bool {

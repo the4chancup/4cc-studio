@@ -2810,6 +2810,16 @@ briefs, review loops, gates and mutation runs as for any step.
       with `get_temp` as the workspace does, not `get_persisted`. The centring balances against
       the pane's frame, 8 points inside the window's edge: the built-window check decides
       which edge the eye reads. Files: `view/{info_strip,abilities,mod}.rs`, the tests
+      - [x] r1 round S5's findings (`.tmp/0_0_1s/s3_rulings.md` "Round S5", 14 accepted of 21)
+        and the built window's centring (27 px after the list against 35 after Ability stats:
+        the pane frame's 8 are invisible). Done 2026-10-26 (SWE-2): the gap after the list is
+        half of what the list's edge and the window's leave beside the columns; the list not
+        resizable; one `label_width`; the help's load-error sentence; the tests' dialog-before-
+        click, not-elided, both-runs and every-label checks; the halved-columns test reached by
+        a long tier label now the list cannot narrow. `mutants-diff 714de4e6` over s3j: 62
+        caught, 4 missed, all `half_width`'s second-half arm, never observed (its removal
+        queued with round S6's rework). Built window rechecked at 1280 x 800
+        (`.tmp/0_0_1s/s3j_r1_open.png`): 31 px after the list, 31 after Ability stats
 - [x] 0.0.1t a rules file a member handles ends in `.4ccrules` (the maintainer, 2026-10-26;
   DECISIONS "A rules file a member handles ends in `.4ccrules`"; `plans/aatf_rules.md` "The
   rules file"): the Save editor's settings row and AATF panel and the Ruleset editor's pickers

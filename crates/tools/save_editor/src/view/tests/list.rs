@@ -925,3 +925,27 @@ fn the_team_rows_dot_paints_after_a_short_name_edit() {
         "no player row's label carries one"
     );
 }
+
+// plans/save_editor.md "Editing UI", the Player list bullet (240 points
+// wide and not resizable: under the design width the window scales
+// rather than narrows): a drag on the list's right edge leaves it.
+#[test]
+fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
+    let path = fixture(PesVersion::Pes21, "list_fixed_width");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::new();
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (before, _) = pane_frame(&shapes, window.screen);
+
+    // A drag from the list's right edge 80 points to the right.
+    let from = egui::pos2(before as f32, 400.0);
+    let onto = egui::pos2(before as f32 + 80.0, 400.0);
+    drag(&mut window, from, onto, &mut view);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let (after, _) = pane_frame(&shapes, window.screen);
+    assert!(
+        (after - before).abs() < 1.0,
+        "the drag left the list at its width ({before} vs {after})"
+    );
+}

@@ -86,7 +86,7 @@ pub(crate) fn open(view: &mut SaveView, pending: Pending) {
 /// in the ALL list's order (a changed one the list does not show last by
 /// id), a `Stripped` row after his field rows when his appearance id
 /// changed (the field `compare_players` emits no row for), a roster
-/// slot's `Number` row under its player after his own (the dot's rule:
+/// slot's `Shirt number` row under its player after his own (the dot's rule:
 /// his dot covers his roster slot's number), then each changed team's
 /// other rows in the open save's team order. The item is the player's
 /// display name (`display_name`, colour codes dropped) or the team's.
@@ -109,7 +109,7 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
         .collect();
     let teams: HashMap<u32, &TeamEntry> = file.teams().iter().map(|team| (team.id, team)).collect();
     // The roster slots the ALL list shows (its order is the players'): a
-    // `Number` row of one goes under its player.
+    // `Shirt number` row of one goes under its player.
     let listed_rows = selection::rows(file, &TeamChoice::All, "");
     let listed: HashSet<(u32, u8)> = listed_rows
         .iter()
@@ -129,8 +129,8 @@ fn rows(session: &Session) -> anyhow::Result<Vec<(String, String, String, String
         let mut item = None;
         let mut named = || item.get_or_insert_with(|| name_of(entry.player_id)).clone();
         // A player rostered on two teams is listed per roster: his own
-        // rows go under his first listing only, his `Number` rows stay
-        // per slot.
+        // rows go under his first listing only, his `Shirt number` rows
+        // stay per slot.
         if shown.insert(entry.player_id) {
             if let Some(diffs) = player_diffs.get(&entry.player_id) {
                 for diff in diffs {

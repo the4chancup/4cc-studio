@@ -507,17 +507,19 @@ fn the_pes16_shirt_hover_names_its_own_field() {
 // SE-GUI-38
 #[test]
 fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
-    /// The count's painted colour for `text` (`"Name (n/max)"`/`"Shirt (n/max)"`):
-    /// the label's last run is the `(n/max)` half.
-    fn count_color(shapes: &[egui::epaint::ClippedShape], text: &str) -> egui::Color32 {
-        title_shape(shapes, text)
-            .galley
-            .job
-            .sections
-            .last()
-            .expect("the count's run")
-            .format
-            .color
+    /// The painted colour of `text`'s counted-label run `run`
+    /// (`"Name (n/max)"`/`"Shirt (n/max)"`: 0 the label, 1 the `(n/max)`
+    /// count): the job's format at the run's byte (adjacent same-format
+    /// runs merge in one galley section, so the run is a byte range, not
+    /// a section).
+    fn run_color(shapes: &[egui::epaint::ClippedShape], text: &str, run: usize) -> egui::Color32 {
+        let job = &title_shape(shapes, text).galley.job;
+        let byte = if run == 0 {
+            egui::text::ByteIndex(0)
+        } else {
+            egui::text::ByteIndex(job.text.len() - 1)
+        };
+        job.format_at_byte(byte).color
     }
 
     // 70101: name a colour code then "AB" (10 + 2 = 12 bytes), shirt 20
@@ -560,8 +562,23 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         Some(tint),
         "the shirt field is tinted"
     );
+    // Inside the limit both runs read the normal text colour; past it the
+    // label stays normal and the count warns.
+    let text_color = visuals.text_color();
+    for run in [0, 1] {
+        assert_eq!(
+            run_color(&shapes, "Name (12/61)", run),
+            text_color,
+            "the name label's run {run} inside the limit"
+        );
+    }
     assert_eq!(
-        count_color(&shapes, "Shirt (20/18)"),
+        run_color(&shapes, "Shirt (20/18)", 0),
+        text_color,
+        "the shirt's label run stays normal"
+    );
+    assert_eq!(
+        run_color(&shapes, "Shirt (20/18)", 1),
         visuals.warn_fg_color,
         "the shirt count is drawn in the warning colour"
     );
@@ -589,7 +606,12 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         "the count follows the deleted letter"
     );
     assert_eq!(
-        count_color(&shapes, "Shirt (19/18)"),
+        run_color(&shapes, "Shirt (19/18)", 0),
+        text_color,
+        "the label run stays normal"
+    );
+    assert_eq!(
+        run_color(&shapes, "Shirt (19/18)", 1),
         visuals.warn_fg_color,
         "still tinted"
     );
@@ -627,7 +649,12 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         "the name field is tinted"
     );
     assert_eq!(
-        count_color(&shapes, "Name (47/61)"),
+        run_color(&shapes, "Name (47/61)", 0),
+        text_color,
+        "the name's label run stays normal"
+    );
+    assert_eq!(
+        run_color(&shapes, "Name (47/61)", 1),
         visuals.warn_fg_color,
         "the name count is drawn in the warning colour"
     );
@@ -1298,15 +1325,18 @@ fn the_player_header_tops_the_player_view_alone() {
 
 // plans/save_editor.md "Editing UI", the player view bullet ("A field's
 // label in these panels and in Ability stats is drawn in the normal text
-// colour"): the pairs' and combos' labels, the counted label and the
-// team view's field labels paint the normal colour, not the weak one.
+// colour"): every field label the panels name — the pairs', the
+// combos', the counted labels', Ability stats' — and the team view's
+// Team and Short paint the normal colour, not the weak one.
 #[test]
 fn the_field_labels_paint_the_normal_text_colour() {
     let path = fixture(PesVersion::Pes21, "label_color");
     let mut view = SaveView::new();
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
-    let mut window = Headless::sized(1100.0, 800.0);
+    // The columns' full width so Ability stats' labels all draw inside
+    // the clip (a wrapped third column puts the last of them past it).
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     let visuals = window.ctx.style_of(window.ctx.theme()).visuals.clone();
     let text_color = visuals.text_color();
     assert_ne!(
@@ -1317,35 +1347,65 @@ fn the_field_labels_paint_the_normal_text_colour() {
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    for label in ["Stronger foot", "Height", "Injury resistance"] {
+    for label in [
+        "Height",
+        "Weight",
+        "Age",
+        "Shirt number",
+        "Nation",
+        "Captain",
+        "Stronger foot",
+        "Stronger hand",
+        "Registered position",
+        "Playing style",
+        "Injury resistance",
+        "Weak foot: Usage",
+        "Form",
+        "Accuracy",
+    ] {
         assert_eq!(
             painted_label_color(&nodes, &shapes, label),
             text_color,
             "{label} in the normal text colour"
         );
     }
-    // The counted label's first run (the "Name " part) too.
-    let name_value = nodes
+    // The counted labels' first run too ("Name "/"Shirt " before the count).
+    for prefix in ["Name (", "Shirt ("] {
+        let value = nodes
+            .iter()
+            .find(|node| {
+                node.role() == Role::Label && node.value().is_some_and(|v| v.starts_with(prefix))
+            })
+            .and_then(|node| node.value())
+            .unwrap_or_else(|| panic!("the {prefix}counted label"))
+            .to_owned();
+        assert_eq!(
+            painted_label_color(&nodes, &shapes, &value),
+            text_color,
+            "the {prefix}counted label in the normal text colour"
+        );
+    }
+    // Ability stats' labels, the game's order.
+    for name in pes_savefile::interchange::team_toml::labels::ABILITY_STATS
         .iter()
-        .find(|node| {
-            node.role() == Role::Label && node.value().is_some_and(|v| v.starts_with("Name ("))
-        })
-        .and_then(|node| node.value())
-        .expect("the Name label")
-        .to_owned();
-    assert_eq!(
-        painted_label_color(&nodes, &shapes, &name_value),
-        text_color,
-        "the counted label in the normal text colour"
-    );
+        .map(|label| pes_savefile::interchange::team_toml::labels::title_case(label))
+    {
+        assert_eq!(
+            painted_label_color(&nodes, &shapes, &name),
+            text_color,
+            "{name} in the normal text colour"
+        );
+    }
 
     // The team view's field labels.
     open_team_view(&mut window, &mut view, 701);
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    assert_eq!(
-        painted_label_color(&nodes, &shapes, "Team"),
-        text_color,
-        "the team view's Team label in the normal text colour"
-    );
+    for label in ["Team", "Short"] {
+        assert_eq!(
+            painted_label_color(&nodes, &shapes, label),
+            text_color,
+            "the team view's {label} label in the normal text colour"
+        );
+    }
 }

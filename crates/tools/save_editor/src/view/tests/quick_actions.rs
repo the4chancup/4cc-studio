@@ -844,8 +844,15 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
         (bounds.x0 - row.x0).abs() <= 1.0 && bounds.x1 <= row.x1 + 1.0,
         "the line spans the list ({bounds:?} vs {row:?})"
     );
-    // Three body rows measured at the 223-point content width (the
-    // plan's "two lines at 240 points" reads it one short).
+    // Not elided (a truncated one-line label is the r1 shape the
+    // maintainer rejected), and wrapped across the list: more than one
+    // body row, three at the 223-point content width (the plan's three;
+    // the DECISIONS entry's "two lines at 240 points" reads it one short).
+    assert!(!shape.galley.elided, "the line is not elided");
+    assert!(
+        bounds.y1 - bounds.y0 > f64::from(body_row),
+        "the line spans more than one body row ({bounds:?} vs {body_row})"
+    );
     assert!(
         bounds.y1 - bounds.y0 <= f64::from(body_row) * 3.0 + 1.0,
         "the line is three body rows at most ({bounds:?} vs {body_row})"
@@ -866,6 +873,14 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
         set_stats.y0 >= bounds.y1 - 1.0,
         "Set stats under the line ({set_stats:?} vs {bounds:?})"
     );
+
+    // The dialog is up only after the click: nothing of it on the frames
+    // before.
+    assert!(
+        !label_value(&nodes, "The AATF rules file could not be loaded"),
+        "no dialog title before the click"
+    );
+    assert!(view.refusal.is_none(), "no refusal before the click");
 
     // Its click opens the refusal dialog: the title as the heading, the
     // lib's error as the body, and the full text drawn nowhere in the
@@ -993,58 +1008,44 @@ fn the_quick_actions_fit_the_lists_width() {
     );
 }
 
-// The columns' fallback (plans "Editing UI", the quick actions bullet): a
-// list too narrow for the cells' natural widths halves the columns, a
-// label too long for its half eliding (its tooltip names the tier). The
-// side panel keeps its 240 default under a narrow window, so the list is
-// narrowed by dragging the panel's resize edge instead.
+// The columns' fallback (plans "Editing UI", the quick actions bullet):
+// where the cells' natural widths do not fit the list each column is
+// half of it, a label too long for its half eliding (its tooltip names
+// the tier). The list is a fixed 240, so the fallback is reached by a
+// long tier label, not a narrower list.
 #[test]
 fn the_columns_halve_when_the_content_widths_do_not_fit() {
+    const WIDE_TIER: &str = "the longest tier in the ruleset";
+    // A ruleset whose first tier's label is too long for the two
+    // columns' naturals to fit inside the list's 240.
+    let mut ruleset = aatf::Rules::official().ruleset().clone();
+    ruleset.tiers[0].label = WIDE_TIER.to_owned();
     let path = fixture(PesVersion::Pes21, "quick_halved_columns");
+    let dir = path.parent().unwrap().to_path_buf();
+    let wide = dir.join("wide.4ccrules");
+    std::fs::write(&wide, aatf::assemble_file(&ruleset, None, None)).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
     view.selected = Some(Selection::Player(701, 0));
-    let mut window = Headless::sized(1100.0, 700.0);
+    let mut window = Headless::new();
 
-    // The list as drawn at the panel's 240 default: the resize edge is the
-    // panel's right border (~248), dragged left past the columns' ~221.
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let row_before = nodes
-        .iter()
-        .find(|node| player_row(node))
-        .and_then(accesskit::Node::bounds)
-        .expect("a player row in the list");
-    let edge = egui::pos2((row_before.x1 + 8.0) as f32, 400.0);
-    // Past the columns' ~221-point fit but wide enough that the Set stats
-    // pair (button ~30 + spacing + field ~30) still fits its half.
-    let to = egui::pos2(edge.x - 65.0, 400.0);
-    window.frame(pointer_at(edge, true), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+    // The grid's column widths are stored per frame: a settle frame so
+    // they land before asserting.
+    window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(wide.as_path()))
     });
-    window.frame(vec![egui::Event::PointerMoved(to)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
+    let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
+        show(ui, &mut view, &|| Vec::new(), Some(wide.as_path()))
     });
-    window.frame(pointer_at(to, false), |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    // The grid's column widths are stored per frame: two settle frames so
-    // the resized panel's widths land before asserting.
-    window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (_, nodes, shapes) =
-        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
     let row = nodes
         .iter()
         .find(|node| player_row(node))
         .and_then(accesskit::Node::bounds)
         .expect("a player row in the list");
-    assert!(
-        row.x1 - row.x0 < row_before.x1 - row_before.x0 - 60.0,
-        "premise: the panel resized narrower ({row_before:?} vs {row:?})"
-    );
     let half = (row.x1 - row.x0 - 6.0) / 2.0;
     for label in [
-        "Make Gold",
+        &*format!("Make {WIDE_TIER}"),
         "Make Silver",
         "Make Bronze",
         "Make Goalkeeper",
@@ -1069,19 +1070,19 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
             "{label}'s cell a half of the list ({bounds:?} vs {half})"
         );
     }
-    let goalkeeper = node_labeled(&nodes, Role::Button, "Make Goalkeeper");
-    let bounds = goalkeeper.bounds().expect("bounds");
+    let label = format!("Make {WIDE_TIER}");
+    let wide_button = node_labeled(&nodes, Role::Button, &label);
+    let bounds = wide_button.bounds().expect("bounds");
     assert!(
-        painted_label(&shapes, "Make Goalkeeper", bounds)
-            .galley
-            .elided,
-        "Make Goalkeeper elides in its half ({bounds:?})"
+        painted_label(&shapes, &label, bounds).galley.elided,
+        "the long label elides in its half ({bounds:?})"
     );
     // The elided label's tooltip names the tier (the plan's "its
-    // tooltip names the tier").
+    // tooltip names the tier" — the tier's own name, "Gold", not the
+    // button's text).
     assert_eq!(
-        tooltip_containing(&mut window, &mut view, centre(goalkeeper), "tier's values"),
-        Some("The Goalkeeper tier's values (the active ruleset)".to_string()),
+        tooltip_containing(&mut window, &mut view, centre(wide_button), "tier's values"),
+        Some("The Gold tier's values (the active ruleset)".to_string()),
         "the elided button's tooltip"
     );
 }

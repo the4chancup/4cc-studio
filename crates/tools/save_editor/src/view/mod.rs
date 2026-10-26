@@ -126,7 +126,8 @@ pub(crate) struct SaveView {
     /// The "Cards left" badge as last computed and the `BadgeKey` it was
     /// computed for: `player_tier` then `card_limits` run again only when
     /// the key differs, not on every frame. `None` while the rules file
-    /// does not load (the row draws the load error itself).
+    /// does not load (the quick actions' red line says so; no badge is
+    /// drawn then).
     cards: Option<(BadgeKey, OwnBadge)>,
     /// The Tactics pitch's portraits, read from the selected game's
     /// `download/` CPKs off the UI thread (`select_portraits` points it at
@@ -193,9 +194,10 @@ pub(crate) struct SaveView {
 pub(crate) struct ActiveRules {
     /// The file `rules` was loaded from (`None`: the embedded official ruleset).
     file: Option<PathBuf>,
-    /// The loaded rules or the load error's text (drawn instead of the
-    /// badge). The `Arc` lets the AATF panel's worker check teams on the
-    /// same loaded file the badge reads.
+    /// The loaded rules or the load error's text (a file that does not
+    /// load draws no badge; the quick actions' red line reports it). The
+    /// `Arc` lets the AATF panel's worker check teams on the same loaded
+    /// file the badge reads.
     rules: Result<Arc<aatf::Rules>, String>,
 }
 
@@ -228,8 +230,10 @@ pub(crate) enum OwnBadge {
     /// No tier's condition holds for him (`check_team`'s `NoTier`).
     NoTier,
     /// `player_tier` or `card_limits` failed (or the team could not be
-    /// read), with the error's text: the row draws it in the badge's place,
-    /// as it does a file that does not load. The AATF check never calls
+    /// read), with the error's text: the row draws the red click line
+    /// `TIER_CHECK_FAILED_LINE` in the badge's place, opening the error
+    /// (a file that does not load draws nothing there — the quick
+    /// actions' red line reports it). The AATF check never calls
     /// these two functions, so a member's logic edit that breaks only them
     /// would otherwise show nowhere. Kept under its key like the others, so
     /// the failing script does not run again on every frame.
@@ -429,12 +433,14 @@ pub(crate) fn show(
         if view.live_aatf {
             live_aatf::show(ui, view);
         }
-        egui::Panel::left("save_editor_players")
-            .resizable(true)
-            // The draft's `.plist` width: the quick actions' two columns
-            // under the list fit inside it.
+        let list_panel = egui::Panel::left("save_editor_players")
+            // The draft's `.plist` width: 240 points, not resizable (the
+            // plan's Player list bullet; the window scales instead of
+            // narrowing under the design width).
+            .resizable(false)
             .default_size(240.0)
             .show(ui, |ui| player_list::show(ui, view));
+        let list_right = list_panel.response.rect.max.x;
         egui::CentralPanel::default().show(ui, |ui| {
             egui::ScrollArea::vertical()
                 .auto_shrink([false, false])
@@ -443,12 +449,16 @@ pub(crate) fn show(
                     Some(Selection::Player(..)) | None => {
                         // The player view: the title, the three columns,
                         // then the Appearance section, closed by default —
-                        // the whole centred between the player list and
-                        // the pane's right edge (`columns_width` is the
-                        // last frame's measured width; a first frame has
-                        // none and draws left-aligned once).
+                        // the whole centred between the player list's right
+                        // edge and the window's (`columns_width` is the last
+                        // frame's measured width; a first frame has none
+                        // and draws left-aligned once). The pad is the
+                        // even share less the panel border already between
+                        // the list's edge and the pane's content.
                         let width = abilities::columns_width(ui);
-                        let pad = ((ui.available_width() - width) / 2.0).max(0.0);
+                        let window_right = ui.ctx().content_rect().max.x;
+                        let gap = ((window_right - list_right - width) / 2.0).max(0.0);
+                        let pad = (gap - (ui.cursor().min.x - list_right)).max(0.0);
                         ui.horizontal(|ui| {
                             ui.add_space(pad);
                             ui.vertical(|ui| {
@@ -720,8 +730,8 @@ pub(crate) fn edit_player(
     session.edit_player(key, edited);
 }
 
-/// `edit_player` for the team's entry (General info's Number and Captain,
-/// the team view's fields, the Tactics editor's edited clone).
+/// `edit_player` for the team's entry (General info's Shirt number and
+/// Captain, the team view's fields, the Tactics editor's edited clone).
 pub(crate) fn edit_team(
     session: &mut Session,
     id: u32,

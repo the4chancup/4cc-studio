@@ -1,10 +1,10 @@
 //! The player view's title and the first column's panels (`plans/
 //! save_editor.md` "Editing UI", the player view bullet; the draft's
 //! `playerHeader`, `generalPanel` and `otherStatsPanel`): `<id> <name>` at
-//! the heading size, then General info — the Name and Shirt fields each
-//! under a label carrying its `(n/max)` count, the label-left pairs on
-//! two halves (each box 54 wide: on the first half's right edge, after
-//! the label column on the second), then the combos
+//! the heading size, then General info — Name and Shirt, each a
+//! label-left row carrying its `(n/max)` count beside its field, the
+//! label-left pairs on two halves (each box 54 wide: on the first half's
+//! right edge, after the label column on the second), then the combos
 //! whose labels share one column — and Other stats under it on the same
 //! halves so every box lines up. Each control edits a copy of the entry
 //! and, when it changes, pushes it under its own `egui::Id` (the undo
@@ -148,7 +148,7 @@ pub(super) fn general(
     // the first half (label column, gap, box), the 28, the second half's
     // label column, its 9 and a box. Past `GENERAL_WIDTH` the panel
     // overflows rather than shrinking a gap.
-    let label_col = rows_label_width(ui);
+    let label_col = label_width(ui, REGISTERED_POSITION_LABEL);
     let field_x = ui.max_rect().min.x + label_col + FIELD_ROW_GAP;
     let flush_x = ui.max_rect().min.x + general_content_width(ui);
     let field_width = flush_x - field_x;
@@ -371,7 +371,7 @@ enum Half {
 
 /// One `label`-left pair on a `half_width` half: the label at the half's
 /// left; on `Half::First` `add_box`'s 54-wide box on the half's right
-/// edge, on `Half::Second` just after the `second_label_width` label
+/// edge, on `Half::Second` just after the `label_width(NUMBER_LABEL)` label
 /// column and its gap, so both panels' second-half boxes share one x.
 fn pair_half(ui: &mut egui::Ui, half: Half, label: &str, add_box: impl FnOnce(&mut egui::Ui)) {
     ui.allocate_ui(
@@ -386,11 +386,11 @@ fn pair_half(ui: &mut egui::Ui, half: Half, label: &str, add_box: impl FnOnce(&m
                     ui.spacing_mut().item_spacing.x = 0.0;
                     let response = ui.label(label);
                     // The draft's `.pair:nth-child(even)` grid: the box after a
-                    // label column `second_label_width` wide and its gap, so
+                    // label column `label_width(NUMBER_LABEL)` wide and its gap, so
                     // both panels' second-half boxes share one x. `add_space`
                     // advances the cursor outright, no item spacing.
                     ui.add_space(
-                        (second_label_width(ui) + SECOND_LABEL_GAP - response.rect.width())
+                        (label_width(ui, NUMBER_LABEL) + SECOND_LABEL_GAP - response.rect.width())
                             .max(0.0),
                     );
                     add_box(ui);
@@ -400,30 +400,13 @@ fn pair_half(ui: &mut egui::Ui, half: Half, label: &str, add_box: impl FnOnce(&m
     );
 }
 
-/// The label-left rows' label column's width: the longest of their six
-/// labels' galley, "Registered position", at the body font (the draft's
-/// `.combos` first column, its 107px measured rather than hard-coded).
-fn rows_label_width(ui: &egui::Ui) -> f32 {
+/// `label`'s galley width at the body font (the panels' label columns
+/// are measured rather than hard-coded: egui's text is wider than the
+/// draft's).
+fn label_width(ui: &egui::Ui, label: &str) -> f32 {
     let body = egui::TextStyle::Body.resolve(ui.style());
     ui.painter()
-        .layout_no_wrap(
-            REGISTERED_POSITION_LABEL.to_owned(),
-            body,
-            egui::Color32::WHITE,
-        )
-        .size()
-        .x
-}
-
-/// The second half's label column's width: the half's longest label's
-/// galley at the body font (the draft's 72px, measured rather than
-/// hard-coded: egui's text is wider than the draft's). "Shirt number" is
-/// the longest of the column's five labels (Shirt number, Nation,
-/// Captain, Form, Accuracy).
-fn second_label_width(ui: &egui::Ui) -> f32 {
-    let body = egui::TextStyle::Body.resolve(ui.style());
-    ui.painter()
-        .layout_no_wrap(NUMBER_LABEL.to_owned(), body, egui::Color32::WHITE)
+        .layout_no_wrap(label.to_owned(), body, egui::Color32::WHITE)
         .size()
         .x
 }
@@ -435,8 +418,10 @@ fn second_label_width(ui: &egui::Ui) -> f32 {
 /// `GENERAL_WIDTH` if egui's text runs wide; the panel overflows its
 /// nominal 350 then rather than shrinking a gap.
 pub(super) fn general_content_width(ui: &egui::Ui) -> f32 {
-    rows_label_width(ui)
-        + second_label_width(ui)
+    // The rows' label column is the longest of their six labels,
+    // "Registered position"; the second half's its longest, "Shirt number".
+    label_width(ui, REGISTERED_POSITION_LABEL)
+        + label_width(ui, NUMBER_LABEL)
         + FIELD_ROW_GAP
         + 2.0 * BOX_WIDTH
         + PAIR_HALF_GAP
@@ -448,8 +433,8 @@ pub(super) fn general_content_width(ui: &egui::Ui) -> f32 {
 /// start at), the second its label column, the 9 and a box.
 fn half_width(ui: &egui::Ui, half: Half) -> f32 {
     match half {
-        Half::First => rows_label_width(ui) + FIELD_ROW_GAP + BOX_WIDTH,
-        Half::Second => second_label_width(ui) + SECOND_LABEL_GAP + BOX_WIDTH,
+        Half::First => label_width(ui, REGISTERED_POSITION_LABEL) + FIELD_ROW_GAP + BOX_WIDTH,
+        Half::Second => label_width(ui, NUMBER_LABEL) + SECOND_LABEL_GAP + BOX_WIDTH,
     }
 }
 
