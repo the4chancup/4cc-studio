@@ -333,12 +333,31 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   `studio.dmp` beside the log (every thread's stack, a few MB), replacing the previous one,
   appends a line naming it to the log (the window's process is gone by then, and a crashed
   session's log has no closing line for it to follow), and exits with the window's process;
-  on a normal close it writes nothing, so the closing line stays the log's last. Through Embark's `crash-handler` (the hook in the
-  window's process), `minidumper` (the link to the monitor) and `minidump-writer`; the
+  on a normal close it writes nothing, so the closing line stays the log's last. Through
+  Embark's `crash-handler` (the hook in the window's process) and `minidumper` (the link to
+  the monitor), and `minidump-writer` (the dump, under `minidumper`); the
   maintainer reads a dump with `minidump-stackwalk` against the release's kept `.pdb`, the
-  exe's symbols the log's offsets are named from too. The three crates go in only while the release exe grows by at most 10 MB
-  with them, measured on release builds with and without before any code lands; past that the
-  step stops and reports. A monitor that does not start leaves the window running with the
+  exe's symbols the log's offsets are named from too. The link is a socket file named after
+  the window's process id in the system's temp folder, its path passed in the hidden
+  argument: not in the data location, because a Windows socket path holds at most 107 bytes,
+  which a data location deep in folders can pass, and not one fixed name, because a second
+  window's monitor removes the socket file and binds the name again, so one of the two
+  windows would go unwatched. The
+  three crates were accepted on a growth of at most 10 MB, and add 221 KiB to a probe exe
+  built with the release profile (measured at 0.0.1k4, with and without the monitor, the
+  hook and a stack overflow wired); ours should grow less, since it already holds the
+  standard library and several of their dependencies, and is measured when they land. The
+  probe's overflow left a dump the `minidump` crate reads as five threads and exception
+  `0xC00000FD`. Attaching the hook is one `unsafe` call of ours: `crash-handler`'s
+  `make_crash_event` is an `unsafe fn`, because its closure runs in the crashed process, where
+  it must do as little as possible (on Linux inside a signal handler, so nothing that
+  allocates or locks), and ours only asks the connected monitor for the dump (`minidumper`'s
+  `Client::request_dump`, which writes a stack buffer to the socket and waits for the reply). It waits on the maintainer's yes (`QUESTIONS.md`),
+  and nothing of the dump lands before it: without the hook a monitor would run beside every
+  window and never write anything. We do not take `minidumper-child`, which holds the same
+  block for us, because it marks the monitor by an environment variable rather than an
+  argument, starts only the running exe (so the start's failure cannot be tested on a program
+  that is not an exe), and pins the crates' previous versions. A monitor that does not start leaves the window running with the
   log alone, a warning logged: the dump is a diagnostic, never a reason the window does not
   open. The monitor starts once the data location exists, as the log does: a first run's
   crash leaves neither, a panic's dialog its one trace and the crashes this bullet is for

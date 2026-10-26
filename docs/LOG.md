@@ -2572,3 +2572,5 @@ worklog passed 7,000 lines.
 - **2026-10-26** — A folder per PES version: the PES folder's Browse stores a folder named after the selected year as
   `20**`, and A folder per version gives each version a row of its own (`[common.pes_folders]`), which the folder
   resolution and Fix PES path use first (0.0.1r).
+- **2026-10-26** — The crash dump measured: its three crates add 221 KiB to a release exe (P38 allowed 10 MB), and a
+  probe's stack overflow left a readable dump; attaching its hook needs one `unsafe` block, asked in QUESTIONS (0.0.1k4).

@@ -2542,6 +2542,15 @@ briefs, review loops, gates and mutation runs as for any step.
     probe; over 10 MB of growth, stop and report → verify: the measurement; ST-RUN-10, ST-RUN-11
     (manual, asked first); the
     window opening when the monitor cannot start
+    - [x] k4a the measurement (`.tmp/0_0_1k4/probe/`, the release profile, the monitor, the
+      hook and a stack overflow on the argument `stack` wired): 243,200 B without, 469,504 B with, so 221 KiB of
+      the 10 MB allowed; the probe's overflow wrote `studio.dmp` (1 MB), read by `minidump`
+      0.27 as five threads and exception `0xC00000FD` (DECISIONS 2026-10-26)
+    - [ ] k4b the build, waiting on `QUESTIONS.md` ("May the crash dump's hook use one
+      `unsafe` block?"): the attach is `crash-handler`'s `unsafe fn make_crash_event`. Once
+      answered yes: the plan's bullet as written, `minidump-writer` only through `minidumper`
+      unless our code calls it, the rows in `plans/core/README.md` "External Dependencies",
+      `just deps-check`, and our release exe's size before and after (the probe's is a bound)
 - [ ] 0.0.1l no console window in the preview (`plans/core/architecture.md` "Windows
   subsystem", DECISIONS 2026-10-25, `AttachConsole` approved): `#![windows_subsystem =
   "windows"]` on every Windows build (the plan's paragraph after it says why debug too),

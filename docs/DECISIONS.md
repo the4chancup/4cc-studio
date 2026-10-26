@@ -11674,3 +11674,20 @@ Why: the plan was silent on the frame after the last row empties. Deriving the t
 overrides alone switched it off there, so the seven rows vanished under the edit that emptied
 the last one, and a member who meant to type another folder had to find the toggle again.
 Plan: `plans/core/gui.md` "Settings menu", the "PES folder" bullet.
+
+## 2026-10-26 — studio — The crash dump's crates fit P38's condition; its hook waits on one `unsafe` block
+Decision: `crash-handler` 0.8.1, `minidumper` 0.11.0 and `minidump-writer` 0.13.0 (with
+`minidump` 0.27.0 for the tests) meet the 10 MB condition P38 was accepted on, at 221 KiB. The
+hook's attach is an `unsafe` call of ours, so nothing of the dump is built until the
+maintainer rules on it (`QUESTIONS.md`); `minidumper-child`, which would hide that block, is
+not taken.
+Why: a probe built with the project's release profile, with and without the monitor, the hook
+and a stack-overflow trigger wired, measured 243,200 B without and 469,504 B with (`.tmp/0_0_1k4/probe/`),
+and its overflow left a dump the `minidump` crate reads as five threads and exception
+`0xC00000FD`. `make_crash_event` is an `unsafe fn` and `CrashEvent` an `unsafe trait`, since
+the closure runs in the crashed process; there is no safe way to attach. Building the rest
+without the hook would start a monitor beside every window that never writes a dump.
+`minidumper-child` marks its monitor by an environment variable rather than the plan's
+argument, always starts the running exe (so the start's failure cannot be tested on a program
+that is not an exe), and pins `crash-handler` 0.7 and `minidumper` 0.10.
+Plan: `plans/core/architecture.md` "Diagnostic logging", the "crash dump" bullet.
