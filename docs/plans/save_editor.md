@@ -66,7 +66,8 @@ implementation is measured against.
 
 What exists of this is in `spec/save_editor.md` "Team operations".
 
-Each operation below acts on the selected player's team (under ALL too, as 4ccEditor's do),
+Each operation below acts on the selected row's team, a player's or a team row's own (under
+ALL too, as 4ccEditor's do),
 on every filled roster slot, as one undoable edit. 4ccEditor's Set player names to positions
 alone renames every row its list shows, which under ALL is every player of the save; that is
 not kept, so no team operation reaches past one team.
@@ -180,7 +181,7 @@ all side by side.
   under a filter a team's row stays while its own name or any of its players matches. The team
   row replaces the team bar above the old tabs: the team is one click away from its players,
   where a manager looks for it, rather than a strip that took a row from every player. A
-  save opens with its first player row selected.
+  save opens on ALL with the list's first player row selected.
   A player row shows number, position, name (with the team's name before it under ALL or a
   filter); **drag-and-drop reordering**
   replaces the up/down spinner, and moves what the spinner moves: the players' records trade
@@ -239,7 +240,7 @@ all side by side.
   version shows (PES 16's 16), so a longer name a PES 20/21 save holds reads `20/18`. The
   field and its count carry one hover: past the portable limit below, its warning; else
   what counts (on PES 21 "Up to 61 bytes. A plain letter takes one byte, an accented letter two or
-  more, and a colour code ten.", "Up to 18 letters. Western European accents (é, ü, ñ)
+  more, and a colour code ten. A colour code is typed as \x11c and eight hex digits.", "Up to 18 letters. Western European accents (é, ü, ñ)
   are fine, but other letters and symbols are not."). The save is where
   a member writes the names a tactical export carries to a cup of any version, so its Name and
   Shirt fields follow `pes_savefile`'s portable limits ("Team TOML" in its operations plan):
@@ -322,7 +323,9 @@ all side by side.
   stack's length: undoing back to the saved state clears the dot. A player's dot covers his
   entry and his roster slot's shirt number.
 - Keyboard shortcuts preserved where they earn their keep (Ctrl+S save, Ctrl+F
-  clear visual flags, Ctrl+I FPC toggle).
+  clear visual flags, Ctrl+I FPC toggle). Ctrl+I acts on a player, so it does nothing on a
+  team row, as the Player menu's entries are disabled there; Ctrl+F is a team operation and
+  acts on the selected row's team.
 - Closing, or opening another save, with unsaved changes prompts: save, discard or cancel,
   over a table of what would be saved or lost, columns Item, Old value and New value (the
   table spans the prompt's width, the two value columns sharing its right part), one row
@@ -859,7 +862,9 @@ What this editor adds on top of the lib:
   docked at the bottom of the view lists the open team's violations (with ALL picked, the
   selected row's team: the one the view is editing), errors first, grouped per
   player as the AATF panel does, under the header `N issues · <ruleset>`, or `<team> passes
-  <ruleset> with no issues.` once the list is empty; clicking a row selects that player. The
+  <ruleset> with no issues.` once the list is empty; clicking a row selects that player (a
+  `FieldedNotA` row selects his team's row instead, the named preset shown, since the
+  pitch its mark is on is the team view's). The
   team is re-checked after every edit to it, undo and redo included, and when another team is
   opened, so the list shrinks as the member fixes it. One team's check takes about 56 ms in a
   release build, nearly all of it the script's own work (`spec/aatf_rules.md` "The host"),
@@ -1223,7 +1228,8 @@ SE-GUI-30  GIVEN the PES 17 save open on a team with violations under the active
                 marked `checking…`, until the check returns, its row then gone and N one less,
                 and an undo brings it back; WHEN another team is opened, or another rules file
                 chosen, THEN the list and N are that team's, or that ruleset's; with ALL picked
-                the panel checks the selected player's team (none selected: `No team is open.`);
+                the panel checks the selected row's team (a player's or a team row's own;
+                nothing selected: `No team is open.`);
                 GIVEN the PES 15 save with a team that passes THEN the header reads `<team>
                 passes <ruleset> with no issues.`, and WHEN an edit breaks a rule and the last one is
                 fixed THEN it reads so again; WHEN the tool is reopened THEN Live AATF is
