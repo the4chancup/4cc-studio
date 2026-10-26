@@ -1771,7 +1771,10 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
         the modal's own; `roster_names` and `roster_for` pinned. Files:
         `save_editor/src/view/{prompt,tests/prompt}.rs`
       - [ ] l3 the Open menu with discovery and the session's recent files, Save as (SE-GUI-26),
-        the version warning (SE-GUI-28)
+        the version warning (SE-GUI-28), a status-bar notice since 0.0.1s2: `studio_core::status`
+        has no action that switches the version and no way for a tool to withdraw or reword
+        its notice, which following the selector needs; the brief first decides both in
+        `plans/core/gui.md` "Status bar"
       - [ ] l4 SE-GUI-21 in the built window with the game running (lead, manual), after l2.
         The refusal it first checked (2026-10-25, `f3d1f135`, `.tmp/se21/`: refused naming
         PES 2021, the file unchanged, the live save equal to its backup after) is replaced by

@@ -3343,10 +3343,11 @@ function generalPanel(p, team) {
   const shirtIn = h("input", { type: "text", size: "1", value: p.shirt_name,
     onchange: e => { set(p, x => x.shirt_name, (x, v) => x.shirt_name = v, e.target.value, "shirt name"); render(); } });
   shirtIn.id = "f-shirt";
-  // captain is the roster slot, 0-based as stored.
-  const captain = h("input", { type: "checkbox", checked: team.captain === p.slot - 1,
-    onchange: e => { const t = team;
-      edit("captain", () => { t.captain = e.target.checked ? p.slot - 1 : 255; }); render(); } });
+  // captain is the roster slot, 0-based as stored: a radio a second click
+  // cannot untick (the captain belongs to the slot, as in 4ccEditor).
+  const captain = h("input", { type: "radio", checked: team.captain === p.slot - 1,
+    onchange: () => { const t = team;
+      edit("captain", () => { t.captain = p.slot - 1; }); render(); } });
   captain.id = "f-captain";
   const reg = combo(POSITIONS.map(x => [x, x]), p.positions.registered,
     v => { set(p, x => x.positions.registered, (x, v2) => x.positions.registered = v2, v, "registered position"); });

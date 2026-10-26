@@ -158,8 +158,8 @@ all side by side.
 │ [team selector ▾]    │ 70101 QUADS ONLY                                               │
 │ [filter 🔍]          │ General info         Skills  Gold: 6 of 8   Ability stats      │
 │ 701 ■■ /3/           │ Name 10/61           ☐ Scissors… ☐ Malicia  Attacking Prowess 77│
-│  ≡ 1 GK QUADS ONLY   │ [QUADS ONLY       ]  ☐ Flip Flap ☐ …        Ball Control     77│
-│  ≡ 2 CB UNCANNY…   ● │ Shirt 11/18          ⋮                      ⋮                  │
+│  ≡ 1 GK /3/ QUADS ON…│ [QUADS ONLY       ]  ☐ Flip Flap ☐ …        Ball Control     77│
+│  ≡ 2 CB /3/ UNCANN… ●│ Shirt 11/18          ⋮                      ⋮                  │
 │  ⋮ (drag to reorder) │ [PLACEHOLDER      ]  COM playing styles                        │
 │ 718 ■■ /f/           │ Height [189] Number [1]   ☐ Trickster ☐ Long Ball Expert       │
 │  ⋮                   │ ⋮  Other stats, Playable positions                             │
@@ -171,14 +171,16 @@ all side by side.
 - **Team selector** with an "ALL" entry (as in 4ccEditor), plus a **filter box
   that searches across all teams** (name, shirt name, ID) — finding a player no
   longer requires knowing their team first. Matching uses the colour-code-free
-  `display_name()` (see the pes_savefile plan's "Name colour codes").
+  `display_name()` (see the pes_savefile plan's "Name colour codes"), a team's own name
+  included.
 - **Player list**: a **team row** heads each team's players: bold, the team's id, its colours
   1-2 as swatches and its name, a dot when the team's own fields (name, short name, colours,
   ids, kit slots, tactics) have unsaved changes. A click selects the team, and the detail shows
   the team view; it never drags and is no drop target. ALL lists every team's row and players;
   under a filter a team's row stays while its own name or any of its players matches. The team
   row replaces the team bar above the old tabs: the team is one click away from its players,
-  where a manager looks for it, rather than a strip that took a row from every player.
+  where a manager looks for it, rather than a strip that took a row from every player. A
+  save opens with its first player row selected.
   A player row shows number, position, name (with the team's name before it under ALL or a
   filter); **drag-and-drop reordering**
   replaces the up/down spinner, and moves what the spinner moves: the players' records trade
@@ -189,9 +191,10 @@ all side by side.
   are, as does the captain mark. The roster's own order is never changed: by 4cc rule slot `NN`
   holds player `team id × 100 + NN` (`plans/aatf_rules.md` "The host"), and reordering the
   roster itself would break it. A drop several rows away is the spinner pressed that many
-  times, so the players in between shift one slot along; drag works in one team's list and is
-  off in ALL and while a filter is typed, where neighbouring rows are not one team's
-  neighbouring slots. A dot marks players with unsaved changes. Names
+  times, so the players in between shift one slot along. A drop works on a row of the dragged
+  player's own team, in one team's list or under ALL, where each team's rows run unbroken
+  under its team row; a drop on another team's row does nothing, and drag is off while a
+  filter is typed, where neighbouring rows are not one team's neighbouring slots. A dot marks players with unsaved changes. Names
   render with their savefile colour codes applied as text colours (the in-game
   look; 4ccEditor shows the raw control characters), and the name edit field
   keeps the raw string so codes survive a roundtrip untouched. A code's first six bytes are
@@ -201,7 +204,8 @@ all side by side.
 - **The quick actions** under the list, in two columns: one Make button per tier of the active
   ruleset, then Set stats with its number beside it ("Configurable AATF rules" below says what
   they do). They act on the selected player, so a team row leaves them disabled, their tooltip
-  "The make buttons act on a player: pick a player row", as are the Player menu's entries.
+  "The make buttons act on a player: pick a player row"; the Player menu's entries are
+  disabled too, their tooltip "The Player menu acts on a player: pick a player row".
 - **No view draws the tool's name** (`core/gui.md` "Window title": the title bar carries it).
   Each view's first line titles what it shows: the player view `<id> <name>` (`70101 QUADS
   ONLY`), the id in the weak colour, as the list draws ids, and the name with its colours; the
@@ -231,19 +235,23 @@ all side by side.
   Then **Appearance**, a collapsing section closed by default, below the columns (its contents
   below).
 - **Name and Shirt.** Each label carries a count, `nn/NN`, that follows the field as typed: the
-  name's bytes against the open save's field, the shirt name's letters against the limit an
-  edit may reach. The save is where
+  name's bytes against the open save's field, the shirt name's letters against the 18 every
+  version shows (PES 16's 16), so a longer name a PES 20/21 save holds reads `20/18`. The
+  field and its count carry one hover: past the portable limit below, its warning; else
+  what counts (on PES 21 "Up to 61 bytes. A plain letter takes one byte, an accented letter two or
+  more, and a colour code ten.", "Up to 18 letters. Western European accents (é, ü, ñ)
+  are fine, but other letters and symbols are not."). The save is where
   a member writes the names a tactical export carries to a cup of any version, so its Name and
   Shirt fields follow `pes_savefile`'s portable limits ("Team TOML" in its operations plan):
   - **Name**: the open save's own field (61 bytes on PES 20/21, 46 before), so `10/61` on a PES
     21 save (a colour code counts ten, an accented letter two or more). A name past 46
     bytes, which only a PES 20/21 save holds, draws its field and its count with an amber tint
-    and a hover "In PES 2019 and older the game cuts this name to «…»", the name as
+    and the hover "In PES 2019 and older the game cuts this name to «…»", the name as
     `crop_player_text` would cut it. A tint of the theme's warning colour, not a pale yellow
     fill: the theme is dark and its text light, which a pale fill would wash out.
   - **Shirt**: 18 letters on every version but PES 16 (its field holds 16), so `11/18`. A
     shirt name the save already holds past 18 (PES 20/21 allow more) is kept, drawn with the
-    same tint and a hover "PES 2019 and older show 18 letters of a shirt name (PES 2016 shows
+    same tint and the hover "PES 2019 and older show 18 letters of a shirt name (PES 2016 shows
     16)"; an edit may shorten it but not lengthen it, so it can be fixed a keystroke at a time.
   - Nothing more: a warning, never a block on Save, so editing a save stays frictionless.
   - What 4ccEditor's fields do besides storing, kept: a name or shirt name edit sets the
@@ -275,11 +283,13 @@ all side by side.
     outside the aesthetics lock: they change only cutscenes, so they are no aesthetic the
     export owns. Then the ownership line, the switch and the locked groups, each group's
     labels in their own aligned cells, the draft's pairs per row a cap a narrow pane lowers
-    (physique two, the strip's ids, enums and checkboxes four, motion four): edit flags (face/hair/physique/strip, base copy + copy-from
-    ID), physique sliders (14 values), colors (wrist tape L/R, spectacles), strip
-    style (boots ID, gloves ID — any player's, 0 = normal hands — taping, spectacles,
-    sleeves, inners, socks, undershorts, shirttail, the player-gloves checkbox), motion (hunching, arm movement, kick
-    motions, gc1/gc2, randomize; dribbling motion 20+), skin/iris color.
+    (physique two, the strip's ids, enums and checkboxes four, motion four): edit flags (face,
+    hair, physique, strip, motion, base copy + copy-from ID), physique sliders (14 values),
+    strip style (boots ID, gloves ID — any player's, 0 = normal hands — taping, spectacles,
+    sleeves, inners, socks, undershorts, shirttail, the player-gloves checkbox with its
+    gloves colour, the wrist tape L/R and spectacles colours), motion (hunching, arm
+    movement, kick motions, gc1/gc2, randomize; dribbling motion 20+), colours (skin,
+    iris), then the Full Player Customization group.
     Editable, as in 4ccEditor, unless the "Aesthetics from exports" setting is on — see
     "Read-only aesthetics" below.
     The motion fields' ranges are the version's measured ones (`pes_savefile`'s `motion_top`:
@@ -329,8 +339,9 @@ all side by side.
 - A save of another version than the sidebar's selector opens with a Warning notice in the
   status bar naming both (SE-GUI-28); the save keeps its own version. The notice's action,
   **Switch to PES 20xx** (the save's version), makes the same change the sidebar's selector
-  makes, its blockers included, after which there is nothing to warn about; its dismiss hides
-  it until another save is opened. While shown it follows the selector: switched to the save's
+  makes, its blockers included, after which there is nothing to warn about; its dismiss, or
+  another notice taking the bar (the member has seen it), hides it until another save is
+  opened. While shown it follows the selector: switched to the save's
   version, by the action or by hand, it goes; switched to a third version, its text names that
   one. A notice, not a banner under the
   toolbar: the status bar is where the shell's environment warnings already sit, and a banner
@@ -401,9 +412,9 @@ Win32 original hurt the most):
   points once the sidebar is its rail (`core/gui.md` "Sidebar"; 888 beside the 160-point
   sidebar, 8 short), the three columns stand side by side, not settings rows below the pitch
   past the window's bottom, and the settings column, 456 points wide there, holds the preset
-  bar on one line and ends inside the pane (measured inside the shell's panel: 47 points above
-  its bottom, 24 with an assignment note armed, on the tabbed layout, whose team bar and tab
-  strip stood where the team view's two rows of fields stand); a shorter window scrolls the
+  bar on one line and ends inside the pane (measured on the tabbed layout, 47 points above its
+  bottom, 24 with an assignment note armed; the team view draws three rows above the tactics
+  where the tabs drew two, so step 0.0.1s3 measures it again); a shorter window scrolls the
   team view to reach
   its last group rather than squeezing it in. A pane too narrow for a settings
   column of the draft's 360 points beside the other two (the smallest default window's) takes
@@ -826,12 +837,13 @@ What this editor adds on top of the lib:
   buttons' place as the badges show it; an `apply_tier` that fails (`CheckError`) leaves the
   player as he was and shows the error in the refusal dialog.
 - **The AATF panel.** A floating window, "AATF violations (<ruleset>)", opened from the
-  toolbar's Panels menu ("AATF violations…") and from the quick actions' "AATF…" button
-  (which opens it on Current team), as the draft shows. Results grouped per player; clicking a
+  toolbar's Panels menu ("AATF violations…"), as the draft shows (not also from a quick
+  action: the actions under the list are the edits a member repeats, and Live AATF is the
+  one-team check at hand). Results grouped per player; clicking a
   violation selects the player, switching the team selector to his team unless it is at ALL
   (the list must show the row it selects); team selection matches 4ccEditor (current team or a
   multi-select list of the selector's teams). Current team is the selector's team, or with ALL
-  picked the selected player's team, as Live AATF reads it, not the first team the draft falls
+  picked the selected row's team (a player's or a team row's own), as Live AATF reads it, not the first team the draft falls
   back to: the panel checks the team the view is editing. A **Show suggestions**
   toggle, off by default, lists unused allowances apart from errors and warnings (see
   "Suggestions" in the AATF rules plan). The panel is `team_widgets`' violations list, under
@@ -871,12 +883,13 @@ What this editor adds on top of the lib:
     errors, 1 warning`, `1 warning`), and `No errors` when there are neither. Players of other teams, with ALL picked, carry none: they are not checked. The
     team's own violations (no slot) mark the team's row the same way, once the list has one
     (step 0.0.1s); until then the dock alone lists them.
-  - **The field a violation is about** gets a cross beside it when its player is selected:
+  - **The field a violation is about** gets a cross beside it when its player is selected
+    (the pitch's, when his team's row is: the pitch is the team view's):
     the Height box for `Height`, the Age, Weight, Form, Injury resistance and weak foot fields
     for theirs, the stat for `Stat`, the name for `NameColor`, the registered position for
     `RegisteredNotA` and `PositionRange`, the positions grid for `BRating`, `GkSecondA` and
     `APositions`, the player's spot on the named preset's Tactics pitch for `FieldedNotA`
-    (drawn when that preset is the one shown, on each formation the preset fields that puts
+    (drawn while the team view shows that preset, on each formation the preset fields that puts
     him at the violation's `position`: a fluid preset fields all three, and its others may
     field him legally; a preset not fluid fields its kick-off one alone, so its other two
     carry no cross),
@@ -924,7 +937,7 @@ first. It is the third arrangement (step 0.0.1s, "Editing UI"): no tabs, a team 
 and the team view, the player's fields in three columns, Appearance a collapsed section; the
 second's (the team bar above every tab, the Player / Team tab groups) was built in slices 1-3
 and 8.9f's slice 4, and is ported to the third in step 0.0.1s3. The arrangements' panels and
-dialogs are the same, function for function. The view was built up as:
+dialogs are the same, function for function. The view builds up as:
 
 1. Open/save + the player's fields (abilities and skills, appearance) — the card pickers as the
    first `team_widgets` content
@@ -1036,8 +1049,8 @@ SE-GUI-10  GIVEN the save open and a team's row clicked
            THEN the reopened file holds the values; GIVEN #FF8000 picked as color 1 THEN the
                 reopened team's color 1 is (63, 32, 0) and the team view shows it as #FF8200,
                 its row's swatch that color
-SE-GUI-11  GIVEN a player without FPC and the aesthetics editable (the setting off, or on
-                with "Edit aesthetics anyway" switched on)
+SE-GUI-11  GIVEN a player without FPC, his Appearance section open, and the aesthetics
+                editable (the setting off, or on with "Edit aesthetics anyway" switched on)
            WHEN Ctrl+I, or Hide body, is used
            THEN his record carries the hide preset's values and the Appearance section reads
                 "FPC: the body is hidden"; Ctrl+I again, or Show body, gives him the show preset's; GIVEN a player
@@ -1054,7 +1067,7 @@ SE-GUI-12  GIVEN the team view's Tactics on preset 1
 SE-GUI-13  GIVEN the save open and a second save of the same version picked in the comparator
            WHEN the panel is drawn
            THEN it lists, per team and per player, the differences `diff <picked> <open>`
-                reports, each row under the label of the view that shows its field and with
+                reports, each row under the label its field's view draws it with and with
                 its values as that view shows them (a field no view shows keeps the report's
                 name and values); the All / Gameplay / Aesthetics toggles and the team filter
                 narrow them; Export writes the text `diff <picked> <open>` prints for the
@@ -1141,8 +1154,8 @@ SE-CLI-03  GIVEN a running PES of the save's version (the tests' running-PES pro
                 without the flag
 SE-GUI-22  GIVEN the save open with "Aesthetics from exports" on and "Edit aesthetics
                 anyway" off (every start of the tool)
-           WHEN the Appearance section, the team operations menu, the Savefile menu and the
-                import dialog are drawn
+           WHEN the Appearance section (open), the team operations menu, the Savefile menu
+                and the import dialog are drawn
            THEN the FPC toggle and the team-wide FPC switch, the boots and gloves assignment,
                 Clear visual flags, Fix database and the imports' aesthetics section
                 are disabled, each with the ownership line as its tooltip, while Apply
@@ -1155,8 +1168,8 @@ SE-GUI-23  GIVEN the save open on a team and the aesthetics editable (the settin
            THEN every player of the team carries the operation's values, as one undoable edit,
                 and the saved file holds them
 SE-GUI-35  GIVEN the save open with "Aesthetics from exports" off (the default)
-           WHEN the Appearance section, the team operations menu, the Savefile menu and the
-                import dialog are drawn
+           WHEN the Appearance section (open), the team operations menu, the Savefile menu
+                and the import dialog are drawn
            THEN no ownership line and no "Edit aesthetics anyway" switch are drawn, every
                 path SE-GUI-22 names is enabled, and an Appearance edit lands in the record
                 as an ability edit does; GIVEN the setting switched on in the settings menu
@@ -1245,8 +1258,8 @@ SE-GUI-38  GIVEN the save, player 70101's name set to the colour code `\x11cff00
                 refused; WHEN 47 bytes are typed as his name THEN "Name 47/61", tinted, its hover
                 the cut PES 2019 makes; GIVEN the PES 16 save THEN a player's Shirt label's
                 limit is 16 and its Name label's 46
-SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (gloves), and "Edit
-                aesthetics anyway" switched on
+SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (gloves), "Edit
+                aesthetics anyway" switched on, and the player's Appearance section open
            WHEN Hide body is used on a player whose boots and gloves IDs are 0
            THEN his record holds boots 60 and gloves 12 and Appearance reads "FPC: the body is hidden";
                 WHEN Show body is used THEN both are 0 again; GIVEN a player whose boots ID is

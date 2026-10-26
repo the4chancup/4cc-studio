@@ -394,7 +394,7 @@ More rules that keep it worth the row:
   colour for every notice was how a member missed a "Wrote settings.toml" line at the bar's
   edge; a single green for every notice would paint a warning as a success. What needs a
   decision now is a dialog, never a notice (next rule).
-- **The middle takes what the sides leave.** The left slot (a condition, else the version) and
+- **The middle takes what the sides leave.** The left slot (the version and any held conditions) and
   the right one (another tool's activity) are as wide as what they hold, and the notice's middle
   slot gets the rest, its text centred in it and cut with an ellipsis only past that, the whole
   text then its tooltip. Not three equal columns: a third of a 1280-point bar cut the Save
@@ -932,8 +932,8 @@ ST-BAR-02   GIVEN the first tool active and the second reporting a ToolActivity
                  active THEN the slot is empty (its own run strip shows it)
 ST-BAR-03   GIVEN a tool publishing a Notice with an action
             WHEN the status bar is drawn
-            THEN its middle slot shows the text, the one action and the dismiss X, centred on
-                 the bar as one group, until the action is clicked or the notice dismissed; GIVEN a notice without an
+            THEN its middle slot shows the text, the one action and the dismiss X, centred in
+                 the space the left and right slots leave, as one group, until the action is clicked or the notice dismissed; GIVEN a notice without an
                  action THEN it leaves the slot by itself after a few seconds, and a later
                  notice replaces an earlier one; GIVEN a 1280-point window, the version on the
                  left, and a notice of 100 characters with an action THEN its whole text is
