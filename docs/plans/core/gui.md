@@ -394,6 +394,11 @@ More rules that keep it worth the row:
   colour for every notice was how a member missed a "Wrote settings.toml" line at the bar's
   edge; a single green for every notice would paint a warning as a success. What needs a
   decision now is a dialog, never a notice (next rule).
+- **The middle takes what the sides leave.** The left slot (a condition, else the version) and
+  the right one (another tool's activity) are as wide as what they hold, and the notice's middle
+  slot gets the rest, its text centred in it and cut with an ellipsis only past that, the whole
+  text then its tooltip. Not three equal columns: a third of a 1280-point bar cut the Save
+  editor's version notice (about 100 characters) while the bar had room for all of it.
 - **Never modal, never a question.** Anything needing a decision (updater consent, the teams-list
   merge review) is a dialog. The bar announces; it does not ask.
 - **Empty state is static, not blank**: `v1.2.0` in small text — the one always-visible version
@@ -424,11 +429,16 @@ uses, so it costs no new API:
 
 | State | Title |
 |---|---|
-| Idle | `4cc Studio` |
+| Idle | `Save editor - 4cc Studio` (the active tool's name) |
 | A tool reports a `ToolActivity` | `Team compiler · 12/48 · 01:12 - 4cc Studio` |
 | Idle, window unfocused, a `Notice` arrived since focus was lost | `Compiled 48 teams - 4cc Studio` |
 
 Rules:
+
+- **The idle title names the active tool, and no view draws its own name.** A heading repeating
+  the tool's name took a row from every view and told the member what the highlighted sidebar
+  icon already did; the title bar is where a window says what it shows. A view still titles
+  what it shows inside it (the Save editor's selected player or team).
 
 - **A plain hyphen before the name.** The title is a UI string, so it carries no em dash
   (`CONTRIBUTING.md` "Code style"); ` - ` is also what most desktop apps put before their name.
@@ -925,7 +935,10 @@ ST-BAR-03   GIVEN a tool publishing a Notice with an action
             THEN its middle slot shows the text, the one action and the dismiss X, centred on
                  the bar as one group, until the action is clicked or the notice dismissed; GIVEN a notice without an
                  action THEN it leaves the slot by itself after a few seconds, and a later
-                 notice replaces an earlier one
+                 notice replaces an earlier one; GIVEN a 1280-point window, the version on the
+                 left, and a notice of 100 characters with an action THEN its whole text is
+                 drawn; GIVEN one longer than the bar holds THEN its text ends in an ellipsis
+                 inside the middle slot and its tooltip is the whole text
 ST-BAR-04   GIVEN three notices published in turn, one of each kind (Success, Info, Warning)
             WHEN the status bar is drawn after each
             THEN each notice's text is drawn in its kind's colour: SUCCESS_FG, the link blue,
@@ -934,18 +947,18 @@ ST-TTL-01   GIVEN a tool reporting a ToolActivity (label "Team compiler", 12 of 
                  elapsed)
             WHEN a frame is drawn
             THEN the viewport title command reads "Team compiler · 12/48 · 01:12 - 4cc Studio",
-                 sent once and not again while the string is unchanged; GIVEN no activity THEN
-                 "4cc Studio"
+                 sent once and not again while the string is unchanged; GIVEN no activity and
+                 a stub tool "Stub A" active THEN "Stub A - 4cc Studio"
 ST-TTL-02   GIVEN the window unfocused and no tool reporting an activity
             WHEN a notice "Compiled 48 teams" arrives
             THEN the title reads "Compiled 48 teams - 4cc Studio" until the window gains focus,
-                 then "4cc Studio"; GIVEN the window focused when it arrives THEN the title stays
-                 "4cc Studio"
+                 then the active tool's idle title ("<tool> - 4cc Studio"); GIVEN the window
+                 focused when it arrives THEN the title stays the idle one
 ST-TTL-03   GIVEN the window focused, two stub tools, the second's view active, and the first's
                  run on a thread of its own
             WHEN the run emits its last event through its ToolContext and no input follows
             THEN the emit requests a repaint, and the next frame's tick drains the event into
-                 the first tool's state (its activity ended, the title "4cc Studio") without its
+                 the first tool's state (its activity ended, the title the second's idle one) without its
                  view being drawn
 ```
 

@@ -2661,8 +2661,13 @@ briefs, review loops, gates and mutation runs as for any step.
     following the field as typed and tinted past what every version holds, as the field is
     (lead, 63 checks pass). The maintainer then had s2 and s3 go ahead, a few small tweaks still
     to come
-  - [ ] s2 `plans/save_editor.md` "Editing UI" rewritten from the approved draft, DECISIONS,
-    the SE-GUI scenarios naming tabs rewritten
+  - [x] s2 `plans/save_editor.md` "Editing UI" rewritten from the approved draft, DECISIONS,
+    the SE-GUI scenarios naming tabs rewritten. Done 2026-10-26 (lead): "Editing UI" (the team
+    row and team view, the player view's three columns, the counts, the version notice), every
+    other section's tab wording, SE-GUI-01/03/06/07/10/11/12/13/22/25/28/31/32/35 reworded,
+    SE-GUI-37 (the team row) and 38 (the counts) added; `core/gui.md` "Status bar" (the middle
+    takes what the sides leave) and "Window title" (the idle title names the tool), ST-BAR-03
+    and ST-TTL-01 to 03; four DECISIONS entries. Review: a SWE-2 loop, then Astra
   - [ ] s3 the code, in slices (the view's frame and the team row; the player view's
     columns; the team view), before 0.0.1o, whose marks then land on the final layout
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the

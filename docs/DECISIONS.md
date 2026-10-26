@@ -11391,3 +11391,54 @@ Why: the code skips the context field for `RosterOrder` because the rule's field
 id; with the name and number added it no longer repeats, and `RosterOrder` is the violation
 whose fix needs both players found, so two bare ids would be its worst line.
 Plan: `plans/team_compiler/messages.md` "A finding carries the context its text needs".
+
+## 2026-10-26 — save_editor — The view drops its tabs: a team row per team, the player's fields in three columns
+Decision: the Save editor's view is the third draft's (step 0.0.1s1, approved by the
+maintainer): a team row heads each team's players and selects the team view (its name, short
+name, colours, ids, Kit slots… dialog and Tactics, the bench list showing players only); a
+player row shows the player view, its first line `<id> <name>`, then General info (4ccEditor's
+arrangement), Other stats and Playable positions in one column, Skills and COM playing styles
+in the second, Ability stats in the third, and Appearance a section closed by default; the
+quick actions in two columns under the list, disabled on a team row; the positions' chosen C a
+grey square, A green, B the selection's blue.
+Why: tabs split one player's fields over pages a member flicked between to check a build, and
+the page not shown hid what an edit depended on (the card budget counts the extra A ratings);
+a team bar above every tab took a row from every player for what a team row gives one click
+away. The maintainer asked for 4ccEditor's layout made denser, before the 0.0.1 cut ("the
+program needs to be as usable as possible before it's unveiled").
+Plan: `plans/save_editor.md` "Editing UI" rewritten, the other sections' tab wording, "Build
+order and verification", SE-GUI-01, 03, 06, 07, 10, 11, 12, 13, 22, 25, 31, 32, 35 reworded,
+SE-GUI-37 added.
+
+## 2026-10-26 — save_editor — Name and Shirt count against their limits; 4ccEditor's Edited/created checkbox is not kept
+Decision: the Name and Shirt labels carry an `nn/NN` count that follows the field as typed (the
+name's bytes against the save's own field, the shirt name's letters against 18, PES 16's 16),
+tinted with the field past what every version holds; the player's id leaves General info for
+the view's first line. 4ccEditor's per-player "Edited/created player" checkbox has no place in
+the view.
+Why: the limits were a hover a member found only once past them, and a colour code's ten bytes
+made the name's limit a surprise; the id is rarely read and took a field's row. A name or shirt
+name edit already sets the edited flag, and the Team menu's Set edited flag sets it for a team,
+which is what a member sets it for (the maintainer, 2026-10-26).
+Plan: `plans/save_editor.md` "Editing UI", the "Name and Shirt" bullet; SE-GUI-38.
+
+## 2026-10-26 — save_editor — The version warning is a status-bar notice that follows the selector
+Decision: a save of another version than the selector's raises a Warning notice in the status
+bar, its action Switch to PES 20xx and its dismiss the close; while shown it goes when the
+selector reaches the save's version, by the action or by hand, and names a third version when
+switched to one. This replaces the banner under the toolbar of the entry "The version warning
+offers the switch and a close" (same day); its switch and close stand.
+Why: the status bar is where the shell's environment warnings sit, and the banner pushed every
+view down a row; a notice that kept naming a version the member had already left read as a
+stale warning (the maintainer, 2026-10-26).
+Plan: `plans/save_editor.md` "Editing UI", the version bullet; SE-GUI-28.
+
+## 2026-10-26 — core — The status bar's middle takes what the sides leave; the idle title names the active tool
+Decision: the status bar's left and right slots are as wide as what they hold and the notice's
+middle slot gets the rest, cut with an ellipsis only past that; the window's idle title is
+`<tool> - 4cc Studio`, and no view draws its tool's name.
+Why: three equal columns cut the Save editor's 100-character version notice at 1280 points
+while the bar had room for it; a heading repeating the tool's name took a row from every view
+and said what the highlighted sidebar icon already did (the maintainer's look at the third
+draft, 2026-10-26).
+Plan: `plans/core/gui.md` "Status bar" and "Window title"; ST-BAR-03, ST-TTL-01 to 03.
