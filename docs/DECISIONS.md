@@ -11691,3 +11691,20 @@ without the hook would start a monitor beside every window that never writes a d
 argument, always starts the running exe (so the start's failure cannot be tested on a program
 that is not an exe), and pins `crash-handler` 0.7 and `minidumper` 0.10.
 Plan: `plans/core/architecture.md` "Diagnostic logging", the "crash dump" bullet.
+
+## 2026-10-27 — studio — The crash dump's hook is one `unsafe` block of ours
+Decision: the crash dump attaches its hook through `crash-handler`'s `make_crash_event` in one
+`unsafe` block in `studio`, its `// SAFETY:` comment saying why the closure is sound in a
+crashed process (it allocates and locks nothing and only sends the dump request).
+Why: the maintainer's yes to `QUESTIONS.md` "May the crash dump's hook use one `unsafe`
+block?": no safe route exists (the function and the trait are `unsafe`), and the crate that
+hides the block, `minidumper-child`, does not fit the plan (an environment variable instead
+of the monitor's argument, no testable failed start, older crate versions).
+Plan: `plans/core/architecture.md` "Diagnostic logging", the crash dump bullet.
+
+## 2026-10-27 — core — A settings path box shows a usual install path whole
+Decision: the settings menu's path edits are 440 points wide (the menu 660), enough for
+Steam's PES 2019 install path, 71 characters, at the body font.
+Why: the maintainer's look at the per-version folder rows: the 220-point boxes cut usual
+paths mid-name, so a member could not read which folder was set.
+Plan: `plans/core/gui.md` "Settings menu", the path row bullet.

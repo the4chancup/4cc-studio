@@ -21,20 +21,6 @@ names where the question came from so the context can be read there.
 
 ## Small confirmations
 
-- **May the crash dump's hook use one `unsafe` block?** (worklog 0.0.1k4;
-  `plans/core/architecture.md` "Diagnostic logging", the "crash dump" bullet.) The crash
-  dump you accepted as P38 fits its condition: its crates add 221 KiB to a test build of the
-  exe (ours should grow less), against the 10 MB allowed, and that build's stack overflow left
-  a dump that reads correctly. But attaching the hook that catches the crash is an `unsafe`
-  call in our own code (`crash-handler`'s `make_crash_event`: the closure runs inside the
-  crashed process, so it must do almost nothing; ours only asks the monitor for the dump).
-  The two ways: (a) yes, one `unsafe` block in `studio` with its `// SAFETY:` comment (about
-  ten lines), and the dump is built as the plan describes; (b) no, and the crash dump waits:
-  the other crate that hides the block (`minidumper-child`) does not fit the plan (an
-  environment variable instead of an argument, no way to test a failed start, older crate
-  versions). Nothing of the dump is built until you answer, since without the hook it writes
-  nothing.
-
 - **Which icon does each tool get?** (worklog 8.14.) Open `docs/prototypes/icons.html`,
   click one candidate per tool (the rail at the top shows the picks together), then copy the
   "Picks" box. The font build and the glyph constants wait on it. The Team compiler's is

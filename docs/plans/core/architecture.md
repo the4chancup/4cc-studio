@@ -352,9 +352,10 @@ What exists of this is in `spec/core/architecture.md` "Diagnostic logging".
   `make_crash_event` is an `unsafe fn`, because its closure runs in the crashed process, where
   it must do as little as possible (on Linux inside a signal handler, so nothing that
   allocates or locks), and ours only asks the connected monitor for the dump (`minidumper`'s
-  `Client::request_dump`, which writes a stack buffer to the socket and waits for the reply). It waits on the maintainer's yes (`QUESTIONS.md`),
-  and nothing of the dump lands before it: without the hook a monitor would run beside every
-  window and never write anything. We do not take `minidumper-child`, which holds the same
+  `Client::request_dump`, which writes a stack buffer to the socket and waits for the reply).
+  That call is the one `unsafe` block, in `studio`, with its `// SAFETY:` comment saying why
+  the closure is sound to run in a crashed process: it allocates and locks nothing and only
+  sends the request. We do not take `minidumper-child`, which holds the same
   block for us, because it marks the monitor by an environment variable rather than an
   argument, starts only the running exe (so the start's failure cannot be tested on a program
   that is not an exe), and pins the crates' previous versions. A monitor that does not start leaves the window running with the

@@ -281,7 +281,12 @@ The settings menu is assembled from injected sections:
   half-typed folder path would otherwise reach every tool reading it. A path row (the common
   folders, a tool's file) is that text edit and a Browse button opening `rfd`'s native picker
   of its kind (a folder, or a file filtered to the type the tool reads), a pick committing at
-  once; `studio_core` owns the row, so every section's path rows commit the same way.
+  once; `studio_core` owns the row, so every section's path rows commit the same way. A path's
+  edit is wide enough to show a usual install path whole: Steam's `C:\Program Files
+  (x86)\Steam\steamapps\common\Pro Evolution Soccer 2019`, 71 characters, at the body font
+  (the draft's 440-point box, the menu 660 points wide with the label column and Browse), not
+  the 220 points that cut such a path mid-name, so a member reads which folder is set without
+  scrolling inside the box.
 - **The PES folder** is one main row for every version, `pes_folder_path`, whose `**` stands
   for the selected version's two digits (the default `…\Pro Evolution Soccer 20**`). Its
   Browse stores a picked folder whose own name holds the selected version's year with that

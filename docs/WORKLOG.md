@@ -2546,9 +2546,10 @@ briefs, review loops, gates and mutation runs as for any step.
       hook and a stack overflow on the argument `stack` wired): 243,200 B without, 469,504 B with, so 221 KiB of
       the 10 MB allowed; the probe's overflow wrote `studio.dmp` (1 MB), read by `minidump`
       0.27 as five threads and exception `0xC00000FD` (DECISIONS 2026-10-26)
-    - [ ] k4b the build, waiting on `QUESTIONS.md` ("May the crash dump's hook use one
-      `unsafe` block?"): the attach is `crash-handler`'s `unsafe fn make_crash_event`. Once
-      answered yes: the plan's bullet as written, `minidump-writer` only through `minidumper`
+    - [ ] k4b the build (the `unsafe` block allowed by the maintainer, 2026-10-27; DECISIONS
+      "The crash dump's hook is one `unsafe` block of ours"): the attach through
+      `crash-handler`'s `unsafe fn make_crash_event` with its `// SAFETY:` comment, the plan's
+      bullet as written, `minidump-writer` only through `minidumper`
       unless our code calls it, the rows in `plans/core/README.md` "External Dependencies",
       `just deps-check`, and our release exe's size before and after (the probe's is a bound)
 - [ ] 0.0.1l no console window in the preview (`plans/core/architecture.md` "Windows
@@ -2719,7 +2720,7 @@ briefs, review loops, gates and mutation runs as for any step.
     size a member reaches (2200 x 1400 pixels; 550 x 350 points sat under the minimum); the
     plan says eframe's creation clamp is kept. Done 2026-10-26 (SWE-2). Open: the post-Astra
     SWE-2 round. Files: `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`
-- [x] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
+- [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version
   toggle and its rows, `pes_folder` resolving an override first, Fix PES path writing the
@@ -2743,6 +2744,12 @@ briefs, review loops, gates and mutation runs as for any step.
   Files: `studio_core/src/settings/{common,mod}.rs`, `studio_core/src/shell/{mod.rs,
   settings_menu/}`, `studio_core/src/{status.rs,widgets/{mod,settings_row}.rs}`,
   `plans/core/gui.md`, `DECISIONS.md`
+  - [ ] r2 the path edits wide enough for a usual install path (the maintainer's look at the
+    rows, 2026-10-27; `plans/core/gui.md` "Settings menu", the path row bullet; DECISIONS "A
+    settings path box shows a usual install path whole"): the menu 660 points, the edits
+    holding Steam's PES 2019 path (71 characters) whole at the body font → verify: a test
+    measuring that path's galley against the drawn edit's width, every section's path rows
+    included
 - [ ] 0.0.1s the Save editor's main panel after 4ccEditor's layout, no tabs (the maintainer,
   2026-10-26; prototyped first): General info with the playable positions under it, skills
   in two columns with the COM styles and the four non-ability values stacked under them, one

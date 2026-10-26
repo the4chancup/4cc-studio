@@ -195,9 +195,13 @@
   table.grid tr.sel:hover { background: var(--hover); }
   .window pre.mono { margin: 4px 0; }
   a { color: var(--link); }
-  .settings-body { width: 560px; }
+  /* A path box holds a usual install path whole: Steam's
+     C:\Program Files (x86)\Steam\steamapps\common\Pro Evolution Soccer 2019, 71
+     characters, is 426 points in the box's font (the maintainer, 2026-10-27: 220 cut
+     usual paths). The menu widens to the label column, the box and Browse. */
+  .settings-body { width: 660px; }
   .settings-body td:first-child { white-space: nowrap; }
-  .settings-body input[type=text] { width: 220px; }
+  .settings-body input[type=text] { width: 440px; }
   .settings-body input[type=number] { width: 90px; }
   .help-win { position: fixed; z-index: 100; display: flex; flex-direction: column;
     max-width: none; min-width: 420px; min-height: 200px; padding: 0; resize: both; overflow: hidden; }

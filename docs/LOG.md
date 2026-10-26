@@ -2574,3 +2574,5 @@ worklog passed 7,000 lines.
   resolution and Fix PES path use first (0.0.1r).
 - **2026-10-26** — The crash dump measured: its three crates add 221 KiB to a release exe (P38 allowed 10 MB), and a
   probe's stack overflow left a readable dump; attaching its hook needs one `unsafe` block, asked in QUESTIONS (0.0.1k4).
+- **2026-10-27** — The maintainer allowed the crash dump's one `unsafe` block (0.0.1k4b can be built) and asked for
+  settings path boxes wide enough for a usual install path; the draft widens them to 440 points.
