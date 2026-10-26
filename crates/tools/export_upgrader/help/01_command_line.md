@@ -3,7 +3,7 @@ format the Team compiler reads. Its commands run from a terminal opened in the
 folder that holds `UnlimitedToolWorks.exe`.
 
 ```text
-UnlimitedToolWorks export-upgrader upgrade <export> (--savefile <EDIT> | --loose) [-o <dir>]
+UnlimitedToolWorks export-upgrader upgrade <export> (--savefile <EDIT> | --loose) [--coverage full|midcup] [-o <dir>]
 UnlimitedToolWorks export-upgrader upgrade-models <folder> [-o <dir>]
 ```
 
@@ -23,7 +23,13 @@ content. Without a save no look is written: a player folder with a name gets a
 The output is a new folder beside the input, or inside the folder `-o` names
 (created when missing). Its name is the team's key with the coverage tag
 inserted (`co - Spring` becomes `co Full - Spring`, an export named for
-additions gets `Midcup`), and when that name is already the input's own,
+additions gets `Midcup`), or the tag `--coverage full` or `--coverage midcup`
+sets instead; a name whose second word is already a tag keeps it and refuses a
+flag naming the other, and a referee export's name takes no tag. The tag used
+is always reported (`coverage_tag_chosen`, naming what decided it): an export
+that was only a mid-cup update gets `Full` when its name says neither, and a
+`Full` export's first compile builds placeholder kits over the team's
+installed ones. When that name is already the input's own,
 ` upgraded` is appended so the original is never written over. An output folder
 that already exists is refused and left untouched.
 
@@ -67,7 +73,10 @@ as `leftover_dropped`, a warning that does not stop the migration, and the
 upgraded folder is
 checked against the same rules the Team compiler applies: every finding prints
 as one line naming its code and the input path it is about, ending with
-`migration_clean` or `migration_not_clean` (and nothing is written).
+`migration_clean` or `migration_not_clean` (and nothing is written). An
+incomplete `<name>.upgrading` folder an earlier run left behind is removed and
+reported (`staging_folder_removed`) before this run writes its own; one that
+cannot be removed still aborts the run.
 
 The exit code: 0 when the migration is clean; 1 when it is not clean: an
 error, or a finding that drops anything but a leftover (a warning that drops

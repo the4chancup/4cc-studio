@@ -702,6 +702,14 @@ to moving, flattening, or removing files describe that draft, not destructive ed
     because the game never showed it, so the Studio export is complete without it and the
     Warning tells the author what was left behind; we do refuse one over an unmigrated entry,
     because the compile would miss what the old export compiled.
+    Each `unmigrated_content` names its cause in a `reason`, one value of a closed set per
+    cause (`slot_taken`, `id_invalid`, `texture_undecodable`, `loose_unplaceable`, ...: the
+    crate's `UnmigratedReason`, about thirty), and, where two candidates claim one place, the
+    other's input path in `other`: one code covers every cause, and a manager whose upgrade is
+    not clean, the one outcome where the input must be edited, could not otherwise tell from
+    the line what to fix. A closed set rather than free text, because the message text
+    (Phase 8) branches on it, a sentence per cause. Every site builds the finding through one
+    constructor that requires the reason, so a new site cannot leave it out.
 11. **Loose mode** (no savefile available): step 2 needs the savefile only to learn which player
     wears which old boots/gloves ID. When no savefile is given, the upgrader offers loose mode,
     which infers the wearer from the **ID's position inside the team's Red block** instead —
@@ -851,7 +859,7 @@ and left unchanged).
 ## CLI
 
 ```text
-4cc-studio export-upgrader upgrade <export> [--savefile <EDIT>] [--loose] [-o <dir>]
+4cc-studio export-upgrader upgrade <export> [--savefile <EDIT>] [--loose] [--coverage full|midcup] [-o <dir>]
 4cc-studio export-upgrader upgrade-models <folder> [-o <dir>]
 ```
 
@@ -869,7 +877,18 @@ referee export takes no tag. A name equal to the export's own (a folder's name, 
 stem), letter case aside, gets ` upgraded` appended (`refs Spring` → `refs Spring upgraded`), so
 the input is never written into: Windows names ignore case, so `CO Full Spring`'s output
 `co Full Spring` would be the input folder itself, and an archive's output takes the same name its folder form
-would. An output folder
+would. Every `upgrade` of a team export reports the tag it used, an Info
+`coverage_tag_chosen` with the `tag` and its `source`, the first of these that holds: `name`
+when the old name's second word is already `Full` or `Midcup` in any letter case; `flag`;
+`midcup` or `additions`, the text the name was found to hold (a substring, the first in the
+name if both); `default` when it holds neither. `--coverage full|midcup` sets the tag in
+place of the name's guess, which stays the default: a manager upgrading an old mid-cup export
+named neither way ("co day 5 fix") would get `Full`, whose first compile rebuilds the team from
+the export alone, everything it does not carry becoming the default or a placeholder, and the
+Info says so before that compile. A flag naming the other tag than a second word the name
+already carries is refused (exit 2): the member wrote that word, and renaming it under them
+would surprise more than the refusal. A referee export takes no tag and refuses the flag
+(exit 2). An output folder
 that already exists is refused, naming it: replacing it would lose edits made since an earlier
 upgrade. A team export takes `--savefile` or `--loose`, exactly one: loose mode is an assumption
 the user opts into (step 11), never a silent fallback; a referee export takes neither, and is refused with either. A
@@ -890,13 +909,19 @@ extract, reported `export_extract_failed` as the compiler does; nothing is writt
 `upgrade` input that is a file other than a `.zip` or `.7z`, an `upgrade-models` input that is
 not a folder, the flags above, a savefile that
 does not read as a save or lacks the team; nothing is written), **3** aborted: before anything
-is written (the output folder, or its staging folder below, exists or cannot be created; the
+is written (the output folder exists, or it or its staging folder below cannot be created; the
 data directory's `teams_list.txt` exists but does not read or parse, step 6), or when a file
-of the output cannot be written, the error naming it and the incomplete staging
-folder left for the user to remove, since a second run refuses an existing one. Both commands
-write into a **staging folder**, the output's name with `.upgrading` appended, beside where the
-output goes; the shared validation reads it there, and the verdict then renames it to the
-output when the run is clean or removes it when not ("Verification": nothing is written). We
+of the output cannot be written, the error naming it and the incomplete staging folder. Both
+commands write into a **staging folder**, the output's name with `.upgrading` appended, beside
+where the output goes; the shared validation reads it there, and the verdict then renames it
+to the output when the run is clean or removes it when not ("Verification": nothing is
+written). A staging folder an earlier run left (a write that failed, a rename or removal the
+verdict could not finish) is removed by the next run of the same output, reported as an Info
+`staging_folder_removed` naming it, rather than aborting: a staging folder is never a finished
+output, and the member who meets it never made it. A removal that fails (on Windows a file of
+it held open, by another run writing it at that moment) aborts as above (exit 3), naming the
+folder; a second upgrade of one export started while the first writes, the one way to meet a
+live staging folder, then loses at most that run, never a finished output. We
 stage rather than validate an in-memory listing because the validation reads files from disk,
 as the compile does, and a rename is one step: no reader ever sees a half-written output under
 the output's name. The rename and the removal retry for about two seconds while Windows
@@ -929,6 +954,8 @@ validation's findings on what was written.
 | `migration_not_clean` | I | last line otherwise: nothing is written ("Verification"); exit 1 after any finding that drops anything but a leftover | — |
 | `leftover_dropped` | W | step 10: content that never reached a player in game, outside the old format's layout or inside it (a refused portrait, a stray file, a second goalkeeper kit, ...), not written; a Note entry's dropped part names its line; the run stays clean | `line` (a Note entry) |
 | `mtl_stray_text_dropped` | I | step 7: an old `.mtl` held text between its elements, dropped as the file is written back | — |
+| `coverage_tag_chosen` | I | `upgrade` of a team export: the coverage tag the output's name took ("CLI") | `tag`, `source` |
+| `staging_folder_removed` | I | an earlier run's staging folder for this output removed before the write ("CLI") | `path` |
 
 The shared validation's codes (`aesthetics_export::ISSUE_CODES`) keep the Team compiler's
 severity (`spec/team_compiler/messages.md` "Catalog"), each run-dependent one taken as for a
@@ -1617,6 +1644,15 @@ EU-REP-04  GIVEN a Fox export (as the real KFG VGL26 one) whose boots folder "k0
                 readme.pdf, Players/03 - Rex/ holds boots.fmdl (the migration is Fox's: the
                 leftover's .model decides nothing), the output holds no Boots/ folder, and the
                 exit code is 0
+EU-REP-05  GIVEN EU-PLY-10's export: face folders "XXX23 - Bahsaka" and "XXX23 - Smug
+                 Redman", boots folders "k0430 - A" and "k0430 - B", and the misnamed
+                 "XXX24 - Ann" and "K0431 - Rex"
+           WHEN it is upgraded with its save
+           THEN each unmigrated_content line carries its reason: the second face folder
+                slot_taken with `other` naming "Faces/XXX23 - Bahsaka", the second boots folder
+                id_taken with `other` "Boots/k0430 - A", the two misnamed slot_invalid and
+                id_invalid with no `other`; every reason value the crate emits is reached by
+                a test
 EU-REP-03  GIVEN an old export whose migration needs no manual attention
            WHEN it is upgraded
            THEN the report holds no finding above Info and says the migration is clean, and the
@@ -1689,9 +1725,7 @@ EU-CLI-07  GIVEN a corrupt .zip export
            WHEN upgrade runs
            THEN export_extract_failed is reported naming it, nothing is written, and the exit
                 code is 1
-EU-CLI-05  GIVEN an output folder that already exists, or one that cannot be created, or the
-                output's staging folder (its name with .upgrading appended) left by an
-                aborted run
+EU-CLI-05  GIVEN an output folder that already exists, or one that cannot be created
            WHEN upgrade or upgrade-models runs
            THEN it is refused naming the folder, with exit code 3, nothing is written, and an
                 existing folder is unchanged
@@ -1707,4 +1741,22 @@ EU-CLI-08  GIVEN the old export "co Spring" named on the command line as "co Spr
            WHEN each is upgraded
            THEN the output is the sibling folder "co Full Spring", beside "co Spring", as for
                 the plain name
+EU-CLI-09  GIVEN EU-CLI-01's exports and EU-REF-01's referee export
+           WHEN each is upgraded
+           THEN each team export's report holds coverage_tag_chosen with its tag and source
+                (`co - Spring`: Full, default; `co Day 8 Additions`: Midcup, additions; `co
+                midcup Day 5`: Midcup, name; `co Full Spring`: Full, name) and the referee
+                export's none; WHEN `co - Spring` is upgraded with --coverage midcup THEN the
+                output is `co Midcup - Spring`, source flag; WHEN `co Full Spring` is upgraded
+                with --coverage midcup THEN exit 2 and nothing written; GIVEN the referee
+                export and --coverage, or an unknown value, THEN exit 2
+EU-CLI-10  GIVEN `co - Spring` and its output's staging folder `co Full - Spring.upgrading`
+                 holding a file, left by an earlier run
+           WHEN it is upgraded
+           THEN the staging folder is removed, staging_folder_removed names it, and the run is
+                clean with its output written; GIVEN (Windows, where an open file blocks its
+                removal) a file of the staging folder held open THEN exit 3 naming the
+                folder, nothing written; GIVEN EU-CLI-06's "new models" and its output's
+                staging folder `new models upgraded.upgrading` left by an earlier run, WHEN
+                `upgrade-models` runs, THEN it is removed and named the same way
 ```

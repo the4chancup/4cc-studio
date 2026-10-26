@@ -120,6 +120,13 @@ pub(crate) enum Code {
     /// Studio export (`into`: `Players`, `Boots`, `Gloves`, or `root` for
     /// `Common/`).
     ModelFolderDestination,
+    /// A team export's coverage tag, reported on every `upgrade` so the
+    /// guess is never silent (`tag`, `source`;
+    /// `spec/export_upgrader.md` "Message catalog").
+    CoverageTagChosen,
+    /// An earlier run's staging folder for this output, removed before the
+    /// write (`path`; `spec/export_upgrader.md` "Message catalog").
+    StagingFolderRemoved,
 }
 
 impl Code {
@@ -151,6 +158,8 @@ impl Code {
             Code::SettingsFromStrippedRecord => "settings_from_stripped_record",
             Code::SettingsNotGenerated => "settings_not_generated",
             Code::ModelFolderDestination => "model_folder_destination",
+            Code::CoverageTagChosen => "coverage_tag_chosen",
+            Code::StagingFolderRemoved => "staging_folder_removed",
         }
     }
 
@@ -182,12 +191,14 @@ impl Code {
         Code::SettingsFromStrippedRecord,
         Code::SettingsNotGenerated,
         Code::ModelFolderDestination,
+        Code::CoverageTagChosen,
+        Code::StagingFolderRemoved,
     ];
 }
 
 /// The cause an `unmigrated_content` finding names in its `reason`
-/// context (step 10, and `plans/export_upgrader.md` "One addition to step
-/// 10"): one variant per cause — two sites reporting the same cause
+/// context (`spec/export_upgrader.md` "What it does", step 10): one
+/// variant per cause — two sites reporting the same cause
 /// share the variant. Where two candidates claim one place the finding
 /// also carries `other`, the other candidate's input path.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -510,6 +521,18 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
         Severity::Info,
         r#"`upgrade-models`: where an output folder goes once dropped into an export (`Players`, `Boots`, `Gloves`, or the export root for `Common/`)."#,
         r#"Nothing to do."#,
+    ),
+    (
+        "coverage_tag_chosen",
+        Severity::Info,
+        r#"The coverage tag the output's name took, and what decided it (the line names them): `flag` for `--coverage`, `name` for a tag word the name already carried, `midcup` or `additions` for text the name holds, `default` when it holds neither."#,
+        r#"Nothing to do; check the tag is what the export should be, and pass `--coverage` if it is not."#,
+    ),
+    (
+        "staging_folder_removed",
+        Severity::Info,
+        r#"An earlier run's incomplete output folder (the output's name with `.upgrading` appended) was still there when this run started (the line names it)."#,
+        r#"Removed before this run wrote its output."#,
     ),
     // The structure pass's codes, in `ISSUE_CODES` order.
     (

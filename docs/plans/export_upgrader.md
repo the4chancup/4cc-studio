@@ -37,18 +37,6 @@ step:
     structural migration lossless and parity-testable: the test suite validates the structural step against Red's reference output,
     and the glTF conversion has its own roundtrip tests in `model_convert`.
 
-One addition to step 10, the built report: **`unmigrated_content` names its cause.** The code
-covers about thirty causes (a second face folder for a slot, a second item folder for an ID,
-two kit textures landing on one name, a face folder without a valid slot, a texture that does
-not decode, a folder loose mode cannot place, ...), and a refused entry is reported with no
-cause (its context holds at most a Note `line` or a decode's `error`), so a manager whose
-upgrade is not clean, the one outcome where the input must be edited, cannot act on the line
-without this document. Its context gains `reason`, a closed set with one value per cause, each
-named from its emission site, and, where two candidates claim one place, `other`, the other
-candidate's input path. A closed set rather than free text, because the message text (Phase 8)
-branches on it, a sentence per cause; the view's left-behind list shows it as the console
-prints it.
-
 ## CLI
 
 What exists of this is in `spec/export_upgrader.md` "CLI". Step 13 adds `--convert-to-gltf` to
@@ -58,21 +46,9 @@ What exists of this is in `spec/export_upgrader.md` "CLI". Step 13 adds `--conve
 4cc-studio export-upgrader upgrade <export>... [--savefile <EDIT>] [--loose] [--coverage full|midcup] [--convert-to-gltf] [-o <dir>]
 ```
 
-Three additions to the built commands:
+One addition to the built commands (the coverage tag and the staging folder's sweep are
+built: `spec/export_upgrader.md` "CLI"):
 
-- **The coverage tag is reported, and can be set.** Every `upgrade` of a team export reports
-  the tag it used, an Info `coverage_tag_chosen` with the `tag` and its `source`, the first of
-  these that holds: `name` when the old name's second word is already `Full` or `Midcup` in
-  any letter case (below); `flag`; `midcup` or `additions`, the text the name was found to
-  hold, a substring as the built rule matches it, the first in the name if both; `default`
-  when it holds neither. `--coverage full|midcup` sets the tag in place of the name's guess,
-  which stays the default. A manager upgrading an old mid-cup export named neither way ("co
-  day 5 fix") gets `Full`, and its first compile rebuilds the team from the export alone,
-  everything it does not carry becoming the default or a placeholder; the Info says so before
-  that compile. A referee export takes no tag and refuses the flag (exit 2). An old
-  name whose second word is already `Full` or `Midcup` keeps it (source `name`), and a flag
-  naming the other tag is refused (exit 2): the member wrote that word, and renaming it under
-  them would surprise more than the refusal.
 - **Several exports at once.** `upgrade` takes one or more exports, with one `--savefile` or
   `--loose` for all of them: each is upgraded as if run alone (its own verdict, its output
   written or not; with more than one export, its report block under a line naming it, so a
@@ -84,14 +60,6 @@ Three additions to the built commands:
   referee export among team exports) refuses that export alone, its block saying so. For an organizer moving a cup's library
   (about 50 teams) to Studio once per cup; the launcher keeps calling one export at a time,
   since its summary line counts them. `upgrade-models` stays one folder.
-- **A leftover staging folder is cleared.** A `<output>.upgrading` folder left by an earlier
-  run (a write that failed, a rename or removal the verdict could not finish) is removed by the next run of the same output, reported as an Info
-  `staging_folder_removed` naming it, instead of aborting the run (exit 3): a staging folder is
-  never a finished output, and the member who meets it never made it. A finished output folder
-  is still never replaced. A removal that fails (a file of it held open: on Windows another
-  run writing it at that moment) aborts as before (exit 3), naming the folder; a second
-  upgrade of the same export started while the first writes, the one way to meet a live
-  staging folder, then loses at most that run, never a finished output.
 
 ## GUI
 
@@ -118,7 +86,7 @@ refined with the maintainer before `view/` is written:
   the same field is the output directory itself (`upgrade-models` writes its folders straight
   into its `-o`), `<input> upgraded` beside the input by default, as the CLI's. A **Full /
   Midcup** pair (`--coverage`) is prefilled with the name's guess once a team export is
-  dropped, its tooltip naming what decided it (the `source` above); disabled for a referee
+  dropped, its tooltip naming what decided it (`coverage_tag_chosen`'s `source`, `spec/export_upgrader.md` "CLI"); disabled for a referee
   export and for the second target, and held on the name's tag when the name already carries
   one (the CLI refuses the other there). The view passes `--coverage` only when the pair
   differs from the name's guess, so the report's `source` is the name's whenever the member
@@ -185,19 +153,6 @@ refined with the maintainer before `view/` is written:
   run's report, the log and the list included: the report is about the input it ran on.
 - No settings section: the tool has no settings (step 6: the teams list path is the compiler's).
 
-## Message catalog
-
-What exists of this is in `spec/export_upgrader.md` "Message catalog". The additions above
-bring two codes and two context fields:
-
-| Code | Sev | When | Context |
-|---|---|---|---|
-| `coverage_tag_chosen` | I | `upgrade` of a team export: the coverage tag the output's name took ("CLI") | `tag`, `source` |
-| `staging_folder_removed` | I | an earlier run's staging folder for this output removed before the write ("CLI") | `path` |
-
-`unmigrated_content` gains `reason` on every entry and `other` where two candidates claim one
-place ("What it does").
-
 ## Dependencies
 
 What exists of this is in `spec/export_upgrader.md` "Dependencies". The optional glTF
@@ -211,37 +166,9 @@ What exists of this is in `spec/export_upgrader.md` "Acceptance", whose rules (f
 defaults a scenario naming no version or export takes, the test data) the scenarios below
 follow. Step 13's scenarios are written with Phase 7.
 
-**The CLI additions** ("What it does"'s last paragraph, "CLI"). The clause of EU-CLI-05 on a
-staging folder left by an earlier run, which aborted, is replaced by EU-CLI-10.
+**Several exports at once** ("CLI").
 
 ```
-EU-REP-05  GIVEN EU-PLY-10's export: face folders "XXX23 - Bahsaka" and "XXX23 - Smug
-                 Redman", boots folders "k0430 - A" and "k0430 - B", and the misnamed
-                 "XXX24 - Ann" and "K0431 - Rex"
-           WHEN it is upgraded with its save
-           THEN each unmigrated_content line carries its reason: the second face folder
-                slot_taken with `other` naming "Faces/XXX23 - Bahsaka", the second boots folder
-                id_taken with `other` "Boots/k0430 - A", the two misnamed slot_invalid and
-                id_invalid with no `other`; every reason value the crate emits is reached by
-                a test
-EU-CLI-09  GIVEN EU-CLI-01's exports and EU-REF-01's referee export
-           WHEN each is upgraded
-           THEN each team export's report holds coverage_tag_chosen with its tag and source
-                (`co - Spring`: Full, default; `co Day 8 Additions`: Midcup, additions; `co
-                midcup Day 5`: Midcup, name; `co Full Spring`: Full, name) and the referee
-                export's none; WHEN `co - Spring` is upgraded with --coverage midcup THEN the
-                output is `co Midcup - Spring`, source flag; WHEN `co Full Spring` is upgraded
-                with --coverage midcup THEN exit 2 and nothing written; GIVEN the referee
-                export and --coverage, or an unknown value, THEN exit 2
-EU-CLI-10  GIVEN `co - Spring` and its output's staging folder `co Full - Spring.upgrading`
-                 holding a file, left by an earlier run
-           WHEN it is upgraded
-           THEN the staging folder is removed, staging_folder_removed names it, and the run is
-                clean with its output written; GIVEN (Windows, where an open file blocks its
-                removal) a file of the staging folder held open THEN exit 3 naming the
-                folder, nothing written; GIVEN EU-CLI-06's "new models" and its output's
-                staging folder `new models upgraded.upgrading` left by an earlier run, WHEN
-                `upgrade-models` runs, THEN it is removed and named the same way
 EU-CLI-11  GIVEN two of EU-CLI-01's /co/ exports, a third export of another team, and a save
                  holding /co/ but not that team
            WHEN `upgrade` names all three with that save

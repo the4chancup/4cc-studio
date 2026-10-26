@@ -361,8 +361,16 @@ pub(crate) fn run(args: &UpgradeModelsArgs, ctx: &ToolContext) -> Result<u8, Cli
         )));
     };
     let output_name = output_name.to_string_lossy().into_owned();
-    let staging = claim_staging(&output)?;
+    let (staging, removed) = claim_staging(&output)?;
     events.started(OUTPUT, &output_name);
+    if removed {
+        events.message(tool_message(
+            Code::StagingFolderRemoved,
+            Scope::Export { export_id: OUTPUT },
+            Disposition::Keep,
+            vec![("path", staging.display().to_string())],
+        ));
+    }
 
     // Step 7's chain on the staged copies, exactly `upgrade`'s: the kit
     // magic's respells first, the `Common/` names a `face.xml` or a link

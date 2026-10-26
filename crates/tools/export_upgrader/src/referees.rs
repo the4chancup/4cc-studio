@@ -859,4 +859,39 @@ mod tests {
         assert!(!plan.consumed.contains("Players/a/face/face.mtl.bak"));
         assert!(plan.findings.is_empty());
     }
+
+    #[test]
+    fn a_stem_clash_names_a_file_of_the_other_location_not_its_sibling() {
+        // A clash group with two files of one location beside one of
+        // another: `face/` holds `arbiter.dds` and `arbiter.png`, the root
+        // an `arbiter.dds` of other bytes. Each `face/` file's `stem_taken`
+        // names the root file as `other`, never its `face/` sibling. The
+        // inputs are given in the order that puts the `face/` file first
+        // among the stem's other-input files (`referee_folders` iterates the
+        // input's order; the `plan` helper's sort would put the root file
+        // first and never show a wrong choice).
+        let files: Vec<String> = [
+            "Players/arbiter/face/arbiter.dds",
+            "Players/arbiter/face/arbiter.png",
+            "Players/arbiter/arbiter.dds",
+        ]
+        .map(str::to_owned)
+        .to_vec();
+        let plan = referee_folders(&files, |path| {
+            Ok(if path == "Players/arbiter/arbiter.dds" {
+                b"root".to_vec()
+            } else {
+                b"face".to_vec()
+            })
+        });
+        assert_eq!(
+            findings(&plan),
+            [
+                "file Players/arbiter/arbiter.dds Keep (reason=name_taken, other=Players/arbiter/face/arbiter.dds)",
+                "file Players/arbiter/face/arbiter.dds Keep (reason=name_taken, other=Players/arbiter/arbiter.dds)",
+                "file Players/arbiter/face/arbiter.png Keep (reason=stem_taken, other=Players/arbiter/arbiter.dds)",
+            ]
+        );
+        assert!(plan.copies.is_empty());
+    }
 }

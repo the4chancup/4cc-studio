@@ -249,18 +249,21 @@ fn check_invocation(args: &UpgradeArgs, ctx: &ToolContext) -> Result<Invocation,
     let path = resolve_input(path)?;
     let name = source::source_name(&path);
 
-    // "CLI": a referee export (the name's first word is `refs`) takes neither
-    // flag; a team export takes exactly one.
+    // "CLI": a referee export (the name's first word is `refs`) takes none
+    // of the flags; a team export takes exactly one of --savefile and
+    // --loose.
     let referees = aesthetics_export::team_name(&name).is_some_and(|name| name.is_referees());
     if referees {
         let flag = if args.savefile.is_some() {
             Some("--savefile")
+        } else if args.loose {
+            Some("--loose")
         } else {
-            args.loose.then_some("--loose")
+            args.coverage.is_some().then_some("--coverage")
         };
         if let Some(flag) = flag {
             return Err(invalid(anyhow!(
-                "{flag}: a referee export takes neither --savefile nor --loose"
+                "{flag}: a referee export takes none of --savefile, --loose or --coverage"
             )));
         }
     } else if args.savefile.is_some() == args.loose {
@@ -406,7 +409,11 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     };
 
     // "CLI": the output folder, refused when it exists or cannot be made.
-    let output_name = output_name(&export.name, &identity);
+    // Its name carries the coverage tag, and the tag's choice is reported on
+    // every team export's upgrade, so the name's guess is never silent
+    // (spec's "CLI": a mid-cup export under `Full` compiles placeholder kits
+    // over the team's installed ones).
+    let named = output_name(&export.name, &identity, args.coverage)?;
     let base = args.output.clone().unwrap_or_else(|| {
         invocation
             .path
@@ -414,11 +421,30 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             .expect("the input is absolute and not a filesystem root (resolve_input)")
             .to_path_buf()
     });
-    let output = base.join(&output_name);
+    let output = base.join(&named.name);
     // "CLI": the staging folder beside the output, claimed before anything
-    // is written.
-    let staging = claim_staging(&output)?;
-    events.started(OUTPUT, &output_name);
+    // is written; an earlier run's leftover is removed and reported.
+    let (staging, removed) = claim_staging(&output)?;
+    events.started(OUTPUT, &named.name);
+    if let Some(choice) = named.tag {
+        events.message(tool_message(
+            Code::CoverageTagChosen,
+            Scope::Export { export_id: INPUT },
+            Disposition::Keep,
+            vec![
+                ("tag", choice.tag.to_owned()),
+                ("source", choice.source.as_str().to_owned()),
+            ],
+        ));
+    }
+    if removed {
+        events.message(tool_message(
+            Code::StagingFolderRemoved,
+            Scope::Export { export_id: OUTPUT },
+            Disposition::Keep,
+            vec![("path", staging.display().to_string())],
+        ));
+    }
 
     // The Note's team colors become the root `colors.txt`, its "Other Notes"
     // section the root `notes.txt` (step 6; a referee export's Note gives
@@ -548,7 +574,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
             // The coverage tag decides step 5's `all/` kits and step 8's
             // worn-0 and missing-custom rules alike.
             let full = matches!(
-                aesthetics_export::coverage(&output_name),
+                aesthetics_export::coverage(&named.name),
                 Some(aesthetics_export::ExportCoverage::Full)
             );
             let plan = player_folders(
@@ -753,7 +779,7 @@ pub(crate) fn run(args: &UpgradeArgs, ctx: &ToolContext) -> Result<u8, CliError>
     // "Verification": the shared validation on what was written, read in the
     // staging folder. Every issue goes through `events.message`, whose
     // disposition sets `dropped`.
-    validate_output(&staging, &output_name, version, &mut events);
+    validate_output(&staging, &named.name, version, &mut events);
     // The output's half ends with its validation.
     events.processed(OUTPUT);
 
@@ -1166,6 +1192,7 @@ mod tests {
             export: root.join("co Spring"),
             savefile: None,
             loose: true,
+            coverage: None,
             output: None,
         };
 
@@ -1197,6 +1224,7 @@ mod tests {
             export: root.join("refs Spring"),
             savefile: None,
             loose: false,
+            coverage: None,
             output: None,
         };
 
@@ -1249,6 +1277,7 @@ mod tests {
             export: root.join("co Spring"),
             savefile: None,
             loose: true,
+            coverage: None,
             output: None,
         };
 
@@ -1365,6 +1394,7 @@ mod tests {
             export: root.join("co Spring"),
             savefile: None,
             loose: true,
+            coverage: None,
             output: None,
         };
 

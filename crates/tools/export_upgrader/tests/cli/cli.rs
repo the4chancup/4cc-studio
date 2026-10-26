@@ -30,7 +30,7 @@ fn old_export(sandbox: &Sandbox, relative: &str, team: Option<&str>) {
     }
 }
 
-// EU-CLI-01
+// EU-CLI-01, EU-CLI-09
 #[test]
 fn the_output_name_carries_the_key_the_tag_and_the_rest() {
     let sandbox = Sandbox::new("cli_output_names");
@@ -47,16 +47,141 @@ fn the_output_name_carries_the_key_the_tag_and_the_rest() {
     let save = sandbox.arg("EDIT");
     sandbox.save("EDIT");
 
-    for (input, output) in [
-        ("co - Spring", "co Full - Spring"),
-        ("co Day 8 Additions", "co Midcup Day 8 Additions"),
-        ("co midcup Day 5", "co midcup Day 5 upgraded"),
-        ("co Full Spring", "co Full Spring upgraded"),
+    for (input, output, tag, source) in [
+        ("co - Spring", "co Full - Spring", "Full", "default"),
+        (
+            "co Day 8 Additions",
+            "co Midcup Day 8 Additions",
+            "Midcup",
+            "additions",
+        ),
+        (
+            "co midcup Day 5",
+            "co midcup Day 5 upgraded",
+            "Midcup",
+            "name",
+        ),
+        ("co Full Spring", "co Full Spring upgraded", "Full", "name"),
     ] {
         let run = upgrade(&sandbox, input, &["--savefile", &save]);
         assert_eq!(run.exit_code(), 0, "{input}: {}", run.stdout());
         assert!(sandbox.path(output).is_dir(), "{input} -> {output}");
+        assert!(
+            run.stdout().contains(&format!(
+                "Info coverage_tag_chosen (tag={tag}, source={source})"
+            )),
+            "{input}: {}",
+            run.stdout()
+        );
     }
+}
+
+// EU-CLI-09
+#[test]
+fn coverage_flag_sets_the_tag_and_a_conflict_with_the_names_own_is_refused() {
+    let sandbox = Sandbox::new("cli_coverage_flag");
+    for name in ["co - Spring", "co Day 8 Additions", "co Full Spring"] {
+        old_export(&sandbox, name, Some("/co/"));
+        face(&sandbox, &format!("{name}/Faces/XXX05 - A"));
+    }
+    let save = sandbox.arg("EDIT");
+    sandbox.save("EDIT");
+
+    // An unknown value is refused at the parse.
+    upgrade(
+        &sandbox,
+        "co - Spring",
+        &["--savefile", &save, "--coverage", "all"],
+    )
+    .assert_refused(2, &["--coverage", "invalid value"]);
+
+    // The flag sets the tag in place of the name's guess.
+    let run = upgrade(
+        &sandbox,
+        "co - Spring",
+        &["--savefile", &save, "--coverage", "midcup"],
+    );
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert!(
+        sandbox.path("co Midcup - Spring").is_dir(),
+        "{}",
+        run.stdout()
+    );
+    assert!(
+        run.stdout()
+            .contains("Info coverage_tag_chosen (tag=Midcup, source=flag)"),
+        "{}",
+        run.stdout()
+    );
+    let run = upgrade(
+        &sandbox,
+        "co Day 8 Additions",
+        &["--savefile", &save, "--coverage", "full"],
+    );
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert!(
+        sandbox.path("co Full Day 8 Additions").is_dir(),
+        "{}",
+        run.stdout()
+    );
+    assert!(
+        run.stdout()
+            .contains("Info coverage_tag_chosen (tag=Full, source=flag)"),
+        "{}",
+        run.stdout()
+    );
+
+    // A name whose second word is already a tag keeps it: a flag naming the
+    // other tag is refused, and nothing is written.
+    let before = sandbox.listing("");
+    upgrade(
+        &sandbox,
+        "co Full Spring",
+        &["--savefile", &save, "--coverage", "midcup"],
+    )
+    .assert_refused(2, &["--coverage", "Full"]);
+    assert_eq!(sandbox.listing(""), before, "nothing is written");
+
+    // The flag naming the tag the name already carries is accepted, source
+    // `name`.
+    let run = upgrade(
+        &sandbox,
+        "co Full Spring",
+        &["--savefile", &save, "--coverage", "full"],
+    );
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert!(
+        sandbox.path("co Full Spring upgraded").is_dir(),
+        "{}",
+        run.stdout()
+    );
+    assert!(
+        run.stdout()
+            .contains("Info coverage_tag_chosen (tag=Full, source=name)"),
+        "{}",
+        run.stdout()
+    );
+}
+
+// EU-CLI-09
+#[test]
+fn a_referee_export_takes_no_coverage_flag_and_reports_no_tag() {
+    let sandbox = Sandbox::new("cli_refs_coverage");
+    sandbox.write("refs Spring/refs.txt", b"01 arbiter\n");
+    sandbox.write("refs Spring/Players/arbiter/boots.fmdl", b"boots");
+    let before = sandbox.listing("");
+
+    upgrade(&sandbox, "refs Spring", &["--coverage", "full"])
+        .assert_refused(2, &["--coverage", "referee export"]);
+    assert_eq!(sandbox.listing(""), before, "nothing is written");
+
+    let run = upgrade(&sandbox, "refs Spring", &[]);
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert!(
+        !run.stdout().contains("coverage_tag_chosen"),
+        "{}",
+        run.stdout()
+    );
 }
 
 // EU-CLI-08
@@ -251,13 +376,13 @@ fn an_output_folder_that_exists_or_cannot_be_created_is_refused() {
     assert_eq!(snapshot(&sandbox), before, "nothing is written");
 }
 
-// EU-CLI-05
+// EU-CLI-10
 #[test]
-fn a_staging_folder_that_exists_is_refused() {
+fn a_staging_folder_left_by_an_earlier_run_is_removed_and_reported() {
     let sandbox = Sandbox::new("cli_staging_exists");
     sandbox.copy_fixture_dir("co Spring", "co Spring");
-    // An abandoned staging folder of an earlier run: the run refuses before
-    // writing, and it is left as it was.
+    // An abandoned staging folder of an earlier run: the run removes it,
+    // reports it, and writes its output.
     fs::create_dir_all(sandbox.path("co Full Spring.upgrading")).unwrap();
     fs::write(
         sandbox.path("co Full Spring.upgrading/left.txt"),
@@ -267,14 +392,22 @@ fn a_staging_folder_that_exists_is_refused() {
     let save = sandbox.arg("EDIT");
     sandbox.save("EDIT");
 
-    let before = snapshot(&sandbox);
     let run = upgrade(&sandbox, "co Spring", &["--savefile", &save]);
-    // The refusal says what to do: `create_dir` alone would also fail with
-    // exit 3, but not tell the member that the folder is a run's leftover.
-    run.assert_refused(3, &["co Full Spring.upgrading", "remove it and run again"]);
-    assert_eq!(snapshot(&sandbox), before, "nothing is written");
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert!(sandbox.path("co Full Spring").is_dir(), "{}", run.stdout());
+    assert!(
+        !sandbox.path("co Full Spring.upgrading").exists(),
+        "the staging folder is gone: {}",
+        run.stdout()
+    );
+    assert!(
+        run.stdout().contains("staging_folder_removed")
+            && run.stdout().contains("co Full Spring.upgrading"),
+        "{}",
+        run.stdout()
+    );
 
-    // `upgrade-models` refuses its staging folder the same way.
+    // `upgrade-models` clears its staging folder the same way.
     fs::create_dir_all(sandbox.path("new models/XXX15 - A")).unwrap();
     fs::write(sandbox.path("new models/XXX15 - A/face.fmdl"), b"face").unwrap();
     fs::create_dir_all(sandbox.path("new models upgraded.upgrading")).unwrap();
@@ -284,13 +417,60 @@ fn a_staging_folder_that_exists_is_refused() {
     )
     .unwrap();
     let input = sandbox.arg("new models");
-    let before = snapshot(&sandbox);
     let run = sandbox.run(&["upgrade-models", &input]);
-    run.assert_refused(
-        3,
-        &["new models upgraded.upgrading", "remove it and run again"],
+    assert_eq!(run.exit_code(), 0, "{}", run.stdout());
+    assert!(
+        sandbox.path("new models upgraded").is_dir(),
+        "{}",
+        run.stdout()
     );
-    assert_eq!(snapshot(&sandbox), before, "nothing is written");
+    assert!(
+        !sandbox.path("new models upgraded.upgrading").exists(),
+        "the staging folder is gone: {}",
+        run.stdout()
+    );
+    assert!(
+        run.stdout().contains("staging_folder_removed")
+            && run.stdout().contains("new models upgraded.upgrading"),
+        "{}",
+        run.stdout()
+    );
+}
+
+#[cfg(windows)]
+// EU-CLI-10
+#[test]
+fn a_staging_folder_whose_removal_fails_aborts_the_run() {
+    use std::os::windows::fs::OpenOptionsExt;
+
+    // A file of the leftover staging folder held open without share-delete,
+    // as `staging.rs`'s `held_without_delete` opens it: Windows refuses the
+    // removal while the handle lives.
+    const FILE_SHARE_READ: u32 = 1;
+
+    let sandbox = Sandbox::new("cli_staging_held");
+    sandbox.copy_fixture_dir("co Spring", "co Spring");
+    fs::create_dir_all(sandbox.path("co Full Spring.upgrading")).unwrap();
+    let held = sandbox.path("co Full Spring.upgrading/held.txt");
+    fs::write(&held, b"held").unwrap();
+    let _lock = fs::File::options()
+        .read(true)
+        .share_mode(FILE_SHARE_READ)
+        .open(&held)
+        .unwrap();
+    let save = sandbox.arg("EDIT");
+    sandbox.save("EDIT");
+
+    let run = upgrade(&sandbox, "co Spring", &["--savefile", &save]);
+    run.assert_refused(3, &["co Full Spring.upgrading", "cannot remove"]);
+    assert!(
+        sandbox.path("co Full Spring.upgrading").exists(),
+        "the staging folder stays"
+    );
+    assert!(
+        !sandbox.path("co Full Spring").exists(),
+        "nothing is written"
+    );
 }
 
 // EU-CLI-07

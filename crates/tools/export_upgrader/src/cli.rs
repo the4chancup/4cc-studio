@@ -4,7 +4,7 @@
 
 use std::path::PathBuf;
 
-use clap::{Args, Command, FromArgMatches, Subcommand};
+use clap::{Args, Command, FromArgMatches, Subcommand, ValueEnum};
 use studio_core::{CliError, ToolContext};
 
 use crate::messages::TOOL_ID;
@@ -36,7 +36,7 @@ enum ExportUpgraderCommand {
     UpgradeModels(UpgradeModelsArgs),
 }
 
-/// `upgrade <export> (--savefile <EDIT> | --loose) [-o <dir>]`.
+/// `upgrade <export> (--savefile <EDIT> | --loose) [--coverage full|midcup] [-o <dir>]`.
 #[derive(Debug, Args)]
 pub(crate) struct UpgradeArgs {
     /// The old export: a folder, a .zip or a .7z.
@@ -49,10 +49,33 @@ pub(crate) struct UpgradeArgs {
     /// team's old block.
     #[arg(long)]
     pub(crate) loose: bool,
+    /// The coverage tag the output's name takes, instead of the one guessed
+    /// from the old name.
+    #[arg(long, value_enum)]
+    pub(crate) coverage: Option<Coverage>,
     /// The folder the output goes in, created when missing; the input's own
     /// folder by default.
     #[arg(short, long, value_name = "DIR")]
     pub(crate) output: Option<PathBuf>,
+}
+
+/// `--coverage`'s value: the coverage tag the output's name takes.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, ValueEnum)]
+pub(crate) enum Coverage {
+    /// Everything the team has.
+    Full,
+    /// Additions: only what the export holds.
+    Midcup,
+}
+
+impl Coverage {
+    /// The flag's value as typed, for refusal messages.
+    pub(crate) fn as_str(self) -> &'static str {
+        match self {
+            Coverage::Full => "full",
+            Coverage::Midcup => "midcup",
+        }
+    }
 }
 
 /// `upgrade-models <folder> [-o <dir>]`.

@@ -2546,8 +2546,8 @@ briefs, review loops, gates and mutation runs as for any step.
   violations of the PES 17 fixture's team where it has them); the draft (`tools/save_editor.js`)
   the same first, for the maintainer's look
 - [ ] 0.0.1p the upgrader's accepted CLI items for VGL 27's managers (P17, P18, P21; DECISIONS
-  "Usability proposals P17-P24 and P32-P38 accepted"; `plans/export_upgrader.md` "What it does"'s
-  last paragraph, "CLI", "Message catalog"), one commit each:
+  "Usability proposals P17-P24 and P32-P38 accepted"; built: `spec/export_upgrader.md` step
+  10, "CLI", "Message catalog"), one commit each:
   - [x] p1 `unmigrated_content`'s `reason` and `other`: first the list of emission sites, each
     given its value → verify: EU-REP-05; every reason reached by a test (the existing
     fixtures' refusals first), `other` on the two-candidate ones. Code done 2026-10-26
@@ -2561,9 +2561,22 @@ briefs, review loops, gates and mutation runs as for any step.
     brief. Files: `export_upgrader/src/{messages,players,kits,carried,materials,
     referees,model_folders,kit_magic,upgrade}.rs`, `tests/cli/*.rs`, `help/01_command_line.md`,
     `spec/export_upgrader.md`
-  - [ ] p2 `coverage_tag_chosen` and `--coverage full|midcup` → verify: EU-CLI-09
-  - [ ] p3 a leftover staging folder removed with `staging_folder_removed` → verify:
-    EU-CLI-10 (EU-CLI-05's staging clause replaced); a finished output still refused
+  - [x] p2 `coverage_tag_chosen` and `--coverage full|midcup` → verify: EU-CLI-09. Done
+    2026-10-26 (SWE-2, one rework: `name` outranks the substring, so `co midcup Day 5`
+    reports `name`): `naming::coverage_choice` returns the tag and its `TagSource`
+    beside the output name, so the name and the report cannot disagree; a flag naming the
+    other tag than the name's second word, or any flag on a referee export, exits 2
+  - [x] p3 a leftover staging folder removed with `staging_folder_removed` → verify:
+    EU-CLI-10 (EU-CLI-05's staging clause replaced); a finished output still refused. Done
+    2026-10-26 with p2 (one commit): `claim_staging` removes the leftover through the finish
+    step's lock retry and returns whether it did; a removal that stays locked exits 3 (a
+    Windows-only test holds a file open). The built additions moved to
+    `spec/export_upgrader.md` "CLI", "Message catalog" and step 10 (the plan keeps "Several
+    exports at once" and the GUI). p1's missed `stem_clashes` mutant has its test
+    (`referees.rs`). Open: `just mutants-diff 57ae9811`. Files:
+    `export_upgrader/src/{cli,naming,staging,upgrade,model_folders,messages,referees}.rs`,
+    `tests/cli/cli.rs`, `tests/upgraded_golden.rs`, `help/01_command_line.md`,
+    `spec/export_upgrader.md`, `plans/export_upgrader.md`
 - [ ] 0.0.1q the window reopens where it was closed (P24; `plans/core/gui.md` "Window size
   classes", ST-WIN-04; after 0.0.1m, the same code): the main class's `window_main` now, the
   special class's with the Music player's view. First how eframe 0.37 lets the shell learn the
@@ -2592,7 +2605,9 @@ briefs, review loops, gates and mutation runs as for any step.
     banner replaced by a Warning notice in the status bar, `Switch to PES 20xx` its action and
     its dismiss the close (changes SE-GUI-28 and l3's item 3 once approved); no view draws
     its own title, the window's idle title becoming `<tool> - <app>` (`core/gui.md` "Window
-    title", `shell/title.rs`, once approved)
+    title", `shell/title.rs`, once approved); the bench list showing players only (12 for a
+    4cc team), not the 21 `bench_order` entries with 9 `(empty)` (team_widgets
+    `pitch/lineup.rs` draws them all too, once approved)
   - [ ] s2 `plans/save_editor.md` "Editing UI" rewritten from the approved draft, DECISIONS,
     the SE-GUI scenarios naming tabs rewritten
   - [ ] s3 the code, in slices (the view's frame and the team row; the player view's

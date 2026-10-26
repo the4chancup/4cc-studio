@@ -1,6 +1,8 @@
 //! The staging folder (`spec/export_upgrader.md` "CLI"): the output written
 //! under `<name>.upgrading` beside where it goes, renamed to the output by a
-//! clean verdict, so no reader sees a half-written export under its name.
+//! clean verdict, so no reader sees a half-written export under its name. An
+//! earlier run's leftover is removed at the claim, never a finished output's
+//! place kept.
 
 use std::fs;
 use std::io;
@@ -13,13 +15,18 @@ use crate::upgrade::aborted;
 
 /// The claim on the output folder both commands make before anything is
 /// written, one rule for both modes: an existing `output` is refused rather
-/// than replaced, an existing staging folder is refused (an aborted run left
-/// it, or another run is writing it), `output`'s missing parent is made (the
-/// default output sits beside the input, whose parent exists by definition),
-/// and the staging folder is created with `create_dir`, so one that appeared
-/// between the check and the create is never written into. `output` has a
-/// folder name: `upgrade`'s always does, `upgrade-models` checks it first.
-pub(crate) fn claim_staging(output: &Path) -> Result<PathBuf, CliError> {
+/// than replaced; a staging folder an earlier run left is removed, retried
+/// while locked as the finish step's removals are (a removal that stays
+/// locked aborts, naming the folder and the error: a second run writing it
+/// at that moment loses this run, never a finished output); `output`'s
+/// missing parent is made (the default output sits beside the input, whose
+/// parent exists by definition); and the staging folder is created with
+/// `create_dir`, so one that appeared between the removal and the create is
+/// never written into. Returns the staging folder and whether a leftover
+/// was removed, for the caller's `staging_folder_removed` report. `output`
+/// has a folder name: `upgrade`'s always does, `upgrade-models` checks it
+/// first.
+pub(crate) fn claim_staging(output: &Path) -> Result<(PathBuf, bool), CliError> {
     if output.exists() {
         return Err(aborted(anyhow!(
             "{}: the output folder already exists",
@@ -31,11 +38,17 @@ pub(crate) fn claim_staging(output: &Path) -> Result<PathBuf, CliError> {
         .expect("`output` has a folder name (the caller checked)")
         .to_string_lossy();
     let staging = output.with_file_name(format!("{name}.upgrading"));
+    let mut removed = false;
     if staging.exists() {
-        return Err(aborted(anyhow!(
-            "{}: the staging folder already exists: an aborted run left it, or another run is writing it; remove it and run again",
-            staging.display()
-        )));
+        // A leftover of an earlier run, never a finished output: removed
+        // rather than refused, and the caller reports it.
+        retry_while_locked(|| fs::remove_dir_all(&staging)).map_err(|error| {
+            aborted(anyhow!(
+                "{}: cannot remove the leftover staging folder: {error}",
+                staging.display()
+            ))
+        })?;
+        removed = true;
     }
     if let Some(parent) = output.parent()
         && !parent.as_os_str().is_empty()
@@ -54,13 +67,13 @@ pub(crate) fn claim_staging(output: &Path) -> Result<PathBuf, CliError> {
             staging.display()
         ))
     })?;
-    Ok(staging)
+    Ok((staging, removed))
 }
 
 /// Writes `bytes` to `staging`'s file at `relative`, parent folders created;
 /// a failure is the aborted code naming the file and saying the staged
-/// output is incomplete: it is left for the user to remove, since a second
-/// run refuses an existing staging folder.
+/// output is incomplete: the folder is left as it is, and the next run of
+/// the same output removes it.
 pub(crate) fn write_output_file(
     staging: &Path,
     relative: &str,
@@ -89,8 +102,8 @@ pub(crate) fn write_output_file(
 /// (`spec/export_upgrader.md` "CLI"): a clean run's is renamed to the
 /// output, so no reader ever sees a half-written export under the output's
 /// name; an unclean run's is removed, nothing written. A failure aborts,
-/// the incomplete staging folder left for the user to remove, as a mid-run
-/// abort's is.
+/// the incomplete staging folder left, as a mid-run abort's is, for the next
+/// run of the same output to remove.
 pub(crate) fn finish_staging(staging: &Path, output: &Path, clean: bool) -> Result<(), CliError> {
     if clean {
         retry_while_locked(|| fs::rename(staging, output)).map_err(|error| {
