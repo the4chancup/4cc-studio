@@ -106,27 +106,40 @@ pub(super) fn place_of(
     })
 }
 
-/// Whether `place`'s title bar (the window's width over the top `TITLE_BAR_PX` pixels at
-/// 100%, both scaled by the record's scale) overlaps one of `monitors` (physical pixels) with
-/// a positive area; an empty list (a frame with no window to ask) trusts the place.
+/// A monitor of the window's screen: its rectangle and its scale factor, the two
+/// units the title-bar check needs one of each for.
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn on_a_monitor(place: &WindowPlace, monitors: &[egui::Rect]) -> bool {
-    let bar = egui::Rect::from_min_size(
-        place.position(),
-        egui::vec2(place.width, TITLE_BAR_PX) * place.scale,
-    );
+pub(super) struct Monitor {
+    /// The monitor's rectangle in the screen's physical pixels.
+    rect: egui::Rect,
+    /// The monitor's scale factor (native pixels per point), which sizes the
+    /// title bar the check builds for it: the window's points stand at this
+    /// scale's pixels while it sits on this monitor.
+    scale: f32,
+}
+
+/// Whether `place`'s title bar (the window's width over the top `TITLE_BAR_PX` pixels at
+/// 100%, sized by each monitor's own scale, the pixels the window stands at while it
+/// sits there) overlaps that monitor's rectangle (physical pixels) with a positive
+/// area; an empty list (a frame with no window to ask) trusts the place.
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn on_a_monitor(place: &WindowPlace, monitors: &[Monitor]) -> bool {
     monitors.is_empty()
-        || monitors
-            .iter()
-            .any(|monitor| monitor.intersect(bar).is_positive())
+        || monitors.iter().any(|monitor| {
+            let bar = egui::Rect::from_min_size(
+                place.position(),
+                egui::vec2(place.width, TITLE_BAR_PX) * monitor.scale,
+            );
+            monitor.rect.intersect(bar).is_positive()
+        })
 }
 
 /// What the first frame does with the remembered `place` the window was created at:
 /// resend its position when its title bar lies on one of `monitors` (the window's monitors,
-/// in physical pixels), else fit and center the window as a first start does. An empty
-/// list, a frame with no window to ask, trusts the place.
+/// each its rectangle and scale), else fit and center the window as a first start does. An
+/// empty list, a frame with no window to ask, trusts the place.
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn place_or_fit(place: WindowPlace, monitors: &[egui::Rect]) -> Opening {
+pub(super) fn place_or_fit(place: WindowPlace, monitors: &[Monitor]) -> Opening {
     if on_a_monitor(&place, monitors) {
         Opening::Place(place)
     } else {
@@ -134,10 +147,10 @@ pub(super) fn place_or_fit(place: WindowPlace, monitors: &[egui::Rect]) -> Openi
     }
 }
 
-/// The monitors of `frame`'s window, each its rectangle in the screen's physical pixels;
-/// empty when the frame has no window (a test's frame).
+/// The monitors of `frame`'s window, each its rectangle in the screen's physical pixels
+/// and its scale factor; empty when the frame has no window (a test's frame).
 #[cfg(not(target_arch = "wasm32"))]
-pub(super) fn monitors(frame: &eframe::Frame) -> Vec<egui::Rect> {
+pub(super) fn monitors(frame: &eframe::Frame) -> Vec<Monitor> {
     let Some(window) = frame.winit_window() else {
         return Vec::new();
     };
@@ -146,11 +159,15 @@ pub(super) fn monitors(frame: &eframe::Frame) -> Vec<egui::Rect> {
         .map(|monitor| {
             let position = monitor.position();
             let size = monitor.size();
-            // Screen coordinates are far inside f32's exact integer range.
-            egui::Rect::from_min_size(
-                egui::pos2(position.x as f32, position.y as f32),
-                egui::vec2(size.width as f32, size.height as f32),
-            )
+            // Screen coordinates are far inside f32's exact integer range, and a
+            // scale factor (an f64 like 1.0, 1.25, 2.0) fits in one too.
+            Monitor {
+                rect: egui::Rect::from_min_size(
+                    egui::pos2(position.x as f32, position.y as f32),
+                    egui::vec2(size.width as f32, size.height as f32),
+                ),
+                scale: monitor.scale_factor() as f32,
+            }
         })
         .collect()
 }
@@ -423,7 +440,8 @@ mod tests {
 
     #[test]
     fn the_title_bar_check_overlaps_a_monitor_with_a_positive_area() {
-        let monitor = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0));
+        let at_scale = |rect: egui::Rect, scale: f32| Monitor { rect, scale };
+        let primary = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0));
         let place = |x: f32, y: f32| WindowPlace {
             x,
             y,
@@ -431,23 +449,45 @@ mod tests {
             height: 700.0,
             scale: 1.0,
         };
-        assert!(on_a_monitor(&place(100.0, 50.0), &[monitor]));
-        assert!(!on_a_monitor(&place(2500.0, 50.0), &[monitor]));
+        assert!(on_a_monitor(&place(100.0, 50.0), &[at_scale(primary, 1.0)]));
+        assert!(!on_a_monitor(
+            &place(2500.0, 50.0),
+            &[at_scale(primary, 1.0)]
+        ));
         let monitors = [
-            egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(3840.0, 2160.0)),
-            egui::Rect::from_min_size(egui::pos2(-1920.0, 328.0), egui::vec2(1920.0, 1080.0)),
+            at_scale(
+                egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(3840.0, 2160.0)),
+                1.0,
+            ),
+            at_scale(
+                egui::Rect::from_min_size(egui::pos2(-1920.0, 328.0), egui::vec2(1920.0, 1080.0)),
+                1.0,
+            ),
         ];
         assert!(on_a_monitor(&place(-1800.0, 400.0), &monitors));
         // The bar's left 120 pixels over the bottom 10 still count.
-        assert!(on_a_monitor(&place(1800.0, 1070.0), &[monitor]));
+        assert!(on_a_monitor(
+            &place(1800.0, 1070.0),
+            &[at_scale(primary, 1.0)]
+        ));
         // A bar starting on the monitor's right edge does not.
-        assert!(!on_a_monitor(&place(1920.0, 50.0), &[monitor]));
+        assert!(!on_a_monitor(
+            &place(1920.0, 50.0),
+            &[at_scale(primary, 1.0)]
+        ));
         // The bar's lower 12 pixels reach into the monitor from above.
-        assert!(on_a_monitor(&place(100.0, -20.0), &[monitor]));
+        assert!(on_a_monitor(
+            &place(100.0, -20.0),
+            &[at_scale(primary, 1.0)]
+        ));
         // The bar ends 8 pixels above the monitor, although the window below it
         // reaches in.
-        assert!(!on_a_monitor(&place(100.0, -40.0), &[monitor]));
-        // At 200% the 1100-point bar is 2200 pixels: it reaches x = 100.
+        assert!(!on_a_monitor(
+            &place(100.0, -40.0),
+            &[at_scale(primary, 1.0)]
+        ));
+        // On a 200% monitor the 1100-point bar is 2200 pixels: it reaches
+        // x = 100, 100 pixels past the monitor's left edge.
         let scaled = WindowPlace {
             x: -2100.0,
             y: 50.0,
@@ -455,17 +495,51 @@ mod tests {
             height: 700.0,
             scale: 2.0,
         };
-        assert!(on_a_monitor(&scaled, &[monitor]));
+        let four_k = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(3840.0, 2160.0));
+        assert!(on_a_monitor(&scaled, &[at_scale(four_k, 2.0)]));
+        // Each monitor's own scale sizes the bar tested against it: a place
+        // recorded on a 200% monitor straddling the 100% primary stands, that
+        // monitor unplugged, at its points over the primary's scale, so its
+        // bar is -2000..-900 pixels, on no monitor.
+        let straddler = WindowPlace {
+            x: -2000.0,
+            y: 50.0,
+            width: 1100.0,
+            height: 700.0,
+            scale: 2.0,
+        };
+        let left_200 =
+            egui::Rect::from_min_size(egui::pos2(-3840.0, 0.0), egui::vec2(3840.0, 2160.0));
+        assert!(!on_a_monitor(&straddler, &[at_scale(primary, 1.0)]));
+        // With the 200% monitor still up, the bar -2000..200 lies on it.
+        assert!(on_a_monitor(
+            &straddler,
+            &[at_scale(primary, 1.0), at_scale(left_200, 2.0)]
+        ));
         assert!(
             on_a_monitor(&place(2500.0, 50.0), &[]),
             "an empty list trusts the place"
         );
 
         assert_eq!(
-            place_or_fit(place(100.0, 50.0), &[monitor]),
+            place_or_fit(place(100.0, 50.0), &[at_scale(primary, 1.0)]),
             Opening::Place(place(100.0, 50.0)),
         );
-        assert_eq!(place_or_fit(place(2500.0, 50.0), &[monitor]), Opening::Fit);
+        assert_eq!(
+            place_or_fit(place(2500.0, 50.0), &[at_scale(primary, 1.0)]),
+            Opening::Fit
+        );
+        assert_eq!(
+            place_or_fit(straddler, &[at_scale(primary, 1.0)]),
+            Opening::Fit
+        );
+        assert_eq!(
+            place_or_fit(
+                straddler,
+                &[at_scale(primary, 1.0), at_scale(left_200, 2.0)]
+            ),
+            Opening::Place(straddler),
+        );
         assert_eq!(
             place_or_fit(place(2500.0, 50.0), &[]),
             Opening::Place(place(2500.0, 50.0)),
@@ -653,10 +727,10 @@ mod tests {
         assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
         assert!(!options.centered, "created where it closed, not centered");
         app.monitors = |_| {
-            vec![egui::Rect::from_min_size(
-                egui::Pos2::ZERO,
-                egui::vec2(1920.0, 1080.0),
-            )]
+            vec![Monitor {
+                rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
+                scale: 1.0,
+            }]
         };
         let restart_ctx = test_context();
         let out = placed_frame(
@@ -719,10 +793,10 @@ mod tests {
         // (2500, 50) puts the title bar past the 1920 monitor's right edge:
         // the first frame drops the place for the fit of ST-WIN-01's first row.
         app.monitors = |_| {
-            vec![egui::Rect::from_min_size(
-                egui::Pos2::ZERO,
-                egui::vec2(1920.0, 1080.0),
-            )]
+            vec![Monitor {
+                rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
+                scale: 1.0,
+            }]
         };
         let out = monitor_frame(&egui_ctx, &mut app, Some(egui::vec2(1920.0, 1080.0)));
         assert_eq!(
@@ -765,14 +839,14 @@ mod tests {
         let Shell { mut app, _dir, .. } = shell();
         let dir = _dir.as_ref().unwrap().path().to_path_buf();
 
-        // The same 1100 × 700 window at (100, 50) on a 200% display: the
+        // A 2200 × 1400 pixel window at (100, 50) on a 200% display: the
         // record holds the points and the scale.
         for _ in 0..3 {
             placed_frame(
                 &egui_ctx,
                 &mut app,
                 egui::pos2(100.0, 50.0),
-                egui::vec2(1100.0, 700.0),
+                egui::vec2(2200.0, 1400.0),
                 2.0,
                 false,
             );
@@ -785,8 +859,8 @@ mod tests {
             Some(WindowPlace {
                 x: 100.0,
                 y: 50.0,
-                width: 550.0,
-                height: 350.0,
+                width: 1100.0,
+                height: 700.0,
                 scale: 2.0,
             }),
         );
@@ -802,14 +876,14 @@ mod tests {
         );
         let options = app.opening();
         assert_eq!(options.viewport.position, Some(egui::pos2(50.0, 25.0)));
-        assert_eq!(options.viewport.inner_size, Some(egui::vec2(550.0, 350.0)));
+        assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
         assert!(!options.centered);
         let restart_ctx = test_context();
         let out = placed_frame(
             &restart_ctx,
             &mut app,
             egui::pos2(100.0, 50.0),
-            egui::vec2(1100.0, 700.0),
+            egui::vec2(2200.0, 1400.0),
             2.0,
             false,
         );

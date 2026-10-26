@@ -2565,3 +2565,5 @@ worklog passed 7,000 lines.
   reader (`QUESTIONS.md`) (0.0.1q-q1).
 - **2026-10-26** — A remembered window place on no monitor now opens fitted: the first frame checks it against the
   window's own monitor list, which eframe gives once the window exists, so no `unsafe` reader is needed (0.0.1q-q2).
+- **2026-10-26** — A window remembered half on a 200% monitor that is since unplugged no longer reopens off-screen: the
+  title bar is checked at each monitor's own scale (0.0.1q-q3, Astra A1).

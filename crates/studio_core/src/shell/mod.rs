@@ -127,7 +127,7 @@ pub struct StudioApp {
     /// Reads the screen's monitors from the frame's window (`window_size::monitors`); a
     /// test replaces it with a fixed list, since a test's frame has no window.
     #[cfg(not(target_arch = "wasm32"))]
-    monitors: fn(&eframe::Frame) -> Vec<egui::Rect>,
+    monitors: fn(&eframe::Frame) -> Vec<window_size::Monitor>,
     /// The first-run data-location dialog's state.
     first_run: FirstRun,
 }

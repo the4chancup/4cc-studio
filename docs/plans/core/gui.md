@@ -79,7 +79,11 @@ shell remembers each class's last size and position, across runs as most desktop
 switching from a tool of one class to a tool of the other restores the other's (its declared
 size, centered, the first time), so a streamer's compact window comes back where they left
 it, and the window opens in the class of the tool it opens on (the last active one,
-ST-RUN-02) at that class's remembered place. A class never used opens at its design size
+ST-RUN-02) at that class's remembered place. A remembered size larger than every monitor
+reopens at the largest monitor's size: eframe's creation clamp
+(`clamp_size_to_monitor_size`, on by default) is kept, so a window stretched over two
+monitors never reopens past a lone monitor's edge once one is unplugged. A class never used
+opens at its design size
 (1280 × 800 for the main class, a special tool's declared size), fitted and centered as
 above. A remembered place whose title bar lies on no monitor now (a second monitor
 unplugged) is dropped for the fit, so the window is never opened out of reach. `monitor_size`
@@ -96,8 +100,9 @@ position with the primary's scale lands the window on a monitor for that one fra
 one-frame correction a mixed-scale desk sees below. The check is one pure function the first frame calls with the window's
 list and the tests call with a list of their own (a function pointer on the shell, the one seam,
 since a test's frame has no window): the title bar, the window's width over the top 32 pixels
-at 100% scaled by the record's scale, overlaps a monitor's rectangle; an empty list, a frame
-with no window to ask, trusts the place. Both places are shell state in the
+at 100%, scaled by each monitor's own scale (the window's size in pixels once it sits there),
+overlaps that monitor's rectangle; an empty list, a frame with no window to ask, trusts the
+place. Both places are shell state in the
 settings file, `window_main` and `window_special`, each a list of five numbers
 `[x, y, width, height, scale]`: the outer position in the screen's physical pixels, because a
 point is a different number of pixels on each monitor and Windows and X11 place windows in
@@ -870,8 +875,9 @@ ST-WIN-04   GIVEN a main tool active and the window moved to (100, 50) and resiz
             THEN the settings file holds window_main as [100, 50, 1100, 700, 1], the native
                  window's options carry the position (100, 50) and the inner size 1100 × 700
                  and are not centered, and the first frame sends the outer position (100, 50)
-                 and no size, not the fit's; GIVEN the same on a 200% display THEN window_main is
-                 [100, 50, 550, 350, 2], the options' position (50, 25) and the first frame's
+                 and no size, not the fit's; GIVEN the same on a 200% display, the window
+                 2200 × 1400 pixels THEN window_main is [100, 50, 1100, 700, 2], the
+                 options' position (50, 25) and inner size 1100 × 700, and the first frame's
                  (50, 25); GIVEN the window maximized when it closes THEN window_main is the
                  place it had before the maximize; GIVEN a remembered place whose title bar
                  lies on none of the window's monitors THEN the window is created at the place

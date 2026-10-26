@@ -2703,6 +2703,13 @@ briefs, review loops, gates and mutation runs as for any step.
     holds on a desk of one scale only; wording fixed). Files:
     `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`, `DECISIONS.md`,
     `QUESTIONS.md`
+  - [x] q3 Astra round A1's rework (`.tmp/0_0_1q/brief_0_0_1q_a1.md`; 2 of 3 accepted,
+    `.tmp/0_0_1q/rulings.md`): the title bar measured at each monitor's own scale (a place
+    recorded on a 200% monitor straddling a 100% primary passed the check once the 200%
+    monitor was unplugged, then opened off every monitor), and ST-WIN-04's 200% clause at a
+    size a member reaches (2200 x 1400 pixels; 550 x 350 points sat under the minimum); the
+    plan says eframe's creation clamp is kept. Done 2026-10-26 (SWE-2). Open: the post-Astra
+    SWE-2 round. Files: `studio_core/src/shell/{mod,window_size}.rs`, `plans/core/gui.md`
 - [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version
