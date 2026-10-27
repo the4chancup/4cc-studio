@@ -2592,3 +2592,5 @@ worklog passed 7,000 lines.
   the Substitution combo offers the four there, and the question narrows to PES 2018 to 2020.
 - **2026-10-27** — The player view's last look built (0.0.1s4, SWE-2): Left | Right toggles, the positions' full names, `Cards left for`,
   Motion in two columns, the FPC wording, the quick actions' two columns, Captain centred, the view to the pane's bottom.
+- **2026-10-27** — o2a's Astra round (3 of 3 accepted) in rework r5 (SWE-2): the toggle reads `▶ Live AATF`, and a table test
+  puts each field's cross on its own control's row. The Tactics grid (s5) sliced into s5a-s5e.

@@ -638,10 +638,11 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         menus::savefile_menu(ui, view);
         menus::panels_menu(ui, view);
         // The Live AATF toggle as a framed button (the plan's Live AATF
-        // bullet): the check's `✔` then the name, the selection fill
-        // while on — a selectable label read as a label beside the menus.
+        // bullet): the play sign (`▶`) then the name — a check mark
+        // beside it read as on while it was off — the selection fill
+        // while on; a selectable label read as a label beside the menus.
         if ui
-            .add(egui::Button::new("\u{2714} Live AATF").selected(view.live_aatf))
+            .add(egui::Button::new("\u{25b6} Live AATF").selected(view.live_aatf))
             .on_hover_text(
                 "Check the open team after every edit, in a panel at the bottom (the setting is \
                  remembered)",

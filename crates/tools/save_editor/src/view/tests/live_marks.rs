@@ -347,7 +347,7 @@ fn held_violations_is_one_teams_ok_result_while_on() {
     assert_eq!(held(&check, Some(&rules)), None, "nothing held yet");
 }
 
-/// The toggle is a framed `✔ Live AATF` button; the list marks the
+/// The toggle is a framed `▶ Live AATF` button; the list marks the
 /// broken player's row `✖` and a clean one's `✔`; the selected player's
 /// field the violation is about carries a cross whose tooltip is the
 /// violation's own line; fixing it clears the marks; off, none are
@@ -362,7 +362,7 @@ fn the_marks_follow_the_held_check() {
     // the selection fill on.
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let toggle = node_labeled(&nodes, Role::Button, "\u{2714} Live AATF");
+    let toggle = node_labeled(&nodes, Role::Button, "\u{25b6} Live AATF");
     let bounds = toggle.bounds().expect("the toggle's bounds");
     assert_eq!(
         fill_at(&shapes, bounds),
@@ -737,6 +737,176 @@ fn a_second_half_fields_cross_stands_at_its_label_columns_end() {
         cross.pos.x + cross.galley.rect.width(),
         form.x0 + column
     );
+}
+
+/// One violation alone on the selected player: exactly one `✖` painted
+/// in the view (right of the list), its vertical centre on the named
+/// control's row — SE-GUI-36's "the cross beside the field the
+/// violation is about" for every field a kind reaches but `Pitch` and
+/// `Stat` (tested elsewhere). Where a second field shares the row (the
+/// pairs' halves, the label-left rows) the cross is also pinned on x.
+#[test]
+fn each_fields_cross_stands_beside_its_control() {
+    use aatf::ViolationKind as K;
+    /// How the row's cross is pinned on x: its y is checked against the
+    /// labelled row's bounds either way.
+    enum Limit {
+        /// Its right edge stays left of the named control's x centre
+        /// (`control_right_of`): a first-half pair, a combo's row.
+        LeftOfControl,
+        /// Its left edge is past the label's end and its right edge is
+        /// left of its control's x centre: a second-half pair.
+        AfterLabelLeftOfControl,
+        /// The Name field: the counted label carries the counts, so the
+        /// row and the centre come from its input.
+        LeftOfNameField,
+        /// The row's y range alone: a panel header, the badge.
+        Row,
+    }
+    let cases: &[(K, &str, Limit)] = &[
+        (K::Height { height: 183 }, "Height", Limit::LeftOfControl),
+        (
+            K::Age {
+                age: 30,
+                min: 15,
+                max: 50,
+            },
+            "Age",
+            Limit::LeftOfControl,
+        ),
+        (
+            K::Weight {
+                weight: 80,
+                min: 30,
+                max: 100,
+            },
+            "Weight",
+            Limit::LeftOfControl,
+        ),
+        (
+            K::InjuryResistance { value: 2, max: 1 },
+            "Injury resistance",
+            Limit::LeftOfControl,
+        ),
+        (
+            K::WeakFootUsage { value: 3, max: 2 },
+            "Weak foot: Usage",
+            Limit::LeftOfControl,
+        ),
+        (
+            K::Form {
+                value: 2,
+                target: 4,
+            },
+            "Form",
+            Limit::AfterLabelLeftOfControl,
+        ),
+        (
+            K::WeakFootAccuracy { value: 3, max: 2 },
+            "Accuracy",
+            Limit::AfterLabelLeftOfControl,
+        ),
+        (
+            K::NameColor {
+                color: Some("cc9900ff".to_owned()),
+                expected: None,
+            },
+            "Name",
+            Limit::LeftOfNameField,
+        ),
+        (
+            K::RegisteredNotA,
+            "Registered position",
+            Limit::LeftOfControl,
+        ),
+        (K::PlayingStyleRange, "Playing style", Limit::LeftOfControl),
+        (K::BRating, "Playable positions", Limit::Row),
+        (K::SkillCardCap { count: 11, max: 10 }, "Skills", Limit::Row),
+        (
+            K::ComStyleCap { count: 3, max: 2 },
+            "COM playing styles",
+            Limit::Row,
+        ),
+        (K::Cards { paid: 4, limit: 3 }, "Cards left for", Limit::Row),
+    ];
+    let (mut view, mut window) = open_734("live_marks_each_field");
+    view.live_aatf = true;
+    let revision = view.session.as_ref().expect("the save opened").revision();
+    for (kind, label, limit) in cases {
+        view.live.check.result = Some((
+            aatf_check::CheckKey {
+                revision,
+                ids: vec![734],
+                rules_file: None,
+            },
+            vec![Ok(vec![violation(
+                Some(0),
+                aatf::Severity::Error,
+                kind.clone(),
+            )])],
+        ));
+        // The dock's bottom panel can clip a low control (the COM header
+        // at ~582 sits below it at 800 tall): scroll the label into
+        // view, a no-op when it already shows.
+        scroll_into_view(&mut window, &mut view, |node| {
+            node.value().is_some_and(|value| {
+                if matches!(limit, Limit::LeftOfNameField) {
+                    value.starts_with("Name (")
+                } else {
+                    value == *label
+                }
+            })
+        });
+        let (_, nodes, shapes) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        let crosses: Vec<_> = mark_shapes(&shapes, "\u{2716}")
+            .into_iter()
+            .filter(|shape| f64::from(shape.pos.x) > 250.0)
+            .collect();
+        let [cross] = *crosses.as_slice() else {
+            panic!(
+                "{kind:?}: expected one `✖` in the view, got {}",
+                crosses.len()
+            )
+        };
+        let centre_y = f64::from(cross.pos.y + cross.galley.rect.height() / 2.0);
+        let row = if matches!(limit, Limit::LeftOfNameField) {
+            name_field(&nodes)
+                .bounds()
+                .expect("the Name field's bounds")
+        } else {
+            label_bounds(&nodes, label)
+        };
+        assert!(
+            centre_y >= row.y0 - 4.0 && centre_y <= row.y1 + 4.0,
+            "{kind:?}: the cross's centre ({centre_y}) is on {label:?}'s row ({row:?})"
+        );
+        let cross_right = f64::from(cross.pos.x + cross.galley.rect.width());
+        match limit {
+            Limit::LeftOfControl | Limit::AfterLabelLeftOfControl => {
+                if matches!(limit, Limit::AfterLabelLeftOfControl) {
+                    assert!(
+                        f64::from(cross.pos.x) >= row.x1 - 0.5,
+                        "{kind:?}: the cross is right of {label:?}'s end"
+                    );
+                }
+                let centre = f64::from(centre(control_right_of(&nodes, label)).x);
+                assert!(
+                    cross_right <= centre + 0.5,
+                    "{kind:?}: the cross ({cross_right}) is left of {label:?}'s control's \
+                     centre ({centre})"
+                );
+            }
+            Limit::LeftOfNameField => {
+                let centre = f64::from(centre(name_field(&nodes)).x);
+                assert!(
+                    cross_right <= centre + 0.5,
+                    "{kind:?}: the cross ({cross_right}) is left of the Name field's centre"
+                );
+            }
+            Limit::Row => {}
+        }
+    }
 }
 
 /// A warning-only violation's cross draws in the warning colour: the

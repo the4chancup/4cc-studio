@@ -2665,8 +2665,13 @@ briefs, review loops, gates and mutation runs as for any step.
       suggestion through the severity filter, the mark centred on its row, the truncation's gap
       on a run of '.', a second-half field's cross, a selected team row's fill; the card columns
       aligned past PES 17's disabled cells (`team_widgets`, the maintainer's request); the AATF
-      worker's test deadline 120 s. Rulings `.tmp/0_0_1o/o2a_rulings.md`. Open: Astra over
-      o2a (checkpoint b), then one `mutants-diff dc02a76e`
+      worker's test deadline 120 s. Rulings `.tmp/0_0_1o/o2a_rulings.md`. Astra round A1 (3
+      of 3 accepted, its loop ends) in rework r5, 2026-10-27 (SWE-2): the toggle reads `▶ Live
+      AATF` as the plan says; one table test puts a lone violation's cross on its own control's
+      row for every field a kind reaches but the pitch and the stats, pinned on x where two
+      fields share a row (red: Age's control handed Weight's field, the COM header's marks
+      dropped). Files: `view/mod.rs`, `view/tests/{live_marks,live_aatf}.rs`. Open: the
+      post-Astra SWE-2 loop, then one `mutants-diff dc02a76e`
     - [ ] o2b the pitch's cross for `FieldedNotA` and the dock row selecting his team's row
       on the named preset's first formation; after the Tactics tab's new layout (the
       maintainer's request of 2026-10-26, drafted first)

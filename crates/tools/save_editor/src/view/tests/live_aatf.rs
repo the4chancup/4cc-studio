@@ -202,7 +202,7 @@ fn the_toggle_is_remembered_in_the_settings() {
         &mut window,
         &mut tool,
         &ctx,
-        node_labeled(&nodes, Role::Button, "\u{2714} Live AATF"),
+        node_labeled(&nodes, Role::Button, "\u{25b6} Live AATF"),
     );
     let table = ctx.tool_settings("save-editor");
     assert_eq!(
@@ -231,7 +231,7 @@ fn the_toggle_is_remembered_in_the_settings() {
         &mut window,
         &mut tool2,
         &ctx,
-        node_labeled(&nodes, Role::Button, "\u{2714} Live AATF"),
+        node_labeled(&nodes, Role::Button, "\u{25b6} Live AATF"),
     );
     assert_eq!(
         ctx.tool_settings("save-editor")["live_aatf"].as_bool(),
