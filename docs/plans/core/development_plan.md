@@ -119,6 +119,26 @@ a member reads the old name, because they may need to find it. Otherwise nothing
 preview names 4cc Studio, the readme included: the change of name is announced when 1.0.0
 ships.
 
+**The preview's icon** goes with the codename: Archer, the reality marble's caster, from the
+maintainer's picture, on a transparent background: the whole picture at 32 pixels and up, and
+at 24 and 16 a tighter square on the head, above the outfit, so the smallest sizes show the
+face alone. Three files under `resources/icon/` carry it:
+- `icon.ico`, the six sizes (16, 24 tight; 32, 48, 64, 256 whole), the executable's file icon
+  (Explorer, a shortcut, the bundle's exe before it runs). Windows draws only what an exe's
+  resources hold there, so `studio`'s build script compiles it in on Windows with
+  `winresource`, a build dependency, which calls the Windows SDK's `rc.exe`.
+- `small.png`, the tight crop at 64 pixels: the window's icon on Windows
+  (`eframe::icon_data::from_png_bytes`). winit hands eframe's window icon to Windows as the
+  window's small icon alone (`ICON_SMALL`: the title bar, 16 pixels at 100% scaling, 24 at
+  150%), so it is the tight crop; the taskbar's big icon, which eframe leaves unset, falls back
+  to Windows' own choice, checked on the built window.
+- `window.png`, the whole picture at 256: the window's icon elsewhere, where one image serves
+  every size.
+
+`scripts/make_icon.py` makes the three once from the picture, checking each of the ICO's
+sizes holds its own crop, and they are committed, so a build needs no image tool. At 1.0.0 the
+icon switches back with the name.
+
 ### Phase 7: glTF support
 
 Runs after Release 0.1.0 (see "Releases" above). Besides the codec, it lifts the Team compiler's

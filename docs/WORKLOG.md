@@ -3021,6 +3021,18 @@ briefs, review loops, gates and mutation runs as for any step.
   `interact_size` (the quick actions 20, the list rows 18) and `interact_size` settled → verify:
   a test reading the installed style's values; every view's layout tests rerun, their moved
   numbers checked against the drafts
+- [ ] 0.0.1v the preview's icon (the maintainer, 2026-10-27: Archer, from
+  `C:\Data\Pictures\FSN\Smug\smugredman.png`; `plans/core/development_plan.md` "The preview's
+  icon", DECISIONS "The preview's icon and its build dependency"). The maintainer's split:
+  the whole picture at 32 and up, a tight square on the head at 24 and 16.
+  - [x] v1 the assets (lead): `scripts/make_icon.py` and `resources/icon/{icon.ico,small.png,
+    window.png}`; the script reads each ICO size back and asserts it is its own crop (a
+    one-image ICO fails it: its 16 is the resized whole picture). Preview
+    `.tmp/0_0_1v/icon_sheet2.png`
+  - [ ] v2 the code (SWE-2, after S's chain releases `studio`): the window icon per platform
+    and the build script with `winresource` → verify: each PNG decoded to its `IconData` size
+    in a test; the release exe's icon in Explorer and the built window's title bar and
+    taskbar (`manual: checked` lines; ask before the window check)
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

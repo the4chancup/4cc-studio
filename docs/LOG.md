@@ -2584,3 +2584,5 @@ worklog passed 7,000 lines.
   remembered); a second batch drafted (s7: attack and defence instructions apart, a picked team's tactics, the row's hint).
 - **2026-10-27** — The maintainer approved s7 (instructions by side, a picked team's tactics, `[click for tactics]`); its plan,
   decision and the s6 + s7 draft committed.
+- **2026-10-27** — The preview gets an icon, the maintainer's picture of Archer (0.0.1v): window icon from a PNG, the exe's
+  file icon compiled in by a `winresource` build script on Windows. The crop is the maintainer's pick.

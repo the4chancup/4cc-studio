@@ -11750,3 +11750,19 @@ PES 2017, 2019 and 2021, Konami's PES 2019 manual counting 9 attacking and 6 def
 manager who picks a team wants its tactics next, and nothing on the row said a click opens them.
 Plan: `plans/save_editor.md` "Editing UI": "Team selector", "Player list" (the team row);
 "Tactics editor", "An advanced instruction's list".
+
+## 2026-10-27 — studio — The preview's icon and its build dependency
+Decision: the preview's icon is the maintainer's picture of Archer, the whole picture at 32
+pixels and up and a tight square on the head at 24 and 16 (the maintainer's split): an `.ico`
+of the six sizes for the executable's file icon, compiled in by `studio`'s build script with
+`winresource` (a build dependency, Windows only); the window's icon (eframe's
+`icon_data::from_png_bytes`, no new dependency) the tight crop on Windows, where winit sets it
+as the small icon alone (the title bar), and the whole picture elsewhere. All three made once
+by `scripts/make_icon.py` and committed.
+Why: the maintainer's request. Windows shows an exe's file icon (Explorer, shortcuts, the
+bundle before it runs) only from a resource inside the exe, which needs a resource compiler at
+build time; `winresource` drives the Windows SDK's `rc.exe` in a few lines, where hand-writing
+a `.res` would mean reimplementing its format. The window icon alone would leave the unpacked
+bundle's exe with the generic one. A needed dependency (the maintainer's standing approval of
+2026-10-19), named in the turn report.
+Plan: `plans/core/development_plan.md` "The preview's icon".
