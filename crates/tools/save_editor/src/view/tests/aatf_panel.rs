@@ -1,5 +1,4 @@
-//! The AATF panel's tests (SE-GUI-15; `plans/save_editor.md` "Configurable
-//! AATF rules", the AATF panel bullet): the window, the per-player list,
+//! The AATF panel's tests (SE-GUI-15): the window, the per-player list,
 //! the click's selection, suggestions, Validate rules and Save a copy.
 
 use std::path::Path;

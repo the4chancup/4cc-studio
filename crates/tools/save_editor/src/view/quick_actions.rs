@@ -1,5 +1,4 @@
-//! The quick actions (`plans/save_editor.md "Configurable AATF rules", the
-//! Quick actions bullet; the draft's `.qacol`s): two columns under the
+//! The quick actions (the draft's `.qacol`s): two columns under the
 //! player list — the medal tiers' "Make <tier>" buttons left in the
 //! ruleset's order, the other tiers' right then the Set stats cell (the
 //! Player menu's Set all stats in one click, 40 to 99), each a
@@ -29,7 +28,7 @@ const COLUMN_GAP: f32 = 6.0;
 /// The gap between a column's cells (the draft's `.qacol` gap).
 const ROW_GAP: f32 = 3.0;
 
-/// A quick action cell's height (the plan's 20, the draft's): the theme's
+/// A quick action cell's height, the draft's 20: the theme's
 /// controls are 18 (`interact_size`), the quick actions keep their own.
 const QUICK_ACTION_HEIGHT: f32 = 20.0;
 
@@ -304,9 +303,9 @@ fn halves(list_width: f32) -> [f32; 2] {
 mod tests {
     use super::*;
 
-    // plans/save_editor.md "Editing UI", the quick actions bullet: each
-    // column is as wide as its widest cell when the two fit, else half
-    // the list, the gap counted in the fit.
+    // Each column is as wide as its widest cell when the two fit, else
+    // half the list, the gap counted in the fit. Not always halves: a half
+    // cuts "Make Goalkeeper" at the default 240-point list.
     #[test]
     fn the_columns_take_their_widest_cells_or_the_halves() {
         // 95 + 6 + 118.5 = 219.5: the cells fit exactly.

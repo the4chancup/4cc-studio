@@ -182,9 +182,9 @@ pub(crate) fn click(
     window.click_tactics(centre(node), version, tactics, view, roster)
 }
 
-// plans/save_editor.md "Editing UI" (the version-gated bullet) on this
-// tab: a field the version lacks stays in its place, disabled, its
-// hover naming the first version that has it.
+// A field the version lacks stays in its place, disabled, so the tab
+// stays spatially stable across versions, its hover naming the first
+// version that has it.
 #[test]
 fn fields_the_version_lacks_draw_disabled_with_their_versions() {
     let mut window = Headless::sized(800.0, 1200.0);
@@ -336,8 +336,8 @@ fn the_controls_edit_the_preset_on_screen() {
     assert_eq!(tactics.presets[2], presets_before[2], "preset 3 untouched");
 }
 
-// plans/save_editor.md "Tactics editor" (the widget's contract): an
-// idle frame, a hover, opening a combo and closing it, or re-picking
+// The widget reports what changed and nothing else: an idle frame, a
+// hover, opening a combo and closing it, or re-picking
 // the current value reports no change and leaves the record equal.
 #[test]
 fn no_gesture_no_change() {
@@ -841,9 +841,8 @@ fn formation_label_bounds(nodes: &[accesskit::Node], label: &str) -> accesskit::
         .unwrap_or_else(|| panic!("no label {label:?}"))
 }
 
-// plans/save_editor.md "Tactics editor" (row 2 of "the pitch is the
-// editor", the draft's `.tacrows`): the twelve settings form six rows
-// of pairs — each offensive setting's label left, its defensive
+// Formation settings, the draft's `.tacrows`: the twelve settings form
+// six rows of pairs — each offensive setting's label left, its defensive
 // pair's right, the two halves 16 apart — the six rows equal in
 // height and each cell's control centred 12 under its box's top (a
 // toggle's centre level with its row partner's slider's).
@@ -904,7 +903,7 @@ fn the_settings_are_six_even_rows_of_pairs() {
             "{left} and {right} share a row's y"
         );
         ys.push((left, left_bounds.y0));
-        // The halves equal and the plan's 16 apart.
+        // The halves equal and 16 apart, the draft's `column-gap: 16px`.
         assert!(
             (right_bounds.x0 - left_bounds.x0 - (f64::from(half) + 16.0)).abs() <= 0.5,
             "{right} is the pair's right half, 16 past the left's ({:?} vs {:?})",
@@ -967,13 +966,12 @@ fn the_settings_are_six_even_rows_of_pairs() {
     }
 }
 
-// plans/save_editor.md "Tactics editor" (the settings column "as
-// narrow as the widest toggle choice allows") and the draft's `.tset
-// .rate`: a two-choice toggle spans its half, the two choices equal
-// in width and a 1-point gap between them, the chosen in the
-// selection fill; the defensive style's choices show the shortened
-// texts (`STYLE_SHORT` — the column is sized for them), the full
-// names the hover.
+// The settings column is as narrow as the widest toggle choice allows.
+// As the draft's `.tset .rate` draws it, a two-choice toggle spans its
+// half, the two choices equal in width and a 1-point gap between them,
+// the chosen in the selection fill; the defensive style's choices show
+// the shortened texts (`STYLE_SHORT` — the column is sized for them),
+// the full names the hover.
 #[test]
 fn the_two_choice_toggle_spans_its_half() {
     // The settings column's width as the window's width.
@@ -1008,7 +1006,7 @@ fn the_two_choice_toggle_spans_its_half() {
         "their sum plus the gap is the half's width"
     );
     // The chosen one shows selected — and the shortened text fits the
-    // choice at this width (the plan sized the column for it).
+    // choice at this width, which the column is sized for.
     let stored = tactics.presets[0].style.defensive_style;
     assert_eq!(
         if stored { all_out } else { frontline }.toggled(),
@@ -1051,11 +1049,12 @@ fn the_two_choice_toggle_spans_its_half() {
     );
 }
 
-// plans/save_editor.md "Tactics editor" (the two numbers "each a
-// three-choice toggle, Few | Medium | Many", the draft's
-// `.rate.tri`): the three choices equal across the half, the stored
-// 1 to 3 picked; a stored value outside (a hand-edited save) selects
-// none and writes nothing until a choice is clicked.
+// The numbers in attack and defence are each a three-choice toggle,
+// "Few | Medium | Many" (the draft's `.rate.tri`), rather than a slider
+// whose number a member had to hover to read. The three choices are
+// equal across the half and the stored 1 to 3 is picked. A stored value
+// outside (a hand-edited save) selects none and writes nothing until a
+// choice is clicked.
 #[test]
 fn the_numbers_are_three_choice_toggles() {
     let mut window = Headless::sized(414.0, 900.0);
@@ -1153,9 +1152,9 @@ fn the_numbers_are_three_choice_toggles() {
     );
 }
 
-// The armed mode draws no note (the plan's "No note explains the armed
-// mode"): while join is armed the Player assignments panel holds no
-// label beyond its own rows' and the chips' — the armed chips say it.
+// The armed mode draws no note: while join is armed the Player
+// assignments panel holds no label beyond its own rows' and the chips' —
+// the armed chips say it.
 #[test]
 fn the_armed_mode_draws_no_note() {
     let mut window = Headless::sized(800.0, 1200.0);
@@ -1946,10 +1945,9 @@ fn each_side_names_its_slots_through_its_own_roster() {
     assert_eq!(label, format!("Preset 1 · Man marking · {starter_new}"));
 }
 
-// plans/save_editor.md "Tactics editor" (the `.tacauto` grid): the
-// Automatic settings' four controls form two equal columns of 24-point
-// rows — the right column's left edge 16 plus a half over the left's —
-// the two rows 24 apart.
+// The draft's `.tacauto` grid: the Automatic settings' four controls
+// form two equal columns of 24-point rows — the right column's left edge
+// 16 plus a half over the left's — the two rows 24 apart.
 #[test]
 fn the_automatic_settings_are_a_two_column_grid() {
     let mut window = Headless::sized(414.0, 900.0);
@@ -2069,11 +2067,10 @@ fn popup_items<'a>(
     items
 }
 
-// plans/save_editor.md "Tactics editor" (the Substitution sentence):
-// the combo names the game's choices — Off, Very late and Flexible on
-// every storing version (the field is PES 15+, so PES 2016's cell is
-// not gated), Very early added on PES 2017 and 2021 — in the stored
-// order.
+// The Substitution combo names the game's choices — Off, Very late and
+// Flexible on every storing version (the field is PES 15+, so PES
+// 2016's cell is not gated), Very early added on PES 2017 and 2021 — in
+// the stored order.
 #[test]
 fn the_substitution_combo_names_the_games_choices() {
     let mut window = Headless::sized(800.0, 1200.0);
@@ -2199,8 +2196,8 @@ fn a_version_without_substitution_keeps_the_disabled_cell() {
     );
 }
 
-// `Medal::from_tier_id` (the plan's "A starter's badge names his medal
-// tier"): the three tier ids every ruleset shares, and nothing else.
+// `Medal::from_tier_id` reads the three tier ids every ruleset shares,
+// and nothing else.
 #[test]
 fn from_tier_id_maps_the_three_medal_ids() {
     assert_eq!(Medal::from_tier_id("gold"), Some(Medal::Gold));

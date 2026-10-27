@@ -388,8 +388,8 @@ fn the_team_name_field_gets_its_full_width_on_the_first_frame() {
     );
 }
 
-// plans/save_editor.md "Editing UI", "The team view" bullet: the title is
-// the team's name in the body text's strong weight, not a heading's size.
+// The team view's title is the team's name in the body text's strong
+// weight, not a heading's size.
 #[test]
 fn the_title_is_the_teams_name_in_the_bodys_strong_weight() {
     let path = fixture(PesVersion::Pes21, "team_title_body");
@@ -418,10 +418,9 @@ fn the_title_is_the_teams_name_in_the_bodys_strong_weight() {
     );
 }
 
-// plans/save_editor.md "Editing UI", "The team view" bullet: at the
-// 1280 x 800 default pane the fields, the ids and the `Kit slots…` button
-// share one row, the name box is the draft's 140 points and the colours
-// are labelled `Col. 1`/`Col. 2`.
+// At the 1280 x 800 default pane the team view's fields, the ids and the
+// `Kit slots…` button share one row, the name box is the draft's 140
+// points and the colours are labelled `Col. 1`/`Col. 2`.
 #[test]
 fn the_fields_ids_and_kit_slots_button_share_one_row_at_the_default_pane() {
     let path = fixture(PesVersion::Pes21, "team_header_row");
@@ -458,11 +457,10 @@ fn the_fields_ids_and_kit_slots_button_share_one_row_at_the_default_pane() {
     );
 }
 
-// plans/save_editor.md "Editing UI", "The team view" bullet (the ids share
-// the fields' row "because the Tactics editor below needs the height"):
-// at the default pane the view's lowest drawn stroke — the lists' and
-// Automatic settings' frame bottoms — ends inside the pane's content, so
-// the view does not scroll.
+// The ids share the fields' row because the Tactics editor below needs
+// the height: at the default pane the view's lowest drawn stroke — the
+// lists' and Automatic settings' frame bottoms — ends inside the pane's
+// content, so the view does not scroll.
 #[test]
 fn the_team_view_fits_the_default_pane() {
     let path = fixture(PesVersion::Pes21, "team_view_fit");
@@ -494,8 +492,8 @@ fn the_team_view_fits_the_default_pane() {
     );
 }
 
-// plans/save_editor.md "Editing UI", "The team view" bullet: the short
-// name's box takes three characters, so a fourth never lands.
+// The short name's box takes three characters, so a fourth never lands:
+// the game shows a three-letter abbreviation.
 #[test]
 fn the_short_name_box_takes_three_characters() {
     let path = fixture(PesVersion::Pes21, "short_box_three");
@@ -918,9 +916,9 @@ fn the_boots_dialog_prefills_past_a_dangling_roster_id() {
     );
 }
 
-// plans/save_editor.md "Editing UI" (the version-gated bullet, on the Team
-// view): fields the version does not store draw disabled in the same place
-// with the gate tooltip naming the first version that has them.
+// On the team view, fields the version does not store draw disabled in
+// the same place with the gate tooltip naming the first version that has
+// them.
 #[test]
 fn on_pes16_the_colours_ids_and_kit_slots_draw_disabled_with_their_versions() {
     let path = fixture(PesVersion::Pes16, "team_view_gated");
@@ -1475,10 +1473,10 @@ fn the_clear_visual_flags_item_clears_every_slot_with_undo_redo_and_save() {
     }
 }
 
-// plans/save_editor.md "Feature inventory", the Team operations bullet:
-// each operation acts on the selected row's team, a team row's included —
-// Clear visual flags by the menu item and by Ctrl+F, each in turn from the
-// same state; the menu is disabled only with no row selected.
+// Each Team menu operation acts on the selected row's team, a team row's
+// included — Clear visual flags by the menu item and by Ctrl+F, each in
+// turn from the same state; the menu is disabled only with no row
+// selected.
 #[test]
 fn the_team_menu_and_ctrl_f_act_on_the_selected_rows_team() {
     let path = fixture(PesVersion::Pes21, "team_menu_on_team_row");

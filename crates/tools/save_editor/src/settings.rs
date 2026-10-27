@@ -16,9 +16,10 @@ pub(crate) struct SaveEditorSettings {
     /// The toolbar's Live AATF toggle; on, a docked panel lists the open team's violations
     /// after every edit.
     pub(crate) live_aatf: bool,
-    /// "Aesthetics from exports" (`plans/save_editor.md` "Read-only aesthetics"), off by
-    /// default: on, the save's aesthetics write only through the Appearance section's "Edit
-    /// aesthetics anyway" switch; off, they edit as every other field does.
+    /// "Aesthetics from exports", off by default because the cup the suite serves first
+    /// keeps its looks in the save. On, the save's aesthetics write only through the
+    /// Appearance section's "Edit aesthetics anyway" switch; off, they edit as every other
+    /// field does.
     pub(crate) aesthetics_from_exports: bool,
     /// "Scroll names" (the Tactics formation bar's checkbox), on by default: a view setting,
     /// not an edit — `Tool::view` reads it at start and writes it back when the checkbox

@@ -1,6 +1,5 @@
-//! The comparator panel (`plans/save_editor.md` "Comparator (gameplay +
-//! aesthetics)"; the draft's `comparatorPanel`): an `egui::Window` comparing
-//! the open save, edits included, against a picked second save of the same
+//! The comparator panel (the draft's `comparatorPanel`): an `egui::Window`
+//! comparing the open save, edits included, against a picked second save of the same
 //! version — each row picked → open in the views' terms (`terms::row_term`),
 //! the rows grouped per team, a row's click selecting the player. The
 //! comparison runs on a worker thread (two real PES 2021 saves differ in

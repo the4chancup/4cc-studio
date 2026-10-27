@@ -172,7 +172,7 @@ impl Code {
     /// How serious the finding is: an `Error` makes the command's exit code 1.
     fn severity(self) -> Severity {
         match self {
-            // Differences and marks are `diff`'s output, not errors (the plan: exit 0).
+            // Differences and marks are `diff`'s output, not errors: exit 0.
             Code::TeamExported
             | Code::PatchTeamApplied
             | Code::PlayerDiff
@@ -185,8 +185,8 @@ impl Code {
             | Code::TeamsListNotWritten
             | Code::FpcTapingShowsPieces => Severity::Info,
             // A value the save did not take as written, or a record the game does not read:
-            // worth knowing, not a failure (the plan's cross-version import converts "with a
-            // warning list").
+            // worth knowing, not a failure. A cross-version import converts, with a list of
+            // warnings.
             Code::ImportKeyNotInVersion
             | Code::ImportValueNotEncodable
             | Code::ImportValueCapped
@@ -195,9 +195,9 @@ impl Code {
             | Code::StripBaseCopiedFace
             | Code::FpcGlovesCheckboxWinterGloves
             | Code::FpcCustomSkinOnNonFpc => Severity::Warning,
-            // A skipped team or player is an error and the rest is written (the plan's
-            // `apply-patch`: exit 1); so is a dropped teams-list change and a list that
-            // cannot be written (`export-teams-list`: exit 1).
+            // A skipped team or player is an error and the rest is written (`apply-patch`
+            // exits 1); so is a dropped teams-list change and a list that cannot be written
+            // (`export-teams-list` exits 1).
             Code::PatchTeamNotInSave
             | Code::PatchPlayerNotInSave
             | Code::TeamsListUnresolved

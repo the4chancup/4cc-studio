@@ -1,6 +1,6 @@
-//! The card pickers of `plans/save_editor.md` "`libs/team_widgets`" (`cards`
-//! bullet), drafted in `docs/prototypes/tools/save_editor.js` (`skillsPanel`,
-//! `comStylesPanel`, `cardBadges` and the playing-style combo).
+//! The skill, COM playing style and playing style pickers, drafted in
+//! `docs/prototypes/tools/save_editor.js` (`skillsPanel`, `comStylesPanel`,
+//! `cardBadges` and the playing-style combo).
 //! A player's skills and COM playing styles are his *cards*; the ruleset's
 //! tiers each say how many paid ones he may hold, so the pickers show what
 //! the tier he is read as leaves him.
@@ -130,9 +130,9 @@ pub fn playing_style_picker(
 ) -> bool {
     ui.push_id(id_salt, |ui| {
         // The version's styles in its stored order, not the canonical one:
-        // the order the game's own Edit-mode list shows (plans/save_editor.md
-        // "`libs/team_widgets`", the `cards` bullet). A stored value indexes
-        // the version's list, whose holes are skipped.
+        // that is the order the game's own Edit-mode list shows, and a member
+        // compares the combo against it. A stored value indexes the version's
+        // list, whose holes are skipped.
         let styles: Vec<(u8, String)> = (0..=u8::MAX)
             .filter_map(|index| {
                 let style = playstyle::decode(version, index).ok()?;
@@ -379,10 +379,8 @@ mod tests {
         }
     }
 
-    // plans/save_editor.md "libs/team_widgets", the `cards` bullet, and
-    // "Editing UI" (a version-gated widget renders disabled, never
-    // disappearing): every card is drawn on every version, a card the save
-    // cannot store disabled.
+    // Every card is drawn on every version, a card the save cannot store
+    // disabled rather than hidden, so the layout stays put across versions.
     #[test]
     fn the_columns_draw_the_versions_cards() {
         /// The labels of the disabled checkboxes.
@@ -432,9 +430,9 @@ mod tests {
         assert!(disabled(&nodes).is_empty(), "PES 21 stores every card");
     }
 
-    // plans/save_editor.md "Editing UI", the Skills bullet: the checkboxes
-    // in two columns filled column by column — the first row's cells are
-    // the first card of each column, not the first two of the list.
+    // The skills' checkboxes fill two columns column by column: the first
+    // row's cells are the first card of each column, not the first two of
+    // the list.
     #[test]
     fn the_columns_fill_column_by_column() {
         let mut window = Headless::new();
@@ -501,8 +499,8 @@ mod tests {
         );
     }
 
-    // plans/save_editor.md "libs/team_widgets", the `cards` bullet: a checkbox
-    // click is one change (the host's undo takes one step per click).
+    // A checkbox click is one change, so the host's undo takes one step per
+    // click.
     #[test]
     fn a_tick_is_one_change_on_that_frame_only() {
         let mut window = Headless::new();
@@ -528,9 +526,9 @@ mod tests {
         assert!(!skills.skills[index], "the flag is cleared");
     }
 
-    // plans/save_editor.md "Editing UI": a card the version cannot store stays
-    // in its cell, disabled (the layout stays put across versions), the tooltip
-    // naming the first version that has it (`PES NN+`, the draft's wording).
+    // A card the version cannot store stays in its cell, disabled, so the
+    // layout stays put across versions. Its tooltip names the first version
+    // that has it, in the draft's wording (`PES NN+`).
     #[test]
     fn a_card_the_version_lacks_keeps_its_cell_disabled() {
         let mut window = Headless::new();
@@ -567,8 +565,8 @@ mod tests {
         assert_eq!(skills15.skills[40], held);
     }
 
-    // plans/save_editor.md "Editing UI": the disabled cell's hover text names
-    // the first version that stores the card (the draft's `PES NN+`).
+    // The disabled cell's hover text names the first version that stores
+    // the card, in the draft's wording (`PES NN+`).
     #[test]
     fn the_disabled_cell_names_the_first_version() {
         let mut window = Headless::new();
@@ -605,13 +603,13 @@ mod tests {
         assert!(shown, "the tooltip names the first version, PES 16+");
     }
 
-    // plans/save_editor.md "Editing UI", the Skills bullet (a card the
-    // version cannot store stays in its cell, disabled): on PES 17,
-    // whose second skills column is disabled cells, every row's two
-    // cells share their top and every cell is one line tall — the same
-    // for the COM styles. The widest label, "Long Range Shooting" at
-    // 125.6 points at the body font, fits the 158-point column: a
-    // longer one would wrap and break the alignment.
+    // A card the version cannot store stays in its cell, disabled, and is
+    // as tall as an enabled one. On PES 17, whose second skills column is
+    // disabled cells, every row's two cells share their top and every cell
+    // is one line tall, and the same holds for the COM styles. The widest
+    // label, "Long Range Shooting" at 125.6 points at the body font, fits
+    // the 158-point column: a longer one would wrap and break the
+    // alignment.
     #[test]
     fn the_columns_rows_line_up_past_the_disabled_cells() {
         let mut window = Headless::new();
@@ -678,8 +676,7 @@ mod tests {
         }
     }
 
-    // plans/save_editor.md "libs/team_widgets", the `cards` bullet: a COM
-    // style's tick is a change like a skill's.
+    // A COM style's tick is a change, as a skill's is.
     #[test]
     fn a_com_style_tick_is_one_change_on_that_frame_only() {
         let mut window = Headless::new();
@@ -754,11 +751,10 @@ mod tests {
         assert_eq!(skills.com_styles, expected, "exactly that one flag changed");
     }
 
-    // plans/save_editor.md "Editing UI", the Cards left bullet (the
-    // draft's `cardBadges`): "Cards left for" then the one badge, the
-    // player's own tier's `label: left of limit cards`, the error colour
-    // when overdrawn; `NoTier` draws "Cards left:" then the weak
-    // stand-in. A colour is no AccessKit property, so it is read back
+    // The Cards left badge, the draft's `cardBadges`: "Cards left for" then
+    // the one badge, the player's own tier's `label: left of limit cards`,
+    // in the error colour when overdrawn. `NoTier` draws "Cards left:" then
+    // the weak stand-in. A colour is no AccessKit property, so it is read back
     // from the frame's painted shapes: the badge's `TextShape` carries
     // the `RichText` colour in its galley's sections.
     #[test]
@@ -807,8 +803,7 @@ mod tests {
         text_entry(&nodes, "No tier matches");
     }
 
-    // plans/save_editor.md "libs/team_widgets", the `cards` bullet: the
-    // playing-style choice lists the version's styles only.
+    // The playing-style choice lists the version's styles only.
     #[test]
     fn the_style_picker_lists_the_versions_styles() {
         let mut window = Headless::new();

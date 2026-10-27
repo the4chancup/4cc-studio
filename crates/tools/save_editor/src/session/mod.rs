@@ -70,7 +70,7 @@ pub(crate) struct Session {
     file: EditFile,
     /// The path `open` read, which `save` writes back to.
     path: PathBuf,
-    /// Undo and redo (`plans/save_editor.md` "Editing UI", the Undo/redo bullet).
+    /// Undo and redo, one entry per gesture.
     undo: UndoStack,
     /// Every player by id, as opened or last saved.
     baseline_players: HashMap<u32, PlayerEntry>,
@@ -140,10 +140,10 @@ impl Session {
         &self.file
     }
 
-    /// The tick of the last change to the open file (`plans/save_editor.md`
-    /// "Editing UI", the Cards left badge's cache): a fresh number every
-    /// change — an edit pushed, an undo, a redo, an import, a patch, a
-    /// strip, a successful open — and never twice the same.
+    /// The tick of the last change to the open file, which keys the Cards
+    /// left badge's cache: a fresh number every change — an edit pushed, an
+    /// undo, a redo, an import, a patch, a strip, a successful open — and
+    /// never twice the same.
     pub(crate) fn revision(&self) -> u64 {
         self.revision
     }
@@ -281,15 +281,14 @@ impl Session {
         self.dirty = self.compute_dirty();
     }
 
-    /// The player-list drop (`plans/save_editor.md` "Editing UI", the Player list
-    /// bullet): the record on roster slot `from` lands on `to`'s player id and the
-    /// records between shift one filled slot along, each slot keeping what belongs
-    /// to its id (`id`, `appearance_id`, `appearance.base_copy_id`, and the face and
-    /// hair in the in-game face run: `moved_record`). The roster is never written,
-    /// so its ids, the shirt numbers and the captain stay put (slot `NN` holds
-    /// player `team id x 100 + NN` by 4cc rule). The whole move is one sealed undo entry. `from == to`, a team
-    /// or player the save lacks, or an empty `from` or `to` slot does nothing; an
-    /// empty slot between them is skipped over.
+    /// The player-list drop: the record on roster slot `from` lands on `to`'s player id
+    /// and the records between shift one filled slot along, each slot keeping what
+    /// belongs to its id (`id`, `appearance_id`, `appearance.base_copy_id`, and the face
+    /// and hair in the in-game face run: `moved_record`). The roster is never written,
+    /// so its ids, the shirt numbers and the captain stay put (slot `NN` holds player
+    /// `team id x 100 + NN` by 4cc rule). The whole move is one sealed undo entry.
+    /// `from == to`, a team or player the save lacks, or an empty `from` or `to` slot
+    /// does nothing; an empty slot between them is skipped over.
     pub(crate) fn move_player(&mut self, team_id: u32, from: u8, to: u8) {
         if from == to {
             return;
@@ -380,10 +379,10 @@ impl Session {
         self.undo.seal();
     }
 
-    /// Whether the save differs from the file as opened or last saved (the
-    /// plan's Unsaved changes bullet; the toolbar's marker). The flag is kept
-    /// by `compute_dirty` at every mutating call, so a frame can ask it
-    /// without rescanning the model.
+    /// Whether the save differs from the file as opened or last saved, the
+    /// toolbar's marker; undoing back to the saved state clears it. The flag
+    /// is kept by `compute_dirty` at every mutating call, so a frame can ask
+    /// it without rescanning the model.
     pub(crate) fn is_dirty(&self) -> bool {
         self.dirty
     }
@@ -403,8 +402,8 @@ impl Session {
     }
 
     /// Whether the player of `team`'s roster `slot` (0-based) differs from
-    /// the baseline: his `PlayerEntry` or his slot's shirt number (the dot's
-    /// rule, `plans/save_editor.md` "Editing UI" Unsaved changes).
+    /// the baseline: his `PlayerEntry` or his slot's shirt number, which his
+    /// row's dot covers.
     pub(crate) fn player_dirty(&self, team_id: u32, slot: u8) -> bool {
         let Some(slot_entry) = self
             .file
@@ -427,9 +426,7 @@ impl Session {
 
     /// Whether the team `team_id`'s own entry differs from the baseline:
     /// its fields, tactics and kit slots, but not the roster slots' shirt
-    /// numbers — a slot's number stays the player's dot (`plans/
-    /// save_editor.md` "Editing UI", the Player list and Unsaved changes
-    /// bullets).
+    /// numbers, which the player's dot covers.
     pub(crate) fn team_dirty(&self, team_id: u32) -> bool {
         let (Some(team), Some(baseline)) =
             (self.file.team(team_id), self.baseline_teams.get(&team_id))
@@ -736,10 +733,10 @@ mod tests {
         record
     }
 
-    // plans/save_editor.md "Editing UI", the Player list bullet: a drop moves
-    // the players' records between the ids, every `id`, `appearance_id` and
-    // `base_copy_id` staying with its slot; the roster (and so the shirt
-    // numbers) is never written, and the whole move is one undo entry.
+    // A player-list drop moves the players' records between the ids, every
+    // `id`, `appearance_id` and `base_copy_id` staying with its slot; the
+    // roster (and so the shirt numbers) is never written, and the whole
+    // move is one undo entry.
     #[test]
     fn a_move_trades_the_records_between_the_ids_one_undo_entry() {
         let mut session = open(PesVersion::Pes21, "move");
@@ -870,8 +867,7 @@ mod tests {
         assert_eq!(session.slot_player(99999, 0), None, "a team the save lacks");
     }
 
-    // plans/save_editor.md "Editing UI", the Player list bullet: an empty
-    // slot between the dragged and the target is skipped over — the records
+    // An empty slot between the dragged and the target is skipped over — the records
     // rotate over the filled slots.
     #[test]
     fn a_move_skips_over_an_empty_slot() {
@@ -936,8 +932,7 @@ mod tests {
             .unwrap()
     }
 
-    // plans/save_editor.md "Editing UI", the Player list and Unsaved
-    // changes bullets: the team row's dot covers the team's own entry —
+    // The team row's dot covers the team's own entry —
     // a player's edit does not set it, and an edit undone back to the
     // saved state clears it.
     #[test]
@@ -970,10 +965,9 @@ mod tests {
         assert!(!session.team_dirty(701), "the team's stays clear");
     }
 
-    // plans/save_editor.md "Editing UI", the Player list bullet: the move
-    // carries the fields `player_export` carries — the player-gloves, skin
-    // and iris fields inside the face run — and leaves the rest of the run
-    // (the face structure and the hair) with the slot.
+    // A player-list move carries the fields `player_export` carries — the
+    // player-gloves, skin and iris fields inside the face run — and leaves
+    // the rest of the run (the face structure and the hair) with the slot.
     #[test]
     fn a_move_carries_only_the_exported_face_fields() {
         face_fields_move(PesVersion::Pes21, "move_face21");
@@ -1043,8 +1037,8 @@ mod tests {
         assert_face_move(&reopened, &marks);
     }
 
-    // plans/save_editor.md "Editing UI", the Undo/redo bullet: one entry per
-    // gesture — a second drag is its own entry, not a merge into the first's.
+    // One undo entry per gesture: a second drag is its own entry, not a
+    // merge into the first's.
     #[test]
     fn two_moves_are_two_undo_steps() {
         let mut session = open(PesVersion::Pes21, "two_moves");
@@ -1171,9 +1165,9 @@ mod tests {
         assert!(session.is_dirty(), "the import changed a player");
     }
 
-    // plans/save_editor.md "Editing UI", the Cards left bullet's cache: the
-    // revision moves on every change to the open file (an edit pushed, an
-    // undo, a redo) and not on a frame's seal.
+    // The Cards left badge's cache key: the revision moves on every change
+    // to the open file (an edit pushed, an undo, a redo) and not on a
+    // frame's seal.
     #[test]
     fn the_revision_moves_on_each_change_and_stays_put_on_a_frame() {
         let dir = crate::test_support::scratch("revision");
@@ -1261,9 +1255,9 @@ mod tests {
         assert!(!session.can_undo(), "each push was its own entry");
     }
 
-    // plans/save_editor.md "Stripped save" (the GUI parts): `strip` writes
-    // every id as one sealed undo entry, so the Strip again button's whole
-    // change is one Undo. An already-stripped player pushes nothing.
+    // `strip` writes every id as one sealed undo entry, so the Strip again
+    // button's whole change is one Undo. An already-stripped player pushes
+    // nothing.
     #[test]
     fn a_strip_is_one_sealed_undo_entry() {
         let mut session = open(PesVersion::Pes21, "strip_undo");

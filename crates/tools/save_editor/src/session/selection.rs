@@ -1,6 +1,6 @@
 //! Which players and team rows the master list shows: the team the selector
-//! names, or every team at ALL and while the filter box is in use
-//! (`plans/save_editor.md` "Editing UI", the Player list bullet).
+//! names, or every team at ALL and while the filter box is in use, so a
+//! player is found without knowing his team first.
 
 use std::collections::HashMap;
 
@@ -218,8 +218,7 @@ mod tests {
         assert!(rows(&file, &TeamChoice::Team(701), "no such player").is_empty());
     }
 
-    // plans/save_editor.md "Editing UI", the Player list bullet: a team row
-    // heads each listed team's players.
+    // A team row heads each listed team's players.
     #[test]
     fn list_heads_every_teams_players_with_its_row() {
         let file = open(PesVersion::Pes17);
@@ -246,9 +245,8 @@ mod tests {
         assert_eq!(list(&file, &TeamChoice::Team(718), ""), expected);
     }
 
-    // plans/save_editor.md "Editing UI", the Player list bullet: under a
-    // filter a team's row stays while its own name matches, and its players
-    // are only the matching ones.
+    // Under a filter a team's row stays while its own name matches, and its
+    // players are only the matching ones.
     #[test]
     fn list_filter_matching_a_teams_name_lists_its_row_alone() {
         let file = open(PesVersion::Pes17);

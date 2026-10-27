@@ -1,9 +1,8 @@
-//! The Tactics editor's copy and swap menu operations (`plans/save_editor.md`
-//! "Tactics editor", "What the controls write": a preset copy or swap moves
-//! the whole `TacticsPreset`, man marking included, since the game's own
-//! copy preset is how a match's man marking gets into a team; a formation
-//! copy or swap moves the whole `Formation` within the shown preset; the
-//! starting eleven is never touched). Each is one sealed undo entry: a
+//! The Tactics editor's copy and swap menu operations. A preset copy or
+//! swap moves the whole `TacticsPreset`, man marking included, since the
+//! game's own copy preset is how a match's man marking gets into a team. A
+//! formation copy or swap moves the whole `Formation` within the shown
+//! preset. The starting eleven is never touched. Each is one sealed undo entry: a
 //! clone of the team, edited and passed to `edit_entries`, as `team_ops`
 //! does for players. egui-free, so the operations are testable without a
 //! frame.
@@ -70,8 +69,7 @@ mod tests {
         Session::open(&path).unwrap()
     }
 
-    // plans/save_editor.md "Tactics editor", "What the controls write": a
-    // preset copy moves the whole preset, man marking included (the game's
+    // A preset copy moves the whole preset, man marking included (the game's
     // own copy preset is how a match's man marking gets into a team); the
     // starting eleven is the team's and stays.
     #[test]

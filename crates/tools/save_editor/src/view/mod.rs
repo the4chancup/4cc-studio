@@ -1,11 +1,10 @@
-//! The Save editor's window (`plans/save_editor.md` "Editing UI"): a toolbar over a
-//! master-detail layout, the player list left (`player_list`, its team and
-//! player rows, the quick actions under it) and, right, the view the selected
-//! row names: the team view (`team`) on a team row, the player view — the
-//! title (`info_strip`), the three columns (`abilities` with `info_strip`'s
+//! The Save editor's window: a toolbar over a master-detail layout, the
+//! player list left (`player_list`, its team and player rows, the quick
+//! actions under it) and, right, the view the selected row names: the team
+//! view (`team`) on a team row, the player view — the title
+//! (`info_strip`), the three columns (`abilities` with `info_strip`'s
 //! General info and Other stats) and the Appearance section (`appearance`)
-//! — on a player row. Render-only over
-//! the session's state: it opens a
+//! — on a player row. Render-only over the session's state: it opens a
 //! save, filters and selects players, reorders a team's list by drag
 //! (`Session::move_player`), edits the strip's fields through
 //! `Session::edit_player`/`edit_team` (one undo entry per gesture), saves, and
@@ -43,9 +42,8 @@ use team_widgets::names::append_name;
 use crate::session::Session;
 use crate::session::selection::{self, TeamChoice};
 
-/// The list row the selection names (`plans/save_editor.md` "Editing UI",
-/// the Player list bullet): a team by id, or a player by team and roster
-/// slot.
+/// The list row the selection names: a team by id, or a player by team
+/// and roster slot.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub(crate) enum Selection {
     /// A team's own row (the detail shows the team view).
@@ -72,7 +70,7 @@ pub(crate) struct SaveView {
     /// The widget holding the keyboard at the last frame's end. A
     /// widget's gesture ends when it loses the keyboard (a click
     /// elsewhere, a Tab): sealing then keeps two gestures' writes from
-    /// merging into one undo entry (the plan's "one entry per gesture").
+    /// merging into one undo entry, since an entry is one gesture.
     /// A `None` to `Some` move never seals: a widget can take focus as
     /// its gesture starts (a DragValue's click), and that gesture stays
     /// one step.
@@ -94,11 +92,9 @@ pub(crate) struct SaveView {
     /// The ruleset the Cards left badge uses, loaded on the first frame and again only
     /// when the file named differs.
     rules: Option<ActiveRules>,
-    /// The AATF panel's state (`plans/save_editor.md` "Configurable AATF
-    /// rules", the AATF panel bullet); closed at start.
+    /// The floating AATF panel's state; closed at start.
     aatf: aatf_panel::AatfPanel,
-    /// The comparator panel's state (`plans/save_editor.md` "Comparator
-    /// (gameplay + aesthetics)"); closed at start.
+    /// The comparator panel's state; closed at start.
     comparator: comparator::Comparator,
     /// The comparator's Pick dialog (`rfd`, stubbed in tests — the AATF
     /// panel's copy dialog pattern).
@@ -145,15 +141,15 @@ pub(crate) struct SaveView {
     /// state (a text field's undo history, a control's in-progress edit)
     /// never crosses into the next save's same player id.
     generation: u64,
-    /// "Aesthetics from exports" (`plans/save_editor.md` "Read-only
-    /// aesthetics"), refreshed from the setting each `Tool::view` frame as
+    /// "Aesthetics from exports", which makes the save's aesthetics
+    /// read-only, refreshed from the setting each `Tool::view` frame as
     /// `live_aatf` is; off in the tests' view-only frames, which set it by
     /// hand as `edit_aesthetics`'s GIVEN.
     pub(crate) aesthetics_from_exports: bool,
-    /// "Edit aesthetics anyway" (`plans/save_editor.md` "Read-only
-    /// aesthetics", the Unlock bullet): off at every start of the tool, and
-    /// deliberately not reset when another save opens — a session switch,
-    /// not a per-save one.
+    /// "Edit aesthetics anyway": off at every start of the tool, so a
+    /// machine set to "Aesthetics from exports" cannot quietly stay
+    /// unlocked, and deliberately not reset when another save opens — a
+    /// session switch, not a per-save one.
     edit_aesthetics: bool,
     /// The players the Strip again window lists (SE-GUI-20): the rows
     /// `Session::restored_players` named when the open save was a Fox one
@@ -196,9 +192,9 @@ pub(crate) struct SaveView {
     randomize_draw: Box<dyn FnMut(u8) -> u8>,
 }
 
-/// The ruleset the Skills column's Cards left badge uses (`plans/save_editor.md`
-/// "Editing UI", the Cards left bullet): the file it was loaded from and
-/// the outcome as the badge's row draws it.
+/// The ruleset the Skills column's Cards left badge uses, the one
+/// `check-aatf` runs: the file it was loaded from and the outcome as the
+/// badge's row draws it.
 pub(crate) struct ActiveRules {
     /// The file `rules` was loaded from (`None`: the embedded official ruleset).
     file: Option<PathBuf>,
@@ -469,11 +465,12 @@ pub(crate) fn show(
             live_aatf::show(ui, view);
         }
         let list_panel = egui::Panel::left("save_editor_players")
-            // The draft's `.plist` width: 240 points, not resizable (the
-            // plan's Player list bullet; the window scales instead of
-            // narrowing under the design width). No bottom margin: the
-            // quick actions' band is the panel's content's last item and
-            // runs to the pane's bottom ("The view fills its pane").
+            // The draft's `.plist` width: 240 points, not resizable. Under
+            // the design width the window scales instead of narrowing, and
+            // a list dragged wider would only take the views' room. No
+            // bottom margin: the quick actions' band is the panel's
+            // content's last item and runs to the pane's bottom, so the
+            // pane gets no scroll bar of its own.
             .resizable(false)
             .default_size(240.0)
             .frame(
@@ -578,7 +575,7 @@ pub(super) fn surrender_focus(ui: &egui::Ui) {
 /// stay swallowed while `typing` holds). The option is the context's, so
 /// once the editor has drawn it holds for every view, which is the
 /// behaviour wanted there too; it moves to the shell's context setup
-/// when the shell gets one (worklog 8.1).
+/// when the shell gets one.
 fn set_surrender_on_press(ctx: &egui::Context) {
     ctx.memory_mut(|memory| {
         memory.options.input_options.surrender_focus_on = egui::SurrenderFocusOn::Presses;
@@ -587,7 +584,7 @@ fn set_surrender_on_press(ctx: &egui::Context) {
 
 /// The toolbar: Open, Save, Undo, Redo and the unsaved-changes marker (the
 /// draft's toolbar row). The open save's path rides the idle window title
-/// (`Tool::title_detail`, gui.md "Window title"), not this row.
+/// (`Tool::title_detail`), not this row, which never takes a second row.
 fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
     // The unsaved prompt and the running-game question hold every
     // shortcut dead while up (the prompt's own buttons are the way out).
@@ -660,10 +657,11 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         menus::team_menu(ui, view);
         menus::savefile_menu(ui, view);
         menus::panels_menu(ui, view);
-        // The Live AATF toggle as a framed button (the plan's Live AATF
-        // bullet): the play sign (`▶`) then the name — a check mark
-        // beside it read as on while it was off — the selection fill
-        // while on; a selectable label read as a label beside the menus.
+        // The Live AATF toggle as a framed button, since the toggle is how
+        // a manager finds the check at all: the play sign (`▶`) then the
+        // name — a check mark beside it read as on while it was off — the
+        // selection fill while on; a selectable label read as a label
+        // beside the menus.
         if ui
             .add(egui::Button::new("\u{25b6} Live AATF").selected(view.live_aatf))
             .on_hover_text(

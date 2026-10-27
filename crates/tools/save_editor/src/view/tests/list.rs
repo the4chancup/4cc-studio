@@ -248,9 +248,9 @@ fn the_selected_row_reports_selected() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Player list bullet (a row one
-// line, truncated, its full name on hover): a 52-byte name keeps every row
-// at one line, and the scroll still reaches the last player.
+// A player row is one line, truncated, its full name on hover: a 52-byte
+// name keeps every row at one line, and the scroll still reaches the last
+// player.
 #[test]
 fn a_long_name_truncates_instead_of_wrapping_the_row() {
     let path = fixture(PesVersion::Pes21, "long_row");
@@ -480,10 +480,10 @@ fn a_row_dragged_above_another_trades_their_records_between_the_ids() {
     );
 }
 
-// SE-GUI-08 (the plan's Player list bullet: under ALL each team's rows run
-// unbroken under its team row): a drop on a row of the dragged player's own
-// team moves him as in one team's list; a drop on another team's row or on
-// a team row does nothing.
+// SE-GUI-08, under ALL, where each team's rows run unbroken under its
+// team row: a drop on a row of the dragged player's own team moves him as
+// in one team's list; a drop on another team's row or on a team row does
+// nothing.
 #[test]
 fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     let path = fixture(PesVersion::Pes21, "drag_reorder_all");
@@ -553,11 +553,10 @@ fn under_all_a_drag_moves_within_the_team_and_nowhere_else() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Player list bullet ("drag is off
-// while a filter is typed, where neighbouring rows are not one team's
-// neighbouring slots"): under a filter listing two non-adjacent players of
-// one team, a drag of one onto the other moves nothing, since a drop there
-// would move the hidden records between them too.
+// Drag is off while a filter is typed, where neighbouring rows are not
+// one team's neighbouring slots: under a filter listing two non-adjacent
+// players of one team, a drag of one onto the other moves nothing, since
+// a drop there would move the hidden records between them too.
 #[test]
 fn under_a_filter_a_drag_moves_nothing() {
     let path = fixture(PesVersion::Pes21, "drag_filtered");
@@ -626,12 +625,11 @@ fn text_in_rect<'a>(
         .unwrap_or_else(|| panic!("no painted text {starts_with:?} inside {rect:?}"))
 }
 
-// plans/save_editor.md "Editing UI", the Player list bullet (the team
-// row's own paint, the draft's `trow`): the id in the weak colour at the
-// row's left padding, the colours 1-2 as swatches 3 apart, the name in
-// the strong colour after a further item spacing, each centred on the
-// row — over the faint fill that sets it apart from a player row, the
-// selection's or the hover's fill over that.
+// The team row's own paint, the draft's `trow`: the id in the weak
+// colour at the row's left padding, the colours 1-2 as swatches 3 apart,
+// the name in the strong colour after a further item spacing, each
+// centred on the row — over the faint fill that sets it apart from a
+// player row, the selection's or the hover's fill over that.
 #[test]
 fn the_team_row_paints_its_parts_over_its_fills() {
     /// Whether a `Shape::Rect` of `fill` covers `rect`'s centre and spans
@@ -861,10 +859,10 @@ fn a_team_name_too_long_truncates_inside_the_row() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Player list bullet ("the whole
-// row is one click target", as the team row's is): every player row spans
-// the team row's width, the selected row's selection fill covers it, and
-// a click past a short label's text still selects him.
+// The whole player row is one click target, as the team row is: every
+// player row spans the team row's width, the selected row's selection
+// fill covers it, and a click past a short label's text still selects
+// him.
 #[test]
 fn every_player_row_spans_the_team_rows_width_and_selects_at_its_end() {
     let path = fixture(PesVersion::Pes21, "row_right_click");
@@ -1041,9 +1039,9 @@ fn the_player_rows_dot_paints_at_the_rows_right_end() {
     }
 }
 
-// plans/save_editor.md "Editing UI", the Player list bullet (240 points
-// wide and not resizable: under the design width the window scales
-// rather than narrows): a drag on the list's right edge leaves it.
+// The list is 240 points wide and not resizable, since under the design
+// width the window scales rather than narrows: a drag on the list's right
+// edge leaves it.
 #[test]
 fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
     let path = fixture(PesVersion::Pes21, "list_fixed_width");
@@ -1052,9 +1050,9 @@ fn a_drag_on_the_lists_right_edge_does_not_resize_it() {
     let mut window = Headless::new();
     let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let (before, _) = pane_frame(&shapes, window.screen);
-    // The list is the plan's fixed 240 wide: the pane's left edge — the
-    // list's right edge, measured from the window's left edge — sits at
-    // the window panel's margin plus the 240.
+    // The list is a fixed 240 wide: the pane's left edge — the list's
+    // right edge, measured from the window's left edge — sits at the
+    // window panel's margin plus the 240.
     let list_edge = f64::from(PANEL_MARGIN) + 240.0;
     assert!(
         (before - list_edge).abs() <= 1.0,
@@ -1102,9 +1100,9 @@ fn pick_in_selector(window: &mut Headless, view: &mut SaveView, entry: &str) {
     action_click(window, view, item);
 }
 
-// plans/save_editor.md "Editing UI", the Team selector bullet: picking a
-// team selects its team row, so the detail shows the team's view and its
-// tactics; picking ALL keeps the selection.
+// Picking a team in the team selector selects its team row, so the
+// detail shows the team's view and its tactics; picking ALL keeps the
+// selection.
 #[test]
 fn picking_a_team_in_the_selector_selects_its_team_row() {
     let path = fixture(PesVersion::Pes21, "selector_selects_row");
@@ -1139,8 +1137,8 @@ fn picking_a_team_in_the_selector_selects_its_team_row() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Player list bullet (the team
-// row): `[click for tactics]` after the name, in the weak colour.
+// The team row draws `[click for tactics]` after the name, in the weak
+// colour: nothing else says where the tactics are.
 #[test]
 fn the_team_row_hints_click_for_tactics() {
     let path = fixture(PesVersion::Pes21, "team_row_hint");
@@ -1176,10 +1174,9 @@ fn the_team_row_hints_click_for_tactics() {
     );
 }
 
-// The hint gives way first on a narrow row (the draft's `.thint`, the
-// plan's Player list bullet): a name leaving part of its room elides the
-// hint while painting whole itself; a name that fills the row drops the
-// hint entirely.
+// The hint gives way first on a narrow row (the draft's `.thint`): a
+// name leaving part of its room elides the hint while painting whole
+// itself; a name that fills the row drops the hint entirely.
 #[test]
 fn the_team_rows_hint_elides_before_the_name() {
     let path = fixture(PesVersion::Pes21, "team_row_hint_elides");

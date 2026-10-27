@@ -1,9 +1,8 @@
-//! The "Player assignments" palette and the armed click-to-assign modes
-//! (`plans/save_editor.md` "Tactics editor", the click-to-assign bullet
-//! and "What the controls write"): the six set-piece takers, the captain
-//! and the join-attack pick as chips that arm a pitch click. No note
-//! explains an armed mode: the highlighted chip and the candidates'
-//! corner brackets on the pitch say it.
+//! The "Player assignments" palette and the armed click-to-assign modes:
+//! the six set-piece takers, the captain and the join-attack pick as
+//! chips that arm a pitch click. No note explains an armed mode: the
+//! highlighted chip and the candidates' corner brackets on the pitch say
+//! it.
 
 use pes_savefile::model::tactics::{SetPieceTakers, TeamTactics};
 use pes_savefile::schema::fields::{InstructionSide, TacticsField};

@@ -533,8 +533,7 @@ fn the_quick_actions_follow_the_rules_files_tiers() {
     assert_eq!(after.stats.speed, 89);
 }
 
-// SE-GUI-09, its Set stats clause (plans/save_editor.md "Configurable AATF
-// rules", the Quick actions bullet): Set stats is the Player menu's Set all
+// SE-GUI-09, its Set stats clause: Set stats is the Player menu's Set all
 // stats in one click, its number 40 to 99 starting at 77.
 #[test]
 fn set_stats_writes_every_ability_to_the_number() {
@@ -606,9 +605,8 @@ fn set_stats_writes_every_ability_to_the_number() {
     assert_eq!(view.set_stats, 99, "a typed 120 settles at 99");
 }
 
-// plans/save_editor.md "Configurable AATF rules", the Quick actions bullet: an
-// `apply_tier` that fails leaves the player as he was and shows the error in
-// the refusal dialog.
+// An `apply_tier` that fails leaves the player as he was and shows the
+// error in the refusal dialog.
 #[test]
 fn a_failed_make_shows_the_refusal_and_changes_nothing() {
     let (path, mut view, mut window) = open_701("quick_make_fails");
@@ -909,11 +907,11 @@ fn a_rules_load_error_is_a_red_line_whose_click_opens_it() {
     assert_eq!(copies, 1, "the error's text drawn once, in the dialog");
 }
 
-// plans/save_editor.md "Editing UI", "The view fills its pane": the list
-// and the quick actions run to the pane's bottom — the actions' band's
-// painted bottom is the pane's own painted bottom at the 1280 x 800
-// window, no dead strip under it (the bottom panel takes its height off
-// the list's scroll, whose floating bar reserves no strip of its own).
+// The view fills its pane: the list and the quick actions run to the
+// pane's bottom — the actions' band's painted bottom is the pane's own
+// painted bottom at the 1280 x 800 window, no dead strip under it (the
+// bottom panel takes its height off the list's scroll, whose floating
+// bar reserves no strip of its own).
 #[test]
 fn the_quick_actions_reach_the_panes_bottom() {
     let (_path, mut view, _window) = open_701("quick_fills_pane");
@@ -1131,8 +1129,7 @@ fn the_columns_halve_when_the_content_widths_do_not_fit() {
         painted_label(&shapes, &label, bounds).galley.elided,
         "the long label elides in its half ({bounds:?})"
     );
-    // The elided label's tooltip names the tier (the plan's "its
-    // tooltip names the tier").
+    // The elided label's tooltip names the tier.
     assert_eq!(
         tooltip_containing(
             &mut window,

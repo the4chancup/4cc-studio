@@ -2,7 +2,8 @@
 
 A section pointer names a Markdown file and one or more places in it: `` `path.md` "Heading" ``,
 with or without the backticks, further titles following after `, `, ` and ` or ` or `
-(`` `object_model.md` "Core types", "Player folders" ``). Every pointer in `AGENTS.md`, the
+(`` `object_model.md` "Core types", "Player folders" ``). A pointer the line end cuts continues
+on the next line, in a `.rs` file on the next comment line. Every pointer in `AGENTS.md`, the
 documents under `docs/` and the `.rs` and `.md` files under `crates/` must resolve: its file
 exists and holds an anchor the title names. `DECISIONS.md` and `LOG.md` are not checked: they
 are append-only, so their old pointers stay as they were written.
@@ -10,7 +11,8 @@ are append-only, so their old pointers stay as they were written.
 The documents name a place by a heading, a bold run-in title (`**Subfolders.**`, anywhere in a
 line), the start of a paragraph or list item ("Rules:"), or a table row's first cell (a
 glossary term), so each of these is an anchor, with its list marker, bold markers and
-backticks removed, and a heading also without its number ("5. Writer" is also "Writer"). A
+backticks removed, and a heading also without its number ("5. Writer" is also "Writer") or a
+decision entry's date and scope ("2026-10-27 — core — A window …" is also "A window …"). A
 title names an anchor equal to it or starting with it and then a space or `:`, `,`, `.`, so
 "Testing" names "Testing and verification". The check is for a pointer whose text is gone
 from its file (a section moved to the other tree, renamed or deleted); leniency on the exact
@@ -41,12 +43,20 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 
 TITLE = r'"[^"\n]{1,120}"'
-POINTER = re.compile(
-    rf"(?<![\w/.])`?(?P<path>[\w./-]+\.md)`?[,;]? (?P<titles>{TITLE}(?:,? (?:and |or )?{TITLE})*)"
-)
+PATH = r"(?<![\w/.])`?(?P<path>[\w./-]+\.md)`?[,;]?"
+TITLES = rf"{TITLE}(?:,? (?:and |or )?{TITLE})*"
+POINTER = re.compile(rf"{PATH} (?P<titles>{TITLES})")
+# A pointer the line end cuts: its path alone, its titles so far followed by the `,`, `and` or
+# `or` that joins the next one, or a title whose closing quote is on a later line. A complete
+# pointer ending the line is not cut: joining a next line that opens with a quoted phrase would
+# read that phrase as one more title.
+CUT = re.compile(rf"{PATH}(?: {TITLES}(?:,|,? and|,? or))?(?: \"[^\"]*)?$")
+COMMENT = re.compile(r"\s*//[/!]?\s*")
 QUOTED = re.compile(TITLE)
 HEADING = re.compile(r"^#+\s+(?P<title>.+?)\s*#*\s*$")
 NUMBER = re.compile(r"^\d+\.\s+")
+# A decision entry's heading opens with its date and scope; a pointer names it by its title.
+DECISION = re.compile(r"^\d{4}-\d{2}-\d{2} — [^—]+ — ")
 LIST_MARKER = re.compile(r"^\s*(?:[-*]|\d+\.)\s+")
 BOLD = re.compile(r"\*\*(?P<title>[^*]+?)\*\*")
 LINK = re.compile(r"\]\((?P<target>[^)\s#:]+\.md)(?:#[^)]*)?\)")
@@ -72,12 +82,34 @@ class Pointer:
     title: str
 
 
+def continuation(line: str, code: bool) -> str | None:
+    """The text a wrapped pointer continues with on `line`, or None when it cannot continue
+    there: a blank line, or in a `.rs` file a line that is not a comment."""
+    if code:
+        comment = COMMENT.match(line)
+        return line[comment.end() :].rstrip() if comment else None
+    return line.strip() or None
+
+
 def pointers(source: str, text: str) -> list[Pointer]:
+    code = source.endswith(".rs")
+    lines = text.splitlines()
     found = []
-    for number, line in enumerate(text.splitlines(), start=1):
-        for match in POINTER.finditer(line):
+    for index, line in enumerate(lines):
+        # A pointer may wrap onto the next lines; it is read whole, from the line it starts on.
+        joined = line.rstrip()
+        following = index + 1
+        while following < len(lines) and CUT.search(joined):
+            more = continuation(lines[following], code)
+            if more is None:
+                break
+            joined += " " + more
+            following += 1
+        for match in POINTER.finditer(joined):
+            if match.start() >= len(line):
+                break
             for quoted in QUOTED.findall(match["titles"]):
-                found.append(Pointer(source, number, match["path"], quoted[1:-1]))
+                found.append(Pointer(source, index + 1, match["path"], quoted[1:-1]))
     return found
 
 
@@ -96,7 +128,7 @@ def anchors(text: str) -> set[str]:
             heading = HEADING.match(line)
             if heading:
                 title = clean(heading["title"])
-                found |= {title, NUMBER.sub("", title)}
+                found |= {title, NUMBER.sub("", title), DECISION.sub("", title)}
             elif line.startswith("|"):
                 found.add(clean(line.split("|")[1]))
             elif LIST_MARKER.match(line) or not previous.strip() or HEADING.match(previous):

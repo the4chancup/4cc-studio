@@ -1,6 +1,5 @@
-//! The Generate settings.toml / in-game face dialogs (`plans/save_editor.md`
-//! "Interchange formats in the UI", the `settings.toml` generation bullet;
-//! the draft's `dlgSettings`/`dlgIngameFace`): two Player-menu actions, one
+//! The Generate settings.toml / in-game face dialogs (the draft's
+//! `dlgSettings`/`dlgIngameFace`): two Player-menu actions, one
 //! per file a player folder holds, writing the player's look as
 //! `PlayerSettings::from_player` emits it. A save cannot say which players
 //! wear the in-game face (the cup keeps every "modified face" flag off), so

@@ -48,8 +48,8 @@ fn a_role_chip_then_a_marker_click_writes_the_taker_and_disarms() {
     assert!(!changed, "arming writes no record");
     assert_eq!(view.assign, Some(Assign::Role(5)), "the mode is armed");
 
-    // The marker click writes the taker; no note is drawn while armed
-    // (the plan's "No note explains the armed mode").
+    // The marker click writes the taker. No note is drawn while armed: the
+    // highlighted chip and the candidates' corner brackets say it.
     let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
     assert!(
         !nodes.iter().any(|node| {
@@ -200,8 +200,8 @@ fn each_assignment_chip_writes_its_own_field() {
 
 // The join pick toggles members until the chip's click disarms: three
 // clicks fill the three entries, a fourth is ignored, and clicking a
-// member removes him, packing the list (the plan's "Players to join the
-// attack stay packed").
+// member removes him and moves the later ones up, so the record never
+// holds a gap.
 #[test]
 fn join_clicks_fill_three_then_toggle_members_packed() {
     let mut window = Headless::sized(900.0, 1100.0);
@@ -269,9 +269,9 @@ fn join_clicks_fill_three_then_toggle_members_packed() {
     );
     assert_eq!(view.assign, Some(Assign::Join), "join stays armed");
 
-    // A click on an armed join chip disarms (the plan's "No note
-    // explains the armed mode": the highlighted chips and the
-    // candidates' corner brackets say it).
+    // A click on an armed join chip disarms. No note explains the armed
+    // mode: the highlighted chips and the candidates' corner brackets say
+    // it.
     let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
     let chip = chips_below(&nodes, "Join the attack")
         .into_iter()
@@ -281,12 +281,11 @@ fn join_clicks_fill_three_then_toggle_members_packed() {
     assert_eq!(view.assign, None, "the armed chip's click disarms");
 }
 
-// plans/save_editor.md "Tactics editor" (the click-to-assign bullet's
-// last sentence): an instruction's target chip arms the same pitch
-// pick as the roles' — click the chip, then a starter's marker writes
-// his roster slot as the target and disarms; a click on the player
-// already the target writes nothing; and an instruction changed while
-// armed disarms the mode without a write.
+// An instruction's target chip arms the same pitch pick as the roles' —
+// click the chip, then a starter's marker writes his roster slot as the
+// target and disarms; a click on the player already the target writes
+// nothing; and an instruction changed while armed disarms the mode
+// without a write.
 #[test]
 fn a_target_chip_then_a_marker_click_writes_the_target_and_disarms() {
     // The window is wide enough to hold the whole chips row.
@@ -669,8 +668,8 @@ fn popover_rect(ctx: &egui::Context, view: &TacticsView) -> Option<egui::Rect> {
 }
 
 // The header reads the starter's name, then `player <n>` — his roster
-// slot counted from 1 (the plan's "The pitch is the editor" bullet); an
-// empty roster slot's name reads "(empty roster slot)".
+// slot counted from 1. An empty roster slot's name reads "(empty roster
+// slot)".
 #[test]
 fn the_header_names_the_starter_and_his_roster_slot() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -716,8 +715,8 @@ fn the_header_names_the_starter_and_his_roster_slot() {
 
 // The popover's top-right corner sits on the marker's bottom-left
 // corner as it stood at the click, and there it stays while the slot's
-// X and Y move the marker under it — the fields' arrows stay under the
-// pointer (the plan's "The pitch is the editor" bullet).
+// X and Y move the marker under it, so the fields' arrows stay under the
+// pointer rather than moving off with the marker.
 #[test]
 fn the_popover_stays_where_it_opened_while_the_marker_moves() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -842,9 +841,9 @@ fn the_popover_scrolls_with_the_pitch() {
 }
 
 // A primary press anywhere outside the popover closes it, as Close
-// does (the plan's "a press outside it closes it"; the draft's document
-// `pointerdown`): a press on the grass; a press inside it, or inside a
-// popup it opened — the Position combo's list — is not outside; a press
+// does, and as the draft's document `pointerdown` does: a press on the
+// grass closes it; a press inside it, or inside a popup it opened — the
+// Position combo's list — is not outside; a press
 // then release on another marker closes it and that marker's click then
 // opens his.
 #[test]

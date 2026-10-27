@@ -1,8 +1,7 @@
-//! Live AATF's marks on the editor itself (`plans/save_editor.md`
-//! "Configurable AATF rules", the Live AATF bullet's last two
-//! sub-bullets; the draft's `rowMark`, `violationField` and `fieldMark`):
-//! while the toggle is on and the dock's check holds one team's result,
-//! the list's rows carry a `✖` or `✔` and the selected player's field a
+//! Live AATF's marks on the editor itself, so a manager sees what to fix
+//! where they fix it (the draft's `rowMark`, `violationField` and
+//! `fieldMark`). While the toggle is on and the dock's check holds one
+//! team's result, the list's rows carry a `✖` or `✔` and the selected player's field a
 //! violation is about carries a `✖`. `held_violations` is the one read
 //! of the held check every mark goes through.
 
@@ -14,16 +13,16 @@ use crate::view::aatf_check::TeamsCheck;
 
 /// The passing glyph (`✔`, U+2714), the `✖`'s pair (`violations::CROSS`):
 /// egui's bundled emoji fonts hold them, and the theme keeps those fonts
-/// in the fallback chain (DECISIONS.md "Live AATF's marks: where they
-/// sit and their glyphs").
+/// in the fallback chain. The icon font's subset holds neither.
 const TICK: char = '\u{2714}';
 
 /// The violations the marks draw: `check`'s held result while `live`
 /// (the `live_aatf` toggle) is on and the active rules file loaded, when
 /// the result is one team's successful check — the team id and its
 /// violations, `None` otherwise. While a check is in flight the held
-/// result stands (the plan: the marks keep the previous result); a
-/// failed check or a rules file that does not load marks nothing.
+/// result stands, as the dock's list keeps it. A failed check or a rules
+/// file that does not load marks nothing: a mark from an older result
+/// would claim a check that no longer ran.
 pub(super) fn held_violations<'a>(
     live: bool,
     check: &'a TeamsCheck,
@@ -42,9 +41,8 @@ pub(super) fn held_violations<'a>(
     Some((*team_id, violations))
 }
 
-/// The field a violation's cross sits beside, the plan bullet's set:
-/// `marked_field` maps a kind to one, `None` for the kinds about no
-/// single field and the team's own.
+/// The field a violation's cross sits beside: `marked_field` maps a kind
+/// to one, `None` for the kinds about no single field and the team's own.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) enum MarkedField {
     /// The Height box (`Height`).

@@ -1,6 +1,5 @@
-//! The undo and redo stacks (`plans/save_editor.md` "Editing UI", the Undo/redo
-//! bullet): an undo entry is the before and after of each `PlayerEntry` or
-//! `TeamEntry` it changed, one entry per gesture — a widget's changes merge
+//! The undo and redo stacks: an undo entry is the before and after of each
+//! `PlayerEntry` or `TeamEntry` it changed, one entry per gesture — a widget's changes merge
 //! into the open entry while it stays unsealed.
 
 use pes_savefile::EditFile;

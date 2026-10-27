@@ -1123,7 +1123,7 @@ fn a_team_rows_item_is_the_teams_display_name() {
 }
 
 // SE-GUI-05: the Item column reads the display name (the colour codes
-// dropped), as `plans/save_editor.md`'s unsaved-changes bullet words it.
+// dropped), worded in the views' terms as the Comparator panel's rows are.
 #[test]
 fn the_item_column_is_the_display_name() {
     let path = fixture(PesVersion::Pes21, "prompt_display_name");

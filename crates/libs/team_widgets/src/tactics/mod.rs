@@ -1,12 +1,11 @@
-//! The tactics settings of `plans/save_editor.md` "Tactics editor" (the
-//! draft's `tacticsTab`, minus the pitch canvas and the lineup, which are
-//! `crate::pitch`): the preset selector and the Fluid formation switch of
-//! the preset bar, then one `pub fn` per group panel — Formation
-//! settings, Advanced instructions (`instructions`), Player assignments
-//! (`assignments`), Automatic settings — so the host lays the grid's
-//! cells out. Each panel edits `tactics` in place and answers whether it
-//! changed; the host decides what the change means (the contract in
-//! `plans/save_editor.md` "`libs/team_widgets`").
+//! The Tactics editor's settings (the draft's `tacticsTab`, minus the
+//! pitch canvas and the lineup, which are `crate::pitch`): the preset
+//! selector and the Fluid formation switch of the preset bar, then one
+//! `pub fn` per group panel — Formation settings, Advanced instructions
+//! (`instructions`), Player assignments (`assignments`), Automatic
+//! settings — so the host lays the grid's cells out. Each panel edits
+//! `tactics` in place and answers whether it changed; the host decides
+//! what the change means.
 
 use pes_savefile::model::tactics::{TacticSliders, TacticStyle, TacticsPreset, TeamTactics};
 use pes_savefile::schema::fields::{
@@ -118,8 +117,8 @@ pub struct FieldedMark {
     pub line: String,
 }
 
-/// A starter's medal tier (the plan's "A starter's badge names his medal
-/// tier"): the letter his pitch badge carries at its right end — a gold
+/// A starter's medal tier: the letter his pitch badge carries at its
+/// right end, where the game draws the overall rating — a gold
 /// `G` (`#cc9900`, the game's gold name colour), a silver `S`
 /// (`#c0c0c0`) or a bronze `B` (`#cd7f32`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

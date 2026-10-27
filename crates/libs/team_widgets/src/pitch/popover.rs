@@ -1,7 +1,6 @@
-//! The slot popover (`plans/save_editor.md` "Tactics editor", the pitch
-//! bullet; the draft's `slotPopover`): a marker click's per-slot panel —
-//! the starter's name and roster number, the Position combo, Make GK and
-//! the X and Y fields.
+//! The slot popover, the draft's `slotPopover`: a marker click's per-slot
+//! panel — the starter's name and roster number, the Position combo, Make
+//! GK and the X and Y fields.
 
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::tactics::TeamTactics;

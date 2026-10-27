@@ -1,5 +1,5 @@
-//! The AATF ruleset `check-aatf` and the window's Cards left badge share
-//! (`plans/save_editor.md` "Editing UI", the Cards left bullet): the
+//! The AATF ruleset `check-aatf` and the window's Cards left badge share,
+//! so the badge reads a player's tier as the check does: the
 //! `aatf_rules` setting's file, resolved and loaded one way for both, else
 //! the embedded official ruleset. `team_views`/`check_teams` are the
 //! check both the command line and the AATF panel run; `validate` is the
@@ -87,9 +87,8 @@ pub(crate) fn validate(file: Option<&Path>) -> Vec<String> {
 mod tests {
     use super::*;
 
-    // plans/save_editor.md "Configurable AATF rules", the Validate rules
-    // bullet: a file that does not read is one line, `cannot read the
-    // file: <error>`.
+    // Validate rules: a file that does not read is one line, `cannot read
+    // the file: <error>`.
     #[test]
     fn an_unreadable_file_validates_to_one_line() {
         let missing = crate::test_support::scratch("validate_unreadable").join("none.4ccrules");
@@ -98,8 +97,7 @@ mod tests {
         assert!(lines[0].starts_with("cannot read the file: "), "{lines:?}");
     }
 
-    // plans/save_editor.md "Configurable AATF rules", the Validate rules
-    // bullet: `LoadError::Rules` fans out to one line per `RuleError`,
+    // Validate rules: `LoadError::Rules` fans out to one line per `RuleError`,
     // each starting with its key path; a file that loads is no lines.
     #[test]
     fn rule_errors_fan_out_one_line_each_and_a_clean_file_is_none() {

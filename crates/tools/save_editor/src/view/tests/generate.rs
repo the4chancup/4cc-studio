@@ -1,6 +1,5 @@
-//! The Generate dialogs' tests (SE-GUI-19, SE-GUI-33; `plans/save_editor.md`
-//! "Interchange formats in the UI", the `settings.toml` generation bullet):
-//! the two Player-menu items end to end — the explicit name with its colour
+//! The Generate dialogs' tests (SE-GUI-19, SE-GUI-33): the two Player-menu
+//! items end to end — the explicit name with its colour
 //! codes, the two files split as the format has them, an existing
 //! settings.toml's comments kept, a stripped player's skip, Write's folder
 //! gate and an existing file that does not parse.

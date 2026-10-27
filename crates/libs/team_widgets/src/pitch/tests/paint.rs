@@ -14,8 +14,8 @@ fn outfield(x: u8, y: u8) -> FormationSlot {
     FormationSlot { position: 1, x, y }
 }
 
-// The screen's own slot-to-spot mapping (the plan's pitch bullet): x 0
-// to 104 across the canvas' width, y 24 the halfway line, the attack end
+// The formation screen's own slot-to-spot mapping: x 0 to 104 across
+// the canvas' width, y 24 the halfway line, the attack end
 // up; the keeper sits on the goal area's line whatever his stored spot.
 #[test]
 fn the_badge_centre_is_the_screens_spot_mapping() {
@@ -107,9 +107,9 @@ fn the_marker_box_centres_on_the_badge_and_stays_inside() {
     );
 }
 
-// The turf (the plan's "Turf" sub-bullet): the game texture's own size,
-// eleven horizontal bands dark at both ends over their two greens, the
-// grain a fixed noise of luma deviation about 3.5, deterministic.
+// The turf: the game texture's own size, eleven horizontal bands dark at
+// both ends over their two greens, the grain a fixed noise of luma
+// deviation about 3.5, deterministic.
 #[test]
 fn the_turf_is_the_game_textures_bands_with_its_grain() {
     let image = turf_image();
@@ -181,8 +181,8 @@ fn the_turf_grain_is_the_fixed_seed_xorshift() {
     }
 }
 
-// The lines (the plan's "Lines" sub-bullet), read off the painted shapes
-// in canvas-relative coordinates: the halfway line, the centre circle,
+// The lines, read off the painted shapes in canvas-relative
+// coordinates: the halfway line, the centre circle,
 // the two penalty boxes and goal areas as segments, the two arcs as
 // paths; every stroke white at 20%, 2 px wide.
 #[test]
@@ -284,9 +284,9 @@ fn the_painted_lines_are_the_screens_markings() {
     }
 }
 
-// The badge's position-text colours are the game's groups (the plan's
-// "A marker" sub-bullet): forwards, midfielders, defenders and the
-// keeper in their own colours, a position past the table white.
+// The badge's position-text colours are the game's groups: forwards,
+// midfielders, defenders and the keeper in their own colours, a
+// position past the table white.
 #[test]
 fn the_position_colours_follow_the_game_s_groups() {
     assert_eq!(
@@ -318,11 +318,11 @@ fn the_position_colours_follow_the_game_s_groups() {
     assert_eq!(position_colour(13), egui::Color32::WHITE, "past the table");
 }
 
-// The markers on the fixture's formation (the plan's "A marker"
-// sub-bullet): a 50 x 14 badge of `BADGE_FILL` centred on the slot's
-// clamped centre (the keeper's the screen's spot), the position's
-// abbreviation in its group's colour, the captain's mark on his marker
-// alone, a row's portrait drawn when the host hands one.
+// The markers on the fixture's formation: a 50 x 14 badge of
+// `BADGE_FILL` centred on the slot's clamped centre (the keeper's the
+// screen's spot), the position's abbreviation in its group's colour, the
+// captain's mark on his marker alone, a row's portrait drawn when the
+// host hands one.
 #[test]
 fn the_markers_paint_badge_position_captain_and_portrait() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -444,8 +444,8 @@ fn the_markers_paint_badge_position_captain_and_portrait() {
     );
 }
 
-// The name below the badge keeps the raw name's colour codes (the plan's
-// "the name in its colour codes' colours (white where it has none)").
+// The name below the badge is drawn in its colour codes' colours, white
+// where it has none.
 #[test]
 fn a_markers_name_keeps_its_colour_codes_colours() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -478,10 +478,11 @@ fn a_markers_name_keeps_its_colour_codes_colours() {
     );
 }
 
-// The screen's selection marks as the editor's states (the plan's last
-// pitch sub-bullet): the open popover's marker the selected corners, no
-// other; every marker the candidates' while an assignment mode is armed;
-// a join member's badge `JOIN_FILL` under the armed join mode.
+// The formation screen's selection marks, reused for the editor's
+// states: the open popover's marker gets the selected corners, no other
+// does. Every marker gets the candidates' while an assignment mode is
+// armed, and a join member's badge is `JOIN_FILL` under the armed join
+// mode.
 #[test]
 fn the_corners_and_the_join_fill_mark_the_states() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -630,10 +631,10 @@ fn the_corners_and_the_join_fill_mark_the_states() {
     assert_eq!(corners(&shapes, SELECTED_CORNERS).len(), 0);
 }
 
-// The markers' draw order (the plan's "drawn from the top of the canvas
-// down, a press or a drop hits the marker drawn on top"): two slots on
-// top of each other, the lower one's badge paints after the upper's and
-// a press inside both boxes opens the lower one's popover.
+// The markers are drawn from the top of the canvas down, and a press or
+// a drop hits the marker drawn on top: of two slots on top of each
+// other, the lower one's badge paints after the upper's and a press
+// inside both boxes opens the lower one's popover.
 #[test]
 fn the_lower_marker_paints_last_and_takes_the_press() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -712,10 +713,9 @@ fn off(a: egui::Pos2, b: egui::Pos2) -> bool {
     (a.x - b.x).abs() > 0.5 || (a.y - b.y).abs() > 0.5
 }
 
-// The plan's "the dragged one last": while a marker is dragged he
-// paints last, his badge centred on the clamped pointer — eleven
-// badges as ever, the last at the drop point and none left at his
-// own centre.
+// While a marker is dragged he paints last, his badge centred on the
+// clamped pointer — eleven badges as ever, the last at the drop point
+// and none left at his own centre.
 #[test]
 fn a_dragged_marker_paints_last_at_the_pointer() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -849,9 +849,9 @@ fn the_released_marker_paints_at_the_drop_point() {
     );
 }
 
-// The keeper's slot is fixed (the plan's "The goalkeeper's slot is
-// fixed"): pressed and dragged, his marker paints at his own spot — the
-// dragged repaint skips him — and no badge sits at the pointer.
+// The keeper's slot is fixed: pressed and dragged, his marker paints at
+// his own spot — the dragged repaint skips him — and no badge sits at
+// the pointer.
 #[test]
 fn a_pressed_keeper_paints_at_his_spot() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -935,9 +935,9 @@ fn a_name_as_wide_as_the_badge_fits() {
     assert!(name_fits(12.0), "a narrow one fits");
 }
 
-// `name_scroll` (the plan's measured scroll): a wide name holds still
-// `NAME_PERIOD` less its `width + NAME_GAP` loop at `NAME_SPEED`, then
-// moves one loop a period, ending where it began.
+// `name_scroll`, the scroll measured on the game's screen: a wide name
+// holds still `NAME_PERIOD` less its `width + NAME_GAP` loop at
+// `NAME_SPEED`, then moves one loop a period, ending where it began.
 #[test]
 fn name_scroll_rolls_one_loop_a_period() {
     for (seconds, want) in [
@@ -983,10 +983,10 @@ fn name_galleys<'a>(
     galleys
 }
 
-// A name wider than its badge scrolls as the game's (the plan's "A
-// wider name scrolls"): two copies a loop apart, the first `name_scroll`
-// left of the badge's left edge, clocked from the pitch's first frame; a
-// name that fits stays centred, unmoved.
+// A name wider than its badge scrolls as the game's does: two copies a
+// loop apart, the first `name_scroll` left of the badge's left edge,
+// clocked from the pitch's first frame; a name that fits stays centred,
+// unmoved.
 #[test]
 fn a_wide_name_scrolls_two_copies_from_the_pitchs_first_frame() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -1441,9 +1441,8 @@ fn the_lists_halve_the_span_and_the_lineup_claims_their_height() {
     );
 }
 
-// The lists keep the host's fixed width (`plans/save_editor.md` "Tactics
-// editor": the lists at a fixed narrow width beside the pitch): a name
-// longer than the row ends cut at the list's edge, not drawn over the
+// The lists keep the fixed width the host gives them beside the pitch: a
+// name longer than the row ends cut at the list's edge, not drawn over the
 // settings column at its right. "3DSMAX HAS STOPPED WORKING" is a /3/
 // starter's name in the maintainer's PES 2021 save, which ran 50 points
 // past the lists at the default window.
@@ -1491,14 +1490,14 @@ fn a_long_name_is_cut_at_the_lists_width() {
     );
 }
 
-// The swap mark (the plan's "A pitch player dropped on another", whose
-// release swaps the two slots in the shown formation, DECISIONS
-// 2026-10-27: while a dragged starter is held over another, that one
-// carries the selected player's corner brackets drawn over everything
-// and the dragged marker goes to 35% opacity, so a drag meant only to
-// move can be steered off): over another marker the brackets show,
-// painted after every shape of the dragged marker, and his badge fades;
-// over the grass, neither.
+// The swap mark. A pitch player dropped on another swaps the two slots
+// in the shown formation, so while a dragged starter is held over
+// another, that one carries the selected player's corner brackets drawn
+// over everything and the dragged marker goes to 35% opacity: a drag
+// meant only to move shows the swap before the release and can be
+// steered off it. Over another marker the brackets show, painted after
+// every shape of the dragged marker, and his badge fades; over the
+// grass, neither.
 #[test]
 fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -1666,8 +1665,8 @@ fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
     assert_eq!(fill, BADGE_FILL, "full opacity over the grass");
 }
 
-// The plan's "A starter's badge names his medal tier": the row's medal
-// letter at the badge's right end, right-aligned 3 points in, level
+// A starter's badge names his medal tier: the row's medal letter at the
+// badge's right end, right-aligned 3 points in, level
 // with the position text and in its font, in the medal's colour — a
 // gold `G` `#cc9900`, a silver `S` `#c0c0c0`, a bronze `B` `#cd7f32`;
 // a slot with no medal draws none.
@@ -1780,12 +1779,11 @@ fn crosses(shapes: &[egui::epaint::ClippedShape]) -> Vec<&egui::epaint::TextShap
         .collect()
 }
 
-// Live AATF's `FieldedNotA` cross (the plan's field-a-violation-is-about
-// sub-bullet's `FieldedNotA` parenthesis; DECISIONS "Live AATF's pitch
-// cross"): a starter whose row's `fielded` marks his spot on the shown
-// formation carries one `✖` `MARK_GAP` left of his badge, centred on
-// it, in the error colour when one mark there is an Error — painted
-// after every marker, so a marker drawn later cannot cover it.
+// Live AATF's `FieldedNotA` cross: a starter whose row's `fielded` marks
+// his spot on the shown formation carries one `✖` `MARK_GAP` left of his
+// badge, centred on it, in the error colour when one mark there is an
+// Error. It is painted after every marker, so a marker drawn later
+// cannot cover it.
 #[test]
 fn a_fielded_mark_paints_a_cross_left_of_the_starters_badge() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -2178,8 +2176,8 @@ fn captured_formations() -> [(&'static str, Formation, &'static str); 8] {
     ]
 }
 
-// The plan's "The formation's name": the eight formations read off PES
-// 2021's formation screen get the name the screen wrote (/f/'s In
+// The formation's name: the eight formations read off PES 2021's
+// formation screen get the name the screen wrote (/f/'s In
 // possession, no wide or attacking midfielder, leaves its empty row out:
 // `3-3-4`).
 #[test]
@@ -2218,11 +2216,11 @@ fn the_formation_name_follows_the_position_and_never_counts_the_keeper() {
     );
 }
 
-// The plan's "The formation's name": the shown formation's name in the
-// canvas' bottom-left corner, white, in the `label` family at 21 pt, its
-// text origin 5 in from the canvas' left edge and its baseline 6 above
-// the bottom edge (the draft's `fillText` at `PITCH.h - 6`, alphabetic
-// baseline), painted after every marker so a low one never covers it.
+// The shown formation's name sits in the canvas' bottom-left corner,
+// white, in the `label` family at 21 pt, its text origin 5 in from the
+// canvas' left edge and its baseline 6 above the bottom edge (the
+// draft's `fillText` at `PITCH.h - 6`, alphabetic baseline), painted
+// after every marker so a low one never covers it.
 #[test]
 fn the_formation_name_sits_in_the_bottom_left_corner_after_the_markers() {
     let mut window = Headless::sized(600.0, 450.0);

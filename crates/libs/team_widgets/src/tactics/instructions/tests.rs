@@ -8,10 +8,9 @@ use crate::test_support::{
     fixture_tactics, named_assignments, pointer_at, roster_rows,
 };
 
-// plans/save_editor.md "Tactics editor", "What the controls write"
-// ("An advanced instruction's list") and the draft's
-// `instructionsFor`: an attack combo lists the version's stored
-// table in its stored order, the attacking instructions plus `Off`,
+// An advanced instruction's list, as the draft's `instructionsFor`
+// builds it: an attack combo lists the version's stored table in its
+// stored order, the attacking instructions plus `Off`,
 // less Tight Marking; a defence combo the defending ones plus
 // `Off`, less Tight Marking. A defence slot holding an attacking
 // instruction still shows it as the current choice.
@@ -149,11 +148,10 @@ fn each_combo_lists_its_side_less_tight_marking() {
     }
 }
 
-// plans/save_editor.md "Tactics editor" (the `.tacinstr` grid):
-// the headers Attack and Defence left-aligned over their columns,
-// each instruction's two combos on one y and equal in width, and
-// each target chip its combo's own x and width, 3 under it (the
-// draft's `column-gap: 8px; row-gap: 3px`).
+// The draft's `.tacinstr` grid: the headers Attack and Defence
+// left-aligned over their columns, each instruction's two combos on one
+// y and equal in width, and each target chip its combo's own x and
+// width, 3 under it (the draft's `column-gap: 8px; row-gap: 3px`).
 #[test]
 fn the_instructions_grid_is_two_equal_columns() {
     // The settings column's width as the window's: the draft's
@@ -213,8 +211,8 @@ fn the_instructions_grid_is_two_equal_columns() {
     }
 }
 
-// The plan bullet's disabled-target rule and the draft's `pick`:
-// under an instruction that takes none of ours the chip is
+// The disabled target, as the draft's `pick` draws it: under an
+// instruction that takes none of ours the chip is
 // disabled and names no player of ours — "An opponent" under a
 // held Tight Marking (its byte is the opposing formation's slot),
 // "No target" under a target-less one.
@@ -595,7 +593,7 @@ fn each_instruction_row_writes_its_own_entry() {
     }
 }
 
-// Round A1's A1b-4: the panel writes the shown preset, not a fixed one:
+// The panel writes the shown preset, not a fixed one:
 // an instruction and its target picked on preset 2 land in preset 2's
 // entry alone, preset 1 and every other field unchanged.
 #[test]

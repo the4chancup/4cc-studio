@@ -2,8 +2,8 @@
 //! Team compiler's aesthetics patch, the teams list) and compared.
 //!
 //! `Tool` registers the tool with the shell: its settings section, its help chapter and its
-//! `save-editor` command line (`spec/save_editor.md` "CLI"), and the window (`view/`, the
-//! master-detail of `plans/save_editor.md` "Editing UI"). `pes_savefile` owns every byte and
+//! `save-editor` command line (`spec/save_editor.md` "CLI"), and the window (`view/`: the
+//! player list beside the selected row's player or team view). `pes_savefile` owns every byte and
 //! every operation on the model; this crate owns the session (the file that is open) and the
 //! command line over it.
 
@@ -23,8 +23,7 @@ use studio_core::{CliError, HelpSection, HelpTopic, RunningPes, StudioTool, Tool
 
 use crate::messages::TOOL_ID;
 
-/// The "Aesthetics from exports" row's hover text (`plans/save_editor.md`
-/// "Read-only aesthetics", the Unlock bullet's last sentence).
+/// The "Aesthetics from exports" row's hover text in the settings menu.
 const AESTHETICS_FROM_EXPORTS_TIP: &str = "On when the cup's looks are compiled from exports: \
      the save's aesthetics are then read-only, behind Edit aesthetics anyway on the Appearance \
      section.";
@@ -37,7 +36,7 @@ const AATF_RULES_PICKER: PathKind = PathKind::File {
 };
 
 /// The Save editor, as registered with the `studio` binary. `view` is the window's
-/// state (`plans/save_editor.md` "Editing UI").
+/// state.
 pub struct Tool {
     view: view::SaveView,
     /// The AATF rules file row's edit buffer in the settings section (`path_row`
@@ -176,7 +175,7 @@ impl StudioTool for Tool {
                     AATF_RULES_PICKER,
                 );
                 // The common grid's row shape: the label cell's tooltip
-                // leads with the key, the widget's is the plan's sentence.
+                // leads with the key, the widget's is the sentence alone.
                 let label = ui.label("Aesthetics from exports").on_hover_text(format!(
                     "aesthetics_from_exports: {AESTHETICS_FROM_EXPORTS_TIP}"
                 ));
@@ -260,7 +259,8 @@ impl StudioTool for Tool {
         cli::command()
     }
 
-    /// The open save's path, bracketed in the idle window title (gui.md "Window title").
+    /// The open save's path, bracketed in the idle window title. No view draws it, so the
+    /// toolbar keeps its one row.
     fn title_detail(&self) -> Option<String> {
         self.view.save_path().map(|path| path.display().to_string())
     }

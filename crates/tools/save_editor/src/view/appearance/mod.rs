@@ -1,6 +1,5 @@
-//! The Appearance section (`plans/save_editor.md` "Editing UI", the Appearance
-//! bullet and "Read-only aesthetics"; the draft's `appearanceTab` and
-//! `paletteRow`): the Cutscenes group first (star and playing attitude,
+//! The Appearance section (the draft's `appearanceTab` and `paletteRow`):
+//! the Cutscenes group first (star and playing attitude,
 //! which change only cutscenes and so sit outside the lock), then the
 //! groups — Edit flags, Physique, Strip style, Motion, Colours. With the
 //! "Aesthetics from exports" setting off the section edits as every other does;
@@ -315,8 +314,8 @@ fn fpc_group(
 /// The edit flags' row (the draft's Edit flags group): the six flags, then
 /// the copy-from id. `base_copy` exists on PES 15 to 18 only; like a gated
 /// field it keeps its place, disabled. Ticking it also sets the seven
-/// gameplay flags (`plans/save_editor.md`'s "Is a copy?" row: a copy's
-/// sections count as edited); unticking clears `base_copy` alone.
+/// gameplay flags, since a copy's sections count as edited; unticking
+/// clears `base_copy` alone.
 fn edit_flags(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -668,7 +667,9 @@ fn motion_grid(
         }
     });
     // Every motion but the dribbling motion, from 1 to the version's shown
-    // top, one undoable edit (DECISIONS.md 2026-10-22's ruling).
+    // top, one undoable edit. The measured tops, not two fixed sets, so a
+    // draw never writes a motion the game does not have and reaches every
+    // one it has.
     if ui
         .button("Randomize")
         .on_hover_text("Set every motion to a random value, except the dribbling motion")

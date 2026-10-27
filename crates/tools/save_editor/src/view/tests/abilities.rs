@@ -252,8 +252,7 @@ fn version_gated_controls_are_disabled_in_place_with_their_first_version() {
     assert_eq!(hand17, hand21, "the Stronger hand control's span");
 }
 
-// plans/save_editor.md "Editing UI", the version-gated widgets bullet: a
-// stat the version lacks shows `-`, disabled, its tooltip naming the first
+// A stat the version lacks shows `-`, disabled, its tooltip naming the first
 // version that has it; the stats it stores draw enabled.
 #[test]
 fn a_stat_the_version_lacks_shows_a_dash_disabled() {
@@ -286,10 +285,9 @@ fn a_stat_the_version_lacks_shows_a_dash_disabled() {
     assert!(!speed.is_disabled(), "Speed is enabled on PES 15");
 }
 
-// plans/save_editor.md "Editing UI", the player view bullet (the ability
-// stats in one column in the game's order, each label beside its number):
-// the 25 stats run top to bottom at one x, each label's SpinButton on its
-// row.
+// The ability stats sit in one column in the game's order, each label
+// beside its number: the 25 stats run top to bottom at one x, each
+// label's SpinButton on its row.
 #[test]
 fn the_stats_fill_one_column_in_the_games_order() {
     let path = fixture(PesVersion::Pes21, "stats_column");
@@ -326,8 +324,7 @@ fn the_stats_fill_one_column_in_the_games_order() {
     }
 }
 
-// plans/save_editor.md "Editing UI", the Abilities & Skills bullet (the
-// playable positions' C/B/A ratings): a click stores its rating in the
+// The playable positions' C/B/A ratings: a click stores its rating in the
 // position's own `playable` slot, as one undoable edit.
 #[test]
 fn a_playable_positions_rating_writes_its_own_slot_and_undoes() {
@@ -397,12 +394,12 @@ fn y_of(nodes: &[accesskit::Node], label: &str) -> f64 {
         .y0
 }
 
-// plans/save_editor.md "Editing UI", the positions grid (the draft's
-// `POS_ROWS` and `#pos-grid`): the 13 playable positions in five rows by
-// line of the pitch, left wing to right wing — LWF CF SS RWF / LMF AMF
-// RMF / CMF DMF / LB CB RB / GK, GK alone on the last — each row centred
-// in the column, each cell's label centred over its ratings (over the B),
-// the registered position's cell outlined with the widgets' radius.
+// The positions grid, the draft's `POS_ROWS` and `#pos-grid`: the 13
+// playable positions in five rows by line of the pitch, left wing to
+// right wing — LWF CF SS RWF / LMF AMF RMF / CMF DMF / LB CB RB / GK,
+// GK alone on the last — each row centred in the column, each cell's
+// label centred over its ratings (over the B), the registered position's
+// cell outlined with the widgets' radius.
 #[test]
 fn the_positions_grid_draws_five_centered_rows_with_the_registered_outlined() {
     /// The outline strokes' shapes, painted in the selection colour (the
@@ -564,11 +561,10 @@ fn the_positions_grid_draws_five_centered_rows_with_the_registered_outlined() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Undo/redo bullet (one entry per
-// gesture, the merge key the widget's): the cards' and pickers' merge keys
-// are the player's own — while a gesture stays open (a widget keeps the
-// keyboard), a tick on the next player is his own entry, not merged into
-// the first's.
+// One undo entry per gesture, the merge key the widget's: the cards' and
+// pickers' merge keys are the player's own — while a gesture stays open
+// (a widget keeps the keyboard), a tick on the next player is his own
+// entry, not merged into the first's.
 #[test]
 fn a_card_tick_on_another_player_is_its_own_undo_entry() {
     let path = fixture(PesVersion::Pes21, "cards_merge_key");
@@ -641,10 +637,9 @@ fn a_card_tick_on_another_player_is_its_own_undo_entry() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Abilities & Skills bullet (the
-// fields shown one above their stored value — star and playing attitude
-// stored as shown): a stored 3 shows 4; typing 8 stores 7. The other
-// fields of the same player are untouched by each edit. The Profile
+// The fields shown one above their stored value (star and playing
+// attitude are stored as shown): a stored 3 shows 4; typing 8 stores 7.
+// The other fields of the same player are untouched by each edit. The Profile
 // block's four sit in this view, the Cutscenes group's two on Appearance.
 #[test]
 fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
@@ -757,9 +752,8 @@ fn the_shifted_fields_show_one_above_stored_and_store_one_below() {
     }
 }
 
-// plans/save_editor.md "Editing UI", the Abilities & Skills bullet: a value
-// the save holds outside a control's range shows as stored and changes only
-// on an edit — drawing a player never edits him.
+// A value the save holds outside a control's range shows as stored and
+// changes only on an edit — drawing a player never edits him.
 #[test]
 fn an_out_of_range_value_draws_as_stored_without_marking_the_player() {
     // Speed 30 is under the control's 40-99 range.
@@ -790,10 +784,10 @@ fn an_out_of_range_value_draws_as_stored_without_marking_the_player() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Cards left bullet: one badge, the
-// player's own tier under the active ruleset (`label: left of limit
-// cards`, `limit - paid`); a ticked skill that no free group covers lowers
-// it by one; the `aatf_rules` file's reading is the badge's.
+// The Cards left badge is one badge, the player's own tier under the
+// active ruleset (`label: left of limit cards`, `limit - paid`); a ticked
+// skill that no free group covers lowers it by one; the `aatf_rules`
+// file's reading is the badge's.
 #[test]
 fn the_cards_left_badge_reads_the_players_own_tier() {
     /// The badge text `rules` reads for team 701's roster `slot` on the
@@ -1197,10 +1191,9 @@ fn a_load_error_at_a_long_path_draws_nothing_in_the_skills_column() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Cards left bullet: a file that
-// does not load draws no badge; the quick actions under the list report
-// it, and the error's text would push the header's row apart. The rest
-// of the view draws.
+// A rules file that does not load draws no Cards left badge: the quick
+// actions under the list report it, and the error's text would push the
+// header's row apart. The rest of the view draws.
 #[test]
 fn a_rules_file_that_does_not_load_draws_no_badge() {
     let path = fixture(PesVersion::Pes21, "rules_load_error");
@@ -1236,8 +1229,7 @@ fn a_rules_file_that_does_not_load_draws_no_badge() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Abilities & Skills bullet: the
-// registered position combo stores the pick (POSITIONS index) as one
+// The registered position combo stores the pick (POSITIONS index) as one
 // undoable edit.
 #[test]
 fn the_registered_position_combo_stores_the_pick_as_one_edit() {
@@ -1433,12 +1425,11 @@ fn a_players_first_frame_draws_where_every_later_one_does() {
     );
 }
 
-// SE-GUI-37's player-view clause (plans/save_editor.md "Editing UI", the
-// player view bullet): General info, Skills and Ability stats side by side
-// left to right on the pane the shell leaves at the 1280 x 800 window
-// (`DEFAULT_PANE`), their tops level, Appearance closed below them inside
-// the pane's height, every first-half box on its half's right edge and the
-// second half's on its label column, every combo on the
+// SE-GUI-37's player-view clause: General info, Skills and Ability stats
+// side by side left to right on the pane the shell leaves at the 1280 x
+// 800 window (`DEFAULT_PANE`), their tops level, Appearance closed below
+// them inside the pane's height, every first-half box on its half's right
+// edge and the second half's on its label column, every combo on the
 // column's, and nothing past the pane's right edge.
 // SE-GUI-37
 #[test]
@@ -1505,8 +1496,8 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         appearance.bounds().expect("bounds").y0 >= deepest,
         "Appearance below the deepest panel's bottom ({deepest})"
     );
-    // The plan's "fits the pane with no scrolling": the header's bottom
-    // inside the pane's height (its content edges less the two
+    // The view fits the pane with no scrolling: the header's bottom inside
+    // the pane's height (its content edges less the two
     // `CentralPanel` margins, as `tactics.rs` bounds its deepest node).
     assert!(
         appearance.bounds().expect("bounds").y1 <= f64::from(DEFAULT_PANE.y - 2.0 * PANEL_MARGIN),
@@ -1640,7 +1631,7 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         "the Captain radio centred under the Nation box ({captain:?} vs {nation:?})"
     );
 
-    // The label-to-field minimums (the plan's "never closer than"): 9 on
+    // A label and its field are never closer than these minimums: 9 on
     // every pair, 12 in the label-left rows and Ability stats, the
     // narrowest of each at its minimum.
     let pair_min = min_gap(
@@ -1772,9 +1763,8 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     }
 }
 
-// plans/save_editor.md "Editing UI", the player view bullet's first
-// sentence: the view centred between the player list and the window's
-// right edge — the gap after the list equals the margin after Ability
+// The view is centred between the player list and the window's right
+// edge: the gap after the list equals the margin after Ability
 // stats to the window's right, the room the fixed columns leave split
 // evenly, on every pane width.
 // The centring pad reads the columns' width the previous frame measured

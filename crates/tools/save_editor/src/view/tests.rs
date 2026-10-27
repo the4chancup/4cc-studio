@@ -1,7 +1,6 @@
-//! The headless-window tests of the view's scenarios (`plans/save_editor.md`
-//! "Acceptance", the Phase 8 scope paragraph): one egui context with AccessKit
-//! on, run a frame at a time; what a frame draws is its AccessKit nodes and
-//! painted shapes.
+//! The headless-window tests of the view's scenarios: one egui context with
+//! AccessKit on, run a frame at a time; what a frame draws is its AccessKit
+//! nodes and painted shapes.
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -845,11 +844,11 @@ fn label_value(nodes: &[accesskit::Node], value: &str) -> bool {
 }
 
 /// The pane the shell leaves a tool's view at the 1280 x 800 default
-/// window (`plans/core/gui.md`, the paragraph starting "The window's
-/// size."): the sidebar's 56-point rail (`studio_core`'s `RAIL_WIDTH`,
-/// which it does not export) and the 24-point status bar taken off. It is
-/// also the narrowest pane a member sees: a narrower window scales the UI
-/// down and lays it out at 1280 ("Scaling with the width").
+/// window (`spec/core/gui.md` "The window's size"): the sidebar's 56-point
+/// rail (`studio_core`'s `RAIL_WIDTH`, which it does not export) and the
+/// 24-point status bar taken off. It is also the narrowest pane a member
+/// sees: a narrower window scales the UI down and lays it out at 1280
+/// (`spec/core/gui.md` "Scaling with the width").
 const DEFAULT_PANE: egui::Vec2 = egui::vec2(1224.0, 776.0);
 
 /// A `CentralPanel`'s inner margin on each side (egui's

@@ -1,5 +1,4 @@
-//! The toolbar's menu buttons (`plans/save_editor.md` "Feature
-//! inventory"): the Player menu's four stat operations and FPC toggle,
+//! The toolbar's menu buttons: the Player menu's four stat operations and FPC toggle,
 //! the Team menu's operations over the selected row's team, each a
 //! sealed undo entry (`session/{player,team}_ops.rs`), the Savefile
 //! menu's roster sheet and Fix database (`session/database.rs`), the
@@ -267,10 +266,8 @@ pub(crate) fn savefile_menu(ui: &mut egui::Ui, view: &mut SaveView) {
 }
 
 /// The Panels menu button (after Savefile, the draft's panel items): the
-/// floating AATF violations panel (`plans/save_editor.md` "Configurable
-/// AATF rules", the AATF panel bullet) and the comparator (`plans/
-/// save_editor.md` "Comparator (gameplay + aesthetics)"). Disabled with
-/// no save open.
+/// floating AATF violations panel and the comparator. Disabled with no
+/// save open.
 pub(crate) fn panels_menu(ui: &mut egui::Ui, view: &mut SaveView) {
     ui.add_enabled_ui(view.session.is_some(), |ui| {
         menu_button(ui, "Panels", |ui| {

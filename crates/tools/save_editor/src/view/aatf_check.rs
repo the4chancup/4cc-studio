@@ -1,13 +1,12 @@
 //! The AATF check the floating panel (`aatf_panel`) and the Live AATF dock
-//! (`live_aatf`) share (`plans/save_editor.md` "Configurable AATF rules"):
-//! the worker-thread check's key, pending state and spawn, the team both
-//! Current-team callers read, the `violations_list` rows a check's results
-//! draw, and a row click's effect on the view's selection. The check runs
-//! on a worker thread — a whole-save pick is seconds of script — started
-//! when the key moves on (the session's revision, the team ids or the
-//! rules file) and the edit has settled (`edit_settled`, the same
-//! condition the undo stack's seal uses); until the reply lands the last
-//! result stays, marked as checking.
+//! (`live_aatf`) share: the worker-thread check's key, pending state and
+//! spawn, the team both Current-team callers read, the `violations_list`
+//! rows a check's results draw, and a row click's effect on the view's
+//! selection. The check runs on a worker thread — a whole-save pick is
+//! seconds of script — started when the key moves on (the session's
+//! revision, the team ids or the rules file) and the edit has settled
+//! (`edit_settled`, the same condition the undo stack's seal uses); until
+//! the reply lands the last result stays, marked as checking.
 
 use std::collections::HashMap;
 use std::path::PathBuf;

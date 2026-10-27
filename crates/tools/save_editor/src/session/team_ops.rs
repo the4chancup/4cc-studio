@@ -1,5 +1,4 @@
-//! The Team menu's operations (`plans/save_editor.md` "Feature inventory",
-//! the Team operations table): each one an `edit_players` batch over the
+//! The Team menu's operations, each one an `edit_players` batch over the
 //! team's filled roster slots, so the whole operation is one sealed undo
 //! entry. egui-free, so the operations are testable without a frame; the
 //! menu's lock (the boots and gloves item, Clear visual flags) is the
@@ -15,9 +14,9 @@ use pes_savefile::schema::player_max_value;
 use crate::session::Session;
 
 /// The registered position's full name, in `positions.registered` order
-/// (GK 0 to CF 12; `plans/save_editor.md` "Feature inventory", the Team
-/// operations table's names row). The spellings mix "Center" and "Centre":
-/// they are the parity table's, kept as they are.
+/// (GK 0 to CF 12), which Set player names to positions writes. The
+/// spellings mix "Center" and "Centre": they are the parity table's, kept
+/// as they are.
 const POSITION_NAMES: [&str; 13] = [
     "Goalkeeper",
     "Center Back",
@@ -253,11 +252,10 @@ mod tests {
             .collect()
     }
 
-    // plans/save_editor.md "Feature inventory", the boots/gloves row: a
-    // value past the field's own bound (`max_value`, the codec's
-    // `ValueTooWide` limit — 14 bits, so 16383 on every version) refuses
-    // the whole operation before the first write: the error names the slot,
-    // the value and the range.
+    // Set boots and gloves IDs for everyone: a value past the field's own
+    // bound (`max_value`, the codec's `ValueTooWide` limit — 14 bits, so
+    // 16383 on every version) refuses the whole operation before the first
+    // write: the error names the slot, the value and the range.
     #[test]
     fn a_boots_id_past_the_range_refuses_with_the_save_untouched() {
         let mut session = open(PesVersion::Pes21, "boglo_refused");

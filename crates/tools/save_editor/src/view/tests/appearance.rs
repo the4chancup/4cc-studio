@@ -407,9 +407,9 @@ fn a_stripped_players_section_says_the_look_is_the_tables_and_the_motions_are_re
     );
 }
 
-// plans/save_editor.md "Editing UI", the motion paragraph (DECISIONS.md
-// 2026-10-22): Randomize draws every motion but the dribbling one from 1
-// to the version's shown top, one undoable edit. The pinned source lands
+// Randomize draws every motion but the dribbling one from 1 to the
+// version's shown top, one undoable edit: the measured tops, so a draw
+// never writes a motion the game does not have. The pinned source lands
 // each at its top, so the assertions name the stored tops exactly.
 #[test]
 fn randomize_draws_within_pes21s_measured_tops_one_undo_entry() {
@@ -532,9 +532,9 @@ fn randomize_draws_within_pes15s_measured_tops_one_undo_entry() {
     assert_eq!(motion_of(&view), before, "the one undo restores them all");
 }
 
-// plans/save_editor.md "Editing UI", the Abilities rule applied to the
-// view: a value the save holds outside its range draws as stored and
-// changes only when edited (the egui clamping trap stays off).
+// A value the save holds outside its range draws as stored and changes
+// only when edited, as in the player view's columns: drawing a player
+// never edits him (the egui clamping trap stays off).
 #[test]
 fn a_stored_celebration_past_its_top_draws_as_stored_without_marking_the_player() {
     let path = fixture(PesVersion::Pes21, "appearance_celebration_200");
@@ -739,9 +739,8 @@ fn randomize_low_end_stores_zero_for_one_based_and_one_for_celebrations() {
     assert_eq!(motion.dribbling, Some(0), "the dribbling motion is left");
 }
 
-// plans/save_editor.md "Editing UI", the physique bullet's scale: a `Signed`
-// key shows `stored - limit` and stores `shown + limit` (limit 7). Stored
-// 12 draws 5; typing 3 stores 10.
+// The physique scale: a `Signed` key shows `stored - limit` and stores
+// `shown + limit` (limit 7). Stored 12 draws 5; typing 3 stores 10.
 #[test]
 fn a_physique_field_shows_stored_minus_limit_and_stores_shown_plus_it() {
     let path = fixture(PesVersion::Pes21, "physique_scale");
@@ -786,8 +785,7 @@ fn a_physique_field_shows_stored_minus_limit_and_stores_shown_plus_it() {
     assert_eq!(neck_length(&view), 10, "typed 3 stores 3 + 7");
 }
 
-// plans/save_editor.md "Editing UI", the palette bullet: a swatch click
-// writes its index as one undoable edit.
+// A palette swatch click writes its index as one undoable edit.
 #[test]
 fn a_swatch_click_stores_its_index() {
     let path = fixture(PesVersion::Pes21, "appearance_swatch");
@@ -1193,10 +1191,9 @@ fn the_boots_id_control_takes_the_records_bound() {
     );
 }
 
-// plans/save_editor.md "Feature inventory", the "Is a copy?" row: ticking
-// Base copy sets the seven gameplay edit flags in the same edit (a copy's
-// sections count as edited); unticking clears `base_copy` alone. On PES
-// 18, the last version with the flag.
+// Ticking Base copy sets the seven gameplay edit flags in the same edit
+// (a copy's sections count as edited); unticking clears `base_copy`
+// alone. On PES 18, the last version with the flag.
 #[test]
 fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
     let path = fixture(PesVersion::Pes18, "base_copy_flags");
@@ -1292,10 +1289,10 @@ fn ticking_base_copy_sets_the_seven_gameplay_flags_one_undoable_edit() {
     assert!(seven_set(&view), "the seven stay set");
 }
 
-// plans/save_editor.md "Editing UI", the Appearance bullet: the draft's
-// two physique pairs a row at the default pane (1224 x 776) — Neck
-// length and Neck size share a row's top, Shoulder height opens the
-// next, and the seven left-column labels share one x0.
+// The Appearance section lays out the draft's two physique pairs a row
+// at the default pane (1224 x 776) — Neck length and Neck size share a
+// row's top, Shoulder height opens the next, and the seven left-column
+// labels share one x0.
 #[test]
 fn the_physique_grid_holds_two_pairs_a_row() {
     let (mut view, _) = open_734_with("physique_two_pairs", &[], 0);
@@ -1454,11 +1451,11 @@ fn the_motion_grid_holds_two_pairs_a_row_in_two_columns() {
     }
 }
 
-// plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell
-// layout", the same pane rule as the player view's: on the pane the
-// shell leaves at the 1280 x 800 window, the narrowest a member sees,
-// every drawn node ends inside it — on PES 17 unlocked, and on PES 21
-// with the switch on.
+// The same pane rule as the player view's
+// (`spec/core/gui.md` "Shell layout"): on the pane the shell leaves at
+// the 1280 x 800 window, the narrowest a member sees, since a narrower
+// window scales the UI down, every drawn node ends inside it — on PES 17
+// unlocked, and on PES 21 with the switch on.
 #[test]
 fn the_appearance_section_fits_the_pane_the_shell_leaves() {
     for (version, test) in [
@@ -1636,7 +1633,7 @@ fn the_setting_off_draws_no_lock_and_the_setting_on_locks_the_paths() {
         Some(accesskit::Toggled::False),
         "off by default"
     );
-    // The checkbox's hover text is the plan's sentence.
+    // The checkbox's hover text is the setting's sentence.
     let at = centre(checkbox);
     window.frame(vec![egui::Event::PointerMoved(egui::Pos2::ZERO)], |ui| {
         tool.settings_view(ui, &ctx)

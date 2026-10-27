@@ -1,8 +1,7 @@
-//! The master list (`plans/save_editor.md` "Editing UI", the Player list bullet): the
-//! team selector, the cross-team filter box, one team's row heading its players'
-//! rows, and the quick actions under the list. A player row shows the name drawn
-//! in the colors its savefile codes set; a team row the team's id, its colours
-//! 1-2 as swatches and its name.
+//! The master list: the team selector, the cross-team filter box, one team's row
+//! heading its players' rows, and the quick actions under the list. A player row
+//! shows the name drawn in the colors its savefile codes set; a team row the
+//! team's id, its colours 1-2 as swatches and its name.
 
 use pes_savefile::EditFile;
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
@@ -75,8 +74,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let team_before = view.team;
     team_selector(ui, &mut view.team, session.file(), "save_editor_team");
     // Picking a team selects its team row, so the detail shows that team's
-    // view, its tactics with it; picking ALL keeps the selection (the
-    // plan's Team selector bullet).
+    // view, its tactics with it: a manager who picks a team usually wants
+    // its tactics next. Picking ALL keeps the selection.
     if view.team != team_before
         && let TeamChoice::Team(id) = view.team
     {
@@ -257,7 +256,7 @@ fn team_row(
         let visuals = paint_row_frame(ui, rect, &response, is_selected);
         if !(is_selected || response.hovered() || response.has_focus()) {
             // The faint fill sets the row apart from a player row (the
-            // plan's Player list bullet, the draft's `.trow` backdrop).
+            // draft's `.trow` backdrop).
             ui.painter()
                 .rect_filled(rect, egui::CornerRadius::ZERO, ui.visuals().faint_bg_color);
         }

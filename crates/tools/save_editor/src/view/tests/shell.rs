@@ -1,8 +1,8 @@
 use super::*;
 
-// plans/save_editor.md "Editing UI", the Undo/redo and Unsaved changes
-// bullets (the mechanism SE-GUI-03's scenario is built on): an edit marks the
-// row while the file stands; Ctrl+S writes it and clears the mark.
+// Undo/redo and unsaved changes, the mechanism SE-GUI-03's scenario is
+// built on: an edit marks the row while the file stands; Ctrl+S writes it
+// and clears the mark.
 #[test]
 fn an_edit_marks_the_row_until_ctrl_s_writes_the_save() {
     let path = fixture(PesVersion::Pes21, "edit_then_save");
@@ -119,9 +119,8 @@ fn undo_and_redo_step_the_edits_back_and_forth() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Undo/redo bullet: changes from one
-// widget merge into one entry while the gesture lasts, so a drag is one undo
-// step, not one per frame.
+// Changes from one widget merge into one undo entry while the gesture
+// lasts, so a drag is one undo step, not one per frame.
 #[test]
 fn a_drag_on_a_control_is_one_undo_entry() {
     let path = fixture(PesVersion::Pes21, "drag_one_entry");
@@ -169,8 +168,8 @@ fn a_drag_on_a_control_is_one_undo_entry() {
     assert_eq!(height(&view), 180, "the one undo restores it");
 }
 
-// plans/save_editor.md "Editing UI", the Undo/redo bullet: a second gesture on
-// the same control, after the first ended, is its own undo entry.
+// A second gesture on the same control, after the first ended, is its own
+// undo entry.
 #[test]
 fn a_second_gesture_on_the_same_control_is_its_own_entry() {
     let path = fixture(PesVersion::Pes21, "two_gestures");
@@ -289,9 +288,9 @@ fn save_asks_the_edit_mode_question_while_the_saves_own_pes_runs() {
     assert!(view.edit_mode_question.is_none(), "no question asked");
 }
 
-// plans/save_editor.md "Editing UI", the Unsaved changes bullet: undoing back
-// to the saved state clears the dot, since it is the difference from the file
-// as opened or last saved, not the undo stack's length.
+// Undoing back to the saved state clears the unsaved dot, since it is the
+// difference from the file as opened or last saved, not the undo stack's
+// length.
 #[test]
 fn undoing_back_to_the_saved_state_clears_the_dot() {
     let path = fixture(PesVersion::Pes21, "undo_clears_dot");
@@ -327,8 +326,8 @@ fn undoing_back_to_the_saved_state_clears_the_dot() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the Undo/redo bullet: the more
-// specific shortcut answers first — Ctrl+Shift+Z is Redo, not Undo.
+// The more specific shortcut answers first: Ctrl+Shift+Z is Redo, not
+// Undo.
 #[test]
 fn ctrl_shift_z_redoes_not_undoes() {
     let path = fixture(PesVersion::Pes21, "shift_z_redo");
@@ -376,8 +375,7 @@ fn ctrl_shift_z_redoes_not_undoes() {
     assert_eq!(height(&view), 170, "Ctrl+Shift+Z redoes");
 }
 
-// plans/save_editor.md "Editing UI" (the Keyboard shortcuts bullet):
-// Ctrl+Z while a text field holds the keyboard undoes nothing — the
+// Ctrl+Z while a text field holds the keyboard undoes nothing: the
 // field's own undo is egui's.
 #[test]
 fn ctrl_z_while_a_text_field_holds_the_keyboard_undoes_nothing() {
@@ -440,9 +438,9 @@ fn the_tool_view_draws_the_window() {
     );
 }
 
-// plans/save_editor.md "Editing UI" (the "nor the open save's path" bullet):
-// `title_detail` hands the path to the idle window title, so the view draws
-// neither it nor the file's name; the toolbar keeps the unsaved marker alone.
+// No view draws the open save's path: `title_detail` hands the path to
+// the idle window title, so the view draws neither it nor the file's
+// name, and the toolbar keeps the unsaved marker alone.
 #[test]
 fn the_save_path_rides_the_window_title_not_the_view() {
     use studio_core::StudioTool;
@@ -510,8 +508,8 @@ fn the_refusal_dialog_dismisses_on_escape() {
     assert!(view.refusal.is_none(), "Escape closes it");
 }
 
-// plans/save_editor.md "Editing UI", the open path's refusal: a file that is
-// no save shows the `Session::open` error and the open save is untouched.
+// The open path's refusal: a file that is no save shows the
+// `Session::open` error and the open save is untouched.
 #[test]
 fn an_unreadable_file_is_refused_and_keeps_the_open_save() {
     let good = fixture(PesVersion::Pes21, "refused_open");

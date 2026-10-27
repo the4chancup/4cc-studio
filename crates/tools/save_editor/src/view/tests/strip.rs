@@ -1,8 +1,8 @@
 use super::*;
 
-// plans/save_editor.md "Editing UI": every widget id under the strip and
-// the view is the selected player's, so a text field's undo history and a
-// number control's in-progress edit never cross players.
+// Every widget id under the strip and the view is the selected player's,
+// so a text field's undo history and a number control's in-progress edit
+// never cross players.
 #[test]
 fn a_name_edit_does_not_reach_the_next_players_field() {
     let path = fixture(PesVersion::Pes17, "cross_player_name");
@@ -157,10 +157,9 @@ fn a_second_saves_name_field_carries_none_of_the_first_saves_undo_history() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the player view bullet: the Name
-// and Shirt fields' left edges share the rows' label column and its gap,
-// their right edges flush with the second half's boxes (the draft's
-// `.combos` `1fr` field), not on the panel's right edge.
+// The Name and Shirt fields' left edges share the rows' label column and
+// its gap, their right edges flush with the second half's boxes (the
+// draft's `.combos` `1fr` field), not on the panel's right edge.
 #[test]
 fn the_name_and_shirt_fields_share_the_rows_edges() {
     let path = fixture(PesVersion::Pes21, "field_widths");
@@ -185,9 +184,8 @@ fn the_name_and_shirt_fields_share_the_rows_edges() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the info strip bullet's last
-// sub-bullet: a name or shirt name edit sets the player's edited-player
-// flag, in the same undo entry.
+// A name or shirt name edit sets the player's edited-player flag, in the
+// same undo entry.
 #[test]
 fn a_name_or_shirt_edit_sets_the_edited_player_flag() {
     let path = fixture(PesVersion::Pes21, "edit_flag");
@@ -280,10 +278,9 @@ fn a_shirt_name_is_upper_cased_as_typed() {
     );
 }
 
-// spec/pes_savefile/operations.md "Team TOML" (the portable text limits)
-// and plans/save_editor.md "Editing UI" (the info strip bullet): a stored
-// shirt name past 18 letters is drawn tinted with the versions' hover; an
-// edit may shorten it a keystroke at a time, never lengthen.
+// The portable text limits (spec/pes_savefile/operations.md "Team TOML"):
+// a stored shirt name past 18 letters is drawn tinted with the versions'
+// hover; an edit may shorten it a keystroke at a time, never lengthen.
 #[test]
 fn a_stored_shirt_past_18_is_tinted_and_shortens_never_lengthens() {
     // 70101 with a 20-letter shirt name, over the portable 18 inside PES
@@ -458,8 +455,7 @@ fn a_pes16_strip_refuses_a_17th_shirt_letter() {
     );
 }
 
-// plans/save_editor.md "Editing UI" with operations.md's portable limits:
-// the Shirt field's hover says the limit the field enforces — the smaller
+// The Shirt field's hover says the limit the field enforces — the smaller
 // of the portable 18 and the version's own field — so PES 21's 61-wide
 // field still says 18.
 #[test]
@@ -583,8 +579,8 @@ fn the_name_and_shirt_counts_follow_the_fields_and_the_portable_limits() {
         "the shirt count is drawn in the warning colour"
     );
     // The field's hover names the portable limit; the counted label
-    // carries the same one (the plan's "the field and its count carry
-    // one hover").
+    // carries the same one, since the field and its count carry one
+    // hover.
     let tooltip = tooltip_after_hover(&mut window, &mut view, centre(shirt));
     assert_eq!(
         tooltip,
@@ -868,9 +864,8 @@ fn the_captain_box_ticks_on_the_captains_slot() {
     assert_eq!(toggled(&nodes), Some(Some(accesskit::Toggled::False)));
 }
 
-// plans/save_editor.md "Editing UI", the info strip bullet's last
-// sub-bullet: Captain is a radio that makes this slot the team's captain
-// and is not unticked by a second click (the captain belongs to the slot).
+// Captain is a radio that makes this slot the team's captain and is not
+// unticked by a second click (the captain belongs to the slot).
 #[test]
 fn the_captains_radio_cannot_be_unticked() {
     let path = fixture(PesVersion::Pes21, "captain_radio");
@@ -971,9 +966,8 @@ fn a_typed_number_clamps_to_the_fields_stored_width() {
     );
 }
 
-// plans/save_editor.md "Editing UI", the info strip bullet's Name
-// sub-bullet: the save's own field bounds an edit (a PES 21 save takes 47
-// to 61 bytes, a name past 46 tinted with the cut the older versions make).
+// The save's own Name field bounds an edit (a PES 21 save takes 47 to 61
+// bytes, a name past 46 tinted with the cut the older versions make).
 #[test]
 fn a_pes21_strip_takes_a_long_name_tinted_with_its_crop() {
     /// The Name field's `TextInput` node (the enabled text edit right of
@@ -1348,11 +1342,11 @@ fn the_player_header_tops_the_player_view_alone() {
     }
 }
 
-// plans/save_editor.md "Editing UI", the player view bullet ("A field's
-// label in these panels and in Ability stats is drawn in the normal text
-// colour"): every field label the panels name — the pairs', the
-// combos', the counted labels', Ability stats' — and the team view's
-// Team and Short paint the normal colour, not the weak one.
+// A field's label in the General info panels and in Ability stats is
+// drawn in the normal text colour, as the checkboxes' labels are: every
+// field label the panels name — the pairs', the combos', the counted
+// labels', Ability stats' — and the team view's Team and Short paint the
+// normal colour, not the weak one, which read too dark beside them.
 #[test]
 fn the_field_labels_paint_the_normal_text_colour() {
     let path = fixture(PesVersion::Pes21, "label_color");

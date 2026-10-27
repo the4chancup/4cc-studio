@@ -22,6 +22,8 @@ Rules:
 |---|---|
 | **ATF** | The task force. |
 
+## 2026-10-27 — core — A window closed maximized reopens maximized
+
 ```
 ## Not a heading inside a fence
 ```
@@ -40,11 +42,37 @@ class Pointers(unittest.TestCase):
     def test_a_quote_without_a_file_is_no_pointer(self) -> None:
         self.assertEqual(pointers("x.md", 'the word "One" alone'), [])
 
+    def test_a_title_wrapped_in_a_comment_is_read_whole(self) -> None:
+        text = '//! the bar (`spec/core/gui.md` "The status\n//! bar") stays\nfn main() {}'
+        found = pointers("crates/x/src/lib.rs", text)
+        self.assertEqual([(p.line, p.path, p.title) for p in found], [(1, "spec/core/gui.md", "The status bar")])
+
+    def test_a_path_ending_a_line_takes_its_titles_from_the_next(self) -> None:
+        text = '    /// see `a.md`\n    /// "One", "Two" and\n    /// "Three", then `b.md` "Four"'
+        found = pointers("crates/x/src/lib.rs", text)
+        self.assertEqual(
+            [(p.line, p.path, p.title) for p in found],
+            [(1, "a.md", "One"), (1, "a.md", "Two"), (1, "a.md", "Three"), (3, "b.md", "Four")],
+        )
+
+    def test_a_wrapped_paragraph_in_a_document(self) -> None:
+        found = pointers("docs/WORKLOG.md", 'see `core/gui.md` "The status\n  bar", then')
+        self.assertEqual([(p.line, p.title) for p in found], [(1, "The status bar")])
+
+    def test_a_complete_pointer_does_not_take_the_next_line(self) -> None:
+        found = pointers("docs/WORKLOG.md", 'see `a.md` "One"\n"Two" is a quote')
+        self.assertEqual([p.title for p in found], ["One"])
+
+    def test_no_wrap_across_a_blank_line_or_into_code(self) -> None:
+        self.assertEqual(pointers("docs/WORKLOG.md", 'see `a.md` "One\n\ntwo" is a quote'), [])
+        self.assertEqual(pointers("crates/x/src/lib.rs", '// see `a.md` "One\nlet s = "two";'), [])
+
 
 class Anchors(unittest.TestCase):
     def test_every_anchor_form(self) -> None:
         found = anchors(PLAN)
-        for title in ["Pipeline", "5. Writer", "Writer", "Subfolders", "Rules", "Collars", "ATF"]:
+        titles = ["Pipeline", "5. Writer", "Writer", "Subfolders", "Rules", "Collars", "ATF"]
+        for title in [*titles, "A window closed maximized reopens maximized"]:
             self.assertTrue(names_anchor(found, title), title)
 
     def test_a_fenced_heading_is_no_anchor(self) -> None:
@@ -97,6 +125,14 @@ class Problems(unittest.TestCase):
         self.assertEqual(
             self.check("crates/x/src/lib.rs", '//! `docs/plans/core/gui.md` "Cancellation"'),
             ['crates/x/src/lib.rs:1: code points at the plan docs/plans/core/gui.md "Cancellation"'],
+        )
+
+    def test_a_wrapped_pointer_in_code_is_checked(self) -> None:
+        source = "crates/x/src/lib.rs"
+        self.assertEqual(self.check(source, '// the layout (`spec/core/gui.md`\n// "Grid")'), [])
+        self.assertEqual(
+            self.check(source, '// the layout (`spec/core/gui.md`\n// "Gridlines")'),
+            ['crates/x/src/lib.rs:1: docs/spec/core/gui.md has no "Gridlines"'],
         )
 
     def test_a_link_names_a_file_beside_its_own(self) -> None:

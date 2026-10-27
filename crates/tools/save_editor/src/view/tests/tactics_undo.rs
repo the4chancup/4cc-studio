@@ -1,12 +1,10 @@
 //! The Tactics editor's undo-entries' tests: which frames merge into one
-//! entry and which split — `plans/save_editor.md` "Editing UI", the
-//! Undo/redo bullet.
+//! entry and which split.
 
 use super::*;
 
-// plans/save_editor.md "Editing UI", the Undo/redo bullet (one entry per
-// gesture) in this editor: a slider drag lands as one undoable edit and the
-// team is marked changed.
+// One undo entry per gesture in this editor: a slider drag lands as one
+// undoable edit and the team is marked changed.
 #[test]
 fn a_slider_drag_on_the_editor_is_one_undo_entry_and_marks_the_team() {
     let path = fixture(PesVersion::Pes21, "tactics_slider_drag");
@@ -42,8 +40,8 @@ fn a_slider_drag_on_the_editor_is_one_undo_entry_and_marks_the_team() {
     );
 }
 
-// plans/save_editor.md "Tactics editor", "A starter swapped with a bench
-// player": the roles follow the swap, one undo entry, saved.
+// A starter swapped with a bench player: the roles follow the swap, one
+// undo entry, saved.
 #[test]
 fn a_bench_player_dragged_onto_a_starter_swaps_them_as_one_undo_entry() {
     let path = fixture(PesVersion::Pes21, "tactics_lineup_swap");
@@ -108,10 +106,9 @@ fn a_bench_player_dragged_onto_a_starter_swaps_them_as_one_undo_entry() {
     assert_eq!(tactics.set_pieces.penalty, bench_slot, "the taker saved");
 }
 
-// plans/save_editor.md "Editing UI", the Undo/redo bullet ("changes from
-// one widget merge into the open entry"): a popover X typed into, then a
-// style pair clicked in the same unsealed span, is two undo steps — the
-// pitch's and the settings group's own.
+// Only one widget's changes merge into the open undo entry: a popover X
+// typed into, then a style pair clicked in the same unsealed span, is two
+// undo steps — the pitch's and the settings group's own.
 #[test]
 fn a_pitch_edit_and_a_settings_click_undo_as_two_entries() {
     let path = fixture(PesVersion::Pes21, "tactics_undo_keys");

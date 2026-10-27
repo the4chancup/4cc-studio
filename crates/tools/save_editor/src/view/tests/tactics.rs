@@ -272,8 +272,8 @@ fn the_tactics_bars_copy_presets_and_swap_formations_as_undoable_edits() {
     assert_eq!(tactics.presets[2].formations[2], formations_before[0]);
 }
 
-// Round A1's A1b-4: the formation bar acts on the shown preset, not a
-// fixed one: with preset 2 selected through the preset bar, its Swap
+// The formation bar acts on the shown preset, not a fixed one: with
+// preset 2 selected through the preset bar, its Swap
 // with and Copy to change preset 2's formations alone, preset 1's (where
 // a swap would show too) and every other field unchanged.
 #[test]
@@ -375,13 +375,13 @@ fn the_preset_selector_writes_nothing() {
     assert!(!session.can_undo());
 }
 
-// plans/save_editor.md "Tactics editor" (the Copy/swap bullet and the
-// preset bar, the draft's `presetSel`, `fluid`, `presetMenu`): on preset
-// 2 the menu lists the other two presets ascending, a copy to then a
-// swap with each, and Copy to 3 makes preset 3 equal preset 2 — one
-// undoable edit. The bar's Fluid formation checkbox toggles the shown
-// preset's flag — one undoable edit — and draws disabled with its gate
-// tooltip on a version whose schema stores none (PES 2015).
+// The preset bar's Copy/swap menu and Fluid formation checkbox (the
+// draft's `presetSel`, `fluid`, `presetMenu`): on preset 2 the menu lists
+// the other two presets ascending, a copy to then a swap with each, and
+// Copy to 3 makes preset 3 equal preset 2 — one undoable edit. The bar's
+// Fluid formation checkbox toggles the shown preset's flag — one
+// undoable edit — and draws disabled with its gate tooltip on a version
+// whose schema stores none (PES 2015).
 #[test]
 fn the_preset_bars_menu_and_fluid_checkbox() {
     let path = fixture(PesVersion::Pes21, "tactics_preset_bar");
@@ -1084,15 +1084,15 @@ fn box_at(rects: &[egui::Rect], left: f64, tol: f64) -> egui::Rect {
         .unwrap_or_else(|| panic!("no stroked rect at left {left} (have {rects:?})"))
 }
 
-// plans/save_editor.md "Tactics editor" (the grid of the "pitch is the
-// editor" bullet, the draft's `.tacgrid`): at the default pane (1224 x
-// 776) the editor is one grid of three columns and three rows — the
-// settings panels' boxes at the column's 414 width, the pitch's border
-// 10 points past them, the Player assignments box 10 past the pitch's
-// right and out to the pane's edge; the preset bar and the formation bar
-// share one line's centre, the formation bar's first button on the
-// pitch's left; row 3's panels top 6 under row 2's bottom, the two
-// lists halves of columns 2-3 less a 6-point gap.
+// The editor's grid, the draft's `.tacgrid`: at the default pane (1224
+// x 776) the editor is one grid of three columns and three rows, so
+// every panel lines up with its neighbours — the settings panels' boxes
+// at the column's 414 width, the pitch's border 10 points past them, the
+// Player assignments box 10 past the pitch's right and out to the pane's
+// edge; the preset bar and the formation bar share one line's centre,
+// the formation bar's first button on the pitch's left; row 3's panels
+// top 6 under row 2's bottom, the two lists halves of columns 2-3 less a
+// 6-point gap.
 #[test]
 fn the_tactics_editor_is_one_grid_at_the_default_pane() {
     let path = fixture(PesVersion::Pes21, "tactics_grid");
@@ -1242,11 +1242,10 @@ fn the_tactics_editor_is_one_grid_at_the_default_pane() {
     }
 }
 
-// plans/save_editor.md "Tactics editor" (row 2 of "the pitch is the
-// editor", the draft's `.tacgrid` stretching its cells): the Formation
-// settings' and Player assignments' frames are exactly as tall as the
-// pitch with its border — tops and bottoms level at the 1280 x 800
-// default pane.
+// The grid's second row, the draft's `.tacgrid` stretching its cells:
+// the Formation settings' and Player assignments' frames are exactly as
+// tall as the pitch with its border — tops and bottoms level at the 1280
+// x 800 default pane.
 #[test]
 fn the_two_panels_frames_are_level_with_the_pitchs() {
     let path = fixture(PesVersion::Pes21, "tactics_panel_frames");
@@ -1279,11 +1278,10 @@ fn the_two_panels_frames_are_level_with_the_pitchs() {
     }
 }
 
-// plans/save_editor.md "Tactics editor" (row 3 of "the pitch is the
-// editor", the draft's `#tac-auto { flex: 1 }` and `.tacauto`'s
-// `align-content: center`): at the 1280 x 800 default pane the
-// Automatic settings' frame reaches the lineup lists' bottom, its two
-// rows centred in it.
+// The grid's third row, the draft's `#tac-auto { flex: 1 }` and
+// `.tacauto`'s `align-content: center`: at the 1280 x 800 default pane
+// the Automatic settings' frame reaches the lineup lists' bottom, its
+// two rows centred in it.
 #[test]
 fn the_automatic_settings_frame_reaches_the_lists_bottom() {
     let path = fixture(PesVersion::Pes21, "tactics_auto_frame");
@@ -1418,9 +1416,8 @@ fn a_numbers_choice_click_is_one_undo_entry() {
     );
 }
 
-// plans/save_editor.md "Tactics editor" (the Substitution sentence):
-// the combo's pick writes the stored byte — Flexible stores 2 — as one
-// undo entry.
+// The Substitution combo's pick writes the stored byte — Flexible stores
+// 2 — as one undo entry.
 #[test]
 fn a_substitution_pick_is_one_undo_entry() {
     let path = fixture(PesVersion::Pes21, "tactics_subs_undo");
@@ -1467,12 +1464,11 @@ fn a_substitution_pick_is_one_undo_entry() {
     );
 }
 
-// plans/save_editor.md "Tactics editor" (the click-to-assign bullet)
-// on the fixtures' real team: each taker and the captain show their
-// holder's name on a chip under the label, "Join the attack" shows
-// its members' names or "Unassigned", and a join chip's click arms
-// the one mode, all three chips selected, in which a pitch click adds
-// a starter; an armed click disarms.
+// Click-to-assign on the fixtures' real team: each taker and the captain
+// show their holder's name on a chip under the label, "Join the attack"
+// shows its members' names or "Unassigned", and a join chip's click arms
+// the one mode, all three chips selected, in which a pitch click adds a
+// starter; an armed click disarms.
 #[test]
 fn the_assignments_rows_name_holders_and_arm_join() {
     let path = fixture(PesVersion::Pes17, "assignments_rows_734");
@@ -1574,13 +1570,11 @@ fn the_assignments_rows_name_holders_and_arm_join() {
     }
 }
 
-// plans/save_editor.md "Tactics editor" (the click-to-assign bullet's
-// last sentence) on the fixtures' real team: an instruction's target
-// chip arms the same pitch pick as the roles' — click it, then a
-// starter's marker writes his roster slot as the target, one undo
-// entry, and the mode is off after. Under a target-less instruction
-// the chip is disabled ("No target"), under a held Tight Marking it
-// reads "An opponent".
+// On the fixtures' real team, an instruction's target chip arms the same
+// pitch pick as the roles' — click it, then a starter's marker writes
+// his roster slot as the target, one undo entry, and the mode is off
+// after. Under a target-less instruction the chip is disabled ("No
+// target"), under a held Tight Marking it reads "An opponent".
 #[test]
 fn the_instruction_target_is_picked_on_the_pitch() {
     let path = fixture(PesVersion::Pes17, "instruction_target_734");
@@ -1724,8 +1718,7 @@ fn the_target_chip_stays_inside_the_settings_column() {
     );
 }
 
-// plans/save_editor.md "Tactics editor" (the "Portraits" sub-bullet):
-// the pitch draws a starter's portrait read off the UI thread from the
+// The pitch draws a starter's portrait read off the UI thread from the
 // selected game's `download/` CPKs; the markers without one paint the
 // bundled placeholder (the turf's is the only other image).
 #[test]
@@ -1807,10 +1800,9 @@ fn the_pitch_draws_a_starter_s_portrait_from_the_selected_game() {
 
 // The Automatic settings row wraps inside the settings column (the
 // draft's `.row`): the Substitution pair and the three checkboxes each
-// end inside the column's 414 width. And the armed mode draws no note
-// (the plan's "No note explains the armed mode"): no Cancel, no Done,
-// no "Click the pitch player" line while a mode is armed — the armed
-// chip and the candidates' corner brackets say it.
+// end inside the column's 414 width. And the armed mode draws no note:
+// no Cancel, no Done, no "Click the pitch player" line while a mode is
+// armed — the armed chip and the candidates' corner brackets say it.
 #[test]
 fn the_automatic_settings_wrap_inside_the_column_and_armed_draws_no_note() {
     let path = fixture(PesVersion::Pes21, "tactics_wrap2");
@@ -1953,10 +1945,10 @@ fn the_view_scrolls_to_the_grids_last_control() {
     );
 }
 
-// plans/save_editor.md "Editing UI" with `docs/spec/core/gui.md` "Shell
-// layout" (the window's 960 × 600 minimum, ST-WIN-01's last clause): the
-// minimum window lays out at the design width ("Scaling with the
-// width"), so the pane it leaves is `DEFAULT_PANE`'s width, and that pane
+// The window's 960 × 600 minimum (`spec/core/gui.md` "Shell layout",
+// ST-WIN-01's last clause): the minimum window lays out at the design
+// width (`spec/core/gui.md` "Scaling with the width"), so the pane it
+// leaves is `DEFAULT_PANE`'s width, and that pane
 // holds every view whole: every widget and label ends inside the pane's
 // right edge.
 #[test]
@@ -2024,11 +2016,11 @@ fn every_view_fits_the_pane_the_minimum_window_leaves() {
     }
 }
 
-// The formation bar's Scroll names checkbox (the plan's marker bullet,
-// `TacticsView::scroll_names`): a view setting, not an edit — on by
-// default, its toggle marks no unsaved change and pushes no undo entry,
-// it writes `scroll_names` to the tool's settings, and a fresh Tool on
-// the same settings reads it back.
+// The formation bar's Scroll names checkbox (`TacticsView::scroll_names`):
+// a view setting, not an edit — on by default, its toggle marks no
+// unsaved change and pushes no undo entry, it writes `scroll_names` to
+// the tool's settings, and a fresh Tool on the same settings reads it
+// back.
 #[test]
 fn scroll_names_is_a_remembered_view_setting() {
     use studio_core::StudioTool;
@@ -2170,14 +2162,13 @@ fn assert_medal_letters(
     }
 }
 
-// plans/save_editor.md "Tactics editor" ("A starter's badge names his
-// medal tier"): each starter's badge shows his tier's initial at the
-// badge's right end — a gold `G`, a silver `S` or a bronze `B` in the
-// tier's colour — and nothing for any other tier, no tier or a failed
-// check; the tiers are read through `player_tier` under the active
-// ruleset, not typed. One view throughout, so the letters follow an
-// edit, its undo and a rules file that stops loading, not only a
-// fresh view's first frame.
+// A starter's badge names his medal tier: each starter's badge shows his
+// tier's initial at the badge's right end — a gold `G`, a silver `S` or
+// a bronze `B` in the tier's colour — and nothing for any other tier, no
+// tier or a failed check; the tiers are read through `player_tier` under
+// the active ruleset, not typed. One view throughout, so the letters
+// follow an edit, its undo and a rules file that stops loading, not only
+// a fresh view's first frame.
 #[test]
 fn the_badges_name_the_starters_medal_tiers() {
     use team_widgets::tactics::Medal::{Gold, Silver};

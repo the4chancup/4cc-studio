@@ -1,12 +1,12 @@
-//! The Savefile menu's database operations (`plans/save_editor.md` "Feature
-//! inventory", the Database operations table): Output rosters to TSV, the
-//! roster sheet members paste into spreadsheets — a pure read of the open
-//! save, so never locked and no undo step — and Fix database, the
-//! maintenance repair behind the confirmation dialog (one sealed undo
-//! entry; `DECISIONS.md` 2026-10-22: base copies repaired only where the
-//! record has the flag, PES 15 to 18; no write to PES 17's strip table).
-//! egui-free, so the sheet and the repair's computation read without a
-//! frame.
+//! The Savefile menu's database operations. Output rosters to TSV writes the
+//! roster sheet members paste into spreadsheets; it is a pure read of the
+//! open save, so it is never locked and takes no undo step. Fix database is
+//! the maintenance repair behind the confirmation dialog, one sealed undo
+//! entry. It repairs base copies only where the record has the flag (PES 15
+//! to 18): later versions have no such flag, and clearing copy ids there
+//! would change players' looks. It does not write PES 17's strip table: a
+//! repair of it waits for the table's layout to be measured. egui-free, so
+//! the sheet and the repair's computation read without a frame.
 
 use std::path::Path;
 
@@ -258,9 +258,8 @@ pub(crate) fn fix_database(file: &EditFile) -> (Vec<PlayerEntry>, Vec<TeamEntry>
 
 impl Session {
     /// Fix database, as one sealed undo entry holding every changed
-    /// player and team (`plans/save_editor.md` "Feature inventory", the
-    /// Database operations table): the pure `fix_database` computes the
-    /// changed entries, `edit_entries` applies them. The aesthetics
+    /// player and team: the pure `fix_database` computes the changed
+    /// entries, `edit_entries` applies them. The aesthetics
     /// lock is the menu's to apply, not this function's.
     pub(crate) fn fix_database(&mut self) {
         let (players, teams) = fix_database(self.file());

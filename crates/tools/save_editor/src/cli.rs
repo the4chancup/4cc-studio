@@ -510,8 +510,8 @@ fn parse_teams(text: &str) -> Result<Vec<u32>, String> {
     Ok(ids)
 }
 
-/// `strip-and-seed`: the seed, then the strip, in the plan's order (`spec/save_editor.md`
-/// "Stripped save"): a refusal of the save or of `--bins` writes nothing, and an
+/// `strip-and-seed`: the seed, then the strip (`spec/save_editor.md` "Stripped save"). A
+/// refusal of the save or of `--bins` writes nothing, and an
 /// unwritable `--bins-out` leaves `--out` unwritten (a seeded CPK beside an unstripped save
 /// changes no look: the records still decide).
 fn strip_and_seed(args: &StripAndSeedArgs, report: &mut Report) -> Result<(), CliError> {

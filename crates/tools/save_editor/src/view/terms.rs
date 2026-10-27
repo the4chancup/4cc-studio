@@ -1,10 +1,9 @@
-//! The views' terms for a `diff` row (`plans/save_editor.md` "Comparator
-//! (gameplay + aesthetics)", the row bullet): a field a view draws reads
-//! under the view's own label, its old and new values as that view shows
-//! them, so a label or scale changed in a view changes the row with it. A
-//! field no view draws keeps the report's name and values
-//! (`messages::diff_fields`). The same terms word the unsaved-changes
-//! table's team rows (`team_row_terms`).
+//! The views' terms for a `diff` row: a field a view draws reads under the
+//! view's own label, its old and new values as that view shows them, since
+//! a member reads a row against the view it jumps to. So a label or scale
+//! changed in a view changes the row with it. A field no view draws keeps
+//! the report's name and values (`messages::diff_fields`). The same terms
+//! word the unsaved-changes table's team rows (`team_row_terms`).
 
 use pes_savefile::interchange::team_toml::labels::{
     ABILITY_STATS, COM_STYLES, PLAYABLE_POSITIONS, POSITIONS, SKILLS, title_case,

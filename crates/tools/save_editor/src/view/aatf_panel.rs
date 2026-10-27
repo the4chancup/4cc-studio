@@ -1,6 +1,5 @@
-//! The floating AATF panel (`plans/save_editor.md` "Configurable AATF
-//! rules", the AATF panel bullet; the draft's `aatfPanel`): an
-//! `egui::Window` listing the active ruleset's violations for the current
+//! The floating AATF panel, the draft's `aatfPanel`: an `egui::Window`
+//! listing the active ruleset's violations for the current
 //! team or a picked set, grouped per player through `team_widgets`'
 //! `violations_list`, a row's click selecting the player. The check runs
 //! on a worker thread — a whole-save pick is seconds of script — started

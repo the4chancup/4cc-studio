@@ -1,8 +1,6 @@
-//! The Live AATF dock's tests (SE-GUI-30; `plans/save_editor.md`
-//! "Configurable AATF rules", the Live AATF bullet): the docked list
-//! shrinking and growing back with the open team's edits, the `No issues`
-//! header, the remembered toggle, the checking mark, ALL's team and a
-//! row's click.
+//! The Live AATF dock's tests (SE-GUI-30): the docked list shrinking and
+//! growing back with the open team's edits, the `No issues` header, the
+//! remembered toggle, the checking mark, ALL's team and a row's click.
 
 use pes_savefile::model::names::display_name;
 

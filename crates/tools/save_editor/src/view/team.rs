@@ -1,5 +1,4 @@
-//! The team view (`plans/save_editor.md` "Editing UI", the team view
-//! bullet; the draft's `teamView`): the selected team's name with its
+//! The team view (the draft's `teamView`): the selected team's name with its
 //! colours as the title, one row holding the name, short name and colours
 //! 1-2 fields (the former team bar's pairs), the manager and stadium IDs
 //! and the `Kit slots…` button opening the kit slot assignments in a
@@ -107,10 +106,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             }
         }
         ui.label(title);
-        // The fields, the ids and the button on one row (the maintainer's
-        // 2026-10-26 ask: the Tactics below need the height), each unit one
-        // `allocate_ui` at its claim. The pane is never narrower than the
-        // row (`plans/save_editor.md` "The player view"), so it never wraps.
+        // The fields, the ids and the button on one row, since the Tactics
+        // editor below needs the height, each unit one `allocate_ui` at its
+        // claim. The pane is never narrower than the row (a narrower window
+        // scales the whole UI down instead), so it never wraps.
         let mut open_kit_slots = false;
         ui.horizontal(|ui| {
             for (unit, width) in TEAM_ROW {
@@ -457,7 +456,7 @@ fn field_max(schema: &VersionSchema, field: TeamField) -> u64 {
 }
 
 /// The shown 8-bit channel for a stored 6-bit one (`v * 255 / 63` rounded,
-/// `plans/save_editor.md` "Crate layout" `view/`).
+/// the widening of 5:6:5 colours the Team compiler uses).
 pub(super) fn channel_to_show(v: u8) -> u8 {
     u8::try_from((u16::from(v) * 255 + 31) / 63).expect("63 maps to 255")
 }

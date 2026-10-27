@@ -1,7 +1,6 @@
-//! Live AATF's marks on the editor itself (SE-GUI-36; `plans/
-//! save_editor.md` "Configurable AATF rules", the Live AATF bullet's
-//! marks): the toolbar's framed toggle, the list rows' `✖`/`✔`, and the
-//! selected player's field crosses.
+//! Live AATF's marks on the editor itself (SE-GUI-36): the toolbar's
+//! framed toggle, the list rows' `✖`/`✔`, and the selected player's field
+//! crosses.
 
 use pes_savefile::interchange::team_toml::labels::{ABILITY_STATS, PLAYABLE_POSITIONS};
 
@@ -81,9 +80,8 @@ fn violation(
     }
 }
 
-/// `marked_field` maps each kind to the plan bullet's field, `None` for
-/// the row- and team-only kinds (the Live AATF bullet's field
-/// sub-bullet, one arm per kind).
+/// `marked_field` maps each kind to the field it is about, `None` for the
+/// row- and team-only kinds, one arm per kind.
 #[test]
 fn marked_field_maps_every_kind() {
     use aatf::ViolationKind as K;
@@ -695,9 +693,8 @@ fn a_registered_violation_marks_the_combo_label() {
 }
 
 /// A second-half field's cross stands at its label column's right end —
-/// the `Form` box's (a `Half::Second` pair: the plan bullet's "at the
-/// right end of the second half's label column", the column being
-/// `label_width("Shirt number")` wide).
+/// the `Form` box's (a `Half::Second` pair, the column being
+/// `label_width("Shirt number")` wide), so the box keeps its x.
 #[test]
 fn a_second_half_fields_cross_stands_at_its_label_columns_end() {
     use aatf::ViolationKind as K;

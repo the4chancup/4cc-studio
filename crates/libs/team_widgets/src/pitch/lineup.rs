@@ -1,7 +1,6 @@
-//! The "Starting eleven" and "Bench" lists (`plans/save_editor.md`
-//! "Tactics editor", the lineup bullet; the draft's `lineupList` and
-//! `benchList`): each row a drag handle, a position and a name; drops
-//! move, exchange or `swap_in`.
+//! The "Starting eleven" and "Bench" lists, the draft's `lineupList` and
+//! `benchList`. Each row is a drag handle, a position and a name; a drop
+//! moves, exchanges or swaps a bench player in (`swap_in`).
 
 use pes_savefile::model::tactics::{SetPieceTakers, TeamTactics};
 use pes_savefile::schema::instruction;
@@ -236,9 +235,8 @@ fn lineup_row(
 /// join-attack entry and every preset's instruction target — where the
 /// version's decoded instruction takes one of ours — that held the
 /// outgoing starter's roster slot now holds the incoming one's, so no
-/// role points at a player who left the pitch (`plans/save_editor.md`
-/// "Tactics editor", "A starter swapped with a bench player"). The
-/// captain stays who he was, benched or not.
+/// role points at a player who left the pitch. The captain stays who he
+/// was, benched or not.
 pub(super) fn swap_in(
     version: PesVersion,
     tactics: &mut TeamTactics,
@@ -333,10 +331,9 @@ mod tests {
         boxes
     }
 
-    // plans/save_editor.md "Tactics editor", "A starter swapped with a
-    // bench player": every set-piece role, the joining of the attack and
-    // every preset's instruction targets the starter held repoint to the
-    // incoming player; the captain stays.
+    // A starter swapped with a bench player: every set-piece role, the
+    // joining of the attack and every preset's instruction target the
+    // starter held repoint to the incoming player. The captain stays.
     #[test]
     fn a_swap_hands_the_starters_roles_to_the_bench_player_but_not_the_captaincy() {
         let mut tactics = fixture_tactics(PesVersion::Pes21);
@@ -540,9 +537,9 @@ mod tests {
         );
     }
 
-    // Round S4's S4a-2, the draft's `.lrow` spanning the list's width: a
-    // release on a row's band right of its name, inside the list, is a
-    // drop on that row, as a release on the name is.
+    // A row spans the list's width, as the draft's `.lrow` does: a release
+    // on a row's band right of its name, inside the list, is a drop on that
+    // row, as a release on the name is.
     #[test]
     fn a_bench_row_released_on_a_starters_band_past_the_name_swaps_them() {
         let mut window = Headless::sized(900.0, 1100.0);
@@ -731,8 +728,7 @@ mod tests {
         );
     }
 
-    // plans/save_editor.md "Editing UI", "The team view" bullet: the bench
-    // list shows the players only — a `bench_order` entry whose roster
+    // The bench list shows the players only: a `bench_order` entry whose roster
     // slot holds no player draws no row (the fixture team's 21 entries
     // show its 12 bench players: rows 12 to 20 hold roster slots 23 to 31,
     // past team 701's 23 players).
@@ -849,9 +845,9 @@ mod tests {
         );
     }
 
-    // Round S3's S3a-1, the draft's `swapStarters` on `.lrow`: a marker
-    // dragged onto a starting-eleven row exchanges the two players in the
-    // eleven, as a row dropped on a row does; every formation stays.
+    // The draft's `swapStarters` on `.lrow`: a marker dragged onto a
+    // starting-eleven row exchanges the two players in the eleven, as a row
+    // dropped on a row does. Every formation stays.
     #[test]
     fn a_marker_dropped_on_an_eleven_row_exchanges_the_two() {
         let mut window = Headless::sized(600.0, 1100.0);

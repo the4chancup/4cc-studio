@@ -359,8 +359,8 @@ mod tests {
         }
     }
 
-    // The pitch's portrait source (`plans/save_editor.md` "Tactics editor", "Portraits"): the
-    // CPKs the selected game's `download/DpFileList.bin` lists, a later one's portrait winning.
+    // The pitch's portrait source: the CPKs the selected game's `download/DpFileList.bin`
+    // lists, a later one's portrait winning, as in game.
     #[test]
     fn a_later_listed_cpk_s_portrait_wins() {
         let ctx = egui::Context::default();
@@ -467,8 +467,8 @@ mod tests {
         assert_eq!(shown, [None, Some(placeholder), Some(placeholder)]);
     }
 
-    // Round A1's A1b-1: the placeholder is the selected game's (the version `select` was
-    // last given, the sidebar's), not the open save's: a source selected for PES 2017 with
+    // The placeholder is the selected game's (the version `select` was last given, the
+    // sidebar's), not the open save's: a source selected for PES 2017 with
     // an unreadable folder, then with none set, draws PES 2017's placeholder for a PES 2021
     // save's roster, never PES 2021's.
     #[test]

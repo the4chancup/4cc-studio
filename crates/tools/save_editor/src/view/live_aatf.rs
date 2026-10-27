@@ -1,5 +1,4 @@
-//! The Live AATF dock (`plans/save_editor.md` "Configurable AATF rules",
-//! the Live AATF bullet; the draft's `livePanel`): a `BottomDock` at the
+//! The Live AATF dock, the draft's `livePanel`: a `BottomDock` at the
 //! bottom of the view listing the open team's violations under
 //! `N issues · <ruleset>`, re-checked on the shared worker (`aatf_check`)
 //! after every settled edit so the list shrinks as the member fixes them;

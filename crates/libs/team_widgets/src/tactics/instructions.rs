@@ -1,7 +1,5 @@
-//! The "Advanced instructions" grid (`plans/save_editor.md` "Tactics
-//! editor", the numbered row 3 under "The pitch is the editor" and "What
-//! the controls write", the instruction bullet): the headers Attack and
-//! Defence over their two equal columns, each instruction's number
+//! The "Advanced instructions" grid: the headers Attack and Defence over
+//! their two equal columns, each instruction's number
 //! beside its two combos — the attack ones listing the attacking
 //! instructions, the defence ones the defending, less Tight Marking —
 //! and each target a chip under its combo, armed to a pitch click.

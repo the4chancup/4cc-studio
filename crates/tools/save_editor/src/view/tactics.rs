@@ -1,16 +1,16 @@
-//! The team view's Tactics editor (`plans/save_editor.md` "Tactics editor";
-//! the draft's `tacticsTab`): `team_widgets`' pitch, lineup lists and
-//! tactics panels in the draft's one grid — three columns (the settings,
-//! the pitch, the assignments) and three rows — plus the editor's own
-//! Copy/swap menus (four entries each on the selected preset or
-//! formation, the plan's Copy/swap bullet; `session::tactics_ops`) and
-//! the Scroll names view setting. The widgets edit a clone of the team's
+//! The team view's Tactics editor (the draft's `tacticsTab`):
+//! `team_widgets`' pitch, lineup lists and tactics panels in the draft's
+//! one grid — three columns (the settings, the pitch, the assignments) and
+//! three rows, so every panel lines up with its neighbours — plus the
+//! editor's own Copy/swap menus (four entries each on the selected preset
+//! or formation; `session::tactics_ops`) and the Scroll names view
+//! setting. The widgets edit a clone of the team's
 //! tactics and report a change; the view pushes the clone back with
 //! `Session::edit_team` under one key per widget call (a panel's or a
 //! bar's), so a gesture's frames merge but different widgets' edits
 //! never do (`seal` runs when the pointer is up and no widget has
 //! focus). The grid is laid out at the design width: a narrower window
-//! scales the whole UI (the core spec, "Scaling with the width"), so
+//! scales the whole UI (`spec/core/gui.md` "Scaling with the width"), so
 //! there is no narrow fallback.
 
 use aatf::TeamView;
@@ -268,9 +268,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             top_left,
             egui::pos2(right, grid_bottom),
         ));
-        // One undo key per widget call (the plan's "changes from one
-        // widget merge into the open entry"): the pitch's drag never
-        // merges into a settings click or a row drop.
+        // One undo key per widget call, since only one widget's changes
+        // merge into the open entry: the pitch's drag never merges into a
+        // settings click or a row drop.
         if let Some(widget) = [
             "preset bar",
             "formation settings",
@@ -307,8 +307,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 
 /// The preset bar's Copy/swap menu (the draft's `presetMenu`): acting on
 /// the selected preset, a copy to, then a swap with, each of the other
-/// two (the plan's Copy/swap bullet — four entries, not the nine pairs),
-/// each a sealed undo entry (`Session::{copy_preset,swap_presets}`).
+/// two: four entries rather than all nine copy and swap pairs, each a
+/// sealed undo entry (`Session::{copy_preset,swap_presets}`).
 fn copy_swap_preset_menu(ui: &mut egui::Ui, session: &mut Session, team_id: u32, preset: usize) {
     menu_button(ui, "Copy/swap", |ui| {
         for to in (0..3).filter(|&to| to != preset) {
@@ -353,8 +353,7 @@ fn copy_swap_formation_menu(
 }
 
 /// Each of `team_id`'s `slots` roster slots' badge medal under `rules`
-/// (the pitch markers' right-end initials, the plan's "A starter's
-/// badge names his medal tier"): the tier `player_tier` reads the
+/// (the pitch markers' right-end initials): the tier `player_tier` reads the
 /// slot's player as, mapped through `Medal::from_tier_id`; `None` for an
 /// empty slot, no tier, a check that failed or a tier that is no medal
 /// — and for every slot when the team cannot be viewed.

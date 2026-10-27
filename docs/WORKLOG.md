@@ -3920,9 +3920,20 @@ briefs, review loops, gates and mutation runs as for any step.
     decision's reason (each checked against its DECISIONS entry or plan paragraph by the
     lead), pointers kept only into `spec/`; the three crates' and `studio`'s tests, clippy
     and fmt green; 282 hits left, all in `save_editor` and `team_widgets` (cm4)
-  - [ ] cm4 `save_editor` and `team_widgets`, once the Tactics surface's review loop ends
-  - [ ] cm5 `comment-refs` in `just gates` and CI
-  - [ ] cm6 `scripts/doc_pointers.py` reads a pointer whose quoted title a comment wraps onto
+  - [x] cm4 `save_editor` and `team_widgets` (brief `.tmp/cm/brief_cm4.md`, Opus). Done
+    2026-10-27 (`.tmp/cm/cm4_report.md`): 282 hits in 61 files, comment lines only (checked
+    by script); plan-only pointers replaced by the reasons their sections or decision entries
+    give (spot-checked by the lead), pointers kept only into `spec/`; the lead retouched two
+    wordings. `comment-refs` now 0 across the workspace, `doc_pointers.py` 0 broken.
+    `save_editor`'s and `team_widgets`' tests, clippy and fmt green (the CLI tests only with
+    PES 2021 closed: the Issues entry on the CLI's process list). The sidekick's
+    contradictions, all accepted: briefs drop the grep against wrapped titles, which the
+    widened check reads; `(the maintainer, <date>)` and `r1`-style round names join the
+    scanner (cm5); the Comparator's plan-only bullets lose their pointers
+  - [ ] cm5 `comment-refs` in `just gates` and CI, its patterns widened to
+    `(the maintainer, <date>)` and `r1`-style round names (cm4's finding: five comments in
+    `save_editor` and `team_widgets` still carry them)
+  - [x] cm6 `scripts/doc_pointers.py` reads a pointer whose quoted title a comment wraps onto
     its next line (today its title pattern stops at the line end, so such a pointer is
     neither resolved nor reported, and a broken one passes "0 broken") → verify: a test case
     of a wrapped comment pointer, resolved and, perturbed, reported broken (lead's: the
@@ -4474,6 +4485,19 @@ Bugs, unexpected behavior, things to revisit. `open` / `resolved (date)`. Resolv
 pruned when their phase closes; they stay in git history. A question only the maintainer
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
+
+- open — the Save editor's CLI tests read the real process list (found 2026-10-27, cm4's
+  gate run with PES 2021 open for an in-game check: 18 of `tests/cli`'s 46 failed, each
+  "PES 2021 is running: … close the game first"): `cli.rs`'s four writing commands call
+  `studio_core::running_pes()` directly, where the window uses `Tool`'s `running` probe,
+  stubbed under `#[cfg(test)]`, and an integration test is a separate crate that `cfg(test)`
+  does not reach. CONTRIBUTING's "A test never reaches the developer's own files" names files
+  only; the process list is the same kind of machine state, and the window already stubs it.
+  Fix: the commands take `Tool`'s probe, the integration tests set it through the crate's
+  `test-support` feature (the workspace's pattern, `pes_savefile`'s), with a test that a
+  writing command refuses under a stub reporting the save's PES and writes under one
+  reporting another version's; the CONTRIBUTING bullet names the running games too. Briefed
+  once PES 2021 is closed (no cargo while a Fox-engine PES runs: it takes the CPU)
 
 - open — Studio Web (phase 18): `theme::install_fonts` is native-only, so on wasm the named
   families the views draw in, `icons` (the sidebar) and `label` (the Tactics pitch's formation

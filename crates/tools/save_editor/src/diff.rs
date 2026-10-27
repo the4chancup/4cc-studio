@@ -79,10 +79,9 @@ pub(crate) fn report(
 }
 
 /// The report as text: the finding lines `save-editor diff <first> <second>` prints for
-/// `scope`, in the command's order, formed as the console forms them. `comparator`'s
-/// Export writes them (`plans/save_editor.md` "Comparator (gameplay +
-/// aesthetics)", the Export bullet); the `findings` walk is `report`'s, so the two
-/// cannot drift.
+/// `scope`, in the command's order, formed as the console forms them. The Comparator
+/// panel's Export writes them; the `findings` walk is `report`'s, so the two cannot
+/// drift.
 pub(crate) fn report_lines(
     first: &EditFile,
     second: &EditFile,

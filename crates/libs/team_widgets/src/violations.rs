@@ -1,13 +1,11 @@
-//! The AATF results list of `plans/save_editor.md` "`libs/team_widgets`"
-//! (`violations` bullet), drafted in `docs/prototypes/tools/save_editor.js`
+//! The AATF results list, drafted in `docs/prototypes/tools/save_editor.js`
 //! (`aatfPanel`, `violationSentence`, `playerHead`): one team's check grouped
 //! per player, a row's click reporting the player to select. The AATF panel,
 //! the Live AATF dock and the Team creator all draw this list.
 
 /// The failing glyph (`✖`, U+2716): egui's bundled emoji fonts hold
-/// it, and the theme keeps those fonts in the fallback chain
-/// (DECISIONS.md "Live AATF's marks: where they sit and their
-/// glyphs").
+/// it, and the theme keeps those fonts in the fallback chain. The icon
+/// font's subset does not hold it.
 pub const CROSS: char = '\u{2716}';
 
 /// The gap between a cross and what it sits beside (a field's box, a
@@ -625,8 +623,8 @@ mod tests {
         );
     }
 
-    // plans/save_editor.md "libs/team_widgets", `violations` bullet: a group's
-    // errors come before its warnings, the check's order kept inside each.
+    // A group's errors come before its warnings, the check's order kept
+    // inside each.
     #[test]
     fn a_groups_errors_come_before_its_warnings() {
         let violations = [
@@ -811,8 +809,8 @@ mod tests {
         );
     }
 
-    // plans/save_editor.md "libs/team_widgets", `violations` bullet: the row's
-    // sentence is `violationSentence`'s wording (`Stat`'s warning wording is
+    // The row's sentence is the draft's `violationSentence` wording, so
+    // both hosts word a violation alike (`Stat`'s warning wording is
     // its `sev === "Warning"` branch, an absent `NameColor` value `none`).
     #[test]
     fn the_row_sentences_word_the_kinds() {
@@ -956,8 +954,7 @@ mod tests {
         );
     }
 
-    // plans/save_editor.md "libs/team_widgets", `violations` bullet: a team the
-    // check found nothing wrong with gets no header of its own.
+    // A team the check found nothing wrong with gets no header of its own.
     #[test]
     fn a_team_with_no_violations_draws_no_header() {
         let empty = TeamViolations {
@@ -992,9 +989,8 @@ mod tests {
         );
     }
 
-    // plans/save_editor.md "libs/team_widgets", `violations` bullet: the group
-    // header draws the name code-free (a cup save's medal players carry colour
-    // codes).
+    // The group header draws the name code-free (a cup save's medal
+    // players carry colour codes).
     #[test]
     fn a_coded_name_draws_as_plain_text() {
         // Player 71801 of the PES 17 fixture save: his name carries two colour
@@ -1034,9 +1030,9 @@ mod tests {
         );
     }
 
-    // plans/save_editor.md "libs/team_widgets", `violations` bullet, the draft's
-    // `.drow`: a sentence longer than the row wraps under its own column, so a
-    // long check's text stays readable rather than cut off.
+    // As the draft's `.drow` does, a sentence longer than the row wraps
+    // under its own column, so a long check's text stays readable rather
+    // than cut off.
     #[test]
     fn a_long_sentence_wraps_rather_than_being_cut() {
         let violations = [
@@ -1119,8 +1115,7 @@ mod tests {
         );
     }
 
-    // plans/save_editor.md "libs/team_widgets", `violations` bullet: the
-    // `Suggestions` header needs a suggestion row to head, not only
+    // The `Suggestions` header needs a suggestion row to head, not only
     // `show_suggestions`.
     #[test]
     fn no_suggestions_header_without_a_suggestion() {

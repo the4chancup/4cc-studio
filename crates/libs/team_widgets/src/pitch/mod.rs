@@ -1,12 +1,11 @@
-//! The Tactics tab's pitch side (`plans/save_editor.md` "Tactics editor",
-//! the lineup and pitch bullets): the draft's `pitchCanvas` and
+//! The Tactics tab's pitch side: the draft's `pitchCanvas` and
 //! `slotPopover` — the formation canvas, a marker per starter dragged to
 //! his spot, dropped on to swap a bench player in, clicked for the slot's
 //! details — plus `lineupList` and `benchList`, the starting eleven and
 //! the bench, reordered and swapped by drag. The canvas is painted as PES
-//! 2021's own formation screen (the plan's pitch bullet): the game
-//! texture's turf bands, the screen's slot-to-spot mapping and markers of
-//! portrait, badge and coloured name.
+//! 2021's own formation screen: the game texture's turf bands, the
+//! screen's slot-to-spot mapping and markers of portrait, badge and
+//! coloured name.
 
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::tactics::{Formation, FormationSlot, TeamTactics};
@@ -63,7 +62,8 @@ pub(crate) enum LineupDrag {
 #[cfg(test)]
 pub(crate) const PITCH: egui::Vec2 = egui::vec2(320.0, 384.0);
 /// The widget's whole extent: `PITCH` plus the draft `.pitch`'s 1 px
-/// border a side (the plan's "386 points with its border").
+/// border a side. The settings and assignments panels beside it are as
+/// tall.
 pub const PITCH_BOX: egui::Vec2 = egui::vec2(322.0, 386.0);
 /// The grid's extent in stored units.
 const GRID_X: u8 = 104;
@@ -133,8 +133,8 @@ const NAME_SPEED: f32 = 40.0;
 /// game's 16).
 const NAME_GAP: f32 = 16.0;
 
-/// The formation name's size: its digits 15 points tall, the game's
-/// label's (the plan's "The formation's name").
+/// The formation name's size: its digits 15 points tall, as the game's
+/// label's are.
 const LABEL_SIZE: f32 = 21.0;
 /// The name's text origin, in from the canvas' left edge: the face's 2
 /// point left bearing puts its ink 7 in, the game's.
@@ -420,14 +420,13 @@ pub fn pitch(
                 SELECTED_CORNERS,
             );
         }
-        // Live AATF's `FieldedNotA` crosses (the plan's
-        // field-a-violation-is-about sub-bullet's `FieldedNotA`
-        // parenthesis; DECISIONS "Live AATF's pitch cross"): after every
-        // marker and the swap mark, so a marker drawn later cannot
-        // cover one — the `✖` right-aligned `MARK_GAP` left of the
-        // starter's badge, centred on it, in the marks' highest
-        // severity's colour, its tooltip their lines. Only while the
-        // shown formation is one the shown preset fields.
+        // Live AATF's `FieldedNotA` crosses, painted after every marker
+        // and the swap mark: markers overlap, and a mark that asks for a
+        // fix must not hide under a later marker's portrait. Each is the
+        // `✖` right-aligned `MARK_GAP` left of the starter's badge,
+        // centred on it, in the marks' highest severity's colour, its
+        // tooltip their lines. Only while the shown formation is one the
+        // shown preset fields.
         if tactics.presets[view.preset.min(2)]
             .fielded_formations()
             .contains(&view.formation.min(2))
@@ -630,8 +629,7 @@ fn paint_formation_name(painter: &egui::Painter, canvas: egui::Rect, formation: 
     painter.galley(at, galley, egui::Color32::WHITE);
 }
 
-/// A name no wider than the badge fits: it is centred and never moves
-/// (the plan's "a name that fits never moves").
+/// A name no wider than the badge fits: it is centred and never moves.
 fn name_fits(width: f32) -> bool {
     width <= BADGE_W
 }
@@ -866,9 +864,9 @@ fn paint_marker(
         egui::FontId::proportional(12.0),
         position_colour(spot.slot.position),
     );
-    // His medal tier's initial at the badge's right end, level with the
-    // position text and in its font (the plan's "A starter's badge names
-    // his medal tier"); a slot with no medal draws none.
+    // His medal tier's initial at the badge's right end, where the game
+    // draws the overall rating, level with the position text and in its
+    // font. A slot with no medal draws none.
     if let Some(medal) = roster
         .get(usize::from(roster_slot))
         .and_then(|row| row.medal)

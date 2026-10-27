@@ -1,5 +1,4 @@
-//! The player view's title and the first column's panels (`plans/
-//! save_editor.md` "Editing UI", the player view bullet; the draft's
+//! The player view's title and the first column's panels (the draft's
 //! `playerHeader`, `generalPanel` and `otherStatsPanel`): `<id> <name>` at
 //! the heading size, then General info — Name and Shirt, each a
 //! label-left row carrying its `(n/max)` count beside its field, the
@@ -81,8 +80,8 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         .expect("the selected player")
         .name
         .clone();
-    // `<id> <name>` as the view's title (the plan's "No view draws the
-    // tool's name" bullet): the id in the weak colour, the name's colour
+    // `<id> <name>` as the view's title, not the tool's name, which the
+    // title bar carries: the id in the weak colour, the name's colour
     // codes drawn as the player list draws them (`append_name`), all at
     // the heading text style.
     let mut title = egui::text::LayoutJob::default();
@@ -101,9 +100,9 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 
 /// The General info panel's content (`generalPanel`): the Name and Shirt
 /// counted fields, the pair rows, then the combos. `marks` is Live
-/// AATF's held check's, while it is the selected player's team's: the
-/// marked fields' crosses then sit as the plan bullet maps them (a
-/// field keeps its x).
+/// AATF's held check's, while it is the selected player's team's: each
+/// marked field's cross then sits between its label and the field, so the
+/// field keeps its x.
 pub(super) fn general(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -412,8 +411,8 @@ enum Half {
 /// `Half::Second` just after the `label_width(NUMBER_LABEL)` label
 /// column and its gap, so both panels' second-half boxes share one x.
 /// `mark` is the field Live AATF's cross is about on this half, painted
-/// where the plan bullet puts it — just left of the box on a first half,
-/// at the label column's right end on a second — so the box keeps its x.
+/// just left of the box on a first half and at the label column's right
+/// end on a second, so the box keeps its x.
 fn pair_half(
     ui: &mut egui::Ui,
     half: Half,
@@ -610,7 +609,7 @@ fn small_box(
 /// is the column's "Registered position"), each `field_width` wide so it
 /// ends at the flush edge with the second half's boxes. `marks` is Live
 /// AATF's held check's: the marked combos' crosses sit after their
-/// labels (the plan bullet), painted so the combo keeps its x.
+/// labels, painted so the combo keeps its x.
 fn combos(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -735,12 +734,12 @@ fn side_row(ui: &mut egui::Ui, field_width: f32, held: u8) -> Option<(u8, u64)> 
     picked
 }
 
-/// Live AATF's cross after `label`'s text (the plan bullet's "after the
-/// label of a field drawn beside its label"): inside the label column's
-/// room or the gap before the field, never over either. After the
-/// column's widest label, the gap before the combos holds the glyph's
-/// ink; its advance may end a fraction of a point past it, in the side
-/// bearing nobody sees. Painted, so the field keeps its x.
+/// Live AATF's cross after `label`'s text, for a field drawn beside its
+/// label: inside the label column's room or the gap before the field,
+/// never over either. After the column's widest label, the gap before the
+/// combos holds the glyph's ink; its advance may end a fraction of a point
+/// past it, in the side bearing nobody sees. Painted, so the field keeps
+/// its x.
 fn cross_after_label(ui: &mut egui::Ui, label: egui::Rect, marks: Marks<'_>, field: MarkedField) {
     let cross = live_marks::cross_width(ui);
     marks.paint(

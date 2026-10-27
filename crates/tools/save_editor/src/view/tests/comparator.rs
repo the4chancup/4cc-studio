@@ -1,5 +1,4 @@
-//! The comparator panel's tests (SE-GUI-13; `plans/save_editor.md`
-//! "Comparator (gameplay + aesthetics)"): the pick and its refusals, the
+//! The comparator panel's tests (SE-GUI-13): the pick and its refusals, the
 //! rows in the views' terms, the scope toggles and the team filter, the
 //! only-in heads, the click's selection, the `Comparing…` mark and
 //! Export.

@@ -1,9 +1,7 @@
-//! The Player menu's operations (`plans/save_editor.md` "Feature
-//! inventory", the Player operations table, and "Full Player
-//! Customization (FPC)") and the quick actions' `apply_tier`: the four
-//! stat operations, the FPC hide/show/toggle and the tier write, each one
-//! sealed `edit_players` undo entry. egui-free,
-//! so the operations are testable without a frame; the lock's part (the
+//! The Player menu's operations and the quick actions' `apply_tier`: the
+//! four stat operations, the FPC hide/show/toggle and the tier write, each
+//! one sealed `edit_players` undo entry. egui-free, so the operations are
+//! testable without a frame; the lock's part (the
 //! FPC items' disabled state) is the view's to apply, not these
 //! functions'.
 
@@ -13,9 +11,8 @@ use pes_savefile::model::PlayerEntry;
 use crate::session::Session;
 
 impl Session {
-    /// One "Make <tier>" click (`plans/save_editor.md` "Configurable AATF
-    /// rules", the Quick actions bullet): `Rules::apply_tier` on the roster
-    /// slot's player, as one sealed `edit_players` entry. A team that does
+    /// One "Make <tier>" click in the quick actions: `Rules::apply_tier` on
+    /// the roster slot's player, as one sealed `edit_players` entry. A team that does
     /// not view, an empty slot or a failed `apply_tier` is the error the
     /// view's refusal dialog shows; the player is untouched.
     pub(crate) fn apply_tier(
@@ -168,8 +165,8 @@ fn copy_stat_fields(source: &PlayerEntry, dest: &mut PlayerEntry) {
     dest.edit_flags.com_styles = source.edit_flags.com_styles;
 }
 
-/// `kind`'s preset for `player`, his own IDs kept (`plans/save_editor.md`
-/// "Full Player Customization (FPC)"): a preset's boots or gloves ID is
+/// `kind`'s preset for `player`, his own IDs kept, since a full body model
+/// may use its own boots or gloves: a preset's boots or gloves ID is
 /// written only where the record holds 0 or `ids`'s hide ID, so hiding
 /// turns 0 into the hide ID and keeps 627, showing turns the hide ID into
 /// 0 and keeps 627. The per-player and the team operations both apply
@@ -215,9 +212,8 @@ mod tests {
         Session::open(&path).unwrap()
     }
 
-    // plans/save_editor.md "Full Player Customization (FPC)": a preset's
-    // ID lands only where the record holds 0 or the hide ID; any other
-    // stays (a model's own ID).
+    // A preset's ID lands only where the record holds 0 or the hide ID;
+    // any other stays (a model's own ID).
     #[test]
     fn a_preset_keeps_a_models_own_ids() {
         let ids = fpc::HideIds::CONVENTION;
@@ -286,9 +282,8 @@ mod tests {
         assert_eq!(session.file().player(70101).unwrap(), &before);
     }
 
-    // The quick actions' operation (plans/save_editor.md "Configurable AATF
-    // rules", the Quick actions bullet): `apply_tier` writes the tier's
-    // values as the lib computes them, as one sealed undo entry.
+    // The quick actions' operation: `apply_tier` writes the tier's values
+    // as the lib computes them, as one sealed undo entry.
     #[test]
     fn apply_tier_writes_the_tiers_values_as_one_undoable_edit() {
         let mut session = open(PesVersion::Pes21, "apply_tier");

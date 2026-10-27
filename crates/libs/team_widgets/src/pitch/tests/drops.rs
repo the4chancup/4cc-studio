@@ -190,8 +190,8 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
     );
 }
 
-// The decision "A pitch player dropped on another swaps the two slots in
-// the shown formation, as the game's drag" (DECISIONS 2026-10-27): the
+// A pitch player dropped on another swaps the two slots in the shown
+// formation, as the game's drag does in Team Sheet/Edit Position: the
 // two slots of preset 1's Kick-off exchange position, x and y, each
 // player staying in his slot; the starting eleven, the preset's other
 // two formations and presets 2 and 3 stay.
@@ -239,10 +239,10 @@ fn a_marker_dropped_on_another_marker_swaps_the_two_slots_in_the_shown_formation
     );
 }
 
-// Round S3's S3b-1: the swap writes the shown formation of the shown
-// preset, not a fixed one: on preset 2's In-possession the two slots
-// exchange there alone, preset 1's Kick-off (where a swap would show too)
-// and every other formation unchanged.
+// The swap writes the shown formation of the shown preset, not a fixed
+// one: on preset 2's In-possession the two slots exchange there alone,
+// preset 1's Kick-off (where a swap would show too) and every other
+// formation unchanged.
 #[test]
 fn a_marker_dropped_on_another_swaps_in_the_shown_preset_and_formation() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -287,10 +287,10 @@ fn a_marker_dropped_on_another_swaps_in_the_shown_preset_and_formation() {
     );
 }
 
-// The keeper is never a swap target (the plan's pitch-drop bullet, his
-// slot's position and spot being fixed): a marker held over him draws no
-// swap mark, and released there moves to the snapped point as on the
-// grass, the starting eleven and his slot unchanged.
+// The keeper is never a swap target, his slot's position and spot being
+// fixed: a marker held over him draws no swap mark, and released there
+// moves to the snapped point as on the grass, the starting eleven and
+// his slot unchanged.
 #[test]
 fn a_marker_released_on_the_keeper_moves_to_the_snapped_point() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -397,10 +397,10 @@ fn edge_press(
     })
 }
 
-// Round S2's S2b-1: a release egui reports as the pressed marker's click
-// (the pointer moved no farther than its click distance, 6) is a click,
-// never a drop. egui marks the marker dragged once the pointer is past
-// its hit radius (5) outside him, so a press 0.25 inside his edge
+// A release egui reports as the pressed marker's click (the pointer
+// moved no farther than its click distance, 6) is a click, never a drop.
+// egui marks the marker dragged once the pointer is past its hit radius
+// (5) outside him, so a press 0.25 inside his edge
 // released 5.5 off on the grass, a 5.75 move, is both his click and a
 // drop: it opens his popover and writes nothing.
 #[test]
@@ -439,12 +439,12 @@ fn a_release_within_the_click_distance_is_a_click_not_a_drop() {
     );
 }
 
-// Round S3's S3b-2: the click guard covers the swap too. Kick-off's
-// slot 1 sits a stored unit left of and 8 below slot 5, so his box,
-// drawn after 5's, overlaps its lower part and reaches 2.8 points past
-// its left edge: a press on 5 just above 1's top and a release 2.8
-// points away inside 1's box (outside 5's, so egui marks 5 dragged) is
-// 5's click, never a swap with 1.
+// The click guard covers the swap too. Kick-off's slot 1 sits a stored
+// unit left of and 8 below slot 5, so his box, drawn after 5's, overlaps
+// its lower part and reaches 2.8 points past its left edge: a press on 5
+// just above 1's top and a release 2.8 points away inside 1's box
+// (outside 5's, so egui marks 5 dragged) is 5's click, never a swap with
+// 1.
 #[test]
 fn a_release_within_the_click_distance_over_a_neighbour_is_a_click() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -573,8 +573,8 @@ fn a_marker_released_off_the_pitch_changes_nothing() {
     assert_eq!(tactics, before, "and nothing moved");
 }
 
-// Round A1's A1a-1: egui reports a release to the closest widget within
-// its 5-point search radius, so a marker released 3 points off the pitch
+// egui reports a release to the closest widget within its 5-point
+// search radius, so a marker released 3 points off the pitch
 // beside an edge marker's box is still off the pitch: no swap with that
 // marker, no move to the snapped edge point.
 #[test]
@@ -650,9 +650,9 @@ fn an_eleven_row_released_on_the_grass_changes_nothing() {
     assert_eq!(tactics, before, "and nothing moved");
 }
 
-// Round A1's A1a-1: a row released on the grass 3 points beside a
-// marker's box, within egui's 5-point search radius, is still on the
-// grass: a bench row swaps nobody in, an eleven row exchanges nobody.
+// A row released on the grass 3 points beside a marker's box, within
+// egui's 5-point search radius, is still on the grass: a bench row swaps
+// nobody in, an eleven row exchanges nobody.
 #[test]
 fn a_row_released_on_the_grass_beside_a_marker_does_nothing() {
     let mut window = Headless::sized(600.0, 1100.0);
@@ -780,11 +780,11 @@ fn a_marker_released_on_his_own_marker_moves() {
     assert_eq!(moved.y, slot.y, "y stayed");
 }
 
-// A press on the keeper where his marker covers another's is his (the
-// plan's "a press or a drop hits the marker drawn on top" and "The
-// goalkeeper's slot is fixed"): he senses click-and-drag like the
-// others so egui's hit test gives him both hits — a press-drag-release
-// on him moves neither and writes nothing; his release is his click.
+// A press on the keeper where his marker covers another's is his, since
+// a press hits the marker drawn on top, and his slot is fixed. He senses
+// click-and-drag like the others so egui's hit test gives him both hits:
+// a press-drag-release on him moves neither and writes nothing, and his
+// release is his click.
 #[test]
 fn a_press_on_the_keeper_over_another_marker_moves_neither() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -841,8 +841,8 @@ fn a_press_on_the_keeper_over_another_marker_moves_neither() {
     );
 }
 
-// The plan's "The goalkeeper's slot is fixed": his marker is no drag
-// source, so a press-drag-release on it writes nothing — his release is
+// The goalkeeper's slot is fixed: his marker is no drag source, so a
+// press-drag-release on it writes nothing — his release is
 // his click, which opens the popover.
 #[test]
 fn the_keepers_marker_cannot_be_dragged() {
@@ -881,8 +881,9 @@ fn the_keepers_marker_cannot_be_dragged() {
     );
 }
 
-// The widget's contract (the plan's "`libs/team_widgets`"): an idle
-// frame and a hover over the canvas report no change and edit nothing.
+// The widget's contract, to report what changed and nothing else: an
+// idle frame and a hover over the canvas report no change and edit
+// nothing.
 #[test]
 fn an_idle_frame_and_a_hover_change_nothing() {
     let mut window = Headless::sized(600.0, 450.0);

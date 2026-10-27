@@ -1,5 +1,4 @@
-//! The player view's three columns (`plans/save_editor.md` "Editing UI",
-//! the player view bullet; the draft's `playerView`/`.pcols`): General
+//! The player view's three columns (the draft's `playerView`/`.pcols`): General
 //! info (`info_strip::general`), Other stats and Playable positions in
 //! the first, 350 wide; Skills with the Cards left badge in its header
 //! row and COM playing styles in the second; the 25 ability stats in the
@@ -849,11 +848,9 @@ mod tests {
         Some((1u64 << width) - 1)
     }
 
-    // plans/save_editor.md "Editing UI", the Abilities & Skills bullet
-    // ("each inside the field's bit width on every version"): every range's
-    // top fits the field's bit width on every version storing it (after
-    // the stored-one-lower shift). The Appearance section's Cutscenes
-    // pair is a `SmallStat` too.
+    // Every range's top fits the field's bit width on every version
+    // storing it (after the stored-one-lower shift). The Appearance
+    // section's Cutscenes pair is a `SmallStat` too.
     #[test]
     fn every_ranges_top_fits_the_fields_bit_width() {
         for (field, top, shift) in SMALL_STATS

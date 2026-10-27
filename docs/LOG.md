@@ -2720,3 +2720,5 @@ worklog passed 7,000 lines.
   `window_size` (a window-only flag, an equivalent f32 tolerance), excluded with reasons; no rework brief.
 - **2026-10-27** — 12.0b stopped by the maintainer (a corner of an unbuilt tool): no badge on PES 2016's undershirt-only forearm, so the
   editor grays the four long-sleeve badge fields as Kit Manager does; save and test slot restored by hash; PES 16's test slot kept.
+- **2026-10-27** — cm4 + cm6: `save_editor`'s and `team_widgets`' 282 comments that cited plans, decisions or rounds now stand on their own
+  (`comment-refs` 0 workspace-wide); `doc_pointers.py` reads pointers a line break cuts. Found: the Save editor's CLI tests read the real process list.

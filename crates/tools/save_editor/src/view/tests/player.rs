@@ -1,7 +1,7 @@
 //! The Player menu's stat operations and the FPC reads and writes, end to
-//! end through the headless window (`plans/save_editor.md` "Acceptance":
-//! SE-GUI-24's four operations, SE-GUI-11's hide/show, the SE-GUI-22 lock's
-//! FPC items, and the PES 15/16 appearance record's round-trip).
+//! end through the headless window: SE-GUI-24's four operations,
+//! SE-GUI-11's hide/show, the SE-GUI-22 lock's FPC items, and the PES
+//! 15/16 appearance record's round-trip.
 
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::PlayerEntry;
@@ -245,8 +245,8 @@ fn the_bump_dialog_prefills_the_last_n_used() {
 
 /// `entry` with the copy/swap field set taken from `source`: height,
 /// weight, the whole stats, positions and skills, the free-kick motion
-/// alone, and the eight gameplay edit flags (`plans/save_editor.md`
-/// "Feature inventory", the Copy row's field set).
+/// alone, and the eight gameplay edit flags: Copy player stats' field
+/// set.
 fn with_stats_of(entry: &PlayerEntry, source: &PlayerEntry) -> PlayerEntry {
     let mut entry = entry.clone();
     entry.basic.height = source.basic.height;
@@ -436,9 +436,10 @@ fn copy_stats_writes_the_field_set_and_nothing_else() {
     );
 }
 
-// The Swap row: the same field set traded both ways between the
+// Swap player stats: the same field set traded both ways between the
 // selected and the picked player — here on PES 16, whose appearance block
-// is a separate record and stays out of the trade as the plan's row says.
+// is a separate record and stays out of the trade, as the field set
+// leaves it out.
 // SE-GUI-24
 #[test]
 fn swap_stats_trades_the_field_set_on_pes16() {
