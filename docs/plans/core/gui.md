@@ -1016,7 +1016,10 @@ ST-TTL-01   GIVEN a tool reporting a ToolActivity (label "Team compiler", 12 of 
             WHEN a frame is drawn
             THEN the viewport title command reads "Team compiler · 12/48 · 01:12 - <app>",
                  sent once and not again while the string is unchanged; GIVEN no activity and
-                 a stub tool "Stub A" active THEN "Stub A - <app>"
+                 a stub tool "Stub A" active THEN "Stub A - <app>"; GIVEN "Stub A" naming its
+                 open file `C:\saves\EDIT00000000` (`title_detail`) THEN
+                 "Stub A [C:\saves\EDIT00000000] - <app>", and while the activity runs the
+                 busy title above, no path in it
 ST-TTL-02   GIVEN the window unfocused and no tool reporting an activity
             WHEN a notice "Compiled 48 teams" arrives
             THEN the title reads "Compiled 48 teams - <app>" until the window gains focus,

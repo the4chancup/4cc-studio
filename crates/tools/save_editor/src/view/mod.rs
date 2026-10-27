@@ -339,6 +339,12 @@ impl SaveView {
             .is_some_and(|session| session.is_dirty())
     }
 
+    /// The open save's path (`Tool::title_detail`'s, for the idle window
+    /// title); `None` with none open.
+    pub(crate) fn save_path(&self) -> Option<&Path> {
+        self.session.as_ref().map(Session::path)
+    }
+
     /// Opens the save at `path`: on success the selector reads `ALL`, the
     /// filter is empty and the first player row is selected (a team's own
     /// row is not a player); a file the
@@ -564,8 +570,9 @@ pub(super) fn scoped(ui: &mut egui::Ui, id: egui::Id, add: impl FnOnce(&mut egui
     ui.scope_builder(egui::UiBuilder::new().scope_id(id), add);
 }
 
-/// The toolbar: Open, Save, Undo, Redo and the open save's path with its
-/// unsaved-changes marker (the draft's toolbar row).
+/// The toolbar: Open, Save, Undo, Redo and the unsaved-changes marker (the
+/// draft's toolbar row). The open save's path rides the idle window title
+/// (`Tool::title_detail`, gui.md "Window title"), not this row.
 fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<RunningPes>) {
     // The unsaved prompt and the running-game question hold every
     // shortcut dead while up (the prompt's own buttons are the way out).
@@ -652,21 +659,10 @@ fn toolbar(ui: &mut egui::Ui, view: &mut SaveView, running: &dyn Fn() -> Vec<Run
         {
             view.live_aatf = !view.live_aatf;
         }
-        if let Some(session) = view.session.as_ref() {
-            let path = session.path().display().to_string();
-            let marker = if session.is_dirty() {
-                "  \u{2022} unsaved changes"
-            } else {
-                ""
-            };
-            ui.add(
-                egui::Label::new(
-                    egui::RichText::new(format!("{path}{marker}"))
-                        .monospace()
-                        .weak(),
-                )
-                .truncate(),
-            );
+        // The save's path is in the window title (`title_detail`): beside the
+        // unsaved mark it could wrap the toolbar onto a second row.
+        if view.is_dirty() {
+            ui.weak("\u{2022} unsaved changes");
         }
     });
     if clear_flags_key

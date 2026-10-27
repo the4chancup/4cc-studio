@@ -86,6 +86,13 @@ pub trait StudioTool {
     fn activity(&self) -> Option<ToolActivity> {
         None
     }
+
+    /// What the tool has open, shown in square brackets after its name in the idle window
+    /// title (`Save editor [C:\…\EDIT00000000] - <app>`): the path of the one file it edits.
+    /// Not in the busy or notice titles. Default: nothing.
+    fn title_detail(&self) -> Option<String> {
+        None
+    }
 }
 
 /// A suite tool a build does not register (core plan, "Tool plugin interface"). `studio` keeps

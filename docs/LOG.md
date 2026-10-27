@@ -2604,3 +2604,5 @@ worklog passed 7,000 lines.
   attacking and defensive pairs with Few | Medium | Many for the numbers, Player assignments as label-over-chip rows.
 - **2026-10-27** — The Tactics editor's lower left redrawn (0.0.1s5c, SWE-2, three sessions): instructions split by side with each
   target picked on the pitch, Automatic settings as a two-column grid, Substitution a combo of the game's names.
+- **2026-10-27** — The open save's path moved from the Save editor's toolbar to the idle window title (`title_detail`), and the
+  fixed-width side panels (sidebar, help tree, Ruleset rail) stopped showing a resize cursor on their edge (0.0.1s4t).

@@ -443,8 +443,13 @@ impl eframe::App for StudioApp {
         }
         let focused = egui_ctx.input(|input| input.focused);
         let activities = self.activities(true);
-        let active_label = self.tools.get(self.active).map_or("", |tool| tool.label());
-        if let Some(title) = self.title.frame(&activities, focused, active_label) {
+        let active = self.tools.get(self.active);
+        let active_label = active.map_or("", |tool| tool.label());
+        let active_detail = active.and_then(|tool| tool.title_detail());
+        if let Some(title) =
+            self.title
+                .frame(&activities, focused, active_label, active_detail.as_deref())
+        {
             egui_ctx.send_viewport_cmd(egui::ViewportCommand::Title(title));
         }
     }
@@ -464,6 +469,7 @@ impl eframe::App for StudioApp {
             self.apply_notice_effect(effect);
         }
         let clicked = egui::Panel::left("sidebar")
+            .resizable(false)
             .exact_size(sidebar::RAIL_WIDTH)
             .show(ui, |ui| {
                 self.sidebar.show(

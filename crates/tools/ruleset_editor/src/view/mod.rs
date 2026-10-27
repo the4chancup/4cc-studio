@@ -220,6 +220,7 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut RulesetView, ctx: &ToolContext)
                 .show(ui, |ui| preview::show(ui, view));
         }
         egui::Panel::left("ruleset_rail")
+            .resizable(false)
             .exact_size(140.0)
             .show(ui, |ui| rail::show(ui, view));
         egui::CentralPanel::default().show(ui, |ui| {

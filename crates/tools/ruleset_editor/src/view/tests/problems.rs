@@ -24,6 +24,36 @@ fn the_problem_count_singularizes_one_and_pluralizes_more() {
     assert!(contains_label(&frame.nodes, "(hover for all)"));
 }
 
+// A fixed-width panel shows no resize edge (the draft's plain edge): the rail is
+// `exact_size(140)`, so resting the pointer on its right edge leaves the default
+// cursor and registers no splitter.
+#[test]
+fn the_fixed_width_rail_shows_no_resize_edge() {
+    let (ctx, _events, mut window, mut view) = fresh_blank();
+    // The headless view starts at x 0, so the rail's right edge sits at x 140
+    // (inside the grab band a resizable side panel gives its edge), at a height
+    // no rail entry sits at.
+    let edge = egui::pos2(140.0, 400.0);
+    let mut frame = window.frame(vec![egui::Event::PointerMoved(edge)], |ui| {
+        show(ui, &mut view, &ctx)
+    });
+    for _ in 0..3 {
+        frame = window.draw(&mut view, &ctx);
+    }
+    assert_eq!(
+        frame.platform.cursor_icon,
+        egui::CursorIcon::Default,
+        "the fixed-width edge is not a resize handle"
+    );
+    assert!(
+        !frame
+            .nodes
+            .iter()
+            .any(|node| node.role() == Role::Splitter && node.label() == Some("Resize panel")),
+        "a fixed-width panel registers no splitter"
+    );
+}
+
 #[test]
 fn a_problem_marks_only_its_section_in_the_rail() {
     let (ctx, _events, mut window, mut view) = fresh_blank();

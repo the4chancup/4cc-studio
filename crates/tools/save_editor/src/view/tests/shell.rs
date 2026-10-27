@@ -440,6 +440,56 @@ fn the_tool_view_draws_the_window() {
     );
 }
 
+// plans/save_editor.md "Editing UI" (the "nor the open save's path" bullet):
+// `title_detail` hands the path to the idle window title, so the view draws
+// neither it nor the file's name; the toolbar keeps the unsaved marker alone.
+#[test]
+fn the_save_path_rides_the_window_title_not_the_view() {
+    use studio_core::StudioTool;
+
+    let path = fixture(PesVersion::Pes21, "title_path");
+    let dir = crate::test_support::scratch("title_path_ctx");
+    let (ctx, _events_rx, _requests_rx) = tool_context(&dir, studio_core::Settings::default());
+    let mut tool = crate::Tool::new();
+    assert_eq!(tool.title_detail(), None, "no save open");
+    tool.view.open(&path);
+    assert_eq!(
+        tool.title_detail(),
+        Some(path.display().to_string()),
+        "the open save's path"
+    );
+
+    let mut window = Headless::new();
+    // The file name is part of the whole path, so this also rules out the path.
+    let file_name = path.file_name().unwrap().to_str().unwrap().to_owned();
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    assert!(
+        !nodes.iter().any(|node| {
+            node.label().is_some_and(|text| text.contains(&file_name))
+                || node.value().is_some_and(|text| text.contains(&file_name))
+        }),
+        "no node carries the save's path or file name"
+    );
+    assert!(
+        !nodes
+            .iter()
+            .any(|node| node.value() == Some("\u{2022} unsaved changes")),
+        "a clean session draws no unsaved marker"
+    );
+
+    // A dirty session marks the toolbar with the marker alone.
+    let mut edited = player_entry(&tool.view, 70101);
+    edited.basic.height = 170;
+    tool.view.session.as_mut().unwrap().edit_player(1, edited);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
+    assert!(
+        nodes
+            .iter()
+            .any(|node| node.value() == Some("\u{2022} unsaved changes")),
+        "the dirty session's marker is drawn"
+    );
+}
+
 // The refusal dialog closes on Escape as on OK (`view::refusal_dialog`).
 #[test]
 fn the_refusal_dialog_dismisses_on_escape() {

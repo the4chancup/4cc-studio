@@ -2,10 +2,11 @@
 //! is behind others — the taskbar button, alt-tab. While a tool reports an activity the title
 //! carries it (`Team compiler · 12/48 · 01:12 - Unlimited Tool Works`, `APP_NAME` last; the
 //! active tool's first, then sidebar order); idle with a notice that arrived unfocused it holds
-//! the notice's text until focus returns; idle it names the active tool
-//! (`Save editor - Unlimited Tool Works`). The shell sends `ViewportCommand::Title` only
-//! when the string changes, once per frame at most — the window opens titled `APP_NAME`, so
-//! the first frame sends the idle title.
+//! the notice's text until focus returns; idle it names the active tool, bracketing the
+//! open file's path when the tool has one (`Save editor [C:\…\EDIT00000000] - Unlimited
+//! Tool Works`; `Save editor - Unlimited Tool Works` without). The shell sends
+//! `ViewportCommand::Title` only when the string changes, once per frame at most — the
+//! window opens titled `APP_NAME`, so the first frame sends the idle title.
 
 /// What the title reads from: the last string sent and the notice text held while unfocused.
 pub(super) struct WindowTitle {
@@ -36,12 +37,15 @@ impl WindowTitle {
 
     /// The title this frame should carry, `Some` only when it differs from the last sent.
     /// `activities` are the activity texts, the active tool's first then sidebar order;
-    /// `active_label` is the active tool's label, the idle title's first half.
+    /// `active_label` is the active tool's label, the idle title's first half;
+    /// `active_detail` is the open file's path, bracketed after the label in the idle
+    /// title only.
     pub(super) fn frame(
         &mut self,
         activities: &[String],
         focused: bool,
         active_label: &str,
+        active_detail: Option<&str>,
     ) -> Option<String> {
         if focused {
             self.held_notice = None;
@@ -51,6 +55,8 @@ impl WindowTitle {
             format!("{} - {}", activities.join(" · "), crate::APP_NAME)
         } else if let Some(text) = &self.held_notice {
             format!("{text} - {}", crate::APP_NAME)
+        } else if let Some(detail) = active_detail {
+            format!("{active_label} [{detail}] - {}", crate::APP_NAME)
         } else {
             format!("{active_label} - {}", crate::APP_NAME)
         };
@@ -82,8 +88,8 @@ mod tests {
         let mut title = WindowTitle::default();
         let idle = || format!("A - {}", crate::APP_NAME);
         // The window opens titled `APP_NAME`: the first frame sends the idle title.
-        assert_eq!(title.frame(&texts(&[]), true, "A"), Some(idle()));
-        assert_eq!(title.frame(&texts(&[]), true, "A"), None);
+        assert_eq!(title.frame(&texts(&[]), true, "A", None), Some(idle()));
+        assert_eq!(title.frame(&texts(&[]), true, "A", None), None);
 
         let busy = texts(&["Team compiler · 12/48 · 01:12", "B · 00:03"]);
         let busy_title = || {
@@ -92,38 +98,38 @@ mod tests {
                 crate::APP_NAME
             )
         };
-        assert_eq!(title.frame(&busy, true, "A"), Some(busy_title()));
+        assert_eq!(title.frame(&busy, true, "A", None), Some(busy_title()));
         assert_eq!(
-            title.frame(&busy, true, "A"),
+            title.frame(&busy, true, "A", None),
             None,
             "unchanged sends nothing"
         );
-        assert_eq!(title.frame(&texts(&[]), true, "A"), Some(idle()));
+        assert_eq!(title.frame(&texts(&[]), true, "A", None), Some(idle()));
 
         // An activity outranks a held notice.
         title.notice("Compiled 48 teams", false);
-        assert_eq!(title.frame(&busy, false, "A"), Some(busy_title()));
+        assert_eq!(title.frame(&busy, false, "A", None), Some(busy_title()));
         assert_eq!(
-            title.frame(&texts(&[]), false, "A"),
+            title.frame(&texts(&[]), false, "A", None),
             Some(format!("Compiled 48 teams - {}", crate::APP_NAME))
         );
-        assert_eq!(title.frame(&texts(&[]), true, "A"), Some(idle()));
-        assert_eq!(title.frame(&texts(&[]), true, "A"), None);
+        assert_eq!(title.frame(&texts(&[]), true, "A", None), Some(idle()));
+        assert_eq!(title.frame(&texts(&[]), true, "A", None), None);
     }
 
     #[test]
     fn switching_the_active_tool_while_idle_sends_the_new_tools_title_once() {
         let mut title = WindowTitle::default();
         assert_eq!(
-            title.frame(&texts(&[]), true, "A"),
+            title.frame(&texts(&[]), true, "A", None),
             Some(format!("A - {}", crate::APP_NAME))
         );
         assert_eq!(
-            title.frame(&texts(&[]), true, "B"),
+            title.frame(&texts(&[]), true, "B", None),
             Some(format!("B - {}", crate::APP_NAME)),
             "the switch sends the new tool's idle title"
         );
-        assert_eq!(title.frame(&texts(&[]), true, "B"), None, "sent once");
+        assert_eq!(title.frame(&texts(&[]), true, "B", None), None, "sent once");
     }
 
     #[test]
@@ -131,11 +137,42 @@ mod tests {
         let mut title = WindowTitle::default();
         title.notice("Compiled 48 teams", true);
         assert_eq!(
-            title.frame(&texts(&[]), true, "A"),
+            title.frame(&texts(&[]), true, "A", None),
             Some(format!("A - {}", crate::APP_NAME))
         );
         // And the notice does not surface later, when focus leaves.
-        assert_eq!(title.frame(&texts(&[]), false, "A"), None);
+        assert_eq!(title.frame(&texts(&[]), false, "A", None), None);
+    }
+
+    #[test]
+    fn the_idle_title_brackets_the_tools_open_file() {
+        let mut title = WindowTitle::default();
+        let detail = Some("C:\\saves\\EDIT00000000");
+        assert_eq!(
+            title.frame(&texts(&[]), true, "A", detail),
+            Some(format!("A [C:\\saves\\EDIT00000000] - {}", crate::APP_NAME))
+        );
+        // The file closed: the plain idle title, sent once.
+        assert_eq!(
+            title.frame(&texts(&[]), true, "A", None),
+            Some(format!("A - {}", crate::APP_NAME))
+        );
+        assert_eq!(title.frame(&texts(&[]), true, "A", None), None);
+
+        // The busy and held-notice titles keep their own text: no path in either.
+        let busy = texts(&["Team compiler · 12/48 · 01:12"]);
+        assert_eq!(
+            title.frame(&busy, true, "A", detail),
+            Some(format!(
+                "Team compiler · 12/48 · 01:12 - {}",
+                crate::APP_NAME
+            ))
+        );
+        title.notice("Compiled 48 teams", false);
+        assert_eq!(
+            title.frame(&texts(&[]), false, "A", detail),
+            Some(format!("Compiled 48 teams - {}", crate::APP_NAME))
+        );
     }
 
     // ST-TTL-01
@@ -169,6 +206,40 @@ mod tests {
             titles(&out),
             [format!("A - {}", crate::APP_NAME)],
             "the active tool's idle title"
+        );
+    }
+
+    // The scenario's title-detail clause: the open file's path brackets the
+    // active tool's idle title; the busy title keeps its own text.
+    // ST-TTL-01
+    #[test]
+    fn the_idle_title_brackets_the_open_file_and_the_busy_title_drops_it() {
+        let Shell {
+            mut app,
+            calls,
+            _dir,
+            ..
+        } = shell();
+        let egui_ctx = test_context();
+
+        *calls[0].title_detail.lock().unwrap() = Some("C:\\saves\\EDIT00000000".to_owned());
+        let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+        assert_eq!(
+            titles(&out),
+            [format!("A [C:\\saves\\EDIT00000000] - {}", crate::APP_NAME)]
+        );
+        let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+        assert!(titles(&out).is_empty(), "sent once");
+
+        calls[0].set_activity("Team compiler", Some((12, 48)), Duration::from_secs(72));
+        let out = frame(&egui_ctx, &mut app, Vec::new(), true);
+        assert_eq!(
+            titles(&out),
+            [format!(
+                "Team compiler · 12/48 · 01:12 - {}",
+                crate::APP_NAME
+            )],
+            "the busy title carries no path"
         );
     }
 

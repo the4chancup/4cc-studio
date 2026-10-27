@@ -8,6 +8,10 @@ Part of the [Core plan](README.md). Section headings are unchanged from the sing
 
 In egui, the shell is built with `Panel` (sides) + `CentralPanel`, shown on the whole-app `Ui`
 that `eframe::App::ui` provides (API as of egui 0.37; see "egui version discipline" below).
+A fixed-width side panel (the sidebar, the help window's chapter tree, the Ruleset editor's
+rail) takes `.resizable(false)` beside its `exact_size`: egui's `Panel::left` and
+`Panel::right` start resizable and a pinned size does not turn that off, so the edge showed
+the resize cursor while a drag did nothing.
 
 ### egui version discipline
 

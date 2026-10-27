@@ -3016,7 +3016,7 @@ briefs, review loops, gates and mutation runs as for any step.
     quick_actions,mod,terms}.rs`, `view/appearance/mod.rs`, `session/player_ops.rs`,
     `view/tests/{abilities,appearance,player,quick_actions,live_marks}.rs`,
     `help/0{4,6}_*.md`, `team_widgets/src/cards.rs`
-  - [ ] s4t the window title's path (`core/gui.md` "Window title", `StudioTool::title_detail`),
+  - [x] s4t the window title's path (`core/gui.md` "Window title", `StudioTool::title_detail`),
     `studio_core`'s: after side-lead S's chain releases it; with it, `shell/status_bar.rs`'s
     test samples take the version notice's wording "so the editor will keep treating it as"
     (the maintainer, 2026-10-27; draft and CONTRIBUTING already do); and the fixed-width side
@@ -3024,7 +3024,20 @@ briefs, review loops, gates and mutation runs as for any step.
     edge showed the resize cursor though a drag did nothing, the draft's is plain): egui's
     `Panel` defaults to `resizable(true)`, which `exact_size` does not turn off, so the shell's
     `sidebar`, the help window's `help-tree` and the Ruleset editor's `ruleset_rail` each take
-    `.resizable(false)`, with a test that hovering each edge leaves the cursor at the default
+    `.resizable(false)`, with a test that hovering each edge leaves the cursor at the default.
+    Done 2026-10-27 (side-lead S, SWE-2): `StudioTool::title_detail` (default `None`),
+    `WindowTitle::frame`'s idle branch `<tool> [<detail>] - <app>`, the busy and notice
+    titles unchanged (ST-TTL-01 widened with the clause); the Save editor's `title_detail` its
+    `SaveView::save_path`, the toolbar `• unsaved changes` alone, weak, while dirty; the three
+    status bar samples reworded (the 1280-point notice still drawn whole); the three panels
+    `.resizable(false)` (red: `ResizeEast` on each edge), the rule in `spec/core/gui.md`
+    "Shell layout". Files: `studio_core/src/{tool.rs,shell/{title,mod,test_harness,
+    status_bar,help_window}.rs,shell/sidebar/tests.rs}`, `save_editor/src/{lib.rs,view/mod.rs,
+    view/tests/shell.rs}`, `save_editor/help/02_window.md` (the path's new place),
+    `ruleset_editor/src/view/{mod.rs,tests/problems.rs}`. SWE-2 round S1: 1 of 6 accepted,
+    the loop ends; rulings `.tmp/0_0_1s4t/rulings.md`. Open: the
+    built-window look (the title bar showing an open save's path; the sidebar's, the help
+    tree's and the rail's edges with no resize cursor)
   - [ ] s5 the Tactics editor's grid (the maintainer, 2026-10-26; drafted and approved,
     `.tmp/0_0_1s/tactics_layout_request.md`; plan "Tactics editor", DECISIONS "The Tactics
     editor is one grid"): the three-row grid, Formation settings in pairs of equal rows, the

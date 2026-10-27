@@ -260,6 +260,11 @@ impl StudioTool for Tool {
         cli::command()
     }
 
+    /// The open save's path, bracketed in the idle window title (gui.md "Window title").
+    fn title_detail(&self) -> Option<String> {
+        self.view.save_path().map(|path| path.display().to_string())
+    }
+
     fn cli_run(&self, matches: &clap::ArgMatches, ctx: &ToolContext) -> Result<u8, CliError> {
         cli::run(matches, ctx)
     }

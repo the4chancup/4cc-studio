@@ -168,6 +168,7 @@ impl HelpWindow {
         );
         ui.separator();
         egui::Panel::left("help-tree")
+            .resizable(false)
             .exact_size(160.0)
             .show(ui, |ui| {
                 // The default auto-shrink would size each pane to its first frame's
@@ -1843,5 +1844,53 @@ mod tests {
             "the markup is rendered, not shown: {nodes:?}"
         );
         assert!(!has_text(&nodes, "`"), "no backtick reaches the screen");
+    }
+
+    // A fixed-width panel shows no resize edge (the draft's plain edge): the tree
+    // column is `exact_size(160)`, so resting the pointer on its right edge leaves
+    // the default cursor and registers no splitter.
+    #[test]
+    fn the_tree_panels_fixed_width_edge_shows_no_resize_cursor() {
+        let dir = TestDir::new("studio_core_help_tree_edge");
+        let Shell { mut app, .. } = help_shell(dir.path());
+        let egui_ctx = test_context();
+
+        frame(&egui_ctx, &mut app, vec![key(egui::Key::F1, true)], true);
+        let out = idle(&egui_ctx, &mut app, 15);
+
+        // The panel's right edge: the window's content left (the search box spans
+        // the content width, so its own left edge is the panel's) plus the panel's
+        // exact 160 points; the height is inside the window, below the tree's
+        // entries and above the window's own bottom edge.
+        let content_left = search_box(&out.nodes)
+            .bounds()
+            .expect("the search box carries bounds")
+            .x0;
+        let window_bottom = help_window_node(&out.nodes)
+            .expect("the help window is drawn")
+            .bounds()
+            .expect("the window carries bounds")
+            .y1;
+        let edge = egui::pos2((content_left + 160.0) as f32, (window_bottom - 40.0) as f32);
+        frame(
+            &egui_ctx,
+            &mut app,
+            vec![egui::Event::PointerMoved(edge)],
+            true,
+        );
+        let out = idle(&egui_ctx, &mut app, 3);
+        assert_eq!(
+            out.platform.cursor_icon,
+            egui::CursorIcon::Default,
+            "the fixed-width edge is not a resize handle"
+        );
+        // The resizable window's own edges register splitters too ("Resize window
+        // …"); the panel's is the one labeled "Resize panel".
+        assert!(
+            !out.nodes
+                .iter()
+                .any(|node| node.role() == Role::Splitter && node.label() == Some("Resize panel")),
+            "a fixed-width panel registers no splitter"
+        );
     }
 }

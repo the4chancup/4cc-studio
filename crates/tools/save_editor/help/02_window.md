@@ -1,6 +1,7 @@
 The Save editor's window opens a save (`EDIT00000000`, or a copy of it) and edits it.
-**Open…** picks the file. Once a save is open the toolbar shows its path, marked
-`• unsaved changes` while edits wait unsaved.
+**Open…** picks the file. Once a save is open the window's title bar shows its path, in
+square brackets after the editor's name, and the toolbar shows `• unsaved changes` while
+edits wait unsaved.
 
 **Teams and players.** The dropdown picks a team, or ALL for every team of the save. The
 list below it holds a row per team and, under it, one per player: the team's row shows

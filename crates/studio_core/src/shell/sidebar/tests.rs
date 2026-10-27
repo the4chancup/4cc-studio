@@ -1762,3 +1762,35 @@ fn the_poll_calls_the_probe_every_five_seconds_and_schedules_its_repaint() {
         "the next poll ran at t = 10"
     );
 }
+
+// A fixed-width panel shows no resize edge (the draft's plain edge): the rail is
+// `exact_size(RAIL_WIDTH)`, so resting the pointer on its right edge leaves the
+// default cursor and registers no splitter.
+#[test]
+fn the_rails_fixed_width_edge_shows_no_resize_cursor() {
+    let Shell { mut app, _dir, .. } = shell();
+    let egui_ctx = test_context();
+
+    // The rail's right edge at x = RAIL_WIDTH (inside the grab band a resizable
+    // side panel gives its edge), at a height no rail widget sits at. Three
+    // frames stay well under the overlay's hover delay.
+    let edge = egui::pos2(RAIL_WIDTH, 300.0);
+    frame(
+        &egui_ctx,
+        &mut app,
+        vec![egui::Event::PointerMoved(edge)],
+        true,
+    );
+    let out = idle(&egui_ctx, &mut app, 3);
+    assert_eq!(
+        out.platform.cursor_icon,
+        egui::CursorIcon::Default,
+        "the fixed-width edge is not a resize handle"
+    );
+    assert!(
+        !out.nodes
+            .iter()
+            .any(|node| node.role() == Role::Splitter && node.label() == Some("Resize panel")),
+        "a fixed-width panel registers no splitter"
+    );
+}

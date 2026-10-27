@@ -454,7 +454,7 @@ mod tests {
         } = shell();
         let egui_ctx = test_context();
         ctx.notify(Notice {
-            text: "Although the sidebar is set to PES 2019, this save is from PES 2021, so the editor keeps treating it as a PES 2021 save."
+            text: "Although the sidebar is set to PES 2019, this save is from PES 2021, so the editor will keep treating it as a PES 2021 save."
                 .to_owned(),
             kind: NoticeKind::Warning,
             action: Some(NoticeAction {
@@ -497,7 +497,7 @@ mod tests {
             mut app, ctx, _dir, ..
         } = shell();
         let egui_ctx = test_context();
-        const NOTICE_TEXT: &str = "Although the sidebar is set to PES 2019, this save is from PES 2021, so the editor keeps treating it as a PES 2021 save.";
+        const NOTICE_TEXT: &str = "Although the sidebar is set to PES 2019, this save is from PES 2021, so the editor will keep treating it as a PES 2021 save.";
         ctx.notify(Notice {
             text: NOTICE_TEXT.to_owned(),
             kind: NoticeKind::Warning,
@@ -539,7 +539,7 @@ mod tests {
         let egui_ctx = test_context();
         calls[1].set_activity("B", Some((12, 48)), Duration::from_secs(72));
         ctx.notify(Notice {
-            text: "Although the sidebar is set to PES 2019, this save is from PES 2021, so the editor keeps treating it as a PES 2021 save.".to_owned(),
+            text: "Although the sidebar is set to PES 2019, this save is from PES 2021, so the editor will keep treating it as a PES 2021 save.".to_owned(),
             kind: NoticeKind::Warning,
             action: Some(NoticeAction {
                 label: "Switch to PES 2021".to_owned(),

@@ -47,6 +47,9 @@ pub(super) struct Calls {
     pub(super) blocker: Mutex<Option<&'static str>>,
     /// What `activity()` reports: `(tool_label, progress, elapsed)`, `None` while idle.
     pub(super) activity: Mutex<Option<Activity>>,
+    /// What `title_detail()` reports: the open file's path, `None` while the stub has
+    /// none (the default).
+    pub(super) title_detail: Mutex<Option<String>>,
     /// A run's event receiver: `tick` drains it and any envelope ends the activity, as a
     /// run's last event does.
     pub(super) events: Mutex<Option<Receiver<PipelineEventEnvelope>>>,
@@ -247,6 +250,9 @@ impl StudioTool for StubTool {
             progress,
             elapsed,
         })
+    }
+    fn title_detail(&self) -> Option<String> {
+        self.calls.title_detail.lock().unwrap().clone()
     }
 }
 
