@@ -773,6 +773,10 @@ fn the_team_row_paints_its_parts_over_its_fills() {
         covers_row(&shapes, row, visuals.selection.bg_fill),
         "the selection fill under the selected row"
     );
+    assert!(
+        !covers_row(&shapes, row, visuals.faint_bg_color),
+        "no faint fill under the selected row"
+    );
 }
 
 // The same row, the name too long for the side panel: its galley ends
@@ -893,11 +897,11 @@ fn every_player_row_spans_the_team_rows_width_and_selects_at_its_end() {
 }
 
 // SE-GUI-37's team-row dot: a team's own unsaved changes mark its row's
-// painted name — after a short-name edit the galley ends `●` — and no
-// player row's label carries one (the dot is no part of the row's
-// AccessKit label).
+// right end — after a short-name edit the `●` paints there in the
+// warning colour, right of the painted name — and no player row's label
+// carries one (the dot is no part of the row's AccessKit label).
 #[test]
-fn the_team_rows_dot_paints_after_a_short_name_edit() {
+fn the_team_rows_dot_paints_at_the_rows_right_end() {
     let path = fixture(PesVersion::Pes21, "team_row_dot");
     let mut view = SaveView::new();
     view.open(&path);
@@ -907,26 +911,87 @@ fn the_team_rows_dot_paints_after_a_short_name_edit() {
     team.short_name = "ZED".to_owned();
     view.session.as_mut().unwrap().edit_team(1, team);
 
+    let padding = f64::from(
+        window
+            .ctx
+            .style_of(window.ctx.theme())
+            .spacing
+            .button_padding
+            .x,
+    );
+    let warn = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .warn_fg_color;
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let bounds = team_row(&nodes, &view, 701).bounds().expect("bounds");
     let name = text_in_rect(&shapes, "/3/", bounds);
+    let dot = dot_in_row(&shapes, bounds);
+    assert_eq!(galley_color(dot), warn, "the dot in the warning colour");
+    let dot_right = f64::from(dot.pos.x + dot.galley.rect.width());
     assert!(
-        shapes.iter().any(|clipped| {
-            matches!(&clipped.shape, egui::Shape::Text(dot)
-                if dot.galley.job.text == "\u{25cf}"
-                    && f64::from(dot.pos.y) >= bounds.y0
-                    && f64::from(dot.pos.y) <= bounds.y1
-                    && f64::from(dot.pos.x)
-                        >= f64::from(name.pos.x + name.galley.rect.width()))
-        }),
-        "the dot paints right after the painted name"
+        (dot_right - (bounds.x1 - padding)).abs() <= 0.5,
+        "the dot's right edge at the row's right less the padding ({dot_right} vs {})",
+        bounds.x1 - padding
+    );
+    assert!(
+        f64::from(dot.pos.x) >= f64::from(name.pos.x + name.galley.rect.width()),
+        "the dot sits right of the painted name"
     );
     assert!(
         row_labels(&nodes)
             .iter()
             .all(|label| !label.contains('\u{25cf}')),
         "no player row's label carries one"
+    );
+}
+
+// A player row's dot the same way: a player's unsaved changes paint it
+// at his row's right end in the warning colour, right of the text (the
+// draft's `.plist .dot`), with no Live AATF mark to sit before.
+#[test]
+fn the_player_rows_dot_paints_at_the_rows_right_end() {
+    let path = fixture(PesVersion::Pes21, "player_row_dot");
+    let mut view = SaveView::new();
+    view.open(&path);
+    view.team = TeamChoice::Team(701);
+    let mut entry = player_entry(&view, 70101);
+    entry.basic.height = 177;
+    view.session.as_mut().unwrap().edit_players(vec![entry]);
+    let mut window = Headless::new();
+    let padding = f64::from(
+        window
+            .ctx
+            .style_of(window.ctx.theme())
+            .spacing
+            .button_padding
+            .x,
+    );
+    let warn = window
+        .ctx
+        .style_of(window.ctx.theme())
+        .visuals
+        .warn_fg_color;
+
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let bounds = row(&nodes, "1 CB PLACEHOLDER ●")
+        .bounds()
+        .expect("the row's bounds");
+    let text = text_in_rect(&shapes, "1 CB", bounds);
+    let dot = dot_in_row(&shapes, bounds);
+    assert_eq!(galley_color(dot), warn, "the dot in the warning colour");
+    let dot_right = f64::from(dot.pos.x + dot.galley.rect.width());
+    assert!(
+        (dot_right - (bounds.x1 - padding)).abs() <= 0.5,
+        "the dot's right edge at the row's right less the padding ({dot_right} vs {})",
+        bounds.x1 - padding
+    );
+    assert!(
+        f64::from(dot.pos.x) >= f64::from(text.pos.x + text.galley.rect.width()),
+        "the dot sits right of the text"
     );
 }
 

@@ -511,6 +511,52 @@ fn painted_label_color(
     galley_color(shape)
 }
 
+/// The Live AATF mark text shapes (`✖` or `✔`) painted inside `bounds`
+/// (a list row's marks).
+fn marks_in_row(
+    shapes: &[egui::epaint::ClippedShape],
+    bounds: accesskit::Rect,
+) -> Vec<&egui::epaint::TextShape> {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape)
+                if (shape.galley.job.text == "\u{2716}" || shape.galley.job.text == "\u{2714}")
+                    && f64::from(shape.pos.y) >= bounds.y0
+                    && f64::from(shape.pos.y) <= bounds.y1
+                    && f64::from(shape.pos.x) >= bounds.x0
+                    && f64::from(shape.pos.x) <= bounds.x1 =>
+            {
+                Some(shape)
+            }
+            _ => None,
+        })
+        .collect()
+}
+
+/// The `●` text shape painted inside `bounds` (a dirty row's dot).
+fn dot_in_row(
+    shapes: &[egui::epaint::ClippedShape],
+    bounds: accesskit::Rect,
+) -> &egui::epaint::TextShape {
+    shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(text)
+                if text.galley.job.text == "\u{25cf}"
+                    && f64::from(text.pos.y) >= bounds.y0
+                    && f64::from(text.pos.y) <= bounds.y1
+                    && f64::from(text.pos.x) >= bounds.x0
+                    && f64::from(text.pos.x) <= bounds.x1 =>
+            {
+                Some(text)
+            }
+            _ => None,
+        })
+        .next()
+        .expect("a `●` painted on the row")
+}
+
 /// The fill under `bounds`' centre: the smallest `Shape::Rect` covering
 /// it (the field's own frame; the panel's background would win an
 /// `intersects` match instead).
@@ -1025,7 +1071,11 @@ fn frames_until(
     landed: impl Fn(&SaveView) -> bool,
     message: &str,
 ) -> Vec<(accesskit::NodeId, accesskit::Node)> {
-    let deadline = Instant::now() + Duration::from_secs(30);
+    // A hang guard, not a speed bound: a passing test returns when the
+    // reply lands, so the bound costs nothing and only stops a worker
+    // that never replies (four AATF-panel tests starved past 30 s under
+    // a mutation run's below-normal priority, 2026-10-26).
+    let deadline = Instant::now() + Duration::from_secs(120);
     loop {
         let (_, pairs, _) =
             window.frame_ids(Vec::new(), |ui| show(ui, view, &|| Vec::new(), rules));

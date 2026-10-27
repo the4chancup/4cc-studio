@@ -2657,7 +2657,16 @@ briefs, review loops, gates and mutation runs as for any step.
       crosses keep `MARK_GAP`, a row's unsaved dot paints after its truncated text, the tests
       tell the Skills header's two crosses apart, pin one mark per row, a field's several
       violations (one cross, the highest severity's colour, every line) and other teams' rows
-      unmarked. Open: round S2, the mutation run's survivors
+      unmarked. Round S2 (4 of 5 accepted) and the mutation run's ten survivors in reworks r3
+      and r4, 2026-10-27 (SWE-2): a dirty row's dot at the row's right end in the warning
+      colour, one item spacing plus `DOT_MARK_GAP` before the mark (the draft's 9 px, measured
+      by `.tmp/0_0_1o/draft_dot_mark_probe.py`), the text's truncation reserving exactly what
+      paints after it (`end_room`, `dot_right`); the tests count both glyphs per row, a
+      suggestion through the severity filter, the mark centred on its row, the truncation's gap
+      on a run of '.', a second-half field's cross, a selected team row's fill; the card columns
+      aligned past PES 17's disabled cells (`team_widgets`, the maintainer's request); the AATF
+      worker's test deadline 120 s. Rulings `.tmp/0_0_1o/o2a_rulings.md`. Open: Astra over
+      o2a (checkpoint b), then one `mutants-diff dc02a76e`
     - [ ] o2b the pitch's cross for `FieldedNotA` and the dock row selecting his team's row
       on the named preset's first formation; after the Tactics tab's new layout (the
       maintainer's request of 2026-10-26, drafted first)

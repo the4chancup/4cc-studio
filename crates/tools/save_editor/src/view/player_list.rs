@@ -19,6 +19,52 @@ use crate::view::{SaveView, Selection, live_marks, quick_actions};
 /// A swatch square's side (the draft's 10px).
 const SWATCH: f32 = 10.0;
 
+/// The gap added to the row's item spacing between a dirty row's `●`
+/// and the Live AATF mark after it (the draft's `.plist .dot + .mark`
+/// `margin-left: 4px` on top of its 5 px flex gap: 9 px dot to mark,
+/// measured on the rendered draft).
+pub(super) const DOT_MARK_GAP: f32 = 4.0;
+
+/// The `●` of a row with unsaved changes (the draft's `.plist .dot`: the
+/// warning colour, pushed to the row's right end): its galley at the
+/// body font. `None` on a clean row.
+fn dirty_dot(ui: &egui::Ui, dirty: bool) -> Option<std::sync::Arc<egui::Galley>> {
+    dirty.then(|| {
+        ui.painter().layout_no_wrap(
+            "\u{25cf}".to_owned(),
+            egui::TextStyle::Body.resolve(ui.style()),
+            ui.visuals().warn_fg_color,
+        )
+    })
+}
+
+/// The width the row's text leaves at its right end for the dot and the
+/// mark that show (`None`: not shown) — one `item_spacing.x` after the
+/// text, the dot's and the mark's widths, and `item_spacing.x` plus
+/// `DOT_MARK_GAP` between them when both show.
+fn end_room(ui: &egui::Ui, dot_width: Option<f32>, mark_width: Option<f32>) -> f32 {
+    if dot_width.is_none() && mark_width.is_none() {
+        return 0.0;
+    }
+    let spacing = ui.spacing().item_spacing.x;
+    let between = if dot_width.is_some() && mark_width.is_some() {
+        spacing + DOT_MARK_GAP
+    } else {
+        0.0
+    };
+    spacing + dot_width.unwrap_or(0.0) + mark_width.unwrap_or(0.0) + between
+}
+
+/// The dot's right edge: `right_end` (the row's right less its padding)
+/// with no mark, else `item_spacing.x` plus `DOT_MARK_GAP` before the
+/// mark's left edge.
+fn dot_right(ui: &egui::Ui, right_end: f32, mark_width: Option<f32>) -> f32 {
+    right_end
+        - mark_width.map_or(0.0, |width| {
+            width + ui.spacing().item_spacing.x + DOT_MARK_GAP
+        })
+}
+
 /// The selector, the filter box, the rows and the quick actions, top to
 /// bottom of the side panel: the list's scroll area takes the height left
 /// above the actions.
@@ -159,10 +205,11 @@ fn paint_row_frame(
 /// A team's own row (the draft's `trow`): one click target the row's width
 /// — the team's id in the weak colour, its colours 1 and 2 as small filled
 /// squares (the shown colour, `channel_to_show`), the name with its colour
-/// codes in the strong text colour, and a `●` while the team's own entry
-/// has unsaved changes (`Session::team_dirty`). `mark`, while Live AATF
-/// holds this team's check, is the team's own violations' glyph at the
-/// row's right end. A click selects the team
+/// codes in the strong text colour, and a `●` at the row's right end while
+/// the team's own entry has unsaved changes (`Session::team_dirty`).
+/// `mark`, while Live AATF holds this team's check, is the team's own
+/// violations' glyph at the row's right end, after the dot. A click
+/// selects the team
 /// (the detail shows the team view); it is never a drag source nor a drop
 /// target.
 fn team_row(
@@ -233,27 +280,19 @@ fn team_row(
         x += ui.spacing().item_spacing.x;
         let mut job = egui::text::LayoutJob::default();
         append_name(&mut job, &team.name);
-        // The mark's room and the dot's come off the truncation
-        // width, so a long name never runs under either (the dot
-        // paints after the text, as the player row's does).
-        let mark_room = mark
-            .as_ref()
-            .map_or(0.0, |mark| mark.width(ui) + ui.spacing().item_spacing.x);
+        // The end's room (the gap, the dot, the mark and what sits
+        // between them) comes off the truncation width, so a long name
+        // never runs under either.
+        let mark_width = mark.as_ref().map(|mark| mark.width(ui));
+        let dot = dirty_dot(ui, dirty);
+        let room = end_room(ui, dot.as_ref().map(|galley| galley.size().x), mark_width);
         let text = if is_selected {
             visuals.fg_stroke.color
         } else {
             ui.visuals().strong_text_color()
         };
-        let dot_galley = dirty.then(|| {
-            ui.painter()
-                .layout_no_wrap("\u{25cf}".to_owned(), egui::FontId::default(), text)
-        });
-        let dot_room = dot_galley
-            .as_ref()
-            .map_or(0.0, |dot| dot.size().x + ui.spacing().item_spacing.x);
-        job.wrap = egui::text::TextWrapping::truncate_at_width(
-            (rect.max.x - x - padding - mark_room - dot_room).max(0.0),
-        );
+        job.wrap =
+            egui::text::TextWrapping::truncate_at_width((rect.max.x - x - padding - room).max(0.0));
         let name_galley = ui.painter().layout_job(job);
         // The name's plain runs take the strong text colour, or the
         // selection's while the row is selected.
@@ -262,14 +301,15 @@ fn team_row(
             name_galley.clone(),
             text,
         );
-        if let Some(dot) = dot_galley {
+        // The dot at the row's right end in the warning colour, one item
+        // spacing plus `DOT_MARK_GAP` before the mark when the row has
+        // one.
+        if let Some(dot) = dot {
+            let right = dot_right(ui, rect.max.x - padding, mark_width);
             ui.painter().galley(
-                egui::pos2(
-                    x + name_galley.size().x + ui.spacing().item_spacing.x,
-                    centre - dot.size().y / 2.0,
-                ),
+                egui::pos2(right - dot.size().x, centre - dot.size().y / 2.0),
                 dot,
-                text,
+                ui.visuals().warn_fg_color,
             );
         }
         mark.as_ref().map(|mark| {
@@ -314,8 +354,9 @@ fn player_row(
     let is_selected = *selected == Some(Selection::Player(row.team_id, row.slot));
     let row_height = layout.row_height;
     let mut job = row_text(team, player, row, layout.show_team);
-    // The unsaved dot paints after the text, never inside it: a row the
-    // name overflows keeps it. The label and the hover keep its text.
+    // The unsaved dot paints at the row's right end, never inside the
+    // text: a row the name overflows keeps it. The label and the hover
+    // keep its text.
     let mut label = job.text.clone();
     if dirty {
         label.push_str(" \u{25cf}");
@@ -323,7 +364,7 @@ fn player_row(
     // One line, truncated when the name is too long for the panel: the full
     // display name rides the hover, a dirty row's with the dot's text.
     // `mark`, while Live AATF holds this team's check, is his violations'
-    // glyph at the row's right end, after the dot when it shows.
+    // glyph at the row's right end; a dirty row's dot sits before it.
     let hover = player.map_or_else(|| "?".to_owned(), |player| display_name(&player.name));
     let sense = if layout.draggable {
         egui::Sense::click_and_drag()
@@ -346,23 +387,14 @@ fn player_row(
         // at the right end with the text truncated before it.
         let visuals = paint_row_frame(ui, rect, &response, is_selected);
         let padding = ui.spacing().button_padding.x;
-        let mark_room = mark
-            .as_ref()
-            .map_or(0.0, |mark| mark.width(ui) + ui.spacing().item_spacing.x);
-        // The dot's room comes off the truncation width with the mark's,
-        // so a long name keeps both (the dot paints after the text).
-        let dot_galley = dirty.then(|| {
-            ui.painter().layout_no_wrap(
-                "\u{25cf}".to_owned(),
-                egui::FontId::default(),
-                visuals.fg_stroke.color,
-            )
-        });
-        let dot_room = dot_galley
-            .as_ref()
-            .map_or(0.0, |dot| dot.size().x + ui.spacing().item_spacing.x);
+        let mark_width = mark.as_ref().map(|mark| mark.width(ui));
+        // The end's room comes off the truncation width, so a long name
+        // never runs under the dot or the mark (the dot paints at the
+        // row's right end, as the team row's does).
+        let dot = dirty_dot(ui, dirty);
+        let room = end_room(ui, dot.as_ref().map(|galley| galley.size().x), mark_width);
         job.wrap = egui::text::TextWrapping::truncate_at_width(
-            (rect.max.x - rect.min.x - 2.0 * padding - mark_room - dot_room).max(0.0),
+            (rect.max.x - rect.min.x - 2.0 * padding - room).max(0.0),
         );
         let galley = ui.painter().layout_job(job);
         ui.painter().galley(
@@ -373,14 +405,15 @@ fn player_row(
             galley.clone(),
             visuals.fg_stroke.color,
         );
-        if let Some(dot) = dot_galley {
+        // The dot at the row's right end in the warning colour, one item
+        // spacing plus `DOT_MARK_GAP` before the mark when the row has
+        // one.
+        if let Some(dot) = dot {
+            let right = dot_right(ui, rect.max.x - padding, mark_width);
             ui.painter().galley(
-                egui::pos2(
-                    rect.min.x + padding + galley.size().x + ui.spacing().item_spacing.x,
-                    rect.center().y - dot.size().y / 2.0,
-                ),
+                egui::pos2(right - dot.size().x, rect.center().y - dot.size().y / 2.0),
                 dot,
-                visuals.fg_stroke.color,
+                ui.visuals().warn_fg_color,
             );
         }
         mark.as_ref().map(|mark| {

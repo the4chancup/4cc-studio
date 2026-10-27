@@ -35,6 +35,39 @@ fn mark_shapes<'a>(
         .collect()
 }
 
+/// `text`'s galley width at the body font: egui truncates at a character
+/// boundary, so a truncated galley may end up to one character short.
+fn body_text_width(window: &mut Headless, text: &str) -> f32 {
+    window
+        .frame(Vec::new(), |ui| {
+            ui.painter()
+                .layout_no_wrap(
+                    text.to_owned(),
+                    egui::TextStyle::Body.resolve(ui.style()),
+                    egui::Color32::WHITE,
+                )
+                .size()
+                .x
+        })
+        .0
+}
+
+/// `ch`'s galley width at the body font (`body_text_width` on it).
+fn body_char_width(window: &mut Headless, ch: char) -> f32 {
+    body_text_width(window, &ch.to_string())
+}
+
+/// The narrowest of `l`, `i`, `I`, `.` at the body font and its width:
+/// the char the truncation tests' long names are runs of, narrow enough
+/// that a four-point room error crosses a character boundary.
+fn narrowest_char_width(window: &mut Headless) -> (char, f32) {
+    ['l', 'i', 'I', '.']
+        .into_iter()
+        .map(|ch| (ch, body_char_width(window, ch)))
+        .min_by(|a, b| a.1.total_cmp(&b.1))
+        .expect("four candidates")
+}
+
 /// A `Violation` on `slot` of `severity` and `kind`.
 fn violation(
     slot: Option<u8>,
@@ -364,18 +397,11 @@ fn the_marks_follow_the_held_check() {
             .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains(name)))
             .unwrap_or_else(|| panic!("{name}'s row"));
         let bounds = row.bounds().expect("the row's bounds");
-        let marks: Vec<_> = mark_shapes(&shapes, glyph)
-            .into_iter()
-            .filter(|shape| {
-                f64::from(shape.pos.y) >= bounds.y0
-                    && f64::from(shape.pos.y) <= bounds.y1
-                    && f64::from(shape.pos.x) >= bounds.x1 - 30.0
-                    && f64::from(shape.pos.x) <= bounds.x1
-            })
-            .collect();
-        let [mark] = marks.as_slice() else {
-            panic!("expected one {glyph} on {name}'s row, got {}", marks.len())
+        let marks = marks_in_row(&shapes, bounds);
+        let [mark] = *marks.as_slice() else {
+            panic!("expected one mark on {name}'s row, got {}", marks.len())
         };
+        assert_eq!(mark.galley.job.text, glyph, "{name}'s mark's glyph");
         assert_eq!(galley_color(mark), color, "{name}'s mark's colour");
         let tip_at = egui::pos2(mark.pos.x + 2.0, mark.pos.y + 2.0);
         assert_eq!(
@@ -466,15 +492,11 @@ fn the_marks_follow_the_held_check() {
             .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains(name)))
             .unwrap_or_else(|| panic!("{name}'s row"));
         let bounds = row.bounds().expect("the row's bounds");
-        let marks: Vec<_> = mark_shapes(&shapes, "\u{2714}")
-            .into_iter()
-            .filter(|shape| {
-                f64::from(shape.pos.y) >= bounds.y0
-                    && f64::from(shape.pos.y) <= bounds.y1
-                    && f64::from(shape.pos.x) >= bounds.x1 - 30.0
-            })
-            .collect();
-        assert_eq!(marks.len(), 1, "one `✔` on {name}'s row");
+        let marks = marks_in_row(&shapes, bounds);
+        let [mark] = *marks.as_slice() else {
+            panic!("expected one mark on {name}'s row, got {}", marks.len())
+        };
+        assert_eq!(mark.galley.job.text, "\u{2714}", "{name}'s mark's glyph");
     }
 }
 
@@ -666,6 +688,51 @@ fn a_registered_violation_marks_the_combo_label() {
     );
 }
 
+/// A second-half field's cross stands at its label column's right end —
+/// the `Form` box's (a `Half::Second` pair: the plan bullet's "at the
+/// right end of the second half's label column", the column being
+/// `label_width("Shirt number")` wide).
+#[test]
+fn a_second_half_fields_cross_stands_at_its_label_columns_end() {
+    use aatf::ViolationKind as K;
+    let (mut view, mut window) = open_734("live_marks_second_half");
+    view.live_aatf = true;
+    let violations = vec![violation(
+        Some(0),
+        aatf::Severity::Error,
+        K::Form {
+            value: 2,
+            target: 4,
+        },
+    )];
+    let revision = view.session.as_ref().expect("the save opened").revision();
+    view.live.check.result = Some((
+        aatf_check::CheckKey {
+            revision,
+            ids: vec![734],
+            rules_file: None,
+        },
+        vec![Ok(violations)],
+    ));
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let form = label_bounds(&nodes, "Form");
+    // `label_width` is private: the same galley width measured here.
+    let column = f64::from(body_text_width(&mut window, info_strip::NUMBER_LABEL));
+    let cross = mark_shapes(&shapes, "\u{2716}")
+        .into_iter()
+        .find(|shape| {
+            f64::from(shape.pos.y) >= form.y0 - 4.0 && f64::from(shape.pos.y) <= form.y1 + 4.0
+        })
+        .expect("a cross on the Form row");
+    assert!(
+        (f64::from(cross.pos.x + cross.galley.rect.width()) - (form.x0 + column)).abs() <= 0.5,
+        "the cross's right edge at the label column's end ({} vs {})",
+        cross.pos.x + cross.galley.rect.width(),
+        form.x0 + column
+    );
+}
+
 /// A warning-only violation's cross draws in the warning colour: the
 /// official file gains a warning band on the regular tier, and 73401's
 /// attacking prowess goes one over its 77 target (a `Stat` warning, not
@@ -785,6 +852,33 @@ fn the_teams_own_violations_mark_the_team_row() {
     );
 }
 
+/// The row's mark is vertically centred on the row — a player row's and
+/// the team row's alike (`paint_row_mark`).
+#[test]
+fn the_row_mark_centres_on_its_row() {
+    let (mut view, mut window) = open_734("live_marks_centred");
+    view.live_aatf = true;
+    let nodes = live_checked(&mut window, &mut view, None, &[734]);
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let player = nodes
+        .iter()
+        .find(|node| player_row(node))
+        .expect("a player row");
+    for (kind, row) in [("player", player), ("team", team_row(&nodes, &view, 734))] {
+        let bounds = row.bounds().expect("the row's bounds");
+        let marks = marks_in_row(&shapes, bounds);
+        let [mark] = *marks.as_slice() else {
+            panic!("expected one mark on the {kind} row, got {}", marks.len())
+        };
+        let centre = ((bounds.y0 + bounds.y1) / 2.0) as f32;
+        assert!(
+            (mark.pos.y + mark.galley.rect.height() / 2.0 - centre).abs() <= 0.5,
+            "the {kind} row's mark centres on it ({} vs {centre})",
+            mark.pos.y + mark.galley.rect.height() / 2.0
+        );
+    }
+}
+
 /// A click on a row's mark still selects the row: the mark senses hover
 /// alone, so the click lands on the row (the Live AATF bullet's).
 #[test]
@@ -834,8 +928,19 @@ fn a_click_on_a_rows_mark_selects_the_row() {
 #[test]
 fn a_long_name_truncates_before_the_rows_mark() {
     let path = fixture(PesVersion::Pes21, "live_marks_long_name");
+    let mut window = Headless::new();
+    // The narrowest character makes a four-point room error cross a
+    // character boundary: the name is its run, as long as the field
+    // holds so it still elides.
+    let (narrow, char_w) = narrowest_char_width(&mut window);
+    let char_w = f64::from(char_w);
+    assert!(
+        char_w + 0.5 < f64::from(player_list::DOT_MARK_GAP),
+        "premise: {narrow:?} ({char_w} at the body font) is narrower than DOT_MARK_GAP"
+    );
+    let name = narrow.to_string().repeat(61);
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
-    file.player_mut(70101).unwrap().name = "W".repeat(40);
+    file.player_mut(70101).unwrap().name = name.clone();
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
@@ -853,27 +958,31 @@ fn a_long_name_truncates_before_the_rows_mark() {
         },
         vec![Ok(Vec::new())],
     ));
-    let mut window = Headless::new();
+    let item_spacing = f64::from(
+        window
+            .ctx
+            .style_of(window.ctx.theme())
+            .spacing
+            .item_spacing
+            .x,
+    );
+    let needle = narrow.to_string().repeat(4);
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let row = nodes
         .iter()
-        .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains("WWWW")))
+        .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains(&needle)))
         .expect("his row");
     let bounds = row.bounds().expect("the row's bounds");
-    let mark = mark_shapes(&shapes, "\u{2714}")
-        .into_iter()
-        .find(|shape| {
-            f64::from(shape.pos.y) >= bounds.y0
-                && f64::from(shape.pos.y) <= bounds.y1
-                && f64::from(shape.pos.x) >= bounds.x1 - 30.0
-        })
-        .expect("the mark on his row");
+    let marks = marks_in_row(&shapes, bounds);
+    let [mark] = *marks.as_slice() else {
+        panic!("expected one mark on his row, got {}", marks.len())
+    };
     let name_shape = shapes
         .iter()
         .filter_map(|clipped| match &clipped.shape {
             egui::Shape::Text(text)
-                if text.galley.job.text.contains("WWWW")
+                if text.galley.job.text.contains(&needle)
                     && f64::from(text.pos.y) >= bounds.y0
                     && f64::from(text.pos.y) <= bounds.y1 =>
             {
@@ -884,11 +993,13 @@ fn a_long_name_truncates_before_the_rows_mark() {
         .next()
         .expect("the row's name galley");
     assert!(name_shape.galley.elided, "the name is elided");
+    // The text ends one item spacing before the mark, up to one
+    // character short (egui truncates at a character boundary).
     let name_right = f64::from(name_shape.pos.x + name_shape.galley.rect.width());
+    let gap = f64::from(mark.pos.x) - name_right;
     assert!(
-        name_right <= f64::from(mark.pos.x) + 0.5,
-        "the name ends before the mark ({name_right} vs {})",
-        mark.pos.x
+        gap >= item_spacing - 0.5 && gap <= item_spacing + char_w + 0.5,
+        "the name ends one gap before the mark ({gap} vs {item_spacing}, one char {char_w})"
     );
 }
 
@@ -1047,8 +1158,8 @@ fn a_failed_check_marks_nothing() {
 
 /// A field several violations are about carries one cross, in the
 /// highest severity's colour, its tooltip every violation's line in
-/// the check's order — an Error's first; a suggestion alone draws
-/// nothing (the Live AATF bullet's field mark).
+/// the check's order; a suggestion alone draws nothing (the Live
+/// AATF bullet's field mark).
 #[test]
 fn a_fields_cross_is_one_with_every_violations_line() {
     use aatf::Severity::{Error, Suggestion, Warning};
@@ -1120,10 +1231,10 @@ fn a_fields_cross_is_one_with_every_violations_line() {
         ))],
     );
     assert!(painted.is_some(), "a cross is painted");
-    let cross = mark_shapes(&shapes, "\u{2716}")
-        .into_iter()
-        .next()
-        .expect("a painted `✖`");
+    let crosses = mark_shapes(&shapes, "\u{2716}");
+    let [cross] = *crosses.as_slice() else {
+        panic!("expected one painted `✖`, got {}", crosses.len())
+    };
     assert_eq!(
         galley_color(cross),
         visuals.error_fg_color,
@@ -1151,10 +1262,10 @@ fn a_fields_cross_is_one_with_every_violations_line() {
         rect,
         vec![egui::Event::PointerMoved(rect.center())],
     );
-    let cross = mark_shapes(&shapes, "\u{2716}")
-        .into_iter()
-        .next()
-        .expect("a painted `✖`");
+    let crosses = mark_shapes(&shapes, "\u{2716}");
+    let [cross] = *crosses.as_slice() else {
+        panic!("expected one painted `✖`, got {}", crosses.len())
+    };
     assert_eq!(
         galley_color(cross),
         visuals.warn_fg_color,
@@ -1162,16 +1273,9 @@ fn a_fields_cross_is_one_with_every_violations_line() {
     );
 
     // A suggestion alone draws nothing: `paint` returns `None` and no
-    // `✖` is painted.
-    let violations = [violation(
-        Some(0),
-        Suggestion,
-        K::Unused {
-            allowance: "cards".to_owned(),
-            used: 1,
-            allowed: 2,
-        },
-    )];
+    // `✖` is painted (a `PositionRange`, so the kind alone would map
+    // to the field: only the severity filter stops it).
+    let violations = [violation(Some(0), Suggestion, K::PositionRange)];
     let (painted, shapes) = paint_in(&mut window, &violations, rect, vec![]);
     assert!(painted.is_none(), "a suggestion alone paints nothing");
     assert!(
@@ -1180,13 +1284,25 @@ fn a_fields_cross_is_one_with_every_violations_line() {
     );
 }
 
-/// A dirty row keeps its `●` through truncation (the dot paints after
-/// the text, so a name that overflows loses neither it nor the mark).
+/// A dirty row keeps its `●` through truncation (the dot holds the
+/// row's right end before the mark, so a name that overflows loses
+/// neither it nor the mark).
 #[test]
 fn a_dirty_rows_dot_survives_truncation() {
     let path = fixture(PesVersion::Pes21, "live_marks_dirty_dot");
+    let mut window = Headless::new();
+    // The narrowest character makes a four-point room error cross a
+    // character boundary: the names are its run, as long as the field
+    // holds so they still elide.
+    let (narrow, char_w) = narrowest_char_width(&mut window);
+    let char_w = f64::from(char_w);
+    assert!(
+        char_w + 0.5 < f64::from(player_list::DOT_MARK_GAP),
+        "premise: {narrow:?} ({char_w} at the body font) is narrower than DOT_MARK_GAP"
+    );
+    let needle = narrow.to_string().repeat(4);
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
-    file.player_mut(70101).unwrap().name = "W".repeat(40);
+    file.player_mut(70101).unwrap().name = narrow.to_string().repeat(61);
     file.save(&path).unwrap();
     let mut view = SaveView::new();
     view.open(&path);
@@ -1217,27 +1333,25 @@ fn a_dirty_rows_dot_survives_truncation() {
         },
         vec![Ok(Vec::new())],
     ));
-    let mut window = Headless::new();
+    let (item_spacing, warn) = {
+        let style = window.ctx.style_of(window.ctx.theme());
+        (
+            f64::from(style.spacing.item_spacing.x),
+            style.visuals.warn_fg_color,
+        )
+    };
     let (_, nodes, shapes) =
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let row = nodes
         .iter()
-        .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains("WWWW")))
+        .find(|node| player_row(node) && node.label().is_some_and(|label| label.contains(&needle)))
         .expect("his row");
     let bounds = row.bounds().expect("the row's bounds");
-    let mark = mark_shapes(&shapes, "\u{2714}")
-        .into_iter()
-        .find(|shape| {
-            f64::from(shape.pos.y) >= bounds.y0
-                && f64::from(shape.pos.y) <= bounds.y1
-                && f64::from(shape.pos.x) >= bounds.x1 - 30.0
-        })
-        .expect("the mark on his row");
-    let dot = shapes
+    let name_shape = shapes
         .iter()
         .filter_map(|clipped| match &clipped.shape {
             egui::Shape::Text(text)
-                if text.galley.job.text == "\u{25cf}"
+                if text.galley.job.text.contains(&needle)
                     && f64::from(text.pos.y) >= bounds.y0
                     && f64::from(text.pos.y) <= bounds.y1 =>
             {
@@ -1246,10 +1360,33 @@ fn a_dirty_rows_dot_survives_truncation() {
             _ => None,
         })
         .next()
-        .expect("a `●` painted on the dirty row");
+        .expect("the row's name galley");
+    assert!(name_shape.galley.elided, "the name is elided");
+    let marks = marks_in_row(&shapes, bounds);
+    let [mark] = *marks.as_slice() else {
+        panic!("expected one mark on his row, got {}", marks.len())
+    };
+    let dot = dot_in_row(&shapes, bounds);
+    assert_eq!(galley_color(dot), warn, "the dot in the warning colour");
+    let dot_right = f64::from(dot.pos.x + dot.galley.rect.width());
     assert!(
-        f64::from(dot.pos.x + dot.galley.rect.width()) <= f64::from(mark.pos.x) + 0.5,
-        "the dot's right edge stays left of the mark"
+        (f64::from(mark.pos.x) - dot_right - item_spacing - f64::from(player_list::DOT_MARK_GAP))
+            .abs()
+            <= 0.5,
+        "the dot stands one gap plus DOT_MARK_GAP before the mark ({dot_right} vs {})",
+        mark.pos.x
+    );
+    let text_right = f64::from(name_shape.pos.x + name_shape.galley.rect.width());
+    assert!(
+        f64::from(dot.pos.x) >= text_right,
+        "the dot sits right of the text"
+    );
+    // The text ends one item spacing before the dot, up to one
+    // character short (egui truncates at a character boundary).
+    let gap = f64::from(dot.pos.x) - text_right;
+    assert!(
+        gap >= item_spacing - 0.5 && gap <= item_spacing + char_w + 0.5,
+        "the text ends one gap before the dot ({gap} vs {item_spacing}, one char {char_w})"
     );
     assert!(mark_shapes(&shapes, "\u{25cf}").len() == 1, "one dot");
 
@@ -1264,7 +1401,7 @@ fn a_dirty_rows_dot_survives_truncation() {
     view.selected = Some(Selection::Player(701, 0));
     view.live_aatf = true;
     let mut team = team_entry(&view, 701);
-    team.name = "U".repeat(52);
+    team.name = narrow.to_string().repeat(70);
     view.session
         .as_mut()
         .expect("the save opened")
@@ -1289,19 +1426,11 @@ fn a_dirty_rows_dot_survives_truncation() {
         window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let row = team_row(&nodes, &view, 701);
     let bounds = row.bounds().expect("the team row's bounds");
-    let mark = mark_shapes(&shapes, "\u{2714}")
-        .into_iter()
-        .find(|shape| {
-            f64::from(shape.pos.y) >= bounds.y0
-                && f64::from(shape.pos.y) <= bounds.y1
-                && f64::from(shape.pos.x) >= bounds.x1 - 30.0
-        })
-        .expect("the mark on the team row");
-    let dot = shapes
+    let name_shape = shapes
         .iter()
         .filter_map(|clipped| match &clipped.shape {
             egui::Shape::Text(text)
-                if text.galley.job.text == "\u{25cf}"
+                if text.galley.job.text.starts_with(&needle)
                     && f64::from(text.pos.y) >= bounds.y0
                     && f64::from(text.pos.y) <= bounds.y1 =>
             {
@@ -1310,10 +1439,31 @@ fn a_dirty_rows_dot_survives_truncation() {
             _ => None,
         })
         .next()
-        .expect("a `●` painted on the dirty team row");
+        .expect("the team row's name galley");
+    assert!(name_shape.galley.elided, "the name is elided");
+    let marks = marks_in_row(&shapes, bounds);
+    let [mark] = *marks.as_slice() else {
+        panic!("expected one mark on the team row, got {}", marks.len())
+    };
+    let dot = dot_in_row(&shapes, bounds);
+    assert_eq!(galley_color(dot), warn, "the dot in the warning colour");
+    let dot_right = f64::from(dot.pos.x + dot.galley.rect.width());
     assert!(
-        f64::from(dot.pos.x + dot.galley.rect.width()) <= f64::from(mark.pos.x) + 0.5,
-        "the team row's dot stays left of the mark"
+        (f64::from(mark.pos.x) - dot_right - item_spacing - f64::from(player_list::DOT_MARK_GAP))
+            .abs()
+            <= 0.5,
+        "the dot stands one gap plus DOT_MARK_GAP before the mark ({dot_right} vs {})",
+        mark.pos.x
+    );
+    let text_right = f64::from(name_shape.pos.x + name_shape.galley.rect.width());
+    assert!(
+        f64::from(dot.pos.x) >= text_right,
+        "the dot sits right of the text"
+    );
+    let gap = f64::from(dot.pos.x) - text_right;
+    assert!(
+        gap >= item_spacing - 0.5 && gap <= item_spacing + char_w + 0.5,
+        "the text ends one gap before the dot ({gap} vs {item_spacing}, one char {char_w})"
     );
 }
 
@@ -1368,7 +1518,6 @@ fn only_the_checked_teams_rows_are_marked() {
                 })
                 .collect();
             his_rows.push(team_bounds);
-            assert!(!his_rows.is_empty(), "his team's rows are on screen");
             for glyph in ["\u{2716}", "\u{2714}"] {
                 for shape in mark_shapes(&shapes, glyph)
                     .into_iter()

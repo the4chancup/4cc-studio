@@ -2578,3 +2578,5 @@ worklog passed 7,000 lines.
   settings path boxes wide enough for a usual install path; the draft widens them to 440 points.
 - **2026-10-27** — The maintainer's rule until the 0.0.1 cut: this machine's CPU goes to 0.0.1, whose own gates and
   mutation runs stay here; anything else waits. Three new Save editor requests drafted (0.0.1s s6), four queued (8.31-8.34).
+- **2026-10-27** — Live AATF's marks reworked twice (o2a r3, r4): a row's unsaved dot at its right end in the warning colour,
+  9 px before the mark as the draft draws it; the mutation run's survivors tested. `gates-changed` green, 2917 tests.

@@ -673,6 +673,79 @@ mod tests {
         assert!(shown, "the tooltip names the first version, PES 16+");
     }
 
+    // plans/save_editor.md "Editing UI", the Skills bullet (a card the
+    // version cannot store stays in its cell, disabled): on PES 17,
+    // whose second skills column is disabled cells, every row's two
+    // cells share their top and every cell is one line tall — the same
+    // for the COM styles. The widest label, "Long Range Shooting" at
+    // 125.6 points at the body font, fits the 158-point column: a
+    // longer one would wrap and break the alignment.
+    #[test]
+    fn the_columns_rows_line_up_past_the_disabled_cells() {
+        let mut window = Headless::new();
+        // PES 17 stores the first 28 of the 41 skills and every COM
+        // style: the skills' second column holds disabled cells.
+        let mut skills = fixture_skills(PesVersion::Pes17, 70203);
+        let (nodes, _) = window.columns(PesVersion::Pes17, &mut skills, vec![]);
+        for (panel, names) in [
+            ("Skills", &labels::SKILLS[..]),
+            ("COM styles", &labels::COM_STYLES[..]),
+        ] {
+            let wanted: BTreeSet<String> = names.iter().map(|name| title_case(name)).collect();
+            let cells: Vec<(f64, f64, f64, bool)> = nodes
+                .iter()
+                .filter(|node| {
+                    node.role() == Role::CheckBox
+                        && node.label().is_some_and(|label| wanted.contains(label))
+                })
+                .filter_map(|node| {
+                    node.bounds()
+                        .map(|b| (b.x0, b.y0, b.y1, node.is_disabled()))
+                })
+                .collect();
+            assert_eq!(cells.len(), names.len(), "{panel}: every card drawn");
+            if panel == "Skills" {
+                assert!(
+                    cells.iter().any(|cell| cell.3),
+                    "premise: the skills column holds disabled cells"
+                );
+            }
+            let mut xs: Vec<f64> = cells.iter().map(|cell| cell.0).collect();
+            xs.sort_by(f64::total_cmp);
+            xs.dedup();
+            assert_eq!(xs.len(), 2, "{panel}: two columns");
+            let column = |x: f64| {
+                let mut column: Vec<(f64, f64)> = cells
+                    .iter()
+                    .filter(|cell| cell.0 == x)
+                    .map(|cell| (cell.1, cell.2))
+                    .collect();
+                column.sort_by(|a, b| a.0.partial_cmp(&b.0).expect("ordered bounds"));
+                column
+            };
+            let (first, second) = (column(xs[0]), column(xs[1]));
+            for row in 0..second.len() {
+                assert!(
+                    (first[row].0 - second[row].0).abs() <= 0.5,
+                    "{panel} row {row}: the columns' tops differ ({} vs {})",
+                    first[row].0,
+                    second[row].0
+                );
+            }
+            let one_line = first[0].1 - first[0].0;
+            for (column, cells) in [&first, &second].into_iter().enumerate() {
+                for (row, &(y0, y1)) in cells.iter().enumerate() {
+                    assert!(
+                        (y1 - y0 - one_line).abs() <= 0.5,
+                        "{panel} column {column} row {row} is not one line \
+                         tall ({} vs {one_line})",
+                        y1 - y0
+                    );
+                }
+            }
+        }
+    }
+
     // plans/save_editor.md "libs/team_widgets", the `cards` bullet: a COM
     // style's tick is a change like a skill's.
     #[test]
