@@ -105,7 +105,8 @@ impl Session {
         self.edit_players(vec![first_after, second_after]);
     }
 
-    /// Hide body or Show body on `player_id` (the Appearance section's buttons
+    /// Hide default body or Show default body on `player_id` (the Appearance
+    /// section's buttons
     /// and the Player menu's Toggle FPC settings): `kind`'s preset applied
     /// through `ops::fpc::apply` with the record's own IDs substituted in
     /// (`preset_for`), one sealed undo entry. `ids` is the settings' hide
@@ -124,8 +125,8 @@ impl Session {
         self.edit_players(vec![edited]);
     }
 
-    /// Ctrl+I's toggle: Show body on a player `is_fpc_player` reads as
-    /// hidden, Hide body on any other, under `ids`.
+    /// Ctrl+I's toggle: Show default body on a player `is_fpc_player` reads as
+    /// hidden, Hide default body on any other, under `ids`.
     pub(crate) fn toggle_fpc(&mut self, player_id: u32, ids: fpc::HideIds) {
         let Some(hidden) = self.file.player(player_id).map(|player| {
             pes_savefile::ops::fpc::is_fpc_player(player, ids)

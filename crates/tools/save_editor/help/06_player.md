@@ -7,11 +7,13 @@ The **Player** menu works on the selected player:
   ability stat, clamped to 40 to 99. The dialog remembers the last amount
   used in this window.
 - **Toggle FPC settings** (Ctrl+I) follows the Appearance section's FPC
-  reading: it shows a player who reads "FPC: the body is hidden" and hides
-  any other, the same write as the section's Show body and Hide body. A player
-  hidden by his model's own boots ID reads "the body is shown", so for him
-  the toggle hides him again. Use the section's Show body on him. It stays disabled
-  while the aesthetics lock is on (see the Appearance section).
+  reading: it shows a player who reads "The default body is currently
+  hidden" and hides any other, the same write as the section's Show
+  default body and Hide default body. A player hidden by his model's own
+  boots ID reads "The default body is currently shown", so for him the
+  toggle hides him again. Use the section's Show default body on him. It
+  stays disabled while the aesthetics lock is on (see the Appearance
+  section).
 - **Copy stats from…** copies another player's stats onto the selected
   one; **Swap stats with…** trades them. The other player is picked by
   team, then by roster slot. Height, weight, every ability, form, injury,

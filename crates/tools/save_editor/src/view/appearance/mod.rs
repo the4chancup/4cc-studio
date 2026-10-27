@@ -223,14 +223,14 @@ pub(crate) fn ownership_tip(version: PesVersion) -> &'static str {
 /// The FPC group, last in the section (the draft's `fpcGroup`): the
 /// classifier's reading (`is_fpc_player` under `hide_ids`, the settings'
 /// hide IDs — a player hidden by his model's own boots ID reads as shown,
-/// so no checkbox), the Hide body and Show body buttons with the draft's
-/// hover texts, then the interference findings of `fpc::check` in its
-/// order. Under the lock the whole group is disabled with the rest of the
-/// section — the reading and the findings still draw, since they read and do
-/// not write. `hide_ids` an `Err` (a setting outside its band): the line
-/// reads the error's text instead of "FPC: …" and both buttons are
-/// disabled with it as their hover; the classifier has no IDs to read, so
-/// no findings either.
+/// so no checkbox), the Hide default body and Show default body buttons
+/// with the draft's hover texts, then the interference findings of
+/// `fpc::check` in its order. Under the lock the whole group is disabled
+/// with the rest of the section — the reading and the findings still draw,
+/// since they read and do not write. `hide_ids` an `Err` (a setting outside
+/// its band): the line reads the error's text instead of the default-body
+/// reading and both buttons are disabled with it as their hover; the
+/// classifier has no IDs to read, so no findings either.
 fn fpc_group(
     ui: &mut egui::Ui,
     session: &mut Session,
@@ -243,7 +243,7 @@ fn fpc_group(
         Err(error) => {
             ui.horizontal_wrapped(|ui| {
                 ui.label(error.to_string());
-                for label in ["Hide body", "Show body"] {
+                for label in ["Hide default body", "Show default body"] {
                     ui.add_enabled(false, egui::Button::new(label))
                         .on_disabled_hover_text(error.to_string());
                 }
@@ -255,12 +255,12 @@ fn fpc_group(
         .expect("a loaded player's face run holds the skin field");
     ui.horizontal_wrapped(|ui| {
         ui.label(if hidden {
-            "FPC: the body is hidden"
+            "The default body is currently hidden"
         } else {
-            "FPC: the body is shown"
+            "The default body is currently shown"
         });
         if ui
-            .button("Hide body")
+            .button("Hide default body")
             .on_hover_text(
                 "Apply the hide preset: long sleeves, a tucked shirt and short socks. \
                  A boots or gloves ID of 0 takes the hide ID from Settings (a model's \
@@ -273,7 +273,7 @@ fn fpc_group(
             session.apply_fpc(player_id, fpc::Preset::Hide, ids);
         }
         if ui
-            .button("Show body")
+            .button("Show default body")
             .on_hover_text(
                 "Apply the show preset: short sleeves, an untucked shirt and standard \
                  socks. A boots or gloves ID that holds the hide ID goes back to 0, and \
@@ -610,8 +610,8 @@ fn strip_row(ui: &mut egui::Ui, label: &'static str, add: impl FnOnce(&mut egui:
 }
 
 /// The draft's Motion group: the nine measured motions in the draft's
-/// order as label/field pairs, the draft's four a row as a cap a narrower
-/// pane lowers (its 4 / 4 / 2 falls out at four), the dribbling motion
+/// order as label/field pairs, the draft's two a row as a cap a narrower
+/// pane lowers, the dribbling motion
 /// between the kicks and the celebrations (PES 20+, drawn disabled with
 /// the version tooltip before it).
 fn motion_grid(
@@ -622,7 +622,10 @@ fn motion_grid(
     motion: &PlayerMotion,
     draw: &mut dyn FnMut(u8) -> u8,
 ) {
-    let per_row = pairs_per_row(ui, 190.0).min(4);
+    // Two pairs a row (the draft's `COL_PANELS` motion `[2, 194, 14]`:
+    // the column 194 wide, its 14 the panel's own chrome, which the
+    // collapsing section's `available_width` already excludes).
+    let per_row = pairs_per_row(ui, 194.0).min(2);
     egui::Grid::new("appearance motion").show(ui, |ui| {
         let mut pair = 0usize;
         for field in &MOTIONS[..7] {

@@ -92,13 +92,14 @@ pub fn card_columns(
 }
 
 /// The Cards left label and `badge`'s text, drawn inline in the caller's
-/// row: the tier's `label: left of limit cards`, in the error color when
-/// overdrawn, `No tier matches` weak when no tier's condition holds for
-/// him.
+/// row (the draft's `cardBadges`): `Cards left for` then the tier's
+/// `label: left of limit cards`, its part in the error color when
+/// overdrawn; `Cards left:` then `No tier matches`, weak, when no tier's
+/// condition holds for him.
 pub fn cards_left(ui: &mut egui::Ui, badge: &CardsBadge<'_>) {
-    ui.weak("Cards left");
     match badge {
         CardsBadge::Tier(tier) => {
+            ui.weak("Cards left for");
             let left = i32::from(tier.limits.limit) - i32::from(tier.limits.paid);
             let mut text = egui::RichText::new(format!(
                 "{}: {} of {} cards",
@@ -113,6 +114,7 @@ pub fn cards_left(ui: &mut egui::Ui, badge: &CardsBadge<'_>) {
             ));
         }
         CardsBadge::NoTier => {
+            ui.weak("Cards left:");
             ui.weak("No tier matches");
         }
     }
@@ -822,12 +824,13 @@ mod tests {
         assert_eq!(skills.com_styles, expected, "exactly that one flag changed");
     }
 
-    // plans/save_editor.md "libs/team_widgets", the `cards` bullet: "Cards
-    // left" then the one badge, the player's own tier's `label: left of
-    // limit cards`, the error colour when overdrawn; `NoTier` draws the
-    // weak stand-in. A colour is no AccessKit property, so it is read back
-    // from the frame's painted shapes: the badge's `TextShape` carries the
-    // `RichText` colour in its galley's sections.
+    // plans/save_editor.md "Editing UI", the Cards left bullet (the
+    // draft's `cardBadges`): "Cards left for" then the one badge, the
+    // player's own tier's `label: left of limit cards`, the error colour
+    // when overdrawn; `NoTier` draws "Cards left:" then the weak
+    // stand-in. A colour is no AccessKit property, so it is read back
+    // from the frame's painted shapes: the badge's `TextShape` carries
+    // the `RichText` colour in its galley's sections.
     #[test]
     fn the_badge_reads_the_own_tiers_economy_coloured_when_overdrawn() {
         let mut window = Headless::new();
@@ -838,7 +841,7 @@ mod tests {
             label: "Gold",
             limits: &under,
         }));
-        text_entry(&nodes, "Cards left");
+        text_entry(&nodes, "Cards left for");
         text_entry(&nodes, "Gold: 2 of 5 cards");
         let text_color = window.ctx.style_of(window.ctx.theme()).visuals.text_color();
         let error_color = window
@@ -870,6 +873,7 @@ mod tests {
         );
         // No tier matching draws the weak stand-in.
         let (nodes, _) = window.badge(CardsBadge::NoTier);
+        text_entry(&nodes, "Cards left:");
         text_entry(&nodes, "No tier matches");
     }
 

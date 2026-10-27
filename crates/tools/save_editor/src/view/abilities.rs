@@ -405,6 +405,12 @@ const RATING_GAP: f32 = 2.0;
 /// A cell's three rating squares' width.
 const RATINGS_WIDTH: f32 = 3.0 * RATING_SIDE + 2.0 * RATING_GAP;
 
+/// The positions grid's C rating's fill (the draft's `.sel.on.rc`
+/// `#5a5a5a`): the quiet grey a chosen rating or side gets where the
+/// accent would pull the eye — the side toggles' held fill too
+/// (`info_strip`'s `side_row`).
+pub(super) const RATING_C_FILL: egui::Color32 = egui::Color32::from_rgb(0x5a, 0x5a, 0x5a);
+
 /// The chosen rating's fill and text colours (the draft's `.sel.on`
 /// variants): A the success green with dark text, B the selection colour
 /// with its foreground, C a grey square with the normal text — named
@@ -420,10 +426,7 @@ fn rating_colors(ui: &egui::Ui, rating: u8) -> (egui::Color32, egui::Color32) {
             ui.visuals().selection.bg_fill,
             ui.visuals().selection.stroke.color,
         ),
-        _ => (
-            egui::Color32::from_rgb(0x5a, 0x5a, 0x5a),
-            ui.visuals().text_color(),
-        ),
+        _ => (RATING_C_FILL, ui.visuals().text_color()),
     }
 }
 
@@ -645,7 +648,7 @@ fn skills_panel(
             marks.cross(ui, live_marks::MarkedField::Skills);
         }
         if let Some(error) = &tier_error {
-            ui.weak("Cards left");
+            ui.weak("Cards left:");
             let response = ui
                 .add(
                     egui::Label::new(
@@ -669,7 +672,7 @@ fn skills_panel(
                 ),
                 Some((_, OwnBadge::NoTier)) => cards::cards_left(ui, &cards::CardsBadge::NoTier),
                 Some((_, OwnBadge::Failed(_))) | None => {
-                    ui.weak("Cards left");
+                    ui.weak("Cards left:");
                 }
             }
         }
@@ -777,10 +780,34 @@ pub(crate) fn gating_tooltip(field: PlayerField) -> String {
     )
 }
 
-/// `stored`'s position name as the registered-position combo shows it,
-/// `?` past the table.
-pub(super) fn position_label(stored: u8) -> &'static str {
-    POSITIONS.get(usize::from(stored)).copied().unwrap_or("?")
+/// The registered position's full names in `POSITIONS` order (the draft's
+/// `POS_FULL`, one spelling throughout — not the Team TOML/TSV's own
+/// table, whose mixed "Center Back" and "Centre Forward" the parity
+/// output keeps).
+pub(super) const POSITIONS_FULL: [&str; 13] = [
+    "Goalkeeper",
+    "Centre Back",
+    "Left Back",
+    "Right Back",
+    "Defensive Midfielder",
+    "Centre Midfielder",
+    "Left Midfielder",
+    "Right Midfielder",
+    "Attacking Midfielder",
+    "Left Wing Forward",
+    "Right Wing Forward",
+    "Second Striker",
+    "Centre Forward",
+];
+
+/// `stored`'s position as the registered-position combo shows it,
+/// `<abbr> - <full name>` (`CB - Centre Back`, British spelling), `?`
+/// past the table.
+pub(super) fn position_label(stored: u8) -> String {
+    match POSITIONS.get(usize::from(stored)) {
+        Some(abbr) => format!("{abbr} - {}", POSITIONS_FULL[usize::from(stored)]),
+        None => "?".to_owned(),
+    }
 }
 
 /// `stored`'s foot/hand label (`FOOT` title-cased), its number when past

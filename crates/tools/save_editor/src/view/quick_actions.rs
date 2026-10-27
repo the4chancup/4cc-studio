@@ -1,15 +1,17 @@
-//! The quick actions (`plans/save_editor.md` "Configurable AATF rules", the
-//! Quick actions bullet; the draft's `qagrid`): a two-column grid under the
-//! player list, one "Make <tier>" button per tier of the active ruleset in
-//! its order, each a `Session::apply_tier` as one undoable edit, then the
-//! Set stats cell — the Player menu's Set all stats in one click, 40 to 99.
-//! They act on the selected player, so a team row leaves them disabled with
-//! the reason on hover. A rules file that does not load leaves Set stats
-//! alone in the grid, a red line above it whose click opens the error in
-//! the refusal dialog; a failed `apply_tier` leaves the player as he was
-//! and shows the error there too. The floating AATF panel opens from the
-//! toolbar's Panels menu.
+//! The quick actions (`plans/save_editor.md "Configurable AATF rules", the
+//! Quick actions bullet; the draft's `.qacol`s): two columns under the
+//! player list — the medal tiers' "Make <tier>" buttons left in the
+//! ruleset's order, the other tiers' right then the Set stats cell (the
+//! Player menu's Set all stats in one click, 40 to 99), each a
+//! `Session::apply_tier` as one undoable edit. They act on the selected
+//! player, so a team row leaves them disabled with the reason on hover. A
+//! rules file that does not load leaves Set stats alone in the left
+//! column, a red line above it whose click opens the error in the refusal
+//! dialog; a failed `apply_tier` leaves the player as he was and shows
+//! the error there too. The floating AATF panel opens from the toolbar's
+//! Panels menu.
 
+use crate::session::Session;
 use crate::view::{Refusal, SaveView, selected_player};
 
 /// The disabled controls' tooltip on a team selection.
@@ -20,50 +22,53 @@ const TEAM_TIP: &str = "The make buttons act on a player: pick a player row";
 const RULES_LOAD_ERROR_LINE: &str =
     "The AATF rules file could not be loaded, click here for more information.";
 
-/// The grid's column gap (the draft's `.qagrid` gap): `column_widths`
+/// The columns' gap (the draft's `.qagrid` gap): `column_widths`
 /// subtracts it too, so the spacing and the widths share the constant.
 const COLUMN_GAP: f32 = 6.0;
 
-/// The grid's row gap.
+/// The gap between a column's cells (the draft's `.qacol` gap).
 const ROW_GAP: f32 = 3.0;
 
-/// The grid under the list; its controls disabled while the selection names
-/// no rostered player (a team row).
+/// The medal tiers' ids (the draft's `MEDAL_MARK`), which the left column
+/// holds in the ruleset's order.
+fn is_medal(id: &str) -> bool {
+    matches!(id, "gold" | "silver" | "bronze")
+}
+
+/// The columns under the list; its controls disabled while the selection
+/// names no rostered player (a team row).
 pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
     let player = selected_player(view);
-    let enabled = player.is_some();
-    // Each column takes its widest cell's natural width while the two fit
-    // the list, else half the list each (the draft's `1fr`), the widths
-    // read from the panel's own width — inside the Grid a cell's
-    // `available_width` is the column's, not the panel's.
-    let (columns, set_stats_index, set_stats) =
-        match view.rules.as_ref().map(|active| &active.rules) {
-            Some(Ok(rules)) => {
-                let labels: Vec<&str> = rules
-                    .ruleset()
-                    .tiers
-                    .iter()
-                    .map(|tier| tier.label.as_str())
-                    .collect();
-                let (widths, set_stats) = cell_widths(ui, &labels);
-                (
-                    column_widths(&widths, ui.available_width()),
-                    labels.len(),
-                    set_stats,
-                )
-            }
-            // No tiers to lay out (no ruleset yet, or the file's load
-            // error): Set stats alone, at index 0.
-            Some(Err(_)) | None => {
-                let (widths, set_stats) = cell_widths(ui, &[]);
-                (column_widths(&widths, ui.available_width()), 0, set_stats)
-            }
-        };
+    // The columns' contents: the medal tiers left in the ruleset's order,
+    // the others right then the Set stats cell (the draft's `.qacol`s).
+    // The tiers are borrowed off `view.rules`; `session` and `refusal`
+    // come off their own fields so the clicks can write while it lives.
+    let SaveView {
+        session,
+        rules,
+        refusal,
+        set_stats: stat_value,
+        ..
+    } = view;
+    let rules_ok = rules
+        .as_ref()
+        .and_then(|active| active.rules.as_deref().ok());
+    let rules_error = rules
+        .as_ref()
+        .and_then(|active| active.rules.as_ref().err());
+    let (left, right): (Vec<&aatf::Tier>, Vec<&aatf::Tier>) = match rules_ok {
+        Some(rules) => rules
+            .ruleset()
+            .tiers
+            .iter()
+            .partition(|tier| is_medal(&tier.id)),
+        None => (Vec::new(), Vec::new()),
+    };
     // The load error is a red line wrapped across the list's width (three
     // lines at the default 240), the pointing hand on hover, its click
     // opening the error in the refusal dialog (the draft's `.qaerr`):
     // about 160 characters, the text itself would take ten lines.
-    if let Some(Err(error)) = view.rules.as_ref().map(|active| &active.rules) {
+    if let Some(error) = rules_error {
         let message = error.clone();
         let response = ui
             .add(
@@ -75,161 +80,210 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             )
             .on_hover_cursor(egui::CursorIcon::PointingHand);
         if response.clicked() {
-            view.refusal = Some(Refusal {
+            *refusal = Some(Refusal {
                 title: "The AATF rules file could not be loaded",
                 message,
             });
         }
     }
+    // Each column takes its widest cell's natural width while the two fit
+    // the list, else half the list each (the draft's `1fr`), the widths
+    // read from the panel's own width — inside the columns a cell's
+    // `available_width` is the column's, not the panel's.
+    let set_stats = set_stats_widths(ui);
+    let set_stats_width = set_stats.button + ui.spacing().item_spacing.x + set_stats.field;
+    let widest = |tiers: &[&aatf::Tier]| {
+        tiers
+            .iter()
+            .map(|tier| cell_width(ui, &format!("Make {}", tier.label)))
+            .fold(0.0_f32, f32::max)
+    };
+    let (columns, set_stats_column) = match rules_ok {
+        Some(_) => (
+            column_widths(
+                widest(&left),
+                widest(&right).max(set_stats_width),
+                ui.available_width(),
+            ),
+            1,
+        ),
+        // The load error stands above the columns; on it Set stats is the
+        // left column's only cell (the draft's `.row` in the grid's
+        // first cell), and before a ruleset ever loaded it is too.
+        None => (column_widths(set_stats_width, 0.0, ui.available_width()), 0),
+    };
     let height = ui.spacing().interact_size.y;
-    egui::Grid::new("save_editor_quick_actions")
-        .num_columns(2)
-        .spacing(egui::vec2(COLUMN_GAP, ROW_GAP))
-        .show(ui, |ui| {
-            if let Some(active) = view.rules.as_ref() {
-                // The load error stands above the grid; on it Set stats
-                // is this row's only cell.
-                if let Ok(rules) = &active.rules {
-                    for (index, tier) in rules.ruleset().tiers.iter().enumerate() {
-                        let button = ui
-                            .add_enabled_ui(enabled, |ui| {
-                                ui.add_sized(
-                                    [columns[index % 2], height],
-                                    egui::Button::new(format!("Make {}", tier.label)).truncate(),
-                                )
-                            })
-                            .inner;
-                        let response = if enabled {
-                            button.on_hover_text(format!(
-                                "The {} tier's values (the active ruleset)",
-                                tier.label
-                            ))
-                        } else {
-                            button.on_disabled_hover_text(TEAM_TIP)
-                        };
-                        if response.clicked()
-                            && let Some((team_id, slot, _)) = player
-                            && let Some(session) = view.session.as_mut()
-                            && let Err(error) = session.apply_tier(rules, team_id, slot, &tier.id)
-                        {
-                            view.refusal = Some(Refusal {
-                                title: "Cannot apply the tier",
-                                message: format!("{error:#}"),
-                            });
-                        }
-                        if index % 2 == 1 {
-                            ui.end_row();
-                        }
-                    }
-                }
-            }
-            // Set stats with its number, in one cell: the field takes what
-            // the button leaves of the cell (the draft's shrinking input).
-            let set_stats_col = columns[set_stats_index % 2];
-            ui.allocate_ui(egui::vec2(set_stats_col, height), |ui| {
-                ui.horizontal(|ui| {
-                    // The field keeps its two-digit floor; the button takes
-                    // the rest of the cell and elides past it (the same
-                    // rule as the Make buttons).
-                    let button_width = set_stats.button.min(
-                        (set_stats_col - ui.spacing().item_spacing.x - set_stats.field).max(0.0),
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing = egui::vec2(COLUMN_GAP, ROW_GAP);
+        for (index, tiers) in [&left, &right].into_iter().enumerate() {
+            ui.vertical(|ui| {
+                ui.spacing_mut().item_spacing.y = ROW_GAP;
+                for tier in tiers {
+                    tier_button(
+                        ui,
+                        session,
+                        refusal,
+                        rules_ok.expect("tiers exist only once the ruleset loaded"),
+                        tier,
+                        player,
+                        egui::vec2(columns[index], height),
                     );
-                    let button = ui
-                        .add_enabled_ui(enabled, |ui| {
-                            ui.add_sized(
-                                [button_width, height],
-                                egui::Button::new("Set stats").truncate(),
-                            )
-                        })
-                        .inner;
-                    let left = set_stats_col - button.rect.width() - ui.spacing().item_spacing.x;
-                    let response = if enabled {
-                        button.on_hover_text(
-                            "Set every ability stat to the value next to this button",
-                        )
-                    } else {
-                        button.on_disabled_hover_text(TEAM_TIP)
-                    };
-                    if response.clicked()
-                        && let Some((_, _, player_id)) = player
-                        && let Some(session) = view.session.as_mut()
-                    {
-                        session.set_all_stats(player_id, view.set_stats);
-                    }
-                    // The field's `min_size` is what the button leaves of
-                    // the cell: a `DragValue`'s own minimum would be the
-                    // 40-point `interact_size`, past the cell's edge.
-                    let field = ui
-                        .add_enabled_ui(enabled, |ui| {
-                            ui.add(
-                                egui::DragValue::new(&mut view.set_stats)
-                                    .range(40..=99)
-                                    .min_size(egui::vec2(left, height)),
-                            )
-                        })
-                        .inner;
-                    if !enabled {
-                        field.on_disabled_hover_text(TEAM_TIP);
-                    }
-                });
+                }
+                if index == set_stats_column {
+                    set_stats_cell(
+                        ui,
+                        session,
+                        stat_value,
+                        player,
+                        set_stats,
+                        egui::vec2(columns[index], height),
+                    );
+                }
             });
-            ui.end_row();
+        }
+    });
+}
+
+/// One "Make <tier>" cell of a column: a
+/// `Session::apply_tier` as one undoable edit, the tier's name on hover
+/// (also the elided label's name), a failed run leaving the player as he
+/// was with the error in `refusal`.
+fn tier_button(
+    ui: &mut egui::Ui,
+    session: &mut Option<Session>,
+    refusal: &mut Option<Refusal>,
+    rules: &aatf::Rules,
+    tier: &aatf::Tier,
+    player: Option<(u32, u8, u32)>,
+    size: egui::Vec2,
+) {
+    let enabled = player.is_some();
+    let button = ui
+        .add_enabled_ui(enabled, |ui| {
+            ui.add_sized(
+                size,
+                egui::Button::new(format!("Make {}", tier.label)).truncate(),
+            )
+        })
+        .inner;
+    let response = if enabled {
+        button.on_hover_text(format!(
+            "The {} tier's values (the active ruleset)",
+            tier.label
+        ))
+    } else {
+        button.on_disabled_hover_text(TEAM_TIP)
+    };
+    if response.clicked()
+        && let Some((team_id, slot, _)) = player
+        && let Some(session) = session.as_mut()
+        && let Err(error) = session.apply_tier(rules, team_id, slot, &tier.id)
+    {
+        *refusal = Some(Refusal {
+            title: "Cannot apply the tier",
+            message: format!("{error:#}"),
         });
+    }
+}
+
+/// The Set stats cell (the draft's `.row`): the button then its number
+/// field sharing the cell, the field taking what the button leaves of it
+/// (the draft's shrinking input).
+fn set_stats_cell(
+    ui: &mut egui::Ui,
+    session: &mut Option<Session>,
+    stat_value: &mut u8,
+    player: Option<(u32, u8, u32)>,
+    widths: SetStatsWidths,
+    size: egui::Vec2,
+) {
+    let enabled = player.is_some();
+    ui.allocate_ui(size, |ui| {
+        ui.horizontal(|ui| {
+            // The field keeps its two-digit floor; the button takes the
+            // rest of the cell and elides past it (the same rule as the
+            // Make buttons).
+            let button_width = widths
+                .button
+                .min((size.x - ui.spacing().item_spacing.x - widths.field).max(0.0));
+            let button = ui
+                .add_enabled_ui(enabled, |ui| {
+                    ui.add_sized(
+                        [button_width, size.y],
+                        egui::Button::new("Set stats").truncate(),
+                    )
+                })
+                .inner;
+            let left = size.x - button.rect.width() - ui.spacing().item_spacing.x;
+            let response = if enabled {
+                button.on_hover_text("Set every ability stat to the value next to this button")
+            } else {
+                button.on_disabled_hover_text(TEAM_TIP)
+            };
+            if response.clicked()
+                && let Some((_, _, player_id)) = player
+                && let Some(session) = session.as_mut()
+            {
+                session.set_all_stats(player_id, *stat_value);
+            }
+            // The field's `min_size` is what the button leaves of the
+            // cell: a `DragValue`'s own minimum would be the 40-point
+            // `interact_size`, past the cell's edge.
+            let field = ui
+                .add_enabled_ui(enabled, |ui| {
+                    ui.add(
+                        egui::DragValue::new(stat_value)
+                            .range(40..=99)
+                            .min_size(egui::vec2(left, size.y)),
+                    )
+                })
+                .inner;
+            if !enabled {
+                field.on_disabled_hover_text(TEAM_TIP);
+            }
+        });
+    });
 }
 
 /// The Set stats cell's two sub-widths: the button's natural width and
-/// the field's two-digit floor, needed by `show` to share the cell
-/// between them.
+/// the field's two-digit floor, needed by `set_stats_cell`'s split.
+#[derive(Clone, Copy)]
 struct SetStatsWidths {
     button: f32,
     field: f32,
 }
 
-/// The cells' natural widths in grid order — a Make button's its full
-/// "Make <tier>" text plus the button padding, and the Set stats cell its
-/// button, the item spacing and the field's two digits the same way (both
-/// widgets take a padding each) — with the Set stats cell's sub-widths
-/// returned separately for `show`'s split.
-fn cell_widths(ui: &egui::Ui, labels: &[&str]) -> (Vec<f32>, SetStatsWidths) {
-    let padding = 2.0 * ui.spacing().button_padding.x;
+/// A cell's natural width: its full text's galley plus the button
+/// padding.
+fn cell_width(ui: &egui::Ui, text: &str) -> f32 {
     let button = egui::TextStyle::Button.resolve(ui.style());
-    let field = ui.style().drag_value_text_style.resolve(ui.style());
-    let galley = |text: &str, font: &egui::FontId| {
-        ui.fonts_mut(|fonts| {
-            fonts.layout_no_wrap(text.to_owned(), font.clone(), egui::Color32::WHITE)
-        })
+    ui.fonts_mut(|fonts| fonts.layout_no_wrap(text.to_owned(), button, egui::Color32::WHITE))
         .size()
         .x
-    };
-    let set_stats = SetStatsWidths {
-        button: galley("Set stats", &button) + padding,
-        field: galley("99", &field) + padding,
-    };
-    let mut widths: Vec<f32> = labels
-        .iter()
-        .map(|label| galley(&format!("Make {label}"), &button) + padding)
-        .collect();
-    widths.push(set_stats.button + ui.spacing().item_spacing.x + set_stats.field);
-    (widths, set_stats)
+        + 2.0 * ui.spacing().button_padding.x
 }
 
-/// The two columns' widths for `cells`' naturals in grid order (even
-/// index: column 1, odd: column 2): each its widest cell's while the two
-/// fit `list_width`, else half the list each — a label too long for its
-/// column is the button's `.truncate()`'s job (its tooltip names the
-/// tier).
-fn column_widths(cells: &[f32], list_width: f32) -> [f32; 2] {
-    let widest = |start: usize| {
-        cells
-            .iter()
-            .skip(start)
-            .step_by(2)
-            .copied()
-            .fold(0.0, f32::max)
-    };
-    let columns = [widest(0), widest(1)];
-    if columns[0] + COLUMN_GAP + columns[1] <= list_width {
-        columns
+/// The Set stats cell's sub-widths (`cell_width` for its button, the
+/// field's two digits the same way — both widgets take a padding each).
+fn set_stats_widths(ui: &egui::Ui) -> SetStatsWidths {
+    let field = ui.style().drag_value_text_style.resolve(ui.style());
+    SetStatsWidths {
+        button: cell_width(ui, "Set stats"),
+        field: ui
+            .fonts_mut(|fonts| fonts.layout_no_wrap("99".to_owned(), field, egui::Color32::WHITE))
+            .size()
+            .x
+            + 2.0 * ui.spacing().button_padding.x,
+    }
+}
+
+/// The two columns' widths for their widest cells' naturals: each its
+/// widest cell's while the two fit `list_width`, else half the list each
+/// — a label too long for its column is the button's `.truncate()`'s job
+/// (its tooltip names the tier).
+fn column_widths(left: f32, right: f32, list_width: f32) -> [f32; 2] {
+    if left + COLUMN_GAP + right <= list_width {
+        [left, right]
     } else {
         halves(list_width)
     }
@@ -252,8 +306,8 @@ mod tests {
     #[test]
     fn the_columns_take_their_widest_cells_or_the_halves() {
         // 95 + 6 + 118.5 = 219.5: the cells fit exactly.
-        assert_eq!(column_widths(&[95.0, 118.5, 90.0], 219.5), [95.0, 118.5]);
+        assert_eq!(column_widths(95.0, 118.5, 219.5), [95.0, 118.5]);
         // Half a point narrower: the halves fallback.
-        assert_eq!(column_widths(&[95.0, 118.5, 90.0], 219.0), [106.5, 106.5]);
+        assert_eq!(column_widths(95.0, 118.5, 219.0), [106.5, 106.5]);
     }
 }

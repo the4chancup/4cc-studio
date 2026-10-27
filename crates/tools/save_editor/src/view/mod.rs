@@ -178,7 +178,7 @@ pub(crate) struct SaveView {
     kit_slots: Option<u32>,
     /// The hide IDs the common settings give (`fpc_hide_boots_id` and
     /// `fpc_hide_gloves_id`), refreshed from `ctx.common()` each `Tool::view`
-    /// frame: every FPC path (Hide/Show body, Ctrl+I, the classifier's
+    /// frame: every FPC path (Hide/Show default body, Ctrl+I, the classifier's
     /// reading, the Team menu's Set/Remove) reads them, and an out-of-band
     /// pair disables those paths behind the error's text.
     pub(crate) hide_ids: Result<fpc::HideIds, fpc::HideIdsError>,
@@ -437,9 +437,19 @@ pub(crate) fn show(
         let list_panel = egui::Panel::left("save_editor_players")
             // The draft's `.plist` width: 240 points, not resizable (the
             // plan's Player list bullet; the window scales instead of
-            // narrowing under the design width).
+            // narrowing under the design width). No bottom margin: the
+            // quick actions' band is the panel's content's last item and
+            // runs to the pane's bottom ("The view fills its pane").
             .resizable(false)
             .default_size(240.0)
+            .frame(
+                egui::Frame::side_top_panel(ui.style()).inner_margin(egui::Margin {
+                    left: 8,
+                    right: 8,
+                    top: 2,
+                    bottom: 0,
+                }),
+            )
             .show(ui, |ui| player_list::show(ui, view));
         let list_right = list_panel.response.rect.max.x;
         egui::CentralPanel::default().show(ui, |ui| {

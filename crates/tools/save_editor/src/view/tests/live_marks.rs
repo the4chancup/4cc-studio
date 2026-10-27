@@ -632,7 +632,13 @@ fn a_skills_violation_marks_the_header() {
         node.role() == Role::Label && node.value() == Some("\u{2716}")
     })
     .expect("a cross after the Skills header");
-    let badge = label_bounds(&nodes, "Cards left");
+    let badge = nodes
+        .iter()
+        .find(|node| {
+            node.role() == Role::Label && node.value().is_some_and(|v| v.starts_with("Cards left"))
+        })
+        .and_then(accesskit::Node::bounds)
+        .expect("the Cards left badge");
     assert!(
         skills_cross
             .bounds()

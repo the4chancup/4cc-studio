@@ -2590,3 +2590,5 @@ worklog passed 7,000 lines.
   path 456 points wide, past the draft's 440; a test measures it in every path row (0.0.1r2).
 - **2026-10-27** — The maintainer looked at PES 2017's automatic substitution: Off, Very late, Flexible, Very early, as PES 2021;
   the Substitution combo offers the four there, and the question narrows to PES 2018 to 2020.
+- **2026-10-27** — The player view's last look built (0.0.1s4, SWE-2): Left | Right toggles, the positions' full names, `Cards left for`,
+  Motion in two columns, the FPC wording, the quick actions' two columns, Captain centred, the view to the pane's bottom.

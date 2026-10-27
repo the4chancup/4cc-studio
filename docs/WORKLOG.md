@@ -2970,15 +2970,28 @@ briefs, review loops, gates and mutation runs as for any step.
       `.tmp/0_0_1s/s3_rulings.md`. The post-Astra SWE-2 round S7: 0 of 2 accepted, the
       review loops end. Open: the step's mutation run (grouped with o2a's; its local half's
       baseline timed out under load and is rerun), then s3's close
-  - [ ] s4 the player view's last look (the maintainer, 2026-10-26; drafted and approved,
+  - [x] s4 the player view's last look (the maintainer, 2026-10-26; drafted and approved,
     `.tmp/0_0_1s/player_view_request.md`; plan "Editing UI", "Full Player Customization
     (FPC)", DECISIONS "The player view's last look"): Stronger foot and hand Left | Right
     toggles in the positions' grey, Registered position's full names, `Cards left for`, Motion
     in two columns, the FPC wording (help topics 04 and 06 and `view/tests/player.rs` quote
     the old text), the quick actions' columns and 20-point height, Captain centred, the view
-    filling its pane; and the window title's path (`core/gui.md` "Window title",
-    `StudioTool::title_detail`) → verify: SE-GUI-11, SE-GUI-31, the layout tests' new numbers;
-    after o2a's rework r3
+    filling its pane → verify: SE-GUI-11, SE-GUI-31, the layout tests' new numbers. Done
+    2026-10-27 (SWE-2): `info_strip::side_row` (`Button::selectable`, the held side
+    `abilities::RATING_C_FILL`), `POSITIONS_FULL` and `position_label` `<abbr> - <full name>`
+    (the changes table's rows follow, the values as the view shows them), `team_widgets`'
+    `cards_left` (`Cards left for` / `Cards left:`, the tier-error and pending paths too),
+    the quick actions in two `.qacol` columns (`is_medal`, `column_widths`), Motion two pairs
+    a row, the FPC wording with help 04 and 06, Captain centred in its box, the list panel's
+    bottom margin 0 so the quick actions reach the pane's bottom (it was 2 short: the brief's
+    "already done?" premise was wrong). Files: `save_editor/src/view/{info_strip,abilities,
+    quick_actions,mod,terms}.rs`, `view/appearance/mod.rs`, `session/player_ops.rs`,
+    `view/tests/{abilities,appearance,player,quick_actions,live_marks}.rs`,
+    `help/0{4,6}_*.md`, `team_widgets/src/cards.rs`
+  - [ ] s4t the window title's path (`core/gui.md` "Window title", `StudioTool::title_detail`),
+    `studio_core`'s: after side-lead S's chain releases it; with it, `shell/status_bar.rs`'s
+    test samples take the version notice's wording "so the editor will keep treating it as"
+    (the maintainer, 2026-10-27; draft and CONTRIBUTING already do)
   - [ ] s5 the Tactics editor's grid (the maintainer, 2026-10-26; drafted and approved,
     `.tmp/0_0_1s/tactics_layout_request.md`; plan "Tactics editor", DECISIONS "The Tactics
     editor is one grid"): the three-row grid, Formation settings in pairs of equal rows, the

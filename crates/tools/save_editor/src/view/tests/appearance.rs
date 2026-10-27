@@ -1121,9 +1121,10 @@ fn the_skin_palette_draws_its_entries_held_swatch_and_a_past_top_number() {
 }
 
 // The strip and motion grids break a row after `pairs_per_row` pairs (190
-// each, so four at this pane's width): the first four controls of each
-// share one row, the fifth wraps below — the same rule
-// `the_stats_rows_wrap_at_the_panes_width` pins for the stats.
+// each for the strip's four, 194 for the motion's two, at this pane's
+// width): the first row's controls share one top, the next pair wraps
+// below — the same rule `the_stats_rows_wrap_at_the_panes_width` pins for
+// the stats.
 #[test]
 fn the_strip_and_motion_grids_wrap_after_the_fitted_pairs() {
     let path = fixture(PesVersion::Pes21, "grid_wraps");
@@ -1143,14 +1144,14 @@ fn the_strip_and_motion_grids_wrap_after_the_fitted_pairs() {
     assert!(y("Socks") > first + 5.0, "Socks wraps below");
 
     let first = y("Hunching (dribbling)");
-    for label in [
-        "Hunching (running)",
-        "Arm movement (dribbling)",
-        "Arm movement (running)",
-    ] {
-        assert!((y(label) - first).abs() < 1.0, "{label} on the first row");
-    }
-    assert!(y("Corner kick") > first + 5.0, "Corner kick wraps below");
+    assert!(
+        (y("Hunching (running)") - first).abs() < 1.0,
+        "Hunching (running) on the first row"
+    );
+    assert!(
+        y("Arm movement (dribbling)") > first + 5.0,
+        "Arm movement (dribbling) wraps below"
+    );
 }
 
 // The id controls take the record's own bound (`player_max_value`, the
@@ -1401,43 +1402,58 @@ fn the_strip_groups_hold_the_drafts_rows() {
     assert_eq!(undo_entries(&mut window, &mut view), 1, "one undo step");
 }
 
-// The draft's motion rows at the default pane (1224 x 776, four pairs a
-// row): the hunching and arm pairs share the first, the three kicks and
-// the dribbling motion the second, the two celebrations the third.
+// The draft's motion rows at the default pane (1224 x 776, two pairs a
+// row — `COL_PANELS` `[2, 194, 14]`): the labels take two x positions,
+// the hunching pair the first row, the arm pair the second, the kicks
+// the third, the penalty and dribbling motions the fourth, the
+// celebrations the fifth.
 #[test]
-fn the_motion_grid_holds_four_pairs_a_row() {
-    let (mut view, _) = open_734_with("motion_four_pairs", &[], 0);
+fn the_motion_grid_holds_two_pairs_a_row_in_two_columns() {
+    let (mut view, _) = open_734_with("motion_two_pairs", &[], 0);
     view.aesthetics_from_exports = true;
     view.edit_aesthetics = true;
     let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
     open_appearance(&mut window, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    let first = label_bounds(&nodes, "Hunching (dribbling)").y0;
-    for label in [
+    let labels = [
+        "Hunching (dribbling)",
         "Hunching (running)",
         "Arm movement (dribbling)",
         "Arm movement (running)",
-    ] {
+        "Corner kick",
+        "Free kick",
+        "Penalty kick",
+        "Dribbling motion",
+        "Goal celebration 1",
+        "Goal celebration 2",
+    ];
+    let mut xs: Vec<f64> = labels
+        .iter()
+        .map(|label| label_bounds(&nodes, label).x0)
+        .collect();
+    xs.sort_by(f64::total_cmp);
+    xs.dedup();
+    assert_eq!(xs.len(), 2, "the motion labels take two x positions");
+    // Row by row the draft's order: each row's pair shares one top.
+    for (row, pair) in labels.chunks(2).enumerate() {
+        let top = label_bounds(&nodes, pair[0]).y0;
         assert!(
-            (label_bounds(&nodes, label).y0 - first).abs() < 1.0,
-            "{label} shares the first row"
+            (label_bounds(&nodes, pair[1]).y0 - top).abs() < 1.0,
+            "row {}: {:?} shares {:?}'s top",
+            row + 1,
+            pair[1],
+            pair[0]
         );
+        if row + 1 < labels.len() / 2 {
+            assert!(
+                label_bounds(&nodes, labels[2 * (row + 1)]).y0 > top + 5.0,
+                "row {} opens below row {}",
+                row + 2,
+                row + 1
+            );
+        }
     }
-    let second = label_bounds(&nodes, "Corner kick").y0;
-    assert!(second > first + 5.0, "the kicks open the second row");
-    for label in ["Free kick", "Penalty kick", "Dribbling motion"] {
-        assert!(
-            (label_bounds(&nodes, label).y0 - second).abs() < 1.0,
-            "{label} shares the second row"
-        );
-    }
-    let third = label_bounds(&nodes, "Goal celebration 1").y0;
-    assert!(third > second + 5.0, "the celebrations open the third row");
-    assert!(
-        (label_bounds(&nodes, "Goal celebration 2").y0 - third).abs() < 1.0,
-        "the two celebrations share the third row"
-    );
 }
 
 // plans/save_editor.md "Editing UI" with `docs/plans/core/gui.md` "Shell

@@ -39,7 +39,9 @@ fn in_skills_column_prefixed(nodes: &[accesskit::Node], prefix: &str) -> bool {
 fn cards_left_badges(nodes: &[accesskit::Node]) -> Vec<String> {
     let heading_y = nodes
         .iter()
-        .find(|node| node.role() == Role::Label && node.value() == Some("Cards left"))
+        .find(|node| {
+            node.role() == Role::Label && node.value().is_some_and(|v| v.starts_with("Cards left"))
+        })
         .and_then(accesskit::Node::bounds)
         .map(|bounds| bounds.y0)
         .expect("the Cards left heading");
@@ -201,7 +203,8 @@ fn version_gated_controls_are_disabled_in_place_with_their_first_version() {
     // The stronger hand (the Profile block's gated control; the Cutscenes
     // pair's half of the scenario lives on the Appearance section's test):
     // the same player on PES 17 (no hand stored) and PES 21 (stored), the
-    // combo in the same rect, disabled with the `PES NN+` tooltip on 17.
+    // Left | Right toggle in the same span, disabled with the `PES NN+`
+    // tooltip on 17, Right held as on every save without the field.
     let bounds_of = |version: PesVersion, test: &str| {
         let path = fixture(version, test);
         let mut view = SaveView::new();
@@ -209,35 +212,42 @@ fn version_gated_controls_are_disabled_in_place_with_their_first_version() {
         let mut window = Headless::sized(1100.0, 700.0);
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-        let hand = control_right_of(&nodes, "Stronger hand")
-            .bounds()
-            .expect("bounds");
+        let sides = right_of_label(&nodes, "Stronger hand", Role::Button);
+        assert_eq!(sides.len(), 2, "the hand is two choices");
+        let span = |node: &accesskit::Node| node.bounds().expect("bounds");
+        let hand = (
+            span(sides[0]).x0,
+            span(sides[1]).x1,
+            span(sides[0]).y0,
+            span(sides[1]).y1,
+        );
         (view, window, nodes, hand)
     };
     let (mut view17, mut window17, nodes17, hand17) = bounds_of(PesVersion::Pes17, "gated_17");
     let (_view21, _window21, nodes21, hand21) = bounds_of(PesVersion::Pes21, "gated_21");
 
-    let hand_node = right_of_label(&nodes17, "Stronger hand", Role::ComboBox)
-        .into_iter()
-        .find(|node| node.is_disabled())
-        .expect("the disabled hand combo");
-    assert_eq!(
-        hand_node.value(),
-        Some("Right"),
-        "the missing hand shows Right"
+    let sides17 = right_of_label(&nodes17, "Stronger hand", Role::Button);
+    assert!(
+        sides17.iter().all(|side| side.is_disabled()),
+        "the missing hand's sides are disabled"
     );
     assert_eq!(
-        tooltip_after_hover(&mut window17, &mut view17, centre(hand_node)),
+        sides17[1].toggled(),
+        Some(accesskit::Toggled::True),
+        "the missing hand shows Right held"
+    );
+    assert_eq!(
+        tooltip_after_hover(&mut window17, &mut view17, centre(sides17[1])),
         Some("PES 20+".to_string()),
         "the hand's tooltip"
     );
 
-    // Enabled on PES 21, the control in the same rect as its PES 17 stand-in.
+    // Enabled on PES 21, the toggle in the same span as its PES 17 stand-in.
     assert!(
         !control_right_of(&nodes21, "Stronger hand").is_disabled(),
         "Stronger hand is enabled on PES 21"
     );
-    assert_eq!(hand17, hand21, "the Stronger hand control's rect");
+    assert_eq!(hand17, hand21, "the Stronger hand control's span");
 }
 
 // plans/save_editor.md "Editing UI", the version-gated widgets bullet: a
@@ -569,7 +579,9 @@ fn the_positions_grid_draws_five_centered_rows_with_the_registered_outlined() {
         window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let (item, _) = nodes
         .iter()
-        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("CF"))
+        .find(|(_, node)| {
+            node.role() == Role::Button && node.label() == Some("CF - Centre Forward")
+        })
         .expect("the CF item");
     action_click(&mut window, &mut view, *item);
     let (_, nodes, shapes) =
@@ -1105,7 +1117,7 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
     let (_, nodes, shapes) = window.frame(Vec::new(), |ui| {
         show(ui, &mut view, &|| Vec::new(), Some(rules_path.as_path()))
     });
-    // `Cards left`, then the red click line in the badge's place.
+    // `Cards left:`, then the red click line in the badge's place.
     const LINE: &str = "Tier check failed, click for more information.";
     let error_node = {
         let column_x0 = skills_header(&nodes).x0;
@@ -1125,8 +1137,8 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
         "the line in the error colour"
     );
     assert!(
-        in_skills_column(&nodes, "Cards left"),
-        "Cards left heads it"
+        in_skills_column(&nodes, "Cards left:"),
+        "Cards left: heads it"
     );
     assert!(
         !in_skills_column(&nodes, "No tier matches"),
@@ -1176,7 +1188,7 @@ fn a_failing_tier_check_shows_its_error_in_the_badges_place() {
         show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
     });
     assert!(
-        !in_skills_column(&nodes, "Cards left"),
+        !in_skills_column_prefixed(&nodes, "Cards left"),
         "no stale badge under the load error"
     );
     assert!(
@@ -1209,7 +1221,7 @@ fn a_load_error_draws_nothing_in_the_skills_column_at_a_narrow_pane() {
         show(ui, &mut view, &|| Vec::new(), Some(bad.as_path()))
     });
     assert!(
-        !in_skills_column(&nodes, "Cards left"),
+        !in_skills_column_prefixed(&nodes, "Cards left"),
         "no badge under the load error"
     );
     assert!(
@@ -1240,7 +1252,7 @@ fn a_rules_file_that_does_not_load_draws_no_badge() {
         "the Skills header draws"
     );
     assert!(
-        !in_skills_column(&nodes, "Cards left"),
+        !in_skills_column_prefixed(&nodes, "Cards left"),
         "no badge under the load error"
     );
     assert!(
@@ -1284,12 +1296,19 @@ fn the_registered_position_combo_stores_the_pick_as_one_edit() {
         .first()
         .copied()
         .expect("the registered combo");
+    assert_eq!(
+        combo.value(),
+        Some("CB - Centre Back"),
+        "the combo names the position in full, British spelling"
+    );
     click(&mut window, combo, &mut view);
     let (_, nodes, _) =
         window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let (item, _) = nodes
         .iter()
-        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("CF"))
+        .find(|(_, node)| {
+            node.role() == Role::Button && node.label() == Some("CF - Centre Forward")
+        })
         .expect("the CF item");
     action_click(&mut window, &mut view, *item);
     assert_eq!(
@@ -1322,87 +1341,87 @@ fn the_registered_position_combo_stores_the_pick_as_one_edit() {
     assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
 }
 
-// The same bullet (the draft's first row): the stronger-foot combo stores
-// the pick (FOOT index) as one undoable edit.
+// The same bullet's two-choice toggles (the draft's `.rate.lr`): Stronger
+// foot and Stronger hand draw Left | Right as two equal halves of the
+// row's field, the held side filled the positions grid's C grey
+// (#5a5a5a) with the normal text colour, and a click on the other side
+// stores the pick (FOOT index, right 0 left 1) as one undoable edit.
 #[test]
-fn the_stronger_foot_combo_stores_the_pick_as_one_edit() {
-    let path = fixture(PesVersion::Pes21, "stronger_foot");
+fn the_foot_and_hand_sides_fill_the_held_side_and_store_the_pick() {
+    let path = fixture(PesVersion::Pes21, "stronger_sides");
     let mut view = SaveView::new();
     view.open(&path);
     let mut window = Headless::sized(1100.0, 700.0);
-    let foot = |view: &SaveView| {
-        view.session
-            .as_ref()
-            .unwrap()
-            .file()
-            .player(70101)
-            .unwrap()
-            .positions
-            .stronger_foot
-    };
-    assert_eq!(foot(&view), 0, "premise: right-footed");
+    let positions =
+        |view: &SaveView, side: fn(&PlayerEntry) -> Option<u8>| side(&player_entry(view, 70101));
+    assert_eq!(
+        positions(&view, |p| Some(p.positions.stronger_foot)),
+        Some(0),
+        "premise: right-footed"
+    );
+    assert_eq!(
+        positions(&view, |p| p.positions.stronger_hand),
+        Some(0),
+        "premise: right-handed"
+    );
 
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let combo = right_of_label(&nodes, "Stronger foot", Role::ComboBox)
-        .first()
-        .copied()
-        .expect("the foot combo");
-    click(&mut window, combo, &mut view);
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (item, _) = nodes
-        .iter()
-        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Left"))
-        .expect("the Left item");
-    action_click(&mut window, &mut view, *item);
-    assert_eq!(foot(&view), 1, "Left stores 1");
-    // One gesture, one entry: a single undo brings Right back.
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    assert_eq!(foot(&view), 0, "undone");
-    assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
-}
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let quiet_grey = egui::Color32::from_rgb(0x5a, 0x5a, 0x5a);
+    for label in ["Stronger foot", "Stronger hand"] {
+        let sides = right_of_label(&nodes, label, Role::Button);
+        assert_eq!(sides.len(), 2, "{label} is two choices, not a combo");
+        let (left, right) = (sides[0], sides[1]);
+        assert_eq!(left.label(), Some("Left"));
+        assert_eq!(right.label(), Some("Right"));
+        let (left_b, right_b) = (
+            left.bounds().expect("bounds"),
+            right.bounds().expect("bounds"),
+        );
+        assert!(
+            (left_b.x1 - left_b.x0 - (right_b.x1 - right_b.x0)).abs() < 0.5,
+            "{label}'s choices are equal halves ({left_b:?} vs {right_b:?})"
+        );
+        assert_eq!(
+            right.toggled(),
+            Some(accesskit::Toggled::True),
+            "{label} holds Right"
+        );
+        assert_eq!(
+            fill_at(&shapes, right_b),
+            Some(quiet_grey),
+            "{label}'s held side fills the positions grid's C grey"
+        );
+        assert_eq!(
+            left.toggled(),
+            Some(accesskit::Toggled::False),
+            "{label}'s other side is unheld"
+        );
+        click(&mut window, left, &mut view);
+    }
+    assert_eq!(
+        positions(&view, |p| Some(p.positions.stronger_foot)),
+        Some(1),
+        "the foot's Left click stores 1"
+    );
+    assert_eq!(
+        positions(&view, |p| p.positions.stronger_hand),
+        Some(1),
+        "the hand's Left click stores 1"
+    );
 
-// The same bullet: the stronger-hand combo (PES 20+) stores the pick the
-// same way.
-#[test]
-fn the_stronger_hand_combo_stores_the_pick_as_one_edit() {
-    let path = fixture(PesVersion::Pes21, "stronger_hand");
-    let mut view = SaveView::new();
-    view.open(&path);
-    let mut window = Headless::sized(1100.0, 700.0);
-    let hand = |view: &SaveView| {
-        view.session
-            .as_ref()
-            .unwrap()
-            .file()
-            .player(70101)
-            .unwrap()
-            .positions
-            .stronger_hand
-    };
-    assert_eq!(hand(&view), Some(0), "premise: right-handed");
-
-    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let combo = right_of_label(&nodes, "Stronger hand", Role::ComboBox)
-        .first()
-        .copied()
-        .expect("the hand combo");
-    click(&mut window, combo, &mut view);
-    let (_, nodes, _) =
-        window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let (item, _) = nodes
-        .iter()
-        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("Left"))
-        .expect("the Left item");
-    action_click(&mut window, &mut view, *item);
-    assert_eq!(hand(&view), Some(1), "Left stores 1");
-    window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
-    assert_eq!(hand(&view), Some(0), "undone");
-    assert!(!view.session.as_ref().unwrap().can_undo(), "one entry only");
+    // One gesture each, one entry each: two undos bring both back.
+    assert_eq!(undo_entries(&mut window, &mut view), 2, "one entry each");
+    assert_eq!(
+        positions(&view, |p| Some(p.positions.stronger_foot)),
+        Some(0),
+        "the foot undone"
+    );
+    assert_eq!(
+        positions(&view, |p| p.positions.stronger_hand),
+        Some(0),
+        "the hand undone"
+    );
 }
 
 // The columns' wrap never re-keys a widget: an egui id follows call
@@ -1545,12 +1564,7 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         (name.x1 - flush).abs() < 0.5 && (shirt.x1 - flush).abs() < 0.5,
         "the counted fields end at the flush edge ({name:?}, {shirt:?} vs {flush})"
     );
-    for label in [
-        "Stronger foot",
-        "Stronger hand",
-        "Registered position",
-        "Playing style",
-    ] {
+    for label in ["Registered position", "Playing style"] {
         let combo = right_of_label(&nodes, label, Role::ComboBox)[0]
             .bounds()
             .expect("bounds");
@@ -1561,6 +1575,23 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
         assert!(
             (combo.x1 - flush).abs() < 0.5,
             "{label} ends at the flush edge ({combo:?} vs {flush})"
+        );
+    }
+    // The foot's and hand's Left | Right toggles span the same field.
+    for label in ["Stronger foot", "Stronger hand"] {
+        let sides = right_of_label(&nodes, label, Role::Button);
+        assert_eq!(sides.len(), 2, "{label} is two choices");
+        let span = (
+            sides[0].bounds().expect("bounds").x0,
+            sides[1].bounds().expect("bounds").x1,
+        );
+        assert!(
+            (span.0 - name.x0).abs() < 0.5,
+            "{label} starts at the rows' x ({span:?} vs {name:?})"
+        );
+        assert!(
+            (span.1 - flush).abs() < 0.5,
+            "{label} ends at the flush edge ({span:?} vs {flush})"
         );
     }
     // The counted labels sit on their field's row (the label's vertical
@@ -1620,7 +1651,6 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     for (label, role) in [
         ("Shirt number", Role::SpinButton),
         ("Nation", Role::SpinButton),
-        ("Captain", Role::RadioButton),
         ("Form", Role::SpinButton),
         ("Accuracy", Role::SpinButton),
     ] {
@@ -1632,6 +1662,18 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
             "{label}'s box just after the label column ({bounds:?} vs {box_x})"
         );
     }
+    // The Captain radio centred in its 54-wide box (the draft's `.pair
+    // > .box` `justify-content: center`), under the Nation box above it.
+    let captain = right_of_label(&nodes, "Captain", Role::RadioButton)[0]
+        .bounds()
+        .expect("bounds");
+    let nation = right_of_label(&nodes, "Nation", Role::SpinButton)[0]
+        .bounds()
+        .expect("bounds");
+    assert!(
+        ((captain.x0 + captain.x1) / 2.0 - (nation.x0 + nation.x1) / 2.0).abs() < 0.5,
+        "the Captain radio centred under the Nation box ({captain:?} vs {nation:?})"
+    );
 
     // The label-to-field minimums (the plan's "never closer than"): 9 on
     // every pair, 12 in the label-left rows and Ability stats, the
@@ -1658,8 +1700,8 @@ fn the_player_view_lays_out_its_three_columns_at_1280() {
     let mut row_min = min_gap(
         &nodes,
         &[
-            ("Stronger foot", Role::ComboBox),
-            ("Stronger hand", Role::ComboBox),
+            ("Stronger foot", Role::Button),
+            ("Stronger hand", Role::Button),
             ("Registered position", Role::ComboBox),
             ("Playing style", Role::ComboBox),
         ],

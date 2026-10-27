@@ -638,7 +638,7 @@ fn fpc_button<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::N
 fn appearance_frame(window: &mut Headless, view: &mut SaveView) -> Vec<accesskit::Node> {
     open_appearance(window, view);
     scroll_into_view(window, view, |node| {
-        node.role() == Role::Button && node.label() == Some("Hide body")
+        node.role() == Role::Button && node.label() == Some("Hide default body")
     })
 }
 
@@ -654,8 +654,9 @@ fn strip_of(view: &SaveView, id: u32) -> (u8, bool, u8, u32, u32) {
     )
 }
 
-// Hide body gives the hide preset and the section reads "FPC: the body is
-// hidden"; Ctrl+I gives the show preset and "FPC: the body is shown". A
+// Hide default body gives the hide preset and the section reads "The
+// default body is currently hidden"; Ctrl+I gives the show preset and
+// "...shown". A
 // model's own boots ID is kept and reads as shown. Set FPC invisibility
 // hides every filled slot of the team in one undo step, and a strip
 // setting that breaks hiding lists its finding on the section — reported,
@@ -693,14 +694,18 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
         "premise: dressed, boots and gloves 0"
     );
 
-    // Hide body: long sleeves, tucked, short socks, the nonexistent IDs,
+    // Hide default body: long sleeves, tucked, short socks, the nonexistent IDs,
     // the inners left on as the finding reports rather than clears.
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: the body is shown"),
+        label_value(&nodes, "The default body is currently shown"),
         "dressed reads shown"
     );
-    click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
+    click(
+        &mut window,
+        fpc_button(&nodes, "Hide default body"),
+        &mut view,
+    );
     assert_eq!(
         strip_of(&view, 70101),
         (2, false, 2, 55, 11),
@@ -709,7 +714,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     assert_eq!(player_entry(&view, 70101).appearance.inners, 1, "kept");
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: the body is hidden"),
+        label_value(&nodes, "The default body is currently hidden"),
         "hidden reads hidden"
     );
     assert!(
@@ -720,7 +725,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
         "the inners finding's text on the section"
     );
 
-    // Ctrl+I on a hidden player shows him: the show preset, "FPC: the body is shown".
+    // Ctrl+I on a hidden player shows him: the show preset, "...shown".
     window.frame(vec![key(egui::Key::I, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
@@ -730,7 +735,7 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
         "the show preset"
     );
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_value(&nodes, "FPC: the body is shown"));
+    assert!(label_value(&nodes, "The default body is currently shown"));
 
     // Two operations, two undo entries, the player restored.
     assert_eq!(undo_entries(&mut window, &mut view), 2, "one entry each");
@@ -739,7 +744,11 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     // shown" — his model hides him, the save cannot tell.
     view.selected = Some(Selection::Player(701, 1));
     let nodes = appearance_frame(&mut window, &mut view);
-    click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
+    click(
+        &mut window,
+        fpc_button(&nodes, "Hide default body"),
+        &mut view,
+    );
     assert_eq!(
         strip_of(&view, 70102),
         (2, false, 2, 627, 11),
@@ -747,10 +756,14 @@ fn hide_and_show_body_apply_the_presets_keeping_own_ids() {
     );
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: the body is shown"),
+        label_value(&nodes, "The default body is currently shown"),
         "a model's own boots ID reads as shown"
     );
-    click(&mut window, fpc_button(&nodes, "Show body"), &mut view);
+    click(
+        &mut window,
+        fpc_button(&nodes, "Show default body"),
+        &mut view,
+    );
     assert_eq!(
         strip_of(&view, 70102),
         (1, true, 0, 627, 0),
@@ -863,7 +876,7 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
     let mut window = Headless::sized(1100.0, 700.0);
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: the body is shown"),
+        label_value(&nodes, "The default body is currently shown"),
         "premise: shown"
     );
 
@@ -873,7 +886,7 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
     });
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: the body is hidden"),
+        label_value(&nodes, "The default body is currently hidden"),
         "Ctrl+I hid him"
     );
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
@@ -884,7 +897,7 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
     });
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: the body is shown"),
+        label_value(&nodes, "The default body is currently shown"),
         "Ctrl+I showed him"
     );
     assert_eq!(strip_of(&view, 70101), (1, true, 0, 0, 0));
@@ -900,14 +913,14 @@ fn ctrl_i_toggles_the_fpc_visibility_both_ways_and_the_menu_item_too() {
     click(&mut window, item, &mut view);
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: the body is hidden"),
+        label_value(&nodes, "The default body is currently hidden"),
         "the menu toggle hid him"
     );
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
 }
 
 // The PES 15/16 half of the same scenario: the appearance block is a
-// separate record there; Hide body round-trips through Save and reopen.
+// separate record there; Hide default body round-trips through Save and reopen.
 // SE-GUI-11
 #[test]
 fn hide_body_round_trips_on_pes16() {
@@ -926,10 +939,14 @@ fn hide_body_round_trips_on_pes16() {
     let mut window = Headless::sized(1100.0, 900.0);
 
     let nodes = appearance_frame(&mut window, &mut view);
-    click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
+    click(
+        &mut window,
+        fpc_button(&nodes, "Hide default body"),
+        &mut view,
+    );
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 55, 11));
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_value(&nodes, "FPC: the body is hidden"));
+    assert!(label_value(&nodes, "The default body is currently hidden"));
 
     window.frame(vec![key(egui::Key::S, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
@@ -952,7 +969,7 @@ fn hide_body_round_trips_on_pes16() {
     );
 }
 
-// The FPC items' half of the lock: under it the section's Hide/Show body,
+// The FPC items' half of the lock: under it the section's Hide/Show default body,
 // the Player menu's Toggle FPC settings and the Team menu's FPC items are
 // disabled with the ownership line as hover; Ctrl+I is a no-op while Set
 // all stats and Copy stats stay enabled.
@@ -972,7 +989,7 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
 
     // The section's two buttons disabled, each hover the ownership line.
     let nodes = appearance_frame(&mut window, &mut view);
-    for label in ["Hide body", "Show body"] {
+    for label in ["Hide default body", "Show default body"] {
         let button = fpc_button(&nodes, label);
         assert!(button.is_disabled(), "{label} is disabled under the lock");
         assert_eq!(
@@ -1055,8 +1072,8 @@ fn the_lock_disables_the_fpc_items_with_the_ownership_line() {
 }
 
 // The hide IDs are the common settings' (`view.hide_ids`): with IDs 60
-// and 12, Hide body writes them and the classifier reads them back; a
-// player still on the convention's 55 reads "FPC: the body is shown", the save
+// and 12, Hide default body writes them and the classifier reads them back; a
+// player still on the convention's 55 reads "The default body is currently shown", the save
 // itself never rewritten by the change.
 // SE-GUI-31
 #[test]
@@ -1083,27 +1100,35 @@ fn the_hide_ids_come_from_the_settings() {
     view.hide_ids = fpc::HideIds::new(60, 12);
     let mut window = Headless::sized(1100.0, 900.0);
 
-    // Hide body on 70101 (IDs 0): boots 60 and gloves 12, "FPC: the body is hidden".
+    // Hide default body on 70101 (IDs 0): boots 60 and gloves 12, "...hidden".
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: the body is shown"),
+        label_value(&nodes, "The default body is currently shown"),
         "premise: shown"
     );
-    click(&mut window, fpc_button(&nodes, "Hide body"), &mut view);
+    click(
+        &mut window,
+        fpc_button(&nodes, "Hide default body"),
+        &mut view,
+    );
     assert_eq!(strip_of(&view, 70101), (2, false, 2, 60, 12));
     let nodes = appearance_frame(&mut window, &mut view);
-    assert!(label_value(&nodes, "FPC: the body is hidden"));
+    assert!(label_value(&nodes, "The default body is currently hidden"));
 
-    // Show body: both 0 again (the record holds the hide IDs).
-    click(&mut window, fpc_button(&nodes, "Show body"), &mut view);
+    // Show default body: both 0 again (the record holds the hide IDs).
+    click(
+        &mut window,
+        fpc_button(&nodes, "Show default body"),
+        &mut view,
+    );
     assert_eq!(strip_of(&view, 70101), (1, true, 0, 0, 0));
 
-    // 70102 still on the convention's boots 55 reads "FPC: the body is shown":
+    // 70102 still on the convention's boots 55 reads "The default body is currently shown":
     // the new hide ID is 60, and the save was never rewritten.
     view.selected = Some(Selection::Player(701, 1));
     let nodes = appearance_frame(&mut window, &mut view);
     assert!(
-        label_value(&nodes, "FPC: the body is shown"),
+        label_value(&nodes, "The default body is currently shown"),
         "the old convention's ID is no longer the hide ID"
     );
 }
@@ -1140,7 +1165,7 @@ fn the_tool_carries_the_common_hide_ids_into_the_view() {
     let mut window = Headless::sized(1100.0, 900.0);
     open_appearance(&mut window, &mut tool.view);
     scroll_into_view(&mut window, &mut tool.view, |node| {
-        node.role() == Role::Button && node.label() == Some("Hide body")
+        node.role() == Role::Button && node.label() == Some("Hide default body")
     });
     window.frame(Vec::new(), |ui| tool.view(ui, &ctx));
     assert_eq!(
@@ -1155,9 +1180,21 @@ fn the_tool_carries_the_common_hide_ids_into_the_view() {
     let (_, nodes, _) = window.frame(Vec::new(), |ui| {
         show(ui, &mut tool.view, &|| Vec::new(), None)
     });
-    click(&mut window, fpc_button(&nodes, "Hide body"), &mut tool.view);
-    assert_eq!(strip_of(&tool.view, 70101).3, 60, "Hide body wrote 60");
-    assert_eq!(strip_of(&tool.view, 70101).4, 12, "Hide body wrote 12");
+    click(
+        &mut window,
+        fpc_button(&nodes, "Hide default body"),
+        &mut tool.view,
+    );
+    assert_eq!(
+        strip_of(&tool.view, 70101).3,
+        60,
+        "Hide default body wrote 60"
+    );
+    assert_eq!(
+        strip_of(&tool.view, 70101).4,
+        12,
+        "Hide default body wrote 12"
+    );
 }
 
 // `view.hide_ids` an `Err` (a setting outside its band): the FPC line
@@ -1185,10 +1222,10 @@ fn an_out_of_band_hide_id_disables_the_fpc_paths_with_the_error() {
         "the FPC line is the error's text"
     );
     assert!(
-        !label_value(&nodes, "FPC: the body is shown"),
+        !label_value(&nodes, "The default body is currently shown"),
         "the reading is not drawn"
     );
-    for label in ["Hide body", "Show body"] {
+    for label in ["Hide default body", "Show default body"] {
         let button = fpc_button(&nodes, label);
         assert!(button.is_disabled(), "{label} is disabled");
         assert_eq!(

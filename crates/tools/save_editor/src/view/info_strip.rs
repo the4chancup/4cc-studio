@@ -10,7 +10,7 @@
 //! and, when it changes, pushes it under its own `egui::Id` (the undo
 //! stack's merge key).
 
-use pes_savefile::interchange::team_toml::labels::{FOOT, POSITIONS, title_case};
+use pes_savefile::interchange::team_toml::labels::POSITIONS;
 use pes_savefile::model::names::{crop_player_text, name_fits, shirt_name_edit_fits};
 use pes_savefile::model::{PlayerEntry, PlayerPositions, PlayerStats};
 use pes_savefile::schema::fields::{PlayerField, PlayerText, RosterField};
@@ -21,8 +21,8 @@ use team_widgets::names::append_name;
 
 use crate::session::Session;
 use crate::view::abilities::{
-    PLAYING_STYLE_LABEL, REGISTERED_POSITION_LABEL, SMALL_STATS, STRONGER_FOOT_LABEL,
-    STRONGER_HAND_LABEL, SmallStat, foot_label, gating_tooltip, position_label,
+    self, PLAYING_STYLE_LABEL, REGISTERED_POSITION_LABEL, SMALL_STATS, STRONGER_FOOT_LABEL,
+    STRONGER_HAND_LABEL, SmallStat, gating_tooltip, position_label,
 };
 use crate::view::live_marks::{self, MarkedField, Marks};
 use crate::view::{SaveView, edit_player, edit_team, selected_player};
@@ -358,9 +358,10 @@ pub(super) fn general(
         pair_half(ui, Half::Second, "Captain", None, |ui| {
             // The team's `captain` is this roster slot, 0-based as stored: a
             // radio the second click cannot untick (the captain belongs to
-            // the slot) — at the left edge of its half's box.
+            // the slot) — centred in its 54-wide box, under the Nation box
+            // (the draft's `.pair > .box` `justify-content: center`).
             ui.allocate_ui(egui::vec2(BOX_WIDTH, ui.spacing().interact_size.y), |ui| {
-                ui.horizontal(|ui| {
+                ui.centered_and_justified(|ui| {
                     let response = ui.radio(captain, "");
                     if response.clicked() {
                         edit_team(session, team_id, response.id.value(), |team| {
@@ -625,57 +626,27 @@ fn combos(
         .spacing(egui::vec2(FIELD_ROW_GAP, spacing_y))
         .show(ui, |ui| {
             ui.label(STRONGER_FOOT_LABEL);
-            let mut foot = positions.stronger_foot;
-            let foot_combo = egui::ComboBox::from_id_salt("abilities stronger foot")
-                .selected_text(foot_label(foot))
-                .width(field_width)
-                .show_ui(ui, |ui| {
-                    for (index, label) in FOOT.iter().enumerate() {
-                        ui.selectable_value(&mut foot, index as u8, title_case(label));
-                    }
+            if let Some((side, key)) = side_row(ui, field_width, positions.stronger_foot) {
+                edit_player(session, player_id, key, |player| {
+                    player.positions.stronger_foot = side;
                 });
-            if foot != positions.stronger_foot {
-                edit_player(
-                    session,
-                    player_id,
-                    foot_combo.response.id.value(),
-                    |player| {
-                        player.positions.stronger_foot = foot;
-                    },
-                );
             }
             ui.end_row();
             ui.label(STRONGER_HAND_LABEL);
             match positions.stronger_hand {
                 Some(stored) => {
-                    let mut hand = stored;
-                    let hand_combo = egui::ComboBox::from_id_salt("abilities stronger hand")
-                        .selected_text(foot_label(hand))
-                        .width(field_width)
-                        .show_ui(ui, |ui| {
-                            for (index, label) in FOOT.iter().enumerate() {
-                                ui.selectable_value(&mut hand, index as u8, title_case(label));
-                            }
+                    if let Some((side, key)) = side_row(ui, field_width, stored) {
+                        edit_player(session, player_id, key, |player| {
+                            player.positions.stronger_hand = Some(side);
                         });
-                    if hand != stored {
-                        edit_player(
-                            session,
-                            player_id,
-                            hand_combo.response.id.value(),
-                            |player| {
-                                player.positions.stronger_hand = Some(hand);
-                            },
-                        );
                     }
                 }
                 None => {
-                    // The version has no stronger hand: the combo stays, at
-                    // Right, disabled with the `PES NN+` tooltip (SE-GUI-06).
+                    // The version has no stronger hand: the toggle stays,
+                    // at Right, disabled with the `PES NN+` tooltip
+                    // (SE-GUI-06).
                     ui.add_enabled_ui(false, |ui| {
-                        egui::ComboBox::from_id_salt("abilities stronger hand")
-                            .selected_text(foot_label(0))
-                            .width(field_width)
-                            .show_ui(ui, |_ui| ());
+                        side_row(ui, field_width, 0);
                     })
                     .response
                     .on_disabled_hover_text(gating_tooltip(PlayerField::StrongerHand));
@@ -696,8 +667,12 @@ fn combos(
                 .selected_text(position_label(registered))
                 .width(field_width)
                 .show_ui(ui, |ui| {
-                    for (index, label) in POSITIONS.iter().enumerate() {
-                        ui.selectable_value(&mut registered, index as u8, *label);
+                    for index in 0..POSITIONS.len() {
+                        ui.selectable_value(
+                            &mut registered,
+                            index as u8,
+                            position_label(index as u8),
+                        );
                     }
                 });
             if registered != positions.registered {
@@ -726,6 +701,38 @@ fn combos(
             });
             ui.end_row();
         });
+}
+
+/// The `Left | Right` two-choice toggle of the `Stronger foot`/`Stronger
+/// hand` rows (the draft's `.rate.lr`: the two choices equal halves of
+/// `field_width`, a point apart, the held one filled the positions
+/// grid's C grey with the normal text colour — `Button::selectable`, as
+/// the grid's ratings draw). `FOOT` stores right 0 and left 1; the
+/// toggle draws Left first. Returns the picked side's stored index and
+/// its button's id value (the undo merge key) on a click.
+fn side_row(ui: &mut egui::Ui, field_width: f32, held: u8) -> Option<(u8, u64)> {
+    let mut picked = None;
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 1.0;
+        let side = (field_width - ui.spacing().item_spacing.x) / 2.0;
+        for (label, stored) in [("Left", 1u8), ("Right", 0u8)] {
+            let held = held == stored;
+            let button = if held {
+                egui::Button::selectable(
+                    true,
+                    egui::RichText::new(label).color(ui.visuals().text_color()),
+                )
+                .fill(abilities::RATING_C_FILL)
+            } else {
+                egui::Button::selectable(false, label)
+            };
+            let response = ui.add_sized([side, ui.spacing().interact_size.y], button);
+            if response.clicked() && !held {
+                picked = Some((stored, response.id.value()));
+            }
+        }
+    });
+    picked
 }
 
 /// Live AATF's cross after `label`'s text (the plan bullet's "after the

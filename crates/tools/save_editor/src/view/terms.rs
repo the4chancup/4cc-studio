@@ -552,8 +552,8 @@ mod tests {
         assert_term(
             &row_term(version, &field(PlayerField::RegisteredPosition, 1, 0)),
             "Registered position",
-            "CB",
-            "GK",
+            "CB - Centre Back",
+            "GK - Goalkeeper",
         );
         // PES 17's stored 15 is the Build Up of the version's own list.
         assert_eq!(player.positions.playing_style, 15, "premise");
