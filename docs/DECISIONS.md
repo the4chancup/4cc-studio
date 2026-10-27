@@ -11723,3 +11723,17 @@ what is queued is only testing what no 0.0.1 change reaches (`gates-changed` alr
 covers every package depending on a changed one).
 Plan: no plan edit needed: a scheduling rule, held in `WORKLOG.md` "Current-state gotchas"
 until the cut.
+
+## 2026-10-27 — save_editor — The short name's three characters, the pitch drag's swap mark, Scroll names
+Decision: the team view's short name box takes three characters; a dragged starter held over
+another marks him with the selected player's corner brackets, drawn over everything, the
+dragged marker at 35% opacity over him, the dragged one's own spot never the target; a
+"Scroll names" checkbox right of the formations' Copy/swap, on by default and remembered in
+the tool's settings, holds wider names still when off.
+Why: the maintainer's requests, approved on the draft: a drop on another starter swaps the two,
+and with nothing shown before the release, a drag meant only to move a player swapped him by
+surprise; the brackets alone were hidden under the dragged marker, which sits on its target, so
+it goes half transparent. The game shows a three-letter abbreviation and stores 4 bytes. The
+checkbox is a view setting, remembered as Live AATF's toggle is (the maintainer's yes).
+Plan: `plans/save_editor.md` "Editing UI": the team view bullet, the pitch's marker paragraph,
+"A pitch player dropped on another".

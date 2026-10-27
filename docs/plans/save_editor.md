@@ -355,7 +355,9 @@ all side by side.
     movements and celebrations that game does not have (its tops are 5 and 112) and never
     reach PES 18's and 19's last celebrations (127, 140); the measured tops do neither.
 - **The team view**: the team's name, short name and colours 1-2 (RGB, each colour's picker
-  and its hex) on one row; then manager ID and stadium ID (19+) and a **Kit slots…** button
+  and its hex) on one row, the short name's box taking three characters (the game shows a
+  three-letter abbreviation; every version stores it in 4 bytes, so a longer one typed would
+  not reach the game as typed); then manager ID and stadium ID (19+) and a **Kit slots…** button
   opening the kit slot assignments in a dialog (rarely edited, so not a panel that pushes the
   tactics down; a version that stores none says so in it); then the Tactics editor (below),
   whose bench list shows the players only (12 for a 4cc team), not the 21 bench-order entries
@@ -531,7 +533,10 @@ Win32 original hurt the most):
     game's does (measured on four names over 30 s captures): every 13.5 s it scrolls left at
     40 px/s through one loop, its width plus a 16 px gap after which its start follows,
     so it ends where it began, and holds still the rest of the period; a name that fits never
-    moves. Each name's period starts when the pitch first shows it, still first. The game
+    moves. A **Scroll names** checkbox right of the formations' Copy/swap, on by default and
+    remembered in the tool's settings as Live AATF is, holds every wider name still at its
+    badge's left when off (a view setting, not an edit: no undo entry, no unsaved dot). Each
+    name's period starts when the pitch first shows it, still first. The game
     staggers names by a rule not established (two names 2.1 s apart); the editor's start
     together when the team view opens. The captain's mark, a white rounded box with a black "C", 12 x 11, sits
     1 px inside the badge's left edge, 5 px above it, over the portrait. A starter whose
@@ -611,6 +616,11 @@ What the controls write, where the draft and 4ccEditor's tab (`tab_four_dlg_proc
   as in the game's own formation screen; one released on the grass moves to the snapped drop
   point, and one released off the pitch stays where he was. A lineup row released on the grass
   does nothing, as in the draft: a row moves players between the lists, never on the pitch.
+  While a dragged starter is held over another, that one carries the selected player's corner
+  brackets (`#14fbff`), drawn over everything, and the dragged marker goes to 35% opacity over
+  him, so a drag meant only to move a player shows the swap before the release and can be
+  steered off it onto the grass. The dragged marker's own spot is never the target: the drop
+  hits the marker drawn on top among the others, so the mark and the release always agree.
 - **A starter swapped with a bench player** hands the bench player every set-piece role, the
   joining of the attack and every preset's instruction targets the starter held; the captain
   stays who he was, as in 4ccEditor.

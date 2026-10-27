@@ -2971,15 +2971,28 @@ briefs, review loops, gates and mutation runs as for any step.
     numbers' three-choice toggles, Join the attack's three rows, Advanced instructions' grid,
     Automatic settings' grid and Substitution combo, Copy/swap on the selection, the medal
     initials on the badges → verify: SE-GUI-12, SE-GUI-25; then o2b on it
-  - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted, waiting for the
-    maintainer's look; `docs/prototypes/tools/save_editor.js` `teamFields`, `hitMarker`,
+  - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
+    remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
+    characters, the pitch drag's swap mark, Scroll names";
+    `docs/prototypes/tools/save_editor.js` `teamFields`, `hitMarker`,
     `drawPitch`, `scrollNames`; renders `.tmp/0_0_1s/draft_tactics_req3_*.png` by
     `.tmp/0_0_1s/draft_swap_scroll.py`): the team view's short name box takes three
     characters; a pitch drag held over another starter marks him with the selection's corner
     brackets, the dragged marker at 35% opacity over him, so a drag meant only to move can be
     steered off; a "Scroll names" checkbox right of the formations' Copy/swap, on by
-    default, which holds a wider name still at its badge's left when off. Plan and
-    DECISIONS once approved; then the code with s5
+    default, which holds a wider name still at its badge's left when off → verify: a test per
+    request in the built view; the code with s5
+  - [ ] s7 the maintainer's second batch of 2026-10-27 (drafted, waiting for the maintainer's
+    look; `save_editor.js` `DEFENDING`, `versionInstructions`, `instructionsFor`, the team
+    selector's callback in `renderMaster`, `teamRow`'s `.thint`; renders
+    `.tmp/0_0_1s/draft_list_req4_*.png`, `draft_instr_req5.png`): Advanced instructions'
+    attack combos offer the attacking instructions and the defence combos the defending ones
+    (the game's split, read on the Rigged Wiki's Tactical pages for PES 2017, 2019 and 2021,
+    Konami's PES 2019 manual counting 9 and 6, every version's stored table listing the
+    attacking ones first; Anchoring, new in 2020, attacking); a team picked in
+    the team selector selects its team row, so the view shows its tactics (ALL keeps the
+    selection); each team row reads `[click for tactics]` in the weak grey after the name,
+    elided before the name is. Plan and DECISIONS once approved; then the code with s5
 - [x] 0.0.1t a rules file a member handles ends in `.4ccrules` (the maintainer, 2026-10-26;
   DECISIONS "A rules file a member handles ends in `.4ccrules`"; `plans/aatf_rules.md` "The
   rules file"): the Save editor's settings row and AATF panel and the Ruleset editor's pickers

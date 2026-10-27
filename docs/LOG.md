@@ -2580,3 +2580,5 @@ worklog passed 7,000 lines.
   mutation runs stay here; anything else waits. Three new Save editor requests drafted (0.0.1s s6), four queued (8.31-8.34).
 - **2026-10-27** — Live AATF's marks reworked twice (o2a r3, r4): a row's unsaved dot at its right end in the warning colour,
   9 px before the mark as the draft draws it; the mutation run's survivors tested. `gates-changed` green, 2917 tests.
+- **2026-10-27** — The maintainer approved s6 (short name three characters, the pitch drag's swap mark, Scroll names
+  remembered); a second batch drafted (s7: attack and defence instructions apart, a picked team's tactics, the row's hint).
