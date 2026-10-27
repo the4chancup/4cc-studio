@@ -150,7 +150,7 @@ exist yet (every Phase 2 crate), the plan's data-shape rules stand in for one.
   semicolons and colons, and no shorthand from the code ("gating", "widgets", "targets"). Correct
   but dry: "This save is PES 17; the selector targets PES 2019. The save keeps its own version:
   its widgets and gating stay PES 17's." Natural: "Although the sidebar is set to PES 2019, this
-  save is from PES 2017, so the editor keeps treating it as a PES 2017 save." A member reads the
+  save is from PES 2017, so the editor will keep treating it as a PES 2017 save." A member reads the
   dry version twice and still wonders what to do; the review of a change that adds such text
   reads each new line aloud.
 - **No em dashes in text a user reads**: the README, the help chapters, message catalog text,

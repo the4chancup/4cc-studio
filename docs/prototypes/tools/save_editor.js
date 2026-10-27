@@ -2652,7 +2652,7 @@ function versionNoticeFollow(sel) {
   if (ver.notice && ver.notice.sel === sel) return;
   ver.notice = publishNotice("Although the sidebar is set to PES " + sel
     + ", this save is from PES " + save
-    + ", so the editor keeps treating it as a PES " + save + " save.",
+    + ", so the editor will keep treating it as a PES " + save + " save.",
     { label: "Switch to PES " + save,
       run: () => { ver.live = false; ver.notice = null; D.selectorVersion = save; render(); } },
     "warning");
