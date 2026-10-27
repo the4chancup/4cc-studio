@@ -854,6 +854,79 @@ fn label_bounds(nodes: &[accesskit::Node], value: &str) -> accesskit::Rect {
         .unwrap_or_else(|| panic!("no label {value:?}"))
 }
 
+/// The chips under `label`'s, top to bottom (each `.tset`'s chip shares
+/// its label's left edge — the Player assignments' rows).
+fn chips_below<'a>(nodes: &'a [accesskit::Node], label: &str) -> Vec<&'a accesskit::Node> {
+    let bounds = label_bounds(nodes, label);
+    let mut found: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.y0 > bounds.y0 && (b.x0 - bounds.x0).abs() < 1.0)
+        })
+        .collect();
+    found.sort_by(|a, b| {
+        let y = |node: &&accesskit::Node| node.bounds().expect("bounds").y0;
+        y(a).partial_cmp(&y(b)).expect("ordered bounds")
+    });
+    found
+}
+
+/// The chip under `label`'s of the "Player assignments" palette (the
+/// first one below it — a role's own).
+fn chip<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
+    chips_below(nodes, label)
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| panic!("no chip under {label:?}"))
+}
+
+/// The Formation settings' half width: the right label column's x less
+/// the left's and the 16-point gap.
+fn settings_half(nodes: &[accesskit::Node]) -> f64 {
+    let xs = |label: &str| label_bounds(nodes, label).x0;
+    xs("Defensive style") - xs("Attacking style") - 16.0
+}
+
+/// The `role` widgets under `label`'s, in its Formation settings
+/// column (the label over its control).
+fn widgets_below<'a>(
+    nodes: &'a [accesskit::Node],
+    label: &str,
+    role: Role,
+) -> Vec<&'a accesskit::Node> {
+    let bounds = label_bounds(nodes, label);
+    let half = settings_half(nodes);
+    let mut found: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == role
+                && node.bounds().is_some_and(|b| {
+                    b.y0 > bounds.y0
+                        && b.y0 <= bounds.y1 + 10.0
+                        && b.x0 >= bounds.x0 - 1.0
+                        && b.x0 <= bounds.x0 + half + 1.0
+                })
+        })
+        .collect();
+    found.sort_by(|a, b| {
+        let x = |node: &&accesskit::Node| node.bounds().expect("bounds").x0;
+        x(a).partial_cmp(&x(b)).expect("ordered bounds")
+    });
+    found
+}
+
+/// The Button labeled `text` under `label`'s, in its column (a
+/// control's choice of a style pair or a numbers toggle).
+fn choice_below<'a>(nodes: &'a [accesskit::Node], label: &str, text: &str) -> &'a accesskit::Node {
+    widgets_below(nodes, label, Role::Button)
+        .into_iter()
+        .find(|node| node.label() == Some(text))
+        .unwrap_or_else(|| panic!("no {text:?} below {label:?}"))
+}
+
 /// The AccessKit id of the `role` node on `label`'s row to its right (a
 /// label/field pair's field: `right_of_label` on the node pairs `frame_ids`
 /// returns).

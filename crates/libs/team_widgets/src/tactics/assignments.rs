@@ -139,12 +139,14 @@ pub(super) fn role_label(field: TacticsField) -> Option<&'static str> {
         .map(|role| role.label)
 }
 
-/// The "Player assignments" group's chips (the draft's role palette):
-/// one chip per role — "<label>: <holder's name or Unassigned>" — and
-/// the join-attack chip listing its members' names, "none" when empty.
-/// A click arms the mode and closes the slot popover; a click on the
-/// armed chip disarms it (the draft's `roleChip`/`joinChip`). The
-/// panel's heading is the caller's `panel`.
+/// The "Player assignments" group's rows (the draft's `#tac-side
+/// .tachalf`): one column of `.tset` rows 3 points apart — each of the
+/// six takers and the captain its label over a chip the column's width,
+/// then "Join the attack" over three chips, one per joining player. A
+/// chip click arms its mode and closes the slot popover; a click on an
+/// armed chip disarms it (the draft's `roleChip`/`joinChip`), and any
+/// of the three join chips arms the one join mode, all three filled
+/// while it is armed. The panel's heading is the caller's `panel`.
 pub(super) fn player_assignments(
     ui: &mut egui::Ui,
     set_pieces: &SetPieceTakers,
@@ -152,111 +154,150 @@ pub(super) fn player_assignments(
     view: &mut TacticsView,
     roster: &[RosterRow<'_>],
 ) {
-    ui.horizontal_wrapped(|ui| {
-        for (index, role) in SET_PIECES.iter().enumerate() {
-            let holder = (role.get)(set_pieces);
-            let name = if holder == u8::MAX {
-                "Unassigned".to_owned()
-            } else {
-                name_at(roster, holder).to_owned()
-            };
-            let armed = view.assign == Some(Assign::Role(index));
-            if ui
-                .selectable_label(armed, format!("{}: {}", role.label, name))
-                .on_hover_text("Click, then a pitch player")
-                .clicked()
-            {
-                view.assign = (!armed).then_some(Assign::Role(index));
-                view.popover = None;
-            }
-        }
-        // The join chip lists the members' first names, as the draft does.
-        let members: Vec<&str> = joined
-            .iter()
-            .filter(|&&slot| slot != u8::MAX)
-            .map(|&slot| {
-                name_at(roster, slot)
-                    .split_whitespace()
-                    .next()
-                    .unwrap_or("(empty)")
-            })
-            .collect();
-        let armed = view.assign == Some(Assign::Join);
-        let label = if members.is_empty() {
-            "Join attack: none".to_owned()
+    // The frame fills the cell the host gives the panel (the pitch's
+    // height), as `formation_settings`' does.
+    ui.set_min_height(ui.available_height());
+    // `.tachalf`: rows 3 points apart; inside a `.tset`, the label 2
+    // above its chip.
+    ui.spacing_mut().item_spacing.y = 2.0;
+    ui.spacing_mut().button_padding = CHIP_PADDING;
+    for (index, role) in SET_PIECES.iter().enumerate() {
+        ui.label(role.label);
+        let holder = (role.get)(set_pieces);
+        let name = if holder == u8::MAX {
+            "Unassigned".to_owned()
         } else {
-            format!("Join attack: {}", members.join(", "))
+            name_at(roster, holder).to_owned()
         };
-        if ui
-            .selectable_label(armed, label)
-            .on_hover_text("Click, then up to three pitch players")
-            .clicked()
-        {
-            view.assign = (!armed).then_some(Assign::Join);
+        let armed = view.assign == Some(Assign::Role(index));
+        if chip(ui, &name, armed, "Click, then a pitch player").clicked() {
+            view.assign = (!armed).then_some(Assign::Role(index));
             view.popover = None;
         }
-    });
+        // 3 points to the next row.
+        ui.add_space(1.0);
+    }
+    // "Join the attack" shows its three players as three rows, one per
+    // joining player — `Unassigned` where fewer join — all three the
+    // one picker's chips.
+    ui.label("Join the attack");
+    let join_armed = view.assign == Some(Assign::Join);
+    let members: Vec<u8> = joined
+        .iter()
+        .copied()
+        .filter(|&slot| slot != u8::MAX)
+        .collect();
+    for k in 0..3 {
+        let name = members
+            .get(k)
+            .map(|&slot| name_at(roster, slot).to_owned())
+            .unwrap_or_else(|| "Unassigned".to_owned());
+        if chip(
+            ui,
+            &name,
+            join_armed,
+            "Click, then up to three pitch players",
+        )
+        .clicked()
+        {
+            view.assign = (!join_armed).then_some(Assign::Join);
+            view.popover = None;
+        }
+    }
+}
+
+/// A chip's padding (the draft's `.rolechip` `padding: 1px 6px`).
+const CHIP_PADDING: egui::Vec2 = egui::vec2(6.0, 1.0);
+
+/// One chip of the palette (the draft's `.rolechip`): the column's
+/// width, the holder's name left-aligned and cut with an ellipsis at
+/// the edge — the full name its hover then, `hint` when it fits.
+fn chip(ui: &mut egui::Ui, name: &str, armed: bool, hint: &'static str) -> egui::Response {
+    let width = ui.available_width();
+    let response = ui.add(
+        egui::Button::selectable(armed, name.to_owned())
+            .truncate()
+            .small()
+            .min_size(egui::vec2(width, 0.0)),
+    );
+    let chrome = 2.0 * ui.spacing().button_padding.x;
+    if super::text_width(ui, name) > width - chrome {
+        response.on_hover_text(name.to_owned())
+    } else {
+        response.on_hover_text(hint)
+    }
 }
 
 #[cfg(test)]
 mod tests {
-    use egui::accesskit::{self, Role};
+    use egui::accesskit;
 
     use pes_version::PesVersion;
 
     use super::*;
     use crate::tactics::tests::click;
-    use crate::test_support::{Headless, fixture_rows, fixture_tactics, roster_rows};
+    use crate::test_support::{Headless, chips_below, fixture_rows, fixture_tactics, roster_rows};
 
-    // The draft's "Player assignments" palette: one chip per role naming
-    // its holder ("Unassigned" when none) and the join chip's members
-    // ("none" when empty); a click arms and disarms the mode.
+    // The draft's "Player assignments" column (`.tachalf`): each of the
+    // six takers and the captain its label over a chip showing the
+    // holder's name ("Unassigned" when none), then "Join the attack"
+    // over three chips, one per joining player; a click arms, an armed
+    // click disarms, and all three join chips show armed together.
     #[test]
-    fn the_assignment_chips_name_their_holders_and_toggle_the_mode() {
-        let mut window = Headless::sized(1400.0, 900.0);
+    fn the_assignment_rows_name_their_holders_and_arm_the_modes() {
+        let mut window = Headless::sized(1400.0, 1200.0);
         let version = PesVersion::Pes21;
         let mut tactics = fixture_tactics(version);
+        tactics.players_to_join_attack = [tactics.starting_eleven[2], u8::MAX, u8::MAX];
         let mut view = TacticsView::default();
         let rows = fixture_rows(version);
         let roster = roster_rows(&rows);
         let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
         for role in &SET_PIECES {
             let holder = (role.get)(&tactics.set_pieces);
-            let expected = format!("{}: {}", role.label, name_at(&roster, holder));
-            assert!(
-                nodes
-                    .iter()
-                    .any(|node| node.role() == Role::Button && node.label() == Some(&*expected)),
-                "no chip {expected:?}"
+            let expected = if holder == u8::MAX {
+                "Unassigned".to_owned()
+            } else {
+                name_at(&roster, holder).to_owned()
+            };
+            // The chip directly under the label (the next role's chip
+            // is a label further down).
+            let chip = chips_below(&nodes, role.label)
+                .into_iter()
+                .next()
+                .unwrap_or_else(|| panic!("{}: no chip under its label", role.label));
+            assert_eq!(
+                chip.label(),
+                Some(expected.as_str()),
+                "{}'s chip names its holder",
+                role.label
             );
         }
-        assert!(
-            nodes.iter().any(
-                |node| node.role() == Role::Button && node.label() == Some("Join attack: none")
-            ),
-            "the join chip reads none when empty"
-        );
-
-        // An unassigned role reads "Unassigned".
-        tactics.set_pieces.free_kick_long = u8::MAX;
-        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-        assert!(
-            nodes.iter().any(|node| node.role() == Role::Button
-                && node.label() == Some("Long free kick: Unassigned")),
-            "an unassigned role reads Unassigned"
-        );
-
-        // A click arms, the armed chip shows selected, a second click
-        // disarms.
-        let penalty = nodes
+        // "Join the attack": one chip per entry — a name where one
+        // joins, "Unassigned" where none.
+        let joined: Vec<String> = tactics
+            .players_to_join_attack
             .iter()
-            .find(|node| {
-                node.role() == Role::Button
-                    && node
-                        .label()
-                        .is_some_and(|label| label.starts_with("Penalty kick:"))
+            .filter(|&&slot| slot != u8::MAX)
+            .map(|&slot| name_at(&roster, slot).to_owned())
+            .collect();
+        let expected: Vec<String> = (0..3)
+            .map(|k| {
+                joined
+                    .get(k)
+                    .cloned()
+                    .unwrap_or_else(|| "Unassigned".to_owned())
             })
-            .expect("the penalty chip");
+            .collect();
+        let chips = chips_below(&nodes, "Join the attack");
+        assert_eq!(chips.len(), 3, "three join chips");
+        for (chip, expected) in chips.iter().zip(&expected) {
+            assert_eq!(chip.label(), Some(expected.as_str()));
+        }
+
+        // A role chip click arms its mode and closes the slot popover;
+        // the armed chip shows selected; a second click disarms.
+        let penalty = chips_below(&nodes, "Penalty kick")[0];
         assert_eq!(
             penalty.toggled(),
             Some(accesskit::Toggled::False),
@@ -273,15 +314,7 @@ mod tests {
         assert!(!changed, "arming writes no record");
         assert_eq!(view.assign, Some(Assign::Role(5)), "armed for the penalty");
         let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-        let penalty = nodes
-            .iter()
-            .find(|node| {
-                node.role() == Role::Button
-                    && node
-                        .label()
-                        .is_some_and(|label| label.starts_with("Penalty kick:"))
-            })
-            .expect("the penalty chip");
+        let penalty = chips_below(&nodes, "Penalty kick")[0];
         assert_eq!(
             penalty.toggled(),
             Some(accesskit::Toggled::True),
@@ -297,5 +330,39 @@ mod tests {
         );
         assert!(!changed, "disarming writes no record");
         assert_eq!(view.assign, None, "the second click disarms");
+
+        // Any join chip arms the one join mode, all three selected
+        // while armed; an armed click disarms.
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let third = chips_below(&nodes, "Join the attack")[2];
+        let (_, changed) = click(
+            &mut window,
+            third,
+            version,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+        assert!(!changed, "arming writes no record");
+        assert_eq!(view.assign, Some(Assign::Join), "join armed");
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        for chip in chips_below(&nodes, "Join the attack") {
+            assert_eq!(
+                chip.toggled(),
+                Some(accesskit::Toggled::True),
+                "all three chips show armed"
+            );
+        }
+        let third = chips_below(&nodes, "Join the attack")[2];
+        let (_, changed) = click(
+            &mut window,
+            third,
+            version,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+        assert!(!changed, "disarming writes no record");
+        assert_eq!(view.assign, None, "the armed click disarms");
     }
 }

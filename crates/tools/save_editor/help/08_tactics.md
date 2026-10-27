@@ -35,19 +35,27 @@ another starter trades their places. A bench player dropped on a starter takes
 his place and every job he held (set pieces, joining the attack, instruction
 targets). The captain stays who he was.
 
-The **Player assignments** chips set who takes each set piece, the captain and
-who joins the attack: click a chip, then click the pitch player. Join attack
-keeps its mode open so up to three can be picked or unpicked; click the chip
-again to close the mode.
+The **Player assignments** rows set who takes each set piece, the captain and
+who joins the attack: each is a label over a chip naming its holder, or
+**Unassigned** where nobody holds it. **Join the attack** has three chips,
+one per joining player. Click a chip, then click the pitch player. Join
+keeps its mode open so up to three can be picked or unpicked, and all three
+chips stay highlighted while it is open; click a chip again to close it.
 
 The **Preset** buttons on the left of the preset bar pick which of the team's
 three presets the panels below edit. Switching presets changes nothing by
 itself. The **Fluid formation** checkbox beside them (PES 2016 and later)
 decides whether the game uses the second and third formations.
 
-**Formation settings** holds the five sliders (support range, defensive line,
-compactness, and the numbers joining attack and defence) and the seven style
-pairs, each named as the game names its two choices.
+**Formation settings** pairs each attacking setting with its defensive
+counterpart in six rows: attacking style beside defensive style, buildup
+beside containment area, attacking zone beside pressure, positioning beside
+defensive line, support range beside compactness, and numbers in attack
+beside numbers in defence. Each is a label over its control: a slider with
+its value at the right, three choices (Few, Medium, Many) for the numbers,
+or a two-choice switch named as the game names its two choices. The
+defensive style's choices are shortened so the row fits; point at one to
+read its full name.
 
 **Advanced instructions** (PES 2017 and later) sets the team's two attack and
 two defence instructions. Tight Marking is never offered, because it marks an

@@ -2600,3 +2600,5 @@ worklog passed 7,000 lines.
   a stack overflow leaves `studio.dmp` the next start names beside the old log; the exe grew 140.5 KiB (0.0.1k4b).
 - **2026-10-27** — The crash dump's checks closed: Astra's checkpoint found one case and it was ruled an edge case; the release dump
   names `overflow_the_stack` through `dump_syms` and `minidump-stackwalk`; a normal close leaves no monitor (0.0.1k4b).
+- **2026-10-27** — The Tactics editor's middle row redrawn (0.0.1s5b, SWE-2, one run): Formation settings as six rows of
+  attacking and defensive pairs with Few | Medium | Many for the numbers, Player assignments as label-over-chip rows.

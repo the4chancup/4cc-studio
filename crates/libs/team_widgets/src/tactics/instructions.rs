@@ -304,7 +304,7 @@ mod tests {
     use crate::tactics::{TacticsView, preset_selector};
     use crate::test_support::{
         Headless, button_labels, centre, control_right_of, controls_right_of, entry_id,
-        fixture_rows, fixture_tactics, roster_rows, tactics_settings,
+        fixture_rows, fixture_tactics, named_assignments, roster_rows, tactics_settings,
     };
 
     // plans/save_editor.md "Tactics editor", "What the controls write": the
@@ -319,6 +319,9 @@ mod tests {
             (PesVersion::Pes21, 16),
         ] {
             let mut tactics = fixture_tactics(version);
+            // Every chip shows a name, so no "Unassigned" chip counts
+            // as an offered item below.
+            named_assignments(&mut tactics);
             let mut view = TacticsView::default();
             let rows = fixture_rows(version);
             let roster = roster_rows(&rows);
@@ -489,6 +492,8 @@ mod tests {
         let mut window = Headless::sized(800.0, 900.0);
         let version = PesVersion::Pes21;
         let mut tactics = fixture_tactics(version);
+        // Every chip shows a name: the counted buttons are the popup's.
+        named_assignments(&mut tactics);
         // A non-identity eleven: an arm writing the position index for
         // the roster slot would look right on the fixture's [0, 1, ...].
         tactics.starting_eleven.swap(2, 9);
@@ -798,6 +803,9 @@ mod tests {
         let mut window = Headless::sized(800.0, 900.0);
         let version = PesVersion::Pes21;
         let mut tactics = fixture_tactics(version);
+        // Every chip shows a name or "(empty)": the counted buttons are
+        // the popup's.
+        named_assignments(&mut tactics);
         tactics.presets[0]
             .attack_instructions
             .as_mut()

@@ -17,7 +17,10 @@ fn a_slider_drag_on_the_editor_is_one_undo_entry_and_marks_the_team() {
     let before = team_entry(&view, 701).tactics.presets[0].sliders.clone();
 
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let slider = control_right_of(&nodes, "Support range");
+    let slider = widgets_below(&nodes, "Support range", Role::Slider)
+        .into_iter()
+        .next()
+        .expect("the Support range slider");
     let bounds = slider.bounds().expect("slider bounds");
     let from = centre(slider);
     let to = egui::pos2((bounds.x1 - 4.0) as f32, from.y);
@@ -399,7 +402,10 @@ fn a_typed_x_then_a_slider_drag_undo_as_two_entries() {
     // end lands at the rail's far side of the stored value (support
     // range runs 1 to 10).
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let slider = control_right_of(&nodes, "Support range");
+    let slider = widgets_below(&nodes, "Support range", Role::Slider)
+        .into_iter()
+        .next()
+        .expect("the Support range slider");
     let bounds = slider.bounds().expect("slider bounds");
     let stored = team_entry(&view, 701).tactics.presets[0]
         .sliders
@@ -636,7 +642,10 @@ fn a_typed_substitution_then_a_slider_drag_undo_as_two_entries() {
 
     // Press-drag-release the Compactness slider off its handle.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let slider = control_right_of(&nodes, "Compactness");
+    let slider = widgets_below(&nodes, "Compactness", Role::Slider)
+        .into_iter()
+        .next()
+        .expect("the Compactness slider");
     let bounds = slider.bounds().expect("slider bounds");
     let stored_compact = team_entry(&view, 701).tactics.presets[0]
         .sliders

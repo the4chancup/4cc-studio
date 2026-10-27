@@ -8,7 +8,7 @@
 //! changed; the host decides what the change means (the contract in
 //! `plans/save_editor.md` "`libs/team_widgets`").
 
-use pes_savefile::model::tactics::{TacticSliders, TacticStyle, TeamTactics};
+use pes_savefile::model::tactics::{TacticSliders, TacticStyle, TacticsPreset, TeamTactics};
 use pes_savefile::schema::fields::{
     FormationPart, InstructionPart, InstructionSide, PresetField, TacticsField,
 };
@@ -82,8 +82,10 @@ pub struct RosterRow<'a> {
     pub portrait: Option<egui::TextureId>,
 }
 
-/// One of the five sliders (the draft's `SLIDERS`): its label, its range
-/// top and the `TacticSliders` field it edits.
+/// One of the five sliders' rows (the draft's `SLIDERS` and
+/// `TRI_SETTINGS`: the two "numbers" stay in this table for their
+/// label and field, and are drawn as three-choice toggles): the
+/// label, the range top and the `TacticSliders` field it edits.
 struct SliderSpec {
     /// The cell's label.
     label: &'static str,
@@ -216,6 +218,61 @@ const STYLE_TOGGLES: [StyleToggle; 7] = [
     },
 ];
 
+/// A style choice's text where the full name is wider than its half
+/// allows (the draft's `STYLE_SHORT`): shown shortened on the choice,
+/// the full name the hover and the changes table's.
+fn style_short(full: &'static str) -> &'static str {
+    match full {
+        "Frontline Pressure" => "Frontline Press.",
+        "All Out Defence" => "All Out Def.",
+        _ => full,
+    }
+}
+
+/// The Formation settings' halves (the draft's `TAC_OFFENSIVE` and
+/// `TAC_DEFENSIVE`): six rows, each an offensive setting at the left
+/// and its defensive pair at the right.
+const TAC_OFFENSIVE: [PresetField; 6] = [
+    PresetField::AttackingStyle,
+    PresetField::Buildup,
+    PresetField::AttackingZone,
+    PresetField::Positioning,
+    PresetField::SupportRange,
+    PresetField::NumbersInAttack,
+];
+const TAC_DEFENSIVE: [PresetField; 6] = [
+    PresetField::DefensiveStyle,
+    PresetField::ContainmentArea,
+    PresetField::Pressure,
+    PresetField::DefensiveLine,
+    PresetField::Compactness,
+    PresetField::NumbersInDefence,
+];
+
+/// The two settings drawn as three-choice toggles (the draft's
+/// `TRI_SETTINGS`): their labels and stored fields are `SLIDERS`'.
+const NUMBERS: [PresetField; 2] = [PresetField::NumbersInAttack, PresetField::NumbersInDefence];
+/// The three choices of a numbers toggle (the draft's `TRI_CHOICES`),
+/// for the stored 1, 2 and 3.
+const TRI_CHOICES: [&str; 3] = ["Few", "Medium", "Many"];
+
+/// The two halves' gap in the settings rows (the draft's `.tacrows`
+/// `column-gap: 16px`).
+const HALVES_GAP: f32 = 16.0;
+/// A cell's label-to-control gap (the draft's `.tset` `gap: 2px`).
+const CELL_GAP: f32 = 2.0;
+/// The title-to-rows gap (the draft's `.tacrows` `padding-top: 6px`).
+const TITLE_GAP: f32 = 6.0;
+/// A control's box height (the draft's `.tacrows .tset > .rate`, `.row`:
+/// `height: 24px`), the control centred in it.
+const CONTROL_HEIGHT: f32 = 24.0;
+/// The gap inside a `.rate` control (the draft's `.rate { gap: 1px }`).
+const CHOICE_GAP: f32 = 1.0;
+/// A choice's padding: none — the draft's `.rate .sel` `padding: 0 5px`
+/// bounds only where the ellipsis can start inside a cell the text
+/// already centres in, so the whole choice's width is the text's.
+const CHOICE_PADDING: egui::Vec2 = egui::vec2(0.0, 0.0);
+
 /// The fluid switch's label (the checkbox's and `tactics_term`'s row's
 /// one copy).
 const FLUID_LABEL: &str = "Fluid formation";
@@ -260,12 +317,13 @@ pub fn fluid_formation(ui: &mut egui::Ui, tactics: &mut TeamTactics, view: &Tact
 }
 
 /// The "Formation settings" panel (the draft's `#tac-settings` group):
-/// one `egui::Grid` of the five sliders and the seven style pairs,
-/// row-filled in the draft's order — each pair a label cell and a
-/// control cell (the slider; the two choices in a `ui.horizontal`). Two
-/// pairs a row where the column's width holds two of the widest
-/// (`two_pairs_width`), else one. Edits the preset on screen; answers
-/// `true` only when `tactics` changed this frame.
+/// six equal rows of setting pairs sharing the panel's free height
+/// under its title — each offensive setting at the left, its defensive
+/// pair at the right, the draft's `TAC_OFFENSIVE` / `TAC_DEFENSIVE`
+/// order — each cell its label over its control in a box 24 points
+/// tall. The frame fills the cell the host gives the panel (the
+/// pitch's height). Edits the preset on screen; answers `true` only
+/// when `tactics` changed this frame.
 pub fn formation_settings(
     ui: &mut egui::Ui,
     tactics: &mut TeamTactics,
@@ -276,41 +334,74 @@ pub fn formation_settings(
     // control re-picked at its own value reports nothing.
     let before = preset.clone();
     panel(ui, "Formation settings", |ui| {
-        let per_row = if ui.available_width() >= two_pairs_width(ui) {
-            2
-        } else {
-            1
-        };
-        egui::Grid::new("formation settings").show(ui, |ui| {
-            let mut index = 0usize;
-            for spec in &SLIDERS {
-                ui.label(spec.label);
-                let mut value = (spec.get)(&preset.sliders);
-                if ui
-                    .add(
-                        egui::Slider::new(&mut value, 1..=spec.max)
-                            .clamping(egui::SliderClamping::Edits),
-                    )
-                    .changed()
-                {
-                    (spec.set)(&mut preset.sliders, value);
-                }
-                index += 1;
-                if index.is_multiple_of(per_row) {
-                    ui.end_row();
-                }
+        // The frame's bottom is the cell's, as the pitch's is (the
+        // grid's row of equal-height cells).
+        ui.set_min_height(ui.available_height());
+        // `add_space` adds to the item gap: 3 plus these 3 is the
+        // `.tacrows` `padding-top` of 6.
+        ui.add_space(TITLE_GAP - ui.spacing().item_spacing.y);
+        let rows_top = ui.cursor().min.y;
+        let inner = ui.max_rect();
+        // The six rows share the free height (`grid-auto-rows: 1fr`),
+        // each its halves `HALVES_GAP` apart.
+        let row_height = (inner.max.y - rows_top) / TAC_OFFENSIVE.len() as f32;
+        let half = (inner.width() - HALVES_GAP) / 2.0;
+        for (index, (offensive, defensive)) in TAC_OFFENSIVE.iter().zip(&TAC_DEFENSIVE).enumerate()
+        {
+            let top = rows_top + index as f32 * row_height;
+            for (left, field) in [
+                (inner.min.x, offensive),
+                (inner.min.x + half + HALVES_GAP, defensive),
+            ] {
+                let mut cell_ui = ui.new_child(
+                    egui::UiBuilder::new()
+                        .max_rect(egui::Rect::from_min_size(
+                            egui::pos2(left, top),
+                            egui::vec2(half, row_height),
+                        ))
+                        .layout(egui::Layout::top_down(egui::Align::LEFT)),
+                );
+                // The cell's content at its top (`align-items: start`),
+                // the control 2 under the label (`.tset`).
+                cell_ui.spacing_mut().item_spacing.y = CELL_GAP;
+                setting_cell(&mut cell_ui, preset, field);
             }
-            for toggle in &STYLE_TOGGLES {
-                ui.label(toggle.label);
-                ui.horizontal(|ui| style_choices(ui, &mut preset.style, toggle));
-                index += 1;
-                if index.is_multiple_of(per_row) {
-                    ui.end_row();
-                }
-            }
-        });
+        }
     });
     *preset != before
+}
+
+/// One setting's cell of the rows (the draft's `setting` for a key): a
+/// slider, a numbers toggle or a style pair — never the fluid switch,
+/// which lives on the preset bar.
+fn setting_cell(ui: &mut egui::Ui, preset: &mut TacticsPreset, field: &PresetField) {
+    if let Some(spec) = SLIDERS.iter().find(|spec| spec.field == *field) {
+        ui.label(spec.label);
+        control_box(ui, |ui| {
+            if NUMBERS.contains(field) {
+                number_choices(ui, &mut preset.sliders, spec);
+            } else {
+                slider(ui, &mut preset.sliders, spec);
+            }
+        });
+    } else if let Some(toggle) = STYLE_TOGGLES.iter().find(|toggle| toggle.field == *field) {
+        ui.label(toggle.label);
+        control_box(ui, |ui| style_choices(ui, &mut preset.style, toggle));
+    } else {
+        panic!("{field:?} is no Formation settings row");
+    }
+}
+
+/// The setting's control in its box under the label (the draft's
+/// `.tacrows .tset > .rate`, `.row` `height: 24px; align-items:
+/// center`): 24 points tall, the control centred in it, so a toggle's
+/// centre is level with its row partner's slider's.
+fn control_box(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui)) {
+    ui.allocate_ui_with_layout(
+        egui::vec2(ui.available_width(), CONTROL_HEIGHT),
+        egui::Layout::left_to_right(egui::Align::Center),
+        add,
+    );
 }
 
 /// A settings panel of the grid (the draft's `.group` boxes): the
@@ -324,37 +415,6 @@ fn panel(ui: &mut egui::Ui, heading: &'static str, add: impl FnOnce(&mut egui::U
         ui.strong(heading);
         add(ui);
     });
-}
-
-/// The width a two-pairs row of the grid needs: the pairs' labels land in
-/// two columns, their controls in two more, so the row is the widest
-/// label and the widest control of each column plus the grid's gaps (one
-/// per cell boundary and a little slack — the bound stays an upper one,
-/// so a miss wraps the row to one pair early rather than clipping it).
-fn two_pairs_width(ui: &egui::Ui) -> f32 {
-    let gap = ui.spacing().item_spacing.x;
-    // A slider's control is the rail (`slider_width`), a gap and the
-    // value's field (a DragValue's `interact_size.x`); a pair's is the
-    // two choices in a `ui.horizontal` and their gap.
-    let slider_control = ui.spacing().slider_width + gap + ui.spacing().interact_size.x;
-    let mut label = [0.0f32; 2];
-    let mut control = [0.0f32; 2];
-    let mut widest = |column: usize, label_w: f32, control_w: f32| {
-        label[column] = label[column].max(label_w);
-        control[column] = control[column].max(control_w);
-    };
-    for (index, spec) in SLIDERS.iter().enumerate() {
-        widest(index % 2, text_width(ui, spec.label), slider_control);
-    }
-    for (index, toggle) in STYLE_TOGGLES.iter().enumerate() {
-        let choices = choice_width(ui, toggle.off) + choice_width(ui, toggle.on) + gap;
-        widest(
-            (SLIDERS.len() + index) % 2,
-            text_width(ui, toggle.label),
-            choices,
-        );
-    }
-    label[0] + control[0] + label[1] + control[1] + 4.0 * gap
 }
 
 /// The Substitution pair's drawn width: the label and the DragValue
@@ -375,11 +435,6 @@ pub(crate) fn text_width(ui: &egui::Ui, text: &str) -> f32 {
         .x
 }
 
-/// A style choice's drawn width: its text plus a button's padding.
-fn choice_width(ui: &egui::Ui, text: &str) -> f32 {
-    text_width(ui, text) + ui.spacing().button_padding.x * 2.0
-}
-
 /// One cell of a wrapping row at `width`: a child row laid out like
 /// `ui.horizontal`, so the cell's label and control keep one row.
 fn cell(ui: &mut egui::Ui, width: f32, add: impl FnOnce(&mut egui::Ui)) {
@@ -390,15 +445,70 @@ fn cell(ui: &mut egui::Ui, width: f32, add: impl FnOnce(&mut egui::Ui)) {
     );
 }
 
-/// One style pair's control cell: the two choices as the game names
-/// them, both drawn every frame — an `||` over the two would skip the
-/// second on the frame the first is clicked.
+/// One style pair's control (the draft's `.rate`: the two choices,
+/// each half the half less the 1-point gap, the chosen one in the
+/// selection fill, its text cut with an ellipsis at the edge — the
+/// defensive style's shortened, `style_short`, its hover the full
+/// name). Both choices are drawn every frame — an early return over
+/// the two would skip the second on the frame the first is clicked.
 fn style_choices(ui: &mut egui::Ui, style: &mut TacticStyle, toggle: &StyleToggle) {
+    ui.spacing_mut().item_spacing.x = CHOICE_GAP;
+    ui.spacing_mut().button_padding = CHOICE_PADDING;
+    let width = (ui.available_width() - CHOICE_GAP) / 2.0;
     let mut value = (toggle.get)(style);
-    ui.selectable_value(&mut value, false, toggle.off);
-    ui.selectable_value(&mut value, true, toggle.on);
+    for (picked, full) in [(false, toggle.off), (true, toggle.on)] {
+        let response = ui
+            .add_sized(
+                egui::vec2(width, ui.spacing().interact_size.y),
+                egui::Button::selectable(value == picked, style_short(full)).truncate(),
+            )
+            .on_hover_text(full);
+        if response.clicked() {
+            value = picked;
+        }
+    }
     if value != (toggle.get)(style) {
         (toggle.set)(style, value);
+    }
+}
+
+/// One numbers row's control (the draft's `.rate.tri`: `TRI_CHOICES`
+/// thirds of the half less the gaps, the picked one filled). A stored
+/// value outside 1-3 (a hand-edited save) selects none and writes
+/// nothing until a choice is clicked.
+fn number_choices(ui: &mut egui::Ui, sliders: &mut TacticSliders, spec: &SliderSpec) {
+    ui.spacing_mut().item_spacing.x = CHOICE_GAP;
+    ui.spacing_mut().button_padding = CHOICE_PADDING;
+    let width = (ui.available_width() - 2.0 * CHOICE_GAP) / 3.0;
+    let mut value = (spec.get)(sliders);
+    for (name, choice) in TRI_CHOICES.iter().zip(1u8..=3) {
+        if ui
+            .add_sized(
+                egui::vec2(width, ui.spacing().interact_size.y),
+                egui::Button::selectable(value == choice, *name).truncate(),
+            )
+            .clicked()
+        {
+            value = choice;
+        }
+    }
+    if value != (spec.get)(sliders) {
+        (spec.set)(sliders, value);
+    }
+}
+
+/// One slider's control (the draft's `.row`: the rail filling the half
+/// less the value's field and their gap, the value at the right).
+fn slider(ui: &mut egui::Ui, sliders: &mut TacticSliders, spec: &SliderSpec) {
+    ui.spacing_mut().slider_width =
+        (ui.available_width() - ui.spacing().item_spacing.x - ui.spacing().interact_size.x)
+            .max(0.0);
+    let mut value = (spec.get)(sliders);
+    if ui
+        .add(egui::Slider::new(&mut value, 1..=spec.max).clamping(egui::SliderClamping::Edits))
+        .changed()
+    {
+        (spec.set)(sliders, value);
     }
 }
 

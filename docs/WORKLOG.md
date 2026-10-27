@@ -3051,10 +3051,20 @@ briefs, review loops, gates and mutation runs as for any step.
       Files: `team_widgets/src/{pitch/{mod,lineup,popover}.rs,tactics/{mod,assignments,
       instructions}.rs,test_support.rs}` and their tests, `save_editor/src/{lib,settings}.rs`,
       `view/{mod,tactics}.rs`, the view tests, `help/08_tactics.md`
-    - [ ] s5b Formation settings (pairs of equal rows, label over a 24-point box, two-choice
+    - [x] s5b Formation settings (pairs of equal rows, label over a 24-point box, two-choice
       toggles the half's width, Few | Medium | Many, "Frontline Press.", "All Out Def.") and
       Player assignments (label over chip, Join the attack three rows, one picker), both as
-      tall as the pitch
+      tall as the pitch. Done 2026-10-27 (SWE-2, one run): `formation_settings` six rows of
+      `TAC_OFFENSIVE` | `TAC_DEFENSIVE` cells sharing the panel's height, `number_choices` (a
+      stored value outside 1-3 selects none, writes nothing), `style_short`; the choices'
+      padding zero, not the draft's 5: egui's text is wider than the browser's, and
+      "Frontline Press." (91.5 points) would elide in its 95.5-point choice with it (a centred
+      text that fits looks the same); `player_assignments` label-over-chip rows, three join
+      chips armed together; the host's row-2 cells end at the pitch's bottom. Player
+      assignments' last chip ends 50 points above its frame's bottom. Files:
+      `team_widgets/src/{tactics/{mod,assignments}.rs,test_support.rs}` and their tests,
+      `pitch/tests/popover.rs`, `save_editor/src/view/tactics.rs`, the view tests,
+      `help/08_tactics.md`
     - [ ] s5c Advanced instructions' grid (s7's sides through `pes_savefile`'s `Instruction`,
       each target a pitch pick) over Automatic settings' grid (the Substitution combo)
     - [ ] s5d the pitch: the popover's anchor, outside press and `player <n>`; s6's swap mark;

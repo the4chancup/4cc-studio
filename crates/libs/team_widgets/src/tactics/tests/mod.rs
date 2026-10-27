@@ -9,8 +9,8 @@ use pes_savefile::model::instruction::Instruction;
 
 use super::*;
 use crate::test_support::{
-    Headless, centre, control_right_of, controls_right_of, entry, entry_id, fixture_rows,
-    fixture_tactics, pointer_at, roster_rows, tactics_settings,
+    Headless, centre, control_below, control_right_of, controls_below, controls_right_of, entry,
+    entry_id, fixture_rows, fixture_tactics, pointer_at, roster_rows, tactics_settings,
 };
 
 impl Headless {
@@ -187,7 +187,7 @@ pub(crate) fn click(
 // hover naming the first version that has it.
 #[test]
 fn fields_the_version_lacks_draw_disabled_with_their_versions() {
-    let mut window = Headless::sized(800.0, 900.0);
+    let mut window = Headless::sized(800.0, 1200.0);
     window
         .ctx
         .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
@@ -287,7 +287,7 @@ fn the_controls_edit_the_preset_on_screen() {
 
     // Move Support range's slider one stop up.
     let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-    let slider = control_right_of(&nodes, "Support range", Role::Slider);
+    let slider = control_below(&nodes, "Support range", Role::Slider, settings_half(&nodes));
     let bounds = slider.bounds().expect("slider bounds");
     let from = egui::pos2(((bounds.x0 + bounds.x1) / 2.0) as f32, centre(slider).y);
     let to = egui::pos2(bounds.x1 as f32 - 4.0, from.y);
@@ -333,9 +333,12 @@ fn the_controls_edit_the_preset_on_screen() {
 // the current value reports no change and leaves the record equal.
 #[test]
 fn no_gesture_no_change() {
-    let mut window = Headless::sized(800.0, 900.0);
+    let mut window = Headless::sized(800.0, 1200.0);
     for version in [PesVersion::Pes15, PesVersion::Pes17, PesVersion::Pes21] {
         let mut tactics = fixture_tactics(version);
+        // Every chip shows a name: the "Unassigned" pick found below is
+        // the combo's own item.
+        crate::test_support::named_assignments(&mut tactics);
         let before = tactics.clone();
         let mut view = TacticsView::default();
         let rows = fixture_rows(version);
@@ -409,7 +412,7 @@ fn no_gesture_no_change() {
             "{version:?}: an out-of-range value is not rewritten"
         );
         assert_eq!(out_of_range, expected, "{version:?}: nor clamped on draw");
-        let slider = control_right_of(&nodes, "Support range", Role::Slider);
+        let slider = control_below(&nodes, "Support range", Role::Slider, settings_half(&nodes));
         assert_eq!(
             slider.numeric_value(),
             Some(0.0),
@@ -431,9 +434,8 @@ fn no_gesture_no_change() {
 }
 
 // A control's AccessKit id: the leftmost `role` on `label`'s row to its
-// right (a slider's or spinner's node has no label of its own; on a
-// two-pairs row the order the update lists the nodes in is arbitrary,
-// so the leftmost is the pair's own control).
+// right (the Automatic settings' fields keep their labels to their
+// left).
 fn id_right_of(
     ids: &[(accesskit::NodeId, accesskit::Node)],
     label: &str,
@@ -461,13 +463,67 @@ fn id_right_of(
         .unwrap_or_else(|| panic!("no {role:?} right of {label:?}"))
 }
 
-// The style pair `label`'s `choice` button's id (the choices' texts
-// repeat across pairs — "Wide" twice — so the row pins which).
-fn button_right_of(
+// The Formation settings' half width: the right label column's x less
+// the left's and the 16-point gap, from the twelve labels' bounds on
+// `nodes`.
+fn settings_half(nodes: &[accesskit::Node]) -> f64 {
+    let (min, max) = FORMATION_LABELS
+        .iter()
+        .map(|label| formation_label_bounds(nodes, label).x0)
+        .fold((f64::MAX, f64::MIN), |(min, max), x| {
+            (min.min(x), max.max(x))
+        });
+    max - min - 16.0
+}
+
+/// `settings_half` on `tactics_ids`' pairs.
+fn ids_half(ids: &[(accesskit::NodeId, accesskit::Node)]) -> f64 {
+    let nodes: Vec<accesskit::Node> = ids.iter().map(|(_, node)| node.clone()).collect();
+    settings_half(&nodes)
+}
+
+// A Formation settings cell's control's AccessKit id: the `role` under
+// `label`'s, in its column (the label over its control — a slider's or
+// spinner's node has no label of its own).
+fn id_below(
+    ids: &[(accesskit::NodeId, accesskit::Node)],
+    label: &str,
+    role: Role,
+) -> accesskit::NodeId {
+    let half = ids_half(ids);
+    let label_bounds = ids
+        .iter()
+        .find(|(_, node)| node.role() == Role::Label && node.value() == Some(label))
+        .and_then(|(_, node)| node.bounds())
+        .unwrap_or_else(|| panic!("no label {label:?}"));
+    ids.iter()
+        .filter(|(_, node)| {
+            node.role() == role
+                && node.bounds().is_some_and(|b| {
+                    b.y0 > label_bounds.y0
+                        && b.y0 <= label_bounds.y1 + 10.0
+                        && b.x0 >= label_bounds.x0 - 1.0
+                        && b.x0 <= label_bounds.x0 + half + 1.0
+                })
+        })
+        .min_by(|a, b| {
+            let y = |(_, node): &&(accesskit::NodeId, accesskit::Node)| {
+                node.bounds().expect("bounds").y0
+            };
+            y(a).partial_cmp(&y(b)).expect("ordered bounds")
+        })
+        .map(|(id, _)| *id)
+        .unwrap_or_else(|| panic!("no {role:?} below {label:?}"))
+}
+
+// The setting `label`'s `choice` button's id (the choices' texts
+// repeat across pairs — "Wide" twice — so the column pins which).
+fn button_below(
     ids: &[(accesskit::NodeId, accesskit::Node)],
     label: &str,
     choice: &str,
 ) -> accesskit::NodeId {
+    let half = ids_half(ids);
     let label_bounds = ids
         .iter()
         .find(|(_, node)| node.role() == Role::Label && node.value() == Some(label))
@@ -478,11 +534,14 @@ fn button_right_of(
             node.role() == Role::Button
                 && node.label() == Some(choice)
                 && node.bounds().is_some_and(|b| {
-                    (b.y0 - label_bounds.y0).abs() < 4.0 && b.x0 >= label_bounds.x1 - 1.0
+                    b.y0 > label_bounds.y0
+                        && b.y0 <= label_bounds.y1 + 10.0
+                        && b.x0 >= label_bounds.x0 - 1.0
+                        && b.x0 <= label_bounds.x0 + half + 1.0
                 })
         })
         .map(|(id, _)| *id)
-        .unwrap_or_else(|| panic!("no {choice:?} right of {label:?}"))
+        .unwrap_or_else(|| panic!("no {choice:?} below {label:?}"))
 }
 
 /// How a case interacts: a `SetValue` on the slider's or the
@@ -544,13 +603,13 @@ fn each_settings_control_writes_its_own_field() {
         },
         Case {
             name: "Numbers in attack",
-            control: Control::Slider("Numbers in attack", 3.0),
+            control: Control::Choice("Numbers in attack", "Many"),
             setup: |t| t.presets[0].sliders.numbers_in_attack = 1,
             expect: |t| t.presets[0].sliders.numbers_in_attack = 3,
         },
         Case {
             name: "Numbers in defence",
-            control: Control::Slider("Numbers in defence", 3.0),
+            control: Control::Choice("Numbers in defence", "Many"),
             setup: |t| t.presets[0].sliders.numbers_in_defence = 1,
             expect: |t| t.presets[0].sliders.numbers_in_defence = 3,
         },
@@ -604,13 +663,13 @@ fn each_settings_control_writes_its_own_field() {
         },
         Case {
             name: "Defensive style on",
-            control: Control::Choice("Defensive style", "All Out Defence"),
+            control: Control::Choice("Defensive style", "All Out Def."),
             setup: |t| t.presets[0].style.defensive_style = false,
             expect: |t| t.presets[0].style.defensive_style = true,
         },
         Case {
             name: "Defensive style off",
-            control: Control::Choice("Defensive style", "Frontline Pressure"),
+            control: Control::Choice("Defensive style", "Frontline Press."),
             setup: |t| t.presets[0].style.defensive_style = true,
             expect: |t| t.presets[0].style.defensive_style = false,
         },
@@ -678,7 +737,7 @@ fn each_settings_control_writes_its_own_field() {
         let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
         let (id, action, data) = match case.control {
             Control::Slider(label, value) => (
-                id_right_of(&ids, label, Role::Slider),
+                id_below(&ids, label, Role::Slider),
                 accesskit::Action::SetValue,
                 Some(accesskit::ActionData::NumericValue(value)),
             ),
@@ -688,7 +747,7 @@ fn each_settings_control_writes_its_own_field() {
                 Some(accesskit::ActionData::NumericValue(value)),
             ),
             Control::Choice(label, choice) => (
-                button_right_of(&ids, label, choice),
+                button_below(&ids, label, choice),
                 accesskit::Action::Click,
                 None,
             ),
@@ -721,24 +780,24 @@ fn each_settings_control_writes_its_own_field() {
     }
 }
 
-/// The formation grid's pair labels, the draft's order (the five
-/// sliders, then the seven style pairs).
+/// The Formation settings' labels, the draft's row order (each
+/// offensive setting, then its defensive pair).
 const FORMATION_LABELS: [&str; 12] = [
-    "Support range",
+    "Attacking style",
+    "Defensive style",
+    "Buildup",
+    "Containment area",
+    "Attacking zone",
+    "Pressure",
+    "Positioning",
     "Defensive line",
+    "Support range",
     "Compactness",
     "Numbers in attack",
     "Numbers in defence",
-    "Attacking style",
-    "Attacking zone",
-    "Buildup",
-    "Positioning",
-    "Defensive style",
-    "Containment area",
-    "Pressure",
 ];
 
-/// The bounds of the Label node showing `label` (a grid's label cell).
+/// The bounds of the Label node showing `label` (a cell's label).
 fn formation_label_bounds(nodes: &[accesskit::Node], label: &str) -> accesskit::Rect {
     nodes
         .iter()
@@ -747,124 +806,243 @@ fn formation_label_bounds(nodes: &[accesskit::Node], label: &str) -> accesskit::
         .unwrap_or_else(|| panic!("no label {label:?}"))
 }
 
-/// The x of the leftmost control on `label`'s grid row: the control
-/// cell's left edge (the slider, or the pair's first choice).
-fn control_x0(nodes: &[accesskit::Node], label: &str) -> f64 {
-    let bounds = formation_label_bounds(nodes, label);
-    nodes
-        .iter()
-        .filter(|node| {
-            node.role() != Role::Label
-                && node
-                    .bounds()
-                    .is_some_and(|b| (b.y0 - bounds.y0).abs() < 4.0 && b.x0 >= bounds.x1 - 1.0)
-        })
-        .filter_map(|node| node.bounds())
-        .map(|b| b.x0)
-        .fold(f64::MAX, f64::min)
-}
-
-// plans/save_editor.md "Tactics editor" (the formation settings' aligned
-// grid of up to two pairs a row): at a pane the bound lets two pairs
-// share a row (900 wide here), Support range and Defensive line sit on
-// one row and the twelve labels take the two label columns; at a pane
-// under it (500) they take one column and the controls one more.
+// plans/save_editor.md "Tactics editor" (row 2 of "the pitch is the
+// editor", the draft's `.tacrows`): the twelve settings form six rows
+// of pairs — each offensive setting's label left, its defensive
+// pair's right, the two halves 16 apart — the six rows equal in
+// height and each cell's control centred 12 under its box's top (a
+// toggle's centre level with its row partner's slider's).
 #[test]
-fn the_formation_grid_pairs_by_the_columns_width() {
+fn the_settings_are_six_even_rows_of_pairs() {
+    // The settings column's width as the window's width: the draft's
+    // 414 panel holds a 400-wide content.
+    let mut window = Headless::sized(414.0, 900.0);
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
     let mut view = TacticsView::default();
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
-
-    let mut window = Headless::sized(900.0, 900.0);
     let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-    assert!(
-        (formation_label_bounds(&nodes, "Support range").y0
-            - formation_label_bounds(&nodes, "Defensive line").y0)
-            .abs()
-            < 1.0,
-        "two pairs on the first row"
-    );
-    let columns: std::collections::BTreeSet<i64> = FORMATION_LABELS
-        .iter()
-        .map(|label| formation_label_bounds(&nodes, label).x0 as i64)
-        .collect();
-    assert_eq!(
-        columns.len(),
-        2,
-        "the twelve labels sit in two label columns"
-    );
 
-    let mut narrow = Headless::sized(500.0, 900.0);
-    let (nodes, _) = narrow.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-    let label_x0 = formation_label_bounds(&nodes, FORMATION_LABELS[0]).x0;
-    let controls_x0 = control_x0(&nodes, FORMATION_LABELS[0]);
-    for label in &FORMATION_LABELS[1..] {
-        assert_eq!(
-            formation_label_bounds(&nodes, label).x0,
-            label_x0,
-            "{label} shares the labels' column"
+    let pairs: [(&str, &str); 6] = [
+        ("Attacking style", "Defensive style"),
+        ("Buildup", "Containment area"),
+        ("Attacking zone", "Pressure"),
+        ("Positioning", "Defensive line"),
+        ("Support range", "Compactness"),
+        ("Numbers in attack", "Numbers in defence"),
+    ];
+    let mut xs = std::collections::BTreeSet::new();
+    let mut ys = Vec::new();
+    for (left, right) in pairs {
+        let left_bounds = formation_label_bounds(&nodes, left);
+        let right_bounds = formation_label_bounds(&nodes, right);
+        xs.insert(left_bounds.x0 as i64);
+        xs.insert(right_bounds.x0 as i64);
+        assert!(
+            (left_bounds.y0 - right_bounds.y0).abs() < 0.5,
+            "{left} and {right} share a row's y"
         );
-        assert_eq!(
-            control_x0(&nodes, label),
-            controls_x0,
-            "{label}'s control shares the controls' column"
+        ys.push(left_bounds.y0);
+        assert!(
+            right_bounds.x0 - left_bounds.x0 > 16.0,
+            "{right} is the pair's right half"
         );
+    }
+    assert_eq!(xs.len(), 2, "the twelve labels take two columns");
+    let pitch = (ys[5] - ys[0]) / 5.0;
+    for row in ys.windows(2) {
+        assert!(
+            (row[1] - row[0] - pitch).abs() < 0.5,
+            "the rows are evenly spaced"
+        );
+    }
+    // Each label's control sits in the 24-point box 2 under it, centred:
+    // the control's vertical centre is 14 under the label's bottom.
+    let half = settings_half(&nodes);
+    for label in FORMATION_LABELS {
+        let bounds = formation_label_bounds(&nodes, label);
+        let controls = controls_below(&nodes, label, Role::Button, half);
+        let slider = controls_below(&nodes, label, Role::Slider, half);
+        assert!(
+            !controls.is_empty() || !slider.is_empty(),
+            "{label} has a control"
+        );
+        for control in controls.into_iter().chain(slider) {
+            let centre = {
+                let b = control.bounds().expect("bounds");
+                (b.y0 + b.y1) / 2.0
+            };
+            assert!(
+                (centre - (bounds.y1 + 14.0)).abs() < 0.5,
+                "{label}'s control is centred in the box 2 under it ({centre:?} vs {:?})",
+                bounds.y1 + 14.0
+            );
+        }
     }
 }
 
-// The two-pairs bound is computed from the measures, never read back
-// from a drawn frame: at a pane that draws two pairs (900 wide) the
-// drawn row's width sits under the estimate and only a few points below
-// it (8.0 here, the one cell gap of slack) — an underestimate would let
-// a pane at the threshold clip a row's end, a large overestimate wraps
-// rows that fit.
+// plans/save_editor.md "Tactics editor" (the settings column "as
+// narrow as the widest toggle choice allows") and the draft's `.tset
+// .rate`: a two-choice toggle spans its half, the two choices equal
+// in width and a 1-point gap between them, the chosen in the
+// selection fill; the defensive style's choices show the shortened
+// texts (`STYLE_SHORT` — the column is sized for them), the full
+// names the hover.
 #[test]
-fn the_pairs_threshold_covers_the_drawn_row() {
+fn the_two_choice_toggle_spans_its_half() {
+    // The settings column's width as the window's width.
+    let mut window = Headless::sized(414.0, 900.0);
+    window
+        .ctx
+        .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
     let mut view = TacticsView::default();
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
-    let mut window = Headless::sized(900.0, 900.0);
     let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let half = settings_half(&nodes);
 
-    // The grid's drawn width: from the labels' left edge to the widest
-    // row's rightmost control (bounded by the grid's rows, the fluid
-    // checkbox above and the instructions table below).
-    let grid_left = FORMATION_LABELS
-        .iter()
-        .map(|label| formation_label_bounds(&nodes, label).x0)
-        .fold(f64::MAX, f64::min);
-    let grid_top = formation_label_bounds(&nodes, FORMATION_LABELS[0]).y0 - 2.0;
-    let grid_bottom = FORMATION_LABELS
-        .iter()
-        .map(|label| formation_label_bounds(&nodes, label).y0)
-        .fold(0.0, f64::max)
-        + 24.0;
-    let grid_right = nodes
-        .iter()
-        .filter(|node| {
-            node.role() != Role::Label
-                && node
-                    .bounds()
-                    .is_some_and(|b| b.y0 >= grid_top && b.y1 <= grid_bottom && b.x0 >= grid_left)
-        })
-        .filter_map(|node| node.bounds())
-        .map(|b| b.x1)
-        .fold(0.0, f64::max);
-    let drawn = grid_right - grid_left;
-
-    let mut estimate = 0.0f64;
-    window.frame(vec![], |ui| estimate = f64::from(two_pairs_width(ui)));
+    let choices = controls_below(&nodes, "Defensive style", Role::Button, half);
+    assert_eq!(choices.len(), 2, "the two choices");
+    let frontline = choices[0];
+    let all_out = choices[1];
+    assert_eq!(frontline.label(), Some("Frontline Press."));
+    assert_eq!(all_out.label(), Some("All Out Def."));
+    let width = |node: &accesskit::Node| {
+        let b = node.bounds().expect("bounds");
+        b.x1 - b.x0
+    };
     assert!(
-        drawn <= estimate,
-        "the bound covers the drawn row ({drawn} drawn vs {estimate} estimated)"
+        (width(frontline) - width(all_out)).abs() < 0.5,
+        "the choices equal in width"
     );
     assert!(
-        estimate - drawn <= 16.0,
-        "by no more than a few points ({estimate} estimated vs {drawn} drawn)"
+        (width(frontline) + width(all_out) + 1.0 - half).abs() < 1.0,
+        "their sum plus the gap is the half's width"
+    );
+    // The chosen one shows selected — and the shortened text fits the
+    // choice at this width (the plan sized the column for it).
+    let stored = tactics.presets[0].style.defensive_style;
+    assert_eq!(
+        if stored { all_out } else { frontline }.toggled(),
+        Some(accesskit::Toggled::True),
+        "the stored choice is selected"
+    );
+    let mut shown = 0.0f32;
+    window.frame(vec![], |ui| shown = text_width(ui, "Frontline Press."));
+    assert!(
+        f64::from(shown) <= width(frontline) + 0.5,
+        "Frontline Press. fits its choice ({shown} vs {})",
+        width(frontline)
+    );
+    // The hover gives the full name.
+    assert_eq!(
+        window.tactics_tooltip(
+            centre(frontline),
+            "Frontline Pressure",
+            version,
+            &mut tactics,
+            &mut view,
+            &roster,
+        ),
+        Some("Frontline Pressure".to_owned()),
+        "the shortened choice's hover is the full name"
+    );
+    // A click on the other choice writes the field.
+    let (_, changed) = click(
+        &mut window,
+        all_out,
+        version,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(changed, "the click changed the record");
+    assert!(
+        tactics.presets[0].style.defensive_style,
+        "All Out Defence stored"
+    );
+}
+
+// plans/save_editor.md "Tactics editor" (the two numbers "each a
+// three-choice toggle, Few | Medium | Many", the draft's
+// `.rate.tri`): the three choices equal across the half, the stored
+// 1 to 3 picked; a stored value outside (a hand-edited save) selects
+// none and writes nothing until a choice is clicked.
+#[test]
+fn the_numbers_are_three_choice_toggles() {
+    let mut window = Headless::sized(414.0, 900.0);
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    tactics.presets[0].sliders.numbers_in_attack = 2;
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(version);
+    let roster = roster_rows(&rows);
+
+    // Stored 2 shows Medium chosen, the three equal across the half.
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let half = settings_half(&nodes);
+    let choices = controls_below(&nodes, "Numbers in attack", Role::Button, half);
+    assert_eq!(choices.len(), 3, "the three choices");
+    let labels: Vec<Option<&str>> = choices.iter().map(|node| node.label()).collect();
+    assert_eq!(
+        labels,
+        [Some("Few"), Some("Medium"), Some("Many")],
+        "the choices' texts"
+    );
+    assert_eq!(
+        choices[1].toggled(),
+        Some(accesskit::Toggled::True),
+        "Medium chosen for the stored 2"
+    );
+    let width = |node: &accesskit::Node| {
+        let b = node.bounds().expect("bounds");
+        b.x1 - b.x0
+    };
+    for pair in choices.windows(2) {
+        assert!(
+            (width(pair[0]) - width(pair[1])).abs() < 0.5,
+            "the three choices equal in width"
+        );
+    }
+    let total: f64 = choices.iter().map(|&node| width(node)).sum();
+    assert!(
+        (total + 2.0 - half).abs() < 1.0,
+        "their sum plus the gaps is the half's width"
+    );
+
+    // Clicking Many stores 3.
+    let (_, changed) = click(
+        &mut window,
+        choices[2],
+        version,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(changed, "the click changed the record");
+    assert_eq!(
+        tactics.presets[0].sliders.numbers_in_attack, 3,
+        "Many stored"
+    );
+
+    // A stored value outside 1-3 selects none and is not rewritten.
+    tactics.presets[0].sliders.numbers_in_attack = 7;
+    let (nodes, changed) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let choices = controls_below(&nodes, "Numbers in attack", Role::Button, half);
+    for node in &choices {
+        assert_ne!(
+            node.toggled(),
+            Some(accesskit::Toggled::True),
+            "no choice selected for a stored 7"
+        );
+    }
+    assert!(!changed, "the frame reports no change");
+    assert_eq!(
+        tactics.presets[0].sliders.numbers_in_attack, 7,
+        "the stored 7 is kept"
     );
 }
 

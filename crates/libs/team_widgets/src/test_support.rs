@@ -16,8 +16,9 @@ use crate::tactics::{
 /// The four panels in the draft's order, for tests that drive them
 /// together (the tests are its only callers): Formation settings,
 /// Advanced instructions, Player assignments and Automatic settings.
-/// `roster` gives each roster slot's row, indexed by slot. Answers
-/// `true` only when `tactics` changed this frame.
+/// `roster` gives each roster slot's row, indexed by slot. The two
+/// row-2 panels are drawn in a cell the pitch's height, as the host
+/// cells them. Answers `true` only when `tactics` changed this frame.
 pub(crate) fn tactics_settings(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
@@ -27,11 +28,21 @@ pub(crate) fn tactics_settings(
     roster: &[RosterRow<'_>],
 ) -> bool {
     ui.push_id(id_salt, |ui| {
+        // A cell the pitch's height (the host's row 2), for the panels
+        // that fill it.
+        fn cell(ui: &mut egui::Ui, add: impl FnOnce(&mut egui::Ui) -> bool) -> bool {
+            ui.allocate_ui_with_layout(
+                egui::vec2(ui.available_width(), crate::pitch::PITCH_BOX.y),
+                egui::Layout::top_down(egui::Align::LEFT),
+                add,
+            )
+            .inner
+        }
         // `|` evaluates every panel: a `||` chain would skip the rest on
         // the frame the first reports a change.
-        formation_settings(ui, tactics, view)
+        cell(ui, |ui| formation_settings(ui, tactics, view))
             | advanced_instructions(ui, version, tactics, view, roster)
-            | player_assignments(ui, tactics, view, roster)
+            | cell(ui, |ui| player_assignments(ui, tactics, view, roster))
             | automatic_settings(ui, tactics)
     })
     .inner
@@ -176,6 +187,21 @@ pub(crate) fn roster_rows(rows: &[(String, String, Option<u8>)]) -> Vec<RosterRo
         .collect()
 }
 
+/// Every role and the three join entries assigned to roster slots, so a
+/// test that counts buttons by their text is not polluted by
+/// "Unassigned" chips.
+pub(crate) fn named_assignments(tactics: &mut TeamTactics) {
+    let pieces = &mut tactics.set_pieces;
+    pieces.free_kick_long = 0;
+    pieces.free_kick_short = 1;
+    pieces.free_kick_second = 2;
+    pieces.corner_left = 3;
+    pieces.corner_right = 4;
+    pieces.penalty = 5;
+    pieces.captain = 6;
+    tactics.players_to_join_attack = [7, 8, 9];
+}
+
 /// The widget node of `role` labeled `label`.
 pub(crate) fn entry<'a>(
     nodes: &'a [accesskit::Node],
@@ -225,6 +251,82 @@ pub(crate) fn control_right_of<'a>(
         .into_iter()
         .next()
         .unwrap_or_else(|| panic!("no {role:?} right of {label:?}"))
+}
+
+/// The widget nodes of `role` under `label`'s, in its column and row
+/// (a Formation settings cell's control: the label over its control).
+/// `half` bounds the column's right edge (`controls` gives it).
+pub(crate) fn controls_below<'a>(
+    nodes: &'a [accesskit::Node],
+    label: &str,
+    role: Role,
+    half: f64,
+) -> Vec<&'a accesskit::Node> {
+    let bounds = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some(label))
+        .and_then(|node| node.bounds())
+        .unwrap_or_else(|| panic!("no label {label:?}"));
+    let mut found: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == role
+                && node.bounds().is_some_and(|b| {
+                    b.y0 > bounds.y0
+                        && b.y0 <= bounds.y1 + 10.0
+                        && b.x0 >= bounds.x0 - 1.0
+                        && b.x0 <= bounds.x0 + half + 1.0
+                })
+        })
+        .collect();
+    found.sort_by(|a, b| {
+        let key = |node: &&accesskit::Node| {
+            let b = node.bounds().expect("bounds");
+            (b.y0, b.x0)
+        };
+        key(a).partial_cmp(&key(b)).expect("ordered bounds")
+    });
+    found
+}
+
+/// The first widget node of `role` under `label`'s, in its column.
+pub(crate) fn control_below<'a>(
+    nodes: &'a [accesskit::Node],
+    label: &str,
+    role: Role,
+    half: f64,
+) -> &'a accesskit::Node {
+    controls_below(nodes, label, role, half)
+        .into_iter()
+        .next()
+        .unwrap_or_else(|| panic!("no {role:?} below {label:?}"))
+}
+
+/// The chips under `label`'s, top to bottom (each `.tset`'s chip shares
+/// its label's left edge — the Player assignments' rows).
+pub(crate) fn chips_below<'a>(
+    nodes: &'a [accesskit::Node],
+    label: &str,
+) -> Vec<&'a accesskit::Node> {
+    let bounds = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some(label))
+        .and_then(|node| node.bounds())
+        .unwrap_or_else(|| panic!("no label {label:?}"));
+    let mut found: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.y0 > bounds.y0 && (b.x0 - bounds.x0).abs() < 1.0)
+        })
+        .collect();
+    found.sort_by(|a, b| {
+        let y = |node: &&accesskit::Node| node.bounds().expect("bounds").y0;
+        y(a).partial_cmp(&y(b)).expect("ordered bounds")
+    });
+    found
 }
 
 /// `nodes`' buttons' labels in draw order (top to bottom, left to

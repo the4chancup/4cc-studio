@@ -96,14 +96,15 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         // The draft's `.tacgrid`: the settings column's 414, the pitch's
         // own width (its canvas and border), the assignments' the rest —
         // a cell a child `Ui` like the old columns', each row's height
-        // its tallest cell's (the cells' `max_rect`s run to the pane's
-        // bottom, their `min_rect`s read back the drawn height).
+        // its tallest cell's (row 2's cells end at the pitch's bottom,
+        // row 3's run to the pane's; the `min_rect`s read back the drawn
+        // height).
         let top_left = ui.cursor().min;
         let right = ui.max_rect().right();
         let bottom = ui.max_rect().right_bottom().y;
         let pitch_left = top_left.x + SETTINGS_WIDTH + COLUMN_GAP;
         let assigns_left = pitch_left + pitch::PITCH_BOX.x + COLUMN_GAP;
-        let cell = |ui: &mut egui::Ui, left: f32, top: f32, width: f32| {
+        let cell = |ui: &mut egui::Ui, left: f32, top: f32, width: f32, bottom: f32| {
             ui.new_child(
                 egui::UiBuilder::new()
                     .max_rect(egui::Rect::from_min_max(
@@ -140,10 +141,13 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         formbar_ui.checkbox(&mut tactics.scroll_names, "Scroll names");
         let row2_top = top_left.y + line + ROW_GAP;
 
-        // Row 2: Formation settings, the pitch, Player assignments.
-        let mut settings_ui = cell(ui, top_left.x, row2_top, SETTINGS_WIDTH);
+        // Row 2: Formation settings, the pitch, Player assignments —
+        // the panels exactly as tall as the pitch (the draft's `.tacgrid`
+        // stretches them to its row), their frames level with it.
+        let row2_bottom = row2_top + pitch::PITCH_BOX.y;
+        let mut settings_ui = cell(ui, top_left.x, row2_top, SETTINGS_WIDTH, row2_bottom);
         changed[1] = tactics::formation_settings(&mut settings_ui, &mut edited, tactics);
-        let mut pitch_ui = cell(ui, pitch_left, row2_top, pitch::PITCH_BOX.x);
+        let mut pitch_ui = cell(ui, pitch_left, row2_top, pitch::PITCH_BOX.x, bottom);
         changed[2] = pitch::pitch(
             &mut pitch_ui,
             "pitch",
@@ -152,7 +156,13 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             tactics,
             &roster,
         );
-        let mut assigns_ui = cell(ui, assigns_left, row2_top, right - assigns_left);
+        let mut assigns_ui = cell(
+            ui,
+            assigns_left,
+            row2_top,
+            right - assigns_left,
+            row2_bottom,
+        );
         changed[3] = tactics::player_assignments(&mut assigns_ui, &mut edited, tactics, &roster);
         let row3_top = [
             settings_ui.min_rect().max.y,
@@ -165,12 +175,12 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
 
         // Row 3: Advanced instructions over Automatic settings on column
         // 1 (the draft's `tacstack`), the lists over columns 2-3.
-        let mut stack_ui = cell(ui, top_left.x, row3_top, SETTINGS_WIDTH);
+        let mut stack_ui = cell(ui, top_left.x, row3_top, SETTINGS_WIDTH, bottom);
         changed[4] =
             tactics::advanced_instructions(&mut stack_ui, version, &mut edited, tactics, &roster);
         stack_ui.add_space(ROW_GAP);
         changed[5] = tactics::automatic_settings(&mut stack_ui, &mut edited);
-        let mut lists_ui = cell(ui, pitch_left, row3_top, right - pitch_left);
+        let mut lists_ui = cell(ui, pitch_left, row3_top, right - pitch_left, bottom);
         changed[6] = pitch::lineup(
             &mut lists_ui,
             "lineup",

@@ -7,8 +7,8 @@ use pes_version::PesVersion;
 
 use super::*;
 use crate::test_support::{
-    Headless, centre, controls_right_of, entry, entry_id, fixture_rows, fixture_tactics,
-    roster_rows,
+    Headless, centre, chips_below, controls_right_of, entry, entry_id, fixture_rows,
+    fixture_tactics, roster_rows,
 };
 
 // The draft's role palette: arm a chip and the note asks for its pitch
@@ -34,16 +34,11 @@ fn a_role_chip_then_a_marker_click_writes_the_taker_and_disarms() {
         "premise: the marker's player is not already the taker"
     );
 
-    // Arm the Penalty kick chip.
+    // Arm the Penalty kick chip (the first chip under its label).
     let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
-    let chip = nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Button
-                && node
-                    .label()
-                    .is_some_and(|label| label.starts_with("Penalty kick:"))
-        })
+    let chip = chips_below(&nodes, "Penalty kick")
+        .into_iter()
+        .next()
         .expect("the penalty chip");
     let (_, changed) =
         window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
@@ -166,17 +161,12 @@ fn each_assignment_chip_writes_its_own_field() {
 
     for (index, case) in cases.iter().enumerate() {
         let chip_label = case.label;
-        // Arm the chip.
+        // Arm the chip under its label.
         let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
-        let chip = nodes
-            .iter()
-            .find(|node| {
-                node.role() == Role::Button
-                    && node
-                        .label()
-                        .is_some_and(|label| label.starts_with(&format!("{chip_label}:")))
-            })
-            .unwrap_or_else(|| panic!("no chip {chip_label:?}"));
+        let chip = chips_below(&nodes, chip_label)
+            .into_iter()
+            .next()
+            .unwrap_or_else(|| panic!("no chip under {chip_label:?}"));
         let (_, changed) =
             window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
         assert!(!changed, "{chip_label}: arming writes no record");
@@ -224,17 +214,12 @@ fn join_clicks_fill_three_then_toggle_members_packed() {
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
 
-    // Arm the join chip.
+    // Arm join through a join chip.
     let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
-    let chip = nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Button
-                && node
-                    .label()
-                    .is_some_and(|label| label.starts_with("Join attack:"))
-        })
-        .expect("the join chip");
+    let chip = chips_below(&nodes, "Join the attack")
+        .into_iter()
+        .next()
+        .expect("a join chip");
     window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
     assert_eq!(view.assign, Some(Assign::Join), "the mode is armed");
 
@@ -281,19 +266,14 @@ fn join_clicks_fill_three_then_toggle_members_packed() {
     );
     assert_eq!(view.assign, Some(Assign::Join), "join stays armed");
 
-    // A click on the armed chip disarms (the plan's "No note explains the
-    // armed mode": the highlighted chip and the candidates' corner
-    // brackets say it).
+    // A click on an armed join chip disarms (the plan's "No note
+    // explains the armed mode": the highlighted chips and the
+    // candidates' corner brackets say it).
     let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
-    let chip = nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Button
-                && node
-                    .label()
-                    .is_some_and(|label| label.starts_with("Join attack:"))
-        })
-        .expect("the join chip");
+    let chip = chips_below(&nodes, "Join the attack")
+        .into_iter()
+        .next()
+        .expect("a join chip");
     window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
     assert_eq!(view.assign, None, "the armed chip's click disarms");
 }

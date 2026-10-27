@@ -1341,7 +1341,9 @@ fn the_player_header_tops_the_player_view_alone() {
         !title_painted(&shapes, title, heading),
         "no title on the team view"
     );
-    for label in ["Captain", "Nation", "Age", "Height", "Weight"] {
+    // ("Captain" is left out: the Player assignments' own label for its
+    // role chip reads so too.)
+    for label in ["Nation", "Age", "Height", "Weight"] {
         assert!(!label_value(&nodes, label), "{label} not on the team view");
     }
 }

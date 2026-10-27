@@ -337,17 +337,6 @@ fn the_fluid_checkbox_is_gated_on_pes15() {
     );
 }
 
-/// The chip of the "Player assignments" palette labeled with `prefix`.
-fn chip<'a>(nodes: &'a [accesskit::Node], prefix: &str) -> &'a accesskit::Node {
-    nodes
-        .iter()
-        .find(|node| {
-            node.role() == Role::Button
-                && node.label().is_some_and(|label| label.starts_with(prefix))
-        })
-        .unwrap_or_else(|| panic!("no chip {prefix:?}"))
-}
-
 // SE-GUI-12
 #[test]
 fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
@@ -456,7 +445,7 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
         "premise: the marker's player is not already the taker"
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    click(&mut window, chip(&nodes, "Penalty kick:"), &mut view);
+    click(&mut window, chip(&nodes, "Penalty kick"), &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let canvas = canvas_of(&nodes);
     let at = marker_point(
@@ -480,7 +469,7 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
         "premise: the clicked positions' slots differ from their indices"
     );
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    click(&mut window, chip(&nodes, "Join attack:"), &mut view);
+    click(&mut window, chip(&nodes, "Join the attack"), &mut view);
     for member in [5_usize, 6_usize] {
         let (_, nodes, _) =
             window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -669,6 +658,213 @@ fn the_tactics_editor_is_one_grid_at_the_default_pane() {
     }
 }
 
+// plans/save_editor.md "Tactics editor" (row 2 of "the pitch is the
+// editor", the draft's `.tacgrid` stretching its cells): the Formation
+// settings' and Player assignments' frames are exactly as tall as the
+// pitch with its border — tops and bottoms level at the 1280 x 800
+// default pane.
+#[test]
+fn the_two_panels_frames_are_level_with_the_pitchs() {
+    let path = fixture(PesVersion::Pes21, "tactics_panel_frames");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_team_view(&mut window, &mut view, 701);
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let rects = stroked_rects(&shapes, 60.0);
+    let settings_left = label_bounds(&nodes, "Formation settings").x0 - 7.0;
+    let pitch_left = settings_left + 414.0 + 10.0;
+    let assigns_left = pitch_left + f64::from(team_widgets::pitch::PITCH_BOX.x) + 10.0;
+    let settings = box_at(&rects, settings_left, 1.0);
+    let pitch_box = box_at(&rects, pitch_left, 1.0);
+    let assigns = box_at(&rects, assigns_left, 1.0);
+    for (name, frame) in [
+        ("Formation settings", settings),
+        ("Player assignments", assigns),
+    ] {
+        assert!(
+            (f64::from(frame.min.y) - f64::from(pitch_box.min.y)).abs() <= 0.5,
+            "{name}'s top level with the pitch's ({frame:?} vs {pitch_box:?})"
+        );
+        assert!(
+            (f64::from(frame.max.y) - f64::from(pitch_box.max.y)).abs() <= 0.5,
+            "{name}'s bottom level with the pitch's ({frame:?} vs {pitch_box:?})"
+        );
+    }
+}
+
+// The draft's `.rate` toggles write their field, one undo entry: a
+// click on Defensive style's "All Out Def." stores the flag.
+#[test]
+fn a_style_toggle_click_is_one_undo_entry() {
+    let path = fixture(PesVersion::Pes21, "tactics_toggle_undo");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1600.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
+    let before = team_entry(&view, 701).tactics.presets[0]
+        .style
+        .defensive_style;
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let choice = node_labeled(&nodes, Role::Button, "All Out Def.");
+    click(&mut window, choice, &mut view);
+    assert_eq!(
+        team_entry(&view, 701).tactics.presets[0]
+            .style
+            .defensive_style,
+        !before,
+        "the click wrote the field"
+    );
+    assert_eq!(
+        undo_entries(&mut window, &mut view),
+        1,
+        "the click was one undo entry"
+    );
+}
+
+// The draft's `.rate.tri` toggles write their field, one undo entry:
+// a click on Numbers in attack's "Many" stores 3.
+#[test]
+fn a_numbers_choice_click_is_one_undo_entry() {
+    let path = fixture(PesVersion::Pes21, "tactics_tri_undo");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.team_mut(701).unwrap().tactics.presets[0]
+        .sliders
+        .numbers_in_attack = 1;
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1600.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
+
+    // "Numbers in attack"'s "Many" is the choice under its label.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let many = choice_below(&nodes, "Numbers in attack", "Many");
+    click(&mut window, many, &mut view);
+    assert_eq!(
+        team_entry(&view, 701).tactics.presets[0]
+            .sliders
+            .numbers_in_attack,
+        3,
+        "Many stored"
+    );
+    assert_eq!(
+        undo_entries(&mut window, &mut view),
+        1,
+        "the click was one undo entry"
+    );
+}
+
+// plans/save_editor.md "Tactics editor" (the click-to-assign bullet)
+// on the fixtures' real team: each taker and the captain show their
+// holder's name on a chip under the label, "Join the attack" shows
+// its members' names or "Unassigned", and a join chip's click arms
+// the one mode, all three chips selected, in which a pitch click adds
+// a starter; an armed click disarms.
+#[test]
+fn the_assignments_rows_name_holders_and_arm_join() {
+    let path = fixture(PesVersion::Pes17, "assignments_rows_734");
+    // Two join members and a non-identity eleven (an arm writing the
+    // index for the slot would look right on a [0, 1, ...] eleven).
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes17)).unwrap();
+    {
+        let tactics = &mut file.team_mut(734).unwrap().tactics;
+        tactics.starting_eleven.swap(4, 9);
+        tactics.players_to_join_attack = [
+            tactics.starting_eleven[3],
+            tactics.starting_eleven[5],
+            u8::MAX,
+        ];
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1600.0, 1400.0);
+    // Team 734's own team view (its row is below the list's fold).
+    view.selected = Some(Selection::Team(734));
+    let name_of = |view: &SaveView, slot: u8| {
+        let team = team_entry(view, 734);
+        let player_id = team.roster[usize::from(slot)].player_id;
+        display_name(
+            &view
+                .session
+                .as_ref()
+                .unwrap()
+                .file()
+                .player(player_id)
+                .unwrap()
+                .name,
+        )
+    };
+
+    // The captain's chip reads his name; the join list's chips read
+    // the two names and one "Unassigned".
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let captain = team_entry(&view, 734).tactics.set_pieces.captain;
+    assert_ne!(captain, u8::MAX, "premise: a captain is assigned");
+    let captain_chip = chip(&nodes, "Captain");
+    assert_eq!(
+        captain_chip.label(),
+        Some(name_of(&view, captain).as_str()),
+        "the captain chip names the captain"
+    );
+    let starters = team_entry(&view, 734).tactics.starting_eleven;
+    let expected: Vec<String> = [
+        name_of(&view, starters[3]),
+        name_of(&view, starters[5]),
+        "Unassigned".to_owned(),
+    ]
+    .into_iter()
+    .collect();
+    let join_chips = chips_below(&nodes, "Join the attack");
+    assert_eq!(join_chips.len(), 3, "three join chips");
+    for (chip, expected) in join_chips.iter().zip(&expected) {
+        assert_eq!(chip.label(), Some(expected.as_str()));
+    }
+
+    // Clicking the third join chip arms the one mode, all three
+    // selected; a pitch click on a starter adds him; clicking it again
+    // disarms.
+    let third = join_chips[2];
+    click(&mut window, third, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    for chip in chips_below(&nodes, "Join the attack") {
+        assert_eq!(
+            chip.toggled(),
+            Some(accesskit::Toggled::True),
+            "all three chips show armed"
+        );
+    }
+    let added = team_entry(&view, 734).tactics.starting_eleven[7];
+    let canvas = canvas_of(&nodes);
+    let at = marker_point(
+        canvas,
+        &team_entry(&view, 734).tactics.presets[0].formations[0].players,
+        7,
+    )
+    .expect("a point on the marker a click can reach");
+    click_at(&mut window, at, &mut view);
+    assert_eq!(
+        team_entry(&view, 734).tactics.players_to_join_attack[2],
+        added,
+        "the pitch click added him"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let third = chips_below(&nodes, "Join the attack")[2];
+    click(&mut window, third, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    for chip in chips_below(&nodes, "Join the attack") {
+        assert_eq!(
+            chip.toggled(),
+            Some(accesskit::Toggled::False),
+            "the armed click disarms all three"
+        );
+    }
+}
+
 // The draft's `#instr-table select` cap: the target combo is bounded
 // and truncates, so a real player's long name cannot push the row past
 // the settings column (the draft's 120-point cap or the column's edge,
@@ -831,7 +1027,7 @@ fn the_automatic_settings_wrap_inside_the_column_and_armed_draws_no_note() {
     }
 
     // Arm join: no note and no Cancel or Done anywhere in the tree.
-    click(&mut window, chip(&nodes, "Join attack:"), &mut view);
+    click(&mut window, chip(&nodes, "Join the attack"), &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     for label in ["Cancel", "Done"] {
         assert!(
