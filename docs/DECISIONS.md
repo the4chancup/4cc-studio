@@ -12015,3 +12015,13 @@ them, as `theme.rs` already pins 0.36's spacing and widget states, keeps the rev
 through an egui upgrade too; matching the drafts to egui's 13 instead would re-open every
 approved width.
 Plan: `plans/core/gui.md` "Other UI components", the Dark/light theme row.
+
+## 2026-10-27 — save_editor — The changes list is a popup under the unsaved-changes label
+Decision: a click on the toolbar's `• unsaved changes` opens the list of changes as a popup
+under the label (8.31's draft, branch `side/drafts2`): any click outside it, Esc, a second
+click on the label, or an edit, undo or redo closes it. Not a window that stays open while the
+member undoes.
+Why: the maintainer's answer: "A popup is better, it only needs to provide a quick peek." The
+list is read and dismissed, not worked against as the four panels' results are.
+Plan: lands with 8.31's plan text when its draft is approved (worklog 8.31; the proposed text
+in `side/drafts2`'s `.tmp/8_31/look.md`).

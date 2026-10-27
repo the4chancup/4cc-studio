@@ -2131,7 +2131,9 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   - [ ] 8.31 after 0.0.1 (the maintainer, 2026-10-27): a click on the toolbar's `• unsaved
     changes` opens the list of the changes, the table the close prompt already shows
     (`plans/save_editor.md`, the "Closing, or opening another save" bullet: Item, Old value,
-    New value) without its save, discard and cancel. Drafted first, then the plan
+    New value) without its save, discard and cancel. Drafted first, then the plan. A popup,
+    not a window (the maintainer, 2026-10-27; DECISIONS "The changes list is a popup under the
+    unsaved-changes label"); the colour row's swatch is in QUESTIONS
   - [ ] 8.32 after 0.0.1 (the maintainer, 2026-10-27): the pitch draws the formation's name
     (`4-3-3`) in its corner, exactly as PES's formation screen draws it. First: the game's
     rule for the name from the slots' positions and the label's look, from in-game captures
