@@ -454,7 +454,11 @@ More rules that keep it worth the row:
   class, a special tool's declared size), fitted to its monitor and centered on it as a first
   start is, a maximized window restored first: one click back from a window dragged half off
   a monitor or stretched over two, where finding the edges to drag is the chore. It changes
-  nothing else, and the remembered place follows as after any resize. The data location is not shown: it is a choice made once and on purpose, its one
+  nothing else, and the remembered place follows as after any resize. The button is drawn
+  only while the window is maximized or its size differs from the active tool's class's
+  design size fitted to the monitor: at that size the click would change nothing a member
+  set out to change, so the bar shows the version alone. Its position does not count, as a
+  window moved at its default size is one the member placed. The data location is not shown: it is a choice made once and on purpose, its one
   failure mode already has the `data_dir_read_only` condition, and the About block carries it for
   the rare report that needs it. The row is always present at a fixed height, so a notice never
   shifts the tool view; auto-hiding was rejected for that reason.
@@ -659,14 +663,17 @@ to the table first (a new dependency, asked for first):
   window's title bar, the OS's in the app, whose maximize box is drawn rather than typed.
 - **Size:** the UI is drawn inside a simulated window of the window's default size ("Shell
   layout": 1280 × 800, fitted to 90% of the browser's `screen` size as Studio fits the
-  monitor; CSS pixels are logical pixels, as egui's points are), centered on a
-  desktop-colored page, with a size choice (the default, the smallest default of 1264 × 648,
-  the minimum of 960 × 600, the whole monitor) and the draft controls outside it. Narrower
+  monitor; CSS pixels are logical pixels, as egui's points are), on a desktop-colored page,
+  with the draft controls in one column on its left, in sections: the window (a size choice:
+  the default, the smallest default of 1264 × 648, the minimum of 960 × 600, the whole
+  monitor), the shell's controls grouped by surface, then the active tool's. A column rather
+  than strips above the window, so the window starts at the page's top at every tool and a
+  tool with many controls does not push it down the page. Narrower
   than the tool's design width the simulated window scales its content down with the width,
   as Studio does (`spec/core/gui.md` "Shell layout", "Scaling with the width"), so a narrow size shows what a
   member sees rather than a layout Studio never draws. Like Studio Web's window ("Browser deployment: Studio Web") it resizes
   from its bottom-right corner and maximizes to the page from its title bar (a button, or a
-  double-click on the bar), and the bar above it reads its size live, in pixels and as a
+  double-click on the bar), and the column's window section reads its size live, in pixels and as a
   share of the monitor, which is how the default size is tuned. A full-page draft in a maximized browser shows room the real window
   does not have. The frame is the harness, not the UI, like the draft controls; its CSS
   transform makes the fixed-position menus and dialogs place themselves inside it, as egui's
@@ -1007,10 +1014,15 @@ ST-SET-04   GIVEN the selector at PES 2019 and the menu open
 **Status bar and window title**
 
 ```
-ST-BAR-01   GIVEN no condition, no background activity and no notice
+ST-BAR-01   GIVEN no condition, no background activity and no notice, the window maximized
             WHEN the status bar is drawn
             THEN it shows the version number in small text and the Reset window button and
                  nothing else, at its fixed height
+ST-BAR-06   GIVEN a main tool active, the window at 1280 × 800 on a 1920 × 1080 monitor
+            WHEN the status bar is drawn
+            THEN it draws no Reset window button; GIVEN the window resized to 1100 × 800,
+                 or maximized, THEN the button is drawn; GIVEN a special tool declaring
+                 480 × 640 active, its window at 480 × 640 and moved, THEN no button
 ST-BAR-05   GIVEN a main tool active, the window maximized on a 1920 × 1080 monitor
             WHEN Reset window is clicked
             THEN the window is restored and asked for 1280 × 800, centered on that monitor;

@@ -29,15 +29,21 @@ names where the question came from so the context can be read there.
   caps within 2.2%, round letters normal width), **Roboto Flex tuned to Segoe UI** (its
   parametric axes set so every measured proportion matches to 0.03%) and **Libre Franklin**
   (heights within 0.7%, ascenders 6% shorter). Selawik itself is the one font in the list
-  with a smaller x-height (95% of Segoe UI's). A pick is bundled and the symbols font rebuilt
-  on it.
+  with a smaller x-height (95% of Segoe UI's). Roboto and Roboto Flex as shipped are in the
+  list too (scaled 96.9% and 98.2%). A switch now redraws the draft in place once the new
+  face has loaded, so no frame draws in a fallback font (the page reloaded the draft before,
+  which flashed whenever the face loaded after the first paint). A pick is bundled and the
+  symbols font rebuilt on it.
 - **The sliders, the player rows, the positions labels and Reset window (0.0.1z1).** Open
   `docs/prototypes/index.html`, the Save editor: the sliders are drawn as the app's, the
   handle and the rail up to it blue (a team's Formation settings, a player's Appearance);
   the player rows carry no team name under ALL; a click on a Playable positions label makes
   it the registered position; the list keeps its scroll through a reorder or a folded
-  section; Reset window sits right of the version in the status bar. The app follows once
-  you approve.
+  section; Reset window sits right of the version in the status bar. Your second look's
+  changes (0.0.1z4): Reset window is drawn only while the window is maximized or off its
+  default size; the unsaved-changes prompt is as wide as its widest row, up to nine tenths of
+  the window, each change on one line; every draft's controls sit in one column left of the
+  window, in sections (Window, Shell, the active tool). The app follows once you approve.
 - **The drafts in the app's own fonts (0.0.1w3).** Their approval is withdrawn until you have
   looked at them again: they now draw Selawik and the suite's symbols font (worklog 0.0.1w,
   DECISIONS 2026-10-27 "The symbols are a font of their own"), where every earlier review saw

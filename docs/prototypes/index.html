@@ -242,7 +242,7 @@
     /* egui's row height: 1.2 times the size (Selawik's hhea), where a browser's normal
        line takes the font's Windows metrics (16 points at 12.5, egui's 15). */
     font: 400 12.5px/1.2 var(--font-body);
-    display: flex; flex-direction: column; align-items: flex-start; overflow: auto;
+    display: flex; align-items: flex-start; overflow: auto;
   }
   /* The simulated window: Studio's window at its default size (plans/core/gui.md "Shell
      layout"), on a desktop-colored page, so the draft shows what fits at that size. The
@@ -254,7 +254,7 @@
     border: 1px solid #000; box-shadow: 0 8px 32px #000c; }
   /* Resizable from its bottom-right corner, and maximized to fill the page by the title
      bar's button or a double-click on the bar, as Studio Web's window is (plans/core/gui.md
-     "Browser deployment: Studio Web"); the size bar above reads its size live. */
+     "Browser deployment: Studio Web"); the column's Window section reads its size live. */
   .win { resize: both; min-width: 480px; min-height: 320px; }
   .win.max { position: fixed; inset: 0; margin: 0; width: auto !important; height: auto !important;
     resize: none; z-index: 1000; border: none; }
@@ -265,8 +265,26 @@
      which egui does not draw, so it takes no glyph from the app's fonts. */
   .titlebar .win-max::before { content: ""; display: inline-block; width: 8px; height: 8px;
     border: 1px solid currentColor; }
-  .win-size, .draft-controls { align-self: stretch; }
-  .win-size { padding: 4px 8px 0; display: flex; gap: 8px; align-items: center; }
+  /* The draft controls: one column left of the simulated window, scrolling on its own, in
+     sections top to bottom (the window's size, the shell's, the active tool's), each group of
+     a section under a rule. Not part of Studio; above a modal, so it stays usable. */
+  /* On the app's panel colour, not the desktop page: the theme's greys are tuned for that
+     background, and on the page the weak text fell near 2:1. Weak text here reads as body
+     text; the sections' strong headings and the groups' rules carry the hierarchy. */
+  .draft-side { flex: none; width: 300px; box-sizing: border-box; height: 100vh;
+    overflow-y: auto; position: sticky; top: 0; z-index: 15; padding: 8px 8px 8px 10px;
+    display: flex; flex-direction: column; gap: 4px; background: var(--panel);
+    border-right: 1px solid #000; }
+  .draft-side .weak { color: var(--text); }
+  .win-size, .draft-controls { display: flex; flex-direction: column; align-items: flex-start;
+    gap: 4px; }
+  .draft-side .dcsection { color: var(--strong); margin-top: 10px; align-self: stretch;
+    border-bottom: 1px solid var(--stroke); padding-bottom: 2px; }
+  .draft-side .dcgroup { margin-top: 6px; align-self: stretch; padding-top: 4px;
+    border-top: 1px dashed var(--stroke); }
+  .draft-side label.cb, .draft-side .group { flex-wrap: wrap; }
+  .draft-side select { max-width: 100%; }
+  .draft-controls > details { align-self: stretch; }
   /* Everything under the title bar, scaled down together by transform when
      the window is under the design width (the applyScale comment). Always
      transformed (scale(1) at full width), so the fixed-position panels
@@ -342,9 +360,6 @@
   .swatch { display: inline-block; width: 14px; height: 14px; border-radius: 2px; border: 1px solid #000; vertical-align: middle; }
   .chip { background: var(--widget); border-radius: 2px; padding: 0 4px; }
   /* shell */
-  .draft-controls { border: 1px dashed var(--stroke); margin: 4px 4px 0; padding: 3px 8px;
-    display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
-    position: relative; z-index: 15; /* not part of Studio: stays usable over a modal */ }
   .titlebar { background: var(--extreme); border-bottom: 1px solid var(--stroke); padding: 2px 8px; display: flex; gap: 6px; }
   /* The sidebar is always the rail: 56 px wide, icon-only (plans/core/gui.md
      "Sidebar" 4). The labels show in the opened layer only; the planned entries
@@ -429,8 +444,6 @@
   .firstrun { display: flex; gap: 16px; margin: 2px 0 8px; }
   .firstrun .choice { flex: 1; display: flex; flex-direction: column; gap: 4px; }
   .firstrun button { font-size: 15px; padding: 10px 14px; }
-  .draft-controls > details { flex-basis: 100%; }
-  .draft-controls .dcgroup { margin-left: 6px; }
   input:disabled, select:disabled { color: #5a5a5a; opacity: .55; }
   .cb:has(input:disabled) { color: #5a5a5a; }
   /* Layout edit: the overlay over a data-panel element while the toggle is on
@@ -450,9 +463,12 @@
 </style>
 </head>
 <body>
+<div class="draft-side" id="draft-side">
+<div class="weak">Draft controls, not part of Studio</div>
 <div class="win-size" id="win-size"></div>
 <div class="draft-controls" id="draft-controls"></div>
 <div class="draft-controls" id="tool-controls"></div>
+</div>
 <div class="win" id="win">
 <div class="titlebar" id="titlebar"></div>
 <div class="win-body" id="win-body">
@@ -471,14 +487,31 @@
 // The body-font trial (worklog 0.0.1w4): `?fontsrc=<a @font-face src>&scale=<percent>` draws
 // the text in that face, at that size-adjust, in Selawik's place in every chain; a trial page
 // beside the candidate files sets them. Without the keys the drafts draw as always.
+// The trial page then switches candidates by message ({ fontsrc, scale }), not by reloading:
+// the new face loads first and replaces the old in one step, so no frame draws in a fallback
+// font, which a reload did while its face loaded. The chains keep naming "Trial", so the
+// canvas font strings, read once below, stay right.
 const trial = new URLSearchParams(location.search);
+const trialFace = (src, scale) => new FontFace("Trial", src, { weight: "400", sizeAdjust: scale + "%" });
+let trialShown = null, trialAsked = 0;
 if (trial.get("fontsrc")) {
-  document.fonts.add(new FontFace("Trial", trial.get("fontsrc"),
-    { weight: "400", sizeAdjust: (trial.get("scale") || "100") + "%" }));
+  trialShown = trialFace(trial.get("fontsrc"), trial.get("scale") || "100");
+  document.fonts.add(trialShown);
   const root = document.documentElement;
   for (const chain of ["--font-body", "--font-mono", "--font-label"])
     root.style.setProperty(chain, getComputedStyle(root).getPropertyValue(chain)
       .replaceAll('"Selawik"', '"Trial"'));
+  addEventListener("message", async e => {
+    if (!e.data || !e.data.fontsrc) return;
+    const face = trialFace(e.data.fontsrc, e.data.scale), asked = ++trialAsked;
+    await face.load();
+    // Two quick switches: the later one wins, whichever face loads last.
+    if (asked !== trialAsked) return;
+    document.fonts.delete(trialShown);
+    document.fonts.add(face);
+    trialShown = face;
+    render();
+  });
 }
 // Every font face loads now, not when DOM text first needs it: canvas text (the pitch) never
 // triggers a load, and a face that is not loaded yet draws in the browser's fallback.
@@ -531,6 +564,19 @@ function applyScale() {
     (win.clientHeight - document.getElementById("titlebar").offsetHeight) / s + "px";
   body.style.transform = "scale(" + s + ")";
 }
+// The default size as drawn, measured when the window takes it. Reset window shows only while
+// the window is maximized or at another size (gui.md "Status bar"). Every draft's tool is a
+// main tool, so this is the main class's size; a special tool's window compares with its own.
+let defaultDims = null;
+function atDefaultSize() {
+  const win = document.getElementById("win");
+  return !win.classList.contains("max") && defaultDims !== null
+    && win.offsetWidth === defaultDims[0] && win.offsetHeight === defaultDims[1];
+}
+function showReset() {
+  const reset = document.getElementById("reset-window");
+  if (reset) reset.style.display = atDefaultSize() ? "none" : "";
+}
 function sizeWindow(which) {
   const win = document.getElementById("win");
   win.classList.remove("max");
@@ -540,6 +586,7 @@ function sizeWindow(which) {
     : which === "minimum" ? [960, 600] : fitted(screen.width, screen.height);
   win.style.setProperty("--win-w", w + "px");
   win.style.setProperty("--win-h", hgt + "px");
+  if (which === "default") defaultDims = [win.offsetWidth, win.offsetHeight];
   const bar = document.getElementById("win-size");
   bar.innerHTML = "";
   const pick = document.createElement("select");
@@ -552,7 +599,9 @@ function sizeWindow(which) {
   pick.onchange = () => sizeWindow(pick.value);
   const label = document.createElement("span");
   label.className = "weak"; label.id = "win-size-label";
-  bar.append(pick, label);
+  const head = document.createElement("div");
+  head.className = "dcsection"; head.textContent = "Window";
+  bar.append(head, pick, label);
   sizeLabel();
 }
 // The size readout, kept live while the corner is dragged, so a default can be read off a
@@ -566,7 +615,7 @@ function sizeLabel() {
     + (s < 1 ? ", scale " + Math.round(s * 100) + "%" : "")
     + (win.classList.contains("max") ? ", maximized" : "; drag its bottom-right corner to resize");
 }
-const winSizer = new ResizeObserver(() => { applyScale(); sizeLabel(); });
+const winSizer = new ResizeObserver(() => { applyScale(); sizeLabel(); showReset(); });
 winSizer.observe(document.getElementById("win"));
 winSizer.observe(document.getElementById("titlebar"));
 applyScale();
@@ -578,6 +627,7 @@ function toggleMax() {
   const title = win.classList.contains("max") ? "Restore" : "Maximize";
   document.querySelectorAll(".win-max").forEach(b => { b.title = title; });
   sizeLabel();
+  showReset();
 }
 function maxButton() {
   const b = document.createElement("button");
@@ -2058,8 +2108,9 @@ function requestWindowClose() {
   window_("Close", weak("The window closes here."), [button("OK", closeWindow)]);
 }
 
-// The strip visibly outside Studio: every control writes S and redraws. The
-// weak labels group the controls by the surface they exercise.
+// The shell's section of the draft controls' column, visibly outside Studio:
+// every control writes S and redraws. The weak labels group the controls by
+// the surface they exercise.
 function renderDraftControls() {
   const dc = document.getElementById("draft-controls");
   dc.innerHTML = "";
@@ -2068,7 +2119,7 @@ function renderDraftControls() {
     if (on && i < 0) S.conditions.push(id); else if (!on && i >= 0) S.conditions.splice(i, 1);
   });
   const grp = label => h("span", { class: "weak dcgroup" }, label);
-  dc.append(weak("Draft controls, not part of Studio"),
+  dc.append(h("div", { class: "dcsection" }, "Shell"),
     grp("Sidebar"),
     h("label", { class: "cb" }, "Exe in the PES folder",
       combo([["selected", "the selected version's exe"], ["other", "another version's exe (PES 2017)"],
@@ -2141,7 +2192,7 @@ function renderDraftControls() {
       h("div", {}, strong(id), " ", how))));
 }
 
-// The active tool's own strip of draft controls (its view's controls() hook), under
+// The active tool's own section of draft controls (its view's controls() hook), under
 // the shell's; hidden while the active tool has no view or no controls.
 function renderToolControls() {
   const tc = document.getElementById("tool-controls");
@@ -2149,7 +2200,7 @@ function renderToolControls() {
   if (!view || !view.controls) { tc.style.display = "none"; tc.innerHTML = ""; return; }
   tc.style.display = "";
   tc.innerHTML = "";
-  tc.append(weak(toolLabel(S.activeTool) + " draft controls"), ...[view.controls()].flat());
+  tc.append(h("div", { class: "dcsection" }, toolLabel(S.activeTool)), ...[view.controls()].flat());
 }
 
 // Sidebar, top to bottom as gui.md "Sidebar" 1-5.
@@ -2359,12 +2410,13 @@ function renderStatus() {
   left.append(h("span", { class: "weak small" }, "v0.1.0"));
   // A frameless button in the version's own small weak text, so it reads as
   // part of the bar: the window back to its default size, centred, a
-  // maximized one restored first.
+  // maximized one restored first. Absent while the window is at that size.
   const reset = button("Reset window", () => { sizeWindow("default"); render(); },
     { frame0: true, title: "Back to the default window size, centred on its monitor" });
   reset.id = "reset-window";
   reset.classList.add("weak", "small");
   left.append(reset);
+  showReset();
   for (const c of CONDITION_DEFS) if (S.conditions.includes(c.id))
     left.append(h("span", { class: "cond", title: c.tip() },
       h("span", { class: "icon" }, c.icon), h("span", {}, c.text()),
@@ -2897,6 +2949,12 @@ if (afterLink.length) render();
 // A link pasted into the open page's address fires hashchange; reopen the
 // page so the link parses as a fresh one (replaceState does not fire it).
 addEventListener("hashchange", () => location.reload());
+// A page framing the draft (the font trial) keeps it hidden until it has drawn with its faces
+// loaded: the canvas text of a render before that is in a fallback font, so it draws again.
+if (parent !== window) document.fonts.ready.then(() => {
+  render();
+  requestAnimationFrame(() => parent.postMessage({ draftDrawn: true }, "*"));
+});
 </script>
 </body>
 </html>

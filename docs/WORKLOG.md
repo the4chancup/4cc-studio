@@ -3806,7 +3806,9 @@ briefs, review loops, gates and mutation runs as for any step.
       lists exactly the rule's two candidates at three spots checked, a one-press check of
       the tables anywhere. Open: (1) the CF row: the 2016 table puts CF's lower edge at 39.5
       where y3 measured 40.7, the one row off by more than 0.3, so PES 2021's tables may
-      differ (a starter dropped between the two edges, then the menu, settles it); (2) the per-position
+      differ (a starter dropped between the two edges, then the menu, settles it: move the held
+      player with the d-pad, which steps one unit per press where a stick push jumps several,
+      so the edge reads to the unit; the maintainer, 2026-10-27); (2) the per-position
       overall formula for each version (2016's is dumped, 2021's is not), which the rule
       needs before the code can follow it
 - [ ] 0.0.1z the maintainer's look at the built app (2026-10-27 ~21:10): the app's sliders
@@ -3824,9 +3826,20 @@ briefs, review loops, gates and mutation runs as for any step.
     (`team_widgets` `tactics/mod.rs` `slider`, the physique sliders when built), the rows'
     team name gone (`save_editor` `view/player_list.rs`), the prompt's two lines gone
     (`view/prompt.rs`), the label click (SE-GUI-40),
-    Reset window (`studio_core` `shell/status_bar.rs`, ST-BAR-01's test, ST-BAR-05)
+    Reset window (`studio_core` `shell/status_bar.rs`, ST-BAR-01's test, ST-BAR-05, ST-BAR-06:
+    drawn only off the active class's design size or maximized), the prompt as wide as its
+    widest row up to nine tenths of the window, each row on one line (`view/prompt.rs`'s
+    Modal, whose grid today sits in a vertical-only scroll area)
   - [ ] z3 the sidebar's active-tool bar: the draft rounds its left corners, egui draws it
     square (the maintainer, 2026-10-27, "for later")
+  - [x] z4 the maintainer's second look (2026-10-27 ~21:55), drafts and plan: Reset window
+    drawn only while the window is maximized or off its active class's design size
+    (`core/gui.md` "Status bar", ST-BAR-01's GIVEN, ST-BAR-06 new); the unsaved-changes prompt
+    as wide as its widest row up to nine tenths of the window (`save_editor.md` "Editing
+    UI"); every draft's controls in one column left of the window, in sections (`core/gui.md`
+    the drafts' "Size" bullet); the font trial switches faces in place (no reload, no
+    fallback frame) and lists Roboto and Roboto Flex as shipped. Checked in Chromium and
+    Firefox (`.tmp/draft_look/check2.py`)
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,

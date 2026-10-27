@@ -2714,3 +2714,5 @@ worklog passed 7,000 lines.
   the changed-crate gates and the surface's mutation run next.
 - **2026-10-27** — cm6: `doc_pointers.py` taught to read a pointer wrapped across lines: 232 more pointers read, 24 broken; the 19
   in `docs/` repointed at the sections they name (most moved to `spec/`), the script waits for cm4's fix of the one in `save_editor`.
+- **2026-10-27** — 0.0.1z4: the maintainer's second look in the drafts and plans: Reset window only off the default size (ST-BAR-06), the
+  unsaved-changes prompt as wide as its widest row, the drafts' controls in a column left of the window; font trial swaps faces in place.

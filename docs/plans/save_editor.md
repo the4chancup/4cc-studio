@@ -398,7 +398,10 @@ all side by side.
   acts on the selected row's team.
 - Closing, or opening another save, with unsaved changes prompts: save, discard or cancel,
   over a table of what would be saved or lost, columns Item, Old value and New value (the
-  table spans the prompt's width, the two value columns sharing its right part), one row
+  table spans the prompt's width, the two value columns sharing its right part; the prompt
+  is as wide as its widest row, up to nine tenths of the window, each row on one line, so a
+  renamed player's long name reads in full without a sideways scroll; only a row wider than
+  that scrolls), one row
   per changed field against the file as opened or last saved (the dots' baseline, so an edit
   undone back is not listed), the players' rows first, then the teams' own fields. A row is
   worded as the Comparator panel's are, in the views' terms: the item is the player's display

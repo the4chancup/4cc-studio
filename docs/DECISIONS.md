@@ -12409,3 +12409,17 @@ where the eye is when choosing; a window dragged off a monitor or across two is 
 from the default.
 Plan: `plans/core/gui.md` the Dark/light theme row, "Status bar" (ST-BAR-01, ST-BAR-05);
 `plans/save_editor.md` "Editing UI" (the player rows, Playable positions, SE-GUI-40).
+
+## 2026-10-27 — studio_core, save_editor — The maintainer's second look: Reset window only off the default size, a wider prompt, the drafts' controls in a column
+Decision: Reset window is drawn only while the window is maximized or its size differs from
+the active tool's class's design size fitted to the monitor; its position does not count.
+The unsaved-changes prompt is as wide as its widest row, up to nine tenths of the window,
+each row on one line. Every draft's controls sit in one column left of the simulated window,
+in sections (the window, the shell, the active tool), not in strips above it.
+Why: the maintainer's: at the default size the button would change nothing a member set out
+to change; a renamed player's long name (a coloured name is stored without a space) did not
+fit the prompt without a sideways scroll; the column keeps the window at the page's top
+whatever the tool's controls. Position is left out because the request named the size, and a
+window moved at its default size is one the member placed.
+Plan: `plans/core/gui.md` "Status bar" (ST-BAR-01's GIVEN, ST-BAR-06) and the drafts' "Size"
+bullet; `plans/save_editor.md` "Editing UI" (the unsaved-changes prompt).

@@ -105,6 +105,10 @@ input[type=range]:focus { outline: none; }
   border-radius: 2px; color: #b4b4b4; }
 #unsaved-changes { width: 100%; }
 #unsaved-changes th:nth-child(n+2), #unsaved-changes td:nth-child(n+2) { width: 30%; }
+/* The prompt is as wide as its widest row, up to nine tenths of the window: a long player's
+   name and its values read without scrolling sideways (save_editor.md, the closing bullet). */
+.window[data-dlg="unsaved-changes"] { max-width: 90%; }
+#unsaved-changes td, #unsaved-changes th { white-space: nowrap; }
 /* save editor view */
 .toolbar { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-bottom: 4px; }
 .master { display: flex; gap: 12px; align-items: flex-start; }
@@ -2832,7 +2836,7 @@ function drawUnsavedPrompt(then) {
     h("div",{ style: "max-height:240px; overflow:auto" }, changes)),
     [button("Save", () => { closeWindow(); saveFile(); if (!D.gameRunning) { then(); } render(); }),
      button("Discard", () => { closeWindow(); then(); render(); }),
-     button("Cancel", closeWindow)]);
+     button("Cancel", closeWindow)], "unsaved-changes");
 }
 // SE-GUI-20: opening a Fox save whose ids are set while others are stripped
 // lists them with a one-click Strip again (ids to -1, one undoable edit).
