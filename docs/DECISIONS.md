@@ -11573,3 +11573,21 @@ live probe made nine savefile tests fail while PES 2021 ran on the developer's m
 Plan: `spec/team_compiler/pipeline.md` "6. Post-processing" (the plan's "Savefile step while
 the game runs" moved there), `spec/team_compiler/settings.md` "CLI", `spec/team_compiler/README.md`
 TC-SAV-17 (replacing TC-SAV-10), `plans/team_compiler/gui.md` the save findings' bullet.
+
+## 2026-10-27 — development plan — The bundle's `data/` holds its settings and DBC7's rules file; `just release` assembles the file
+Decision: the 0.0.1 bundle ships `data/settings.toml` (the Save editor's `aatf_rules =
+"rules/dbc7.4ccrules"`, and the Team compiler's `multicpk_mode` and `cpk_name` at their
+defaults) and `data/rules/dbc7.4ccrules`. `scripts/release.py` writes the rules file by joining
+`rulesets/dbc7.rhai`, `logic/logic.rhai` and the empty CUSTOM CHECKS section, the layout the
+Ruleset editor writes, and refuses unless the staged exe's `ruleset-editor validate` passes it
+and its `update-logic` reports the logic current.
+Why: the plan's "its settings name it" can only be a settings file in the bundle, and the only
+place one is read without a first-run choice is `data/` beside the exe, which makes the bundle
+portable, so its first start asks nothing (a preview's testers lose the location choice; DBC's
+managers get DBC's check from the first open, the 2026-10-24 entry's aim). The rules file sits
+in `data/` because a relative `aatf_rules` resolves there, where one beside the exe would show
+`../rules/...` in the settings row. No command of the build writes a template, and a new
+`ruleset-editor` command for one build-time use is CLI surface no member needs; the exe's own
+checks catch a join that drifts from the format. The two Team compiler lines let the readme
+tell VGL's organizer which value to change instead of what to type in.
+Plan: `plans/core/development_plan.md` "Divegrass Before Christmas".

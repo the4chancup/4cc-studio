@@ -2585,3 +2585,5 @@ worklog passed 7,000 lines.
 - **2026-10-27** — 8.9l5b (TC-SAV-17): `compile --edit-mode-closed` writes the save while its PES runs; without it the skip's
   line names the flag. The running-PES probe is the tool's, so no test reads the machine's processes; TC-SAV-17
   replaces TC-SAV-10 in the spec.
+- **2026-10-27** — 0.0.1f1: the release recipe stages the bundle's `data/settings.toml` and DBC7's rules file, checked by the
+  staged exe; the readme gains DBC's and VGL's organizer's steps; the exe measured at 37.6 MiB with `cargo bloat`.

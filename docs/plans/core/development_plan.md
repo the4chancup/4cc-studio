@@ -38,7 +38,21 @@ the shell with that tool active, and the Team compiler, the Export upgrader and 
 editor, whose views come later, greyed out on the sidebar as the planned tools are. The bundle
 carries DBC7 as a rules file (`rules/dbc7.4ccrules`, assembled with the current logic), and its
 settings name it as the Save editor's `aatf_rules`: 0.0.1's window testers are DBC's managers,
-and no tool of the build writes a template out. It needs from Release 0.1.0's list the Windows
+and no tool of the build writes a template out. Both live in the bundle's `data/` folder,
+`data/settings.toml` and `data/rules/dbc7.4ccrules`, the setting reading `rules/dbc7.4ccrules`,
+since a relative `aatf_rules` resolves in the data directory; one beside the exe would need a
+`../` in the settings row a member reads. A settings file in `data/` makes the bundle portable
+(`spec/core/distribution.md` "Data location: asked on first run"), so 0.0.1's first start asks
+nothing: the location choice is what a preview's testers lose, against a check that is DBC's
+from the first open. `just release` assembles the file as the Ruleset editor writes one
+(`spec/aatf_rules.md` "The rules file": `rulesets/dbc7.rhai`'s data block, then
+`logic/logic.rhai`, then the empty CUSTOM CHECKS section), because no command of the build
+writes a template (the Ruleset editor's command line validates, updates and summarizes a file,
+and adding a command for one build-time use would be a CLI surface no member needs); the built
+exe's own `ruleset-editor validate` and `update-logic` then confirm, before packing, that the
+file loads and that its logic is current. The settings file also carries the Team compiler's
+`multicpk_mode` and `cpk_name` at their defaults, the two lines VGL's organizer changes (below),
+so the readme can say which line to edit rather than what to add. It needs from Release 0.1.0's list the Windows
 bundle (`just release`, the `.7z` and its checksum), and from Phase 8's the GUI-subsystem exe
 (`architecture.md` "Windows subsystem": no console window beside the window, ST-RUN-04) with
 the window's diagnostic log (`architecture.md` "Diagnostic logging"), since without a console

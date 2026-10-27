@@ -49,7 +49,16 @@ growth is features, not an accident (`cargo bloat`, crate by crate): `rhai` and 
 2.6 MiB of code, the Phase 4 and 5 crates (the Team compiler's later steps, `pes_savefile`,
 `pes_model`, `model_convert`, the Save editor, the image formats) about 5 MiB, and read-only data
 from 5.4 to 10.9 MiB (embedded files about 4.2 MiB of it: the referee templates about 3 MiB, the kit
-bins, the help chapters and the AATF sample team). The release profile stays the default:
+bins, the help chapters and the AATF sample team). Measured again on 2026-10-27 for the 0.0.1
+preview (the build `just release` makes, at commit `745ea9f4`): 37.6 MiB (39,380,992 bytes),
+past the "about 30 MB" and inside the 50 MB ceiling, and again features: code grew from 19.1 to
+24.5 MiB, nearly all of it the tools and the GUI the preview brings (the Save editor's view
+1.1 MiB, up 0.9; the Export upgrader and the Ruleset editor, 0.55 and 0.42 MiB, newly linked;
+`studio_core`'s shell up 0.36; `egui` up 0.57 as the views use more of it; `team_widgets`, `egui_extras`, the
+help window's Markdown and its text shaping about 0.6 together), with `aatf` up 0.28 and `std`
+up 0.4; read-only data is 12.0 MiB, embedded files 5.3 MiB of it (the body font, 0.34 MiB,
+the largest new one). The tables are `cargo bloat --release -p studio --crates`, whose
+per-crate split is an estimate, as the tool itself says. The release profile stays the default:
 `panic = "abort"` would cut the unwinding tables, but the GUI reports a compile thread's panic
 instead of closing, and LTO trades longer builds for size. The one cut taken is `rhai`'s
 `only_i64` (0.6 MiB; [External Dependencies](README.md#external-dependencies-rust-crates));

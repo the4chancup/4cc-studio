@@ -1,0 +1,6 @@
+[save-editor]
+aatf_rules = "rules/dbc7.4ccrules"
+
+[team-compiler]
+multicpk_mode = false
+cpk_name = "4cc_99_test"

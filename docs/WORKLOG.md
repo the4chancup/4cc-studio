@@ -28,7 +28,7 @@ slices, the running-game rule changed to an Edit mode question; 8.9m, the logic'
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
 reviewed; the audit 0.0.1i done and reviewed), `ingame_face.toml` (0.0.1h, done 2026-10-25: the compiler,
-the upgrader and the Save editor's generation on the new file, SE-GUI-34 checked in game), then the 0.0.1 cut (0.0.1f: the Save editor, DBC7's rules file, and the Team compiler
+the upgrader and the Save editor's generation on the new file, SE-GUI-34 checked in game), then the 0.0.1 cut (0.0.1f, its preparation f1 done on side-lead U's branch: the Save editor, DBC7's rules file, and the Team compiler
 and Export upgrader through their CLI for VGL 27, PES 2019, from late November; 0.0.1a-e and g
 done), then Phase 8's other views and Release 0.1.0. The Ruleset editor (Phase 20) left 0.0.1
 and resumes after 0.1.0: 20.3-20.5, 20.6a1 and 20.6a2a (Tiers) done and reviewed. Done for DBC so far: 20.0d-e (the DBC7 ruleset and its organizer's choices), 8.4
@@ -3075,10 +3075,11 @@ briefs, review loops, gates and mutation runs as for any step.
     `the_update_check_rows_are_not_drawn_yet` replaces the interval test
     (`shell/settings_menu.rs`). The drafts host keeps the rows and its Updates help topic: it
     draws the design, the 0.2.0 rows included
-  - [ ] j2 `pes_version` defaults to PES 2019 (VGL's game); DBC's window testers are on
+  - [x] j2 `pes_version` defaults to PES 2019 (VGL's game); DBC's window testers are on
     PES 2017, so their first open shows SE-GUI-28's version warning until they pick 2017 in
     the sidebar. Not a bundle default, since VGL's organizer compiles from the same bundle on
-    PES 2019: the readme says to pick the version first (0.0.1f's readme)
+    PES 2019: the readme says to pick the version first (0.0.1f's readme). Done 2026-10-27
+    with 0.0.1f's preparation: the readme's "The first time" step 3
   - [x] j3 Live AATF off by default (the plan's choice): P37 proposed it on; vetoed
     2026-10-26, its visibility asked for instead (0.0.1o)
   - the rest read right for a first start: the Team compiler's names and `multicpk_mode` off
@@ -3099,6 +3100,26 @@ briefs, review loops, gates and mutation runs as for any step.
   frozen in `LOGIC_VERSIONS` only after the maintainer's final confirmation, given once the UI
   is polished (the maintainer, 2026-10-25: never before it) (`plans/aatf_rules.md` "Loading and validation": a later logic
   change is version 2), `just release 0.0.1`, handed to DBC's testers and VGL's organizer
+  - [x] f1 the preparation (side-lead U, 2026-10-27; DECISIONS "The bundle's `data/` holds its
+    settings and DBC7's rules file"): `just release` stages `data/settings.toml`
+    (`resources/bundle/data/`: `aatf_rules = "rules/dbc7.4ccrules"`, `multicpk_mode` and
+    `cpk_name` at their defaults) and `data/rules/dbc7.4ccrules`, joined from `rulesets/dbc7.rhai`
+    and `logic/logic.rhai`, refused unless the staged exe's `ruleset-editor validate` and
+    `update-logic` pass it (`scripts/release.py` `stage_data`, 5 new or widened tests in
+    `release_test.py`). Checked on the release exe: the staged folder holds those files alone;
+    each check refuses a perturbed copy; `save-editor check-aatf` from it without `--rules`
+    prints what `--rules data/rules/dbc7.4ccrules` prints (DBC7's medal systems). The readme:
+    the Ruleset editor greyed out too, no first-run question (the bundle is portable), DBC's
+    testers pick PES 2017 first (j2), the DBC rules file, and "For VGL's organizer"
+    (`upgrade-dpfl` then `--yes`, `multicpk_mode` for the first DLC, `cpk_name` a midcup for a
+    matchday). `cargo bloat` at 745ea9f4: 37.6 MiB (39,380,992 bytes), the growth the tools and
+    the GUI (`spec/core/distribution.md` "Size budget"; tables `.tmp/0_0_1f/head745/`). The
+    clean-machine check's "first-run dialog" does not apply to this bundle: its settings file
+    makes it portable, so the first start asks nothing. Review: SWE-2 S1 3 of 7 accepted (two
+    routed: `plans/core/gui.md` and `plans/core/distribution.md` still list the old bundle;
+    a block's own CUSTOM CHECKS now kept), `.tmp/0_0_1f/rulings.md`
+  - [ ] f2 logic version 1's hash frozen (on the maintainer's confirmation), `just release
+    0.0.1`, the clean-machine check, the hand-over
 
 ### Phase 10 — Music tools
 
