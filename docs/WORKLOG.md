@@ -3170,9 +3170,14 @@ briefs, review loops, gates and mutation runs as for any step.
       an open, `player_assignments` read-only; tests on non-identity elevens, off-grid drops,
       the five copy/swap ops undone in turn. Lead: the never-written "player assignments" undo
       key dropped (`view/tactics.rs`)
-    - [ ] round S2 over the rework (SWE-2, four parts): 5 accepted (a release within egui's
-      click distance both clicks and drops a marker; four test gaps). The rework rides with
-      0.0.1x4 + y2 (the same drop arm). Next: round S3 over it
+    - [x] round S2 over the rework (SWE-2, four parts): 5 accepted (a release within egui's
+      click distance both clicks and drops a marker; four test gaps), reworked with 0.0.1x4 +
+      y2: a release egui reports as the marker's click is never a drop (the sidekick measured
+      the double fire's band: past egui's 5-point hit radius, within its 6-point click
+      distance; tests at a 5.75 and a 10-point move), a second grass drop below the half-mark,
+      the settings' first row pinned under the heading, the eleven's non-identity premises, the
+      popover test reading the popover's own area
+    - [ ] round S3 over the S2 rework, x4 and y2 (SWE-2)
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
     characters, the pitch drag's swap mark, Scroll names";
@@ -3360,9 +3365,17 @@ briefs, review loops, gates and mutation runs as for any step.
     the draft's `formationName` reads the grid's `POS_ROWS` and gives the eight captured names
     (`.tmp/0_0_1x/draft_names_check.py`; D's drafted rule failed two); Selawik Semibold and
     `--font-label` in the drafts. Open: the maintainer's look (QUESTIONS "Draft looks")
-  - [ ] x4 the code (Opus sidekick, after w2 registers the fonts and the S1 rework lands): the
-    rule in `team_widgets` beside the pitch, unit-tested on the captured teams' slots; the
-    painter's corner label; the font registered by `theme::install`
+  - [x] x4 the code (Opus, one run with y2 and round S2's rework, `.tmp/0_0_1x/brief_0_0_1x4_y2.md`):
+    `team_widgets::pitch::POSITION_ROWS` the one table (the positions grid reads it, its copy in
+    `save_editor` gone), `formation_name` over it, the name painted in the canvas' corner after
+    the markers in the `label` family (`theme::install_fonts`: Selawik Semibold, then the
+    proportional chain), its baseline placed from epaint's glyph origin → verified: the eight
+    captured formations' names from the draft's real slots, the AMF→CMF `3-4-3`, the keeper
+    never counted; the label 5 in, its baseline 6 up within 0.01, white, after every badge;
+    SE-GUI-39 (/f/'s three, /gd/'s three, /3/'s drag and position change); red: a stub name, LMF
+    and RMF in the CMF row (`3-5-2`), the label family dropped; `just gates-changed 89f884e2`.
+    Lead: `TacticsView::popover_area` kept (the S2a-1 test's one key, `pub` for that test).
+    Open: the built window
 - [ ] 0.0.1y the Tactics pitch's two swaps as the game's (the maintainer, 2026-10-27: drag
   swapping should behave as the game's, and the select-one-then-the-other way be offered "if
   easy enough"; DECISIONS 2026-10-27 "A pitch player dropped on another swaps the two slots in
@@ -3370,11 +3383,14 @@ briefs, review loops, gates and mutation runs as for any step.
   - [x] y1 the draft: a marker dropped on another exchanges the two slots' position, X and Y in
     the shown formation (`swapOnPitch`), the keeper never a target (`dropTarget`); the XI list's
     drops keep the starting-eleven exchange, the game's other swap
-  - [ ] y2 the code, after the S1 rework lands (with x4, Opus sidekick): `team_widgets`' pitch
-    drop on a marker writes the shown formation's two slots instead of the starting eleven;
-    SE-GUI-12's two new WHENs as tests (the other formations, presets and the starting eleven
-    unchanged; the keeper not a target); the pitch-drop doc comments and
-    `pitch/tests/drops.rs`' cited decision repointed
+  - [x] y2 the code (with x4): a marker dropped on another swaps the two slots of the shown
+    formation (`formations[..].players.swap`), the keeper no target of the drop or the swap mark
+    (`swap_target`), the lineup rows keeping the starting-eleven exchange; doc comments, the
+    help (`help/08_tactics.md`) and the cited decision repointed → verified: the whole record
+    against the expected swap (premises that a swap elsewhere would show), the keeper held over
+    (no mark) and released on (the snapped point), SE-GUI-12's two WHENs; red: the old
+    starting-eleven exchange (three tests), `swap_target` taking the keeper. Open: the built
+    window, the maintainer's look (QUESTIONS)
 - [ ] 0.0.1j the default-settings audit before the cut: every setting's default in the
   bundle read against what a member running the preview for the first time needs (the
   bundled `settings.toml`, each tool's `Default`, the "Aesthetics from exports" switch off,
@@ -3840,6 +3856,11 @@ pruned when their phase closes; they stay in git history. A question only the ma
 can answer is not an issue: it goes to `docs/QUESTIONS.md`, and an issue that waits on one
 points there.
 
+- open — Studio Web (phase 18): `theme::install_fonts` is native-only, so on wasm the named
+  families the views draw in, `icons` (the sidebar) and `label` (the Tactics pitch's formation
+  name, 0.0.1x4), are unbound, and epaint warns and draws no glyph for them (read in epaint
+  0.37's `font_definitions.rs`, not run). The web frontend installs the same fonts when it
+  starts (found by x4's sidekick, 2026-10-27)
 - open — `plans/core/distribution.md` "Changelog and version display" was never moved to the
   spec although the version label it specifies is built (status bar, About, `--version`, the
   log's first line): `version_label`'s doc comment pointed at the spec heading that does not

@@ -9,7 +9,7 @@
 //! portrait, badge and coloured name.
 
 use pes_savefile::interchange::team_toml::labels::POSITIONS;
-use pes_savefile::model::tactics::{FormationSlot, TeamTactics};
+use pes_savefile::model::tactics::{Formation, FormationSlot, TeamTactics};
 use pes_version::PesVersion;
 
 use crate::names::append_name;
@@ -29,6 +29,20 @@ use popover::slot_popover;
 /// `FORMATIONS`).
 pub const FORMATIONS: [&str; 3] = ["Kick-off", "In-possession", "Out-of-possession"];
 
+/// The playable positions grid's rows, the order a member reads a
+/// formation in (the draft's `POS_ROWS`): the forwards left wing to right
+/// wing, the attacking and wide midfielders, the central ones, the
+/// defenders, GK alone below. The same rows, read back to front without
+/// GK, are the formation name's lines (`formation_name`), so the grid and
+/// the name cannot disagree.
+pub const POSITION_ROWS: [&[&str]; 5] = [
+    &["LWF", "CF", "SS", "RWF"],
+    &["LMF", "AMF", "RMF"],
+    &["CMF", "DMF"],
+    &["LB", "CB", "RB"],
+    &["GK"],
+];
+
 /// The payload a lineup row's drag carries and the pitch's markers drop
 /// (the canvas lands in this module with it): `Starter` and `Marker`
 /// index `TeamTactics::starting_eleven`, `Bench` `TeamTactics::bench_order`.
@@ -38,8 +52,9 @@ pub(crate) enum LineupDrag {
     Starter(usize),
     /// A bench row.
     Bench(usize),
-    /// A pitch marker: every drop target treats it as its `Starter` index
-    /// — the grass move, a row's release never fires, is its alone.
+    /// A pitch marker: a lineup row treats it as its `Starter` index;
+    /// another marker swaps their two slots in the shown formation, and
+    /// the grass move (a row's release there never fires) is its alone.
     Marker(usize),
 }
 
@@ -118,6 +133,16 @@ const NAME_SPEED: f32 = 40.0;
 /// game's 16).
 const NAME_GAP: f32 = 16.0;
 
+/// The formation name's size: its digits 15 points tall, the game's
+/// label's (the plan's "The formation's name").
+const LABEL_SIZE: f32 = 21.0;
+/// The name's text origin, in from the canvas' left edge: the face's 2
+/// point left bearing puts its ink 7 in, the game's.
+const LABEL_LEFT: f32 = 5.0;
+/// The name's baseline, up from the canvas' bottom edge (its digits sit
+/// on it).
+const LABEL_BOTTOM: f32 = 6.0;
+
 /// A marker as a frame's pass sees it: its index in the shown formation,
 /// the slot and its (clamped) badge centre.
 #[derive(Clone, Copy)]
@@ -149,18 +174,22 @@ pub fn formation_selector(ui: &mut egui::Ui, view: &mut TacticsView) {
 
 /// The draft's `.pitch`: the canvas inside its 1 px border — a marker
 /// per starter of the shown formation, dragged to his spot, dropped on
-/// to swap, clicked for the slot popover — and the open popover beside
-/// its marker. `formation_selector` heads it in the host's bar.
+/// to swap, clicked for the slot popover — the formation's name in its
+/// bottom-left corner, and the open popover beside its marker.
+/// `formation_selector` heads it in the host's bar.
 ///
 /// A marker carries `LineupDrag::Marker`, so a release over a lineup row
 /// is that row's drop (a bench row swaps him out through `swap_in`, an
-/// eleven row exchanges the two); a marker is itself a drop target — a
-/// `Bench` row on it is `swap_in`, a `Starter` or another `Marker`
-/// exchanges the two starters — and a release on the grass writes its
-/// slot's snapped coordinates, where a row's release does nothing.
-/// The keeper's marker (position 0) is not a drag source; its spot is
-/// fixed. `version` is the open save's (`swap_in`'s instruction decode).
-/// Answers `true` only when `tactics` changed this frame.
+/// eleven row exchanges the two in the starting eleven); a marker is
+/// itself a drop target — a `Bench` row on it is `swap_in`, a `Starter`
+/// row exchanges the two in the starting eleven (every formation follows,
+/// the game's select-one-then-the-other), another `Marker` exchanges the
+/// two slots' position and spot in the shown formation alone (the game's
+/// drag) — and a release on the grass writes its slot's snapped
+/// coordinates, where a row's release does nothing. The keeper's marker
+/// (position 0) is neither a drag source nor a marker's swap target; his
+/// spot is fixed. `version` is the open save's (`swap_in`'s instruction
+/// decode). Answers `true` only when `tactics` changed this frame.
 pub fn pitch(
     ui: &mut egui::Ui,
     id_salt: impl egui::AsIdSalt,
@@ -262,27 +291,35 @@ pub fn pitch(
                 tactics.starting_eleven.swap(from, onto);
             }
             // A dragged marker's release reads `swap_target` — the same
-            // pick the swap mark shows: over another starter the two
-            // exchange (the dragged one's own spot is never the target);
-            // over the grass or his own spot he moves to the snapped
-            // drop point.
-            Some((_, LineupDrag::Marker(from))) => {
+            // pick the swap mark shows: over another outfield starter
+            // the two slots exchange position and spot in the shown
+            // formation alone, each player staying in his slot, as the
+            // game's drag does (the starting-eleven exchange, which
+            // reaches every formation, is the lineup rows'); over the
+            // grass, his own spot or the keeper he moves to the snapped
+            // drop point. A release egui also reports as his click (the
+            // pointer moved within the click distance, though past his
+            // edge) is that click, which `marker` served: no drop.
+            Some((_, LineupDrag::Marker(from)))
+                if !responses[from]
+                    .as_ref()
+                    .is_some_and(egui::Response::clicked) =>
+            {
                 if let Some(pos) = ui.ctx().pointer_interact_pos() {
-                    match swap_target(&centres, canvas, pos, from) {
-                        Some(onto) => tactics.starting_eleven.swap(from, onto),
+                    let formation =
+                        &mut tactics.presets[view.preset.min(2)].formations[view.formation.min(2)];
+                    match swap_target(&players, &centres, canvas, pos, from) {
+                        Some(onto) => formation.players.swap(from, onto),
                         None => {
                             let (x, y) = snap(pos, canvas.min);
-                            let slot = &mut tactics.presets[view.preset.min(2)].formations
-                                [view.formation.min(2)]
-                            .players[from];
-                            slot.x = x;
-                            slot.y = y;
+                            formation.players[from].x = x;
+                            formation.players[from].y = y;
                         }
                     }
                 }
             }
-            // A row released on the grass or on his own marker does
-            // nothing.
+            // A row released on the grass or on his own marker, and a
+            // marker's release that was his click, do nothing.
             Some(_) | None => {}
         }
         // The paint pass reads the written record: the spots are
@@ -310,7 +347,7 @@ pub fn pitch(
         let swap = dragged.and_then(|index| {
             ui.ctx()
                 .pointer_interact_pos()
-                .and_then(|pos| swap_target(&centres, canvas, pos, index))
+                .and_then(|pos| swap_target(&players, &centres, canvas, pos, index))
         });
         let mut still_for: Option<f32> = None;
         let mut record = |until: Option<f32>| {
@@ -362,6 +399,11 @@ pub fn pitch(
                 seconds,
             ));
         }
+        paint_formation_name(
+            &painter,
+            canvas,
+            &tactics.presets[view.preset.min(2)].formations[view.formation.min(2)],
+        );
         // The swap mark over everything, as the screen's selection marks
         // a target.
         if let Some(target) = swap {
@@ -510,10 +552,13 @@ fn draw_order(centres: &[egui::Pos2; 11]) -> [usize; 11] {
 }
 
 /// The starter a release at `pos` would swap with (the draft's
-/// `hitMarker` and its `skip`): the marker drawn on top among the
-/// others — `skip` is the dragged one's own spot, never a target. The
-/// swap mark and the drop both read it, so they always agree.
+/// `dropTarget`): the marker drawn on top among the others — `skip` is
+/// the dragged one's own spot, never a target — unless it is the
+/// keeper's (position 0), whose slot's position and spot are fixed, so
+/// over him there is none. The swap mark and the drop both read it, so
+/// they always agree.
 fn swap_target(
+    players: &[FormationSlot; 11],
     centres: &[egui::Pos2; 11],
     canvas: egui::Rect,
     pos: egui::Pos2,
@@ -523,6 +568,7 @@ fn swap_target(
         .into_iter()
         .rev()
         .find(|&index| index != skip && marker_rect(centres[index], canvas).contains(pos))
+        .filter(|&index| players[index].position != 0)
 }
 
 /// The badge's rect around its centre (50 x 14).
@@ -551,6 +597,30 @@ fn paint_corners(painter: &egui::Painter, rect: egui::Rect, color: egui::Color32
     corner(rect.right_top(), -1.0, 1.0);
     corner(rect.left_bottom(), 1.0, -1.0);
     corner(rect.right_bottom(), -1.0, -1.0);
+}
+
+/// The formation's name in the canvas' bottom-left corner, as the game's
+/// formation screen writes it (the draft's `FORMATION_LABEL`): white, in
+/// the `label` family (the theme's Selawik Semibold) at `LABEL_SIZE`, its
+/// text origin `LABEL_LEFT` in and its baseline `LABEL_BOTTOM` up. egui
+/// places a galley by its top-left corner and its first glyph's origin
+/// at the row's offset plus the glyph's own (the baseline, a font ascent
+/// down), so the galley goes that far above and left of the wanted
+/// origin.
+fn paint_formation_name(painter: &egui::Painter, canvas: egui::Rect, formation: &Formation) {
+    let galley = painter.layout_no_wrap(
+        formation_name(formation),
+        egui::FontId::new(LABEL_SIZE, egui::FontFamily::Name("label".into())),
+        egui::Color32::WHITE,
+    );
+    let row = galley.rows.first().expect("a laid-out galley has a row");
+    // An empty name (no outfield slot in a known position) draws nothing.
+    let Some(glyph) = row.glyphs.first() else {
+        return;
+    };
+    let origin = row.pos.to_vec2() + glyph.pos.to_vec2();
+    let at = canvas.left_bottom() + egui::vec2(LABEL_LEFT, -LABEL_BOTTOM) - origin;
+    painter.galley(at, galley, egui::Color32::WHITE);
 }
 
 /// A name no wider than the badge fits: it is centred and never moves
@@ -869,6 +939,29 @@ fn paint_marker(
         paint_corners(painter, portrait, color);
     }
     (wide && view.scroll_names).then(|| name_still_for(size.x, seconds))
+}
+
+/// The formation's name as PES 2021's formation screen writes it in the
+/// pitch's corner (`3-3-1-3`): the ten outfield slots counted by the row
+/// of `POSITION_ROWS` their position belongs to, back to front, an empty
+/// row left out. The keeper never counts, and the spot plays no part: an
+/// AMF given CMF at his own spot turns `3-3-1-3` into `3-4-3`.
+pub(crate) fn formation_name(formation: &Formation) -> String {
+    // Every row but the last, GK's.
+    POSITION_ROWS[..4]
+        .iter()
+        .rev()
+        .map(|row| {
+            formation
+                .players
+                .iter()
+                .filter(|slot| row.contains(&position_label(slot.position)))
+                .count()
+        })
+        .filter(|&count| count > 0)
+        .map(|count| count.to_string())
+        .collect::<Vec<_>>()
+        .join("-")
 }
 
 /// The position byte's label (`POSITIONS`), "?" past the table as the

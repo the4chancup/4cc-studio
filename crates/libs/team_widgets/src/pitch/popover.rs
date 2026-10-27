@@ -80,8 +80,10 @@ pub(super) fn slot_popover(
     let formation = &mut presets[open.preset.min(2)].formations[open.formation.min(2)];
     let slot = formation.players[index];
     let keeper = slot.position == 0;
+    // `pitch` has closed it unless `open.scope` is this widget's scope,
+    // so the id is keyed to this pitch.
     egui::Popup::new(
-        ui.scope_id().with("slot popover"),
+        open.area_id(),
         ui.ctx().clone(),
         egui::PopupAnchor::Position(canvas.min + open.at),
         ui.layer_id(),

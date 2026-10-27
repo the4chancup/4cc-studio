@@ -1,4 +1,5 @@
 use pes_savefile::model::instruction::Instruction;
+use pes_savefile::model::tactics::Formation;
 
 use super::*;
 
@@ -589,6 +590,346 @@ fn the_pitch_moves_assigns_and_swaps_on_the_tactics_editor() {
         team_entry(&view, 701).tactics.players_to_join_attack,
         [members[0], members[1], u8::MAX],
         "the two clicked players are the setting's players"
+    );
+    // Join mode off again, so the pitch drags below drag.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    click(&mut window, chip(&nodes, "Join the attack"), &mut view);
+
+    // A pitch player dropped on another on Kick-off: the two slots
+    // exchange position and spot in preset 1's Kick-off alone, the
+    // starting eleven, the other two formations and presets 2 and 3
+    // unchanged.
+    let before = team_entry(&view, 701).tactics;
+    let (from, onto) = (3, 6);
+    let players = before.presets[0].formations[0].players;
+    assert_ne!(players[from], players[onto], "premise: two different slots");
+    for (preset, formation) in [(0, 1), (0, 2), (1, 0), (2, 0)] {
+        let players = before.presets[preset].formations[formation].players;
+        assert_ne!(
+            players[from], players[onto],
+            "premise: a swap there too would show (preset {preset}, formation {formation})"
+        );
+    }
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let at = marker_point(canvas, &players, from).expect("a point on the marker a press can reach");
+    let over =
+        marker_point(canvas, &players, onto).expect("a point on the marker a drop can reach");
+    drag(&mut window, at, over, &mut view);
+    let mut expect = before.clone();
+    expect.presets[0].formations[0].players.swap(from, onto);
+    assert_eq!(
+        team_entry(&view, 701).tactics,
+        expect,
+        "only Kick-off's two slots exchanged"
+    );
+
+    // An XI row dropped on another: the two players exchange in the
+    // starting eleven, every formation unchanged.
+    let before = team_entry(&view, 701).tactics;
+    assert_ne!(
+        before.starting_eleven[1], before.starting_eleven[2],
+        "premise: two different players"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let names = lineup_names(&nodes);
+    drag(&mut window, centre(names[1]), centre(names[2]), &mut view);
+    let mut expect = before.clone();
+    expect.starting_eleven.swap(1, 2);
+    assert_eq!(
+        team_entry(&view, 701).tactics,
+        expect,
+        "only the starting eleven's two entries exchanged"
+    );
+}
+
+/// A formation of eleven `(position, x, y)` slots, the position by its
+/// label.
+fn formation_of(slots: [(&str, u8, u8); 11]) -> Formation {
+    Formation {
+        players: slots.map(|(label, x, y)| FormationSlot {
+            position: POSITIONS
+                .iter()
+                .position(|name| *name == label)
+                .and_then(|index| u8::try_from(index).ok())
+                .unwrap_or_else(|| panic!("{label} is a position")),
+            x,
+            y,
+        }),
+    }
+}
+
+/// The formation name the pitch's corner paints this frame: the one text
+/// shape in the `label` family.
+fn formation_label(shapes: &[egui::epaint::ClippedShape]) -> String {
+    let label = egui::FontFamily::Name("label".into());
+    let texts: Vec<&str> = shapes
+        .iter()
+        .filter_map(|clipped| match &clipped.shape {
+            egui::Shape::Text(shape)
+                if shape
+                    .galley
+                    .job
+                    .sections
+                    .iter()
+                    .any(|section| section.format.font_id.family == label) =>
+            {
+                Some(shape.galley.job.text.as_str())
+            }
+            _ => None,
+        })
+        .collect();
+    assert_eq!(texts.len(), 1, "one formation name painted: {texts:?}");
+    texts[0].to_owned()
+}
+
+/// `view`'s next frame's formation name.
+fn shown_formation_name(window: &mut Headless, view: &mut SaveView) -> String {
+    let (_, _, shapes) = window.frame(Vec::new(), |ui| show(ui, view, &|| Vec::new(), None));
+    formation_label(&shapes)
+}
+
+// SE-GUI-39
+#[test]
+fn the_pitchs_corner_names_the_shown_formation_as_the_game_does() {
+    // The fixture save's teams carry a fresh save's default formations,
+    // so each team's slots are set from the draft's PES 21 sample save
+    // (transcribed from the real save the game's screen was read on,
+    // 2026-10-27): /f/'s preset 1 with fluid formation on, /gd/'s three
+    // presets, /3/'s Kick-off.
+    let path = fixture(PesVersion::Pes21, "tactics_formation_name");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    let f = &mut file.team_mut(718).unwrap().tactics.presets[0];
+    f.style.fluid = Some(true);
+    f.formations = [
+        formation_of([
+            ("GK", 52, 3),
+            ("SS", 69, 35),
+            ("CMF", 53, 26),
+            ("DMF", 66, 17),
+            ("CB", 32, 6),
+            ("CB", 72, 6),
+            ("CB", 52, 7),
+            ("RMF", 84, 27),
+            ("LMF", 20, 26),
+            ("DMF", 42, 17),
+            ("CF", 42, 41),
+        ]),
+        formation_of([
+            ("GK", 52, 3),
+            ("SS", 65, 38),
+            ("CMF", 54, 26),
+            ("DMF", 76, 25),
+            ("CB", 32, 6),
+            ("CB", 72, 6),
+            ("CB", 52, 7),
+            ("RWF", 87, 35),
+            ("LWF", 18, 35),
+            ("DMF", 32, 25),
+            ("CF", 44, 40),
+        ]),
+        formation_of([
+            ("GK", 52, 3),
+            ("CMF", 63, 26),
+            ("CMF", 43, 26),
+            ("DMF", 65, 16),
+            ("CB", 32, 6),
+            ("CB", 72, 6),
+            ("CB", 52, 7),
+            ("RMF", 84, 27),
+            ("LMF", 20, 26),
+            ("DMF", 42, 16),
+            ("CF", 43, 40),
+        ]),
+    ];
+    let gd = [
+        formation_of([
+            ("GK", 52, 3),
+            ("CB", 64, 11),
+            ("CB", 40, 11),
+            ("RB", 88, 13),
+            ("LB", 16, 13),
+            ("CMF", 69, 24),
+            ("SS", 70, 42),
+            ("DMF", 41, 21),
+            ("AMF", 53, 33),
+            ("SS", 35, 42),
+            ("CF", 53, 46),
+        ]),
+        formation_of([
+            ("GK", 52, 3),
+            ("CB", 64, 11),
+            ("CB", 40, 11),
+            ("RB", 88, 13),
+            ("LB", 16, 13),
+            ("CMF", 32, 25),
+            ("CMF", 73, 25),
+            ("DMF", 52, 19),
+            ("AMF", 52, 32),
+            ("SS", 40, 43),
+            ("CF", 65, 45),
+        ]),
+        formation_of([
+            ("GK", 52, 3),
+            ("CB", 64, 11),
+            ("CB", 40, 11),
+            ("RB", 88, 13),
+            ("LB", 16, 13),
+            ("CMF", 28, 25),
+            ("CMF", 77, 25),
+            ("DMF", 52, 19),
+            ("AMF", 65, 34),
+            ("AMF", 42, 34),
+            ("CF", 53, 45),
+        ]),
+    ];
+    for (preset, formation) in file
+        .team_mut(722)
+        .unwrap()
+        .tactics
+        .presets
+        .iter_mut()
+        .zip(gd)
+    {
+        preset.formations = [formation.clone(), formation.clone(), formation];
+    }
+    file.team_mut(701).unwrap().tactics.presets[0].formations[0] = formation_of([
+        ("GK", 52, 3),
+        ("CB", 51, 8),
+        ("CB", 29, 8),
+        ("CB", 74, 8),
+        ("DMF", 53, 17),
+        ("CMF", 77, 24),
+        ("CMF", 27, 24),
+        ("SS", 69, 44),
+        ("SS", 50, 36),
+        ("AMF", 52, 27),
+        ("CF", 37, 45),
+    ]);
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1600.0, 1400.0);
+
+    // /f/: Kick-off, In possession and Out of possession in turn. (The
+    // team list draws no row for 718 at this window's size: the team is
+    // selected as a row click would.)
+    view.selected = Some(Selection::Team(718));
+    assert_eq!(shown_formation_name(&mut window, &mut view), "3-3-2-2");
+    for (button, name) in [("In-possession", "3-3-4"), ("Out-of-possession", "3-4-2-1")] {
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        click(
+            &mut window,
+            node_labeled(&nodes, Role::Button, button),
+            &mut view,
+        );
+        assert_eq!(
+            shown_formation_name(&mut window, &mut view),
+            name,
+            "/f/'s {button}"
+        );
+    }
+
+    // /gd/: presets 1, 2 and 3 (its three formations alike, so the
+    // Out-of-possession left on screen reads the same).
+    view.selected = Some(Selection::Team(722));
+    assert_eq!(
+        shown_formation_name(&mut window, &mut view),
+        "4-2-1-3",
+        "/gd/'s preset 1"
+    );
+    for (button, name) in [("2", "4-3-1-2"), ("3", "4-3-2-1")] {
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        click(
+            &mut window,
+            node_labeled(&nodes, Role::Button, button),
+            &mut view,
+        );
+        assert_eq!(
+            shown_formation_name(&mut window, &mut view),
+            name,
+            "/gd/'s preset {button}"
+        );
+    }
+
+    // /3/: its AMF dragged to another spot keeps `3-3-1-3`; given CMF
+    // through his popover's Position combo, `3-4-3`. A team change keeps
+    // the shown preset and formation: back to preset 1's Kick-off first.
+    view.selected = Some(Selection::Team(701));
+    for button in ["1", "Kick-off"] {
+        let (_, nodes, _) =
+            window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+        click(
+            &mut window,
+            node_labeled(&nodes, Role::Button, button),
+            &mut view,
+        );
+    }
+    assert_eq!(shown_formation_name(&mut window, &mut view), "3-3-1-3");
+    let amf = 9;
+    let players = team_entry(&view, 701).tactics.presets[0].formations[0].players;
+    assert_eq!(
+        POSITIONS[usize::from(players[amf].position)],
+        "AMF",
+        "premise: /3/'s AMF"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let canvas = canvas_of(&nodes);
+    let from = marker_point(canvas, &players, amf).expect("a point on the AMF's marker");
+    let onto = (0..104_u8)
+        .flat_map(|x| (0..48_u8).map(move |y| (x, y)))
+        .map(|(x, y)| badge_centre(canvas, FormationSlot { position: 1, x, y }))
+        .find(|point| {
+            point.x >= canvas.x0 as f32
+                && point.x <= canvas.x1 as f32
+                && point.y >= canvas.y0 as f32
+                && point.y <= canvas.y1 as f32
+                && players
+                    .iter()
+                    .all(|slot| !marker_rect(canvas, *slot).contains(*point))
+        })
+        .expect("a grass point free of markers");
+    drag(&mut window, from, onto, &mut view);
+    let moved = team_entry(&view, 701).tactics.presets[0].formations[0].players[amf];
+    assert_ne!(
+        (moved.x, moved.y),
+        (players[amf].x, players[amf].y),
+        "premise: the drag moved him"
+    );
+    assert_eq!(
+        shown_formation_name(&mut window, &mut view),
+        "3-3-1-3",
+        "a drag keeps the name"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let players = team_entry(&view, 701).tactics.presets[0].formations[0].players;
+    let at = marker_point(canvas_of(&nodes), &players, amf).expect("a point on the AMF's marker");
+    click_at(&mut window, at, &mut view);
+    // The popover's Position combo opened, then its CMF picked, both by
+    // AccessKit clicks: a pointer click does not reach a combo's popup.
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let combo = node_id_right_of(&ids, "Position", Role::ComboBox);
+    action_click(&mut window, &mut view, combo);
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let cmf = ids
+        .iter()
+        .find(|(_, node)| node.role() == Role::Button && node.label() == Some("CMF"))
+        .map(|(id, _)| *id)
+        .expect("the Position list's CMF");
+    action_click(&mut window, &mut view, cmf);
+    assert_eq!(
+        POSITIONS[usize::from(
+            team_entry(&view, 701).tactics.presets[0].formations[0].players[amf].position
+        )],
+        "CMF",
+        "premise: he is a CMF now"
+    );
+    assert_eq!(
+        shown_formation_name(&mut window, &mut view),
+        "3-4-3",
+        "the position change renames the formation"
     );
 }
 
@@ -1375,17 +1716,11 @@ fn the_automatic_settings_wrap_inside_the_column_and_armed_draws_no_note() {
     );
 }
 
-/// The open slot popover's rect: its `Area` is the frame's one
-/// Foreground-order layer (an open combo list would add a second).
-fn popover_rect(window: &Headless) -> Option<egui::Rect> {
-    window.ctx.memory(|memory| {
-        memory
-            .areas()
-            .visible_layer_ids()
-            .iter()
-            .find(|layer| layer.order == egui::Order::Foreground)
-            .and_then(|layer| memory.area_rect(layer.id))
-    })
+/// The open slot popover's rect, read off its own `Area` (another
+/// Foreground layer, an open combo list, is never it).
+fn popover_rect(window: &Headless, view: &SaveView) -> Option<egui::Rect> {
+    let area = view.tactics.popover_area()?;
+    window.ctx.memory(|memory| memory.area_rect(area))
 }
 
 // The popover is anchored to the canvas, not the screen (the draft's
@@ -1410,7 +1745,7 @@ fn the_popover_scrolls_with_the_pitch() {
     click_at(&mut window, at, &mut view);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let canvas_before = canvas_of(&nodes);
-    let popover_before = popover_rect(&window).expect("the popover is open");
+    let popover_before = popover_rect(&window, &view).expect("the popover is open");
 
     // Wheel the detail view down: the canvas moves up and the popover
     // follows it by the same delta.
@@ -1431,7 +1766,7 @@ fn the_popover_scrolls_with_the_pitch() {
     }
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
     let canvas_after = canvas_of(&nodes);
-    let popover_after = popover_rect(&window).expect("the popover still open");
+    let popover_after = popover_rect(&window, &view).expect("the popover still open");
     let moved_y = canvas_after.y0 - canvas_before.y0;
     assert!(moved_y < -20.0, "premise: the canvas scrolled ({moved_y})");
     assert!(

@@ -68,13 +68,69 @@ fn a_marker_dragged_to_grass_writes_the_snapped_point() {
         tactics.presets[0].formations[0], expect,
         "only the dragged slot's x and y moved"
     );
+
+    // A second drop below the half-mark on both axes: `+vec2(0.85,
+    // -2.04)` past a free grid point is 0.30 of a unit each way, so the
+    // written unit is that point's own (x, y), which a `.ceil()` snap
+    // would read (x + 1, y + 1).
+    let formation = tactics.presets[0].formations[0].clone();
+    let centres = centres_of(canvas, &formation.players);
+    let from = marker_point(&nodes, &formation.players, index);
+    let slot = formation.players[index];
+    let (x, y, onto) = (0..GRID_X)
+        .flat_map(|x| (0..GRID_Y).map(move |y| (x, y)))
+        .map(|(x, y)| {
+            (
+                x,
+                y,
+                badge_centre(canvas.min, FormationSlot { position: 1, x, y })
+                    + egui::vec2(0.85, -2.04),
+            )
+        })
+        .find(|(x, y, point)| {
+            canvas.contains(*point)
+                && (*x != slot.x || *y != slot.y)
+                && centres
+                    .iter()
+                    .all(|centre| !marker_rect(*centre, canvas).contains(*point))
+        })
+        .expect("an off-grid point free of markers");
+
+    // The pointer rests on his new spot a frame first: egui hit-tests a
+    // press against the last frame's widgets, and the drop's frame
+    // registered his marker at the spot he left.
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::PointerMoved(from)],
+    );
+    let changed = window.drag_pitch(
+        from,
+        onto,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(changed, "the second drop changed the record");
+    let mut expect = formation;
+    expect.players[index].x = x;
+    expect.players[index].y = y;
+    assert_eq!(
+        tactics.presets[0].formations[0], expect,
+        "the point below the half-mark rounds down"
+    );
 }
 
-// The decision "A pitch player dropped on another exchanges the two
-// starters" (DECISIONS 2026-10-22): the two `starting_eleven` entries
-// trade, the formation slots staying.
+// The decision "A pitch player dropped on another swaps the two slots in
+// the shown formation, as the game's drag" (DECISIONS 2026-10-27): the
+// two slots of preset 1's Kick-off exchange position, x and y, each
+// player staying in his slot; the starting eleven, the preset's other
+// two formations and presets 2 and 3 stay.
 #[test]
-fn a_marker_dropped_on_another_marker_exchanges_the_two_starters() {
+fn a_marker_dropped_on_another_marker_swaps_the_two_slots_in_the_shown_formation() {
     let mut window = Headless::sized(600.0, 450.0);
     let mut tactics = fixture_tactics(PesVersion::Pes21);
     let mut view = TacticsView::default();
@@ -83,9 +139,17 @@ fn a_marker_dropped_on_another_marker_exchanges_the_two_starters() {
     let before = tactics.clone();
     let formation = before.presets[0].formations[0].clone();
     let (from, onto) = (3, 6);
-    let dragged = before.starting_eleven[from];
-    let dropped = before.starting_eleven[onto];
-    assert_ne!(dragged, dropped, "premise: two different slots");
+    assert_ne!(
+        formation.players[from], formation.players[onto],
+        "premise: two different slots"
+    );
+    for (preset, formation) in [(0, 1), (0, 2), (1, 0), (2, 0)] {
+        let players = before.presets[preset].formations[formation].players;
+        assert_ne!(
+            players[from], players[onto],
+            "premise: a swap there too would show (preset {preset}, formation {formation})"
+        );
+    }
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     // `over` is inside `onto`'s box, free of every marker drawn after it
     // (`marker_point`), so the topmost-marker drop resolves to `onto`.
@@ -101,14 +165,202 @@ fn a_marker_dropped_on_another_marker_exchanges_the_two_starters() {
         &roster,
     );
     assert!(changed, "the drop changed the record");
-    assert_eq!(tactics.starting_eleven[from], dropped);
-    assert_eq!(tactics.starting_eleven[onto], dragged);
-    assert_eq!(tactics.presets, before.presets, "the formation slots stay");
-    assert_eq!(tactics.set_pieces, before.set_pieces, "no role moves");
+    let mut expect = before.clone();
+    expect.presets[0].formations[0].players.swap(from, onto);
     assert_eq!(
-        tactics.players_to_join_attack, before.players_to_join_attack,
-        "the join list stays"
+        tactics, expect,
+        "only Kick-off's two slots exchanged: the eleven, the other formations and presets stay"
     );
+}
+
+// The keeper is never a swap target (the plan's pitch-drop bullet, his
+// slot's position and spot being fixed): a marker held over him draws no
+// swap mark, and released there moves to the snapped point as on the
+// grass, the starting eleven and his slot unchanged.
+#[test]
+fn a_marker_released_on_the_keeper_moves_to_the_snapped_point() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let before = tactics.clone();
+    let players = before.presets[0].formations[0].players;
+    let keeper = players
+        .iter()
+        .position(|slot| slot.position == 0)
+        .expect("the fixture has a keeper slot");
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let centres = centres_of(canvas, &players);
+    let over = marker_point(&nodes, &players, keeper);
+    // The dragged starter: an outfield one whose own box is off the hold,
+    // the hold in no outfield marker's box but the keeper's.
+    let index = (0..11)
+        .find(|&index| {
+            players[index].position != 0
+                && !marker_rect(centres[index], canvas).contains(over)
+                && snap(over, canvas.min) != (players[index].x, players[index].y)
+        })
+        .expect("an outfield starter off the keeper's marker");
+    assert!(
+        (0..11).all(|other| {
+            other == keeper || !marker_rect(centres[other], canvas).contains(over)
+        }),
+        "premise: the hold is on the keeper's marker alone"
+    );
+    let from = marker_point(&nodes, &players, index);
+
+    window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(from, true),
+    );
+    let (_, shapes) = window.frame(vec![egui::Event::PointerMoved(over)], |ui| {
+        pitch(
+            ui,
+            "pitch",
+            PesVersion::Pes21,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+    });
+    assert!(
+        !shapes.iter().any(|clipped| matches!(
+            &clipped.shape,
+            egui::Shape::LineSegment { stroke, .. } if stroke.color == SELECTED_CORNERS
+        )),
+        "no swap mark over the keeper"
+    );
+    let (_, changed) = window.pitch(
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+        pointer_at(over, false),
+    );
+    assert!(changed, "the drop changed the record");
+    let mut expect = before.clone();
+    let (x, y) = snap(over, canvas.min);
+    expect.presets[0].formations[0].players[index].x = x;
+    expect.presets[0].formations[0].players[index].y = y;
+    assert_eq!(
+        tactics, expect,
+        "he moved to the snapped point; the eleven and the keeper's slot stay"
+    );
+}
+
+/// A marker `index` of preset 1's Kick-off whose box's left edge has
+/// free grass `reach` points out: a press `inset` points inside that
+/// edge, level with the box's centre, no marker drawn after his covering
+/// it, and its release `reach` points left on no marker. `None` when no
+/// outfield marker has one.
+fn edge_press(
+    canvas: egui::Rect,
+    players: &[FormationSlot; 11],
+    inset: f32,
+    reach: f32,
+) -> Option<(usize, egui::Pos2, egui::Pos2)> {
+    let centres = centres_of(canvas, players);
+    let order = draw_order(&centres);
+    (0..11).find_map(|index| {
+        let rect = marker_rect(centres[index], canvas);
+        let press = egui::pos2(rect.left() + inset, rect.center().y);
+        let release = press - egui::vec2(reach, 0.0);
+        let after = draw_position(canvas, players, index);
+        (players[index].position != 0
+            && canvas.contains(release)
+            && order[after + 1..]
+                .iter()
+                .all(|&other| !marker_rect(centres[other], canvas).contains(press))
+            && centres
+                .iter()
+                .all(|centre| !marker_rect(*centre, canvas).contains(release)))
+        .then_some((index, press, release))
+    })
+}
+
+// Round S2's S2b-1: a release egui reports as the pressed marker's click
+// (the pointer moved no farther than its click distance, 6) is a click,
+// never a drop. egui marks the marker dragged once the pointer is past
+// its hit radius (5) outside him, so a press 0.25 inside his edge
+// released 5.5 off on the grass, a 5.75 move, is both his click and a
+// drop: it opens his popover and writes nothing.
+#[test]
+fn a_release_within_the_click_distance_is_a_click_not_a_drop() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let before = tactics.clone();
+    let players = before.presets[0].formations[0].players;
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let (index, press, release) =
+        edge_press(canvas, &players, 0.25, 5.75).expect("a marker with grass at its left edge");
+    assert_ne!(
+        snap(release, canvas.min),
+        (players[index].x, players[index].y),
+        "premise: a drop there would move him"
+    );
+
+    let changed = window.drag_pitch(
+        press,
+        release,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(!changed, "a click writes nothing");
+    assert_eq!(tactics, before, "his slot's x and y stay");
+    assert_eq!(
+        view.popover.map(|open| open.slot),
+        Some(index),
+        "the release is his click: the popover opens"
+    );
+}
+
+// The same finding's other half: past the click distance the release is
+// the drop, the snapped point written and no popover opened.
+#[test]
+fn a_release_past_the_click_distance_is_a_drop_not_a_click() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let before = tactics.clone();
+    let players = before.presets[0].formations[0].players;
+    let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
+    let canvas = canvas_rect(&nodes);
+    let (index, press, release) =
+        edge_press(canvas, &players, 1.0, 10.0).expect("a marker with grass at its left edge");
+    let (x, y) = snap(release, canvas.min);
+    assert_ne!(
+        (x, y),
+        (players[index].x, players[index].y),
+        "premise: the drop moves him"
+    );
+
+    let changed = window.drag_pitch(
+        press,
+        release,
+        PesVersion::Pes21,
+        &mut tactics,
+        &mut view,
+        &roster,
+    );
+    assert!(changed, "the drop changed the record");
+    let mut expect = before.clone();
+    expect.presets[0].formations[0].players[index].x = x;
+    expect.presets[0].formations[0].players[index].y = y;
+    assert_eq!(tactics, expect, "the snapped point written");
+    assert_eq!(view.popover, None, "no popover opened");
 }
 
 // The same decision's other half: a marker released off the pitch
@@ -428,7 +680,7 @@ fn a_starter_row_dropped_on_a_marker_exchanges_the_two() {
 // The drop reads the swap mark's pick: a starter's marker moved onto the
 // dragged one's own spot is the release's target — the dragged one's own
 // spot is never it (the draft's `hitMarker` `skip`), so a release on the
-// overlap swaps the two starters instead of moving the dragged one.
+// overlap swaps the two slots instead of moving the dragged one.
 #[test]
 fn a_release_on_a_marker_under_the_dragged_ones_spot_swaps() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -444,11 +696,13 @@ fn a_release_on_a_marker_under_the_dragged_ones_spot_swaps() {
         players[index].position != 0 && players[other].position != 0,
         "premise: two outfield slots"
     );
-    players[other] = players[index];
+    players[other].x = players[index].x;
+    players[other].y = players[index].y;
+    assert_ne!(
+        players[other].position, players[index].position,
+        "premise: the two slots differ in position, so their swap shows"
+    );
     let before = tactics.clone();
-    let dragged = before.starting_eleven[index];
-    let dropped = before.starting_eleven[other];
-    assert_ne!(dragged, dropped, "premise: two different slots");
 
     let (nodes, _) = window.pitch(PesVersion::Pes21, &mut tactics, &mut view, &roster, vec![]);
     let canvas = canvas_rect(&nodes);
@@ -484,15 +738,12 @@ fn a_release_on_a_marker_under_the_dragged_ones_spot_swaps() {
         &roster,
     );
     assert!(changed, "the drop changed the record");
+    let mut expect = before.clone();
+    expect.presets[0].formations[0].players.swap(index, other);
     assert_eq!(
-        tactics.starting_eleven[index], dropped,
-        "the other starter takes his slot"
+        tactics, expect,
+        "the two slots exchanged, the starting eleven unchanged"
     );
-    assert_eq!(
-        tactics.starting_eleven[other], dragged,
-        "and the dragged starter takes his"
-    );
-    assert_eq!(tactics.presets, before.presets, "the formation slots stay");
 }
 
 // `swap_in`'s instruction gate: the outgoing starter's slot in a target

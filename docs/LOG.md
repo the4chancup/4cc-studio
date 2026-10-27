@@ -2631,3 +2631,5 @@ worklog passed 7,000 lines.
   egui's 13: the app had drawn 4% wider than every draft); seven layout tests ruled against the drafts (0.0.1w2).
 - **2026-10-27** — The maintainer's answers: buttons stay padded 4 (the drafts' stylesheet now pads 4 too); the changes table
   draws a 12-point swatch before a colour's hex and the changes list drops its footer line (8.31's draft).
+- **2026-10-27** — The Tactics pitch names its formation in its corner as PES 2021's screen does, and a marker dropped on another
+  swaps the two slots in the shown formation alone, as the game's drag (0.0.1x4, y2); round S2's five findings fixed.

@@ -1321,12 +1321,13 @@ fn a_long_name_is_cut_at_the_lists_width() {
     );
 }
 
-// The swap mark (the plan's "A pitch player dropped on another": while
-// a dragged starter is held over another, that one carries the
-// selected player's corner brackets drawn over everything and the
-// dragged marker goes to 35% opacity, so a drag meant only to move can
-// be steered off): over another marker the brackets show and his badge
-// fades; over the grass, neither.
+// The swap mark (the plan's "A pitch player dropped on another", whose
+// release swaps the two slots in the shown formation, DECISIONS
+// 2026-10-27: while a dragged starter is held over another, that one
+// carries the selected player's corner brackets drawn over everything
+// and the dragged marker goes to 35% opacity, so a drag meant only to
+// move can be steered off): over another marker the brackets show and
+// his badge fades; over the grass, neither.
 #[test]
 fn a_drag_over_another_marker_marks_the_swap_and_dims_the_dragged() {
     let mut window = Headless::sized(600.0, 450.0);
@@ -1792,5 +1793,260 @@ fn the_crosss_hover_shows_the_marks_lines() {
         tip.as_deref(),
         Some(format!("{line}\n{line}").as_str()),
         "the marks' lines, one per line"
+    );
+}
+
+/// A formation of eleven `(position, x, y)` slots, the position by its
+/// label.
+fn formation_of(slots: [(&str, u8, u8); 11]) -> Formation {
+    Formation {
+        players: slots.map(|(label, x, y)| FormationSlot {
+            position: POSITIONS
+                .iter()
+                .position(|name| *name == label)
+                .and_then(|index| u8::try_from(index).ok())
+                .unwrap_or_else(|| panic!("{label} is a position")),
+            x,
+            y,
+        }),
+    }
+}
+
+/// The eight formations PES 2021's formation screen was read on
+/// (2026-10-27), as the draft's PES 21 sample save holds them, with the
+/// name the screen wrote: /3/'s (701) Kick-off, /f/'s (718) preset 1's
+/// three, /gd/'s (722) presets 1 to 3, /o/'s (739).
+fn captured_formations() -> [(&'static str, Formation, &'static str); 8] {
+    [
+        (
+            "/3/ Kick-off",
+            formation_of([
+                ("GK", 52, 3),
+                ("CB", 51, 8),
+                ("CB", 29, 8),
+                ("CB", 74, 8),
+                ("DMF", 53, 17),
+                ("CMF", 77, 24),
+                ("CMF", 27, 24),
+                ("SS", 69, 44),
+                ("SS", 50, 36),
+                ("AMF", 52, 27),
+                ("CF", 37, 45),
+            ]),
+            "3-3-1-3",
+        ),
+        (
+            "/f/ preset 1 Kick-off",
+            formation_of([
+                ("GK", 52, 3),
+                ("SS", 69, 35),
+                ("CMF", 53, 26),
+                ("DMF", 66, 17),
+                ("CB", 32, 6),
+                ("CB", 72, 6),
+                ("CB", 52, 7),
+                ("RMF", 84, 27),
+                ("LMF", 20, 26),
+                ("DMF", 42, 17),
+                ("CF", 42, 41),
+            ]),
+            "3-3-2-2",
+        ),
+        (
+            "/f/ preset 1 In possession",
+            formation_of([
+                ("GK", 52, 3),
+                ("SS", 65, 38),
+                ("CMF", 54, 26),
+                ("DMF", 76, 25),
+                ("CB", 32, 6),
+                ("CB", 72, 6),
+                ("CB", 52, 7),
+                ("RWF", 87, 35),
+                ("LWF", 18, 35),
+                ("DMF", 32, 25),
+                ("CF", 44, 40),
+            ]),
+            "3-3-4",
+        ),
+        (
+            "/f/ preset 1 Out of possession",
+            formation_of([
+                ("GK", 52, 3),
+                ("CMF", 63, 26),
+                ("CMF", 43, 26),
+                ("DMF", 65, 16),
+                ("CB", 32, 6),
+                ("CB", 72, 6),
+                ("CB", 52, 7),
+                ("RMF", 84, 27),
+                ("LMF", 20, 26),
+                ("DMF", 42, 16),
+                ("CF", 43, 40),
+            ]),
+            "3-4-2-1",
+        ),
+        (
+            "/gd/ preset 1",
+            formation_of([
+                ("GK", 52, 3),
+                ("CB", 64, 11),
+                ("CB", 40, 11),
+                ("RB", 88, 13),
+                ("LB", 16, 13),
+                ("CMF", 69, 24),
+                ("SS", 70, 42),
+                ("DMF", 41, 21),
+                ("AMF", 53, 33),
+                ("SS", 35, 42),
+                ("CF", 53, 46),
+            ]),
+            "4-2-1-3",
+        ),
+        (
+            "/gd/ preset 2",
+            formation_of([
+                ("GK", 52, 3),
+                ("CB", 64, 11),
+                ("CB", 40, 11),
+                ("RB", 88, 13),
+                ("LB", 16, 13),
+                ("CMF", 32, 25),
+                ("CMF", 73, 25),
+                ("DMF", 52, 19),
+                ("AMF", 52, 32),
+                ("SS", 40, 43),
+                ("CF", 65, 45),
+            ]),
+            "4-3-1-2",
+        ),
+        (
+            "/gd/ preset 3",
+            formation_of([
+                ("GK", 52, 3),
+                ("CB", 64, 11),
+                ("CB", 40, 11),
+                ("RB", 88, 13),
+                ("LB", 16, 13),
+                ("CMF", 28, 25),
+                ("CMF", 77, 25),
+                ("DMF", 52, 19),
+                ("AMF", 65, 34),
+                ("AMF", 42, 34),
+                ("CF", 53, 45),
+            ]),
+            "4-3-2-1",
+        ),
+        (
+            "/o/ preset 1",
+            formation_of([
+                ("GK", 52, 3),
+                ("CB", 52, 9),
+                ("CB", 72, 9),
+                ("CMF", 71, 19),
+                ("CB", 32, 9),
+                ("AMF", 51, 33),
+                ("AMF", 73, 31),
+                ("CMF", 33, 19),
+                ("AMF", 30, 31),
+                ("CMF", 52, 21),
+                ("CF", 52, 43),
+            ]),
+            "3-3-3-1",
+        ),
+    ]
+}
+
+// The plan's "The formation's name": the eight formations read off PES
+// 2021's formation screen get the name the screen wrote (/f/'s In
+// possession, no wide or attacking midfielder, leaves its empty row out:
+// `3-3-4`).
+#[test]
+fn the_formation_name_counts_the_positions_grids_rows_back_to_front() {
+    for (what, formation, name) in captured_formations() {
+        assert_eq!(formation_name(&formation), name, "{what}");
+    }
+}
+
+// The position counts, not the spot: /3/'s AMF given CMF at his own spot
+// reads `3-4-3` (the screen's capture c3_11); the keeper never counts,
+// wherever he stands.
+#[test]
+fn the_formation_name_follows_the_position_and_never_counts_the_keeper() {
+    let (_, mut formation, name) = captured_formations()[0].clone();
+    assert_eq!(name, "3-3-1-3", "premise: /3/'s Kick-off");
+    let amf = formation
+        .players
+        .iter()
+        .position(|slot| position_label(slot.position) == "AMF")
+        .expect("premise: /3/ fields an AMF");
+    formation.players[amf].position = 5;
+    assert_eq!(position_label(5), "CMF", "premise: 5 is CMF");
+    assert_eq!(formation_name(&formation), "3-4-3");
+    let keeper = formation
+        .players
+        .iter()
+        .position(|slot| slot.position == 0)
+        .expect("premise: a keeper slot");
+    formation.players[keeper].x = 52;
+    formation.players[keeper].y = 40;
+    assert_eq!(
+        formation_name(&formation),
+        "3-4-3",
+        "the keeper's spot plays no part"
+    );
+}
+
+// The plan's "The formation's name": the shown formation's name in the
+// canvas' bottom-left corner, white, in the `label` family at 21 pt, its
+// text origin 5 in from the canvas' left edge and its baseline 6 above
+// the bottom edge (the draft's `fillText` at `PITCH.h - 6`, alphabetic
+// baseline), painted after every marker so a low one never covers it.
+#[test]
+fn the_formation_name_sits_in_the_bottom_left_corner_after_the_markers() {
+    let mut window = Headless::sized(600.0, 450.0);
+    let mut tactics = fixture_tactics(PesVersion::Pes21);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(PesVersion::Pes21);
+    let roster = roster_rows(&rows);
+    let (_, formation, name) = captured_formations()[0].clone();
+    tactics.presets[0].formations[0] = formation;
+
+    let (nodes, shapes) = window.pitch_paint(PesVersion::Pes21, &mut tactics, &mut view, &roster);
+    let canvas = canvas_rect(&nodes);
+    let (index, shape) = shapes
+        .iter()
+        .enumerate()
+        .find_map(|(index, clipped)| match &clipped.shape {
+            egui::Shape::Text(shape) if shape.galley.job.text == name => Some((index, shape)),
+            _ => None,
+        })
+        .unwrap_or_else(|| panic!("no painted {name:?}"));
+    let row = &shape.galley.rows[0];
+    let glyph = row.glyphs.first().expect("the name's first glyph");
+    let origin = shape.pos + row.pos.to_vec2() + glyph.pos.to_vec2();
+    assert!(
+        (origin.x - (canvas.left() + 5.0)).abs() <= 0.01,
+        "the text origin 5 in from the left edge ({origin:?}, canvas {canvas:?})"
+    );
+    assert!(
+        (origin.y - (canvas.bottom() - 6.0)).abs() <= 0.01,
+        "the baseline 6 above the bottom edge ({origin:?}, canvas {canvas:?})"
+    );
+    assert_eq!(painted_color(shape), egui::Color32::WHITE, "white");
+    assert_eq!(
+        shape.galley.job.sections[0].format.font_id,
+        egui::FontId::new(21.0, egui::FontFamily::Name("label".into())),
+        "the label family at 21 pt"
+    );
+    let last_badge = shapes
+        .iter()
+        .rposition(
+            |clipped| matches!(&clipped.shape, egui::Shape::Rect(rect) if rect.fill == BADGE_FILL),
+        )
+        .expect("the markers' badges");
+    assert!(
+        index > last_badge,
+        "the name paints after every marker ({index} vs badge {last_badge})"
     );
 }

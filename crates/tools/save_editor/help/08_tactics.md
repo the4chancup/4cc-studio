@@ -20,10 +20,13 @@ the game picked at the top of the sidebar, out of the `download` folder
 inside the **PES folder** setting. When that folder is missing, or a file
 it lists is missing, the starters show without portraits. Dragging a pitch
 player to a new place moves him there, snapped to the positions the save
-can hold, and dropping him on another starter trades their places: while
-you hold him over the other, that one's marker is marked with corner
-brackets and the dragged one turns half transparent, so a drag meant only
-to move him can still be steered aside onto the grass. A bench player
+can hold, and dropping him on another starter (the goalkeeper excepted)
+trades their places and positions in the formation on screen alone, as
+the game's own drag does: the preset's other two formations and the other
+presets keep theirs. While you hold him over the other, that one's marker
+is marked with corner brackets and the dragged one turns half transparent,
+so a drag meant only to move him can still be steered aside onto the
+grass. A bench player
 dropped on a pitch player swaps them, and a pitch player dropped on a
 bench row does the same. Clicking a pitch player opens
 his details beside his marker: a position pick, the exact X and Y fields
@@ -36,12 +39,17 @@ goalkeeper cannot be dragged and his position and spot stay fixed.
 The **Kick-off**, **In-possession** and **Out-of-possession** buttons on the
 formation bar pick which of the preset's three formations it shows (the game
 uses the second and third only while the preset's fluid formation is on).
-Switching formations changes nothing by itself.
+Switching formations changes nothing by itself. The formation's name in the
+pitch's bottom-left corner (such as 3-4-2-1) counts the players in each line
+by their positions, back to front, as the game's formation screen does, so
+it changes when a player's position does but not when he only moves.
 
 The two lists under the pitch set who plays and in which order: the starting
 eleven on the left, the bench on the right;
-the bench lists the players alone, never an empty slot. Drag a row onto another to move or swap it. A starter dropped on
-another starter trades their places. A bench player dropped on a starter takes
+the bench lists the players alone, never an empty slot. Drag a row onto another to move or swap it. A starter's row dropped on
+another starter's row, or on a pitch player, swaps the two players everywhere,
+in every formation of every preset, as picking one and then the other does in
+the game. A bench player dropped on a starter takes
 his place and every job he held (set pieces, joining the attack, instruction
 targets). The captain stays who he was.
 

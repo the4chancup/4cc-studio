@@ -921,6 +921,14 @@ fn the_settings_are_six_even_rows_of_pairs() {
         );
     }
     assert_eq!(xs.len(), 2, "the twelve labels take two columns");
+    // The rows start `TITLE_GAP` under the heading: the item gap after
+    // it, topped up by the panel's `add_space`.
+    assert!(
+        (ys[0].1 - heading.y1 - f64::from(TITLE_GAP)).abs() < 0.5,
+        "the first row starts TITLE_GAP ({TITLE_GAP}) under the heading ({} vs {})",
+        ys[0].1,
+        heading.y1
+    );
     let pitch = (ys[5].1 - ys[0].1) / 5.0;
     for row in ys.windows(2) {
         assert!(
@@ -1473,6 +1481,10 @@ fn the_instructions_terms() {
     // printing it for the lineup index would look right on the
     // fixture's [0, 1, ...] (slot 5 sits at index 9 now).
     tactics.starting_eleven.swap(5, 9);
+    assert_ne!(
+        tactics.starting_eleven[5], 5,
+        "premise: slot and index differ"
+    );
     let rows = named_roster();
     let roster = roster_rows(&rows);
     let term = |field, old, new| {
@@ -1834,6 +1846,10 @@ fn each_side_names_its_slots_through_its_own_roster() {
     // printing it for the lineup index would look right on the
     // fixture's [0, 1, ...].
     tactics.starting_eleven.swap(5, 9);
+    assert_ne!(
+        tactics.starting_eleven[5], 5,
+        "premise: slot and index differ"
+    );
     let old_rows: Vec<(String, String, Option<u8>)> = (0..32)
         .map(|i| (format!("Old {:02}", i + 1), String::new(), None))
         .collect();

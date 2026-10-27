@@ -191,7 +191,11 @@ fn widgets_light() -> egui::style::Widgets {
 /// components", the "Dark/light theme" row). The icon font `"icons"` (the
 /// subset `resources/fonts/phosphor-subset.ttf` ships; `crate::icons` names
 /// its glyphs) comes ahead of egui's own icons, so the icon codepoints come
-/// from it, and is its own `icons` family too. Every build that has
+/// from it, and is its own `icons` family too. The `label` family is
+/// `"Selawik Semibold"` (`resources/fonts/Selawik-Semibold.ttf`), then the
+/// proportional chain: the Tactics pitch's formation name, the one text
+/// the suite draws in a heavier weight, to match the game's stroke
+/// (`plans/save_editor.md` "Tactics editor"). Every build that has
 /// `studio_core` has egui's default fonts, through its `eframe` dependency's
 /// `default_fonts`. Installed fonts resolve
 /// before the system fallback eframe registers (`Context::set_fonts` replaces the
@@ -236,6 +240,23 @@ fn install_fonts(ctx: &egui::Context) {
         egui::FontFamily::Name("icons".into()),
         vec!["icons".to_owned()],
     );
+    fonts.font_data.insert(
+        "Selawik Semibold".to_owned(),
+        std::sync::Arc::new(egui::FontData::from_static(include_bytes!(
+            "../../../resources/fonts/Selawik-Semibold.ttf"
+        ))),
+    );
+    // The semibold first, then the body text's own chain for what it lacks.
+    let mut label = vec!["Selawik Semibold".to_owned()];
+    label.extend_from_slice(
+        fonts
+            .families
+            .get(&egui::FontFamily::Proportional)
+            .expect("egui's default fonts define the proportional family"),
+    );
+    fonts
+        .families
+        .insert(egui::FontFamily::Name("label".into()), label);
     ctx.set_fonts(fonts);
 }
 
@@ -348,6 +369,23 @@ mod tests {
                     .get(&egui::FontFamily::Name("icons".into())),
                 Some(&vec!["icons".to_owned()]),
                 "icons is its own family too"
+            );
+            assert!(
+                definitions.font_data.contains_key("Selawik Semibold"),
+                "Selawik Semibold bundled"
+            );
+            assert_eq!(
+                definitions
+                    .families
+                    .get(&egui::FontFamily::Name("label".into())),
+                Some(&vec![
+                    "Selawik Semibold".to_owned(),
+                    "Selawik".to_owned(),
+                    "symbols".to_owned(),
+                    "icons".to_owned(),
+                    "egui-icons".to_owned(),
+                ]),
+                "the label family is the semibold, then the proportional chain"
             );
         });
     }

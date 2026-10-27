@@ -25,6 +25,7 @@ use pes_savefile::model::{PlayerEntry, PlayerPositions, PlayerSkills, PlayerStat
 use pes_savefile::schema::fields::{ABILITY_FIELDS, PlayerField};
 use pes_savefile::schema::first_version_with;
 use team_widgets::cards;
+use team_widgets::pitch::POSITION_ROWS;
 
 use crate::session::Session;
 use crate::view::{
@@ -390,17 +391,6 @@ pub(super) fn small_stat(
     }
 }
 
-/// The positions grid's rows (the draft's `POS_ROWS`): the order a member
-/// reads a formation in, left wing to right wing, the midfield in two
-/// rows, GK alone below.
-const POS_ROWS: [&[&str]; 5] = [
-    &["LWF", "CF", "SS", "RWF"],
-    &["LMF", "AMF", "RMF"],
-    &["CMF", "DMF"],
-    &["LB", "CB", "RB"],
-    &["GK"],
-];
-
 /// A positions cell's width (the draft's `.poscell` 62px).
 const POS_CELL_WIDTH: f32 = 62.0;
 /// A rating square's side (the draft's `.rate .sel` 17px).
@@ -435,7 +425,8 @@ fn rating_colors(ui: &egui::Ui, rating: u8) -> (egui::Color32, egui::Color32) {
     }
 }
 
-/// The 13 positions in `POS_ROWS`, each row centred in the column (the
+/// The 13 positions in `POSITION_ROWS` (the rows the Tactics pitch's
+/// formation name reads too), each row centred in the column (the
 /// draft's `#pos-grid .posrow` `justify-content: center`), each cell the
 /// position's label above the three `C` `B` `A` ratings (stored 0, 1, 2;
 /// a stored 3 selects none), the cell's contents centred so the label
@@ -457,7 +448,7 @@ fn playable_positions(
     let column_width = info_strip::GENERAL_WIDTH
         .max(info_strip::general_content_width(ui))
         .min(ui.available_width());
-    for row in POS_ROWS {
+    for row in POSITION_ROWS {
         // `add_space` advances the cursor outright, no item spacing.
         let row_width = row.len() as f32 * POS_CELL_WIDTH + (row.len() - 1) as f32 * cell_gap;
         ui.horizontal(|ui| {
@@ -466,7 +457,7 @@ fn playable_positions(
                 let index = POSITIONS
                     .iter()
                     .position(|position| position == name)
-                    .expect("a POS_ROWS name is a POSITIONS name");
+                    .expect("a POSITION_ROWS name is a POSITIONS name");
                 let at = PLAYABLE_POSITIONS
                     .iter()
                     .position(|&position| position == index)

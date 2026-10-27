@@ -113,6 +113,14 @@ pub(crate) struct OpenSlot {
     pub(crate) at: egui::Vec2,
 }
 
+impl OpenSlot {
+    /// The popover's `egui::Area` id, its layer's too: `slot_popover`
+    /// shows it under this id.
+    pub(crate) fn area_id(&self) -> egui::Id {
+        self.scope.with("slot popover")
+    }
+}
+
 /// One chip of the "Player assignments" group (the draft's `SET_PIECES`):
 /// the role's label and the `SetPieceTakers` field it edits — the captain
 /// is `set_pieces.captain` in this model.

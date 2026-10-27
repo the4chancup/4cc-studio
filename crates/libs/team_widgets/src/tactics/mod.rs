@@ -49,6 +49,15 @@ pub struct TacticsView {
     pub scroll_names: bool,
 }
 
+impl TacticsView {
+    /// The open slot popover's `egui::Area` id (its layer's), `None`
+    /// while it is closed: a host reads the popover's rect by it
+    /// (`egui::Memory::area_rect`), whatever other popup is open.
+    pub fn popover_area(&self) -> Option<egui::Id> {
+        self.popover.map(|open| open.area_id())
+    }
+}
+
 impl Default for TacticsView {
     /// The view as a save opens: preset 1, kick-off, nothing armed or
     /// popped, names scrolling.
