@@ -11708,3 +11708,18 @@ Steam's PES 2019 install path, 71 characters, at the body font.
 Why: the maintainer's look at the per-version folder rows: the 220-point boxes cut usual
 paths mid-name, so a member could not read which folder was set.
 Plan: `plans/core/gui.md` "Settings menu", the path row bullet.
+
+## 2026-10-27 — operations — Until the 0.0.1 cut, no test run reaches past what 0.0.1 needs
+Decision: until the cut, work and test runs on what 0.0.1 does not strictly need wait (Phase
+20's steps, the "after 0.0.1" steps, mutation runs of crates outside 0.0.1). 0.0.1's own
+verification keeps this machine: a step or a merge is gated with `just gates-changed <its
+start>` here, and 0.0.1's mutation runs stay split with the mutants host. A full-workspace
+`just gates-remote` runs on the mutants host when it is free, blocking nothing.
+Why: the maintainer's ruling: CPU time on this machine has been the bottleneck for weeks (a
+Ruleset editor test binary on ~9 cores starved every other build on 2026-10-27), so the
+machine is freed for 0.0.1. Moving 0.0.1's own gates or mutation runs to the mutants host,
+CPU-idle beside its production service, would slow the very work the machine is freed for;
+what is queued is only testing what no 0.0.1 change reaches (`gates-changed` already
+covers every package depending on a changed one).
+Plan: no plan edit needed: a scheduling rule, held in `WORKLOG.md` "Current-state gotchas"
+until the cut.

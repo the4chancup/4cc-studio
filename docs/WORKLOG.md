@@ -73,6 +73,14 @@ Things that are true *right now* and would cost the next session time to redisco
 fixture, a flaky test, a crate that doesn't build on one platform). Remove an entry when it stops
 being true. Permanent toolchain facts go in `docs/CONTRIBUTING.md` "Toolchain notes" instead.
 
+- **Until 0.0.1's cut, this machine's CPU goes to 0.0.1** (the maintainer, 2026-10-27; DECISIONS
+  "Until the 0.0.1 cut, no test run reaches past what 0.0.1 needs"): work and test runs on
+  anything 0.0.1 does not strictly need are queued (Phase 20's 20.6a2b and 20.7, the "after
+  0.0.1" steps, mutation runs of crates outside 0.0.1). 0.0.1's own verification keeps this
+  machine at full speed: a step or a merge is gated locally with `just gates-changed <its
+  start>` (the changed packages and every package depending on them), and 0.0.1's mutation
+  runs stay split. Only what no 0.0.1 change reaches moves off it: a full-workspace `just
+  gates-remote` on bonfire when bonfire is free, blocking nothing. Remove this entry at the cut.
 - `just` needs PowerShell as its Windows shell (`set windows-shell` in the justfile): Git for
   Windows' `sh` is not on PATH from a plain PowerShell. Recipes still stop at the first failure.
 - `cargo install just cargo-deny` is required once per machine (both take a few minutes to build);
@@ -2118,6 +2126,20 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
   - [ ] 8.30 after 0.0.1 (the maintainer, 2026-10-26, not a priority): the Save editor's
     Nation field shows the nation's name beside its number, from a map of the game's nation
     ids to names (which versions share the ids, and where the names come from, first)
+  - [ ] 8.31 after 0.0.1 (the maintainer, 2026-10-27): a click on the toolbar's `• unsaved
+    changes` opens the list of the changes, the table the close prompt already shows
+    (`plans/save_editor.md`, the "Closing, or opening another save" bullet: Item, Old value,
+    New value) without its save, discard and cancel. Drafted first, then the plan
+  - [ ] 8.32 after 0.0.1 (the maintainer, 2026-10-27): the pitch draws the formation's name
+    (`4-3-3`) in its corner, exactly as PES's formation screen draws it. First: the game's
+    rule for the name from the slots' positions and the label's look, from in-game captures
+    (ask before taking them); then the draft, then the plan
+  - [ ] 8.33 after 0.0.1 (the maintainer, 2026-10-27): a menu entry that saves a picture of
+    the team's formations to a folder: a grid, one row per preset, one column per formation,
+    a preset with fluid formation off showing its first formation only. Drafted first (which
+    menu, the folder asked or a setting, the image's format and cell size), then the plan
+  - [ ] 8.34 after 8.33 (the maintainer, 2026-10-27): the same for a range of team ids asked
+    for, one picture per team, in one go
   - [ ] 8.29 the text pass: every line a member reads reread against CONTRIBUTING's "That text
     flows naturally" (the maintainer, 2026-10-25; DECISIONS "Text a member reads flows
     naturally, and every existing line is swept once"), rewritten where it reads dry, its meaning
@@ -2907,7 +2929,7 @@ briefs, review loops, gates and mutation runs as for any step.
       with `get_temp` as the workspace does, not `get_persisted`. The centring balances against
       the pane's frame, 8 points inside the window's edge: the built-window check decides
       which edge the eye reads. Files: `view/{info_strip,abilities,mod}.rs`, the tests
-      - [x] r1 round S5's findings (`.tmp/0_0_1s/s3_rulings.md` "Round S5", 14 accepted of 21)
+      - [x] r1 round S5's findings (`.tmp/0_0_1s/s3_rulings.md`, round S5, 14 accepted of 21)
         and the built window's centring (27 px after the list against 35 after Ability stats:
         the pane frame's 8 are invisible). Done 2026-10-26 (SWE-2): the gap after the list is
         half of what the list's edge and the window's leave beside the columns; the list not
@@ -2940,6 +2962,15 @@ briefs, review loops, gates and mutation runs as for any step.
     numbers' three-choice toggles, Join the attack's three rows, Advanced instructions' grid,
     Automatic settings' grid and Substitution combo, Copy/swap on the selection, the medal
     initials on the badges → verify: SE-GUI-12, SE-GUI-25; then o2b on it
+  - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted, waiting for the
+    maintainer's look; `docs/prototypes/tools/save_editor.js` `teamFields`, `hitMarker`,
+    `drawPitch`, `scrollNames`; renders `.tmp/0_0_1s/draft_tactics_req3_*.png` by
+    `.tmp/0_0_1s/draft_swap_scroll.py`): the team view's short name box takes three
+    characters; a pitch drag held over another starter marks him with the selection's corner
+    brackets, the dragged marker at 35% opacity over him, so a drag meant only to move can be
+    steered off; a "Scroll names" checkbox right of the formations' Copy/swap, on by
+    default, which holds a wider name still at its badge's left when off. Plan and
+    DECISIONS once approved; then the code with s5
 - [x] 0.0.1t a rules file a member handles ends in `.4ccrules` (the maintainer, 2026-10-26;
   DECISIONS "A rules file a member handles ends in `.4ccrules`"; `plans/aatf_rules.md` "The
   rules file"): the Save editor's settings row and AATF panel and the Ruleset editor's pickers

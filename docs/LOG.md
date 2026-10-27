@@ -2576,3 +2576,5 @@ worklog passed 7,000 lines.
   probe's stack overflow left a readable dump; attaching its hook needs one `unsafe` block, asked in QUESTIONS (0.0.1k4).
 - **2026-10-27** — The maintainer allowed the crash dump's one `unsafe` block (0.0.1k4b can be built) and asked for
   settings path boxes wide enough for a usual install path; the draft widens them to 440 points.
+- **2026-10-27** — The maintainer's rule until the 0.0.1 cut: this machine's CPU goes to 0.0.1, whose own gates and
+  mutation runs stay here; anything else waits. Three new Save editor requests drafted (0.0.1s s6), four queued (8.31-8.34).
