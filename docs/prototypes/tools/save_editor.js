@@ -3751,9 +3751,7 @@ function positionsPanel(p) {
   // One row per line of the pitch as a member reads it, left wing to right
   // wing, the midfield in two (the attacking and wide ones, then the central
   // ones), GK alone below; each row centred, each cell the position's label
-  // centred over its C B A choice.
-  const POS_ROWS = [["LWF", "CF", "SS", "RWF"], ["LMF", "AMF", "RMF"], ["CMF", "DMF"],
-    ["LB", "CB", "RB"], ["GK"]];
+  // centred over its C B A choice (POS_ROWS, which the formation's name reads).
   const posCols = colCount("positions");
   const posRows = posCols >= 5 ? POS_ROWS : chunk(POS_ROWS.flat(), posCols);
   const posTable = h("div", { id: "pos-grid" },
@@ -4316,6 +4314,32 @@ const MARKER = { badgeW: 50, badgeH: 14, portrait: 50, gap: 0, nameDy: 13 };
 // the ids gold, silver and bronze): gold in the game's gold name code, the
 // colour a gold player's name carries; silver and bronze their metals'.
 const MEDAL_MARK = { gold: ["G", "#cc9900"], silver: ["S", "#c0c0c0"], bronze: ["B", "#cd7f32"] };
+// The playable positions grid's rows, front to back, left wing to right
+// wing, the midfield in two (the attacking and wide ones, then the central
+// ones), GK alone below.
+const POS_ROWS = [["LWF", "CF", "SS", "RWF"], ["LMF", "AMF", "RMF"], ["CMF", "DMF"],
+  ["LB", "CB", "RB"], ["GK"]];
+// The formation's name, as the game's formation screen writes it in the
+// pitch's corner ("3-3-1-3"): the ten outfield slots counted by the grid's
+// row their position belongs to, back to front, an empty row left out. The
+// position counts, not the spot: in game an AMF given CMF at his own spot
+// turns 3-3-1-3 into 3-4-3, and LMF and RMF count with the AMF, not the CMF
+// (/f/'s Kick-off, DMF DMF CMF LMF RMF SS CF, reads 3-3-2-2).
+function formationName(f) {
+  const n = POS_ROWS.slice(0, 4).reverse()
+    .map(row => f.players.filter(s => row.includes(s.position)).length);
+  return n.filter(k => k > 0).join("-");
+}
+// The label's place and size, read off the 720p capture (the pitch 320 x 382
+// there): white digits 15 px tall with a 3 px stroke, their left edge 7 px in
+// from the pitch's left, their bottom 6 px up from its bottom edge. The face
+// is Selawik Semibold, not Bold: egui's dark-mode text alpha (2c - c^2)
+// thickens a stroke's edges, and Bold drawn so is a seventh heavier than the
+// game's 3 px where Semibold matches it (worklog 0.0.1x). In egui: the
+// painter's text at the pitch rect's left-bottom, a FontId of 21 pt (digits
+// 15 pt tall) in the semibold's own family, placed 5 pt in: the face's "3"
+// carries a 2 pt left bearing, so its ink starts at the game's 7.
+const FORMATION_LABEL = { x: 5, bottom: 6, font: "21px " + FONT_LABEL };
 // The badge's position text colour by the position's group, as the game's.
 const POS_COLOUR = pos => pos === "GK" ? "#ffde00"
   : ["CB", "LB", "RB"].includes(pos) ? "#00d2ff"
@@ -4516,6 +4540,12 @@ function drawPitch(t) {
     else if (S.assign) corners(g, x, y, "#ff4e7f");
   }
   g.globalAlpha = 1;
+  // The formation's name at the pitch's bottom left, as the screen writes it,
+  // drawn after the markers so a low marker never covers it (which side the
+  // game draws it on is not observed: no capture has a marker there).
+  g.font = FORMATION_LABEL.font; g.fillStyle = "#ffffff";
+  g.textAlign = "left"; g.textBaseline = "alphabetic";
+  g.fillText(formationName(tacFormation(t)), FORMATION_LABEL.x, PITCH.h - FORMATION_LABEL.bottom);
   if (target >= 0) corners(g, ...badgeAt(t, target), "#14fbff");
   g.font = "12.5px " + FONT_BODY; g.textAlign = "right"; g.textBaseline = "middle";
   for (const [cx, cy, color] of crosses) { g.fillStyle = color; g.fillText("✖", cx, cy); }

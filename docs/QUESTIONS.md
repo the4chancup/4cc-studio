@@ -29,9 +29,10 @@ names where the question came from so the context can be read there.
   (DECISIONS "Formation pictures, the formation's name and the nation names: the maintainer's
   answers"): branch `side/drafts2`, each step's renders and proposed plan text in
   `C:/Data/4cc/Tools_Mine/4cc-studio-temp/wt-drafts2/.tmp/<step>/look.md`. Approve or change
-  each; the plan text lands on approval. 8.32's names still follow the drafted rule, which the
-  in-game captures corrected (worklog 0.0.1x x2: LMF and RMF count with the AMF, not the
-  CMF); its look waits for the lead's correction on main (x3).
+  each; the plan text lands on approval. 8.32 (0.0.1x) is the exception: it is on main
+  with the rule the in-game captures gave (LMF and RMF count with the AMF, not the CMF), its
+  plan text written (`plans/save_editor.md` "The formation's name"); look at the pitch's
+  bottom-left corner in the Save editor's Tactics tab of `docs/prototypes/index.html`.
 - **The Tactics pitch's drop on another player (0.0.1y)**, as the game's drag now: the two
   swap places in the shown formation alone, while dragging an XI row onto another swaps the
   two players in every preset, as the game's select-one-then-the-other does (DECISIONS

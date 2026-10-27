@@ -586,6 +586,26 @@ Win32 original hurt the most):
     player's corner brackets (`#14fbff`), and every marker the armed assignment mode can take
     gets the candidates' (`#ff4e7f`), each a 50 x 50 box of corners around the portrait; a
     join member while join mode is armed has its badge filled `#005c80`.
+  - **The formation's name** sits in the pitch's bottom-left corner as the screen writes it
+    (`3-3-1-3`): the ten outfield slots counted by the row of the playable positions grid
+    their position belongs to, back to front, an empty row left out: LB CB RB, then DMF CMF,
+    then LMF AMF RMF, then LWF CF SS RWF. The keeper never counts and the spot plays no part.
+    Read off PES 2021's screen on four teams' eight formations (an AMF given CMF at his own
+    spot turns `3-3-1-3` into `3-4-3`; DMF DMF CMF LMF RMF SS CF reads `3-3-2-2`, the wide
+    midfielders with the AMF, not the CMF). The grid's rows and the name are one table, so the
+    two cannot disagree. It names the shown formation of the shown preset: a slot's position
+    change updates it, and a drag, which keeps the position here (the pitch-drop bullet
+    below), does not. The label is white, its digits 15 pt tall at the pitch's scale, its ink
+    7 pt in from the pitch's left edge and its bottom 6 pt up from the bottom edge (measured
+    on the 720p capture), drawn after the markers so a low marker never covers it. The
+    typeface need not be the game's, but the stroke must match the game's label, about 3 px
+    on its 15 px digits: Selawik Semibold (`resources/fonts/Selawik-Semibold.ttf`, Selawik
+    1.01's `selawksb.ttf`, SIL OFL 1.1 as the regular weight), a font family of its own (the
+    semibold, then the body chain's fallbacks), at 21 pt, the text placed 5 pt in for the
+    face's 2 pt left bearing. We use Semibold, not Bold, because egui's dark-mode text alpha
+    (`2c - c²`) thickens strokes: drawn so, Semibold's verticals measure 2.97 px against the
+    game's 3.01, Bold's 3.41. It is the one text in the suite not in the regular weight. The
+    formation pictures (worklog 8.33) carry it in every cell when they come.
 - **Lineup by drag-and-drop**: the starting XI and bench are reorderable lists;
   **dragging a bench player onto a pitch player swaps them** (and vice versa).
   The arrow-button ordering UI is gone.
@@ -1433,6 +1453,14 @@ SE-GUI-38  GIVEN the save, player 70101's name set to the colour code `\x11cff00
                 refused; WHEN 47 bytes are typed as his name THEN "Name (47/61)", tinted, its hover
                 the cut PES 2019 makes; GIVEN the PES 16 save THEN a player's Shirt label's
                 limit is 16 and its Name label's 46
+SE-GUI-39  GIVEN the PES 21 save open on team 718 (/f/), its Tactics on preset 1, fluid
+                formation on
+           WHEN Kick-off, In possession and Out of possession are shown in turn
+           THEN the pitch's bottom-left corner reads `3-3-2-2`, `3-3-4` and `3-4-2-1`, as the
+                game's formation screen does; WHEN team 722 (/gd/) is shown THEN its presets 1, 2
+                and 3 read `4-2-1-3`, `4-3-1-2` and `4-3-2-1`; WHEN team 701 (/3/) is shown THEN
+                it reads `3-3-1-3`, and WHEN its AMF's position is changed to CMF THEN `3-4-3`,
+                and WHEN he is dragged to another spot instead THEN `3-3-1-3` still
 SE-GUI-31  GIVEN the common settings' FPC hide IDs set to 60 (boots) and 12 (gloves), "Edit
                 aesthetics anyway" switched on, and the player's Appearance section open
            WHEN Hide default body is used on a player whose boots and gloves IDs are 0

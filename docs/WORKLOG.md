@@ -3324,7 +3324,10 @@ briefs, review loops, gates and mutation runs as for any step.
   - [ ] x3 the plan text (`plans/save_editor.md` "Tactics editor", look.md's proposal with x2's
     rule; the grid's rows and the name read one table, `save_editor`'s `POS_ROWS` today), its
     acceptance scenario, D's two draft commits on main with the draft's rule corrected (lead),
-    the maintainer's look at the draft
+    the maintainer's look at the draft. Done but the look: "The formation's name" and SE-GUI-39;
+    the draft's `formationName` reads the grid's `POS_ROWS` and gives the eight captured names
+    (`.tmp/0_0_1x/draft_names_check.py`; D's drafted rule failed two); Selawik Semibold and
+    `--font-label` in the drafts. Open: the maintainer's look (QUESTIONS "Draft looks")
   - [ ] x4 the code (Opus sidekick, after w2 registers the fonts and the S1 rework lands): the
     rule in `team_widgets` beside the pitch, unit-tested on the captured teams' slots; the
     painter's corner label; the font registered by `theme::install`

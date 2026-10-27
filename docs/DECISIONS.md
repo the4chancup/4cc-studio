@@ -11987,3 +11987,18 @@ changed only the starting eleven. The editor's drop wrote the second, so a drag 
 formation moved the two players in all nine; the XI list already offers the second.
 Plan: `plans/save_editor.md` "Tactics editor", "What the controls write" (the pitch-drop
 bullet), SE-GUI-12.
+
+## 2026-10-27 — save_editor — The formation's name counts the positions grid's rows, in Selawik Semibold
+Decision: the Tactics pitch writes the shown formation's name in its bottom-left corner: the ten
+outfield slots counted by the playable positions grid's row their position belongs to, back to
+front (LB CB RB, DMF CMF, LMF AMF RMF, LWF CF SS RWF), an empty row left out; the grid's rows
+and the name are one table. Set in Selawik Semibold at 21 pt, white, where the game's screen
+places it; the drafts name the face through `--font-label`/`FONT_LABEL`.
+Why: PES 2021's screen gave that rule on all eight formations captured (four teams), where the
+drafted rule (LMF and RMF with the CMF) read /f/'s `3-3-2-2` and `3-4-2-1` as `3-5-2` and
+`3-6-1`; the position counts, not the spot (an AMF given CMF at his own spot turns `3-3-1-3`
+into `3-4-3`). Semibold, not Bold: egui's dark-mode text alpha thickens strokes, and drawn so
+Semibold's verticals measure 2.97 px against the game's 3.01, Bold's 3.41 (the maintainer: the
+stroke thickness must match, the typeface need not).
+Plan: `plans/save_editor.md` "Tactics editor" ("The formation's name"), SE-GUI-39;
+`plans/core/gui.md` "Prototypes before implementation" (the Fonts bullet).

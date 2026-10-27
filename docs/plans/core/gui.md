@@ -639,7 +639,9 @@ to the table first (a new dependency, asked for first):
   which is second-class.
 - **Fonts:** a draft draws text only in the app's own font files, loaded by `@font-face` from
   `docs/prototypes/assets/fonts/` in the app's fallback order (the Dark/light theme row in
-  "Other UI components"), naming no system font and no generic family, canvas text included; no bold (egui has no bold face);
+  "Other UI components"), naming no system font and no generic family, canvas text included; no bold (egui has no bold face),
+  but for the one text that imitates a game label in a bundled heavier face, the Tactics pitch's
+  formation name (`--font-label`, `FONT_LABEL`: `plans/save_editor.md`, "The formation's name");
   every line at egui's row height, 1.2 times the font size, set explicitly, since a browser
   takes a line's height from the font's Windows metrics (16 points for Selawik at 12.5) where
   egui takes it from `hhea` (15); and egui's floor under a widget's height, `interact_size.y`

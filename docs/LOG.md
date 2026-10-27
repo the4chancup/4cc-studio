@@ -2623,3 +2623,5 @@ worklog passed 7,000 lines.
   each as wide as the glyph the drafts were reviewed with; the drafts draw it and nothing from a system font (0.0.1w1c).
 - **2026-10-27** — In game, PES names a formation by the playable-positions grid's rows (LMF and RMF count with the AMF), and its two
   swaps differ: a drag swaps two slots in one formation, select-then-select the players in every preset; the draft's drop follows the drag (0.0.1x x2, 0.0.1y).
+- **2026-10-27** — The Tactics pitch names its formation in the corner as the game's screen does, counted by the positions grid's rows and
+  set in Selawik Semibold, whose stroke matches the game's label; plan, SE-GUI-39 and the draft on main (0.0.1x x3).
