@@ -1106,7 +1106,7 @@ describes behavior, not a serial scheduling requirement:
   kit folder gives only what it holds: without `config.toml` it emits no config of its own —
   its slot's installed config is edited in place like an unresent slot's (the FPC values,
   then the collar, with the same findings, and the template written where nothing is
-  installed, `kit_config_generated` on the kit folder); without `kit.dds` it is no
+  installed or the installed config does not decode, `kit_config_generated` on the kit folder); without `kit.dds` it is no
   placeholder — the textures it holds are emitted, the installed ones staying for the rest;
   the `config.toml` it does supply names a `back`, `chest`, `leg` or `name` texture it holds or the
   installed CPKs before the run's already hold for its slot (a number font sent once in the

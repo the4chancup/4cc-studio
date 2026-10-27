@@ -2576,3 +2576,6 @@ worklog passed 7,000 lines.
 - **2026-10-27** — 8.29c4e1: the Team compiler's help chapter, first half, audited for facts: 48 passages made
   true to the code over the audit and five review rounds (versions, conditions, the `.common` link cases); nine
   catalog Whens and the spec's Common `.mtl` repoint brought to the code.
+- **2026-10-27** — 8.29c4e2: the Team compiler's help chapter, second half, audited for facts: 33 passages made
+  true to the code (the install, the bins, the templates, the save); three catalog rows and two spec passages
+  brought to the code.

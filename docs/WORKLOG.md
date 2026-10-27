@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 to c3, c4a to c4d and c5 done (c4e, the help's fact audit: c4e1 done, c4e2 and c4e3 open); 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 to c3, c4a to c4d and c5 done (c4e, the help's fact audit: c4e1 and c4e2 done, c4e3 open); 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2288,8 +2288,27 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
             `export_upgrader/src/messages.rs`, `spec/team_compiler/{pipeline,messages}.md`.
             `spec/aesthetics_export/player_folders.md` ~720 still says a shared folder with no
             model of its kind takes no ID without the `.common` link case, for whoever holds it
-          - [ ] c4e2 the compiler's chapter from "`compile` installs the CPK into the game." to
-            the end, with c4c's two items
+          - [x] c4e2 the compiler's chapter from "`compile` installs the CPK into the game." to
+            the end: 33 facts made true, c4c's two items among them (an unreadable installed
+            `DpFileList.bin` is `installed_bin_unreadable`; a `savefile_path` naming a folder is
+            `savefile_invalid`), and a pre-Fox kit config no compile can remove, a `Midcup`
+            kit's kept menu colors and config, a `Full` kit's derived colors, the deep pass
+            reading only what the compile uses, `model_hidden_dropped`, the twelve template
+            names, the extraction refusals, the multicpk bins and `placeholder.cpk`, a save of
+            another version (the lead reverted one: PES 2015's shirt patterns 14 and 15, which
+            the old text had right, and retouched one). The catalog rows of
+            `kit_config_collar_unpatched`, `player_table_missing` and
+            `deploy_target_unwritable`, and two spec passages (`template_override_unreadable`,
+            a `Midcup` kit's template over an unreadable config) brought to the code. SWE-2
+            rounds: S1 12 concerns, 9 accepted (a bare `./name.dds` resolving nearest first, a
+            `Full` export dropping the colors of kits it does not hold, the Fox-only boots and
+            gloves clearing, a save that cannot take the patch; `kit_config_generated`'s row);
+            S2 5, 4 (a combined shared folder's textures, the Fox-only `fcl_hair_sim.fclo`
+            template, the bins a listed CPK is read for), the loop's end. Tables
+            `.tmp/8_29/c4e2_table.md`, `c4e2_s{1,2}_table.md`, `c4e2_evidence.md` (side/text
+            worktree). Files:
+            `team_compiler/help/01_command_line.md`, `team_compiler/src/messages/catalog.rs`,
+            `spec/team_compiler/{messages,pipeline}.md`
           - [ ] c4e3 the upgrader's chapter, with S1c5b's four routed items
       - [x] c5 the Export upgrader, in two slices:
         - [x] c5a its catalog (`messages.rs`): its own rows' two texts and the structure-pass

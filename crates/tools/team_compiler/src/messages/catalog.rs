@@ -74,7 +74,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "kit_config_generated",
         CatalogSeverity::Info,
-        r#"A kit has no `config.toml` and no installed one to keep. A `Full` export never keeps an installed config, and a `Midcup` export keeps the installed one wherever the slot has one."#,
+        r#"A kit has no `config.toml` and no installed one to keep. A `Full` export never keeps an installed config, and a `Midcup` export keeps the installed one wherever the slot has one it can read."#,
         r#"The template config, which carries the FPC values, is written for the kit. Nothing to do."#,
     ),
     (
@@ -110,7 +110,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "kit_config_collar_unpatched",
         CatalogSeverity::Warning,
-        r#"The export brings a collar, and a kit the game lists for the team is not in the `Midcup` export and has no installed config to wear it (`kit_config_fpc_unpatched` has not named it)."#,
+        r#"The export brings a collar, and a kit the game lists for the team is not in the `Midcup` export and has no installed config to wear it, or one that cannot be read (`kit_config_fpc_unpatched` has not named it)."#,
         r#"The kit keeps its own collar. Send it in an export to give it the new one."#,
     ),
     (
@@ -747,7 +747,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
         "player_table_missing",
         CatalogSeverity::Warning,
         r#"In PES 2018 to 2021, the run has boots-list, gloves-list or player-appearance rows to write, and no installed CPK holds the table, which the compiler has no copy of (the line names the table and the number of rows)."#,
-        r#"The table is not written, because one holding only this run's rows would take every other player's rows away. The rows are left out, so those players' new boots or gloves do not show."#,
+        r#"The table is not written, because one holding only this run's rows would take every other player's rows away. The rows are left out, so those players' new boots, gloves or appearance do not show."#,
     ),
     (
         "template_override_unreadable",
@@ -975,7 +975,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "deploy_target_unwritable",
         CatalogSeverity::Error,
-        r#"The `download/` folder cannot be written (usually a game installed under `Program Files`, which needs administrator rights)."#,
+        r#"The `download/` folder, or the old CPK in it, cannot be written (usually a game installed under `Program Files`, which needs administrator rights)."#,
         concat!(
             "Deployment is skipped, so the CPK is left in the output folder and the save is not \
              touched. Run ",
