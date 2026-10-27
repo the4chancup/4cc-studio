@@ -401,8 +401,8 @@ fn decode_errors() {
     // A failed decode leaves the model as it was.
     assert_eq!(model, before);
 
-    // A split component carrying LOD levels stays an error — it is not a
-    // kept group.
+    // A split component carrying LOD levels is not one mesh with the
+    // others: the group stays split, components and markers as they are.
     let mut model = grid_model(grid(4, 4, 0), 0);
     let mut second = model.meshes[0].clone();
     model.meshes[0]
@@ -412,10 +412,7 @@ fn decode_errors() {
     second.extension_headers.push("Split-Mesh: 1".to_owned());
     model.meshes.push(second);
     let before = model.clone();
-    assert!(matches!(
-        decode(&mut model),
-        Err(ModelError::InvalidModel(message)) if message == "a split component carries LOD levels"
-    ));
+    assert_eq!(decode(&mut model), Ok(()));
     assert_eq!(model, before);
 }
 
@@ -562,10 +559,10 @@ fn combine_limits_the_bone_group_to_u8() {
         bounds: BoundingBox::of(&[]),
         lod: LodRecord::for_levels(0),
     };
-    assert_eq!(
-        decode(&mut model),
-        Err(ModelError::InvalidModel("bone group over 256 bones"))
-    );
+    // Not one mesh: the group stays split.
+    let before = model.clone();
+    assert_eq!(decode(&mut model), Ok(()));
+    assert_eq!(model, before);
 }
 
 // A combined mesh keeps the emission order when every referenced index

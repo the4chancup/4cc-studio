@@ -2730,3 +2730,5 @@ worklog passed 7,000 lines.
   checked in game first (y4d). The library audit's rework opens as step `la`: 55 findings, 43 accepted, five slices.
 - **2026-10-27** — The body font is Roboto Flex at its default axes, unscaled (the maintainer's pick from the trial); the width constants
   get re-measured in it, each widened only as far as keeps its row's line count (worklog w4).
+- **2026-10-28** — Library rework slice C (the model stack) landed: one carried-weight threshold for the hand detectors, `pes_model`'s merge
+  refuses a repeated bone, a split group with LODs or past 256 bones stays split, `fmdl`'s vertex encoder fails before it permutes.

@@ -11,7 +11,7 @@
 //! canonical and preserved, so the result is deterministic by
 //! construction.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::format::ModelError;
 use crate::format::mtl::MaterialSet;
@@ -31,6 +31,13 @@ pub enum MergeError {
     #[error("bone {name} differs between parts")]
     SkeletonConflict {
         /// The conflicting bone name.
+        name: String,
+    },
+    /// A part lists the same bone name twice; union by name is ambiguous
+    /// there.
+    #[error("bone {name} appears twice in one part")]
+    DuplicateBoneName {
+        /// The repeated bone name.
         name: String,
     },
     /// Header flags differ (meaning unknown, so no merging rule).
@@ -93,6 +100,17 @@ pub fn merge(parts: &[(&Model, &MaterialSet)]) -> Result<(Model, MaterialSet), M
         part.validate()?;
         if part.flags != output.flags {
             return Err(MergeError::FlagsConflict);
+        }
+
+        // Within one part a bone name must be unique: union by name is
+        // ambiguous otherwise.
+        let mut names = HashSet::new();
+        for bone in &part.bones {
+            if !names.insert(bone.name.as_str()) {
+                return Err(MergeError::DuplicateBoneName {
+                    name: bone.name.clone(),
+                });
+            }
         }
 
         // Bone union: identity of a bone is its name; a shared bone must
@@ -345,6 +363,19 @@ mod tests {
             merge(&[(&cap, &cap_mtl), (&changed, &cap_mtl)]),
             Err(MergeError::SkeletonConflict {
                 name: cap.bones[0].name.clone(),
+            })
+        );
+    }
+
+    #[test]
+    fn a_part_with_repeated_bone_names_errors() {
+        let mut cap = model(CAP);
+        cap.bones.push(cap.bones[0].clone());
+        assert_eq!(cap.bones[0].name, "sk_shoulder_l");
+        assert_eq!(
+            merge(&[(&cap, &set(CAP_MTL))]),
+            Err(MergeError::DuplicateBoneName {
+                name: "sk_shoulder_l".to_owned(),
             })
         );
     }

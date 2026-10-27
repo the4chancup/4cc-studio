@@ -85,7 +85,8 @@ pub enum FmdlError {
     SplitTooLarge,
     /// A split group's components cannot be one mesh — their vertex layout
     /// or a field the combined mesh has one of (material, flags, anti-blur,
-    /// bounding box) disagree; the group stays split.
+    /// bounding box) disagree, or their bones together pass 256; the group
+    /// stays split.
     #[error("split components are not one mesh: {0}")]
     SplitIncompatible(&'static str),
     /// A bone or mesh group parent chain loops back on itself.

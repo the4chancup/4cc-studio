@@ -218,7 +218,8 @@ cancels the blur, so the fix is a duplicate of such a mesh with a `Blin` materia
 the original; it costs that mesh's vertices and faces again. As the add-on builds it, and
 `ops/antiblur.rs` likewise, the duplicate copies the mesh's vertices and faces unchanged and
 differs only in its material (`fox3DDF_Blin_Fuzzblock`, or the `_UVScroll` variant), alpha
-flags 128 and shadow flags 1. How the game then draws it behind the original is not known.
+flags 128 plus the source's two-sided bit 32 (so 160 for a two-sided source), and shadow flags
+1. How the game then draws it behind the original is not known.
 The `antiblur` flag with its `Has-Antiblur-Meshes` header marks those duplicates for the
 Blender FMDL add-on (`Tools_4cc/pes-fmdl`): it discards them on import and recreates them on
 export, so an author never edits the duplicate by hand. `ops/antiblur.rs`

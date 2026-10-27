@@ -39,7 +39,10 @@ When hand weights are detected, import to the IR and perform the following mesh 
 selection/separation semantics only: the compiler neither launches Blender nor uses `bpy`, and
 compiling hundreds of models must not require a Blender installation or per-model external process.
 
-1. **Select** vertices with any positive weight on that hand's `skh_` groups (`_l` or `_r`).
+1. **Select** vertices with any weight on that hand's `skh_` groups (`_l` or `_r`). A weight
+   counts from half of Fox's 1/255 step, the threshold the conversion pre-check uses: community
+   exporters leave float noise (2^-24) on unused slots, and one such slot on a hand bone must
+   not make a body a hand model.
 2. **Grow once** along the mesh topology — equivalent to one Blender **Select More** (`Ctrl +`)
    step in vertex mode, bringing in the neighboring row at the wrist. This is not a distance-based
    cut, and shared wrist/forearm weights do not exclude a vertex from the expanded selection.

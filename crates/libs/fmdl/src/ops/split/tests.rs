@@ -878,9 +878,10 @@ fn combine_past_256_bones_overflows() {
         visible: true,
         split_mesh_group: true,
     };
+    // Not one mesh: `decode` keeps such a group split.
     assert!(matches!(
         combine::combine(&[a, b], &group),
-        Err(FmdlError::TooManyBones(257))
+        Err(FmdlError::SplitIncompatible(_))
     ));
 }
 

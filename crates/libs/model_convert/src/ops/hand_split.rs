@@ -1,6 +1,6 @@
 //! The hand auto-split: separating glove geometry (vertices weighted to `skh_` hand bones)
 //! from a body model. A vertex class (same position, bone row and weight bits, so a UV
-//! seam stays one vertex) is selected when any entry carries a positive weight on one of
+//! seam stays one vertex) is selected when any entry carries weight on one of
 //! the hand's `skh_` bones; the selection then grows once along faces, a face touching a
 //! seed class selecting every class it touches. The glove part gets the faces fully
 //! inside the selection, the body the rest, in place — no geometric cut, no
@@ -23,7 +23,7 @@ pub enum Hand {
 }
 
 /// A model split at the wrists: the body keeps every face not fully inside a hand
-/// selection; a glove is `Some` only when its hand had positively weighted `skh_`
+/// selection; a glove is `Some` only when its hand had weighted `skh_`
 /// vertices.
 #[derive(Debug, Clone, PartialEq)]
 pub struct HandSplit {
@@ -50,8 +50,17 @@ pub(crate) fn hand_of(bone: &str) -> Option<Hand> {
     }
 }
 
-/// Whether any vertex carries a positive weight on a hand bone. Names in a bone list do
-/// not count, weights do.
+/// The smallest `f32` weight that counts as a slot carrying weight, in the hand detectors
+/// and the conversion pre-check: half of Fox's 1/255 weight step, so a weight the Fox format
+/// would round to zero carries nothing on either engine. Community exporters leave float
+/// noise on the unused slots of a vertex weighted fully to one bone (2^-24 on the other
+/// leg's bone, on 225 vertices of the tracer's boots), which moves the drawn vertex by a
+/// negligible amount; with `> 0.0` one such slot on a hand bone would make a body a hand
+/// model, and the pre-check would flag such a model on every version.
+pub(crate) const MIN_CARRIED_WEIGHT: f32 = 0.5 / 255.0;
+
+/// Whether any vertex carries weight (at least [`MIN_CARRIED_WEIGHT`]) on a hand bone.
+/// Names in a bone list do not count, weights do.
 pub(crate) fn has_hand_weights(ir: &CanonicalModel) -> bool {
     ir.meshes.iter().any(|mesh| {
         let (Some(indices), Some(weights)) =
@@ -61,7 +70,7 @@ pub(crate) fn has_hand_weights(ir: &CanonicalModel) -> bool {
         };
         indices.iter().zip(weights).any(|(row, ws)| {
             row.iter().enumerate().any(|(slot, &entry)| {
-                ws[slot] > 0.0
+                ws[slot] >= MIN_CARRIED_WEIGHT
                     && hand_of(&ir.bones[mesh.bone_group[usize::from(entry)]].name).is_some()
             })
         })
@@ -92,11 +101,12 @@ pub fn fox_has_hand_weights(model: &::fmdl::Model) -> bool {
     })
 }
 
-/// Whether the pre-Fox `model` (a `.model`) carries a positive weight on a hand-skeleton
-/// bone (`skh_*_l` or `skh_*_r`), the hand auto-split's detection rule: read from the
-/// model's own bone weights and bone names, with no IR import, and only a weighted slot
-/// counts, so a hand bone that a bone group lists without any vertex weighing on it does
-/// not. A model with no bone weights at all has none.
+/// Whether the pre-Fox `model` (a `.model`) carries weight (half a Fox weight step or more,
+/// so exporter float noise does not count) on a hand-skeleton bone (`skh_*_l` or
+/// `skh_*_r`), the hand auto-split's detection rule: read from the model's own bone weights
+/// and bone names, with no IR import, and only a weighted slot counts, so a hand bone that a
+/// bone group lists without any vertex weighing on it does not. A model with no bone weights
+/// at all has none.
 pub fn prefox_has_hand_weights(model: &::pes_model::model::Model) -> bool {
     model.meshes.iter().any(|mesh| {
         let (Some(indices), Some(weights)) =
@@ -106,7 +116,7 @@ pub fn prefox_has_hand_weights(model: &::pes_model::model::Model) -> bool {
         };
         indices.iter().zip(weights).any(|(row, ws)| {
             row.iter().enumerate().any(|(slot, &entry)| {
-                ws[slot] > 0.0
+                ws[slot] >= MIN_CARRIED_WEIGHT
                     && mesh
                         .bone_group
                         .get(usize::from(entry))
@@ -149,7 +159,7 @@ fn classes(mesh: &Mesh) -> Vec<usize> {
     class
 }
 
-/// The per-class selection for `hand` on `mesh`: seeds (a positive weight on a slot
+/// The per-class selection for `hand` on `mesh`: seeds (a carried weight on a slot
 /// whose group bone is `hand`'s) grown once along `grow_faces` — the faces still
 /// present, which for the right hand excludes what the left separation took.
 /// `class` is the entry → class map from [`classes`]; the returned vector is
@@ -168,7 +178,7 @@ fn selected(
     {
         for (vertex, (row, ws)) in indices.iter().zip(weights).enumerate() {
             sel[class[vertex]] |= row.iter().enumerate().any(|(slot, &entry)| {
-                ws[slot] > 0.0
+                ws[slot] >= MIN_CARRIED_WEIGHT
                     && hand_of(&bones[mesh.bone_group[usize::from(entry)]].name) == Some(hand)
             });
         }
@@ -663,6 +673,52 @@ mod tests {
         assert_eq!(split.body, ir);
         assert_eq!(split.glove_l, None);
         assert_eq!(split.glove_r, None);
+    }
+
+    /// The wrist mesh weighted fully to sk_hand_l, its column x = 4 carrying 2^-24 of
+    /// exporter float noise on the skh_index_l slot.
+    fn noisy_wrist_model() -> CanonicalModel {
+        let mut mesh = wrist_mesh();
+        let len = mesh.vertices.len();
+        let mut indices = vec![[1, 0, 0, 0]; len];
+        let mut weights = vec![[1.0, 0.0, 0.0, 0.0]; len];
+        for (vertex, position) in mesh.vertices.positions.iter().enumerate() {
+            if position[0] == 4.0 {
+                indices[vertex] = [1, 2, 0, 0];
+                weights[vertex] = [1.0, 2.0f32.powi(-24), 0.0, 0.0];
+            }
+        }
+        mesh.vertices.bone_indices = Some(indices);
+        mesh.vertices.bone_weights = Some(weights);
+        model(
+            vec![bone("sk_forearm_l"), bone("sk_hand_l"), bone("skh_index_l")],
+            mesh,
+        )
+    }
+
+    #[test]
+    fn float_noise_on_a_hand_slot_splits_nothing() {
+        let ir = noisy_wrist_model();
+        assert!(!has_hand_weights(&ir));
+        let split = split_by_skeleton_group(&ir);
+        assert_eq!(split.body, ir);
+        assert_eq!(split.glove_l, None);
+        assert_eq!(split.glove_r, None);
+    }
+
+    #[test]
+    fn float_noise_on_a_hand_slot_is_no_hand_weight_in_a_model() {
+        let model = crate::formats::pes_model::ir_to_model(&noisy_wrist_model())
+            .unwrap()
+            .model;
+        let noisy = model.meshes.iter().any(|mesh| {
+            mesh.vertices
+                .bone_weights
+                .as_ref()
+                .is_some_and(|weights| weights.iter().any(|ws| ws[1] == 2.0f32.powi(-24)))
+        });
+        assert!(noisy, "the written model keeps the noise weight");
+        assert!(!prefox_has_hand_weights(&model));
     }
 
     #[test]

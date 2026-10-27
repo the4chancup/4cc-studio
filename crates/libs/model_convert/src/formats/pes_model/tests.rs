@@ -245,6 +245,7 @@ fn pes_model_round_trip() {
             );
         }
         assert_eq!(exported.model.materials, expected.materials);
+        assert_eq!(exported.model.meshes.len(), expected.meshes.len());
         for (index, (got, want)) in exported
             .model
             .meshes

@@ -94,8 +94,8 @@ pub(super) fn combine(meshes: &[Mesh], indices: &[usize]) -> Result<Mesh, ModelE
             return Err(ModelError::SplitIncompatible("vertex layouts disagree"));
         }
         if !component.lower_lods.is_empty() {
-            return Err(ModelError::InvalidModel(
-                "a split component carries LOD levels",
+            return Err(ModelError::SplitIncompatible(
+                "a component carries LOD levels",
             ));
         }
     }
@@ -114,8 +114,7 @@ pub(super) fn combine(meshes: &[Mesh], indices: &[usize]) -> Result<Mesh, ModelE
     for (slot, &bone) in bone_group.iter().enumerate() {
         index_of.insert(
             bone,
-            u8::try_from(slot)
-                .map_err(|_| ModelError::InvalidModel("bone group over 256 bones"))?,
+            u8::try_from(slot).map_err(|_| ModelError::SplitIncompatible("bone union over 256"))?,
         );
     }
 

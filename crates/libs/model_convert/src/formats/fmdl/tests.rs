@@ -249,7 +249,7 @@ fn an_exported_skl_carries_each_bones_ir_matrix() {
             .iter()
             .find(|b| b.name == bone.name)
             .map(|b| b.matrix)
-            .unwrap_or(Affine::IDENTITY);
+            .unwrap_or_else(|| panic!("SKL bone {} has no IR bone", bone.name));
         assert_eq!(bone.rotation, matrix.rotation(), "bone {}", bone.name);
         assert_eq!(bone.translation, matrix.translation(), "bone {}", bone.name);
     }

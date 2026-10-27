@@ -102,7 +102,8 @@ pub enum ModelError {
     #[error("a combined split mesh references more than 65536 vertices")]
     SplitTooLarge,
     /// A split group's components cannot be one mesh — their material,
-    /// bone weight width or vertex layout disagree; the group stays split.
+    /// bone weight width or vertex layout disagree, one carries LOD levels,
+    /// or their bones together pass 256; the group stays split.
     #[error("split components are not one mesh: {0}")]
     SplitIncompatible(&'static str),
     /// A face stream's index list or LOD table is malformed: which rule.

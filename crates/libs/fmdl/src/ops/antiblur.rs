@@ -244,6 +244,17 @@ mod tests {
     }
 
     #[test]
+    fn a_two_sided_source_keeps_its_two_sided_bit_on_the_duplicate() {
+        let mut model = load(ORAL);
+        model.extensions.antiblur = false;
+        model.meshes[0].has_antiblur_meshes = true;
+        model.meshes[0].alpha_flags = 32 | 128;
+        encode(&mut model).unwrap();
+        assert!(model.meshes[1].is_antiblur_mesh);
+        assert_eq!(model.meshes[1].alpha_flags, 160);
+    }
+
+    #[test]
     fn encode_decode_round_trip() {
         // The flag the encode sets is cleared by decode, so the source model
         // starts with it unset.

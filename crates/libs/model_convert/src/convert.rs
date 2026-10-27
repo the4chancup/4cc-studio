@@ -11,7 +11,7 @@ use pes_version::{Engine, PesVersion};
 use crate::affine::Affine;
 use crate::formats::{ConvertError, Imported};
 use crate::loss::Finding;
-use crate::ops::hand_split::{fox_has_hand_weights, prefox_has_hand_weights};
+use crate::ops::hand_split::{MIN_CARRIED_WEIGHT, fox_has_hand_weights, prefox_has_hand_weights};
 use crate::skeletons::retarget::{bone_delta, bone_moved, retarget};
 use crate::skeletons::{
     is_face_bone, is_standard, skeletons, version_bone, version_bone_hand_first,
@@ -187,19 +187,11 @@ pub fn needs_conversion(bundle: &NativeModelBundle, target: PesVersion) -> bool 
                         mesh.vertices.bone_weights.as_deref(),
                     )
                 }),
-                |weight: f32| weight >= PREFOX_BLEND_WEIGHT,
+                |weight: f32| weight >= MIN_CARRIED_WEIGHT,
             )
         }
     }
 }
-
-/// The smallest pre-Fox weight that counts as blending a bone in the pre-check: half of Fox's
-/// 1/255 weight step, so a weight the Fox format would round to zero blends nothing on either
-/// engine. Community exporters leave float noise on the unused slots of a vertex weighted
-/// fully to one bone (2^-24 on the other leg's bone, on 225 vertices of the tracer's boots),
-/// which moves the drawn vertex by a negligible amount; with `> 0.0` it would flag such a
-/// model on every version.
-const PREFOX_BLEND_WEIGHT: f32 = 0.5 / 255.0;
 
 /// The bone indices any mesh's bone group references.
 fn used_bones<'a>(groups: impl Iterator<Item = &'a Vec<usize>>) -> BTreeSet<usize> {

@@ -575,10 +575,12 @@ impl From<MergeError> for TaskFailure {
                 code: Code::MergeMaterialConflict,
                 context: vec![("material", name)],
             },
-            MergeError::SkeletonConflict { name } => TaskFailure {
-                code: Code::SklMergeConflict,
-                context: vec![("bone", name)],
-            },
+            MergeError::SkeletonConflict { name } | MergeError::DuplicateBoneName { name } => {
+                TaskFailure {
+                    code: Code::SklMergeConflict,
+                    context: vec![("bone", name)],
+                }
+            }
             MergeError::FlagsConflict => TaskFailure {
                 code: Code::ModelMergeFlagsConflict,
                 context: Vec::new(),
@@ -769,6 +771,16 @@ mod tests {
         assert_eq!(
             failure_of(bone.into()),
             (Code::SklMergeConflict, vec![("bone", "sk_head".to_owned())])
+        );
+        let repeated = MergeError::DuplicateBoneName {
+            name: "sk_shoulder_l".to_owned(),
+        };
+        assert_eq!(
+            failure_of(repeated.into()),
+            (
+                Code::SklMergeConflict,
+                vec![("bone", "sk_shoulder_l".to_owned())]
+            )
         );
         assert_eq!(
             failure_of(MergeError::FlagsConflict.into()),

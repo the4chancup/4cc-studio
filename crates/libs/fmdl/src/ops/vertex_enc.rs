@@ -138,6 +138,21 @@ pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, FmdlError>
         new_index[*vertex] = index;
     }
 
+    // The remapped faces are fallible; compute them before anything is
+    // permuted, so an error leaves the mesh untouched.
+    let new_faces = mesh
+        .faces
+        .iter()
+        .map(|face| {
+            let mut mapped = [0u16; 3];
+            for (slot, &index) in mapped.iter_mut().zip(face) {
+                *slot = u16::try_from(new_index[collapsed_to[usize::from(index)]])
+                    .map_err(|_| FmdlError::TooManyVertices(count))?;
+            }
+            Ok(mapped)
+        })
+        .collect::<Result<Vec<_>, FmdlError>>()?;
+
     fn permute<T: Clone>(values: &mut Vec<T>, order: &[usize]) {
         *values = order.iter().map(|index| values[*index].clone()).collect();
     }
@@ -161,12 +176,7 @@ pub fn encode(mesh: &mut Mesh, owner: &[usize]) -> Result<Vec<usize>, FmdlError>
     if let Some(indices) = &mut vertices.bone_indices {
         permute(indices, &order);
     }
-    for face in &mut mesh.faces {
-        for index in face.iter_mut() {
-            *index = u16::try_from(new_index[collapsed_to[usize::from(*index)]])
-                .map_err(|_| FmdlError::TooManyVertices(count))?;
-        }
-    }
+    mesh.faces = new_faces;
     Ok(new_owner)
 }
 
@@ -595,10 +605,13 @@ mod tests {
             custom_bounding_box: None,
         };
         let owners: Vec<usize> = (0..count).collect();
+        let before = mesh.clone();
         assert!(matches!(
             encode(&mut mesh, &owners),
             Err(FmdlError::TooManyVertices(_))
         ));
+        // A failed encode leaves the mesh as it was.
+        assert_eq!(mesh, before);
     }
 
     // A zero-weight lane's index means nothing to the key — split rewrites

@@ -189,8 +189,9 @@ pub(crate) fn split_group_key(header: &str) -> Option<String> {
 /// group's first component sat; meshes without the header stay. A group
 /// whose combined mesh would reference more than 65536 distinct
 /// vertices, or whose components are not one mesh (their material, bone
-/// weight width or vertex layout disagree), stays split, its components
-/// and headers kept as they are.
+/// weight width or vertex layout disagree, one carries LOD levels, or their
+/// bones together pass 256), stays split, its components and headers kept
+/// as they are.
 /// The combined mesh takes the first component's `name`, `material`,
 /// `tags`, `order`, `editor_data`, `bone_weight_width` and its
 /// `extension_headers` minus the `Split-Mesh` header.
@@ -227,8 +228,8 @@ pub fn decode(model: &mut Model) -> Result<(), ModelError> {
     // only then rebuild the list: components collapse to their combined
     // mesh at the first component's position. A group whose combined
     // mesh cannot be indexed in u16, or whose components are not one
-    // mesh (their material, bone weight width or vertex layout disagree),
-    // stays split — its components and markers are kept as they are.
+    // mesh (`SplitIncompatible`), stays split — its components and markers
+    // are kept as they are.
     let mut combined_meshes: HashMap<String, Mesh> = HashMap::new();
     let mut kept: HashSet<String> = HashSet::new();
     for key in &group_keys {

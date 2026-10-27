@@ -108,7 +108,8 @@ pub(super) fn combine(meshes: &[Mesh], group: &MeshGroup) -> Result<Mesh, FmdlEr
     let bone_group: Vec<usize> = used_bones.iter().copied().collect();
     let mut index_of: HashMap<usize, u8> = HashMap::new();
     for (slot, &bone) in bone_group.iter().enumerate() {
-        let slot = u8::try_from(slot).map_err(|_| FmdlError::TooManyBones(bone_group.len()))?;
+        let slot =
+            u8::try_from(slot).map_err(|_| FmdlError::SplitIncompatible("bone union over 256"))?;
         index_of.insert(bone, slot);
     }
 
