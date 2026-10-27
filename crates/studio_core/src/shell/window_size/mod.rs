@@ -131,6 +131,9 @@ pub(super) struct Monitor {
     /// title bar the check builds for it: the window's points stand at this
     /// scale's pixels while it sits on this monitor.
     scale: f32,
+    /// Whether the OS names this monitor the primary one: winit converts a new window's
+    /// position with its scale.
+    primary: bool,
 }
 
 /// Whether `place`'s title bar (the window's width over the top `TITLE_BAR_PX` pixels at
@@ -162,13 +165,33 @@ pub(super) fn place_or_fit(place: WindowPlace, monitors: &[Monitor]) -> Opening 
     }
 }
 
-/// The monitors of `frame`'s window, each its rectangle in the screen's physical pixels
-/// and its scale factor; empty when the frame has no window (a test's frame).
+/// Whether the first frame sends `place`'s position again: always for a place not
+/// maximized (a resend that moves nothing does not show there); for a maximized one only
+/// when the creation can have landed off the record's pixels, its scale not the primary
+/// monitor's (or no primary known) or not the frame's `native` pixels per point. Winit
+/// moves a maximized window by restoring it first, so a resend that moves nothing shows
+/// as a flicker: the window restores and maximizes again.
+#[cfg(not(target_arch = "wasm32"))]
+pub(super) fn resends_position(place: &WindowPlace, native: f32, monitors: &[Monitor]) -> bool {
+    // Not `==`: a scale typed into the settings file to a few decimals (an X11 desk's
+    // 1.0417 for winit's 1.0416666) still names the monitor's scale.
+    let is_place_scale = |scale: f32| (scale - place.scale).abs() < 0.001;
+    let primary_scale = monitors
+        .iter()
+        .find(|monitor| monitor.primary)
+        .map(|monitor| monitor.scale);
+    !place.maximized || !primary_scale.is_some_and(is_place_scale) || !is_place_scale(native)
+}
+
+/// The monitors of `frame`'s window, each its rectangle in the screen's physical pixels,
+/// its scale factor and whether it is the primary one (none is where winit knows no
+/// primary); empty when the frame has no window (a test's frame).
 #[cfg(not(target_arch = "wasm32"))]
 pub(super) fn monitors(frame: &eframe::Frame) -> Vec<Monitor> {
     let Some(window) = frame.winit_window() else {
         return Vec::new();
     };
+    let primary = window.primary_monitor();
     window
         .available_monitors()
         .map(|monitor| {
@@ -182,6 +205,7 @@ pub(super) fn monitors(frame: &eframe::Frame) -> Vec<Monitor> {
                     egui::vec2(size.width as f32, size.height as f32),
                 ),
                 scale: monitor.scale_factor() as f32,
+                primary: primary.as_ref() == Some(&monitor),
             }
         })
         .collect()

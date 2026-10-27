@@ -275,7 +275,11 @@ fn place_of_compares_the_rects_in_pixels_at_the_scale_times_the_zoom() {
 
 #[test]
 fn the_title_bar_check_overlaps_a_monitor_with_a_positive_area() {
-    let at_scale = |rect: egui::Rect, scale: f32| Monitor { rect, scale };
+    let at_scale = |rect: egui::Rect, scale: f32| Monitor {
+        rect,
+        scale,
+        primary: rect.min == egui::Pos2::ZERO,
+    };
     let primary = egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0));
     let place = |x: f32, y: f32| WindowPlace {
         x,
@@ -625,6 +629,7 @@ fn the_place_is_written_at_exit_and_the_next_start_opens_there() {
         vec![Monitor {
             rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
             scale: 1.0,
+            primary: true,
         }]
     };
     let restart_ctx = test_context();
@@ -692,6 +697,7 @@ fn a_place_on_no_monitor_opens_fitted_and_an_empty_list_trusts_it() {
         vec![Monitor {
             rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
             scale: 1.0,
+            primary: true,
         }]
     };
     let out = monitor_frame(&egui_ctx, &mut app, Some(egui::vec2(1920.0, 1080.0)));
@@ -757,6 +763,7 @@ fn a_maximized_place_on_no_monitor_is_unmaximized_before_the_fit() {
         vec![Monitor {
             rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
             scale: 1.0,
+            primary: true,
         }]
     };
     let out = monitor_frame(&egui_ctx, &mut app, Some(egui::vec2(1920.0, 1080.0)));
@@ -977,12 +984,14 @@ fn a_window_closed_maximized_reopens_maximized_at_its_place() {
     assert_eq!(options.viewport.inner_size, Some(egui::vec2(1100.0, 700.0)));
     assert!(!options.centered);
 
-    // The first frame, the window shown maximized on the monitor: the
-    // position again, then the maximize the move undoes.
+    // The first frame, the window shown maximized on the primary monitor, whose
+    // scale and the frame's are the record's: the creation landed at the record's
+    // pixels, so a resend would only restore the window and maximize it again.
     app.monitors = |_| {
         vec![Monitor {
             rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
             scale: 1.0,
+            primary: true,
         }]
     };
     let restart_ctx = test_context();
@@ -994,12 +1003,162 @@ fn a_window_closed_maximized_reopens_maximized_at_its_place() {
         1.0,
         true,
     );
+    assert_eq!(fitting(&out), [ViewportCommand::Maximized(true)]);
+}
+
+/// The maintainer's desk: an FHD primary at the origin at 100%, and a 4K to
+/// its right at 200%, 327 pixels higher.
+fn mixed_desk(_: &eframe::Frame) -> Vec<Monitor> {
+    vec![
+        Monitor {
+            rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
+            scale: 1.0,
+            primary: true,
+        },
+        Monitor {
+            rect: egui::Rect::from_min_size(egui::pos2(1920.0, -327.0), egui::vec2(3840.0, 2160.0)),
+            scale: 2.0,
+            primary: false,
+        },
+    ]
+}
+
+/// The place commands of the first frame after a start at the remembered
+/// `place`, the window's monitors `monitors`, the frame reporting the window
+/// maximized at `native` pixels per point.
+fn first_frame_commands(
+    place: WindowPlace,
+    monitors: fn(&eframe::Frame) -> Vec<Monitor>,
+    native: f32,
+) -> Vec<ViewportCommand> {
+    let dir = TestDir::new("studio_core_window_place_maximized");
+    let mut settings = test_settings(dir.path());
+    settings.common.window_main = Some(place);
+    let (a, calls_a) = stub("a", "A", None);
+    let (b, calls_b) = stub("b", "B", None);
+    let Shell { mut app, .. } = shell_with(
+        settings,
+        vec![a, b],
+        &[],
+        Some(dir.path().to_path_buf()),
+        vec![calls_a, calls_b],
+    );
+    let options = app.opening();
+    assert_eq!(options.viewport.maximized, Some(true), "the premise");
+    app.monitors = monitors;
+    let out = placed_frame(
+        &test_context(),
+        &mut app,
+        egui::Pos2::ZERO,
+        egui::vec2(1920.0, 1041.0),
+        native,
+        true,
+    );
+    fitting(&out)
+}
+
+// ST-WIN-04
+#[test]
+fn a_maximized_place_on_a_monitor_of_another_scale_than_the_primary_resends_its_position() {
+    // [2400, 100, 1100, 700, 2, 1]: on the 4K at 200%, which winit's creation
+    // converts at the primary's 100%.
+    let place = WindowPlace {
+        x: 2400.0,
+        y: 100.0,
+        width: 1100.0,
+        height: 700.0,
+        scale: 2.0,
+        maximized: true,
+    };
     assert_eq!(
-        fitting(&out),
+        first_frame_commands(place, mixed_desk, 2.0),
+        [
+            ViewportCommand::OuterPosition(egui::pos2(1200.0, 50.0)),
+            ViewportCommand::Maximized(true),
+        ],
+        "the position in the frame's points, then the maximize the move undoes"
+    );
+}
+
+// ST-WIN-04
+#[test]
+fn a_maximized_place_at_the_primarys_scale_on_a_frame_of_another_resends_its_position() {
+    // The record's scale is the primary's, but the window landed on the 4K.
+    let place = WindowPlace {
+        x: 100.0,
+        y: 50.0,
+        width: 1100.0,
+        height: 700.0,
+        scale: 1.0,
+        maximized: true,
+    };
+    assert_eq!(
+        first_frame_commands(place, mixed_desk, 2.0),
+        [
+            ViewportCommand::OuterPosition(egui::pos2(50.0, 25.0)),
+            ViewportCommand::Maximized(true),
+        ],
+    );
+}
+
+#[test]
+fn a_maximized_place_with_no_monitor_list_resends_its_position() {
+    // A frame with no window to ask: no primary is known.
+    let place = WindowPlace {
+        x: 100.0,
+        y: 50.0,
+        width: 1100.0,
+        height: 700.0,
+        scale: 1.0,
+        maximized: true,
+    };
+    assert_eq!(
+        first_frame_commands(place, |_| Vec::new(), 1.0),
         [
             ViewportCommand::OuterPosition(egui::pos2(100.0, 50.0)),
             ViewportCommand::Maximized(true),
         ],
+    );
+}
+
+#[test]
+fn only_a_maximized_place_whose_scales_all_match_skips_the_resend() {
+    let place = |maximized| WindowPlace {
+        x: 100.0,
+        y: 50.0,
+        width: 1100.0,
+        height: 700.0,
+        scale: 1.0,
+        maximized,
+    };
+    let monitor = |scale, primary| Monitor {
+        rect: egui::Rect::from_min_size(egui::Pos2::ZERO, egui::vec2(1920.0, 1080.0)),
+        scale,
+        primary,
+    };
+    assert!(
+        resends_position(&place(false), 1.0, &[monitor(1.0, true)]),
+        "a place not maximized, every scale matching"
+    );
+    assert!(
+        !resends_position(&place(true), 1.0, &[monitor(1.0, true)]),
+        "maximized, every scale matching"
+    );
+    assert!(
+        resends_position(&place(true), 1.0, &[monitor(1.0, false)]),
+        "no monitor marked primary"
+    );
+    assert!(
+        resends_position(&place(true), 1.0, &[monitor(2.0, true)]),
+        "the primary at another scale"
+    );
+    assert!(
+        resends_position(&place(true), 2.0, &[monitor(1.0, true)]),
+        "the frame at another scale"
+    );
+    assert!(
+        !resends_position(&place(true), 1.0004, &[monitor(1.0004, true)]),
+        "scales 1.0004 against the record's 1.0 match"
     );
 }
 

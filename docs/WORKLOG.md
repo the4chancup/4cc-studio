@@ -3107,7 +3107,16 @@ briefs, review loops, gates and mutation runs as for any step.
     maximize of a shown window. To try first: when the window is created maximized, no
     position resend on the first frame → verify: the built window traced as in
     `.tmp/0_0_1q/built/findings.md`, maximized reopen on the FHD and on the 4K, then
-    restore to the place; the maintainer's eye
+    restore to the place; the maintainer's eye. Done 2026-10-27 (Opus,
+    `.tmp/0_0_1q/q5_report.md`; plan "Window size classes", ST-WIN-04, DECISIONS "A maximized
+    reopen resends its position only where the creation can have landed wrong"):
+    `Monitor.primary`, `window_size::resends_position` (a maximized place skips the resend
+    when its scale is the primary monitor's and the frame's), four new tests, each condition
+    seen failing under its perturbation. manual: checked 2026-10-27 (release build, the
+    trace): the FHD's maximized reopen shows no restore blip, only the creation's 7 ms; the
+    4K's keeps the resend (11 ms, a mixed-scale desk) and maximizes there; both restore to
+    the place. Open: the maintainer's eye on the FHD case (QUESTIONS). Files:
+    `studio_core/src/shell/{mod.rs,window_size/{mod,tests}.rs}`
 - [ ] 0.0.1r a folder per PES version (P25 with the maintainer's override rows, 2026-10-26;
   DECISIONS "A folder per PES version"; `plans/core/gui.md` "Settings menu", the "PES folder"
   bullet): the main row's `**` on a pick ending in the selected year, the A folder per version

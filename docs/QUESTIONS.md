@@ -69,6 +69,12 @@ The Music player's three below come from reading Rigdio v2.2.0's controls (workl
 
 ## Small confirmations
 
+- **Does a maximized reopen still flicker?** (worklog 0.0.1q5; `.tmp/0_0_1q/built/findings.md`
+  "q5".) The portable copy in `.tmp/0_0_1q/built/app/` has the fix: maximize it on the FHD,
+  close it, start it again from Explorer. The trace shows no restore any more, only the
+  window's 7 ms at creation. On the 4K at 200% the restore stays (11 ms): there the window is
+  created on the FHD and must move, since the 4K's scale is not the primary monitor's.
+
 - **Which icon does each tool get?** (worklog 8.14.) Open `docs/prototypes/icons.html`,
   click one candidate per tool (the rail at the top shows the picks together), then copy the
   "Picks" box. The font build and the glyph constants wait on it. The Team compiler's is

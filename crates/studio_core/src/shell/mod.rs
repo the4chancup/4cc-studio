@@ -395,20 +395,22 @@ impl eframe::App for StudioApp {
             #[cfg(not(target_arch = "wasm32"))]
             Some(window_size::Opening::Place(place)) => {
                 if let Some(native) = viewport.native_pixels_per_point {
-                    // The position again, in this frame's points: a no-op where
-                    // the creation landed right, the correction where winit
-                    // converted the creation position with another monitor's
-                    // scale. No size command: the creation set it, and a move to
-                    // a monitor of another scale rescales it by the OS.
-                    egui_ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(
-                        (place.position().to_vec2() / (native * zoom)).to_pos2(),
-                    ));
-                    // The maximize again, after the move: winit moves a maximized window
-                    // by restoring it first (on Windows `set_outer_position` clears its
-                    // maximized flag, a `ShowWindow(SW_RESTORE)`), and an X11 window
-                    // manager ignores the creation's maximize, asked of the window eframe
-                    // keeps hidden until its first paint (egui-winit's `window_settings.rs`,
-                    // `after_first_show`). This frame's commands run after the show.
+                    // The position again, in this frame's points: the correction where
+                    // winit converted the creation position with another monitor's scale.
+                    // No size command: the creation set it, and a move to a monitor of
+                    // another scale rescales it by the OS.
+                    if window_size::resends_position(&place, native, &(self.monitors)(_frame)) {
+                        egui_ctx.send_viewport_cmd(egui::ViewportCommand::OuterPosition(
+                            (place.position().to_vec2() / (native * zoom)).to_pos2(),
+                        ));
+                    }
+                    // The maximize again, after any move: on Windows `set_outer_position`
+                    // clears the maximized flag (a `ShowWindow(SW_RESTORE)`), and where
+                    // nothing moved this is a no-op for a window already maximized. An X11
+                    // window manager ignores the creation's maximize, asked of the window
+                    // eframe keeps hidden until its first paint (egui-winit's
+                    // `window_settings.rs`, `after_first_show`), so this is the one it
+                    // honours. This frame's commands run after the show.
                     if place.maximized {
                         egui_ctx.send_viewport_cmd(egui::ViewportCommand::Maximized(true));
                     }
