@@ -173,13 +173,10 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
         .fold(row2_top, f32::max)
             + ROW_GAP;
 
-        // Row 3: Advanced instructions over Automatic settings on column
-        // 1 (the draft's `tacstack`), the lists over columns 2-3.
-        let mut stack_ui = cell(ui, top_left.x, row3_top, SETTINGS_WIDTH, bottom);
-        changed[4] =
-            tactics::advanced_instructions(&mut stack_ui, version, &mut edited, tactics, &roster);
-        stack_ui.add_space(ROW_GAP);
-        changed[5] = tactics::automatic_settings(&mut stack_ui, &mut edited);
+        // Row 3: the lists over columns 2-3, Advanced instructions over
+        // Automatic settings on column 1 (the draft's `tacstack`) — the
+        // lists drawn first so the stack's cell can end at their bottom,
+        // which is what `#tac-auto`'s `flex: 1` reaches.
         let mut lists_ui = cell(ui, pitch_left, row3_top, right - pitch_left, bottom);
         changed[6] = pitch::lineup(
             &mut lists_ui,
@@ -189,6 +186,12 @@ pub(crate) fn show(ui: &mut egui::Ui, view: &mut SaveView) {
             tactics,
             &roster,
         );
+        let lists_bottom = lists_ui.min_rect().max.y;
+        let mut stack_ui = cell(ui, top_left.x, row3_top, SETTINGS_WIDTH, lists_bottom);
+        changed[4] =
+            tactics::advanced_instructions(&mut stack_ui, version, &mut edited, tactics, &roster);
+        stack_ui.add_space(ROW_GAP);
+        changed[5] = tactics::automatic_settings(&mut stack_ui, version, &mut edited);
 
         // One advance covering the grid's block (the tallest cell).
         let height = stack_ui.min_rect().max.y.max(lists_ui.min_rect().max.y) - top_left.y;

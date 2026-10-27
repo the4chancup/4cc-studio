@@ -598,11 +598,11 @@ fn a_value_typed_over_several_frames_is_one_undo_entry() {
     );
 }
 
-// The same-key half of it: Substitution's DragValue and the sliders all
-// push under "settings", so a typed value then a slider drag must still
-// be two steps — the press's seal is what keeps them apart.
+// The same-key half of it: a Substitution pick and the slider drag are
+// two gestures under two widget keys, so they must be two steps — the
+// press's seal is what keeps them apart.
 #[test]
-fn a_typed_substitution_then_a_slider_drag_undo_as_two_entries() {
+fn a_substitution_pick_then_a_slider_drag_undo_as_two_entries() {
     let path = fixture(PesVersion::Pes21, "tactics_undo_focus_drag2");
     let mut view = SaveView::new();
     view.open(&path);
@@ -610,35 +610,50 @@ fn a_typed_substitution_then_a_slider_drag_undo_as_two_entries() {
     open_team_view(&mut window, &mut view, 701);
     let before = team_entry(&view, 701).tactics;
     let stored = before.auto.substitution.expect("PES 21 stores it");
+    assert_ne!(stored, 3, "premise: a real change");
 
-    // Substitution's field focused and "7" typed (a real change).
+    // The combo right of the Substitution label, opened by an AccessKit
+    // click; its items join the tree the frame after. The pick is a
+    // second AccessKit click (a pointer click does not reach a popup
+    // item), then a pointer click on a label closes the popup it
+    // leaves open.
     let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
-    let sub_label = ids
+    let combo = node_id_right_of(&ids, "Substitution", Role::ComboBox);
+    action_click(&mut window, &mut view, combo);
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let combo_bounds = ids
         .iter()
-        .find(|(_, node)| node.role() == Role::Label && node.value() == Some("Substitution"))
+        .find(|(id, _)| *id == combo)
         .and_then(|(_, node)| node.bounds())
-        .expect("the Substitution label");
-    let field_id = ids
+        .expect("the combo's bounds");
+    // The popup's "Very early", below the combo.
+    let item = ids
         .iter()
         .find(|(_, node)| {
-            node.role() == Role::SpinButton
-                && node.bounds().is_some_and(|bounds| {
-                    (bounds.y0 - sub_label.y0).abs() < 4.0 && bounds.x0 >= sub_label.x1 - 1.0
-                })
+            node.role() == Role::Button
+                && node.label() == Some("Very early")
+                && node.bounds().is_some_and(|b| b.y0 > combo_bounds.y0)
         })
         .map(|(id, _)| *id)
-        .expect("the Substitution field");
-    action_focus(&mut window, &mut view, field_id);
-    window.frame(vec![egui::Event::Text("7".to_owned())], |ui| {
-        show(ui, &mut view, &|| Vec::new(), None)
-    });
+        .expect("the popup's Very early item");
+    action_click(&mut window, &mut view, item);
     let tactics = team_entry(&view, 701).tactics;
     assert_eq!(
         tactics.auto.substitution.expect("stored"),
-        7,
-        "the typed value is written"
+        3,
+        "the pick is written"
     );
-    assert_ne!(stored, 7, "premise: a real change");
+    // A pointer click on a label closes the popup the pick left open.
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let heading = label_bounds(&nodes, "Formation settings");
+    click_at(
+        &mut window,
+        egui::pos2(
+            ((heading.x0 + heading.x1) / 2.0) as f32,
+            ((heading.y0 + heading.y1) / 2.0) as f32,
+        ),
+        &mut view,
+    );
 
     // Press-drag-release the Compactness slider off its handle.
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
@@ -681,12 +696,12 @@ fn a_typed_substitution_then_a_slider_drag_undo_as_two_entries() {
     );
     assert_eq!(
         after.auto.substitution.expect("stored"),
-        7,
-        "the typed value stays"
+        3,
+        "the picked value stays"
     );
 
     // One Ctrl+Z restores the slider's stored value entirely — the
-    // rail-jump and the moves — and leaves the typed substitution.
+    // rail-jump and the moves — and leaves the substitution pick.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
@@ -697,10 +712,10 @@ fn a_typed_substitution_then_a_slider_drag_undo_as_two_entries() {
     );
     assert_eq!(
         tactics.auto.substitution.expect("stored"),
-        7,
-        "the typed value still applied"
+        3,
+        "the pick still applied"
     );
-    // A second reverts the typed substitution.
+    // A second reverts the pick.
     window.frame(vec![key(egui::Key::Z, egui::Modifiers::CTRL, true)], |ui| {
         show(ui, &mut view, &|| Vec::new(), None)
     });
@@ -711,7 +726,7 @@ fn a_typed_substitution_then_a_slider_drag_undo_as_two_entries() {
             .substitution
             .expect("stored"),
         stored,
-        "a second undo reverts the typed value"
+        "a second undo reverts the pick"
     );
     assert!(
         !view.session.as_ref().unwrap().can_undo(),

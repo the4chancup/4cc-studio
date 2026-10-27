@@ -417,12 +417,6 @@ fn panel(ui: &mut egui::Ui, heading: &'static str, add: impl FnOnce(&mut egui::U
     });
 }
 
-/// The Substitution pair's drawn width: the label and the DragValue
-/// field (`interact_size.x`), plus the gap.
-fn sub_cell_width(ui: &egui::Ui) -> f32 {
-    text_width(ui, SUBSTITUTION_LABEL) + ui.spacing().interact_size.x + ui.spacing().item_spacing.x
-}
-
 /// `text`'s galley width in the body font.
 pub(crate) fn text_width(ui: &egui::Ui, text: &str) -> f32 {
     ui.painter()
@@ -433,16 +427,6 @@ pub(crate) fn text_width(ui: &egui::Ui, text: &str) -> f32 {
         )
         .size()
         .x
-}
-
-/// One cell of a wrapping row at `width`: a child row laid out like
-/// `ui.horizontal`, so the cell's label and control keep one row.
-fn cell(ui: &mut egui::Ui, width: f32, add: impl FnOnce(&mut egui::Ui)) {
-    ui.allocate_ui_with_layout(
-        egui::vec2(width, ui.spacing().interact_size.y),
-        egui::Layout::left_to_right(egui::Align::Center),
-        add,
-    );
 }
 
 /// One style pair's control (the draft's `.rate`: the two choices,
@@ -513,14 +497,15 @@ fn slider(ui: &mut egui::Ui, sliders: &mut TacticSliders, spec: &SliderSpec) {
 }
 
 /// The "Advanced instructions" panel (the draft's `.group` over
-/// `instrGrid`): the four rows' instruction and target combos of the
-/// preset on screen (`instructions::instruction_table`). Answers `true`
-/// only when `tactics` changed this frame.
+/// `instrGrid`): the two sides' combos and their target chips of the
+/// preset on screen (`instructions::instruction_table`). The chips
+/// arm `view`'s target mode, never write the record — the answer is
+/// `true` only when `tactics` changed this frame.
 pub fn advanced_instructions(
     ui: &mut egui::Ui,
     version: PesVersion,
     tactics: &mut TeamTactics,
-    view: &TacticsView,
+    view: &mut TacticsView,
     roster: &[RosterRow<'_>],
 ) -> bool {
     let TeamTactics {
@@ -531,7 +516,7 @@ pub fn advanced_instructions(
     let preset = &mut presets[view.preset.min(2)];
     let before = preset.clone();
     panel(ui, "Advanced instructions", |ui| {
-        instructions::instruction_table(ui, version, preset, starting_eleven, roster);
+        instructions::instruction_table(ui, version, preset, starting_eleven, view, roster);
     });
     *preset != before
 }
@@ -559,57 +544,154 @@ pub fn player_assignments(
     (tactics.set_pieces.clone(), tactics.players_to_join_attack) != before
 }
 
-/// The "Automatic settings" panel (the draft's `#tac-auto` group): the
-/// substitution byte as stored, the offside trap, the preset change and
-/// the attack/defence levels. The row wraps on the measured `cell` for
-/// the label's pair, so a narrow pane wraps the last checkbox below
-/// rather than clipping it. Answers `true` only when `tactics` changed
-/// this frame.
-pub fn automatic_settings(ui: &mut egui::Ui, tactics: &mut TeamTactics) -> bool {
+/// The "Automatic settings" panel (the draft's `#tac-auto` group over
+/// `.tacauto`): one grid of two equal columns of 24-point rows —
+/// Substitution beside Preset change, Offside trap beside
+/// Attack/defence levels — its frame grown to the lists' bottom the
+/// host bounds the cell to, the rows centred in it. Answers `true`
+/// only when `tactics` changed this frame.
+pub fn automatic_settings(
+    ui: &mut egui::Ui,
+    version: PesVersion,
+    tactics: &mut TeamTactics,
+) -> bool {
     let auto = &mut tactics.auto;
     let before = auto.clone();
     panel(ui, "Automatic settings", |ui| {
-        ui.horizontal_wrapped(|ui| {
-            cell(ui, sub_cell_width(ui), |ui| {
-                ui.label(SUBSTITUTION_LABEL);
-                match &mut auto.substitution {
-                    Some(substitution) => {
-                        ui.add(egui::DragValue::new(substitution).range(0..=u8::MAX))
-                            .on_hover_text(
-                                "The automatic substitution setting as the save stores it: 0 is \
-                                 off; on PES 2021, 1 is very late, 2 flexible and 3 very early",
-                            );
-                    }
-                    None => {
-                        ui.add_enabled(
-                            false,
-                            egui::Button::new("-").min_size(ui.spacing().interact_size),
-                        )
-                        .on_disabled_hover_text(gate_tip(TacticsField::AutoSubstitution));
-                    }
-                }
-            });
-            auto_flag(
-                ui,
-                OFFSIDE_TRAP_LABEL,
-                &mut auto.offside_trap,
-                TacticsField::AutoOffsideTrap,
-            );
-            auto_flag(
-                ui,
-                PRESET_CHANGE_LABEL,
-                &mut auto.preset_change,
-                TacticsField::AutoPresetChange,
-            );
-            auto_flag(
-                ui,
-                ATTACK_DEFENCE_LABEL,
-                &mut auto.attack_defence_levels,
-                TacticsField::AutoAttackDefenceLevels,
-            );
-        });
+        // `#tac-auto { flex: 1 }`: the frame fills the cell the host
+        // bounds to the lists' bottom.
+        ui.set_min_height(ui.available_height());
+        // `.tacauto`: the two 24-point rows centred in the free height
+        // (`align-content: center`), the columns `1fr 1fr` 16 apart and
+        // adjacent (no row-gap: `item_spacing.y` trails a widget, so it
+        // is set before the first row).
+        let free = ui.available_height();
+        ui.add_space(((free - 2.0 * AUTO_ROW_HEIGHT) / 2.0).max(0.0));
+        ui.spacing_mut().item_spacing.y = 0.0;
+        auto_row(
+            ui,
+            |ui| substitution_cell(ui, version, &mut auto.substitution),
+            |ui| {
+                auto_flag(
+                    ui,
+                    PRESET_CHANGE_LABEL,
+                    &mut auto.preset_change,
+                    TacticsField::AutoPresetChange,
+                );
+            },
+        );
+        auto_row(
+            ui,
+            |ui| {
+                auto_flag(
+                    ui,
+                    OFFSIDE_TRAP_LABEL,
+                    &mut auto.offside_trap,
+                    TacticsField::AutoOffsideTrap,
+                );
+            },
+            |ui| {
+                auto_flag(
+                    ui,
+                    ATTACK_DEFENCE_LABEL,
+                    &mut auto.attack_defence_levels,
+                    TacticsField::AutoAttackDefenceLevels,
+                );
+            },
+        );
     });
     *auto != before
+}
+
+/// A `.tacauto` row's height (`grid-auto-rows: 24px`).
+const AUTO_ROW_HEIGHT: f32 = 24.0;
+/// The `.tacauto` columns' gap (`column-gap: 16px`).
+const AUTO_COLUMN_GAP: f32 = 16.0;
+
+/// One `.tacauto` row's two cells, each a 24-point row its content
+/// centred in (`.tacauto` `align-items: center`), `AUTO_COLUMN_GAP`
+/// apart.
+fn auto_row(
+    ui: &mut egui::Ui,
+    left: impl FnOnce(&mut egui::Ui),
+    right: impl FnOnce(&mut egui::Ui),
+) {
+    let column = (ui.available_width() - AUTO_COLUMN_GAP) / 2.0;
+    ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = AUTO_COLUMN_GAP;
+        // `allocate_ui_with_layout` advances the row by the child's
+        // *used* rect, not the size asked for: each cell claims its
+        // whole column before its content, or the right cell would
+        // start at the left cell's content's right edge.
+        ui.allocate_ui_with_layout(
+            egui::vec2(column, AUTO_ROW_HEIGHT),
+            egui::Layout::left_to_right(egui::Align::Center).with_main_align(egui::Align::LEFT),
+            |ui| {
+                ui.set_min_size(egui::vec2(column, AUTO_ROW_HEIGHT));
+                left(ui);
+            },
+        );
+        ui.allocate_ui_with_layout(
+            egui::vec2(column, AUTO_ROW_HEIGHT),
+            egui::Layout::left_to_right(egui::Align::Center).with_main_align(egui::Align::LEFT),
+            |ui| {
+                ui.set_min_size(egui::vec2(column, AUTO_ROW_HEIGHT));
+                right(ui);
+            },
+        );
+    });
+}
+
+/// The Substitution cell (the draft's `subs` row): the label, then the
+/// version's combo filling the rest of the cell — Off, Very late and
+/// Flexible, plus Very early on the versions measured to hold it (PES
+/// 2017 and 2021); a stored value outside the offered ones appended as
+/// its number, so the combo never misreports the save. A version that
+/// stores none keeps the disabled cell and the `PES NN+` tooltip.
+fn substitution_cell(ui: &mut egui::Ui, version: PesVersion, substitution: &mut Option<u8>) {
+    ui.label(SUBSTITUTION_LABEL);
+    match substitution {
+        Some(stored) => {
+            let mut choices: Vec<(u8, String)> = [(0, "Off"), (1, "Very late"), (2, "Flexible")]
+                .into_iter()
+                .chain(
+                    matches!(version, PesVersion::Pes17 | PesVersion::Pes21)
+                        .then_some((3, "Very early")),
+                )
+                .map(|(value, label)| (value, label.to_owned()))
+                .collect();
+            // A stored value outside the offered ones is offered as its
+            // number, so the combo never misreports the save.
+            if !choices.iter().any(|(value, _)| value == stored) {
+                choices.push((*stored, stored.to_string()));
+            }
+            let selected = choices
+                .iter()
+                .find(|(value, _)| value == stored)
+                .map(|(_, label)| label.clone())
+                .expect("the stored value is always offered");
+            let mut pick = *stored;
+            egui::ComboBox::from_id_salt("automatic substitution")
+                .width(ui.available_width())
+                .selected_text(selected)
+                .truncate()
+                .show_ui(ui, |ui| {
+                    for (value, label) in &choices {
+                        ui.selectable_value(&mut pick, *value, label.clone());
+                    }
+                });
+            if pick != *stored {
+                *stored = pick;
+            }
+        }
+        None => {
+            ui.add_enabled(
+                false,
+                egui::Button::new("-").min_size(ui.spacing().interact_size),
+            )
+            .on_disabled_hover_text(gate_tip(TacticsField::AutoSubstitution));
+        }
+    }
 }
 
 /// One automatic-settings flag's checkbox; a version that does not store

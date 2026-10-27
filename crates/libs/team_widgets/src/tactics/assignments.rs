@@ -6,7 +6,9 @@
 //! corner brackets on the pitch say it.
 
 use pes_savefile::model::tactics::{SetPieceTakers, TeamTactics};
-use pes_savefile::schema::fields::TacticsField;
+use pes_savefile::schema::fields::{InstructionSide, TacticsField};
+use pes_savefile::schema::instruction;
+use pes_version::PesVersion;
 
 use super::{RosterRow, TacticsView, name_at};
 
@@ -20,6 +22,16 @@ pub(crate) enum Assign {
     /// The players joining the attack: each click toggles the clicked
     /// starter's membership; armed until the chip's click disarms.
     Join,
+    /// An instruction's target-player pick (the draft's `S.assign.kind
+    /// === "target"`): the click writes the clicked starter's roster
+    /// slot and disarms.
+    Target {
+        /// Which side's instruction list (`attack_instructions` or
+        /// `defence_instructions`).
+        side: InstructionSide,
+        /// The instruction's index in it (0 or 1).
+        index: usize,
+    },
 }
 
 impl Assign {
@@ -29,8 +41,17 @@ impl Assign {
     /// the starter's membership, a member leaving packs the list (the
     /// later entries move up and 255 fills the end), a non-member fills
     /// the first 255 and a fourth on a full list is ignored; join stays
-    /// armed.
-    pub(crate) fn write(self, tactics: &mut TeamTactics, view: &mut TacticsView, index: usize) {
+    /// armed; a target writes the starter's roster slot and disarms, but
+    /// only while that slot's instruction still takes a player (an
+    /// instruction changed while armed writes nothing and disarms).
+    /// `version` is the save's (the target's instruction decode).
+    pub(crate) fn write(
+        self,
+        version: PesVersion,
+        tactics: &mut TeamTactics,
+        view: &mut TacticsView,
+        index: usize,
+    ) {
         let slot = tactics.starting_eleven[index];
         match self {
             Assign::Role(role) => {
@@ -48,6 +69,23 @@ impl Assign {
                 } else if let Some(free) = list.iter().position(|&entry| entry == u8::MAX) {
                     list[free] = slot;
                 }
+            }
+            Assign::Target { side, index } => {
+                let preset = &mut tactics.presets[view.preset.min(2)];
+                let entries = match side {
+                    InstructionSide::Attack => preset.attack_instructions.as_mut(),
+                    InstructionSide::Defence => preset.defence_instructions.as_mut(),
+                };
+                if let Some(entry) = entries.and_then(|entries| entries.get_mut(index))
+                    && entry.player != slot
+                    && instruction::decode(version, entry.instruction)
+                        .ok()
+                        .flatten()
+                        .is_some_and(|inst| inst.takes_player())
+                {
+                    entry.player = slot;
+                }
+                view.assign = None;
             }
         }
     }
@@ -160,7 +198,6 @@ pub(super) fn player_assignments(
     // `.tachalf`: rows 3 points apart; inside a `.tset`, the label 2
     // above its chip.
     ui.spacing_mut().item_spacing.y = 2.0;
-    ui.spacing_mut().button_padding = CHIP_PADDING;
     for (index, role) in SET_PIECES.iter().enumerate() {
         ui.label(role.label);
         let holder = (role.get)(set_pieces);
@@ -212,7 +249,13 @@ const CHIP_PADDING: egui::Vec2 = egui::vec2(6.0, 1.0);
 /// One chip of the palette (the draft's `.rolechip`): the column's
 /// width, the holder's name left-aligned and cut with an ellipsis at
 /// the edge — the full name its hover then, `hint` when it fits.
-fn chip(ui: &mut egui::Ui, name: &str, armed: bool, hint: &'static str) -> egui::Response {
+pub(super) fn chip(
+    ui: &mut egui::Ui,
+    name: &str,
+    armed: bool,
+    hint: &'static str,
+) -> egui::Response {
+    ui.spacing_mut().button_padding = CHIP_PADDING;
     let width = ui.available_width();
     let response = ui.add(
         egui::Button::selectable(armed, name.to_owned())

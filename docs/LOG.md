@@ -2602,3 +2602,5 @@ worklog passed 7,000 lines.
   names `overflow_the_stack` through `dump_syms` and `minidump-stackwalk`; a normal close leaves no monitor (0.0.1k4b).
 - **2026-10-27** — The Tactics editor's middle row redrawn (0.0.1s5b, SWE-2, one run): Formation settings as six rows of
   attacking and defensive pairs with Few | Medium | Many for the numbers, Player assignments as label-over-chip rows.
+- **2026-10-27** — The Tactics editor's lower left redrawn (0.0.1s5c, SWE-2, three sessions): instructions split by side with each
+  target picked on the pitch, Automatic settings as a two-column grid, Substitution a combo of the game's names.

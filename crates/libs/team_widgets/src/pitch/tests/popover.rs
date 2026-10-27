@@ -2,13 +2,16 @@
 //! and close cases, the fields' writes, the role chips and join.
 
 use egui::accesskit::Role;
+use pes_savefile::model::instruction::Instruction;
 use pes_savefile::model::tactics::SetPieceTakers;
+use pes_savefile::schema::fields::InstructionSide;
+use pes_savefile::schema::instruction;
 use pes_version::PesVersion;
 
 use super::*;
 use crate::test_support::{
-    Headless, centre, chips_below, controls_right_of, entry, entry_id, fixture_rows,
-    fixture_tactics, roster_rows,
+    Headless, centre, chip_under, chips_below, combo_row, controls_right_of, entry, entry_id,
+    fixture_rows, fixture_tactics, roster_rows,
 };
 
 // The draft's role palette: arm a chip and the note asks for its pitch
@@ -276,6 +279,168 @@ fn join_clicks_fill_three_then_toggle_members_packed() {
         .expect("a join chip");
     window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
     assert_eq!(view.assign, None, "the armed chip's click disarms");
+}
+
+// plans/save_editor.md "Tactics editor" (the click-to-assign bullet's
+// last sentence): an instruction's target chip arms the same pitch
+// pick as the roles' — click the chip, then a starter's marker writes
+// his roster slot as the target and disarms; a click on the player
+// already the target writes nothing; and an instruction changed while
+// armed disarms the mode without a write.
+#[test]
+fn a_target_chip_then_a_marker_click_writes_the_target_and_disarms() {
+    // The window is wide enough to hold the whole chips row.
+    let mut window = Headless::sized(1400.0, 1100.0);
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    // Defence 1 Counter Target, its pick unset; a non-identity eleven
+    // (an index write would look right on the fixture's [0, 1, ...]).
+    tactics.presets[0]
+        .defence_instructions
+        .as_mut()
+        .expect("PES 21 has instructions")[0]
+        .instruction =
+        instruction::encode(version, Instruction::CounterTarget).expect("PES 21 stores it");
+    tactics.presets[0]
+        .defence_instructions
+        .as_mut()
+        .expect("instructions")[0]
+        .player = u8::MAX;
+    tactics.starting_eleven.swap(3, 9);
+    let starter = tactics.starting_eleven[3];
+    assert_ne!(starter, 3, "premise: slot and index differ");
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(version);
+    let roster = roster_rows(&rows);
+    // The slot popover open: arming closes it.
+    view.popover = Some(OpenSlot {
+        scope: egui::Id::unique("the open slot's"),
+        preset: 0,
+        formation: 0,
+        slot: 0,
+    });
+
+    // The chip under defence 1's combo: enabled; its click arms
+    // `Assign::Target` and closes the popover.
+    let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
+    let chip = chip_under(&nodes, combo_row(&nodes, 0)[1]);
+    assert!(!chip.is_disabled(), "Counter Target's chip is enabled");
+    let (_, changed) =
+        window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
+    assert!(!changed, "arming writes no record");
+    assert_eq!(
+        view.assign,
+        Some(Assign::Target {
+            side: InstructionSide::Defence,
+            index: 0
+        }),
+        "the mode is armed"
+    );
+    assert_eq!(view.popover, None, "the slot popover closed");
+    let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
+    let chip = chip_under(&nodes, combo_row(&nodes, 0)[1]);
+    assert_eq!(
+        chip.toggled(),
+        Some(accesskit::Toggled::True),
+        "the armed chip is selected"
+    );
+
+    // The marker click writes the starter's roster slot and disarms.
+    let formation = tactics.presets[0].formations[0].clone();
+    let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
+    let at = marker_point(&nodes, &formation.players, 3);
+    let (_, changed) = window.click_pitch(at, version, &mut tactics, &mut view, &roster);
+    assert!(changed, "the assignment writes the record");
+    assert_eq!(
+        tactics.presets[0]
+            .defence_instructions
+            .as_ref()
+            .expect("instructions")[0]
+            .player,
+        starter,
+        "the starter's roster slot is the target"
+    );
+    assert_eq!(view.assign, None, "and the mode disarms");
+
+    // Re-arm; a click on the player already the target writes nothing
+    // (the mode still disarms).
+    let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
+    let chip = chip_under(&nodes, combo_row(&nodes, 0)[1]);
+    let (_, _) = window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
+    assert!(view.assign.is_some(), "re-armed");
+    let before = tactics.clone();
+    let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
+    let at = marker_point(&nodes, &formation.players, 3);
+    let (_, changed) = window.click_pitch(at, version, &mut tactics, &mut view, &roster);
+    assert!(!changed, "the same player writes nothing");
+    assert_eq!(tactics, before, "the record is as it was");
+    assert_eq!(view.assign, None, "still disarmed");
+
+    // Armed again, the instruction switched to Deep Defensive Line: it
+    // takes no target — the marker click writes nothing and disarms.
+    let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
+    let chip = chip_under(&nodes, combo_row(&nodes, 0)[1]);
+    let (_, _) = window.click_settings(centre(chip), version, &mut tactics, &mut view, &roster);
+    assert!(view.assign.is_some(), "re-armed");
+    // Pick Deep Defensive Line on defence 1's combo — the popup's item
+    // goes through AccessKit, as the instruction picks' do.
+    let (nodes, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
+    let combo = combo_row(&nodes, 0)[1];
+    let (_, _) = window.click_settings(centre(combo), version, &mut tactics, &mut view, &roster);
+    // The popup's first frame is a sizing pass; its items join the
+    // tree on the next.
+    let (_, _) = window.settings(version, &mut tactics, &mut view, &roster, vec![]);
+    let (ids, _) = window.frame_at_ids(None, vec![], |ui| {
+        crate::test_support::tactics_settings(
+            ui,
+            "tactics",
+            version,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+    });
+    let item = entry_id(&ids, Role::Button, "Deep Defensive Line");
+    let (_, _) = window.settings(
+        version,
+        &mut tactics,
+        &mut view,
+        &roster,
+        vec![egui::Event::AccessKitActionRequest(
+            accesskit::ActionRequest {
+                action: accesskit::Action::Click,
+                target_tree: accesskit::TreeId::ROOT,
+                target_node: item,
+                data: None,
+            },
+        )],
+    );
+    assert_eq!(
+        tactics.presets[0]
+            .defence_instructions
+            .as_ref()
+            .expect("instructions")[0]
+            .instruction,
+        instruction::encode(version, Instruction::DeepDefensiveLine).expect("PES 21 stores it"),
+        "the pick changed the instruction while armed"
+    );
+    assert!(view.assign.is_some(), "the mode stays armed");
+    // The marker click writes nothing (the instruction takes no
+    // target) and disarms.
+    let (nodes, _) = window.pitch(version, &mut tactics, &mut view, &roster, vec![]);
+    let at = marker_point(&nodes, &formation.players, 3);
+    let (_, changed) = window.click_pitch(at, version, &mut tactics, &mut view, &roster);
+    assert!(!changed, "a target-less instruction writes nothing");
+    assert_eq!(
+        tactics.presets[0]
+            .defence_instructions
+            .as_ref()
+            .expect("instructions")[0]
+            .player,
+        u8::MAX,
+        "the player byte is untouched"
+    );
+    assert_eq!(view.assign, None, "and the mode disarms");
 }
 
 // The popover's slot is of the preset it opened on: a preset switch

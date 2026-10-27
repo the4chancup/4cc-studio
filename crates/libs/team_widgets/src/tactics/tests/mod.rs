@@ -9,8 +9,8 @@ use pes_savefile::model::instruction::Instruction;
 
 use super::*;
 use crate::test_support::{
-    Headless, centre, control_below, control_right_of, controls_below, controls_right_of, entry,
-    entry_id, fixture_rows, fixture_tactics, pointer_at, roster_rows, tactics_settings,
+    Headless, centre, chip_under, combo_row, control_below, control_right_of, controls_below,
+    entry, entry_id, fixture_rows, fixture_tactics, pointer_at, roster_rows, tactics_settings,
 };
 
 impl Headless {
@@ -191,30 +191,26 @@ fn fields_the_version_lacks_draw_disabled_with_their_versions() {
     window
         .ctx
         .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
-    // PES 16: the four instruction rows are drawn as on 17+, disabled
-    // with "PES 17+", each combo showing the empty pick's text; and
-    // Attack/defence levels is disabled with "PES 17+".
+    // PES 16: the instructions panel holds the weak "(none on this
+    // version)" line with "PES 17+" on hover; and Attack/defence
+    // levels is disabled with "PES 17+".
     let mut tactics = fixture_tactics(PesVersion::Pes16);
     let mut view = TacticsView::default();
     let rows = fixture_rows(PesVersion::Pes16);
     let roster = roster_rows(&rows);
     let (nodes, _) = window.tactics(PesVersion::Pes16, &mut tactics, &mut view, &roster, vec![]);
-    for label in ["Attack 1", "Attack 2", "Defence 1", "Defence 2"] {
-        let combos = controls_right_of(&nodes, label, Role::ComboBox);
-        assert_eq!(combos.len(), 2, "{label}'s instruction and target");
-        for combo in &combos {
-            assert!(combo.is_disabled(), "{label}'s combos are disabled");
-            assert_eq!(
-                combo.value(),
-                Some("Unassigned"),
-                "{label} shows the empty pick"
-            );
-        }
-    }
-    let first = controls_right_of(&nodes, "Attack 1", Role::ComboBox)[0];
+    let line = nodes
+        .iter()
+        .find(|node| node.role() == Role::Label && node.value() == Some("(none on this version)"))
+        .and_then(|node| node.bounds())
+        .expect("the no-table line");
+    let line_centre = egui::pos2(
+        ((line.x0 + line.x1) / 2.0) as f32,
+        ((line.y0 + line.y1) / 2.0) as f32,
+    );
     assert_eq!(
         window.tactics_tooltip(
-            centre(first),
+            line_centre,
             "PES 17+",
             PesVersion::Pes16,
             &mut tactics,
@@ -222,7 +218,7 @@ fn fields_the_version_lacks_draw_disabled_with_their_versions() {
             &roster,
         ),
         Some("PES 17+".to_string()),
-        "the instruction rows' hover"
+        "the no-table line's hover"
     );
     let levels = entry(&nodes, Role::CheckBox, "Attack/defence levels");
     assert!(levels.is_disabled(), "the flag is disabled on PES 16");
@@ -237,6 +233,14 @@ fn fields_the_version_lacks_draw_disabled_with_their_versions() {
         ),
         Some("PES 17+".to_string()),
         "Attack/defence levels' hover"
+    );
+    // And no combo where the instruction grid would be: the only one
+    // on screen is Automatic settings' substitution, below the line.
+    assert!(
+        !nodes.iter().any(|node| {
+            node.role() == Role::ComboBox && node.bounds().is_some_and(|b| b.y0 < line.y0)
+        }),
+        "no instruction combo on a version with no table"
     );
 
     // PES 15: Fluid formation is disabled with "PES 16+".
@@ -378,8 +382,8 @@ fn no_gesture_no_change() {
         if version == PesVersion::Pes15 {
             continue;
         }
-        // Open the Attack 1 instruction combo and close it again.
-        let combo = control_right_of(&nodes, "Attack 1", Role::ComboBox);
+        // Open the first attack instruction's combo and close it again.
+        let combo = combo_row(&nodes, 0)[0];
         let (_, changed) = click(
             &mut window,
             combo,
@@ -391,8 +395,24 @@ fn no_gesture_no_change() {
         assert!(!changed, "{version:?}: opening the combo writes nothing");
         assert_eq!(tactics, before, "{version:?}: and edits nothing");
 
-        // Re-pick the current value inside it (the fixture's Attack 1
-        // is Off, "Unassigned"): no change, nothing written.
+        // Re-pick the current value inside it (every instruction Off
+        // here, so the "Unassigned" found is the popup's own item, never
+        // a target chip's): no change, nothing written.
+        for entry in tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("instructions")
+            .iter_mut()
+            .chain(
+                tactics.presets[0]
+                    .defence_instructions
+                    .as_mut()
+                    .expect("instructions")
+                    .iter_mut(),
+            )
+        {
+            entry.instruction = instruction::encode(version, Instruction::Off).expect("stored");
+        }
         let (ids, _) = window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
         let same = entry_id(&ids, Role::Button, "Unassigned");
         let (_, changed) =
@@ -545,7 +565,8 @@ fn button_below(
 }
 
 /// How a case interacts: a `SetValue` on the slider's or the
-/// spinner's node, a `Click` on a style pair's choice or a checkbox.
+/// spinner's node, a `Click` on a style pair's choice or a checkbox, a
+/// combo's open and its item's pick.
 #[derive(Clone, Copy)]
 enum Control {
     /// Label and the value to set (the range's top).
@@ -554,8 +575,8 @@ enum Control {
     Choice(&'static str, &'static str),
     /// The checkbox's label (the click toggles it on).
     Check(&'static str),
-    /// The DragValue's label and the value to set.
-    Spin(&'static str, f64),
+    /// The combo's label and the item to pick.
+    Combo(&'static str, &'static str),
 }
 
 // Every Formation settings and Automatic settings control writes its
@@ -705,9 +726,9 @@ fn each_settings_control_writes_its_own_field() {
         },
         Case {
             name: "Substitution",
-            control: Control::Spin("Substitution", 3.0),
+            control: Control::Combo("Substitution", "Flexible"),
             setup: |t| t.auto.substitution = Some(0),
-            expect: |t| t.auto.substitution = Some(3),
+            expect: |t| t.auto.substitution = Some(2),
         },
         Case {
             name: "Offside trap",
@@ -741,11 +762,6 @@ fn each_settings_control_writes_its_own_field() {
                 accesskit::Action::SetValue,
                 Some(accesskit::ActionData::NumericValue(value)),
             ),
-            Control::Spin(label, value) => (
-                id_right_of(&ids, label, Role::SpinButton),
-                accesskit::Action::SetValue,
-                Some(accesskit::ActionData::NumericValue(value)),
-            ),
             Control::Choice(label, choice) => (
                 button_below(&ids, label, choice),
                 accesskit::Action::Click,
@@ -756,6 +772,21 @@ fn each_settings_control_writes_its_own_field() {
                 accesskit::Action::Click,
                 None,
             ),
+            // The combo opens first; the click is then on its item.
+            Control::Combo(label, item) => {
+                let combo = id_right_of(&ids, label, Role::ComboBox);
+                let (_, _) =
+                    window.action_click_tactics(combo, version, &mut tactics, &mut view, &roster);
+                // The popup's first frame is a sizing pass; its items
+                // join the tree on the next.
+                let (ids, _) =
+                    window.tactics_ids(version, &mut tactics, &mut view, &roster, vec![]);
+                (
+                    entry_id(&ids, Role::Button, item),
+                    accesskit::Action::Click,
+                    None,
+                )
+            }
         };
         let (_, changed) = window.tactics(
             version,
@@ -1046,37 +1077,18 @@ fn the_numbers_are_three_choice_toggles() {
     );
 }
 
-// The Automatic settings row wraps like the formation cells' (the
-// draft's `.row`): at a pane narrower than the row the last checkbox
-// lands on a new line below the Substitution pair, inside the pane.
-// (Inside a host's vertical-only scroll area the region grows to the
-// content's width, so the wrap is exercised by the pane itself, not the
-// window's clip.) And the armed mode draws no note (the plan's "No note
-// explains the armed mode"): nothing labeled while join is armed but
-// the armed chip.
+// The armed mode draws no note (the plan's "No note explains the armed
+// mode"): nothing labeled while join is armed but the armed chips.
 #[test]
-fn the_automatic_settings_wrap_at_a_narrow_pane() {
-    let mut window = Headless::sized(400.0, 900.0);
+fn the_armed_mode_draws_no_note() {
+    let mut window = Headless::sized(800.0, 1200.0);
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
     let mut view = TacticsView::default();
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
 
-    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-    let substitution = control_right_of(&nodes, "Substitution", Role::SpinButton);
-    let levels = entry(&nodes, Role::CheckBox, "Attack/defence levels");
-    assert!(
-        levels.bounds().expect("checkbox bounds").x1 <= 400.0,
-        "Attack/defence levels inside the pane"
-    );
-    assert!(
-        levels.bounds().expect("checkbox bounds").y0
-            > substitution.bounds().expect("field bounds").y0,
-        "it wrapped to a new line below the Substitution pair"
-    );
-
-    // Arm join: no note, no Cancel or Done — the armed chip says it.
+    // Arm join: no note, no Cancel or Done — the armed chips say it.
     view.assign = Some(Assign::Join);
     let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
     for label in ["Cancel", "Done"] {
@@ -1575,8 +1587,8 @@ fn every_table_entry_keys_its_own_label() {
 }
 
 /// The `PlayerId` row words its target byte under the instruction in
-/// force on that side, as the tab's target combo does: "An opponent"
-/// under Tight Marking, "Unassigned" under a target-less one, a player
+/// force on that side, as the tab's target chip does: "An opponent"
+/// under Tight Marking, "No target" under a target-less one, a player
 /// under a player-taking one.
 #[test]
 fn the_target_terms_read_the_instruction_in_force_on_each_side() {
@@ -1599,21 +1611,22 @@ fn the_target_terms_read_the_instruction_in_force_on_each_side() {
         defence[0].instruction = encode(Instruction::CounterTarget);
         defence[0].player = tactics.starting_eleven[5];
     }
-    // The tab's own text for the same tactics, drawn.
-    let mut window = Headless::sized(800.0, 900.0);
+    // The tab's own text for the same tactics, drawn — each chip's
+    // label under its combo.
+    let mut window = Headless::sized(800.0, 1200.0);
     let mut view = TacticsView::default();
     let rows = named_roster();
     let roster = roster_rows(&rows);
     let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-    let combo_text = |label: &str| {
-        controls_right_of(&nodes, label, Role::ComboBox)[1]
-            .value()
-            .expect("the target combo's text")
+    let chip_text = |column, index| {
+        chip_under(&nodes, combo_row(&nodes, index)[column])
+            .label()
+            .expect("the chip's text")
             .to_owned()
     };
-    assert_eq!(combo_text("Attack 1"), "An opponent", "the tab's own text");
-    assert_eq!(combo_text("Attack 2"), "Unassigned", "the tab's own text");
-    let starter_text = combo_text("Defence 1");
+    assert_eq!(chip_text(0, 0), "An opponent", "the tab's own text");
+    assert_eq!(chip_text(0, 1), "No target", "the tab's own text");
+    let starter_text = chip_text(1, 0);
     assert_eq!(
         starter_text,
         format!("6 {}", name_at(&roster, tactics.starting_eleven[5])),
@@ -1645,7 +1658,7 @@ fn the_target_terms_read_the_instruction_in_force_on_each_side() {
     );
     assert_eq!(
         term(InstructionSide::Attack, 1, 0, 9).1,
-        "Unassigned",
+        "No target",
         "the row's target-less side"
     );
     assert_eq!(
@@ -1685,7 +1698,7 @@ fn the_target_terms_read_the_instruction_in_force_on_each_side() {
     );
     assert_eq!(
         (old.as_str(), new.as_str()),
-        ("An opponent", "Unassigned"),
+        ("An opponent", "No target"),
         "each side under its own instruction"
     );
 }
@@ -1778,35 +1791,203 @@ fn each_side_names_its_slots_through_its_own_roster() {
     assert_eq!(label, format!("Preset 1 · Man marking · {starter_new}"));
 }
 
-// The Substitution pair's cell is as wide as its label, the DragValue
-// and the item gap (`sub_cell_width`): the drawn label's left edge to
-// the field's right edge measures it at the fixture's stored value.
+// plans/save_editor.md "Tactics editor" (the `.tacauto` grid): the
+// Automatic settings' four controls form two equal columns of 24-point
+// rows — the right column's left edge 16 plus a half over the left's —
+// the two rows 24 apart.
 #[test]
-fn the_substitution_cell_is_as_wide_as_its_pair() {
+fn the_automatic_settings_are_a_two_column_grid() {
+    let mut window = Headless::sized(414.0, 900.0);
     let version = PesVersion::Pes21;
     let mut tactics = fixture_tactics(version);
-    assert!(
-        tactics.auto.substitution.is_some(),
-        "premise: PES 21 stores the byte"
-    );
     let mut view = TacticsView::default();
     let rows = fixture_rows(version);
     let roster = roster_rows(&rows);
-    let mut window = Headless::sized(800.0, 900.0);
-    let mut expected = 0.0f32;
-    window.frame(vec![], |ui| expected = sub_cell_width(ui));
-
     let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
-    let label = nodes
+
+    // The two halves equal, 16 apart: the left column's edge is the
+    // Substitution label's and the left checkboxes', the right's the
+    // right checkboxes' (the combo sits inside its cell beside the
+    // label). The columns' width is the panel's inner less 16 halved
+    // (the frame's margin and stroke are 7 a side).
+    let inner = 414.0 - 14.0;
+    let half = (inner - 16.0) / 2.0;
+    let substitution_label = nodes
         .iter()
         .find(|node| node.role() == Role::Label && node.value() == Some("Substitution"))
         .and_then(|node| node.bounds())
         .expect("the Substitution label");
-    let field = control_right_of(&nodes, "Substitution", Role::SpinButton)
-        .bounds()
-        .expect("the Substitution field");
+    let checkboxes = [
+        entry(&nodes, Role::CheckBox, "Preset change"),
+        entry(&nodes, Role::CheckBox, "Offside trap"),
+        entry(&nodes, Role::CheckBox, "Attack/defence levels"),
+    ];
+    let mut xs: Vec<f64> = vec![substitution_label.x0];
+    let mut centres = Vec::new();
+    for node in checkboxes {
+        let bounds = node.bounds().expect("checkbox bounds");
+        xs.push(bounds.x0);
+        centres.push((bounds.y0 + bounds.y1) / 2.0);
+    }
+    let combo = control_right_of(&nodes, "Substitution", Role::ComboBox);
+    centres.push({
+        let b = combo.bounds().expect("combo bounds");
+        (b.y0 + b.y1) / 2.0
+    });
+    xs.sort_by(|a, b| a.partial_cmp(b).expect("ordered"));
+    xs.dedup_by(|a, b| (*b - *a).abs() < 1.0);
+    assert_eq!(xs.len(), 2, "the controls take two columns ({xs:?})");
     assert!(
-        (field.x1 - label.x0 - f64::from(expected)).abs() < 1.0,
-        "the cell is as wide as its pair (label {label:?}, field {field:?}, cell {expected})"
+        (xs[1] - xs[0] - (half + 16.0)).abs() <= 1.0,
+        "the columns' x a half and 16 apart ({xs:?}, half {half})"
+    );
+    centres.sort_by(|a, b| a.partial_cmp(b).expect("ordered"));
+    centres.dedup_by(|a, b| (*b - *a).abs() < 0.5);
+    assert_eq!(centres.len(), 2, "the controls take two rows");
+    assert!(
+        (centres[1] - centres[0] - 24.0).abs() <= 0.5,
+        "the rows' centres are 24 apart ({centres:?})"
+    );
+}
+
+/// The buttons `after` draws that `before` did not (no button with the
+/// same label and bounds), in draw order top to bottom: the items an
+/// opened combo's popup added to the tree. Labels alone cannot pick
+/// them out — the popup's "Flexible" is also a Positioning choice.
+fn popup_items<'a>(
+    before: &[accesskit::Node],
+    after: &'a [accesskit::Node],
+) -> Vec<&'a accesskit::Node> {
+    let mut items: Vec<&accesskit::Node> = after
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node.bounds().is_some()
+                && !before.iter().any(|old| {
+                    old.role() == node.role()
+                        && old.label() == node.label()
+                        && old.bounds() == node.bounds()
+                })
+        })
+        .collect();
+    items.sort_by(|a, b| {
+        let key = |node: &&accesskit::Node| {
+            let bounds = node.bounds().expect("item bounds");
+            (bounds.y0, bounds.x0)
+        };
+        key(a).partial_cmp(&key(b)).expect("ordered bounds")
+    });
+    items
+}
+
+// plans/save_editor.md "Tactics editor" (the Substitution sentence):
+// the combo names the game's choices — Off, Very late and Flexible on
+// every storing version (the field is PES 15+, so PES 2016's cell is
+// not gated), Very early added on PES 2017 and 2021 — in the stored
+// order.
+#[test]
+fn the_substitution_combo_names_the_games_choices() {
+    let mut window = Headless::sized(800.0, 1200.0);
+    for (version, very_early) in [
+        (PesVersion::Pes16, false),
+        (PesVersion::Pes17, true),
+        (PesVersion::Pes19, false),
+        (PesVersion::Pes21, true),
+    ] {
+        let mut tactics = fixture_tactics(version);
+        // A stored 0: the offered set is the version's own, no number
+        // appended.
+        tactics.auto.substitution = Some(0);
+        let mut view = TacticsView::default();
+        let rows = fixture_rows(version);
+        let roster = roster_rows(&rows);
+        let (before, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let combo = control_right_of(&before, "Substitution", Role::ComboBox);
+        assert_eq!(combo.value(), Some("Off"), "{version:?}: the stored 0");
+        let (_, _) = click(
+            &mut window,
+            combo,
+            version,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+        // The popup's first frame is a sizing pass; its items join the
+        // tree on the next.
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let mut expected = vec![Some("Off"), Some("Very late"), Some("Flexible")];
+        if very_early {
+            expected.push(Some("Very early"));
+        }
+        let items: Vec<Option<&str>> = popup_items(&before, &nodes)
+            .iter()
+            .map(|node| node.label())
+            .collect();
+        assert_eq!(items, expected, "{version:?}'s choices");
+        // Close the popup for the next version's frame (a click on the
+        // combo toggles it).
+        let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+        let combo = control_right_of(&nodes, "Substitution", Role::ComboBox);
+        let (_, _) = click(
+            &mut window,
+            combo,
+            version,
+            &mut tactics,
+            &mut view,
+            &roster,
+        );
+    }
+}
+
+// The same sentence's tail: a stored value outside the offered choices
+// shows as its number — the combo never misreports the save — and a
+// frame with no gesture keeps it.
+#[test]
+fn an_out_of_range_substitution_shows_its_number_and_stays() {
+    let mut window = Headless::sized(800.0, 1200.0);
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    tactics.auto.substitution = Some(7);
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(version);
+    let roster = roster_rows(&rows);
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let combo = control_right_of(&nodes, "Substitution", Role::ComboBox);
+    assert_eq!(combo.value(), Some("7"), "the stored 7 shows as its number");
+    let (_, changed) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    assert!(!changed, "a frame with no gesture writes nothing");
+    assert_eq!(tactics.auto.substitution, Some(7), "the stored 7 stays");
+}
+
+// A record that stores no substitution byte keeps the disabled cell
+// with the `PES NN+` tooltip (the `None` arm — no shipped version
+// lacks the field, so the tactics record is edited to it).
+#[test]
+fn a_version_without_substitution_keeps_the_disabled_cell() {
+    let mut window = Headless::sized(800.0, 1200.0);
+    window
+        .ctx
+        .global_style_mut(|style| style.interaction.tooltip_delay = 0.0);
+    let version = PesVersion::Pes21;
+    let mut tactics = fixture_tactics(version);
+    tactics.auto.substitution = None;
+    let mut view = TacticsView::default();
+    let rows = fixture_rows(version);
+    let roster = roster_rows(&rows);
+    let (nodes, _) = window.tactics(version, &mut tactics, &mut view, &roster, vec![]);
+    let dash = control_right_of(&nodes, "Substitution", Role::Button);
+    assert!(dash.is_disabled(), "the cell's button is disabled");
+    assert_eq!(dash.label(), Some("-"), "the disabled dash");
+    assert_eq!(
+        window.tactics_tooltip(
+            centre(dash),
+            "PES ",
+            version,
+            &mut tactics,
+            &mut view,
+            &roster,
+        ),
+        Some("PES 15+".to_owned()),
+        "the gate tooltip names the first version storing the field"
     );
 }

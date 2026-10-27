@@ -43,7 +43,7 @@ pub(crate) fn tactics_settings(
         cell(ui, |ui| formation_settings(ui, tactics, view))
             | advanced_instructions(ui, version, tactics, view, roster)
             | cell(ui, |ui| player_assignments(ui, tactics, view, roster))
-            | automatic_settings(ui, tactics)
+            | automatic_settings(ui, version, tactics)
     })
     .inner
 }
@@ -327,6 +327,49 @@ pub(crate) fn chips_below<'a>(
         y(a).partial_cmp(&y(b)).expect("ordered bounds")
     });
     found
+}
+
+/// The instruction grid's combo row `index`'s two combos, attack then
+/// defence (each in its own column, on one y — the substitution combo
+/// sorts after both rows).
+pub(crate) fn combo_row(nodes: &[accesskit::Node], index: usize) -> [&accesskit::Node; 2] {
+    let mut combos: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| node.role() == Role::ComboBox)
+        .collect();
+    combos.sort_by(|a, b| {
+        let key = |node: &&accesskit::Node| {
+            let bounds = node.bounds().expect("combo bounds");
+            (bounds.y0, bounds.x0)
+        };
+        key(a).partial_cmp(&key(b)).expect("ordered bounds")
+    });
+    let pair = combos
+        .get(2 * index..=2 * index + 1)
+        .unwrap_or_else(|| panic!("no instruction combo row {index}"));
+    [pair[0], pair[1]]
+}
+
+/// The chip under `combo` in its column (an instruction's target chip:
+/// the Button sharing the combo's left edge, nearest below it).
+pub(crate) fn chip_under<'a>(
+    nodes: &'a [accesskit::Node],
+    combo: &accesskit::Node,
+) -> &'a accesskit::Node {
+    let bounds = combo.bounds().expect("combo bounds");
+    nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.y0 > bounds.y0 && (b.x0 - bounds.x0).abs() < 1.0)
+        })
+        .min_by(|a, b| {
+            let y = |node: &&accesskit::Node| node.bounds().expect("bounds").y0;
+            y(a).partial_cmp(&y(b)).expect("ordered bounds")
+        })
+        .expect("no chip under the combo")
 }
 
 /// `nodes`' buttons' labels in draw order (top to bottom, left to

@@ -883,6 +883,53 @@ fn chip<'a>(nodes: &'a [accesskit::Node], label: &str) -> &'a accesskit::Node {
         .unwrap_or_else(|| panic!("no chip under {label:?}"))
 }
 
+/// The instruction grid's four combos inside the "Advanced
+/// instructions" panel (between its heading and the next panel's), as
+/// `[[attack 1, defence 1], [attack 2, defence 2]]` — attack the left
+/// column, defence the right.
+fn instruction_combos(nodes: &[accesskit::Node]) -> [[&accesskit::Node; 2]; 2] {
+    let panel_top = label_bounds(nodes, "Advanced instructions").y0;
+    let panel_bottom = label_bounds(nodes, "Automatic settings").y0;
+    let mut combos: Vec<&accesskit::Node> = nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::ComboBox
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.y0 > panel_top && b.y0 < panel_bottom)
+        })
+        .collect();
+    combos.sort_by(|a, b| {
+        let key = |node: &&accesskit::Node| {
+            let bounds = node.bounds().expect("combo bounds");
+            (bounds.x0, bounds.y0)
+        };
+        key(a).partial_cmp(&key(b)).expect("ordered bounds")
+    });
+    let [a1, a2, d1, d2] = <[&accesskit::Node; 4]>::try_from(combos.as_slice())
+        .expect("the instruction grid's four combos");
+    [[a1, d1], [a2, d2]]
+}
+
+/// The chip under `combo` in its column (an instruction's target chip:
+/// the Button sharing the combo's left edge, nearest below it).
+fn chip_under<'a>(nodes: &'a [accesskit::Node], combo: &accesskit::Node) -> &'a accesskit::Node {
+    let bounds = combo.bounds().expect("combo bounds");
+    nodes
+        .iter()
+        .filter(|node| {
+            node.role() == Role::Button
+                && node
+                    .bounds()
+                    .is_some_and(|b| b.y0 > bounds.y0 && (b.x0 - bounds.x0).abs() < 1.0)
+        })
+        .min_by(|a, b| {
+            let y = |node: &&accesskit::Node| node.bounds().expect("bounds").y0;
+            y(a).partial_cmp(&y(b)).expect("ordered bounds")
+        })
+        .expect("no chip under the combo")
+}
+
 /// The Formation settings' half width: the right label column's x less
 /// the left's and the 16-point gap.
 fn settings_half(nodes: &[accesskit::Node]) -> f64 {

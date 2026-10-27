@@ -695,6 +695,82 @@ fn the_two_panels_frames_are_level_with_the_pitchs() {
     }
 }
 
+// plans/save_editor.md "Tactics editor" (row 3 of "the pitch is the
+// editor", the draft's `#tac-auto { flex: 1 }` and `.tacauto`'s
+// `align-content: center`): at the 1280 x 800 default pane the
+// Automatic settings' frame reaches the lineup lists' bottom, its two
+// rows centred in it.
+#[test]
+fn the_automatic_settings_frame_reaches_the_lists_bottom() {
+    let path = fixture(PesVersion::Pes21, "tactics_auto_frame");
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(DEFAULT_PANE.x, DEFAULT_PANE.y);
+    open_team_view(&mut window, &mut view, 701);
+    let (_, nodes, shapes) =
+        window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+
+    let rects = stroked_rects(&shapes, 60.0);
+    let settings_left = label_bounds(&nodes, "Formation settings").x0 - 7.0;
+    // Column 1's three boxes, top to bottom: Formation settings,
+    // Advanced instructions, Automatic settings.
+    let panels: Vec<egui::Rect> = rects
+        .iter()
+        .copied()
+        .filter(|rect| (f64::from(rect.min.x) - settings_left).abs() < 1.0)
+        .collect();
+    assert_eq!(panels.len(), 3, "the settings column's boxes");
+    let automatic = panels[2];
+    // The lists' boxes share row 3's top — the first box right of the
+    // settings column whose top is below the pitch's is theirs (the
+    // stack's Advanced instructions is at settings_left).
+    let pitch_left = settings_left + 414.0 + 10.0;
+    let pitch_box = box_at(&rects, pitch_left, 1.0);
+    let row3_top = f64::from(pitch_box.max.y) + 6.0;
+    let lists_bottom = rects
+        .iter()
+        .filter(|rect| {
+            f64::from(rect.min.x) > settings_left + 1.0
+                && (f64::from(rect.min.y) - row3_top).abs() <= 1.0
+        })
+        .map(|rect| rect.max.y)
+        .reduce(f32::max)
+        .expect("the lists' boxes in row 3");
+    assert!(
+        (f64::from(automatic.max.y) - f64::from(lists_bottom)).abs() <= 0.5,
+        "the frame's bottom is the lists' ({automatic:?}, lists' bottom {lists_bottom})"
+    );
+
+    // The rows centred in `.tacauto`, the region under the heading:
+    // the four controls' vertical centre is the centre of the space
+    // between the heading's bottom (plus its 3-point gap) and the
+    // frame's bottom inner edge (the 7-point margin and stroke).
+    let heading_bottom = label_bounds(&nodes, "Automatic settings").y1 + 3.0;
+    let region_bottom = f64::from(automatic.max.y) - 7.0;
+    let controls = [
+        right_of_label(&nodes, "Substitution", Role::ComboBox)
+            .into_iter()
+            .next()
+            .expect("the Substitution combo"),
+        node_labeled(&nodes, Role::CheckBox, "Preset change"),
+        node_labeled(&nodes, Role::CheckBox, "Offside trap"),
+        node_labeled(&nodes, Role::CheckBox, "Attack/defence levels"),
+    ];
+    let centre = controls
+        .iter()
+        .map(|node| {
+            let bounds = node.bounds().expect("control bounds");
+            (bounds.y0 + bounds.y1) / 2.0
+        })
+        .sum::<f64>()
+        / controls.len() as f64;
+    let region_centre = (heading_bottom + region_bottom) / 2.0;
+    assert!(
+        (centre - region_centre).abs() <= 1.0,
+        "the rows centred under the heading ({centre} vs {region_centre})"
+    );
+}
+
 // The draft's `.rate` toggles write their field, one undo entry: a
 // click on Defensive style's "All Out Def." stores the flag.
 #[test]
@@ -755,6 +831,55 @@ fn a_numbers_choice_click_is_one_undo_entry() {
         undo_entries(&mut window, &mut view),
         1,
         "the click was one undo entry"
+    );
+}
+
+// plans/save_editor.md "Tactics editor" (the Substitution sentence):
+// the combo's pick writes the stored byte — Flexible stores 2 — as one
+// undo entry.
+#[test]
+fn a_substitution_pick_is_one_undo_entry() {
+    let path = fixture(PesVersion::Pes21, "tactics_subs_undo");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
+    file.team_mut(701).unwrap().tactics.auto.substitution = Some(0);
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1600.0, 1400.0);
+    open_team_view(&mut window, &mut view, 701);
+
+    // The combo right of the Substitution label, opened by an
+    // AccessKit click; its items join the tree the frame after.
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let combo = node_id_right_of(&ids, "Substitution", Role::ComboBox);
+    action_click(&mut window, &mut view, combo);
+    let (_, ids, _) = window.frame_ids(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let combo_bounds = ids
+        .iter()
+        .find(|(id, _)| *id == combo)
+        .and_then(|(_, node)| node.bounds())
+        .expect("the combo's bounds");
+    // The popup's "Flexible", below the combo — Positioning's own
+    // "Flexible" choice is up in Formation settings.
+    let flexible = ids
+        .iter()
+        .find(|(_, node)| {
+            node.role() == Role::Button
+                && node.label() == Some("Flexible")
+                && node.bounds().is_some_and(|b| b.y0 > combo_bounds.y0)
+        })
+        .map(|(id, _)| *id)
+        .expect("the popup's Flexible item");
+    action_click(&mut window, &mut view, flexible);
+    assert_eq!(
+        team_entry(&view, 701).tactics.auto.substitution,
+        Some(2),
+        "Flexible stored as 2"
+    );
+    assert_eq!(
+        undo_entries(&mut window, &mut view),
+        1,
+        "the pick was one undo entry"
     );
 }
 
@@ -865,14 +990,116 @@ fn the_assignments_rows_name_holders_and_arm_join() {
     }
 }
 
-// The draft's `#instr-table select` cap: the target combo is bounded
-// and truncates, so a real player's long name cannot push the row past
-// the settings column (the draft's 120-point cap or the column's edge,
-// whichever the row leaves); the full name still shows in the popup and
-// on the closed combo's hover.
+// plans/save_editor.md "Tactics editor" (the click-to-assign bullet's
+// last sentence) on the fixtures' real team: an instruction's target
+// chip arms the same pitch pick as the roles' — click it, then a
+// starter's marker writes his roster slot as the target, one undo
+// entry, and the mode is off after. Under a target-less instruction
+// the chip is disabled ("No target"), under a held Tight Marking it
+// reads "An opponent".
 #[test]
-fn the_target_combo_stays_inside_the_settings_column() {
-    let path = fixture(PesVersion::Pes21, "target_combo_long_name");
+fn the_instruction_target_is_picked_on_the_pitch() {
+    let path = fixture(PesVersion::Pes17, "instruction_target_734");
+    let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes17)).unwrap();
+    {
+        let encode = |inst| {
+            pes_savefile::schema::instruction::encode(PesVersion::Pes17, inst)
+                .expect("PES 17 stores it")
+        };
+        let tactics = &mut file.team_mut(734).unwrap().tactics;
+        let defence = tactics.presets[0]
+            .defence_instructions
+            .as_mut()
+            .expect("PES 17 stores instructions");
+        // Defence 1 Counter Target, its pick unset; defence 2 a
+        // target-less attacking one held (the combo keeps the wrong
+        // side's stored value); attack 1 a held Tight Marking.
+        defence[0].instruction = encode(Instruction::CounterTarget);
+        defence[0].player = u8::MAX;
+        defence[1].instruction = encode(Instruction::HugTheTouchline);
+        let attack = tactics.presets[0]
+            .attack_instructions
+            .as_mut()
+            .expect("instructions");
+        attack[0].instruction = encode(Instruction::TightMarking);
+        attack[0].player = 4;
+        // A non-identity eleven: an arm writing the position index for
+        // the roster slot would look right on a [0, 1, ...] eleven.
+        tactics.starting_eleven.swap(4, 9);
+    }
+    file.save(&path).unwrap();
+    let mut view = SaveView::new();
+    view.open(&path);
+    let mut window = Headless::sized(1600.0, 1400.0);
+    view.selected = Some(Selection::Team(734));
+
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let combos = instruction_combos(&nodes);
+    // The disabled chips first: the target-less one reads "No target",
+    // the held Tight Marking "An opponent".
+    let no_target = chip_under(&nodes, combos[1][1]);
+    assert!(no_target.is_disabled(), "the target-less chip is disabled");
+    assert_eq!(no_target.label(), Some("No target"));
+    let opponent = chip_under(&nodes, combos[0][0]);
+    assert!(opponent.is_disabled(), "the Tight Marking chip is disabled");
+    assert_eq!(opponent.label(), Some("An opponent"));
+
+    // Defence 1's chip arms the pick: it toggles on, then a starter's
+    // marker writes his roster slot, one undo entry, the chip back off.
+    let chip = chip_under(&nodes, combos[0][1]);
+    assert!(!chip.is_disabled(), "Counter Target's chip is enabled");
+    click(&mut window, chip, &mut view);
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let chip = chip_under(&nodes, instruction_combos(&nodes)[0][1]);
+    assert_eq!(
+        chip.toggled(),
+        Some(accesskit::Toggled::True),
+        "the armed chip is selected"
+    );
+    let index = 4;
+    let starter = team_entry(&view, 734).tactics.starting_eleven[index];
+    assert_ne!(
+        starter, index as u8,
+        "premise: the picked position's slot differs from its index"
+    );
+    let canvas = canvas_of(&nodes);
+    let at = marker_point(
+        canvas,
+        &team_entry(&view, 734).tactics.presets[0].formations[0].players,
+        index,
+    )
+    .expect("a point on the marker a click can reach");
+    click_at(&mut window, at, &mut view);
+    assert_eq!(
+        team_entry(&view, 734).tactics.presets[0]
+            .defence_instructions
+            .as_ref()
+            .expect("instructions")[0]
+            .player,
+        starter,
+        "the clicked starter's roster slot is the target"
+    );
+    let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
+    let chip = chip_under(&nodes, instruction_combos(&nodes)[0][1]);
+    assert_eq!(
+        chip.toggled(),
+        Some(accesskit::Toggled::False),
+        "the write disarmed the mode"
+    );
+    assert_eq!(
+        undo_entries(&mut window, &mut view),
+        1,
+        "the pick was one undo entry"
+    );
+}
+
+// The draft's `.rolechip` ellipsis: the target chip is its column's
+// width and truncates, so a real player's long name cannot push the
+// chip past the settings column; the chip's label keeps the whole
+// string (its hover does).
+#[test]
+fn the_target_chip_stays_inside_the_settings_column() {
+    let path = fixture(PesVersion::Pes21, "target_chip_long_name");
     let mut file = EditFile::from_bytes(&fixture_save(PesVersion::Pes21)).unwrap();
     let slot = file.team(701).unwrap().tactics.starting_eleven[2];
     let player_id = file.team(701).unwrap().roster[usize::from(slot)].player_id;
@@ -896,23 +1123,20 @@ fn the_target_combo_stays_inside_the_settings_column() {
     open_team_view(&mut window, &mut view, 701);
     let (_, nodes, _) = window.frame(Vec::new(), |ui| show(ui, &mut view, &|| Vec::new(), None));
 
-    // The named player's target combo shows the full text truncated —
-    // `value()` keeps the whole string.
-    let target = right_of_label(&nodes, "Defence 1", Role::ComboBox)
-        .into_iter()
-        .nth(1)
-        .expect("the Defence 1 target combo");
+    // The target chip under defence 1's combo — its label keeps the
+    // whole name though the text truncates.
+    let chip = chip_under(&nodes, instruction_combos(&nodes)[0][1]);
     assert_eq!(
-        target.value(),
+        chip.label(),
         Some("3 3DSMAX HAS STOPPED WORKING"),
         "premise: the target names the player"
     );
     // The settings column's right edge: the column's left and 414.
     let column_right = label_bounds(&nodes, "Formation settings").x0 - 7.0 + 414.0;
     assert!(
-        target.bounds().expect("bounds").x1 <= column_right,
-        "the capped combo ends inside the settings column ({:?})",
-        target.bounds()
+        chip.bounds().expect("bounds").x1 <= column_right,
+        "the truncating chip ends inside the settings column ({:?})",
+        chip.bounds()
     );
 }
 

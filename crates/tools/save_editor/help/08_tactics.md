@@ -58,17 +58,22 @@ defensive style's choices are shortened so the row fits; point at one to
 read its full name.
 
 **Advanced instructions** (PES 2017 and later) sets the team's two attack and
-two defence instructions. Tight Marking is never offered, because it marks an
-opponent and is set during a match, not here. A save already holding it keeps
-it, and the row still names it. The **Target** pick is enabled only for the
-instructions that take one of the team's own players (Counter Target and
-Defensive), and it lists the starting eleven by lineup position. Picking an
-instruction that takes no target clears the pick.
+two defence instructions: the attack column lists the attacking choices and
+the defence column the defending ones. Tight Marking is never offered, because
+it marks an opponent and is set during a match, not here. A save already
+holding it keeps it, and the row still names it. Under each instruction a chip
+names its target player, or reads "Unassigned". The chip is enabled only for
+the instructions that take one of the team's own players (Counter Target and
+Defensive): click it, then click the pitch player, as the player assignments
+pick theirs. Under an instruction that takes no target the chip stays disabled
+and reads "No target", or "An opponent" under a held Tight Marking, whose
+target is one of theirs. Picking an instruction that takes no target clears
+the pick.
 
-**Automatic settings** holds the automatic substitution setting as the number
-the save stores (0 is off; on PES 2021, 1 is very late, 2 flexible and 3 very
-early), the offside trap, the preset change and (PES 2017 and later) the
-attack/defence levels.
+**Automatic settings** holds the automatic substitution setting, a choice of
+the game's own names (Off, Very late or Flexible; Very early too on PES 2017
+and PES 2021), the offside trap, the preset change and (PES 2017 and later)
+the attack/defence levels.
 
 Each bar's **Copy/swap** menu acts on the shown preset or formation: a copy
 to, then a swap with, each of the other two (Copy to 2, Copy to 3, Swap with 2

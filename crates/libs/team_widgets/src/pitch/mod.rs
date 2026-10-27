@@ -236,7 +236,7 @@ pub fn pitch(
                 slot: players[index],
                 centre: centres[index],
             };
-            responses[index] = Some(marker(ui, canvas, tactics, view, roster, spot));
+            responses[index] = Some(marker(ui, canvas, version, tactics, view, roster, spot));
         }
         // A drop hits the topmost marker first (the draft's `hitMarker`
         // checks back to front); the canvas' own is the grass.
@@ -548,6 +548,7 @@ fn paint_pitch(painter: &egui::Painter, canvas: egui::Rect) {
 fn marker(
     ui: &mut egui::Ui,
     canvas: egui::Rect,
+    version: PesVersion,
     tactics: &mut TeamTactics,
     view: &mut TacticsView,
     roster: &[RosterRow<'_>],
@@ -576,7 +577,7 @@ fn marker(
     }
     if response.clicked() {
         match view.assign {
-            Some(assign) => assign.write(tactics, view, spot.index),
+            Some(assign) => assign.write(version, tactics, view, spot.index),
             None => {
                 view.popover = Some(OpenSlot {
                     scope: ui.scope_id(),

@@ -3065,8 +3065,22 @@ briefs, review loops, gates and mutation runs as for any step.
       `team_widgets/src/{tactics/{mod,assignments}.rs,test_support.rs}` and their tests,
       `pitch/tests/popover.rs`, `save_editor/src/view/tactics.rs`, the view tests,
       `help/08_tactics.md`
-    - [ ] s5c Advanced instructions' grid (s7's sides through `pes_savefile`'s `Instruction`,
-      each target a pitch pick) over Automatic settings' grid (the Substitution combo)
+    - [x] s5c Advanced instructions' grid (s7's sides through `pes_savefile`'s `Instruction`,
+      each target a pitch pick) over Automatic settings' grid (the Substitution combo). Done
+      2026-10-27 (SWE-2, three sessions: the first ran out of turns twice mid-debug, so the
+      rest went in two small briefs, r2a and r2b, to a fresh session): `Instruction::side`
+      (the schema's `InstructionSide`); each combo its side's list less Tight Marking, a held
+      other-side value appended; the `.tacinstr` grid, headers left-aligned in their columns as
+      the draft's are; `Assign::Target`, written only while the instruction takes a player;
+      the target chips (`No target`, `An opponent`), `target_text`'s "No target" in the
+      changes table too; `.tacauto`'s two columns (each cell claims its column:
+      `allocate_ui_with_layout` advances by the used width), its frame at the lists' bottom
+      (the lists drawn first), the rows centred under the heading; the Substitution combo on
+      every version (PES 15 and 16 store it too). Column 1 ends at the lists' bottom, 3.5
+      points inside the pane at 1280 x 800: the team view no longer scrolls. Files:
+      `pes_savefile/src/model/instruction.rs`, `team_widgets/src/{pitch/mod.rs,tactics/{mod,
+      assignments,instructions}.rs,test_support.rs}` and their tests, `save_editor/src/view/
+      tactics.rs`, the view tests, `help/08_tactics.md`
     - [ ] s5d the pitch: the popover's anchor, outside press and `player <n>`; s6's swap mark;
       the badges' medal initials
     - [ ] s5e the list and team view: s6's three-character short name, s7's picked team
