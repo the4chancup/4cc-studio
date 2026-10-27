@@ -706,7 +706,7 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "ingame_face_explicit_face_model",
         Severity::Error,
-        r#"A player folder holds `ingame_face.toml` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, and either one needs the face folder the marker suppresses."#,
+        r#"A player folder holds `ingame_face.toml` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format), a `.common` link to one, or a `Faces/` link, and any of them needs the face folder the marker suppresses."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
@@ -718,13 +718,13 @@ const CATALOG: &[(&str, Severity, &str, &str)] = &[
     (
         "fmdl_name_invalid",
         Severity::Error,
-        r#"In PES 2018 to 2021, an `.fmdl` in a shared `Boots/` or `Gloves/` folder has a name that does not resolve to that category's allowed names."#,
+        r#"In PES 2018 to 2021, a model anywhere in a shared `Boots/` or `Gloves/` folder, or one a `.common` link there stands for, has a name that does not resolve to that category's allowed names."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (
         "model_name_invalid",
         Severity::Error,
-        r#"In PES 2015 to 2017, a `.model` in a shared `Boots/` or `Gloves/` folder lacks that category's suffix."#,
+        r#"In PES 2015 to 2017, a model anywhere in a shared `Boots/` or `Gloves/` folder lacks that category's suffix."#,
         r#"The run is not clean, so nothing is written."#,
     ),
     (

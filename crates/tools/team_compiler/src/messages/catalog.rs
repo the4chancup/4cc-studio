@@ -272,13 +272,13 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "fmdl_fcl_hair_fallback",
         CatalogSeverity::Info,
-        r#"In PES 2018 to 2021, an `.fmdl` whose name says nothing about what it is (`torso.fmdl`) is taken for face content and merged into the face's `fcl_hair.fmdl`."#,
+        r#"In PES 2018 to 2021, a model whose name says nothing about what it is (`torso.fmdl`) is taken for face content and merged into the face's `fcl_hair.fmdl`."#,
         r#"Nothing to do. Name a model as boots or gloves when it is one."#,
     ),
     (
         "fmdl_merged",
         CatalogSeverity::Info,
-        r#"In PES 2018 to 2021, several `.fmdl` models resolved to the same name and were merged into one, in file-name order."#,
+        r#"In PES 2018 to 2021, several models resolved to the same name and were merged into one, in file-name order."#,
         r#"Nothing to do."#,
     ),
     (
@@ -320,7 +320,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "face_file_not_used",
         CatalogSeverity::Info,
-        r#"A face file (`face_diff.bin`, `face_diff.xml`, `fcl_hair_sim.fclo` on PES 2018 to 2021, a member's `face.xml` under `ingame_face.toml` on PES 2015 to 2017) sits in a folder that builds no face, meaning a player folder with no face model or a shared `Boots/` or `Gloves/` folder."#,
+        r#"A face file (`face_diff.bin`, `face_diff.xml`, `fcl_hair_sim.fclo` on PES 2018 to 2021, a member's `face.xml` under `ingame_face.toml` on PES 2015 to 2017) sits in a folder that builds no face, meaning a player folder with no face model, no `Faces/` link bringing one and, on PES 2015 to 2017, no `face.xml` of its own, a shared `Faces/` folder with no face model and no such `face.xml`, or a shared `Boots/` or `Gloves/` folder."#,
         r#"The file is not read."#,
     ),
     (
@@ -332,7 +332,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "shared_folder_no_model",
         CatalogSeverity::Warning,
-        r#"A shared `Boots/` or `Gloves/` folder holds no model of its kind (textures only, or nothing), and a player links it without a model of his own for that part, so there is nothing to load."#,
+        r#"A shared `Boots/` or `Gloves/` folder holds no model of its kind (textures only, or nothing, not even a `.common` link to one on PES 2018 to 2021), and a player links it without a model of his own for that part, so there is nothing to load."#,
         r#"It is not built and the player wears the game's own. Put a model of the folder's kind in it. If the player has his own model for that part, the folder is a texture source for it."#,
     ),
     (
@@ -374,7 +374,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "xml_dif_conflict",
         CatalogSeverity::Error,
-        r#"The folder gives its face diff twice. Its `face.xml` holds a `<dif>` beside a `face_diff.xml`, or on PES 2018 to 2021 it holds both `face_diff.bin` and `face_diff.xml` (a `<dif>` beside a `face_diff.bin` is no conflict, since each game reads its own)."#,
+        r#"The folder gives its face diff twice. Its `face.xml` holds a `<dif>` beside a `face_diff.xml`, or it holds both `face_diff.bin` and `face_diff.xml` (a `<dif>` beside a `face_diff.bin` is no conflict, since each game reads its own)."#,
         r#"The folder is left out. Keep one source of the face diff."#,
     ),
     (
@@ -1345,7 +1345,7 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "ingame_face_explicit_face_model",
         CatalogSeverity::Error,
-        r#"A player folder holds `ingame_face.toml` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format) or a `Faces/` link, and either one needs the face folder the marker suppresses."#,
+        r#"A player folder holds `ingame_face.toml` beside an explicit face model (`face_high`, `hair_high` or `oral`, in any format), a `.common` link to one, or a `Faces/` link, and any of them needs the face folder the marker suppresses."#,
         r#"The player folder is left out."#,
     ),
     (
@@ -1357,13 +1357,13 @@ pub(super) const CATALOG: &[(&str, CatalogSeverity, &str, &str)] = &[
     (
         "fmdl_name_invalid",
         CatalogSeverity::Error,
-        r#"In PES 2018 to 2021, an `.fmdl` in a shared `Boots/` or `Gloves/` folder has a name that does not resolve to that category's allowed names."#,
+        r#"In PES 2018 to 2021, a model anywhere in a shared `Boots/` or `Gloves/` folder, or one a `.common` link there stands for, has a name that does not resolve to that category's allowed names."#,
         r#"The folder is left out."#,
     ),
     (
         "model_name_invalid",
         CatalogSeverity::Error,
-        r#"In PES 2015 to 2017, a `.model` in a shared `Boots/` or `Gloves/` folder lacks that category's suffix."#,
+        r#"In PES 2015 to 2017, a model anywhere in a shared `Boots/` or `Gloves/` folder lacks that category's suffix."#,
         r#"The folder is left out."#,
     ),
     (

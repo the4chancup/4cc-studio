@@ -2573,3 +2573,6 @@ worklog passed 7,000 lines.
   kept the Team compiler's); `common_reference_kept` now says either of its two conditions reports it.
 - **2026-10-27** — 8.29c5b: the Export upgrader's `--help`, refusals, error texts and help chapter reread for flow
   (31 strings, 12 passages); its input refusals worded as the Team compiler's.
+- **2026-10-27** — 8.29c4e1: the Team compiler's help chapter, first half, audited for facts: 48 passages made
+  true to the code over the audit and five review rounds (versions, conditions, the `.common` link cases); nine
+  catalog Whens and the spec's Common `.mtl` repoint brought to the code.

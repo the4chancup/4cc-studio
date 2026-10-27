@@ -468,9 +468,11 @@ then processed as an independent parallel task (Blue: `coordinator._model_folder
    names it with `XXX` for the team), since the Fox directory means nothing to PES 15-17 and
    the modded exes substitute the stem there. The other way, a `.mtl` path naming the
    pre-Fox Common texture directory (`model/character/uniform/common/<team>/<stem>.dds`, how
-   a member's pre-Fox `.mtl` names a texture in `Common/`) is pointed at the Fox Common
-   texture directory when `Common/` holds the stem, the evidence on which the deep check
-   calls it supplied; otherwise it is left as written, as any path the folder does not hold.
+   a member's pre-Fox `.mtl` names a texture in `Common/`) is pointed at the first of the
+   part's texture places holding its stem, nearest first, as any reference is, and with none
+   at the Fox Common texture directory, at its subdirectory below `Common/`, whether or not
+   `Common/` holds the stem, since an installed CPK may hold it there; whether it is supplied is decided apart,
+   by the deep check (`fmdl_texture_not_found` for a path nothing supplies).
 2. **ID replacement** — dummy team IDs are replaced in file contents (FMDL texture path tables via
    the `fmdl` crate's texture-path rewriting, `ops::paths::rewrite_texture_paths`; `.mtl` texture
    IDs pre-Fox) and in file names.

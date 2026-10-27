@@ -23,7 +23,7 @@ pitch as the game's, 8.9g and 8.9i; its slice 4 under way: the AATF panel and Li
 export-writing one waits for 0.1.0); 8.9f's slice 4: v2 is
 the base, ported in five subslices, 4a the frame, 4b Abilities and 4c Appearance and Tactics done, 4d (the one cards badge, on 0.0.1i's `Rules::player_tier`) done and reviewed; 8.9h closed by the window's 960 × 600 minimum; 8.29, the text pass, under way: a (the Save editor's
 window, catalog, CLI, help and draft) done, c (the Team compiler and the upgrader) under way
-on side-lead U's branch, c1 to c3, c4a to c4d and c5 done (c4e, the help's fact audit, open); 8.9l, the open and save scenarios, briefed in
+on side-lead U's branch, c1 to c3, c4a to c4d and c5 done (c4e, the help's fact audit: c4e1 done, c4e2 and c4e3 open); 8.9l, the open and save scenarios, briefed in
 slices, the running-game rule changed to an Edit mode question; 8.9m, the logic's speed
 rewrite before the v1 freeze; 0.0.1j's audit read, j1 and j2 open; the maintainer's
 proposal rulings of 2026-10-26 added 0.0.1o-r, k4 and 8.7c), `libs/aatf`'s hardening (the repetition rework done and
@@ -2263,7 +2263,34 @@ found (2026-10-15; the prototype rule and the launcher were fixed that day, DECI
           The Export upgrader's chapter gets the same audit (c5b's review S1, rulings "Round
           S1c5b", routed: a finding on the output names the output's path, or none; the
           referee fold's other clash cases; an unnamed `common/` model left out only when the
-          folder folds; exit code 3's other aborts)
+          folder folds; exit code 3's other aborts). In three slices:
+          - [x] c4e1 the compiler's chapter, lines 1-466: 15 facts made true, the five S6c4b
+            items among them (a pre-Fox `Common` subfolder's images built as `Common`'s; a
+            shared folder's tree rules; the PES 2021 skeleton default's reason; the pre-Fox
+            merge, `model_merged`, boots only; a `.skl` packed under its slot on Fox and nowhere
+            on pre-Fox), and the summary's skipped exports, `Portraits/` names, a texture's
+            container and mip levels, `_fit`, a pre-Fox link combining only beside
+            `ingame_face.toml`, the `.common` link cases (the lead retouched eight). The Common
+            `.mtl` repoint brought to `spec/team_compiler/pipeline.md` as the code does it.
+            SWE-2 rounds: S1 7 concerns, 7 accepted (a `face_diff.xml` standing for the bin, the
+            repoint after a nearer texture, `Portraits/` subfolders, gloves named by suffix);
+            S2 12, 11 (the Fox combine's parts, a `Faces` link giving a face, a link's `.mtl`
+            beside its model in `Common`, per-directory `texture_stem_conflict`); S3 10, 8
+            (`xml_dif_conflict` on both engines, `logo_upscaled` on either side, the bundled
+            diff); S4 10, 8 (`xml_ignored_shared` pre-Fox only, a `Full` kit's built-in mask,
+            `_boots` after an underscore); S5 8, 3, the loop's end. Nine catalog Whens followed
+            the code (`fmdl_name_invalid`, `model_name_invalid`,
+            `ingame_face_explicit_face_model`, `shared_folder_no_model`, `face_file_not_used`,
+            `xml_dif_conflict`, `fmdl_fcl_hair_fallback`, `fmdl_merged`, the upgrader's copies
+            kept word for word) and four spec rows. Tables `.tmp/8_29/c4e1_table.md`,
+            `c4e1_s{1,...,5}_table.md`, `c4e1_evidence.md` (side/text worktree). Files:
+            `team_compiler/help/01_command_line.md`, `team_compiler/src/messages/catalog.rs`,
+            `export_upgrader/src/messages.rs`, `spec/team_compiler/{pipeline,messages}.md`.
+            `spec/aesthetics_export/player_folders.md` ~720 still says a shared folder with no
+            model of its kind takes no ID without the `.common` link case, for whoever holds it
+          - [ ] c4e2 the compiler's chapter from "`compile` installs the CPK into the game." to
+            the end, with c4c's two items
+          - [ ] c4e3 the upgrader's chapter, with S1c5b's four routed items
       - [x] c5 the Export upgrader, in two slices:
         - [x] c5a its catalog (`messages.rs`): its own rows' two texts and the structure-pass
           rows' effects, whose `when`s stay the Team compiler's word for word: 45 texts
