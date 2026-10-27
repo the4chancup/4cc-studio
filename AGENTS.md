@@ -26,7 +26,8 @@ Ten documents, ten jobs. Do not let content leak between them; two homes means t
 | `docs/PROPOSALS.md` | Usability ideas nobody asked for (a button, a default, a shortcut), which the maintainer vetoes or accepts; an unruled one is not built |
 
 **Before a step:** read the worklog's current status, then the plan section the step points at,
-from the document, not from memory. **After a step:** run the gates (`CONTRIBUTING.md`), mark the
+from the document, not from memory. **After a step:** run the step's checkpoint gates
+(`CONTRIBUTING.md` "Testing and verification": what runs per commit, what at a checkpoint), mark the
 step done with a one-line summary and the files touched, update "Current status", add a line to `docs/LOG.md`,
 commit (`git commit -F <file>`; PowerShell has no heredocs). Once a release exists, the review
 before that commit also asks whether a member would notice the change against the last release,
@@ -72,9 +73,10 @@ dribbling-arm motion read as 2 bits of 3, misread for 2,808 players). Coverage a
 "is everything the plan wants there?"; this pass asks "did the phase make the code harder to
 change?", which no test or lint measures and which compounds silently across phases. The
 whole-crate run happens twice per crate: in the lead's audit, where its survivors seed the first
-rework brief, and once at close, after the reviewer loop ends. Each rework round in between is
-measured with `just mutants-diff <commit the round started from>` (2.20f: 45-53 minutes per
-whole-crate run, 3 for a round's diff); (2) **move** what the phase delivered from
+rework brief, and once at close, after the reviewer loop ends. The rework rounds in between are
+measured together, one `just mutants-diff` at each review loop's end over the loop's commits
+(`CONTRIBUTING.md` "Mutation runs"; 2.20f: 45-53 minutes per whole-crate run, 3 for a round's
+diff); (2) **move** what the phase delivered from
 `docs/plans/` to the same file and heading in `docs/spec/` (acceptance IDs stay, as the behavior
 contract), correcting it where the code was built differently and converting any future-tense
 wording; deferred parts stay in the plan, and a section partly delivered keeps its heading in both
@@ -136,8 +138,9 @@ added for new behavior, the failing assertion text from its red run before the c
 first" is otherwise a claim the lead never sees; a test with no meaningful "before", such as a
 new format crate's fixture round-trip, says so). Omitting the section or an item is a brief
 violation, not an oversight. On the lead's side, every review before a commit includes two
-sweeps of the diff and re-runs the gates in the real workspace; the sidekick's pasted gate
-tails are a claim. The **honesty sweep** looks for a hidden failure: `#[allow`, `#[expect`,
+sweeps of the diff and re-runs the changed packages' tests, clippy and fmt in the real
+workspace (the dependents' tests run at the next checkpoint, `CONTRIBUTING.md` "Testing and
+verification"); the sidekick's pasted gate tails are a claim. The **honesty sweep** looks for a hidden failure: `#[allow`, `#[expect`,
 `#[ignore`, `.ok();`, `let _ =`, `drop(` on a `Result`, `unwrap_or_default`, `unwrap_or(`, and
 a `while` or `loop` in a test with no bound (`CONTRIBUTING.md`: a test fails, it never hangs). The **design sweep** looks
 for code that passes and is worse, the thing neither the gates nor a model's training penalize:
@@ -146,12 +149,13 @@ enums, `== Engine::`/`!= Engine::` (a test against one engine, which a third one
 silently), `.clone()`/`.to_vec()` on bulk data, `as ` casts, two functions differing in a name and a
 branch, `pub` items with no caller outside the crate, a module that crossed roughly a thousand
 lines in this diff, a comment naming or alluding to a legacy tool outside a parity test (`Red`,
-`Blue`, `reference`, `add-on`, `Python`, `texconv`, `always`). The **mutation run** (`just mutants-diff <last reviewed commit>`) is the
-third check and the only one that is a measurement rather than a reading: each survivor is an
-assertion the sweeps cannot see because it was never written (the `kit_config` probe found
-twenty such gaps in a crate that had passed both sweeps, converge and the cross-family
-reviewer), and every survivor is triaged per `CONTRIBUTING.md` "Mutation runs" before the
-diff lands, the missing tests going into the rework brief. A decision model's bug scan of
+`Blue`, `reference`, `add-on`, `Python`, `texconv`, `always`). The **mutation run** (`just
+mutants-diff <the loop's first commit's parent>`, once per review loop, over every diff the loop
+landed) is the third check and the only one that is a measurement rather than a reading: each
+survivor is an assertion the sweeps cannot see because it was never written (the `kit_config`
+probe found twenty such gaps in a crate that had passed both sweeps, converge and the
+cross-family reviewer), and every survivor is triaged per `CONTRIBUTING.md` "Mutation runs"
+before the surface closes, the missing tests going into one rework brief. A decision model's bug scan of
 each 60-line window (the Clef scan) is retired: `CONTRIBUTING.md` "Clef scan" says why and
 what a successor must show first. Each sweep item is a
 `CONTRIBUTING.md` rule; the sweeps exist because a rule nobody greps for is a rule the review
@@ -170,7 +174,7 @@ once (the lead on a correctness-critical crate, the sidekick on a briefed one) t
 disjoint crates, and each verifies with crate-scoped commands (`cargo test -p vtree`,
 `cargo clippy -p vtree --all-targets -- -D warnings`) while the other's crate may not compile
 yet. The lead never leaves the workspace unbuildable longer than one edit (declare a module only
-once its file exists), and runs the full `just gates` once, after both are done. The brief says
+once its file exists), and runs `just gates-changed` once, after both are done. The brief says
 which crate the sidekick owns and that the rest of the tree is in motion.
 
 **Second opinion.** A model reviewing its own work shares its own blind spots. The sidekick's

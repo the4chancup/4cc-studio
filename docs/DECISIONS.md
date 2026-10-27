@@ -12155,3 +12155,24 @@ extends and whose built-window check ("close maximized") is still open, so one c
 both.
 Plan: `plans/core/gui.md` "Window size classes" (the paragraph on the remembered place) and
 ST-WIN-04.
+## 2026-10-27 — tooling — The gates and the mutation runs run at checkpoints, not on every commit
+Decision: a docs-only commit runs `just doc-pointers` and `just acceptance`; a code commit
+reruns the changed packages' own tests, clippy and fmt in the real workspace; `just
+gates-changed <the last commit it passed at>` runs once over the commits since, at a
+checkpoint: a surface's review loop ending, a worklog step closing, a merge of another branch;
+the full `just gates` before a release build and on CI. A surface's `just mutants-diff` runs
+once at its review loop's end, right after that checkpoint's gates, over every commit the loop
+landed, not once per rework round. A change to a script under `scripts/` other than the test
+runner and its memory-cap wrapper no longer runs every package's tests. Supersedes "every commit still runs the full `just gates`"
+(2026-10-25).
+Why: the maintainer's question, with the suite past 5000 tests: one commit to `studio_core`
+ran every package's tests (about 200 s plus the build) though the sidekick had run its own
+crates' already. What the per-commit run added, a dependent package's failure, a checkpoint
+still finds, and while the history is local a later find costs a short search over a few small
+commits. A mutation run per round froze its crates for its whole length and repeated the
+checkpoint's tests in its baseline; one per loop measures the same lines once. Over the 212 code
+commits since 2026-10-20 (`.tmp/lead/gates_savings.py`, weighted by each binary's test time), a
+checkpoint every 3 to 4 code commits saves 20-29% of the test time, and the scripts rule
+another 11 points (scripts changed in 44 of them).
+Plan: `CONTRIBUTING.md` "Testing and verification" and "Mutation runs"; `AGENTS.md` ("After a
+step", the reviews' sweeps, the converge paragraph).

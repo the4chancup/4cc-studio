@@ -182,9 +182,27 @@ another, leaving cores idle behind each binary's slowest test (277 s against 176
 and `cargo nextest`'s process per test was slower still on Windows, where every test binary
 starts through the memory-cap wrapper. `just gates-changed [base]` runs the same gates with the
 test gate over the packages the working tree changes since `base` (default `HEAD`) and every
-package depending on them; a changed file outside every package, `docs/` and the root's `*.md`
-runs every package's tests, since the toolchain, `Cargo.lock`, `.cargo/` and `resources/` reach
-them all. Every commit still runs the full `just gates`. The other recipes are the project's
+package depending on them; a changed file outside every package, `docs/`, the root's `*.md`,
+the mutation runs' exclusion files and the scripts no test run goes through (every script but
+the runner and its memory-cap wrapper: no Rust test reads one, and the scripts' own
+`*_test.py` the gates list run whatever changed) runs every package's tests, since the toolchain, `Cargo.lock`,
+`.cargo/` and `resources/` reach
+them all.
+
+How often each runs. A commit that touches only `docs/` or the root's `*.md` runs `just
+doc-pointers` and `just acceptance`. A code commit reruns, in the real workspace, the changed
+packages' own tests (`cargo test -p <each>`), `cargo clippy -p <each> --all-targets -- -D
+warnings` and `cargo fmt --all --check`: the sidekick's pasted runs are a claim, and these are
+the checks a slice's own change fails first. `just gates-changed <the last commit it passed
+at>` runs once over every commit since, at a checkpoint: the end of a surface's review loop,
+right before its mutation run ("Mutation runs" below), which then starts from a tree known
+green; a worklog step's close; a merge of another branch. The full `just gates` runs before a
+release build, and CI runs it on every push. A failure a checkpoint finds in a dependent
+package is fixed by a commit of its own (or an amend of the newest unpushed one) naming the
+commit that caused it: the history stays local until the push, so a later find costs a short
+search over a few small commits, while running every dependent's tests on every commit cost
+minutes of the whole machine each time once the suite passed 5000 tests (2026-10-27: one
+commit to `studio_core` ran all 32 packages' tests). The other recipes are the project's
 repeatable sequences, each of which the plan names somewhere: `just deps-check` (guardrail 4,
 the `fmdl`/`pes_model` denylist, plus the `cargo deny` license allowlist; see "License" in the
 core plan; run it right after any change that adds a package to `Cargo.lock`, a transitive one
@@ -344,8 +362,12 @@ Requirements:
   measures that directly by rewriting one function or operator at a time and rerunning the
   tests; a mutant the suite does not catch ("missed") is an assertion nobody wrote. It runs at two
   points, never as a gate (a whole-workspace run is an hour today and grows with the code):
-  `just mutants-diff [base]` over the lines a step changed, as part of the lead's review of that
-  step, and `just mutants <crate>` over each of a phase's crates at converge (when
+  `just mutants-diff [base]` over the lines a surface's review loop changed, once at the loop's
+  end (its base the parent of the loop's first reviewed commit, its run right after that
+  checkpoint's `just gates-changed`), its survivors going into one rework brief, whose own
+  tests the next checkpoint's run measures; not once per rework round, since each run freezes
+  the crates it mutates for its whole length and its baseline repeats the checkpoint's tests;
+  and `just mutants <crate>` over each of a phase's crates at converge (when
   `STUDIO_MUTANTS_REMOTE` names an ssh host, it runs half the mutants there; prerequisites in
   `scripts/mutants.py`). Every survivor is
   triaged into one of three: a missing test (write it, or a worklog step), an equivalent mutant

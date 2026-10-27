@@ -72,9 +72,15 @@ class Select(unittest.TestCase):
         changed = [ROOT / ".cargo/mutants.toml", ROOT / ".cargo/extra_mutants.toml"]
         self.assertEqual(select(changed, PKGS), set())
 
+    def test_a_script_no_test_run_goes_through_runs_no_package(self) -> None:
+        changed = [ROOT / "scripts/release.py", ROOT / "scripts/mutants.py",
+                   ROOT / "scripts/provenance/fixtures/interchange_fixtures.py"]
+        self.assertEqual(select(changed, PKGS), set())
+
     def test_a_file_outside_every_package_runs_them_all(self) -> None:
         for outside in ["Cargo.lock", "rust-toolchain.toml", ".cargo/config.toml",
-                        "resources/fonts/a.ttf", "scripts/test_runner.py", "justfile"]:
+                        "resources/fonts/a.ttf", "scripts/test_runner.py",
+                        "scripts/test_runner.cmd", "scripts/run_tests.py", "justfile"]:
             with self.subTest(outside):
                 changed = [ROOT / "crates/tools/save_editor/src/lib.rs", ROOT / outside]
                 self.assertEqual(select(changed, PKGS), set(PKGS))

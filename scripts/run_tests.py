@@ -15,8 +15,9 @@ Usage: run_tests.py [--changed BASE]
 
 With `--changed BASE` only the binaries of the packages the working tree changes since the
 commit BASE run, with every workspace package depending on them; a changed file outside every
-package, outside `docs/` (and the root's `*.md`) and other than the mutation runs' exclusion
-files runs them all. Those alone run none.
+package, outside `docs/` (and the root's `*.md`), other than the mutation runs' exclusion
+files and other than a script under `scripts/` no test run goes through runs them all. Those
+alone run none.
 The doc-tests run whenever any binary does.
 """
 
@@ -35,6 +36,11 @@ JOBS = min(4, os.cpu_count() or 1)
 # Files outside every package that no test reads: the mutation runs' exclusions, which change
 # with most review rounds (`scripts/mutants_test.py`, run in both modes, checks them).
 MUTATION_ONLY = {".cargo/mutants.toml", ".cargo/extra_mutants.toml"}
+# The scripts every test binary runs through (this runner and the memory-cap wrapper
+# `.cargo/config.toml` names): a change to one can change any result. Any other script under
+# `scripts/` no Rust test reads (a generator's output is committed inside its crate), so its
+# change cannot move a Rust result; the scripts' own `*_test.py` the gates list run regardless.
+TEST_PATH_SCRIPTS = {"scripts/run_tests.py", "scripts/test_runner.cmd", "scripts/test_runner.py"}
 
 
 @dataclass(frozen=True)
@@ -99,6 +105,8 @@ def select(changed: list[Path], pkgs: dict[str, Package]) -> set[str]:
         if rel.parts[0] == "docs" or (len(rel.parts) == 1 and rel.suffix == ".md"):
             continue
         if rel.as_posix() in MUTATION_ONLY:
+            continue
+        if rel.parts[0] == "scripts" and rel.as_posix() not in TEST_PATH_SCRIPTS:
             continue
         # Outside every package: the toolchain, Cargo.lock, `.cargo/`, `resources/`, a
         # script the test runs go through. Any of them can change every result.
