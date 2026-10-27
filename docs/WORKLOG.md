@@ -3472,7 +3472,12 @@ briefs, review loops, gates and mutation runs as for any step.
       swaps as one on the name does (red run seen); the instruction picks and the near-miss
       test's starter now assert their premises (each seen failing under a perturbation).
       Files: `team_widgets/src/pitch/{lineup.rs,tests/drops.rs}`, `tactics/instructions/tests.rs`
-    - [ ] Astra round A2 over the whole surface, then the surface's one mutation run
+    - [ ] Astra round A2 over the whole surface (two parts at `9f36a8bc`, Devin work): 7 of 7
+      accepted, all tests that pass on a wrong implementation (the popover's writes, Make GK
+      and the markers' states on the identity eleven, a substitution's other takers, the Y
+      field, the position combo's GK entry, the Few/Medium choices, the chips' holders read
+      through their own getter). Rework briefed (`brief_tac_a2_rework.md`, after m2b), then a
+      SWE-2 loop over it and Astra A3, then the surface's one mutation run
       (`just mutants-diff 3d39aff3`) at its loop's end
   - [ ] s6 the maintainer's three requests of 2026-10-27 (drafted and approved, Scroll names
     remembered in the tool's settings; plan "Editing UI", DECISIONS "The short name's three
